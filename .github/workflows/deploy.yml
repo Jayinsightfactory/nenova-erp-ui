@@ -2,6 +2,12 @@ name: Deploy to Cafe24
 
 on:
   workflow_dispatch:
+    inputs:
+      apply_db_migrations:
+        description: '별도 승인된 DB 스키마 적용 (기본: 웹 코드만 배포)'
+        type: boolean
+        required: false
+        default: false
   push:
     branches: [master]
 
@@ -30,6 +36,7 @@ jobs:
         run: |
           BASE_SHA="${BASE_SHA:-$(git rev-parse "${GITHUB_SHA}^")}"
           npm ci
+          node --test __tests__/codeOnlyDeployment.test.cjs
           npm run test:erp-contract
           npm run test:erp-manifest -- --changed-from "$BASE_SHA"
           npm run guard:erp-writes -- --changed-from "$BASE_SHA"
@@ -37,6 +44,7 @@ jobs:
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
         env:
+          APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           WEEKDAY_TEMPLATE_KEY: ${{ secrets.WEEKDAY_TEMPLATE_KEY }}
           PUBLIC_API_KEY: ${{ secrets.PUBLIC_API_KEY }}
@@ -56,7 +64,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: APPLY_DB_MIGRATIONS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -222,6 +230,8 @@ jobs:
               echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
             fi
             npm install --omit=dev
+            # BEGIN EXPLICIT_DB_MIGRATIONS: push/default dispatch is code-only.
+            if [ "${APPLY_DB_MIGRATIONS:-false}" = "true" ]; then
             echo "=== 주차별 매출이익 근거 스키마 적용 ==="
             node scripts/apply-profit-report-evidence-migrations.mjs --apply
             echo "=== 웹·전산 동시수정 보호 스키마 적용 ==="
@@ -245,9 +255,15 @@ jobs:
             # User approved only these two web audit tables on 2026-10-01.
             node scripts/apply-weekday-distribution-migration.mjs --apply || exit 1
             node scripts/apply-weekday-early-shipment-migration.mjs --apply || exit 1
+            else
+              echo "CODE_ONLY_DEPLOY: all DB migrations skipped; no SQL repair or recalculation."
+            fi
+            # END EXPLICIT_DB_MIGRATIONS
             echo "=== build ==="
             rm -rf .next-build
-            if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            # Build workers must not connect to SQL or start DB-backed schedulers.
+            # Inline environment is build-only; the running app keeps its existing DB configuration.
+            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
             if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
             echo "=== atomic build swap + pm2 reload ==="
             rm -rf .next-previous

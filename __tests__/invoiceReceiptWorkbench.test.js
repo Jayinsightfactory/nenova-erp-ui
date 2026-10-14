@@ -29,7 +29,7 @@ test('component compiles and is connected only through the bounded packing sourc
     babelrc: false,
   });
   assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
-  assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} \{\.\.\.receiptSource\}\/>/);
+  assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} \{\.\.\.receiptSource\} onMatchStateChange=\{changeReceiptMatchState\}\/>/);
   assert.doesNotMatch(pageSource, /receiptSource&&<InvoiceReceiptWorkbench/);
   assert.match(pageSource, /EMPTY_RECEIPT_SOURCE=Object\.freeze/);
   assert.match(pageSource, /입고 등록은 초안·미리보기·명시 확인 후에만 실행/);

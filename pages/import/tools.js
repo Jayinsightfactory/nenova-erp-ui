@@ -1,5 +1,5 @@
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
-import {useState,useMemo,useEffect} from 'react';
+import {useState,useMemo,useEffect,useCallback,useRef} from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import {verifyReqUser} from '../../lib/auth';
@@ -42,6 +42,18 @@ function History(){
 export default function ImportTools({userId=''}){
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
+ const [receiptMatchState,setReceiptMatchState]=useState(null);
+ const receiptSourceRef=useRef(receiptSource);
+ const changeReceiptSource=useCallback(next=>{
+  receiptSourceRef.current=next;
+  setReceiptSource(next);
+  setReceiptMatchState(null);
+ },[]);
+ const changeReceiptMatchState=useCallback(snapshot=>{
+  const current=receiptSourceRef.current;
+  if(snapshot?.file===current.file && snapshot?.excels===current.excels
+    && snapshot?.invoices===current.invoices && snapshot?.country===current.country && current.file) setReceiptMatchState(snapshot);
+ },[]);
  const [feedbackVisited,setFeedbackVisited]=useState(false);
  const [flightCount,setFlightCount]=useState(null);
  function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);}
@@ -51,7 +63,7 @@ export default function ImportTools({userId=''}){
   <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={setReceiptSource}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} {...receiptSource}/></div></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>

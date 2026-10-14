@@ -1,6 +1,7 @@
 import styles from '../../styles/ImportPacking.module.css';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
+import { packingReceiptMatchState, effectivePackingMatchReview } from '../../lib/packingReceiptMatchState.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
 import PackingProductMatchDialog from './PackingProductMatchDialog.js';
 import PackingMatchManager from './PackingMatchManager.js';
@@ -921,7 +922,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, userId = '' }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '' }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -1680,9 +1681,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     target?.focus({ preventScroll: true });
   }, 200);
+  const receiptStatus = excels.length ? packingReceiptMatchState({ snapshot: receiptMatchState, file, excels,
+    invoices: lastExtraction?.result?.invoices, country, products: erpMatches?.products || [] }) : null;
+  const receiptMatches = receiptStatus?.byRow || new Map();
   const matchingRows = (excels.length ? excels : matchPreview).flatMap(excel => excel.products || []);
   const matchingProducts = excels.length ? generatedErp?.products || [] : erpMatches?.products || [];
-  const remainingMatches = matchingRows.filter(row => packingMatchReview(row, matchingProducts, country).needsReview).length;
+  const remainingMatches = (excels.length ? excels : matchPreview).flatMap((excel, excelIndex) =>
+    (excel.products || []).map((row, rowIndex) => effectivePackingMatchReview(
+      packingMatchReview(row, matchingProducts, country),
+      receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${rowIndex}`)
+    ))).filter(review => review.needsReview).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
   const prepareReceipt = () => {
     if (!matchingComplete || latestShared || savingRef.current || processingRef.current || !sharedReady) return;
@@ -1998,8 +2006,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             {status && (
               <div role={status.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
                 {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ccd6e5', borderTopColor: '#172b4d', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
-                {status.msg}
-                {steps.length > 0 && (
+                {receiptStatus?.valid && status.type !== 'error' && !processing
+                  ? '기존 패킹 파일 생성 결과입니다. 현재 행별 매칭 상태는 아래에 표시하며, 입고 문서에서 변경한 품목은 기존 패킹 파일에 소급 반영되지 않습니다.'
+                  : status.msg}
+                {steps.length > 0 && (processing || !receiptStatus?.valid) && (
                   <div style={{ marginTop: 8 }}>
                     {steps.map((s, i) => (
                       <div key={i} style={{ fontSize: 13, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6, color: s.state === 'done' ? '#22a355' : s.state === 'active' ? '#172b4d' : '#526580', fontWeight: s.state === 'active' ? 500 : 400 }}>
@@ -2014,11 +2024,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
                 <div className={styles.sourceBadge} role="status" data-testid="packing-upload-next">
                   <strong>{matchingComplete ? `품목 매칭 완료 · ${matchingRows.length}행 유지` : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
+                  {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
                     {excels.length && reviewConfirmed ? '입고 업로드로 이동' : '입고 업로드 준비'}
                   </button>}
-                  <p>매칭 데이터는 팀 공용으로 저장됩니다. 입고 업로드 준비에서 필수값을 확인한 뒤, 입고 화면의 최종 승인으로 등록합니다. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
+                  <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
                   <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">원본 PDF · 인식값 검증/수정</button>
@@ -2049,6 +2060,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{excels.length ? t.generatedSection : 'DB 매칭 미리보기'}</div>
                 <PackingResults
                   erpProducts={excels.length ? (generatedErp?.products || []) : (erpMatches?.products || [])}
+                  receiptMatches={receiptMatches}
                   excels={excels.length ? excels : matchPreview}
                   country={country}
                   blocked={isBlocked}

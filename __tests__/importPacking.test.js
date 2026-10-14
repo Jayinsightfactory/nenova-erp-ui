@@ -18,6 +18,7 @@ async function main() {
   const sourceReview = await import('../lib/importPackingSourceReview.js');
   const matchPreview = await import('../lib/importPackingMatchPreview.js');
   const matchReview = await import('../lib/packingMatchReview.js');
+  const receiptMatchState = await import('../lib/packingReceiptMatchState.js');
   const workDraft = await import('../lib/packingWorkDraft.js');
   const chinaInvoiceFormat = await import('../lib/importChinaInvoiceFormat.js');
   const root = path.resolve(__dirname, '..');
@@ -285,6 +286,7 @@ async function main() {
       '../../lib/importPackingSourceReview.js': sourceReview,
       '../../lib/importPackingMatchPreview.js': matchPreview,
       '../../lib/packingMatchReview.js': matchReview,
+      '../../lib/packingReceiptMatchState.js': receiptMatchState,
       '../../lib/packingWorkDraft.js': workDraft,
       '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
