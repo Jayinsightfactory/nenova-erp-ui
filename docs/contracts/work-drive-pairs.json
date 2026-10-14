@@ -1,0 +1,56 @@
+{
+  "id": "work-drive-pairs",
+  "title": "업무 드라이브 인보이스 PDF↔결과 엑셀 자동 짝짓기(관리자 조회, 파일 전용) 계약",
+  "scope": [
+    "lib/workDrivePairs.js",
+    "pages/api/work/drive-pairs.js",
+    "pages/api/work/drive-ingest.js",
+    "scripts/work-drive-pairs-recompute.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "DRIVE_PAIRS_COMPUTE_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_PAIRS_ADMIN_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "짝짓기는 data/drive/index.jsonl·드라이브 파일만 읽고 data/drive/pairs.json·pair-features.json 만 쓴다. MSSQL 연결 없음. 파일명/시트의 차수는 짝 근거 문자열일 뿐 OrderYear/OrderWeek 키를 만들지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/workDrivePairs.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 기능이 아닌 웹 전용 화면. ERP 테이블 side effect 는 모두 preserve.",
+    "methods": [
+      "File-only scoring lib/workDrivePairs.computePairs (no SQL)",
+      "NenovaWeb JWT admin gate (isOrbitReportViewer / WORK_DRIVE_ADMIN_USER_IDS)"
+    ],
+    "tables": [
+      "UserInfo (login source only; no write)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
