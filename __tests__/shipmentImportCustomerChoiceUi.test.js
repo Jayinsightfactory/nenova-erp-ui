@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+require('./shipmentImportFooter.test');
 const fs = require('node:fs');
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');

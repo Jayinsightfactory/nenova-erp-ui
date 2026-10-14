@@ -68,6 +68,16 @@
   ],
   "actions": [
     {
+      "name": "IMPORT_PIVOT_FOOTER_CUSTOMER_LABEL",
+      "description": "검증 후 피벗 하단 합계에 상단과 동일한 model.customers 순서의 c.name과 기존 c.uploadQty를 표시한다. 필터 범위/수량/환산/API/SQL/저장 및 연도 업무키는 변경하지 않는다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
+    },
+    {
       "name": "ALSTRO_EXPLICIT_ERP_QUANTITY_IMPORT",
       "description": "A2='알스트로 ERP 수량 (÷16 참고)'로 표식된 신규 파일만 alstroErpQuantity=true를 파싱한다. preview/preflight/transaction은 normalizeUploadQtyForProduct 공통 정책으로 실제 수량을 보존한다. 구형 파일은 16배, 동일 업무키의 혼합 인코딩은 차단. 중국 CL 행은 수량 데이터에서 제외한다.",
       "orderDetail": "preserve",
@@ -168,6 +178,7 @@
     "description": "2025와 2026에 같은 OrderWeek가 있어도 진단·분배 조회·확정검사·사후검증은 선택한 OrderYear만 읽고 쓴다. 다른 연도 후보는 별도로 표시한다."
   },
   "requiredTestFiles": [
+    "__tests__/shipmentImportFooter.test.js",
     "__tests__/shipmentExeErrorsContract.test.js",
     "__tests__/shipmentImportApply.test.js",
     "__tests__/shipmentImportAudit.test.js",
