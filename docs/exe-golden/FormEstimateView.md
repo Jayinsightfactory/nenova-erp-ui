@@ -473,3 +473,16 @@ EXE 호환 조회의 `ViewShipment`와 `ViewOrder` 결합에서 같은 업무키
   주광은 동일 범위의 이 값을 별도 읽어 인쇄 순수량/금액과 대조한다. 날짜별 반올림과
   단가별 반올림의 차이, 조회 실패 또는 단위 불명은 일치로 덮지 않는다.
 - 이 대조는 SELECT-only이며 Estimate/ShipmentDate/분배 확정·재고에 쓰지 않는다.
+
+## 2026-10-13 차감 동일행 저장 방지 근거
+
+- 로컬 dnSpy.Console.exe `-t ClassEstimate`로 설치된 `Nenova.exe`를 다시 읽었다.
+  Insert/Update/Delete는 Estimate만 변경하며 출고·재고 재계산 호출이 없다.
+- 운영 읽기 검사에서 CodeInfo EstimateType 24개를 확인했다. 10051은 불량차감/단,
+  10298은 단가차감/단으로, 같은 -20단과 단가 10,000원만으로 중복을 판정하면 안 된다.
+- Estimate의 INSERT/UPDATE 적요 정리 트리거와 `fn_SanitizeEstimateDescr` 사용 조건을
+  확인했다. 쓰기 전 중복 비교는 실제 저장되는 적요를 기준으로 한다.
+- 웹 직접 생성/수정과 영업지원 등록의 공통 트랜잭션 잠금은 EXE 필드·금액 계산식을
+  바꾸지 않는다. EXE 외부 쓰기의 멱등성을 보장하는 DB 제약은 추가하지 않았다.
+- 원본 운영 증거는 비공개 outputs에 보관한다. 진화원은 보정에서 제외하며,
+  재검사 결과 확정 중복 0건으로 이 변경에 운영 DELETE는 포함하지 않는다.
