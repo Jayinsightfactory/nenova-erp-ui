@@ -1053,7 +1053,10 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
           <tr>
             <td style={st.pivotProductCell}>합계</td>
             {model.customers.map(c => (
-              <td key={c.key} style={st.totalCellStrong}>{fmt(c.uploadQty)}</td>
+              <td key={c.key} style={{ ...st.totalCellStrong, verticalAlign: 'bottom' }}>
+                <div style={st.totalCustomerName}>{c.name}</div>
+                <div>{fmt(c.uploadQty)}</div>
+              </td>
             ))}
             <td style={st.totalCellStrong}>{fmt(totals.orderQty)}</td>
             <td style={st.totalCellStrong}>{fmt(totals.currentOutQty)}</td>
@@ -1982,6 +1985,7 @@ const st = {
   qtySub: { marginTop: 2, fontSize: 10, color: '#64748b', fontVariantNumeric: 'tabular-nums' },
   createBadge: { marginTop: 3, display: 'inline-block', fontSize: 10, color: '#1d4ed8', background: '#dbeafe', borderRadius: 8, padding: '1px 6px', fontWeight: 700 },
   custName: { fontWeight: 700, lineHeight: 1.25, whiteSpace: 'normal' },
+  totalCustomerName: { fontWeight: 700, lineHeight: 1.25, whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: 150, margin: '0 auto 4px', color: '#334155', textAlign: 'center' },
   custMeta: { marginTop: 3, fontSize: 10, color: '#64748b', fontWeight: 500, whiteSpace: 'normal' },
   totalCell: { minWidth: 90, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '7px 8px', textAlign: 'right', color: '#475569', fontVariantNumeric: 'tabular-nums' },
   totalCellStrong: { minWidth: 90, borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '7px 8px', textAlign: 'right', fontWeight: 800, fontVariantNumeric: 'tabular-nums', background: '#f8fafc' },
