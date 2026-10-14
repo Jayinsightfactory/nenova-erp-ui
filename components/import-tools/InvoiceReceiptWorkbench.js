@@ -166,7 +166,7 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
 }
 
 export default function InvoiceReceiptWorkbench({
-  excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false,
+  excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false,
 }) {
   const [records, setRecords] = useState([]);
   const [selectedId, setSelectedId] = useState('');
@@ -883,7 +883,10 @@ export default function InvoiceReceiptWorkbench({
     </section>;
   }
 
+  if (packingActive && (!file || !excels.length)) return null;
+  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p></section>;
   if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
+  if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
   if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
     <header className={styles.heading}><div><span className={styles.eyebrow}>CONNECTED RECEIPT WORKBENCH</span><h2>저장 인보이스 입고 문서</h2><p>파일을 다시 올리지 않아도 저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.</p></div></header>
     {sourceState.error && <p className={styles.error} role="alert">{sourceState.error}</p>}
@@ -1094,7 +1097,7 @@ export default function InvoiceReceiptWorkbench({
     </div>
     </fieldset>
 
-    {renderSavedDocuments(true)}
+    {!packingActive && renderSavedDocuments(true)}
 
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}

@@ -223,6 +223,9 @@ export default function PackingResults({
   const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts), [safeExcels, country, notes, truncated, erpProducts]);
   const reviewedExcels = safeExcels.map(excel => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) })) }));
   const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, REVIEW: 0, UNMATCHED: 0 });
+  useEffect(() => {
+    if (counts.EXACT + counts.MANUAL > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
+  }, [counts.EXACT, counts.MANUAL, counts.REVIEW, counts.UNMATCHED]);
   const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview || productSourceNeedsReview(row.product)).map(row => row.key));
   useEffect(() => {
     if (!selected?.rowKey || visibleKeys.includes(selected.rowKey)) return;

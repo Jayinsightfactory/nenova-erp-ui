@@ -6,7 +6,7 @@ import styles from '../../styles/PackingProductMatch.module.css';
 export default function PackingProductMatchDialog({target,country,products,matchEntries=[],onSave,onClose,onReload,saving,error}) {
   const [search,setSearch] = useState('');
   const [selected,setSelected] = useState(null);
-  const root=useRef(null), searchRef=useRef(null), opener=useRef(null);
+  const root=useRef(null), searchRef=useRef(null), opener=useRef(null), immediateSaveRef=useRef(false);
   const available=useMemo(()=>products.filter(p=>p.country===country).map(p=>({...p,
     MappingAliases:[...(p.MappingAliases||[]),...matchEntries.filter(e=>e.country===country&&e.prodKey===p.ProdKey&&e.prodName===p.ProdName&&p.selectable).map(e=>e.description)],
   })),[products,country,matchEntries]);
@@ -24,6 +24,14 @@ export default function PackingProductMatchDialog({target,country,products,match
     return ()=>{if(opener.current?.isConnected)opener.current.focus();};
   },[]);
   useEffect(()=>{if(saving)root.current?.focus();},[saving]);
+  const saveCandidate=async prodKey=>{
+    const product=available.find(p=>p.ProdKey===prodKey&&p.selectable);
+    if(immediateSaveRef.current||saving||target.requiresReload||!product)return;
+    immediateSaveRef.current=true;
+    setSelected(prodKey);
+    try { await onSave(prodKey); }
+    finally { immediateSaveRef.current=false; }
+  };
   const keyboard=e=>{
     if(e.isComposing||e.nativeEvent?.isComposing)return;
     if(e.key==='Escape') {e.preventDefault();if(!saving)onClose();return;}
@@ -49,13 +57,13 @@ export default function PackingProductMatchDialog({target,country,products,match
       <input ref={searchRef} className={styles.search} aria-label="전산 품목 검색" placeholder="품목명 · 코드 · 꽃 이름 검색 (↓ 후보 이동, Enter 선택)" value={search} onChange={e=>setSearch(e.target.value)} disabled={saving}/>
       <div className={styles.list} role="region" aria-label="전산 품목 검색 결과">
         {candidates.length===0&&<p>검색 결과가 없습니다. 검색어를 줄이거나 전산 품목을 다시 불러오세요.</p>}
-        {candidates.map(({option:p,suggestion},index)=><button type="button" key={p.ProdKey} data-candidate={p.ProdKey} disabled={saving||!p.selectable} aria-pressed={selected===p.ProdKey} className={styles.candidate} onClick={()=>setSelected(p.ProdKey)} title={p.reason||p.ProdName}>
+        {candidates.map(({option:p,suggestion},index)=><button type="button" key={p.ProdKey} data-candidate={p.ProdKey} disabled={saving||target.requiresReload||!p.selectable} aria-pressed={selected===p.ProdKey} className={styles.candidate} onClick={()=>saveCandidate(p.ProdKey)} title={p.reason||p.ProdName}>
           <strong><span className={styles.rank}>{index+1}</span>{p.ProdName}</strong><span>{p.FlowerName} · {p.ProdCode||`번호 ${p.ProdKey}`} · {suggestion?.reason}{!p.selectable&&` · ${p.reason}`}</span>
         </button>)}
       </div>
       {error&&<p role="alert" className={styles.error}>{error}</p>}
       {selectionWarning&&<p role="alert" className={styles.error}>{selectionWarning}</p>}
-      <footer><button type="button" disabled={saving} onClick={async()=>{setSelected(null);await onReload();}}>전산·매칭 다시 조회</button><span>{validSelected?.ProdName||'품목을 선택하세요'}</span><button type="button" data-testid="packing-match-save" disabled={saving||target.requiresReload||!validSelected} onClick={()=>{if(!saving&&!target.requiresReload&&validSelected)onSave(validSelected.ProdKey);}}>{saving?'저장 중…':'선택 품목 매칭 · 저장'}</button></footer>
+      <footer><button type="button" disabled={saving} onClick={async()=>{setSelected(null);await onReload();}}>전산·매칭 다시 조회</button><span>{validSelected?.ProdName||'품목을 선택하면 바로 저장됩니다'}</span></footer>
     </section>
   </div>;
 }

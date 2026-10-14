@@ -13,6 +13,14 @@ const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'),
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
 
+test('active packing never falls through to saved-document lookup during preparation', () => {
+  const lookup = source.indexOf('if (!selected || !documentValue) return');
+  for (const guard of ['if (packingActive && (!file || !excels.length)) return null;', 'if (packingActive && sourceState.error)', 'if (packingActive && (!selected || !documentValue))']) {
+    assert.ok(source.indexOf(guard) >= 0 && source.indexOf(guard) < lookup);
+  }
+  assert.match(source, /!packingActive && renderSavedDocuments\(true\)/);
+});
+
 test('component compiles and is connected only through the bounded packing source props', () => {
   babel.transformSync(source, {
     filename: componentPath,
@@ -21,7 +29,7 @@ test('component compiles and is connected only through the bounded packing sourc
     babelrc: false,
   });
   assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
-  assert.match(pageSource, /<InvoiceReceiptWorkbench \{\.\.\.receiptSource\}\/>/);
+  assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} \{\.\.\.receiptSource\}\/>/);
   assert.doesNotMatch(pageSource, /receiptSource&&<InvoiceReceiptWorkbench/);
   assert.match(pageSource, /EMPTY_RECEIPT_SOURCE=Object\.freeze/);
   assert.match(pageSource, /입고 등록은 초안·미리보기·명시 확인 후에만 실행/);

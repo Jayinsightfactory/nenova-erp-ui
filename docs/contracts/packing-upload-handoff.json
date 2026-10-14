@@ -1,0 +1,15 @@
+{
+  "id": "packing-upload-handoff",
+  "title": "매칭 선택 즉시 저장·입고 준비 CTA·계정별 작업 복구",
+  "scope": ["components/import-tools/PackingListTool.js", "components/import-tools/PackingResults.js", "components/import-tools/PackingProductMatchDialog.js", "components/import-tools/InvoiceReceiptWorkbench.js", "pages/import/tools.js", "lib/packingWorkDraft.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"SELECT_MATCH", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"원문 국가/품목과 기존 팀 공용 CAS 저장. 후보 클릭 또는 Enter/Space에서 1회 저장하고 성공 후 닫음. 실패/409는 보존."},
+    {"name":"PREPARE_RECEIPT", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"품목 매칭 완료 후 명시 CTA. 원문/수량/가격 검증과 실제 입고 승인 유지. 작업 중 저장문서조회는 다음 단계로 표시하지 않음."},
+    {"name":"RECOVER_WORK", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"SSR 및 auth/me 사용자 동일성 후 IndexedDB 같은 계정의 원본/분석/적용검토 복구. 최신 팀매칭 GET, 원본 해시 확인. 생성파일/서버 preflight/ERP commit 허가 복구 금지. 자동 ERP POST 없음."}
+  ],
+  "crossYearFixture": {"required":true,"description":"작업 원문의 날짜와 세부차수는 보존하고 현재 연도로 덮지 않는다. 2025/2026 동일 차수의 서버 preview/commit 기존 스코프 유지; 브라우저 복구 자체는 ERP 원장 조회/수정 없음."},
+  "requiredTestFiles": ["__tests__/packingWorkDraft.test.js", "__tests__/packingProductMatchDialog.test.js", "__tests__/importPackingHardening.test.js", "__tests__/packingResultsUi.test.js", "__tests__/invoiceReceiptWorkbench.test.js", "__tests__/invoiceReceiptValidation.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-14 저장 decompile ExcelLoadingPackingList.MakeTempTable/CheckData/InsertMaster 확인. 원문 품명+SIZE 정확연결, 독립 수량/가격 및 명시 입고 쓰기 경계 보존. 실제 ERP writer/API/SP 변경 없음.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData","ExcelLoadingPackingList.InsertMaster"],"tables":["Product","WarehouseMaster","WarehouseDetail","StockHistory","ProductStock"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}
