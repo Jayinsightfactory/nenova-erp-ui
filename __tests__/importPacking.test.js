@@ -17,6 +17,8 @@ async function main() {
   const receiptAdapter = await import('../lib/importPackingReceiptAdapter.js');
   const sourceReview = await import('../lib/importPackingSourceReview.js');
   const matchPreview = await import('../lib/importPackingMatchPreview.js');
+  const matchReview = await import('../lib/packingMatchReview.js');
+  const workDraft = await import('../lib/packingWorkDraft.js');
   const chinaInvoiceFormat = await import('../lib/importChinaInvoiceFormat.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
@@ -282,6 +284,8 @@ async function main() {
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
       '../../lib/importPackingSourceReview.js': sourceReview,
       '../../lib/importPackingMatchPreview.js': matchPreview,
+      '../../lib/packingMatchReview.js': matchReview,
+      '../../lib/packingWorkDraft.js': workDraft,
       '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },

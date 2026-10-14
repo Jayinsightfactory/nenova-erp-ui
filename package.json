@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "pretest:estimate-delete": "node --test __tests__/estimateDuplicateWriteGuard.test.js",
-    "test:packing-team": "node --test __tests__/packingSimilarRanking.test.js __tests__/packingTeamMatching.test.js __tests__/invoiceReceiptChinaAirCost.test.js __tests__/invoiceArrivalCostPanel.test.js __tests__/importChinaInvoice.test.js __tests__/invoiceReceiptWorkbench.test.js",
+    "test:packing-team": "node --test __tests__/packingWorkDraft.test.js __tests__/packingSimilarRanking.test.js __tests__/packingTeamMatching.test.js __tests__/invoiceReceiptChinaAirCost.test.js __tests__/invoiceArrivalCostPanel.test.js __tests__/importChinaInvoice.test.js __tests__/invoiceReceiptWorkbench.test.js",
     "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",
     "prebuild": "node scripts/generate-menu-development-history.cjs && node scripts/generate-full-development-history.cjs && npm run test:full-development-history",
     "test:menu-development-history": "node --test __tests__/menuDevelopmentHistory.test.js",

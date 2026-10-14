@@ -18,6 +18,8 @@ const modulesReady = Promise.all([
   import('../lib/importPackingSourceReview.js'),
   import('../lib/importChinaInvoiceFormat.js'),
   import('../lib/importPackingMatchPreview.js'),
+  import('../lib/packingMatchReview.js'),
+  import('../lib/packingWorkDraft.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -59,12 +61,13 @@ function browserPdfFile(file) {
 }
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
-async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
+async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es', userId = '', savedWork = null } = {}) {
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
-    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview] = await modulesReady;
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview, matchReview, packingWorkDraft] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
-  let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null;
+  let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null, erpReadFailure = null;
   const storageReads=[];
+  const workDraftStore = { load: async () => savedWork, save: async () => {}, clear: async () => {} };
   const receiptSources=[];
   const onReceiptSourceChange=source=>receiptSources.push(source);
   let erpValue = null, erpRevision = 0;
@@ -102,10 +105,12 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     FlowerName: product.flowerKr ?? '',
   })));
   const fetchStub = (url, options) => {
+    if (url === '/api/auth/me') return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, user: { userId } }) });
     if (url.startsWith('/api/import/tools/product-matches')) {
       erpRequests.push({ url, options });
       if(url.includes('revisionOnly=1')&&revisionGate){const gate=revisionGate;revisionGate=null;return gate.promise;}
       if(url.includes('revisionOnly=1'))return Promise.resolve({ok:true,status:200,json:async()=>({success:true,scope:'team',value:erpValue,revision:erpRevision})});
+      if (erpReadFailure) return Promise.resolve({ ok: false, status: 503, json: async () => ({ success: false, error: erpReadFailure.message }) });
       if (options?.method === 'POST') {
         if (erpFailure) return Promise.resolve({ ok: false, status: 409, json: async () => ({ success: false, error: erpFailure.message }) });
         const body = JSON.parse(options.body);
@@ -133,7 +138,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   const browserReceiptAdapter = {
     ...receiptAdapter,
     sha256File(file) {
-      const promise = receiptAdapter.sha256File(file, webcrypto);
+      const source = typeof file?.arrayBuffer === 'function' ? file : new Blob([String(file?.name || 'fixture')], { type: file?.type || '' });
+      const promise = receiptAdapter.sha256File(source, webcrypto);
       hashPromises.push(promise);
       return promise;
     },
@@ -149,6 +155,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
     '../../lib/importPackingSourceReview.js': sourceReview,
     '../../lib/importPackingMatchPreview.js': matchPreview,
+    '../../lib/packingMatchReview.js': matchReview,
+    '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
@@ -160,7 +168,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, storageReads, receiptSources, tree: null,
     components: { PackingResultsStub, PackingProductMatchDialogStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
-      : module.exports.default({ storage, onReceiptSourceChange }); return this.tree; },
+      : module.exports.default({ storage, onReceiptSourceChange, userId }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
     async refresh() { this.render(); this.effects(); await tick(); return this.render(); },
     nodes(type) { return flatten(this.tree).filter(n => n.type === type); },
@@ -171,6 +179,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     radio(index) { this.nodes('input').filter(n => n.props.type === 'radio')[index].props.onChange(); this.render(); },
     fail(error) { failure = error; },
     failErp(error) { erpFailure = error; },
+    failErpRead(error) { erpReadFailure = error; },
     setCatalog(next) { currentCatalog = next; },
     setLegacyAliases(next) { currentAliases=next; },
     setTeamMatches(value,revision) { erpValue=value;erpRevision=revision; },
@@ -771,6 +780,14 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   }) });
   await process; await h.refresh();
   let reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
+  reviewNode.props.onClose(); await h.refresh();
+  let prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
+  assert.ok(prepare, 'all-matched preview exposes the receipt CTA before review confirmation');
+  prepare.props.onClick(); await h.refresh();
+  assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, true,
+    'unreviewed all-match CTA opens review without generating a workbook');
+  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.open, true);
+  reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
   const sourceInvoice = { invoice: 'INV-REFRESH', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09',
     date_order: 'YMD', date_kind: 'invoice', currency: 'USD', invoice_total: 20, freight_total: 0,
     pdfReviewRequired: true, pdfSourceHash: sourceHash,
@@ -796,12 +813,31 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'invalidated output no longer publishes receipt rows');
   assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.rows, retainedReview.props.rows,
     'the source-review draft rows stay mounted through mapping refresh');
+  assert.ok(text(h.tree).includes('확인값 적용됨'), 'mapping refresh preserves the completed source-review confirmation');
   assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 0,
     'refresh is read-only and does not save an ERP mapping');
-  reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
-  await reviewNode.props.onConfirm(drafts); await h.refresh();
-  assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, false,
-    'the original source snapshot can be reapplied after mapping refresh');
+  const retainedMatchRows = results.props.excels[0].products.map(row => row.matchingDescription);
+  const postsBeforePrepare = h.erpRequests.filter(request => request.options?.method === 'POST').length;
+  prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
+  assert.equal(text(prepare), '입고 업로드 준비');
+  prepare.props.onClick(); await h.refresh();
+  results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.previewOnly, false, 'confirmed CTA rebuilds without reopening source review');
+  assert.equal(results.props.excels[0].name.endsWith('.xlsx'), true, 'CTA rebuilds the invalidated workbook');
+  assert.deepEqual(results.props.excels[0].products.map(row => row.matchingDescription), retainedMatchRows,
+    'the matching table survives refresh and CTA rebuild');
+  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.open, false,
+    'CTA rebuild does not reopen the already-confirmed review');
+  assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, postsBeforePrepare,
+    'CTA rebuild never writes ERP data; mapping writes remain the only POST path');
+
+  const retainedWorkbook = results.props.excels[0];
+  h.failErpRead(Error('mapping read unavailable'));
+  await results.props.onMatch({ matchingDescription: 'CARNATION Doncel' }); await h.refresh();
+  results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.excels[0], retainedWorkbook, 'failed mapping read retains the generated table and workbook');
+  assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, postsBeforePrepare,
+    'failed mapping read performs no ERP write');
 });
 
 test('A/B refresh singleflight and late revision response cannot invalidate a newer explicit reload',async()=>{
@@ -943,6 +979,26 @@ test('PDF timeout ends active reading, retains source and enables explicit retry
   assert.ok(text(h.tree).includes('41-1.pdf'));
   assert.equal(h.button('AI 분석 (비용 발생 가능)').props.disabled,false);
   assert.equal(h.requests.length,1);assert.equal(h.writes.length,0);
+});
+
+test('restore rejects an XLSX draft whose stored extraction hash is not the original file', async () => {
+  const savedWork = {
+    file: new Blob(['different-xlsx-source'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    fileName: '41-1-original.xlsx', fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', lastModified: 0,
+    country: 'CN', sourceHash: '0'.repeat(64), reviewRows: [], reviewConfirmed: false,
+    legacyReviewData: null, legacyPackingReviewRequired: false, extractionSource: 'local',
+    lastExtraction: { sourceHash: '0'.repeat(64), result: { invoices: [{ invoice: 'XLSX-HASH' }] },
+      sourceInvoices: [{ invoice: 'XLSX-HASH' }], masterAwb: '', weekParsed: { week: '41-1', num: 41 }, wasTruncated: false },
+  };
+  const h = await harness({ lang: 'ko', userId: 'hash-reviewer', savedWork });
+  await h.refresh(); await tick(); await h.refresh();
+  const restore = h.nodes('button').find(node => node.props['data-testid'] === 'packing-work-restore');
+  assert.ok(restore, 'stored XLSX work is offered for restoration');
+  const restoring = restore.props.onClick(); await tick();
+  await h.readers.at(-1).complete('xlsx-source');
+  await restoring; await h.refresh();
+  assert.ok(text(h.tree).includes('원본 파일과 분석 근거가 일치하지 않습니다'), 'XLSX hash mismatch is rejected before extraction data is applied');
+  assert.equal(h.nodes(h.components.PackingResultsStub).length, 0, 'mismatched XLSX never restores matching or review data');
 });
 
 test('AWB uses the same 20MiB bound and ignores late local parser completion', async () => {

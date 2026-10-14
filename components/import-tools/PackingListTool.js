@@ -23,6 +23,8 @@ import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliase
 import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
 import { assertPackingSourceReviewed, bindPackingSourceReviewPolicy } from '../../lib/importPackingSourceReview.js';
 import { buildPackingMatchPreview } from '../../lib/importPackingMatchPreview.js';
+import { packingMatchReview } from '../../lib/packingMatchReview.js';
+import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -918,7 +920,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, userId = '' }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -992,6 +994,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const reviewButtonRef = useRef(null);
   const matchPreviewRef = useRef(null);
   const [reviewInitialTarget, setReviewInitialTarget] = useState(null);
+  const receiptIntent = useRef(false);
+  const workStore = useMemo(() => userId ? createPackingWorkDraftStore(userId) : null, [userId]);
+  const [savedWork, setSavedWork] = useState(null);
+  const [workReady, setWorkReady] = useState(false);
+  const [workMessage, setWorkMessage] = useState('');
+  const [workError, setWorkError] = useState('');
+  const [restoringWork, setRestoringWork] = useState(false);
+  const workSaveSequence = useRef(0);
+  const [needsAI, setNeedsAI] = useState(false);
+  const [pdfRetryJobId, setPdfRetryJobId] = useState(null);
+  const [extractionSource, setExtractionSource] = useState('');
 
 
   const [sharedError, setSharedError] = useState(null);
@@ -1007,6 +1020,70 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ++readerVersion.current; ++catalogReaderVersion.current;
     ++sharedScopeVersion.current;
   }, []);
+
+  useEffect(() => {
+    if (!workStore) return;
+    let active = true;
+    setWorkReady(false);
+    (async () => {
+      const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data.success || String(data.user?.userId) !== String(userId)) throw new Error('로그인 계정을 확인한 뒤 작업을 복구하세요.');
+      const draft = await workStore.load();
+      if (active) { setSavedWork(draft); setWorkReady(true); }
+    })().catch(error => { if (active) setWorkError(`작업 보관을 사용할 수 없습니다: ${error.message}`); });
+    return () => { active = false; };
+  }, [workStore, userId]);
+
+  useEffect(() => {
+    if (!workStore || !workReady || !file || !lastExtraction || restoringWork) return;
+    const sequence = ++workSaveSequence.current;
+    let active = true;
+    setWorkMessage('현재 작업 보관 중…');
+    workStore.save({ file, country, lastExtraction, reviewRows, reviewConfirmed,
+      legacyReviewData, legacyPackingReviewRequired, extractionSource }).then(() => {
+      if (active && sequence === workSaveSequence.current) { setWorkError(''); setWorkMessage('현재 작업 보관됨 · 같은 PC·계정에서 새로고침 후 이어서 작업할 수 있습니다.'); }
+    }).catch(error => {
+      if (active && sequence === workSaveSequence.current) { setWorkMessage(''); setWorkError(`현재 작업 보관 실패: ${error.message} · 이 화면을 닫지 말고 다시 시도하세요.`); }
+    });
+    return () => { active = false; };
+  }, [workStore, workReady, file, country, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
+
+  const restoreWork = async () => {
+    if (!savedWork || !workReady || savingRef.current || processingRef.current) return;
+    processingRef.current = true; setRestoringWork(true); setWorkError('');
+    const version = ++readerVersion.current;
+    try {
+      const response = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+      const account = await response.json();
+      if (!response.ok || !account.success || String(account.user?.userId) !== String(userId)) throw new Error('로그인 계정이 변경되었습니다. 페이지를 새로고침하세요.');
+      const restoredFile = new File([savedWork.file], savedWork.fileName, { type: savedWork.fileType, lastModified: savedWork.lastModified });
+      const [freshErp, records, hash, base64] = await Promise.all([
+        requestErpMatches(), readPackingRecords(storage), sha256File(restoredFile),
+        new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = () => reject(new Error('보관된 원본 파일을 읽을 수 없습니다.')); reader.readAsDataURL(restoredFile); }),
+      ]);
+      if (readerVersion.current !== version) return;
+      const extraction = savedWork.lastExtraction;
+      if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) throw new Error('복구할 분석 결과가 없습니다. 원본 파일을 다시 선택하세요.');
+      if (extraction.sourceHash !== hash) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
+      if (/\.pdf$/i.test(restoredFile.name) && [...extraction.sourceInvoices, ...extraction.result.invoices].some(invoice => invoice.pdfSourceHash !== hash)) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
+      let confirmed = savedWork.reviewConfirmed;
+      if (confirmed && /\.pdf$/i.test(restoredFile.name)) {
+        try { extraction.result.invoices.forEach(invoice => assertPackingSourceReviewed(invoice, savedWork.country)); }
+        catch { confirmed = false; }
+      }
+      setCountry(savedWork.country); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+      setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(savedWork.reviewRows || makePackingReviewRows(extraction.sourceInvoices, savedWork.country));
+      setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
+      setLegacyReviewData(savedWork.legacyReviewData); setLegacyPackingReviewRequired(savedWork.legacyPackingReviewRequired);
+      setExtractionSource(savedWork.extractionSource); setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false);
+      setExcels([]); setGenerated({}); setGeneratedErp(null);
+      setMatchPreview(buildPackingMatchPreview({ invoices: extraction.result.invoices, country: savedWork.country, aliases: records.aliases, erpMatches: freshErp }));
+      setScrollMatchPreview(true); setSavedWork(null);
+      setStatus({ type: 'info', msg: '보관한 작업을 복구하고 최신 팀 매칭을 다시 적용했습니다. 입고 업로드는 별도로 승인해야 합니다.' });
+    } catch (error) { setWorkError(`작업 복구 실패: ${error.message}`); }
+    finally { processingRef.current = false; setRestoringWork(false); }
+  };
 
   useEffect(() => {
     if (!scrollMatchPreview || !matchPreview.length || screen !== 'upload') return;
@@ -1026,6 +1103,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         products: generatedErp?.products || EMPTY_RECEIPT_ITEMS,
         reviewConfirmed: false,
         truncated: false,
+        packingActive: Boolean(file),
       });
       return;
     }
@@ -1037,10 +1115,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       products: generatedErp.products,
       reviewConfirmed,
       truncated: lastExtraction.wasTruncated === true,
+      packingActive: true,
     });
   }, [country, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared]);
 
   const resetResults = () => {
+    receiptIntent.current = false;
     setMatchTarget(null);setMatchError('');
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setReviewInitialTarget(null); setScrollMatchPreview(false);
@@ -1068,7 +1148,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (!active) return;
       setCatalog(records.catalog); setAliases(records.aliases);
       setErpMatches(erp);
-      resetResults(); setSharedReady(true);
+      if (lastExtraction) refreshPreviewForMappings({ nextAliases: records.aliases, nextErp: erp });
+      else resetResults();
+      setLatestShared(false); setSharedReady(true);
     }).catch(error => {
       if (active) setSharedError(error.message || String(error));
     }).finally(() => { if (active) setCatalogLoading(false); });
@@ -1162,7 +1244,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const refreshPreviewForMappings = ({ invoices = lastExtraction?.result?.invoices, nextAliases = aliases, nextErp = erpMatches } = {}) => {
     if (invoices && nextErp) setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases: nextAliases, erpMatches: nextErp }));
     // Mapping/catalog revisions invalidate generated bytes, but retain source-review drafts.
-    setExcels([]); setGenerated({}); setGeneratedErp(null); setReviewConfirmed(false);
+    setExcels([]); setGenerated({}); setGeneratedErp(null);
     setPending([]); setAllNoMatches([]); setMismatches([]);
   };
 
@@ -1404,9 +1486,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setAliases(newAliases); rebuildWithAliases(newAliases);
   });
 
-  const [needsAI, setNeedsAI] = useState(false);
-  const [pdfRetryJobId, setPdfRetryJobId] = useState(null);
-  const [extractionSource, setExtractionSource] = useState('');
   const process = async (allowAI = false, retryJobId = null) => {
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     const parsed = parseWeekFromFilename(file.name);
@@ -1427,8 +1506,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
-      const pdfSourceHashPromise = /\.pdf$/i.test(file.name) ? sha256File(file) : Promise.resolve(null);
-      const [freshErp,freshRecords,pdfSourceHash]=await Promise.all([requestErpMatches(),readPackingRecords(storage),pdfSourceHashPromise]);
+      const sourceHashPromise = sha256File(file);
+      const [freshErp,freshRecords,sourceHash]=await Promise.all([requestErpMatches(),readPackingRecords(storage),sourceHashPromise]);
       if(!isCurrent())return;
       setErpMatches(freshErp);setAliases(freshRecords.aliases);setLatestShared(false);
       let extraction;
@@ -1478,10 +1557,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           try { result = parsePackingResponse(data, 'CN').result; } catch { /* preserve the explicit source-review payload */ }
         }
         const normalizedSources = (result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices)
-          .map(invoice => pdfSourceHash ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice);
+          .map(invoice => /\.pdf$/i.test(file?.name || '') ? { ...invoice, pdfReviewRequired: true, pdfSourceHash: sourceHash } : invoice);
         result = { ...result, invoices: normalizedSources };
         setLastExtraction({ result, sourceInvoices: normalizedSources, masterAwb: result.master_awb || '', weekParsed: parsed,
-          wasTruncated: false, legacyReviewRequired: true });
+          wasTruncated: false, legacyReviewRequired: true, sourceHash });
         setLegacyReviewData({ ...directLegacy, invoices: normalizedSources });
         setExcels([]); setGenerated({});
         setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
@@ -1491,7 +1570,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       const { result, wasTruncated } = parsePackingResponse(data, country);
       const invoices = (result.invoices || []).map(invoice => {
         const withSource = /\.pdf$/i.test(file?.name || '')
-          ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice;
+          ? { ...invoice, pdfReviewRequired: true, pdfSourceHash: sourceHash } : invoice;
         return bindPackingSourceReviewPolicy(withSource, country, { source: extraction.source });
       });
       result.invoices = invoices;
@@ -1500,7 +1579,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       const legacyData = country === 'CN' ? chinaLegacyReviewPayload(data, result) : null;
       // Save extraction for potential re-build after alias updates
       setLastExtraction({ result, sourceInvoices: invoices, masterAwb, weekParsed: parsed, wasTruncated,
-        legacyReviewRequired: Boolean(legacyData) });
+        legacyReviewRequired: Boolean(legacyData), sourceHash });
       setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases: freshRecords.aliases, erpMatches: freshErp }));
       setScrollMatchPreview(true);
       if (legacyData) {
@@ -1574,6 +1653,30 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
   const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
+  const focusReceipt = () => setTimeout(() => {
+    const target = toolRoot.current?.ownerDocument?.getElementById('packing-receipt-stage');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target?.focus({ preventScroll: true });
+  }, 200);
+  const matchingRows = (excels.length ? excels : matchPreview).flatMap(excel => excel.products || []);
+  const matchingProducts = excels.length ? generatedErp?.products || [] : erpMatches?.products || [];
+  const remainingMatches = matchingRows.filter(row => packingMatchReview(row, matchingProducts, country).needsReview).length;
+  const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
+  const prepareReceipt = () => {
+    if (!matchingComplete || latestShared || savingRef.current || processingRef.current || !sharedReady) return;
+    receiptIntent.current = true;
+    if (!reviewConfirmed || sourceReviewBlocked()) {
+      setReviewInitialTarget(null); setReviewOpen(true);
+      return;
+    }
+    try {
+      if (!excels.length && buildExcels({ invoices: lastExtraction.result.invoices,
+        masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
+        currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated,
+        extractionResult: lastExtraction.result }) === false) return;
+      focusReceipt();
+    } catch (error) { setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 현재 매칭과 파일은 유지됩니다.` }); }
+  };
   const confirmReview = drafts => {
     if (!lastExtraction || processingRef.current || savingRef.current || !sharedReady) throw new Error('현재 파일 분석이 완료된 뒤 다시 확인하세요.');
     if (country === 'CN' && (lastExtraction.legacyReviewRequired || lastExtraction.sourceInvoices?.some(isLegacyChinaInvoice))) {
@@ -1599,6 +1702,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setLastExtraction(current => ({ ...current, result: reviewedResult }));
     if (country === 'CN' && legacyPackingReviewRequired) setLegacyPackingReviewRequired(false);
     setReviewConfirmed(true); closeReview();
+    if (receiptIntent.current) { receiptIntent.current = false; focusReceipt(); }
   };
 
   return (
@@ -1610,14 +1714,25 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
+        {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
+        {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
+        {savedWork && !file && <section className={styles.sourceBadge} aria-label="보관된 패킹 작업">
+          <strong>이어서 작업: {savedWork.fileName}</strong>
+          <button type="button" onClick={restoreWork} disabled={!sharedReady || saving || processing || restoringWork} data-testid="packing-work-restore" style={{ marginLeft: 16 }}>{restoringWork ? '복구 중…' : '매칭 작업 이어서 하기'}</button>
+          <button type="button" disabled={restoringWork || saving || processing} onClick={async () => {
+            try { await workStore.clear(); setSavedWork(null); setWorkError(''); }
+            catch (error) { setWorkError(`임시 작업 삭제 실패: ${error.message}`); }
+          }} style={{ marginLeft: 8 }}>보관 작업 삭제</button>
+          <p>이 PC·계정의 임시 작업입니다. 팀 공용 품목 매칭과 ERP 입고 원장은 삭제되지 않습니다.</p>
+        </section>}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>
           {saving && <span role="status">{t.saving}</span>}
           {sharedError && <span role="alert" style={{ color: '#c81e1e', overflowWrap: 'anywhere' }}>{t.sharedFailure} {sharedError}</span>}
           {status && screen !== 'upload' && <span role="status" style={{ color: statusColor }}>{status.msg}</span>}
         </div>
-        <fieldset disabled={saving || processing || catalogLoading || catalogParsing || !sharedReady}
-          onClickCapture={e => { if (saving || processing || catalogLoading || catalogParsing || !sharedReady) { e.preventDefault(); e.stopPropagation(); } }}
+        <fieldset disabled={saving || processing || restoringWork || catalogLoading || catalogParsing || !sharedReady}
+          onClickCapture={e => { if (saving || processing || restoringWork || catalogLoading || catalogParsing || !sharedReady) { e.preventDefault(); e.stopPropagation(); } }}
           style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 14, gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1873,6 +1988,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             )}
             {(excels.length > 0 || matchPreview.length > 0 || reviewRows) && (
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
+                <div className={styles.sourceBadge} role="status" data-testid="packing-upload-next">
+                  <strong>{matchingComplete ? `품목 매칭 완료 · ${matchingRows.length}행 유지` : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
+                  {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
+                    disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
+                    {excels.length && reviewConfirmed ? '입고 업로드로 이동' : '입고 업로드 준비'}
+                  </button>}
+                  <p>매칭 데이터는 팀 공용으로 저장됩니다. 입고 업로드 준비에서 필수값을 확인한 뒤, 입고 화면의 최종 승인으로 등록합니다. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
+                </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
                   <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">원본 PDF · 인식값 검증/수정</button>
                   <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 검토 뒤 생성된 패킹만 다운로드할 수 있습니다.' : '매칭 미리보기입니다 · 원문 확인을 명시적으로 적용하기 전에는 패킹·다운로드를 생성하지 않습니다.'}</span>
