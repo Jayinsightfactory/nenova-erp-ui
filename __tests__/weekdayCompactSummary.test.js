@@ -281,6 +281,11 @@ assert.match(wilsonMarkup,/일반·윌슨 합계 내역/);
 const staleMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,status:'STALE'}],onEditWilson(){}});
 assert.match(staleMarkup,/윌슨 재확인/);
 assert.match(staleMarkup,/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")(?=[^>]*disabled="")[^>]*>/,'stale split blocks general editing');
+const recoverMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,currentTotal:10,status:'STALE'}],onEditWilson(){}});
+const recoverInput=recoverMarkup.match(/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")[^>]*>/)[0];
+assert.doesNotMatch(recoverInput,/disabled=/,'verified total-only change permits explicit edit');
+assert.match(recoverInput,/value="8"/);assert.match(recoverMarkup,/편집용 예상값/);assert.match(recoverMarkup,/일반 수량 재확인/);
+assert.match(source,/onEditWilson\(\{row,block,day,quantity:recovery.wilson,totalQuantity:payload.quantity\+recovery.wilson,classificationOnly:false\}\)/,'recovery uses revision-preserving Wilson draft path');
 const Wilson=load(harness).WilsonCell;
 const wilsonEvents=[];
 const wprops={row,block,day:{date:'2026-09-20',editDisabledReason:''},split:{savedTotal:10,savedWilson:2,total:10,wilson:2,error:'',draft:false},disabled:false,onEditWilson:async value=>{wilsonEvents.push(value);return true;},onSelect(){}};
@@ -306,6 +311,16 @@ slots.length=0;
 wview=wdraw();nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'11'}});wview=wdraw();const count=wilsonEvents.length;
 await nodes(wview).find(node=>node.type==='button').props.onClick();assert.equal(wilsonEvents.length,count,'classification exceeding stored total is rejected');assert.match(renderToStaticMarkup(wdraw()),/role="alert"/);
 console.log('Wilson UI canonical total, split rendering, stale editing and classification-only handlers passed');
+slots.length=0;
+const recoveryProps={split:{...wprops.split,wilson:null,error:'ERP changed',recovery:{general:8,wilson:2,notice:'미확인 편집용 예상값'}}};
+const recoveryCount=wilsonEvents.length;
+wview=wdraw(recoveryProps);nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'2'}});
+await nodes(wdraw(recoveryProps)).find(node=>node.type==='input').props.onBlur();
+assert.equal(wilsonEvents.length,recoveryCount,'retyping suggested Wilson does not silently confirm classification');
+nodes(wdraw(recoveryProps)).find(node=>node.type==='input').props.onChange({target:{value:'3'}});
+await nodes(wdraw(recoveryProps)).find(node=>node.type==='input').props.onBlur();
+assert.equal(wilsonEvents.at(-1).quantity,3);assert.equal(wilsonEvents.at(-1).totalQuantity,11);
+assert.equal(wilsonEvents.at(-1).classificationOnly,false,'changed suggestion records draft rather than immediate classification write');
 slots.length=0;
 const emptyProps={split:{savedTotal:null,total:0,wilson:0,savedWilson:0,error:'',draft:false}};
 wview=wdraw(emptyProps);
@@ -337,6 +352,11 @@ const qprops={row,block,day:qday,disabled:false,onSelect(){},
   onEditCell:async payload=>{qevents.push(['edit',payload]);return true;},
   onClearCell:async payload=>{qevents.push(['clear',payload]);return true;}};
 const qdraw=patch=>{index=0;effects=[];return Quantity({...qprops,...patch});};
+const recoveredGeneral={day:{...qday,current:null,displayCurrent:null,planned:null,editValue:8,recoveryNotice:'미확인 편집용 예상값'}};
+slots.length=0;let recoveryView=qdraw(recoveredGeneral);
+nodes(recoveryView).find(node=>node.type==='input').props.onChange({target:{value:'8'}});
+await nodes(qdraw(recoveredGeneral)).find(node=>node.type==='input').props.onBlur();
+assert.equal(qevents.length,0,'retyping suggested general does not silently confirm classification');
 slots.length=0;let qview=qdraw();
 await nodes(qview).find(node=>node.type==='input').props.onBlur();assert.equal(qevents.length,0);
 nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:''}});
@@ -409,3 +429,19 @@ const earlyTree=qdraw({block:earlyBlock,onOpenNote:value=>{openedNote=value;}});
 assert.equal(nodes(earlyTree).find(node=>node.type==='input').props.value,String(qday.planned??qday.displayCurrent??qday.current),'legacy note never changes quantity');
 assert.equal(nodes(earlyTree).some(node=>node.props?.className==='wcm-early-label'),false,'legacy note has no processed badge in a date cell');
 console.log('Compact warning flow, independent change action and informational legacy note passed');
+
+// A deleted or refreshed draft must not make a previously entered number a permanent no-op.
+slots.length=0;
+const resubmitDay={...qday,current:13,displayCurrent:13,planned:null,drafts:[]};
+const resubmitProps={day:resubmitDay};
+const priorEvents=qevents.length;
+for(let attempt=0;attempt<2;attempt++) {
+  const input=nodes(qdraw(resubmitProps)).find(node=>node.type==='input');
+  input.props.onChange({target:{value:'10'}});
+  await nodes(qdraw(resubmitProps)).find(node=>node.type==='input').props.onBlur();
+  qdraw({day:{...resubmitDay,planned:10}});
+  qdraw(resubmitProps);
+}
+assert.equal(qevents.length-priorEvents,2,'same number can be submitted after draft removal or external refresh');
+assert.equal(qevents.at(-1)[1].quantity,10);
+assert.doesNotMatch(source,/lastSubmitted/,'only visible draft quantity and in-flight lock suppress duplicate commits');

@@ -19,7 +19,7 @@ async function postEarly(body) {
 }
 
 export default function WeekdayEarlyShipmentPanel({inputUser, customer, sourceCycle, nextCycle, records, legacyNotes = [],
-  compareRows = [], plans = [], cycles = [], loading = false, error = '', refreshSnapshot, onReload}) {
+  compareRows = [], plans = [], cycles = [], loading = false, error = '', refreshSnapshot, onReload, onActivityChange}) {
   const [prodKey,setProdKey] = useState('');
   const [sourceDate,setSourceDate] = useState('');
   const [quantity,setQuantity] = useState('');
@@ -31,6 +31,8 @@ export default function WeekdayEarlyShipmentPanel({inputUser, customer, sourceCy
   const [expanded,setExpanded] = useState(false);
   const [pending,setPending] = useState(null);
   const [recoveryBlocked,setRecoveryBlocked] = useState(false);
+  useEffect(()=>{onActivityChange?.(working || Boolean(dialog || pending) || recoveryBlocked);
+    return()=>onActivityChange?.(false);},[working,dialog,pending,recoveryBlocked,onActivityChange]);
   useEffect(()=>{if(pending || error || failure) setExpanded(true);},[pending,error,failure]);
   const trigger = useRef(null);
   const firstDialogControl = useRef(null);

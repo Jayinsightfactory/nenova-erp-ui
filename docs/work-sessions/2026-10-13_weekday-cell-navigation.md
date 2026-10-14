@@ -14,3 +14,4 @@
 ## 검증
 - 진행 중: 방향키 정책 테스트, ERP 계약/근거/쓰기 가드/빌드, 실제 Chrome 로컬 및 배포 화면 검증.
 - 로컬 전체 ERP 계약, dnSpy 근거, manifest, write guard, production build 통과. 실제 Chrome 1920×1080에서 5→7 초안 기록 후 아래행 이동, 좌우 이동, 자동 팝업 없음(요약43px), 명시 내역420×138px, Escape 초점복귀, 스크롤 후 입력 top466px > 고정헤더 bottom108px 확인.
+- PR1041 병합 b7121cfe, 배포38359199016 및 hydration 검사 성공. 운영 Chrome에서 Brut 10/08→10/09→Caramel 10/09 이동, 요약 높이43px/자동 popup0/입력 내역0건 확인. 운영 수량·ERP 쓰기 없음. 작은 화면800×700도 로컬 확인. 화면 output/weekday-cell-production.png. 배포 임시 swap 준비38358447350 및 정리38359749716 성공, viewport 복원/로컬 서버 종료.

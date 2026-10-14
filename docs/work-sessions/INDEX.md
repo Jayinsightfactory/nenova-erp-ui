@@ -1,3 +1,4 @@
+- [2026-10-14 주광 최신 분배 갱신·윌슨 편집](2026-10-14_weekday-live-refresh.md) — 자동 조회, 초안 보존, STALE 수량 입력 복구.
 - [2026-10-14 물량표 잔량 수식](2026-10-14_volume-remaining-formula.md) — 수기 재고를 더하는 잔량 수식, 0 합계 자동 계산.
 - [2026-10-14 출고분배 선택·키보드·수정이력](2026-10-14_shipment-distribution-keyboard.md) — 버튼 선택, 담당자 즐겨찾기, 품목 A–Z, 원자적 수정이력; 후속 Enter 다음 수량·Ctrl+S 저장.
 - [2026-10-14 출고분배 품목명·전차수 잔량](2026-10-14_distribute-product-readability.md) — 품목 잘림·중복 접두어 정리, 실제 전차수 잔량 표시.
