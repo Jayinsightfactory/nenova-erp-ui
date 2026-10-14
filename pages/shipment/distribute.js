@@ -167,6 +167,9 @@ export default function Distribute() {
   const pivotRequestRef = useRef(0);
   const favoritesRequestRef = useRef(0);
   const accountRef = useRef('');
+  const saveInFlightRef = useRef(false);
+  const anySaveModal = Boolean(saveModal || spModal || showValidate || showHistory);
+  const saveBlocked = saving || loading || distLoading || custLoading || spLoading || fixLoading || shipDaySaving || anySaveModal;
 
   const loadFavoriteProducts = useCallback(async () => {
     const request = ++favoritesRequestRef.current;
@@ -761,7 +764,9 @@ export default function Distribute() {
 
   // 업체기준 저장
   const handleSaveCustItems = async () => {
+    if (saveBlocked || saveInFlightRef.current) return;
     if (!selectedCust || !week) { setErr('업체와 차수를 선택하세요.'); return; }
+    saveInFlightRef.current = true;
     const submittedWeek = week;
     const submittedCust = selectedCust;
     setSaving(true); setErr('');
@@ -794,7 +799,7 @@ export default function Distribute() {
         }, 0),
       });
       if (Number(submittedCust.CustKey) === Number(selectedCust?.CustKey)) selectCust(submittedCust, { skipDraftCheck: true }); // 새로고침
-    } catch(e) { setErr(e.message); } finally { setSaving(false); }
+    } catch(e) { setErr(e.message); } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
   // 비율 분배 자동 계산
@@ -865,8 +870,9 @@ export default function Distribute() {
 
   // 저장
   const handleSave = async () => {
-    if (loading || saving) return;
+    if (saveBlocked || saveInFlightRef.current) return;
     if (!selectedProd || !week) { setErr('품목과 차수를 선택하세요.'); return; }
+    saveInFlightRef.current = true;
     const submittedWeek = week;
     const submittedProd = selectedProd;
     setSaving(true); setErr('');
@@ -894,7 +900,7 @@ export default function Distribute() {
         totalQty: totalSaved,
       });
       if (Number(submittedProd.ProdKey) === Number(selectedProd?.ProdKey)) selectProd(submittedProd, { skipDraftCheck: true }); // 새로고침
-    } catch(e) { setErr(e.message); } finally { setSaving(false); }
+    } catch(e) { setErr(e.message); } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
@@ -908,9 +914,28 @@ export default function Distribute() {
 
   const tabs = ['출고 분배 및 농장 정보','출고일 지정','출고 분배 집계'];
 
+  const handleQuantityEnter = event => {
+    if (event.key !== 'Enter' || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
+      event.repeat || event.isComposing || event.nativeEvent?.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    if (saveBlocked || saveInFlightRef.current) return;
+    const quantities = Array.from(document.querySelectorAll('[data-distribute-qty="true"]'))
+      .filter(input => !input.disabled && !input.readOnly && input.getClientRects().length > 0 &&
+        window.getComputedStyle(input).visibility !== 'hidden');
+    const next = quantities[quantities.indexOf(event.currentTarget) + 1];
+    if (next) { next.focus(); next.select?.(); }
+    else saveButtonRef.current?.focus();
+  };
+
   useEffect(() => {
     const onShortcut = event => {
-      if (saveModal || saving) return;
+      if (event.ctrlKey && !event.altKey && !event.metaKey && String(event.key).toLowerCase() === 's') {
+        event.preventDefault();
+        if (!saveBlocked && !saveInFlightRef.current && !event.repeat && !event.isComposing && event.keyCode !== 229)
+          saveButtonRef.current?.click();
+        return;
+      }
+      if (anySaveModal || saving) return;
       if (event.ctrlKey && event.altKey && ['1', '2', '3', '4'].includes(event.key)) {
         event.preventDefault();
         if (event.key === '1') weekPickerRef.current?.click();
@@ -969,7 +994,7 @@ export default function Distribute() {
           <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('group')} disabled={spLoading || fixLoading || isFixed || !week || !prodGroup} title="선택한 차수와 꽃/품목그룹만 dbo.usp_DistributeOne 경로로 일괄 분배합니다.">
             {spLoading ? '전산분배 중...' : '전산 선택꽃 일괄출고분배'}
           </button>
-          <button ref={saveButtonRef} className="btn btn-primary btn-sm" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saving || loading}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
+          <button ref={saveButtonRef} className="btn btn-primary btn-sm" aria-keyshortcuts="Control+S" onClick={viewMode==='cust' ? handleSaveCustItems : handleSave} disabled={saveBlocked}>{saving?'저장중... / Guardando':'💾 저장 / Guardar'}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleHistory}>📋 내역 조회 / Historial</button>
           <button className="btn btn-success btn-sm" onClick={() => handleExcelDownload()} disabled={excelDownloading}>
             {excelDownloading ? '다운로드중...' : '📥 엑셀 다운 / Excel'}
@@ -978,7 +1003,7 @@ export default function Distribute() {
         </div>
       </div>
       <div style={{padding:'5px 14px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
-        단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회. 저장은 상단 저장 버튼으로만 적용됩니다.
+        단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 저장. Enter 이동만으로 저장되지 않습니다.
       </div>
       {favoriteError && <div role="alert" style={{padding:'6px 14px',background:'var(--red-bg)',color:'var(--red)'}}>즐겨찾기: {favoriteError}</div>}
 
@@ -1270,8 +1295,9 @@ export default function Distribute() {
                                     <td style={{fontSize:11}}>{selectedProd.OutUnit || c.OutUnit || '—'}</td>
                                     <td className="num">{(c.주문수량||0).toFixed(2)}</td>
                                     <td>
-                                      <input type="number" min={0} step={1} value={outVal||''} data-distribute-qty="true" disabled={saving || loading}
+                                      <input type="number" min={0} step={1} value={outVal||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
                                         aria-label={`${c.CustName} ${selectedProd.ProdName} 출고수량 (${selectedProd.OutUnit || c.OutUnit || ''})`}
+                                        onKeyDown={handleQuantityEnter}
                                         onChange={e=>{const v=parseFloat(e.target.value)||0;setOutInputs(o=>({...o,[c.CustKey]:v}));}}
                                         style={{width:75,height:26,border:`1px solid ${outVal>0?'var(--blue)':'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:outVal>0?'var(--blue-bg)':'var(--bg)',fontWeight:outVal>0?700:400}}
                                       />
@@ -1384,8 +1410,9 @@ export default function Distribute() {
                                   <td style={{fontSize:11}}>{item.OutUnit}</td>
                                   <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
                                   <td>
-                                    <input type="number" min={0} step={0.1} value={outVal||''} data-distribute-qty="true" disabled={saving || loading}
+                                    <input type="number" min={0} step={0.1} value={outVal||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
                                       aria-label={`${selectedCust.CustName} ${item.ProdName} 출고수량 (${item.OutUnit || ''})`}
+                                      onKeyDown={handleQuantityEnter}
                                       onChange={e=>setCustEditInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:e.target.value}}))}
                                       style={{width:80,height:26,border:`1px solid ${parseFloat(outVal)>0?'var(--blue)':'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:parseFloat(outVal)>0?'var(--blue-bg)':'var(--bg)',fontWeight:parseFloat(outVal)>0?700:400}}
                                     />

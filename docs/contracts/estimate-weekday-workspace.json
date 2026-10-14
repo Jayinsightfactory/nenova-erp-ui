@@ -7,6 +7,11 @@
   "stockGateClientRetry": "HTTP409 success=false STOCK_GATE_BUSY retryable=true saved=false만 동일 UUID/불변 본문으로 1,2,3,4,5초 최대 5회 재시도. 그 외 불명확 응답은 GET 결과조회만 수행. gate 및 ERP native 정책 변경 없음. 대기 중 입력 잠금/초안 유지.",
   "saveReceipt": "History shortcut opens its outer tools disclosure before scrolling and focusing; durable web audit appears before collapsed legacy EXE/draft history. After success, GET durable operation by exact UUID/customer and year/major audit; require exact business keys and before/after equality. Display saved date changes, confirmation and latest-read comparison separately. Retry is GET-only; stale scope never updates UI.",
   "scope": [
+    "lib/weekdayAutoRefresh.js",
+    "__tests__/weekdayAutoRefresh.test.js",
+    "lib/weekdayWilsonEditing.js",
+    "__tests__/weekdayWilsonEditing.test.js",
+    "docs/plans/weekday-wilson-recovery-2026-10-14.md",
     "lib/weekdayQuantityKeyboard.js",
     "__tests__/weekdayQuantityKeyboard.test.js",
     "docs/plans/weekday-subweek-balance-export-2026-10-13.md",
@@ -458,7 +463,8 @@
       "OutUnit"
     ],
     "defaultDay": "일",
-    "persistence": "data/runtime/weekday-wilson"
+    "persistence": "data/runtime/weekday-wilson",
+    "staleEditing": "Only verified STALE total changes with matching business identity, same unit, fresh currentTotal and valid Wilson quantity offer general=currentTotal-Wilson as an unconfirmed editing suggestion. Explicit changed input stages the canonical total and preserved Wilson revision through existing onEditWilson; unchanged focus/blur never writes. Unknown, UNVERIFIED, unit mismatch, cross-year, excess Wilson, global read failure, disabled dates and existing drafts do not recover. Final distribution and metadata snapshot/revision checks remain mandatory."
   },
   "preallocationDrafts": {
     "identity": [
@@ -544,7 +550,10 @@
     "quantities": "All matrix rows before search/collapse; latest user instruction splits selected weekday into normal/Wilson/day-total columns. Canonical day totals and subweek/major totals include Wilson once. Validate classification unit/expectedTotal/status and prefer matching draft. Unknown stays blank; zero and negative remainders preserved; units separated. Carryover same as matrix.",
     "routes": "Header and matrix both use the same full snapshot exporter and selected cycles; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day/selected cycles blocks download after awaits.",
     "cycleSelection": "Available choices come from the queried cycles, keyed by explicit year+majorWeek; default all, reset on customer/year/center-week scope change. Require at least one choice and lock checkboxes during download. Export only selected cycle columns and values, retain full product rows and original template styles. Same-year title lists chosen weeks without year; cross-year title includes each year, and filename always includes years and weeks. Never infer selection by repeated majorWeek alone. Browser download only; no ERP write.",
-    "cycleSelectionFixtures": ["__tests__/weekdayWebExportSnapshot.test.js", "__tests__/weekdayOriginalWorkbookUi.test.js"]
+    "cycleSelectionFixtures": [
+      "__tests__/weekdayWebExportSnapshot.test.js",
+      "__tests__/weekdayOriginalWorkbookUi.test.js"
+    ]
   },
   "savedWorkbookTemplate": {
     "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",
@@ -553,5 +562,6 @@
     "customer": 533,
     "effects": "Template GET and auto-load preserve all Order/Shipment/Stock/Estimate/Profit/confirmation data and existing drafts. No auto-link/import/apply.",
     "sha256": "0D2BF7505BBDB792C43A116DF037BC125E4BE44F05D7519DDFE747EB7D8FDFB3"
-  }
+  },
+  "backgroundRefresh": "Visible page polls every 30 seconds and on focus/visibility return. Background reads preserve all staged plans, Wilson drafts and active input values, never lock quantity controls or write ERP. Block refresh during preview, save, pending operations and metadata dialogs; discard obsolete scope/request responses. Retain prior complete snapshot on failed refresh and show failure plus last successful time. Manual/final-apply refresh retains mandatory current snapshot revalidation."
 }
