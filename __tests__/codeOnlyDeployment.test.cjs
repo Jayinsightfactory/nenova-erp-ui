@@ -13,6 +13,7 @@ test('push and default dispatch never opt into database migrations', () => {
   assert.match(source, /apply_db_migrations:[\s\S]*?type: boolean[\s\S]*?default: false/);
   assert.match(source, /APPLY_DB_MIGRATIONS: \$\{\{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' \|\| 'false' \}\}/);
   assert.match(source, /envs: APPLY_DB_MIGRATIONS,/);
+  assert.match(source, /if ! DB_SERVER='' NEXT_DIST_DIR=\.next-build npm run build/);
   assert(start > 0 && end > start);
   const outside = source.slice(0, start) + source.slice(end);
   assert.doesNotMatch(outside, /node scripts\/apply-[^\n]+--apply/);

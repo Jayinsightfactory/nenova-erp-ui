@@ -17,6 +17,10 @@ push/default workflow_dispatch는 마이그레이션을 건너뛰고, 별도 승
 `apply_db_migrations=true`인 수동 배포만 실행하게 보호한다. 실 shell 조건에
 node marker를 주입한 테스트로 누락/빈값/false/0/TRUE 모두 SQL 단계0회임을 검사한다.
 EXE/SP/SQL writer, 재고 차수 계산 패치는 이번 배포에 포함하지 않는다.
+배포 빌드 명령만 DB_SERVER를 빈값으로 전달하여 빌드 worker의 기존 자동
+스케줄러 시작을 막는다. 실제 서비스의 기존 정기 업무 설정은 변경하지 않는다.
+로그인 SQL은 SELECT이고, 스모크의 estimate-period-repair GET shipdates 경로도
+SELECT만 실행하며 withActionLog는 GET을 기록하지 않음을 확인했다.
 
 ## 기존 검증
 

@@ -261,7 +261,9 @@ jobs:
             # END EXPLICIT_DB_MIGRATIONS
             echo "=== build ==="
             rm -rf .next-build
-            if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            # Build workers must not connect to SQL or start DB-backed schedulers.
+            # Inline environment is build-only; the running app keeps its existing DB configuration.
+            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
             if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
             echo "=== atomic build swap + pm2 reload ==="
             rm -rf .next-previous
