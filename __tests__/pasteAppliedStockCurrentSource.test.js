@@ -149,6 +149,7 @@ const timerContext = vm.createContext({
   baseStockText: '믹스박스 2박스',
   baseStockExcludedLines: [],
   allProducts: products,
+  productCatalogReady: products.length > 0,
   baseStockMatchesRef: {current: [match(0, '믹스박스', 2, 101)]},
   baseStockRematchRevisionRef: {current: 0},
   mappingCache: {},

@@ -1,0 +1,75 @@
+{
+  "id": "paste-current-master-names",
+  "title": "붙여넣기 기존 매칭키 보존 및 최신 DB 이름 표시",
+  "scope": [
+    "pages/orders/paste.js",
+    "pages/api/orders/mappings.js",
+    "pages/api/orders/customer-mappings.js",
+    "lib/pasteMappingNames.js",
+    "lib/pasteWorkspace.js",
+    "components/orders/MappingStatusModal.js",
+    "__tests__/pasteMappingNames.test.js",
+    "__tests__/pasteMappingNamesApi.test.cjs",
+    "__tests__/pasteCurrentNamesBrowser.test.cjs",
+    "lib/pasteCurrentNames.js",
+    "__tests__/pasteCurrentNames.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_CURRENT_NAMES",
+      "customer": "read",
+      "product": "read",
+      "mappingStore": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
+    }
+  ],
+  "criteriaLedger": {
+    "identity": "Exact positive existing CustKey/ProdKey only; never rematch by name or rewrite aliases/keys.",
+    "names": "Refresh names including cleared DisplayName; preserve quantities, price, units, conversion factors, manual flags, savedAt and completion/delivery status.",
+    "restore": "Restored and late analysis snapshots show current catalog names; name refresh must not invalidate completed-work fingerprint or allow repeat distribution.",
+    "failure": "Failed current-master read never reports a successful current snapshot; preserve existing mappings and show refresh failure.",
+    "history": "Keep original pasted/base-stock text and historical audit snapshots unchanged; no automatic mapping or ERP writes."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same week retain original year, customer/product keys, quantities and completed status while display names refresh; same name with different key never redirects."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductMatching.md",
+    "source": "2026-10-15 actual local FormOrderAdd CLI outputs/paste-current-names-native.txt",
+    "methods": [
+      "GetCustomer",
+      "GetDataProduct",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "Customer",
+      "Product"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/pasteMappingNames.test.js",
+    "__tests__/pasteWorkspace.test.js",
+    "__tests__/pasteCurrentNames.test.js",
+    "__tests__/pasteMappingNamesApi.test.cjs",
+    "__tests__/pasteCurrentNamesBrowser.test.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {createPreanalysisCache,usablePreparedAnalysis} from '../../lib/pasteInboxPreanalysis';
 import {buildPasteWorkspaceFingerprint,savePasteWorkspace,loadPasteWorkspace} from '../../lib/pasteWorkspace';
+import { currentProductLabel, hydratePasteOrderNamesWithCompletion } from '../../lib/pasteCurrentNames.js';
 import Layout from '../../components/Layout';
-import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
+import { apiDelete, apiFetch, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteProductSearch from '../../components/orders/PasteProductSearch';
 import { createPasteMappingSaver, uniquePasteMappingItems } from '../../lib/pasteMappingSave.js';
@@ -1131,6 +1132,9 @@ export default function PasteOrderPage() {
   const [workspaceReady,setWorkspaceReady] = useState(false);
   const [workspaceNotice,setWorkspaceNotice] = useState('');
   const [allProducts, setAllProducts] = useState([]);
+  const productCatalogReady = allProducts.length > 0;
+  const [currentNamesNotice, setCurrentNamesNotice] = useState('');
+  const currentNamesRequestRef = useRef({ generation: 0, promise: null });
   const inboxAnalysisCache=useRef(null);
   const prepareInboxMessage=useCallback((text,targetWeek,options={})=>{
     if(!inboxAnalysisCache.current)inboxAnalysisCache.current=createPreanalysisCache({persistent:true,fetcher:async(raw,fullWeek,cacheOptions)=>{
@@ -1447,6 +1451,44 @@ export default function PasteOrderPage() {
     return () => { cancelled = true; controller.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', loadStatuses); };
   }, [week, orders.map(order => order.custMatch?.CustKey || '').join('|'), pastePresenceRefreshRevision]);
 
+  const refreshCurrentMasterNames = useCallback(() => {
+    const request = currentNamesRequestRef.current;
+    if (request.promise) return request.promise;
+    const generation = ++request.generation;
+    const pending = Promise.all([
+      apiFetch('/api/master?entity=customers', { cache: 'no-store' }),
+      apiFetch('/api/master?entity=products', { cache: 'no-store' }),
+    ]).then(([customers, products]) => {
+      if (generation !== currentNamesRequestRef.current.generation) return;
+      if (customers?.success !== true || products?.success !== true ||
+        !Array.isArray(customers.data) || !Array.isArray(products.data) ||
+        customers.data.length === 0 || products.data.length === 0) {
+        throw new Error('현재 업체·품목 기준정보를 확인하지 못했습니다.');
+      }
+      setAllCustomers(customers.data);
+      setAllProducts(products.data);
+      setCurrentNamesNotice('');
+    }).catch(error => {
+      if (generation === currentNamesRequestRef.current.generation)
+        setCurrentNamesNotice(`현재 업체·품목명 새로고침 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
+    }).finally(() => {
+      if (currentNamesRequestRef.current.promise === pending) currentNamesRequestRef.current.promise = null;
+    });
+    request.promise = pending;
+    return pending;
+  }, []);
+
+  useEffect(() => {
+    const refreshOnFocus = () => { void refreshCurrentMasterNames(); };
+    refreshOnFocus();
+    window.addEventListener('focus', refreshOnFocus);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      currentNamesRequestRef.current.generation += 1;
+      currentNamesRequestRef.current.promise = null;
+    };
+  }, [refreshCurrentMasterNames]);
+
   useEffect(() => {
     const localProductCache = loadCache();
     setMappingCache(localProductCache);
@@ -1460,8 +1502,6 @@ export default function PasteOrderPage() {
         saveCache(d.mappings || {});
       })
       .catch(() => {});
-    apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
-    apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
     loadOrderTemplates();
     Promise.all([apiGet('/api/orders/weeks'),apiGet('/api/auth/me')]).then(([d,identity]) => {
@@ -1788,11 +1828,11 @@ export default function PasteOrderPage() {
   }, [orders]);
 
   useEffect(() => {
-    if (!pendingParseAfterLoad || !pasteText.trim() || parsing || !allProducts.length) return;
+    if (!pendingParseAfterLoad || !pasteText.trim() || parsing || !productCatalogReady) return;
     setPendingParseAfterLoad(false);
     handleParse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingParseAfterLoad, pasteText, allProducts.length]);
+  }, [pendingParseAfterLoad, pasteText, productCatalogReady]);
 
   const loadStockNote = async (targetBaseWeek = stockBaseWeek, { apply = false } = {}) => {
     if (!targetBaseWeek) {
@@ -2033,7 +2073,7 @@ export default function PasteOrderPage() {
       void persistStockNote({forceCreate: stockNoteReview.forceCreate, fingerprint: stockNoteReview.fingerprint});
     }, 250);
     return () => clearTimeout(timer);
-  }, [stockNoteReview, stockNoteSaving, currentStockNoteFingerprint, baseStockMatches, allProducts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stockNoteReview, stockNoteSaving, currentStockNoteFingerprint, baseStockMatches, productCatalogReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const deleteStockNote = async () => {
     const baseWeek = stockBaseWeek || week;
@@ -2069,7 +2109,7 @@ export default function PasteOrderPage() {
   };
 
   useEffect(() => {
-    if (!allProducts.length || !baseStockText.trim()) {
+    if (!productCatalogReady || !baseStockText.trim()) {
       if (!baseStockText.trim()) { baseStockMatchesRef.current = []; setBaseStockMatches([]); }
       return undefined;
     }
@@ -2081,7 +2121,7 @@ export default function PasteOrderPage() {
       rematchBaseStock(text, baseStockMatchesRef.current, exclusions);
     }, 350);
     return () => clearTimeout(t);
-  }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [baseStockText, baseStockExcludedLines, productCatalogReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleParse = async ({ text: overrideText, targetWeek, preparedAnalysis, sourceMessages } = {}) => {
     const inputText = typeof overrideText === 'string' ? overrideText : pasteText;
@@ -2740,6 +2780,22 @@ export default function PasteOrderPage() {
   // 주의: 업체별 실행도 전체 실행과 같은 단일 트랜잭션 API를 사용한다.
   //       각 품목을 따로 저장하면 중간 실패 때 일부만 반영될 수 있으므로 금지한다.
   const [bulkRunning, setBulkRunning] = useState(false);
+  useEffect(() => {
+    if ((!allCustomers.length && !allProducts.length) || parsing || bulkRunning || adjustSaving ||
+      orders.some(order => order.saving)) return;
+    setOrders(current => {
+      // Use the current state in the updater: a late catalog response must not
+      // overwrite a newer analysis or a manually changed match.
+      const refreshed = hydratePasteOrderNamesWithCompletion({
+        orders: current, customers: allCustomers, products: allProducts,
+        week, pasteText, evidenceMessages,
+        completionFingerprint: completionFingerprintRef.current,
+        buildFingerprint: buildPasteWorkspaceFingerprint,
+      });
+      if (refreshed.completionRebased) completionFingerprintRef.current = refreshed.completionFingerprint;
+      return refreshed.orders;
+    });
+  }, [allCustomers, allProducts, orders, week, pasteText, evidenceMessages, parsing, bulkRunning, adjustSaving]);
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
   const [appliedStockLedger,setAppliedStockLedger]=useState(null);
@@ -4087,6 +4143,7 @@ export default function PasteOrderPage() {
         <button type="button" className="paste-back-to-top" onClick={()=>{topRef.current?.scrollIntoView({block:'start',behavior:'auto'});topRef.current?.focus({preventScroll:true});}}
           style={{position:'fixed',right:24,bottom:currentQ?300:20,zIndex:40,padding:'10px 14px',border:'1px solid #1565c0',borderRadius:8,background:'#fff',color:'#1565c0',fontSize:14,fontWeight:700}}>↑ 맨 위로</button>
         {workspaceNotice&&<p role="status" style={{margin:'4px 0 8px',color:'#245b93'}}>{workspaceNotice}</p>}
+        {currentNamesNotice&&<p role="alert" style={{margin:'4px 0 8px',color:'#b42318'}}>{currentNamesNotice}</p>}
         <CollapsibleTop
           storageKey="orders-paste"
           defaultCollapsed
@@ -6025,8 +6082,8 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
               <span style={{ fontWeight: 700, color: '#334155' }}>{row.name}</span>
               <span style={{ color: '#64748b', marginLeft: 6 }}>{stockRowQuantityLabel(row)}</span>
               <span style={{ color: '#94a3b8', margin: '0 8px', fontWeight: 700 }}>=</span>
-              <span style={{ color: statusColor(row.matchStatus), fontWeight: 700 }}>
-                {row.prodKey ? (row.displayName || row.prodName) : statusLabel(row.matchStatus)}
+              <span data-current-base-stock-name={row.prodKey ? String(row.prodKey) : undefined} style={{ color: statusColor(row.matchStatus), fontWeight: 700 }}>
+                {row.prodKey ? currentProductLabel(row, allProducts) : statusLabel(row.matchStatus)}
               </span>
               {row.prodKey && row.matchStatus ? (
                 <span style={{ color: '#94a3b8', fontSize: 10, marginLeft: 6 }}>({statusLabel(row.matchStatus)})</span>

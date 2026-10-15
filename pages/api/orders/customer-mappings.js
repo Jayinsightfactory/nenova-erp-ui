@@ -1,9 +1,19 @@
 import { withAuth } from '../../../lib/auth';
+import { query, sql } from '../../../lib/db';
 import { loadCustomerMappings, saveCustomerMapping, deleteCustomerMapping } from '../../../lib/customerMappings';
+import { hydrateCustomerMappings, readActiveCustomerNames } from '../../../lib/pasteMappingNames';
 
-export default withAuth(function handler(req, res) {
+export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') {
-    return res.status(200).json({ success: true, mappings: loadCustomerMappings(true) });
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const mappings = loadCustomerMappings(true);
+      const customers = await readActiveCustomerNames(query, sql, mappings);
+      return res.status(200).json({ success: true, mappings: hydrateCustomerMappings(mappings, customers) });
+    } catch (error) {
+      console.error('[customer-mappings] current names read failed:', error);
+      return res.status(500).json({ success: false, error: '현재 업체명 조회에 실패했습니다.' });
+    }
   }
 
   if (req.method === 'DELETE') {
