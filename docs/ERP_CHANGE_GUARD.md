@@ -867,3 +867,10 @@ MACHINE_VERIFIED와 담당자의 MANUAL 확인은 구분한다. 가격 누락, �
 Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는 변경하지 않는다.
 누락 단가를 0으로 보정하거나 매칭 미리보기만으로 입고 등록 완료를 표시하지 않는다.
 기존 최종 변환·입고 검증과 연도/세부차수 계약을 그대로 적용한다.
+
+
+## 2026-10-15 committed WAIT_CALC 재계산 복구
+
+실제 설치 Nenova.exe의 FormShipmentDistribution 및 DBMSSQL을 dnSpy CLI로 다시 확인했다. btnFix_Click/btnFixCancel_Click은 확정·취소 뒤 별도 uspStockCalculation 호출로 전체 품목 CALC0을 수행한다. 두 호출 사이 중단은 committed WAIT_CALC를 남길 수 있으며, 이번 상태만으로 최초 중단 원인은 단정하지 않는다.
+운영 읽기 probe에서 2026/40-02 WAIT_CALC/FIX/PendingCalc=1을 확인했다. 사용자 승인으로 기존 native CALC0을 같은 연도·차수에 실행해 IDLE을 확인했다. 46,851개 현재·후속 재고 snapshot과 12개 보호 테이블을 대조했고 수량·금액·확정·견적 원장 변경 없이 복구했다.
+자동 복구는 docs/contracts/pending-stock-recovery.json을 따른다. RUN 강제 해제나 SQL 프로시저 변경은 없다. 독립 프로세스 종료 및 원래 트랜잭션 검증으로 중단된 CALC를 롤백하고 다음 동일 pending 상태를 정상 재계산한다.

@@ -79,6 +79,10 @@ jobs:
             export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
             mkdir -p "$NENOVA_ACTIVITY_DIR"
             test -w "$NENOVA_ACTIVITY_DIR" || exit 1
+            export NENOVA_STOCK_RECOVERY_DIR=/var/lib/nenova/stock-recovery
+            export NENOVA_PENDING_STOCK_RECOVERY=1
+            mkdir -p "$NENOVA_STOCK_RECOVERY_DIR"
+            test -w "$NENOVA_STOCK_RECOVERY_DIR" || exit 1
             node scripts/install-weekday-template.cjs || exit 1
             unset WEEKDAY_TEMPLATE_KEY
             # The still-running previous build writes the old filename until reload.
@@ -289,6 +293,7 @@ jobs:
               pm2 logs nenova-erp --nostream --lines 20 2>&1
               exit 1
             fi
+            node scripts/check-pending-stock-recovery-worker.cjs || exit 1
             echo "✅ 배포 완료"
 
       # 화면은 그려져도 React가 시동 안 되는 "조용한 장애" 감지 (2026-07-10 Turbopack 사고 재발 방지)
