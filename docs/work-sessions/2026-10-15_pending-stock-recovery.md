@@ -18,5 +18,10 @@
 계약: docs/contracts/pending-stock-recovery.json. 설계: docs/plans/pending-stock-recovery-2026-10-15.md.
 운영 세부 진단과 보호 체크섬은 커밋하지 않는 outputs/recover-pending-40-02-result.json 및 outputs/busy-2026-10-15-*에 보관.
 
-## 남은 단계
-필수 검증 완료 후 PR/master/Cafe24 배포 및 worker heartbeat와 운영 gate 읽기 확인.
+## 배포 진행
+PR #1064 검증 통과 후 master merge 9e8c9ef48450d080279135ea6c8f2bbb20b65851 완료. Cafe24 run 38663120974 대기 중. 최신 master 병합 후 주광 회귀와 production build 재검증 통과. 전용 child를 운영 DB에 읽기 전용(candidate 항상 거부)으로 연결해 PENDING_STOCK_IDLE 및 정상 종료 확인. 최종 reviewer는 차단 결함 없음으로 판정했다.
+
+남은 단계: Cafe24 배포 완료, worker heartbeat 및 현재 gate 읽기 확인.
+
+## 배포 실행 경로 보완
+첫 배포는 웹 smoke 15건 통과 후 heartbeat 검사에서 실패했다. 읽기 전용 PM2 probe로 운영이 web.js가 아닌 node_modules/.bin/next로 실행됨을 확인했다. heartbeat/status 파일 모두 없었으며 env opt-in은 설정돼 있었다. 별도 PM2 서비스로 분리하고 Next 환경 로드·프로세스 유지·종료를 검증한다. 기존 web.js 시작 hook은 제거해 중복 실행을 피한다.
