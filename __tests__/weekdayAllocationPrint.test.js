@@ -109,3 +109,16 @@ test('API source contract returns unfixed allocation without any write or canoni
   assert.equal(status,200);assert.equal(result.source,'ALLOCATION');assert.equal(result.readOnly,true);
   assert.equal(result.draftIncluded,false);assert.equal(result.confirmation.unfixedCount,1);assert.equal(result.items[0].Quantity,180);
 });
+
+test('distinct native details of the same business product aggregate by product and cost',()=>{
+  const details=[detail(),detail({SdetailKey:2})];
+  const sameCost=build(scope,details,[day(),day({SdetailKey:2,SdateKey:11})]);
+  assert.equal(sameCost.items.length,1);assert.equal(sameCost.items[0].Quantity,360);
+  assert.equal(sameCost.items[0].Amount,3436364);assert.equal(sameCost.confirmation.unfixedCount,2);
+  const distinctCost=build(scope,details,[day(),day({SdetailKey:2,SdateKey:11,Cost:11000,Amount:1800000,Vat:180000})]);
+  assert.deepEqual(distinctCost.items.map(item=>[item.Cost,item.Quantity]),[[10500,180],[11000,180]]);
+  const outsideDay=build(scope,details,[day(),day({SdetailKey:2,SdateKey:11,ShipmentTimestamp:'2026-10-16 00:00:00.000'})]);
+  assert.equal(outsideDay.items.length,1);assert.equal(outsideDay.items[0].Quantity,180);
+  assert.equal(outsideDay.confirmation.unfixedCount,1);
+  assert.throws(()=>build(scope,[detail(),detail()],[day()]),error=>error.status===409,'duplicate physical key remains invalid');
+});
