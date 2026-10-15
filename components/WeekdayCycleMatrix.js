@@ -10,7 +10,7 @@ import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
 import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
-import { resolveWeekdayPrintReadiness, selectedWeekdayPrintReason } from '../lib/weekdayPrintReadiness.js';
+import { resolveWeekdayPrintReadiness } from '../lib/weekdayPrintReadiness.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
   ? '미확인' : String(Number(value));
@@ -161,7 +161,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
 }
 
 function PrintButton({ label, reason, onClick, className = '', visibleLabel = label }) {
-  return <span title={reason || 'ERP 저장된 확정 견적만 출력 · 미적용 초안 제외'}>
+  return <span title={reason || '저장된 분배 기준 출력 · 확정 여부 무관 · 미적용 초안 제외'}>
     <button type="button" className={className} disabled={Boolean(reason)} aria-label={label}
       onClick={onClick}>{visibleLabel}</button>
   </span>;
@@ -190,7 +190,7 @@ function ConfirmationBadges({ cycle, states, busy, error }) {
   const globalTitle = `${scope}\n대차수 전체 상태: ${stateLabel(record.state)} · 연결경고 ${globalWarnings}건 · 식별불명 ${numberLabel(record.unknownCount)}건`;
   return <details className="wcm-confirmation-disclosure"><summary>ERP 확정 상세 · {stateLabel(record.state)}{globalWarnings > 0 ? ` · 연결경고 ${globalWarnings}건` : ''}</summary><span className="wcm-confirmations">
     <span className={`wcm-confirmation${record.state === 'FIXED' && !globalWarnings ? ' wcm-fixed' : ' wcm-warning'}`} title={globalTitle} aria-label={globalTitle}>{stateLabel(record.state)}{record.state === 'FIXED' ? ' ✓' : ''}{globalWarnings > 0 ? ` · 연결경고 ${globalWarnings}건` : ''}</span>
-    {['PARTIAL','UNFIXED'].includes(record.state) && <span className="wcm-confirmation wcm-warning" title={`${scope}\n미확정 출고 상세 물량은 견적에서 제외 · 인쇄 완전성 보장 아님`}>미확정 물량은 견적에서 제외</span>}
+    {['PARTIAL','UNFIXED'].includes(record.state) && <span className="wcm-confirmation wcm-warning" title={`${scope}\n미확정 물량은 ERP 확정 견적 대조에서 제외 · 이 페이지 분배 기준 인쇄에는 포함`}>ERP 확정 견적 대조는 미확정 제외 · 분배 인쇄는 포함</span>}
     {categories.map((category, index) => {
       const name = String(category.countryFlower || '품종 미확인');
       const state = category.state in confirmationLabels ? category.state : 'UNKNOWN';
@@ -381,8 +381,6 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     && String(result.majorWeek) === String(cycle.majorWeek)));
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
   const printReason = (cycle, dates, mode) => weekdayUnsavedPrintReason(safePlans,cycle,customer?.CustKey ?? customer?.custKey ?? custKey)
-    || (mode==='dates' ? selectedWeekdayPrintReason(safeComparisons,cycle,dates,customer?.CustKey ?? customer?.custKey ?? custKey)
-      : ['NO_SHIPMENT','UNFIXED','INVALID'].includes(quoteReadinessForCycle(cycle)?.state) ? quoteReadinessForCycle(cycle).label : '')
     || (busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
     customerProvided: hasCustomer, printBusy: printBusy || printing }));
   const shipmentRows = matrix.rows.filter((row) => showUnallocated || hasHorizontalShipmentQuantity(row)
@@ -596,8 +594,8 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 className={cycle.offset === 0 ? 'wcm-current-head' : ''}>
                 <div className="wcm-cycle-header"><div className="wcm-cycle-title"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
                   <ConfirmationBadges cycle={cycle} states={confirmationStates} busy={confirmationBusy} error={confirmationError}/></div>
-                  {readiness?.state==='NO_SHIPMENT' && <span className="wcm-readiness" title={readiness.action}>{readiness.label} · {readiness.action}</span>}
-                  {readiness?.state==='UNFIXED' && <span className="wcm-readiness">전체 견적: {readiness.label} · 해당 연도·차수 전체 업체 · 요일 견적은 선택 업체·출고일의 확정만 확인 · <a href="/shipment/fix-status?popup=1" target="_blank" rel="noopener noreferrer">확정 현황</a></span>}
+                  {readiness?.state==='NO_SHIPMENT' && <span className="wcm-readiness">ERP 확정 견적 대조: {readiness.label} · 저장된 분배가 있으면 확정 없이 출력 가능</span>}
+                  {readiness?.state==='UNFIXED' && <span className="wcm-readiness">ERP 확정 견적 대조: {readiness.label} · 해당 연도·차수 전체 업체 · 분배 기준 출력은 확정 여부와 무관 · <a href="/shipment/fix-status?popup=1" target="_blank" rel="noopener noreferrer">확정 현황</a></span>}
                   {readiness?.state==='INVALID' && <details className="wcm-readiness wcm-warning"><summary>{readiness.label} · 상세</summary><pre>{readiness.reason || readiness.action}</pre></details>}
                   {readiness?.state==='ERROR' && <div className="wcm-readiness-failure"><details className="wcm-quote-error"><summary>견적 조회 실패 · 상세</summary><pre>{readiness.reason}</pre></details><button type="button" disabled={disabled || typeof onRetryQuote!=='function'} onClick={()=>onRetryQuote(cycle)}>다시 조회</button></div>}
                   <span className="wcm-muted">{cycle.startDate} ~ {cycle.endDate}</span>
@@ -751,7 +749,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       <table style={{width:170+matrix.cycles.reduce((sum,cycle)=>sum+displayCycleColumns(cycle,wilsonDay).reduce((width,column)=>
         width+(column.kind==='remainingMajor'?3*44:column.kind==='remaining01'?48:46),0),0)}}>
         <caption>목→수 · 기준 대비 분배 잔량(ERP 재고 아님) · 처리된 선출고 분류량은 큰 차수 잔량에만 반영 · 미확정/초안 예상은 별도 표시 · 변경값 아래 (최초값) · 노랑=변경 · 파랑=미적용 초안 · 품목 행 마우스 강조 · 가로 스크롤로 차수 연결.
-          출력은 ERP 저장된 확정 견적만 포함하며 화면 초안은 제외합니다. 기준 화면 1920×1080 / 100%.</caption>
+          출력은 확정 여부와 관계없이 저장된 분배를 기준으로 하며 화면 초안은 제외합니다. 기준 화면 1920×1080 / 100%.</caption>
         <colgroup><col className="wcm-product-col" />{matrix.cycles.flatMap(cycle=>displayCycleColumns(cycle,wilsonDay)).flatMap((column, index) => Array.from({length:column.kind==='remainingMajor'?3:1},(_,part) => <col key={`${index}|${part}`} className={column.kind==='remainingMajor'?'wcm-summary-col':column.kind.startsWith('initial')?'wcm-baseline-col':column.kind==='remaining01'?'wcm-remainder-col':'wcm-day-col'} />))}</colgroup>
         {renderHeader()}
         <tbody>{visibleRows.map((row,rowIndex) => {

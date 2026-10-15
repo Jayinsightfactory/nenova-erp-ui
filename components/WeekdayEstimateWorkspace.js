@@ -1081,7 +1081,7 @@ export default function WeekdayEstimateWorkspace() {
     try {
       const requests=buildWeekdayPrintRequests({cycle,dates,mode,custKey:Number(customer.CustKey)});
       const results=await Promise.all(requests.map(async scope=>{
-        const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(scope)});
+        const response=await fetch('/api/estimate/weekday-allocation-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(scope)});
         const result=await response.json();
         if(!response.ok || result.success!==true) throw new Error(`${scope.dates[0] || '전체 차수'}: ${result.error || '견적 조회 실패'} · 전체 미리보기를 열지 않았습니다.`);
         return validateWeekdayPrintResponse(scope,result);
@@ -1095,7 +1095,7 @@ export default function WeekdayEstimateWorkspace() {
       }
       if(request!==printRequest.current || requestedScope!==currentScope.current) return;
       const bundle=buildWeekdayEstimatePrintBundle({requests,results,printDate:new Date().toISOString().slice(0,10),logoDataUrl});
-      if(!bundle.html) {setMessage(bundle.note || '선택 범위의 확정 견적 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return {success:true,empty:true};}
+      if(!bundle.html) {setMessage(bundle.note || '선택 범위의 저장된 분배 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return {success:true,empty:true};}
       setPrintPreview(bundle);
       if(bundle.emptyDates.length)setMessage(bundle.note);
       return {success:true};
@@ -1313,7 +1313,7 @@ export default function WeekdayEstimateWorkspace() {
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       <div role="status" style={{fontSize:13,color:autoRefresh.error?'#9f1c16':'#52667f',marginTop:5,overflowWrap:'anywhere'}}>전산 자동 갱신 30초 · {autoRefresh.running?'최신 분배 조회 중 · 입력 유지':automaticBlocked?'작업 중 · 자동 갱신 대기':'입력 초안 유지'} · 마지막 성공 {autoRefresh.lastSuccess?new Date(autoRefresh.lastSuccess).toLocaleTimeString('ko-KR',{hour12:false}):'아직 없음'}{autoRefresh.error && ` · 최신 조회 실패: ${autoRefresh.error} · 이전 조회값과 입력을 유지합니다. 전산 새로고침으로 다시 확인하세요.`}</div>
       <details className="weekday-guidance"><summary>안내·작업 기준 펼치기</summary><div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
-      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록입니다. 전체 견적은 대차수 전체 확정을, 요일 견적은 선택 업체·출고일의 확정과 견적 연결을 검사합니다.</div>
+      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록입니다. 전체·요일별 인쇄는 저장된 분배 기준이며 확정 여부와 무관합니다. 미적용 초안은 먼저 적용하거나 삭제하세요.</div>
       </details>
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
       {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':pendingApply.metadataOnly?'윌슨 저장 결과 확인':'같은 작업 저장 상태 다시 조회'}</button></div>}
@@ -1529,7 +1529,7 @@ export default function WeekdayEstimateWorkspace() {
       <section ref={printDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
         <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1,minWidth:0}}>{printPreview.label} · {printPreview.documentCount}문서 / {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button data-print-close autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
         <div className="muted">{printPreview.note} · 미적용 초안 제외 · A4 / 배율 100% 권장</div>
-        <iframe ref={previewFrame} title="전산 확정 견적서" srcDoc={printPreview.html}/>
+        <iframe ref={previewFrame} title="저장 분배 기준 견적서" srcDoc={printPreview.html}/>
       </section>
     </div>}
   </main>;
