@@ -484,3 +484,10 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 ## 2026-10-13 알스트로 추가/취소 실패 행 구분
 
 설치 EXE FormShipmentDistribution GetShipmentMaster/btnSave_Click/ShipmentDate를 dnSpy CLI로 다시 확인했다. 이번 수정은 웹 오류 문자열만 보완하며 native 저장순서·수량·View 조인과 모든 원장을 보존한다. 운영2026/41-02 수경원예436 Mila2429의 주문/분배/날짜16단과 왕자원예478의32단이 존재한다. Mlla90은 해당차수 조회0행이다. Log11425는 취소2429 이후 추가90의 가용재고 검사에서 실패했고, CANCEL 재고차단이 아니다. 전년도2025/41-02는 대응행0개. 두 대상업체 ViewOrder/ViewShipment 노출, MasterFix0, 견적 GetDetail0/DetailSplit1/PeriodExact1의 기존 진단을 기록하고 보정하지 않는다. 저장매칭은 manual2429로 유지돼 있다. UI는 실패 항목의 추가/취소·업체·별칭·전산품목키·연도차수를 표시하고, 유사품목 자동치환·force 우회·운영 재실행을 하지 않는다.
+
+
+## 2026-10-15 committed WAIT_CALC 재계산 복구
+
+실제 설치 Nenova.exe의 FormShipmentDistribution 및 DBMSSQL을 dnSpy CLI로 다시 확인했다. btnFix_Click/btnFixCancel_Click은 확정·취소 뒤 별도 uspStockCalculation 호출로 전체 품목 CALC0을 수행한다. 두 호출 사이 중단은 committed WAIT_CALC를 남길 수 있으며, 이번 상태만으로 최초 중단 원인은 단정하지 않는다.
+운영 읽기 probe에서 2026/40-02 WAIT_CALC/FIX/PendingCalc=1을 확인했다. 사용자 승인으로 기존 native CALC0을 같은 연도·차수에 실행해 IDLE을 확인했다. 46,851개 현재·후속 재고 snapshot과 12개 보호 테이블을 대조했고 수량·금액·확정·견적 원장 변경 없이 복구했다.
+자동 복구는 docs/contracts/pending-stock-recovery.json을 따른다. RUN 강제 해제나 SQL 프로시저 변경은 없다. 독립 프로세스 종료 및 원래 트랜잭션 검증으로 중단된 CALC를 롤백하고 다음 동일 pending 상태를 정상 재계산한다.
