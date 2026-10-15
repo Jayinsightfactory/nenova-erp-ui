@@ -22,3 +22,8 @@
 
 ## 검증 보완
 박스 병기 포함 Chromium 실측 overflow0건, 세표폭179.99935mm. 긴 수량은 괄호앞줄바꿈, 폰트·열폭불변. unit14개 및 Typography7+bundle 통과, 전체ERP계약/dnSpy/manifest112개/writeguard 통과. 원본DB probe와생성미리보기는 비공개output에만보관하며커밋제외.
+
+최종 수정: 수량괄호앞wbr로overflow0건확인. Typography7/분배출력14/bundle포함집중22검사, 전체ERP계약, build통과. PR1072 CI첫실행은관련없는입고테스트 Chrome WS시작30초timeout이었고동일코드재실행1m28s성공. master6f51f398병합, 배포38670239274진행중.
+
+## 완료 결과
+PR1072 master6f51f398 운영배포38670239274성공. 운영smoke15/15, recoveryheartbeat검증통과. Chrome1920×1080/100%에서새버전확인후10/18미확정41행출력:돈셀180단(12),문라이트630단(42),금액기존유지. 표179.99935mm/상단88.23027mm, 겹침없음/셀overflow0, consoleerror0, Escape후출력버튼초점복귀. 화면 output/weekday-native-layout-production.png. 실제종이출력은하지않음. 임시탭/viewport/localserver정리. 임시buildswap정리workflow38670874283결과확인.
