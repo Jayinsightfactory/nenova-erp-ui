@@ -73,5 +73,17 @@
     "ProdKey",
     "OutUnit"
   ],
-  "businessIdentityNote": "Repository-wide manifest template; CustKey is not present in this read-only StockHistory source."
+  "businessIdentityNote": "Repository-wide manifest template; CustKey is not present in this read-only StockHistory source.",
+  "flowerTotals": {
+    "source": "current filtered matrix product rows",
+    "grouping": [
+      "FlowerName",
+      "OutUnit"
+    ],
+    "exclude": "Hydrangea or 수국 flower; unknown flower uses product text fallback",
+    "unknownUnit": "never combine unknown units as same unit",
+    "sideEffects": "none",
+    "ui": "compact signed net summary",
+    "xlsx": "same-sheet separate summary below product table"
+  }
 }

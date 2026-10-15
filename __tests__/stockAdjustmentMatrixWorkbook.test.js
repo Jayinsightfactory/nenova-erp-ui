@@ -42,7 +42,12 @@ test('single adjustment sheet preserves precise values, blank/zero/invalid, lite
   assert.equal(sheet.autoFilter, 'A6:H7');
   assert.match(sheet.getCell('A2').value, /2026.*41.*rose/);
   assert.match(sheet.getCell('A3').value, /StockHistory.*AfterValue/);
-  assert.equal(sheet.rowCount, 7, 'no mixed-unit grand total is added');
+  assert.equal(sheet.getCell('A10').value, '품종별 합계 · 수국 제외');
+  assert.equal(sheet.getCell('A13').value, '합계');
+  assert.equal(sheet.getCell('B13').value, '+Rose');
+  assert.equal(sheet.getCell('B13').type, ExcelJS.ValueType.String);
+  assert.equal(sheet.getCell('H13').value, '확인 필요');
+  assert.equal(sheet.getCell('G13').value, null);
 });
 
 test('special period columns remain visible; empty workbook retains every catalog week and filter', async () => {
@@ -58,7 +63,7 @@ test('special period columns remain visible; empty workbook retains every catalo
   assert.equal(book.worksheets[0].columnCount, matrix.weeks.length + 4, 'all annual matrix weeks are exported');
   const empty = await reopen(buildStockAdjustmentMatrix([], { orderYear: 2026, major: '41' }, ['41-1', '41-2']));
   assert.equal(empty.worksheets.length, 1);
-  assert.equal(empty.worksheets[0].rowCount, 6);
+  assert.equal(empty.worksheets[0].rowCount, 11);
   assert.equal(empty.worksheets[0].autoFilter, 'A6:F6');
   assert.equal(empty.worksheets[0].getCell('D6').value, '41-1');
   assert.equal(empty.worksheets[0].getCell('E6').value, '41-2');
@@ -94,7 +99,7 @@ test('only valid event rows with exact zero net get whole-row green plus numeric
   matrix.rows.push({ key: 'no-events', prodKey: 'no-events', productName: '이력 없음', unit: '단', cells: {}, net: 0, eventCount: 0, invalidCount: 0 });
   const book = await reopen(matrix);
   const sheet = book.worksheets[0];
-  for (let r = 7; r <= sheet.rowCount; r += 1) {
+  for (let r = 7; r <= 6 + matrix.rows.length; r += 1) {
     const id = sheet.getCell(r, 1).value;
     const green = id === 'zero' || id === 'cancel';
     for (let c = 1; c <= 7; c += 1) {
@@ -109,4 +114,41 @@ test('only valid event rows with exact zero net get whole-row green plus numeric
   }
   assert.match(sheet.getCell('A4').value, /연한 초록 행 = 차수별 조정 합계 0/);
   assert.match(sheet.getCell('A5').value, /차수별 조정 합계 0: 2행/);
+});
+
+test('same-sheet flower summary excludes hydrangea, separates units and keeps exact signed/tiny/zero values', async () => {
+  const matrix = buildStockAdjustmentMatrix([
+    { ...base, prodKey: '1', flower: '장미', afterValue: 2.125 },
+    { ...base, prodKey: '2', flower: '장미', orderWeek: '41-2', afterValue: -2.125 },
+    { ...base, prodKey: '3', flower: '장미', unit: '박스', afterValue: 0.0001 },
+    { ...base, prodKey: '4', flower: '튤립', afterValue: -1e-20 },
+    { ...base, prodKey: '5', flower: '수국', afterValue: 999 },
+  ], { orderYear: 2026, major: '41' }, ['41-3']);
+  delete matrix.flowerTotals; // Older API payloads use the exact same pure helper fallback.
+  const book = await reopen(matrix);
+  assert.equal(book.worksheets.length, 1);
+  const sheet = book.worksheets[0];
+  const productEnd = 6 + matrix.rows.length;
+  assert.equal(sheet.autoFilter, 'A6:G' + productEnd, 'filter excludes the summary block');
+  assert.equal(sheet.getCell(productEnd + 1, 1).value, null);
+  assert.equal(sheet.getCell(productEnd + 2, 1).value, null);
+  assert.equal(sheet.getCell(productEnd + 3, 1).value, '품종별 합계 · 수국 제외');
+  assert.match(sheet.getCell(productEnd + 4, 1).value, /품종\/단위별 합계.*단위 미확인은 품목별 분리/);
+  assert.deepEqual(sheet.getRow(productEnd + 5).values.slice(1), ['구분', '품종', '단위', '41-1', '41-2', '41-3', '순조정']);
+  const totals = [];
+  for (let r = productEnd + 6; r <= sheet.rowCount; r += 1) totals.push({ row: r, flower: sheet.getCell(r, 2).value, unit: sheet.getCell(r, 3).value });
+  assert.equal(totals.length, 3);
+  assert.ok(totals.every((row) => row.flower !== '수국'));
+  const zero = totals.find((row) => row.flower === '장미' && row.unit === '단').row;
+  assert.equal(sheet.getCell(zero, 4).value, 2.125);
+  assert.equal(sheet.getCell(zero, 5).value, -2.125);
+  assert.equal(sheet.getCell(zero, 6).value, null);
+  assert.equal(sheet.getCell(zero, 7).value, 0);
+  for (let c = 1; c <= 7; c += 1) assert.equal(sheet.getCell(zero, c).fill.fgColor.argb, 'FFEAF5ED');
+  assert.match(sheet.getCell(zero, 7).note, /합계 0/);
+  const tinyPositive = totals.find((row) => row.unit === '박스').row;
+  const tinyNegative = totals.find((row) => row.flower === '튤립').row;
+  assert.equal(sheet.getCell(tinyPositive, 7).value, 0.0001);
+  assert.equal(sheet.getCell(tinyNegative, 7).value, -1e-20);
+  for (const r of [tinyPositive, tinyNegative]) assert.equal(sheet.getCell(r, 7).numFmt, '+0.##############E+00;-0.##############E+00;0');
 });
