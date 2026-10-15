@@ -33,6 +33,34 @@ const fixture = Object.freeze({
 });
 const formatNumber = (n) => Number(n || 0).toLocaleString();
 const build = (overrides = {}) => buildEstimateHtml({ ...fixture, ...overrides });
+test('weekday native layout has ReportEstimate metric geometry and independent footer without changing legacy',()=>{
+  const legacy=build(),native=build({nativeLayout:true});
+  assert.doesNotMatch(legacy,/native-estimate|native-report-header|native-footer/);
+  assert.equal(build({nativeLayout:false}),legacy);
+  assert.doesNotMatch(build({nativeLayout:true,printFormat:'statement'}),/native-estimate/);
+  assert.match(native,/<div class="native-estimate"><div class="native-report-header">/);
+  assert.equal(cssRule(native,'.native-report-header').height,'88.23121mm');
+  assert.equal(cssRule(native,'.native-estimate .hdr-outer').top,'17.43791mm');
+  assert.equal(cssRule(native,'.native-estimate .hdr-left').width,'86.17325mm');
+  assert.equal(cssRule(native,'.native-estimate .hdr-right').left,'87.6817mm');
+  assert.equal(cssRule(native,'.native-estimate .native-amount').top,'79.5mm');
+  assert.equal(cssRule(native,'.native-estimate .item-table')['table-layout'],'fixed');
+  assert.equal(cssRule(native,'.native-estimate .item-table').width,'180mm');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').height,'6.35mm');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').padding,'0 1mm 0 .5mm !important');
+  const columns=[...native.match(/<table class="item-table">([\s\S]*?)<thead>/)[1].matchAll(/width:([\d.]+)%/g)].map(match=>Number(match[1]));
+  assert.deepEqual(columns,[10.588235,58.235287,17,15.823528,23.294115,21.176469,33.882366].map(width=>width/180*100));
+  assert.ok(Math.abs(columns.reduce((sum,value)=>sum+value,0)-100)<.00001,'native weight ratios use the table inner area, avoiding collapsed border expansion');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td:nth-child(3)')['white-space'],'normal');
+  const longQuantity={...rows[0],UnitQuantity:'6900송이(230)<script>x</script>'};
+  const wrapping=build({nativeLayout:true,rows:[longQuantity]});
+  assert.match(wrapping,/6900송이<wbr>\(230\)&lt;script&gt;x&lt;\/script&gt;/,'only trusted break markup is inserted after escaping the quantity');
+  assert.doesNotMatch(build({rows:[longQuantity]}),/<wbr>/,'legacy quantity markup remains unchanged');
+  assert.equal(cssRule(native,'.native-estimate .native-footer')['margin-top'],'1.058333mm');
+  assert.equal(cssRule(native,'.native-estimate .native-footer td').height,'7.5mm');
+  assert.doesNotMatch(native,/<tfoot>/,'native report footer uses its own six columns once, not item columns');
+  for(const quantity of ['12단','8단','-1단'])assert.ok(native.includes(quantity)&&legacy.includes(quantity));
+});
 const tbody = (html) => html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
 const itemLines = (html) => [...tbody(html).matchAll(/<tr>([\s\S]*?)<\/tr>/g)]
   .map((match) => [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)]
