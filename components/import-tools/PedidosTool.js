@@ -193,7 +193,7 @@ export default function PedidosTool({ active = true }) {
       .pedidos-tool { width: 100%; min-width: 0; color: #172b4d; font-size:14px; line-height:1.5; }
       .pedidos-source, .pedidos-cycles, .pedidos-subweeks, .pedidos-auto-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
       .pedidos-source button, .pedidos-cycles button, .pedidos-subweeks button, .pedidos-secondary { background:#edf2fa; color:#234775; border:1px solid #cbd5e1; }
-      button[aria-pressed=true] { background:#2457c5; color:white; border-color:#2457c5; }
+      .pedidos-tool button[aria-pressed="true"] { background:#2457c5; color:white; border-color:#2457c5; }
       .pedidos-cycles button { flex:1 1 145px; white-space:normal; }
       .pedidos-cycles small { display:block; font-weight:400; }
       .pedidos-country { max-width:260px; margin:12px 0; }

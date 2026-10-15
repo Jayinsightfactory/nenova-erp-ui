@@ -43,5 +43,6 @@ test('UI matrix is page-height, horizontally scrollable, sticky product/header, 
   assert.match(ui, /cycles.map\(cycle => <button type="button"/); assert.match(ui, /response\?\.subweeks.map/);
   assert.match(ui, /scope="row"/); assert.match(ui, /role="region" aria-label="전산 품목별 업체 원수량 행렬"/);
   assert.match(ui, /overflow-x: auto/); assert.match(ui, /position:sticky; left:0/); assert.match(ui, /focus-visible/);
+  assert.ok(ui.includes('.pedidos-tool button[aria-pressed="true"]'), 'selected state must outrank grouped default button styles');
   assert.doesNotMatch(ui, /(?:^|[;{]\s*)(?:max-)?height:\s*\d+(?:px|vh)/m);
 });
