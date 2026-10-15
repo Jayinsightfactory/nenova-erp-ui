@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
-import { PEDIDOS_COUNTRIES, generatePedidos, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
+import { buildCountryOrderMatrix } from '../../lib/countryOrderSource';
+import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
 // Native React, browser-only file conversion. Parent owns menu and shared storage.
-export default function PedidosTool() {
+export default function PedidosTool({ active = true }) {
+  const [sourceMode, setSourceMode] = useState('erp');
+  const [cycles, setCycles] = useState([]);
+  const [cycleKey, setCycleKey] = useState('');
+  const [orderWeek, setOrderWeek] = useState('');
+  const [response, setResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [reload, setReload] = useState(0);
+  const requestGuard = useRef(createCountryOrderRequestGuard());
+  const contextGeneration = useRef(0);
   const [country, setCountry] = useState('');
   const [year, setYear] = useState('');
   const [week, setWeek] = useState('');
@@ -14,8 +25,74 @@ export default function PedidosTool() {
   const [error, setError] = useState('');
   const [downloaded, setDownloaded] = useState('');
 
+  function clearResults() {
+    contextGeneration.current += 1;
+    setResults(null); setContext(null); setError(''); setDownloaded(''); setBusy(false);
+  }
   function invalidate(setter, value) {
-    setter(value); setResults(null); setContext(null); setError(''); setDownloaded('');
+    clearResults(); setter(value);
+  }
+  function changeSource(value) {
+    if (value === sourceMode) return;
+    requestGuard.current.invalidate(); setResponse(null); setLoading(false);
+    invalidate(setSourceMode, value);
+  }
+  function changeCountry(value) {
+    requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
+    invalidate(setCountry, value);
+  }
+  function changeCycle(value) {
+    if (value === cycleKey) return;
+    requestGuard.current.invalidate(); setResponse(null); setOrderWeek(''); setLoading(false);
+    invalidate(setCycleKey, value);
+  }
+
+  useEffect(() => {
+    clearResults(); setResponse(null); setOrderWeek('');
+    if (!active || sourceMode !== 'erp') { requestGuard.current.invalidate(); setLoading(false); return; }
+    const selected = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
+    const scopeKey = country && selected ? `${country}/${selected.key}` : null;
+    const request = requestGuard.current.begin(scopeKey);
+    const params = new URLSearchParams();
+    if (country) params.set('country', country);
+    if (country && cycleKey && selected) { params.set('year', String(selected.year)); params.set('majorWeek', selected.majorWeek); }
+    setLoading(true);
+    (async () => {
+      try {
+        const result = await fetch(`/api/import/tools/country-orders${params.size ? `?${params}` : ''}`, { signal: request.signal, cache: 'no-store' });
+        const body = await result.json();
+        if (request.signal.aborted) return;
+        if (!result.ok || !body.success) throw new Error(body.message || body.error || '전산 주문 조회에 실패했습니다. 다시 조회하세요.');
+        if (!request.accepts(body)) throw new Error('조회 범위가 현재 선택과 다릅니다. 다시 조회하세요.');
+        if (!Array.isArray(body.cycles) || body.cycles.length !== 6 || !Array.isArray(body.rows) || !Array.isArray(body.subweeks)) throw new Error('전산 조회 응답이 불완전합니다. 다시 조회하세요.');
+        setCycles(body.cycles); setResponse(country ? body : null);
+        setOrderWeek(body.subweeks[0]?.orderWeek ?? '');
+      } catch (err) {
+        if (!request.signal.aborted) { setResponse(null); setError(err.message || '전산 주문 조회에 실패했습니다.'); }
+      } finally { if (!request.signal.aborted) setLoading(false); }
+    })();
+    return () => requestGuard.current.invalidate();
+    // cycles are response metadata, never an additional query trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, sourceMode, country, cycleKey, reload]);
+
+  const matrixState = useMemo(() => {
+    if (!response || !orderWeek || loading) return { matrix: null, error: '' };
+    try { return { matrix: buildCountryOrderMatrix(response, orderWeek), error: '' }; }
+    catch (err) { return { matrix: null, error: err.message || '전산 행렬을 확인하지 못했습니다.' }; }
+  }, [response, orderWeek, loading]);
+  const matrix = matrixState.matrix;
+  const selectedCycle = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
+  const matchesScope = Boolean(matrix && response?.scope?.scopeKey === `${country}/${selectedCycle?.key}` && matrix.scope.country === country && matrix.scope.year === selectedCycle?.year && matrix.scope.orderWeek === orderWeek);
+  const canGenerate = active && !loading && !busy && matchesScope && matrix.blockers.length === 0;
+
+  function convertMatrix() {
+    clearResults();
+    if (!canGenerate) return;
+    try {
+      const outputs = generatePedidosFromMatrix(matrix);
+      setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: '전산 원주문 (읽기 전용)' }); setResults(outputs);
+    } catch (err) { setError(err.message || '발주서 생성에 실패했습니다.'); }
   }
 
   async function convert(event) {
@@ -26,17 +103,20 @@ export default function PedidosTool() {
     if (!/\.(xlsx|xls)$/i.test(file.name)) { setError('.xlsx 또는 .xls 파일을 선택하세요.'); return; }
     if (file.size > 20 * 1024 * 1024) { setError('20MB 이하 파일을 사용하세요.'); return; }
     setBusy(true);
+    const generation = contextGeneration.current;
     try {
       const cleanWeek = sanitizePedidosWeek(week);
       const workbook = readPedidosWorkbook(await file.arrayBuffer());
+      if (generation !== contextGeneration.current) return;
       const outputs = generatePedidos(workbook, country, cleanWeek, { year: Number(year) });
       setContext({ country, year, week: cleanWeek, sourceName: file.name });
       setResults(outputs);
-    } catch (err) { setError(err.message || '파일 변환에 실패했습니다.'); }
-    finally { setBusy(false); }
+    } catch (err) { if (generation === contextGeneration.current) setError(err.message || '파일 변환에 실패했습니다.'); }
+    finally { if (generation === contextGeneration.current) setBusy(false); }
   }
 
   function download(output) {
+    if (!active || loading || busy || !results?.includes(output) || (sourceMode === 'erp' && !canGenerate)) return;
     setError('');
     let url;
     try {
@@ -52,8 +132,24 @@ export default function PedidosTool() {
 
   const noItems = results !== null && (results.length === 0 || results.every(output => output.itemCount === 0));
   return <section className="pedidos-tool" aria-label="국가별 발주서 파일 변환">
-    <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>원본 엑셀을 국가별 발주 양식으로 변환하고 내려받으세요.</p></div><span className="pedidos-free">무료 · 브라우저 내 처리</span></div>
-    <form onSubmit={convert}>
+    <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>전산 원주문 또는 Excel 원본을 기존 국가별 양식으로 내려받으세요.</p></div><span className="pedidos-free">전산 읽기 전용 · 원장 변경 없음</span></div>
+    <div className="pedidos-source" role="group" aria-label="발주 수량 원천">
+      <button type="button" aria-pressed={sourceMode === 'erp'} onClick={() => changeSource('erp')}>전산에서 자동 불러오기</button>
+      <button type="button" aria-pressed={sourceMode === 'upload'} onClick={() => changeSource('upload')}>Excel 원본 업로드</button>
+    </div>
+    {sourceMode === 'erp' ? <div className="pedidos-auto">
+      <label className="pedidos-country">국가<select value={country} disabled={!cycles.length} onChange={event => changeCountry(event.target.value)}><option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{importCountryLabel(value)}</option>)}</select></label>
+      <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div>
+      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{response?.subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => invalidate(setOrderWeek, subweek.orderWeek)}>{subweek.orderWeek}차</button>)}</div>
+      <div className="pedidos-auto-actions"><button type="button" disabled={!canGenerate} onClick={convertMatrix}>미리보기 생성</button><button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button><span>{loading ? '전산 원주문 조회 중…' : response && !response.subweeks.length ? '선택 범위에 주문 없음' : !country ? '국가를 선택하면 자동으로 조회합니다.' : '세부차수의 원수량을 확인한 뒤 생성하세요.'}</span></div>
+      {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
+      {matrix && <>
+        <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 수량을 환산하지 않은 원주문입니다.</p>
+        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>수량 확인 필요 · 파일 생성 차단</strong><ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table><thead><tr><th scope="col">품목</th><th scope="col">단위</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead><tbody>{matrix.rows.map(row => <tr key={row.key}><th scope="row">{row.label ?? row.name}</th><td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>{matrix.customers.map(customer => <td key={customer.key}>{(row.quantities[customer.key] ?? 0).toLocaleString('ko-KR', { maximumFractionDigits: 20 })}</td>)}<td><strong>{row.total.toLocaleString('ko-KR', { maximumFractionDigits: 20 })}</strong></td></tr>)}</tbody></table></div>
+      </>}
+    </div> : <form onSubmit={convert}>
       <fieldset disabled={busy}>
         <legend>1. 국가·차수와 원본 파일 선택</legend>
         <div className="pedidos-fields">
@@ -66,7 +162,7 @@ export default function PedidosTool() {
           <button type="submit" disabled={!country || !year || !week.trim() || !file}>{busy?'변환 중…':'미리보기 생성'}</button>
         </div>
       </fieldset>
-    </form>
+    </form>}
     <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 원본 파일과 다운로드 양식은 유지됩니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
@@ -95,6 +191,18 @@ export default function PedidosTool() {
     </div>}
     <style jsx>{`
       .pedidos-tool { width: 100%; min-width: 0; color: #172b4d; font-size:14px; line-height:1.5; }
+      .pedidos-source, .pedidos-cycles, .pedidos-subweeks, .pedidos-auto-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+      .pedidos-source button, .pedidos-cycles button, .pedidos-subweeks button, .pedidos-secondary { background:#edf2fa; color:#234775; border:1px solid #cbd5e1; }
+      button[aria-pressed=true] { background:#2457c5; color:white; border-color:#2457c5; }
+      .pedidos-cycles button { flex:1 1 145px; white-space:normal; }
+      .pedidos-cycles small { display:block; font-weight:400; }
+      .pedidos-country { max-width:260px; margin:12px 0; }
+      .pedidos-auto-actions span { color:#54657d; }
+      .pedidos-matrix th:first-child { position:sticky; left:0; min-width:300px; max-width:440px; white-space:normal; background:#eef2f7; z-index:2; }
+      .pedidos-matrix thead th:first-child { z-index:3; }
+      .pedidos-matrix tbody th { top:auto; text-align:left; }
+      .pedidos-matrix td { text-align:right; }
+      button:focus-visible, input:focus-visible, select:focus-visible, .pedidos-preview:focus-visible, summary:focus-visible { outline:3px solid #ee9700; outline-offset:3px; }
       .pedidos-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
       .pedidos-heading h2 { font-size:18px; } .pedidos-heading p { margin:0; color:#54657d; }
       .pedidos-free { border-radius:6px; background:#e9f6ee; color:#21653e; padding:5px 10px; font-size:12px; font-weight:600; }
