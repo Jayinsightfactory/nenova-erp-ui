@@ -79,7 +79,7 @@ test('Colombia: category order, continuation, all conversions, MiniCarnation las
   assert.equal(sheet(out[3]).D4.f, 'B4+C4'); assert.equal(sheet(out[4]).D4.v, 9);
 });
 
-test('Netherlands: CL totals precedence, repeated raw sums, multipliers, split, duplicate overwrite, B4 freeze', () => {
+test('Netherlands: totals precedence, repeated raw sums, stems pass-through, duplicate sum warning, B4 freeze', () => {
   const wb = fixture([
     ['country header'], ['name', 'CL2', 'CL2', 'CL1', 'CL1 Total'],
     ['Tulip hyacinth', 1, 2, 99, 4], ['[EZ] Hyacinth A', 0, 1, 99, 2],
@@ -89,9 +89,10 @@ test('Netherlands: CL totals precedence, repeated raw sums, multipliers, split, 
   const outputs = generatePedidos(wb, 'Netherlands', 'W');
   assert.deepEqual(outputs.map(o => o.filename), ['W_Holex.xlsx', 'W_EZ.xlsx']);
   assert.deepEqual(outputs[0].cls, ['CL1', 'CL2']);
-  assert.equal(sheet(outputs[0]).B4.v, 40); assert.equal(sheet(outputs[0]).C4.v, 30);
+  assert.equal(sheet(outputs[0]).B4.v, 4); assert.equal(sheet(outputs[0]).C4.v, 3);
   assert.equal(sheet(outputs[0]).D4.f, 'SUM(B4:C4)');
-  assert.equal(outputs[0].totalQuantity, 67); assert.equal(outputs[1].totalQuantity, 15);
+  assert.equal(outputs[0].totalQuantity, 5); assert.equal(outputs[1].totalQuantity, 3);
+  assert.match(outputs[0].warnings.join(' '), /DUPLICATE_PRODUCT_NAME.*합산/);
   assert.equal(sheet(outputs[0]).C5.s.font.color.rgb, 'C00000');
   const bytes = serializePedidosWorkbook(outputs[0].workbook);
   assert.match(xml(bytes, 'xl/worksheets/sheet1.xml'), /xSplit="1" ySplit="3" topLeftCell="B4"/);
@@ -103,7 +104,7 @@ test('Netherlands marker layout does not aggregate continuation CL rows; zero ro
     [null, null, null, null, null, null, 50],
     [null, null, null, null, null, '[EZ] Lily', 0], ['네덜란드 Total']]);
   const outputs = generatePedidos(wb, 'Netherlands', 'W');
-  assert.equal(outputs.length, 1); assert.equal(outputs[0].totalQuantity, 20);
+  assert.equal(outputs.length, 1); assert.equal(outputs[0].totalQuantity, 2);
 });
 
 test('Ecuador: sequential half-box pairing, display reordering, merged boxes, odd and 50 remainder', () => {
@@ -137,7 +138,7 @@ test('Thailand simple prefixes and marker column-6 preference', () => {
   assert.equal(generatePedidos(marked, 'Thailand', 'W')[0].totalQuantity, 8);
 });
 
-test('China intended CL name-to-column mapping, first raw, total precedence, duplicate overwrite; no multiplier', () => {
+test('China intended CL name-to-column mapping, first raw, total precedence, legacy duplicate overwrite; no multiplier', () => {
   const wb = fixture([['header', null, null, null, null, null, 'CL1', 'CL1', 'CL2', 'CL2 Total'],
     ['중국', null, 'MEL Tulip A', null, null, null, 2, 99, 99, 3],
     [null, null, 'MEL Tulip A', null, null, null, 4, 99, 99, 5], ['중국 Total']]);
@@ -187,7 +188,7 @@ test('week sanitization and invalid country/long sheet name are explicit; no SQL
   assert.equal(sanitizePedidosWeek(' 34 / 1차_! '), '341차_'); assert.throws(() => sanitizePedidosWeek(' /! '));
   assert.throws(() => generatePedidos(fixture([]), 'Other', 'W'));
   assert.throws(() => generatePedidos(fixture([['name', 'Grand Total'], ['Den. A', 1]]), 'Thailand', 'W'.repeat(40)), /너무 깁니다/);
-  for (const path of ['../lib/importPedidos.js', '../components/import-tools/PedidosTool.js']) {
+  for (const path of ['../lib/importPedidos.js', '../lib/countryOrderPedidosAdapter.js']) {
     const text = fs.readFileSync(new URL(path, import.meta.url), 'utf8');
     assert.doesNotMatch(text, /\bfetch\s*\(|\baxios\b|localStorage|\/api\/|from ['"].*\/db['"]|child_process/);
   }

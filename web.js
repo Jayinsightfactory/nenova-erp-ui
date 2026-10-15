@@ -6,6 +6,7 @@ const { parse } = require('url');
 const next = require('next');
 const jwt = require('jsonwebtoken');
 const { attachRequestAudit } = require('./lib/userActivityHttp.cjs');
+const { startRecoveryWorker } = require('./lib/pendingStockRecoveryWorker.cjs');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
@@ -15,6 +16,10 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
+  if (!dev && process.env.NENOVA_PENDING_STOCK_RECOVERY === '1') {
+    const recovery = startRecoveryWorker({ directory: process.env.NENOVA_STOCK_RECOVERY_DIR || require('path').join(process.cwd(), 'data', 'stock-recovery') });
+    for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => { recovery.stop().finally(() => process.exit(0)); });
+  }
   createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);

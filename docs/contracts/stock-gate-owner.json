@@ -70,7 +70,7 @@
     "sameSession": "A second Enter while RUN is rejected even on the owning SPID. Token reuse/reentrant RUN is not supported.",
     "pendingHandoff": "Legacy FIX/CANCEL pending scope is conservatively the full year/week. Only CALC with the exact year/week and @CalcProdKey=0 may consume it. New atomic quantity writes start from idle and can call product-scoped CALC while retaining the outer row lock.",
     "staleWait": "WAIT_CALC is not a lease timeout. A new EXE connection may recover it by the ordinary same-year/week full-product stock calculation. Failed calculation retains pending work.",
-    "orphanRun": "No automatic RUN/WAIT_CALC time reclamation, including a missing/sleeping/dead session. Main must drain writers, determine committed/rolled-back state and arrange an explicit scope-preserving recovery. Session death alone does not prove the native commit did not happen.",
+    "orphanRun": "No automatic RUN reclamation or raw WAIT_CALC clear, including missing/sleeping/dead sessions. Committed WAIT_CALC may be consumed only by ordinary exact-scope full CALC under pending-stock-recovery.json. Age is a grace period, never lease expiry.",
     "rollout": "1) Deploy API V1/V2 bridge with ALL ownerless clear paths removed and new quantity feature V2-gated/disabled. 2) Enter maintenance and drain ALL EXE/web/jobs; main verifies current inactive/idle singleton immediately before migration. 3) Apply owner migration atomically with main acknowledgement; verify V2 capability and legacy full-CALC/deferred-clear paths. 4) Only then enable new quantity route and release maintenance. If drain cannot be guaranteed, withhold migration/deployment activation and report blocker. Never activate new writes through a capability-missing temporary fallback. Application rollback must keep the bridge or disable affected routes; do not run the old gate installer. No runtime DDL or permission grants.",
     "noMigrationAlternative": "An application-only outer transaction/savepoint/advisory lock cannot prevent the old native post-rollback unconditional Leave or queued global Clear. Keep the new physical-quantity route disabled until the gate and caller cutover pass isolated SQL tests. A fully drained maintenance operation is not an online replacement."
   },
@@ -112,7 +112,7 @@
     "source": "2026-10-12 live usp_StockCalculation hash 879357e7bf8aabe4cb60f853d18331109580f673e0dc3ba21570ad984bfbc67b",
     "scope": "CALC only; unchanged six native parameters and stock business SQL",
     "transaction": "Begin before GateEnter; successful GateLeave before committing this call level; preserve existing outer caller level and existing error rollback semantics",
-    "recovery": "No automatic RUN or WAIT_CALC reclaim; manual recovery is separate",
+    "recovery": "No automatic raw reclaim. Application recovery of committed WAIT_CALC uses ordinary exact-scope native CALC0 under pending-stock-recovery.json; RUN remains manual.",
     "deployment": "Main only, all writers drained, idle gate XLOCK NOWAIT, exact metadata/hash/signature/SET options, atomic ALTER and existing hash property update, capability and transaction checks",
     "validation": [
       "offline business SQL byte equality",
