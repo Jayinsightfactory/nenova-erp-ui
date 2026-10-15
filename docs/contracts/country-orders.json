@@ -1,0 +1,246 @@
+{
+  "id": "country-orders",
+  "title": "수입부 국가별 발주서 ERP 자동조회와 기존 국가양식 생성",
+  "scope": [
+    "pages/api/import/tools/country-orders.js",
+    "lib/countryOrderSourceApi.js",
+    "lib/countryOrderSource.js",
+    "lib/countryOrderPedidosAdapter.js",
+    "lib/importPedidos.js",
+    "components/import-tools/PedidosTool.js",
+    "styles/ImportTools.module.css",
+    "__tests__/countryOrderSourceApi.test.js",
+    "__tests__/countryOrderSource.test.js",
+    "__tests__/countryOrderPedidosAdapter.test.js",
+    "__tests__/pedidosToolCountryOrders.test.js",
+    "__tests__/importPedidos.test.js",
+    "docs/exe-golden/CountryOrders.md",
+    "docs/plans/country-orders-2026-10-15.md"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "COUNTRY_ORDER_CALENDAR_READ",
+      "source": "Asia/Seoul today inside PeriodDay WeekDay=5 range, current ERP main cycle plus next five actual rows",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
+    {
+      "name": "COUNTRY_ORDER_MATRIX_READ",
+      "source": "exact country and explicit OrderYear + major OrderWeek prefix from native-visible ViewOrder, current Customer.OrderCode by CustKey",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
+    {
+      "name": "COUNTRY_ORDER_UPLOAD_PARSE",
+      "source": "browser-local uploaded workbook; Netherlands numeric quantities are already stems and are used unchanged",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
+    {
+      "name": "COUNTRY_ORDER_XLSX_GENERATE",
+      "source": "validated ERP-only CountryOrderMatrix through generatePedidosFromMatrix; existing upload generatePedidos path remains intact; browser file only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    }
+  ],
+  "criteriaLedger": {
+    "viewport": "1920x1080 CSS pixels at 100%; page vertical scroll, matrix horizontal scroll only",
+    "calendar": "PeriodDay is authoritative; Asia/Seoul today main cycle plus next five, exactly six unique contiguous Thursday rows; no ISO week or 52-week fallback",
+    "request": "country plus explicit year and majorWeek; year/majorWeek omitted together means current cycle; partial or outside-six scope rejected",
+    "sqlScope": "v.OrderYear=@orderYear AND v.OrderWeek LIKE @majorWeek + '-%' and exact server country mapping",
+    "subweeks": "derive actual full OrderWeek values only; numeric subweek then exact suffix ordering; never invent 01 or 02",
+    "customerCode": "Customer.OrderCode by CustKey, never ViewOrder.OrderCode, CustCode or internal key fallback; missing code retained",
+    "customerIdentity": "ERP uses CustKey; duplicate OrderCode remains separate and gets display-only CustKey suffix",
+    "uploadCustomerColumns": "preserve legacy Netherlands precedence: explicit <code> Total is the sole source when present; do not add same-code detail columns again; without Total, same-code detail columns are summed; prefix recognition must not change this",
+    "productIdentity": "ERP uses ProdKey; uploaded duplicate product-name rows are summed per customer code with row-number warning instead of last-row overwrite",
+    "netherlandsErpQuantity": "stored ViewOrder.SteamQuantity only for every OutUnit; never infer from OutQuantity, BunchQuantity, SteamOf1Bunch or product name",
+    "netherlandsUploadQuantity": "uploaded numeric value is already stems and is preserved exactly; no tulip, hyacinth, skimmia, eucalyptus or other name multiplier",
+    "missingNetherlandsStems": "positive order evidence with SteamQuantity<=0 is retained and blocks export as STEM_QUANTITY_UNAVAILABLE",
+    "codeRecognition": "trimmed case-insensitive ^[A-Z]*CL[A-Z0-9_-]*$ recognizes CL, BCL, HCL, KCL, MCL, YCL and suffix variants; unknown non-empty codes retained with warning",
+    "staleRequests": "AbortController plus request generation and exact response scopeKey; stale/cancelled/partial responses cannot mutate current state or enable download",
+    "converterBoundary": "CountryOrderMatrix and generatePedidosFromMatrix are ERP-only additions; do not rewrite generatePedidos(workbook, ...) or unrelated country upload parsers",
+    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write"
+  },
+  "erpMatrixSchema": {
+    "source": "erp",
+    "scope": {
+      "country": "country id",
+      "year": "four-digit integer",
+      "orderWeek": "exact full OrderWeek"
+    },
+    "customers": [
+      {
+        "key": "string CustKey",
+        "code": "original Customer.OrderCode",
+        "name": "customer name",
+        "label": "collision-safe display label"
+      }
+    ],
+    "rows": [
+      {
+        "key": "unique ProdKey plus unit key",
+        "prodKey": "positive integer",
+        "name": "original ProdName",
+        "flower": "original FlowerName; exact Colombia category when applicable",
+        "unit": "stems | bunches | boxes; unknown is display-only and requires an export blocker",
+        "quantities": {
+          "[customerKey]": "finite number"
+        },
+        "total": "finite number"
+      }
+    ],
+    "warnings": [
+      "non-blocking message"
+    ],
+    "blockers": [
+      "download-blocking message"
+    ]
+  },
+  "quantityPolicy": {
+    "Netherlands": {
+      "erp": "SteamQuantity",
+      "upload": "numeric value unchanged",
+      "outputUnit": "stems",
+      "forbiddenFallbacks": [
+        "OutQuantity",
+        "BunchQuantity multiplied by SteamOf1Bunch",
+        "tulip x10",
+        "hyacinth x5",
+        "skimmia x3",
+        "eucalyptus x3",
+        "any product-name multiplier"
+      ]
+    },
+    "China": {
+      "erp": "OutQuantity plus exact OutUnit",
+      "outputUnit": "existing unit-separated Melody formats"
+    },
+    "Colombia": {
+      "erp": "OutQuantity with existing category requirements validated",
+      "outputUnit": "existing Colombia category formats"
+    },
+    "Australia": {
+      "erp": "BunchQuantity",
+      "outputUnit": "bunches"
+    },
+    "Thailand": {
+      "erp": "BunchQuantity",
+      "outputUnit": "bunches"
+    },
+    "Ecuador": {
+      "erp": "SteamQuantity",
+      "outputUnit": "stems"
+    },
+    "Vietnam": {
+      "erp": "SteamQuantity",
+      "outputUnit": "stems"
+    }
+  },
+  "countryMap": {
+    "Colombia": "콜롬비아",
+    "Netherlands": "네덜란드",
+    "Ecuador": "에콰도르",
+    "Australia": "호주",
+    "Thailand": "태국",
+    "China": "중국",
+    "Vietnam": "베트남"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/42-01 and 2026/42-01 coexist but an explicit 2026/42 request returns only 2026; a current 2026/52 calendar continues through actual 2027 rows without OrderWeek-only matching"
+  },
+  "positiveFixtures": [
+    "Asia/Seoul 2026-10-15 resolves to ERP 2026/42 and buttons 42 through 47",
+    "Netherlands OutUnit bunch with stored BunchQuantity 20 and SteamQuantity 200 exports 200 stems",
+    "Netherlands OutUnit stem with stored SteamQuantity 150 exports 150 stems",
+    "uploaded Netherlands total 9220 is unchanged even when product names contain tulip, hyacinth, skimmia or eucalyptus",
+    "BCL16 KCL03 HCL07 MCL73 YCLS are recognized and preserved",
+    "uploaded explicit KCL03 Total takes precedence over KCL03 detail columns",
+    "uploaded same-code detail columns are summed when no explicit Total exists"
+  ],
+  "nearMissFixtures": [
+    "same OrderWeek in prior year is excluded",
+    "positive Netherlands bunch quantity with SteamQuantity zero remains visible and blocks export",
+    "duplicate Customer.OrderCode with different CustKey does not merge",
+    "duplicate ERP ProdName with different ProdKey does not overwrite",
+    "duplicate uploaded product-name rows sum per customer code and emit a row-number warning instead of overwriting",
+    "explicit uploaded code Total plus same-code detail columns is not double-counted",
+    "missing Customer.OrderCode remains as an explicit column",
+    "late response for a previous country or cycle cannot replace the current matrix",
+    "ambiguous uploaded product column fails instead of guessing"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/CountryOrders.md",
+    "source": "installed Nenova.exe FormOrderView.GetData and native ViewOrder definition; existing China FormQuantityPivot evidence is supporting only",
+    "methods": [
+      "FormOrderView.GetData"
+    ],
+    "tables": [
+      "PeriodDay",
+      "ViewOrder",
+      "OrderMaster",
+      "OrderDetail",
+      "Product",
+      "Customer",
+      "Country",
+      "UserInfo"
+    ]
+  },
+  "readPolicy": "GET performs SELECT only. Calendar, preview, generated workbook and browser upload never call order, shipment, warehouse, stock, estimate or profit writers.",
+  "writes": [],
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "OrderHistory",
+    "Product",
+    "Customer",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "requiredTestFiles": [
+    "__tests__/countryOrderSourceApi.test.js",
+    "__tests__/countryOrderSource.test.js",
+    "__tests__/countryOrderPedidosAdapter.test.js",
+    "__tests__/pedidosToolCountryOrders.test.js",
+    "__tests__/importPedidos.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
