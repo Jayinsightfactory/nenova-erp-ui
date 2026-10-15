@@ -1,5 +1,15 @@
 # Product 품목 선택 EXE 근거
 
+## 2026-10-15 붙여넣기 현재 이름 표시
+
+실제 로컬 dnSpy CLI FormOrderAdd를 재조회했다(outputs/paste-current-names-native.txt).
+GetCustomer는 CustName 표시와 CustKey 값을 분리하고 GetDataProduct는 Product.ProdKey와
+ProdName을 읽는다. btnSave_Click은 별도 저장 경로다. 웹 표시 이름 갱신도 동일 키로만
+현재 Customer/Product 이름을 읽고 별칭의 연결키, 저장시각, 단위·수량 및 원장은 보존한다.
+운영 인증 읽기: 매칭 업체36/품목501, 활성 기준정보 업체675/품목3346, 연결키 누락0.
+538/456 업체는 매칭 파일의 과거 이름과 현재 DB 이름이 다르다. 증거
+outputs/paste-mapping-read-audit-2026-10-15.json. 운영 보정은 수행하지 않는다.
+
 - 원본: `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`
 - decompile: `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateView.cs`
 - 확인: `FormEstimateView_Load`의 `LogicManager.Common.GetProduct()` 결과를 `ProdName` 표시, `ProdKey` 값으로 사용한다. 견적 조회는 Product를 조인하며 웹 alias가 EXE 원본 품명을 대체해서는 안 된다.

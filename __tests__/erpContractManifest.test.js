@@ -34,6 +34,9 @@ async function main() {
   await import('./shipmentDistributionVerification.test.js');
   await import('./shipmentDistributionWorkspace.test.js');
   await import('./shipmentDistributionAudit.test.js');
+  await import('./pasteMappingNames.test.js');
+  await import('./pasteMappingNamesApi.test.cjs');
+  await import('./pasteCurrentNames.test.js');
   const { loadManifests, validateManifest } = await import('../scripts/check-erp-contract-manifest.mjs');
   const manifests = loadManifests();
   assert.ok(manifests.length > 0, '기능 계약 manifest가 하나 이상 있어야 합니다.');

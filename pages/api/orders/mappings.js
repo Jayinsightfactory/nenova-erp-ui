@@ -3,25 +3,34 @@
 // POST { inputToken, prodKey, prodName, displayName, flowerName, counName } → 매핑 저장
 
 import { withAuth } from '../../../lib/auth';
+import { query, sql } from '../../../lib/db';
 import { loadMappings, saveMapping, deleteMapping, normalizeToken } from '../../../lib/parseMappings';
+import { hydrateProductMappings, readActiveProductNames } from '../../../lib/pasteMappingNames';
 import {
   deleteCustomerProductMapping,
   mergeCustomerProductMappings,
   saveCustomerProductMapping,
 } from '../../../lib/orderImportCustomerProductMappings';
 
-export default withAuth(function handler(req, res) {
+export default withAuth(async function handler(req, res) {
   if (req.method === 'GET') {
     res.setHeader('Cache-Control', 'no-store');
-    const custKey = Number(req.query.custKey || 0);
-    const globalMappings = loadMappings(true);
-    return res.status(200).json({
-      success: true,
-      mappings: custKey > 0
+    try {
+      const custKey = Number(req.query.custKey || 0);
+      const globalMappings = loadMappings(true);
+      const mappings = custKey > 0
         ? mergeCustomerProductMappings(globalMappings, custKey, true)
-        : globalMappings,
-      scope: custKey > 0 ? 'customer+global' : 'global',
-    });
+        : globalMappings;
+      const products = await readActiveProductNames(query, sql, mappings);
+      return res.status(200).json({
+        success: true,
+        mappings: hydrateProductMappings(mappings, products),
+        scope: custKey > 0 ? 'customer+global' : 'global',
+      });
+    } catch (error) {
+      console.error('[mappings] current names read failed:', error);
+      return res.status(500).json({ success: false, error: '현재 품목명 조회에 실패했습니다.' });
+    }
   }
 
   if (req.method === 'DELETE') {

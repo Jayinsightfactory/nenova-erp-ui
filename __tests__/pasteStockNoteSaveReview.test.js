@@ -33,7 +33,7 @@ assert.notEqual(context.stockNoteSaveFingerprint(input), context.stockNoteSaveFi
 let writes = 0, reads = 0, failRead = false, favorites = [];
 Object.assign(context, {
   baseStockText: text, baseStockExcludedLines: [], pasteText: '', pasteExcludedLines: [], remainStockText: '',
-  stockBaseWeek: '2026-41-01', week: '2026-41-02', allProducts: products, baseStockMatches: matched.slice(0, 1),
+  stockBaseWeek: '2026-41-01', week: '2026-41-02', allProducts: products, productCatalogReady: products.length > 0, baseStockMatches: matched.slice(0, 1),
   savedStockNote: null, stockNoteReview: null, stockNoteSaving: false, orders: [],
   stockNoteReviewAttemptRef: {current: false}, stockNoteCurrentFingerprintRef: {current: ''}, stockNoteWriteReceiptRef: {current: null},
   alert: value => {throw Error(value);}, setStockNoteSaving: value => {context.stockNoteSaving = value;},
