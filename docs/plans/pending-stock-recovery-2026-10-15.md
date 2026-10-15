@@ -15,7 +15,7 @@
 ## 구현 기준
 공통 core는 잠긴 WAIT_CALC만 처리한다. 연도2026이후, 정확한 세부차수, V2소유권/토큰/시간, capability/정확modulehash/6인자 검증. SQLGETDATE 기준60초 유예는 정상 호출의 기회이며 소유권 만료가 아니다. nativeCALC0 이전/이후 같은 연결·원래transaction표식과 반환값0두개·완전IDLE 확인 뒤 callercommit.
 
-운영 web.js가 명시 opt-in으로 독립 Node child를15초마다 실행한다. child는 전용pool/transaction, 요청90초/프로세스120초 한도. 부모는 실제close 전 재실행하지 않는다. 프로세스 중단 시 물리 연결이 종료되어 rollback된다. nativeCALL/commit불확실은unknown이며 다음에 현재gate를 재조회한다.
+운영은 next start를 사용하므로 별도 PM2 서비스 nenova-stock-recovery가 명시 opt-in으로 독립 Node child를 15초마다 실행한다. Next 환경 파일을 로드하며 웹 프로세스에서는 중복 시작하지 않는다. child는 전용pool/transaction, 요청90초/프로세스120초 한도. 부모는 실제close 전 재실행하지 않는다. 프로세스 중단 시 물리 연결이 종료되어 rollback된다. nativeCALL/commit불확실은unknown이며 다음에 현재gate를 재조회한다.
 
 기록은 `/var/lib/nenova/stock-recovery`에 남긴다. 같은gate token 실패는30/60/120/240/300초 간격,5회 이후 자동쓰기를 멈추고 경고한다. 새로운token은 별도예산이다. 시작기록 실패면 계산금지. 여러프로세스의 기존성공이 새pending예산을 지우지 않도록 fingerprint별 파일을 쓴다. status.json은 최근보고일 뿐 현재DB의 증거가 아니다.
 

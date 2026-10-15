@@ -293,6 +293,13 @@ jobs:
               pm2 logs nenova-erp --nostream --lines 20 2>&1
               exit 1
             fi
+            # Production runs next start, so the recovery service has its own PM2 entry.
+            if pm2 describe nenova-stock-recovery >/dev/null 2>&1; then
+              NODE_ENV=production pm2 restart nenova-stock-recovery --update-env || exit 1
+            else
+              NODE_ENV=production pm2 start scripts/pending-stock-recovery-service.cjs --name nenova-stock-recovery --kill-timeout 10000 || exit 1
+            fi
+            pm2 save || exit 1
             node scripts/check-pending-stock-recovery-worker.cjs || exit 1
             echo "✅ 배포 완료"
 

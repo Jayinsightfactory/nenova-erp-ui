@@ -1,9 +1,31 @@
 {
   "id": "pending-stock-recovery",
   "title": "Committed WAIT_CALC native full-calculation recovery",
-  "scope": ["lib/pendingStockRecovery.cjs", "lib/pendingStockRecoveryWorker.cjs", "scripts/pending-stock-recovery-child.cjs", "scripts/test-pending-stock-recovery-sql.cjs", "web.js"],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "actions": [{"name":"RECOVER_COMMITTED_PENDING_CALC","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":["StockMaster","ProductStock","NenovaStockWeekGate"]}],
+  "scope": [
+    "lib/pendingStockRecovery.cjs",
+    "lib/pendingStockRecoveryWorker.cjs",
+    "scripts/pending-stock-recovery-child.cjs",
+    "scripts/test-pending-stock-recovery-sql.cjs",
+    "scripts/pending-stock-recovery-service.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "RECOVER_COMMITTED_PENDING_CALC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": [
+        "StockMaster",
+        "ProductStock",
+        "NenovaStockWeekGate"
+      ]
+    }
+  ],
   "criteria": {
     "source": "Live 2026-10-15 native gate helpers and atomic CALC hash; actual installed EXE FormShipmentDistribution FIX/CANCEL then separate CALC0",
     "scope": "year/week from same locked committed V2 WAIT_CALC row only; pending full-product scope ProdKey=0",
@@ -11,13 +33,47 @@
     "locking": "UPDLOCK,HOLDLOCK,NOWAIT, then original transaction SPID/count/state and transaction-owned application-lock marker",
     "completion": "Native returnCode and output result both numeric zero; same original transaction; fully idle gate; commit acknowledged",
     "retry": "15 second poll; fingerprint-specific durable max5 attempts, 30/60/120/240/300second backoff; exhausted scope pauses with persistent status and stderr warning; new token has separate budget",
-    "process": "production opt-in only after Next prepare; dedicated child/pool, 90second request timeout and120second OS termination deadline; parent waits process close before another attempt",
+    "process": "Dedicated PM2 service independent of next start/web.js, production opt-in, Next production env loader, dedicated child/pool, 90second request timeout and120second termination deadline; parent waits child close",
     "uncertainty": "Unknown commit or process death is not replayed blindly; next iteration rereads locked gate. status.json is last report, not authoritative DB state"
   },
-  "sideEffects": {"StockMaster/ProductStock":"existing native calculation only, including later snapshots as original SP","NenovaStockWeekGate":"existing native enter/leave only; no direct clear or RUN reclaim","OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Product/StockHistory/Estimate/WebProfitReport":"preserve","diagnostics":"persistent outside deployment folder; attempt scope/token and safe code/number/phase; no credentials or SQL bodies"},
-  "crossYearFixture": {"required":true,"description":"2025 WAIT_CALC rejected;2026 locked40-02 or41-02 only; no previous observed scope or caller-requested scope substitution"},
-  "requiredTestFiles": ["__tests__/pendingStockRecovery.test.cjs", "__tests__/pendingStockRecoveryWorker.test.cjs", "scripts/test-pending-stock-recovery-sql.cjs"],
-  "requiredCommands": ["npm run test:pending-stock-recovery", "node scripts/test-pending-stock-recovery-sql.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"2026-10-15 fresh CLI FormShipmentDistribution/DBMSSQL from installed Nenova.exe; existing native SP definitions verified read-only","methods":["btnFix_Click","btnFixCancel_Click","uspStockCalculation"],"tables":["NenovaStockWeekGate","StockMaster","ProductStock"]},
+  "sideEffects": {
+    "StockMaster/ProductStock": "existing native calculation only, including later snapshots as original SP",
+    "NenovaStockWeekGate": "existing native enter/leave only; no direct clear or RUN reclaim",
+    "OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Product/StockHistory/Estimate/WebProfitReport": "preserve",
+    "diagnostics": "persistent outside deployment folder; attempt scope/token and safe code/number/phase; no credentials or SQL bodies"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 WAIT_CALC rejected;2026 locked40-02 or41-02 only; no previous observed scope or caller-requested scope substitution"
+  },
+  "requiredTestFiles": [
+    "__tests__/pendingStockRecovery.test.cjs",
+    "__tests__/pendingStockRecoveryWorker.test.cjs",
+    "scripts/test-pending-stock-recovery-sql.cjs",
+    "__tests__/pendingStockRecoveryService.test.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:pending-stock-recovery",
+    "node scripts/test-pending-stock-recovery-sql.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "2026-10-15 fresh CLI FormShipmentDistribution/DBMSSQL from installed Nenova.exe; existing native SP definitions verified read-only",
+    "methods": [
+      "btnFix_Click",
+      "btnFixCancel_Click",
+      "uspStockCalculation"
+    ],
+    "tables": [
+      "NenovaStockWeekGate",
+      "StockMaster",
+      "ProductStock"
+    ]
+  },
   "limitations": "No automatic RUN recovery; persistent calculation errors pause after5 attempts. Server must remain running. Original EXE interruption cause is not established by pending state. No EXE binary or native SP modification. Real SQL fixture substitutes sentinel business body and adapts module hash metadata only in isolated fixture; actual production native CALC recovery is separately verified."
 }
