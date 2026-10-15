@@ -119,7 +119,8 @@
     "lib/weekdayStyledWebWorkbook.js",
     "lib/weekdayWebExportSnapshot.js",
     "__tests__/weekdayStyledWebWorkbook.test.js",
-    "__tests__/weekdayWebExportSnapshot.test.js"
+    "__tests__/weekdayWebExportSnapshot.test.js",
+    "docs/plans/weekday-latest-quantity-2026-10-15.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -464,7 +465,7 @@
     ],
     "defaultDay": "일",
     "persistence": "data/runtime/weekday-wilson",
-    "staleEditing": "Only verified STALE total changes with matching business identity, same unit, fresh currentTotal and valid Wilson quantity offer general=currentTotal-Wilson as an unconfirmed editing suggestion. Explicit changed input stages the canonical total and preserved Wilson revision through existing onEditWilson; unchanged focus/blur never writes. Unknown, UNVERIFIED, unit mismatch, cross-year, excess Wilson, global read failure, disabled dates and existing drafts do not recover. Final distribution and metadata snapshot/revision checks remain mandatory."
+    "staleEditing": "A verified STALE total-only change with matching business identity, unchanged unit, fresh currentTotal and Wilson within total is a valid latest display: general=currentTotal-Wilson. Matrix and web Excel share this eligibility; do not show a recheck warning solely for total change. Existing drafts win; explicit edits retain the existing Wilson revision/CAS path. Do not automatically persist classification. Unknown, UNVERIFIED, unit mismatch, cross-year, excess Wilson and read failure remain errors. Final distribution snapshot/revision checks remain mandatory."
   },
   "preallocationDrafts": {
     "identity": [

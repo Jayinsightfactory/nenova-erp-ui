@@ -9,7 +9,7 @@ test('Doncel ERP total change offers editing suggestion without asserting saved 
   const before=structuredClone(record);
   const result=recoverWeekdayWilsonEditing(input);
   assert.equal(result.general,7);assert.equal(result.wilson,1);
-  assert.match(result.notice,/미확인/);assert.match(result.notice,/초안/);
+  assert.equal(result.notice,'최신 ERP 합계에 기존 윌슨 구분 적용');assert.doesNotMatch(result.notice,/미확인|재확인|예상값/);
   assert.deepEqual(record,before);assert.equal(record.status,'STALE');
 });
 test('unknown, different unit/year, unverified total and overflow never recover',()=>{
