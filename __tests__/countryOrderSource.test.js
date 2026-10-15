@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildCountryOrderMatrix, compareCountryOrderSubweeks, isCountryOrderCustomerCode } from '../lib/countryOrderSource.js';
+import { buildCountryOrderMatrix, compareCountryOrderSubweeks, isCountryOrderCustomerCode, buildCountryOrderUnitBasis, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
 
 const row = { OrderYear: 2026, OrderWeek: '42-01', CustKey: 1, CustName: '업체', CustOrderCode: 'CL21', ProdKey: 1983, ProdName: 'tulip', FlowerName: '튤립', CounName: '네덜란드', OutUnit: '단', OutQuantity: 20, BoxQuantity: 1, BunchQuantity: 20, SteamQuantity: 200, SourceRowCount: 1 };
 function response(rows = [row], country = 'Netherlands', counName = '네덜란드') { return { success: true, readOnly: true, scope: { country, counName, year: 2026, majorWeek: '42', scopeKey: `${country}/2026/42` }, subweeks: [{ key: '2026/42-01', orderWeek: '42-01' }], rows, warnings: [] }; }
@@ -48,4 +48,47 @@ test('CL prefixes recognized and numeric subweek suffix exact ordering', () => {
   assert.equal(isCountryOrderCustomerCode('OTHER'), false);
   assert.deepEqual(['42-10', '42-03b', '42-01', '42-03A', '42-03'].sort(compareCountryOrderSubweeks), ['42-01', '42-03', '42-03A', '42-03b', '42-10']);
   assert.deepEqual(['42-03\u{10000}', '42-03\uE000'].sort(compareCountryOrderSubweeks), ['42-03\uE000', '42-03\u{10000}']);
+});
+test('registered basis describes stems bunches boxes, zero and missing factors without guessing', () => {
+  const basis = buildCountryOrderUnitBasis({ OutUnit: '단', SteamOf1Bunch: '10', BunchOf1Box: 20, SteamOf1Box: 200 });
+  assert.deepEqual(basis, { outUnit: '단', unit: 'bunches', steamOf1Bunch: 10, bunchOf1Box: 20, steamOf1Box: 200 });
+  assert.equal(formatCountryOrderUnitBasis(basis), '1단 = 10송이');
+  assert.equal(formatCountryOrderUnitBasis({ ...basis, unit: 'boxes' }), '1박스 기준 · 20단 · 200송이');
+  for (const factor of [0, null]) {
+    assert.equal(formatCountryOrderUnitBasis(buildCountryOrderUnitBasis({ OutUnit: '송이', SteamOf1Bunch: factor, BunchOf1Box: factor, SteamOf1Box: factor })), '1송이 기준');
+    assert.match(formatCountryOrderUnitBasis(buildCountryOrderUnitBasis({ OutUnit: '단', SteamOf1Bunch: factor, BunchOf1Box: 20, SteamOf1Box: 200 })), /송이 환산기준 미등록/);
+    assert.match(formatCountryOrderUnitBasis(buildCountryOrderUnitBasis({ OutUnit: '박스', BunchOf1Box: factor, SteamOf1Box: factor })), /단 환산기준 미등록.*송이 환산기준 미등록/);
+  }
+  assert.match(formatCountryOrderUnitBasis(buildCountryOrderUnitBasis({ OutUnit: '?' })), /확인 필요/);
+  assert.throws(() => buildCountryOrderUnitBasis({ OutUnit: '단', SteamOf1Bunch: Infinity }), /환산기준/);
+});
+test('basis metadata never replaces stored source quantities or changes download blockers', () => {
+  const native = { ...row, SteamOf1Bunch: 10, BunchOf1Box: 20, SteamOf1Box: 200, SteamQuantity: 175 };
+  const matrix = buildCountryOrderMatrix(response([native]), '42-01');
+  assert.equal(matrix.rows[0].total, 175); assert.equal(matrix.rows[0].unitBasis.steamOf1Bunch, 10);
+  assert.deepEqual(matrix.rows[0].storedQuantities, { outQuantity: 20, boxQuantity: 1, bunchQuantity: 20, steamQuantity: 175 });
+  assert.deepEqual(matrix.blockers, []);
+  const zeroFactor = buildCountryOrderMatrix(response([{ ...native, OutUnit: '송이', SteamOf1Bunch: 0, BunchOf1Box: 0, SteamOf1Box: 0 }]), '42-01');
+  assert.equal(zeroFactor.rows[0].total, 175); assert.deepEqual(zeroFactor.blockers, []);
+});
+test('actual 2990 metadata is stem basis with all zero factors; stored bunch120 is not stem120', () => {
+  const native = { ...row, ProdKey: 2990, CustKey: 533, OutUnit: '송이', OutQuantity: 0, BoxQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0, BunchOf1Box: 0, SteamOf1Box: 0 };
+  const matrix = buildCountryOrderMatrix(response([native]), '42-01'), result = matrix.rows[0];
+  assert.equal(formatCountryOrderUnitBasis(result.unitBasis), '1송이 기준'); assert.equal(result.total, 0);
+  assert.equal(result.storedQuantitiesByCustomer['533'].bunchQuantity, 120); assert.equal(result.storedQuantities.steamQuantity, 0);
+  assert.equal(matrix.blockers.length, 1); assert.match(matrix.blockers[0], /^STEM_QUANTITY_UNAVAILABLE:.*2990.*품목기준 1송이 기준.*저장 단 120 · 송이 0.*CustKey:533.*자동 변환되지/);
+});
+test('saved quantities aggregate by exact customer and current year, metadata never summed', () => {
+  const native = { ...row, SteamOf1Bunch: 10, BunchOf1Box: 20, SteamOf1Box: 200 };
+  const matrix = buildCountryOrderMatrix(response([native, native, { ...native, CustKey: 2, BunchQuantity: 3, SteamQuantity: 30 }, { ...native, OrderYear: 2025, BunchQuantity: 999, SteamQuantity: 9990 }]), '42-01');
+  const result = matrix.rows[0]; assert.equal(result.total, 430); assert.equal(result.unitBasis.steamOf1Bunch, 10);
+  assert.equal(result.storedQuantities.bunchQuantity, 43); assert.equal(result.storedQuantities.steamQuantity, 430);
+  assert.equal(result.storedQuantitiesByCustomer['1'].bunchQuantity, 40); assert.equal(result.storedQuantitiesByCustomer['2'].bunchQuantity, 3);
+});
+test('missing raw source totals remain unknown and block; conflict basis fails rather than selecting one', () => {
+  const native = { ...row, SteamOf1Bunch: 10, SteamQuantity: null };
+  const matrix = buildCountryOrderMatrix(response([native, { ...native, SteamQuantity: 20 }]), '42-01');
+  assert.equal(matrix.rows[0].storedQuantities.steamQuantity, null); assert.equal(matrix.rows[0].storedQuantitiesByCustomer['1'].steamQuantity, null);
+  assert.equal(matrix.rows[0].total, 20); assert.ok(matrix.blockers.length > 0); assert.match(formatCountryOrderStoredQuantities(matrix.rows[0].storedQuantities), /송이 미등록/);
+  assert.throws(() => buildCountryOrderMatrix(response([native, { ...native, SteamOf1Bunch: 5 }]), '42-01'), /환산기준이 서로 다릅니다/);
 });

@@ -76,6 +76,8 @@
     "uploadCustomerColumns": "preserve legacy Netherlands precedence: explicit <code> Total is the sole source when present; do not add same-code detail columns again; without Total, same-code detail columns are summed; prefix recognition must not change this",
     "productIdentity": "ERP uses ProdKey; uploaded duplicate product-name rows are summed per customer code with row-number warning instead of last-row overwrite",
     "netherlandsErpQuantity": "stored ViewOrder.SteamQuantity only for every OutUnit; never infer from OutQuantity, BunchQuantity, SteamOf1Bunch or product name",
+    "productUnitDisplay": "Current Product.OutUnit, SteamOf1Bunch, BunchOf1Box and SteamOf1Box are display-only metadata, not historical quantity conversion authority. Show current basis separately from saved order quantities and export unit; zero or missing factors are not replaced with one.",
+    "zeroQuantityDisplay": "Hide numeric zero quantity cells in matrix and preview; Excel quantity cells use [=0] empty display with General for nonzero values while keeping stored values and formulas. Diagnostic zero values, product identities and rows remain visible.",
     "netherlandsUploadQuantity": "uploaded numeric value is already stems and is preserved exactly; no tulip, hyacinth, skimmia, eucalyptus or other name multiplier",
     "missingNetherlandsStems": "positive order evidence with SteamQuantity<=0 is retained and blocks export as STEM_QUANTITY_UNAVAILABLE",
     "codeRecognition": "trimmed case-insensitive ^[A-Z]*CL[A-Z0-9_-]*$ recognizes CL, BCL, HCL, KCL, MCL, YCL and suffix variants; unknown non-empty codes retained with warning",
@@ -105,6 +107,9 @@
         "name": "original ProdName",
         "flower": "original FlowerName; exact Colombia category when applicable",
         "unit": "stems | bunches | boxes; unknown is display-only and requires an export blocker",
+        "unitBasis": "current Product outUnit/unit/steamOf1Bunch/bunchOf1Box/steamOf1Box; display only",
+        "storedQuantities": "saved outQuantity/boxQuantity/bunchQuantity/steamQuantity totals; null preserves missing evidence",
+        "storedQuantitiesByCustomer": "same saved quantity fields keyed by CustKey; diagnostics only",
         "quantities": {
           "[customerKey]": "finite number"
         },

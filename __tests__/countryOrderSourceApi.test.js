@@ -65,3 +65,16 @@ test('prior-year and foreign scope cannot appear; DB partial failures masked', a
 test('authentication wrapper and read-only dependency wiring', () => {
   const source = fs.readFileSync(new URL('../pages/api/import/tools/country-orders.js', import.meta.url), 'utf8'); assert.match(source, /withAuth\(createCountryOrderSourceHandler/); assert.doesNotMatch(source, /withTransaction|apiPost/);
 });
+test('Product native conversion basis SELECT GROUP BY and numeric mapper retain zero vs missing', async () => {
+  const s = setup({ rows: [{ ...row, SteamOf1Bunch: '10', BunchOf1Box: 0, SteamOf1Box: null }] });
+  await s.handler({ method: 'GET', query: { country: 'Netherlands' } }, s.res);
+  assert.equal(s.res.code, 200); assert.equal(s.res.body.rows[0].SteamOf1Bunch, 10); assert.equal(s.res.body.rows[0].BunchOf1Box, 0); assert.equal(s.res.body.rows[0].SteamOf1Box, null);
+  const [select, group] = s.calls[1].sql.split('GROUP BY');
+  for (const field of ['SteamOf1Bunch', 'BunchOf1Box', 'SteamOf1Box']) { assert.ok(select.includes(`p.${field}`)); assert.ok(group.includes(`p.${field}`)); assert.doesNotMatch(select, new RegExp(`SUM\\(p\\.${field}\\)`)); }
+});
+test('nonfinite or invalid basis response fails without leaking partial rows', async () => {
+  for (const value of [Infinity, NaN, '', true, 'not-a-number']) {
+    const s = setup({ rows: [{ ...row, SteamOf1Bunch: value }] }); await s.handler({ method: 'GET', query: { country: 'Netherlands' } }, s.res);
+    assert.equal(s.res.code, 409); assert.equal(s.res.body.rows, undefined);
+  }
+});
