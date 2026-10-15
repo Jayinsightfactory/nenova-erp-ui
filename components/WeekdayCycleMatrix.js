@@ -413,7 +413,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     const recovery=recoverWeekdayWilsonEditing({record,identity:{year:block.cycle.year,orderWeek:day.effectiveOrderWeek,
       custKey:customer?.CustKey ?? customer?.custKey ?? custKey,prodKey:row.prodKey,date:day.date},unit:day.unit,
       savedTotal,plannedTotal:day.planned,draft,error:wilsonError,disabledReason:day.editDisabledReason});
-    return {savedTotal,total,savedWilson:Number(savedWilson),wilson:stale&&!draft?null:Number(amount),recovery,draft:Boolean(draft),error:wilsonError || (stale&&!draft?'ERP 수량 또는 단위가 변경되었습니다. 일반·윌슨 분류를 재확인하세요.':invalid?'합계·윌슨 수량 또는 단위를 재확인하세요.':'')};
+    return {savedTotal,total,savedWilson:recovery?.wilson ?? Number(savedWilson),wilson:recovery?.wilson ?? (stale&&!draft?null:Number(amount)),recovery,draft:Boolean(draft),error:wilsonError || (recovery?'':stale&&!draft?'ERP 수량 또는 단위가 변경되었습니다. 일반·윌슨 분류를 재확인하세요.':invalid?'합계·윌슨 수량 또는 단위를 재확인하세요.':'')};
   }
   async function exportWorkbook() {
     if(disabled || exportBusy || exportLock.current || !exportReady || typeof onExportWorkbook!=='function')return;
@@ -781,7 +781,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   const projectedGeneral=split.total==null || split.error?null:split.total-split.wilson;
                   const recovery=selected && typeof onEditWilson==='function'?split.recovery:null;
                   const shown=selected?{...day,current:savedGeneral,displayCurrent:savedGeneral,planned:day.planned==null?null:projectedGeneral,
-                    editValue:recovery?.general,recoveryNotice:recovery?.notice,initial:null,initialDelta:null,delta:null,
+                    editValue:recovery?.general,initial:null,initialDelta:null,delta:null,
                     editDisabledReason:day.editDisabledReason || (!recovery && split.error) || (split.total==null?'일반·윌슨 날짜 합계 미확인':'')}:day;
                   return <td key={day.date || index}><QuantityCell row={row} block={block} day={shown} disabled={disabled || selected&&wilsonBusy} disabledReason={moving?'초안 이동 처리 중입니다.':editDisabledReason} onEditCell={recovery?payload=>onEditWilson({row,block,day,quantity:recovery.wilson,totalQuantity:payload.quantity+recovery.wilson,classificationOnly:false}):selected&&typeof onEditCell==='function'?payload=>onEditCell({...payload,quantity:payload.quantity+split.wilson}):onEditCell} onClearCell={onClearCell} onCorrectSubweek={onCorrectSubweek} onCancelSubweek={onCancelSubweek} allowCorrection={!selected || split.wilson===0} onSelect={selectInfo} onOpenNote={onOpenNote}/></td>;
                 }
