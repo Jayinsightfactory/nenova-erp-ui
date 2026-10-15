@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildStockAdjustmentMatrix } from '../lib/stockAdjustmentMatrix.js';
+import { buildStockAdjustmentMatrix, buildStockAdjustmentFlowerTotals } from '../lib/stockAdjustmentMatrix.js';
 
 const event = (overrides = {}) => ({
   historyKey: 'h1', orderYear: 2026, orderWeek: '41-01', prodKey: 1,
@@ -75,9 +75,73 @@ test('missing product identities remain separate; empty result keeps catalog met
   ], { orderYear: 2026 });
   assert.equal(new Set(matrix.rows.map((r) => r.key)).size, 4);
   const empty = buildStockAdjustmentMatrix([], { orderYear: 2026, major: '01' }, ['1-01', '2-1']);
-  assert.deepEqual(empty, { orderYear: '2026', major: '1', search: '', weeks: [{ key: '1-1', label: '1-1' }, { key: '1-2', label: '1-2' }], rows: [], events: [], availableMajors: ['1', '2'], eventCount: 0, invalidCount: 0 });
+  assert.deepEqual(empty, { orderYear: '2026', major: '1', search: '', weeks: [{ key: '1-1', label: '1-1' }, { key: '1-2', label: '1-2' }], rows: [], flowerTotals: [], events: [], availableMajors: ['1', '2'], eventCount: 0, invalidCount: 0 });
   assert.throws(() => buildStockAdjustmentMatrix([], {}), /연도/);
   assert.throws(() => buildStockAdjustmentMatrix([], { orderYear: '2026', major: '54' }), /차수/);
+});
+
+test('flower totals separate units, preserve signed precision, cancellation and absent weeks', () => {
+  const matrix = buildStockAdjustmentMatrix([
+    event({ prodKey: 1, afterValue: 2.125 }),
+    event({ prodKey: 2, orderWeek: '41-2', afterValue: -2.125 }),
+    event({ prodKey: 3, unit: '박스', afterValue: 0.0001 }),
+    event({ prodKey: 4, flower: '장미', afterValue: -1e-20 }),
+  ], { orderYear: 2026, major: '41' }, ['41-3']);
+  const rose = matrix.flowerTotals.find((total) => total.flower === 'Rose' && total.unit === '단');
+  assert.equal(rose.productCount, 2);
+  assert.equal(rose.eventCount, 2);
+  assert.equal(rose.invalidCount, 0);
+  assert.equal(rose.cells['41-1'].quantity, 2.125);
+  assert.equal(rose.cells['41-2'].quantity, -2.125);
+  assert.equal(rose.cells['41-3'], undefined);
+  assert.equal(rose.net, 0);
+  assert.equal(matrix.flowerTotals.find((total) => total.unit === '박스').net, 0.0001);
+  assert.equal(matrix.flowerTotals.find((total) => total.flower === '장미').net, -1e-20);
+  assert.deepEqual(buildStockAdjustmentFlowerTotals(matrix.rows), matrix.flowerTotals);
+});
+
+test('hydrangea exclusion follows flower metadata first and missing metadata falls back to both names', () => {
+  const matrix = buildStockAdjustmentMatrix([
+    event({ prodKey: 1, flower: '수국', productName: '별명', displayName: '별명' }),
+    event({ prodKey: 2, flower: 'HYDRANGEA', productName: '별명', displayName: '별명' }),
+    event({ prodKey: 3, flower: '장미', productName: '수국색 장미', displayName: 'Hydrangea rose' }),
+    event({ prodKey: 4, flower: null, productName: '수국 원명', displayName: '다른 표시명' }),
+    event({ prodKey: 5, flower: '', productName: '원명', displayName: 'hydrangea 표시명' }),
+    event({ prodKey: 6, flower: '품종 미확인', productName: '장미 원명', displayName: '장미 표시명' }),
+  ], { orderYear: 2026, major: '41' });
+  assert.equal(matrix.rows.length, 6, 'product table still includes hydrangea');
+  assert.equal(matrix.flowerTotals.reduce((sum, total) => sum + total.productCount, 0), 2);
+  assert.equal(matrix.flowerTotals.find((total) => total.flower === '장미').eventCount, 1);
+  assert.equal(matrix.rows.find((row) => row.prodKey === '4').originalProductName, '수국 원명');
+});
+
+test('flower totals propagate invalid quantities without converting absence into zero', () => {
+  const matrix = buildStockAdjustmentMatrix([
+    event({ prodKey: 1, afterValue: 2 }),
+    event({ prodKey: 2, beforeValue: null }),
+    event({ prodKey: 3, orderWeek: '41-2', afterValue: 0 }),
+  ], { orderYear: 2026, major: '41' }, ['41-3']);
+  const total = matrix.flowerTotals[0];
+  assert.equal(total.net, null);
+  assert.equal(total.invalidCount, 1);
+  assert.deepEqual(total.cells['41-1'], { quantity: null, eventCount: 2, invalidCount: 1 });
+  assert.equal(total.cells['41-2'].quantity, 0);
+  assert.equal(total.cells['41-3'], undefined);
+});
+
+test('unknown units remain separate per product and summary respects the selected scope', () => {
+  const source = [event({ prodKey: 1, unit: null }), event({ prodKey: 2, unit: '단위 미확인' }), event({ prodKey: 3, unit: null, orderWeek: '42-1' })];
+  const matrix = buildStockAdjustmentMatrix(source, { orderYear: 2026, major: '41' });
+  assert.equal(matrix.flowerTotals.length, 2);
+  assert.equal(new Set(matrix.flowerTotals.map((total) => total.key)).size, 2);
+  for (const total of matrix.flowerTotals) {
+    assert.match(total.unit, /단위 미확인 · 품목 [12]/);
+    assert.equal(total.productCount, 1);
+    assert.equal(total.net, 1.1255);
+  }
+  const filtered = buildStockAdjustmentMatrix(source, { orderYear: 2026, major: '41', search: '1' });
+  assert.equal(filtered.flowerTotals.length, 1);
+  assert.equal(filtered.flowerTotals[0].eventCount, 1);
 });
 
 test('tiny decimal adjustments and invalid nonfinite differences are not rounded into valid zero', () => {

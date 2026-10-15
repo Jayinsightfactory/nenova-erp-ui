@@ -24,6 +24,7 @@ const code = babel.transformSync(fs.readFileSync(filename, 'utf8'), { filename,
       window.HTMLAnchorElement.prototype.click = function () { window.downloads.push(this.download); };
       window.fixture = year => ({ ok: true, orderYear: String(year), eventCount: 360, invalidCount: 1,
         weeks: Array.from({ length: 98 }, (_, i) => ({ key: `${1 + Math.floor(i / 2)}-${i % 2 + 1}`, label: `${1 + Math.floor(i / 2)}-${i % 2 + 1}` })),
+        flowerTotals: Array.from({ length: 44 }, (_, i) => ({ key: 'flower-' + i, flower: i < 2 ? '장미' : '합성 품종 ' + i, unit: i === 1 ? '단' : '송이', net: i === 0 ? 12.5 : i === 1 ? -3 : i === 2 ? 0 : i === 3 ? null : i, eventCount: 2, invalidCount: i === 3 ? 1 : 0 })),
         rows: Array.from({ length: 24 }, (_, i) => ({ key: `${i}:stem`, prodKey: 100 + i, productName: `합성검증 긴 품명 ${i} 하이드란지아 수입 생화 상품 설명 전체 표시`, country: '콜롬비아', flower: '수국', unit: i % 2 ? '단' : '송이', net: i % 2 ? -0.125 : 0, eventCount: 3, invalidCount: i === 0 ? 1 : 0, cells: { '1-1': { quantity: 0, eventCount: 2, invalidCount: 0 }, '1-2': { quantity: i === 0 ? null : -0.125, eventCount: 1, invalidCount: i === 0 ? 1 : 0 }, '49-2': { quantity: 3.75, eventCount: 1, invalidCount: 0 } } })) });
       window.answer = (index, year = 2026, failure = '') => window.calls[index].resolve({ ok: !failure, json: async () => failure ? { ok: false, message: failure } : window.fixture(year) });
       window.fixtureRoot = window.ReactDOM.createRoot(document.getElementById('root'));
@@ -33,16 +34,22 @@ const code = babel.transformSync(fs.readFileSync(filename, 'utf8'), { filename,
     await page.waitForFunction(() => window.calls.length === 1);
     assert.equal(await page.$eval('button[type="button"]', element => element.disabled), true);
     await page.evaluate(() => window.answer(0)); await page.waitForSelector('table');
+    assert.equal(await page.$eval('details', element => element.open), true);
+    await page.focus('summary'); await page.keyboard.press('Enter');
+    assert.equal(await page.$eval('details', element => element.open), false);
+    await page.keyboard.press('Space');
+    assert.equal(await page.$eval('details', element => element.open), true);
+    assert.deepEqual(await page.$$eval('.flower-net', elements => elements.slice(0, 4).map(element => element.textContent)), ['+12.5', '-3', '0 · 합계 0', '확인 필요']);
     for (const [width, height, name] of [[1920, 1080, '1920'], [800, 700, 'small']]) {
       await page.setViewport({ width, height, deviceScaleFactor: 1 });
       const layout = await page.evaluate(() => {
         const region = document.querySelector('.matrix-scroll'), name = document.querySelector('.product-name');
         region.scrollLeft = region.scrollWidth;
-        return { overflow: document.documentElement.scrollWidth > innerWidth, horizontal: region.scrollWidth > region.clientWidth, lastVisible: document.querySelector('thead th:last-child').getBoundingClientRect().right <= region.getBoundingClientRect().right + 1, nameHeight: name.getBoundingClientRect().height, stickyName: Math.abs(name.getBoundingClientRect().left - region.getBoundingClientRect().left) < 2, zeroRows: document.querySelectorAll("tr.zero-sum").length, zeroColor: getComputedStyle(document.querySelector("tr.zero-sum")).backgroundColor, vertical: getComputedStyle(region).maxHeight, zoom: devicePixelRatio };
+        return { overflow: document.documentElement.scrollWidth > innerWidth, horizontal: region.scrollWidth > region.clientWidth, lastVisible: document.querySelector('thead th:last-child').getBoundingClientRect().right <= region.getBoundingClientRect().right + 1, nameHeight: name.getBoundingClientRect().height, stickyName: Math.abs(name.getBoundingClientRect().left - region.getBoundingClientRect().left) < 2, zeroRows: document.querySelectorAll("tr.zero-sum").length, zeroColor: getComputedStyle(document.querySelector("tr.zero-sum")).backgroundColor, vertical: getComputedStyle(region).maxHeight, gridRows: getComputedStyle(document.querySelector('.flower-grid')).gridTemplateRows.split(' ').length, zoom: devicePixelRatio };
       });
-      assert.equal(layout.overflow, false); assert.equal(layout.horizontal, true); assert.equal(layout.lastVisible, true); assert.ok(layout.nameHeight > 30); assert.equal(layout.vertical, 'none'); assert.equal(layout.zoom, 1); assert.equal(layout.stickyName, true); assert.equal(layout.zeroRows, 11); assert.equal(layout.zeroColor, 'rgb(236, 252, 203)');
+      assert.equal(layout.overflow, false); assert.equal(layout.horizontal, true); assert.equal(layout.lastVisible, true); assert.ok(layout.nameHeight > 30); assert.equal(layout.vertical, 'none'); assert.equal(layout.zoom, 1); assert.equal(layout.stickyName, true); assert.equal(layout.zeroRows, 11); assert.equal(layout.zeroColor, 'rgb(236, 252, 203)'); if (width === 1920) assert.ok(layout.gridRows <= 6, '44 flower totals should use at most six rows at desktop');
       await page.evaluate(() => document.querySelector('.matrix-scroll').scrollLeft = 0);
-      await page.screenshot({ path: path.join(__dirname, `../outputs/stock-matrix-ui-${name}.png`) });
+      await page.screenshot({ fullPage: true, path: path.join(__dirname, `../outputs/stock-matrix-ui-${name}.png`) });
     }
     await page.focus('select'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.calls.length === 2); await page.evaluate(() => window.answer(1)); await page.waitForSelector('table');

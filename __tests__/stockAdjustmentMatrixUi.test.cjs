@@ -110,3 +110,22 @@ test('only complete actual-history zero-sum rows are highlighted; table keeps re
   assert.equal(ui.all('option')[0].children[0], '1차부터 전체');
   assert.ok(!source.includes('row.country') && !source.includes('row.flower'));
 });
+
+test('flower totals use supplied filter scope, signed quantities, separate units and zero/missing badges', async () => {
+  const ui = harness();
+  const flowerTotals = [
+    { key: 'rose:stem', flower: '장미', unit: '송이', net: 12.5, eventCount: 2, invalidCount: 0 },
+    { key: 'rose:bunch', flower: '장미', unit: '단', net: -3, eventCount: 1, invalidCount: 0 },
+    { key: 'lily:stem', flower: '백합', unit: '송이', net: 0, eventCount: 2, invalidCount: 0 },
+    { key: 'unknown:stem', flower: '미확인', unit: '송이', net: null, eventCount: 1, invalidCount: 1 },
+  ];
+  await ui.settle(ui.calls[0], { ...matrix, flowerTotals });
+  assert.equal(ui.all('details')[0].props.open, true);
+  const items = ui.all('li');
+  assert.equal(items.length, 4);
+  assert.deepEqual(ui.all('strong').map(item => item.children[0]), ['+12.5', '-3', '0', '확인 필요']);
+  assert.equal(items[2].props.className, 'flower-total zero-total');
+  assert.equal(items[3].props.className, 'flower-total');
+  assert.match(ui.text(), /수국은 제외/);
+  assert.match(ui.text(), /서로 다른 단위는 나누어/);
+});

@@ -104,6 +104,19 @@ export default function StockAdjustmentMatrixPanel({ year }) {
       {error && <p className="matrix-error" role="alert">{error} 조회 버튼으로 다시 시도하세요.</p>}
       {exportError && <p className="matrix-error" role="alert">{exportError} Excel 다운로드 버튼으로 다시 시도하세요.</p>}
       {current && <>
+        <details className="flower-totals" open>
+          <summary>품종별 총조정수량 ({(current.flowerTotals || []).length}개)</summary>
+          <p>현재 조회 조건의 품종별 합계입니다. 수국은 제외하며, 서로 다른 단위는 나누어 표시합니다.</p>
+          {(current.flowerTotals || []).length === 0 ? <p>표시할 품종 합계가 없습니다.</p> : <ul className="flower-grid" aria-label="품종별 총조정수량">
+            {(current.flowerTotals || []).map((total) => {
+              const zeroSum = total.eventCount > 0 && total.invalidCount === 0 && total.net === 0;
+              return <li key={total.key} className={zeroSum ? 'flower-total zero-total' : 'flower-total'}>
+                <span className="flower-label">{total.flower || '(품종 없음)'} <span className="flower-unit">({total.unit || '단위 없음'})</span></span>
+                <strong className="flower-net">{quantityText(total.net)}{zeroSum && <span className="zero-badge"> · 합계 0</span>}{total.invalidCount > 0 && total.net != null && <span className="invalid"> (확인 필요)</span>}</strong>
+              </li>;
+            })}
+          </ul>}
+        </details>
         <p role="status">품목 {current.rows.length.toLocaleString()}개 · 원이력 {current.eventCount.toLocaleString()}건{current.invalidCount > 0 ? ` · 확인 필요 ${current.invalidCount.toLocaleString()}건` : ''}. 단위가 다른 품목의 전체 수량은 합산하지 않습니다.</p>
         {current.rows.length === 0 ? <p>선택한 연도·대차수·검색 조건의 실제 조정 이력이 없습니다.</p> : <div className="matrix-scroll" tabIndex={0} role="region" aria-label="실제 재고조정 표, 가로 스크롤 가능">
           <table>
@@ -131,6 +144,13 @@ export default function StockAdjustmentMatrixPanel({ year }) {
         input, select, button { font: inherit; padding: 7px 10px; border: 1px solid #94a3b8; border-radius: 6px; background: #fff; min-height: 36px; }
         input { min-width: 0; width: 100%; box-sizing: border-box; } button { cursor: pointer; color: #0f172a; } button:disabled { cursor: default; opacity: .55; }
         input:focus-visible, select:focus-visible, button:focus-visible, .matrix-scroll:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+        summary:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+        .flower-totals { margin-top: 12px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        summary { cursor: pointer; font-weight: 700; } .flower-totals p { color: #475569; }
+        .flower-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 6px; padding: 0; margin: 8px 0 0; list-style: none; }
+        .flower-total { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 10px; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; min-width: 0; }
+        .flower-label { overflow-wrap: anywhere; } .flower-unit { color: #64748b; } .flower-net { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        .zero-total { background: #ecfccb; }
         .matrix-error, .invalid { color: #b91c1c; } .matrix-scroll { max-width: 100%; overflow-x: auto; }
         table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 14px; } caption { text-align: left; padding: 8px 0; }
         th, td { padding: 7px 9px; border: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
