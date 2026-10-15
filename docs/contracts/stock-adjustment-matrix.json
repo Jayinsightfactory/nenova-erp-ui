@@ -59,8 +59,9 @@
     ]
   },
   "exportScope": {
-    "actualSheets": "selected year, major, search",
-    "referenceSheet": "full selected year, existing computed residual"
+    "sheet": "adjustment matrix only, selected year/major/search",
+    "calendar": "default annual 1-1/1-2 through source maximum, preserve additional actual subweeks",
+    "highlight": "eventCount>0, invalidCount===0, net===0; never blank/invalid/tiny nonzero"
   },
   "actualReadIdentity": [
     "OrderYear",

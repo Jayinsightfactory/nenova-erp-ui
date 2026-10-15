@@ -9,13 +9,13 @@ test('explicit valid year, optional major and bounded search; no active-year fal
   assert.deepEqual(parseStockAdjustmentMatrixScope({year:'2026',major:'41',search:' blue '}),{orderYear:'2026',major:'41',search:'blue',format:''});
   for(const input of [{},{year:['2026']},{year:'0000'},{year:'2026',major:'0'},{year:'2026',major:'54'},{year:'2026',major:'41-1'},{year:'2026',search:['x']},{year:'2026',search:'a'.repeat(101)},{year:'2026',format:'csv'}]) assert.equal(parseStockAdjustmentMatrixScope(input),null);
 });
-test('query and workbook share scope; source is actual history and reference flow uses same year', async () => {
+test('query and workbook share scope; export uses only actual adjustments without loading residual', async () => {
   const calls=[];const matrix={orderYear:'2026',major:'41',search:'블루',rows:[]};
-  const handler=createStockAdjustmentMatrixHandler({loadMatrix:async scope=>{calls.push(scope);return matrix;},loadFlow:async year=>{calls.push(year);return [{major:'41'}];},buildWorkbook:async (m,flow)=>{assert.equal(m,matrix);assert.equal(flow[0].major,'41');return {xlsx:{writeBuffer:async()=>Buffer.from('fixture')}};}});
+  const handler=createStockAdjustmentMatrixHandler({loadMatrix:async scope=>{calls.push(scope);return matrix;},loadFlow:async()=>assert.fail('residual must not be loaded'),buildWorkbook:async (m,flow)=>{assert.equal(m,matrix);assert.equal(flow,undefined);return {xlsx:{writeBuffer:async()=>Buffer.from('fixture')}};}});
   const res=response();await handler({method:'GET',query:{year:'2026',major:'41',search:'블루'}},res);
   assert.equal(res.statusCode,200);assert.equal(res.body.source,'StockHistory');assert.equal(calls.length,1);
   const excel=response();await handler({method:'GET',query:{year:'2026',major:'41',search:'블루',format:'xlsx'}},excel);
-  assert.equal(excel.body.toString(),'fixture');assert.equal(calls.at(-1),'2026');assert.match(excel.headers['Content-Disposition'],/2026/);assert.equal(excel.headers['Cache-Control'],'private, no-store');
+  assert.equal(excel.body.toString(),'fixture');assert.equal(calls.at(-1).orderYear,'2026');assert.equal(calls.length,2);assert.match(excel.headers['Content-Disposition'],/2026/);assert.equal(excel.headers['Cache-Control'],'private, no-store');
 });
 test('mutation, bad scope, stale year and failed reads cannot export a misleading workbook',async()=>{
   let loaded=0;const handler=createStockAdjustmentMatrixHandler({loadMatrix:async()=>{loaded++;return {orderYear:'2025'};},loadFlow:()=>assert.fail('must not export'),buildWorkbook:()=>assert.fail('must not export')});

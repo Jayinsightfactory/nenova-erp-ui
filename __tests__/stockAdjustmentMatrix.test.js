@@ -20,7 +20,7 @@ test('year, product identity and units isolate the matrix; numeric weeks canonic
   ];
   const matrix = buildStockAdjustmentMatrix(source, { orderYear: 2026 }, ['41-03', '41-01', '02-01']);
   assert.equal(matrix.orderYear, '2026');
-  assert.deepEqual(matrix.weeks.map((w) => w.key), ['2-1', '41-1', '41-2', '41-3', '41-10']);
+  assert.deepEqual(matrix.weeks.map((w) => w.key), [...Array.from({ length: 41 }, (_, i) => [String(i + 1) + '-1', String(i + 1) + '-2']).flat(), '41-3', '41-10']);
   assert.deepEqual(matrix.availableMajors, ['2', '41']);
   assert.equal(matrix.rows.length, 3);
   assert.equal(matrix.eventCount, 6);
@@ -63,7 +63,7 @@ test('major and metadata search filter events while retaining all selected-year 
     assert.equal(matrix.eventCount, 1);
     assert.deepEqual(matrix.availableMajors, ['40', '41', '42']);
     assert.equal(matrix.major, '41');
-    assert.deepEqual(matrix.weeks.map((w) => w.key), ['41-1']);
+    assert.deepEqual(matrix.weeks.map((w) => w.key), ['41-1', '41-2']);
   }
   assert.equal(buildStockAdjustmentMatrix(source, { orderYear: '2026', search: '없는품목' }).rows.length, 0);
 });
@@ -75,7 +75,7 @@ test('missing product identities remain separate; empty result keeps catalog met
   ], { orderYear: 2026 });
   assert.equal(new Set(matrix.rows.map((r) => r.key)).size, 4);
   const empty = buildStockAdjustmentMatrix([], { orderYear: 2026, major: '01' }, ['1-01', '2-1']);
-  assert.deepEqual(empty, { orderYear: '2026', major: '1', search: '', weeks: [{ key: '1-1', label: '1-1' }], rows: [], events: [], availableMajors: ['1', '2'], eventCount: 0, invalidCount: 0 });
+  assert.deepEqual(empty, { orderYear: '2026', major: '1', search: '', weeks: [{ key: '1-1', label: '1-1' }, { key: '1-2', label: '1-2' }], rows: [], events: [], availableMajors: ['1', '2'], eventCount: 0, invalidCount: 0 });
   assert.throws(() => buildStockAdjustmentMatrix([], {}), /연도/);
   assert.throws(() => buildStockAdjustmentMatrix([], { orderYear: '2026', major: '54' }), /차수/);
 });
@@ -87,4 +87,16 @@ test('tiny decimal adjustments and invalid nonfinite differences are not rounded
   assert.equal(invalid.events[0].delta, null);
   assert.equal(invalid.rows[0].net, null);
   assert.equal(invalid.invalidCount, 1);
+});
+
+test('annual columns run from 1 through source maximum independent of search without fabricated events', () => {
+ const source = [event({orderWeek:'41-3'}), event({prodKey:2,orderWeek:'42-1'}), event({orderYear:2025,orderWeek:'53-2'})];
+ const matrix = buildStockAdjustmentMatrix(source,{orderYear:2026,search:'1'});
+ assert.equal(matrix.weeks[0].key,'1-1');
+ assert.equal(matrix.weeks.at(-1).key,'42-2');
+ assert.equal(matrix.weeks.length,85);
+ assert.equal(matrix.eventCount,1);
+ assert.equal(matrix.rows[0].cells['1-1'],undefined);
+ assert.equal(matrix.rows[0].cells['41-3'].quantity,1.1255);
+ assert.equal(matrix.rows[0].net,1.1255);
 });
