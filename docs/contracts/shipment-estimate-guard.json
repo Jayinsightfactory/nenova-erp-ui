@@ -1,0 +1,117 @@
+{
+  "id": "shipment-estimate-guard",
+  "title": "출고→견적서/매출 누락 방지 보호장치 (주문 없는 출고·Detail≠Date 금액·삭제 거래처/품목·차수키/출고일)",
+  "status": "IMPLEMENTED_VERIFIED",
+  "scope": [
+    "lib/shipmentEstimateGuard.js",
+    "pages/api/shipment/estimate-guard-diagnose.js",
+    "pages/api/master/index.js",
+    "scripts/scan-integrity.mjs"
+  ],
+  "evidence": [
+    "docs/exe-golden/FormEstimateView.md",
+    "docs/exe-golden/ViewShipment-isDeleted-DDL-proposal.md",
+    "__tests__/fixtures/exeEstimateGoldenTotals.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "calendar": {
+    "weekKey": "ShipmentMaster.OrderYearWeek = OrderYear + 대차수(세부차수 제외); ViewOrder/ViewShipment.OrderYearWeek2 = OrderYear + REPLACE(OrderWeek,'-','')",
+    "shipmentDate": "ShipmentDetail.ShipmentDtm 은 PeriodDay(OrderYearWeek) WeekStartYmd~WeekEndYmd ±7일 안 (실데이터 확정 라인 0~+6일)",
+    "crossYear": "52→01 경계: 2026년 1차는 202601/2026-01-01~06. 202501 또는 2025-01-xx 출고일 저장 거부 (2026년 1·2차 56건 713줄 재발 방지)"
+  },
+  "tableEffects": {
+    "OrderMaster_OrderDetail": "읽기만(ViewOrder 존재 확인). 주문 자동 생성 없음",
+    "ShipmentMaster": "신규 INSERT 전 차수키·출고일 검증만. UPDATE 없음",
+    "ShipmentDetail": "신규 INSERT 전 ViewOrder 확인; 확정(isFix=1) 전 범위 내 주문 없는 미확정 라인 검사; ShipmentDate 저장 직후 Amount/Vat/Cost 를 Date 합으로 정렬(EstQuantity 기본 미변경, Date 금액 NULL 만 있으면 미변경)",
+    "ShipmentDate": "쓰기 없음(읽기 합계)",
+    "Customer_Product": "soft delete 전 확정 출고 존재 시 거부. isDeleted=1 UPDATE 는 보호 통과 시에만",
+    "ViewShipment_ViewOrder": "변경 없음(exe 공유 객체). DDL 제안 문서만",
+    "Estimate_WebProfitReport": "변경 없음"
+  },
+  "transaction": {
+    "provider": "호출자의 tQ(withTransaction) 안에서만 동작. 자체 커밋 없음",
+    "sequence": [
+      "assertShipmentWeekConsistent → ShipmentMaster INSERT",
+      "assertShipmentLineHasOrder (+ assertShipmentWeekConsistent with shipmentDtm) → ShipmentDetail INSERT",
+      "ShipmentDate 쓰기 → alignShipmentDetailMoneyToDates",
+      "assertNoOrderlessLinesBeforeFix → usp_ShipmentFix / 주광 확정 isFix=1"
+    ],
+    "failure": "guardError(statusCode 409, code) throw → 호출자 withTransaction 전체 롤백"
+  },
+  "units": "EstQuantity 는 동기화하지 않음: 2026년 확정 45,176줄 중 12,199줄이 Detail=박스 / Date=송이·단 구조. Amount/Vat 는 ±1원 반올림(출고일 2건 분할) 허용",
+  "requiredFixtures": [
+    "yearBoundary_2026week01_rejects202501_and_2025Jan_shipDate",
+    "subWeekKey_20261601_rejected",
+    "orderMissing_customerDeleted_productDeleted_managerUnmatched_reasons",
+    "alignMoney_boxVsBunch_amountSync_estPreserved",
+    "alignMoney_unpricedDates_noZeroing",
+    "alignMoney_plusMinusOneWon_ignored",
+    "deleteGuard_fixedShipmentCountAndWeeks",
+    "diagnosticSql_selectOnly_sameJoinKeyAsExe"
+  ],
+  "actionPolicy": {
+    "GUARD_SAVE": "SELECT 검증 후 통과/409. 새 분배 라인 저장 경로(distribute/adjust/import/public/주광/운임/부족분)",
+    "GUARD_FIX": "SELECT 검증 후 통과/409. usp_ShipmentFix·주광 확정 직전",
+    "ALIGN_MONEY": "ShipmentDate 합 ≠ ShipmentDetail Amount/Vat(>1원) 또는 Cost 균일 불일치 시 ShipmentDetail UPDATE 1회",
+    "DELETE_MASTER": "확정 출고 0건일 때만 Customer/Product isDeleted=1",
+    "DIAGNOSE": "SELECT 만 (관리자 API, scan:integrity G1~G4)"
+  },
+  "actions": [
+    { "name": "GUARD_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "GUARD_FIX", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "ALIGN_MONEY", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "DELETE_MASTER", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "DIAGNOSE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "testFile": "__tests__/shipmentEstimateGuard.test.js",
+    "rule": "2026년 1차(202601, 2026-01-01~06)에 202501 키 또는 2025-01-xx 출고일 거부; 2025년 52차(202552) 정상; 허용오차 7일"
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentEstimateGuard.test.js",
+    "__tests__/exeEstimateGoldenTotals.test.js",
+    "__tests__/exeEstimateViewSql.test.js",
+    "__tests__/exeParitySql.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "Nenova.exe dnSpy FormEstimateView GetData/GetDetail/GetPrintDetail/GetExcelDetail, FormSalesDefectView (ViewShipment⋈ViewOrder OrderYearWeek2+CustKey+ProdKey, DetailFix=1), 운영 MSSQL OBJECT_DEFINITION(ViewShipment/ViewOrder) 2026-10-15 읽기 전용",
+    "methods": [
+      "FormEstimateView.GetData",
+      "FormEstimateView.GetDetail",
+      "FormEstimateView.GetPrintDetail",
+      "FormEstimateView.GetExcelDetail",
+      "FormSalesDefectView",
+      "usp_ShipmentFix"
+    ],
+    "tables": [
+      "ViewShipment",
+      "ViewOrder",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "OrderMaster",
+      "OrderDetail",
+      "Customer",
+      "Product",
+      "PeriodDay",
+      "UserInfo"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "node __tests__/shipmentEstimateGuard.test.js",
+    "node __tests__/exeEstimateGoldenTotals.test.js",
+    "npm run scan:integrity -- --year=2026"
+  ]
+}
