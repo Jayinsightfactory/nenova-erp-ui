@@ -35,3 +35,6 @@
 - 기초재고 수량 E: 같은 연도의 직전 대차수 위 스냅샷
 - 재고조정: 이미 `usp_StockCalculation`을 통해 `ProductStock.Stock`에 반영된 결과를 사용하고 `StockHistory` 차이를 보고서에서 다시 더하지 않는다.
 - 금액 평가: 이 문서는 수량 원천만 확정한다. 품목별 단가·환율·통관비는 엑셀/입고/도착원가 증거 계약으로 별도 검증한다.
+
+## 2026-10-15 실제 조정 행렬 조회 근거
+설치된 Nenova.exe를 dnSpy.Console.exe -t FormStockView로 다시 추출했다. GetData의 StockHistory는 같은 OrderYear/OrderWeek, CodeInfo StockType 대상 AfterValue-BeforeValue를 합산한다. 새 행렬은 이를 세부차수별 읽기 전용으로 표시하며 기존 대차수 기말-계산잔량과 구분한다. 원본 증거 outputs/stock-matrix-FormStockView.txt와 운영 SELECT probe outputs/stock-matrix-probe.json. 계약 docs/contracts/stock-adjustment-matrix.json. ERP 원장 및 견적/매출 쓰기 없음.

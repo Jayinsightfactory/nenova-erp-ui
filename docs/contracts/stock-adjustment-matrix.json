@@ -1,0 +1,76 @@
+{
+  "id": "stock-adjustment-matrix",
+  "title": "Read-only stock adjustment detail-week Excel matrix",
+  "scope": [
+    "lib/stockAdjustmentMatrix.js",
+    "lib/stockAdjustmentMatrixWorkbook.js",
+    "lib/stockAdjustmentMatrixSql.js",
+    "pages/api/sales/stock-adjustment-matrix.js",
+    "components/StockAdjustmentMatrixPanel.js",
+    "components/ProfitAnalysisTab.js",
+    "lib/stockAdjustmentMatrixApi.js",
+    "lib/stockAdjustmentReportNotes.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_FILTER_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "SELECT and XLSX only. Explicit year and subweek; StockHistory delta restricted by StockType EXISTS. Keep existing major residual separate. Preserve all ERP/estimate/profit/stock ledgers."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 and2026 same41-01 cannot mix. Same-name products remain separate; zero/null/malformedweek and decimal preserved."
+  },
+  "requiredTestFiles": [
+    "__tests__/stockAdjustmentMatrix.test.js",
+    "__tests__/stockAdjustmentMatrixWorkbook.test.js",
+    "__tests__/stockAdjustmentMatrixApi.test.js",
+    "__tests__/stockAdjustmentMatrixUi.test.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:stock-adjustment-matrix",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from origin/master"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormStockView.md",
+    "source": "2026-10-15 actual installed Nenova.exe FormStockView CLI",
+    "methods": [
+      "GetData"
+    ],
+    "tables": [
+      "StockHistory",
+      "CodeInfo",
+      "Product",
+      "StockMaster",
+      "ProductStock"
+    ]
+  },
+  "exportScope": {
+    "actualSheets": "selected year, major, search",
+    "referenceSheet": "full selected year, existing computed residual"
+  },
+  "actualReadIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "ProdKey",
+    "StockHistoryKey"
+  ],
+  "matrixGrouping": [
+    "ProdKey",
+    "OutUnit"
+  ],
+  "businessIdentityNote": "Repository-wide manifest template; CustKey is not present in this read-only StockHistory source."
+}
