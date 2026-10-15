@@ -284,7 +284,9 @@ assert.match(staleMarkup,/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2
 const recoverMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,currentTotal:10,status:'STALE'}],onEditWilson(){}});
 const recoverInput=recoverMarkup.match(/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")[^>]*>/)[0];
 assert.doesNotMatch(recoverInput,/disabled=/,'verified total-only change permits explicit edit');
-assert.match(recoverInput,/value="8"/);assert.match(recoverMarkup,/편집용 예상값/);assert.match(recoverMarkup,/일반 수량 재확인/);
+assert.match(recoverInput,/value="8"/);assert.match(recoverMarkup,/최신 ERP 합계에 기존 윌슨 구분 적용/);
+assert.doesNotMatch(recoverMarkup,/일반 수량 재확인|2026-09-20 윌슨 재확인|편집용 예상값/);
+assert.match(recoverMarkup,/일반 8 \/ 윌슨 2 \/ 합계 10/,'latest split is consistent in total detail');
 assert.match(source,/onEditWilson\(\{row,block,day,quantity:recovery.wilson,totalQuantity:payload.quantity\+recovery.wilson,classificationOnly:false\}\)/,'recovery uses revision-preserving Wilson draft path');
 const Wilson=load(harness).WilsonCell;
 const wilsonEvents=[];

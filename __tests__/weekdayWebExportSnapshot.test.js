@@ -48,6 +48,12 @@ model=buildWeekdayWebExportSnapshot(matrix,'테스트',{custKey:533,wilsonRecord
 assert.equal(value('10/04\n일'),2);assert.equal(value('10/04\n윌슨 일'),1);assert.equal(value('10/04\n일 합계'),3);
 assert.equal(value('40-1 합계'),3,'split columns must not double count Wilson');
 assert.throws(()=>buildWeekdayWebExportSnapshot(matrix,'테스트',{custKey:533,wilsonRecords:[{...wilson,expectedTotal:99}]}),/윌슨 분류/);
+const latestWilson={...wilson,status:'STALE',expectedTotal:2,currentTotal:3};
+model=buildWeekdayWebExportSnapshot(matrix,'최신값',{custKey:533,wilsonRecords:[latestWilson]});
+assert.equal(value('10/04\n일'),2);assert.equal(value('10/04\n윌슨 일'),1);assert.equal(value('10/04\n일 합계'),3);
+assert.equal(latestWilson.status,'STALE','export does not mutate persisted metadata');
+for(const patch of [{status:'UNVERIFIED'},{currentTotal:null},{currentTotal:4},{unit:'단'},{wilsonQuantity:4}])
+  assert.throws(()=>buildWeekdayWebExportSnapshot(matrix,'검증실패',{custKey:533,wilsonRecords:[{...latestWilson,...patch}]}),/윌슨 분류/);
 assert.throws(()=>buildWeekdayWebExportSnapshot(matrix,'테스트',{custKey:533,wilsonDrafts:[{...wilson,wilsonQuantity:9}]}),/윌슨 분류/);
 const drafts=[{custKey:533,year:2026,orderWeek:'40-01',prodKey:1,prodName:'웹에서 변경한 품목',flowerName:'카네이션',unit:'박스',date:'2026-10-04',quantity:4}];
 model=buildWeekdayWebExportSnapshot(buildHorizontalWeekdayMatrix([cycle],drafts,actual,baseline));
