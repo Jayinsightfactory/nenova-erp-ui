@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import XLSX from 'xlsx-js-style';
-import { generatePedidos, readPedidosWorkbook, serializePedidosWorkbook, sanitizePedidosWeek, calculateEcuadorBoxes } from '../lib/importPedidos.js';
+import { generatePedidos, generatePedidosFromMatrix, PEDIDOS_QUANTITY_NUMBER_FORMAT, readPedidosWorkbook, serializePedidosWorkbook, sanitizePedidosWeek, calculateEcuadorBoxes } from '../lib/importPedidos.js';
 
 // Synthetic fixtures are local, non-live examples of the static Python contract.
 // Colombia and the current China exporter also have optional local real samples.
@@ -361,4 +361,58 @@ test('Pedidos UI passes year scope and never disables downloads based on zero to
   assert.match(ui, /정상적인 0 수량 결과도 다운로드/);
   assert.match(ui, /<button type="button" onClick=\{\(\) => download\(output\)\}>엑셀 다운로드/);
   assert.doesNotMatch(ui, /if\s*\([^)]*totalQuantity[^)]*\)\s*(?:return|throw)/);
+});
+
+test('all ERP country exporters visually hide quantity zero but preserve numeric values, formulas, precision and product rows after reopen', () => {
+  assert.equal(XLSX.SSF.format(PEDIDOS_QUANTITY_NUMBER_FORMAT, 0), '');
+  for (const value of [2, -2, 1.234567890123, -1.234567890123]) assert.equal(XLSX.SSF.format(PEDIDOS_QUANTITY_NUMBER_FORMAT, value), XLSX.SSF.format('General', value));
+  for (const country of ['Colombia', 'Netherlands', 'Ecuador', 'Australia', 'Thailand', 'China', 'Vietnam']) {
+    const unit = country === 'China' || country === 'Australia' || country === 'Thailand' || country === 'Colombia' ? 'bunches' : 'stems';
+    const input = { source: 'erp', scope: { country, year: 2026, orderWeek: '42-01' }, customers: [{ key: '1', code: 'CL1', name: '업체' }], rows: [0, 1.234567890123, -2].map((quantity, index) => ({ key: `${index + 1}|${unit}`, prodKey: index + 1, name: index === 0 ? '0' : `Product ${index}`, flower: '장미', unit, quantities: { 1: quantity }, total: quantity })), blockers: [], warnings: [] };
+    const output = generatePedidosFromMatrix(input)[0], ws = sheet(output);
+    assert.equal(output.itemCount, 3, country); assert.equal(ws.A4.v, '0', 'non-quantity product label is retained');
+    assert.equal(ws.A4.z, undefined); assert.equal(ws.A3.z, undefined);
+    assert.equal(ws.B4.v, 0); assert.equal(ws.B4.t, 'n'); assert.equal(ws.B4.z, PEDIDOS_QUANTITY_NUMBER_FORMAT);
+    const bytes = serializePedidosWorkbook(output.workbook);
+    const reopened = XLSX.read(bytes, { type: 'array', cellNF: true, cellFormula: true });
+    const saved = reopened.Sheets[reopened.SheetNames[0]];
+    assert.equal(saved.B4.v, 0); assert.equal(saved.B4.w, '', `${country} zero display`);
+    assert.equal(saved.B4.z, PEDIDOS_QUANTITY_NUMBER_FORMAT);
+    assert.equal(saved.B5.v, 1.234567890123); assert.equal(saved.B6.v, -2);
+    assert.equal(saved.B5.w, XLSX.SSF.format('General', 1.234567890123)); assert.equal(saved.B6.w, '-2');
+    assert.equal(saved.B7.f, 'SUM(B4:B6)'); assert.equal(saved.B7.v, ws.B7.v);
+    for (const [key, cell] of Object.entries(ws)) if (!key.startsWith('!') && cell.f && cell.v === 0) {
+      assert.equal(saved[key].f, cell.f); assert.equal(saved[key].v, 0); assert.equal(saved[key].w, '');
+    }
+    assert.match(xml(bytes, 'xl/styles.xml'), /\[=0\].*General/);
+  }
+});
+
+test('all country upload paths use blank zero number-format without changing source workbooks or removing zero rows', () => {
+  const sources = {
+    Colombia: [['header', null, null, null, null, null, 'Grand Total'], ['콜롬비아', null, '장미', null, null, 'ROSE A', 0], ['콜롬비아 Total']],
+    Netherlands: [['header'], ['name', 'CL1'], ['Lily A', 0], ['Grand Total']],
+    China: [['header', null, 'CL1'], ['중국', null, 'MEL A', 0], ['중국 Total']],
+    Ecuador: [['name', 'Grand Total'], ['Rose A', 0]],
+    Australia: [['name', 'Grand Total'], ['Fern Umbrella', 0]],
+    Thailand: [['name', 'Grand Total'], ['Den. A', 0]],
+    Vietnam: [['header', null, null, null, null, null, 'Grand Total'], ['베트남', null, '꽃', null, null, 'Royal A', 0], ['베트남 Total']],
+  };
+  // China legacy product column is C, customer quantity column D.
+  sources.China[0] = ['header', null, null, 'CL1'];
+  for (const [country, rows] of Object.entries(sources)) {
+    const input = fixture(rows), before = JSON.stringify(input), output = generatePedidos(input, country, 'W')[0];
+    assert.equal(output.itemCount, 1, country); assert.equal(output.totalQuantity, 0, country);
+    const bytes = serializePedidosWorkbook(output.workbook), reopened = XLSX.read(bytes, { type: 'array', cellNF: true });
+    const saved = reopened.Sheets[reopened.SheetNames[0]];
+    assert.equal(saved.B4.v, 0); assert.equal(saved.B4.w, ''); assert.equal(saved.B4.z, PEDIDOS_QUANTITY_NUMBER_FORMAT);
+    assert.equal(JSON.stringify(input), before, 'uploaded source remains unchanged');
+  }
+});
+
+test('serializing unrelated numeric-zero specification cells does not impose the quantity format', () => {
+  const workbook = fixture([['규격', '환산계수'], [0, 0]]);
+  const saved = XLSX.read(serializePedidosWorkbook(workbook), { type: 'array', cellNF: true }).Sheets.Source;
+  assert.equal(saved.A2.v, 0); assert.equal(saved.A2.w, '0'); assert.equal(saved.B2.w, '0');
+  assert.notEqual(saved.A2.z, PEDIDOS_QUANTITY_NUMBER_FORMAT);
 });

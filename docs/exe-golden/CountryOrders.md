@@ -1,5 +1,13 @@
 # 국가별 발주서 조회 근거 — 2026-10-15
 
+## 품목관리 단위와 저장 주문의 차이 재확인
+
+- 실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormProductAdd`로 다시 조회했다. 품목관리 출고단위는 `OutUnit`, 단당 송이 수는 `SteamOf1Bunch`, 박스당 단/송이 수는 `BunchOf1Box`/`SteamOf1Box`에 연결된다.
+- 해당 Form은 출고단위 변경 시 이미 입력된 주문·출고·재고 수량이 자동으로 변환되지 않는다고 경고한다. 따라서 현재 품목 단위만으로 과거 주문의 단 수량을 송이로 재해석하지 않는다.
+- 운영 SELECT 재확인: 2026/42-01, CustKey 533, ProdKey 2990은 OutQuantity=0, BoxQuantity=0, BunchQuantity=120, SteamQuantity=0. 현재 Product OutUnit/EstUnit은 송이이고 환산계수 3개는 모두 0이다.
+- 이 사실은 현재 품목 설정과 저장 주문의 불일치를 보여주지만, 누가 언제 어떤 입력으로 만들었는지 또는 120이 실제 송이인지까지 증명하지 않는다. 사용자 확인 전 임의 보정하지 않는다.
+- 품목관리 기준과 실제 저장 단/송이 수량은 화면 진단용으로 추가한다. 기존 발주서 수량 원천, 생성 차단, 주문·재고·견적·매출 원장 보존 정책은 유지한다.
+
 ## 실제 EXE 및 읽기 검증
 
 - main이 설치된 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`를 `dnSpy.Console.exe --no-color -t FormOrderView`로 조회했다.

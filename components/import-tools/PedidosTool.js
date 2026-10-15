@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
-import { buildCountryOrderMatrix } from '../../lib/countryOrderSource';
+import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
+import { buildCountryOrderMatrix, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../../lib/countryOrderSource';
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
@@ -145,9 +145,20 @@ export default function PedidosTool({ active = true }) {
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 수량을 환산하지 않은 원주문입니다.</p>
-        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>수량 확인 필요 · 파일 생성 차단</strong><ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        <p className="pedidos-note">품목관리 기준은 현재 품목 설정이며 참고용입니다. 저장 주문수량은 선택 연도·차수의 원본 값입니다. 기준을 표시해도 발주서 수량을 다시 환산하지 않습니다.</p>
+        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>수량 확인 필요 · 파일 생성 차단</strong>{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
         {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
-        <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table><thead><tr><th scope="col">품목</th><th scope="col">단위</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead><tbody>{matrix.rows.map(row => <tr key={row.key}><th scope="row">{row.label ?? row.name}</th><td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>{matrix.customers.map(customer => <td key={customer.key}>{(row.quantities[customer.key] ?? 0).toLocaleString('ko-KR', { maximumFractionDigits: 20 })}</td>)}<td><strong>{row.total.toLocaleString('ko-KR', { maximumFractionDigits: 20 })}</strong></td></tr>)}</tbody></table></div>
+        <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table>
+          <thead><tr><th scope="col">품목</th><th scope="col">품목관리 기준</th><th scope="col">발주서 단위</th><th scope="col">저장 주문수량</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
+          <tbody>{matrix.rows.map(row => <tr key={row.key}>
+            <th scope="row">{row.label ?? row.name}</th>
+            <td className="pedidos-unit-basis">{formatCountryOrderUnitBasis(row.unitBasis)}</td>
+            <td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>
+            <td className="pedidos-stored-quantities"><span>{formatCountryOrderStoredQuantities(row.storedQuantities)}</span><details><summary>업체별 저장수량</summary><ul>{matrix.customers.map(customer => <li key={customer.key}><strong>{customer.label}</strong>: {Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) ? formatCountryOrderStoredQuantities(row.storedQuantitiesByCustomer?.[customer.key]) : '주문 없음'}</li>)}</ul></details></td>
+            {matrix.customers.map(customer => <td key={customer.key}>{formatPedidosQuantity(row.quantities[customer.key] ?? 0)}</td>)}
+            <td><strong>{formatPedidosQuantity(row.total)}</strong></td>
+          </tr>)}</tbody>
+        </table></div>
       </>}
     </div> : <form onSubmit={convert}>
       <fieldset disabled={busy}>
@@ -163,7 +174,7 @@ export default function PedidosTool({ active = true }) {
         </div>
       </fieldset>
     </form>}
-    <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 원본 파일과 다운로드 양식은 유지됩니다.</p>
+    <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 수량 0은 화면·Excel에서 빈칸으로 표시하며 숫자와 수식은 보존합니다. 원인 확인용 저장수량 진단의 0은 표시합니다.</p>
     <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{error}</p>}
@@ -174,7 +185,7 @@ export default function PedidosTool({ active = true }) {
       {noItems && <p role="status" className="pedidos-warning">변환할 품목이 없습니다. 선택 국가와 원본 시트·양식을 확인하세요. 일부 국가의 원본 규칙은 합계만 있는 빈 파일을 생성합니다.</p>}
       {results.map(output => <article className="pedidos-result" key={output.filename}>
         <div className="pedidos-result-heading">
-          <div><h4>{output.filename}</h4><p>시트: {output.workbook.SheetNames[0]} · 원본: {output.sourceSheet}</p><div className="pedidos-totals"><span>품목 <strong>{output.itemCount.toLocaleString('ko-KR')}개</strong></span><span>총수량 <strong>{output.totalQuantity.toLocaleString('ko-KR',{maximumFractionDigits:20})} {importUnitLabel(output.unit)}</strong></span>{output.totalBoxes != null&&<span>박스 <strong>{output.totalBoxes.toLocaleString('ko-KR',{maximumFractionDigits:20})}</strong></span>}</div></div>
+          <div><h4>{output.filename}</h4><p>시트: {output.workbook.SheetNames[0]} · 원본: {output.sourceSheet}</p><div className="pedidos-totals"><span>품목 <strong>{output.itemCount.toLocaleString('ko-KR')}개</strong></span><span>총수량 <strong>{formatPedidosQuantity(output.totalQuantity)} {importUnitLabel(output.unit)}</strong></span>{output.totalBoxes != null&&<span>박스 <strong>{formatPedidosQuantity(output.totalBoxes)}</strong></span>}</div></div>
           <button type="button" onClick={() => download(output)}>엑셀 다운로드</button>
         </div>
         {output.totalQuantity === 0 && <p role="status" className="pedidos-note">숫자 원본의 합계가 0입니다. 정상적인 0 수량 결과도 다운로드할 수 있습니다.</p>}
@@ -182,7 +193,7 @@ export default function PedidosTool({ active = true }) {
         {output.itemCount > 0 && <details><summary>품목 미리보기 ({output.itemCount}개, 수식 계산값 표시)</summary>
           <div className="pedidos-preview" tabIndex={0} role="region" aria-label={`${output.filename} 품목 표`}>
             <table><colgroup>{output.preview.headers.map((_,i)=><col key={i} style={{width:i===0?320:120}}/>)}</colgroup><thead><tr>{output.preview.headers.map((header, i) => <th key={i} scope="col" title={String(header)}>{importColumnLabel(header)}</th>)}</tr></thead>
-              <tbody>{output.preview.rows.map((row, i) => <tr key={i}>{row.map((cell, c) => <td key={c}>{cell == null ? '' : String(cell)}</td>)}</tr>)}</tbody>
+              <tbody>{output.preview.rows.map((row, i) => <tr key={i}>{row.map((cell, c) => <td key={c}>{c === 0 ? (cell == null ? '' : String(cell)) : formatPedidosQuantity(cell)}</td>)}</tr>)}</tbody>
             </table>
           </div>
         </details>}
@@ -202,6 +213,10 @@ export default function PedidosTool({ active = true }) {
       .pedidos-matrix thead th:first-child { z-index:3; }
       .pedidos-matrix tbody th { top:auto; text-align:left; }
       .pedidos-matrix td { text-align:right; }
+      .pedidos-matrix .pedidos-unit-basis, .pedidos-matrix .pedidos-stored-quantities { min-width:180px; max-width:280px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
+      .pedidos-stored-quantities details { margin-top:4px; }
+      .pedidos-stored-quantities summary { padding:4px 0; color:#2457c5; }
+      .pedidos-stored-quantities ul { margin:4px 0; padding-left:18px; }
       button:focus-visible, input:focus-visible, select:focus-visible, .pedidos-preview:focus-visible, summary:focus-visible { outline:3px solid #ee9700; outline-offset:3px; }
       .pedidos-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
       .pedidos-heading h2 { font-size:18px; } .pedidos-heading p { margin:0; color:#54657d; }

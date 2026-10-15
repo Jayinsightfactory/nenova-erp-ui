@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import { createCountryOrderRequestGuard } from '../lib/countryOrderPedidosAdapter.js';
+import { buildCountryOrderMatrix, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../lib/countryOrderSource.js';
+import { formatPedidosQuantity } from '../lib/importPedidos.js';
 
 const response = scopeKey => ({ success: true, readOnly: true, scope: scopeKey == null ? null : { scopeKey } });
 test('late A response cannot replace B even if network ignores abort; country and cross-year scopes exact', async () => {
@@ -45,4 +47,54 @@ test('UI matrix is page-height, horizontally scrollable, sticky product/header, 
   assert.match(ui, /overflow-x: auto/); assert.match(ui, /position:sticky; left:0/); assert.match(ui, /focus-visible/);
   assert.ok(ui.includes('.pedidos-tool button[aria-pressed="true"]'), 'selected state must outrank grouped default button styles');
   assert.doesNotMatch(ui, /(?:^|[;{]\s*)(?:max-)?height:\s*\d+(?:px|vh)/m);
+});
+
+test('UI distinguishes current product basis, output unit and saved quantities without converting them', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /<th scope="col">품목<\/th><th scope="col">품목관리 기준<\/th><th scope="col">발주서 단위<\/th><th scope="col">저장 주문수량<\/th>/);
+  assert.match(ui, /formatCountryOrderUnitBasis\(row.unitBasis\)/);
+  assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantities\)/);
+  assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantitiesByCustomer\?\.\[customer.key\]\)/);
+  assert.match(ui, /Object.hasOwn\(row.storedQuantitiesByCustomer \?\? \{\}, customer.key\)/);
+  assert.match(ui, /: '주문 없음'/);
+  assert.match(ui, /품목관리 기준은 현재 품목 설정이며 참고용/);
+  assert.match(ui, /발주서 수량을 다시 환산하지 않습니다/);
+  assert.match(ui, /표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다/);
+  assert.match(ui, /matrix.blockers.length === 0/);
+  assert.match(ui, /row.quantities\[customer.key\] \?\? 0/);
+  assert.doesNotMatch(ui, /(?:row\.(?:total|quantities)|unitBasis|storedQuantities)\s*\*|SteamOf1Bunch\s*\*/);
+});
+
+test('UI display helpers show product bunch/stem basis separately from saved 120 bunches / zero stems; export blocker remains', () => {
+  const raw = { OrderYear: 2026, OrderWeek: '42-01', CustKey: 1, CustName: '업체', CustOrderCode: 'CL21', ProdKey: 2990, ProdName: 'Product basis sample', FlowerName: '기타', CounName: '네덜란드', OutUnit: '송이', SteamOf1Bunch: 0, BunchOf1Box: 0, SteamOf1Box: 0, OutQuantity: 0, BoxQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SourceRowCount: 1 };
+  const input = { success: true, readOnly: true, scope: { country: 'Netherlands', counName: '네덜란드', year: 2026, majorWeek: '42', scopeKey: 'Netherlands/2026/42' }, subweeks: [{ orderWeek: '42-01' }], rows: [raw], warnings: [] };
+  const matrix = buildCountryOrderMatrix(input, '42-01'), row = matrix.rows[0];
+  assert.equal(formatCountryOrderUnitBasis(row.unitBasis), '1송이 기준');
+  assert.match(formatCountryOrderStoredQuantities(row.storedQuantities), /저장 단 120 · 송이 0/);
+  assert.equal(row.quantities['1'], 0); assert.equal(row.total, 0); assert.equal(row.unit, 'stems');
+  assert.match(matrix.blockers.join(' '), /STEM_QUANTITY_UNAVAILABLE/);
+  assert.equal(formatCountryOrderUnitBasis({ ...row.unitBasis, unit: 'bunches', steamOf1Bunch: 10 }), '1단 = 10송이');
+  assert.match(formatCountryOrderStoredQuantities({ ...row.storedQuantities, steamQuantity: null }), /송이 미등록/);
+});
+
+test('saved quantity details are keyboard accessible and expand in page flow, not tooltip-only or a small vertical box', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /<details><summary>업체별 저장수량<\/summary><ul>/);
+  assert.match(ui, /summary:focus-visible/);
+  assert.match(ui, /\.pedidos-matrix \.pedidos-unit-basis, \.pedidos-matrix \.pedidos-stored-quantities[^}]*white-space:normal[^}]*overflow-wrap:anywhere/);
+  assert.doesNotMatch(ui, /\.pedidos-stored-quantities[^}]*overflow-y/);
+  assert.doesNotMatch(ui, /(?:^|[;{]\s*)(?:max-)?height:\s*\d+(?:px|vh)/m);
+});
+
+test('quantity-zero cells and totals display blank while diagnostic zero and product labels remain visible', () => {
+  assert.equal(formatPedidosQuantity(0), ''); assert.equal(formatPedidosQuantity(-0), '');
+  assert.equal(formatPedidosQuantity(null), ''); assert.equal(formatPedidosQuantity(1.23456789), '1.23456789');
+  assert.equal(formatPedidosQuantity(-2), '-2');
+  assert.match(formatCountryOrderStoredQuantities({ bunchQuantity: 120, steamQuantity: 0, boxQuantity: 0, outQuantity: 0 }), /송이 0/);
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /formatPedidosQuantity\(row.quantities\[customer.key\] \?\? 0\)/);
+  assert.match(ui, /formatPedidosQuantity\(row.total\)/);
+  assert.match(ui, /formatPedidosQuantity\(output.totalQuantity\)/);
+  assert.match(ui, /c === 0 \? \(cell == null \? '' : String\(cell\)\) : formatPedidosQuantity\(cell\)/);
+  assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantities\)/);
 });
