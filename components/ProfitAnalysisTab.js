@@ -4,7 +4,8 @@
 // 카드로 보여주고, [🤖 AI 소견] 버튼을 눌렀을 때만 LLM 서술을 생성한다(자동 호출 없음 — 비용).
 // 데이터 원천: GET /api/sales/profit-analysis?detail=category (읽기 전용, 본표와 동일 계산),
 // AI 소견: POST /api/sales/profit-analysis-opinion (근거팩 해시 캐시 — 데이터가 같으면 재호출 없음).
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import StockAdjustmentMatrixPanel from './StockAdjustmentMatrixPanel';
 
 const ALL_CATEGORY = '(전체)';
 const fmt = (v) => (v == null || Number.isNaN(Number(v)) ? '-' : Math.round(Number(v)).toLocaleString());
@@ -53,20 +54,33 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
   const [adjLedger, setAdjLedger] = useState(null); // 조정 원장 전수 (품종별 집계 포함)
   const [adjBusy, setAdjBusy] = useState(false);
   const [adjError, setAdjError] = useState('');
+  const adjRequest = useRef(null);
+  const adjYear = useRef(year);
+  adjYear.current = year;
+
+  useEffect(() => {
+    adjRequest.current?.abort();
+    setAdjLedger(null); setAdjBusy(false); setAdjError('');
+    return () => { adjRequest.current?.abort(); };
+  }, [year]);
 
   const loadAdjLedger = async () => {
     if (adjBusy) return;
     if (adjLedger) { setAdjLedger(null); return; }
+    const requestYear = year;
+    const controller = new AbortController();
+    adjRequest.current = controller;
     setAdjBusy(true); setAdjError('');
     try {
-      const res = await fetch(`/api/sales/profit-analysis?detail=stockAdjustments&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-analysis?detail=stockAdjustments&year=${encodeURIComponent(year)}`, { credentials: 'same-origin', signal: controller.signal });
       const d = await res.json();
-      if (!d.ok) throw new Error(d.message || '조정 원장 조회 실패');
+      if (controller.signal.aborted || adjYear.current !== requestYear || adjRequest.current !== controller) return;
+      if (!res.ok || !d.ok) throw new Error(d.message || '조정 원장 조회 실패');
       setAdjLedger(d);
     } catch (e) {
-      setAdjError(e.message);
+      if (!controller.signal.aborted && adjYear.current === requestYear && adjRequest.current === controller) setAdjError(e.message);
     } finally {
-      setAdjBusy(false);
+      if (!controller.signal.aborted && adjYear.current === requestYear && adjRequest.current === controller) setAdjBusy(false);
     }
   };
 
@@ -191,13 +205,14 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
         <div style={st.card}><div style={st.body}><OpinionBlock category={ALL_CATEGORY} /></div></div>
       ) : null}
       {adjError && <div style={st.error}>{adjError}</div>}
-      {adjLedger && (
+      {adjLedger && String(adjLedger.orderYear) === String(year) && (
         <div style={st.card}>
           <div style={{ ...st.cardHead, cursor: 'default' }}>
             <span style={st.cardTitle}>🧾 {adjLedger.orderYear}년 재고 조정 원장 — 총 {adjLedger.total}건</span>
             <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>조정 = 기말 − (기초+입고−출고). 양수=재고 주입(선판매 가림 포함) · 음수=재고 증발</span>
           </div>
           <div style={st.body}>
+            <StockAdjustmentMatrixPanel year={year} />
             <div>
               <div style={st.secTitle}>품종별 연간 집계</div>
               <table style={st.table}>
@@ -215,7 +230,7 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
             </div>
             <div>
               <div style={st.secTitle}>상세 (차수순 · 조정 큰 순)</div>
-              <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto' }}>
                 <table style={st.table}>
                   <thead><tr><th style={st.th}>차수</th><th style={st.th}>카테고리</th><th style={st.th}>품목</th><th style={{ ...st.th, ...st.num }}>기초</th><th style={{ ...st.th, ...st.num }}>입고</th><th style={{ ...st.th, ...st.num }}>출고</th><th style={{ ...st.th, ...st.num }}>흐름값</th><th style={{ ...st.th, ...st.num }}>스냅샷</th><th style={{ ...st.th, ...st.num }}>조정</th></tr></thead>
                   <tbody>{adjLedger.rows.map((x, i) => (
