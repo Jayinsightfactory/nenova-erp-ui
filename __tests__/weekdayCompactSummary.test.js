@@ -77,14 +77,21 @@ assert.doesNotMatch(quoteFailureHtml,/wcm-error[^>]*role="alert">견적 조회 �
 const readinessResult=patch=>({year:2026,majorWeek:'38',printReadiness:{scope:'ALL_CUSTOMERS_MAJOR_WEEK',
   positiveCount:0,unfixedCount:0,invalidCount:0,reasons:[],...patch}});
 const emptyReadyMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({})]});
-assert.match(emptyReadyMarkup,/분배·확정 후 견적 출력 가능/);
+assert.match(emptyReadyMarkup,/저장된 분배가 있으면 확정 없이 출력 가능/);
 assert.match(emptyReadyMarkup,/저장된 출고 없음 · 입력·분배 적용부터 진행/);
 assert.doesNotMatch(emptyReadyMarkup,/견적 조회 실패|<span>실패<\/span>/,'no shipment is an ordinary next-step state');
 const waitingMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:1345,unfixedCount:97})]});
 assert.match(waitingMarkup,/확정 대기 97건 · 해당 연도·차수 전체 업체/);
 assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
-assert.match(waitingMarkup,/전체 견적: 확정 대기/);
-assert.match(waitingMarkup,/요일 견적은 선택 업체·출고일의 확정만 확인/);
+assert.match(waitingMarkup,/ERP 확정 견적 대조: 확정 대기/);
+assert.match(waitingMarkup,/분배 기준 출력은 확정 여부와 무관/);
+const allocationMarkup=render(Matrix,{...props,plans:[],comparisonRows:comparisons.map(row=>({...row,fixed:false,masterFixed:false})),quoteResults:[readinessResult({positiveCount:1345,unfixedCount:97})]});
+const allocationDay=allocationMarkup.match(/<button(?=[^>]*aria-label="38차 목 견적 출력")[^>]*>/)[0];
+assert.doesNotMatch(allocationDay,/disabled=/,'saved unfixed allocations remain printable');
+const allocationSelection=allocationMarkup.match(/<input(?=[^>]*aria-label="2026\/38차 목 2026-09-17 출력 선택")[^>]*>/)[0];
+assert.doesNotMatch(allocationSelection,/disabled=/,'unfixed saved day can be selected');
+const draftPrint=render(Matrix,{...props,plans:[draft]}).match(/<button(?=[^>]*aria-label="38차 목 견적 출력")[^>]*>/)[0];
+assert.match(draftPrint,/disabled=/,'unapplied input still blocks print');
 assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
 assert.doesNotMatch(waitingMarkup,/견적 조회 실패|<span>실패<\/span>/,'unfixed rows give actionable scope rather than a network failure');
 const invalidMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:10,invalidCount:2,reasons:['<script>technical link detail</script>']})]});
@@ -181,7 +188,7 @@ for(const state of ['PARTIAL','UNFIXED','EMPTY','UNKNOWN']) {
   html=badges([{...confirmation,state,categories:[{...category,state}]}]);
   assert.doesNotMatch(html,/wcm-fixed|✓/);
   assert.match(html,/(?:부분|미확정|자료 없음|미확인)/);
-  if(['PARTIAL','UNFIXED'].includes(state))assert.match(html,/미확정 물량은 견적에서 제외/);
+  if(['PARTIAL','UNFIXED'].includes(state))assert.match(html,/ERP 확정 견적 대조는 미확정 제외 · 분배 인쇄는 포함/);
 }
 for(const states of [[],null,[{...confirmation,year:2025}],[{...confirmation,majorWeek:'39'}],
   [confirmation,confirmation],[{...confirmation,allCustomers:false}]]) {

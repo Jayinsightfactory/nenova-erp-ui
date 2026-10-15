@@ -6,3 +6,8 @@
 - 실제 dnSpy FormEstimateView 및 2025/2026 동일 업무키 SELECT probe 재실행 성공. 상세: docs/plans/weekday-latest-quantity-2026-10-15.md.
 - Chrome 1920×1080 로컬 실제 Matrix: 최신13/Wilson1→일반12, 재확인 버튼0개, 일반10 수정→합계11·revision4 초안 정상. 다른날 초안3 보존.
 - 메뉴 기준선: 화면/키보드/초안/명시적 적용 전 검증 적용, 새 메뉴/원장 변경 해당 없음, 예외 없음.
+
+## 완료
+- 전체 ERP 계약/dnSpy evidence/manifest/write guard/build 및 PR CI 통과. PR1062 병합 `02e0744a`, Cafe24 배포38662092349 및 hydration smoke 성공.
+- 운영 Chrome1920×1080: Brut6/W1, Doncel11/W1 최신값 유지, 일반/Wilson 재확인 버튼0개 확인. 운영 ERP 쓰기/분류 저장/초안 입력 없음.
+- 화면 `output/weekday-latest-display-production.png`. 검증용 로컬 서버와 viewport 정리.

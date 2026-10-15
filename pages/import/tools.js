@@ -64,7 +64,7 @@ export default function ImportTools({userId=''}){
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
-   <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool/></div>
+   <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>
     <div className={styles.sectionHeading}><div><h2>불량 피드백 관리</h2><p>기존 농장 불량·피드백과 같은 자료입니다. 등록·수정·처리 및 삭제 권한은 기존 화면 기준을 유지합니다.</p></div><a href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">큰 창에서 열기 ↗</a></div>
