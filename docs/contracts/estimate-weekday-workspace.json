@@ -574,5 +574,11 @@
     "sha256": "0D2BF7505BBDB792C43A116DF037BC125E4BE44F05D7519DDFE747EB7D8FDFB3"
   },
   "backgroundRefresh": "Visible page polls every 30 seconds and on focus/visibility return. Background reads preserve all staged plans, Wilson drafts and active input values, never lock quantity controls or write ERP. Block refresh during preview, save, pending operations and metadata dialogs; discard obsolete scope/request responses. Retain prior complete snapshot on failed refresh and show failure plus last successful time. Manual/final-apply refresh retains mandatory current snapshot revalidation.",
-  "allocationPrintGrouping": "분배기준 출력은 native GetPrintDetail와 같이 서로 다른 SdetailKey의 정상 상세를 허용하고 ProdKey+Cost별 합산한다. 같은 업무차수·업체·품목만으로 중복 차단하지 않는다. 동일 SdetailKey 중복 및 동일 상세 내 중복 날짜는 오류다. 선택일 밖 정상 상세는 해당 날짜 출력 합계/확정 진단에 포함하지 않는다. 원장 쓰기·분배 저장의 상세 중복 방어 계약은 변경하지 않는다."
+  "allocationPrintGrouping": "분배기준 출력은 native GetPrintDetail와 같이 서로 다른 SdetailKey의 정상 상세를 허용하고 ProdKey+Cost별 합산한다. 같은 업무차수·업체·품목만으로 중복 차단하지 않는다. 동일 SdetailKey 중복 및 동일 상세 내 중복 날짜는 오류다. 선택일 밖 정상 상세는 해당 날짜 출력 합계/확정 진단에 포함하지 않는다. 원장 쓰기·분배 저장의 상세 중복 방어 계약은 변경하지 않는다.",
+  "nativeAllocationPrintLayout": {
+    "order": "SQL Server native collation: normal then registered deduction type label, ProductSort.OrderNo, CounName, ProdName. NativePrintOrder ranks from SQL survive grouped aggregation; no JS locale re-sort.",
+    "layout": "Weekday-only nativeLayout opt-in: A4, 180mm table, 6.35mm detail/header rows, ReportEstimate physical column widths/padding, 88.23121mm report header and 7.5mm total after 1.058333mm gap.",
+    "preserves": "Existing selected-date document splitting, quantities, monetary totals, confirmation state, ERP ledger, and other print menus. No inferred box conversion.",
+    "boxQuantity": "User requested Quantity+Unit(box number), e.g. 300송이(30), without 박스 word. Read-only BoxQuantity from selected stored ShipmentQuantity: OutUnit box direct, bunch / positive BunchOf1Box, stem / positive SteamOf1Box. No zero/null or chained fallback. All group contributions must be known, otherwise suffix omitted. Existing Quantity/Cost/Amount/Vat and deduction rows remain unchanged. Up to 3 decimals; positive below rounding resolution displays <0.001."
+  }
 }

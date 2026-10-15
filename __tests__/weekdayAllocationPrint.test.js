@@ -52,6 +52,8 @@ test('transaction read scopes SQL to chosen customer/year, uses selected-date pa
     assert.equal(call.params.year.value,2026);assert.equal(call.params.custKey.value,533);
   }
   assert.equal(calls.some(call=>/DetailFix\s*=\s*1|isFix\s*=\s*1/.test(call.text)),false);
+  assert.match(calls.find(call=>call.text.includes('DetailCustKey')).text,/ROW_NUMBER\(\) OVER\(ORDER BY ISNULL\(psl.OrderNo,99\),p.CounName,p.ProdName,sd.SdetailKey\) NativePrintOrder/);
+  assert.match(calls.find(call=>call.text.includes('FROM Estimate e')).text,/ORDER BY COALESCE\(NULLIF\(ci.Descr2/);
 });
 
 test('a valid historical estimate/money tuple survives changed product packaging',()=>{
@@ -121,4 +123,46 @@ test('distinct native details of the same business product aggregate by product 
   assert.equal(outsideDay.items.length,1);assert.equal(outsideDay.items[0].Quantity,180);
   assert.equal(outsideDay.confirmation.unfixedCount,1);
   assert.throws(()=>build(scope,[detail(),detail()],[day()]),error=>error.status===409,'duplicate physical key remains invalid');
+});
+
+test('SQL native print rank wins over JavaScript locale, country, name and input order',()=>{
+  const details=[detail({SdetailKey:1,ProdKey:389,ProdName:'A',CounName:'가',NativePrintOrder:30}),
+    detail({SdetailKey:2,ProdKey:447,ActiveProdKey:447,ProdName:'Z',CounName:'하',NativePrintOrder:10}),
+    detail({SdetailKey:3,ProdKey:389,ProdName:'A',CounName:'가',NativePrintOrder:20})];
+  const result=build(scope,details,[day(),day({SdetailKey:2,SdateKey:11}),day({SdetailKey:3,SdateKey:12})]);
+  assert.deepEqual(result.items.map(row=>row.ProdKey),[447,389]);
+  assert.deepEqual(result.items.map(row=>row.NativePrintOrder),[10,20]);
+  assert.equal(result.items[1].Quantity,360,'same-cost native details retain their earliest SQL print rank');
+});
+
+test('print quantity suffix shows exact allocation boxes without altering estimate quantities or money',()=>{
+  const stem=build(scope,[detail({OutQuantity:30,SteamOf1Box:10,SteamOf1Bunch:10})],
+    [day({ShipmentQuantity:30,EstQuantity:300,Cost:100,Amount:27273,Vat:2727})]).items[0];
+  assert.equal(stem.UnitQuantity,'300송이(30)');assert.equal(stem.BoxQuantity,30);
+  assert.deepEqual([stem.Quantity,stem.Cost,stem.Amount,stem.Vat],[300,100,27273,2727]);
+  const bunch=build(scope,[detail({OutQuantity:1,EstUnit:'단',BunchOf1Box:30})],
+    [day({ShipmentQuantity:1,EstQuantity:30,Cost:100,Amount:2727,Vat:273})]).items[0];
+  assert.equal(bunch.UnitQuantity,'30단(1)');
+});
+test('box suffix uses direct out-unit factor only and omits unknown mixed groups',()=>{
+  const bunchDetail=detail({OutQuantity:30,OutUnit:'단',EstUnit:'단',BunchOf1Box:30});
+  const bunchDay=day({ShipmentQuantity:30,EstQuantity:30,Cost:100,Amount:2727,Vat:273});
+  assert.equal(build(scope,[bunchDetail],[bunchDay]).items[0].UnitQuantity,'30단(1)');
+  const stemDetail=detail({OutQuantity:300,OutUnit:'송이',EstUnit:'송이',SteamOf1Box:10});
+  const stemDay=day({ShipmentQuantity:300,EstQuantity:300,Cost:100,Amount:27273,Vat:2727});
+  assert.equal(build(scope,[stemDetail],[stemDay]).items[0].UnitQuantity,'300송이(30)');
+  const unknown=build(scope,[{...stemDetail,SteamOf1Box:0,BunchOf1Box:30,SteamOf1Bunch:10}],[stemDay]).items[0];
+  assert.equal(unknown.UnitQuantity,'300송이');assert.equal(unknown.BoxQuantity,null,'no multiplied fallback');
+  const mixed=build(scope,[stemDetail,{...stemDetail,SdetailKey:2,SteamOf1Box:null}],
+    [stemDay,{...stemDay,SdetailKey:2,SdateKey:11}]).items[0];
+  assert.equal(mixed.UnitQuantity,'600송이');assert.equal(mixed.BoxQuantity,null);
+});
+test('box estimate unit and registered deductions never gain duplicate box suffix; tiny positive boxes are not zero',()=>{
+  const box=build(scope,[detail({OutQuantity:1,EstUnit:'박스'})],
+    [day({ShipmentQuantity:1,EstQuantity:1,Cost:100,Amount:91,Vat:9})]).items[0];
+  assert.equal(box.UnitQuantity,'1박스');
+  const tiny=build(scope,[detail({OutQuantity:1,OutUnit:'송이',EstUnit:'송이',SteamOf1Box:10000})],
+    [day({ShipmentQuantity:1,EstQuantity:1,Cost:100,Amount:91,Vat:9})],
+    [{ProdKey:389,ProdName:'[차감] Doncel',Quantity:1,Cost:100,Amount:91,Vat:9,Unit:'송이',EstimateType:'차감'}]);
+  assert.equal(tiny.items[0].UnitQuantity,'1송이(<0.001)');assert.equal(tiny.items[1].UnitQuantity,'1송이');
 });

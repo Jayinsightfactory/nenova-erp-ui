@@ -504,3 +504,8 @@ EXE 호환 조회의 `ViewShipment`와 `ViewOrder` 결합에서 같은 업무키
   바꾸지 않는다. EXE 외부 쓰기의 멱등성을 보장하는 DB 제약은 추가하지 않았다.
 - 원본 운영 증거는 비공개 outputs에 보관한다. 진화원은 보정에서 제외하며,
   재검사 결과 확정 중복 0건으로 이 변경에 운영 DELETE는 포함하지 않는다.
+
+## 2026-10-15 주광 인쇄 물리 양식과 정렬
+실제 dnSpy ReportEstimate 재추출 확인: ReportUnit.TenthsOfAMillimeter, A4 2100×2970, margins150/150/100/100, content1800, Detail/PageHeader63.5, ReportHeader882.3121, footer85.58334/table75 at y10.58333. 본문 Font Gulim8pt. 주광 nativeLayout opt-in으로 반영하며 기존 다른 메뉴는 유지한다.
+FormEstimateView.GetPrintDetail 최종정렬 Sort/EstimateType/OrderNo/CounName/ProdName은 SQL collation을 따른다. JS localeCompare 대신 SQL ROW_NUMBER 순위를 분배 reader에 전달해 합산 후 보존한다. 선택일당 전체품목 방식은 기존 합의대로 유지하고 EXE의 선택적 그룹별 별도문서는 추가하지 않는다.
+운영 SELECT 재검증: 2026/42차 주광10/18 41행(미확정41),10/15 22행(확정17/미확정5),전체62행. 돈셀180단/문라이트630단 및금액 동일, diagnostics0. 원장write없음. 사용자 작업 중 데이터 변경을 고정 fixture로 간주하지 않는다.
