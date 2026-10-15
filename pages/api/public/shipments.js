@@ -33,6 +33,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { tryInsertWithRetry, syncKeyNumbering } from '../../../lib/safeNextKey';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { assertShipmentLineHasOrder, assertShipmentWeekConsistent } from '../../../lib/shipmentEstimateGuard.js';
 import { toOrderUnits } from '../../../lib/shipmentImportQty';
 import { normalizeOrderUnit } from '../../../lib/orderUtils';
 import { distributeUnits, estimateFromOutQuantity } from '../../../lib/distributeUnits.js';
@@ -225,6 +226,7 @@ async function createShipment(req, res) {
           ywk: { type: sql.NVarChar, value: resolvedYear + String(resolvedWeek || '').split('-')[0] },
           ck:  { type: sql.Int,      value: parseInt(resolvedCustKey) },
         };
+        await assertShipmentWeekConsistent(tQ, sql, { orderYear: resolvedYear, orderWeek: resolvedWeek, orderYearWeek: shipmentMasterParams.ywk.value }); // 보호장치 ④
         sk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (nextKey) => {
           const params = { ...shipmentMasterParams, sk: { type: sql.Int, value: nextKey } };
           if (hasShipmentYearWeekColumn) {
@@ -330,6 +332,9 @@ async function createShipment(req, res) {
             `DELETE FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
             { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
           );
+          // 보호장치 ①④
+          await assertShipmentLineHasOrder(tQ, sql, { orderYear: resolvedYear, orderWeek: resolvedWeek, custKey: resolvedCustKey, prodKey });
+          await assertShipmentWeekConsistent(tQ, sql, { orderYear: resolvedYear, orderWeek: resolvedWeek, shipmentDtm: shipDate });
           const detailKey = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (nextKey) => {
             await tQ(
               `INSERT INTO ShipmentDetail
@@ -384,6 +389,9 @@ async function createShipment(req, res) {
           );
           await refreshShipmentDatesAfterDetailChange(tQ, detailKey, sql, { shipDtm: shipDate });
         } else {
+          // 보호장치 ①④
+          await assertShipmentLineHasOrder(tQ, sql, { orderYear: resolvedYear, orderWeek: resolvedWeek, custKey: resolvedCustKey, prodKey });
+          await assertShipmentWeekConsistent(tQ, sql, { orderYear: resolvedYear, orderWeek: resolvedWeek, shipmentDtm: shipDate });
           const detailKey = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (nextKey) => {
             await tQ(
               `INSERT INTO ShipmentDetail

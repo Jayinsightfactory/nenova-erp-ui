@@ -24,6 +24,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { assertShipmentLineHasOrder, assertShipmentWeekConsistent } from '../../../lib/shipmentEstimateGuard.js';
 import { computeShipmentAdjustUnits } from '../../../lib/adjustUnits';
 import { canInsertShipmentDetail, isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { isAutoCancelMode, isPivotDistributionMode, resolvePivotAdjustmentPolicy } from '../../../lib/pivotAdjustmentPolicy.js';
@@ -888,6 +889,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       let sk;
       if (sm.recordset.length === 0) {
         if (type === 'CANCEL') throw new Error('취소 대상 ShipmentMaster 없음');
+        await assertShipmentWeekConsistent(tQ, sql, { orderYear, orderWeek, orderYearWeek: ywk }); // 보호장치 ④
         sk = await tryInsertWithRetry(tQ, 'ShipmentMaster', 'ShipmentKey', async (newSk) => {
           const shipmentMasterParams = {
             sk:  { type: sql.Int,      value: newSk },
@@ -1032,6 +1034,9 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
           );
         }
       } else if (type === 'ADD' && canInsertShipmentDetail(u.outQ)) {
+        // 보호장치 ①④: 주문서에 없는 품목·차수 범위 밖 출고일은 새 분배를 만들지 않는다
+        await assertShipmentLineHasOrder(tQ, sql, { orderYear, orderWeek, custKey: ck, prodKey: pk });
+        await assertShipmentWeekConsistent(tQ, sql, { orderYear, orderWeek, shipmentDtm: defaultShipDate });
         // ShipmentDtm: Customer.BaseOutDay first, then the old week/delivery fallback.
         const sdk = await tryInsertWithRetry(tQ, 'ShipmentDetail', 'SdetailKey', async (newSdk) => {
           await tQ(

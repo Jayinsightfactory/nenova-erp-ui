@@ -3,6 +3,7 @@ import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
+import { assertMasterDeletable } from '../../../lib/shipmentEstimateGuard.js';
 
 export default withAuth(async function handler(req, res) {
   const { entity } = req.query;
@@ -10,8 +11,37 @@ export default withAuth(async function handler(req, res) {
   if (req.method === 'POST') return await create(req, res, entity);
   if (req.method === 'PUT' && entity === 'display-name') return await bulkUpdateDisplayName(req, res);
   if (req.method === 'PUT')  return await updatePricing(req, res);
+  if (req.method === 'DELETE') return await softDelete(req, res, entity);
   return res.status(405).end();
 });
+
+// 거래처/품목 soft delete(isDeleted=1). exe 와 같은 방식이나, 확정 출고(ShipmentDetail.isFix=1)가 있으면 거부한다.
+// 삭제하면 ViewShipment/ViewOrder(c.isDeleted=0, p.isDeleted=0 조건)에서 빠져 해당 차수 매출이 사라진다
+// (2026-01-13 '신라호텔 발주용 코드' 삭제 → 1차 8,408,880원 매출 누락 사례). 보호장치 ③.
+async function softDelete(req, res, entity) {
+  const map = { customers: { table: 'Customer', keyCol: 'CustKey', guard: 'customer', label: '거래처' },
+                products: { table: 'Product', keyCol: 'ProdKey', guard: 'product', label: '품목' } };
+  const def = map[entity];
+  if (!def) return res.status(405).end();
+  const key = Number(req.query.key ?? req.body?.key);
+  if (!(key > 0)) return res.status(400).json({ success: false, error: `${def.keyCol} 가 필요합니다.` });
+  try {
+    await assertMasterDeletable(query, sql, { entity: def.guard, key });
+  } catch (e) {
+    if (e.code === 'MASTER_HAS_FIXED_SHIPMENT') return res.status(409).json({ success: false, code: e.code, error: e.message, fixedCount: e.fixedCount, weeks: e.weeks });
+    return res.status(500).json({ success: false, error: e.message });
+  }
+  try {
+    const r = await query(
+      `UPDATE ${def.table} SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE() WHERE ${def.keyCol}=@key AND ISNULL(isDeleted,0)=0`,
+      { key: { type: sql.Int, value: key }, uid: { type: sql.NVarChar, value: req.user.userId } },
+    );
+    if (!r.rowsAffected?.[0]) return res.status(404).json({ success: false, error: `${def.label} ${key} 없음 또는 이미 삭제됨` });
+    return res.status(200).json({ success: true, message: `${def.label} 삭제 완료(isDeleted=1)`, key });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+}
 
 async function getList(req, res, entity) {
   try {

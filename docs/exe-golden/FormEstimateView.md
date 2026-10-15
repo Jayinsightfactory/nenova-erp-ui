@@ -1,5 +1,65 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-15 출고→견적서/매출 누락 방지 보호장치 (PR "출고→견적서/매출 누락 방지 보호장치")
+
+2026년 1~41차 이카운트 매출 ↔ exe 매출/불량 분석(FormSalesDefectView) ↔ 견적서(FormEstimateView) 금액 차이를
+DB 전수 조사한 결과(공유 노트 `ecount-vs-estimate-report.md`), **분배(출고)는 있는데 견적서·매출에 누락되는 경로가 4가지** 확인됐다.
+exe 산식(`lib/exeEstimateViewSql.js`)·기존 견적서 API·기존 데이터는 바꾸지 않고, 웹 쓰기 시점 보호장치와 읽기 전용 진단만 추가했다.
+공통 모듈: `lib/shipmentEstimateGuard.js`.
+
+### 분배는 있는데 견적서에 누락되는 4가지 경로
+
+| # | 경로 | 왜 누락되나 | 2026년 실측(읽기 전용) | 보호장치 |
+|---|---|---|---|---|
+| ① | **주문 없는 출고** | GetData/GetDetail/GetPrintDetail/GetExcelDetail 과 FormSalesDefectView 모두 `ViewShipment ⋈ ViewOrder (OrderYearWeek2+CustKey+ProdKey)` INNER JOIN. 주문서에 없는 품목의 출고는 어디에도 집계되지 않고 이카운트에도 안 올라감(청구 누락) | 확정 16줄 / 3,729,092원 (전 연도 35줄) | 새 ShipmentDetail INSERT 전 `assertShipmentLineHasOrder` (distribute/adjust/import/public API/주광 분배/운임/부족분), 확정 전 `assertNoOrderlessLinesBeforeFix` (usp_ShipmentFix·주광 확정). 409 + "주문서에 품목 추가" 안내 |
+| ② | **ShipmentDetail 금액 ≠ ShipmentDate 합** | 견적서·이카운트는 `ShipmentDate`(출고일별 견적) 값, exe 매출/불량 분석은 `ShipmentDetail.Amount` → 두 화면 숫자가 다름. 15·16차 154줄(박스 수량으로 금액 132, 단가 10배 26) | 확정 161줄 / 10,297,305원 | ShipmentDate 를 쓰는 모든 경로 끝에 `alignShipmentDetailMoneyToDates` (syncShipmentDateEst 공통 + update-date-quantity/주광 분배/단가 전용/운임/부족분/더치 단가). Amount/Vat/Cost 만, ±1원 반올림은 무시, 금액 미기재(NULL) 출고일만 있으면 건드리지 않음 |
+| ③ | **거래처·품목 삭제(isDeleted=1)** | ViewShipment·ViewOrder 가 `c.isDeleted=0`, `p.isDeleted=0` 조건 → 확정 출고가 매출에서 사라짐('신라호텔 발주용 코드' 1차 8.4M) | 확정 21줄 / 5,292,463원 (전 연도 352줄 / 151.8M) | `DELETE /api/master?entity=customers|products&key=` 에 `assertMasterDeletable`: 확정 출고 건수·차수 응답하며 409. 뷰 DDL 제안: `ViewShipment-isDeleted-DDL-proposal.md` (실행 안 함) |
+| ④ | **차수 키·출고일 불일치** | 연말→연초(52→01) 연도 계산 버그로 2026년 1·2차 56건(713줄)이 OrderYearWeek 202501/202502·출고일 2025-01-xx 로 저장. 세부차수 포함 저장(20261601) 2건 | 마스터 58건, 출고일 범위 밖 713줄 | ShipmentMaster INSERT 전 `assertShipmentWeekConsistent`: OrderYearWeek = OrderYear+대차수, 출고일이 PeriodDay 차수 범위 ±7일 안(실데이터 확정 라인은 0~+6일만 존재) |
+
+### 부수 발견 — G2b: 출고일 금액 전부 NULL (4,027줄 / 1,045,513,889원)
+
+2026년 **1~3차에만** 집중(1차 1,439 / 2차 1,367 / 3차 1,221). ShipmentDate 행은 있으나 EstQuantity=0, Amount NULL —
+출고일별 견적(ShipmentDate 금액) 운영이 4차부터 시작된 레거시 패턴이다. GetData 의 `sdd.EstQuantity > 0` 조건에 걸리므로
+이 라인은 견적서 화면에는 안 나오고 exe 매출/불량(ShipmentDetail)에는 나온다. 신규 발생은 보호장치 ②가 막는다(금액 기재 후 자동 정렬).
+기존 분은 수정하지 않았다(사장님 판단).
+
+### EstQuantity 는 동기화하지 않는 이유 (실측)
+
+2026년 확정 라인 45,176줄 중 `ShipmentDetail.EstQuantity` 와 `ShipmentDate` 합의 관계:
+
+| Est=Out | Est=DateSum | 줄수 | 해석 |
+|---|---|---|---|
+| ○ | ○ | 17,867 | 박스=견적단위 품목 |
+| × | ○ | 15,106 | Detail 에 환산수량(단/송이) 저장 |
+| ○ | × | 12,199 | Detail 에 박스수량 저장, Date 는 송이/단 (예 SdetailKey 64448: 11박스 vs 330송이, 금액 동일) |
+| × | × | 4 | |
+
+→ Detail.EstQuantity 는 단위가 섞인 구조라 Date 합으로 강제하면 12,199줄 의미가 바뀐다. `alignShipmentDetailMoneyToDates` 는 기본 Amount/Vat/Cost 만, `alignEstQuantity:true` 옵션은 명시 호출 전용.
+
+### 골든 — exe 산식 총매출 불변 증명
+
+`__tests__/exeEstimateGoldenTotals.test.js` + `__tests__/fixtures/exeEstimateGoldenTotals.json`:
+(1) `lib/exeEstimateViewSql.js` sha256 불변, (2) 운영 DB GetData(전 요일·전 거래처) 총매출 원 단위 동일.
+
+| OrderYearWeek | 거래처 | 총매출(Amount+Vat) |
+|---|---|---|
+| 202615 | 66 | 316,688,140 |
+| 202616 | 68 | 406,235,036 |
+| 202636 | 68 | 435,482,493 |
+
+### 진단 (읽기 전용)
+
+- `GET /api/shipment/estimate-guard-diagnose?view=summary|orderlessFixed|detailDateMoneyMismatch|detailWithUnpricedDates|deletedMasterFixed|weekKeyMismatch|shipmentDateOutOfWeek&orderYear=2026`
+- `GET /api/shipment/estimate-guard-diagnose?view=deleteCheck&entity=customer&key=…`
+- `npm run scan:integrity -- --year=2026` → G1~G4 (관리자 API 와 같은 SQL)
+
+### 바꾸지 않은 것
+
+- `lib/exeEstimateViewSql.js`(GetData/GetDetail/GetPrintDetail/GetExcelDetail), `pages/api/estimate/*` 조회 산식, ViewShipment/ViewOrder DDL
+- 기존 주문 없는 출고 16줄, 금액 불일치 161줄, 삭제 거래처·품목 확정 출고, 202501/202502 마스터 — 전부 그대로(사장님 판단 영역)
+- `lib/shipmentImportRollback.js` 의 스냅샷 복원은 정렬하지 않음(복원은 바이트 동일이 목적)
+
+
 ## 2026-10-15 주광 분배 기준 출력 분리
 
 실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormEstimateView`로 다시 확인했다.

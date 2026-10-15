@@ -9,6 +9,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek, resolveActiveOrderYear, requireOrderYear } from '../../../lib/orderUtils';
 import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
+import { assertShipmentLineHasOrder, assertShipmentWeekConsistent } from '../../../lib/shipmentEstimateGuard.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { resolveShipmentDistributionEditPolicy } from '../../../lib/shipmentDistributionEditPolicy.js';
 import { assertShipmentDistributionVerification } from '../../../lib/shipmentDistributionVerification.js';
@@ -761,6 +762,7 @@ async function saveDistribute(req, res) {
 
       let sk;
       if (smResult.recordset.length === 0) {
+        await assertShipmentWeekConsistent(tQuery, sql, { orderYear, orderWeek: week, orderYearWeek: ywk }); // 보호장치 ④
         sk = await tryInsertWithRetry(tQuery, 'ShipmentMaster', 'ShipmentKey', async (newSk) => {
           const shipmentMasterParams = {
             nk: { type: sql.Int, value: newSk },
@@ -840,6 +842,9 @@ async function saveDistribute(req, res) {
             }
           );
         } else {
+          // 보호장치 ①④: 주문서에 없는 품목·차수 범위 밖 출고일은 새 분배를 만들지 않는다
+          await assertShipmentLineHasOrder(tQuery, sql, { orderYear, orderWeek: week, custKey, prodKey });
+          await assertShipmentWeekConsistent(tQuery, sql, { orderYear, orderWeek: week, shipmentDtm: resolvedShipDate });
           targetSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
             await tQuery(
               `INSERT INTO ShipmentDetail
@@ -1102,6 +1107,9 @@ async function saveDistributeBatch(req, res) {
             }
           );
         } else {
+          // 보호장치 ①④
+          await assertShipmentLineHasOrder(tQuery, sql, { orderYear, orderWeek: week, custKey: entry.custKey, prodKey: entry.prodKey });
+          await assertShipmentWeekConsistent(tQuery, sql, { orderYear, orderWeek: week, shipmentDtm: resolvedShipDate });
           targetSdk = await tryInsertWithRetry(tQuery, 'ShipmentDetail', 'SdetailKey', async (newKey) => {
             await tQuery(
               `INSERT INTO ShipmentDetail
