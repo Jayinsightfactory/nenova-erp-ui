@@ -32,7 +32,7 @@ test('actual matrix preserves decimal, zero, missing quantity and absent-history
   assert.equal(cells[1].children[0].children[0], '확인 필요');
   assert.equal(cells[2].children[0], '');
   assert.equal(cells[3].children[0], '-0.125');
-  assert.match(ui.text(), /선택 연도 전체 참고 자료/);
+  assert.match(ui.text(), /조정값을 한 시트/);
   assert.equal(ui.all('option').length, 54);
 });
 
@@ -87,4 +87,26 @@ test('tiny nonzero quantities retain their sign and magnitude rather than roundi
   await ui.settle(ui.calls[0], { ...matrix, rows });
   const values = ui.all('td').filter((cell) => cell.props.className === 'quantity').filter((_, index) => index % 4 === 0).map(cell => cell.children[0].children[0]);
   assert.deepEqual(values, ['+1e-11', '-1e-11', '+5e-324', '0']);
+});
+
+
+test('only complete actual-history zero-sum rows are highlighted; table keeps requested columns', async () => {
+  const ui = harness();
+  const variants = [
+    { net: 0, eventCount: 2, invalidCount: 0 },
+    { net: 0, eventCount: 0, invalidCount: 0 },
+    { net: 0, eventCount: 2, invalidCount: 1 },
+    { net: null, eventCount: 2, invalidCount: 0 },
+    { net: 1, eventCount: 2, invalidCount: 0 },
+    { net: -1, eventCount: 2, invalidCount: 0 },
+  ];
+  await ui.settle(ui.calls[0], { ...matrix, rows: variants.map((values, index) => ({ ...matrix.rows[0], ...values, key: String(index) })) });
+  const rows = ui.all('tr').slice(1);
+  assert.equal(rows[0].props.className, 'zero-sum');
+  assert.ok(rows.slice(1).every(row => row.props.className === undefined));
+  assert.equal(ui.all('span').filter(span => span.props.className === 'zero-badge').length, 1);
+  const headers = ui.all('th').filter(th => th.props.scope === 'col').map(th => th.children.join(''));
+  assert.deepEqual(headers, ['품목번호', '품명', '단위', '41-1', '41-2', '42-1', '품목 순조정']);
+  assert.equal(ui.all('option')[0].children[0], '1차부터 전체');
+  assert.ok(!source.includes('row.country') && !source.includes('row.flower'));
 });

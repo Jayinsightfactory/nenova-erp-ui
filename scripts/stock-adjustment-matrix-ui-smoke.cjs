@@ -23,8 +23,8 @@ const code = babel.transformSync(fs.readFileSync(filename, 'utf8'), { filename,
       window.fetch = (url, options) => new Promise(resolve => window.calls.push({ url, options, resolve }));
       window.HTMLAnchorElement.prototype.click = function () { window.downloads.push(this.download); };
       window.fixture = year => ({ ok: true, orderYear: String(year), eventCount: 360, invalidCount: 1,
-        weeks: Array.from({ length: 54 }, (_, i) => ({ key: `${41 + Math.floor(i / 2)}-${i % 2 + 1}`, label: `${41 + Math.floor(i / 2)}-${i % 2 + 1}` })),
-        rows: Array.from({ length: 24 }, (_, i) => ({ key: `${i}:stem`, prodKey: 100 + i, productName: `합성검증 긴 품명 ${i} 하이드란지아 수입 생화 상품 설명 전체 표시`, country: '콜롬비아', flower: '수국', unit: i % 2 ? '단' : '송이', net: i % 2 ? -0.125 : 0, invalidCount: i === 0 ? 1 : 0, cells: { '41-1': { quantity: 0, eventCount: 2, invalidCount: 0 }, '41-2': { quantity: i === 0 ? null : -0.125, eventCount: 1, invalidCount: i === 0 ? 1 : 0 }, '49-2': { quantity: 3.75, eventCount: 1, invalidCount: 0 } } })) });
+        weeks: Array.from({ length: 98 }, (_, i) => ({ key: `${1 + Math.floor(i / 2)}-${i % 2 + 1}`, label: `${1 + Math.floor(i / 2)}-${i % 2 + 1}` })),
+        rows: Array.from({ length: 24 }, (_, i) => ({ key: `${i}:stem`, prodKey: 100 + i, productName: `합성검증 긴 품명 ${i} 하이드란지아 수입 생화 상품 설명 전체 표시`, country: '콜롬비아', flower: '수국', unit: i % 2 ? '단' : '송이', net: i % 2 ? -0.125 : 0, eventCount: 3, invalidCount: i === 0 ? 1 : 0, cells: { '1-1': { quantity: 0, eventCount: 2, invalidCount: 0 }, '1-2': { quantity: i === 0 ? null : -0.125, eventCount: 1, invalidCount: i === 0 ? 1 : 0 }, '49-2': { quantity: 3.75, eventCount: 1, invalidCount: 0 } } })) });
       window.answer = (index, year = 2026, failure = '') => window.calls[index].resolve({ ok: !failure, json: async () => failure ? { ok: false, message: failure } : window.fixture(year) });
       window.fixtureRoot = window.ReactDOM.createRoot(document.getElementById('root'));
       window.renderYear = year => window.fixtureRoot.render(window.React.createElement(module.exports.default, { year }));
@@ -38,9 +38,9 @@ const code = babel.transformSync(fs.readFileSync(filename, 'utf8'), { filename,
       const layout = await page.evaluate(() => {
         const region = document.querySelector('.matrix-scroll'), name = document.querySelector('.product-name');
         region.scrollLeft = region.scrollWidth;
-        return { overflow: document.documentElement.scrollWidth > innerWidth, horizontal: region.scrollWidth > region.clientWidth, lastVisible: document.querySelector('thead th:last-child').getBoundingClientRect().right <= region.getBoundingClientRect().right + 1, nameHeight: name.getBoundingClientRect().height, vertical: getComputedStyle(region).maxHeight, zoom: devicePixelRatio };
+        return { overflow: document.documentElement.scrollWidth > innerWidth, horizontal: region.scrollWidth > region.clientWidth, lastVisible: document.querySelector('thead th:last-child').getBoundingClientRect().right <= region.getBoundingClientRect().right + 1, nameHeight: name.getBoundingClientRect().height, stickyName: Math.abs(name.getBoundingClientRect().left - region.getBoundingClientRect().left) < 2, zeroRows: document.querySelectorAll("tr.zero-sum").length, zeroColor: getComputedStyle(document.querySelector("tr.zero-sum")).backgroundColor, vertical: getComputedStyle(region).maxHeight, zoom: devicePixelRatio };
       });
-      assert.equal(layout.overflow, false); assert.equal(layout.horizontal, true); assert.equal(layout.lastVisible, true); assert.ok(layout.nameHeight > 30); assert.equal(layout.vertical, 'none'); assert.equal(layout.zoom, 1);
+      assert.equal(layout.overflow, false); assert.equal(layout.horizontal, true); assert.equal(layout.lastVisible, true); assert.ok(layout.nameHeight > 30); assert.equal(layout.vertical, 'none'); assert.equal(layout.zoom, 1); assert.equal(layout.stickyName, true); assert.equal(layout.zeroRows, 11); assert.equal(layout.zeroColor, 'rgb(236, 252, 203)');
       await page.evaluate(() => document.querySelector('.matrix-scroll').scrollLeft = 0);
       await page.screenshot({ path: path.join(__dirname, `../outputs/stock-matrix-ui-${name}.png`) });
     }
