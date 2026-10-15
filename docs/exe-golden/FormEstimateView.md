@@ -1,5 +1,23 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-15 주광 분배 기준 출력 분리
+
+실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormEstimateView`로 다시 확인했다.
+GetPrintDetail의 ViewShipment + ViewOrder + ShipmentDate + PeriodDay 조인과 DetailFix=1,
+날짜별 EstQuantity/Cost/Amount/Vat 집계는 기존 전산 확정 견적 계약으로 보존한다.
+로컬 근거 `output/weekday-distribution-print-dnspy.txt`.
+
+사용자는 주광 페이지에서 확정 없이 저장된 분배로 출력하도록 명시했다. 별도
+`weekday-allocation-print`는 저장 ShipmentDate와 master 거래처의 현재 분배를 읽고
+확정 상태는 진단으로 표시한다. 견적 단위 환산은 분배 수량과 구별하며 윌슨을
+중복 더하지 않는다. 기존 확정 견적 API 및 견적관리 SQL을 변경하지 않는다.
+
+사전 SELECT: 2026/42-01 Cust533, 10/18 Doncel389는 12박스/견적180,
+Moon Light447은 42박스/견적630, 둘 다 isFix=false. 2025/42-01 동일 품목은 별도
+5/23박스였다. 출력 기능은 Order/Shipment/ShipmentDate/ShipmentFarm/Estimate/Stock/
+WebProfitReport 및 Amount/Vat/isFix를 변경하지 않는다.
+기준·회귀 범위: `docs/plans/weekday-allocation-print-2026-10-15.md`.
+
 ## 2026-10-13 카톡 자동 불량 원천의 등록 격리
 
 메인이 실제 설치 EXE에 아래 CLI를 실행해 ClassEstimate.Insert/Update/Delete를 재확인했다.
