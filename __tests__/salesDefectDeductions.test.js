@@ -602,7 +602,7 @@ assert.equal(explicitChina[0].prodKey, 702, '중국을 명시하면 콜롬비아
 const popularCustomer = resolveImportCustomer('그린', [
   { CustKey: 601, CustName: '그린화원' },
   { CustKey: 602, CustName: '그린상사' },
-], { usageByCustKey: new Map([[601, { usageCount: 100 }], [602, { usageCount: 1 }]]) });
+], { savedMappings: {}, usageByCustKey: new Map([[601, { usageCount: 100 }], [602, { usageCount: 1 }]]) });
 assert.equal(popularCustomer.custKey, 601, '동점 거래처는 실제 입력 사용빈도가 높은 후보가 먼저여야 한다.');
 
 // 불량차감은 과거 엑셀/붙여넣기 학습 매핑으로 품목을 자동 확정하지 않는다.

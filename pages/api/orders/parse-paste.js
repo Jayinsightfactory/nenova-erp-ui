@@ -601,7 +601,8 @@ export async function parsePasteHandler(req, res) {
     const products  = prodRes.recordset;
     const allProducts = allProdRes.recordset;
     const productByKey = new Map(allProducts.map(p => [Number(p.ProdKey), p]));
-    const savedCustomerMappings = loadCustomerMappings(true);
+    const savedCustomerMappings = await loadCustomerMappings(true);
+    const savedProductMappings = await loadMappings(true);
     const customerUsageByProdKey = new Map((customerUsageRes.recordset || []).map(row => [Number(row.ProdKey), {
       usageCount: Number(row.UsageCount || 0),
       recentUsageCount: Number(row.RecentUsageCount || 0),
@@ -814,7 +815,7 @@ Caroline | 2
         allProducts,
         productByKey,
         prodUnitMap,
-        savedMappings: loadMappings(true),
+        savedMappings: savedProductMappings,
         unitCatalog: loadImportUnits(true),
         usageByProdKey: customerUsageByProdKey,
       });

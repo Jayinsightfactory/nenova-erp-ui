@@ -17,9 +17,9 @@ export default withAuth(async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     try {
       const custKey = Number(req.query.custKey || 0);
-      const globalMappings = loadMappings(true);
+      const globalMappings = await loadMappings(true);
       const mappings = custKey > 0
-        ? mergeCustomerProductMappings(globalMappings, custKey, true)
+        ? await mergeCustomerProductMappings(globalMappings, custKey, true)
         : globalMappings;
       const products = await readActiveProductNames(query, sql, mappings);
       return res.status(200).json({
@@ -37,9 +37,9 @@ export default withAuth(async function handler(req, res) {
     const key = (req.query.key || req.body?.key || '').toString();
     if (!key) return res.status(400).json({ success: false, error: 'key 필요' });
     const custKey = Number(req.query.custKey || req.body?.custKey || 0);
-    const result = custKey > 0
+    const result = await (custKey > 0
       ? deleteCustomerProductMapping(custKey, key)
-      : deleteMapping(key);
+      : deleteMapping(key));
     if (!result.deleted) return res.status(404).json({ success: false, error: result.reason || '삭제 실패' });
     return res.status(200).json({ success: true, key: result.key });
   }
@@ -53,14 +53,14 @@ export default withAuth(async function handler(req, res) {
     if (unit) prodInfo.unit = unit;
     const normalizedCustKey = Number(custKey || 0);
     // Background learning must never replace an explicit correction with a stale result.
-    const previous = normalizedCustKey > 0 ? null : loadMappings(true)[normalizeToken(inputToken)];
+    const previous = normalizedCustKey > 0 ? null : (await loadMappings(true))[normalizeToken(inputToken)];
     if (manual !== true && previous?.manual === true) {
       if (Number(previous.prodKey) !== Number(prodInfo.prodKey)) return res.status(409).json({ success: false, error: '새 수동 매칭이 있어 이전 분석의 자동 학습을 보류했습니다. 매칭 현황에서 확인하세요.' });
-      prodInfo.manual = true;
+      return res.status(200).json({ success: true, key: normalizeToken(inputToken), custKey: null });
     }
-    const result = normalizedCustKey > 0
+    const result = await (normalizedCustKey > 0
       ? saveCustomerProductMapping(normalizedCustKey, inputToken, prodInfo, { custName, actor: req.user?.userId || '' })
-      : saveMapping(inputToken, prodInfo, { force: !!force });
+      : saveMapping(inputToken, prodInfo, { force: !!force }));
     if (!result.saved && result.reason === 'fallback-suspect') {
       // 사용자에게 경고 + force 재시도 안내. 409 Conflict.
       return res.status(409).json({
@@ -70,6 +70,9 @@ export default withAuth(async function handler(req, res) {
         sampleKeys: result.sampleKeys,
         hint: 'force=true 로 재요청하면 강제 저장됩니다.',
       });
+    }
+    if (!result.saved && result.reason === 'manual-mapping-protected') {
+      return res.status(409).json({ success: false, error: '새 수동 매칭이 있어 이전 분석의 자동 학습을 보류했습니다. 매칭 현황에서 확인하세요.' });
     }
     if (!result.saved) {
       return res.status(500).json({ success: false, error: result.reason });

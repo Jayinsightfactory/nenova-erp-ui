@@ -14,6 +14,8 @@
  *   --apply     실제 매핑 저장 (기본값)
  */
 
+throw new Error('공유 DB 전환 후 파일 매칭 수정 도구는 사용할 수 없습니다. 웹 매칭 현황을 이용하세요.');
+
 const fs = require('fs');                                                     // 파일 읽기/쓰기
 const path = require('path');                                                 // 경로 유틸
 

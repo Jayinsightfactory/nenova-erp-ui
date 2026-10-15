@@ -7,6 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+throw new Error('공유 DB 전환 후 파일 매칭 수정 도구는 사용할 수 없습니다. 웹 매칭 현황을 이용하세요.');
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(__dirname, '..', 'data', 'order-mappings.json');
 const SUSPECT_FILE = path.join(__dirname, '..', 'data', 'order-mappings-fallback-suspects.json');

@@ -47,7 +47,7 @@ async function getList(req, res, entity) {
         WHERE p.isDeleted=0
         ORDER BY p.CounName, p.FlowerName, p.ProdName`
       );
-      const mappingStats = buildProductMappingStats(loadMappings());
+      const mappingStats = buildProductMappingStats(await loadMappings());
       const data = result.recordset.map((product) => ({
         ...product,
         MappingCount: Number(mappingStats.get(Number(product.ProdKey))?.count || 0),

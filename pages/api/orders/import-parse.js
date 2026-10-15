@@ -131,7 +131,7 @@ async function loadMatchContext(custKey = null, orderYear = new Date().getFullYe
     else prodUnitMap[row.ProdKey] = '박스';
   });
 
-  const globalMappings = loadMappings(true);
+  const globalMappings = await loadMappings(true);
   const customerUsageByProdKey = new Map((customerUsageRes.recordset || []).map(row => [Number(row.ProdKey), {
     usageCount: Number(row.CustomerUsageCount || 0),
     recentUsageCount: Number(row.CustomerRecentUsageCount || 0),
@@ -142,7 +142,7 @@ async function loadMatchContext(custKey = null, orderYear = new Date().getFullYe
     prodUnitMap,
     usageByProdKey: customerUsageByProdKey,
     savedMappings: custKey
-      ? mergeCustomerProductMappings(globalMappings, custKey, true)
+      ? await mergeCustomerProductMappings(globalMappings, custKey, true)
       : globalMappings,
   };
 }
@@ -231,7 +231,7 @@ async function handler(req, res) {
       const customers = customerResult.recordset || [];
       if (parsedMetadata?.customerName) {
         const resolved = resolveImportCustomer(parsedMetadata.customerName, customers, {
-          savedMappings: loadCustomerMappings(true),
+          savedMappings: await loadCustomerMappings(true),
         });
         if (resolved.custKey) matchedCustomer = {
           CustKey: resolved.custKey,
@@ -278,7 +278,7 @@ async function handler(req, res) {
     }
 
     const summary = summarizeMatches(items);
-    const mappingSaved = persistImportMatchMappings(items, {
+    const mappingSaved = await persistImportMatchMappings(items, {
       custKey: matchedCustomer?.CustKey, custName: matchedCustomer?.CustName,
     });
     if (mappingSaved.length > 0) {

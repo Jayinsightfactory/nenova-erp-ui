@@ -15,6 +15,8 @@
  *   NENOVA_API_URL — 품목 리스트 가져올 서버 (기본 https://nenova-erp.com)
  */
 
+throw new Error('공유 DB 전환 후 파일 매칭 수정 도구는 사용할 수 없습니다. 웹 매칭 현황을 이용하세요.');
+
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');

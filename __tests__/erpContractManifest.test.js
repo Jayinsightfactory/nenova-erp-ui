@@ -34,6 +34,9 @@ async function main() {
   await import('./shipmentDistributionVerification.test.js');
   await import('./shipmentDistributionWorkspace.test.js');
   await import('./shipmentDistributionAudit.test.js');
+  await import('./mappingDbStore.test.js');
+  await import('./mappingDbApi.test.cjs');
+  await import('./mappingDbDeployment.test.cjs');
   await import('./pasteMappingNames.test.js');
   await import('./pasteMappingNamesApi.test.cjs');
   await import('./pasteCurrentNames.test.js');

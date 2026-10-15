@@ -145,7 +145,7 @@ export default withAuth(async function handler(req, res) {
     }
 
     let withArrival = 0;
-    const mappings = loadMappings();
+    const mappings = await loadMappings();
     const products = productsRes.recordset.map(p => {
       const calc = arrivalMap[p.ProdKey] || {};
       const uploaded = uploadMap[p.ProdKey];

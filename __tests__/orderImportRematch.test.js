@@ -1,3 +1,4 @@
+import { mappingStoreFixture } from './helpers/mappingStoreFixture.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,7 +10,8 @@ try {
   fs.mkdirSync(path.join(dir, 'data'));
   process.chdir(dir);
   const { reapplyImportSavedMappings } = await import('../lib/orderImportRematch.js');
-  const store = await import('../lib/orderImportCustomerProductMappings.js');
+  const fixture = mappingStoreFixture();
+  const store = fixture.scoped;
   const products = [
     { ProdKey: 1, ProdName: 'HYDRANGEA WHITE', FlowerName: '수국', CounName: '콜롬비아' },
     { ProdKey: 2, ProdName: 'CARNATION WHITE', FlowerName: '카네이션', CounName: '콜롬비아' },
@@ -30,16 +32,16 @@ try {
   assert.equal(result.items[0].prodKey, 1);
   assert.equal(result.items[2].prodKey, null);
   assert.equal(reapplyImportSavedMappings(source, { ...context, savedMappings: { '수국 화이트': { prodKey: 1, auto: true } } }).restoredCount, 0);
-  assert.equal(store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 1, manual: true }, { actor: 'first' }).saved, true);
-  assert.equal(store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 2, manual: false }).saved, false);
-  assert.equal(store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 2, manual: true }, { actor: 'second' }).saved, true);
-  const saved = store.loadCustomerProductMappings(true)['680'];
+  assert.equal((await store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 1, manual: true }, { actor: 'first' })).saved, true);
+  assert.equal((await store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 2, manual: false })).saved, false);
+  assert.equal((await store.saveCustomerProductMapping(680, '수국 화이트', { prodKey: 2, manual: true }, { actor: 'second' })).saved, true);
+  const saved = (await store.loadCustomerProductMappings(true))['680'];
   assert.equal(saved.history.length, 2);
   assert.equal(saved.history[1].before.prodKey, 1);
   assert.equal(saved.history[1].actor, 'second');
-  assert.deepEqual(store.getCustomerProductMappings(999, true), {});
-  store.deleteCustomerProductMapping(680, '수국 화이트');
-  assert.equal(store.loadCustomerProductMappings(true)['680'].history.at(-1).after, null);
+  assert.deepEqual((await store.getCustomerProductMappings(999, true)), {});
+  (await store.deleteCustomerProductMapping(680, '수국 화이트'));
+  assert.equal((await store.loadCustomerProductMappings(true))['680'].history.at(-1).after, null);
 } finally {
   process.chdir(cwd);
   fs.rmSync(dir, { recursive: true, force: true });

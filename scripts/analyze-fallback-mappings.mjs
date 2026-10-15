@@ -14,6 +14,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+console.warn('오프라인 레거시 seed JSON 분석입니다. 공유 DB의 현재 매칭 상태를 나타내지 않습니다.');
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FILE = path.join(__dirname, '..', 'data', 'order-mappings.json');
 

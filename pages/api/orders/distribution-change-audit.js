@@ -96,15 +96,9 @@ function exactProductCandidate(products, request, mappings) {
   ]);
 }
 
-function loadExactAliases() {
-  try {
-    return {
-      customers: loadCustomerMappings(),
-      products: loadMappings(),
-    };
-  } catch {
-    return { customers: {}, products: {} };
-  }
+async function loadExactAliases() {
+  const [customers, products] = await Promise.all([loadCustomerMappings(), loadMappings()]);
+  return { customers, products };
 }
 
 function canonicalUnit(value) {
@@ -322,7 +316,12 @@ export default withAuth(async function handler(req, res) {
     return res.status(503).json({ success: false, advisoryOnly: true, ...(extracted.extractionErrorCode ? { extractionErrorCode: extracted.extractionErrorCode } : {}), ...(extracted.extractionValidationField ? { extractionValidationField: extracted.extractionValidationField } : {}), requests: extracted.extraction.requests, unresolved: extracted.extraction.unresolved, warnings: [...(extracted.warning ? [extracted.warning] : []), 'ERP 읽기 자료를 불러오지 못했습니다. 원문과 자동 추출 결과는 참고용으로만 유지됩니다.'], error: 'ERP 현재 자료를 읽지 못했습니다.' });
   }
 
-  const aliases = loadExactAliases();
+  let aliases;
+  try { aliases = await loadExactAliases(); }
+  catch (error) {
+    console.error('[distribution-change-audit] mapping read failed:', error);
+    return res.status(500).json({ success: false, advisoryOnly: true, error: '매핑 저장소를 읽지 못했습니다.' });
+  }
   const normalizedRequests = extracted.extraction.requests.map(request => mappedRequest(request, facts, scope, aliases));
   const asOf = new Date().toISOString();
   const findings = compareDistributionChanges({ year: scope.year, weeks: scope.weeks, requests: normalizedRequests, history: facts.history, currentRows: facts.currentRows, historyComplete: facts.historyComplete, asOf })
