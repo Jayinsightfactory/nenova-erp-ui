@@ -166,7 +166,7 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
 }
 
 export default function InvoiceReceiptWorkbench({
-  excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false,
+  excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
 }) {
   const [records, setRecords] = useState([]);
   const [selectedId, setSelectedId] = useState('');
@@ -261,13 +261,21 @@ export default function InvoiceReceiptWorkbench({
       const next = documents.map(document => ({ document, dirty: true, preview: null, pendingOperation: loadPendingOperation(document.documentId) }));
       setRecords(next);
       setSelectedId(next[0]?.document.documentId || '');
-      setSourceState({ busy: false, error: '', hash });
+      setSourceState({ busy: false, error: '', hash, scope: { file, excels, invoices, country } });
       setNotice({ type: 'info', text: '분석값을 입고 초안으로 준비했습니다. 아직 ERP 입고가 등록된 상태가 아닙니다.' });
     })().catch(error => {
       if (active) setSourceState({ busy: false, error: error.message, hash: '' });
     });
     return () => { active = false; };
   }, [country, excels, file, invoices, products, reviewConfirmed, truncated]);
+
+  useEffect(() => {
+    const scope = sourceState.scope;
+    if (!scope || sourceState.busy || scope.file !== file || scope.excels !== excels
+      || scope.invoices !== invoices || scope.country !== country || !records.length) return;
+    const currentRecords = records.filter(record => record.document?.sourceHash === sourceState.hash);
+    if (currentRecords.length) onMatchStateChange?.({ ...scope, sourceHash: sourceState.hash, records: currentRecords });
+  }, [country, excels, file, invoices, records, sourceState, onMatchStateChange]);
 
   useEffect(() => {
     if (!documentValue?.documentId) return;
@@ -403,7 +411,8 @@ export default function InvoiceReceiptWorkbench({
     updateSelected(document => ({
       ...document,
       lines: document.lines.map(line => line.lineId === lineId
-        ? { ...line, productSearch: value, prodKey: product ? Number(product.ProdKey) : null }
+        ? { ...line, productSearch: value, prodKey: product ? Number(product.ProdKey) : null,
+          reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product) } }
         : line),
     }));
   }

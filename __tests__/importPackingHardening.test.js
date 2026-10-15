@@ -20,6 +20,7 @@ const modulesReady = Promise.all([
   import('../lib/importPackingMatchPreview.js'),
   import('../lib/packingMatchReview.js'),
   import('../lib/packingWorkDraft.js'),
+  import('../lib/packingReceiptMatchState.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -63,7 +64,8 @@ function browserPdfFile(file) {
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es', userId = '', savedWork = null } = {}) {
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
-    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview, matchReview, packingWorkDraft] = await modulesReady;
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview, matchReview, packingWorkDraft,
+    receiptMatchState] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
   let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null, erpReadFailure = null;
   const storageReads=[];
@@ -157,6 +159,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingSourceReview.js': sourceReview,
     '../../lib/importPackingMatchPreview.js': matchPreview,
     '../../lib/packingMatchReview.js': matchReview,
+    '../../lib/packingReceiptMatchState.js': receiptMatchState,
     '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },

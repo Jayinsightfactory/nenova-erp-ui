@@ -67,7 +67,7 @@
   },
   "criteria": {
     "productOrder": "ProdName A-Z in every product selector/list, including favorites; never favorite-first or relevance-rank reorder.",
-    "keyboard": "Visible Ctrl+Alt+1/2/3/4 and Ctrl+Enter; natural Tab, arrow selection, Enter/Space, Escape focus return; native numeric arrows retained.",
+    "keyboard": "Visible Ctrl+Alt+1/2/3/4, Ctrl+Enter query, quantity Enter next visible enabled quantity (last row focuses Save without posting), and Ctrl+S current-mode save. Native numeric arrows retained; Ctrl+S always prevents browser Save and cannot write while distribution/customer reads, fixed/SP/day saves, history/validation/SP/success modal, repeat, or IME composition. Natural Tab, arrow selection, Enter/Space, and Escape focus return remain available.",
     "durability": "Only verified successful quantity changes get immutable transaction audit, with exact scope, before/after and OutUnit. Existing0-to0 deletion creates no invalid audit.",
     "privacy": "New audit allowlists business fields; no raw chat, token or editGuard. Existing general request telemetry unchanged.",
     "downstream": "No new Estimate, StockHistory or WebProfitReport writes; native amount conversion and fixed protection unchanged. Read-only estimate visibility/amount/date and confirmed-sales evidence recorded in work plan.",

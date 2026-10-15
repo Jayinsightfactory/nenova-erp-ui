@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
 import { packingMatchReview } from '../../lib/packingMatchReview';
+import { effectivePackingMatchReview } from '../../lib/packingReceiptMatchState';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
 const STEM_QUANTITY_COUNTRIES = new Set(['NL', 'CO', 'EC', 'TH', 'AU', 'US', 'VN']);
@@ -66,14 +67,15 @@ function mismatchText(mismatch) {
   return `패킹 리스트 ${formatNumber(computed, 2)} · 인보이스 ${formatNumber(expected, 2)} · 차이 ${difference > 0 ? '+' : ''}${formatNumber(difference, 2)}`;
 }
 
-function buildIssueSummary(excels, country, notes, truncated = false, erpProducts = []) {
+function buildIssueSummary(excels, country, notes, truncated = false, erpProducts = [], receiptMatches = new Map()) {
   const lines = ['패킹 리스트 확인 필요 항목'];
   let issueCount = 0;
 
-  excels.forEach(excel => {
+  excels.forEach((excel, excelIndex) => {
     const products = Array.isArray(excel.products) ? excel.products : [];
     const rowIssues = products
-      .map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) }))
+      .map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
+        packingMatchReview(product, erpProducts, country), receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${index}`)) }))
       .filter(item => item.review.needsReview || productSourceNeedsReview(item.product));
     const hasMismatch = Boolean(excel.totalMismatch);
     const isTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
@@ -205,6 +207,7 @@ export default function PackingResults({
   mappingDisabled = false,
   truncated = false,
   erpProducts = [],
+  receiptMatches = new Map(),
   previewOnly = false,
   onReviewSource,
 }) {
@@ -220,12 +223,13 @@ export default function PackingResults({
   const dialogRef = useRef(null);
   const dialogTextareaRef = useRef(null);
   const safeExcels = Array.isArray(excels) ? excels : [];
-  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts), [safeExcels, country, notes, truncated, erpProducts]);
-  const reviewedExcels = safeExcels.map(excel => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) })) }));
-  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, REVIEW: 0, UNMATCHED: 0 });
+  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts, receiptMatches), [safeExcels, country, notes, truncated, erpProducts, receiptMatches]);
+  const reviewedExcels = safeExcels.map((excel, excelIndex) => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
+    packingMatchReview(product, erpProducts, country), receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${index}`)) })) }));
+  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, DOCUMENT: 0, REVIEW: 0, UNMATCHED: 0 });
   useEffect(() => {
-    if (counts.EXACT + counts.MANUAL > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
-  }, [counts.EXACT, counts.MANUAL, counts.REVIEW, counts.UNMATCHED]);
+    if (counts.EXACT + counts.MANUAL + counts.DOCUMENT > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
+  }, [counts.EXACT, counts.MANUAL, counts.DOCUMENT, counts.REVIEW, counts.UNMATCHED]);
   const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview || productSourceNeedsReview(row.product)).map(row => row.key));
   useEffect(() => {
     if (!selected?.rowKey || visibleKeys.includes(selected.rowKey)) return;
@@ -307,7 +311,7 @@ export default function PackingResults({
       </div>
 
       <div className={styles.matchReviewBar}>
-        <p role="status">정확 {counts.EXACT} · 수동 {counts.MANUAL} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
+        <p role="status">정확 {counts.EXACT} · 팀 공용 수동 {counts.MANUAL} · 문서 행 선택 {counts.DOCUMENT} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
           {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 매칭 확인 ${counts.REVIEW + counts.UNMATCHED}건`}
           {(() => { const count = reviewedExcels.flatMap(item => item.rows).filter(row => productSourceNeedsReview(row.product)).length;
             return count ? ` · 원문 확인 ${count}건` : ''; })()}</p>
@@ -445,7 +449,7 @@ export default function PackingResults({
                                   ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-status-match"
                                       aria-label={`${status}: ${sourceName} 전산 품목 확인`}
                                       disabled={matchDisabled} onClick={openMatch}>{status}</button>
-                                  : <span className={`${styles.statusChip} ${review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                                  : <span className={`${styles.statusChip} ${['MANUAL', 'DOCUMENT'].includes(review.status) ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
                                 {productSourceNeedsReview(product) && (
                                   <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-source-review"
                                     aria-label={`${sourceName} 원문 확인: ${sourceIssueText(product.sourceReview)}`}

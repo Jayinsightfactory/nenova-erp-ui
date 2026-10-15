@@ -92,12 +92,12 @@
     "detailStartRow": 24,
     "detailPrototypeRow": 24,
     "originalLastDetailRow": 33,
-    "rowPolicy": "bounded dynamic expansion preserving original style indices, row height and merge patterns; update dimensions/filter/print references",
+    "rowPolicy": "bounded dynamic expansion preserving original style indices, row height and detail merge patterns; update dimensions/filter/print references",
     "preserve": [
       "cell styles",
       "column widths",
       "row heights",
-      "merge patterns",
+      "detail merge patterns; CN AIR row-5 header exception below",
       "theme",
       "existing print settings"
     ],
@@ -111,6 +111,7 @@
       "historical properties"
     ],
     "valuePolicy": "approved values in original cost-result positions; explicit unit mapping; no unsupported expense breakup or historical defaults inferred",
+    "cnAirHeaderException": "Runtime OOXML only: remove B5:B6 and C5:C6 vertical merges, add C5:D5 horizontal period merge. B5=차수, C5=YYYY/WW-SS, J5:M5=승인 입력·합계, O5:U5=승인값 스냅샷 안내. Original source-bound JSON/hash, fonts, styles, columns, row heights, detail merges, and all other profiles remain unchanged; no shrink-to-fit.",
     "otherProfiles": "Only enabled profiles in lib/invoiceCostExportProfiles.js with source-bound sanitized assets and exact approved recalculation; all others EXPORT_TEMPLATE_UNSUPPORTED",
     "runtimePolicy": "sanitized format JSON asset generated from hash-verified source at build/preparation; asset hash/profile metadata checked; original private XLSX not required at runtime",
     "implementationPolicy": "runtime software OOXML export, not conversational artifact authoring; no modification of historical source workbook",

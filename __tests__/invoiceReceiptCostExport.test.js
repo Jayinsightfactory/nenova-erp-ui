@@ -98,7 +98,9 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), template.theme);
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
   for (const part of [template.cols, template.sheetFormatPr, template.sheetViews, template.print]) assert.ok(sheet.includes(part));
-  for (const merge of template.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+  for (const merge of template.merges.filter(ref => ref !== 'B5:B6' && ref !== 'C5:C6')) assert.ok(sheet.includes(`ref="${merge}"`));
+  assert.ok(sheet.includes('ref="C5:D5"'));
+  assert.ok(!sheet.includes('ref="B5:B6"') && !sheet.includes('ref="C5:C6"'));
   assert.ok(sheet.includes('ref="B51:D51"'));
   const rowRefs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
   assert.equal(rowRefs.length, 51); assert.equal(new Set(rowRefs).size, 51);
@@ -121,6 +123,39 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assert.equal(s.P10.v, f.snapshot.input.customsTotalKRW);
   for (const ref of ['P6', 'P7', 'P8', 'P9', 'R6', 'R7']) assert.equal(s[ref]?.v, undefined);
   assert.equal(s.C8.v, 56); assert.equal(s.E8.v, 84);
+});
+
+test('CN air header anchors are separate and no merged range contains populated non-anchor cells', async () => {
+  const f = invoiceCostExportFixture(28);
+  const bytes = await createInvoiceCostWorkbook(f);
+  const zip = await JSZip.loadAsync(bytes);
+  const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
+  const cells = new Set([...sheet.matchAll(/<c\b[^>]*\br="([A-Z]+\d+)"[^>]*><(?:v|is)>/g)]
+    .map(([, ref]) => ref));
+  const merges = [...sheet.matchAll(/<mergeCell ref="([A-Z]+\d+):([A-Z]+\d+)"\/>/g)]
+    .map(([, first, last]) => [first, last]);
+  const point = ref => {
+    const [, letters, row] = ref.match(/^([A-Z]+)(\d+)$/);
+    return [Number(row), [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0)];
+  };
+  for (const [first, last] of merges) {
+    const [top, left] = point(first), [bottom, right] = point(last);
+    for (const ref of cells) {
+      const [row, col] = point(ref);
+      if (row >= top && row <= bottom && col >= left && col <= right) {
+        assert.equal(ref, first, `${ref} is populated inside ${first}:${last}`);
+      }
+    }
+  }
+  const s = XLSX.read(bytes).Sheets['승인 원가'];
+  assert.equal(s.B5.v, '차수');
+  assert.equal(s.C5.v, '2026/41-02');
+  assert.equal(s.J5.v, '승인 입력·합계');
+  assert.equal(s.O5.v, '승인값 스냅샷 · 재계산 수식 없음');
+  assert.ok(merges.some(([first, last]) => first === 'C5' && last === 'D5'));
+  assert.ok(merges.some(([first, last]) => first === 'J5' && last === 'M5'));
+  assert.ok(merges.some(([first, last]) => first === 'O5' && last === 'U5'));
+  assert.doesNotMatch(await zip.file('xl/styles.xml').async('string'), /shrinkToFit/);
 });
 
 test('format-only template and generated package contain no historical rows, formulas, selling/profit, or raw snapshots', async () => {
