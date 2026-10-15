@@ -3,6 +3,8 @@
 // (2) Alhambra(338) 로 잘못 학습된 카네이션 항목 ≈ 20+건 정정
 // (3) 추가로 DB 매칭 가능한 것 자동 정정
 
+throw new Error('공유 DB 전환 후 파일 매칭 수정 도구는 사용할 수 없습니다. 웹 매칭 현황을 이용하세요.');
+
 const fs = require('fs');
 const path = require('path');
 fs.readFileSync(path.join(__dirname, '..', '.env.local'), 'utf8').split(/\r?\n/).forEach(line => {

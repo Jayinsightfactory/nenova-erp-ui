@@ -3,6 +3,11 @@ name: Deploy to Cafe24
 on:
   workflow_dispatch:
     inputs:
+      migrate_order_mappings:
+        description: '승인된 업체·품목 매칭 파일의 공유 DB 최초 이전'
+        type: boolean
+        required: false
+        default: false
       apply_db_migrations:
         description: '별도 승인된 DB 스키마 적용 (기본: 웹 코드만 배포)'
         type: boolean
@@ -45,6 +50,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
+          MIGRATE_ORDER_MAPPINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate_order_mappings == true && 'true' || 'false' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           WEEKDAY_TEMPLATE_KEY: ${{ secrets.WEEKDAY_TEMPLATE_KEY }}
           PUBLIC_API_KEY: ${{ secrets.PUBLIC_API_KEY }}
@@ -64,7 +70,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -73,7 +79,9 @@ jobs:
             git fetch origin master
             # Preserve existing user mappings before reset replaces the tracked seed.
             # copyFileSync(COPYFILE_EXCL) never overwrites a migrated runtime store.
-            node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
+            if [ ! -f .next/.mapping-db-capable ]; then
+              node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
+            fi
             git reset --hard origin/master
             # Audit events survive source resets/build swaps and are never release artifacts.
             export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
@@ -87,7 +95,9 @@ jobs:
             unset WEEKDAY_TEMPLATE_KEY
             # The still-running previous build writes the old filename until reload.
             # Keep that filename pointing at the same persistent store during the build.
-            node -e 'const fs=require("fs"); const dst="data/order-mappings.runtime.json", old="data/order-mappings.json"; if(fs.existsSync(dst)){JSON.parse(fs.readFileSync(dst,"utf8")); if(fs.existsSync(old))fs.unlinkSync(old); fs.symlinkSync("order-mappings.runtime.json",old);}' || exit 1
+            if [ ! -f .next/.mapping-db-capable ]; then
+              node -e 'const fs=require("fs"); const dst="data/order-mappings.runtime.json", old="data/order-mappings.json"; if(fs.existsSync(dst)){JSON.parse(fs.readFileSync(dst,"utf8")); if(fs.existsSync(old))fs.unlinkSync(old); fs.symlinkSync("order-mappings.runtime.json",old);}' || exit 1
+            fi
             # App allows 30MiB; only this exact route receives multipart overhead allowance.
             # Helper preserves upstream/auth directives and validates/rolls back nginx config.
             node scripts/ensure-pnl-upload-nginx.mjs --apply || exit 1
@@ -269,11 +279,52 @@ jobs:
             # Inline environment is build-only; the running app keeps its existing DB configuration.
             if ! DB_SERVER='' NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
             if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
+            # BEGIN ORDER_MAPPING_CUTOVER: explicit first migration only, after successful build.
+            if ! node scripts/migrate-order-mappings.mjs --check-ready; then
+              if [ "${MIGRATE_ORDER_MAPPINGS:-false}" != "true" ]; then
+                echo "MAPPING_DB_NOT_READY: 기존 앱 유지. 승인된 migrate_order_mappings=true dispatch 필요."
+                exit 1
+              fi
+              # Prove SQL connectivity and clean migration state before any interruption.
+              node scripts/migrate-order-mappings.mjs --check-unmigrated || exit 1
+              # A completed save has synchronously persisted before its HTTP response.
+              # Stop every old web instance before taking the final file snapshot.
+              # Requests still in flight may fail and must be checked by their caller.
+              pm2 stop nenova-erp --kill-timeout 30000 || exit 1
+              if ! node scripts/assert-mapping-writers-stopped.cjs; then
+                echo "❌ 매칭 작성자 중지 확인 실패 — 이전 중단"
+                exit 1
+              fi
+              mkdir -p /var/backups/nenova-mappings
+              chmod 700 /var/backups/nenova-mappings
+              MAPPING_BACKUP_DIR="/var/backups/nenova-mappings/$(date -u +%Y%m%dT%H%M%S)-$$"
+              MAPPING_SCOPE_ARGS=()
+              if [ -f data/order-import-customer-product-mappings.runtime.json ]; then
+                MAPPING_SCOPE_ARGS=(--customer-product-file data/order-import-customer-product-mappings.runtime.json)
+              fi
+              if ! node scripts/migrate-order-mappings.mjs --apply --writers-stopped \
+                --customer-file data/customer-mappings.json \
+                --product-file data/order-mappings.runtime.json \
+                "${MAPPING_SCOPE_ARGS[@]}" --backup-dir "$MAPPING_BACKUP_DIR"; then
+                # Unknown commit outcome must never restart a file-only application.
+                if node scripts/migrate-order-mappings.mjs --check-unmigrated; then
+                  pm2 restart nenova-erp --update-env
+                fi
+                echo "❌ 매칭 DB 이전 실패 — 원본 백업과 DB 상태 확인 필요"
+                exit 1
+              fi
+            fi
+            # END ORDER_MAPPING_CUTOVER
+            touch .next-build/.mapping-db-capable
             echo "=== atomic build swap + pm2 reload ==="
             rm -rf .next-previous
             if [ -d .next ]; then mv .next .next-previous; fi
             mv .next-build .next
             if ! pm2 reload nenova-erp --update-env; then
+              if [ ! -f .next-previous/.mapping-db-capable ]; then
+                echo "❌ 시작 실패 — DB 이전 후 파일 기반 구버전 복귀 금지. 새 빌드를 유지합니다."
+                exit 1
+              fi
               rm -rf .next
               if [ -d .next-previous ]; then mv .next-previous .next; fi
               pm2 restart nenova-erp

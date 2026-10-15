@@ -61,23 +61,14 @@ const api = fs.readFileSync('pages/api/orders/parse-paste.js', 'utf8');
 assert.ok(api.includes('await reviewPasteMatches'));
 assert.ok(!api.includes('matched.prodKey || item.prodKey'));
 
-// Deploy seed changes must not overwrite user corrections; test in an isolated directory.
-const cwd = process.cwd();
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-match-test-'));
-try {
-  fs.mkdirSync(path.join(dir, 'data'));
-  fs.writeFileSync(path.join(dir, 'data/order-mappings.json'), JSON.stringify({ original: { prodKey: 1 } }));
-  process.chdir(dir);
-  const store = await import(`../lib/parseMappings.js?runtime-test=${Date.now()}`);
-  assert.equal(store.loadMappings(true).original.prodKey, 1);
-  assert.equal(store.saveMapping('선택', { prodKey: 1255 }).saved, true);
-  fs.writeFileSync(path.join(dir, 'data/order-mappings.json'), '{}');
-  assert.equal(store.loadMappings(true)['선택'].prodKey, 1255);
-  assert.equal(store.loadMappings(true).original.prodKey, 1);
-  assert.equal(store.deleteMapping('선택').deleted, true);
-  assert.equal(store.loadMappings(true)['선택'], undefined);
-} finally {
-  process.chdir(cwd);
-  fs.rmSync(dir, { recursive: true });
-}
-console.log('paste AI review: customer collisions, candidate validation, failure, immutable rows, cross-year, stale cache, runtime store passed');
+// Source-file resets cannot replace DB data; exercise the actual wrappers on an isolated adapter.
+const { mappingStoreFixture } = await import('./helpers/mappingStoreFixture.js');
+const fixture = mappingStoreFixture({ product: { original: { prodKey: 1 } } });
+const store = fixture.products;
+assert.equal((await store.loadMappings(true)).original.prodKey, 1);
+assert.equal((await store.saveMapping('선택', { prodKey: 1255 })).saved, true);
+assert.equal((await store.loadMappings(true))['선택'].prodKey, 1255);
+assert.equal((await store.loadMappings(true)).original.prodKey, 1);
+assert.equal((await store.deleteMapping('선택')).deleted, true);
+assert.equal((await store.loadMappings(true))['선택'], undefined);
+console.log('paste AI review: candidate validation, immutable rows and shared mapping wrappers passed');

@@ -52,7 +52,7 @@ export default withAuth(async function handler(req, res) {
       orderWeek: first(fields.orderWeek),
       products,
       farms,
-      mappings: loadMappings(),
+      mappings: await loadMappings(),
     });
     if (!parsed.rows.length) {
       const error = parsed.detectedTableCount

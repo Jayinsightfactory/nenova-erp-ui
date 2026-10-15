@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteOrderChanges, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, convertSalesPasteQtyToOutUnit, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, replaceSalesPasteUnit, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext, salesPasteUnitOptions } from '../lib/salesPasteOrder.js';
 
@@ -102,7 +103,7 @@ const jamoMatched = matchImportRow({ inputName: '카네이션 잔다스위트', 
   unitCatalog: {},
 });
 assert.equal(jamoMatched.prodKey, 201, '자모 오타는 같은 국가·화종 후보 안에서 근사 매칭해야 합니다.');
-const { loadMappings } = await import('../lib/parseMappings.js');
+const savedMappingFixture = JSON.parse(fs.readFileSync(new URL('../data/order-mappings.json', import.meta.url), 'utf8'));
 const alstroProducts = [
   { ProdKey: 54, ProdName: 'ALSTROMERIA Dubai', DisplayName: 'ALSTROMERIA Dubai', FlowerName: '알스트로', CounName: '콜롬비아', OutUnit: '단', BunchOf1Box: 16 },
   { ProdKey: 69, ProdName: 'ALSTROMERIA Fifi', DisplayName: 'ALSTROMERIA Fifi', FlowerName: '알스트로', CounName: '콜롬비아', OutUnit: '단', BunchOf1Box: 16 },
@@ -111,7 +112,7 @@ const alstroContext = {
   allProducts: alstroProducts,
   productByKey: new Map(alstroProducts.map((product) => [product.ProdKey, product])),
   prodUnitMap: { 54: '단', 69: '단' },
-  savedMappings: loadMappings(true),
+  savedMappings: savedMappingFixture,
   unitCatalog: {},
 };
 assert.equal(matchImportRow({ inputName: '알스트로 두바이', matchName: '콜롬비아 알스트로 두바이', qty: 1, unit: '박스' }, alstroContext).prodKey, 54, '두바이는 과거 Arrone 자동 fallback 대신 수동 확정 Dubai를 사용해야 합니다.');

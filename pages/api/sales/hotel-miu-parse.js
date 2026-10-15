@@ -69,7 +69,7 @@ async function loadMatchContext() {
     allProducts,
     productByKey: new Map(allProducts.map((p) => [Number(p.ProdKey), p])),
     overlay,
-    savedMappings: mergeBoardMappings(loadMappings(true), overlay),
+    savedMappings: mergeBoardMappings(await loadMappings(true), overlay),
     unitCatalog: loadImportUnits(true),
   };
 }

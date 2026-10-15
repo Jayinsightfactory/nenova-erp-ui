@@ -1,4 +1,5 @@
 // DB 의 모든 카네이션 품목 + 사용자 입력한 17개 품종이 매칭 가능한지 확인
+console.warn('오프라인 레거시 seed JSON 대조입니다. 공유 DB의 현재 매칭 상태를 나타내지 않습니다.');
 const fs = require('fs');
 const path = require('path');
 fs.readFileSync(path.join(__dirname, '..', '.env.local'), 'utf8').split(/\r?\n/).forEach(line => {

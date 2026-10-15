@@ -1,3 +1,4 @@
+import { mappingStoreFixture } from './helpers/mappingStoreFixture.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,18 +10,19 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-order-import-customer-
 try {
   fs.mkdirSync(path.join(dir, 'data'));
   process.chdir(dir);
-  const store = await import(`../lib/orderImportCustomerProductMappings.js?test=${Date.now()}`);
+  const fixture = mappingStoreFixture();
+  const store = fixture.scoped;
 
-  assert.equal(store.saveCustomerProductMapping(101, '프리덤', { prodKey: 11, prodName: 'ROSE / Freedom 50cm', manual: true }, { custName: '업체 A' }).saved, true);
-  assert.equal(store.saveCustomerProductMapping(202, '프리덤', { prodKey: 22, prodName: 'ROSE / Freedom 60cm' }, { custName: '업체 B' }).saved, true);
+  assert.equal((await store.saveCustomerProductMapping(101, '프리덤', { prodKey: 11, prodName: 'ROSE / Freedom 50cm', manual: true }, { custName: '업체 A' })).saved, true);
+  assert.equal((await store.saveCustomerProductMapping(202, '프리덤', { prodKey: 22, prodName: 'ROSE / Freedom 60cm' }, { custName: '업체 B' })).saved, true);
 
   const globalMappings = {
     '프리덤': { prodKey: 99, prodName: 'global freedom' },
     '문라이트': { prodKey: 33, prodName: 'global moonlight' },
   };
-  const customerA = store.mergeCustomerProductMappings(globalMappings, 101, true);
-  const customerB = store.mergeCustomerProductMappings(globalMappings, 202, true);
-  const customerC = store.mergeCustomerProductMappings(globalMappings, 303, true);
+  const customerA = (await store.mergeCustomerProductMappings(globalMappings, 101, true));
+  const customerB = (await store.mergeCustomerProductMappings(globalMappings, 202, true));
+  const customerC = (await store.mergeCustomerProductMappings(globalMappings, 303, true));
 
   assert.equal(customerA['프리덤'].prodKey, 11, '업체 A의 동일 입력명은 업체 A 저장매칭이 공용값보다 우선해야 한다');
   assert.equal(customerB['프리덤'].prodKey, 22, '업체 B 매칭은 업체 A와 분리되어야 한다');
@@ -28,7 +30,7 @@ try {
   assert.equal(customerA['문라이트'].prodKey, 33, '업체별 저장값 외 품목은 공용매칭을 유지해야 한다');
   assert.equal(customerA['프리덤'].mappingScope, 'customer');
   assert.equal(customerA['프리덤'].manual, true, '사용자가 수정한 업체별 매칭은 다음 업로드에서도 수동 확정값으로 유지되어야 한다');
-  assert.equal(store.saveCustomerProductMapping(0, '프리덤', { prodKey: 1 }).saved, false, '유효하지 않은 고객 범위에는 저장하지 않아야 한다');
+  assert.equal((await store.saveCustomerProductMapping(0, '프리덤', { prodKey: 1 })).saved, false, '유효하지 않은 고객 범위에는 저장하지 않아야 한다');
 } finally {
   process.chdir(cwd);
   fs.rmSync(dir, { recursive: true, force: true });

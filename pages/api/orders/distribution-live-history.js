@@ -39,9 +39,9 @@ function requestMessages(body) {
   return body.messages;
 }
 
-function aliases() {
-  try { return { products: loadMappings(), customers: loadCustomerMappings() }; }
-  catch { return { products: {}, customers: {} }; }
+async function aliases() {
+  const [products, customers] = await Promise.all([loadMappings(), loadCustomerMappings()]);
+  return { products, customers };
 }
 
 async function queryLiveHistory(statement, params = {}) {
@@ -108,7 +108,13 @@ export default withAuth(async function handler(req, res) {
   try { ({ facts, balanceFacts, balanceUnavailable, asOf } = await loadScopedFacts(scope)); }
   catch { return res.status(503).json({ success: false, advisoryOnly: true, erpAction: 'NONE', error: 'ERP 읽기 자료를 불러오지 못했습니다.' }); }
   const reposts = groupHistoryReposts(messages);
-  const parsedItems = parseMessages(reposts.map(group=>group.message), facts, aliases(), scope);
+  let aliasSnapshot;
+  try { aliasSnapshot = await aliases(); }
+  catch (error) {
+    console.error('[distribution-live-history] mapping read failed:', error);
+    return res.status(500).json({ success: false, advisoryOnly: true, erpAction: 'NONE', error: '매핑 저장소를 읽지 못했습니다.' });
+  }
+  const parsedItems = parseMessages(reposts.map(group=>group.message), facts, aliasSnapshot, scope);
   // pairRequests mutates its request rows for backwards-compatible public events.
   // The balance comparison must instead retain the parser result and private facts.
   const canonicalComparison = balanceFacts ? buildDistributionRequestBalanceComparison({

@@ -39,3 +39,14 @@ OrderMasterKey로 주문을 연결한다. `btnSave_Click`은 별도 주문 저�
 부산 서부꽃집671/서부청과405 및 Pink Mondial 40/50/60cm 키1437/1255/1438을 대조했다.
 정확 별칭 양재동686·서부꽃집671은 정상인데 브라우저 캐시 우선 적용이 서버 선택을 변경할 수 있었다.
 이번 변경은 후보 검증 및 웹 별칭 파일만 대상이다. 주문·출고·재고·견적·매출 원장과 SP는 모두 보존한다.
+
+
+## 2026-10-15 매칭 공유 DB 저장소 전환
+
+실제 로컬 dnSpy CLI FormOrderAdd를 다시 실행했다(`outputs/paste-mappings-db-native.txt`).
+GetCustomer의 CustKey 선택, GetDataProduct의 ProdKey 연결과 btnSave_Click의 별도 주문 쓰기를 확인했다.
+운영 인증 GET 읽기(`outputs/paste-mappings-db-before.json`)는 업체 alias 36개, 품목 alias 501개,
+활성 Customer 675개/Product 3,346개, 모든 기존 키의 현재 master 연결을 확인했다.
+이번 쓰기는 WebMappingStore/WebMappingMigration에만 허용한다. Customer/Product의 이름·키,
+OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockHistory/Estimate/WebProfitReport 및 View는 보존한다.
+격리 MSSQL fixture에서 2025/2026 동일 41-02의 원장 표본이 이전·동시 저장 후 그대로인지 검사한다.

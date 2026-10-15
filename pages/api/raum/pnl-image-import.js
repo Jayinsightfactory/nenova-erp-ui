@@ -128,7 +128,7 @@ async function loadMatchContext() {
     if (!max) continue;
     prodUnitMap[row.ProdKey] = values[1] === max ? '단' : values[2] === max ? '송이' : '박스';
   }
-  return { allProducts, productByKey, prodUnitMap, savedMappings: loadMappings(true), unitCatalog: loadImportUnits(true) };
+  return { allProducts, productByKey, prodUnitMap, savedMappings: await loadMappings(true), unitCatalog: loadImportUnits(true) };
 }
 
 async function handler(req, res) {

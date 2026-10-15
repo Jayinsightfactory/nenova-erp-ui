@@ -1,0 +1,159 @@
+{
+  "id": "paste-mappings-db",
+  "title": "업체 및 품목 매칭의 공유 MSSQL 단일 저장소",
+  "scope": [
+    ".github/workflows/deploy.yml",
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/helpers/mappingStoreFixture.js",
+    "__tests__/mappingDbApi.test.cjs",
+    "__tests__/mappingDbDeployment.test.cjs",
+    "__tests__/mappingDbStore.test.js",
+    "__tests__/orderImportCustomerProductMappings.test.js",
+    "__tests__/orderImportMappingReuse.test.js",
+    "__tests__/orderImportRematch.test.js",
+    "__tests__/pasteAiMatchReview.test.js",
+    "__tests__/pasteMappingApi.test.js",
+    "__tests__/salesDefectDeductions.test.js",
+    "__tests__/salesPasteOrder.test.js",
+    "docs/DB_STRUCTURE.md",
+    "docs/exe-golden/ProductMatching.md",
+    "docs/migrations/2026-10-15_web_mapping_store.sql",
+    "docs/plans/paste-mappings-db-2026-10-15.md",
+    "docs/work-sessions/2026-10-15_paste-mappings-db.md",
+    "docs/work-sessions/INDEX.md",
+    "lib/arrivalCost.js",
+    "lib/arrivalCostExcel.js",
+    "lib/arrivalCostProductSearch.js",
+    "lib/arrivalDriveAuto.js",
+    "lib/catalogMatchPersist.js",
+    "lib/catalogSourceImport.js",
+    "lib/chat/entities.js",
+    "lib/chat/handlers/stock.js",
+    "lib/customerMappings.js",
+    "lib/hotelMiuIntake.js",
+    "lib/mappingDbStore.js",
+    "lib/mappingMigration.js",
+    "lib/mappingStoreKeys.js",
+    "lib/orderImportCustomerMatch.js",
+    "lib/orderImportCustomerProductMappings.js",
+    "lib/orderImportMatch.js",
+    "lib/orderImportUnits.js",
+    "lib/parseMappings.js",
+    "lib/pasteCustomerMappingMatch.js",
+    "lib/pasteMappingMatch.js",
+    "lib/persistImportMappings.js",
+    "lib/productMatchingLearningStore.js",
+    "lib/raumPnl.js",
+    "lib/salesDefectDeductions.js",
+    "lib/salesRevenueMappings.js",
+    "pages/api/arrival-cost/upload.js",
+    "pages/api/catalog/bootstrap.js",
+    "pages/api/catalog/product-match.js",
+    "pages/api/master/index.js",
+    "pages/api/orders/customer-mappings.js",
+    "pages/api/orders/distribution-change-audit.js",
+    "pages/api/orders/distribution-live-history.js",
+    "pages/api/orders/import-parse.js",
+    "pages/api/orders/import-rematch.js",
+    "pages/api/orders/mappings.js",
+    "pages/api/orders/parse-paste.js",
+    "pages/api/products/search.js",
+    "pages/api/raum/pnl-image-import.js",
+    "pages/api/sales/hotel-miu-parse.js",
+    "scripts/analyze-fallback-mappings.mjs",
+    "scripts/assert-mapping-writers-stopped.cjs",
+    "scripts/clean-fallback-mappings.mjs",
+    "scripts/fix-mappings.js",
+    "scripts/migrate-order-mappings.mjs",
+    "scripts/paste-train-auto.js",
+    "scripts/paste-train.js",
+    "scripts/probe-carnation.js",
+    "scripts/purge-legacy-auto-fallback.mjs",
+    "scripts/test-mapping-db-sql.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_SHARED_MAPPINGS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpTables": "preserve"
+    },
+    {
+      "name": "SAVE_DELETE_MAPPING",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writes": [
+        "WebMappingStore"
+      ],
+      "erpTables": "preserve"
+    },
+    {
+      "name": "EXPLICIT_FIRST_CUTOVER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writes": [
+        "WebMappingStore",
+        "WebMappingMigration"
+      ],
+      "erpTables": "preserve"
+    }
+  ],
+  "criteria": {
+    "authority": "Three full JSON documents in shared MSSQL are the only runtime source after committed migration. No process cache authority, file writes, file fallback or empty-success fallback on DB failure.",
+    "lossless": "Preserve exact aliases, keys, manual/unit/savedAt/actor metadata, unknown fields and complete customer-product history. No rematching, metadata refresh during migration or SQL collation folding of alias keys.",
+    "concurrency": "Read current document and apply existing manual protection and mutation under one DB transaction lock. Distinct concurrent alias writes must survive.",
+    "cutover": "migrate_order_mappings defaults false. Default deploy only checks readiness after build and fails before stopping current app if not ready. Explicit first cutover drains every old file writer before final snapshot, imports documents and completion marker atomically, verifies equality, then starts DB-only code.",
+    "rerun": "Committed marker prevents all file reimports, including missing-key repair; deleted aliases cannot resurrect. Missing document after cutover is an error.",
+    "rollback": "Before migration commit, restore old app only after rollback proof. After commit or unknown outcome, inspect DB readiness and allow only DB-capable rollback; never restart file-only writer.",
+    "consumers": "Await all storage callers; pure matching receives resolved mappings. No fs/mssql in browser bundle. Names-only GET hydration and existing customer-specific precedence remain intact.",
+    "erp": "Preserve Customer, Product, OrderMaster/Detail, ShipmentMaster/Detail/Date/Farm, StockHistory, Estimate, WebProfitReport. Shared mapping reuse never removes year from downstream business scope."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "Shared alias resolves same key for 2025 and 2026, while existing downstream OrderYear+OrderWeek+CustKey+ProdKey operations remain distinct and no ERP writes occur during migration."
+  },
+  "requiredTestFiles": [
+    "__tests__/mappingDbStore.test.js",
+    "__tests__/mappingDbApi.test.cjs",
+    "__tests__/mappingDbDeployment.test.cjs",
+    "scripts/test-mapping-db-sql.cjs",
+    "__tests__/pasteWorkspace.test.js",
+    "__tests__/codeOnlyDeployment.test.cjs",
+    "__tests__/orderImportMappingReuse.test.js",
+    "__tests__/orderImportRematch.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductMatching.md",
+    "source": "2026-10-15 actual CLI outputs/paste-mappings-db-native.txt",
+    "methods": [
+      "GetCustomer",
+      "GetDataProduct",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "Customer",
+      "Product"
+    ],
+    "note": "Web-only mapping persistence; native keys and ERP order storage unchanged. Main records current native CLI and read-only DB preflight before implementation."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ],
+  "mappingIdentity": [
+    "StoreKey",
+    "alias",
+    "CustKey",
+    "ProdKey"
+  ]
+}

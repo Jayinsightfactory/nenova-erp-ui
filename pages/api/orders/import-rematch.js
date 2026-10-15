@@ -15,7 +15,7 @@ export default withAuth(async function handler(req, res) {
   try {
     const products = await query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName,
       FlowerName, CounName, OutUnit FROM Product WHERE isDeleted = 0 ORDER BY ProdName`);
-    const savedMappings = mergeCustomerProductMappings(loadMappings(true), custKey, true);
+    const savedMappings = await mergeCustomerProductMappings(await loadMappings(true), custKey, true);
     const result = reapplyImportSavedMappings(items, {
       allProducts: products.recordset || [], savedMappings, prodUnitMap: {}, unitCatalog: {},
     });

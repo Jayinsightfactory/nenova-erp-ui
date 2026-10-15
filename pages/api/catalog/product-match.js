@@ -3,7 +3,7 @@
 import { withAuth } from '../../../lib/auth';
 import { persistCatalogMatch } from '../../../lib/catalogMatchPersist.js';
 
-export default withAuth(function handler(req, res) {
+export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const {
@@ -21,7 +21,7 @@ export default withAuth(function handler(req, res) {
     return res.status(400).json({ success: false, error: 'prodKey 필요' });
   }
 
-  const result = persistCatalogMatch({
+  const result = await persistCatalogMatch({
     prodKey,
     prodName,
     engName,

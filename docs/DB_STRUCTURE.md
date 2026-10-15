@@ -404,3 +404,13 @@ ERP 테이블 FK나 공유 SP 수정, 공용 임시입고 삭제, 기존 데이�
 - 격리 SQL 테스트: `scripts/test-invoice-web-storage-sql.cjs`
 - 운영 readback: `docs/diagnostics/2026-10-08-invoice-storage-production-readback.md` — 6테이블0행, FK7개, CHECK38개, 공유 SP/임시입고 지문 보존.
 - 이 구조가 존재하는 것만으로 인보이스→입고 저장/원가 계산 API 연결이 완료된 것은 아니다.
+
+## 2026-10-15 업체·품목 매칭 공유 저장소
+
+`WebMappingStore`는 `StoreKey` 기본키(customer/product/customer-product), 전체 JSON `Payload`,
+`Revision`, `UpdatedAt`으로 기존 alias·단위·수동 확정·업체별 history를 보존한다.
+문서별 SQL 트랜잭션 잠금 아래 수정하며 사용자 계정별 사본이나 파일 fallback은 없다.
+`WebMappingMigration`은 최초 이전 완료 표식과 원본 바이트 해시·건수·의미 해시·적용 시각을 보관한다.
+두 테이블은 웹 전용이며 ERP 원장·SP·Customer/Product에 쓰기나 FK 변경을 하지 않는다.
+스키마는 `docs/migrations/2026-10-15_web_mapping_store.sql`, 전환 절차는
+`docs/plans/paste-mappings-db-2026-10-15.md`를 따른다. 최초 운영 적용은 명시적인 배포 입력으로만 실행한다.

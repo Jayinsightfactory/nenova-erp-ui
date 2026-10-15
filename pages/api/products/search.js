@@ -22,8 +22,8 @@ function isCacheValid(c) {
   return c.data && c.updatedAt && (Date.now() - c.updatedAt < c.ttl);
 }
 
-function addMappingUsage(products) {
-  const stats = buildProductMappingStats(loadMappings());
+async function addMappingUsage(products) {
+  const stats = buildProductMappingStats(await loadMappings());
   return (products || []).map((product) => {
     const item = stats.get(Number(product.ProdKey)) || { count: 0, aliases: [] };
     return {
@@ -34,8 +34,8 @@ function addMappingUsage(products) {
   });
 }
 
-function rankAllProductRows(products = []) {
-  const enriched = addMappingUsage(products);
+async function rankAllProductRows(products = []) {
+  const enriched = await addMappingUsage(products);
   return rankProductSearchOptions('', enriched, { limit: enriched.length || 200 });
 }
 
@@ -100,7 +100,7 @@ export default withAuth(async function handler(req, res) {
           flower:  { type: sql.NVarChar, value: flower },
         }
       );
-      const products = rankAllProductRows(result.recordset);
+      const products = await rankAllProductRows(result.recordset);
       return res.status(200).json({ success: true, count: products.length, products });
     }
 
@@ -134,13 +134,13 @@ export default withAuth(async function handler(req, res) {
            WHERE p.isDeleted = 0
            ORDER BY p.CounName, p.FlowerName, p.ProdName`
         );
-        global._prodCache.data = addMappingUsage(result.recordset);
+        global._prodCache.data = result.recordset;
         global._prodCache.updatedAt = Date.now();
       }
       // 단순 문자열 포함 검색을 먼저 하면 `문라이트`처럼 한글 별칭만 있고
       // DB에는 영문 ProdName만 있는 품목이 후보에서 사라진다. 전체 Product를
       // 기존 자연어 점수 엔진에 전달해 한/영 별칭과 실제 사용량을 함께 반영한다.
-      const result = scoreNaturalLanguageProducts(q.trim(), global._prodCache.data, { limit: 500 });
+      const result = scoreNaturalLanguageProducts(q.trim(), await addMappingUsage(global._prodCache.data), { limit: 500 });
       const rankedProducts = [...result.candidates, ...result.alternateCountry].map((item) => ({
         ...item.source,
         MatchScore: Math.round(item.score * 100), MatchConfidence: item.confidence,
@@ -180,10 +180,10 @@ export default withAuth(async function handler(req, res) {
          WHERE p.isDeleted = 0
          ORDER BY p.CounName, p.FlowerName, p.ProdName`
       );
-        global._prodCache.data = addMappingUsage(result.recordset);
+      global._prodCache.data = result.recordset;
       global._prodCache.updatedAt = Date.now();
     }
-    const products = rankAllProductRows(global._prodCache.data);
+    const products = await rankAllProductRows(global._prodCache.data);
     return res.status(200).json({
       success: true,
       count: products.length,
