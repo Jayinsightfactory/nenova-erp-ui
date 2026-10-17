@@ -17,6 +17,7 @@ import { requireOrderYear } from '../../../lib/orderUtils';
 import { assertErpEditGuard, advanceErpEditGuard, editErrorResponse } from '../../../lib/erpEditPresence.js';
 import { normalizeEstimateEditProdKeys, resolveEstimateEditCategories } from '../../../lib/estimateCategoryCycle.js';
 import { lockStockGateOperation, clearStockGateOperation } from '../../../lib/stockGateOperation.js';
+import { assertNoOrderlessLinesBeforeFix } from '../../../lib/shipmentEstimateGuard.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -224,6 +225,8 @@ async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf,
     const scope = { orderYear, orderWeek, custKey: Number(req.body.custKey) };
     if (req.body?.editGuard) await assertErpEditGuard(tQ, scope, req.user, req.body);
     if (req.estimateEditGroups) await loadEstimateEditGroups(req.body.editProdKeys, [cf], tQ, true);
+    // 보호장치 ①: 확정 범위에 주문서 없는 출고가 있으면 확정 자체를 막는다 (견적서·매출·이카운트 누락 방지)
+    if (name === 'usp_ShipmentFix') await assertNoOrderlessLinesBeforeFix(tQ, sql, { orderYear, orderWeek, custKey: req.body?.custKey, countryFlower: shape.hasCountryFlower ? cf : null });
     const result = await runShipmentProcedure(name, shape, orderYear, orderWeek, uid, cf, tQ);
     const row = result.recordset?.[0];
     if (!row || row.result !== 0 || (row.returnCode !== undefined && row.returnCode !== 0)) throw new Error(row?.message || '품종별 확정 처리 결과를 확인하지 못했습니다.');
