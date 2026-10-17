@@ -43,7 +43,6 @@ function makeDraft(row) {
     invoiceIndex: row?.invoiceIndex,
     values: Object.fromEntries(FIELDS.map(field => [field, stringValue(row?.values?.[field])])),
     reason: stringValue(row?.reason),
-    confirmed: row?.confirmed === true,
     metadata: row?.metadata?.enabled ? {
       values: Object.fromEntries(METADATA_FIELDS.map(field => [field, stringValue(row.metadata.values?.[field])])),
       confirmed: Object.fromEntries(METADATA_FIELDS.map(field => [field, row.metadata.confirmed?.[field] === true])),
@@ -134,7 +133,6 @@ function validateDrafts(drafts, baselines) {
     if (FIELDS.some(field => fieldChanged(draft, baselines.get(key), field)) && !draft.reason.trim()) {
       rowErrors.reason = '인식값을 변경한 사유를 입력하세요.';
     }
-    if (!draft.confirmed) rowErrors.confirmed = '이 인보이스의 값을 검토했다는 확인이 필요합니다.';
     validateMetadataDraft(draft, baselines.get(key), rowErrors);
     if (Object.keys(rowErrors).length) errors[key] = rowErrors;
   }
@@ -182,7 +180,7 @@ export default function PackingEvidenceReview({
   const sourceSignature = JSON.stringify(sourceEntries.map(({ invoiceIndex, row }) => ({ invoiceIndex, row })));
   const sourceSignatureRef = useRef(sourceSignature);
   const fileIdentityRef = useRef({ pdfBase64, fileName });
-  const [drafts, setDrafts] = useState(() => safeRows.map(row => ({ ...makeDraft(row), confirmed: sourceReviewRequired ? false : row?.confirmed === true })));
+  const [drafts, setDrafts] = useState(() => safeRows.map(makeDraft));
   const [sourceDrafts, setSourceDrafts] = useState(() => sourceDraftsFrom(sourceEntries));
   const [showAllSourceRows, setShowAllSourceRows] = useState(() => targetEntry?.row?.reviewRequired === false);
   const [selectedKey, setSelectedKey] = useState(() => targetEntry ? String(targetEntry.invoiceIndex) : rowIdentity(safeRows[0]));
@@ -207,7 +205,6 @@ export default function PackingEvidenceReview({
   const autoFitPreviewRef = useRef(null);
 
   const invalidateConfirmations = () => {
-    setDrafts(previous => previous.map(draft => ({ ...draft, confirmed: false })));
     setSourceDrafts(previous => Object.fromEntries(Object.entries(previous).map(([key, draft]) => [key, { ...draft, confirmed: false }])));
     onInvalidate?.();
   };
@@ -219,8 +216,6 @@ export default function PackingEvidenceReview({
   const manualSourceCount = sourceEntries.filter(sourceNeedsHumanReview).length;
   const uncheckedSourceCount = sourceEntries.filter(entry => sourceNeedsHumanReview(entry)
     && sourceDrafts[entry.key]?.confirmed !== true).length;
-  const sourceInvoiceIndexes = [...new Set(sourceEntries.map(entry => entry.invoiceIndex))];
-  const uncheckedInvoiceCount = sourceInvoiceIndexes.filter(index => drafts.find(draft => rowIdentity(draft) === String(index))?.confirmed !== true).length;
   const missingSourceReasonCount = sourceEntries.filter(({ row, key }) => sourceDraftChanged(row, sourceDrafts[key])
     && !stringValue(sourceDrafts[key]?.reason).trim()).length;
   const sourceGateMessage = !sourceReviewRequired ? ''
@@ -228,16 +223,14 @@ export default function PackingEvidenceReview({
       : !pdfReady ? '현재 PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.'
         : !sourceEntries.length ? '검토가 필요한 상품행 원문 스냅샷이 없습니다.'
         : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건을 각각 원문과 대조해 확인하세요.`
-          : missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`
-            : uncheckedInvoiceCount ? `인보이스 확인 ${uncheckedInvoiceCount}건이 남아 있습니다.` : '';
+          : missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.` : '';
 
   useEffect(() => {
     const identities = new Set(safeRows.map(rowIdentity));
     baselinesRef.current = new Map(safeRows.map(row => [rowIdentity(row), makeBaseline(row)]));
     setDrafts(previous => safeRows.map(row => {
       const prior = previous.find(draft => rowIdentity(draft) === rowIdentity(row));
-      return prior ? { ...prior, confirmed: sourceReviewRequired ? false : prior.confirmed }
-        : { ...makeDraft(row), confirmed: sourceReviewRequired ? false : row?.confirmed === true };
+      return prior || makeDraft(row);
     }));
     setSelectedKey(previous => identities.has(previous) ? previous : rowIdentity(safeRows[0]));
   }, [rows]);
@@ -340,8 +333,6 @@ export default function PackingEvidenceReview({
     : rowMap.get(activeField.key)?.evidence?.[activeField.field]) : null;
 
   const sourceEntriesForInvoice = invoiceIndex => sourceEntries.filter(entry => entry.invoiceIndex === invoiceIndex);
-  const invoiceSourceRowsConfirmed = invoiceIndex => sourceEntriesForInvoice(invoiceIndex)
-    .every(entry => !sourceNeedsHumanReview(entry) || sourceDrafts[entry.key]?.confirmed === true);
   const sourceReviewForInvoice = invoiceIndex => safeRows[invoiceIndex]?.sourceReview
     || (Array.isArray(rows) ? rows.sourceReview : null);
   const matchedNameForSource = (invoiceIndex, sourceRow) => {
@@ -366,8 +357,6 @@ export default function PackingEvidenceReview({
     setSourceDrafts(previous => ({ ...previous, [entry.key]: {
       ...previous[entry.key], values: { ...previous[entry.key]?.values, [field]: value }, confirmed: false,
     } }));
-    setDrafts(previous => previous.map(draft => rowIdentity(draft) === String(entry.invoiceIndex)
-      ? { ...draft, confirmed: false } : draft));
     setSubmitError('');
   };
 
@@ -380,7 +369,6 @@ export default function PackingEvidenceReview({
   const updateSourceReason = (entry, reason) => {
     onInvalidate?.();
     setSourceDrafts(previous => ({ ...previous, [entry.key]: { ...previous[entry.key], reason, confirmed: false } }));
-    setDrafts(previous => previous.map(draft => rowIdentity(draft) === String(entry.invoiceIndex) ? { ...draft, confirmed: false } : draft));
     setSubmitError('');
   };
 
@@ -452,9 +440,9 @@ export default function PackingEvidenceReview({
   const updateValue = (key, field, value) => {
     onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key
-      ? { ...draft, values: { ...draft.values, [field]: value }, confirmed: false }
+      ? { ...draft, values: { ...draft.values, [field]: value } }
       : draft));
-    setErrors(previous => ({ ...previous, [key]: { ...previous[key], [field]: '', confirmed: '' } }));
+    setErrors(previous => ({ ...previous, [key]: { ...previous[key], [field]: '' } }));
     setSubmitError('');
   };
 
@@ -465,17 +453,10 @@ export default function PackingEvidenceReview({
     setSubmitError('');
   };
 
-  const updateConfirmed = (key, confirmed) => {
-    setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? { ...draft, confirmed } : draft));
-    setErrors(previous => ({ ...previous, [key]: { ...previous[key], confirmed: '' } }));
-    setSubmitError('');
-  };
-
   const updateMetadataValue = (key, field, value) => {
     onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
       ...draft,
-      confirmed: false,
       metadata: { ...draft.metadata, values: { ...draft.metadata?.values, [field]: value }, confirmed: { ...draft.metadata?.confirmed, [field]: false } },
     } : draft));
     setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}`]: '', [`metadata_${field}_reason`]: '', [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
@@ -486,7 +467,6 @@ export default function PackingEvidenceReview({
     onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
       ...draft,
-      confirmed: false,
       metadata: { ...draft.metadata, reasons: { ...draft.metadata?.reasons, [field]: reason }, confirmed: { ...draft.metadata?.confirmed, [field]: false } },
     } : draft));
     setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}_reason`]: '', [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
@@ -496,7 +476,6 @@ export default function PackingEvidenceReview({
   const updateMetadataConfirmed = (key, field, confirmed) => {
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
       ...draft,
-      confirmed: false,
       metadata: { ...draft.metadata, confirmed: { ...draft.metadata?.confirmed, [field]: confirmed } },
     } : draft));
     setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
@@ -508,11 +487,10 @@ export default function PackingEvidenceReview({
       setSubmitError(!pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.');
       return;
     }
-    if (sourceReviewRequired && (!sourceEntries.length || uncheckedSourceCount > 0 || missingSourceReasonCount > 0 || uncheckedInvoiceCount > 0)) {
+    if (sourceReviewRequired && (!sourceEntries.length || uncheckedSourceCount > 0 || missingSourceReasonCount > 0)) {
       setSubmitError(!sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
         : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건이 남아 있습니다. 각 행을 확인하세요.`
-          : missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`
-            : `인보이스 확인 ${uncheckedInvoiceCount}건이 남아 있습니다.`);
+          : `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`);
       return;
     }
     const nextErrors = validateDrafts(drafts, baselinesRef.current);
@@ -525,7 +503,8 @@ export default function PackingEvidenceReview({
     }
     const submission = safeRows.map((row, invoiceIndex) => {
       const draft = draftMap.get(rowIdentity(row)) || makeDraft(row);
-      const rowSubmission = { ...row, values: { ...draft.values }, reason: draft.reason, confirmed: draft.confirmed,
+      const { confirmed: _legacyConfirmed, ...sourceRow } = row;
+      const rowSubmission = { ...sourceRow, values: { ...draft.values }, reason: draft.reason, applyValues: true,
         ...(draft.metadata ? { metadata: { values: { ...draft.metadata.values }, confirmed: { ...draft.metadata.confirmed }, reasons: { ...draft.metadata.reasons } } } : {}) };
       if (sourceReviewRequired) {
         const sourceReview = sourceReviewForInvoice(invoiceIndex) || { required: true };
@@ -726,7 +705,6 @@ export default function PackingEvidenceReview({
                   <h3>{selectedRow?.label || '인보이스'}</h3>
                   <p>{selectedRow?.currency ? `통화 ${selectedRow.currency}` : '통화 미확인'}</p>
                 </div>
-                <span className={selectedDraft?.confirmed ? styles.reviewed : styles.needsReview}>{selectedDraft?.confirmed ? '검토 확인됨' : '검토 필요'}</span>
               </div>
 
               {selectedRow?.explanation && <p className={styles.explanation}>{selectedRow.explanation}</p>}
@@ -780,17 +758,6 @@ export default function PackingEvidenceReview({
               </label>
               {currentErrors.reason && <p className={styles.error} role="alert">{currentErrors.reason}</p>}
 
-              <label className={styles.confirmLabel}>
-                <input
-                  type="checkbox"
-                  checked={selectedDraft?.confirmed === true}
-                  disabled={sourceReviewRequired && (!pdfReady || !invoiceSourceRowsConfirmed(Number(selectedKey)))}
-                  onChange={event => updateConfirmed(selectedKey, event.target.checked)}
-                  data-testid="evidence-confirm"
-                />
-                <span>이 인보이스의 원본 근거와 입력값을 직접 검토했습니다.</span>
-              </label>
-              {currentErrors.confirmed && <p className={styles.error} role="alert">{currentErrors.confirmed}</p>}
             </> : <p className={styles.empty}>검토할 인보이스가 없습니다.</p>}
           </section>
         </div>
