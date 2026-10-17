@@ -1,6 +1,7 @@
 {
   "id": "invoice-pdf-human-review",
   "title": "매칭 먼저 표시하고 검산 근거 없는 PDF 상품 행만 원문 확인",
+  "invoiceAcknowledgement": {"required": false, "applicationAction": "applyValues === true on explicit apply button", "legacyCompatibility": "confirmed === true remains accepted by local helper only", "audit": "apply-values/appliedAt; does not claim invoice-wide human confirmation", "preserve": ["per-source-row confirmation", "metadata field confirmation", "PDF render and source snapshot", "numeric validation", "changed-value reasons", "final ERP receipt validation"]},
   "scope": ["lib/importPackingSourceReview.js", "lib/importPackingReview.js", "lib/importPackingReceiptAdapter.js", "lib/importPackingPrompt.js", "lib/importInvoiceLocal.js", "components/import-tools/PackingEvidenceReview.js", "components/import-tools/PackingListTool.js", "styles/PackingEvidenceReview.module.css"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [{"name": "REVIEW_PDF_SOURCE", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "업로드 직후 읽기 전용 매칭 미리보기, PDF 자동 열기 없음. 엄격한 중국 로컬 파서의 파일 해시·행 스냅샷·좌표 근거가 일치하는 정상 행은 MACHINE_VERIFIED로 구분한다. 누락 가격/박스 경고/수동 변경/검산 근거 없는 행은 원본 렌더와 개별 수동 확인을 요구한다. AI confidence나 형식명만으로 확인 대체 금지. 기존 최종 다운로드/입고 검증 유지; 미리보기는 파일 버퍼나 입고 초안으로 사용하지 않는다."}],

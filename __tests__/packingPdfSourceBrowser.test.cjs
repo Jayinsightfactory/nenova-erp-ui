@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const babel = require('next/dist/compiled/babel/core');
 
-test('source PDF review UI gates every row and invoice confirmation at 1920x1080 (mock preview only)',
+test('source PDF review UI gates every row and applies without an invoice-wide checkbox at 1920x1080 (mock preview only)',
   { skip: process.env.RUN_PACKING_PDF_SOURCE_BROWSER !== '1' }, async () => {
     const puppeteer = require('puppeteer-core');
     const componentPath = path.join(__dirname, '../components/import-tools/PackingEvidenceReview.js');
@@ -80,6 +80,7 @@ test('source PDF review UI gates every row and invoice confirmation at 1920x1080
       await page.click('[aria-label="PDF 다시 불러오기"]');
       await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.dataset.pdfReady === 'true');
       assert.deepEqual(await page.$eval('canvas', canvas => [canvas.width, canvas.height]), [595, 841]);
+      assert.equal(await page.$('[data-testid="evidence-confirm"]'), null, 'invoice-wide acknowledgement checkbox is absent');
       assert.equal(await page.$$eval('[data-testid="source-row-confirm"]', nodes => nodes.length), 2);
       const dialogRect = await page.$eval('[role="dialog"]', node => { const r = node.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
       assert.ok(dialogRect[0] >= 0 && dialogRect[1] >= 0 && dialogRect[2] <= 1920 && dialogRect[3] <= 1080);
@@ -99,9 +100,7 @@ test('source PDF review UI gates every row and invoice confirmation at 1920x1080
       assert.equal(await page.$eval('.applyButton', el => el.disabled), true);
       assert.match(await page.$eval('.footer', el => el.textContent), /미확인 상품행 1건/);
       await checkSourceRow(1);
-      const invoiceCheck = await page.$('[data-testid="evidence-confirm"]');
-      assert.equal(await page.evaluate(el => el.disabled, invoiceCheck), false);
-      await invoiceCheck.click();
+      await page.waitForFunction(() => document.querySelector('.applyButton')?.disabled === false);
 
       const firstInput = await page.$('input[aria-label="원문 Exact Rose 원문 수량"]');
       await firstInput.click({ clickCount: 3 });
@@ -110,16 +109,15 @@ test('source PDF review UI gates every row and invoice confirmation at 1920x1080
       await page.keyboard.up('Control');
       await firstInput.type('2.5');
       assert.equal(await page.$eval('[data-testid="source-row-confirm"]', el => el.checked), false, 'editing a source value resets that row confirmation');
-      assert.equal(await invoiceCheck.evaluate(el => el.checked), false, 'editing a source value resets invoice confirmation');
       await page.type('input[aria-label="원문 Exact Rose 수정 사유"]', 'Printed quantity rechecked');
       await checkSourceRow(0);
       await checkSourceRow(1);
-      await page.waitForFunction(() => document.querySelector('[data-testid="evidence-confirm"]')?.disabled === false);
-      await page.click('[data-testid="evidence-confirm"]');
       await page.waitForFunction(() => document.querySelector('.applyButton')?.disabled === false && document.querySelector('[role="dialog"]')?.dataset.pdfReady === 'true');
       await page.click('.applyButton');
       await page.waitForFunction(() => Boolean(window.submission));
       const result = await page.evaluate(() => ({ invoice: window.submission[0], invalidations: window.invalidateCalls }));
+      assert.equal(result.invoice.applyValues, true, 'explicit apply action marks submitted values');
+      assert.equal(Object.hasOwn(result.invoice, 'confirmed'), false, 'submission has no invoice-wide confirmation marker');
       assert.equal(result.invoice.sourceReview.pdf.rendered, true);
       assert.equal(result.invoice.sourceReview.pdf.page, 2);
       assert.equal(result.invoice.sourceReview.pdf.fingerprint, 'pdf-fixture-fingerprint');
