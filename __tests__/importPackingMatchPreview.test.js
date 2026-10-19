@@ -2,6 +2,26 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { buildPackingMatchPreview, previewQuantity } = require('../lib/importPackingMatchPreview.js');
 const { packingErpProducts, upsertPackingErpMatch } = require('../lib/importPackingErpMatches.js');
+const { makePackingSourceReview, applyPackingSourceReview } = require('../lib/importPackingSourceReview.js');
+
+test('applied manual review clears preview warning only for the unchanged source, including year', () => {
+  for (const year of [2025, 2026]) {
+    const invoice = { invoice: '41-02', invoice_year: year, date: `${year}-10-10`, supplier: 'Cloudland',
+      pdfReviewRequired: true, pdfSourceHash: 'a'.repeat(64), products: [
+        { description: 'Rose Freedom 60cm', pcs: 1, total_bunch: 10, total_stems: 100, bunch_st: 10, u_price: 0, t_price: 0 },
+      ] };
+    const draft = makePackingSourceReview(invoice, 'CN');
+    draft.pdf = { rendered: true, page: 1 };
+    draft.rows.forEach(row => { row.confirmed = true; });
+    const applied = applyPackingSourceReview(invoice, draft, 'CN');
+    const review = value => buildPackingMatchPreview({ invoices: [value], country: 'CN', erpMatches: { products: [] } })[0].products[0].sourceReview;
+    assert.equal(review(invoice).required, true);
+    assert.equal(review(applied).required, false);
+    assert.equal(review({ ...applied, invoice_year: year + 1 }).required, true);
+    assert.equal(review({ ...applied, products: [{ ...applied.products[0], total_bunch: 11 }] }).required, true);
+    assert.equal(review({ ...applied, pdfSourceHash: 'b'.repeat(64) }).required, true);
+  }
+});
 
 const erpMatches = packingErpProducts([
   { ProdKey: 11, ProdCode: 'NL-1', ProdName: 'Tulip / Single Royal Virgen White1', CounName: '네덜란드' },

@@ -33,7 +33,7 @@
 .header p { margin: 3px 0 0; color: #526580; font-size: 13px; overflow-wrap: anywhere; }
 .closeButton { flex: 0 0 auto; }
 
-.workspace { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(430px, .75fr); min-height: 0; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(430px, 1fr); min-height: 0; }
 .previewPanel { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; border-right: 1px solid #dce4ef; background: #e8edf4; }
 .previewToolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #ccd6e5; background: #fff; }
 .previewToolbar > strong { margin-right: auto; }
@@ -78,22 +78,24 @@
 .sourceReview { margin-top: 12px; border: 1px solid #bfd0e7; border-radius: 9px; padding: 9px; background: #f8fbff; }
 .sourceReview h4 { margin: 0; font-size: 14px; }
 .sourceReview > p { margin: 4px 0 8px; color: #526580; font-size: 12px; line-height: 1.4; }
-.sourceTableViewport { max-height: min(38vh, 390px); overflow: auto; border: 1px solid #dce4ef; border-radius: 7px; background: #fff; }
-.sourceTable { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 12px; }
+.sourceTableViewport { min-width: 0; border: 1px solid #dce4ef; border-radius: 7px; background: #fff; }
+.sourceTable { display: block; width: 100%; border-collapse: collapse; font-size: 13px; }
+.sourceTable tbody { display: block; }
+.sourceTable tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 10px; border-bottom: 2px solid #ccd6e5; }
 .sourceTable th, .sourceTable td { padding: 5px 6px; border-bottom: 1px solid #e4eaf2; text-align: left; vertical-align: top; }
 .sourceTable thead th { position: sticky; top: 0; z-index: 1; background: #edf3fb; color: #42546f; }
-.sourceName { width: 150px; max-width: 185px; overflow-wrap: anywhere; }
+.sourceName { width: 100%; overflow-wrap: anywhere; }
 .sourceName > span, .sourceName > small { display: block; }
 .sourceName small { margin-top: 2px; color: #65748b; font-weight: 500; }
 .sourceEvidenceButton { min-height: 24px !important; margin-top: 4px; padding: 2px 6px !important; font-size: 11px !important; }
-.sourceEditFields { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 6px; min-width: 0; }
-.sourceEditFields label { display: grid; grid-template-columns: auto minmax(56px, 88px); align-items: center; gap: 2px 5px; color: #526580; font-size: 11px; white-space: nowrap; }
-.sourceEditFields label > span { max-width: 74px; overflow: hidden; text-overflow: ellipsis; }
-.sourceEditFields input { width: 88px; min-height: 28px !important; border: 1px solid #aebbd0; border-radius: 5px; padding: 3px 5px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sourceEditFields { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 8px 10px; min-width: 0; }
+.sourceEditFields label { display: grid; min-width: 0; gap: 4px; color: #42546f; font-size: 13px; }
+.sourceEditFields input { width: 100%; min-width: 0; min-height: 36px; border: 1px solid #aebbd0; border-radius: 5px; padding: 5px 7px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.sourceEditFields .sourceDescription { grid-column: 1 / -1; }
 .sourceEditFields label > small { grid-column: 1 / -1; color: #8a4b00; font-size: 10px; }
-.sourceEditFields .sourceReason { grid-template-columns: auto minmax(100px, 1fr); flex: 1 1 100%; }
+.sourceEditFields .sourceReason { grid-column: 1 / -1; }
 .sourceEditFields .sourceReason input { width: 100%; }
-.sourceConfirm { display: flex; align-items: flex-start; gap: 5px; min-width: 106px; color: #33445f; font-size: 11px; line-height: 1.3; cursor: pointer; }
+.sourceConfirm { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px; margin-bottom: 8px; border: 1px solid #9cb6de; border-radius: 6px; background: #eef5ff; color: #172b4d; font-size: 14px; line-height: 1.4; cursor: pointer; }
 .sourceConfirm input { width: 16px; height: 16px; min-height: 0; flex: 0 0 auto; margin: 1px 0 0; accent-color: #2457c5; }
 .sourceGate { margin: 6px 0 0 !important; color: #8a4b00 !important; font-size: 12px; font-weight: 700; line-height: 1.4; }
 

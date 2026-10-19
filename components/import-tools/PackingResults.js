@@ -30,8 +30,9 @@ function sourceIssueText(requirement) {
     CARTON_NUMBER_WARNING: '박스 번호 확인',
     POSITIONED_EVIDENCE_UNAVAILABLE: '원문 위치 확인',
     SOURCE_ROW_CHANGED: '원문 행 변경됨',
-    VERIFIED_BASELINE_UNAVAILABLE: '원문 검증 필요',
-    SOURCE_REVIEW_UNAVAILABLE: '원문 확인 필요',
+    VERIFIED_BASELINE_UNAVAILABLE: '자동 검산 근거 없음 — 수량·단가를 원본과 대조해 주세요',
+    SOURCE_REVIEW_UNAVAILABLE: '원문 확인 정보를 읽지 못했습니다 — 검토창에서 확인해 주세요',
+    CARTON_AUDIT_UNAVAILABLE: '박스수 검산 근거 없음 — 원본 박스수를 확인해 주세요',
   };
   return (Array.isArray(requirement?.reasons) ? requirement.reasons : [])
     .map(reason => labels[reason] || '원문 확인 필요').join(' · ') || '원문 확인 필요';
@@ -302,7 +303,7 @@ export default function PackingResults({
       <div className={styles.resultsHeadingRow}>
         <div>
           <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
-          <p className={styles.resultsHint}>DB 미매칭·유사 매칭만 먼저 표시합니다. 미매칭·확인 필요 버튼에서 전산 품목을 선택·저장하세요. 저장한 매칭은 팀 공용으로 다음 업로드에도 적용됩니다.</p>
+          <p className={styles.resultsHint}>품목 연결 또는 원본 숫자 확인이 남은 행을 먼저 표시합니다. 품목 연결은 품목명을, 수량·단가 확인은 「확인/수정 열기」를 누르세요. 수동 확인 완료는 품목 연결 완료이며 원본 숫자 확인과는 별개입니다.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -454,7 +455,7 @@ export default function PackingResults({
                                   <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-source-review"
                                     aria-label={`${sourceName} 원문 확인: ${sourceIssueText(product.sourceReview)}`}
                                     onClick={() => onReviewSource?.(product, excel, index)}>
-                                    원문 확인 · {sourceIssueText(product.sourceReview)}
+                                    {sourceIssueText(product.sourceReview)} · 확인/수정 열기
                                   </button>
                                 )}
                                 {review.needsReview && (

@@ -6,7 +6,7 @@ import { packingSourceMatchedName } from '../../lib/packingSourceMatch.js';
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
 const FIELD_TEST_IDS = { gw: 'field-gw', cw: 'field-cw', freight: 'field-freight' };
-const SOURCE_FIELD_LABELS = { pcs: '박스', total_bunch: '단수', total_stems: '송이 수', steam_box: '박스당 송이', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
+const SOURCE_FIELD_LABELS = { description: '원문 품명', pcs: '박스', total_bunch: '단수', total_stems: '송이 수', steam_box: '박스당 송이', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
 const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total'];
 const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액' };
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
@@ -384,12 +384,17 @@ export default function PackingEvidenceReview({
     if (!open || typeof document === 'undefined') return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const timer = globalThis.setTimeout(() => firstControlRef.current?.focus(), 0);
+    const timer = globalThis.setTimeout(() => {
+      const row = targetEntry && [...(dialogRef.current?.querySelectorAll('[data-source-row-key]') || [])]
+        .find(element => element.getAttribute('data-source-row-key') === targetEntry.key);
+      if (row) { row.scrollIntoView({ block: 'center' }); row.querySelector('input')?.focus({ preventScroll: true }); }
+      else firstControlRef.current?.focus();
+    }, 0);
     return () => {
       globalThis.clearTimeout(timer);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [open, targetEntry?.key, selectedKey]);
 
   useEffect(() => {
     if (!open || typeof window === 'undefined') return undefined;
@@ -574,13 +579,14 @@ export default function PackingEvidenceReview({
 
   const sourceReviewSection = sourceReviewRequired ? <section className={styles.sourceReview} aria-label="원본 PDF 상품행 검토" data-testid="source-review">
     <h4>상품행 원문 대조</h4>
-    <p>원문 검산 완료 {sourceEntries.length - manualSourceCount}건 · 직접 확인 필요 {manualSourceCount}건. 기계 검산은 사람의 확인 기록이 아닙니다. 값을 수정한 행은 원본 PDF와 다시 대조하고 사유를 남기세요.</p>
+    <p>① 왼쪽 PDF와 아래 숫자를 비교하세요. ② 잘못된 숫자만 수정하세요. ③ 각 품목 위의 「이 상품행 대조 확인」을 체크하세요. ④ 아래 「확인값 적용」을 누르세요. 값을 고쳤을 때만 수정 사유가 필요합니다.</p>
+    <p role="status">자동 검산 {sourceEntries.length - manualSourceCount}건 · 직접 확인 {manualSourceCount - uncheckedSourceCount}/{manualSourceCount}건 · 남은 확인 {uncheckedSourceCount}건</p>
     <button type="button" onClick={() => setShowAllSourceRows(value => !value)} data-testid="source-show-all">{showAllSourceRows ? '확인 필요만 보기' : '전체 상품행 보기'}</button>
     {sourceEntriesForInvoice(Number(selectedKey)).length === 0
       ? <p role="alert" className={styles.error}>이 인보이스에 연결된 상품행 검토 스냅샷이 없습니다.</p>
       : <div className={styles.sourceTableViewport}>
         <table className={styles.sourceTable}>
-          <thead><tr><th scope="col">원문 품목 · ERP 매칭</th><th scope="col">원문값 확인·수정 (필드별 원문은 입력에 표시)</th><th scope="col">개별 원문 확인</th></tr></thead>
+          <thead className={styles.srOnly}><tr><th scope="col">품목과 대조 확인</th><th scope="col">원문값 확인·수정</th></tr></thead>
           <tbody>{sourceEntriesForInvoice(Number(selectedKey)).filter(entry => showAllSourceRows || sourceNeedsHumanReview(entry)).map(entry => {
             const sourceRow = entry.row;
             const current = sourceDrafts[entry.key] || { values: sourceRow.values || {}, confirmed: false };
@@ -588,15 +594,21 @@ export default function PackingEvidenceReview({
             const evidenceField = Object.keys(sourceRow.evidence || {})[0] || '';
             const original = sourceRow.originalValues || {};
             const matchedName = matchedNameForSource(entry.invoiceIndex, sourceRow);
-            return <tr key={entry.key}>
-              <th scope="row" className={styles.sourceName}><span>{sourceRow.description || '원문 품명 없음'}</span><small>원문 행 {sourceRow.lineIndex ?? '—'}</small>
+            return <tr key={entry.key} data-source-row-key={entry.key}>
+              <th scope="row" className={styles.sourceName}>
+                {needsHumanReview ? <label className={styles.sourceConfirm}>
+                  <input type="checkbox" checked={current.confirmed === true} disabled={!pdfReady}
+                    onChange={event => updateSourceConfirmed(entry, event.target.checked)} data-testid="source-row-confirm" />
+                  <span>{current.confirmed ? '원문 대조 완료' : '이 상품행 대조 확인'}</span>
+                </label> : <span className={styles.reviewed}>자동 검산 완료</span>}
+                <span>{sourceRow.description || '원문 품명 없음'}</span><small>상품 {Number.isInteger(sourceRow.lineIndex) ? sourceRow.lineIndex + 1 : '—'}행</small>
                 <small>{matchedName || '미매칭 · 결과에서 선택 필요'}</small>
                 <button type="button" className={styles.sourceEvidenceButton} onClick={() => selectSourceEvidence(entry, evidenceField)} disabled={!Object.keys(sourceRow.evidence || {}).length}>원문 페이지 열기</button>
               </th>
               <td><div className={styles.sourceEditFields}>{Object.entries(current.values || {}).map(([field, value]) => {
                 const sourceValue = original[field] ?? sourceRow.values?.[field];
                 const changed = stringValue(value) !== stringValue(sourceValue);
-                return <label key={field} title={`원문 ${SOURCE_FIELD_LABELS[field] || field}: ${stringValue(sourceValue) || '없음'}`}>
+                return <label key={field} className={field === 'description' ? styles.sourceDescription : undefined} title={`원문 ${SOURCE_FIELD_LABELS[field] || field}: ${stringValue(sourceValue) || '없음'}`}>
                   <span>{SOURCE_FIELD_LABELS[field] || field}</span>
                   <input type="text" value={value ?? ''} aria-label={'원문 ' + (sourceRow.description || '') + ' ' + (SOURCE_FIELD_LABELS[field] || field)}
                     onFocus={() => selectSourceEvidence(entry, field)} onChange={event => updateSourceValue(entry, field, event.target.value)} />
@@ -606,11 +618,6 @@ export default function PackingEvidenceReview({
                 {Object.entries(current.values || {}).some(([field, value]) => stringValue(value) !== stringValue(original[field] ?? sourceRow.values?.[field]))
                   && <label className={styles.sourceReason}><span>수정 사유</span><input type="text" value={current.reason || ''} aria-label={'원문 ' + (sourceRow.description || '') + ' 수정 사유'} placeholder="변경 근거" onChange={event => updateSourceReason(entry, event.target.value)} /></label>}
               </div></td>
-              <td>{needsHumanReview ? <label className={styles.sourceConfirm}>
-                <input type="checkbox" checked={current.confirmed === true} disabled={!pdfReady}
-                  onChange={event => updateSourceConfirmed(entry, event.target.checked)} data-testid="source-row-confirm" />
-                <span>{current.confirmed ? '원문 대조 완료' : '이 상품행 대조 확인'}</span>
-              </label> : <span>로컬 파서 검산 · 사람 확인 아님</span>}</td>
             </tr>;
           })}</tbody>
         </table>
@@ -759,7 +766,7 @@ export default function PackingEvidenceReview({
         </div>
 
         <footer className={styles.footer}>
-          <p>이 확인은 결과 파일을 다시 만드는 단계이며 ERP DB에 저장하지 않습니다.</p>
+          <p>남은 상품행 확인 {uncheckedSourceCount}건 · 수정 사유 {missingSourceReasonCount}건. 모두 확인한 뒤 아래 적용 버튼을 누르세요. 여기서는 ERP DB에 저장하지 않습니다. 실제 입고 저장은 다음 단계에서 별도로 진행합니다.</p>
           <div>
             <button type="button" onClick={closeReview} disabled={pending}>취소</button>
             <button type="button" className={styles.applyButton} onClick={confirmDrafts} disabled={pending || !safeRows.length || Boolean(sourceGateMessage) || (sourceReviewRequired && !pdfReady)}>

@@ -47,6 +47,15 @@ new Function('require', 'module', 'exports', code)(key => {
 
 const PackingResults = moduleUnderTest.exports.default;
 const { buildIssueSummary } = moduleUnderTest.exports;
+
+test('missing automatic proof explains the action, without claiming a matching failure', () => {
+  const summary = buildIssueSummary([{ name: 'Cloudland', products: [{ name: 'Fairy Kiss', sourceReview: {
+    required: true, reasons: ['VERIFIED_BASELINE_UNAVAILABLE', 'CARTON_AUDIT_UNAVAILABLE'],
+  } }] }], 'CN', {});
+  assert.match(summary.text, /자동 검산 근거 없음/);
+  assert.match(summary.text, /수량·단가를 원본과 대조/);
+  assert.match(summary.text, /원본 박스수/);
+});
 const flatten = node => !node || typeof node !== 'object' ? [] : Array.isArray(node)
   ? node.flatMap(flatten) : [node, ...flatten(node.props?.children)];
 const text = node => typeof node === 'string' || typeof node === 'number' ? String(node)

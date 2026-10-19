@@ -37,8 +37,11 @@ test('source row labels stay compact and use Korean labels instead of parser fie
   for (const [field, label] of [['pcs', '박스'], ['total_bunch', '단수'], ['total_stems', '송이 수'], ['steam_box', '박스당 송이'], ['u_price', '단가'], ['t_price', '금액'], ['bunch_st', '단당 송이'], ['stems', '송이 수'], ['price', '단가']]) {
     assert.match(component, new RegExp(`${field}: '${label}'`));
   }
-  assert.match(css, /max-height: min\(38vh, 390px\)/);
-  assert.match(css, /\.sourceEditFields \{ display: flex; flex-wrap: wrap/);
+  assert.doesNotMatch(css, /max-height: min\(38vh, 390px\)|min-width: 680px/);
+  assert.match(css, /\.sourceEditFields \{ display: grid/);
+  assert.match(css, /\.sourceTable tbody tr \{ display: grid; grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(component, /description: '원문 품명'/);
+  assert.ok(component.indexOf('data-testid="source-row-confirm"') < component.indexOf('<td><div className={styles.sourceEditFields}>'), 'confirmation is above inputs, not an offscreen trailing column');
   assert.match(component, /미매칭 · 결과에서 선택 필요/);
 });
 
@@ -52,7 +55,7 @@ test('matching-first review defaults to manual rows and can open a specific sour
   assert.match(component, /\.filter\(entry => showAllSourceRows \|\| sourceNeedsHumanReview\(entry\)\)/);
   assert.match(component, /data-testid="source-show-all"/);
   assert.match(component, /needsHumanReview \? <label/);
-  assert.match(component, /로컬 파서 검산 · 사람 확인 아님/);
+  assert.match(component, /자동 검산 완료/);
   assert.doesNotMatch(component, /source-(?:bulk|select-all|confirm-all)/);
 });
 
@@ -84,7 +87,7 @@ test('exact quote and normalized bbox helpers reject ambiguity and invalid fallb
 });
 
 test('responsive layout includes the required desktop, tablet, and phone breakpoints', () => {
-  assert.match(css, /grid-template-columns: minmax\(0, 1\.25fr\) minmax\(430px, \.75fr\)/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(430px, 1fr\)/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /overflow: auto/);
