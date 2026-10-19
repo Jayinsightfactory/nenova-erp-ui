@@ -544,6 +544,28 @@ export default function InvoiceReceiptWorkbench({
     }
   }
 
+  async function connectExistingCostOnly() {
+    if (!selected || selected.dirty || busy || workflowLockRef.current) return;
+    workflowLockRef.current = { kind: 'existing-cost', documentId: selected.document.documentId };
+    setBusy('existing-cost'); setNotice(null);
+    const doc = selected.document;
+    const post = body => fetch(`/api/import/receipts/${doc.documentId}/link-existing`, {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ revision: doc.revision, ...body }),
+    }).then(readJson);
+    try {
+      const { preview } = await post({ mode: 'preview' });
+      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.stemQuantity}송이 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
+      const { result } = await post({ mode: 'link', baselineDigest: preview.baselineDigest, operationId: crypto.randomUUID() });
+      const fresh = await readDocument(doc.documentId);
+      verifyReceiptDocument(fresh, { ...doc, operationId: result.operationId, warehouseKey: result.warehouseKey });
+      installSavedDocument(fresh);
+      setNotice({ type: 'success', text: '기존 입고는 그대로 두고 원가 연결을 저장·재조회했습니다. 아래에서 원가를 입력하세요.' });
+    } catch (error) {
+      setNotice({ type: 'error', text: `${error.message} · 연결 응답이 끊겼다면 저장 문서를 다시 불러와 상태를 확인하세요. 입고를 다시 등록하지 마세요.` });
+    } finally { workflowLockRef.current = null; setBusy(''); }
+  }
+
   async function requestPreview() {
     if (!selected || selected.dirty || selected.document.revision == null || selected.document.sourceWarnings?.length || busy || workflowLockRef.current) return;
     workflowLockRef.current = { kind: 'manual-preview', documentId: selected.document.documentId };
@@ -1014,7 +1036,7 @@ export default function InvoiceReceiptWorkbench({
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>
       <Field label="인보이스 번호"><input value={documentValue.invoiceNo ?? ''} onChange={event => updateDocumentField('invoiceNo', event.target.value)} /></Field>
       <Field label="인보이스 연도"><input value={documentValue.invoiceYear ?? ''} inputMode="numeric" onChange={event => updateDocumentField('invoiceYear', event.target.value)} /></Field>
-      <Field label="입고일"><input type="date" value={documentValue.reviewedMetadata.inputDate || ''} onChange={event => updateMetadata('inputDate', event.target.value)} /></Field>
+      <Field label="입고일"><input type="date" value={documentValue.reviewedMetadata.inputDate || ''} onInput={event => updateMetadata('inputDate', event.currentTarget.value)} onChange={event => updateMetadata('inputDate', event.target.value)} /></Field>
       <Field label="인보이스일"><input type="date" value={documentValue.reviewedMetadata.invoiceDate || ''} onChange={event => updateMetadata('invoiceDate', event.target.value)} /></Field>
       <Field label="운송 방식"><select value={documentValue.reviewedMetadata.transportMode || ''} onChange={event => updateMetadata('transportMode', event.target.value)}>
         <option value="">선택 필요</option><option value="AIR">AIR</option><option value="SEA">SEA</option><option value="OTHER">OTHER</option>
@@ -1047,6 +1069,9 @@ export default function InvoiceReceiptWorkbench({
       </button>
       <button type="button" className={styles.primary} onClick={saveDraft} disabled={Boolean(busy) || Boolean(selected.recoveryRequired)}>{busy === 'save' ? '초안 저장 중…' : documentValue.revision == null ? '초안 저장' : '변경 초안 저장'}</button>
       <button type="button" onClick={requestPreview} disabled={!canPreview || Boolean(busy)}>{busy === 'preview' ? '미리보기 검증 중…' : '서버 미리보기'}</button>
+      {documentValue.reviewedMetadata?.country === 'NL' && committedOperations.length === 0 && <button type="button" onClick={connectExistingCostOnly}
+        disabled={selected.dirty || !documentValue.revision || Boolean(busy) || Boolean(selected.pendingOperation)}>
+        {busy === 'existing-cost' ? '기존 입고 대조 중…' : '기존 입고 유지 · 원가만 연결'}</button>}
       <button ref={confirmButtonRef} type="button" className={styles.danger} onClick={openCommit} disabled={!canCommitReceipt(selected) || Boolean(busy)}>ERP 입고 등록 확인</button>
       {selected.recoveryRequired && <button type="button" onClick={() => loadDocument(documentValue.documentId)} disabled={Boolean(busy)}>같은 문서 다시 불러오기</button>}
       {selected.pendingOperation && selected.stageProgress?.receiptVerify?.status === 'failed' && <button type="button" onClick={retryReceiptReadback} disabled={Boolean(busy)}>

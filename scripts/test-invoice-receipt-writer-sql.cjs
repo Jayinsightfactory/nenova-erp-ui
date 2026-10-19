@@ -912,6 +912,46 @@ async function testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costApi)
   console.log('ok - actual CN SEA USD cost save/read/idempotency, shared-source duplicate refusal, and EXE-detail stale read');
 }
 
+async function testExistingCostLink(pool, costs) {
+  const api=await import(pathToFileURL(path.join(ROOT,'lib/invoiceExistingReceipt.js')).href);
+  const exporter=await import(pathToFileURL(path.join(ROOT,'lib/invoiceReceiptCostExport.js')).href);
+  const id=crypto.randomUUID(), op=crypto.randomUUID();
+  await applyMigration(pool,fs.readFileSync(path.join(ROOT,'docs/migrations/2026-10-19_invoice_existing_cost_link.sql'),'utf8'));
+  await applyMigration(pool,fs.readFileSync(path.join(ROOT,'docs/migrations/2026-10-19_invoice_existing_cost_link.sql'),'utf8'));
+  await applyMigration(pool,fs.readFileSync(MIGRATION_FILE,'utf8'));
+  await insertDocument(pool,id,'EXISTING-NL',[3,7]);
+  await query(pool,`UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=N'{"country":"NL","transportMode":"AIR","inputDate":"2026-10-08"}' WHERE DocumentId=@id;
+    UPDATE dbo.WebInvoiceLine SET StemQuantity=BunchQuantity,BunchQuantity=NULL,PriceUnit=N'송이',Currency=N'EUR',
+      UnitPrice=2,LineAmount=StemQuantity,ReviewedJson=N'{"confirmed":true}' WHERE DocumentId=@id;
+    UPDATE dbo.WebInvoiceLine SET LineAmount=StemQuantity*2 WHERE DocumentId=@id;
+    INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,InputDate,isDeleted)
+    VALUES(99001,N'2026',N'41-01',N'Fixture Farm',N'EXISTING-NL','2026-10-08',0),
+          (99002,N'2025',N'41-01',N'Fixture Farm',N'EXISTING-NL','2025-10-08',0);
+    INSERT dbo.WarehouseDetail(WarehouseKey,ProdKey,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice)
+    VALUES(99001,7201,10,10,10,2,20);`,{id:{type:sql.UniqueIdentifier,value:id}});
+  const before=await stockSnapshot(pool), protectedBefore=await protectedSnapshot(pool);
+  const args={queryFn:(s,p)=>query(pool,s,p),types:sql,documentId:id,revision:1};
+  const preview=await api.previewExistingReceiptLink(args);
+  assert.equal(preview.warehouseKey,99001);assert.equal(preview.sourceCount,2);assert.equal(preview.goodsCount,1);
+  const linkArgs={...args,withTransactionFn:withTransactionFn(pool),baselineDigest:preview.baselineDigest,operationId:op,actor:'invoice-fixture'};
+  const linked=await api.linkExistingReceipt(linkArgs);
+  assert.deepEqual(await api.linkExistingReceipt(linkArgs),linked);
+  const formula=costs.INVOICE_COST_FORMULAS.NL_AMOUNT_V1;
+  const input={...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:'2026-10-08',nativeCurrency:'EUR',freightCurrency:'EUR',
+    exchangeRateKRW:1500,exchangeRateType:'TEST_ONLY',exchangeRateDate:'2026-10-08',freightAmount:12,customsTotalKRW:100,
+    expenseBasis:'ESTIMATED',estimateSource:'TEST_ONLY previous fixture cost / weight ratio',costSourceId:`fixture:${id}`,
+    allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,
+    lineInputs:[LINE_A,LINE_B].map(lineId=>({lineId,tariffRate:0,stemsPerBunch:1}))};
+  const saved=await costs.saveInvoiceCostRevision({...args,withTransactionFn:withTransactionFn(pool),actor:'invoice-fixture',input,reason:'fixture cost only'});
+  assert.equal(saved.currentActual.liveReceiptStatus,'MATCH');assert.equal(saved.currentActual.lines.length,2);
+  const output=await exporter.exportCurrentInvoiceCost({...args,warehouseKey:'99001',costRevisionId:saved.currentActual.costRevisionId});
+  const book=require('xlsx').read(output.buffer);
+  assert.deepEqual(book.SheetNames,['2026 41-01']);assert.match(book.Sheets['2026 41-01'].B1.v,/추정 통관비/);
+  assert.equal(book.Sheets['2026 41-01'].C6.v,20);
+  assert.deepEqual(await stockSnapshot(pool),before);assert.deepEqual(await protectedSnapshot(pool),protectedBefore);
+  console.log('ok - existing receipt split-line cost link, replay, cross-year, cost save/read, estimated workbook and ERP preservation');
+}
+
 async function applyMigration(pool, source) { await runBatches(pool,source,'web invoice migration'); }
 
 // Invoked only by the opt-in private workbook case, inside the invocation-owned DB.
@@ -1260,6 +1300,7 @@ async function main() {
     // Optional private case is deliberately last; existing protected baselines
     // and every mandatory synthetic scenario above retain their original scope.
     await testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costs,documents);
+    await testExistingCostLink(pool,costs);
     stage('fixture scenarios passed');
     console.log('PASS: isolated invoice receipt writer SQL fixture scenarios completed.');
   }finally{
