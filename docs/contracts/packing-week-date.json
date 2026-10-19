@@ -1,0 +1,11 @@
+{
+  "id": "packing-week-date",
+  "title": "날짜 없는 패킹 원본의 차수 기준일",
+  "scope": ["lib/packingWeekDate.js", "pages/api/import/packing-week-date.js", "components/import-tools/PackingListTool.js", "lib/importPackingMetadata.js", "lib/importPackingReceiptAdapter.js", "lib/importPackingReview.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"APPLY_WEEK_DATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"GET PeriodDay only. Explicit displayed year + filename subweek. Import cycle 01 Wednesday / 02 Saturday. Missing date only, never overwrite printed or manual date. Audit AUTO_ORDER_WEEK separate from raw_date. No automatic ERP write."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 42-02 distinct calendar rows, missing/duplicate/mismatched response rejected; year-boundary explicit order year retained."},
+  "requiredTestFiles":["__tests__/packingWeekDate.test.js", "__tests__/packingMatchNext.test.js", "__tests__/invoiceReceiptValidation.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-19 actual dnSpy ExcelLoadingPackingList InputDate/SelectOrderYear checked. Web-only date proposal; native writer unchanged. Read-only PeriodDay 202542/202642 checked.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["PeriodDay","WarehouseMaster","WarehouseDetail"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

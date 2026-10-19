@@ -161,6 +161,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingSourceReview.js': sourceReview,
     '../../lib/importPackingMatchPreview.js': matchPreview,
     '../../lib/packingMatchReview.js': matchReview,
+    '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
     '../../lib/packingReceiptMatchState.js': receiptMatchState,
     '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },

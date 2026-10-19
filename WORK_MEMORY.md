@@ -132,3 +132,9 @@
 - 비표준/누락 차수를 넘어 최초 원인을 단정하지 않음. FIFO/평균/판매단가 원가 증빙은 미확인으로 분리. 전후 SHA256 변경 시 판정 보류, NULL은 0 정상 처리 금지.
 - 실제 dnSpy/SP/2026년 1~41차 SELECT probe, 합성 회귀 및 verify:erp-change 통과. 최종 브라우저·CI·배포는 진행 중(완료 전 미검증).
 - 검색어: profitIndependentAudit 독립검산 기초기말 원인추적 STALE 조정포함
+
+## 2026-10-19 패킹 차수 날짜 자동 적용
+- 원본 날짜 없는 경우에만 표시 연도와 파일 세부차수로 PeriodDay 기준일 조회. 원본 날짜·수정 날짜 보존, 자동 적용 근거 화면/Excel/입고초안 기록.
+- 실제 dnSpy 및 2025/2026 42차 읽기 전용 달력 검증. 숫자/단가·중복 검증 및 기존 입고/재고/매출 writer 보존. 실제 입고 저장하지 않음.
+- 빌드·날짜 회귀 통과, 전체 계약과 배포·운영 브라우저는 진행 중(미검증).
+- 검색어: packing-week-date DATE_SOURCE_UNAVAILABLE PeriodDay AUTO_ORDER_WEEK 중국패킹

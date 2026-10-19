@@ -26,6 +26,7 @@ import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliase
 import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
 import { assertPackingSourceValues, bindPackingSourceReviewPolicy } from '../../lib/importPackingSourceReview.js';
 import { buildPackingMatchPreview } from '../../lib/importPackingMatchPreview.js';
+import { packingWeekScope, needsPackingWeekDate, applyPackingWeekDate } from '../../lib/packingWeekDate.js';
 import { packingMatchReview } from '../../lib/packingMatchReview.js';
 import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
 
@@ -930,6 +931,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
   const [file, setFile] = useState(null);
+  const [dateYear, setDateYear] = useState('');
+  useEffect(() => { setDateYear(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date())); }, []);
   const [pdfBase64, setPdfBase64] = useState(null);
   const [status, setStatus] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -1693,7 +1696,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${rowIndex}`)
     ))).filter(review => review.needsReview).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
-  const prepareReceipt = () => {
+  const prepareReceipt = async () => {
     const blockedReason = !sharedReady ? '팀 공용 매칭 정보를 불러오는 중입니다. 조회 오류가 있으면 매칭 정보를 다시 불러오세요.'
       : savingRef.current ? '품목 매칭 저장이 끝난 뒤 진행해 주세요.'
       : processingRef.current ? '파일 분석이 끝난 뒤 진행해 주세요.'
@@ -1701,18 +1704,37 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
     if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); return; }
     receiptIntent.current = true;
+    processingRef.current = true; setProcessing(true);
+    const version = readerVersion.current;
     try {
-      if (/\.pdf$/i.test(file?.name || '')) lastExtraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
-      if (!excels.length && buildExcels({ invoices: lastExtraction.result.invoices,
+      let result = lastExtraction.result;
+      if (result.invoices.some(needsPackingWeekDate)) {
+        const explicitYear = file?.name?.match(/(?:^|[^0-9])(20\d{2})(?=[^0-9]|$)/)?.[1];
+        const scope = packingWeekScope(explicitYear || dateYear, `${lastExtraction.weekParsed.week}-${lastExtraction.weekParsed.num}`);
+        const response = await fetch(`/api/import/packing-week-date?orderYear=${scope.orderYear}&orderWeek=${scope.orderWeek}`, { cache: 'no-store' });
+        const data = await response.json();
+        if (version !== readerVersion.current) return;
+        if (!response.ok || !data.success) throw new Error(data.error || '차수 기준일을 조회하지 못했습니다.');
+        const invoices = result.invoices.map(invoice => applyPackingWeekDate(invoice, data.calendar, scope));
+        result = { ...result, invoices };
+        const sourceInvoices = lastExtraction.sourceInvoices.map(invoice => applyPackingWeekDate(invoice, data.calendar, scope));
+        setLastExtraction(current => ({ ...current, result, sourceInvoices }));
+        setReviewRows(makePackingReviewRows(invoices, country));
+        setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases, erpMatches }));
+      }
+      if (/\.pdf$/i.test(file?.name || '')) result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
+      if (!excels.length && buildExcels({ invoices: result.invoices,
         masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
         currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated,
-        extractionResult: lastExtraction.result }) === false) return;
+        extractionResult: result }) === false) return;
       setReviewConfirmed(true);
       receiptIntent.current = false;
       setStatus({ type: 'success', msg: '품목 매칭 완료. 입고 준비 화면에서 차수·농장·수량을 확인한 뒤 저장하세요. 아직 입고·재고는 변경하지 않았습니다.' });
       focusReceipt();
     } catch (error) {
       setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다.` });
+    } finally {
+      processingRef.current = false; setProcessing(false);
     }
   };
   const confirmReview = drafts => {
@@ -2034,6 +2056,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
                 <div className={styles.sourceBadge} role="status" data-testid="packing-upload-next">
                   <strong>{matchingComplete ? `품목 매칭 완료 · ${matchingRows.length}행 유지` : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
+                  {lastExtraction?.result?.invoices?.some(needsPackingWeekDate) && <label style={{ display: 'block', marginTop: 8 }}>
+                    원본 날짜 없음 · 적용 연도 <input aria-label="차수 날짜 적용 연도" inputMode="numeric" maxLength={4}
+                      value={file?.name?.match(/(?:^|[^0-9])(20\d{2})(?=[^0-9]|$)/)?.[1] || dateYear}
+                      disabled={processing || Boolean(file?.name?.match(/(?:^|[^0-9])(20\d{2})(?=[^0-9]|$)/))}
+                      onChange={event => setDateYear(event.target.value)} style={{ width: 80, margin: '0 8px' }} />
+                    {lastExtraction.weekParsed.week}-{lastExtraction.weekParsed.num}차 · 다음을 누르면 전산 기준일 자동 적용 (1차 수요일 / 2차 토요일)
+                  </label>}
+                  {lastExtraction?.result?.invoices?.filter(invoice => invoice.orderWeekDate).map((invoice, index) => <div key={index} role="status" style={{ marginTop: 8 }}>
+                    원본 날짜 없음 · {invoice.orderWeekDate.orderYear}년 {invoice.orderWeekDate.orderWeek}차 기준 {invoice.orderWeekDate.date} 자동 적용
+                    {String(invoice.date).replaceAll('/', '-') !== invoice.orderWeekDate.date ? ` · 수정한 날짜 ${invoice.date} 사용` : ''} · 날짜 수정은 「인식값 수정」
+                  </div>)}
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
