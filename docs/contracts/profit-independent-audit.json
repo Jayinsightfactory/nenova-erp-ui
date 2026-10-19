@@ -1,0 +1,12 @@
+{
+  "id": "profit-independent-audit",
+  "title": "독립 수량·기초기말 원인·수익률 산술 검산 (조회 전용)",
+  "scope": ["lib/profitIndependentAudit.mjs", "lib/profitIndependentAuditSource.js", "pages/api/sales/profit-independent-audit.js", "pages/api/sales/profit-report.js", "lib/profitValidationWindow.mjs", "components/ProfitIndependentAudit.js", "pages/sales/profit-validation.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "identityNote": "공통 manifest 형식의 CustKey는 재고 스냅샷에는 적용하지 않음. StockMaster/ProductStock/StockHistory는 연도·차수·품목으로 조회하고 존재하지 않는 업체 키를 만들지 않는다.",
+  "actions": [{"name":"READ_INDEPENDENT_AUDIT","orderDetail":"preserve","shipmentDetail":"preserve","erpLedgerWrite":"forbidden","sideEffect":"SELECT only. No automatic correction, snapshot refresh, DDL, EXEC, AI call. Explicit year/range, 2-decimal quantity, source-change detection, unknown distinct from zero, confirmed report time separated."}],
+  "crossYearFixture": {"required":true,"description":"2025/2026 same week isolated; 01 opening previous-year52 explicit; missing/ambiguous anchors and snapshots never PASS"},
+  "requiredTestFiles": ["__tests__/profitIndependentAudit.test.cjs"],
+  "dnspyEvidence": {"required":true,"record":"docs/plans/profit-independent-audit-2026-10-19.md","source":"Actual local dnSpy FormStockView.GetData and read-only dbo.usp_StockCalculation definition + same 2026/32 probe","methods":["FormStockView.GetData","usp_StockCalculation"],"tables":["StockMaster","ProductStock","StockHistory","CodeInfo","ViewWarehouse","ViewShipment","Product","WebStockPriceEvidence"]},
+  "requiredCommands": ["node __tests__/profitIndependentAudit.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run verify:erp-change","npm run test:ui-layout","npm run build"]
+}
