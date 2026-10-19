@@ -5,9 +5,10 @@ import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/di
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
+import ProductBulkEditor from '../../components/catalog/ProductBulkEditor';
 import { matchesProductFlowers, productFlowerCounts, matchesProductCountry, productCountryCounts, groupProductsByCountryFlower } from '../../lib/productCatalogFilter';
 
-export default function Products() {
+export default function Products({embedded=false,onDirtyChange}={}) {
   const { t } = useLang();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,7 @@ export default function Products() {
   const [selectedFlowers, setSelectedFlowers] = useState([]);
   const [photoTarget, setPhotoTarget] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
+  const [bulkEdit,setBulkEdit]=useState(false);
   const countries = productCountryCounts(products);
   const countryProducts = products.filter(p => matchesProductCountry(p, selectedCountry));
   const flowers = productFlowerCounts(countryProducts);
@@ -188,19 +190,19 @@ export default function Products() {
           자연어명 미설정만 ({noAliasCount})
         </label>
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={load}>{t('새로고침')}</button>
+          <button className="btn btn-primary" disabled={bulkEdit} onClick={load}>{t('새로고침')}</button>
           <button
             className="btn btn-warning"
             onClick={handleBulkGenerate}
-            disabled={bulkGenerating || noAliasCount === 0}
+            disabled={bulkEdit || bulkGenerating || noAliasCount === 0}
             title="자연어명이 없는 품목에 자동으로 한글명 적용"
           >
             {bulkGenerating ? '생성 중...' : `✨ 자연어명 일괄생성 (${noAliasCount})`}
           </button>
-          <button className="btn btn-success" onClick={() => { setForm({}); setSelected(null); setShowModal(true); }}>＋ 신규 / Nuevo</button>
-          <button className="btn btn-secondary" onClick={() => selected && (setForm({ ...selected }), setShowModal(true))}>✏️ 수정 / Editar</button>
+          <button className="btn btn-success" disabled={bulkEdit} onClick={() => { setForm({}); setSelected(null); setShowModal(true); }}>＋ 신규 / Nuevo</button>
+          <button className="btn btn-secondary" disabled={bulkEdit} onClick={() => selected && (setForm({ ...selected }), setShowModal(true))}>✏️ 수정 / Editar</button>
           <button className="btn btn-secondary" onClick={handleExport} disabled={loading || filtered.length === 0}>📊 엑셀 / Excel</button>
-          <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
+          {!embedded&&<button className="btn btn-secondary" disabled={bulkEdit} onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>}
         </div>
       </div>
       <div role="group" aria-label="국가 선택" style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'8px 0' }} onKeyDown={moveFilterFocus}>
@@ -224,7 +226,9 @@ export default function Products() {
       </div>
       {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
-      <div className="table-wrap">
+      <div style={{margin:'8px 0'}}><button type="button" className="btn btn-primary" disabled={bulkEdit||loading} onClick={()=>{setBulkEdit(true);setPhotoTarget(null);}}>영역 선택 · 일괄 입력</button></div>
+      {bulkEdit&&<ProductBulkEditor rows={productGroups.flatMap(g=>g.products)} products={products} onDirtyChange={onDirtyChange} onClose={()=>setBulkEdit(false)} onSaved={saved=>setProducts(current=>current.map(p=>{const row=saved.find(r=>r.prodKey===p.ProdKey);return row?{...p,...row.after}:p;}))}/>}
+      <div className="table-wrap" hidden={bulkEdit}>
         {loading ? <div className="skeleton" style={{ height: 300, borderRadius: 0 }}></div> : (
           <table className="tbl">
             <thead>
