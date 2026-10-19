@@ -63,11 +63,11 @@ export default function ProductBulkEditor({rows,products,onSaved,onClose,onDirty
     <div className={styles.toolbar}>
       {fields.map(f=><label key={f.key}>{f.label}<input aria-label={`${f.label} 일괄 입력`} disabled={busy} inputMode="decimal" placeholder="변경 없으면 빈칸" value={inputs[f.key]??''} onChange={e=>setInputs({...inputs,[f.key]:e.target.value})}/></label>)}
       <button type="button" disabled={busy||!cells.length} onClick={apply}>선택 영역에 입력</button>
-      <button type="button" disabled={busy||!rows.length} onClick={()=>setRange([{row:0,col:0},{row:rows.length-1,col:4}])}>현재 목록 전체 선택</button>
+      <button type="button" disabled={busy||!rows.length} onClick={()=>setRange([{row:0,col:0},{row:rows.length-1,col:fields.length-1}])}>현재 목록 전체 선택</button>
       <button type="button" disabled={busy||!changes.length||!!validation} onClick={()=>{setReview(true);setError('');}}>변경 확인 · {changes.length}개 저장</button>
       <button type="button" disabled={busy||!dirty} onClick={()=>{if(window.confirm('입력한 변경값을 모두 취소할까요?')){setDrafts({});setReview(false);setError('');}}}>입력 취소</button>
     </div>
-    <p className={styles.hint}>빈 입력칸은 기존 값 유지 · 0은 0으로 변경 · 관세 25 입력 = 25% · 최대 500품목씩 저장</p>
+    <p className={styles.hint}>빈 입력칸은 기존 값 유지 · 0은 0으로 변경 · 1박스송이는 독립 입력(자동 곱셈 없음) · 관세 25 입력 = 25% · 최대 500품목씩 저장</p>
     <p role="status">현재 목록 {rows.length}개 · 선택 {cells.length}셀 · 저장 전 변경 {changes.length}품목 {notice&&`· ${notice}`}</p>
     {(error||validation)&&<p role="alert" className={styles.error}>{error||validation}</p>}
     {review&&<section className={styles.review} aria-label="저장 전 변경 확인">

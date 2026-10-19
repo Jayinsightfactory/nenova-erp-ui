@@ -26,7 +26,7 @@ async function run(mode){
     throw Error(query);
   };
   try{const result=await saveProductBulk(q,sql,changes,'tester');committed=working;logs=pending;assert.equal(result.length,2);assert.equal(mode,'ok');}catch(e){assert.notEqual(mode,'ok',e.message);}
-  if(mode==='ok'){assert.equal(committed[0].BoxWeight,0.125);assert.equal(committed[0].SteamOf1Box,60);assert.equal(logs.length,1);assert.equal(logs[0].changes[0].before.BoxWeight,null);}
+  if(mode==='ok'){assert.equal(committed[0].BoxWeight,0.125);assert.equal(committed[0].SteamOf1Box,50);assert.equal(logs.length,1);assert.equal(logs[0].changes[0].before.BoxWeight,null);}
   else{assert.deepEqual(committed,initial);assert.equal(logs.length,0);}
   assert.equal(JSON.stringify(sentinel),before);
 }
