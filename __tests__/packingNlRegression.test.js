@@ -9,6 +9,7 @@ test('duplicate source names stay connected to their own invoice and line',async
  assert.equal(find(invoices,0,{description:'Rose'}),null);
  invoices[0].products[1].matchedName='Rose A';
  assert.equal(find(invoices,0,{description:'Rose'}),'Rose A');
+ assert.equal(find([{sourceInvoiceIndex:0,products:[{sourceName:'Rose',name:'Rose A'}]}],0,{lineIndex:0,description:'Rose'}),'Rose A');
 });
 test('NL catalog candidates find Aisha and Casablanca without accepting ambiguous grades',async()=>{
  const {resolveProductNL,packingSourceKey}=await import('../lib/importPacking.js');
