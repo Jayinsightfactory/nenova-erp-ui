@@ -6,7 +6,7 @@
 | 기간 | 2026-10-19 |
 | 화면 | 주차별 매출이익 보고서·수익률 검증 새창 |
 | 원장 부작용 | SELECT만 수행, ERP·수기·확정 revision 보존 |
-| PR/배포 | 검증 진행 중, 아직 미검증 |
+| PR/배포 | PR #1105, squash ea015ab0, Cafe24 run 39257930494 success |
 | 다음 힌트 | profit-acquisition-carry 계약과 아래 결론부터 확인 |
 
 ## 이어받을 때 고정된 결정
@@ -38,3 +38,23 @@
 - 로컬 최종 `npm run verify:erp-change` 통과(전체 계약·dnSpy·변경 manifest·SQL scope guard·Next production build 포함). 별도 origin/master 기준 write guard 및 신규 회귀도 통과. CI·배포·운영 스모크는 아직 미검증.
 - 미해결 원장 원가/실재고를 정상이라고 주장하지 않는다. 운영 DB 보정은 이번 작업에서 수행하지 않는다.
 - 임시 probe와 개인 환경파일은 커밋하지 않는다.
+
+## 병합 추적
+
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1105
+- CI: 39257489736 success, head 6363c821.
+- Squash: ea015ab054556fcc6ca4fb96393e0a92c9565126.
+- 배포: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/39257930494 — 완료 확인 전에는 운영 반영을 주장하지 않는다.
+- 배포 완료: 위 run success 및 자동 hydration 브라우저 스모크 success. `/api/ping` DB 연결 성공, error 없음. 로그인 Chrome 검증창에서 ea015ab0 버전 확인. 실제 41차 결과 조회 검증은 이어서 기록한다.
+
+### 2. 운영 스모크에서 발견한 과거 경고 혼용
+
+**Q.** 같은 요청의 배포 후 검증.
+
+**A.** 실제 로그인 Chrome의 41차 본표는 수정된 평가값으로 계산됨을 확인했다. 하지만 하단 week-check가 기본 캐시 경로를 사용해 이전 판매단가 경고를 표시했다. 검증 새창의 두 GET 모두 auditLive=1로 맞추고 week-check loader에 명시적으로 전달한다. 일반 호출 기본 동작과 확정 revision 보호는 보존한다. 원가 경고의 summary도 내부 키 대신 사람이 읽는 설명으로 표시한다.
+
+**결과.** 순수 fetch fixture와 실제 loader 함수의 mock 실행으로 최신/기본 모드 및 교차연도 전달을 검증. 전체 검사·후속 PR·배포·브라우저 재검증은 진행 중이다. 이 후속 변경도 SQL writer나 DB 보정은 없다.
+
+실제 운영 DB SELECT를 사용하는 새 loadWeekCheck(41, 2026, preferLive=true) 실행에서 과거 판매단가 경고가 사라지고 사람이 읽는 매입원가 재구성 설명만 나옴을 확인했다. 원장 쓰기 없이 실행했다.
+
+후속 로컬 전체 verify:erp-change(build 포함) 통과. 신규 loader·fetch·설명 회귀 통과. 후속 PR/CI/배포/운영 설명 일치 스모크는 완료 후 기록한다.

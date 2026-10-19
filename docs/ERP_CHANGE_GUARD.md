@@ -884,3 +884,5 @@ Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는
 
 국가 합계에 판매단가 상태가 있어도 전체 품목이 판매단가는 아니다. 원가 정정으로 손실이 더 커질 수 있으며, 재고수량·조정·기말 0과 별도로 설명한다. 원가 없는 이전 차수는 정상으로 판정하지 않는다. 계약: `docs/contracts/profit-acquisition-carry.json`.
 
+검증 새창의 본표가 최신 계산이면 하단 week-check도 같은 최신 조회 모드를 사용한다. 한쪽만 과거 계산 캐시에서 경고를 가져오면 수정 전 판매단가 설명이 남으므로 배포 스모크에서 양쪽의 설명까지 대조한다. 확정 revision은 최신 모드에서도 보존하고, 사람이 읽는 경고 summary와 내부 근거 키를 구분한다.
+

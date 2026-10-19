@@ -6,12 +6,13 @@ import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { loadWeekCheckSources, buildWeekCheck } from '../../../lib/profitReportWeekCheck';
 import { parseMajor, loadWeeklyReportPayload } from './profit-report';
 
-export async function loadWeekCheck(major, orderYear) {
+export async function loadWeekCheck(major, orderYear, { preferLive = false } = {}) {
   const [sources, customs, report] = await Promise.all([
     loadWeekCheckSources(major, orderYear),
     computeCustomsAndForwarding(major, orderYear, { profile: 'profit-report' }),
     // 보고서 경고(PR #815 상세)·환율 원천 — 계산 결과 스냅샷이 있으면 그 값(빠름), 읽기 전용
-    loadWeeklyReportPayload(major, orderYear, { preferLive: false }),
+    // 검증 새창은 본표와 함께 최신 계산을 읽는다. 확정 revision 보존은 loader 내부 계약이다.
+    loadWeeklyReportPayload(major, orderYear, { preferLive }),
   ]);
   return buildWeekCheck({
     orderYear, major, sources,
@@ -26,7 +27,7 @@ export default withAuth(async function handler(req, res) {
     const major = parseMajor(req.query.week);
     if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 40)' });
     const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
-    const data = await loadWeekCheck(major, orderYear);
+    const data = await loadWeekCheck(major, orderYear, { preferLive: req.query.auditLive === '1' });
     return res.status(200).json({ success: true, ...data });
   } catch (e) {
     return res.status(e.statusCode || 500).json({ success: false, error: e.message });

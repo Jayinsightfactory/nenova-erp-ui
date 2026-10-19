@@ -20,7 +20,16 @@ const fs = require('node:fs');
   }});
   assert.equal(requests.length,2);
   requests.forEach(({url,options})=>{assert.match(url,/year=2026&week=32(?:&auditLive=1)?$/);assert.equal(options.method,'GET');assert.equal(options.cache,'no-store');});
-  assert.ok(requests.find(r=>r.url.includes('/profit-report?')).url.endsWith('&auditLive=1'));
+  assert.ok(requests.every(r=>r.url.endsWith('&auditLive=1')), 'report and diagnostics both require fresh read');
+  const weekCheckSource=fs.readFileSync('pages/api/sales/profit-report-week-check.js','utf8');
+  const loaderSource=weekCheckSource.slice(weekCheckSource.indexOf('export async function loadWeekCheck'),weekCheckSource.indexOf('export default')).replace('export async function','async function');
+  const loaderCalls=[];
+  const loaderContext={loadWeekCheckSources:async()=>({}),computeCustomsAndForwarding:async()=>({}),loadWeeklyReportPayload:async(major,year,options)=>{loaderCalls.push({major,year,...options});return{basis:options.preferLive?'fresh':'saved'};},buildWeekCheck:input=>input};
+  const vm=require('node:vm');vm.createContext(loaderContext);vm.runInContext(loaderSource,loaderContext);
+  assert.equal((await loaderContext.loadWeekCheck('41','2026',{preferLive:true})).report.basis,'fresh');
+  assert.equal((await loaderContext.loadWeekCheck('41','2025')).report.basis,'saved');
+  assert.equal(loaderCalls[0].year,'2026');assert.equal(loaderCalls[1].year,'2025');
+  assert.match(weekCheckSource,/preferLive: req.query.auditLive === '1'/);
   assert.equal(ready.report.data,base); assert.equal(ready.checks.data,base);
   const partial = await loadValidationWindow({year:'2026',major:32,fetcher:async url => url.includes('week-check')
     ? {ok:false,status:500} : {ok:true,json:async()=>base}});
