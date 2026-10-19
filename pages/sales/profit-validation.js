@@ -7,6 +7,7 @@ import { outputScope } from '../../lib/profitRangeOutput.mjs';
 import { loadValidationWindow, reportBasis } from '../../lib/profitValidationWindow.mjs';
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
+import ProfitIndependentAudit from '../../components/ProfitIndependentAudit';
 import s from '../../components/ProfitValidationWindow.module.css';
 
 const columns = [['C', '매출액'], ['E', '기초재고액'], ['F', '기말재고액'], ['G', '상품·항공료'], ['H', '그외통관비'], ['J', '매출이익'], ['K', '이익률']];
@@ -77,11 +78,12 @@ export default function ProfitValidationPage() {
         <button type="submit" disabled={busy}>{busy ? '점검 자료 조회 중…' : '점검 자료 조회'}</button>
         {busy && <button type="button" onClick={() => { request.current?.abort(); request.current = null; setBusy(false); setError('조회가 취소되었습니다. 다시 조회할 수 있습니다.'); }}>취소</button>}
       </form>
-      <aside className={s.notice}>현재 제공: 기존 보고서 경고, 통관·환율·입고 원천 점검, 실제 재고조정 이력.<br />독립 수량 대사·평가액 검산·최초 원인 역추적은 아직 구현 전입니다. 경고가 없거나 이익률이 양수여도 전체 검증 완료를 뜻하지 않습니다. 원장 수정·자동 저장·AI 호출은 하지 않습니다.</aside>
+      <aside className={s.notice}>독립 검산으로 기초 이월 차이, 이번 차수 입출고 차이, 단가 근거 부족을 구분합니다.<br />수량 식이 맞거나 이익률이 양수여도 실사와 원가까지 검증 완료된 것은 아닙니다. 원장 수정·자동 저장·AI 호출은 하지 않습니다.</aside>
       {error && <p role="alert" className={s.error}>{error}</p>}
       {busy && <p role="status">선택 연도·차수의 자료를 읽고 있습니다. 다른 차수로 바꾸면 이전 조회는 취소됩니다.</p>}
       {result && <>
         <h2>{result.year}년 {Number(result.major)}차 확인 결과</h2>
+        <ProfitIndependentAudit key={`${result.year}:${result.major}:${result.queriedAt}`} year={result.year} major={result.major} report={report} />
         <p className={s.muted}>조회 {new Date(result.queriedAt).toLocaleString('ko-KR')} · 보고서와 현재 원장 점검은 별도 조회이며 동시점 대사를 보증하지 않습니다.</p>
         <section className={s.section} aria-label="보고서 금액과 경고">
           <h2>보고서 금액과 경고</h2>

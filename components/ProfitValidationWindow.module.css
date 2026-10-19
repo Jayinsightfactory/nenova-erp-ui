@@ -26,4 +26,8 @@
 .issues { list-style: none; padding: 0; margin: 12px 0 0; }
 .issues li { border-top: 1px solid #dbe3ec; padding: 12px 0; overflow-wrap: anywhere; }
 .issues small { color: #64748b; }
+.section button { font: inherit; padding: 6px 10px; border: 1px solid #a2b4d0; border-radius: 5px; background: #eff5ff; color: #163f87; cursor: pointer; }
+.section button:disabled { opacity: .5; cursor: not-allowed; }
+.section details { margin: 10px 0; padding: 10px; border: 1px solid #d8e0eb; border-radius: 5px; }
+.section summary { cursor: pointer; font-weight: 600; }
 @media (max-width: 640px) { .page { padding: 12px; } .section { padding: 12px; } .page h1 { font-size: 20px; } }

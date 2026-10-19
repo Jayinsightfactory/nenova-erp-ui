@@ -3,7 +3,7 @@
   "title": "매출자료 수익률 검증 별도 창 — 기존 읽기 전용 점검 연결",
   "scope": ["pages/sales/profit-validation.js", "pages/sales/profit-report.js", "components/ProfitValidationLink.js", "components/ProfitValidationWindow.module.css", "lib/profitValidationWindow.mjs", "components/Layout.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "actions": [{"name": "OPEN_AND_READ_VALIDATION", "orderDetail": "preserve", "shipmentDetail": "preserve", "erpLedgerWrite": "forbidden", "sideEffect": "명시적 연도/차수의 기존 report/week-check/stock-adjustment-notes GET만 사용. 자동 snapshotRefresh, AI POST, 원장 보정 없음. 별도 popup URL 및 원본 보고서 화면 보존. 현재 원장 점검과 확정/계산 snapshot 분리. 전체 독립 검증 에이전트 미구현 명시."}],
+  "actions": [{"name": "OPEN_AND_READ_VALIDATION", "orderDetail": "preserve", "shipmentDetail": "preserve", "erpLedgerWrite": "forbidden", "sideEffect": "명시적 연도/차수의 report/week-check/stock-adjustment-notes 및 독립 검산 GET만 사용. 자동 snapshotRefresh, AI POST, 원장 보정 없음. 별도 popup URL 및 원본 보고서 화면 보존. 현재 원장 점검과 확정/계산 snapshot 분리. 독립 검산 범위/미검증 단가 명시."}],
   "crossYearFixture": {"required": true, "description": "2025/2026 같은32차 URL/응답 분리, 누락연도/0차/중복쿼리 거부, 응답범위 불일치/실패/취소는 정상 결과로 표시하지 않음"},
   "requiredTestFiles": ["__tests__/profitValidationWindow.test.cjs"],
   "dnspyEvidence": {"required": true, "record": "docs/plans/profit-validation-window-2026-10-19.md", "source": "2026-10-19 실제 dnSpy.Console.exe FormStockView.GetData 및 2026/32 SELECT probe; 기존 보고서 읽기 원천 재사용", "methods": ["FormStockView.GetData", "loadWeeklyReportPayload", "loadWeekCheck"], "tables": ["StockMaster", "ProductStock", "ShipmentMaster", "ShipmentDetail", "StockHistory", "Estimate", "WebProfitReport"]},
