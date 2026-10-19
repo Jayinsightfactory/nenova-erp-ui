@@ -26,7 +26,9 @@ const fs = require('node:fs');
   }
   f=fixture();f.masters=f.masters.filter(x=>x.StockKey!==2);assert.equal(run(f).weeks[1].status,'INPUT_REQUIRED');
   f=fixture();f.masters.push({StockKey:4,OrderYear:'2026',OrderWeek:'01-01B'});f.stocks.push({StockKey:4,ProdKey:1,Stock:13});
-  out=run(f);assert.equal(out.weeks[0].status,'INPUT_REQUIRED');assert.equal(out.weeks[1].status,'MATCH');assert.equal(out.invalidKeyCount,1);
+  out=run(f);assert.equal(out.weeks[0].status,'INPUT_REQUIRED');assert.equal(out.weeks[1].status,'INPUT_REQUIRED');assert.equal(out.weeks[1].openingPolicyMismatch,true);assert.equal(out.invalidKeyCount,1);
+  f=fixture();f.masters.push({StockKey:5,OrderYear:'2025',OrderWeek:'53-01'});f.stocks.push({StockKey:5,ProdKey:1,Stock:10});
+  out=run(f);assert.equal(out.weeks[0].openingPolicyMismatch,true);assert.equal(out.weeks[0].status,'INPUT_REQUIRED');assert.equal(out.weeks[0].begin.week,'52-02');
   assert.equal(finite(null),null);assert.equal(finite(0),0);assert.equal(roundQty(-1.235),-1.24);assert.equal(roundQty(1.235),1.24);
   assert.equal(auditUnitFactor({...product,OutUnit:'박스',BunchOf1Box:20}),20);assert.equal(auditUnitFactor({...product,OutUnit:'박스'}),null);
   f=fixture();f.prices=[{OrderYear:'2026',OrderWeek:'01-01',ProdKey:1,Price:100,EvidenceStatus:'VERIFIED',SourceRef:'fixture',EffectiveAt:'2026-01-01',ConfirmedBy:'fixture',ConfirmedAt:'2026-01-01'}];

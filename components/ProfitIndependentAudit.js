@@ -113,6 +113,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
       {week && <>
         <h3>{year}년 {Number(selected)}차 · 수량 원인 상세</h3>
         <p>기초 기준 {week.begin ? `${week.begin.year}/${week.begin.week}`:'스냅샷 없음'} → 기말 기준 {week.end ? `${week.end.year}/${week.end.week}`:'스냅샷 없음'}. {week.checkedCount}개 품목·세부차수 식 비교, 자료 확인 필요 {week.inputRequiredCount}건.</p>
+        {week.openingPolicyMismatch&&<p className={s.error}>보고서 기초재고 기준과 전산 재고 계산의 직전 기준({week.firstNativePeriod})이 다릅니다. 53차 또는 비표준 차수의 이월 정책 확인이 필요하며, 어느 쪽도 자동으로 바꾸지 않았습니다.</p>}
         <label>국가·품종으로 찾기 <select value={category} onChange={e=>{setCategory(e.target.value);setVisibleCount(30);}}><option value="">전체</option>{[...new Set(week.entries.map(item=>item.category))].sort().map(c=><option key={c}>{c}</option>)}</select></label>
         {week.detailsLoaded === false ? <p>품목별 상세 미조회 · 위 상세 버튼으로 다시 조회하세요.</p> : !week.entries.length ? <p>{week.status==='MATCH'?'현재 자료에서 수량 식의 차이가 발견되지 않았습니다. 실사·단가까지 검증 완료한 것은 아닙니다.':'비교 가능한 재고 자료가 부족합니다. 빈 결과를 정상으로 판단하지 마세요.'}</p>
           : <><p className={s.muted}>선택 분류 {filteredEntries.length}건 중 {Math.min(filteredEntries.length,visibleCount)}건 표시. 기초·입고·출고·조정은 품목의 출고단위 기준입니다.</p><ul className={s.issues}>{filteredEntries.slice(0,visibleCount).map((item,i)=><li key={`${item.period}-${item.prodKey}-${i}`}>
