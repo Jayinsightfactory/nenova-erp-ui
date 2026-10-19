@@ -24,7 +24,7 @@ import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliase
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
 import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
-import { assertPackingSourceReviewed, bindPackingSourceReviewPolicy } from '../../lib/importPackingSourceReview.js';
+import { assertPackingSourceValues, bindPackingSourceReviewPolicy } from '../../lib/importPackingSourceReview.js';
 import { buildPackingMatchPreview } from '../../lib/importPackingMatchPreview.js';
 import { packingMatchReview } from '../../lib/packingMatchReview.js';
 import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
@@ -1072,7 +1072,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (/\.pdf$/i.test(restoredFile.name) && [...extraction.sourceInvoices, ...extraction.result.invoices].some(invoice => invoice.pdfSourceHash !== hash)) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
       let confirmed = savedWork.reviewConfirmed;
       if (confirmed && /\.pdf$/i.test(restoredFile.name)) {
-        try { extraction.result.invoices.forEach(invoice => assertPackingSourceReviewed(invoice, savedWork.country)); }
+        try { extraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, savedWork.country)); }
         catch { confirmed = false; }
       }
       setCountry(savedWork.country); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
@@ -1644,7 +1644,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     if (!/\.pdf$/i.test(file?.name || '')) return false;
     try {
       if (!lastExtraction?.result?.invoices?.length) return true;
-      lastExtraction.result.invoices.forEach(invoice => assertPackingSourceReviewed(invoice, country));
+      lastExtraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
       return false;
     } catch { return true; }
   };
@@ -1701,18 +1701,19 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
     if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); return; }
     receiptIntent.current = true;
-    if (!reviewConfirmed || sourceReviewBlocked()) {
-      setStatus({ type: 'info', msg: '품목 매칭은 완료됐습니다. 열린 검토창에서 수량·단가와 송장 정보를 확인하고 하단의 「확인값 적용 · 결과 재생성」을 누르면 입고 준비로 이어집니다.' });
-      setReviewInitialTarget(null); setReviewOpen(true);
-      return;
-    }
     try {
+      if (/\.pdf$/i.test(file?.name || '')) lastExtraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, country));
       if (!excels.length && buildExcels({ invoices: lastExtraction.result.invoices,
         masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
         currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated,
         extractionResult: lastExtraction.result }) === false) return;
+      setReviewConfirmed(true);
+      receiptIntent.current = false;
+      setStatus({ type: 'success', msg: '품목 매칭 완료. 입고 준비 화면에서 차수·농장·수량을 확인한 뒤 저장하세요. 아직 입고·재고는 변경하지 않았습니다.' });
       focusReceipt();
-    } catch (error) { setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 현재 매칭과 파일은 유지됩니다.` }); }
+    } catch (error) {
+      setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다.` });
+    }
   };
   const confirmReview = drafts => {
     if (!lastExtraction || processingRef.current || savingRef.current || !sharedReady) throw new Error('현재 파일 분석이 완료된 뒤 다시 확인하세요.');
@@ -1720,7 +1721,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
       throw new Error('일반 GW·CW·운송비 확인은 중국 구형 행 단위·통화 검토를 대신할 수 없습니다.');
     }
-    const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country);
+    const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country, undefined, { requireConfirmation: false });
     const reviewedResult = { ...lastExtraction.result, invoices };
     setMatchPreview(buildPackingMatchPreview({ invoices, country, aliases, erpMatches }));
     const unresolved = unresolvedExtractionIssues(invoices, reviewedResult);
@@ -1747,6 +1748,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+        requireSourceConfirmation={false}
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
@@ -2035,14 +2037,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
-                    {excels.length && reviewConfirmed ? '입고 업로드로 이동' : '입고 업로드 준비'}
+                    {excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
                   </button>}
                   <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
-                  <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">원본 PDF · 인식값 검증/수정</button>
-                  <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 입고 업로드로 이동할 수 있습니다. 실제 저장 전에는 다시 검증합니다.' : '품목 연결과 원본 숫자 확인은 별개입니다. 아래 「확인/수정 열기」를 눌러 수량·단가를 확인하세요.'}</span>
-                  {!reviewConfirmed && <p>① 원본 PDF와 인식값 비교 → ② 잘못 읽힌 값 수정·상품행 대조 확인 → ③ 검토창 아래 「확인값 적용 · 결과 재생성」 → ④ 「입고 업로드로 이동」. 번호·중량 미확인은 품목 매칭 오류를 뜻하지 않습니다.</p>}
+                  <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
+                  <span style={{ marginLeft: 12 }}>원본 품명 옆에 DB 품목을 모두 연결한 뒤 「다음 · 입고 준비」를 누르세요. 별도 원문확인 체크는 필요 없습니다.</span>
+                  <p>수량·단가를 잘못 읽은 경우에만 인식값을 수정하세요. 실제 숫자 오류·단위 환산·중복입고는 저장 전에 다시 검사합니다.</p>
                   <div>미리보기와 확인은 ERP 입고 DB에 저장하지 않습니다.</div>
                 </div>
                 {excels.length > 1 && (() => {

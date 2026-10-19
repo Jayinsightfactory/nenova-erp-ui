@@ -87,7 +87,7 @@ function metadataFieldChanged(draft, baseline, field) {
     !== metadataComparable(field, baseline?.metadata?.values?.[field]);
 }
 
-function validateMetadataDraft(draft, baseline, rowErrors) {
+function validateMetadataDraft(draft, baseline, rowErrors, requireConfirmation = true) {
   if (!baseline?.metadata) return;
   for (const field of METADATA_FIELDS) {
     const value = stringValue(draft.metadata?.values?.[field]).trim();
@@ -110,13 +110,13 @@ function validateMetadataDraft(draft, baseline, rowErrors) {
       if (!validAmount || !Number.isFinite(amount) || Math.abs(amount) > 1e12) rowErrors.metadata_invoice_total = '송장 총액 숫자 형식 또는 범위를 확인하세요.';
     } else if (field === 'invoice_total' && required) rowErrors.metadata_invoice_total = '원문에 인쇄된 송장 총액을 입력하세요.';
     if (!required) continue;
-    if (draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
+    if (requireConfirmation && draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
     if (!stringValue(draft.metadata?.reasons?.[field]).trim()) rowErrors[`metadata_${field}_reason`] = `${METADATA_LABELS[field]} 확인 사유를 입력하세요.`;
     if (stringValue(draft.metadata?.reasons?.[field]).trim().length > 1000) rowErrors[`metadata_${field}_reason`] = '확인 사유는 1,000자 이내로 입력하세요.';
   }
 }
 
-function validateDrafts(drafts, baselines) {
+function validateDrafts(drafts, baselines, requireConfirmation = true) {
   const errors = {};
   for (const draft of drafts) {
     const key = rowIdentity(draft);
@@ -134,7 +134,7 @@ function validateDrafts(drafts, baselines) {
     if (FIELDS.some(field => fieldChanged(draft, baselines.get(key), field)) && !draft.reason.trim()) {
       rowErrors.reason = '인식값을 변경한 사유를 입력하세요.';
     }
-    validateMetadataDraft(draft, baselines.get(key), rowErrors);
+    validateMetadataDraft(draft, baselines.get(key), rowErrors, requireConfirmation);
     if (Object.keys(rowErrors).length) errors[key] = rowErrors;
   }
   return errors;
@@ -164,6 +164,7 @@ export default function PackingEvidenceReview({
   onClose,
   onInvalidate,
   matchedInvoices = [],
+  requireSourceConfirmation = true,
   pdfBase64,
   fileName,
   open = true,
@@ -219,7 +220,9 @@ export default function PackingEvidenceReview({
     && sourceDrafts[entry.key]?.confirmed !== true).length;
   const missingSourceReasonCount = sourceEntries.filter(({ row, key }) => sourceDraftChanged(row, sourceDrafts[key])
     && !stringValue(sourceDrafts[key]?.reason).trim()).length;
-  const sourceGateMessage = !sourceReviewRequired ? ''
+  const sourceGateMessage = !requireSourceConfirmation
+    ? (missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.` : '')
+    : !sourceReviewRequired ? ''
     : !pdfBase64 ? '원본 PDF가 없어 검증을 완료할 수 없습니다.'
       : !pdfReady ? '현재 PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.'
         : !sourceEntries.length ? '검토가 필요한 상품행 원문 스냅샷이 없습니다.'
@@ -288,7 +291,7 @@ export default function PackingEvidenceReview({
       if (!stale) {
         setPreviewState({ loading: false, error: error?.message || 'PDF 미리보기를 열지 못했습니다.' });
         setRenderedPage(null);
-        invalidateConfirmations();
+        if (requireSourceConfirmation) invalidateConfirmations();
       }
     });
     return () => {
@@ -317,7 +320,7 @@ export default function PackingEvidenceReview({
       if (!stale) {
         setRenderError(error?.message || 'PDF 페이지를 표시하지 못했습니다.');
         setRenderedPage(null);
-        invalidateConfirmations();
+        if (requireSourceConfirmation) invalidateConfirmations();
       }
     });
     return () => { stale = true; };
@@ -484,17 +487,17 @@ export default function PackingEvidenceReview({
   };
 
   const confirmDrafts = async () => {
-    if (sourceReviewRequired && !pdfReady) {
+    if (requireSourceConfirmation && sourceReviewRequired && !pdfReady) {
       setSubmitError(!pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.');
       return;
     }
-    if (sourceReviewRequired && (!sourceEntries.length || uncheckedSourceCount > 0 || missingSourceReasonCount > 0)) {
+    if (sourceReviewRequired && (!sourceEntries.length || (requireSourceConfirmation && uncheckedSourceCount > 0) || missingSourceReasonCount > 0)) {
       setSubmitError(!sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
         : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건이 남아 있습니다. 각 행을 확인하세요.`
           : `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`);
       return;
     }
-    const nextErrors = validateDrafts(drafts, baselinesRef.current);
+    const nextErrors = validateDrafts(drafts, baselinesRef.current, requireSourceConfirmation);
     setErrors(nextErrors);
     setSubmitError('');
     if (Object.keys(nextErrors).length) {
@@ -564,10 +567,10 @@ export default function PackingEvidenceReview({
         {input}
         {evidence?.quote && <q className={styles.quote}>{evidence.quote}</q>}
         {fieldError && <p className={styles.error} role="alert">{fieldError}</p>}
-        <label className={styles.confirmLabel}>
+        {requireSourceConfirmation && <label className={styles.confirmLabel}>
           <input type="checkbox" checked={selectedDraft?.metadata?.confirmed?.[field] === true} onChange={event => updateMetadataConfirmed(selectedKey, field, event.target.checked)} data-testid={`metadata-confirm-${field}`} />
           <span>이 {METADATA_LABELS[field]}의 원문과 입력값을 각각 대조했습니다.</span>
-        </label>
+        </label>}
         {confirmError && <p className={styles.error} role="alert">{confirmError}</p>}
         <label className={styles.reasonLabel} htmlFor={`${id}-reason`}>{METADATA_LABELS[field]} 확인 사유
           <input id={`${id}-reason`} type="text" value={selectedDraft?.metadata?.reasons?.[field] || ''} onChange={event => updateMetadataReason(selectedKey, field, event.target.value)} placeholder="원문 확인 또는 수정 근거" aria-invalid={Boolean(reasonError)} data-testid={`metadata-reason-${field}`} />
@@ -578,9 +581,9 @@ export default function PackingEvidenceReview({
   </section> : null;
 
   const sourceReviewSection = sourceReviewRequired ? <section className={styles.sourceReview} aria-label="원본 PDF 상품행 검토" data-testid="source-review">
-    <h4>상품행 원문 대조</h4>
-    <p>① 왼쪽 PDF와 아래 숫자를 비교하세요. ② 잘못된 숫자만 수정하세요. ③ 각 품목 위의 「이 상품행 대조 확인」을 체크하세요. ④ 아래 「확인값 적용」을 누르세요. 값을 고쳤을 때만 수정 사유가 필요합니다.</p>
-    <p role="status">자동 검산 {sourceEntries.length - manualSourceCount}건 · 직접 확인 {manualSourceCount - uncheckedSourceCount}/{manualSourceCount}건 · 남은 확인 {uncheckedSourceCount}건</p>
+    <h4>수량·단가 수정</h4>
+    <p>{requireSourceConfirmation ? '각 상품행을 대조해 확인한 뒤 적용하세요.' : '잘못 읽힌 숫자가 있을 때만 고치고 수정 사유를 입력한 뒤 「수정값 적용」을 누르세요. 별도 원문확인 체크는 없습니다. 품목 매칭은 이전 화면에서 할 수 있습니다.'}</p>
+    {requireSourceConfirmation && <p role="status">자동 검산 {sourceEntries.length - manualSourceCount}건 · 직접 확인 {manualSourceCount - uncheckedSourceCount}/{manualSourceCount}건 · 남은 확인 {uncheckedSourceCount}건</p>}
     <button type="button" onClick={() => setShowAllSourceRows(value => !value)} data-testid="source-show-all">{showAllSourceRows ? '확인 필요만 보기' : '전체 상품행 보기'}</button>
     {sourceEntriesForInvoice(Number(selectedKey)).length === 0
       ? <p role="alert" className={styles.error}>이 인보이스에 연결된 상품행 검토 스냅샷이 없습니다.</p>
@@ -596,11 +599,11 @@ export default function PackingEvidenceReview({
             const matchedName = matchedNameForSource(entry.invoiceIndex, sourceRow);
             return <tr key={entry.key} data-source-row-key={entry.key}>
               <th scope="row" className={styles.sourceName}>
-                {needsHumanReview ? <label className={styles.sourceConfirm}>
+                {requireSourceConfirmation && (needsHumanReview ? <label className={styles.sourceConfirm}>
                   <input type="checkbox" checked={current.confirmed === true} disabled={!pdfReady}
                     onChange={event => updateSourceConfirmed(entry, event.target.checked)} data-testid="source-row-confirm" />
                   <span>{current.confirmed ? '원문 대조 완료' : '이 상품행 대조 확인'}</span>
-                </label> : <span className={styles.reviewed}>자동 검산 완료</span>}
+                </label> : <span className={styles.reviewed}>자동 검산 완료</span>)}
                 <span>{sourceRow.description || '원문 품명 없음'}</span><small>상품 {Number.isInteger(sourceRow.lineIndex) ? sourceRow.lineIndex + 1 : '—'}행</small>
                 <small>{matchedName || '미매칭 · 결과에서 선택 필요'}</small>
                 <button type="button" className={styles.sourceEvidenceButton} onClick={() => selectSourceEvidence(entry, evidenceField)} disabled={!Object.keys(sourceRow.evidence || {}).length}>원문 페이지 열기</button>
@@ -673,7 +676,7 @@ export default function PackingEvidenceReview({
             <div className={styles.previewStatus} role="status" aria-live="polite">
               {previewState.loading && '로컬 PDF를 여는 중…'}
               {previewState.error && previewState.error}
-              {!pdfBase64 && (sourceReviewRequired ? 'PDF 원본이 없어 상품행 검증과 확인 적용이 차단됩니다.' : 'PDF 원본이 없어 문서 위치를 표시할 수 없습니다. Excel 원본은 별도로 확인하세요.')}
+              {!pdfBase64 && (sourceReviewRequired && requireSourceConfirmation ? 'PDF 원본이 없어 상품행 검증과 확인 적용이 차단됩니다.' : '원본 미리보기를 표시할 수 없습니다. 오른쪽 인식값 수정은 가능합니다.')}
               {pdfBase64 && preview && !previewState.loading && !previewState.error && !renderError && highlight.label + ' · ' + pageNumber + '페이지'}
               {(previewState.error || renderError) && <button type="button" onClick={() => {
                 setPreviewState({ loading: false, error: '' }); setRenderError(''); setRenderedPage(null); setPdfRetryCount(value => value + 1);
@@ -766,11 +769,11 @@ export default function PackingEvidenceReview({
         </div>
 
         <footer className={styles.footer}>
-          <p>남은 상품행 확인 {uncheckedSourceCount}건 · 수정 사유 {missingSourceReasonCount}건. 모두 확인한 뒤 아래 적용 버튼을 누르세요. 여기서는 ERP DB에 저장하지 않습니다. 실제 입고 저장은 다음 단계에서 별도로 진행합니다.</p>
+          <p>{requireSourceConfirmation ? `남은 상품행 확인 ${uncheckedSourceCount}건 · ` : ''}수정 사유 {missingSourceReasonCount}건. 여기서는 ERP DB에 저장하지 않습니다. 실제 입고 저장은 다음 단계에서 별도로 진행합니다.</p>
           <div>
             <button type="button" onClick={closeReview} disabled={pending}>취소</button>
-            <button type="button" className={styles.applyButton} onClick={confirmDrafts} disabled={pending || !safeRows.length || Boolean(sourceGateMessage) || (sourceReviewRequired && !pdfReady)}>
-              {pending ? '적용 중…' : '확인값 적용 · 결과 재생성'}
+            <button type="button" className={styles.applyButton} onClick={confirmDrafts} disabled={pending || !safeRows.length || Boolean(sourceGateMessage) || (requireSourceConfirmation && sourceReviewRequired && !pdfReady)}>
+              {pending ? '적용 중…' : requireSourceConfirmation ? '확인값 적용 · 결과 재생성' : '수정값 적용 · 결과 재생성'}
             </button>
           </div>
           {sourceGateMessage && <p className={styles.sourceGate} role="status">{sourceGateMessage}</p>}
