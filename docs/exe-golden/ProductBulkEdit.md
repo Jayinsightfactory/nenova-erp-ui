@@ -1,5 +1,8 @@
 # 품목 기본값 일괄 입력 근거 (2026-10-19)
 
+## 후속 사용자 호환 기준 정정
+웹 기능을 유지하되 EXE가 읽는 독립값을 보존한다는 최종 요청에 따라 아래 과거 자동 곱셈 정책은 폐기한다. 1박스송이 독립 입력 열을 추가하고 단수/단당 송이를 변경해도 기존 SteamOf1Box는 유지한다. 사용자가 1박스송이를 직접 입력한 경우에만 변경한다. 같은 preview/save 정책과 실제 MSSQL fixture로 77/0/NULL 보존을 검증한다.
+
 실제 CLI 실행: `dnSpy.Console.exe --no-color -t ClassProduct "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`, 같은 명령의 `-t FormProductAdd`.
 FormProductAdd.btnSave_Click은 spnBunch/Steam/Box를 각각 BunchOf1Box/SteamOf1Bunch/SteamOf1Box에 넣어 ClassProduct.Update를 호출한다. ClassProduct.Update의 WHERE는 ProdKey, Product만 UPDATE하고 LastUpdateID/Dtm을 기록한다. 원래 저장은 Stock 등 넓은 필드도 포함하지만 새 웹 일괄 입력은 이를 재사용하지 않는다.
 

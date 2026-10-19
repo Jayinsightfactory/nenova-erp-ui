@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { useLang } from '../../lib/i18n';
+import { productEditPayload } from '../../lib/productMasterPolicy';
 import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/displayName';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
@@ -27,6 +28,8 @@ export default function Products({embedded=false,onDirtyChange}={}) {
   const [selectedFlowers, setSelectedFlowers] = useState([]);
   const [photoTarget, setPhotoTarget] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
+  const [masterCodes,setMasterCodes]=useState({countries:[],flowers:[]});
+  useEffect(()=>{apiGet('/api/master',{entity:'codes'}).then(setMasterCodes).catch(e=>setErr(e.message));},[]);
   const [bulkEdit,setBulkEdit]=useState(false);
   const [showInputHistory,setShowInputHistory]=useState(false);
   const countries = productCountryCounts(products);
@@ -71,22 +74,12 @@ export default function Products({embedded=false,onDirtyChange}={}) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {
-        prodKey:       form.ProdKey       ?? form.prodKey,
-        prodCode:      form.prodCode      ?? form.ProdCode,
-        prodName:      form.prodName      ?? form.ProdName,
-        displayName:   form.displayName   ?? form.DisplayName ?? null,
-        flowerName:    form.flowerName    ?? form.FlowerName,
-        counName:      form.counName      ?? form.CounName,
-        cost:          form.cost          ?? form.Cost,
-        outUnit:       form.outUnit       ?? form.OutUnit,
-        estUnit:       form.estUnit       ?? form.EstUnit,
-        bunchOf1Box:   form.bunchOf1Box   ?? form.BunchOf1Box,
-        steamOf1Bunch: form.steamOf1Bunch ?? form.SteamOf1Bunch,
-        boxWeight:     form.boxWeight     ?? form.BoxWeight,
-        boxCBM:        form.boxCBM        ?? form.BoxCBM,
-        tariffRate:    form.tariffRate    ?? form.TariffRate,
-      };
+      const payload=productEditPayload(form);
+      const unitChanged=form.ProdKey&&['OutUnit','EstUnit'].some(k=>Object.hasOwn(payload.values,k)&&payload.values[k]!==form[k]);
+      if(unitChanged){
+        if(!window.confirm('단위 변경은 기존 주문·출고·재고 수량을 자동 환산하지 않습니다. 이후 EXE와 웹 계산에 새 단위가 사용됩니다. 변경할까요?'))return;
+        payload.confirmUnitChange=true;
+      }
       await apiPost('/api/master?entity=products', payload);
       setShowModal(false);
       load();
@@ -371,13 +364,13 @@ export default function Products({embedded=false,onDirtyChange}={}) {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">품목코드</label>
-                  <input className="form-control" value={form.ProdCode || ''} onChange={e => setForm(f => ({ ...f, prodCode: e.target.value }))} />
+                  <input className="form-control" value={form.prodCode ?? form.ProdCode ?? ''} onChange={e => setForm(f => ({ ...f, prodCode: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">품목명 * (DB 원본)</label>
                   <input
                     className="form-control"
-                    value={form.ProdName || ''}
+                    value={form.prodName ?? form.ProdName ?? ''}
                     onChange={e => setForm(f => ({ ...f, prodName: e.target.value }))}
                   />
                 </div>
@@ -427,43 +420,44 @@ export default function Products({embedded=false,onDirtyChange}={}) {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">꽃 종류</label>
-                  <select className="form-control" value={form.FlowerName || ''} onChange={e => setForm(f => ({ ...f, flowerName: e.target.value }))}>
-                    {['카네이션','장미','수국','알스트로','아카시아','루스커스','기타'].map(fl => <option key={fl}>{fl}</option>)}
+                  <select className="form-control" value={form.flowerName ?? form.FlowerName ?? ''} onChange={e => setForm(f => ({ ...f, flowerName: e.target.value }))}>
+                    <option value="">품종 선택</option>{[...new Set([form.FlowerName,...masterCodes.flowers.map(f=>f.FlowerName)].filter(Boolean))].map(fl => <option key={fl}>{fl}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">국가</label>
-                  <select className="form-control" value={form.CounName || ''} onChange={e => setForm(f => ({ ...f, counName: e.target.value }))}>
-                    {['콜롬비아','에콰도르','네달란드','중국','태국','호주','이스라엘','국내'].map(c => <option key={c}>{c}</option>)}
+                  <select className="form-control" value={form.counName ?? form.CounName ?? ''} onChange={e => setForm(f => ({ ...f, counName: e.target.value }))}>
+                    <option value="">국가 선택</option>{[...new Set([form.CounName,...masterCodes.countries.map(c=>c.CounName)].filter(Boolean))].map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
               <div className="form-row form-row-3">
-                <div className="form-group"><label className="form-label">출고단가</label><input type="number" className="form-control" value={form.Cost || 0} onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">출고단가</label><input type="number" className="form-control" value={form.cost ?? form.Cost ?? ''} onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">출고단위</label>
-                  <select className="form-control" value={form.OutUnit || '박스'} onChange={e => setForm(f => ({ ...f, outUnit: e.target.value }))}>
-                    <option>박스</option><option>단</option><option>송이</option>
+                  <select className="form-control" value={form.outUnit ?? form.OutUnit ?? ''} onChange={e => setForm(f => ({ ...f, outUnit: e.target.value }))}>
+                    <option value="">단위 선택</option><option>박스</option><option>단</option><option>송이</option>
                   </select>
                 </div>
                 <div className="form-group"><label className="form-label">견적단위</label>
-                  <select className="form-control" value={form.EstUnit || '박스'} onChange={e => setForm(f => ({ ...f, estUnit: e.target.value }))}>
-                    <option>박스</option><option>단</option><option>송이</option>
+                  <select className="form-control" value={form.estUnit ?? form.EstUnit ?? ''} onChange={e => setForm(f => ({ ...f, estUnit: e.target.value }))}>
+                    <option value="">단위 선택</option><option>박스</option><option>단</option><option>송이</option>
                   </select>
                 </div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label className="form-label">1박스 당 단수</label><input type="number" className="form-control" value={form.BunchOf1Box || 0} onChange={e => setForm(f => ({ ...f, bunchOf1Box: e.target.value }))} /></div>
-                <div className="form-group"><label className="form-label">1단 당 송이수</label><input type="number" className="form-control" value={form.SteamOf1Bunch || 0} onChange={e => setForm(f => ({ ...f, steamOf1Bunch: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">1박스 당 단수</label><input type="number" className="form-control" value={form.bunchOf1Box ?? form.BunchOf1Box ?? ''} onChange={e => setForm(f => ({ ...f, bunchOf1Box: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">1단 당 송이수</label><input type="number" className="form-control" value={form.steamOf1Bunch ?? form.SteamOf1Bunch ?? ''} onChange={e => setForm(f => ({ ...f, steamOf1Bunch: e.target.value }))} /></div>
               </div>
+              <div className="form-group"><label className="form-label">1박스 당 송이수 (독립값)</label><input aria-label="1박스 당 송이수" type="number" className="form-control" value={form.steamOf1Box ?? form.SteamOf1Box ?? ''} onChange={e=>setForm(f=>({...f,steamOf1Box:e.target.value}))}/><small>수정하지 않은 값은 유지됩니다. 단수 × 단당 송이수로 자동 변경하지 않습니다.</small></div>
               {(() => {
                 // 박스당/단당 입력 — 콜롬비아는 박스 기준, 외국은 단 기준 (사용자 선호)
                 // ⚠ 사용자 편집값(`boxWeight` camelCase) > DB 초기값(`BoxWeight` PascalCase) 우선
-                const counName = String(form.CounName || form.counName || '').trim();
+                const counName = String(form.counName ?? form.CounName ?? '').trim();
                 const isColombia = /콜롬비아|COLOMBIA/i.test(counName);
                 const bpb = Number(form.bunchOf1Box ?? form.BunchOf1Box) || 0;
                 // pick: 사용자 편집값이 있으면 그것, 없으면 DB 원본
                 const pick = (lc, uc) => {
-                  if (lc !== undefined && lc !== null) return lc;
+                  if (lc !== undefined) return lc ?? '';
                   if (uc !== undefined && uc !== null) return uc;
                   return '';
                 };
@@ -472,9 +466,9 @@ export default function Products({embedded=false,onDirtyChange}={}) {
                 const bunchW = boxW !== '' && boxW != null && bpb > 0 ? (Number(boxW) / bpb) : '';
                 const bunchC = boxC !== '' && boxC != null && bpb > 0 ? (Number(boxC) / bpb) : '';
                 // 단당으로 입력 시 박스당으로 환산해 BoxWeight/BoxCBM 에 저장 (DB 는 기존 컬럼 유지)
-                // ⚠ PascalCase 키도 함께 덮어써야 표시값이 즉시 갱신됨
-                const onBoxWeight = (v) => setForm(f => ({ ...f, boxWeight: v, BoxWeight: v === '' ? null : v }));
-                const onBoxCBM    = (v) => setForm(f => ({ ...f, boxCBM: v,    BoxCBM:    v === '' ? null : v }));
+                // 원본 PascalCase는 동시 수정 검증용으로 보존합니다.
+                const onBoxWeight = (v) => setForm(f => ({ ...f, boxWeight: v === '' ? null : v }));
+                const onBoxCBM    = (v) => setForm(f => ({ ...f, boxCBM: v === '' ? null : v }));
                 // 단당 입력 → BoxWeight 저장 분기:
                 //   - 콜롬비아 (박스 기준): BPB 있으면 박스당으로 환산, 없으면 입력 차단 (의미상 박스당이 정답)
                 //   - 외국 (단 기준): BPB 있으면 환산, 없으면 단당값 그대로 BoxWeight 에 저장
@@ -561,7 +555,7 @@ export default function Products({embedded=false,onDirtyChange}={}) {
                           onChange={e => {
                             const v = e.target.value;
                             const ratio = v === '' ? null : parseFloat(v) / 100;
-                            setForm(f => ({ ...f, tariffRate: ratio == null ? '' : ratio, TariffRate: ratio }));
+                            setForm(f => ({ ...f, tariffRate: ratio == null ? '' : ratio }));
                           }}
                           placeholder="0 (콜롬비아)" />
                       </div>

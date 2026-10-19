@@ -1,6 +1,6 @@
 // pages/api/master/index.js — 기준정보 CRUD (실제 DB)
 import { query, sql, withTransaction } from '../../../lib/db';
-import { appendProductInputHistory, PRODUCT_HISTORY_FIELDS } from '../../../lib/productInputHistory';
+import { saveProductMaster } from '../../../lib/productMasterSave';
 import { withAuth } from '../../../lib/auth';
 import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
@@ -28,7 +28,7 @@ async function getList(req, res, entity) {
     }
     if (entity === 'products') {
       result = await query(
-        `SELECT p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName, p.ProdGroup, p.FlowerName, p.CounName,
+        `SELECT p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName, p.ProdGroup, p.FlowerName, p.CounName, p.CountryFlower,
           p.Cost, p.OutUnit, p.EstUnit, p.BunchOf1Box, p.SteamOf1Bunch, p.SteamOf1Box,
           p.BoxWeight, p.BoxCBM, p.TariffRate,
           p.Stock, p.isDeleted, p.Descr,
@@ -95,7 +95,7 @@ async function getList(req, res, entity) {
     }
     return res.status(400).json({ success: false, error: 'entity 파라미터 필요' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.status||500).json({ success: false, error: err.message });
   }
 }
 
@@ -125,64 +125,9 @@ async function create(req, res, entity) {
       return res.status(201).json({ success: true, message: '거래처 등록 완료' });
     }
     if (entity === 'products') {
-      const { prodKey, prodCode, prodName, displayName, flowerName, counName, cost, outUnit, estUnit, bunchOf1Box, steamOf1Bunch, boxWeight, boxCBM, tariffRate, descr } = req.body;
-      const params = {
-        code:        { type: sql.NVarChar, value: prodCode || '' },
-        name:        { type: sql.NVarChar, value: prodName },
-        dispName:    { type: sql.NVarChar, value: displayName === undefined ? null : (displayName || null) },
-        flower:      { type: sql.NVarChar, value: flowerName || '' },
-        country:     { type: sql.NVarChar, value: counName || '' },
-        cost:        { type: sql.Float,    value: parseFloat(cost) || 0 },
-        outUnit:     { type: sql.NVarChar, value: outUnit || '박스' },
-        estUnit:     { type: sql.NVarChar, value: estUnit || '박스' },
-        bunch:       { type: sql.Float,    value: parseFloat(bunchOf1Box) || 0 },
-        steam:       { type: sql.Float,    value: parseFloat(steamOf1Bunch) || 0 },
-        boxWt:       { type: sql.Float,  value: boxWeight === '' || boxWeight == null ? null : parseFloat(boxWeight) },
-        boxCbm:      { type: sql.Float,  value: boxCBM === '' || boxCBM == null ? null : parseFloat(boxCBM) },
-        tariff:      { type: sql.Float,  value: tariffRate === '' || tariffRate == null ? null : parseFloat(tariffRate) },
-        uid:         { type: sql.NVarChar, value: req.user.userId },
-      };
-
-      if (prodKey) {
-        params.pk = { type: sql.Int, value: parseInt(prodKey) };
-        await withTransaction(async q=>{
-          const columns=Object.keys(PRODUCT_HISTORY_FIELDS).join(',');
-          const before=(await q(`SELECT ProdKey,${columns} FROM Product WITH (UPDLOCK,HOLDLOCK) WHERE ProdKey=@pk`,{pk:params.pk})).recordset[0];
-          if(!before)throw Error('품목을 찾을 수 없습니다.');
-          await q(
-          `UPDATE Product SET ProdCode=@code, ProdName=@name, DisplayName=@dispName,
-             FlowerName=@flower, CounName=@country,
-             Cost=@cost, OutUnit=@outUnit, EstUnit=@estUnit,
-             BunchOf1Box=@bunch, SteamOf1Bunch=@steam, SteamOf1Box=@bunch*@steam,
-             BoxWeight=@boxWt, BoxCBM=@boxCbm, TariffRate=@tariff
-           WHERE ProdKey=@pk`,
-          params
-          );
-          const after=(await q(`SELECT ProdKey,${columns} FROM Product WHERE ProdKey=@pk`,{pk:params.pk})).recordset[0];
-          await appendProductInputHistory(q,sql,req.user.userId,before,after);
-        });
-        if(global._prodCache)global._prodCache.data=null;
-        return res.status(200).json({ success: true, message: '품목 수정 완료' });
-      } else {
-        await withTransaction(async q=>{
-        const inserted=await q(
-          `INSERT INTO Product
-             (ProdCode, ProdName, DisplayName, FlowerName, CounName, Cost, OutUnit, EstUnit,
-              BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
-              BoxWeight, BoxCBM, TariffRate,
-              isDeleted, CreateID, CreateDtm)
-           VALUES (@code, @name, @dispName, @flower, @country, @cost, @outUnit, @estUnit,
-                   @bunch, @steam, @bunch*@steam,
-                   @boxWt, @boxCbm, @tariff,
-                   0, @uid, GETDATE()); SELECT CAST(SCOPE_IDENTITY() AS int) AS ProdKey;`,
-          params
-        );
-        const after=(await q(`SELECT ProdKey,${Object.keys(PRODUCT_HISTORY_FIELDS).join(',')} FROM Product WHERE ProdKey=@pk`,{pk:{type:sql.Int,value:inserted.recordset[0].ProdKey}})).recordset[0];
-        await appendProductInputHistory(q,sql,req.user.userId,null,after);
-        });
-        if(global._prodCache)global._prodCache.data=null;
-        return res.status(201).json({ success: true, message: '품목 등록 완료' });
-      }
+      const saved=await withTransaction(q=>saveProductMaster(q,sql,req.body,req.user.userId));
+      if(global._prodCache)global._prodCache.data=null;
+      return res.status(req.body.prodKey?200:201).json({success:true,saved,message:'품목 저장 및 대조 완료'});
     }
     if (entity === 'flower') {
       // Flower 카테고리 기본값 업데이트
@@ -202,7 +147,7 @@ async function create(req, res, entity) {
     }
     return res.status(400).json({ success: false, error: 'entity 파라미터 필요' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.status||500).json({ success: false, error: err.message });
   }
 }
 
@@ -226,7 +171,7 @@ async function bulkUpdateDisplayName(req, res) {
     if (global._prodCache) global._prodCache.data = null;
     return res.status(200).json({ success: true, updated: updates.length });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.status||500).json({ success: false, error: err.message });
   }
 }
 
@@ -259,6 +204,6 @@ async function updatePricing(req, res) {
     }
     return res.status(200).json({ success: true, saved: changes.length });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.status||500).json({ success: false, error: err.message });
   }
 }

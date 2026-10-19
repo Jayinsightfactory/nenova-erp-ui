@@ -39,8 +39,8 @@ const config={server:'127.0.0.1',port:14339,user:'sa',password,options:{encrypt:
     assert.equal(rows[0].BoxWeight,0.125);assert.equal(rows[0].BoxCBM,0.007);assert.equal(rows[0].TariffRate,0);assert.equal(rows[0].SteamOf1Box,77);assert.equal(rows[0].Stock,0.0000001);
     const tx=new sql.Transaction(pool);await tx.begin();const q=async(text,params={})=>{const r=new sql.Request(tx);Object.entries(params).forEach(([k,v])=>r.input(k,v.type,v.value));return r.query(text);};
     await saveProductBulk(q,sql,[{prodKey:1,expected:productSnapshot(rows[0]),values:{BunchOf1Box:12.5}}],'fixture');await tx.commit();
-    rows=(await pool.request().query('SELECT * FROM Product ORDER BY ProdKey')).recordset;assert.equal(rows[0].SteamOf1Box,62.5);assert.equal(rows[1].SteamOf1Box,50);
-    const logs=(await pool.request().query('SELECT Payload FROM SystemActionLog')).recordset;assert.equal(logs.length,2);assert.equal(JSON.parse(logs[1].Payload).changes[0].after.SteamOf1Box,62.5);
+    rows=(await pool.request().query('SELECT * FROM Product ORDER BY ProdKey')).recordset;assert.equal(rows[0].SteamOf1Box,77);assert.equal(rows[1].SteamOf1Box,50);
+    const logs=(await pool.request().query('SELECT Payload FROM SystemActionLog')).recordset;assert.equal(logs.length,2);assert.equal(JSON.parse(logs[1].Payload).changes[0].after.SteamOf1Box,77);
     const {appendProductInputHistory}=await import('../lib/productInputHistory.js');
     const {previewInvoiceWithAudit}=await import('../lib/invoiceValidationAudit.js');
     const withTx=async fn=>{const t=new sql.Transaction(pool);await t.begin();const query=async(s,p={})=>{const r=new sql.Request(t);Object.entries(p).forEach(([k,v])=>r.input(k,v.type,v.value));return r.query(s);};try{const out=await fn(query);await t.commit();return out;}catch(e){await t.rollback();throw e;}};
