@@ -11,6 +11,16 @@ const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' 
 const os = require('node:os');
 const preserve = source.slice(source.indexOf('# BEGIN PRESERVE_BUILD_OUTPUTS'), source.indexOf('# END PRESERVE_BUILD_OUTPUTS'));
 
+test('checkout diagnosis is explicit, read-only and mutually exclusive with deployment', () => {
+  assert.match(source, /diagnose_checkout_only:[\s\S]*?default: false/);
+  const diagnosis = source.slice(source.indexOf('  diagnose-checkout:'), source.indexOf('  deploy:'));
+  assert.match(diagnosis, /inputs.diagnose_checkout_only == true/);
+  assert.match(source, /  deploy:\s+if: github.event_name != 'workflow_dispatch' \|\| inputs.diagnose_checkout_only != true/);
+  assert.match(diagnosis, /GIT_OPTIONAL_LOCKS=0/);
+  assert.match(diagnosis, /git status --short --untracked-files=no/);
+  assert.doesNotMatch(diagnosis, /git (?:fetch|pull|merge|restore|reset)|npm |pm2 |\.env|DB_SERVER|git diff --binary/);
+});
+
 for (const mode of ['known', 'unknown', 'staged']) {
   test(`deployment preserves files and only restores backed-up build outputs: ${mode}`, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-deploy-preserve-'));
@@ -32,6 +42,7 @@ for (const mode of ['known', 'unknown', 'staged']) {
         env: { ...process.env, NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
       });
       assert.equal(r.status, mode === 'known' ? 0 : 1, r.stderr);
+      if (mode === 'unknown') assert.match(r.stdout, /DEPLOY_CHECKOUT_DIRTY:.*server.js/);
       assert.equal(fs.readFileSync(path.join(dir, 'runtime.json'), 'utf8'), 'must survive');
       assert.equal(fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8'), mode === 'known' ? 'original' : 'server-generated');
       if (mode === 'known') {
@@ -54,6 +65,51 @@ test('push and default dispatch never opt into database migrations', () => {
   const outside = source.slice(0, start) + source.slice(end);
   assert.doesNotMatch(outside, /node scripts\/apply-[^\n]+--apply/);
 });
+
+for (const mode of ['learned', 'upstream-conflict', 'invalid-json', 'concurrent-save']) {
+  test(`learned import units survive a real fast-forward or fail closed: ${mode}`, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-deploy-units-'));
+    const git = (...args) => {
+      const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true });
+      assert.equal(r.status, 0, r.stderr); return r.stdout.trim();
+    };
+    try {
+      git('init'); git('config', 'user.email', 'test@example.invalid'); git('config', 'user.name', 'Fixture');
+      fs.mkdirSync(path.join(dir, 'data'));
+      const unitPath = path.join(dir, 'data/order-import-units.json');
+      fs.writeFileSync(unitPath, '{"seed":{"unit":"송이"}}');
+      fs.writeFileSync(path.join(dir, 'server.js'), 'old code');
+      git('add', '.'); git('-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'base');
+      const base = git('rev-parse', 'HEAD');
+      fs.writeFileSync(path.join(dir, 'server.js'), 'new code');
+      if (mode === 'upstream-conflict') fs.writeFileSync(unitPath, '{"changedSeed":{}}');
+      git('add', '.'); git('-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'release');
+      git('update-ref', 'refs/remotes/origin/master', 'HEAD');
+      git('switch', '--detach', base);
+      const learned = mode === 'invalid-json' ? '{bad' : '{"user-choice":{"unit":"단"}}';
+      fs.writeFileSync(unitPath, learned);
+      const r = spawnSync(bash, ['--noprofile', '--norc', '-c', preserve], {
+        cwd: dir, encoding: 'utf8', windowsHide: true,
+        env: { ...process.env, NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
+      });
+      const blocked = mode === 'upstream-conflict' || mode === 'invalid-json';
+      assert.equal(r.status, blocked ? 1 : 0, r.stderr);
+      assert.equal(fs.readFileSync(unitPath, 'utf8'), learned);
+      if (blocked) {
+        assert.equal(git('rev-parse', 'HEAD'), base);
+        assert(!fs.existsSync(path.join(dir, 'backups')));
+      } else {
+        const backup = path.join(dir, 'backups', fs.readdirSync(path.join(dir, 'backups'))[0]);
+        assert.equal(fs.readFileSync(path.join(backup, 'data/order-import-units.json'), 'utf8'), learned);
+        const latest = mode === 'concurrent-save' ? '{"newer-choice":{"unit":"박스"}}' : learned;
+        if (mode === 'concurrent-save') fs.writeFileSync(unitPath, latest);
+        git('merge', '--ff-only', 'origin/master');
+        assert.equal(fs.readFileSync(unitPath, 'utf8'), latest);
+        assert.equal(fs.readFileSync(path.join(dir, 'server.js'), 'utf8'), 'new code');
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+}
 
 for (const value of [undefined, '', 'false', '0', 'TRUE', 'true']) {
   test(`migration block only executes with exact explicit true: ${String(value)}`, () => {

@@ -113,25 +113,35 @@ jobs:
               echo "DEPLOY_STAGED_CHANGES: preserving server edits; stopped"
               exit 1
             fi
-            mapfile -t build_outputs < <(git diff --name-only)
-            for changed in "${build_outputs[@]}"; do
+            mapfile -t changed_outputs < <(git diff --name-only)
+            build_outputs=()
+            for changed in "${changed_outputs[@]}"; do
               case "$changed" in
-                data/generated/full-development-history.json|data/generated/menu-development-history.json|package-lock.json) ;;
-                *) echo "DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change; stopped"; exit 1 ;;
+                data/generated/full-development-history.json|data/generated/menu-development-history.json|package-lock.json) build_outputs+=("$changed") ;;
+                data/order-import-units.json)
+                  # Live learned units are NOT generated output. Never restore them.
+                  # Only allow an ff update that leaves this tracked path untouched.
+                  git diff --quiet HEAD origin/master -- "$changed" || { echo 'DEPLOY_RUNTIME_UPSTREAM_CONFLICT: learned units require reconciliation'; exit 1; }
+                  node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("data/order-import-units.json","utf8"));if(!v||Array.isArray(v)||typeof v!=="object")process.exit(1);' || exit 1
+                  ;;
+                *) printf 'DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change: %s; stopped\n' "$changed"; exit 1 ;;
               esac
             done
-            if [ "${#build_outputs[@]}" -gt 0 ]; then
+            if [ "${#changed_outputs[@]}" -gt 0 ]; then
               backup_root="${NENOVA_DEPLOY_BACKUP_ROOT:-/var/lib/nenova/deploy-backups}"
               backup_dir="$backup_root/$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short HEAD)-$$"
               mkdir -p "$backup_dir" || exit 1
-              cp --parents -- "${build_outputs[@]}" "$backup_dir/" || exit 1
-              git diff --binary -- "${build_outputs[@]}" > "$backup_dir/tracked-build-output.patch" || exit 1
-              git restore --source=HEAD --worktree -- "${build_outputs[@]}" || exit 1
+              chmod 700 "$backup_dir" || exit 1
+              cp --parents -- "${changed_outputs[@]}" "$backup_dir/" || exit 1
+              git diff --binary -- "${changed_outputs[@]}" > "$backup_dir/tracked-build-output.patch" || exit 1
+              if [ "${#build_outputs[@]}" -gt 0 ]; then
+                git restore --source=HEAD --worktree -- "${build_outputs[@]}" || exit 1
+              fi
               echo "BUILD_OUTPUTS_BACKED_UP: $backup_dir"
             fi
             # END PRESERVE_BUILD_OUTPUTS
             # Never discard any remaining edits or force a diverged checkout.
-            if ! git diff --quiet || ! git diff --cached --quiet; then
+            if ! git diff --quiet -- . ':!data/order-import-units.json' || ! git diff --cached --quiet; then
               echo "DEPLOY_CHECKOUT_DIRTY: 서버 변경을 보존하고 배포 중단"
               git status --short
               exit 1
