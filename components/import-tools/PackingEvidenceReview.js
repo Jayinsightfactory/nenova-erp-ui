@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/PackingEvidenceReview.module.css';
 import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPdfPreview.js';
+import { packingSourceMatchedName } from '../../lib/packingSourceMatch.js';
 
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
@@ -336,12 +337,7 @@ export default function PackingEvidenceReview({
   const sourceReviewForInvoice = invoiceIndex => safeRows[invoiceIndex]?.sourceReview
     || (Array.isArray(rows) ? rows.sourceReview : null);
   const matchedNameForSource = (invoiceIndex, sourceRow) => {
-    const candidates = (Array.isArray(matchedInvoices) ? matchedInvoices : [])
-      .filter(invoice => invoice?.sourceInvoiceIdentity?.sourceInvoiceIndex === invoiceIndex)
-      .flatMap(invoice => Array.isArray(invoice.products) ? invoice.products : [])
-      .filter(product => product?.sourceName === sourceRow?.description || product?.matchingDescription === sourceRow?.description);
-    if (candidates.length !== 1 || candidates[0]?.unmatched === true) return null;
-    return candidates[0]?.matchedName || null;
+    return packingSourceMatchedName(matchedInvoices, invoiceIndex, sourceRow);
   };
 
   const selectSourceEvidence = (entry, field) => {
