@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
+import { versionCatalogImageResponse } from '../../lib/catalogImageVersion';
 import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
 import CatalogStyleSettings from '../../components/catalog/CatalogStyleSettings';
 import { CATALOG_STYLE_STORAGE_KEY } from '../../lib/catalogLayout';
@@ -333,7 +334,7 @@ export default function CatalogPage() {
 
   const refreshCatalogImages = useCallback(async () => {
     try {
-      const imgData = await apiGet('/api/catalog/images');
+      const imgData = versionCatalogImageResponse(await apiGet('/api/catalog/images'));
       const imgMap = imgData.byProdKey || {};
       setImagesByProd(imgMap);
       const regCount = Object.keys(imgMap).filter(k => imgMap[k]?.length).length;
@@ -345,6 +346,15 @@ export default function CatalogPage() {
       return {};
     }
   }, []);
+
+  // Product management edits the same image records. Refresh when returning
+  // from another tab/window; do not replace names, prices, or saved layout.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === 'visible') refreshCatalogImages(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [refreshCatalogImages]);
 
   const mergeBootstrapLines = useCallback((prods, imgMap) => {
     setLines(prev => {

@@ -1,0 +1,15 @@
+{
+  "id":"product-catalog-photo",
+  "title":"품목관리 품종 필터와 카탈로그 공용 사진",
+  "scope":["pages/master/products.js","components/catalog/ProductCatalogPhoto.js","components/catalog/CatalogImagePicker.js","lib/productCatalogFilter.js","lib/catalogImageVersion.js","lib/catalogImageClient.js","pages/catalog/index.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[
+    {"name":"FILTER_AND_PREVIEW","orderDetail":"preserve","shipmentDetail":"preserve","write":"React state only; existing master GET and catalog image GET","preserve":["Product","Flower","ShipmentDate","ShipmentFarm","Estimate","WebProfitReport","ProductStock"]},
+    {"name":"EDIT_SHARED_IMAGE","orderDetail":"preserve","shipmentDetail":"preserve","write":"Existing CatalogImagePicker image APIs and catalog-images JSON/files only; same image ID replacement","preserve":["Product","Flower","ShipmentDate","ShipmentFarm","Estimate","WebProfitReport","ProductStock"]}
+  ],
+  "criteria":{"filters":"User confirmed list filter, not persisted ERP activation. Empty selection=all; multiple selected flowers form union; search intersects.","image":"ProdKey exact identity, existing primary selection. Load one hovered/focused product only; no guessed name matching. Existing picker changes shared records; catalog refreshes on return to tab. Saved exports are not rewritten.","safety":"No SQL or API write implementation changed. No operating image replacement for test."},
+  "crossYearFixture":{"required":true,"description":"2025/2026 same 42-01 rows retain identity and values under identical filter actions."},
+  "requiredTestFiles":["__tests__/productCatalogFilter.test.js","__tests__/productCatalogUi.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductMatching.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs","methods":["GetDataProduct"],"tables":["Product"]},
+  "requiredCommands":["node __tests__/productCatalogFilter.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

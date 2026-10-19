@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { computeCatalogLayout, layoutCssVars, normalizeCatalogLayoutSettings, estimateCatalogAutoTxtHcm, SLIDE_W_CM, SLIDE_H_CM } from '../lib/catalogLayout.js';
 import { buildCatalogDraftPayload } from '../lib/catalogDraft.js';
 import './catalogFontDefaults.test.js';
+import './productCatalogFilter.test.js';
 
 const old = computeCatalogLayout(8);
 assert.equal(old.imgWcm, old.imgHcm);
