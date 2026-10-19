@@ -1625,8 +1625,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       }
       setExcels([]); setGenerated({}); setGeneratedErp(null);
       const rows = invoices.reduce((sum, invoice) => sum + (country === 'NL' ? invoice.lines || [] : invoice.products || []).length, 0);
-      setSteps([{ label: t.steps[0], state: 'done' }, { label: sourceLabel, state: 'done' }, { label: 'DB 매칭 미리보기 준비 · 원문 검토 대기', state: 'done' }]);
-      setStatus({ type: 'info', msg: `DB 매칭 미리보기 ${rows}행 · 원문 검토를 명시적으로 적용한 뒤 패킹을 생성합니다.` });
+      setSteps([{ label: t.steps[0], state: 'done' }, { label: sourceLabel, state: 'done' }, { label: 'DB 품목 매칭 준비', state: 'done' }]);
+      setStatus({ type: 'info', msg: `DB 매칭 미리보기 ${rows}행 · 원본 품명 옆 DB 품목을 모두 연결한 뒤 「다음 · 입고 준비」를 누르세요.` });
     } catch (e) {
       if (isCurrent()) {
         setStatus({ type: 'error', msg: t.errorPrefix + e.message });
