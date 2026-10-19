@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {parseProductInput,productSnapshot,productAfterValues,buildProductChanges,validateProductChanges,rectangleCells} from '../lib/productBulkEdit.js';
+const row={ProdKey:1,BunchOf1Box:10,SteamOf1Bunch:5,SteamOf1Box:77,BoxWeight:null,BoxCBM:0.1,TariffRate:0.25};
+assert.equal(parseProductInput('TariffRate','25'),0.25);
+assert.equal(parseProductInput('TariffRate','0'),0);
+assert.equal(parseProductInput('BoxWeight',''),undefined);
+assert.equal(parseProductInput('BoxWeight','0.125'),0.125);
+for(const v of ['-1','NaN','Infinity','1e3','1.0001','abc'])assert.throws(()=>parseProductInput('BoxWeight',v));
+assert.throws(()=>parseProductInput('Stock','1'));
+assert.throws(()=>parseProductInput('TariffRate','100.01'));
+assert.throws(()=>parseProductInput('TariffRate','1.001'));
+assert.deepEqual(buildProductChanges([row],{1:{BoxWeight:''}}),[]);
+const changes=buildProductChanges([row],{1:{BoxWeight:'0',TariffRate:'0',BunchOf1Box:'12'}});
+assert.deepEqual(validateProductChanges(changes),changes);
+assert.equal(productAfterValues(row,changes[0].values).SteamOf1Box,60);
+assert.equal(productAfterValues(row,{BoxWeight:1}).SteamOf1Box,77);
+assert.throws(()=>validateProductChanges([...changes,...changes]));
+assert.throws(()=>validateProductChanges([{...changes[0],expected:{}}]));
+assert.throws(()=>validateProductChanges([{...changes[0],values:{Stock:1}}]));
+assert.throws(()=>validateProductChanges([{...changes[0],values:{TariffRate:0.00001}}]));
+assert.throws(()=>validateProductChanges([{...changes[0],values:{BoxWeight:false}}]));
+assert.throws(()=>validateProductChanges(Array.from({length:501},(_,i)=>({...changes[0],prodKey:i+1}))));
+for(const OrderYear of [2025,2026]){
+  const rows=[{...row,OrderYear,OrderWeek:'42-01'},{...row,ProdKey:2,OrderYear,OrderWeek:'42-01'}];
+  const before=JSON.stringify(rows);
+  assert.deepEqual(rectangleCells(rows,[{row:1,col:2},{row:0,col:1}]).map(c=>c.prodKey),[1,1,2,2]);
+  assert.equal(rectangleCells(rows.slice(1),[{row:0,col:0},{row:0,col:4}]).every(c=>c.prodKey===2),true);
+  buildProductChanges(rows,{1:{BoxWeight:'1'}});assert.equal(JSON.stringify(rows),before);
+}
+assert.equal(productSnapshot(row).BoxWeight,null);
+console.log('productBulkEdit: blank/zero/precision/unknown/stale shape/range/filter/cross-year passed');
