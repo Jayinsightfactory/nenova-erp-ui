@@ -8,22 +8,24 @@ const preview = fs.readFileSync(path.join(__dirname, '../lib/importPackingPdfPre
 const css = fs.readFileSync(path.join(__dirname, '../styles/PackingEvidenceReview.module.css'), 'utf8');
 
 test('review component exposes the integration contract and keeps ERP out of scope', () => {
-  for (const selector of ['evidence-review', 'pdf-preview', 'field-gw', 'field-cw', 'field-freight', 'evidence-confirm']) {
+  for (const selector of ['evidence-review', 'pdf-preview', 'field-gw', 'field-cw', 'field-freight']) {
     assert.ok(component.includes(selector), `missing ${selector}`);
   }
   assert.match(component, /open = true/);
   assert.match(component, /if \(!open\) return null/);
-  assert.match(component, /confirmed: row\?\.confirmed === true/);
+  assert.doesNotMatch(component, /confirmed: row\?\.confirmed === true/);
+  assert.match(component, /function makeDraft/);
   assert.match(component, /reason: stringValue\(row\?\.reason\)/);
   assert.match(component, /await onConfirm\?\.\(submission\)/);
+  assert.doesNotMatch(component, /data-testid="evidence-confirm"/);
+  assert.doesNotMatch(component, /이 인보이스의 원본 근거와 입력값을 직접 검토했습니다/);
   assert.match(component, /확인값 적용 · 결과 재생성/);
   assert.match(component, /ERP DB에 저장하지 않습니다/);
   assert.match(component, /원본 PDF · 인식값 검증/);
   assert.match(component, /data-testid="source-row-confirm"/);
   assert.match(component, /data-pdf-ready=\{pdfReady \? 'true' : 'false'\}/);
   assert.match(component, /onInvalidate\?\.\(\)/);
-  assert.match(component, /sourceInvoiceIdentity\?\.sourceInvoiceIndex === invoiceIndex/);
-  assert.match(component, /product\?\.sourceName === sourceRow\?\.description \|\| product\?\.matchingDescription === sourceRow\?\.description/);
+  assert.match(component, /packingSourceMatchedName\(matchedInvoices, invoiceIndex, sourceRow\)/);
   assert.match(component, /missingSourceReasonCount/);
   assert.match(component, /reason: stringValue\(sourceDrafts\[key\]\?\.reason\)/);
   assert.match(component, /PDF 다시 시도/);

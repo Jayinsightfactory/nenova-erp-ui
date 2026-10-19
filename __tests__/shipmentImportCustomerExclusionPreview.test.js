@@ -76,6 +76,36 @@ const parsedRows = [
     uploadQty: 3, outUnit: '박스', sheetName: '장미', rowNo: 4, colNo: 3 },
 ];
 
+test('replacement preview adds all six orderless Yangjae cancellations including products removed entirely', async () => {
+  const products = Array.from({length: 7}, (_, i) => ({...product, ProdKey:389+i,
+    ProdName:`CARNATION fixture ${i}`, DisplayName:`fixture ${i}`, FlowerName:'카네이션',
+    CounName:'콜롬비아', CountryFlower:'콜롬비아카네이션'}));
+  const customers = [customer, {...customer, CustKey:686, CustName:'양재동'}];
+  const residues = products.slice(0,6).map((p,i) => ({CustKey:686, CustName:'양재동',
+    ProdKey:p.ProdKey, ProdName:p.ProdName, OutUnit:'박스', orderQty:0, currentOutQty:[5,2,3,1,1,2][i]}));
+  const fixture = {year:'2026', week:'36-01', residues};
+  const original = JSON.stringify(fixture);
+  const queryFn = async (text, params={}) => {
+    assert.doesNotMatch(text, /\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
+    if (params.weekKey) return {recordset:[]};
+    if (/FROM Product\s+WHERE/.test(text)) return {recordset:products};
+    if (/FROM Customer\s+WHERE/.test(text)) return {recordset:customers};
+    assert.equal(params.importYear.value,'2026');
+    assert.equal(params.week.value,'36-01');
+    if (/AS yr, COUNT/.test(text)) return {recordset:[{yr:'2025',detailCount:6}]};
+    if (/NOT EXISTS/.test(text)) return {recordset:residues};
+    return {recordset:[]};
+  };
+  const result = await buildImportPreview({rawWeek:'36-01',rawYear:'2026',queryFn,
+    parsedRows:[{week:'36-01',customerLabel:customer.CustName,prodKey:395,
+      prodName:products[6].ProdName,uploadQty:10,outUnit:'박스',sheetName:'카네이션',rowNo:4,colNo:2}]});
+  const missing = result.rows.filter(r=>r.custKey===686);
+  assert.equal(missing.length,6);
+  assert(missing.every(r=>r.missingFromExcel && r.uploadQty===0 && r.orderQty===0));
+  assert.equal(result.rows.find(r=>r.custKey===533).uploadQty,10);
+  assert.equal(JSON.stringify(fixture),original);
+});
+
 async function preview(customerOverrides = {}, { earlyImportMode = null, sourceRows = parsedRows } = {}) {
   const before = JSON.stringify({ ledger, parsedRows, product, customer });
   const calls = [];

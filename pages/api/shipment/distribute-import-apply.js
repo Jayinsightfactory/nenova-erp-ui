@@ -2,6 +2,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { applyImportRows } from '../../../lib/shipmentImport';
 import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
+import { assertReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 import { initApplyProgress, progressStep, finishApplyProgress } from '../../../lib/importApplyProgress';
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
@@ -10,6 +11,8 @@ async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.body?.jobId || '').slice(0, 80);
   try {
+    // Before audit initialization or any ERP write, require the complete server-verified preview.
+    assertReplacementPlan(req.body || {}, req.user.userId);
     const earlyImportMode = requireEarlyImportMode(req.body?.earlyImportMode);
     if (!req.body?.earlyLedgerFingerprint || req.body?.earlyLedgerFingerprint !== req.body?.rows?.[0]?.earlyLedgerFingerprint) {
       return res.status(409).json({ success: false, code: 'EARLY_IMPORT_PREVIEW_REQUIRED', error: '선출고 처리 원장을 포함한 검증 결과가 필요합니다. 다시 검증하세요.' });
@@ -31,7 +34,7 @@ async function handler(req, res) {
       earlyLedgerFingerprint: req.body?.earlyLedgerFingerprint,
       earlyImportScope: req.body?.earlyImportScope,
       sourceFileName: req.body?.sourceFileName,
-      fullCategoryReplacement: req.body?.fullCategoryReplacement === true,
+      fullCategoryReplacement: true,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
       shipmentOnly: false,

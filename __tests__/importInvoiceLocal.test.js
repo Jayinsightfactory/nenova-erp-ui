@@ -46,7 +46,10 @@ async function main() {
   const remove = (f, str) => { for (const p of f.pages) p.items = p.items.filter(i => i.str !== str); return f; };
   check('exact invoices JSON and cross-page CL inheritance', () => {
     const f = fixture(), before = JSON.stringify(f);
-    assert.deepEqual(parseInvoiceLocal(f), { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', raw_date: '03 maart 2025', date_kind: 'arrival', date_order: 'DMY', currency: 'EUR', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
+    const parsed = parseInvoiceLocal(f);
+    assert.equal(parsed.invoices[0].local_parser_proof.kind, 'HOLEX_POSITIONED_V1');
+    delete parsed.invoices[0].local_parser_proof;
+    assert.deepEqual(parsed, { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', raw_date: '03 maart 2025', date_kind: 'arrival', date_order: 'DMY', currency: 'EUR', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
       { cl: 'CL7', description: 'ROSE RED 60cm', stems: 20, price: 0.25, t_price: 5, review_evidence: { description: { page: 1, quote: 'ROSE RED 60cm', bbox: null }, stems: { page: 1, quote: '20', bbox: null }, price: { page: 1, quote: '0,25', bbox: null }, t_price: { page: 1, quote: '5,00', bbox: null } } },
       { cl: 'CL7', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5, t_price: 5, review_evidence: { description: { page: 2, quote: 'ROSE WHITE', bbox: null }, stems: { page: 2, quote: '10', bbox: null }, price: { page: 2, quote: '0,50', bbox: null }, t_price: { page: 2, quote: '5,00', bbox: null } } },
     ] }] });
@@ -55,6 +58,27 @@ async function main() {
   check('raw pdfjs item transforms accepted', () => {
     const f = fixture(); for (const p of f.pages) p.items = p.items.map(({ x, y, ...i }) => ({ ...i, transform: [1, 0, 0, 1, x, y] }));
     assert.ok(parseInvoiceLocal(f));
+  });
+  check('non-CL customer codes preserve rows and independently checked totals', () => {
+    for (const code of ['Y2', 'KCL12', 'HCL4', 'MCL7']) {
+      const parsed = parseInvoiceLocal(replace(fixture(), 'Order 123 - CL 7', `Order 123 - ${code}`));
+      assert.equal(parsed.invoices[0].lines.length, 2);
+      assert.ok(parsed.invoices[0].lines.every(line => line.cl === code));
+    }
+  });
+  const {parsePackingResponse}=await import('../lib/importPackingResponse.js');
+  const {bindPackingSourceReviewPolicy,makePackingSourceReview}=await import('../lib/importPackingSourceReview.js');
+  check('local NL proof is one-use and binds source values; AI cannot claim verification', () => {
+    const raw=parseInvoiceLocal(fixture());
+    const inv={...parsePackingResponse({content:[{type:'text',text:JSON.stringify(raw)}]},'NL').result.invoices[0],pdfSourceHash:'a'.repeat(64),pdfReviewRequired:true};
+    const bound=bindPackingSourceReviewPolicy(inv,'NL',{source:'local'});
+    assert.ok(makePackingSourceReview(bound,'NL').rows.every(row=>!row.reviewRequired));
+    const changed=structuredClone(bound); changed.lines[0].stems++;
+    assert.equal(makePackingSourceReview(changed,'NL').rows[0].reviewRequired,true);
+    const otherYear={...bound,invoice_year:2026};
+    assert.ok(makePackingSourceReview(otherYear,'NL').rows.every(row=>row.reviewRequired));
+    assert.ok(makePackingSourceReview(bindPackingSourceReviewPolicy(inv,'NL',{source:'local'}),'NL').rows.every(row=>row.reviewRequired));
+    assert.ok(makePackingSourceReview(bindPackingSourceReviewPolicy(inv,'NL',{source:'ai'}),'NL').rows.every(row=>row.reviewRequired));
   });
   check('missing page, duplicated page and reordered pages rejected', () => {
     for (const pages of [[fixture().pages[0]], [fixture().pages[1]], [fixture().pages[0], fixture().pages[0]], fixture().pages.reverse()]) reject({ pages });

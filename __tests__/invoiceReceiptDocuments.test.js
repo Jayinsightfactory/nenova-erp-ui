@@ -37,6 +37,24 @@ function validDraft(overrides = {}) {
   };
 }
 
+test('document audit supports multi-page invoices without relaxing row or total limits', () => {
+  const audit = { sourceReview: { rows: Array.from({ length: 146 }, (_, lineIndex) => ({
+    lineIndex, evidence: '원문 검산 '.repeat(140), method: 'MACHINE_VERIFIED', confirmed: false,
+  })) } };
+  assert.ok(Buffer.byteLength(JSON.stringify(audit)) > 256 * 1024);
+  for (const orderYear of ['2025', '2026']) {
+    const normalized = normalizeInvoiceDraft(validDraft({ orderYear, rawMetadata: audit }));
+    assert.equal(normalized.orderYear, orderYear);
+    assert.deepEqual(normalized.rawMetadata, audit, 'all evidence must remain intact');
+  }
+  assert.throws(() => normalizeInvoiceDraft(validDraft({ rawMetadata: { data: 'x'.repeat(1024 * 1024) } })), /rawMetadata is too large/);
+  const oversizedRow = validDraft();
+  oversizedRow.lines[0].sourceEvidence = { data: 'x'.repeat(256 * 1024) };
+  assert.throws(() => normalizeInvoiceDraft(oversizedRow), /sourceEvidence is too large/);
+  assert.throws(() => normalizeInvoiceDraft(validDraft({ reviewedMetadata: { data: 'x'.repeat(256 * 1024) } })), /reviewedMetadata is too large/);
+  assert.throws(() => normalizeInvoiceDraft(validDraft({ rawMetadata: { data: 'x'.repeat(2 * 1024 * 1024) } })), /draft body is too large/);
+});
+
 function createFakeDb(seed = {}) {
   const state = {
     documents: new Map(), lines: [], history: [], operations: [], queries: [], nextHistory: 1,
