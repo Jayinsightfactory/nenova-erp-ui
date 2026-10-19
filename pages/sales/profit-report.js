@@ -18,6 +18,7 @@ import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
+import ProfitRangeOutput from '../../components/ProfitRangeOutput';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
@@ -660,12 +661,6 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
   };
 
-  const downloadExcel = async () => {
-    if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
-    const colsParam = visibleCols.filter(k => k !== 'category').join(',');
-    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
-  };
-
   const sendToMoyi = async () => {
     if (!data || moyiSending) return;
     if (dirty && !(await save())) return;
@@ -1032,10 +1027,8 @@ export default function ProfitReportPage() {
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : undefined}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
-              <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
-                title="현재 화면의 파란색 보고서 디자인 시트가 먼저 열리고, 기존 원본 양식은 두번째 시트에 함께 보존됩니다">
-                📥 엑셀 다운로드
-              </button>
+              <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={visibleCols}
+                disabled={!data || saving || loading} beforeOutput={async () => !dirty || await save()} />
               <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}

@@ -11,6 +11,7 @@ const check = (label, cond) => {
 };
 
 const page = read('pages/sales/profit-report.js');
+const rangeOutput = read('components/ProfitRangeOutput.js');
 const api = read('pages/api/sales/profit-report.js');
 const confirmApi = read('pages/api/sales/profit-report-confirm.js');
 const customsPanel = read('components/CustomsClearancePanel.js');
@@ -26,7 +27,9 @@ check('확정상태 GET에 year 전달', /profit-report-confirm\?week=.*&year=/.
 check('외부증거 저장 POST에 year와 evidence 전달',
   /JSON\.stringify\(\{ week: weekInput\.value, year: data\?\.orderYear \|\| reportYear, values, evidence, note \}\)/.test(page));
 check('확정·취소 POST에 year 전달', page.includes("year: reportYear, action: force ? 'force' : 'confirm'") && page.includes("year: reportYear, action: 'cancel'"));
-check('엑셀·재고단가 요청에 year 전달', /&year=.*&excel=1/.test(page) && /&year=.*&stockPrices=1/.test(page));
+check('엑셀·재고단가 요청에 year 전달', /ProfitRangeOutput year=\{data\?\.orderYear\}/.test(page)
+  && /profit-report-output\?year=\$\{encodeURIComponent\(y\)\}&week=/.test(rangeOutput)
+  && /&year=.*&stockPrices=1/.test(page));
 check('그외통관비·포워딩 패널도 year를 받음', customsPanel.includes('({ week, year, onSaved') && forwardingPanel.includes('({ week, year, onSaved })'));
 
 console.log('\n=== 서버 쓰기 연도 필수 ===');

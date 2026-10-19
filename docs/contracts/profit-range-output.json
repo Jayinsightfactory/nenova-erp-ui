@@ -1,0 +1,11 @@
+{
+  "id": "profit-range-output",
+  "title": "선택 연도 1차부터 엑셀 다운로드 및 선택 차수 인쇄",
+  "scope": ["pages/api/sales/profit-report-output.js", "pages/sales/profit-report.js", "lib/profitReportExcel.js", "lib/profitRangeOutput.mjs", "components/ProfitRangeOutput.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "REPORT_RANGE_OUTPUT_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "erpLedgerWrite": "forbidden", "sideEffect": "명시적 연도/차수별 GET, 기존 live/확정 공용 읽기와 엑셀 생성 재사용. 1~선택차수 숫자순 두 시트(표시/원본) 보존. 선택 인쇄는 같은 자료·비고 사용. 범위 오류/실패/취소에 부분파일 생성 금지. ERP/Web 원장 및 계산/확정 snapshot 쓰기 없음. 기존 수기 초안은 기존 명시 저장 경로만 사용."}],
+  "crossYearFixture": {"required": true, "description": "동일 01차의 2025/2026 응답을 교차 혼용하지 않으며 누락연도, 범위밖차수, 중복응답, 응답연도변경, 실패, 취소를 실행 검사한다."},
+  "requiredTestFiles": ["__tests__/profitRangeOutput.test.cjs", "__tests__/profitReportExcelDesign.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/plans/profit-range-output-2026-10-19.md", "source": "실제 dnSpy.Console.exe FormStockView 및 운영 SELECT probe", "methods": ["FormStockView.GetData", "loadWeeklyReportPayload", "buildProfitReportXlsx"], "tables": ["StockMaster", "ProductStock", "ViewShipment", "ViewWarehouse", "WebProfitReport"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build", "node __tests__/profitRangeOutput.test.cjs"]
+}
