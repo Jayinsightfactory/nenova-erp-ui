@@ -196,14 +196,17 @@ export default function Products() {
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
         buttons[next].focus();
       }}>
-        <button type="button" className={`btn ${selectedFlowers.length ? 'btn-secondary' : 'btn-primary'}`} aria-pressed={!selectedFlowers.length} onClick={() => { setSelectedFlowers([]); hidePhoto(); }}>전체</button>
+        <button type="button" className={`btn ${selectedFlowers.length ? 'btn-secondary' : 'btn-primary'}`} aria-pressed={!selectedFlowers.length} onClick={() => { setSelectedFlowers([]); setSelected(null); hidePhoto(); }}>전체</button>
         {flowers.map(([flower, count]) => <button key={flower} type="button" aria-pressed={selectedFlowers.includes(flower)}
           className={`btn ${selectedFlowers.includes(flower) ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => { setSelectedFlowers(current => current.includes(flower) ? current.filter(f => f !== flower) : [...current, flower]); hidePhoto(); }}>
+          onClick={() => { setSelectedFlowers([flower]); setSelected(null); hidePhoto(); }}>
           {flower} ({count})
         </button>)}
       </div>
-      <small style={{ color:'var(--text2)' }}>품종 복수 선택 · 선택한 버튼을 다시 누르면 해제 · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
+      <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, padding:'6px 0' }}>
+        <strong role="status" aria-live="polite">{selectedFlowers.length ? `${selectedFlowers[0]} 하위 품목` : '전체 품목'} · {filtered.length}개</strong>
+        <small style={{ color:'var(--text2)' }}>품종을 누르면 해당 하위 품목 표시 · 전체로 돌아가려면 ‘전체’ · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
+      </div>
       {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
       <div className="table-wrap">
