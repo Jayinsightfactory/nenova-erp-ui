@@ -1,6 +1,7 @@
 {
   "id": "weekly-profit-report",
   "title": "주차별 매출이익보고서 입고중량·통관비·포워딩 원천 자동대조 계약",
+  "olderAcquisitionPolicy": "2026-10-19 최신 요청: 에콰도르의 마지막 실제 매입이 4차수 밖이라는 이유만으로 판매단가를 쓰지 않는다. 기존 직접/FIFO/정확 근거를 보존한 뒤 같은 연도·품목의 마지막 매입과 그 매입 차수 정확 과세환율·완전한 도착원가 재현을 우선한다. 상세 profit-acquisition-carry.json. 기초/기말 자동 제안도 각각 자기 시점 cutoff를 사용한다. 원장·확정본 변경 없음.",
   "manualCostOverridePolicy": "근거 있는 본표 수기 H/S는 보존한다. 유효한 최신 자동 원천과 차이가 있으면 REPORT_COST_OVERRIDE_DIFF warning으로 적용 수기/자동/차이를 통화와 함께 표시한다. 확정본·2026 22~27 역사 차수·불완전 자동 원천은 비교하지 않는다.",
   "scope": [
     "lib/stockAdjustmentReportNotes.js",

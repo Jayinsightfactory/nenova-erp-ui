@@ -138,3 +138,10 @@
 - 실제 dnSpy 및 2025/2026 42차 읽기 전용 달력 검증. 숫자/단가·중복 검증 및 기존 입고/재고/매출 writer 보존. 실제 입고 저장하지 않음.
 - 빌드·날짜 회귀 통과, 전체 계약과 배포·운영 브라우저는 진행 중(미검증).
 - 검색어: packing-week-date DATE_SOURCE_UNAVAILABLE PeriodDay AUTO_ORDER_WEEK 중국패킹
+
+## 2026-10-19 에콰도르 기초재고 실제 매입 근거
+- 41차 기초의 일부 품목만 최근 4차수 밖 매입이 제외되어 판매단가를 사용함을 실제 dnSpy/SELECT/모듈 비교로 확인. 같은 연도·과거 매입·정확 과세환율·완전한 동일 단위 도착원가 재현이 있을 때만 이월 우선.
+- 기초/기말 자동 제안의 기간을 분리하고 오래된 원가 변경도 캐시 지문에 포함. ERP 수량·판매·견적·수기·확정 revision 보존.
+- 1~41차 전후 비교, 36~41차 실제 보고서 비교 및 기초 단가 화면 동등성 확인. 다른 국가 변경 없음. 이전 차수 원가 부족은 남아 있으며 41차 기말 0은 실제 감소 조정과 구분해 설명한다.
+- 신규 회귀와 전체 verify:erp-change(build 포함) 통과. CI·배포·운영 스모크 진행 중(아직 미검증). 상세 docs/work-sessions/2026-10-19_ecuador-acquisition-cost.md.
+- 검색어: ecu-acquisition-carry profitReportAcquisitionCarry 최근4차수 판매단가 기초기말 과거매입
