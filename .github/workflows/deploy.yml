@@ -3,6 +3,11 @@ name: Deploy to Cafe24
 on:
   workflow_dispatch:
     inputs:
+      diagnose_checkout_only:
+        description: '읽기 전용: 서버 Git 변경 파일명/통계만 확인, 배포·DB·서비스 변경 없음'
+        type: boolean
+        required: false
+        default: false
       migrate_order_mappings:
         description: '승인된 업체·품목 매칭 파일의 공유 DB 최초 이전'
         type: boolean
@@ -21,7 +26,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  diagnose-checkout:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose_checkout_only == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only server checkout diagnosis
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd /var/www/nenova-erp || exit 1
+            export GIT_OPTIONAL_LOCKS=0
+            git rev-parse HEAD
+            git status --short --untracked-files=no
+            git diff --numstat
+            git diff --cached --numstat
   deploy:
+    if: github.event_name != 'workflow_dispatch' || inputs.diagnose_checkout_only != true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
@@ -89,25 +113,35 @@ jobs:
               echo "DEPLOY_STAGED_CHANGES: preserving server edits; stopped"
               exit 1
             fi
-            mapfile -t build_outputs < <(git diff --name-only)
-            for changed in "${build_outputs[@]}"; do
+            mapfile -t changed_outputs < <(git diff --name-only)
+            build_outputs=()
+            for changed in "${changed_outputs[@]}"; do
               case "$changed" in
-                data/generated/full-development-history.json|data/generated/menu-development-history.json|package-lock.json) ;;
-                *) echo "DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change; stopped"; exit 1 ;;
+                data/generated/full-development-history.json|data/generated/menu-development-history.json|package-lock.json) build_outputs+=("$changed") ;;
+                data/order-import-units.json)
+                  # Live learned units are NOT generated output. Never restore them.
+                  # Only allow an ff update that leaves this tracked path untouched.
+                  git diff --quiet HEAD origin/master -- "$changed" || { echo 'DEPLOY_RUNTIME_UPSTREAM_CONFLICT: learned units require reconciliation'; exit 1; }
+                  node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("data/order-import-units.json","utf8"));if(!v||Array.isArray(v)||typeof v!=="object")process.exit(1);' || exit 1
+                  ;;
+                *) printf 'DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change: %s; stopped\n' "$changed"; exit 1 ;;
               esac
             done
-            if [ "${#build_outputs[@]}" -gt 0 ]; then
+            if [ "${#changed_outputs[@]}" -gt 0 ]; then
               backup_root="${NENOVA_DEPLOY_BACKUP_ROOT:-/var/lib/nenova/deploy-backups}"
               backup_dir="$backup_root/$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short HEAD)-$$"
               mkdir -p "$backup_dir" || exit 1
-              cp --parents -- "${build_outputs[@]}" "$backup_dir/" || exit 1
-              git diff --binary -- "${build_outputs[@]}" > "$backup_dir/tracked-build-output.patch" || exit 1
-              git restore --source=HEAD --worktree -- "${build_outputs[@]}" || exit 1
+              chmod 700 "$backup_dir" || exit 1
+              cp --parents -- "${changed_outputs[@]}" "$backup_dir/" || exit 1
+              git diff --binary -- "${changed_outputs[@]}" > "$backup_dir/tracked-build-output.patch" || exit 1
+              if [ "${#build_outputs[@]}" -gt 0 ]; then
+                git restore --source=HEAD --worktree -- "${build_outputs[@]}" || exit 1
+              fi
               echo "BUILD_OUTPUTS_BACKED_UP: $backup_dir"
             fi
             # END PRESERVE_BUILD_OUTPUTS
             # Never discard any remaining edits or force a diverged checkout.
-            if ! git diff --quiet || ! git diff --cached --quiet; then
+            if ! git diff --quiet -- . ':!data/order-import-units.json' || ! git diff --cached --quiet; then
               echo "DEPLOY_CHECKOUT_DIRTY: 서버 변경을 보존하고 배포 중단"
               git status --short
               exit 1
