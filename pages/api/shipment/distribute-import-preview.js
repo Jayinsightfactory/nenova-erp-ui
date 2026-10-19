@@ -5,6 +5,7 @@ import { withAuth } from '../../../lib/auth';
 import { parseAllocationWorkbook, buildImportPreview } from '../../../lib/shipmentImport';
 import { getEarlyShipmentExclusions } from '../../../lib/weekdayEarlyShipmentStore';
 import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
+import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 
 export const config = {
   api: { bodyParser: false },
@@ -70,6 +71,7 @@ async function handler(req, res) {
     });
     return res.status(200).json({
       ...preview,
+      replacementPlan: createReplacementPlan(preview, req.user.userId),
       fileName: file.originalFilename || 'upload.xlsx',
       logs: [...parsed.logs, ...preview.logs],
     });

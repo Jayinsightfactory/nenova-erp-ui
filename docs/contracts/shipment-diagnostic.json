@@ -46,6 +46,7 @@
     "pages/api/shipment/distribute-sp.js",
     "lib/shipmentProdGroups.js",
     "lib/shipmentImport.js",
+    "lib/shipmentReplacementPlan.js",
     "lib/shipmentImportQty.js",
     "lib/shipmentImportAudit.js",
     "lib/shipmentImportSnapshot.js",
@@ -166,6 +167,7 @@
       "blankCell": "preserve_order_set_distribution_zero",
       "missingRow": "preserve_order_set_distribution_zero",
       "categoryReplacement": "selected year/week and matched Product.CountryFlower categories: include every existing customer/product pair, including products entirely removed from the file; send all preview rows and verify the complete category before and after commit; unexpected nonzero pairs fail verification; fixed rows block the whole replacement",
+      "replacementAuthorization": "public upload apply requires an actor-bound, 30-minute HMAC of every preview row and early-shipment scope; unmatched/fixed preview cannot authorize; fullCategoryReplacement cannot be disabled; raw shipment coverage is checked before writing and again under transaction locks; any late fixed row aborts rather than skips",
       "priorImportLineageScope": "superseded by categoryReplacement; historical sheet/keymap must not expand the current matched category scope",
       "explicitZero": "preserve_order_set_distribution_zero",
       "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope",
@@ -189,6 +191,7 @@
     "description": "2025와 2026에 같은 OrderWeek가 있어도 진단·분배 조회·확정검사·사후검증은 선택한 OrderYear만 읽고 쓴다. 다른 연도 후보는 별도로 표시한다."
   },
   "requiredTestFiles": [
+    "__tests__/shipmentReplacementPlan.test.js",
     "__tests__/distributeProductDisplay.test.js",
     "__tests__/distributeProductDisplayUi.test.cjs",
     "__tests__/shipmentImportFooter.test.js",

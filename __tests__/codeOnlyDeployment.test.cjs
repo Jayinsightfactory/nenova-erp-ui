@@ -10,6 +10,8 @@ const block = source.slice(start, end);
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
 
 test('push and default dispatch never opt into database migrations', () => {
+  assert.doesNotMatch(source, /git reset --hard|git push --force|--no-verify/);
+  assert.match(source, /git merge --ff-only origin\/master \|\| exit 1/);
   assert.match(source, /apply_db_migrations:[\s\S]*?type: boolean[\s\S]*?default: false/);
   assert.match(source, /APPLY_DB_MIGRATIONS: \$\{\{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' \|\| 'false' \}\}/);
   assert.match(source, /envs: APPLY_DB_MIGRATIONS,/);

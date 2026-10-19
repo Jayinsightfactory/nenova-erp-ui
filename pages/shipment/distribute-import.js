@@ -440,6 +440,10 @@ export default function DistributeImport() {
 
   const handleApply = async () => {
     if (!preview) return;
+    if (!preview.replacementPlan) {
+      setError('전체 교체 검증이 완료되지 않았습니다. 미매칭·확정 차단을 해결하고 다시 검증하세요.');
+      return;
+    }
     if (preview.earlyImport?.mode !== earlyImportMode) {
       setError('선출고 원문 포함 여부가 검증 이후 바뀌었습니다. 다시 검증하세요.');
       return;
@@ -479,7 +483,9 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배에 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 기존 주문은 수량을 유지하고 분배만 최종값으로 맞춥니다. 주문이 없는 양수 분배만 주문을 신규 등록하며, 0·빈칸·엑셀에서 빠진 품목은 주문을 유지하고 분배만 0으로 처리합니다.`)) {
+    }
+    const missingCancellations = rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0);
+    if (!confirm(`${preview.orderYear}/${preview.week} 전체 분배 교체\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 파일에서 빠진 업체·품목의 기존 분배는 0으로 취소합니다. 전체 교체를 승인하시겠습니까?`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -544,7 +550,7 @@ export default function DistributeImport() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId,
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan,
             earlyImportMode: preview.earlyImport.mode, earlyLedgerFingerprint: preview.earlyImport.fingerprint, earlyImportScope: preview.earlyImport.scope }),
         });
       } catch {
@@ -673,7 +679,7 @@ export default function DistributeImport() {
           </button>
           <button style={st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
-          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>
+          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview?.replacementPlan}>
             {applying ? '적용 중...' : '승인 후 주문등록+분배'}
           </button>
         </div>
@@ -686,6 +692,13 @@ export default function DistributeImport() {
         {applyResult && (
           <div ref={applyResultRef} style={{ marginBottom: 12 }}>
             <ApplyResultLog result={applyResult} />
+          </div>
+        )}
+        {preview && (
+          <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', color: '#7c2d12', border: '1px solid #fdba74', borderRadius: 8 }}>
+            <strong>전체 교체 · {preview.orderYear}/{preview.week} · {(preview.replacementCategories || []).join(', ')}</strong>
+            <div>파일에서 빠진 업체·품목의 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>
+            {!preview.replacementPlan && <div>미매칭 또는 확정 차단을 해결한 뒤 다시 검증해야 적용할 수 있습니다.</div>}
           </div>
         )}
         {preview && (
