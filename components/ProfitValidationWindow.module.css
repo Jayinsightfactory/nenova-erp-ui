@@ -1,0 +1,29 @@
+.page { padding: 20px; color: #172b4d; background: #f7f9fc; min-height: 100vh; font-size: 14px; line-height: 1.6; }
+.header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.page h1 { font-size: 23px; margin: 0; }
+.page h2 { font-size: 17px; margin: 0 0 10px; }
+.page p { margin: 6px 0 12px; }
+.page a { color: #174db1; text-decoration: underline; }
+.filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.filters label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.filters input, .filters select, .filters button { font: inherit; border: 1px solid #b5c4d8; border-radius: 6px; padding: 8px 12px; background: white; }
+.filters input { width: 88px; }
+.filters button { background: #174db1; color: white; cursor: pointer; }
+.filters button:disabled { opacity: .6; cursor: wait; }
+.page :is(a, button, input, select, summary):focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.notice { padding: 12px 16px; background: #fff8e5; border: 1px solid #e8cf80; border-radius: 8px; margin-bottom: 16px; }
+.section { padding: 18px; border: 1px solid #cbd5e1; background: white; border-radius: 8px; margin: 16px 0; }
+.horizontal { overflow-x: auto; }
+.horizontal table { width: auto; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.horizontal th, .horizontal td { padding: 9px 12px; border: 1px solid #d8e0eb; }
+.horizontal th { text-align: left; background: #eef3f9; }
+.horizontal td { text-align: right; white-space: nowrap; }
+.horizontal caption { text-align: left; padding: 8px 0; }
+.total { font-weight: 700; background: #eaf1ff; }
+.negative, .error { color: #ac2424; }
+.error { background: #fff0f0; padding: 12px; }
+.muted { color: #526174; font-size: 13px; }
+.issues { list-style: none; padding: 0; margin: 12px 0 0; }
+.issues li { border-top: 1px solid #dbe3ec; padding: 12px 0; overflow-wrap: anywhere; }
+.issues small { color: #64748b; }
+@media (max-width: 640px) { .page { padding: 12px; } .section { padding: 12px; } .page h1 { font-size: 20px; } }
