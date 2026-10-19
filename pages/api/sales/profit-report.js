@@ -792,7 +792,9 @@ export default withAuth(async function handler(req, res) {
 
       // 활성 확정 스냅샷이 있으면 그 저장값만 반환하고, 없으면 계산 결과 스냅샷(원천 변경 없으면 저장본 즉시)을 반환한다.
       // 화면 조회는 변경이 감지돼도 저장본을 먼저 보여 주고(needsRefresh), 엑셀은 항상 최신 계산값을 쓴다.
-      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: req.query.excel === '1' });
+      // Independent audit needs a fresh read without writing/refreshing the stored snapshot.
+      // Active confirmed revisions are still immutable inside loadWeeklyReportPayload.
+      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: req.query.excel === '1' || req.query.auditLive === '1' });
 
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로. 화면과 동일하게
       // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.

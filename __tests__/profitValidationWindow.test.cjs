@@ -19,7 +19,8 @@ const fs = require('node:fs');
     requests.push({url,options}); return {ok:true,json:async()=>base};
   }});
   assert.equal(requests.length,2);
-  requests.forEach(({url,options})=>{assert.match(url,/year=2026&week=32$/);assert.equal(options.method,'GET');assert.equal(options.cache,'no-store');});
+  requests.forEach(({url,options})=>{assert.match(url,/year=2026&week=32(?:&auditLive=1)?$/);assert.equal(options.method,'GET');assert.equal(options.cache,'no-store');});
+  assert.ok(requests.find(r=>r.url.includes('/profit-report?')).url.endsWith('&auditLive=1'));
   assert.equal(ready.report.data,base); assert.equal(ready.checks.data,base);
   const partial = await loadValidationWindow({year:'2026',major:32,fetcher:async url => url.includes('week-check')
     ? {ok:false,status:500} : {ok:true,json:async()=>base}});
@@ -40,7 +41,7 @@ const fs = require('node:fs');
   assert.match(reportBasis(null),/판정 불가/);
   const page=fs.readFileSync('pages/sales/profit-validation.js','utf8');
   const link=fs.readFileSync('components/ProfitValidationLink.js','utf8');
-  assert.match(page,/아직 구현 전/); assert.match(page,/현재 원장/);
+  assert.match(page,/ProfitIndependentAudit/); assert.match(page,/현재 원장/);
   assert.match(page,/request\.current === controller/); assert.match(page,/request\.current\?\.abort\(\)/);
   assert.match(page,/ProfitStockAdjustmentNotes/); assert.doesNotMatch(page,/<Layout|snapshotRefresh|method:\s*['"]POST/);
   assert.match(link,/window\.open/); assert.match(link,/target="_blank"/); assert.match(link,/if \(child\)/);

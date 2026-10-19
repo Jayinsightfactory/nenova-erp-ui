@@ -126,3 +126,9 @@
 - 격리 실제 MSSQL 신규/수정/실패 롤백 및 교차연도 sentinel 검증 통과. 운영 DB 쓰기/스키마 변경 없음. 전체 검사·PR·배포 진행 중(운영 미검증).
 - 상세: docs/work-sessions/2026-10-19_product-save-compat.md.
 - 검색어: product-save-compat CountryFlower SteamOf1Box 독립값 EXE 품목저장
+
+## 2026-10-19 독립 재고·수익률 검산
+- 검증 새창에 1~선택 차수 수량 대사, 기초 이월/이번 차이 분리, 조정 포함 식, 최초 관측 구간, 직접 단가 곱셈 및 별도 수익률 산술을 구현. 원장/보고서 공식/확정본 보존.
+- 비표준/누락 차수를 넘어 최초 원인을 단정하지 않음. FIFO/평균/판매단가 원가 증빙은 미확인으로 분리. 전후 SHA256 변경 시 판정 보류, NULL은 0 정상 처리 금지.
+- 실제 dnSpy/SP/2026년 1~41차 SELECT probe, 합성 회귀 및 verify:erp-change 통과. 최종 브라우저·CI·배포는 진행 중(완료 전 미검증).
+- 검색어: profitIndependentAudit 독립검산 기초기말 원인추적 STALE 조정포함

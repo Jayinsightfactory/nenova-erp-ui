@@ -25,6 +25,13 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Loca
         else body={success:true,...scope,rows:[{subWeek:'32-01',topic:'환율 근거',status:'review',statusLabel:'확인 필요',text:'합성 원천 점검'}]};
       }
       if(url.pathname==='/api/sales/profit-stock-adjustment-notes') body={ok:true,...scope,items:[],count:0};
+      if(url.pathname==='/api/sales/profit-independent-audit') {
+        const detail=url.searchParams.get('detail')||scope.major;
+        body={success:true,...scope,year:scope.orderYear,detail,version:'fixture-v1',invalidKeyCount:0,limitations:['합성 검산 자료'],
+          integrity:{status:scope.orderYear==='2025'?'STALE':'STABLE_OBSERVED',finishedAt:new Date().toISOString(),sourceHash:'fixture'},
+          weeks:Array.from({length:Number(scope.major)},(_,i)=>({major:String(i+1).padStart(2,'0'),status:'MISMATCH',localMismatchCount:1,carriedCount:0,adjustedCount:1,inputRequiredCount:0,checkedCount:1,
+            begin:null,end:null,detailsLoaded:String(i+1).padStart(2,'0')===detail,entries:String(i+1).padStart(2,'0')===detail?[{prodKey:1,name:'독립 합성 품목',category:'합성 품종',unit:'단',period:`${scope.orderYear}/${detail}-01`,status:'MISMATCH',opening:10,receipt:5,shipped:2,adjusted:0,expected:13,closing:15,difference:2,openingError:0,closingError:2,firstObserved:`${scope.orderYear}/${detail}-01`,adjustmentCount:2,missingReasonCount:1,explanation:'합성 원인: 계산 잔량과 저장 잔량 차이',action:'합성 이력 확인'}]:[]}))};
+      }
       await request.respond({status,contentType:'application/json',body:JSON.stringify(body)});
     });
     await page.goto(`${base}/sales/profit-validation?popup=1&year=2026&week=32`,{waitUntil:'networkidle0'});
@@ -33,7 +40,15 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Loca
     assert.equal(await page.$$eval('[data-ui-sidebar]',e=>e.length),0);
     assert.match(await page.$eval('main',e=>e.innerText),/이전 계산 저장본/);
     assert.match(await page.$eval('main',e=>e.innerText),/합성 원천 점검/);
-    assert.match(await page.$eval('main',e=>e.innerText),/독립 수량 대사.*아직 구현 전/);
+    assert.match(await page.$eval('main',e=>e.innerText),/독립 검산/);
+    assert.match(await page.$eval('main',e=>e.innerText),/독립 합성 품목/);
+    assert.match(await page.$eval('main',e=>e.innerText),/기초 10 \+ 입고 5/);
+    assert.match(await page.$eval('main',e=>e.innerText),/최초 관측 차이/);
+    const rangeButton=await page.$('section[aria-label="독립 검산 엔진"] > button');
+    await rangeButton.click();
+    await page.waitForFunction(()=>document.querySelector('section[aria-label="독립 검산 엔진"]').innerText.includes('1행 산술 일치 / 1행'));
+    await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('금액·수익률도 모두 검산')&&!b.disabled));
+    assert.equal(new Set(requests.filter(r=>r.path==='/api/sales/profit-report'&&r.year==='2026').map(r=>r.week)).size,32);
     if (process.env.SMOKE_SCREENSHOT) await page.screenshot({path:process.env.SMOKE_SCREENSHOT,fullPage:true});
     const year=await page.$('[aria-label="검증 연도"]');
     await year.click(); await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control');
@@ -43,6 +58,7 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Loca
     await page.keyboard.press('Enter');
     await page.waitForFunction(()=>document.body.innerText.includes('원천 점검 판정 불가'));
     assert.match(await page.$eval('main',e=>e.innerText),/2025년 32차 확인 결과/);
+    await page.waitForFunction(()=>document.body.innerText.includes('조회 도중 원천이 변경'));
     await page.setViewport({width:390,height:844});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page must not overflow horizontally');
     await page.focus('[aria-label="검증 연도"]'); await page.keyboard.press('Tab');
