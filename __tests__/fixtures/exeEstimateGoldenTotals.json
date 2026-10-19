@@ -1,0 +1,19 @@
+{
+  "_comment": "exe FormEstimateView GetData 산식(lib/exeEstimateViewSql.js sqlEstimateGetData, 전 요일, 전 거래처) 총매출 스냅샷. 2026-10-15 운영 DB SELECT. 보호장치(lib/shipmentEstimateGuard.js) 도입 전후 동일해야 한다. 기존 데이터는 수정하지 않았으므로 값이 달라지면 산식 또는 데이터가 바뀐 것.",
+  "capturedAt": "2026-10-15",
+  "sqlFileSha256": "edd929dd82ed4fc368544af538ed81bd790e87749f094f82fd357f6064c9d821",
+  "weeks": {
+    "202615": {
+      "customers": 66,
+      "totalAmount": 316688140
+    },
+    "202616": {
+      "customers": 68,
+      "totalAmount": 406235036
+    },
+    "202636": {
+      "customers": 68,
+      "totalAmount": 435482493
+    }
+  }
+}

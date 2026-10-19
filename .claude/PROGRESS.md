@@ -2,6 +2,36 @@
 
 > 최신 항목이 위에 오도록 유지. Claude 가 매 세션 끝에 자동 추가.
 
+## [2026-10-19] Codex 인수 후 보완
+
+- 사용자 주문 선등록 정책 확인. 금액정렬 기본 SQL의 EstQuantity SET 제거, 혼합 Cost 보존.
+- 신규 DELETE API는 제외, 삭제 영향 진단만 유지. 기존 아래 10/15 기록의 DELETE 구현은 이 결정으로 대체.
+- 단위71, 운영 읽기 골든10, 전체 ERP/manifest/write/dnSpy/webpack build 통과. 배포 전.
+- 상세: docs/work-sessions/2026-10-19_claude-handoff-guard.md
+
+## [2026-10-15] 세션 — 출고→견적서/매출 누락 방지 보호장치
+
+### 작업 내용
+- 이카운트↔exe 매출 차이 조사에서 확인된 "분배는 있는데 견적서에 누락되는 4경로"(주문 없는 출고 / Detail≠Date 금액 / 삭제 거래처·품목 / 차수키·출고일 불일치)를 웹 쓰기 시점에 차단. 공통 모듈 `lib/shipmentEstimateGuard.js`.
+- exe 산식·기존 견적서 API·기존 데이터 불변. 골든 테스트(15·16·36차 총매출 원 단위 동일 + 산식 파일 sha256) 추가.
+- `npm run scan:integrity` 에 G1~G4(+G2b) 추가. 2026년 실행: G1 16줄/3,729,092원 · G2 161줄/10,297,305원 · G3 21줄/5,292,463원 · G4 마스터 58건·출고일 범위 밖 713줄 · G2b(1~3차 레거시) 4,027줄.
+- 관리자 진단 API `GET /api/shipment/estimate-guard-diagnose`(SELECT), 거래처/품목 soft delete API 에 확정 출고 보호.
+
+### 변경된 파일
+- lib/shipmentEstimateGuard.js(신규), lib/syncShipmentDateEst.js, lib/shipmentImport.js, lib/weekdayAllocation.js, lib/weekdayDistributionApply.js, lib/estimateOverflow.js, lib/estimateFreightAtomic.js, lib/estimateCostOnly.js
+- pages/api/shipment/{distribute,adjust,fix}.js, pages/api/public/shipments.js, pages/api/estimate/update-date-quantity.js, pages/api/master/index.js(DELETE), pages/api/shipment/estimate-guard-diagnose.js(신규)
+- scripts/scan-integrity.mjs, __tests__/shipmentEstimateGuard.test.js, __tests__/exeEstimateGoldenTotals.test.js(+fixture)
+- docs/exe-golden/FormEstimateView.md, docs/exe-golden/ViewShipment-isDeleted-DDL-proposal.md
+
+### 다음 작업 예정
+- 기존 불일치 데이터(G1 16줄, G2 161줄, G3, 202501/202502 마스터 58건) 처리 방향 사장님 결정 → 별도 승인 후 수리 스크립트
+- 배포 후 `estimate-guard-diagnose?view=summary` 를 관리자 화면에 노출
+
+### 미결 이슈 / 블로킹
+- ViewShipment/ViewOrder 의 isDeleted 조건은 exe 공유 객체라 미변경(DDL 제안만). `test:erp-contract` 중 puppeteer-core 미설치 1건은 환경 문제(이번 변경과 무관).
+
+---
+
 ## [2026-08-26] 후속 — 견적 수량 증가만 부족 검사·확정 유지 저장
 
 - 기존 출고일별 수량 수정에서 전체 확정취소를 제거하고 서버 잠금 기준으로 방향을 판정한다.

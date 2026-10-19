@@ -1,4 +1,5 @@
 import { withTransaction, sql } from '../../../lib/db';
+import { alignShipmentDetailMoneyToDatesMany } from '../../../lib/shipmentEstimateGuard.js';
 import { withAuth } from '../../../lib/auth';
 import {
   distributeUnits,
@@ -487,6 +488,8 @@ export default withAuth(async function handler(req, res) {
           throw directionalQuantityError('DATE_TOTAL_MISMATCH', `SdetailKey=${row.SdetailKey}의 출고일별 합계와 ShipmentDetail 총량이 맞지 않습니다.`);
         }
       }
+      // 보호장치 ②: 출고일별 금액 저장 직후 ShipmentDetail.Amount/Vat 를 ShipmentDate 합으로 맞춘다
+      await alignShipmentDetailMoneyToDatesMany(tQ, sql, saved.map((s) => s.sdetailKey));
       const positiveFixedKeys = new Set(fixedChanges
         .filter((group) => group.actualIncrease)
         .map((group) => `${group.row.OrderYear}|${group.row.ProdKey}`));
