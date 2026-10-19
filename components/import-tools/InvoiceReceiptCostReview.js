@@ -448,7 +448,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     setPreview(null);
   }
 
-  function updateLine(lineId, name, value) {
+  function updateLine(lineId, name, value, displayValue) {
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -456,7 +456,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       ...current,
       formulaApplicabilityConfirmed: false,
       lossTreatmentConfirmed: false,
-      lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value } : line),
+      lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value,
+        ...(name === 'tariffRate' ? { tariffPercentText: displayValue } : {}) } : line),
     }));
     setPreview(null);
   }
@@ -772,7 +773,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
           const result = lineResult.get(String(line.lineId).toLowerCase());
           return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small></td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
             {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
-            {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '100' : undefined} step="0.000001" placeholder="직접 입력" aria-invalid={neededByLine.get(line.lineId).includes(key)} value={key === 'tariffRate' ? tariffPercent(lineInput[key]) : lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, key === 'tariffRate' ? tariffFraction(event.target.value) : event.target.value)} />
+            {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '100' : undefined} step="0.000001" placeholder="직접 입력" aria-invalid={neededByLine.get(line.lineId).includes(key)} value={key === 'tariffRate' ? lineInput.tariffPercentText ?? tariffPercent(lineInput[key]) : lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, key === 'tariffRate' ? tariffFraction(event.target.value) : event.target.value, event.target.value)} />
               {key === 'tariffRate' && <small>% · 25 입력 = 25%</small>}
               {neededByLine.get(line.lineId).includes(key) && <small className={styles.issue}>직접 입력 필요</small>}
               {key === 'grossWeightKg' && line.sourceEvidence?.grossWeightKg !== undefined && <small>인식 힌트: {line.sourceEvidence.grossWeightKg} kg · 직접 검토 필요</small>}</td>)}
