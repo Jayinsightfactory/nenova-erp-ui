@@ -82,7 +82,14 @@ jobs:
             if [ ! -f .next/.mapping-db-capable ]; then
               node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
             fi
-            git reset --hard origin/master
+            # Never discard concurrent/manual server edits. A dirty or diverged checkout
+            # needs inspection; preserve the running build instead of overwriting files.
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              echo "DEPLOY_CHECKOUT_DIRTY: 서버 변경을 보존하고 배포 중단"
+              git status --short
+              exit 1
+            fi
+            git merge --ff-only origin/master || exit 1
             # Audit events survive source resets/build swaps and are never release artifacts.
             export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
             mkdir -p "$NENOVA_ACTIVITY_DIR"

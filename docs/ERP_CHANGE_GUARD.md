@@ -874,3 +874,7 @@ Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는
 실제 설치 Nenova.exe의 FormShipmentDistribution 및 DBMSSQL을 dnSpy CLI로 다시 확인했다. btnFix_Click/btnFixCancel_Click은 확정·취소 뒤 별도 uspStockCalculation 호출로 전체 품목 CALC0을 수행한다. 두 호출 사이 중단은 committed WAIT_CALC를 남길 수 있으며, 이번 상태만으로 최초 중단 원인은 단정하지 않는다.
 운영 읽기 probe에서 2026/40-02 WAIT_CALC/FIX/PendingCalc=1을 확인했다. 사용자 승인으로 기존 native CALC0을 같은 연도·차수에 실행해 IDLE을 확인했다. 46,851개 현재·후속 재고 snapshot과 12개 보호 테이블을 대조했고 수량·금액·확정·견적 원장 변경 없이 복구했다.
 자동 복구는 docs/contracts/pending-stock-recovery.json을 따른다. RUN 강제 해제나 SQL 프로시저 변경은 없다. 독립 프로세스 종료 및 원래 트랜잭션 검증으로 중단된 CALC를 롤백하고 다음 동일 pending 상태를 정상 재계산한다.
+## 2026-10-19 전체 교체 검증 계약
+
+출고분배 엑셀 전체교체는 서버가 발행한 replacementPlan의 전체 행·연도·세부차수·선출고 범위와 일치해야 한다. 클라이언트 fullCategoryReplacement=false로 부분저장을 우회하지 않는다. 누락된 업체/품목의 기존 분배는 주문이 삭제되어도 raw ShipmentMaster/Detail 기준으로 포함한다. 저장 전/트랜잭션 내부 범위 재검사에서 새 잔여 행이나 확정 변경을 발견하면 전체 중단 후 재검증한다. 기존 native writer와 확정·날짜 보존 계약은 유지한다. 이번 변경은 운영 잔여 데이터의 자동 보정 권한을 부여하지 않는다.
+
