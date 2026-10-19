@@ -3,6 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "pretest:packing-team": "node --test __tests__/packingNlRegression.test.js",
     "pretest:estimate-delete": "node --test __tests__/estimateDuplicateWriteGuard.test.js",
     "test:packing-team": "node --test __tests__/packingMatchManager.test.js __tests__/packingWorkDraft.test.js __tests__/packingSimilarRanking.test.js __tests__/packingTeamMatching.test.js __tests__/invoiceReceiptChinaAirCost.test.js __tests__/invoiceArrivalCostPanel.test.js __tests__/importChinaInvoice.test.js __tests__/invoiceReceiptWorkbench.test.js __tests__/packingReceiptMatchState.test.js __tests__/codeOnlyDeployment.test.cjs",
     "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",

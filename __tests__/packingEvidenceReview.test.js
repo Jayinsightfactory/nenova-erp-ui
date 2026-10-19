@@ -25,8 +25,7 @@ test('review component exposes the integration contract and keeps ERP out of sco
   assert.match(component, /data-testid="source-row-confirm"/);
   assert.match(component, /data-pdf-ready=\{pdfReady \? 'true' : 'false'\}/);
   assert.match(component, /onInvalidate\?\.\(\)/);
-  assert.match(component, /sourceInvoiceIdentity\?\.sourceInvoiceIndex === invoiceIndex/);
-  assert.match(component, /product\?\.sourceName === sourceRow\?\.description \|\| product\?\.matchingDescription === sourceRow\?\.description/);
+  assert.match(component, /packingSourceMatchedName\(matchedInvoices, invoiceIndex, sourceRow\)/);
   assert.match(component, /missingSourceReasonCount/);
   assert.match(component, /reason: stringValue\(sourceDrafts\[key\]\?\.reason\)/);
   assert.match(component, /PDF 다시 시도/);

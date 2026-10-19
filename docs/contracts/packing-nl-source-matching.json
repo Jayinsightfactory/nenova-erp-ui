@@ -1,0 +1,11 @@
+{
+ "id":"packing-nl-source-matching",
+ "title":"Holex 고객코드 검산·원문 행 매칭·네덜란드 품종 후보",
+ "scope":["lib/importInvoiceLocal.js","lib/importPackingSourceReview.js","lib/importPacking.js","lib/importPackingMatchPreview.js","lib/packingNlCandidates.js","lib/packingSourceMatch.js","components/import-tools/PackingEvidenceReview.js","components/import-tools/PackingProductMatchDialog.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"PARSE_AND_MATCH","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"Y2/KCL/HCL/MCL customer codes accepted only inside full Holex positioned layout; every row amount, order subtotal, independent CBS stems and grand total still required. One-use parser proof permits MACHINE_VERIFIED source rows, never human confirmation. Suggestions retain manual ERP mapping confirmation. Preview and workbook share resolveProductNL. Source display uses invoice/line identity; ambiguous fallback stays unresolved."}],
+ "crossYearFixture":{"required":true,"description":"2025 local source proof cannot be reused after changing invoice year to2026; duplicate invoice-line identities remain isolated."},
+ "requiredTestFiles":["__tests__/importInvoiceLocal.test.js","__tests__/packingNlRegression.test.js","__tests__/packingSourceReview.test.js"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-19 actual dnSpy ExcelLoadingPackingList verified name+SIZE equality, separate quantities/prices and native SP order. Read-only Product Aisha3+3471/Casablanca12st107; invoice1214205 already WarehouseKey7662 year2026 week41-02. No SQL writer changes or new receipt.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData","ExcelLoadingPackingList.InsertMaster"],"tables":["Product","WarehouseMaster","WarehouseDetail","ProductStock"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
