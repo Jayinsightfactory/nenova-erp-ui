@@ -1,5 +1,20 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-19 오래된 매입과 판매단가 대체 구분
+
+실제 `dnSpy.Console.exe --no-color -t FormWarehouseView` / `-t FormProductAdd`로
+설치 EXE의 입고 상세 UPrice/TPrice 및 Product.Cost의 출고단가 라벨을 재확인했다.
+동일 2026년 업무키 SELECT와 웹 모듈 실행에서 최근4차수 밖의 에콰도르 매입은 존재하지만
+기존 FIFO 창에서 제외되어 판매단가로 넘어가는 사례를 확인했다. 국가 합계 상태가
+판매단가라고 해도 모든 품목이 판매단가인 것은 아니다.
+
+최신 요청에 따라 기존 원가 근거가 없는 오래된 에콰도르 품목에만 같은 연도 마지막
+실제 매입과 매입 대차수의 정확 과세환율로 도착원가를 재구성한다. 현재 환율·미래 매입·
+다른 연도·불완전 행·단위 불일치는 제외한다. 이월은 배분 원가 재현이며 실사나 인보이스
+전수 확인 인증이 아니다. 조회 경고에 그 한계를 남기고 ERP/수기/확정 revision은 보존한다.
+기존 손익 공식 및 4차수 FIFO 규칙은 변경하지 않는다. 계획/부작용/회귀는
+`docs/plans/profit-acquisition-carry-2026-10-19.md` 및 `profit-acquisition-carry.json` 참조.
+
 ## 2026-10-07 실제 재고조정 자동 비고
 
 로컬 실제 dnSpy Console FormStockView 및 운영 SQL의 usp_StockCalculation 정의를 읽어
