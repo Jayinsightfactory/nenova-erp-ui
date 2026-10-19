@@ -46,6 +46,8 @@ function loadFixApi({ query = async () => ({ recordset: [] }), withTransaction, 
     // stockGateOwnership.test.js; these seams isolate category transaction scope.
     lockStockGateOperation: lockGate,
     clearStockGateOperation: clearGate,
+    // shipmentEstimateGuard ①: 주문 없는 미확정 출고 검사는 shipmentEstimateGuard.test.js 가 검증; 여기선 통과 seam
+    assertNoOrderlessLinesBeforeFix: async () => ({ ok: true, lines: [] }),
   };
   vm.createContext(context);
   vm.runInContext(`${source}\nglobalThis.__fixApi = { loadEstimateEditGroups, resolveFixCategoryScope, runFixTargetProcedure, shipmentProcedureSql, runStockCalculationForProducts };`, context, {

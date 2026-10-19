@@ -71,6 +71,8 @@ function makeQuery({ facts = baseFacts(), targets = {}, logs = [], failOn = null
     const text = String(statement).replace(/\s+/g, ' ').trim();
     calls.push({ text, params });
     if (failOn && failOn.test(text)) throw new Error('fixture forced transaction failure');
+    // shipmentEstimateGuard ①: 주문 존재 확인(ViewOrder) — fixture 는 주문 있음으로 응답
+    if (/FROM ViewOrder vo/.test(text)) return { recordset: [{ orderCount: 1 }] };
 
     if (/SELECT Payload FROM SystemActionLog/.test(text)) {
       const op = param(params, 'op');
