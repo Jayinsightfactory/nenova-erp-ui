@@ -1,16 +1,86 @@
 {
-  "id":"product-bulk-edit",
-  "title":"수입부 10 품목관리 · 영역 일괄 입력",
-  "scope":["pages/import/tools.js","pages/master/products.js","components/catalog/ProductBulkEditor.js","styles/ProductBulkEditor.module.css","lib/productBulkEdit.js","lib/productBulkSave.js","pages/api/master/products-bulk.js"],
-  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
-  "masterIdentity":"Product PK ProdKey; year/week/customer are preserved downstream identities, not master predicates",
-  "actions":[
-    {"name":"SELECT_AND_DRAFT","orderDetail":"preserve","shipmentDetail":"preserve","write":"React draft only; filtered visible ProdKey rectangle"},
-    {"name":"SAVE","orderDetail":"preserve","shipmentDetail":"preserve","write":"Product five explicit numeric fields; SteamOf1Box derived only when conversion fields change; LastUpdateID/Dtm and SystemActionLog in one transaction","preserve":["Product.Stock","Product.Cost","Product.OutUnit","Product.EstUnit","Product.FlowerName","Product.CounName","WarehouseMaster","WarehouseDetail","ShipmentDate","ShipmentFarm","Estimate","WebProfitReport","ProductStock","StockHistory"]}
+  "id": "product-bulk-edit",
+  "title": "수입부 10 품목관리 · 영역 일괄 입력",
+  "scope": [
+    "pages/import/tools.js",
+    "pages/master/products.js",
+    "components/catalog/ProductBulkEditor.js",
+    "styles/ProductBulkEditor.module.css",
+    "lib/productBulkEdit.js",
+    "lib/productBulkSave.js",
+    "pages/api/master/products-bulk.js"
   ],
-  "criteria":{"blank":"blank bulk input and blank draft means unchanged, explicit zero valid","tariff":"UI percent 25 => database 0.25; two UI decimal places","precision":"unit conversion input up to 3 decimals and 1000000; weight/CBM decimal(10,3); tariff decimal(10,4)","scope":"only submitted active ProdKey, all six expected numeric fields revalidated under UPDLOCK,HOLDLOCK; all-or-nothing; no auto retry after ambiguous HTTP response","derived":"existing web product save derives SteamOf1Box=BunchOf1Box*SteamOf1Bunch. Native saves independent spnBox; web extension explicitly previews derived value only when either factor changes. Cost-only edits preserve native independent SteamOf1Box.","permissions":"same withAuth policy as existing master products editing; no expanded anonymous access"},
-  "crossYearFixture":{"required":true,"description":"Product is year-independent master; 2025/2026 same 42-01 order/shipment sentinel rows remain untouched; no week selectors"},
-  "requiredTestFiles":["__tests__/productBulkEdit.test.js","__tests__/productBulkSave.test.js","__tests__/productBulkUi.test.cjs"],
-  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductBulkEdit.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["FormProductAdd.btnSave_Click","ClassProduct.Update"],"tables":["Product"]},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "masterIdentity": "Product PK ProdKey; year/week/customer are preserved downstream identities, not master predicates",
+  "actions": [
+    {
+      "name": "SELECT_AND_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "write": "React draft only; filtered visible ProdKey rectangle"
+    },
+    {
+      "name": "SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "write": "Product six explicit numeric fields including independent SteamOf1Box; LastUpdateID/Dtm and SystemActionLog in one transaction",
+      "preserve": [
+        "Product.Stock",
+        "Product.Cost",
+        "Product.OutUnit",
+        "Product.EstUnit",
+        "Product.FlowerName",
+        "Product.CounName",
+        "WarehouseMaster",
+        "WarehouseDetail",
+        "ShipmentDate",
+        "ShipmentFarm",
+        "Estimate",
+        "WebProfitReport",
+        "ProductStock",
+        "StockHistory"
+      ]
+    }
+  ],
+  "criteria": {
+    "blank": "blank bulk input and blank draft means unchanged, explicit zero valid",
+    "tariff": "UI percent 25 => database 0.25; two UI decimal places",
+    "precision": "unit conversion input up to 3 decimals and 1000000; weight/CBM decimal(10,3); tariff decimal(10,4)",
+    "scope": "only submitted active ProdKey, all six expected numeric fields revalidated under UPDLOCK,HOLDLOCK; all-or-nothing; no auto retry after ambiguous HTTP response",
+    "derived": "2026-10-19 user clarification: preserve independent native SteamOf1Box unless explicitly entered. Factor edits never implicitly recalculate box stems. UI permits direct independent box-stem edits.",
+    "permissions": "same withAuth policy as existing master products editing; no expanded anonymous access"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "Product is year-independent master; 2025/2026 same 42-01 order/shipment sentinel rows remain untouched; no week selectors"
+  },
+  "requiredTestFiles": [
+    "__tests__/productBulkEdit.test.js",
+    "__tests__/productBulkSave.test.js",
+    "__tests__/productBulkUi.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductBulkEdit.md",
+    "source": "C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe",
+    "methods": [
+      "FormProductAdd.btnSave_Click",
+      "ClassProduct.Update"
+    ],
+    "tables": [
+      "Product"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
 }

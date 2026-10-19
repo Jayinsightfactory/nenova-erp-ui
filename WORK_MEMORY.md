@@ -120,3 +120,9 @@
 - 검색어: packing-match-next assertPackingSourceValues VALUES_APPLIED 원문확인체크제거
 - 배포 전 추가 점검: 분석 완료 상태문에 남아 있던 과거 원문 검토 안내 2곳도 DB 매칭→다음 버튼 안내로 통일. 실제 수량/가격 오류 안내는 유지. 검색어: packing-match-next-copy
 - 후속 CI에서 예전 원문 검토 문구를 요구하던 화면 회귀 1개 확인; 새 사용자 요구의 매칭→다음 안내를 검증하도록 수정. 숫자/중복/쓰기 검증은 삭제하지 않음.
+
+## 2026-10-19 품목 저장 EXE 호환성
+- 웹 그룹/사진/일괄 편집 유지. 실제 dnSpy·운영 SELECT 후 CountryFlower 분류키와 독립 SteamOf1Box 보존, 최소 수정값 저장, 충돌·단위 변경 확인, 원자적 감사/읽기 대조 추가.
+- 격리 실제 MSSQL 신규/수정/실패 롤백 및 교차연도 sentinel 검증 통과. 운영 DB 쓰기/스키마 변경 없음. 전체 검사·PR·배포 진행 중(운영 미검증).
+- 상세: docs/work-sessions/2026-10-19_product-save-compat.md.
+- 검색어: product-save-compat CountryFlower SteamOf1Box 독립값 EXE 품목저장

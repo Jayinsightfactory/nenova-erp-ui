@@ -1,0 +1,17 @@
+{
+  "id":"product-save-compat",
+  "title":"웹 품목 저장의 공유 EXE 데이터 보존",
+  "scope":["pages/master/products.js","pages/api/master/index.js","lib/productMasterPolicy.js","lib/productMasterSave.js","lib/productInputHistory.js","lib/productBulkEdit.js","lib/productBulkSave.js","components/catalog/ProductBulkEditor.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "masterIdentity":"Product.ProdKey; master has no year/week scope; all years' ledgers preserved",
+  "actions":[
+    {"name":"CREATE","orderDetail":"preserve","shipmentDetail":"preserve","write":"Product validated values, CountryFlower by native Country.isSelectFlower, independent SteamOf1Box, audit fields and SystemActionLog atomically"},
+    {"name":"EDIT","orderDetail":"preserve","shipmentDetail":"preserve","write":"Only explicitly changed Product fields; stale expected snapshot rejects; CountryFlower updated only on classification change; independent box stems preserved unless explicit; readback and audit atomically"},
+    {"name":"BULK","orderDetail":"preserve","shipmentDetail":"preserve","write":"Existing web bulk fields and explicit independent SteamOf1Box; no automatic factor multiplication"}
+  ],
+  "criteria":{"source":"Actual FormProductAdd.btnSave_Click/ClassProduct.Insert/Update; native independent box stems and country classification","defaults":"Existing null/zero preserved; absent edit fields unchanged. New required name/country/flower/units must be valid. Numeric inputs finite nonnegative with DB precision. No stock write or recalc.","concurrency":"Active ProdKey locked, full editable expected snapshot compared, stale/missing reject409. Unit changes require explicit confirmation; no historical quantities conversion.","webFeatures":"Country/flower buttons, shared photos, bulk editing and SystemActionLog preserved. Not EXE feature parity.","downstream":"Product name/classification/unit changes intentionally affect subsequent reads; existing OrderDetail/ShipmentDetail Amount/Vat/isFix/ShipmentDate/ShipmentFarm/StockHistory/ProductStock/Estimate/WebProfitReport preserved."},
+  "crossYearFixture":{"required":true,"description":"2025/2026 same42-01 Order/Shipment and quote/profit/stock sentinel rows remain identical under Product save"},
+  "requiredTestFiles":["__tests__/productMasterSave.test.js","__tests__/productBulkEdit.test.js","__tests__/productBulkSave.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductMasterSave.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["FormProductAdd.btnSave_Click","ClassProduct.Insert","ClassProduct.Update"],"tables":["Product","Country","Flower"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run verify:erp-change","npm run test:ui-layout"]
+}
