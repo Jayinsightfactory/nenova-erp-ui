@@ -294,7 +294,7 @@ function persistenceDb(inputOverride, metadataOverride) {
     if (sqlText.includes('transaction-lock')) return { recordset: [] };
     if (sqlText.includes('lock-document')) return { recordset: [{ DocumentId: IDS.document, Revision: 1 }] };
     if (sqlText.includes('invoice-receipt:get-document')) return { recordset: [{ ...document, CostStatus: state.documentCostStatus }] };
-    if (sqlText.includes('invoice-receipt:get-lines')) return { recordset: [line] };
+    if (sqlText.includes('invoice-receipt:get-lines')) return { recordset: state.documentLines || [line] };
     if (sqlText.includes('invoice-receipt:get-history')) return { recordset: [] };
     if (sqlText.includes('invoice-receipt:get-operations')) return { recordset: [{ ...state.operation }] };
     if (sqlText.includes('validate-live-receipt-header')) return { recordset: [{ ...state.warehouseHeader }] };

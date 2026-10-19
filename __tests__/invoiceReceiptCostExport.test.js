@@ -108,7 +108,7 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assert.ok(sheet.includes('<c r="M24" s="114">'));
   assert.ok(sheet.includes('<c r="M51" s="114">'));
   const workbook = XLSX.read(bytes, { cellStyles: true });
-  assert.deepEqual(workbook.SheetNames, ['승인 원가']); const s = workbook.Sheets['승인 원가'];
+  assert.deepEqual(workbook.SheetNames, ['2026 41-02']); const s = workbook.Sheets['2026 41-02'];
   assert.equal(s.M23.v, '도착원가(단위)'); assert.equal(s.O23.v, '총 도착원가'); assert.equal(s.N23.v, 'ERP 단위');
   f.revision.lines.forEach((line, i) => {
     assert.equal(s[`B${24 + i}`].v, f.document.lines[i].originalName);
@@ -147,7 +147,7 @@ test('CN air header anchors are separate and no merged range contains populated 
       }
     }
   }
-  const s = XLSX.read(bytes).Sheets['승인 원가'];
+  const s = XLSX.read(bytes).Sheets['2026 41-02'];
   assert.equal(s.B5.v, '차수');
   assert.equal(s.C5.v, '2026/41-02');
   assert.equal(s.J5.v, '승인 입력·합계');
@@ -168,7 +168,7 @@ test('format-only template and generated package contain no historical rows, for
   assert.ok(!parts.some(name => /sharedStrings|externalLinks|comments|calcChain|drawings|vba/i.test(name)));
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
   assert.doesNotMatch(sheet, /<f\b|t="e"|SERVER_ONLY_PRIVATE|ROSE|Gypsophila|372660|4706\.597090|판매|이익/);
-  const s = XLSX.read(await zip.generateAsync({ type: 'nodebuffer' })).Sheets['승인 원가'];
+  const s = XLSX.read(await zip.generateAsync({ type: 'nodebuffer' })).Sheets['2026 41-02'];
   assert.equal(s.B24.t, 's'); assert.equal(s.B24.f, undefined);
   for (const col of ['Q', 'R', 'S', 'T', 'U', 'V']) assert.equal(s[`${col}24`]?.v, undefined);
   for (const row of template.rows) for (const cell of row.cells) assert.deepEqual(Object.keys(cell).sort(), ['ref', 'style']);
@@ -180,7 +180,7 @@ test('normalized cost snapshot accepts native ERP unit aliases without quantity 
   assert.deepEqual(f.revision.lines.map(line => line.unit), ['BUNCH', 'STEM', 'BOX']);
   // committedReceiptSnapshot stores normalized numeric detail fields, not unit labels.
   assert.ok(f.snapshot.receiptSnapshot.details.every(line => !('unit' in line)));
-  const sheet = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['승인 원가'];
+  const sheet = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['2026 41-02'];
   f.revision.lines.forEach((line, i) => {
     assert.equal(sheet[`N${24 + i}`].v, line.unit);
     assert.equal(sheet[`E${24 + i}`].v, line.quantity);
@@ -235,8 +235,8 @@ for (const [profileId, filename, count] of [
     assert.ok(sheet.includes(`ref="B${last}:D${last}"`));
     const refs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
     assert.equal(new Set(refs).size, refs.length); assert.equal(refs.at(-1), String(last));
-    const output = XLSX.read(bytes, { cellNF: true }), s = output.Sheets['승인 원가'];
-    assert.deepEqual(output.SheetNames, ['승인 원가']); assert.equal(s.C10.v, f.revision.totalCostKRW);
+    const output = XLSX.read(bytes, { cellNF: true }), s = output.Sheets['2026 41-02'];
+    assert.deepEqual(output.SheetNames, ['2026 41-02']); assert.equal(s.C10.v, f.revision.totalCostKRW);
     f.revision.lines.forEach((cost, i) => {
       const r = profile.detailStartRow + i;
       assert.equal(s[`B${r}`].v, f.document.lines[i].originalName);
@@ -297,8 +297,8 @@ for (const [id, assetName, filename] of [
     for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(xml.includes(part));
     for (const row of asset.rows) assert.ok(xml.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(xml.includes(`ref="${merge}"`));
-    const book = XLSX.read(buffer, { cellNF: true }), s = book.Sheets['승인 원가'];
-    assert.deepEqual(book.SheetNames, ['승인 원가']);
+    const book = XLSX.read(buffer, { cellNF: true }), s = book.Sheets['2026 41-02'];
+    assert.deepEqual(book.SheetNames, ['2026 41-02']);
     const us = id === 'US_ORIGINAL_V1', ec = id === 'EC_ORIGINAL_V1';
     f.revision.lines.forEach((line, i) => {
       const r = p.detailStartRow + i, unit = s[`${us ? 'N' : ec ? 'Q' : 'O'}${r}`], qty = s[`${us ? 'O' : ec ? 'R' : 'P'}${r}`];
@@ -347,7 +347,7 @@ for (const [id, assetName, filename] of [
     for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
     assert.ok(sheet.includes(`ref="${th ? 'C42:E42' : 'B42:D42'}"`));
-    const s = XLSX.read(buffer, { cellNF: true }).Sheets['승인 원가'];
+    const s = XLSX.read(buffer, { cellNF: true }).Sheets['2026 41-02'];
     assert.equal(s.C10.v, f.revision.totalCostKRW);
     f.revision.lines.forEach((cost, i) => {
       const r = 15 + i;
@@ -399,7 +399,7 @@ test('every enabled profile preserves explicit cancelled rows without allocation
     assert.equal(computed.status, 'APPROVED', `${p.id}: ${JSON.stringify(computed.issues)}`);
     f.revision.lines = computed.lines.map((line, i) => ({ ...line, wdetailKey: f.snapshot.receiptSnapshot.details[i].wdetailKey }));
     f.revision.totalCostKRW = computed.totals.totalCostKRW;
-    const buffer = await createInvoiceCostWorkbook(f), sheet = XLSX.read(buffer).Sheets['승인 원가'];
+    const buffer = await createInvoiceCostWorkbook(f), sheet = XLSX.read(buffer).Sheets['2026 41-02'];
     const cost = f.revision.lines[0]; assert.equal(cost.quantity, 0); assert.equal(cost.costPerUnitKRW, null); assert.equal(cost.totalCostKRW, 0);
     const unitCostCol = p.id === 'CN_AIR_ORIGINAL_V1' ? 'M' : p.id === 'CN_SEA_ORIGINAL_V1' ? 'N'
       : p.id === 'US_ORIGINAL_V1' ? 'L' : p.id === 'TH_ORIGINAL_V1' ? 'P' : ['NL_ORIGINAL_V1', 'EC_ORIGINAL_V1', 'CO_ORIGINAL_V1'].includes(p.id) ? 'O' : 'M';
@@ -409,7 +409,7 @@ test('every enabled profile preserves explicit cancelled rows without allocation
 
 test('export detail bound remains 1000 rows and rejects an oversized approved-looking scope', async () => {
   const f = invoiceCostExportFixture(1000, 'US_CNF_BOX_V1');
-  const s = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['승인 원가'];
+  const s = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['2026 41-02'];
   assert.equal(s.B1012.v, 'CURRENT FLOWER 1000');
   f.document.lines.push(f.document.lines[0]); f.revision.lines.push(f.revision.lines[0]);
   f.snapshot.receiptSnapshot.details.push(f.snapshot.receiptSnapshot.details[0]);
