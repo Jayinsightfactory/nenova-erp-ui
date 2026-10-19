@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 const src = fs.readFileSync(new URL('../lib/auth.js', import.meta.url), 'utf8');
 const body = src
   .replace(/^import .*$/gm, '')
+  .replace(/^export \{.*$/gm, '')
   .replace(/^export const /gm, 'const ')
   .replace(/^export function /gm, 'function ')
   + '\nreturn { resolveServiceUser, verifyReqUser, withAuth, SERVICE_USER_ID };';
