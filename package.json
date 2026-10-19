@@ -3,6 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "posttest:profit-report-22-28": "npm run test:profit-report-excel-design",
     "test:product-bulk": "node __tests__/productBulkEdit.test.js && node __tests__/productBulkSave.test.js && node __tests__/productBulkUi.test.cjs && node __tests__/productCatalogFilter.test.js",
     "pretest:packing-team": "node --test __tests__/packingNlRegression.test.js",
     "pretest:estimate-delete": "node --test __tests__/estimateDuplicateWriteGuard.test.js",
