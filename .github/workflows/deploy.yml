@@ -3,6 +3,11 @@ name: Deploy to Cafe24
 on:
   workflow_dispatch:
     inputs:
+      diagnose_checkout_only:
+        description: '읽기 전용: 서버 Git 변경 파일명/통계만 확인, 배포·DB·서비스 변경 없음'
+        type: boolean
+        required: false
+        default: false
       migrate_order_mappings:
         description: '승인된 업체·품목 매칭 파일의 공유 DB 최초 이전'
         type: boolean
@@ -21,7 +26,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  diagnose-checkout:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose_checkout_only == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only server checkout diagnosis
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd /var/www/nenova-erp || exit 1
+            export GIT_OPTIONAL_LOCKS=0
+            git rev-parse HEAD
+            git status --short --untracked-files=no
+            git diff --numstat
+            git diff --cached --numstat
   deploy:
+    if: github.event_name != 'workflow_dispatch' || inputs.diagnose_checkout_only != true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
