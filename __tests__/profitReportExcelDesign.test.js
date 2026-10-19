@@ -3,6 +3,7 @@ const assert = require('assert');
 const XLSX = require('xlsx-js-style');
 
 (async () => {
+  await require('./profitRangeOutput.test.cjs');
   const { buildProfitReportXlsx } = await import('../lib/profitReportExcel.js');
   const sample = { C: 100000, D: 1, H: 5000, J: 25000, K: 0.25, Q: 40 };
   const buffer = buildProfitReportXlsx({
