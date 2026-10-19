@@ -687,7 +687,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field>
       <Field label="환율 (원/통화)"><input type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
       <Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
-      <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onChange={event => update('exchangeRateDate', event.target.value)} /></Field>
+      <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field>
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
       <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>
       <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>
@@ -696,7 +696,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
       <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field>
       {form.formulaId === 'CN_SEA_ACTUAL_V1' && <Field label="95% 예상수량 (비교 전용)"><input type="number" step="0.000001" min="0" value={form.expected95Quantity} onChange={event => update('expected95Quantity', event.target.value)} /></Field>}
-      <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>
+      <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onInput={event => update('formulaEffectiveDate', event.currentTarget.value)} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>
     </div>
 
     <p role="status">원문 가격 기준: {formulaPriceBasis(selectedFormula)} · 실제 원가 단위는 각 행의 ERP 단위입니다. 환산계수는 원문 근거로 직접 입력하세요.
