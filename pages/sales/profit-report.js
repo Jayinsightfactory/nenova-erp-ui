@@ -19,6 +19,8 @@ import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBan
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
+import ProfitValidationLink from '../../components/ProfitValidationLink';
+import { reportScopeFromSearch } from '../../lib/profitValidationWindow.mjs';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
@@ -426,7 +428,16 @@ export default function ProfitReportPage() {
       if (seq === loadSeqRef.current) setSnapshotBusy(false);
     }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    try {
+      const linked = reportScopeFromSearch(window.location.search);
+      if (linked) {
+        setReportYear(linked.year); weekInput.setValue(linked.major);
+        load(linked.major, linked.year);
+      } else load();
+    } catch (e) { setError(e.message); }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   // 이익률 분석 — /api/sales/profit-analysis 를 본표 load()와 완전히 분리해서 부른다.
   // 패널을 펼친 상태에서만 호출하고, 느리거나 실패해도 본표 조회/렌더는 절대 막지 않는다.
@@ -996,6 +1007,9 @@ export default function ProfitReportPage() {
           </span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          <ProfitValidationLink year={data?.orderYear} major={data?.major}
+            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
+            style={{ ...st.primaryBtn, textDecoration: 'none', display: 'inline-block' }} />
           <div style={st.viewToggleWrap}>
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
             <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>

@@ -1,0 +1,52 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+(async () => {
+  const { validationWindowUrl, loadValidationWindow, assertValidationResponse, reportBasis, reportScopeFromSearch } = await import('../lib/profitValidationWindow.mjs');
+  assert.deepEqual(reportScopeFromSearch('?popup=1&year=2025&week=32'),{year:'2025',major:'32'});
+  assert.equal(reportScopeFromSearch('?popup=1'),null);
+  assert.throws(()=>reportScopeFromSearch('?year=2026&year=2025&week=32'));
+  assert.throws(()=>reportScopeFromSearch('?week=32'));
+  assert.equal(validationWindowUrl('2026', '32'), '/sales/profit-validation?year=2026&week=32&popup=1');
+  assert.notEqual(validationWindowUrl('2025', '32'), validationWindowUrl('2026', '32'));
+  for (const [year, week] of [[undefined,32], ['2026',0], ['2026',54], ['2026',false], ['2026','32-01'], [['2026','2025'],32], ['2026',[32,33]]]) assert.throws(() => validationWindowUrl(year, week));
+  const base = { success: true, orderYear: '2026', major: '32', rows: [] };
+  const scope = { year: '2026', major: '32' };
+  assert.equal(assertValidationResponse(base, scope), base);
+  for (const override of [{ orderYear:'2025' }, {major:'31'}, {success:false}, {rows:null}]) assert.throws(() => assertValidationResponse({...base,...override},scope));
+  const requests = [];
+  const ready = await loadValidationWindow({year:'2026',major:'32',fetcher:async (url, options) => {
+    requests.push({url,options}); return {ok:true,json:async()=>base};
+  }});
+  assert.equal(requests.length,2);
+  requests.forEach(({url,options})=>{assert.match(url,/year=2026&week=32$/);assert.equal(options.method,'GET');assert.equal(options.cache,'no-store');});
+  assert.equal(ready.report.data,base); assert.equal(ready.checks.data,base);
+  const partial = await loadValidationWindow({year:'2026',major:32,fetcher:async url => url.includes('week-check')
+    ? {ok:false,status:500} : {ok:true,json:async()=>base}});
+  assert.equal(partial.report.data,base); assert.equal(partial.checks.data,null); assert.match(partial.checks.error,/500/);
+  const denied = await loadValidationWindow({year:'2026',major:32,fetcher:async()=>({ok:false,status:401})});
+  assert.match(denied.report.error,/로그인/); assert.equal(denied.report.data,null);
+  const crossed = await loadValidationWindow({year:'2025',major:32,fetcher:async()=>({ok:true,json:async()=>base})});
+  assert.equal(crossed.report.data,null); assert.match(crossed.report.error,/연도/);
+  let calls=0;
+  const controller=new AbortController(); controller.abort();
+  await assert.rejects(loadValidationWindow({year:'2026',major:32,signal:controller.signal,fetcher:async()=>{calls++;}}));
+  assert.equal(calls,0);
+  const late=new AbortController();
+  await assert.rejects(loadValidationWindow({year:'2026',major:32,signal:late.signal,fetcher:async()=>({ok:true,json:async()=>{late.abort();return base;}})}));
+  assert.match(reportBasis({confirmed:{revisionNo:3}}),/R3/);
+  assert.match(reportBasis({snapshot:{state:'stale',servedFrom:'snapshot'}}),/이전 계산/);
+  assert.doesNotMatch(reportBasis({snapshot:{state:'stale',servedFrom:'live'}}),/이전 계산/);
+  assert.match(reportBasis(null),/판정 불가/);
+  const page=fs.readFileSync('pages/sales/profit-validation.js','utf8');
+  const link=fs.readFileSync('components/ProfitValidationLink.js','utf8');
+  assert.match(page,/아직 구현 전/); assert.match(page,/현재 원장/);
+  assert.match(page,/request\.current === controller/); assert.match(page,/request\.current\?\.abort\(\)/);
+  assert.match(page,/ProfitStockAdjustmentNotes/); assert.doesNotMatch(page,/<Layout|snapshotRefresh|method:\s*['"]POST/);
+  assert.match(link,/window\.open/); assert.match(link,/target="_blank"/); assert.match(link,/if \(child\)/);
+  const layout=fs.readFileSync('components/Layout.js','utf8');
+  assert.match(layout,/href: '\/sales\/profit-validation'.*popup: true/);
+  const parent=fs.readFileSync('pages/sales/profit-report.js','utf8');
+  assert.match(parent,/ProfitValidationLink year=\{data\?\.orderYear\} major=\{data\?\.major\}/);
+  console.log('profitValidationWindow: scope/read/failure/cancellation/status/UI checks passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});
