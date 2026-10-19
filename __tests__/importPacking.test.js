@@ -286,6 +286,7 @@ async function main() {
       '../../lib/importPackingSourceReview.js': sourceReview,
       '../../lib/importPackingMatchPreview.js': matchPreview,
       '../../lib/packingMatchReview.js': matchReview,
+      '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,
       '../../lib/packingWorkDraft.js': workDraft,
       '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
