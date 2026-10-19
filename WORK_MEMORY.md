@@ -72,3 +72,9 @@
 - 초안 이전 업로드 문제 분류·건수는 SystemActionLog, 서버 검증 행별 문제는 WebInvoiceHistory. 사용자별 같은 탭 대기 로그 복원/명시 로그만 재시도. ERP 입고/재고 재실행 없음.
 - 테스트/최종 배포 확인 진행 중. 운영 업무 데이터 수정 테스트 미실시. docs/work-sessions/2026-10-19_import-audit-history.md 참고.
 - 검색어: ProductInputHistory INVOICE_UPLOAD_ISSUE invoiceValidationAudit
+
+## 2026-10-19 중국 발주 다운로드 HF 별도 셀
+- 품목명 A열/HF CODE B열/단위 C열/합계 D열, 업체 E열부터. banner와 원수량/환산/정렬/매칭 유지. SQL/API/운영 DB 미수정.
+- 실제 XLSX round-trip 열/선행0/빈칸/수식형코드/합계/교차연도/260업체 통과. 전체 guard/빌드·배포 스모크 진행 중.
+- 상세 docs/work-sessions/2026-10-19_china-hf-columns.md.
+- 검색어: 중국발주 HF CODE 별도셀 별도열 chinaOrderWorkbook
