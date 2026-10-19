@@ -14,6 +14,21 @@ const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf(
 const ui = new Function('INVOICE_COST_FORMULAS', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry);
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
 
+test('manual percentage editor preserves zero and missing values and roundtrips saved fractions', () => {
+  const manual = new Function(`${helpers}; return { tariffPercent, tariffFraction, manualFieldsNeeded };`)();
+  for (const fraction of [0, 0.08, 0.25, 1]) {
+    assert.equal(manual.tariffFraction(String(manual.tariffPercent(fraction))), fraction);
+  }
+  assert.equal(manual.tariffPercent(null), '');
+  assert.equal(manual.tariffFraction(''), '');
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10, outUnit: '송이' }, { tariffRate: 0 }, ['tariffRate', 'stemsPerBunch']), []);
+  assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10, outUnit: '단' }, { tariffRate: '', stemsPerBunch: 0 }, ['tariffRate', 'stemsPerBunch']), ['tariffRate', 'stemsPerBunch']);
+  for (const tariffRate of [-0.01, 1.01, 'invalid']) assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10 }, { tariffRate }, ['tariffRate']), ['tariffRate']);
+  assert.match(source, /manualLineFilter\?\.identity === identity/);
+  assert.match(source, /ids: manualLineIds/);
+  assert.match(source, /저장 전 편집값은 아직 서버에 반영되지 않습니다/);
+});
+
 test('registry country/transport selects supported formulas and normalizes US/VN aliases without invented defaults', () => {
   for (const country of ['US', 'USA', '미국']) assert.equal(ui.applicableFormulaId(doc(country)), 'US');
   for (const country of ['VN', 'VIETNAM', '베트남']) assert.equal(ui.applicableFormulaId(doc(country)), 'VN');
