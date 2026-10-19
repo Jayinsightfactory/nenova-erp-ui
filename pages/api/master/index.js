@@ -1,5 +1,6 @@
 // pages/api/master/index.js — 기준정보 CRUD (실제 DB)
-import { query, sql } from '../../../lib/db';
+import { query, sql, withTransaction } from '../../../lib/db';
+import { appendProductInputHistory, PRODUCT_HISTORY_FIELDS } from '../../../lib/productInputHistory';
 import { withAuth } from '../../../lib/auth';
 import { buildProductMappingStats } from '../../../lib/orderImportMatch.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
@@ -144,7 +145,11 @@ async function create(req, res, entity) {
 
       if (prodKey) {
         params.pk = { type: sql.Int, value: parseInt(prodKey) };
-        await query(
+        await withTransaction(async q=>{
+          const columns=Object.keys(PRODUCT_HISTORY_FIELDS).join(',');
+          const before=(await q(`SELECT ProdKey,${columns} FROM Product WITH (UPDLOCK,HOLDLOCK) WHERE ProdKey=@pk`,{pk:params.pk})).recordset[0];
+          if(!before)throw Error('품목을 찾을 수 없습니다.');
+          await q(
           `UPDATE Product SET ProdCode=@code, ProdName=@name, DisplayName=@dispName,
              FlowerName=@flower, CounName=@country,
              Cost=@cost, OutUnit=@outUnit, EstUnit=@estUnit,
@@ -152,10 +157,15 @@ async function create(req, res, entity) {
              BoxWeight=@boxWt, BoxCBM=@boxCbm, TariffRate=@tariff
            WHERE ProdKey=@pk`,
           params
-        );
+          );
+          const after=(await q(`SELECT ProdKey,${columns} FROM Product WHERE ProdKey=@pk`,{pk:params.pk})).recordset[0];
+          await appendProductInputHistory(q,sql,req.user.userId,before,after);
+        });
+        if(global._prodCache)global._prodCache.data=null;
         return res.status(200).json({ success: true, message: '품목 수정 완료' });
       } else {
-        await query(
+        await withTransaction(async q=>{
+        const inserted=await q(
           `INSERT INTO Product
              (ProdCode, ProdName, DisplayName, FlowerName, CounName, Cost, OutUnit, EstUnit,
               BunchOf1Box, SteamOf1Bunch, SteamOf1Box,
@@ -164,9 +174,13 @@ async function create(req, res, entity) {
            VALUES (@code, @name, @dispName, @flower, @country, @cost, @outUnit, @estUnit,
                    @bunch, @steam, @bunch*@steam,
                    @boxWt, @boxCbm, @tariff,
-                   0, @uid, GETDATE())`,
+                   0, @uid, GETDATE()); SELECT CAST(SCOPE_IDENTITY() AS int) AS ProdKey;`,
           params
         );
+        const after=(await q(`SELECT ProdKey,${Object.keys(PRODUCT_HISTORY_FIELDS).join(',')} FROM Product WHERE ProdKey=@pk`,{pk:{type:sql.Int,value:inserted.recordset[0].ProdKey}})).recordset[0];
+        await appendProductInputHistory(q,sql,req.user.userId,null,after);
+        });
+        if(global._prodCache)global._prodCache.data=null;
         return res.status(201).json({ success: true, message: '품목 등록 완료' });
       }
     }

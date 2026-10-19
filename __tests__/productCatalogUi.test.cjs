@@ -33,6 +33,7 @@ for(const selection of [[], ['카네이션']]) {
     if(name.endsWith('/exportUtils'))return {};
     if(name.endsWith('/ProductCatalogPhoto'))return {default:()=>null};
     if(name.endsWith('/ProductBulkEditor'))return {default:()=>null};
+    if(name.endsWith('/ProductInputHistory'))return {default:()=>null};
     if(name.endsWith('/productCatalogFilter'))return policy;
     return require(name);
   }).default;

@@ -11,7 +11,7 @@
     "prebuild": "node scripts/generate-menu-development-history.cjs && node scripts/generate-full-development-history.cjs && npm run test:full-development-history",
     "test:menu-development-history": "node --test __tests__/menuDevelopmentHistory.test.js",
     "test:full-development-history": "node --test __tests__/fullDevelopmentHistory.test.js __tests__/developmentJourney.test.js __tests__/developmentPurposeStories.test.js __tests__/developmentStoryVisuals.test.js __tests__/menuDevelopmentDefaults.test.js",
-    "pretest:import-team": "npm run test:product-bulk && node --test __tests__/countryOrderSource.test.js __tests__/countryOrderSourceApi.test.js __tests__/countryOrderPedidosAdapter.test.js __tests__/pedidosToolCountryOrders.test.js",
+    "pretest:import-team": "npm run test:product-bulk && node __tests__/importAuditApi.test.cjs && node --test __tests__/importAuditHistory.test.js __tests__/countryOrderSource.test.js __tests__/countryOrderSourceApi.test.js __tests__/countryOrderPedidosAdapter.test.js __tests__/pedidosToolCountryOrders.test.js",
     "test:operations-knowledge": "node --test __tests__/operationsKnowledgeSchema.test.js __tests__/operationsKnowledgeStore.test.js __tests__/operationsKnowledgeApi.test.js __tests__/operationsKnowledgeAttachments.test.js __tests__/operationsKnowledgeUi.test.js",
     "posttest:import-team": "npm run test:operations-knowledge && npm run test:packing-team",
     "test:china-order-download": "node --test __tests__/chinaOrderCustomerMatrix.test.js __tests__/chinaOrderDownload.test.js __tests__/chinaOrderDownloadApi.test.js __tests__/chinaHfCodes.test.js __tests__/chinaOrderWorkbook.test.js __tests__/chinaOrderDownloadUi.test.js",

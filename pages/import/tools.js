@@ -66,7 +66,7 @@ export default function ImportTools({userId=''}){
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>

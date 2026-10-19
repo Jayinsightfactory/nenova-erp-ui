@@ -166,6 +166,7 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
 }
 
 export default function InvoiceReceiptWorkbench({
+  userId='',
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
 }) {
   const [records, setRecords] = useState([]);
@@ -197,11 +198,13 @@ export default function InvoiceReceiptWorkbench({
   const loggingDocumentsRef = useRef(new Map());
   const logMountedRef = useRef(true);
   const [stageLog, setStageLog] = useState({ pending: [], acknowledged: [], busy: false });
+  const [allLogVersions,setAllLogVersions]=useState(false);
   const stageLoggerRef = useRef(null);
   if (!stageLoggerRef.current) stageLoggerRef.current = createInvoiceReceiptStageLogClient({
     onChange: value => { if (logMountedRef.current) setStageLog(value); },
   });
   useEffect(() => { logMountedRef.current = true; return () => { logMountedRef.current = false; }; }, []);
+  useEffect(()=>{if(userId){try{stageLoggerRef.current.restore(window.sessionStorage,userId);}catch{setStageLog(s=>({...s,storageError:'브라우저 대기 로그 보관을 사용할 수 없습니다. 창을 닫기 전에 서버 저장을 확인하세요.'}));}}},[userId]);
   const logStage = useCallback((event, occurrenceDocument) => {
     const saved = loggingDocumentsRef.current.get(`${event.documentId}:${event.revision}`);
     const document = occurrenceDocument || saved;
@@ -217,10 +220,10 @@ export default function InvoiceReceiptWorkbench({
       logStage({ ...stage, documentId: documentValue.documentId, revision: stage.revision ?? documentValue.revision }, documentValue);
     }
   }, [selected?.stageProgress, selected?.dirty, documentValue, logStage]);
-  const stageHistory = currentInvoiceStageHistory(documentValue, stageLog.acknowledged);
+  const stageHistory = currentInvoiceStageHistory(documentValue, stageLog.acknowledged,allLogVersions);
   const latestStageHistory = stageHistory.length ? invoiceStageHistorySummary(stageHistory.at(-1)) : null;
   const pendingStageLogs = stageLog.pending.filter(item => item.documentId === documentValue?.documentId
-    && item.payload.documentRevision === Number(documentValue?.revision) && item.payload.sourceHash === documentValue?.sourceHash);
+    && (allLogVersions || item.payload.documentRevision === Number(documentValue?.revision) && item.payload.sourceHash === documentValue?.sourceHash));
   const issues = Array.isArray(preview?.issues) ? preview.issues : [];
   const issuesByLine = useMemo(() => {
     const grouped = new Map();
@@ -594,6 +597,10 @@ export default function InvoiceReceiptWorkbench({
       if (!data.preview) throw new Error('미리보기 응답이 비어 있습니다.');
       if (Number(data.preview.documentRevision) !== Number(target.document.revision)) {
         throw new Error('서버 미리보기 revision이 현재 문서와 일치하지 않습니다.');
+      }
+      if(data.preview.validationLogSaved){
+        const fresh=await readDocument(target.document.documentId);
+        setRecords(current=>current.map(r=>r.document.documentId===fresh.documentId&&r.document.revision===fresh.revision?{...r,document:{...r.document,history:fresh.history}}:r));
       }
       return data.preview;
   }
@@ -984,6 +991,8 @@ export default function InvoiceReceiptWorkbench({
       {documentValue.lines.some(line => !line.prodKey) && <p role="alert">품목 수동 매칭이 필요합니다. 미매칭 행을 선택하고 필수 수량·단위·단가 및 농장·연도·차수를 확인하세요.</p>}
     </section>
     <section aria-label="현재 버전 처리 로그">
+      {stageLog.storageError&&<p role="alert">{stageLog.storageError}</p>}
+      <label><input type="checkbox" checked={allLogVersions} onChange={e=>setAllLogVersions(e.target.checked)}/> 수정 전 버전의 문제 기록도 보기</label>
       {pendingStageLogs.length > 0 && <p role={pendingStageLogs.some(item => item.error) ? 'alert' : 'status'}>
         단계 로그 {pendingStageLogs.length}건 {pendingStageLogs.some(item => item.terminal) ? '저장할 수 없는 로그가 있습니다. 문서를 다시 조회하세요.' : pendingStageLogs.some(item => item.error) ? '저장 확인 실패 · 로그만 재시도하세요. 입고·원가 저장은 다시 실행하지 마세요.' : '저장 확인 중'}
         <button type="button" disabled={stageLog.busy || pendingStageLogs.every(item => item.terminal)} onClick={() => stageLoggerRef.current.retry(pendingStageLogs[0]?.scope)}>로그만 다시 저장</button>
@@ -992,6 +1001,9 @@ export default function InvoiceReceiptWorkbench({
         {!stageHistory.length && <p>{documentValue.revision == null ? '문서를 저장하면 단계 로그를 기록합니다.' : '현재 버전의 서버 처리 이력이 아직 없습니다.'}</p>}
         <ol>{stageHistory.map((entry, index) => { const summary = invoiceStageHistorySummary(entry); return <li key={entry.historyId || entry.event?.eventId || index}>
           <strong>{summary.title}</strong>{' · '}{summary.status}{' · '}{summary.time}{' · '}{summary.actor}{' · '}{summary.provenance}
+          <span> · 버전 {entry.revision||entry.event?.documentRevision||'—'}</span>
+          {summary.reason&&<p>{summary.reason}</p>}
+          {entry.event?.issues?.length>0&&<ul>{entry.event.issues.map((issue,i)=><li key={i}>{issue.lineNo?`${issue.lineNo}행 · `:''}{issue.message} {issue.lineId&&rowRefs.current.has(issue.lineId)&&<button type="button" onClick={()=>{const row=rowRefs.current.get(issue.lineId);row?.scrollIntoView({block:'center'});row?.querySelector('input,select,button')?.focus();}}>해당 행 확인·수정</button>}</li>)}</ul>}
           {entry.event?.code && <details><summary>상세 코드</summary><code>{entry.event.code}</code></details>}
         </li>; })}</ol>
         {pendingStageLogs.length > 0 && <ul>{pendingStageLogs.map(item => {

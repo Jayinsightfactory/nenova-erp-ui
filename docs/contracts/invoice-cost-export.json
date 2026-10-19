@@ -149,7 +149,7 @@
     "idempotency": "same eventId same payload returns saved event; changed payload 409; no DDL; no additional attempt terminal state machine",
     "proof": "browser passed never proves ERP success; server current source/revision and authoritative operation/readInvoiceCosts MATCH validation",
     "failurePolicy": "asynchronous best effort, durable when acknowledged; explicit log-only retry, never gate/repeat business mutation",
-    "preDocumentLimitation": "pre-save conversion/matching not server durable; existing draft success persists rows; no promised retrospective event capture",
+    "preDocumentLimitation": "Pre-save upload failures, matching and total-mismatch counts use INVOICE_UPLOAD_ISSUE in SystemActionLog; see import-audit-history contract. Full row evidence is saved by server preview in WebInvoiceHistory. No retrospective capture before feature deployment.",
     "freeText": "forbidden; code whitelist and server-generated display only"
   },
   "security": {
