@@ -344,7 +344,7 @@ async function main() {
     resolveFetch({ ok: true, status: 200, json: async () => ({ ...ai({ invoices: [invoice] }), source: 'ai', cacheSaved: true }) }); await pendingProcess;
     tree = render();
     assert.ok(text(tree).includes('DB 매칭 미리보기'), 'parsed invoices remain in matching-first preview');
-    assert.ok(text(tree).includes('원문 검토'), 'final generation still requires explicit review');
+    assert.ok(text(tree).includes('DB 품목을 모두 연결한 뒤'), 'matching-first workflow explains the explicit next action');
     const reviewDialog = flatten(tree).find(node => node.type === 'EvidenceReview');
     assert.equal(reviewDialog.props.open, false, 'extraction does not auto-open the source review modal');
     const previewResults = flatten(tree).find(node => node.type === 'PackingResults');

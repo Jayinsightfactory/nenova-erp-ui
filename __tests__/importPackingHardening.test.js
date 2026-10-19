@@ -831,6 +831,8 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   reviewNode.props.onClose(); await h.refresh();
   let prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
   assert.ok(prepare, 'all-matched preview exposes the receipt CTA before review confirmation');
+  assert.ok(text(h.tree).includes('원본 품명 옆 DB 품목을 모두 연결한 뒤'));
+  assert.ok(!text(h.tree).includes('원문 검토를 명시적으로 적용'));
   prepare.props.onClick(); await h.refresh();
   assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, false,
     'valid all-match CTA generates a workbook without requiring a source checkbox');
