@@ -1694,9 +1694,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ))).filter(review => review.needsReview).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
   const prepareReceipt = () => {
-    if (!matchingComplete || latestShared || savingRef.current || processingRef.current || !sharedReady) return;
+    const blockedReason = !sharedReady ? '팀 공용 매칭 정보를 불러오는 중입니다. 조회 오류가 있으면 매칭 정보를 다시 불러오세요.'
+      : savingRef.current ? '품목 매칭 저장이 끝난 뒤 진행해 주세요.'
+      : processingRef.current ? '파일 분석이 끝난 뒤 진행해 주세요.'
+      : latestShared ? '다른 작업자가 매칭을 변경했습니다. 최신 매칭을 불러온 뒤 다시 진행해 주세요.'
+      : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
+    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); return; }
     receiptIntent.current = true;
     if (!reviewConfirmed || sourceReviewBlocked()) {
+      setStatus({ type: 'info', msg: '품목 매칭은 완료됐습니다. 열린 검토창에서 수량·단가와 송장 정보를 확인하고 하단의 「확인값 적용 · 결과 재생성」을 누르면 입고 준비로 이어집니다.' });
       setReviewInitialTarget(null); setReviewOpen(true);
       return;
     }
@@ -2035,7 +2041,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
                   <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">원본 PDF · 인식값 검증/수정</button>
-                  <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 검토 뒤 생성된 패킹만 다운로드할 수 있습니다.' : '매칭 미리보기입니다 · 원문 확인을 명시적으로 적용하기 전에는 패킹·다운로드를 생성하지 않습니다.'}</span>
+                  <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 입고 업로드로 이동할 수 있습니다. 실제 저장 전에는 다시 검증합니다.' : '품목 연결과 원본 숫자 확인은 별개입니다. 아래 「확인/수정 열기」를 눌러 수량·단가를 확인하세요.'}</span>
+                  {!reviewConfirmed && <p>① 원본 PDF와 인식값 비교 → ② 잘못 읽힌 값 수정·상품행 대조 확인 → ③ 검토창 아래 「확인값 적용 · 결과 재생성」 → ④ 「입고 업로드로 이동」. 번호·중량 미확인은 품목 매칭 오류를 뜻하지 않습니다.</p>}
                   <div>미리보기와 확인은 ERP 입고 DB에 저장하지 않습니다.</div>
                 </div>
                 {excels.length > 1 && (() => {
