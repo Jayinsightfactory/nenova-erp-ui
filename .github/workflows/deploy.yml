@@ -82,8 +82,31 @@ jobs:
             if [ ! -f .next/.mapping-db-capable ]; then
               node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
             fi
-            # Never discard concurrent/manual server edits. A dirty or diverged checkout
-            # needs inspection; preserve the running build instead of overwriting files.
+            # BEGIN PRESERVE_BUILD_OUTPUTS
+            # Previous builds regenerate these tracked files. Preserve exact copies and
+            # a binary patch before restoring only this allowlist; never touch other edits.
+            if ! git diff --cached --quiet; then
+              echo "DEPLOY_STAGED_CHANGES: preserving server edits; stopped"
+              exit 1
+            fi
+            mapfile -t build_outputs < <(git diff --name-only)
+            for changed in "${build_outputs[@]}"; do
+              case "$changed" in
+                data/generated/full-development-history.json|data/generated/menu-development-history.json|package-lock.json) ;;
+                *) echo "DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change; stopped"; exit 1 ;;
+              esac
+            done
+            if [ "${#build_outputs[@]}" -gt 0 ]; then
+              backup_root="${NENOVA_DEPLOY_BACKUP_ROOT:-/var/lib/nenova/deploy-backups}"
+              backup_dir="$backup_root/$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short HEAD)-$$"
+              mkdir -p "$backup_dir" || exit 1
+              cp --parents -- "${build_outputs[@]}" "$backup_dir/" || exit 1
+              git diff --binary -- "${build_outputs[@]}" > "$backup_dir/tracked-build-output.patch" || exit 1
+              git restore --source=HEAD --worktree -- "${build_outputs[@]}" || exit 1
+              echo "BUILD_OUTPUTS_BACKED_UP: $backup_dir"
+            fi
+            # END PRESERVE_BUILD_OUTPUTS
+            # Never discard any remaining edits or force a diverged checkout.
             if ! git diff --quiet || ! git diff --cached --quiet; then
               echo "DEPLOY_CHECKOUT_DIRTY: 서버 변경을 보존하고 배포 중단"
               git status --short

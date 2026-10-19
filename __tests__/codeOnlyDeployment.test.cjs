@@ -8,6 +8,40 @@ const start = source.indexOf('# BEGIN EXPLICIT_DB_MIGRATIONS');
 const end = source.indexOf('# END EXPLICIT_DB_MIGRATIONS');
 const block = source.slice(start, end);
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
+const os = require('node:os');
+const preserve = source.slice(source.indexOf('# BEGIN PRESERVE_BUILD_OUTPUTS'), source.indexOf('# END PRESERVE_BUILD_OUTPUTS'));
+
+for (const mode of ['known', 'unknown', 'staged']) {
+  test(`deployment preserves files and only restores backed-up build outputs: ${mode}`, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-deploy-preserve-'));
+    const git = (...args) => {
+      const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true });
+      assert.equal(r.status, 0, r.stderr); return r.stdout.trim();
+    };
+    try {
+      git('init'); git('config', 'user.email', 'test@example.invalid'); git('config', 'user.name', 'Fixture');
+      fs.writeFileSync(path.join(dir, 'package-lock.json'), 'original');
+      fs.writeFileSync(path.join(dir, 'server.js'), 'original code');
+      git('add', '.'); git('-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'fixture');
+      fs.writeFileSync(path.join(dir, 'package-lock.json'), 'server-generated');
+      fs.writeFileSync(path.join(dir, 'runtime.json'), 'must survive');
+      if (mode === 'unknown') fs.writeFileSync(path.join(dir, 'server.js'), 'manual change');
+      if (mode === 'staged') git('add', 'package-lock.json');
+      const r = spawnSync(bash, ['--noprofile', '--norc', '-c', preserve], {
+        cwd: dir, encoding: 'utf8', windowsHide: true,
+        env: { ...process.env, NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
+      });
+      assert.equal(r.status, mode === 'known' ? 0 : 1, r.stderr);
+      assert.equal(fs.readFileSync(path.join(dir, 'runtime.json'), 'utf8'), 'must survive');
+      assert.equal(fs.readFileSync(path.join(dir, 'package-lock.json'), 'utf8'), mode === 'known' ? 'original' : 'server-generated');
+      if (mode === 'known') {
+        const backup = path.join(dir, 'backups', fs.readdirSync(path.join(dir, 'backups'))[0]);
+        assert.equal(fs.readFileSync(path.join(backup, 'package-lock.json'), 'utf8'), 'server-generated');
+        assert(fs.readFileSync(path.join(backup, 'tracked-build-output.patch'), 'utf8').includes('server-generated'));
+      } else assert(!fs.existsSync(path.join(dir, 'backups')));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+}
 
 test('push and default dispatch never opt into database migrations', () => {
   assert.doesNotMatch(source, /git reset --hard|git push --force|--no-verify/);
