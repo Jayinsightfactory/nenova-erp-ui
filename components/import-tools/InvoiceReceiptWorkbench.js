@@ -1003,7 +1003,7 @@ export default function InvoiceReceiptWorkbench({
           <strong>{summary.title}</strong>{' · '}{summary.status}{' · '}{summary.time}{' · '}{summary.actor}{' · '}{summary.provenance}
           <span> · 버전 {entry.revision||entry.event?.documentRevision||'—'}</span>
           {summary.reason&&<p>{summary.reason}</p>}
-          {entry.event?.issues?.length>0&&<ul>{entry.event.issues.map((issue,i)=><li key={i}>{issue.lineNo?`${issue.lineNo}행 · `:''}{issue.message} {issue.lineId&&rowRefs.current.has(issue.lineId)&&<button type="button" onClick={()=>{const row=rowRefs.current.get(issue.lineId);row?.scrollIntoView({block:'center'});row?.querySelector('input,select,button')?.focus();}}>해당 행 확인·수정</button>}</li>)}</ul>}
+          {entry.event?.issues?.length>0&&<ul>{entry.event.issues.map((issue,i)=><li key={i}>{issue.lineNo?`${issue.lineNo}행 · `:''}{issue.message} {issue.lineId&&documentValue.lines.some(line=>line.lineId===issue.lineId)&&<button type="button" onClick={()=>{const row=rowRefs.current.get(issue.lineId);row?.scrollIntoView({block:'center'});row?.querySelector('input,select,button')?.focus();}}>해당 행 확인·수정</button>}</li>)}</ul>}
           {entry.event?.code && <details><summary>상세 코드</summary><code>{entry.event.code}</code></details>}
         </li>; })}</ol>
         {pendingStageLogs.length > 0 && <ul>{pendingStageLogs.map(item => {
