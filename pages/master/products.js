@@ -5,7 +5,7 @@ import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/di
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
-import { matchesProductFlowers, productFlowerCounts } from '../../lib/productCatalogFilter';
+import { matchesProductFlowers, productFlowerCounts, matchesProductCountry, productCountryCounts, groupProductsByCountryFlower } from '../../lib/productCatalogFilter';
 
 export default function Products() {
   const { t } = useLang();
@@ -24,7 +24,22 @@ export default function Products() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [selectedFlowers, setSelectedFlowers] = useState([]);
   const [photoTarget, setPhotoTarget] = useState(null);
-  const flowers = productFlowerCounts(products);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const countries = productCountryCounts(products);
+  const countryProducts = products.filter(p => matchesProductCountry(p, selectedCountry));
+  const flowers = productFlowerCounts(countryProducts);
+  const moveFilterFocus = event => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    const buttons = [...event.currentTarget.querySelectorAll('button')];
+    const index = buttons.indexOf(document.activeElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next].focus();
+  };
+  const chooseCountry = country => {
+    setSelectedCountry(country); setSelectedFlowers([]); setSelected(null); setPhotoTarget(null);
+  };
   const showPhoto = (event, product, editing = false) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setPhotoTarget({ product, editing,
@@ -43,10 +58,11 @@ export default function Products() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = rankProductSearchOptions(search, products
+  const filtered = rankProductSearchOptions(search, countryProducts
     .filter(p => matchesProductFlowers(p, selectedFlowers))
     .filter(p => !showOnlyNoAlias || !p.DisplayName)
     .filter(p => !search || filterProducts([p], search).length > 0), { limit: products.length });
+  const productGroups = groupProductsByCountryFlower(filtered);
 
   const handleSave = async () => {
     setSaving(true);
@@ -187,25 +203,24 @@ export default function Products() {
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
-      <div role="group" aria-label="품종 필터" style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'8px 0' }} onKeyDown={event => {
-        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-        const buttons = [...event.currentTarget.querySelectorAll('button')];
-        const index = buttons.indexOf(document.activeElement);
-        if (index < 0) return;
-        event.preventDefault();
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
-        buttons[next].focus();
-      }}>
-        <button type="button" className={`btn ${selectedFlowers.length ? 'btn-secondary' : 'btn-primary'}`} aria-pressed={!selectedFlowers.length} onClick={() => { setSelectedFlowers([]); setSelected(null); hidePhoto(); }}>전체</button>
+      <div role="group" aria-label="국가 선택" style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'8px 0' }} onKeyDown={moveFilterFocus}>
+        <strong style={{ alignSelf:'center' }}>국가</strong>
+        <button type="button" className={`btn ${selectedCountry === null ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={selectedCountry === null} onClick={() => chooseCountry(null)}>전체 국가</button>
+        {countries.map(([country, count]) => <button key={country} type="button" aria-pressed={selectedCountry === country}
+          className={`btn ${selectedCountry === country ? 'btn-primary' : 'btn-secondary'}`} onClick={() => chooseCountry(country)}>{country} ({count})</button>)}
+      </div>
+      {selectedCountry !== null && <div role="group" aria-label="품종 필터" style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'6px 0' }} onKeyDown={moveFilterFocus}>
+        <strong style={{ alignSelf:'center' }}>{selectedCountry} 품종</strong>
+        <button type="button" className={`btn ${selectedFlowers.length ? 'btn-secondary' : 'btn-primary'}`} aria-pressed={!selectedFlowers.length} onClick={() => { setSelectedFlowers([]); setSelected(null); hidePhoto(); }}>전체 품종</button>
         {flowers.map(([flower, count]) => <button key={flower} type="button" aria-pressed={selectedFlowers.includes(flower)}
           className={`btn ${selectedFlowers.includes(flower) ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => { setSelectedFlowers([flower]); setSelected(null); hidePhoto(); }}>
           {flower} ({count})
         </button>)}
-      </div>
+      </div>}
       <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:12, padding:'6px 0' }}>
-        <strong role="status" aria-live="polite">{selectedFlowers.length ? `${selectedFlowers[0]} 하위 품목` : '전체 품목'} · {filtered.length}개</strong>
-        <small style={{ color:'var(--text2)' }}>품종을 누르면 해당 하위 품목 표시 · 전체로 돌아가려면 ‘전체’ · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
+        <strong role="status" aria-live="polite">{selectedCountry ?? '전체 국가'} › {selectedFlowers[0] ?? '전체 품종'} · 하위 품목 {filtered.length}개</strong>
+        <small style={{ color:'var(--text2)' }}>국가 선택 → 품종별 하위 품목 · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
       </div>
       {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
@@ -230,8 +245,9 @@ export default function Products() {
                 <th style={{ textAlign: 'right' }}>재고</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((p, i) => (
+            {productGroups.map(group => <tbody key={group.key} aria-label={`${group.country} ${group.flower} 품목 묶음`}>
+              <tr><th colSpan={14} scope="rowgroup" style={{ textAlign:'left', background:'var(--primary-bg, #eff6ff)', padding:'7px 10px' }}>{group.country} › {group.flower} · {group.products.length}개</th></tr>
+              {group.products.map((p, i) => (
                 <tr
                   key={p.ProdKey}
                   className={selected?.ProdKey === p.ProdKey ? 'selected' : ''}
@@ -239,7 +255,7 @@ export default function Products() {
                   onDoubleClick={() => { setForm({ ...p }); setShowModal(true); }}
                   style={{ cursor: 'pointer' }}
                 >
-                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', fontSize: 12 }}>{i + 1}</td>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', fontSize: 12 }}>{group.start + i + 1}</td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>{p.ProdCode}</td>
                   <td style={{ fontSize: 11, color: 'var(--text3)' }}>
                     <button type="button" aria-label={`${p.ProdName} 사진 관리`} aria-describedby={photoTarget?.product.ProdKey === p.ProdKey && !photoTarget.editing ? 'product-catalog-photo' : undefined}
@@ -270,7 +286,8 @@ export default function Products() {
                   <td className="num" style={{ color: p.Stock === 0 ? 'var(--red)' : p.Stock < 10 ? 'var(--amber)' : 'var(--green)', fontWeight: 700 }}>{p.Stock}</td>
                 </tr>
               ))}
-            </tbody>
+            </tbody>)}
+            {!filtered.length && <tbody><tr><td colSpan={14}>선택한 국가·품종과 검색 조건에 맞는 품목이 없습니다.</td></tr></tbody>}
           </table>
         )}
       </div>
