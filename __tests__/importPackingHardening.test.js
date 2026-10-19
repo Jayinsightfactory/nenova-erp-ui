@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+// Keep the matching-first numeric gate in the mandatory import/ERP regression suite.
+require('./packingMatchNext.test.js');
 const fs = require('node:fs');
 const { webcrypto } = require('node:crypto');
 const babel = require('next/dist/compiled/babel/core');
@@ -830,9 +832,10 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   let prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
   assert.ok(prepare, 'all-matched preview exposes the receipt CTA before review confirmation');
   prepare.props.onClick(); await h.refresh();
-  assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, true,
-    'unreviewed all-match CTA opens review without generating a workbook');
-  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.open, true);
+  assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, false,
+    'valid all-match CTA generates a workbook without requiring a source checkbox');
+  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.open, false);
+  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.requireSourceConfirmation, false);
   reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
   const sourceInvoice = { invoice: 'INV-REFRESH', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09',
     date_order: 'YMD', date_kind: 'invoice', currency: 'USD', invoice_total: 20, freight_total: 0,
@@ -859,13 +862,13 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'invalidated output no longer publishes receipt rows');
   assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.rows, retainedReview.props.rows,
     'the source-review draft rows stay mounted through mapping refresh');
-  assert.ok(text(h.tree).includes('확인값 적용됨'), 'mapping refresh preserves the completed source-review confirmation');
+  assert.ok(text(h.tree).includes('별도 원문확인 체크는 필요 없습니다'), 'refresh retains the matching-first workflow');
   assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 0,
     'refresh is read-only and does not save an ERP mapping');
   const retainedMatchRows = results.props.excels[0].products.map(row => row.matchingDescription);
   const postsBeforePrepare = h.erpRequests.filter(request => request.options?.method === 'POST').length;
   prepare = h.nodes('button').find(node => node.props['data-testid'] === 'packing-receipt-prepare');
-  assert.equal(text(prepare), '입고 업로드 준비');
+  assert.equal(text(prepare), '다음 · 입고 준비');
   prepare.props.onClick(); await h.refresh();
   results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
   assert.equal(results.props.previewOnly, false, 'confirmed CTA rebuilds without reopening source review');

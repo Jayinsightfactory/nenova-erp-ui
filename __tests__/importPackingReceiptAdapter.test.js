@@ -149,7 +149,7 @@ test('hashes the original file bytes and creates stable UUIDv8 document and line
   });
 });
 
-test('PDF receipts require an actual rendered all-row source review and reject stale audits', async () => {
+test('PDF receipts validate values and source identity without requiring render/checkbox; stale edits still fail', async () => {
   const adapter = await ready;
   const invoice = {
     invoice: 'CO-PDF-REVIEW', supplier: 'Teucali', date: '2026/10/09', currency: 'USD',
@@ -173,11 +173,13 @@ test('PDF receipts require an actual rendered all-row source review and reject s
 
   const noRenderedPdf = structuredClone(reviewed);
   noRenderedPdf.packingReview.sourceReview.pdf.rendered = false;
-  await assert.rejects(adapter.adaptPackingReceipts({ ...base, invoices: [noRenderedPdf] }), /PDF 렌더/);
+  const [withoutRender] = await adapter.adaptPackingReceipts({ ...base, invoices: [noRenderedPdf] });
+  assert.equal(withoutRender.lines[0].reviewed.sourceConfirmed, false);
 
   const oneUnchecked = structuredClone(reviewed);
   oneUnchecked.packingReview.sourceReview.rows[0].confirmed = false;
-  await assert.rejects(adapter.adaptPackingReceipts({ ...base, invoices: [oneUnchecked] }), /상품행 1/);
+  const [unchecked] = await adapter.adaptPackingReceipts({ ...base, invoices: [oneUnchecked] });
+  assert.equal(unchecked.lines[0].reviewed.sourceConfirmed, false);
 
   const stale = structuredClone(reviewed);
   stale.products[0].t_price = 11;

@@ -112,3 +112,9 @@
 - 실제 FormStockView CLI 및 2026/32 Stock/확정매출 존재 SELECT probe 확인. 기능검사와 배포 결과는 세션 MD에 기록하며 성공 전 운영 완료로 판정하지 않는다.
 - 검색어: profit-validation 수익률검증 새창 popup 연도차수 읽기전용
 - 로컬 verify:erp-change(build 포함), dnSpy evidence, UI layout, 합성 Chrome 교차연도/실패/390px/키보드/GET-only 통과. PR·배포·운영 새창은 아직 미검증.
+
+## 2026-10-19 패킹 매칭 완료 후 다음 단계
+- 사용자 요구에 따라 원본 품명 옆 DB 품목 매칭을 완료하면 별도 원문확인 체크 없이 다음 단계로 이동. PDF 렌더 실패 자체가 입고 준비를 취소하지 않도록 분리.
+- 실제 필수 숫자/음수/원본 해시/수정 스냅샷/날짜·통화·총액/단위 검증은 보존. 기존 입고 writer와 중복/연도 검증 변경 없음. ERP 원장 쓰기 수행하지 않음.
+- 수정 전 로컬 dnSpy 및 2025/2026 42-02 읽기 전용 probe. 전체 ERP 계약, dnSpy, 변경 manifest/write guard, build 통과. 격리 브라우저에서 체크 없이 10→20 수정 적용, VALUES_APPLIED/confirmed=false 검증. 후속 문구 수정 빌드와 운영 배포는 진행 중(아직 미검증).
+- 검색어: packing-match-next assertPackingSourceValues VALUES_APPLIED 원문확인체크제거
