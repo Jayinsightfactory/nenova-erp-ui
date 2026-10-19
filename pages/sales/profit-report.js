@@ -1027,8 +1027,8 @@ export default function ProfitReportPage() {
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : undefined}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
-              <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={visibleCols}
-                disabled={!data || saving || loading} beforeOutput={async () => !dirty || await save()} />
+              <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={shownColumns.map(cd => cd.key)} showCategory={isVisible('category')}
+                disabled={!data || saving || loading || String(data.orderYear) !== reportYear || Number(data.major) !== Number(weekInput.value)} beforeOutput={async () => !dirty || await save()} />
               <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}

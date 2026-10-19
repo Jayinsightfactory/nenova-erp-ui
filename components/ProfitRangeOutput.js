@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { collectOutput, combineOutputBooks, outputPrintHtml, outputWeeks } from '../lib/profitRangeOutput.mjs';
 
-export default function ProfitRangeOutput({ year, major, visibleCols, beforeOutput, disabled }) {
+export default function ProfitRangeOutput({ year, major, visibleCols, showCategory = true, beforeOutput, disabled }) {
   const [selected, setSelected] = useState([major]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
@@ -33,7 +33,7 @@ export default function ProfitRangeOutput({ year, major, visibleCols, beforeOutp
         onProgress: ({ done, total, week }) => setProgress(`${done}/${total}차 완료 · ${Number(week)}차 조회`),
         fetchWeek: async (y, w, signal) => {
           const cols = visibleCols.filter(k => k !== 'category').join(',');
-          const res = await fetch(`/api/sales/profit-report-output?year=${encodeURIComponent(y)}&week=${w}&cols=${encodeURIComponent(cols)}`, { credentials: 'same-origin', signal });
+          const res = await fetch(`/api/sales/profit-report-output?year=${encodeURIComponent(y)}&week=${w}&cols=${encodeURIComponent(cols)}&category=${showCategory ? '1' : '0'}`, { credentials: 'same-origin', signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const result = await res.json();
           if (!result.success) throw new Error(result.error || '조회 실패');
