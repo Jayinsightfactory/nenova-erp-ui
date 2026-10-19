@@ -4,6 +4,7 @@ import PackingResults from './PackingResults.js';
 import { packingReceiptMatchState, effectivePackingMatchReview } from '../../lib/packingReceiptMatchState.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
 import PackingProductMatchDialog from './PackingProductMatchDialog.js';
+import InvoiceUploadIssues from './InvoiceUploadIssues.js';
 import PackingMatchManager from './PackingMatchManager.js';
 import ChinaLegacyReview from './ChinaLegacyReview.js';
 import { findLegacyChinaInvoiceCandidates, parseChinaLegacyInvoiceWorkbook } from '../../lib/importChinaLegacyInvoice.js';
@@ -1744,6 +1745,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
+        <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'||Boolean(matchError)} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} onChooseFile={()=>fileRef.current?.click()}/>
         {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
         {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
         {savedWork && !file && <section className={styles.sourceBadge} aria-label="보관된 패킹 작업">

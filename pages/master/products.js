@@ -6,6 +6,7 @@ import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
 import ProductBulkEditor from '../../components/catalog/ProductBulkEditor';
+import ProductInputHistory from '../../components/catalog/ProductInputHistory';
 import { matchesProductFlowers, productFlowerCounts, matchesProductCountry, productCountryCounts, groupProductsByCountryFlower } from '../../lib/productCatalogFilter';
 
 export default function Products({embedded=false,onDirtyChange}={}) {
@@ -27,6 +28,7 @@ export default function Products({embedded=false,onDirtyChange}={}) {
   const [photoTarget, setPhotoTarget] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [bulkEdit,setBulkEdit]=useState(false);
+  const [showInputHistory,setShowInputHistory]=useState(false);
   const countries = productCountryCounts(products);
   const countryProducts = products.filter(p => matchesProductCountry(p, selectedCountry));
   const flowers = productFlowerCounts(countryProducts);
@@ -226,7 +228,8 @@ export default function Products({embedded=false,onDirtyChange}={}) {
       </div>
       {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
-      <div style={{margin:'8px 0'}}><button type="button" className="btn btn-primary" disabled={bulkEdit||loading} onClick={()=>{setBulkEdit(true);setPhotoTarget(null);}}>영역 선택 · 일괄 입력</button></div>
+      <div style={{margin:'8px 0'}}><button type="button" className="btn btn-primary" disabled={bulkEdit||loading} onClick={()=>{setBulkEdit(true);setPhotoTarget(null);}}>영역 선택 · 일괄 입력</button> <button type="button" className="btn btn-secondary" aria-expanded={showInputHistory} onClick={()=>setShowInputHistory(v=>!v)}>품목 입력 히스토리</button></div>
+      {showInputHistory&&<ProductInputHistory key={selected?.ProdKey||'all'} product={selected}/>}
       {bulkEdit&&<ProductBulkEditor rows={productGroups.flatMap(g=>g.products)} products={products} onDirtyChange={onDirtyChange} onClose={()=>setBulkEdit(false)} onSaved={saved=>setProducts(current=>current.map(p=>{const row=saved.find(r=>r.prodKey===p.ProdKey);return row?{...p,...row.after}:p;}))}/>}
       <div className="table-wrap" hidden={bulkEdit}>
         {loading ? <div className="skeleton" style={{ height: 300, borderRadius: 0 }}></div> : (
