@@ -40,6 +40,23 @@ function numberOrNull(value) {
   return Number.isFinite(number) ? number : value;
 }
 
+function tariffPercent(value) {
+  return value === '' || value == null ? '' : Number((Number(value) * 100).toFixed(8));
+}
+function tariffFraction(value) {
+  return value === '' || value == null ? '' : Number(value) / 100;
+}
+function manualFieldsNeeded(line, input, fields) {
+  if (Number(line.outQuantity) === 0 && line.outQuantity != null) return [];
+  return fields.filter(key => {
+    if (key === 'stemsPerBunch' && ['STEM', '송이', '스팀'].includes(line.outUnit)) return false;
+    const value = numberOrNull(input[key]);
+    if (value === null || !Number.isFinite(Number(value))) return true;
+    if (key === 'tariffRate') return value < 0 || value > 1;
+    return key === 'stemsPerBunch' || key === 'bunchesPerBox' ? value <= 0 : value < 0;
+  });
+}
+
 const LINE_FIELD_LABELS = Object.freeze({ tariffRate: '관세율', otherCostPerUnitKRW: '기타비/단위', stemsPerBunch: '단당 송이', bunchesPerBox: '박스당 단수', grossWeightKg: '실중량 kg', volumeWeightKg: 'CBM 환산중량 kg' });
 const LEGACY_LINE_FIELDS = Object.freeze({
   CN_SEA_ACTUAL_V1: ['tariffRate', 'otherCostPerUnitKRW'],
@@ -297,6 +314,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const workflowLocksRef = useRef(new Set());
   const pristineRef = useRef(true);
   const [inputEdited, setInputEdited] = useState(false);
+  const [manualLineFilter, setManualLineFilter] = useState(null);
   const isCurrent = (expectedIdentity = identity, expectedGeneration = generationRef.current) => isInvoiceCostGenerationCurrent({
     mounted: mountedRef.current, currentIdentity: identityRef.current, currentGeneration: generationRef.current,
     expectedIdentity, expectedGeneration,
@@ -430,7 +448,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     setPreview(null);
   }
 
-  function updateLine(lineId, name, value) {
+  function updateLine(lineId, name, value, displayValue) {
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -438,7 +456,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       ...current,
       formulaApplicabilityConfirmed: false,
       lossTreatmentConfirmed: false,
-      lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value } : line),
+      lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value,
+        ...(name === 'tariffRate' ? { tariffPercentText: displayValue } : {}) } : line),
     }));
     setPreview(null);
   }
@@ -632,6 +651,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const selectedFormula = INVOICE_COST_FORMULAS[form.formulaId];
   const isChinaAir = form.formulaId === 'CN_AIR_WEIGHT_CBM_V1';
   const lineFields = visibleLineFields(selectedFormula);
+  const neededByLine = new Map(receiptLines.map(line => [line.lineId, manualFieldsNeeded(line, form.lineInputs.find(item => item.lineId === line.lineId) || {}, lineFields)]));
+  const manualLineIds = receiptLines.filter(line => neededByLine.get(line.lineId).length > 0).map(line => line.lineId);
   const groupIds = formulaGroupIds(selectedFormula);
   const groupFields = formulaGroupFields(selectedFormula);
   const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || !allowedFormulaIds.includes(form.formulaId)));
@@ -667,7 +688,9 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <button type="button" onClick={loadApprovedInput} disabled={busy || Boolean(pending) || inputEdited || formIdentity !== identity || !currentCommittedWarehouseKey(document)}>승인 입력 불러오기</button>
       <p>현재 버전의 승인 입력을 불러옵니다. 편집값은 덮어쓰지 않으며 적용 확인은 다시 필요합니다.</p>
     </div>
-    <h4>현재 편집값 검토</h4>
+    <h4>자동으로 찾지 못한 값 · 직접 입력</h4>
+    <p>품목은 위 입고 문서의 전산 품목 검색에서 직접 지정하세요. 아래 환율·통관비·관세율은 직접 입력할 수 있습니다. 관세율은 25%이면 25를 입력하며, 면세가 확인된 경우에만 0을 입력하세요.</p>
+    <p>원가 승인 저장을 누르면 직접 입력한 값과 사유가 서버에 저장됩니다. 다시 열었을 때 ‘승인 입력 불러오기’로 복원할 수 있습니다. 저장 전 편집값은 아직 서버에 반영되지 않습니다. 기존 입고 연결 건은 원가만 저장하며 입고를 다시 등록하지 않습니다.</p>
     {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
 
     <ol className={styles.workflow} aria-label="원가 처리 단계">
@@ -737,14 +760,22 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
         <div><dt>원본 SHA-256</dt><dd><code>{form.formulaSourceHash || '공식 선택 필요'}</code></dd></div></dl>
     </details>
 
+    <div className={styles.savedActions}>
+      <button type="button" onClick={() => setManualLineFilter({ identity, ids: manualLineIds })}>직접 입력 필요 {manualLineIds.length}행 보기</button>
+      <button type="button" onClick={() => setManualLineFilter(null)}>전체 {receiptLines.length}행 보기</button>
+      <span>입력 중에는 행이 사라지지 않습니다. 입력 완료 후 미리보기로 전체 값을 검증하세요.</span>
+    </div>
     <div className={styles.tableRegion} role="region" aria-label="행별 원가 입력과 결과" tabIndex={0}>
       <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th>{groupIds.length > 0 && <th>포장 그룹</th>}{lineFields.map(key => <th key={key}>{LINE_FIELD_LABELS[key] || key}</th>)}<th>실제 원가</th></tr></thead>
         <tbody>{receiptLines.map((line, index) => {
+          if (manualLineFilter?.identity === identity && !manualLineFilter.ids.includes(line.lineId)) return null;
           const lineInput = form.lineInputs.find(item => item.lineId === line.lineId) || {};
           const result = lineResult.get(String(line.lineId).toLowerCase());
           return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small></td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
             {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
-            {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '1' : undefined} step="0.000001" value={lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, event.target.value)} />
+            {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '100' : undefined} step="0.000001" placeholder="직접 입력" aria-invalid={neededByLine.get(line.lineId).includes(key)} value={key === 'tariffRate' ? lineInput.tariffPercentText ?? tariffPercent(lineInput[key]) : lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, key === 'tariffRate' ? tariffFraction(event.target.value) : event.target.value, event.target.value)} />
+              {key === 'tariffRate' && <small>% · 25 입력 = 25%</small>}
+              {neededByLine.get(line.lineId).includes(key) && <small className={styles.issue}>직접 입력 필요</small>}
               {key === 'grossWeightKg' && line.sourceEvidence?.grossWeightKg !== undefined && <small>인식 힌트: {line.sourceEvidence.grossWeightKg} kg · 직접 검토 필요</small>}</td>)}
             <td>{result ? result.quantity === 0
               ? <><strong>취소행</strong><small>단위원가 미산정 · 합계 {money(result.totalCostKRW)}</small></>
