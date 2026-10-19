@@ -145,7 +145,9 @@ export default function CatalogImagePicker({
                 >
                   위치
                 </button>
-                <label className="btn btn-sm" style={{ cursor: busy ? 'not-allowed' : 'pointer' }}>
+                <label className="btn btn-sm" role="button" tabIndex={busy ? -1 : 0} aria-disabled={busy} onKeyDown={e => {
+                  if (!busy && ['Enter', ' '].includes(e.key)) { e.preventDefault(); e.currentTarget.querySelector('input')?.click(); }
+                }} style={{ cursor: busy ? 'not-allowed' : 'pointer' }}>
                   교체
                   <input type="file" accept="image/*" hidden disabled={busy} onChange={e => onFileChange(e, img.id)} />
                 </label>
@@ -162,7 +164,9 @@ export default function CatalogImagePicker({
               )}
             </div>
           ))}
-          <label className={`catalog-img-add ${busy ? 'disabled' : ''}`}>
+          <label className={`catalog-img-add ${busy ? 'disabled' : ''}`} role="button" tabIndex={busy ? -1 : 0} aria-disabled={busy} onKeyDown={e => {
+            if (!busy && ['Enter', ' '].includes(e.key)) { e.preventDefault(); fileRef.current?.click(); }
+          }}>
             <span>＋ 추가</span>
             <input ref={fileRef} type="file" accept="image/*" hidden disabled={busy} onChange={e => onFileChange(e, null)} />
           </label>

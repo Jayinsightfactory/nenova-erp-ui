@@ -4,6 +4,8 @@ import { useLang } from '../../lib/i18n';
 import { suggestDisplayName, getDisplayName, filterProducts } from '../../lib/displayName';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
+import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
+import { matchesProductFlowers, productFlowerCounts } from '../../lib/productCatalogFilter';
 
 export default function Products() {
   const { t } = useLang();
@@ -20,6 +22,16 @@ export default function Products() {
   const [reviewItems, setReviewItems] = useState(null);  // null = 모달 닫힘
   const [reviewEdits, setReviewEdits] = useState({});    // { prodKey: string }
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [selectedFlowers, setSelectedFlowers] = useState([]);
+  const [photoTarget, setPhotoTarget] = useState(null);
+  const flowers = productFlowerCounts(products);
+  const showPhoto = (event, product, editing = false) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPhotoTarget({ product, editing,
+      left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 304)),
+      top: Math.max(8, Math.min(rect.top, window.innerHeight - 330)) });
+  };
+  const hidePhoto = () => setPhotoTarget(current => current?.editing ? current : null);
 
   const load = () => {
     setLoading(true);
@@ -32,6 +44,7 @@ export default function Products() {
   useEffect(() => { load(); }, []);
 
   const filtered = rankProductSearchOptions(search, products
+    .filter(p => matchesProductFlowers(p, selectedFlowers))
     .filter(p => !showOnlyNoAlias || !p.DisplayName)
     .filter(p => !search || filterProducts([p], search).length > 0), { limit: products.length });
 
@@ -174,6 +187,24 @@ export default function Products() {
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
+      <div role="group" aria-label="품종 필터" style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'8px 0' }} onKeyDown={event => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        const buttons = [...event.currentTarget.querySelectorAll('button')];
+        const index = buttons.indexOf(document.activeElement);
+        if (index < 0) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+        buttons[next].focus();
+      }}>
+        <button type="button" className={`btn ${selectedFlowers.length ? 'btn-secondary' : 'btn-primary'}`} aria-pressed={!selectedFlowers.length} onClick={() => { setSelectedFlowers([]); hidePhoto(); }}>전체</button>
+        {flowers.map(([flower, count]) => <button key={flower} type="button" aria-pressed={selectedFlowers.includes(flower)}
+          className={`btn ${selectedFlowers.includes(flower) ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setSelectedFlowers(current => current.includes(flower) ? current.filter(f => f !== flower) : [...current, flower]); hidePhoto(); }}>
+          {flower} ({count})
+        </button>)}
+      </div>
+      <small style={{ color:'var(--text2)' }}>품종 복수 선택 · 선택한 버튼을 다시 누르면 해제 · 품목명에 마우스를 올리면 사진, 클릭하면 사진 관리</small>
+      {photoTarget && <ProductCatalogPhoto key={`${photoTarget.product.ProdKey}-${photoTarget.editing}`} target={photoTarget} onClose={() => setPhotoTarget(null)} />}
       {err && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>⚠️ {err}</div>}
       <div className="table-wrap">
         {loading ? <div className="skeleton" style={{ height: 300, borderRadius: 0 }}></div> : (
@@ -207,7 +238,14 @@ export default function Products() {
                 >
                   <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', fontSize: 12 }}>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>{p.ProdCode}</td>
-                  <td style={{ fontSize: 11, color: 'var(--text3)' }}>{p.ProdName}</td>
+                  <td style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    <button type="button" aria-label={`${p.ProdName} 사진 관리`} aria-describedby={photoTarget?.product.ProdKey === p.ProdKey && !photoTarget.editing ? 'product-catalog-photo' : undefined}
+                      onMouseEnter={e => showPhoto(e, p)} onMouseLeave={hidePhoto}
+                      onFocus={e => showPhoto(e, p)} onBlur={hidePhoto}
+                      onClick={e => { e.stopPropagation(); setSelected(p); showPhoto(e, p, true); }}
+                      onDoubleClick={e => e.stopPropagation()}
+                      style={{ border:0, background:'transparent', padding:0, color:'var(--blue)', font:'inherit', textAlign:'left', cursor:'pointer' }}>{p.ProdName}</button>
+                  </td>
                   <td
                     className="name"
                     style={{ background: p.DisplayName ? 'var(--primary-bg, #eff6ff)' : undefined }}
