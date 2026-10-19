@@ -19,3 +19,13 @@
 - 근거: 실제 dnSpy FormOrderAdd.GetDataProduct 재확인, 인증 운영 화면 카네이션379/장미814 읽기 확인.
 - 메뉴 기준 적용: 기존 shell, 버튼 방향키 및 Enter/Space, 하위 품목 제목과 필터 범위. ERP 저장 선확인/진행률은 해당 없음(조회 UI만). 기존 넓은 표 가로스크롤은 유지.
 - 검증: 실제 페이지 SSR 및 버튼 핸들러의 품종 전환/재클릭/전체 복귀 통과. verify:erp-change(빌드 포함), test:ui-layout 통과. 로컬 브라우저 Enter/Space/방향키 및 품종/전체 전환 확인. 배포 진행 중.
+
+## 최종 분류 정정 Q/A — 국가 → 품종 → 하위 품목
+- Q: 네덜란드/콜롬비아/중국 국가 버튼을 누르면 품종별 하위 품목이 나오도록 검증·배포.
+- A: 국가 단일 버튼이 상위. 국가 선택 후 그 국가에 있는 품종만 하위 버튼으로 표시하고, 표는 국가+품종별 제목/건수 아래 품목을 묶는다. 전체 국가는 국가+품종별 전체 묶음을 표시. 국가 변경 시 하위 선택 해제, 검색은 유지.
+- 기준: Product.CounName/FlowerName trim, null/공백은 미지정. 이름 추정/다른 국가 합침 없음. 원본 키/데이터 및 그룹 내 검색 순위 보존.
+- 부작용: React 상태/표시만 변경. Product/Flower/Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 보존. 사진 기존 공용 저장 유지.
+- 근거: 실제 dnSpy FormOrderAdd.GetDataProduct의 CounName/FlowerName, 운영 인증 화면3351개 중 네덜란드1306/콜롬비아1025/중국433 확인.
+- 기준선 적용: 기존 shell/키보드/가로표 유지, 새 내부 세로스크롤 없음. 저장 사전확인/진행률은 해당 없음(조회 UI).
+- 검증: 국가 전환 시 이전 품종 해제, 동일품종 타국 분리, 미지정/빈조건/교차연도/품목 수 보존 실행형 회귀 통과. 전체 검사·배포 진행 중.
+- 전체 검증 완료: verify:erp-change(빌드 포함), test:ui-layout 통과. 실제 브라우저 콜롬비아→카네이션→네덜란드 초기화→중국 키보드 선택 확인. PR·Cafe24 배포 진행.
