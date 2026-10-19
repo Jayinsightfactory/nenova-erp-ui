@@ -1,8 +1,125 @@
-# AGENTS.md — nenova-erp-ui (네노바웹 ERP) — Codex/Claude 공용
+# Nenova ERP 작업 가드
 
-먼저 읽기: `.claude/CLAUDE.md`(프로젝트 규칙·체크리스트), 루트 `CLAUDE.md`(DB 규칙), `docs/NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md`, `docs/DB_STRUCTURE.md`. 전역 규칙은 `~/.codex/AGENTS.md`.
+## 메뉴 개발 기본값 필수 확인
 
-## 이 저장소의 함정
+새 메뉴를 만들거나 기존 메뉴의 화면·업무 흐름을 수정하기 전에
+[`docs/MENU_DEVELOPMENT_DEFAULTS.md`](docs/MENU_DEVELOPMENT_DEFAULTS.md)를 읽는다.
+작업 시작 때 항상 적용 항목과 이번 기능에만 해당하는 항목을 구분하고, 완료 보고 또는
+PR에 기준선 확인 결과를 `적용 / 해당 없음 / 예외`와 근거로 남긴다. 최신 사용자 지시와
+확인된 기능 계약이 기준선보다 우선하며, 관련 없는 기존 메뉴를 일괄 변경하지 않는다.
+
+## 새 메뉴·페이지 화면틀 규칙
+
+일반 페이지의 왼쪽 메뉴와 상단바는 `pages/_app.js`만 소유한다. 새 `pages/**` 파일은 내용만 반환하고 `components/Layout`을 import하거나 `<Layout>`으로 다시 감싸지 않는다. 기존 자체 화면틀을 유지하면 `_app.js`의 `NO_LAYOUT`에 명시해 shell이 정확히 하나가 되게 한다. 새 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 등록한다. 일반 URL은 메뉴/상단바 각 1개, `?popup=1`은 간소화 상단바 1개/왼쪽 메뉴 0개인지 `npm run test:ui-layout`과 실브라우저로 확인한다. 자세한 예시는 `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`를 따른다.
+
+## 페이지 스크롤 기본값
+
+신규·수정 페이지는 내용 높이에 맞춰 아래로 늘어나고 페이지의 주 스크롤로 읽는 방식을 기본으로 한다. 목록·피드백·이력에 고정 viewport 높이와 작은 내부 세로 스크롤을 중첩하지 않는다. 넓은 표의 가로 스크롤, 입력 textarea, 명시적인 모달은 필요한 예외다. 임베드 화면도 내용 높이에 맞춰 확장하며, 숨긴 탭 복귀·상세 열기/닫기·작은 화면에서 잘림과 과도한 빈 공간을 검증한다. 한 화면에 넣으려고 글씨를 줄이지 않는다.
+
+## 모든 페이지의 키보드 조작 기준
+
+- 신규·수정하는 모든 페이지는 마우스 없이 핵심 업무를 끝낼 수 있게 설계하고 검증한다.
+- Tab/Shift+Tab 순서는 화면의 시각적·업무 순서와 같아야 하며, 주요 버튼·검색·입력·선택에 항상 도달할 수 있어야 한다. 기본 HTML 버튼·입력·선택 등 의미가 있는 컨트롤을 우선한다.
+- Enter/Space는 해당 컨트롤의 표준 동작을 수행하고, Escape는 열린 메뉴·팝업·취소 가능한 편집을 닫거나 취소하며 원래 조작 위치로 초점을 돌린다.
+- 표·목록·검색 후보처럼 반복 항목은 방향키로 항목을 이동하고 Enter로 선택할 수 있어야 한다. 방향키가 입력값 자체를 편집하는 표준 동작과 충돌하면 그 동작은 보존한다.
+- 초점 표시를 시각적으로 분명하게 유지하고, 포커스 가능한 비활성 컨트롤을 만들지 않는다. 양수 `tabIndex`, 키보드 동작 없는 클릭 전용 요소, 숨겨진 초점 이동은 사용하지 않는다.
+- 모달·팝업은 열릴 때 초점을 적절한 첫 조작부로 이동하고, 닫힐 때 호출 버튼으로 복귀한다. 키보드 단축키는 충돌 여부를 확인하고 화면에서 발견 가능하게 안내한다.
+- 회귀 검증에는 Tab/Shift+Tab, Enter/Space, Escape, 방향키 선택, 초점 표시·복귀를 포함한다.
+
+이 저장소의 주문·출고·입고·재고·견적 기능은 `nenova.exe`와 같은 MSSQL 데이터를 사용한다. 관련 기능을 만들거나 수정할 때 아래 절차는 선택사항이 아니다.
+
+## 호환성 범위 고정
+
+이 저장소의 호환성 대상은 **Nenovaweb 브라우저와 `nenova.exe`의 공유 ERP 원장**이다.
+Google Play/Expo/Android 15·16 경고, AAB, 네이티브 `.so` 정렬은 MOYI 같은 별도
+모바일 앱 저장소의 작업이며 이 저장소의 Nenovaweb 기능 변경에 적용하지 않는다.
+`/m` 경로도 네이티브 앱이 아닌 Nenovaweb 모바일 웹 화면이다. 상세 분류와
+웹 전용/ERP 원장 부작용 표는 [`docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`](docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md)를 따른다.
+
+## 작업 전 필수 확인
+
+`ShipmentDetail.CustKey`의 NULL·거래처 누락을 다루면 [2026-10-02 native NULL 정정](docs/SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)을 먼저 읽는다. EXE는 상세 CustKey를 기록하지 않는 정상 경로가 있고 ViewShipment 거래처는 상위 ShipmentMaster에서 결정된다. NULL만으로 오류·조회 제외·인쇄 차단·SQL 보정을 판단하지 않는다. 웹 신규 쓰기 정책과 기존 원장의 읽기 조건은 구분하며, 오래된 MD보다 실제 EXE 저장 SQL과 View 연결을 재확인한다.
+
+1. `docs/ERP_CHANGE_GUARD.md`
+2. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`
+3. `docs/ERP_COMPAT_INVARIANTS_2026-06-04.md`
+4. `docs/WEB_VS_ERP_CONFLICTS.md`의 작업 대상 View/SP/dnSpy 섹션
+5. `docs/contracts/*.json`의 대상 기능 계약
+6. 대상 API의 읽기·쓰기 테이블과 사용자 동작별 부작용 표
+7. `docs/NENOVA_DNSPY_CLI_WORKFLOW.md`와 대상 기능의 `docs/exe-golden/*.md` 근거 기록
+8. 견적·매출 downstream 영향 표: `Estimate`, `ShipmentDetail.Amount/Vat/isFix`, `WebProfitReport` 및 관련 View
+
+Nenova 연동 기능은 코드를 먼저 작성하지 않는다. 작업 전에 로컬 dnSpy CLI로 실제 `nenova.exe`의 관련 Form/Class/메서드와 SQL 테이블·저장 순서를 확인하고, 동일 업무키에 대한 읽기 전용 DB probe 결과를 남긴 뒤 구현한다. `ViewOrder`와 `ViewShipment` 조회만으로 `ShipmentFarm`, `ShipmentDate`, `OrderDetail`의 동작을 추정해서는 안 된다.
+
+DB 쓰기 기능은 `OrderYear + OrderWeek + CustKey + ProdKey`를 업무 키로 취급한다. `OrderWeek`는 매년 반복되므로 `OrderWeek`만으로 Master를 조회·수정·삭제하거나 집계하지 않는다. PK로 한 행을 지정한 뒤 표시용으로 `OrderWeek`를 읽는 경우만 예외다.
+
+## 차수피벗 주문/분배 계약
+
+| 동작 | 같은 연도·차수·업체·품목의 활성 주문 | OrderDetail | ShipmentDetail |
+|---|---:|---|---|
+| ADD | 없음 | 양수 주문 신규 등록 | 증가 |
+| ADD | 있음 | 변경 금지 | 증가 |
+| CANCEL | 있음/없음 | 변경 금지 | 감소 |
+
+- 주문 유무 판정에 전년도 동일 차수를 포함하지 않는다.
+- EXE 노출을 위한 수량 0 가짜 주문행을 만들지 않는다.
+- 공용 API를 재사용할 때는 `mode`와 순수 정책 함수로 부작용을 명시한다.
+
+농장분배 후보는 EXE의 `ViewWarehouse` 품목 전체 범위와 동일해야 한다. 후보를
+보여주는 GET과 최종 저장 트랜잭션은 `lib/shipmentFarmCandidates.js`의 공통
+`FARM_CANDIDATE_SCOPE_SQL`을 사용한다. 한쪽에만 연도·차수 조건을 추가하지 않는다.
+
+farm-only 저장은 `ShipmentFarm`과 `ShipmentDetail.Descr`만 변경할 수 있다.
+`OrderDetail`, `ShipmentDetail.OutQuantity/Amount/Vat/ShipmentDtm/isFix`,
+`ShipmentDate`, `Estimate`, `WebProfitReport`, 영업 매출 원장은 보존 대상이다.
+ADD/CANCEL로 출고 수량을 바꾸는 경우에는 견적 노출 진단(`DetailFix=1` 포함)과 해당 차수 확정 매출
+집계를 읽기 전용으로 확인하고, 직접 `Estimate` 원장을 생성하지 않는다.
+
+기능 추가·수정은 반드시 계약 JSON과 교차연도 fixture를 함께 추가·갱신한다. 계약이 없는 ERP 기능은 구현 완료로 간주하지 않는다.
+
+## 변경 후 필수 검증
+
+```powershell
+npm run test:erp-contract
+npm run test:nenova-dnspy-evidence
+npm run test:erp-manifest -- --changed-from HEAD^
+npm run guard:erp-writes -- --changed-from HEAD^
+npm run build
+```
+
+동일 검증은 `npm run verify:erp-change` 또는 `scripts/run-erp-change-guard.ps1`로 실행할 수 있다.
+
+운영 DB 보정은 수정 코드가 배포된 뒤에 수행하고, 보정 전후에 같은 연도·차수·업체·품목의 `ViewOrder`와 `ViewShipment`를 대조한다. 계약검사나 빌드가 실패하면 배포하지 않는다.
+견적·매출 영향 검증까지 남지 않으면 주문/분배 변경은 완료로 판정하지 않는다.
+
+## 수정 요청과 배포 동시 진행 원칙
+
+사용자가 기능 수정·보완을 요청하면 별도의 배포 지시를 기다리지 않고, 해당 요청을
+`수정 → 필수 테스트 → 커밋/PR → master 병합 → Cafe24 배포 → 실브라우저 스모크 확인`
+까지 포함한 하나의 작업으로 처리한다. 테스트 실패, GitHub 권한·Runner 장애, 운영
+환경 오류처럼 안전한 배포를 진행할 수 없는 사유가 있으면 실패 단계와 재시도 방법을
+즉시 보고하고, 검증을 건너뛴 배포는 하지 않는다.
+
+확정 시 음수재고가 발생하면 부족 품목·부족수량을 표시하고, 사용자가 명시적으로 확인한 경우에만 부족수량만큼 `StockHistory(ChangeType='재고조정')`를 기록한 뒤 재고 재계산·재확정을 수행한다. 이력 등록과 재계산은 한 트랜잭션으로 묶고 재계산 실패 시 롤백한다.
+
+견적서 확정수량 수정은 후속연도 `StockMaster`/`ProductStock` 스냅샷의 **존재 자체를 오류로 차단하지 않는다**. `usp_StockCalculation`은 `OrderYearWeek >= 선택차수`를 연도 경계 뒤까지 순회해 영향 `ProdKey`를 연쇄 재계산한다. 따라서 저장 전 `FUTURE_STOCK_SNAPSHOT_EXISTS` 류의 선차단은 금지하고, 동일 트랜잭션에서 native 재계산 후 선택차수 이상의 현재·후속연도 `ProductStock`이 `ROUND(Stock,3)<0`인 경우만 전체 롤백한다. 근거는 `docs/ERP_CHANGE_GUARD.md`의 `2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위`와 `docs/contracts/estimate-date-quantity.json`을 따른다.
+
+## 세션 Q&A 백업 (기본)
+
+의미 있는 작업이 끝나거나 사용자가 백업·컨텍스트 초기화를 말하면 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 질문→답변을 남기고 `docs/work-sessions/INDEX.md`를 갱신한다. 규칙 `.cursor/rules/session-qa-log.mdc`, 스킬 `.cursor/skills/session-qa-backup/SKILL.md`. 새 채팅은 대화 기억이 아니라 최근 세션 md를 읽는다.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
+
+
+## Codex/Claude 공용 보충 — 이 저장소의 함정
 - **로컬 체크아웃(`C:\Users\USER\nenova-erp-ui`)은 origin/master보다 수백 커밋 뒤.** 그 위에 커밋하면 남의 기능 삭제로 잡힌다. 수정은 항상 `git worktree add ../nw-<이름> -b <브랜치> origin/master` → PR. push 전 `git diff origin/master --stat` 눈으로 확인.
 - Windows CRLF: `git -c core.autocrlf=false commit`. 머지 전 `--ignore-space-at-eol`로 전 줄 변경 아님 확인.
 - 새 API/`pages/api/**`·주문·출고·견적·재고 변경은 `docs/contracts/*.json` 계약 등록 필수(`scripts/check-erp-contract-manifest.mjs`), `npm run test:erp-contract`·`guard:erp-writes` 통과. exe-golden(`docs/exe-golden`) 산식·수식 변경 금지.
@@ -13,3 +130,5 @@
 
 ## 검증
 - 배포 후 `https://nenovaweb.com/api/ping` 200, 버전 배지 = 커밋 해시.
+
+전역 규칙은 `~\/.codex\/AGENTS.md`, 진입 문서는 `.claude\/CLAUDE.md`·루트 `CLAUDE.md`.
