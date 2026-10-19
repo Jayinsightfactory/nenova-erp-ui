@@ -15,7 +15,7 @@ test('applied manual review clears preview warning only for the unchanged source
     draft.rows.forEach(row => { row.confirmed = true; });
     const applied = applyPackingSourceReview(invoice, draft, 'CN');
     const review = value => buildPackingMatchPreview({ invoices: [value], country: 'CN', erpMatches: { products: [] } })[0].products[0].sourceReview;
-    assert.equal(review(invoice).required, true);
+    assert.equal(review(invoice).required, false, 'valid values need no acknowledgement checkbox');
     assert.equal(review(applied).required, false);
     assert.equal(review({ ...applied, invoice_year: year + 1 }).required, true);
     assert.equal(review({ ...applied, products: [{ ...applied.products[0], total_bunch: 11 }] }).required, true);

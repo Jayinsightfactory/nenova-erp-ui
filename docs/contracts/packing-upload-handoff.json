@@ -5,7 +5,7 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {"name":"SELECT_MATCH", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"원문 국가/품목과 기존 팀 공용 CAS 저장. 후보 클릭 또는 Enter/Space에서 1회 저장하고 성공 후 닫음. 실패/409는 보존."},
-    {"name":"PREPARE_RECEIPT", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"품목 매칭 완료 후 명시 CTA. 원문/수량/가격 검증과 실제 입고 승인 유지. 작업 중 저장문서조회는 다음 단계로 표시하지 않음."},
+    {"name":"PREPARE_RECEIPT", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"품목 매칭 완료 후 명시 CTA. 별도 원문확인 체크 없이 공통 assertPackingSourceValues를 통과하면 생성·입고 준비. 실제 수량/가격/단위/중복 검증과 최종 명시 입고 승인은 유지. 작업 중 저장문서조회는 다음 단계로 표시하지 않음."},
     {"name":"RECOVER_WORK", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"SSR 및 auth/me 사용자 동일성 후 IndexedDB 같은 계정의 원본/분석/적용검토 복구. 최신 팀매칭 GET, 원본 해시 확인. 생성파일/서버 preflight/ERP commit 허가 복구 금지. 자동 ERP POST 없음."},
     {"name":"SYNC_RECEIPT_MATCH_STATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouseMaster":"preserve", "warehouseDetail":"preserve", "stock":"preserve", "notes":"현재 원본 file/ref·SHA-256·국가·인보이스 식별자·sourceInvoiceIndex/sourceLineIndex/sourceRow·lineId·명시 erpMatchConfirmed·현재 selectable 품목으로만 입고 문서 행별 UI 요약/직접 연결 행 상태를 표시. 공용 alias 저장/생성 버퍼 다운로드 승인/ERP 쓰기 없음. 생성 행 일대일 신원 불명확 시 문서 요약만 표시."}
   ],

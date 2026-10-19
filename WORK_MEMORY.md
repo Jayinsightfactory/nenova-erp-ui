@@ -105,3 +105,9 @@
 - 실제 임시 Git fixture에서 설정 보존·백업·동시 저장 유지·upstream 충돌·비정상 JSON 차단 통과. 전체 검사/CI·배포 진행 중, 운영 반영은 아직 미검증.
 - 상세 docs/work-sessions/2026-10-19_deploy-learned-units.md.
 - 검색어: DEPLOY_CHECKOUT_DIRTY order-import-units diagnose_checkout_only 운영학습보존
+
+## 2026-10-19 패킹 매칭 완료 후 다음 단계
+- 사용자 요구에 따라 원본 품명 옆 DB 품목 매칭을 완료하면 별도 원문확인 체크 없이 다음 단계로 이동. PDF 렌더 실패 자체가 입고 준비를 취소하지 않도록 분리.
+- 실제 필수 숫자/음수/원본 해시/수정 스냅샷/날짜·통화·총액/단위 검증은 보존. 기존 입고 writer와 중복/연도 검증 변경 없음. ERP 원장 쓰기 수행하지 않음.
+- 수정 전 로컬 dnSpy 및 2025/2026 42-02 읽기 전용 probe. 전체 ERP 계약, dnSpy, 변경 manifest/write guard, build 통과. 격리 브라우저에서 체크 없이 10→20 수정 적용, VALUES_APPLIED/confirmed=false 검증. 후속 문구 수정 빌드와 운영 배포는 진행 중(아직 미검증).
+- 검색어: packing-match-next assertPackingSourceValues VALUES_APPLIED 원문확인체크제거

@@ -26,6 +26,7 @@ function formatNumber(value, maximumFractionDigits = 3) {
 
 function sourceIssueText(requirement) {
   const labels = {
+    SOURCE_VALUE_INVALID: requirement?.message || '수량·단가 수정 필요',
     PRICE_OR_AMOUNT_MISSING: '단가·금액 미확인',
     CARTON_NUMBER_WARNING: '박스 번호 확인',
     POSITIONED_EVIDENCE_UNAVAILABLE: '원문 위치 확인',
@@ -303,7 +304,7 @@ export default function PackingResults({
       <div className={styles.resultsHeadingRow}>
         <div>
           <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
-          <p className={styles.resultsHint}>품목 연결 또는 원본 숫자 확인이 남은 행을 먼저 표시합니다. 품목 연결은 품목명을, 수량·단가 확인은 「확인/수정 열기」를 누르세요. 수동 확인 완료는 품목 연결 완료이며 원본 숫자 확인과는 별개입니다.</p>
+          <p className={styles.resultsHint}>원본 품명 옆 DB 품목을 선택하세요. 모두 매칭하면 다음 단계로 진행할 수 있습니다. 수량·단가 오류가 표시된 행만 「확인/수정 열기」에서 고치세요.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
