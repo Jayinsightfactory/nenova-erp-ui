@@ -145,3 +145,4 @@
 - 1~41차 전후 비교, 36~41차 실제 보고서 비교 및 기초 단가 화면 동등성 확인. 다른 국가 변경 없음. 이전 차수 원가 부족은 남아 있으며 41차 기말 0은 실제 감소 조정과 구분해 설명한다.
 - 신규 회귀와 전체 verify:erp-change(build 포함) 통과. CI·배포·운영 스모크 진행 중(아직 미검증). 상세 docs/work-sessions/2026-10-19_ecuador-acquisition-cost.md.
 - 검색어: ecu-acquisition-carry profitReportAcquisitionCarry 최근4차수 판매단가 기초기말 과거매입
+- PR #1105/ea015ab0 및 Cafe24 39257930494 성공, 운영 41차 평가값 변경 확인. 브라우저 스모크에서 week-check만 과거 캐시 경고를 읽는 불일치 발견하여 후속 보완 중. 검증창의 본표·원천 점검 모두 auditLive GET, 확정본·기본 호출 보존. 후속 배포 완료 전 미검증.

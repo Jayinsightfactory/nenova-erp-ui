@@ -41,6 +41,7 @@ async function main() {
   const {buildProfitReportAudit}=await import('../lib/profitReportAudit.js');
   const issues=buildProfitReportAudit([{category:'에콰도르',auto:{E:170000},beginStock:{priceEvidenceSources:['erp-purchase-carry:synthetic']}}],{orderYear:'2026',major:'40'});
   assert.ok(issues.issues.some(x=>x.code==='OLDER_ACQUISITION_RECONSTRUCTED'&&x.columns[0]==='E'));
+  assert.match(issues.issues.find(x=>x.code==='OLDER_ACQUISITION_RECONSTRUCTED').detail.summary,/판매단가가 아니라/);
   console.log('profitReportAcquisitionCarry: positive/near-miss/cross-year/freshness/side-effect passed');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
