@@ -1,6 +1,7 @@
 import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {scoreProductSearchOptions} from '../../lib/productSearchRanking.js';
 import {PACKING_COUNTRIES} from '../../lib/importPackingErpMatches.js';
+import {packingNlCandidateNames} from '../../lib/packingNlCandidates.js';
 import styles from '../../styles/PackingProductMatch.module.css';
 
 export default function PackingProductMatchDialog({target,country,products,matchEntries=[],onSave,onClose,onReload,saving,error}) {
@@ -10,7 +11,13 @@ export default function PackingProductMatchDialog({target,country,products,match
   const available=useMemo(()=>products.filter(p=>p.country===country).map(p=>({...p,
     MappingAliases:[...(p.MappingAliases||[]),...matchEntries.filter(e=>e.country===country&&e.prodKey===p.ProdKey&&e.prodName===p.ProdName&&p.selectable).map(e=>e.description)],
   })),[products,country,matchEntries]);
-  const candidates=useMemo(()=>scoreProductSearchOptions(search.trim()||target.description,available,{packingSuggestions:true}),[available,search,target.description]);
+  const candidates=useMemo(()=>{
+    const scored=scoreProductSearchOptions(search.trim()||target.description,available,{packingSuggestions:true});
+    if(country!=='NL'||search.trim())return scored;
+    const ranked=packingNlCandidateNames(target.description,available.map(p=>p.ProdName));
+    const preferred=ranked.map(item=>({option:available.find(p=>p.ProdName===item.name),suggestion:{reason:'품종명·규격 비교 후보'}}));
+    return [...preferred,...scored.filter(item=>!preferred.some(p=>p.option.ProdKey===item.option.ProdKey))];
+  },[available,search,target.description,country]);
   const validSelected=available.find(p=>p.ProdKey===selected&&p.selectable);
   const selectionWarning=target.requiresReload
     ? '전산·매칭 다시 조회 후 선택 재확인'
