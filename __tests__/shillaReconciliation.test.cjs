@@ -81,7 +81,7 @@ test('SQL SELECT-only exact year and hotel; extension origins restricted',()=>{
 });
 test('multipart API parses workbook, reloads DB, compares and rejects wrong source scope',async()=>{
  const http=require('node:http'),XLSX=require('xlsx'),babel=require('next/dist/compiled/babel/core');
- const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise;
+ const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise,matching=await import('../lib/shillaAnalysisMatching.js');
  const source=fs.readFileSync('pages/api/raum/shilla-analysis.js','utf8');
  const transformed=babel.transformSync(source,{plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
  let reads=0;
@@ -91,6 +91,7 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
    if(name.endsWith('/shillaPnlParse'))return parser;
    if(name.endsWith('/shillaPnlImportPolicy'))return policy;
    if(name.endsWith('/shillaReconciliation'))return helpers;
+   if(name.endsWith('/shillaAnalysisMatching'))return matching;
    if(name.endsWith('/shillaReconciliationServer'))return{loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
    return require(name);
  },m,m.exports);
@@ -108,4 +109,28 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
   const compared=await call('compare',payload);assert.equal(compared.status,200);assert.equal(compared.data.counts.excel,1);assert.equal(compared.data.totals.db,200);assert.equal(reads,2);
   payload.source.from='2026-05-01';const rejected=await call('compare',payload);assert.equal(rejected.status,400);assert.match(rejected.data.error,/입고 조회자료/);
  } finally {await new Promise(resolve=>server.close(resolve));}
+});
+test('saved active product links unify aliases but exclude conflicts, custom and prior-year evidence',async()=>{
+ const {reconcileShilla}=await modulePromise;
+ const row={...item,name:'덴파레 · 피치 M',unit:'단',prodKey:636,prodName:'DEN Peach M'};
+ const x={...input(),db:[row,{...row,name:'덴파래 · 피치 M'}],excel:[{...row,name:'덴파래 · 피치 M',qty:4,amount:400}],receipts:[]};
+ let r=reconcileShilla(x);assert.equal(r.rows.length,1);assert.equal(r.rows[0].db.qty,4);assert.equal(r.rows[0].aliases.length,2);
+ x.db.push({...row,prodKey:637});r=reconcileShilla(x);assert.match(r.issues[0],/충돌/);
+ x.db=[{...row,year:'2025'}];r=reconcileShilla(x);assert.equal(r.rows[0].prodKey,null);
+ x.db=[{...row,isCustom:true}];r=reconcileShilla(x);assert.equal(r.rows[0].prodKey,null);
+});
+test('owner confirmed Anthurium EA equals source 단 without numeric alteration',async()=>{
+ const {reconcileShilla}=await modulePromise;
+ const a={...item,name:'안시리움 · 화이트',unit:'단',prodKey:181,prodName:'Anthurium Graciosa 15cm'};
+ const x={...input(),db:[a],excel:[{...a}],receipts:[{...receipt,name:'[수입] 행사용꽃, 안스리움, 화이트 (EA)'}]};
+ const r=reconcileShilla(x);assert.equal(r.complete,true);assert.equal(r.rows[0].unit,'송이');assert.equal(r.rows[0].db.rows[0].originalUnit,'단');assert.equal(r.rows[0].srm.qty,2);assert.equal(r.rows[0].srm.amount,200);
+ x.receipts[0].unit='PK';assert.equal(reconcileShilla(x).unmatched.length,1);
+});
+test('unknown packs are suggestions only; explicit pack sizes and unique names required',async()=>{
+ const {reconcileShilla}=await modulePromise;
+ const a={...item,name:'히야신스 · 화이트',unit:'단-5스팀',prodKey:2883,prodName:'Hyacinth white'};
+ const x={...input(),db:[a],excel:[a],receipts:[{...receipt,name:'[수입] 행사용꽃, 히야신스, 화이트 (5EA/PK)',unit:'PK'}]};
+ assert.equal(reconcileShilla(x).complete,true);
+ x.receipts[0].name='[수입] 행사용꽃, 히야신스, 화이트 (PK)';assert.equal(reconcileShilla(x).unmatched.length,1);
+ x.db.push({...a,unit:'단',prodKey:2999,prodName:'Other cultivar'});assert.equal(Object.keys(reconcileShilla(x).suggestedMappings).length,0);
 });
