@@ -3,6 +3,7 @@
   "title": "서버 승인 원가의 국가별 원본 양식 출력과 내구성 단계 이력",
   "scope": [
     "lib/invoiceReceiptCostExport.js",
+    "lib/invoiceCostFormulaComparison.js",
     "lib/invoiceCostExportProfiles.js",
     "lib/invoiceReceiptStageLog.js",
     "lib/invoiceReceiptStageLogClient.js",
@@ -89,7 +90,7 @@
       "27-2 CLOUD",
       "26-2 CLOUD"
     ],
-    "output": "sanitized current-result-only single sheet",
+    "output": "sanitized current approved values in original-format first sheet plus separate 원본수식 비교 sheet; user authorized original calculation, saved values and differences together",
     "detailStartRow": 24,
     "detailPrototypeRow": 24,
     "originalLastDetailRow": 33,
@@ -111,7 +112,7 @@
       "unsupported external/embedded relationships",
       "historical properties"
     ],
-    "valuePolicy": "approved values in original cost-result positions; explicit unit mapping; no unsupported expense breakup or historical defaults inferred",
+    "valuePolicy": "approved values in original cost-result positions remain unchanged; explicit unit mapping; no unsupported expense breakup or historical defaults inferred. Separate comparison uses original allocation equations bound to current snapshot inputs, actual cached results and automatic Excel recalculation; missing China SEA CBM/bunches per box prevents all dependent freight totals, never zero-fills. See docs/plans/country-cost-export-formulas.md",
     "cnAirHeaderException": "Runtime OOXML only: remove B5:B6 and C5:C6 vertical merges, add C5:D5 horizontal period merge. B5=차수, C5=YYYY/WW-SS, J5:M5=승인 입력·합계, O5:U5=승인값 스냅샷 안내. Original source-bound JSON/hash, fonts, styles, columns, row heights, detail merges, and all other profiles remain unchanged; no shrink-to-fit.",
     "otherProfiles": "Only enabled profiles in lib/invoiceCostExportProfiles.js with source-bound sanitized assets and exact approved recalculation; all others EXPORT_TEMPLATE_UNSUPPORTED",
     "runtimePolicy": "sanitized format JSON asset generated from hash-verified source at build/preparation; asset hash/profile metadata checked; original private XLSX not required at runtime",
