@@ -52,9 +52,14 @@ const type=()=>({});const sql={VarChar:type,NVarChar:type,Char:type,Int:{},DateT
 const result=recordset=>({recordset});
 async function q(text,params={}) {
   sqlCalls.push(text);
+  // SQL Server 156 reproduced on production read-only history/metadata: ROWCOUNT is reserved even as an alias.
+  if(/\bAS\s+rowCount\b/i.test(text)) throw Object.assign(new Error('SQL_RESERVED_ALIAS'),{number:156});
   const v=Object.fromEntries(Object.entries(params).map(([k,x])=>[k,x.value]));
   if(text.includes('sp_getapplock')) return result([]);
   if(text.includes('FROM ecount_work.Head')) return result(db.head?[{...db.head,versionId:uppercaseSql?db.head.versionId.toUpperCase():db.head.versionId}]:[]);
+  if(text.startsWith('SELECT s.Dataset AS dataset')) return result([{dataset:'sales',sourceSnapshotKey:77,rowCount:1,periodFrom:null,periodTo:null}]);
+  if(text.startsWith('SELECT TOP 100 VersionId')) return result(db.versions.map(r=>({versionId:r.versionId,rowCount:JSON.parse(r.rows).length,sourceSnapshotKey:r.sourceSnapshotKey,sourceTakenAt:r.sourceTakenAt})));
+  if(text.startsWith('SELECT TOP 100 Revision')) return result(db.audit.map(r=>({revision:r.revision,versionId:r.version,previousVersionId:r.previous,action:r.action})));
   if(text.includes('FROM dbo.WebEcountSnapshot')) return result([{SnapshotKey:77,PeriodFrom:null,PeriodTo:null,RowCnt:sourceMismatch?2:1,TakenAt:new Date('2026-01-01T00:00:00Z')}]);
   if(text.includes('FROM dbo.WebEcountRow')) {assert(text.includes('SnapshotKey=@snapshot AND Dataset=@dataset'));assert.equal(v.snapshot,77);assert(!text.includes('SELECT Payload'));return result([{qty:'2',supplyAmt:'10',vat:'1',total:'11',isSubtotal:false},{qty:'2',supplyAmt:'10',vat:'1',total:'11',isSubtotal:true}]);}
   if(text.includes('FROM ecount_work.Version')) return result(db.versions.filter(r=>v.version?r.versionId===v.version:r.hash===v.hash).map(r=>({...r,versionId:uppercaseSql?r.versionId.toUpperCase():r.versionId,VersionId:r.versionId})));
@@ -70,9 +75,11 @@ async function withTransaction(fn) {
 }
 const storeSource=fs.readFileSync(path.join(__dirname,'../lib/ecountWorkspaceStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export async function /g,'async function ');
 const context={crypto,query:q,withTransaction,sql,policy:p,effectiveAuthority:u=>u.Authority};
-vm.createContext(context);vm.runInContext(storeSource+'\nthis.saveVersion=saveVersion;',context);
+vm.createContext(context);vm.runInContext(storeSource+'\nthis.saveVersion=saveVersion;this.readWorkspace=readWorkspace;',context);
 (async()=>{
   const first=await context.saveVersion(base,user);assert.equal(first.revision,1);assert.equal(db.versions.length,1);assert.equal(db.audit.length,1);
+  const history=await context.readWorkspace({...base,view:'history'});assert.equal(history.revision,1);assert.equal(history.versions.length,1);assert.equal(history.versions[0].rowCount,1);assert.equal(history.events.length,1);
+  const metadata=await context.readWorkspace({...base,view:'metadata'});assert.equal(metadata.sources[0].rowCount,1);assert.equal(metadata.sources[0].completeness,'unknown');assert.equal(metadata.sources[0].periodFrom,null);
   await assert.rejects(context.saveVersion(base,user),/REVISION_CONFLICT/); // Lost response: require reload, do not silently replay.
   assert(!JSON.stringify(db).includes('SENSITIVE'));assert(!JSON.stringify(db).includes(user.userId));
   uppercaseSql=true;
