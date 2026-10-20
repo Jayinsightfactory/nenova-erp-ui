@@ -408,3 +408,14 @@
 - 운영 SELECT만: 해당 송장102행 박스102/단5391/송이5391, 원본101상품행429/5390/68775와 다름. 자동 데이터 보정 없음. 실사용 PDF 재분석·운영 입고 쓰기 미검증, 배포 스모크 후속.
 - 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
 - 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존
+
+### 2026-10-20 조회창 운영 반환 검증·재고 준비
+- PR1137 root 운영검증(lookup-release-runtime-evidence.json): PO새창 Enter→부모 일별5열·dialog/child닫힘 PASS. Order새창 Space→집계5열·양쪽닫힘 PASS(첫 Enter 미반영 후 Space로 확인). Order dialog960×684/table406 일치. PO table922 vs 원본936, 최대화높이853 vs855 차이는 후속보완중. 원본 반환 완전동등성은 미검증.
+- 재고 stock 특례는 원본 품목코드열의 typed코드만 허용하고 다른 dataset의 제품코드 제외를 유지한다. 안전1949행/유일1949 확인, quantity정확문자열·단일기준일2026-10-20. 제품명·소계 미수집, 부분자료 unknown. stock-import-safe.json 준비만 했고 SQL실행없음.
+- 검색어: PR1137 lookup-return Space Enter table406 922936 stock1949 typed-productCode
+
+### 2026-10-20 salesTax 공급가액 누락 정정 준비
+- 운영20행80값 대조에서 공급가액20개 불일치 발견. 원본 수집키 supply를 wrapper의 supplyAmt로 명시 매핑하지 않아 null로 적재된 것이 원인. 날짜/vat/total은 일치. 최초 parser 통과/멱등 검증만으로 원본값 동등성을 보장하지 못했음을 정정.
+- 신규 salesTax import는 supplyAmt/vat/total 모두 필수 non-null 검증, 누락·빈값·공급가액 alias미매핑은 SQL진입전 거부. 과거v1은 읽기/불변보존하고 새버전 정정만 허용.
+- sales-tax-import-safe-corrected.json에서 supply→supplyAmt 매핑 후 원본20행×4필드80값 독립대조 mismatch0, sales-tax-correction-validation.json 기록. 아직 SQL실행없음; 필수5검사 통과 후 root가v2적재·운영재대조 예정.
+- 검색어: salesTax supply supplyAmt null20 80값 mismatch0 correction v1보존

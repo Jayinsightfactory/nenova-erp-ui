@@ -675,14 +675,14 @@
         "E040711",
         "E040728"
       ],
-      "stage": "queued",
+      "stage": "partially-observed",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040511",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "checkpoint": "Stock as-of snapshot partial observation:3columns,1949 product rows+1 aggregate; source title verified after recovery. Product names not collected; full parity pending.",
       "resumeFrom": null
     },
     {

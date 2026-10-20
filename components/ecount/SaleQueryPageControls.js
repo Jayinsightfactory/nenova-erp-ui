@@ -23,3 +23,8 @@ export function SaleQueryFooter({busy}) {
     <SplitFooterButton label="바코드(품목)"/>{['전자결재','선택삭제'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}<SplitFooterButton label="Excel(표시형식)"/><CombinedFooterButton label="이력조회"/>
   </div></ActionScope>;
 }
+
+export function formatSaleAmount(value){
+ const text=String(value??'');if(!/^-?\d+(?:\.\d+)?$/.test(text))return text;
+ const [whole,fraction]=text.split('.');return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(fraction===undefined?'':'.'+fraction);
+}

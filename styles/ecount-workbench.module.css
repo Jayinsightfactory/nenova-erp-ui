@@ -34,10 +34,16 @@
 
 .lookupDialog{background:#f6f7f9}.lookupDialog .lookupSearch{height:58px;min-height:58px}.lookupSearch h3{font-size:16px;font-weight:500;margin:0 6px;color:#111}.lookupDialog .lookupSearch input{width:153px;height:33px}.lookupCollapse{height:45px;min-height:45px;padding:0 11px 10px}.lookupDialog .lookupTree tbody th{width:auto;padding-left:5px}.lookupDialog .lookupTree tbody td{padding-left:25px;background:#f8f8f9}.lookupDialog .lookupKeyboardTip{margin-left:auto;border:0;background:transparent;font-size:12px}.lookupDialog>footer{background:#f6f7f9}
 
-.lookupDialog.lookupMaximized{position:fixed;inset:1px;width:calc(100vw - 2px);height:calc(100vh - 2px);max-width:none;max-height:none}
+.lookupDialog.lookupMaximized{position:fixed;inset:0 1px;width:calc(100vw - 2px);height:100vh;max-width:none;max-height:none}
 
 .saleQueryContent .saleQueryMeasuredTable tbody td:not(.empty){font-size:13px;line-height:18.5714px;padding:6.5px 3.25px;white-space:normal;word-break:break-word;overflow-wrap:break-word;text-align:center}.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(2):not(.empty),.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(3):not(.empty),.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(4):not(.empty){text-align:left}.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(5):not(.empty){text-align:right}
 
 .salesTaxTable{width:731px;max-width:100%}.salesTaxTable table{table-layout:fixed;width:731px;min-width:731px;font-family:'Malgun Gothic',Arial,sans-serif;font-size:13px;line-height:18.5714px}.salesTaxTable thead th{height:40.4375px;text-align:center;min-width:0;white-space:normal}.salesTaxTable tbody td:not(.empty){min-width:0;font-size:13px;line-height:18.5714px;padding:6.5px 3.25px;word-break:break-word;overflow-wrap:break-word;text-align:center}.salesTaxTable tbody td:nth-child(3):not(.empty){text-align:left}.salesTaxTable tbody td:nth-child(4):not(.empty),.salesTaxTable tbody td:nth-child(5):not(.empty),.salesTaxTable tbody td:nth-child(6):not(.empty){text-align:right}.salesTaxTable .empty{text-align:center}
 
 .salesTaxDisabledLink{color:#345473;text-decoration:none;cursor:default}
+
+.lookupDialog{border-radius:10.8333px 10.8333px 0 0}.lookupDialog .lookupTree{scrollbar-width:none}.lookupDialog .lookupTree::-webkit-scrollbar{display:none}
+
+.stockTable{width:751px;max-width:100%}.stockTable table{table-layout:fixed;width:751px;min-width:751px}.stockTable thead th{height:27.140625px;padding:3px;text-align:center;min-width:0}.stockTable tbody td{min-width:0}.stockTable tbody td:nth-child(3){text-align:right}.stockTable td.empty{text-align:center}
+
+.stockDateWidget{display:inline-flex;align-items:center;gap:2px}.stockDateWidget button{width:54.15625px;height:30.15625px;min-height:30.15625px;padding:4px 7px}.stockDateWidget input{width:28.15625px;height:32px;min-width:0;padding:0;text-align:center}

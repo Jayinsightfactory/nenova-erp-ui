@@ -46,3 +46,5 @@ orderQuery(E040204), orderStat(E040209), poStat(E040306)는 실제행/날짜 의
 journal(E010701 회계거래조회)는 기존 ERP 회계원장과 무관한 독립 ECOUNT 안전투영이다. 관측9행의 sourceDateLabel은 기존 날짜/문서번호 문법검증을 통과했다. amount와 검증날짜만 업로드하며 나머지 거래처·적요·유형·계정·상태를 보존하지 않는다. source-latest금지, 전체수집unknown, 기존 immutable 버전정책 재사용.
 
 salesTax(E040218 세금계산서조회)는 날짜와 supplyAmt/vat/total만 독립작업영역에 적재한다. 20행은 부분표본이며 전체수집unknown이다. 사용자가 승인한 target 업로드·버전·복원을 기존정책으로 허용하고 ECOUNT원본 발행/수정/삭제는 수행하지 않는다. source-latest는 미연결로 금지, 공유회계원장 읽기쓰기 없음.
+
+stock(E040701)는 원본 품목코드 열에서 확인한 productCode를 stock에만 typed 예외로 허용한다(/[A-Za-z0-9._\/-]{1,60}/ 전체일치). quantity는 정확소수문자열, 제품명은 미수집. 코드중복/소계/행날짜는 거부하며 단일기준일 periodFrom=periodTo가 필요하다. 2026-10-20 안전1949행은 부분표본으로 전체성unknown. 다른dataset코드허용을 확대하지 않고 공유재고원장을 읽거나 쓰지 않는다.
