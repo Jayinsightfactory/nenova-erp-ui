@@ -41,6 +41,7 @@ test('unit mapping requires explicit positive factor and confirmation; supply pr
  assert.equal(reconcileShilla(x).unmatched.length,1);
  x.mappings[receiptIdentity(x.receipts[0])].unitConfirmed=true;
  assert.equal(reconcileShilla(x).complete,true);
+ const mapped=reconcileShilla(x).rows[0].srm.rows[0];assert.equal(mapped.originalQty,1);assert.equal(mapped.qty,2);assert.equal(mapped.originalUnit,'PK');assert.equal(mapped.unit,'EA');
  x.mappings[receiptIdentity(x.receipts[0])].factor=0;assert.throws(()=>reconcileShilla(x),/배수/);
 });
 test('price changes, duplicate receipts, invalid dates, missing values and gross conversion',async()=>{

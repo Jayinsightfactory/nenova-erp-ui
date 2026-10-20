@@ -19,7 +19,7 @@ function bridge(action,range={}) {
 function SourceCell({data}) {
   if(!data) return <td>자료 없음</td>;
   return <td><b>{fmt(data.qty)}</b><br/>매출단가 {data.prices.map(fmt).join(' / ')}{data.costPrices&&<><br/>매입단가 {data.costPrices.map(fmt).join(' / ')}</>}<br/>금액 <b>{fmt(data.amount)}</b>
-    <details><summary>원본 {data.count}행</summary>{data.rows.map((r,i)=><p key={i}>{r.source} · {r.name} [{r.unit}]<br/>{fmt(r.qty)} × {fmt(r.price)} = {fmt(r.amount)}{r.factor!==undefined?` (수량 환산 ×${r.factor})`:''}</p>)}</details>
+    <details><summary>원본 {data.count}행</summary>{data.rows.map((r,i)=><p key={i}>{r.source} · {r.name}<br/>원본 [{r.originalUnit??r.unit}] {fmt(r.originalQty??r.qty)} × {fmt(r.originalPrice??r.price)} = {fmt(r.originalAmount??r.amount)}{r.costPrice!==undefined?<><br/>매입단가 {fmt(r.costPrice)}</>:null}{r.factor!==undefined?<><br/>비교 [{r.unit}] {fmt(r.qty)} × {fmt(r.price)} (수량 ×{r.factor})</>:null}{r.vatDivisor===1.1?<><br/>공급가액 환산: 단가 {fmt(r.price)} · 금액 {fmt(r.amount)} (÷1.1)</>:null}</p>)}</details>
   </td>;
 }
 export default function ShillaAnalysis() {
