@@ -7,6 +7,7 @@ import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
 import { loadShillaAnalysisRows } from '../../../lib/shillaReconciliationServer';
 import { reconcileShilla, validateScope, itemIdentity } from '../../../lib/shillaReconciliation';
+import { buildAnalysisCatalog } from '../../../lib/shillaAnalysisMatching';
 export const config = { api:{bodyParser:false,responseLimit:'12mb'} };
 const first = value=>Array.isArray(value)?value[0]:value;
 export default withAuth(async function handler(req,res) {
@@ -30,7 +31,7 @@ export default withAuth(async function handler(req,res) {
     const excel=batches.flatMap(b=>b.items.map(raw=>{const i=shillaSettlementItem(raw);return {...i,year,period:String(b.major),amount:i.supply,source:`${raw.source?.sheetName || ''} ${raw.source?.row || ''}행`};}));
     const db=await loadShillaAnalysisRows(year);
     const metadata={fileName:file.originalFilename,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),readAt:new Date().toISOString(),periods:batches.map(b=>({period:String(b.major),date:b.quoteDate?`${b.quoteDate.getFullYear()}-${String(b.quoteDate.getMonth()+1).padStart(2,'0')}-${String(b.quoteDate.getDate()).padStart(2,'0')}`:null,count:b.items.length,warnings:b.warnings || []})),warnings:parsed.warnings || []};
-    if(first(fields.mode)==='prepare') return res.json({success:true,...metadata,dbCount:db.length,targets:[...new Map([...db,...excel].map(r=>[itemIdentity(r),{key:itemIdentity(r),name:r.name,unit:r.unit}])).values()]});
+    if(first(fields.mode)==='prepare') return res.json({success:true,...metadata,dbCount:db.length,targets:buildAnalysisCatalog(db,excel).targets});
     if(first(fields.mode)!=='compare') throw new Error('지원하지 않는 분석 요청입니다.');
     const payload=JSON.parse(first(fields.payload)||'{}');
     const scope={year,from:payload.from,to:payload.to,periods:payload.periods};

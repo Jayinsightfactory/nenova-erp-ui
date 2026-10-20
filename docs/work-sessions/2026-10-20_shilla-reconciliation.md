@@ -43,3 +43,11 @@
 - 운영 배포39359785762 성공. 실브라우저에서 첨부 원본 업로드/SELECT 준비 결과 41차수와 DB225행 표시 확인. 브라우저 연결 없음 오류/안내 정상.
 - 비교표 합성 fixture 데스크톱·640px·키보드 펼치기 검증. 실제 SRM 응답을 포함한 종단 검증은 최초 확장 설치 승인이 필요하여 미검증.
 - 메뉴 기준선: 단일 _app shell·단일 메뉴·페이지 스크롤·표 가로 스크롤·표준 HTML 입력/포커스 적용. ERP 저장/반영은 해당 없음. 분석 매핑 복원/이력 저장은 현재 메모리 한정의 명시적 예외.
+
+## 2026-10-20 기존 전산 매칭 재사용·안시리움 송이
+- 사용자 요청: 돈셀의 노비아 오연결 수정, 안시리움은 표기와 무관하게 한 송이, 기존 ProdKey로 재대조.
+- 기준: 같은 연도·선택 차수의 활성 Product 연결만 사용. 이름+단위의 연결 충돌은 경고. 동일 ProdKey+비교단위만 합산, 원문 행 보존. 수기행 제외. 안시리움181 단=송이=EA 1:1은 사용자 확인. 가격·수량 일치만으로 품목 결정하지 않음. 불명 PK는 제안만 하며 확인 전 대조 제외.
+- 부작용: 분석은 WebRaumPnl/Item/Product SELECT만. 돈셀 정정은 기존 snapshot 검증 saver로 Item.ProdKey 및 부모 감사필드만 변경; Order/Shipment/ShipmentDate/Farm/Stock/Estimate/WebProfitReport는 보존. Product 명칭·단위와 원본파일 수정 없음.
+- dnSpy FormOrderAdd CLI 재실행 성공. GetDataProduct의 ProdKey/SteamOf1Bunch 별도필드 확인. 운영 SELECT:223/225 연결. 돈셀17/19차 Item8604/8617→456. 후보389콜롬비아/2306중국으로 원산지 확인 대기.
+- UI 기준 적용: 단일 shell, 페이지 스크롤, native select/checkbox 키보드. 쓰기 전 승인: 사용자 직접 요청 있음; 원산지 선택만 대기. 배포/실제 재대조 아직 미검증.
+- 검색어: shilla-saved-matches Anthurium181 Doncel389 ProdKey aliases

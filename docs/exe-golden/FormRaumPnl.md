@@ -155,3 +155,7 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - 로컬 dnSpy.Console.exe --no-color -t FormOrderAdd 실제 실행 성공. CheckExistingOrder의 OrderYear+OrderWeek+CustKey 확인. 신규 native 저장 경로 없음.
 - read-only 운영 SELECT로 2026 신라 WebRaumPnl 41문서/Item225행 확인, 2025 같은 조건 없음. 신규 분석 SQL은 두 웹 결산 테이블만 연도/호텔/활성 조건으로 읽는다. 기존 ensure-tables DDL 경로를 호출하지 않는다.
 - Order/Shipment/Stock/Estimate 및 WebProfitReport 보존. 상세 기준·SRM 공개 조회 어댑터 근거: docs/work-sessions/2026-10-20_shilla-reconciliation.md.
+## 2026-10-20 신라 저장 품목 연결 기반 비교
+- FormOrderAdd 실제 CLI 재실행 성공, GetDataProduct의 Product.ProdKey와 SteamOf1Bunch 별도 조회 재확인. 분석은 Product 활성행 SELECT 추가만 하며 native 저장 없음.
+- 운영 probe: 2026 신라225행 중223행 활성 품목 연결. 안시리움181은 소스 단이나 사용자 확인에 따라 비교만 송이1:1. DB·엑셀6511/53968700 일치. 포장수량0을 추정 환산값으로 쓰지 않음.
+- 돈셀 기존17/19차456은 별도 정정 요청이며 기존 snapshot saver로만 변경 예정. 원산지389/2306 확인 전 미변경. 모든 ERP 원장 및 수량·단가·금액 보존.
