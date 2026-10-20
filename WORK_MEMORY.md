@@ -478,3 +478,15 @@
 - stkLedger E040702/menu215: visibleheader품목코드경계일치1949unique, 이름미수집. 품목별opening/in/out/quantity4필수수량, 전일재고/합계2행만관측. 원본수불부vs재고변동7796필드차이0, wrapper9745필드차이0. 실제SQL미적재/상세거래0관찰·전체건수미확정.
 - 대상6열650/제품코드별2행·정확기간일치만조회. notice확인=기존결과유지·검색폼복귀,취소=조회실제관측. notice발동일반규칙과X/Escape는대상설계이며원본동등성미검증. 미수집행·거래이력합성안함. UI24표적검사/정책actions PASS.
 - 기존격리shell기준적용/공유ERP및EXE writer해당없음. 검색어: stkLedger StockLedgerPageControls 1949group notice 1ffd6a45
+
+## 2026-10-20 수불부 적재와 운영 재고 정확값 대조
+- root PR1143 운영검증: stock3898 exact불일치0/이전435표시차해소, whStock세로5847 exact0·가로1949품목수량차이0, stockMove9745 exact0. 원본전체수집완전성unknown은유지.
+- 수불부5gate모두PASS(stock-ledger-guard-results.json), build1회. PR1145 fixed7146b255/CI39407770613진행중. root별도ecount_work stkLedger1949품목revision1/readbacktrue/idempotenttrue, stock-ledger-import-result.json. source/기존원장쓰기0.
+- 수불부9745원본wrapper대조0은숫자쉼표정규화기준; 원문표시870차이는정규화차이이며운영표시대조는배포후별도미검증. 상세거래를수집한것이아님.
+- 검색어: PR1145 stkLedger revision1 9745 870 stock-ledger-import-result
+
+## 2026-10-20 품목 선택창 후속 및 수불부 배포
+- PR1144 deploy39407280847 success/SSH·hydration통과. PR1145 CI39407770613 PASS/squash20758ac1, 배포39408127293 진행중.
+- 수불부품목선택창: 안전품목코드1개→부모조건반환→조회시1그룹, 원본unique코드1반환/1표2행4수량일치근거. 대상 단일선택은범위제약, 검색룰·다중선택미검증·선택해제전체복귀는대상설계. 상세거래미수집유지, 단일선택notice생략/전체notice보존.
+- 인쇄PDF/미리보기/프린트문제해결3항목존재관측만표시,실행미검증비활성. UI표적33검사PASS/metadata817관측ID,전체완료수아님. 신규SQL실행/원본공유원장쓰기없음.
+- 검색어: ProductLookupOverlay 817 PR1145 20758ac1 stock-ledger-product-return-final
