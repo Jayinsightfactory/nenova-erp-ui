@@ -25,7 +25,8 @@ try{
   const user={userId:'nenovaSS3',authority:1,accountActive:true};
   if(!await store.activeAdmin(user)) throw new Error('ACTIVE_ADMIN_REQUIRED');
   const menus=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/source-menu.json'),'utf8')).menus;
-  for(const [dataset,program]of Object.entries(policy.PROGRAMS)){
+  for(const dataset of policy.SOURCE_DATASETS){
+   const program=policy.PROGRAMS[dataset];
    const menu=menus.find(m=>m.program===program && m.id.startsWith('MENUTREE_'));
    const input={dataset,menuId:menu.id};
    const before=await store.readWorkspace(input);

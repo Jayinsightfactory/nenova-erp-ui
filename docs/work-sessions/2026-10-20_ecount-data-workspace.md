@@ -48,3 +48,14 @@
 - PR #1111 병합 a40ecf0e. 최신 master 변경과 WORK_MEMORY 충돌은 양쪽 기록 보존으로 해결. 병합 후 verify:erp-change 전체 재통과, GitHub verify/Windows installer 모두 통과.
 - Cafe24 배포 run39352475453 진행. 코드 전용이며 광역 SQL migration 미실행. 운영 브라우저 확인은 배포 완료 후 기록.
 - 운영 첫 smoke: cash21/ar89 조회 성공. 이력/metadata에서 SQL156 발견. AS rowCount 예약어를 AS [rowCount]로 수정, 네 자료 × 두 경로 실제 읽기8회 통과. 회귀검사 추가. 수정 재배포 전까지 이력 UI 최종 확인 미완료.
+- PR1113 병합17fcac04, Cafe24 run39353552324 success. 전체 verify:erp-change/별도dnSpy/CI 통과. 운영 실제 브라우저에서 cash21/ar89/ap174/sales5001행(표 헤더 제외) 확인; 수정 후 판매 작업 이력 열기·닫기 성공. 운영 복원/업로드 쓰기 추가 실행 없음.
+- 현재 구현은 안전 투영4종 및 별도 SQL 버전/이력 기반. 전체373프로그램의 버튼/새창100%는 미완료(검증완료 화면0). 후속은 parity-packets와 원본 근거 기준.
+- 종료시 계정 주간사용38%(약62%남음) 마지막 확인. 하위 작업자3개 완료, 자동 반복 실행을 예약하지 않음. 이 문서와 WORK_MEMORY 최종 배포 기록은 로컬 후속 기록.
+
+### 2026-10-20 버튼 보고서와 조회 동작 후속
+- 사용자 요청: 59묶음 계속, 원본 조회 전용, 모든 버튼 라벨·양쪽 캡처·기능/새창·조회값 비교 Excel. 보고서 JSON/완료검사/평탄화 모델을 추가하고 미검증을 보존.
+- 판매 F3/F8·금주/전주·거래처조회 오버레이·출력 dropdown·새탭 미리보기 구현. 견적조회 10열/검색패널 추가, 별도quote upload-only 버전 사용. 외부수집 API 및 원본미관찰 동작은 비활성.
+- 원본 금주조회 2026-10-18~20, 다른검색조건없음, 결과0건. 안전캡처 확보. 견적 원본09/20~11/19의 날짜/금액3행만 추출, 별도ecount_work revision1 적재 후hash/readback/멱등검증 통과. source 원본 쓰기0, 공유원장 쓰기0.
+- 디스크ENOSPC로 빌드중단 후 재개시41GB가 이미확보됨. 이번작업 캐시삭제는명시승인후에도자동정책거부로미실행, 다른파일삭제없음. 최신master94c512bf 병합후 build통과.
+- 하위3작업 재사용, 주간계정사용58% 확인. 현재관측94버튼, 전체완료0, 전체Excel은미완료상태를명시해작성중. 최종CI/배포/브라우저결과는후속기록.
+- 검색어: ecount-query-parity E040202 quote-safe-import 94buttons Excel-report source-readonly

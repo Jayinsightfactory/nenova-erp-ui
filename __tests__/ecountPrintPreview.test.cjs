@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {buildExportModel}=require('../lib/ecountPageActions.cjs');
+const {renderPrintPreview}=require('../lib/ecountPrintPreview.cjs');
+const columns=[['sourceDateLabel','일자-No.'],['custName','거래처명'],['prodName','품목명'],['qty','수량'],['unitPrice','단가(vat포함)'],['supplyAmt','공급가액'],['vat','부가세'],['total','합계'],['memo','적요']].map(([key,label])=>({key,label}));
+const empty=buildExportModel({dataset:'sales',rows:[],columns});
+const emptyHtml=renderPrintPreview(empty,{periodFrom:'2025-12-31',periodTo:'2026-01-01'});
+assert(emptyHtml.includes('<title>Print Preview</title>'));assert(emptyHtml.includes('등록된 데이터가 없습니다.'));assert(emptyHtml.includes('colspan="9"'));assert(emptyHtml.includes('2025/12/31 ~ 2026/01/01'));assert.equal((emptyHtml.match(/<th scope=/g)||[]).length,9);
+assert(emptyHtml.includes("default-src 'none'"));assert(emptyHtml.includes("script-src 'none'"));assert(emptyHtml.includes("img-src 'none'"));assert(emptyHtml.includes("connect-src 'none'"));assert(!/<script\b|<img\b|<iframe\b|\bprint\s*\(/i.test(emptyHtml));
+assert(!emptyHtml.includes('[P.1]')); // No invented page number for an unpaginated multi-page print document.
+const full=buildExportModel({dataset:'sales',rows:[{qty:'999999999999999999.12345678',unitPrice:'0.00000001',supplyAmt:'1',vat:'0',total:'1',refDate:'2026/01/01 -12',custName:'PRIVATE_NAME',memo:'PRIVATE_MEMO'}],columns});
+const html=renderPrintPreview(full);assert(html.includes('999999999999999999.12345678'));assert(html.includes('0.00000001'));assert(html.includes('2026/01/01 -12'));assert(!html.includes('PRIVATE_'));assert(!html.includes('등록된 데이터가 없습니다.'));
+const malicious={...empty,columns:columns.map((c,i)=>i===0?{...c,label:'<img src=x onerror="alert(1)">'}:c),rows:[Array(9).fill('<script>"&\'</script>')]};
+const escaped=renderPrintPreview(malicious,{title:'</h1><script>bad</script>',company:'<b>네노바</b>'});assert(!escaped.includes('<script>'));assert(!escaped.includes('<img src='));assert(escaped.includes('&lt;script&gt;'));assert(escaped.includes('&quot;&amp;&#39;'));assert(escaped.includes('&lt;b&gt;네노바&lt;/b&gt;'));
+assert.throws(()=>renderPrintPreview({...empty,columns:[]}),/INVALID_PRINT_MODEL/);assert.throws(()=>renderPrintPreview({...empty,rows:[[{}]]}),/INVALID_PRINT_MODEL/);assert.throws(()=>renderPrintPreview(empty,{periodFrom:'2026-02-30'}),/INVALID_DATE/);assert.throws(()=>renderPrintPreview(empty,{periodFrom:'2026-02-02',periodTo:'2026-01-01'}),/INVALID_PERIOD/);
+console.log('PASS print preview: nine columns, empty result, exact decimals, private fields excluded, HTML escaping, no-script/no-network CSP, no automatic print. Full original print-layout parity remains unverified.');
