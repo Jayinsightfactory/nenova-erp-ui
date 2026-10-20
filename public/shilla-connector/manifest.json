@@ -1,7 +1,7 @@
 {
   "manifest_version":3,
   "name":"네노바 신라 입고 조회 연결",
-  "version":"1.0.1",
+  "version":"1.0.2",
   "description":"네노바웹에서 요청한 기간의 로그인된 신라 입고실적만 읽습니다.",
   "permissions":["scripting"],
   "host_permissions":["https://www.shillasrm.com/*"],
