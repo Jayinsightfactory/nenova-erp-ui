@@ -5,10 +5,11 @@
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"LOCAL_FILTER_SORT_EXPORT_MODEL","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":[]}],
   "crossYearFixture":{"required":true,"description":"연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"},
-  "requiredTestFiles":["__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
+  "requiredTestFiles":["__tests__/ecountWorkspaceNavigation.test.cjs","__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
   "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
-  "requiredCommands":["node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+  "requiredCommands":["node --test __tests__/ecountWorkspaceNavigation.test.cjs","node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
   "criteria":{
+    "unfulfilledPreview":"미판매9열/미구매8열 별도탭 관측. renderer8열 허용 추가하되 UI는 미수집상태로 preview 비활성. 기준일 영업주기/실제행 날짜 의미 미확인이므로 날짜·검색실행 모두 비활성.",
     "saleQueryFilter":"E040206 saleQuery 날짜/정확소수 amount 필터 지원. 원본 기본기간 미확정, 기간추정금지. 인쇄메뉴 프린트문제해결만 관측, 10열미리보기 생성하지 않음.",
     "discountPreview":"원본 별도탭 visible6열 미리보기 관측에 따라 6열 허용. 월/일 값 문법 미확인: 값 공백, 날짜필터 불가, 빈모델은 원본전체완전성 보증 아님.",
     "orderSettlementFilter":"poQuery/receipt/payment 날짜·정확소수 필터 재사용. 원본 수금/지급 미리보기 관찰된 visible4열만 추가 허용하며 hidden th는 제외. 발주서 상태/납기와 빈결과 전체성은 추정하지 않음.",
