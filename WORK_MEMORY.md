@@ -420,3 +420,7 @@
 - sales-tax-import-safe-corrected.json에서 supply→supplyAmt 매핑 후 원본20행×4필드80값 독립대조 mismatch0, sales-tax-correction-validation.json 기록. 아직 SQL실행없음; 필수5검사 통과 후 root가v2적재·운영재대조 예정.
 - 검색어: salesTax supply supplyAmt null20 80값 mismatch0 correction v1보존
 - stock-tax-fix 필수5검사/build 통과 후 root 적재 완료(stock-tax-import-results.json): salesTax 정정20행 revision2/readback true/idempotent true, 과거v1보존. stock1949행 revision1/readback true/idempotent true, 기준일2026-10-20. 원본·공유ERP원장 쓰기0. 운영 정정80값 및 재고값 대조는 별도 후속검증.
+
+## 2026-10-20 신라 판매요청 포함 대조
+사용자 요청: 안시리움1송이 판매요청 근거 조회 및 정상 추가분 분류. 실제 ClassEstimate/FormEstimateView dnSpy와 SELECT로 Estimate10040(2026/40-01 신라호텔446/181,10/12,1송이/8300,판매요청) 확인. 40-02분배520+요청1=엑셀/SRM10/7 521. 판매요청일과입고일은별도표시. 같은연도/업체/품목/단위/대차수의 전체요청 및확정/가격버킷/중복소비검증, 원본차이보존. ERP/재고쓰기없음.20개테스트/실제loader대조/build통과,전체계약및배포진행중.
+검색어: 신라 판매요청 Estimate10040 520+1 정상추가분 shilla-sales-request

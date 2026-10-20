@@ -31,7 +31,9 @@
         "Customer",
         "ShipmentMaster",
         "ShipmentDetail",
-        "ShipmentDate"
+        "ShipmentDate",
+        "Estimate",
+        "CodeInfo"
       ],
       "writes": [],
       "preserves": [
@@ -66,7 +68,8 @@
     "conversion": "Explicit per-material quantity multiplier; unit mismatch requires acknowledgement; gross Excel option divides price/amount by 1.1 Owner confirmed Anthurium ProdKey181 단 means 송이, SRM EA=1:1. Unspecified PK packaging never inferred.",
     "missing": "Missing never zero or equal; price buckets retained; duplicate receipt IDs flagged, never silently discarded",
     "browser": "Only nenovaweb.com may request bounded receipts from www.shillasrm.com; no credentials/cookies/storage permissions; installation requires user action",
-    "persistence": "No original/ledger writes; uploaded temporary files removed in finally; browser results held only in page memory"
+    "persistence": "No original/ledger writes; uploaded temporary files removed in finally; browser results held only in page memory",
+    "salesRequests": "Fresh Estimate sales type via CodeInfo, same year/customer/product/unit/major; all matching requests included, positive fixed within14 days, price buckets match Excel and unique SRM. Duplicate consumption blocks normal. Preserve base difference and dates."
   },
   "requiredTestFiles": [
     "__tests__/shillaReconciliation.test.cjs"

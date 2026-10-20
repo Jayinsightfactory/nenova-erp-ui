@@ -5,7 +5,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
-import { loadShillaAnalysisRows, loadShillaDistributionRows } from '../../../lib/shillaReconciliationServer';
+import { loadShillaAnalysisRows, loadShillaDistributionRows, loadShillaSalesRequests } from '../../../lib/shillaReconciliationServer';
 import { analyzeShillaPeriods } from '../../../lib/shillaPeriodAnalysis';
 import { reconcileShilla, validateScope, itemIdentity } from '../../../lib/shillaReconciliation';
 import { buildAnalysisCatalog } from '../../../lib/shillaAnalysisMatching';
@@ -42,7 +42,8 @@ export default withAuth(async function handler(req,res) {
     if(payload.source?.from!==scope.from || payload.source?.to!==scope.to || payload.source?.complete!==true || payload.source?.origin!=='https://www.shillasrm.com') throw new Error('완료된 신라 입고 조회자료가 필요합니다.');
     const result=reconcileShilla({scope,db,excel,receipts:payload.receipts,mappings:payload.mappings,excelGross:payload.excelGross});
     const distribution=await loadShillaDistributionRows(year);
-    const periodAnalysis=analyzeShillaPeriods({scope,rows:result.rows,distribution,periods:metadata.periods,receipts:payload.receipts});
+    const salesRequests=await loadShillaSalesRequests(year);
+    const periodAnalysis=analyzeShillaPeriods({scope,rows:result.rows,distribution,salesRequests,periods:metadata.periods,receipts:payload.receipts});
     const sourceWarnings=metadata.periods.filter(p=>scope.periods.includes(p.period)).flatMap(p=>p.warnings);
     return res.json({success:true,...metadata,...result,periodAnalysis,sourceWarnings,complete:result.complete&&!sourceWarnings.length,receiptReadAt:payload.source.readAt});
   } catch(error) {
