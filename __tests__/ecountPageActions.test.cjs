@@ -32,6 +32,11 @@ const purchase=h.filterSortRows({dataset:'purchase',rows:purchaseRows,from:'2026
 assert.deepEqual(h.filterSortRows({dataset:'purchase',rows:purchaseRows,sortKey:'amountTotal'}).rows.map(r=>r.rowNumber),[3,2,1]);
 const purchaseExact=h.filterSortRows({dataset:'purchase',rows:purchaseRows,numericFilter:{key:'amountTotal',min:'999999999999999999.00000001',max:'999999999999999999.00000001'}});assert.equal(purchaseExact.rows.length,1);assert.equal(purchaseExact.rows[0].rowNumber,2);
 const purchaseModel=h.buildExportModel({dataset:'purchase',rows:purchase.rows,columns:[{key:'sourceDateLabel',label:'일자'},{key:'amountTotal',label:'금액'},{key:'custName',label:'거래처'}]});assert.equal(purchaseModel.rows[0][1],'999999999999999999.00000002');assert.equal(purchaseModel.rows[0][2],'');
+const statusRows=[{qty:'1',total:'999999999999999999.00000002',refDate:'2026/01/03 -1'},{qty:'2',total:'999999999999999999.00000001',refDate:'2025/01/03 -1'},{qty:'0'}];
+const statusFilter=h.filterSortRows({dataset:'buyStatus',rows:statusRows,from:'2026-01-01',to:'2026-01-31'});assert.equal(statusFilter.rows.length,1);assert.equal(statusFilter.unknownDateCount,1);
+assert.deepEqual(h.filterSortRows({dataset:'buyStatus',rows:statusRows,sortKey:'total'}).rows.map(r=>r.rowNumber),[2,1,3]);
+assert.equal(h.filterSortRows({dataset:'buyStatus',rows:statusRows,numericFilter:{key:'total',min:'999999999999999999.00000001',max:'999999999999999999.00000001'}}).rows[0].rowNumber,2);
+const statusModel=h.buildExportModel({dataset:'buyStatus',rows:statusFilter.rows,columns:[{key:'sourceDateLabel',label:'일자'},{key:'total',label:'합계'},{key:'invoiceNumber',label:'인보이스'}]});assert.equal(statusModel.rows[0][1],'999999999999999999.00000002');assert.equal(statusModel.rows[0][2],'');
 const stateRows=[...Array.from({length:3},(_,i)=>({estimateTotal:`2.0000000${i}`,refDate:'2026-01-03',quoteStatus:'in_progress',statusEvidence:i===2?'query_filter':'row_cell'})),{estimateTotal:'3.00000000',refDate:'2026-01-03'}];
 const stateBefore=JSON.stringify(stateRows);
 const progress=h.filterSortRows({dataset:'quote',rows:stateRows,quoteStatus:'in_progress'});

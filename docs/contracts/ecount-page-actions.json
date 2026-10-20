@@ -9,6 +9,7 @@
   "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
   "requiredCommands":["node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
   "criteria":{
+    "buyStatusFilter":"E040305 구매현황 안전 숫자8필드 및 날짜 필터 지원. 날짜 기본값/추가조건 추정 없음; 미상일자 제외수 및 정확소수 보존.",
     "purchaseFilter":"E040304 purchase 날짜/정확소수 필터와 안전출력 모델 재사용. 원본 날짜 기본값/preset은 추정하지 않음. amountTotal/foreignTotal/exchangeRate만 허용, 미상일자 제외 계수 명시.",
     "quoteStatusFilter":"quote만 all/in_progress/completed 필터를 지원. 원본 DOM 상태셀의 진행중/완료 관찰만 근거로 하며 전체총수와 다른 결재/확인 단계는 추정하지 않음. 미상행수와 실제 상태필터로 제외한 미상행수를 구분; statusCoverage는 저장된 행의 근거 범위일 뿐 원본 수집 완전성 아님. 빈자료의 coverage는 unknown. 미관찰 상태 enum은 거부.",
     "evidence":"docs/ecount-migration/parity-observations.md",
@@ -18,7 +19,7 @@
     "unknownDates":"날짜필터가 활성화되면 미상일자/월계 제외 개수를 별도 반환; 기간귀속 추정 안함",
     "exactDecimals":"소수점 이하8자리, 정수24자리까지 BigInt 정렬/범위필터; 부동소수 변환 금지",
     "export":"안전투영 필드만; 계좌/거래처/품목/메모 등의 열은 값 공백; CSV formula injection 방지; 원본 Excel/인쇄 양식 동등성 미검증",
-    "printPreview":"E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 9열 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
+    "printPreview":"E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
     "writes":"없음"
   }
 }

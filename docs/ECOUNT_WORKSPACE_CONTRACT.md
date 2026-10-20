@@ -26,3 +26,5 @@ quote의 상태 필드는 선택 사항이다. 원본 담당자가 DOM의 진행
 상태필터는 저장된 행 중 확인된 진행중 또는 완료만 반환한다. 미상 전체 행수와 다른 필터를 통과했지만 상태 미상으로 제외된 행수를 따로 반환한다. `statusCoverage`는 현재 보관된 행의 상태근거 범위이며 수집 완전성이나 ECOUNT 전체 상태를 의미하지 않는다. 빈 수집 결과에는 행별 조건 근거가 없으므로 `unknown`을 유지하고 가짜 행을 만들지 않는다.
 
 구매조회 E040304 purchase는 amountTotal/foreignTotal/exchangeRate와 refDate/sourceDateLabel만 보존한다. 업로드만 지원하며 source snapshot import-latest는 금지한다. JSON 버전/활성화/감사 정책을 재사용하고 신규 DDL/기존 원장 변경은 없다. 원본 전체 수집은 unknown이며 거래처·품목·적요는 제외한다.
+
+E040305 구매현황 buyStatus는 기존 첫 non-MyPage 규칙에 따라 MENUTREE_000513을 canonical로 사용하며 000583 경로도 같은 scope를 사용한다. qty/boxQty/unitPrice/foreignAmount/supplyAmt/exchangeRate/total/weight와 검증된 날짜표시만 업로드한다. 인보이스 등 자유텍스트·개인정보·결제일은 제외한다. 기존 6종 scope/hash는 변경하지 않는다. import-latest 금지, 전체 수집 unknown, 새 DDL/ERP 원장 변경 없음.
