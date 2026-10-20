@@ -394,3 +394,4 @@
 - journal 실제 별도작업영역 적재 완료: 필수5검사 통과 후 root 실행, journal-import-result.json의9행/revision1/readback true/idempotent true. 이전 미실행 문구는 당시 기록이며 현재 상태는 적재완료. 원본·기존ERP원장 쓰기 없음. 운영18값 대조는 배포 후 예정.
 - lookup 새창의 대상 반환은 동일origin/정확한child/UUID nonce/현재메뉴 검증과 로컬daily 선택만 허용. 부모정리·재열기·메뉴전환·닫힌창/팝업차단 mock 회귀검증. 원본 새창 반환 동작의 완전동등성은 미검증이며 대상 mock 검증과 구분한다.
 - 검색어: journal9 revision1 lookupWindow nonce source-window daily-return 원본반환미검증
+- PR1135 root 운영검증: journal9행 날짜·금액18값 mismatch0, journal-runtime-comparison.json 및 E010701-target-safe-rows-full.jpg 확인 완료. 전기간·전체원본 동등성은 미검증.
