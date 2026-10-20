@@ -22457,24 +22457,281 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040727-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Search panel opens while keeping 1950 displayed rows"
+        },
+        {
+          "id": "E040727-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A05",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A06",
+          "label": "기준연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A07",
+          "label": "기준월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A08",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A09",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A10",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A11",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A12",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A13",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A14",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Four menu items observed; children not executed"
+        },
+        {
+          "id": "E040727-A15",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A16",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A17",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        },
+        {
+          "id": "E040727-A18",
+          "label": "인쇄",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; execution not established by this observation"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
           "testEvidence": []
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
           "testEvidence": []
         },
         "sorting": {
@@ -22483,13 +22740,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040727-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -22534,7 +22795,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Full action/window coverage unknown; target runtime pending; SQL import not yet confirmed"
       ],
       "exclusions": []
     },
