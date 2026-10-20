@@ -8368,6 +8368,174 @@
           ],
           "testEvidence": [],
           "behavior": "Observed separate print button and btn-arrow; arrow click shows only 프린트문제해결"
+        },
+        {
+          "id": "E040206-A25",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A26",
+          "label": "전체",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A27",
+          "label": "결재중",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A28",
+          "label": "미확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A29",
+          "label": "확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A30",
+          "label": "이름없는 드롭다운",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A31",
+          "label": "Email 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A32",
+          "label": "진행상태변경 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A33",
+          "label": "보내기 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A34",
+          "label": "바코드(품목) 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A35",
+          "label": "Excel(표시형식) 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
+        },
+        {
+          "id": "E040206-A36",
+          "label": "이력조회 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed in safe source screenshot, not executed; DOM omission did not prove absence"
         }
       ],
       "windows": [],
