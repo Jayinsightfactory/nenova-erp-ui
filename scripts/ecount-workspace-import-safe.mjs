@@ -11,7 +11,7 @@ export function parseOptions(args) {
 }
 export function prepareSafeInput(options,document) {
   const rows=policy.sanitizeRows(options.dataset,Array.isArray(document)?document:document?.rows);
-  if(!rows.length&&!['ordEmpty','quoteEmpty','poEmpty','daySale','unpSale'].includes(options.dataset))throw Error('EMPTY_IMPORT');
+  if(!rows.length&&!['ordEmpty','quoteEmpty','poEmpty','daySale','unpSale','dayAll'].includes(options.dataset))throw Error('EMPTY_IMPORT');
   return policy.prepareImport({dataset:options.dataset,menuId:options['menu-id'],periodFrom:options['period-from']||null,periodTo:options['period-to']||null,rows,...(document?.coverage?{coverage:document.coverage}:{})});
 }
 export function loadDatabaseEnvironment(text,environment=process.env) {

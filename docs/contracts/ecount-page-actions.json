@@ -12,7 +12,9 @@
     "lib/ecountPrintPreview.cjs",
     "components/ecount/InventoryDailyPageControls.js",
     "components/ecount/InventoryKindLookup.js",
-    "components/ecount/UnpostedSalesPageControls.js"
+    "components/ecount/UnpostedSalesPageControls.js",
+    "lib/ecountDailyReport.cjs",
+    "components/ecount/InventoryDailyAllResults.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -38,7 +40,8 @@
     "__tests__/ecountWorkspaceEmptyState.test.cjs",
     "__tests__/ecountWorkspaceNavigation.test.cjs",
     "__tests__/ecountPageActions.test.cjs",
-    "__tests__/ecountPrintPreview.test.cjs"
+    "__tests__/ecountPrintPreview.test.cjs",
+    "__tests__/ecountDailyReport.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -64,7 +67,8 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
-    "npm run build"
+    "npm run build",
+    "node __tests__/ecountDailyReport.test.cjs"
   ],
   "criteria": {
     "stockSnapshotQuery": "selectStockSnapshot은 단일기준일이 version.periodFrom/periodTo 모두와 일치할때만 available. 다른날짜/버전없음은미수집,0건조회로해석금지. 행날짜생성/시점추정없음.",
@@ -101,5 +105,6 @@
   "runtimeCounterexampleCorrections": "BOM form vertical offset and outside-scope ordEmpty date result are recorded runtime counterexamples, not passed parity. Keep BOM toolbar once inside heading. Native date input/blur synchronize visible draft before F8; exact coverage rejects 2026-10-19 locally and on server. Existing shared ERP and source writes remain forbidden; UI regression executes actual panel input and runSearch. Actual deployed remediation remains pending browser verification.",
   "poEmptyContract": "E040306 poEmpty separate registered observed_empty envelope only: detail/line/all trade/2026-10-20 exact dates/no delivery/no selections/no approval display/no graph/form 결제일 기준. Form is not a date-basis semantic assertion. Source execution timestamp unknown; verification recordedAt retained. Other periods, forms, filters, nonempty rows and naked empty arrays rejected before SQL. Existing poStat and old hashes preserved.",
   "dailySalesEmptyContract": "E040708 daySale separate registered observed_empty envelope only: 2026-10-20 exact dates/kinds [판매]/all trade/no approval display/empty warehouse customer product department management selections. Does not cover other kinds or all inventory daily reports. No fabricated rows, source writes, shared ledger writes or DDL; upload and current GET validate exact profile; invalid filters rejected before SQL.",
-  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL."
+  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL.",
+  "dailyAllContract": "dayAll E040708 separate observed_report envelope, exact34 source kinds/date2026-10-20/all trade/relationship customer aggregation/empty selections/no approval. One atomic immutable version contains34 sections:30 explicit empty, AR72/AP183/stock1950 over20 source tables/cumulative12 =2217safe rows. Names/customer codes/aging/hidden code/free text excluded. Source nulls, exact decimal strings, actual totals, table/row order preserved. Category4 x period3 and period label grammar validated. No derived aggregate, no transactions inferred, completeness unknown. Partial scope/pages/duplicates/cross-year/foreign profile rejected, no source/shared-ledger writes or DDL."
 }
