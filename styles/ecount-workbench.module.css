@@ -37,3 +37,7 @@
 .lookupDialog.lookupMaximized{position:fixed;inset:1px;width:calc(100vw - 2px);height:calc(100vh - 2px);max-width:none;max-height:none}
 
 .saleQueryContent .saleQueryMeasuredTable tbody td:not(.empty){font-size:13px;line-height:18.5714px;padding:6.5px 3.25px;white-space:normal;word-break:break-word;overflow-wrap:break-word;text-align:center}.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(2):not(.empty),.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(3):not(.empty),.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(4):not(.empty){text-align:left}.saleQueryContent .saleQueryMeasuredTable tbody td:nth-child(5):not(.empty){text-align:right}
+
+.salesTaxTable{width:731px;max-width:100%}.salesTaxTable table{table-layout:fixed;width:731px;min-width:731px;font-family:'Malgun Gothic',Arial,sans-serif;font-size:13px;line-height:18.5714px}.salesTaxTable thead th{height:40.4375px;text-align:center;min-width:0;white-space:normal}.salesTaxTable tbody td:not(.empty){min-width:0;font-size:13px;line-height:18.5714px;padding:6.5px 3.25px;word-break:break-word;overflow-wrap:break-word;text-align:center}.salesTaxTable tbody td:nth-child(3):not(.empty){text-align:left}.salesTaxTable tbody td:nth-child(4):not(.empty),.salesTaxTable tbody td:nth-child(5):not(.empty),.salesTaxTable tbody td:nth-child(6):not(.empty){text-align:right}.salesTaxTable .empty{text-align:center}
+
+.salesTaxDisabledLink{color:#345473;text-decoration:none;cursor:default}

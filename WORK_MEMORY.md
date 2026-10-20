@@ -383,12 +383,6 @@
 
 검색어: native-pivot-negative NENOVA.EXE 여분26 -76 두바이트 signed SUM
 
-## 2026-10-20 중국 인보이스 원본 수량 보존
-- CN AI 경로의 pcs=1/bunch_st=1/total_stems 누락 제거. Order 박스, Bunch 단, PCS 송이를 헤더 의미로 추출. DB 품목 매칭은 원본 수량을 덮어쓰지 않는다.
-- dnSpy 실제 ExcelLoadingPackingList F/I/J 별도 박스/단/송이 확인. 2025/2026 fixture, 실제41-1 XLSX20/20, ERP contract·dnSpy·manifest·write guard·build 통과.
-- 운영 SELECT만: 해당 송장102행 박스102/단5391/송이5391, 원본101상품행429/5390/68775와 다름. 자동 데이터 보정 없음. 실사용 PDF 재분석·운영 입고 쓰기 미검증, 배포 스모크 후속.
-- 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
-- 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존
 ### 2026-10-20 판매조회 실측·회계거래조회 후속
 - PR1131 사용자 재로그인 후 root 운영 확인: 견적서현황8/7열, PO미수집 표시, 판매조회26행×날짜·금액2값 대조 성공. 전체기능 동등성은 미검증.
 - PR1134 CI39392236553 success, squash c52564d7, Cafe24배포39392543784 success(SSH 및 자동 hydration 포함). 신규 주문3화면 운영검증은 root 후속 확인 대상.
@@ -401,3 +395,16 @@
 - lookup 새창의 대상 반환은 동일origin/정확한child/UUID nonce/현재메뉴 검증과 로컬daily 선택만 허용. 부모정리·재열기·메뉴전환·닫힌창/팝업차단 mock 회귀검증. 원본 새창 반환 동작의 완전동등성은 미검증이며 대상 mock 검증과 구분한다.
 - 검색어: journal9 revision1 lookupWindow nonce source-window daily-return 원본반환미검증
 - PR1135 root 운영검증: journal9행 날짜·금액18값 mismatch0, journal-runtime-comparison.json 및 E010701-target-safe-rows-full.jpg 확인 완료. 전기간·전체원본 동등성은 미검증.
+
+### 2026-10-20 세금계산서 안전 조회 후속
+- PR1137 CI39396362904 success, squash ccd25588. Cafe24배포39396737155는 앞선 작업 배포 후 대기/진행 상태이며 완료 확인 전 운영반영으로 주장하지 않는다.
+- E040218 salesTax8열/731px, 날짜·공급가액·부가세·합계20행 안전부분표본 검증. 기존 승인된 target 작업영역 업로드/버전/복원 재사용, source-latest 및 미관측원본검색/발행 실행 차단. 실제 SQL적재는 필수검사 후 root 담당, 원본기간/전체성 unknown 유지.
+- 관측559ID/전체동등성완료0. 원본추가조사 중 다른페이지전환 불일치결과는 근거에서 제외. 유효헤더확인 후 수집한 salesTax20행과 구분.
+- 검색어: salesTax E040218 20행부분표본 unknown PR1137 39396737155 559관측
+
+## 2026-10-20 중국 인보이스 원본 수량 보존
+- CN AI 경로의 pcs=1/bunch_st=1/total_stems 누락 제거. Order 박스, Bunch 단, PCS 송이를 헤더 의미로 추출. DB 품목 매칭은 원본 수량을 덮어쓰지 않는다.
+- dnSpy 실제 ExcelLoadingPackingList F/I/J 별도 박스/단/송이 확인. 2025/2026 fixture, 실제41-1 XLSX20/20, ERP contract·dnSpy·manifest·write guard·build 통과.
+- 운영 SELECT만: 해당 송장102행 박스102/단5391/송이5391, 원본101상품행429/5390/68775와 다름. 자동 데이터 보정 없음. 실사용 PDF 재분석·운영 입고 쓰기 미검증, 배포 스모크 후속.
+- 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
+- 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존

@@ -12891,14 +12891,169 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040218-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Clicked but search panel effect unverified"
+        },
+        {
+          "id": "E040218-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A04",
+          "label": "Email",
+          "context": "하단",
+          "classification": "transmit",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A05",
+          "label": "대화방",
+          "context": "하단",
+          "classification": "transmit",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A06",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A07",
+          "label": "선택삭제",
+          "context": "하단",
+          "classification": "delete",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A08",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A09",
+          "label": "내역보기",
+          "context": "결과 행",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Clicked but popup/new-tab creation unverified"
+        },
+        {
+          "id": "E040218-A10",
+          "label": "인쇄",
+          "context": "결과 행",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E040218-A11",
+          "label": "일자 - 번호",
+          "context": "결과 행",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Date link observed; not clicked because edit behavior unknown"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
@@ -12907,9 +13062,21 @@
           "testEvidence": []
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "",
+            "일자 - 번호",
+            "거래처명",
+            "공급가액",
+            "부가세",
+            "합 계",
+            "내역보기",
+            "인쇄"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -12922,8 +13089,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {

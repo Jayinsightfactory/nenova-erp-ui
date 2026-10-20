@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -38,4 +38,28 @@ test('quote status local modes retain eight/seven observed columns while both re
   for(const [quoteReportMode,count,label]of[['aggregate',8,'단가(vat포함)'],['detail',7,'단가(var별도)']]){
     const html=render({dataset:'quoteStat',rows:[],dataState:'uncollected',quoteReportMode});assert.equal((html.match(/<th scope=/g)||[]).length,count);assert.ok(html.includes(label));assert.ok(html.includes('작업 자료가 아직 수집되지 않았습니다.'));
   }
+});
+
+test('sales tax keeps eight columns and exact safe decimals without private identities',()=>{
+ const html=render({dataset:'salesTax',dataState:'loaded',rows:[{sourceDateLabel:'2026/09/30 -1',refDate:'2026-09-30',supplyAmt:'12345678901234567890.01',vat:'123.40',total:'12345678901234568013.41',custName:'must-not-render'}]});
+ assert.equal((html.match(/<th scope=/g)||[]).length,8);assert(html.includes('12345678901234567890.01'));assert(html.includes('2026/09/30 -1'));assert(!html.includes('must-not-render'));
+ const empty=render({dataset:'salesTax',dataState:'uncollected',rows:[]});assert(empty.includes('아직 수집되지 않았습니다'));assert(!empty.includes('조회된 자료가 없습니다'));
+});
+
+test('sales tax observed buttons and row links stay disabled and F3/F8 cannot invent a form',async()=>{
+ const controls=load('components/ecount/SalesTaxQueryPageControls.js');
+ const html=renderToStaticMarkup(React.createElement(React.Fragment,null,React.createElement(controls.SalesTaxToolbar),React.createElement(controls.SalesTaxFooter)));
+ assert.equal((html.match(/<button/g)||[]).length,8);assert.equal((html.match(/disabled=""/g)||[]).length,8);
+ const rowHtml=render({dataset:'salesTax',dataState:'loaded',rows:[{sourceDateLabel:'2026/09/30 -1',supplyAmt:'1',vat:'0.1',total:'1.1'}]});
+ assert.equal((rowHtml.match(/aria-disabled="true"/g)||[]).length,3);
+ const ids=[...(html+rowHtml).matchAll(/data-ecount-action-id="([^"]+)"/g)].map(match=>match[1]);
+ const expected=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/button-matches.json'),'utf8')).pages.find(page=>page.program==='E040218').buttons.map(button=>button.matchId);
+ assert.deepEqual(ids.sort(),expected.sort());
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
+ for(const name of ['toggleSearch','runSearch']){
+  const declaration=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert(declaration);
+  const box={exports:{}},errors=[];
+  vm.runInNewContext(source.slice(declaration.start,declaration.end)+';module.exports='+name,{module:box,busy:false,dataset:'salesTax',searchDraft:{},setError:message=>errors.push(message)});
+  await box.exports();assert.equal(errors.length,1);assert.match(errors[0],/아직 확인하지 않았습니다/);
+ }
 });
