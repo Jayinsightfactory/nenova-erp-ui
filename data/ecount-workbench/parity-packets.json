@@ -401,7 +401,7 @@
         "E040228",
         "E040318"
       ],
-      "stage": "queued",
+      "stage": "awaiting-evidence",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
@@ -409,7 +409,50 @@
       "surveyFirst": "E040307",
       "maxActiveWorkers": 1,
       "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "resumeFrom": "E040305",
+      "activeScreen": "E040305",
+      "screenWork": [
+        {
+          "id": "E040307",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040305",
+          "stage": "partial-observation-awaiting-implementation"
+        },
+        {
+          "id": "E040313",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040319",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040312",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040730",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040222",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040227",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040228",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040318",
+          "stage": "pending-source-survey"
+        }
+      ]
     },
     {
       "id": "P013",
@@ -1474,12 +1517,12 @@
   "resumeScope": {
     "date": "2026-10-20",
     "totalPackets": 59,
-    "fullyUnobservedPackets": 54,
-    "partiallyObservedPackets": 5,
+    "fullyUnobservedPackets": 53,
+    "partiallyObservedPackets": 6,
     "totalPrograms": 373,
-    "programsWithObservedActions": 6,
-    "programsWithoutObservedActions": 367,
-    "unobservedProgramsInsidePartialPackets": 20,
+    "programsWithObservedActions": 7,
+    "programsWithoutObservedActions": 366,
+    "unobservedProgramsInsidePartialPackets": 29,
     "verifiedPackets": 0,
     "verifiedPrograms": 0,
     "priorityPackets": [

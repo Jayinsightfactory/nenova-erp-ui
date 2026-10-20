@@ -9717,14 +9717,198 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040305-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A05",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A06",
+          "label": "Excel(화면)",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A08",
+          "label": "Email",
+          "context": "하단",
+          "classification": "transmit",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A09",
+          "label": "PDF",
+          "context": "인쇄 드롭다운 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A10",
+          "label": "미리보기",
+          "context": "인쇄 드롭다운 펼침",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY",
+            "root preview observation 2026-10-20"
+          ],
+          "testEvidence": [],
+          "behavior": "Actual separate Print Preview tab with empty14-column table confirmed; screenshot available"
+        },
+        {
+          "id": "E040305-A11",
+          "label": "프린트문제해결",
+          "context": "인쇄 드롭다운 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A12",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Today auto query returns zero rows and closes search panel"
+        },
+        {
+          "id": "E040305-A13",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/menu content observed; individual action execution unverified"
+        },
+        {
+          "id": "E040305-A14",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "root source screenshot review 2026-10-20"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible between search input and Search(F3); not executed"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
@@ -9733,9 +9917,28 @@
           "testEvidence": []
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
+          "testEvidence": [],
+          "observedCount": 14,
+          "labels": [
+            "일자-No.",
+            "거래처명",
+            "품목명(규격)",
+            "수량",
+            "박스수량",
+            "단가",
+            "외화금액",
+            "공급가액",
+            "환율",
+            "합계",
+            "차수/품목",
+            "인보이스넘버",
+            "결제일",
+            "Weight"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -9748,8 +9951,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-STATUS-TODAY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -9794,9 +9999,18 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "14 column labels awaiting exact evidence; other query forms/windows not fully observed"
       ],
-      "exclusions": []
+      "exclusions": [],
+      "retractedActions": [
+        {
+          "stableId": "E040305-A07",
+          "label": "Excel 드롭다운",
+          "reason": "Earlier report was unverified inference; actual parent/grandparent contains one Excel(화면) button only, no arrow",
+          "observedOn": "2026-10-20",
+          "reuseAllowed": false
+        }
+      ]
     },
     {
       "id": "E040311",

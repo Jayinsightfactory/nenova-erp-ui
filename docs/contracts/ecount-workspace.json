@@ -16,6 +16,7 @@
     "components/ecount/ObservedPageControls.js",
     "components/ecount/QuotePageControls.js",
     "components/ecount/PurchasePageControls.js",
+    "components/ecount/PurchaseStatusPageControls.js",
     "scripts/ecount-workspace-import-safe.mjs"
   ],
   "businessIdentity": [
@@ -68,6 +69,7 @@
     "npm run build"
   ],
   "criteria": {
+    "buyStatusUpload": "E040305 buyStatus, canonical MENUTREE_000513 (000583 alias 공유). 관찰된 14열 중 qty/boxQty/unitPrice/foreignAmount/supplyAmt/exchangeRate/total/weight와 sourceDateLabel/refDate만 투영. 거래처/품목/인보이스/차수품목/결제일 제외. upload-only, import-latest 금지. 기존 스키마 버전/감사 재사용; 원본전체 unknown, 원장 보존, DDL 없음.",
     "quoteStatus": "선택 quoteStatus=in_progress|completed 및 statusEvidence=row_cell|query_filter 조합만 허용. 원본 DOM의 진행중/완료 상태셀 직접확인을 근거로 하며 가상스크롤/페이지 전체총수는 미확인. 다른 결재/확인 상태축은 추정하지 않음. 양쪽 모두 생략하면 기존 행·해시 보존, 상태 미상. 직접 상태셀 확인과 조회조건 근거를 구별하며 임의문자/단독필드/타dataset/소계 상태는 거부. 새 상태정보는 새 JSON 버전, 과거 버전 수정/DDL 없음. 빈행 수집의 조건 완전성은 추정하지 않음.",
     "quoteUpload": "E040202 quote: refDate/sourceDateLabel 및 estimateTotal만 안전 투영. 업로드·버전·복원만 지원; 기존 source snapshot import-latest는 cash/ar/ap/sales 네 종류에 한정. 신규 스키마·운영 원장 변경 없음.",
     "sourceEvidence": "docs/ecount-migration/parity-observations.md",
