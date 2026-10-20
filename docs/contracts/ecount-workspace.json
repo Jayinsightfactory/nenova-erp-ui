@@ -2,6 +2,8 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/StockMovementPageControls.js",
+    "components/ecount/WarehouseStockPageControls.js",
     "components/ecount/PurchaseTaxStatusPageControls.js",
     "components/ecount/SalesTaxStatusPageControls.js",
     "components/ecount/PurchaseTaxQueryPageControls.js",
@@ -86,6 +88,8 @@
     "npm run build"
   ],
   "criteria": {
+    "stockMovePeriod":"E040719 stockMove canonical1713. productCode ASCII코드와openingQuantity/inQuantity/outQuantity/quantity4필수정확소수만허용. 제품명규격/숨은열제외, 중복코드·소계·행날짜거부. 기간양끝필수/선택범위가version과완전일치해야표시,부분기간재계산금지. 원본1949부분표본/전체성unknown,실제SQL없음·source-latest차단·target업로드복원허용.",
+    "warehouseStockSnapshot":"E040711 whStock canonical213. productCode/warehouseCode만 각ASCII /^[A-Za-z0-9._/-]{1,60}$/ 허용, 두코드복합키중복거부·수량필수정확소수·소계/행날짜거부. 단일기준일periodFrom=periodTo필수,1949부분표본/창고1/전체성unknown. target수동업로드복원허용/source-latest차단/다른dataset warehouseCode허용금지. 가로표는수집된셀의정확합만표시하고미수집셀null,전체창고합주장금지.",
     "stockSnapshot":"E040701 stock만 원본 품목코드열의 productCode /^[A-Za-z0-9._/-]{1,60}$/ 허용. quantity 소수문자열, 제품명제외. 1949유일제품부분표본, 소계미수집/중복코드거부. 기준일 단일snapshot periodFrom=periodTo 필수, 행날짜/다른날짜로재해석금지. 다른dataset제품코드허용안함/source-latest금지/기존재고원장무관.",
     "buyTaxStatUpload":"E040320 buyTaxStat canonical710, 식별자10자제한준수. 날짜+필수supplyAmt/vat/total 안전투영만 target 수동업로드/버전/복원허용. 원본확인필터금일0관측은 미수집으로유지, 가짜빈import없음. source-latest차단/실제SQL추가없음/원장보존. 검증된기존날짜문법만허용, 실제원본행형식및전체성미확인.",
     "taxStatUpload":"E040223 taxStat canonical706. 날짜+필수supplyAmt/vat/total 안전투영만 target 업로드/버전/복원허용. 원본금일0관측은 전체수집또는빈버전근거가아니며 미수집유지. 실제행미관측으로 기존허용날짜문법만사용; source-latest/공유원장접근없음. 교차연도·정확소수·필수금액 fixture검증.",

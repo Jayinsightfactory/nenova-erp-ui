@@ -453,3 +453,10 @@
 - 후속 taxStat E040223/menu706 및 buyTaxStat E040320/menu710 안전날짜+필수3금액 정책·6열현황 구현. 원본금일0관측만, 실제자료미수집/SQL추가없음. 신규두dataset빈import서버거부, source-latest차단·실제safe수동업로드/복원허용.
 - 양현황29ID씩·표적UI15검사와정책/actions통과. 총713관측ID는완료수아님. 승인상태미수집은자료버전있을때안내, 확인필터원본전체동등성추정안함. 기존격리shell적용/신규ERP writer해당없음.
 - 검색어: taxStat buyTaxStat E040223 E040320 713 stock3898 sale52 1141runtime
+
+## 2026-10-20 창고별재고·재고변동표 안전 버전 준비
+- whStock E040711/menu213: 품목+창고코드 복합키, 필수수량, 단일기준일2026-10-20. stockMove E040719/menu1713: 품목코드와4필수수량, 기간양끝완전일치만조회. 제품명·규격·숨은열제외, 소계/중복키/빈import거부, 원본 및 공유ERP쓰기없음.
+- 안전wrapper각1949행. whStock5847필드/stockMove9745필드 값불일치0, root원본메모리독립대조도0(inventory-import-root-mapping-validation.json). 실제SQL아직미실행. 창고가로합은수집셀합만, 미수집셀null/전체창고완전성unknown.
+- 두UI16/27 ID및정책/정밀소수/기간·연도·중복·복원fixturePASS, 총787관측ID. stockMove일별·월별별도자료미수집비활성유지; source3899bodyrows는거래건수로해석하지않음. 기존격리shell적용/신규공유ERP writer없음.
+- PR1142 5dd746f1 CI성공·병합. 배포39404519702는활동이력test54가09:59:59→10:00:00UTC 경계에서hour조회5중1반환으로실패, SSH미실행. 동일failedjob재시도중, 검증우회없음/관련없는코드수정없음.
+- 검색어: whStock stockMove 787 inventory-import-root-mapping-validation 1142시간경계
