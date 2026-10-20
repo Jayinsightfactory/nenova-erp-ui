@@ -229,7 +229,6 @@ export default function EcountWorkbench() {
 
   function toggleSearch() {
     if (busy) return;
-    if(dataset==='bomStock'&&!bomProductDraft)return;
     if(['relStock','bomStock','stkBalance','stkLedger','stockMove','stock','whStock','salesTax','buyTax','taxStat','buyTaxStat'].includes(dataset)&&!searchDraft.from)setSearchDraft(value=>({...value,from:version?.periodFrom||'',to:(['stock','whStock','stkBalance','bomStock','relStock'].includes(dataset)?version?.periodFrom:version?.periodTo)||''}));
     setSearchOpen(open=>!open);
     if (!searchOpen) setTimeout(()=>searchInputRef.current?.focus(),0);

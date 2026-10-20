@@ -526,3 +526,9 @@
 - relation-stock-import-safe.json2행8필드정규화대조0/실제SQL아직없음. UI32표적검사·정책actionsPASS,총868관측ID. 4열751/span2/print3열기닫기만. 원본전체동등성미완료.
 - 공유계정사용량주간42%/58%남음(root조회),작업단독사용량아님/리셋구매없음. 기존격리shell적용/공유ERP writer없음.
 - 검색어: relStock E040728 868 sourceTotal selectedscope
+
+## 2026-10-20 BOM 초기 검색폼 결함 정정
+- PR1148 배포39411392175 success이나 root 실제운영에서무코드초기F3무반응발견. toggleSearch에조회용bomProductDraft빈값차단이잘못들어가품목입력폼진입자체불가. 폼토글의차단1줄만제거하고runSearch빈코드무조회는보존.
+- 실제toolbar F3 handler→toggleSearch AST 실행으로폼열림/포커스/빈코드조회미실행회귀추가,UI33표적PASS. relStock PR1152미병합상태에수정포함후전체검사재실행. 앞선배포성공을BOMruntimePASS로보지않음.
+- root relStock별도SQL count2 revision1/readbacktrue/idempotenttrue,relation-stock-import-result.json. 원본공유원장쓰기없음. 실제UI결함이므로추가build재검증근거있으며검증우회없음.
+- 검색어: BOM F3 toggleSearch bomProductDraft PR1152 regression
