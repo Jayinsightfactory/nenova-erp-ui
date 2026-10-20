@@ -1,0 +1,91 @@
+{
+  "id": "shilla-reconciliation",
+  "title": "신라 DB·원본 엑셀·로그인 브라우저 입고실적 읽기 전용 대조",
+  "scope": [
+    "pages/raum/shilla-analysis.js",
+    "pages/api/raum/shilla-analysis.js",
+    "lib/shillaReconciliation.js",
+    "lib/shillaReconciliationServer.js",
+    "public/shilla-connector/manifest.json",
+    "public/shilla-connector/background.js",
+    "public/shilla-connector/content.js",
+    "public/shilla-connector/collector.js"
+  ],
+  "businessKey": [
+    "OrderYear",
+    "MajorWeek",
+    "PartnerCode=shilla",
+    "ItemName",
+    "Unit"
+  ],
+  "actions": [
+    {
+      "name": "prepare/compare",
+      "reads": [
+        "WebRaumPnl",
+        "WebRaumPnlItem"
+      ],
+      "writes": [],
+      "preserves": [
+        "Product",
+        "OrderMaster",
+        "OrderDetail",
+        "ShipmentMaster",
+        "ShipmentDetail",
+        "ShipmentDate",
+        "ShipmentFarm",
+        "Estimate",
+        "ProductStock",
+        "StockHistory",
+        "WebProfitReport"
+      ],
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "selectedYear": "2026",
+    "priorYear": "2025",
+    "sameWeek": "39",
+    "expected": "prior year excluded; 39 and 39-2 remain separate",
+    "required": true
+  },
+  "criteria": {
+    "source": "Original workbook parsed without correction; DB fresh SELECT by year+partner; SRM findListGrSp response only",
+    "period": "User selects exact workbook periods and receipt date range independently",
+    "matching": "Exact normalized name+unit only; SRM material/spec/unit group requires explicit session mapping when ambiguous",
+    "conversion": "Explicit per-material quantity multiplier; unit mismatch requires acknowledgement; gross Excel option divides price/amount by 1.1",
+    "missing": "Missing never zero or equal; price buckets retained; duplicate receipt IDs flagged, never silently discarded",
+    "browser": "Only nenovaweb.com may request bounded receipts from www.shillasrm.com; no credentials/cookies/storage permissions; installation requires user action",
+    "persistence": "No original/ledger writes; uploaded temporary files removed in finally; browser results held only in page memory"
+  },
+  "requiredTestFiles": [
+    "__tests__/shillaReconciliation.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormRaumPnl.md",
+    "source": "dnSpy FormOrderAdd executed 2026-10-20; no native writes",
+    "methods": [
+      "CheckExistingOrder"
+    ],
+    "tables": [
+      "WebRaumPnl",
+      "WebRaumPnlItem"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ]
+}

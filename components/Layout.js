@@ -103,6 +103,7 @@ export const MENU_ITEMS = [
       { href: '/sales/profit-validation', labelKey: '매출이익 수익률 검증', popup: true },
       { href: '/raum/pnl',           labelKey: '라움 초이문 손익계산서 · 신라호텔', popup: true },
       { href: '/raum/purchase-costs', labelKey: '라움 초이문 차수별 매입단가 · 신라호텔', popup: true },
+      { href: '/raum/shilla-analysis', labelKey: '신라호텔 입고 조회·분석', popup: true },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },
       { href: '/sales/shilla-miu-board', labelKey: '호텔+미우 통합게시판', popup: false },
       { href: '/catalog',              labelKey: '거래처 카탈로그', popup: true },
