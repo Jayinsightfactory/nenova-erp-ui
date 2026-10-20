@@ -7452,6 +7452,34 @@
           ],
           "testEvidence": [],
           "behavior": "Visible control, not executed"
+        },
+        {
+          "id": "E040208-A25",
+          "label": "전표별",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040208-EXACT-CRITERIA"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed exact query profile label; setting action not executed"
+        },
+        {
+          "id": "E040208-A26",
+          "label": "견적서현황",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040208-EXACT-CRITERIA"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed exact query profile label; setting action not executed"
         }
       ],
       "windows": [],

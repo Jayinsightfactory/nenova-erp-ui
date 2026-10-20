@@ -564,3 +564,13 @@
 - PR1154 CI39415205842 통과 후 squashd05239d8, Cafe24 배포39415568799 진행 중이다. ordEmpty 실제 적재 receipt는0행/revision1/readbacktrue/idempotenttrue로 보존했다. shell/BOM755/빈결과 운영 검증은 아직 미검증이다.
 - BOM 기준일 및 주문서현황 시작일 위젯만 원본 관측 프로필을 적용했다. 2026에서 관측한 연도 목록을 보존하며 선택년도2025에도 목록 유지, 직접입력 Tab확정, BOM 월메뉴376.5625/orderStart260 높이를 반영했다. 종료일/미래연도 갱신규칙은 추정하지 않았다. 기존 stock Enter/Escape 동작 보존, UI41검사 PASS. 메타909관측ID로 증가했으나 전체 기능동등성 완료 수가 아니다.
 검색어: PR1154 연월 Tab BOM376.5625 주문서260 observed-profile909
+
+
+### 2026-10-20 연월 릴리스 및 견적 빈 결과·주문 미리보기
+- PR1154 Cafe24 배포39415568799 최종성공, root shell/BOM755/ordEmpty 운영검증 대기. PR1155 날짜 프로필 HEADf9cc6e43 필수5종/CI39416188437 통과 후 squashcf157640, 배포39416549543 진행 중.
+- 다음 quoteEmpty는 원본 전표별 exact조건/기록시각을 별도 등록하고, 기존 ordEmpty/hash/quoteStat을 보존한다. 안전 wrapper0행 준비 및 unknown조건·교차연도·프로필혼입·mock import/readback/복원 검증 통과, 실제SQL/운영은 아직 미검증이다. 주문서현황 preview는 원본 관측된751/x15/y48 표만 렌더하며 제목/회사/기간을 넣지 않고 기존 다른미리보기는 유지한다. CSP·HTMLescape·자동인쇄금지 회귀 통과, 픽셀동등성은 운영검증 전이다.
+- root 확인 공유계정 주간64%사용/36%남음(본 작업 단독비용 아님), ordinaryAllowedtrue. 리셋·구매 없이 기존3작업자 재사용, 변경묶음당 필수검사/빌드1회 유지.
+검색어: PR1155 quoteEmpty orderStat-detail preview751 verification_recorded_at 공유사용량64
+
+- 1154 운영 반증 보존: shell 그룹바/좌측 폭은 원본치수 일치했으나 BOM폼 y183.390625로 원본136.21875보다47.171875 낮았다. 원본0범위 밖19일 입력 후에도 빈결과 표시가 남는 현상은 원인확정 전이며 성공판정 보류. 후속은 BOM 도구를 heading 내부로 정리하고 native 날짜 input/blur를 draft에 동기화하는 방어적 보완을 포함한다. 실제Panel19입력→F8→runSearch19전달→coverage거부/서버요청없음 및 heading내 단일toolbar 회귀 포함 UI45검사 통과. 운영 원인해결·픽셀동등성은 재배포 후 root가 재검증한다. quoteEmpty/주문preview/911 ID와 같은 묶음으로 검사한다.
+검색어: BOM y47.171875 ordEmpty19일 반증 nativeinput blur quoteEmpty911 미검증
