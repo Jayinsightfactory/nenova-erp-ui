@@ -21,7 +21,2536 @@
         "MENUTREE_000098"
       ],
       "status": "미검증",
-      "buttons": []
+      "buttons": [
+        {
+          "matchId": "E010701-A01",
+          "source": {
+            "stableId": "E010701-A01",
+            "label": "Search(F3)",
+            "context": "상단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A01",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A02",
+          "source": {
+            "stableId": "E010701-A02",
+            "label": "Option",
+            "context": "상단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A02",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A03",
+          "source": {
+            "stableId": "E010701-A03",
+            "label": "도움말",
+            "context": "상단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A03",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A04",
+          "source": {
+            "stableId": "E010701-A04",
+            "label": "Fn",
+            "context": "상단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A04",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A05",
+          "source": {
+            "stableId": "E010701-A05",
+            "label": "전체",
+            "context": "상태 탭",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A05",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A06",
+          "source": {
+            "stableId": "E010701-A06",
+            "label": "결재중",
+            "context": "상태 탭",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A06",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A07",
+          "source": {
+            "stableId": "E010701-A07",
+            "label": "미확인",
+            "context": "상태 탭",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A07",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A08",
+          "source": {
+            "stableId": "E010701-A08",
+            "label": "확인",
+            "context": "상태 탭",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A08",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A09",
+          "source": {
+            "stableId": "E010701-A09",
+            "label": "검색(F8)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A09",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A10",
+          "source": {
+            "stableId": "E010701-A10",
+            "label": "금일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A10",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A11",
+          "source": {
+            "stableId": "E010701-A11",
+            "label": "전일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A11",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A12",
+          "source": {
+            "stableId": "E010701-A12",
+            "label": "금주(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A12",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A13",
+          "source": {
+            "stableId": "E010701-A13",
+            "label": "전주",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A13",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A14",
+          "source": {
+            "stableId": "E010701-A14",
+            "label": "금월(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A14",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A15",
+          "source": {
+            "stableId": "E010701-A15",
+            "label": "전월",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A15",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A16",
+          "source": {
+            "stableId": "E010701-A16",
+            "label": "이번기수",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A16",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A17",
+          "source": {
+            "stableId": "E010701-A17",
+            "label": "다시작성",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A17",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A18",
+          "source": {
+            "stableId": "E010701-A18",
+            "label": "신규",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A18",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A19",
+          "source": {
+            "stableId": "E010701-A19",
+            "label": "보내기",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A19",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A20",
+          "source": {
+            "stableId": "E010701-A20",
+            "label": "인쇄",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A20",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A21",
+          "source": {
+            "stableId": "E010701-A21",
+            "label": "확인",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A21",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A22",
+          "source": {
+            "stableId": "E010701-A22",
+            "label": "확인취소",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A22",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A23",
+          "source": {
+            "stableId": "E010701-A23",
+            "label": "전자결재",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A23",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A24",
+          "source": {
+            "stableId": "E010701-A24",
+            "label": "선택삭제",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A24",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A25",
+          "source": {
+            "stableId": "E010701-A25",
+            "label": "Excel",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A25",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A26",
+          "source": {
+            "stableId": "E010701-A26",
+            "label": "신규 드롭다운",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A26",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A27",
+          "source": {
+            "stableId": "E010701-A27",
+            "label": "보내기 드롭다운",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A27",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A28",
+          "source": {
+            "stableId": "E010701-A28",
+            "label": "인쇄 드롭다운",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A28",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        },
+        {
+          "matchId": "E010701-A29",
+          "source": {
+            "stableId": "E010701-A29",
+            "label": "프린트문제해결",
+            "context": "인쇄 메뉴",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E010701-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E010701-A29",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; 전체버튼/창/정렬/전체원천 및 alias별 문맥 미검증"
+          ]
+        }
+      ],
+      "sourceObservation": {
+        "programId": "E010701",
+        "menuIds": [
+          "MENUTREE_000098",
+          "MPMU00000400001"
+        ],
+        "title": "회계거래조회",
+        "headers": [
+          "",
+          "전표번호",
+          "거래유형",
+          "금액",
+          "거래처명",
+          "적요명",
+          "전표",
+          "결의서"
+        ],
+        "safeTodayRows": 9,
+        "period": "2026-10-20",
+        "safeFields": [
+          "sourceDateLabel",
+          "amount"
+        ],
+        "searchFields": [
+          "회계전표No.",
+          "거래처",
+          "계정",
+          "부서",
+          "프로젝트",
+          "업무",
+          "관리번호",
+          "금액",
+          "채권/채무(어음) No.",
+          "적요",
+          "작성자",
+          "최종수정자"
+        ],
+        "searchButtons": [
+          "검색(F8)",
+          "금일",
+          "전일",
+          "금주(~오늘)",
+          "전주",
+          "금월(~오늘)",
+          "전월",
+          "이번기수",
+          "다시작성"
+        ],
+        "toolbar": [
+          "Search(F3)",
+          "Option",
+          "도움말"
+        ],
+        "footer": [
+          "신규",
+          "보내기",
+          "인쇄",
+          "확인",
+          "확인취소",
+          "전자결재",
+          "선택삭제",
+          "Excel"
+        ],
+        "sourceWrites": 0,
+        "headerScreenshot": "E010701-source-header-only.jpg",
+        "unverified": [
+          "전체버튼목록",
+          "팝업",
+          "정렬",
+          "행상태",
+          "전체기간원본자료"
+        ],
+        "statusTabs": [
+          "전체",
+          "결재중",
+          "미확인",
+          "확인"
+        ],
+        "printMenu": [
+          "프린트문제해결"
+        ],
+        "fn": {
+          "seenInScreenshot": true,
+          "opened": false,
+          "reason": "visible locator absent after print menu close"
+        },
+        "footerArrows": [
+          "신규",
+          "보내기",
+          "인쇄"
+        ]
+      }
     },
     {
       "program": "E010205",
@@ -23416,7 +25945,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-INITIAL"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-06",
+              "primaryStableId": "E040206-A06",
+              "role": "primary",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A06",
@@ -23488,7 +26026,8 @@
             "target": null
           },
           "limitations": [
-            "Partial source labels; screenshot timeout; source total and complete parity unknown"
+            "Partial source labels; screenshot timeout; source total and complete parity unknown",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -23500,7 +26039,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-INITIAL"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-07",
+              "primaryStableId": "E040206-A07",
+              "role": "primary",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A07",
@@ -23572,7 +26120,8 @@
             "target": null
           },
           "limitations": [
-            "Partial source labels; screenshot timeout; source total and complete parity unknown"
+            "Partial source labels; screenshot timeout; source total and complete parity unknown",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -24004,7 +26553,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-INITIAL"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-13",
+              "primaryStableId": "E040206-A13",
+              "role": "primary",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A13",
@@ -24076,7 +26634,8 @@
             "target": null
           },
           "limitations": [
-            "Partial source labels; screenshot timeout; source total and complete parity unknown"
+            "Partial source labels; screenshot timeout; source total and complete parity unknown",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -25602,7 +28161,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-06",
+              "primaryStableId": "E040206-A06",
+              "role": "same-control-alias",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A32",
@@ -25674,7 +28242,8 @@
             "target": null
           },
           "limitations": [
-            "Source label visible, behavior unverified; target must not imply execution equivalence"
+            "Source label visible, behavior unverified; target must not imply execution equivalence",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -25686,7 +28255,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-07",
+              "primaryStableId": "E040206-A07",
+              "role": "same-control-alias",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A33",
@@ -25758,7 +28336,8 @@
             "target": null
           },
           "limitations": [
-            "Source label visible, behavior unverified; target must not imply execution equivalence"
+            "Source label visible, behavior unverified; target must not imply execution equivalence",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -25938,7 +28517,16 @@
             "domId": null,
             "evidence": [
               "source-action-audit.jsonl#SRC-20261020-SALE-QUERY-SCREENSHOT-CORRECTION"
-            ]
+            ],
+            "controlIdentity": {
+              "controlId": "E040206-CONTROL-13",
+              "primaryStableId": "E040206-A13",
+              "role": "same-control-alias",
+              "relation": "one label-plus-arrow DOM button",
+              "evidence": [
+                "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+              ]
+            }
           },
           "target": {
             "requiredStableId": "E040206-A36",
@@ -26010,7 +28598,8 @@
             "target": null
           },
           "limitations": [
-            "Source label visible, behavior unverified; target must not imply execution equivalence"
+            "Source label visible, behavior unverified; target must not imply execution equivalence",
+            "원본 라벨/화살표는 동일 DOM 버튼. 관측 ID를 독립 버튼수로 합산하지 않음."
           ]
         },
         {
@@ -26219,7 +28808,53 @@
           ]
         }
       ],
-      "uninventoriedControls": []
+      "uninventoriedControls": [],
+      "sourceControlIdentity": {
+        "countSemantics": "Observed stable IDs are evidence identities, not distinct DOM button counts",
+        "physicalControlCount": null,
+        "allControlsKnown": false,
+        "combinedControls": [
+          {
+            "controlId": "E040206-CONTROL-06",
+            "primaryStableId": "E040206-A06",
+            "aliasStableIds": [
+              "E040206-A32"
+            ],
+            "label": "진행상태변경",
+            "physicalControlCount": 1,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+            ],
+            "behaviorVerified": false
+          },
+          {
+            "controlId": "E040206-CONTROL-07",
+            "primaryStableId": "E040206-A07",
+            "aliasStableIds": [
+              "E040206-A33"
+            ],
+            "label": "보내기",
+            "physicalControlCount": 1,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+            ],
+            "behaviorVerified": false
+          },
+          {
+            "controlId": "E040206-CONTROL-13",
+            "primaryStableId": "E040206-A13",
+            "aliasStableIds": [
+              "E040206-A36"
+            ],
+            "label": "이력조회",
+            "physicalControlCount": 1,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040206-CONTROL-IDENTITY"
+            ],
+            "behaviorVerified": false
+          }
+        ]
+      }
     },
     {
       "program": "E040205",
