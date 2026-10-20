@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/DiscountPageControls.js",
     "components/ecount/PurchaseOrderPageControls.js",
     "components/ecount/SettlementPageControls.js",
     "lib/ecountWorkspacePolicy.cjs",
@@ -71,6 +72,8 @@
     "npm run build"
   ],
   "criteria": {
+    "buyDiscountReadOnly":"E040313 buyDisc canonical518/alias588: 별도 구매할인 관찰6열 중 purchaseAmount/accountingAmount/difference만 모델 정의. 금일/전월0, 월일문법미확인. 판매할인과 별도scope, 날짜저장/필터 및 모든버전쓰기차단. 원본직전기수preset 동작추정금지. SQL/DDL 없음.",
+    "discountReadOnly":"E040216 discount: 원본6열/금일·전월0행만 관측. salesAmount/accountingAmount/difference 안전 숫자 모델, 월일 문법 미확인으로 날짜 보존·필터 추정 금지. 읽기scope만; import/import-latest/activate는 트랜잭션 전 거부하여 빈snapshot/가짜행 생성 금지. SQL/DDL/ERP원장 변경 없음.",
     "orderSettlementUpload": "poQuery E040302 orderTotal, receipt E040217 amount, payment E040310 amount 및 검증된 sourceDateLabel/refDate만 업로드. canonical 기존 첫 non-MyPage 규칙. 상태/납기/거래처/적요 미수집, 원본전체 unknown. dataset ASCII10자 이하, source-latest 금지, 기존 원장/DDL 변경 없음.",
     "buyStatusUpload": "E040305 buyStatus, canonical MENUTREE_000513 (000583 alias 공유). 관찰된 14열 중 qty/boxQty/unitPrice/foreignAmount/supplyAmt/exchangeRate/total/weight와 sourceDateLabel/refDate만 투영. 거래처/품목/인보이스/차수품목/결제일 제외. upload-only, import-latest 금지. 기존 스키마 버전/감사 재사용; 원본전체 unknown, 원장 보존, DDL 없음.",
     "quoteStatus": "선택 quoteStatus=in_progress|completed 및 statusEvidence=row_cell|query_filter 조합만 허용. 원본 DOM의 진행중/완료 상태셀 직접확인을 근거로 하며 가상스크롤/페이지 전체총수는 미확인. 다른 결재/확인 상태축은 추정하지 않음. 양쪽 모두 생략하면 기존 행·해시 보존, 상태 미상. 직접 상태셀 확인과 조회조건 근거를 구별하며 임의문자/단독필드/타dataset/소계 상태는 거부. 새 상태정보는 새 JSON 버전, 과거 버전 수정/DDL 없음. 빈행 수집의 조건 완전성은 추정하지 않음.",

@@ -9,6 +9,7 @@
   "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
   "requiredCommands":["node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
   "criteria":{
+    "discountPreview":"원본 별도탭 visible6열 미리보기 관측에 따라 6열 허용. 월/일 값 문법 미확인: 값 공백, 날짜필터 불가, 빈모델은 원본전체완전성 보증 아님.",
     "orderSettlementFilter":"poQuery/receipt/payment 날짜·정확소수 필터 재사용. 원본 수금/지급 미리보기 관찰된 visible4열만 추가 허용하며 hidden th는 제외. 발주서 상태/납기와 빈결과 전체성은 추정하지 않음.",
     "buyStatusFilter":"E040305 구매현황 안전 숫자8필드 및 날짜 필터 지원. 날짜 기본값/추가조건 추정 없음; 미상일자 제외수 및 정확소수 보존.",
     "purchaseFilter":"E040304 purchase 날짜/정확소수 필터와 안전출력 모델 재사용. 원본 날짜 기본값/preset은 추정하지 않음. amountTotal/foreignTotal/exchangeRate만 허용, 미상일자 제외 계수 명시.",
