@@ -701,7 +701,7 @@
         "E040807",
         "E040607"
       ],
-      "stage": "queued",
+      "stage": "partially-observed",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"

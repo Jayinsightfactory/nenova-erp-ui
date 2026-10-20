@@ -12,7 +12,7 @@ function compile(source,filename){return babel.transformSync(source,{filename,ba
 function load(relative){
   const file=path.resolve(root,relative);if(cache.has(file))return cache.get(file).exports;
   const module={exports:{}};cache.set(file,module);
-  const localRequire=id=>id.endsWith('.css')?styles:id.startsWith('.')?load(path.relative(root,path.resolve(path.dirname(file),id.endsWith('.js')?id:id+'.js'))):require(id);
+  const localRequire=id=>id.endsWith('.css')?styles:id.endsWith('.cjs')?require(path.resolve(path.dirname(file),id)):id.startsWith('.')?load(path.relative(root,path.resolve(path.dirname(file),id.endsWith('.js')?id:id+'.js'))):require(id);
   vm.runInNewContext(compile(fs.readFileSync(file,'utf8'),file),{module,exports:module.exports,require:localRequire,process,console});return module.exports;
 }
 const source=fs.readFileSync(path.join(root,'pages/ecount/workbench.js'),'utf8');
@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/WarehouseStockPageControls.js'),...load('components/ecount/StockMovementPageControls.js'),...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -128,4 +128,24 @@ test('tax status retains six report columns and observed confirmed state without
 test('purchase tax report keeps separate labels and form without sales tax customer checkbox',()=>{
  const html=render({dataset:'buyTaxStat',rows:[],dataState:'uncollected'});assert.equal((html.match(/<th scope=/g)||[]).length,6);assert(html.includes('매입부가세'));assert(html.includes('매입합계'));assert(html.includes('아직 수집되지 않았습니다'));
  const c=load('components/ecount/PurchaseTaxStatusPageControls.js');const form=renderToStaticMarkup(React.createElement(c.PurchaseTaxStatusSearchPanel,{from:'2026-10-20',to:'2026-10-20',canQuery:false}));assert(!form.includes('세무신고거래처'));assert(form.includes('기본(수정불가)'));assert.match(form,/<input[^>]*checked=""[^>]*\/>확인/);
+});
+
+test('warehouse stock preserves visible layouts, missing cells and exact collected totals',()=>{
+ const rows=[{productCode:'P1',warehouseCode:'W1',quantity:'9007199254740993.1',prodName:'private-name'},{productCode:'P1',warehouseCode:'W2',quantity:'0.2'},{productCode:'P2',warehouseCode:'W1',quantity:'1'}];
+ const vertical=render({dataset:'whStock',warehouseMode:'vertical',rows,dataState:'loaded'});assert.equal((vertical.match(/<th /g)||[]).length,5);assert(!vertical.includes('private-name'));assert(vertical.includes('9007199254740993.1'));
+ const horizontal=render({dataset:'whStock',rows,dataState:'loaded'});assert.equal((horizontal.match(/<th /g)||[]).length,6);assert(horizontal.includes('9007199254740993.3'));assert(!horizontal.includes('private-name'));assert.match(horizontal,/>P2<.*?>1<.*?><\/td>/);
+ const empty=render({dataset:'whStock',rows:[],dataState:'uncollected'});assert.equal((empty.match(/<th /g)||[]).length,5);assert(empty.includes('아직 수집되지 않았습니다'));
+});
+test('stock movement has seven visible columns and exact-period data only',()=>{
+ const rows=[{productCode:'P1',openingQuantity:'10.00000001',inQuantity:'2',outQuantity:'1',quantity:'11.00000001',prodName:'private-name'}];const html=render({dataset:'stockMove',rows,dataState:'loaded'});assert.equal((html.match(/<th /g)||[]).length,7);assert(html.includes('11.00000001'));assert(!html.includes('private-name'));
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
+ for(const dataset of ['whStock','stockMove']){const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:dataset==='whStock'?[{productCode:'P1',warehouseCode:'W1',quantity:'11.00000001'}]:rows};for(const date of ['2026-10-20','2025-10-20']){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset,version,filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.snapshotUnavailable,date!=='2026-10-20');assert.equal(result.rows.length,date==='2026-10-20'?1:0);}}
+});
+
+test('warehouse and movement observed action IDs cover only their own controls',()=>{
+ const report=require('../data/ecount-workbench/button-matches.json');const {actionId}=load('components/ecount/ObservedPageControls.js');
+ for(const [dataset,program] of [['whStock','E040711'],['stockMove','E040719']]){for(const b of report.pages.find(p=>p.program===program).buttons)assert.equal(actionId(dataset,b.source.label,b.source.context),b.matchId);}
+ const warehouse=load('components/ecount/WarehouseStockPageControls.js');const footer=renderToStaticMarkup(React.createElement(warehouse.WarehouseStockFooter));assert.equal((footer.match(/<button/g)||[]).length,2);
+ for(const mode of ['vertical','horizontal']){const html=renderToStaticMarkup(React.createElement(warehouse.WarehouseStockSearchPanel,{asOf:'2026-10-20',mode}));assert(html.includes(mode==='vertical'?'현황(종)':'현황(횡)'));assert.equal((html.match(/type="checkbox"/g)||[]).length,7);}
+ const movement=load('components/ecount/StockMovementPageControls.js');const panel=renderToStaticMarkup(React.createElement(movement.StockMovementSearchPanel,{from:'2026-10-20',to:'2026-10-20'}));assert.equal((panel.match(/type="radio"/g)||[]).length,5);assert.equal((panel.match(/type="checkbox"/g)||[]).length,7);
 });
