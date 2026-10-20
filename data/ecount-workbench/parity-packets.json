@@ -327,7 +327,7 @@
         },
         {
           "id": "E040204",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040203",
@@ -335,7 +335,7 @@
         },
         {
           "id": "E040209",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040230",
@@ -424,7 +424,7 @@
         },
         {
           "id": "E040306",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         }
       ],
       "priority": 2
@@ -1563,9 +1563,9 @@
     "fullyUnobservedPackets": 52,
     "partiallyObservedPackets": 7,
     "totalPrograms": 373,
-    "programsWithObservedActions": 16,
-    "programsWithoutObservedActions": 357,
-    "unobservedProgramsInsidePartialPackets": 30,
+    "programsWithObservedActions": 18,
+    "programsWithoutObservedActions": 355,
+    "unobservedProgramsInsidePartialPackets": 28,
     "verifiedPackets": 0,
     "verifiedPrograms": 0,
     "priorityPackets": [
