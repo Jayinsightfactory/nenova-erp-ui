@@ -105,7 +105,7 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
    if(name.endsWith('/shillaReconciliation'))return helpers;
    if(name.endsWith('/shillaAnalysisMatching'))return matching;
    if(name.endsWith('/shillaPeriodAnalysis'))return periodAnalysis;
-   if(name.endsWith('/shillaReconciliationServer'))return{loadShillaDistributionRows:async()=>[],loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
+   if(name.endsWith('/shillaReconciliationServer'))return{loadShillaSalesRequests:async()=>[],loadShillaDistributionRows:async()=>[],loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
    return require(name);
  },m,m.exports);
  const server=http.createServer((req,res)=>{res.status=n=>{res.statusCode=n;return res;};res.json=obj=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(obj));};m.exports.default(req,res);});
@@ -182,4 +182,39 @@ test('lookaround cutoff cannot manufacture a partial business-week match; empty 
  const {analyzeShillaPeriods}=await import('../lib/shillaPeriodAnalysis.js');
  const a={scope:{year:'2026',from:'2026-05-01',to:'2026-06-30'},periods:[{period:'24',date:'2026-06-16'}],distribution:[],receipts:[],rows:[{key:'1',name:'품목',prodKey:1,unit:'송이',excel:{rows:[{period:'24',qty:2,price:100,amount:200}]},srm:{rows:[{date:'2026-06-02',site:'서울',receiptNo:'A',receiptItem:'1',qty:1,price:100,amount:100},{date:'2026-06-03',site:'서울',receiptNo:'B',receiptItem:'1',qty:1,price:100,amount:100}]}}]};
  const r=analyzeShillaPeriods(a);assert.equal(r.lines[0].receipt,null);assert.deepEqual(r.months.map(m=>[m.month,m.amount,m.partial]),[['2026-05',0,false],['2026-06',0,false]]);
+});
+test('registered sales request explains 520+1 without changing distribution or receipt month',async()=>{
+ const {analyzeShillaPeriods}=await import('../lib/shillaPeriodAnalysis.js');
+ const sr={id:10040,year:'2026',week:'40-01',custKey:446,prodKey:181,unit:'송이',qty:1,price:8300,amount:8300,date:'2026-10-12',masterFixed:true};
+ const er={id:94506,year:'2026',week:'40-02',custKey:446,prodKey:181,unit:'송이',qty:520,price:8300,amount:4316000,date:'2026-09-30',masterFixed:true,detailFixed:true};
+ const receipt={date:'2026-10-07',site:'서울',receiptNo:'A',receiptItem:'1',qty:521,price:8300,amount:4324300};
+ const base={scope:{year:'2026',from:'2026-09-01',to:'2026-10-20'},periods:[{period:'40',date:'2026-10-06'}],
+  distribution:[er],salesRequests:[sr],receipts:[receipt],rows:[{key:'181',name:'안시리움',prodKey:181,unit:'송이',excel:{rows:[{period:'40',qty:521,price:8300,amount:4324300}]},srm:{rows:[receipt]}}]};
+ const before=JSON.stringify(base),run=x=>analyzeShillaPeriods(x).lines[0];
+ let r=run(base);assert.equal(r.salesExplained,true);assert.match(r.status,/정상 추가분/);assert.equal(r.erp.qty,520);assert.equal(r.qtyDifference,-1);assert.equal(r.combined.qty,521);assert.equal(r.combined.amount,4324300);assert.equal(r.sales.rows[0].date,'2026-10-12');assert.equal(JSON.stringify(base),before);
+ for(const patch of [{year:'2025'},{week:'41-01'},{custKey:444},{prodKey:182},{unit:'단'},{qty:0},{qty:-1},{amount:null},{price:8200},{date:null},{date:'2026-11-01'},{masterFixed:false}]) {
+  assert.equal(run({...base,salesRequests:[{...sr,...patch}]}).salesExplained,false,JSON.stringify(patch));
+ }
+ for(const patch of [{masterFixed:false},{detailFixed:false}]) assert.equal(run({...base,distribution:[{...er,...patch}]}).salesExplained,false);
+ assert.equal(run({...base,salesRequests:[]}).salesExplained,false);
+ // Do not select a convenient subset of same-period requests or conceal an offsetting request.
+ assert.equal(run({...base,salesRequests:[sr,{...sr,id:10041}]}).salesExplained,false);
+ assert.equal(run({...base,salesRequests:[sr,{...sr,id:10041,qty:-1,amount:-8300}]}).salesExplained,false);
+ assert.throws(()=>run({...base,salesRequests:[sr,sr]}),/원본키가 중복/);
+ const target=base.rows[0];
+ const dup={...base,periods:[...base.periods,{period:'40-2',date:'2026-10-08'}],rows:[{...target,excel:{rows:[...target.excel.rows,{...target.excel.rows[0],period:'40-2'}]}}]};
+ assert.ok(analyzeShillaPeriods(dup).lines.every(l=>l.conflict&&!l.salesExplained));
+ const ambiguous={...target,srm:{rows:[receipt,{...receipt,date:'2026-10-08',receiptNo:'B'}]}};
+ assert.equal(run({...base,rows:[ambiguous]}).salesExplained,false);
+});
+test('sales request loader uses server year/customer and exact sales type without join duplication',async()=>{
+ const babel=require('next/dist/compiled/babel/core'),m={exports:{}},calls=[];
+ const code=babel.transformSync(fs.readFileSync('lib/shillaReconciliationServer.js','utf8'),{plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
+ new Function('require','module','exports',code)(name=>name==='./db'?{sql:{NVarChar:'text',Int:'int'},query:async(q,p)=>{
+  calls.push([q,p]);return /SELECT CustKey/.test(q)?{recordset:[{CustKey:446}]}:{recordset:[{EstimateKey:10040,ShipmentKey:6623,ProdKey:181,Unit:'송이',Quantity:1,Amount:8300,RequestDate:'2026-10-12',OrderYear:'2026',OrderWeek:'40-01',CustKey:446,isFix:true}]};
+ }}:{analysisPeriod:x=>x},m,m.exports);
+ const r=await m.exports.loadShillaSalesRequests('2026');assert.equal(r[0].price,8300);assert.equal(r[0].id,10040);
+ assert.equal(calls[1][1].year.value,'2026');assert.equal(calls[1][1].custKey.value,446);
+ assert.match(calls[1][0],/EXISTS/);assert.match(calls[1][0],/ci.Descr2=N'판매요청'/);assert.match(calls[1][0],/sm.isDeleted=0/);
+ await assert.rejects(()=>m.exports.loadShillaSalesRequests('bad'),/연도/);
 });
