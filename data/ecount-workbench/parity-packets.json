@@ -373,7 +373,7 @@
         },
         {
           "id": "E040302",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040301",
@@ -523,11 +523,11 @@
       "screenWork": [
         {
           "id": "E040217",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040310",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040309",
@@ -1520,9 +1520,9 @@
     "fullyUnobservedPackets": 53,
     "partiallyObservedPackets": 6,
     "totalPrograms": 373,
-    "programsWithObservedActions": 7,
-    "programsWithoutObservedActions": 366,
-    "unobservedProgramsInsidePartialPackets": 29,
+    "programsWithObservedActions": 10,
+    "programsWithoutObservedActions": 363,
+    "unobservedProgramsInsidePartialPackets": 26,
     "verifiedPackets": 0,
     "verifiedPrograms": 0,
     "priorityPackets": [
