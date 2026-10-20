@@ -58,7 +58,7 @@ test('tax search follows observed sales-only radios and purchase missing-data st
 });
 test('stock displays safe typed code and exact quantity; unknown date is not a zero query',()=>{
  const rows=[{productCode:'P-01',quantity:'123456789012345.67890000',prodName:'not-permitted'}];
- const html=render({dataset:'stock',rows,dataState:'loaded'});assert.equal((html.match(/<th scope=/g)||[]).length,3);assert(html.includes('P-01'));assert(html.includes('123456789012345.67890000'));assert(!html.includes('not-permitted'));
+ const html=render({dataset:'stock',rows,dataState:'loaded'});assert.equal((html.match(/<th scope=/g)||[]).length,3);assert(html.includes('P-01'));assert(html.includes('123,456,789,012,345.67890000'));assert(!html.includes('not-permitted'));
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
  const declaration=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0];
  const callback=declaration.init.arguments[0];
@@ -132,8 +132,8 @@ test('purchase tax report keeps separate labels and form without sales tax custo
 
 test('warehouse stock preserves visible layouts, missing cells and exact collected totals',()=>{
  const rows=[{productCode:'P1',warehouseCode:'W1',quantity:'9007199254740993.1',prodName:'private-name'},{productCode:'P1',warehouseCode:'W2',quantity:'0.2'},{productCode:'P2',warehouseCode:'W1',quantity:'1'}];
- const vertical=render({dataset:'whStock',warehouseMode:'vertical',rows,dataState:'loaded'});assert.equal((vertical.match(/<th /g)||[]).length,5);assert(!vertical.includes('private-name'));assert(vertical.includes('9007199254740993.1'));
- const horizontal=render({dataset:'whStock',rows,dataState:'loaded'});assert.equal((horizontal.match(/<th /g)||[]).length,6);assert(horizontal.includes('9007199254740993.3'));assert(!horizontal.includes('private-name'));assert.match(horizontal,/>P2<.*?>1<.*?><\/td>/);
+ const vertical=render({dataset:'whStock',warehouseMode:'vertical',rows,dataState:'loaded'});assert.equal((vertical.match(/<th /g)||[]).length,5);assert(!vertical.includes('private-name'));assert(vertical.includes('9,007,199,254,740,993.1'));
+ const horizontal=render({dataset:'whStock',rows,dataState:'loaded'});assert.equal((horizontal.match(/<th /g)||[]).length,6);assert(horizontal.includes('9,007,199,254,740,993.3'));assert(!horizontal.includes('private-name'));assert.match(horizontal,/>P2<.*?>1<.*?><\/td>/);
  const empty=render({dataset:'whStock',rows:[],dataState:'uncollected'});assert.equal((empty.match(/<th /g)||[]).length,5);assert(empty.includes('아직 수집되지 않았습니다'));
 });
 test('stock movement has seven visible columns and exact-period data only',()=>{
@@ -148,4 +148,10 @@ test('warehouse and movement observed action IDs cover only their own controls',
  const warehouse=load('components/ecount/WarehouseStockPageControls.js');const footer=renderToStaticMarkup(React.createElement(warehouse.WarehouseStockFooter));assert.equal((footer.match(/<button/g)||[]).length,2);
  for(const mode of ['vertical','horizontal']){const html=renderToStaticMarkup(React.createElement(warehouse.WarehouseStockSearchPanel,{asOf:'2026-10-20',mode}));assert(html.includes(mode==='vertical'?'현황(종)':'현황(횡)'));assert.equal((html.match(/type="checkbox"/g)||[]).length,7);}
  const movement=load('components/ecount/StockMovementPageControls.js');const panel=renderToStaticMarkup(React.createElement(movement.StockMovementSearchPanel,{from:'2026-10-20',to:'2026-10-20'}));assert.equal((panel.match(/type="radio"/g)||[]).length,5);assert.equal((panel.match(/type="checkbox"/g)||[]).length,7);
+});
+
+test('warehouse and movement quantity separators preserve large decimal strings and leave codes unchanged',()=>{
+ const quantity='12345678901234567890.12000000',formatted='12,345,678,901,234,567,890.12000000';
+ const wh=render({dataset:'whStock',warehouseMode:'vertical',dataState:'loaded',rows:[{productCode:'1234567',warehouseCode:'7654321',quantity}]});assert(wh.includes(formatted));assert(wh.includes('>1234567<'));assert(wh.includes('>7654321<'));
+ const movement=render({dataset:'stockMove',dataState:'loaded',rows:[{productCode:'1234567',openingQuantity:quantity,inQuantity:'1234.5000',outQuantity:'-1234.50',quantity}]});assert.equal(movement.split(formatted).length-1,2);assert(movement.includes('1,234.5000'));assert(movement.includes('-1,234.50'));assert(movement.includes('>1234567<'));
 });
