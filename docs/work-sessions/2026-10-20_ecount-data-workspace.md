@@ -87,3 +87,20 @@
 - 원본 조회기간2026-09-20~11-19 화면표본26행의 일자/금액/외화금액/환율만 안전 투영. 별도 ecount_work purchase revision1 적재, readback/idempotent true. 원본전체건수 unknown, ECOUNT 쓰기0/공유원장 쓰기0. import-latest 구매 차단, 파일 업로드·버전복원만 지원.
 - 안전필드·소수정밀도·교차연도·정정/복원·멱등 표적3검사 PASS. 최종 빌드/CI/배포/운영비교는 후속기록 전까지 미검증.
 - 검색어: E040304 purchase-safe-projection purchase-revision1 26rows 37buttonIDs source-readonly
+
+### 2026-10-20 구매조회 운영 검증
+- PR1122 squash30bce7de8d8ec8b5141e1cf689ea46428e464d03, CI39376044008 및 Cafe2439376327510 success. 로컬 필수5종·신규파일 stage 후 manifest/writeguard PASS. 배포 hydration 스모크 PASS.
+- 운영 구매조회26행/키26유일, 원본 안전표본26행의 날짜·금액·외화금액·환율104값 mismatch0. 전체원본건수/개인정보필드/모든조건 동등성은 미검증.
+- F3 열기, 실제키로 날짜변경 후 F8 기간2025-10-20~2026-10-20 표본26건, 금일10/20~20 원본/대상0건 확인. CUA date fill은 DOM값만 바뀌고 상태반영되지 않아 근거에서 제외, 실제 ArrowDown 입력·F8으로 재검증.
+- 구매 인쇄 펼침 프린트문제해결1개(disabled), Escape닫힘/포커스복원; 거래처검색 overlay5열·닫기 확인. 선택/적용/신규 등 미관찰 동작 비활성. 대상 인쇄메뉴 캡처는 CDP timeout으로 미확보, 빈조회 캡처는 확보. 시각적 배치 차이 존재.
+- 주간 계정사용량94%, 기존3하위세션 재사용. 전체59작업묶음/373프로그램 100%일치는 여전히 미완료. 전체완료로 표시하지 않는다.
+- 검색어: E040304 purchase-production-parity 104values mismatch0 PR1122 39376327510
+- Excel 갱신 완료: 413499bytes/10시트, 원본JPEG13개 hash보존/ZIP/수식오류 검사 PASS. 견적26행·구매26행 개별일치표 포함, root 구매렌더 확인. 전체일치0·미검증 유지. 최종보고서 outputs/ecount-parity-20261020/ECOUNT_버튼별_비교보고서.xlsx.
+
+### 2026-10-20 구매현황 및 다음 조회 묶음
+- E040305 구매현황 원본14열/금일자동조회0건/인쇄메뉴PDF·미리보기·프린트문제해결/별도Print Preview탭 확인. Excel(화면)은 단일버튼이며 추정된화살표A07철회, Fn은A14로기록. 원본쓰기0.
+- 전월2026-09-01~30 날짜가확인된460행을 날짜+숫자8개만투영, 같은일자번호중복을합치지않고순서보존. 전체수집여부unknown. buyStatus canonical513/alias583은동일작업영역. revision1 적재/readback/idempotent true.
+- 처음 purchaseStatus 이름14자가SQL varchar10제약과불일치하여실패. 읽기probe로실패후보Version/Head/Audit각0확인, DDL없이buyStatus9자로교정하고 모든dataset길이회귀검사추가.
+- 구매조회 scoped배치/열폭/정렬보정, 구매현황독립UI와14열미리보기 구현. 미관찰·미수집조건은비활성. 운영배포/값대조는후속기록전까지미검증.
+- 다음큐 E040302발주서조회: 기본09/20~11/19와금일10/20~20둘다0건,10열,납기일자/발주금액합계/진행상태/생성한전표,인쇄펼침프린트문제해결만확인. E040723채권관리대장은거래처필수미선택조회차단/선택창열기닫기만확인,빈결과로기록하지않음.
+- 검색어: E040305 buyStatus varchar10 460rows E040302 E040723 read-only

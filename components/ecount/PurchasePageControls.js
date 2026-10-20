@@ -2,9 +2,9 @@ import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './Obser
 import styles from '../../styles/ecount-workbench.module.css';
 export const PURCHASE_COLUMNS=[[null,''],['refDate','일자-No.'],[null,'거래처명'],[null,'품목명(요약)'],['amountTotal','금액합계'],['foreignTotal','외화금액합계'],['exchangeRate','환율'],[null,'회계반영여부'],[null,'인쇄'],[null,'불러온전표']];
 export function PurchaseToolbar({busy,searchOpen,onSearch,searchRef}) {
-  return <ActionScope dataset="purchase" context="상단"><div className={styles.sourceToolbar} aria-label="구매 조회 도구">
+  return <ActionScope dataset="purchase" context="상단"><div className={`${styles.sourceToolbar} ${styles.purchaseToolbar}`} aria-label="구매 조회 도구">
     {!searchOpen&&<ActionScope dataset="purchase" context="상태 탭"><div className={styles.quoteStatusTabs}>{['전체','결재중','미확인','확인'].map(label=><ObservedButton key={label} reason="승인상태 자료가 아직 수집되지 않아 상태별 조회를 사용할 수 없습니다.">{label}</ObservedButton>)}</div></ActionScope>}
-    <ObservedButton>Fn</ObservedButton><button ref={searchRef} disabled={busy} aria-expanded={searchOpen} aria-controls="ecount-source-search" data-ecount-action-id={actionId('purchase','Search(F3)','상단')} onClick={onSearch}>Search(F3)</button><ObservedButton>Option</ObservedButton><ObservedButton>도움말</ObservedButton>
+    <ObservedButton>Fn</ObservedButton><button className={styles.primary} ref={searchRef} disabled={busy} aria-expanded={searchOpen} aria-controls="ecount-source-search" data-ecount-action-id={actionId('purchase','Search(F3)','상단')} onClick={onSearch}>Search(F3)</button><ObservedButton>Option</ObservedButton><ObservedButton>도움말</ObservedButton>
   </div></ActionScope>;
 }
 export function PurchaseSearchPanel({busy,from,to,onFrom,onTo,onSubmit,onToday,onCustomer,inputRef}) {

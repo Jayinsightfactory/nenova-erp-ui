@@ -1,3 +1,4 @@
+import { PURCHASE_STATUS_COLUMNS, PurchaseStatusToolbar, PurchaseStatusSearchPanel, PurchaseStatusFooter } from '../../components/ecount/PurchaseStatusPageControls';
 import { PURCHASE_COLUMNS, PurchaseToolbar, PurchaseSearchPanel, PurchaseFooter } from '../../components/ecount/PurchasePageControls';
 import Head from 'next/head';
 import { QUOTE_COLUMNS, QuoteToolbar, QuoteSearchPanel, QuoteFooter } from '../../components/ecount/QuotePageControls';
@@ -12,7 +13,7 @@ import styles from '../../styles/ecount-workbench.module.css';
 
 const MENUS = catalog.menus;
 const TABS = MENUS.filter(menu => menu.depth === 1);
-const DATASETS = { E010205: 'cash', E040214: 'ar', E040309: 'ap', E040207: 'sales', E040202: 'quote', E040304: 'purchase' };
+const DATASETS = { E010205: 'cash', E040214: 'ar', E040309: 'ap', E040207: 'sales', E040202: 'quote', E040304: 'purchase', E040305: 'buyStatus' };
 const LABELS = { refDate:'일자',date:'일자',amount:'금액',balance:'잔액',salesTotal:'매출합계',receiptTotal:'수금합계',etcDiff:'기타차액',openingDebt:'기초채무',stockBuy:'재고매입',acctBuy:'회계매입',payTotal:'지급합계',qty:'수량',supplyAmt:'공급가액',vat:'부가세',total:'합계',isSubtotal:'소계',flow:'구분',currency:'통화',rowNumber:'순번',unitPrice:'단가',unbilled:'미청구액' };
 const ERRORS = { SOURCE_IMPORT_UNSUPPORTED:'이 메뉴는 파일 업로드로 작업 자료를 불러올 수 있습니다.', LOGIN_REQUIRED:'로그인 후 이용해 주세요.',ADMIN_REQUIRED:'관리자 권한이 필요합니다.',ACCOUNT_INACTIVE:'사용 가능한 관리자 계정인지 확인해 주세요.',WORKSPACE_NOT_INSTALLED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',WORKSPACE_UNAVAILABLE:'작업 자료에 연결할 수 없습니다. 잠시 후 다시 조회해 주세요.',INVALID_PERIOD:'시작일과 종료일을 함께 지정해 주세요.',INVALID_DATE:'날짜 형식을 확인해 주세요.',SOURCE_DATE_MISMATCH:'원본 일자와 조회 일자가 일치하지 않습니다.',INVALID_SUBTOTAL_DATE:'월별 합계 행의 소계 구분을 확인해 주세요.',INVALID_DECIMAL:'숫자 형식을 확인해 주세요.',SOURCE_ROW_COUNT_MISMATCH:'수집 자료의 행 수가 일치하지 않아 불러오기를 중단했습니다.', UNAUTHORIZED:'로그인 후 이용해 주세요.',FORBIDDEN:'관리자 권한이 필요합니다.',REVISION_CONFLICT:'다른 작업에서 자료가 변경되었습니다. 다시 조회한 뒤 진행해 주세요.',WORKSPACE_NOT_INITIALIZED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',SOURCE_NOT_FOUND:'가져올 수 있는 수집 자료가 없습니다.',SOURCE_TOO_LARGE:'한 번에 불러올 수 있는 범위를 초과했습니다. 자료를 나누어 주세요.',EMPTY_SAFE_ROW:'적재할 숫자 자료가 없는 행이 있습니다.',INVALID_SUBTOTAL:'소계 구분을 확인해 주세요.',INVALID_ROWS:'자료 행 수 또는 형식을 확인해 주세요.',VERSION_NOT_FOUND:'복원할 자료를 찾을 수 없습니다. 작업 이력을 다시 조회해 주세요.' };
 const searchKey = value => String(value).toLowerCase().replace(/[\s/()·_-]/g,'');
@@ -31,9 +32,9 @@ const AR_COLUMNS = [[null,'거래처명'],['salesTotal','매출합계'],['receip
 const AP_COLUMNS = [[null,'거래처코드'],[null,'거래처명'],['openingDebt','기초채무'],['stockBuy','재고매입'],['acctBuy','회계매입'],['payTotal','지급합계'],['etcDiff','기타할인등차액'],['balance','잔액'],['unbilled','미청구액']];
 const SALES_COLUMNS = [['refDate','일자-No.'],[null,'거래처명'],[null,'품목명'],['qty','수량'],['unitPrice','단가(vat포함)'],['supplyAmt','공급가액'],['vat','부가세'],['total','합계'],[null,'적요']];
 function Table({ rows, dataset }) {
-  const columns = dataset==='cash' ? BANK_COLUMNS : dataset==='ar' ? AR_COLUMNS : dataset==='ap' ? AP_COLUMNS : dataset==='sales' ? SALES_COLUMNS : dataset==='quote' ? QUOTE_COLUMNS : dataset==='purchase' ? PURCHASE_COLUMNS : [...new Set(rows.flatMap(row => Object.keys(row)))].map(key=>[key,LABELS[key]||key]);
+  const columns = dataset==='cash' ? BANK_COLUMNS : dataset==='ar' ? AR_COLUMNS : dataset==='ap' ? AP_COLUMNS : dataset==='sales' ? SALES_COLUMNS : dataset==='quote' ? QUOTE_COLUMNS : dataset==='purchase' ? PURCHASE_COLUMNS : dataset==='buyStatus' ? PURCHASE_STATUS_COLUMNS : [...new Set(rows.flatMap(row => Object.keys(row)))].map(key=>[key,LABELS[key]||key]);
   if (!columns.length) return <p className={styles.empty}>조회된 자료가 없습니다.</p>;
-  return <div className={styles.tableWrap}><table><thead><tr>{columns.map(([key,label],index) => <th key={index} scope="col">{label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row,index) => <tr key={index}>{columns.map(([key],column) => <td key={column} title={key===null?'개인정보 및 미수집 항목은 표시하지 않습니다.':undefined}>{key===null ? '' : key==='quoteStatus' ? ({in_progress:'진행중',completed:'완료'}[row[key]]||'') : key==='refDate' ? String(row.sourceDateLabel || row.refDate || '') : typeof row[key] === 'boolean' ? row[key] ? 'Y' : '' : String(row[key] ?? '')}</td>)}</tr>) : <tr><td colSpan={columns.length} className={styles.empty}>{dataset==='purchase'?'등록된 데이터가 없습니다.':'조회된 자료가 없습니다.'}</td></tr>}</tbody></table></div>;
+  return <div className={`${styles.tableWrap} ${dataset==='purchase'?styles.purchaseTable:''}`}><table>{dataset==='purchase'&&<colgroup>{[3,11,12,29,8,11,11,6,4,5].map((width,index)=><col key={index} style={{width:`${width}%`}}/>)}</colgroup>}<thead><tr>{columns.map(([key,label],index) => <th key={index} scope="col">{label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row,index) => <tr key={index}>{columns.map(([key],column) => <td key={column} title={key===null?'개인정보 및 미수집 항목은 표시하지 않습니다.':undefined}>{key===null ? '' : key==='quoteStatus' ? ({in_progress:'진행중',completed:'완료'}[row[key]]||'') : key==='refDate' ? String(row.sourceDateLabel || row.refDate || '') : typeof row[key] === 'boolean' ? row[key] ? 'Y' : '' : String(row[key] ?? '')}</td>)}</tr>) : <tr><td colSpan={columns.length} className={styles.empty}>{dataset==='purchase'?'등록된 데이터가 없습니다.':'조회된 자료가 없습니다.'}</td></tr>}</tbody></table></div>;
 }
 
 export default function EcountWorkbench() {
@@ -142,7 +143,7 @@ export default function EcountWorkbench() {
       const sheets = {};
       for (const name of names) {
         const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name],{raw:false,defval:''});
-        const aliases = {'입/출금일자':'refDate','원화잔액':'balance','입출금구분':'flow','수급합계':'receiptTotal','기타할인등차액':'etcDiff','공급가':'supplyAmt','계':'total','단가(vat포함)':'unitPrice','일자-No.':'refDate','견적금액합계':'estimateTotal','금액합계':'amountTotal','외화금액합계':'foreignTotal','환율':'exchangeRate'};
+        const aliases = {'입/출금일자':'refDate','원화잔액':'balance','입출금구분':'flow','수급합계':'receiptTotal','기타할인등차액':'etcDiff','공급가':'supplyAmt','계':'total','단가(vat포함)':'unitPrice','일자-No.':'refDate','견적금액합계':'estimateTotal','금액합계':'amountTotal','외화금액합계':'foreignTotal','환율':'exchangeRate','박스수량':'boxQty','외화금액':'foreignAmount','Weight':'weight'};
         const mappedRows = rawRows.map(row => Object.fromEntries(Object.entries(row).map(([key,value]) => [aliases[key.trim()] || Object.keys(LABELS).find(field => LABELS[field]===key.trim()) || key.trim(),value])));
         for (const row of mappedRows) {
           // Keep the source date label intact; the shared allowlist parser validates it.
@@ -185,7 +186,7 @@ export default function EcountWorkbench() {
     setSearchOpen(false);await load();setTimeout(()=>searchToggleRef.current?.focus(),0);
   }
   function openSalesPreview() {
-    if(dataset!=='sales'||busy||revision===null)return;
+    if(!['sales','buyStatus'].includes(dataset)||busy||revision===null)return;
     // Open only from the user's click, then sever opener before navigating to any data.
     let child;
     try {child=window.open('about:blank','_blank');} catch {setError('미리보기 새창을 열 수 없습니다. 브라우저의 팝업 허용 설정을 확인해 주세요.');return;}
@@ -193,10 +194,11 @@ export default function EcountWorkbench() {
     let url;
     try {
       child.opener=null;
-      const columns=SALES_COLUMNS.map(([key,label],index)=>({key:key==='refDate'?'sourceDateLabel':key||`protected-${index}`,label}));
-      const model=pageActions.buildExportModel({dataset:'sales',rows,columns,title:'판매현황'});
+      const previewTitle=dataset==='buyStatus'?'구매현황':'판매현황';
+      const columns=(dataset==='buyStatus'?PURCHASE_STATUS_COLUMNS:SALES_COLUMNS).map(([key,label],index)=>({key:key==='refDate'?'sourceDateLabel':key||`protected-${index}`,label}));
+      const model=pageActions.buildExportModel({dataset,rows,columns,title:previewTitle});
       const filteredPeriod=!!(filterFrom||filterTo);
-      const html=printPreview.renderPrintPreview(model,{company:'네노바',title:'판매현황',periodFrom:filteredPeriod?(filterFrom||null):(version?.periodFrom||null),periodTo:filteredPeriod?(filterTo||null):(version?.periodTo||null)});
+      const html=printPreview.renderPrintPreview(model,{company:'네노바',title:previewTitle,periodFrom:filteredPeriod?(filterFrom||null):(version?.periodFrom||null),periodTo:filteredPeriod?(filterTo||null):(version?.periodTo||null)});
       url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
       child.location.replace(url);
       setTimeout(()=>URL.revokeObjectURL(url),120000);
@@ -207,7 +209,7 @@ export default function EcountWorkbench() {
     }
   }
   function applyObservedPreset(id) {
-    if(busy||!(dataset==='sales'&&['thisWeek','previousWeek'].includes(id)||dataset==='purchase'&&id==='today'))return;
+    if(busy||!(dataset==='sales'&&['thisWeek','previousWeek'].includes(id)||['purchase','buyStatus'].includes(dataset)&&id==='today'))return;
     const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
     const part=type=>parts.find(value=>value.type===type).value;
     const today=`${part('year')}-${part('month')}-${part('day')}`;
@@ -236,15 +238,15 @@ export default function EcountWorkbench() {
       {filtered.filterError && <p role="alert" className={styles.error}>{filtered.filterError}</p>}
       {message && <p role="status" className={styles.message}>{message}</p>}
       {dataset ? <>
-        {dataset==='purchase'?<PurchaseToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>:dataset==='quote'?<QuoteToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef} status={quoteStatus} canFilterInProgress={!!version?.rows?.some(row=>row.quoteStatus==='in_progress'&&['row_cell','query_filter'].includes(row.statusEvidence))} canFilterCompleted={!!version?.rows?.some(row=>row.quoteStatus==='completed'&&['row_cell','query_filter'].includes(row.statusEvidence))} onStatus={setQuoteStatus}/>:<ResultToolbar dataset={dataset} busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>}
-        {searchOpen&&(dataset==='purchase'?<PurchaseSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch} onToday={()=>applyObservedPreset('today')} onCustomer={()=>setDialog('purchase-customer')}/>:dataset==='quote'?<QuoteSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch}/>:<SearchPanel dataset={dataset} busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onFlow={flow=>setSearchDraft(value=>({...value,flow}))} onQuery={query=>setSearchDraft(value=>({...value,query}))} onSubmit={runSearch} onPreset={applyObservedPreset} onCustomer={()=>setDialog('customer')}/>)}
-        <div className={styles.toolbar}><button disabled={busy||revision===null} onClick={()=>{setError('');setPeriodFrom('');setPeriodTo('');setDialog('upload');}}>자료 업로드</button>{!['quote','purchase'].includes(dataset)&&<button disabled={busy||revision===null} onClick={()=>{setError('');setDialog('source');}}>수집 자료 불러오기</button>}<button disabled={busy||revision===null} onClick={showHistory}>작업 이력</button></div>
+        {dataset==='buyStatus'?<PurchaseStatusToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>:dataset==='purchase'?<PurchaseToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>:dataset==='quote'?<QuoteToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef} status={quoteStatus} canFilterInProgress={!!version?.rows?.some(row=>row.quoteStatus==='in_progress'&&['row_cell','query_filter'].includes(row.statusEvidence))} canFilterCompleted={!!version?.rows?.some(row=>row.quoteStatus==='completed'&&['row_cell','query_filter'].includes(row.statusEvidence))} onStatus={setQuoteStatus}/>:<ResultToolbar dataset={dataset} busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>}
+        {searchOpen&&(dataset==='buyStatus'?<PurchaseStatusSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch} onToday={()=>applyObservedPreset('today')}/>:dataset==='purchase'?<PurchaseSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch} onToday={()=>applyObservedPreset('today')} onCustomer={()=>setDialog('purchase-customer')}/>:dataset==='quote'?<QuoteSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch}/>:<SearchPanel dataset={dataset} busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onFlow={flow=>setSearchDraft(value=>({...value,flow}))} onQuery={query=>setSearchDraft(value=>({...value,query}))} onSubmit={runSearch} onPreset={applyObservedPreset} onCustomer={()=>setDialog('customer')}/>)}
+        <div className={styles.toolbar}><button disabled={busy||revision===null} onClick={()=>{setError('');setPeriodFrom('');setPeriodTo('');setDialog('upload');}}>자료 업로드</button>{policy.SOURCE_DATASETS.includes(dataset)&&<button disabled={busy||revision===null} onClick={()=>{setError('');setDialog('source');}}>수집 자료 불러오기</button>}<button disabled={busy||revision===null} onClick={showHistory}>작업 이력</button></div>
         {busy && <p role="status">처리 중…</p>}
-        {version && <p className={styles.period}>조회기간 {(filterFrom||filterTo?filterFrom:version.periodFrom)||'미지정'} ~ {(filterFrom||filterTo?filterTo:version.periodTo)||'미지정'}</p>}
+        {version && <p className={`${styles.period} ${dataset==='purchase'?styles.purchasePeriod:''}`}>조회기간 {(filterFrom||filterTo?filterFrom:version.periodFrom)||'미지정'} ~ {(filterFrom||filterTo?filterTo:version.periodTo)||'미지정'}</p>}
         {dataset==='quote'&&quoteStatus!=='all'&&filtered.excludedUnknownStatusCount>0&&<p role="status" className={styles.period}>진행상태가 확인되지 않은 자료는 현재 상태 검색에서 제외됩니다.</p>}
         {filtered.unknownDateCount>0&&<p role="status" className={styles.period}>일자가 없는 합계·미상일자 행은 기간 검색에서 제외됩니다.</p>}
         <Table rows={rows} dataset={dataset} />
-        {dataset==='purchase'?<PurchaseFooter busy={busy}/>:dataset==='quote'?<QuoteFooter/>:<ResultFooter dataset={dataset} busy={busy} onMapping={()=>setDialog('mapping')} onPreview={revision===null?undefined:openSalesPreview}/>}
+        {dataset==='buyStatus'?<PurchaseStatusFooter busy={busy} onPreview={revision===null?undefined:openSalesPreview}/>:dataset==='purchase'?<PurchaseFooter busy={busy}/>:dataset==='quote'?<QuoteFooter/>:<ResultFooter dataset={dataset} busy={busy} onMapping={()=>setDialog('mapping')} onPreview={revision===null?undefined:openSalesPreview}/>}
       </> : <><div className={styles.sectionLinks} onKeyDown={arrowFocus}>{MENUS.filter(menu=>menu.parentId===menuId).map(menu=><button key={menu.id} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>{!feature?.hasChildren&&<p className={styles.empty}>이 화면은 아직 준비 중입니다.</p>}</>}
     </section>}
     {dialog==='purchase-customer'&&<CustomerLookupOverlay dataset="purchase" context="거래처 검색 오버레이" onClose={closeDialog}/>}
