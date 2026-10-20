@@ -2,6 +2,9 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/OrderQueryPageControls.js",
+    "components/ecount/OrderStatusPageControls.js",
+    "components/ecount/PoStatusPageControls.js",
     "components/ecount/QuoteStatusPageControls.js",
     "components/ecount/UnfulfilledPageControls.js",
     "components/ecount/SaleQueryPageControls.js",
@@ -75,6 +78,7 @@
     "npm run build"
   ],
   "criteria": {
+    "orderReadOnly":"orderQuery E040204 주문합계 orderTotal, orderStat E040209 qty/unitPrice/supplyAmt/vat/total, poStat E040306 unitPrice/foreignAmount/exchangeRate/supplyAmt 및 일별집계 qty/vat/total 숫자모델만. 실제행/날짜/결제일기준 의미미확인으로 날짜필터/import/activate모두차단. orderStat/poStat 일별집계5열만관측, 다른집계조건미관측. 기존ERP읽기쓰기없음.",
     "quoteStatReadOnly":"E040208 quoteStat: 집계8열/현황7열 금일0 관측. qty/unitPrice/supplyAmt/vat/total 숫자모델만. 실제행 날짜·그룹키 문법미확인, 날짜필터/모든import·activate금지. 두모드 표시가 데이터집계 동등성 보증 아님.",
     "unfulfilledReadOnly":"unsold E040212 menu499/alias578 및 unbought E040307 menu516/alias586. 기준일 영업주기·실제행 날짜 미확인으로 readonly scope만. 숫자 unsold qty/unfulfilledQty/supplyAmt/vat, unbought qty/unfulfilledQty/vat. 날짜저장·필터/import/activate 차단, 빈snapshot금지. 관찰된 금일0은 전체자료·일자조건 동등성 보증아님.",
     "saleQueryUpload":"E040206 saleQuery canonical492: 관측26행 안전 amount/sourceDateLabel만 근거로 날짜+금액 투영. 기간/전체수집 unknown; source-latest금지, 기존 immutable JSON버전 재사용. 거래처/품목/창고/유형/회계상태 추정금지. 신규DDL/ERP원장변경없음.",
