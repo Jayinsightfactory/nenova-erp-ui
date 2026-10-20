@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/SalesTaxQueryPageControls.js",
     "components/ecount/JournalPageControls.js",
     "components/ecount/OrderQueryPageControls.js",
     "components/ecount/OrderStatusPageControls.js",
@@ -79,6 +80,7 @@
     "npm run build"
   ],
   "criteria": {
+    "salesTaxUpload":"E040218 salesTax 날짜+supplyAmt/vat/total 안전투영20행부분표본. 승인된target작업영역 업로드/버전/복원정책재사용, 원본검색·발행·수정미구현. source-latest금지/전체수집unknown. 거래처·식별번호·내역텍스트제외, 공유회계원장읽기쓰기없음.",
     "journalUpload":"E010701 journal: 전표날짜표시+amount만 안전투영. 원본9행 기존검증문법 통과, 나머지개인정보/적요/계정/유형/상태제외. canonical98/MyPage별칭동일scope, source-latest금지. 독립JSON버전재사용, ERP회계원장 읽기쓰기없음, 전체수집unknown.",
     "orderReadOnly":"orderQuery E040204 주문합계 orderTotal, orderStat E040209 qty/unitPrice/supplyAmt/vat/total, poStat E040306 unitPrice/foreignAmount/exchangeRate/supplyAmt 및 일별집계 qty/vat/total 숫자모델만. 실제행/날짜/결제일기준 의미미확인으로 날짜필터/import/activate모두차단. orderStat/poStat 일별집계5열만관측, 다른집계조건미관측. 기존ERP읽기쓰기없음.",
     "quoteStatReadOnly":"E040208 quoteStat: 집계8열/현황7열 금일0 관측. qty/unitPrice/supplyAmt/vat/total 숫자모델만. 실제행 날짜·그룹키 문법미확인, 날짜필터/모든import·activate금지. 두모드 표시가 데이터집계 동등성 보증 아님.",

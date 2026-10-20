@@ -4,6 +4,19 @@ import styles from '../../styles/ecount-workbench.module.css';
 
 // Stable report IDs; identifiers are DOM metadata, never visible product labels.
 const ACTION_IDS = {
+  "salesTax": {
+    "상단|Search(F3)": "E040218-A01",
+    "상단|Option": "E040218-A02",
+    "상단|도움말": "E040218-A03",
+    "하단|Email": "E040218-A04",
+    "하단|대화방": "E040218-A05",
+    "하단|인쇄": "E040218-A06",
+    "하단|선택삭제": "E040218-A07",
+    "하단|Excel": "E040218-A08",
+    "결과 행|내역보기": "E040218-A09",
+    "결과 행|인쇄": "E040218-A10",
+    "결과 행|일자 - 번호": "E040218-A11"
+},
   "journal": {
     "상단|Search(F3)": "E010701-A01",
     "상단|Option": "E010701-A02",

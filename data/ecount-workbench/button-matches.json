@@ -35402,7 +35402,1036 @@
         "MENUTREE_000503"
       ],
       "status": "미검증",
-      "buttons": []
+      "buttons": [
+        {
+          "matchId": "E040218-A01",
+          "source": {
+            "stableId": "E040218-A01",
+            "label": "Search(F3)",
+            "context": "상단",
+            "domId": null,
+            "observedCid": "tgHeaderSearch",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A01",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A02",
+          "source": {
+            "stableId": "E040218-A02",
+            "label": "Option",
+            "context": "상단",
+            "domId": null,
+            "observedCid": "tgHeaderOption",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A02",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A03",
+          "source": {
+            "stableId": "E040218-A03",
+            "label": "도움말",
+            "context": "상단",
+            "domId": null,
+            "observedCid": "helper",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A03",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A04",
+          "source": {
+            "stableId": "E040218-A04",
+            "label": "Email",
+            "context": "하단",
+            "domId": null,
+            "observedCid": "outputEmail",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A04",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A05",
+          "source": {
+            "stableId": "E040218-A05",
+            "label": "대화방",
+            "context": "하단",
+            "domId": null,
+            "observedCid": "messenger",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A05",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A06",
+          "source": {
+            "stableId": "E040218-A06",
+            "label": "인쇄",
+            "context": "하단",
+            "domId": null,
+            "observedCid": "printGroup",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A06",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A07",
+          "source": {
+            "stableId": "E040218-A07",
+            "label": "선택삭제",
+            "context": "하단",
+            "domId": null,
+            "observedCid": "slipDeleteSelected",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A07",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A08",
+          "source": {
+            "stableId": "E040218-A08",
+            "label": "Excel",
+            "context": "하단",
+            "domId": null,
+            "observedCid": "outputExcel",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A08",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A09",
+          "source": {
+            "stableId": "E040218-A09",
+            "label": "내역보기",
+            "context": "결과 행",
+            "domId": null,
+            "observedCid": "multiLink",
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A09",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A10",
+          "source": {
+            "stableId": "E040218-A10",
+            "label": "인쇄",
+            "context": "결과 행",
+            "domId": null,
+            "observedCid": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A10",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        },
+        {
+          "matchId": "E040218-A11",
+          "source": {
+            "stableId": "E040218-A11",
+            "label": "일자 - 번호",
+            "context": "결과 행",
+            "domId": null,
+            "observedCid": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040218-A11",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "부분관측; F3 조건표시와 내역보기 새창 생성 미확인; 날짜링크 편집가능성 불명으로 미클릭"
+          ]
+        }
+      ],
+      "sourceObservation": {
+        "program": "E040218",
+        "menu": "MENUTREE_000503",
+        "readOnly": true,
+        "headers": [
+          "",
+          "일자 - 번호",
+          "거래처명",
+          "공급가액",
+          "부가세",
+          "합 계",
+          "내역보기",
+          "인쇄"
+        ],
+        "buttons": [
+          {
+            "cid": "tgHeaderSearch",
+            "text": "Search(F3)"
+          },
+          {
+            "cid": "tgHeaderOption",
+            "text": "Option"
+          },
+          {
+            "cid": "helper",
+            "text": "도움말"
+          },
+          {
+            "cid": "outputEmail",
+            "text": "Email"
+          },
+          {
+            "cid": "messenger",
+            "text": "대화방"
+          },
+          {
+            "cid": "printGroup",
+            "text": "인쇄"
+          },
+          {
+            "cid": "slipDeleteSelected",
+            "text": "선택삭제"
+          },
+          {
+            "cid": "outputExcel",
+            "text": "Excel"
+          }
+        ],
+        "tables": [
+          {
+            "columns": [
+              25,
+              100,
+              115,
+              100,
+              90,
+              100,
+              140,
+              60
+            ],
+            "width": 731
+          }
+        ],
+        "searchEffect": "unverified: click did not expose search fields",
+        "sourceWrites": 0,
+        "rowsCollected": 20,
+        "bodyStyles": {
+          "fontSize": "13px",
+          "lineHeight": "18.5714px",
+          "padding": "6.5px 3.25px",
+          "overflowWrap": "break-word",
+          "wordBreak": "break-word",
+          "align": [
+            "center",
+            "center",
+            "left",
+            "right",
+            "right",
+            "right",
+            "center",
+            "center"
+          ]
+        },
+        "headerHeight": 40.4375,
+        "collectionScope": "visible first page only; date 2026-09-30; safe date and three numeric fields",
+        "safeSampleRows": 20,
+        "sourceTotalRows": null,
+        "rowLinks": {
+          "detail": "multiLink; clicked effect unverified",
+          "print": "print action link observed; business-specific locator omitted",
+          "date": "link observed; never clicked; edit behavior unknown"
+        }
+      }
     },
     {
       "program": "E040223",
