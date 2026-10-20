@@ -78,6 +78,7 @@
     }
   ],
   "templateProfile": {
+    "chinaSeaReadableSummary": "CN_SEA runtime-only summary replaces empty historical 95% and sales blocks; current goods/freight/tariff/other totals, original customs labels with unavailable breakdown explicit, full estimate source, bounded current rows, widened numeric columns, wrapped headers, A3 print area B:P. Asset hash and all approved amounts unchanged. See docs/plans/china-cost-export-layout-repair.md.",
     "id": "CN_AIR_ORIGINAL_V1",
     "version": "1.0.0",
     "formulaId": "CN_AIR_WEIGHT_CBM_V1",
