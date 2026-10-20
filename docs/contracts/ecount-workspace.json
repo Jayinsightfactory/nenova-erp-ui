@@ -2,6 +2,9 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/PurchaseTaxQueryPageControls.js",
+    "components/ecount/TaxSearchPanel.js",
+    "components/ecount/ObservedDateWidget.js",
     "components/ecount/StockStatusPageControls.js",
     "components/ecount/SalesTaxQueryPageControls.js",
     "components/ecount/JournalPageControls.js",
@@ -82,6 +85,7 @@
   ],
   "criteria": {
     "stockSnapshot":"E040701 stock만 원본 품목코드열의 productCode /^[A-Za-z0-9._/-]{1,60}$/ 허용. quantity 소수문자열, 제품명제외. 1949유일제품부분표본, 소계미수집/중복코드거부. 기준일 단일snapshot periodFrom=periodTo 필수, 행날짜/다른날짜로재해석금지. 다른dataset제품코드허용안함/source-latest금지/기존재고원장무관.",
+    "buyTaxUpload":"E040219 buyTax 날짜+supplyAmt/vat/total만 안전투영. 원본0행관측은 미수집으로 유지하고 가짜빈스냅샷 생성금지. 실제 안전파일 target 업로드/복원허용, 세 금액필수·정확소수·교차연도검증. source-latest금지/원본발행수정없음/전체성unknown. 날짜파서는기존검증문법만허용하며 원본실제행문법동등성미검증.",
     "salesTaxRequiredAmounts":"원본수집 supply는 준비단계에서 명시적으로 supplyAmt에 매핑. 신규import는 supplyAmt/vat/total 모두 non-null 필수, 누락/빈값 거부. 과거v1의null은불변보존·읽기허용, 정정은새버전만. 원본80필드와독립대조필수.",
     "salesTaxUpload":"E040218 salesTax 날짜+supplyAmt/vat/total 안전투영20행부분표본. 승인된target작업영역 업로드/버전/복원정책재사용, 원본검색·발행·수정미구현. source-latest금지/전체수집unknown. 거래처·식별번호·내역텍스트제외, 공유회계원장읽기쓰기없음.",
     "journalUpload":"E010701 journal: 전표날짜표시+amount만 안전투영. 원본9행 기존검증문법 통과, 나머지개인정보/적요/계정/유형/상태제외. canonical98/MyPage별칭동일scope, source-latest금지. 독립JSON버전재사용, ERP회계원장 읽기쓰기없음, 전체수집unknown.",

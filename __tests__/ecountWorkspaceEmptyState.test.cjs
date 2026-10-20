@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -46,24 +46,16 @@ test('sales tax keeps eight columns and exact safe decimals without private iden
  const empty=render({dataset:'salesTax',dataState:'uncollected',rows:[]});assert(empty.includes('아직 수집되지 않았습니다'));assert(!empty.includes('조회된 자료가 없습니다'));
 });
 
-test('sales tax observed buttons and row links stay disabled and F3/F8 cannot invent a form',async()=>{
- const controls=load('components/ecount/SalesTaxQueryPageControls.js');
- const html=renderToStaticMarkup(React.createElement(React.Fragment,null,React.createElement(controls.SalesTaxToolbar),React.createElement(controls.SalesTaxFooter)));
- assert.equal((html.match(/<button/g)||[]).length,8);assert.equal((html.match(/disabled=""/g)||[]).length,8);
- const rowHtml=render({dataset:'salesTax',dataState:'loaded',rows:[{sourceDateLabel:'2026/09/30 -1',supplyAmt:'1',vat:'0.1',total:'1.1'}]});
- assert.equal((rowHtml.match(/aria-disabled="true"/g)||[]).length,3);
- const ids=[...(html+rowHtml).matchAll(/data-ecount-action-id="([^"]+)"/g)].map(match=>match[1]);
- const expected=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/button-matches.json'),'utf8')).pages.find(page=>page.program==='E040218').buttons.map(button=>button.matchId);
- assert.deepEqual(ids.sort(),expected.sort());
- const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
- for(const name of ['toggleSearch','runSearch']){
-  const declaration=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert(declaration);
-  const box={exports:{}},errors=[];
-  vm.runInNewContext(source.slice(declaration.start,declaration.end)+';module.exports='+name,{module:box,busy:false,dataset:'salesTax',searchDraft:{},setError:message=>errors.push(message)});
-  await box.exports();assert.equal(errors.length,1);assert.match(errors[0],/아직 확인하지 않았습니다/);
+test('tax search follows observed sales-only radios and purchase missing-data state',()=>{
+ const {TaxSearchPanel}=load('components/ecount/TaxSearchPanel.js');
+ for(const dataset of ['salesTax','buyTax']){
+ const html=renderToStaticMarkup(React.createElement(TaxSearchPanel,{dataset,from:'2026-09-30',to:'2026-09-30'}));
+ assert.equal((html.match(/type="radio"/g)||[]).length,dataset==='salesTax'?3:0);
+ assert(html.includes('회계전표No.'));assert(!html.includes('메뉴검색'));
  }
+ const html=render({dataset:'buyTax',rows:[],dataState:'uncollected'});assert.equal((html.match(/<th scope=/g)||[]).length,7);assert(html.includes('아직 수집되지 않았습니다'));assert(!html.includes('등록된 데이터가 없습니다'));
+ const c=load('components/ecount/PurchaseTaxQueryPageControls.js');const footer=renderToStaticMarkup(React.createElement(c.PurchaseTaxFooter));assert(!footer.includes('Email'));
 });
-
 test('stock displays safe typed code and exact quantity; unknown date is not a zero query',()=>{
  const rows=[{productCode:'P-01',quantity:'123456789012345.67890000',prodName:'not-permitted'}];
  const html=render({dataset:'stock',rows,dataState:'loaded'});assert.equal((html.match(/<th scope=/g)||[]).length,3);assert(html.includes('P-01'));assert(html.includes('123456789012345.67890000'));assert(!html.includes('not-permitted'));
@@ -87,11 +79,41 @@ test('stock observed year/month buttons and day textbox preserve fourteen action
  const c=load('components/ecount/StockStatusPageControls.js');
  const html=renderToStaticMarkup(React.createElement(React.Fragment,null,React.createElement(c.StockToolbar,{searchOpen:true}),React.createElement(c.StockSearchPanel,{asOf:'2026-10-20'}),React.createElement(c.StockFooter)));
  const ids=[...html.matchAll(/data-ecount-action-id="([^"]+)"/g)].map(match=>match[1]);
- const expected=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/button-matches.json'),'utf8')).pages.find(page=>page.program==='E040701').buttons.map(button=>button.matchId);
+ const expected=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/button-matches.json'),'utf8')).pages.find(page=>page.program==='E040701').buttons.filter(button=>!['기준연도 메뉴','기준월 메뉴'].includes(button.source.context)).map(button=>button.matchId);
  assert.deepEqual(ids.sort(),expected.sort());assert(html.includes('aria-label="기준일 일"'));assert(!html.includes('type="date"'));
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
  const declaration=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='runSearch');
  const box={exports:{}},errors=[];
  vm.runInNewContext(source.slice(declaration.start,declaration.end)+';module.exports=runSearch;',{module:box,busy:false,dataset:'stock',searchDraft:{from:'2026-02-31',to:'2026-02-31'},setError:message=>errors.push(message),policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{}});
  return box.exports().then(()=>assert.equal(errors.length,1));
+});
+
+test('tax and stock queries normalize day input and require a real purchase version',async()=>{
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
+ const fn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='runSearch');
+ for(const dataset of ['salesTax','buyTax','stock'])for(const available of [false,true]){
+  const captured={},errors=[],box={exports:{}};
+  const context={module:box,busy:false,dataset,version:available?{}:null,searchDraft:{from:'2026-10-2',to:'2026-10-3',flow:'',query:''},policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{},setError:e=>errors.push(e),setFilterFrom:v=>captured.from=v,setFilterTo:v=>captured.to=v,setFlow(){},setRowQuery(){},setSearchOpen(){},load:async()=>{captured.loaded=true;},setTimeout:fn=>fn(),searchToggleRef:{current:{focus(){}}}};
+  vm.runInNewContext(source.slice(fn.start,fn.end)+';module.exports=runSearch;',context);await box.exports();
+  if(dataset==='buyTax'&&!available){assert.equal(errors.length,1);assert.equal(captured.loaded,undefined);}else{assert.equal(captured.from,'2026-10-02');assert.equal(captured.to,dataset==='stock'?'2026-10-02':'2026-10-03');assert.equal(captured.loaded,true);}
+ }
+});
+test('stock year/month/manual selection is local, exact and Escape restores trigger focus',()=>{
+ const file=path.join(root,'components/ecount/ObservedDateWidget.js'),module={exports:{}};
+ let states=[],refs=[],stateIndex=0,refIndex=0,value='2026-10-20',focused=0;
+ const mock={...React,useState:initial=>{const i=stateIndex++;if(!(i in states))states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},useRef:initial=>{const i=refIndex++;return refs[i]||(refs[i]={current:initial});},useEffect(){}};
+ vm.runInNewContext(compile(fs.readFileSync(file,'utf8'),file),{module,exports:module.exports,require:id=>id==='react'?mock:id.endsWith('.css')?styles:id==='./ObservedPageControls'?load('components/ecount/ObservedPageControls.js'):require(id),Intl,Date});
+ const {ObservedDateWidget,stockYearOptions}=module.exports;
+ assert.deepEqual([...stockYearOptions(new Date('2026-12-31T14:59:00Z'))],['2027','2026','2025','2024']);assert.deepEqual([...stockYearOptions(new Date('2026-12-31T15:00:00Z'))],['2028','2027','2026','2025']);
+ function tree(){stateIndex=0;refIndex=0;return ObservedDateWidget({dataset:'stock',value,onChange:v=>value=v,interactive:true});}
+ function all(e){return !e||typeof e!=='object'?[]:[e,...React.Children.toArray(e.props?.children).flatMap(all)];}
+ function find(predicate){return all(tree()).find(predicate);}
+ const click={currentTarget:{focus(){focused++;}}};
+ find(e=>e.props?.['aria-label']==='기준월 선택').props.onClick(click);
+ assert.equal(all(tree()).filter(e=>e.type==='button'&&/^\d{2}$/.test(e.props.children)).length,14);
+ find(e=>e.type==='button'&&e.props.children==='02').props.onClick();assert.equal(value,'2026-02-20');assert.equal(focused,1);
+ find(e=>e.props?.['aria-label']==='기준연도 선택').props.onClick(click);find(e=>e.type==='button'&&e.props.children==='직접입력').props.onClick();
+ find(e=>e.props?.['aria-label']==='연도 직접입력').props.onChange({target:{value:'2028'}});
+ find(e=>e.props?.['aria-label']==='연도 직접입력').props.onKeyDown({key:'Enter',preventDefault(){},stopPropagation(){}});assert.equal(value,'2028-02-20');
+ find(e=>e.props?.['aria-label']==='기준월 선택').props.onClick(click);find(e=>e.type==='span'&&typeof e.props?.onKeyDown==='function').props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(value,'2028-02-20');assert.equal(focused,3);
 });
