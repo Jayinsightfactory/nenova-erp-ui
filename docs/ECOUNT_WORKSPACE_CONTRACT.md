@@ -34,3 +34,5 @@ poQuery(E040302)는 orderTotal, receipt(E040217)/payment(E040310)는 amount와 �
 E040216 discount는 현재 읽기 전용이다. 금일/전월0행과 6열만 관측했고 월/일 값 문법은 미확인이다. salesAmount/accountingAmount/difference 숫자모델만 정의하며 날짜저장·필터는 허용하지 않는다. 모든 버전쓰기/가져오기/활성화는 트랜잭션 전 차단한다. 빈snapshot·가짜행을 생성하지 않으며 향후 실제 행 근거와 별도 계약 변경 후 적재할 수 있다.
 
 buyDisc(E040313 구매할인현황)는 discount와 별도 scope이며 purchaseAmount/accountingAmount/difference만 숫자모델로 정의한다. 518/588은 기존 canonical규칙을 공유한다. 날짜 문법 미확인·금일/전월0행 관찰이므로 모든 버전쓰기를 차단하고 가짜행을 만들지 않는다.
+
+saleQuery(E040206 판매조회)는 amount와 검증된 sourceDateLabel/refDate만 적재하며 다른 판매/판매현황 scope와 분리한다. 원본 안전표본26행은 전체성/기본기간 보증이 아니다. source-latest 금지, 기간 unknown 허용, 기존 불변버전/정정/복원 정책 재사용. SQL/DDL 및 기존 ERP 원장 변경은 없다.
