@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { auditReportAgainstStock } from '../lib/profitIndependentAudit.mjs';
 import { assertValidationResponse } from '../lib/profitValidationWindow.mjs';
-import { computeProfitRow } from '../lib/profitReportCalc';
+import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../lib/profitReportCalc';
+import { auditProfitFormulas } from '../lib/profitFormulaAudit.mjs';
+import ProfitFormulaAudit from './ProfitFormulaAudit';
 import s from './ProfitValidationWindow.module.css';
 
 const labels = { MATCH: '식 일치', MISMATCH: '차이 발견', CARRIED: '앞 차수 차이 이월', INPUT_REQUIRED: '자료 확인 필요',
   UNVERIFIED: '단가·정책 추가 확인', HISTORICAL: '기준시점 다름', NOT_COMPARED: '비교값 없음' };
 const number = v => v == null || !Number.isFinite(Number(v)) ? '미확인' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
-const compare = (report, week) => ({ ...auditReportAgainstStock(report, week, report.rows.map(row => ({ ...row,
-  calc: report.confirmed ? row.calc : computeProfitRow(row) }))), reportInput: report });
+const compare = (report, week) => {
+  const rows = report.rows.map(row => ({ ...row, calc: report.confirmed ? row.calc : computeProfitRow(row) }));
+  const totals = report.confirmed ? report.confirmedTotals : computeProfitTotals(rows);
+  if (!report.confirmed) for (const row of rows) Object.assign(row.calc, { D: calcRevenueRatio(row.calc, totals), U: calcPurchaseRatio(row.calc, totals) });
+  return { ...auditReportAgainstStock(report, week, rows), formulaAudit: auditProfitFormulas(report, rows, totals), reportInput: report };
+};
 
 export default function ProfitIndependentAudit({ year, major, report }) {
   const [data, setData] = useState(null), [error, setError] = useState('');
@@ -107,7 +113,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
           {data.weeks.map(w => <tr key={w.major} className={selected===w.major?s.total:''}>
             <th><button type="button" disabled={busy} aria-pressed={selected===w.major} onClick={()=>selectWeek(w.major)}>{Number(w.major)}차 상세</button></th>
             <td>{stable ? labels[w.status] : '판정 보류'}</td><td>{w.localMismatchCount}건</td><td>{w.carriedCount}건</td><td>{w.adjustedCount}건</td>
-            <td>{reports[w.major]?.error ? '조회 실패' : reports[w.major] ? `${reports[w.major].rows.filter(r=>r.mathStatus==='MATCH').length}행 산술 일치 / ${reports[w.major].rows.length}행` : '미실행'}</td>
+            <td>{reports[w.major]?.error ? '조회 실패' : reports[w.major] ? <>{`${reports[w.major].rows.filter(r=>r.mathStatus==='MATCH').length}행 산술 일치 / ${reports[w.major].rows.length}행`}<br />{reports[w.major].formulaAudit.status === 'MATCH' ? `전체 항목식 ${reports[w.major].formulaAudit.checked}개 일치` : `전체 항목식 확인 필요 ${reports[w.major].formulaAudit.issues.length}건`}</> : '미실행'}</td>
           </tr>)}
         </tbody></table></div>
       {week && <>
@@ -128,7 +134,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
         <h3>{Number(selected)}차 · 금액과 수익률을 이해하는 방법</h3>
         {!finance ? <p>금액 검산 미실행. {!busy&&<button type="button" disabled={!stable} onClick={()=>loadReports([selected])}>이 차수 금액 검산</button>}</p>
           : finance.error ? <p className={s.error}>{finance.error} <button type="button" disabled={busy} onClick={()=>loadReports([selected])}>재시도</button></p>
-            : <><p>{finance.note}</p>{finance.historical&&<p className={s.notice}>확정본 또는 저장된 계산본입니다. 산술은 별도로 계산하지만 현재 재고와 시점이 같다고 보증하지 않습니다.</p>}
+            : <>{selected !== major && <ProfitFormulaAudit report={finance.reportInput} />}<p>{finance.note}</p>{finance.historical&&<p className={s.notice}>확정본 또는 저장된 계산본입니다. 산술은 별도로 계산하지만 현재 재고와 시점이 같다고 보증하지 않습니다.</p>}
               <ul className={s.issues}>{finance.rows.map(row=><li key={row.category}>
                 <strong>{row.category} · 산술 {labels[row.mathStatus]}</strong><p className={s.notice}>{row.cause}</p><p>{row.explanation}</p>
                 {!!row.differences.length&&<p className={s.error}>보고서와 독립 계산이 다른 항목: {row.differences.join(', ')}</p>}

@@ -8,6 +8,7 @@ import { loadValidationWindow, reportBasis } from '../../lib/profitValidationWin
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import ProfitIndependentAudit from '../../components/ProfitIndependentAudit';
+import ProfitFormulaAudit from '../../components/ProfitFormulaAudit';
 import s from '../../components/ProfitValidationWindow.module.css';
 
 const columns = [['C', '매출액'], ['E', '기초재고액'], ['F', '기말재고액'], ['G', '상품·항공료'], ['H', '그외통관비'], ['J', '매출이익'], ['K', '이익률']];
@@ -83,6 +84,7 @@ export default function ProfitValidationPage() {
       {busy && <p role="status">선택 연도·차수의 자료를 읽고 있습니다. 다른 차수로 바꾸면 이전 조회는 취소됩니다.</p>}
       {result && <>
         <h2>{result.year}년 {Number(result.major)}차 확인 결과</h2>
+        <ProfitFormulaAudit report={report} />
         <ProfitIndependentAudit key={`${result.year}:${result.major}:${result.queriedAt}`} year={result.year} major={result.major} report={report} />
         <p className={s.muted}>조회 {new Date(result.queriedAt).toLocaleString('ko-KR')} · 보고서와 현재 원장 점검은 별도 조회이며 동시점 대사를 보증하지 않습니다.</p>
         <section className={s.section} aria-label="보고서 금액과 경고">

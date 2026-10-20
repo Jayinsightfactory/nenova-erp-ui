@@ -163,3 +163,9 @@
 - docs/ECOUNT_REPLACEMENT_DESIGN_2026-10-20.md 및 docs/ecount-migration/work-plan.json에 자체 DB 범위, 외부 API, 14개 의존 작업, 수집 보강·원장 호환·전환 게이트 기록.
 - ECOUNT/MSSQL 쓰기, 거래자료 적재, REA 설치, 실행 스케줄, 앱 배포 없음. 전체 기능 동등성·운영 API·실제 이관 미검증. 문서/JSON 구조 확인만 수행.
 - 검색어: ECOUNT_REPLACEMENT_DESIGN ecount-migration REA 자체회계 은행대사 전자세금계산서
+
+## 2026-10-20 전체 차수 계산식 검산
+- 원장 76개 연도·차수 28,001항목 + 자동 저장 입력 116 revision 42,451항목 독립 산술 일치. 수동 확정 revision 0건. 원본 fixture 898셀 회귀 통과.
+- 확정 AC/AJ 보존, 0/null 표시, 분모 0 합계 비율의 가짜 100%를 수정. 검증 새창·범위 검산에 전체 항목 검사 및 원천 누락 별도 경고 추가. ERP 원장/기존 확정본 변경 없음.
+- 원천 누락 59차수 334행 및 NULL 연도/범위 밖 60차는 정상 인증하지 않음. 전체 gate/배포/운영 smoke 진행 중(미검증). 상세 docs/work-sessions/2026-10-20_profit-formula-complete.md.
+- 검색어: profit-formula-complete 전체항목검산 AC AJ 확정조정누락 합계100퍼센트

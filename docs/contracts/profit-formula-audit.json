@@ -1,0 +1,14 @@
+{
+  "id": "profit-formula-audit",
+  "title": "전체 보고서 계산항목 독립 검산 및 확정 조정값 보존",
+  "scope": ["lib/profitFormulaAudit.mjs", "components/ProfitFormulaAudit.js", "components/ProfitIndependentAudit.js", "pages/sales/profit-validation.js", "pages/sales/profit-report.js", "lib/profitReportConfirm.js", "lib/profitReportCalc.js", "lib/profitReportExcel.js", "lib/profitReportSourceGuide.js", "pages/api/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"FORMULA_COMPARE_READ_ONLY", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"독립 산술만, DB/API 쓰기 없음. 저장 당시 입력과 현재 입력 혼합 금지. missing 원천은 산술 일치와 별도 경고."},
+    {"name":"CONFIRM_ADJUSTMENTS_PRESERVE", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"기존 사용자 확정 INSERT에 AC/AJ SOURCE/CALC를 보존. 기존 revision 변경·취소·추정 복원 금지. 스키마 변경 없음."}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025/2026 동일 차수 입력을 각각 독립 검산하고 다른 연도 조정/합계를 공유하지 않는다. 0과 NULL, 수정 빈칸, 과거 확정 조정 누락, noEnding 3국, 합계 tail 범위/미분류 제외를 실제 함수로 검사."},
+  "requiredTestFiles":["__tests__/profitFormulaAudit.test.cjs", "__tests__/profitReportConfirmSnapshotImmutability.test.js", "__tests__/profitReportWorkbookFullParity.test.js"],
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormProfitReport.md","source":"2026-10-20 실제 FormStockView CLI 재확인. 웹 전용 보고서 산술/확정 입력 보존이며 공유 ERP writer 변경 없음.","methods":["FormStockView.GetData", "buildConfirmDetailRows", "computeProfitRow"],"tables":["StockMaster (read)", "ProductStock (read)", "WebProfitReportConfirmDetail (기존 웹 확정 INSERT)"]}
+}
