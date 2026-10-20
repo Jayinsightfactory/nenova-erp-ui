@@ -664,7 +664,7 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
       stock: {},
       stockAnchored: { begin: null, end: null },
       auto: { N: calc.N, L: calc.L, O: calc.O, Q: calc.Q, S: calc.S, H: calc.H, E: calc.E, F: calc.F, R: calc.R },
-      manual: { E: null, F: null, H: null, R: null, S: null },
+      manual: { E: null, F: null, H: null, R: null, S: null, AC: calc.AC ?? null, AJ: calc.AJ ?? null },
       inheritedE: false,
       source: {
         E: 'confirmed_snapshot', F: 'confirmed_snapshot',

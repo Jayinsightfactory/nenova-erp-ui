@@ -8,7 +8,7 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Loca
   const browser = await puppeteer.launch({headless:true,executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   try {
     const page = await browser.newPage();
-    await page.setViewport({width:1366,height:900});
+    await page.setViewport({width:1920,height:1080});
     const requests=[]; const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.setRequestInterception(true);
@@ -41,12 +41,19 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Loca
     assert.match(await page.$eval('main',e=>e.innerText),/이전 계산 저장본/);
     assert.match(await page.$eval('main',e=>e.innerText),/합성 원천 점검/);
     assert.match(await page.$eval('main',e=>e.innerText),/독립 검산/);
+    assert.match(await page.$eval('section[aria-label="전체 항목 계산식 검산"]',e=>e.innerText),/계산식 일치/);
+    const formulaSummary=await page.$('section[aria-label="전체 항목 계산식 검산"] summary');
+    await formulaSummary.focus(); await page.keyboard.press('Enter');
+    assert.equal(await page.$eval('section[aria-label="전체 항목 계산식 검산"] details',e=>e.open),true);
+    await page.keyboard.press('Space');
+    assert.equal(await page.$eval('section[aria-label="전체 항목 계산식 검산"] details',e=>e.open),false);
     assert.match(await page.$eval('main',e=>e.innerText),/독립 합성 품목/);
     assert.match(await page.$eval('main',e=>e.innerText),/기초 10 \+ 입고 5/);
     assert.match(await page.$eval('main',e=>e.innerText),/최초 관측 차이/);
     const rangeButton=await page.$('section[aria-label="독립 검산 엔진"] > button');
     await rangeButton.click();
     await page.waitForFunction(()=>document.querySelector('section[aria-label="독립 검산 엔진"]').innerText.includes('1행 산술 일치 / 1행'));
+    assert.match(await page.$eval('main',e=>e.innerText),/전체 항목식 41개 일치/);
     await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('금액·수익률도 모두 검산')&&!b.disabled));
     assert.equal(new Set(requests.filter(r=>r.path==='/api/sales/profit-report'&&r.year==='2026').map(r=>r.week)).size,32);
     if (process.env.SMOKE_SCREENSHOT) await page.screenshot({path:process.env.SMOKE_SCREENSHOT,fullPage:true});
