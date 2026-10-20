@@ -437,3 +437,19 @@
 - UI 표적20검사/최종10회귀와 정책·정확소수검사 통과. 원본 연월 선택 확정·동적 연도갱신규칙은 미검증이며 KST현재연도 기준4옵션은 대상구현규칙. 총649관측ID이며 전체기능동등성 미완료.
 - 메뉴기준 적용: 기존 격리workbench/shell/스크롤 유지, 신규공유ERP writer·EXE데이터변경 해당없음.
 - 검색어: buyTax TaxSearchPanel ObservedDateWidget 649 세금계산서검색
+
+## 2026-10-20 ECOUNT 재고·세금계산서 검색 배포 상태
+- PR1140 e6a8fceb: 재고1949/세금계산서필수금액·정정/lookup치수/판매콤마. CI39401323484 및 Cafe24 deploy39401692655 성공, hydration 통과. root 운영재고3898값 대조 진행 예정, 세금계산서v2 80값은 이미불일치0.
+- PR1141 a6d8e6e6: 세금계산서 검색폼·buyTax 안전업로드·재고연월 선택. 로컬5종검사 모두PASS(tax-search-guard-results.json), CI39402286565 PASS, squash병합완료. 배포39402638893 진행중/운영스모크미검증. source/sharedledger 추가쓰기없음.
+- 검색어: PR1140 deploy39401692655 PR1141 a6d8e6e6 tax-search buyTax
+
+## 2026-10-20 PR1141 배포 완료와 현황 후속 정책
+- PR1141 Cafe24 deploy39402638893 success, SSH 적용 및 hydration smoke 통과. 원본 동등성/업무데이터 운영대조는 root 후속확인으로 분리.
+- 다음 E040223/menu706 taxStat(7자) 날짜+필수 공급가액/부가세/합계 안전정책·계약·fixture 추가. 실제행0관측뿐이므로 미수집 유지, SQL실행없음. 기존독립버전업로드/복원 재사용·source-latest차단. 표적정책/actions검사PASS, 전체gate는UI최종freeze후예정.
+- 검색어: PR1141 deploy39402638893 taxStat E040223 필수3금액
+
+## 2026-10-20 세금계산서 현황 두 화면과 운영 대조
+- root 운영1140 stock1949행3898값·판매26행52값 대조PASS. 1141 매출검색7필드/발송3radio/금일0(수집20부분행내),매입7열폭/7필드/radio0/미수집검색비활성·업로드활성 확인. stock 연도2025Enter/09선택/일2→2025-09-02정규화·미수집·금일복원확인. 원본연월선택동등성미검증유지.
+- 후속 taxStat E040223/menu706 및 buyTaxStat E040320/menu710 안전날짜+필수3금액 정책·6열현황 구현. 원본금일0관측만, 실제자료미수집/SQL추가없음. 신규두dataset빈import서버거부, source-latest차단·실제safe수동업로드/복원허용.
+- 양현황29ID씩·표적UI15검사와정책/actions통과. 총713관측ID는완료수아님. 승인상태미수집은자료버전있을때안내, 확인필터원본전체동등성추정안함. 기존격리shell적용/신규ERP writer해당없음.
+- 검색어: taxStat buyTaxStat E040223 E040320 713 stock3898 sale52 1141runtime
