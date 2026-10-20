@@ -12908,10 +12908,11 @@
           "sourceExecutionAllowed": true,
           "sourceExecuted": true,
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL"
+            "source-action-audit.jsonl#SRC-20261020-E040218-INITIAL",
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
           ],
           "testEvidence": [],
-          "behavior": "Clicked but search panel effect unverified"
+          "behavior": "Recovered source F3 opens search panel; earlier hidden mainPage failure retained as historical observation"
         },
         {
           "id": "E040218-A02",
@@ -13052,14 +13053,361 @@
           ],
           "testEvidence": [],
           "behavior": "Date link observed; not clicked because edit behavior unknown"
+        },
+        {
+          "id": "E040218-A12",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A13",
+          "label": "전체",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A14",
+          "label": "결재중",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A15",
+          "label": "미확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A16",
+          "label": "확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A17",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A18",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A19",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A20",
+          "label": "종료연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A21",
+          "label": "종료월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A22",
+          "label": "기본",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A23",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A24",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A25",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A26",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A27",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A28",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A29",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A30",
+          "label": "직전분기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A31",
+          "label": "직전반기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A32",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A33",
+          "label": "전체",
+          "context": "검색 패널 발송 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A34",
+          "label": "미발송",
+          "context": "검색 패널 발송 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A35",
+          "label": "발송",
+          "context": "검색 패널 발송 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
         }
       ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "회계전표No.",
+            "부서",
+            "프로젝트",
+            "거래처",
+            "거래처관리담당자",
+            "부가세유형",
+            "최종수정자"
+          ]
         },
         "columns": {
           "stage": "observed",
@@ -16983,25 +17331,539 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040219-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED",
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Option opened/closed, five labels observed; settings never executed"
+        },
+        {
+          "id": "E040219-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A04",
+          "label": "대화방",
+          "context": "하단",
+          "classification": "transmit",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A05",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A06",
+          "label": "선택삭제",
+          "context": "하단",
+          "classification": "delete",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A07",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A08",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A09",
+          "label": "전체",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A10",
+          "label": "결재중",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A11",
+          "label": "미확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A12",
+          "label": "확인",
+          "context": "상태 탭",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A13",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A14",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A15",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A16",
+          "label": "종료연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A17",
+          "label": "종료월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A18",
+          "label": "기본",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A19",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A20",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A21",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A22",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A23",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A24",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A25",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A26",
+          "label": "직전분기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A27",
+          "label": "직전반기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A28",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A29",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A30",
+          "label": "인쇄",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040219-A31",
+          "label": "검색항목설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Label only, settings not executed"
+        },
+        {
+          "id": "E040219-A32",
+          "label": "양식설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Label only, settings not executed"
+        },
+        {
+          "id": "E040219-A33",
+          "label": "기능설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Label only, settings not executed"
+        },
+        {
+          "id": "E040219-A34",
+          "label": "조건양식설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Label only, settings not executed"
+        },
+        {
+          "id": "E040219-A35",
+          "label": "리스트탭설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-OPTION"
+          ],
+          "testEvidence": [],
+          "behavior": "Label only, settings not executed"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "회계전표No.",
+            "부서",
+            "프로젝트",
+            "거래처",
+            "거래처관리담당자",
+            "부가세유형",
+            "최종수정자"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040219-SEARCH-RECOVERED"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "",
+            "일자 - 번호",
+            "거래처명",
+            "공급가액",
+            "부가세",
+            "합 계",
+            "내역보기"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -19377,29 +20239,29 @@
           "id": "E040701-A07",
           "label": "기준연도 선택",
           "context": "검색 패널",
-          "classification": "unknown",
+          "classification": "read",
           "stage": "observed",
-          "sourceExecutionAllowed": false,
-          "sourceExecuted": false,
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
           "evidence": [
             "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
           ],
           "testEvidence": [],
-          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+          "behavior": "Menu opened; selection commit unverified"
         },
         {
           "id": "E040701-A08",
           "label": "기준월 선택",
           "context": "검색 패널",
-          "classification": "unknown",
+          "classification": "read",
           "stage": "observed",
-          "sourceExecutionAllowed": false,
-          "sourceExecuted": false,
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
           "evidence": [
             "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
           ],
           "testEvidence": [],
-          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+          "behavior": "Menu opened; selection commit unverified"
         },
         {
           "id": "E040701-A09",
@@ -19484,6 +20346,244 @@
           ],
           "testEvidence": [],
           "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A15",
+          "label": "27",
+          "context": "기준연도 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A16",
+          "label": "26",
+          "context": "기준연도 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A17",
+          "label": "25",
+          "context": "기준연도 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A18",
+          "label": "24",
+          "context": "기준연도 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A19",
+          "label": "직접입력",
+          "context": "기준연도 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A20",
+          "label": "01",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A21",
+          "label": "02",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A22",
+          "label": "03",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A23",
+          "label": "04",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A24",
+          "label": "05",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A25",
+          "label": "06",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A26",
+          "label": "07",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A27",
+          "label": "08",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A28",
+          "label": "09",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A29",
+          "label": "10",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A30",
+          "label": "11",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040701-A31",
+          "label": "12",
+          "context": "기준월 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only explicitly recorded actions executed"
         }
       ],
       "windows": [],

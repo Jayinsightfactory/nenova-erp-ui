@@ -424,3 +424,16 @@
 ## 2026-10-20 신라 판매요청 포함 대조
 사용자 요청: 안시리움1송이 판매요청 근거 조회 및 정상 추가분 분류. 실제 ClassEstimate/FormEstimateView dnSpy와 SELECT로 Estimate10040(2026/40-01 신라호텔446/181,10/12,1송이/8300,판매요청) 확인. 40-02분배520+요청1=엑셀/SRM10/7 521. 판매요청일과입고일은별도표시. 같은연도/업체/품목/단위/대차수의 전체요청 및확정/가격버킷/중복소비검증, 원본차이보존. ERP/재고쓰기없음.20개테스트/실제loader대조/build통과,전체계약및배포진행중.
 검색어: 신라 판매요청 Estimate10040 520+1 정상추가분 shilla-sales-request
+
+## 2026-10-20 ECOUNT 재고·세금계산서 정정 후속 검증
+- 별도 ecount_work 적재: salesTax 20행 revision2, stock 1949행 revision1/기준일2026-10-20, 각각 readback/idempotent true. 원본·공유원장쓰기 없음. 최초 salesTax v1 공급가액20누락과 실패증거는 보존.
+- root 운영 재대조: salesTax v2 20행80값 불일치0(sales-tax-v2-runtime-comparison.json). stock 운영3898값 대조는 PR1140 배포 후 예정/현재미검증.
+- PR1140 기존CI통과 후 동시 신라 PR1139를 양쪽메모와10파일 보존하여 병합8f81eb2c. 병합 후 필수5종 모두통과(stock-tax-merge-guard-results.json), 현재 새CI·배포 진행중.
+- 후속 buyTax E040219는 실제행미수집/0관측 상태 유지. 새 실제파일의 안전날짜+필수 supplyAmt/vat/total만 별도영역 업로드 허용하며 정밀소수/교차연도/멱등/복원 fixture통과, source-latest 미지원. SQL 추가실행 없음.
+- 검색어: salesTax revision2 80값일치 stock1949 buyTax E040219 stock-tax-merge PR1140
+
+## 2026-10-20 ECOUNT 세금계산서 검색·재고 날짜 선택 후속
+- PR1140 병합 e6a8fceb, 배포39401692655 진행중. 후속 salesTax/buyTax 관측검색폼과 stock 연월 선택 표시를 분리구현. 실제행없는 buyTax는 미수집, 안전파일업로드 후에만 조회. 금액3필드필수 및 공유원장보존.
+- UI 표적20검사/최종10회귀와 정책·정확소수검사 통과. 원본 연월 선택 확정·동적 연도갱신규칙은 미검증이며 KST현재연도 기준4옵션은 대상구현규칙. 총649관측ID이며 전체기능동등성 미완료.
+- 메뉴기준 적용: 기존 격리workbench/shell/스크롤 유지, 신규공유ERP writer·EXE데이터변경 해당없음.
+- 검색어: buyTax TaxSearchPanel ObservedDateWidget 649 세금계산서검색
