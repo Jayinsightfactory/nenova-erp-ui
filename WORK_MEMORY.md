@@ -597,3 +597,10 @@
 - 견적 집계 전환 오류는 API 실패가 아니라 보존된 날짜를 readonly 집계 filterSortRows에 전달해 DATE_FILTER_UNAVAILABLE가 발생한 문제였다. quote/order/po 집계 미수집 분기를 분리하고 날짜조건은 보존했다. unpSale 날짜모드 전환 시 버전 무효화 및 exact 조건만 조회, UI50검사·JSX/diffcheck PASS. 메타1002관측ID. 운영 재검증은 배포 후 필요하다.
 - dayAll 전체34종류는 다음 독립 배치다. safe2217행/30빈구역/4누계분류×3기간과 거래처관계기준 조건을 하나의 불변 snapshot으로 설계하되 현재 커밋에는 구현하지 않는다. 원본값은 untracked 로컬 자료에만 두고 fixture는 합성값만 사용한다.
 검색어: unpSale date_range E040609 aggregate DATE_FILTER_UNAVAILABLE 50tests1002 dayAll다음배치
+
+### 2026-10-20 일보 전체 안전자료 원자 버전
+- PR1158 필수5종/CI39420936549 PASS 후 squashee7b430c, Cafe2439421260544 진행 중. unpSale 실제 적재는 root count0/revision1/readbacktrue/idempotenttrue, 원본/공유원장쓰기0이며 운영 검증은 배포 후 예정.
+- dayAll 새 envelope는 exact34종류/relationship/10월20일과 sourceTable/sourceRow를 고정한다.34구역(명시빈30),53표,AR72/AP183/재고1950/누계12=2217행. 실제합계와null/정밀문자열 보존, 이름·업체코드·미회수월·숨은코드 제외. 원본끼리 재고1949×4 대조0과 root wrapper 전필드 valueMismatches[]를 구분 기록했다; target runtime는 아직 미검증이다.
+- UI53표 연속배치/34제목, AR/AP/재고합계span1/2/3, 누계4×rowspan3, canonical34 종류 반환과 부분조건 미수집, state전환 전 dataset override 보완을 구현했다. UI52검사·새합성fixture 정책/store/CLI 표적검사 PASS. 실제값은 outputs만 보관/커밋금지, actualSQL 아직미실행. 메타1018 관측ID, 전체 기능완료수가 아니다.
+- 공유계정 주간87%사용/13%남음은 본 작업 단독사용량이 아니며 ordinaryAllowedtrue. 추가worker·리셋·구매 없이 최종 고정묶음당 필수검사/빌드1회 유지한다.
+검색어: dayAll2217 observed_report34 sections30empty actualtotal null sourceTable atomic1018 PR1158

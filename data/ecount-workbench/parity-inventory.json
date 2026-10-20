@@ -789,6 +789,160 @@
           ],
           "testEvidence": [],
           "behavior": "Label observed only; behavior unverified"
+        },
+        {
+          "id": "E010205-A14",
+          "label": "Search(F3)",
+          "context": "매핑 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Source search panel opened; target currently disabled"
+        },
+        {
+          "id": "E010205-A15",
+          "label": "Option",
+          "context": "매핑 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A16",
+          "label": "자동매핑",
+          "context": "매핑 선택창",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A17",
+          "label": "선택삭제",
+          "context": "매핑 선택창",
+          "classification": "delete",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A18",
+          "label": "Excel",
+          "context": "매핑 선택창",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A19",
+          "label": "닫기",
+          "context": "매핑 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A20",
+          "label": "검색(F8)",
+          "context": "매핑 검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A21",
+          "label": "다시 작성",
+          "context": "매핑 검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A22",
+          "label": "전체",
+          "context": "매핑 검색 유형",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A23",
+          "label": "자동매핑",
+          "context": "매핑 검색 유형",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
+        },
+        {
+          "id": "E010205-A24",
+          "label": "매핑안함",
+          "context": "매핑 검색 유형",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E010205-MAPPING-GAPS"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed control only; no source query/write executed"
         }
       ],
       "windows": [
@@ -26494,6 +26648,76 @@
           ],
           "testEvidence": [],
           "behavior": "Observed query-filter operation only; no business writes"
+        },
+        {
+          "id": "E040708-A65",
+          "label": "전체 선택",
+          "context": "종류 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040708-ALL-KINDS"
+          ],
+          "testEvidence": [],
+          "behavior": "Selects34 leaf kinds then apply returns34filter chips; today53tables observed"
+        },
+        {
+          "id": "E040708-A66",
+          "label": "거래처관계기준",
+          "context": "검색 거래처 집계",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040708-ALL-KINDS"
+          ],
+          "testEvidence": [],
+          "behavior": "Radio label observed; CR selected, alternative actions not tested"
+        },
+        {
+          "id": "E040708-A67",
+          "label": "개별거래처기준",
+          "context": "검색 거래처 집계",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040708-ALL-KINDS"
+          ],
+          "testEvidence": [],
+          "behavior": "Radio label observed; CR selected, alternative actions not tested"
+        },
+        {
+          "id": "E040708-A68",
+          "label": "연결거래처합산",
+          "context": "검색 거래처 집계",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040708-ALL-KINDS"
+          ],
+          "testEvidence": [],
+          "behavior": "Radio label observed; CR selected, alternative actions not tested"
+        },
+        {
+          "id": "E040708-A69",
+          "label": "선택거래처합산",
+          "context": "검색 거래처 집계",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040708-ALL-KINDS"
+          ],
+          "testEvidence": [],
+          "behavior": "Radio label observed; CR selected, alternative actions not tested"
         }
       ],
       "windows": [],

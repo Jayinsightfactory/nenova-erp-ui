@@ -47,7 +47,9 @@
     "scripts/ecount-workspace-import-safe.mjs",
     "components/ecount/InventoryDailyPageControls.js",
     "components/ecount/InventoryKindLookup.js",
-    "components/ecount/UnpostedSalesPageControls.js"
+    "components/ecount/UnpostedSalesPageControls.js",
+    "lib/ecountDailyReport.cjs",
+    "components/ecount/InventoryDailyAllResults.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -73,7 +75,8 @@
   },
   "requiredTestFiles": [
     "__tests__/ecountWorkspace.test.cjs",
-    "__tests__/ecountWorkspaceImportSafe.test.mjs"
+    "__tests__/ecountWorkspaceImportSafe.test.mjs",
+    "__tests__/ecountDailyReport.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -96,7 +99,8 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
-    "npm run build"
+    "npm run build",
+    "node __tests__/ecountDailyReport.test.cjs"
   ],
   "criteria": {
     "relationStockSnapshot": "E040728 relStock canonical2879. 원본선택품목1행+실제합계1행만관측,productCode/quantity/convertedQuantity 안전투영. 정확코드·단일asOf일치시에만2행표시/무코드·다른범위미수집(0판정금지). 첫제품typedcode/마지막합계nullcode·isSubtotaltrue/필수2수량·원본합계계산금지. 일반품목필수규칙으로확대금지,전체완전성unknown/수동업로드복원허용/source-latest차단.",
@@ -137,5 +141,6 @@
   "orderDetailPreviewContract": "Observed E040209 detail preview is a separate window with table-only 7 columns, width751 x15 y48; no invented heading/company/period block. Keep other preview layouts unchanged and no-script/no-network CSP. Preview caller requires verified ordEmpty exact criteria; uncollected or other scope disabled. Original full print execution remains unverified.",
   "poEmptyContract": "E040306 poEmpty separate registered observed_empty envelope only: detail/line/all trade/2026-10-20 exact dates/no delivery/no selections/no approval display/no graph/form 결제일 기준. Form is not a date-basis semantic assertion. Source execution timestamp unknown; verification recordedAt retained. Other periods, forms, filters, nonempty rows and naked empty arrays rejected before SQL. Existing poStat and old hashes preserved.",
   "dailySalesEmptyContract": "E040708 daySale separate registered observed_empty envelope only: 2026-10-20 exact dates/kinds [판매]/all trade/no approval display/empty warehouse customer product department management selections. Does not cover other kinds or all inventory daily reports. No fabricated rows, source writes, shared ledger writes or DDL; upload and current GET validate exact profile; invalid filters rejected before SQL.",
-  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL."
+  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL.",
+  "dailyAllContract": "dayAll E040708 separate observed_report envelope, exact34 source kinds/date2026-10-20/all trade/relationship customer aggregation/empty selections/no approval. One atomic immutable version contains34 sections:30 explicit empty, AR72/AP183/stock1950 over20 source tables/cumulative12 =2217safe rows. Names/customer codes/aging/hidden code/free text excluded. Source nulls, exact decimal strings, actual totals, table/row order preserved. Category4 x period3 and period label grammar validated. No derived aggregate, no transactions inferred, completeness unknown. Partial scope/pages/duplicates/cross-year/foreign profile rejected, no source/shared-ledger writes or DDL."
 }
