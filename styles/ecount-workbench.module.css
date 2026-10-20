@@ -106,3 +106,6 @@
 .bomCardFields>.searchLine{margin:0}
 .bomCardFields>.bomFormDivider{margin:0}
 @media(max-width:760px){.bomCardFields{height:auto;display:block}.bomCardFields>.searchLine{margin:8px 0}}
+/* Per-screen menus measured on 2026-10-20; do not generalize their heights to other widgets. */
+.page .sourceDatePopover{padding:2px;overflow-y:auto}
+.page .sourceDatePopover>button{flex:1 0 0;min-height:0;height:auto;padding:0 10px;display:flex;align-items:center}

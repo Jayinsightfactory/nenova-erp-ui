@@ -9478,6 +9478,272 @@
           ],
           "testEvidence": [],
           "behavior": "Visible control, not executed"
+        },
+        {
+          "id": "E040209-A57",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A58",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A59",
+          "label": "27",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A60",
+          "label": "26",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A61",
+          "label": "25",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A62",
+          "label": "24",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A63",
+          "label": "직접입력",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A64",
+          "label": "01",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A65",
+          "label": "02",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A66",
+          "label": "03",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A67",
+          "label": "04",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A68",
+          "label": "05",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A69",
+          "label": "06",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A70",
+          "label": "07",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A71",
+          "label": "08",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A72",
+          "label": "09",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A73",
+          "label": "10",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A74",
+          "label": "11",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040209-A75",
+          "label": "12",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
         }
       ],
       "windows": [
@@ -22906,6 +23172,244 @@
           ],
           "testEvidence": [],
           "behavior": "Visible menu item, not executed"
+        },
+        {
+          "id": "E040726-A17",
+          "label": "27",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A18",
+          "label": "26",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A19",
+          "label": "25",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A20",
+          "label": "24",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A21",
+          "label": "직접입력",
+          "context": "기준연도 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A22",
+          "label": "01",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A23",
+          "label": "02",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A24",
+          "label": "03",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A25",
+          "label": "04",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A26",
+          "label": "05",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A27",
+          "label": "06",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A28",
+          "label": "07",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A29",
+          "label": "08",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A30",
+          "label": "09",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A31",
+          "label": "10",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A32",
+          "label": "11",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
+        },
+        {
+          "id": "E040726-A33",
+          "label": "12",
+          "context": "기준월 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-DATE-WIDGET"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed date widget options; direct2026 Tab commit and selected month10 close verified; not business query"
         }
       ],
       "windows": [],
