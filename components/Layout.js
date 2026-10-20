@@ -112,7 +112,7 @@ export const MENU_ITEMS = [
       { href: '/ecount/reconcile',   labelKey: '🔁 ECOUNT 자동대사',  popup: false },
       { href: '/ecount/receivables', labelKey: '💳 채권(미수) 현황',   popup: false },
       { href: '/ecount',             labelKey: 'ECOUNT 수집 데이터', popup: false },
-      { href: '/ecount/workbench',   labelKey: 'ERP 전체 메뉴 작업실', popup: false },
+      { href: '/ecount/workbench',   labelKey: 'ECOUNT ERP', popup: false },
     ]
   },
   {

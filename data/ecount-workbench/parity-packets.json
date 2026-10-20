@@ -1,0 +1,1290 @@
+{
+  "version": 1,
+  "usage": {
+    "weeklyConsumedPercentBaseline": 26,
+    "baselineDate": "2026-10-20",
+    "meaning": "Account-wide baseline, not attributable task tokens",
+    "hardTokenBudget": null,
+    "maxConcurrentWorkers": 3,
+    "checkAt": "packet-boundary",
+    "rules": [
+      "One canonical screen survey; reuse aliases only after context comparison",
+      "Do not repeatedly fork full conversation histories",
+      "Run targeted tests after each change; full release gates once per release candidate",
+      "Checkpoint and stop duplicate or repeatedly failing workers",
+      "Do not reset limits or purchase credits"
+    ]
+  },
+  "foundations": [
+    {
+      "id": "FOUNDATION-READONLY",
+      "stage": "pending",
+      "requires": "Source action allowlist and read-only collection audit"
+    },
+    {
+      "id": "FOUNDATION-ISOLATED-SQL",
+      "stage": "pending",
+      "requires": "Separate SQL target identity, isolation, import batches and rollback verification"
+    }
+  ],
+  "packets": [
+    {
+      "id": "P001",
+      "group": "MyPage / journal",
+      "screenIds": [
+        "E010701"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010701",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P002",
+      "group": "MyPage / bank",
+      "screenIds": [
+        "E010205"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010205",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P003",
+      "group": "MyPage / settlement",
+      "screenIds": [
+        "E040214",
+        "E040723"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040214",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P004",
+      "group": "MyPage / trade",
+      "screenIds": [
+        "E040304",
+        "E040303",
+        "E040202",
+        "E040201"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040304",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P005",
+      "group": "Self-Customizing / settings",
+      "screenIds": [
+        "E000106",
+        "E000113",
+        "E000114",
+        "P000054",
+        "E000125",
+        "E000107",
+        "E000115",
+        "E000131",
+        "E000143",
+        "C000113"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E000106",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P006",
+      "group": "Self-Customizing / settings",
+      "screenIds": [
+        "C001124",
+        "C001122",
+        "E000109",
+        "E000126",
+        "E000127",
+        "E000137",
+        "E000138",
+        "E000161",
+        "E000160",
+        "C001138"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "C001124",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P007",
+      "group": "Self-Customizing / settings",
+      "screenIds": [
+        "E000117",
+        "E000132",
+        "E000140",
+        "M000009",
+        "E000129",
+        "E000139"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E000117",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P008",
+      "group": "재고 I / master",
+      "screenIds": [
+        "E010101",
+        "E040102",
+        "E010105",
+        "E010112",
+        "E040103",
+        "E040104",
+        "E010110",
+        "E040111",
+        "E040113"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010101",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P009",
+      "group": "재고 I / pricing",
+      "screenIds": [
+        "E040126",
+        "E040125",
+        "E040124",
+        "E040120",
+        "E040122",
+        "E040114",
+        "E040224",
+        "E040311",
+        "E040819"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040126",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P010",
+      "group": "재고 I / trade",
+      "screenIds": [
+        "E040208",
+        "E040211",
+        "E040204",
+        "E040203",
+        "E040209",
+        "E040230",
+        "E040212",
+        "E040206",
+        "E040205",
+        "E040253"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040208",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P011",
+      "group": "재고 I / trade",
+      "screenIds": [
+        "E040207",
+        "E040216",
+        "E040609",
+        "E040210",
+        "E040254",
+        "E040255",
+        "E040215",
+        "E040302",
+        "E040301",
+        "E040306"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040207",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P012",
+      "group": "재고 I / trade",
+      "screenIds": [
+        "E040307",
+        "E040305",
+        "E040313",
+        "E040319",
+        "E040312",
+        "E040730",
+        "E040222",
+        "E040227",
+        "E040228",
+        "E040318"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040307",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P013",
+      "group": "재고 I / trade",
+      "screenIds": [
+        "E040806",
+        "E010833",
+        "E010842",
+        "E040725",
+        "E040710",
+        "E040704",
+        "E040627",
+        "E040633",
+        "E040709",
+        "E040716"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040806",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P014",
+      "group": "재고 I / trade",
+      "screenIds": [
+        "C000097"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "C000097",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P015",
+      "group": "재고 I / settlement",
+      "screenIds": [
+        "E040217",
+        "E040310",
+        "E040309",
+        "E040721",
+        "E040713",
+        "E040722",
+        "E040724",
+        "E040714",
+        "E040703"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040217",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P016",
+      "group": "재고 I / tax",
+      "screenIds": [
+        "E040218",
+        "E040223",
+        "E040219",
+        "E040320"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040218",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P017",
+      "group": "재고 I / inventory",
+      "screenIds": [
+        "E040502",
+        "E040501",
+        "E040505",
+        "E040504",
+        "E040503",
+        "E040506",
+        "E040508",
+        "E040507",
+        "E040509",
+        "E040510"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040502",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P018",
+      "group": "재고 I / inventory",
+      "screenIds": [
+        "E040511",
+        "E040512",
+        "E040650",
+        "E040613",
+        "E040614",
+        "E040615",
+        "E040608",
+        "E040701",
+        "E040711",
+        "E040728"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040511",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P019",
+      "group": "재고 I / inventory",
+      "screenIds": [
+        "E040720",
+        "E040726",
+        "E040727",
+        "E040702",
+        "E040719",
+        "E040708",
+        "E040807",
+        "E040607"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040720",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P020",
+      "group": "재고 I / communication",
+      "screenIds": [
+        "E010851",
+        "E010858"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010851",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P021",
+      "group": "재고 I / budget",
+      "screenIds": [
+        "E041015"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E041015",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P022",
+      "group": "재고 I / service",
+      "screenIds": [
+        "E040413",
+        "E040414",
+        "E040409",
+        "E040436",
+        "E040432",
+        "E040410",
+        "E040415"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040413",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P023",
+      "group": "재고 II / service",
+      "screenIds": [
+        "E040601",
+        "E040602",
+        "E040610",
+        "E040605",
+        "E040606",
+        "E040611",
+        "E040641"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040601",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P024",
+      "group": "재고 II / master",
+      "screenIds": [
+        "E040617",
+        "E040618",
+        "E040639"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040617",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P025",
+      "group": "재고 II / inventory",
+      "screenIds": [
+        "E040634",
+        "E040620",
+        "E040619",
+        "E041018"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040634",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P026",
+      "group": "재고 II / budget",
+      "screenIds": [
+        "E040624",
+        "E040625",
+        "E040640",
+        "E040626",
+        "E040636",
+        "E040637"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040624",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P027",
+      "group": "재고 II / cost",
+      "screenIds": [
+        "E040802",
+        "E040808",
+        "E040804",
+        "E040809",
+        "E040805"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E040802",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P028",
+      "group": "회계 I / master",
+      "screenIds": [
+        "E010103",
+        "E010106",
+        "E010109",
+        "E010114",
+        "E010118",
+        "E010107",
+        "E010111"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010103",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P029",
+      "group": "회계 I / bank",
+      "screenIds": [
+        "E010104",
+        "E010206",
+        "E010215",
+        "E010207",
+        "E061001",
+        "E061003",
+        "E061002",
+        "E010805",
+        "E010834"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010104",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P030",
+      "group": "회계 I / journal",
+      "screenIds": [
+        "E010201",
+        "E010408",
+        "E010403",
+        "E010505",
+        "E010213",
+        "E010209",
+        "E010210",
+        "E010212",
+        "E010301",
+        "E010303"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010201",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P031",
+      "group": "회계 I / journal",
+      "screenIds": [
+        "E010847",
+        "E010702",
+        "E010710",
+        "E010711",
+        "E010714",
+        "E010830",
+        "E010804",
+        "E010815",
+        "E010819",
+        "E010821"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010847",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P032",
+      "group": "회계 I / journal",
+      "screenIds": [
+        "E010843",
+        "E010838",
+        "E010839",
+        "E010835",
+        "E010836",
+        "E010840",
+        "E010850",
+        "E010807",
+        "E010808",
+        "E010809"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010843",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P033",
+      "group": "회계 I / journal",
+      "screenIds": [
+        "E010856",
+        "E010857",
+        "E010806",
+        "E010802",
+        "E010801",
+        "E010803",
+        "E010831",
+        "E010829",
+        "E010813",
+        "E010812"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010856",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P034",
+      "group": "회계 I / journal",
+      "screenIds": [
+        "E010844",
+        "E010811",
+        "E010861",
+        "E010817",
+        "E010832",
+        "E010730",
+        "E010712",
+        "E010705",
+        "C000053"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010844",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P035",
+      "group": "회계 I / inventory",
+      "screenIds": [
+        "E010211"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010211",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P036",
+      "group": "회계 I / tax",
+      "screenIds": [
+        "E010849",
+        "E010723",
+        "E010726",
+        "E030206",
+        "E010729",
+        "E010732",
+        "E010727",
+        "E010845",
+        "E010716",
+        "E010846"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010849",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P037",
+      "group": "회계 I / asset",
+      "screenIds": [
+        "E010610",
+        "E010611",
+        "E010612",
+        "E010619",
+        "E010613",
+        "E010614",
+        "E010615",
+        "E010617",
+        "E010618",
+        "E010616"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010610",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P038",
+      "group": "회계 I / cost",
+      "screenIds": [
+        "E010824",
+        "E010816"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010824",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P039",
+      "group": "회계 I / settlement",
+      "screenIds": [
+        "E010822",
+        "E010823"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E010822",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P040",
+      "group": "회계 II / settlement",
+      "screenIds": [
+        "E060403",
+        "E060402",
+        "E060405",
+        "E060406",
+        "E060407",
+        "E060404",
+        "N000007",
+        "N000045",
+        "N000008",
+        "E060408"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060403",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P041",
+      "group": "회계 II / settlement",
+      "screenIds": [
+        "E060503",
+        "E060502",
+        "E060505",
+        "E060506",
+        "E060507",
+        "E060504",
+        "N000012",
+        "N000046",
+        "N000013",
+        "E060508"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060503",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P042",
+      "group": "회계 II / settlement",
+      "screenIds": [
+        "E060602",
+        "E060603",
+        "E060613",
+        "E060604",
+        "E060609",
+        "E060610",
+        "E060606",
+        "E060607",
+        "E060614",
+        "E060608"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060602",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P043",
+      "group": "회계 II / settlement",
+      "screenIds": [
+        "E060611",
+        "E060612"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060611",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P044",
+      "group": "회계 II / budget",
+      "screenIds": [
+        "E020511",
+        "E020523",
+        "E020520",
+        "E020521",
+        "E020522",
+        "E020201",
+        "E020202",
+        "E020203",
+        "E020204",
+        "E020205"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E020511",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P045",
+      "group": "회계 II / budget",
+      "screenIds": [
+        "E020206"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E020206",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P046",
+      "group": "회계 II / cost",
+      "screenIds": [
+        "E060201",
+        "E060210",
+        "E060204",
+        "E060203",
+        "E060205",
+        "E060206",
+        "E060207",
+        "E060208",
+        "E060209",
+        "E060808"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060201",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P047",
+      "group": "회계 II / cost",
+      "screenIds": [
+        "E060809",
+        "E060810",
+        "E060811",
+        "E060812",
+        "E060813",
+        "E060814",
+        "E060815"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060809",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P048",
+      "group": "회계 II / tax",
+      "screenIds": [
+        "E060202",
+        "E060910"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060202",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P049",
+      "group": "회계 II / contract",
+      "screenIds": [
+        "E060901",
+        "E060902",
+        "E060903",
+        "E060912",
+        "E060905",
+        "E060907",
+        "E060909",
+        "E060906",
+        "E060908",
+        "E061101"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060901",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P050",
+      "group": "회계 II / contract",
+      "screenIds": [
+        "E061102"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E061102",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P051",
+      "group": "회계 II / pricing",
+      "screenIds": [
+        "E060904"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E060904",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P052",
+      "group": "관리 / personnel",
+      "screenIds": [
+        "E090101",
+        "E020603",
+        "E020602",
+        "E020721",
+        "E020720",
+        "E020606",
+        "E020609",
+        "E090222",
+        "E090220"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E090101",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P053",
+      "group": "관리 / payroll",
+      "screenIds": [
+        "E090103",
+        "E090114",
+        "E090104",
+        "E090106",
+        "E090110",
+        "E090115",
+        "E090116"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E090103",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P054",
+      "group": "관리 / master",
+      "screenIds": [
+        "E090102"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E090102",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P055",
+      "group": "관리 / bank",
+      "screenIds": [
+        "E090117"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E090117",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P056",
+      "group": "관리 / trade",
+      "screenIds": [
+        "N000732",
+        "N001769",
+        "N001770",
+        "N001771",
+        "N001768"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "N000732",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P057",
+      "group": "관리 / attendance",
+      "screenIds": [
+        "E020701",
+        "E020702",
+        "E020703",
+        "E020710",
+        "E020711",
+        "E020715",
+        "E020724",
+        "E020725",
+        "E020726",
+        "E020722"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E020701",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P058",
+      "group": "관리 / attendance",
+      "screenIds": [
+        "E020723",
+        "E020728",
+        "E020716",
+        "E020719"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E020723",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    },
+    {
+      "id": "P059",
+      "group": "그룹웨어 / communication",
+      "screenIds": [
+        "E072501",
+        "E200062",
+        "E070201"
+      ],
+      "stage": "queued",
+      "dependsOn": [
+        "FOUNDATION-READONLY",
+        "FOUNDATION-ISOLATED-SQL"
+      ],
+      "surveyFirst": "E072501",
+      "maxActiveWorkers": 1,
+      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
+      "resumeFrom": null
+    }
+  ]
+}

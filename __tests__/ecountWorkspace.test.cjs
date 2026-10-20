@@ -1,0 +1,113 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const crypto=require('node:crypto');
+const p=require('../lib/ecountWorkspacePolicy.cjs');
+const menus=require('../data/ecount-workbench/source-menu.json').menus;
+const menuId=menus.find(m=>m.program===p.PROGRAMS.sales).id;
+const base={dataset:'sales',menuId,action:'import',expectedRevision:0,reasonCode:'IMPORT',periodFrom:'2026-01-01',periodTo:'2026-01-31',rows:[{qty:'1.2500',unitPrice:'100',supplyAmt:'125',vat:'12.50',total:'137.50',refDate:'2026-01-03',custName:'SENSITIVE_NAME',account:'SENSITIVE_ACCOUNT',memo:'SENSITIVE_MEMO',password:'SECRET'}]};
+const user={userId:'synthetic-admin',authority:1,accountActive:true};
+assert(p.authorized(user));
+for(const denied of [null,{...user,authority:2},{...user,accountActive:false},{authority:1}]) assert(!p.authorized(denied));
+const data=p.prepareImport(base);
+assert.equal(data.rows[0].qty,'1.2500');
+assert(!JSON.stringify(data).includes('SENSITIVE'));
+assert(!JSON.stringify(data).includes('SECRET'));
+assert.equal(data.completeness,'unknown');
+assert.notEqual(data.hash,p.prepareImport({...base,periodFrom:'2025-01-01',periodTo:'2025-01-31'}).hash);
+assert.equal(p.prepareImport({...base,periodFrom:null,periodTo:null}).periodFrom,null);
+assert.throws(()=>p.prepareImport({...base,periodTo:null}),/INVALID_PERIOD/);
+assert.throws(()=>p.prepareImport({...base,periodFrom:'2026-02-30'}),/INVALID_DATE/);
+assert.throws(()=>p.prepareImport({...base,rows:[{qty:'1e5'}]}),/INVALID_DECIMAL/);
+assert.throws(()=>p.prepareImport({...base,rows:[{qty:Infinity}]}),/INVALID_DECIMAL/);
+assert.throws(()=>p.prepareImport({...base,rows:[{memo:'only private'}]}),/EMPTY_SAFE_ROW/);
+assert.throws(()=>p.scopeOf({...base,dataset:'cash'}),/INVALID_SCOPE/);
+assert.throws(()=>p.assertRevision(2,1),/REVISION_CONFLICT/);
+assert.throws(()=>p.expectedRevision('0'),/INVALID_REVISION/);
+assert.throws(()=>p.reason('personal free text','import'),/INVALID_REASON/);
+assert.equal(p.decimal('1,234.5000'),'1234.5000');
+assert.equal(p.decimal('0'),'0');
+assert.equal(p.sourceDate('2026/01/03'),'2026-01-03');
+assert.equal(p.sourceDate('2026-01-03 00:00:00'),'2026-01-03');
+assert.throws(()=>p.sourceDate('01/03/2026'),/INVALID_DATE/);
+for(const label of ['2026/01/03 오전  12:00:00','2026/01/03 오후  12:00:00','2026/01/03 오전  1:02:03','2026/01/03 오후  11:59:59','2026/01/03 -1','2026/01/03 -12']) {
+  const parsed=p.normalizeSourceDate(label);assert.equal(parsed.refDate,'2026-01-03');assert.equal(parsed.sourceDateLabel,label);
+  const rows=p.sanitizeRows('sales',[{qty:'1',refDate:label}]);assert.equal(rows[0].sourceDateLabel,label);assert.deepEqual(p.sanitizeRows('sales',rows),rows);
+}
+for(const label of ['2026/01/03 오전  0:00:00','2026/01/03 오후  13:00:00','2026/01/03 오전  1:60:00','2026/01/03 오후  1:00:60','2026/02/30 -1','2026/01/03 SENSITIVE_NAME','2026/01/03 -123456789']) assert.throws(()=>p.normalizeSourceDate(label),/INVALID_DATE/);
+const month=p.sanitizeRows('sales',[{qty:'1',refDate:'2026/01  계',isSubtotal:true}]);
+assert.equal(month[0].refDate,null);assert.equal(month[0].sourceDateLabel,'2026/01  계');assert.deepEqual(p.sanitizeRows('sales',month),month);
+assert.throws(()=>p.normalizeSourceDate('2026/13  계',true),/INVALID_DATE/);
+assert.throws(()=>p.normalizeSourceDate('2026/01  계',false),/INVALID_SUBTOTAL_DATE/);
+assert.throws(()=>p.sanitizeRows('sales',[{qty:'1',refDate:'2026-01-04',sourceDateLabel:'2026/01/03 -1'}]),/SOURCE_DATE_MISMATCH/);
+assert.throws(()=>p.date('2026/01/03'),/INVALID_DATE/); // Period inputs stay strict ISO.
+for(const alias of menus.filter(m=>m.program===p.PROGRAMS.sales)) assert.equal(p.scopeOf({dataset:'sales',menuId:alias.id}).menuId,p.scopeOf(base).menuId);
+assert.throws(()=>p.decimal('12,34'),/INVALID_DECIMAL/);
+
+// Execute the real store against a transactional SQL adapter, without opening a DB connection.
+let db={head:null,versions:[],audit:[]},failAudit=false,sourceMismatch=false,uppercaseSql=false,sqlCalls=[];
+const type=()=>({});const sql={VarChar:type,NVarChar:type,Char:type,Int:{},DateTime2:{},UniqueIdentifier:{},MAX:1};
+const result=recordset=>({recordset});
+async function q(text,params={}) {
+  sqlCalls.push(text);
+  const v=Object.fromEntries(Object.entries(params).map(([k,x])=>[k,x.value]));
+  if(text.includes('sp_getapplock')) return result([]);
+  if(text.includes('FROM ecount_work.Head')) return result(db.head?[{...db.head,versionId:uppercaseSql?db.head.versionId.toUpperCase():db.head.versionId}]:[]);
+  if(text.includes('FROM dbo.WebEcountSnapshot')) return result([{SnapshotKey:77,PeriodFrom:null,PeriodTo:null,RowCnt:sourceMismatch?2:1,TakenAt:new Date('2026-01-01T00:00:00Z')}]);
+  if(text.includes('FROM dbo.WebEcountRow')) {assert(text.includes('SnapshotKey=@snapshot AND Dataset=@dataset'));assert.equal(v.snapshot,77);assert(!text.includes('SELECT Payload'));return result([{qty:'2',supplyAmt:'10',vat:'1',total:'11',isSubtotal:false},{qty:'2',supplyAmt:'10',vat:'1',total:'11',isSubtotal:true}]);}
+  if(text.includes('FROM ecount_work.Version')) return result(db.versions.filter(r=>v.version?r.versionId===v.version:r.hash===v.hash).map(r=>({...r,versionId:uppercaseSql?r.versionId.toUpperCase():r.versionId,VersionId:r.versionId})));
+  if(text.startsWith('INSERT INTO ecount_work.Version')) {db.versions.push({versionId:v.version,hash:v.hash,rows:v.rows,sourceSnapshotKey:v.snapshot,sourceTakenAt:v.sourceTakenAt});return result([]);}
+  if(text.startsWith('INSERT INTO ecount_work.Head')||text.startsWith('UPDATE ecount_work.Head')) {db.head={versionId:v.version,revision:v.revision};return result([]);}
+  if(text.startsWith('INSERT INTO ecount_work.Audit')) {if(failAudit) throw Error('synthetic transaction error');db.audit.push({...v});return result([]);}
+  throw Error('Unsupported test query');
+}
+let queue=Promise.resolve();
+async function withTransaction(fn) {
+  const work=queue.then(async()=>{const before=structuredClone(db);try{return await fn(q);}catch(e){db=before;throw e;}});
+  queue=work.catch(()=>{});return work;
+}
+const storeSource=fs.readFileSync(path.join(__dirname,'../lib/ecountWorkspaceStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export async function /g,'async function ');
+const context={crypto,query:q,withTransaction,sql,policy:p,effectiveAuthority:u=>u.Authority};
+vm.createContext(context);vm.runInContext(storeSource+'\nthis.saveVersion=saveVersion;',context);
+(async()=>{
+  const first=await context.saveVersion(base,user);assert.equal(first.revision,1);assert.equal(db.versions.length,1);assert.equal(db.audit.length,1);
+  await assert.rejects(context.saveVersion(base,user),/REVISION_CONFLICT/); // Lost response: require reload, do not silently replay.
+  assert(!JSON.stringify(db).includes('SENSITIVE'));assert(!JSON.stringify(db).includes(user.userId));
+  uppercaseSql=true;
+  const duplicate=await context.saveVersion({...base,expectedRevision:1},user);assert.equal(duplicate.idempotent,true);assert.equal(duplicate.versionId,first.versionId);assert.equal(db.versions.length,1);assert.equal(db.audit.length,1);
+  uppercaseSql=false;
+  const changes={...base,expectedRevision:1,rows:[{qty:'3'}]};
+  const racers=await Promise.allSettled([context.saveVersion(changes,user),context.saveVersion(changes,user)]);
+  assert.equal(racers.filter(r=>r.status==='fulfilled').length,1);assert.equal(racers.find(r=>r.status==='rejected').reason.message,'REVISION_CONFLICT');
+  assert.equal(db.head.revision,2);assert.equal(db.versions.length,2);
+  const rollback=await context.saveVersion({...base,action:'activate',versionId:first.versionId,reasonCode:'ROLLBACK',expectedRevision:2},user);
+  assert.equal(rollback.revision,3);assert.equal(db.head.versionId,first.versionId);assert.equal(db.versions.length,2);assert.equal(db.audit.length,3);
+  const before=JSON.stringify(db);failAudit=true;
+  await assert.rejects(context.saveVersion({...base,expectedRevision:3,rows:[{qty:'5'}]},user));assert.equal(JSON.stringify(db),before);failAudit=false;
+  sourceMismatch=true;
+  await assert.rejects(context.saveVersion({...base,action:'import-latest',expectedRevision:3},user),/SOURCE_ROW_COUNT_MISMATCH/);assert.equal(JSON.stringify(db),before);
+  sourceMismatch=false;
+  const latest=await context.saveVersion({...base,action:'import-latest',expectedRevision:3},user);assert.equal(latest.revision,4);
+  assert.equal(JSON.parse(db.versions.at(-1).rows).length,2); // Legacy RowCnt=1 detail + retained subtotal.
+  assert.equal(db.versions.at(-1).sourceSnapshotKey,77);assert.equal(db.versions.at(-1).sourceTakenAt.toISOString(),'2026-01-01T00:00:00.000Z');
+  assert(sqlCalls.some(s=>s.includes('JSON_VALUE(Payload')));
+  assert(!sqlCalls.some(s=>/\b(INSERT INTO|UPDATE|DELETE FROM)\s+(?:dbo\.)?(Order|Shipment|Stock|Estimate|WebEcountSnapshot|WebEcountRow)/i.test(s)));
+  const api=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/workspace.js'),'utf8');
+  assert(api.includes('verifyReqUser(req)'));assert(!api.includes('withAuth('));assert(!api.includes('console.'));
+  let verified=null,storeCalls=0,active=true;
+  const apiContext={URL,policy:p,verifyReqUser:()=>verified,activeAdmin:async()=>active,installed:async()=>true,readWorkspace:async()=>{storeCalls++;return {success:true};},saveVersion:async()=>{storeCalls++;return {success:true};}};
+  vm.createContext(apiContext);
+  vm.runInContext(api.replace(/^import .*;\r?\n/gm,'').replace('export default async function handler','async function handler').replace('export const config','const config')+'\nthis.handler=handler;',apiContext);
+  const response=()=>({code:0,body:null,setHeader(){},status(code){this.code=code;return this;},json(body){this.body=body;return this;}});
+  const req={method:'GET',headers:{host:'localhost'},query:{dataset:'sales',menuId}};
+  let res=response();await apiContext.handler(req,res);assert.equal(res.code,401);assert.equal(storeCalls,0);
+  verified={...user,authority:2};res=response();await apiContext.handler(req,res);assert.equal(res.code,403);assert.equal(storeCalls,0);
+  verified=user;active=false;res=response();await apiContext.handler(req,res);assert.equal(res.code,403);assert.equal(storeCalls,0);
+  active=true;res=response();await apiContext.handler({...req,method:'POST',headers:{host:'localhost',origin:'https://untrusted.invalid'}},res);assert.equal(res.code,403);assert.equal(storeCalls,0);
+  res=response();await apiContext.handler(req,res);assert.equal(res.code,200);assert.equal(storeCalls,1);
+  assert(!/\bCREATE\s+(TABLE|SCHEMA)/i.test(storeSource));
+  const ddl=fs.readFileSync(path.join(__dirname,'../docs/migrations/20261020_ecount_workspace.sql'),'utf8');assert(ddl.includes('INSTEAD OF UPDATE, DELETE'));assert(ddl.includes('FOREIGN KEY(RootKey,MenuId,Program,Dataset,VersionId)'));
+  console.log('PASS ECOUNT workspace: privacy projection, authorization, exact decimals, year/period separation, idempotency, race, rollback, atomic audit, snapshot consistency. SQL execution not performed.');
+})().catch(e=>{console.error(e.message);process.exitCode=1;});
