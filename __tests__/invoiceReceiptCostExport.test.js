@@ -240,12 +240,16 @@ for (const [profileId, filename, count] of [
     const f = invoiceCostExportFixture(count, profile.formulaId);
     // Saved allocation share is already applied: export must not multiply it again.
     const bytes = await createInvoiceCostWorkbook(f), zip = await JSZip.loadAsync(bytes);
-    assert.equal(await zip.file('xl/styles.xml').async('string'), asset.styles);
+    const styleXml = await zip.file('xl/styles.xml').async('string');
+    if (nl) assert.equal(styleXml, asset.styles);
+    else assert.ok(styleXml.includes(asset.styles.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)[1]), 'source styles retained before readable clones');
     assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
-    for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
-    for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+    for (const part of nl ? [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print] : [asset.sheetViews, asset.sheetFormatPr]) assert.ok(sheet.includes(part));
+    if (nl) {
+      for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
+      for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+    }
     const last = profile.detailStartRow + count - 1;
     assert.ok(sheet.includes(`ref="B${last}:D${last}"`));
     const refs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
@@ -285,6 +289,52 @@ for (const [profileId, filename, count] of [
     h.f.revision.liveReceiptStatus = 'STALE'; await assert.rejects(exportCurrentInvoiceCost(h.args));
   });
 }
+
+test('China sea restores summary labels/current totals, preserves inputs, and never hides values under merges', async () => {
+  for (const year of ['2025', '2026']) {
+    const f = invoiceCostExportFixture(64, 'CN_SEA_ACTUAL_V1');
+    f.document.orderYear = year;
+    const before = JSON.stringify(f);
+    const bytes = await createInvoiceCostWorkbook(f);
+    assert.equal(JSON.stringify(f), before, 'export cannot mutate approved data');
+    const book = XLSX.read(bytes, { cellNF: true, cellStyles: true });
+    const s = book.Sheets[`${year} 41-02`];
+    assert.equal(s.B1.v, `중국 해상 도착원가 · ${year}/41-02`);
+    assert.equal(s.B20.v, '창고료'); assert.equal(s.C20.v, '세부내역 없음');
+    assert.equal(s.B27.v, 'DO charge'); assert.equal(s.C27.v, '세부내역 없음');
+    assert.equal(s.D28.v, '그외 통관비 합계 KRW');
+    const sum = key => f.revision.lines.reduce((n, line) => n + line.componentAmounts[key], 0);
+    assert.equal(s.E9.v, sum('goodsNative')); assert.equal(s.E10.v, sum('goodsKRW'));
+    assert.equal(s.E11.v, sum('freightKRW')); assert.equal(s.E12.v, sum('tariffKRW'));
+    assert.equal(s.E13.v, sum('otherKRW')); assert.equal(s.E28.v, sum('otherKRW'));
+    assert.equal(s.C12.v, f.revision.lines.reduce((n, line) => n + line.quantity, 0));
+    assert.equal(s.C10.z, '#,##0.00'); assert.equal(s.C10.v, f.revision.totalCostKRW);
+    assert.equal(s.P8.v, f.revision.totalCostKRW);
+    assert.ok(s['!cols'][2].wch >= 22, 'total amount column must fit full amount');
+    for (const merge of s['!merges']) {
+      for (let r = merge.s.r; r <= merge.e.r; r++) for (let c = merge.s.c; c <= merge.e.c; c++) {
+        if (r !== merge.s.r || c !== merge.s.c) assert.equal(s[XLSX.utils.encode_cell({ r, c })]?.v, undefined, 'no hidden value in merge child');
+      }
+    }
+    const zip = await JSZip.loadAsync(bytes);
+    const xml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+    assert.doesNotMatch(xml, /<f\b|t="e"/);
+    assert.ok(xml.includes('dimension ref="A1:P107"'));
+    assert.ok((await zip.file('xl/workbook.xml').async('string')).includes('$B$1:$P$107'));
+  }
+});
+
+test('China sea summary displays explicit zero and full estimate evidence without inventing breakdowns', async () => {
+  const f = invoiceCostExportFixture(2, 'CN_SEA_ACTUAL_V1');
+  f.snapshot.input.lineInputs.forEach(line => { line.otherCostPerUnitKRW = 0; line.tariffRate = 0; });
+  const computed = previewInvoiceCost({ ...f.document, costInput: f.snapshot.input }, f.snapshot.receiptSnapshot.details.map((detail, i) => ({ ...f.document.lines[i], ...detail, outUnit: '단' })));
+  assert.equal(computed.status, 'APPROVED');
+  f.revision.lines = computed.lines.map((line, i) => ({ ...line, wdetailKey: 1000 + i }));
+  f.revision.totalCostKRW = computed.totals.totalCostKRW;
+  const sheet = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['2026 41-02'];
+  assert.equal(sheet.E12.v, 0); assert.equal(sheet.E13.v, 0); assert.equal(sheet.E28.v, 0);
+  assert.equal(sheet.K7.v, '0%'); assert.equal(sheet.C20.v, '세부내역 없음');
+});
 
 test('browser-safe export profile registry supports only explicitly mapped formulas', async () => {
   for (const id of ['CN_AIR_WEIGHT_CBM_V1', 'NL_AMOUNT_V1', 'CN_SEA_ACTUAL_V1']) assert.equal(supportsInvoiceCostExport(id), true);
