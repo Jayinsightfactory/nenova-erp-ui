@@ -124,3 +124,10 @@ verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존
 - 2026-37-01 운영 GET 근거: customers 1,024행 및 시작/확정재고 조회 모두 HTTP 200/success=true, 원장 변경 0건. 고객별 원문은 커밋하지 않는다.
 - 비고 원문과 삭제 시 사용하는 고객·품목·차수·행 인덱스는 보존하고 표시 방향만 가로 한 줄로 바꾼다. 기존 Excel 입력, Amount/Vat/isFix, Estimate, WebProfitReport에 변화 없음.
 
+
+
+## 2026-10-20 웹 음수 주문 표시 확장
+실제 설치 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`의 FormQuantityPivot.GetData를 dnSpy.Console로 재추출: 주문 분기는 OutQuantity > 0. 실제 EXE 화면 전체의 표시 여부를 단정하지 않는다.
+사용자 요청으로 웹 공통 SQL의 주문 분기만 `OutQuantity <> 0`으로 변경한다. 모든 국가와 조회 연도·차수에 적용하며, 음수는 원본 부호 그대로 표시·SUM·엑셀에 반영한다. 기존 전산 SQL 완전 동일이라는 설명보다 이 확장 계약이 우선한다. EXE 파일과 공유 원장은 변경하지 않는다.
+2026/44-01 운영 읽기 근거: 콜롬비아 수국4행/-17, 카네이션26행/-76이 ViewOrder에 존재하며 기존 피벗 주문 분기에서 제외됨. StockList 연결은 모두 충족. Stock/입고/출고/미발주 분기는 보존한다.
+회귀: `__tests__/pivotNegativeOrders.test.js`의 2025/2026, 01-01/44-01/44-02, 3국가, 양음수 합계7, 음수전용-7, 상쇄0, XLSX 숫자 보존.
