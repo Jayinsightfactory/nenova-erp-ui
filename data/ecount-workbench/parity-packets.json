@@ -134,17 +134,17 @@
         "E040202",
         "E040201"
       ],
-      "stage": "awaiting-evidence",
+      "stage": "partially-implemented",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040304",
       "maxActiveWorkers": 1,
-      "checkpoint": "Initial estimate columns/buttons observed; no source buttons executed; detailed actions/windows pending",
+      "checkpoint": "Quote initial grid/search/control ID paths partially implemented; safe date/numeric projection3rows imported with readback/idempotency; source restricted to 진행중, target status filter missing; no whole-page parity completion",
       "resumeFrom": "E040202",
       "activeScreen": "E040202",
-      "owner": "root-source-survey",
+      "owner": "ui_packets",
       "screenWork": [
         {
           "id": "E040304",
@@ -156,12 +156,17 @@
         },
         {
           "id": "E040202",
-          "stage": "partial-observation-awaiting-detail"
+          "stage": "partial-implementation-awaiting-status-and-browser-parity"
         },
         {
           "id": "E040201",
           "stage": "pending-source-survey"
         }
+      ],
+      "remaining": [
+        "Source 진행중 filter absent in target",
+        "Nonempty browser result comparison pending",
+        "Other source buttons, Option actions, permissions and error states not fully verified"
       ]
     },
     {

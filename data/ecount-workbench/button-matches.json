@@ -2622,7 +2622,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -2714,7 +2722,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -2893,7 +2909,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -2984,7 +3008,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3075,7 +3107,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3166,7 +3206,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3257,7 +3305,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3348,7 +3404,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3439,7 +3503,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3530,7 +3602,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3621,7 +3701,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3712,7 +3800,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3803,7 +3899,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3894,7 +3998,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -3985,7 +4097,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4076,7 +4196,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4167,7 +4295,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4258,7 +4394,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4349,7 +4493,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4440,7 +4592,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4531,7 +4691,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4622,7 +4790,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4713,7 +4889,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4804,7 +4988,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4895,7 +5087,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -4986,7 +5186,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -5077,7 +5285,15 @@
             "codeMappingEvidence": [
               "components/ecount/ObservedPageControls.js"
             ],
-            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified"
+            "verificationScope": "Static code mapping and component attribute path only; browser visibility, behavior and comparison unverified",
+            "browserEvidence": {
+              "environment": "local production-build",
+              "authentication": "unauthenticated",
+              "idVisible": true,
+              "duplicate": false,
+              "observedOn": "2026-10-20",
+              "queryValuesVerified": false
+            }
           },
           "status": "미검증",
           "conditions": {
@@ -5671,7 +5887,8 @@
         "sourceEdited": false,
         "isDefaultProven": false,
         "status": "미검증",
-        "note": "Current DOM period observed; no target equivalence claim"
+        "note": "Current DOM period observed; no target equivalence claim",
+        "progressStatus": "진행중"
       },
       "captureCandidates": [
         {
@@ -5708,6 +5925,75 @@
             "Option hover visibility only; actions not executed",
             "Source values not retained; no target value equality proof"
           ]
+        },
+        {
+          "id": "E040202-SOURCE-TODAY-EMPTY-20261020",
+          "side": "source",
+          "path": "outputs/ecount-parity-20261020/E040202-source-today-empty.jpg",
+          "status": "미검증",
+          "candidateOnly": true,
+          "viewport": {
+            "width": 1920,
+            "height": 1080,
+            "deviceScaleFactor": 1
+          },
+          "clip": {
+            "x": 240,
+            "y": 95,
+            "width": 1250,
+            "height": 280
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "sourceMutation": false,
+          "conditions": {
+            "periodFrom": "2026-10-20",
+            "periodTo": "2026-10-20",
+            "progressStatus": "진행중",
+            "rowCount": 0,
+            "observedOn": "2026-10-20"
+          },
+          "buttonCoordinates": null,
+          "buttonStableIdAnnotationsApplied": false,
+          "counterpartCapture": null,
+          "limitations": [
+            "Source status=진행중; target status filter missing",
+            "Empty result does not prove row-value parity"
+          ]
+        },
+        {
+          "id": "E040202-TARGET-TODAY-EMPTY-20261020",
+          "side": "target",
+          "path": "outputs/ecount-parity-20261020/E040202-target-today-empty.jpg",
+          "status": "미검증",
+          "candidateOnly": true,
+          "viewport": {
+            "width": 1920,
+            "height": 1080,
+            "deviceScaleFactor": 1
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 420
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "sourceMutation": false,
+          "conditions": {
+            "periodFrom": "2026-10-20",
+            "periodTo": "2026-10-20",
+            "rowCount": 0,
+            "progressStatus": "미구현",
+            "observedOn": "2026-10-20"
+          },
+          "buttonStableIdAnnotationsApplied": false,
+          "counterpartCapture": "E040202-SOURCE-TODAY-EMPTY-20261020",
+          "limitations": [
+            "Source 진행중 status absent in target",
+            "Layout and empty-result message differ"
+          ]
         }
       ],
       "dataPipelineEvidence": {
@@ -5721,10 +6007,11 @@
         "idempotentVerified": true,
         "sourceSafeProjectionContentHashMatchesSql": true,
         "rawValuesStored": false,
-        "scope": "CLI safe numeric/date projection to isolated SQL only; target browser values still unverified",
+        "scope": "CLI safe numeric/date projection to isolated SQL only; target browser values still unverified; source restricted to 진행중, not all estimates",
         "evidence": [
           "docs/ecount-migration/report-contract.md#견적-안전-투영-검사"
-        ]
+        ],
+        "progressStatus": "진행중"
       },
       "observedDifferences": [
         {
@@ -5744,6 +6031,137 @@
           "source": "발송여부",
           "target": "발송",
           "scope": "Source screenshot versus current target component code; browser comparison pending"
+        },
+        {
+          "kind": "query-condition",
+          "source": "진행상태=진행중",
+          "target": "상태조건 미구현",
+          "status": "불일치",
+          "scope": "Source selected status tab observed, target lacks equivalent constraint; do not claim all estimates/value equality"
+        },
+        {
+          "kind": "layout-and-empty-message",
+          "source": "원본 표 폭·상태탭·등록된 데이터가 없습니다",
+          "target": "대상 넓은 표·상태탭 없음·조회된 자료가 없습니다",
+          "status": "불일치",
+          "scope": "Both safe screenshots observed; no layout match claim"
+        }
+      ],
+      "uninventoriedControls": [
+        {
+          "type": "status-tabs",
+          "labels": [
+            "전체",
+            "결재중",
+            "미확인",
+            "확인",
+            "진행중",
+            "완료"
+          ],
+          "selected": "진행중",
+          "status": "미검증",
+          "stableIdsAssigned": false,
+          "note": "Newly observed scope; button IDs intentionally pending"
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "observedOn": "2026-10-20",
+          "reporter": "root",
+          "environment": "local production-build",
+          "authentication": "unauthenticated",
+          "stableIds": [
+            "E040202-A01",
+            "E040202-A02",
+            "E040202-A04",
+            "E040202-A05",
+            "E040202-A06",
+            "E040202-A07",
+            "E040202-A08",
+            "E040202-A09",
+            "E040202-A10",
+            "E040202-A11",
+            "E040202-A12",
+            "E040202-A13",
+            "E040202-A14",
+            "E040202-A15",
+            "E040202-A16",
+            "E040202-A17",
+            "E040202-A18",
+            "E040202-A19",
+            "E040202-A20",
+            "E040202-A21",
+            "E040202-A22",
+            "E040202-A23",
+            "E040202-A24",
+            "E040202-A25",
+            "E040202-A26",
+            "E040202-A27",
+            "E040202-A28"
+          ],
+          "duplicateIds": false,
+          "checks": [
+            "Write/upload/history controls disabled",
+            "F3 opens search panel and F8 control visible",
+            "Escape closes panel and restores Search(F3) focus"
+          ],
+          "queryValuesVerified": false,
+          "sourceMutation": false,
+          "scope": "Local unauthenticated browser only; production data/query parity unverified"
+        }
+      ],
+      "comparisonCases": [
+        {
+          "id": "QUOTE-POSITIVE-SAFE-3",
+          "observedOn": "2026-10-20",
+          "environment": "production 7ef617e8",
+          "periodFrom": "2026-09-20",
+          "periodTo": "2026-11-19",
+          "sourceStatusFilter": "진행중",
+          "targetStatusFilter": "미구현",
+          "conditionsStatus": "불일치",
+          "sourceRows": 3,
+          "targetRows": 3,
+          "rowCountStatus": "일치",
+          "comparedFields": [
+            "refDate",
+            "estimateTotal"
+          ],
+          "comparedValues": 6,
+          "mismatchCount": 0,
+          "fieldComparisonStatus": "일치",
+          "matchingRule": "동일 행 순서",
+          "overallStatus": "미검증",
+          "scope": "Original safe projection versus deployed DOM dates/amounts only; names/status/excluded fields not compared",
+          "evidence": [
+            "root production read-only DOM comparison 2026-10-20"
+          ],
+          "rawValuesStored": false
+        },
+        {
+          "id": "QUOTE-TODAY-EMPTY",
+          "observedOn": "2026-10-20",
+          "environment": "production 7ef617e8",
+          "periodFrom": "2026-10-20",
+          "periodTo": "2026-10-20",
+          "sourceStatusFilter": "진행중",
+          "targetStatusFilter": "미구현",
+          "conditionsStatus": "불일치",
+          "sourceRows": 0,
+          "targetRows": 0,
+          "rowCountStatus": "일치",
+          "comparedFields": [],
+          "comparedValues": 0,
+          "mismatchCount": null,
+          "fieldComparisonStatus": "미검증",
+          "matchingRule": "빈 결과 행 수만 대조",
+          "overallStatus": "미검증",
+          "scope": "Both date-only result counts zero, source status differs; does not prove data equality",
+          "evidence": [
+            "E040202-source-today-empty.jpg",
+            "E040202-target-today-empty.jpg"
+          ],
+          "rawValuesStored": false
         }
       ]
     },
@@ -8789,6 +9207,62 @@
             "Source delayed preview only",
             "Target screenshot and paired verification missing"
           ]
+        },
+        {
+          "path": "outputs/ecount-parity-20261020/E040207-target-week-empty.jpg",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 420
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "side": "target",
+          "conditions": {
+            "periodFrom": "2026-10-18",
+            "periodTo": "2026-10-20",
+            "rows": 0
+          },
+          "limitations": [
+            "행수만 일치. 원천 전체·시점 동등성 미검증",
+            "넓이·배치·빈 결과 문구 차이"
+          ]
+        }
+      ],
+      "comparisonCases": [
+        {
+          "id": "SALES-WEEK-EMPTY",
+          "environment": "production 7ef617e8",
+          "periodFrom": "2026-10-18",
+          "periodTo": "2026-10-20",
+          "sourceStatusFilter": "전체",
+          "targetStatusFilter": "전체",
+          "conditionsStatus": "미검증",
+          "sourceRows": 0,
+          "targetRows": 0,
+          "rowCountStatus": "일치",
+          "comparedFields": [],
+          "comparedValues": 0,
+          "mismatchCount": null,
+          "fieldComparisonStatus": "미검증",
+          "overallStatus": "미검증",
+          "scope": "무결과 행수만 일치. SQL 5001행 중 일자유효 5000, 미상 1행 제외. 원천 전체·데이터시점 동등성 미검증.",
+          "rawValuesStored": false
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "environment": "production 7ef617e8",
+          "scope": "인쇄 메뉴 → 미리보기 별도 Print Preview 탭 생성 확인. blob URL 보안 정책으로 내용 관찰·캡처 불가. 우회하지 않음.",
+          "status": "미검증",
+          "source": "root browser observation 2026-10-20"
         }
       ]
     },

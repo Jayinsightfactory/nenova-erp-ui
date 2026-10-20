@@ -1467,15 +1467,16 @@
         {
           "id": "E040202-A21",
           "label": "금일",
-          "classification": "unknown",
+          "classification": "query",
           "stage": "observed",
-          "sourceExecutionAllowed": false,
-          "sourceExecuted": false,
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CONTROLS"
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CONTROLS",
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-TODAY-STATUS"
           ],
           "testEvidence": [],
-          "behavior": "Observed in currently open search form; action not executed in this observation"
+          "behavior": "Automatically queries 2026-10-20 to 2026-10-20; F3 reopened to confirm; 진행중 selected, zero results"
         },
         {
           "id": "E040202-A22",
@@ -1751,7 +1752,8 @@
         }
       },
       "blockers": [
-        "Initial page labels/columns observed only; buttons not executed; total count and hidden controls unknown"
+        "Initial page labels/columns observed only; buttons not executed; total count and hidden controls unknown",
+        "Source 진행중 status restriction missing in target; stored three-row source projection is not all estimates"
       ],
       "exclusions": []
     },
