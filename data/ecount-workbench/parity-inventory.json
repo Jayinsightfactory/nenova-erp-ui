@@ -12739,24 +12739,379 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040609-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A05",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A06",
+          "label": "자동알림",
+          "context": "하단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A07",
+          "label": "오천건이상조회",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A08",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A09",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A10",
+          "label": "종료연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A11",
+          "label": "종료월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A12",
+          "label": "날짜 기준 선택",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Source date-mode filter change and exact date_range today query observed; no business mutation"
+        },
+        {
+          "id": "E040609-A13",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A14",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A15",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Source date-mode filter change and exact date_range today query observed; no business mutation"
+        },
+        {
+          "id": "E040609-A16",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A17",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A18",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A19",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A20",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A21",
+          "label": "종료일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A22",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A23",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A24",
+          "label": "기준일(영업주기)",
+          "context": "날짜 기준 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label/control; execution unverified"
+        },
+        {
+          "id": "E040609-A25",
+          "label": "기준일자",
+          "context": "날짜 기준 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
+          "testEvidence": [],
+          "behavior": "Source date-mode filter change and exact date_range today query observed; no business mutation"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
           "testEvidence": []
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
           "testEvidence": []
         },
         "sorting": {
@@ -12765,13 +13120,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-DATE-RANGE"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -12816,7 +13175,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Only exact date_range profile observed empty; business cycle and other periods not equivalent; target runtime pending"
       ],
       "exclusions": []
     },

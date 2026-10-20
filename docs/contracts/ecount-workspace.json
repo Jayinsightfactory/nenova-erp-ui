@@ -46,7 +46,8 @@
     "components/ecount/PurchaseStatusPageControls.js",
     "scripts/ecount-workspace-import-safe.mjs",
     "components/ecount/InventoryDailyPageControls.js",
-    "components/ecount/InventoryKindLookup.js"
+    "components/ecount/InventoryKindLookup.js",
+    "components/ecount/UnpostedSalesPageControls.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -135,5 +136,6 @@
   "quoteEmptyContract": "E040208 quoteEmpty is a separate 10-character scope preserving quoteStat readonly and all ordEmpty profile hashes. Only registered 2026-10-20 detail/voucher/no comparison/all trade/graph false/quote number and serial-lot empty/warehouse project management customer product selections empty/form 견적서현황 is permitted; recordedAt2026-10-20T11:34:11.177Z is verification_recorded_at, sourceQueryExecutedAt null. Zero rows require exact coverage envelope, server GET criteria validation, unknown criteria rejection and no fake rows/DDL/source or shared-ledger writes.",
   "orderDetailPreviewContract": "Observed E040209 detail preview is a separate window with table-only 7 columns, width751 x15 y48; no invented heading/company/period block. Keep other preview layouts unchanged and no-script/no-network CSP. Preview caller requires verified ordEmpty exact criteria; uncollected or other scope disabled. Original full print execution remains unverified.",
   "poEmptyContract": "E040306 poEmpty separate registered observed_empty envelope only: detail/line/all trade/2026-10-20 exact dates/no delivery/no selections/no approval display/no graph/form 결제일 기준. Form is not a date-basis semantic assertion. Source execution timestamp unknown; verification recordedAt retained. Other periods, forms, filters, nonempty rows and naked empty arrays rejected before SQL. Existing poStat and old hashes preserved.",
-  "dailySalesEmptyContract": "E040708 daySale separate registered observed_empty envelope only: 2026-10-20 exact dates/kinds [판매]/all trade/no approval display/empty warehouse customer product department management selections. Does not cover other kinds or all inventory daily reports. No fabricated rows, source writes, shared ledger writes or DDL; upload and current GET validate exact profile; invalid filters rejected before SQL."
+  "dailySalesEmptyContract": "E040708 daySale separate registered observed_empty envelope only: 2026-10-20 exact dates/kinds [판매]/all trade/no approval display/empty warehouse customer product department management selections. Does not cover other kinds or all inventory daily reports. No fabricated rows, source writes, shared ledger writes or DDL; upload and current GET validate exact profile; invalid filters rejected before SQL.",
+  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL."
 }

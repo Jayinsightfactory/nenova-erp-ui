@@ -583,3 +583,17 @@
 검색어: PR1156 quoteEmpty0행 19일Tab반증 BOMheading poEmpty daySale envelope 977
 - 후속 UI 최종 동결: PO detail→poEmpty, 일보 daySale exact criteria와 판매 체크→적용/재열기 초기화 연결. 일보 인쇄2항목은 원본 관측대로 Escape·재클릭 시 유지, F3에서 닫힘; 실제 출력 실행은 미검증이다. observed coverage dataset은 일반 파일 업로드 버튼을 노출하지 않는다. UI EmptyState/Navigation48검사·JSX6파일·diffcheck PASS. root wrapper 독립 대조 모두 criteriaMismatch[]; 실제SQL 및 UI 운영/픽셀 검증은 아직 미검증. 메타977은 관측ID 수이며 완료기능 수가 아니다.
 검색어: poEmpty daySale 판매 종류팝업48tests observed-empty977 runtime미검증
+
+### 2026-10-20 PO/일보 릴리스와 운영 회귀 해소
+- PR1156 Cafe2439418264281 성공. root1156 운영에서 BOM폼 x250.15625/y136.21875/w755/h310.46875 원본 bbox 정확 일치 확인. 주문 시작·종료19일 입력 Tab→F8 미수집, F3 재열기 두날짜19 유지 확인해1154의 빈결과 잔류 반증이 해소됐다. 금일/preview/quote 범위는 추가검증 중이다.
+- PR1157 HEAD19132b0c 필수5종 PASS 후 생성/attach, CI39419124262 진행. root가 PASS 후 poEmpty/daySale를 각각0행/revision1/readbacktrue/idempotenttrue로 실제 적재했다. 별도ecount_work만, 원본/공유원장쓰기0. 두 receipt 저장, 운영 UI는 배포 전 미검증.
+검색어: PR1156 BOMbbox정확 19일미수집복구 PR1157 poEmpty daySale 실제0행증거
+- PR1156 견적 운영 추가검증: exact10/20 현황716/7열/빈1행span7, 다른19일 입력 Tab→F8 미수집 및 F3 날짜유지 PASS. 주문 미리보기는 enabled 메뉴→별도 Print Preview 창 생성까지만 확인; 창 내부는 도구 URL protocol 보안 정책 차단으로 미검증이다. 우회 surface/URL변경 없이 제한을 보존한다.
+- PR1157 CI39419124262 성공 후 squash70a038c6, Cafe2439419456563 진행 중. 실제 PO/daySale 화면은 배포 후 root 검증 대기.
+검색어: quote1156 exactempty716 preview보안정책내부미검증 PR1157배포39419456563
+
+### 2026-10-20 미매출 날짜범위와 집계 전환 보완
+- PR1157 Cafe2439419456563 최종성공, root PO/일보 운영검증 진행 중. 후속 unpSale는 E040609 기준일자/date_range/2026-10-20의 명시적 빈 결과만 별도 프로필로 등록했다. 영업주기 과거자료와 섞지 않으며 고급필터 독립 동작은 미검증이다. root wrapper 독립대조 criteriaMismatch[]·기록시각·sourceTimeNull·빈9열 확인, 실제SQL은 아직 미실행이다.
+- 견적 집계 전환 오류는 API 실패가 아니라 보존된 날짜를 readonly 집계 filterSortRows에 전달해 DATE_FILTER_UNAVAILABLE가 발생한 문제였다. quote/order/po 집계 미수집 분기를 분리하고 날짜조건은 보존했다. unpSale 날짜모드 전환 시 버전 무효화 및 exact 조건만 조회, UI50검사·JSX/diffcheck PASS. 메타1002관측ID. 운영 재검증은 배포 후 필요하다.
+- dayAll 전체34종류는 다음 독립 배치다. safe2217행/30빈구역/4누계분류×3기간과 거래처관계기준 조건을 하나의 불변 snapshot으로 설계하되 현재 커밋에는 구현하지 않는다. 원본값은 untracked 로컬 자료에만 두고 fixture는 합성값만 사용한다.
+검색어: unpSale date_range E040609 aggregate DATE_FILTER_UNAVAILABLE 50tests1002 dayAll다음배치
