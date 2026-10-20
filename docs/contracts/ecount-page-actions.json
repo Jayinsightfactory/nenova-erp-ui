@@ -30,4 +30,6 @@
     "printPreview":"E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열/수금·지급4열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
     "writes":"없음"
   }
+,
+  "criteriaLedger": {"stockMovementModes":"E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."}
 }
