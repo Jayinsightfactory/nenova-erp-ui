@@ -1,0 +1,11 @@
+{
+  "id": "profit-sql-lineage",
+  "title": "SQL 원행 독립 합산과 웹 조회값 대사",
+  "scope": ["lib/profitSqlLineageAudit.mjs", "lib/profitIndependentAuditSource.js", "components/ProfitIndependentAudit.js", "lib/profitReportClassification.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"READ_SQL_LINEAGE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. N/L/O/Q raw-ledger aggregation compared independently; E/F/H/R/S remain separately evidenced. No ledger, confirm, snapshot or schema write."}],
+  "crossYearFixture": {"required":true,"description":"2025 and 2026 same week excluded from each other; raw OrderYearWeek conflict reported, never silently reclassified; historical reports not compared as current."},
+  "requiredTestFiles": ["__tests__/profitSqlLineageAudit.test.cjs", "__tests__/profitIndependentAudit.test.cjs"],
+  "dnspyEvidence": {"required":true,"record":"docs/plans/profit-sql-lineage-2026-10-20.md","source":"Actual FormStockView.GetData CLI and readonly raw SQL audit; report rules preserve FormProfitReport evidence","methods":["FormStockView.GetData","salesByCategory","estimateByCategory","purchaseByCategory"],"tables":["ShipmentMaster","ShipmentDetail","Estimate","WarehouseMaster","WarehouseDetail","Product","CodeInfo"]},
+  "requiredCommands": ["node __tests__/profitSqlLineageAudit.test.cjs", "npm run test:erp-contract", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run verify:erp-change", "npm run test:nenova-dnspy-evidence", "npm run build"]
+}
