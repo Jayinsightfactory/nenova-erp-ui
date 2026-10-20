@@ -490,3 +490,9 @@
 - 수불부품목선택창: 안전품목코드1개→부모조건반환→조회시1그룹, 원본unique코드1반환/1표2행4수량일치근거. 대상 단일선택은범위제약, 검색룰·다중선택미검증·선택해제전체복귀는대상설계. 상세거래미수집유지, 단일선택notice생략/전체notice보존.
 - 인쇄PDF/미리보기/프린트문제해결3항목존재관측만표시,실행미검증비활성. UI표적33검사PASS/metadata817관측ID,전체완료수아님. 신규SQL실행/원본공유원장쓰기없음.
 - 검색어: ProductLookupOverlay 817 PR1145 20758ac1 stock-ledger-product-return-final
+
+## 2026-10-20 재고잔량 원본 월별값·합계 보존
+- PR1145 deploy39408127293 success/SSH·hydration통과, 수불부운영대조root예정. PR1146 CI39408608173 PASS/squash3bfd7ac6, 배포진행예정.
+- stkBalance E040727/menu2775: 단일asof10/20,제품1949+실제source합계1=1950행. 제품코드/7필수수량/row.monthLabels=[10,9,8,7] 보존, 현재날짜·연도·월별값파생금지. 합계는원본직접수집값이며마지막1행code:null/isSubtotal만허용, 합산계산하지않음.
+- stock-balance-import-safe.json 15600필드+1950월라벨배열대조불일치0(숫자쉼표정규화). 실제SQL아직없음. 단일기준일완전일치/중복·소계형식·월라벨혼합·누락수량거부 fixturePASS. UI28표적검사/835관측ID, 전체동등성완료아님.
+- 기존격리shell적용/신규공유ERP writer없음. 검색어: stkBalance 1950 sourceSubtotal monthLabels 835
