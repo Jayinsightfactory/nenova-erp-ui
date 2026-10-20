@@ -14535,6 +14535,510 @@
           "limitations": [
             "Partial source observation; target implementation/browser parity pending"
           ]
+        },
+        {
+          "matchId": "E040217-A13",
+          "source": {
+            "stableId": "E040217-A13",
+            "label": "전일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A13",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040217-A14",
+          "source": {
+            "stableId": "E040217-A14",
+            "label": "금주(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A14",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040217-A15",
+          "source": {
+            "stableId": "E040217-A15",
+            "label": "전주",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A15",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040217-A16",
+          "source": {
+            "stableId": "E040217-A16",
+            "label": "금월(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A16",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040217-A17",
+          "source": {
+            "stableId": "E040217-A17",
+            "label": "이번기수",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A17",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040217-A18",
+          "source": {
+            "stableId": "E040217-A18",
+            "label": "다시 작성",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040217-A18",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
         }
       ],
       "captureCandidates": [
@@ -17279,6 +17783,846 @@
           "limitations": [
             "Partial source observation; target implementation/browser parity pending"
           ]
+        },
+        {
+          "matchId": "E040302-A32",
+          "source": {
+            "stableId": "E040302-A32",
+            "label": "전일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A32",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A33",
+          "source": {
+            "stableId": "E040302-A33",
+            "label": "말일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A33",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A34",
+          "source": {
+            "stableId": "E040302-A34",
+            "label": "금주(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A34",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A35",
+          "source": {
+            "stableId": "E040302-A35",
+            "label": "전주",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A35",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A36",
+          "source": {
+            "stableId": "E040302-A36",
+            "label": "금월(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A36",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A37",
+          "source": {
+            "stableId": "E040302-A37",
+            "label": "전월",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A37",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A38",
+          "source": {
+            "stableId": "E040302-A38",
+            "label": "종료일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A38",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A39",
+          "source": {
+            "stableId": "E040302-A39",
+            "label": "최근30일(+1개월)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A39",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A40",
+          "source": {
+            "stableId": "E040302-A40",
+            "label": "설정",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A40",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040302-A41",
+          "source": {
+            "stableId": "E040302-A41",
+            "label": "다시 작성",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040302-A41",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
         }
       ],
       "captureCandidates": [
@@ -19544,6 +20888,510 @@
           },
           "limitations": [
             "Partial source observation; target implementation/browser parity pending"
+          ]
+        },
+        {
+          "matchId": "E040310-A13",
+          "source": {
+            "stableId": "E040310-A13",
+            "label": "전일",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A13",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040310-A14",
+          "source": {
+            "stableId": "E040310-A14",
+            "label": "금주(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A14",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040310-A15",
+          "source": {
+            "stableId": "E040310-A15",
+            "label": "전주",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A15",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040310-A16",
+          "source": {
+            "stableId": "E040310-A16",
+            "label": "금월(~오늘)",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A16",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040310-A17",
+          "source": {
+            "stableId": "E040310-A17",
+            "label": "이번기수",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A17",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
+          ]
+        },
+        {
+          "matchId": "E040310-A18",
+          "source": {
+            "stableId": "E040310-A18",
+            "label": "다시 작성",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040310-A18",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source visible label only; action unexecuted; target disabled pending behavior evidence"
           ]
         }
       ],

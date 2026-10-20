@@ -8518,6 +8518,90 @@
           ],
           "testEvidence": [],
           "behavior": "Observed in initial search DOM; individual execution not confirmed by this evidence"
+        },
+        {
+          "id": "E040217-A13",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040217-A14",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040217-A15",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040217-A16",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040217-A17",
+          "label": "이번기수",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040217-A18",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040217-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
         }
       ],
       "windows": [],
@@ -9908,6 +9992,146 @@
           ],
           "testEvidence": [],
           "behavior": "Observed in initial search DOM; individual execution not confirmed by this evidence"
+        },
+        {
+          "id": "E040302-A32",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A33",
+          "label": "말일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A34",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A35",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A36",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A37",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A38",
+          "label": "종료일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A39",
+          "label": "최근30일(+1개월)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A40",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040302-A41",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040302-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
         }
       ],
       "windows": [],
@@ -10945,6 +11169,90 @@
           ],
           "testEvidence": [],
           "behavior": "Observed in initial search DOM; individual execution not confirmed by this evidence"
+        },
+        {
+          "id": "E040310-A13",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040310-A14",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040310-A15",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040310-A16",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040310-A17",
+          "label": "이번기수",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
+        },
+        {
+          "id": "E040310-A18",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040310-PRESET-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible initial search DOM button only; not executed. Exact effect unverified."
         }
       ],
       "windows": [],
