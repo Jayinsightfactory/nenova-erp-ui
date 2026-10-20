@@ -22834,15 +22834,16 @@
           "id": "E040702-A20",
           "label": "취소",
           "context": "조회품목 재지정 알림",
-          "classification": "unknown",
+          "classification": "read",
           "stage": "observed",
-          "sourceExecutionAllowed": false,
-          "sourceExecuted": false,
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-E040702-INITIAL"
+            "source-action-audit.jsonl#SRC-20261020-E040702-INITIAL",
+            "source-action-audit.jsonl#SRC-20261020-E040702-KEY-RESOLVED"
           ],
           "testEvidence": [],
-          "behavior": "Only explicitly observed query/mode transitions; other labels unexecuted"
+          "behavior": "Source reselect notice Cancel continues query and renders1949 groups, opening/total rows only"
         },
         {
           "id": "E040702-A21",

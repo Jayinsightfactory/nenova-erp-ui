@@ -472,3 +472,9 @@
 - 대상 안전코드목록선택창960×427.5/4열465, 선택→부모조건→조회시whStock필터만반영. 이름/구분미수집공백·미관측아이콘비활성. UI28표적검사PASS,총799관측ID이며전체완료수아님. source/sharedledger쓰기0.
 - PR1142 운영 root확인: 두현황721/6열·검색펼침·폼/세무거래처차이·미수집업로드활성·인쇄4항목열기닫기및비활성PASS. 실제값은원본특정확인filter0과대상미수집상태로값동일확정아님. PR1143배포진행중.
 - 검색어: WarehouseLookupOverlay warehouse-selected-filter-result 799 PR1142runtime
+
+## 2026-10-20 수불부 안전 그룹 요약 및 창고 선택창 배포
+- PR1143 Cafe24 deploy39406094217 success(SSH/hydration), 재고1949행씩운영값대조는root진행. PR1144 창고선택창5gate/CI39406998813 PASS, squash1ffd6a45, 배포진행예정.
+- stkLedger E040702/menu215: visibleheader품목코드경계일치1949unique, 이름미수집. 품목별opening/in/out/quantity4필수수량, 전일재고/합계2행만관측. 원본수불부vs재고변동7796필드차이0, wrapper9745필드차이0. 실제SQL미적재/상세거래0관찰·전체건수미확정.
+- 대상6열650/제품코드별2행·정확기간일치만조회. notice확인=기존결과유지·검색폼복귀,취소=조회실제관측. notice발동일반규칙과X/Escape는대상설계이며원본동등성미검증. 미수집행·거래이력합성안함. UI24표적검사/정책actions PASS.
+- 기존격리shell기준적용/공유ERP및EXE writer해당없음. 검색어: stkLedger StockLedgerPageControls 1949group notice 1ffd6a45
