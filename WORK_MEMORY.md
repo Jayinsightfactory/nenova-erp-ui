@@ -177,6 +177,20 @@
 - 상세: docs/work-sessions/2026-10-20_ecount-replacement-design.md, docs/ecount-migration/menu-inventory.md, docs/ECOUNT_WORKBENCH_CONTRACT.md.
 - 검색어: ecount-workbench 전체메뉴537 DB미연결 메모리초안 외부API저장설계
 
+## 2026-10-20 44-1차 음수 주문 Pivot 통계 진단
+- 2026/44-01 콜롬비아 카네이션26행 -76박스/수국4행 -17박스 정상저장 확인. 전산피벗 OutQuantity>0 조건으로30음수행 제외. 실제dnSpy/운영SELECT 동일 확인. 원장/코드/배포 변경없음. 사용자로그인화면 필터상태 미검증.
+- 상세 docs/work-sessions/2026-10-20_pivot-negative-44-diagnosis.md
+- 검색어: 44-1 음수주문 Pivot통계 OutQuantity 양수필터 카네이션 수국
+
+## 2026-10-20 음수주문 이전표시와 모드전환 원인
+- git기록: b46355a8(2026-09-14)에서 Pivot 기본mode=exe 도입, statsPivotMode 브라우저저장값으로legacy/exe복원. 기존웹피벗 주문SQL에는양수제한없음, EXE SQL OutQuantity>0은 c5feda67(2026-07-06) 도입이후변경없음. 사용자가이전에어떤모드였는지는미검증. 코드변경일과실제배포일은구분.
+- 검색어: statsPivotMode b46355a8 전산피벗 기존웹피벗 음수주문 2026-09-14
+
+## 2026-10-20 음수 주문 피벗 수정
+- 주문 조회를 OutQuantity<>0으로 변경, 모든 국가·연도차수에 공통 적용. 원장 쓰기 없음. 20264401 음수31행/-103 추가(콜롬비아 수국·카네이션30행/-93), 기존1112행 동일. 20264402/20254001 원본 동일.
+- signedOrders 18조합·XLSX 회귀, 1920/1280 브라우저(+10/-3=7), build/manifest/write guard 통과. 로컬 전체ERP 검사는 C: 여유558MB로 activity health 테스트 실패; CI 전체검사 통과 전 배포 금지. 캐시삭제 자동승인차단, 삭제없음.
+- 검색어: Pivot 음수주문 signedOrders OutQuantity 44-1 -103
+
 ## 2026-10-20 기존 입고 농장 조회 조건
 - HUBFRESH 입고 7671은 존재하나 Farm 목록에는 없어 원가 연결이 차단됨. native FarmName 직접 저장/LEFT JOIN 근거에 맞춰 Farm 미선택은 연도·차수·송장·입고연도의 유일 입고 조회로 수정. 명시 Farm 선택은 기존 좁힘 조건 유지.
 - 품목/수량/금액 대조와 잠금 재검증 유지. ERP 원장 쓰기 없음. 신규 회귀 30개 통과, 전체 검사·배포·운영 저장/Excel 검증 진행 중(미검증).
@@ -218,3 +232,21 @@
 - 운영 미리보기 새 탭 생성 확인. blob 프로토콜 브라우저 정책으로 내용·캡처 미검증, 우회하지 않음.
 - outputs/ecount-parity-20261020/ECOUNT_버튼별_비교보고서.xlsx 생성: 10시트, 전체373페이지/59묶음/관측94버튼, 원본5장+대상2장과 버튼 표식·범례, 제한된 값 비교. 렌더·ZIP·이미지hash·보고서 검사 통과. 전체 기능/버튼 완전일치 완료0, 나머지 미구현·미검증을 보존한 진행 보고서임.
 - 검색어: PR1116 ecount-parity-20261020 버튼비교Excel 캐시8파일 1.164GB quote6값 blob미검증
+
+## 2026-10-20 신라호텔 3자료 조회·분석
+- 최신 origin/master 분리 작업트리. 신라 손익 화면의 조회·분석 링크, 별도 비교표, SELECT-only multipart API, 기간 월별 순차 SRM 조회 전용 Chrome 확장 구현. 최초 설치 승인 전 실제 브라우저 연결 미검증.
+- 첨부 실제 원본 41차수/226행, 운영 DB 41문서/225행. 합계 DB405,127,966/엑셀403,671,966원(차이1,456,000), 이름/단가 수정 포함 가능하므로 오류 확정 아님. 원본/원장 변경 없음.
+- 신규 10개 회귀/실제 파일 파싱/운영 SELECT/첫 전체 ERP·dnSpy·manifest·쓰기 guard·빌드 통과. 최종 빌드·CI·배포 후속 기록은 세션 문서 참조.
+- 검색어: shilla-reconciliation shilla-connector 신라호텔 입고실적 세자료대조 findGrSpListEai
+
+## 2026-10-20 신라 3자료 분석 배포 검증 후속
+- PR #1117 squash 병합 07dbf6aa. 최종 병합본 로컬 build 성공, GitHub ERP verify/Windows installer 성공. 운영 배포39359785762 success.
+- 운영 /raum/shilla-analysis 실제 브라우저: 원본 XLSX multipart 제출 후 41차수/DB225행 표시 확인. 조회·분석의 확장 미설치 오류 및 설치 안내 정상. 단일 shell·페이지 스크롤 확인.
+- 비교표 합성자료 데스크톱/좁은 화면·키보드 원본 펼치기 검증, 실파일226행 파싱/운영SELECT 대조 검증. 실제 SRM collector 연결은 확장 설치 승인 대기이므로 미검증. 기존 원장/원본 변경 없음.
+- 설치파일/안내/운영 화면 증빙: Documents/Codex/2026-10-20/new-chat/outputs. 이 후속 기록은 로컬 보존, 배포된 구현은 PR #1117.
+- 검색어: 신라3자료 운영검증 shilla-analysis 1117 07dbf6aa 확장설치대기
+
+## 2026-10-20 실제 SRM 날짜 전환 보정
+- 사용자 최초 확장 설치 완료. 운영 버튼→확장→신라 실제 첫 조회 성공(12 rows loaded). 다음 월 시작일이 이전 종료일보다 늦으면 SRM 범위 위젯이 시작일을 지워 필수값 알림/timeout 발생 확인.
+- collector에서 양쪽 날짜를 비우고 종료일→시작일 순으로 설정. 과거 기간 이동·월 전환 제약 재현 회귀10개 통과. 설치 폴더 수정 반영, 확장 새로고침 사용자 요청. 전체 기간 종단 비교는 아직 미검증.
+- 검색어: shilla-date-transition cc-from-to-date 시작일초기화 월별조회

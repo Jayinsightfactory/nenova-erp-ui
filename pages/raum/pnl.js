@@ -2269,6 +2269,7 @@ export default function RaumPnlPage() {
         >📝 특이사항</button>
         <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수로 보관합니다. 저장된 품목을 전산 품목에 연결해 단가를 비교할 수 있으며, 주문·분배·재고는 변경하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
       </div>
+      {isShilla && <a href="/raum/shilla-analysis" target="_blank" rel="noopener noreferrer" style={{ ...st.btn, display: 'inline-block', margin: '8px 0', background: '#0f766e', color: '#fff' }}>조회·분석 — DB · 엑셀 · 신라 입고</a>}
       <HotelCustomerMapping partner={partner} orderYear={detail?.meta?.orderYear} major={detail?.meta?.major} disabled={!partnerReady || hotelAdding || uploading || saving || shillaMatching} />
       <p style={st.desc}>
         {partner.code === 'shilla'

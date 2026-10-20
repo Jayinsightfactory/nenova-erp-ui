@@ -13,6 +13,8 @@ export const CERTBOT_TLS_INCLUDE = '/etc/letsencrypt/options-ssl-nginx.conf';
 // location을 만든다. 새 업로드 경로를 추가할 때는 여기에만 항목을 더한다(다른 로직은 무변경).
 export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/raum/pnl-import', bodyLimit: '32m' },
+  // 30MiB original workbook + bounded 12MiB receipt fields + multipart overhead.
+  { location: '/api/raum/shilla-analysis', bodyLimit: '44m' },
   { location: '/api/arrival-cost/upload', bodyLimit: '32m' },
   // 업무 드라이브 데몬 자동 업로드(25MiB 앱 제한) — nginx 기본 1MiB에 걸려 가브리엘 PC 116건 413(2026-09-22 실측)
   { location: '/api/work/drive-ingest', bodyLimit: '32m' },

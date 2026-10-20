@@ -150,3 +150,8 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - 변경 전 운영 SELECT는 `WebArrivalCostLine WHERE OrderYear='2026' AND ProdKey=2330 AND IsCurrent=1 AND SelectedArrivalCostKRW>0`이며 결과는 40-1차 5행이다. 같은 파일의 MELODY 네 원본 행: 42946/해상42행/11450.6709, 43046/해상(2)42행/10886.0779, 43146/40-1해상46행/9993.8277, 43246/40-1해상(95%기준)46행/9796.8234. 농장 미기재 43346/40-1해상(95%기준)(2)61행/8641.4405도 별도로 보존한다. 단위는 모두 단이다.
 - 동일 연도·품목·숫자 차수·농장·원본 파일/시트/행·원본단위·원가·환산/환율 사실이 같을 때만 중복을 제거한다. 출처가 없는 DB행은 ArrivalLineKey로 구분한다. `referenceKey=arrival:<ArrivalLineKey>` 또는 source composite를 반환한다. 같은 농장의 서로 다른 시트·단가와 농장 미기재의 다른 출처는 합치지 않는다.
 - 원본원가/저장 CostPrice/Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport는 모두 보존한다. 실행 근거: `__tests__/raumPnlArrivalReference.test.js`, UI 렌더 검사 `__tests__/hotelArrivalFarmRender.test.js`, `docs/work-reports/2026-10-05_hotel-arrival-all-farms.md`.
+
+## 2026-10-20 신라 3자료 읽기 전용 대조
+- 로컬 dnSpy.Console.exe --no-color -t FormOrderAdd 실제 실행 성공. CheckExistingOrder의 OrderYear+OrderWeek+CustKey 확인. 신규 native 저장 경로 없음.
+- read-only 운영 SELECT로 2026 신라 WebRaumPnl 41문서/Item225행 확인, 2025 같은 조건 없음. 신규 분석 SQL은 두 웹 결산 테이블만 연도/호텔/활성 조건으로 읽는다. 기존 ensure-tables DDL 경로를 호출하지 않는다.
+- Order/Shipment/Stock/Estimate 및 WebProfitReport 보존. 상세 기준·SRM 공개 조회 어댑터 근거: docs/work-sessions/2026-10-20_shilla-reconciliation.md.
