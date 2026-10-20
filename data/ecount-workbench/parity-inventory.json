@@ -8716,25 +8716,311 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040216-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A05",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A06",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A07",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Separate visible preview tab with six columns"
+        },
+        {
+          "id": "E040216-A08",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label only; execution not confirmed"
+        },
+        {
+          "id": "E040216-A09",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed period and zero-result query; source total unknown"
+        },
+        {
+          "id": "E040216-A10",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Confirmed period and zero-result query; source total unknown"
+        },
+        {
+          "id": "E040216-A11",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "outputs/ecount-parity-20261020/E040216-source-today-empty.jpg visual arrow confirmation"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible arrow next to print confirmed from screenshot; menu content separately observed"
+        },
+        {
+          "id": "E040216-A12",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A13",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A14",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A15",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A16",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A17",
+          "label": "종료일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A18",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        },
+        {
+          "id": "E040216-A19",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-SEARCH-LABELS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible original search DOM label confirmed; target execution disabled until date syntax/data contract verified"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "거래유형",
+            "창고",
+            "거래처",
+            "거래처관리담당자",
+            "할인금액"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "월/일",
+            "거래처명",
+            "판매금액",
+            "회계반영금액",
+            "차액",
+            "적요"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -8747,8 +9033,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-DISCOUNT-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -8793,7 +9081,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Complete source controls and full parity unknown"
       ],
       "exclusions": []
     },
@@ -11367,25 +11655,297 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040313-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A05",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A06",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A07",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Separate visible6-column preview tab confirmed"
+        },
+        {
+          "id": "E040313-A08",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A09",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A10",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A11",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A12",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A13",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A14",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A15",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A16",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A17",
+          "label": "직전기수",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        },
+        {
+          "id": "E040313-A18",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed label; today/previous-month zero-result queries only"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "거래유형",
+            "창고",
+            "거래처",
+            "거래처관리담당자",
+            "할인금액"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "월/일",
+            "거래처명",
+            "구매금액",
+            "회계반영금액",
+            "차액",
+            "적요"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -11398,8 +11958,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-BUY-DISCOUNT-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -11444,7 +12006,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Date grammar and safe target import/query unverified; full source controls unknown"
       ],
       "exclusions": []
     },

@@ -349,7 +349,7 @@
         },
         {
           "id": "E040216",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040609",
@@ -422,7 +422,7 @@
         },
         {
           "id": "E040313",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040319",
@@ -1520,9 +1520,9 @@
     "fullyUnobservedPackets": 53,
     "partiallyObservedPackets": 6,
     "totalPrograms": 373,
-    "programsWithObservedActions": 10,
-    "programsWithoutObservedActions": 363,
-    "unobservedProgramsInsidePartialPackets": 26,
+    "programsWithObservedActions": 12,
+    "programsWithoutObservedActions": 361,
+    "unobservedProgramsInsidePartialPackets": 24,
     "verifiedPackets": 0,
     "verifiedPrograms": 0,
     "priorityPackets": [

@@ -30,3 +30,7 @@ quote의 상태 필드는 선택 사항이다. 원본 담당자가 DOM의 진행
 E040305 구매현황 buyStatus는 기존 첫 non-MyPage 규칙에 따라 MENUTREE_000513을 canonical로 사용하며 000583 경로도 같은 scope를 사용한다. qty/boxQty/unitPrice/foreignAmount/supplyAmt/exchangeRate/total/weight와 검증된 날짜표시만 업로드한다. 인보이스 등 자유텍스트·개인정보·결제일은 제외한다. 기존 6종 scope/hash는 변경하지 않는다. import-latest 금지, 전체 수집 unknown, 새 DDL/ERP 원장 변경 없음.
 
 poQuery(E040302)는 orderTotal, receipt(E040217)/payment(E040310)는 amount와 검증된 날짜만 업로드한다. 상태·납기·거래처·적요는 수집하지 않는다. canonical은 기존 규칙(509/1680/1682), source-latest 금지, 전체 수집 unknown이다. 원본 미리보기 수금·지급은 visible4열이며 숨은 th는 제외한다. 기존 immutable 버전/활성화 정책과 스키마를 재사용한다.
+
+E040216 discount는 현재 읽기 전용이다. 금일/전월0행과 6열만 관측했고 월/일 값 문법은 미확인이다. salesAmount/accountingAmount/difference 숫자모델만 정의하며 날짜저장·필터는 허용하지 않는다. 모든 버전쓰기/가져오기/활성화는 트랜잭션 전 차단한다. 빈snapshot·가짜행을 생성하지 않으며 향후 실제 행 근거와 별도 계약 변경 후 적재할 수 있다.
+
+buyDisc(E040313 구매할인현황)는 discount와 별도 scope이며 purchaseAmount/accountingAmount/difference만 숫자모델로 정의한다. 518/588은 기존 canonical규칙을 공유한다. 날짜 문법 미확인·금일/전월0행 관찰이므로 모든 버전쓰기를 차단하고 가짜행을 만들지 않는다.
