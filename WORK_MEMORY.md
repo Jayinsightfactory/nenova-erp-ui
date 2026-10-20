@@ -552,3 +552,15 @@
 
 - shell/읽기메뉴·sidebar·BOM755 UI와 ordEmpty 연결 최종freeze. 현재 GET의 실제 criteria를 서버와 동일한 프로필로 검증하고, profile밖은 SQL호출 없이 미수집으로 전환한다. rows0만으로 빈결과를 단정하지 않고 coverage 검증된 버전만 표시한다. 기존 EmptyState37+Navigation3=40 UI검사 통과, 실제 픽셀 일치는 배포 후 미검증이다.
 검색어: EcountNavigation 읽기메뉴 BOM755 observed_empty ordEmpty 40tests
+
+
+### 2026-10-20 명시적 빈 결과 적재 및 후속 날짜 위젯
+- empty-shell HEADdee02fcf 필수5종 모두 통과, PR1154 생성. root ordEmpty 실제CLI 적재 count0/revision1/readbacktrue/idempotenttrue: 실제 원본 빈 결과의 정확프로필 envelope만 저장했으며 가짜행/신규DDL/ECOUNT·공유원장쓰기 없음. 운영 검증은 배포 후 대기다.
+- PR1153 Cafe24 배포39414517963 최종성공, P019 일별·월별 및 주문·견적 운영 전행검증은 root 진행 예정이다. 날짜위젯 후속은 별도 묶음으로 분리한다.
+검색어: PR1154 ordEmpty count0 readbacktrue PR1153 P019 날짜 위젯
+
+
+### 2026-10-20 관측 연월 위젯 보완
+- PR1154 CI39415205842 통과 후 squashd05239d8, Cafe24 배포39415568799 진행 중이다. ordEmpty 실제 적재 receipt는0행/revision1/readbacktrue/idempotenttrue로 보존했다. shell/BOM755/빈결과 운영 검증은 아직 미검증이다.
+- BOM 기준일 및 주문서현황 시작일 위젯만 원본 관측 프로필을 적용했다. 2026에서 관측한 연도 목록을 보존하며 선택년도2025에도 목록 유지, 직접입력 Tab확정, BOM 월메뉴376.5625/orderStart260 높이를 반영했다. 종료일/미래연도 갱신규칙은 추정하지 않았다. 기존 stock Enter/Escape 동작 보존, UI41검사 PASS. 메타909관측ID로 증가했으나 전체 기능동등성 완료 수가 아니다.
+검색어: PR1154 연월 Tab BOM376.5625 주문서260 observed-profile909
