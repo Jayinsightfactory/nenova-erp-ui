@@ -13541,10 +13541,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -13625,10 +13629,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -13709,10 +13717,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -13793,10 +13805,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A04",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -13877,10 +13893,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A05",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -13961,10 +13981,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A06",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14045,10 +14069,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A07",
+            "label": "PDF",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A07",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14129,10 +14157,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A08",
+            "label": "미리보기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14213,10 +14245,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A09",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14297,10 +14333,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A10",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14381,10 +14421,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A11",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14465,10 +14509,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A12",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14549,10 +14597,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A13",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14633,10 +14685,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A14",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14717,10 +14773,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A15",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A15",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14801,10 +14861,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A16",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A16",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14885,10 +14949,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A17",
+            "label": "이번기수",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A17",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -14969,10 +15037,14 @@
           },
           "target": {
             "requiredStableId": "E040217-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040217-A18",
+            "label": "다시 작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040217-A18",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15073,9 +15145,45 @@
         "scope": "Rendered previous-month safe projection sample, full source total unknown",
         "totalSourceRows": null,
         "fullCollectionVerified": false,
-        "sqlImportStatus": "pending",
-        "deploymentStatus": "pending"
-      }
+        "sqlImportStatus": "sample imported and read by production",
+        "deploymentStatus": "deploy39385563160 success; ordered sample comparison matched"
+      },
+      "comparisonCases": [
+        {
+          "id": "E040217-ORDERED-SAMPLE",
+          "environment": "production PR1126 deploy39385563160 success hydration included",
+          "periodFrom": "2026-09-01",
+          "periodTo": "2026-09-30",
+          "sourceStatusFilter": "수집표본 순서",
+          "targetStatusFilter": "적재표본 순서",
+          "conditionsStatus": "미검증",
+          "sourceRows": 227,
+          "targetRows": 227,
+          "rowCountStatus": "일치",
+          "comparedFields": [
+            "date",
+            "amount"
+          ],
+          "comparedValues": 454,
+          "mismatchCount": 0,
+          "fieldComparisonStatus": "일치",
+          "overallStatus": "미검증",
+          "scope": "Ordered source sample only; full source and all query conditions unknown. F3→today0 confirmed; preview tab creation only, Blob contents unverified.",
+          "rawValuesStored": false
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "environment": "production PR1126 deploy39385563160 success",
+          "authentication": "authorized session",
+          "checks": [
+            "F3→today zero rows",
+            "Print PDF/troubleshooting disabled, preview active",
+            "Preview separate browser tab created"
+          ],
+          "scope": "Blob contents unverified; target capture unavailable, no fabricated image"
+        }
+      ]
     },
     {
       "program": "E040216",
@@ -15101,10 +15209,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15185,10 +15297,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15269,10 +15385,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15353,10 +15473,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A04",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15437,10 +15561,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A05",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15521,10 +15649,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A06",
+            "label": "PDF",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15605,10 +15737,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A07",
+            "label": "미리보기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A07",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15689,10 +15825,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A08",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15773,10 +15913,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A09",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15857,10 +16001,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A10",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -15941,10 +16089,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A11",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16025,10 +16177,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A12",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16109,10 +16265,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A13",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16193,10 +16353,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A14",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16277,10 +16441,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A15",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A15",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16361,10 +16529,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A16",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A16",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16445,10 +16617,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A17",
+            "label": "종료일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A17",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16529,10 +16705,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A18",
+            "label": "설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A18",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16613,10 +16793,14 @@
           },
           "target": {
             "requiredStableId": "E040216-A19",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040216-A19",
+            "label": "다시 작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040216-A19",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16804,10 +16988,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A01",
+            "label": "Fn",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16888,10 +17076,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A02",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -16972,10 +17164,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A03",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17056,10 +17252,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A04",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17140,10 +17340,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A05",
+            "label": "전체",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17224,10 +17428,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A06",
+            "label": "결재중",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17308,10 +17516,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A07",
+            "label": "미확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A07",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17392,10 +17604,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A08",
+            "label": "확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17476,10 +17692,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A09",
+            "label": "진행중",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17560,10 +17780,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A10",
+            "label": "완료",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17644,10 +17868,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A11",
+            "label": "신규(F2)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17728,10 +17956,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A12",
+            "label": "Email",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17812,10 +18044,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A13",
+            "label": "Email 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17896,10 +18132,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A14",
+            "label": "진행상태변경",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -17980,10 +18220,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A15",
+            "label": "진행상태변경 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A15",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18064,10 +18308,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A16",
+            "label": "보내기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A16",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18148,10 +18396,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A17",
+            "label": "보내기 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A17",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18232,10 +18484,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A18",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A18",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18316,10 +18572,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A19",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A19",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A19",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18400,10 +18660,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A20",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A20",
+            "label": "바코드(품목)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A20",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18484,10 +18748,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A21",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A21",
+            "label": "바코드(품목) 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A21",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18568,10 +18836,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A22",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A22",
+            "label": "다른전표생성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A22",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18652,10 +18924,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A23",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A23",
+            "label": "다른전표생성 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A23",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18736,10 +19012,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A24",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A24",
+            "label": "전자결재",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A24",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18820,10 +19100,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A25",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A25",
+            "label": "선택삭제",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A25",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18904,10 +19188,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A26",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A26",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A26",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -18988,10 +19276,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A27",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A27",
+            "label": "이력조회",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A27",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19072,10 +19364,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A28",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A28",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A28",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19156,10 +19452,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A29",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A29",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A29",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19240,10 +19540,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A30",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A30",
+            "label": "확인 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A30",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19324,10 +19628,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A31",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A31",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A31",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19408,10 +19716,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A32",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A32",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A32",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19492,10 +19804,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A33",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A33",
+            "label": "말일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A33",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19576,10 +19892,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A34",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A34",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A34",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19660,10 +19980,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A35",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A35",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A35",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19744,10 +20068,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A36",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A36",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A36",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19828,10 +20156,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A37",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A37",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A37",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19912,10 +20244,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A38",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A38",
+            "label": "종료일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A38",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -19996,10 +20332,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A39",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A39",
+            "label": "최근30일(+1개월)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A39",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20080,10 +20420,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A40",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A40",
+            "label": "설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A40",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20164,10 +20508,14 @@
           },
           "target": {
             "requiredStableId": "E040302-A41",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040302-A41",
+            "label": "다시 작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040302-A41",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20259,6 +20607,16 @@
             "Source empty-result evidence only"
           ]
         }
+      ],
+      "runtimeEvidence": [
+        {
+          "environment": "production PR1126 deploy39385563160 success",
+          "authentication": "authorized session",
+          "checks": [
+            "10column grid observed"
+          ],
+          "scope": "No source data snapshot; data equality unverified"
+        }
       ]
     },
     {
@@ -20320,10 +20678,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20404,10 +20766,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20488,10 +20854,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20572,10 +20942,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A04",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20656,10 +21030,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A05",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20740,10 +21118,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A06",
+            "label": "Excel(화면)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20824,10 +21206,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A08",
+            "label": "Email",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20908,10 +21294,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A09",
+            "label": "PDF",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -20992,10 +21382,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A10",
+            "label": "미리보기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21076,10 +21470,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A11",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21160,10 +21558,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A12",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21244,10 +21646,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A13",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21328,10 +21734,14 @@
           },
           "target": {
             "requiredStableId": "E040305-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040305-A14",
+            "label": "Fn",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040305-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21561,10 +21971,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21645,10 +22059,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21729,10 +22147,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21813,10 +22235,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A04",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21897,10 +22323,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A05",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -21981,10 +22411,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A06",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22065,10 +22499,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A07",
+            "label": "PDF",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A07",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22149,10 +22587,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A08",
+            "label": "미리보기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22233,10 +22675,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A09",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22317,10 +22763,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A10",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22401,10 +22851,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A11",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22485,10 +22939,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A12",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22569,10 +23027,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A13",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22653,10 +23115,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A14",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22737,10 +23203,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A15",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A15",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22821,10 +23291,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A16",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A16",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22905,10 +23379,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A17",
+            "label": "이번기수",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A17",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -22989,10 +23467,14 @@
           },
           "target": {
             "requiredStableId": "E040310-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040310-A18",
+            "label": "다시 작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040310-A18",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23093,9 +23575,45 @@
         "scope": "Rendered previous-month safe projection sample, full source total unknown",
         "totalSourceRows": null,
         "fullCollectionVerified": false,
-        "sqlImportStatus": "pending",
-        "deploymentStatus": "pending"
-      }
+        "sqlImportStatus": "sample imported and read by production",
+        "deploymentStatus": "deploy39385563160 success; ordered sample comparison matched"
+      },
+      "comparisonCases": [
+        {
+          "id": "E040310-ORDERED-SAMPLE",
+          "environment": "production PR1126 deploy39385563160 success hydration included",
+          "periodFrom": "2026-09-01",
+          "periodTo": "2026-09-30",
+          "sourceStatusFilter": "수집표본 순서",
+          "targetStatusFilter": "적재표본 순서",
+          "conditionsStatus": "미검증",
+          "sourceRows": 102,
+          "targetRows": 102,
+          "rowCountStatus": "일치",
+          "comparedFields": [
+            "date",
+            "amount"
+          ],
+          "comparedValues": 204,
+          "mismatchCount": 0,
+          "fieldComparisonStatus": "일치",
+          "overallStatus": "미검증",
+          "scope": "Ordered source sample only; full source and all query conditions unknown. F3→today0 confirmed; preview tab creation only, Blob contents unverified.",
+          "rawValuesStored": false
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "environment": "production PR1126 deploy39385563160 success",
+          "authentication": "authorized session",
+          "checks": [
+            "F3→today zero rows",
+            "Print PDF/troubleshooting disabled, preview active",
+            "Preview separate browser tab created"
+          ],
+          "scope": "Blob contents unverified; target capture unavailable, no fabricated image"
+        }
+      ]
     },
     {
       "program": "E040313",
@@ -23121,10 +23639,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A01",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23205,10 +23727,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A02",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23289,10 +23815,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A03",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23373,10 +23903,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A04",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A04",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23457,10 +23991,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A05",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A05",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23541,10 +24079,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A06",
+            "label": "PDF",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A06",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23625,10 +24167,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A07",
+            "label": "미리보기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A07",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23709,10 +24255,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A08",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A08",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23793,10 +24343,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A09",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A09",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23877,10 +24431,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A10",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A10",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -23961,10 +24519,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A11",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A11",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24045,10 +24607,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A12",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A12",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24129,10 +24695,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A13",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A13",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24213,10 +24783,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A14",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A14",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A14",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24297,10 +24871,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A15",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A15",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24381,10 +24959,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A16",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A16",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24465,10 +25047,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A17",
+            "label": "직전기수",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A17",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
@@ -24549,10 +25135,14 @@
           },
           "target": {
             "requiredStableId": "E040313-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040313-A18",
+            "label": "다시 작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "UI worker React rendering and exact ID check"
+            ],
+            "codeMappingStableId": "E040313-A18",
+            "verificationScope": "Code/render mapping only; individual function/window/value parity not implied"
           },
           "status": "미검증",
           "conditions": {
