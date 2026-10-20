@@ -607,3 +607,16 @@
 - dayAll 최초 HEADb4c412c7에서 계약/dnSpy/manifest/writeguard4종 PASS이나 build134 실패(Node worker semi-space 메모리commit 실패). 성공으로 간주하지 않으며 failed log 보존. 해당workerPID20060/50036은 이미 종료, 작업트리 잔류Next프로세스 확인없어 광역종료하지 않았다. 설치된 Next가 지원하는 CIRCLE_NODE_TOTAL=3으로 worker2개만 사용하여 다음빌드를 재검증한다(저장소설정파일 변경 없음).
 - 원본 발주계획 table6 다단헤더 실제결함을 보정했다:12flat 대신8열/2헤더행/colspan3 두개/emptyspan8. UI53회귀 PASS, 나머지52표 폭합계 추가이상 없음. 이 새결함 변경을 포함한 고정HEAD로 필수5종 재실행한다. PR1158 Cafe2439421260544 최종성공, unpSale/집계전환 운영은root검증예정.
 검색어: dayAll build134 semi-space CIRCLE_NODE_TOTAL2workers 발주계획2단8열53tests
+
+### 2026-10-20 일보 최종검증 및 실제 적재
+- HEAD1304072c 최종5종 daily-all-final 모두 PASS, 기존 지원환경 CIRCLE_NODE_TOTAL=3(2workers)로 build성공. 최초build134는 별도 실패로그로 남기고 성공으로 덮지 않았다. PR1159 생성/attach, CI39422639398 진행.
+- root가 최종5종 직접확인 후 dayAll2217/revision1/readbacktrue/idempotenttrue 실제적재 완료, inventory-daily-all-kinds-import-result.json 기록. 앞선53표 관측 snapshot만 적재했고 이후동일조건 재조회51표/검색제한 안내는 별도미완료 증거로 보존했다. 최신전체조회 완전성은 미검증/complete unknown, 원본/공유원장쓰기0.
+- PR1158 견적 집계 전환 실제수정 PASS, unpSale 기준일자exactempty/다른날짜미수집/영업주기차단 bounded PASS. 제목·정렬·인쇄화살표 등 시각차이는 다음독립보정으로 진행, 전체픽셀동등성미완료. 기존Preview내부는 도구보안차단으로미검증 유지.
+검색어: PR1159 dayAll2217 readbacktrue 53표51표제한구분 2workerbuildPASS quoteaggregate1158
+
+### 2026-10-20 은행 매핑 화면 설계와 미매출 시각보정
+- PR1159 CI39422639398 첫 실행은 기존 importChecklistEditing 브라우저 시작에서 Chrome WS endpoint30초 timeout으로 실패(224PASS/1fail). 관련코드 변경 없이 failed job1회 재시도하며 PASS전 병합하지 않는다. 최초실패로그 보존, ECOUNT assertion 실패로 혼동하지 않는다.
+- 후속 은행 매핑 popup은 원본 제목/960×676/755폭7열/F3검색폼/빈4필드/관측3매핑종류 표시만 구현했다. 미수집이며 자동매핑·선택삭제·F8·Excel은 비활성, API/DDL/저장 실행없음. 외부연동 설계문서에 draft검토→버전활성화/감사·복원 정책만 구체화했다.
+- unpSale 원본 시각근거로 중앙24px 제목/오른쪽기간/중앙빈문구/인쇄화살표 존재만표시(실행disabled)를 반영하고 현재empty에없는 오천건버튼을 제거했다. UI55검사·JSX/JSON/diffcheck PASS, 메타1019관측ID. 다음 별도고정HEAD의 필수5종과운영검증은 아직대기다.
+검색어: PR1159 CIChrome기동timeout 은행매핑960x676755 unpSale24px 55tests1019 설계only
+- PR1159 동일HEAD의 CI39422639398 attempt2가 코드변경 없이 SUCCESS로 종료되어 squash75081bfa 병합했다. 원격 Chrome기동 실패와 재시도 성공 기록을 함께 보존하며 배포는 후속 감시한다.

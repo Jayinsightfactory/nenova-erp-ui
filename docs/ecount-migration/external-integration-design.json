@@ -1062,5 +1062,56 @@
     "docs/ECOUNT_WORKSPACE_CONTRACT.md",
     "docs/ecount-migration/work-plan.json",
     "lib/ecountWorkbench.cjs"
-  ]
+  ],
+  "bankMappingDesign": {
+    "status": "design_only_not_implemented",
+    "executionEnabled": false,
+    "sourceWritesAllowed": false,
+    "sourceView": {
+      "title": "매핑리스트",
+      "width": 960,
+      "height": 676,
+      "tableWidth": 755,
+      "sourceRowsObserved": 10,
+      "sourceRowsCollected": 0
+    },
+    "storageBoundary": "No mapping table or API created. Current safe workspace snapshots contain no account/customer identity.",
+    "proposedKeys": [
+      "mappingId UUID",
+      "providerAccountToken opaque vault reference",
+      "counterpartyToken opaque consented reference",
+      "ruleRevision integer"
+    ],
+    "blockedUntil": [
+      "provider selection and tokenization contract",
+      "PII storage and retention policy approval",
+      "account/customer reference permission model"
+    ],
+    "workflow": [
+      "draft rule using opaque references",
+      "validate permitted account scope and expected revision",
+      "dry-run against approved immutable source snapshot",
+      "review affected row identifiers/count only",
+      "activate a new immutable mapping revision in isolated workspace"
+    ],
+    "mutations": {
+      "autoMapping": "future target-only rule proposal; never update source ECOUNT or shared ledger",
+      "delete": "future target-only deactivate revision; retain immutable history",
+      "rollback": "activate prior compatible revision with expectedRevision compare-and-swap; audit before/after version references"
+    },
+    "idempotency": "hash of tenant scope, mappingId, expectedRevision, canonical non-PII rule specification and request id; conflicting retry rejected",
+    "auditFields": [
+      "actorId opaque internal key",
+      "timestamp UTC",
+      "operation",
+      "reasonCode",
+      "previousRevision",
+      "newRevision",
+      "sourceSnapshotId",
+      "correlationId"
+    ],
+    "unknownResult": "Persist request correlation; reconcile status before retry. No blind duplicate activation.",
+    "confidentiality": "Do not log or persist account numbers, personal/customer names, raw provider payloads, or credentials. Secret references only.",
+    "uiCurrent": "F3 opens/closes observed search fields. Query/auto-mapping/delete/export disabled; explicit uncollected state. No empty-zero claim."
+  }
 }

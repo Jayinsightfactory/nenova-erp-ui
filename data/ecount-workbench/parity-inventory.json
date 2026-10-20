@@ -13250,6 +13250,20 @@
           ],
           "testEvidence": [],
           "behavior": "Source date-mode filter change and exact date_range today query observed; no business mutation"
+        },
+        {
+          "id": "E040609-A26",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040609-EMPTY-FOOTER"
+          ],
+          "testEvidence": [],
+          "behavior": "Arrow visible in exact empty-result capture; opening unobserved, target disabled"
         }
       ],
       "windows": [],
