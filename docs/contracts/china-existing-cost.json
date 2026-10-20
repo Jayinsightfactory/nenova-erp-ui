@@ -1,0 +1,11 @@
+{
+ "id":"china-existing-cost",
+ "title":"중국 원본 단기준 원가 연결과 송이수 경고",
+ "scope":["lib/importChinaPdfInvoice.js","lib/importPacking.js","lib/importPackingSourceReview.js","lib/importPackingReceiptAdapter.js","lib/invoiceExistingReceipt.js","lib/invoiceReceiptCost.js","lib/invoiceReceiptCostExport.js","components/import-tools/PackingEvidenceReview.js","components/import-tools/InvoiceReceiptWorkbench.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"CN_EXISTING_COST","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"CN CNY BUNCH identity/amount/full snapshot check. Source total stems retained and editable, conflicting packaging specification displayed as warning, never silently fixed. Source goods quantities/amount totals and fees exact. Only web document/operation/history and approved cost records written. No native receipt insert/update or stock SP. NULL product zero-money/no-out/no-est rows preserved in complete snapshot."}],
+ "crossYearFixture":{"required":true,"description":"prior year same week rejects; source date retained; wrong bunches/currency/unit/fee reject, native stems never used as bunch price basis"},
+ "requiredTestFiles":["__tests__/chinaCompactPdf.test.js","__tests__/invoiceExistingReceipt.test.js","__tests__/invoiceReceiptCostExport.test.js","__tests__/packingSourceReview.test.js"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-19 actual dnSpy CLI MakeTempTable separate BunchQuantity/SteamQuantity/UPrice/TPrice. Read-only7671 year2026 week42-01 HUBFRESH:64goods2280bunch57230CNY +37559.5 fee+2null-key nonfinancial rows. Native entrypoints untouched.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","WebInvoiceDocument","WebInvoiceOperation","WebInvoiceHistory","WebInvoiceCostRevision","WebInvoiceCostLine"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

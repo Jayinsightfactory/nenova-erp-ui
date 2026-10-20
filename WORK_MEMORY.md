@@ -146,3 +146,14 @@
 - 신규 회귀와 전체 verify:erp-change(build 포함) 통과. CI·배포·운영 스모크 진행 중(아직 미검증). 상세 docs/work-sessions/2026-10-19_ecuador-acquisition-cost.md.
 - 검색어: ecu-acquisition-carry profitReportAcquisitionCarry 최근4차수 판매단가 기초기말 과거매입
 - PR #1105/ea015ab0 및 Cafe24 39257930494 성공, 운영 41차 평가값 변경 확인. 브라우저 스모크에서 week-check만 과거 캐시 경고를 읽는 불일치 발견하여 후속 보완 중. 검증창의 본표·원천 점검 모두 auditLive GET, 확정본·기본 호출 보존. 후속 배포 완료 전 미검증.
+
+## 2026-10-19 중국 기존 입고 원가 연결 진행 중
+- 별도 nw-china-existing-cost에서 CN 단기준 원가 연결 및 compact PDF 파서 초안. 운영 입고7671 읽기만 수행. 관련73테스트 통과9생략; 전체검사/배포/실저장/다운로드 미검증.
+- 원본 Populus 10송이×15단과 총300송이 불일치 확인, 임의보정 안 함. docs/work-sessions/2026-10-19_china-existing-cost.md 참조.
+- 검색어: china-existing-cost HUBFRESH 7671 Populus 150 300
+
+## 2026-10-20 중국 단기준 원가 연결 후속
+- 사용자 결정: Populus 원가 15단 기준, 송이 수는 직접 수정. 원본 송이값과 수정 사유·파생 박스당 송이를 별도 보존하며 단수/금액은 유지.
+- 실제 PDF 파서 및 합성 오류 사례, CN 비용 저장/재조회 모의 SQL 및 NULL 품목 보존 검사 통과. 전체 ERP 검사·dnSpy·manifest/write guard·빌드 통과. 운영 로그인 확인.
+- PR/운영 배포 및 실제 원가 저장·Excel 다운로드는 아직 미검증. 기존 운영 입고 수정 없음.
+- 검색어: china-existing-cost EXISTING_CN 15단 송이수수정 null-product

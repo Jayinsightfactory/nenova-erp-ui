@@ -2,6 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { planExistingReceiptLink } from '../lib/invoiceExistingReceipt.js';
 
+function chinaFixture() {
+ const f=fixture();
+ f.document.reviewedMetadata.country='CN';
+ f.document.rawMetadata={additionalCosts:[{amount:10},{amount:2}]};
+ f.document.lines.forEach(line=>{line.currency='CNY';line.priceUnit='단';line.bunchQuantity=line.stemQuantity;line.stemQuantity*=10;});
+ f.details[0].BunchQuantity=10;
+ f.details.push({WdetailKey:4,ProdKey:null,ProdName:null,OutQuantity:null,EstQuantity:null,SteamQuantity:20,UPrice:0,TPrice:0});
+ return f;
+}
+test('CN keeps source stems distinct and links price-basis bunches without modifying native rows',()=>{
+ const f=chinaFixture(),before=JSON.stringify(f),p=planExistingReceiptLink(f.document,f.header,f.details,'Holex');
+ assert.equal(p.quantity,10);assert.equal(p.quantityUnit,'단');assert.equal(p.stemQuantity,100);
+ assert.deepEqual(p.lineMappings.map(x=>[x.outQuantity,x.unit,x.stemQuantity]),[[3,'단',30],[7,'단',70]]);
+ assert.deepEqual(p.excludedDetailKeys,[2,3,4]);assert.equal(JSON.stringify(f),before);
+});
+for(const [label,change] of [
+ ['prior year',f=>f.header.OrderYear='2025'],['bunch mismatch',f=>f.details[0].BunchQuantity=100],
+ ['missing fees',f=>delete f.document.rawMetadata.additionalCosts],['wrong fees',f=>f.document.rawMetadata.additionalCosts[0].amount=11],
+ ['unassigned financial row',f=>f.details[3].TPrice=10],['unassigned stock row',f=>f.details[3].OutQuantity=1],
+ ['wrong currency',f=>f.document.lines[0].currency='EUR'],['wrong unit',f=>f.document.lines[0].priceUnit='송이'],
+]) test(`CN rejects ${label}`,()=>{const f=chinaFixture();change(f);assert.throws(()=>planExistingReceiptLink(f.document,f.header,f.details,'Holex'),{code:'EXISTING_RECEIPT_MISMATCH'});});
+
 function fixture() {
  const header={WarehouseKey:7662,OrderYear:'2026',OrderWeek:'41-02',FarmName:'Holex',InvoiceNo:'1214205',InputDate:'2026-10-09',isDeleted:0};
  const document={orderYear:'2026',orderWeek:'41-02',invoiceYear:'2026',invoiceNo:'1214205',reviewedMetadata:{country:'NL'},rawMetadata:{freight:10,handling:2},

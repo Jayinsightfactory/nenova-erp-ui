@@ -7,6 +7,26 @@ const chinaModule = import('../lib/importChinaPdfInvoice.js');
 const fixtureModule = import('./fixtures/chinaPdfFixture.js');
 const responseModule = import('../lib/importPackingResponse.js');
 
+test('China stem correction preserves billed 15 bunches and records derived box count without acknowledgement', async () => {
+  const { makePackingSourceReview, applyPackingSourceReview } = await sourceModule;
+  const source = readyInvoice({ source_format: 'china_invoice_pdf', total_stems: 300,
+    products: [{ description: 'Populus', pcs: 1, total_bunch: 15, bunch_st: 10,
+      total_stems: 300, steam_box: 300, u_price: 23, t_price: 345 }] });
+  const draft = makePackingSourceReview(source, 'CN');
+  draft.rows[0].values.total_stems = 150;
+  draft.rows[0].reason = '송이 수 직접 수정';
+  const result = applyPackingSourceReview(source, draft, 'CN', '2026-10-20T00:00:00Z', { requireConfirmation: false });
+  assert.equal(result.products[0].total_bunch, 15);
+  assert.equal(result.products[0].t_price, 345);
+  assert.equal(result.products[0].total_stems, 150);
+  assert.equal(result.products[0].steam_box, 150);
+  assert.equal(result.total_stems, 150);
+  assert.equal(result.source_printed_total_stems, 300);
+  assert.equal(result.packingReview.sourceReview.rows[0].values.steam_box, 150);
+  assert.equal(result.packingReview.sourceReview.rows[0].confirmed, false);
+  assert.equal(source.products[0].total_stems, 300);
+});
+
 async function localChinaInvoice({ allPriced = false } = {}) {
   const { inspectChinaPdfInvoice } = await chinaModule;
   const { makeChinaPdfFixture } = await fixtureModule;

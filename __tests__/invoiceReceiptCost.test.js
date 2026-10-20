@@ -345,6 +345,30 @@ function persistenceDb(inputOverride, metadataOverride) {
   return { input, state, execute, withTransactionFn };
 }
 
+test('CN existing cost saves and reads bunch basis while native stem and null-product rows remain unchanged', async () => {
+  const db = persistenceDb();
+  db.state.warehouseDetails[0].SteamQuantity = 10;
+  db.state.warehouseDetails.push({ WdetailKey: 7002, WarehouseKey: 901, ProdKey: null,
+    BoxQuantity: 1, BunchQuantity: 1, SteamQuantity: 1747.75, OutQuantity: null,
+    EstQuantity: null, UPrice: 0, TPrice: 0 });
+  const operation = JSON.parse(db.state.operation.ResultJson);
+  operation.linkMode = 'EXISTING_CN';
+  operation.excludedDetailKeys = [7002];
+  operation.receiptSnapshot.details = structuredClone(db.state.warehouseDetails);
+  db.state.operation.Action = 'LINK_EXISTING_COST';
+  db.state.operation.ResultJson = JSON.stringify(operation);
+  const before = JSON.stringify(db.state.warehouseDetails);
+  await saveInvoiceCostRevision({ withTransactionFn: db.withTransactionFn, types, documentId: IDS.document,
+    revision: 1, actor: 'approver', input: db.input, reason: 'existing China bunch cost' });
+  const result = await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 });
+  assert.ok(result.currentActual);
+  assert.equal(result.currentActual.lines[0].quantity, 10);
+  assert.equal(JSON.stringify(db.state.warehouseDetails), before);
+  assert.ok(!db.state.queries.some(q => /(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:dbo\.)?(?:Warehouse|Stock|Shipment|Order|Estimate)/i.test(q.sql)));
+  db.state.warehouseDetails[1].SteamQuantity += 1;
+  assert.equal((await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 })).currentActual, null);
+});
+
 test('US box conversion survives approval/readback and remains unconfirmed on restore', async () => {
   const input = commonInput('US_CNF_BOX_V1', { nativeCurrency: 'USD', freightCurrency: 'USD',
     freightAmount: 0, customsTotalKRW: 1000,
