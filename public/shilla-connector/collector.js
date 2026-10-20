@@ -25,7 +25,10 @@ export async function collectReceipts(from,to) {
         const timer=setTimeout(()=>{cleanup();reject(new Error('신라 조회가 45초 안에 끝나지 않았습니다. 다시 조회하세요.'));},45000);
         ajax.addEventListener('response',done);ajax.addEventListener('error',error);
         try {
-          page.set('searchParam.fdate',date(start));page.set('searchParam.tdate',date(end));page.set('searchParam.i_werks','');
+          // The SRM range control clears a start date beyond its previous end.
+          // Clear both bounds before moving between months (or backwards in time).
+          page.set('searchParam.fdate',null);page.set('searchParam.tdate',null);
+          page.set('searchParam.tdate',date(end));page.set('searchParam.fdate',date(start));page.set('searchParam.i_werks','');
           page.onFindList();
         } catch(e){cleanup();reject(e);}
       });

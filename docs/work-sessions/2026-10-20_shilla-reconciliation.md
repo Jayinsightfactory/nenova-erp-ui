@@ -37,3 +37,9 @@
 - 운영 브라우저 collector 연결·전체 gate·최종 배포는 후속 검증 기록 전까지 미검증.
 
 검색어: 신라 3자료대조 shilla-reconciliation shilla-connector findGrSpListEai 입고실적 단위환산
+
+## 최종 검증 후속 (2026-10-20)
+- 신규 회귀는 최종 10개 모두 통과. 전체 ERP·dnSpy·manifest·쓰기 guard 통과. 최신 master 병합 후 로컬 build 성공. PR #1117 CI verify/installer 성공 후 squash 병합 07dbf6aa.
+- 운영 배포39359785762 성공. 실브라우저에서 첨부 원본 업로드/SELECT 준비 결과 41차수와 DB225행 표시 확인. 브라우저 연결 없음 오류/안내 정상.
+- 비교표 합성 fixture 데스크톱·640px·키보드 펼치기 검증. 실제 SRM 응답을 포함한 종단 검증은 최초 확장 설치 승인이 필요하여 미검증.
+- 메뉴 기준선: 단일 _app shell·단일 메뉴·페이지 스크롤·표 가로 스크롤·표준 HTML 입력/포커스 적용. ERP 저장/반영은 해당 없음. 분석 매핑 복원/이력 저장은 현재 메모리 한정의 명시적 예외.
