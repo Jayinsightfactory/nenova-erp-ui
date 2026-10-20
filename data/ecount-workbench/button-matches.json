@@ -21466,14 +21466,14 @@
         "totalSourceRows": null,
         "fullCollectionVerified": false,
         "sqlImportStatus": "revision1 readback/idempotency verified",
-        "deploymentStatus": "production14columns/460rows checked; workflow final status pending",
+        "deploymentStatus": "PR1124 deploy39384652958 success",
         "dataset": "buyStatus",
         "rawValuesCopiedToReport": false
       },
       "comparisonCases": [
         {
           "id": "BUY-STATUS-ORDERED-460",
-          "environment": "production PR1124; deployment workflow final status pending",
+          "environment": "production PR1124; deploy39384652958 success",
           "periodFrom": "2026-09-01",
           "periodTo": "2026-09-30",
           "sourceStatusFilter": "수집표본 순서보존",
@@ -21497,7 +21497,7 @@
           "mismatchCount": 0,
           "fieldComparisonStatus": "일치",
           "overallStatus": "미검증",
-          "scope": "460ordered sample rows/4140fields matched in production14column result. Duplicate date-document numbers retained; not a unique key. Full source dataset unknown; workflow completion not claimed.",
+          "scope": "460ordered sample rows/4140fields matched in production14column result. Duplicate date-document numbers retained; not a unique key. Full source dataset unknown; deploy39384652958 success confirmed.",
           "rawValuesStored": false
         }
       ],
@@ -21512,7 +21512,19 @@
         "rawValuesStored": false,
         "progressStatus": "순서보존460행 표본",
         "scope": "Source visible sample only; production14columns/4140fields checked; workflow final status pending"
-      }
+      },
+      "runtimeEvidence": [
+        {
+          "environment": "production PR1124 deploy39384652958 success",
+          "authentication": "authorized session",
+          "checks": [
+            "Today0rows",
+            "Print PDF disabled / preview active / troubleshooting disabled",
+            "Preview separate browser tab created"
+          ],
+          "scope": "Blob policy blocks target preview contents; two target screenshot timeouts, capture unavailable"
+        }
+      ]
     },
     {
       "program": "E040311",
