@@ -158,8 +158,21 @@
 - PR/운영 배포 및 실제 원가 저장·Excel 다운로드는 아직 미검증. 기존 운영 입고 수정 없음.
 - 검색어: china-existing-cost EXISTING_CN 15단 송이수수정 null-product
 
+## 2026-10-20 ECOUNT 기능 이관 자동 작업 설계
+- 최신 origin/master abe88d34에서 별도 작업트리. 실제 Chrome 사이트맵·입출금·세금계산서 표/버튼과 기존 수집·은행·증빙 코드를 조회.
+- docs/ECOUNT_REPLACEMENT_DESIGN_2026-10-20.md 및 docs/ecount-migration/work-plan.json에 자체 DB 범위, 외부 API, 14개 의존 작업, 수집 보강·원장 호환·전환 게이트 기록.
+- ECOUNT/MSSQL 쓰기, 거래자료 적재, REA 설치, 실행 스케줄, 앱 배포 없음. 전체 기능 동등성·운영 API·실제 이관 미검증. 문서/JSON 구조 확인만 수행.
+- 검색어: ECOUNT_REPLACEMENT_DESIGN ecount-migration REA 자체회계 은행대사 전자세금계산서
+
 ## 2026-10-20 전체 차수 계산식 검산
 - 원장 76개 연도·차수 28,001항목 + 자동 저장 입력 116 revision 42,451항목 독립 산술 일치. 수동 확정 revision 0건. 원본 fixture 898셀 회귀 통과.
 - 확정 AC/AJ 보존, 0/null 표시, 분모 0 합계 비율의 가짜 100%를 수정. 검증 새창·범위 검산에 전체 항목 검사 및 원천 누락 별도 경고 추가. ERP 원장/기존 확정본 변경 없음.
 - 원천 누락 59차수 334행 및 NULL 연도/범위 밖 60차는 정상 인증하지 않음. 전체 gate/배포/운영 smoke 진행 중(미검증). 상세 docs/work-sessions/2026-10-20_profit-formula-complete.md.
 - 검색어: profit-formula-complete 전체항목검산 AC AJ 확정조정누락 합계100퍼센트
+
+## 2026-10-20 ECOUNT 전체 메뉴 작업실 초기 구현
+- 8개 탭/537개 경로/423개 말단을 실제 사이트맵 메타데이터로 목록화. /ecount/workbench에서 18개 기능군, 430개 화면 계약, 합성 입력·계산·조회·수정·검토·취소·변경이력 및 저장 설계 제공.
+- 외부 API 28개 말단도 화면/저장 로직 설계 포함. 실제 DB/API/영속 저장 없음, 민감정보 수집 없음. 인증/활동 수집기의 부수 호출도 제외한 독립 shell.
+- 신규/전체 ERP/UI/manifest/write scope/dnSpy guard 및 첫 빌드 통과. 브라우저 견적 추가·수정/은행·세금계산서 설계 확인, 로컬 API 시도 0건. 최종 빌드 재검증 중. 원본 전체 상세 동등성/좁은 화면/운영 배포는 아직 미검증.
+- 상세: docs/work-sessions/2026-10-20_ecount-replacement-design.md, docs/ecount-migration/menu-inventory.md, docs/ECOUNT_WORKBENCH_CONTRACT.md.
+- 검색어: ecount-workbench 전체메뉴537 DB미연결 메모리초안 외부API저장설계

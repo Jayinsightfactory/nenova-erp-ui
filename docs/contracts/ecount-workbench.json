@@ -1,0 +1,54 @@
+{
+  "id": "ecount-workbench",
+  "title": "ECOUNT 전체 메뉴의 DB 미연결 화면·저장 설계",
+  "scope": [
+    "pages/ecount/workbench.js",
+    "lib/ecountWorkbench.cjs",
+    "components/EcountPreviewShell.js",
+    "data/ecount-workbench/source-menu.json",
+    "styles/ecount-workbench.module.css"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PREVIEW_MEMORY_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "합성 2025/2026 동일 차수 초안 격리 및 다른 회사/연도 수정 차단"
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountWorkbench.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/ECOUNT_WORKBENCH_CONTRACT.md",
+    "source": "웹 전용 합성 UI. 실제 SQL·ERP 조회/쓰기 코드 없음; dnSpy/운영 DB probe 해당 없음. 실제 원장 연결 시 필수 절차를 별도 수행.",
+    "methods": [
+      "getFeature",
+      "savePlan",
+      "applyDraft",
+      "rowsFor"
+    ],
+    "tables": [
+      "All ERP and web database tables preserve; browser memory only"
+    ]
+  },
+  "requiredCommands": [
+    "node __tests__/ecountWorkbench.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

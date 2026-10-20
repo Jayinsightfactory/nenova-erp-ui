@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-20",
+  "timezone": "Asia/Seoul",
+  "mode": "design_only",
+  "executionEnabled": false,
+  "codeBaseline": "abe88d34",
+  "designDocument": "../ECOUNT_REPLACEMENT_DESIGN_2026-10-20.md",
+  "scope": {
+    "target": "네노바웹 독립 운영으로 ECOUNT 기능 이관",
+    "allApplicableFeaturesRequired": true,
+    "coveragePercent": null,
+    "fullInventoryComplete": false
+  },
+  "observedEvidence": {
+    "sitemap": "menu_presence_only",
+    "bank": "headers_and_controls_only",
+    "taxInvoice": "headers_and_controls_only",
+    "productionDataImported": false,
+    "reaInstalled": false
+  },
+  "defaults": {
+    "ecountAccess": "read_only",
+    "ecountWritesAllowed": false,
+    "productionWritesAllowed": false,
+    "saveCredentials": false,
+    "saveAccountNumbers": false,
+    "savePersonalData": false,
+    "rawNetworkCapture": false,
+    "unknownBusinessRequests": "block",
+    "maxTransientRetries": 3,
+    "concurrencyPerCompanyScreenPeriod": 1,
+    "sourceOfTruth": "explicit_per_module",
+    "schemaChanges": "SQL_proposal_then_user_SSMS",
+    "notifications": "meaningful_change_failure_or_required_action_only"
+  },
+  "featureContractRequiredFields": [
+    "featureId",
+    "menuPath",
+    "role",
+    "usageStatus",
+    "sourceEvidence",
+    "filters",
+    "columns",
+    "actions",
+    "statusTransitions",
+    "calculations",
+    "exports",
+    "existingRoute",
+    "externalDependency",
+    "sourceKeys",
+    "preserveTables",
+    "fixtures",
+    "verificationStatus"
+  ],
+  "implementationGates": [
+    "actual_evidence_before_shared_erp_changes",
+    "criteria_and_side_effect_ledger",
+    "contract_and_cross_year_fixture",
+    "required_tests_and_build",
+    "CI_then_squash_merge_except_SSMS_prerequisite",
+    "Cafe24_deploy_then_browser_smoke"
+  ],
+  "states": [
+    "DISCOVERED",
+    "SPECIFIED",
+    "READY",
+    "RUNNING",
+    "VERIFYING",
+    "DONE",
+    "NEEDS_EVIDENCE",
+    "NEEDS_LOGIN",
+    "SCHEMA_DRIFT",
+    "READONLY_VIOLATION",
+    "WAITING_EXTERNAL"
+  ],
+  "tasks": [
+    {
+      "id": "M01",
+      "title": "전체 메뉴와 역할별 기능 목록",
+      "kind": "metadata_only",
+      "dependsOn": [],
+      "status": "planned",
+      "acceptance": [
+        "메뉴 경로·역할·사용 여부·기존 대응 화면을 기능 ID로 연결",
+        "미확인 기능도 목록에서 유지"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "입출금과 전자증빙 화면 계약",
+      "kind": "metadata_only",
+      "dependsOn": [
+        "M01"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "조회 필터·열·합계·상태·Excel·권한을 근거에 연결",
+        "발행·전송·저장 동작은 실행하지 않고 미확인 규칙 표시"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "읽기 전용 수집기 검증 강화",
+      "kind": "implementation",
+      "dependsOn": [
+        "M02"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "기간·필터 일치와 독립 원본 행 수 검증",
+        "미관측 요청 차단·진단 마스킹·숫자 오류 격리·실패 종료코드",
+        "합성 데이터에서 페이지 누락·공집합·로그인 만료·스키마 변경 시험"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "기준정보 매핑과 이관 스키마",
+      "kind": "schema_proposal",
+      "dependsOn": [
+        "M01"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "외부코드→내부 PK 연결 및 충돌 격리",
+        "SSMS용 마이그레이션과 복구 SQL 준비",
+        "개인정보·계좌번호·자격증명은 저장 금지; 필요한 실제 이관은 정책 확정 대기"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "과거 자료와 기초잔액 시험 이관",
+      "kind": "staging_import",
+      "dependsOn": [
+        "M03",
+        "M04"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "대표 월과 연말 경계의 원본 범위 확정",
+        "재실행 중복 0, 누락 0, 원인 불명 잔액 차이 0",
+        "데이터 저장 정책과 SSMS 적용 확인 후 격리 영역만 적재"
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "분개와 회계기간 엔진",
+      "kind": "implementation",
+      "dependsOn": [
+        "M04"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "차변=대변, DECIMAL·반올림, 기간 마감 잠금",
+        "역분개·정정·권한·동시 저장·멱등성 테스트"
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "채권채무와 수금지급 배분",
+      "kind": "implementation",
+      "dependsOn": [
+        "M05",
+        "M06"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "부분/다대다 배분·상계·선수선급·취소 검증",
+        "기초+발생-감소=기말, 분개와 원자적 반영"
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "외부 서비스 지원 범위 확인",
+      "kind": "research",
+      "dependsOn": [
+        "M01"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "은행·계좌유형·카드·PG·증빙·과거기간 지원표",
+        "가입/동의/비용/인증 요건 확인; 유료 가입과 계약은 자동 실행하지 않음"
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "은행 카드 수집과 대사",
+      "kind": "implementation",
+      "dependsOn": [
+        "M07",
+        "M08"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "외부 계약과 인증 준비",
+        "중복 거래·취소·지연·외화·일별 잔액 검증",
+        "자동수집과 실제 이체를 분리"
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "전자증빙 발행과 수집 연결",
+      "kind": "implementation",
+      "dependsOn": [
+        "M06",
+        "M08"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "샌드박스 발행·수정·취소·국세청 상태 검증",
+        "Outbox 멱등키·응답 불명 재조회·웹훅 중복/역순 처리",
+        "실제 발행은 사용자 업무의 명시적 발행 절차로 실행"
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "기존 물류 판매 구매와 회계 연결",
+      "kind": "shared_erp_implementation",
+      "dependsOn": [
+        "M05",
+        "M06",
+        "M07"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "실제 dnSpy CLI와 동일 업무키 SELECT probe",
+        "계약 JSON·부작용 표·교차연도 fixture",
+        "Estimate·ShipmentDate·ShipmentFarm·금액/Vat/isFix·WebProfitReport 보존 범위 검증"
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "자산 예산 계약 인사 그룹웨어 확장",
+      "kind": "implementation",
+      "dependsOn": [
+        "M01",
+        "M06"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "각 세부 기능을 독립 계약과 작업으로 분할",
+        "모든 적용 시나리오와 출력·권한 시험",
+        "인사 데이터는 보관 정책 확정 전 합성 자료만 사용"
+      ]
+    },
+    {
+      "id": "M13",
+      "title": "기능별 병행 검증과 월마감",
+      "kind": "verification",
+      "dependsOn": [
+        "M09",
+        "M10",
+        "M11",
+        "M12"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "모든 적용 기능 검증 완료",
+        "최소 월마감 1회, 원인 불명 대사 차이 0",
+        "역할별 인수와 복원 연습 통과"
+      ]
+    },
+    {
+      "id": "M14",
+      "title": "최종 증분 이관과 기능별 전환",
+      "kind": "cutover",
+      "dependsOn": [
+        "M13"
+      ],
+      "status": "planned",
+      "acceptance": [
+        "단일 입력 주체·기준시각·원천 마지막 전표 확정",
+        "과거 이관에 따른 중복 출고·분개 0",
+        "복구 기준과 미결 외부 요청 처리 완료"
+      ]
+    }
+  ],
+  "optionalTools": [
+    {
+      "name": "REA",
+      "status": "researched_not_installed",
+      "useWhen": "Observed UI cannot explain export structure or client calculation",
+      "prerequisites": [
+        "Review official setup and pinned version",
+        "Synthetic example validation",
+        "Authorized local debugging connection without weakening security",
+        "No raw secrets or personal data in evidence"
+      ],
+      "notCapableOf": "Recovering ECOUNT server database or server-only business rules from the browser"
+    }
+  ],
+  "preview": {
+    "route": "/ecount/workbench",
+    "mode": "memory_only",
+    "tabs": 8,
+    "menuPaths": 537,
+    "leafMenus": 423,
+    "screenContracts": 430,
+    "families": 18,
+    "externalLeafMenus": 28,
+    "inventory": "menu-inventory.md",
+    "roleScope": "current_authenticated_role_only",
+    "fullFeatureParityVerified": false,
+    "dbWritesEnabled": false,
+    "externalExecutionEnabled": false
+  }
+}
