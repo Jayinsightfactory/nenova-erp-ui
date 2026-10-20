@@ -620,3 +620,10 @@
 - unpSale 원본 시각근거로 중앙24px 제목/오른쪽기간/중앙빈문구/인쇄화살표 존재만표시(실행disabled)를 반영하고 현재empty에없는 오천건버튼을 제거했다. UI55검사·JSX/JSON/diffcheck PASS, 메타1019관측ID. 다음 별도고정HEAD의 필수5종과운영검증은 아직대기다.
 검색어: PR1159 CIChrome기동timeout 은행매핑960x676755 unpSale24px 55tests1019 설계only
 - PR1159 동일HEAD의 CI39422639398 attempt2가 코드변경 없이 SUCCESS로 종료되어 squash75081bfa 병합했다. 원격 Chrome기동 실패와 재시도 성공 기록을 함께 보존하며 배포는 후속 감시한다.
+
+### 2026-10-20 승인된 마지막 배포 마무리
+- PR1159 Cafe2439423532560 최종SUCCESS, dayAll 실제53표/2217행 운영비교는 root 진행 중이며 완료로 앞서 표기하지 않는다. 기존원본 검색제한·완전성unknown은 보존한다.
+- 시각보정 HEAD87e6f382 mapping-unposted 필수5종 PASS(2workers), UI55회귀 PASS. PR1160 CI39424066494 SUCCESS 후 squashf2643be6 병합, Cafe24 배포 확인 대기. 은행자동매핑/삭제/저장/외부API 실행은 없음.
+- root 지시에 따라 공유계정97%사용/3%남음(본작업단독아님) 상태에서 추가기능·원본조사·새배치 착수는 중지하고 이미 진행 중인 배포/운영확인/인계만 마무리한다. 리셋·구매·추가worker 없음. 전체ERP100%완료 아님, disabled/미관측/외부연동설계 항목은 남아 있다.
+검색어: PR1159deploySUCCESS PR1160f2643be6 공유97중지추가기능 dayAll런타임대기
+- 1159 root 운영 exact범위53표/2217행/8426숫자/991null 불일치0 확인. 다른19일은 UI load 사전검사목록에 dayAll 누락으로 오류표시되는 실제결함 발견. 서버 strict거부는정상이며 UI검사를 PROFILES hasOwn으로통일하는1줄+실제load19일 fetch0/versionnull/error없음 회귀만수정, UI56검사PASS. 새기능없고긴급후속검증/배포대기.

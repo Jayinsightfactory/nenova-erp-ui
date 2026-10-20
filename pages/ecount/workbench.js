@@ -171,7 +171,7 @@ export default function EcountWorkbench() {
     if (!dataset) return;
     const id = ++requestId.current;
     setBusy(true);setError('');setLoginNeeded(false);
-    try { if(['ordEmpty','quoteEmpty','poEmpty','daySale','unpSale'].includes(requestedDataset)){try{observedCoverage.validateCriteria(coverageCriteria,requestedDataset);}catch{if(id===requestId.current){setVersion(null);setRevision(null);}return;}} const data = await api('current',null,coverageCriteria,requestedDataset); if (id !== requestId.current) return; setVersion(data.version);setRevision(data.revision); }
+    try { if(Object.hasOwn(observedCoverage.PROFILES,requestedDataset)){try{observedCoverage.validateCriteria(coverageCriteria,requestedDataset);}catch{if(id===requestId.current){setVersion(null);setRevision(null);}return;}} const data = await api('current',null,coverageCriteria,requestedDataset); if (id !== requestId.current) return; setVersion(data.version);setRevision(data.revision); }
     catch (e) { if (id === requestId.current) {setVersion(null);setRevision(null);setError(e.message);} }
     finally { if (id === requestId.current) setBusy(false); }
   }
