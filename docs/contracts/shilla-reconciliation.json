@@ -9,7 +9,8 @@
     "public/shilla-connector/manifest.json",
     "public/shilla-connector/background.js",
     "public/shilla-connector/content.js",
-    "public/shilla-connector/collector.js"
+    "public/shilla-connector/collector.js",
+    "lib/shillaAnalysisMatching.js"
   ],
   "businessKey": [
     "OrderYear",
@@ -23,7 +24,8 @@
       "name": "prepare/compare",
       "reads": [
         "WebRaumPnl",
-        "WebRaumPnlItem"
+        "WebRaumPnlItem",
+        "Product"
       ],
       "writes": [],
       "preserves": [
@@ -54,8 +56,8 @@
   "criteria": {
     "source": "Original workbook parsed without correction; DB fresh SELECT by year+partner; SRM findListGrSp response only",
     "period": "User selects exact workbook periods and receipt date range independently",
-    "matching": "Exact normalized name+unit only; SRM material/spec/unit group requires explicit session mapping when ambiguous",
-    "conversion": "Explicit per-material quantity multiplier; unit mismatch requires acknowledgement; gross Excel option divides price/amount by 1.1",
+    "matching": "Unique active saved ProdKey and compatible unit groups source aliases within selected year/periods. SRM name tokens propose unique saved targets; ambiguity remains unresolved.",
+    "conversion": "Explicit per-material quantity multiplier; unit mismatch requires acknowledgement; gross Excel option divides price/amount by 1.1 Owner confirmed Anthurium ProdKey181 단 means 송이, SRM EA=1:1. Unspecified PK packaging never inferred.",
     "missing": "Missing never zero or equal; price buckets retained; duplicate receipt IDs flagged, never silently discarded",
     "browser": "Only nenovaweb.com may request bounded receipts from www.shillasrm.com; no credentials/cookies/storage permissions; installation requires user action",
     "persistence": "No original/ledger writes; uploaded temporary files removed in finally; browser results held only in page memory"
