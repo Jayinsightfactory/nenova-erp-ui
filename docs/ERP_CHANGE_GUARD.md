@@ -886,3 +886,9 @@ Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는
 
 검증 새창의 본표가 최신 계산이면 하단 week-check도 같은 최신 조회 모드를 사용한다. 한쪽만 과거 계산 캐시에서 경고를 가져오면 수정 전 판매단가 설명이 남으므로 배포 스모크에서 양쪽의 설명까지 대조한다. 확정 revision은 최신 모드에서도 보존하고, 사람이 읽는 경고 summary와 내부 근거 키를 구분한다.
 
+## 2026-10-20 전체 항목 검산·확정 조정·0값 표시
+
+산술 일치는 입력 원천·재고 실사 인증이 아니다. 자동 저장 입력 payload와 수동 확정 revision을 구분하고, 모든 revision 존재 수를 실제 조회한다. 신규 확정에는 AC/AJ도 SOURCE/CALC로 보존하며 과거 확정의 누락 조정을 현재 수기값으로 추정하지 않는다.
+
+분모 0의 D/U null을 화면에서 100%로 대체하지 않는다. 명시적 포워딩/구매 0을 `|| null`로 비우지 않는다. 회귀 `profitFormulaAudit.test.cjs`는 전 열·합계 오염, 확정 roundtrip, 교차연도, 실제 formatter 세 경로 및 xlsx를 실행한다. 독립 검산은 production 계산 함수를 import하지 않는다. 원본 fixture·계약·빌드 실패 시 배포하지 않는다.
+
