@@ -1567,6 +1567,90 @@
           ],
           "testEvidence": [],
           "behavior": "Observed in currently open search form; action not executed in this observation"
+        },
+        {
+          "id": "E040202-A29",
+          "label": "업무설정",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
+        },
+        {
+          "id": "E040202-A30",
+          "label": "검색항목설정",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
+        },
+        {
+          "id": "E040202-A31",
+          "label": "양식설정",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
+        },
+        {
+          "id": "E040202-A32",
+          "label": "조건양식설정",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
+        },
+        {
+          "id": "E040202-A33",
+          "label": "문서발송내역",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
+        },
+        {
+          "id": "E040202-A34",
+          "label": "견적서조회 (OLD)",
+          "context": "Option 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-ESTIMATE-SEARCH-CAPTURE"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible in hover-open Option panel in safe screenshot; no deliberate click or action execution"
         }
       ],
       "windows": [],

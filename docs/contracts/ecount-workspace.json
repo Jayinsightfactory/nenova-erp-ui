@@ -14,7 +14,8 @@
     "scripts/ecount-workspace-admin.mjs",
     "scripts/ecount-workspace-sql-check.cjs",
     "components/ecount/ObservedPageControls.js",
-    "components/ecount/QuotePageControls.js"
+    "components/ecount/QuotePageControls.js",
+    "scripts/ecount-workspace-import-safe.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -39,7 +40,8 @@
     "description": "같은 월일의 2025/2026 기간 해시 분리, revision 경합과 복원"
   },
   "requiredTestFiles": [
-    "__tests__/ecountWorkspace.test.cjs"
+    "__tests__/ecountWorkspace.test.cjs",
+    "__tests__/ecountWorkspaceImportSafe.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,

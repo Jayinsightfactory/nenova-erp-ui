@@ -44,3 +44,7 @@ node scripts/check-ecount-button-matches.cjs --require-complete
 현재 코드 대조는 88개 ID 맵 중 77개 컴포넌트 출력 경로를 확인한 정적 근거다. actualStableId가 있어도 DOM 실행·활성화·기능 동등성 확인을 의미하지 않으며 verificationScope를 반드시 함께 표시한다. 11개는 맵만 있고 출력 경로가 확인되지 않아 actualStableId=null이다. 비활성 버튼에 ID가 있어도 기능 구현 완료가 아니다.
 
 모델 회귀검사: `node __tests__/ecountParityReportModel.test.cjs`.
+
+## 견적 안전 투영 검사
+
+2026-10-20 root가 원본 E040202의 2026-09-20~2026-11-19 범위에서 안전 숫자·날짜만 투영한 3행을 별도 SQL에 적재했다고 보고했다. revision 1, readback=true, 반복 적재 idempotent=true이며 CLI의 투영 content hash가 SQL과 일치했다. 실제 행 값이나 hash 값은 보고서에 복사하지 않는다. 이 검사는 안전 투영→SQL 구간만 확인하며 배포된 브라우저의 화면 값, 개인정보 등 제외된 필드, 전체 원본 기능 동등성은 확인하지 않는다. 버튼 조회값 비교 상태는 계속 미검증이다.
