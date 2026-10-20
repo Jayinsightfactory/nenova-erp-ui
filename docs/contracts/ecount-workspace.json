@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/RelationStockPageControls.js",
     "components/ecount/BomStockPageControls.js",
     "components/ecount/StockBalancePageControls.js",
     "components/ecount/ProductLookupOverlay.js",
@@ -93,6 +94,7 @@
     "npm run build"
   ],
   "criteria": {
+    "relationStockSnapshot":"E040728 relStock canonical2879. 원본선택품목1행+실제합계1행만관측,productCode/quantity/convertedQuantity 안전투영. 정확코드·단일asOf일치시에만2행표시/무코드·다른범위미수집(0판정금지). 첫제품typedcode/마지막합계nullcode·isSubtotaltrue/필수2수량·원본합계계산금지. 일반품목필수규칙으로확대금지,전체완전성unknown/수동업로드복원허용/source-latest차단.",
     "bomStockSnapshot":"E040726 bomStock canonical2537. 단일선택productCode1행+quantity/convertedQuantity2필수·단일asOf. I.검색품목은선택품목표이며하위의미추정금지. II.환산수량(상위품목) coverage upperResult=empty_observed|uncollected(기본미수집)만보존,정확선택코드/기준일일치시에만관찰empty표시. 타품목전체BOM없음추정금지/상위행생성금지. 코드는typedASCII/행날짜·소계·빈import거부,source-latest차단/target업로드복원허용.",
     "stockBalanceSnapshot":"E040727 stkBalance canonical2775: productCode와7필수수량, 단일asOf스냅샷. row.monthLabels는원본4월표시정수1..12/유일/전행동일로보존(연도·현재시간파생금지), 기타고정. product1949외원본합계1행isSubtotal=true/productCode=null은마지막에만허용·수량재계산금지. 코드중복/행날짜/빈import거부, source-latest차단. 원본전체성unknown/공유ERP쓰기없음.",
     "stockLedgerPeriod":"E040702 stkLedger canonical215. 기존stock품목코드와visibleheader경계일치1949unique 확인, 안전productCode+openingQuantity/inQuantity/outQuantity/quantity4필수. 원본그룹마다전일재고/합계2행만관측; 상세거래미수집이며행수로거래건수추정금지. 정확기간전체일치만표시,중복코드/소계입력/행날짜거부. 수동안전업로드복원허용/source-latest차단/공유원장무관,미수집이름공백.",
