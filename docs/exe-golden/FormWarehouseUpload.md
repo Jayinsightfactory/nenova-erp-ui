@@ -102,6 +102,18 @@ NULL 행을 제외할 여지가 있다. 웹은 이를 복제해 누락시키지 
 
 ## 교차연도 fixture
 
+### 2026-10-19 중국 기존 입고 원가 연결 근거
+
+로컬 dnSpy CLI로 `ExcelLoadingPackingList.MakeTempTable` 및 `InsertMaster`를 다시 확인했다.
+단수(BunchQuantity), 송이수(SteamQuantity), 단가(UPrice), 금액(TPrice)은 별도 필드다.
+2026년 42-01 HUBFRESH 입고 7671 읽기 전용 대조에서 상품 64행, 2,280단,
+상품금액 57,230 CNY 및 부대비 37,559.5 CNY를 확인했다. 원장 송이 필드와
+원본의 실제 송이 합계가 달라도 단 기준 원가를 송이로 나누지 않는다.
+CN 연결은 CNY/단 및 상품·단가별 단수/금액을 대조하고 기존 67행 전체를 보존한다.
+NULL 품목 2행은 금액 0이며 출고·견적수량 NULL인 경우에만 원가 배분에서 제외한다.
+연결과 원가 저장은 native 입고 생성/SP/재고 재계산을 호출하지 않는다.
+입고·출고·견적·매출 원장은 변경하지 않는다. 실제 운영 원가 저장 검증은 별도 기록한다.
+
 2025년 `33-01`과 2026년 `33-01`이 함께 있어도 G3/명시 입력에서 얻은
 `OrderYear=2026`, `OrderWeek=33-01`을 `usp_StockCalculation`까지 전달한다.
 `OrderWeek`만으로 과거 `WarehouseMaster`, `StockMaster`, `ProductStock`을 선택하거나

@@ -606,6 +606,7 @@ export default function PackingEvidenceReview({
                 </label> : <span className={styles.reviewed}>자동 검산 완료</span>)}
                 <span>{sourceRow.description || '원문 품명 없음'}</span><small>상품 {Number.isInteger(sourceRow.lineIndex) ? sourceRow.lineIndex + 1 : '—'}행</small>
                 <small>{matchedName || '미매칭 · 결과에서 선택 필요'}</small>
+                {sourceRow.quantityWarning && <small role="status">{sourceRow.quantityWarning}</small>}
                 <button type="button" className={styles.sourceEvidenceButton} onClick={() => selectSourceEvidence(entry, evidenceField)} disabled={!Object.keys(sourceRow.evidence || {}).length}>원문 페이지 열기</button>
               </th>
               <td><div className={styles.sourceEditFields}>{Object.entries(current.values || {}).map(([field, value]) => {

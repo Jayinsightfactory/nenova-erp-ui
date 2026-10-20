@@ -91,6 +91,21 @@ export function invoiceCostExportFixture(count = 28, formulaId = 'CN_AIR_WEIGHT_
   return { document, revision, snapshot };
 }
 
+test('CN existing receipt exports by bunch even when preserved native stems differ',async()=>{
+ const f=invoiceCostExportFixture(2,'CN_SEA_ACTUAL_V1');
+ const op=f.document.operations[0];op.action='LINK_EXISTING_COST';op.result.linkMode='EXISTING_CN';
+ f.snapshot.receiptSnapshot.linkMode='EXISTING_CN';
+ for(let i=0;i<2;i++){
+  const native=f.snapshot.receiptSnapshot.details[i],mapping=op.result.lineMappings[i];
+  Object.assign(mapping,{bunchQuantity:native.outQuantity,stemQuantity:native.outQuantity*10,unitPrice:native.unitPrice,lineAmount:native.lineAmount});
+  native.bunchQuantity=native.outQuantity;native.stemQuantity=native.outQuantity;
+ }
+ const before=JSON.stringify(f),bytes=await createInvoiceCostWorkbook(f);
+ assert.ok(bytes.length>0);assert.equal(JSON.stringify(f),before);
+ f.snapshot.receiptSnapshot.details[0].bunchQuantity+=1;
+ await assert.rejects(()=>createInvoiceCostWorkbook(f),{code:'COST_EXPORT_LINE_MISMATCH'});
+});
+
 test('28 rows preserve OOXML style/theme/width/height/merges and exact approved unit/total values', async () => {
   const f = invoiceCostExportFixture(); const bytes = await createInvoiceCostWorkbook(f);
   const zip = await JSZip.loadAsync(bytes);

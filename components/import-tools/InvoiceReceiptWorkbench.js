@@ -558,7 +558,7 @@ export default function InvoiceReceiptWorkbench({
     }).then(readJson);
     try {
       const { preview } = await post({ mode: 'preview' });
-      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.stemQuantity}송이 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
+      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.quantity ?? preview.stemQuantity}${preview.quantityUnit ?? '송이'} 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
       const { result } = await post({ mode: 'link', baselineDigest: preview.baselineDigest, operationId: crypto.randomUUID() });
       const fresh = await readDocument(doc.documentId);
       verifyReceiptDocument(fresh, { ...doc, operationId: result.operationId, warehouseKey: result.warehouseKey });
@@ -1081,7 +1081,7 @@ export default function InvoiceReceiptWorkbench({
       </button>
       <button type="button" className={styles.primary} onClick={saveDraft} disabled={Boolean(busy) || Boolean(selected.recoveryRequired)}>{busy === 'save' ? '초안 저장 중…' : documentValue.revision == null ? '초안 저장' : '변경 초안 저장'}</button>
       <button type="button" onClick={requestPreview} disabled={!canPreview || Boolean(busy)}>{busy === 'preview' ? '미리보기 검증 중…' : '서버 미리보기'}</button>
-      {documentValue.reviewedMetadata?.country === 'NL' && committedOperations.length === 0 && <button type="button" onClick={connectExistingCostOnly}
+      {['NL', 'CN'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <button type="button" onClick={connectExistingCostOnly}
         disabled={selected.dirty || !documentValue.revision || Boolean(busy) || Boolean(selected.pendingOperation)}>
         {busy === 'existing-cost' ? '기존 입고 대조 중…' : '기존 입고 유지 · 원가만 연결'}</button>}
       <button ref={confirmButtonRef} type="button" className={styles.danger} onClick={openCommit} disabled={!canCommitReceipt(selected) || Boolean(busy)}>ERP 입고 등록 확인</button>
