@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
-    "posttest:profit-report-22-28": "npm run test:profit-report-excel-design && node __tests__/profitValidationWindow.test.cjs && node __tests__/profitIndependentAudit.test.cjs && node __tests__/profitReportAcquisitionCarry.test.cjs && node __tests__/profitFormulaAudit.test.cjs && node __tests__/profitReportWorkbookFullParity.test.js",
+    "posttest:profit-report-22-28": "npm run test:profit-report-excel-design && node __tests__/profitValidationWindow.test.cjs && node __tests__/profitIndependentAudit.test.cjs && node __tests__/profitReportAcquisitionCarry.test.cjs && node __tests__/profitFormulaAudit.test.cjs && node __tests__/profitSqlLineageAudit.test.cjs && node __tests__/profitReportWorkbookFullParity.test.js",
     "test:product-bulk": "node __tests__/productMasterSave.test.js && node __tests__/productMasterUi.test.cjs && node __tests__/productBulkEdit.test.js && node __tests__/productBulkSave.test.js && node __tests__/productBulkUi.test.cjs && node __tests__/productCatalogFilter.test.js",
     "pretest:packing-team": "node --test __tests__/packingNlRegression.test.js",
     "pretest:estimate-delete": "node --test __tests__/estimateDuplicateWriteGuard.test.js",
