@@ -61,7 +61,11 @@ test('live collector adapter serializes month slices, projects allowed fields an
  const code=fs.readFileSync('public/shilla-connector/collector.js','utf8').replace('export async function','async function');
  let fail=false;const calls=[],listeners={};
  const ajax={getAttribute:()=>'/ui/sp/pro/gr/findGrSpListEai.do',addEventListener:(k,f)=>listeners[k]=f,removeEventListener:k=>delete listeners[k]};
- const values={};const page={querySelector:()=>ajax,set:(k,v)=>values[k]=v,onFindList:()=>{
+ const values={'searchParam.fdate':new Date('2026-10-20T12:00:00'),'searchParam.tdate':new Date('2026-10-20T12:00:00')};
+ const page={querySelector:()=>ajax,set:(k,v)=>{
+   const other=values[k==='searchParam.fdate'?'searchParam.tdate':'searchParam.fdate'];
+   values[k]=v&&other&&((k==='searchParam.fdate'&&v>other)||(k==='searchParam.tdate'&&v<other))?null:v;
+ },onFindList:()=>{
    const start=values['searchParam.fdate'];calls.push([start.getMonth()+1,values['searchParam.tdate'].getDate()]);
    queueMicrotask(()=>listeners.response({detail:{response:{HEADER:{result_code:fail?'9999':'0000'},lt_srmif6_re:[{budat:`2026${String(start.getMonth()+1).padStart(2,'0')}01`,werks_na:'서울',belnr:'1',buzei:'1',matnr:'A',maktx:'수국',groes:'화이트',meins:'EA',menge:2,netpr:100,wrbtr:200,privateField:'must never leave browser'}]}}}));
  }};
