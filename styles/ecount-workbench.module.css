@@ -109,3 +109,29 @@
 /* Per-screen menus measured on 2026-10-20; do not generalize their heights to other widgets. */
 .page .sourceDatePopover{padding:2px;overflow-y:auto}
 .page .sourceDatePopover>button{flex:1 0 0;min-height:0;height:auto;padding:0 10px;display:flex;align-items:center}
+
+/* E040708 observed search and kind lookup; unrelated pages retain their layout. */
+.inventoryDailyContent{padding:20.578125px 10.828125px 35px;background:#f7f8f9}
+.inventoryDailyContent>.heading{width:755px;max-width:100%;height:30.15625px;align-items:center;border:0;padding:0;margin:0 0 4.328125px;gap:10px}
+.inventoryDailyContent>.heading h1{font-size:14px;line-height:19.5px;font-weight:700;padding-left:30px}
+.inventoryDailyContent>.heading .sourceToolbar{margin:0 0 0 auto;flex-wrap:nowrap}
+.inventoryDailySearch.sourceSearch{width:755px;max-width:100%;height:480.078125px;margin:0 0 14px;padding:0;border:1px solid #dce0e6;background:#fff;border-radius:10.8333px;box-shadow:0 5px 8px #0000001a;display:flex;flex-direction:column}
+.inventoryDailyFields{height:392.0625px;flex:none;padding:10.8333px 24px;display:flex;flex-direction:column;justify-content:space-between}
+.inventoryDailyFields>.searchLine{margin:0;min-height:30.15625px;gap:5px;flex-wrap:nowrap}
+.inventoryDailyFields>.searchLine>span:first-child{flex:0 0 145px;color:#737780;font-size:13px}
+.inventoryDailyFields>.searchLine>input{flex:1;height:30.15625px;min-width:0}
+.inventoryDailySearch>.sourceToolbar{min-height:43.125px;margin:0;padding:4.33333px 8.66667px;background:#f7f8f9;border-radius:0 0 10.8333px 10.8333px;gap:8px}
+.inventoryDailySearch>.sourceToolbar button{font-size:13px;line-height:13px;min-height:25.8125px;height:25.8125px;padding:5.41667px;border:0;background:transparent}
+.inventoryDailySearch>.sourceToolbar .primary{background:#1f48d4;color:#fff}
+.inventoryKindChip{background:#edf1ff;border-radius:4px;padding:3px 7px}
+.inventoryDailySubheading{font-size:16px;font-weight:400;margin:14px 0 6px}
+.inventoryDailyContent .tableWrap th,.inventoryDailyContent .empty{text-align:center;font-size:13px}
+.inventoryKindBody{flex:1;min-height:0;overflow:auto;margin:10px 11px;scrollbar-width:none}
+.inventoryKindBody::-webkit-scrollbar{display:none}
+.inventoryKindBody table{width:936.34375px;table-layout:fixed;border-collapse:collapse;font-size:13px;line-height:18.5714px}
+.inventoryKindBody th{height:39.046875px;background:#f1f2f5;text-align:center;font-weight:400}
+.inventoryKindBody td{height:32.5625px;border:1px solid #d4d6da;padding:3px 6px;vertical-align:middle}
+.inventoryKindBody label{display:flex;align-items:center;gap:5px}.inventoryKindBody input{margin:0;width:13px;height:13px;min-height:0}
+.inventoryPrintMenu{width:151.65625px;min-width:151.65625px;height:73.4375px;box-sizing:border-box}.inventoryPrintMenu button{flex:1}
+
+.poStatusContent{padding:20.578125px 10.828125px 35px}.poStatusContent>.heading{height:30.15625px;width:755px;align-items:center;border:0;margin:0 0 4.328125px;padding:0}.poStatusContent>.heading h1{font-size:14px;line-height:19.5px;padding-left:30px}.poStatusContent>.heading .sourceToolbar{margin:0 0 0 auto}.poStatusContent>.sourceSearch{width:755px;margin-top:0}
