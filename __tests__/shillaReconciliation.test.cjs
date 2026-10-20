@@ -79,6 +79,18 @@ test('SQL SELECT-only exact year and hotel; extension origins restricted',()=>{
  const manifest=JSON.parse(fs.readFileSync('public/shilla-connector/manifest.json'));assert.deepEqual(manifest.permissions,['scripting']);assert.deepEqual(manifest.host_permissions,['https://www.shillasrm.com/*']);
  const background=fs.readFileSync('public/shilla-connector/background.js','utf8');assert.match(background,/sender.frameId!==0/);assert.match(background,/candidates.length!==1/);
 });
+test('connector ignores unavailable tab URLs and selects only the exact logged-in SRM host',async()=>{
+ const code=fs.readFileSync('public/shilla-connector/background.js','utf8').replace(/^import .*;\r?\n/,'');
+ let handler,selected;
+ const chrome={runtime:{id:'test',onMessage:{addListener:f=>handler=f}},tabs:{query:async()=>[
+  {id:1},{id:2,url:'not a URL'},{id:3,url:'https://other.example/afterLoginOK.do'},
+  {id:4,url:'https://www.shillasrm.com/afterLoginOK.do'}]},
+  scripting:{executeScript:async args=>{selected=args.target.tabId;return [{result:{success:true,rows:[]}}];}}};
+ vm.runInNewContext(code,{chrome,collectReceipts:()=>{},Date});
+ const result=await new Promise(resolve=>handler({action:'receipts',from:'2026-10-07',to:'2026-10-20'},
+  {id:'test',tab:{},frameId:0,url:'https://nenovaweb.com/raum/shilla-analysis?popup=1'},resolve));
+ assert.equal(result.success,true);assert.equal(selected,4);
+});
 test('multipart API parses workbook, reloads DB, compares and rejects wrong source scope',async()=>{
  const http=require('node:http'),XLSX=require('xlsx'),babel=require('next/dist/compiled/babel/core');
  const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise,matching=await import('../lib/shillaAnalysisMatching.js');
@@ -134,4 +146,13 @@ test('unknown packs are suggestions only; explicit pack sizes and unique names r
  assert.equal(reconcileShilla(x).complete,true);
  x.receipts[0].name='[수입] 행사용꽃, 히야신스, 화이트 (PK)';assert.equal(reconcileShilla(x).unmatched.length,1);
  x.db.push({...a,unit:'단',prodKey:2999,prodName:'Other cultivar'});assert.equal(Object.keys(reconcileShilla(x).suggestedMappings).length,0);
+});
+test('qualified SRM varieties cannot collapse into an ordinary same-color saved product',async()=>{
+ const {reconcileShilla}=await modulePromise;
+ const a={...item,name:'수국 · 연그린',unit:'스팀',prodKey:883,prodName:'Hydrangea light green'};
+ const x={...input(),db:[a],excel:[a],receipts:[{...receipt,name:'[수입] 행사용꽃, 수국, 연그린, 콜롬비아 (EA)',spec:'-'}]};
+ assert.equal(reconcileShilla(x).complete,true);
+ for(const name of ['[수입] 행사용꽃, 수국, 엔틱, 연그린, CO (EA)','[수입] 행사용꽃, 수국, 염색, 연그린, 콜롬비아 (EA)']){
+  x.receipts[0].name=name;const r=reconcileShilla(x);assert.equal(r.unmatched.length,1);assert.equal(Object.keys(r.suggestedMappings).length,0);
+ }
 });

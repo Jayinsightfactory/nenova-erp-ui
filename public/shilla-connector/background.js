@@ -11,7 +11,7 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
       const valid=value=>/^20\d{2}-\d{2}-\d{2}$/.test(value||'')&&new Date(`${value}T12:00:00Z`).toISOString().slice(0,10)===value;
       if(!valid(message.from)||!valid(message.to)||message.from>message.to||message.from.slice(0,4)!==message.to.slice(0,4)) throw new Error('같은 연도 안의 입고기간을 지정하세요.');
       const tabs=await chrome.tabs.query({url:'https://www.shillasrm.com/*'});
-      const candidates=tabs.filter(t=>new URL(t.url).pathname==='/afterLoginOK.do');
+      const candidates=tabs.filter(t=>/^https:\/\/www\.shillasrm\.com\/afterLoginOK\.do(?:[?#]|$)/.test(t.url||''));
       if(candidates.length!==1) {
         const allowed=await chrome.permissions.contains({origins:['https://www.shillasrm.com/*']});
         throw new Error(candidates.length?'신라 로그인 탭을 하나만 남겨주세요.':`신라 로그인 탭을 찾지 못했습니다. 신라 접근권한: ${allowed?'허용':'미허용'}, 신라 탭: ${tabs.length}개, 분석 창: ${sender.tab.incognito?'시크릿':'일반'}. 같은 Chrome 프로필에서 입고실적을 여세요.`);
