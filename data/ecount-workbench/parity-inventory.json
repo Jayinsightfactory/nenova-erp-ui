@@ -22998,6 +22998,258 @@
           ],
           "testEvidence": [],
           "behavior": "Only explicitly observed query/mode transitions; other labels unexecuted"
+        },
+        {
+          "id": "E040702-A32",
+          "label": "품목 검색",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Source lookup/menu observed"
+        },
+        {
+          "id": "E040702-A33",
+          "label": "new-window",
+          "context": "품목 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A34",
+          "label": "pin",
+          "context": "품목 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A35",
+          "label": "refresh",
+          "context": "품목 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A36",
+          "label": "maximize",
+          "context": "품목 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A37",
+          "label": "close",
+          "context": "품목 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A38",
+          "label": "사용중단포함",
+          "context": "품목 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A39",
+          "label": "Fn",
+          "context": "품목 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A40",
+          "label": "Search(F3)",
+          "context": "품목 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A41",
+          "label": "Option",
+          "context": "품목 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A42",
+          "label": "적용(F8)",
+          "context": "품목 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Unique selectedcode1 matches requested; DOM2elements duplicate; dialogclosed,onegroup2rows4numericmatches"
+        },
+        {
+          "id": "E040702-A43",
+          "label": "My품목",
+          "context": "품목 선택창 하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A44",
+          "label": "My품목 드롭다운",
+          "context": "품목 선택창 하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A45",
+          "label": "닫기",
+          "context": "품목 선택창 하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A46",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Source lookup/menu observed"
+        },
+        {
+          "id": "E040702-A47",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A48",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040702-A49",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040702-PRODUCT-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Presence only; behavior unexecuted"
         }
       ],
       "windows": [],

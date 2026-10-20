@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/ProductLookupOverlay.js",
     "components/ecount/StockLedgerPageControls.js",
     "components/ecount/WarehouseLookupOverlay.js",
     "components/ecount/StockMovementPageControls.js",
