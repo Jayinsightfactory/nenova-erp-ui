@@ -18,5 +18,9 @@ rollback은 과거 버전의 활성 포인터만 변경하며 과거 이력은 �
 
 EXE 예외: 독립 웹 전용 데이터 보관소이며 OrderMaster/OrderDetail/ShipmentMaster/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/Stock/WebProfitReport 및 View/SP에는 읽기·쓰기 하지 않는다. 따라서 새 EXE 메서드 추출 및 ERP probe 해당 없음. 기존 ECOUNT 웹 테이블 구조는 lib/ecountIngest.js를 기준으로 사용. 실제 SQL 실행/마이그레이션 검증은 별도 기록 전까지 미검증.
 
-지원 데이터셋 cash/ar/ap/sales 및 견적조회 E040202의 quote 업로드를 적재한다. quote는 원본 날짜표시와 견적금액합계 estimateTotal만 보존하며 거래처·품목·비고·진행상태·최초작성일자 등은 수집하지 않는다. 기존 WebEcountSnapshot 가져오기는 cash/ar/ap/sales 네 종류에 한정하고 quote의 import-latest는 트랜잭션 전에 거부한다. 기존 ecount_work JSON 버전 구조를 사용하며 신규 DDL은 없다.
+지원 데이터셋 cash/ar/ap/sales 및 견적조회 E040202의 quote 업로드를 적재한다. quote의 기본 투영은 원본 날짜표시와 견적금액합계 estimateTotal이며 거래처·품목·비고·최초작성일자 등은 수집하지 않는다. 진행상태는 아래 증거 enum 계약에 따라 선택적으로 보존한다. 기존 WebEcountSnapshot 가져오기는 cash/ar/ap/sales 네 종류에 한정하고 quote의 import-latest는 트랜잭션 전에 거부한다. 기존 ecount_work JSON 버전 구조를 사용하며 신규 DDL은 없다.
 숫자는 문자열로 보존; 이름·계좌·거래처코드·상품명·메모는 제외. 이 제약 때문에 원본 전체 데이터와 100% 동등한 복사본이 아니다. 다른 페이지의 데이터 수집은 개별 스키마·개인정보 정책 확정 전 지원하지 않는다.
+
+quote의 상태 필드는 선택 사항이다. 원본 담당자가 DOM의 진행중·완료 상태셀을 직접 확인했으므로 `quoteStatus=in_progress|completed`를 허용하며 `statusEvidence=row_cell`(원본 행 상태셀 확인) 또는 `query_filter`(해당 상태 조건으로 조회된 행)를 함께 전달한다. 화면에서 보이는 행수는 가상스크롤/페이지의 부분 결과일 수 있어 전체총수로 간주하지 않으며 수집 완전성은 unknown이다. 화면의 여섯 상태 탭을 관찰했다는 이유만으로 별도 결재/확인 단계의 미확인 행 상태코드를 만들지 않는다. 두 필드가 없는 과거 행은 그대로 보존해 해시가 바뀌지 않으며 미상으로 표시한다. 단독 필드·null·미확인 enum·타 데이터셋·소계행 상태는 거부한다. 상태가 추가된 자료는 새 버전이며 이전 버전은 수정하지 않는다.
+
+상태필터는 저장된 행 중 확인된 진행중 또는 완료만 반환한다. 미상 전체 행수와 다른 필터를 통과했지만 상태 미상으로 제외된 행수를 따로 반환한다. `statusCoverage`는 현재 보관된 행의 상태근거 범위이며 수집 완전성이나 ECOUNT 전체 상태를 의미하지 않는다. 빈 수집 결과에는 행별 조건 근거가 없으므로 `unknown`을 유지하고 가짜 행을 만들지 않는다.

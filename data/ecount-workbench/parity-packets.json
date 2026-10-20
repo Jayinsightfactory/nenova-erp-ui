@@ -17,7 +17,9 @@
     "previousWeeklyConsumedPercentBaseline": 26,
     "workerReuse": true,
     "sourceBrowserOwner": "root",
-    "lastCheckpoint": "Resume existing three workers; account-wide weekly used 41%, not task tokens"
+    "lastCheckpoint": "2026-10-20 resume: account-wide weekly used 69%, remaining 31%; reuse existing workers. Not task-token usage.",
+    "latestWeeklyConsumedPercent": 69,
+    "latestWeeklyRemainingPercent": 31
   },
   "foundations": [
     {
@@ -85,7 +87,6 @@
       "maxActiveWorkers": 1,
       "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
       "resumeFrom": "E010205",
-      "priority": 1,
       "activeScreen": "E010205",
       "owner": "ui_packets",
       "screenWork": [
@@ -93,7 +94,8 @@
           "id": "E010205",
           "stage": "implementation-in-progress"
         }
-      ]
+      ],
+      "priority": 3
     },
     {
       "id": "P003",
@@ -111,7 +113,6 @@
       "maxActiveWorkers": 1,
       "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
       "resumeFrom": "E040214",
-      "priority": 2,
       "activeScreen": "E040214",
       "owner": "ui_packets",
       "screenWork": [
@@ -148,7 +149,7 @@
       "screenWork": [
         {
           "id": "E040304",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040303",
@@ -164,10 +165,11 @@
         }
       ],
       "remaining": [
-        "Source 진행중 filter absent in target",
-        "Nonempty browser result comparison pending",
+        "Source 진행중 status filter absent in target; six status tabs need grounded IDs and transition survey",
+        "Safe date/amount 3 rows / 6 values matched deployed DOM only; excluded fields and complete conditions unverified",
         "Other source buttons, Option actions, permissions and error states not fully verified"
-      ]
+      ],
+      "priority": 1
     },
     {
       "id": "P005",
@@ -328,22 +330,21 @@
         "E040301",
         "E040306"
       ],
-      "stage": "awaiting-evidence",
+      "stage": "partially-implemented",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040207",
       "maxActiveWorkers": 1,
-      "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
+      "checkpoint": "Sales search/presets/result toolbar and print-preview new-tab path partially implemented; source/production week counts 0/0 only. Target preview contents blocked by browser blob policy; no bypass, no complete window match.",
       "resumeFrom": "E040207",
-      "priority": 4,
       "activeScreen": "E040207",
       "owner": "root-source-survey",
       "screenWork": [
         {
           "id": "E040207",
-          "stage": "partial-observation-awaiting-detail"
+          "stage": "partial-implementation-awaiting-behavior-and-value-parity"
         },
         {
           "id": "E040216",
@@ -381,7 +382,8 @@
           "id": "E040306",
           "stage": "pending-source-survey"
         }
-      ]
+      ],
+      "priority": 2
     },
     {
       "id": "P012",
@@ -472,7 +474,6 @@
       "maxActiveWorkers": 1,
       "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
       "resumeFrom": "E040309",
-      "priority": 3,
       "activeScreen": "E040309",
       "owner": "root-source-survey",
       "screenWork": [
@@ -1468,5 +1469,23 @@
       "Unknown buttons and missing evidence remain unverified; no empty completion report"
     ],
     "futureAuthoring": "Read spreadsheet/artifact authoring skill before creating Excel"
+  },
+  "resumeScope": {
+    "date": "2026-10-20",
+    "totalPackets": 59,
+    "fullyUnobservedPackets": 54,
+    "partiallyObservedPackets": 5,
+    "totalPrograms": 373,
+    "programsWithObservedActions": 6,
+    "programsWithoutObservedActions": 367,
+    "unobservedProgramsInsidePartialPackets": 20,
+    "verifiedPackets": 0,
+    "verifiedPrograms": 0,
+    "priorityPackets": [
+      "P004",
+      "P011",
+      "P002"
+    ],
+    "countDefinition": "Observation means at least one source action has evidence; metadata menu inventory and generic UI do not count as full observation or parity implementation."
   }
 }
