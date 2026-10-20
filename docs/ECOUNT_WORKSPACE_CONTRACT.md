@@ -48,3 +48,12 @@ journal(E010701 회계거래조회)는 기존 ERP 회계원장과 무관한 독�
 salesTax(E040218 세금계산서조회)는 날짜와 supplyAmt/vat/total만 독립작업영역에 적재한다. 20행은 부분표본이며 전체수집unknown이다. 사용자가 승인한 target 업로드·버전·복원을 기존정책으로 허용하고 ECOUNT원본 발행/수정/삭제는 수행하지 않는다. source-latest는 미연결로 금지, 공유회계원장 읽기쓰기 없음.
 
 stock(E040701)는 원본 품목코드 열에서 확인한 productCode를 stock에만 typed 예외로 허용한다(/[A-Za-z0-9._\/-]{1,60}/ 전체일치). quantity는 정확소수문자열, 제품명은 미수집. 코드중복/소계/행날짜는 거부하며 단일기준일 periodFrom=periodTo가 필요하다. 2026-10-20 안전1949행은 부분표본으로 전체성unknown. 다른dataset코드허용을 확대하지 않고 공유재고원장을 읽거나 쓰지 않는다.
+
+
+## 관측된 빈 결과 전용 범위 (2026-10-20)
+
+`ordEmpty`는 E040209의 등록된 현황/라인별 조회 조건 하나만 저장한다. 기존 `orderStat` 읽기전용 정책과 배열형 버전의 해시는 변경하지 않는다. 신규 버전의 `RowsJson`에는 `{formatVersion:1,rows:[],coverage:{...}}`를 저장하며 실제 `RowCount`는 0이다. 데이터 행을 만들어 빈 결과를 표현하지 않는다. 이 envelope는 다른 dataset에 허용되지 않는다.
+
+허용 조건은 2026-10-20 하루, 현황/라인별, 비교 사용안함, 내외자 전체, 그래프 미선택, 창고·거래처·품목 선택 없음, 품목별 납기 미지정이다. `lib/ecountObservedCoverage.cjs`의 고정 프로필과 필드·값·빈 선택 배열이 모두 같아야 한다. 현재 결과 GET도 같은 criteria를 SQL 실행 전에 검증한다. 다른 날짜·조건·알 수 없는 필드는 거부하며 UI는 미수집으로 구분한다.
+
+근거 `order-status-observed-empty-criteria.json`의 확인 직후 기록시각은 2026-10-20T11:17:01.4254316Z이다. `evidenceTimeKind=verification_recorded_at`, `sourceQueryExecutedAt=null`로 원본 서버 실행시각과 구분한다. 근거·조건은 content hash에 포함되고 버전은 불변이다. 활성화 시 저장된 envelope를 재검증하며 기존 optimistic revision 및 감사 트랜잭션을 재사용한다. 신규 DDL과 ECOUNT/공유 원장 쓰기는 없다.
