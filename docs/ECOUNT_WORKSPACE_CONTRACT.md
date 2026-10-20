@@ -57,3 +57,8 @@ stock(E040701)는 원본 품목코드 열에서 확인한 productCode를 stock�
 허용 조건은 2026-10-20 하루, 현황/라인별, 비교 사용안함, 내외자 전체, 그래프 미선택, 창고·거래처·품목 선택 없음, 품목별 납기 미지정이다. `lib/ecountObservedCoverage.cjs`의 고정 프로필과 필드·값·빈 선택 배열이 모두 같아야 한다. 현재 결과 GET도 같은 criteria를 SQL 실행 전에 검증한다. 다른 날짜·조건·알 수 없는 필드는 거부하며 UI는 미수집으로 구분한다.
 
 근거 `order-status-observed-empty-criteria.json`의 확인 직후 기록시각은 2026-10-20T11:17:01.4254316Z이다. `evidenceTimeKind=verification_recorded_at`, `sourceQueryExecutedAt=null`로 원본 서버 실행시각과 구분한다. 근거·조건은 content hash에 포함되고 버전은 불변이다. 활성화 시 저장된 envelope를 재검증하며 기존 optimistic revision 및 감사 트랜잭션을 재사용한다. 신규 DDL과 ECOUNT/공유 원장 쓰기는 없다.
+
+
+## 견적서현황의 별도 빈 결과 프로필
+
+`quoteEmpty`는 E040208의 2026-10-20 현황/전표별, 비교 없음, 내외자 전체, 견적No·시리얼/로트 빈값, 창고·프로젝트·관리항목·거래처·품목 빈선택, 그래프 없음, 양식 견적서현황에만 대응한다. 근거기록시각은 2026-10-20T11:34:11.177Z이며 서버 실행시각은 null이다. `PROFILES.quoteEmpty`와 기존 `PROFILES.ordEmpty`를 구분하고, 각각 서버 GET·import·activate에서 해당 envelope를 검증한다. 기존 ordEmpty의 프로필 값과 content hash, quoteStat의 읽기전용/집계 정책은 보존한다.
