@@ -11,25 +11,25 @@ export function parseOptions(args) {
 }
 export function prepareSafeInput(options,document) {
   const rows=policy.sanitizeRows(options.dataset,Array.isArray(document)?document:document?.rows);
-  if(!rows.length)throw Error('EMPTY_IMPORT');
-  return policy.prepareImport({dataset:options.dataset,menuId:options['menu-id'],periodFrom:options['period-from']||null,periodTo:options['period-to']||null,rows});
+  if(!rows.length&&options.dataset!=='ordEmpty')throw Error('EMPTY_IMPORT');
+  return policy.prepareImport({dataset:options.dataset,menuId:options['menu-id'],periodFrom:options['period-from']||null,periodTo:options['period-to']||null,rows,...(document?.coverage?{coverage:document.coverage}:{})});
 }
 export function loadDatabaseEnvironment(text,environment=process.env) {
   for(const line of text.split(/\r?\n/)){const match=line.match(/^\s*(DB_[A-Z0-9_]+)\s*=\s*(.*)$/);if(match)environment[match[1]]=match[2].trim().replace(/^("|')|("|')$/g,'');}
 }
 export async function importSafe(input,store) {
   input=policy.prepareImport(input);
-  if(!input.rows.length)throw Error('EMPTY_IMPORT');
+  if(!input.rows.length&&!input.coverage)throw Error('EMPTY_IMPORT');
   const user={userId:'nenovaSS3',authority:1,accountActive:true};
   if(!await store.activeAdmin(user))throw Error('ACTIVE_ADMIN_REQUIRED');
   if(!await store.installed())throw Error('WORKSPACE_NOT_INSTALLED');
-  const scope={dataset:input.dataset,menuId:input.menuId};
+  const scope={dataset:input.dataset,menuId:input.menuId,...(input.coverage?{criteria:input.coverage.criteria}:{})};
   const before=await store.readWorkspace(scope);
   const body={...input,action:'import',reasonCode:'IMPORT'};
   const saved=await store.saveVersion({...body,expectedRevision:before.revision},user);
   function verify(current,result) {
     if(!current.version||current.revision!==result.revision||current.version.versionId?.toLowerCase()!==result.versionId?.toLowerCase())throw Error('READBACK_MISMATCH');
-    if(policy.prepareImport({...scope,periodFrom:current.version.periodFrom,periodTo:current.version.periodTo,rows:current.version.rows}).hash!==input.hash)throw Error('READBACK_CONTENT_MISMATCH');
+    if(policy.prepareImport({...scope,periodFrom:current.version.periodFrom,periodTo:current.version.periodTo,rows:current.version.rows,...(current.version.coverage?{coverage:current.version.coverage}:{})}).hash!==input.hash)throw Error('READBACK_CONTENT_MISMATCH');
   }
   const after=await store.readWorkspace(scope);verify(after,saved);
   const duplicate=await store.saveVersion({...body,expectedRevision:after.revision},user);

@@ -1,7 +1,7 @@
 {
   "id":"ecount-page-actions",
   "title":"ECOUNT 조회 화면의 무부작용 검색·정렬·출력 모델",
-  "scope":["pages/_app.js","components/ecount/useLookupWindow.js","lib/ecountLookupWindow.cjs","pages/ecount/lookup.js","lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
+  "scope":["lib/ecountObservedCoverage.cjs","components/ecount/EcountNavigation.js","pages/_app.js","components/ecount/useLookupWindow.js","lib/ecountLookupWindow.cjs","pages/ecount/lookup.js","lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"LOCAL_FILTER_SORT_EXPORT_MODEL","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":[]}],
   "crossYearFixture":{"required":true,"description":"연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"},
@@ -31,5 +31,6 @@
     "writes":"없음"
   }
 ,
-  "criteriaLedger": {"stockMovementModes":"E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."}
+  "criteriaLedger": {"stockMovementModes":"E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."},
+  "observedEmptyContract": "ordEmpty E040209 dedicated scope, no change to orderStat readonly or old array-version hashes. Only registered 2026-10-20 detail/line/no-comparison/all-trade/no-graph/empty selections/no delivery period profile is allowed. JSON envelope contains zero rows and validated coverage; RowCount0 is a real observed empty result, never a fake row. Evidence recordedAt2026-10-20T11:17:01.4254316Z is verification_recorded_at, not server execution timestamp. Same criteria revalidated on server current GET and import, unknown scope rejected before SQL. Existing ledger/ECOUNT writes forbidden, no runtimeDDL. Cross-year and unknown filter fixtures mandatory."
 }

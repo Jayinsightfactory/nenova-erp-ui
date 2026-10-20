@@ -7,7 +7,7 @@ const React=require('react');
 const {renderToStaticMarkup}=require('react-dom/server');
 const babel=require('next/dist/compiled/babel/core');
 const root=path.join(__dirname,'..'),cache=new Map();
-const styles=new Proxy({},{get:(_,key)=>key});
+const styles=new Proxy({},{get:(_,key)=>key==='__esModule'?false:key});
 function compile(source,filename){return babel.transformSync(source,{filename,babelrc:false,configFile:false,presets:[[require('next/babel'),{'preset-env':{modules:'commonjs'}}]]}).code;}
 function load(relative){
   const file=path.resolve(root,relative);if(cache.has(file))return cache.get(file).exports;
@@ -285,7 +285,37 @@ test('movement mode change invalidates request/version/history and isolates API 
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const fn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='changeMovementMode');const calls={};const requestId={current:7};const env={busy:false,movementMode:'aggregate',requestId};for(const name of ['setVersion','setRevision','setHistory','setAudit','setDialog','setUpload','setSheet','setRollbackId','setError','setMessage','setRowQuery','setMovementMode'])env[name]=value=>calls[name]=value;
  vm.runInNewContext('('+source.slice(fn.start,fn.end)+')',env)('daily');assert.equal(requestId.current,8);assert.equal(calls.setVersion,null);assert.equal(calls.setRevision,null);assert.equal(calls.setMovementMode,'daily');assert.equal(calls.setHistory.length,0);
  const apiFn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='api');let request;
- const api=vm.runInNewContext('('+source.slice(apiFn.start,apiFn.end)+')',{URLSearchParams,workspaceDataset:'stkDaily',dataset:'stockMove',menuId:'MENUTREE_001713',fetch:async(url,options)=>{request={url,options};return {ok:true,json:async()=>({success:true})};}});
+ const api=vm.runInNewContext('('+source.slice(apiFn.start,apiFn.end)+')',{URLSearchParams,orderCriteria:{},workspaceDataset:'stkDaily',dataset:'stockMove',menuId:'MENUTREE_001713',fetch:async(url,options)=>{request={url,options};return {ok:true,json:async()=>({success:true})};}});
  await api('current',{action:'import'});assert(request.url.includes('dataset=stkDaily'));assert.equal(JSON.parse(request.options.body).dataset,'stkDaily');
  const panel=load('components/ecount/StockMovementPageControls.js').StockMovementSearchPanel;const html=renderToStaticMarkup(React.createElement(panel,{mode:'monthly',from:'2026-10-20',to:'2026-10-20'}));assert(html.includes('E040719-A22'));assert(!html.includes('name="stock-move-0" disabled'));
+});
+
+test('observed sidebar follows manifest ancestry and leaf selection without querying groups',()=>{
+ const file=path.join(root,'components/ecount/EcountNavigation.js');const states=[];let index=0;const calls=[];
+ const mock={...React,useState:initial=>{const i=index++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},useMemo:fn=>fn(),useEffect(){}};const box={exports:{}};
+ vm.runInNewContext(compile(fs.readFileSync(file,'utf8'),file),{module:box,exports:box.exports,require:id=>id==='react'?mock:id.endsWith('.css')?styles:require(id)});
+ const menus=require('../data/ecount-workbench/source-menu.json').menus;const props={menus,tab:'MENUTREE_000004',menuId:'MENUTREE_002537',busy:false,onSelect:id=>calls.push(id),children:React.createElement('p',null,'report')};
+ const build=()=>{index=0;return box.exports.default(props);};const find=(tree,predicate)=>{if(!tree||typeof tree!=='object')return null;if(predicate(tree))return tree;for(const child of React.Children.toArray(tree.props?.children)){const hit=find(child,predicate);if(hit)return hit;}return null;};
+ let tree=build();const html=renderToStaticMarkup(tree);assert(html.includes('aria-label="업무 그룹"'));assert(html.includes('BOM환산재고현황'));assert(html.includes('aria-current="page"'));assert(!html.includes('메뉴 수'));assert.equal(box.exports.menuAncestors(menus,props.menuId).length,4);
+ const leaf=find(tree,n=>n.type==='button'&&n.props['aria-current']==='page');leaf.props.onClick();assert.deepEqual(calls,['MENUTREE_002537']);calls.length=0;
+ const group=find(tree,n=>n.type==='button'&&n.props['aria-expanded']===true);group.props.onClick();assert.equal(calls.length,0);tree=build();assert(!renderToStaticMarkup(tree).includes('aria-current="page"'));
+ const top=find(tree,n=>n.type==='button'&&n.props['aria-pressed']===false);top.props.onClick();assert.equal(calls.length,0);tree=build();assert(!renderToStaticMarkup(tree).includes('BOM환산재고현황'));
+ props.busy=true;tree=build();const disabled=find(tree,n=>n.type==='button'&&n.props.disabled);disabled.props.onClick();assert.equal(calls.length,0);
+});
+test('BOM scoped search card keeps source labels and query controls, outside pages retain shared search class',()=>{
+ const c=load('components/ecount/BomStockPageControls.js');const html=renderToStaticMarkup(React.createElement(c.BomStockSearchPanel,{asOf:'2026-10-20',productCode:''}));assert(html.includes('bomSearchCard'));assert(html.includes('기본'));assert(html.includes('양식구분'));assert(html.includes('E040726-A05'));assert(!html.includes('type="submit" class="primary" disabled'));
+ const toolbar=renderToStaticMarkup(React.createElement(c.BomStockToolbar,{searchOpen:true}));assert(toolbar.includes('hidden=""'));assert(toolbar.includes('Option'));
+ const css=fs.readFileSync(path.join(root,'styles/ecount-workbench.module.css'),'utf8');assert(css.includes('.bomSearchCard.sourceSearch{width:755px'));assert(css.includes('.sidebar{flex:0 0 239.328125px'));assert(css.includes('.groupbar{position:absolute;left:170.40625px'));
+});
+
+test('order detail empty observation requires exact server coverage; other dates never fabricate zero',async()=>{
+ const coverage=require('../lib/ecountObservedCoverage.cjs');const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const find=name=>component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
+ const version={dataset:'ordEmpty',rows:[],periodFrom:'2026-10-20',periodTo:'2026-10-20',coverage:coverage.PROFILE};const criteria=coverage.PROFILE.criteria;
+ const select=(v,c)=>vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset:'orderStat',orderReportMode:'detail',orderCriteria:c,version:v,observedCoverage:coverage});
+ assert.equal(select(version,criteria).observedEmpty,true);assert.equal(select({...version,coverage:null},criteria).snapshotUnavailable,true);assert.equal(select(version,{...criteria,periodFrom:'2026-10-19'}).snapshotUnavailable,true);assert.equal(select(null,criteria).snapshotUnavailable,true);
+ const loaded=render({dataset:'orderStat',rows:[],dataState:'loaded',orderReportMode:'detail'});assert(loaded.includes('등록된 데이터가 없습니다.'));assert(render({dataset:'orderStat',rows:[],dataState:'uncollected',orderReportMode:'detail'}).includes('아직 수집되지 않았습니다'));
+ let fetched=0,stored='old',revision=1;const env={dataset:'orderStat',workspaceDataset:'ordEmpty',orderCriteria:criteria,observedCoverage:coverage,requestId:{current:0},setBusy(){},setError(){},setLoginNeeded(){},setVersion:v=>stored=v,setRevision:v=>revision=v,api:async()=>{fetched++;return{version,revision:2};}};
+ const runLoad=vm.runInNewContext('('+source.slice(find('load').start,find('load').end)+')',env);await runLoad({...criteria,periodTo:'2026-10-21'});assert.equal(fetched,0);assert.equal(stored,null);assert.equal(revision,null);await runLoad(criteria);assert.equal(fetched,1);assert.equal(stored,version);
+ let url;const api=vm.runInNewContext('('+source.slice(find('api').start,find('api').end)+')',{URLSearchParams,workspaceDataset:'ordEmpty',orderCriteria:criteria,menuId:'MENUTREE_000575',fetch:async u=>{url=u;return{ok:true,json:async()=>({success:true})};}});await api();assert.deepEqual(JSON.parse(new URLSearchParams(url.split('?')[1]).get('criteria')),criteria);
+ const panel=load('components/ecount/OrderStatusPageControls.js').OrderStatusSearchPanel;const html=renderToStaticMarkup(React.createElement(panel,{mode:'detail',from:'2026-10-20',to:'2026-10-20'}));assert(html.includes('value="2026-10-20"'));assert(!html.includes('aria-label="조회 시작일" disabled'));
 });

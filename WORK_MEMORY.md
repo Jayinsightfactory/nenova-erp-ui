@@ -542,3 +542,13 @@
 
 - 후속 UI: 주문서현황751px/검색옵션, 견적서현황716px·집계875px/Excel 메뉴 관측차이를 보정했다. P019 UI는 표시 프로그램 stockMove를 유지하되 API·버전·sanitize scope를 집계/일별/월별 독립 dataset으로 전환하며, 모드 변경 시 요청 세대/버전/이력/업로드를 초기화한다. UI 표적37개 통과, 신규 거래유형·잔량 재계산 없음. root의 양 모드 독립 wrapper 대조도 각각3899행 전필드 불일치0이며 아직 SQL 미적재다.
 검색어: 주문서현황 견적서현황 P019 mode scope stale request nullable balance 873
+
+
+### 2026-10-20 P019 릴리스와 명시적 빈 결과 후속
+- PR1152 배포39413116701 성공 후 root 운영 검증: BOM 최초 F3 복구, 선택2수량 exact0/두 표781/다른 코드·날짜 미수집. relStock 실제2행4수량 exact0/표751/합계span2/F3조건보존/인쇄3메뉴 확인. 전체 동등성 완료 판정은 아니다.
+- P019 일별·월별/주문·견적 보완 HEAD0d65dd79 필수5종 통과, PR1153 CI39414094040 성공 후 squash88b43333, 배포39414517963 진행 중. root 실제 stkDaily/stkMonth 각각3899행 revision1/readbacktrue/idempotenttrue를 적재했고 receipt를 보존했다. 원본/공유 원장 쓰기 없음.
+- 다음 ordEmpty는 실제 원본 빈 결과가 확인된 E040209 정확 프로필만 저장하는 0행 envelope다. 현재시각을 원본 조회시각으로 만들지 않고 근거기록시각과 서버시각 미수집을 분리했다. 기존 orderStat/hash/집계/unknown 정책을 보존하며 신규DDL 없음. mock import/rollback/서버 조건 거부/CLI readback 회귀 통과, 실제SQL/운영은 아직 미검증. shell/sidebar+BOM755 UI와 다음 한 묶음 검사 예정이다.
+검색어: PR1153 stkDaily stkMonth ordEmpty observed_empty verification_recorded_at ECOUNT envelope shell BOM755
+
+- shell/읽기메뉴·sidebar·BOM755 UI와 ordEmpty 연결 최종freeze. 현재 GET의 실제 criteria를 서버와 동일한 프로필로 검증하고, profile밖은 SQL호출 없이 미수집으로 전환한다. rows0만으로 빈결과를 단정하지 않고 coverage 검증된 버전만 표시한다. 기존 EmptyState37+Navigation3=40 UI검사 통과, 실제 픽셀 일치는 배포 후 미검증이다.
+검색어: EcountNavigation 읽기메뉴 BOM755 observed_empty ordEmpty 40tests
