@@ -1,6 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planExistingReceiptLink } from '../lib/invoiceExistingReceipt.js';
+import { planExistingReceiptLink, loadExistingReceiptHeader } from '../lib/invoiceExistingReceipt.js';
+
+const types = { Int: 'int', NVarChar: 'nvarchar' };
+test('native receipt without Farm master can be selected and fully reconciled without writes', async () => {
+ const f=chinaFixture(); f.document.farmKey=null;
+ const calls=[];
+ const result=await loadExistingReceiptHeader({types,document:f.document,locked:true,queryFn:async(sql,params)=>{
+  calls.push(sql); assert.match(sql,/OrderYear=@year AND OrderWeek=@week/);
+  assert.match(sql,/InvoiceNo=@invoice/); assert.match(sql,/YEAR\(InputDate\)=TRY_CONVERT\(int,@invoiceYear\) AND isDeleted=0/);
+  assert.match(sql,/WITH \(UPDLOCK,HOLDLOCK\)/); assert.doesNotMatch(sql,/FarmName=@farmName/);
+  assert.equal(params.year.value,'2026'); assert.equal(params.invoiceYear.value,'2026');
+  return {recordset:[f.header]};
+ }});
+ assert.equal(calls.length,1); assert.equal(result.farmName,'Holex');
+ assert.equal(planExistingReceiptLink(f.document,result.header,f.details,result.farmName).quantity,10);
+});
+for (const count of [0,2]) test(`missing Farm never selects arbitrarily from ${count} receipts`, async()=>{
+ const f=fixture();
+ await assert.rejects(loadExistingReceiptHeader({types,document:f.document,queryFn:async()=>({recordset:Array.from({length:count},()=>f.header)})}),{code:'EXISTING_RECEIPT_MISMATCH'});
+});
+for (const farmKey of [0,123]) test(`explicit invalid Farm ${farmKey} cannot silently fall back to another receipt`,async()=>{
+ const f=fixture();f.document.farmKey=farmKey;let calls=0;
+ await assert.rejects(loadExistingReceiptHeader({types,document:f.document,queryFn:async sql=>{
+  calls++; assert.match(sql,/existing-cost:farm/);return {recordset:[]};
+ }}),{code:'EXISTING_RECEIPT_MISMATCH'});assert.equal(calls,1);
+});
+test('explicit Farm remains a mandatory narrowing filter',async()=>{
+ const f=fixture();f.document.farmKey=123;
+ const result=await loadExistingReceiptHeader({types,document:f.document,queryFn:async(sql,params)=>{
+  if(sql.includes('existing-cost:farm')) return {recordset:[{FarmName:'Holex'}]};
+  assert.match(sql,/AND FarmName=@farmName/);assert.equal(params.farmName.value,'Holex');
+  return {recordset:[f.header]};
+ }});assert.equal(result.farmName,'Holex');
+});
 
 function chinaFixture() {
  const f=fixture();
