@@ -401,3 +401,10 @@
 - E040218 salesTax8열/731px, 날짜·공급가액·부가세·합계20행 안전부분표본 검증. 기존 승인된 target 작업영역 업로드/버전/복원 재사용, source-latest 및 미관측원본검색/발행 실행 차단. 실제 SQL적재는 필수검사 후 root 담당, 원본기간/전체성 unknown 유지.
 - 관측559ID/전체동등성완료0. 원본추가조사 중 다른페이지전환 불일치결과는 근거에서 제외. 유효헤더확인 후 수집한 salesTax20행과 구분.
 - 검색어: salesTax E040218 20행부분표본 unknown PR1137 39396737155 559관측
+
+## 2026-10-20 중국 인보이스 원본 수량 보존
+- CN AI 경로의 pcs=1/bunch_st=1/total_stems 누락 제거. Order 박스, Bunch 단, PCS 송이를 헤더 의미로 추출. DB 품목 매칭은 원본 수량을 덮어쓰지 않는다.
+- dnSpy 실제 ExcelLoadingPackingList F/I/J 별도 박스/단/송이 확인. 2025/2026 fixture, 실제41-1 XLSX20/20, ERP contract·dnSpy·manifest·write guard·build 통과.
+- 운영 SELECT만: 해당 송장102행 박스102/단5391/송이5391, 원본101상품행429/5390/68775와 다름. 자동 데이터 보정 없음. 실사용 PDF 재분석·운영 입고 쓰기 미검증, 배포 스모크 후속.
+- 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
+- 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존

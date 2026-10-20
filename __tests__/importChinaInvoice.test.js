@@ -311,14 +311,14 @@ test('generator rejects corrupted counts and blocks subtotal/fee/grand-total dri
   assert.throws(() => generate(packing, corrupt), /원본 수량/);
 });
 
-test('legacy CN PDF and other-country writer formulas/quantities remain unchanged', async () => {
+test('legacy CN PDF preserves printed quantities; other-country matching remains unchanged', async () => {
   const [, packing] = await ready;
   const inv = { supplier: 'Yunnan Melody', invoice: 'PDF', total_value: 6, freight: -2,
     products: [{ description: 'CARNATION Doncel', pcs: 5, bunch_st: 20, steam_box: 300,
       total_bunch: 40, total_stems: 800, u_price: 0.2, t_price: 8 }] };
   const { result, sheet } = generate(packing, inv, { catalog: catalog(['CARNATION Doncel']), aliases: { 'CARNATION DONCEL': 'CARNATION Doncel' } });
-  assert.equal(sheet.F6.v, 1); assert.equal(sheet.G6.v, 1); assert.equal(sheet.H6.v, 0);
-  assert.equal(sheet.J6.f, 'I6*G6'); assert.equal(sheet.L6.f, 'K6*I6');
+  assert.equal(sheet.F6.v, 5); assert.equal(sheet.G6.v, 20); assert.equal(sheet.H6.v, 300);
+  assert.equal(sheet.J6.v, 800); assert.equal(sheet.L6.f, 'K6*I6');
   assert.equal(result.totalMismatch, null); assert.equal(result.itemSubtotal, undefined);
   const context = { farm: 'CO', invoice: 'PDF', pending: [], noMatches: [] };
   const resolve = packing.makeProductResolver('CO', { byCountry: { CO: [{ name: 'CARNATION Doncel', family: 'CARNATION' }] } }, { 'CARNATION DONCEL': 'CARNATION Doncel' }, context);

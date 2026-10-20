@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 // Keep the matching-first numeric gate in the mandatory import/ERP regression suite.
 require('./packingMatchNext.test.js');
+require('./chinaSourceQuantities.test.js');
 const fs = require('node:fs');
 const { webcrypto } = require('node:crypto');
 const babel = require('next/dist/compiled/babel/core');
