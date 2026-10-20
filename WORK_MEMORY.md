@@ -395,3 +395,9 @@
 - 판매조회 원본 실측을 근거로 검색 배치·폭을 보완하고 동일 컨트롤의 재관측 관계를 메타데이터에 기록. 회계거래조회 journal 안전9행 날짜·금액 문법검증 통과, 준비파일 journal-import-safe.json 생성. 실제 SQL 적재는 아직 실행하지 않았으며 후속 필수검사 통과 후 root 담당.
 - 검색어: PR1131 운영52값 PR1134 c52564d7 39392543784 sale-query-layout journal9 safeprojection
 - PR1134 root 운영검증 완료(order-pages-release-runtime-evidence.json): 주문조회10열/6드롭다운, 주문현황7열750px·lookup22→일별5열631px, 발주현황9열941px·lookup20→일별5열631px. 8캡처 확보, 미수집 표시 유지/가짜0건 주장없음, 원본·공유원장 쓰기0.
+
+### 2026-10-20 회계 표본 적재와 조회창 반환 검증
+- journal 실제 별도작업영역 적재 완료: 필수5검사 통과 후 root 실행, journal-import-result.json의9행/revision1/readback true/idempotent true. 이전 미실행 문구는 당시 기록이며 현재 상태는 적재완료. 원본·기존ERP원장 쓰기 없음. 운영18값 대조는 배포 후 예정.
+- lookup 새창의 대상 반환은 동일origin/정확한child/UUID nonce/현재메뉴 검증과 로컬daily 선택만 허용. 부모정리·재열기·메뉴전환·닫힌창/팝업차단 mock 회귀검증. 원본 새창 반환 동작의 완전동등성은 미검증이며 대상 mock 검증과 구분한다.
+- 검색어: journal9 revision1 lookupWindow nonce source-window daily-return 원본반환미검증
+- PR1135 root 운영검증: journal9행 날짜·금액18값 mismatch0, journal-runtime-comparison.json 및 E010701-target-safe-rows-full.jpg 확인 완료. 전기간·전체원본 동등성은 미검증.

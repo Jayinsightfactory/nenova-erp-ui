@@ -62,15 +62,22 @@
       "screenIds": [
         "E010701"
       ],
-      "stage": "queued",
+      "stage": "partially-implemented",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E010701",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Journal: source8columns/9safe today rows partially observed; UI29stableIDs mapped by React SSR; isolated SQL partial load reported by root. Production equivalence/full source completeness and alias contexts unverified.",
+      "resumeFrom": "E010701",
+      "activeScreen": "E010701",
+      "screenWork": [
+        {
+          "id": "E010701",
+          "stage": "partial-implementation-partial-import-awaiting-production-evidence"
+        }
+      ]
     },
     {
       "id": "P002",
