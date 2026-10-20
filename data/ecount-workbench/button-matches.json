@@ -71084,12 +71084,39 @@
           "firstRowLeadingColspan": 3,
           "visibleColumns": 6,
           "width": 650,
-          "safeProductCodeFromGroupTitle": false,
+          "safeProductCodeFromGroupTitle": true,
           "transactionCount": null,
           "todayTransactionCount": null,
           "sqlQuantityRowsImported": 0,
-          "evidence": "stock-ledger-row-shape.json"
-        }
+          "evidence": "stock-ledger-row-shape.json",
+          "safeCodeMatchMethod": "Exact one boundary-matched known stock code in visible custom-top header"
+        },
+        "keyResolution": {
+          "source": ".custom-top visibleheader",
+          "method": "boundary match existing observed stock codes",
+          "uniqueCodes": 1949,
+          "ambiguous": 0,
+          "rawNamesStored": false
+        },
+        "previousKeyUnknownResolved": true,
+        "safeValidation": {
+          "rows": 1949,
+          "uniqueCodes": 1949,
+          "numericFieldsValid": true,
+          "shape": "Each observed group has opening row and total row; no transaction detail rows observed",
+          "sourceWrites": 0
+        },
+        "crossReport": {
+          "rows": 1949,
+          "comparedFields": 7796,
+          "missing": 0,
+          "mismatches": 0,
+          "sourceWrites": 0,
+          "queryReselectNoticeCancel": "Continued query and rendered 1949 result tables"
+        },
+        "safeQuantityGroupsCollected": 1949,
+        "sqlDataset": "stkLedger",
+        "transactionCount": null
       }
     },
     {

@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/StockLedgerPageControls.js",
     "components/ecount/WarehouseLookupOverlay.js",
     "components/ecount/StockMovementPageControls.js",
     "components/ecount/WarehouseStockPageControls.js",
@@ -89,6 +90,7 @@
     "npm run build"
   ],
   "criteria": {
+    "stockLedgerPeriod":"E040702 stkLedger canonical215. 기존stock품목코드와visibleheader경계일치1949unique 확인, 안전productCode+openingQuantity/inQuantity/outQuantity/quantity4필수. 원본그룹마다전일재고/합계2행만관측; 상세거래미수집이며행수로거래건수추정금지. 정확기간전체일치만표시,중복코드/소계입력/행날짜거부. 수동안전업로드복원허용/source-latest차단/공유원장무관,미수집이름공백.",
     "stockMovePeriod":"E040719 stockMove canonical1713. productCode ASCII코드와openingQuantity/inQuantity/outQuantity/quantity4필수정확소수만허용. 제품명규격/숨은열제외, 중복코드·소계·행날짜거부. 기간양끝필수/선택범위가version과완전일치해야표시,부분기간재계산금지. 원본1949부분표본/전체성unknown,실제SQL없음·source-latest차단·target업로드복원허용.",
     "warehouseStockSnapshot":"E040711 whStock canonical213. productCode/warehouseCode만 각ASCII /^[A-Za-z0-9._/-]{1,60}$/ 허용, 두코드복합키중복거부·수량필수정확소수·소계/행날짜거부. 단일기준일periodFrom=periodTo필수,1949부분표본/창고1/전체성unknown. target수동업로드복원허용/source-latest차단/다른dataset warehouseCode허용금지. 가로표는수집된셀의정확합만표시하고미수집셀null,전체창고합주장금지.",
     "stockSnapshot":"E040701 stock만 원본 품목코드열의 productCode /^[A-Za-z0-9._/-]{1,60}$/ 허용. quantity 소수문자열, 제품명제외. 1949유일제품부분표본, 소계미수집/중복코드거부. 기준일 단일snapshot periodFrom=periodTo 필수, 행날짜/다른날짜로재해석금지. 다른dataset제품코드허용안함/source-latest금지/기존재고원장무관.",

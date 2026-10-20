@@ -55,3 +55,5 @@
 .warehouseStockTable{max-width:100%}.warehouseStockTable table{table-layout:fixed;font-size:13px;line-height:18.5714px}.warehouseStockTable th,.warehouseStockTable td{min-width:0;padding:4px 6px}.warehouseStockTable thead th{text-align:center;white-space:normal}.warehouseStockTable td.empty{text-align:center}
 
 .warehouseLookupDialog{height:427.5px}.warehouseLookupBody{padding:8px 11px;overflow:auto;flex:1}.warehouseLookupTable{overflow:auto}.warehouseLookupTable table{width:465px;table-layout:fixed}.warehouseLookupTable th{text-align:center;background:#f1f2f5}.warehouseLookupTable td{padding:5px 3px}.warehouseLookupTable input[type=checkbox]{width:auto}.warehouseLookupBody .sourceToolbar input{width:180px;flex:none}
+
+.stockLedgerGroup{margin-bottom:18px}.stockLedgerGroup h3{font-size:13px;font-weight:normal;margin:8px 0}.stockLedgerGroup tbody td{text-align:right}.stockLedgerGroup tbody td[colspan]{text-align:center}
