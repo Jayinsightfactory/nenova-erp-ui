@@ -93,7 +93,7 @@ test('connector ignores unavailable tab URLs and selects only the exact logged-i
 });
 test('multipart API parses workbook, reloads DB, compares and rejects wrong source scope',async()=>{
  const http=require('node:http'),XLSX=require('xlsx'),babel=require('next/dist/compiled/babel/core');
- const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise,matching=await import('../lib/shillaAnalysisMatching.js');
+ const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise,matching=await import('../lib/shillaAnalysisMatching.js'),periodAnalysis=await import('../lib/shillaPeriodAnalysis.js');
  const source=fs.readFileSync('pages/api/raum/shilla-analysis.js','utf8');
  const transformed=babel.transformSync(source,{plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
  let reads=0;
@@ -104,7 +104,8 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
    if(name.endsWith('/shillaPnlImportPolicy'))return policy;
    if(name.endsWith('/shillaReconciliation'))return helpers;
    if(name.endsWith('/shillaAnalysisMatching'))return matching;
-   if(name.endsWith('/shillaReconciliationServer'))return{loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
+   if(name.endsWith('/shillaPeriodAnalysis'))return periodAnalysis;
+   if(name.endsWith('/shillaReconciliationServer'))return{loadShillaDistributionRows:async()=>[],loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
    return require(name);
  },m,m.exports);
  const server=http.createServer((req,res)=>{res.status=n=>{res.statusCode=n;return res;};res.json=obj=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify(obj));};m.exports.default(req,res);});
@@ -155,4 +156,30 @@ test('qualified SRM varieties cannot collapse into an ordinary same-color saved 
  for(const name of ['[수입] 행사용꽃, 수국, 엔틱, 연그린, CO (EA)','[수입] 행사용꽃, 수국, 염색, 연그린, 콜롬비아 (EA)']){
   x.receipts[0].name=name;const r=reconcileShilla(x);assert.equal(r.unmatched.length,1);assert.equal(Object.keys(r.suggestedMappings).length,0);
  }
+});
+test('warehouse periods, receipt business weeks and calendar tax months stay independent',async()=>{
+ const {analyzeShillaPeriods}=await import('../lib/shillaPeriodAnalysis.js');
+ const base={scope:{year:'2026',from:'2026-09-01',to:'2026-10-31'},periods:[{period:'40',date:'2026-10-06'}],distribution:[{id:1,year:'2026',week:'40-02',prodKey:181,unit:'송이',qty:520,amount:4316000,price:8300,date:'2026-09-30'}],rows:[{key:'181',name:'안시리움',prodKey:181,unit:'송이',excel:{rows:[{period:'40',qty:521,price:8300,amount:4324300}]},srm:{rows:[{date:'2026-10-07',site:'서울',receiptNo:'A',receiptItem:'1',qty:521,price:8300,amount:4324300}]}}],receipts:[{date:'2026-09-30',amount:100},{date:'2026-10-01',amount:200},{date:'2026-10-31',amount:300}]};
+ let r=analyzeShillaPeriods(base);assert.equal(r.lines[0].qtyDifference,-1);assert.equal(r.lines[0].receipt.label,'입고일 2026-10-07');assert.equal(r.lines[0].status,'전산 분배 차이 후보');assert.deepEqual(r.months.map(m=>[m.month,m.amount,m.partial]),[['2026-09',100,false],['2026-10',500,false]]);
+ base.distribution.push({...base.distribution[0],id:2,year:'2025',qty:521,amount:4324300});r=analyzeShillaPeriods(base);assert.equal(r.distributionCount,1);assert.equal(r.lines[0].qtyDifference,-1);
+ base.scope.to='2026-10-07';r=analyzeShillaPeriods({...base,receipts:base.receipts.slice(0,2)});assert.equal(r.months[1].partial,true);
+ base.rows[0].srm.rows=[{date:'2026-10-05',site:'서울',receiptNo:'B',receiptItem:'1',qty:200,price:8300,amount:1660000},{date:'2026-10-09',site:'서울',receiptNo:'C',receiptItem:'1',qty:321,price:8300,amount:2664300}];
+ base.scope.to='2026-10-31';r=analyzeShillaPeriods(base);assert.match(r.lines[0].receipt.label,/월~금/);
+ base.scope.to='2026-10-08';r=analyzeShillaPeriods({...base,rows:[{...base.rows[0],srm:{rows:base.rows[0].srm.rows.slice(0,1)}}]});assert.equal(r.lines[0].receipt,null);
+});
+test('equal amounts cannot hide bucket changes, ambiguous dates or reused receipt IDs',async()=>{
+ const {analyzeShillaPeriods}=await import('../lib/shillaPeriodAnalysis.js');
+ const receipt={date:'2026-06-01',site:'서울',receiptNo:'A',receiptItem:'1',qty:2,price:100,amount:200};
+ const target={key:'1',name:'수국',prodKey:1,unit:'스팀',excel:{rows:[{period:'23',qty:2,price:100,amount:200}]},srm:{rows:[receipt]}};
+ const args={scope:{year:'2026',from:'2026-06-01',to:'2026-06-30'},periods:[{period:'23',date:'2026-06-01'},{period:'24',date:'2026-06-02'}],distribution:[],rows:[target],receipts:[receipt]};
+ let r=analyzeShillaPeriods(args);assert.equal(r.lines[0].receiptCandidateCount,1);
+ target.excel.rows.push({period:'24',qty:2,price:100,amount:200});r=analyzeShillaPeriods(args);assert.ok(r.lines.every(x=>x.conflict));
+ target.excel.rows.pop();target.srm.rows.push({...receipt,date:'2026-06-02',receiptNo:'B'});r=analyzeShillaPeriods(args);assert.equal(r.lines[0].receipt,null);assert.equal(r.lines[0].receiptCandidateCount,2);
+ target.srm.rows=[{...receipt,qty:1,price:200}];r=analyzeShillaPeriods(args);assert.equal(r.lines[0].receipt,null);
+ args.distribution=[{id:1,year:'2026'},{id:1,year:'2026'}];assert.throws(()=>analyzeShillaPeriods(args),/중복/);
+});
+test('lookaround cutoff cannot manufacture a partial business-week match; empty queried months are zero',async()=>{
+ const {analyzeShillaPeriods}=await import('../lib/shillaPeriodAnalysis.js');
+ const a={scope:{year:'2026',from:'2026-05-01',to:'2026-06-30'},periods:[{period:'24',date:'2026-06-16'}],distribution:[],receipts:[],rows:[{key:'1',name:'품목',prodKey:1,unit:'송이',excel:{rows:[{period:'24',qty:2,price:100,amount:200}]},srm:{rows:[{date:'2026-06-02',site:'서울',receiptNo:'A',receiptItem:'1',qty:1,price:100,amount:100},{date:'2026-06-03',site:'서울',receiptNo:'B',receiptItem:'1',qty:1,price:100,amount:100}]}}]};
+ const r=analyzeShillaPeriods(a);assert.equal(r.lines[0].receipt,null);assert.deepEqual(r.months.map(m=>[m.month,m.amount,m.partial]),[['2026-05',0,false],['2026-06',0,false]]);
 });

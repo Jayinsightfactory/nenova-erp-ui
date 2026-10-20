@@ -40,3 +40,7 @@ saleQuery(E040206 판매조회)는 amount와 검증된 sourceDateLabel/refDate�
 unsold(E040212 미판매현황)와 unbought(E040307 미구매현황)는 금일0행만 관측했고 기준일자(영업주기)의 의미와 실제 행 날짜가 미확인이다. readonly scope와 숫자모델만 정의하고 날짜값·필터 및 모든 버전쓰기를 차단한다. unsold는 qty/unfulfilledQty/supplyAmt/vat, unbought는 qty/unfulfilledQty/vat만 투영하며 가짜행/빈snapshot/납기일 추정을 금지한다.
 
 quoteStat(E040208 견적서현황)는 집계8열/현황7열 금일0행만 관측했으므로 읽기 전용이다. qty/unitPrice/supplyAmt/vat/total 숫자모델만 정의하며 그룹키/코드/실제행날짜는 미수집이다. 날짜필터·모든버전쓰기를 차단하고 가짜행을 생성하지 않는다. 집계8열과 현황7열 미리보기 모두 별도새탭을 직접 관측했다. 실제자료 미수집으로 UI 미리보기 실행은 비활성 유지한다.
+
+orderQuery(E040204), orderStat(E040209), poStat(E040306)는 실제행/날짜 의미 미관측으로 읽기전용 scope만 제공한다. 주문조회 주문합계, 주문현황 수량/단가/공급가액, 발주현황 단가/외화금액/환율/공급가액 및 일별집계 수량/세액/합계 숫자모델만 정의한다. 모든버전쓰기·날짜필터 차단. 주문현황과 발주현황 모두 일별집계5열을 추가 관측했으며 다른 집계조건은 추정하지 않는다.
+
+journal(E010701 회계거래조회)는 기존 ERP 회계원장과 무관한 독립 ECOUNT 안전투영이다. 관측9행의 sourceDateLabel은 기존 날짜/문서번호 문법검증을 통과했다. amount와 검증날짜만 업로드하며 나머지 거래처·적요·유형·계정·상태를 보존하지 않는다. source-latest금지, 전체수집unknown, 기존 immutable 버전정책 재사용.

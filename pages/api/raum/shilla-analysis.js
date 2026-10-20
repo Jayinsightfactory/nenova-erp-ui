@@ -5,7 +5,8 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth';
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
-import { loadShillaAnalysisRows } from '../../../lib/shillaReconciliationServer';
+import { loadShillaAnalysisRows, loadShillaDistributionRows } from '../../../lib/shillaReconciliationServer';
+import { analyzeShillaPeriods } from '../../../lib/shillaPeriodAnalysis';
 import { reconcileShilla, validateScope, itemIdentity } from '../../../lib/shillaReconciliation';
 import { buildAnalysisCatalog } from '../../../lib/shillaAnalysisMatching';
 export const config = { api:{bodyParser:false,responseLimit:'12mb'} };
@@ -40,8 +41,10 @@ export default withAuth(async function handler(req,res) {
     if(scope.periods.some(p=>!available.has(p))) throw new Error('선택한 차수가 원본 파일에 없습니다.');
     if(payload.source?.from!==scope.from || payload.source?.to!==scope.to || payload.source?.complete!==true || payload.source?.origin!=='https://www.shillasrm.com') throw new Error('완료된 신라 입고 조회자료가 필요합니다.');
     const result=reconcileShilla({scope,db,excel,receipts:payload.receipts,mappings:payload.mappings,excelGross:payload.excelGross});
+    const distribution=await loadShillaDistributionRows(year);
+    const periodAnalysis=analyzeShillaPeriods({scope,rows:result.rows,distribution,periods:metadata.periods,receipts:payload.receipts});
     const sourceWarnings=metadata.periods.filter(p=>scope.periods.includes(p.period)).flatMap(p=>p.warnings);
-    return res.json({success:true,...metadata,...result,sourceWarnings,complete:result.complete&&!sourceWarnings.length,receiptReadAt:payload.source.readAt});
+    return res.json({success:true,...metadata,...result,periodAnalysis,sourceWarnings,complete:result.complete&&!sourceWarnings.length,receiptReadAt:payload.source.readAt});
   } catch(error) {
     return res.status(error.httpCode===413?413:400).json({success:false,error:error.code?.startsWith('E')?'분석 자료를 읽지 못했습니다. 파일과 DB 연결을 확인하세요.':error.message});
   } finally { await Promise.all(temporary.map(path=>fs.unlink(path).catch(()=>{}))); }

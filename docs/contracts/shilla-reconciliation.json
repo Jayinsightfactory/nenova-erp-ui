@@ -10,7 +10,9 @@
     "public/shilla-connector/background.js",
     "public/shilla-connector/content.js",
     "public/shilla-connector/collector.js",
-    "lib/shillaAnalysisMatching.js"
+    "lib/shillaAnalysisMatching.js",
+    "lib/shillaPeriodAnalysis.js",
+    "components/ShillaPeriodAnalysis.js"
   ],
   "businessKey": [
     "OrderYear",
@@ -25,7 +27,11 @@
       "reads": [
         "WebRaumPnl",
         "WebRaumPnlItem",
-        "Product"
+        "Product",
+        "Customer",
+        "ShipmentMaster",
+        "ShipmentDetail",
+        "ShipmentDate"
       ],
       "writes": [],
       "preserves": [
@@ -55,7 +61,7 @@
   },
   "criteria": {
     "source": "Original workbook parsed without correction; DB fresh SELECT by year+partner; SRM findListGrSp response only",
-    "period": "User selects exact workbook periods and receipt date range independently",
+    "period": "Independent warehouse weeks, workbook periods/business weeks and actual receipt calendar months. Candidate numeric matches are not confirmed lineage; partial months marked.",
     "matching": "Unique active saved ProdKey and compatible unit groups source aliases within selected year/periods. SRM name tokens propose unique saved targets; ambiguity remains unresolved.",
     "conversion": "Explicit per-material quantity multiplier; unit mismatch requires acknowledgement; gross Excel option divides price/amount by 1.1 Owner confirmed Anthurium ProdKey181 단 means 송이, SRM EA=1:1. Unspecified PK packaging never inferred.",
     "missing": "Missing never zero or equal; price buckets retained; duplicate receipt IDs flagged, never silently discarded",
