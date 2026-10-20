@@ -2,6 +2,8 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/QuoteStatusPageControls.js",
+    "components/ecount/UnfulfilledPageControls.js",
     "components/ecount/SaleQueryPageControls.js",
     "components/ecount/DiscountPageControls.js",
     "components/ecount/PurchaseOrderPageControls.js",
@@ -73,6 +75,8 @@
     "npm run build"
   ],
   "criteria": {
+    "quoteStatReadOnly":"E040208 quoteStat: 집계8열/현황7열 금일0 관측. qty/unitPrice/supplyAmt/vat/total 숫자모델만. 실제행 날짜·그룹키 문법미확인, 날짜필터/모든import·activate금지. 두모드 표시가 데이터집계 동등성 보증 아님.",
+    "unfulfilledReadOnly":"unsold E040212 menu499/alias578 및 unbought E040307 menu516/alias586. 기준일 영업주기·실제행 날짜 미확인으로 readonly scope만. 숫자 unsold qty/unfulfilledQty/supplyAmt/vat, unbought qty/unfulfilledQty/vat. 날짜저장·필터/import/activate 차단, 빈snapshot금지. 관찰된 금일0은 전체자료·일자조건 동등성 보증아님.",
     "saleQueryUpload":"E040206 saleQuery canonical492: 관측26행 안전 amount/sourceDateLabel만 근거로 날짜+금액 투영. 기간/전체수집 unknown; source-latest금지, 기존 immutable JSON버전 재사용. 거래처/품목/창고/유형/회계상태 추정금지. 신규DDL/ERP원장변경없음.",
     "buyDiscountReadOnly":"E040313 buyDisc canonical518/alias588: 별도 구매할인 관찰6열 중 purchaseAmount/accountingAmount/difference만 모델 정의. 금일/전월0, 월일문법미확인. 판매할인과 별도scope, 날짜저장/필터 및 모든버전쓰기차단. 원본직전기수preset 동작추정금지. SQL/DDL 없음.",
     "discountReadOnly":"E040216 discount: 원본6열/금일·전월0행만 관측. salesAmount/accountingAmount/difference 안전 숫자 모델, 월일 문법 미확인으로 날짜 보존·필터 추정 금지. 읽기scope만; import/import-latest/activate는 트랜잭션 전 거부하여 빈snapshot/가짜행 생성 금지. SQL/DDL/ERP원장 변경 없음.",

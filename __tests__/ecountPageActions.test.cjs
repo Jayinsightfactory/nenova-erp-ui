@@ -41,6 +41,7 @@ for(const [dataset,key] of [['saleQuery','amount'],['poQuery','orderTotal'],['re
 assert.throws(()=>h.filterSortRows({dataset:'discount',rows:[],from:'2026-10-20',to:'2026-10-20'}),/DATE_FILTER_UNAVAILABLE/);
 assert.equal(h.filterSortRows({dataset:'discount',rows:[]}).rows.length,0);
 assert.throws(()=>h.filterSortRows({dataset:'buyDisc',rows:[],from:'2026-10-20'}),/DATE_FILTER_UNAVAILABLE/);assert.equal(h.filterSortRows({dataset:'buyDisc',rows:[]}).rows.length,0);
+for(const dataset of ['unsold','unbought']){assert.throws(()=>h.filterSortRows({dataset,rows:[],from:'2026-10-20'}),/DATE_FILTER_UNAVAILABLE/);assert.equal(h.filterSortRows({dataset,rows:[]}).rows.length,0);}
 const stateRows=[...Array.from({length:3},(_,i)=>({estimateTotal:`2.0000000${i}`,refDate:'2026-01-03',quoteStatus:'in_progress',statusEvidence:i===2?'query_filter':'row_cell'})),{estimateTotal:'3.00000000',refDate:'2026-01-03'}];
 const stateBefore=JSON.stringify(stateRows);
 const progress=h.filterSortRows({dataset:'quote',rows:stateRows,quoteStatus:'in_progress'});

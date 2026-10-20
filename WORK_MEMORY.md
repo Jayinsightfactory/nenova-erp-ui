@@ -332,6 +332,16 @@
 - 다음 판매할인E040216/구매할인E040313 각각6열·검색버튼차이·인쇄3항목·별도원본미리보기관측. 날짜문법/비어있지않은자료미관측이므로 discount/buyDisc 읽기전용scope 및 모든import/activate 차단. 미수집상태로표시하며0건일치로간주하지않음. 다음전체gate 진행중.
 - 원본쓰기0/공유ERP원장쓰기0. 59묶음 전체는 미완료이며 검증되지 않은 버튼은 완료로 표시하지 않는다.
 - 검색어: E040305 4140values PR1124 PR1126 receipt227 payment102 discount buyDisc
+
+### 2026-10-20 ECOUNT 판매조회 및 캡처 복구
+- PR1126 배포39385563160/hydration success. 수금227행454값·지급102행204값 날짜/금액 모두일치. 각각금일0건·인쇄3메뉴·별도미리보기탭생성 확인, Blob내용미검증.
+- 비교Excel 554482bytes/10시트/17이미지 갱신,ZIP/수식/원본hash검사PASS. root수금head렌더확인. 이후추가관측은다음export대기.
+- PR1127 squashc203857a, CI39386118651/배포39386452733 success. 할인2화면 운영6열/F3/판매10버튼vs구매9버튼/미수집쓰기차단확인. 미수집상태를원본0건일치로간주하지않음.
+- E040206 판매조회 원본10열/24버튼/금일0/인쇄펼침문제해결1개관측. safe26행날짜금액만 saleQuery revision1 readback/idempotenttrue. 실제표본날짜범위2026-10-13..13이며원본기본검색기간아님. PR1129 CI39387422701pass, squash87171980, 운영배포후값대조대기.
+- 대상clip캡처timeout, 사용자Chrome복원후에도지속. fullPage:false 전체화면은성공, 수금/지급/구매현황/할인2화면 확보. 화면제목및role=status[] 확인후저장. 같은탭hash변경만으로이전화면잔류결함발견;초기잘못명명된사진은reload/제목검증후덮어씀. 각newtab의기존값대조에는영향없음.
+- 후속묶음 수금지급750px/구매현황1400px시각보정,hashchange/popstate회귀수정, 미판매9열/미구매8열readonly화면연결 구현. 영업주기기준일의미미검증이므로실행차단. 전체gate/운영검증대기.
+- 이번판매조회빌드생성캐시8파일78994754bytes 삭제시도는자동승인정책차단으로미실행. 캐시보존. 계정주간사용21%확인(계정공유값).
+- 검색어: saleQuery E040206 26rows fullPagefalse hashchange E040212 E040307 PR1129 cache-policy-block
 - 재로그인 새탭 조회에서 Invalid URL 관측. URL 없는 Chrome tab을 건너뛰고 정확한 https/www.shillasrm.com/afterLoginOK.do만 고르는 v1.0.2 보강, 오류/타호스트/정상혼합 회귀 통과. 설치폴더와 zip 갱신, 사용자 확장 새로고침 대기.
 - 신라 UI에서10/7~20 직접 조회·엑셀 다운로드 성공. 10/7 전표5020752839 안시리움12행 합계521송이/4324300, 엑셀40차와 일치. 이전40차미입고 추정 해소. 이후기간을원래범위와혼합하지않음.
 - 검색어: connector1.0.2 InvalidURL 40차10월7일521
@@ -342,3 +352,16 @@
 - 후보규칙/부작용은 docs/work-sessions/2026-10-20_shilla-period-basis.md. 최초원본업로드는기재월첫날~마지막월말(현재월오늘까지)제안. 월~금전체미조회/날짜미기재/단위미확인/동일원본중복소비는확정하지않음.
 - 회귀17개통과,전체gate·배포미검증.
 - 검색어: shilla-period-basis 실제분배315 안시리움520521 입고월귀속
+
+- 검색어: connector1.0.2 InvalidURL 40차10월7일521
+
+
+## 2026-10-20 NENOVA.EXE 음수 주문 피벗
+사용자가 native EXE의 모든 차수·국가 음수 표시와 합계 차감을 명시 요청. 기존 4033996D SHA256 버전은 unsigned/IL-only이고 ` WHERE vo.OutQuantity > 0 `의 IL 참조는 FormQuantityPivot.GetData 한 곳이다. 같은 길이 ` WHERE vo.OutQuantity <>0 `로 #US 내용 2바이트만 변경한다. 메타데이터/IL/입고·출고·재고/엑셀 경로 그대로 유지.
+기준: 동일 연도 포함 OrderYearWeek BETWEEN/StockList 조인, 0/NULL 제외, SUM 부호 유지, 모든 국가 공통. 동작별 부작용: 조회/합계/엑셀 모두 OrderDetail·ShipmentDetail·ShipmentDate·ShipmentFarm·ProductStock·StockHistory·Estimate·WebProfitReport 보존. DB 쓰기 없음.
+실제 수정 EXE를 .NET Framework x86에서 로드해 FormQuantityPivot의 grid 생성(Load/GetData 미호출), 2025/2026×01-01/44-01/44-02×3국가의 +10/-3를 바인딩. native SummaryType=Sum, -3/7/총126 확인. 실제 WYSIWYG XLSX도 -3/7/126 numeric cell 확인.
+원본/수정 EXE에서 추출한 SQL 직접 SELECT 비교: 20264401 기존1227행 동일+음수31행/-103, 대상 콜롬비아 카네이션 여분26행/-76. 20264402 588행,20254401 3336행 동일. 개인정보 출력/저장 없음.
+원본/수정 hash: 4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63 / FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79. 배포는 사용자 PC만, 다른 직원 실행파일 자동변경 아님. 실행중 프로세스 강제종료 금지, 닫힌 뒤 원본 백업과 atomic replace.
+메뉴 기준선: 적용—기존 화면/키보드/스크롤/필터 보존. 해당 없음—웹 shell/입력/매칭/DB쓰기. 화면상 실제 로그인 조회는 아직 미검증. native control 시험과 실제SQL 읽기검증은 완료.
+
+검색어: native-pivot-negative NENOVA.EXE 여분26 -76 두바이트 signed SUM
