@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -91,11 +91,11 @@ test('stock observed year/month buttons and day textbox preserve fourteen action
 test('tax and stock queries normalize day input and require a real purchase version',async()=>{
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
  const fn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='runSearch');
- for(const dataset of ['salesTax','buyTax','stock'])for(const available of [false,true]){
+ for(const dataset of ['salesTax','buyTax','stock','taxStat','buyTaxStat'])for(const available of [false,true]){
   const captured={},errors=[],box={exports:{}};
   const context={module:box,busy:false,dataset,version:available?{}:null,searchDraft:{from:'2026-10-2',to:'2026-10-3',flow:'',query:''},policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{},setError:e=>errors.push(e),setFilterFrom:v=>captured.from=v,setFilterTo:v=>captured.to=v,setFlow(){},setRowQuery(){},setSearchOpen(){},load:async()=>{captured.loaded=true;},setTimeout:fn=>fn(),searchToggleRef:{current:{focus(){}}}};
   vm.runInNewContext(source.slice(fn.start,fn.end)+';module.exports=runSearch;',context);await box.exports();
-  if(dataset==='buyTax'&&!available){assert.equal(errors.length,1);assert.equal(captured.loaded,undefined);}else{assert.equal(captured.from,'2026-10-02');assert.equal(captured.to,dataset==='stock'?'2026-10-02':'2026-10-03');assert.equal(captured.loaded,true);}
+  if(['buyTax','taxStat','buyTaxStat'].includes(dataset)&&!available){assert.equal(errors.length,1);assert.equal(captured.loaded,undefined);}else{assert.equal(captured.from,'2026-10-02');assert.equal(captured.to,dataset==='stock'?'2026-10-02':'2026-10-03');assert.equal(captured.loaded,true);}
  }
 });
 test('stock year/month/manual selection is local, exact and Escape restores trigger focus',()=>{
@@ -116,4 +116,16 @@ test('stock year/month/manual selection is local, exact and Escape restores trig
  find(e=>e.props?.['aria-label']==='연도 직접입력').props.onChange({target:{value:'2028'}});
  find(e=>e.props?.['aria-label']==='연도 직접입력').props.onKeyDown({key:'Enter',preventDefault(){},stopPropagation(){}});assert.equal(value,'2028-02-20');
  find(e=>e.props?.['aria-label']==='기준월 선택').props.onClick(click);find(e=>e.type==='span'&&typeof e.props?.onKeyDown==='function').props.onKeyDown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(value,'2028-02-20');assert.equal(focused,3);
+});
+
+test('tax status retains six report columns and observed confirmed state without treating missing data as zero',()=>{
+ const html=render({dataset:'taxStat',rows:[],dataState:'uncollected'});assert.equal((html.match(/<th scope=/g)||[]).length,6);assert(html.includes('매출부가세'));assert(html.includes('매출합계'));assert(html.includes('아직 수집되지 않았습니다'));
+ const c=load('components/ecount/SalesTaxStatusPageControls.js');
+ const form=renderToStaticMarkup(React.createElement(c.SalesTaxStatusSearchPanel,{from:'2026-10-20',to:'2026-10-20',canQuery:false}));
+ assert.equal((form.match(/type="radio"/g)||[]).length,4);assert.equal((form.match(/checked=""/g)||[]).length,1);assert.match(form,/<input[^>]*checked=""[^>]*\/>확인/);assert(!form.includes('최종수정자'));assert(form.includes('청구서'));assert(!form.includes('직전반기'));
+});
+
+test('purchase tax report keeps separate labels and form without sales tax customer checkbox',()=>{
+ const html=render({dataset:'buyTaxStat',rows:[],dataState:'uncollected'});assert.equal((html.match(/<th scope=/g)||[]).length,6);assert(html.includes('매입부가세'));assert(html.includes('매입합계'));assert(html.includes('아직 수집되지 않았습니다'));
+ const c=load('components/ecount/PurchaseTaxStatusPageControls.js');const form=renderToStaticMarkup(React.createElement(c.PurchaseTaxStatusSearchPanel,{from:'2026-10-20',to:'2026-10-20',canQuery:false}));assert(!form.includes('세무신고거래처'));assert(form.includes('기본(수정불가)'));assert.match(form,/<input[^>]*checked=""[^>]*\/>확인/);
 });

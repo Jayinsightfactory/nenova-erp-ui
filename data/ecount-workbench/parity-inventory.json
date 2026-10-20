@@ -13389,6 +13389,90 @@
           ],
           "testEvidence": [],
           "behavior": "Source label observed; only explicitly recorded actions executed"
+        },
+        {
+          "id": "E040218-A36",
+          "label": "검색항목설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040218-A37",
+          "label": "양식설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040218-A38",
+          "label": "기능설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040218-A39",
+          "label": "조건양식설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040218-A40",
+          "label": "문서발송내역",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040218-A41",
+          "label": "리스트탭설정",
+          "context": "Option 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040218-KEYBOARD"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
         }
       ],
       "windows": [],
@@ -13518,25 +13602,453 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040223-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A04",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A05",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A06",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL",
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Space expands four-item print menu; Escape closes; items not executed"
+        },
+        {
+          "id": "E040223-A07",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A08",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A09",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A10",
+          "label": "종료연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A11",
+          "label": "종료월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A12",
+          "label": "청구서",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A13",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A14",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A15",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A16",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A17",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A18",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A19",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A20",
+          "label": "직전분기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A21",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A22",
+          "label": "전체",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A23",
+          "label": "결재중",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A24",
+          "label": "미확인",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A25",
+          "label": "확인",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source label observed; only today query expressly verified"
+        },
+        {
+          "id": "E040223-A26",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Menu label only; not executed"
+        },
+        {
+          "id": "E040223-A27",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Menu label only; not executed"
+        },
+        {
+          "id": "E040223-A28",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Menu label only; not executed"
+        },
+        {
+          "id": "E040223-A29",
+          "label": "인쇄",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Menu label only; not executed"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "회계전표No.",
+            "부서",
+            "프로젝트",
+            "거래처",
+            "거래처관리담당자",
+            "부가세유형"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "일자-No.",
+            "거래처명",
+            "공급가액",
+            "매출부가세",
+            "매출합계",
+            "내역보기"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -13544,13 +14056,19 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-FILTER-PRINT"
+          ],
+          "testEvidence": [],
+          "observedStatus": "확인",
+          "universalDefault": false
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040223-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -17955,25 +18473,452 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040320-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A04",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A05",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A06",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A07",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A08",
+          "label": "시작연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A09",
+          "label": "시작월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A10",
+          "label": "종료연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A11",
+          "label": "종료월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A12",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A13",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A14",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A15",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A16",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A17",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A18",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A19",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A20",
+          "label": "직전분기",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A21",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A22",
+          "label": "전체",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A23",
+          "label": "결재중",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A24",
+          "label": "미확인",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A25",
+          "label": "확인",
+          "context": "검색 상태",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A26",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A27",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A28",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        },
+        {
+          "id": "E040320-A29",
+          "label": "인쇄",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Source today under 확인 filter0; print menu four labels opened/closed only"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "회계전표No.",
+            "부서",
+            "프로젝트",
+            "거래처",
+            "거래처관리담당자",
+            "부가세유형"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "일자-No.",
+            "거래처명",
+            "공급가액",
+            "매입부가세",
+            "매입합계",
+            "내역보기"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -17981,13 +18926,19 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
+          "testEvidence": [],
+          "observedStatus": "확인",
+          "universalDefault": false
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040320-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {

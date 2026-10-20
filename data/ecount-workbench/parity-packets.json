@@ -21,11 +21,14 @@
     "latestWeeklyConsumedPercent": 53,
     "latestWeeklyRemainingPercent": 47,
     "latestAccountCheckpoint": {
-      "usedPercent": 74,
-      "remainingPercent": 26,
-      "ordinaryAllowed": true,
+      "usedPercent": 1,
+      "remainingPercent": 99,
+      "ordinaryUsageAllowed": true,
       "accountWide": true,
-      "notTaskAttributed": true
+      "notTaskAttributed": true,
+      "changeCause": "unverified",
+      "agentResetOrPurchasePerformed": false,
+      "priorUsedPercent": 74
     }
   },
   "foundations": [
