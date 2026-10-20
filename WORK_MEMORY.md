@@ -419,3 +419,4 @@
 - 신규 salesTax import는 supplyAmt/vat/total 모두 필수 non-null 검증, 누락·빈값·공급가액 alias미매핑은 SQL진입전 거부. 과거v1은 읽기/불변보존하고 새버전 정정만 허용.
 - sales-tax-import-safe-corrected.json에서 supply→supplyAmt 매핑 후 원본20행×4필드80값 독립대조 mismatch0, sales-tax-correction-validation.json 기록. 아직 SQL실행없음; 필수5검사 통과 후 root가v2적재·운영재대조 예정.
 - 검색어: salesTax supply supplyAmt null20 80값 mismatch0 correction v1보존
+- stock-tax-fix 필수5검사/build 통과 후 root 적재 완료(stock-tax-import-results.json): salesTax 정정20행 revision2/readback true/idempotent true, 과거v1보존. stock1949행 revision1/readback true/idempotent true, 기준일2026-10-20. 원본·공유ERP원장 쓰기0. 운영 정정80값 및 재고값 대조는 별도 후속검증.
