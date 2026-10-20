@@ -1,12 +1,9 @@
 {
   "id": "ecount-workbench",
-  "title": "ECOUNT 전체 메뉴의 DB 미연결 화면·저장 설계",
+  "title": "ECOUNT 공통 설계 엔진과 메뉴 메타데이터 계약",
   "scope": [
-    "pages/ecount/workbench.js",
     "lib/ecountWorkbench.cjs",
-    "components/EcountPreviewShell.js",
-    "data/ecount-workbench/source-menu.json",
-    "styles/ecount-workbench.module.css"
+    "data/ecount-workbench/source-menu.json"
   ],
   "businessIdentity": [
     "OrderYear",

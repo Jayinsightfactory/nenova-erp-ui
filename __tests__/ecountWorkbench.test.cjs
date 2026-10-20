@@ -86,8 +86,8 @@ assert.notEqual(customer.entity,product.entity);
 const customerAliases=c.MENUS.filter(m=>m.program==='E010101').map(m=>c.getFeature(m.id).entity);
 assert.equal(new Set(customerAliases).size,1);
 assert.ok(c.toCsv([['=HYPERLINK("x")']],['값']).includes("'=HYPERLINK"));
-// No accidental transport, persistence, auth, or telemetry in this entrypoint.
-for(const file of ['lib/ecountWorkbench.cjs','pages/ecount/workbench.js','components/EcountPreviewShell.js']){
+// The pure design engine and shell remain side-effect free. The authenticated workspace API has its own contract.
+for(const file of ['lib/ecountWorkbench.cjs','components/EcountPreviewShell.js']){
   const text=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   assert.ok(!/\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|indexedDB|localStorage|sessionStorage|document\.cookie|lib\/db|lib\/useApi/.test(text),file+' must remain isolated');
 }

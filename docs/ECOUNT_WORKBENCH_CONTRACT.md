@@ -1,3 +1,7 @@
+# 적용 범위 변경 — 2026-10-20
+
+사용자가 별도 SQL 작업 영역 생성·적재를 명시 허용했다. 이 문서는 초기 합성 설계 엔진 `lib/ecountWorkbench.cjs`의 계약/과거 기록이다. 현재 화면·저장·롤백은 `ECOUNT_WORKSPACE_CONTRACT.md` 및 `contracts/ecount-workspace.json`이 담당한다. ECOUNT 원본과 기존 운영 원장은 계속 조회 전용/보존이다.
+
 # ECOUNT 전체 메뉴 개발 작업실 계약
 
 2026-10-20 사용자 지시: 실제 DB 입력·수정 금지. 모든 탭 구현 시작. 외부 API 기능도 화면과 저장 로직을 설계하고 실제 연동만 보류.

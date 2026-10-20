@@ -1,0 +1,65 @@
+{
+  "id": "ecount-workspace",
+  "title": "격리 ECOUNT 작업자료 버전과 복원",
+  "scope": [
+    "lib/ecountWorkspacePolicy.cjs",
+    "lib/ecountWorkspaceClient.cjs",
+    "lib/ecountWorkspaceStore.js",
+    "pages/api/ecount/workspace.js",
+    "docs/migrations/20261020_ecount_workspace.sql",
+    "pages/ecount/workbench.js",
+    "components/EcountPreviewShell.js",
+    "components/EcountWorkspaceDialog.js",
+    "styles/ecount-workbench.module.css",
+    "scripts/ecount-workspace-admin.mjs",
+    "scripts/ecount-workspace-sql-check.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "IMPORT_OR_ACTIVATE_ISOLATED_VERSION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": [
+        "ecount_work.Version",
+        "ecount_work.Head",
+        "ecount_work.Audit"
+      ]
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 월일의 2025/2026 기간 해시 분리, revision 경합과 복원"
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountWorkspace.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/ECOUNT_WORKSPACE_CONTRACT.md",
+    "source": "독립 웹 전용 ecount_work 스키마; 기존 ERP 원장 읽기·쓰기 없음, dnSpy 해당 없음",
+    "methods": [
+      "scopeOf",
+      "prepareImport",
+      "saveVersion"
+    ],
+    "tables": [
+      "ecount_work.Version",
+      "ecount_work.Head",
+      "ecount_work.Audit"
+    ]
+  },
+  "requiredCommands": [
+    "node __tests__/ecountWorkspace.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

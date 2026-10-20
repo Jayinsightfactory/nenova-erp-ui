@@ -1,0 +1,21 @@
+# ECOUNT SQL 작업 영역 계약
+
+사용자 승인: 별도 SQL 작업 영역 생성·적재. ECOUNT 자체는 조회/다운로드만, 입력/수정/삭제/발행/전송 금지.
+
+고정 루트 `nenova-ecount`, SQL 스키마 `ecount_work`. 기존 ERP 원장 및 WebEcountSnapshot/WebEcountRow 보존.
+동작별 부작용: import는 Version/Audit INSERT 및 Head UPDATE/INSERT, activate는 Head UPDATE 및 Audit INSERT.
+Version은 불변 JSON 안전 투영 스냅샷이며 원본 개인정보 복사본이 아니다. 개인정보/계좌/메모/인증정보는 저장하거나 출력하지 않는다.
+rollback은 과거 버전의 활성 포인터만 변경하며 과거 이력은 삭제하지 않는다. 외부 ECOUNT 변경의 rollback 기능이 아니다.
+감사는 이 작업 영역의 가져오기·정정·활성 버전 변경만 기록한다. ECOUNT에서 직원이 수행한 모든 업무를 기록하는 감사 시스템이 아니다.
+기존 스냅샷 적재 시 SourceSnapshotKey와 원본 TakenAt를 SourceTakenAt에 함께 보존하며 작업영역 CreatedAt와 구분한다. 동일 내용의 활성 버전 재수신은 새 버전·감사행을 만들지 않으므로 반복 조회/가져오기 시도 전체를 기록하는 이력은 아니다. 해시는 원본 수집시각에 의존하지 않는다.
+원본 날짜 표시값은 확인된 날짜·오전/오후 시간·전표순번·월계 형식만 sourceDateLabel로 보존한다. refDate는 일자로 정규화하며 월계는 날짜를 만들어 넣지 않고 null로 유지한다. 기간 입력은 ISO 일자만 받는다.
+
+기준: 사용자 승인 및 기존 ecountIngest 데이터셋 프로그램 매핑. 관리자 authority=1, 활성 계정만 접근.
+범위: root+canonical menuId+program+dataset. 같은 프로그램의 즐겨찾기/메뉴 경로는 MyPage 외 첫 메뉴 ID로 정규화하여 같은 자료·이력을 조회한다. periodFrom/periodTo는 ISO 날짜 또는 둘 다 null; 미상 기간은 항상 unknown.
+기대 revision 필수, 트랜잭션 applock과 revision 재검사. 같은 데이터 해시 재수신은 중복 버전을 만들지 않는다.
+응답 유실 후 구 revision으로 재전송하면 409를 반환한다. 클라이언트는 현재 이력을 다시 읽어 결과를 확인하고 최신 revision으로 재시도한다. 즉시 투명 재시도 영수증을 지원한다는 의미는 아니다.
+명시적 migration만 허용하며 런타임 DDL 없음. 원본 snapshot 한 개를 고정하여 읽고 Dataset/행수 일치 검증 후 투영.
+
+EXE 예외: 독립 웹 전용 데이터 보관소이며 OrderMaster/OrderDetail/ShipmentMaster/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/Stock/WebProfitReport 및 View/SP에는 읽기·쓰기 하지 않는다. 따라서 새 EXE 메서드 추출 및 ERP probe 해당 없음. 기존 ECOUNT 웹 테이블 구조는 lib/ecountIngest.js를 기준으로 사용. 실제 SQL 실행/마이그레이션 검증은 별도 기록 전까지 미검증.
+
+지원 데이터셋 cash/ar/ap/sales만 적재. 숫자는 문자열로 보존; 이름·계좌·거래처코드·상품명·메모는 제외. 이 제약 때문에 원본 전체 데이터와 100% 동등한 복사본이 아니다. 다른 페이지의 데이터 수집은 개별 스키마·개인정보 정책 확정 전 지원하지 않는다.
