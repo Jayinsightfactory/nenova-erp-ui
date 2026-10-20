@@ -514,3 +514,15 @@
 - bom-stock-import-safe.json1행3필드정규화대조0/실제SQL아직없음. 단일scope/2필수수량/소계·빈import·무효coverage거부/멱등복원fixturePASS. UI30표적검사/851관측ID. 무코드F8외관활성·무조회/기존결과보존,print3미실행비활성.
 - 외부연동13기능새설계문서/JSON: 공급자중립화면·원천키revision·취소보상·secretRef·Outbox응답불명·웹훅·감사복원흐름. 설계완료/실행미구현,가입·API연결·DDL·scheduler없음. 공급자최신요금확정아님. 기존격리shell적용/원본공유ERP쓰기없음.
 - 검색어: bomStock E040726 selected upperResult 851 external-integration-design
+
+## 2026-10-20 BOM 선택 범위 적재·잔량 운영 정확값
+- root 재고잔량1147운영1950행/13650수량exact차이0/제품1949유일/실제합계label·colspan2·monthLabels·다른기준일미수집·인쇄4열기닫기PASS. 표폭delta0.0625px남아후속보정대상,전체픽셀동등성미완료.
+- BOM+외부연동설계5gate모두PASS(bom-stock-guard-results.json), build1회. PR1148 fixed d7583496 CI39411151016진행중. root별도ecount_work bomStock선택1행revision1/readbacktrue/idempotenttrue적재완료. 선택품목/asof에한정된upperempty관찰이며전체품목BOM없음의미아님. source/sharedledger쓰기0,운영화면대조는배포후예정.
+- 검색어: PR1148 bomStock revision1 13650exact 0.0625px
+
+## 2026-10-20 관계별재고 선택 범위 보존
+- PR1148 CI39411151016 PASS/squash623bc523, deploy39411392175 SSH단계진행중. root bomStock1행revision1/readbacktrue/idempotenttrue별도적재완료, 원본공유원장쓰기0.
+- relStock E040728/menu2879: 선택코드/asof1제품+실제합계1행만안전보존, 2필수수량/마지막null코드소계형식검증·합계재계산금지. 무코드/다른코드/다른날짜는미수집, 원본품목필수일반화없음.
+- relation-stock-import-safe.json2행8필드정규화대조0/실제SQL아직없음. UI32표적검사·정책actionsPASS,총868관측ID. 4열751/span2/print3열기닫기만. 원본전체동등성미완료.
+- 공유계정사용량주간42%/58%남음(root조회),작업단독사용량아님/리셋구매없음. 기존격리shell적용/공유ERP writer없음.
+- 검색어: relStock E040728 868 sourceTotal selectedscope
