@@ -1,3 +1,4 @@
+- [2026-10-20 44-1차 음수 주문 Pivot 진단](2026-10-20_pivot-negative-44-diagnosis.md) — 저장정상, 전산피벗 양수전용조건으로30행제외.
 - [2026-10-20 ECOUNT 기능 이관 설계](2026-10-20_ecount-replacement-design.md) — 자체 DB·외부 API·14개 자동 작업·REA 적용 판단.
 - [2026-10-19 에콰도르 기초재고 매입원가](2026-10-19_ecuador-acquisition-cost.md) — 오래된 매입·판매단가 구분, 이전 차수 검증, 과거 환율·기간 분리.
 - [2026-10-19 독립 재고·수익률 검산](2026-10-19_profit-independent-audit.md) — 기초/기말 차이, 조정, 최초 관측 구간, 직접 단가와 산술 검산, SELECT 전용.

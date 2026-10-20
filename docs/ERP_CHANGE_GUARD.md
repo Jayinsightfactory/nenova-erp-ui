@@ -892,3 +892,7 @@ Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는
 
 분모 0의 D/U null을 화면에서 100%로 대체하지 않는다. 명시적 포워딩/구매 0을 `|| null`로 비우지 않는다. 회귀 `profitFormulaAudit.test.cjs`는 전 열·합계 오염, 확정 roundtrip, 교차연도, 실제 formatter 세 경로 및 xlsx를 실행한다. 독립 검산은 production 계산 함수를 import하지 않는다. 원본 fixture·계약·빌드 실패 시 배포하지 않는다.
 
+
+
+## 2026-10-20 Pivot 음수 주문 읽기 정책
+웹 전산 피벗 주문 분기는 사용자 요청에 따라 OutQuantity<>0을 사용한다. 음수 주문은 원본 부호대로 합계와 엑셀에 반영한다. native FormQuantityPivot의 >0을 다시 복제해 음수 주문을 누락하지 않는다. 연도 포함 StockList 조인과 다른 분기는 보존한다. 회귀: pivotNegativeOrders.test.js / pivot-signed-orders-smoke.cjs. 원장 보정이나 EXE 변경은 하지 않는다.
