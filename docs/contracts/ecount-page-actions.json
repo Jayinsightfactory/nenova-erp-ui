@@ -1,0 +1,22 @@
+{
+  "id":"ecount-page-actions",
+  "title":"ECOUNT 조회 화면의 무부작용 검색·정렬·출력 모델",
+  "scope":["lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"LOCAL_FILTER_SORT_EXPORT_MODEL","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":[]}],
+  "crossYearFixture":{"required":true,"description":"연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"},
+  "requiredTestFiles":["__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
+  "requiredCommands":["node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+  "criteria":{
+    "evidence":"docs/ecount-migration/parity-observations.md",
+    "knownShortcuts":{"F3":"open-search","F8":"run-search"},
+    "reset":"UI가 전달한 초기 검색조건으로 복원; 원본 기본값을 추정하지 않음",
+    "datePreset":"연/월/일은 명시 ISO 기준일; 주 시작요일은 호출자가 관찰근거에 따라 명시. E040207 금주(~오늘)는 2026-10-20 관찰에서 2026-10-18~2026-10-20로 설정되어 일요일 시작과 결과 자동조회 전환 확인. 다른 프로그램·preset에는 일반화하지 않음. 종료일 동작 미확정으로 미지원",
+    "unknownDates":"날짜필터가 활성화되면 미상일자/월계 제외 개수를 별도 반환; 기간귀속 추정 안함",
+    "exactDecimals":"소수점 이하8자리, 정수24자리까지 BigInt 정렬/범위필터; 부동소수 변환 금지",
+    "export":"안전투영 필드만; 계좌/거래처/품목/메모 등의 열은 값 공백; CSV formula injection 방지; 원본 Excel/인쇄 양식 동등성 미검증",
+    "printPreview":"E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 9열 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
+    "writes":"없음"
+  }
+}

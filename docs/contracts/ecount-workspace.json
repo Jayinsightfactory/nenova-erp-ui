@@ -12,7 +12,10 @@
     "components/EcountWorkspaceDialog.js",
     "styles/ecount-workbench.module.css",
     "scripts/ecount-workspace-admin.mjs",
-    "scripts/ecount-workspace-sql-check.cjs"
+    "scripts/ecount-workspace-sql-check.cjs",
+    "components/ecount/ObservedPageControls.js",
+    "components/ecount/QuotePageControls.js",
+    "scripts/ecount-workspace-import-safe.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -37,7 +40,8 @@
     "description": "같은 월일의 2025/2026 기간 해시 분리, revision 경합과 복원"
   },
   "requiredTestFiles": [
-    "__tests__/ecountWorkspace.test.cjs"
+    "__tests__/ecountWorkspace.test.cjs",
+    "__tests__/ecountWorkspaceImportSafe.test.mjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -61,5 +65,13 @@
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "criteria": {
+    "quoteUpload": "E040202 quote: refDate/sourceDateLabel 및 estimateTotal만 안전 투영. 업로드·버전·복원만 지원; 기존 source snapshot import-latest는 cash/ar/ap/sales 네 종류에 한정. 신규 스키마·운영 원장 변경 없음.",
+    "sourceEvidence": "docs/ecount-migration/parity-observations.md",
+    "implemented": "Observed F3 inline panel, local safe-workspace query and same-tab mapping shell only; unverified source actions remain disabled",
+    "mappingData": "Not collected; never report empty source result as verified",
+    "sourceWrites": "Forbidden",
+    "existingLedgerWrites": "None"
+  }
 }

@@ -1,3 +1,5 @@
+- [2026-10-20 44-1차 음수 주문 Pivot 진단](2026-10-20_pivot-negative-44-diagnosis.md) — 저장정상, 전산피벗 양수전용조건으로30행제외.
+
 - [2026-10-20 중국 원가 엑셀 상단 누락](2026-10-20_china-cost-export-layout.md) — 상단 항목·승인 합계 복원, 과거 예상표 혼입 방지, 원장 변경 없음.
 - [2026-10-20 기존 입고 농장 조회](2026-10-20_existing-receipt-farm-scope.md) — Farm 목록 누락과 기존 입고 부재 구분, 원가만 연결.
 - [2026-10-20 ECOUNT 기능 이관 설계](2026-10-20_ecount-replacement-design.md) — 자체 DB·외부 API·14개 자동 작업·REA 적용 판단.

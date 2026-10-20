@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {parseOptions,prepareSafeInput,loadDatabaseEnvironment,importSafe} from '../scripts/ecount-workspace-import-safe.mjs';
+import menus from '../data/ecount-workbench/source-menu.json' with {type:'json'};
+const menu=menus.menus.find(item=>item.program==='E040202');
+const options=parseOptions(['--file','synthetic.json','--dataset','quote','--menu-id',menu.id,'--period-from','2026-10-01','--period-to','2026-10-31','--env-file','synthetic.env']);
+assert.throws(()=>parseOptions(['--file','a','--file','b']));
+assert.throws(()=>parseOptions(['--password','never-load']));
+const input=prepareSafeInput(options,{rows:[{refDate:'2026/10/20 -1',estimateTotal:'12,300',custName:'SYNTHETIC_MUST_DROP',account:'SYNTHETIC_MUST_DROP'}]});
+assert(!JSON.stringify(input).includes('SYNTHETIC_MUST_DROP'));
+assert.throws(()=>prepareSafeInput(options,[]));
+assert.throws(()=>prepareSafeInput({...options,'period-from':'2026-11-01'},[{estimateTotal:'1'}]));
+assert.throws(()=>prepareSafeInput(options,[{estimateTotal:'not-a-number'}]));
+const env={};loadDatabaseEnvironment('DB_SERVER=synthetic\nDB_PASSWORD="synthetic"\nAUTH_SECRET=never-load\nPATH=never-load',env);assert.deepEqual(Object.keys(env).sort(),['DB_PASSWORD','DB_SERVER']);
+function mock(){let revision=0,version=null,writes=0;return {get writes(){return writes;},activeAdmin:async user=>user.userId==='nenovaSS3',installed:async()=>true,readWorkspace:async()=>({revision,version}),saveVersion:async body=>{assert.equal(body.action,'import');assert.equal(body.expectedRevision,revision);assert(!JSON.stringify(body).includes('SYNTHETIC_MUST_DROP'));if(version)return {revision,versionId:version.versionId,idempotent:true};writes++;revision++;version={versionId:'00000000-0000-0000-0000-000000000001',periodFrom:body.periodFrom,periodTo:body.periodTo,rows:body.rows};return {revision,versionId:version.versionId,idempotent:false};}};}
+const store=mock();assert.deepEqual(await importSafe(input,store),{count:1,revision:1,readback:true,idempotent:true});assert.equal(store.writes,1);
+await assert.rejects(importSafe(input,{...mock(),activeAdmin:async()=>false}),/ACTIVE_ADMIN_REQUIRED/);
+const bad=mock();const read=bad.readWorkspace;let reads=0;bad.readWorkspace=async()=>{const value=await read();if(++reads>1)return {...value,version:{...value.version,rows:[{estimateTotal:'999'}]}};return value;};await assert.rejects(importSafe(input,bad),/READBACK_CONTENT_MISMATCH/);
+console.log('PASS safe import CLI: args, privacy projection, DB-only environment, authorization, readback hash, idempotency; no SQL executed');

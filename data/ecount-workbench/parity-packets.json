@@ -1,7 +1,7 @@
 {
   "version": 1,
   "usage": {
-    "weeklyConsumedPercentBaseline": 26,
+    "weeklyConsumedPercentBaseline": 41,
     "baselineDate": "2026-10-20",
     "meaning": "Account-wide baseline, not attributable task tokens",
     "hardTokenBudget": null,
@@ -13,18 +13,44 @@
       "Run targeted tests after each change; full release gates once per release candidate",
       "Checkpoint and stop duplicate or repeatedly failing workers",
       "Do not reset limits or purchase credits"
-    ]
+    ],
+    "previousWeeklyConsumedPercentBaseline": 26,
+    "workerReuse": true,
+    "sourceBrowserOwner": "root",
+    "lastCheckpoint": "Resume existing three workers; account-wide weekly used 41%, not task tokens"
   },
   "foundations": [
     {
       "id": "FOUNDATION-READONLY",
-      "stage": "pending",
-      "requires": "Source action allowlist and read-only collection audit"
+      "stage": "ready-scoped",
+      "requires": "Source action allowlist and read-only collection audit",
+      "evidence": [
+        "scripts/check-ecount-parity.cjs",
+        "__tests__/ecountParity.test.cjs",
+        "docs/ecount-migration/parity-contract.md"
+      ],
+      "verifiedScope": "Source allowlist contract and reviewed read-only observations; root alone controls source browser",
+      "limitations": [
+        "No automatic enforcement over all ECOUNT UI controls",
+        "No complete log of historical source actions or all employee activity",
+        "Unknown buttons remain blocked until their effect is established"
+      ],
+      "sourceAudit": "data/ecount-workbench/source-action-audit.jsonl"
     },
     {
       "id": "FOUNDATION-ISOLATED-SQL",
-      "stage": "pending",
-      "requires": "Separate SQL target identity, isolation, import batches and rollback verification"
+      "stage": "verified-scoped",
+      "requires": "Separate SQL target identity, isolation, import batches and rollback verification",
+      "evidence": [
+        "docs/ECOUNT_WORKSPACE_CONTRACT.md",
+        "docs/work-sessions/2026-10-20_ecount-data-workspace.md"
+      ],
+      "verifiedScope": "ecount_work Version/Head/Audit for cash, ar, ap, sales; rollback-only nine checks and production readback recorded",
+      "limitations": [
+        "Safe projections only; no full original record equivalence",
+        "Other dataset schemas and imports not verified",
+        "Restore changes local active version only, never ECOUNT source"
+      ]
     }
   ],
   "packets": [
@@ -50,15 +76,24 @@
       "screenIds": [
         "E010205"
       ],
-      "stage": "queued",
+      "stage": "implementing",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E010205",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
+      "resumeFrom": "E010205",
+      "priority": 1,
+      "activeScreen": "E010205",
+      "owner": "ui_packets",
+      "screenWork": [
+        {
+          "id": "E010205",
+          "stage": "implementation-in-progress"
+        }
+      ]
     },
     {
       "id": "P003",
@@ -67,15 +102,28 @@
         "E040214",
         "E040723"
       ],
-      "stage": "queued",
+      "stage": "implementing",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040214",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
+      "resumeFrom": "E040214",
+      "priority": 2,
+      "activeScreen": "E040214",
+      "owner": "ui_packets",
+      "screenWork": [
+        {
+          "id": "E040214",
+          "stage": "implementation-in-progress"
+        },
+        {
+          "id": "E040723",
+          "stage": "pending-source-survey"
+        }
+      ]
     },
     {
       "id": "P004",
@@ -86,15 +134,35 @@
         "E040202",
         "E040201"
       ],
-      "stage": "queued",
+      "stage": "awaiting-evidence",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040304",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Initial estimate columns/buttons observed; no source buttons executed; detailed actions/windows pending",
+      "resumeFrom": "E040202",
+      "activeScreen": "E040202",
+      "owner": "root-source-survey",
+      "screenWork": [
+        {
+          "id": "E040304",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040303",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040202",
+          "stage": "partial-observation-awaiting-detail"
+        },
+        {
+          "id": "E040201",
+          "stage": "pending-source-survey"
+        }
+      ]
     },
     {
       "id": "P005",
@@ -255,15 +323,60 @@
         "E040301",
         "E040306"
       ],
-      "stage": "queued",
+      "stage": "awaiting-evidence",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
       "surveyFirst": "E040207",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
+      "resumeFrom": "E040207",
+      "priority": 4,
+      "activeScreen": "E040207",
+      "owner": "root-source-survey",
+      "screenWork": [
+        {
+          "id": "E040207",
+          "stage": "partial-observation-awaiting-detail"
+        },
+        {
+          "id": "E040216",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040609",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040210",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040254",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040255",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040215",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040302",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040301",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040306",
+          "stage": "pending-source-survey"
+        }
+      ]
     },
     {
       "id": "P012",
@@ -345,15 +458,56 @@
         "E040714",
         "E040703"
       ],
-      "stage": "queued",
+      "stage": "awaiting-evidence",
       "dependsOn": [
         "FOUNDATION-READONLY",
         "FOUNDATION-ISOLATED-SQL"
       ],
-      "surveyFirst": "E040217",
+      "surveyFirst": "E040309",
       "maxActiveWorkers": 1,
-      "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
-      "resumeFrom": null
+      "checkpoint": "Implement only evidenced source controls. Survey next unknown action through root. Keep all sibling screens pending; no packet-complete claim.",
+      "resumeFrom": "E040309",
+      "priority": 3,
+      "activeScreen": "E040309",
+      "owner": "root-source-survey",
+      "screenWork": [
+        {
+          "id": "E040217",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040310",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040309",
+          "stage": "partial-observation-awaiting-detail"
+        },
+        {
+          "id": "E040721",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040713",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040722",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040724",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040714",
+          "stage": "pending-source-survey"
+        },
+        {
+          "id": "E040703",
+          "stage": "pending-source-survey"
+        }
+      ]
     },
     {
       "id": "P016",
@@ -1286,5 +1440,28 @@
       "checkpoint": "Stop after first screen; reuse verified shared controls, then survey remaining screen-specific differences.",
       "resumeFrom": null
     }
-  ]
+  ],
+  "releaseGate": {
+    "allPacketsRemainInScope": true,
+    "completePackets": 0,
+    "fullyVerifiedScreens": 0,
+    "requireCompleteCommand": "node scripts/check-ecount-parity.cjs --require-complete",
+    "expectedCurrentExitCode": 2
+  },
+  "reportDeliverable": {
+    "required": true,
+    "format": "xlsx",
+    "stage": "data-contract-implemented",
+    "artifactPath": null,
+    "contract": "docs/ecount-migration/report-contract.md",
+    "data": "data/ecount-workbench/button-matches.json",
+    "validator": "node scripts/check-ecount-button-matches.cjs --require-complete",
+    "requires": [
+      "Every observed source button stable ID maps to same actual target ID",
+      "Source and target privacy-safe annotated screenshots with viewport",
+      "Matched conditions plus function/window/query-value evidence",
+      "Unknown buttons and missing evidence remain unverified; no empty completion report"
+    ],
+    "futureAuthoring": "Read spreadsheet/artifact authoring skill before creating Excel"
+  }
 }

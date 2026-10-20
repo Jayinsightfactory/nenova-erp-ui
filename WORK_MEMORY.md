@@ -177,6 +177,20 @@
 - 상세: docs/work-sessions/2026-10-20_ecount-replacement-design.md, docs/ecount-migration/menu-inventory.md, docs/ECOUNT_WORKBENCH_CONTRACT.md.
 - 검색어: ecount-workbench 전체메뉴537 DB미연결 메모리초안 외부API저장설계
 
+## 2026-10-20 44-1차 음수 주문 Pivot 통계 진단
+- 2026/44-01 콜롬비아 카네이션26행 -76박스/수국4행 -17박스 정상저장 확인. 전산피벗 OutQuantity>0 조건으로30음수행 제외. 실제dnSpy/운영SELECT 동일 확인. 원장/코드/배포 변경없음. 사용자로그인화면 필터상태 미검증.
+- 상세 docs/work-sessions/2026-10-20_pivot-negative-44-diagnosis.md
+- 검색어: 44-1 음수주문 Pivot통계 OutQuantity 양수필터 카네이션 수국
+
+## 2026-10-20 음수주문 이전표시와 모드전환 원인
+- git기록: b46355a8(2026-09-14)에서 Pivot 기본mode=exe 도입, statsPivotMode 브라우저저장값으로legacy/exe복원. 기존웹피벗 주문SQL에는양수제한없음, EXE SQL OutQuantity>0은 c5feda67(2026-07-06) 도입이후변경없음. 사용자가이전에어떤모드였는지는미검증. 코드변경일과실제배포일은구분.
+- 검색어: statsPivotMode b46355a8 전산피벗 기존웹피벗 음수주문 2026-09-14
+
+## 2026-10-20 음수 주문 피벗 수정
+- 주문 조회를 OutQuantity<>0으로 변경, 모든 국가·연도차수에 공통 적용. 원장 쓰기 없음. 20264401 음수31행/-103 추가(콜롬비아 수국·카네이션30행/-93), 기존1112행 동일. 20264402/20254001 원본 동일.
+- signedOrders 18조합·XLSX 회귀, 1920/1280 브라우저(+10/-3=7), build/manifest/write guard 통과. 로컬 전체ERP 검사는 C: 여유558MB로 activity health 테스트 실패; CI 전체검사 통과 전 배포 금지. 캐시삭제 자동승인차단, 삭제없음.
+- 검색어: Pivot 음수주문 signedOrders OutQuantity 44-1 -103
+
 ## 2026-10-20 기존 입고 농장 조회 조건
 - HUBFRESH 입고 7671은 존재하나 Farm 목록에는 없어 원가 연결이 차단됨. native FarmName 직접 저장/LEFT JOIN 근거에 맞춰 Farm 미선택은 연도·차수·송장·입고연도의 유일 입고 조회로 수정. 명시 Farm 선택은 기존 좁힘 조건 유지.
 - 품목/수량/금액 대조와 잠금 재검증 유지. ERP 원장 쓰기 없음. 신규 회귀 30개 통과, 전체 검사·배포·운영 저장/Excel 검증 진행 중(미검증).
@@ -197,11 +211,20 @@
 ## 2026-10-20 ECOUNT 이력 조회 후속
 - PR1111 배포 성공, 운영 cash21/ar89 조회 확인. 이력 SQL 별칭 ROWCOUNT 예약어 오류 발견·수정, 실제 읽기8건 및 회귀검사 통과. 기존자료·원장 변경 없음. 재배포/운영 이력창 최종결과는 세션 문서 참조.
 - 검색어: ecount-history-query-fix ROWCOUNT SQL156 이력조회
+- 후속 완료: PR1113/17fcac04 Cafe24 배포 success. 운영4종 행수 확인 및 작업 이력 창 열기·닫기 통과. 전체 기능100%는 미완료. 주간사용38%, 남음62%. 상세 docs/work-sessions/2026-10-20_ecount-data-workspace.md.
+
+## 2026-10-20 ECOUNT 버튼별 Excel 보고서 추가 요구
+- 최종 산출물에 페이지/모든 버튼 라벨과 양쪽 화면 캡처, 기능/새창/동일 조건 조회값 비교 Excel 포함. 지속 매칭 JSON/근거 검사 구현, 현재 373페이지 중 전체 동등성 확인0; 관찰버튼88. 최종Excel 아직 미생성.
+- 판매 F3/조회/고객선택창 껍데기/출력드롭다운/새탭 안전 미리보기, 견적조회 별도 화면과 quote 업로드 전용 데이터셋 추가. 기존 ERP 원장/ECOUNT 쓰기 없음. quote 실제적재 미실행.
+- 표적검사 통과. 전체 ERP검사에서 신규계약 requiredCommands 누락 발견 후 보완중, 빌드 진행중. 배포/실브라우저 신규화면 미검증.
+- 검색어: ecount-button-matches report-contract E040202 E040207 새탭미리보기 Excel동등성88버튼
 
 ## 2026-10-20 중국 원가 엑셀 표시 누락
 - CN SEA format-only 자산의 상단 항목명이 출력에서 누락됨. 현재 승인 상품·운임·관세·기타비 합계와 개별비용 미보유 표기, 관세율 요약·추정근거 복원. 기존 64행/2,280단/29,048,581.029768원 불변.
 - SELECT-only 실자료 export 및 렌더 검증. ERP gate/빌드 통과, 배포 후 다운로드는 아직 미검증(세션 문서 후속 참조).
 - 검색어: china-cost-export-layout 상단누락 format-only 중국해상 #### 엑셀요약
+- 후속 재개: C: 여유41GB 확인. 캐시삭제는 정책 거부로 미실행. 최신master94c512bf 병합 후 빌드 통과. quote 날짜/금액3행 별도SQL revision1 적재·내용hash/readback·멱등 검증 통과. 원본/운영원장 쓰기없음. 원본관찰94버튼, 최종Excel/배포스모크 진행중.
+
 
 ## 2026-10-20 신라호텔 3자료 조회·분석
 - 최신 origin/master 분리 작업트리. 신라 손익 화면의 조회·분석 링크, 별도 비교표, SELECT-only multipart API, 기간 월별 순차 SRM 조회 전용 Chrome 확장 구현. 최초 설치 승인 전 실제 브라우저 연결 미검증.
