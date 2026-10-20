@@ -2,6 +2,7 @@
   "id": "ecount-workspace",
   "title": "격리 ECOUNT 작업자료 버전과 복원",
   "scope": [
+    "components/ecount/SaleQueryPageControls.js",
     "components/ecount/DiscountPageControls.js",
     "components/ecount/PurchaseOrderPageControls.js",
     "components/ecount/SettlementPageControls.js",
@@ -72,6 +73,7 @@
     "npm run build"
   ],
   "criteria": {
+    "saleQueryUpload":"E040206 saleQuery canonical492: 관측26행 안전 amount/sourceDateLabel만 근거로 날짜+금액 투영. 기간/전체수집 unknown; source-latest금지, 기존 immutable JSON버전 재사용. 거래처/품목/창고/유형/회계상태 추정금지. 신규DDL/ERP원장변경없음.",
     "buyDiscountReadOnly":"E040313 buyDisc canonical518/alias588: 별도 구매할인 관찰6열 중 purchaseAmount/accountingAmount/difference만 모델 정의. 금일/전월0, 월일문법미확인. 판매할인과 별도scope, 날짜저장/필터 및 모든버전쓰기차단. 원본직전기수preset 동작추정금지. SQL/DDL 없음.",
     "discountReadOnly":"E040216 discount: 원본6열/금일·전월0행만 관측. salesAmount/accountingAmount/difference 안전 숫자 모델, 월일 문법 미확인으로 날짜 보존·필터 추정 금지. 읽기scope만; import/import-latest/activate는 트랜잭션 전 거부하여 빈snapshot/가짜행 생성 금지. SQL/DDL/ERP원장 변경 없음.",
     "orderSettlementUpload": "poQuery E040302 orderTotal, receipt E040217 amount, payment E040310 amount 및 검증된 sourceDateLabel/refDate만 업로드. canonical 기존 첫 non-MyPage 규칙. 상태/납기/거래처/적요 미수집, 원본전체 unknown. dataset ASCII10자 이하, source-latest 금지, 기존 원장/DDL 변경 없음.",
