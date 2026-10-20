@@ -190,3 +190,29 @@
 - 주문 조회를 OutQuantity<>0으로 변경, 모든 국가·연도차수에 공통 적용. 원장 쓰기 없음. 20264401 음수31행/-103 추가(콜롬비아 수국·카네이션30행/-93), 기존1112행 동일. 20264402/20254001 원본 동일.
 - signedOrders 18조합·XLSX 회귀, 1920/1280 브라우저(+10/-3=7), build/manifest/write guard 통과. 로컬 전체ERP 검사는 C: 여유558MB로 activity health 테스트 실패; CI 전체검사 통과 전 배포 금지. 캐시삭제 자동승인차단, 삭제없음.
 - 검색어: Pivot 음수주문 signedOrders OutQuantity 44-1 -103
+
+## 2026-10-20 기존 입고 농장 조회 조건
+- HUBFRESH 입고 7671은 존재하나 Farm 목록에는 없어 원가 연결이 차단됨. native FarmName 직접 저장/LEFT JOIN 근거에 맞춰 Farm 미선택은 연도·차수·송장·입고연도의 유일 입고 조회로 수정. 명시 Farm 선택은 기존 좁힘 조건 유지.
+- 품목/수량/금액 대조와 잠금 재검증 유지. ERP 원장 쓰기 없음. 신규 회귀 30개 통과, 전체 검사·배포·운영 저장/Excel 검증 진행 중(미검증).
+- 검색어: existing-receipt-farm-scope HUBFRESH 7671 FarmName Farm누락 원가연결
+
+## 2026-10-20 ECOUNT 별도 SQL·원본 UI·하위 작업
+- 사용자 별도 SQL 생성·적재 승인. ECOUNT는 조회/다운로드만, 기존 ERP 원장 보존. ecount_work Version/Head/Audit와 고정 루트 nenova-ecount 구현 및 스키마 생성.
+- 실제 SQL rollback-only9개 검사 통과, 검사 데이터 전부 rollback. 원본 안전 투영4종을 구현하고 날짜 형식 차이를 보완 중. 실자료 적재/배포 최종 결과는 세션 문서 참조.
+- UI 통계·개발 안내 제거, 원본4개 조회화면의 열 순서 부분 대조. 완전 동등성0개, 373프로그램/59작업묶음. SQL/UI/명세 하위 작업3개 시작, 사용량26% 기준.
+- 상세 docs/work-sessions/2026-10-20_ecount-data-workspace.md. 원본 입력/수정/삭제/발행/전송 없음.
+- 검색어: ecount_work nenova-ecount 원본버튼팝업 parity-packets 별도SQL롤백
+- 후속: 4종 안전 투영 실자료 cash21/ar89/ap174/sales5001(소계 포함) 적재·readback·멱등 재실행 성공. UUID 비교 정규화. SQL rollback-only9개 재통과. 사용량34%. 운영 배포 결과는 세션 문서 후속 기록 확인.
+## 2026-10-20 SQL 원장 기준 손익 대사
+- 76개 차수 SQL 직접 합산 N/L/O/Q 5,044개, 재고수량 1,261개 비교 일치. 산술 28,001개 + 저장 입력118revision 43,205개 일치. 원장 수량식 차이·연도키 충돌·원가근거 누락은 별도이며 정상 인증 아님.
+- 검증 새창에 SQL 원행 대사/연도키 제외/매입 존재와 원가 연결 누락 구별 추가. ERP 원장/확정본/수기값 보존. 전체 gate/CI/배포 진행 중; 인증 운영 화면은 로그인 만료로 미검증.
+- 상세 docs/work-sessions/2026-10-20_profit-sql-lineage.md. 검색어: profit-sql-lineage SQL독립합산 연도키충돌 매입시점 원가연결 FLOAT해시
+
+## 2026-10-20 ECOUNT 이력 조회 후속
+- PR1111 배포 성공, 운영 cash21/ar89 조회 확인. 이력 SQL 별칭 ROWCOUNT 예약어 오류 발견·수정, 실제 읽기8건 및 회귀검사 통과. 기존자료·원장 변경 없음. 재배포/운영 이력창 최종결과는 세션 문서 참조.
+- 검색어: ecount-history-query-fix ROWCOUNT SQL156 이력조회
+
+## 2026-10-20 중국 원가 엑셀 표시 누락
+- CN SEA format-only 자산의 상단 항목명이 출력에서 누락됨. 현재 승인 상품·운임·관세·기타비 합계와 개별비용 미보유 표기, 관세율 요약·추정근거 복원. 기존 64행/2,280단/29,048,581.029768원 불변.
+- SELECT-only 실자료 export 및 렌더 검증. ERP gate/빌드 통과, 배포 후 다운로드는 아직 미검증(세션 문서 후속 참조).
+- 검색어: china-cost-export-layout 상단누락 format-only 중국해상 #### 엑셀요약

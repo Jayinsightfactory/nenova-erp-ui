@@ -558,7 +558,7 @@ export default function InvoiceReceiptWorkbench({
     }).then(readJson);
     try {
       const { preview } = await post({ mode: 'preview' });
-      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.quantity ?? preview.stemQuantity}${preview.quantityUnit ?? '송이'} 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
+      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n농장 ${preview.farmName} · 입고일 ${preview.inputDate}\n송장 ${preview.invoiceNo}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.quantity ?? preview.stemQuantity}${preview.quantityUnit ?? '송이'} 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
       const { result } = await post({ mode: 'link', baselineDigest: preview.baselineDigest, operationId: crypto.randomUUID() });
       const fresh = await readDocument(doc.documentId);
       verifyReceiptDocument(fresh, { ...doc, operationId: result.operationId, warehouseKey: result.warehouseKey });
@@ -1069,12 +1069,13 @@ export default function InvoiceReceiptWorkbench({
         const key = Number(event.target.value) || null;
         const farm = farmOptions.find(option => Number(option.FarmKey) === key);
         updateSelected(document => ({ ...document, farmKey: key, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '' } }));
-      }}><option value="">선택 필요</option>{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
+      }}><option value="">신규 입고는 선택 · 기존 입고 연결은 생략 가능</option>{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
         ? <option value={documentValue.farmKey}>{documentValue.reviewedMetadata.farmName || '저장 농장'} (#{documentValue.farmKey})</option> : null}
       {farmOptions.map(farm => <option key={farm.FarmKey} value={farm.FarmKey}>{farm.FarmName} (#{farm.FarmKey})</option>)}</select></Field>
       <Field label="입고 메모" wide><input value={documentValue.reviewedMetadata.receiptNotes || ''} onChange={event => updateMetadata('receiptNotes', event.target.value)} /></Field>
     </div>
 
+    {['NL', 'CN'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
         {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}

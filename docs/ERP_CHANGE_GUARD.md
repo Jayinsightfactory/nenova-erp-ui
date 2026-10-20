@@ -896,3 +896,18 @@ Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport 원장 및 SQL writer는
 
 ## 2026-10-20 Pivot 음수 주문 읽기 정책
 웹 전산 피벗 주문 분기는 사용자 요청에 따라 OutQuantity<>0을 사용한다. 음수 주문은 원본 부호대로 합계와 엑셀에 반영한다. native FormQuantityPivot의 >0을 다시 복제해 음수 주문을 누락하지 않는다. 연도 포함 StockList 조인과 다른 분기는 보존한다. 회귀: pivotNegativeOrders.test.js / pivot-signed-orders-smoke.cjs. 원장 보정이나 EXE 변경은 하지 않는다.
+
+## 2026-10-20 SQL 원장 대사와 산술 검산 분리
+
+보고서 payload의 산술 일치만으로 SQL 원천 검증 완료를 표시하지 않는다. 독립 검산은
+ShipmentDetail.Amount, Estimate.Amount, WarehouseDetail.TPrice를 명시 연도·차수로
+읽고, 확정/운송료/비재고 비용/연도키 충돌을 별도 판정하여 N/L/O/Q와 비교한다.
+재고수량 대사, 직접 단가 대사, H/R/S 출처 검증은 이 결과와 구별한다.
+
+SQL에 값이 있으나 웹 단가로 연결되지 않은 것과 해당 시점까지 매입금액 행이 없는 것을
+구분한다. 미래 매입을 과거 재고에 적용하거나 확정 revision·ERP 원장을 보정하지 않는다.
+연도키 충돌 제외 건수·금액은 조회 경고로만 표시한다. SQL FLOAT SUM 순서 차이로
+거짓 변경 감지가 발생하지 않도록 금융 대사 집계는 DECIMAL(28,8), 비교 허용오차는
+0.01을 사용한다. 이는 세금/원장의 저장금액 반올림 변경이 아니다.
+계약/합성 반례: `profit-sql-lineage.json`, `profitSqlLineageAudit.test.cjs`.
+

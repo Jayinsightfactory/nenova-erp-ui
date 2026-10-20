@@ -1,122 +1,188 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import core from '../../lib/ecountWorkbench.cjs';
+import catalog from '../../data/ecount-workbench/source-menu.json';
+import policy from '../../lib/ecountWorkspaceClient.cjs';
+import { EcountWorkspaceDialog } from '../../components/EcountWorkspaceDialog';
 import styles from '../../styles/ecount-workbench.module.css';
 
-const { MENUS,TABS,SCHEMAS,getFeature,savePlan,createState,applyDraft,rowsFor,sampleValues,toCsv }=core;
-const fmt=v=>v==null?'산정 안 함':typeof v==='number'?v.toLocaleString('ko-KR',{maximumFractionDigits:3}):v;
-const leafCount=MENUS.filter(m=>!m.hasChildren).length;
-const externalCount=MENUS.filter(m=>!m.hasChildren&&getFeature(m.id).external).length;
-const searchKey=value=>String(value).toLowerCase().replace(/[\s/()·_-]/g,'');
-const emptyValues=f=>Object.fromEntries(f.schema.fields.map(x=>[x.key,x.type==='select'?x.options[0]:'']));
-
-function download(name,content,type='application/json'){
-  const url=URL.createObjectURL(new Blob([content],{type}));
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+const MENUS = catalog.menus;
+const TABS = MENUS.filter(menu => menu.depth === 1);
+const DATASETS = { E010205: 'cash', E040214: 'ar', E040309: 'ap', E040207: 'sales' };
+const LABELS = { refDate:'일자',date:'일자',amount:'금액',balance:'잔액',salesTotal:'매출합계',receiptTotal:'수금합계',etcDiff:'기타차액',openingDebt:'기초채무',stockBuy:'재고매입',acctBuy:'회계매입',payTotal:'지급합계',qty:'수량',supplyAmt:'공급가액',vat:'부가세',total:'합계',isSubtotal:'소계',flow:'구분',currency:'통화',rowNumber:'순번',unitPrice:'단가',unbilled:'미청구액' };
+const ERRORS = { LOGIN_REQUIRED:'로그인 후 이용해 주세요.',ADMIN_REQUIRED:'관리자 권한이 필요합니다.',ACCOUNT_INACTIVE:'사용 가능한 관리자 계정인지 확인해 주세요.',WORKSPACE_NOT_INSTALLED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',WORKSPACE_UNAVAILABLE:'작업 자료에 연결할 수 없습니다. 잠시 후 다시 조회해 주세요.',INVALID_PERIOD:'시작일과 종료일을 함께 지정해 주세요.',INVALID_DATE:'날짜 형식을 확인해 주세요.',SOURCE_DATE_MISMATCH:'원본 일자와 조회 일자가 일치하지 않습니다.',INVALID_SUBTOTAL_DATE:'월별 합계 행의 소계 구분을 확인해 주세요.',INVALID_DECIMAL:'숫자 형식을 확인해 주세요.',SOURCE_ROW_COUNT_MISMATCH:'수집 자료의 행 수가 일치하지 않아 불러오기를 중단했습니다.', UNAUTHORIZED:'로그인 후 이용해 주세요.',FORBIDDEN:'관리자 권한이 필요합니다.',REVISION_CONFLICT:'다른 작업에서 자료가 변경되었습니다. 다시 조회한 뒤 진행해 주세요.',WORKSPACE_NOT_INITIALIZED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',SOURCE_NOT_FOUND:'가져올 수 있는 수집 자료가 없습니다.',SOURCE_TOO_LARGE:'한 번에 불러올 수 있는 범위를 초과했습니다. 자료를 나누어 주세요.',EMPTY_SAFE_ROW:'적재할 숫자 자료가 없는 행이 있습니다.',INVALID_SUBTOTAL:'소계 구분을 확인해 주세요.',INVALID_ROWS:'자료 행 수 또는 형식을 확인해 주세요.',VERSION_NOT_FOUND:'복원할 자료를 찾을 수 없습니다. 작업 이력을 다시 조회해 주세요.' };
+const searchKey = value => String(value).toLowerCase().replace(/[\s/()·_-]/g,'');
+function arrowFocus(event) {
+  if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key) || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
+  const buttons = [...event.currentTarget.querySelectorAll('button:not(:disabled)')];
+  const index = buttons.indexOf(document.activeElement); if (index < 0) return;
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length-1 : (index + (['ArrowLeft','ArrowUp'].includes(event.key) ? -1 : 1) + buttons.length) % buttons.length;
+  event.preventDefault(); buttons[next]?.focus();
 }
-function arrowFocus(event){
-  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
-  const buttons=Array.from(event.currentTarget.querySelectorAll('button:not(:disabled)'));
-  const index=buttons.indexOf(document.activeElement);if(index<0)return;
-  const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(['ArrowLeft','ArrowUp'].includes(event.key)?-1:1)+buttons.length)%buttons.length;
-  event.preventDefault();buttons[next]?.focus();
+// Source-observed bank headers retain their order; restricted fields are never supplied.
+const BANK_COLUMNS = [
+  [null,''],['refDate','입/출금일자'],['flow','구분'],[null,'계좌번호'],[null,'계좌명'],[null,'거래처코드'],[null,'거래처명'],['amount','금액'],[null,'입금처(출금처)'],[null,'비 고'],['balance','원화잔액'],[null,'지점명/상대은행'],[null,'회계전표']
+];
+const AR_COLUMNS = [[null,'거래처명'],['salesTotal','매출합계'],['receiptTotal','수금합계'],['etcDiff','기타할인등차액'],['balance','잔액'],[null,'미회수월']];
+const AP_COLUMNS = [[null,'거래처코드'],[null,'거래처명'],['openingDebt','기초채무'],['stockBuy','재고매입'],['acctBuy','회계매입'],['payTotal','지급합계'],['etcDiff','기타할인등차액'],['balance','잔액'],['unbilled','미청구액']];
+const SALES_COLUMNS = [['refDate','일자-No.'],[null,'거래처명'],[null,'품목명'],['qty','수량'],['unitPrice','단가(vat포함)'],['supplyAmt','공급가액'],['vat','부가세'],['total','합계'],[null,'적요']];
+function Table({ rows, dataset }) {
+  const columns = dataset==='cash' ? BANK_COLUMNS : dataset==='ar' ? AR_COLUMNS : dataset==='ap' ? AP_COLUMNS : dataset==='sales' ? SALES_COLUMNS : [...new Set(rows.flatMap(row => Object.keys(row)))].map(key=>[key,LABELS[key]||key]);
+  if (!columns.length) return <p className={styles.empty}>조회된 자료가 없습니다.</p>;
+  return <div className={styles.tableWrap}><table><thead><tr>{columns.map(([key,label],index) => <th key={index} scope="col">{label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row,index) => <tr key={index}>{columns.map(([key],column) => <td key={column} title={key===null?'개인정보 및 미수집 항목은 표시하지 않습니다.':undefined}>{key===null ? '' : key==='refDate' ? String(row.sourceDateLabel || row.refDate || '') : typeof row[key] === 'boolean' ? row[key] ? 'Y' : '' : String(row[key] ?? '')}</td>)}</tr>) : <tr><td colSpan={columns.length} className={styles.empty}>조회된 자료가 없습니다.</td></tr>}</tbody></table></div>;
 }
 
-export default function EcountWorkbench(){
-  const [tab,setTab]=useState('MENUTREE_000004');
-  const [menuId,setMenuId]=useState(null);
-  const [query,setQuery]=useState('');
-  const [externalFilter,setExternalFilter]=useState('all');
-  const [page,setPage]=useState(0);
-  const [context,setContext]=useState({company:'DEMO-NENOVA',year:2026});
-  const [state,setState]=useState(createState);
-  const [view,setView]=useState('list');
-  const [values,setValues]=useState({});
-  const [editing,setEditing]=useState(null);
-  const [dirty,setDirty]=useState(false);
-  const [plan,setPlan]=useState(null);
-  const [error,setError]=useState('');
-  const [message,setMessage]=useState('');
-  const [rowQuery,setRowQuery]=useState('');
-  const [from,setFrom]=useState('');const [to,setTo]=useState('');
-  const [sort,setSort]=useState('date-desc');
-  const [cancelTarget,setCancelTarget]=useState(null);const [cancelReason,setCancelReason]=useState('');
-  const titleRef=useRef(null);const startRef=useRef(null);
-  const feature=useMemo(()=>getFeature(menuId),[menuId]);
-  const menuList=useMemo(()=>MENUS.filter(m=>m.depth>1&&(query?searchKey(m.path.join(' ')).includes(searchKey(query)):m.tab===tab)).filter(m=>externalFilter==='all'||(externalFilter==='external'?!!getFeature(m.id).external:!getFeature(m.id).external)),[query,tab,externalFilter]);
-  const visibleMenus=menuList.slice(page*30,(page+1)*30);
-  const rows=feature?rowsFor(state,feature,context):[];
-  const filteredRows=useMemo(()=>rows.filter(r=>(!from||r.values.date>=from)&&(!to||r.values.date<=to)&&Object.values(r.values).join(' ').toLowerCase().includes(rowQuery.toLowerCase())).sort((a,b)=>sort==='name'?String(a.values.name).localeCompare(String(b.values.name),'ko'):String(b.values.date||b.id).localeCompare(String(a.values.date||a.id))),[rows,from,to,rowQuery,sort]);
-  const scopedHistory=feature?state.history.filter(h=>h.company===context.company&&h.year===context.year&&h.after.entity===feature.entity):[];
-  const activeRows=filteredRows.filter(r=>r.status!=='취소(연습)');
-  const resultTotals=feature?Object.fromEntries(feature.schema.results.filter(k=>!k.includes('%')&&!['단위원가','월상각액'].includes(k)).map(k=>[k,activeRows.reduce((sum,r)=>sum+(Number(r.results[k])||0),0)])):{};
+export default function EcountWorkbench() {
+  const [tab,setTab] = useState(TABS[0].id);
+  const [menuId,setMenuId] = useState(null);
+  const [menuOpen,setMenuOpen] = useState(true);
+  const [query,setQuery] = useState('');
+  const [rowQuery,setRowQuery] = useState('');
+  const [filterFrom,setFilterFrom] = useState('');
+  const [filterTo,setFilterTo] = useState('');
+  const [flow,setFlow] = useState('');
+  const [version,setVersion] = useState(null);
+  const [revision,setRevision] = useState(null);
+  const [error,setError] = useState('');
+  const [message,setMessage] = useState('');
+  const [loginNeeded,setLoginNeeded] = useState(false);
+  const [busy,setBusy] = useState(false);
+  const [dialog,setDialog] = useState(null);
+  const [history,setHistory] = useState([]);
+  const [audit,setAudit] = useState([]);
+  const [upload,setUpload] = useState(null);
+  const [sheet,setSheet] = useState('');
+  const [periodFrom,setPeriodFrom] = useState('');
+  const [periodTo,setPeriodTo] = useState('');
+  const [rollbackId,setRollbackId] = useState('');
+  const [reasonCode,setReasonCode] = useState('ROLLBACK');
+  const requestId = useRef(0);
+  const titleRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const feature = MENUS.find(menu => menu.id === menuId);
+  const dataset = DATASETS[feature?.program];
+  const menuList = useMemo(() => MENUS.filter(menu => menu.depth > 1 && (query ? searchKey(menu.path.join(' ')).includes(searchKey(query)) : menu.tab === tab)),[query,tab]);
+  const rows = useMemo(() => (version?.rows || []).filter(row => Object.values(row).join(' ').toLowerCase().includes(rowQuery.toLowerCase()) && (!filterFrom || row.refDate>=filterFrom) && (!filterTo || row.refDate<=filterTo) && (!flow || row.flow===flow || row.flow===(flow==='입금'?'in':'out'))),[version,rowQuery,filterFrom,filterTo,flow]);
+  const quickLinks = ['견적서조회','견적서입력','판매현황','구매조회','구매입력','구매현황','거래처별채권','거래처별채무','입/출금계좌 조회'].map(label => MENUS.find(menu => menu.label === label)).filter(Boolean);
 
-  function mayLeave(){return !dirty||window.confirm('아직 적용하지 않은 입력이 있습니다. 입력을 버리고 이동할까요?');}
-  function resetEditor(){setEditing(null);setPlan(null);setDirty(false);setCancelTarget(null);setError('');setMessage('');}
-  function openMenu(id){if(!mayLeave())return;const m=getFeature(id);if(!m)return;setMenuId(id);setTab(m.tab);setView('list');resetEditor();setValues(emptyValues(m));setFrom('');setTo('');setRowQuery('');window.history.replaceState(null,'',`${window.location.pathname}${window.location.search}#menu=${encodeURIComponent(id)}`);setTimeout(()=>titleRef.current?.focus(),0);}
-  function changeTab(id){if(!mayLeave())return;setTab(id);setMenuId(null);setQuery('');setPage(0);resetEditor();window.history.replaceState(null,'',`${window.location.pathname}${window.location.search}`);}
-  function startDraft(record=null){if(!mayLeave())return;setEditing(record);setValues(record?{...record.values}:emptyValues(feature));setView('edit');setPlan(null);setDirty(false);setError('');setMessage('');setTimeout(()=>startRef.current?.focus(),0);}
-  function perform(type,record,reason){try{setState(applyDraft(state,{type,featureId:feature.id,context,id:record?.id,revision:record?.revision,reason}));setMessage(type==='review'?'메모리에서 검토했습니다. 실제 반영은 없습니다.':'연습 초안을 취소했습니다. 이력은 유지됩니다.');setCancelTarget(null);setError('');}catch(e){setError(e.message);}}
-  function prepare(event){event.preventDefault();const next=savePlan(feature,values,context);setPlan(next);setError(next.errors.join('\n'));}
-  function commitPreview(){if(!plan||plan.errors.length)return;try{setState(applyDraft(state,{type:'save',featureId:feature.id,context,values:plan.payload,id:editing?.id,revision:editing?.revision}));setDirty(false);setPlan(null);setView('list');setMessage('연습 초안을 이 탭의 메모리에만 보관했습니다. DB에는 반영하지 않았습니다.');setError('');setTimeout(()=>titleRef.current?.focus(),0);}catch(e){setError(e.message);}}
-  function exportCatalog(){download('ecount-menu-catalog.csv',toCsv(MENUS.map(m=>{const f=getFeature(m.id);return [m.id,TABS.find(t=>t.id===m.tab)?.label,m.path.join(' > '),m.program,m.hasChildren?'상위/연결 메뉴':'말단 메뉴',f.schema.label,f.external?.label||'내부 기능',f.schema.table,f.implementation];}),['메뉴 ID','탭','경로','프로그램','종류','화면 유형','외부 연동','제안 저장 테이블','상태']),'text/csv;charset=utf-8');}
-  function changeContext(next){if(!mayLeave())return;setContext(next);resetEditor();setView('list');if(feature)setValues(emptyValues(feature));}
-  useEffect(()=>{const id=new URLSearchParams(window.location.hash.slice(1)).get('menu');const f=getFeature(id);if(f){setMenuId(f.id);setTab(f.tab);setValues(emptyValues(f));}},[]);
-  useEffect(()=>{const listener=e=>{if(dirty||state.records.length){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',listener);return()=>window.removeEventListener('beforeunload',listener);},[dirty,state.records.length]);
-  useEffect(()=>{const back=e=>{if(!feature)return;e.preventDefault();if(mayLeave()){setMenuId(null);resetEditor();setView('list');}};window.addEventListener('nenova:menu-back-request',back);return()=>window.removeEventListener('nenova:menu-back-request',back);},[feature,dirty]);
+  async function api(view='current',body=null) {
+    const params = new URLSearchParams({dataset,menuId,view});
+    const response = await fetch(`/api/ecount/workspace?${params}`,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify({...body,dataset,menuId}):undefined});
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) {
+      if (response.status === 401) setLoginNeeded(true);
+      const code = String(result.error || `HTTP_${response.status}`);
+      throw new Error(ERRORS[code] || (response.status === 409 ? ERRORS.REVISION_CONFLICT : `요청을 처리하지 못했습니다. (${/^[A-Z0-9_]+$/.test(code)?code:'WORKSPACE_ERROR'})`));
+    }
+    return result;
+  }
+  async function load() {
+    if (!dataset) return;
+    const id = ++requestId.current;
+    setBusy(true);setError('');setLoginNeeded(false);
+    try { const data = await api(); if (id !== requestId.current) return; setVersion(data.version);setRevision(data.revision); }
+    catch (e) { if (id === requestId.current) {setVersion(null);setRevision(null);setError(e.message);} }
+    finally { if (id === requestId.current) setBusy(false); }
+  }
+  function selectMenu(id) {
+    if (busy) return;
+    const next = MENUS.find(menu => menu.id === id); if (!next) return;
+    ++requestId.current;setMenuId(id);setTab(next.tab);setMenuOpen(false);setQuery('');setVersion(null);setRevision(null);setError('');setMessage('');setRowQuery('');setFilterFrom('');setFilterTo('');setFlow('');
+    window.history.replaceState(null,'',`${window.location.pathname}${window.location.search}#menu=${encodeURIComponent(id)}`);
+    setTimeout(() => titleRef.current?.focus(),0);
+  }
+  function selectTab(id) { if (busy) return; setTab(id);setQuery('');setMenuOpen(true); }
+  function closeDialog() { if (busy) return;setDialog(null);setUpload(null);setSheet('');setRollbackId(''); }
+  async function showHistory() {
+    setBusy(true);setError('');
+    try { const data = await api('history');const current = await api();if (current.revision!==data.revision) throw new Error(ERRORS.REVISION_CONFLICT);setVersion(current.version);setHistory(data.versions || []);setAudit(data.events || []);setRevision(data.revision);setDialog('history'); }
+    catch(e) {setError(e.message);} finally {setBusy(false);}
+  }
+  async function mutate(body) {
+    let saved = false;
+    setBusy(true);setError('');setMessage('');
+    try {
+      const result = await api('current',{...body,expectedRevision:revision});
+      saved = true;setRevision(result.revision);setDialog(null);setUpload(null);setRollbackId('');
+      const current = await api();setVersion(current.version);setRevision(current.revision);
+      setMessage(body.action==='activate'?'선택한 작업 자료로 복원했습니다.':'작업 자료를 불러왔습니다.');
+    } catch(e) {setError(saved?'저장은 완료되었으나 재조회에 실패했습니다. 조회 버튼을 눌러 현재 자료를 확인해 주세요.':e.message);} finally {setBusy(false);}
+  }
+  async function readFile(event) {
+    const file = event.target.files?.[0]; if (!file) return;
+    setUpload(null);setError('');
+    if (file.size > 5*1024*1024) {setError('5MB 이하의 CSV 또는 XLSX 파일을 선택해 주세요.');return;}
+    if (!/\.(csv|xlsx)$/i.test(file.name)) {setError('CSV 또는 XLSX 파일을 선택해 주세요.');return;}
+    setBusy(true);
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false,cellFormula:false,cellHTML:false});
+      const names = workbook.SheetNames;
+      if (!names.length) throw new Error('파일에 시트가 없습니다.');
+      const sheets = {};
+      for (const name of names) {
+        const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name],{raw:false,defval:''});
+        const aliases = {'입/출금일자':'refDate','원화잔액':'balance','입출금구분':'flow','수급합계':'receiptTotal','기타할인등차액':'etcDiff','공급가':'supplyAmt','계':'total','단가(vat포함)':'unitPrice','일자-No.':'refDate'};
+        const mappedRows = rawRows.map(row => Object.fromEntries(Object.entries(row).map(([key,value]) => [aliases[key.trim()] || Object.keys(LABELS).find(field => LABELS[field]===key.trim()) || key.trim(),value])));
+        for (const row of mappedRows) {
+          // Keep the source date label intact; the shared allowlist parser validates it.
+          if (row.isSubtotal==null && /^\d{4}\/\d{2} {1,3}계$/.test(row.sourceDateLabel || row.refDate || '')) row.isSubtotal=true;
+          if (typeof row.isSubtotal==='string') {
+            if (['TRUE','Y','1'].includes(row.isSubtotal.toUpperCase())) row.isSubtotal=true;
+            else if (['FALSE','N','0',''].includes(row.isSubtotal.toUpperCase())) row.isSubtotal=false;
+          }
+        }
+        sheets[name] = policy.sanitizeRows(dataset,mappedRows);
+      }
+      setUpload({sheets,names});setSheet(names[0]);
+    } catch {setError('파일을 읽을 수 없습니다. 열 이름과 날짜·숫자 형식을 확인해 주세요.');}
+    finally {setBusy(false);}
+  }
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.hash.slice(1)).get('menu');
+    const selected = MENUS.find(menu => menu.id === id);
+    if (selected) {setMenuId(id);setTab(selected.tab);setMenuOpen(false);}
+  },[]);
+  useEffect(() => { if (dataset) load(); /* Selected menu identifies the request scope. */ },[menuId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const back = event => {event.preventDefault();if(busy)return;if(dialog){closeDialog();return;}setMenuOpen(true);setTimeout(()=>menuButtonRef.current?.focus(),0);};
+    window.addEventListener('nenova:menu-back-request',back);
+    return () => window.removeEventListener('nenova:menu-back-request',back);
+  },[busy,dialog]);
 
   return <div className={styles.page}>
-    <Head><title>ECOUNT 전체 메뉴 개발 작업실 | 네노바</title><meta name="robots" content="noindex,nofollow"/></Head>
-    <div className={styles.heading}>
-      <div><p className={styles.eyebrow}>ECOUNT → NENOVA / 개발 초안</p><h1 data-ui-page-title>전체 메뉴 작업실</h1><p>입력부터 저장 계획까지 검토하세요. 합성 자료만 사용하며 새로고침하면 초안이 사라집니다.</p></div>
-      <div className={styles.actions}><button onClick={exportCatalog}>전체 메뉴 CSV</button><button onClick={()=>download('ecount-draft-backup.json',JSON.stringify({mode:'SYNTHETIC_PREVIEW_ONLY',state},null,2))}>연습 초안 다운로드</button></div>
-    </div>
-    <div className={styles.notice}><strong>실제 DB 입력·수정 없음</strong><span>모든 탭은 화면·저장 설계용입니다. 계좌번호·비밀번호·실제 개인정보를 입력하지 마세요. 외부 API 메뉴도 설계에 포함되어 있습니다.</span></div>
-    <div className={styles.stats}><div><b>{TABS.length}</b><span>상위 탭</span></div><div><b>{MENUS.length}</b><span>메뉴 경로</span></div><div><b>{leafCount}</b><span>말단 메뉴</span></div><div><b>{externalCount}</b><span>외부 연동 설계 메뉴</span></div><div><b>{state.records.length}</b><span>메모리 초안</span></div></div>
-    <div role="tablist" aria-label="ECOUNT 상위 탭" className={styles.tabs} onKeyDown={arrowFocus}>{TABS.map(t=><button role="tab" aria-selected={tab===t.id} className={tab===t.id?styles.selected:''} key={t.id} onClick={()=>changeTab(t.id)}>{t.label}<span>{MENUS.filter(m=>m.tab===t.id&&m.depth>1).length}</span></button>)}</div>
-    <div className={styles.workspace}>
-      <aside className={styles.catalog} aria-label="전체 메뉴 목록">
-        <h2>탭별 메뉴 목록</h2>
-        <label>전체 탭 검색<input value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} placeholder="메뉴명, 상위 분류 검색"/></label>
-        <label>연동 구분<select value={externalFilter} onChange={e=>{setExternalFilter(e.target.value);setPage(0);}}><option value="all">모든 기능</option><option value="internal">내부 기능</option><option value="external">외부 API 설계 포함</option></select></label>
-        <p className={styles.muted}>{query?'전체 탭':TABS.find(t=>t.id===tab)?.label} · {menuList.length}개 경로</p>
-        <nav className={styles.menuList} onKeyDown={arrowFocus}>{visibleMenus.map(m=>{const f=getFeature(m.id);return <button key={m.id} aria-current={menuId===m.id?'page':undefined} className={menuId===m.id?styles.current:''} onClick={()=>openMenu(m.id)}><span>{m.label}</span><small>{m.path.slice(1,-1).join(' / ')||TABS.find(t=>t.id===m.tab)?.label}</small>{f.external&&<em>외부 연동 설계</em>}{f.mode==='folder'&&<small>하위 메뉴 보기</small>}</button>;})}</nav>
-        {!menuList.length&&<p>검색된 메뉴가 없습니다.</p>}
-        <div className={styles.pagination}><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>이전</button><span>{page+1} / {Math.max(1,Math.ceil(menuList.length/30))}</span><button disabled={(page+1)*30>=menuList.length} onClick={()=>setPage(p=>p+1)}>다음</button></div>
-      </aside>
-      <section className={styles.content}>
-        {!feature?<><div className={styles.welcome}><span className={styles.tag}>DB 미연결 개발 모드</span><h2>{TABS.find(t=>t.id===tab)?.label}</h2><p>왼쪽에서 메뉴를 선택하면 입력·조회 초안과 저장 계획이 열립니다. 상위 분류도 선택할 수 있습니다.</p><p>모든 메뉴의 기본 화면이 연결되어 있으며, {Object.keys(SCHEMAS).length}개 기능군의 입력 검증과 계산을 공유합니다. 원본의 개별 버튼·상태·권한·보고서 산식은 상세 검증과 후속 구현이 필요합니다.</p></div><div className={styles.groupGrid}>{MENUS.filter(m=>m.tab===tab&&m.depth===2).map(m=><button key={m.id} onClick={()=>openMenu(m.id)}><strong>{m.label}</strong><span>{MENUS.filter(c=>c.parentId===m.id).length}개 하위 메뉴</span></button>)}</div></>:
-        <>
-          <button onClick={()=>{if(mayLeave()){setMenuId(null);resetEditor();}}}>← 탭 처음으로</button>
-          <p className={styles.breadcrumb}>{feature.path.join(' / ')}</p>
-          <h2 ref={titleRef} tabIndex={-1}>{feature.label}</h2>
-          <div className={styles.badges}><span className={styles.tag}>{feature.schema.label}</span><span className={styles.tag}>{feature.external?'외부 API · 설계만':'내부 기능 · 연습 가능'}</span><span className={styles.muted}>{feature.implementation}</span></div>
-          {feature.mode==='folder'?<div className={styles.groupGrid}>{MENUS.filter(m=>m.parentId===feature.id).map(m=><button key={m.id} onClick={()=>openMenu(m.id)}><strong>{m.label}</strong><span>{m.hasChildren?'하위 메뉴':'화면 · 저장 계획'}</span></button>)}</div>:<>
-          <div className={styles.scope}><label>합성 회사<select value={context.company} onChange={e=>changeContext({...context,company:e.target.value})}><option>DEMO-NENOVA</option><option>DEMO-OTHER</option></select></label><label>업무 연도<select value={context.year} onChange={e=>changeContext({...context,year:Number(e.target.value)})}>{[2024,2025,2026,2027].map(y=><option key={y}>{y}</option>)}</select></label><p>회사·연도별 초안 분리</p></div>
-          <div className={styles.subtabs} role="tablist" aria-label="기능 보기" onKeyDown={arrowFocus}>{[['list','목록·조회'],['edit','입력·수정'],['contract','저장 로직 설계'],['history','변경 이력']].map(([id,label])=><button key={id} role="tab" aria-selected={view===id} className={view===id?styles.selected:''} onClick={()=>{if(id==='edit'){startDraft();return;}if(!mayLeave())return;setDirty(false);setView(id);setPlan(null);setError('');}}>{label}</button>)}</div>
-          {error&&<div role="alert" className={styles.error}>{error}</div>}{message&&<div role="status" className={styles.success}>{message}</div>}
-          {view==='list'&&<>
-            <div className={styles.toolbar}><label>초안 검색<input value={rowQuery} onChange={e=>setRowQuery(e.target.value)} placeholder="합성 대상명 또는 코드"/></label><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><label>정렬<select value={sort} onChange={e=>setSort(e.target.value)}><option value="date-desc">최근 기준일</option><option value="name">대상명</option></select></label></div>
-            <div className={styles.actions}><button className={styles.primary} onClick={()=>startDraft()}>새 연습 초안</button><button onClick={()=>{startDraft();setValues(sampleValues(feature,context.year));setDirty(true);}}>합성 예시로 입력</button><button disabled={!filteredRows.length} onClick={()=>download('ecount-preview-rows.csv',toCsv(filteredRows.map(r=>[r.id,r.status,...feature.schema.fields.map(f=>r.values[f.key]),...feature.schema.results.map(k=>r.results[k])]),['초안 ID','상태',...feature.schema.fields.map(f=>f.label),...feature.schema.results]),'text/csv;charset=utf-8')}>현재 목록 CSV</button></div>
-            <p className={styles.muted}>{feature.mode==='report'?'공통 보고서 초안입니다. 원본 보고서 전용 집계·계층·출력 양식은 후속 검증 대상입니다.':'같은 업무의 입력/조회 메뉴는 연습 초안을 공유합니다.'}</p>
-            {!!activeRows.length&&<div className={styles.results}>{Object.entries(resultTotals).map(([k,v])=><div key={k}><span>{k} 합계</span><b>{fmt(v)}</b></div>)}</div>}
-            <div className={styles.tableWrap}><table><caption>{feature.label} · 합성 초안 {filteredRows.length}건</caption><thead><tr><th>초안</th><th>상태</th>{feature.schema.fields.map(f=><th key={f.key}>{f.label}</th>)}{feature.schema.results.map(k=><th key={k}>{k}</th>)}<th>조작</th></tr></thead><tbody>{filteredRows.map(r=><tr key={r.id}><td>{r.id}<small>v{r.revision}</small></td><td>{r.status}</td>{feature.schema.fields.map(f=><td key={f.key}>{fmt(r.values[f.key])}</td>)}{feature.schema.results.map(k=><td key={k}>{fmt(r.results[k])}</td>)}<td><div className={styles.rowActions}><button disabled={r.status==='취소(연습)'} onClick={()=>startDraft(r)}>수정</button><button disabled={r.status!=='초안'} onClick={()=>perform('review',r)}>검토</button><button disabled={r.status==='취소(연습)'} onClick={()=>{setCancelTarget(r);setCancelReason('');}}>취소</button></div></td></tr>)}</tbody></table></div>
-            {!filteredRows.length&&<div className={styles.empty}><h3>아직 연습 초안이 없습니다</h3><p>새 초안을 입력하거나 합성 예시로 화면을 검토하세요. 운영 자료는 불러오지 않습니다.</p></div>}
-            {cancelTarget&&<form className={styles.panel} onSubmit={e=>{e.preventDefault();perform('cancel',cancelTarget,cancelReason);}}><h3>{cancelTarget.id} 연습 취소</h3><label>취소 사유<input autoFocus required value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></label><button type="submit">메모리 초안 취소</button><button type="button" onClick={()=>setCancelTarget(null)}>닫기</button></form>}
-          </>}
-          {view==='edit'&&<form onSubmit={prepare} onKeyDown={e=>{if(e.key==='Escape'&&mayLeave()){setView('list');setDirty(false);setPlan(null);titleRef.current?.focus();}}}>
-            <h3>{editing?`${editing.id} 수정`:'새 연습 초안'} <small>실제 저장 없음</small></h3>
-            <div className={styles.formGrid}>{feature.schema.fields.map((f,i)=><label key={f.key}>{f.label}{f.required&&<span aria-hidden="true"> *</span>}{f.type==='select'?<select ref={i===0?startRef:null} value={values[f.key]??''} onChange={e=>{setValues(v=>({...v,[f.key]:e.target.value}));setDirty(true);setPlan(null);}}>{f.options.map(x=><option key={x}>{x}</option>)}</select>:f.type==='textarea'?<textarea ref={i===0?startRef:null} value={values[f.key]??''} maxLength={2000} rows={4} onChange={e=>{setValues(v=>({...v,[f.key]:e.target.value}));setDirty(true);setPlan(null);}}/>:<input ref={i===0?startRef:null} type={f.type} value={values[f.key]??''} min={f.min} max={f.max} step={f.type==='number'?10**(-f.precision):undefined} maxLength={2000} onChange={e=>{setValues(v=>({...v,[f.key]:e.target.value}));setDirty(true);setPlan(null);}}/>}</label>)}</div>
-            <div className={styles.formula}><strong>계산·검증 기준</strong><p>{feature.schema.formula}</p></div>
-            <div className={styles.actions}><button className={styles.primary} type="submit">검증·저장 계획 보기</button><button type="button" onClick={()=>{if(mayLeave()){setValues(sampleValues(feature,context.year));setDirty(true);setPlan(null);}}}>합성 예시 채우기</button><button type="button" onClick={()=>{if(mayLeave()){setView('list');setDirty(false);setPlan(null);}}}>입력 닫기</button></div>
-            {plan&&<div className={styles.panel}><h3>저장 전 검토 · 실행되는 DB 작업 0건</h3><p>{plan.proposedTables.join(' + ')} — 향후 저장 대상 제안</p><div className={styles.results}>{Object.entries(plan.results).map(([k,v])=><div key={k}><span>{k}</span><b>{fmt(v)}</b></div>)}</div><p>{plan.external?'외부 처리는 연동대기 설계로 남습니다.':'검토한 내용은 현재 탭 메모리에만 반영합니다.'}</p><button className={styles.primary} type="button" disabled={!!plan.errors.length} onClick={commitPreview}>메모리에 연습 초안 적용</button><details><summary>필드별 저장 payload</summary><pre>{JSON.stringify(plan,null,2)}</pre></details></div>}
-          </form>}
-          {view==='contract'&&<div className={styles.contract}><h3>저장 로직 설계</h3><p>서버·DB 연결 코드는 제공하지 않습니다. 아래는 이 메뉴를 실제 기능으로 연결할 때 사용할 계약 초안입니다.</p><dl><dt>제안 저장 대상</dt><dd>{feature.schema.table} + WebErpDraftRevision</dd><dt>업무 식별자</dt><dd>회사 + 연도 + {feature.entity} + 문서 ID + revision</dd><dt>현재 보관</dt><dd>브라우저 메모리만 사용 · 새로고침 시 사라짐</dd><dt>동시 수정</dt><dd>revision 불일치 시 재조회. 검토 후 수정은 초안으로 복귀</dd><dt>취소</dt><dd>초안 보존 + 취소 사유 + 변경 전후 이력</dd><dt>연결 전 필수</dt><dd>원본 필드/상태 검증, 권한, 멱등키, 기간 마감, 스키마 적용, 계약 테스트</dd></dl><h3>필드 계약</h3><div className={styles.tableWrap}><table><thead><tr><th>항목</th><th>저장 키</th><th>형식</th><th>검증</th></tr></thead><tbody>{feature.schema.fields.map(f=><tr key={f.key}><td>{f.label}</td><td>{f.key}</td><td>{f.type}</td><td>{f.required?'필수':'선택'}{f.type==='number'?` · ${f.min} 이상 · 소수 ${f.precision}자리`:''}{f.options?' · '+f.options.join('/'):''}</td></tr>)}</tbody></table></div><h3>처리 순서</h3><ol>{savePlan(feature,sampleValues(feature,context.year),context).transaction.map(t=><li key={t}>{t}</li>)}</ol><p className={styles.formula}>{feature.schema.formula}</p>{feature.external&&<div className={styles.external}><h3>{feature.external.label} 연결 설계</h3><dl><dt>선행 조건</dt><dd>{feature.external.gate}</dd><dt>상태</dt><dd>{feature.external.states.join(' → ')}</dd><dt>멱등키</dt><dd>{feature.external.idempotency}</dd><dt>오류 복구</dt><dd>{feature.external.reconcile}</dd><dt>추가 저장 대상</dt><dd>WebIntegrationOutbox / WebIntegrationStatusEvent</dd></dl><p>수집·발행·서명·이체 실행 없음. 성공 상태를 모의 생성하지 않습니다.</p></div>}<button onClick={()=>download(`storage-design-${feature.program}.json`,JSON.stringify(savePlan(feature,sampleValues(feature,context.year),context),null,2))}>합성 예시 저장 설계 JSON</button></div>}
-          {view==='history'&&<div><h3>현재 회사·연도·업무의 연습 이력</h3>{!scopedHistory.length&&<p className={styles.empty}>아직 변경 이력이 없습니다.</p>}{[...scopedHistory].reverse().map(h=><details className={styles.history} key={h.sequence}><summary>#{h.sequence} · {h.id} · {h.action==='save'?'초안 적용':h.action==='review'?'검토':'취소'} · v{h.revision}{h.reason?' · '+h.reason:''}</summary><pre>{JSON.stringify({before:h.before?.values??null,after:h.after.values,status:h.after.status},null,2)}</pre></details>)}</div>}
-          </>}
-        </>}
-      </section>
-    </div>
+    <Head><title>{feature?.label || 'MyPage'} | NENOVA ERP</title><meta name="robots" content="noindex,nofollow" /></Head>
+    <div className={styles.quickbar} onKeyDown={arrowFocus}><input aria-label="메뉴 검색" placeholder="메뉴검색" value={query} disabled={busy} onChange={event=>{setQuery(event.target.value);setMenuOpen(true);}} /><button ref={menuButtonRef} disabled={busy} onClick={()=>setMenuOpen(value=>!value)}>사이트맵</button>{quickLinks.map(menu=><button key={menu.id} disabled={busy} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>
+    <nav className={styles.tabs} aria-label="업무 탭" onKeyDown={arrowFocus}><a href="/" className={styles.brand}>NENOVA</a>{TABS.map(item=><button key={item.id} disabled={busy} aria-expanded={menuOpen&&item.id===tab} className={item.id===tab?styles.activeTab:''} onClick={()=>selectTab(item.id)}>{item.label}</button>)}</nav>
+    {menuOpen && <section className={styles.menuPanel} aria-label="전체 메뉴" onKeyDown={event=>{if(event.key==='Escape'){setMenuOpen(false);menuButtonRef.current?.focus();}else arrowFocus(event);}}><div className={styles.menuTree}>{menuList.map(menu=><button key={menu.id} disabled={busy} className={`${styles.menuItem} ${menu.hasChildren?styles.menuGroup:''} ${menu.id===menuId?styles.currentMenu:''}`} style={{paddingLeft:12+Math.max(0,menu.depth-2)*14}} onClick={()=>selectMenu(menu.id)} title={menu.path.join(' > ')}>{query?menu.path.slice(1).join(' > '):menu.label}</button>)}</div></section>}
+    {!menuOpen && <section className={styles.content} aria-busy={busy}>
+      <div className={styles.heading}><h1 data-ui-page-title ref={titleRef} tabIndex={-1}>{feature?.label || 'MyPage'}</h1><span>{feature?.path.slice(0,-1).join(' > ')}</span></div>
+      {error && <div role="alert" className={styles.error}>{error} {loginNeeded&&<a href="/login">로그인</a>}</div>}
+      {message && <p role="status" className={styles.message}>{message}</p>}
+      {dataset ? <>
+        <div className={styles.filters}>{['cash','sales'].includes(dataset)&&<><label>조회기간 <input type="date" aria-label="조회 시작일" value={filterFrom} onChange={event=>setFilterFrom(event.target.value)}/><span>~</span><input type="date" aria-label="조회 종료일" value={filterTo} onChange={event=>setFilterTo(event.target.value)}/></label>{dataset==='cash'&&<label>구분 <select value={flow} onChange={event=>setFlow(event.target.value)}><option value="">전체</option><option>입금</option><option>출금</option></select></label>}</>}<label>검색 <input value={rowQuery} onChange={event=>setRowQuery(event.target.value)} /></label><button disabled={busy} onClick={load}>조회</button></div>
+        <div className={styles.toolbar}><button disabled={busy||revision===null} onClick={()=>{setError('');setPeriodFrom('');setPeriodTo('');setDialog('upload');}}>자료 업로드</button><button disabled={busy||revision===null} onClick={()=>{setError('');setDialog('source');}}>수집 자료 불러오기</button><button disabled={busy||revision===null} onClick={showHistory}>작업 이력</button></div>
+        {busy && <p role="status">처리 중…</p>}
+        {version && <p className={styles.period}>조회기간 {version.periodFrom || '미지정'} ~ {version.periodTo || '미지정'}</p>}
+        <Table rows={rows} dataset={dataset} />
+      </> : <><div className={styles.sectionLinks} onKeyDown={arrowFocus}>{MENUS.filter(menu=>menu.parentId===menuId).map(menu=><button key={menu.id} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>{!feature?.hasChildren&&<p className={styles.empty}>이 화면은 아직 준비 중입니다.</p>}</>}
+    </section>}
+    {dialog && <EcountWorkspaceDialog title={dialog==='upload'?'자료 업로드':dialog==='source'?'수집 자료 불러오기':'작업 이력'} busy={busy} onClose={closeDialog}>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {dialog==='upload' && <>
+        <p>파일의 자료를 이카운트 전용 SQL 작업 영역에 새 버전으로 저장합니다. 개인정보·계좌번호·자유기재 열은 제외됩니다.</p>
+        <label className={styles.field}>파일 <input type="file" accept=".csv,.xlsx" onChange={readFile} disabled={busy}/></label>
+        {upload && <><label className={styles.field}>시트 <select value={sheet} disabled={busy} onChange={event=>setSheet(event.target.value)}>{upload.names.map(name=><option key={name}>{name}</option>)}</select></label><Table rows={(upload.sheets[sheet] || []).slice(0,10)} dataset={dataset}/></>}
+        <div className={styles.filters}><label>시작일 <input type="date" value={periodFrom} disabled={busy} onChange={event=>setPeriodFrom(event.target.value)}/></label><label>종료일 <input type="date" value={periodTo} disabled={busy} onChange={event=>setPeriodTo(event.target.value)}/></label></div>
+        <footer><button disabled={busy} onClick={closeDialog}>취소</button><button className={styles.primary} disabled={busy||!upload?.sheets[sheet]?.length||(Boolean(periodFrom)!==Boolean(periodTo))||(periodFrom&&periodTo&&periodFrom>periodTo)} onClick={()=>mutate({action:'import',reasonCode:'IMPORT',rows:upload.sheets[sheet],periodFrom:periodFrom||null,periodTo:periodTo||null})}>작업 영역에 저장</button></footer>
+      </>}
+      {dialog==='source' && <><p>이미 수집된 최신 자료를 별도 SQL 작업 영역에 새 버전으로 불러옵니다. 이카운트에는 접속하거나 입력하지 않습니다.</p><footer><button disabled={busy} onClick={closeDialog}>취소</button><button className={styles.primary} disabled={busy} onClick={()=>mutate({action:'import-latest',reasonCode:'IMPORT'})}>불러오기</button></footer></>}
+      {dialog==='history' && <>
+        <div className={styles.tableWrap}><table><thead><tr><th>선택</th><th>저장시각</th><th>기간</th><th>원천</th></tr></thead><tbody>{history.map(item=><tr key={item.versionId}><td><input type="radio" name="version" aria-label={`${item.createdAt} 자료 선택`} checked={rollbackId===item.versionId} disabled={busy||item.versionId===version?.versionId} onChange={()=>setRollbackId(item.versionId)}/>{item.versionId===version?.versionId?' 현재':''}</td><td>{item.createdAt}</td><td>{item.periodFrom||'미지정'} ~ {item.periodTo||'미지정'}</td><td>{item.sourceKind}</td></tr>)}</tbody></table></div>
+        {!history.length&&<p>저장된 작업 이력이 없습니다.</p>}{audit.length>0&&<><h3>변경 이력</h3><div className={styles.tableWrap}><table><thead><tr><th>시각</th><th>작업</th><th>사유</th></tr></thead><tbody>{audit.map(item=><tr key={item.revision}><td>{item.createdAt}</td><td>{{import:'파일 자료 저장','import-latest':'수집 자료 저장',activate:'이전 버전 복원'}[item.action]||item.action}</td><td>{{IMPORT:'자료 가져오기',ROLLBACK:'이전 작업으로 되돌리기',CORRECTION:'자료 정정'}[item.reasonCode]||item.reasonCode}</td></tr>)}</tbody></table></div></>}
+        <label className={styles.field}>복원 사유 <select value={reasonCode} disabled={busy} onChange={event=>setReasonCode(event.target.value)}><option value="ROLLBACK">이전 작업으로 되돌리기</option></select></label>
+        <p>선택한 버전을 현재 작업 자료로 지정합니다. 기존 버전과 이력은 유지됩니다.</p>
+        <footer><button disabled={busy} onClick={closeDialog}>닫기</button><button disabled={busy||!rollbackId} onClick={()=>mutate({action:'activate',versionId:rollbackId,reasonCode})}>선택한 자료로 복원</button></footer>
+      </>}
+    </EcountWorkspaceDialog>}
   </div>;
 }

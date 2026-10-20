@@ -3,6 +3,7 @@ import { auditReportAgainstStock } from '../lib/profitIndependentAudit.mjs';
 import { assertValidationResponse } from '../lib/profitValidationWindow.mjs';
 import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../lib/profitReportCalc';
 import { auditProfitFormulas } from '../lib/profitFormulaAudit.mjs';
+import { auditReportSqlLineage } from '../lib/profitSqlLineageAudit.mjs';
 import ProfitFormulaAudit from './ProfitFormulaAudit';
 import s from './ProfitValidationWindow.module.css';
 
@@ -13,7 +14,7 @@ const compare = (report, week) => {
   const rows = report.rows.map(row => ({ ...row, calc: report.confirmed ? row.calc : computeProfitRow(row) }));
   const totals = report.confirmed ? report.confirmedTotals : computeProfitTotals(rows);
   if (!report.confirmed) for (const row of rows) Object.assign(row.calc, { D: calcRevenueRatio(row.calc, totals), U: calcPurchaseRatio(row.calc, totals) });
-  return { ...auditReportAgainstStock(report, week, rows), formulaAudit: auditProfitFormulas(report, rows, totals), reportInput: report };
+  return { ...auditReportAgainstStock(report, week, rows), formulaAudit: auditProfitFormulas(report, rows, totals), sqlAudit: auditReportSqlLineage(report, week?.sqlLineage), reportInput: report };
 };
 
 export default function ProfitIndependentAudit({ year, major, report }) {
@@ -113,7 +114,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
           {data.weeks.map(w => <tr key={w.major} className={selected===w.major?s.total:''}>
             <th><button type="button" disabled={busy} aria-pressed={selected===w.major} onClick={()=>selectWeek(w.major)}>{Number(w.major)}차 상세</button></th>
             <td>{stable ? labels[w.status] : '판정 보류'}</td><td>{w.localMismatchCount}건</td><td>{w.carriedCount}건</td><td>{w.adjustedCount}건</td>
-            <td>{reports[w.major]?.error ? '조회 실패' : reports[w.major] ? <>{`${reports[w.major].rows.filter(r=>r.mathStatus==='MATCH').length}행 산술 일치 / ${reports[w.major].rows.length}행`}<br />{reports[w.major].formulaAudit.status === 'MATCH' ? `전체 항목식 ${reports[w.major].formulaAudit.checked}개 일치` : `전체 항목식 확인 필요 ${reports[w.major].formulaAudit.issues.length}건`}</> : '미실행'}</td>
+            <td>{reports[w.major]?.error ? '조회 실패' : reports[w.major] ? <>{`${reports[w.major].rows.filter(r=>r.mathStatus==='MATCH').length}행 산술 일치 / ${reports[w.major].rows.length}행`}<br />{reports[w.major].formulaAudit.status === 'MATCH' ? `전체 항목식 ${reports[w.major].formulaAudit.checked}개 일치` : `전체 항목식 확인 필요 ${reports[w.major].formulaAudit.issues.length}건`}<br />SQL 매출·매입: {reports[w.major].sqlAudit.status === 'MATCH' ? `${reports[w.major].sqlAudit.checked}개 일치` : labels[reports[w.major].sqlAudit.status]}{reports[w.major].sqlAudit.excludedKeyCount > 0 && <><br />연도키 충돌 제외 {reports[w.major].sqlAudit.excludedKeyCount}건</>}</> : '미실행'}</td>
           </tr>)}
         </tbody></table></div>
       {week && <>
@@ -134,7 +135,14 @@ export default function ProfitIndependentAudit({ year, major, report }) {
         <h3>{Number(selected)}차 · 금액과 수익률을 이해하는 방법</h3>
         {!finance ? <p>금액 검산 미실행. {!busy&&<button type="button" disabled={!stable} onClick={()=>loadReports([selected])}>이 차수 금액 검산</button>}</p>
           : finance.error ? <p className={s.error}>{finance.error} <button type="button" disabled={busy} onClick={()=>loadReports([selected])}>재시도</button></p>
-            : <>{selected !== major && <ProfitFormulaAudit report={finance.reportInput} />}<p>{finance.note}</p>{finance.historical&&<p className={s.notice}>확정본 또는 저장된 계산본입니다. 산술은 별도로 계산하지만 현재 재고와 시점이 같다고 보증하지 않습니다.</p>}
+            : <><h4>SQL DB 원행 → 웹 조회값 대사</h4>
+              <p>{finance.sqlAudit.status === 'MATCH' ? `매출·차감·외화매입 ${finance.sqlAudit.checked}개 값이 SQL 독립 합계와 일치합니다.` : finance.sqlAudit.status === 'HISTORICAL' ? '확정/저장본은 저장 당시 값입니다. 현재 SQL과 시점이 달라 대사 완료로 표시하지 않습니다.' : finance.sqlAudit.status === 'MISMATCH' ? 'SQL 원행 합계와 웹 값이 다릅니다. 아래 차이를 확인하세요.' : '원천 조회·코드 분류 또는 변경 여부를 확인할 수 없어 판정을 보류했습니다.'}</p>
+              <p className={s.notice}>{finance.sqlAudit.limitations}</p>
+              {!!finance.sqlAudit.excludedKeyCount && <p className={s.error}>SQL 연도키 충돌로 제외된 원행 {finance.sqlAudit.excludedKeyCount}건: 매출 {number(finance.sqlAudit.excludedAmounts.N)}원 / 불량차감 {number(finance.sqlAudit.excludedAmounts.L)}원 / 기타매출 {number(finance.sqlAudit.excludedAmounts.O)}원. OrderYear와 OrderYearWeek가 서로 달라 다른 연도 데이터 혼입을 막기 위해 포함하지 않았습니다. 원장을 임의로 고치거나 합산하지 않습니다.</p>}
+              {finance.sqlAudit.problems?.map(text=><p className={s.error} key={text}>{text}</p>)}
+              {!!finance.sqlAudit.differences.length && <ul>{finance.sqlAudit.differences.map(d=><li key={`${d.category}-${d.col}`}>{d.category} {d.col}: SQL {number(d.sql)} / 웹 {number(d.web)}{d.col==='Q'?' (외화)':'원'}</li>)}</ul>}
+              {!!finance.sqlAudit.inventoryIssues?.length && <ul className={s.issues}>{finance.sqlAudit.inventoryIssues.map((item,i)=><li key={i}><strong>{item.category} · {item.side==='begin'?'기초':'기말'} 재고 · {item.name}</strong><p>{item.reason}</p></li>)}</ul>}
+              {selected !== major && <ProfitFormulaAudit report={finance.reportInput} />}<p>{finance.note}</p>{finance.historical&&<p className={s.notice}>확정본 또는 저장된 계산본입니다. 산술은 별도로 계산하지만 현재 재고와 시점이 같다고 보증하지 않습니다.</p>}
               <ul className={s.issues}>{finance.rows.map(row=><li key={row.category}>
                 <strong>{row.category} · 산술 {labels[row.mathStatus]}</strong><p className={s.notice}>{row.cause}</p><p>{row.explanation}</p>
                 {!!row.differences.length&&<p className={s.error}>보고서와 독립 계산이 다른 항목: {row.differences.join(', ')}</p>}
