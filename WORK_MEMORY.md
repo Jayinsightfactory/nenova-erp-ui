@@ -176,3 +176,8 @@
 - 신규/전체 ERP/UI/manifest/write scope/dnSpy guard 및 첫 빌드 통과. 브라우저 견적 추가·수정/은행·세금계산서 설계 확인, 로컬 API 시도 0건. 최종 빌드 재검증 중. 원본 전체 상세 동등성/좁은 화면/운영 배포는 아직 미검증.
 - 상세: docs/work-sessions/2026-10-20_ecount-replacement-design.md, docs/ecount-migration/menu-inventory.md, docs/ECOUNT_WORKBENCH_CONTRACT.md.
 - 검색어: ecount-workbench 전체메뉴537 DB미연결 메모리초안 외부API저장설계
+
+## 2026-10-20 SQL 원장 기준 손익 대사
+- 76개 차수 SQL 직접 합산 N/L/O/Q 5,044개, 재고수량 1,261개 비교 일치. 산술 28,001개 + 저장 입력118revision 43,205개 일치. 원장 수량식 차이·연도키 충돌·원가근거 누락은 별도이며 정상 인증 아님.
+- 검증 새창에 SQL 원행 대사/연도키 제외/매입 존재와 원가 연결 누락 구별 추가. ERP 원장/확정본/수기값 보존. 전체 gate/CI/배포 진행 중; 인증 운영 화면은 로그인 만료로 미검증.
+- 상세 docs/work-sessions/2026-10-20_profit-sql-lineage.md. 검색어: profit-sql-lineage SQL독립합산 연도키충돌 매입시점 원가연결 FLOAT해시
