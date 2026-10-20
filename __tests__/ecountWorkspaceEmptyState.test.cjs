@@ -91,11 +91,11 @@ test('stock observed year/month buttons and day textbox preserve fourteen action
 test('tax and stock queries normalize day input and require a real purchase version',async()=>{
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
  const fn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='runSearch');
- for(const dataset of ['salesTax','buyTax','stock','taxStat','buyTaxStat'])for(const available of [false,true]){
+ for(const dataset of ['salesTax','buyTax','stock','whStock','taxStat','buyTaxStat'])for(const available of [false,true]){
   const captured={},errors=[],box={exports:{}};
-  const context={module:box,busy:false,dataset,version:available?{}:null,searchDraft:{from:'2026-10-2',to:'2026-10-3',flow:'',query:''},policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{},setError:e=>errors.push(e),setFilterFrom:v=>captured.from=v,setFilterTo:v=>captured.to=v,setFlow(){},setRowQuery(){},setSearchOpen(){},load:async()=>{captured.loaded=true;},setTimeout:fn=>fn(),searchToggleRef:{current:{focus(){}}}};
+  const context={warehouseDraft:['W1'],setWarehouseFilter:v=>captured.warehouses=v,module:box,busy:false,dataset,version:available?{}:null,searchDraft:{from:'2026-10-2',to:'2026-10-3',flow:'',query:''},policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{},setError:e=>errors.push(e),setFilterFrom:v=>captured.from=v,setFilterTo:v=>captured.to=v,setFlow(){},setRowQuery(){},setSearchOpen(){},load:async()=>{captured.loaded=true;},setTimeout:fn=>fn(),searchToggleRef:{current:{focus(){}}}};
   vm.runInNewContext(source.slice(fn.start,fn.end)+';module.exports=runSearch;',context);await box.exports();
-  if(['buyTax','taxStat','buyTaxStat'].includes(dataset)&&!available){assert.equal(errors.length,1);assert.equal(captured.loaded,undefined);}else{assert.equal(captured.from,'2026-10-02');assert.equal(captured.to,dataset==='stock'?'2026-10-02':'2026-10-03');assert.equal(captured.loaded,true);}
+  if(['buyTax','taxStat','buyTaxStat'].includes(dataset)&&!available){assert.equal(errors.length,1);assert.equal(captured.loaded,undefined);}else{assert.equal(captured.from,'2026-10-02');assert.equal(captured.to,['stock','whStock'].includes(dataset)?'2026-10-02':'2026-10-03');assert.equal(captured.loaded,true);if(dataset==='whStock')assert.deepEqual([...captured.warehouses],['W1']);}
  }
 });
 test('stock year/month/manual selection is local, exact and Escape restores trigger focus',()=>{
@@ -139,7 +139,7 @@ test('warehouse stock preserves visible layouts, missing cells and exact collect
 test('stock movement has seven visible columns and exact-period data only',()=>{
  const rows=[{productCode:'P1',openingQuantity:'10.00000001',inQuantity:'2',outQuantity:'1',quantity:'11.00000001',prodName:'private-name'}];const html=render({dataset:'stockMove',rows,dataState:'loaded'});assert.equal((html.match(/<th /g)||[]).length,7);assert(html.includes('11.00000001'));assert(!html.includes('private-name'));
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
- for(const dataset of ['whStock','stockMove']){const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:dataset==='whStock'?[{productCode:'P1',warehouseCode:'W1',quantity:'11.00000001'}]:rows};for(const date of ['2026-10-20','2025-10-20']){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset,version,filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.snapshotUnavailable,date!=='2026-10-20');assert.equal(result.rows.length,date==='2026-10-20'?1:0);}}
+ for(const dataset of ['whStock','stockMove']){const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:dataset==='whStock'?[{productCode:'P1',warehouseCode:'W1',quantity:'11.00000001'}]:rows};for(const date of ['2026-10-20','2025-10-20']){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset,version,warehouseFilter:[],filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.snapshotUnavailable,date!=='2026-10-20');assert.equal(result.rows.length,date==='2026-10-20'?1:0);}}
 });
 
 test('warehouse and movement observed action IDs cover only their own controls',()=>{
@@ -154,4 +154,21 @@ test('warehouse and movement quantity separators preserve large decimal strings 
  const quantity='12345678901234567890.12000000',formatted='12,345,678,901,234,567,890.12000000';
  const wh=render({dataset:'whStock',warehouseMode:'vertical',dataState:'loaded',rows:[{productCode:'1234567',warehouseCode:'7654321',quantity}]});assert(wh.includes(formatted));assert(wh.includes('>1234567<'));assert(wh.includes('>7654321<'));
  const movement=render({dataset:'stockMove',dataState:'loaded',rows:[{productCode:'1234567',openingQuantity:quantity,inQuantity:'1234.5000',outQuantity:'-1234.50',quantity}]});assert.equal(movement.split(formatted).length-1,2);assert(movement.includes('1,234.5000'));assert(movement.includes('-1,234.50'));assert(movement.includes('>1234567<'));
+});
+
+test('warehouse lookup returns only selected collected codes and supports F8 without names',()=>{
+ const file=path.join(root,'components/ecount/WarehouseLookupOverlay.js'),module={exports:{}};let state,returned;
+ const mock={...React,useState:initial=>{if(state===undefined)state=typeof initial==='function'?initial():initial;return[state,next=>state=typeof next==='function'?next(state):next];}};
+ vm.runInNewContext(compile(fs.readFileSync(file,'utf8'),file),{module,exports:module.exports,require:id=>id==='react'?mock:id.endsWith('.css')?styles:id.startsWith('.')?load(path.relative(root,path.resolve(path.dirname(file),id+'.js'))):require(id)});
+ const rows=[{warehouseCode:'W1',warehouseName:'private-name'},{warehouseCode:'W2'},{warehouseCode:'W1'}];
+ function tree(){return module.exports.WarehouseLookupOverlay({rows,selected:['unknown'],onApply:v=>returned=v,onClose(){}});}
+ function all(e){return !e||typeof e!=='object'?[]:[e,...React.Children.toArray(e.props?.children).flatMap(all)];}
+ let nodes=all(tree());assert.equal(nodes.filter(e=>e.props?.type==='checkbox').length,2);nodes.find(e=>e.props?.['aria-label']==='창고코드 W2').props.onChange({target:{checked:true}});
+ nodes=all(tree());nodes.find(e=>e.props?.onKeyDown).props.onKeyDown({key:'F8',preventDefault(){},stopPropagation(){}});assert.deepEqual([...returned],['W2']);
+ const html=renderToStaticMarkup(React.createElement(load('components/ecount/WarehouseLookupOverlay.js').WarehouseLookupOverlay,{rows,onClose(){}}));assert(!html.includes('private-name'));assert.equal((html.match(/<th scope=/g)||[]).length,4);assert(html.includes('E040711-A27'));assert(html.includes('E040711-A28'));
+});
+test('warehouse filter is applied to the safe snapshot and missing warehouse coverage stays unknown',()=>{
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
+ const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:[{productCode:'P1',warehouseCode:'W1',quantity:'1'},{productCode:'P1',warehouseCode:'W2',quantity:'2'}]};
+ for(const [warehouseFilter,count,missing]of[[[],2,false],[['W2'],1,false],[['unknown'],0,true]]){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset:'whStock',version,warehouseFilter,filterFrom:'2026-10-20',pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.rows.length,count);assert.equal(result.snapshotUnavailable,missing);if(count===1)assert.equal(result.rows[0].warehouseCode,'W2');}
 });
