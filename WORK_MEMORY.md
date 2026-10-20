@@ -388,3 +388,4 @@
 - PR1134 CI39392236553 success, squash c52564d7, Cafe24배포39392543784 success(SSH 및 자동 hydration 포함). 신규 주문3화면 운영검증은 root 후속 확인 대상.
 - 판매조회 원본 실측을 근거로 검색 배치·폭을 보완하고 동일 컨트롤의 재관측 관계를 메타데이터에 기록. 회계거래조회 journal 안전9행 날짜·금액 문법검증 통과, 준비파일 journal-import-safe.json 생성. 실제 SQL 적재는 아직 실행하지 않았으며 후속 필수검사 통과 후 root 담당.
 - 검색어: PR1131 운영52값 PR1134 c52564d7 39392543784 sale-query-layout journal9 safeprojection
+- PR1134 root 운영검증 완료(order-pages-release-runtime-evidence.json): 주문조회10열/6드롭다운, 주문현황7열750px·lookup22→일별5열631px, 발주현황9열941px·lookup20→일별5열631px. 8캡처 확보, 미수집 표시 유지/가짜0건 주장없음, 원본·공유원장 쓰기0.
