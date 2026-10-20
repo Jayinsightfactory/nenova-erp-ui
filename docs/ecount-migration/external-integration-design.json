@@ -1,0 +1,1066 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed_design_not_runtime_contract",
+  "updatedAt": "2026-10-20",
+  "executionEnabled": false,
+  "scope": {
+    "sourceEcount": "조회·다운로드만; 입력/수정/삭제/발행/전송 금지",
+    "sharedLedger": "접속·쓰기 없음; 향후 연결은 독립 ERP 계약과 dnSpy/probe 필요",
+    "storage": "future isolated integration schema: not created; current ecount_work is safe snapshots only",
+    "sensitiveData": "현재 계좌번호·이름·연락처·자격증명/인증서 원문 저장 금지. 필요한 경우 별도 보관/동의/권한 정책 확정 전 blocked",
+    "providerSelection": "모든 공급자·가격·지원범위 미확정. 이 설계는 어떤 서비스 이용가능성도 보증하지 않음"
+  },
+  "common": {
+    "transportStates": [
+      "draft",
+      "validated",
+      "awaiting_authorization",
+      "queued",
+      "sending",
+      "accepted",
+      "unknown",
+      "retry_wait",
+      "succeeded",
+      "failed",
+      "quarantined",
+      "cancel_requested",
+      "compensating",
+      "compensated"
+    ],
+    "transitions": [
+      [
+        "draft",
+        "validated",
+        "schema/policy validation; no network"
+      ],
+      [
+        "validated",
+        "awaiting_authorization",
+        "external write requires business approval"
+      ],
+      [
+        "awaiting_authorization",
+        "queued",
+        "role/limit/two-person policy satisfied"
+      ],
+      [
+        "validated",
+        "queued",
+        "read only after consent/credential policy ready"
+      ],
+      [
+        "queued",
+        "sending",
+        "lease acquired and immutable request key reserved"
+      ],
+      [
+        "sending",
+        "accepted",
+        "provider acknowledgement only, not final business success"
+      ],
+      [
+        "sending",
+        "unknown",
+        "timeout/disconnect after possible acceptance"
+      ],
+      [
+        "unknown",
+        "accepted",
+        "same provider request key status query confirms"
+      ],
+      [
+        "unknown",
+        "quarantined",
+        "no authoritative status lookup; human review, no blind retry"
+      ],
+      [
+        "sending",
+        "retry_wait",
+        "definitively unaccepted retriable failure only"
+      ],
+      [
+        "retry_wait",
+        "queued",
+        "bounded backoff and circuit-breaker allow"
+      ],
+      [
+        "accepted",
+        "succeeded",
+        "authoritative final result and reconciliation"
+      ],
+      [
+        "accepted",
+        "failed",
+        "authoritative final rejection"
+      ],
+      [
+        "succeeded",
+        "cancel_requested",
+        "explicit cancellation/correction business request"
+      ],
+      [
+        "cancel_requested",
+        "compensating",
+        "provider supported operation approved"
+      ],
+      [
+        "compensating",
+        "compensated",
+        "authoritative cancellation result reconciled"
+      ],
+      [
+        "draft",
+        "failed",
+        "validation rejected; create corrected new draft revision"
+      ],
+      [
+        "queued",
+        "failed",
+        "authorization revoked or definitive business rejection before sending"
+      ],
+      [
+        "sending",
+        "failed",
+        "provider definitively rejects request"
+      ],
+      [
+        "retry_wait",
+        "failed",
+        "retry limit exhausted with definitively unaccepted outcome"
+      ],
+      [
+        "accepted",
+        "unknown",
+        "final result not authoritative; status reconciliation required"
+      ],
+      [
+        "unknown",
+        "succeeded",
+        "authoritative completed result discovered by status query"
+      ],
+      [
+        "unknown",
+        "failed",
+        "authoritative final rejection discovered"
+      ],
+      [
+        "compensating",
+        "unknown",
+        "compensation result ambiguous; never repeat blindly"
+      ],
+      [
+        "compensating",
+        "failed",
+        "provider definitively denies compensation; original external effect remains"
+      ]
+    ],
+    "auth": {
+      "credentialStorage": "external secret manager reference only; no secret in SQL/log/JSON",
+      "connectionFields": [
+        "tenantId",
+        "providerId",
+        "connectionId",
+        "secretRef",
+        "credentialVersion",
+        "scopeSet",
+        "consentRef",
+        "consentExpiresAt",
+        "certificateExpiresAt",
+        "lastVerifiedAt",
+        "status"
+      ],
+      "rotation": "pause jobs → verify new secret version with read capability → atomic reference switch → revoke old version; unknown in-flight requests retain original request identity",
+      "expired": "NEEDS_AUTH; no silent zero rows/no write retries",
+      "capabilities": "read and write separate credential scopes; write permission does not follow from read connection"
+    },
+    "idempotency": {
+      "requestUnique": [
+        "tenantId",
+        "providerId",
+        "connectionId",
+        "operation",
+        "internalObjectId",
+        "objectVersion"
+      ],
+      "responseLost": "same key status lookup before deciding next action",
+      "retention": "dedup retention must cover provider replay/correction horizon; duration requires provider and policy signoff",
+      "sourceRevision": "immutable normalized revision hash; numeric decimal strings; timezone and source timestamps preserved"
+    },
+    "collectionProfiles": {
+      "read_incremental": {
+        "proposalOnly": true,
+        "enabled": false,
+        "timezone": "Asia/Seoul business date; retain source timezone",
+        "intervalMinutes": 60,
+        "lookbackDays": 7,
+        "dailyReconciliation": "03:00 KST proposal",
+        "maxConcurrentPerConnection": 1,
+        "pageCheckpoint": "persist only after page staging validation; publish after full run reconciliation",
+        "confirmBeforeEnable": [
+          "provider rate limits",
+          "lookback sufficiency for corrections",
+          "business SLA",
+          "history range",
+          "source completeness markers"
+        ]
+      },
+      "read_and_outbox": {
+        "proposalOnly": true,
+        "readProfile": "read_incremental",
+        "writeSchedule": "event-driven approved outbox only; no periodic issuance"
+      },
+      "outbox_only": {
+        "proposalOnly": true,
+        "writeSchedule": "approved event only",
+        "statusPollSeconds": [
+          30,
+          120,
+          600
+        ],
+        "pollCeilingMinutes": 60,
+        "afterCeiling": "needs_review, keep unknown; provider actual processing SLA overrides proposal"
+      },
+      "reference_daily": {
+        "proposalOnly": true,
+        "enabled": false,
+        "timezone": "provider publication timezone required",
+        "interval": "once per published business day plus documented correction pass",
+        "publicationTime": null
+      }
+    },
+    "retry": {
+      "proposalOnly": true,
+      "delaysSeconds": [
+        30,
+        120,
+        600
+      ],
+      "maxAttempts": 3,
+      "jitter": "0..20%",
+      "retryAfter": "respect provider Retry-After; do not exceed quota",
+      "nonRetryable": [
+        "auth expired",
+        "schema drift",
+        "PII policy violation",
+        "business validation rejected",
+        "unknown write outcome"
+      ],
+      "circuitBreaker": "proposal: 5 connection failures in 10 minutes → pause 15 minutes; operational confirmation required"
+    },
+    "webhooks": {
+      "authenticate": "provider-specific signature over raw body; secret reference; timestamp/replay window per provider",
+      "dedupUnique": [
+        "providerId",
+        "connectionId",
+        "eventId"
+      ],
+      "noEventId": "validated canonical-event hash only after collision review",
+      "ack": "durable safe event journal first, then ack; raw PII payload not retained under current policy",
+      "ordering": "provider sequence/revision guards; older events retained but cannot downgrade current state",
+      "verification": "callbacks alone do not bypass authoritative reconciliation"
+    },
+    "audit": {
+      "recordEveryAttempt": true,
+      "fields": [
+        "eventId",
+        "actorRef",
+        "role",
+        "tenantId",
+        "connectionId",
+        "correlationId",
+        "requestKey",
+        "attempt",
+        "operation",
+        "sourceObjectRef",
+        "fromState",
+        "toState",
+        "reasonCode",
+        "beforeHash",
+        "afterHash",
+        "providerResultCode",
+        "startedAt",
+        "endedAt",
+        "evidenceRef"
+      ],
+      "forbidden": [
+        "raw request/response",
+        "account number",
+        "person name/contact",
+        "access token",
+        "certificate",
+        "cookie",
+        "session URL"
+      ],
+      "readAudit": "start/end/error and dataset scope/count/hash; no row values",
+      "access": "append-only role, separate reader; audit deletion denied to worker; tamper-evidence/retention policy to approve"
+    },
+    "recovery": {
+      "local": "immutable import versions + active pointer revision CAS; preserve failed/reverted runs and audits",
+      "external": "no DB rollback can undo issuance/transfer/delivery; separate supported compensation + approval + authoritative reconciliation",
+      "checkpoint": "run/page cursor + input filters + schemaVersion + source revision; restart never advances incomplete page",
+      "publish": "staged run → completeness/reconciliation checks → atomic pointer activation; absence in partial feed is not deletion",
+      "backup": "proposed RPO24h/RTO4h for isolated metadata; approval required; external receipt journal must be durable before acknowledgement",
+      "drill": [
+        "restore isolated backup to nonproduction",
+        "replay safe journal without network",
+        "verify hashes/cursors/current pointers",
+        "reconcile unknown external requests by read-only query before re-enabling writes"
+      ],
+      "retention": "TBD by policy, provider and statutory obligations; no asserted legal retention duration"
+    },
+    "cancellationBranch": "취소/정정은 원요청과 다른 requestKey의 연결된 요청이다. compensation failed/unknown은 원거래 성공을 덮어쓰지 않는다."
+  },
+  "proposedStorage": [
+    {
+      "table": "IntegrationConnection",
+      "key": [
+        "tenantId",
+        "providerId",
+        "connectionId"
+      ],
+      "purpose": "secret reference/capabilities/consent only"
+    },
+    {
+      "table": "IntegrationRun",
+      "key": [
+        "runId"
+      ],
+      "purpose": "filters/cursor/schema/hash/count/completeness/errors"
+    },
+    {
+      "table": "ExternalObjectRevision",
+      "key": [
+        "connectionId",
+        "sourceObjectKey",
+        "sourceRevision"
+      ],
+      "purpose": "allowlisted safe fields, immutable versions; private fields blocked"
+    },
+    {
+      "table": "ExternalObjectHead",
+      "key": [
+        "connectionId",
+        "sourceObjectKey"
+      ],
+      "purpose": "current revision CAS, tombstone only on explicit verified event"
+    },
+    {
+      "table": "IntegrationOutbox",
+      "key": [
+        "requestKey"
+      ],
+      "purpose": "immutable request intent, approval refs, lease, attempt and transport state; no raw secret"
+    },
+    {
+      "table": "IntegrationEvent",
+      "key": [
+        "connectionId",
+        "providerEventId"
+      ],
+      "purpose": "safe callback/status query results with ordering evidence"
+    },
+    {
+      "table": "IntegrationAudit",
+      "key": [
+        "eventId"
+      ],
+      "purpose": "all attempts and transitions append-only"
+    },
+    {
+      "table": "ReconciliationCase",
+      "key": [
+        "caseId"
+      ],
+      "purpose": "mismatch/unknown/collision and explicit resolution"
+    }
+  ],
+  "services": [
+    {
+      "id": "bank-feed",
+      "label": "은행 입출금·잔액",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "거래 고유ID 범위",
+        "법인·외화계좌 지원",
+        "과거조회기간·잔액 의미",
+        "은행별 지연·조회 제한"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "institution+accountToken+sourceTransactionId",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "sourceRevision 또는 normalizedPayloadHash",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "posted → amended/reversed; 삭제로 추정하지 않음",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "은행 거래 및 잔액을 accountToken·currency·valueDate 별로 대사",
+      "collectionProfile": "read_incremental",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "corporate-card",
+      "label": "법인카드 사용내역",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "승인번호 재사용범위",
+        "해외·부분취소 지원",
+        "청구/매입/승인 날짜 의미"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "issuer+cardToken+approvalId+approvalDate+currency",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "승인/취소 이벤트ID 또는 sourceRevision",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "authorized → cleared → partially_reversed/reversed; 원승인 연결",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "승인·청구·취소를 별도로 저장하고 원승인 없는 취소 격리",
+      "collectionProfile": "read_incremental",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "merchant-pg",
+      "label": "카드매출·PG 정산",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "실제 계약 PG/매입사",
+        "수수료·부가세·입금 시점",
+        "부분환불/차지백 모델"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "provider+merchantToken+transactionId; settlementId는 별도키",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "transactionRevision 및 settlementRevision 별도",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "approved → settled → refunded/chargeback; 정산 조정은 별도 이벤트",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "총액·수수료·환불·실입금 각 항목 대사; 은행입금과 금액만으로 자동 연결 금지",
+      "collectionProfile": "read_incremental",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "tax-collect",
+      "label": "홈택스 매입·매출 전자증빙 수집",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "세금계산서/계산서 수집 범위",
+        "타서비스 발행분",
+        "인증·조회기간·상태 반영 지연"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+authorityDocumentId+documentKind",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "authorityRevision/statusEventId 또는 normalizedPayloadHash",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "received → corrected/cancelled; 수정문서는 originalDocumentRef 연결",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "승인번호·수정연결·공급가액·세액 대사; 발행서비스 보관자료와 중복병합은 연결표로 처리",
+      "collectionProfile": "read_incremental",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "tax-issue",
+      "label": "전자세금계산서·계산서 발행",
+      "direction": "write",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "정/역/위수탁 지원",
+        "인증서·사업자 자격",
+        "수정사유·취소가능단계·법적 처리기한"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+internalDocumentId+documentVersion+operation",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "immutable internal version 및 provider document revision",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → reviewed → queued → accepted → authority_pending → authority_accepted/rejected",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "사업자 접수와 국세청 결과와 메일 전달을 서로 다른 상태로 보존",
+      "collectionProfile": "outbox_only",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "cash-receipt",
+      "label": "현금영수증 발행·수집",
+      "direction": "mixed",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "발행·수집 별도 권한",
+        "소득공제/지출증빙 처리",
+        "취소원인·기한·부분취소 지원"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+internalReceiptId+version+operation; 수집은 authorityApprovalId",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "provider event revision 또는 payload hash",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → accepted → authority_pending → authority_accepted/rejected; 취소는 원승인 연결",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "발행 응답과 수집 승인자료 연결, 미확인 승인을 성공으로 확정하지 않음",
+      "collectionProfile": "read_and_outbox",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "bank-transfer",
+      "label": "계좌·급여 이체",
+      "direction": "write",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "조회와 이체 별도 계약",
+        "수취인확인·결재/한도",
+        "결과조회키·취소/회수가능범위"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+paymentRequestId+version+operation",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "requestVersion 및 provider executionEventId",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → reviewed → approved → queued → accepted → settled/failed/unknown",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "출금·수취 처리결과·내부지급을 분리; 불명 결과는 재이체 금지",
+      "collectionProfile": "outbox_only",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "identity-check",
+      "label": "사업자상태·예금주 검증",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "검증 서비스별 입력 요건",
+        "동의/목적제한",
+        "캐시 허용시간·정확도"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+checkRequestId+subjectToken+checkKind",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "observedAt+sourceResultVersion",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "requested → verified/not_verified/unknown/expired",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "검증시점과 대상 토큰을 고정, 이전 검증을 영구 유효로 간주하지 않음",
+      "collectionProfile": "read_incremental",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "delivery",
+      "label": "문자·알림톡·팩스·메일",
+      "direction": "write",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "발신자·템플릿 승인",
+        "동의/수신거부 정책",
+        "재전송과 비용·결과조회 지원"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+messageId+version+channel+recipientToken",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "providerMessageId+eventId",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → approved → queued → accepted → delivered/failed/unknown",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "사업자 접수와 최종전달 분리; 채널별 중복전송 방지",
+      "collectionProfile": "outbox_only",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "signature",
+      "label": "전자계약 서명",
+      "direction": "write",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "서명 증거·본인확인 수준",
+        "문서 보관·철회 조건",
+        "서명자별 개인정보 처리"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+contractId+documentVersion+operation",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "documentHash+providerEventId",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → approved → sent → partially_signed → completed/declined/expired/revoked",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "문서 해시와 서명자 토큰별 이벤트; 체결 후 문서변경은 새 버전",
+      "collectionProfile": "outbox_only",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "filing-customs",
+      "label": "세무·보험 신고/통관",
+      "direction": "mixed",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "기관별 공개 API 유무",
+        "대리권·제출 자격",
+        "신고규격·정정/취하 절차"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "tenant+agency+filingKind+period+submissionId+version",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "receiptId+correctionSequence",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "draft → reviewed → submitted → received → accepted/rejected; correction 연결",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "접수와 수리 분리; 세무·보험·세관을 단일 어댑터로 가정하지 않음",
+      "collectionProfile": "read_and_outbox",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "fx",
+      "label": "환율 수집",
+      "direction": "read",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "고시/매매 기준",
+        "영업일·시간대",
+        "사용권·배포범위"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "provider+currencyPair+rateType+effectiveAt",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "publicationRevision 또는 payload hash",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "observed → revised/superseded",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "기준율 종류와 통화단위 보존; 거래전표 적용율은 별도 고정",
+      "collectionProfile": "reference_daily",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "이 어댑터는 외부 변경을 요청하지 않는다. 원천 취소/정정 사건만 수집·연결한다.",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read only",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    },
+    {
+      "id": "commerce-logistics",
+      "label": "쇼핑몰·배송 연동",
+      "direction": "mixed",
+      "status": "design_only",
+      "executionEnabled": false,
+      "provider": null,
+      "providerConfirmation": [
+        "실제 채널/택배사",
+        "부분배송·반품·취소 경합",
+        "API권한·개인정보 처리"
+      ],
+      "sourceIdentity": {
+        "tenantRequired": true,
+        "proposedKey": "provider+shopToken+orderId+lineId; shipmentId 별도",
+        "uniqueness": "provider connection scope + source identity; DB UNIQUE schema is proposed only",
+        "revision": "sourceRevision/eventId",
+        "collision": "동일 key/revision 다른hash는 충돌격리; 덮어쓰기 금지",
+        "missingStableId": "검증된 대체키 계약 없으면 격리. 시간·금액만으로 합치지 않음"
+      },
+      "stateModel": {
+        "businessStates": "order_received → allocated → shipped → delivered; cancellation/return 별도",
+        "genericTransportStates": "common.transportStates",
+        "unknownNeverSuccess": true
+      },
+      "reconciliation": "주문·결제·출고·배송 독립상태; 공유원장 writer 연결 전 별도 ERP가드 필수",
+      "collectionProfile": "read_and_outbox",
+      "cancellation": {
+        "sourceEvent": "원거래 참조·원문버전·사유코드·발생시각을 append-only로 보존",
+        "externalReversal": "사업자가 지원하고 업무승인이 완료된 별도 요청만. 기존 요청 재전송으로 취소를 모사하지 않음",
+        "localRollback": "공개 포인터 복구만; 이미 외부로 실행된 효과는 되돌아가지 않음"
+      },
+      "requiredTests": [
+        "동일 입력 재수신 중복0",
+        "revision충돌 격리",
+        "응답불명 재실행 차단",
+        "역순/중복 이벤트",
+        "인증 만료 실패로 표시",
+        "재시작 체크포인트 복원",
+        "보호항목 로그0",
+        "정정/취소 원문 연결"
+      ],
+      "authRequirements": {
+        "status": "provider_and_policy_confirmation_required",
+        "credentialReference": "IntegrationConnection.secretRef",
+        "requiredScopes": "read and write separate; approved operation allowlist",
+        "personalDataBoundary": "원문필수이면 현재정책하 blocked; 참조 토큰 및 명시확정된 최소필드만",
+        "expiryHandling": "pause and NEEDS_AUTH; no zero-result substitution"
+      }
+    }
+  ],
+  "uiDesign": {
+    "commonScreens": [
+      "연결상태(권한/인증만료/마지막성공; secret표시없음)",
+      "수집조건(기간/계좌토큰/대상서비스)/수집이력",
+      "수집자료목록·원본revision 이력·대사차이",
+      "외부요청 검토/승인/대기/응답불명 상세",
+      "취소·정정 요청과 원문 연결",
+      "감사조회·격리사유·복원검토"
+    ],
+    "sourceParity": "관측된 ECOUNT 화면/버튼은 별도 parity 계약; 이 운영화면 설계가 원본에 존재한다고 주장하지 않음",
+    "saveFlow": "local validation → safe immutable draft revision → business review → outbox reservation → approved worker only",
+    "noSuccessSimulation": true,
+    "disabledUntilReady": [
+      "provider connection",
+      "auth/PII policy",
+      "adapter contract",
+      "sandbox scenario tests",
+      "business approval policy"
+    ]
+  },
+  "deliveryStatus": {
+    "designWritten": true,
+    "runtimeAdapterImplemented": false,
+    "providerChosen": false,
+    "authConfigured": false,
+    "tablesCreated": false,
+    "schedulerEnabled": false,
+    "externalRequestSent": false,
+    "sourceParityComplete": false
+  },
+  "references": [
+    "docs/ECOUNT_REPLACEMENT_DESIGN_2026-10-20.md",
+    "docs/ECOUNT_WORKSPACE_CONTRACT.md",
+    "docs/ecount-migration/work-plan.json",
+    "lib/ecountWorkbench.cjs"
+  ]
+}

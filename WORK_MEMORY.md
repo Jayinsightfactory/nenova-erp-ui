@@ -496,3 +496,21 @@
 - stkBalance E040727/menu2775: 단일asof10/20,제품1949+실제source합계1=1950행. 제품코드/7필수수량/row.monthLabels=[10,9,8,7] 보존, 현재날짜·연도·월별값파생금지. 합계는원본직접수집값이며마지막1행code:null/isSubtotal만허용, 합산계산하지않음.
 - stock-balance-import-safe.json 15600필드+1950월라벨배열대조불일치0(숫자쉼표정규화). 실제SQL아직없음. 단일기준일완전일치/중복·소계형식·월라벨혼합·누락수량거부 fixturePASS. UI28표적검사/835관측ID, 전체동등성완료아님.
 - 기존격리shell적용/신규공유ERP writer없음. 검색어: stkBalance 1950 sourceSubtotal monthLabels 835
+
+## 2026-10-20 재고잔량 적재 및 수불부 운영 검증
+- root PR1145 수불부운영1949그룹×5=9745 exact수량차이0/missing0/모두전일재고·합계2행/650폭 확인. notice확인검색유지·1949보존/취소조회접힘1949확인. 상세거래미검증유지.
+- PR1144 창고lookup운영960×427.5/4열25,110,110,220·Apply코드반환/닫힘/포커스복귀true·금일1949수량차이0. 원본lookup2코드 vs 대상수집1코드 범위제약유지.
+- 재고잔량5gate모두PASS(stock-balance-guard-results.json), build1회. PR1147 fixed90e90081 CI39409443244진행중. root별도ecount_work stkBalance1950(제품1949+실제합계1)revision1/readbacktrue/idempotenttrue,stock-balance-import-result.json. source/sharedledger쓰기0. 월별값/합계파생없음, 운영표시검증은배포후예정.
+- 검색어: PR1147 stkBalance1950 sourceTotal revision1 9745runtime
+
+## 2026-10-20 품목 선택창 운영 검증과 잔량 배포
+- PR1146 deploy39408953302 success/SSH·hydration통과. root운영 popup960×427.5/5열·코드반환/포커스복귀true·단일품목금일notice없이1표2행4수량exact0. 원본popup50표시행 vs 대상1949목록/단일선택제약유지. 인쇄3disabled메뉴열기닫기확인.
+- PR1147 CI39409443244 PASS/squash3f6fa785, 잔량배포39409794557진행중. 운영1950행표시검증은완료후예정. 후속외부연동설계는UIagent가새문서/JSON만작성,API연결실행·자격증명·DDL·원장쓰기없음.
+- 검색어: PR1146 runtime 4qtyexact PR1147 3f6fa785 external-integration-design
+
+## 2026-10-20 선택품목 BOM 조회와 외부연동 설계
+- PR1147 deploy39409794557 success/SSH·hydration통과. 재고잔량운영1950행/월라벨/실제합계대조root예정.
+- bomStock E040726/menu2537은선택품목1코드+asof10/20에만귀속. I.검색품목1행(quantity/convertedQuantity), II.환산수량(상위품목)은그조건에서관찰empty. upperResult=empty_observed는정확코드·기준일일치때만유효,타범위uncollected. 전체BOM없음추정금지/검색품목을하위로오칭하지않음.
+- bom-stock-import-safe.json1행3필드정규화대조0/실제SQL아직없음. 단일scope/2필수수량/소계·빈import·무효coverage거부/멱등복원fixturePASS. UI30표적검사/851관측ID. 무코드F8외관활성·무조회/기존결과보존,print3미실행비활성.
+- 외부연동13기능새설계문서/JSON: 공급자중립화면·원천키revision·취소보상·secretRef·Outbox응답불명·웹훅·감사복원흐름. 설계완료/실행미구현,가입·API연결·DDL·scheduler없음. 공급자최신요금확정아님. 기존격리shell적용/원본공유ERP쓰기없음.
+- 검색어: bomStock E040726 selected upperResult 851 external-integration-design
