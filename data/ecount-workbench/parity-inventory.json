@@ -1255,15 +1255,16 @@
           "id": "E040304-A20",
           "label": "금일",
           "context": "검색 패널",
-          "classification": "unknown",
+          "classification": "query",
           "stage": "observed",
-          "sourceExecutionAllowed": false,
-          "sourceExecuted": false,
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-PURCHASE-ENTRY-F3"
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-ENTRY-F3",
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-TODAY"
           ],
           "testEvidence": [],
-          "behavior": "Label observed only; behavior not executed"
+          "behavior": "Click immediately executes query and closes inline search; date2026-10-20 through same day; status전체; zero rows"
         },
         {
           "id": "E040304-A21",
@@ -1376,6 +1377,146 @@
           ],
           "testEvidence": [],
           "behavior": "Label observed only; behavior not executed"
+        },
+        {
+          "id": "E040304-A29",
+          "label": "Fn",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-TODAY"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible on safe screenshot; not executed"
+        },
+        {
+          "id": "E040304-A30",
+          "label": "인쇄 드롭다운",
+          "context": "하단 인쇄 옆 삼각 버튼",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-PRINT-DROPDOWN"
+          ],
+          "testEvidence": [],
+          "behavior": "Arrow click opens same-tab upward popover with only 프린트문제해결 visible; main print button not clicked"
+        },
+        {
+          "id": "E040304-A31",
+          "label": "프린트문제해결",
+          "context": "인쇄 드롭다운 펼침",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-PRINT-DROPDOWN"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible menu item only; not executed"
+        },
+        {
+          "id": "E040304-A32",
+          "label": "거래처 검색 아이콘",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Click opens same-tab customer lookup overlay, not a browser new window"
+        },
+        {
+          "id": "E040304-A33",
+          "label": "사용중단포함",
+          "context": "거래처 검색 오버레이",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; not executed"
+        },
+        {
+          "id": "E040304-A34",
+          "label": "Search(F3)",
+          "context": "거래처 검색 오버레이",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; not executed"
+        },
+        {
+          "id": "E040304-A35",
+          "label": "Option",
+          "context": "거래처 검색 오버레이",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; not executed"
+        },
+        {
+          "id": "E040304-A36",
+          "label": "적용(F8)",
+          "context": "거래처 검색 오버레이",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; not executed"
+        },
+        {
+          "id": "E040304-A37",
+          "label": "신규(F2)",
+          "context": "거래처 검색 오버레이",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Label observed only; not executed"
+        },
+        {
+          "id": "E040304-A38",
+          "label": "닫기",
+          "context": "거래처 검색 오버레이",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Click closes overlay and restores parent; no close button remains"
         }
       ],
       "windows": [],
@@ -1442,8 +1583,10 @@
           "testEvidence": []
         },
         "dialogs": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ],
           "testEvidence": []
         },
         "resultPropagation": {
@@ -1480,7 +1623,27 @@
       "blockers": [
         "Source buttons only partly observed; only F3 executed; target page not implemented in current release"
       ],
-      "exclusions": []
+      "exclusions": [],
+      "observedOverlays": [
+        {
+          "id": "E040304-CUSTOMER-LOOKUP",
+          "kind": "same-tab-overlay",
+          "columns": [
+            "선택",
+            "거래처코드",
+            "거래처명",
+            "검색창내용",
+            "상세내역"
+          ],
+          "allButtonsKnown": false,
+          "openVerified": true,
+          "closeVerified": true,
+          "selectionPropagationVerified": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+          ]
+        }
+      ]
     },
     {
       "id": "E040303",

@@ -4179,7 +4179,8 @@
             "domId": null,
             "context": "검색 패널",
             "evidence": [
-              "source-action-audit.jsonl#SRC-20261020-PURCHASE-ENTRY-F3"
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-ENTRY-F3",
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-TODAY"
             ]
           },
           "target": {
@@ -4242,9 +4243,11 @@
                 "mismatchCount": null,
                 "rawValuesStored": false
               },
-              "queryApplicable": null,
+              "queryApplicable": true,
               "notApplicableReason": null,
-              "applicabilityEvidence": []
+              "applicabilityEvidence": [
+                "source-action-audit.jsonl#SRC-20261020-PURCHASE-TODAY"
+              ]
             }
           },
           "captures": {
@@ -4926,13 +4929,888 @@
           "limitations": [
             "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
           ]
+        },
+        {
+          "matchId": "E040304-A29",
+          "source": {
+            "stableId": "E040304-A29",
+            "label": "Fn",
+            "context": "상단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-TODAY"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A29",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+          ]
+        },
+        {
+          "matchId": "E040304-A30",
+          "source": {
+            "stableId": "E040304-A30",
+            "label": "인쇄 드롭다운",
+            "context": "하단 인쇄 옆 삼각 버튼",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-PRINT-DROPDOWN"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A30",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": false,
+              "notApplicableReason": "Menu expansion returns no query rows",
+              "applicabilityEvidence": [
+                "source-action-audit.jsonl#SRC-20261020-PURCHASE-PRINT-DROPDOWN"
+              ]
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Purchase-specific print menu; do not inherit sales PDF/preview actions. Target not implemented."
+          ]
+        },
+        {
+          "matchId": "E040304-A31",
+          "source": {
+            "stableId": "E040304-A31",
+            "label": "프린트문제해결",
+            "context": "인쇄 드롭다운 펼침",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-PRINT-DROPDOWN"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A31",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Purchase-specific print menu; do not inherit sales PDF/preview actions. Target not implemented."
+          ]
+        },
+        {
+          "matchId": "E040304-A32",
+          "source": {
+            "stableId": "E040304-A32",
+            "label": "거래처 검색 아이콘",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A32",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A33",
+          "source": {
+            "stableId": "E040304-A33",
+            "label": "사용중단포함",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A33",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A34",
+          "source": {
+            "stableId": "E040304-A34",
+            "label": "Search(F3)",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A34",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A35",
+          "source": {
+            "stableId": "E040304-A35",
+            "label": "Option",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A35",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A36",
+          "source": {
+            "stableId": "E040304-A36",
+            "label": "적용(F8)",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A36",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A37",
+          "source": {
+            "stableId": "E040304-A37",
+            "label": "신규(F2)",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A37",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
+        },
+        {
+          "matchId": "E040304-A38",
+          "source": {
+            "stableId": "E040304-A38",
+            "label": "닫기",
+            "context": "거래처 검색 오버레이",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040304-A38",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": false,
+              "notApplicableReason": "Closing overlay returns to parent without selecting or propagating query values",
+              "applicabilityEvidence": [
+                "source-action-audit.jsonl#SRC-20261020-PURCHASE-CUSTOMER-LOOKUP"
+              ]
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+          ]
         }
       ],
       "currentSourceConditions": {
-        "periodFrom": "2026-09-20",
-        "periodTo": "2026-11-19",
+        "periodFrom": "2026-10-20",
+        "periodTo": "2026-10-20",
+        "status": "전체",
         "defaultProven": false
-      }
+      },
+      "captureCandidates": [
+        {
+          "id": "PURCHASE-TODAY-SOURCE",
+          "path": "outputs/ecount-parity-20261020/E040304-source-today-empty.jpg",
+          "side": "source",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 240,
+            "y": 95,
+            "width": 1250,
+            "height": 300
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "conditions": {
+            "periodFrom": "2026-10-20",
+            "periodTo": "2026-10-20",
+            "status": "전체",
+            "rows": 0
+          },
+          "limitations": [
+            "Target not implemented; no pair comparison"
+          ]
+        }
+      ]
     },
     {
       "program": "E040303",
@@ -7732,10 +8610,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A29",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A29",
+            "label": "업무설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A29",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -7816,10 +8698,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A30",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A30",
+            "label": "검색항목설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A30",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -7900,10 +8786,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A31",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A31",
+            "label": "양식설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A31",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -7984,10 +8874,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A32",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A32",
+            "label": "조건양식설정",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A32",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8068,10 +8962,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A33",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A33",
+            "label": "문서발송내역",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A33",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8152,10 +9050,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A34",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A34",
+            "label": "견적서조회 (OLD)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A34",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8236,10 +9138,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A35",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A35",
+            "label": "전체",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A35",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8322,10 +9228,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A36",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A36",
+            "label": "결재중",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A36",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8406,10 +9316,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A37",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A37",
+            "label": "미확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A37",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8490,10 +9404,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A38",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A38",
+            "label": "확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A38",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8574,10 +9492,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A39",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A39",
+            "label": "진행중",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A39",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8660,10 +9582,14 @@
           },
           "target": {
             "requiredStableId": "E040202-A40",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040202-A40",
+            "label": "완료",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js ACTION_IDS",
+              "components/ecount/QuotePageControls.js Option menu or status tab JSX"
+            ],
+            "codeMappingStableId": "E040202-A40",
+            "verificationScope": "Static source mapping and JSX path only; current deployment and browser equivalence unverified"
           },
           "status": "미검증",
           "conditions": {
@@ -8869,17 +9795,17 @@
         "reporter": "root",
         "periodFrom": "2026-09-20",
         "periodTo": "2026-11-19",
-        "safeProjectionRowCount": 3,
-        "sqlRevision": 1,
+        "safeProjectionRowCount": 26,
+        "sqlRevision": 2,
         "readbackVerified": true,
         "idempotentVerified": true,
         "sourceSafeProjectionContentHashMatchesSql": true,
         "rawValuesStored": false,
-        "scope": "CLI safe numeric/date projection to isolated SQL only; target browser values still unverified; source restricted to 진행중, not all estimates",
+        "scope": "Safe date/numeric/status projection26 rows imported into isolated SQL; readback hash and idempotency passed. Source total unknown; deployment and current browser comparison pending.",
         "evidence": [
           "docs/ecount-migration/report-contract.md#견적-안전-투영-검사"
         ],
-        "progressStatus": "진행중"
+        "progressStatus": "표시구간 진행중3/완료23"
       },
       "observedDifferences": [
         {
@@ -9029,10 +9955,29 @@
         "totalSourceRows": null,
         "fullCollectionVerified": false,
         "safeProjectionFields": "numeric/date/status enum only",
-        "sqlImportStatus": "pending",
+        "sqlImportStatus": "revision2 26행 readback/hash/idempotency 확인",
         "deploymentStatus": "pending",
         "rawValuesCopiedToReport": false
-      }
+      },
+      "dataPipelineHistory": [
+        {
+          "observedOn": "2026-10-20",
+          "reporter": "root",
+          "periodFrom": "2026-09-20",
+          "periodTo": "2026-11-19",
+          "safeProjectionRowCount": 3,
+          "sqlRevision": 1,
+          "readbackVerified": true,
+          "idempotentVerified": true,
+          "sourceSafeProjectionContentHashMatchesSql": true,
+          "rawValuesStored": false,
+          "scope": "CLI safe numeric/date projection to isolated SQL only; target browser values still unverified; source restricted to 진행중, not all estimates",
+          "evidence": [
+            "docs/ecount-migration/report-contract.md#견적-안전-투영-검사"
+          ],
+          "progressStatus": "진행중"
+        }
+      ]
     },
     {
       "program": "E040201",
