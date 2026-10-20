@@ -1,0 +1,7796 @@
+{
+  "capturedOn": "2026-10-20",
+  "source": "Authenticated ECOUNT sitemap; menu metadata only; no session URL or business rows",
+  "menus": [
+    {
+      "id": "MPGU_RT00000004",
+      "label": "MyPage",
+      "tab": "MPGU_RT00000004",
+      "depth": 1,
+      "program": "MPGU_RT00000004",
+      "parentId": null,
+      "path": [
+        "MyPage"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000008",
+      "label": "Self-Customizing",
+      "tab": "MENUTREE_000008",
+      "depth": 1,
+      "program": "C000008",
+      "parentId": null,
+      "path": [
+        "Self-Customizing"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000004",
+      "label": "재고 I",
+      "tab": "MENUTREE_000004",
+      "depth": 1,
+      "program": "C000004",
+      "parentId": null,
+      "path": [
+        "재고 I"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000783",
+      "label": "재고 II",
+      "tab": "MENUTREE_000783",
+      "depth": 1,
+      "program": "C000140",
+      "parentId": null,
+      "path": [
+        "재고 II"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000001",
+      "label": "회계 I",
+      "tab": "MENUTREE_000001",
+      "depth": 1,
+      "program": "C000001",
+      "parentId": null,
+      "path": [
+        "회계 I"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000005",
+      "label": "회계 II",
+      "tab": "MENUTREE_000005",
+      "depth": 1,
+      "program": "C000005",
+      "parentId": null,
+      "path": [
+        "회계 II"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000748",
+      "label": "관리",
+      "tab": "MENUTREE_000748",
+      "depth": 1,
+      "program": "C000131",
+      "parentId": null,
+      "path": [
+        "관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000007",
+      "label": "그룹웨어",
+      "tab": "MENUTREE_000007",
+      "depth": 1,
+      "program": "C000007",
+      "parentId": null,
+      "path": [
+        "그룹웨어"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MPGU00000400001",
+      "label": "즐겨찾기",
+      "tab": "MPGU_RT00000004",
+      "depth": 2,
+      "program": "MPGU00000400001",
+      "parentId": "MPGU_RT00000004",
+      "path": [
+        "MyPage",
+        "즐겨찾기"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MPMU00000400001",
+      "label": "회계거래조회",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E010701",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "회계거래조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400002",
+      "label": "입/출금계좌 조회",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E010205",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "입/출금계좌 조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400003",
+      "label": "거래처별채권",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040214",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "거래처별채권"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400004",
+      "label": "거래처관리대장1(채권)",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040723",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "거래처관리대장1(채권)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400005",
+      "label": "구매조회",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040304",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "구매조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400006",
+      "label": "구매입력",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040303",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "구매입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400007",
+      "label": "견적서조회",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040202",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "견적서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MPMU00000400008",
+      "label": "견적서입력",
+      "tab": "MPGU_RT00000004",
+      "depth": 3,
+      "program": "E040201",
+      "parentId": "MPGU00000400001",
+      "path": [
+        "MyPage",
+        "즐겨찾기",
+        "견적서입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001600",
+      "label": "정보관리",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000659",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "정보관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000272",
+      "label": "회사정보변경",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C000111",
+      "parentId": "MENUTREE_001600",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "회사정보변경"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000636",
+      "label": "회사정보",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000106",
+      "parentId": "MENUTREE_000272",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "회사정보변경",
+        "회사정보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000638",
+      "label": "경영요약보고서신청",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000113",
+      "parentId": "MENUTREE_000272",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "회사정보변경",
+        "경영요약보고서신청"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000639",
+      "label": "회사로고/도장",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000114",
+      "parentId": "MENUTREE_000272",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "회사정보변경",
+        "회사로고/도장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002527",
+      "label": "데이터관리",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "P000053",
+      "parentId": "MENUTREE_001600",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "데이터관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002528",
+      "label": "백업 및 삭제",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "P000054",
+      "parentId": "MENUTREE_002527",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "데이터관리",
+        "백업 및 삭제"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001534",
+      "label": "API인증키발급",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000125",
+      "parentId": "MENUTREE_001600",
+      "path": [
+        "Self-Customizing",
+        "정보관리",
+        "API인증키발급"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000275",
+      "label": "사용자관리",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000114",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "사용자관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000640",
+      "label": "사용자등록",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000107",
+      "parentId": "MENUTREE_000275",
+      "path": [
+        "Self-Customizing",
+        "사용자관리",
+        "사용자등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000641",
+      "label": "권한그룹 설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000115",
+      "parentId": "MENUTREE_000275",
+      "path": [
+        "Self-Customizing",
+        "사용자관리",
+        "권한그룹 설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001768",
+      "label": "권한승인대기현황",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000131",
+      "parentId": "MENUTREE_000275",
+      "path": [
+        "Self-Customizing",
+        "사용자관리",
+        "권한승인대기현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002950",
+      "label": "관리자설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000143",
+      "parentId": "MENUTREE_000275",
+      "path": [
+        "Self-Customizing",
+        "사용자관리",
+        "관리자설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001601",
+      "label": "환경설정",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000660",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "환경설정"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000274",
+      "label": "기능설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C000113",
+      "parentId": "MENUTREE_001601",
+      "path": [
+        "Self-Customizing",
+        "환경설정",
+        "기능설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002549",
+      "label": "기본값설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C001124",
+      "parentId": "MENUTREE_001601",
+      "path": [
+        "Self-Customizing",
+        "환경설정",
+        "기본값설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002540",
+      "label": "매핑센터",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C001122",
+      "parentId": "MENUTREE_001601",
+      "path": [
+        "Self-Customizing",
+        "환경설정",
+        "매핑센터"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000276",
+      "label": "기타관리시스템",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000115",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001878",
+      "label": "Customer Portal",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C000685",
+      "parentId": "MENUTREE_000276",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Customer Portal"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000647",
+      "label": "기본설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000109",
+      "parentId": "MENUTREE_001878",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Customer Portal",
+        "기본설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001603",
+      "label": "C-Portal그룹별설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000126",
+      "parentId": "MENUTREE_001878",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Customer Portal",
+        "C-Portal그룹별설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001604",
+      "label": "고객ID추가/설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000127",
+      "parentId": "MENUTREE_001878",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Customer Portal",
+        "고객ID추가/설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001881",
+      "label": "Webmail설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C000686",
+      "parentId": "MENUTREE_000276",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Webmail설정"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001882",
+      "label": "Webmail설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000137",
+      "parentId": "MENUTREE_001881",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Webmail설정",
+        "Webmail설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001883",
+      "label": "Webmail ID 설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000138",
+      "parentId": "MENUTREE_001881",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "Webmail설정",
+        "Webmail ID 설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002769",
+      "label": "UserPay설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C001254",
+      "parentId": "MENUTREE_000276",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "UserPay설정"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002906",
+      "label": "UserPay설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000161",
+      "parentId": "MENUTREE_002769",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "UserPay설정",
+        "UserPay설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002770",
+      "label": "UserPay그룹별설정",
+      "tab": "MENUTREE_000008",
+      "depth": 4,
+      "program": "E000160",
+      "parentId": "MENUTREE_002769",
+      "path": [
+        "Self-Customizing",
+        "기타관리시스템",
+        "UserPay설정",
+        "UserPay그룹별설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002952",
+      "label": "보안관리",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000900",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "보안관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002558",
+      "label": "보안설정",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "C001138",
+      "parentId": "MENUTREE_002952",
+      "path": [
+        "Self-Customizing",
+        "보안관리",
+        "보안설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000644",
+      "label": "사용자접속현황",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000117",
+      "parentId": "MENUTREE_002952",
+      "path": [
+        "Self-Customizing",
+        "보안관리",
+        "사용자접속현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001800",
+      "label": "로그인이력감시",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000132",
+      "parentId": "MENUTREE_002952",
+      "path": [
+        "Self-Customizing",
+        "보안관리",
+        "로그인이력감시"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002759",
+      "label": "파일이력조회",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000140",
+      "parentId": "MENUTREE_002952",
+      "path": [
+        "Self-Customizing",
+        "보안관리",
+        "파일이력조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003273",
+      "label": "허용리스트",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "M000009",
+      "parentId": "MENUTREE_002952",
+      "path": [
+        "Self-Customizing",
+        "보안관리",
+        "허용리스트"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001602",
+      "label": "다운로드",
+      "tab": "MENUTREE_000008",
+      "depth": 2,
+      "program": "C000661",
+      "parentId": "MENUTREE_000008",
+      "path": [
+        "Self-Customizing",
+        "다운로드"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000279",
+      "label": "엑셀자료올리기기능",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000129",
+      "parentId": "MENUTREE_001602",
+      "path": [
+        "Self-Customizing",
+        "다운로드",
+        "엑셀자료올리기기능"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001947",
+      "label": "편의기능",
+      "tab": "MENUTREE_000008",
+      "depth": 3,
+      "program": "E000139",
+      "parentId": "MENUTREE_001602",
+      "path": [
+        "Self-Customizing",
+        "다운로드",
+        "편의기능"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000029",
+      "label": "기초등록",
+      "tab": "MENUTREE_000004",
+      "depth": 2,
+      "program": "C000029",
+      "parentId": "MENUTREE_000004",
+      "path": [
+        "재고 I",
+        "기초등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000170",
+      "label": "거래처등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E010101",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "거래처등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000172",
+      "label": "창고등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040102",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "창고등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002773",
+      "label": "부서등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E010105",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "부서등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000173",
+      "label": "프로젝트등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E010112",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "프로젝트등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000174",
+      "label": "품목등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040103",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "품목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000175",
+      "label": "관리항목등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040104",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "관리항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000176",
+      "label": "단가관리",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040126",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "단가관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002548",
+      "label": "단가적용순서설정",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040125",
+      "parentId": "MENUTREE_000176",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "단가관리",
+        "단가적용순서설정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001620",
+      "label": "특별단가등록",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040124",
+      "parentId": "MENUTREE_000176",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "단가관리",
+        "특별단가등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000485",
+      "label": "거래처특별단가그룹등록",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040120",
+      "parentId": "MENUTREE_000176",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "단가관리",
+        "거래처특별단가그룹등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001404",
+      "label": "품목별단가",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040122",
+      "parentId": "MENUTREE_000176",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "단가관리",
+        "품목별단가"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000177",
+      "label": "사원(담당)등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E010110",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "사원(담당)등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000178",
+      "label": "인쇄용결재라인등록(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040111",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "인쇄용결재라인등록(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000182",
+      "label": "외화등록",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040114",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "외화등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000183",
+      "label": "각종코드변경",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040113",
+      "parentId": "MENUTREE_000029",
+      "path": [
+        "재고 I",
+        "기초등록",
+        "각종코드변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000030",
+      "label": "영업관리",
+      "tab": "MENUTREE_000004",
+      "depth": 2,
+      "program": "C000030",
+      "parentId": "MENUTREE_000004",
+      "path": [
+        "재고 I",
+        "영업관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000184",
+      "label": "견적서",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000071",
+      "parentId": "MENUTREE_000030",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "견적서"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000487",
+      "label": "견적서조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040202",
+      "parentId": "MENUTREE_000184",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "견적서",
+        "견적서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000486",
+      "label": "견적서입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040201",
+      "parentId": "MENUTREE_000184",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "견적서",
+        "견적서입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000495",
+      "label": "견적서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040208",
+      "parentId": "MENUTREE_000184",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "견적서",
+        "견적서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000498",
+      "label": "미주문현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040211",
+      "parentId": "MENUTREE_000184",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "견적서",
+        "미주문현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000185",
+      "label": "주문서",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000072",
+      "parentId": "MENUTREE_000030",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000489",
+      "label": "주문서조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040204",
+      "parentId": "MENUTREE_000185",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서",
+        "주문서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000488",
+      "label": "주문서입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040203",
+      "parentId": "MENUTREE_000185",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서",
+        "주문서입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000496",
+      "label": "주문서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040209",
+      "parentId": "MENUTREE_000185",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서",
+        "주문서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001647",
+      "label": "주문서출고처리",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040230",
+      "parentId": "MENUTREE_000185",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서",
+        "주문서출고처리"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000499",
+      "label": "미판매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040212",
+      "parentId": "MENUTREE_000185",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "주문서",
+        "미판매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000186",
+      "label": "판매",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000073",
+      "parentId": "MENUTREE_000030",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000492",
+      "label": "판매조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040206",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000490",
+      "label": "판매입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040205",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002880",
+      "label": "판매입력 II",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040253",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매입력 II"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000725",
+      "label": "판매단가일괄변경",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040224",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매단가일괄변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000494",
+      "label": "판매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040207",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001680",
+      "label": "수금현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040217",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "수금현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000501",
+      "label": "판매할인현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040216",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "판매할인현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000502",
+      "label": "회계미반영현황 (판매)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040609",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "회계미반영현황 (판매)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000500",
+      "label": "거래처별채권",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040214",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "거래처별채권"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000497",
+      "label": "거래명세서인쇄",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040210",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "거래명세서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002905",
+      "label": "결제내역조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040254",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "결제내역조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002948",
+      "label": "결제내역자료비교",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040255",
+      "parentId": "MENUTREE_000186",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매",
+        "결제내역자료비교"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000187",
+      "label": "판매일괄회계반영",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040215",
+      "parentId": "MENUTREE_000030",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매일괄회계반영"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000493",
+      "label": "판매일괄회계반영",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040215",
+      "parentId": "MENUTREE_000187",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매일괄회계반영",
+        "판매일괄회계반영"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000503",
+      "label": "매출(세금)계산서조회(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040218",
+      "parentId": "MENUTREE_000187",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매일괄회계반영",
+        "매출(세금)계산서조회(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000706",
+      "label": "매출(세금)계산서현황(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040223",
+      "parentId": "MENUTREE_000187",
+      "path": [
+        "재고 I",
+        "영업관리",
+        "판매일괄회계반영",
+        "매출(세금)계산서현황(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000031",
+      "label": "구매관리",
+      "tab": "MENUTREE_000004",
+      "depth": 2,
+      "program": "C000031",
+      "parentId": "MENUTREE_000004",
+      "path": [
+        "재고 I",
+        "구매관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000191",
+      "label": "발주서",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000077",
+      "parentId": "MENUTREE_000031",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "발주서"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000509",
+      "label": "발주서조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040302",
+      "parentId": "MENUTREE_000191",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "발주서",
+        "발주서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000508",
+      "label": "발주서입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040301",
+      "parentId": "MENUTREE_000191",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "발주서",
+        "발주서입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000515",
+      "label": "발주서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040306",
+      "parentId": "MENUTREE_000191",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "발주서",
+        "발주서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000516",
+      "label": "미구매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040307",
+      "parentId": "MENUTREE_000191",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "발주서",
+        "미구매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000192",
+      "label": "구매",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000078",
+      "parentId": "MENUTREE_000031",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000511",
+      "label": "구매조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040304",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "구매조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000510",
+      "label": "구매입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040303",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "구매입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000513",
+      "label": "구매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040305",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "구매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001662",
+      "label": "구매단가일괄변경",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040311",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "구매단가일괄변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001682",
+      "label": "지급현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040310",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "지급현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000518",
+      "label": "구매할인현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040313",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "구매할인현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000703",
+      "label": "회계미반영현황 (구매)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040319",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "회계미반영현황 (구매)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000517",
+      "label": "거래처별채무",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040309",
+      "parentId": "MENUTREE_000192",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매",
+        "거래처별채무"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000193",
+      "label": "구매일괄회계반영",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040312",
+      "parentId": "MENUTREE_000031",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매일괄회계반영"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000512",
+      "label": "구매일괄회계반영",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040312",
+      "parentId": "MENUTREE_000193",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매일괄회계반영",
+        "구매일괄회계반영"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000519",
+      "label": "매입(세금)계산서조회(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040219",
+      "parentId": "MENUTREE_000193",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매일괄회계반영",
+        "매입(세금)계산서조회(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000710",
+      "label": "매입(세금)계산서현황(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040320",
+      "parentId": "MENUTREE_000193",
+      "path": [
+        "재고 I",
+        "구매관리",
+        "구매일괄회계반영",
+        "매입(세금)계산서현황(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000033",
+      "label": "기타이동",
+      "tab": "MENUTREE_000004",
+      "depth": 2,
+      "program": "C000033",
+      "parentId": "MENUTREE_000004",
+      "path": [
+        "재고 I",
+        "기타이동"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000201",
+      "label": "창고이동",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000086",
+      "parentId": "MENUTREE_000033",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "창고이동"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000540",
+      "label": "창고이동조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040502",
+      "parentId": "MENUTREE_000201",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "창고이동",
+        "창고이동조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000539",
+      "label": "창고이동입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040501",
+      "parentId": "MENUTREE_000201",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "창고이동",
+        "창고이동입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000549",
+      "label": "창고이동현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040505",
+      "parentId": "MENUTREE_000201",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "창고이동",
+        "창고이동현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000202",
+      "label": "자가사용",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000087",
+      "parentId": "MENUTREE_000033",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "자가사용"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000542",
+      "label": "자가사용조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040504",
+      "parentId": "MENUTREE_000202",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "자가사용",
+        "자가사용조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000541",
+      "label": "자가사용입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040503",
+      "parentId": "MENUTREE_000202",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "자가사용",
+        "자가사용입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000550",
+      "label": "자가사용현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040506",
+      "parentId": "MENUTREE_000202",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "자가사용",
+        "자가사용현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000203",
+      "label": "불량처리",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000088",
+      "parentId": "MENUTREE_000033",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000544",
+      "label": "불량처리조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040508",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "불량처리조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000543",
+      "label": "불량처리입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040507",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "불량처리입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000551",
+      "label": "불량처리현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040509",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "불량처리현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000552",
+      "label": "대체사용현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040510",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "대체사용현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000553",
+      "label": "폐기현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040511",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "폐기현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000554",
+      "label": "불량률파악보고서",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040512",
+      "parentId": "MENUTREE_000203",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "불량처리",
+        "불량률파악보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000204",
+      "label": "재고조정",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000089",
+      "parentId": "MENUTREE_000033",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001437",
+      "label": "재고조정진행단계",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040650",
+      "parentId": "MENUTREE_000204",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정",
+        "재고조정진행단계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000546",
+      "label": "재고실사조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040613",
+      "parentId": "MENUTREE_000204",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정",
+        "재고실사조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000548",
+      "label": "재고조정조회",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040614",
+      "parentId": "MENUTREE_000204",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정",
+        "재고조정조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000555",
+      "label": "재고실사현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040615",
+      "parentId": "MENUTREE_000204",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정",
+        "재고실사현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000556",
+      "label": "재고조정현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040608",
+      "parentId": "MENUTREE_000204",
+      "path": [
+        "재고 I",
+        "기타이동",
+        "재고조정",
+        "재고조정현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000035",
+      "label": "출력물",
+      "tab": "MENUTREE_000004",
+      "depth": 2,
+      "program": "C000035",
+      "parentId": "MENUTREE_000004",
+      "path": [
+        "재고 I",
+        "출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001612",
+      "label": "커뮤니케이션센터",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000663",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "커뮤니케이션센터"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001613",
+      "label": "쪽지수발신내역",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E010851",
+      "parentId": "MENUTREE_001612",
+      "path": [
+        "재고 I",
+        "출력물",
+        "커뮤니케이션센터",
+        "쪽지수발신내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002595",
+      "label": "문서발송내역",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E010858",
+      "parentId": "MENUTREE_001612",
+      "path": [
+        "재고 I",
+        "출력물",
+        "커뮤니케이션센터",
+        "문서발송내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002886",
+      "label": "증빙센터",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "E040730",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "증빙센터"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001888",
+      "label": "재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000687",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000212",
+      "label": "재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040701",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000213",
+      "label": "창고별재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040711",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "창고별재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002879",
+      "label": "관계별재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040728",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "관계별재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001796",
+      "label": "다규격별재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040720",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "다규격별재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002537",
+      "label": "BOM환산재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040726",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "BOM환산재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002775",
+      "label": "재고잔량분석표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040727",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "재고잔량분석표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000215",
+      "label": "재고수불부",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040702",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "재고수불부"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001713",
+      "label": "재고변동표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040719",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "재고변동표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000218",
+      "label": "일보",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040708",
+      "parentId": "MENUTREE_001888",
+      "path": [
+        "재고 I",
+        "출력물",
+        "재고현황",
+        "일보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000219",
+      "label": "영업관리현황",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000095",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000573",
+      "label": "판매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040207",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "판매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000574",
+      "label": "견적서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040208",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "견적서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000575",
+      "label": "주문서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040209",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "주문서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000662",
+      "label": "출하지시서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040222",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "출하지시서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000778",
+      "label": "출하현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040227",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "출하현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000576",
+      "label": "거래명세서인쇄",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040210",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "거래명세서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000577",
+      "label": "미주문현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040211",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "미주문현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000578",
+      "label": "미판매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040212",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "미판매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000780",
+      "label": "미출하현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040228",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "미출하현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000579",
+      "label": "거래처별채권",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040214",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "거래처별채권"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001901",
+      "label": "채권현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040721",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "채권현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001903",
+      "label": "거래처관리대장1(채권)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040723",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "거래처관리대장1(채권)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001681",
+      "label": "수금현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040217",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "수금현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000580",
+      "label": "판매할인현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040216",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "판매할인현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000581",
+      "label": "회계미반영현황 (판매)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040609",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "회계미반영현황 (판매)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000707",
+      "label": "매출(세금)계산서현황(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040223",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "매출(세금)계산서현황(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001386",
+      "label": "월별채권증감내역",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040713",
+      "parentId": "MENUTREE_000219",
+      "path": [
+        "재고 I",
+        "출력물",
+        "영업관리현황",
+        "월별채권증감내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000220",
+      "label": "구매관리현황",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000096",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000583",
+      "label": "구매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040305",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "구매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000584",
+      "label": "발주요청현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040318",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "발주요청현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002767",
+      "label": "발주계획현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E041015",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "발주계획현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000585",
+      "label": "발주서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040306",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "발주서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000586",
+      "label": "미구매현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040307",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "미구매현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000587",
+      "label": "거래처별채무",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040309",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "거래처별채무"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001902",
+      "label": "채무현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040722",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "채무현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001904",
+      "label": "거래처관리대장1(채무)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040724",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "거래처관리대장1(채무)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001683",
+      "label": "지급현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040310",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "지급현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000588",
+      "label": "구매할인현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040313",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "구매할인현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000704",
+      "label": "회계미반영현황 (구매)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040319",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "회계미반영현황 (구매)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000712",
+      "label": "매입(세금)계산서현황(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040320",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "매입(세금)계산서현황(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001387",
+      "label": "월별채무증감내역",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040714",
+      "parentId": "MENUTREE_000220",
+      "path": [
+        "재고 I",
+        "출력물",
+        "구매관리현황",
+        "월별채무증감내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001365",
+      "label": "생산/외주현황",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000648",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001369",
+      "label": "작업지시서현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040413",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "작업지시서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001370",
+      "label": "작업지시서별진행현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040414",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "작업지시서별진행현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001371",
+      "label": "생산불출현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040409",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "생산불출현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002885",
+      "label": "작업지시서효율현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040436",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "작업지시서효율현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002758",
+      "label": "작업내역현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040432",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "작업내역현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001372",
+      "label": "생산입고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040410",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "생산입고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001373",
+      "label": "생산입고/소모현황 I",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040415",
+      "parentId": "MENUTREE_001365",
+      "path": [
+        "재고 I",
+        "출력물",
+        "생산/외주현황",
+        "생산입고/소모현황 I"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001366",
+      "label": "기타이동현황",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000649",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001374",
+      "label": "창고이동현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040505",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "창고이동현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001375",
+      "label": "자가사용현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040506",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "자가사용현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001376",
+      "label": "불량처리현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040509",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "불량처리현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001377",
+      "label": "대체사용현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040510",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "대체사용현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001378",
+      "label": "폐기현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040511",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "폐기현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001379",
+      "label": "불량률파악보고서",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040512",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "불량률파악보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001380",
+      "label": "재고실사현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040615",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "재고실사현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001381",
+      "label": "재고조정현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040608",
+      "parentId": "MENUTREE_001366",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타이동현황",
+        "재고조정현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001367",
+      "label": "기타",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000650",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002898",
+      "label": "일별재고현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040807",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "일별재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001382",
+      "label": "일별이익현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040806",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "일별이익현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001383",
+      "label": "채권/채무현황",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040703",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "채권/채무현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001384",
+      "label": "거래처관리대장 I",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E010833",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "거래처관리대장 I"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001385",
+      "label": "거래처관리대장 II",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E010842",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "거래처관리대장 II"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002462",
+      "label": "판매구매집계표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040725",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "판매구매집계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000224",
+      "label": "집계표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040710",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "집계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001627",
+      "label": "단가변동표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040819",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "단가변동표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000223",
+      "label": "경영자보고서",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040704",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "경영자보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000663",
+      "label": "거래처중심입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040627",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "거래처중심입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001318",
+      "label": "품목중심입력",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040633",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "품목중심입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001793",
+      "label": "현황누계표",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040709",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "현황누계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000211",
+      "label": "거래이력조회(재고)",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040716",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "거래이력조회(재고)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000222",
+      "label": "잔량재집계",
+      "tab": "MENUTREE_000004",
+      "depth": 4,
+      "program": "E040607",
+      "parentId": "MENUTREE_001367",
+      "path": [
+        "재고 I",
+        "출력물",
+        "기타",
+        "잔량재집계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000225",
+      "label": "출력물",
+      "tab": "MENUTREE_000004",
+      "depth": 3,
+      "program": "C000097",
+      "parentId": "MENUTREE_000035",
+      "path": [
+        "재고 I",
+        "출력물",
+        "출력물"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000206",
+      "label": "A/S관리",
+      "tab": "MENUTREE_000783",
+      "depth": 2,
+      "program": "C000091",
+      "parentId": "MENUTREE_000783",
+      "path": [
+        "재고 II",
+        "A/S관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001889",
+      "label": "A/S접수",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000688",
+      "parentId": "MENUTREE_000206",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S접수"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000557",
+      "label": "A/S접수입력",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040601",
+      "parentId": "MENUTREE_001889",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S접수",
+        "A/S접수입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000558",
+      "label": "A/S접수조회",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040602",
+      "parentId": "MENUTREE_001889",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S접수",
+        "A/S접수조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000561",
+      "label": "A/S접수현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040610",
+      "parentId": "MENUTREE_001889",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S접수",
+        "A/S접수현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001890",
+      "label": "A/S수리",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000689",
+      "parentId": "MENUTREE_000206",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S수리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000559",
+      "label": "A/S수리입력",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040605",
+      "parentId": "MENUTREE_001890",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S수리",
+        "A/S수리입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000560",
+      "label": "A/S수리조회",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040606",
+      "parentId": "MENUTREE_001890",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S수리",
+        "A/S수리조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000562",
+      "label": "A/S수리현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040611",
+      "parentId": "MENUTREE_001890",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S수리",
+        "A/S수리현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002520",
+      "label": "A/S소모현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040641",
+      "parentId": "MENUTREE_001890",
+      "path": [
+        "재고 II",
+        "A/S관리",
+        "A/S수리",
+        "A/S소모현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000208",
+      "label": "시리얼/로트No.",
+      "tab": "MENUTREE_000783",
+      "depth": 2,
+      "program": "C000092",
+      "parentId": "MENUTREE_000783",
+      "path": [
+        "재고 II",
+        "시리얼/로트No."
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001891",
+      "label": "시리얼/로트No.등록",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000690",
+      "parentId": "MENUTREE_000208",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No.등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000563",
+      "label": "시리얼/로트No.등록",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040617",
+      "parentId": "MENUTREE_001891",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No.등록",
+        "시리얼/로트No.등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000564",
+      "label": "시리얼/로트No.내역조회",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040618",
+      "parentId": "MENUTREE_001891",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No.등록",
+        "시리얼/로트No.내역조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001436",
+      "label": "시리얼/로트No.내역현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040639",
+      "parentId": "MENUTREE_001891",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No.등록",
+        "시리얼/로트No.내역현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001892",
+      "label": "시리얼/로트No. 재고조정",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000691",
+      "parentId": "MENUTREE_000208",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No. 재고조정"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001338",
+      "label": "시리얼/로트No.재고조정",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040634",
+      "parentId": "MENUTREE_001892",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No. 재고조정",
+        "시리얼/로트No.재고조정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000565",
+      "label": "시리얼/로트No.재고수불부",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040620",
+      "parentId": "MENUTREE_001892",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No. 재고조정",
+        "시리얼/로트No.재고수불부"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000566",
+      "label": "시리얼/로트No.재고현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040619",
+      "parentId": "MENUTREE_001892",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No. 재고조정",
+        "시리얼/로트No.재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002766",
+      "label": "품목vs시리얼재고수량비교",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E041018",
+      "parentId": "MENUTREE_001892",
+      "path": [
+        "재고 II",
+        "시리얼/로트No.",
+        "시리얼/로트No. 재고조정",
+        "품목vs시리얼재고수량비교"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000210",
+      "label": "계획관리",
+      "tab": "MENUTREE_000783",
+      "depth": 2,
+      "program": "C000094",
+      "parentId": "MENUTREE_000783",
+      "path": [
+        "재고 II",
+        "계획관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001895",
+      "label": "매출계획",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000694",
+      "parentId": "MENUTREE_000210",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "매출계획"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000570",
+      "label": "매출계획입력",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040624",
+      "parentId": "MENUTREE_001895",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "매출계획",
+        "매출계획입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000571",
+      "label": "매출계획조회",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040625",
+      "parentId": "MENUTREE_001895",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "매출계획",
+        "매출계획조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002460",
+      "label": "매출계획현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040640",
+      "parentId": "MENUTREE_001895",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "매출계획",
+        "매출계획현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000572",
+      "label": "매출계획비교표",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040626",
+      "parentId": "MENUTREE_001895",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "매출계획",
+        "매출계획비교표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001426",
+      "label": "프로젝트계획",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000653",
+      "parentId": "MENUTREE_000210",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "프로젝트계획"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001429",
+      "label": "프로젝트계획조회",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040636",
+      "parentId": "MENUTREE_001426",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "프로젝트계획",
+        "프로젝트계획조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001430",
+      "label": "프로젝트계획/실적현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040637",
+      "parentId": "MENUTREE_001426",
+      "path": [
+        "재고 II",
+        "계획관리",
+        "프로젝트계획",
+        "프로젝트계획/실적현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000036",
+      "label": "이익관리",
+      "tab": "MENUTREE_000783",
+      "depth": 2,
+      "program": "C000036",
+      "parentId": "MENUTREE_000783",
+      "path": [
+        "재고 II",
+        "이익관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000226",
+      "label": "월별이익",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000098",
+      "parentId": "MENUTREE_000036",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000590",
+      "label": "원가생성/수정",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040802",
+      "parentId": "MENUTREE_000226",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익",
+        "원가생성/수정"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000665",
+      "label": "표준원가현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040808",
+      "parentId": "MENUTREE_000226",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익",
+        "표준원가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000591",
+      "label": "실제원가현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040804",
+      "parentId": "MENUTREE_000226",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익",
+        "실제원가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000666",
+      "label": "차이분석",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040809",
+      "parentId": "MENUTREE_000226",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익",
+        "차이분석"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000592",
+      "label": "월별이익현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040805",
+      "parentId": "MENUTREE_000226",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "월별이익",
+        "월별이익현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000227",
+      "label": "일별이익",
+      "tab": "MENUTREE_000783",
+      "depth": 3,
+      "program": "C000099",
+      "parentId": "MENUTREE_000036",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "일별이익"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000593",
+      "label": "일별재고현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040807",
+      "parentId": "MENUTREE_000227",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "일별이익",
+        "일별재고현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000594",
+      "label": "일별이익현황",
+      "tab": "MENUTREE_000783",
+      "depth": 4,
+      "program": "E040806",
+      "parentId": "MENUTREE_000227",
+      "path": [
+        "재고 II",
+        "이익관리",
+        "일별이익",
+        "일별이익현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000009",
+      "label": "기초등록",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000009",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "기초등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000051",
+      "label": "거래처등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010101",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "거래처등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000054",
+      "label": "카드등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010103",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "카드등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000055",
+      "label": "계좌등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010104",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "계좌등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000056",
+      "label": "부서등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010105",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "부서등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000057",
+      "label": "프로젝트등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010112",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "프로젝트등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000058",
+      "label": "인쇄용결재라인등록(회계)",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010106",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "인쇄용결재라인등록(회계)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000059",
+      "label": "카드사등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010109",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "카드사등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000060",
+      "label": "결제대행사등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010114",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "결제대행사등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000733",
+      "label": "추가항목유형등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010118",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "추가항목유형등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000061",
+      "label": "사원(담당)등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010110",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "사원(담당)등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000062",
+      "label": "계정등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010107",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "계정등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000063",
+      "label": "각종코드변경",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010111",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "각종코드변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000064",
+      "label": "외화등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E040114",
+      "parentId": "MENUTREE_000009",
+      "path": [
+        "회계 I",
+        "기초등록",
+        "외화등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000010",
+      "label": "FastEntry",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000010",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "FastEntry"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000067",
+      "label": "일반전표",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010201",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "일반전표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000068",
+      "label": "지출결의서",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010408",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "지출결의서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000069",
+      "label": "입금보고서",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010403",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "입금보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000070",
+      "label": "가지급금정산서",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010505",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "가지급금정산서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001940",
+      "label": "자동생성전표조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010213",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "자동생성전표조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001699",
+      "label": "잔액조정입력",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010209",
+      "parentId": "MENUTREE_000010",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "잔액조정입력"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001700",
+      "label": "잔액조정입력",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010209",
+      "parentId": "MENUTREE_001699",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "잔액조정입력",
+        "잔액조정입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001706",
+      "label": "잔액실사조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010211",
+      "parentId": "MENUTREE_001699",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "잔액조정입력",
+        "잔액실사조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001701",
+      "label": "잔액조정조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010210",
+      "parentId": "MENUTREE_001699",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "잔액조정입력",
+        "잔액조정조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001801",
+      "label": "잔액조정현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010212",
+      "parentId": "MENUTREE_001699",
+      "path": [
+        "회계 I",
+        "FastEntry",
+        "잔액조정입력",
+        "잔액조정현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000011",
+      "label": "매출매입거래",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000011",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "매출매입거래"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000076",
+      "label": "매출전표 I",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010301",
+      "parentId": "MENUTREE_000011",
+      "path": [
+        "회계 I",
+        "매출매입거래",
+        "매출전표 I"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000078",
+      "label": "매입전표 I",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010303",
+      "parentId": "MENUTREE_000011",
+      "path": [
+        "회계 I",
+        "매출매입거래",
+        "매입전표 I"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000079",
+      "label": "전자(세금)계산서",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000045",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001322",
+      "label": "(세금)계산서진행단계",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010849",
+      "parentId": "MENUTREE_000079",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "(세금)계산서진행단계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000315",
+      "label": "각종구분값변경",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010723",
+      "parentId": "MENUTREE_000079",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "각종구분값변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000320",
+      "label": "이카운트 vs 홈택스 자료비교",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010726",
+      "parentId": "MENUTREE_000079",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "이카운트 vs 홈택스 자료비교"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000321",
+      "label": "매출(세금)계산서요약",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E030206",
+      "parentId": "MENUTREE_000079",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "매출(세금)계산서요약"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002881",
+      "label": "홈택스자료조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C001255",
+      "parentId": "MENUTREE_000079",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "홈택스자료조회"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002882",
+      "label": "전자(세금)계산서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010729",
+      "parentId": "MENUTREE_002881",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "홈택스자료조회",
+        "전자(세금)계산서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002947",
+      "label": "현금영수증",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010732",
+      "parentId": "MENUTREE_002881",
+      "path": [
+        "회계 I",
+        "전자(세금)계산서",
+        "홈택스자료조회",
+        "현금영수증"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002562",
+      "label": "계좌/카드",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C001137",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "계좌/카드"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002563",
+      "label": "입/출금계좌 조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010205",
+      "parentId": "MENUTREE_002562",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "입/출금계좌 조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002564",
+      "label": "카드매입조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010206",
+      "parentId": "MENUTREE_002562",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "카드매입조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002565",
+      "label": "카드매출조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010215",
+      "parentId": "MENUTREE_002562",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "카드매출조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002566",
+      "label": "결제대행사매출조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010207",
+      "parentId": "MENUTREE_002562",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "결제대행사매출조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002567",
+      "label": "이체관리",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000673",
+      "parentId": "MENUTREE_002562",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "이체관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002568",
+      "label": "이체기본정보등록",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E061001",
+      "parentId": "MENUTREE_002567",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "이체관리",
+        "이체기본정보등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002570",
+      "label": "계좌이체",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E061003",
+      "parentId": "MENUTREE_002567",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "이체관리",
+        "계좌이체"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002569",
+      "label": "급여이체",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E061002",
+      "parentId": "MENUTREE_002567",
+      "path": [
+        "회계 I",
+        "계좌/카드",
+        "이체관리",
+        "급여이체"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000015",
+      "label": "고정자산",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000015",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "고정자산"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000091",
+      "label": "고정자산등록",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010610",
+      "parentId": "MENUTREE_000015",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000092",
+      "label": "고정자산증가",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010611",
+      "parentId": "MENUTREE_000015",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산증가"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000093",
+      "label": "고정자산감소",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010612",
+      "parentId": "MENUTREE_000015",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산감소"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001626",
+      "label": "고정자산전표조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "E010619",
+      "parentId": "MENUTREE_000015",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산전표조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000094",
+      "label": "고정자산관련출력물",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000049",
+      "parentId": "MENUTREE_000015",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000339",
+      "label": "고정자산대장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010613",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "고정자산대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000340",
+      "label": "고정자산증가내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010614",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "고정자산증가내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000341",
+      "label": "고정자산감소내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010615",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "고정자산감소내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000342",
+      "label": "고정자산증감대장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010617",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "고정자산증감대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000343",
+      "label": "고정자산수불부",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010618",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "고정자산수불부"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000344",
+      "label": "감가상각계산",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010616",
+      "parentId": "MENUTREE_000094",
+      "path": [
+        "회계 I",
+        "고정자산",
+        "고정자산관련출력물",
+        "감가상각계산"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000016",
+      "label": "회계거래관리",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000016",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "회계거래관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001905",
+      "label": "회계거래조회",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000699",
+      "parentId": "MENUTREE_000016",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000098",
+      "label": "회계거래조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010701",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "회계거래조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001906",
+      "label": "회계거래현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010847",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "회계거래현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000100",
+      "label": "매출(세금)계산서조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010727",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "매출(세금)계산서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001907",
+      "label": "매출(세금)계산서현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010845",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "매출(세금)계산서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000101",
+      "label": "매입(세금)계산서조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010716",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "매입(세금)계산서조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001908",
+      "label": "매입(세금)계산서현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010846",
+      "parentId": "MENUTREE_001905",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "회계거래조회",
+        "매입(세금)계산서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001909",
+      "label": "전표인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000700",
+      "parentId": "MENUTREE_000016",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "전표인쇄"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000099",
+      "label": "전표인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010702",
+      "parentId": "MENUTREE_001909",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "전표인쇄",
+        "전표인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000104",
+      "label": "지출결의서인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010710",
+      "parentId": "MENUTREE_001909",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "전표인쇄",
+        "지출결의서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000105",
+      "label": "입금보고서인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010711",
+      "parentId": "MENUTREE_001909",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "전표인쇄",
+        "입금보고서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000106",
+      "label": "가지급금정산서인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010714",
+      "parentId": "MENUTREE_001909",
+      "path": [
+        "회계 I",
+        "회계거래관리",
+        "전표인쇄",
+        "가지급금정산서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000017",
+      "label": "출력물",
+      "tab": "MENUTREE_000001",
+      "depth": 2,
+      "program": "C000017",
+      "parentId": "MENUTREE_000001",
+      "path": [
+        "회계 I",
+        "출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001606",
+      "label": "커뮤니케이션센터",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000662",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "커뮤니케이션센터"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001607",
+      "label": "쪽지수발신내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010851",
+      "parentId": "MENUTREE_001606",
+      "path": [
+        "회계 I",
+        "출력물",
+        "커뮤니케이션센터",
+        "쪽지수발신내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002596",
+      "label": "문서발송내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010858",
+      "parentId": "MENUTREE_001606",
+      "path": [
+        "회계 I",
+        "출력물",
+        "커뮤니케이션센터",
+        "문서발송내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000115",
+      "label": "경영자료",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000050",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000110",
+      "label": "자금일보",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010830",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "자금일보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000111",
+      "label": "현금흐름(입출금내역)",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010805",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "현금흐름(입출금내역)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000112",
+      "label": "자금현황표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010804",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "자금현황표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000358",
+      "label": "자금증감내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010815",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "자금증감내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000353",
+      "label": "월별손익분석",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010819",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "월별손익분석"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000354",
+      "label": "월별원가분석",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010824",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "월별원가분석"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000355",
+      "label": "채권/채무회수기간표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010822",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "채권/채무회수기간표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000356",
+      "label": "채권/채무잔액분석표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010823",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "채권/채무잔액분석표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000357",
+      "label": "경영요약보고서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010821",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "경영요약보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000359",
+      "label": "회계집계표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010843",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "회계집계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000373",
+      "label": "월별매입집계표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010838",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "월별매입집계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000374",
+      "label": "월별매출집계표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010839",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "월별매출집계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000377",
+      "label": "지출결의서집계",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010835",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "지출결의서집계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000378",
+      "label": "입금보고서집계",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010836",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "입금보고서집계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000379",
+      "label": "가지급금정산서집계",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010840",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "가지급금정산서집계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001360",
+      "label": "사용자정의보고서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010850",
+      "parentId": "MENUTREE_000115",
+      "path": [
+        "회계 I",
+        "출력물",
+        "경영자료",
+        "사용자정의보고서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000116",
+      "label": "장부",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000051",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000361",
+      "label": "계정별원장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010807",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "계정별원장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000360",
+      "label": "계정별거래처별원장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010808",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "계정별거래처별원장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001354",
+      "label": "거래처별계정별원장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010809",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "거래처별계정별원장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001661",
+      "label": "계정별적요별원장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010856",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "계정별적요별원장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001710",
+      "label": "계정증감내역",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010857",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "계정증감내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000362",
+      "label": "매입/매출장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010806",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "매입/매출장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000363",
+      "label": "분개장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010802",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "분개장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000113",
+      "label": "현금출납장",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010801",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "현금출납장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000364",
+      "label": "일/월계표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010803",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "일/월계표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000380",
+      "label": "외화장부",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010831",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "외화장부"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001355",
+      "label": "거래처거래내역조회",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010829",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "거래처거래내역조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000375",
+      "label": "거래처관리대장 I",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010833",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "거래처관리대장 I"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000376",
+      "label": "거래처관리대장 II",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010842",
+      "parentId": "MENUTREE_000116",
+      "path": [
+        "회계 I",
+        "출력물",
+        "장부",
+        "거래처관리대장 II"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001353",
+      "label": "주요재무제표",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000647",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000367",
+      "label": "재무상태표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010813",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "재무상태표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000368",
+      "label": "손익계산서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010812",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "손익계산서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000369",
+      "label": "원가명세서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010816",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "원가명세서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001357",
+      "label": "계정명세서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010844",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "계정명세서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000370",
+      "label": "합계잔액시산표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010811",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "합계잔액시산표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002897",
+      "label": "현금흐름표",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010861",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "현금흐름표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001358",
+      "label": "이익잉여금처분계산서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010817",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "이익잉여금처분계산서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001359",
+      "label": "수입지출명세서",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010832",
+      "parentId": "MENUTREE_001353",
+      "path": [
+        "회계 I",
+        "출력물",
+        "주요재무제표",
+        "수입지출명세서"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000117",
+      "label": "기타",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000052",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001320",
+      "label": "회계거래현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010847",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "회계거래현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000371",
+      "label": "전표인쇄",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010702",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "전표인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000708",
+      "label": "매출(세금)계산서현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010845",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "매출(세금)계산서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000713",
+      "label": "매입(세금)계산서현황",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010846",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "매입(세금)계산서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001362",
+      "label": "지출결의서이체리스트",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010834",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "지출결의서이체리스트"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001533",
+      "label": "회계 vs. 재고 비교",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010730",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "회계 vs. 재고 비교"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001352",
+      "label": "거래처중심입력",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E040627",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "거래처중심입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000095",
+      "label": "거래이력조회(회계)",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010712",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "거래이력조회(회계)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000114",
+      "label": "잔액재집계",
+      "tab": "MENUTREE_000001",
+      "depth": 4,
+      "program": "E010705",
+      "parentId": "MENUTREE_000117",
+      "path": [
+        "회계 I",
+        "출력물",
+        "기타",
+        "잔액재집계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000118",
+      "label": "출력물",
+      "tab": "MENUTREE_000001",
+      "depth": 3,
+      "program": "C000053",
+      "parentId": "MENUTREE_000017",
+      "path": [
+        "회계 I",
+        "출력물",
+        "출력물"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000684",
+      "label": "채권관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000125",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "채권관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000687",
+      "label": "채권조회",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060403",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000686",
+      "label": "채권감소등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060402",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권감소등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000716",
+      "label": "채권거래내역",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060405",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권거래내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000717",
+      "label": "채권증가현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060406",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권증가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000718",
+      "label": "채권감소현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060407",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권감소현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000688",
+      "label": "채권현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060404",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003166",
+      "label": "거래처채권관리대장",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000007",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "거래처채권관리대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003170",
+      "label": "거래처채권집계관리대장",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000045",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "거래처채권집계관리대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003167",
+      "label": "거래처채권관리대장인쇄",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000008",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "거래처채권관리대장인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001314",
+      "label": "채권잔액분석표",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060408",
+      "parentId": "MENUTREE_000684",
+      "path": [
+        "회계 II",
+        "채권관리",
+        "채권잔액분석표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000689",
+      "label": "채무관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000126",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "채무관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000692",
+      "label": "채무조회",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060503",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000691",
+      "label": "채무감소등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060502",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무감소등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000719",
+      "label": "채무거래내역",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060505",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무거래내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000720",
+      "label": "채무증가현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060506",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무증가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000721",
+      "label": "채무감소현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060507",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무감소현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000693",
+      "label": "채무현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060504",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003168",
+      "label": "거래처채무관리대장",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000012",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "거래처채무관리대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003171",
+      "label": "거래처채무집계관리대장",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000046",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "거래처채무집계관리대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003169",
+      "label": "거래처채무관리대장인쇄",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "N000013",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "거래처채무관리대장인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001315",
+      "label": "채무잔액분석표",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060508",
+      "parentId": "MENUTREE_000689",
+      "path": [
+        "회계 II",
+        "채무관리",
+        "채무잔액분석표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000694",
+      "label": "수표관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000127",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "수표관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000734",
+      "label": "수령수표",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000128",
+      "parentId": "MENUTREE_000694",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000696",
+      "label": "수령수표입금처리",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060602",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표입금처리"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000697",
+      "label": "수령수표조회",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060603",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001941",
+      "label": "수령수표거래내역",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060613",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표거래내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000698",
+      "label": "수령수표현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060604",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001750",
+      "label": "수령수표증가현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060609",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표증가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001751",
+      "label": "수령수표감소현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060610",
+      "parentId": "MENUTREE_000734",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "수령수표",
+        "수령수표감소현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000735",
+      "label": "발행수표",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000129",
+      "parentId": "MENUTREE_000694",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000700",
+      "label": "발행수표출금처리",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060606",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표출금처리"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000701",
+      "label": "발행수표조회",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060607",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001942",
+      "label": "발행수표거래내역",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060614",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표거래내역"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000702",
+      "label": "발행수표현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060608",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001752",
+      "label": "발행수표증가현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060611",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표증가현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001753",
+      "label": "발행수표감소현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060612",
+      "parentId": "MENUTREE_000735",
+      "path": [
+        "회계 II",
+        "수표관리",
+        "발행수표",
+        "발행수표감소현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000020",
+      "label": "자금계획",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000020",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "자금계획"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000134",
+      "label": "계획전표조회",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E020511",
+      "parentId": "MENUTREE_000020",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "계획전표조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000426",
+      "label": "계획전표현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E020523",
+      "parentId": "MENUTREE_000020",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "계획전표현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000135",
+      "label": "출력물",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000061",
+      "parentId": "MENUTREE_000020",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000427",
+      "label": "추정자금일보",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020520",
+      "parentId": "MENUTREE_000135",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "출력물",
+        "추정자금일보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000428",
+      "label": "추정자금월보",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020521",
+      "parentId": "MENUTREE_000135",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "출력물",
+        "추정자금월보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000429",
+      "label": "추정자금연보",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020522",
+      "parentId": "MENUTREE_000135",
+      "path": [
+        "회계 II",
+        "자금계획",
+        "출력물",
+        "추정자금연보"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000021",
+      "label": "예산관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000021",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "예산관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000136",
+      "label": "월별예산조회",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E020201",
+      "parentId": "MENUTREE_000021",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "월별예산조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000137",
+      "label": "출력물",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000062",
+      "parentId": "MENUTREE_000021",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000430",
+      "label": "예산현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020202",
+      "parentId": "MENUTREE_000137",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물",
+        "예산현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000431",
+      "label": "예산-실적비교표",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020203",
+      "parentId": "MENUTREE_000137",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물",
+        "예산-실적비교표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000432",
+      "label": "통제예산-실적대장",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020204",
+      "parentId": "MENUTREE_000137",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물",
+        "통제예산-실적대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001760",
+      "label": "예산-실적대장",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020205",
+      "parentId": "MENUTREE_000137",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물",
+        "예산-실적대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001795",
+      "label": "통제예산-실적비교표",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E020206",
+      "parentId": "MENUTREE_000137",
+      "path": [
+        "회계 II",
+        "예산관리",
+        "출력물",
+        "통제예산-실적비교표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000037",
+      "label": "수입비용",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000037",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "수입비용"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000228",
+      "label": "관리번호등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060201",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "관리번호등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002449",
+      "label": "비용항목등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060210",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "비용항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000229",
+      "label": "서류징수시",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000100",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "서류징수시"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000597",
+      "label": "매입대금청구서수령",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060204",
+      "parentId": "MENUTREE_000229",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "서류징수시",
+        "매입대금청구서수령"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000595",
+      "label": "(세금)계산서수령",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060202",
+      "parentId": "MENUTREE_000229",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "서류징수시",
+        "(세금)계산서수령"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000596",
+      "label": "일반영수증수령",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060203",
+      "parentId": "MENUTREE_000229",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "서류징수시",
+        "일반영수증수령"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000230",
+      "label": "자금지급시",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000101",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "자금지급시"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000598",
+      "label": "거래대금지급",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060205",
+      "parentId": "MENUTREE_000230",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "자금지급시",
+        "거래대금지급"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000599",
+      "label": "관세사에지급",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060206",
+      "parentId": "MENUTREE_000230",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "자금지급시",
+        "관세사에지급"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000231",
+      "label": "통관완료시",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000102",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "통관완료시"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000600",
+      "label": "본계정대체",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060207",
+      "parentId": "MENUTREE_000231",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "통관완료시",
+        "본계정대체"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000232",
+      "label": "수입비용전표검색",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060208",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "수입비용전표검색"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000233",
+      "label": "수입비용출력물",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000103",
+      "parentId": "MENUTREE_000037",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "수입비용출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000601",
+      "label": "수입관리대장",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060209",
+      "parentId": "MENUTREE_000233",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "수입비용출력물",
+        "수입관리대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000602",
+      "label": "자금현황표",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E010804",
+      "parentId": "MENUTREE_000233",
+      "path": [
+        "회계 II",
+        "수입비용",
+        "수입비용출력물",
+        "자금현황표"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001500",
+      "label": "비용관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000655",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "비용관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001510",
+      "label": "기본사항등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000656",
+      "parentId": "MENUTREE_001500",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "기본사항등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001513",
+      "label": "통제유형등록",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060808",
+      "parentId": "MENUTREE_001510",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "기본사항등록",
+        "통제유형등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001514",
+      "label": "비용등록",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060809",
+      "parentId": "MENUTREE_001510",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "기본사항등록",
+        "비용등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001515",
+      "label": "비용그룹등록",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060810",
+      "parentId": "MENUTREE_001510",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "기본사항등록",
+        "비용그룹등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001797",
+      "label": "비용일괄등록",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060811",
+      "parentId": "MENUTREE_001510",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "기본사항등록",
+        "비용일괄등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001520",
+      "label": "비용내역",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000657",
+      "parentId": "MENUTREE_001500",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용내역"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001798",
+      "label": "비용내역입력",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060812",
+      "parentId": "MENUTREE_001520",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용내역",
+        "비용내역입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001799",
+      "label": "비용내역조회",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060813",
+      "parentId": "MENUTREE_001520",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용내역",
+        "비용내역조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001885",
+      "label": "전표별회계반영(비용)",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060814",
+      "parentId": "MENUTREE_001520",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용내역",
+        "전표별회계반영(비용)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001530",
+      "label": "비용현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000658",
+      "parentId": "MENUTREE_001500",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001884",
+      "label": "비용내역현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060815",
+      "parentId": "MENUTREE_001530",
+      "path": [
+        "회계 II",
+        "비용관리",
+        "비용현황",
+        "비용내역현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001665",
+      "label": "계약관리",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C000666",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "계약관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001671",
+      "label": "계약항목등록",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E060901",
+      "parentId": "MENUTREE_001665",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001673",
+      "label": "계약",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000668",
+      "parentId": "MENUTREE_001665",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001674",
+      "label": "계약입력",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060902",
+      "parentId": "MENUTREE_001673",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약",
+        "계약입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001675",
+      "label": "계약조회",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060903",
+      "parentId": "MENUTREE_001673",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약",
+        "계약조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001676",
+      "label": "계약단가/수량일괄변경",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060904",
+      "parentId": "MENUTREE_001673",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약",
+        "계약단가/수량일괄변경"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001725",
+      "label": "계약현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060912",
+      "parentId": "MENUTREE_001673",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "계약",
+        "계약현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001677",
+      "label": "청구예정자료",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000669",
+      "parentId": "MENUTREE_001665",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "청구예정자료"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001678",
+      "label": "청구예정자료생성",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060905",
+      "parentId": "MENUTREE_001677",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "청구예정자료",
+        "청구예정자료생성"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001668",
+      "label": "청구예정자료인쇄",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060907",
+      "parentId": "MENUTREE_001677",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "청구예정자료",
+        "청구예정자료인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001670",
+      "label": "청구예정자료미생성현황",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060909",
+      "parentId": "MENUTREE_001677",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "청구예정자료",
+        "청구예정자료미생성현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001666",
+      "label": "회계반영",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "C000667",
+      "parentId": "MENUTREE_001665",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "회계반영"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001679",
+      "label": "회계/판매일괄반영",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060906",
+      "parentId": "MENUTREE_001666",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "회계반영",
+        "회계/판매일괄반영"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001667",
+      "label": "회계미반영현황(계약)",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060908",
+      "parentId": "MENUTREE_001666",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "회계반영",
+        "회계미반영현황(계약)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001669",
+      "label": "매출(세금)계산서현황(계약)",
+      "tab": "MENUTREE_000005",
+      "depth": 4,
+      "program": "E060910",
+      "parentId": "MENUTREE_001666",
+      "path": [
+        "회계 II",
+        "계약관리",
+        "회계반영",
+        "매출(세금)계산서현황(계약)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002588",
+      "label": "전자계약",
+      "tab": "MENUTREE_000005",
+      "depth": 2,
+      "program": "C061101",
+      "parentId": "MENUTREE_000005",
+      "path": [
+        "회계 II",
+        "전자계약"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002589",
+      "label": "계약서진행단계",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E061101",
+      "parentId": "MENUTREE_002588",
+      "path": [
+        "회계 II",
+        "전자계약",
+        "계약서진행단계"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002590",
+      "label": "계약서현황",
+      "tab": "MENUTREE_000005",
+      "depth": 3,
+      "program": "E061102",
+      "parentId": "MENUTREE_002588",
+      "path": [
+        "회계 II",
+        "전자계약",
+        "계약서현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000749",
+      "label": "급여관리",
+      "tab": "MENUTREE_000748",
+      "depth": 2,
+      "program": "C000132",
+      "parentId": "MENUTREE_000748",
+      "path": [
+        "관리",
+        "급여관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000751",
+      "label": "기본사항등록",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C000134",
+      "parentId": "MENUTREE_000749",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000760",
+      "label": "사원등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090101",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "사원등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000763",
+      "label": "수당항목등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090103",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "수당항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001949",
+      "label": "공제항목등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090114",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "공제항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000764",
+      "label": "수당/공제그룹등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090104",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "수당/공제그룹등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000761",
+      "label": "부서등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E010105",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "부서등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000762",
+      "label": "프로젝트등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E010112",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "프로젝트등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000765",
+      "label": "인쇄용결재라인등록(관리)",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090102",
+      "parentId": "MENUTREE_000751",
+      "path": [
+        "관리",
+        "급여관리",
+        "기본사항등록",
+        "인쇄용결재라인등록(관리)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000753",
+      "label": "급여작업",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C000136",
+      "parentId": "MENUTREE_000749",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000767",
+      "label": "급여계산/대장",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090106",
+      "parentId": "MENUTREE_000753",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업",
+        "급여계산/대장"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000771",
+      "label": "사원별급여조회",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090110",
+      "parentId": "MENUTREE_000753",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업",
+        "사원별급여조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001950",
+      "label": "급여현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090115",
+      "parentId": "MENUTREE_000753",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업",
+        "급여현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001951",
+      "label": "근무확정현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090116",
+      "parentId": "MENUTREE_000753",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업",
+        "근무확정현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002463",
+      "label": "급여이체현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090117",
+      "parentId": "MENUTREE_000753",
+      "path": [
+        "관리",
+        "급여관리",
+        "급여작업",
+        "급여이체현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003271",
+      "label": "4대보험신고",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "N000732",
+      "parentId": "MENUTREE_000749",
+      "path": [
+        "관리",
+        "급여관리",
+        "4대보험신고"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_003268",
+      "label": "4대보험취득신고입력",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "N001769",
+      "parentId": "MENUTREE_003271",
+      "path": [
+        "관리",
+        "급여관리",
+        "4대보험신고",
+        "4대보험취득신고입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003269",
+      "label": "4대보험상실신고입력",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "N001770",
+      "parentId": "MENUTREE_003271",
+      "path": [
+        "관리",
+        "급여관리",
+        "4대보험신고",
+        "4대보험상실신고입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003270",
+      "label": "피부양자자격신고입력",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "N001771",
+      "parentId": "MENUTREE_003271",
+      "path": [
+        "관리",
+        "급여관리",
+        "4대보험신고",
+        "피부양자자격신고입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_003267",
+      "label": "4대보험신고",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "N001768",
+      "parentId": "MENUTREE_003271",
+      "path": [
+        "관리",
+        "급여관리",
+        "4대보험신고",
+        "4대보험신고"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002476",
+      "label": "인사관리",
+      "tab": "MENUTREE_000748",
+      "depth": 2,
+      "program": "C001001",
+      "parentId": "MENUTREE_000748",
+      "path": [
+        "관리",
+        "인사관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002478",
+      "label": "인사카드등록",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "E020603",
+      "parentId": "MENUTREE_002476",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사카드등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002477",
+      "label": "인사발령",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C001002",
+      "parentId": "MENUTREE_002476",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사발령"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002479",
+      "label": "인사발령조회",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020602",
+      "parentId": "MENUTREE_002477",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사발령",
+        "인사발령조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002519",
+      "label": "인사발령입력",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020721",
+      "parentId": "MENUTREE_002477",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사발령",
+        "인사발령입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002516",
+      "label": "인사발령현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020720",
+      "parentId": "MENUTREE_002477",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사발령",
+        "인사발령현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002483",
+      "label": "인사관리현황",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C001003",
+      "parentId": "MENUTREE_002476",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사관리현황"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002485",
+      "label": "각종증명서인쇄",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020606",
+      "parentId": "MENUTREE_002483",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사관리현황",
+        "각종증명서인쇄"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002487",
+      "label": "인원현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020609",
+      "parentId": "MENUTREE_002483",
+      "path": [
+        "관리",
+        "인사관리",
+        "인사관리현황",
+        "인원현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002760",
+      "label": "조직도관리",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "P000063",
+      "parentId": "MENUTREE_002476",
+      "path": [
+        "관리",
+        "인사관리",
+        "조직도관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002761",
+      "label": "조직도등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090222",
+      "parentId": "MENUTREE_002760",
+      "path": [
+        "관리",
+        "인사관리",
+        "조직도관리",
+        "조직도등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002717",
+      "label": "조직도현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E090220",
+      "parentId": "MENUTREE_002760",
+      "path": [
+        "관리",
+        "인사관리",
+        "조직도관리",
+        "조직도현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000750",
+      "label": "근태관리",
+      "tab": "MENUTREE_000748",
+      "depth": 2,
+      "program": "C000133",
+      "parentId": "MENUTREE_000748",
+      "path": [
+        "관리",
+        "근태관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001910",
+      "label": "기본사항등록",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C000701",
+      "parentId": "MENUTREE_000750",
+      "path": [
+        "관리",
+        "근태관리",
+        "기본사항등록"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000754",
+      "label": "근태항목등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020701",
+      "parentId": "MENUTREE_001910",
+      "path": [
+        "관리",
+        "근태관리",
+        "기본사항등록",
+        "근태항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000755",
+      "label": "휴가항목등록",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020702",
+      "parentId": "MENUTREE_001910",
+      "path": [
+        "관리",
+        "근태관리",
+        "기본사항등록",
+        "휴가항목등록"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001790",
+      "label": "사원별휴가일수조회",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020703",
+      "parentId": "MENUTREE_001910",
+      "path": [
+        "관리",
+        "근태관리",
+        "기본사항등록",
+        "사원별휴가일수조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001911",
+      "label": "근태",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C000702",
+      "parentId": "MENUTREE_000750",
+      "path": [
+        "관리",
+        "근태관리",
+        "근태"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000756",
+      "label": "근태입력",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020710",
+      "parentId": "MENUTREE_001911",
+      "path": [
+        "관리",
+        "근태관리",
+        "근태",
+        "근태입력"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000757",
+      "label": "근태조회",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020711",
+      "parentId": "MENUTREE_001911",
+      "path": [
+        "관리",
+        "근태관리",
+        "근태",
+        "근태조회"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001397",
+      "label": "근태현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020715",
+      "parentId": "MENUTREE_001911",
+      "path": [
+        "관리",
+        "근태관리",
+        "근태",
+        "근태현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002459",
+      "label": "출/퇴근(사원)",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "E020724",
+      "parentId": "MENUTREE_000750",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002455",
+      "label": "출/퇴근반영기준",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020725",
+      "parentId": "MENUTREE_002459",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)",
+        "출/퇴근반영기준"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002456",
+      "label": "출/퇴근기록부(사원)",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020726",
+      "parentId": "MENUTREE_002459",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)",
+        "출/퇴근기록부(사원)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002457",
+      "label": "출/퇴근현황(사원)",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020722",
+      "parentId": "MENUTREE_002459",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)",
+        "출/퇴근현황(사원)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002458",
+      "label": "지각현황(사원)",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020723",
+      "parentId": "MENUTREE_002459",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)",
+        "지각현황(사원)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_002561",
+      "label": "출퇴근/근태현황(사원)",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020728",
+      "parentId": "MENUTREE_002459",
+      "path": [
+        "관리",
+        "근태관리",
+        "출/퇴근(사원)",
+        "출퇴근/근태현황(사원)"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000758",
+      "label": "출력물",
+      "tab": "MENUTREE_000748",
+      "depth": 3,
+      "program": "C000137",
+      "parentId": "MENUTREE_000750",
+      "path": [
+        "관리",
+        "근태관리",
+        "출력물"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_001398",
+      "label": "휴가잔여일수현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020716",
+      "parentId": "MENUTREE_000758",
+      "path": [
+        "관리",
+        "근태관리",
+        "출력물",
+        "휴가잔여일수현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001783",
+      "label": "휴가사용실적현황",
+      "tab": "MENUTREE_000748",
+      "depth": 4,
+      "program": "E020719",
+      "parentId": "MENUTREE_000758",
+      "path": [
+        "관리",
+        "근태관리",
+        "출력물",
+        "휴가사용실적현황"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_000038",
+      "label": "공유정보",
+      "tab": "MENUTREE_000007",
+      "depth": 2,
+      "program": "C000038",
+      "parentId": "MENUTREE_000007",
+      "path": [
+        "그룹웨어",
+        "공유정보"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002087",
+      "label": "게시판",
+      "tab": "MENUTREE_000007",
+      "depth": 3,
+      "program": "E072501",
+      "parentId": "MENUTREE_000038",
+      "path": [
+        "그룹웨어",
+        "공유정보",
+        "게시판"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_002036",
+      "label": "공지사항",
+      "tab": "MENUTREE_000007",
+      "depth": 4,
+      "program": "E200062",
+      "parentId": "MENUTREE_002087",
+      "path": [
+        "그룹웨어",
+        "공유정보",
+        "게시판",
+        "공지사항"
+      ],
+      "hasChildren": false
+    },
+    {
+      "id": "MENUTREE_001899",
+      "label": "사내관리",
+      "tab": "MENUTREE_000007",
+      "depth": 3,
+      "program": "C000698",
+      "parentId": "MENUTREE_000038",
+      "path": [
+        "그룹웨어",
+        "공유정보",
+        "사내관리"
+      ],
+      "hasChildren": true
+    },
+    {
+      "id": "MENUTREE_000238",
+      "label": "일정관리",
+      "tab": "MENUTREE_000007",
+      "depth": 4,
+      "program": "E070201",
+      "parentId": "MENUTREE_001899",
+      "path": [
+        "그룹웨어",
+        "공유정보",
+        "사내관리",
+        "일정관리"
+      ],
+      "hasChildren": false
+    }
+  ]
+}

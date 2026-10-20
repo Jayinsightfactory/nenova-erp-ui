@@ -2,6 +2,7 @@ import Layout, { MENU_ITEMS } from '../components/Layout';
 import MenuBackButton from '../components/MenuBackButton';
 import ReplayRecorder from '../components/ReplayRecorder';
 import UserActivityRecorder from '../components/UserActivityRecorder';
+import EcountPreviewShell from '../components/EcountPreviewShell';
 import '../styles/globals.css';
 import '../styles/unified-ui.css';
 import '../styles/desktop-workspace.css';
@@ -28,8 +29,9 @@ const NO_LAYOUT = [
   '/sales/defect-deduction-register-review',
   '/sales/customs-clearance',
   '/sales/forwarding-clearance',
+  '/ecount/workbench', // isolated synthetic UI: no auth/replay/activity requests
 ];
-const STANDALONE_MENU_BACK_ROUTES = new Set(['/shipment/week-pivot', '/stats/pivot', '/catalog']);
+const STANDALONE_MENU_BACK_ROUTES = new Set(['/shipment/week-pivot', '/stats/pivot', '/catalog', '/ecount/workbench']);
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
@@ -57,6 +59,11 @@ export default function App({ Component, pageProps }) {
     NO_LAYOUT.includes(router.pathname) || router.pathname === '/m' || router.pathname.startsWith('/m/');
   const isMenuPage = MENU_ITEMS.some(group => group.items.some(item => item.href === router.pathname));
   const needsStandaloneBack = isMenuPage && STANDALONE_MENU_BACK_ROUTES.has(router.pathname);
+
+  // User requested zero actual DB writes, including incidental telemetry.
+  if (router.pathname === '/ecount/workbench') {
+    return <EcountPreviewShell popup={router.query.popup === '1'}>{page}</EcountPreviewShell>;
+  }
 
   if (isNoLayout) {
     return (

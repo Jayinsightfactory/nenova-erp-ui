@@ -288,5 +288,20 @@
       ],
       "notCapableOf": "Recovering ECOUNT server database or server-only business rules from the browser"
     }
-  ]
+  ],
+  "preview": {
+    "route": "/ecount/workbench",
+    "mode": "memory_only",
+    "tabs": 8,
+    "menuPaths": 537,
+    "leafMenus": 423,
+    "screenContracts": 430,
+    "families": 18,
+    "externalLeafMenus": 28,
+    "inventory": "menu-inventory.md",
+    "roleScope": "current_authenticated_role_only",
+    "fullFeatureParityVerified": false,
+    "dbWritesEnabled": false,
+    "externalExecutionEnabled": false
+  }
 }
