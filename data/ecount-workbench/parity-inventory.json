@@ -6671,25 +6671,362 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040208-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A05",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A06",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A07",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A08",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A09",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A10",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A11",
+          "label": "종료일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A12",
+          "label": "전월+금월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A13",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A14",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A15",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A16",
+          "label": "Excel(화면)",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A17",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A18",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES",
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-DETAIL-PREVIEW"
+          ],
+          "testEvidence": [],
+          "behavior": "Aggregate8column and detail7column separate preview tabs both directly observed"
+        },
+        {
+          "id": "E040208-A19",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A20",
+          "label": "집계",
+          "context": "검색 모드",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed source label; all behavior not verified"
+        },
+        {
+          "id": "E040208-A21",
+          "label": "현황",
+          "context": "검색 모드",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "behavior": "Observed transition to7column detail view"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "견적No.",
+            "창고",
+            "프로젝트",
+            "관리항목",
+            "거래처",
+            "품목",
+            "시리얼/로트No."
+          ],
+          "aggregateFields": [
+            "집계조건1",
+            "집계조건2",
+            "집계조건3",
+            "집계조건4",
+            "집계조건5"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
+          "testEvidence": [],
+          "modeHeaders": {
+            "aggregate": [
+              "집계기준항목",
+              "거래처코드",
+              "품목코드",
+              "수량",
+              "단가(vat포함)",
+              "공급가액",
+              "부가세",
+              "합계"
+            ],
+            "detail": [
+              "일자-No.",
+              "품목명(규격)",
+              "수량",
+              "단가(var별도)",
+              "공급가액",
+              "거래처명",
+              "비고"
+            ]
+          }
         },
         "sorting": {
           "stage": "unknown",
@@ -6702,8 +7039,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-QUOTE-STATUS-MODES"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -6748,7 +7087,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Safe target data not collected; complete parity unverified"
       ],
       "exclusions": []
     },

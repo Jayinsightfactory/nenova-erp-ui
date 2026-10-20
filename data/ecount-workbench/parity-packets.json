@@ -319,7 +319,7 @@
       "screenWork": [
         {
           "id": "E040208",
-          "stage": "pending-source-survey"
+          "stage": "partial-observation-awaiting-implementation"
         },
         {
           "id": "E040211",
@@ -1563,9 +1563,9 @@
     "fullyUnobservedPackets": 52,
     "partiallyObservedPackets": 7,
     "totalPrograms": 373,
-    "programsWithObservedActions": 15,
-    "programsWithoutObservedActions": 358,
-    "unobservedProgramsInsidePartialPackets": 31,
+    "programsWithObservedActions": 16,
+    "programsWithoutObservedActions": 357,
+    "unobservedProgramsInsidePartialPackets": 30,
     "verifiedPackets": 0,
     "verifiedPrograms": 0,
     "priorityPackets": [
