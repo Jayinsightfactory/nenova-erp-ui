@@ -3,7 +3,32 @@ import { EcountWorkspaceDialog } from '../EcountWorkspaceDialog';
 import styles from '../../styles/ecount-workbench.module.css';
 
 // Stable report IDs; identifiers are DOM metadata, never visible product labels.
-const ACTION_IDS = {
+const ACTION_IDS = {"cash":{
+  "unknown|Search(F3)": "E010205-A01",
+  "unknown|Option": "E010205-A02",
+  "unknown|도움말": "E010205-A03",
+  "unknown|입금보고서작성": "E010205-A04",
+  "unknown|즉시조회": "E010205-A05",
+  "unknown|통장등록": "E010205-A06",
+  "unknown|매핑조회": "E010205-A07",
+  "unknown|Excel": "E010205-A08",
+  "unknown|자동알림": "E010205-A09",
+  "unknown|수집처별확인사항": "E010205-A10",
+  "unknown|검색(F8)": "E010205-A11",
+  "unknown|설정": "E010205-A12",
+  "unknown|다시 작성": "E010205-A13",
+  "매핑 선택창|Search(F3)": "E010205-A14",
+  "매핑 선택창|Option": "E010205-A15",
+  "매핑 선택창|자동매핑": "E010205-A16",
+  "매핑 선택창|선택삭제": "E010205-A17",
+  "매핑 선택창|Excel": "E010205-A18",
+  "매핑 선택창|닫기": "E010205-A19",
+  "매핑 검색 패널|검색(F8)": "E010205-A20",
+  "매핑 검색 패널|다시 작성": "E010205-A21",
+  "매핑 검색 유형|전체": "E010205-A22",
+  "매핑 검색 유형|자동매핑": "E010205-A23",
+  "매핑 검색 유형|매핑안함": "E010205-A24"
+},
 "unpSale":{
   "상단|Search(F3)": "E040609-A01",
   "상단|Option": "E040609-A02",
@@ -29,7 +54,8 @@ const ACTION_IDS = {
   "검색 패널|설정": "E040609-A22",
   "검색 패널|다시 작성": "E040609-A23",
   "날짜 기준 메뉴|기준일(영업주기)": "E040609-A24",
-  "날짜 기준 메뉴|기준일자": "E040609-A25"
+  "날짜 기준 메뉴|기준일자": "E040609-A25",
+  "하단|인쇄 드롭다운": "E040609-A26"
 },
 "daySale":{
   "상단|Search(F3)": "E040708-A01",
@@ -798,13 +824,10 @@ export function ResultFooter({ dataset, busy, onMapping, onPreview }) {
     <button data-ecount-action-id={actionId(dataset,'매핑조회')} disabled={busy} onClick={onMapping}>매핑조회</button><ObservedButton>Excel</ObservedButton><ObservedButton>자동알림</ObservedButton><ObservedButton>수집처별확인사항</ObservedButton>
   </> : <><ObservedButton>인쇄</ObservedButton>{dataset==='sales'&&<ObservedDropdown busy={busy} onPreview={onPreview} label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']}/>}<ObservedButton>{dataset==='sales'?'Excel(화면)':'Excel'}</ObservedButton>{dataset==='sales'&&<><ObservedDropdown busy={busy} label="Excel(화면) 드롭다운" items={['Excel(표시형식)','Excel(데이터)']}/><ObservedButton>Email</ObservedButton></>}</>}</div>;
 }
-export function MappingOverlay({ onClose }) {
-  const columns=['','입금처(출금처)','계좌번호','지점명','매핑여부','거래처코드','거래처명'];
-  return <ActionScope dataset="cash" context="매핑조회 오버레이"><EcountWorkspaceDialog title="매핑조회" onClose={onClose} busy={false}>
-    <div className={styles.sourceToolbar}><ObservedButton>Search(F3)</ObservedButton><ObservedButton>Option</ObservedButton></div>
-    <div className={styles.tableWrap}><table><thead><tr>{columns.map((label,index)=><th key={index} scope="col">{label}</th>)}</tr></thead><tbody><tr><td colSpan={columns.length} className={styles.empty}>매핑 자료가 아직 수집되지 않았습니다.</td></tr></tbody></table></div>
-    <footer><ObservedButton>Excel</ObservedButton><button onClick={onClose}>닫기</button></footer>
-  </EcountWorkspaceDialog></ActionScope>;
+export function MappingOverlay({onClose}) {
+ const [searchOpen,setSearchOpen]=useState(false);const toggle=()=>setSearchOpen(value=>!value);
+ const columns=['','입금처(출금처)','계좌번호','지점명','매핑여부','거래처코드','거래처명'];
+ return <ActionScope dataset="cash" context="매핑 선택창"><EcountWorkspaceDialog title="매핑리스트" lookupVariant="mapping" onClose={onClose} busy={false} lookupActionId={(label,part)=>label==='닫기'&&part==='하단'?actionId('cash','닫기','매핑 선택창'):undefined} footerActions={<><ObservedButton reason="대상 저장 로직 설계 단계입니다. 외부 계좌 자료는 연결되지 않았습니다.">자동매핑</ObservedButton><ObservedButton reason="대상 삭제 동작은 구현되지 않았습니다.">선택삭제</ObservedButton><ObservedButton>Excel</ObservedButton></>}><div className={styles.mappingBody} onKeyDown={event=>{if(event.key==='F3'){event.preventDefault();event.stopPropagation();toggle();}}}><div className={styles.sourceToolbar}><button type="button" className={styles.primary} aria-expanded={searchOpen} aria-controls="mapping-search" onClick={toggle} data-ecount-action-id={actionId('cash','Search(F3)','매핑 선택창')}>Search(F3)</button><ObservedButton>Option</ObservedButton></div>{searchOpen&&<ActionScope dataset="cash" context="매핑 검색 패널"><section id="mapping-search" className={styles.mappingSearch} aria-label="매핑 검색">{['거래처','입금처(출금처)','계좌번호','지점명'].map(label=><div className={styles.searchLine} key={label}><span>{label}</span><input aria-label={label} placeholder={label} disabled/></div>)}<div className={styles.searchLine}><span>매핑유형</span>{['전체','자동매핑','매핑안함'].map(label=><label key={label}><input type="checkbox" checked disabled readOnly data-ecount-action-id={actionId('cash',label,'매핑 검색 유형')}/>{label}</label>)}</div><div className={styles.sourceToolbar}><ObservedButton reason="매핑 자료가 아직 수집되지 않았습니다.">검색(F8)</ObservedButton><ObservedButton>다시 작성</ObservedButton></div></section></ActionScope>}<div className={styles.tableWrap}><table><colgroup>{[24,150,130,120,70,100,160].map((width,index)=><col key={index} style={{width}}/>)}</colgroup><thead><tr>{columns.map((label,index)=><th key={index} scope="col">{label}</th>)}</tr></thead><tbody><tr><td colSpan={7} className={styles.empty}>매핑 자료가 아직 수집되지 않았습니다.</td></tr></tbody></table></div></div></EcountWorkspaceDialog></ActionScope>;
 }
 export function CustomerLookupOverlay({ onClose, dataset='sales', context='거래처 조회 오버레이' }) {
   const columns=['','거래처코드','거래처명','검색창내용','상세내역'];
