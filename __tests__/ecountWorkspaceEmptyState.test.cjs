@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -62,4 +62,36 @@ test('sales tax observed buttons and row links stay disabled and F3/F8 cannot in
   vm.runInNewContext(source.slice(declaration.start,declaration.end)+';module.exports='+name,{module:box,busy:false,dataset:'salesTax',searchDraft:{},setError:message=>errors.push(message)});
   await box.exports();assert.equal(errors.length,1);assert.match(errors[0],/아직 확인하지 않았습니다/);
  }
+});
+
+test('stock displays safe typed code and exact quantity; unknown date is not a zero query',()=>{
+ const rows=[{productCode:'P-01',quantity:'123456789012345.67890000',prodName:'not-permitted'}];
+ const html=render({dataset:'stock',rows,dataState:'loaded'});assert.equal((html.match(/<th scope=/g)||[]).length,3);assert(html.includes('P-01'));assert(html.includes('123456789012345.67890000'));assert(!html.includes('not-permitted'));
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
+ const declaration=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0];
+ const callback=declaration.init.arguments[0];
+ function select(version,filterFrom){return vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset:'stock',version,filterFrom,pageActions:require('../lib/ecountPageActions.cjs')});}
+ assert.equal(select(null,'').snapshotUnavailable,true);
+ const version={rows,periodFrom:'2026-10-20',periodTo:'2026-10-20'};
+ assert.equal(select(version,'2026-10-20').rows.length,1);assert.equal(select(version,'2025-10-20').snapshotUnavailable,true);
+ const missing=select(version,'2026-10-19');assert.equal(missing.rows.length,0);assert.equal(missing.snapshotUnavailable,true);
+ assert(render({dataset:'stock',rows:missing.rows,dataState:'uncollected'}).includes('아직 수집되지 않았습니다'));
+ assert(select(version,'12345-10-20').filterError);
+});
+test('sale amount thousands formatting preserves precision and decimal zeros',()=>{
+ const {formatSaleAmount}=load('components/ecount/SaleQueryPageControls.js');
+ assert.equal(formatSaleAmount('12345678901234567890.00100'),'12,345,678,901,234,567,890.00100');assert.equal(formatSaleAmount('-1234.50'),'-1,234.50');assert.equal(formatSaleAmount('0'),'0');assert.equal(formatSaleAmount(null),'');
+});
+
+test('stock observed year/month buttons and day textbox preserve fourteen action IDs',()=>{
+ const c=load('components/ecount/StockStatusPageControls.js');
+ const html=renderToStaticMarkup(React.createElement(React.Fragment,null,React.createElement(c.StockToolbar,{searchOpen:true}),React.createElement(c.StockSearchPanel,{asOf:'2026-10-20'}),React.createElement(c.StockFooter)));
+ const ids=[...html.matchAll(/data-ecount-action-id="([^"]+)"/g)].map(match=>match[1]);
+ const expected=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/button-matches.json'),'utf8')).pages.find(page=>page.program==='E040701').buttons.map(button=>button.matchId);
+ assert.deepEqual(ids.sort(),expected.sort());assert(html.includes('aria-label="기준일 일"'));assert(!html.includes('type="date"'));
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;
+ const declaration=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='runSearch');
+ const box={exports:{}},errors=[];
+ vm.runInNewContext(source.slice(declaration.start,declaration.end)+';module.exports=runSearch;',{module:box,busy:false,dataset:'stock',searchDraft:{from:'2026-02-31',to:'2026-02-31'},setError:message=>errors.push(message),policy:require('../lib/ecountWorkspaceClient.cjs'),ERRORS:{}});
+ return box.exports().then(()=>assert.equal(errors.length,1));
 });

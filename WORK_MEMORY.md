@@ -409,6 +409,18 @@
 - 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
 - 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존
 
+### 2026-10-20 조회창 운영 반환 검증·재고 준비
+- PR1137 root 운영검증(lookup-release-runtime-evidence.json): PO새창 Enter→부모 일별5열·dialog/child닫힘 PASS. Order새창 Space→집계5열·양쪽닫힘 PASS(첫 Enter 미반영 후 Space로 확인). Order dialog960×684/table406 일치. PO table922 vs 원본936, 최대화높이853 vs855 차이는 후속보완중. 원본 반환 완전동등성은 미검증.
+- 재고 stock 특례는 원본 품목코드열의 typed코드만 허용하고 다른 dataset의 제품코드 제외를 유지한다. 안전1949행/유일1949 확인, quantity정확문자열·단일기준일2026-10-20. 제품명·소계 미수집, 부분자료 unknown. stock-import-safe.json 준비만 했고 SQL실행없음.
+- 검색어: PR1137 lookup-return Space Enter table406 922936 stock1949 typed-productCode
+
+### 2026-10-20 salesTax 공급가액 누락 정정 준비
+- 운영20행80값 대조에서 공급가액20개 불일치 발견. 원본 수집키 supply를 wrapper의 supplyAmt로 명시 매핑하지 않아 null로 적재된 것이 원인. 날짜/vat/total은 일치. 최초 parser 통과/멱등 검증만으로 원본값 동등성을 보장하지 못했음을 정정.
+- 신규 salesTax import는 supplyAmt/vat/total 모두 필수 non-null 검증, 누락·빈값·공급가액 alias미매핑은 SQL진입전 거부. 과거v1은 읽기/불변보존하고 새버전 정정만 허용.
+- sales-tax-import-safe-corrected.json에서 supply→supplyAmt 매핑 후 원본20행×4필드80값 독립대조 mismatch0, sales-tax-correction-validation.json 기록. 아직 SQL실행없음; 필수5검사 통과 후 root가v2적재·운영재대조 예정.
+- 검색어: salesTax supply supplyAmt null20 80값 mismatch0 correction v1보존
+- stock-tax-fix 필수5검사/build 통과 후 root 적재 완료(stock-tax-import-results.json): salesTax 정정20행 revision2/readback true/idempotent true, 과거v1보존. stock1949행 revision1/readback true/idempotent true, 기준일2026-10-20. 원본·공유ERP원장 쓰기0. 운영 정정80값 및 재고값 대조는 별도 후속검증.
+
 ## 2026-10-20 신라 판매요청 포함 대조
 사용자 요청: 안시리움1송이 판매요청 근거 조회 및 정상 추가분 분류. 실제 ClassEstimate/FormEstimateView dnSpy와 SELECT로 Estimate10040(2026/40-01 신라호텔446/181,10/12,1송이/8300,판매요청) 확인. 40-02분배520+요청1=엑셀/SRM10/7 521. 판매요청일과입고일은별도표시. 같은연도/업체/품목/단위/대차수의 전체요청 및확정/가격버킷/중복소비검증, 원본차이보존. ERP/재고쓰기없음.20개테스트/실제loader대조/build통과,전체계약및배포진행중.
 검색어: 신라 판매요청 Estimate10040 520+1 정상추가분 shilla-sales-request

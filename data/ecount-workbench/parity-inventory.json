@@ -19281,25 +19281,241 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040701-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A04",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A05",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A06",
+          "label": "자동알림",
+          "context": "하단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A07",
+          "label": "기준연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A08",
+          "label": "기준월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A09",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A10",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A11",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A12",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A13",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        },
+        {
+          "id": "E040701-A14",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "behavior": "Recovered source retains 재고현황 title; F3 opens panel, today returns1949 product rows plus1 aggregate; remaining behavior unknown"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "기준일자",
+            "창고",
+            "품목",
+            "재고수량",
+            "수량관리제외품목포함",
+            "사용중단품목포함",
+            "안전재고설정미만표시",
+            "결재방표시"
+          ]
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "품목코드",
+            "품목명[규격]",
+            "재고수량"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -19312,8 +19528,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040701-RECOVERED"
+          ],
           "testEvidence": []
         },
         "newWindows": {
