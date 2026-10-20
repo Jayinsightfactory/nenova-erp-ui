@@ -122,8 +122,9 @@ test('saved active product links unify aliases but exclude conflicts, custom and
 test('owner confirmed Anthurium EA equals source 단 without numeric alteration',async()=>{
  const {reconcileShilla}=await modulePromise;
  const a={...item,name:'안시리움 · 화이트',unit:'단',prodKey:181,prodName:'Anthurium Graciosa 15cm'};
- const x={...input(),db:[a],excel:[{...a}],receipts:[{...receipt,name:'[수입] 행사용꽃, 안스리움, 화이트 (EA)'}]};
+ const x={...input(),db:[a],excel:[{...a}],receipts:[{...receipt,name:'[수입] 행사용꽃, 안스리움, 화이트 (EA)',spec:'-'}]};
  const r=reconcileShilla(x);assert.equal(r.complete,true);assert.equal(r.rows[0].unit,'송이');assert.equal(r.rows[0].db.rows[0].originalUnit,'단');assert.equal(r.rows[0].srm.qty,2);assert.equal(r.rows[0].srm.amount,200);
+ x.receipts[0].spec='15cm';assert.equal(reconcileShilla(x).unmatched.length,1);x.receipts[0].spec='-';
  x.receipts[0].unit='PK';assert.equal(reconcileShilla(x).unmatched.length,1);
 });
 test('unknown packs are suggestions only; explicit pack sizes and unique names required',async()=>{

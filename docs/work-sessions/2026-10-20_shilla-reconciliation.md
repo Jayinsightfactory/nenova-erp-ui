@@ -51,3 +51,6 @@
 - dnSpy FormOrderAdd CLI 재실행 성공. GetDataProduct의 ProdKey/SteamOf1Bunch 별도필드 확인. 운영 SELECT:223/225 연결. 돈셀17/19차 Item8604/8617→456. 후보389콜롬비아/2306중국으로 원산지 확인 대기.
 - UI 기준 적용: 단일 shell, 페이지 스크롤, native select/checkbox 키보드. 쓰기 전 승인: 사용자 직접 요청 있음; 원산지 선택만 대기. 배포/실제 재대조 아직 미검증.
 - 검색어: shilla-saved-matches Anthurium181 Doncel389 ProdKey aliases
+- 후속: 사용자 콜롬비아 돈셀389 확인. 운영 UI에서 17차8604/19차8617 각각 단일행 수정 완료, SELECT에서389 확인. 수량20/28·단가14500·금액290000/406000 보존. 노비아 품목 자체 및 다른 행 변경 없음.
+- 로컬 전체 ERP/dnSpy/manifest/writeguard/build 및 CI39383918915 통과. PR1123 squash67c7b3bf 병합. 배포39384245355 진행중. 증빙 outputs/신라-돈셀-연결수정.png 및 수정결과.txt.
+- 실제 재조회523행에서 SRM 빈 규격이 빈 문자열이 아닌 '-'임을 확인. 자동 제안의 미기재 규격 조건에 '-' 추가, 실제 규격15cm는 여전히 제외하는 회귀검사 통과. 후속 배포 전 단계.
