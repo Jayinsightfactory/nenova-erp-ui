@@ -574,3 +574,12 @@
 
 - 1154 운영 반증 보존: shell 그룹바/좌측 폭은 원본치수 일치했으나 BOM폼 y183.390625로 원본136.21875보다47.171875 낮았다. 원본0범위 밖19일 입력 후에도 빈결과 표시가 남는 현상은 원인확정 전이며 성공판정 보류. 후속은 BOM 도구를 heading 내부로 정리하고 native 날짜 input/blur를 draft에 동기화하는 방어적 보완을 포함한다. 실제Panel19입력→F8→runSearch19전달→coverage거부/서버요청없음 및 heading내 단일toolbar 회귀 포함 UI45검사 통과. 운영 원인해결·픽셀동등성은 재배포 후 root가 재검증한다. quoteEmpty/주문preview/911 ID와 같은 묶음으로 검사한다.
 검색어: BOM y47.171875 ordEmpty19일 반증 nativeinput blur quoteEmpty911 미검증
+
+### 2026-10-20 견적 빈 범위·미리보기 릴리스 및 후속 PO/일보 판매
+- PR1155 Cafe24 39416549543 성공. root 운영 연월 위젯 확인: 주문 시작월65.046875×260/연도102.71875×164.375, BOM 월65.046875×376.5625/같은 연도크기, 2026 직접입력 Tab 복귀와 2025 선택 후 관측목록 유지 확인. 조회 실행 동등성과 미래연도 규칙까지 확대하지 않는다.
+- PR1156 HEADa095fd24 필수5종 모두 통과, CI39417885604 성공 후 squashe45507a2 병합. quoteEmpty 실제 격리영역 적재는 root가 PASS 이후 수행:0행/revision1/readbacktrue/idempotenttrue, receipt quote-status-observed-empty-import-result.json. ECOUNT/공유원장 쓰기0. Cafe24 및 실제 미리보기/견적 빈 범위 운영검증은 대기.
+- 1154 날짜19 Tab→F8에서도 빈 결과 잔류가 재현된 실패를 보존한다. 방어적 native input/blur 동기화 및 BOM heading 배치는1156에 포함됐으나 근본원인·운영 재검증 전 성공 판정하지 않는다. Excel911 파일 해시는 root 독립 대조 일치, 실패2건 미해결 표시 유지.
+- 다음 poEmpty/daySale는 별도 정확조건 coverage envelope로 준비했다. PO '결제일 기준'은 적용양식이며 날짜업무 의미는 미검증. 일보는 판매종류 하나/10월20일/빈 선택조건만 허용한다. 정책·mock store의 import/readback/멱등/rollback 및 CLI 검사 통과, 실제SQL은 아직 미실행. quoteEmpty naked[] 디코드 방어 누락도 모든 명시빈범위 envelope 필수로 통일했다; 정상 import는 기존에도 증거필수였고 기존 해시는 변경하지 않는다.
+검색어: PR1156 quoteEmpty0행 19일Tab반증 BOMheading poEmpty daySale envelope 977
+- 후속 UI 최종 동결: PO detail→poEmpty, 일보 daySale exact criteria와 판매 체크→적용/재열기 초기화 연결. 일보 인쇄2항목은 원본 관측대로 Escape·재클릭 시 유지, F3에서 닫힘; 실제 출력 실행은 미검증이다. observed coverage dataset은 일반 파일 업로드 버튼을 노출하지 않는다. UI EmptyState/Navigation48검사·JSX6파일·diffcheck PASS. root wrapper 독립 대조 모두 criteriaMismatch[]; 실제SQL 및 UI 운영/픽셀 검증은 아직 미검증. 메타977은 관측ID 수이며 완료기능 수가 아니다.
+검색어: poEmpty daySale 판매 종류팝업48tests observed-empty977 runtime미검증
