@@ -197,3 +197,10 @@
 ## 2026-10-20 ECOUNT 이력 조회 후속
 - PR1111 배포 성공, 운영 cash21/ar89 조회 확인. 이력 SQL 별칭 ROWCOUNT 예약어 오류 발견·수정, 실제 읽기8건 및 회귀검사 통과. 기존자료·원장 변경 없음. 재배포/운영 이력창 최종결과는 세션 문서 참조.
 - 검색어: ecount-history-query-fix ROWCOUNT SQL156 이력조회
+- 후속 완료: PR1113/17fcac04 Cafe24 배포 success. 운영4종 행수 확인 및 작업 이력 창 열기·닫기 통과. 전체 기능100%는 미완료. 주간사용38%, 남음62%. 상세 docs/work-sessions/2026-10-20_ecount-data-workspace.md.
+
+## 2026-10-20 ECOUNT 버튼별 Excel 보고서 추가 요구
+- 최종 산출물에 페이지/모든 버튼 라벨과 양쪽 화면 캡처, 기능/새창/동일 조건 조회값 비교 Excel 포함. 지속 매칭 JSON/근거 검사 구현, 현재 373페이지 중 전체 동등성 확인0; 관찰버튼88. 최종Excel 아직 미생성.
+- 판매 F3/조회/고객선택창 껍데기/출력드롭다운/새탭 안전 미리보기, 견적조회 별도 화면과 quote 업로드 전용 데이터셋 추가. 기존 ERP 원장/ECOUNT 쓰기 없음. quote 실제적재 미실행.
+- 표적검사 통과. 전체 ERP검사에서 신규계약 requiredCommands 누락 발견 후 보완중, 빌드 진행중. 배포/실브라우저 신규화면 미검증.
+- 검색어: ecount-button-matches report-contract E040202 E040207 새탭미리보기 Excel동등성88버튼

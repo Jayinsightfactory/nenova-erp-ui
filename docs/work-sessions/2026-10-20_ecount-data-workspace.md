@@ -48,3 +48,6 @@
 - PR #1111 병합 a40ecf0e. 최신 master 변경과 WORK_MEMORY 충돌은 양쪽 기록 보존으로 해결. 병합 후 verify:erp-change 전체 재통과, GitHub verify/Windows installer 모두 통과.
 - Cafe24 배포 run39352475453 진행. 코드 전용이며 광역 SQL migration 미실행. 운영 브라우저 확인은 배포 완료 후 기록.
 - 운영 첫 smoke: cash21/ar89 조회 성공. 이력/metadata에서 SQL156 발견. AS rowCount 예약어를 AS [rowCount]로 수정, 네 자료 × 두 경로 실제 읽기8회 통과. 회귀검사 추가. 수정 재배포 전까지 이력 UI 최종 확인 미완료.
+- PR1113 병합17fcac04, Cafe24 run39353552324 success. 전체 verify:erp-change/별도dnSpy/CI 통과. 운영 실제 브라우저에서 cash21/ar89/ap174/sales5001행(표 헤더 제외) 확인; 수정 후 판매 작업 이력 열기·닫기 성공. 운영 복원/업로드 쓰기 추가 실행 없음.
+- 현재 구현은 안전 투영4종 및 별도 SQL 버전/이력 기반. 전체373프로그램의 버튼/새창100%는 미완료(검증완료 화면0). 후속은 parity-packets와 원본 근거 기준.
+- 종료시 계정 주간사용38%(약62%남음) 마지막 확인. 하위 작업자3개 완료, 자동 반복 실행을 예약하지 않음. 이 문서와 WORK_MEMORY 최종 배포 기록은 로컬 후속 기록.

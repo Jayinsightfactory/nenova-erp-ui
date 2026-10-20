@@ -1,15 +1,19 @@
 import Head from 'next/head';
+import { QUOTE_COLUMNS, QuoteToolbar, QuoteSearchPanel, QuoteFooter } from '../../components/ecount/QuotePageControls';
+import { ActionScope, ResultToolbar, ResultFooter, MappingOverlay, CustomerLookupOverlay, SearchPanel } from '../../components/ecount/ObservedPageControls';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import catalog from '../../data/ecount-workbench/source-menu.json';
 import policy from '../../lib/ecountWorkspaceClient.cjs';
+import pageActions from '../../lib/ecountPageActions.cjs';
+import printPreview from '../../lib/ecountPrintPreview.cjs';
 import { EcountWorkspaceDialog } from '../../components/EcountWorkspaceDialog';
 import styles from '../../styles/ecount-workbench.module.css';
 
 const MENUS = catalog.menus;
 const TABS = MENUS.filter(menu => menu.depth === 1);
-const DATASETS = { E010205: 'cash', E040214: 'ar', E040309: 'ap', E040207: 'sales' };
+const DATASETS = { E010205: 'cash', E040214: 'ar', E040309: 'ap', E040207: 'sales', E040202: 'quote' };
 const LABELS = { refDate:'일자',date:'일자',amount:'금액',balance:'잔액',salesTotal:'매출합계',receiptTotal:'수금합계',etcDiff:'기타차액',openingDebt:'기초채무',stockBuy:'재고매입',acctBuy:'회계매입',payTotal:'지급합계',qty:'수량',supplyAmt:'공급가액',vat:'부가세',total:'합계',isSubtotal:'소계',flow:'구분',currency:'통화',rowNumber:'순번',unitPrice:'단가',unbilled:'미청구액' };
-const ERRORS = { LOGIN_REQUIRED:'로그인 후 이용해 주세요.',ADMIN_REQUIRED:'관리자 권한이 필요합니다.',ACCOUNT_INACTIVE:'사용 가능한 관리자 계정인지 확인해 주세요.',WORKSPACE_NOT_INSTALLED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',WORKSPACE_UNAVAILABLE:'작업 자료에 연결할 수 없습니다. 잠시 후 다시 조회해 주세요.',INVALID_PERIOD:'시작일과 종료일을 함께 지정해 주세요.',INVALID_DATE:'날짜 형식을 확인해 주세요.',SOURCE_DATE_MISMATCH:'원본 일자와 조회 일자가 일치하지 않습니다.',INVALID_SUBTOTAL_DATE:'월별 합계 행의 소계 구분을 확인해 주세요.',INVALID_DECIMAL:'숫자 형식을 확인해 주세요.',SOURCE_ROW_COUNT_MISMATCH:'수집 자료의 행 수가 일치하지 않아 불러오기를 중단했습니다.', UNAUTHORIZED:'로그인 후 이용해 주세요.',FORBIDDEN:'관리자 권한이 필요합니다.',REVISION_CONFLICT:'다른 작업에서 자료가 변경되었습니다. 다시 조회한 뒤 진행해 주세요.',WORKSPACE_NOT_INITIALIZED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',SOURCE_NOT_FOUND:'가져올 수 있는 수집 자료가 없습니다.',SOURCE_TOO_LARGE:'한 번에 불러올 수 있는 범위를 초과했습니다. 자료를 나누어 주세요.',EMPTY_SAFE_ROW:'적재할 숫자 자료가 없는 행이 있습니다.',INVALID_SUBTOTAL:'소계 구분을 확인해 주세요.',INVALID_ROWS:'자료 행 수 또는 형식을 확인해 주세요.',VERSION_NOT_FOUND:'복원할 자료를 찾을 수 없습니다. 작업 이력을 다시 조회해 주세요.' };
+const ERRORS = { SOURCE_IMPORT_UNSUPPORTED:'이 메뉴는 파일 업로드로 작업 자료를 불러올 수 있습니다.', LOGIN_REQUIRED:'로그인 후 이용해 주세요.',ADMIN_REQUIRED:'관리자 권한이 필요합니다.',ACCOUNT_INACTIVE:'사용 가능한 관리자 계정인지 확인해 주세요.',WORKSPACE_NOT_INSTALLED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',WORKSPACE_UNAVAILABLE:'작업 자료에 연결할 수 없습니다. 잠시 후 다시 조회해 주세요.',INVALID_PERIOD:'시작일과 종료일을 함께 지정해 주세요.',INVALID_DATE:'날짜 형식을 확인해 주세요.',SOURCE_DATE_MISMATCH:'원본 일자와 조회 일자가 일치하지 않습니다.',INVALID_SUBTOTAL_DATE:'월별 합계 행의 소계 구분을 확인해 주세요.',INVALID_DECIMAL:'숫자 형식을 확인해 주세요.',SOURCE_ROW_COUNT_MISMATCH:'수집 자료의 행 수가 일치하지 않아 불러오기를 중단했습니다.', UNAUTHORIZED:'로그인 후 이용해 주세요.',FORBIDDEN:'관리자 권한이 필요합니다.',REVISION_CONFLICT:'다른 작업에서 자료가 변경되었습니다. 다시 조회한 뒤 진행해 주세요.',WORKSPACE_NOT_INITIALIZED:'작업용 SQL 영역이 아직 준비되지 않았습니다.',SOURCE_NOT_FOUND:'가져올 수 있는 수집 자료가 없습니다.',SOURCE_TOO_LARGE:'한 번에 불러올 수 있는 범위를 초과했습니다. 자료를 나누어 주세요.',EMPTY_SAFE_ROW:'적재할 숫자 자료가 없는 행이 있습니다.',INVALID_SUBTOTAL:'소계 구분을 확인해 주세요.',INVALID_ROWS:'자료 행 수 또는 형식을 확인해 주세요.',VERSION_NOT_FOUND:'복원할 자료를 찾을 수 없습니다. 작업 이력을 다시 조회해 주세요.' };
 const searchKey = value => String(value).toLowerCase().replace(/[\s/()·_-]/g,'');
 function arrowFocus(event) {
   if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key) || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
@@ -26,7 +30,7 @@ const AR_COLUMNS = [[null,'거래처명'],['salesTotal','매출합계'],['receip
 const AP_COLUMNS = [[null,'거래처코드'],[null,'거래처명'],['openingDebt','기초채무'],['stockBuy','재고매입'],['acctBuy','회계매입'],['payTotal','지급합계'],['etcDiff','기타할인등차액'],['balance','잔액'],['unbilled','미청구액']];
 const SALES_COLUMNS = [['refDate','일자-No.'],[null,'거래처명'],[null,'품목명'],['qty','수량'],['unitPrice','단가(vat포함)'],['supplyAmt','공급가액'],['vat','부가세'],['total','합계'],[null,'적요']];
 function Table({ rows, dataset }) {
-  const columns = dataset==='cash' ? BANK_COLUMNS : dataset==='ar' ? AR_COLUMNS : dataset==='ap' ? AP_COLUMNS : dataset==='sales' ? SALES_COLUMNS : [...new Set(rows.flatMap(row => Object.keys(row)))].map(key=>[key,LABELS[key]||key]);
+  const columns = dataset==='cash' ? BANK_COLUMNS : dataset==='ar' ? AR_COLUMNS : dataset==='ap' ? AP_COLUMNS : dataset==='sales' ? SALES_COLUMNS : dataset==='quote' ? QUOTE_COLUMNS : [...new Set(rows.flatMap(row => Object.keys(row)))].map(key=>[key,LABELS[key]||key]);
   if (!columns.length) return <p className={styles.empty}>조회된 자료가 없습니다.</p>;
   return <div className={styles.tableWrap}><table><thead><tr>{columns.map(([key,label],index) => <th key={index} scope="col">{label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row,index) => <tr key={index}>{columns.map(([key],column) => <td key={column} title={key===null?'개인정보 및 미수집 항목은 표시하지 않습니다.':undefined}>{key===null ? '' : key==='refDate' ? String(row.sourceDateLabel || row.refDate || '') : typeof row[key] === 'boolean' ? row[key] ? 'Y' : '' : String(row[key] ?? '')}</td>)}</tr>) : <tr><td colSpan={columns.length} className={styles.empty}>조회된 자료가 없습니다.</td></tr>}</tbody></table></div>;
 }
@@ -40,6 +44,10 @@ export default function EcountWorkbench() {
   const [filterFrom,setFilterFrom] = useState('');
   const [filterTo,setFilterTo] = useState('');
   const [flow,setFlow] = useState('');
+  const [searchOpen,setSearchOpen] = useState(false);
+  const [searchDraft,setSearchDraft] = useState({from:'',to:'',flow:'',query:''});
+  const searchInputRef = useRef(null);
+  const searchToggleRef = useRef(null);
   const [version,setVersion] = useState(null);
   const [revision,setRevision] = useState(null);
   const [error,setError] = useState('');
@@ -61,7 +69,12 @@ export default function EcountWorkbench() {
   const feature = MENUS.find(menu => menu.id === menuId);
   const dataset = DATASETS[feature?.program];
   const menuList = useMemo(() => MENUS.filter(menu => menu.depth > 1 && (query ? searchKey(menu.path.join(' ')).includes(searchKey(query)) : menu.tab === tab)),[query,tab]);
-  const rows = useMemo(() => (version?.rows || []).filter(row => Object.values(row).join(' ').toLowerCase().includes(rowQuery.toLowerCase()) && (!filterFrom || row.refDate>=filterFrom) && (!filterTo || row.refDate<=filterTo) && (!flow || row.flow===flow || row.flow===(flow==='입금'?'in':'out'))),[version,rowQuery,filterFrom,filterTo,flow]);
+  const filtered = useMemo(() => {
+    if(!dataset) return {rows:[],unknownDateCount:0};
+    try {return pageActions.filterSortRows({dataset,rows:version?.rows||[],from:filterFrom||null,to:filterTo||null,flow:flow==='입금'?'in':flow==='출금'?'out':'all'});}
+    catch {return {rows:[],unknownDateCount:0,filterError:'조회 조건 또는 저장된 자료 형식을 확인해 주세요. Search(F3)에서 조건을 다시 지정할 수 있습니다.'};}
+  },[dataset,version,filterFrom,filterTo,flow]);
+  const rows = useMemo(()=>filtered.rows.filter(row=>Object.values(row).join(' ').toLowerCase().includes(rowQuery.toLowerCase())),[filtered,rowQuery]);
   const quickLinks = ['견적서조회','견적서입력','판매현황','구매조회','구매입력','구매현황','거래처별채권','거래처별채무','입/출금계좌 조회'].map(label => MENUS.find(menu => menu.label === label)).filter(Boolean);
 
   async function api(view='current',body=null) {
@@ -86,7 +99,8 @@ export default function EcountWorkbench() {
   function selectMenu(id) {
     if (busy) return;
     const next = MENUS.find(menu => menu.id === id); if (!next) return;
-    ++requestId.current;setMenuId(id);setTab(next.tab);setMenuOpen(false);setQuery('');setVersion(null);setRevision(null);setError('');setMessage('');setRowQuery('');setFilterFrom('');setFilterTo('');setFlow('');
+    if (id===menuId) {setMenuOpen(false);setQuery('');setTab(next.tab);setTimeout(()=>titleRef.current?.focus(),0);return;}
+    ++requestId.current;setMenuId(id);setTab(next.tab);setMenuOpen(false);setQuery('');setVersion(null);setRevision(null);setError('');setMessage('');setRowQuery('');setFilterFrom('');setFilterTo('');setFlow('');setSearchOpen(false);setSearchDraft({from:'',to:'',flow:'',query:''});
     window.history.replaceState(null,'',`${window.location.pathname}${window.location.search}#menu=${encodeURIComponent(id)}`);
     setTimeout(() => titleRef.current?.focus(),0);
   }
@@ -105,7 +119,7 @@ export default function EcountWorkbench() {
       saved = true;setRevision(result.revision);setDialog(null);setUpload(null);setRollbackId('');
       const current = await api();setVersion(current.version);setRevision(current.revision);
       setMessage(body.action==='activate'?'선택한 작업 자료로 복원했습니다.':'작업 자료를 불러왔습니다.');
-    } catch(e) {setError(saved?'저장은 완료되었으나 재조회에 실패했습니다. 조회 버튼을 눌러 현재 자료를 확인해 주세요.':e.message);} finally {setBusy(false);}
+    } catch(e) {setError(saved?'저장은 완료되었으나 재조회에 실패했습니다. Search(F3)에서 검색(F8)을 실행해 현재 자료를 확인해 주세요.':e.message);} finally {setBusy(false);if(saved)setTimeout(()=>titleRef.current?.focus(),0);}
   }
   async function readFile(event) {
     const file = event.target.files?.[0]; if (!file) return;
@@ -121,7 +135,7 @@ export default function EcountWorkbench() {
       const sheets = {};
       for (const name of names) {
         const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[name],{raw:false,defval:''});
-        const aliases = {'입/출금일자':'refDate','원화잔액':'balance','입출금구분':'flow','수급합계':'receiptTotal','기타할인등차액':'etcDiff','공급가':'supplyAmt','계':'total','단가(vat포함)':'unitPrice','일자-No.':'refDate'};
+        const aliases = {'입/출금일자':'refDate','원화잔액':'balance','입출금구분':'flow','수급합계':'receiptTotal','기타할인등차액':'etcDiff','공급가':'supplyAmt','계':'total','단가(vat포함)':'unitPrice','일자-No.':'refDate','견적금액합계':'estimateTotal'};
         const mappedRows = rawRows.map(row => Object.fromEntries(Object.entries(row).map(([key,value]) => [aliases[key.trim()] || Object.keys(LABELS).find(field => LABELS[field]===key.trim()) || key.trim(),value])));
         for (const row of mappedRows) {
           // Keep the source date label intact; the shared allowlist parser validates it.
@@ -149,7 +163,62 @@ export default function EcountWorkbench() {
     return () => window.removeEventListener('nenova:menu-back-request',back);
   },[busy,dialog]);
 
-  return <div className={styles.page}>
+  function toggleSearch() {
+    if (busy) return;
+    setSearchOpen(open=>!open);
+    if (!searchOpen) setTimeout(()=>searchInputRef.current?.focus(),0);
+  }
+  async function runSearch(criteria=searchDraft) {
+    if (busy) return;
+    try {
+      policy.date(criteria.from||null);policy.date(criteria.to||null);
+      if (criteria.from && criteria.to && criteria.from>criteria.to) throw new Error('INVALID_PERIOD');
+    } catch(e) {setError(ERRORS[e.message]||'조회 날짜를 확인해 주세요.');return;}
+    setFilterFrom(criteria.from);setFilterTo(criteria.to);setFlow(criteria.flow);setRowQuery(criteria.query);
+    setSearchOpen(false);await load();setTimeout(()=>searchToggleRef.current?.focus(),0);
+  }
+  function openSalesPreview() {
+    if(dataset!=='sales'||busy||revision===null)return;
+    // Open only from the user's click, then sever opener before navigating to any data.
+    let child;
+    try {child=window.open('about:blank','_blank');} catch {setError('미리보기 새창을 열 수 없습니다. 브라우저의 팝업 허용 설정을 확인해 주세요.');return;}
+    if(!child){setError('미리보기 새창이 차단되었습니다. 이 사이트의 팝업을 허용한 후 다시 실행해 주세요.');return;}
+    let url;
+    try {
+      child.opener=null;
+      const columns=SALES_COLUMNS.map(([key,label],index)=>({key:key==='refDate'?'sourceDateLabel':key||`protected-${index}`,label}));
+      const model=pageActions.buildExportModel({dataset:'sales',rows,columns,title:'판매현황'});
+      const filteredPeriod=!!(filterFrom||filterTo);
+      const html=printPreview.renderPrintPreview(model,{company:'네노바',title:'판매현황',periodFrom:filteredPeriod?(filterFrom||null):(version?.periodFrom||null),periodTo:filteredPeriod?(filterTo||null):(version?.periodTo||null)});
+      url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+      child.location.replace(url);
+      setTimeout(()=>URL.revokeObjectURL(url),120000);
+      setError('');
+    } catch {
+      if(url)URL.revokeObjectURL(url);
+      child.close();setError('현재 작업 자료의 미리보기를 만들 수 없습니다. 조회 조건과 자료 형식을 확인해 주세요.');
+    }
+  }
+  function applyObservedPreset(id) {
+    if(dataset!=='sales'||!['thisWeek','previousWeek'].includes(id)||busy)return;
+    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const part=type=>parts.find(value=>value.type===type).value;
+    const today=`${part('year')}-${part('month')}-${part('day')}`;
+    const next={...searchDraft,...pageActions.datePreset(id,today,{weekStartsOn:0})};
+    setSearchDraft(next);runSearch(next);
+  }
+  useEffect(()=>{
+    const key=event=>{
+      if (busy || dialog || menuOpen || !dataset || event.altKey || event.ctrlKey || event.metaKey) return;
+      const action=pageActions.keyboardAction(event);
+      if(action==='open-search'){event.preventDefault();toggleSearch();}
+      if(action==='run-search'&&searchOpen){event.preventDefault();runSearch();}
+      if(event.key==='Escape'&&searchOpen){event.preventDefault();setSearchOpen(false);searchToggleRef.current?.focus();}
+    };
+    window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
+  },[busy,dialog,menuOpen,dataset,searchOpen,searchDraft]);
+
+  return <ActionScope dataset={dataset}><div className={styles.page}>
     <Head><title>{feature?.label || 'MyPage'} | NENOVA ERP</title><meta name="robots" content="noindex,nofollow" /></Head>
     <div className={styles.quickbar} onKeyDown={arrowFocus}><input aria-label="메뉴 검색" placeholder="메뉴검색" value={query} disabled={busy} onChange={event=>{setQuery(event.target.value);setMenuOpen(true);}} /><button ref={menuButtonRef} disabled={busy} onClick={()=>setMenuOpen(value=>!value)}>사이트맵</button>{quickLinks.map(menu=><button key={menu.id} disabled={busy} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>
     <nav className={styles.tabs} aria-label="업무 탭" onKeyDown={arrowFocus}><a href="/" className={styles.brand}>NENOVA</a>{TABS.map(item=><button key={item.id} disabled={busy} aria-expanded={menuOpen&&item.id===tab} className={item.id===tab?styles.activeTab:''} onClick={()=>selectTab(item.id)}>{item.label}</button>)}</nav>
@@ -157,16 +226,22 @@ export default function EcountWorkbench() {
     {!menuOpen && <section className={styles.content} aria-busy={busy}>
       <div className={styles.heading}><h1 data-ui-page-title ref={titleRef} tabIndex={-1}>{feature?.label || 'MyPage'}</h1><span>{feature?.path.slice(0,-1).join(' > ')}</span></div>
       {error && <div role="alert" className={styles.error}>{error} {loginNeeded&&<a href="/login">로그인</a>}</div>}
+      {filtered.filterError && <p role="alert" className={styles.error}>{filtered.filterError}</p>}
       {message && <p role="status" className={styles.message}>{message}</p>}
       {dataset ? <>
-        <div className={styles.filters}>{['cash','sales'].includes(dataset)&&<><label>조회기간 <input type="date" aria-label="조회 시작일" value={filterFrom} onChange={event=>setFilterFrom(event.target.value)}/><span>~</span><input type="date" aria-label="조회 종료일" value={filterTo} onChange={event=>setFilterTo(event.target.value)}/></label>{dataset==='cash'&&<label>구분 <select value={flow} onChange={event=>setFlow(event.target.value)}><option value="">전체</option><option>입금</option><option>출금</option></select></label>}</>}<label>검색 <input value={rowQuery} onChange={event=>setRowQuery(event.target.value)} /></label><button disabled={busy} onClick={load}>조회</button></div>
-        <div className={styles.toolbar}><button disabled={busy||revision===null} onClick={()=>{setError('');setPeriodFrom('');setPeriodTo('');setDialog('upload');}}>자료 업로드</button><button disabled={busy||revision===null} onClick={()=>{setError('');setDialog('source');}}>수집 자료 불러오기</button><button disabled={busy||revision===null} onClick={showHistory}>작업 이력</button></div>
+        {dataset==='quote'?<QuoteToolbar busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>:<ResultToolbar dataset={dataset} busy={busy} searchOpen={searchOpen} onSearch={toggleSearch} searchRef={searchToggleRef}/>}
+        {searchOpen&&(dataset==='quote'?<QuoteSearchPanel busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onSubmit={runSearch}/>:<SearchPanel dataset={dataset} busy={busy} {...searchDraft} inputRef={searchInputRef} onFrom={from=>setSearchDraft(value=>({...value,from}))} onTo={to=>setSearchDraft(value=>({...value,to}))} onFlow={flow=>setSearchDraft(value=>({...value,flow}))} onQuery={query=>setSearchDraft(value=>({...value,query}))} onSubmit={runSearch} onPreset={applyObservedPreset} onCustomer={()=>setDialog('customer')}/>)}
+        <div className={styles.toolbar}><button disabled={busy||revision===null} onClick={()=>{setError('');setPeriodFrom('');setPeriodTo('');setDialog('upload');}}>자료 업로드</button>{dataset!=='quote'&&<button disabled={busy||revision===null} onClick={()=>{setError('');setDialog('source');}}>수집 자료 불러오기</button>}<button disabled={busy||revision===null} onClick={showHistory}>작업 이력</button></div>
         {busy && <p role="status">처리 중…</p>}
-        {version && <p className={styles.period}>조회기간 {version.periodFrom || '미지정'} ~ {version.periodTo || '미지정'}</p>}
+        {version && <p className={styles.period}>조회기간 {(filterFrom||filterTo?filterFrom:version.periodFrom)||'미지정'} ~ {(filterFrom||filterTo?filterTo:version.periodTo)||'미지정'}</p>}
+        {filtered.unknownDateCount>0&&<p role="status" className={styles.period}>일자가 없는 합계·미상일자 행은 기간 검색에서 제외됩니다.</p>}
         <Table rows={rows} dataset={dataset} />
+        {dataset==='quote'?<QuoteFooter/>:<ResultFooter dataset={dataset} busy={busy} onMapping={()=>setDialog('mapping')} onPreview={revision===null?undefined:openSalesPreview}/>}
       </> : <><div className={styles.sectionLinks} onKeyDown={arrowFocus}>{MENUS.filter(menu=>menu.parentId===menuId).map(menu=><button key={menu.id} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>{!feature?.hasChildren&&<p className={styles.empty}>이 화면은 아직 준비 중입니다.</p>}</>}
     </section>}
-    {dialog && <EcountWorkspaceDialog title={dialog==='upload'?'자료 업로드':dialog==='source'?'수집 자료 불러오기':'작업 이력'} busy={busy} onClose={closeDialog}>
+    {dialog==='customer'&&<CustomerLookupOverlay onClose={closeDialog}/>}
+    {dialog==='mapping'&&<MappingOverlay onClose={closeDialog}/>}
+    {dialog && !['mapping','customer'].includes(dialog) && <EcountWorkspaceDialog title={dialog==='upload'?'자료 업로드':dialog==='source'?'수집 자료 불러오기':'작업 이력'} busy={busy} onClose={closeDialog}>
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {dialog==='upload' && <>
         <p>파일의 자료를 이카운트 전용 SQL 작업 영역에 새 버전으로 저장합니다. 개인정보·계좌번호·자유기재 열은 제외됩니다.</p>
@@ -184,5 +259,5 @@ export default function EcountWorkbench() {
         <footer><button disabled={busy} onClick={closeDialog}>닫기</button><button disabled={busy||!rollbackId} onClick={()=>mutate({action:'activate',versionId:rollbackId,reasonCode})}>선택한 자료로 복원</button></footer>
       </>}
     </EcountWorkspaceDialog>}
-  </div>;
+  </div></ActionScope>;
 }

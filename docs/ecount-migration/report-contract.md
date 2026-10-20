@@ -1,0 +1,46 @@
+# 최종 Excel 동등성 보고서 계약
+
+2026-10-20 추가 사용자 요구: 각 페이지의 모든 원본 버튼에 식별 라벨을 붙이고 네노바 동일 ID와 연결한다. 양쪽 화면 캡처에 버튼 라벨을 표시하고 기능·새창·조회값 동일성을 Excel로 제출한다. 보고서 제작은 최종 산출물 범위에 포함한다. 지금은 지속 기록 형식과 검사를 구현했으며 Excel 파일이나 완료 보고서는 생성하지 않았다.
+
+## 지속 기록
+
+`data/ecount-workbench/button-matches.json`은 원본 프로그램 373개와 현재 관찰된 버튼 전부를 보존한다. 아직 버튼 수를 모르는 페이지는 sourceButtonCount=null, allSourceButtonsKnown=false다. 원본 관찰을 추가하면 이 파일에도 새 버튼 항목을 추가해야 하며 누락은 검사 실패다. 기존 matchId는 라벨 변경·정렬 변경으로 재번호하지 않는다.
+
+- matchId/source.stableId는 조사자가 부여한 지속 식별자(E010205-A01 형식)다. ECOUNT 실제 DOM ID를 알아냈다는 뜻이 아니다. source.domId는 확인 전 null이다.
+- target.requiredStableId는 같은 값이다. 실제 네노바 컨트롤에 연결한 ID와 코드/브라우저 근거를 확보해야 actualStableId를 채운다. 권장 구현은 data-ecount-action-id 속성이며 중복 라벨은 화면 상태/부모 창 문맥으로 구분한다.
+- 상태는 미검증/일치/불일치뿐이다. 부분 관찰이나 버튼의 존재만으로 일치 처리하지 않는다. 캡처 미확보는 null이다.
+- 각 버튼은 라벨, 기능, 새창, 조회값 비교 상태와 근거를 가진다. 원본 쓰기 동작은 실행하지 않으며 공식 명세와 격리 검증을 근거로 기록한다. 직접 실행 동등성 미검증은 그대로 남긴다.
+
+## 비교 조건과 결과
+
+conditions에는 필터 프로필, 기간, 권한 프로필, 정렬, 페이징, 통화, 양쪽 관측 시각, 시간대, 동일 원천 버전 여부를 기록한다. 프로필에는 개인정보나 거래처 검색어를 쓰지 않고 공개 가능한 조건 설명 또는 불투명 작업 ID만 사용한다. 조건이 다르면 조회값 일치를 주장하지 않는다.
+
+조회값 비교는 행 수, 합계 비교 필드 수와 불일치 수, 행 매칭 규칙, 비교 행/필드 수와 불일치 수, 실행 근거를 기록한다. 실제 금액·행 데이터·이름·계좌·개인정보·세션 URL은 보고서 JSON에 저장하지 않는다. 행 비교 근거에는 안전한 검사 결과만 남기고 원본 행을 첨부하지 않는다. 합계값 자체도 적지 않는다. 값 저장 없이 검증 가능한 안전 비교가 준비되지 않으면 미검증으로 둔다.
+
+캡처 항목은 path, viewport:{width,height}, safeReview, containsSensitiveValues, buttonStableIds를 가진다. PNG/JPEG/WebP 로컬 산출물 경로만 허용한다. 캡처에는 같은 버튼 라벨 ID를 시각적으로 부착하고 viewport를 기록한다. 민감한 행·계좌번호·사용자 이름·로그인 정보·주소창 세션 토큰은 캡처 파일을 저장하기 전에 제외해야 한다. 생 캡처를 저장한 뒤 가렸다는 이유로 원본을 남기지 않는다. 안전 확인 없는 캡처는 증거로 등록하지 않는다.
+
+## 최종 Excel 구성
+
+후속 작성 시 spreadsheet/artifact 도구 스킬을 읽고 다음 시트를 만든다: 페이지 목록, 버튼 대응, 화면 캡처, 기능·창 비교, 조회값 비교, 불일치·미검증, 작업 근거. 버튼 대응에는 원본 ID/라벨/문맥과 대상 실제 ID/라벨을 나란히 배치한다. 캡처 시트에는 양쪽 안전 캡처와 버튼 ID를 연결한다. 값 비교 시트에는 조건과 안전 결과만 넣는다. 캡처 이미지가 비어 있거나 동작 미검증인데 전체 완료 보고서로 제출하지 않는다.
+
+Excel이 만들어졌어도 373개 프로그램의 모든 버튼을 조사했다는 근거, 원본/대상 ID 연결, 양쪽 캡처, 동일 조건 비교, 전체 차원 검증이 없으면 100% 완료가 아니다. 기존 parity-inventory의 전체 화면 동등성 게이트와 이 보고서 게이트를 모두 통과해야 한다.
+
+검사:
+
+```text
+node scripts/check-ecount-button-matches.cjs
+node __tests__/ecountParityReport.test.cjs
+node scripts/check-ecount-button-matches.cjs --require-complete
+```
+
+마지막 검사는 현재 종료 코드 2가 정상이다. 구조 검사는 근거의 존재와 누락을 확인하며 캡처 내용·주장 진위의 실검토를 대신하지 않는다.
+
+조회값을 반환하지 않는 닫기/메뉴 펼치기 버튼은 queryValues.queryApplicable=false와 notApplicableReason, applicabilityEvidence를 기록한다. 상태 종류는 미검증/일치/불일치를 유지하며 조회값 상태는 미검증, 행 수·합계·비교 수는 null로 둔다. 가짜 0건 일치를 만들지 않는다. 적용 여부가 아직 모르면 queryApplicable=null이다. 버튼 전체 일치 검사는 근거 있는 비조회 동작의 조회값 비교만 제외하며 기능·창·라벨·캡처 확인은 계속 필요하다.
+
+## Excel 작성용 평탄 모델
+
+`scripts/lib/ecount-report-model.cjs`의 `flattenReport(report, inventory, packets)`는 `{title, completionClaim, counts, sheets:[{name, columns, rows}]}`를 반환한다. 373개 페이지·59개 묶음을 빠짐없이 포함하며 버튼 미관찰 페이지도 별도 행으로 남긴다. 버튼 대응·기능/창/조회값·비교 조건·안전 캡처 목록·미검증 항목을 분리한다. 원본 거래 payload를 펼치지 않고 필요한 메타데이터만 명시적으로 선택한다. 캡처 이미지는 별도 artifact 작성 과정에서 경로를 읽어 삽입한다.
+
+현재 코드 대조는 88개 ID 맵 중 77개 컴포넌트 출력 경로를 확인한 정적 근거다. actualStableId가 있어도 DOM 실행·활성화·기능 동등성 확인을 의미하지 않으며 verificationScope를 반드시 함께 표시한다. 11개는 맵만 있고 출력 경로가 확인되지 않아 actualStableId=null이다. 비활성 버튼에 ID가 있어도 기능 구현 완료가 아니다.
+
+모델 회귀검사: `node __tests__/ecountParityReportModel.test.cjs`.
