@@ -113,6 +113,46 @@ const ACTION_IDS = {
     "견적서조회 상태 탭|확인": "E040202-A38",
     "견적서조회 상태 탭|진행중": "E040202-A39",
     "견적서조회 상태 탭|완료": "E040202-A40"
+  },
+  "purchase": {
+    "상단|Search(F3)": "E040304-A01",
+    "상단|Option": "E040304-A02",
+    "상단|도움말": "E040304-A03",
+    "하단|신규(F2)": "E040304-A04",
+    "하단|Email": "E040304-A05",
+    "하단|진행상태변경": "E040304-A06",
+    "하단|보내기": "E040304-A07",
+    "하단|인쇄": "E040304-A08",
+    "하단|바코드(품목)": "E040304-A09",
+    "하단|전자결재": "E040304-A10",
+    "하단|선택삭제": "E040304-A11",
+    "하단|Excel": "E040304-A12",
+    "하단|이력조회": "E040304-A13",
+    "원본위치상세미확인|이름없는드롭다운": "E040304-A14",
+    "상태 탭|전체": "E040304-A15",
+    "상태 탭|결재중": "E040304-A16",
+    "상태 탭|미확인": "E040304-A17",
+    "상태 탭|확인": "E040304-A18",
+    "검색 패널|검색(F8)": "E040304-A19",
+    "검색 패널|금일": "E040304-A20",
+    "검색 패널|전일": "E040304-A21",
+    "검색 패널|말일": "E040304-A22",
+    "검색 패널|금주(~오늘)": "E040304-A23",
+    "검색 패널|전주": "E040304-A24",
+    "검색 패널|금월(~오늘)": "E040304-A25",
+    "검색 패널|전월": "E040304-A26",
+    "검색 패널|다시작성": "E040304-A27",
+    "검색 패널|구매조회(드롭다운)": "E040304-A28",
+    "상단|Fn": "E040304-A29",
+    "하단 인쇄 옆 삼각 버튼|인쇄 드롭다운": "E040304-A30",
+    "인쇄 드롭다운 펼침|프린트문제해결": "E040304-A31",
+    "검색 패널|거래처 검색 아이콘": "E040304-A32",
+    "거래처 검색 오버레이|사용중단포함": "E040304-A33",
+    "거래처 검색 오버레이|Search(F3)": "E040304-A34",
+    "거래처 검색 오버레이|Option": "E040304-A35",
+    "거래처 검색 오버레이|적용(F8)": "E040304-A36",
+    "거래처 검색 오버레이|신규(F2)": "E040304-A37",
+    "거래처 검색 오버레이|닫기": "E040304-A38"
   }
 };
 const ActionContext=createContext({dataset:null,context:'unknown'});
@@ -127,7 +167,7 @@ export function ObservedButton({ children, reason = pending, actionLabel, 'data-
 export function ResultToolbar({ busy, searchOpen, onSearch, searchRef, dataset }) {
   return <div className={styles.sourceToolbar} aria-label="조회 도구">{dataset==='sales'&&<ObservedButton>Fn</ObservedButton>}<button data-ecount-action-id={actionId(dataset,'Search(F3)')} ref={searchRef} disabled={busy} aria-expanded={searchOpen} aria-controls="ecount-source-search" onClick={onSearch}>Search(F3)</button><ObservedButton>Option</ObservedButton><ObservedButton>도움말</ObservedButton></div>;
 }
-function ObservedDropdown({ label, items, busy, onPreview }) {
+export function ObservedDropdown({ label, items, busy, onPreview, actionContext='unknown', itemsContext='unknown' }) {
   const {dataset}=useContext(ActionContext);
   const [open,setOpen]=useState(false);
   const wrapper=useRef(null),trigger=useRef(null),menu=useRef(null);
@@ -140,8 +180,8 @@ function ObservedDropdown({ label, items, busy, onPreview }) {
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key,true);};
   },[open]);
   return <span ref={wrapper} className={styles.observedDropdown} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setOpen(false);}}>
-    <button type="button" ref={trigger} disabled={busy} data-ecount-action-id={actionId(dataset,label)} aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>▾</button>
-    {open&&<span ref={menu} role="menu" aria-label={label} tabIndex={-1} className={styles.observedPopover} onKeyDown={event=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button:not(:disabled)')];if(!buttons.length)return;const index=buttons.indexOf(document.activeElement);const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;event.preventDefault();buttons[next]?.focus();}}>{items.map(item=><span key={item} title={item==='미리보기'&&onPreview?undefined:pending}><button type="button" role="menuitem" disabled={!(item==='미리보기'&&onPreview)} data-ecount-action-id={actionId(dataset,item)} onClick={()=>{setOpen(false);trigger.current?.focus();onPreview?.();}}>{item}</button></span>)}</span>}
+    <button type="button" ref={trigger} disabled={busy} data-ecount-action-id={actionId(dataset,label,actionContext)} aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>▾</button>
+    {open&&<span ref={menu} role="menu" aria-label={label} tabIndex={-1} className={styles.observedPopover} onKeyDown={event=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button:not(:disabled)')];if(!buttons.length)return;const index=buttons.indexOf(document.activeElement);const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;event.preventDefault();buttons[next]?.focus();}}>{items.map(item=><span key={item} title={item==='미리보기'&&onPreview?undefined:pending}><button type="button" role="menuitem" disabled={!(item==='미리보기'&&onPreview)} data-ecount-action-id={actionId(dataset,item,itemsContext)} onClick={()=>{setOpen(false);trigger.current?.focus();onPreview?.();}}>{item}</button></span>)}</span>}
   </span>;
 }
 export function ResultFooter({ dataset, busy, onMapping, onPreview }) {
@@ -160,13 +200,13 @@ export function MappingOverlay({ onClose }) {
     <footer><ObservedButton>Excel</ObservedButton><button onClick={onClose}>닫기</button></footer>
   </EcountWorkspaceDialog></ActionScope>;
 }
-export function CustomerLookupOverlay({ onClose }) {
+export function CustomerLookupOverlay({ onClose, dataset='sales', context='거래처 조회 오버레이' }) {
   const columns=['','거래처코드','거래처명','검색창내용','상세내역'];
-  return <ActionScope dataset="sales" context="거래처 조회 오버레이"><EcountWorkspaceDialog title="거래처 검색" onClose={onClose} busy={false}>
+  return <ActionScope dataset={dataset} context={context}><EcountWorkspaceDialog title="거래처 검색" onClose={onClose} busy={false}>
     <div className={styles.sourceToolbar}><ObservedButton>사용중단포함</ObservedButton><input aria-label="거래처 검색어" placeholder="입력 후 [Enter]" disabled title="거래처 자료가 아직 수집되지 않았습니다."/></div>
-    <div className={styles.sourceToolbar}><ObservedButton>Fn</ObservedButton><ObservedButton>Search(F3)</ObservedButton><ObservedButton>Option</ObservedButton></div>
+    <div className={styles.sourceToolbar}>{dataset==='sales'&&<ObservedButton>Fn</ObservedButton>}<ObservedButton>Search(F3)</ObservedButton><ObservedButton>Option</ObservedButton></div>
     <div className={styles.tableWrap}><table><thead><tr>{columns.map((label,index)=><th key={index} scope="col">{label}</th>)}</tr></thead><tbody><tr><td colSpan={columns.length} className={styles.empty}>거래처 선택 자료가 아직 수집되지 않았습니다.</td></tr></tbody></table></div>
-    <footer><ObservedButton>적용(F8)</ObservedButton><ObservedButton>신규(F2)</ObservedButton><button data-ecount-action-id={actionId('sales','닫기','거래처 조회 오버레이')} onClick={onClose}>닫기</button></footer>
+    <footer><ObservedButton>적용(F8)</ObservedButton><ObservedButton>신규(F2)</ObservedButton><button data-ecount-action-id={actionId(dataset,'닫기',context)} onClick={onClose}>닫기</button></footer>
   </EcountWorkspaceDialog></ActionScope>;
 }
 function UnavailableField({ label, children }) {

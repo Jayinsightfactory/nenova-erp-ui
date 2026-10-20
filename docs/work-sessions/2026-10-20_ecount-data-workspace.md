@@ -81,3 +81,9 @@
 - 외부API 존재 근거: dev.barobill.co.kr/services/bankAccount, /services/card, /services/taxinvoice 공식문서 확인. 계약·인증·실제연동·발행 실행은 없음. 보고서 외부연동 근거로만 사용.
 - 계정 주간69%→81%, 남음19% 마지막확인. 기존3workers재사용. 남은전체59묶음 완전일치0이며 다음은 구매조회 실구현, 견적 미지원검색/하위동작, 판매 출력/선택자료 및 미관찰 화면을 원본근거와 함께 진행한다.
 - Excel 후속 갱신 완료: ECOUNT_버튼별_비교보고서.xlsx 360842bytes/10시트. 관측138버튼 및 원본·대상11장, 26행78값 mismatch0 요약, 구매미구현·레이아웃차이·전체완전성unknown, 외부API3종공식문서근거 반영. 원본JPEG11개 hash보존/ZIP/렌더/보고서검사 통과. root도 신규대상상태시트 렌더검토. 개별행 row-comparison-evidence.json 26건의 날짜/금액/상태 일치boolean은 별도근거이며 이번워크북에 포함하지 않음.
+
+### 2026-10-20 구매조회 구현 및 독립 SQL 표본
+- 최신 master e685a123 병합 193951c7. 구매 E040304 10열, F3/F8, 금일, 거래처 검색 오버레이 열기/닫기, 구매 전용 인쇄 펼침 구현. 관측38 ID 중37개 UI 연결(A14 위치 미확정); 원본 미관찰·미수집 기능은 비활성, 전체 동등성 미완료.
+- 원본 조회기간2026-09-20~11-19 화면표본26행의 일자/금액/외화금액/환율만 안전 투영. 별도 ecount_work purchase revision1 적재, readback/idempotent true. 원본전체건수 unknown, ECOUNT 쓰기0/공유원장 쓰기0. import-latest 구매 차단, 파일 업로드·버전복원만 지원.
+- 안전필드·소수정밀도·교차연도·정정/복원·멱등 표적3검사 PASS. 최종 빌드/CI/배포/운영비교는 후속기록 전까지 미검증.
+- 검색어: E040304 purchase-safe-projection purchase-revision1 26rows 37buttonIDs source-readonly

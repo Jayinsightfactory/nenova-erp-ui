@@ -268,3 +268,9 @@
 - 원본 포함 38검사, 별도 계산기10양식, 실제42-01 SELECT 출력·기존 숫자672셀 동일. CBM 미보유는 입력 필요, 부분 합산 금지.
 - ERP/dnSpy/manifest/write guard/build 통과. 최종 배포·운영 브라우저 다운로드는 미검증.
 - 검색어: country-cost-formula-comparison 원본수식비교 CBM 672셀 승인원가보존
+
+### 2026-10-20 구매조회 구현 및 독립 SQL 표본
+- 최신 master e685a123 병합 193951c7. 구매 E040304 10열, F3/F8, 금일, 거래처 검색 오버레이 열기/닫기, 구매 전용 인쇄 펼침 구현. 관측38 ID 중37개 UI 연결(A14 위치 미확정); 원본 미관찰·미수집 기능은 비활성, 전체 동등성 미완료.
+- 원본 조회기간2026-09-20~11-19 화면표본26행의 일자/금액/외화금액/환율만 안전 투영. 별도 ecount_work purchase revision1 적재, readback/idempotent true. 원본전체건수 unknown, ECOUNT 쓰기0/공유원장 쓰기0. import-latest 구매 차단, 파일 업로드·버전복원만 지원.
+- 안전필드·소수정밀도·교차연도·정정/복원·멱등 표적3검사 PASS. 최종 빌드/CI/배포/운영비교는 후속기록 전까지 미검증.
+- 검색어: E040304 purchase-safe-projection purchase-revision1 26rows 37buttonIDs source-readonly

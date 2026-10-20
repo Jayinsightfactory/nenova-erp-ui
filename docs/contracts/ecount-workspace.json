@@ -15,6 +15,7 @@
     "scripts/ecount-workspace-sql-check.cjs",
     "components/ecount/ObservedPageControls.js",
     "components/ecount/QuotePageControls.js",
+    "components/ecount/PurchasePageControls.js",
     "scripts/ecount-workspace-import-safe.mjs"
   ],
   "businessIdentity": [
@@ -73,6 +74,7 @@
     "implemented": "Observed F3 inline panel, local safe-workspace query and same-tab mapping shell only; unverified source actions remain disabled",
     "mappingData": "Not collected; never report empty source result as verified",
     "sourceWrites": "Forbidden",
-    "existingLedgerWrites": "None"
+    "existingLedgerWrites": "None",
+    "purchaseUpload": "E040304 purchase: refDate/sourceDateLabel 및 amountTotal/foreignTotal/exchangeRate 숫자만 안전 투영. 기존 JSON 버전 구조에 업로드만 허용; import-latest 금지, 원본전체 수집 unknown, 신규 DDL/기존 원장 변경 없음. 근거: 원본 구매조회 10열 관찰(root), 표시만으로 데이터 전체성을 추정하지 않음."
   }
 }
