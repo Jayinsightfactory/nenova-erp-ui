@@ -322,3 +322,13 @@
 - 다음 판매할인E040216/구매할인E040313 각각6열·검색버튼차이·인쇄3항목·별도원본미리보기관측. 날짜문법/비어있지않은자료미관측이므로 discount/buyDisc 읽기전용scope 및 모든import/activate 차단. 미수집상태로표시하며0건일치로간주하지않음. 다음전체gate 진행중.
 - 원본쓰기0/공유ERP원장쓰기0. 59묶음 전체는 미완료이며 검증되지 않은 버튼은 완료로 표시하지 않는다.
 - 검색어: E040305 4140values PR1124 PR1126 receipt227 payment102 discount buyDisc
+
+### 2026-10-20 ECOUNT 판매조회 및 캡처 복구
+- PR1126 배포39385563160/hydration success. 수금227행454값·지급102행204값 날짜/금액 모두일치. 각각금일0건·인쇄3메뉴·별도미리보기탭생성 확인, Blob내용미검증.
+- 비교Excel 554482bytes/10시트/17이미지 갱신,ZIP/수식/원본hash검사PASS. root수금head렌더확인. 이후추가관측은다음export대기.
+- PR1127 squashc203857a, CI39386118651/배포39386452733 success. 할인2화면 운영6열/F3/판매10버튼vs구매9버튼/미수집쓰기차단확인. 미수집상태를원본0건일치로간주하지않음.
+- E040206 판매조회 원본10열/24버튼/금일0/인쇄펼침문제해결1개관측. safe26행날짜금액만 saleQuery revision1 readback/idempotenttrue. 실제표본날짜범위2026-10-13..13이며원본기본검색기간아님. PR1129 CI39387422701pass, squash87171980, 운영배포후값대조대기.
+- 대상clip캡처timeout, 사용자Chrome복원후에도지속. fullPage:false 전체화면은성공, 수금/지급/구매현황/할인2화면 확보. 화면제목및role=status[] 확인후저장. 같은탭hash변경만으로이전화면잔류결함발견;초기잘못명명된사진은reload/제목검증후덮어씀. 각newtab의기존값대조에는영향없음.
+- 후속묶음 수금지급750px/구매현황1400px시각보정,hashchange/popstate회귀수정, 미판매9열/미구매8열readonly화면연결 구현. 영업주기기준일의미미검증이므로실행차단. 전체gate/운영검증대기.
+- 이번판매조회빌드생성캐시8파일78994754bytes 삭제시도는자동승인정책차단으로미실행. 캐시보존. 계정주간사용21%확인(계정공유값).
+- 검색어: saleQuery E040206 26rows fullPagefalse hashchange E040212 E040307 PR1129 cache-policy-block

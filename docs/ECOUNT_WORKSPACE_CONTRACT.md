@@ -36,3 +36,5 @@ E040216 discount는 현재 읽기 전용이다. 금일/전월0행과 6열만 관
 buyDisc(E040313 구매할인현황)는 discount와 별도 scope이며 purchaseAmount/accountingAmount/difference만 숫자모델로 정의한다. 518/588은 기존 canonical규칙을 공유한다. 날짜 문법 미확인·금일/전월0행 관찰이므로 모든 버전쓰기를 차단하고 가짜행을 만들지 않는다.
 
 saleQuery(E040206 판매조회)는 amount와 검증된 sourceDateLabel/refDate만 적재하며 다른 판매/판매현황 scope와 분리한다. 원본 안전표본26행은 전체성/기본기간 보증이 아니다. source-latest 금지, 기간 unknown 허용, 기존 불변버전/정정/복원 정책 재사용. SQL/DDL 및 기존 ERP 원장 변경은 없다.
+
+unsold(E040212 미판매현황)와 unbought(E040307 미구매현황)는 금일0행만 관측했고 기준일자(영업주기)의 의미와 실제 행 날짜가 미확인이다. readonly scope와 숫자모델만 정의하고 날짜값·필터 및 모든 버전쓰기를 차단한다. unsold는 qty/unfulfilledQty/supplyAmt/vat, unbought는 qty/unfulfilledQty/vat만 투영하며 가짜행/빈snapshot/납기일 추정을 금지한다.

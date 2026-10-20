@@ -7298,25 +7298,312 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040212-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A05",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A06",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A07",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A08",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A09",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A10",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A11",
+          "label": "전월+금월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A12",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A13",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A14",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A15",
+          "label": "Excel(화면)",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A16",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040212-A17",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "separate-tab-nine-visible-columns"
+        },
+        {
+          "id": "E040212-A18",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "품목별납기일자",
+            "창고",
+            "거래처",
+            "품목",
+            "담당자",
+            "거래처관리담당자",
+            "미판매수량"
+          ],
+          "dateLabel": "기준일자(영업주기)",
+          "options": {
+            "grouping": [
+              "품목별",
+              "라인별"
+            ],
+            "defaultGrouping": "라인별",
+            "graph": false,
+            "form": "현황"
+          }
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "일자-No.",
+            "품목명(규격)",
+            "수량",
+            "미판매수량",
+            "미판매공급가액",
+            "거래처명",
+            "적요",
+            "품목별납기일자",
+            "미판매부가세"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -7329,8 +7616,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNSOLD-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -7375,7 +7664,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Business-cycle reference-date semantics unknown; target data not collected; complete parity unverified"
       ],
       "exclusions": []
     },
@@ -11117,25 +11406,311 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040307-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A05",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A06",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A07",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A08",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A09",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A10",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A11",
+          "label": "전월+금월",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A12",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A13",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A14",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A15",
+          "label": "Excel(화면)",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A16",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        },
+        {
+          "id": "E040307-A17",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "separate-tab-eight-visible-columns"
+        },
+        {
+          "id": "E040307-A18",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible label; target date semantics/data not verified"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "납기일자",
+            "창고",
+            "거래처",
+            "품목",
+            "담당자",
+            "거래처관리담당자",
+            "미구매수량"
+          ],
+          "dateLabel": "기준일자(영업주기)",
+          "options": {
+            "grouping": [
+              "품목별",
+              "라인별"
+            ],
+            "defaultGrouping": "라인별",
+            "graph": false,
+            "form": "현황(인쇄용)"
+          }
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
-          "testEvidence": []
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
+          "testEvidence": [],
+          "labels": [
+            "일자-No.",
+            "품목명(규격)",
+            "수량",
+            "미구매수량",
+            "품목별납기일자",
+            "거래처명",
+            "적요",
+            "미구매부가세"
+          ]
         },
         "sorting": {
           "stage": "unknown",
@@ -11148,8 +11723,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-UNBOUGHT-INITIAL"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -11194,7 +11771,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Business-cycle reference-date semantics unknown; target data not collected; complete parity unverified"
       ],
       "exclusions": []
     },
