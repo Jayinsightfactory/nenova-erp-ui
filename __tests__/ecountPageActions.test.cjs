@@ -27,6 +27,21 @@ const desc=h.filterSortRows({dataset:'cash',rows,sortKey:'balance',direction:'de
 const ranged=h.filterSortRows({dataset:'cash',rows,from:'2026-01-01',to:'2026-01-02',flow:'in'});assert.equal(ranged.rows.length,3);assert.equal(ranged.unknownDateCount,1);
 const exact=h.filterSortRows({dataset:'cash',rows,numericFilter:{key:'amount',min:'999999999999999999.00000001',max:'999999999999999999.00000001'}});assert.equal(exact.rows.length,1);assert.equal(exact.rows[0].rowNumber,2);
 const quote=h.filterSortRows({dataset:'quote',rows:[{estimateTotal:'2.00000001',refDate:'2026/01/03 -12'},{estimateTotal:'2.00000000',refDate:'2025/01/03 -1'}],from:'2026-01-01',to:'2026-01-31',sortKey:'estimateTotal'});assert.equal(quote.rows.length,1);assert.equal(quote.rows[0].sourceDateLabel,'2026/01/03 -12');
+const stateRows=[...Array.from({length:3},(_,i)=>({estimateTotal:`2.0000000${i}`,refDate:'2026-01-03',quoteStatus:'in_progress',statusEvidence:i===2?'query_filter':'row_cell'})),{estimateTotal:'3.00000000',refDate:'2026-01-03'}];
+const stateBefore=JSON.stringify(stateRows);
+const progress=h.filterSortRows({dataset:'quote',rows:stateRows,quoteStatus:'in_progress'});
+assert.equal(progress.rows.length,3);assert.equal(progress.unknownStatusCount,1);assert.equal(progress.excludedUnknownStatusCount,1);assert.equal(progress.statusCoverage,'partial');assert.equal(JSON.stringify(stateRows),stateBefore);
+const allStatus=h.filterSortRows({dataset:'quote',rows:stateRows});assert.equal(allStatus.rows.length,4);assert.equal(allStatus.excludedUnknownStatusCount,0);
+const unobserved=h.filterSortRows({dataset:'quote',rows:[stateRows[3]],quoteStatus:'in_progress'});assert.equal(unobserved.rows.length,0);assert.equal(unobserved.statusCoverage,'unknown');assert.equal(unobserved.excludedUnknownStatusCount,1);
+const emptyStatus=h.filterSortRows({dataset:'quote',rows:[],quoteStatus:'in_progress'});assert.equal(emptyStatus.statusCoverage,'unknown');
+// Synthetic mixed-status fixture; these counts do not establish source total/completeness.
+const mixedStates=Array.from({length:17},(_,i)=>({estimateTotal:'1.00000000',refDate:'2026-01-03',quoteStatus:i<3?'in_progress':'completed',statusEvidence:'row_cell'}));
+assert.equal(h.filterSortRows({dataset:'quote',rows:mixedStates}).rows.length,17);
+const matchedProgress=h.filterSortRows({dataset:'quote',rows:mixedStates,quoteStatus:'in_progress'});assert.equal(matchedProgress.rows.length,3);assert.equal(matchedProgress.statusCoverage,'known');
+const matchedCompleted=h.filterSortRows({dataset:'quote',rows:mixedStates,quoteStatus:'completed'});assert.equal(matchedCompleted.rows.length,14);assert.equal(matchedCompleted.unknownStatusCount,0);
+const datedStatus=h.filterSortRows({dataset:'quote',rows:stateRows,from:'2025-01-01',to:'2025-01-31',quoteStatus:'in_progress'});assert.equal(datedStatus.rows.length,0);assert.equal(datedStatus.unknownStatusCount,1);assert.equal(datedStatus.excludedUnknownStatusCount,0);
+assert.throws(()=>h.filterSortRows({dataset:'quote',rows:stateRows,quoteStatus:'done'}),/INVALID_QUOTE_STATUS_FILTER/);
+assert.throws(()=>h.filterSortRows({dataset:'sales',rows:[],quoteStatus:'in_progress'}),/INVALID_QUOTE_STATUS_FILTER/);
 assert.throws(()=>h.filterSortRows({dataset:'ar',rows:[{balance:'0'}],from:'2026-01-01'}),/DATE_FILTER_UNAVAILABLE/);
 assert.throws(()=>h.filterSortRows({dataset:'cash',rows,sortKey:'account'}),/INVALID_SORT_KEY/);
 assert.throws(()=>h.filterSortRows({dataset:'cash',rows,numericFilter:{key:'amount',min:'2',max:'1'}}),/INVALID_NUMERIC_RANGE/);
