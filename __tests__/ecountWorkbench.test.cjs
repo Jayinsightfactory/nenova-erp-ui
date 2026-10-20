@@ -92,7 +92,23 @@ for(const file of ['lib/ecountWorkbench.cjs','components/EcountPreviewShell.js']
   assert.ok(!/\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|indexedDB|localStorage|sessionStorage|document\.cookie|lib\/db|lib\/useApi/.test(text),file+' must remain isolated');
 }
 const app=fs.readFileSync(path.join(__dirname,'../pages/_app.js'),'utf8');
-const branch=app.slice(app.indexOf("if (router.pathname === '/ecount/workbench')"),app.indexOf('if (isNoLayout)'));
-assert.match(branch,/EcountPreviewShell/);
+const babel=require('next/dist/compiled/babel/core');
+const parsed=babel.parseSync(app,{filename:'_app.js',babelrc:false,configFile:false,parserOpts:{plugins:['jsx']}});
+const appFunction=parsed.program.body.find(node=>node.type==='ExportDefaultDeclaration').declaration;
+const shellBranch=appFunction.body.body.find(node=>node.type==='IfStatement'&&node.consequent.body?.some(statement=>statement.type==='ReturnStatement'&&statement.argument?.openingElement?.name?.name==='EcountPreviewShell'));
+assert.ok(shellBranch,'dedicated ECOUNT shell branch exists');
+const branch=app.slice(shellBranch.start,shellBranch.end);
 assert.doesNotMatch(branch,/<(?:ReplayRecorder|UserActivityRecorder|Layout)[\s/>]/);
+// Execute the real route predicate and JSX return instead of asserting its spelling.
+const compiled=babel.transformSync('import React from "react"; function render(router){'+branch+'} module.exports=render;',{filename:'shell-test.js',babelrc:false,configFile:false,presets:[[require('next/babel'),{'preset-env':{modules:'commonjs'}}]]}).code;
+const shell=function EcountPreviewShell(){}, page={sentinel:'page'}, box={exports:{}};
+require('node:vm').runInNewContext(compiled,{module:box,exports:box.exports,require,React:require('react'),EcountPreviewShell:shell,page});
+for(const pathname of ['/ecount/workbench','/ecount/lookup']){
+ const rendered=box.exports({pathname,query:{}});
+ assert.equal(rendered.type,shell);
+ assert.equal(rendered.props.children,page);
+ assert.equal(rendered.props.lookup,pathname==='/ecount/lookup');
+}
+for(const pathname of ['/','/orders','/m','/ecount/workbench-extra','/ecount/lookup-extra'])assert.equal(box.exports({pathname,query:{}}),undefined);
+assert.equal(box.exports({pathname:'/ecount/workbench',query:{popup:'1'}}).props.popup,true);
 console.log('ECOUNT workbench: '+checked+' screen contracts; 8 tabs/537 paths; calculations, isolation, revision, external gate and cross-year fixtures passed');
