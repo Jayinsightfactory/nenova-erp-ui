@@ -7,6 +7,7 @@ export default function ShillaPeriodAnalysis({data}) {
     <h2>실제 전산 분배 ↔ 엑셀 손익 ↔ 신라 입고</h2>
     <p>전산 신라호텔 분배 원장 {data.distributionCount}행을 읽었습니다. 출고 차수, 엑셀 집계기간, 신라 입고일을 각각 유지합니다. 원본 날짜 전후 {data.lookaroundDays}일에서 같은 품목·단위의 일별 및 월~금 수치 일치를 탐색합니다.</p>
     <p>{data.warning} 전산 금액은 저장된 공급가액이며, 단가는 공급가액 ÷ 견적수량입니다. 미확정 분배도 상태를 표시합니다.</p>
+    <p>판매요청 원장 {data.salesRequestCount||0}행을 함께 확인했습니다. 정상 추가분은 같은 전산 대차수의 판매요청을 포함해 수량·단가·금액이 맞는 경우입니다. 판매요청일과 신라 입고일은 각각 표시하며, 창고 분배값은 변경하지 않습니다.</p>
     <details open><summary>월별 신라 입고 공급가액 · 세금계산서 귀속 기준</summary>
       <p>{data.rule}. 실제 발행된 세금계산서와 일치 검증한 금액은 아닙니다.</p>
       <div className="wide"><table><thead><tr><th>귀속월</th><th>입고 원본행</th><th>공급가액</th><th>조회 범위</th></tr></thead>
@@ -23,7 +24,12 @@ export default function ShillaPeriodAnalysis({data}) {
         <td>{fmt(r.excel.qty)} [{r.unit}]<br/>{fmt(r.excel.amount)}원<br/>단가 {r.excel.buckets?.map(b=>fmt(b[0])).join(' / ')||'미확인'}</td>
         <td>{r.receipt?<>{r.receipt.label}<br/>{fmt(r.receipt.qty)} [{r.unit}]<br/>{fmt(r.receipt.amount)}원
           <details><summary>입고 원본 {r.receipt.rows.length}행</summary>{r.receipt.rows.map((s,i)=><p key={i}>{s.date} · {s.receiptNo}/{s.receiptItem}<br/>{fmt(s.qty)} × {fmt(s.price)} = {fmt(s.amount)}</p>)}</details></>:r.receiptCandidateCount?`같은 수치의 기간 ${r.receiptCandidateCount}개 — 확인 필요`:'일치하는 기간 미확인'}</td>
-        <td><b>{r.status}</b><br/>수량 {fmt(r.qtyDifference)}<br/>금액 {fmt(r.amountDifference)}</td>
+        <td><b>{r.status}</b><br/>분배 원본 차이: 수량 {fmt(r.qtyDifference)} / 금액 {fmt(r.amountDifference)}
+          {r.sales&&<><p>판매요청 +{fmt(r.sales.qty)} [{r.unit}] / {fmt(r.sales.amount)}원<br/>
+            포함 합계 {fmt(r.combined.qty)} / {fmt(r.combined.amount)}원<br/>
+            포함 후 차이: 수량 {fmt(r.combined.qty==null?null:r.combined.qty-r.excel.qty)} / 금액 {fmt(r.combined.amount==null?null:r.combined.amount-r.excel.amount)}</p>
+            <details><summary>판매요청 근거 {r.sales.rows.length}행</summary>{r.sales.rows.map(s=><p key={s.id}>견적 #{s.id} · {s.week}차<br/>판매요청일 {s.date||'미확인'}<br/>{fmt(s.qty)} [{s.unit}] × 공급단가 {fmt(s.price)} = {fmt(s.amount)}원<br/>상위 확정 {s.masterFixed?'예':'아니오'}</p>)}</details></>}
+        </td>
       </tr>)}</tbody></table></div>
     </details>
     <style jsx>{`.wide{overflow-x:auto}table{width:100%;min-width:950px;border-collapse:collapse}th,td{padding:12px;border:1px solid #dce4e9;text-align:left;vertical-align:top;line-height:1.6}thead{background:#edf3f6}details{margin:14px 0}summary{cursor:pointer;font-weight:600}p{line-height:1.6}`}</style>

@@ -163,3 +163,8 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - dnSpy FormShipmentDistribution 실제 CLI 실행 성공. GetCustomerList의 연도·차수, 상위 거래처 조인 및 btnSave_Click의 EstQuantity, Amount=round(Cost*round(EstQuantity)/1.1), ShipmentDate 별도 일자수량 확인. Cost는 이 경로에서 부가세 포함 판매단가이므로 매입단가로 표시하지 않는다.
 - 운영 읽기 probe: 활성 정확명 신라호텔 CustKey446 유일, 신라상사444/445 제외. 2026 활성 분배315행. 40-02/181/94506 OutQuantity=EstQuantity=520, EstUnit송이, Amount4316000, Cost9130, 기준출고일9/30. 엑셀40차521/4324300 및 SRM10/7 전표5020752839 합계521/4324300으로 실제1송이·8300차이후보.
 - ShipmentDate는 별도조회해서 상세키당총량을복제하지않고표시. 주문/출고/일자/Farm/Estimate/Stock/WebProfitReport 모든쓰기없음. 전산차수=엑셀차수 가정 금지, 14일 인근수치일치는후보표시, 모호/중복소비경고. 월은실제입고일의달(사용자확인), 부분월표시.
+
+## 2026-10-20 판매요청 추가분 읽기 검증
+- 실제 CLI: dnSpy.Console.exe --no-color -t ClassEstimate "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe" 실행 성공. Insert/Update는 EstimateType/EstimateDtm/ProdKey/Unit/Quantity/Cost/Amount/Vat/ShipmentKey만 저장. 분배수량 변경 없음.
+- SELECT 근거: Estimate10040/Shipment6623, 2026/40-01, Customer446, Product181, Type FEE03-KR0770(CodeInfo.Descr2판매요청), 10/12,1송이,Cost9130,Amount8300,상위확정. 40-02 분배520+판매요청1=Excel/SRM521. 입고10/7과 요청10/12는 같은날로 바꾸지 않는다.
+- CodeInfo EXISTS로 유형판정하며 원장 PK중복, 교차연도, 요청중복소비를 차단. 원장쓰기 없음.
