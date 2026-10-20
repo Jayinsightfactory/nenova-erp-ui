@@ -135,3 +135,12 @@ test('unknown packs are suggestions only; explicit pack sizes and unique names r
  x.receipts[0].name='[수입] 행사용꽃, 히야신스, 화이트 (PK)';assert.equal(reconcileShilla(x).unmatched.length,1);
  x.db.push({...a,unit:'단',prodKey:2999,prodName:'Other cultivar'});assert.equal(Object.keys(reconcileShilla(x).suggestedMappings).length,0);
 });
+test('qualified SRM varieties cannot collapse into an ordinary same-color saved product',async()=>{
+ const {reconcileShilla}=await modulePromise;
+ const a={...item,name:'수국 · 연그린',unit:'스팀',prodKey:883,prodName:'Hydrangea light green'};
+ const x={...input(),db:[a],excel:[a],receipts:[{...receipt,name:'[수입] 행사용꽃, 수국, 연그린, 콜롬비아 (EA)',spec:'-'}]};
+ assert.equal(reconcileShilla(x).complete,true);
+ for(const name of ['[수입] 행사용꽃, 수국, 엔틱, 연그린, CO (EA)','[수입] 행사용꽃, 수국, 염색, 연그린, 콜롬비아 (EA)']){
+  x.receipts[0].name=name;const r=reconcileShilla(x);assert.equal(r.unmatched.length,1);assert.equal(Object.keys(r.suggestedMappings).length,0);
+ }
+});
