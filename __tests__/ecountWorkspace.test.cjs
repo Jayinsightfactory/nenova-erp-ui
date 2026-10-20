@@ -11,6 +11,12 @@ const base={dataset:'sales',menuId,action:'import',expectedRevision:0,reasonCode
 const user={userId:'synthetic-admin',authority:1,accountActive:true};
 const quoteBase={dataset:'quote',menuId:menus.find(m=>m.program===p.PROGRAMS.quote).id,action:'import',expectedRevision:0,reasonCode:'IMPORT',periodFrom:'2026-01-01',periodTo:'2026-01-31',rows:[{refDate:'2026/01/03 -12',estimateTotal:'12345678901234567890.12345678',custName:'PRIVATE_CUSTOMER',prodName:'PRIVATE_PRODUCT',memo:'PRIVATE_MEMO',status:'PRIVATE_STATUS'}]};
 assert.deepEqual(p.SOURCE_DATASETS,['cash','ar','ap','sales']);
+const purchaseBase={...quoteBase,dataset:'purchase',menuId:menus.find(m=>m.program==='E040304').id,rows:[{refDate:'2026/01/03 -12',amountTotal:'12345678901234567890.12345678',foreignTotal:'0.00000001',exchangeRate:'1300.00000000',custName:'PRIVATE_CUSTOMER',memo:'PRIVATE_MEMO'}]};
+const safePurchase=p.prepareImport(purchaseBase);assert.equal(safePurchase.program,'E040304');assert.equal(safePurchase.completeness,'unknown');assert.equal(safePurchase.rows[0].sourceDateLabel,'2026/01/03 -12');assert.equal(safePurchase.rows[0].amountTotal,'12345678901234567890.12345678');assert(!JSON.stringify(safePurchase).includes('PRIVATE_'));assert.equal(p.prepareImport({...purchaseBase,rows:safePurchase.rows}).hash,safePurchase.hash);
+assert.notEqual(safePurchase.hash,p.prepareImport({...purchaseBase,periodFrom:'2025-01-01',periodTo:'2025-01-31'}).hash);
+assert.throws(()=>p.prepareImport({...purchaseBase,menuId:quoteBase.menuId}),/INVALID_SCOPE/);
+assert.throws(()=>p.sanitizeRows('purchase',[{amountTotal:'1e3'}]),/INVALID_DECIMAL/);
+assert.throws(()=>p.sanitizeRows('purchase',[{amountTotal:'1',quoteStatus:'completed',statusEvidence:'row_cell'}]),/INVALID_QUOTE_STATUS/);
 const safeQuote=p.prepareImport(quoteBase);assert.equal(safeQuote.rows[0].estimateTotal,'12345678901234567890.12345678');assert.equal(safeQuote.rows[0].sourceDateLabel,'2026/01/03 -12');assert(!JSON.stringify(safeQuote).includes('PRIVATE_'));
 assert.equal(safeQuote.hash,'639c3bea7a317fde356c6ed05c108e9ba1cb6e384295bab98b82700b28c9dea8'); // Pre-status persisted checksum fixture.
 assert.equal(Object.hasOwn(safeQuote.rows[0],'quoteStatus'),false);
@@ -131,6 +137,14 @@ vm.createContext(context);vm.runInContext(storeSource+'\nthis.saveVersion=saveVe
   verified=user;active=false;res=response();await apiContext.handler(req,res);assert.equal(res.code,403);assert.equal(storeCalls,0);
   active=true;res=response();await apiContext.handler({...req,method:'POST',headers:{host:'localhost',origin:'https://untrusted.invalid'}},res);assert.equal(res.code,403);assert.equal(storeCalls,0);
   res=response();await apiContext.handler(req,res);assert.equal(res.code,200);assert.equal(storeCalls,1);
+  const purchaseQueriesBefore=sqlCalls.length;
+  await assert.rejects(context.saveVersion({...purchaseBase,action:'import-latest'},user),/SOURCE_IMPORT_UNSUPPORTED/);assert.equal(sqlCalls.length,purchaseQueriesBefore);
+  db={head:null,versions:[],audit:[]};
+  const purchaseFirst=await context.saveVersion(purchaseBase,user);assert.equal(purchaseFirst.revision,1);
+  const purchaseDuplicate=await context.saveVersion({...purchaseBase,expectedRevision:1},user);assert.equal(purchaseDuplicate.idempotent,true);assert.equal(db.audit.length,1);
+  await context.saveVersion({...purchaseBase,expectedRevision:1,reasonCode:'CORRECTION',rows:[{amountTotal:'2'}]},user);
+  await context.saveVersion({...purchaseBase,action:'activate',expectedRevision:2,versionId:purchaseFirst.versionId,reasonCode:'ROLLBACK'},user);
+  assert.equal(db.head.versionId,purchaseFirst.versionId);assert.equal(db.versions.length,2);assert.equal(db.audit.length,3);assert.equal(JSON.parse(db.versions[0].rows)[0].exchangeRate,'1300.00000000');
   const queriesBefore=sqlCalls.length;
   await assert.rejects(context.saveVersion({...quoteBase,action:'import-latest'},user),/SOURCE_IMPORT_UNSUPPORTED/);assert.equal(sqlCalls.length,queriesBefore);
   db={head:null,versions:[],audit:[]};

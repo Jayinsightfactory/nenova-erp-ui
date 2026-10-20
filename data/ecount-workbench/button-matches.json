@@ -2588,10 +2588,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A01",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A01",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A01",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -2656,7 +2660,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -2672,10 +2677,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A02",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A02",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A02",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -2740,7 +2749,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -2756,10 +2766,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A03",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A03",
+            "label": "도움말",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A03",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -2824,7 +2838,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -2840,10 +2855,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A04",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A04",
+            "label": "신규(F2)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A04",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -2908,7 +2927,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -2924,10 +2944,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A05",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A05",
+            "label": "Email",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A05",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -2992,7 +3016,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3008,10 +3033,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A06",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A06",
+            "label": "진행상태변경",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A06",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3076,7 +3105,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3092,10 +3122,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A07",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A07",
+            "label": "보내기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A07",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3160,7 +3194,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3176,10 +3211,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A08",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A08",
+            "label": "인쇄",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A08",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3244,7 +3283,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3260,10 +3300,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A09",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A09",
+            "label": "바코드(품목)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A09",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3328,7 +3372,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3344,10 +3389,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A10",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A10",
+            "label": "전자결재",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A10",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3412,7 +3461,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3428,10 +3478,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A11",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A11",
+            "label": "선택삭제",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A11",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3496,7 +3550,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3512,10 +3567,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A12",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A12",
+            "label": "Excel",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A12",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3580,7 +3639,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3596,10 +3656,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A13",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A13",
+            "label": "이력조회",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A13",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3664,7 +3728,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3682,8 +3747,11 @@
             "requiredStableId": "E040304-A14",
             "actualStableId": null,
             "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS"
+            ],
+            "codeMappingStableId": "E040304-A14",
+            "verificationScope": "Map only; original location uncertain, not rendered"
           },
           "status": "미검증",
           "conditions": {
@@ -3748,7 +3816,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3764,10 +3833,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A15",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A15",
+            "label": "전체",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A15",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3832,7 +3905,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3848,10 +3922,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A16",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A16",
+            "label": "결재중",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A16",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -3916,7 +3994,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -3932,10 +4011,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A17",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A17",
+            "label": "미확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A17",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4000,7 +4083,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4016,10 +4100,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A18",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A18",
+            "label": "확인",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A18",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4084,7 +4172,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4100,10 +4189,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A19",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A19",
+            "label": "검색(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A19",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4168,7 +4261,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4185,10 +4279,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A20",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A20",
+            "label": "금일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A20",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4255,7 +4353,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4271,10 +4370,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A21",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A21",
+            "label": "전일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A21",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4339,7 +4442,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4355,10 +4459,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A22",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A22",
+            "label": "말일",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A22",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4423,7 +4531,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4439,10 +4548,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A23",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A23",
+            "label": "금주(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A23",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4507,7 +4620,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4523,10 +4637,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A24",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A24",
+            "label": "전주",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A24",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4591,7 +4709,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4607,10 +4726,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A25",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A25",
+            "label": "금월(~오늘)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A25",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4675,7 +4798,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4691,10 +4815,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A26",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A26",
+            "label": "전월",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A26",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4759,7 +4887,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4775,10 +4904,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A27",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A27",
+            "label": "다시작성",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A27",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4843,7 +4976,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4859,10 +4993,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A28",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A28",
+            "label": "구매조회(드롭다운)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A28",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -4927,7 +5065,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -4943,10 +5082,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A29",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A29",
+            "label": "Fn",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A29",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5011,7 +5154,8 @@
             "target": null
           },
           "limitations": [
-            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown"
+            "Source label only except F3 inline open; target page implementation pending; complete source controls unknown",
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5027,10 +5171,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A30",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A30",
+            "label": "인쇄 드롭다운",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A30",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5097,7 +5245,7 @@
             "target": null
           },
           "limitations": [
-            "Purchase-specific print menu; do not inherit sales PDF/preview actions. Target not implemented."
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5113,10 +5261,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A31",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A31",
+            "label": "프린트문제해결",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A31",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5181,7 +5333,7 @@
             "target": null
           },
           "limitations": [
-            "Purchase-specific print menu; do not inherit sales PDF/preview actions. Target not implemented."
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5197,10 +5349,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A32",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A32",
+            "label": "거래처 검색 아이콘",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A32",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5265,7 +5421,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5281,10 +5437,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A33",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A33",
+            "label": "사용중단포함",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A33",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5349,7 +5509,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5365,10 +5525,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A34",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A34",
+            "label": "Search(F3)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A34",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5433,7 +5597,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5449,10 +5613,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A35",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A35",
+            "label": "Option",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A35",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5517,7 +5685,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5533,10 +5701,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A36",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A36",
+            "label": "적용(F8)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A36",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5601,7 +5773,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5617,10 +5789,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A37",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A37",
+            "label": "신규(F2)",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A37",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5685,7 +5861,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         },
         {
@@ -5701,10 +5877,14 @@
           },
           "target": {
             "requiredStableId": "E040304-A38",
-            "actualStableId": null,
-            "label": null,
-            "evidence": [],
-            "codeMappingStableId": null
+            "actualStableId": "E040304-A38",
+            "label": "닫기",
+            "evidence": [
+              "components/ecount/ObservedPageControls.js purchase ACTION_IDS",
+              "components/ecount/PurchasePageControls.js and observed popup JSX"
+            ],
+            "codeMappingStableId": "E040304-A38",
+            "verificationScope": "Static mapping and local React render only; production browser validation pending"
           },
           "status": "미검증",
           "conditions": {
@@ -5771,7 +5951,7 @@
             "target": null
           },
           "limitations": [
-            "Only source lookup open/close verified; apply/new not executed; all overlay buttons not yet confirmed; target not implemented"
+            "Partial target implementation; unverified controls disabled; production and complete parity pending"
           ]
         }
       ],
@@ -5809,8 +5989,65 @@
           "limitations": [
             "Target not implemented; no pair comparison"
           ]
+        },
+        {
+          "id": "E040304-target-unimplemented.jpg",
+          "path": "outputs/ecount-parity-20261020/E040304-target-unimplemented.jpg",
+          "side": "target",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 300
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "대상 미구현, 대응버튼 없음"
+          ]
         }
-      ]
+      ],
+      "implementationReview": {
+        "stage": "partially-implemented",
+        "renderedStableIds": 37,
+        "mappedStableIds": 38,
+        "missingRenderedStableIds": [
+          "E040304-A14"
+        ],
+        "localRenderDuplicateIds": 0,
+        "productionBrowserVerified": false,
+        "scope": "F3/F8/today, print dropdown, customer lookup open/close, 10-column grid. Other actions disabled; source completeness unknown."
+      },
+      "dataPipelineEvidence": {
+        "observedOn": "2026-10-20",
+        "reporter": "root",
+        "periodFrom": "2026-09-20",
+        "periodTo": "2026-11-19",
+        "safeProjectionRowCount": 26,
+        "sqlRevision": 1,
+        "readbackVerified": true,
+        "idempotentVerified": true,
+        "sourceSafeProjectionContentHashMatchesSql": true,
+        "rawValuesStored": false,
+        "progressStatus": "표시구간 표본",
+        "scope": "Purchase safe numeric/date projection26 visible rows only. Source total unknown; target production compare pending."
+      },
+      "sourceCollectionScope": {
+        "periodFrom": "2026-09-20",
+        "periodTo": "2026-11-19",
+        "uniqueSafeRowsObserved": 26,
+        "scope": "Rendered source sample only, not complete source dataset",
+        "totalSourceRows": null,
+        "fullCollectionVerified": false,
+        "sqlImportStatus": "revision1 readback/idempotency verified",
+        "deploymentStatus": "pending"
+      }
     },
     {
       "program": "E040303",
@@ -9788,6 +10025,50 @@
             "Source 진행중 status absent in target",
             "Layout and empty-result message differ"
           ]
+        },
+        {
+          "id": "E040202-source-status-today-empty.jpg",
+          "path": "outputs/ecount-parity-20261020/E040202-source-status-today-empty.jpg",
+          "side": "source",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 240,
+            "y": 95,
+            "width": 1250,
+            "height": 300
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "기간·상태·0건만 확인; 전체조건·화면일치 미검증"
+          ]
+        },
+        {
+          "id": "E040202-target-status-today-empty.jpg",
+          "path": "outputs/ecount-parity-20261020/E040202-target-status-today-empty.jpg",
+          "side": "target",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 420
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "기간·상태·0건만 확인; 전체조건·화면일치 미검증"
+          ]
         }
       ],
       "dataPipelineEvidence": {
@@ -9886,6 +10167,17 @@
           "queryValuesVerified": false,
           "sourceMutation": false,
           "scope": "Local unauthenticated browser only; production data/query parity unverified"
+        },
+        {
+          "environment": "production 3ee7aabb",
+          "authentication": "authorized session",
+          "checks": [
+            "Option6항목 A29~A34 disabled 확인",
+            "Escape 메뉴닫힘 및 Option초점 복원",
+            "진행중3/완료23 필터 결과 확인"
+          ],
+          "stableIds": [],
+          "scope": "Only observed paths; full parity unverified"
         }
       ],
       "comparisonCases": [
@@ -9940,6 +10232,48 @@
             "E040202-target-today-empty.jpg"
           ],
           "rawValuesStored": false
+        },
+        {
+          "id": "QUOTE-STATUS-SAFE-26",
+          "environment": "production 3ee7aabb",
+          "periodFrom": "2026-09-20",
+          "periodTo": "2026-11-19",
+          "sourceStatusFilter": "수집 표시구간 전체",
+          "targetStatusFilter": "적재26행 전체",
+          "conditionsStatus": "미검증",
+          "sourceRows": 26,
+          "targetRows": 26,
+          "rowCountStatus": "일치",
+          "comparedFields": [
+            "date",
+            "amount",
+            "status"
+          ],
+          "comparedValues": 78,
+          "mismatchCount": 0,
+          "fieldComparisonStatus": "일치",
+          "overallStatus": "미검증",
+          "scope": "수집snapshot26행 날짜·금액·상태만 비교. date-doc키26개 유일. 원본전체건수/전체수집 미확인. 진행중3·완료23 대상필터 확인.",
+          "rawValuesStored": false
+        },
+        {
+          "id": "QUOTE-STATUS-TODAY-EMPTY",
+          "environment": "production 3ee7aabb",
+          "periodFrom": "2026-10-20",
+          "periodTo": "2026-10-20",
+          "sourceStatusFilter": "진행중",
+          "targetStatusFilter": "진행중",
+          "conditionsStatus": "미검증",
+          "sourceRows": 0,
+          "targetRows": 0,
+          "rowCountStatus": "일치",
+          "comparedFields": [],
+          "comparedValues": 0,
+          "mismatchCount": null,
+          "fieldComparisonStatus": "미검증",
+          "overallStatus": "미검증",
+          "scope": "기간·진행중 조건과0건만 확인. 나머지조건 전체미검증. 화면폭·배치 다름.",
+          "rawValuesStored": false
         }
       ],
       "sourceCollectionScope": {
@@ -9956,7 +10290,7 @@
         "fullCollectionVerified": false,
         "safeProjectionFields": "numeric/date/status enum only",
         "sqlImportStatus": "revision2 26행 readback/hash/idempotency 확인",
-        "deploymentStatus": "pending",
+        "deploymentStatus": "3ee7aabb 운영배포 및 26행/78필드 mismatch0 확인",
         "rawValuesCopiedToReport": false
       },
       "dataPipelineHistory": [

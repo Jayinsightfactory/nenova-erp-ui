@@ -142,14 +142,14 @@
       ],
       "surveyFirst": "E040304",
       "maxActiveWorkers": 1,
-      "checkpoint": "Quote initial grid/search/control ID paths partially implemented; safe date/numeric projection3rows imported with readback/idempotency; source restricted to 진행중, target status filter missing; no whole-page parity completion",
-      "resumeFrom": "E040202",
-      "activeScreen": "E040202",
+      "checkpoint": "Quote partial production verification26 rows/78 safe fields; purchase partial code implementation37 rendered IDs and sample26 SQLrevision1, production validation pending. Neither page complete.",
+      "resumeFrom": "E040304",
+      "activeScreen": "E040304",
       "owner": "ui_packets",
       "screenWork": [
         {
           "id": "E040304",
-          "stage": "partial-observation-awaiting-implementation"
+          "stage": "partial-implementation-awaiting-production-validation"
         },
         {
           "id": "E040303",
@@ -157,7 +157,7 @@
         },
         {
           "id": "E040202",
-          "stage": "partial-implementation-awaiting-status-and-browser-parity"
+          "stage": "partial-production-verification-incomplete-parity"
         },
         {
           "id": "E040201",
@@ -165,9 +165,10 @@
         }
       ],
       "remaining": [
-        "Source 진행중 status filter absent in target; six status tabs need grounded IDs and transition survey",
-        "Safe date/amount 3 rows / 6 values matched deployed DOM only; excluded fields and complete conditions unverified",
-        "Other source buttons, Option actions, permissions and error states not fully verified"
+        "Purchase production UI and sample value comparison pending",
+        "Quote and purchase full source row counts and complete datasets unknown",
+        "Disabled/unverified source actions, permissions, error states and full visual parity pending",
+        "E040303 and E040201 source survey pending"
       ],
       "priority": 1
     },

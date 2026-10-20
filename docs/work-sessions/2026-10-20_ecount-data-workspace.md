@@ -68,3 +68,22 @@
 - 운영 인쇄 메뉴→미리보기 실제 새 탭 생성. blob URL 제어가 브라우저 보안정책에 의해 차단되어 내용·캡처 미검증. 우회 금지 준수.
 - 최종 Excel snapshot: outputs/ecount-parity-20261020/ECOUNT_버튼별_비교보고서.xlsx (10시트). 373페이지/59묶음/관측94버튼. 원본5장+대상2장의 JPEG 원본 bytes를 native Excel 이미지로 포함, 색상표식과 ID·라벨·좌표 범례. 이미지7개 hash일치, ZIP검증, 렌더검토, parity/report/model 검사 통과. 전체 일치0, 전체 구현 완료 보고서가 아님.
 - 다음 작업: E040202 상태탭6종/Option 하위6종과 미구현 검색조건, E040207 선택 데이터·출력/Excel 동작, 미관찰 페이지별 실제 버튼/창 근거 확보. 현재 보고서의 미검증을 근거 없이 완료로 바꾸지 않는다.
+
+### 2026-10-20 상태 필터와 구매조회 관찰 이어 작업
+- 최신 master60260689 병합 b801fc52. 이전 squash 이력과의 충돌은 master7ef617e8 이후 ECOUNT 대상 파일 변경 없음 확인 후 이번 ECOUNT 증분을 보존했고 WORK_MEMORY 양쪽 기록을 유지했다.
+- PR1119 https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1119 → squash3ee7aabbcf42d9caa7cfb711ce8e547fb4a08045. 필수5gate와 최종build PASS, CI39366175404 및 Cafe24배포39366377648 success. 빌드 중단 이전 로그와 최종 *-merged-status.log를 구분하며 최종검사는 모두 exit0이다.
+- 원본 견적 전체탭 DOM17행을 처음 총수로 표현했다가, 완료탭/스크롤/페이지네비게이션 관찰로 잘못임을 확인해 사용자에게 즉시 정정. quote-status-safe-projection.json의26행은 부분수집이며 전체건수는 unknown이다.
+- quoteStatus in_progress/completed와 statusEvidence row_cell/query_filter를 선택필드로 추가해 옛행 해시를 보존. 원본 상태셀을 직접 확인한26행(진행중3/완료23)만 별도SQL revision2 적재, content readback/idempotency true. revision1을 수정하지 않음.
+- 운영 브라우저의 날짜 문서번호 키26개 유일성 확인, 수집snapshot 날짜·금액·상태78값 mismatch0. 실제 상태필터 진행중3/완료23, 금일2026-10-20~20+진행중0건은 원본0건과 일치. 원본 전체 총수/전체 필드/기타 검색조건 동등성을 뜻하지 않는다.
+- 운영 Option6개 A29~34 표시·disabled, Escape로 메뉴닫힘 및 Option포커스 복원 확인. 상태탭6개 A35~40 연결; 결재중/미확인/확인 동작은 미관찰로 비활성.
+- E040304 구매조회 원본 버튼38개 관찰(전체버튼수는 미확정). F3 inline, 금일자동조회0건, 인쇄상향popover 프린트문제해결1개, 거래처검색 같은탭overlay5열 열기/닫기 확인. 대상은 미구현 준비중 화면, 캡처로 차이 명시. 원본 입력/수정/삭제/발행/적용 없음.
+- 추가 안전 이미지: E040304-source-today-empty.jpg, E040304-target-unimplemented.jpg, E040202-source-status-today-empty.jpg, E040202-target-status-today-empty.jpg. viewport1920x855; 대상quote21개ID좌표는 target-status-capture-manifest.json. 원본/대상 폭·배치 차이 유지, 시각적100% 일치 아님.
+- 외부API 존재 근거: dev.barobill.co.kr/services/bankAccount, /services/card, /services/taxinvoice 공식문서 확인. 계약·인증·실제연동·발행 실행은 없음. 보고서 외부연동 근거로만 사용.
+- 계정 주간69%→81%, 남음19% 마지막확인. 기존3workers재사용. 남은전체59묶음 완전일치0이며 다음은 구매조회 실구현, 견적 미지원검색/하위동작, 판매 출력/선택자료 및 미관찰 화면을 원본근거와 함께 진행한다.
+- Excel 후속 갱신 완료: ECOUNT_버튼별_비교보고서.xlsx 360842bytes/10시트. 관측138버튼 및 원본·대상11장, 26행78값 mismatch0 요약, 구매미구현·레이아웃차이·전체완전성unknown, 외부API3종공식문서근거 반영. 원본JPEG11개 hash보존/ZIP/렌더/보고서검사 통과. root도 신규대상상태시트 렌더검토. 개별행 row-comparison-evidence.json 26건의 날짜/금액/상태 일치boolean은 별도근거이며 이번워크북에 포함하지 않음.
+
+### 2026-10-20 구매조회 구현 및 독립 SQL 표본
+- 최신 master e685a123 병합 193951c7. 구매 E040304 10열, F3/F8, 금일, 거래처 검색 오버레이 열기/닫기, 구매 전용 인쇄 펼침 구현. 관측38 ID 중37개 UI 연결(A14 위치 미확정); 원본 미관찰·미수집 기능은 비활성, 전체 동등성 미완료.
+- 원본 조회기간2026-09-20~11-19 화면표본26행의 일자/금액/외화금액/환율만 안전 투영. 별도 ecount_work purchase revision1 적재, readback/idempotent true. 원본전체건수 unknown, ECOUNT 쓰기0/공유원장 쓰기0. import-latest 구매 차단, 파일 업로드·버전복원만 지원.
+- 안전필드·소수정밀도·교차연도·정정/복원·멱등 표적3검사 PASS. 최종 빌드/CI/배포/운영비교는 후속기록 전까지 미검증.
+- 검색어: E040304 purchase-safe-projection purchase-revision1 26rows 37buttonIDs source-readonly
