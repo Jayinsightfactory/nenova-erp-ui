@@ -45,3 +45,6 @@
 - 계정 주간 사용34%(약66% 남음). 전체 계정 지표이며 이번 작업 단독 사용량 아님. 완료 하위 작업자 중단, 추가 작업 필요시에만 재사용.
 - 운영 배포/실브라우저 최종 확인은 아래 후속 기록 전까지 미검증.
 - 최종 production build 통과. 로컬 실브라우저 은행 화면의 원본 열 순서, 미로그인 안내, 저장/업로드/이력 버튼 비활성 확인. API 권한 우회 없음.
+- PR #1111 병합 a40ecf0e. 최신 master 변경과 WORK_MEMORY 충돌은 양쪽 기록 보존으로 해결. 병합 후 verify:erp-change 전체 재통과, GitHub verify/Windows installer 모두 통과.
+- Cafe24 배포 run39352475453 진행. 코드 전용이며 광역 SQL migration 미실행. 운영 브라우저 확인은 배포 완료 후 기록.
+- 운영 첫 smoke: cash21/ar89 조회 성공. 이력/metadata에서 SQL156 발견. AS rowCount 예약어를 AS [rowCount]로 수정, 네 자료 × 두 경로 실제 읽기8회 통과. 회귀검사 추가. 수정 재배포 전까지 이력 UI 최종 확인 미완료.
