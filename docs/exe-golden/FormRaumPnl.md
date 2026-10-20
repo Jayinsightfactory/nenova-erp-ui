@@ -159,3 +159,7 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - FormOrderAdd 실제 CLI 재실행 성공, GetDataProduct의 Product.ProdKey와 SteamOf1Bunch 별도 조회 재확인. 분석은 Product 활성행 SELECT 추가만 하며 native 저장 없음.
 - 운영 probe: 2026 신라225행 중223행 활성 품목 연결. 안시리움181은 소스 단이나 사용자 확인에 따라 비교만 송이1:1. DB·엑셀6511/53968700 일치. 포장수량0을 추정 환산값으로 쓰지 않음.
 - 돈셀 기존17/19차456은 별도 정정 요청이며 기존 snapshot saver로만 변경 예정. 원산지389/2306 확인 전 미변경. 모든 ERP 원장 및 수량·단가·금액 보존.
+## 2026-10-20 신라 실제 분배 원장·기간 후보
+- dnSpy FormShipmentDistribution 실제 CLI 실행 성공. GetCustomerList의 연도·차수, 상위 거래처 조인 및 btnSave_Click의 EstQuantity, Amount=round(Cost*round(EstQuantity)/1.1), ShipmentDate 별도 일자수량 확인. Cost는 이 경로에서 부가세 포함 판매단가이므로 매입단가로 표시하지 않는다.
+- 운영 읽기 probe: 활성 정확명 신라호텔 CustKey446 유일, 신라상사444/445 제외. 2026 활성 분배315행. 40-02/181/94506 OutQuantity=EstQuantity=520, EstUnit송이, Amount4316000, Cost9130, 기준출고일9/30. 엑셀40차521/4324300 및 SRM10/7 전표5020752839 합계521/4324300으로 실제1송이·8300차이후보.
+- ShipmentDate는 별도조회해서 상세키당총량을복제하지않고표시. 주문/출고/일자/Farm/Estimate/Stock/WebProfitReport 모든쓰기없음. 전산차수=엑셀차수 가정 금지, 14일 인근수치일치는후보표시, 모호/중복소비경고. 월은실제입고일의달(사용자확인), 부분월표시.

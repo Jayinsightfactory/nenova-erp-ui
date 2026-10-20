@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
+import ShillaPeriodAnalysis from '../../components/ShillaPeriodAnalysis';
 import { receiptGroups, validateScope } from '../../lib/shillaReconciliation';
 
 const fmt = v => v == null ? '자료 없음' : Number(v).toLocaleString('ko-KR',{maximumFractionDigits:3});
@@ -43,7 +44,11 @@ export default function ShillaAnalysis() {
   async function prepare() {
     setBusy('엑셀과 DB 확인 중');invalidate();setMeta(null);setPortal(null);setMappings({});
     try { const data=await api('prepare');if(!alive.current)return;setMeta(data);setPeriods(data.periods.map(p=>p.period));
-      const dates=data.periods.map(p=>p.date).filter(Boolean).sort();setFrom(dates[0]||`${year}-01-01`);setTo(dates.at(-1)||`${year}-12-31`);
+      const dates=data.periods.map(p=>p.date).filter(Boolean).sort();
+      const first=dates[0]||`${year}-01-01`,last=dates.at(-1)||`${year}-12-31`;
+      const monthEnd=new Date(Date.UTC(Number(last.slice(0,4)),Number(last.slice(5,7)),0)).toISOString().slice(0,10);
+      const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+      setFrom(`${first.slice(0,7)}-01`);setTo(monthEnd>today&&today.slice(0,4)===year?today:monthEnd);
     } catch(e){if(alive.current)setError(e.message);} finally {if(alive.current)setBusy('');}
   }
   async function analyze(reuse=false) {
@@ -64,7 +69,7 @@ export default function ShillaAnalysis() {
     <Head><title>신라호텔 입고 조회·분석 | 네노바</title></Head>
     <a href="/raum/pnl">손익계산서로 돌아가기</a>
     <h1>신라호텔 입고 조회·분석</h1>
-    <p>저장된 작업데이터, 원본 엑셀, 신라 입고실적을 나란히 비교합니다. 금액은 매출 공급가액 기준입니다.</p>
+    <p>실제 전산 분배, 엑셀 손익, 신라 입고를 출고 차수·입고일·월 귀속으로 대조합니다. 금액은 매출 공급가액 기준입니다.</p>
     <fieldset disabled={!!busy}><legend>1. 비교할 원본</legend><div className="controls">
       <label>결산 연도 <input aria-label="결산 연도" type="number" min="2000" max="2099" value={year} onChange={e=>{setYear(e.target.value);setMeta(null);setPortal(null);invalidate();}}/></label>
       <label>손익계산서 원본 엑셀 <input type="file" accept=".xlsx,.xls" onChange={e=>{setFile(e.target.files?.[0]||null);setMeta(null);setPortal(null);invalidate();}}/></label>
@@ -87,15 +92,16 @@ export default function ShillaAnalysis() {
       <fieldset disabled={!!busy}><div className="wide"><table><thead><tr><th>신라 자재 / 규격 / 단위</th><th>엑셀·DB 품목</th><th>수량 배수</th><th>단위 확인</th></tr></thead><tbody>{groups.map(g=><tr key={g.key}><td>{g.code} · {g.name}<br/>{g.spec} [{g.unit}] · {g.rows.length}행</td><td><select aria-label={`${g.name} 연결 품목`} value={mappings[g.key]?.target||''} onChange={e=>updateMapping(g.key,{target:e.target.value,unitConfirmed:false})}><option value="">정확한 이름·단위만 자동 연결</option>{meta?.targets.map(t=><option key={t.key} value={t.key}>{t.aliases?.join(' / ')||t.name} [{t.unit||'단위 없음'}]{t.prodKey?` → ${t.prodName} (#${t.prodKey})`:''}</option>)}</select>{mappings[g.key]?.reason&&<p>{mappings[g.key].reason}</p>}</td><td><input aria-label={`${g.name} 수량 배수`} type="number" min="0.000001" max="10000" step="any" value={mappings[g.key]?.factor??1} onChange={e=>updateMapping(g.key,{factor:e.target.value,unitConfirmed:false})}/></td><td><label><input type="checkbox" checked={mappings[g.key]?.unitConfirmed===true} onChange={e=>updateMapping(g.key,{unitConfirmed:e.target.checked})}/>환산 확인</label></td></tr>)}</tbody></table></div>
       <button onClick={()=>analyze(true)}>연결 적용·다시 비교</button></fieldset>
     </details>}
+    {result?.periodAnalysis&&<ShillaPeriodAnalysis data={result.periodAnalysis}/>}
     {result&&<section aria-label="세 자료 비교 결과">
-      <h2>{result.complete?'선택 범위 대조 일치':'확인이 필요한 항목이 있습니다'}</h2>
+      <h2>{result.complete?'저장 손익·엑셀·입고 합계 일치':'저장 손익·엑셀·입고 참고 검증'}</h2>
       <p>DB 조회 {new Date(result.readAt).toLocaleString('ko-KR')} · 신라 조회 {new Date(result.receiptReadAt).toLocaleString('ko-KR')} · {from} ~ {to}</p>
-      <div className="cards">{[['DB',result.totals.db,result.counts.db],['엑셀',result.totals.excel,result.counts.excel],['신라 입고',result.totals.srm,result.counts.srm]].map(([label,amount,count])=><div key={label}><span>{label} · {count}행</span><strong>{fmt(amount)}원</strong></div>)}</div>
+      <div className="cards">{[['저장 손익',result.totals.db,result.counts.db],['엑셀',result.totals.excel,result.counts.excel],['신라 입고',result.totals.srm,result.counts.srm]].map(([label,amount,count])=><div key={label}><span>{label} · {count}행</span><strong>{fmt(amount)}원</strong></div>)}</div>
       <p>품목 일치 {result.counts.matched} · 확인 필요 {result.counts.review} · 신라 미연결 {result.unmatched.length} · 차수별 DB/엑셀 차이 {result.periodDifferences.length}</p>
       {[...result.issues,...result.sourceWarnings].length>0&&<details open><summary>원본·중복 확인 사항</summary><ul>{[...result.issues,...result.sourceWarnings].map((s,i)=><li key={i}>{s}</li>)}</ul></details>}
       {!!result.unmatched.length&&<p className="error">미연결: {result.unmatched.map(g=>`${g.name} [${g.unit}]`).join(', ')}. 위 품목 연결에서 확인하세요.</p>}
       <div className="controls"><label><input type="checkbox" checked={onlyIssues} onChange={e=>setOnlyIssues(e.target.checked)}/>차이·누락만</label><label>품목 검색 <input value={search} onChange={e=>setSearch(e.target.value)}/></label></div>
-      <div className="wide"><table><thead><tr><th>품목 / 단위</th><th>DB 작업데이터</th><th>원본 엑셀</th><th>신라 입고</th><th>DB − 엑셀</th><th>엑셀 − 신라</th></tr></thead><tbody>{visible.map(r=><tr key={r.key} className={r.status==='일치'?'':'difference'}><th>{r.aliases?.join(' / ')||r.name}<br/>[{r.unit||'단위 없음'}]{r.prodKey&&<><br/>전산 #{r.prodKey} · {r.prodName}</>}</th><SourceCell data={r.db}/><SourceCell data={r.excel}/><SourceCell data={r.srm}/>{[r.dbExcel,r.excelSrm].map((v,i)=><td key={i}><b>{v.status}</b><br/>수량 {fmt(v.qty)}<br/>금액 {fmt(v.amount)}<br/>{v.price===true?'단가 차이':v.price===null?'단가 미확인':'단가 일치'}{v.costPrice===true?<><br/>매입단가 차이</>:null}{v.bucketDifference?<><br/>단가별 수량 차이</>:null}</td>)}</tr>)}</tbody></table></div>
+      <div className="wide"><table><thead><tr><th>품목 / 단위</th><th>저장된 손익계산서</th><th>원본 엑셀</th><th>신라 입고</th><th>DB − 엑셀</th><th>엑셀 − 신라</th></tr></thead><tbody>{visible.map(r=><tr key={r.key} className={r.status==='일치'?'':'difference'}><th>{r.aliases?.join(' / ')||r.name}<br/>[{r.unit||'단위 없음'}]{r.prodKey&&<><br/>전산 #{r.prodKey} · {r.prodName}</>}</th><SourceCell data={r.db}/><SourceCell data={r.excel}/><SourceCell data={r.srm}/>{[r.dbExcel,r.excelSrm].map((v,i)=><td key={i}><b>{v.status}</b><br/>수량 {fmt(v.qty)}<br/>금액 {fmt(v.amount)}<br/>{v.price===true?'단가 차이':v.price===null?'단가 미확인':'단가 일치'}{v.costPrice===true?<><br/>매입단가 차이</>:null}{v.bucketDifference?<><br/>단가별 수량 차이</>:null}</td>)}</tr>)}</tbody></table></div>
       {!visible.length&&<p>현재 필터에 해당하는 품목이 없습니다.</p>}
       {!!result.periodDifferences.length&&<details open><summary>차수별 DB·엑셀 차이 (차수 간 상쇄 제외)</summary><div className="wide"><table><thead><tr><th>차수</th><th>품목</th><th>DB</th><th>엑셀</th><th>차이</th></tr></thead><tbody>{result.periodDifferences.map((r,i)=><tr key={i}><td>{r.period}</td><th>{r.name} [{r.unit}]</th><SourceCell data={r.db}/><SourceCell data={r.excel}/><td>{r.status}<br/>수량 {fmt(r.qty)}<br/>금액 {fmt(r.amount)}</td></tr>)}</tbody></table></div></details>}
     </section>}

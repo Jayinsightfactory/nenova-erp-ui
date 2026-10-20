@@ -17,9 +17,9 @@
     "previousWeeklyConsumedPercentBaseline": 26,
     "workerReuse": true,
     "sourceBrowserOwner": "root",
-    "lastCheckpoint": "2026-10-20 resume: account-wide weekly used 69%, remaining 31%; reuse existing workers. Not task-token usage.",
-    "latestWeeklyConsumedPercent": 69,
-    "latestWeeklyRemainingPercent": 31
+    "lastCheckpoint": "2026-10-20 resume: account-wide weekly used 53%, remaining 47%; reuse existing workers. Not task-token usage.",
+    "latestWeeklyConsumedPercent": 53,
+    "latestWeeklyRemainingPercent": 47
   },
   "foundations": [
     {

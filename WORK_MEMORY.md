@@ -362,3 +362,23 @@
 - 운영 브라우저 로그인 만료로 재로그인 대기. 기존 캐시 차단 유지. 원본/기존 ERP 원장 SQL 쓰기 없음.
 - 검색어: orderQuery orderStat poStat daily-lookup 505관측 전체접기 PR1131 deploy39390360805 로그인만료
 - 최종 parity 기록: 전체접기(E040209-A48) 포함 관측506ID, 전체동등성 완료0, 버튼검사 PASS. 운영 재로그인 회신이 없어 해당 신규 묶음 운영 스모크는 pending.
+
+## 2026-10-20 신라 기간 기준 정정
+- 사용자확인: ERP창고분배차수/엑셀차수또는월~금/신라실제입고월을별도유지. 월귀속은입고일YYYY-MM.
+- 기존DB분석은WebRaumPnl저장손익이었음을사용자에게명확히정정. 실제ShipmentMaster/Detail/Date읽기전용315행 추가. 40-02 안시리움520 vs엑셀/신라521 발견.
+- 후보규칙/부작용은 docs/work-sessions/2026-10-20_shilla-period-basis.md. 최초원본업로드는기재월첫날~마지막월말(현재월오늘까지)제안. 월~금전체미조회/날짜미기재/단위미확인/동일원본중복소비는확정하지않음.
+- 회귀17개통과,전체gate·배포미검증.
+- 검색어: shilla-period-basis 실제분배315 안시리움520521 입고월귀속
+
+- 검색어: connector1.0.2 InvalidURL 40차10월7일521
+
+
+## 2026-10-20 NENOVA.EXE 음수 주문 피벗
+사용자가 native EXE의 모든 차수·국가 음수 표시와 합계 차감을 명시 요청. 기존 4033996D SHA256 버전은 unsigned/IL-only이고 ` WHERE vo.OutQuantity > 0 `의 IL 참조는 FormQuantityPivot.GetData 한 곳이다. 같은 길이 ` WHERE vo.OutQuantity <>0 `로 #US 내용 2바이트만 변경한다. 메타데이터/IL/입고·출고·재고/엑셀 경로 그대로 유지.
+기준: 동일 연도 포함 OrderYearWeek BETWEEN/StockList 조인, 0/NULL 제외, SUM 부호 유지, 모든 국가 공통. 동작별 부작용: 조회/합계/엑셀 모두 OrderDetail·ShipmentDetail·ShipmentDate·ShipmentFarm·ProductStock·StockHistory·Estimate·WebProfitReport 보존. DB 쓰기 없음.
+실제 수정 EXE를 .NET Framework x86에서 로드해 FormQuantityPivot의 grid 생성(Load/GetData 미호출), 2025/2026×01-01/44-01/44-02×3국가의 +10/-3를 바인딩. native SummaryType=Sum, -3/7/총126 확인. 실제 WYSIWYG XLSX도 -3/7/126 numeric cell 확인.
+원본/수정 EXE에서 추출한 SQL 직접 SELECT 비교: 20264401 기존1227행 동일+음수31행/-103, 대상 콜롬비아 카네이션 여분26행/-76. 20264402 588행,20254401 3336행 동일. 개인정보 출력/저장 없음.
+원본/수정 hash: 4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63 / FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79. 배포는 사용자 PC만, 다른 직원 실행파일 자동변경 아님. 실행중 프로세스 강제종료 금지, 닫힌 뒤 원본 백업과 atomic replace.
+메뉴 기준선: 적용—기존 화면/키보드/스크롤/필터 보존. 해당 없음—웹 shell/입력/매칭/DB쓰기. 화면상 실제 로그인 조회는 아직 미검증. native control 시험과 실제SQL 읽기검증은 완료.
+
+검색어: native-pivot-negative NENOVA.EXE 여분26 -76 두바이트 signed SUM

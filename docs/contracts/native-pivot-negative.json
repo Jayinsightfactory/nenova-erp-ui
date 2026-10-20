@@ -1,0 +1,65 @@
+{
+  "id": "native-pivot-negative",
+  "title": "NENOVA.EXE signed order pivot",
+  "scope": [
+    "scripts/prepare-native-pivot-negative.ps1",
+    "scripts/install-native-pivot-negative.ps1",
+    "scripts/test-native-pivot-grid.ps1"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_SIGNED_ORDERS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "description": "Replace only the original EXE GetData order predicate > 0 with <>0. All countries and selected full year/week range; preserve zero exclusion, every other query branch, SUM and XLSX."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same subweek and multiple countries; signed total and year separation. Existing pivotNegativeOrders regression plus actual native SQL probe."
+  },
+  "requiredTestFiles": [
+    "__tests__/pivotNegativeOrders.test.js",
+    "scripts/test-native-pivot-grid.ps1"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormQuantityPivot.md",
+    "source": "Installed EXE decompilation and dnlib method reference check",
+    "methods": [
+      "FormQuantityPivot.GetData",
+      "FormQuantityPivot.btnExcel_Click"
+    ],
+    "tables": [
+      "ViewOrder",
+      "StockMaster",
+      "ProductStock",
+      "ViewShipment",
+      "ShipmentDate",
+      "ViewWarehouse"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from origin/master"
+  ],
+  "preserves": [
+    "OrderDetail",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "StockHistory",
+    "ProductStock",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "installation": "Exact original SHA256, single GetData ldstr reference, unsigned IL-only module, equal-length literal with exactly two changed bytes, original backup, closed process and atomic replacement. No DB mutation."
+}
