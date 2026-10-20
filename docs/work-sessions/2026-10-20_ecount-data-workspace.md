@@ -87,3 +87,12 @@
 - 원본 조회기간2026-09-20~11-19 화면표본26행의 일자/금액/외화금액/환율만 안전 투영. 별도 ecount_work purchase revision1 적재, readback/idempotent true. 원본전체건수 unknown, ECOUNT 쓰기0/공유원장 쓰기0. import-latest 구매 차단, 파일 업로드·버전복원만 지원.
 - 안전필드·소수정밀도·교차연도·정정/복원·멱등 표적3검사 PASS. 최종 빌드/CI/배포/운영비교는 후속기록 전까지 미검증.
 - 검색어: E040304 purchase-safe-projection purchase-revision1 26rows 37buttonIDs source-readonly
+
+### 2026-10-20 구매조회 운영 검증
+- PR1122 squash30bce7de8d8ec8b5141e1cf689ea46428e464d03, CI39376044008 및 Cafe2439376327510 success. 로컬 필수5종·신규파일 stage 후 manifest/writeguard PASS. 배포 hydration 스모크 PASS.
+- 운영 구매조회26행/키26유일, 원본 안전표본26행의 날짜·금액·외화금액·환율104값 mismatch0. 전체원본건수/개인정보필드/모든조건 동등성은 미검증.
+- F3 열기, 실제키로 날짜변경 후 F8 기간2025-10-20~2026-10-20 표본26건, 금일10/20~20 원본/대상0건 확인. CUA date fill은 DOM값만 바뀌고 상태반영되지 않아 근거에서 제외, 실제 ArrowDown 입력·F8으로 재검증.
+- 구매 인쇄 펼침 프린트문제해결1개(disabled), Escape닫힘/포커스복원; 거래처검색 overlay5열·닫기 확인. 선택/적용/신규 등 미관찰 동작 비활성. 대상 인쇄메뉴 캡처는 CDP timeout으로 미확보, 빈조회 캡처는 확보. 시각적 배치 차이 존재.
+- 주간 계정사용량94%, 기존3하위세션 재사용. 전체59작업묶음/373프로그램 100%일치는 여전히 미완료. 전체완료로 표시하지 않는다.
+- 검색어: E040304 purchase-production-parity 104values mismatch0 PR1122 39376327510
+- Excel 갱신 완료: 413499bytes/10시트, 원본JPEG13개 hash보존/ZIP/수식오류 검사 PASS. 견적26행·구매26행 개별일치표 포함, root 구매렌더 확인. 전체일치0·미검증 유지. 최종보고서 outputs/ecount-parity-20261020/ECOUNT_버튼별_비교보고서.xlsx.
