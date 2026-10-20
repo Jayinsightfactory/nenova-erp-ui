@@ -22358,24 +22358,253 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040726-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A03",
+          "label": "기준연도 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A04",
+          "label": "기준월 선택",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A05",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A06",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "After selecting one product code, query returned one product row and empty upper-product table"
+        },
+        {
+          "id": "E040726-A07",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A08",
+          "label": "설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A09",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A10",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A11",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control; behavior unverified"
+        },
+        {
+          "id": "E040726-A12",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SEARCH-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Opens search, retains selected code and two result tables"
+        },
+        {
+          "id": "E040726-A13",
+          "label": "인쇄 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SEARCH-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Opens three items; Escape closes; children not executed"
+        },
+        {
+          "id": "E040726-A14",
+          "label": "PDF",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SEARCH-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible menu item, not executed"
+        },
+        {
+          "id": "E040726-A15",
+          "label": "미리보기",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SEARCH-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible menu item, not executed"
+        },
+        {
+          "id": "E040726-A16",
+          "label": "프린트문제해결",
+          "context": "인쇄 메뉴",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SEARCH-PRINT"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible menu item, not executed"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
           "testEvidence": []
         },
         "columns": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
           "testEvidence": []
         },
         "sorting": {
@@ -22384,13 +22613,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040726-SELECTED"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -22435,7 +22668,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Only one selected product queried; no-code required-condition validation equivalence unverified; target runtime pending"
       ],
       "exclusions": []
     },
