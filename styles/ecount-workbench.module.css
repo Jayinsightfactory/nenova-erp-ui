@@ -59,3 +59,5 @@
 .stockLedgerGroup{margin-bottom:18px}.stockLedgerGroup h3{font-size:13px;font-weight:normal;margin:8px 0}.stockLedgerGroup tbody td{text-align:right}.stockLedgerGroup tbody td[colspan]{text-align:center}
 
 .productLookupTable table{width:475px}
+
+.measuredStatusTable table{table-layout:fixed}.measuredStatusTable th,.measuredStatusTable td{min-width:0}.measuredStatusTable thead th{text-align:center;white-space:normal}.measuredStatusTable td.empty{text-align:center}

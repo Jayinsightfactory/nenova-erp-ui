@@ -532,3 +532,13 @@
 - 실제toolbar F3 handler→toggleSearch AST 실행으로폼열림/포커스/빈코드조회미실행회귀추가,UI33표적PASS. relStock PR1152미병합상태에수정포함후전체검사재실행. 앞선배포성공을BOMruntimePASS로보지않음.
 - root relStock별도SQL count2 revision1/readbacktrue/idempotenttrue,relation-stock-import-result.json. 원본공유원장쓰기없음. 실제UI결함이므로추가build재검증근거있으며검증우회없음.
 - 검색어: BOM F3 toggleSearch bomProductDraft PR1152 regression
+
+
+### 2026-10-20 관계별 재고 및 BOM 초기 F3 복구 / 후속 입출고 모드
+- PR1152는 BOM 초기 F3가 빈 품목에서 검색폼까지 막던 실제 운영 결함을 포함해 수정했다. runSearch 무코드 조회 차단은 유지하고, 실제 Toolbar→toggleSearch 실행 회귀를 추가했다. 최종 HEAD434465a9 필수5종 통과 후 CI39412754182 성공, squash5af3f218. Cafe2439413116701 진행 중이며 BOM 운영 복구는 아직 미검증이다.
+- root 승인 relStock 독립영역 적재는2행/revision1/readbacktrue/idempotenttrue로 보고되었고 receipt를 보존했다. ECOUNT/공유 ERP 원장 쓰기 없음.
+- 후속 stkDaily/stkMonth는 각 원본 opening1949/group_summary1949/actualtotal1의3899행을 별도 dataset으로 보존한다. 거래3899건이라는 의미가 아니다. reportMode와 원본행 역할·순서·nullable 수량·정확기간을 강제하고 모드대체/부분기간 재계산을 금지한다. 원본 opening in/out은 실제 숫자이며 앞서 blank 설명은 root가 직접 DOM 확인 후 정정했다. prepared 안전대조는 각23394필드 소수정규화 기준 불일치0, 실제 SQL 적재/운영은 아직 미검증이다.
+검색어: PR1152 BOM 최초 F3 relStock stkDaily stkMonth 전일재고 group_summary actualtotal 원본공란
+
+- 후속 UI: 주문서현황751px/검색옵션, 견적서현황716px·집계875px/Excel 메뉴 관측차이를 보정했다. P019 UI는 표시 프로그램 stockMove를 유지하되 API·버전·sanitize scope를 집계/일별/월별 독립 dataset으로 전환하며, 모드 변경 시 요청 세대/버전/이력/업로드를 초기화한다. UI 표적37개 통과, 신규 거래유형·잔량 재계산 없음. root의 양 모드 독립 wrapper 대조도 각각3899행 전필드 불일치0이며 아직 SQL 미적재다.
+검색어: 주문서현황 견적서현황 P019 mode scope stale request nullable balance 873

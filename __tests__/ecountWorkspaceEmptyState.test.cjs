@@ -21,7 +21,7 @@ const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.i
 const moduleBox={exports:{}};
 vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
-  ...load('components/ecount/RelationStockPageControls.js'),...load('components/ecount/BomStockPageControls.js'),...load('components/ecount/StockBalancePageControls.js'),...load('components/ecount/StockLedgerPageControls.js'),...load('components/ecount/WarehouseStockPageControls.js'),...load('components/ecount/StockMovementPageControls.js'),...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js')
+  ...load('components/ecount/RelationStockPageControls.js'),...load('components/ecount/BomStockPageControls.js'),...load('components/ecount/StockBalancePageControls.js'),...load('components/ecount/StockLedgerPageControls.js'),...load('components/ecount/WarehouseStockPageControls.js'),...load('components/ecount/StockMovementPageControls.js'),...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js'),...load('components/ecount/OrderStatusPageControls.js')
 });
 const render=props=>renderToStaticMarkup(React.createElement(moduleBox.exports,props));
 test('uncollected PO retains ten source columns without implying a zero-row query',()=>{
@@ -139,7 +139,7 @@ test('warehouse stock preserves visible layouts, missing cells and exact collect
 test('stock movement has seven visible columns and exact-period data only',()=>{
  const rows=[{productCode:'P1',openingQuantity:'10.00000001',inQuantity:'2',outQuantity:'1',quantity:'11.00000001',prodName:'private-name'}];const html=render({dataset:'stockMove',rows,dataState:'loaded'});assert.equal((html.match(/<th /g)||[]).length,7);assert(html.includes('11.00000001'));assert(!html.includes('private-name'));
  const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
- for(const dataset of ['whStock','stockMove']){const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:dataset==='whStock'?[{productCode:'P1',warehouseCode:'W1',quantity:'11.00000001'}]:rows};for(const date of ['2026-10-20','2025-10-20']){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset,version,warehouseFilter:[],filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.snapshotUnavailable,date!=='2026-10-20');assert.equal(result.rows.length,date==='2026-10-20'?1:0);}}
+ for(const dataset of ['whStock','stockMove']){const version={periodFrom:'2026-10-20',periodTo:'2026-10-20',rows:dataset==='whStock'?[{productCode:'P1',warehouseCode:'W1',quantity:'11.00000001'}]:rows};for(const date of ['2026-10-20','2025-10-20']){const result=vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset,workspaceDataset:dataset,version,warehouseFilter:[],filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});assert.equal(result.snapshotUnavailable,date!=='2026-10-20');assert.equal(result.rows.length,date==='2026-10-20'?1:0);}}
 });
 
 test('warehouse and movement observed action IDs cover only their own controls',()=>{
@@ -248,4 +248,44 @@ test('initial BOM F3 opens the actual search panel without a selected product, w
  const context={module:box,busy:false,dataset:'bomStock',bomProductDraft:'',version:null,searchDraft:{from:'',to:'',flow:'',query:''},searchOpen:false,setSearchDraft:fn=>context.searchDraft=fn(context.searchDraft),setSearchOpen:fn=>{open=typeof fn==='function'?fn(open):fn;},setTimeout:fn=>fn(),searchInputRef:{current:{focus(){focused++;}}},setError(){throw Error('unexpected validation before opening');},setFilterFrom(){throw Error('query must preserve existing rows');},load(){throw Error('query must not run without a code');}};
  vm.runInNewContext(source.slice(toggle.start,toggle.end)+';'+source.slice(run.start,run.end)+';module.exports={toggleSearch,runSearch};',context);
  const {BomStockToolbar}=load('components/ecount/BomStockPageControls.js');const tree=BomStockToolbar({busy:false,searchOpen:false,onSearch:box.exports.toggleSearch});function all(e){return !e||typeof e!=='object'?[]:[e,...React.Children.toArray(e.props?.children).flatMap(all)];}const button=all(tree).find(e=>e.type==='button'&&e.props.children==='Search(F3)');assert(button);assert.equal(button.props.disabled,false);button.props.onClick();assert.equal(open,true);assert.equal(focused,1);context.searchOpen=open;await box.exports.runSearch();assert.equal(open,true);box.exports.toggleSearch();assert.equal(open,false);
+});
+
+test('observed quote/order widths and search choices retain uncollected semantics',()=>{
+ for(const [dataset,mode,width,widths] of [['quoteStat','aggregate',875,[158,100,100,56,100,120,120,120]],['quoteStat','detail',716,[60,150,75,90,90,150,100]],['orderStat','detail',751,[60,150,75,90,90,150,135]]]){
+  const html=render({dataset,rows:[],dataState:'uncollected',quoteReportMode:mode,orderReportMode:mode});
+  assert(html.includes('<table style="width:'+width+'px">'));assert(html.includes(widths.map(w=>'<col style="width:'+w+'px"/>').join('')));assert(html.includes('아직 수집되지 않았습니다'));
+ }
+ for(const [file,name] of [['QuoteStatus','QuoteStatusSearchPanel'],['OrderStatus','OrderStatusSearchPanel']]){
+ const c=load('components/ecount/'+file+'PageControls.js');const html=renderToStaticMarkup(React.createElement(c[name],{mode:'detail'}));assert.equal((html.match(/type="radio"/g)||[]).length,10);assert(html.includes('전월동일기간'));assert(html.includes('외자'));
+ }
+ const c=load('components/ecount/OrderStatusPageControls.js');assert(!renderToStaticMarkup(React.createElement(c.OrderStatusFooter)).includes('Search(F3)'));
+});
+test('quote Excel Escape preserves observed open state, toggle closes; other menus keep Escape close',()=>{
+ const src=fs.readFileSync(path.join(root,'components/ecount/ObservedPageControls.js'),'utf8');const tree=babel.parseSync(src,{babelrc:false,configFile:false,parserOpts:{plugins:['jsx']}});const fn=tree.program.body.find(n=>n.type==='ExportNamedDeclaration'&&n.declaration?.id?.name==='ObservedDropdown').declaration;
+ for(const closeOnEscape of [false,true]){
+ let state=false,effect;const handlers={};const box={exports:{}};
+ vm.runInNewContext(compile("import React from 'react';\n"+src.slice(fn.start,fn.end)+';module.exports=ObservedDropdown;','Dropdown.js'),{module:box,exports:box.exports,require,styles,pending:'미검증',ActionContext:{},actionId:()=>undefined,useContext:()=>({dataset:'quoteStat'}),useState:()=>[state,v=>state=typeof v==='function'?v(state):v],useRef:()=>({current:null}),useEffect:fn=>effect=fn,document:{addEventListener:(k,v)=>handlers[k]=v,removeEventListener(){}}});
+ const renderDropdown=()=>box.exports({label:'Excel 드롭다운',items:['Excel(표시형식)','Excel(데이터)'],closeOnEscape});
+ renderDropdown().props.children[0].props.onClick();assert.equal(state,true);const open=renderDropdown();effect();assert(open.props.children[1].props.children.every(item=>item.props.children.props.disabled));handlers.keydown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(state,!closeOnEscape);
+ if(!closeOnEscape){renderDropdown().props.children[0].props.onClick();assert.equal(state,false);}
+ }
+});
+
+test('movement daily/monthly preserve source groups, actual total and nullable cells',()=>{
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const callback=component.body.body.find(n=>n.type==='VariableDeclaration'&&n.declarations[0].id.name==='filtered').declarations[0].init.arguments[0];
+ for(const [mode,workspaceDataset] of [['daily','stkDaily'],['monthly','stkMonth']]){
+ const rows=[{reportMode:mode,rowKind:'opening',productCode:'P-01',dateLabel:'전일재고',inQuantity:'1000',outQuantity:'2',quantity:'123456789012345.12000000'},{reportMode:mode,rowKind:'group_summary',productCode:'P-01',dateLabel:null,inQuantity:'1000',outQuantity:'2',quantity:null},{reportMode:mode,rowKind:'total',productCode:null,dateLabel:null,inQuantity:'1000',outQuantity:'2',quantity:null}];
+ const version={dataset:workspaceDataset,periodFrom:'2026-10-20',periodTo:'2026-10-20',rows};
+ const select=(date,v=version)=>vm.runInNewContext('('+source.slice(callback.start,callback.end)+')()',{dataset:'stockMove',workspaceDataset,version:v,filterFrom:date,filterTo:date,pageActions:require('../lib/ecountPageActions.cjs')});
+ assert.equal(select('2026-10-20').rows.length,3);assert.equal(select('2026-10-19').snapshotUnavailable,true);assert.equal(select('2026-10-20',{...version,dataset:mode==='daily'?'stkMonth':'stkDaily'}).snapshotUnavailable,true);
+ const html=render({dataset:'stockMove',movementMode:mode,rows:select('2026-10-20').rows,dataState:'loaded'});assert.equal((html.match(/<th /g)||[]).length,7);assert(html.includes('123,456,789,012,345.12000000'));assert(html.includes('<td colSpan="2">P-01 계</td>'));assert(html.includes('<td colSpan="2">합계</td>'));assert.equal((html.match(/<td style="text-align:right"><\/td>/g)||[]).length,2);assert(html.includes('전일재고'));
+ }
+});
+test('movement mode change invalidates request/version/history and isolates API dataset',async()=>{
+ const component=ast.program.body.find(n=>n.type==='ExportDefaultDeclaration').declaration;const fn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='changeMovementMode');const calls={};const requestId={current:7};const env={busy:false,movementMode:'aggregate',requestId};for(const name of ['setVersion','setRevision','setHistory','setAudit','setDialog','setUpload','setSheet','setRollbackId','setError','setMessage','setRowQuery','setMovementMode'])env[name]=value=>calls[name]=value;
+ vm.runInNewContext('('+source.slice(fn.start,fn.end)+')',env)('daily');assert.equal(requestId.current,8);assert.equal(calls.setVersion,null);assert.equal(calls.setRevision,null);assert.equal(calls.setMovementMode,'daily');assert.equal(calls.setHistory.length,0);
+ const apiFn=component.body.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='api');let request;
+ const api=vm.runInNewContext('('+source.slice(apiFn.start,apiFn.end)+')',{URLSearchParams,workspaceDataset:'stkDaily',dataset:'stockMove',menuId:'MENUTREE_001713',fetch:async(url,options)=>{request={url,options};return {ok:true,json:async()=>({success:true})};}});
+ await api('current',{action:'import'});assert(request.url.includes('dataset=stkDaily'));assert.equal(JSON.parse(request.options.body).dataset,'stkDaily');
+ const panel=load('components/ecount/StockMovementPageControls.js').StockMovementSearchPanel;const html=renderToStaticMarkup(React.createElement(panel,{mode:'monthly',from:'2026-10-20',to:'2026-10-20'}));assert(html.includes('E040719-A22'));assert(!html.includes('name="stock-move-0" disabled'));
 });

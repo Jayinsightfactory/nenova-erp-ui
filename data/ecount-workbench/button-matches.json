@@ -15189,6 +15189,258 @@
           "limitations": [
             "Aggregate8/detail7 columns differ; source detail7column preview confirmed; target execution unverified; personal2023/11 period not universal default"
           ]
+        },
+        {
+          "matchId": "E040208-A22",
+          "source": {
+            "stableId": "E040208-A22",
+            "label": "Excel 드롭다운",
+            "context": "하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040208-A22",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "원본 부분관측; 다운로드/설정 항목 실행 및 전체 동등성 미검증"
+          ]
+        },
+        {
+          "matchId": "E040208-A23",
+          "source": {
+            "stableId": "E040208-A23",
+            "label": "Excel(표시형식)",
+            "context": "Excel 메뉴",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040208-A23",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "원본 부분관측; 다운로드/설정 항목 실행 및 전체 동등성 미검증"
+          ]
+        },
+        {
+          "matchId": "E040208-A24",
+          "source": {
+            "stableId": "E040208-A24",
+            "label": "Excel(데이터)",
+            "context": "Excel 메뉴",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040208-A24",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "원본 부분관측; 다운로드/설정 항목 실행 및 전체 동등성 미검증"
+          ]
         }
       ],
       "sourceObservation": {
@@ -15225,7 +15477,17 @@
         "isGlobalDefaultProven": false,
         "personalPeriodCaution": "2023/11 was observed user search setting, not a universal default",
         "compareObserved": "사용안함",
-        "domesticObserved": "전체"
+        "domesticObserved": "전체",
+        "excelMenu": {
+          "items": [
+            "Excel(표시형식)\nExcel(데이터)"
+          ],
+          "opened": true,
+          "closed": true,
+          "closeMethod": "toggle_button",
+          "escapeDidNotClose": true,
+          "downloadExecuted": false
+        }
       }
     },
     {
@@ -24374,6 +24636,174 @@
           "limitations": [
             "새창 열기 관찰; 새창 선택반환 미검증. pin/refresh/maximize 실행 없음"
           ]
+        },
+        {
+          "matchId": "E040209-A55",
+          "source": {
+            "stableId": "E040209-A55",
+            "label": "라인별",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040209-FOLLOWUP-CONTROLS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040209-A55",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "원본 부분관측; 다운로드/설정 항목 실행 및 전체 동등성 미검증"
+          ]
+        },
+        {
+          "matchId": "E040209-A56",
+          "source": {
+            "stableId": "E040209-A56",
+            "label": "정렬기준 설정",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040209-FOLLOWUP-CONTROLS"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040209-A56",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "원본 부분관측; 다운로드/설정 항목 실행 및 전체 동등성 미검증"
+          ]
         }
       ],
       "sourceObservation": {
@@ -24485,6 +24915,25 @@
           ],
           "openCloseObserved": true,
           "childExecuted": false
+        },
+        "latestSearchReturn": {
+          "searchVisible": true,
+          "resultPreserved": true,
+          "conditionLabels": [
+            "메뉴:현황/집계",
+            "구분:라인별",
+            "비교기간:사용안함/전년동일기간/전월동일기간/전주동일기간/전일동일기간",
+            "기준일자",
+            "내.외자구분:전체/내자/외자",
+            "품목별납기일자:직접입력",
+            "창고",
+            "거래처",
+            "품목",
+            "적용양식:현황",
+            "정렬기준:설정",
+            "데이터 보기형식:그래프로 보기"
+          ],
+          "sourceWriteActions": 0
         }
       }
     },
@@ -80457,7 +80906,24 @@
             "width": 750
           },
           "sourceWrites": 0,
-          "rowsCollected": 0
+          "rowsCollected": 3899,
+          "safeValidation": {
+            "rows": 3899,
+            "openingRows": 1949,
+            "groupSummaryRows": 1949,
+            "totalRows": 1,
+            "unknownProductCodes": 0,
+            "unexpectedDateLabels": 0,
+            "transactionDetailsVerified": false,
+            "namesStored": false,
+            "allTableRowsIncluded": true,
+            "periodFrom": "2026-10-20",
+            "periodTo": "2026-10-20",
+            "mode": "일별",
+            "sourceWrites": 0
+          },
+          "sqlImported": false,
+          "targetRuntimeVerified": false
         },
         "monthly": {
           "mode": "월별",
@@ -80500,7 +80966,26 @@
             "width": 750
           },
           "sourceWrites": 0,
-          "rowsCollected": 0
+          "rowsCollected": 3899,
+          "safeValidation": {
+            "rows": 3899,
+            "openingRows": 1949,
+            "groupSummaryRows": 1949,
+            "totalRows": 1,
+            "unknownProductCodes": 0,
+            "unexpectedDateLabels": 0,
+            "transactionDetailsVerified": false,
+            "namesStored": false,
+            "allTableRowsIncluded": true,
+            "periodFrom": "2026-10-20",
+            "periodTo": "2026-10-20",
+            "mode": "월별",
+            "sourceWrites": 0,
+            "dailySamePeriodFieldDifferences": 0,
+            "unobservedPeriodEquivalenceClaimed": false
+          },
+          "sqlImported": false,
+          "targetRuntimeVerified": false
         },
         "nonAggregateScope": {
           "periodFrom": "2026-10-20",
@@ -80518,9 +81003,32 @@
           ],
           "renderedBodyRows": 3899,
           "transactionCount": null,
-          "safeQuantityRowsCollected": 0,
-          "targetEnabled": false,
-          "deferred": true
+          "safeQuantityRowsCollected": 7798,
+          "targetEnabled": null,
+          "deferred": false,
+          "safeQuantityRowsCollectedPerMode": 3899,
+          "openingRowsPerMode": 1949,
+          "groupSummaryRowsPerMode": 1949,
+          "totalRowsPerMode": 1,
+          "sourceGroupLabelsPreserved": true,
+          "targetRuntimeVerified": false,
+          "sqlImported": false
+        },
+        "openingNumericCorrection": {
+          "conversionApplied": false,
+          "inQuantityEmpty": 0,
+          "inQuantityNumeric": 1949,
+          "openingRows": 1949,
+          "outQuantityEmpty": 0,
+          "outQuantityNumeric": 1949,
+          "ready": true
+        },
+        "dailyCrossReport": {
+          "openingCompared": 1949,
+          "openingMismatches": 0,
+          "summaryCompared": 3898,
+          "summaryMismatches": 0,
+          "missingCodes": 0
         }
       }
     },

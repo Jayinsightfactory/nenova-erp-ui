@@ -7410,6 +7410,48 @@
           ],
           "testEvidence": [],
           "behavior": "Observed transition to7column detail view"
+        },
+        {
+          "id": "E040208-A22",
+          "label": "Excel 드롭다운",
+          "context": "하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+          ],
+          "testEvidence": [],
+          "behavior": "Toggle opens/closes; Escape did not close; downloads not executed"
+        },
+        {
+          "id": "E040208-A23",
+          "label": "Excel(표시형식)",
+          "context": "Excel 메뉴",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control, not executed"
+        },
+        {
+          "id": "E040208-A24",
+          "label": "Excel(데이터)",
+          "context": "Excel 메뉴",
+          "classification": "download",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040208-FOLLOWUP-CONTROLS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control, not executed"
         }
       ],
       "windows": [],
@@ -9408,6 +9450,34 @@
           ],
           "testEvidence": [],
           "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040209-A55",
+          "label": "라인별",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-FOLLOWUP-CONTROLS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control, not executed"
+        },
+        {
+          "id": "E040209-A56",
+          "label": "정렬기준 설정",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-FOLLOWUP-CONTROLS"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control, not executed"
         }
       ],
       "windows": [
