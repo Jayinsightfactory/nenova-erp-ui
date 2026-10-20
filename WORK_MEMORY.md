@@ -157,3 +157,9 @@
 - 실제 PDF 파서 및 합성 오류 사례, CN 비용 저장/재조회 모의 SQL 및 NULL 품목 보존 검사 통과. 전체 ERP 검사·dnSpy·manifest/write guard·빌드 통과. 운영 로그인 확인.
 - PR/운영 배포 및 실제 원가 저장·Excel 다운로드는 아직 미검증. 기존 운영 입고 수정 없음.
 - 검색어: china-existing-cost EXISTING_CN 15단 송이수수정 null-product
+
+## 2026-10-20 ECOUNT 기능 이관 자동 작업 설계
+- 최신 origin/master abe88d34에서 별도 작업트리. 실제 Chrome 사이트맵·입출금·세금계산서 표/버튼과 기존 수집·은행·증빙 코드를 조회.
+- docs/ECOUNT_REPLACEMENT_DESIGN_2026-10-20.md 및 docs/ecount-migration/work-plan.json에 자체 DB 범위, 외부 API, 14개 의존 작업, 수집 보강·원장 호환·전환 게이트 기록.
+- ECOUNT/MSSQL 쓰기, 거래자료 적재, REA 설치, 실행 스케줄, 앱 배포 없음. 전체 기능 동등성·운영 API·실제 이관 미검증. 문서/JSON 구조 확인만 수행.
+- 검색어: ECOUNT_REPLACEMENT_DESIGN ecount-migration REA 자체회계 은행대사 전자세금계산서
