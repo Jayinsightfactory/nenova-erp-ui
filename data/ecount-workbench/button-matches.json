@@ -5809,6 +5809,28 @@
           "limitations": [
             "Target not implemented; no pair comparison"
           ]
+        },
+        {
+          "id": "E040304-target-unimplemented.jpg",
+          "path": "outputs/ecount-parity-20261020/E040304-target-unimplemented.jpg",
+          "side": "target",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 300
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "대상 미구현, 대응버튼 없음"
+          ]
         }
       ]
     },
@@ -9788,6 +9810,50 @@
             "Source 진행중 status absent in target",
             "Layout and empty-result message differ"
           ]
+        },
+        {
+          "id": "E040202-source-status-today-empty.jpg",
+          "path": "outputs/ecount-parity-20261020/E040202-source-status-today-empty.jpg",
+          "side": "source",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 240,
+            "y": 95,
+            "width": 1250,
+            "height": 300
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "기간·상태·0건만 확인; 전체조건·화면일치 미검증"
+          ]
+        },
+        {
+          "id": "E040202-target-status-today-empty.jpg",
+          "path": "outputs/ecount-parity-20261020/E040202-target-status-today-empty.jpg",
+          "side": "target",
+          "viewport": {
+            "width": 1920,
+            "height": 855
+          },
+          "clip": {
+            "x": 0,
+            "y": 95,
+            "width": 1900,
+            "height": 420
+          },
+          "safeReview": true,
+          "containsSensitiveValues": false,
+          "candidateOnly": true,
+          "status": "미검증",
+          "limitations": [
+            "기간·상태·0건만 확인; 전체조건·화면일치 미검증"
+          ]
         }
       ],
       "dataPipelineEvidence": {
@@ -9886,6 +9952,17 @@
           "queryValuesVerified": false,
           "sourceMutation": false,
           "scope": "Local unauthenticated browser only; production data/query parity unverified"
+        },
+        {
+          "environment": "production 3ee7aabb",
+          "authentication": "authorized session",
+          "checks": [
+            "Option6항목 A29~A34 disabled 확인",
+            "Escape 메뉴닫힘 및 Option초점 복원",
+            "진행중3/완료23 필터 결과 확인"
+          ],
+          "stableIds": [],
+          "scope": "Only observed paths; full parity unverified"
         }
       ],
       "comparisonCases": [
@@ -9940,6 +10017,48 @@
             "E040202-target-today-empty.jpg"
           ],
           "rawValuesStored": false
+        },
+        {
+          "id": "QUOTE-STATUS-SAFE-26",
+          "environment": "production 3ee7aabb",
+          "periodFrom": "2026-09-20",
+          "periodTo": "2026-11-19",
+          "sourceStatusFilter": "수집 표시구간 전체",
+          "targetStatusFilter": "적재26행 전체",
+          "conditionsStatus": "미검증",
+          "sourceRows": 26,
+          "targetRows": 26,
+          "rowCountStatus": "일치",
+          "comparedFields": [
+            "date",
+            "amount",
+            "status"
+          ],
+          "comparedValues": 78,
+          "mismatchCount": 0,
+          "fieldComparisonStatus": "일치",
+          "overallStatus": "미검증",
+          "scope": "수집snapshot26행 날짜·금액·상태만 비교. date-doc키26개 유일. 원본전체건수/전체수집 미확인. 진행중3·완료23 대상필터 확인.",
+          "rawValuesStored": false
+        },
+        {
+          "id": "QUOTE-STATUS-TODAY-EMPTY",
+          "environment": "production 3ee7aabb",
+          "periodFrom": "2026-10-20",
+          "periodTo": "2026-10-20",
+          "sourceStatusFilter": "진행중",
+          "targetStatusFilter": "진행중",
+          "conditionsStatus": "미검증",
+          "sourceRows": 0,
+          "targetRows": 0,
+          "rowCountStatus": "일치",
+          "comparedFields": [],
+          "comparedValues": 0,
+          "mismatchCount": null,
+          "fieldComparisonStatus": "미검증",
+          "overallStatus": "미검증",
+          "scope": "기간·진행중 조건과0건만 확인. 나머지조건 전체미검증. 화면폭·배치 다름.",
+          "rawValuesStored": false
         }
       ],
       "sourceCollectionScope": {
@@ -9956,7 +10075,7 @@
         "fullCollectionVerified": false,
         "safeProjectionFields": "numeric/date/status enum only",
         "sqlImportStatus": "revision2 26행 readback/hash/idempotency 확인",
-        "deploymentStatus": "pending",
+        "deploymentStatus": "3ee7aabb 운영배포 및 26행/78필드 mismatch0 확인",
         "rawValuesCopiedToReport": false
       },
       "dataPipelineHistory": [
