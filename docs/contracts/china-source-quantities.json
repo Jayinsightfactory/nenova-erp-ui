@@ -1,0 +1,11 @@
+{
+  "id": "china-source-quantities",
+  "title": "중국 인보이스 원본 박스 단 송이 보존",
+  "scope": ["lib/importChinaSourceQuantities.js", "lib/importPacking.js", "lib/importPackingPrompt.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"PRESERVE_SOURCE_QUANTITIES","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"파일 변환에서만 원본 박스/단/송이를 보존. 기존 pcs 필드는 박스이며 원문 PCS(송이)와 구별. 매칭으로 수량을 변경하지 않음. 미입력 1 보정 금지. SQL/단가단위/원문검토 게이트 변경 없음."}],
+  "crossYearFixture": {"required":true,"description":"2025/2026 동일41-01 원본 수량과 일자 보존, 운영 쓰기 없음"},
+  "requiredTestFiles": ["__tests__/chinaSourceQuantities.test.js","__tests__/importChinaInvoice.test.js","__tests__/importPackingHardening.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-20 dnSpy CLI ExcelLoadingPackingList 재실행: BoxQuantity F, BunchQuantity I, SteamQuantity J 독립 원본 필드. SQL writer 변경 없음.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","ProductStock"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

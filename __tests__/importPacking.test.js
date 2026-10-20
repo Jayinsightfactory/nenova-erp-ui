@@ -38,7 +38,7 @@ async function main() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('original prompts preserved except the verified CO goods-plus-charges correction', () => {
+  await check('original prompts preserved except verified CO totals and CN source-unit correction', () => {
     const correctedCoCheck = '- Sum the t_price values of all products, then add freight_total. Does goods + extras equal invoice_total? If not, you missed a row, duplicated one, or selected the wrong charge/total — re-read the invoice top to bottom. Do NOT compare goods alone to a grand total that includes extras.';
     const originalCoCheck = '- Sum the t_price values of all your products. Does it equal invoice_total? If not, you missed a row or duplicated one — re-read the invoice top to bottom.';
     assert.ok(prompt.buildPrompt('CO').includes(correctedCoCheck));
@@ -49,7 +49,7 @@ async function main() {
     const hashes = {
       CO: 'a0c7454452f7fe85d46b6fd5799b8292fe468d03938a8bc6a2b206a4187309a0',
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
-      CN: '45e8e196bd04ccd8563ff404c3c6e8f222eb7ccf8a881b30719c6ab01faf198e',
+      CN: 'cdb64e5933e3ab18b628e178a6d7e5f250880a958deaad7e24aedaae8c94503a',
       EC: '9ea4cce8f2461a8e6c21d732029f29c26da9d4e6884a5634959d74dcb91965fa',
       TH: '07e6964383ae6dcefb0cd331f6c79f5d7e214cd3324a8d68c51440fd2d5d313d',
       AU: '259502f79eaa9c362360755a3ef0fc3ede810162d404c032021d96088db79d8d',
@@ -66,7 +66,7 @@ async function main() {
     if (source) {
       const a = source.indexOf('function buildPrompt('), b = source.indexOf('function parseWeekFromFilename(', a);
       const original = vm.runInNewContext(source.slice(a, b) + '\nbuildPrompt');
-      for (const country of prompt.PACKING_COUNTRIES) assert.equal(originalPart(country), original(country));
+      for (const country of prompt.PACKING_COUNTRIES.filter(country => country !== 'CN')) assert.equal(originalPart(country), original(country));
     }
     assert.equal(prompt.PACKING_COUNTRIES.length, 8); assert.throws(() => prompt.buildPrompt('XX'), /Unsupported/);
   });

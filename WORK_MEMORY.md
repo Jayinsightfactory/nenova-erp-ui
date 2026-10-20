@@ -356,3 +356,10 @@
 메뉴 기준선: 적용—기존 화면/키보드/스크롤/필터 보존. 해당 없음—웹 shell/입력/매칭/DB쓰기. 화면상 실제 로그인 조회는 아직 미검증. native control 시험과 실제SQL 읽기검증은 완료.
 
 검색어: native-pivot-negative NENOVA.EXE 여분26 -76 두바이트 signed SUM
+
+## 2026-10-20 중국 인보이스 원본 수량 보존
+- CN AI 경로의 pcs=1/bunch_st=1/total_stems 누락 제거. Order 박스, Bunch 단, PCS 송이를 헤더 의미로 추출. DB 품목 매칭은 원본 수량을 덮어쓰지 않는다.
+- dnSpy 실제 ExcelLoadingPackingList F/I/J 별도 박스/단/송이 확인. 2025/2026 fixture, 실제41-1 XLSX20/20, ERP contract·dnSpy·manifest·write guard·build 통과.
+- 운영 SELECT만: 해당 송장102행 박스102/단5391/송이5391, 원본101상품행429/5390/68775와 다름. 자동 데이터 보정 없음. 실사용 PDF 재분석·운영 입고 쓰기 미검증, 배포 스모크 후속.
+- 메뉴 기준: 기존 UI/스크롤/매칭 적용, 새 화면·DB writer 해당 없음.
+- 검색어: chinaSourceQuantities Order Bunch PCS 41-01 원본수량보존
