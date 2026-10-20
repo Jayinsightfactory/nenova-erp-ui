@@ -460,3 +460,15 @@
 - 두UI16/27 ID및정책/정밀소수/기간·연도·중복·복원fixturePASS, 총787관측ID. stockMove일별·월별별도자료미수집비활성유지; source3899bodyrows는거래건수로해석하지않음. 기존격리shell적용/신규공유ERP writer없음.
 - PR1142 5dd746f1 CI성공·병합. 배포39404519702는활동이력test54가09:59:59→10:00:00UTC 경계에서hour조회5중1반환으로실패, SSH미실행. 동일failedjob재시도중, 검증우회없음/관련없는코드수정없음.
 - 검색어: whStock stockMove 787 inventory-import-root-mapping-validation 1142시간경계
+
+## 2026-10-20 재고 두 화면 적재 및 배포 진행
+- PR1142 배포39404519702 재시도 성공, ERP검사/SSH/hydration 모두통과. 최초 시간경계실패기록은보존.
+- 재고 수량표시콤마차이 root검토로발견후 stock/whStock/stockMove 정확문자열포맷보정. 미완료검사중단·빌드미실행 후 최종5gate모두PASS(inventory-pair-final-guard-results.json), build1회. PR1143 CI39405763407 PASS/squash812dbd7b, 배포39406094217 진행중.
+- root 승인독립ecount_work적재: whStock/stockMove 각각1949행revision1/readbacktrue/idempotenttrue. inventory-pair-import-results.json. 원본·공유ERP원장쓰기0, 운영화면대조는배포후예정/미검증.
+- 검색어: PR1143 812dbd7b whStock stockMove revision1 inventory-pair-import-results
+
+## 2026-10-20 창고 선택창 원본 반환 및 후속 구현
+- 원본 checkbox선택→Apply→부모 exactdata-value 코드1개일치·창닫힘확인. 선택창고금일조회1949행과기존원본표qty/warehouseqty/missing불일치0(warehouse-selected-filter-result.json/warehouse-lookup-return-exact.json). 대상운영반환동등성은아직미검증.
+- 대상 안전코드목록선택창960×427.5/4열465, 선택→부모조건→조회시whStock필터만반영. 이름/구분미수집공백·미관측아이콘비활성. UI28표적검사PASS,총799관측ID이며전체완료수아님. source/sharedledger쓰기0.
+- PR1142 운영 root확인: 두현황721/6열·검색펼침·폼/세무거래처차이·미수집업로드활성·인쇄4항목열기닫기및비활성PASS. 실제값은원본특정확인filter0과대상미수집상태로값동일확정아님. PR1143배포진행중.
+- 검색어: WarehouseLookupOverlay warehouse-selected-filter-result 799 PR1142runtime

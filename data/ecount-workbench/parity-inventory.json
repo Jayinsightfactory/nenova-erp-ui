@@ -21881,6 +21881,176 @@
           "testEvidence": [],
           "behavior": "Selecting vertical changes existing form button label; form menu not executed",
           "sameControlAs": "E040711-A08"
+        },
+        {
+          "id": "E040711-A17",
+          "label": "창고 검색",
+          "context": "검색 패널",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Lookup opened or closed; no business record mutation"
+        },
+        {
+          "id": "E040711-A18",
+          "label": "new-window",
+          "context": "창고 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A19",
+          "label": "pin",
+          "context": "창고 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A20",
+          "label": "refresh",
+          "context": "창고 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A21",
+          "label": "maximize",
+          "context": "창고 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A22",
+          "label": "close",
+          "context": "창고 선택창 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A23",
+          "label": "사용중단포함",
+          "context": "창고 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A24",
+          "label": "Fn",
+          "context": "창고 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A25",
+          "label": "Search(F3)",
+          "context": "창고 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A26",
+          "label": "Option",
+          "context": "창고 선택창",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible control only; not executed"
+        },
+        {
+          "id": "E040711-A27",
+          "label": "적용(F8)",
+          "context": "창고 선택창",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP",
+            "warehouse-lookup-return-exact.json",
+            "warehouse-selected-filter-result.json"
+          ],
+          "testEvidence": [],
+          "behavior": "Source selected warehouse exact chip code matches one selected code; Apply closes. Subsequent source today1949 matches prior source quantity/warehouse quantity. Target unverified."
+        },
+        {
+          "id": "E040711-A28",
+          "label": "닫기",
+          "context": "창고 선택창 하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+          ],
+          "testEvidence": [],
+          "behavior": "Lookup opened or closed; no business record mutation"
         }
       ],
       "windows": [],

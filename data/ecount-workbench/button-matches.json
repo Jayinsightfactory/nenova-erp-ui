@@ -41547,6 +41547,31 @@
           "actionsExecuted": [],
           "sourceWrites": 0
         }
+      },
+      "targetPartialRuntime": {
+        "printMenu": {
+          "items": [
+            {
+              "disabled": true,
+              "text": "PDF"
+            },
+            {
+              "disabled": true,
+              "text": "미리보기"
+            },
+            {
+              "disabled": true,
+              "text": "프린트문제해결"
+            },
+            {
+              "disabled": true,
+              "text": "인쇄"
+            }
+          ],
+          "openedClosedObserved": true,
+          "itemExecutionTested": false,
+          "evidence": "tax-status-print-1142-runtime.json"
+        }
       }
     },
     {
@@ -62220,6 +62245,31 @@
         },
         "actualRowsCollected": 0,
         "aliasesContextVerified": false
+      },
+      "targetPartialRuntime": {
+        "printMenu": {
+          "items": [
+            {
+              "disabled": true,
+              "text": "PDF"
+            },
+            {
+              "disabled": true,
+              "text": "미리보기"
+            },
+            {
+              "disabled": true,
+              "text": "프린트문제해결"
+            },
+            {
+              "disabled": true,
+              "text": "인쇄"
+            }
+          ],
+          "openedClosedObserved": true,
+          "itemExecutionTested": false,
+          "evidence": "tax-status-print-1142-runtime.json"
+        }
       }
     },
     {
@@ -66650,6 +66700,1021 @@
           "limitations": [
             "가로폼A08과같은control의모드별라벨;독립물리버튼수아님"
           ]
+        },
+        {
+          "matchId": "E040711-A17",
+          "source": {
+            "stableId": "E040711-A17",
+            "label": "창고 검색",
+            "context": "검색 패널",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A17",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A18",
+          "source": {
+            "stableId": "E040711-A18",
+            "label": "new-window",
+            "context": "창고 선택창 제목줄",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A18",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A19",
+          "source": {
+            "stableId": "E040711-A19",
+            "label": "pin",
+            "context": "창고 선택창 제목줄",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A19",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A20",
+          "source": {
+            "stableId": "E040711-A20",
+            "label": "refresh",
+            "context": "창고 선택창 제목줄",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A20",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A21",
+          "source": {
+            "stableId": "E040711-A21",
+            "label": "maximize",
+            "context": "창고 선택창 제목줄",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A21",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A22",
+          "source": {
+            "stableId": "E040711-A22",
+            "label": "close",
+            "context": "창고 선택창 제목줄",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ],
+            "labelKind": "descriptive-icon"
+          },
+          "target": {
+            "requiredStableId": "E040711-A22",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A23",
+          "source": {
+            "stableId": "E040711-A23",
+            "label": "사용중단포함",
+            "context": "창고 선택창",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A23",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A24",
+          "source": {
+            "stableId": "E040711-A24",
+            "label": "Fn",
+            "context": "창고 선택창",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A24",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A25",
+          "source": {
+            "stableId": "E040711-A25",
+            "label": "Search(F3)",
+            "context": "창고 선택창",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A25",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A26",
+          "source": {
+            "stableId": "E040711-A26",
+            "label": "Option",
+            "context": "창고 선택창",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A26",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
+        },
+        {
+          "matchId": "E040711-A27",
+          "source": {
+            "stableId": "E040711-A27",
+            "label": "적용(F8)",
+            "context": "창고 선택창",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP",
+              "warehouse-lookup-return-exact.json"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A27",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "후속원본 selectedcode1개 정확반환 일치확인;대상반환/기타선택/새창미검증"
+          ]
+        },
+        {
+          "matchId": "E040711-A28",
+          "source": {
+            "stableId": "E040711-A28",
+            "label": "닫기",
+            "context": "창고 선택창 하단",
+            "domId": null,
+            "evidence": [
+              "source-action-audit.jsonl#SRC-20261020-E040711-WAREHOUSE-LOOKUP"
+            ]
+          },
+          "target": {
+            "requiredStableId": "E040711-A28",
+            "actualStableId": null,
+            "label": null,
+            "evidence": [],
+            "codeMappingStableId": null
+          },
+          "status": "미검증",
+          "conditions": {
+            "status": "미검증",
+            "evidence": [],
+            "filterProfile": null,
+            "periodFrom": null,
+            "periodTo": null,
+            "permissionProfile": null,
+            "sortProfile": null,
+            "pagingProfile": null,
+            "currency": null,
+            "sourceObservedAt": null,
+            "targetObservedAt": null,
+            "timeZone": "Asia/Seoul",
+            "sameSnapshotVerified": false
+          },
+          "comparisons": {
+            "label": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "function": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "window": {
+              "status": "미검증",
+              "evidence": []
+            },
+            "queryValues": {
+              "status": "미검증",
+              "evidence": [],
+              "rowCount": {
+                "status": "미검증",
+                "evidence": [],
+                "source": null,
+                "target": null
+              },
+              "totals": {
+                "status": "미검증",
+                "evidence": [],
+                "comparedFieldCount": null,
+                "mismatchCount": null
+              },
+              "rows": {
+                "status": "미검증",
+                "evidence": [],
+                "matchingRule": null,
+                "comparedRows": null,
+                "comparedFields": null,
+                "mismatchCount": null,
+                "rawValuesStored": false
+              },
+              "queryApplicable": null,
+              "notApplicableReason": null,
+              "applicabilityEvidence": []
+            }
+          },
+          "captures": {
+            "source": null,
+            "target": null
+          },
+          "limitations": [
+            "선택Apply후창닫힘만확인;정확코드반환미검증.새창/설정미실행"
+          ]
         }
       ],
       "sourceObservation": {
@@ -66895,6 +67960,168 @@
           "formButtonAfter": "현황(종)",
           "subsequentTodayQueryCompleted": true,
           "sourceWrites": 0
+        },
+        "warehouseLookup": {
+          "program": "E040711",
+          "context": "창고 선택창",
+          "opened": true,
+          "selectionApplied": false,
+          "observation": {
+            "buttons": [
+              {
+                "cls": "ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only btn btn-primary ui-dialog-titlebar-new-window",
+                "id": "",
+                "label": "",
+                "role": null
+              },
+              {
+                "cls": "ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only btn btn-primary ui-dialog-titlebar-pin",
+                "id": "",
+                "label": "",
+                "role": "pin"
+              },
+              {
+                "cls": "ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only btn btn-primary ui-dialog-titlebar-refresh",
+                "id": "",
+                "label": "",
+                "role": null
+              },
+              {
+                "cls": "ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only btn btn-primary ui-dialog-titlebar-maximize",
+                "id": "",
+                "label": "",
+                "role": null
+              },
+              {
+                "cls": "ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only btn btn-primary ui-dialog-titlebar-close",
+                "id": "",
+                "label": "",
+                "role": null
+              },
+              {
+                "cls": "btn btn-default btn-sm first-child last-child",
+                "id": "searchWithDeactivate",
+                "label": "사용중단포함",
+                "role": "{{ecRole}}"
+              },
+              {
+                "cls": "btn btn-default btn-fn dropdown-toggle fn btn-sm last-child",
+                "id": "",
+                "label": "",
+                "role": null
+              },
+              {
+                "cls": "btn btn-primary btn-title-search first-child last-child",
+                "id": "tgHeaderSearch",
+                "label": "Search(F3)",
+                "role": "{{ecRole}}"
+              },
+              {
+                "cls": "btn btn-default btn-title-option dropdown-toggle first-child last-child",
+                "id": "tgHeaderOption",
+                "label": "Option",
+                "role": "{{ecRole}}"
+              },
+              {
+                "cls": "btn btn-primary",
+                "id": "codeApply",
+                "label": "적용(F8)",
+                "role": "{{ecRole}}"
+              },
+              {
+                "cls": "btn btn-default first-child last-child",
+                "id": "outputClose",
+                "label": "닫기",
+                "role": "{{ecRole}}"
+              }
+            ],
+            "headers": [
+              {
+                "label": "",
+                "width": 25
+              },
+              {
+                "label": "구분",
+                "width": 110
+              },
+              {
+                "label": "창고코드",
+                "width": 110
+              },
+              {
+                "label": "창고명",
+                "width": 220
+              }
+            ],
+            "height": 427.5,
+            "inputs": [
+              {
+                "placeholder": "입력 후 [Enter]",
+                "type": "text"
+              },
+              {
+                "placeholder": "",
+                "type": "checkbox"
+              },
+              {
+                "placeholder": "",
+                "type": "checkbox"
+              },
+              {
+                "placeholder": "",
+                "type": "checkbox"
+              }
+            ],
+            "width": 960
+          },
+          "sourceWrites": 0,
+          "followup": {
+            "selectionApplyObserved": true,
+            "dialogClosed": true,
+            "exactCodeReturnVerified": true,
+            "evidence": "warehouse-lookup-return-observation.json",
+            "hasTextDoesNotVerifyCode": true,
+            "selectedCount": 1,
+            "selectedCodeMatches": true,
+            "exactEvidence": "warehouse-lookup-return-exact.json",
+            "previousHasTextOnlyEvidenceRetained": true
+          },
+          "hiddenControlsExcluded": [
+            "hidden search(F8)",
+            "hidden200rowsquery"
+          ],
+          "selectedFilterResult": {
+            "rows": 1949,
+            "sourceRows": 1949,
+            "missing": 0,
+            "quantityMismatch": 0,
+            "warehouseQuantityMismatch": 0,
+            "sourceWrites": 0,
+            "scope": "Source selected-warehouse today query versus earlier source safe projection; not target-production comparison",
+            "evidence": "warehouse-selected-filter-result.json"
+          }
+        },
+        "sqlImport": {
+          "scope": "ecount_work",
+          "sourceWrites": 0,
+          "whStock": {
+            "count": 1949,
+            "revision": 1,
+            "readback": true,
+            "idempotent": true
+          },
+          "stockMove": {
+            "count": 1949,
+            "revision": 1,
+            "readback": true,
+            "idempotent": true
+          }
+        },
+        "displayParity": {
+          "numericComparison": "separate from display strings",
+          "knownStockQuantityStringMismatches": 435,
+          "evidence": "stock-display-before-format-fix.json",
+          "fixedProductionVerified": false
         }
       }
     },
