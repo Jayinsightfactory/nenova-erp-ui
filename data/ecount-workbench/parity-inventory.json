@@ -9324,9 +9324,107 @@
           ],
           "testEvidence": [],
           "behavior": "Visible label only; collapse behavior unexecuted"
+        },
+        {
+          "id": "E040209-A49",
+          "label": "new-window",
+          "context": "항목추가 제목줄",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Separate source browser tab opened; selection return unverified"
+        },
+        {
+          "id": "E040209-A50",
+          "label": "pin",
+          "context": "항목추가 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040209-A51",
+          "label": "refresh",
+          "context": "항목추가 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040209-A52",
+          "label": "maximize",
+          "context": "항목추가 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040209-A53",
+          "label": "close",
+          "context": "항목추가 제목줄",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040209-A54",
+          "label": "닫기",
+          "context": "항목추가 하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
         }
       ],
-      "windows": [],
+      "windows": [
+        {
+          "id": "E040209-GROUPING-NEW-WINDOW",
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040209-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "headers": [
+            "항목명"
+          ],
+          "selectionReturnVerified": false,
+          "kind": "new-window"
+        }
+      ],
       "dimensions": {
         "fields": {
           "stage": "observed",
@@ -14439,9 +14537,122 @@
           ],
           "testEvidence": [],
           "behavior": "Option label observed only; not selected"
+        },
+        {
+          "id": "E040306-A46",
+          "label": "new-window",
+          "context": "집계조건검색 제목줄",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Separate source browser tab opened; selection return unverified"
+        },
+        {
+          "id": "E040306-A47",
+          "label": "pin",
+          "context": "집계조건검색 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040306-A48",
+          "label": "refresh",
+          "context": "집계조건검색 제목줄",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040306-A49",
+          "label": "maximize",
+          "context": "집계조건검색 제목줄",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW",
+            "source-action-audit.jsonl#SRC-20261020-E040306-MAXIMIZE"
+          ],
+          "testEvidence": [],
+          "behavior": "960x684 → maximized1918x855 → restored960x684, source read-only"
+        },
+        {
+          "id": "E040306-A50",
+          "label": "close",
+          "context": "집계조건검색 제목줄",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Control presence only; behavior unexecuted"
+        },
+        {
+          "id": "E040306-A51",
+          "label": "닫기",
+          "context": "집계조건검색 하단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": true,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "behavior": "Bottom close returns from overlay"
+        },
+        {
+          "id": "E040306-A52",
+          "label": "키보드 활용 TIP 상세보기",
+          "context": "집계조건검색 하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-KEYBOARD-TIP"
+          ],
+          "testEvidence": [],
+          "behavior": "Visible screenshot label only; not executed"
         }
       ],
-      "windows": [],
+      "windows": [
+        {
+          "id": "E040306-GROUPING-NEW-WINDOW",
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261020-E040306-LOOKUP-WINDOW"
+          ],
+          "testEvidence": [],
+          "headers": [
+            "집계조건"
+          ],
+          "selectionReturnVerified": false,
+          "kind": "new-window"
+        }
+      ],
       "dimensions": {
         "fields": {
           "stage": "observed",

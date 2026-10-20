@@ -1,14 +1,15 @@
 {
   "id":"ecount-page-actions",
   "title":"ECOUNT 조회 화면의 무부작용 검색·정렬·출력 모델",
-  "scope":["lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
+  "scope":["pages/_app.js","components/ecount/useLookupWindow.js","lib/ecountLookupWindow.cjs","pages/ecount/lookup.js","lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"LOCAL_FILTER_SORT_EXPORT_MODEL","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":[]}],
   "crossYearFixture":{"required":true,"description":"연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"},
-  "requiredTestFiles":["__tests__/ecountWorkspaceEmptyState.test.cjs","__tests__/ecountWorkspaceNavigation.test.cjs","__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
+  "requiredTestFiles":["__tests__/ecountLookupWindowUi.test.cjs","__tests__/ecountLookupWindow.test.cjs","__tests__/ecountWorkspaceEmptyState.test.cjs","__tests__/ecountWorkspaceNavigation.test.cjs","__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
   "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
-  "requiredCommands":["node --test __tests__/ecountWorkspaceEmptyState.test.cjs","node --test __tests__/ecountWorkspaceNavigation.test.cjs","node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+  "requiredCommands":["node --test __tests__/ecountLookupWindowUi.test.cjs","node __tests__/ecountLookupWindow.test.cjs","node --test __tests__/ecountWorkspaceEmptyState.test.cjs","node --test __tests__/ecountWorkspaceNavigation.test.cjs","node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
   "criteria":{
+    "lookupReturn":"동일origin/exact child WindowProxy/UUID nonce/current dataset 일치시에만 daily 로컬표시선택. 새메뉴·오래된창·닫힌부모/자식·변조 payload 거부. SQL/query실행없음. 부모 cleanup/listener 및 crypto.randomUUID는 UI책임.",
     "orderPreview":"관측된 orderStat-detail7열/orderStat-daily/poStat-daily5열은 명시layout옵션으로만허용, poStat내역9열. 미수집UI실행차단 유지. orderQuery인쇄문제해결만, orderStat일별집계5열관측, 다른집계표생성금지.",
     "quoteStatPreview":"집계8열 별도preview관측. 현황7열preview도 별도새탭 직접관측(단가(var별도) 포함). 자료미수집이므로 UI비활성유지; renderer7열은 layout=quoteStat-detail 명시옵션으로만 허용하며 전체원본양식 동등성은 미검증.",
     "unfulfilledPreview":"미판매9열/미구매8열 별도탭 관측. renderer8열 허용 추가하되 UI는 미수집상태로 preview 비활성. 기준일 영업주기/실제행 날짜 의미 미확인이므로 날짜·검색실행 모두 비활성.",

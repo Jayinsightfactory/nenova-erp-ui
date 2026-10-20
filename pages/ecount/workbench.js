@@ -1,3 +1,4 @@
+import { useLookupWindow } from '../../components/ecount/useLookupWindow';
 import { JOURNAL_COLUMNS, JournalToolbar, JournalSearchPanel, JournalFooter } from '../../components/ecount/JournalPageControls';
 import { PO_STATUS_COLUMNS, PO_DAILY_COLUMNS, PoAggregateLookup, PoStatusToolbar, PoStatusSearchPanel, PoStatusFooter } from '../../components/ecount/PoStatusPageControls';
 import { ORDER_QUERY_COLUMNS, OrderQueryToolbar, OrderQuerySearchPanel, OrderQueryFooter } from '../../components/ecount/OrderQueryPageControls';
@@ -88,6 +89,7 @@ export default function EcountWorkbench() {
   const menuButtonRef = useRef(null);
   const feature = MENUS.find(menu => menu.id === menuId);
   const dataset = DATASETS[feature?.program];
+  const openLookupWindow=useLookupWindow({scope:`${menuId}|${dataset}|${dialog}|${orderReportMode}|${poReportMode}`,onError:setError,onDaily:value=>{if(value==='orderStat')setOrderAggregateCondition('daily');else if(value==='poStat')setPoAggregateCondition('daily');setDialog(null);}});
   const menuList = useMemo(() => MENUS.filter(menu => menu.depth > 1 && (query ? searchKey(menu.path.join(' ')).includes(searchKey(query)) : menu.tab === tab)),[query,tab]);
   const filtered = useMemo(() => {
     if(!dataset) return {rows:[],unknownDateCount:0};
@@ -277,8 +279,8 @@ export default function EcountWorkbench() {
         {['receipt','payment','buyStatus','saleQuery'].includes(dataset)&&workspaceActions}
       </> : <><div className={styles.sectionLinks} onKeyDown={arrowFocus}>{MENUS.filter(menu=>menu.parentId===menuId).map(menu=><button key={menu.id} onClick={()=>selectMenu(menu.id)}>{menu.label}</button>)}</div>{!feature?.hasChildren&&<p className={styles.empty}>이 화면은 아직 준비 중입니다.</p>}</>}
     </section>}
-    {dialog==='order-aggregate'&&<OrderAggregateLookup onClose={closeDialog} onDaily={()=>{setOrderAggregateCondition('daily');closeDialog();}}/>}
-    {dialog==='po-aggregate'&&<PoAggregateLookup onClose={closeDialog} onDaily={()=>{setPoAggregateCondition('daily');closeDialog();}}/>}
+    {dialog==='order-aggregate'&&<OrderAggregateLookup onNewWindow={()=>openLookupWindow('orderStat')} onClose={closeDialog} onDaily={()=>{setOrderAggregateCondition('daily');closeDialog();}}/>}
+    {dialog==='po-aggregate'&&<PoAggregateLookup onNewWindow={()=>openLookupWindow('poStat')} onClose={closeDialog} onDaily={()=>{setPoAggregateCondition('daily');closeDialog();}}/>}
     {dialog==='purchase-customer'&&<CustomerLookupOverlay dataset="purchase" context="거래처 검색 오버레이" onClose={closeDialog}/>}
     {dialog==='customer'&&<CustomerLookupOverlay onClose={closeDialog}/>}
     {dialog==='mapping'&&<MappingOverlay onClose={closeDialog}/>}

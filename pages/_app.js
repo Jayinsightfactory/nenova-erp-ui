@@ -61,8 +61,8 @@ export default function App({ Component, pageProps }) {
   const needsStandaloneBack = isMenuPage && STANDALONE_MENU_BACK_ROUTES.has(router.pathname);
 
   // Keep replay/activity collectors out of imported ECOUNT data screens.
-  if (router.pathname === '/ecount/workbench') {
-    return <EcountPreviewShell popup={router.query.popup === '1'}>{page}</EcountPreviewShell>;
+  if (['/ecount/workbench','/ecount/lookup'].includes(router.pathname)) {
+    return <EcountPreviewShell popup={router.query.popup === '1'} lookup={router.pathname === '/ecount/lookup'}>{page}</EcountPreviewShell>;
   }
 
   if (isNoLayout) {
