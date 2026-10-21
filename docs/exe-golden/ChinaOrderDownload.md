@@ -49,3 +49,4 @@
 - 기존 FormQuantityPivot.GetData/btnExcel_Click 근거 재사용: ViewOrder.OutQuantity의 읽기 전용 파일 표시 변경. API/SQL/EXE 저장 경로 변경 없음.
 - 2026-10-21 운영 읽기 전용 probe: OrderYear=2026, OrderWeek 42-01 단 153행/71품목, 42-02 단 73행/34품목. 활성 중국 양수 주문만 조회. 단 원수량은 포장규격 누락에도 보존.
 - Order/Shipment/ShipmentDate/ShipmentFarm/Warehouse/StockHistory/Estimate/Amount/Vat/isFix/WebProfitReport 변경 없음. 교차연도 및 XLSX 재읽기 fixture로 두 시트 범위와 숫자형 검증.
+- 사용자 최종 정정: 두 시트 동시 다운로드를 취소하고 버튼 두 개(단·박스 다운로드 / 단만 다운로드)로 분리. 파일당 선택 형식 시트 하나만 생성, 파일명 단박스/단만 접미사 구분. 20개 관련 검사 재통과.
