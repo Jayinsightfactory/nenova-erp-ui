@@ -141,7 +141,7 @@ test('SSR renders every button-matches id exactly once with the observed activat
     assert.equal(new Set(ids).size,ids.length,`${program} id rendered twice`);
     assert.ok(html.includes(`data-ecount-survey-screen="${program}"`));
     for(const button of rendered){
-      const expectActive=button.id===screen.searchToggleId||button.id===screen.searchPanel.searchId||button.id===screen.searchPanel.resetId||screen.searchPanel.presets.some(preset=>preset.id===button.id&&preset.enabled);
+      const expectActive=button.id===screen.searchToggleId||button.id===screen.searchPanel.searchId||button.id===screen.searchPanel.resetId||screen.searchPanel.presets.some(preset=>preset.id===button.id&&preset.enabled)||screen.searchPanel.formButtons.some(item=>item.id===button.id&&item.lookup);
       assert.equal(!button.disabled,expectActive,`${program} ${button.label} (${button.id}) enabled=${!button.disabled}`);
       if(expectActive)active++;else placeholders++;
       if(/^저장/.test(button.label)){assert.ok(button.disabled,`${program} ${button.label}`);assert.ok(html.includes(`title="${SAVE_PENDING_REASON}"><button data-ecount-action-id="${button.id}"`),`${program} ${button.label} reason tooltip`);}
@@ -156,7 +156,7 @@ test('SSR renders every button-matches id exactly once with the observed activat
   console.log('SURVEY_SCREEN_BUTTONS active',active,'placeholders',placeholders);
   assert.equal(active+placeholders,974);
   const screens=SURVEY_PROGRAMS.map(program=>lib.SCREENS[program]);
-  const expectedActive=screens.filter(screen=>screen.searchToggleId).length+screens.filter(screen=>screen.searchPanel.searchId).length+screens.filter(screen=>screen.searchPanel.resetId).length+305;
+  const expectedActive=screens.filter(screen=>screen.searchToggleId).length+screens.filter(screen=>screen.searchPanel.searchId).length+screens.filter(screen=>screen.searchPanel.resetId).length+305+screens.reduce((total,screen)=>total+screen.searchPanel.formButtons.filter(item=>item.lookup).length,0);
   assert.equal(active,expectedActive);
 });
 test('Search(F3) screens hide the search panel until toggled; toggle keeps its id and aria state',()=>{
@@ -198,4 +198,23 @@ test('buildScreens never invents ids: a survey control without a button is repor
   assert.deepEqual(built.unmapped,[{program:'E040806',id:'E040806-A99'}]);
   assert.ok(!built.screens.E040806.ids.includes('E040806-A100'));
   assert.deepEqual(lib.buildScreens({pages:[]},{results:{E040806:result}}).skipped,['E040806']);
+});
+test('survey lookup windows: only 거래처/품목/창고 search-panel buttons are active, ids unchanged, others stay placeholders',()=>{
+  const found=[];
+  for(const program of lib.PROGRAMS)for(const button of lib.SCREENS[program].searchPanel.formButtons)if(button.lookup)found.push(`${program}:${button.label}:${button.lookup}`);
+  assert.deepEqual(found,['E010101:거래처:customer','E040103:품목:product','E040122:품목:product']);
+  assert.equal(lib.lookupOf('거래처(F2)'),'customer');
+  assert.equal(lib.lookupOf('사원'),null);
+  assert.equal(lib.lookupOf('프로젝트'),null);
+  for(const program of lib.PROGRAMS){
+    const expected=report.pages.find(page=>page.program===program).buttons.map(button=>button.matchId).sort();
+    assert.deepEqual([...lib.SCREENS[program].ids].sort(),expected);
+    const html=render(lib.SCREENS[program]);
+    const screen=lib.SCREENS[program];
+    for(const button of buttons(html)){
+      const lookup=screen.searchPanel.formButtons.find(item=>item.id===button.id&&item.lookup);
+      if(lookup)assert.equal(button.disabled,false,`${button.id} lookup button must be active`);
+      else if(screen.searchPanel.formButtons.some(item=>item.id===button.id))assert.equal(button.disabled,true,`${button.id} placeholder must stay disabled`);
+    }
+  }
 });
