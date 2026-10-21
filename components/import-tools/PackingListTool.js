@@ -938,6 +938,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   useEffect(() => { setDateYear(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date())); }, []);
   const [pdfBase64, setPdfBase64] = useState(null);
   const [status, setStatus] = useState(null);
+  const [blockedEvent,setBlockedEvent]=useState(null);
+  const recordBlocked=(detail,code='REVIEW_BLOCKED')=>setBlockedEvent({eventId:crypto.randomUUID(),owner:userId,fileName:file?.name||'',code,count:1,detail:String(detail).slice(0,2000)});
   const [steps, setSteps] = useState([]);
   const [excels, setExcels] = useState([]);
   const [matchPreview, setMatchPreview] = useState([]);
@@ -1746,7 +1748,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       : processingRef.current ? '파일 분석이 끝난 뒤 진행해 주세요.'
       : latestShared ? '다른 작업자가 매칭을 변경했습니다. 최신 매칭을 불러온 뒤 다시 진행해 주세요.'
       : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
-    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); notifyPackingBlocked(blockedReason); return; }
+    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); recordBlocked(blockedReason,'PREPARE_BLOCKED'); notifyPackingBlocked(blockedReason); return; }
     receiptIntent.current = true;
     processingRef.current = true; setProcessing(true);
     const version = readerVersion.current;
@@ -1777,7 +1779,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       focusReceipt();
     } catch (error) {
       const message = `입고 업로드 준비 실패: ${error.message}\n「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다. 입고·재고는 변경하지 않았습니다.`;
-      setStatus({ type: 'error', msg: message }); notifyPackingBlocked(message);
+      setStatus({ type: 'error', msg: message }); recordBlocked(message,'PREPARE_BLOCKED'); notifyPackingBlocked(message);
       if (validationIssues.length) openValidationIssue(validationIssues[0]);
     } finally {
       processingRef.current = false; setProcessing(false);
@@ -1816,12 +1818,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+        onBlocked={recordBlocked}
         requireSourceConfirmation={false}
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
-        <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'||Boolean(matchError)} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} onChooseFile={()=>fileRef.current?.click()}/>
+        <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'||Boolean(matchError)} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} blockedEvent={blockedEvent} onChooseFile={()=>fileRef.current?.click()}/>
         {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
         {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
         {teamHistoryStatus && file && <p role="status">{teamHistoryStatus}</p>}
