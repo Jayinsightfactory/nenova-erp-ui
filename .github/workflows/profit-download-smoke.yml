@@ -7,7 +7,7 @@ on:
         default: '2026'
         required: true
       week:
-        description: Exactly one major week
+        description: Major weeks (comma-separated, at most 6; downloaded one at a time)
         default: '18'
         required: true
 permissions:
@@ -15,7 +15,7 @@ permissions:
 jobs:
   download:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

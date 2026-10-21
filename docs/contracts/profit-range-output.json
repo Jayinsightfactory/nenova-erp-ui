@@ -7,7 +7,7 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [{"name": "REPORT_RANGE_OUTPUT_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "erpLedgerWrite": "forbidden", "sideEffect": "명시적 연도/차수별 GET, 기존 live/확정 공용 읽기와 엑셀 생성 재사용. 엑셀과 인쇄 모두 체크한 차수만 숫자순으로 처리하며 차수당 한 시트. 전체 선택은 1~조회차수, 초기값은 현재 차수 하나, 빈 선택은 차단한다. 출력 항목은 화면 표시열을 최초 기본값으로 하며 별도 저장한 출력 선택을 엑셀/인쇄에 함께 적용한다. 화면 컬럼 가져오기는 명시 버튼으로 수행한다. 비고는 같은 시트 하단 보존, 원본 중복 시트 금지. HTTP502/503/504/네트워크 오류는 해당 GET만 최대2회 재시도하며 범위 오류/실패/취소에 부분파일 생성 금지. 조회 전 연도/차수 입력 불일치 상태의 출력 차단. ERP/Web 원장 및 계산/확정 snapshot 쓰기 없음. 기존 수기 초안은 기존 명시 저장 경로만 사용."}],
   "crossYearFixture": {"required": true, "description": "동일 01차의 2025/2026 응답을 교차 혼용하지 않으며 누락연도, 범위밖차수, 중복응답, 응답연도변경, 실패, 취소를 실행 검사한다."},
-  "requiredTestFiles": ["__tests__/profitRangeOutput.test.cjs", "__tests__/profitReportExcelDesign.test.js"],
+  "requiredTestFiles": ["__tests__/profitRangeOutput.test.cjs", "__tests__/profitReportExcelDesign.test.js", "__tests__/profitProductionSmoke.test.cjs"],
   "dnspyEvidence": {"required": true, "record": "docs/plans/profit-range-output-2026-10-19.md", "source": "실제 dnSpy.Console.exe FormStockView 및 운영 SELECT probe", "methods": ["FormStockView.GetData", "loadWeeklyReportPayload", "buildProfitReportXlsx"], "tables": ["StockMaster", "ProductStock", "ViewShipment", "ViewWarehouse", "WebProfitReport"]},
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build", "node __tests__/profitRangeOutput.test.cjs"]
 }

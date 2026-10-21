@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const text=fs.readFileSync(path.join(__dirname,'../scripts/profit-production-download-smoke.cjs'),'utf8');
+let intercept;const start=text.indexOf("page.on('request',"),end=text.indexOf("page.on('response',",start);
+new Function('page','origin','token','year','week','requests','assert','blockedWrites',text.slice(start,end))({on:(_event,fn)=>{intercept=fn;}},'https://nenovaweb.com','fixture-service','2026','18',[],assert,0);
+const request=(url,method)=>{let result;intercept({url:()=>url,method:()=>method,headers:()=>({}),continue:options=>{result={continued:true,options};},abort:reason=>{result={aborted:reason};}});return result;};
+for(const method of ['POST','PUT','PATCH','DELETE'])assert.equal(request('https://nenovaweb.com/api/sales/profit-report',method).aborted,'blockedbyclient');
+assert.equal(request('https://nenovaweb.com/api/auth/me','GET').options.headers.authorization,'Bearer fixture-service');
+for(const url of ['https://nenovaweb.com.evil.invalid/api/auth/me','https://other.invalid/api/auth/me','https://nenovaweb.com/login'])assert.equal(request(url,'GET').options,undefined);
+assert.throws(()=>request('https://nenovaweb.com/api/sales/profit-report-output?year=2025&week=18','GET'));
+assert.throws(()=>request('https://nenovaweb.com/api/sales/profit-report-output?year=2026&week=19','GET'));
+assert.ok(request('https://nenovaweb.com/api/sales/profit-report-output?year=2026&week=18','GET').continued);
+assert.doesNotMatch(text,/setExtraHTTPHeaders|console\.log\(token|screenshot\(/);
+const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/profit-download-smoke.yml'),'utf8');
+assert.match(workflow,/workflow_dispatch:/);assert.doesNotMatch(workflow,/upload-artifact|pull_request:|push:/);
+console.log('PASS production download guard: same-origin credentials, GET-only, selected year/week, no business artifact publishing');

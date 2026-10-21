@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const jwt=require('jsonwebtoken'),crypto=require('node:crypto');
 const session=require('../lib/rememberDeviceSession.cjs');
+require('./profitProductionSmoke.test.cjs');
 const root=path.resolve(__dirname,'..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'nenova-device-test-'));
 const source=f=>fs.readFileSync(path.join(root,f),'utf8');
 function load(file,scope,expression){
