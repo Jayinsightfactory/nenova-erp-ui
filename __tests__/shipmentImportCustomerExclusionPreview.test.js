@@ -240,7 +240,7 @@ test('수국 선택은 혼합 원본과 기존 카네이션 분배를 교체 범
 
 
 test('fresh hydrangea file derives scope without a manual family filter; foreign key/name cannot introduce carnation', async () => {
-  const hydrangea={...product,ProdKey:501,ProdName:'WHITE',DisplayName:'WHITE',FlowerName:'수국',CountryFlower:'콜롬비아수국'};
+  const hydrangea={...product,ProdKey:501,ProdName:'HYDRANGEA ROSE PINK',DisplayName:'WHITE',FlowerName:'수국',CountryFlower:'콜롬비아수국'};
   const carnation={...product,ProdKey:502,ProdName:'WHITE',DisplayName:'WHITE',FlowerName:'카네이션',CountryFlower:'콜롬비아카네이션'};
   const queryFn=async(text,params={})=>{
     assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
