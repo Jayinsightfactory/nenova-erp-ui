@@ -43,3 +43,9 @@
 - 2026-10-05 같은 설치 EXE를 main이 dnSpy CLI로 재확인: GetData의 `vo.OrderYear`, `vo.OrderWeek`, `vo.OutQuantity Quantity`와 `WHERE vo.OutQuantity > 0` 보존. 세부차수 정정은 표시/Excel 집계만 변경하며 API SQL·EXE·DB·SP 변경 없음.
 - 수정 전 운영 읽기 GET 2026/40: 7메인 37~43, 양수 중국주문1,336건/42업체. 실제 40-03 포함 12개 세부차수, 43차 양수 주문 없음. 01/02로 고정하지 않고 정확한 연도+원본 OrderWeek 열을 만든다. 검색 전 전체 결과에서 열을 만들고 필터 후에도 유지한다.
 - `OrderMaster/OrderDetail`, `ShipmentMaster/Detail/Date/Farm`, `WarehouseMaster/Detail`, `ProductStock/StockHistory`, `Estimate`, `WebProfitReport` 부작용 없음. 기존 출고/견적/재고 처리 경로를 호출하지 않는다.
+
+## 2026-10-21 두 시트 다운로드
+- 품목별업체수량은 기존 수량(박스수), 단수량은 동일 업무키의 숫자 단 수량. 단은 그대로, 박스는 BunchOf1Box 곱, 송이는 BunchOf1Box/SteamOf1Box 곱. 규격 누락/불일치는 환산확인, 해당 합계도 전파.
+- 기존 FormQuantityPivot.GetData/btnExcel_Click 근거 재사용: ViewOrder.OutQuantity의 읽기 전용 파일 표시 변경. API/SQL/EXE 저장 경로 변경 없음.
+- 2026-10-21 운영 읽기 전용 probe: OrderYear=2026, OrderWeek 42-01 단 153행/71품목, 42-02 단 73행/34품목. 활성 중국 양수 주문만 조회. 단 원수량은 포장규격 누락에도 보존.
+- Order/Shipment/ShipmentDate/ShipmentFarm/Warehouse/StockHistory/Estimate/Amount/Vat/isFix/WebProfitReport 변경 없음. 교차연도 및 XLSX 재읽기 fixture로 두 시트 범위와 숫자형 검증.

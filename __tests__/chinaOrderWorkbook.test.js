@@ -192,7 +192,7 @@ assert.equal(chinaOrderExportMetadata(selectedMatrixReport, new Date('2026-10-06
 const matrixWorkbook = await buildChinaOrderWorkbook(selectedMatrixReport, mapping, { downloadedAt });
 const matrixReopened = new ExcelJS.Workbook();
 await matrixReopened.xlsx.load(await matrixWorkbook.xlsx.writeBuffer());
-assert.deepEqual(matrixReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량']);
+assert.deepEqual(matrixReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량', '단수량']);
 const matrixSheet = matrixReopened.getWorksheet('품목별업체수량');
 assert.equal(matrixSheet.getCell('A1').value, '37-3 중국');
 assert.equal(matrixSheet.getCell('B1').value, 'ETA');
@@ -318,7 +318,7 @@ const filteredSubweek = selectChinaOrderSubweek(generated, '2026/01-01', new Set
 const filteredWorkbook = await buildChinaOrderWorkbook(filteredSubweek, mapping);
 const filteredReopened = new ExcelJS.Workbook();
 await filteredReopened.xlsx.load(await filteredWorkbook.xlsx.writeBuffer());
-assert.deepEqual(filteredReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량']);
+assert.deepEqual(filteredReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량', '단수량']);
 const filteredMatrix = filteredReopened.getWorksheet('품목별업체수량');
 assert.equal(filteredMatrix.getCell('E2').value, 'CL');
 assert.equal(filteredMatrix.getCell('D3').value, '3(—)');
@@ -329,7 +329,7 @@ await assert.rejects(() => buildChinaOrderWorkbook(wrongSelectedOrders, mapping)
 const wideReport = buildChinaOrderReport({success:true,readOnly:true,scope:{year:2026,majorWeek:'01'},cycles:spanningCycles,
   orders:Array.from({length:260},(_,index)=>({country:'중국',orderYear:2026,orderWeek:'01-01',custKey:index+1,custName:`업체${index+1}`,custOrderCode:`YCL${index+1}`,prodKey:10,prodCode:'0010',prodName:'품목',unit:'단',bunchOf1Box:2,quantity:1}))});
 const wideWorkbook = await buildChinaOrderWorkbook(selectChinaOrderSubweek(wideReport,'2026/01-01'),mapping);
-assert.deepEqual(wideWorkbook.worksheets.map(sheet => sheet.name), ['품목별업체수량']);
+assert.deepEqual(wideWorkbook.worksheets.map(sheet => sheet.name), ['품목별업체수량', '단수량']);
 assert.equal(wideWorkbook.getWorksheet('품목별업체수량').getCell('D3').value, '260(130)');
 for (const sheet of [matrixSheet, crossYearMatrixSheet, filteredMatrix, wideWorkbook.worksheets[0]]) {
   sheet.eachRow(row => row.eachCell(cell => assert.equal(cell.formula, undefined, 'single-sheet snapshot has no external sheet references')));
@@ -343,3 +343,29 @@ await literalHfReload.xlsx.load(await literalHfWorkbook.xlsx.writeBuffer());
 const literalHfRow = literalHfReload.worksheets[0].getRows(3, literalHfReload.worksheets[0].rowCount - 2).find(row => row.getCell(1).value === '=2+2');
 assert.equal(literalHfRow.getCell(2).value, '=2+2');
 assert.equal(literalHfRow.getCell(2).formula, undefined);
+
+// Both sheets retain the same exact selected-year/customer scope after XLSX roundtrip.
+const bunchSheet = filteredReopened.getWorksheet('단수량');
+assert.equal(bunchSheet.getCell('D3').value, 3);
+assert.equal(bunchSheet.getCell('E3').value, 3);
+assert.equal(bunchSheet.getCell('D2').value, '총수량(단)');
+assert.equal(crossYearMatrixWorkbook.getWorksheet('단수량').getCell('D3').value, 7);
+const conversionReport = structuredClone(filteredSubweek);
+conversionReport.orders = [
+  {...filteredSubweek.orders[0], unit:'박스', quantity:2, bunchOf1Box:20},
+  {...filteredSubweek.orders[0], prodKey:11, prodName:'송이 품목', unit:'송이', quantity:50, bunchOf1Box:20, steamOf1Box:200},
+  {...filteredSubweek.orders[0], prodKey:12, prodName:'규격 누락', unit:'박스', quantity:1, bunchOf1Box:null},
+];
+const conversionSelected = selectChinaOrderSubweek(buildChinaOrderReport({...conversionReport, success:true, readOnly:true}), conversionReport.selectedColumnKey);
+const beforeConversion = JSON.stringify(conversionSelected);
+const conversionBook = await buildChinaOrderWorkbook(conversionSelected, mapping);
+const conversionReload = new ExcelJS.Workbook();
+await conversionReload.xlsx.load(await conversionBook.xlsx.writeBuffer());
+const numericSheet = conversionReload.getWorksheet('단수량');
+const numericRows = numericSheet.getRows(3, numericSheet.rowCount - 2);
+assert.equal(numericRows.find(row=>row.getCell(1).value === '품목').getCell(4).value, 40);
+assert.equal(numericRows.find(row=>row.getCell(1).value === '송이 품목').getCell(4).value, 5);
+assert.equal(numericRows.find(row=>row.getCell(1).value === '규격 누락').getCell(4).value, '환산확인');
+assert.equal(numericRows.find(row=>row.getCell(1).value === '박스→단 합계').getCell(4).value, '환산확인');
+assert.equal(JSON.stringify(conversionSelected), beforeConversion);
+for (const sheet of conversionReload.worksheets) sheet.eachRow(row=>row.eachCell(cell=>assert.equal(cell.formula,undefined)));
