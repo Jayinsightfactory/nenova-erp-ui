@@ -1,5 +1,5 @@
 import { formatSaleAmount } from './SaleQueryPageControls';
-import { ActionScope,ObservedButton,actionId } from './ObservedPageControls';
+import { ActionScope,ObservedButton,actionId, ExcelButton } from './ObservedPageControls';
 import { ObservedDateWidget } from './ObservedDateWidget';
 import pageActions from '../../lib/ecountPageActions.cjs';
 import styles from '../../styles/ecount-workbench.module.css';
@@ -7,7 +7,7 @@ export function WarehouseStockToolbar({busy,searchOpen,onSearch,searchRef}){retu
 export function WarehouseStockSearchPanel({busy,asOf,onDate,onSubmit,onToday,inputRef,mode,onMode,warehouseCodes=[],onWarehouse}){
  return <ActionScope dataset="whStock" context="검색 패널"><form id="ecount-source-search" className={styles.sourceSearch} onSubmit={event=>{event.preventDefault();onSubmit();}}><div className={styles.searchLine}><span>기준일자</span><ObservedDateWidget dataset="whStock" value={asOf} onChange={onDate} busy={busy} inputRef={inputRef}/></div>{['창고','품목'].map(label=><div className={styles.searchLine} key={label}><span>{label}</span><input placeholder={label} aria-label={label} value={label==='창고'?warehouseCodes.join(', '):''} readOnly disabled={label!=='창고'} title="수집된 창고코드만 선택할 수 있습니다."/>{label==='창고'&&<button type="button" aria-label="창고 검색" onClick={onWarehouse} disabled={busy||!onWarehouse} data-ecount-action-id={actionId('whStock','창고 검색','검색 패널')}>⌕</button>}</div>)}<div className={styles.searchLine}>{[['vertical','창고별(종)'],['horizontal','창고별(횡)']].map(([value,label])=><label key={value}><input type="radio" name="warehouse-mode" checked={mode===value} disabled={busy} onChange={()=>onMode(value)} data-ecount-action-id={actionId('whStock',label,'검색 모드')}/>{label}</label>)}</div><div className={styles.searchLine}>{['결재방표시','수량관리제외품목포함','사용중단품목포함','재고수량0품목포함','재고수량0창고포함','사용중단/삭제창고포함','창고별안전재고수량포함'].map((label,index)=><label key={label}><input type="checkbox" checked={index===2||index===5} disabled readOnly/>{label}</label>)}</div><div className={styles.sourceToolbar}><ObservedButton>{mode==='horizontal'?'현황(횡)':'현황(종)'}</ObservedButton><button type="submit" className={styles.primary} disabled={busy||!asOf} data-ecount-action-id={actionId('whStock','검색(F8)','검색 패널')}>검색(F8)</button><button type="button" disabled={busy} onClick={onToday} data-ecount-action-id={actionId('whStock','금일','검색 패널')}>금일</button>{['전일','설정','다시 작성'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div></form></ActionScope>;
 }
-export function WarehouseStockFooter(){return <ActionScope dataset="whStock" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><ObservedButton>Excel</ObservedButton></div></ActionScope>;}
+export function WarehouseStockFooter(){return <ActionScope dataset="whStock" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><ExcelButton>Excel</ExcelButton></div></ActionScope>;}
 export function WarehouseStockTable({rows,mode='horizontal',dataState='uncollected'}){
  const grid=mode==='horizontal'?pageActions.buildWarehouseStockGrid(rows):null;
  const codes=grid?.warehouseCodes||[],displayCodes=codes.length?codes:[null];

@@ -1324,22 +1324,43 @@ const ACTION_IDS = {
     "거래처 검색 오버레이|닫기": "E040304-A38"
   }
 };
-const ActionContext=createContext({dataset:null,context:'unknown'});
-export function ActionScope({dataset,context='unknown',children}) {return <ActionContext.Provider value={{dataset,context}}>{children}</ActionContext.Provider>;}
+const ActionContext=createContext({dataset:null,context:'unknown',excel:undefined});
+// excel = {ready, reason, onExport(headerMode)} supplied by the page; nested scopes inherit it unless they pass their own.
+export function ActionScope({dataset,context='unknown',excel,children}) {
+  const parent=useContext(ActionContext);
+  return <ActionContext.Provider value={{dataset,context,excel:excel===undefined?parent.excel:excel}}>{children}</ActionContext.Provider>;
+}
 export function actionId(dataset,label,context='unknown'){return ACTION_IDS[dataset]?.[context+'|'+label];}
 const pending = '원본 동작 확인 및 구현 전입니다.';
+// Excel menu labels → safe projection header mode ('label' = 표시형식, 'key' = 데이터).
+const EXCEL_MODES={'Excel':'label','Excel(화면)':'label','Excel(표시형식)':'label','Excel(데이터)':'key'};
+export function excelHeaderMode(label){return EXCEL_MODES[label]||null;}
 export function ObservedButton({ children, reason = pending, actionLabel, 'data-ecount-action-id': explicitId }) {
   const {dataset,context}=useContext(ActionContext);
   const stableId=explicitId||actionId(dataset,actionLabel||children,context);
   return <span title={reason}><button data-ecount-action-id={stableId} disabled>{children}</button></span>;
 }
+// Real Excel download button; keeps the observed action id, stays disabled with a reason until the table is loaded with rows.
+export function ExcelButton({ children, actionLabel, mode }) {
+  const {dataset,context,excel}=useContext(ActionContext);
+  const stableId=actionId(dataset,actionLabel||children,context);
+  const headerMode=mode||excelHeaderMode(actionLabel)||excelHeaderMode(children)||'label';
+  const ready=!!excel?.ready&&typeof excel.onExport==='function';
+  return <span title={ready?undefined:(excel?.reason||pending)}><button type="button" data-ecount-action-id={stableId} disabled={!ready} onClick={()=>{if(ready)excel.onExport(headerMode);}}>{children}</button></span>;
+}
 export function ResultToolbar({ busy, searchOpen, onSearch, searchRef, dataset }) {
   return <div className={styles.sourceToolbar} aria-label="조회 도구">{dataset==='sales'&&<ObservedButton>Fn</ObservedButton>}<button data-ecount-action-id={actionId(dataset,'Search(F3)')} ref={searchRef} disabled={busy} aria-expanded={searchOpen} aria-controls="ecount-source-search" onClick={onSearch}>Search(F3)</button><ObservedButton>Option</ObservedButton><ObservedButton>도움말</ObservedButton></div>;
 }
 export function ObservedDropdown({ label, items, busy, onPreview, actionContext='unknown', itemsContext='unknown', triggerLabel='▾', placement='above', closeOnEscape=true }) {
-  const {dataset}=useContext(ActionContext);
+  const {dataset,excel}=useContext(ActionContext);
   const [open,setOpen]=useState(false);
   const wrapper=useRef(null),trigger=useRef(null),menu=useRef(null);
+  // Excel menu items run the page's safe-projection download; every other item stays an observed placeholder.
+  const excelReady=!!excel?.ready&&typeof excel.onExport==='function';
+  const itemMode=item=>item==='Excel(표시형식)'?'label':item==='Excel(데이터)'?'key':null;
+  const itemEnabled=item=>item==='미리보기'?!!onPreview:!!itemMode(item)&&excelReady;
+  const itemTitle=item=>itemEnabled(item)?undefined:itemMode(item)&&excel?.reason?excel.reason:pending;
+  const runItem=item=>{if(itemMode(item)){if(excelReady)excel.onExport(itemMode(item));return;}onPreview?.();};
   useEffect(()=>{
     if(!open)return;
     (menu.current?.querySelector('button:not(:disabled)')||menu.current)?.focus();
@@ -1350,7 +1371,7 @@ export function ObservedDropdown({ label, items, busy, onPreview, actionContext=
   },[open,closeOnEscape]);
   return <span ref={wrapper} className={styles.observedDropdown} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setOpen(false);}}>
     <button type="button" ref={trigger} disabled={busy} data-ecount-action-id={actionId(dataset,label,actionContext)} aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{triggerLabel}</button>
-    {open&&<span ref={menu} role="menu" aria-label={label} tabIndex={-1} className={`${styles.observedPopover} ${placement==='below'?styles.quoteOptionPopover:''}`} onKeyDown={event=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button:not(:disabled)')];if(!buttons.length)return;const index=buttons.indexOf(document.activeElement);const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;event.preventDefault();buttons[next]?.focus();}}>{items.map(item=>typeof item==='string'?<span key={item} title={item==='미리보기'&&onPreview?undefined:pending}><button type="button" role="menuitem" disabled={!(item==='미리보기'&&onPreview)} data-ecount-action-id={actionId(dataset,item,itemsContext)} onClick={()=>{setOpen(false);trigger.current?.focus();onPreview?.();}}>{item}</button></span>:<span key={item.label} role="group" aria-label={item.label} className={styles.observedMenuGroup}><span data-ecount-action-id={actionId(dataset,item.label,item.groupContext||itemsContext)}>{item.label}</span>{item.children.map(child=><button key={child} type="button" role="menuitem" disabled title={pending} data-ecount-action-id={actionId(dataset,child,item.context||itemsContext)}>{child}</button>)}</span>)}</span>}
+    {open&&<span ref={menu} role="menu" aria-label={label} tabIndex={-1} className={`${styles.observedPopover} ${placement==='below'?styles.quoteOptionPopover:''}`} onKeyDown={event=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button:not(:disabled)')];if(!buttons.length)return;const index=buttons.indexOf(document.activeElement);const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length;event.preventDefault();buttons[next]?.focus();}}>{items.map(item=>typeof item==='string'?<span key={item} title={itemTitle(item)}><button type="button" role="menuitem" disabled={!itemEnabled(item)} data-ecount-action-id={actionId(dataset,item,itemsContext)} onClick={()=>{setOpen(false);trigger.current?.focus();runItem(item);}}>{item}</button></span>:<span key={item.label} role="group" aria-label={item.label} className={styles.observedMenuGroup}><span data-ecount-action-id={actionId(dataset,item.label,item.groupContext||itemsContext)}>{item.label}</span>{item.children.map(child=><button key={child} type="button" role="menuitem" disabled title={pending} data-ecount-action-id={actionId(dataset,child,item.context||itemsContext)}>{child}</button>)}</span>)}</span>}
   </span>;
 }
 export function ResultFooter({ dataset, busy, onMapping, onPreview }) {
@@ -1358,8 +1379,8 @@ export function ResultFooter({ dataset, busy, onMapping, onPreview }) {
     <ObservedButton reason="입금보고서 저장 기능은 아직 구현되지 않았습니다.">입금보고서작성</ObservedButton>
     <ObservedButton reason="외부 금융 조회 연동이 필요합니다.">즉시조회</ObservedButton>
     <ObservedButton reason="계좌 등록 기능은 아직 구현되지 않았습니다.">통장등록</ObservedButton>
-    <button data-ecount-action-id={actionId(dataset,'매핑조회')} disabled={busy} onClick={onMapping}>매핑조회</button><ObservedButton>Excel</ObservedButton><ObservedButton>자동알림</ObservedButton><ObservedButton>수집처별확인사항</ObservedButton>
-  </> : <><ObservedButton>인쇄</ObservedButton>{dataset==='sales'&&<ObservedDropdown busy={busy} onPreview={onPreview} label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']}/>}<ObservedButton>{dataset==='sales'?'Excel(화면)':'Excel'}</ObservedButton>{dataset==='sales'&&<><ObservedDropdown busy={busy} label="Excel(화면) 드롭다운" items={['Excel(표시형식)','Excel(데이터)']}/><ObservedButton>Email</ObservedButton></>}</>}</div>;
+    <button data-ecount-action-id={actionId(dataset,'매핑조회')} disabled={busy} onClick={onMapping}>매핑조회</button><ExcelButton>Excel</ExcelButton><ObservedButton>자동알림</ObservedButton><ObservedButton>수집처별확인사항</ObservedButton>
+  </> : <><ObservedButton>인쇄</ObservedButton>{dataset==='sales'&&<ObservedDropdown busy={busy} onPreview={onPreview} label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']}/>}<ExcelButton>{dataset==='sales'?'Excel(화면)':'Excel'}</ExcelButton>{dataset==='sales'&&<><ObservedDropdown busy={busy} label="Excel(화면) 드롭다운" items={['Excel(표시형식)','Excel(데이터)']}/><ObservedButton>Email</ObservedButton></>}</>}</div>;
 }
 export function MappingOverlay({onClose}) {
  const [searchOpen,setSearchOpen]=useState(false);const toggle=()=>setSearchOpen(value=>!value);

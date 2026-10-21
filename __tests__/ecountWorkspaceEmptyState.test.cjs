@@ -18,8 +18,10 @@ function load(relative){
 const source=fs.readFileSync(path.join(root,'pages/ecount/workbench.js'),'utf8');
 const ast=babel.parseSync(source,{babelrc:false,configFile:false,parserOpts:{plugins:['jsx']}});
 const node=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name==='Table');assert.ok(node);
+// Table resolves its columns through the module-level tableColumns helper (shared with the Excel export), so compile both.
+const columnsNode=ast.program.body.find(node=>node.type==='FunctionDeclaration'&&node.id.name==='tableColumns');assert.ok(columnsNode);
 const moduleBox={exports:{}};
-vm.runInNewContext(compile("import React from 'react';\n"+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
+vm.runInNewContext(compile("import React from 'react';\n"+source.slice(columnsNode.start,columnsNode.end)+'\n'+source.slice(node.start,node.end)+';module.exports=Table;','Table.js'),{
   module:moduleBox,exports:moduleBox.exports,require,styles,
   ...load('components/ecount/UnpostedSalesPageControls.js'),...load('components/ecount/InventoryDailyPageControls.js'),...load('components/ecount/PoStatusPageControls.js'),...load('components/ecount/RelationStockPageControls.js'),...load('components/ecount/BomStockPageControls.js'),...load('components/ecount/StockBalancePageControls.js'),...load('components/ecount/StockLedgerPageControls.js'),...load('components/ecount/WarehouseStockPageControls.js'),...load('components/ecount/StockMovementPageControls.js'),...load('components/ecount/PurchaseTaxStatusPageControls.js'),...load('components/ecount/SalesTaxStatusPageControls.js'),...load('components/ecount/PurchaseTaxQueryPageControls.js'),...load('components/ecount/StockStatusPageControls.js'),...load('components/ecount/SaleQueryPageControls.js'),...load('components/ecount/SalesTaxQueryPageControls.js'),...load('components/ecount/PurchaseOrderPageControls.js'),...load('components/ecount/SettlementPageControls.js'),...load('components/ecount/QuoteStatusPageControls.js'),...load('components/ecount/OrderStatusPageControls.js')
 });

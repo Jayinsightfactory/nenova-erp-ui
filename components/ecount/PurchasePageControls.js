@@ -1,4 +1,4 @@
-import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, ObservedDropdown, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 export const PURCHASE_COLUMNS=[[null,''],['refDate','일자-No.'],[null,'거래처명'],[null,'품목명(요약)'],['amountTotal','금액합계'],['foreignTotal','외화금액합계'],['exchangeRate','환율'],[null,'회계반영여부'],[null,'인쇄'],[null,'불러온전표']];
 export function PurchaseToolbar({busy,searchOpen,onSearch,searchRef}) {
@@ -19,6 +19,6 @@ export function PurchaseFooter({busy}) {
   return <ActionScope dataset="purchase" context="하단"><div className={styles.sourceToolbar} aria-label="구매 결과 도구">
     {['신규(F2)','Email','진행상태변경','보내기'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}
     <ObservedButton>인쇄</ObservedButton><ObservedDropdown busy={busy} label="인쇄 드롭다운" items={['프린트문제해결']} actionContext="하단 인쇄 옆 삼각 버튼" itemsContext="인쇄 드롭다운 펼침"/>
-    {['바코드(품목)','전자결재','선택삭제','Excel','이력조회'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}
+    {['바코드(품목)','전자결재','선택삭제'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}<ExcelButton>Excel</ExcelButton><ObservedButton>이력조회</ObservedButton>
   </div></ActionScope>;
 }

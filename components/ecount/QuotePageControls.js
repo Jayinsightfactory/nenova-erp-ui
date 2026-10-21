@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ObservedButton, actionId } from './ObservedPageControls';
+import { ObservedButton, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 
 export const QUOTE_COLUMNS = [[null,''],['refDate','일자-No.'],[null,'최초작성일자'],[null,'거래처명'],[null,'품목명(요약)'],['estimateTotal','견적금액합계'],[null,'비고'],['quoteStatus','진행상태'],[null,'생성한전표'],[null,'인쇄']];
@@ -48,6 +48,6 @@ export function QuoteFooter() {
   return <div className={styles.sourceToolbar} aria-label="견적 결과 도구">
     <ObservedButton>신규(F2)</ObservedButton><ObservedButton>Email</ObservedButton><ObservedButton actionLabel="Email 드롭다운">▾</ObservedButton>
     {['진행상태변경','보내기','인쇄','바코드(품목)','다른전표생성'].map(label=><ObservedButton key={label} actionLabel={`${label} 드롭다운`}>{label} ▾</ObservedButton>)}
-    <ObservedButton>전자결재</ObservedButton><ObservedButton>선택삭제</ObservedButton><ObservedButton actionLabel="Excel(표시형식) 드롭다운">Excel(표시형식) ▾</ObservedButton><ObservedButton>이력조회</ObservedButton><ObservedButton>웹자료올리기</ObservedButton>
+    <ObservedButton>전자결재</ObservedButton><ObservedButton>선택삭제</ObservedButton><ExcelButton actionLabel="Excel(표시형식) 드롭다운" mode="label">Excel(표시형식) ▾</ExcelButton><ObservedButton>이력조회</ObservedButton><ObservedButton>웹자료올리기</ObservedButton>
   </div>;
 }

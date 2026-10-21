@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActionScope, ObservedButton, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, actionId, ExcelButton } from './ObservedPageControls';
 import { ObservedDateWidget } from './ObservedDateWidget';
 import styles from '../../styles/ecount-workbench.module.css';
 export const INVENTORY_DAILY_COLUMNS=[[null,'일자-No.'],[null,'거래처명'],[null,'품목명'],['qty','수량'],['unitPrice','단가(vat포함)'],['supplyAmt','공급가액'],['vat','부가세'],['total','합계'],[null,'적요']];
@@ -13,5 +13,5 @@ export function InventoryDailyFooter({busy,searchOpen}){
  const [open,setOpen]=useState(false);
  useEffect(()=>{if(searchOpen)setOpen(false);},[searchOpen]);
  useEffect(()=>{if(!open)return;const key=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();}};document.addEventListener('keydown',key,true);return()=>document.removeEventListener('keydown',key,true);},[open]);
- return <ActionScope dataset="daySale" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><span className={styles.observedDropdown}><button type="button" disabled={busy} aria-label="인쇄 드롭다운" aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(true)} data-ecount-action-id={actionId('daySale','인쇄 드롭다운','하단')}>▴</button>{open&&<span role="menu" aria-label="인쇄 메뉴" className={`${styles.observedPopover} ${styles.inventoryPrintMenu}`}>{['PDF','미리보기'].map(label=><button key={label} role="menuitem" disabled data-ecount-action-id={actionId('daySale',label,'인쇄 메뉴')}>{label}</button>)}</span>}</span><ObservedButton>Excel</ObservedButton></div></ActionScope>;
+ return <ActionScope dataset="daySale" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><span className={styles.observedDropdown}><button type="button" disabled={busy} aria-label="인쇄 드롭다운" aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(true)} data-ecount-action-id={actionId('daySale','인쇄 드롭다운','하단')}>▴</button>{open&&<span role="menu" aria-label="인쇄 메뉴" className={`${styles.observedPopover} ${styles.inventoryPrintMenu}`}>{['PDF','미리보기'].map(label=><button key={label} role="menuitem" disabled data-ecount-action-id={actionId('daySale',label,'인쇄 메뉴')}>{label}</button>)}</span>}</span><ExcelButton>Excel</ExcelButton></div></ActionScope>;
 }
