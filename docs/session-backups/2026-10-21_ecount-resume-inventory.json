@@ -6034,6 +6034,12 @@
    "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
    "release": "survey-ingest-20261021",
    "touchedPages": 33
+  },
+  {
+   "date": "2026-10-21",
+   "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
+   "release": "survey-ingest-20261021",
+   "touchedPages": 33
   }
  ]
 }

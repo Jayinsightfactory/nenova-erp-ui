@@ -4577,10 +4577,245 @@
     ]
    ],
    "note": "bottom 인쇄/Excel toolbar not visible in survey (collapsed)"
+  },
+  "E040719": {
+   "title": "재고변동표",
+   "panelText": "기본 전체 구분 집계 일별 월별 입출고표시방법 표시 상세표시 기준일자 26/09 ~ 26/10 창고 품목 기타 결재방표시 수량관리제외품목포함 사용중단품목포함 생산불출/창고이동포함 입출고수량0제외 품목명(정렬) 개별창고기준 현황 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 전월+금월 다시 작성",
+   "controls": [
+    [
+     "Option",
+     "tgHeaderOption",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "helper",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "현황",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "search",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "rewrite",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 21"
+    ],
+    [
+     "현황",
+     "26 09 01 ~ 26 10 21"
+    ],
+    [
+     "금일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "전일",
+     "26 10 20 ~ 26 10 20"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 21"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 21"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 21"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 10 21"
+    ]
+   ],
+   "note": "bottom 인쇄/Excel toolbar not visible in survey (collapsed)"
+  },
+  "E040708": {
+   "title": "일보",
+   "panelText": "기본 전체 기준일자 26/10 ~ 26/10 창고 거래처 품목 부서 관리항목 내.외자구분 전체 내자 외자 종류 기타 결재방표시 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 설정 다시 작성",
+   "controls": [
+    [
+     "Option",
+     "tgHeaderOption",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "helper",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "검색(F8)",
+     "search",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "simpleSearch",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "rewrite",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 21"
+    ],
+    [
+     "금일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "전일",
+     "26 10 20 ~ 26 10 20"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 21"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 21"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "종료일",
+     "26 09 30 ~ 26 09 30"
+    ],
+    [
+     "다시 작성",
+     "26 10 01 ~ 26 10 21"
+    ]
+   ],
+   "note": "종류 선택창 and bottom toolbar not opened in survey; 7 ECOUNT confirm dialogs (품목 재지정) appeared during presets and were cancelled with 취소"
   }
  },
- "errors": [
-  "E040719 first pass failed (null getAttribute in ctx helper) - rerun pending",
-  "E040708 first pass failed (null getAttribute in ctx helper) - rerun pending"
- ]
+ "errors": []
 }

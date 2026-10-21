@@ -26523,14 +26523,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261021-E040719-SURVEY"
+          ],
           "testEvidence": []
         },
         "buttons": {
           "stage": "observed",
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-E040719-INITIAL"
+            "source-action-audit.jsonl#SRC-20261020-E040719-INITIAL",
+            "source-action-audit.jsonl#SRC-20261021-E040719-SURVEY"
           ],
           "testEvidence": []
         },
@@ -26576,7 +26579,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -27597,14 +27600,16 @@
         "filters": {
           "stage": "observed",
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-E040708-EXACT-EMPTY"
+            "source-action-audit.jsonl#SRC-20261020-E040708-EXACT-EMPTY",
+            "source-action-audit.jsonl#SRC-20261021-E040708-SURVEY"
           ],
           "testEvidence": []
         },
         "buttons": {
           "stage": "observed",
           "evidence": [
-            "source-action-audit.jsonl#SRC-20261020-E040708-EXACT-EMPTY"
+            "source-action-audit.jsonl#SRC-20261020-E040708-EXACT-EMPTY",
+            "source-action-audit.jsonl#SRC-20261021-E040708-SURVEY"
           ],
           "testEvidence": []
         },
