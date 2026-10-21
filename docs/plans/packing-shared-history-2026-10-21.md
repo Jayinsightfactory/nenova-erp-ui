@@ -7,6 +7,7 @@
 - 2026-10-20 KST16:41 다음·입고준비 → Carnation Mochi 박스/단수 원문 확인 →16:42 취소 클릭. 클릭 로그만으로 값 오류의 구체적 숫자를 확정하지 않음.
 - 42-1 CHINA CI.pdf와41-2 NL H CI.pdf는 WebInvoiceDocument COMMITTED/APPROVED 기록 존재. 모든 직원 작업이 실패했다고 해석하지 않음.
 - SystemActionLog 최근3일: CLOUD PDF 및 해상 XLSX UPLOAD_FAILED 각1,42-1 PDF MATCH_REQUIRED37. 원인 상세는 과거 로그에 없음.
+- 10/21 당일 화면 최신200건(이전 페이지 더 있음): 09:49:21/09:49:26/09:51:28 KST 다음·입고준비 클릭, HYDRANGEA 원문 날짜·통화·총액 안내 및 metadata 검토창 클릭. 당일 `/api/import/receipts/drafts` 요청0건(nextCursor 없음). 따라서 관측된 작업은 초안 저장 요청 이전에 멈췄다. 클릭 안내문만으로 특정 필드가 틀렸다고 확정하지 않는다. 13:25/13:26 Excel 원본 업로드 클릭도 존재.
 
 ## 기준 및 부작용
 |동작|웹 파일|주문/분배/입고/재고/견적/손익|
