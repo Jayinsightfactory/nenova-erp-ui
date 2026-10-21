@@ -74,7 +74,7 @@ try{
     fs.writeFileSync(path.join(outputDir,'before.json'),JSON.stringify(before));
     const plan=planHistoricalStockRepair(before,scope);
     const ordering=orderingFixApproved?planStockCalculationOrderRepair((await readStockCalculationMetadata(query)).definition):null;
-    fs.writeFileSync(path.join(outputDir,'ordering-plan.json'),JSON.stringify(ordering&&{beforeHash:ordering.beforeHash,afterHash:ordering.afterHash}));
+    fs.writeFileSync(path.join(outputDir,'ordering-plan.json'),JSON.stringify(ordering&&{beforeHash:ordering.beforeHash,afterHashes:ordering.afterHashes}));
     fs.writeFileSync(path.join(outputDir,'plan.json'),JSON.stringify(plan,null,2));
     console.log(JSON.stringify({mode,sourceHash:plan.sourceHash,products:plan.items.length,changedSnapshots:plan.expected.filter(r=>r.before!==r.after).length,
       years:[...new Set(plan.expected.map(r=>r.OrderYear))],orderingFixApproved,businessWrites:0}));
@@ -86,7 +86,7 @@ try{
         ||rehearsal.orderingFixApproved!==orderingFixApproved)throw Error('Matching rehearsal required');
       if(orderingFixApproved){
         const ordering=planStockCalculationOrderRepair((await readStockCalculationMetadata(query)).definition);
-        if(rehearsal.ordering?.afterHash!==ordering.afterHash)throw Error('Matching ordering rehearsal required');
+        if(!ordering.afterHashes.includes(rehearsal.ordering?.afterHash))throw Error('Matching ordering rehearsal required');
       }
     }
     const tx=new sql.Transaction(pool);let rolled=false,began=false,committing=false;
@@ -118,7 +118,7 @@ try{
         fs.writeFileSync(path.join(outputDir,'after.json'),JSON.stringify(after));
         if(orderingFixApproved){
           const afterMetadata=await readStockCalculationMetadata(query);
-          if(stockRepairDigest({...afterMetadata,definition:null})!==stockRepairDigest({...originalMetadata,definition:null}))throw Error('Post-commit procedure metadata differs; do not repeat');
+          if(stockRepairDigest(afterMetadata)!==stockRepairDigest(result.afterMetadata))throw Error('Post-commit procedure metadata differs; do not repeat');
         }
         console.log(JSON.stringify({mode,committed:true,readbackVerified:true,ordering:result.ordering,...result.verification}));
       }

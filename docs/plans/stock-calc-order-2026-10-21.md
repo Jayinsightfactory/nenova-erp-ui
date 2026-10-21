@@ -20,6 +20,11 @@ Product.Stock, 주문/출고/농장/출고일/입고/견적/수동 보고서/확
 프로시저 정렬 변경은 모든 미래 CALC 호출에 적용되지만 이번 데이터 재계산은 승인 품목 범위뿐이다.
 일반 GET/UI는 DDL을 실행하지 않는다. 메뉴/화면/입력/키보드 변경 없음.
 
+기존 Owner V2 capability의 `NenovaStockGateOwnerV2Hash`는 실제 SQL UTF-16 정의의
+SHA256과 일치해야 한다. 그 속성만 같은 transaction에서 갱신하고 나머지 속성은 보존한다.
+SQL Server 버전별 CREATE/ALTER 저장 차이는 검토한 두 정의의 정확한 hash만 허용한다.
+SET 옵션은 sp_executesql을 감싼 동일 batch에서 적용한다. 변경 전후 capability IsReady=1을 요구한다.
+
 ## 검증
 - 정의 near-miss/중복 cursor/잘못된 해시, 설정·권한·서명 보존, 백업/ALTER/native/readback 실패의 중단 회귀.
 - 교차연도 및 34-02A/B → 35-01, 41-03 → 42-01 순서 fixture.

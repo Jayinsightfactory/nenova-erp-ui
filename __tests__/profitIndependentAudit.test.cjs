@@ -55,7 +55,7 @@ const fs = require('node:fs');
   const source=fs.readFileSync('lib/profitIndependentAuditSource.js','utf8');
   assert.doesNotMatch(source,/\b(INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|EXEC\s+|CREATE\s+TABLE|ALTER\s+)\b/i);
   assert.match(source,/OrderYear=@year/);assert.match(source,/OrderYear=@previousYear/);assert.match(source,/DetailFix=1/);
-  assert.match(source,/before.hash !== after.hash/);assert.match(source,/STOCK_SP_SHA256/);assert.match(source,/JSON.stringify\(\{ data, policyHash, invalid \}\)/);
+  assert.match(source,/before.hash !== after.hash/);assert.match(source,/knownStockCalculationPolicy\(after.policyHash\)/);assert.match(source,/JSON.stringify\(\{ data, policyHash, invalid \}\)/);
   assert.doesNotMatch(source,/sm\.isFix\s*=/);
   const api=fs.readFileSync('pages/api/sales/profit-independent-audit.js','utf8');
   assert.match(api,/withAuth/);assert.match(api,/req.method !== 'GET'/);assert.match(api,/outputScope\(req.query.year, req.query.week\)/);
