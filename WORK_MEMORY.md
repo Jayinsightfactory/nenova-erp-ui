@@ -661,6 +661,12 @@
 - 맥락: 바이브코딩 직원→전산 연결 플랫폼 구상(데이터 계약·직원별 MCP 권한 토큰·검증게이트·실행consumer·절차 가이드 5층) 논의에서 파생.
 - 검색어: ERP공백 3축대조 이카운트430메뉴 미사용74% 여신한도 채권aging 환차손익 송금결재선 ERP_GAP_ANALYSIS 플랫폼5층
 
+## 2026-10-21 중국발주현황 두 시트 다운로드
+- 선택 세부차수 다운로드에 기존 품목별업체수량 + 단수량 시트 추가. HF/품목/CL 순서 보존, 단 전용은 숫자형 저장. 박스/송이는 등록 포장비율 환산, 누락/불일치 시 환산확인 및 합계 전파.
+- 중국발주 관련 20개 검사 및 XLSX 재읽기/교차연도/필터 검사 통과. manifest/write guard 통과. 전체 계약/빌드 최초 실행은 PC 메모리 부족으로 실패하여 재검증 중. 운영 배포/실브라우저 미검증.
+- 원장/API/SQL 쓰기 없음. 이전 인보이스 매칭·양방향 수량 편집은 이번 변경 범위 밖.
+- 검색어: 중국발주현황 단수량 두시트 품목별업체수량 박스 송이 환산확인
+- 최종 요청 변경: 다운로드 버튼 두 개로 분리, 각 파일에 선택 형식 한 시트만 생성. 단박스/단만 파일명 구분. 관련 20개 검사 재통과. 로컬 Next 빌드는 메모리 부족으로 2회 실패, 운영 미배포. PR #1177.
 ## 2026-10-21 경영관리(mgmt) 모듈 기반 — ECOUNT 이관과 공존 설계·골격 PR
 - 설계 docs/mgmt/MGMT_CONTROLS_DESIGN.md: 이관 소유 경로(lib/ecount*, pages/(api/)ecount, components/ecount, data/ecount-workbench, docs/ecount-migration, ecount_work 스키마) 접촉 금지, mgmt 네임스페이스(lib/mgmt·pages/mgmt·pages/api/mgmt·web_mgmt 스키마) 분리, 공유 핫스팟(Layout.js·package.json·erpContractManifest.test.js) 최소 삽입+리베이스 규칙, ecount_work는 lib/mgmt/sources.js 어댑터로 읽기만, 승인모델은 이관 Outbox와 같은 상태의미(draft→requested→approved|rejected→applied, 요청자 본인 승인 금지, 하드삭제 트리거 차단).
 - 골격: web_mgmt 9테이블 DDL(docs/migrations/2026-10-21_web_mgmt_controls.sql, 멱등), lib/mgmt/{schema,schemaMeta,boundary,sources,approval,approvalPolicy}.js, /api/mgmt/approvals, /mgmt 홈(상위10 카드)·/mgmt/approvals, 계약 docs/contracts/management-controls.json, 메뉴 그룹 '경영관리'(nenovaSS3만).
