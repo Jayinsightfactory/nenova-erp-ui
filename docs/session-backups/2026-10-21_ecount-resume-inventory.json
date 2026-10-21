@@ -899,13 +899,13 @@
     "E010205-A24"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 9 placeholders; verify function/window/value dimensions",
+   "next": "Add 7 missing target controls; observe source behaviour for 9 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 24,
+    "buttons": 31,
     "implemented": 5,
     "placeholder": 9,
-    "missing": 0,
+    "missing": 7,
     "conditional": 5,
     "externalApiDesignOnly": 5,
     "labelMatched": 19,
@@ -1010,13 +1010,13 @@
     "E040304-A38"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 27 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 27 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 38,
+    "buttons": 39,
     "implemented": 6,
     "placeholder": 27,
-    "missing": 0,
+    "missing": 1,
     "conditional": 1,
     "externalApiDesignOnly": 4,
     "labelMatched": 35,
@@ -1084,15 +1084,15 @@
     "E040202-A40"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Add 1 missing target controls; observe source behaviour for 28 placeholders",
+   "next": "Add 6 missing target controls; observe source behaviour for 28 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 40,
+    "buttons": 47,
     "implemented": 4,
     "placeholder": 28,
-    "missing": 1,
+    "missing": 6,
     "conditional": 0,
-    "externalApiDesignOnly": 7,
+    "externalApiDesignOnly": 9,
     "labelMatched": 31,
     "fullParity": false
    }
@@ -1561,13 +1561,13 @@
     "E040208-A26"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 20 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 20 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 26,
+    "buttons": 27,
     "implemented": 5,
     "placeholder": 20,
-    "missing": 0,
+    "missing": 1,
     "conditional": 1,
     "externalApiDesignOnly": 0,
     "labelMatched": 23,
@@ -1648,13 +1648,13 @@
     "E040204-A54"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 34 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 34 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 54,
+    "buttons": 55,
     "implemented": 6,
     "placeholder": 34,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 14,
     "labelMatched": 52,
@@ -1807,13 +1807,13 @@
     "E040212-A18"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 16 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 18,
+    "buttons": 19,
     "implemented": 2,
     "placeholder": 16,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 18,
@@ -1866,13 +1866,13 @@
     "E040206-A37"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 23 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 23 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 37,
+    "buttons": 38,
     "implemented": 7,
     "placeholder": 23,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 7,
     "labelMatched": 30,
@@ -1944,13 +1944,13 @@
     "E040207-A25"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "next": "Add 10 missing target controls; observe source behaviour for 16 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 25,
+    "buttons": 35,
     "implemented": 8,
     "placeholder": 16,
-    "missing": 0,
+    "missing": 10,
     "conditional": 0,
     "externalApiDesignOnly": 1,
     "labelMatched": 24,
@@ -1985,13 +1985,13 @@
     "E040217-A18"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 13 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 13 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 18,
+    "buttons": 19,
     "implemented": 5,
     "placeholder": 13,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 18,
@@ -2027,13 +2027,13 @@
     "E040216-A19"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 17 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 17 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 19,
+    "buttons": 20,
     "implemented": 2,
     "placeholder": 17,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 19,
@@ -2296,13 +2296,13 @@
     "E040302-A41"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 30 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 30 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 41,
+    "buttons": 42,
     "implemented": 4,
     "placeholder": 30,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 7,
     "labelMatched": 35,
@@ -2386,12 +2386,12 @@
    "next": "Observe source behaviour for 41 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 54,
+    "buttons": 55,
     "implemented": 10,
     "placeholder": 41,
     "missing": 0,
     "conditional": 2,
-    "externalApiDesignOnly": 1,
+    "externalApiDesignOnly": 2,
     "labelMatched": 44,
     "fullParity": false
    }
@@ -2424,13 +2424,13 @@
     "E040307-A18"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 16 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 18,
+    "buttons": 19,
     "implemented": 2,
     "placeholder": 16,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 18,
@@ -2460,13 +2460,13 @@
     "E040305-A14"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 8 placeholders; verify function/window/value dimensions",
+   "next": "Add 10 missing target controls; observe source behaviour for 8 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 13,
+    "buttons": 23,
     "implemented": 4,
     "placeholder": 8,
-    "missing": 0,
+    "missing": 10,
     "conditional": 0,
     "externalApiDesignOnly": 1,
     "labelMatched": 13,
@@ -2511,13 +2511,13 @@
     "E040310-A18"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 13 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 13 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 18,
+    "buttons": 19,
     "implemented": 5,
     "placeholder": 13,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 18,
@@ -2552,13 +2552,13 @@
     "E040313-A18"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "next": "Add 1 missing target controls; observe source behaviour for 16 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 18,
+    "buttons": 19,
     "implemented": 2,
     "placeholder": 16,
-    "missing": 0,
+    "missing": 1,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 18,
@@ -2593,13 +2593,13 @@
     "E040309-A07"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Add 1 missing target controls; observe source behaviour for 4 placeholders",
+   "next": "Add 9 missing target controls; observe source behaviour for 4 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
-    "buttons": 7,
+    "buttons": 15,
     "implemented": 2,
     "placeholder": 4,
-    "missing": 1,
+    "missing": 9,
     "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 6,
@@ -6027,6 +6027,12 @@
    "date": "2026-10-21",
    "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
    "release": "PR1164 d3c33993 deploy 39532373778",
+   "touchedPages": 33
+  },
+  {
+   "date": "2026-10-21",
+   "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
+   "release": "survey-ingest-20261021",
    "touchedPages": 33
   }
  ]
