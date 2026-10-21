@@ -693,3 +693,17 @@
 - FINAL_SNAPSHOT만 기존 헤더 준비 분기에 연결. 현재연도/세부차수/업체 잠금·재사용, 주문과 동일 transaction. 분배량·날짜·농장·확정·재고·견적 자동 생성 없음.
 - 실행형 API 신규/재시도/교차연도/삭제/기존확정/헤더실패/후속실패 rollback PASS. 전체 gate·배포 진행 중, EXE 실제 재조회 미검증. 운영 최신 주문/출고/date10단, 확정·공급90909/VAT9091은 read-only 확인이며 이번 턴 변경하지 않음.
 - 검색어: 유오디아 블랙잭 43-01 2226 GetShipmentMaster order-import-final ShipmentMaster누락 재발방지
+
+## 2026-10-21 선택 차수 엑셀·원본 손익 재검증
+- 엑셀에만 선택 배열이 누락되어 전 차수를 요청하던 경로 수정. 인쇄/엑셀 동일 체크 범위, 단일·전체·비연속·빈 선택 회귀 및 실제 파일 시트 수 검사 추가. 계산/원장 변경 없음.
+- 실제 SQL18차 476 SELECT 약6~9초, 생성 XLSX128개 값 대조. 27~31차 원본80행 동일 입력 산식 일치, 독립 SQL328항목 및 생성 파일640개 값 일치. 재고수량·원가 근거 미해결과 원본 입력 차이는 별도 설명.
+- 인증 운영18차 HTTP 다운로드/502원인은 도구 초기화 경로 오류로 미검증. 상세 docs/work-sessions/2026-10-21_profit-selected-output-audit.md, 실제 숫자는 ignored .verify만 보관.
+- 검색어: 선택차수엑셀 전체선택 단일다운로드 18차502 27~31원본비교 기초기말재고 SQL328
+
+## 2026-10-21 44-01 직원 업로드 처리 중 대기 점검
+- 사용자 확인: 2026/44-01 업로드 화면이 처리 중에서 멈춤. 최근 3일 주문 API 감사 SUCCESS24, FAIL0; 당일 완료 주문 요청 없음. 특정 직원 요청 원인은 미확정.
+- SELECT-only: ViewOrder760, ViewShipment0, ShipmentImportAudit0, 재고게이트 IDLE/PendingCalc=false. 전체 세션 조회 권한 없어 서버 전체 잠금은 미검증.
+- 기존 최종 업로드10업체/169활성 주문행에 ShipmentMaster 누락 확인. PR1183 예방수정 Cafe24 성공 확인; 기존누락 소급보정은 수행하지 않음.
+- UI 파일분석/저장120초, 업체보조조회/저장후조회30초 응답대기 상한. timeout은 서버취소 아님, 초안보존/자동재전송없음/늦은응답 성공표시없음. SQL/API 쓰기정책 변경없음.
+- 회귀: 정상/409/끝나지 않는 요청/JSON본문대기/늦은저장응답/재시도0 실행검사 PASS. 전체필수검사·배포 진행 중. 상세 docs/work-sessions/2026-10-21_upload-response-wait.md.
+- 검색어: 44-01 직원업로드 처리중 응답대기 timeout ShipmentMaster10 169 withOrderImportDeadline

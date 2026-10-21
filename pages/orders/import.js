@@ -25,6 +25,7 @@ import {
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/orderImportFailure';
+import { withOrderImportDeadline } from '../../lib/orderImportDeadline';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
 import * as XLSX from 'xlsx';
 import { initializeShipDateAllocations, moveShipmentQuantity, allocationTotal, buildShipmentListRows } from '../../lib/orderShipmentList';
@@ -908,12 +909,14 @@ export default function OrderImportPage() {
     const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1];
     if (selectedOrderYear) fd.append('orderYear', selectedOrderYear);
     try {
-      const res = await fetch('/api/orders/import-parse', {
-        method: 'POST',
-        credentials: 'include',
-        body: fd,
+      const d = await withOrderImportDeadline(async () => {
+        const res = await fetch('/api/orders/import-parse', {
+          method: 'POST', credentials: 'include', body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `파일 분석 실패 (HTTP ${res.status})`);
+        return data;
       });
-      const d = await res.json();
       if (!d.success) {
         const detail = (d.logs || []).slice(-4).join('\n');
         throw new Error(detail ? `${d.error || '파싱 실패'}\n\n${detail}` : (d.error || '파싱 실패'));
@@ -936,7 +939,7 @@ export default function OrderImportPage() {
         setResultMsg(`✅ 업체 자동매칭: ${d.matchedCustomer.CustName}${d.matchedCustomer.fromMapping ? ' (저장 매핑)' : ''}`);
       } else if (meta.customerName) {
         try {
-          const found = await apiGet('/api/customers/search', { q: meta.customerName });
+          const found = await withOrderImportDeadline(() => apiGet('/api/customers/search', { q: meta.customerName }), { timeoutMs: 30000 });
           const exact = (found.customers || []).find(c => String(c.CustName).replace(/\s/g, '') === String(meta.customerName).replace(/\s/g, ''));
           if (exact) changeCustomer({ CustKey: exact.CustKey, CustName: exact.CustName });
           else setResultMsg(`⚠ 업체 자동매칭 실패: ${meta.customerName} — 업체를 직접 선택하세요.`);
@@ -944,7 +947,11 @@ export default function OrderImportPage() {
       }
       setEditProdIdx(null);
     } catch (e) {
-      alert(e.message);
+      const message = e.code === 'ORDER_IMPORT_RESPONSE_TIMEOUT'
+        ? '파일 분석 응답을 2분 동안 받지 못했습니다. 이 단계는 주문·분배를 등록하지 않습니다. 기존 초안은 유지했습니다. 연결 상태를 확인한 뒤 파일을 다시 선택하세요.'
+        : `파일 분석 실패 — ${e.message}`;
+      setResultMsg(message);
+      alert(message);
     } finally {
       setLoading(false);
     }
@@ -1114,7 +1121,7 @@ export default function OrderImportPage() {
     appendRegisterLog(`파일 원본 ${matchedSourceRows.length}행 → 품목별 최종수량 ${registerItems.length}개 · 최종본 제외 ${skippedItems.length}행`);
     try {
       appendRegisterLog('서버 트랜잭션으로 기존 주문을 업로드 최종본에 맞추는 중입니다.');
-      const d = await apiPost('/api/orders', {
+      const d = await withOrderImportDeadline(() => apiPost('/api/orders', {
         custKey: cust.CustKey,
         week,
         year: weekQuery.year,
@@ -1126,7 +1133,7 @@ export default function OrderImportPage() {
         })),
         orderMode: 'FINAL_SNAPSHOT',
         source: 'order-import-final',
-      });
+      }));
       if (!d.success) throw new Error(d.error || '저장 실패');
       const orderedApiResults = sortImportRowsByProductOrder(d.results, registerItems);
       const appliedCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
@@ -1146,7 +1153,7 @@ export default function OrderImportPage() {
       }));
       try {
         appendRegisterLog('저장된 주문을 DB에서 다시 읽어 최종값을 확인합니다.');
-        const od = await apiGet('/api/orders', { custName: cust.CustName, week, year: weekQuery.year });
+        const od = await withOrderImportDeadline(() => apiGet('/api/orders', { custName: cust.CustName, week, year: weekQuery.year }), { timeoutMs: 30000 });
         const matched = pickImportRegisteredOrder(od.orders, cust.CustName, week);
         if (matched) {
           setRegisteredResult(buildImportRegisterResult({
