@@ -1,3 +1,4 @@
+- [2026-10-21 유오디아 업로드→EXE 분배 헤더 누락 재발 방지](2026-10-21_euodia-native-header-prevention.md)
 - [2026-10-21 네노바 관리자 설치파일](2026-10-21_native-pivot-installer.md) — 음수 주문 피벗 단일 EXE 설치, 백업·버전 검사·UAC.
 - [2026-10-20 중국 인보이스 수량 보존](2026-10-20_invoice-source-quantities.md) — Order 박스/Bunch 단/PCS 송이 분리, 매칭 후 1로 덮어쓰기 제거.
 - [2026-10-20 44-1차 음수 주문 Pivot 진단](2026-10-20_pivot-negative-44-diagnosis.md) — 저장정상, 전산피벗 양수전용조건으로30행제외.
@@ -530,3 +531,4 @@
 - [2026-10-20 NENOVA.EXE 음수 주문 피벗](2026-10-20_native-pivot-negative.md) — 실제 실행파일 조회조건·합계·엑셀, 원장 보존.
 
 - [2026-10-20 신라 판매요청 추가분 대조](2026-10-20_shilla-sales-request.md)
+
