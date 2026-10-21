@@ -53,17 +53,17 @@ const EXPECTED_NO_DATE_REPORTS=['E040120','E040122'];
 const EXPECTED_KINDS_2={
   list:['E010103','E010104','E010107','E010109','E010114','E010118','E040617','E061001'],
   input:['E010201','E010301','E010303','E010403','E010408','E010505','E040601','E040605','E040624'],
-  settings:['E010106','E010111','E040602','E040606','E040634','E040802'],
+  settings:['E010106','E010111','E010817','E040602','E040606','E040634','E040802'],
 };
-const EXPECTED_SINGLE_2=['E010209','E010813','E040414','E040436','E040619','E041018'];
-const EXPECTED_NO_DATE_REPORTS_2=['E040636','E040804','E040805','E040808','E040809'];
+const EXPECTED_SINGLE_2=['E010209','E010813','E010844','E040414','E040436','E040619','E041018'];
+const EXPECTED_NO_DATE_REPORTS_2=['E010861','E040636','E040804','E040805','E040808','E040809'];
 
 test('every surveyed program (72) has a screen definition built only from button-matches ids',()=>{
   assert.equal(SURVEY_PROGRAMS.length,72);
-  assert.equal(SURVEY2_PROGRAMS.length,90);
+  assert.equal(SURVEY2_PROGRAMS.length,97);
   assert.deepEqual(SURVEY_PROGRAMS.filter(program=>SURVEY2_PROGRAMS.includes(program)),[],'no program in both surveys');
   assert.deepEqual(lib.PROGRAMS,ALL_PROGRAMS);
-  assert.equal(lib.PROGRAMS.length,162);
+  assert.equal(lib.PROGRAMS.length,169);
   assert.deepEqual(lib.SKIPPED,[]);
   assert.deepEqual(lib.MISSING,[],'survey controls without a button-matches id must be reported, never invented');
   assert.deepEqual(lib.UNMAPPED,[]);
@@ -93,18 +93,18 @@ test('every surveyed program (72) has a screen definition built only from button
     assert.deepEqual([...grouped].sort(),expected,`${program} grouped ids`);
     total2+=screen.ids.length;
   }
-  assert.equal(total2,1223);
+  assert.equal(total2,1297);
   const oldSummary=lib.summary(Object.fromEntries(SURVEY_PROGRAMS.map(program=>[program,lib.SCREENS[program]])));
   assert.deepEqual(oldSummary.kinds,{list:9,input:7,report:48,settings:5,hub:3});
   assert.deepEqual(oldSummary.dateModes,{range:38,single:8,none:26});
   assert.deepEqual(oldSummary.presets,{total:307,enabled:305,unverified:2});
   const summary=lib.summary();
   console.log('SURVEY_SCREENS',JSON.stringify(summary));
-  assert.equal(summary.screens,162);
-  assert.equal(summary.ids,2197);
-  assert.deepEqual(summary.kinds,{list:17,input:16,report:115,settings:11,hub:3});
-  assert.deepEqual(summary.dateModes,{range:94,single:14,none:54});
-  assert.deepEqual(summary.presets,{total:718,enabled:711,unverified:7});
+  assert.equal(summary.screens,169);
+  assert.equal(summary.ids,2271);
+  assert.deepEqual(summary.kinds,{list:17,input:16,report:121,settings:12,hub:3});
+  assert.deepEqual(summary.dateModes,{range:98,single:15,none:56});
+  assert.deepEqual(summary.presets,{total:740,enabled:732,unverified:8});
   // DATASETS(기존 33화면) 프로그램은 조사 셸 대상이 아니다.
   const workbench=fs.readFileSync(path.join(root,'pages/ecount/workbench.js'),'utf8');
   const datasets=Object.keys(Function(`return (${/const DATASETS = (\{[^}]*\})/.exec(workbench)[1]})`)());
@@ -115,7 +115,7 @@ test('every surveyed program (72) has a screen definition built only from button
 test('P020~P039 kind and dateMode classification table',()=>{
   for(const [kind,programs] of Object.entries(EXPECTED_KINDS_2))for(const program of programs)assert.equal(lib.SCREENS[program].kind,kind,program);
   const reports=SURVEY2_PROGRAMS.filter(program=>!Object.values(EXPECTED_KINDS_2).flat().includes(program));
-  assert.equal(reports.length,67);
+  assert.equal(reports.length,73);
   for(const program of reports){
     const screen=lib.SCREENS[program];
     assert.equal(screen.kind,'report',program);
@@ -170,7 +170,7 @@ test('presets: only labels mapped by presetIdForLabel are enabled; unverified la
       if(!preset.enabled)unverified.push(`${program}:${preset.label}`);
     }
   }
-  assert.deepEqual(unverified,['E010212:최근30일','E010213:금월','E040254:최근7일','E040255:이번기수(~전월)','E040637:3개월','E061002:최근30일','E061003:최근30일']);
+  assert.deepEqual(unverified,['E010212:최근30일','E010213:금월','E010811:이번기수(~전월)','E040254:최근7일','E040255:이번기수(~전월)','E040637:3개월','E061002:최근30일','E061003:최근30일']);
 });
 // P020~P039 중 관측 날짜를 대조할 수 없는 화면: E010813 재무상태표는 기준일자가 년/월 위젯('26 / 10')인데 조사 판독이 뒤 숫자를 일(day)로 읽었다.
 // 날짜값이 비어(null) 판독되지 않은 관측(E010819·E040414·E040436·E040637)은 아래에서 건너뛰고 수를 고정한다.
@@ -195,7 +195,7 @@ test('observed preset date values match datePreset (range screens from~to, singl
   }
   console.log('PRESET_VALUES_CHECKED',checked,'unread',unread);
   assert.ok(checked>=290+383,`checked ${checked}`);
-  assert.equal(unread,20);
+  assert.equal(unread,41);
 });
 test('SSR renders every button-matches id exactly once with the observed activation rules',()=>{
   let active=0,placeholders=0;
@@ -222,9 +222,9 @@ test('SSR renders every button-matches id exactly once with the observed activat
     else assert.doesNotMatch(html,/type="date"/);
   }
   console.log('SURVEY_SCREEN_BUTTONS active',active,'placeholders',placeholders);
-  assert.equal(active+placeholders,2197);
+  assert.equal(active+placeholders,2271);
   const screens=ALL_PROGRAMS.map(program=>lib.SCREENS[program]);
-  const expectedActive=screens.filter(screen=>screen.searchToggleId).length+screens.filter(screen=>screen.searchPanel.searchId).length+screens.filter(screen=>screen.searchPanel.resetId).length+711+screens.reduce((total,screen)=>total+screen.searchPanel.formButtons.filter(item=>item.lookup).length,0);
+  const expectedActive=screens.filter(screen=>screen.searchToggleId).length+screens.filter(screen=>screen.searchPanel.searchId).length+screens.filter(screen=>screen.searchPanel.resetId).length+screens.reduce((total,screen)=>total+screen.searchPanel.presets.filter(preset=>preset.enabled).length,0)+screens.reduce((total,screen)=>total+screen.searchPanel.formButtons.filter(item=>item.lookup).length,0);
   assert.equal(active,expectedActive);
 });
 test('Search(F3) screens hide the search panel until toggled; toggle keeps its id and aria state',()=>{
