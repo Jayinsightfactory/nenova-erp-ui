@@ -89,8 +89,9 @@ test('Netherlands: totals precedence, repeated raw sums, stems pass-through, dup
   const outputs = generatePedidos(wb, 'Netherlands', 'W');
   assert.deepEqual(outputs.map(o => o.filename), ['W_Holex.xlsx', 'W_EZ.xlsx']);
   assert.deepEqual(outputs[0].cls, ['CL1', 'CL2']);
-  assert.equal(sheet(outputs[0]).B4.v, 4); assert.equal(sheet(outputs[0]).C4.v, 3);
-  assert.equal(sheet(outputs[0]).D4.f, 'SUM(B4:C4)');
+  assert.deepEqual(outputs[0].preview.rows.map(row => row[0]), ['Eucalyptus A', 'Skimmia A', 'Tulip hyacinth']);
+  assert.equal(sheet(outputs[0]).B6.v, 4); assert.equal(sheet(outputs[0]).C6.v, 3);
+  assert.equal(sheet(outputs[0]).D6.f, 'SUM(B6:C6)');
   assert.equal(outputs[0].totalQuantity, 5); assert.equal(outputs[1].totalQuantity, 3);
   assert.match(outputs[0].warnings.join(' '), /DUPLICATE_PRODUCT_NAME.*합산/);
   assert.equal(sheet(outputs[0]).C5.s.font.color.rgb, 'C00000');
@@ -126,8 +127,8 @@ test('Ecuador marker chooses first numeric fallback, not numeric strings', () =>
 
 test('Australia exact box lookup and unknown first-word prefix: blank box with warning', () => {
   const out = generatePedidos(fixture([['name', 'Grand Total'], ['Fern Umbrella', 100], ['Wolly Bush Green Tip', 60], ['Fern Unknown', 5], ['Unknown', 99], ['Grand Total']]), 'Australia', 'W')[0];
-  assert.equal(out.itemCount, 3); assert.equal(sheet(out).C4.f, 'B4/50'); assert.equal(sheet(out).C5.f, 'B5/30');
-  assert.equal(sheet(out).C6.v, undefined); assert.equal(out.warnings.length, 1);
+  assert.equal(out.itemCount, 3); assert.equal(sheet(out).C4.f, 'B4/50'); assert.equal(sheet(out).C6.f, 'B6/30');
+  assert.equal(sheet(out).C5.v, undefined); assert.equal(out.warnings.length, 1);
   assert.equal(sheet(out).C7.v, 4);
 });
 
@@ -241,7 +242,7 @@ test('current China numeric matrix: IDs, duplicate codes/names, zero products, i
   assert.equal(out.itemCount, chinaGolden.expectedItems); assert.equal(out.totalQuantity, chinaGolden.expectedQuantity);
   assert.equal(out.unit, 'bunches'); assert.equal(out.sourceUnit, '단');
   assert.deepEqual(out.products.map(p => p.prodKey), ['2358', '2329', '3404']);
-  assert.ok(out.preview.rows[0][0].includes('ProdKey:2358')); assert.ok(out.preview.rows[1][0].includes('ProdKey:2329'));
+  assert.ok(out.preview.rows[0][0].includes('ProdKey:2329')); assert.ok(out.preview.rows[1][0].includes('ProdKey:2358'));
   const firstK = out.preview.headers.indexOf('K01 [CustKey:565]'), secondK = out.preview.headers.indexOf('K01 [CustKey:689]');
   assert.ok(firstK > 0 && secondK > 0 && firstK !== secondK);
   assert.equal(out.preview.rows.reduce((s, row) => s + (row[firstK] ?? 0), 0), 40);

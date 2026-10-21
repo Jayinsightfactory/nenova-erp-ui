@@ -108,3 +108,29 @@ test('confidential local Netherlands source: 59 product rows, 15 codes, 9220 ste
   const rows = XLSX.utils.sheet_to_json(saved.Sheets[saved.SheetNames[0]], { header: 1, raw: true });
   assert.equal(rows.at(-1).at(-1), 9220); assert.equal(JSON.stringify(input), before);
 });
+
+test('every country exports mixed-case names A-Z with quantities and formulas intact across years', () => {
+  for (const year of [2025, 2026]) for (const country of ['Netherlands', 'China', 'Colombia', 'Australia', 'Thailand', 'Ecuador', 'Vietnam']) {
+    const unit = ['China', 'Colombia', 'Australia', 'Thailand'].includes(country) ? 'bunches' : 'stems';
+    const input = matrix(country, unit); input.scope.year = year;
+    input.rows = ['zulu', 'Alpha', 'bravo'].map((name, i) => ({ ...input.rows[0], key: `${10+i}|${unit}`, prodKey: 10+i, name, total: (i+1)*200, quantities: { 1: (i+1)*200 } }));
+    const before = JSON.stringify(input), out = generatePedidosFromMatrix(input)[0];
+    assert.deepEqual(out.preview.rows.map(row => row.slice(0,2)), [['Alpha',400],['bravo',600],['zulu',200]], country);
+    assert.equal(out.totalQuantity,1200); assert.equal(out.sourceScope.year,year); assert.equal(out.sourceScope.orderWeek,'42-01');
+    assert.equal(JSON.stringify(input),before);
+    const reopened = readPedidosWorkbook(serializePedidosWorkbook(out.workbook));
+    const ws = reopened.Sheets[reopened.SheetNames[0]];
+    assert.equal(ws.A4.v,'Alpha'); assert.equal(ws.B4.v,400); assert.equal(ws.A6.v,'zulu'); assert.equal(ws.B6.v,200);
+    if (country === 'Colombia') { assert.equal(ws.D4.f,'B4+C4'); assert.equal(ws.D4.v,400); }
+    if (country === 'Netherlands' || country === 'China') { assert.equal(ws.C4.f,'SUM(B4:B4)'); assert.equal(ws.C4.v,400); }
+    if (country === 'Vietnam') { assert.equal(ws.C4.f,'B4/16'); assert.equal(ws.C4.v,25); }
+  }
+});
+
+test('Ecuador sorts names before preserving half-box pair adjacency and total', () => {
+  const input=matrix('Ecuador','stems');
+  input.rows=[['Rose C',100],['Rose B',200],['Rose A',300]].map(([name,q],i)=>({...input.rows[0],key:`${10+i}|stems`,prodKey:10+i,name,total:q,quantities:{1:q}}));
+  const out=generatePedidosFromMatrix(input)[0];
+  assert.deepEqual(out.preview.rows.map(row=>row.slice(0,2)),[['Rose A',300],['Rose C',100],['Rose B',200]]);
+  assert.equal(out.totalQuantity,600);assert.equal(out.totalBoxes,3);
+});

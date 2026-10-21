@@ -48,3 +48,10 @@
 - 태국 42-01 678단, 호주 42-01 810단, 에콰도르 42-01 1,150송이, 베트남 해당 차수 주문 없음. 콜롬비아의 장미/알스트로는 단, 카네이션/수국/루스커스는 박스로 확인했다.
 - 첨부 실제 파일을 수정된 converter로 읽고 직렬화·재개봉: 59품목, 15업체 코드, 합계 9,220스팀 보존. 기존 잘못된 품명 배수가 없다.
 - 알 수 없는 단위의 행은 화면 진단용 `unknown`으로 남기고 생성은 차단한다. 단위를 추측하여 enum 값으로 바꾸지 않는다.
+
+## 2026-10-21 다운로드 품목 정렬
+- 실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormQuantityPivot Nenova.exe`로 재확인했다. `pivotGridField7`은 `ProdName`, RowArea의 세 번째 필드이며, ExportToXlsx는 WYSIWYG다. 품목 정렬 override는 없다.
+- 설치된 `DevExpress.PivotGrid.v25.1.Core.dll`도 `dnSpy.Console.exe --no-color -t DevExpress.XtraPivotGrid.PivotGridFieldBase`로 확인했다. SortOrder의 DefaultValue는 PivotSortOrder.Ascending이다. 전산 품목명 오름차순 근거다.
+- ViewOrder 읽기 전용 probe: 네덜란드 2026/42-02 134행·74품목·16,049송이, 2025 동일 범위 0행. 조회 업무키와 원천 수량 보존.
+- 국가별 출력은 품목명을 대소문자 구분 없이 A-Z 정렬한 뒤 셀/수식을 생성한다. 에콰도르는 사용자 선택에 따라 정렬 후 기존 합포장 묶음을 인접 배치한다. 합포장 예외를 제외한 품목 정렬 기준은 동일하다. 기존 박스 산식은 변경하지 않는다.
+- 다운로드는 브라우저 메모리 출력뿐이며 모든 ERP 원장과 견적·매출 downstream을 보존한다.

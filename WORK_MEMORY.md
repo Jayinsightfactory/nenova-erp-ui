@@ -645,7 +645,7 @@
 - 릴리스4(이 세션): PR #1200 P008~P019 셸 검색패널 거래처/품목/창고 새창 연결(활성 437→440) · #1201 입력 화면 7종 InputDraft 저장 API(/api/ecount/input-drafts GET/POST/PATCH, 테이블 없으면 503 MIGRATION_PENDING, DDL 미실행)+InputDraftForm · #1202 셸에 폼 통합(sourceSaveButton prop 으로 matchId 중복 방지) · #1208 105화면 대상 DOM 크롤(로컬 prod 빌드 8ab5da0c, 포트 3100) 병합. 전부 CI verify pass 후 squash.
 - 분류 변화(2,047 관측 버튼): 구현 220→817 / 미구현 718→1,076 / 조건부 26→13 / 미관측 991→49 / API설계전용 92 / 검증 완료 0. 함정: 새 크롤 파일을 단독 병합하면 이전 33화면 로컬 크롤의 정적 주장 66건이 철회됨 → 크롤러 union 규칙과 같은 방식으로 이전 로컬 크롤을 union 한 뒤 병합(철회 0, E040207 거래처 대화상자 7건은 조건부).
 - 비교 엑셀 outputs/ecount-parity-20261021/ECOUNT_버튼별_비교보고서.xlsx 9시트 7,924,251B sha256 0f658763…(이미지 미삽입).
-- 차단: 크롬 확장 재연결(deviceId 변경)마다 Claude in Chrome 탭 그룹이 재생성되어 로그인된 ECOUNT 탭·진행 중 조사(45화면 중 3)를 잃음. 조사 중 확장 재연결·다른 세션 브라우저 전환 금지. 조사 스크립트(srv/run/expand)는 세션 scratchpad 에 보관, 결과는 화면 배치마다 즉시 evidence JSON 저장 원칙.
+- 차단: 크롬 확장 재연결(deviceId 변경)마다 Claude in Chrome 탭 그룹이 재생성되어 로그인된 ECOUNT 탭·진행 중 조사를 잃음. 조사 중 확장 재연결·다른 세션 브라우저 전환 금지. 조사 스크립트(srv/run/expand)는 세션 scratchpad 에 보관, 결과는 화면 배치마다 즉시 evidence JSON 저장 원칙.
 - 검색어: ECOUNT 재개4차 PR1200 PR1201 PR1202 PR1208 InputDraft API MIGRATION_PENDING 대상DOM크롤 r4 union 철회66 미관측49 구현817 탭그룹재생성 survey6
 
 ## 2026-10-21 ECOUNT 이관 재개 1차 — PR1161 운영회귀 닫기 · 33화면 대상 DOM 증거 · ACTION_IDS 누락 11화면 수정
@@ -784,6 +784,12 @@
 ## 2026-10-21 중국발주 다운로드 버튼 잘림
 - 운영 1366px에서 버튼 right=1386.90625 재현. 컨테이너/차수/파일 도구 줄바꿈 및 최대너비 제한. 데이터/환산/원장 변경 없음. 검증·배포 진행 중.
 - 검색어: 중국발주 다운로드 버튼 안보임 1366 flex-wrap 단만 단박스
+
+## 2026-10-21 국가별 발주서 품목 정렬
+- 전 국가 Excel 출력과 미리보기를 품목명 A-Z(대소문자 무시)로 정렬. 에콰도르는 전산 기본 품목순 이후 사용자 확인한 합포장 인접 묶음 유지. 수량·단위·박스 산식·원장 보존.
+- 실제 dnSpy FormQuantityPivot 및 PivotGridFieldBase 기본 Ascending 확인. 운영 조회 파일 재개봉: 네덜란드42-02 74품목/16049송이, 에콰도르42-01 8품목/1150송이 보존. 관련39테스트 통과(선택적 로컬원본3개 skip), dnSpy/manifest/write 가드 통과. 전체 ERP 검사·빌드 통과. PR #1209 CI 최초 통과, 최신 master 통합 CI 및 배포 진행 중(배포 미검증).
+- 검색어: 국가별발주서 엑셀 A-Z 품목정렬 에콰도르 합포장 importPedidos CountryOrders
+
 ## 2026-10-21 패킹 날짜 확인 후 다음 버튼 무반응 안내
 - 금일 서버 로그에는 해당 client 검증 실패 기록 없음. 최신 42-1 CHINA CI 업로드 snapshot에 날짜 확인 미완료. 현재 미저장 브라우저 상태와 구분.
 - validateDrafts 실패 시 submitError를 비워놓던 분기 수정: 날짜/총액 사유 등 항목별 즉시 알림창 및 화면 요약. generation 실패 이유도 준비 단계로 전달. 검증 조건·매칭·원문·ERP writer는 보존.
