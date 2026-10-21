@@ -30,9 +30,9 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    return req.continue();
   });
   page.on('response',res=>{
-   const pathname=new URL(res.url()).pathname;
+   const responseUrl=new URL(res.url()),pathname=responseUrl.pathname;
    if(pathname==='/api/sales/profit-report-output')responses.push(res.status());
-   if(pathname==='/api/sales/profit-report'&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
+   if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week)&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
   });
   await page.goto(`${origin}/sales/profit-report?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(e=>e.textContent.startsWith('엑셀 다운로드')&&!e.disabled),{timeout:120000});
@@ -54,6 +54,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   const financialRows=rows.filter(r=>typeof r[0]==='string'&&r.slice(1,9).some(v=>typeof v==='number')).map(r=>r.slice(0,9).map(v=>v==null||v===''?null:v));
   const financialDigest=crypto.createHash('sha256').update(JSON.stringify(financialRows)).digest('hex');
   await Promise.all(reads);
+  assert.ok(mainData?.success&&Array.isArray(mainData.rows),'initial screen response must be observed for the same scope');
   const cols=['C','E','F','G','H','I','J','K'],mainMap=new Map((mainData?.rows||[]).map(r=>[r.category,mainData.confirmed?r.calc:computeProfitRow(r)]));
   const initialScreenDifferences=financialRows.filter(r=>mainMap.has(r[0])).flatMap(r=>cols.filter((col,i)=>{
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
