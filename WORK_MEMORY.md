@@ -787,6 +787,11 @@
 - validateDrafts 실패 시 submitError를 비워놓던 분기 수정: 날짜/총액 사유 등 항목별 즉시 알림창 및 화면 요약. generation 실패 이유도 준비 단계로 전달. 검증 조건·매칭·원문·ERP writer는 보존.
 - 단위/관련 회귀31건 및 빌드 통과. 실제41-1 PDF 로컬 브라우저에서 팝업/인라인/날짜 보존·사유 수정 확인. 전체 검사·배포 결과는 세션 문서 후속 기록. 운영 DB 쓰기 없음.
 - 검색어: packing next blocked DATE_ORDER_AMBIGUOUS 확인사유 submitError 42-1 CHINA
+
+## 2026-10-21 공통 CALC 차수정렬 승인 후 보정
+- 사용자 명시 승인에 따라 정확한 운영 SP 정의의 커서 정렬만 수정하는 수동 도구 추가. 원본 백업·권한/옵션/매개변수 보존, ALTER와 기존 승인 재고 보정을 한 transaction으로 rehearsal/apply. 계산식·Product.Stock·보호 원장 보존.
+- 순서/near-miss/교차연도/legacy/단계별 실패 회귀 통과. 전체 gate·CI·배포 및 운영 통합 rehearsal/apply는 진행 중(미검증). docs/work-sessions/2026-10-21_stock-calc-order.md 참고.
+- 검색어: CALC CURSOR ORDER BY 공통SQL 정렬 에콰도르 31차 이월 원자보정
 - 2026-10-21 추가 실측(사장님 계정 nenovaSS3, 크롬 "사무실 pc" 893da7f6, 운영 df079d26): aging 잔액 22,036,756,225 + 기준일 이후 20,430,000 = 여신한도 22,057,186,225 설명문 표시·입금0 경고 표시 OK · 감사뷰 ShipmentHistory 행 정상(42-02 라움 수국 단가 32.23→33.23 등) · 단가 스냅샷 1회 실행(17:07:13, 기준선) · 클레임 사유코드 8개 시드 완료 · 직원 계정(nenovaSS1)은 403 확인. 미실측: 여신한도 등록·사유코드 연결 저장·주차 마감 상태 저장(쓰기 3종, 업무 값 필요). 검색어: mgmt 실측2 nenovaSS3 스냅샷기준선 사유코드시드 403확인
 
 
