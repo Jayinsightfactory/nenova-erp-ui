@@ -737,3 +737,11 @@
 - 2026/44-01 알스트로 입고 원본/뷰 모두0행, 43-01=1648. 차수 대체 없음. 업체 헤더 두열병합, 업로드 병합보조열 품목오인 방지.
 - 실제 Excel 복사삽입/이름변경/수량삭제/두열통삭제 및 저장파일 파서 통과. 필수검사/배포 진행 중(미검증).
 - 검색어: 알스트로 44-01 입고없음 업체명병합 두열삭제
+
+## 2026-10-21 경영관리(mgmt) A군 7기능 머지 — PR #1179 #1180 #1181 #1182
+- ①여신한도 /mgmt/credit-limit(CreditLimitHistory 추가전용, 80%경고/초과) ②채권aging /mgmt/ar-aging(ar.js 쿼리 복제, FIFO 상계, 초과입금 credit 분리, 구간합−credit=잔액) ⑥단가변경이력 /mgmt/price-history(CustomerProdCost·Product.Cost 스냅샷 비교, 첫 스냅샷=기준선, PriceSnapshot 테이블 추가) ⑦클레임사유코드 /mgmt/claim-codes(8코드 시드, WebSalesDefectDeduction.DeductionKey 연결, 농장×사유 집계) ⑧차수마감 /mgmt/week-close(UNQUOTED·NEGATIVE_STOCK·EMPTY_SDETAIL·UNPAID·UNREMITTED·VERIFY_WEEK, WeekCloseCheck) ⑨거래처별이익·목표 /mgmt/customer-profit(보고서 스냅샷 카테고리행을 확정출고 저장Amount 비중으로 배분, 0.01원 정수배분 합계보존, CustomerTarget) ⑩감사뷰 /mgmt/audit-view(SystemActionLog·ShipmentHistory·PriceChangeHistory·CreditLimitHistory·ApprovalAudit 통합).
+- 하위 작업자 4명 병렬(code-worker, worktree) → 메인이 리베이스·충돌(계약 scope/test:mgmt/index.js ready 플래그 union)·PR·머지. 매니페스트 140개 통과.
+- ⚠ #1180·#1182는 체크 보고 전 머지됨(리베이스 후 force push로 체크 리셋). master ERP Contract Guard로 사후 확인. 다음부터 push 후 checks 등록 확인하고 merge.
+- 미검증: 전 기능 실DB 미실행(순수로직+계약검사만). 운영 실증 필요: aging 합계 vs /api/sales/ar, 거래처이익 합계 vs 보고서 총이익(diff 배지), UNREMITTED 업무정의(WebFarmRemit.Weeks 농장단위 추정), SystemActionLog ActionType 명칭, 확정차수 확정값 vs 스냅샷.
+- 남은 B군: ③입금대사 ④환차손익 ⑤송금결재선 화면연결(승인모델·ReceiptMatch 테이블은 있음).
+- 검색어: mgmt A군 여신한도 aging 단가이력 클레임코드 마감체크 거래처이익 감사뷰 PR1179 PR1180 PR1181 PR1182 PriceSnapshot 체크전머지
