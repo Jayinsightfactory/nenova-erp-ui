@@ -120,7 +120,7 @@ export default function Login() {
             <label style={{display:'block',marginTop:12,fontSize:12}}>
               <input type="checkbox" checked={rememberDevice} onChange={e=>setRememberDevice(e.target.checked)} disabled={loading} /> 이 기기에서 로그인 유지
             </label>
-            <div style={{fontSize:11,color:'#666',marginTop:4}}>공용 PC에서는 선택하지 마세요. 로그아웃 시 해제됩니다.</div>
+            <div style={{fontSize:11,color:'#666',marginTop:4}}>공용 PC에서는 선택하지 마세요. 최대 400일 · 로그아웃 시 해제됩니다.</div>
             <div style={{ marginTop:14, display:'flex', justifyContent:'center', gap:8 }}>
               <button type="submit" disabled={loading}
                 style={{ height:28, padding:'0 20px', fontSize:12, fontFamily:'inherit', border:'1px solid #AAA', background:'#E0E0E0', cursor:'pointer' }}>

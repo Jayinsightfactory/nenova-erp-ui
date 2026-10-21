@@ -106,7 +106,7 @@ export default function MobileLogin() {
           <label style={{display:'block',marginTop:16,fontSize:14}}>
             <input type="checkbox" checked={rememberDevice} onChange={e=>setRememberDevice(e.target.checked)} disabled={loading} /> 이 기기에서 로그인 유지
           </label>
-          <p style={{fontSize:12,color:'#64748b'}}>공용 기기에서는 선택하지 마세요. 로그아웃 시 해제됩니다.</p>
+          <p style={{fontSize:12,color:'#64748b'}}>공용 기기에서는 선택하지 마세요. 최대 400일 · 로그아웃 시 해제됩니다.</p>
           <button
             className="ml-submit"
             type="submit"

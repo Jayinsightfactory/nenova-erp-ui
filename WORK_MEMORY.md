@@ -719,7 +719,7 @@
 
 ## 2026-10-21 선택 차수 배포·기기별 로그인 유지
 - 선택 차수 수정 PR1187 → master16e6ca5f → Cafe24 run39553387769 성공. 배포된 UI 실제 Chromium 합성 API 시트 다운로드 회귀 통과, ping DB연결 성공. 운영 실제18 HTTP는 별도 수동 read-only smoke로 검증 준비.
-- 사용자 추가 선택: 이 기기 로그인 유지 opt-in만. 웹/모바일 기본 해제 체크박스, 미선택8시간, 선택400일 미사용 제한/사용시 일단위 연장. 서버 hashed runtime session, API/SSR 현재 계정 검증, 비밀번호변경·비활성·로그아웃 폐기, 외부Bearer8시간 보존.
+- 사용자 추가 선택: 이 기기 로그인 유지 opt-in만. 웹/모바일 기본 해제 체크박스, 미선택8시간. 일반 브라우저400일 미사용 제한/일단위 연장, 기존 PC웹앱은 cookie-change 업무창 stop/hide 방지를 위해 중간갱신 없는 고정400일. 서버 hashed runtime session, API/SSR 현재 계정 검증, 비밀번호변경·비활성·로그아웃 폐기, 외부Bearer8시간 보존.
 - ERP/UserInfo 쓰기 없음. 로그인 유지 단위 회귀 통과; 전체gate/CI/배포 진행 중(미검증). docs/work-sessions/2026-10-21_remember-device.md 참고.
 - 검색어: 로그인유지 이기기 8시간자동해제 rememberDevice 400일 서버폐기 18차운영다운로드
 
