@@ -220,7 +220,7 @@ export default function ChinaOrderDownloadPage() {
     if (next) loadReport(next);
   }
 
-  async function download() {
+  async function download(quantityMode) {
     if (!visibleReport || !selectedColumn || !visibleReport.rows.length || !isReportCurrent || loading || uploading || downloading) return;
     const id = ++downloadId.current;
     setDownloading(true);
@@ -228,14 +228,14 @@ export default function ChinaOrderDownloadPage() {
     try {
       const downloadedAt = new Date();
       const metadata = chinaOrderExportMetadata(visibleReport, downloadedAt);
-      const workbook = await buildChinaOrderWorkbook(visibleReport, mapping, { downloadedAt });
+      const workbook = await buildChinaOrderWorkbook(visibleReport, mapping, { downloadedAt, quantityMode });
       if (id !== downloadId.current) return;
       const bytes = await workbook.xlsx.writeBuffer();
       if (id !== downloadId.current) return;
       const url = URL.createObjectURL(new Blob([bytes], { type: XLSX_MIME }));
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = metadata.filename;
+      anchor.download = metadata.filename.replace('.xlsx', quantityMode === 'bunch' ? ' 단만.xlsx' : ' 단박스.xlsx');
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (downloadError) {
@@ -284,7 +284,9 @@ export default function ChinaOrderDownloadPage() {
           <div className="mapping-source"><b>HF 사전</b><span title={mappingFileName}>{mappingFileName}</span><small>{matchedCount}개 HF CODE · {userId ? `${userId} 사용자 브라우저 전용` : '인증 확인 중'}</small></div>
           <label className={`upload-button ${busy || !userId || Boolean(authError) ? 'disabled' : ''}`}>HF 엑셀 업로드<input ref={fileRef} type="file" accept=".xlsx" aria-label="HF 엑셀 업로드" disabled={busy || !userId || Boolean(authError)} onChange={event => uploadMapping(event.target.files?.[0])} /></label>
           <button className="secondary" type="button" disabled={busy || !userId || Boolean(authError)} onClick={restoreSeed}>기본 사전 복원</button>
-          <button className="download" type="button" disabled={busy || !selectedColumn || !visibleReport?.rows.length || !isReportCurrent} onClick={download}>{downloading ? '엑셀 생성 중…' : '엑셀 다운로드'}</button>
+          <button className="download" type="button" disabled={busy || !selectedColumn || !visibleReport?.rows.length || !isReportCurrent} onClick={() => download('quantity-box')}>단·박스 다운로드</button>
+          <button className="download" type="button" disabled={busy || !selectedColumn || !visibleReport?.rows.length || !isReportCurrent} onClick={() => download('bunch')}>단만 다운로드</button>
+          {downloading && <span role="status">엑셀 생성 중…</span>}
         </div>
       </section>
 
@@ -325,7 +327,7 @@ export default function ChinaOrderDownloadPage() {
         </table>
         </div>
       </div>}
-      <footer className="page-foot"><span>HF 사전: {seedMapping.sourceFile} · {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 박스 환산은 현재 DB 품목 기준</span><span>엑셀: 품목별업체수량 1시트</span></footer>
+      <footer className="page-foot"><span>HF 사전: {seedMapping.sourceFile} · {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 박스 환산은 현재 DB 품목 기준</span><span>엑셀: 단·박스 / 단만 선택 · 파일당 1시트</span></footer>
     </main>
     <style jsx>{`
       .china-order-page{--ink:#14243a;--muted:#61738a;--line:#d6dfeb;--blue:#174a85;--navy:#102d53;min-width:0;padding:14px 18px 20px;background:#edf2f8;color:var(--ink);font-size:14px;}

@@ -911,3 +911,10 @@ SQL에 값이 있으나 웹 단가로 연결되지 않은 것과 해당 시점�
 0.01을 사용한다. 이는 세금/원장의 저장금액 반올림 변경이 아니다.
 계약/합성 반례: `profit-sql-lineage.json`, `profitSqlLineageAudit.test.cjs`.
 
+
+## 2026-10-21 업로드 주문 이후 EXE 수동 분배 예외
+웹 order-import-final은 주문만 저장하고 native FormOrderAdd가 준비하는 빈 ShipmentMaster를 누락했다.
+실제 감사 기록과 원본 EXE 저장 순서가 기존 ShipmentMaster 무조건 보존 계약보다 우선한다.
+업로드 최종본에 한해 기존 활성 헤더 재사용/누락 헤더 생성을 주문 트랜잭션에 포함한다.
+출고 수량·날짜·농장·확정·재고·견적은 자동 생성하지 않는다. 내 업체/영업 붙여넣기 계약은 별도 유지한다.
+myCustomerOrderApi.test.js에서 전년도·삭제행·다른업체/세부차수·재시도·헤더 실패·후속 주문 실패의 전체 rollback을 확인한다.

@@ -595,7 +595,7 @@ assert.doesNotMatch(intakeApi, /new Date\(\)\.getFullYear/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');
-assert.match(orderApi, /ensureShipmentMaster = !isMyCustomerSource/);
+assert.match(orderApi, /ensureShipmentMaster = isFinalSnapshotSource \|\| \(!isMyCustomerSource/);
 assert.match(orderApi, /String\(source \|\| ''\)\.toLowerCase\(\) === 'raum-pnl' \|\| req.body\?\.ensureShipmentMaster === true/);
 assert.match(orderApi, /const isDelta = true/);
 assert.match(orderApi, /ISNULL\(isDeleted,0\)=0 THEN 0 ELSE 1/);

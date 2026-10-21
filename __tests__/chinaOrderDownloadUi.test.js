@@ -49,7 +49,7 @@ assert.match(page, /accept="\.xlsx"/, '사전 업로드는 XLSX만 허용한다'
 assert.match(page, /await workbook\.xlsx\.writeBuffer\(\)/, 'ExcelJS workbook을 브라우저에서 생성한다');
 assert.match(page, /disabled=\{busy \|\| !selectedColumn \|\| !visibleReport\?\.rows\.length \|\| !isReportCurrent\}/, '로딩·작업중·빈 결과·미선택 세부차수 또는 오래된 범위에서는 다운로드를 차단한다');
 assert.match(page, /import \{ buildChinaOrderWorkbook, chinaOrderExportMetadata \} from '\.\.\/\.\.\/lib\/chinaOrderWorkbook'/, '워크북과 파일명이 동일한 메타데이터 helper를 사용한다');
-assert.match(page, /const downloadedAt = new Date\(\);[\s\S]*chinaOrderExportMetadata\(visibleReport, downloadedAt\)[\s\S]*buildChinaOrderWorkbook\(visibleReport, mapping, \{ downloadedAt \}\)/, '다운로드 시각을 한 번만 잡아 파일명과 엑셀 ETA에 함께 전달한다');
+assert.match(page, /const downloadedAt = new Date\(\);[\s\S]*chinaOrderExportMetadata\(visibleReport, downloadedAt\)[\s\S]*buildChinaOrderWorkbook\(visibleReport, mapping, \{ downloadedAt, quantityMode \}\)/, '다운로드 시각을 한 번만 잡아 파일명과 엑셀 ETA에 함께 전달한다');
 assert.match(page, /anchor\.download = metadata\.filename/, '선택 세부차수 기반 공유 파일명을 적용한다');
 assert.match(page, /업체명, CL 코드, 품목명 또는 HF CODE 검색[\s\S]*disabled=\{!report \|\| busy\}/, '업로드·다운로드 중에는 검색 필터 입력을 잠근다');
 assert.match(page, /매칭 상태 필터[\s\S]*disabled=\{!report \|\| busy\}/, '업로드·다운로드 중에는 상태 필터 변경을 잠근다');
@@ -75,3 +75,8 @@ assert.doesNotMatch(page, /<Layout|from ['"].*Layout/, '공통 shell에서 중�
 assert.doesNotMatch(page, /\/api\/(?:shipment|warehouse|stock|estimate)\//, '조회 페이지는 ERP 주문 외 쓰기 기능/API를 호출하지 않는다');
 
 console.log('chinaOrderDownload UI contract passed');
+
+assert.match(page, /download\('quantity-box'\)/);
+assert.match(page, /download\('bunch'\)/);
+assert.match(page, /단·박스 다운로드/);
+assert.match(page, /단만 다운로드/);

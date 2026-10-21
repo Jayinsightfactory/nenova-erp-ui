@@ -659,3 +659,37 @@
 - 전체 ERP/packing-team/UI/manifest/write/evidence guard/build 통과. 격리 실제 Chrome A 보관→B 조회/키보드복구 성공, ERP write0. 새 dnSpy 실행은 CLR 오류로 실패, 기존 native 근거 사용; ERP writer 변경 없음.
 - 최종 PR/배포/운영 확인은 세션 문서에 추가. 실물 인보이스 입고·도착원가 E2E는 이번 작업 미검증.
 - 검색어: packing-shared-history upload-history 팀공용 원본복구 직원로그 다음입고준비 취소 IndexedDB
+
+## 2026-10-21 ERP 관리기능 공백 3축 대조(이카운트 메뉴 430·중견 ERP 모듈·네노바웹 9단계) — 보고서만
+- 산출물 docs/ERP_GAP_ANALYSIS_2026-10.md + 메뉴별 태그 CSV. 코드·수식·contracts·이카운트 쓰기 없음.
+- 이카운트 말단 430메뉴: 웹에 이미 있음 96(22%) / 실사용인데 웹 없음 17(4%, 거의 회계I 전표·원장·카드·계좌) / 미사용 317(74%). 사장님 판단("대부분 안 쓴다") 수치로 확인.
+- 9단계 공백 중 '필요' 상위10: 여신한도·채권aging 일수구간·입금대사·환차손익·송금결재선·단가변경이력·클레임사유코드·차수마감체크리스트·거래처별이익/목표·변경감사로그 통합. 불필요=고정자산·연결회계·급여인사·생산BOM·A/S·수표·전자계약.
+- 미검증: 이카운트 공식 help 대조, "커버리지 40%" 원문 미발견, 상위10이 실제 수기 관리인지(사장님 확인 필요), Amaranth/K-System 상세 모듈.
+- 맥락: 바이브코딩 직원→전산 연결 플랫폼 구상(데이터 계약·직원별 MCP 권한 토큰·검증게이트·실행consumer·절차 가이드 5층) 논의에서 파생.
+- 검색어: ERP공백 3축대조 이카운트430메뉴 미사용74% 여신한도 채권aging 환차손익 송금결재선 ERP_GAP_ANALYSIS 플랫폼5층
+
+## 2026-10-21 중국발주현황 두 시트 다운로드
+- 선택 세부차수 다운로드에 기존 품목별업체수량 + 단수량 시트 추가. HF/품목/CL 순서 보존, 단 전용은 숫자형 저장. 박스/송이는 등록 포장비율 환산, 누락/불일치 시 환산확인 및 합계 전파.
+- 중국발주 관련 20개 검사 및 XLSX 재읽기/교차연도/필터 검사 통과. manifest/write guard 통과. 전체 계약/빌드 최초 실행은 PC 메모리 부족으로 실패하여 재검증 중. 운영 배포/실브라우저 미검증.
+- 원장/API/SQL 쓰기 없음. 이전 인보이스 매칭·양방향 수량 편집은 이번 변경 범위 밖.
+- 검색어: 중국발주현황 단수량 두시트 품목별업체수량 박스 송이 환산확인
+- 최종 요청 변경: 다운로드 버튼 두 개로 분리, 각 파일에 선택 형식 한 시트만 생성. 단박스/단만 파일명 구분. 관련 20개 검사 재통과. 로컬 Next 빌드는 메모리 부족으로 2회 실패, 운영 미배포. PR #1177.
+## 2026-10-21 경영관리(mgmt) 모듈 기반 — ECOUNT 이관과 공존 설계·골격 PR
+- 설계 docs/mgmt/MGMT_CONTROLS_DESIGN.md: 이관 소유 경로(lib/ecount*, pages/(api/)ecount, components/ecount, data/ecount-workbench, docs/ecount-migration, ecount_work 스키마) 접촉 금지, mgmt 네임스페이스(lib/mgmt·pages/mgmt·pages/api/mgmt·web_mgmt 스키마) 분리, 공유 핫스팟(Layout.js·package.json·erpContractManifest.test.js) 최소 삽입+리베이스 규칙, ecount_work는 lib/mgmt/sources.js 어댑터로 읽기만, 승인모델은 이관 Outbox와 같은 상태의미(draft→requested→approved|rejected→applied, 요청자 본인 승인 금지, 하드삭제 트리거 차단).
+- 골격: web_mgmt 9테이블 DDL(docs/migrations/2026-10-21_web_mgmt_controls.sql, 멱등), lib/mgmt/{schema,schemaMeta,boundary,sources,approval,approvalPolicy}.js, /api/mgmt/approvals, /mgmt 홈(상위10 카드)·/mgmt/approvals, 계약 docs/contracts/management-controls.json, 메뉴 그룹 '경영관리'(nenovaSS3만).
+- 자동검사: __tests__/mgmtBoundary.test.js --changed-from origin/master 가 mgmt 변경 PR이 이관 파일을 건드리면 실패. SQL 쓰기동사 가드(ecount_work·ERP 원장). test:erp-contract 끝에 test:mgmt 연결.
+- 다음: A군(여신한도·aging·단가이력·클레임코드·마감체크·거래처이익/목표·감사뷰) 기능별 PR, B군(입금대사·환차손익·송금결재선)은 어댑터 소스 채워지는 대로. 각 PR 전 origin/master 리베이스.
+- 검색어: mgmt 경영관리 web_mgmt 경계 boundary ECOUNT이관공존 ApprovalRequest 결재선 management-controls 계약 MGMT_CONTROLS_DESIGN
+
+## 2026-10-21 주차별 보고서 출력 선택·기억
+- 엑셀은 1~조회차수 전체/한 차수 한 시트, 인쇄 미리보기는 체크한 차수만이라는 기존 범위를 명시하고 개수 표시. 별도 출력 항목 선택과 화면 컬럼 가져오기 제공.
+- 기존 화면 컬럼 v3를 보존하며 첫 복원 전 기본값 덮어쓰기 방지. 출력 항목은 별도 localStorage에 저장하고 빈 선택도 유지/출력 차단. 같은 브라우저 범위이며 계정·기기 간 동기화 아님.
+- 18차 HTTP502 신고: 502/503/504/네트워크 GET 실패만 해당 차수 최대2회 재시도, 이전 완료분 유지, 실패 시 부분파일 금지. 운영 ping200/다른 배포 진행 확인만으로 최초502 원인을 단정하지 않음.
+- ERP 계산·SQL·확정본·원장 변경 없음. 전체 verify:erp-change/build·dnSpy gate 및 production-build 실제 Chrome 합성 API 검증 통과(재접속/선택빈값/41차단독/41시트/18차재시도/교차연도/1920·640px, API 쓰기0). PR/배포는 진행 중(미검증). 빌드 생성 개발이력 JSON 2개는 이 작업 이전 커밋본으로 복원.
+- 검색어: profit-output-preferences 출력항목저장 화면컬럼복원 41차미리보기 18차502 차수별재시도
+
+## 2026-10-21 유오디아 native 분배 오류 재발 방지
+- 정확 감사 source=order-import-final(10/09 11:35:37.683, 2026/43-01, ProdKey2226,1박스)와 생성시각 대조. 웹 업로드가 native FormOrderAdd의 빈 ShipmentMaster 준비를 누락했다. 최근 음수 피벗 패치 무관.
+- FINAL_SNAPSHOT만 기존 헤더 준비 분기에 연결. 현재연도/세부차수/업체 잠금·재사용, 주문과 동일 transaction. 분배량·날짜·농장·확정·재고·견적 자동 생성 없음.
+- 실행형 API 신규/재시도/교차연도/삭제/기존확정/헤더실패/후속실패 rollback PASS. 전체 gate·배포 진행 중, EXE 실제 재조회 미검증. 운영 최신 주문/출고/date10단, 확정·공급90909/VAT9091은 read-only 확인이며 이번 턴 변경하지 않음.
+- 검색어: 유오디아 블랙잭 43-01 2226 GetShipmentMaster order-import-final ShipmentMaster누락 재발방지
