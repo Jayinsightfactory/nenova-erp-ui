@@ -763,6 +763,9 @@
 - 교훈: /sales/ar 기본 기간은 당월이라 aging(전기간)과 바로 비교 불가. 운영 실측은 로그인 계정이 누구인지 먼저 확인(화면 하단 'OOO (ID)').
 - 검색어: mgmt 운영실측 aging 22035173875 futureExcluded ReceivableLedger입금0 ShipmentHistory Descr 관리자가드 403 PR1197 week-close 42-1
 
+## 2026-10-21 중국발주 다운로드 버튼 잘림
+- 운영 1366px에서 버튼 right=1386.90625 재현. 컨테이너/차수/파일 도구 줄바꿈 및 최대너비 제한. 데이터/환산/원장 변경 없음. 검증·배포 진행 중.
+- 검색어: 중국발주 다운로드 버튼 안보임 1366 flex-wrap 단만 단박스
 ## 2026-10-21 패킹 날짜 확인 후 다음 버튼 무반응 안내
 - 금일 서버 로그에는 해당 client 검증 실패 기록 없음. 최신 42-1 CHINA CI 업로드 snapshot에 날짜 확인 미완료. 현재 미저장 브라우저 상태와 구분.
 - validateDrafts 실패 시 submitError를 비워놓던 분기 수정: 날짜/총액 사유 등 항목별 즉시 알림창 및 화면 요약. generation 실패 이유도 준비 단계로 전달. 검증 조건·매칭·원문·ERP writer는 보존.
