@@ -497,3 +497,6 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - dnSpy.Console.exe --no-color -t FormOrderAdd 재실행: 빈 ShipmentMaster를 주문과 함께 준비한다. 이 전제가 웹 order-import-final에 빠져 있었다.
 - read-only 감사: 2026/43-01/ProdKey2226/유오디아의 10/09 주문 생성과 같은 초의 ORDER_WRITE source=order-import-final, 정확 CustKey 및 1박스 확인. 주문10단, 초기 ShipmentMaster0. 기존 웹 분배로 요청10단 복구 확인(미확정).
 - 이번 변경은 웹 FINAL_SNAPSHOT에 기존 헤더 준비 분기를 연결한다. 실행파일/수량/날짜/농장/확정/SP 변경 없음. 헤더와 주문은 동일 transaction; 교차연도/삭제/재시도/실패 롤백 API fixture. 상세 기준 docs/plans/native-missing-master.md.
+
+## 2026-10-21 44-01 헤더 전용 보정 근거
+실제 설치본의 GetShipmentMaster는 OrderYear+OrderWeek+CustKey SELECT만 하며 삭제 필터/정렬이 없다. FormOrderAdd.btnSave_Click는 빈 헤더를 먼저 준비한다. 삭제 포함 헤더0인 승인된10업체에 ShipmentMaster만 추가하고 키번호를 동기화했다. 14보호영역의 전후·commit후 hash 동일, native lookup10/10, 추가분배0. 상세 생성값·주의점·증거는 [출고 연결 헤더 계약](../knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md). EXE GUI 직접 조작은 미검증.

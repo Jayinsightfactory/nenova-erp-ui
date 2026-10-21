@@ -22,3 +22,11 @@
 
 Search: 44-01 upload hang response timeout missing ShipmentMaster 10 withOrderImportDeadline
 - Additional SELECT-only reconciliation: latest complete 44-01 final-upload payloads for 15 customers, 299 items. Seven quantity differences and three additional active items all have subsequent OrderHistory edits/deletes/additions after upload. Do not overwrite those legitimate subsequent edits by replaying the files. This bounded comparison found no unexplained partial-write evidence.
+- Local gates final: test:erp-contract, test:nenova-dnspy-evidence, test:erp-manifest, guard:erp-writes, npm run build all exit0. CIRCLE_NODE_TOTAL=3; 137 manifests. Build-generated history files restored to pre-build version.
+- PR1185 (622b94a2) CI39552447489 verify success, squash22983567. Cafe24 run39552707668 in progress. No schema migration or business data repair requested/executed.
+- Later live raw-ledger read: active order details762 (initial ViewOrder snapshot760 was earlier), shipment details0/date0/farm0/confirmed sales0. A direct anti-join found zero active OrderDetail rows missing from ViewOrder; concurrent business edits mean snapshot counts must not be treated as one frozen state.
+- Final release: Cafe24 run39552707668 SUCCESS (22983567), all deployment gates, SSH deploy and hydration smoke success. Authenticated Chrome /orders/import loaded and restored existing draft. Observed production page bundle import-995c505f6d7923c8.js contains ORDER_IMPORT_RESPONSE_TIMEOUT, 120-second deadline and 30-second read deadline.
+- User clarified to continue if DB has no damage. Bounded reconciliation supports no unexplained partial-write evidence; it is not a blanket certification of all DB rows. Existing 10 missing native headers remain explicitly unresolved; no operational repair performed. Specific employee request/root network or server stall is unverified because customer/stage evidence was not supplied. Never describe the preventive timeout as proof of that original root cause.
+
+## 후속 완료 — 2026-10-21
+사용자의 명시적 추가 요청으로 기존 누락 10업체 헤더를 보정했다. 앞선 미해결 표기는 보정 이전 시점의 기록이다. 주문 재업로드 없이 빈 ShipmentMaster만 추가했고 14개 보호 영역을 보존했다. [완료 기록](../session-backups/2026-10-21_upload-header-repair.md), [dnSpy 계약](../knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md)을 참조한다.
