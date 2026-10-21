@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionScope, ObservedButton } from './ObservedPageControls';
+import { ActionScope, ObservedButton, CustomerLookupOverlay } from './ObservedPageControls';
+import { ProductLookupOverlay } from './ProductLookupOverlay';
+import { WarehouseLookupOverlay } from './WarehouseLookupOverlay';
 import pageActions from '../../lib/ecountPageActions.cjs';
+import InputDraftForm, { SOURCE_SAVE_MATCH_ID } from './InputDraftForm';
 import styles from '../../styles/ecount-workbench.module.css';
 
 // 2026-10-21 P008~P019 조사 기반 범용 셸. lib/ecountSurveyScreens.cjs 가 만든 정의(화면 종류·도구줄·검색 패널·입력칸)를 그대로 그린다.
@@ -35,6 +38,7 @@ function ReadOnlyField({field,index}){
 function placeholder(button,extra){
   return <ObservedButton key={button.id} data-ecount-action-id={button.id} reason={button.reason||extra}>{button.label}</ObservedButton>;
 }
+const LOOKUP_TITLES={customer:'거래처',product:'품목',warehouse:'창고'};
 export function SurveyScreen({screen,busy=false,defaultSearchOpen}){
   const toggle=!!screen.searchToggleId;
   const panel=screen.searchPanel;
@@ -43,6 +47,8 @@ export function SurveyScreen({screen,busy=false,defaultSearchOpen}){
   const [draft,setDraft]=useState(EMPTY_DRAFT);
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
+  const [lookup,setLookup]=useState(null);
+  const [picked,setPicked]=useState({});
   const toggleRef=useRef(null),firstInputRef=useRef(null);
   const visible=hasPanel&&(!toggle||searchOpen);
   function openSearch(next){
@@ -78,7 +84,9 @@ export function SurveyScreen({screen,busy=false,defaultSearchOpen}){
           ?<><input ref={firstInputRef} type="date" aria-label="조회 시작일" value={draft.from} disabled={busy} onChange={event=>setDraft(value=>({...value,from:event.target.value}))}/><span>~</span><input type="date" aria-label="조회 종료일" min={draft.from||undefined} value={draft.to} disabled={busy} onChange={event=>setDraft(value=>({...value,to:event.target.value}))}/></>
           :<input ref={firstInputRef} type="date" aria-label="기준일자" value={draft.to} disabled={busy} onChange={event=>setDraft({from:event.target.value,to:event.target.value})}/>}
       </div>}
-      {panel.formButtons.length>0&&<div className={styles.searchLine}>{panel.formButtons.map(button=>placeholder(button))}</div>}
+      {panel.formButtons.length>0&&<div className={styles.searchLine}>{panel.formButtons.map(button=>button.lookup
+        ?<button key={button.id} type="button" data-ecount-action-id={button.id} disabled={busy} aria-haspopup="dialog" onClick={()=>setLookup(button.lookup)}>{button.label}</button>
+        :placeholder(button))}{Object.keys(picked).map(kind=><span key={kind} data-ecount-lookup-draft={kind}>{LOOKUP_TITLES[kind]}: {picked[kind].join(', ')}</span>)}</div>}
       {panel.presets.length>0&&<div className={styles.datePresets}>{panel.presets.map(preset=>preset.enabled
         ?<button key={preset.id} type="button" data-ecount-action-id={preset.id} disabled={busy} title={PRESET_MESSAGE} onClick={()=>applyPreset(preset.label)}>{preset.label}</button>
         :<ObservedButton key={preset.id} data-ecount-action-id={preset.id} reason={UNVERIFIED_PRESET_REASON}>{preset.label}</ObservedButton>)}</div>}
@@ -90,8 +98,12 @@ export function SurveyScreen({screen,busy=false,defaultSearchOpen}){
     {error&&<p role="alert" className={styles.error}>{error}</p>}
     {message&&<p role="status" className={styles.message}>{message}</p>}
     {screen.kind==='input'&&screen.fields.length>0&&<fieldset className={styles.filters} disabled aria-label="입력 항목(읽기 전용)"><legend>입력 항목(읽기 전용, 원본 저장 계약 확정 전)</legend>{screen.fields.map((field,index)=><ReadOnlyField key={index} field={field} index={index}/>)}</fieldset>}
-    <p className={styles.empty}>{screen.kind==='input'?'입력 화면 자리표시입니다. 원본 저장 계약이 확정될 때까지 저장 계열 버튼은 비활성입니다.':screen.kind==='hub'?'연결 화면 자리표시입니다. 원본 동작은 아직 확인되지 않았습니다.':UNCOLLECTED_MESSAGE}</p>
+    {screen.kind==='input'&&SOURCE_SAVE_MATCH_ID[screen.program]&&<InputDraftForm program={screen.program} sourceSaveButton={false}/>}
+    <p className={styles.empty}>{screen.kind==='input'?(SOURCE_SAVE_MATCH_ID[screen.program]?'원본(ECOUNT) 저장은 미승인입니다. 위 폼은 웹 전용 초안(ecount_work.InputDraft) 저장이며 ERP 원장·ECOUNT 원본에는 쓰지 않습니다.':'입력 화면 자리표시입니다. 원본 저장 계약이 확정될 때까지 저장 계열 버튼은 비활성입니다.'):screen.kind==='hub'?'연결 화면 자리표시입니다. 원본 동작은 아직 확인되지 않았습니다.':UNCOLLECTED_MESSAGE}</p>
     {(screen.footer.length>0||screen.other.length>0)&&<div className={styles.sourceToolbar} aria-label="결과 도구">{screen.footer.map(button=>placeholder(button))}{screen.other.map(button=>placeholder(button))}</div>}
+    {lookup==='customer'&&<CustomerLookupOverlay onClose={()=>setLookup(null)}/>}
+    {lookup==='product'&&<ProductLookupOverlay rows={[]} selected={picked.product||[]} onClose={()=>setLookup(null)} onApply={codes=>{setPicked(value=>({...value,product:codes}));setLookup(null);}}/>}
+    {lookup==='warehouse'&&<WarehouseLookupOverlay rows={[]} selected={picked.warehouse||[]} onClose={()=>setLookup(null)} onApply={codes=>{setPicked(value=>({...value,warehouse:codes}));setLookup(null);}}/>}
   </div></ActionScope>;
 }
 export default SurveyScreen;

@@ -78,7 +78,21 @@ AR/AP는 업체명·업체코드·미회수월을 제외한다. 재고는 허용
 - 근거: `data/ecount-workbench/evidence/2026-10-21-source-survey-p008-p019.json` (읽기 전용 설문, 각 화면 `note: "input screen; nothing saved"`). 입력 칸은 설문 `fields`(라벨/유형/필수 플래그)와 본문(body) 토글 컨트롤에서 그대로 생성한다. 설문의 필수 플래그는 전부 0(=미관측)이므로 모든 칸의 원본 필수여부는 **미관측(required:null)** 으로 보존하고, 웹 초안의 최소 요건(일자·품목 행 1개 이상·품목 참조코드·수량)만 `draftRequired`로 구분한다.
 - 라인(품목 행) 그리드 열은 설문에서 관측되지 않았다. 웹 초안 잠정 열만 허용하고 원본 열과의 동등성은 미검증으로 둔다.
 - 개인정보: 거래처·담당자·부서·창고는 이름을 저장하지 않고 불투명 참조코드(`/^[A-Za-z0-9._/-]{1,60}$/`)만 받는다. 참조·비고·적요·결제조건·검색창내용은 길이 제한(100~200자) 후 이메일·전화·사업자번호·주민번호형·7자리 이상 숫자열을 토큰으로 마스킹한다. 작업자는 sha256 해시만 남긴다.
-- 라이브러리: `lib/ecountInputDrafts.cjs` (순수 함수, DB·ERP·ECOUNT 호출 없음). 마이그레이션: `docs/migrations/2026-10-21_ecount_work_input_drafts.sql` (idempotent, 사장님 SSMS 명시 실행, 런타임 DDL 없음). 계약: `docs/contracts/ecount-input-drafts.json`. 테스트: `__tests__/ecountInputDrafts.test.cjs`. API 라우트는 아직 없다(별도 계약 갱신 후).
+- 라이브러리: `lib/ecountInputDrafts.cjs` (순수 함수, DB·ERP·ECOUNT 호출 없음). 마이그레이션: `docs/migrations/2026-10-21_ecount_work_input_drafts.sql` (idempotent, 사장님 SSMS 명시 실행, 런타임 DDL 없음). 계약: `docs/contracts/ecount-input-drafts.json`. 테스트: `__tests__/ecountInputDrafts.test.cjs`. API: `pages/api/ecount/input-drafts.js`, 입력 폼: `components/ecount/InputDraftForm.js`(아래 API 표).
+
+### InputDraft API (`/api/ecount/input-drafts`, withAuth, 쓰기 대상은 InputDraftHead/Line/Audit 만)
+
+| 메서드 | 입력 | 동작 | 오류 |
+|---|---|---|---|
+| GET | `?view=schema&program=` | 입력 칸 스키마 (DB 접근 없음) | 400 UNKNOWN_PROGRAM |
+| GET | `?program=&draftId=` | readDraft 단건 | 404 DRAFT_NOT_FOUND |
+| GET | `?program=` | 최근 50건 목록(본인·전체, `mine` 표시) | 400 |
+| POST | `{program,header,lines}` | validateDraft, INSERT Head/Line/Audit (201) | 400 VALIDATION_FAILED(한글 details) |
+| PATCH | `{draftId,expectedRevision,header,lines,reason}` | applyCorrection, Head UPDATE(revision 조건)+Line/Audit INSERT | 409 REVISION_CONFLICT |
+| POST | `{action:'review',draftId,expectedRevision}` | 검토 처리 | 409 |
+| POST | `{action:'cancel',draftId,expectedRevision,reason}` | 소프트 취소(사유 필수) | 400 CANCEL_REASON_REQUIRED |
+
+테이블 미설치 시 모든 요청(스키마 제외) 503 `{code:'MIGRATION_PENDING',migration:'docs/migrations/2026-10-21_ecount_work_input_drafts.sql'}`. 런타임 DDL 없음. 작업자는 `actorHash` 해시만 저장. ECOUNT 원본 저장 버튼은 비활성(`원본 저장 미승인`).
 
 ### 입력 칸 (7화면, 헤더 55칸 = 설문 fields 46 + 본문 토글 9)
 

@@ -13,6 +13,7 @@ import { resolveLegacyChinaInvoice } from '../../lib/importChinaLegacyReview.js'
 import {packingErpCatalog,packingErpAliases} from '../../lib/importPackingErpMatches.js';
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
+import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
@@ -1378,18 +1379,18 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     if (legacyDetected) {
       setExcels([]); setGenerated({}); setPending([]); setAllNoMatches([]); setMismatches([]);
       setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
-      return false;
+      throw new Error(LEGACY_CN_REVIEW_MESSAGE);
     }
     if (country === 'CN' && legacyPackingReviewRequired && params.legacyPackingReviewConfirmed !== true) {
       setExcels([]); setGenerated({});
       setStatus({ type: 'error', msg: '구형 중국 인보이스는 별도 GW·CW·운송비 검토를 확인한 뒤에만 생성할 수 있습니다.' });
-      return false;
+      throw new Error('구형 중국 인보이스는 별도 GW·CW·운송비 검토를 확인한 뒤에만 생성할 수 있습니다.');
     }
     const unresolved = unresolvedExtractionIssues(sourceInvoices, params.extractionResult || lastExtraction?.result);
     if (unresolved.length) {
       setExcels([]); setGenerated({}); setPending([]); setAllNoMatches([]); setMismatches([]);
       setStatus({ type: 'error', msg: `추출 검토 항목 ${unresolved.length}건이 남아 있어 생성하지 않았습니다. 원문 확인 후 다시 검토하세요.` });
-      return false;
+      throw new Error(`추출 검토 항목 ${unresolved.length}건이 남아 있습니다. ${packingValidationIssues(sourceInvoices, country).slice(0, 5).map(issue => issue.text).join('\n')}`);
     }
     const currentErp=params.erpMatches??erpMatches;
     if(!currentErp)throw new Error('전산 품목을 먼저 불러오세요.');
@@ -1745,7 +1746,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       : processingRef.current ? '파일 분석이 끝난 뒤 진행해 주세요.'
       : latestShared ? '다른 작업자가 매칭을 변경했습니다. 최신 매칭을 불러온 뒤 다시 진행해 주세요.'
       : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
-    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); return; }
+    if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); notifyPackingBlocked(blockedReason); return; }
     receiptIntent.current = true;
     processingRef.current = true; setProcessing(true);
     const version = readerVersion.current;
@@ -1775,7 +1776,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'success', msg: '품목 매칭 완료. 입고 준비 화면에서 차수·농장·수량을 확인한 뒤 저장하세요. 아직 입고·재고는 변경하지 않았습니다.' });
       focusReceipt();
     } catch (error) {
-      setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다.` });
+      const message = `입고 업로드 준비 실패: ${error.message}\n「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다. 입고·재고는 변경하지 않았습니다.`;
+      setStatus({ type: 'error', msg: message }); notifyPackingBlocked(message);
       if (validationIssues.length) openValidationIssue(validationIssues[0]);
     } finally {
       processingRef.current = false; setProcessing(false);
