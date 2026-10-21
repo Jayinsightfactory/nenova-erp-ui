@@ -707,3 +707,6 @@
 - UI 파일분석/저장120초, 업체보조조회/저장후조회30초 응답대기 상한. timeout은 서버취소 아님, 초안보존/자동재전송없음/늦은응답 성공표시없음. SQL/API 쓰기정책 변경없음.
 - 회귀: 정상/409/끝나지 않는 요청/JSON본문대기/늦은저장응답/재시도0 실행검사 PASS. 전체필수검사·배포 진행 중. 상세 docs/work-sessions/2026-10-21_upload-response-wait.md.
 - 검색어: 44-01 직원업로드 처리중 응답대기 timeout ShipmentMaster10 169 withOrderImportDeadline
+- 추가검증: 최신 전체 요청이 남은 업로드15업체299품목 비교 차이7·추가3은 모두 이후 OrderHistory 수정/삭제/신규로 설명. 재업로드 원복금지. 로컬5종 exit0, PR1185 CI39552447489 success 후 squash22983567, Cafe2439552707668 진행.
+
+- 완료: PR1185 squash22983567, Cafe2439552707668 SUCCESS, SSH·hydration 실브라우저 PASS. Chrome 운영 주문업로드 로딩·기존초안복원 확인, 실제 운영 bundle에서120초/30초 및 timeout분기 확인. 원장수정0. 기존10업체 헤더누락/직원개별요청 최초원인은 미해결·미검증으로 명시. 사용자 DB손상 없으면 계속 진행 지시 반영.
