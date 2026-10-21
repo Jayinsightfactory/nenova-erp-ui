@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const XLSX = require('xlsx-js-style');
 module.exports = (async () => {
-  const { outputScope, outputWeeks, collectOutput, combineOutputBooks, outputPrintHtml } = await import('../lib/profitRangeOutput.mjs');
+  const { outputScope, outputWeeks, collectOutput, combineOutputBooks, outputPrintHtml, outputFileName } = await import('../lib/profitRangeOutput.mjs');
   const { buildProfitReportXlsx } = await import('../lib/profitReportExcel.js');
   const { normalizeColumnSelection, readColumnSelection, writeColumnSelection, OUTPUT_COLUMNS_KEY } = await import('../lib/profitColumnPreferences.mjs');
   const allowed = ['category', 'C', 'E', 'J', 'K'];
@@ -31,6 +31,13 @@ module.exports = (async () => {
   assert.deepEqual(outputScope('2026', '1'), { year: '2026', major: '01' });
   for (const [y, m] of [[null, 1], ['2026', 0], ['2026', 54], ['2026', '1-01'], ['2026x', 1]]) assert.throws(() => outputScope(y, m));
   assert.equal(outputWeeks('2026', 41).length, 41);
+  assert.equal(outputFileName('2026', 41, ['18']), '매출이익_2026_18차.xlsx');
+  assert.equal(outputFileName('2026', 41, ['31','27','29']), '매출이익_2026_27,29,31차.xlsx');
+  assert.equal(outputFileName('2025', 41, outputWeeks('2025', 41)), '매출이익_2025_01-41차.xlsx');
+  assert.throws(() => outputFileName('2026', 41, []));
+  const controls = fs.readFileSync('components/ProfitRangeOutput.js','utf8');
+  assert.match(controls, /collectOutput\(\{ year, major, selected, signal/);
+  assert.doesNotMatch(controls, /selected: kind/);
   const singleCalls = [];
   await collectOutput({year:'2026',major:'41',selected:['41'],fetchWeek:async(y,w)=>{
     singleCalls.push([y,w]); return {year:y,major:w,workbook:{Sheets:{'주차별 매출이익 보고서':{}}}};
