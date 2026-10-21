@@ -94,6 +94,7 @@ test('connector ignores unavailable tab URLs and selects only the exact logged-i
 test('multipart API parses workbook, reloads DB, compares and rejects wrong source scope',async()=>{
  const http=require('node:http'),XLSX=require('xlsx'),babel=require('next/dist/compiled/babel/core');
  const parser=await import('../lib/shillaPnlParse.js'),policy=await import('../lib/shillaPnlImportPolicy.js'),helpers=await modulePromise,matching=await import('../lib/shillaAnalysisMatching.js'),periodAnalysis=await import('../lib/shillaPeriodAnalysis.js');
+ const check=await import('../lib/shillaCheck.js');
  const source=fs.readFileSync('pages/api/raum/shilla-analysis.js','utf8');
  const transformed=babel.transformSync(source,{plugins:[require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],configFile:false,babelrc:false}).code;
  let reads=0;
@@ -105,6 +106,7 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
    if(name.endsWith('/shillaReconciliation'))return helpers;
    if(name.endsWith('/shillaAnalysisMatching'))return matching;
    if(name.endsWith('/shillaPeriodAnalysis'))return periodAnalysis;
+   if(name.endsWith('/shillaCheck'))return check;
    if(name.endsWith('/shillaReconciliationServer'))return{loadShillaSalesRequests:async()=>[],loadShillaDistributionRows:async()=>[],loadShillaAnalysisRows:async year=>{reads++;assert.equal(year,'2026');return[{...item,period:'01',costPrice:50}];}};
    return require(name);
  },m,m.exports);
@@ -116,10 +118,12 @@ test('multipart API parses workbook, reloads DB, compares and rejects wrong sour
    ['수국','',2,50,100,100,200,100,.5,60,40],['합계','',2,'',100,'',200,100,'',60,40]
   ]),'1차');
   const bytes=XLSX.write(wb,{type:'buffer',bookType:'xlsx'});
-  const call=async(mode,payload)=>{const body=new FormData();body.append('file',new Blob([bytes]),'fixture.xlsx');body.append('year','2026');body.append('mode',mode);if(payload)body.append('payload',JSON.stringify(payload));const res=await fetch(`http://127.0.0.1:${server.address().port}/`,{method:'POST',body});return{status:res.status,data:await res.json()};};
+  const call=async(mode,payload,sourceMode)=>{const body=new FormData();if(sourceMode===undefined)body.append('file',new Blob([bytes]),'fixture.xlsx');else body.append('sourceMode',sourceMode);body.append('year','2026');body.append('mode',mode);if(payload)body.append('payload',JSON.stringify(payload));const res=await fetch(`http://127.0.0.1:${server.address().port}/`,{method:'POST',body});return{status:res.status,data:await res.json()};};
   const prepared=await call('prepare');assert.equal(prepared.status,200);assert.equal(prepared.data.periods[0].period,'01');assert.equal(prepared.data.dbCount,1);
   const payload={from:scope.from,to:scope.to,periods:['01'],receipts:[receipt],mappings:{},excelGross:false,source:{from:scope.from,to:scope.to,complete:true,origin:'https://www.shillasrm.com',readAt:new Date().toISOString()}};
   const compared=await call('compare',payload);assert.equal(compared.status,200);assert.equal(compared.data.counts.excel,1);assert.equal(compared.data.totals.db,200);assert.equal(reads,2);
+  const stored=await call('compare',payload,'stored');assert.equal(stored.status,200);assert.equal(stored.data.sourceMode,'stored');assert.equal(stored.data.complete,false);assert.match(stored.data.sourceWarnings[0],/미첨부/);
+  const missing=await call('prepare',null,'excel');assert.equal(missing.status,400);
   payload.source.from='2026-05-01';const rejected=await call('compare',payload);assert.equal(rejected.status,400);assert.match(rejected.data.error,/입고 조회자료/);
  } finally {await new Promise(resolve=>server.close(resolve));}
 });

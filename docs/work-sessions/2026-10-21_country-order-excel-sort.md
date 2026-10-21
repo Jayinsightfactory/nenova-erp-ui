@@ -19,3 +19,5 @@ A. 실제 DevExpress.PivotGrid.v25.1.Core.dll의 PivotGridFieldBase.SortOrder �
 - 실제 운영 조회→변경된 생성기→XLSX 직렬화→재개봉: 네덜란드 2026/42-02 74품목·16,049송이, 에콰도르 2026/42-01 8품목·1,150송이 보존. 원본 행렬 불변·미리보기와 파일 첫 품목 일치. 원본 개인정보/엑셀 파일은 저장하지 않음.
 - dnSpy 추가 증거: PivotGridFieldBase.SortOrder의 DefaultValue(PivotSortOrder.Ascending). 전산 개인별 저장 정렬은 확인되지 않았으며 기본 정렬 기준임.
 - 세션 Q&A 백업은 저장소 `.cursor/skills/session-qa-backup/SKILL.md` 적용.
+
+- 전체 ERP 검사와 프로덕션 빌드 통과. PR #1209 최초 CI 통과, 공용 기록 충돌 정리 후 최신 master 통합 CI 진행. 브라우저 로그인 연결 복구, 운영 Ecuador 조회8품목 확인(배포 전).
