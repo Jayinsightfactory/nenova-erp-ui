@@ -478,8 +478,8 @@ function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
       result[address] = cell;
       if (!paired(col)) continue;
       const boxAddress = encodeCell(r, target + 2);
-      result[boxAddress] = { t: 's', v: r === 3 && col.type !== 'customer' ? '박스(자동)' : '', s: { ...cell.s } };
-      if (r === 3 && col.type === 'customer') {
+      result[boxAddress] = { t: 's', v: '', s: { ...cell.s } };
+      if (r === 3) {
         result['!merges'].push({ s: { r: r - 1, c: target }, e: { r: r - 1, c: target + 1 } });
         cell.s.alignment = { ...cell.s.alignment, horizontal: 'center' };
       }
