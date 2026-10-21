@@ -1,5 +1,5 @@
 import { ObservedDateWidget } from './ObservedDateWidget';
-import { ActionScope, ObservedButton, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 export const STOCK_COLUMNS=[['productCode','품목코드'],[null,'품목명[규격]'],['quantity','재고수량']];
 export const STOCK_WIDTHS=[200,450,100];
@@ -9,4 +9,4 @@ export function StockToolbar({busy,searchOpen,onSearch,searchRef}){
 export function StockSearchPanel({busy,asOf,onDate,onSubmit,onToday,inputRef}){
  return <ActionScope dataset="stock" context="검색 패널"><form id="ecount-source-search" className={styles.sourceSearch} onSubmit={event=>{event.preventDefault();onSubmit();}}><div className={styles.searchLine}><span>기준일자</span><ObservedDateWidget dataset="stock" value={asOf} onChange={onDate} interactive busy={busy} inputRef={inputRef}/></div>{['창고','품목'].map(label=><div key={label} className={styles.searchLine}><span>{label}</span><input placeholder={label} aria-label={label} disabled title="선택 조건을 아직 확인하지 않았습니다."/></div>)}<div className={styles.searchLine}><span>재고수량</span><input aria-label="재고수량 최소" disabled/><span>~</span><input aria-label="재고수량 최대" disabled/></div><div className={styles.searchLine}>{['수량관리제외품목포함','사용중단품목포함','안전재고설정미만표시','결재방표시'].map((label,index)=><label key={label}><input type="checkbox" checked={index===1} disabled readOnly/>{label}</label>)}</div><div className={styles.sourceToolbar}><ObservedButton>기본(수정불가)</ObservedButton><button type="submit" className={styles.primary} disabled={busy||!asOf} data-ecount-action-id={actionId('stock','검색(F8)','검색 패널')}>검색(F8)</button><button type="button" disabled={busy} onClick={onToday} data-ecount-action-id={actionId('stock','금일','검색 패널')}>금일</button>{['전일','설정','다시 작성'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div></form></ActionScope>;
 }
-export function StockFooter(){return <ActionScope dataset="stock" context="하단"><div className={styles.sourceToolbar}>{['인쇄','Excel','자동알림'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div></ActionScope>;}
+export function StockFooter(){return <ActionScope dataset="stock" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><ExcelButton>Excel</ExcelButton><ObservedButton>자동알림</ObservedButton></div></ActionScope>;}

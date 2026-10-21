@@ -1,4 +1,4 @@
-import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, ObservedDropdown, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 export const DISCOUNT_COLUMNS=[[null,'월/일'],[null,'거래처명'],['salesAmount','판매금액'],['accountingAmount','회계반영금액'],['difference','차액'],[null,'적요']];
 export const BUY_DISCOUNT_COLUMNS=[[null,'월/일'],[null,'거래처명'],['purchaseAmount','구매금액'],['accountingAmount','회계반영금액'],['difference','차액'],[null,'적요']];
@@ -11,5 +11,5 @@ export function DiscountSearchPanel({dataset='discount',inputRef}) {
   return <ActionScope dataset={dataset} context="검색 패널"><section id="ecount-source-search" className={styles.sourceSearch} aria-label={dataset==='buyDisc'?'구매할인현황 검색':'판매할인현황 검색'} tabIndex={-1} ref={inputRef}><div className={styles.searchLine}><span>기준일자</span><input type="date" aria-label="조회 시작일" disabled title={pendingDate}/><span>~</span><input type="date" aria-label="조회 종료일" disabled title={pendingDate}/></div>{['거래유형','창고','거래처','거래처관리담당자','할인금액'].map(label=><div className={styles.searchLine} key={label}><span>{label}</span><input aria-label={label} disabled title="수집된 자료로는 이 검색 조건을 적용할 수 없습니다."/></div>)}<div className={styles.sourceToolbar}>{SEARCH_BUTTONS[dataset].map(label=><ObservedButton key={label} reason={pendingDate}>{label}</ObservedButton>)}</div></section></ActionScope>;
 }
 export function DiscountFooter({dataset='discount',busy}) {
-  return <ActionScope dataset={dataset} context="하단"><div className={styles.sourceToolbar} aria-label={dataset==='buyDisc'?'구매할인현황 결과 도구':'판매할인현황 결과 도구'}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']} busy={busy} actionContext="하단" itemsContext="인쇄 메뉴"/><ObservedButton>Excel</ObservedButton></div></ActionScope>;
+  return <ActionScope dataset={dataset} context="하단"><div className={styles.sourceToolbar} aria-label={dataset==='buyDisc'?'구매할인현황 결과 도구':'판매할인현황 결과 도구'}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']} busy={busy} actionContext="하단" itemsContext="인쇄 메뉴"/><ExcelButton>Excel</ExcelButton></div></ActionScope>;
 }

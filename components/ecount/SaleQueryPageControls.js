@@ -1,4 +1,4 @@
-import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, ObservedDropdown, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 export const SALE_QUERY_COLUMN_WIDTHS=[25,100,109,256,72,50,72,55,36,36];
 export const SALE_QUERY_COLUMNS=[[null,''],['refDate','일자-No.'],[null,'거래처명'],[null,'품목명(요약)'],['amount','금액합계'],[null,'거래유형명'],[null,'창고명'],[null,'회계반영여부'],[null,'인쇄'],[null,'불러온전표']];
@@ -12,15 +12,15 @@ const COMBINED_WIDTHS={'진행상태변경':121.15625,'보내기':82.15625,'이�
 function CombinedFooterButton({label}) {
   return <span title="원본 동작 확인 및 구현 전입니다."><button type="button" disabled className={styles.saleQueryCombinedButton} style={{width:COMBINED_WIDTHS[label]}} data-ecount-action-id={actionId('saleQuery',label,'하단')}>{label}<span aria-hidden="true" data-ecount-action-id={actionId('saleQuery',label+' 드롭다운','하단')}>▴</span></button></span>;
 }
-function SplitFooterButton({label}) {
-  return <span className={`${styles.joinedButtons} ${styles.saleQuerySplitButton}`}><ObservedButton>{label}</ObservedButton><ObservedButton actionLabel={label+' 드롭다운'}>▴</ObservedButton></span>;
+function SplitFooterButton({label,excel=false}) {
+  return <span className={`${styles.joinedButtons} ${styles.saleQuerySplitButton}`}>{excel?<ExcelButton>{label}</ExcelButton>:<ObservedButton>{label}</ObservedButton>}<ObservedButton actionLabel={label+' 드롭다운'}>▴</ObservedButton></span>;
 }
 export function SaleQueryFooter({busy}) {
   return <ActionScope dataset="saleQuery" context="하단"><div className={`${styles.sourceToolbar} ${styles.saleQueryMeasuredFooter}`} aria-label="판매 조회 결과 도구">
     <ObservedButton>신규(F2)</ObservedButton><SplitFooterButton label="Email"/>
     <CombinedFooterButton label="진행상태변경"/><CombinedFooterButton label="보내기"/>
     <span className={`${styles.joinedButtons} ${styles.saleQuerySplitButton}`}><ObservedButton>인쇄</ObservedButton><ObservedDropdown busy={busy} label="인쇄 드롭다운" triggerLabel="▴" items={['프린트문제해결']} actionContext="하단" itemsContext="인쇄 메뉴"/></span>
-    <SplitFooterButton label="바코드(품목)"/>{['전자결재','선택삭제'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}<SplitFooterButton label="Excel(표시형식)"/><CombinedFooterButton label="이력조회"/>
+    <SplitFooterButton label="바코드(품목)"/>{['전자결재','선택삭제'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}<SplitFooterButton label="Excel(표시형식)" excel/><CombinedFooterButton label="이력조회"/>
   </div></ActionScope>;
 }
 

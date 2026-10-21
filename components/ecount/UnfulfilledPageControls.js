@@ -1,4 +1,4 @@
-import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, ObservedDropdown, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 
 export const UNSOLD_COLUMNS=[[null,'일자-No.'],[null,'품목명(규격)'],['qty','수량'],['unfulfilledQty','미판매수량'],['supplyAmt','미판매공급가액'],[null,'거래처명'],[null,'적요'],[null,'품목별납기일자'],['vat','미판매부가세']];
@@ -16,5 +16,5 @@ export function UnfulfilledSearchPanel({dataset,inputRef}) {
   return <ActionScope dataset={dataset} context="검색 패널"><section id="ecount-source-search" className={styles.sourceSearch} aria-label={`${title} 검색`} tabIndex={-1} ref={inputRef}><div className={styles.searchLine}><span>기준일자(영업주기)</span><input type="date" aria-label="조회 시작일" disabled title={pending}/><span>~</span><input type="date" aria-label="조회 종료일" disabled title={pending}/></div>{fields.map(label=><div className={styles.searchLine} key={label}><span>{label}</span><input aria-label={label} disabled title={pending}/></div>)}<div className={styles.searchLine}><span>구분</span><select aria-label="구분" disabled defaultValue="라인별"><option>품목별</option><option>라인별</option></select><label><input type="checkbox" disabled/>그래프</label><select aria-label="양식" disabled defaultValue={dataset==='unsold'?'현황':'현황(인쇄용)'}><option>{dataset==='unsold'?'현황':'현황(인쇄용)'}</option></select></div><div className={styles.sourceToolbar}>{presets.map(label=><ObservedButton key={label} reason={pending}>{label}</ObservedButton>)}</div></section></ActionScope>;
 }
 export function UnfulfilledFooter({dataset,busy}) {
-  return <ActionScope dataset={dataset} context="하단"><div className={styles.sourceToolbar} aria-label={`${pageTitle(dataset)} 결과 도구`}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']} busy={busy} actionContext="하단" itemsContext="인쇄 메뉴"/><ObservedButton>Excel(화면)</ObservedButton></div></ActionScope>;
+  return <ActionScope dataset={dataset} context="하단"><div className={styles.sourceToolbar} aria-label={`${pageTitle(dataset)} 결과 도구`}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄 드롭다운" items={['PDF','미리보기','프린트문제해결']} busy={busy} actionContext="하단" itemsContext="인쇄 메뉴"/><ExcelButton>Excel(화면)</ExcelButton></div></ActionScope>;
 }

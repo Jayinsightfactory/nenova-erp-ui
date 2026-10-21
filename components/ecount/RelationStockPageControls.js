@@ -1,6 +1,6 @@
 import { formatSaleAmount } from './SaleQueryPageControls';
 import { ObservedDateWidget } from './ObservedDateWidget';
-import { ActionScope, ObservedButton, ObservedDropdown, actionId } from './ObservedPageControls';
+import { ActionScope, ObservedButton, ObservedDropdown, actionId, ExcelButton } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 export function RelationStockToolbar({busy,searchOpen,onSearch,searchRef}){
  return <ActionScope dataset="relStock" context="상단"><div className={styles.sourceToolbar}><button ref={searchRef} className={styles.primary} disabled={busy} aria-expanded={searchOpen} aria-controls="ecount-source-search" data-ecount-action-id={actionId('relStock','Search(F3)','상단')} onClick={onSearch}>Search(F3)</button><ObservedButton>Option</ObservedButton><ObservedButton>도움말</ObservedButton></div></ActionScope>;
@@ -8,7 +8,7 @@ export function RelationStockToolbar({busy,searchOpen,onSearch,searchRef}){
 export function RelationStockSearchPanel({busy,asOf,onDate,onSubmit,onToday,inputRef,productCode='',onProduct}){
  return <ActionScope dataset="relStock" context="검색 패널"><form id="ecount-source-search" className={styles.sourceSearch} onSubmit={event=>{event.preventDefault();onSubmit();}}><div className={styles.searchLine}><span>기준일자</span><ObservedDateWidget dataset="relStock" value={asOf} onChange={onDate} busy={busy} inputRef={inputRef}/></div><div className={styles.searchLine}><span>창고</span><input aria-label="창고" placeholder="창고" disabled/></div><div className={styles.searchLine}><span>품목</span><input aria-label="품목" placeholder="품목" maxLength={60} value={productCode} onChange={event=>onProduct(event.target.value)} disabled={busy}/></div><div className={styles.searchLine}><label><input type="checkbox" disabled/>결재방표시</label></div><div className={styles.sourceToolbar}><ObservedButton>기본(수정불가)</ObservedButton><button type="submit" className={styles.primary} disabled={busy} data-ecount-action-id={actionId('relStock','검색(F8)','검색 패널')}>검색(F8)</button><button type="button" disabled={busy} onClick={onToday} data-ecount-action-id={actionId('relStock','금일','검색 패널')}>금일</button>{['전일','설정','다시 작성'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div></form></ActionScope>;
 }
-export function RelationStockFooter({busy}){return <ActionScope dataset="relStock" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄" items={['PDF','미리보기','프린트문제해결']} actionContext="하단" itemsContext="인쇄 메뉴" busy={busy}/><ObservedButton>Excel</ObservedButton></div></ActionScope>;}
+export function RelationStockFooter({busy}){return <ActionScope dataset="relStock" context="하단"><div className={styles.sourceToolbar}><ObservedButton>인쇄</ObservedButton><ObservedDropdown label="인쇄" items={['PDF','미리보기','프린트문제해결']} actionContext="하단" itemsContext="인쇄 메뉴" busy={busy}/><ExcelButton>Excel</ExcelButton></div></ActionScope>;}
 export function RelationStockTable({rows,dataState='uncollected'}){
  const labels=['품목코드','품목명[규격]','재고수량','환산수량'];
  const empty=dataState==='loading'?'작업 자료를 불러오는 중입니다.':dataState==='unavailable'?'작업 자료를 불러오지 못했습니다.':'조회 범위에 해당하는 자료가 아직 수집되지 않았습니다.';
