@@ -69,3 +69,145 @@ poEmpty는 E040306의 2026-10-20 현황/라인별/내외자 전체/빈 선택조
 ### 일보 전체 종류의 단일 증거 버전
 `dayAll`은 E040708의 34개 정확 종류, 2026-10-20 양일, 거래처관계기준, 빈 선택조건과 전체 내외자/결재방 해제 조건으로 한정된다. `observed_report` coverage에 원본 기록시각과 34개 구역을 보존하고,2217행은 단일 JSON envelope와 단일 활성 포인터로 원자 저장한다. 30개 구역은 실제 명시적 빈 결과이며 AR72/AP183/재고1950/누계12행은 서로 다른 보고서의 데이터다. 2217을 거래건수나 전체 업무 완전성으로 해석하지 않는다.
 AR/AP는 업체명·업체코드·미회수월을 제외한다. 재고는 허용 품목코드와4수량만, 숨은 중복코드는 제외한다. 누계는 관측4분류×3기간만 허용한다. 숫자는 정확 문자열, 원본 공란은null, 실제합계는 별도total행으로 유지하고 계산으로 대체하지 않는다. sourceTable/sourceRow와20개 재고표의 순서·행수·총계를 검증하여 누락/혼합/중복을 거부한다. 기존daySale 판매단독 증거 및 과거 버전 해시는 보존한다. 신규DDL·원본·공유원장 쓰기는 없다.
+
+
+## 입력 초안(InputDraft) 계약 (2026-10-21)
+
+사장님 기준(2026-10-21): 입력 화면마다 (1) 입력 칸 목록·필수/선택·형식·기본값·검증 메시지, (2) 저장 시 생기는 테이블/행(키·상태·회계반영 여부), (3) 수정·삭제·취소 경로를 확보한다. **ECOUNT 원본 저장(저장(F8)/저장/전표(F7))은 미승인·미실행**이며, 네노바웹은 별도 SQL 스키마 `ecount_work`의 웹 전용 초안 테이블로 샘플 입력→저장→조회→정정→취소 왕복만 검증한다. ERP 공유 원장(OrderMaster/OrderDetail/ShipmentMaster/ShipmentDetail/Stock/Warehouse 등)과 ECOUNT 원본, 기존 `ecount_work.Version/Head/Audit`는 읽기·쓰기 대상이 아니다.
+
+- 근거: `data/ecount-workbench/evidence/2026-10-21-source-survey-p008-p019.json` (읽기 전용 설문, 각 화면 `note: "input screen; nothing saved"`). 입력 칸은 설문 `fields`(라벨/유형/필수 플래그)와 본문(body) 토글 컨트롤에서 그대로 생성한다. 설문의 필수 플래그는 전부 0(=미관측)이므로 모든 칸의 원본 필수여부는 **미관측(required:null)** 으로 보존하고, 웹 초안의 최소 요건(일자·품목 행 1개 이상·품목 참조코드·수량)만 `draftRequired`로 구분한다.
+- 라인(품목 행) 그리드 열은 설문에서 관측되지 않았다. 웹 초안 잠정 열만 허용하고 원본 열과의 동등성은 미검증으로 둔다.
+- 개인정보: 거래처·담당자·부서·창고는 이름을 저장하지 않고 불투명 참조코드(`/^[A-Za-z0-9._/-]{1,60}$/`)만 받는다. 참조·비고·적요·결제조건·검색창내용은 길이 제한(100~200자) 후 이메일·전화·사업자번호·주민번호형·7자리 이상 숫자열을 토큰으로 마스킹한다. 작업자는 sha256 해시만 남긴다.
+- 라이브러리: `lib/ecountInputDrafts.cjs` (순수 함수, DB·ERP·ECOUNT 호출 없음). 마이그레이션: `docs/migrations/2026-10-21_ecount_work_input_drafts.sql` (idempotent, 사장님 SSMS 명시 실행, 런타임 DDL 없음). 계약: `docs/contracts/ecount-input-drafts.json`. 테스트: `__tests__/ecountInputDrafts.test.cjs`. API 라우트는 아직 없다(별도 계약 갱신 후).
+
+### 입력 칸 (7화면, 헤더 55칸 = 설문 fields 46 + 본문 토글 9)
+
+검증 메시지(한글): 필수 누락 `…은(는) 필수 입력입니다(웹 초안 최소 요건)`, 날짜 `…은(는) YYYY-MM-DD 형식의 실제 날짜여야 합니다`, 숫자 `… 형식이 올바르지 않습니다(정수 18자리·소수 8자리 이내, 지수·쉼표 불가)`, 참조코드 `… 참조코드 형식이 올바르지 않습니다(영문·숫자·._/- 60자 이내). 이름·상호는 저장하지 않습니다`, 길이 `…은(는) N자를 넘을 수 없습니다`, 미허용 칸 `허용되지 않은 입력 칸입니다: …`, 라인 없음 `품목 행이 최소 1개 필요합니다(웹 초안 최소 요건)`. 빈칸(`''`/`null`/`undefined`)과 `'0'`은 구분하며 숫자는 문자열로 정밀도를 보존한다.
+
+#### E040203 주문서입력 — 헤더 12칸 (설문 fields 10 + 본문 토글 2)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `customerRef` | 거래처 | 참조코드(불투명) | 미관측 | 미관측 | 거래처명 저장 금지, 참조코드만 |
+| `unlabeledText1` | (라벨 미관측) | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 라벨 미관측 텍스트 칸 |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `shipWarehouseRef` | 출하창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `reference` | 참조 | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 |  |
+| `paymentTerms` | 결제조건 | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 |  |
+| `validUntil` | 유효기간 | 날짜(YYYY-MM-DD) | 미관측 | 미관측 |  |
+| `searchText` | 검색창내용 | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 화면 검색창 입력, 저장 시 마스킹 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+| `applyVatRate` | 부가세율 적용 [본문 토글] | 예/아니오 | 미관측 | 미관측 |  |
+| `domestic` | 내자 [본문 토글] | 예/아니오 | 미관측 | 미관측 | 내자/외자 구분 토글로 관측, 기본값 미관측 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `unitPrice`(단가), `supplyAmt`(공급가액), `vat`(부가세), `remark`(적요) · 최대 200행
+
+#### E040205 판매입력 — 헤더 8칸 (설문 fields 6 + 본문 토글 2)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `customerRef` | 거래처 | 참조코드(불투명) | 미관측 | 미관측 | 거래처명 저장 금지, 참조코드만 |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `shipWarehouseRef` | 출하창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `departmentRef` | 부서 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+| `applyVatRate` | 부가세율 적용 [본문 토글] | 예/아니오 | 미관측 | 미관측 |  |
+| `domestic` | 내자 [본문 토글] | 예/아니오 | 미관측 | 미관측 | 내자/외자 구분 토글로 관측, 기본값 미관측 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `unitPrice`(단가), `supplyAmt`(공급가액), `vat`(부가세), `remark`(적요) · 최대 200행
+
+#### E040253 판매입력 II — 헤더 7칸 (설문 fields 5 + 본문 토글 2)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `customerRef` | 거래처 | 참조코드(불투명) | 미관측 | 미관측 | 거래처명 저장 금지, 참조코드만 |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `shipWarehouseRef` | 출하창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+| `applyVatRate` | 부가세율 적용 [본문 토글] | 예/아니오 | 미관측 | 미관측 |  |
+| `domestic` | 내자 [본문 토글] | 예/아니오 | 미관측 | 미관측 | 내자/외자 구분 토글로 관측, 기본값 미관측 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `unitPrice`(단가), `supplyAmt`(공급가액), `vat`(부가세), `remark`(적요) · 최대 200행
+
+#### E040301 발주서입력 — 헤더 10칸 (설문 fields 8 + 본문 토글 2)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `customerRef` | 거래처 | 참조코드(불투명) | 미관측 | 미관측 | 거래처명 저장 금지, 참조코드만 |
+| `unlabeledText1` | (라벨 미관측) | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 라벨 미관측 텍스트 칸 |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `inWarehouseRef` | 입고창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `reference` | 참조 | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 |  |
+| `remark` | 비고 | 자유텍스트(≤200자, 마스킹) | 미관측 | 미관측 |  |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+| `applyVatRate` | 부가세율 적용 [본문 토글] | 예/아니오 | 미관측 | 미관측 |  |
+| `domestic` | 내자 [본문 토글] | 예/아니오 | 미관측 | 미관측 | 내자/외자 구분 토글로 관측, 기본값 미관측 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `unitPrice`(단가), `supplyAmt`(공급가액), `vat`(부가세), `remark`(적요) · 최대 200행
+
+#### E040501 창고이동입력 — 헤더 6칸 (설문 fields 6 + 본문 토글 0)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `unlabeledText1` | (라벨 미관측) | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 라벨 미관측 텍스트 칸 |
+| `fromWarehouseRef` | 보내는창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `toWarehouseRef` | 받는창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `remark`(적요) · 최대 200행
+
+#### E040503 자가사용입력 — 헤더 6칸 (설문 fields 6 + 본문 토글 0)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `customerRef` | 거래처 | 참조코드(불투명) | 미관측 | 미관측 | 거래처명 저장 금지, 참조코드만 |
+| `unlabeledText1` | (라벨 미관측) | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 라벨 미관측 텍스트 칸 |
+| `warehouseRef` | 창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `remark`(적요) · 최대 200행
+
+#### E040507 불량처리입력 — 헤더 6칸 (설문 fields 5 + 본문 토글 1)
+
+| 저장 키 | 라벨 | 유형 | 필수 | 기본값 | 비고 |
+|---|---|---|---|---|---|
+| `docDate` | 일자 [관측 라벨 26] | 날짜(YYYY-MM-DD) | 미관측 / 웹초안 필수 | 연도 토큰 26 만 관측(월·일 미판독) |  |
+| `managerRef` | 담당자 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지, 참조코드만 |
+| `unlabeledText1` | (라벨 미관측) | 자유텍스트(≤100자, 마스킹) | 미관측 | 미관측 | 라벨 미관측 텍스트 칸 |
+| `foundWarehouseRef` | 발견창고 | 참조코드(불투명) | 미관측 | 미관측 | 이름 저장 금지 |
+| `unlabeledCheckbox1` | (라벨 미관측) | 예/아니오 | 미관측 | 미관측 | 라벨 미관측 체크박스 |
+| `disposal` | 폐기 [본문 토글] | 예/아니오 | 미관측 | 미관측 |  |
+
+라인(품목 행, 미관측·웹 잠정): `itemRef`(품목(참조코드), 웹초안 필수), `quantity`(수량, 웹초안 필수), `remark`(적요) · 최대 200행
+
+### 저장 결과 (buildSavePlan — SQL 실행 없음, 세 테이블만)
+
+| 동작 | 테이블·행 | 키 | 상태 | 회계반영 | 부작용 |
+|---|---|---|---|---|---|
+| 생성 `CREATE_INPUT_DRAFT` | `ecount_work.InputDraftHead` 1행 INSERT(Program, Status, Revision=1, FieldsJson=헤더 안전투영, LineCount, CreatedBy 해시) + `InputDraftLine` N행 INSERT(Revision=1, LineNo 1..N, FieldsJson) + `InputDraftAudit` 1행 INSERT(Action=create, DiffJson) | Head `DraftId`(uniqueidentifier) · Line `(DraftId,Revision,LineNo)` · Audit `(DraftId,Revision)` 유일 | `draft` | 없음(`accountingPosted:false`) | `none (web-only draft)` — ECOUNT 원본·ERP 원장 쓰기 없음 |
+| 검토 `REVIEW_INPUT_DRAFT` | Head UPDATE(Status=reviewed, Revision+1) `WHERE DraftId AND Revision=expected` + Audit INSERT(review) | 동일 | `reviewed` | 없음 | 없음 |
+| 정정 `CORRECT_INPUT_DRAFT` | Head UPDATE(FieldsJson/LineCount/Revision+1, Status=draft) `WHERE DraftId AND Revision=expected` + Line 새 Revision 집합 INSERT(기존 라인 삭제 없음) + Audit INSERT(correct, DiffJson=칸별 from/to·행별 added/removed/changed) | 동일 | `draft`(재검토 필요) | 없음 | 없음 |
+| 취소 `CANCEL_INPUT_DRAFT` | Head UPDATE(Status=cancelled, CancelledReason 필수·마스킹, Revision+1) + Audit INSERT(cancel) | 동일 | `cancelled`(종단) | 없음 | 없음 |
+
+- 모든 전이는 `expectedRevision`이 현재 Revision과 같아야 한다(불일치 → 409 `REVISION_CONFLICT`, 서버는 Head UPDATE의 Revision 조건으로 재검사).
+- DB 수준 규칙(마이그레이션): Head 하드 DELETE 차단(51011), Program/CreatedBy/CreatedAt 변경 차단(51012), 취소 상태 되돌림 차단(51013), Revision 은 정확히 +1(51014), Line·Audit 는 UPDATE/DELETE 불가(51015/51016). `Status IN ('draft','reviewed','cancelled')`, `Program IN (7코드)`, `ISJSON(FieldsJson)=1`, 라인 1..200.
+
+### 수정·삭제·취소 경로
+
+| 경로 | 허용 상태 | 방법 | 결과 |
+|---|---|---|---|
+| 조회 | 전부 | `readDraft` — 저장된 안전투영 그대로(참조코드·마스킹 텍스트), `deletable:false`, `sourceSaved:false` | 읽기만 |
+| 수정(정정) | `draft`, `reviewed` | `applyCorrection(draft, {head 부분병합(null=칸 비우기), lines 전체교체}, expectedRevision)` | 새 Revision + Audit diff, 상태 `draft` |
+| 검토 | `draft` | `review(draft, expectedRevision)` | 상태 `reviewed` |
+| 삭제 | — | **없음.** 하드 삭제 경로를 제공하지 않으며 DB 트리거가 DELETE 를 차단 | — |
+| 취소(소프트 삭제) | `draft`, `reviewed` | `cancel(draft, reason(필수, ≤200자, 마스킹), expectedRevision)` | 상태 `cancelled`(종단: 정정·검토·재취소 불가, 행 보존) |
+| ECOUNT 원본 저장 | — | **미승인·미실행.** 어떤 코드도 저장(F8)/저장/전표(F7)를 호출하지 않는다. 승인 시 별도 계약 변경 필요 | — |
+
