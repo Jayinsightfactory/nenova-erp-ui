@@ -24,6 +24,8 @@ export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/import/tools/parse-pdf', bodyLimit: '32m' },
   // Shared catalog JSON is bounded to 6MiB by the application.
   { location: '/api/import/tools/state', bodyLimit: '8m' },
+  // 50MiB original -> base64 (~66.7MiB) plus bounded 2MiB review JSON.
+  { location: '/api/import/tools/upload-history', bodyLimit: '72m' },
   // Private guidance attachment: 10MiB application limit plus multipart overhead.
   { location: '/api/operations-knowledge/attachments', bodyLimit: '12m' },
 ];

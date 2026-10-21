@@ -46,6 +46,7 @@ async function main() {
   } = await import('../scripts/ensure-pnl-upload-nginx.mjs');
 
   assert.ok(MANAGED_UPLOAD_ROUTES.length >= 2, '여러 업로드 경로를 관리해야 한다.');
+  assert.equal(MANAGED_UPLOAD_ROUTES.find(r => r.location === '/api/import/tools/upload-history')?.bodyLimit, '72m', '공용 원본 이력은 50MiB base64와 검토 JSON을 수용해야 한다.');
   assert.ok(MANAGED_UPLOAD_ROUTES.some(r => r.location === '/api/arrival-cost/upload'),
     '도착원가 업로드 경로도 관리 대상이어야 한다.');
 
