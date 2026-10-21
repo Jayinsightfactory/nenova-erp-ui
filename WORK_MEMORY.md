@@ -640,6 +640,14 @@
 - 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
 - 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
 
+## 2026-10-21 ECOUNT 이관 재개 4차 — 회수·셸 새창·InputDraft API·105화면 대상 DOM 병합
+- 회수(0단계): ECOUNT 관련 로컬/origin 브랜치·agent-* worktree 산출물은 전부 master 머지 확인(#1164~#1175, #1178~#1182, #1195). 유실 1건: 앞 세션(local_d76e6a38)의 P020~P039 125화면 원본 조사 결과(99/125)는 디스크 미저장·탭 메모리(window.__survey5)만 → 재조사 대상.
+- 릴리스4(이 세션): PR #1200 P008~P019 셸 검색패널 거래처/품목/창고 새창 연결(활성 437→440) · #1201 입력 화면 7종 InputDraft 저장 API(/api/ecount/input-drafts GET/POST/PATCH, 테이블 없으면 503 MIGRATION_PENDING, DDL 미실행)+InputDraftForm · #1202 셸에 폼 통합(sourceSaveButton prop 으로 matchId 중복 방지) · #1208 105화면 대상 DOM 크롤(로컬 prod 빌드 8ab5da0c, 포트 3100) 병합. 전부 CI verify pass 후 squash.
+- 분류 변화(2,047 관측 버튼): 구현 220→817 / 미구현 718→1,076 / 조건부 26→13 / 미관측 991→49 / API설계전용 92 / 검증 완료 0. 함정: 새 크롤 파일을 단독 병합하면 이전 33화면 로컬 크롤의 정적 주장 66건이 철회됨 → 크롤러 union 규칙과 같은 방식으로 이전 로컬 크롤을 union 한 뒤 병합(철회 0, E040207 거래처 대화상자 7건은 조건부).
+- 비교 엑셀 outputs/ecount-parity-20261021/ECOUNT_버튼별_비교보고서.xlsx 9시트 7,924,251B sha256 0f658763…(이미지 미삽입).
+- 차단: 크롬 확장 재연결(deviceId 변경)마다 Claude in Chrome 탭 그룹이 재생성되어 로그인된 ECOUNT 탭·진행 중 조사를 잃음. 조사 중 확장 재연결·다른 세션 브라우저 전환 금지. 조사 스크립트(srv/run/expand)는 세션 scratchpad 에 보관, 결과는 화면 배치마다 즉시 evidence JSON 저장 원칙.
+- 검색어: ECOUNT 재개4차 PR1200 PR1201 PR1202 PR1208 InputDraft API MIGRATION_PENDING 대상DOM크롤 r4 union 철회66 미관측49 구현817 탭그룹재생성 survey6
+
 ## 2026-10-21 ECOUNT 이관 재개 1차 — PR1161 운영회귀 닫기 · 33화면 대상 DOM 증거 · ACTION_IDS 누락 11화면 수정
 - 재개 기준: docs/session-backups/2026-10-21_ecount-status-and-replan.md + resume-inventory.json(이 브랜치에 복사). 코덱스 앞선 3커밋(dayAll 미관측 날짜 미수집)은 master 9a8e55a7(#1161)에 동일 포함 확인(파일 diff 동일).
 - PR1161 운영회귀: 서비스 토큰 API dayAll 2026-10-20 → 200/2,217행/34구역/revision1 PASS, 10-19·10-21 → 400 INVALID_COVERAGE_SCOPE(설계상 정상). 브라우저(사장님 크롬, 네노바웹 미로그인): 10-19·금일 검색 시 53표 전부 '미수집', alert 0, 서버 요청 0 PASS. 10-20 표 렌더는 401로 미검증. 증거 data/ecount-workbench/evidence/2026-10-21-pr1161-daily-regression.json.
@@ -752,6 +760,12 @@
 - 검색어: 주광 요일수량 수국 카네이션 업로드 시트 ShipmentDate 주문보존 감사122
 
 
+## 2026-10-21 분배 업로드 새 파일 자동 범위
+- 사용자 정정: 수국만 선택을 추가하는 것이 아니라 새 수국 파일 자체 기준. 수동 시트/품종 필터 제거, 실제 행/제목 품종 자동판별, 교차품종 오매칭 차단, 새파일 이전결과 폐기.
+- 감사122 STARTED/0, ERP/audit 원자적 저장 및 이전 프로세스 교체 확인. 재업로드는 현재DB 재검증. 회귀·빌드·배포 진행 중(미검증). docs/work-sessions/2026-10-21_import-file-scope.md.
+- 검색어: 새파일 기준 수국 카네이션 자동범위 중단 재업로드 이전응답
+
+
 ## 2026-10-21 에콰도르 과거 재고·원가 누락 대사
 - 사용자 확인: 후속 전산오류 조정은 과거 부풀려진 재고 제거 목적. 이중 차감 방지를 위해 기존 이력 보존, 정확한 상쇄 감사행과 native CALC를 한 트랜잭션으로 처리하는 수동 도구·계약·회귀 추가.
 - 기본 SELECT only, 원천 지문·명시 범위·실제 롤백 리허설 필수. Product.Stock/주문/출고/견적/매입/확정자료 보존 검사. 미래 매입단가로 과거 원가를 만들지 않음.
@@ -791,7 +805,8 @@
 
 
 
-## 2026-10-21 분배 업로드 새 파일 자동 범위
-- 사용자 정정: 수국만 선택을 추가하는 것이 아니라 새 수국 파일 자체 기준. 수동 시트/품종 필터 제거, 실제 행/제목 품종 자동판별, 교차품종 오매칭 차단, 새파일 이전결과 폐기.
-- 감사122 STARTED/0, ERP/audit 원자적 저장 및 이전 프로세스 교체 확인. 재업로드는 현재DB 재검증. 회귀·빌드·배포 진행 중(미검증). docs/work-sessions/2026-10-21_import-file-scope.md.
-- 검색어: 새파일 기준 수국 카네이션 자동범위 중단 재업로드 이전응답
+## 2026-10-21 신라 확인 탭 확장 주소 호환 보완
+- PR #1205 배포 후 기존 확장 background가 하위 경로를 거부하는 실제 문제 확인. 새 메뉴 주소는 유지하고 허용된 기존 주소의 workspace=check로 서버 리다이렉트. 확장 재설치 없이 새 화면 사용.
+- DB 쓰기 없음. 기존 638행 실제 조회 성공, 새 경로 자동완료는 배포 후 검증 예정.
+- 검색어: shilla-check bridge workspace query redirect 1205
+

@@ -45,3 +45,6 @@ A. 기존 연결 확장과 비교 엔진을 재사용하고, 최신 조회와 �
 - 원본/결과 영구 저장과 원장 수정 없음. work/의 로컬 probe·테스트 로그는 커밋 제외.
 
 - 최종 webpack build 및 전체 test:erp-contract exit0, 변경범위 manifest/write-scope/dnSpy 통과. PR1205. 브라우저 연결 timeout으로 운영 클릭 검증은 미완료.
+
+### 운영 주소 호환 보완
+기존 확장 background는 /shilla-analysis 뒤 query/hash만 허용하므로 nested 메뉴를 workspace=check query 주소로 redirect한다. 팝업 유지, 구형 화면은 기본 유지. 회귀 테스트는 실제 허용 정규식과 서버 props를 검증한다. ERP 원장 읽기 범위 변경 없음.
