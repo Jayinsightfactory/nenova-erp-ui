@@ -938,14 +938,14 @@
     "E040214-A15"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Add 9 missing target controls; observe source behaviour for 4 placeholders",
+   "next": "Add 1 missing target controls; observe source behaviour for 4 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 15,
     "implemented": 2,
     "placeholder": 4,
-    "missing": 9,
-    "conditional": 0,
+    "missing": 1,
+    "conditional": 8,
     "externalApiDesignOnly": 0,
     "labelMatched": 6,
     "fullParity": false
@@ -1376,8 +1376,19 @@
     "MENUTREE_000051"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 12 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 12,
+    "conditional": 0,
+    "externalApiDesignOnly": 2,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040102",
@@ -1386,8 +1397,19 @@
     "MENUTREE_000172"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 11 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 12,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 11,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010105",
@@ -1398,8 +1420,19 @@
     "MENUTREE_000761"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 10 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 10,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 10,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010112",
@@ -1410,8 +1443,19 @@
     "MENUTREE_000762"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 10 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 10,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040103",
@@ -1420,8 +1464,19 @@
     "MENUTREE_000174"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040104",
@@ -1430,8 +1485,19 @@
     "MENUTREE_000175"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 9 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 10,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 9,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040126",
@@ -1440,8 +1506,19 @@
     "MENUTREE_000176"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 3,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 3,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040125",
@@ -1450,8 +1527,19 @@
     "MENUTREE_002548"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 3,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 3,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040124",
@@ -1460,8 +1548,19 @@
     "MENUTREE_001620"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 9 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 10,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 9,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040120",
@@ -1470,8 +1569,19 @@
     "MENUTREE_000485"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 7 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 7,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 7,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040122",
@@ -1480,8 +1590,19 @@
     "MENUTREE_001404"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 8 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 8,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 8,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010110",
@@ -1491,8 +1612,19 @@
     "MENUTREE_000061"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 9 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 10,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 9,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040111",
@@ -1501,8 +1633,19 @@
     "MENUTREE_000178"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 6 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 6,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 6,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040114",
@@ -1512,8 +1655,19 @@
     "MENUTREE_000064"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 9 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 9,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 9,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040113",
@@ -1522,8 +1676,19 @@
     "MENUTREE_000183"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 4 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 4,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 4,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040208",
@@ -1582,8 +1747,19 @@
     "MENUTREE_000577"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 12 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 12,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 12,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040204",
@@ -1668,8 +1844,19 @@
     "MENUTREE_000488"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 21 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 22,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 21,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040209",
@@ -1776,8 +1963,19 @@
     "MENUTREE_001647"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040212",
@@ -1886,8 +2084,19 @@
     "MENUTREE_000490"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 27 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 28,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 27,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040253",
@@ -1896,8 +2105,19 @@
     "MENUTREE_002880"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 27 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 27,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 27,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040224",
@@ -1906,8 +2126,19 @@
     "MENUTREE_000725"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 11 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 11,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040207",
@@ -2097,8 +2328,19 @@
     "MENUTREE_000576"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 11 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 11,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040254",
@@ -2107,8 +2349,19 @@
     "MENUTREE_002905"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 17 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 17,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040255",
@@ -2117,8 +2370,19 @@
     "MENUTREE_002948"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 13 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 13,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 13,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040215",
@@ -2128,8 +2392,19 @@
     "MENUTREE_000493"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 13 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 13,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 13,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040218",
@@ -2316,8 +2591,19 @@
     "MENUTREE_000508"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 23 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 24,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 23,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040306",
@@ -2480,8 +2766,19 @@
     "MENUTREE_001662"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 11 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 11,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040310",
@@ -2573,8 +2870,19 @@
     "MENUTREE_000704"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040309",
@@ -2593,14 +2901,14 @@
     "E040309-A07"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Add 9 missing target controls; observe source behaviour for 4 placeholders",
+   "next": "Add 4 missing target controls; observe source behaviour for 4 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 15,
     "implemented": 2,
     "placeholder": 4,
-    "missing": 9,
-    "conditional": 0,
+    "missing": 4,
+    "conditional": 5,
     "externalApiDesignOnly": 0,
     "labelMatched": 6,
     "fullParity": false
@@ -2614,8 +2922,19 @@
     "MENUTREE_000512"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 13 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 13,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 13,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040219",
@@ -2733,8 +3052,19 @@
     "MENUTREE_000540"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 19 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 23,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 19,
+    "conditional": 0,
+    "externalApiDesignOnly": 4,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040501",
@@ -2743,8 +3073,19 @@
     "MENUTREE_000539"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 18 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 19,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 18,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040505",
@@ -2754,8 +3095,19 @@
     "MENUTREE_001374"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040504",
@@ -2764,8 +3116,19 @@
     "MENUTREE_000542"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 20 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 24,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 20,
+    "conditional": 0,
+    "externalApiDesignOnly": 4,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040503",
@@ -2774,8 +3137,19 @@
     "MENUTREE_000541"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 17,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040506",
@@ -2785,8 +3159,19 @@
     "MENUTREE_001375"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040508",
@@ -2795,8 +3180,19 @@
     "MENUTREE_000544"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 19 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 23,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 19,
+    "conditional": 0,
+    "externalApiDesignOnly": 4,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040507",
@@ -2805,8 +3201,19 @@
     "MENUTREE_000543"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 19 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 20,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 19,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040509",
@@ -2816,8 +3223,19 @@
     "MENUTREE_001376"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 17 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 17,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 17,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040510",
@@ -2827,8 +3245,19 @@
     "MENUTREE_001377"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040511",
@@ -2838,8 +3267,19 @@
     "MENUTREE_001378"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040512",
@@ -2849,8 +3289,19 @@
     "MENUTREE_001379"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040650",
@@ -2859,8 +3310,19 @@
     "MENUTREE_001437"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 17 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 17,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 17,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040613",
@@ -2869,8 +3331,19 @@
     "MENUTREE_000546"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 19 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 19,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 19,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040614",
@@ -2879,8 +3352,19 @@
     "MENUTREE_000548"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 19 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 19,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 19,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040615",
@@ -2890,8 +3374,19 @@
     "MENUTREE_001380"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040608",
@@ -2901,8 +3396,19 @@
     "MENUTREE_001381"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 16 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 16,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010851",
@@ -2933,8 +3439,19 @@
     "MENUTREE_002886"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040701",
@@ -3085,8 +3602,19 @@
     "MENUTREE_001796"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 8 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 8,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 8,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040726",
@@ -3401,8 +3929,19 @@
     "MENUTREE_000662"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040227",
@@ -3411,8 +3950,19 @@
     "MENUTREE_000778"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040228",
@@ -3421,8 +3971,19 @@
     "MENUTREE_000780"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 13 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 13,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 13,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040721",
@@ -3431,8 +3992,19 @@
     "MENUTREE_001901"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 16,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040713",
@@ -3441,8 +4013,19 @@
     "MENUTREE_001386"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040318",
@@ -3451,8 +4034,19 @@
     "MENUTREE_000584"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E041015",
@@ -3471,8 +4065,19 @@
     "MENUTREE_001902"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040724",
@@ -3481,8 +4086,19 @@
     "MENUTREE_001904"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040714",
@@ -3491,8 +4107,19 @@
     "MENUTREE_001387"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040413",
@@ -3572,8 +4199,19 @@
     "MENUTREE_000593"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 8 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 8,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 8,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040806",
@@ -3583,8 +4221,19 @@
     "MENUTREE_000594"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 11 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 11,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040703",
@@ -3593,8 +4242,19 @@
     "MENUTREE_001383"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 10 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 11,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 10,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010833",
@@ -3604,8 +4264,19 @@
     "MENUTREE_000375"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E010842",
@@ -3615,8 +4286,19 @@
     "MENUTREE_000376"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 12 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 12,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 12,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040725",
@@ -3625,8 +4307,19 @@
     "MENUTREE_002462"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040710",
@@ -3635,8 +4328,19 @@
     "MENUTREE_000224"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040819",
@@ -3645,8 +4349,19 @@
     "MENUTREE_001627"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 14 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 14,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 14,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040704",
@@ -3655,8 +4370,19 @@
     "MENUTREE_000223"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 12 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 12,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 12,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040627",
@@ -3666,8 +4392,19 @@
     "MENUTREE_001352"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 3,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 3,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040633",
@@ -3676,8 +4413,19 @@
     "MENUTREE_001318"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 3,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 3,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040709",
@@ -3686,8 +4434,19 @@
     "MENUTREE_001793"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 12 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 12,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 12,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040716",
@@ -3696,8 +4455,19 @@
     "MENUTREE_000211"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 15 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 15,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040607",
@@ -3706,8 +4476,19 @@
     "MENUTREE_000222"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 2 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 2,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 2,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "C000097",
@@ -3716,8 +4497,19 @@
     "MENUTREE_000225"
    ],
    "observedActionIds": [],
-   "status": "button-inventory-not-recorded",
-   "next": "Read-only source survey before implementation; do not infer controls"
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 0 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 1,
+    "implemented": 0,
+    "placeholder": 0,
+    "missing": 1,
+    "conditional": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 0,
+    "fullParity": false
+   }
   },
   {
    "program": "E040601",
@@ -6046,6 +6838,12 @@
    "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
    "release": "crawler-conditional-states",
    "touchedPages": 33
+  },
+  {
+   "date": "2026-10-21",
+   "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
+   "release": "survey-p008-p019-20261021",
+   "touchedPages": 105
   }
  ]
 }
