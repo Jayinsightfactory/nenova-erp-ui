@@ -3,6 +3,7 @@
   "title": "경영관리(mgmt) 웹 전용 관리기능 계약 — ECOUNT 이관과 분리",
   "scope": [
     "lib/mgmt/schema.js",
+    "lib/mgmt/access.js",
     "lib/mgmt/schemaMeta.js",
     "lib/mgmt/approvalPolicy.js",
     "lib/mgmt/boundary.js",
@@ -56,6 +57,6 @@
   "dnspyEvidence": { "required": true, "record": "docs/exe-golden/FormEstimateView.md", "source": "mgmt 는 exe 쓰기 경로를 호출하지 않는다. 읽기 참조만 하는 Estimate/Customer 는 FormEstimateView 골든 기준.", "methods": ["ClassEstimate.Select"], "tables": ["Estimate", "Customer"] },
   "preserves": ["Customer", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "ProductStock", "StockHistory", "StockMaster", "Estimate", "WebProfitReport", "ecount_work.*"],
   "boundary": { "ecountOwnedUntouched": true, "checker": "node __tests__/mgmtBoundary.test.js --changed-from origin/master", "design": "docs/mgmt/MGMT_CONTROLS_DESIGN.md" },
-  "requiredTestFiles": ["__tests__/mgmtBoundary.test.js", "__tests__/mgmtApproval.test.js", "__tests__/mgmtAging.test.js", "__tests__/mgmtCreditLimit.test.js", "__tests__/mgmtPriceHistory.test.js", "__tests__/mgmtClaimCodes.test.js", "__tests__/mgmtCustomerProfit.test.js", "__tests__/mgmtWeekClose.test.js", "__tests__/mgmtAuditView.test.js"],
+  "requiredTestFiles": ["__tests__/mgmtBoundary.test.js", "__tests__/mgmtAccess.test.js", "__tests__/mgmtApproval.test.js", "__tests__/mgmtAging.test.js", "__tests__/mgmtCreditLimit.test.js", "__tests__/mgmtPriceHistory.test.js", "__tests__/mgmtClaimCodes.test.js", "__tests__/mgmtCustomerProfit.test.js", "__tests__/mgmtWeekClose.test.js", "__tests__/mgmtAuditView.test.js"],
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run test:mgmt", "npm run build"]
 }

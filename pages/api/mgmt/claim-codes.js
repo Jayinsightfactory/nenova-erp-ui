@@ -2,10 +2,12 @@
 // GET  ?from=&to=               코드 사전 + 최근 불량차감 행(연결 포함) + 농장×사유 집계
 // POST {action:'seed'|'save'|'toggle'|'link'}
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { listCodes, seedCodes, saveCode, setCodeActive, linkCode, recentDefectRows } from '../../../lib/mgmt/claimCodes.js';
 import { aggregateByFarmReason, latestLinkBySource } from '../../../lib/mgmt/claimCodesCore.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   try {
     if (req.method === 'GET') {
       const from = req.query.from || undefined;

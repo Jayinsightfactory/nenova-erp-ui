@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import CreditBadge from '../../components/mgmt/CreditBadge';
 
-const won = (n) => (n == null ? '-' : Number(n).toLocaleString());
+const won = (n) => (n == null ? '-' : Math.round(Number(n)).toLocaleString());
 const COLOR = { ok: '#166534', warn: '#92400e', over: '#991b1b', none: '#64748b' };
 
 export default function MgmtCreditLimit() {

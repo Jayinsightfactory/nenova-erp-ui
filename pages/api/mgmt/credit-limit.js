@@ -1,12 +1,14 @@
 // 여신한도 API. GET: 거래처별 한도·잔액·상태 / ?custKey= 단건 / POST {custKey, limitKRW, reason} 이력 추가.
 // 잔액은 lib/mgmt/receivables.js(= /api/sales/ar 와 같은 원천·계산). ERP 원장은 읽기만.
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { getArBalances } from '../../../lib/mgmt/receivables.js';
 import { listCustomersBasic } from '../../../lib/mgmt/sources.js';
 import { appendLimit, listAllLimitRows, listLimitHistory } from '../../../lib/mgmt/creditLimitStore.js';
 import { creditPct, creditStatus, latestLimitByCust, validateLimitInput, CREDIT_STATUS_LABEL } from '../../../lib/mgmt/creditLimit.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   try {
     if (req.method === 'GET') {
       const custKey = req.query.custKey ? Number.parseInt(req.query.custKey, 10) : null;

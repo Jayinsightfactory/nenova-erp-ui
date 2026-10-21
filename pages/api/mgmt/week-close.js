@@ -1,10 +1,12 @@
 // 차수 마감 체크리스트. GET ?orderYear=2026&orderWeek=42-1 / POST {orderYear, orderWeek, itemCode, status, note}
 // 상태 저장은 web_mgmt.WeekCloseCheck 추가 전용. ERP 원장은 읽기만.
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { validateWeekInput, validateCheckInput, isCloseable } from '../../../lib/mgmt/weekCloseCore.js';
 import { getWeekCloseState, appendWeekCheck } from '../../../lib/mgmt/weekClose.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   try {
     const src = req.method === 'POST' ? (req.body || {}) : req.query;
     const v = validateWeekInput(src.orderYear, src.orderWeek);
