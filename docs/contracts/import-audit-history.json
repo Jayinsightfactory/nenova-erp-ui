@@ -1,13 +1,73 @@
 {
- "id":"import-audit-history","title":"품목 입력 히스토리와 인보이스 검증 문제 이력",
- "scope":["lib/productInputHistory.js","pages/api/master/product-history.js","pages/api/master/index.js","components/catalog/ProductInputHistory.js","lib/invoiceValidationAudit.js","pages/api/import/receipts/[id]/preview.js","pages/api/import/upload-issues.js","components/import-tools/InvoiceUploadIssues.js","components/import-tools/PackingListTool.js"],
- "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
- "actions":[
-  {"name":"PRODUCT_INPUT_HISTORY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"Existing individual Product INSERT/UPDATE field semantics unchanged; same transaction append before/after SystemActionLog. Audit failure rolls back. No stock SET or recalculation. Read-only keyset history GET, exact optional ProdKey."},
-  {"name":"INVOICE_VALIDATION_HISTORY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"Preview SELECTs and mandatory WebInvoiceHistory WORKFLOW_STAGE with server issues; document lock serializes revision. No receipt write. Other stage logs use existing whitelist, user-scoped sessionStorage pending queue and explicit log-only retry."}
- ],
- "crossYearFixture":{"required":true,"description":"2025/2026 41-02 document scopes preserved; product history is global ProdKey master without touching year-specific ledgers."},
- "requiredTestFiles":["__tests__/importAuditHistory.test.js","__tests__/invoiceReceiptStageLogUi.test.js","__tests__/productBulkSave.test.js"],
- "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductBulkEdit.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe; same-turn CLI evidence plus FormWarehouseUpload.md; audit-only extension","methods":["ClassProduct.Update","FormProductAdd.btnSave_Click"],"tables":["Product","SystemActionLog","WebInvoiceHistory"]},
- "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+  "id": "import-audit-history",
+  "title": "품목 입력 히스토리와 인보이스 검증 문제 이력",
+  "scope": [
+    "lib/productInputHistory.js",
+    "pages/api/master/product-history.js",
+    "pages/api/master/index.js",
+    "components/catalog/ProductInputHistory.js",
+    "lib/invoiceValidationAudit.js",
+    "pages/api/import/receipts/[id]/preview.js",
+    "pages/api/import/upload-issues.js",
+    "components/import-tools/InvoiceUploadIssues.js",
+    "components/import-tools/PackingListTool.js",
+    "lib/invoiceUploadIssue.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PRODUCT_INPUT_HISTORY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Existing individual Product INSERT/UPDATE field semantics unchanged; same transaction append before/after SystemActionLog. Audit failure rolls back. No stock SET or recalculation. Read-only keyset history GET, exact optional ProdKey."
+    },
+    {
+      "name": "INVOICE_VALIDATION_HISTORY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Preview SELECTs and mandatory WebInvoiceHistory WORKFLOW_STAGE with server issues; document lock serializes revision. No receipt write. Other stage logs use existing whitelist, user-scoped sessionStorage pending queue and explicit log-only retry."
+    },
+    {
+      "name": "PACKING_REVIEW_BLOCKED",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Existing audit-only SystemActionLog payload adds bounded actionable detail; actor from authenticated session; stable eventId retries. No Warehouse/Stock/SP changes."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 41-02 document scopes preserved; product history is global ProdKey master without touching year-specific ledgers."
+  },
+  "requiredTestFiles": [
+    "__tests__/importAuditHistory.test.js",
+    "__tests__/invoiceReceiptStageLogUi.test.js",
+    "__tests__/productBulkSave.test.js",
+    "__tests__/invoiceUploadIssue.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductBulkEdit.md",
+    "source": "C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe; same-turn CLI evidence plus FormWarehouseUpload.md; audit-only extension",
+    "methods": [
+      "ClassProduct.Update",
+      "FormProductAdd.btnSave_Click"
+    ],
+    "tables": [
+      "Product",
+      "SystemActionLog",
+      "WebInvoiceHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
 }

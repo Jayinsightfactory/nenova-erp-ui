@@ -1277,6 +1277,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_FIXTURE_42_EVIDENCE){
+      await require('./test-packing-42-receipt-browser.cjs')({pool,sql,query,writer,documents,ctx:writerContext(pool,writer),protectedSnapshot});
+      return;
+    }
     console.log(`SETUP: image=${image}, endpoint=${HOST}:${PORT}, database=${database}, compatibility=130, collation=${collation}`);
     console.log('MODE: actual web invoice writer SQL fixture; native CommonLogic eligibility SP is not executed.');
     stage('omitted ViewOrder blocker scenario');

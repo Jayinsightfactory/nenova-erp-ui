@@ -483,6 +483,7 @@ export default function InvoiceReceiptWorkbench({
       try {
         const verified = verifyReceiptDocument(normalized, normalized);
         verifiedReceipt = !pendingOperation || pendingOperation.operationId === verified.operation.operationId;
+        if (verifiedReceipt) normalized.warehouseKey = verified.warehouseKey;
         if (!verifiedReceipt) receiptVerifyError = '대기 중 operationId와 서버 완료 operationId가 다릅니다.';
       } catch (error) { receiptVerifyError = error.message; }
     }
