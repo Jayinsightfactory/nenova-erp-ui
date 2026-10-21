@@ -280,7 +280,10 @@ export default function Layout({ children, title }) {
   const sidebarSuppressed = sidebarOverride === null ? autoCollapse : sidebarOverride;
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Logout failed');
+    } catch { window.alert('로그아웃을 완료하지 못했습니다. 연결을 확인하고 다시 시도하세요.'); return; }
     localStorage.removeItem('nenovaUser');
     router.push('/login');
   };

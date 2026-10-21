@@ -29,8 +29,8 @@ export function filterKnowledgeItems(items, { category = 'ALL', status = 'ACTIVE
 const editable = (item) => ({ ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((key) => [key, item?.[key] ?? EMPTY[key]])), tags: Object.fromEntries(Object.keys(TAGS).map((key) => [key, [...(item?.tags?.[key] || [])]])) });
 const errorMessage = (data, status) => data?.error || (status === 409 ? '다른 사용자가 먼저 저장했습니다. 초안은 유지됩니다. 최신 자료를 확인하세요.' : '요청에 실패했습니다. 다시 시도하세요.');
 
-export async function getServerSideProps({ req }) {
-  const user = verifyReqUser(req);
+export async function getServerSideProps({ req, res }) {
+  const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/login', permanent: false } };
   if (user.accountActive === false) return { notFound: true };
   return { props: {} };

@@ -79,4 +79,4 @@ export default function ImportTools({userId=''}){
   </div>
  </main></>;
 }
-export function getServerSideProps({req}){const user=verifyReqUser(req);if(!user)return {redirect:{destination:'/login',permanent:false}};return {props:{userId:String(user.userId)}};}
+export async function getServerSideProps({req,res}){const user=await verifyReqUser(req,res);if(!user)return {redirect:{destination:'/login',permanent:false}};return {props:{userId:String(user.userId)}};}

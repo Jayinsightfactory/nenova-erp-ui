@@ -9,7 +9,7 @@ import styles from '../../styles/executive-volume.module.css';
 export async function getServerSideProps({ req, res }) {
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  const user = verifyReqUser(req);
+  const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/m/login?next=/m/executive-volume', permanent: false } };
   if (!isAdminUser(user)) return { notFound: true };
   return { props: { user: { userId: user.userId || '', userName: user.userName || '' } } };

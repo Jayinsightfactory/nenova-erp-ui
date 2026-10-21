@@ -1,6 +1,7 @@
 // pages/api/auth/login.js
 import { query, sql } from '../../../lib/db';
-import { createToken } from '../../../lib/auth';
+import { createToken, deviceSessionStore } from '../../../lib/auth';
+import deviceSession from '../../../lib/rememberDeviceSession.cjs';
 import { effectiveAuthority } from '../../../lib/userAccess';
 import activityHttp from '../../../lib/userActivityHttp.cjs';
 
@@ -70,11 +71,12 @@ export default async function handler(req, res) {
     const token = createToken(user);
     activityHttp.attachRequestAudit(req, res, { userId: user.UserID, userName: user.UserName });
     attempts.delete(attemptKey);
-    const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-
-    res.setHeader('Set-Cookie',
-      `nenovaToken=${token}; HttpOnly; Path=/; Max-Age=28800; SameSite=Strict${secureCookie}`
-    );
+    const store = deviceSessionStore();
+    const rememberDevice = body.rememberDevice === true;
+    const cookieToken = rememberDevice ? store.create(user) : token;
+    store.revoke(req.cookies?.nenovaToken);
+    res.setHeader('Set-Cookie', deviceSession.sessionCookie(cookieToken, rememberDevice ? deviceSession.MAX_AGE : 28800));
+    res.setHeader('Cache-Control', 'private, no-store');
 
     return res.status(200).json({
       success: true,

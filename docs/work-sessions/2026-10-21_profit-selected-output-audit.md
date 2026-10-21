@@ -6,7 +6,7 @@
 | 화면 | 주차별 매출이익 보고서 |
 | 기준 | origin/master 943d948f 전용 작업트리 |
 | 원장 부작용 | 없음, SQL SELECT probe만 |
-| PR/배포 | 검증 후 기록 |
+| PR/배포 | PR #1187, merge 16e6ca5f, Cafe24 run 39553387769 성공 |
 
 ## 이어받을 때 고정된 결정
 - 사용자 최신 지시: 엑셀도 인쇄와 같은 체크 차수만 출력한다. 전체 선택은 1~조회차수, 현재 차수 하나가 초기값이다. 과거 엑셀 전체 강제 계약은 대체한다.
@@ -31,6 +31,7 @@ A. Downloads의 원본 ZIP에서 5개 파일을 읽었다. 개별 27/29/30/31차
 
 ## 검증과 한계
 - `npm run verify:erp-change` 전체 및 프로덕션 빌드 통과. 변경 manifest/write guard 추가 실행 통과(변경 API 0개).
+- 최신 master 합친 뒤 전체 gate/build 재통과. 실제 SQL18 payload를 로컬 Chromium에서 다운로드·재오픈한 내용도 기준 파일과 일치(백그라운드 snapshotRefresh는 가로채 모킹, 운영 쓰기 없음).
 - 실제 Chromium 합성 API 검사 통과: 41차 단일 / 1~41차 전체 / 27·31차 비연속 파일 저장 후 시트 재오픈, 18차 일시502 재시도, 컬럼 재접속 복원, 빈 선택 차단, 모바일 폭. API 쓰기 0건. Windows 다운로드 경로는 path.join으로 정규화한다.
 - 설치 EXE FormStockView를 실제 dnSpy CLI 재확인. 운영 SQL 쓰기 패턴 차단 hook으로 SELECT만 실행.
 - 독립 SQL 감사 전후 지문 STABLE_OBSERVED, atomicSnapshot=false. 원본 파일/SQL 조회 시점 차이 가능성을 명시.

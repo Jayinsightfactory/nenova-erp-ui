@@ -36,8 +36,8 @@ function sliceStoryboards(full, q) {
   };
 }
 
-export default function handler(req, res) {
-  const user = verifyReqUser(req);
+export default async function handler(req, res) {
+  const user = await verifyReqUser(req, res);
   if (!isOrbitReportViewer(user)) return res.status(404).json({ success: false, error: 'Not found' });
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   const name = String(req.query.name || '');

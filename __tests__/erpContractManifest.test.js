@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  require('node:child_process').execFileSync(process.execPath, [require('node:path').join(__dirname, 'rememberDeviceSession.test.cjs')], {stdio:'inherit',windowsHide:true});
   await import('./invoiceReceiptValidation.test.js');
   await import('./invoiceReceiptWorkflow.test.js');
   await import('./invoiceReceiptCostWorkflow.test.js');

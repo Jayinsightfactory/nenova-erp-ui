@@ -1,0 +1,32 @@
+name: Read-only production profit download
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: Report year
+        default: '2026'
+        required: true
+      week:
+        description: Exactly one major week
+        default: '18'
+        required: true
+permissions:
+  contents: read
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Download selected week from authenticated production UI
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          PROBE_YEAR: ${{ inputs.year }}
+          PROBE_WEEK: ${{ inputs.week }}
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/profit-production-download-smoke.cjs

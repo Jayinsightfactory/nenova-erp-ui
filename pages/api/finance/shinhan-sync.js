@@ -27,14 +27,14 @@ function timingEqual(a, b) {
 }
 
 // 관리자 JWT 또는 자동화 토큰. 둘 다 아니면 401/403.
-function authorize(req, res) {
+async function authorize(req, res) {
   const expected = process.env.AUTOMATION_API_TOKEN;
   const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   const headerToken = String(req.headers['x-automation-token'] || '').trim();
   if (expected && (timingEqual(bearer, expected) || timingEqual(headerToken, expected))) {
     return { actor: 'automation' };
   }
-  const user = verifyReqUser(req);
+  const user = await verifyReqUser(req, res);
   if (!user) {
     res.status(401).json({ success: false, error: '로그인이 필요합니다.' });
     return null;
@@ -47,7 +47,7 @@ function authorize(req, res) {
 }
 
 export default async function handler(req, res) {
-  const auth = authorize(req, res);
+  const auth = await authorize(req, res);
   if (!auth) return undefined;
   try {
     if (req.method === 'GET') return await getStatus(req, res);

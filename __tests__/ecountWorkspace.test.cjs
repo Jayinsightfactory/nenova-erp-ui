@@ -176,7 +176,7 @@ vm.createContext(context);vm.runInContext(storeSource+'\nthis.saveVersion=saveVe
   assert(sqlCalls.some(s=>s.includes('JSON_VALUE(Payload')));
   assert(!sqlCalls.some(s=>/\b(INSERT INTO|UPDATE|DELETE FROM)\s+(?:dbo\.)?(Order|Shipment|Stock|Estimate|WebEcountSnapshot|WebEcountRow)/i.test(s)));
   const api=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/workspace.js'),'utf8');
-  assert(api.includes('verifyReqUser(req)'));assert(!api.includes('withAuth('));assert(!api.includes('console.'));
+  assert(api.includes('await verifyReqUser(req,res)'));assert(!api.includes('withAuth('));assert(!api.includes('console.'));
   let verified=null,storeCalls=0,active=true;
   const apiContext={URL,policy:p,verifyReqUser:()=>verified,activeAdmin:async()=>active,installed:async()=>true,readWorkspace:async()=>{storeCalls++;return {success:true};},saveVersion:async()=>{storeCalls++;return {success:true};}};
   vm.createContext(apiContext);

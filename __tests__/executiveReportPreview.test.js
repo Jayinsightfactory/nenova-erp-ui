@@ -55,7 +55,7 @@ assert.doesNotMatch(open,/report-period|월별 조회 연도|\.xlsx/);
 assert.doesNotMatch(open,/10개 확장 보기|SAMPLE WEEKLY REPORT|23,800,000/);
 assert.doesNotMatch(open,/download=|\/api\//);
 const page=fs.readFileSync(path.resolve(__dirname,'../pages/m/executive.js'),'utf8');
-assert.match(page,/verifyReqUser\(req\)/);
+assert.match(page,/await verifyReqUser\(req,res\)/);
 assert.match(page,/private, no-store/);
 assert.match(page,/weeklyDemoMode:query.demo==='weekly'/);
 const desktopMenu=fs.readFileSync(path.resolve(__dirname,'../components/Layout.js'),'utf8');

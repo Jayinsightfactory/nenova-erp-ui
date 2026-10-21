@@ -248,11 +248,11 @@ if (process.argv[2] === '--note-child') {
     const start = authSource.indexOf('export function withAuth(handler)');
     const end = authSource.indexOf('// getServerSideProps', start);
     const auditedUsers = [];
-    const withAuth = new Function('jwt', 'getJwtSecret', 'trackApiCall', 'applyEffectiveWebAccess', 'activityHttp',
+    const withAuth = new Function('jwt', 'getJwtSecret', 'trackApiCall', 'applyEffectiveWebAccess', 'activityHttp', 'deviceSession',
       authSource.slice(start, end).replace('export function', 'function') + '\nreturn withAuth;')(
       { verify: token => { if (token !== 'fixture-valid') throw new Error('invalid'); return { userId: 'verified-user' }; } },
       () => 'test-only-fixture', () => {}, user => user,
-      { attachRequestAudit: (req, res, user) => auditedUsers.push(user.userId) });
+      { attachRequestAudit: (req, res, user) => auditedUsers.push(user.userId) }, require('../lib/rememberDeviceSession.cjs'));
     let handled = 0;
     const authenticated = withAuth(async (req, res) => { handled++; return res.status(200).json({ userId: req.user.userId }); });
     for (const [headers, expected] of [[{}, 401], [{ authorization: 'Bearer fixture-expired' }, 401],
