@@ -1,5 +1,15 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-21 과거 재고 오류와 후속 정리 조정
+
+과거 ProductStock 차이를 발견해도 재계산을 단독 실행하지 않는다. 이후 같은 품목에
+반대 방향 StockHistory 조정이 있으면 이미 과거 부풀림을 제거한 작업일 수 있다.
+독립 검산은 중복 차감 위험을 표시하며, 같은 수량만으로 조정 목적을 추정하지 않는다.
+사용자가 목적을 확인한 범위만 기존 이력 보존·정확한 반대 감사행·native CALC를 한
+트랜잭션으로 묶는다. 계획의 원천 지문, rollback rehearsal, 미래 음수, 보호 원장과
+사후 readback 검증이 없으면 적용하지 않는다. Product.Stock/출고/매출을 임의 정렬하지 않는다.
+계약 `historical-stock-repair.json`, 실행형 `historicalStockRepair.test.cjs` 참조.
+
 ## 2026-10-14 팀 공용 DB 매칭 조회·수정
 
 업로드 없이 조회하는 매칭 관리도 기존 Product GET과 팀 공용 CAS POST만 사용한다.

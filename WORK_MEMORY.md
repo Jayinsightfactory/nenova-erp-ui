@@ -745,3 +745,9 @@
 - 미검증: 전 기능 실DB 미실행(순수로직+계약검사만). 운영 실증 필요: aging 합계 vs /api/sales/ar, 거래처이익 합계 vs 보고서 총이익(diff 배지), UNREMITTED 업무정의(WebFarmRemit.Weeks 농장단위 추정), SystemActionLog ActionType 명칭, 확정차수 확정값 vs 스냅샷.
 - 남은 B군: ③입금대사 ④환차손익 ⑤송금결재선 화면연결(승인모델·ReceiptMatch 테이블은 있음).
 - 검색어: mgmt A군 여신한도 aging 단가이력 클레임코드 마감체크 거래처이익 감사뷰 PR1179 PR1180 PR1181 PR1182 PriceSnapshot 체크전머지
+
+## 2026-10-21 에콰도르 과거 재고·원가 누락 대사
+- 사용자 확인: 후속 전산오류 조정은 과거 부풀려진 재고 제거 목적. 이중 차감 방지를 위해 기존 이력 보존, 정확한 상쇄 감사행과 native CALC를 한 트랜잭션으로 처리하는 수동 도구·계약·회귀 추가.
+- 기본 SELECT only, 원천 지문·명시 범위·실제 롤백 리허설 필수. Product.Stock/주문/출고/견적/매입/확정자료 보존 검사. 미래 매입단가로 과거 원가를 만들지 않음.
+- 읽기 전용 계획 통과. 전체검사·배포·운영 적용·보고서 최종 재조회 진행 중(미검증). docs/work-sessions/2026-10-21_ecuador-stock-cost.md 참고.
+- 검색어: 에콰도르 31차 30차이월 41차전산오류 원가누락 이중차감 historicalStockRepair
