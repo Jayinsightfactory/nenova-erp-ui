@@ -632,3 +632,10 @@
 - PR1132 payload 그대로 포함한 단일 WinForms 설치 EXE 구현. requireAdministrator, 기존 경로/직접 선택, 모든 로컬 세션 실행 중 차단, SHA256 allowlist, 원본 백업/atomic 교체/실패 복원. DB 쓰기 없음.
 - 파일 교체/거부/재설치 회귀 및 UI 렌더 확인 통과. 직원 PC 및 실제 로그인 Pivot은 미검증. 전체 gate 진행 중.
 - 검색어: native-pivot-installer 관리자설치 단일EXE requireAdministrator
+## 2026-10-21 바로빌 API 세팅(테스트 서버 인증키) — lib/barobillApi.js
+검색어: 바로빌, barobill, SOAP, testws.baroservice.com, BAROBILL_CERTKEY, 134-86-94367, 세금계산서 API, 계좌조회 API, 카드조회 API, 홈택스 수집
+- 개발자센터 파트너 '네노바'(콘솔 8614) 테스트/운영 인증키 확인 → GitHub Secret(BAROBILL_ENV=test, BAROBILL_CERTKEY, BAROBILL_CERTKEY_PROD, BAROBILL_CORPNUM=1348694367)·owner PC env. deploy.yml 이 .env.local 동기화. 회원사 번호는 134-86-94367(견적서 416-81-38772 는 케이넷).
+- 의존성 없는 SOAP 클라이언트(fetch+최소 XML 파서), GET 전용 관리자 API /api/finance/barobill?action=…, 스모크 scripts/barobill-smoke.mjs, 계약 docs/contracts/barobill-api.json, 문서 docs/BAROBILL_API.md.
+- 테스트서버 실측: Ping OK·회원사 1·선불 10,000·사업자상태 영업중·계좌 0·카드 0·세금계산서 0. CheckCERTIsValid -31100(공동인증서 미등록).
+- 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
+- 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
