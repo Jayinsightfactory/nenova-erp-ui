@@ -216,3 +216,24 @@ test('preview totals are normalized first, then exclude processed ledger exactly
   { code: 'EARLY_IMPORT_AMBIGUOUS_SUFFIX' }, 'multiple same-major source buckets need explicit mapping');
 });
 
+
+test('수국 선택은 혼합 원본과 기존 카네이션 분배를 교체 범위에서 제외한다', async () => {
+  const hydrangea={...product,ProdKey:501,ProdName:'HYDRANGEA fixture',DisplayName:'수국 fixture',FlowerName:'수국',CountryFlower:'콜롬비아수국'};
+  const carnation={...product,ProdKey:502,ProdName:'CARNATION fixture',FlowerName:'카네이션',CountryFlower:'콜롬비아카네이션'};
+  const queryFn=async(text,params={})=>{
+    assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
+    if(params.weekKey)return{recordset:[]};
+    if(/FROM Product\s+WHERE/.test(text))return{recordset:[hydrangea,carnation]};
+    if(/FROM Customer\s+WHERE/.test(text))return{recordset:[customer]};
+    assert.equal(params.importYear.value,'2026');assert.equal(params.week.value,'43-01');
+    if(/AS yr, COUNT/.test(text))return{recordset:[{yr:'2025',detailCount:1}]};
+    return{recordset:/NOT EXISTS/.test(text)?[]:[{CustKey:533,ProdKey:501,orderQty:5,currentOutQty:3},{CustKey:533,ProdKey:502,orderQty:20,currentOutQty:20}]};
+  };
+  const sourceRows=[{week:'43-01',customerLabel:customer.CustName,prodKey:501,productFamily:'hydrangea',uploadQty:5,outUnit:'박스',sheetName:'혼합',rowNo:4,colNo:2},
+    {week:'43-01',customerLabel:customer.CustName,prodKey:502,productFamily:'carnation',uploadQty:0,outUnit:'박스',sheetName:'혼합',rowNo:5,colNo:2,hasFinalDistributionDirective:true}];
+  const result=await buildImportPreview({parsedRows:sourceRows,rawWeek:'43-01',rawYear:'2026',requestedProductFamily:'hydrangea',queryFn});
+  assert.deepEqual(result.rows.map(r=>r.prodKey),[501]);
+  assert.deepEqual(result.replacementCategories,['콜롬비아수국']);
+  assert.equal(result.rows[0].uploadQty,5);
+  assert.match(result.logs.join(' '),/선택 품종 밖 원본 1행 제외/);
+});

@@ -500,3 +500,6 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 
 ## 2026-10-21 44-01 헤더 전용 보정 근거
 실제 설치본의 GetShipmentMaster는 OrderYear+OrderWeek+CustKey SELECT만 하며 삭제 필터/정렬이 없다. FormOrderAdd.btnSave_Click는 빈 헤더를 먼저 준비한다. 삭제 포함 헤더0인 승인된10업체에 ShipmentMaster만 추가하고 키번호를 동기화했다. 14보호영역의 전후·commit후 hash 동일, native lookup10/10, 추가분배0. 상세 생성값·주의점·증거는 [출고 연결 헤더 계약](../knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md). EXE GUI 직접 조작은 미검증.
+
+## 2026-10-21 주광 원본 요일 업로드와 분배 시트 범위
+설치 Nenova.exe FormShipmentDistribution을 dnSpy CLI로 다시 실행해 btnSave_Click의 ShipmentDetail → ShipmentDate 수량/단가/날짜 저장을 확인했다. ClassShipmentDate.Insert의 날짜·출고량·견적량·금액 분리는 앞선 실제 CLI 근거와 같다. 신규 업로드는 기존 ALLOCATION writer를 쓰되 활성 주문필수, 기존분배 동일만 no-op, 다른분배/확정헤더 신규 차단, 자동확정 없음으로 제한한다. 원본빈칸/0은 요청하지 않고 합계열·선출고·사용요일을 입력수량에 합산하지 않는다. SQL SELECT:2026/44-01/533 주문48행·상세0,2025동일차수 주문93행·확정상세89행. 배포 중 운영의43-01에 새로운 일요일분배38행이 생긴 것을 확인하여 읽기 시점 고정과 저장 직전 재검증을 유지한다. 전년도·주문·재고·견적 보존은 scripts/test-jugwang-upload-sql.cjs에서 격리 SQL로 검증한다. 실제 EXE GUI는 미검증.
