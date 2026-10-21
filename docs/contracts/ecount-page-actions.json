@@ -15,7 +15,10 @@
     "components/ecount/InventoryKindLookup.js",
     "components/ecount/UnpostedSalesPageControls.js",
     "lib/ecountDailyReport.cjs",
-    "components/ecount/InventoryDailyAllResults.js"
+    "components/ecount/InventoryDailyAllResults.js",
+    "lib/ecountPresetSurvey.cjs",
+    "components/ecount/ObservedPageControls.js",
+    "data/ecount-workbench/evidence/2026-10-21-source-survey.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -43,7 +46,8 @@
     "__tests__/ecountPageActions.test.cjs",
     "__tests__/ecountExcelExport.test.cjs",
     "__tests__/ecountPrintPreview.test.cjs",
-    "__tests__/ecountDailyReport.test.cjs"
+    "__tests__/ecountDailyReport.test.cjs",
+    "__tests__/ecountPresetButtons.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -52,7 +56,9 @@
     "methods": [
       "filterSortRows",
       "buildExportModel",
-      "datePreset"
+      "datePreset",
+      "presetIdForLabel",
+      "enabledPresetLabels"
     ],
     "tables": [
       "All ERP/source/workspace tables preserve"
@@ -71,7 +77,8 @@
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build",
-    "node __tests__/ecountDailyReport.test.cjs"
+    "node __tests__/ecountDailyReport.test.cjs",
+    "node --test __tests__/ecountPresetButtons.test.cjs"
   ],
   "criteria": {
     "stockSnapshotQuery": "selectStockSnapshot은 단일기준일이 version.periodFrom/periodTo 모두와 일치할때만 available. 다른날짜/버전없음은미수집,0건조회로해석금지. 행날짜생성/시점추정없음.",
@@ -91,13 +98,14 @@
       "F8": "run-search"
     },
     "reset": "UI가 전달한 초기 검색조건으로 복원; 원본 기본값을 추정하지 않음",
-    "datePreset": "연/월/일은 명시 ISO 기준일; 주 시작요일은 호출자가 관찰근거에 따라 명시. E040207 금주(~오늘)는 2026-10-20 관찰에서 2026-10-18~2026-10-20로 설정되어 일요일 시작과 결과 자동조회 전환 확인. 다른 프로그램·preset에는 일반화하지 않음. 종료일 동작 미확정으로 미지원",
+    "datePreset": "연/월/일은 명시 ISO 기준일; 주 시작요일은 호출자가 관찰근거에 따라 명시(2026-10-21 조사: 일요일). 2026-10-21(화) 33화면 조사 관측값: 금일/전일/금주(~오늘)/전주/금월(~오늘)/전월/전월+금월, 말일=당월 말일, 이번기수=당해 01-01~오늘(관측값, 회계기수=역년 가정 아님), 직전분기, 직전반기, 금년, 전년, 직전기수=전년 01-01~12-31(관측값), 종료일=현재 종료일을 시작일에도 복사(copyEndDate, options.currentTo 필수, 순서 의존 확인). 미관측 24개 명칭은 계속 UNVERIFIED_PRESET 거부. 연말연초·윤년 fixture 필수.",
     "unknownDates": "날짜필터가 활성화되면 미상일자/월계 제외 개수를 별도 반환; 기간귀속 추정 안함",
     "exactDecimals": "소수점 이하8자리, 정수24자리까지 BigInt 정렬/범위필터; 부동소수 변환 금지",
     "export": "안전투영 필드만; 계좌/거래처/품목/메모 등의 열은 값 공백; CSV formula injection 방지; 원본 Excel/인쇄 양식 동등성 미검증",
     "excelDownload": "Excel/Excel(화면)/Excel(표시형식)/Excel(데이터) 버튼은 lib/ecountExcelExport.cjs로 현재 표의 buildExportModel 안전투영 행만 브라우저 내 xlsx(시트 데이터+안내)로 내려받음; 숫자 문자열만 숫자 셀, 빈값은 빈 셀, 파일명 <화면명>_<YYYYMMDD>.xlsx. dataState!=='loaded' 또는 0행이면 비활성+사유 유지, data-ecount-action-id는 기존 actionId 값 그대로. 일계표 전체(dayAll) 다중 표와 매핑 선택창 Excel은 미지원 placeholder 유지. 새 API 라우트·ECOUNT/ERP 원장 읽기·쓰기 없음. 원본 ECOUNT 엑셀과 열·서식 동일성 미검증.",
     "printPreview": "E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열/수금·지급4열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
-    "writes": "없음"
+    "writes": "없음",
+    "presetButtons": "data/ecount-workbench/evidence/2026-10-21-source-survey.json 의 program 별 presets 라벨(묶음 미표시 화면은 order 실험 라벨)만 lib/ecountPresetSurvey.cjs 가 활성 목록으로 제공하고 presetIdForLabel 로 매핑되는 라벨만 실제 버튼(onPreset(label)), 나머지는 ObservedButton 자리표시. data-ecount-action-id 는 기존 actionId(dataset,label,context) 값 그대로(ar 은 unknown 과 같은 id 를 '검색 패널' 문맥에 중복 등록, ap 프리셋은 조사 적재 규칙과 같은 E040309-A12~A18 신규). 단일 기준일 화면(stock/whStock/stkBalance/bomStock/relStock)은 from=to, 기준일(영업주기) 화면(unsold/unbought/unpSale)은 to 만 변경. 자료에 일자가 없는 ar/ap/discount/buyDisc/unsold/unbought/orderQuery 는 날짜만 표시하고 조회 미실행 + 안내문 '조회 자료에 일자가 없어 기간 조건은 표시만 적용됩니다'. 다시 작성은 resetSearch(검색 패널 초기 조건) 로 복원만, 조회 미실행. 새 버튼은 ar/ap 기간 입력·프리셋뿐이며 ACTION_IDS 에 없는 라벨(sales 금일 등, buyStatus 금일 외)은 추가하지 않음. 원본 조회 결과 동일성 미검증, ECOUNT·ERP 원장 쓰기 없음."
   },
   "criteriaLedger": {
     "stockMovementModes": "E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."
