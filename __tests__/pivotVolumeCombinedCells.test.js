@@ -89,13 +89,14 @@ async function main() {
     const alstro = context.generate([{...row(1,amount), flower:'알스트로',prodName:'ALSTROMERIA Lavender'}], args[1], [],
       {flower:'알스트로',weekLabel:'41-01'}).ws;
     assert.equal(alstro.B4.v, amount, 'new file stores ERP quantity without loss');
-    assert.equal(XLSX.SSF.format(alstro.B4.z, amount), `${amount}(${amount/16})`);
+    assert.equal(alstro.C4.v, `(${amount/16})`);
+    assert.equal(alstro.C4.f, 'IF(B4="","","("&ROUND(B4/16,4)&")")');
     assert.equal(alstro.A2.v, '알스트로 ERP 수량 (÷16 참고)');
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, alstro, '알스트로');
     const back = XLSX.read(XLSX.write(wb, {type:'buffer',bookType:'xlsx'}), {type:'buffer',cellNF:true});
     assert.equal(back.Sheets['알스트로'].B4.v, amount);
-    assert.equal(back.Sheets['알스트로'].B4.w, `${amount}(${amount/16})`);
+    assert.equal(back.Sheets['알스트로'].C4.v, `(${amount/16})`);
   }
   const page = fs.readFileSync(path.join(__dirname, '../pages/shipment/distribute-import.js'), 'utf8');
   const formatter = page.slice(page.indexOf('const fmt ='), page.indexOf('const qtyWarningText'));

@@ -2,6 +2,7 @@
   "id": "pivot-stats",
   "title": "피벗 통계 품목 필터 검색 계약",
   "scope": [
+    "__tests__/pivotVolumeAlstroPairs.test.js",
     "lib/pivotArrivalFx.js",
     "components/PivotArrivalFxControls.js",
     "lib/pivotArrivalLedger.js",
@@ -36,6 +37,12 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "ALSTRO_EDITABLE_QUANTITY_BOX_PAIRS",
+      "description": "알스트로 수량은 숫자 입력칸으로 보존하고 바로 오른쪽 박스(자동) 텍스트 수식은 수량/16을 소수4자리로 표시한다. 두 열의 내부 테두리를 없애고 모든 빈칸·합계에도 수식을 제공한다. 업체 두 열 전체를 복사해 주문 요약 앞에 삽입하면 INDEX/COLUMN 기반 행 합계가 확장된다. 업로드는 박스(자동) 열을 무시하며 이름 변경은 기존 label 키맵/업체 매칭 검증, 빈 수량은 기존 최종분배0 계약을 따른다. ERP 쓰기/매칭 정책 변경 없음.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "PIVOT_VOLUME_MANUAL_STOCK_REMAINING_FORMULA",
       "description": "다운로드 물량표의 재고는 수기 입력용 공란을 유지한다. 잔량은 같은 행의 입고-주문(기존 출고 수량 원천)+재고 SUM 수식이며 공란 재고는 0으로 계산한다. 최초 캐시는 표시 입고-주문을 사용하고 curStock 스냅샷은 사용하지 않는다. 잔량 합계는 캐시 0인 경우에도 상세행 SUM 수식을 유지한다. 음수·소수 수기 재고를 허용하며 기존 국가별 레이아웃·헤더·수량 원천·ERP 원장은 보존한다.",
       "orderDetail": "preserve",
@@ -43,7 +50,7 @@
     },
     {
       "name": "CHINA_CLIENT_HEADER_ALSTRO_DISPLAY",
-      "description": "중국은 업체명 다음 독립 CL 행을 생성하고 재업로드에서 명시적 헤더 행을 제외한다. 알스트로는 원수량(원수량/16) 표시. 새 파일은 실제 ERP 숫자값과 A2 명시 단위 표식을 저장하여 재업로드 환산을 생략한다. 표식 없는 구형 파일은 기존 16배 환산을 보존한다. 괄호는 다운로드 시점 참고값이다.",
+      "description": "중국은 업체명 다음 독립 CL 행을 생성하고 재업로드에서 명시적 헤더 행을 제외한다. 알스트로는 원수량 옆 자동 박스 수식으로 원수량(원수량/16) 표시. 새 파일은 실제 ERP 숫자값과 A2 명시 단위 표식을 저장하여 재업로드 환산을 생략한다. 표식 없는 구형 파일은 기존 16배 환산을 보존한다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     },
@@ -107,6 +114,7 @@
     "description": "같은 품목명·차수명이 여러 연도에 있어도 별칭 검색은 현재 조회된 피벗 rows의 canonical 품목 옵션만 필터링하고 다른 연도 원장을 조회·수정하지 않는다."
   },
   "requiredTestFiles": [
+    "__tests__/pivotVolumeAlstroPairs.test.js",
     "__tests__/pivotArrivalFx.test.js",
     "__tests__/pivotArrivalReference.test.js",
     "__tests__/pivotLinkedFilters.test.js",

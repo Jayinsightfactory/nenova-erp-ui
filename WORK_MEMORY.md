@@ -716,3 +716,8 @@
 - 2026/44-01 ShipmentMaster10건(7069~7078) 추가, KeyNumbering 동기화. 14개 보호 영역 행 수·SHA256 동일. 주문/출고상세/재고/견적/매출 변경 없음. EXE SQL조회10/10, EXE GUI 미검증.
 - docs/knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md를 AGENTS.md 필수 참조로 연결. 세션 인계 docs/session-backups/2026-10-21_upload-header-repair.md. 직원 최초 정지원인은 미확정.
 - 검색어: EXE 연결헤더 ShipmentMaster dnSpy GetShipmentMaster 44-01 10업체 7069 7078 주문수량보존
+
+## 2026-10-21 알스트로 물량표 자동 박스·합계
+- 입력 수량 옆 박스(자동) 수식열, 내부 테두리 제거. 업체 두 열 전체 복사삽입을 INDEX/COLUMN 합계로 지원. 빈칸·업체명 변경·새 열 삽입 후 업로드는 숫자 수량만 판독.
+- 실제 Excel 수량변경/삭제/빈칸입력/두열삽입/합계 및 XLSX 재업로드 검사 통과. DB/저장정책 변경 없음. 전체검사·배포 진행 중(미검증).
+- 검색어: 알스트로 박스자동 두열복사 수량삭제 합계 INDEX COLUMN 분배업로드
