@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
+  await require('./historicalStockRepair.test.cjs');
   const { auditStockRange, independentProfitMath, auditReportAgainstStock, roundQty, finite, auditUnitFactor } = await import('../lib/profitIndependentAudit.mjs');
   const product = {ProdKey:1,ProdName:'합성 알스트로',Category:'알스트로',OutUnit:'단',EstUnit:'단',Stockable:1,isDeleted:0};
   const fixture = () => ({products:[product],masters:[
