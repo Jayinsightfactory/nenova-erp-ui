@@ -639,3 +639,13 @@
 - 테스트서버 실측: Ping OK·회원사 1·선불 10,000·사업자상태 영업중·계좌 0·카드 0·세금계산서 0. CheckCERTIsValid -31100(공동인증서 미등록).
 - 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
 - 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
+
+## 2026-10-21 ECOUNT 이관 재개 1차 — PR1161 운영회귀 닫기 · 33화면 대상 DOM 증거 · ACTION_IDS 누락 11화면 수정
+- 재개 기준: docs/session-backups/2026-10-21_ecount-status-and-replan.md + resume-inventory.json(이 브랜치에 복사). 코덱스 앞선 3커밋(dayAll 미관측 날짜 미수집)은 master 9a8e55a7(#1161)에 동일 포함 확인(파일 diff 동일).
+- PR1161 운영회귀: 서비스 토큰 API dayAll 2026-10-20 → 200/2,217행/34구역/revision1 PASS, 10-19·10-21 → 400 INVALID_COVERAGE_SCOPE(설계상 정상). 브라우저(사장님 크롬, 네노바웹 미로그인): 10-19·금일 검색 시 53표 전부 '미수집', alert 0, 서버 요청 0 PASS. 10-20 표 렌더는 401로 미검증. 증거 data/ecount-workbench/evidence/2026-10-21-pr1161-daily-regression.json.
+- 대상 DOM 크롤러 scripts/ecount-dom-crawl.cjs(puppeteer-core+시스템 크롬, 미로그인 셸, 메뉴 해시→F3→활성 버튼 클릭→data-ecount-action-id 스냅샷, lookup 창 페이지 포함, window.open 스텁, 재실행 시 union). 운영(baf6d3df) 698개, 로컬(수정 트리) 977개/1,019. 병합 scripts/ecount-merge-dom-evidence.cjs → button-matches.json target.actualStableId/domState/verificationScope, 라벨 일치 888. 미재현 정적 주장은 자동 철회(이번 최종 0건; 중간 실행에서 7건 철회 후 로컬 재현으로 복구).
+- 결함 수정: ObservedPageControls ACTION_IDS에 receipt/payment/poQuery/buyStatus/discount/buyDisc/quoteStat/orderQuery/saleQuery/unsold/unbought 11 데이터셋 맵이 없어 해당 11화면(약 280버튼)이 ID 없이 렌더되던 문제 → 소스 라벨·문맥 그대로 생성해 추가. 회귀검사 __tests__/ecountActionIdCoverage.test.cjs(27 데이터셋 전수 커버리지·중복/타프로그램 금지).
+- 1단계 분류표 docs/ecount-migration/step1-closure-2026-10-21.md: 1,019버튼 = 구현(활성) 212 / 미구현(비활성 자리표시) 708 / 미관측(대상 컨트롤 없음) 42 / API설계전용 57. 기능·새창·조회값 비교는 전부 미검증(검증대기 1,019). 어떤 화면도 100% 아님.
+- 차단: ECOUNT 원본 관측은 크롬 ECOUNT 세션이 로그인 페이지로 튕겨 불가(사장님 로그인 요청 전달). 로그인 후 33화면 기간 프리셋/새창 원본 관측 → 708 자리표시 중 datePreset 가능 항목부터 활성화 예정.
+- ERP 원장·ECOUNT 쓰기 없음. test:erp-contract 통과(수정 트리), manifest·write guard 통과, build/CI는 PR에서 확인.
+- 검색어: ECOUNT 재개 ACTION_IDS 누락 11데이터셋 ecount-dom-crawl 977/1019 step1-closure 미관측42 PR1161 2217 INVALID_COVERAGE_SCOPE ECOUNT로그인차단

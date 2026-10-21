@@ -1,0 +1,16 @@
+{
+ "id": "PR1161-DAILY-REGRESSION-20261021",
+ "program": "E040708",
+ "menuId": "MENUTREE_000218",
+ "deploy": {"pr": 1161, "squash": "9a8e55a7", "run": 39425906270, "liveHead": "baf6d3df"},
+ "observedOn": "2026-10-21",
+ "checks": [
+  {"kind": "api", "dataset": "dayAll", "criteria": "DAILY_ALL_PROFILE 2026-10-20~2026-10-20, 34 kinds, relationship aggregation", "auth": "service token (NENOVAWEB_TOKEN, 사장님 대행)", "status": 200, "rows": 2217, "coverageSections": 34, "revision": 1, "result": "PASS"},
+  {"kind": "api", "dataset": "dayAll", "criteria": "same profile 2026-10-19", "status": 400, "error": "INVALID_COVERAGE_SCOPE", "result": "PASS (server strict rejection is the designed behaviour)"},
+  {"kind": "api", "dataset": "dayAll", "criteria": "same profile 2026-10-21", "status": 400, "error": "INVALID_COVERAGE_SCOPE", "result": "PASS"},
+  {"kind": "browser", "browser": "Claude in Chrome (owner profile, not logged into nenovaweb)", "criteria": "34 kinds selected, 2026-10-19~2026-10-19, 검색(F8)", "observed": "53 tables rendered, 53 x '작업 자료가 아직 수집되지 않았습니다', 0 alerts, no /api/ecount/workspace request issued", "result": "PASS (other date shown as 미수집, not error)"},
+  {"kind": "browser", "criteria": "34 kinds, 금일(2026-10-21)", "observed": "34 sections all 미수집, no request issued", "result": "PASS"},
+  {"kind": "browser", "criteria": "34 kinds, 2026-10-20", "observed": "request issued, HTTP 401 LOGIN_REQUIRED because the owner's Chrome session is not logged into nenovaweb; table rendering of the 2217 rows could not be observed in the browser", "result": "미검증 (browser login unavailable; API PASS above covers data)"}
+ ],
+ "privacy": {"rawBusinessValues": false, "personalData": false, "accountValues": false, "credentials": false, "sessionUrls": false}
+}

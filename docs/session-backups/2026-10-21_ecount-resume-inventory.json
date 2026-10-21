@@ -1,0 +1,5994 @@
+{
+ "asOf": "2026-10-21",
+ "purpose": "Evidence-based resume inventory, not completion claims",
+ "totals": {
+  "programs": 373,
+  "aliases": 430,
+  "packets": 59,
+  "observedPrograms": 33,
+  "noButtonInventoryPrograms": 340,
+  "observedActionIds": 1019,
+  "fullyVerifiedPrograms": 0,
+  "fullyVerifiedPackets": 0
+ },
+ "legacyStageCounts": {
+  "partially-implemented": 3,
+  "implementing": 2,
+  "queued": 48,
+  "awaiting-evidence": 3,
+  "partially-observed": 3
+ },
+ "lastRelease": {
+  "pr": 1161,
+  "deployRun": 39425906270,
+  "deploy": "success",
+  "runtime": "unverified"
+ },
+ "packets": [
+  {
+   "id": "P001",
+   "group": "MyPage / journal",
+   "programs": [
+    "E010701"
+   ],
+   "legacyStage": "partially-implemented"
+  },
+  {
+   "id": "P002",
+   "group": "MyPage / bank",
+   "programs": [
+    "E010205"
+   ],
+   "legacyStage": "implementing"
+  },
+  {
+   "id": "P003",
+   "group": "MyPage / settlement",
+   "programs": [
+    "E040214",
+    "E040723"
+   ],
+   "legacyStage": "implementing"
+  },
+  {
+   "id": "P004",
+   "group": "MyPage / trade",
+   "programs": [
+    "E040304",
+    "E040303",
+    "E040202",
+    "E040201"
+   ],
+   "legacyStage": "partially-implemented"
+  },
+  {
+   "id": "P005",
+   "group": "Self-Customizing / settings",
+   "programs": [
+    "E000106",
+    "E000113",
+    "E000114",
+    "P000054",
+    "E000125",
+    "E000107",
+    "E000115",
+    "E000131",
+    "E000143",
+    "C000113"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P006",
+   "group": "Self-Customizing / settings",
+   "programs": [
+    "C001124",
+    "C001122",
+    "E000109",
+    "E000126",
+    "E000127",
+    "E000137",
+    "E000138",
+    "E000161",
+    "E000160",
+    "C001138"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P007",
+   "group": "Self-Customizing / settings",
+   "programs": [
+    "E000117",
+    "E000132",
+    "E000140",
+    "M000009",
+    "E000129",
+    "E000139"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P008",
+   "group": "재고 I / master",
+   "programs": [
+    "E010101",
+    "E040102",
+    "E010105",
+    "E010112",
+    "E040103",
+    "E040104",
+    "E010110",
+    "E040111",
+    "E040113"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P009",
+   "group": "재고 I / pricing",
+   "programs": [
+    "E040126",
+    "E040125",
+    "E040124",
+    "E040120",
+    "E040122",
+    "E040114",
+    "E040224",
+    "E040311",
+    "E040819"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P010",
+   "group": "재고 I / trade",
+   "programs": [
+    "E040208",
+    "E040211",
+    "E040204",
+    "E040203",
+    "E040209",
+    "E040230",
+    "E040212",
+    "E040206",
+    "E040205",
+    "E040253"
+   ],
+   "legacyStage": "awaiting-evidence"
+  },
+  {
+   "id": "P011",
+   "group": "재고 I / trade",
+   "programs": [
+    "E040207",
+    "E040216",
+    "E040609",
+    "E040210",
+    "E040254",
+    "E040255",
+    "E040215",
+    "E040302",
+    "E040301",
+    "E040306"
+   ],
+   "legacyStage": "partially-implemented"
+  },
+  {
+   "id": "P012",
+   "group": "재고 I / trade",
+   "programs": [
+    "E040307",
+    "E040305",
+    "E040313",
+    "E040319",
+    "E040312",
+    "E040730",
+    "E040222",
+    "E040227",
+    "E040228",
+    "E040318"
+   ],
+   "legacyStage": "awaiting-evidence"
+  },
+  {
+   "id": "P013",
+   "group": "재고 I / trade",
+   "programs": [
+    "E040806",
+    "E010833",
+    "E010842",
+    "E040725",
+    "E040710",
+    "E040704",
+    "E040627",
+    "E040633",
+    "E040709",
+    "E040716"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P014",
+   "group": "재고 I / trade",
+   "programs": [
+    "C000097"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P015",
+   "group": "재고 I / settlement",
+   "programs": [
+    "E040217",
+    "E040310",
+    "E040309",
+    "E040721",
+    "E040713",
+    "E040722",
+    "E040724",
+    "E040714",
+    "E040703"
+   ],
+   "legacyStage": "awaiting-evidence"
+  },
+  {
+   "id": "P016",
+   "group": "재고 I / tax",
+   "programs": [
+    "E040218",
+    "E040223",
+    "E040219",
+    "E040320"
+   ],
+   "legacyStage": "partially-observed"
+  },
+  {
+   "id": "P017",
+   "group": "재고 I / inventory",
+   "programs": [
+    "E040502",
+    "E040501",
+    "E040505",
+    "E040504",
+    "E040503",
+    "E040506",
+    "E040508",
+    "E040507",
+    "E040509",
+    "E040510"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P018",
+   "group": "재고 I / inventory",
+   "programs": [
+    "E040511",
+    "E040512",
+    "E040650",
+    "E040613",
+    "E040614",
+    "E040615",
+    "E040608",
+    "E040701",
+    "E040711",
+    "E040728"
+   ],
+   "legacyStage": "partially-observed"
+  },
+  {
+   "id": "P019",
+   "group": "재고 I / inventory",
+   "programs": [
+    "E040720",
+    "E040726",
+    "E040727",
+    "E040702",
+    "E040719",
+    "E040708",
+    "E040807",
+    "E040607"
+   ],
+   "legacyStage": "partially-observed"
+  },
+  {
+   "id": "P020",
+   "group": "재고 I / communication",
+   "programs": [
+    "E010851",
+    "E010858"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P021",
+   "group": "재고 I / budget",
+   "programs": [
+    "E041015"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P022",
+   "group": "재고 I / service",
+   "programs": [
+    "E040413",
+    "E040414",
+    "E040409",
+    "E040436",
+    "E040432",
+    "E040410",
+    "E040415"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P023",
+   "group": "재고 II / service",
+   "programs": [
+    "E040601",
+    "E040602",
+    "E040610",
+    "E040605",
+    "E040606",
+    "E040611",
+    "E040641"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P024",
+   "group": "재고 II / master",
+   "programs": [
+    "E040617",
+    "E040618",
+    "E040639"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P025",
+   "group": "재고 II / inventory",
+   "programs": [
+    "E040634",
+    "E040620",
+    "E040619",
+    "E041018"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P026",
+   "group": "재고 II / budget",
+   "programs": [
+    "E040624",
+    "E040625",
+    "E040640",
+    "E040626",
+    "E040636",
+    "E040637"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P027",
+   "group": "재고 II / cost",
+   "programs": [
+    "E040802",
+    "E040808",
+    "E040804",
+    "E040809",
+    "E040805"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P028",
+   "group": "회계 I / master",
+   "programs": [
+    "E010103",
+    "E010106",
+    "E010109",
+    "E010114",
+    "E010118",
+    "E010107",
+    "E010111"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P029",
+   "group": "회계 I / bank",
+   "programs": [
+    "E010104",
+    "E010206",
+    "E010215",
+    "E010207",
+    "E061001",
+    "E061003",
+    "E061002",
+    "E010805",
+    "E010834"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P030",
+   "group": "회계 I / journal",
+   "programs": [
+    "E010201",
+    "E010408",
+    "E010403",
+    "E010505",
+    "E010213",
+    "E010209",
+    "E010210",
+    "E010212",
+    "E010301",
+    "E010303"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P031",
+   "group": "회계 I / journal",
+   "programs": [
+    "E010847",
+    "E010702",
+    "E010710",
+    "E010711",
+    "E010714",
+    "E010830",
+    "E010804",
+    "E010815",
+    "E010819",
+    "E010821"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P032",
+   "group": "회계 I / journal",
+   "programs": [
+    "E010843",
+    "E010838",
+    "E010839",
+    "E010835",
+    "E010836",
+    "E010840",
+    "E010850",
+    "E010807",
+    "E010808",
+    "E010809"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P033",
+   "group": "회계 I / journal",
+   "programs": [
+    "E010856",
+    "E010857",
+    "E010806",
+    "E010802",
+    "E010801",
+    "E010803",
+    "E010831",
+    "E010829",
+    "E010813",
+    "E010812"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P034",
+   "group": "회계 I / journal",
+   "programs": [
+    "E010844",
+    "E010811",
+    "E010861",
+    "E010817",
+    "E010832",
+    "E010730",
+    "E010712",
+    "E010705",
+    "C000053"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P035",
+   "group": "회계 I / inventory",
+   "programs": [
+    "E010211"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P036",
+   "group": "회계 I / tax",
+   "programs": [
+    "E010849",
+    "E010723",
+    "E010726",
+    "E030206",
+    "E010729",
+    "E010732",
+    "E010727",
+    "E010845",
+    "E010716",
+    "E010846"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P037",
+   "group": "회계 I / asset",
+   "programs": [
+    "E010610",
+    "E010611",
+    "E010612",
+    "E010619",
+    "E010613",
+    "E010614",
+    "E010615",
+    "E010617",
+    "E010618",
+    "E010616"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P038",
+   "group": "회계 I / cost",
+   "programs": [
+    "E010824",
+    "E010816"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P039",
+   "group": "회계 I / settlement",
+   "programs": [
+    "E010822",
+    "E010823"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P040",
+   "group": "회계 II / settlement",
+   "programs": [
+    "E060403",
+    "E060402",
+    "E060405",
+    "E060406",
+    "E060407",
+    "E060404",
+    "N000007",
+    "N000045",
+    "N000008",
+    "E060408"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P041",
+   "group": "회계 II / settlement",
+   "programs": [
+    "E060503",
+    "E060502",
+    "E060505",
+    "E060506",
+    "E060507",
+    "E060504",
+    "N000012",
+    "N000046",
+    "N000013",
+    "E060508"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P042",
+   "group": "회계 II / settlement",
+   "programs": [
+    "E060602",
+    "E060603",
+    "E060613",
+    "E060604",
+    "E060609",
+    "E060610",
+    "E060606",
+    "E060607",
+    "E060614",
+    "E060608"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P043",
+   "group": "회계 II / settlement",
+   "programs": [
+    "E060611",
+    "E060612"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P044",
+   "group": "회계 II / budget",
+   "programs": [
+    "E020511",
+    "E020523",
+    "E020520",
+    "E020521",
+    "E020522",
+    "E020201",
+    "E020202",
+    "E020203",
+    "E020204",
+    "E020205"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P045",
+   "group": "회계 II / budget",
+   "programs": [
+    "E020206"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P046",
+   "group": "회계 II / cost",
+   "programs": [
+    "E060201",
+    "E060210",
+    "E060204",
+    "E060203",
+    "E060205",
+    "E060206",
+    "E060207",
+    "E060208",
+    "E060209",
+    "E060808"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P047",
+   "group": "회계 II / cost",
+   "programs": [
+    "E060809",
+    "E060810",
+    "E060811",
+    "E060812",
+    "E060813",
+    "E060814",
+    "E060815"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P048",
+   "group": "회계 II / tax",
+   "programs": [
+    "E060202",
+    "E060910"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P049",
+   "group": "회계 II / contract",
+   "programs": [
+    "E060901",
+    "E060902",
+    "E060903",
+    "E060912",
+    "E060905",
+    "E060907",
+    "E060909",
+    "E060906",
+    "E060908",
+    "E061101"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P050",
+   "group": "회계 II / contract",
+   "programs": [
+    "E061102"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P051",
+   "group": "회계 II / pricing",
+   "programs": [
+    "E060904"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P052",
+   "group": "관리 / personnel",
+   "programs": [
+    "E090101",
+    "E020603",
+    "E020602",
+    "E020721",
+    "E020720",
+    "E020606",
+    "E020609",
+    "E090222",
+    "E090220"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P053",
+   "group": "관리 / payroll",
+   "programs": [
+    "E090103",
+    "E090114",
+    "E090104",
+    "E090106",
+    "E090110",
+    "E090115",
+    "E090116"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P054",
+   "group": "관리 / master",
+   "programs": [
+    "E090102"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P055",
+   "group": "관리 / bank",
+   "programs": [
+    "E090117"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P056",
+   "group": "관리 / trade",
+   "programs": [
+    "N000732",
+    "N001769",
+    "N001770",
+    "N001771",
+    "N001768"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P057",
+   "group": "관리 / attendance",
+   "programs": [
+    "E020701",
+    "E020702",
+    "E020703",
+    "E020710",
+    "E020711",
+    "E020715",
+    "E020724",
+    "E020725",
+    "E020726",
+    "E020722"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P058",
+   "group": "관리 / attendance",
+   "programs": [
+    "E020723",
+    "E020728",
+    "E020716",
+    "E020719"
+   ],
+   "legacyStage": "queued"
+  },
+  {
+   "id": "P059",
+   "group": "그룹웨어 / communication",
+   "programs": [
+    "E072501",
+    "E200062",
+    "E070201"
+   ],
+   "legacyStage": "queued"
+  }
+ ],
+ "pages": [
+  {
+   "program": "E010701",
+   "title": "회계거래조회",
+   "menuAliases": [
+    "MPMU00000400001",
+    "MENUTREE_000098"
+   ],
+   "observedActionIds": [
+    "E010701-A01",
+    "E010701-A02",
+    "E010701-A03",
+    "E010701-A04",
+    "E010701-A05",
+    "E010701-A06",
+    "E010701-A07",
+    "E010701-A08",
+    "E010701-A09",
+    "E010701-A10",
+    "E010701-A11",
+    "E010701-A12",
+    "E010701-A13",
+    "E010701-A14",
+    "E010701-A15",
+    "E010701-A16",
+    "E010701-A17",
+    "E010701-A18",
+    "E010701-A19",
+    "E010701-A20",
+    "E010701-A21",
+    "E010701-A22",
+    "E010701-A23",
+    "E010701-A24",
+    "E010701-A25",
+    "E010701-A26",
+    "E010701-A27",
+    "E010701-A28",
+    "E010701-A29"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 22 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 29,
+    "implemented": 4,
+    "placeholder": 22,
+    "missing": 0,
+    "externalApiDesignOnly": 3,
+    "labelMatched": 27,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E010205",
+   "title": "입/출금계좌 조회",
+   "menuAliases": [
+    "MPMU00000400002",
+    "MENUTREE_002563"
+   ],
+   "observedActionIds": [
+    "E010205-A01",
+    "E010205-A02",
+    "E010205-A03",
+    "E010205-A04",
+    "E010205-A05",
+    "E010205-A06",
+    "E010205-A07",
+    "E010205-A08",
+    "E010205-A09",
+    "E010205-A10",
+    "E010205-A11",
+    "E010205-A12",
+    "E010205-A13",
+    "E010205-A14",
+    "E010205-A15",
+    "E010205-A16",
+    "E010205-A17",
+    "E010205-A18",
+    "E010205-A19",
+    "E010205-A20",
+    "E010205-A21",
+    "E010205-A22",
+    "E010205-A23",
+    "E010205-A24"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 5 missing target controls; observe source behaviour for 9 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 24,
+    "implemented": 5,
+    "placeholder": 9,
+    "missing": 5,
+    "externalApiDesignOnly": 5,
+    "labelMatched": 19,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040214",
+   "title": "거래처별채권",
+   "menuAliases": [
+    "MPMU00000400003",
+    "MENUTREE_000500",
+    "MENUTREE_000579"
+   ],
+   "observedActionIds": [
+    "E040214-A01",
+    "E040214-A02",
+    "E040214-A03",
+    "E040214-A04",
+    "E040214-A05",
+    "E040214-A06",
+    "E040214-A07",
+    "E040214-A08",
+    "E040214-A09",
+    "E040214-A10",
+    "E040214-A11",
+    "E040214-A12",
+    "E040214-A13",
+    "E040214-A14",
+    "E040214-A15"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 9 missing target controls; observe source behaviour for 4 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 15,
+    "implemented": 2,
+    "placeholder": 4,
+    "missing": 9,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 6,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040723",
+   "title": "거래처관리대장1(채권)",
+   "menuAliases": [
+    "MPMU00000400004",
+    "MENUTREE_001903"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040304",
+   "title": "구매조회",
+   "menuAliases": [
+    "MPMU00000400005",
+    "MENUTREE_000511"
+   ],
+   "observedActionIds": [
+    "E040304-A01",
+    "E040304-A02",
+    "E040304-A03",
+    "E040304-A04",
+    "E040304-A05",
+    "E040304-A06",
+    "E040304-A07",
+    "E040304-A08",
+    "E040304-A09",
+    "E040304-A10",
+    "E040304-A11",
+    "E040304-A12",
+    "E040304-A13",
+    "E040304-A14",
+    "E040304-A15",
+    "E040304-A16",
+    "E040304-A17",
+    "E040304-A18",
+    "E040304-A19",
+    "E040304-A20",
+    "E040304-A21",
+    "E040304-A22",
+    "E040304-A23",
+    "E040304-A24",
+    "E040304-A25",
+    "E040304-A26",
+    "E040304-A27",
+    "E040304-A28",
+    "E040304-A29",
+    "E040304-A30",
+    "E040304-A31",
+    "E040304-A32",
+    "E040304-A33",
+    "E040304-A34",
+    "E040304-A35",
+    "E040304-A36",
+    "E040304-A37",
+    "E040304-A38"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 27 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 38,
+    "implemented": 6,
+    "placeholder": 27,
+    "missing": 1,
+    "externalApiDesignOnly": 4,
+    "labelMatched": 35,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040303",
+   "title": "구매입력",
+   "menuAliases": [
+    "MPMU00000400006",
+    "MENUTREE_000510"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040202",
+   "title": "견적서조회",
+   "menuAliases": [
+    "MPMU00000400007",
+    "MENUTREE_000487"
+   ],
+   "observedActionIds": [
+    "E040202-A01",
+    "E040202-A02",
+    "E040202-A03",
+    "E040202-A04",
+    "E040202-A05",
+    "E040202-A06",
+    "E040202-A07",
+    "E040202-A08",
+    "E040202-A09",
+    "E040202-A10",
+    "E040202-A11",
+    "E040202-A12",
+    "E040202-A13",
+    "E040202-A14",
+    "E040202-A15",
+    "E040202-A16",
+    "E040202-A17",
+    "E040202-A18",
+    "E040202-A19",
+    "E040202-A20",
+    "E040202-A21",
+    "E040202-A22",
+    "E040202-A23",
+    "E040202-A24",
+    "E040202-A25",
+    "E040202-A26",
+    "E040202-A27",
+    "E040202-A28",
+    "E040202-A29",
+    "E040202-A30",
+    "E040202-A31",
+    "E040202-A32",
+    "E040202-A33",
+    "E040202-A34",
+    "E040202-A35",
+    "E040202-A36",
+    "E040202-A37",
+    "E040202-A38",
+    "E040202-A39",
+    "E040202-A40"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 28 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 40,
+    "implemented": 4,
+    "placeholder": 28,
+    "missing": 1,
+    "externalApiDesignOnly": 7,
+    "labelMatched": 31,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040201",
+   "title": "견적서입력",
+   "menuAliases": [
+    "MPMU00000400008",
+    "MENUTREE_000486"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000106",
+   "title": "회사정보",
+   "menuAliases": [
+    "MENUTREE_000636"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000113",
+   "title": "경영요약보고서신청",
+   "menuAliases": [
+    "MENUTREE_000638"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000114",
+   "title": "회사로고/도장",
+   "menuAliases": [
+    "MENUTREE_000639"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "P000054",
+   "title": "백업 및 삭제",
+   "menuAliases": [
+    "MENUTREE_002528"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000125",
+   "title": "API인증키발급",
+   "menuAliases": [
+    "MENUTREE_001534"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000107",
+   "title": "사용자등록",
+   "menuAliases": [
+    "MENUTREE_000640"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000115",
+   "title": "권한그룹 설정",
+   "menuAliases": [
+    "MENUTREE_000641"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000131",
+   "title": "권한승인대기현황",
+   "menuAliases": [
+    "MENUTREE_001768"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000143",
+   "title": "관리자설정",
+   "menuAliases": [
+    "MENUTREE_002950"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C000113",
+   "title": "기능설정",
+   "menuAliases": [
+    "MENUTREE_000274"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C001124",
+   "title": "기본값설정",
+   "menuAliases": [
+    "MENUTREE_002549"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C001122",
+   "title": "매핑센터",
+   "menuAliases": [
+    "MENUTREE_002540"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000109",
+   "title": "기본설정",
+   "menuAliases": [
+    "MENUTREE_000647"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000126",
+   "title": "C-Portal그룹별설정",
+   "menuAliases": [
+    "MENUTREE_001603"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000127",
+   "title": "고객ID추가/설정",
+   "menuAliases": [
+    "MENUTREE_001604"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000137",
+   "title": "Webmail설정",
+   "menuAliases": [
+    "MENUTREE_001882"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000138",
+   "title": "Webmail ID 설정",
+   "menuAliases": [
+    "MENUTREE_001883"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000161",
+   "title": "UserPay설정",
+   "menuAliases": [
+    "MENUTREE_002906"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000160",
+   "title": "UserPay그룹별설정",
+   "menuAliases": [
+    "MENUTREE_002770"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C001138",
+   "title": "보안설정",
+   "menuAliases": [
+    "MENUTREE_002558"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000117",
+   "title": "사용자접속현황",
+   "menuAliases": [
+    "MENUTREE_000644"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000132",
+   "title": "로그인이력감시",
+   "menuAliases": [
+    "MENUTREE_001800"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000140",
+   "title": "파일이력조회",
+   "menuAliases": [
+    "MENUTREE_002759"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "M000009",
+   "title": "허용리스트",
+   "menuAliases": [
+    "MENUTREE_003273"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000129",
+   "title": "엑셀자료올리기기능",
+   "menuAliases": [
+    "MENUTREE_000279"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E000139",
+   "title": "편의기능",
+   "menuAliases": [
+    "MENUTREE_001947"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010101",
+   "title": "거래처등록",
+   "menuAliases": [
+    "MENUTREE_000170",
+    "MENUTREE_000051"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040102",
+   "title": "창고등록",
+   "menuAliases": [
+    "MENUTREE_000172"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010105",
+   "title": "부서등록",
+   "menuAliases": [
+    "MENUTREE_002773",
+    "MENUTREE_000056",
+    "MENUTREE_000761"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010112",
+   "title": "프로젝트등록",
+   "menuAliases": [
+    "MENUTREE_000173",
+    "MENUTREE_000057",
+    "MENUTREE_000762"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040103",
+   "title": "품목등록",
+   "menuAliases": [
+    "MENUTREE_000174"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040104",
+   "title": "관리항목등록",
+   "menuAliases": [
+    "MENUTREE_000175"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040126",
+   "title": "단가관리",
+   "menuAliases": [
+    "MENUTREE_000176"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040125",
+   "title": "단가적용순서설정",
+   "menuAliases": [
+    "MENUTREE_002548"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040124",
+   "title": "특별단가등록",
+   "menuAliases": [
+    "MENUTREE_001620"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040120",
+   "title": "거래처특별단가그룹등록",
+   "menuAliases": [
+    "MENUTREE_000485"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040122",
+   "title": "품목별단가",
+   "menuAliases": [
+    "MENUTREE_001404"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010110",
+   "title": "사원(담당)등록",
+   "menuAliases": [
+    "MENUTREE_000177",
+    "MENUTREE_000061"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040111",
+   "title": "인쇄용결재라인등록(재고)",
+   "menuAliases": [
+    "MENUTREE_000178"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040114",
+   "title": "외화등록",
+   "menuAliases": [
+    "MENUTREE_000182",
+    "MENUTREE_000064"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040113",
+   "title": "각종코드변경",
+   "menuAliases": [
+    "MENUTREE_000183"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040208",
+   "title": "견적서현황",
+   "menuAliases": [
+    "MENUTREE_000495",
+    "MENUTREE_000574"
+   ],
+   "observedActionIds": [
+    "E040208-A01",
+    "E040208-A02",
+    "E040208-A03",
+    "E040208-A04",
+    "E040208-A05",
+    "E040208-A06",
+    "E040208-A07",
+    "E040208-A08",
+    "E040208-A09",
+    "E040208-A10",
+    "E040208-A11",
+    "E040208-A12",
+    "E040208-A13",
+    "E040208-A14",
+    "E040208-A15",
+    "E040208-A16",
+    "E040208-A17",
+    "E040208-A18",
+    "E040208-A19",
+    "E040208-A20",
+    "E040208-A21",
+    "E040208-A22",
+    "E040208-A23",
+    "E040208-A24",
+    "E040208-A25",
+    "E040208-A26"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 20 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 26,
+    "implemented": 5,
+    "placeholder": 20,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 23,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040211",
+   "title": "미주문현황",
+   "menuAliases": [
+    "MENUTREE_000498",
+    "MENUTREE_000577"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040204",
+   "title": "주문서조회",
+   "menuAliases": [
+    "MENUTREE_000489"
+   ],
+   "observedActionIds": [
+    "E040204-A01",
+    "E040204-A02",
+    "E040204-A03",
+    "E040204-A04",
+    "E040204-A05",
+    "E040204-A06",
+    "E040204-A07",
+    "E040204-A08",
+    "E040204-A09",
+    "E040204-A10",
+    "E040204-A11",
+    "E040204-A12",
+    "E040204-A13",
+    "E040204-A14",
+    "E040204-A15",
+    "E040204-A16",
+    "E040204-A17",
+    "E040204-A18",
+    "E040204-A19",
+    "E040204-A20",
+    "E040204-A21",
+    "E040204-A22",
+    "E040204-A23",
+    "E040204-A24",
+    "E040204-A25",
+    "E040204-A26",
+    "E040204-A27",
+    "E040204-A28",
+    "E040204-A29",
+    "E040204-A30",
+    "E040204-A31",
+    "E040204-A32",
+    "E040204-A33",
+    "E040204-A34",
+    "E040204-A35",
+    "E040204-A36",
+    "E040204-A37",
+    "E040204-A38",
+    "E040204-A39",
+    "E040204-A40",
+    "E040204-A41",
+    "E040204-A42",
+    "E040204-A43",
+    "E040204-A44",
+    "E040204-A45",
+    "E040204-A46",
+    "E040204-A47",
+    "E040204-A48",
+    "E040204-A49",
+    "E040204-A50",
+    "E040204-A51",
+    "E040204-A52",
+    "E040204-A53",
+    "E040204-A54"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 34 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 54,
+    "implemented": 6,
+    "placeholder": 34,
+    "missing": 0,
+    "externalApiDesignOnly": 14,
+    "labelMatched": 52,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040203",
+   "title": "주문서입력",
+   "menuAliases": [
+    "MENUTREE_000488"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040209",
+   "title": "주문서현황",
+   "menuAliases": [
+    "MENUTREE_000496",
+    "MENUTREE_000575"
+   ],
+   "observedActionIds": [
+    "E040209-A01",
+    "E040209-A02",
+    "E040209-A03",
+    "E040209-A04",
+    "E040209-A05",
+    "E040209-A06",
+    "E040209-A07",
+    "E040209-A08",
+    "E040209-A09",
+    "E040209-A10",
+    "E040209-A11",
+    "E040209-A12",
+    "E040209-A13",
+    "E040209-A14",
+    "E040209-A15",
+    "E040209-A16",
+    "E040209-A17",
+    "E040209-A18",
+    "E040209-A19",
+    "E040209-A20",
+    "E040209-A21",
+    "E040209-A22",
+    "E040209-A23",
+    "E040209-A24",
+    "E040209-A25",
+    "E040209-A26",
+    "E040209-A27",
+    "E040209-A28",
+    "E040209-A29",
+    "E040209-A30",
+    "E040209-A31",
+    "E040209-A32",
+    "E040209-A33",
+    "E040209-A34",
+    "E040209-A35",
+    "E040209-A36",
+    "E040209-A37",
+    "E040209-A38",
+    "E040209-A39",
+    "E040209-A40",
+    "E040209-A41",
+    "E040209-A42",
+    "E040209-A43",
+    "E040209-A44",
+    "E040209-A45",
+    "E040209-A46",
+    "E040209-A47",
+    "E040209-A48",
+    "E040209-A49",
+    "E040209-A50",
+    "E040209-A51",
+    "E040209-A52",
+    "E040209-A53",
+    "E040209-A54",
+    "E040209-A55",
+    "E040209-A56",
+    "E040209-A57",
+    "E040209-A58",
+    "E040209-A59",
+    "E040209-A60",
+    "E040209-A61",
+    "E040209-A62",
+    "E040209-A63",
+    "E040209-A64",
+    "E040209-A65",
+    "E040209-A66",
+    "E040209-A67",
+    "E040209-A68",
+    "E040209-A69",
+    "E040209-A70",
+    "E040209-A71",
+    "E040209-A72",
+    "E040209-A73",
+    "E040209-A74",
+    "E040209-A75"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 42 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 75,
+    "implemented": 29,
+    "placeholder": 42,
+    "missing": 3,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 65,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040230",
+   "title": "주문서출고처리",
+   "menuAliases": [
+    "MENUTREE_001647"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040212",
+   "title": "미판매현황",
+   "menuAliases": [
+    "MENUTREE_000499",
+    "MENUTREE_000578"
+   ],
+   "observedActionIds": [
+    "E040212-A01",
+    "E040212-A02",
+    "E040212-A03",
+    "E040212-A04",
+    "E040212-A05",
+    "E040212-A06",
+    "E040212-A07",
+    "E040212-A08",
+    "E040212-A09",
+    "E040212-A10",
+    "E040212-A11",
+    "E040212-A12",
+    "E040212-A13",
+    "E040212-A14",
+    "E040212-A15",
+    "E040212-A16",
+    "E040212-A17",
+    "E040212-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 2,
+    "placeholder": 16,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 18,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040206",
+   "title": "판매조회",
+   "menuAliases": [
+    "MENUTREE_000492"
+   ],
+   "observedActionIds": [
+    "E040206-A01",
+    "E040206-A02",
+    "E040206-A03",
+    "E040206-A04",
+    "E040206-A05",
+    "E040206-A06",
+    "E040206-A07",
+    "E040206-A08",
+    "E040206-A09",
+    "E040206-A10",
+    "E040206-A11",
+    "E040206-A12",
+    "E040206-A13",
+    "E040206-A14",
+    "E040206-A15",
+    "E040206-A16",
+    "E040206-A17",
+    "E040206-A18",
+    "E040206-A19",
+    "E040206-A20",
+    "E040206-A21",
+    "E040206-A22",
+    "E040206-A23",
+    "E040206-A24",
+    "E040206-A25",
+    "E040206-A26",
+    "E040206-A27",
+    "E040206-A28",
+    "E040206-A29",
+    "E040206-A30",
+    "E040206-A31",
+    "E040206-A32",
+    "E040206-A33",
+    "E040206-A34",
+    "E040206-A35",
+    "E040206-A36",
+    "E040206-A37"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 23 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 37,
+    "implemented": 7,
+    "placeholder": 23,
+    "missing": 0,
+    "externalApiDesignOnly": 7,
+    "labelMatched": 30,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040205",
+   "title": "판매입력",
+   "menuAliases": [
+    "MENUTREE_000490"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040253",
+   "title": "판매입력 II",
+   "menuAliases": [
+    "MENUTREE_002880"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040224",
+   "title": "판매단가일괄변경",
+   "menuAliases": [
+    "MENUTREE_000725"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040207",
+   "title": "판매현황",
+   "menuAliases": [
+    "MENUTREE_000494",
+    "MENUTREE_000573"
+   ],
+   "observedActionIds": [
+    "E040207-A1",
+    "E040207-A2",
+    "E040207-A3",
+    "E040207-A4",
+    "E040207-A5",
+    "E040207-A6",
+    "E040207-A07",
+    "E040207-A08",
+    "E040207-A09",
+    "E040207-A10",
+    "E040207-A11",
+    "E040207-A12",
+    "E040207-A13",
+    "E040207-A14",
+    "E040207-A15",
+    "E040207-A16",
+    "E040207-A17",
+    "E040207-A18",
+    "E040207-A19",
+    "E040207-A20",
+    "E040207-A21",
+    "E040207-A22",
+    "E040207-A23",
+    "E040207-A24",
+    "E040207-A25"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 25,
+    "implemented": 8,
+    "placeholder": 16,
+    "missing": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 24,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040217",
+   "title": "수금현황",
+   "menuAliases": [
+    "MENUTREE_001680",
+    "MENUTREE_001681"
+   ],
+   "observedActionIds": [
+    "E040217-A01",
+    "E040217-A02",
+    "E040217-A03",
+    "E040217-A04",
+    "E040217-A05",
+    "E040217-A06",
+    "E040217-A07",
+    "E040217-A08",
+    "E040217-A09",
+    "E040217-A10",
+    "E040217-A11",
+    "E040217-A12",
+    "E040217-A13",
+    "E040217-A14",
+    "E040217-A15",
+    "E040217-A16",
+    "E040217-A17",
+    "E040217-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 13 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 5,
+    "placeholder": 13,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 18,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040216",
+   "title": "판매할인현황",
+   "menuAliases": [
+    "MENUTREE_000501",
+    "MENUTREE_000580"
+   ],
+   "observedActionIds": [
+    "E040216-A01",
+    "E040216-A02",
+    "E040216-A03",
+    "E040216-A04",
+    "E040216-A05",
+    "E040216-A06",
+    "E040216-A07",
+    "E040216-A08",
+    "E040216-A09",
+    "E040216-A10",
+    "E040216-A11",
+    "E040216-A12",
+    "E040216-A13",
+    "E040216-A14",
+    "E040216-A15",
+    "E040216-A16",
+    "E040216-A17",
+    "E040216-A18",
+    "E040216-A19"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 17 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 19,
+    "implemented": 2,
+    "placeholder": 17,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 19,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040609",
+   "title": "회계미반영현황 (판매)",
+   "menuAliases": [
+    "MENUTREE_000502",
+    "MENUTREE_000581"
+   ],
+   "observedActionIds": [
+    "E040609-A01",
+    "E040609-A02",
+    "E040609-A03",
+    "E040609-A04",
+    "E040609-A05",
+    "E040609-A06",
+    "E040609-A07",
+    "E040609-A08",
+    "E040609-A09",
+    "E040609-A10",
+    "E040609-A11",
+    "E040609-A12",
+    "E040609-A13",
+    "E040609-A14",
+    "E040609-A15",
+    "E040609-A16",
+    "E040609-A17",
+    "E040609-A18",
+    "E040609-A19",
+    "E040609-A20",
+    "E040609-A21",
+    "E040609-A22",
+    "E040609-A23",
+    "E040609-A24",
+    "E040609-A25",
+    "E040609-A26"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 3 missing target controls; observe source behaviour for 18 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 26,
+    "implemented": 4,
+    "placeholder": 18,
+    "missing": 3,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 23,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040210",
+   "title": "거래명세서인쇄",
+   "menuAliases": [
+    "MENUTREE_000497",
+    "MENUTREE_000576"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040254",
+   "title": "결제내역조회",
+   "menuAliases": [
+    "MENUTREE_002905"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040255",
+   "title": "결제내역자료비교",
+   "menuAliases": [
+    "MENUTREE_002948"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040215",
+   "title": "판매일괄회계반영",
+   "menuAliases": [
+    "MENUTREE_000187",
+    "MENUTREE_000493"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040218",
+   "title": "매출(세금)계산서조회(재고)",
+   "menuAliases": [
+    "MENUTREE_000503"
+   ],
+   "observedActionIds": [
+    "E040218-A01",
+    "E040218-A02",
+    "E040218-A03",
+    "E040218-A04",
+    "E040218-A05",
+    "E040218-A06",
+    "E040218-A07",
+    "E040218-A08",
+    "E040218-A09",
+    "E040218-A10",
+    "E040218-A11",
+    "E040218-A12",
+    "E040218-A13",
+    "E040218-A14",
+    "E040218-A15",
+    "E040218-A16",
+    "E040218-A17",
+    "E040218-A18",
+    "E040218-A19",
+    "E040218-A20",
+    "E040218-A21",
+    "E040218-A22",
+    "E040218-A23",
+    "E040218-A24",
+    "E040218-A25",
+    "E040218-A26",
+    "E040218-A27",
+    "E040218-A28",
+    "E040218-A29",
+    "E040218-A30",
+    "E040218-A31",
+    "E040218-A32",
+    "E040218-A33",
+    "E040218-A34",
+    "E040218-A35",
+    "E040218-A36",
+    "E040218-A37",
+    "E040218-A38",
+    "E040218-A39",
+    "E040218-A40",
+    "E040218-A41"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 6 missing target controls; observe source behaviour for 29 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 41,
+    "implemented": 3,
+    "placeholder": 29,
+    "missing": 6,
+    "externalApiDesignOnly": 3,
+    "labelMatched": 34,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040223",
+   "title": "매출(세금)계산서현황(재고)",
+   "menuAliases": [
+    "MENUTREE_000706",
+    "MENUTREE_000707"
+   ],
+   "observedActionIds": [
+    "E040223-A01",
+    "E040223-A02",
+    "E040223-A03",
+    "E040223-A04",
+    "E040223-A05",
+    "E040223-A06",
+    "E040223-A07",
+    "E040223-A08",
+    "E040223-A09",
+    "E040223-A10",
+    "E040223-A11",
+    "E040223-A12",
+    "E040223-A13",
+    "E040223-A14",
+    "E040223-A15",
+    "E040223-A16",
+    "E040223-A17",
+    "E040223-A18",
+    "E040223-A19",
+    "E040223-A20",
+    "E040223-A21",
+    "E040223-A22",
+    "E040223-A23",
+    "E040223-A24",
+    "E040223-A25",
+    "E040223-A26",
+    "E040223-A27",
+    "E040223-A28",
+    "E040223-A29"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 27 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 29,
+    "implemented": 2,
+    "placeholder": 27,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 25,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040302",
+   "title": "발주서조회",
+   "menuAliases": [
+    "MENUTREE_000509"
+   ],
+   "observedActionIds": [
+    "E040302-A01",
+    "E040302-A02",
+    "E040302-A03",
+    "E040302-A04",
+    "E040302-A05",
+    "E040302-A06",
+    "E040302-A07",
+    "E040302-A08",
+    "E040302-A09",
+    "E040302-A10",
+    "E040302-A11",
+    "E040302-A12",
+    "E040302-A13",
+    "E040302-A14",
+    "E040302-A15",
+    "E040302-A16",
+    "E040302-A17",
+    "E040302-A18",
+    "E040302-A19",
+    "E040302-A20",
+    "E040302-A21",
+    "E040302-A22",
+    "E040302-A23",
+    "E040302-A24",
+    "E040302-A25",
+    "E040302-A26",
+    "E040302-A27",
+    "E040302-A28",
+    "E040302-A29",
+    "E040302-A30",
+    "E040302-A31",
+    "E040302-A32",
+    "E040302-A33",
+    "E040302-A34",
+    "E040302-A35",
+    "E040302-A36",
+    "E040302-A37",
+    "E040302-A38",
+    "E040302-A39",
+    "E040302-A40",
+    "E040302-A41"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 30 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 41,
+    "implemented": 4,
+    "placeholder": 30,
+    "missing": 0,
+    "externalApiDesignOnly": 7,
+    "labelMatched": 35,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040301",
+   "title": "발주서입력",
+   "menuAliases": [
+    "MENUTREE_000508"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040306",
+   "title": "발주서현황",
+   "menuAliases": [
+    "MENUTREE_000515",
+    "MENUTREE_000585"
+   ],
+   "observedActionIds": [
+    "E040306-A01",
+    "E040306-A02",
+    "E040306-A03",
+    "E040306-A04",
+    "E040306-A05",
+    "E040306-A06",
+    "E040306-A07",
+    "E040306-A08",
+    "E040306-A09",
+    "E040306-A10",
+    "E040306-A11",
+    "E040306-A12",
+    "E040306-A13",
+    "E040306-A14",
+    "E040306-A15",
+    "E040306-A16",
+    "E040306-A17",
+    "E040306-A18",
+    "E040306-A19",
+    "E040306-A20",
+    "E040306-A21",
+    "E040306-A22",
+    "E040306-A23",
+    "E040306-A24",
+    "E040306-A25",
+    "E040306-A26",
+    "E040306-A27",
+    "E040306-A28",
+    "E040306-A29",
+    "E040306-A30",
+    "E040306-A31",
+    "E040306-A32",
+    "E040306-A33",
+    "E040306-A34",
+    "E040306-A35",
+    "E040306-A36",
+    "E040306-A37",
+    "E040306-A38",
+    "E040306-A39",
+    "E040306-A40",
+    "E040306-A41",
+    "E040306-A42",
+    "E040306-A43",
+    "E040306-A44",
+    "E040306-A45",
+    "E040306-A46",
+    "E040306-A47",
+    "E040306-A48",
+    "E040306-A49",
+    "E040306-A50",
+    "E040306-A51",
+    "E040306-A52",
+    "E040306-A53",
+    "E040306-A54"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 2 missing target controls; observe source behaviour for 41 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 54,
+    "implemented": 10,
+    "placeholder": 41,
+    "missing": 2,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 44,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040307",
+   "title": "미구매현황",
+   "menuAliases": [
+    "MENUTREE_000516",
+    "MENUTREE_000586"
+   ],
+   "observedActionIds": [
+    "E040307-A01",
+    "E040307-A02",
+    "E040307-A03",
+    "E040307-A04",
+    "E040307-A05",
+    "E040307-A06",
+    "E040307-A07",
+    "E040307-A08",
+    "E040307-A09",
+    "E040307-A10",
+    "E040307-A11",
+    "E040307-A12",
+    "E040307-A13",
+    "E040307-A14",
+    "E040307-A15",
+    "E040307-A16",
+    "E040307-A17",
+    "E040307-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 2,
+    "placeholder": 16,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 18,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040305",
+   "title": "구매현황",
+   "menuAliases": [
+    "MENUTREE_000513",
+    "MENUTREE_000583"
+   ],
+   "observedActionIds": [
+    "E040305-A01",
+    "E040305-A02",
+    "E040305-A03",
+    "E040305-A04",
+    "E040305-A05",
+    "E040305-A06",
+    "E040305-A08",
+    "E040305-A09",
+    "E040305-A10",
+    "E040305-A11",
+    "E040305-A12",
+    "E040305-A13",
+    "E040305-A14"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 8 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 13,
+    "implemented": 4,
+    "placeholder": 8,
+    "missing": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 13,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040311",
+   "title": "구매단가일괄변경",
+   "menuAliases": [
+    "MENUTREE_001662"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040310",
+   "title": "지급현황",
+   "menuAliases": [
+    "MENUTREE_001682",
+    "MENUTREE_001683"
+   ],
+   "observedActionIds": [
+    "E040310-A01",
+    "E040310-A02",
+    "E040310-A03",
+    "E040310-A04",
+    "E040310-A05",
+    "E040310-A06",
+    "E040310-A07",
+    "E040310-A08",
+    "E040310-A09",
+    "E040310-A10",
+    "E040310-A11",
+    "E040310-A12",
+    "E040310-A13",
+    "E040310-A14",
+    "E040310-A15",
+    "E040310-A16",
+    "E040310-A17",
+    "E040310-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 13 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 5,
+    "placeholder": 13,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 18,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040313",
+   "title": "구매할인현황",
+   "menuAliases": [
+    "MENUTREE_000518",
+    "MENUTREE_000588"
+   ],
+   "observedActionIds": [
+    "E040313-A01",
+    "E040313-A02",
+    "E040313-A03",
+    "E040313-A04",
+    "E040313-A05",
+    "E040313-A06",
+    "E040313-A07",
+    "E040313-A08",
+    "E040313-A09",
+    "E040313-A10",
+    "E040313-A11",
+    "E040313-A12",
+    "E040313-A13",
+    "E040313-A14",
+    "E040313-A15",
+    "E040313-A16",
+    "E040313-A17",
+    "E040313-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 16 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 2,
+    "placeholder": 16,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 18,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040319",
+   "title": "회계미반영현황 (구매)",
+   "menuAliases": [
+    "MENUTREE_000703",
+    "MENUTREE_000704"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040309",
+   "title": "거래처별채무",
+   "menuAliases": [
+    "MENUTREE_000517",
+    "MENUTREE_000587"
+   ],
+   "observedActionIds": [
+    "E040309-A01",
+    "E040309-A02",
+    "E040309-A03",
+    "E040309-A04",
+    "E040309-A05",
+    "E040309-A06",
+    "E040309-A07"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 4 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 7,
+    "implemented": 2,
+    "placeholder": 4,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 6,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040312",
+   "title": "구매일괄회계반영",
+   "menuAliases": [
+    "MENUTREE_000193",
+    "MENUTREE_000512"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040219",
+   "title": "매입(세금)계산서조회(재고)",
+   "menuAliases": [
+    "MENUTREE_000519"
+   ],
+   "observedActionIds": [
+    "E040219-A01",
+    "E040219-A02",
+    "E040219-A03",
+    "E040219-A04",
+    "E040219-A05",
+    "E040219-A06",
+    "E040219-A07",
+    "E040219-A08",
+    "E040219-A09",
+    "E040219-A10",
+    "E040219-A11",
+    "E040219-A12",
+    "E040219-A13",
+    "E040219-A14",
+    "E040219-A15",
+    "E040219-A16",
+    "E040219-A17",
+    "E040219-A18",
+    "E040219-A19",
+    "E040219-A20",
+    "E040219-A21",
+    "E040219-A22",
+    "E040219-A23",
+    "E040219-A24",
+    "E040219-A25",
+    "E040219-A26",
+    "E040219-A27",
+    "E040219-A28",
+    "E040219-A29",
+    "E040219-A30",
+    "E040219-A31",
+    "E040219-A32",
+    "E040219-A33",
+    "E040219-A34",
+    "E040219-A35"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 31 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 35,
+    "implemented": 3,
+    "placeholder": 31,
+    "missing": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 35,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040320",
+   "title": "매입(세금)계산서현황(재고)",
+   "menuAliases": [
+    "MENUTREE_000710",
+    "MENUTREE_000712"
+   ],
+   "observedActionIds": [
+    "E040320-A01",
+    "E040320-A02",
+    "E040320-A03",
+    "E040320-A04",
+    "E040320-A05",
+    "E040320-A06",
+    "E040320-A07",
+    "E040320-A08",
+    "E040320-A09",
+    "E040320-A10",
+    "E040320-A11",
+    "E040320-A12",
+    "E040320-A13",
+    "E040320-A14",
+    "E040320-A15",
+    "E040320-A16",
+    "E040320-A17",
+    "E040320-A18",
+    "E040320-A19",
+    "E040320-A20",
+    "E040320-A21",
+    "E040320-A22",
+    "E040320-A23",
+    "E040320-A24",
+    "E040320-A25",
+    "E040320-A26",
+    "E040320-A27",
+    "E040320-A28",
+    "E040320-A29"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 27 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 29,
+    "implemented": 2,
+    "placeholder": 27,
+    "missing": 0,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 25,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040502",
+   "title": "창고이동조회",
+   "menuAliases": [
+    "MENUTREE_000540"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040501",
+   "title": "창고이동입력",
+   "menuAliases": [
+    "MENUTREE_000539"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040505",
+   "title": "창고이동현황",
+   "menuAliases": [
+    "MENUTREE_000549",
+    "MENUTREE_001374"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040504",
+   "title": "자가사용조회",
+   "menuAliases": [
+    "MENUTREE_000542"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040503",
+   "title": "자가사용입력",
+   "menuAliases": [
+    "MENUTREE_000541"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040506",
+   "title": "자가사용현황",
+   "menuAliases": [
+    "MENUTREE_000550",
+    "MENUTREE_001375"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040508",
+   "title": "불량처리조회",
+   "menuAliases": [
+    "MENUTREE_000544"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040507",
+   "title": "불량처리입력",
+   "menuAliases": [
+    "MENUTREE_000543"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040509",
+   "title": "불량처리현황",
+   "menuAliases": [
+    "MENUTREE_000551",
+    "MENUTREE_001376"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040510",
+   "title": "대체사용현황",
+   "menuAliases": [
+    "MENUTREE_000552",
+    "MENUTREE_001377"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040511",
+   "title": "폐기현황",
+   "menuAliases": [
+    "MENUTREE_000553",
+    "MENUTREE_001378"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040512",
+   "title": "불량률파악보고서",
+   "menuAliases": [
+    "MENUTREE_000554",
+    "MENUTREE_001379"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040650",
+   "title": "재고조정진행단계",
+   "menuAliases": [
+    "MENUTREE_001437"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040613",
+   "title": "재고실사조회",
+   "menuAliases": [
+    "MENUTREE_000546"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040614",
+   "title": "재고조정조회",
+   "menuAliases": [
+    "MENUTREE_000548"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040615",
+   "title": "재고실사현황",
+   "menuAliases": [
+    "MENUTREE_000555",
+    "MENUTREE_001380"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040608",
+   "title": "재고조정현황",
+   "menuAliases": [
+    "MENUTREE_000556",
+    "MENUTREE_001381"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010851",
+   "title": "쪽지수발신내역",
+   "menuAliases": [
+    "MENUTREE_001613",
+    "MENUTREE_001607"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010858",
+   "title": "문서발송내역",
+   "menuAliases": [
+    "MENUTREE_002595",
+    "MENUTREE_002596"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040730",
+   "title": "증빙센터",
+   "menuAliases": [
+    "MENUTREE_002886"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040701",
+   "title": "재고현황",
+   "menuAliases": [
+    "MENUTREE_000212"
+   ],
+   "observedActionIds": [
+    "E040701-A01",
+    "E040701-A02",
+    "E040701-A03",
+    "E040701-A04",
+    "E040701-A05",
+    "E040701-A06",
+    "E040701-A07",
+    "E040701-A08",
+    "E040701-A09",
+    "E040701-A10",
+    "E040701-A11",
+    "E040701-A12",
+    "E040701-A13",
+    "E040701-A14",
+    "E040701-A15",
+    "E040701-A16",
+    "E040701-A17",
+    "E040701-A18",
+    "E040701-A19",
+    "E040701-A20",
+    "E040701-A21",
+    "E040701-A22",
+    "E040701-A23",
+    "E040701-A24",
+    "E040701-A25",
+    "E040701-A26",
+    "E040701-A27",
+    "E040701-A28",
+    "E040701-A29",
+    "E040701-A30",
+    "E040701-A31"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Observe source behaviour for 8 placeholders; verify function/window/value dimensions",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 31,
+    "implemented": 22,
+    "placeholder": 8,
+    "missing": 0,
+    "externalApiDesignOnly": 1,
+    "labelMatched": 31,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040711",
+   "title": "창고별재고현황",
+   "menuAliases": [
+    "MENUTREE_000213"
+   ],
+   "observedActionIds": [
+    "E040711-A01",
+    "E040711-A02",
+    "E040711-A03",
+    "E040711-A04",
+    "E040711-A05",
+    "E040711-A06",
+    "E040711-A07",
+    "E040711-A08",
+    "E040711-A09",
+    "E040711-A10",
+    "E040711-A11",
+    "E040711-A12",
+    "E040711-A13",
+    "E040711-A14",
+    "E040711-A15",
+    "E040711-A16",
+    "E040711-A17",
+    "E040711-A18",
+    "E040711-A19",
+    "E040711-A20",
+    "E040711-A21",
+    "E040711-A22",
+    "E040711-A23",
+    "E040711-A24",
+    "E040711-A25",
+    "E040711-A26",
+    "E040711-A27",
+    "E040711-A28"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 20 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 28,
+    "implemented": 7,
+    "placeholder": 20,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 20,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040728",
+   "title": "관계별재고현황",
+   "menuAliases": [
+    "MENUTREE_002879"
+   ],
+   "observedActionIds": [
+    "E040728-A01",
+    "E040728-A02",
+    "E040728-A03",
+    "E040728-A04",
+    "E040728-A05",
+    "E040728-A06",
+    "E040728-A07",
+    "E040728-A08",
+    "E040728-A09",
+    "E040728-A10",
+    "E040728-A11",
+    "E040728-A12",
+    "E040728-A13",
+    "E040728-A14",
+    "E040728-A15",
+    "E040728-A16",
+    "E040728-A17"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 12 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 17,
+    "implemented": 4,
+    "placeholder": 12,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 16,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040720",
+   "title": "다규격별재고현황",
+   "menuAliases": [
+    "MENUTREE_001796"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040726",
+   "title": "BOM환산재고현황",
+   "menuAliases": [
+    "MENUTREE_002537"
+   ],
+   "observedActionIds": [
+    "E040726-A01",
+    "E040726-A02",
+    "E040726-A03",
+    "E040726-A04",
+    "E040726-A05",
+    "E040726-A06",
+    "E040726-A07",
+    "E040726-A08",
+    "E040726-A09",
+    "E040726-A10",
+    "E040726-A11",
+    "E040726-A12",
+    "E040726-A13",
+    "E040726-A14",
+    "E040726-A15",
+    "E040726-A16",
+    "E040726-A17",
+    "E040726-A18",
+    "E040726-A19",
+    "E040726-A20",
+    "E040726-A21",
+    "E040726-A22",
+    "E040726-A23",
+    "E040726-A24",
+    "E040726-A25",
+    "E040726-A26",
+    "E040726-A27",
+    "E040726-A28",
+    "E040726-A29",
+    "E040726-A30",
+    "E040726-A31",
+    "E040726-A32",
+    "E040726-A33"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 9 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 33,
+    "implemented": 23,
+    "placeholder": 9,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 32,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040727",
+   "title": "재고잔량분석표",
+   "menuAliases": [
+    "MENUTREE_002775"
+   ],
+   "observedActionIds": [
+    "E040727-A01",
+    "E040727-A02",
+    "E040727-A03",
+    "E040727-A04",
+    "E040727-A05",
+    "E040727-A06",
+    "E040727-A07",
+    "E040727-A08",
+    "E040727-A09",
+    "E040727-A10",
+    "E040727-A11",
+    "E040727-A12",
+    "E040727-A13",
+    "E040727-A14",
+    "E040727-A15",
+    "E040727-A16",
+    "E040727-A17",
+    "E040727-A18"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 13 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 18,
+    "implemented": 4,
+    "placeholder": 13,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 17,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040702",
+   "title": "재고수불부",
+   "menuAliases": [
+    "MENUTREE_000215"
+   ],
+   "observedActionIds": [
+    "E040702-A01",
+    "E040702-A02",
+    "E040702-A03",
+    "E040702-A04",
+    "E040702-A05",
+    "E040702-A06",
+    "E040702-A07",
+    "E040702-A08",
+    "E040702-A09",
+    "E040702-A10",
+    "E040702-A11",
+    "E040702-A12",
+    "E040702-A13",
+    "E040702-A14",
+    "E040702-A15",
+    "E040702-A16",
+    "E040702-A17",
+    "E040702-A18",
+    "E040702-A19",
+    "E040702-A20",
+    "E040702-A21",
+    "E040702-A22",
+    "E040702-A23",
+    "E040702-A24",
+    "E040702-A25",
+    "E040702-A26",
+    "E040702-A27",
+    "E040702-A28",
+    "E040702-A29",
+    "E040702-A30",
+    "E040702-A31",
+    "E040702-A32",
+    "E040702-A33",
+    "E040702-A34",
+    "E040702-A35",
+    "E040702-A36",
+    "E040702-A37",
+    "E040702-A38",
+    "E040702-A39",
+    "E040702-A40",
+    "E040702-A41",
+    "E040702-A42",
+    "E040702-A43",
+    "E040702-A44",
+    "E040702-A45",
+    "E040702-A46",
+    "E040702-A47",
+    "E040702-A48",
+    "E040702-A49"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 39 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 49,
+    "implemented": 9,
+    "placeholder": 39,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 31,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040719",
+   "title": "재고변동표",
+   "menuAliases": [
+    "MENUTREE_001713"
+   ],
+   "observedActionIds": [
+    "E040719-A01",
+    "E040719-A02",
+    "E040719-A03",
+    "E040719-A04",
+    "E040719-A05",
+    "E040719-A06",
+    "E040719-A07",
+    "E040719-A08",
+    "E040719-A09",
+    "E040719-A10",
+    "E040719-A11",
+    "E040719-A12",
+    "E040719-A13",
+    "E040719-A14",
+    "E040719-A15",
+    "E040719-A16",
+    "E040719-A17",
+    "E040719-A18",
+    "E040719-A19",
+    "E040719-A20",
+    "E040719-A21",
+    "E040719-A22",
+    "E040719-A23",
+    "E040719-A24",
+    "E040719-A25",
+    "E040719-A26",
+    "E040719-A27"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 1 missing target controls; observe source behaviour for 19 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 27,
+    "implemented": 7,
+    "placeholder": 19,
+    "missing": 1,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 21,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040708",
+   "title": "일보",
+   "menuAliases": [
+    "MENUTREE_000218"
+   ],
+   "observedActionIds": [
+    "E040708-A01",
+    "E040708-A02",
+    "E040708-A03",
+    "E040708-A04",
+    "E040708-A05",
+    "E040708-A06",
+    "E040708-A07",
+    "E040708-A08",
+    "E040708-A09",
+    "E040708-A10",
+    "E040708-A11",
+    "E040708-A12",
+    "E040708-A13",
+    "E040708-A14",
+    "E040708-A15",
+    "E040708-A16",
+    "E040708-A17",
+    "E040708-A18",
+    "E040708-A19",
+    "E040708-A20",
+    "E040708-A21",
+    "E040708-A22",
+    "E040708-A23",
+    "E040708-A24",
+    "E040708-A25",
+    "E040708-A26",
+    "E040708-A27",
+    "E040708-A28",
+    "E040708-A29",
+    "E040708-A30",
+    "E040708-A31",
+    "E040708-A32",
+    "E040708-A33",
+    "E040708-A34",
+    "E040708-A35",
+    "E040708-A36",
+    "E040708-A37",
+    "E040708-A38",
+    "E040708-A39",
+    "E040708-A40",
+    "E040708-A41",
+    "E040708-A42",
+    "E040708-A43",
+    "E040708-A44",
+    "E040708-A45",
+    "E040708-A46",
+    "E040708-A47",
+    "E040708-A48",
+    "E040708-A49",
+    "E040708-A50",
+    "E040708-A51",
+    "E040708-A52",
+    "E040708-A53",
+    "E040708-A54",
+    "E040708-A55",
+    "E040708-A56",
+    "E040708-A57",
+    "E040708-A58",
+    "E040708-A59",
+    "E040708-A60",
+    "E040708-A61",
+    "E040708-A62",
+    "E040708-A63",
+    "E040708-A64",
+    "E040708-A65",
+    "E040708-A66",
+    "E040708-A67",
+    "E040708-A68",
+    "E040708-A69"
+   ],
+   "status": "partial-observation-target-dom-classified-full-parity-unverified",
+   "next": "Add 4 missing target controls; observe source behaviour for 57 placeholders",
+   "targetDom": {
+    "asOf": "2026-10-21",
+    "buttons": 69,
+    "implemented": 8,
+    "placeholder": 57,
+    "missing": 4,
+    "externalApiDesignOnly": 0,
+    "labelMatched": 59,
+    "fullParity": false
+   }
+  },
+  {
+   "program": "E040222",
+   "title": "출하지시서현황",
+   "menuAliases": [
+    "MENUTREE_000662"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040227",
+   "title": "출하현황",
+   "menuAliases": [
+    "MENUTREE_000778"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040228",
+   "title": "미출하현황",
+   "menuAliases": [
+    "MENUTREE_000780"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040721",
+   "title": "채권현황",
+   "menuAliases": [
+    "MENUTREE_001901"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040713",
+   "title": "월별채권증감내역",
+   "menuAliases": [
+    "MENUTREE_001386"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040318",
+   "title": "발주요청현황",
+   "menuAliases": [
+    "MENUTREE_000584"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E041015",
+   "title": "발주계획현황",
+   "menuAliases": [
+    "MENUTREE_002767"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040722",
+   "title": "채무현황",
+   "menuAliases": [
+    "MENUTREE_001902"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040724",
+   "title": "거래처관리대장1(채무)",
+   "menuAliases": [
+    "MENUTREE_001904"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040714",
+   "title": "월별채무증감내역",
+   "menuAliases": [
+    "MENUTREE_001387"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040413",
+   "title": "작업지시서현황",
+   "menuAliases": [
+    "MENUTREE_001369"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040414",
+   "title": "작업지시서별진행현황",
+   "menuAliases": [
+    "MENUTREE_001370"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040409",
+   "title": "생산불출현황",
+   "menuAliases": [
+    "MENUTREE_001371"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040436",
+   "title": "작업지시서효율현황",
+   "menuAliases": [
+    "MENUTREE_002885"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040432",
+   "title": "작업내역현황",
+   "menuAliases": [
+    "MENUTREE_002758"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040410",
+   "title": "생산입고현황",
+   "menuAliases": [
+    "MENUTREE_001372"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040415",
+   "title": "생산입고/소모현황 I",
+   "menuAliases": [
+    "MENUTREE_001373"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040807",
+   "title": "일별재고현황",
+   "menuAliases": [
+    "MENUTREE_002898",
+    "MENUTREE_000593"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040806",
+   "title": "일별이익현황",
+   "menuAliases": [
+    "MENUTREE_001382",
+    "MENUTREE_000594"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040703",
+   "title": "채권/채무현황",
+   "menuAliases": [
+    "MENUTREE_001383"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010833",
+   "title": "거래처관리대장 I",
+   "menuAliases": [
+    "MENUTREE_001384",
+    "MENUTREE_000375"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010842",
+   "title": "거래처관리대장 II",
+   "menuAliases": [
+    "MENUTREE_001385",
+    "MENUTREE_000376"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040725",
+   "title": "판매구매집계표",
+   "menuAliases": [
+    "MENUTREE_002462"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040710",
+   "title": "집계표",
+   "menuAliases": [
+    "MENUTREE_000224"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040819",
+   "title": "단가변동표",
+   "menuAliases": [
+    "MENUTREE_001627"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040704",
+   "title": "경영자보고서",
+   "menuAliases": [
+    "MENUTREE_000223"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040627",
+   "title": "거래처중심입력",
+   "menuAliases": [
+    "MENUTREE_000663",
+    "MENUTREE_001352"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040633",
+   "title": "품목중심입력",
+   "menuAliases": [
+    "MENUTREE_001318"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040709",
+   "title": "현황누계표",
+   "menuAliases": [
+    "MENUTREE_001793"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040716",
+   "title": "거래이력조회(재고)",
+   "menuAliases": [
+    "MENUTREE_000211"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040607",
+   "title": "잔량재집계",
+   "menuAliases": [
+    "MENUTREE_000222"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C000097",
+   "title": "출력물",
+   "menuAliases": [
+    "MENUTREE_000225"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040601",
+   "title": "A/S접수입력",
+   "menuAliases": [
+    "MENUTREE_000557"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040602",
+   "title": "A/S접수조회",
+   "menuAliases": [
+    "MENUTREE_000558"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040610",
+   "title": "A/S접수현황",
+   "menuAliases": [
+    "MENUTREE_000561"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040605",
+   "title": "A/S수리입력",
+   "menuAliases": [
+    "MENUTREE_000559"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040606",
+   "title": "A/S수리조회",
+   "menuAliases": [
+    "MENUTREE_000560"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040611",
+   "title": "A/S수리현황",
+   "menuAliases": [
+    "MENUTREE_000562"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040641",
+   "title": "A/S소모현황",
+   "menuAliases": [
+    "MENUTREE_002520"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040617",
+   "title": "시리얼/로트No.등록",
+   "menuAliases": [
+    "MENUTREE_000563"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040618",
+   "title": "시리얼/로트No.내역조회",
+   "menuAliases": [
+    "MENUTREE_000564"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040639",
+   "title": "시리얼/로트No.내역현황",
+   "menuAliases": [
+    "MENUTREE_001436"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040634",
+   "title": "시리얼/로트No.재고조정",
+   "menuAliases": [
+    "MENUTREE_001338"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040620",
+   "title": "시리얼/로트No.재고수불부",
+   "menuAliases": [
+    "MENUTREE_000565"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040619",
+   "title": "시리얼/로트No.재고현황",
+   "menuAliases": [
+    "MENUTREE_000566"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E041018",
+   "title": "품목vs시리얼재고수량비교",
+   "menuAliases": [
+    "MENUTREE_002766"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040624",
+   "title": "매출계획입력",
+   "menuAliases": [
+    "MENUTREE_000570"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040625",
+   "title": "매출계획조회",
+   "menuAliases": [
+    "MENUTREE_000571"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040640",
+   "title": "매출계획현황",
+   "menuAliases": [
+    "MENUTREE_002460"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040626",
+   "title": "매출계획비교표",
+   "menuAliases": [
+    "MENUTREE_000572"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040636",
+   "title": "프로젝트계획조회",
+   "menuAliases": [
+    "MENUTREE_001429"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040637",
+   "title": "프로젝트계획/실적현황",
+   "menuAliases": [
+    "MENUTREE_001430"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040802",
+   "title": "원가생성/수정",
+   "menuAliases": [
+    "MENUTREE_000590"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040808",
+   "title": "표준원가현황",
+   "menuAliases": [
+    "MENUTREE_000665"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040804",
+   "title": "실제원가현황",
+   "menuAliases": [
+    "MENUTREE_000591"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040809",
+   "title": "차이분석",
+   "menuAliases": [
+    "MENUTREE_000666"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E040805",
+   "title": "월별이익현황",
+   "menuAliases": [
+    "MENUTREE_000592"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010103",
+   "title": "카드등록",
+   "menuAliases": [
+    "MENUTREE_000054"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010104",
+   "title": "계좌등록",
+   "menuAliases": [
+    "MENUTREE_000055"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010106",
+   "title": "인쇄용결재라인등록(회계)",
+   "menuAliases": [
+    "MENUTREE_000058"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010109",
+   "title": "카드사등록",
+   "menuAliases": [
+    "MENUTREE_000059"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010114",
+   "title": "결제대행사등록",
+   "menuAliases": [
+    "MENUTREE_000060"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010118",
+   "title": "추가항목유형등록",
+   "menuAliases": [
+    "MENUTREE_000733"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010107",
+   "title": "계정등록",
+   "menuAliases": [
+    "MENUTREE_000062"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010111",
+   "title": "각종코드변경",
+   "menuAliases": [
+    "MENUTREE_000063"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010201",
+   "title": "일반전표",
+   "menuAliases": [
+    "MENUTREE_000067"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010408",
+   "title": "지출결의서",
+   "menuAliases": [
+    "MENUTREE_000068"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010403",
+   "title": "입금보고서",
+   "menuAliases": [
+    "MENUTREE_000069"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010505",
+   "title": "가지급금정산서",
+   "menuAliases": [
+    "MENUTREE_000070"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010213",
+   "title": "자동생성전표조회",
+   "menuAliases": [
+    "MENUTREE_001940"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010209",
+   "title": "잔액조정입력",
+   "menuAliases": [
+    "MENUTREE_001699",
+    "MENUTREE_001700"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010211",
+   "title": "잔액실사조회",
+   "menuAliases": [
+    "MENUTREE_001706"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010210",
+   "title": "잔액조정조회",
+   "menuAliases": [
+    "MENUTREE_001701"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010212",
+   "title": "잔액조정현황",
+   "menuAliases": [
+    "MENUTREE_001801"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010301",
+   "title": "매출전표 I",
+   "menuAliases": [
+    "MENUTREE_000076"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010303",
+   "title": "매입전표 I",
+   "menuAliases": [
+    "MENUTREE_000078"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010849",
+   "title": "(세금)계산서진행단계",
+   "menuAliases": [
+    "MENUTREE_001322"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010723",
+   "title": "각종구분값변경",
+   "menuAliases": [
+    "MENUTREE_000315"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010726",
+   "title": "이카운트 vs 홈택스 자료비교",
+   "menuAliases": [
+    "MENUTREE_000320"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E030206",
+   "title": "매출(세금)계산서요약",
+   "menuAliases": [
+    "MENUTREE_000321"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010729",
+   "title": "전자(세금)계산서",
+   "menuAliases": [
+    "MENUTREE_002882"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010732",
+   "title": "현금영수증",
+   "menuAliases": [
+    "MENUTREE_002947"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010206",
+   "title": "카드매입조회",
+   "menuAliases": [
+    "MENUTREE_002564"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010215",
+   "title": "카드매출조회",
+   "menuAliases": [
+    "MENUTREE_002565"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010207",
+   "title": "결제대행사매출조회",
+   "menuAliases": [
+    "MENUTREE_002566"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E061001",
+   "title": "이체기본정보등록",
+   "menuAliases": [
+    "MENUTREE_002568"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E061003",
+   "title": "계좌이체",
+   "menuAliases": [
+    "MENUTREE_002570"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E061002",
+   "title": "급여이체",
+   "menuAliases": [
+    "MENUTREE_002569"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010610",
+   "title": "고정자산등록",
+   "menuAliases": [
+    "MENUTREE_000091"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010611",
+   "title": "고정자산증가",
+   "menuAliases": [
+    "MENUTREE_000092"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010612",
+   "title": "고정자산감소",
+   "menuAliases": [
+    "MENUTREE_000093"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010619",
+   "title": "고정자산전표조회",
+   "menuAliases": [
+    "MENUTREE_001626"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010613",
+   "title": "고정자산대장",
+   "menuAliases": [
+    "MENUTREE_000339"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010614",
+   "title": "고정자산증가내역",
+   "menuAliases": [
+    "MENUTREE_000340"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010615",
+   "title": "고정자산감소내역",
+   "menuAliases": [
+    "MENUTREE_000341"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010617",
+   "title": "고정자산증감대장",
+   "menuAliases": [
+    "MENUTREE_000342"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010618",
+   "title": "고정자산수불부",
+   "menuAliases": [
+    "MENUTREE_000343"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010616",
+   "title": "감가상각계산",
+   "menuAliases": [
+    "MENUTREE_000344"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010847",
+   "title": "회계거래현황",
+   "menuAliases": [
+    "MENUTREE_001906",
+    "MENUTREE_001320"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010727",
+   "title": "매출(세금)계산서조회",
+   "menuAliases": [
+    "MENUTREE_000100"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010845",
+   "title": "매출(세금)계산서현황",
+   "menuAliases": [
+    "MENUTREE_001907",
+    "MENUTREE_000708"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010716",
+   "title": "매입(세금)계산서조회",
+   "menuAliases": [
+    "MENUTREE_000101"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010846",
+   "title": "매입(세금)계산서현황",
+   "menuAliases": [
+    "MENUTREE_001908",
+    "MENUTREE_000713"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010702",
+   "title": "전표인쇄",
+   "menuAliases": [
+    "MENUTREE_000099",
+    "MENUTREE_000371"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010710",
+   "title": "지출결의서인쇄",
+   "menuAliases": [
+    "MENUTREE_000104"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010711",
+   "title": "입금보고서인쇄",
+   "menuAliases": [
+    "MENUTREE_000105"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010714",
+   "title": "가지급금정산서인쇄",
+   "menuAliases": [
+    "MENUTREE_000106"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010830",
+   "title": "자금일보",
+   "menuAliases": [
+    "MENUTREE_000110"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010805",
+   "title": "현금흐름(입출금내역)",
+   "menuAliases": [
+    "MENUTREE_000111"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010804",
+   "title": "자금현황표",
+   "menuAliases": [
+    "MENUTREE_000112",
+    "MENUTREE_000602"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010815",
+   "title": "자금증감내역",
+   "menuAliases": [
+    "MENUTREE_000358"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010819",
+   "title": "월별손익분석",
+   "menuAliases": [
+    "MENUTREE_000353"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010824",
+   "title": "월별원가분석",
+   "menuAliases": [
+    "MENUTREE_000354"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010822",
+   "title": "채권/채무회수기간표",
+   "menuAliases": [
+    "MENUTREE_000355"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010823",
+   "title": "채권/채무잔액분석표",
+   "menuAliases": [
+    "MENUTREE_000356"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010821",
+   "title": "경영요약보고서",
+   "menuAliases": [
+    "MENUTREE_000357"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010843",
+   "title": "회계집계표",
+   "menuAliases": [
+    "MENUTREE_000359"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010838",
+   "title": "월별매입집계표",
+   "menuAliases": [
+    "MENUTREE_000373"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010839",
+   "title": "월별매출집계표",
+   "menuAliases": [
+    "MENUTREE_000374"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010835",
+   "title": "지출결의서집계",
+   "menuAliases": [
+    "MENUTREE_000377"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010836",
+   "title": "입금보고서집계",
+   "menuAliases": [
+    "MENUTREE_000378"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010840",
+   "title": "가지급금정산서집계",
+   "menuAliases": [
+    "MENUTREE_000379"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010850",
+   "title": "사용자정의보고서",
+   "menuAliases": [
+    "MENUTREE_001360"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010807",
+   "title": "계정별원장",
+   "menuAliases": [
+    "MENUTREE_000361"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010808",
+   "title": "계정별거래처별원장",
+   "menuAliases": [
+    "MENUTREE_000360"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010809",
+   "title": "거래처별계정별원장",
+   "menuAliases": [
+    "MENUTREE_001354"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010856",
+   "title": "계정별적요별원장",
+   "menuAliases": [
+    "MENUTREE_001661"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010857",
+   "title": "계정증감내역",
+   "menuAliases": [
+    "MENUTREE_001710"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010806",
+   "title": "매입/매출장",
+   "menuAliases": [
+    "MENUTREE_000362"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010802",
+   "title": "분개장",
+   "menuAliases": [
+    "MENUTREE_000363"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010801",
+   "title": "현금출납장",
+   "menuAliases": [
+    "MENUTREE_000113"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010803",
+   "title": "일/월계표",
+   "menuAliases": [
+    "MENUTREE_000364"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010831",
+   "title": "외화장부",
+   "menuAliases": [
+    "MENUTREE_000380"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010829",
+   "title": "거래처거래내역조회",
+   "menuAliases": [
+    "MENUTREE_001355"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010813",
+   "title": "재무상태표",
+   "menuAliases": [
+    "MENUTREE_000367"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010812",
+   "title": "손익계산서",
+   "menuAliases": [
+    "MENUTREE_000368"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010816",
+   "title": "원가명세서",
+   "menuAliases": [
+    "MENUTREE_000369"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010844",
+   "title": "계정명세서",
+   "menuAliases": [
+    "MENUTREE_001357"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010811",
+   "title": "합계잔액시산표",
+   "menuAliases": [
+    "MENUTREE_000370"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010861",
+   "title": "현금흐름표",
+   "menuAliases": [
+    "MENUTREE_002897"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010817",
+   "title": "이익잉여금처분계산서",
+   "menuAliases": [
+    "MENUTREE_001358"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010832",
+   "title": "수입지출명세서",
+   "menuAliases": [
+    "MENUTREE_001359"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010834",
+   "title": "지출결의서이체리스트",
+   "menuAliases": [
+    "MENUTREE_001362"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010730",
+   "title": "회계 vs. 재고 비교",
+   "menuAliases": [
+    "MENUTREE_001533"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010712",
+   "title": "거래이력조회(회계)",
+   "menuAliases": [
+    "MENUTREE_000095"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E010705",
+   "title": "잔액재집계",
+   "menuAliases": [
+    "MENUTREE_000114"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "C000053",
+   "title": "출력물",
+   "menuAliases": [
+    "MENUTREE_000118"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060403",
+   "title": "채권조회",
+   "menuAliases": [
+    "MENUTREE_000687"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060402",
+   "title": "채권감소등록",
+   "menuAliases": [
+    "MENUTREE_000686"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060405",
+   "title": "채권거래내역",
+   "menuAliases": [
+    "MENUTREE_000716"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060406",
+   "title": "채권증가현황",
+   "menuAliases": [
+    "MENUTREE_000717"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060407",
+   "title": "채권감소현황",
+   "menuAliases": [
+    "MENUTREE_000718"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060404",
+   "title": "채권현황",
+   "menuAliases": [
+    "MENUTREE_000688"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000007",
+   "title": "거래처채권관리대장",
+   "menuAliases": [
+    "MENUTREE_003166"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000045",
+   "title": "거래처채권집계관리대장",
+   "menuAliases": [
+    "MENUTREE_003170"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000008",
+   "title": "거래처채권관리대장인쇄",
+   "menuAliases": [
+    "MENUTREE_003167"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060408",
+   "title": "채권잔액분석표",
+   "menuAliases": [
+    "MENUTREE_001314"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060503",
+   "title": "채무조회",
+   "menuAliases": [
+    "MENUTREE_000692"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060502",
+   "title": "채무감소등록",
+   "menuAliases": [
+    "MENUTREE_000691"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060505",
+   "title": "채무거래내역",
+   "menuAliases": [
+    "MENUTREE_000719"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060506",
+   "title": "채무증가현황",
+   "menuAliases": [
+    "MENUTREE_000720"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060507",
+   "title": "채무감소현황",
+   "menuAliases": [
+    "MENUTREE_000721"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060504",
+   "title": "채무현황",
+   "menuAliases": [
+    "MENUTREE_000693"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000012",
+   "title": "거래처채무관리대장",
+   "menuAliases": [
+    "MENUTREE_003168"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000046",
+   "title": "거래처채무집계관리대장",
+   "menuAliases": [
+    "MENUTREE_003171"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000013",
+   "title": "거래처채무관리대장인쇄",
+   "menuAliases": [
+    "MENUTREE_003169"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060508",
+   "title": "채무잔액분석표",
+   "menuAliases": [
+    "MENUTREE_001315"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060602",
+   "title": "수령수표입금처리",
+   "menuAliases": [
+    "MENUTREE_000696"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060603",
+   "title": "수령수표조회",
+   "menuAliases": [
+    "MENUTREE_000697"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060613",
+   "title": "수령수표거래내역",
+   "menuAliases": [
+    "MENUTREE_001941"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060604",
+   "title": "수령수표현황",
+   "menuAliases": [
+    "MENUTREE_000698"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060609",
+   "title": "수령수표증가현황",
+   "menuAliases": [
+    "MENUTREE_001750"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060610",
+   "title": "수령수표감소현황",
+   "menuAliases": [
+    "MENUTREE_001751"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060606",
+   "title": "발행수표출금처리",
+   "menuAliases": [
+    "MENUTREE_000700"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060607",
+   "title": "발행수표조회",
+   "menuAliases": [
+    "MENUTREE_000701"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060614",
+   "title": "발행수표거래내역",
+   "menuAliases": [
+    "MENUTREE_001942"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060608",
+   "title": "발행수표현황",
+   "menuAliases": [
+    "MENUTREE_000702"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060611",
+   "title": "발행수표증가현황",
+   "menuAliases": [
+    "MENUTREE_001752"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060612",
+   "title": "발행수표감소현황",
+   "menuAliases": [
+    "MENUTREE_001753"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020511",
+   "title": "계획전표조회",
+   "menuAliases": [
+    "MENUTREE_000134"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020523",
+   "title": "계획전표현황",
+   "menuAliases": [
+    "MENUTREE_000426"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020520",
+   "title": "추정자금일보",
+   "menuAliases": [
+    "MENUTREE_000427"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020521",
+   "title": "추정자금월보",
+   "menuAliases": [
+    "MENUTREE_000428"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020522",
+   "title": "추정자금연보",
+   "menuAliases": [
+    "MENUTREE_000429"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020201",
+   "title": "월별예산조회",
+   "menuAliases": [
+    "MENUTREE_000136"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020202",
+   "title": "예산현황",
+   "menuAliases": [
+    "MENUTREE_000430"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020203",
+   "title": "예산-실적비교표",
+   "menuAliases": [
+    "MENUTREE_000431"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020204",
+   "title": "통제예산-실적대장",
+   "menuAliases": [
+    "MENUTREE_000432"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020205",
+   "title": "예산-실적대장",
+   "menuAliases": [
+    "MENUTREE_001760"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020206",
+   "title": "통제예산-실적비교표",
+   "menuAliases": [
+    "MENUTREE_001795"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060201",
+   "title": "관리번호등록",
+   "menuAliases": [
+    "MENUTREE_000228"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060210",
+   "title": "비용항목등록",
+   "menuAliases": [
+    "MENUTREE_002449"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060204",
+   "title": "매입대금청구서수령",
+   "menuAliases": [
+    "MENUTREE_000597"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060202",
+   "title": "(세금)계산서수령",
+   "menuAliases": [
+    "MENUTREE_000595"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060203",
+   "title": "일반영수증수령",
+   "menuAliases": [
+    "MENUTREE_000596"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060205",
+   "title": "거래대금지급",
+   "menuAliases": [
+    "MENUTREE_000598"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060206",
+   "title": "관세사에지급",
+   "menuAliases": [
+    "MENUTREE_000599"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060207",
+   "title": "본계정대체",
+   "menuAliases": [
+    "MENUTREE_000600"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060208",
+   "title": "수입비용전표검색",
+   "menuAliases": [
+    "MENUTREE_000232"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060209",
+   "title": "수입관리대장",
+   "menuAliases": [
+    "MENUTREE_000601"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060808",
+   "title": "통제유형등록",
+   "menuAliases": [
+    "MENUTREE_001513"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060809",
+   "title": "비용등록",
+   "menuAliases": [
+    "MENUTREE_001514"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060810",
+   "title": "비용그룹등록",
+   "menuAliases": [
+    "MENUTREE_001515"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060811",
+   "title": "비용일괄등록",
+   "menuAliases": [
+    "MENUTREE_001797"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060812",
+   "title": "비용내역입력",
+   "menuAliases": [
+    "MENUTREE_001798"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060813",
+   "title": "비용내역조회",
+   "menuAliases": [
+    "MENUTREE_001799"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060814",
+   "title": "전표별회계반영(비용)",
+   "menuAliases": [
+    "MENUTREE_001885"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060815",
+   "title": "비용내역현황",
+   "menuAliases": [
+    "MENUTREE_001884"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060901",
+   "title": "계약항목등록",
+   "menuAliases": [
+    "MENUTREE_001671"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060902",
+   "title": "계약입력",
+   "menuAliases": [
+    "MENUTREE_001674"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060903",
+   "title": "계약조회",
+   "menuAliases": [
+    "MENUTREE_001675"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060904",
+   "title": "계약단가/수량일괄변경",
+   "menuAliases": [
+    "MENUTREE_001676"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060912",
+   "title": "계약현황",
+   "menuAliases": [
+    "MENUTREE_001725"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060905",
+   "title": "청구예정자료생성",
+   "menuAliases": [
+    "MENUTREE_001678"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060907",
+   "title": "청구예정자료인쇄",
+   "menuAliases": [
+    "MENUTREE_001668"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060909",
+   "title": "청구예정자료미생성현황",
+   "menuAliases": [
+    "MENUTREE_001670"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060906",
+   "title": "회계/판매일괄반영",
+   "menuAliases": [
+    "MENUTREE_001679"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060908",
+   "title": "회계미반영현황(계약)",
+   "menuAliases": [
+    "MENUTREE_001667"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E060910",
+   "title": "매출(세금)계산서현황(계약)",
+   "menuAliases": [
+    "MENUTREE_001669"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E061101",
+   "title": "계약서진행단계",
+   "menuAliases": [
+    "MENUTREE_002589"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E061102",
+   "title": "계약서현황",
+   "menuAliases": [
+    "MENUTREE_002590"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090101",
+   "title": "사원등록",
+   "menuAliases": [
+    "MENUTREE_000760"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090103",
+   "title": "수당항목등록",
+   "menuAliases": [
+    "MENUTREE_000763"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090114",
+   "title": "공제항목등록",
+   "menuAliases": [
+    "MENUTREE_001949"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090104",
+   "title": "수당/공제그룹등록",
+   "menuAliases": [
+    "MENUTREE_000764"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090102",
+   "title": "인쇄용결재라인등록(관리)",
+   "menuAliases": [
+    "MENUTREE_000765"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090106",
+   "title": "급여계산/대장",
+   "menuAliases": [
+    "MENUTREE_000767"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090110",
+   "title": "사원별급여조회",
+   "menuAliases": [
+    "MENUTREE_000771"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090115",
+   "title": "급여현황",
+   "menuAliases": [
+    "MENUTREE_001950"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090116",
+   "title": "근무확정현황",
+   "menuAliases": [
+    "MENUTREE_001951"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090117",
+   "title": "급여이체현황",
+   "menuAliases": [
+    "MENUTREE_002463"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N000732",
+   "title": "4대보험신고",
+   "menuAliases": [
+    "MENUTREE_003271"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N001769",
+   "title": "4대보험취득신고입력",
+   "menuAliases": [
+    "MENUTREE_003268"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N001770",
+   "title": "4대보험상실신고입력",
+   "menuAliases": [
+    "MENUTREE_003269"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N001771",
+   "title": "피부양자자격신고입력",
+   "menuAliases": [
+    "MENUTREE_003270"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "N001768",
+   "title": "4대보험신고",
+   "menuAliases": [
+    "MENUTREE_003267"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020603",
+   "title": "인사카드등록",
+   "menuAliases": [
+    "MENUTREE_002478"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020602",
+   "title": "인사발령조회",
+   "menuAliases": [
+    "MENUTREE_002479"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020721",
+   "title": "인사발령입력",
+   "menuAliases": [
+    "MENUTREE_002519"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020720",
+   "title": "인사발령현황",
+   "menuAliases": [
+    "MENUTREE_002516"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020606",
+   "title": "각종증명서인쇄",
+   "menuAliases": [
+    "MENUTREE_002485"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020609",
+   "title": "인원현황",
+   "menuAliases": [
+    "MENUTREE_002487"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090222",
+   "title": "조직도등록",
+   "menuAliases": [
+    "MENUTREE_002761"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E090220",
+   "title": "조직도현황",
+   "menuAliases": [
+    "MENUTREE_002717"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020701",
+   "title": "근태항목등록",
+   "menuAliases": [
+    "MENUTREE_000754"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020702",
+   "title": "휴가항목등록",
+   "menuAliases": [
+    "MENUTREE_000755"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020703",
+   "title": "사원별휴가일수조회",
+   "menuAliases": [
+    "MENUTREE_001790"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020710",
+   "title": "근태입력",
+   "menuAliases": [
+    "MENUTREE_000756"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020711",
+   "title": "근태조회",
+   "menuAliases": [
+    "MENUTREE_000757"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020715",
+   "title": "근태현황",
+   "menuAliases": [
+    "MENUTREE_001397"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020724",
+   "title": "출/퇴근(사원)",
+   "menuAliases": [
+    "MENUTREE_002459"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020725",
+   "title": "출/퇴근반영기준",
+   "menuAliases": [
+    "MENUTREE_002455"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020726",
+   "title": "출/퇴근기록부(사원)",
+   "menuAliases": [
+    "MENUTREE_002456"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020722",
+   "title": "출/퇴근현황(사원)",
+   "menuAliases": [
+    "MENUTREE_002457"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020723",
+   "title": "지각현황(사원)",
+   "menuAliases": [
+    "MENUTREE_002458"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020728",
+   "title": "출퇴근/근태현황(사원)",
+   "menuAliases": [
+    "MENUTREE_002561"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020716",
+   "title": "휴가잔여일수현황",
+   "menuAliases": [
+    "MENUTREE_001398"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E020719",
+   "title": "휴가사용실적현황",
+   "menuAliases": [
+    "MENUTREE_001783"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E072501",
+   "title": "게시판",
+   "menuAliases": [
+    "MENUTREE_002087"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E200062",
+   "title": "공지사항",
+   "menuAliases": [
+    "MENUTREE_002036"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  },
+  {
+   "program": "E070201",
+   "title": "일정관리",
+   "menuAliases": [
+    "MENUTREE_000238"
+   ],
+   "observedActionIds": [],
+   "status": "button-inventory-not-recorded",
+   "next": "Read-only source survey before implementation; do not infer controls"
+  }
+ ],
+ "history": [
+  {
+   "date": "2026-10-21",
+   "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
+   "release": null,
+   "touchedPages": 33
+  }
+ ]
+}
