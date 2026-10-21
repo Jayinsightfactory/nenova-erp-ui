@@ -515,6 +515,123 @@
 - 외부연동13기능새설계문서/JSON: 공급자중립화면·원천키revision·취소보상·secretRef·Outbox응답불명·웹훅·감사복원흐름. 설계완료/실행미구현,가입·API연결·DDL·scheduler없음. 공급자최신요금확정아님. 기존격리shell적용/원본공유ERP쓰기없음.
 - 검색어: bomStock E040726 selected upperResult 851 external-integration-design
 
+## 2026-10-20 BOM 선택 범위 적재·잔량 운영 정확값
+- root 재고잔량1147운영1950행/13650수량exact차이0/제품1949유일/실제합계label·colspan2·monthLabels·다른기준일미수집·인쇄4열기닫기PASS. 표폭delta0.0625px남아후속보정대상,전체픽셀동등성미완료.
+- BOM+외부연동설계5gate모두PASS(bom-stock-guard-results.json), build1회. PR1148 fixed d7583496 CI39411151016진행중. root별도ecount_work bomStock선택1행revision1/readbacktrue/idempotenttrue적재완료. 선택품목/asof에한정된upperempty관찰이며전체품목BOM없음의미아님. source/sharedledger쓰기0,운영화면대조는배포후예정.
+- 검색어: PR1148 bomStock revision1 13650exact 0.0625px
+
+## 2026-10-20 관계별재고 선택 범위 보존
+- PR1148 CI39411151016 PASS/squash623bc523, deploy39411392175 SSH단계진행중. root bomStock1행revision1/readbacktrue/idempotenttrue별도적재완료, 원본공유원장쓰기0.
+- relStock E040728/menu2879: 선택코드/asof1제품+실제합계1행만안전보존, 2필수수량/마지막null코드소계형식검증·합계재계산금지. 무코드/다른코드/다른날짜는미수집, 원본품목필수일반화없음.
+- relation-stock-import-safe.json2행8필드정규화대조0/실제SQL아직없음. UI32표적검사·정책actionsPASS,총868관측ID. 4열751/span2/print3열기닫기만. 원본전체동등성미완료.
+- 공유계정사용량주간42%/58%남음(root조회),작업단독사용량아님/리셋구매없음. 기존격리shell적용/공유ERP writer없음.
+- 검색어: relStock E040728 868 sourceTotal selectedscope
+
+## 2026-10-20 BOM 초기 검색폼 결함 정정
+- PR1148 배포39411392175 success이나 root 실제운영에서무코드초기F3무반응발견. toggleSearch에조회용bomProductDraft빈값차단이잘못들어가품목입력폼진입자체불가. 폼토글의차단1줄만제거하고runSearch빈코드무조회는보존.
+- 실제toolbar F3 handler→toggleSearch AST 실행으로폼열림/포커스/빈코드조회미실행회귀추가,UI33표적PASS. relStock PR1152미병합상태에수정포함후전체검사재실행. 앞선배포성공을BOMruntimePASS로보지않음.
+- root relStock별도SQL count2 revision1/readbacktrue/idempotenttrue,relation-stock-import-result.json. 원본공유원장쓰기없음. 실제UI결함이므로추가build재검증근거있으며검증우회없음.
+- 검색어: BOM F3 toggleSearch bomProductDraft PR1152 regression
+
+
+### 2026-10-20 관계별 재고 및 BOM 초기 F3 복구 / 후속 입출고 모드
+- PR1152는 BOM 초기 F3가 빈 품목에서 검색폼까지 막던 실제 운영 결함을 포함해 수정했다. runSearch 무코드 조회 차단은 유지하고, 실제 Toolbar→toggleSearch 실행 회귀를 추가했다. 최종 HEAD434465a9 필수5종 통과 후 CI39412754182 성공, squash5af3f218. Cafe2439413116701 진행 중이며 BOM 운영 복구는 아직 미검증이다.
+- root 승인 relStock 독립영역 적재는2행/revision1/readbacktrue/idempotenttrue로 보고되었고 receipt를 보존했다. ECOUNT/공유 ERP 원장 쓰기 없음.
+- 후속 stkDaily/stkMonth는 각 원본 opening1949/group_summary1949/actualtotal1의3899행을 별도 dataset으로 보존한다. 거래3899건이라는 의미가 아니다. reportMode와 원본행 역할·순서·nullable 수량·정확기간을 강제하고 모드대체/부분기간 재계산을 금지한다. 원본 opening in/out은 실제 숫자이며 앞서 blank 설명은 root가 직접 DOM 확인 후 정정했다. prepared 안전대조는 각23394필드 소수정규화 기준 불일치0, 실제 SQL 적재/운영은 아직 미검증이다.
+검색어: PR1152 BOM 최초 F3 relStock stkDaily stkMonth 전일재고 group_summary actualtotal 원본공란
+
+- 후속 UI: 주문서현황751px/검색옵션, 견적서현황716px·집계875px/Excel 메뉴 관측차이를 보정했다. P019 UI는 표시 프로그램 stockMove를 유지하되 API·버전·sanitize scope를 집계/일별/월별 독립 dataset으로 전환하며, 모드 변경 시 요청 세대/버전/이력/업로드를 초기화한다. UI 표적37개 통과, 신규 거래유형·잔량 재계산 없음. root의 양 모드 독립 wrapper 대조도 각각3899행 전필드 불일치0이며 아직 SQL 미적재다.
+검색어: 주문서현황 견적서현황 P019 mode scope stale request nullable balance 873
+
+
+### 2026-10-20 P019 릴리스와 명시적 빈 결과 후속
+- PR1152 배포39413116701 성공 후 root 운영 검증: BOM 최초 F3 복구, 선택2수량 exact0/두 표781/다른 코드·날짜 미수집. relStock 실제2행4수량 exact0/표751/합계span2/F3조건보존/인쇄3메뉴 확인. 전체 동등성 완료 판정은 아니다.
+- P019 일별·월별/주문·견적 보완 HEAD0d65dd79 필수5종 통과, PR1153 CI39414094040 성공 후 squash88b43333, 배포39414517963 진행 중. root 실제 stkDaily/stkMonth 각각3899행 revision1/readbacktrue/idempotenttrue를 적재했고 receipt를 보존했다. 원본/공유 원장 쓰기 없음.
+- 다음 ordEmpty는 실제 원본 빈 결과가 확인된 E040209 정확 프로필만 저장하는 0행 envelope다. 현재시각을 원본 조회시각으로 만들지 않고 근거기록시각과 서버시각 미수집을 분리했다. 기존 orderStat/hash/집계/unknown 정책을 보존하며 신규DDL 없음. mock import/rollback/서버 조건 거부/CLI readback 회귀 통과, 실제SQL/운영은 아직 미검증. shell/sidebar+BOM755 UI와 다음 한 묶음 검사 예정이다.
+검색어: PR1153 stkDaily stkMonth ordEmpty observed_empty verification_recorded_at ECOUNT envelope shell BOM755
+
+- shell/읽기메뉴·sidebar·BOM755 UI와 ordEmpty 연결 최종freeze. 현재 GET의 실제 criteria를 서버와 동일한 프로필로 검증하고, profile밖은 SQL호출 없이 미수집으로 전환한다. rows0만으로 빈결과를 단정하지 않고 coverage 검증된 버전만 표시한다. 기존 EmptyState37+Navigation3=40 UI검사 통과, 실제 픽셀 일치는 배포 후 미검증이다.
+검색어: EcountNavigation 읽기메뉴 BOM755 observed_empty ordEmpty 40tests
+
+
+### 2026-10-20 명시적 빈 결과 적재 및 후속 날짜 위젯
+- empty-shell HEADdee02fcf 필수5종 모두 통과, PR1154 생성. root ordEmpty 실제CLI 적재 count0/revision1/readbacktrue/idempotenttrue: 실제 원본 빈 결과의 정확프로필 envelope만 저장했으며 가짜행/신규DDL/ECOUNT·공유원장쓰기 없음. 운영 검증은 배포 후 대기다.
+- PR1153 Cafe24 배포39414517963 최종성공, P019 일별·월별 및 주문·견적 운영 전행검증은 root 진행 예정이다. 날짜위젯 후속은 별도 묶음으로 분리한다.
+검색어: PR1154 ordEmpty count0 readbacktrue PR1153 P019 날짜 위젯
+
+
+### 2026-10-20 관측 연월 위젯 보완
+- PR1154 CI39415205842 통과 후 squashd05239d8, Cafe24 배포39415568799 진행 중이다. ordEmpty 실제 적재 receipt는0행/revision1/readbacktrue/idempotenttrue로 보존했다. shell/BOM755/빈결과 운영 검증은 아직 미검증이다.
+- BOM 기준일 및 주문서현황 시작일 위젯만 원본 관측 프로필을 적용했다. 2026에서 관측한 연도 목록을 보존하며 선택년도2025에도 목록 유지, 직접입력 Tab확정, BOM 월메뉴376.5625/orderStart260 높이를 반영했다. 종료일/미래연도 갱신규칙은 추정하지 않았다. 기존 stock Enter/Escape 동작 보존, UI41검사 PASS. 메타909관측ID로 증가했으나 전체 기능동등성 완료 수가 아니다.
+검색어: PR1154 연월 Tab BOM376.5625 주문서260 observed-profile909
+
+
+### 2026-10-20 연월 릴리스 및 견적 빈 결과·주문 미리보기
+- PR1154 Cafe24 배포39415568799 최종성공, root shell/BOM755/ordEmpty 운영검증 대기. PR1155 날짜 프로필 HEADf9cc6e43 필수5종/CI39416188437 통과 후 squashcf157640, 배포39416549543 진행 중.
+- 다음 quoteEmpty는 원본 전표별 exact조건/기록시각을 별도 등록하고, 기존 ordEmpty/hash/quoteStat을 보존한다. 안전 wrapper0행 준비 및 unknown조건·교차연도·프로필혼입·mock import/readback/복원 검증 통과, 실제SQL/운영은 아직 미검증이다. 주문서현황 preview는 원본 관측된751/x15/y48 표만 렌더하며 제목/회사/기간을 넣지 않고 기존 다른미리보기는 유지한다. CSP·HTMLescape·자동인쇄금지 회귀 통과, 픽셀동등성은 운영검증 전이다.
+- root 확인 공유계정 주간64%사용/36%남음(본 작업 단독비용 아님), ordinaryAllowedtrue. 리셋·구매 없이 기존3작업자 재사용, 변경묶음당 필수검사/빌드1회 유지.
+검색어: PR1155 quoteEmpty orderStat-detail preview751 verification_recorded_at 공유사용량64
+
+- 1154 운영 반증 보존: shell 그룹바/좌측 폭은 원본치수 일치했으나 BOM폼 y183.390625로 원본136.21875보다47.171875 낮았다. 원본0범위 밖19일 입력 후에도 빈결과 표시가 남는 현상은 원인확정 전이며 성공판정 보류. 후속은 BOM 도구를 heading 내부로 정리하고 native 날짜 input/blur를 draft에 동기화하는 방어적 보완을 포함한다. 실제Panel19입력→F8→runSearch19전달→coverage거부/서버요청없음 및 heading내 단일toolbar 회귀 포함 UI45검사 통과. 운영 원인해결·픽셀동등성은 재배포 후 root가 재검증한다. quoteEmpty/주문preview/911 ID와 같은 묶음으로 검사한다.
+검색어: BOM y47.171875 ordEmpty19일 반증 nativeinput blur quoteEmpty911 미검증
+
+### 2026-10-20 견적 빈 범위·미리보기 릴리스 및 후속 PO/일보 판매
+- PR1155 Cafe24 39416549543 성공. root 운영 연월 위젯 확인: 주문 시작월65.046875×260/연도102.71875×164.375, BOM 월65.046875×376.5625/같은 연도크기, 2026 직접입력 Tab 복귀와 2025 선택 후 관측목록 유지 확인. 조회 실행 동등성과 미래연도 규칙까지 확대하지 않는다.
+- PR1156 HEADa095fd24 필수5종 모두 통과, CI39417885604 성공 후 squashe45507a2 병합. quoteEmpty 실제 격리영역 적재는 root가 PASS 이후 수행:0행/revision1/readbacktrue/idempotenttrue, receipt quote-status-observed-empty-import-result.json. ECOUNT/공유원장 쓰기0. Cafe24 및 실제 미리보기/견적 빈 범위 운영검증은 대기.
+- 1154 날짜19 Tab→F8에서도 빈 결과 잔류가 재현된 실패를 보존한다. 방어적 native input/blur 동기화 및 BOM heading 배치는1156에 포함됐으나 근본원인·운영 재검증 전 성공 판정하지 않는다. Excel911 파일 해시는 root 독립 대조 일치, 실패2건 미해결 표시 유지.
+- 다음 poEmpty/daySale는 별도 정확조건 coverage envelope로 준비했다. PO '결제일 기준'은 적용양식이며 날짜업무 의미는 미검증. 일보는 판매종류 하나/10월20일/빈 선택조건만 허용한다. 정책·mock store의 import/readback/멱등/rollback 및 CLI 검사 통과, 실제SQL은 아직 미실행. quoteEmpty naked[] 디코드 방어 누락도 모든 명시빈범위 envelope 필수로 통일했다; 정상 import는 기존에도 증거필수였고 기존 해시는 변경하지 않는다.
+검색어: PR1156 quoteEmpty0행 19일Tab반증 BOMheading poEmpty daySale envelope 977
+- 후속 UI 최종 동결: PO detail→poEmpty, 일보 daySale exact criteria와 판매 체크→적용/재열기 초기화 연결. 일보 인쇄2항목은 원본 관측대로 Escape·재클릭 시 유지, F3에서 닫힘; 실제 출력 실행은 미검증이다. observed coverage dataset은 일반 파일 업로드 버튼을 노출하지 않는다. UI EmptyState/Navigation48검사·JSX6파일·diffcheck PASS. root wrapper 독립 대조 모두 criteriaMismatch[]; 실제SQL 및 UI 운영/픽셀 검증은 아직 미검증. 메타977은 관측ID 수이며 완료기능 수가 아니다.
+검색어: poEmpty daySale 판매 종류팝업48tests observed-empty977 runtime미검증
+
+### 2026-10-20 PO/일보 릴리스와 운영 회귀 해소
+- PR1156 Cafe2439418264281 성공. root1156 운영에서 BOM폼 x250.15625/y136.21875/w755/h310.46875 원본 bbox 정확 일치 확인. 주문 시작·종료19일 입력 Tab→F8 미수집, F3 재열기 두날짜19 유지 확인해1154의 빈결과 잔류 반증이 해소됐다. 금일/preview/quote 범위는 추가검증 중이다.
+- PR1157 HEAD19132b0c 필수5종 PASS 후 생성/attach, CI39419124262 진행. root가 PASS 후 poEmpty/daySale를 각각0행/revision1/readbacktrue/idempotenttrue로 실제 적재했다. 별도ecount_work만, 원본/공유원장쓰기0. 두 receipt 저장, 운영 UI는 배포 전 미검증.
+검색어: PR1156 BOMbbox정확 19일미수집복구 PR1157 poEmpty daySale 실제0행증거
+- PR1156 견적 운영 추가검증: exact10/20 현황716/7열/빈1행span7, 다른19일 입력 Tab→F8 미수집 및 F3 날짜유지 PASS. 주문 미리보기는 enabled 메뉴→별도 Print Preview 창 생성까지만 확인; 창 내부는 도구 URL protocol 보안 정책 차단으로 미검증이다. 우회 surface/URL변경 없이 제한을 보존한다.
+- PR1157 CI39419124262 성공 후 squash70a038c6, Cafe2439419456563 진행 중. 실제 PO/daySale 화면은 배포 후 root 검증 대기.
+검색어: quote1156 exactempty716 preview보안정책내부미검증 PR1157배포39419456563
+
+### 2026-10-20 미매출 날짜범위와 집계 전환 보완
+- PR1157 Cafe2439419456563 최종성공, root PO/일보 운영검증 진행 중. 후속 unpSale는 E040609 기준일자/date_range/2026-10-20의 명시적 빈 결과만 별도 프로필로 등록했다. 영업주기 과거자료와 섞지 않으며 고급필터 독립 동작은 미검증이다. root wrapper 독립대조 criteriaMismatch[]·기록시각·sourceTimeNull·빈9열 확인, 실제SQL은 아직 미실행이다.
+- 견적 집계 전환 오류는 API 실패가 아니라 보존된 날짜를 readonly 집계 filterSortRows에 전달해 DATE_FILTER_UNAVAILABLE가 발생한 문제였다. quote/order/po 집계 미수집 분기를 분리하고 날짜조건은 보존했다. unpSale 날짜모드 전환 시 버전 무효화 및 exact 조건만 조회, UI50검사·JSX/diffcheck PASS. 메타1002관측ID. 운영 재검증은 배포 후 필요하다.
+- dayAll 전체34종류는 다음 독립 배치다. safe2217행/30빈구역/4누계분류×3기간과 거래처관계기준 조건을 하나의 불변 snapshot으로 설계하되 현재 커밋에는 구현하지 않는다. 원본값은 untracked 로컬 자료에만 두고 fixture는 합성값만 사용한다.
+검색어: unpSale date_range E040609 aggregate DATE_FILTER_UNAVAILABLE 50tests1002 dayAll다음배치
+
+### 2026-10-20 일보 전체 안전자료 원자 버전
+- PR1158 필수5종/CI39420936549 PASS 후 squashee7b430c, Cafe2439421260544 진행 중. unpSale 실제 적재는 root count0/revision1/readbacktrue/idempotenttrue, 원본/공유원장쓰기0이며 운영 검증은 배포 후 예정.
+- dayAll 새 envelope는 exact34종류/relationship/10월20일과 sourceTable/sourceRow를 고정한다.34구역(명시빈30),53표,AR72/AP183/재고1950/누계12=2217행. 실제합계와null/정밀문자열 보존, 이름·업체코드·미회수월·숨은코드 제외. 원본끼리 재고1949×4 대조0과 root wrapper 전필드 valueMismatches[]를 구분 기록했다; target runtime는 아직 미검증이다.
+- UI53표 연속배치/34제목, AR/AP/재고합계span1/2/3, 누계4×rowspan3, canonical34 종류 반환과 부분조건 미수집, state전환 전 dataset override 보완을 구현했다. UI52검사·새합성fixture 정책/store/CLI 표적검사 PASS. 실제값은 outputs만 보관/커밋금지, actualSQL 아직미실행. 메타1018 관측ID, 전체 기능완료수가 아니다.
+- 공유계정 주간87%사용/13%남음은 본 작업 단독사용량이 아니며 ordinaryAllowedtrue. 추가worker·리셋·구매 없이 최종 고정묶음당 필수검사/빌드1회 유지한다.
+검색어: dayAll2217 observed_report34 sections30empty actualtotal null sourceTable atomic1018 PR1158
+- dayAll 최초 HEADb4c412c7에서 계약/dnSpy/manifest/writeguard4종 PASS이나 build134 실패(Node worker semi-space 메모리commit 실패). 성공으로 간주하지 않으며 failed log 보존. 해당workerPID20060/50036은 이미 종료, 작업트리 잔류Next프로세스 확인없어 광역종료하지 않았다. 설치된 Next가 지원하는 CIRCLE_NODE_TOTAL=3으로 worker2개만 사용하여 다음빌드를 재검증한다(저장소설정파일 변경 없음).
+- 원본 발주계획 table6 다단헤더 실제결함을 보정했다:12flat 대신8열/2헤더행/colspan3 두개/emptyspan8. UI53회귀 PASS, 나머지52표 폭합계 추가이상 없음. 이 새결함 변경을 포함한 고정HEAD로 필수5종 재실행한다. PR1158 Cafe2439421260544 최종성공, unpSale/집계전환 운영은root검증예정.
+검색어: dayAll build134 semi-space CIRCLE_NODE_TOTAL2workers 발주계획2단8열53tests
+
+### 2026-10-20 일보 최종검증 및 실제 적재
+- HEAD1304072c 최종5종 daily-all-final 모두 PASS, 기존 지원환경 CIRCLE_NODE_TOTAL=3(2workers)로 build성공. 최초build134는 별도 실패로그로 남기고 성공으로 덮지 않았다. PR1159 생성/attach, CI39422639398 진행.
+- root가 최종5종 직접확인 후 dayAll2217/revision1/readbacktrue/idempotenttrue 실제적재 완료, inventory-daily-all-kinds-import-result.json 기록. 앞선53표 관측 snapshot만 적재했고 이후동일조건 재조회51표/검색제한 안내는 별도미완료 증거로 보존했다. 최신전체조회 완전성은 미검증/complete unknown, 원본/공유원장쓰기0.
+- PR1158 견적 집계 전환 실제수정 PASS, unpSale 기준일자exactempty/다른날짜미수집/영업주기차단 bounded PASS. 제목·정렬·인쇄화살표 등 시각차이는 다음독립보정으로 진행, 전체픽셀동등성미완료. 기존Preview내부는 도구보안차단으로미검증 유지.
+검색어: PR1159 dayAll2217 readbacktrue 53표51표제한구분 2workerbuildPASS quoteaggregate1158
+
+### 2026-10-20 은행 매핑 화면 설계와 미매출 시각보정
+- PR1159 CI39422639398 첫 실행은 기존 importChecklistEditing 브라우저 시작에서 Chrome WS endpoint30초 timeout으로 실패(224PASS/1fail). 관련코드 변경 없이 failed job1회 재시도하며 PASS전 병합하지 않는다. 최초실패로그 보존, ECOUNT assertion 실패로 혼동하지 않는다.
+- 후속 은행 매핑 popup은 원본 제목/960×676/755폭7열/F3검색폼/빈4필드/관측3매핑종류 표시만 구현했다. 미수집이며 자동매핑·선택삭제·F8·Excel은 비활성, API/DDL/저장 실행없음. 외부연동 설계문서에 draft검토→버전활성화/감사·복원 정책만 구체화했다.
+- unpSale 원본 시각근거로 중앙24px 제목/오른쪽기간/중앙빈문구/인쇄화살표 존재만표시(실행disabled)를 반영하고 현재empty에없는 오천건버튼을 제거했다. UI55검사·JSX/JSON/diffcheck PASS, 메타1019관측ID. 다음 별도고정HEAD의 필수5종과운영검증은 아직대기다.
+검색어: PR1159 CIChrome기동timeout 은행매핑960x676755 unpSale24px 55tests1019 설계only
+- PR1159 동일HEAD의 CI39422639398 attempt2가 코드변경 없이 SUCCESS로 종료되어 squash75081bfa 병합했다. 원격 Chrome기동 실패와 재시도 성공 기록을 함께 보존하며 배포는 후속 감시한다.
+
+### 2026-10-20 승인된 마지막 배포 마무리
+- PR1159 Cafe2439423532560 최종SUCCESS, dayAll 실제53표/2217행 운영비교는 root 진행 중이며 완료로 앞서 표기하지 않는다. 기존원본 검색제한·완전성unknown은 보존한다.
+- 시각보정 HEAD87e6f382 mapping-unposted 필수5종 PASS(2workers), UI55회귀 PASS. PR1160 CI39424066494 SUCCESS 후 squashf2643be6 병합, Cafe24 배포 확인 대기. 은행자동매핑/삭제/저장/외부API 실행은 없음.
+- root 지시에 따라 공유계정97%사용/3%남음(본작업단독아님) 상태에서 추가기능·원본조사·새배치 착수는 중지하고 이미 진행 중인 배포/운영확인/인계만 마무리한다. 리셋·구매·추가worker 없음. 전체ERP100%완료 아님, disabled/미관측/외부연동설계 항목은 남아 있다.
+검색어: PR1159deploySUCCESS PR1160f2643be6 공유97중지추가기능 dayAll런타임대기
+- 1159 root 운영 exact범위53표/2217행/8426숫자/991null 불일치0 확인. 다른19일은 UI load 사전검사목록에 dayAll 누락으로 오류표시되는 실제결함 발견. 서버 strict거부는정상이며 UI검사를 PROFILES hasOwn으로통일하는1줄+실제load19일 fetch0/versionnull/error없음 회귀만수정, UI56검사PASS. 새기능없고긴급후속검증/배포대기.
+
+## 2026-10-21 native 관리자 설치기
+- PR1132 payload 그대로 포함한 단일 WinForms 설치 EXE 구현. requireAdministrator, 기존 경로/직접 선택, 모든 로컬 세션 실행 중 차단, SHA256 allowlist, 원본 백업/atomic 교체/실패 복원. DB 쓰기 없음.
+- 파일 교체/거부/재설치 회귀 및 UI 렌더 확인 통과. 직원 PC 및 실제 로그인 Pivot은 미검증. 전체 gate 진행 중.
+- 검색어: native-pivot-installer 관리자설치 단일EXE requireAdministrator
 ## 2026-10-21 바로빌 API 세팅(테스트 서버 인증키) — lib/barobillApi.js
 검색어: 바로빌, barobill, SOAP, testws.baroservice.com, BAROBILL_CERTKEY, 134-86-94367, 세금계산서 API, 계좌조회 API, 카드조회 API, 홈택스 수집
 - 개발자센터 파트너 '네노바'(콘솔 8614) 테스트/운영 인증키 확인 → GitHub Secret(BAROBILL_ENV=test, BAROBILL_CERTKEY, BAROBILL_CERTKEY_PROD, BAROBILL_CORPNUM=1348694367)·owner PC env. deploy.yml 이 .env.local 동기화. 회원사 번호는 134-86-94367(견적서 416-81-38772 는 케이넷).

@@ -1,33 +1,110 @@
 {
-  "id":"ecount-page-actions",
-  "title":"ECOUNT 조회 화면의 무부작용 검색·정렬·출력 모델",
-  "scope":["pages/_app.js","components/ecount/useLookupWindow.js","lib/ecountLookupWindow.cjs","pages/ecount/lookup.js","lib/ecountPageActions.cjs","lib/ecountPrintPreview.cjs"],
-  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
-  "actions":[{"name":"LOCAL_FILTER_SORT_EXPORT_MODEL","orderDetail":"preserve","shipmentDetail":"preserve","writeAllowlist":[]}],
-  "crossYearFixture":{"required":true,"description":"연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"},
-  "requiredTestFiles":["__tests__/ecountLookupWindowUi.test.cjs","__tests__/ecountLookupWindow.test.cjs","__tests__/ecountWorkspaceEmptyState.test.cjs","__tests__/ecountWorkspaceNavigation.test.cjs","__tests__/ecountPageActions.test.cjs","__tests__/ecountPrintPreview.test.cjs"],
-  "dnspyEvidence":{"required":true,"record":"docs/ecount-migration/parity-observations.md","source":"관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.","methods":["filterSortRows","buildExportModel","datePreset"],"tables":["All ERP/source/workspace tables preserve"]},
-  "requiredCommands":["node --test __tests__/ecountLookupWindowUi.test.cjs","node __tests__/ecountLookupWindow.test.cjs","node --test __tests__/ecountWorkspaceEmptyState.test.cjs","node --test __tests__/ecountWorkspaceNavigation.test.cjs","node __tests__/ecountPageActions.test.cjs","node __tests__/ecountPrintPreview.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
-  "criteria":{
-    "stockSnapshotQuery":"selectStockSnapshot은 단일기준일이 version.periodFrom/periodTo 모두와 일치할때만 available. 다른날짜/버전없음은미수집,0건조회로해석금지. 행날짜생성/시점추정없음.",
-    "lookupReturn":"동일origin/exact child WindowProxy/UUID nonce/current dataset 일치시에만 daily 로컬표시선택. 새메뉴·오래된창·닫힌부모/자식·변조 payload 거부. SQL/query실행없음. 부모 cleanup/listener 및 crypto.randomUUID는 UI책임.",
-    "orderPreview":"관측된 orderStat-detail7열/orderStat-daily/poStat-daily5열은 명시layout옵션으로만허용, poStat내역9열. 미수집UI실행차단 유지. orderQuery인쇄문제해결만, orderStat일별집계5열관측, 다른집계표생성금지.",
-    "quoteStatPreview":"집계8열 별도preview관측. 현황7열preview도 별도새탭 직접관측(단가(var별도) 포함). 자료미수집이므로 UI비활성유지; renderer7열은 layout=quoteStat-detail 명시옵션으로만 허용하며 전체원본양식 동등성은 미검증.",
-    "unfulfilledPreview":"미판매9열/미구매8열 별도탭 관측. renderer8열 허용 추가하되 UI는 미수집상태로 preview 비활성. 기준일 영업주기/실제행 날짜 의미 미확인이므로 날짜·검색실행 모두 비활성.",
-    "saleQueryFilter":"E040206 saleQuery 날짜/정확소수 amount 필터 지원. 원본 기본기간 미확정, 기간추정금지. 인쇄메뉴 프린트문제해결만 관측, 10열미리보기 생성하지 않음.",
-    "discountPreview":"원본 별도탭 visible6열 미리보기 관측에 따라 6열 허용. 월/일 값 문법 미확인: 값 공백, 날짜필터 불가, 빈모델은 원본전체완전성 보증 아님.",
-    "orderSettlementFilter":"poQuery/receipt/payment 날짜·정확소수 필터 재사용. 원본 수금/지급 미리보기 관찰된 visible4열만 추가 허용하며 hidden th는 제외. 발주서 상태/납기와 빈결과 전체성은 추정하지 않음.",
-    "buyStatusFilter":"E040305 구매현황 안전 숫자8필드 및 날짜 필터 지원. 날짜 기본값/추가조건 추정 없음; 미상일자 제외수 및 정확소수 보존.",
-    "purchaseFilter":"E040304 purchase 날짜/정확소수 필터와 안전출력 모델 재사용. 원본 날짜 기본값/preset은 추정하지 않음. amountTotal/foreignTotal/exchangeRate만 허용, 미상일자 제외 계수 명시.",
-    "quoteStatusFilter":"quote만 all/in_progress/completed 필터를 지원. 원본 DOM 상태셀의 진행중/완료 관찰만 근거로 하며 전체총수와 다른 결재/확인 단계는 추정하지 않음. 미상행수와 실제 상태필터로 제외한 미상행수를 구분; statusCoverage는 저장된 행의 근거 범위일 뿐 원본 수집 완전성 아님. 빈자료의 coverage는 unknown. 미관찰 상태 enum은 거부.",
-    "evidence":"docs/ecount-migration/parity-observations.md",
-    "knownShortcuts":{"F3":"open-search","F8":"run-search"},
-    "reset":"UI가 전달한 초기 검색조건으로 복원; 원본 기본값을 추정하지 않음",
-    "datePreset":"연/월/일은 명시 ISO 기준일; 주 시작요일은 호출자가 관찰근거에 따라 명시. E040207 금주(~오늘)는 2026-10-20 관찰에서 2026-10-18~2026-10-20로 설정되어 일요일 시작과 결과 자동조회 전환 확인. 다른 프로그램·preset에는 일반화하지 않음. 종료일 동작 미확정으로 미지원",
-    "unknownDates":"날짜필터가 활성화되면 미상일자/월계 제외 개수를 별도 반환; 기간귀속 추정 안함",
-    "exactDecimals":"소수점 이하8자리, 정수24자리까지 BigInt 정렬/범위필터; 부동소수 변환 금지",
-    "export":"안전투영 필드만; 계좌/거래처/품목/메모 등의 열은 값 공백; CSV formula injection 방지; 원본 Excel/인쇄 양식 동등성 미검증",
-    "printPreview":"E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열/수금·지급4열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
-    "writes":"없음"
-  }
+  "id": "ecount-page-actions",
+  "title": "ECOUNT 조회 화면의 무부작용 검색·정렬·출력 모델",
+  "scope": [
+    "lib/ecountObservedCoverage.cjs",
+    "components/ecount/EcountNavigation.js",
+    "pages/_app.js",
+    "components/ecount/useLookupWindow.js",
+    "lib/ecountLookupWindow.cjs",
+    "pages/ecount/lookup.js",
+    "lib/ecountPageActions.cjs",
+    "lib/ecountPrintPreview.cjs",
+    "components/ecount/InventoryDailyPageControls.js",
+    "components/ecount/InventoryKindLookup.js",
+    "components/ecount/UnpostedSalesPageControls.js",
+    "lib/ecountDailyReport.cjs",
+    "components/ecount/InventoryDailyAllResults.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "LOCAL_FILTER_SORT_EXPORT_MODEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "연말/연초 날짜범위 및 정확한 큰 소수 문자열 비교; 원본 행 불변"
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountLookupWindowUi.test.cjs",
+    "__tests__/ecountLookupWindow.test.cjs",
+    "__tests__/ecountWorkspaceEmptyState.test.cjs",
+    "__tests__/ecountWorkspaceNavigation.test.cjs",
+    "__tests__/ecountPageActions.test.cjs",
+    "__tests__/ecountPrintPreview.test.cjs",
+    "__tests__/ecountDailyReport.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/ecount-migration/parity-observations.md",
+    "source": "관찰된 E010205/E040214/E040309/E040207 조회 버튼·열을 위한 브라우저 순수 함수. SQL/EXE 조회·쓰기 없음. 원본 미관찰 옵션/출력물 동등성은 확정하지 않음.",
+    "methods": [
+      "filterSortRows",
+      "buildExportModel",
+      "datePreset"
+    ],
+    "tables": [
+      "All ERP/source/workspace tables preserve"
+    ]
+  },
+  "requiredCommands": [
+    "node --test __tests__/ecountLookupWindowUi.test.cjs",
+    "node __tests__/ecountLookupWindow.test.cjs",
+    "node --test __tests__/ecountWorkspaceEmptyState.test.cjs",
+    "node --test __tests__/ecountWorkspaceNavigation.test.cjs",
+    "node __tests__/ecountPageActions.test.cjs",
+    "node __tests__/ecountPrintPreview.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build",
+    "node __tests__/ecountDailyReport.test.cjs"
+  ],
+  "criteria": {
+    "stockSnapshotQuery": "selectStockSnapshot은 단일기준일이 version.periodFrom/periodTo 모두와 일치할때만 available. 다른날짜/버전없음은미수집,0건조회로해석금지. 행날짜생성/시점추정없음.",
+    "lookupReturn": "동일origin/exact child WindowProxy/UUID nonce/current dataset 일치시에만 daily 로컬표시선택. 새메뉴·오래된창·닫힌부모/자식·변조 payload 거부. SQL/query실행없음. 부모 cleanup/listener 및 crypto.randomUUID는 UI책임.",
+    "orderPreview": "관측된 orderStat-detail7열/orderStat-daily/poStat-daily5열은 명시layout옵션으로만허용, poStat내역9열. 미수집UI실행차단 유지. orderQuery인쇄문제해결만, orderStat일별집계5열관측, 다른집계표생성금지.",
+    "quoteStatPreview": "집계8열 별도preview관측. 현황7열preview도 별도새탭 직접관측(단가(var별도) 포함). 자료미수집이므로 UI비활성유지; renderer7열은 layout=quoteStat-detail 명시옵션으로만 허용하며 전체원본양식 동등성은 미검증.",
+    "unfulfilledPreview": "미판매9열/미구매8열 별도탭 관측. renderer8열 허용 추가하되 UI는 미수집상태로 preview 비활성. 기준일 영업주기/실제행 날짜 의미 미확인이므로 날짜·검색실행 모두 비활성.",
+    "saleQueryFilter": "E040206 saleQuery 날짜/정확소수 amount 필터 지원. 원본 기본기간 미확정, 기간추정금지. 인쇄메뉴 프린트문제해결만 관측, 10열미리보기 생성하지 않음.",
+    "discountPreview": "원본 별도탭 visible6열 미리보기 관측에 따라 6열 허용. 월/일 값 문법 미확인: 값 공백, 날짜필터 불가, 빈모델은 원본전체완전성 보증 아님.",
+    "orderSettlementFilter": "poQuery/receipt/payment 날짜·정확소수 필터 재사용. 원본 수금/지급 미리보기 관찰된 visible4열만 추가 허용하며 hidden th는 제외. 발주서 상태/납기와 빈결과 전체성은 추정하지 않음.",
+    "buyStatusFilter": "E040305 구매현황 안전 숫자8필드 및 날짜 필터 지원. 날짜 기본값/추가조건 추정 없음; 미상일자 제외수 및 정확소수 보존.",
+    "purchaseFilter": "E040304 purchase 날짜/정확소수 필터와 안전출력 모델 재사용. 원본 날짜 기본값/preset은 추정하지 않음. amountTotal/foreignTotal/exchangeRate만 허용, 미상일자 제외 계수 명시.",
+    "quoteStatusFilter": "quote만 all/in_progress/completed 필터를 지원. 원본 DOM 상태셀의 진행중/완료 관찰만 근거로 하며 전체총수와 다른 결재/확인 단계는 추정하지 않음. 미상행수와 실제 상태필터로 제외한 미상행수를 구분; statusCoverage는 저장된 행의 근거 범위일 뿐 원본 수집 완전성 아님. 빈자료의 coverage는 unknown. 미관찰 상태 enum은 거부.",
+    "evidence": "docs/ecount-migration/parity-observations.md",
+    "knownShortcuts": {
+      "F3": "open-search",
+      "F8": "run-search"
+    },
+    "reset": "UI가 전달한 초기 검색조건으로 복원; 원본 기본값을 추정하지 않음",
+    "datePreset": "연/월/일은 명시 ISO 기준일; 주 시작요일은 호출자가 관찰근거에 따라 명시. E040207 금주(~오늘)는 2026-10-20 관찰에서 2026-10-18~2026-10-20로 설정되어 일요일 시작과 결과 자동조회 전환 확인. 다른 프로그램·preset에는 일반화하지 않음. 종료일 동작 미확정으로 미지원",
+    "unknownDates": "날짜필터가 활성화되면 미상일자/월계 제외 개수를 별도 반환; 기간귀속 추정 안함",
+    "exactDecimals": "소수점 이하8자리, 정수24자리까지 BigInt 정렬/범위필터; 부동소수 변환 금지",
+    "export": "안전투영 필드만; 계좌/거래처/품목/메모 등의 열은 값 공백; CSV formula injection 방지; 원본 Excel/인쇄 양식 동등성 미검증",
+    "printPreview": "E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열/수금·지급4열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
+    "writes": "없음"
+  },
+  "criteriaLedger": {
+    "stockMovementModes": "E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."
+  },
+  "observedEmptyContract": "ordEmpty E040209 dedicated scope, no change to orderStat readonly or old array-version hashes. Only registered 2026-10-20 detail/line/no-comparison/all-trade/no-graph/empty selections/no delivery period profile is allowed. JSON envelope contains zero rows and validated coverage; RowCount0 is a real observed empty result, never a fake row. Evidence recordedAt2026-10-20T11:17:01.4254316Z is verification_recorded_at, not server execution timestamp. Same criteria revalidated on server current GET and import, unknown scope rejected before SQL. Existing ledger/ECOUNT writes forbidden, no runtimeDDL. Cross-year and unknown filter fixtures mandatory.",
+  "observedDateWidgetContract": "Opt-in source profiles BOM E040726 reference date and E040209 start date only. Preserve observed 2026 year-menu options without inferring future rollover rules; Tab confirms direct input and month popup dimensions follow recorded profile; unobserved keyboard behavior is not claimed equivalent. Other widgets retain existing behavior. Local draft date changes never write ECOUNT/shared ledger; exact snapshot/profile server checks remain authoritative. Required existing UI tests cover observed menu dimensions/Tab commit and prior-year uncollected scope.",
+  "quoteEmptyContract": "E040208 quoteEmpty is a separate 10-character scope preserving quoteStat readonly and all ordEmpty profile hashes. Only registered 2026-10-20 detail/voucher/no comparison/all trade/graph false/quote number and serial-lot empty/warehouse project management customer product selections empty/form 견적서현황 is permitted; recordedAt2026-10-20T11:34:11.177Z is verification_recorded_at, sourceQueryExecutedAt null. Zero rows require exact coverage envelope, server GET criteria validation, unknown criteria rejection and no fake rows/DDL/source or shared-ledger writes.",
+  "orderDetailPreviewContract": "Observed E040209 detail preview is a separate window with table-only 7 columns, width751 x15 y48; no invented heading/company/period block. Keep other preview layouts unchanged and no-script/no-network CSP. Preview caller requires verified ordEmpty exact criteria; uncollected or other scope disabled. Original full print execution remains unverified.",
+  "runtimeCounterexampleCorrections": "BOM form vertical offset and outside-scope ordEmpty date result are recorded runtime counterexamples, not passed parity. Keep BOM toolbar once inside heading. Native date input/blur synchronize visible draft before F8; exact coverage rejects 2026-10-19 locally and on server. Existing shared ERP and source writes remain forbidden; UI regression executes actual panel input and runSearch. Actual deployed remediation remains pending browser verification.",
+  "poEmptyContract": "E040306 poEmpty separate registered observed_empty envelope only: detail/line/all trade/2026-10-20 exact dates/no delivery/no selections/no approval display/no graph/form 결제일 기준. Form is not a date-basis semantic assertion. Source execution timestamp unknown; verification recordedAt retained. Other periods, forms, filters, nonempty rows and naked empty arrays rejected before SQL. Existing poStat and old hashes preserved.",
+  "dailySalesEmptyContract": "E040708 daySale separate registered observed_empty envelope only: 2026-10-20 exact dates/kinds [판매]/all trade/no approval display/empty warehouse customer product department management selections. Does not cover other kinds or all inventory daily reports. No fabricated rows, source writes, shared ledger writes or DDL; upload and current GET validate exact profile; invalid filters rejected before SQL.",
+  "unpostedSalesEmptyContract": "E040609 unpSale only observed 2026-10-20 date_range scope; exact empty transaction/warehouse/customer/product/customer-manager selections, no amount limits, form 기본(수정불가), approvalDisplay false. Business-cycle mode and hidden filters not independently exercised remain unsupported. Exact evidence envelope required, unknown dates/modes/selections rejected before SQL; no fake rows/source writes/shared-ledger writes/DDL.",
+  "dailyAllContract": "dayAll E040708 separate observed_report envelope, exact34 source kinds/date2026-10-20/all trade/relationship customer aggregation/empty selections/no approval. One atomic immutable version contains34 sections:30 explicit empty, AR72/AP183/stock1950 over20 source tables/cumulative12 =2217safe rows. Names/customer codes/aging/hidden code/free text excluded. Source nulls, exact decimal strings, actual totals, table/row order preserved. Category4 x period3 and period label grammar validated. No derived aggregate, no transactions inferred, completeness unknown. Partial scope/pages/duplicates/cross-year/foreign profile rejected, no source/shared-ledger writes or DDL."
 }
