@@ -145,3 +145,18 @@ BEGIN
   );
   CREATE UNIQUE INDEX UX_WebMgmtReceipt_Source ON web_mgmt.ReceiptMatch(Source, SourceRef);
 END;
+
+-- ⑥ 단가 스냅샷(스냅샷 비교 방식 단가 변경이력의 원본). 실행 1회 = SnapshotKey 1개(배치 번호). 추가 전용.
+IF OBJECT_ID(N'web_mgmt.PriceSnapshot', N'U') IS NULL
+BEGIN
+  CREATE TABLE web_mgmt.PriceSnapshot (
+    RowKey BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    SnapshotKey INT NOT NULL,
+    CustKey INT NULL,
+    ProdKey INT NOT NULL,
+    PriceKind NVARCHAR(40) NOT NULL,       -- 'customer'(CustomerProdCost) | 'default'(Product.Cost)
+    Value DECIMAL(18,4) NULL,
+    TakenAt DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+  );
+  CREATE INDEX IX_WebMgmtPriceSnapshot_Batch ON web_mgmt.PriceSnapshot(SnapshotKey, PriceKind, ProdKey, CustKey);
+END;
