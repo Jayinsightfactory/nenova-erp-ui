@@ -1,0 +1,139 @@
+{
+  "id": "ecount-input-drafts",
+  "title": "ECOUNT 입력 화면 7종 웹 전용 저장 계약 (ecount_work InputDraft)",
+  "scope": [
+    "lib/ecountInputDrafts.cjs",
+    "docs/migrations/2026-10-21_ecount_work_input_drafts.sql",
+    "data/ecount-workbench/evidence/2026-10-21-source-survey-p008-p019.json",
+    "data/ecount-workbench/evidence/2026-10-21-source-survey-p008-p019.reduced.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "programs": {
+    "E040203": "주문서입력",
+    "E040205": "판매입력",
+    "E040253": "판매입력 II",
+    "E040301": "발주서입력",
+    "E040501": "창고이동입력",
+    "E040503": "자가사용입력",
+    "E040507": "불량처리입력"
+  },
+  "actions": [
+    {
+      "name": "CREATE_INPUT_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sql": "INSERT InputDraftHead + INSERT InputDraftLine(revision 1) + INSERT InputDraftAudit(create)",
+      "writeAllowlist": [
+        "ecount_work.InputDraftHead",
+        "ecount_work.InputDraftLine",
+        "ecount_work.InputDraftAudit"
+      ]
+    },
+    {
+      "name": "CORRECT_INPUT_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sql": "UPDATE InputDraftHead WHERE DraftId AND Revision=expected + INSERT InputDraftLine(새 revision 집합, 삭제 없음) + INSERT InputDraftAudit(correct, DiffJson)",
+      "writeAllowlist": [
+        "ecount_work.InputDraftHead",
+        "ecount_work.InputDraftLine",
+        "ecount_work.InputDraftAudit"
+      ]
+    },
+    {
+      "name": "REVIEW_INPUT_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sql": "UPDATE InputDraftHead Status=reviewed WHERE DraftId AND Revision=expected + INSERT InputDraftAudit(review)",
+      "writeAllowlist": [
+        "ecount_work.InputDraftHead",
+        "ecount_work.InputDraftLine",
+        "ecount_work.InputDraftAudit"
+      ]
+    },
+    {
+      "name": "CANCEL_INPUT_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sql": "UPDATE InputDraftHead Status=cancelled, CancelledReason WHERE DraftId AND Revision=expected + INSERT InputDraftAudit(cancel). 하드 DELETE 없음(트리거 51011 차단)",
+      "writeAllowlist": [
+        "ecount_work.InputDraftHead",
+        "ecount_work.InputDraftLine",
+        "ecount_work.InputDraftAudit"
+      ]
+    }
+  ],
+  "preserve": [
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "StockMaster",
+    "ProductStock",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "Estimate",
+    "WebProfitReport",
+    "WebEcountSnapshot",
+    "WebEcountRow",
+    "ecount_work.Version",
+    "ecount_work.Head",
+    "ecount_work.Audit"
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 월일의 2025/2026 docDate 초안이 서로 다른 contentHash 로 구분되고 ISO 날짜만 허용(시간대 자정 변환 금지)"
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountInputDrafts.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/ECOUNT_WORKSPACE_CONTRACT.md",
+    "source": "독립 웹 전용 ecount_work 초안 테이블; ERP 공유 원장·ECOUNT 원본 읽기·쓰기 없음, dnSpy 해당 없음. 입력칸 근거는 2026-10-21 읽기 전용 설문(저장 클릭 없음)",
+    "methods": [
+      "fieldSchema",
+      "validateDraft",
+      "buildSavePlan",
+      "applyCorrection",
+      "review",
+      "cancel"
+    ],
+    "tables": [
+      "ecount_work.InputDraftHead",
+      "ecount_work.InputDraftLine",
+      "ecount_work.InputDraftAudit"
+    ]
+  },
+  "requiredCommands": [
+    "node --test __tests__/ecountInputDrafts.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master"
+  ],
+  "sourceWrites": "Forbidden",
+  "existingLedgerWrites": "None",
+  "runtimeDdl": "None (docs/migrations/2026-10-21_ecount_work_input_drafts.sql 을 사장님이 SSMS 로 명시 실행)",
+  "apiRoutes": "None yet (계약·라이브러리·마이그레이션·테스트만; API 라우트는 별도 계약 갱신 후)",
+  "privacy": {
+    "customerManagerDepartmentWarehouse": "불투명 참조코드만(/^[A-Za-z0-9._/-]{1,60}$/), 이름·상호 저장 금지",
+    "freeText": "참조 100자/비고·적요 100~200자 제한 + 이메일·전화·사업자번호·주민번호형·7자리 이상 숫자열 마스킹",
+    "actor": "sha256 해시만 저장(CreatedBy/Actor char(64))"
+  },
+  "criteria": {
+    "fieldSchema": "7화면 헤더 입력칸은 설문 fields(46)+body 토글(9)=55 칸을 라벨/유형/필수/기본값으로 그대로 투영. 필수여부는 설문 플래그 0=미관측이므로 전부 required:null, 웹 초안 최소 요건(docDate, 라인≥1, itemRef, quantity)은 draftRequired 로 구분. 날짜 위젯은 연도 토큰 26만 관측되어 기본값 미확정.",
+    "lineGrid": "품목 행 그리드 열은 설문 미관측. 웹 초안 잠정 열(trade: itemRef/quantity/unitPrice/supplyAmt/vat/remark, move/consume/defect: itemRef/quantity/remark)만 허용하며 원본 열 동등성 미검증. 다른 열은 UNKNOWN_FIELD 거부.",
+    "validation": "빈칸('' / null / undefined)과 '0'을 구분. 숫자는 문자열 정밀도 보존(정수18·소수8, 지수·쉼표 거부). 날짜 YYYY-MM-DD 실제 달력 검사. 메시지는 한글.",
+    "lifecycle": "draft→reviewed→(correct)→draft→cancelled. 모든 전이는 expectedRevision 일치 필수(불일치 409 REVISION_CONFLICT). 취소는 사유 필수(≤200자, 마스킹) 및 종단 상태. 하드 삭제 경로 없음.",
+    "savePlan": "세 테이블 INSERT/UPDATE 만. accountingPosted=false, sideEffects='none (web-only draft)', sourceWrites none, executed=false. 라인은 revision 별 추가 전용, 감사는 (DraftId,Revision) 유일.",
+    "sourceSave": "ECOUNT 원본 저장(저장(F8)/저장/전표(F7))은 미승인·미실행. 승인 전까지 어떤 코드도 원본 저장 버튼을 호출하지 않는다."
+  }
+}
