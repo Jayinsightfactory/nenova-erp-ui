@@ -5,7 +5,7 @@ import {activeAdmin,installed,readWorkspace,saveVersion} from '../../../lib/ecou
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   if(!['GET','POST'].includes(req.method)) {res.setHeader('Allow','GET, POST');return res.status(405).json({success:false,error:'METHOD_NOT_ALLOWED'});}
-  const user=verifyReqUser(req);
+  const user=await verifyReqUser(req,res);
   if(!user) return res.status(401).json({success:false,error:'LOGIN_REQUIRED'});
   if(!policy.authorized(user)) return res.status(403).json({success:false,error:'ADMIN_REQUIRED'});
   // Same-origin browser mutations; no cross-origin credentials or automated scraper token extension.

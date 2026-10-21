@@ -33,7 +33,7 @@ assert.deepEqual(filterKnowledgeItems(sample, { filters: { countries: '네덜란
 assert.equal(auditLabel({ action: 'UPDATE_ITEM', changedFields: ['status', 'tags.countries'] }), '지침 수정 · 변경: 상태, 국가 태그');
 assert.equal(auditLabel({ action: 'ADD_ATTACHMENT' }), '첨부 등록');
 assert.equal(filterKnowledgeItems(sample, { status: 'CURRENT' }).length, 1, 'legacy material cannot be counted as current because it is a separate source');
-assert.match(source, /verifyReqUser\(req\)/);
+assert.match(source, /await verifyReqUser\(req, res\)/);
 assert.match(source, /destination: '\/login'/);
 assert.match(source, /accountActive === false/);
 assert.doesNotMatch(source, /import Layout|<Layout/);

@@ -10,8 +10,8 @@ import MenuBackButton from '../../components/MenuBackButton';
 import { verifyReqUser } from '../../lib/auth';
 import { isOrbitReportViewer } from '../../lib/orbitReportAccess';
 
-export async function getServerSideProps({ req }) {
-  const user = verifyReqUser(req);
+export async function getServerSideProps({ req, res }) {
+  const user = await verifyReqUser(req, res);
   if (!isOrbitReportViewer(user)) {
     return { notFound: true };
   }

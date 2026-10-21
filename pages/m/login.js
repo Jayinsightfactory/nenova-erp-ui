@@ -10,6 +10,7 @@ export default function MobileLogin() {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [nextUrl, setNextUrl] = useState('/m/chat');
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function MobileLogin() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: id, password: pw }),
+        body: JSON.stringify({ userId: id, password: pw, rememberDevice }),
       });
       const data = await res.json();
       if (data.success) {
@@ -102,6 +103,10 @@ export default function MobileLogin() {
             disabled={loading}
           />
 
+          <label style={{display:'block',marginTop:16,fontSize:14}}>
+            <input type="checkbox" checked={rememberDevice} onChange={e=>setRememberDevice(e.target.checked)} disabled={loading} /> 이 기기에서 로그인 유지
+          </label>
+          <p style={{fontSize:12,color:'#64748b'}}>공용 기기에서는 선택하지 마세요. 최대 400일 · 로그아웃 시 해제됩니다.</p>
           <button
             className="ml-submit"
             type="submit"

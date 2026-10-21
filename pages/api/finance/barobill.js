@@ -15,10 +15,10 @@ import { isAdminUser } from '../../../lib/userAccess';
 import { checkAutomationAuth } from '../../../lib/automationAuth';
 import { createBarobillClient, loadBarobillConfig, BarobillError } from '../../../lib/barobillApi';
 
-function authorize(req, res) {
+async function authorize(req, res) {
   const auto = checkAutomationAuth(req);
   if (auto.ok) return { actor: 'automation' };
-  const user = verifyReqUser(req);
+  const user = await verifyReqUser(req, res);
   if (!user) {
     res.status(401).json({ success: false, error: '로그인이 필요합니다.' });
     return null;
@@ -37,7 +37,7 @@ function maskKey(k) {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
-  const auth = authorize(req, res);
+  const auth = await authorize(req, res);
   if (!auth) return undefined;
   const q = req.query || {};
   const action = String(q.action || 'status');

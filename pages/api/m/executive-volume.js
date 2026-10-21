@@ -61,7 +61,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET만 지원합니다.' });
-  const user = verifyReqUser(req);
+  const user = await verifyReqUser(req, res);
   if (!user) return res.status(401).json({ success: false, error: '로그인이 필요합니다.' });
   if (!isAdminUser(user)) return res.status(403).json({ success: false, error: '대표 보고서 조회 권한이 없습니다.' });
   try {

@@ -31,8 +31,8 @@ async function orbitViewerToken() {
   return _viewer.token;
 }
 
-export async function getServerSideProps({ req, query }) {
-  const user = verifyReqUser(req);
+export async function getServerSideProps({ req, res, query }) {
+  const user = await verifyReqUser(req, res);
   if (!isOrbitReportViewer(user)) {
     // 관리자가 아닌 직원: 매핑된 본인 1명분 텍스트(캡처 썸네일 제외)만 내려준다.
     const owner = workflowOwnerOf(user);
