@@ -22,17 +22,50 @@ assert.throws(()=>h.datePreset('today','2026-02-30'),/INVALID_DATE/);
 const observedAt='2026-10-21',sunday={weekStartsOn:0};
 const observedPresets=[['금일','today','2026-10-21','2026-10-21'],['전일','yesterday','2026-10-20','2026-10-20'],['금주(~오늘)','thisWeek','2026-10-18','2026-10-21'],['전주','previousWeek','2026-10-11','2026-10-17'],['금월(~오늘)','thisMonth','2026-10-01','2026-10-21'],['전월','previousMonth','2026-09-01','2026-09-30'],['전월+금월','previousAndThisMonth','2026-09-01','2026-10-21']];
 for(const [label,id,from,to] of observedPresets){assert.equal(h.presetIdForLabel(label),id);assert.deepEqual(h.datePreset(id,observedAt,sunday),{from,to});}
-// 종료일은 전월(09-01~09-30) 직후 클릭 시 09-30~09-30 로 관측됐으나 순서 의존 미확정이라 id 없음; 다시 작성은 화면 기본 프리셋 복원(resetSearch).
-assert.equal(h.presetIdForLabel('종료일'),null);assert.equal(h.presetIdForLabel(' 다시 작성 '),null);
+// 2026-10-21 33화면 조사(data/ecount-workbench/evidence/2026-10-21-source-survey.json) 추가 관측값. 종료일 = 현재 종료일을 시작일에도 복사(금일 후 10-21~10-21, 전월 후 09-30~09-30, 순서 의존 확인).
+// 이번기수는 관측값 당해 01-01~오늘(회계기수=역년 가정 아님), 직전기수는 관측값 전년 01-01~12-31. 다시 작성/다시작성은 화면 기본 조건 복원(resetSearch) 담당이라 id 없음.
+const observedMore=[['말일','endOfMonth','2026-10-31','2026-10-31'],['이번기수','fiscalToDate','2026-01-01','2026-10-21'],['직전분기','previousQuarter','2026-07-01','2026-09-30'],['직전반기','previousHalf','2026-01-01','2026-06-30'],['금년','thisYear','2026-01-01','2026-12-31'],['전년','previousYear','2025-01-01','2025-12-31'],['직전기수','previousFiscal','2025-01-01','2025-12-31']];
+for(const [label,id,from,to] of observedMore){assert.equal(h.presetIdForLabel(label),id);assert.deepEqual(h.datePreset(id,observedAt,sunday),{from,to});}
+assert.equal(h.presetIdForLabel('종료일'),'copyEndDate');assert.equal(h.presetIdForLabel(' 다시 작성 '),null);assert.equal(h.presetIdForLabel('다시작성'),null);
+assert.deepEqual(h.datePreset('copyEndDate',observedAt,{currentTo:'2026-10-21'}),{from:'2026-10-21',to:'2026-10-21'});// 금일 직후 종료일
+assert.deepEqual(h.datePreset('copyEndDate',observedAt,{currentTo:'2026-09-30'}),{from:'2026-09-30',to:'2026-09-30'});// 전월 직후 종료일
+assert.deepEqual(h.datePreset('copyEndDate','2026-01-01',{currentTo:'2025-12-31'}),{from:'2025-12-31',to:'2025-12-31'});
+assert.throws(()=>h.datePreset('copyEndDate',observedAt,sunday),/CURRENT_END_REQUIRED/);assert.throws(()=>h.datePreset('copyEndDate',observedAt,{currentTo:''}),/CURRENT_END_REQUIRED/);assert.throws(()=>h.datePreset('copyEndDate',observedAt,{currentTo:null}),/CURRENT_END_REQUIRED/);assert.throws(()=>h.datePreset('copyEndDate',observedAt,{currentTo:'2026-02-30'}),/INVALID_DATE/);
 const arDefault={preset:'previousAndThisMonth',...h.datePreset('previousAndThisMonth',observedAt)};const arDraft=h.resetSearch(arDefault);arDraft.preset='today';assert.deepEqual(h.resetSearch(arDefault),{preset:'previousAndThisMonth',from:'2026-09-01',to:'2026-10-21'});
 assert.throws(()=>h.datePreset('endDate','2026-10-21',sunday),/UNVERIFIED_PRESET/);
 assert.throws(()=>h.datePreset('thisWeek','2026-10-21'),/WEEK_START_REQUIRED/);assert.throws(()=>h.datePreset('previousWeek','2026-10-21',{weekStartsOn:'0'}),/WEEK_START_REQUIRED/);
-// 미관측 라벨: 상수로만 노출, 라벨 매핑과 datePreset 모두 거부. 종료일은 동작 미확정이므로 미검증 목록에도 포함된다.
-assert.equal(h.KNOWN_UNVERIFIED_PRESET_LABELS.length,32);assert.equal(new Set(h.KNOWN_UNVERIFIED_PRESET_LABELS).size,32);assert(Object.isFrozen(h.KNOWN_UNVERIFIED_PRESET_LABELS));assert(Object.isFrozen(h.OBSERVED_PRESET_LABELS));
-assert.deepEqual(h.KNOWN_UNVERIFIED_PRESET_LABELS.filter(label=>h.OBSERVED_PRESET_LABELS[label]!=null),[]);assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes('종료일'));
-assert.equal(Object.keys(h.OBSERVED_PRESET_LABELS).length+h.KNOWN_UNVERIFIED_PRESET_LABELS.length-2,39);// 39개 명칭 + 다시 작성, 종료일 중복 1
-for(const label of ['말일','금주','금주(오늘~)','차주','금월','금월(오늘~)','이번기수(~전월)','차월','금년','금년(~오늘)','금년(오늘~)','전년+금년','최근 1년','전년','이번기수','직전기수','직전분기','직전반기','종료월','1분기','2분기','3분기','4분기','상반기','하반기','최근7일','최근3일+7일','6개월(+1개월)','3개월','최근30일','최근30일(+1개월)']){assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes(label),label);assert.throws(()=>h.presetIdForLabel(label),/UNVERIFIED_PRESET/,label);}
-for(const id of ['lastDay','nextWeek','nextMonth','thisYear','previousYear','recent30','quarter1','firstHalf','endMonth','recent3plus7'])assert.throws(()=>h.datePreset(id,observedAt,sunday),/UNVERIFIED_PRESET/,id);
+// 연말/연초 경계(새 id): 2026-01-01(목), 2025-12-31(수).
+assert.deepEqual(h.datePreset('endOfMonth','2025-12-31'),{from:'2025-12-31',to:'2025-12-31'});assert.deepEqual(h.datePreset('endOfMonth','2026-01-01'),{from:'2026-01-31',to:'2026-01-31'});
+assert.deepEqual(h.datePreset('fiscalToDate','2026-01-01'),{from:'2026-01-01',to:'2026-01-01'});assert.deepEqual(h.datePreset('fiscalToDate','2025-12-31'),{from:'2025-01-01',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousQuarter','2026-01-01'),{from:'2025-10-01',to:'2025-12-31'});assert.deepEqual(h.datePreset('previousQuarter','2025-12-31'),{from:'2025-07-01',to:'2025-09-30'});assert.deepEqual(h.datePreset('previousQuarter','2026-04-01'),{from:'2026-01-01',to:'2026-03-31'});assert.deepEqual(h.datePreset('previousQuarter','2026-06-30'),{from:'2026-01-01',to:'2026-03-31'});assert.deepEqual(h.datePreset('previousQuarter','2026-03-31'),{from:'2025-10-01',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousHalf','2026-01-01'),{from:'2025-07-01',to:'2025-12-31'});assert.deepEqual(h.datePreset('previousHalf','2026-06-30'),{from:'2025-07-01',to:'2025-12-31'});assert.deepEqual(h.datePreset('previousHalf','2026-07-01'),{from:'2026-01-01',to:'2026-06-30'});assert.deepEqual(h.datePreset('previousHalf','2025-12-31'),{from:'2025-01-01',to:'2025-06-30'});
+assert.deepEqual(h.datePreset('thisYear','2026-01-01'),{from:'2026-01-01',to:'2026-12-31'});assert.deepEqual(h.datePreset('thisYear','2025-12-31'),{from:'2025-01-01',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousYear','2026-01-01'),{from:'2025-01-01',to:'2025-12-31'});assert.deepEqual(h.datePreset('previousFiscal','2025-12-31'),{from:'2024-01-01',to:'2024-12-31'});assert.deepEqual(h.datePreset('previousFiscal','2026-01-01'),h.datePreset('previousYear','2026-01-01'));
+// 윤년(새 id): 2024-02-29 와 평년 2023-02 대조.
+assert.deepEqual(h.datePreset('endOfMonth','2024-02-10'),{from:'2024-02-29',to:'2024-02-29'});assert.deepEqual(h.datePreset('endOfMonth','2024-02-29'),{from:'2024-02-29',to:'2024-02-29'});assert.deepEqual(h.datePreset('endOfMonth','2023-02-10'),{from:'2023-02-28',to:'2023-02-28'});assert.deepEqual(h.datePreset('endOfMonth','2024-04-30'),{from:'2024-04-30',to:'2024-04-30'});
+assert.deepEqual(h.datePreset('fiscalToDate','2024-02-29'),{from:'2024-01-01',to:'2024-02-29'});assert.deepEqual(h.datePreset('previousQuarter','2024-04-15'),{from:'2024-01-01',to:'2024-03-31'});assert.deepEqual(h.datePreset('previousQuarter','2024-03-01'),{from:'2023-10-01',to:'2023-12-31'});
+assert.deepEqual(h.datePreset('previousHalf','2024-07-01'),{from:'2024-01-01',to:'2024-06-30'});assert.deepEqual(h.datePreset('previousHalf','2024-02-29'),{from:'2023-07-01',to:'2023-12-31'});assert.deepEqual(h.datePreset('thisYear','2024-02-29'),{from:'2024-01-01',to:'2024-12-31'});assert.deepEqual(h.datePreset('previousYear','2025-03-01'),{from:'2024-01-01',to:'2024-12-31'});
+for(const id of ['endOfMonth','fiscalToDate','previousQuarter','previousHalf','thisYear','previousYear','previousFiscal'])assert.throws(()=>h.datePreset(id,'2024-02-30'),/INVALID_DATE/,id);
+// 미관측 라벨: 상수로만 노출, 라벨 매핑과 datePreset 모두 거부. 관측된 8개(말일·이번기수·직전분기·직전반기·금년·전년·직전기수·종료일)는 목록에서 빠졌다.
+assert.equal(h.KNOWN_UNVERIFIED_PRESET_LABELS.length,24);assert.equal(new Set(h.KNOWN_UNVERIFIED_PRESET_LABELS).size,24);assert(Object.isFrozen(h.KNOWN_UNVERIFIED_PRESET_LABELS));assert(Object.isFrozen(h.OBSERVED_PRESET_LABELS));
+assert.deepEqual(h.KNOWN_UNVERIFIED_PRESET_LABELS.filter(label=>Object.hasOwn(h.OBSERVED_PRESET_LABELS,label)),[]);assert(!h.KNOWN_UNVERIFIED_PRESET_LABELS.includes('종료일'));
+assert.equal(Object.keys(h.OBSERVED_PRESET_LABELS).length-2+h.KNOWN_UNVERIFIED_PRESET_LABELS.length,39);// 39개 명칭(다시 작성/다시작성 별칭 2개 제외)
+for(const label of ['금주','금주(오늘~)','차주','금월','금월(오늘~)','이번기수(~전월)','차월','금년(~오늘)','금년(오늘~)','전년+금년','최근 1년','종료월','1분기','2분기','3분기','4분기','상반기','하반기','최근7일','최근3일+7일','6개월(+1개월)','3개월','최근30일','최근30일(+1개월)']){assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes(label),label);assert.throws(()=>h.presetIdForLabel(label),/UNVERIFIED_PRESET/,label);}
+for(const id of ['lastDay','nextWeek','nextMonth','recent30','quarter1','firstHalf','endMonth','recent3plus7','fiscalYear','thisHalf'])assert.throws(()=>h.datePreset(id,observedAt,sunday),/UNVERIFIED_PRESET/,id);
+// 조사 어댑터(lib/ecountPresetSurvey.cjs): 라벨 존재만 근거, 비날짜 라벨·initial 제외, 미조사 프로그램은 빈 목록, 활성 라벨은 전부 id 가 있다.
+const survey=require('../lib/ecountPresetSurvey.cjs');
+assert.equal(survey.SURVEY_OBSERVED_ON,'2026-10-21');assert.equal(survey.surveyedPrograms().length,33);
+assert.deepEqual(survey.enabledPresetLabels('E040214'),['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일']);
+assert.deepEqual(survey.enabledPresetLabels('E040306'),['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','금년','전년']);
+assert.deepEqual(survey.enabledPresetLabels('E040218'),['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','직전분기','직전반기']);
+assert.deepEqual(survey.enabledPresetLabels('E040313'),['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','직전기수']);
+assert.deepEqual(survey.enabledPresetLabels('E040304'),['금일','전일','말일','금주(~오늘)','전주','금월(~오늘)','전월']);
+assert.deepEqual(survey.enabledPresetLabels('E040701'),['금일','전일']);
+assert.deepEqual(survey.enabledPresetLabels('E040202'),['금일','종료일','전월']);// 프리셋 묶음 미표시 화면: 순서 실험에서 값이 읽힌 라벨만
+assert.deepEqual(survey.enabledPresetLabels('E999999'),[]);assert.deepEqual(survey.enabledPresetLabels(undefined),[]);assert.deepEqual(survey.enabledPresetLabels('__proto__'),[]);
+assert.equal(survey.resetObserved('E040214'),true);assert.equal(survey.resetObserved('E040208'),false);assert.equal(survey.resetObserved('E999999'),false);
+assert(!survey.observedLabels('E010205').includes('initial'));assert(survey.observedLabels('E010205').includes('계좌 양식'));assert(!survey.enabledPresetLabels('E010205').includes('계좌 양식'));
+for(const program of survey.surveyedPrograms())for(const label of survey.enabledPresetLabels(program))assert.ok(h.presetIdForLabel(label),`${program} ${label}`);
 assert.throws(()=>h.presetIdForLabel('today'),/UNKNOWN_PRESET_LABEL/);assert.throws(()=>h.presetIdForLabel('__proto__'),/UNKNOWN_PRESET_LABEL/);assert.throws(()=>h.presetIdForLabel(null),/PRESET_LABEL_REQUIRED/);
 // 연말/연초 경계: 2026-01-01(목), 2025-12-31(수). 주 시작 일요일.
 assert.deepEqual(h.datePreset('today','2026-01-01'),{from:'2026-01-01',to:'2026-01-01'});
