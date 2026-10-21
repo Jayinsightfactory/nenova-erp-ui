@@ -86,6 +86,9 @@ jobs:
           ORBIT_DRIVE_INGEST_TOKEN: ${{ secrets.ORBIT_DRIVE_INGEST_TOKEN }}
           ORBIT_OWNER_TOKEN: ${{ secrets.ORBIT_OWNER_TOKEN }}
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          BAROBILL_ENV: ${{ secrets.BAROBILL_ENV }}
+          BAROBILL_CERTKEY: ${{ secrets.BAROBILL_CERTKEY }}
+          BAROBILL_CORPNUM: ${{ secrets.BAROBILL_CORPNUM }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
           NENOVA_SALES_READ_TOKEN: ${{ secrets.NENOVA_SALES_READ_TOKEN }}
@@ -95,7 +98,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -234,6 +237,33 @@ jobs:
               fi
               echo "NENOVAWEB_SERVICE_TOKEN=$NENOVAWEB_SERVICE_TOKEN" >> .env.local
               echo "✅ NENOVAWEB_SERVICE_TOKEN synced (len=${#NENOVAWEB_SERVICE_TOKEN})"
+            fi
+            echo "=== .env.local 환경변수 동기화 (BAROBILL_ENV — 바로빌 환경 test|prod) ==="
+            if [ -n "$BAROBILL_ENV" ]; then
+              if grep -q '^BAROBILL_ENV=' .env.local 2>/dev/null; then
+                grep -v '^BAROBILL_ENV=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "BAROBILL_ENV=$BAROBILL_ENV" >> .env.local
+              echo "✅ BAROBILL_ENV synced (len=${#BAROBILL_ENV})"
+            fi
+            echo "=== .env.local 환경변수 동기화 (BAROBILL_CERTKEY — 바로빌 연동인증키) ==="
+            if [ -n "$BAROBILL_CERTKEY" ]; then
+              if grep -q '^BAROBILL_CERTKEY=' .env.local 2>/dev/null; then
+                grep -v '^BAROBILL_CERTKEY=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "BAROBILL_CERTKEY=$BAROBILL_CERTKEY" >> .env.local
+              echo "✅ BAROBILL_CERTKEY synced (len=${#BAROBILL_CERTKEY})"
+            fi
+            echo "=== .env.local 환경변수 동기화 (BAROBILL_CORPNUM — 바로빌 회원사 사업자번호) ==="
+            if [ -n "$BAROBILL_CORPNUM" ]; then
+              if grep -q '^BAROBILL_CORPNUM=' .env.local 2>/dev/null; then
+                grep -v '^BAROBILL_CORPNUM=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "BAROBILL_CORPNUM=$BAROBILL_CORPNUM" >> .env.local
+              echo "✅ BAROBILL_CORPNUM synced (len=${#BAROBILL_CORPNUM})"
             fi
             echo "=== .env.local 환경변수 동기화 (ORBIT_DRIVE_INGEST_TOKEN — 업무 드라이브 데몬 업로드) ==="
             if [ -n "$ORBIT_DRIVE_INGEST_TOKEN" ]; then

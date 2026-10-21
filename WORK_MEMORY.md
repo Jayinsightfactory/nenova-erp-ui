@@ -514,3 +514,11 @@
 - bom-stock-import-safe.json1행3필드정규화대조0/실제SQL아직없음. 단일scope/2필수수량/소계·빈import·무효coverage거부/멱등복원fixturePASS. UI30표적검사/851관측ID. 무코드F8외관활성·무조회/기존결과보존,print3미실행비활성.
 - 외부연동13기능새설계문서/JSON: 공급자중립화면·원천키revision·취소보상·secretRef·Outbox응답불명·웹훅·감사복원흐름. 설계완료/실행미구현,가입·API연결·DDL·scheduler없음. 공급자최신요금확정아님. 기존격리shell적용/원본공유ERP쓰기없음.
 - 검색어: bomStock E040726 selected upperResult 851 external-integration-design
+
+## 2026-10-21 바로빌 API 세팅(테스트 서버 인증키) — lib/barobillApi.js
+검색어: 바로빌, barobill, SOAP, testws.baroservice.com, BAROBILL_CERTKEY, 134-86-94367, 세금계산서 API, 계좌조회 API, 카드조회 API, 홈택스 수집
+- 개발자센터 파트너 '네노바'(콘솔 8614) 테스트/운영 인증키 확인 → GitHub Secret(BAROBILL_ENV=test, BAROBILL_CERTKEY, BAROBILL_CERTKEY_PROD, BAROBILL_CORPNUM=1348694367)·owner PC env. deploy.yml 이 .env.local 동기화. 회원사 번호는 134-86-94367(견적서 416-81-38772 는 케이넷).
+- 의존성 없는 SOAP 클라이언트(fetch+최소 XML 파서), GET 전용 관리자 API /api/finance/barobill?action=…, 스모크 scripts/barobill-smoke.mjs, 계약 docs/contracts/barobill-api.json, 문서 docs/BAROBILL_API.md.
+- 테스트서버 실측: Ping OK·회원사 1·선불 10,000·사업자상태 영업중·계좌 0·카드 0·세금계산서 0. CheckCERTIsValid -31100(공동인증서 미등록).
+- 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
+- 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
