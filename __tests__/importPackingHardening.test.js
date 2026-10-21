@@ -165,6 +165,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
     '../../lib/packingReceiptMatchState.js': receiptMatchState,
     '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
+    '../../lib/packingSharedHistoryClient.js': {createPackingHistoryClient: () => ({save: async () => ({id:'test-history'})})},
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingMatchManager.js': { default: PackingMatchManagerStub, __esModule: true },

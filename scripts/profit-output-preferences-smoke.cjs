@@ -2,13 +2,23 @@
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer-core');
 const fs = require('node:fs');
+const path = require('node:path');
+const XLSX = require('xlsx-js-style');
 
 (async () => {
   const { buildProfitReportXlsx } = await import('../lib/profitReportExcel.js');
   const base = process.argv[2] || 'http://localhost:3217';
+  fs.mkdirSync('.verify',{recursive:true});
+  const downloadPath = fs.mkdtempSync(path.join(path.resolve('.verify'), 'output-smoke-'));
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
   try {
-    const page = await browser.newPage();
+    const context = await browser.createBrowserContext({downloadBehavior: {policy:'allow',downloadPath}});
+    const downloadSession = await browser.target().createCDPSession();
+    await downloadSession.send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath,browserContextId:context.id,eventsEnabled:true});
+    const downloads = [];
+    downloadSession.on('Browser.downloadWillBegin', event => downloads.push({guid:event.guid,name:event.suggestedFilename}));
+    downloadSession.on('Browser.downloadProgress', event => { const item=downloads.find(d=>d.guid===event.guid); if(item)item.state=event.state; });
+    const page = await context.newPage();
     await page.setViewport({width:1920,height:1080});
     const calls = [], writes = [], errors = [];
     let fail18 = false;
@@ -37,12 +47,16 @@ const fs = require('node:fs');
         sessionStorage.setItem('fixture-seeded','1');
       }
     });
-    const click = async (selector,text) => page.evaluate(({selector,text})=>{
-      const el=[...document.querySelectorAll(selector)].find(e=>e.textContent.trim()===text);
-      if(!el)throw Error('Missing control '+text);el.click();
-    },{selector,text});
+    const click = async (selector,text) => {
+      const handle = await page.evaluateHandle(({selector,text})=>{
+        const el=[...document.querySelectorAll(selector)].find(e=>e.textContent.trim()===text);
+        if(!el)throw Error('Missing control '+text);return el;
+      },{selector,text});
+      await handle.asElement().click();
+      await handle.dispose();
+    };
     await page.goto(`${base}/sales/profit-report?year=2026&week=41`,{waitUntil:'networkidle0'});
-    await page.waitForFunction(()=>document.body.innerText.includes('41개 시트'));
+    await page.waitForFunction(()=>document.body.innerText.includes('1개 시트'));
     assert.equal(await page.evaluate(()=>localStorage.getItem('nenova_profitReport_visibleCols_v3')),'["category","C","J"]');
     await click('summary','엑셀·인쇄 항목 (3/22)');
     await click('label','기초상품재고액');
@@ -50,7 +64,7 @@ const fs = require('node:fs');
     await page.waitForFunction(()=>localStorage.getItem('nenova_profitReport_outputCols_v1')==='["category","C","J"]');
     await page.reload({waitUntil:'networkidle0'});
     assert.equal(await page.evaluate(()=>localStorage.getItem('nenova_profitReport_outputCols_v1')),'["category","C","J"]');
-    await click('summary','인쇄 차수 선택 (1개)');
+    await click('summary','엑셀·인쇄 차수 선택 (1개)');
     await click('button','선택 차수 인쇄 미리보기 (1개)');
     await page.waitForSelector('iframe[title="선택 차수 인쇄 미리보기"]');
     assert.deepEqual(calls,[{year:'2026',major:'41',cols:'C,J',category:'1'}]);
@@ -58,11 +72,24 @@ const fs = require('node:fs');
     const html=await frame.content();
     assert.match(html,/매출액/); assert.doesNotMatch(html,/기초상품재고액/);
     calls.length=0;
-    await click('button','엑셀 다운로드 (1~41차 · 41개 시트)');
-    await page.waitForFunction(()=>document.body.innerText.includes('1~41차 엑셀 생성 완료'));
+    await click('button','엑셀 다운로드 (1개 차수 · 1개 시트)');
+    await page.waitForFunction(()=>document.body.innerText.includes('선택한 1개 차수 엑셀 생성 완료'));
+    assert.deepEqual(calls.map(c=>c.major),['41']);
+    await click('button','전체 선택');
+    calls.length=0;
+    await click('button','엑셀 다운로드 (41개 차수 · 41개 시트)');
+    await page.waitForFunction(()=>document.body.innerText.includes('선택한 41개 차수 엑셀 생성 완료'));
     assert.equal(calls.length,41);
     assert.ok(calls.every(c=>c.year==='2026'&&c.cols==='C,J'&&c.category==='1'));
     assert.deepEqual(calls.map(c=>c.major),Array.from({length:41},(_,i)=>String(i+1).padStart(2,'0')));
+    await click('button','선택 해제');
+    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('button')].find(e=>e.textContent.startsWith('엑셀 다운로드')).disabled),true);
+    await click('label','27차'); await click('label','31차');
+    calls.length=0;
+    await click('button','엑셀 다운로드 (2개 차수 · 2개 시트)');
+    await page.waitForFunction(()=>document.body.innerText.includes('선택한 2개 차수 엑셀 생성 완료'));
+    assert.deepEqual(calls.map(c=>c.major),['27','31']);
+    await click('button','현재 차수만');
     await click('button','선택 차수 인쇄 미리보기 (1개)');
     await page.waitForSelector('iframe[title="선택 차수 인쇄 미리보기"]');
     await click('summary','엑셀·인쇄 항목 (3/22)');
@@ -78,7 +105,7 @@ const fs = require('node:fs');
     await page.waitForFunction(()=>localStorage.getItem('nenova_profitReport_visibleCols_v3')==='["category","J"]');
     await page.reload({waitUntil:'networkidle0'});
     assert.equal(await page.evaluate(()=>localStorage.getItem('nenova_profitReport_visibleCols_v3')),'["category","J"]');
-    await click('summary','인쇄 차수 선택 (1개)');
+    await click('summary','엑셀·인쇄 차수 선택 (1개)');
     await click('button','선택 해제'); await click('label','18차');
     calls.length=0; fail18=true;
     await click('button','선택 차수 인쇄 미리보기 (1개)');
@@ -87,7 +114,7 @@ const fs = require('node:fs');
     assert.deepEqual(calls.map(c=>c.major),['18','18']);
     calls.length=0;
     await page.goto(`${base}/sales/profit-report?year=2025&week=41`,{waitUntil:'networkidle0'});
-    await click('summary','인쇄 차수 선택 (1개)');
+    await click('summary','엑셀·인쇄 차수 선택 (1개)');
     await click('button','선택 차수 인쇄 미리보기 (1개)');
     await page.waitForSelector('iframe[title="선택 차수 인쇄 미리보기"]');
     assert.deepEqual(calls,[{year:'2025',major:'41',cols:'C,J',category:'1'}]);
@@ -101,6 +128,11 @@ const fs = require('node:fs');
     const bounds=await page.$eval('details fieldset',e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth};});
     assert.ok(bounds.left>=0 && bounds.right<=bounds.width+1);
     assert.deepEqual(errors,[]); assert.deepEqual(writes,[]);
+    for(const [name,sheets] of [['41',['41차']],['01-41',Array.from({length:41},(_,i)=>String(i+1).padStart(2,'0')+'차')],['27,31',['27차','31차']]]) {
+      const file=path.join(downloadPath,`매출이익_2026_${name}차.xlsx`);
+      assert.ok(fs.existsSync(file),`download completed: ${name}; events=${JSON.stringify(downloads)}; files=${JSON.stringify(fs.readdirSync(downloadPath))}`);
+      assert.deepEqual(XLSX.readFile(file).SheetNames,sheets);
+    }
     await page.screenshot({path:'.verify/profit-output-preferences.png',fullPage:true});
     console.log('PASS real Chromium: independent preferences/reload/empty/copy, screen restoration, 41 single request, 18 retry, preview invalidation, narrow layout; API writes=0');
   } finally {await browser.close();}

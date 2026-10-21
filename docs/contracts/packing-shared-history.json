@@ -1,0 +1,11 @@
+{
+  "id":"packing-shared-history",
+  "title":"패킹 원본·분석 팀 공용 업로드 이력 및 명시 복구",
+  "scope":["lib/packingSharedHistory.js","lib/packingSharedHistoryClient.js","lib/packingWorkDraft.js","pages/api/import/tools/upload-history.js","components/import-tools/SharedPackingHistory.js","components/import-tools/PackingListTool.js","pages/import/tools.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"ARCHIVE_AND_RESTORE","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"웹 전용 파일 저장. 원본 해시 검증·불변 스냅샷·인증 사용자 기록. 명시 복구 후 최신 매칭 재조회. ERP preflight/commit 권한·생성 파일 복구 금지. 이력 저장은 입고 완료가 아님."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 동일42-01 분석 원문 날짜 보존; 현재연도 덮어쓰기 없음"},
+  "requiredTestFiles":["__tests__/packingSharedHistory.test.js","__tests__/packingWorkDraft.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"기존 실제 ExcelLoadingPackingList 독립 수량/입고 경계 보존. 이번 변경은 웹 전용 파일 복구이며 native SQL writer 변경 없음.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData"],"tables":["WarehouseMaster","WarehouseDetail","ProductStock"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

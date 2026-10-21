@@ -25,6 +25,13 @@
 .historyTable th,.historyTable td { padding:11px 14px; border-bottom:1px solid #e4eaf2; white-space:nowrap; text-align:left; overflow:hidden; text-overflow:ellipsis; }
 .historyTable th { position:sticky; top:0; background:#f0f4fa; color:#425773; z-index:1; font-size:13px; }
 .historyTable tbody tr:hover { background:#edf4ff; }
+.uploadHistoryTable { width:100%; min-width:1080px; table-layout:auto; }
+.uploadHistoryTable td { white-space:normal; overflow:visible; text-overflow:clip; }
+.uploadHistoryTable td:first-child { min-width:185px; white-space:nowrap; }
+.uploadHistoryTable td:nth-child(2) { min-width:260px; max-width:520px; overflow-wrap:anywhere; }
+.uploadHistoryTable td:nth-child(5) { min-width:220px; }
+.uploadHistoryTable button { font:inherit; padding:8px 12px; color:#173c70; background:#fff; border:1px solid #a8bfdf; border-radius:6px; white-space:nowrap; cursor:pointer; }
+.uploadHistoryTable button:disabled { cursor:wait; opacity:.6; }
 .saveBadge,.deleteBadge { display:inline-block; padding:4px 9px; border-radius:6px; font-size:12px; font-weight:600; background:#e9f6ee; color:#21653e; }
 .deleteBadge { color:#a23b37; background:#fff0ee; }
 .muted { color:#687990; }
