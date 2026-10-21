@@ -32,6 +32,13 @@ async function main() {
     assert.equal(ws.B3.v, 'Fixture A');
     assert.equal(ws.C3.v, '', 'merged customer header contains only the name');
     assert.ok(ws['!merges'].some(m => m.s.r === 2 && m.s.c === 1 && m.e.c === 2));
+    for (const [left, right, title] of [['F', 'G', '주문'], ['H', 'I', '입고'],
+      ['J', 'K', '재고'], ['L', 'M', '잔량'], ['O', 'P', 'Farm'], ['Q', 'R', '입고']]) {
+      assert.equal(ws[`${left}3`].v, title);
+      assert.equal(ws[`${right}3`].v, '');
+      assert.ok(ws['!merges'].some(m => XLSX.utils.encode_range(m) === `${left}3:${right}3`));
+      assert.ok(ws[`${right}4`].f, 'merged heading preserves body box formula');
+    }
     assert.equal(ws.H4.v, 64, 'incoming quantity is preserved');
     assert.equal(ws.O4.v, 64, 'farm quantity is preserved');
     assert.equal(ws.H4.f, 'Q4', 'incoming follows farm total');
