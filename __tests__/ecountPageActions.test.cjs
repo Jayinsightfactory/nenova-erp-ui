@@ -18,6 +18,46 @@ assert.deepEqual(h.datePreset('thisWeek','2026-10-20',{weekStartsOn:0}),{from:'2
 assert.throws(()=>h.datePreset('thisWeek','2026-01-04'),/WEEK_START_REQUIRED/);
 assert.throws(()=>h.datePreset('endDate','2026-01-04'),/UNVERIFIED_PRESET/);
 assert.throws(()=>h.datePreset('today','2026-02-30'),/INVALID_DATE/);
+// 2026-10-21(화) E040214 거래처별채권 간편검색 버튼 관측값 재현 (조회만 실행). 주 시작 일요일은 호출자가 명시.
+const observedAt='2026-10-21',sunday={weekStartsOn:0};
+const observedPresets=[['금일','today','2026-10-21','2026-10-21'],['전일','yesterday','2026-10-20','2026-10-20'],['금주(~오늘)','thisWeek','2026-10-18','2026-10-21'],['전주','previousWeek','2026-10-11','2026-10-17'],['금월(~오늘)','thisMonth','2026-10-01','2026-10-21'],['전월','previousMonth','2026-09-01','2026-09-30'],['전월+금월','previousAndThisMonth','2026-09-01','2026-10-21']];
+for(const [label,id,from,to] of observedPresets){assert.equal(h.presetIdForLabel(label),id);assert.deepEqual(h.datePreset(id,observedAt,sunday),{from,to});}
+// 종료일은 전월(09-01~09-30) 직후 클릭 시 09-30~09-30 로 관측됐으나 순서 의존 미확정이라 id 없음; 다시 작성은 화면 기본 프리셋 복원(resetSearch).
+assert.equal(h.presetIdForLabel('종료일'),null);assert.equal(h.presetIdForLabel(' 다시 작성 '),null);
+const arDefault={preset:'previousAndThisMonth',...h.datePreset('previousAndThisMonth',observedAt)};const arDraft=h.resetSearch(arDefault);arDraft.preset='today';assert.deepEqual(h.resetSearch(arDefault),{preset:'previousAndThisMonth',from:'2026-09-01',to:'2026-10-21'});
+assert.throws(()=>h.datePreset('endDate','2026-10-21',sunday),/UNVERIFIED_PRESET/);
+assert.throws(()=>h.datePreset('thisWeek','2026-10-21'),/WEEK_START_REQUIRED/);assert.throws(()=>h.datePreset('previousWeek','2026-10-21',{weekStartsOn:'0'}),/WEEK_START_REQUIRED/);
+// 미관측 라벨: 상수로만 노출, 라벨 매핑과 datePreset 모두 거부. 종료일은 동작 미확정이므로 미검증 목록에도 포함된다.
+assert.equal(h.KNOWN_UNVERIFIED_PRESET_LABELS.length,32);assert.equal(new Set(h.KNOWN_UNVERIFIED_PRESET_LABELS).size,32);assert(Object.isFrozen(h.KNOWN_UNVERIFIED_PRESET_LABELS));assert(Object.isFrozen(h.OBSERVED_PRESET_LABELS));
+assert.deepEqual(h.KNOWN_UNVERIFIED_PRESET_LABELS.filter(label=>h.OBSERVED_PRESET_LABELS[label]!=null),[]);assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes('종료일'));
+assert.equal(Object.keys(h.OBSERVED_PRESET_LABELS).length+h.KNOWN_UNVERIFIED_PRESET_LABELS.length-2,39);// 39개 명칭 + 다시 작성, 종료일 중복 1
+for(const label of ['말일','금주','금주(오늘~)','차주','금월','금월(오늘~)','이번기수(~전월)','차월','금년','금년(~오늘)','금년(오늘~)','전년+금년','최근 1년','전년','이번기수','직전기수','직전분기','직전반기','종료월','1분기','2분기','3분기','4분기','상반기','하반기','최근7일','최근3일+7일','6개월(+1개월)','3개월','최근30일','최근30일(+1개월)']){assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes(label),label);assert.throws(()=>h.presetIdForLabel(label),/UNVERIFIED_PRESET/,label);}
+for(const id of ['lastDay','nextWeek','nextMonth','thisYear','previousYear','recent30','quarter1','firstHalf','endMonth','recent3plus7'])assert.throws(()=>h.datePreset(id,observedAt,sunday),/UNVERIFIED_PRESET/,id);
+assert.throws(()=>h.presetIdForLabel('today'),/UNKNOWN_PRESET_LABEL/);assert.throws(()=>h.presetIdForLabel('__proto__'),/UNKNOWN_PRESET_LABEL/);assert.throws(()=>h.presetIdForLabel(null),/PRESET_LABEL_REQUIRED/);
+// 연말/연초 경계: 2026-01-01(목), 2025-12-31(수). 주 시작 일요일.
+assert.deepEqual(h.datePreset('today','2026-01-01'),{from:'2026-01-01',to:'2026-01-01'});
+assert.deepEqual(h.datePreset('thisWeek','2026-01-01',sunday),{from:'2025-12-28',to:'2026-01-01'});
+assert.deepEqual(h.datePreset('previousWeek','2026-01-01',sunday),{from:'2025-12-21',to:'2025-12-27'});
+assert.deepEqual(h.datePreset('thisMonth','2026-01-01'),{from:'2026-01-01',to:'2026-01-01'});
+assert.deepEqual(h.datePreset('previousMonth','2026-01-01'),{from:'2025-12-01',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousAndThisMonth','2026-01-01'),{from:'2025-12-01',to:'2026-01-01'});
+assert.deepEqual(h.datePreset('yesterday','2025-12-31'),{from:'2025-12-30',to:'2025-12-30'});
+assert.deepEqual(h.datePreset('thisWeek','2025-12-31',sunday),{from:'2025-12-28',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousWeek','2025-12-31',sunday),{from:'2025-12-21',to:'2025-12-27'});
+assert.deepEqual(h.datePreset('thisMonth','2025-12-31'),{from:'2025-12-01',to:'2025-12-31'});
+assert.deepEqual(h.datePreset('previousMonth','2025-12-31'),{from:'2025-11-01',to:'2025-11-30'});
+assert.deepEqual(h.datePreset('previousAndThisMonth','2025-12-31'),{from:'2025-11-01',to:'2025-12-31'});
+// 윤년 2월: 2024-02-29(목) 와 2024-03-01, 평년 2023-03-01 대조.
+assert.deepEqual(h.datePreset('thisMonth','2024-02-29'),{from:'2024-02-01',to:'2024-02-29'});
+assert.deepEqual(h.datePreset('yesterday','2024-02-29'),{from:'2024-02-28',to:'2024-02-28'});
+assert.deepEqual(h.datePreset('yesterday','2024-03-01'),{from:'2024-02-29',to:'2024-02-29'});
+assert.deepEqual(h.datePreset('previousMonth','2024-03-01'),{from:'2024-02-01',to:'2024-02-29'});
+assert.deepEqual(h.datePreset('previousAndThisMonth','2024-03-01'),{from:'2024-02-01',to:'2024-03-01'});
+assert.deepEqual(h.datePreset('thisWeek','2024-02-29',sunday),{from:'2024-02-25',to:'2024-02-29'});
+assert.deepEqual(h.datePreset('previousWeek','2024-03-01',sunday),{from:'2024-02-18',to:'2024-02-24'});
+assert.deepEqual(h.datePreset('previousMonth','2023-03-01'),{from:'2023-02-01',to:'2023-02-28'});
+assert.deepEqual(h.datePreset('previousMonth','2024-03-31'),{from:'2024-02-01',to:'2024-02-29'});
+assert.throws(()=>h.datePreset('today','2023-02-29'),/INVALID_DATE/);
 const original={from:'2026-01-01',nested:{flow:'all'}};const reset=h.resetSearch(original);reset.nested.flow='in';assert.equal(original.nested.flow,'all');
 assert.equal(h.keyboardAction({key:'F3'}),'open-search');assert.equal(h.keyboardAction({key:'F8'}),'run-search');assert.equal(h.keyboardAction({key:'F8',ctrlKey:true}),null);assert.equal(h.keyboardAction({key:'Enter'}),null);
 const rows=[{amount:'999999999999999999.00000002',balance:'10',refDate:'2026/01/02 오전  1:00:00',flow:'입금',account:'PRIVATE'},{amount:'999999999999999999.00000001',balance:'20',refDate:'2025/12/31 오전  1:00:00',flow:'출금'},{amount:'0',balance:'0',refDate:null,flow:'입금'},{amount:'-0.00000001',balance:'0',refDate:'2026-01-01',flow:'in'},{amount:'0',balance:null,refDate:'2026-01-01',flow:'in'}];
