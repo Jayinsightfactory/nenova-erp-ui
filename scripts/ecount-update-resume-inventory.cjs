@@ -13,8 +13,8 @@ const today=new Date().toISOString().slice(0,10);
 let touched=0;
 for(const page of inv.pages){
   const rp=report.pages.find(p=>p.program===page.program);if(!rp?.buttons?.length)continue;
-  const c={'구현':0,'미구현':0,'미관측':0,'API설계전용':0};for(const b of rp.buttons)c[classify(b)]++;
-  page.targetDom={asOf:today,buttons:rp.buttons.length,implemented:c['구현'],placeholder:c['미구현'],missing:c['미관측'],externalApiDesignOnly:c['API설계전용'],labelMatched:rp.buttons.filter(b=>b.comparisons.label.status==='일치').length,fullParity:false};
+  const c={'구현':0,'미구현':0,'조건부':0,'미관측':0,'API설계전용':0};for(const b of rp.buttons)c[classify(b,rp.program)]++;
+  page.targetDom={asOf:today,buttons:rp.buttons.length,implemented:c['구현'],placeholder:c['미구현'],missing:c['미관측'],conditional:c['조건부'],externalApiDesignOnly:c['API설계전용'],labelMatched:rp.buttons.filter(b=>b.comparisons.label.status==='일치').length,fullParity:false};
   page.status='partial-observation-target-dom-classified-full-parity-unverified';
   page.next=c['미관측']?`Add ${c['미관측']} missing target controls; observe source behaviour for ${c['미구현']} placeholders`:`Observe source behaviour for ${c['미구현']} placeholders; verify function/window/value dimensions`;
   touched++;
