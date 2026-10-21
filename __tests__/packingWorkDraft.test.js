@@ -38,6 +38,12 @@ function file(bytes = 'packing bytes') {
   return blob;
 }
 const hash = 'a'.repeat(64);
+test('selected year survives restore; legacy work never invents the current year', async()=>{
+ const {normalizePackingWorkSnapshot}=await packingWorkDraft();
+ for(const dateYear of ['2025','2026']) assert.equal(normalizePackingWorkSnapshot(snapshot({dateYear})).dateYear,dateYear);
+ assert.equal(normalizePackingWorkSnapshot(snapshot()).dateYear,'');
+ assert.throws(()=>normalizePackingWorkSnapshot(snapshot({dateYear:'26'})),/dateYear/);
+});
 function snapshot(overrides = {}) {
   return {
     file: file(), country: 'CO',
