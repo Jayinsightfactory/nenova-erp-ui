@@ -32,7 +32,8 @@
     "__tests__/orderImportMappingReuse.test.js",
     "__tests__/orderImportRematch.test.js",
     "lib/orderImportMappingKey.js",
-    "scripts/order-import-mapping-smoke.cjs"
+    "scripts/order-import-mapping-smoke.cjs",
+    "lib/orderImportDeadline.js"
   ],
   "actions": [
     {
@@ -136,6 +137,12 @@
       "estimate": "preserve",
       "webProfitReport": "preserve",
       "notes": "Fresh shared runtime lookup by CustKey and contextual matchName. Exact/compact reviewed aliases may correct restored drafts without changing quantity/unit/skip. Unverified guesses and other customer records are never promoted. User saves require response/readback, and retain prior customer values with actor/time. Parsing existing saved mappings is read-only; full-year order registration scope unchanged."
+    },
+    {
+      "name": "BOUND_BROWSER_RESPONSE_WAIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "File analysis and final registration response wait: 120 seconds including body decoding. Customer fallback and post-save readback: 30 seconds. Timeout is not server cancellation; no automatic retry; preserve draft on unknown registration result. Late results cannot render success."
     }
   ],
   "crossYearFixture": {
