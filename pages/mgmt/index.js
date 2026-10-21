@@ -2,8 +2,8 @@
 import Link from 'next/link';
 
 const FEATURES = [
-  { id: 'credit-limit', no: 1, label: '여신한도', desc: '거래처별 한도·잔액 대비 %·초과 경고', href: '/mgmt/credit-limit', ready: false },
-  { id: 'ar-aging', no: 2, label: '채권 aging(일수 구간)', desc: '0-30 / 31-60 / 61-90 / 90+', href: '/mgmt/ar-aging', ready: false },
+  { id: 'credit-limit', no: 1, label: '여신한도', desc: '거래처별 한도·잔액 대비 %·초과 경고', href: '/mgmt/credit-limit', ready: true },
+  { id: 'ar-aging', no: 2, label: '채권 aging(일수 구간)', desc: '0-30 / 31-60 / 61-90 / 90+', href: '/mgmt/ar-aging', ready: true },
   { id: 'receipt-match', no: 3, label: '입금 대사', desc: '입금 → 거래처 후보 → 확정(승인)', href: '/mgmt/receipt-match', ready: false, group: 'B' },
   { id: 'fx-gain-loss', no: 4, label: '환차손익', desc: '인보이스 환율 vs 송금 환율 차이', href: '/mgmt/fx-gain-loss', ready: false, group: 'B' },
   { id: 'remit-approval', no: 5, label: '송금 결재선', desc: '요청 → 승인 → 완료', href: '/mgmt/approvals?targetKind=remittance', ready: true, group: 'B' },
