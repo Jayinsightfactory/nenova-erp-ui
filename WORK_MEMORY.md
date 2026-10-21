@@ -667,3 +667,9 @@
 - 자동검사: __tests__/mgmtBoundary.test.js --changed-from origin/master 가 mgmt 변경 PR이 이관 파일을 건드리면 실패. SQL 쓰기동사 가드(ecount_work·ERP 원장). test:erp-contract 끝에 test:mgmt 연결.
 - 다음: A군(여신한도·aging·단가이력·클레임코드·마감체크·거래처이익/목표·감사뷰) 기능별 PR, B군(입금대사·환차손익·송금결재선)은 어댑터 소스 채워지는 대로. 각 PR 전 origin/master 리베이스.
 - 검색어: mgmt 경영관리 web_mgmt 경계 boundary ECOUNT이관공존 ApprovalRequest 결재선 management-controls 계약 MGMT_CONTROLS_DESIGN
+
+## 2026-10-21 유오디아 native 분배 오류 재발 방지
+- 정확 감사 source=order-import-final(10/09 11:35:37.683, 2026/43-01, ProdKey2226,1박스)와 생성시각 대조. 웹 업로드가 native FormOrderAdd의 빈 ShipmentMaster 준비를 누락했다. 최근 음수 피벗 패치 무관.
+- FINAL_SNAPSHOT만 기존 헤더 준비 분기에 연결. 현재연도/세부차수/업체 잠금·재사용, 주문과 동일 transaction. 분배량·날짜·농장·확정·재고·견적 자동 생성 없음.
+- 실행형 API 신규/재시도/교차연도/삭제/기존확정/헤더실패/후속실패 rollback PASS. 전체 gate·배포 진행 중, EXE 실제 재조회 미검증. 운영 최신 주문/출고/date10단, 확정·공급90909/VAT9091은 read-only 확인이며 이번 턴 변경하지 않음.
+- 검색어: 유오디아 블랙잭 43-01 2226 GetShipmentMaster order-import-final ShipmentMaster누락 재발방지

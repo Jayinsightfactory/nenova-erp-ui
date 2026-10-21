@@ -46,6 +46,7 @@ function baseState(overrides = {}) {
     ],
     masters: [{ OrderMasterKey: 100, OrderYear: '2026', OrderWeek: '32-01', CustKey: 317, isDeleted: 0, Manager: 'admin', OrderCode: 'C317' }],
     details: [{ OrderDetailKey: 200, OrderMasterKey: 100, ProdKey: 53, BoxQuantity: 0.2, BunchQuantity: 2, SteamQuantity: 20, OutQuantity: 2, EstQuantity: 200, NoneOutQuantity: 0, isDeleted: 0 }],
+    shipmentMasters: [],
     shipmentDetails: [],
     histories: [],
     ...overrides,
@@ -83,7 +84,7 @@ function makeDb(initial = baseState()) {
     db.queries.push({ sql: compact, params: paramsOf(params), transaction });
     if (/\b(?:INSERT|UPDATE|DELETE)\b/i.test(compact) && !/\bAppLog\b|\bKeyNumbering\b/i.test(compact)) {
       db.writes.push({ sql: compact, params: paramsOf(params), transaction });
-      if (/\b(?:ShipmentMaster|ShipmentDetail|ShipmentDate|ShipmentFarm|Estimate|WebProfitReport)\b/i.test(compact)) {
+      if (/\b(?:INSERT INTO|UPDATE|DELETE FROM)\s+(?:ShipmentDetail|ShipmentDate|ShipmentFarm|Estimate|WebProfitReport)\b/i.test(compact)) {
         throw new Error(`forbidden shipment/estimate mutation in API test: ${compact}`);
       }
     }
@@ -101,6 +102,25 @@ function makeDb(initial = baseState()) {
       return { recordset: [] };
     }
     if (/usp_StockCalculation/i.test(text)) return { recordset: [] };
+
+    if (/SELECT TOP 1 ShipmentKey FROM ShipmentMaster/i.test(text)) {
+      assert.equal(transaction, true);
+      assert.match(text, /UPDLOCK, HOLDLOCK/);
+      assert.match(text, /OrderYear=@year/);
+      return { recordset: s.shipmentMasters.filter(x => x.CustKey === Number(p.ck)
+        && x.OrderYear === p.year && x.OrderWeek === p.wk && !x.isDeleted)
+        .sort((a,b) => Number(b.isFix || 0) - Number(a.isFix || 0) || a.ShipmentKey - b.ShipmentKey).slice(0,1) };
+    }
+    if (/SELECT ISNULL\(MAX\(ShipmentKey\)/i.test(text)) {
+      return { recordset: [{ nk: Math.max(0, ...s.shipmentMasters.map(x => x.ShipmentKey)) + 1 }] };
+    }
+    if (/INSERT INTO ShipmentMaster/i.test(text)) {
+      assert.equal(transaction, true);
+      if (db.headerFailure) throw new Error('fixture header insert failure');
+      s.shipmentMasters.push({ ShipmentKey: p.sk, CustKey: Number(p.ck), OrderYear: p.year,
+        OrderWeek: p.wk, OrderYearWeek: p.ywk, EstimateName: p.estimate, isFix: 0, isDeleted: 0 });
+      return { recordset: [] };
+    }
 
     if (/FROM Customer .*CustKey=@ck/i.test(text) || /FROM Customer c .*CustKey=@ck/i.test(text)) {
       const row = s.customers.find(x => Number(x.CustKey) === Number(p.ck) && Number(x.isDeleted || 0) === 0);
@@ -372,6 +392,54 @@ async function main() {
     assert.equal(db.state.histories.length, historyCount, 'replay must not append unchanged history');
     assert.equal(db.queries.filter(q => /usp_StockCalculation/i.test(q.sql)).length, 0, 'final snapshot must preserve stock ledger');
     assert.equal(db.stockCalls.length, 0, 'FINAL_SNAPSHOT must skip the stock helper entirely, on first save and replay');
+    assert.equal(db.state.shipmentMasters.length, 1, 'replay reuses the empty native header');
+    assert.equal(db.state.shipmentMasters[0].OrderYearWeek, '202632');
+    assert.equal(db.state.shipmentMasters[0].isFix, 0);
+    assert.deepEqual(db.state.shipmentDetails, [], 'preparing a header never distributes quantities');
+  }
+
+  // Missing header after web upload: same-week previous year and deleted rows
+  // cannot satisfy native current-year saving. Other customer/sequence stay intact.
+  {
+    const sentinels = [
+      { ShipmentKey: 40, CustKey: 317, OrderYear: '2025', OrderWeek: '32-01', isDeleted: 0, isFix: 1 },
+      { ShipmentKey: 41, CustKey: 317, OrderYear: '2026', OrderWeek: '32-01', isDeleted: 1, isFix: 0 },
+      { ShipmentKey: 42, CustKey: 999, OrderYear: '2026', OrderWeek: '32-01', isDeleted: 0, isFix: 0 },
+      { ShipmentKey: 43, CustKey: 317, OrderYear: '2026', OrderWeek: '32-02', isDeleted: 0, isFix: 0 },
+    ];
+    const db = makeDb({ shipmentMasters: sentinels });
+    const response = await call(loadCreateOrder(db), db, { source: 'order-import-final', custKey: 317,
+      year: '2026', week: '32-01', orderMode: 'FINAL_SNAPSHOT', ensureShipmentMaster: false,
+      items: [{ prodKey: 53, qty: 1, unit: '박스' }] });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.deepEqual(db.state.shipmentMasters.slice(0,4), sentinels);
+    assert.equal(db.state.shipmentMasters.length, 5);
+    assert.equal(db.state.shipmentMasters[4].ShipmentKey, 44);
+    assert.equal(detail(db, 53)[0].OutQuantity, 10);
+    assert.equal(db.state.shipmentDetails.length, 0);
+  }
+  // Existing canonical headers are not rewritten, including fixed headers.
+  {
+    const headers = [
+      { ShipmentKey: 40, CustKey: 317, OrderYear: '2026', OrderWeek: '32-01', isDeleted: 0, isFix: 0 },
+      { ShipmentKey: 41, CustKey: 317, OrderYear: '2026', OrderWeek: '32-01', isDeleted: 0, isFix: 1 },
+    ];
+    const db = makeDb({ shipmentMasters: headers });
+    const response = await call(loadCreateOrder(db), db, { source: 'order-import-final', custKey: 317,
+      year: '2026', week: '32-01', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 53, qty: 3, unit: '단' }] });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.deepEqual(db.state.shipmentMasters, headers);
+    assert.equal(response.payload.shipmentMasterKey, 41, 'reuse the fixed canonical header');
+    assert.ok(!db.writes.some(w => /INSERT INTO ShipmentMaster/.test(w.sql)));
+  }
+  // Header failure is not swallowed: orders/history and header all roll back.
+  {
+    const db = makeDb(); const before = clone(db.state); db.headerFailure = true;
+    const response = await call(loadCreateOrder(db), db, { source: 'order-import-final', custKey: 317,
+      year: '2026', week: '32-01', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 53, qty: 3, unit: '단' }] });
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(db.state, before);
+    assert.equal(db.committed, false);
   }
 
   // An omitted order that already has shipment distribution blocks the whole snapshot.

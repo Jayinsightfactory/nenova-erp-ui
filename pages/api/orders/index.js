@@ -203,7 +203,7 @@ export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'POST') return await createOrder(req, res);
   if (req.method === 'PUT')  return await updateOrder(req, res);
   return res.status(405).end();
-}, { actionType: 'ORDER_WRITE', affectedTable: 'OrderMaster/OrderDetail[/ShipmentMaster for Raum image registration]', riskLevel: 'MEDIUM' }));
+}, { actionType: 'ORDER_WRITE', affectedTable: 'OrderMaster/OrderDetail[/ShipmentMaster for final upload or Raum image registration]', riskLevel: 'MEDIUM' }));
 
 // ── 조회: 실제 DB ──────────────────────────────
 async function getOrders(req, res) {
@@ -409,9 +409,10 @@ async function createOrder(req, res) {
   const isSalesPasteSource = String(source || '').trim().toLowerCase() === 'sales-paste';
   const orderMode = myCustomerPolicy.orderMode;
   const writeItems = isMyCustomerSource ? myCustomerPolicy.items : items;
-  // 웹 내 업체 등록의 의도된 범위는 OrderMaster/Detail/History만이다. 출고 원장은 보존한다.
-  const ensureShipmentMaster = !isMyCustomerSource
-    && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true);
+  // 업로드 최종본은 EXE FormOrderAdd처럼 빈 출고 헤더를 함께 준비한다.
+  // 수량/날짜/농장/확정은 생성하지 않는다. 내 업체·영업 붙여넣기의 별도 계약은 유지한다.
+  const ensureShipmentMaster = isFinalSnapshotSource || (!isMyCustomerSource
+    && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true));
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
   const historyDescr = isFinalSnapshotSource ? '업로드 주문등록 최종본' : isSalesPasteSource ? '영업부 붙여넣기 주문등록' : String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
@@ -568,7 +569,7 @@ async function createOrder(req, res) {
         await syncKeyNumbering(tQuery, 'OrderMasterKey', 'OrderMaster', 'OrderMasterKey');
       }
 
-      // nenova.exe FormOrderAdd 저장과 동일하게, 주문이 처음 만들어지는 경우에만
+      // nenova.exe FormOrderAdd 저장과 동일하게, 활성 출고 헤더가 없는 경우에만
       // 빈 ShipmentMaster를 준비한다. ShipmentDetail/ShipmentDate/ShipmentFarm은 만들지 않는다.
       let ensuredShipmentMasterKey = null;
       if (ensureShipmentMaster) {
