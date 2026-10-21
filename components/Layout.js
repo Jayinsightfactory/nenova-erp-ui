@@ -117,6 +117,13 @@ export const MENU_ITEMS = [
     ]
   },
   {
+    group: '경영관리',
+    items: [
+      { href: '/mgmt',           labelKey: '경영관리 홈(공백 보완 10)', popup: false, userIds: ['nenovaSS3'] },
+      { href: '/mgmt/approvals', labelKey: '승인요청(결재선)',      popup: false, userIds: ['nenovaSS3'] },
+    ]
+  },
+  {
     group: '재무관리',
     items: [
       { href: '/finance/bank',     labelKey: '입/출금 계좌 조회', popup: false },
