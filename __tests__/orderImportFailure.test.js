@@ -1,6 +1,29 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { presentOrderImportFailure, orderImportWarningMessage } from '../lib/orderImportFailure.js';
+import { withOrderImportDeadline } from '../lib/orderImportDeadline.js';
+
+// Exercise a request that never settles, a stalled response body, and a late write.
+assert.equal(await withOrderImportDeadline(() => Promise.resolve('ok')), 'ok');
+const rejected = Object.assign(new Error('rejected'), { status: 409 });
+await assert.rejects(withOrderImportDeadline(() => Promise.reject(rejected)), error => error === rejected);
+let calls = 0;
+let finishLate;
+await assert.rejects(withOrderImportDeadline(() => {
+  calls++;
+  return new Promise(resolve => { finishLate = resolve; });
+}, { timeoutMs: 5 }), error => {
+  assert.equal(error.code, 'ORDER_IMPORT_RESPONSE_TIMEOUT');
+  assert.equal(presentOrderImportFailure(error).kind, 'ambiguous');
+  return true;
+});
+finishLate({ success: true });
+await Promise.resolve();
+assert.equal(calls, 1, 'a timeout never retries an in-flight write');
+await assert.rejects(withOrderImportDeadline(async () => {
+  const response = { json: () => new Promise(() => {}) };
+  return response.json();
+}, { timeoutMs: 5 }), { code: 'ORDER_IMPORT_RESPONSE_TIMEOUT' });
 
 for (const error of [new TypeError('Failed to fetch'), Object.assign(new Error('upstream timeout'), { status: 502 }),
   Object.assign(new Error('unavailable'), { status: 503 }), Object.assign(new Error('gateway timeout'), { status: 504 }),
@@ -29,6 +52,9 @@ assert.equal(orderImportWarningMessage({ code: 'STOCK_CALC_FAILED', message: 'ê³
 assert.equal(orderImportWarningMessage({ code: 'STOCK_CALC_FAILED' }), 'STOCK_CALC_FAILED');
 
 const page = fs.readFileSync(new URL('../pages/orders/import.js', import.meta.url), 'utf8');
+assert.match(page, /withOrderImportDeadline\(async \(\) => \{[\s\S]*?fetch\('\/api\/orders\/import-parse'/);
+assert.match(page, /withOrderImportDeadline\(\(\) => apiPost\('\/api\/orders'/);
+assert.match(page, /withOrderImportDeadline\(\(\) => apiGet\('\/api\/orders'/);
 assert.match(page, /presentOrderImportFailure\(e\)/, 'the register catch uses the pure failure presenter');
 assert.equal((page.match(/apiPost\('\/api\/orders'/g) || []).length, 1, 'the page keeps exactly one explicit order POST callsite');
 assert.match(page, /orderMode: 'FINAL_SNAPSHOT',[\s\S]*source: 'order-import-final'/, 'the existing final-snapshot write contract is unchanged');
