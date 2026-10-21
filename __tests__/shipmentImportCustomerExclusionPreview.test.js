@@ -237,3 +237,25 @@ test('수국 선택은 혼합 원본과 기존 카네이션 분배를 교체 범
   assert.equal(result.rows[0].uploadQty,5);
   assert.match(result.logs.join(' '),/선택 품종 밖 원본 1행 제외/);
 });
+
+
+test('fresh hydrangea file derives scope without a manual family filter; foreign key/name cannot introduce carnation', async () => {
+  const hydrangea={...product,ProdKey:501,ProdName:'HYDRANGEA ROSE PINK',DisplayName:'WHITE',FlowerName:'수국',CountryFlower:'콜롬비아수국'};
+  const carnation={...product,ProdKey:502,ProdName:'WHITE',DisplayName:'WHITE',FlowerName:'카네이션',CountryFlower:'콜롬비아카네이션'};
+  const queryFn=async(text,params={})=>{
+    assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
+    if(params.weekKey)return{recordset:[]};
+    if(/FROM Product\s+WHERE/.test(text))return{recordset:[carnation,hydrangea]};
+    if(/FROM Customer\s+WHERE/.test(text))return{recordset:[customer]};
+    assert.equal(params.importYear.value,'2026');assert.equal(params.week.value,'43-01');
+    if(/AS yr, COUNT/.test(text))return{recordset:[{yr:'2025',detailCount:1}]};
+    return{recordset:/NOT EXISTS/.test(text)?[]:[{CustKey:533,ProdKey:501,orderQty:5,currentOutQty:3},{CustKey:533,ProdKey:502,orderQty:20,currentOutQty:20}]};
+  };
+  const row={week:'43-01',customerLabel:customer.CustName,productLabel:'WHITE',productFamily:'hydrangea',uploadQty:5,outUnit:'박스',sheetName:'수국',rowNo:4,colNo:2,hasFinalDistributionDirective:true};
+  const run=rows=>buildImportPreview({parsedRows:rows,rawWeek:'43-01',rawYear:'2026',fileBasedScope:true,queryFn});
+  const first=await run([{...row,productFamily:'carnation'}]);assert.deepEqual(first.replacementCategories,['콜롬비아카네이션']);
+  const fresh=await run([row]);assert.deepEqual(fresh.rows.map(r=>r.prodKey),[501]);assert.deepEqual(fresh.replacementCategories,['콜롬비아수국']);
+  assert.equal(fresh.rows[0].orderQty,5);assert.equal(fresh.rows[0].uploadQty,5);
+  const badKey=await run([{...row,prodKey:502}]);assert.equal(badKey.rows.length,0);assert.equal(badKey.unmatched.length,1);
+  const ambiguous=await run([{...row,productFamily:''}]);assert.equal(ambiguous.rows.length,0);assert.equal(ambiguous.unmatched.length,1);
+});

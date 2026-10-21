@@ -940,3 +940,6 @@ SELECT INTO의 ORDER BY는 다음 CURSOR SELECT의 순서를 보장하지 않는
 요구한다. 서명된 모듈은 중단한다. 정렬만 수정하는 ALTER와 승인된 과거재고 보정은 동일 외부
 transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터 복원을 확인한 뒤 apply한다.
 회귀: stockCalculationOrderRepair.test.cjs. 기준: docs/plans/stock-calc-order-2026-10-21.md.
+
+## 2026-10-21 파일 자동 품종 범위
+사용자 의도는 수국 파일만 올리면 수국 처리다. 수동 시트/품종 선택을 강제하지 않는다. 현재 파일 내용에서 품종을 추출하고 known-family 교차 매칭/숨김 및 삭제시트 키맵을 차단한다. 새 파일은 override/검증서명/진행표 초기화와 이전 비동기응답 폐기를 수행한다. 같은 품종 내 최종분배 교체 계약은 별도이며 보존한다.

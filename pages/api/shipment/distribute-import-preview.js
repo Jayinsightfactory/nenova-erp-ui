@@ -56,15 +56,11 @@ async function handler(req, res) {
       throw error;
     }
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
-    const requestedProductFamily = Array.isArray(fields.productFamily) ? fields.productFamily[0] : fields.productFamily;
-    if (!['carnation','rose','hydrangea','alstroemeria','all'].includes(requestedProductFamily)) return res.status(400).json({ success: false, error: '적용할 품종을 선택하세요.' });
-    const visibleSheets = workbook.SheetNames.filter((name, index) => name !== '_keymap' && !workbook.Workbook?.Sheets?.[index]?.Hidden);
-    const sheetName = Array.isArray(fields.sheetName) ? fields.sheetName[0] : fields.sheetName;
-    if (!sheetName && visibleSheets.length > 1) return res.status(400).json({ success: false, error: '적용할 시트를 하나 선택하세요. 다른 시트는 처리하지 않습니다.' });
-    const parsed = parseAllocationWorkbook(XLSX, workbook, { sourceName: file.originalFilename || 'upload.xlsx', sheetName: sheetName || visibleSheets[0] });
+    // Only the new workbook's visible contents determine the scope.
+    const parsed = parseAllocationWorkbook(XLSX, workbook);
     const preview = await buildImportPreview({
       parsedRows: parsed.rows,
-      requestedProductFamily,
+      fileBasedScope: true,
       rawWeek: week,
       rawYear: year,
       earlyImportMode,
