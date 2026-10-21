@@ -26,6 +26,15 @@ test('corrected live sources clear old findings',async()=>{
  const r=f({scope,db:[db[0],{...db[1],qty:485,amount:6305000}],receipts:[{...receipts[0],qty:647,amount:5952400},receipts[1]]});
  assert(r.every(r=>r.status==='확인 기준 일치'));
 });
+test('case notes cannot certify conflicting lineage or a changed workbook',async()=>{
+ const {shillaReviewStatus:f}=await mod;
+ const note={prodKey:3074,period:'39',status:'확인 기준 일치',expected:485,price:13000};
+ const line={prodKey:3074,period:'39',excel:{qty:485,amount:6305000}};
+ assert.equal(f(line,[note]),'확인 기준 일치');
+ assert.equal(f({...line,excel:{qty:501,amount:6513000}},[note]),'추가 확인');
+ assert.equal(f({...line,conflict:true},[note]),'추가 확인');
+ assert.equal(f({salesExplained:true}), '판매요청 정상');
+});
 test('stored source requires selected year and preserves explicit zero; ambiguous dates not invented',async()=>{
  const {storedShillaSource:f}=await mod;
  assert.throws(()=>f(db,'2025'),/없습니다/);

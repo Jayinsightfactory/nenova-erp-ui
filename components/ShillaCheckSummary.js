@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { shillaReviewStatus } from '../lib/shillaCheck';
 const fmt=v=>v==null?'미확인':Number(v).toLocaleString('ko-KR');
 export default function ShillaCheckSummary({result,from,to}) {
   const [filter,setFilter]=useState('추가 확인');
   const known=result.knownReviews||[];
-  const lines=(result.periodAnalysis?.lines||[]).map(r=>({...r,review:known.find(k=>k.prodKey===r.prodKey&&k.period===r.period)?.status
-    ||(r.salesExplained?'판매요청 정상':r.status==='세 자료 수치 일치 후보'?'일치 후보':'추가 확인')}));
+  const lines=(result.periodAnalysis?.lines||[]).map(r=>({...r,review:shillaReviewStatus(r,known)}));
   const statuses=['수정 필요','수정 대기','추가 확인','판매요청 정상','일치 후보','확인 기준 일치'];
   const visible=lines.filter(r=>filter==='전체'||r.review===filter);
   function download() {
