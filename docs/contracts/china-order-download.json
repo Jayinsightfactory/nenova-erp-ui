@@ -1,5 +1,6 @@
 {
   "id":"china-order-download",
+  "downloadToolbarLayout":"Control panel and both control groups wrap at available container width at every viewport; both download buttons remain within the visible page, including 1366px sidebar and PC workspace. No quantity/SQL/ledger changes.",
   "bunchOnlyWorksheet":"two buttons 단·박스 다운로드 and 단만 다운로드, filename suffix 단박스/단만; 단수량: identical product/HF/CL/year/full-week scope; numeric bunches unchanged, boxes times BunchOf1Box, stems times BunchOf1Box/SteamOf1Box; invalid/conflicting factors show 환산확인 including dependent totals; no formulas/hidden sheets or ledger writes",
   "hfSeparateColumn":{"scope":"downloaded selected-subweek matrix only; browser display unchanged","columns":"품목명 | HF CODE | 단위 | 총수량(박스수) | customer CL columns","hf":"exact existing match only, literal text preserving leading zeroes, missing and footer blank","preserve":"API/SQL/ERP data, quantity conversion, row order, CL grouping, banner A1:D1, single-sheet snapshot selected by two download buttons","freeze":"four leading columns and two header rows"},
   "title":"중국 주문등록 단일 세부차수 품목(HF)×업체(CL) 수량 및 합계 다운로드",

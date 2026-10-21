@@ -1,5 +1,6 @@
 const test = require('node:test');
 require('./packingWeekDate.test.js');
+require('./packingBlockedNotice.test.js');
 const assert = require('node:assert/strict');
 const { assertPackingSourceValues, packingSourceValueIssues } = require('../lib/importPackingSourceReview.js');
 const { makePackingReviewRows, applyPackingReview } = require('../lib/importPackingReview.js');
