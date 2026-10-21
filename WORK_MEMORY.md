@@ -794,5 +794,6 @@
 - REVIEW_BLOCKED/PREPARE_BLOCKED 상세를 기존 audit 로그에 저장. 서버 actor와 eventId 멱등 유지. 운영 입고·재고·매칭 쓰기 없음. 원가 계산은 별도 필수값 미입력으로 미검증.
 - 전체검사 통과, WarehouseKey 표시 후속 보완 재검증 및 배포 진행 중. docs/work-sessions/2026-10-21_packing-42-e2e.md 참조.
 - 검색어: 42-1 CHINA CI REVIEW_BLOCKED 날짜확인 작업로그 격리SQL
+- 입고번호 표시 보완 후 실제42-1 전체 흐름 재실행도 통과. PR1214 CI/배포 진행 중.
 
 
