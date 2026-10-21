@@ -899,16 +899,16 @@
     "E010205-A24"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Add 7 missing target controls; observe source behaviour for 9 placeholders",
+   "next": "Add 7 missing target controls; observe source behaviour for 14 placeholders",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 31,
     "implemented": 5,
-    "placeholder": 9,
+    "placeholder": 14,
     "missing": 7,
-    "conditional": 5,
+    "conditional": 0,
     "externalApiDesignOnly": 5,
-    "labelMatched": 19,
+    "labelMatched": 21,
     "fullParity": false
    }
   },
@@ -1565,12 +1565,12 @@
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 27,
-    "implemented": 5,
+    "implemented": 6,
     "placeholder": 20,
     "missing": 1,
-    "conditional": 1,
+    "conditional": 0,
     "externalApiDesignOnly": 0,
-    "labelMatched": 23,
+    "labelMatched": 24,
     "fullParity": false
    }
   },
@@ -1756,16 +1756,16 @@
     "E040209-A75"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 42 placeholders; verify function/window/value dimensions",
+   "next": "Observe source behaviour for 43 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 75,
-    "implemented": 29,
-    "placeholder": 42,
+    "implemented": 31,
+    "placeholder": 43,
     "missing": 0,
-    "conditional": 3,
+    "conditional": 0,
     "externalApiDesignOnly": 1,
-    "labelMatched": 65,
+    "labelMatched": 66,
     "fullParity": false
    }
   },
@@ -2076,16 +2076,16 @@
     "E040609-A26"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 18 placeholders; verify function/window/value dimensions",
+   "next": "Observe source behaviour for 19 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 26,
-    "implemented": 4,
-    "placeholder": 18,
+    "implemented": 5,
+    "placeholder": 19,
     "missing": 0,
-    "conditional": 3,
+    "conditional": 1,
     "externalApiDesignOnly": 1,
-    "labelMatched": 23,
+    "labelMatched": 25,
     "fullParity": false
    }
   },
@@ -2383,14 +2383,14 @@
     "E040306-A54"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 41 placeholders; verify function/window/value dimensions",
+   "next": "Observe source behaviour for 40 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 55,
-    "implemented": 10,
-    "placeholder": 41,
+    "implemented": 13,
+    "placeholder": 40,
     "missing": 0,
-    "conditional": 2,
+    "conditional": 0,
     "externalApiDesignOnly": 2,
     "labelMatched": 44,
     "fullParity": false
@@ -3026,16 +3026,16 @@
     "E040711-A28"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 20 placeholders; verify function/window/value dimensions",
+   "next": "Observe source behaviour for 21 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 28,
     "implemented": 7,
-    "placeholder": 20,
+    "placeholder": 21,
     "missing": 0,
-    "conditional": 1,
+    "conditional": 0,
     "externalApiDesignOnly": 0,
-    "labelMatched": 20,
+    "labelMatched": 21,
     "fullParity": false
    }
   },
@@ -3381,14 +3381,14 @@
     "E040708-A69"
    ],
    "status": "partial-observation-target-dom-classified-full-parity-unverified",
-   "next": "Observe source behaviour for 57 placeholders; verify function/window/value dimensions",
+   "next": "Observe source behaviour for 60 placeholders; verify function/window/value dimensions",
    "targetDom": {
     "asOf": "2026-10-21",
     "buttons": 69,
-    "implemented": 8,
-    "placeholder": 57,
+    "implemented": 9,
+    "placeholder": 60,
     "missing": 0,
-    "conditional": 4,
+    "conditional": 0,
     "externalApiDesignOnly": 0,
     "labelMatched": 59,
     "fullParity": false
@@ -6039,6 +6039,12 @@
    "date": "2026-10-21",
    "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
    "release": "survey-ingest-20261021",
+   "touchedPages": 33
+  },
+  {
+   "date": "2026-10-21",
+   "note": "Target DOM crawl evidence merged; ACTION_IDS gap for 11 datasets fixed",
+   "release": "crawler-conditional-states",
    "touchedPages": 33
   }
  ]
