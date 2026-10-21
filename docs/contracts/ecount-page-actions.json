@@ -18,7 +18,11 @@
     "components/ecount/InventoryDailyAllResults.js",
     "lib/ecountPresetSurvey.cjs",
     "components/ecount/ObservedPageControls.js",
-    "data/ecount-workbench/evidence/2026-10-21-source-survey.json"
+    "data/ecount-workbench/evidence/2026-10-21-source-survey.json",
+    "lib/ecountSurveyScreens.cjs",
+    "components/ecount/SurveyScreen.js",
+    "pages/ecount/workbench.js",
+    "data/ecount-workbench/evidence/2026-10-21-source-survey-p008-p019.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -47,7 +51,8 @@
     "__tests__/ecountExcelExport.test.cjs",
     "__tests__/ecountPrintPreview.test.cjs",
     "__tests__/ecountDailyReport.test.cjs",
-    "__tests__/ecountPresetButtons.test.cjs"
+    "__tests__/ecountPresetButtons.test.cjs",
+    "__tests__/ecountSurveyScreens.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -58,7 +63,9 @@
       "buildExportModel",
       "datePreset",
       "presetIdForLabel",
-      "enabledPresetLabels"
+      "enabledPresetLabels",
+      "buildScreens",
+      "presetDraft"
     ],
     "tables": [
       "All ERP/source/workspace tables preserve"
@@ -78,7 +85,8 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build",
     "node __tests__/ecountDailyReport.test.cjs",
-    "node --test __tests__/ecountPresetButtons.test.cjs"
+    "node --test __tests__/ecountPresetButtons.test.cjs",
+    "node --test __tests__/ecountSurveyScreens.test.cjs"
   ],
   "criteria": {
     "stockSnapshotQuery": "selectStockSnapshot은 단일기준일이 version.periodFrom/periodTo 모두와 일치할때만 available. 다른날짜/버전없음은미수집,0건조회로해석금지. 행날짜생성/시점추정없음.",
@@ -105,7 +113,8 @@
     "excelDownload": "Excel/Excel(화면)/Excel(표시형식)/Excel(데이터) 버튼은 lib/ecountExcelExport.cjs로 현재 표의 buildExportModel 안전투영 행만 브라우저 내 xlsx(시트 데이터+안내)로 내려받음; 숫자 문자열만 숫자 셀, 빈값은 빈 셀, 파일명 <화면명>_<YYYYMMDD>.xlsx. dataState!=='loaded' 또는 0행이면 비활성+사유 유지, data-ecount-action-id는 기존 actionId 값 그대로. 일계표 전체(dayAll) 다중 표와 매핑 선택창 Excel은 미지원 placeholder 유지. 새 API 라우트·ECOUNT/ERP 원장 읽기·쓰기 없음. 원본 ECOUNT 엑셀과 열·서식 동일성 미검증.",
     "printPreview": "E040207 인쇄 dropdown 미리보기는 지연 생성 후 Print Preview 별도 탭 열림을 원본 담당자가 확인. 관찰된 판매9열/구매현황14열/수금·지급4열만 허용하는 안전 출력 모델을 HTML escape하여 Blob 새탭으로 제공; 스크립트/외부통신/CSP 기본 차단, 자동 native print 없음. 전체 출력물 레이아웃 동등성은 미검증.",
     "writes": "없음",
-    "presetButtons": "data/ecount-workbench/evidence/2026-10-21-source-survey.json 의 program 별 presets 라벨(묶음 미표시 화면은 order 실험 라벨)만 lib/ecountPresetSurvey.cjs 가 활성 목록으로 제공하고 presetIdForLabel 로 매핑되는 라벨만 실제 버튼(onPreset(label)), 나머지는 ObservedButton 자리표시. data-ecount-action-id 는 기존 actionId(dataset,label,context) 값 그대로(ar 은 unknown 과 같은 id 를 '검색 패널' 문맥에 중복 등록, ap 프리셋은 조사 적재 규칙과 같은 E040309-A12~A18 신규). 단일 기준일 화면(stock/whStock/stkBalance/bomStock/relStock)은 from=to, 기준일(영업주기) 화면(unsold/unbought/unpSale)은 to 만 변경. 자료에 일자가 없는 ar/ap/discount/buyDisc/unsold/unbought/orderQuery 는 날짜만 표시하고 조회 미실행 + 안내문 '조회 자료에 일자가 없어 기간 조건은 표시만 적용됩니다'. 다시 작성은 resetSearch(검색 패널 초기 조건) 로 복원만, 조회 미실행. 새 버튼은 ar/ap 기간 입력·프리셋뿐이며 ACTION_IDS 에 없는 라벨(sales 금일 등, buyStatus 금일 외)은 추가하지 않음. 원본 조회 결과 동일성 미검증, ECOUNT·ERP 원장 쓰기 없음."
+    "presetButtons": "data/ecount-workbench/evidence/2026-10-21-source-survey.json 의 program 별 presets 라벨(묶음 미표시 화면은 order 실험 라벨)만 lib/ecountPresetSurvey.cjs 가 활성 목록으로 제공하고 presetIdForLabel 로 매핑되는 라벨만 실제 버튼(onPreset(label)), 나머지는 ObservedButton 자리표시. data-ecount-action-id 는 기존 actionId(dataset,label,context) 값 그대로(ar 은 unknown 과 같은 id 를 '검색 패널' 문맥에 중복 등록, ap 프리셋은 조사 적재 규칙과 같은 E040309-A12~A18 신규). 단일 기준일 화면(stock/whStock/stkBalance/bomStock/relStock)은 from=to, 기준일(영업주기) 화면(unsold/unbought/unpSale)은 to 만 변경. 자료에 일자가 없는 ar/ap/discount/buyDisc/unsold/unbought/orderQuery 는 날짜만 표시하고 조회 미실행 + 안내문 '조회 자료에 일자가 없어 기간 조건은 표시만 적용됩니다'. 다시 작성은 resetSearch(검색 패널 초기 조건) 로 복원만, 조회 미실행. 새 버튼은 ar/ap 기간 입력·프리셋뿐이며 ACTION_IDS 에 없는 라벨(sales 금일 등, buyStatus 금일 외)은 추가하지 않음. 원본 조회 결과 동일성 미검증, ECOUNT·ERP 원장 쓰기 없음.",
+    "surveyScreens": "P008~P019 72화면(2026-10-21 조사, 974 버튼)은 lib/ecountSurveyScreens.cjs 가 button-matches.json 의 matchId 와 survey JSON(컨트롤·입력칸·프리셋·panelText)만으로 정의를 만들고 components/ecount/SurveyScreen.js 가 그린다. ID 는 button-matches 의 matchId 와 반드시 같고 새 ID 는 만들지 않으며 대응 버튼이 없는 조사 컨트롤은 missing 으로 반환한다(현재 0). kind(list 9/input 7/report 48/settings 5/hub 3)·dateMode(range 38/single 8/none 26)는 라벨 기반 렌더 형태 추정이며 원본 기능 동등성이 아니다. 활성 동작은 Search(F3) 토글, presetIdForLabel 로 매핑되는 관측 프리셋(305개, 날짜만 변경 후 '작업 자료 미수집' 안내; single 화면은 종료일 하나), 다시 작성(resetSearch 초기화), 검색(F8)=미수집 안내뿐이고 나머지 537 버튼(저장(F8)/저장/전표(F7) 는 '원본 저장 계약 확정 전' 사유, 잔량재집계·회계반영 계열은 클릭 금지 기록 사유)은 ObservedButton 자리표시다. 미관측 프리셋 최근7일(E040254)·이번기수(~전월)(E040255)은 비활성 유지. 입력 화면 입력칸은 sourceFields(개인정보 기본값 없음) 읽기 전용. 정의는 workbench getStaticProps 로만 전달해 5MB 조사 파일을 클라이언트 번들에 싣지 않는다. 관측 프리셋 날짜값 298건은 datePreset 과 일치 검증(범위 화면 from~to, 단일 화면 종료일). 새 API·ECOUNT 원본·ERP/공유 원장 쓰기 없음, 원본 기능 동등성 미검증."
   },
   "criteriaLedger": {
     "stockMovementModes": "E040719 stkDaily/stkMonth are separate immutable upload scopes (daily/monthly, vertical, shown rows). Source evidence stock-move-daily/monthly-safe-rows: ordered opening/group_summary pairs plus one actual total; code-only identity, no names/specifications, nullable exact decimals preserve blanks. reportMode is required and must match dataset. Exact full period only; no transaction inference, mode substitution, derived totals or empty imports. Shared ERP and ECOUNT writes forbidden. Prior-year same dates never match."
