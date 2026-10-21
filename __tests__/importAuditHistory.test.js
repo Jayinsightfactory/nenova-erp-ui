@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './invoiceUploadIssue.test.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {productHistoryChanges,historyValue,appendProductInputHistory} from '../lib/productInputHistory.js';

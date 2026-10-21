@@ -162,6 +162,7 @@ function originalText(row, field) {
 export default function PackingEvidenceReview({
   rows,
   onConfirm,
+  onBlocked,
   onClose,
   onInvalidate,
   matchedInvoices = [],
@@ -502,17 +503,18 @@ export default function PackingEvidenceReview({
     setSubmitError('');
   };
 
+  const reportBlocked = message => { setSubmitError(message); onBlocked?.(message); notifyPackingBlocked(message); };
   const confirmDrafts = async () => {
     if (requireSourceConfirmation && sourceReviewRequired && !pdfReady) {
       const message = !pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.';
-      setSubmitError(message); notifyPackingBlocked(message);
+      reportBlocked(message);
       return;
     }
     if (sourceReviewRequired && (!sourceEntries.length || (requireSourceConfirmation && uncheckedSourceCount > 0) || missingSourceReasonCount > 0)) {
       const message = !sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
         : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건이 남아 있습니다. 각 행을 확인하세요.`
           : `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`;
-      setSubmitError(message); notifyPackingBlocked(message);
+      reportBlocked(message);
       return;
     }
     const nextErrors = validateDrafts(drafts, baselinesRef.current, requireSourceConfirmation);
@@ -520,7 +522,7 @@ export default function PackingEvidenceReview({
     setSubmitError('');
     if (Object.keys(nextErrors).length) {
       const message = packingReviewErrorSummary(nextErrors);
-      setSubmitError(message); notifyPackingBlocked(message);
+      reportBlocked(message);
       const firstKey = drafts.find(draft => nextErrors[rowIdentity(draft)])?.invoiceIndex;
       if (firstKey !== undefined) setSelectedKey(String(firstKey));
       return;
@@ -551,7 +553,7 @@ export default function PackingEvidenceReview({
       await onConfirm?.(submission);
     } catch (error) {
       const message = error?.message || '확인값을 적용하지 못했습니다. 입력값을 다시 확인하세요.';
-      setSubmitError(message); notifyPackingBlocked(message);
+      reportBlocked(message);
     } finally {
       setPending(false);
     }
