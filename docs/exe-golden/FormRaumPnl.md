@@ -168,3 +168,7 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - 실제 CLI: dnSpy.Console.exe --no-color -t ClassEstimate "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe" 실행 성공. Insert/Update는 EstimateType/EstimateDtm/ProdKey/Unit/Quantity/Cost/Amount/Vat/ShipmentKey만 저장. 분배수량 변경 없음.
 - SELECT 근거: Estimate10040/Shipment6623, 2026/40-01, Customer446, Product181, Type FEE03-KR0770(CodeInfo.Descr2판매요청), 10/12,1송이,Cost9130,Amount8300,상위확정. 40-02 분배520+판매요청1=Excel/SRM521. 입고10/7과 요청10/12는 같은날로 바꾸지 않는다.
 - CodeInfo EXISTS로 유형판정하며 원장 PK중복, 교차연도, 요청중복소비를 차단. 원장쓰기 없음.
+
+## 2026-10-21 신라 자동 확인 탭
+
+실제 dnSpy.Console.exe --no-color -t FormEstimateView "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe" 실행 성공. GetDetail은 ViewShipment+ViewOrder의 OrderYearWeek2/CustKey/ProdKey 조인과 ShipmentDate/PeriodDay, DetailFix=1을 사용하고 Estimate를 별도 UNION한다. 새 탭은 기존 분배·판매요청 SELECT를 재사용하며 견적 발행 여부로 확정하지 않는다. QuoteDate만 SQL varchar(10)으로 읽어 시간대 변환을 피한다. 2026 신라 read-only probe: 안시리움40 분배520 + Estimate10040 판매요청1 = 원본/입고521. 저장/SP 호출 없음, Order/Shipment/Estimate/Stock/WebProfitReport 보존. 기준표와 검증은 work-sessions/2026-10-21_shilla-check.md.

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 const fmt=v=>v==null?'미확인':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:3});
-export default function ShillaPeriodAnalysis({data}) {
+export default function ShillaPeriodAnalysis({data,baselineLabel="엑셀"}) {
   const [search,setSearch]=useState('');
   const visible=data.lines.filter(r=>`${r.period} ${r.name} ${r.prodKey||''}`.includes(search.trim()));
   return <section aria-label="전산 출고·손익·입고 기간 대조">
-    <h2>실제 전산 분배 ↔ 엑셀 손익 ↔ 신라 입고</h2>
-    <p>전산 신라호텔 분배 원장 {data.distributionCount}행을 읽었습니다. 출고 차수, 엑셀 집계기간, 신라 입고일을 각각 유지합니다. 원본 날짜 전후 {data.lookaroundDays}일에서 같은 품목·단위의 일별 및 월~금 수치 일치를 탐색합니다.</p>
+    <h2>실제 전산 분배 ↔ {baselineLabel} 손익 ↔ 신라 입고</h2>
+    <p>전산 신라호텔 분배 원장 {data.distributionCount}행을 읽었습니다. 출고 차수, {baselineLabel} 집계기간, 신라 입고일을 각각 유지합니다. 원본 날짜 전후 {data.lookaroundDays}일에서 같은 품목·단위의 일별 및 월~금 수치 일치를 탐색합니다.</p>
     <p>{data.warning} 전산 금액은 저장된 공급가액이며, 단가는 공급가액 ÷ 견적수량입니다. 미확정 분배도 상태를 표시합니다.</p>
     <p>판매요청 원장 {data.salesRequestCount||0}행을 함께 확인했습니다. 정상 추가분은 같은 전산 대차수의 판매요청을 포함해 수량·단가·금액이 맞는 경우입니다. 판매요청일과 신라 입고일은 각각 표시하며, 창고 분배값은 변경하지 않습니다.</p>
     <details open><summary>월별 신라 입고 공급가액 · 세금계산서 귀속 기준</summary>
@@ -15,7 +15,7 @@ export default function ShillaPeriodAnalysis({data}) {
     </details>
     <details open><summary>차수·일별·월~금 집계 자동 판정 후보 ({data.lines.length}개)</summary>
       <label>전산 대조 검색 <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="품목명 또는 차수"/></label>
-      <div className="wide"><table><thead><tr><th>엑셀 차수 / 품목</th><th>실제 전산 분배 후보</th><th>엑셀 손익</th><th>신라 입고 일치 후보</th><th>판정 / 전산−엑셀</th></tr></thead>
+      <div className="wide"><table><thead><tr><th>{baselineLabel} 차수 / 품목</th><th>실제 전산 분배 후보</th><th>{baselineLabel} 손익</th><th>신라 입고 일치 후보</th><th>판정 / 전산−{baselineLabel}</th></tr></thead>
       <tbody>{visible.map(r=><tr key={r.key}>
         <th>{r.period}차 · {r.name}<br/>#{r.prodKey||'미연결'} [{r.unit||'단위 미확인'}]<br/>원본 날짜 {r.anchor||'없음'}</th>
         <td>{r.erp?<><b>{r.erp.week}차</b><br/>{fmt(r.erp.qty)} [{r.unit}]<br/>{fmt(r.erp.amount)}원
@@ -32,6 +32,6 @@ export default function ShillaPeriodAnalysis({data}) {
         </td>
       </tr>)}</tbody></table></div>
     </details>
-    <style jsx>{`.wide{overflow-x:auto}table{width:100%;min-width:950px;border-collapse:collapse}th,td{padding:12px;border:1px solid #dce4e9;text-align:left;vertical-align:top;line-height:1.6}thead{background:#edf3f6}details{margin:14px 0}summary{cursor:pointer;font-weight:600}p{line-height:1.6}`}</style>
+    <style jsx>{`.wide{overflow-x:auto}table{width:auto;min-width:950px;border-collapse:collapse}th,td{width:220px;max-width:360px;overflow-wrap:anywhere;padding:12px;border:1px solid #dce4e9;text-align:left;vertical-align:top;line-height:1.6}thead{background:#edf3f6}details{margin:14px 0}summary{cursor:pointer;font-weight:600}p{line-height:1.6}`}</style>
   </section>;
 }

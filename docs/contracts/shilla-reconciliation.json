@@ -12,7 +12,10 @@
     "public/shilla-connector/collector.js",
     "lib/shillaAnalysisMatching.js",
     "lib/shillaPeriodAnalysis.js",
-    "components/ShillaPeriodAnalysis.js"
+    "components/ShillaPeriodAnalysis.js",
+    "pages/raum/shilla-analysis/check.js",
+    "lib/shillaCheck.js",
+    "components/ShillaCheckSummary.js"
   ],
   "businessKey": [
     "OrderYear",
@@ -69,10 +72,12 @@
     "missing": "Missing never zero or equal; price buckets retained; duplicate receipt IDs flagged, never silently discarded",
     "browser": "Only nenovaweb.com may request bounded receipts from www.shillasrm.com; no credentials/cookies/storage permissions; installation requires user action",
     "persistence": "No original/ledger writes; uploaded temporary files removed in finally; browser results held only in page memory",
-    "salesRequests": "Fresh Estimate sales type via CodeInfo, same year/customer/product/unit/major; all matching requests included, positive fixed within14 days, price buckets match Excel and unique SRM. Duplicate consumption blocks normal. Preserve base difference and dates."
+    "salesRequests": "Fresh Estimate sales type via CodeInfo, same year/customer/product/unit/major; all matching requests included, positive fixed within14 days, price buckets match Excel and unique SRM. Duplicate consumption blocks normal. Preserve base difference and dates.",
+    "workspace": "Explicit stored source without Excel never claims independent three-source completion; known 2026 cases are scoped annotations only, fresh quantities retained."
   },
   "requiredTestFiles": [
-    "__tests__/shillaReconciliation.test.cjs"
+    "__tests__/shillaReconciliation.test.cjs",
+    "__tests__/shillaCheck.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
