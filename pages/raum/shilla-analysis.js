@@ -6,13 +6,16 @@ import { shillaDefaultRange } from '../../lib/shillaCheck';
 import ShillaCheckSummary from '../../components/ShillaCheckSummary';
 
 const fmt = v => v == null ? '자료 없음' : Number(v).toLocaleString('ko-KR',{maximumFractionDigits:3});
+export async function getServerSideProps({query}) {
+  return {props:{workspace:query.workspace==='check'}};
+}
 function bridge(action,range={}) {
   return new Promise((resolve,reject)=>{
     const id=crypto.randomUUID();
     const cleanup=()=>{clearTimeout(timer);window.removeEventListener('message',receive);};
     const receive=event=>{
       if(event.source!==window||event.origin!==window.location.origin||event.data?.type!=='NENOVA_SHILLA_RESULT'||event.data.id!==id) return;
-      cleanup();event.data.success?resolve(event.data):reject(new Error(event.data.error));
+      cleanup();event.data.success?resolve(event.data):reject(new Error(event.data.error||'신라 연결 응답이 없습니다. 연결 프로그램과 현재 화면 주소를 확인하세요.'));
     };
     const timer=setTimeout(()=>{cleanup();reject(new Error(action==='ping'?'신라 연결 프로그램이 필요합니다. 아래 연결 안내를 확인하세요.':'신라 조회가 끝나지 않았습니다. 로그인과 연결 상태를 확인하세요.'));},action==='ping'?2000:600000);
     window.addEventListener('message',receive);

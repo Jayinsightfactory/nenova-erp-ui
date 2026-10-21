@@ -48,17 +48,24 @@ test('default months respect KST today, leap month and selected year',async()=>{
  assert.deepEqual(f([{date:'2025-02-01'}],'2026','2026-10-21'),{from:'2026-01-01',to:'2026-10-21'});
  assert.throws(()=>f([],'2027','2026-10-21'));assert.throws(()=>f([],'','2026-10-21'));
 });
-test('new route renders one-click optional-file workflow, old route still requires workbook',()=>{
+test('new route renders one-click optional-file workflow, old route still requires workbook',async()=>{
  const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
  const {transformSync}=require('next/dist/build/swc');
  function load(filename) {
    filename=path.resolve(filename);const m=new Module(filename,module);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));
    const base=m.require.bind(m);m.require=n=>n.startsWith('.')?load(path.resolve(path.dirname(filename),n.endsWith('.js')?n:`${n}.js`)):base(n);
-   m._compile(transformSync(fs.readFileSync(filename,'utf8'),{filename,jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}}).code,filename);
+   m._compile(transformSync(fs.readFileSync(filename,'utf8').replaceAll('getServerSideProps','routeProps'),{filename,jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}}).code,filename);
    return m.exports;
  }
- const New=load('pages/raum/shilla-analysis/check.js').default;
+ const entry=load('pages/raum/shilla-analysis/check.js');
+ const oldEntry=load('pages/raum/shilla-analysis.js');
+ const redirect=await entry.routeProps({query:{popup:'1'}});
+ assert.equal(redirect.redirect.destination,'/raum/shilla-analysis?workspace=check&popup=1');
+ assert.match('https://nenovaweb.com'+redirect.redirect.destination,/^https:\/\/nenovaweb\.com\/raum\/shilla-analysis(?:[?#]|$)/);
+ assert.deepEqual(await oldEntry.routeProps({query:{workspace:'check'}}),{props:{workspace:true}});
+ assert.deepEqual(await oldEntry.routeProps({query:{}}),{props:{workspace:false}});
+ const New=entry.default;
  const Old=load('pages/raum/shilla-analysis.js').default;
  const a=renderToStaticMarkup(React.createElement(New)),b=renderToStaticMarkup(React.createElement(Old));
  assert.match(a,/신라 입고·견적·손익 확인/);assert.match(a,/<button class="primary">작업 시작<\/button>/);
