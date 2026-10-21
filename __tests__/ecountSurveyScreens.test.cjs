@@ -97,14 +97,14 @@ test('every surveyed program (72) has a screen definition built only from button
   const oldSummary=lib.summary(Object.fromEntries(SURVEY_PROGRAMS.map(program=>[program,lib.SCREENS[program]])));
   assert.deepEqual(oldSummary.kinds,{list:9,input:7,report:48,settings:5,hub:3});
   assert.deepEqual(oldSummary.dateModes,{range:38,single:8,none:26});
-  assert.deepEqual(oldSummary.presets,{total:307,enabled:305,unverified:2});
+  assert.deepEqual(oldSummary.presets,{total:307,enabled:307,unverified:0});
   const summary=lib.summary();
   console.log('SURVEY_SCREENS',JSON.stringify(summary));
   assert.equal(summary.screens,169);
   assert.equal(summary.ids,2271);
   assert.deepEqual(summary.kinds,{list:17,input:16,report:121,settings:12,hub:3});
   assert.deepEqual(summary.dateModes,{range:98,single:15,none:56});
-  assert.deepEqual(summary.presets,{total:740,enabled:732,unverified:8});
+  assert.deepEqual(summary.presets,{total:740,enabled:739,unverified:1});
   // DATASETS(기존 33화면) 프로그램은 조사 셸 대상이 아니다.
   const workbench=fs.readFileSync(path.join(root,'pages/ecount/workbench.js'),'utf8');
   const datasets=Object.keys(Function(`return (${/const DATASETS = (\{[^}]*\})/.exec(workbench)[1]})`)());
@@ -170,7 +170,7 @@ test('presets: only labels mapped by presetIdForLabel are enabled; unverified la
       if(!preset.enabled)unverified.push(`${program}:${preset.label}`);
     }
   }
-  assert.deepEqual(unverified,['E010212:최근30일','E010213:금월','E010811:이번기수(~전월)','E040254:최근7일','E040255:이번기수(~전월)','E040637:3개월','E061002:최근30일','E061003:최근30일']);
+  assert.deepEqual(unverified,['E040637:3개월']);
 });
 // P020~P039 중 관측 날짜를 대조할 수 없는 화면: E010813 재무상태표는 기준일자가 년/월 위젯('26 / 10')인데 조사 판독이 뒤 숫자를 일(day)로 읽었다.
 // 날짜값이 비어(null) 판독되지 않은 관측(E010819·E040414·E040436·E040637)은 아래에서 건너뛰고 수를 고정한다.
@@ -195,7 +195,7 @@ test('observed preset date values match datePreset (range screens from~to, singl
   }
   console.log('PRESET_VALUES_CHECKED',checked,'unread',unread);
   assert.ok(checked>=290+383,`checked ${checked}`);
-  assert.equal(unread,41);
+  assert.equal(unread,42);
 });
 test('SSR renders every button-matches id exactly once with the observed activation rules',()=>{
   let active=0,placeholders=0;
@@ -253,7 +253,8 @@ test('presetDraft changes dates only: range screens from~to, single screens one 
   // 연말/연초·윤년
   assert.deepEqual(presetDraft({screen:range,label:'전월',today:'2026-01-01'}),{from:'2025-12-01',to:'2025-12-31'});
   assert.deepEqual(presetDraft({screen:single,label:'말일',today:'2028-02-10'}),{from:'2028-02-29',to:'2028-02-29'});
-  assert.throws(()=>presetDraft({screen:lib.SCREENS.E040254,label:'최근7일',today:'2026-10-21'}),/PRESET_NOT_ENABLED/);
+  assert.deepEqual(presetDraft({screen:lib.SCREENS.E040254,label:'최근7일',today:'2026-10-21'}),{from:'2026-10-14',to:'2026-10-21'});
+  assert.throws(()=>presetDraft({screen:lib.SCREENS.E040637,label:'3개월',today:'2026-10-21'}),/PRESET_NOT_ENABLED/);
   assert.throws(()=>presetDraft({screen:range,label:'거래처',today:'2026-10-21'}),/PRESET_NOT_ENABLED/);
 });
 test('buildScreens never invents ids: a survey control without a button is reported as missing, extra buttons as unmapped',()=>{
