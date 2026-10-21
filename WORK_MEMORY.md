@@ -710,3 +710,9 @@
 - 추가검증: 최신 전체 요청이 남은 업로드15업체299품목 비교 차이7·추가3은 모두 이후 OrderHistory 수정/삭제/신규로 설명. 재업로드 원복금지. 로컬5종 exit0, PR1185 CI39552447489 success 후 squash22983567, Cafe2439552707668 진행.
 
 - 완료: PR1185 squash22983567, Cafe2439552707668 SUCCESS, SSH·hydration 실브라우저 PASS. Chrome 운영 주문업로드 로딩·기존초안복원 확인, 실제 운영 bundle에서120초/30초 및 timeout분기 확인. 원장수정0. 기존10업체 헤더누락/직원개별요청 최초원인은 미해결·미검증으로 명시. 사용자 DB손상 없으면 계속 진행 지시 반영.
+
+## 2026-10-21 EXE 연결 헤더 보정 완료 및 지식 저장
+- 사용자 승인 범위: 기존 주문수량 보존, 누락10업체 헤더만 보정. dnSpy 실제 FormOrderAdd/ShipmentDistribution 재확인 후 SERIALIZABLE 롤백 리허설·적용·별도 연결 조회 완료.
+- 2026/44-01 ShipmentMaster10건(7069~7078) 추가, KeyNumbering 동기화. 14개 보호 영역 행 수·SHA256 동일. 주문/출고상세/재고/견적/매출 변경 없음. EXE SQL조회10/10, EXE GUI 미검증.
+- docs/knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md를 AGENTS.md 필수 참조로 연결. 세션 인계 docs/session-backups/2026-10-21_upload-header-repair.md. 직원 최초 정지원인은 미확정.
+- 검색어: EXE 연결헤더 ShipmentMaster dnSpy GetShipmentMaster 44-01 10업체 7069 7078 주문수량보존
