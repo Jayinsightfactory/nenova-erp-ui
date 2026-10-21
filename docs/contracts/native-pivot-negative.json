@@ -4,7 +4,11 @@
   "scope": [
     "scripts/prepare-native-pivot-negative.ps1",
     "scripts/install-native-pivot-negative.ps1",
-    "scripts/test-native-pivot-grid.ps1"
+    "scripts/test-native-pivot-grid.ps1",
+    "scripts/native-pivot-setup/Setup.cs",
+    "scripts/native-pivot-setup/app.manifest",
+    "scripts/build-native-pivot-setup.ps1",
+    "scripts/test-native-pivot-setup.ps1"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -26,7 +30,8 @@
   },
   "requiredTestFiles": [
     "__tests__/pivotNegativeOrders.test.js",
-    "scripts/test-native-pivot-grid.ps1"
+    "scripts/test-native-pivot-grid.ps1",
+    "scripts/test-native-pivot-setup.ps1"
   ],
   "dnspyEvidence": {
     "required": true,
