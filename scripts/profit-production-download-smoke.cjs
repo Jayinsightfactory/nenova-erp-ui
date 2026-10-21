@@ -4,6 +4,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
 (async()=>{
  const token=process.env.NENOVAWEB_SERVICE_TOKEN;
  if(!token)throw Error('Configured service credential is unavailable');
+ const {computeProfitRow}=await import('../lib/profitReportCalc.js');
  const year=String(process.env.PROBE_YEAR||'2026'),weeks=String(process.env.PROBE_WEEK||'18').split(',').map(w=>w.trim().padStart(2,'0'));
  if(!/^20\d\d$/.test(year)||weeks.length>6||new Set(weeks).size!==weeks.length||weeks.some(week=>!/^\d{2}$/.test(week)||+week<1||+week>53))throw Error('Invalid probe scope');
  const origin='https://nenovaweb.com';
@@ -14,7 +15,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   for(const week of weeks) {
   const page=await context.newPage();await page.setViewport({width:1440,height:1000});
   await page.evaluateOnNewDocument(()=>localStorage.setItem('nenova_profitReport_outputCols_v1',JSON.stringify(['category','C','E','F','G','H','I','J','K'])));
-  const responses=[],requests=[];let blockedWrites=0;
+  const responses=[],requests=[],reads=[];let blockedWrites=0,mainData=null;
   await page.setRequestInterception(true);
   page.on('request',req=>{
    const u=new URL(req.url());
@@ -28,7 +29,11 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    }
    return req.continue();
   });
-  page.on('response',res=>{if(new URL(res.url()).pathname==='/api/sales/profit-report-output')responses.push(res.status());});
+  page.on('response',res=>{
+   const pathname=new URL(res.url()).pathname;
+   if(pathname==='/api/sales/profit-report-output')responses.push(res.status());
+   if(pathname==='/api/sales/profit-report'&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
+  });
   await page.goto(`${origin}/sales/profit-report?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(e=>e.textContent.startsWith('엑셀 다운로드')&&!e.disabled),{timeout:120000});
   const button=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(e=>e.textContent.startsWith('엑셀 다운로드')));
@@ -48,7 +53,12 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   assert.ok(requests.length>=1&&requests.length<=3);assert.equal(responses.at(-1),200);
   const financialRows=rows.filter(r=>typeof r[0]==='string'&&r.slice(1,9).some(v=>typeof v==='number')).map(r=>r.slice(0,9).map(v=>v==null||v===''?null:v));
   const financialDigest=crypto.createHash('sha256').update(JSON.stringify(financialRows)).digest('hex');
-  console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest}));
+  await Promise.all(reads);
+  const cols=['C','E','F','G','H','I','J','K'],mainMap=new Map((mainData?.rows||[]).map(r=>[r.category,mainData.confirmed?r.calc:computeProfitRow(r)]));
+  const initialScreenDifferences=financialRows.filter(r=>mainMap.has(r[0])).flatMap(r=>cols.filter((col,i)=>{
+   const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
+  }).map(column=>({category:r[0],column})));
+  console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
   await page.close();
   }
  }finally{
