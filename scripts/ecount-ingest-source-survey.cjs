@@ -148,6 +148,10 @@ function ingest(survey,opts){
     // Existing actions keyed by normalized label + context group; each key is consumed once per survey control.
     const pool=new Map();
     for(const a of screen.actions){const k=`${normalizeLabel(a.label)}|${contextGroup(a.context)}`;if(!pool.has(k))pool.set(k,[]);pool.get(k).push(a.id);}
+    // Fallback: label-only pool (existing records often carry legacy contexts such as unknown/하단 for the same control).
+    const labelPool=new Map();
+    for(const a of screen.actions){const k=normalizeLabel(a.label);if(!labelPool.has(k))labelPool.set(k,[]);labelPool.get(k).push(a.id);}
+    const consume=id=>{for(const list of labelPool.values()){const i=list.indexOf(id);if(i>=0)list.splice(i,1);}for(const list of pool.values()){const i=list.indexOf(id);if(i>=0)list.splice(i,1);}};
     const buttonIds=new Set(page.buttons.map(b=>b.matchId));
     let n=nextActionNumber(screen);
     const disabledIds=[];
@@ -159,7 +163,9 @@ function ingest(survey,opts){
       if(!label){s.skippedUnlabeled++;continue;}
       const key=`${normalizeLabel(label)}|${contextGroup(ctx)}`;
       const free=pool.get(key);
-      if(free&&free.length){const id=free.shift();s.matched++;if(disabled)disabledIds.push(id);continue;}
+      if(free&&free.length){const id=free[0];consume(id);s.matched++;if(disabled)disabledIds.push(id);continue;}
+      const byLabel=labelPool.get(normalizeLabel(label));
+      if(byLabel&&byLabel.length){const id=byLabel[0];consume(id);s.matched++;if(disabled)disabledIds.push(id);continue;}
       const id=actionId(program,n++);
       const context=surveyContextName(ctx);
       const classification=classifyLabel(label,presetLabels);
