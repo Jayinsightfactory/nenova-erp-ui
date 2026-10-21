@@ -503,3 +503,6 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 
 ## 2026-10-21 주광 원본 요일 업로드와 분배 시트 범위
 설치 Nenova.exe FormShipmentDistribution을 dnSpy CLI로 다시 실행해 btnSave_Click의 ShipmentDetail → ShipmentDate 수량/단가/날짜 저장을 확인했다. ClassShipmentDate.Insert의 날짜·출고량·견적량·금액 분리는 앞선 실제 CLI 근거와 같다. 신규 업로드는 기존 ALLOCATION writer를 쓰되 활성 주문필수, 기존분배 동일만 no-op, 다른분배/확정헤더 신규 차단, 자동확정 없음으로 제한한다. 원본빈칸/0은 요청하지 않고 합계열·선출고·사용요일을 입력수량에 합산하지 않는다. SQL SELECT:2026/44-01/533 주문48행·상세0,2025동일차수 주문93행·확정상세89행. 배포 중 운영의43-01에 새로운 일요일분배38행이 생긴 것을 확인하여 읽기 시점 고정과 저장 직전 재검증을 유지한다. 전년도·주문·재고·견적 보존은 scripts/test-jugwang-upload-sql.cjs에서 격리 SQL로 검증한다. 실제 EXE GUI는 미검증.
+
+## 2026-10-21 새 파일 자동 범위 정정
+실제 설치 EXE CLI 재실행 및 감사122 SELECT 확인. 이번 범위는 웹 파일 파싱/매칭/화면 세대번호이며 ShipmentDetail/ShipmentDate writer·자동확정·주문/재고/견적 부작용은 변경하지 않음. 수국 원본은 품종 선택 없이 수국으로 읽고 다른 품종 key/이름 매칭을 차단. 현재 파일의 표시 시트만 사용. 이력 SUCCESS는 ERP 쓰기와 같은 transaction에서 기록되므로 STARTED 이력을 완료 업로드로 재사용하지 않음.
