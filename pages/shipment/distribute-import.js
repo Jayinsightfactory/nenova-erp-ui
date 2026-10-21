@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
@@ -118,6 +119,10 @@ export default function DistributeImport() {
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
+  const [uploadSheets, setUploadSheets] = useState([]);
+  const [uploadSheet, setUploadSheet] = useState('');
+  const [uploadFamily, setUploadFamily] = useState('');
+  const sheetLoadRef = useRef(0);
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -299,6 +304,7 @@ export default function DistributeImport() {
   const handlePreview = async (options = {}) => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
+    if (!uploadSheet || !uploadFamily) { setError('검증할 시트와 품종을 선택하세요.'); return; }
     if (options.requireConfirmation && !confirm(`선택 차수: ${weekInput.value}\n업로드 파일: ${file.name}\n\n해당 차수에 이 파일이 맞습니까?\n확인을 누르면 검증을 시작합니다.`)) return;
     setLoading(true);
     setError('');
@@ -314,6 +320,8 @@ export default function DistributeImport() {
       form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
       form.append('earlyImportMode', earlyImportMode);
       form.append('file', file);
+      form.append('sheetName', uploadSheet);
+      form.append('productFamily', uploadFamily);
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
       }
@@ -380,6 +388,7 @@ export default function DistributeImport() {
     }
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
+    if (!uploadSheet || !uploadFamily) { setError('검증할 시트와 품종을 선택하세요.'); return; }
     if (!confirm(`${weekInput.value}차 업로드 파일에서 매칭되는 품목 범위를 먼저 일괄 출고분배합니다.\n\n기준: 기존 주문등록 수량\n변경: 출고분배/출고일만 정리\n주문등록 수량은 변경하지 않습니다.\n\n이 작업 후 검증하기를 눌러 엑셀 변경분을 다시 확인하세요.`)) return;
 
     setPreAligning(true);
@@ -400,6 +409,8 @@ export default function DistributeImport() {
       const form = new FormData();
       form.append('week', weekInput.value);
       form.append('file', file);
+      form.append('sheetName', uploadSheet);
+      form.append('productFamily', uploadFamily);
       const res = await fetch('/api/shipment/distribute-import-prealign', { method: 'POST', body: form });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '일괄 출고분배 실패');
@@ -655,8 +666,10 @@ export default function DistributeImport() {
             type="file"
             accept=".xlsx,.xls"
             style={{ display: 'none' }}
-            onChange={e => {
-              setFile(e.target.files?.[0] || null);
+            onChange={async e => {
+              const selectedFile = e.target.files?.[0] || null;
+              const request = ++sheetLoadRef.current;
+              setFile(selectedFile); setUploadSheet(''); setUploadFamily(''); setUploadSheets([]);
               setPreview(null);
               setApplyResult(null);
               setPreAlignResult(null);
@@ -665,9 +678,19 @@ export default function DistributeImport() {
               setOverrides({});
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
+              if (selectedFile) {
+                try {
+                  const book = XLSX.read(await selectedFile.arrayBuffer(), { type: 'array', bookSheets: false });
+                  if (request !== sheetLoadRef.current) return;
+                  const names = book.SheetNames.filter((name, index) => name !== '_keymap' && !book.Workbook?.Sheets?.[index]?.Hidden);
+                  setUploadSheets(names); if (names.length === 1) setUploadSheet(names[0]);
+                } catch { if (request === sheetLoadRef.current) setError('엑셀 시트 목록을 읽지 못했습니다.'); }
+              }
             }}
           />
-          <button style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
+          <button disabled={loading || applying || preAligning} style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
+          {uploadSheets.length > 0 && <label>적용 시트 <select disabled={loading || applying || preAligning} value={uploadSheet} onChange={e => { setUploadSheet(e.target.value); setPreview(null); setApplyResult(null); setOverrides({}); setProdOverridesState({}); }}><option value="">시트를 선택하세요</option>{uploadSheets.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
+          {file && <label>적용 품종 <select disabled={loading || applying || preAligning} value={uploadFamily} onChange={e => { setUploadFamily(e.target.value); setPreview(null); setApplyResult(null); setOverrides({}); setProdOverridesState({}); }}><option value="">품종을 선택하세요</option><option value="hydrangea">수국만</option><option value="carnation">카네이션만</option><option value="rose">장미만</option><option value="alstroemeria">알스트로만</option><option value="all">선택 시트의 전체 품종</option></select></label>}
           <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}

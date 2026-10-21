@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 // pages/orders/import.js — 이미지/엑셀 업로드 주문등록 (라움 등 거래처 발주표)
 
@@ -1213,6 +1214,7 @@ export default function OrderImportPage() {
 
   return (
     <>
+      <p><Link href="/orders/weekday-upload">주광 엑셀 요일별 수량 업로드 — 기존 주문 보존</Link></p>
       <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
         <div style={st.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>

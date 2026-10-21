@@ -1,0 +1,86 @@
+{
+  "id": "jugwang-weekday-upload",
+  "title": "주광 원본 요일 업로드: 주문 보존·빈칸 무시·신규 분배",
+  "scope": [
+    "lib/jugwangWeekdayUpload.js",
+    "lib/jugwangWeekdayUploadServer.js",
+    "pages/api/orders/weekday-upload-parse.js",
+    "pages/api/orders/weekday-upload.js",
+    "components/JugwangWeekdayUpload.js",
+    "pages/orders/weekday-upload.js",
+    "pages/orders/import.js",
+    "__tests__/jugwangWeekdayUpload.test.js",
+    "scripts/test-jugwang-upload-sql.cjs",
+    "lib/shipmentImport.js",
+    "pages/shipment/distribute-import.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "lib/weekdayDistributionApply.js",
+    "pages/api/shipment/distribute-import-prealign.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PARSE_PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "APPLY_NEW_DATES_OR_IDENTICAL_NOOP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase",
+      "shipmentDate": "create-only-when-no-existing-detail",
+      "shipmentFarm": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025同44-01 cannot supply2026 demand; file dates/sheet/cycle explicit; unrelated category remains excluded"
+  },
+  "requiredTestFiles": [
+    "__tests__/jugwangWeekdayUpload.test.js",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js",
+    "scripts/test-jugwang-upload-sql.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "installed Nenova.exe 2026-10-21 CLI",
+    "methods": [
+      "FormShipmentDistribution.btnSave_Click",
+      "ClassShipmentDate.Insert"
+    ],
+    "tables": [
+      "OrderMaster",
+      "OrderDetail",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate"
+    ]
+  },
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "OrderHistory",
+    "ShipmentFarm",
+    "StockHistory",
+    "ProductStock",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "sheetScope": "Only selected visible sheet contributes rows and hidden keymap keys; stale removed-sheet keys excluded. Full replacement inside the explicitly selected category retains its existing contract."
+}
