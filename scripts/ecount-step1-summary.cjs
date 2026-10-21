@@ -31,6 +31,8 @@ function classify(b,program){
   if(program&&codePresent(program,b))return '조건부';
   return '미관측';
 }
+if(require.main===module){main();}
+function main(){
 const rows=[];const byProgram={};
 for(const p of report.pages){
   if(!p.buttons?.length)continue;
@@ -50,4 +52,5 @@ for(const p of report.pages){if(!p.buttons?.length)continue;const miss=p.buttons
 const out=opt('--out');
 if(out){fs.writeFileSync(path.resolve(root,out),lines.join('\n')+'\n');console.log('written',out);}
 console.log(JSON.stringify(tot));
+}
 module.exports={classify};
