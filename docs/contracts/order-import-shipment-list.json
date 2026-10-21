@@ -112,7 +112,8 @@
       "stock": "preserve",
       "estimate": "preserve",
       "webProfitReport": "preserve",
-      "note": "uploaded rows are aggregated by ProdKey inside the file and become exact final quantities; active existing products omitted from the file become zero/deleted in the same transaction; an omitted product with ShipmentDetail blocks and rolls back the entire snapshot; replaying the same file is idempotent"
+      "note": "uploaded rows are aggregated by ProdKey inside the file and become exact final quantities; active existing products omitted from the file become zero/deleted in the same transaction; an omitted product with ShipmentDetail blocks and rolls back the entire snapshot; replaying the same file is idempotent",
+      "shipmentMaster": "create-empty-if-missing-or-reuse-active-current-year-week-customer-in-same-transaction"
     },
     {
       "name": "SHOW_REGISTER_RESULT_AFTER_POST",
@@ -149,7 +150,8 @@
     "__tests__/orderImportRegister.test.js",
     "__tests__/myCustomerOrderWritePolicy.test.js",
     "__tests__/orderImportMappingReuse.test.js",
-    "__tests__/orderImportRematch.test.js"
+    "__tests__/orderImportRematch.test.js",
+    "__tests__/myCustomerOrderApi.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -167,7 +169,6 @@
     ]
   },
   "preserves": [
-    "ShipmentMaster",
     "ShipmentDetail",
     "ShipmentDate",
     "ShipmentFarm",
@@ -183,5 +184,6 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "nativeHeaderCompatibility": "2026-10-21: FormOrderAdd creates empty header; FINAL_SNAPSHOT must prepare it for native manual distribution. No shipment quantities, dates, farms, confirmation, stock or estimates are created. Existing headers unchanged; failures roll back header and orders together."
 }

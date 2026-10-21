@@ -491,3 +491,9 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 실제 설치 Nenova.exe의 FormShipmentDistribution 및 DBMSSQL을 dnSpy CLI로 다시 확인했다. btnFix_Click/btnFixCancel_Click은 확정·취소 뒤 별도 uspStockCalculation 호출로 전체 품목 CALC0을 수행한다. 두 호출 사이 중단은 committed WAIT_CALC를 남길 수 있으며, 이번 상태만으로 최초 중단 원인은 단정하지 않는다.
 운영 읽기 probe에서 2026/40-02 WAIT_CALC/FIX/PendingCalc=1을 확인했다. 사용자 승인으로 기존 native CALC0을 같은 연도·차수에 실행해 IDLE을 확인했다. 46,851개 현재·후속 재고 snapshot과 12개 보호 테이블을 대조했고 수량·금액·확정·견적 원장 변경 없이 복구했다.
 자동 복구는 docs/contracts/pending-stock-recovery.json을 따른다. RUN 강제 해제나 SQL 프로시저 변경은 없다. 독립 프로세스 종료 및 원래 트랜잭션 검증으로 중단된 CALC를 롤백하고 다음 동일 pending 상태를 정상 재계산한다.
+
+## 2026-10-21 업로드 주문의 native 출고 헤더 누락
+- dnSpy.Console.exe --no-color -t FormShipmentDistribution 실제 설치본: GetShipmentMaster는 SELECT만 수행, DBMSSQL.GetIntScalar는 무행 null을 int로 변환하여 예외. btnSave_Click은 이후 상세/날짜/농장 transaction을 사용한다.
+- dnSpy.Console.exe --no-color -t FormOrderAdd 재실행: 빈 ShipmentMaster를 주문과 함께 준비한다. 이 전제가 웹 order-import-final에 빠져 있었다.
+- read-only 감사: 2026/43-01/ProdKey2226/유오디아의 10/09 주문 생성과 같은 초의 ORDER_WRITE source=order-import-final, 정확 CustKey 및 1박스 확인. 주문10단, 초기 ShipmentMaster0. 기존 웹 분배로 요청10단 복구 확인(미확정).
+- 이번 변경은 웹 FINAL_SNAPSHOT에 기존 헤더 준비 분기를 연결한다. 실행파일/수량/날짜/농장/확정/SP 변경 없음. 헤더와 주문은 동일 transaction; 교차연도/삭제/재시도/실패 롤백 API fixture. 상세 기준 docs/plans/native-missing-master.md.

@@ -674,3 +674,9 @@
 - 18차 HTTP502 신고: 502/503/504/네트워크 GET 실패만 해당 차수 최대2회 재시도, 이전 완료분 유지, 실패 시 부분파일 금지. 운영 ping200/다른 배포 진행 확인만으로 최초502 원인을 단정하지 않음.
 - ERP 계산·SQL·확정본·원장 변경 없음. 전체 verify:erp-change/build·dnSpy gate 및 production-build 실제 Chrome 합성 API 검증 통과(재접속/선택빈값/41차단독/41시트/18차재시도/교차연도/1920·640px, API 쓰기0). PR/배포는 진행 중(미검증). 빌드 생성 개발이력 JSON 2개는 이 작업 이전 커밋본으로 복원.
 - 검색어: profit-output-preferences 출력항목저장 화면컬럼복원 41차미리보기 18차502 차수별재시도
+
+## 2026-10-21 유오디아 native 분배 오류 재발 방지
+- 정확 감사 source=order-import-final(10/09 11:35:37.683, 2026/43-01, ProdKey2226,1박스)와 생성시각 대조. 웹 업로드가 native FormOrderAdd의 빈 ShipmentMaster 준비를 누락했다. 최근 음수 피벗 패치 무관.
+- FINAL_SNAPSHOT만 기존 헤더 준비 분기에 연결. 현재연도/세부차수/업체 잠금·재사용, 주문과 동일 transaction. 분배량·날짜·농장·확정·재고·견적 자동 생성 없음.
+- 실행형 API 신규/재시도/교차연도/삭제/기존확정/헤더실패/후속실패 rollback PASS. 전체 gate·배포 진행 중, EXE 실제 재조회 미검증. 운영 최신 주문/출고/date10단, 확정·공급90909/VAT9091은 read-only 확인이며 이번 턴 변경하지 않음.
+- 검색어: 유오디아 블랙잭 43-01 2226 GetShipmentMaster order-import-final ShipmentMaster누락 재발방지

@@ -56,7 +56,7 @@ assert.match(page, /\.customers\s*\{[\s\S]{0,180}overflow-x:\s*hidden/, '업체 
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
 assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
-assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 ShipmentMaster를 생성하면 안 됩니다.');
+assert.match(api, /ensureShipmentMaster = isFinalSnapshotSource \|\| \(!isMyCustomerSource/, 'sales-paste는 ShipmentMaster를 생성하면 안 됩니다. 업로드 최종본만 예외입니다.');
 assert.match(parser, /matchName: item\.matchName \|\| item\.inputName/, '콜 수국 같은 국가·품종 문맥을 공통 매칭 엔진에 전달해야 합니다.');
 assert.match(parser, /suggestedProducts:\s*\(matched\.suggestedProducts \|\| \[\]\)\.map/, '공통 매칭 엔진의 순위 후보를 화면 응답에 포함해야 합니다.');
 assert.match(parser, /normalizeSalesPasteInputText\(raw\)/, 'API 직접 호출에서도 줄 끝 역슬래시 수량행이 누락되면 안 됩니다.');
