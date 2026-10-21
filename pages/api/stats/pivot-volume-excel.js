@@ -432,25 +432,6 @@ function makeSheet(rows, customers, farms, meta) {
     });
   }
 
-  // Store the actual quantity. A2 explicitly versions the unit for re-import;
-  // legacy unmarked workbooks retain their historical x16 conversion.
-  rows.forEach((row, rowIdx) => {
-    if (!isAlstroRow(row)) return;
-    colPlan.forEach((col, idx) => {
-      const cell = ws[encodeCell(dataStart + rowIdx, idx + 1)];
-      if (cell?.t !== 'n') return;
-      const suffix = meta.combined && col.type === 'customer'
-        ? ` [${combinedParts(meta.combined, row, col.customer, q).map(v => Number(v.toFixed(4))).join(',')}]` : '';
-      const annotation = `(${Number((cell.v / ALSTRO_DIVISOR).toFixed(4))})${suffix}`;
-      const label = `${cell.v}${annotation}`;
-      const decimals = String(cell.v).split('.')[1]?.length || 0;
-      const numFmt = `${decimals ? `0.${'0'.repeat(Math.min(decimals, 8))}` : '0'}"${annotation}"`;
-      cell.z = numFmt;
-      cell.s = { ...cell.s, numFmt };
-      ws['!cols'][idx].wch = Math.max(ws['!cols'][idx].wch, label.length + 1);
-    });
-  });
-
   // Calculate after combined-cell widths are finalized; include explicit CL line breaks.
   ws['!rows'][2].hpt = Math.max(44, ...colPlan.map((col, idx) =>
     wrappedHeaderHeight(aoa[2][idx], ws['!cols'][idx].wch)));
@@ -467,7 +448,92 @@ function makeSheet(rows, customers, farms, meta) {
     if (row?.prodKey) keymap.push({ kind: 'prod', label: volumeProdLabel(row), key: Number(row.prodKey) });
   });
 
-  return { ws, keymap };
+  return { ws: rows.some(isAlstroRow)
+    ? pairAlstroBoxColumns(ws, colPlan, rows, dataStart, totalRow) : ws, keymap };
+}
+
+// Box cells are TEXT formulas: Excel SUM ignores them, including after users
+// insert copied quantity/box column pairs inside the customer block.
+function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
+  const paired = col => ['customer', 'summary', 'farm', 'farm-total'].includes(col.type);
+  const positions = [];
+  let width = 0;
+  plan.forEach(col => { positions.push(width); width += paired(col) ? 2 : 1; });
+  const movedRef = ref => {
+    const cell = XLSX.utils.decode_cell(ref);
+    return XLSX.utils.encode_cell({ r: cell.r, c: positions[cell.c] });
+  };
+  const result = { ...ws, '!cols': [] };
+  Object.keys(result).filter(key => !key.startsWith('!')).forEach(key => delete result[key]);
+  plan.forEach((col, index) => {
+    const target = positions[index];
+    result['!cols'][target] = paired(col) ? { wch: 8 } : ws['!cols'][index];
+    if (paired(col)) result['!cols'][target + 1] = { wch: 8 };
+    for (let r = 1; r <= totalRow; r++) {
+      const old = ws[encodeCell(r, index + 1)];
+      if (!old) continue;
+      const address = encodeCell(r, target + 1);
+      const cell = { ...old, s: { ...old.s } };
+      if (cell.f) cell.f = cell.f.replace(/[A-Z]+\d+/g, movedRef);
+      result[address] = cell;
+      if (!paired(col)) continue;
+      const boxAddress = encodeCell(r, target + 2);
+      result[boxAddress] = { t: 's', v: r === 3 ? '박스(자동)' : '', s: { ...cell.s } };
+      if (r < dataStart) continue;
+      const isAlstro = r === totalRow || isAlstroRow(rows[r - dataStart]);
+      // Always include totals for initially empty columns, including manual stock.
+      if (r === totalRow) {
+        cell.t = 'n'; cell.v = Number(cell.v) || 0;
+        cell.f = `SUM(${encodeCell(dataStart, target + 1)}:${encodeCell(totalRow - 1, target + 1)})`;
+      }
+      // Keep raw numeric values editable and free of download-time annotations.
+      cell.z = 'General'; cell.s.numFmt = 'General'; delete cell.w;
+      cell.s.alignment = { ...cell.s.alignment, horizontal: 'right' };
+      cell.s.border = { ...cell.s.border };
+      delete cell.s.border.right;
+      const box = result[boxAddress];
+      box.s = { ...cell.s, alignment: { ...cell.s.alignment, horizontal: 'left' },
+        border: { ...old.s?.border }, numFmt: 'General' };
+      delete box.s.border.left;
+      if (isAlstro) {
+        box.f = `IF(${address}="","","("&ROUND(${address}/${ALSTRO_DIVISOR},4)&")")`;
+        box.v = cell.v === '' ? '' : `(${Number((Number(cell.v) / ALSTRO_DIVISOR).toFixed(4))})`;
+        result['!cols'][target + 1].wch = Math.max(result['!cols'][target + 1].wch, box.v.length + 1);
+      }
+    }
+  });
+  // Resolve the end from the summary's current column. Ordinary SUM(B:E)
+  // does not expand when a copied pair is inserted immediately after E.
+  const orderIndex = plan.findIndex(col => col.type === 'summary' && col.label === '주문');
+  const customers = plan.map((col, i) => col.type === 'customer' ? i : -1).filter(i => i >= 0);
+  if (customers.length) {
+    for (let r = dataStart; r < totalRow; r++) {
+      result[encodeCell(r, positions[orderIndex] + 1)].f =
+        `SUM(INDEX(${r}:${r},1,${positions[customers[0]] + 1}):INDEX(${r}:${r},1,COLUMN()-1))`;
+    }
+  }
+  const farmIndexes = plan.map((col, i) => col.type === 'farm' ? i : -1).filter(i => i >= 0);
+  const farmTotalIndex = plan.findIndex(col => col.type === 'farm-total');
+  const incomingIndex = plan.findIndex(col => col.type === 'summary' && col.label === '입고');
+  if (farmIndexes.length && farmTotalIndex >= 0) {
+    for (let r = dataStart; r < totalRow; r++) {
+      const farmTotal = encodeCell(r, positions[farmTotalIndex] + 1);
+      result[farmTotal].f = `SUM(${encodeCell(r, positions[farmIndexes[0]] + 1)}:${encodeCell(r, positions[farmIndexes.at(-1)] + 2)})`;
+      result[encodeCell(r, positions[incomingIndex] + 1)].f = farmTotal;
+    }
+  }
+  // A mixed country sheet must not convert non-alstro quantities into boxes.
+  if (!rows.every(isAlstroRow)) {
+    plan.forEach((col, i) => {
+      if (!paired(col)) return;
+      const refs = rows.flatMap((row, r) => isAlstroRow(row) ? [encodeCell(dataStart + r, positions[i] + 1)] : []);
+      const box = result[encodeCell(totalRow, positions[i] + 2)];
+      box.f = `"("&ROUND(SUM(${refs.join(',')})/${ALSTRO_DIVISOR},4)&")"`;
+      box.v = `(${Number((refs.reduce((sum, ref) => sum + (Number(result[ref].v) || 0), 0) / ALSTRO_DIVISOR).toFixed(4))})`;
+    });
+  }
+  result['!ref'] = `A1:${encodeCell(totalRow, width)}`;
+  return result;
 }
 
 export default withAuth(async function handler(req, res) {
@@ -560,6 +626,7 @@ export default withAuth(async function handler(req, res) {
       ? `${weekNum}_${speciesOf(groups.get(onlyKey))}.xlsx`
       : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표.xlsx`;
     if (combined) fileBase = fileBase.replace(/\.xlsx$/, `_${data.weekEnd}_합산셀.xlsx`);
+    wb.Workbook = { ...wb.Workbook, CalcPr: { calcMode: 'auto', fullCalcOnLoad: true, forceFullCalc: true } };
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileBase)}`);
