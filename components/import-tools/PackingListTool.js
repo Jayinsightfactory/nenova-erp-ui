@@ -1052,14 +1052,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     const sequence = ++workSaveSequence.current;
     let active = true;
     setWorkMessage('현재 작업 보관 중…');
-    workStore.save({ file, country, lastExtraction, reviewRows, reviewConfirmed,
+    workStore.save({ file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed,
       legacyReviewData, legacyPackingReviewRequired, extractionSource }).then(() => {
       if (active && sequence === workSaveSequence.current) { setWorkError(''); setWorkMessage('현재 작업 보관됨 · 같은 PC·계정에서 새로고침 후 이어서 작업할 수 있습니다.'); }
     }).catch(error => {
       if (active && sequence === workSaveSequence.current) { setWorkMessage(''); setWorkError(`현재 작업 보관 실패: ${error.message} · 이 화면을 닫지 말고 다시 시도하세요.`); }
     });
     return () => { active = false; };
-  }, [workStore, workReady, file, country, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
+  }, [workStore, workReady, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
 
   useEffect(() => {
     if (!userId || !file || restoringWork) return;
@@ -1067,14 +1067,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setTeamHistoryStatus('팀 업로드 이력 보관 대기 중…');
     const timer = setTimeout(() => {
       let pending;
-      try { pending = teamHistory.save({file, country, lastExtraction, reviewRows, reviewConfirmed,
+      try { pending = teamHistory.save({file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed,
         legacyReviewData, legacyPackingReviewRequired, extractionSource}); }
       catch (error) { setTeamHistoryError(error.message); return; }
       pending.then(() => { if (active) { setTeamHistoryError(''); setTeamHistoryStatus('팀 업로드 이력 보관 완료 · 변경 이력에서 모든 직원이 불러올 수 있습니다.'); } })
         .catch(error => { if (active) { setTeamHistoryStatus(''); setTeamHistoryError(error.message); } });
     }, 800);
     return () => { active = false; clearTimeout(timer); };
-  }, [teamHistory, userId, file, country, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
+  }, [teamHistory, userId, file, country, dateYear, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
 
   useEffect(() => {
     if (!sharedRestore) return;
@@ -1103,7 +1103,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (readerVersion.current !== version) return;
       const extraction = savedWork.lastExtraction;
       if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) {
-        resetResults(); setCountry(savedWork.country); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+        resetResults(); setCountry(savedWork.country); setDateYear(savedWork.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
         setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false); setSavedWork(null);
         setStatus({type:'info',msg:'원본 파일을 복구했습니다. 분석을 실행한 뒤 매칭을 확인하세요. 입고는 등록하지 않았습니다.'});
         return;
@@ -1115,7 +1115,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         try { extraction.result.invoices.forEach(invoice => assertPackingSourceValues(invoice, savedWork.country)); }
         catch { confirmed = false; }
       }
-      setCountry(savedWork.country); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+      setCountry(savedWork.country); setDateYear(savedWork.dateYear || ''); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
       setLastExtraction({ ...extraction, sourceHash: hash }); setReviewRows(savedWork.reviewRows || makePackingReviewRows(extraction.sourceInvoices, savedWork.country));
       setReviewConfirmed(confirmed); setReviewOpen(false); setReviewRevision(value => value + 1);
       setLegacyReviewData(savedWork.legacyReviewData); setLegacyPackingReviewRequired(savedWork.legacyPackingReviewRequired);
