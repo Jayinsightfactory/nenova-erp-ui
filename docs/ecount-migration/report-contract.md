@@ -95,3 +95,23 @@ Excel은 기존10시트를 유지하고 확인한값비교 시트에 견적26행
 PR1124 배포39384652958 성공, 구매현황 표본460행·날짜 및 숫자8개 총4140값 대조 차이0. PR1126 배포39385563160와 hydration 성공, 수금227행454값·지급102행204값 대조 차이0. 모두 수집 순서 기준 표본 대조이며 전체 원본 자료 동등성은 미검증이다. 미리보기는 별도 탭 생성만 확인했고 Blob 보안 정책으로 내용은 미검증이다. 대상 캡처 timeout 부분에 이미지를 추정하여 넣지 않았다. PO는 운영10열만 확인했으며 자료 snapshot 비교는 없다.
 
 Excel 기존10시트에 구매현황460·수금227·지급102행의 boolean 개별 비교를 추가했다. 원금액은 제외했다. 265개 관측 버튼과 전체검증0을 유지하며, 없는 대상 캡처를 명시했다. 생성1회 후 표 머리/끝 렌더와 ZIP·원본이미지hash·수식오류 검사를 수행했다.
+
+## 2026-10-21 원본 버튼 조사 JSON 적재 (`scripts/ecount-ingest-source-survey.cjs`)
+
+root 세션이 로그인된 ECOUNT 원본(조회만)에서 화면별 컨트롤을 DOM으로 수집한 `data/ecount-workbench/evidence/<date>-source-survey.json`을 지속 기록 세 파일에 적재한다. 입력 형식은 `{observedOn, results:{[program]:{title, panelText, controls:[[label, domId, disabled, ctx]…], fields:[[label,type,name,required,defaultValue,readonly]…], presets:[[label,"yy mm dd ~ yy mm dd"]…]}}}`이며 `panelText`와 `order`는 저장하지 않는다.
+
+```text
+node scripts/ecount-ingest-source-survey.cjs data/ecount-workbench/evidence/2026-10-21-source-survey.json --date 2026-10-21 [--dry-run] [--data-dir data/ecount-workbench]
+```
+
+- 증거 수준: 조사 시점에 그 라벨·문맥의 컨트롤이 존재했고 활성/비활성이었다는 사실뿐이다. 모든 버튼은 status 미검증, target.actualStableId=null, comparisons 전부 미검증, captures null, limitations `원본 버튼 목록 자동 수집(라벨·문맥·활성 여부만); 동작·새창·값 미검증`으로 생성되며 키 집합은 기존 E040708 항목과 같다. `source.domId`는 조사된 DOM id가 있을 때만 채운다.
+- 기존 matchId는 바꾸지 않는다. 이미 버튼이 있는 화면은 라벨 정규화(NFKC, 공백 제거, 전각/반각 괄호 통일) 후 라벨 동일 + 문맥군 동일(상단/검색 패널/하단/대화상자/기타 5군, 기존 문맥 이름은 느슨하게 분류)인 컨트롤을 기존 항목에 소비식으로 대응시키고, 남는 컨트롤만 기존 최대 번호 다음(A{n+1}…)으로 추가한다. 버튼이 없던 화면은 조사 순서대로 A01…을 부여한다.
+- ctx→문맥: `wrapper-toolbar` 단독→상단, `header-search`/`btn-group`→검색 패널, `toolbar-collapse`→하단, `dialog:X`→`X 대화상자`, 그 외→기타.
+- classification은 라벨 키워드만으로 정한다. 저장/삭제/입력/신규/전송/반영/발행/마감/등록/수정/추가/승인/확정 등→write, 검색/조회/Search/F8/F3/금일/당월 등과 presets 라벨→query, 닫기/Option/도움말/펼침/접기/새로고침 등→read, 그 외→unknown. 판정 순서는 write→query→read이며 write와 unknown은 sourceExecutionAllowed=false, 모든 항목 sourceExecuted=false, stage observed, evidence `source-action-audit.jsonl#SRC-<yyyymmdd>-<program>-SURVEY`.
+- `allSourceButtonsKnown`은 계속 false, `sourceButtonCount`는 null이다. 수집이 전수라는 증명이 아니다. 화면 stage는 metadata→observed로만 올리고 dimensions.buttons(필드가 있으면 fields, presets가 있으면 filters, dialog 문맥이 있으면 dialogs)를 observed로 표시하며 `Original page actions and windows not surveyed` 블로커는 `Automated button survey only; control behavior, windows and full source coverage unverified`로 바꾼다.
+- 페이지에는 `sourcePresets:[{label,from,to}]`(yy mm dd→20yy-mm-dd, 첫 7토큰만), `sourceFields`(라벨/타입/이름/필수/기본값/읽기전용만), `sourceSurvey:{observedOn, evidence, controlCount, disabledMatchIds}`를 저장한다. 담당자·사용자·거래처·연락처·이메일·주소·계좌 등 개인·거래처 식별 가능 필드의 기본값은 저장하지 않고 `defaultRedacted:true`만 남긴다. `panelText`는 값이 섞일 수 있어 저장하지 않는다.
+- `source-action-audit.jsonl`에는 화면당 1줄(`SRC-<yyyymmdd>-<program>-SURVEY`, action `button inventory survey`, classification read, recordKind `automated-dom-survey`, sourceMutation false, businessValuesRecorded false)을 추가한다. 같은 id가 이미 있으면 추가하지 않는다.
+- 멱등: 같은 파일을 두 번 적재해도 세 파일이 바이트 단위로 같다. 출력은 화면별 `{matched, added, skippedUnlabeled, presets, fields, auditAppended}` 요약 JSON이며 인벤토리에 없는 program은 `unknownPrograms`로 보고하고 건너뛴다.
+- 라벨이 비어 있고 domId만 있는 컨트롤은 라벨 `[domId]`로 적재하고, 둘 다 비면 건너뛴다(`skippedUnlabeled`).
+
+검사: `node --test __tests__/ecountIngestSourceSurvey.test.cjs`(신규 화면 부여, 기존 matchId 불변+신규만 추가, 멱등, write 분류 실행 금지, 개인정보 미저장). 적재 후 `node scripts/check-ecount-button-matches.cjs`, `node __tests__/ecountParityReport.test.cjs`, `node __tests__/ecountParityReportModel.test.cjs`, `node --test __tests__/ecountActionIdCoverage.test.cjs`가 통과해야 한다. 적재는 원본 버튼 존재 관측을 늘릴 뿐이며 어떤 화면의 동등성 상태도 바꾸지 않는다.
