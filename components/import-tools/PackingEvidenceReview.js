@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/PackingEvidenceReview.module.css';
 import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPdfPreview.js';
 import { packingSourceMatchedName } from '../../lib/packingSourceMatch.js';
+import { packingReviewErrorSummary, notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
 
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
@@ -503,19 +504,23 @@ export default function PackingEvidenceReview({
 
   const confirmDrafts = async () => {
     if (requireSourceConfirmation && sourceReviewRequired && !pdfReady) {
-      setSubmitError(!pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.');
+      const message = !pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.';
+      setSubmitError(message); notifyPackingBlocked(message);
       return;
     }
     if (sourceReviewRequired && (!sourceEntries.length || (requireSourceConfirmation && uncheckedSourceCount > 0) || missingSourceReasonCount > 0)) {
-      setSubmitError(!sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
+      const message = !sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
         : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건이 남아 있습니다. 각 행을 확인하세요.`
-          : `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`);
+          : `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`;
+      setSubmitError(message); notifyPackingBlocked(message);
       return;
     }
     const nextErrors = validateDrafts(drafts, baselinesRef.current, requireSourceConfirmation);
     setErrors(nextErrors);
     setSubmitError('');
     if (Object.keys(nextErrors).length) {
+      const message = packingReviewErrorSummary(nextErrors);
+      setSubmitError(message); notifyPackingBlocked(message);
       const firstKey = drafts.find(draft => nextErrors[rowIdentity(draft)])?.invoiceIndex;
       if (firstKey !== undefined) setSelectedKey(String(firstKey));
       return;
@@ -545,7 +550,8 @@ export default function PackingEvidenceReview({
     try {
       await onConfirm?.(submission);
     } catch (error) {
-      setSubmitError(error?.message || '확인값을 적용하지 못했습니다. 입력값을 다시 확인하세요.');
+      const message = error?.message || '확인값을 적용하지 못했습니다. 입력값을 다시 확인하세요.';
+      setSubmitError(message); notifyPackingBlocked(message);
     } finally {
       setPending(false);
     }
@@ -794,7 +800,7 @@ export default function PackingEvidenceReview({
             </button>
           </div>
           {sourceGateMessage && <p className={styles.sourceGate} role="status">{sourceGateMessage}</p>}
-          {submitError && <p className={styles.submitError} role="alert">{submitError}</p>}
+          {submitError && <p className={styles.submitError} role="alert" data-testid="packing-review-blocked" style={{ whiteSpace: 'pre-line' }}>{submitError}</p>}
         </footer>
       </section>
     </div>

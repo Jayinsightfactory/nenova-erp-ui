@@ -3,6 +3,7 @@ import { ActionScope, ObservedButton, CustomerLookupOverlay } from './ObservedPa
 import { ProductLookupOverlay } from './ProductLookupOverlay';
 import { WarehouseLookupOverlay } from './WarehouseLookupOverlay';
 import pageActions from '../../lib/ecountPageActions.cjs';
+import InputDraftForm, { SOURCE_SAVE_MATCH_ID } from './InputDraftForm';
 import styles from '../../styles/ecount-workbench.module.css';
 
 // 2026-10-21 P008~P019 조사 기반 범용 셸. lib/ecountSurveyScreens.cjs 가 만든 정의(화면 종류·도구줄·검색 패널·입력칸)를 그대로 그린다.
@@ -97,7 +98,8 @@ export function SurveyScreen({screen,busy=false,defaultSearchOpen}){
     {error&&<p role="alert" className={styles.error}>{error}</p>}
     {message&&<p role="status" className={styles.message}>{message}</p>}
     {screen.kind==='input'&&screen.fields.length>0&&<fieldset className={styles.filters} disabled aria-label="입력 항목(읽기 전용)"><legend>입력 항목(읽기 전용, 원본 저장 계약 확정 전)</legend>{screen.fields.map((field,index)=><ReadOnlyField key={index} field={field} index={index}/>)}</fieldset>}
-    <p className={styles.empty}>{screen.kind==='input'?'입력 화면 자리표시입니다. 원본 저장 계약이 확정될 때까지 저장 계열 버튼은 비활성입니다.':screen.kind==='hub'?'연결 화면 자리표시입니다. 원본 동작은 아직 확인되지 않았습니다.':UNCOLLECTED_MESSAGE}</p>
+    {screen.kind==='input'&&SOURCE_SAVE_MATCH_ID[screen.program]&&<InputDraftForm program={screen.program} sourceSaveButton={false}/>}
+    <p className={styles.empty}>{screen.kind==='input'?(SOURCE_SAVE_MATCH_ID[screen.program]?'원본(ECOUNT) 저장은 미승인입니다. 위 폼은 웹 전용 초안(ecount_work.InputDraft) 저장이며 ERP 원장·ECOUNT 원본에는 쓰지 않습니다.':'입력 화면 자리표시입니다. 원본 저장 계약이 확정될 때까지 저장 계열 버튼은 비활성입니다.'):screen.kind==='hub'?'연결 화면 자리표시입니다. 원본 동작은 아직 확인되지 않았습니다.':UNCOLLECTED_MESSAGE}</p>
     {(screen.footer.length>0||screen.other.length>0)&&<div className={styles.sourceToolbar} aria-label="결과 도구">{screen.footer.map(button=>placeholder(button))}{screen.other.map(button=>placeholder(button))}</div>}
     {lookup==='customer'&&<CustomerLookupOverlay onClose={()=>setLookup(null)}/>}
     {lookup==='product'&&<ProductLookupOverlay rows={[]} selected={picked.product||[]} onClose={()=>setLookup(null)} onApply={codes=>{setPicked(value=>({...value,product:codes}));setLookup(null);}}/>}

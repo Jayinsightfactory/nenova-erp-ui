@@ -43,3 +43,5 @@ A. 기존 연결 확장과 비교 엔진을 재사용하고, 최신 조회와 �
 - 최신 DB read-only: 저장손익225행, 실제 분배315행,41차수(기준일 미확인1개는 경고 유지). 기존 실제 입고638행 재생으로 시네신스220 수정대기, 호접16/208000원 차이 확인.
 - dnSpy evidence, write-scope,141개 manifest, UI layout 가드 통과. 전체 ERP 및 최종 build 진행. 로그인된 신라 탭 부재로 새 수집은 미검증.
 - 원본/결과 영구 저장과 원장 수정 없음. work/의 로컬 probe·테스트 로그는 커밋 제외.
+
+- 최종 webpack build 및 전체 test:erp-contract exit0, 변경범위 manifest/write-scope/dnSpy 통과. PR1205. 브라우저 연결 timeout으로 운영 클릭 검증은 미완료.
