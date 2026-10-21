@@ -24,11 +24,12 @@ module.exports=(async()=>{
   adjustments:[{StockHistoryKey:1,ProdKey:1,OrderYear:'2026',OrderWeek:'41-02',BeforeValue:20,AfterValue:0,TypeMatches:1,Descr:'cleanup'}],
   protected:{sales:'keep'},procedureHash:hash(definition)});
  const idle={Mode:null,LockedAt:null,Action:null,OrderYear:null,OrderWeek:null,OwnerSessionID:null,OwnerToken:null,CalcProdKey:null,PendingCalc:false,ProtocolVersion:2};
- for(const failure of ['none','stored-create','approval','stale','gate','signed','backup','ddl','metadata','ddl-side-effect','native','readback','property','capability','property-update']){
+ for(const failure of ['none','stored-create','approval','stale','gate','signed','backup','ddl','metadata','ddl-side-effect','native','readback','property','capability','property-update','no-transaction','lost-transaction']){
   const live=fixture();let working=structuredClone(live),currentDefinition=definition,backed=false,altered=false,committed=false;
   const propertyHash=d=>createHash('sha256').update(d,'utf16le').digest('hex').toUpperCase();
   let valueHex=failure==='property'?'0'.repeat(64):propertyHash(definition);
   const tQuery=async(text,params)=>{
+   if(text.startsWith('SELECT @@SPID'))return {recordset:[{SessionID:1,TranCount:failure==='no-transaction'||(altered&&failure==='lost-transaction')?0:1,TxState:1}]};
    if(text.includes('NenovaStockWeekGate WITH'))return {recordset:[{...idle,...(failure==='gate'?{Mode:'BUSY'}:{})}]};
    if(text.includes('sys.sql_modules'))return {recordsets:[[{Definition:currentDefinition}],
     [{object_id:123,uses_ansi_nulls:true,uses_quoted_identifier:false}],
@@ -50,7 +51,7 @@ module.exports=(async()=>{
   }catch{working=structuredClone(live);currentDefinition=definition;}
   assert.equal(committed,['none','stored-create'].includes(failure),failure);
   if(!committed){assert.deepEqual(working,live);assert.equal(currentDefinition,definition);}
-  if(['approval','stale','gate','signed','backup','property','capability'].includes(failure))assert.equal(altered,false);
+  if(['approval','stale','gate','signed','backup','property','capability','no-transaction'].includes(failure))assert.equal(altered,false);
  }
  const script=fs.readFileSync('scripts/historical-stock-repair.mjs','utf8');
  assert.match(script,/rehearsal\.orderingFixApproved!==orderingFixApproved/);assert.match(script,/ordering.afterHashes.includes\(rehearsal\.ordering\?\.afterHash\)/);
