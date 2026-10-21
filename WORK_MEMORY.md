@@ -627,3 +627,8 @@
 - root 지시에 따라 공유계정97%사용/3%남음(본작업단독아님) 상태에서 추가기능·원본조사·새배치 착수는 중지하고 이미 진행 중인 배포/운영확인/인계만 마무리한다. 리셋·구매·추가worker 없음. 전체ERP100%완료 아님, disabled/미관측/외부연동설계 항목은 남아 있다.
 검색어: PR1159deploySUCCESS PR1160f2643be6 공유97중지추가기능 dayAll런타임대기
 - 1159 root 운영 exact범위53표/2217행/8426숫자/991null 불일치0 확인. 다른19일은 UI load 사전검사목록에 dayAll 누락으로 오류표시되는 실제결함 발견. 서버 strict거부는정상이며 UI검사를 PROFILES hasOwn으로통일하는1줄+실제load19일 fetch0/versionnull/error없음 회귀만수정, UI56검사PASS. 새기능없고긴급후속검증/배포대기.
+
+## 2026-10-21 native 관리자 설치기
+- PR1132 payload 그대로 포함한 단일 WinForms 설치 EXE 구현. requireAdministrator, 기존 경로/직접 선택, 모든 로컬 세션 실행 중 차단, SHA256 allowlist, 원본 백업/atomic 교체/실패 복원. DB 쓰기 없음.
+- 파일 교체/거부/재설치 회귀 및 UI 렌더 확인 통과. 직원 PC 및 실제 로그인 Pivot은 미검증. 전체 gate 진행 중.
+- 검색어: native-pivot-installer 관리자설치 단일EXE requireAdministrator
