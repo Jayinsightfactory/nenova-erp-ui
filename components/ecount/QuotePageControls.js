@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ObservedButton, actionId, ExcelButton } from './ObservedPageControls';
+import { ObservedButton, actionId, ExcelButton, presetButtons } from './ObservedPageControls';
 import styles from '../../styles/ecount-workbench.module.css';
 
 export const QUOTE_COLUMNS = [[null,''],['refDate','일자-No.'],[null,'최초작성일자'],[null,'거래처명'],[null,'품목명(요약)'],['estimateTotal','견적금액합계'],[null,'비고'],['quoteStatus','진행상태'],[null,'생성한전표'],[null,'인쇄']];
@@ -31,7 +31,7 @@ export function QuoteToolbar({busy,searchOpen,onSearch,searchRef,status='all',ca
 function Unavailable({label,children}) {
   return <div className={styles.searchLine} title="수집된 자료로는 이 검색 조건을 적용할 수 없습니다."><span>{label}</span>{children||<input aria-label={label} disabled/>}</div>;
 }
-export function QuoteSearchPanel({busy,from,to,onFrom,onTo,onSubmit,inputRef}) {
+export function QuoteSearchPanel({busy,from,to,onFrom,onTo,onSubmit,presets=[],onPreset,inputRef}) {
   return <form id="ecount-source-search" className={styles.sourceSearch} onSubmit={event=>{event.preventDefault();onSubmit();}}>
     <div className={styles.searchLine}><span>기준일자</span><input ref={inputRef} type="date" aria-label="조회 시작일" value={from} onChange={event=>onFrom(event.target.value)}/><span>~</span><input type="date" aria-label="조회 종료일" min={from||undefined} value={to} onChange={event=>onTo(event.target.value)}/></div>
     <Unavailable label="내.외자구분"><select aria-label="내.외자구분" disabled>{['전체','내자','외자'].map(label=><option key={label}>{label}</option>)}</select></Unavailable>
@@ -41,7 +41,7 @@ export function QuoteSearchPanel({busy,from,to,onFrom,onTo,onSubmit,inputRef}) {
     <Unavailable label="정렬"><label><input type="checkbox" disabled/>수정일자순</label></Unavailable>
     <Unavailable label="견적서"><select aria-label="견적서" data-ecount-action-id={actionId('quote','견적서 드롭다운')} disabled><option>견적서</option></select></Unavailable>
     <div className={styles.sourceToolbar}><button type="submit" data-ecount-action-id={actionId('quote','검색(F8)')} className={styles.primary} disabled={busy||!!(from&&to&&from>to)}>검색(F8)</button></div>
-    <div className={styles.datePresets}>{['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일','최근30일(+1개월)'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div>
+    <div className={styles.datePresets}>{presetButtons({dataset:'quote',context:'unknown',labels:['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일','최근30일(+1개월)'],enabled:presets,busy,onPreset})}</div>
   </form>;
 }
 export function QuoteFooter() {

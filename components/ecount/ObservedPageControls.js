@@ -1203,7 +1203,15 @@ const ACTION_IDS = {
     "unknown|다시 작성": "E040214-A12",
     "unknown|인쇄": "E040214-A13",
     "unknown|Excel": "E040214-A14",
-    "unknown|Search(F3)": "E040214-A15"
+    "unknown|Search(F3)": "E040214-A15",
+    "검색 패널|금일": "E040214-A05",
+    "검색 패널|전일": "E040214-A06",
+    "검색 패널|금주(~오늘)": "E040214-A07",
+    "검색 패널|전주": "E040214-A08",
+    "검색 패널|금월(~오늘)": "E040214-A09",
+    "검색 패널|전월": "E040214-A10",
+    "검색 패널|종료일": "E040214-A11",
+    "검색 패널|다시 작성": "E040214-A12"
   },
   "ap": {
     "unknown|Option": "E040309-A01",
@@ -1212,7 +1220,15 @@ const ACTION_IDS = {
     "unknown|다시 작성": "E040309-A04",
     "unknown|인쇄": "E040309-A05",
     "unknown|Excel": "E040309-A06",
-    "unknown|Search(F3)": "E040309-A07"
+    "unknown|Search(F3)": "E040309-A07",
+    "검색 패널|금일": "E040309-A12",
+    "검색 패널|전일": "E040309-A13",
+    "검색 패널|금주(~오늘)": "E040309-A14",
+    "검색 패널|전주": "E040309-A15",
+    "검색 패널|금월(~오늘)": "E040309-A16",
+    "검색 패널|전월": "E040309-A17",
+    "검색 패널|종료일": "E040309-A18",
+    "검색 패널|다시 작성": "E040309-A04"
   },
   "sales": {
     "unknown|검색(F8)": "E040207-A1",
@@ -1340,6 +1356,18 @@ export function ObservedButton({ children, reason = pending, actionLabel, 'data-
   const stableId=explicitId||actionId(dataset,actionLabel||children,context);
   return <span title={reason}><button data-ecount-action-id={stableId} disabled>{children}</button></span>;
 }
+// 간편검색 프리셋 버튼 묶음(원본 관측 라벨 순서 유지). enabled 에 든 라벨만 onPreset(label) 실제 버튼, 다시 작성은 onReset 이 있을 때만,
+// 그 밖은 ObservedButton 자리표시. 일반 함수라 요소 트리에 버튼이 그대로 남고 ID 는 기존 actionId(dataset,label,context) 와 같다.
+export const RESET_LABELS=['다시 작성','다시작성'];
+export function presetButtons({dataset,context='검색 패널',labels,enabled=[],busy=false,disabled=false,onPreset,onReset,reason,title}) {
+  return labels.map(label=>{
+    const reset=RESET_LABELS.includes(label);
+    const active=reset?typeof onReset==='function':typeof onPreset==='function'&&enabled.includes(label);
+    const stableId=actionId(dataset,label,context);
+    if(!active)return <ObservedButton key={label} reason={reason} data-ecount-action-id={stableId}>{label}</ObservedButton>;
+    return <button key={label} type="button" disabled={busy||disabled} title={title} data-ecount-action-id={stableId} onClick={()=>reset?onReset():onPreset(label)}>{label}</button>;
+  });
+}
 // Real Excel download button; keeps the observed action id, stays disabled with a reason until the table is loaded with rows.
 export function ExcelButton({ children, actionLabel, mode }) {
   const {dataset,context,excel}=useContext(ActionContext);
@@ -1399,14 +1427,18 @@ export function CustomerLookupOverlay({ onClose, dataset='sales', context='거�
 function UnavailableField({ label, children }) {
   return <div className={styles.searchLine} title="수집된 자료로는 이 검색 조건을 적용할 수 없습니다."><span>{label}</span>{children||<input aria-label={label} disabled/>}</div>;
 }
-export function SearchPanel({ dataset, busy, from, to, flow, query, onFrom, onTo, onFlow, onQuery, onSubmit, onPreset, onCustomer, inputRef }) {
+// 2026-10-21 조사: ar(E040214)/ap(E040309) 검색 패널의 기준일자 from~to 와 프리셋 7개+다시 작성. 두 화면의 자료에는 일자가 없어 기간은 표시만 적용된다(페이지가 안내).
+const PERIOD_DISPLAY_ONLY_TITLE='조회 자료에 일자가 없어 기간 조건은 표시만 적용됩니다.';
+export function SearchPanel({ dataset, busy, from, to, flow, query, onFrom, onTo, onFlow, onQuery, onSubmit, onPreset, onReset, presets=[], onCustomer, inputRef }) {
+  const periodDataset=['cash','sales','ar','ap'].includes(dataset),balanceDataset=['ar','ap'].includes(dataset);
   return <form id="ecount-source-search" className={styles.sourceSearch} onSubmit={event=>{event.preventDefault();onSubmit();}}>
     {dataset==='sales'&&<>
       <UnavailableField label="구분"><label><input type="radio" checked readOnly disabled/>현황</label><label><input type="radio" checked={false} readOnly disabled/>집계</label><select aria-label="라인별" disabled><option>라인별</option></select></UnavailableField>
       <UnavailableField label="기간비교"><select aria-label="기간비교" disabled>{['사용안함','전년동일기간','전월','전주','전일'].map(value=><option key={value}>{value}</option>)}</select></UnavailableField>
     </>}
-    {['cash','sales'].includes(dataset)&&<div className={styles.searchLine}><span>조회기간</span><input ref={inputRef} type="date" aria-label="조회 시작일" value={from} onChange={event=>onFrom(event.target.value)} /><span>~</span><input type="date" aria-label="조회 종료일" min={from||undefined} value={to} onChange={event=>onTo(event.target.value)} /></div>}
-    {dataset==='sales'&&<div className={styles.datePresets}><button data-ecount-action-id={actionId(dataset,'금주(~오늘)')} type="button" disabled={busy} onClick={()=>onPreset('thisWeek')}>금주(~오늘)</button><button data-ecount-action-id={actionId(dataset,'전주')} type="button" disabled={busy} onClick={()=>onPreset('previousWeek')}>전주</button></div>}
+    {periodDataset&&<div className={styles.searchLine} title={balanceDataset?PERIOD_DISPLAY_ONLY_TITLE:undefined}><span>{balanceDataset?'기준일자':'조회기간'}</span><input ref={inputRef} type="date" aria-label="조회 시작일" value={from} onChange={event=>onFrom(event.target.value)} /><span>~</span><input type="date" aria-label="조회 종료일" min={from||undefined} value={to} onChange={event=>onTo(event.target.value)} /></div>}
+    {dataset==='sales'&&<div className={styles.datePresets}>{presetButtons({dataset,context:'unknown',labels:['금주(~오늘)','전주'],enabled:presets,busy,onPreset})}</div>}
+    {balanceDataset&&<div className={styles.datePresets}>{presetButtons({dataset,labels:['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일'],enabled:presets,busy,onPreset,title:PERIOD_DISPLAY_ONLY_TITLE})}</div>}
     {dataset==='cash'&&<div className={styles.searchLine}><span>구분</span>{['','입금','출금'].map(value=><label key={value}><input type="radio" name="cash-flow" checked={flow===value} onChange={()=>onFlow(value)} />{value||'전체'}</label>)}</div>}
     {dataset==='sales'&&<>
       <UnavailableField label="거래유형"><input aria-label="거래유형" disabled/><ObservedButton>검색</ObservedButton></UnavailableField>
@@ -1420,8 +1452,8 @@ export function SearchPanel({ dataset, busy, from, to, flow, query, onFrom, onTo
       <UnavailableField label="추가수량"><input type="number" aria-label="추가수량 최소" disabled/><span>~</span><input type="number" aria-label="추가수량 최대" disabled/></UnavailableField>
       <UnavailableField label="판매현황"><select aria-label="판매현황" disabled><option>판매현황</option></select><ObservedButton>정렬기준설정</ObservedButton><ObservedButton>그래프로보기</ObservedButton></UnavailableField>
     </>}
-    {dataset!=='sales'&&<div className={styles.searchLine}><label>검색 <input ref={['cash','sales'].includes(dataset)?undefined:inputRef} value={query} onChange={event=>onQuery(event.target.value)} /></label></div>}
-    {dataset==='cash'&&<div className={styles.datePresets}>{['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일','최근7일','전월+금월'].map(label=><ObservedButton key={label}>{label}</ObservedButton>)}</div>}
-    <div className={styles.sourceToolbar}><button data-ecount-action-id={actionId(dataset,'검색(F8)')} type="submit" className={styles.primary} disabled={busy||!!(from&&to&&from>to)}>검색(F8)</button>{dataset==='cash'&&<><ObservedButton>설정</ObservedButton><ObservedButton>다시 작성</ObservedButton></>}</div>
+    {dataset!=='sales'&&<div className={styles.searchLine}><label>검색 <input ref={periodDataset?undefined:inputRef} value={query} onChange={event=>onQuery(event.target.value)} /></label></div>}
+    {dataset==='cash'&&<div className={styles.datePresets}>{presetButtons({dataset,context:'unknown',labels:['금일','전일','금주(~오늘)','전주','금월(~오늘)','전월','종료일','최근7일','전월+금월'],enabled:presets,busy,onPreset})}</div>}
+    <div className={styles.sourceToolbar}><button data-ecount-action-id={actionId(dataset,'검색(F8)')} type="submit" className={styles.primary} disabled={busy||!!(from&&to&&from>to)}>검색(F8)</button>{dataset==='cash'&&<><ObservedButton>설정</ObservedButton>{presetButtons({dataset,context:'unknown',labels:['다시 작성'],busy,onReset})}</>}{balanceDataset&&presetButtons({dataset,labels:['다시 작성'],busy,onReset})}</div>
   </form>;
 }
