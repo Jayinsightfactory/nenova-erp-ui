@@ -1,0 +1,16 @@
+{
+ "id": "RELEASE2-SMOKE-20261021",
+ "merges": [
+  {"pr": 1165, "squash": "77c9a4fc", "deployRun": 39535003807, "deploy": "success", "scope": "lib/ecountPageActions presetIdForLabel + 관측 프리셋 테스트"},
+  {"pr": 1166, "squash": "733a244c", "deployRun": 39535327937, "deploy": "success", "scope": "비교 보고서 모델 대상 DOM 분류 열"},
+  {"pr": 1167, "squash": "170de90d", "deployRun": 39536243857, "deploy": "success", "scope": "Excel 내보내기 35개 버튼 활성화"}
+ ],
+ "checks": [
+  {"kind": "production", "what": "/api/ping", "result": "200"},
+  {"kind": "production", "what": "unauthenticated shell crawl E010205/E040207/E040217/E040701 after 170de90d", "result": "Excel buttons rendered with IDs; disabled because no data is loaded without login (expected)"},
+  {"kind": "local", "what": "next dev + dev-only JWT(userId admin) cookie, /api/ecount/workspace?dataset=receipt → 200, version rows=227", "result": "PASS"},
+  {"kind": "local", "what": "E040217 수금현황 Excel(E040217-A06) click → blob captured 38,711B xlsx, sheets [데이터, 안내], 228 rows incl. header (227 data rows)", "result": "PASS"},
+  {"kind": "unverified", "what": "production browser download with real login; 원본 ECOUNT 엑셀과 열·서식 동일성", "result": "미검증"}
+ ],
+ "privacy": {"rawBusinessValues": false, "personalData": false, "accountValues": false, "credentials": false, "sessionUrls": false}
+}
