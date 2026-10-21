@@ -31,8 +31,11 @@ function classify(b,program){
   if(program&&codePresent(program,b))return '조건부';
   return '미관측';
 }
+// Reasons the crawler recorded for controls it knowingly did not reach (scripts/ecount-dom-crawl.cjs __meta.unreached).
+function unreachedReasons(){const dir=path.join(root,'data/ecount-workbench/evidence');const map={};if(!fs.existsSync(dir))return map;for(const f of fs.readdirSync(dir).filter(f=>/-dom-crawl\.json$/.test(f)).sort()){let crawl;try{crawl=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));}catch{continue;}for(const r of Object.values(crawl.results||{}))for(const u of r.__meta?.unreached||[])for(const id of u.ids||[])map[id]=u.reason;}return map;}
 if(require.main===module){main();}
 function main(){
+const reasons=unreachedReasons();
 const rows=[];const byProgram={};
 for(const p of report.pages){
   if(!p.buttons?.length)continue;
@@ -48,7 +51,7 @@ const tot={buttons:0,'구현':0,'미구현':0,'조건부':0,'미관측':0,'API�
 for(const pk of packets){for(const id of pk.screenIds){const c=byProgram[id];if(!c)continue;lines.push(`| ${pk.id} | ${c.program} | ${c.title} | ${c.buttons} | ${c['구현']} | ${c['미구현']} | ${c['조건부']} | ${c['미관측']} | ${c['API설계전용']} | ${c['검증대기']} | ${c['라벨일치']} |`);for(const k of Object.keys(tot))tot[k]+=c[k];}}
 lines.push(`| 합계 | 33 | | ${tot.buttons} | ${tot['구현']} | ${tot['미구현']} | ${tot['조건부']} | ${tot['미관측']} | ${tot['API설계전용']} | ${tot['검증대기']} | ${tot['라벨일치']} |`,'');
 for(const cls of ['미관측','조건부']){lines.push(`## ${cls==='미관측'?'미관측(대상 컨트롤 없음)':'조건부(코드 존재, 크롤 미도달)'} 버튼 목록`,'');
-for(const p of report.pages){if(!p.buttons?.length)continue;const miss=p.buttons.filter(b=>classify(b,p.program)===cls);if(!miss.length)continue;lines.push(`- ${p.program} ${p.title}: `+miss.map(b=>`${b.matchId.split('-')[1]} ${b.source.label}@${b.source.context}`).join(', '));}lines.push('');}
+for(const p of report.pages){if(!p.buttons?.length)continue;const miss=p.buttons.filter(b=>classify(b,p.program)===cls);if(!miss.length)continue;lines.push(`- ${p.program} ${p.title}: `+miss.map(b=>`${b.matchId.split('-')[1]} ${b.source.label}@${b.source.context}`+(cls==='조건부'&&reasons[b.matchId]?` (미도달 사유: ${reasons[b.matchId]})`:'')).join(', '));}lines.push('');}
 const out=opt('--out');
 if(out){fs.writeFileSync(path.resolve(root,out),lines.join('\n')+'\n');console.log('written',out);}
 console.log(JSON.stringify(tot));
