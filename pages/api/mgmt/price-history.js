@@ -2,9 +2,11 @@
 // GET  ?prodKey=&custKey=&q=   이력 + 마지막 스냅샷 시각
 // POST {action:'snapshot'}     수동 스냅샷(자동 스케줄 없음)
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { takeSnapshot, lastSnapshotAt, listPriceHistory } from '../../../lib/mgmt/priceSnapshot.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   try {
     if (req.method === 'GET') {
       const [rows, last] = await Promise.all([

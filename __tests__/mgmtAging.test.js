@@ -62,4 +62,8 @@ const sorted = sortAgingRows(rows);
 assert.equal(sorted[0].custKey, 1);
 assert.ok(sorted[0].d90p >= sorted[1].d90p);
 
+// 기준일 이후 청구는 구간 제외 + futureExcluded 로 보고
+const fut = agingForCustomer([{ date: '2026-10-01', amount: 100 }, { date: '2026-10-25', amount: 40 }], 0, '2026-10-21');
+assert.equal(fut.total, 100); assert.equal(fut.futureExcluded, 40); assert.equal(fut.totalPaid, 0);
+assert.equal(summarizeAging([fut, fut]).futureExcluded, 80);
 console.log('mgmt aging tests passed');

@@ -1,9 +1,11 @@
 // 거래처별 이익·월 목표 API. GET ?month=YYYY-MM / POST {custKey, targetMonth, targetSalesKRW, targetProfitKRW} 목표 추가(이력).
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { loadCustomerProfitMonth, appendTarget } from '../../../lib/mgmt/customerProfit.js';
 import { validateTargetInput } from '../../../lib/mgmt/customerProfitCore.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   try {
     if (req.method === 'GET') {
       const month = String(req.query.month || '');

@@ -3,9 +3,11 @@
 // POST {action:'create', targetKind, targetRef, payload}
 // POST {action:'transition', requestId, to, note}
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { createApprovalRequest, transitionApproval, listApprovals, APPROVAL_STATUS } from '../../../lib/mgmt/approval.js';
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   const actorId = req.user?.userId || '';
   if (req.method === 'GET') {
     const rows = await listApprovals({ targetKind: req.query.targetKind, status: req.query.status, limit: req.query.limit });

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { AGING_BUCKETS, AGING_LABELS } from '../../lib/mgmt/aging';
 
-const won = (n) => Number(n || 0).toLocaleString();
+const won = (n) => Math.round(Number(n || 0)).toLocaleString();
 
 function csvCell(v) {
   const s = String(v ?? '');
@@ -54,7 +54,10 @@ export default function MgmtArAging() {
               <div key={k} className={`card ${k === 'd90p' ? 'hot' : ''}`}><span>{AGING_LABELS[k]}</span><strong>{won(data.totals[k])}</strong></div>
             ))}
           </div>
-          <p className="note">잔액 합계 {won(data.totals.total)}원 (초과입금 {won(data.totals.credit)}원 차감 후, 채권관리 잔액 합계와 일치)</p>
+          <p className="note">잔액 합계 {won(data.totals.total)}원 (초과입금 {won(data.totals.credit)}원 차감). 기준일 이후 발생 청구 {won(data.totals.futureExcluded)}원은 구간에서 제외되어 여신한도 화면의 전체 잔액({won(data.totals.total + data.totals.futureExcluded)}원)과 그만큼 차이가 납니다.</p>
+          {Number(data.totals.totalPaid) === 0 && (
+            <p className="warn">입금 원천({data.source === 'erp' ? 'ReceivableLedger' : data.source})에 입금이 0건입니다. 실제 입금이 이카운트에만 있으면 모든 청구가 미수로 집계되어 이 표는 참고용입니다. 입금 소스가 연결되면(입금 대사) 자동으로 상계됩니다.</p>
+          )}
           <table>
             <thead>
               <tr><th>거래처</th>{AGING_BUCKETS.map((k) => <th key={k} className="r">{AGING_LABELS[k]}</th>)}<th className="r">합계</th><th className="r">최고령(일)</th></tr>
@@ -73,7 +76,7 @@ export default function MgmtArAging() {
         </>
       )}
       <style jsx>{`
-        .ag{padding:8px 4px;font-size:13px}.note{font-size:12px;color:var(--text3,#64748b)}.err{color:#b91c1c;margin:6px 0}
+        .ag{padding:8px 4px;font-size:13px}.warn{background:#fff7ed;color:#9a3412;padding:8px;border-radius:6px;font-size:12px;margin:6px 0}.note{font-size:12px;color:var(--text3,#64748b)}.err{color:#b91c1c;margin:6px 0}
         .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0}
         .card{border:1px solid var(--border,#cbd5e1);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px}
         .card.hot{border-color:#dc2626}.card strong{font-size:16px}

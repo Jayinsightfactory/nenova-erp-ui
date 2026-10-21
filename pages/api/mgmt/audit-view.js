@@ -1,12 +1,14 @@
 // 변경 감사로그 통합뷰(읽기 전용). GET ?from=&to=&kind=단가,수량&week=&cust=&format=csv
 // 기본 기간 최근 7일. 조회 로그 제외, 단가·수량·확정·한도·승인 변경만.
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { loadAuditEvents } from '../../../lib/mgmt/auditView.js';
 import { defaultRange, toCsv, AUDIT_KINDS } from '../../../lib/mgmt/auditViewCore.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });

@@ -1,5 +1,6 @@
 // 채권 aging API. GET ?asOf=YYYY-MM-DD (기본 오늘). 읽기 전용.
 import { withAuth } from '../../../lib/auth.js';
+import { denyIfNotMgmtAdmin } from '../../../lib/mgmt/access.js';
 import { getArAgingInputs } from '../../../lib/mgmt/receivables.js';
 import { receivableSourceLabel } from '../../../lib/mgmt/sources.js';
 import { agingForCustomer, summarizeAging, sortAgingRows } from '../../../lib/mgmt/aging.js';
@@ -9,6 +10,7 @@ function todayKst() {
 }
 
 export default withAuth(async function handler(req, res) {
+  if (denyIfNotMgmtAdmin(req, res)) return;
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
