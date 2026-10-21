@@ -1027,6 +1027,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [teamHistoryStatus, setTeamHistoryStatus] = useState('');
   const [teamHistoryError, setTeamHistoryError] = useState('');
   const [teamHistoryRetry, setTeamHistoryRetry] = useState(0);
+  const sharedRestoreButton = useRef(null);
   useEffect(() => () => {
     ++readerVersion.current; ++catalogReaderVersion.current;
     ++sharedScopeVersion.current;
@@ -1081,6 +1082,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setSavedWork(sharedRestore.snapshot);
     setStatus({type:'info',msg:'팀 업로드를 불러왔습니다. 아래 「매칭 작업 이어서 하기」를 눌러 복구하세요. 기존 작업은 팀 이력에서 다시 불러올 수 있습니다.'});
   }, [sharedRestore]);
+
+  useEffect(() => {
+    if (sharedRestore && savedWork === sharedRestore.snapshot) sharedRestoreButton.current?.focus();
+  }, [sharedRestore, savedWork]);
 
   const restoreWork = async () => {
     if (!savedWork || (!workReady && savedWork !== sharedRestore?.snapshot) || savingRef.current || processingRef.current) return;
@@ -1814,7 +1819,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         {teamHistoryError && <p role="alert">팀 이력 보관 실패: {teamHistoryError} · 현재 파일은 유지됩니다. <button type="button" onClick={() => setTeamHistoryRetry(value => value + 1)}>다시 보관</button></p>}
         {savedWork && <section className={styles.sourceBadge} aria-label="보관된 패킹 작업">
           <strong>이어서 작업: {savedWork.fileName}</strong>
-          <button type="button" onClick={restoreWork} disabled={!sharedReady || saving || processing || restoringWork} data-testid="packing-work-restore" style={{ marginLeft: 16 }}>{restoringWork ? '복구 중…' : '매칭 작업 이어서 하기'}</button>
+          <button ref={sharedRestoreButton} type="button" onClick={restoreWork} disabled={!sharedReady || saving || processing || restoringWork} data-testid="packing-work-restore" style={{ marginLeft: 16 }}>{restoringWork ? '복구 중…' : '매칭 작업 이어서 하기'}</button>
           <button type="button" disabled={restoringWork || saving || processing} onClick={async () => {
             try { await workStore.clear(); setSavedWork(null); setWorkError(''); }
             catch (error) { setWorkError(`임시 작업 삭제 실패: ${error.message}`); }
