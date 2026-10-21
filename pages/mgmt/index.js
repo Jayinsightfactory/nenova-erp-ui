@@ -10,7 +10,7 @@ const FEATURES = [
   { id: 'price-history', no: 6, label: '단가 변경이력', desc: '전·후 단가, 시각, 적용순서', href: '/mgmt/price-history', ready: true },
   { id: 'claim-codes', no: 7, label: '클레임 사유코드', desc: '불량차감 사유 사전·농장별 클레임율', href: '/mgmt/claim-codes', ready: true },
   { id: 'week-close', no: 8, label: '차수 마감 체크리스트', desc: '불변식·미견적·미입금·미송금 건수', href: '/mgmt/week-close', ready: false },
-  { id: 'customer-profit', no: 9, label: '거래처별 이익·목표', desc: '거래처 축 이익 + 월 목표 달성률', href: '/mgmt/customer-profit', ready: false },
+  { id: 'customer-profit', no: 9, label: '거래처별 이익·목표', desc: '거래처 축 이익 + 월 목표 달성률', href: '/mgmt/customer-profit', ready: true },
   { id: 'audit-view', no: 10, label: '변경 감사로그 통합뷰', desc: '단가·수량·확정 변경만 전후값으로', href: '/mgmt/audit-view', ready: false },
 ];
 

@@ -29,6 +29,10 @@
     "pages/api/mgmt/claim-codes.js",
     "pages/mgmt/price-history.js",
     "pages/mgmt/claim-codes.js",
+    "lib/mgmt/customerProfitCore.js",
+    "lib/mgmt/customerProfit.js",
+    "pages/api/mgmt/customer-profit.js",
+    "pages/mgmt/customer-profit.js",
     "docs/migrations/2026-10-21_web_mgmt_controls.sql",
     "docs/mgmt/MGMT_CONTROLS_DESIGN.md",
     "components/Layout.js"
@@ -44,6 +48,6 @@
   "dnspyEvidence": { "required": true, "record": "docs/exe-golden/FormEstimateView.md", "source": "mgmt 는 exe 쓰기 경로를 호출하지 않는다. 읽기 참조만 하는 Estimate/Customer 는 FormEstimateView 골든 기준.", "methods": ["ClassEstimate.Select"], "tables": ["Estimate", "Customer"] },
   "preserves": ["Customer", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "ProductStock", "StockHistory", "StockMaster", "Estimate", "WebProfitReport", "ecount_work.*"],
   "boundary": { "ecountOwnedUntouched": true, "checker": "node __tests__/mgmtBoundary.test.js --changed-from origin/master", "design": "docs/mgmt/MGMT_CONTROLS_DESIGN.md" },
-  "requiredTestFiles": ["__tests__/mgmtBoundary.test.js", "__tests__/mgmtApproval.test.js", "__tests__/mgmtAging.test.js", "__tests__/mgmtCreditLimit.test.js", "__tests__/mgmtPriceHistory.test.js", "__tests__/mgmtClaimCodes.test.js"],
+  "requiredTestFiles": ["__tests__/mgmtBoundary.test.js", "__tests__/mgmtApproval.test.js", "__tests__/mgmtAging.test.js", "__tests__/mgmtCreditLimit.test.js", "__tests__/mgmtPriceHistory.test.js", "__tests__/mgmtClaimCodes.test.js", "__tests__/mgmtCustomerProfit.test.js"],
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run test:mgmt", "npm run build"]
 }
