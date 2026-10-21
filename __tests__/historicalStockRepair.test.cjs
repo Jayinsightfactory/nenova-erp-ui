@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict');
 module.exports=(async()=>{
+ await require('./stockCalculationOrderRepair.test.cjs');
  const {planHistoricalStockRepair:plan,verifyHistoricalStockRepair:verify,stockRepairDigest:digest,executeHistoricalStockRepair:execute}=await import('../lib/historicalStockRepair.mjs');
  const scope={year:'2026',startWeek:'30-01',offsetWeek:'41-02',prodKeys:[1],cleanupPurposeConfirmed:true};
  const fixture=()=>({masters:[

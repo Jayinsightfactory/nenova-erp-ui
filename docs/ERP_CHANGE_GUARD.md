@@ -932,5 +932,14 @@ myCustomerOrderApi.test.js에서 전년도·삭제행·다른업체/세부차수
 ## 2026-10-21 주광 요일 원본과 삭제 시트 키맵
 주광 요일 업로드는 기존 FINAL_SNAPSHOT 주문등록과 분리한다. 기존 주문을 만들거나 수정하지 않으며 원본 양수 날짜만 기존 ALLOCATION writer로 저장한다. 기존분배와 다르면 중단, 동일하면 no-op,빈칸/0/미선택은 보존한다. 합계열/선출고/사용일을 출고예정에 합산하지 않는다. 일반 분배 업로드의 숨김 _keymap도 선택한 표시 시트에 속한 키만 사용한다. 제거한 카네이션 시트의 키가 수국파일의 전체교체 범위를 확장하지 않아야 한다. 회귀:jugwangWeekdayUpload.test.js 및 격리 SQL fixture.
 
+## 2026-10-21 공통 CALC 커서의 차수순서
+SELECT INTO의 ORDER BY는 다음 CURSOR SELECT의 순서를 보장하지 않는다. 후속 차수 이월을
+갱신하는 실제 커서에 OrderYear,OrderWeek 정렬이 있어야 한다. 임시테이블 삽입순서나 StockKey
+순서로 계산하면 앞 차수의 오래된 재고를 읽을 수 있다. 반복 CALC/직접 UPDATE/검사 완화로 우회하지 않는다.
+공통 SP 변경은 사용자 명시 승인, 알려진 전체 정의 hash, 원본 백업, 옵션·매개변수·권한 보존을
+요구한다. 서명된 모듈은 중단한다. 정렬만 수정하는 ALTER와 승인된 과거재고 보정은 동일 외부
+transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터 복원을 확인한 뒤 apply한다.
+회귀: stockCalculationOrderRepair.test.cjs. 기준: docs/plans/stock-calc-order-2026-10-21.md.
+
 ## 2026-10-21 파일 자동 품종 범위
 사용자 의도는 수국 파일만 올리면 수국 처리다. 수동 시트/품종 선택을 강제하지 않는다. 현재 파일 내용에서 품종을 추출하고 known-family 교차 매칭/숨김 및 삭제시트 키맵을 차단한다. 새 파일은 override/검증서명/진행표 초기화와 이전 비동기응답 폐기를 수행한다. 같은 품종 내 최종분배 교체 계약은 별도이며 보존한다.

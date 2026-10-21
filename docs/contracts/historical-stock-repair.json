@@ -1,16 +1,17 @@
 {
   "id":"historical-stock-repair",
   "title":"목적 확인된 과거 재고 오류와 후속 정리 조정의 원자 대사",
-  "scope":["lib/historicalStockRepair.mjs","scripts/historical-stock-repair.mjs","lib/profitIndependentAudit.mjs"],
+  "scope":["lib/historicalStockRepair.mjs","scripts/historical-stock-repair.mjs","lib/stockCalculationOrderRepair.mjs","lib/profitIndependentAudit.mjs","lib/profitIndependentAuditSource.js"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "identityNote":"재고는 OrderYear+OrderWeek+ProdKey이며 CustKey는 적용하지 않는다.",
   "actions":[
     {"name":"PREVIEW","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only; explicit scope and user-confirmed cleanup purpose; missing, duplicate, stale, negative result blocks"},
     {"name":"REHEARSAL","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"outer SERIALIZABLE transaction, exact compensating StockHistory INSERT, native CALC, full rollback and separate readback"},
-    {"name":"APPLY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"matching source hash and rehearsal required; preserve existing history, Product.Stock, orders, shipment/date/farm, purchase, Estimate and report revisions; compensate approved cleanup only, native ProductStock cascade includes future years; no direct ProductStock update, DDL or procedure modification"}
+    {"name":"APPLY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"matching source hash and rehearsal required; preserve existing history, Product.Stock, orders, shipment/date/farm, purchase, Estimate and report revisions; compensate approved cleanup only, native ProductStock cascade includes future years; no direct ProductStock update"},
+    {"name":"APPROVED_ORDERING_FIX","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"only explicit orderingFixApproved: exact known dbo.usp_StockCalculation definition, backup first, preserve signature/parameters/options/permissions, add cursor ORDER BY OrderYear,OrderWeek; update only its OwnerV2 capability hash and assert IsReady; same outer transaction as repair; signed/unknown definition blocks; both DDL and data rollback together"}
   ],
   "crossYearFixture":{"required":true,"description":"2025 same week cannot enter 2026 repair. 2027 downstream native snapshots included in explicit preview and readback, never silently skipped."},
-  "requiredTestFiles":["__tests__/historicalStockRepair.test.cjs","__tests__/profitIndependentAudit.test.cjs","__tests__/orderStockCalculation.test.js"],
+  "requiredTestFiles":["__tests__/historicalStockRepair.test.cjs","__tests__/stockCalculationOrderRepair.test.cjs","__tests__/profitIndependentAudit.test.cjs","__tests__/orderStockCalculation.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/plans/ecuador-stock-cost-2026-10-21.md","source":"2026-10-21 actual dnSpy.Console.exe FormStockView and read-only SQL usp_StockCalculation definition","methods":["FormStockView.GetData","usp_StockCalculation"],"tables":["StockMaster","ProductStock","StockHistory","Product","ViewWarehouse","ViewShipment"]},
   "requiredCommands":["node __tests__/historicalStockRepair.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run test:erp-manifest -- --changed-from origin/master","npm run verify:erp-change","npm run build"]
 }

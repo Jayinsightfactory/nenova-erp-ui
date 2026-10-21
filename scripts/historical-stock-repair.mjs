@@ -6,11 +6,14 @@ import sql from 'mssql';
 import { createHash } from 'node:crypto';
 import { planHistoricalStockRepair, stockRepairDigest, executeHistoricalStockRepair } from '../lib/historicalStockRepair.mjs';
 import { runOrderStockCalculationBatch } from '../lib/orderStockCalculation.js';
+import { executeOrderedHistoricalStockRepair, readStockCalculationMetadata, planStockCalculationOrderRepair } from '../lib/stockCalculationOrderRepair.mjs';
 
 const requestFile=process.argv.find(a=>a.startsWith('--request='))?.slice(10);
 if(!requestFile) throw Error('Private --request=.verify/file.json required');
 const request=JSON.parse(fs.readFileSync(requestFile,'utf8'));
 const {scope,expectedHash,actor}=request;
+if (request.orderingFixApproved !== undefined && typeof request.orderingFixApproved !== 'boolean') throw Error('Explicit boolean ordering approval required');
+const orderingFixApproved=request.orderingFixApproved===true;
 if(!Array.isArray(scope?.prodKeys)||!scope.prodKeys.length||scope.prodKeys.length>20
   ||scope.prodKeys.some(k=>!Number.isInteger(k)||k<=0||k>2147483647)) throw Error('Invalid explicit product scope');
 const keys=scope.prodKeys.join(',');
@@ -70,14 +73,21 @@ try{
     if(stockRepairDigest(before)!==stockRepairDigest(again))throw Error('Source changed during preview');
     fs.writeFileSync(path.join(outputDir,'before.json'),JSON.stringify(before));
     const plan=planHistoricalStockRepair(before,scope);
+    const ordering=orderingFixApproved?planStockCalculationOrderRepair((await readStockCalculationMetadata(query)).definition):null;
+    fs.writeFileSync(path.join(outputDir,'ordering-plan.json'),JSON.stringify(ordering&&{beforeHash:ordering.beforeHash,afterHashes:ordering.afterHashes}));
     fs.writeFileSync(path.join(outputDir,'plan.json'),JSON.stringify(plan,null,2));
     console.log(JSON.stringify({mode,sourceHash:plan.sourceHash,products:plan.items.length,changedSnapshots:plan.expected.filter(r=>r.before!==r.after).length,
-      years:[...new Set(plan.expected.map(r=>r.OrderYear))],businessWrites:0}));
+      years:[...new Set(plan.expected.map(r=>r.OrderYear))],orderingFixApproved,businessWrites:0}));
   }else{
     const rehearsalPath=path.join(outputDir,'rehearsal.json');
     if(mode==='apply'){
       const rehearsal=JSON.parse(fs.readFileSync(rehearsalPath,'utf8'));
-      if(rehearsal.sourceHash!==expectedHash||rehearsal.rollbackVerified!==true||rehearsal.scopeHash!==stockRepairDigest(scope))throw Error('Matching rehearsal required');
+      if(rehearsal.sourceHash!==expectedHash||rehearsal.rollbackVerified!==true||rehearsal.scopeHash!==stockRepairDigest(scope)
+        ||rehearsal.orderingFixApproved!==orderingFixApproved)throw Error('Matching rehearsal required');
+      if(orderingFixApproved){
+        const ordering=planStockCalculationOrderRepair((await readStockCalculationMetadata(query)).definition);
+        if(!ordering.afterHashes.includes(rehearsal.ordering?.afterHash))throw Error('Matching ordering rehearsal required');
+      }
     }
     const tx=new sql.Transaction(pool);let rolled=false,began=false,committing=false;
     tx.on('rollback',()=>{rolled=true});
@@ -87,22 +97,30 @@ try{
       await tq('SET LOCK_TIMEOUT 5000; SET XACT_ABORT ON;');
       const actorCheck=await tq('SELECT UserID FROM UserInfo WHERE UserID=@uid',{uid:{type:sql.NVarChar,value:actor}});
       if(actorCheck.recordset.length!==1)throw Error('Valid operator required');
-      const result=await executeHistoricalStockRepair({tQuery:tq,types:sql,scope,expectedHash,readState,actor,
+      const executor=orderingFixApproved?executeOrderedHistoricalStockRepair:executeHistoricalStockRepair;
+      const originalMetadata=orderingFixApproved?await readStockCalculationMetadata(tq):null;
+      const result=await executor({tQuery:tq,types:sql,scope,expectedHash,readState,actor,orderingFixApproved,
+        backup:async evidence=>fs.writeFileSync(path.join(outputDir,`procedure-backup-${mode}-${Date.now()}.json`),JSON.stringify(evidence,null,2),{flag:'wx'}),
         runNative:({tQuery,scope,actor})=>runOrderStockCalculationBatch({withTransactionFn:fn=>fn(tQuery),types:sql,
           orderYear:scope.year,orderWeek:scope.startWeek,uid:actor,prodKeys:scope.prodKeys})});
       fs.writeFileSync(path.join(outputDir,`${mode}-transaction.json`),JSON.stringify(result,null,2));
       if(mode==='rehearse'){
         await tx.rollback();rolled=true;
-        const after=await readState(query),rollbackVerified=stockRepairDigest(after)===expectedHash;
+        const after=await readState(query),rollbackVerified=stockRepairDigest(after)===expectedHash
+          &&(!orderingFixApproved||stockRepairDigest(await readStockCalculationMetadata(query))===stockRepairDigest(originalMetadata));
         if(!rollbackVerified)throw Error('Rollback readback differs; do not apply');
-        fs.writeFileSync(rehearsalPath,JSON.stringify({sourceHash:expectedHash,scopeHash:stockRepairDigest(scope),rollbackVerified,at:new Date().toISOString()}));
-        console.log(JSON.stringify({mode,rollbackVerified,...result.verification}));
+        fs.writeFileSync(rehearsalPath,JSON.stringify({sourceHash:expectedHash,scopeHash:stockRepairDigest(scope),orderingFixApproved,ordering:result.ordering,rollbackVerified,at:new Date().toISOString()}));
+        console.log(JSON.stringify({mode,rollbackVerified,ordering:result.ordering,...result.verification}));
       }else{
         committing=true;await tx.commit();began=false;
         const after=await readState(query),readbackHash=stockRepairDigest(after);
         if(readbackHash!==result.afterHash)throw Error('Post-commit state changed; inspect private transaction evidence, do not repeat');
         fs.writeFileSync(path.join(outputDir,'after.json'),JSON.stringify(after));
-        console.log(JSON.stringify({mode,committed:true,readbackVerified:true,...result.verification}));
+        if(orderingFixApproved){
+          const afterMetadata=await readStockCalculationMetadata(query);
+          if(stockRepairDigest(afterMetadata)!==stockRepairDigest(result.afterMetadata))throw Error('Post-commit procedure metadata differs; do not repeat');
+        }
+        console.log(JSON.stringify({mode,committed:true,readbackVerified:true,ordering:result.ordering,...result.verification}));
       }
     }catch(error){
       if(began&&!rolled&&!committing)try{await tx.rollback();rolled=true}catch{}
