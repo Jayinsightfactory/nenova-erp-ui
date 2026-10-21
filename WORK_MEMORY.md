@@ -649,3 +649,4 @@
 - 차단: ECOUNT 원본 관측은 크롬 ECOUNT 세션이 로그인 페이지로 튕겨 불가(사장님 로그인 요청 전달). 로그인 후 33화면 기간 프리셋/새창 원본 관측 → 708 자리표시 중 datePreset 가능 항목부터 활성화 예정.
 - ERP 원장·ECOUNT 쓰기 없음. test:erp-contract 통과(수정 트리), manifest·write guard 통과, build/CI는 PR에서 확인.
 - 검색어: ECOUNT 재개 ACTION_IDS 누락 11데이터셋 ecount-dom-crawl 977/1019 step1-closure 미관측42 PR1161 2217 INVALID_COVERAGE_SCOPE ECOUNT로그인차단
+- 2026-10-21 릴리스1: PR #1164 CI verify SUCCESS(3회, 최종 bcc10069) → squash d3c33993 → deploy run 39532373778 success(02:26Z). 운영 스모크: /api/ping OK, dayAll 2026-10-20 API 200/2,217행/34구역, 수정 11화면 운영 크롤 279 ID 렌더(배포 전 0). 비교 엑셀 outputs/ecount-parity-20261021/ECOUNT_버튼별_비교보고서.xlsx 9시트 3,686,914B sha256 616f5756…6b4107(이미지 미삽입). 검색어: PR1164 d3c33993 39532373778 운영스모크 279ID
