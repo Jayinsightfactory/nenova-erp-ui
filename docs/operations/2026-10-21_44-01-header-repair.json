@@ -1,0 +1,167 @@
+{
+  "mode": "apply",
+  "year": 2026,
+  "week": "44-01",
+  "inserted": [
+    {
+      "custKey": 31,
+      "shipmentKey": 7069
+    },
+    {
+      "custKey": 277,
+      "shipmentKey": 7070
+    },
+    {
+      "custKey": 490,
+      "shipmentKey": 7071
+    },
+    {
+      "custKey": 491,
+      "shipmentKey": 7072
+    },
+    {
+      "custKey": 500,
+      "shipmentKey": 7073
+    },
+    {
+      "custKey": 503,
+      "shipmentKey": 7074
+    },
+    {
+      "custKey": 515,
+      "shipmentKey": 7075
+    },
+    {
+      "custKey": 592,
+      "shipmentKey": 7076
+    },
+    {
+      "custKey": 664,
+      "shipmentKey": 7077
+    },
+    {
+      "custKey": 674,
+      "shipmentKey": 7078
+    }
+  ],
+  "existingReused": 0,
+  "protectedBefore": {
+    "orders": {
+      "count": 18,
+      "sha256": "4c13f0dee631bf5af7f53d1dcaac04d641a63950e6afa02cbed55423371652b9"
+    },
+    "details": {
+      "count": 317,
+      "sha256": "9aaa4d2cf6d5067acf17c0db62b94d86960e7d7423e25adf0852cac5e158fd28"
+    },
+    "orderHistory": {
+      "count": 483,
+      "sha256": "7d1dca61922b822e5d779d7168a29047bfc79a1e1e6f241eb9fb6e966b8b02b2"
+    },
+    "shipmentDetail": {
+      "count": 112,
+      "sha256": "abefd97c2d7009fdb16aed08f89ca0d7608f3daeca26e200404ed7201acf3930"
+    },
+    "dates": {
+      "count": 112,
+      "sha256": "0892ed24fad7c3587ef2ad9029517ac1b200ba6401646612b21ddaeaa4e7bdb7"
+    },
+    "farms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "estimates": {
+      "count": 13,
+      "sha256": "debd98af071abaa0c464aca09325d8202cb58c08ecb631c775a5faaf2da7530d"
+    },
+    "products": {
+      "count": 145,
+      "sha256": "046301d2a321b920c07f6d621961208612921fe6a8db7f2fa5441504bcc026aa"
+    },
+    "productStock": {
+      "count": 25087,
+      "sha256": "771c00c6c682a5126439619155a00823b4b049795df1475a83fbda6125c4c7c3"
+    },
+    "stockHistory": {
+      "count": 2166,
+      "sha256": "c7f2ad0f7e338d27df4181346087c279a8d2d73173fad8c10f89617c3539dcb0"
+    },
+    "stockMaster": {
+      "count": 2,
+      "sha256": "6337019fd571427994500b574eec2fdf1fd7459d4219182431de8eaa7d9970df"
+    },
+    "profit": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "viewOrder": {
+      "count": 289,
+      "sha256": "288a2637ed91f59b531fe89e1ef1ee329e6ad89c570991414aba3cec6ae13781"
+    },
+    "viewShipment": {
+      "count": 112,
+      "sha256": "1b40f0a7b0cd8b8b14b3370384f838fde9cd1242b4e581b04fd999ec161f5834"
+    }
+  },
+  "protectedAfter": {
+    "orders": {
+      "count": 18,
+      "sha256": "4c13f0dee631bf5af7f53d1dcaac04d641a63950e6afa02cbed55423371652b9"
+    },
+    "details": {
+      "count": 317,
+      "sha256": "9aaa4d2cf6d5067acf17c0db62b94d86960e7d7423e25adf0852cac5e158fd28"
+    },
+    "orderHistory": {
+      "count": 483,
+      "sha256": "7d1dca61922b822e5d779d7168a29047bfc79a1e1e6f241eb9fb6e966b8b02b2"
+    },
+    "shipmentDetail": {
+      "count": 112,
+      "sha256": "abefd97c2d7009fdb16aed08f89ca0d7608f3daeca26e200404ed7201acf3930"
+    },
+    "dates": {
+      "count": 112,
+      "sha256": "0892ed24fad7c3587ef2ad9029517ac1b200ba6401646612b21ddaeaa4e7bdb7"
+    },
+    "farms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "estimates": {
+      "count": 13,
+      "sha256": "debd98af071abaa0c464aca09325d8202cb58c08ecb631c775a5faaf2da7530d"
+    },
+    "products": {
+      "count": 145,
+      "sha256": "046301d2a321b920c07f6d621961208612921fe6a8db7f2fa5441504bcc026aa"
+    },
+    "productStock": {
+      "count": 25087,
+      "sha256": "771c00c6c682a5126439619155a00823b4b049795df1475a83fbda6125c4c7c3"
+    },
+    "stockHistory": {
+      "count": 2166,
+      "sha256": "c7f2ad0f7e338d27df4181346087c279a8d2d73173fad8c10f89617c3539dcb0"
+    },
+    "stockMaster": {
+      "count": 2,
+      "sha256": "6337019fd571427994500b574eec2fdf1fd7459d4219182431de8eaa7d9970df"
+    },
+    "profit": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "viewOrder": {
+      "count": 289,
+      "sha256": "288a2637ed91f59b531fe89e1ef1ee329e6ad89c570991414aba3cec6ae13781"
+    },
+    "viewShipment": {
+      "count": 112,
+      "sha256": "1b40f0a7b0cd8b8b14b3370384f838fde9cd1242b4e581b04fd999ec161f5834"
+    }
+  },
+  "nativeLookupCustomers": 10,
+  "existingHeadersPreserved": true,
+  "transactionOutcome": "COMMITTED"
+}
