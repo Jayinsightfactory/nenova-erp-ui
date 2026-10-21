@@ -83,7 +83,8 @@
     "codeRecognition": "trimmed case-insensitive ^[A-Z]*CL[A-Z0-9_-]*$ recognizes CL, BCL, HCL, KCL, MCL, YCL and suffix variants; unknown non-empty codes retained with warning",
     "staleRequests": "AbortController plus request generation and exact response scopeKey; stale/cancelled/partial responses cannot mutate current state or enable download",
     "converterBoundary": "CountryOrderMatrix and generatePedidosFromMatrix are ERP-only additions; do not rewrite generatePedidos(workbook, ...) or unrelated country upload parsers",
-    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write"
+    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write",
+    "exportProductOrder": "Each generated workbook sorts product names A-Z case-insensitively before writing rows/formulas, for ERP and uploaded input. Country/category/unit file splits remain unchanged. Ecuador retains adjacent half-box pairing after name sorting."
   },
   "erpMatrixSchema": {
     "source": "erp",
@@ -183,7 +184,8 @@
     "uploaded Netherlands total 9220 is unchanged even when product names contain tulip, hyacinth, skimmia or eucalyptus",
     "BCL16 KCL03 HCL07 MCL73 YCLS are recognized and preserved",
     "uploaded explicit KCL03 Total takes precedence over KCL03 detail columns",
-    "uploaded same-code detail columns are summed when no explicit Total exists"
+    "uploaded same-code detail columns are summed when no explicit Total exists",
+    "Unsorted mixed-case product names export A-Z in all country workbooks with quantities and formulas attached to the original product"
   ],
   "nearMissFixtures": [
     "same OrderWeek in prior year is excluded",
@@ -194,7 +196,8 @@
     "explicit uploaded code Total plus same-code detail columns is not double-counted",
     "missing Customer.OrderCode remains as an explicit column",
     "late response for a previous country or cycle cannot replace the current matrix",
-    "ambiguous uploaded product column fails instead of guessing"
+    "ambiguous uploaded product column fails instead of guessing",
+    "2025 and 2026 same-week matrices sort independently without changing sourceScope or source input"
   ],
   "dnspyEvidence": {
     "required": true,

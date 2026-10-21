@@ -762,3 +762,8 @@
 - 미실측: 여신한도 등록·사유코드 시드·단가 스냅샷 실행 등 쓰기 동작(사장님 계정 필요), 기준일 변경 시 aging.
 - 교훈: /sales/ar 기본 기간은 당월이라 aging(전기간)과 바로 비교 불가. 운영 실측은 로그인 계정이 누구인지 먼저 확인(화면 하단 'OOO (ID)').
 - 검색어: mgmt 운영실측 aging 22035173875 futureExcluded ReceivableLedger입금0 ShipmentHistory Descr 관리자가드 403 PR1197 week-close 42-1
+
+## 2026-10-21 국가별 발주서 품목 정렬
+- 전 국가 Excel 출력과 미리보기를 품목명 A-Z(대소문자 무시)로 정렬. 에콰도르는 전산 기본 품목순 이후 사용자 확인한 합포장 인접 묶음 유지. 수량·단위·박스 산식·원장 보존.
+- 실제 dnSpy FormQuantityPivot 및 PivotGridFieldBase 기본 Ascending 확인. 운영 조회 파일 재개봉: 네덜란드42-02 74품목/16049송이, 에콰도르42-01 8품목/1150송이 보존. 관련39테스트 통과(선택적 로컬원본3개 skip), dnSpy/manifest/write 가드 통과. 전체 ERP 검사·빌드·배포 진행 중(미검증).
+- 검색어: 국가별발주서 엑셀 A-Z 품목정렬 에콰도르 합포장 importPedidos CountryOrders
