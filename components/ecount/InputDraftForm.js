@@ -37,7 +37,7 @@ const lineToPayload = (defs, row) => {
   return out;
 };
 
-export default function InputDraftForm({ program }) {
+export default function InputDraftForm({ program, sourceSaveButton = true }) {
   const [schema, setSchema] = useState(null);
   const [head, setHead] = useState({});
   const [lines, setLines] = useState([{}]);
@@ -128,7 +128,7 @@ export default function InputDraftForm({ program }) {
         <button type="button" disabled={locked || !saved || saved.status === 'reviewed'} onClick={review}>검토 완료</button>
         <input style={{ ...input, width: 240 }} placeholder="수정·취소 사유" maxLength={200} value={reason} disabled={locked} onChange={(e) => setReason(e.target.value)} />
         <button type="button" disabled={locked || !saved} onClick={cancel}>초안 취소</button>
-        <button type="button" disabled title={SOURCE_SAVE_TOOLTIP} aria-disabled="true" data-ecount-action-id={SOURCE_SAVE_MATCH_ID[program]}>원본 저장(F8)</button>
+        {sourceSaveButton && <button type="button" disabled title={SOURCE_SAVE_TOOLTIP} aria-disabled="true" data-ecount-action-id={SOURCE_SAVE_MATCH_ID[program]}>원본 저장(F8)</button>}
       </div>
       {message && <p role="status" style={{ color: message.kind === 'ok' ? '#166534' : '#b91c1c' }}>{message.text}</p>}
       {errors.length > 0 && <ul style={{ color: '#b91c1c' }}>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>}

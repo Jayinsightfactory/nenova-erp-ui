@@ -147,7 +147,7 @@ test('SSR renders every button-matches id exactly once with the observed activat
       if(/^저장/.test(button.label)){assert.ok(button.disabled,`${program} ${button.label}`);assert.ok(html.includes(`title="${SAVE_PENDING_REASON}"><button data-ecount-action-id="${button.id}"`),`${program} ${button.label} reason tooltip`);}
     }
     if(screen.searchPanel.searchId)assert.equal(rendered.find(button=>button.id===screen.searchPanel.searchId).type,'submit');
-    if(screen.kind==='input'){assert.ok(html.includes('입력 항목(읽기 전용'),program);assert.ok(!html.includes(UNCOLLECTED_MESSAGE),program);assert.equal((html.match(/<(?:input|select|textarea)[^>]*disabled/g)||[]).length,screen.fields.length,`${program} read-only fields`);}
+    if(screen.kind==='input'){assert.ok(html.includes('웹 전용 초안(ecount_work.InputDraft)'),`${program} draft form notice`);assert.ok(html.includes('입력 항목(읽기 전용'),program);assert.ok(!html.includes(UNCOLLECTED_MESSAGE),program);assert.equal((html.match(/<(?:input|select|textarea)[^>]*disabled/g)||[]).length,screen.fields.length,`${program} read-only fields`);}
     else if(screen.kind!=='hub')assert.ok(html.includes(UNCOLLECTED_MESSAGE),program);
     if(screen.searchPanel.dateMode==='range'){assert.match(html,/aria-label="조회 시작일"/);assert.match(html,/aria-label="조회 종료일"/);}
     else if(screen.searchPanel.dateMode==='single'){assert.match(html,/aria-label="기준일자"/);assert.doesNotMatch(html,/aria-label="조회 종료일"/);}
