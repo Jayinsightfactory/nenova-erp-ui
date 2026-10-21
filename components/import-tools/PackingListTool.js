@@ -1,4 +1,5 @@
 import styles from '../../styles/ImportPacking.module.css';
+import {createPackingHistoryClient} from '../../lib/packingSharedHistoryClient.js';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
 import { packingReceiptMatchState, effectivePackingMatchReview } from '../../lib/packingReceiptMatchState.js';
@@ -924,7 +925,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '' }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -1022,6 +1023,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const catalogReaderVersion = useRef(0);
   const sharedScopeVersion = useRef(0);
   const processingRef = useRef(false);
+  const teamHistory = useMemo(() => createPackingHistoryClient(userId), [userId]);
+  const [teamHistoryStatus, setTeamHistoryStatus] = useState('');
+  const [teamHistoryError, setTeamHistoryError] = useState('');
+  const [teamHistoryRetry, setTeamHistoryRetry] = useState(0);
+  const sharedRestoreButton = useRef(null);
   useEffect(() => () => {
     ++readerVersion.current; ++catalogReaderVersion.current;
     ++sharedScopeVersion.current;
@@ -1055,8 +1061,34 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     return () => { active = false; };
   }, [workStore, workReady, file, country, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork]);
 
+  useEffect(() => {
+    if (!userId || !file || restoringWork) return;
+    let active = true;
+    setTeamHistoryStatus('팀 업로드 이력 보관 대기 중…');
+    const timer = setTimeout(() => {
+      let pending;
+      try { pending = teamHistory.save({file, country, lastExtraction, reviewRows, reviewConfirmed,
+        legacyReviewData, legacyPackingReviewRequired, extractionSource}); }
+      catch (error) { setTeamHistoryError(error.message); return; }
+      pending.then(() => { if (active) { setTeamHistoryError(''); setTeamHistoryStatus('팀 업로드 이력 보관 완료 · 변경 이력에서 모든 직원이 불러올 수 있습니다.'); } })
+        .catch(error => { if (active) { setTeamHistoryStatus(''); setTeamHistoryError(error.message); } });
+    }, 800);
+    return () => { active = false; clearTimeout(timer); };
+  }, [teamHistory, userId, file, country, lastExtraction, reviewRows, reviewConfirmed, legacyReviewData, legacyPackingReviewRequired, extractionSource, restoringWork, teamHistoryRetry]);
+
+  useEffect(() => {
+    if (!sharedRestore) return;
+    // Stage the shared copy, never replace the currently active file automatically.
+    setSavedWork(sharedRestore.snapshot);
+    setStatus({type:'info',msg:'팀 업로드를 불러왔습니다. 아래 「매칭 작업 이어서 하기」를 눌러 복구하세요. 기존 작업은 팀 이력에서 다시 불러올 수 있습니다.'});
+  }, [sharedRestore]);
+
+  useEffect(() => {
+    if (sharedRestore && savedWork === sharedRestore.snapshot) sharedRestoreButton.current?.focus();
+  }, [sharedRestore, savedWork]);
+
   const restoreWork = async () => {
-    if (!savedWork || !workReady || savingRef.current || processingRef.current) return;
+    if (!savedWork || (!workReady && savedWork !== sharedRestore?.snapshot) || savingRef.current || processingRef.current) return;
     processingRef.current = true; setRestoringWork(true); setWorkError('');
     const version = ++readerVersion.current;
     try {
@@ -1070,7 +1102,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       ]);
       if (readerVersion.current !== version) return;
       const extraction = savedWork.lastExtraction;
-      if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) throw new Error('복구할 분석 결과가 없습니다. 원본 파일을 다시 선택하세요.');
+      if (!extraction?.result?.invoices?.length || !extraction?.sourceInvoices?.length) {
+        resetResults(); setCountry(savedWork.country); setScreen('upload'); setFile(restoredFile); setPdfBase64(base64);
+        setErpMatches(freshErp); setAliases(records.aliases); setLatestShared(false); setSavedWork(null);
+        setStatus({type:'info',msg:'원본 파일을 복구했습니다. 분석을 실행한 뒤 매칭을 확인하세요. 입고는 등록하지 않았습니다.'});
+        return;
+      }
       if (extraction.sourceHash !== hash) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
       if (/\.pdf$/i.test(restoredFile.name) && [...extraction.sourceInvoices, ...extraction.result.invoices].some(invoice => invoice.pdfSourceHash !== hash)) throw new Error('원본 파일과 분석 근거가 일치하지 않습니다. 다시 분석하세요.');
       let confirmed = savedWork.reviewConfirmed;
@@ -1778,14 +1815,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'||Boolean(matchError)} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} onChooseFile={()=>fileRef.current?.click()}/>
         {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
         {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
-        {savedWork && !file && <section className={styles.sourceBadge} aria-label="보관된 패킹 작업">
+        {teamHistoryStatus && file && <p role="status">{teamHistoryStatus}</p>}
+        {teamHistoryError && <p role="alert">팀 이력 보관 실패: {teamHistoryError} · 현재 파일은 유지됩니다. <button type="button" onClick={() => setTeamHistoryRetry(value => value + 1)}>다시 보관</button></p>}
+        {savedWork && <section className={styles.sourceBadge} aria-label="보관된 패킹 작업">
           <strong>이어서 작업: {savedWork.fileName}</strong>
-          <button type="button" onClick={restoreWork} disabled={!sharedReady || saving || processing || restoringWork} data-testid="packing-work-restore" style={{ marginLeft: 16 }}>{restoringWork ? '복구 중…' : '매칭 작업 이어서 하기'}</button>
+          <button ref={sharedRestoreButton} type="button" onClick={restoreWork} disabled={!sharedReady || saving || processing || restoringWork} data-testid="packing-work-restore" style={{ marginLeft: 16 }}>{restoringWork ? '복구 중…' : '매칭 작업 이어서 하기'}</button>
           <button type="button" disabled={restoringWork || saving || processing} onClick={async () => {
             try { await workStore.clear(); setSavedWork(null); setWorkError(''); }
             catch (error) { setWorkError(`임시 작업 삭제 실패: ${error.message}`); }
           }} style={{ marginLeft: 8 }}>보관 작업 삭제</button>
-          <p>이 PC·계정의 임시 작업입니다. 팀 공용 품목 매칭과 ERP 입고 원장은 삭제되지 않습니다.</p>
+          <p>복구 대기 중인 작업입니다. 여기서 삭제해도 팀 업로드 이력·공용 품목 매칭과 ERP 입고 원장은 삭제되지 않습니다.</p>
         </section>}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>

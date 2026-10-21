@@ -6,6 +6,7 @@ import {verifyReqUser} from '../../lib/auth';
 import {createImportTeamStorage} from '../../lib/importTeamClient';
 import styles from '../../styles/ImportTools.module.css';
 import FeedbackFrame from '../../components/import-tools/FeedbackFrame';
+import SharedPackingHistory from '../../components/import-tools/SharedPackingHistory';
 const loading=()=> <p className={styles.loading} role="status">업무도구를 불러오는 중입니다…</p>;
 const PackingListTool=dynamic(()=>import('../../components/import-tools/PackingListTool'),{ssr:false,loading});
 const InvoiceReceiptWorkbench=dynamic(()=>import('../../components/import-tools/InvoiceReceiptWorkbench'),{ssr:false,loading});
@@ -26,11 +27,12 @@ function recordLabel(key){
  for(const [prefix,label] of [['checklist.day.','일일 업무'],['checklist.month.','월별 결제'],['checklist.vacations.','휴가 관리']])if(key.startsWith(prefix))return `${label} · ${key.slice(prefix.length)}`;
  return key;
 }
-function History(){
+function History({onRestore}){
  const [rows,setRows]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  async function load(){setBusy(true);setError('');try{const r=await fetch('/api/import/tools/state',{cache:'no-store'}),d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'이력 조회 실패');setRows(d.history);}catch(e){setError(e.message);}finally{setBusy(false);}}
  useEffect(()=>{load();},[]);
  return <section aria-label="공동 자료 변경 이력">
+  <SharedPackingHistory onRestore={onRestore}/>
   <div className={styles.sectionHeading}><div><h2>공동 자료 변경 이력</h2><p>누가 어떤 자료를 수정했는지 확인하세요. 최근 500건 · 한국 시간 기준</p></div><button onClick={load} disabled={busy}>{busy?'조회 중…':'이력 새로고침'}</button></div>
   {error&&<p className={styles.error} role="alert">{error}</p>}
   <div className={styles.tableScroll} tabIndex={0} role="region" aria-label="변경 이력 표"><table className={styles.historyTable}>
@@ -41,6 +43,8 @@ function History(){
  </section>;
 }
 export default function ImportTools({userId=''}){
+ const [sharedRestore,setSharedRestore]=useState(null);
+ const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');},[]);
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [receiptMatchState,setReceiptMatchState]=useState(null);
@@ -66,7 +70,7 @@ export default function ImportTools({userId=''}){
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>
@@ -74,7 +78,7 @@ export default function ImportTools({userId=''}){
     {feedbackVisited&&<FeedbackFrame className={styles.feedbackFrame}/>}
    </div>
    <div id="import-panel-handoff" hidden={tab!=='handoff'}><HandoffTool/></div>
-   <div id="import-panel-history" hidden={tab!=='history'}>{tab==='history'&&<History/>}</div>
+   <div id="import-panel-history" hidden={tab!=='history'}>{tab==='history'&&<History onRestore={restoreShared}/>}</div>
    <div id="import-panel-products" hidden={tab!=='products'}>{productsVisited&&<Products embedded onDirtyChange={setProductsDirty}/>}</div>
   </div>
  </main></>;
