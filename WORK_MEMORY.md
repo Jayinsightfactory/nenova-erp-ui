@@ -707,3 +707,5 @@
 - UI 파일분석/저장120초, 업체보조조회/저장후조회30초 응답대기 상한. timeout은 서버취소 아님, 초안보존/자동재전송없음/늦은응답 성공표시없음. SQL/API 쓰기정책 변경없음.
 - 회귀: 정상/409/끝나지 않는 요청/JSON본문대기/늦은저장응답/재시도0 실행검사 PASS. 전체필수검사·배포 진행 중. 상세 docs/work-sessions/2026-10-21_upload-response-wait.md.
 - 검색어: 44-01 직원업로드 처리중 응답대기 timeout ShipmentMaster10 169 withOrderImportDeadline
+
+- 2026-10-21 패킹 이력 연도 보강: 개인/공용 snapshot에 dateYear 보관, 복구 시 유지. 연도 없는 구형 기록은 빈 값으로 복구해 현재연도 자동 재적용 차단. 2025/2026 교차연도·기존 기록 fixture 추가. 운영 ERP 원장 변경 없음. 검색어: packing-shared-history dateYear 구형초안 연도복구

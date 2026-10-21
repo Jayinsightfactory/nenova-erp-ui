@@ -34,7 +34,7 @@ test('new staff revision preserves old revision and strips ERP write authority',
 });
 test('different years with same week never merge',async t=>{
  const {api,options}=await setup(t);
- for(const year of [2025,2026]){const request=input();request.snapshot.fileName=`${year}-42-01.pdf`;request.snapshot.lastExtraction={result:{invoices:[{year,week:'42-01'}]}};await api.savePackingUpload(request,'staff',options);}
+ for(const year of [2025,2026]){const request=input();request.snapshot.fileName=`${year}-42-01.pdf`;request.snapshot.dateYear=String(year);request.snapshot.lastExtraction={result:{invoices:[{year,week:'42-01'}]}};const saved=await api.savePackingUpload(request,'staff',options);assert.equal((await api.readPackingUpload(saved.id,options)).snapshot.dateYear,String(year));}
  assert.equal((await api.listPackingUploads(options)).length,2);
 });
 test('rejects traversal, mismatched files, nested evidence hashes and invalid originals',async t=>{
