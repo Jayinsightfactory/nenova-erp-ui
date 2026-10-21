@@ -13,6 +13,6 @@
 2026/44-01/533 ViewOrder48행 합3378, ViewShipment0, Estimate0. 2025 동일차수 ViewOrder93/7808, ViewShipment89/7504.733333333334, DetailFix89, Amount+Vat65902900. WebProfitReport2026/44행0. 운영 DB 쓰기·원본 재적용 없음. 44차 파일 수량 빈칸이므로 backfill 불가.
 
 ## 검증
-실제 38/42/44파일, 순수파서·실제 buildImportPreview 회귀, 격리 MSSQL 신규/중복/롤백/교차연도/원장 보존 통과. 필수 전체검사·최종빌드·브라우저·배포는 진행 중. EXE GUI 직접 조작 미검증.
+실제 38/42/44파일, 순수파서·실제 buildImportPreview 회귀, 격리 MSSQL 신규/중복/롤백/교차연도/원장 보존 통과. 필수 전체검사/manifest/dnSpy/write guard 및 최종빌드 통과. 1366×768 실제 Chrome에서 두 화면·파일 시트 선택·수국만 선택·페이지오류0 확인. PR #1206 CI/배포 진행 중. EXE GUI 직접 조작 미검증.
 
 검색어: 주광 요일업로드 수국 카네이션 시트 범위 ShipmentDate 주문보존 빈칸 중복 감사122
