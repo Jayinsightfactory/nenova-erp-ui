@@ -762,3 +762,9 @@
 - 미실측: 여신한도 등록·사유코드 시드·단가 스냅샷 실행 등 쓰기 동작(사장님 계정 필요), 기준일 변경 시 aging.
 - 교훈: /sales/ar 기본 기간은 당월이라 aging(전기간)과 바로 비교 불가. 운영 실측은 로그인 계정이 누구인지 먼저 확인(화면 하단 'OOO (ID)').
 - 검색어: mgmt 운영실측 aging 22035173875 futureExcluded ReceivableLedger입금0 ShipmentHistory Descr 관리자가드 403 PR1197 week-close 42-1
+
+## 2026-10-21 패킹 날짜 확인 후 다음 버튼 무반응 안내
+- 금일 서버 로그에는 해당 client 검증 실패 기록 없음. 최신 42-1 CHINA CI 업로드 snapshot에 날짜 확인 미완료. 현재 미저장 브라우저 상태와 구분.
+- validateDrafts 실패 시 submitError를 비워놓던 분기 수정: 날짜/총액 사유 등 항목별 즉시 알림창 및 화면 요약. generation 실패 이유도 준비 단계로 전달. 검증 조건·매칭·원문·ERP writer는 보존.
+- 단위/관련 회귀31건 및 빌드 통과. 실제41-1 PDF 로컬 브라우저에서 팝업/인라인/날짜 보존·사유 수정 확인. 전체 검사·배포 결과는 세션 문서 후속 기록. 운영 DB 쓰기 없음.
+- 검색어: packing next blocked DATE_ORDER_AMBIGUOUS 확인사유 submitError 42-1 CHINA
