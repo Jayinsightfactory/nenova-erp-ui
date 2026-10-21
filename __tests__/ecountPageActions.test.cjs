@@ -47,10 +47,16 @@ assert.deepEqual(h.datePreset('fiscalToDate','2024-02-29'),{from:'2024-01-01',to
 assert.deepEqual(h.datePreset('previousHalf','2024-07-01'),{from:'2024-01-01',to:'2024-06-30'});assert.deepEqual(h.datePreset('previousHalf','2024-02-29'),{from:'2023-07-01',to:'2023-12-31'});assert.deepEqual(h.datePreset('thisYear','2024-02-29'),{from:'2024-01-01',to:'2024-12-31'});assert.deepEqual(h.datePreset('previousYear','2025-03-01'),{from:'2024-01-01',to:'2024-12-31'});
 for(const id of ['endOfMonth','fiscalToDate','previousQuarter','previousHalf','thisYear','previousYear','previousFiscal'])assert.throws(()=>h.datePreset(id,'2024-02-30'),/INVALID_DATE/,id);
 // 미관측 라벨: 상수로만 노출, 라벨 매핑과 datePreset 모두 거부. 관측된 8개(말일·이번기수·직전분기·직전반기·금년·전년·직전기수·종료일)는 목록에서 빠졌다.
-assert.equal(h.KNOWN_UNVERIFIED_PRESET_LABELS.length,24);assert.equal(new Set(h.KNOWN_UNVERIFIED_PRESET_LABELS).size,24);assert(Object.isFrozen(h.KNOWN_UNVERIFIED_PRESET_LABELS));assert(Object.isFrozen(h.OBSERVED_PRESET_LABELS));
+assert.equal(h.KNOWN_UNVERIFIED_PRESET_LABELS.length,20);assert.equal(new Set(h.KNOWN_UNVERIFIED_PRESET_LABELS).size,20);assert(Object.isFrozen(h.KNOWN_UNVERIFIED_PRESET_LABELS));assert(Object.isFrozen(h.OBSERVED_PRESET_LABELS));
 assert.deepEqual(h.KNOWN_UNVERIFIED_PRESET_LABELS.filter(label=>Object.hasOwn(h.OBSERVED_PRESET_LABELS,label)),[]);assert(!h.KNOWN_UNVERIFIED_PRESET_LABELS.includes('종료일'));
 assert.equal(Object.keys(h.OBSERVED_PRESET_LABELS).length-2+h.KNOWN_UNVERIFIED_PRESET_LABELS.length,39);// 39개 명칭(다시 작성/다시작성 별칭 2개 제외)
-for(const label of ['금주','금주(오늘~)','차주','금월','금월(오늘~)','이번기수(~전월)','차월','금년(~오늘)','금년(오늘~)','전년+금년','최근 1년','종료월','1분기','2분기','3분기','4분기','상반기','하반기','최근7일','최근3일+7일','6개월(+1개월)','3개월','최근30일','최근30일(+1개월)']){assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes(label),label);assert.throws(()=>h.presetIdForLabel(label),/UNVERIFIED_PRESET/,label);}
+for(const label of ['금주','금주(오늘~)','차주','금월(오늘~)','차월','금년(~오늘)','금년(오늘~)','전년+금년','최근 1년','종료월','1분기','2분기','3분기','4분기','상반기','하반기','최근3일+7일','6개월(+1개월)','3개월','최근30일(+1개월)']){assert(h.KNOWN_UNVERIFIED_PRESET_LABELS.includes(label),label);assert.throws(()=>h.presetIdForLabel(label),/UNVERIFIED_PRESET/,label);}
+// 2026-10-21 P008~P039 원본 관측값(오늘 2026-10-21)으로 활성화한 4개 라벨: 최근30일·금월·최근7일·이번기수(~전월).
+for(const [label,from,to] of [['최근30일','2026-09-21','2026-10-21'],['금월','2026-10-01','2026-10-31'],['최근7일','2026-10-14','2026-10-21'],['이번기수(~전월)','2026-01-01','2026-09-21']])assert.deepEqual(h.datePreset(h.presetIdForLabel(label),'2026-10-21',sunday),{from,to},label);
+assert.deepEqual(h.datePreset('wholeMonth','2026-02-10',sunday),{from:'2026-02-01',to:'2026-02-28'});
+assert.deepEqual(h.datePreset('last30','2026-03-01',sunday),{from:'2026-01-30',to:'2026-03-01'});
+assert.throws(()=>h.datePreset('fiscalToPreviousMonthSameDay','2026-01-15',sunday),/UNVERIFIED_PRESET/);// 1월: 전월이 전년이라 미관측
+assert.throws(()=>h.datePreset('fiscalToPreviousMonthSameDay','2026-03-31',sunday),/UNVERIFIED_PRESET/);// 2월 31일 없음: 미관측
 for(const id of ['lastDay','nextWeek','nextMonth','recent30','quarter1','firstHalf','endMonth','recent3plus7','fiscalYear','thisHalf'])assert.throws(()=>h.datePreset(id,observedAt,sunday),/UNVERIFIED_PRESET/,id);
 // 조사 어댑터(lib/ecountPresetSurvey.cjs): 라벨 존재만 근거, 비날짜 라벨·initial 제외, 미조사 프로그램은 빈 목록, 활성 라벨은 전부 id 가 있다.
 const survey=require('../lib/ecountPresetSurvey.cjs');
