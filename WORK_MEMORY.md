@@ -640,6 +640,14 @@
 - 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
 - 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
 
+## 2026-10-21 ECOUNT 이관 재개 4차(후반) — P020~P039 원본 조사 97/125·셸 169화면
+- 원본 조사: 사장님 크롬 ECOUNT 세션 읽기 전용. 결과는 페이지 메모리→압축 행(JSON)으로 900자씩 읽어 scratchpad/survey/inbox/s*.json 에 즉시 저장(127.0.0.1 수신기 POST 는 자동승인 분류기가 Browser JS Exfil 로 차단 → 사용 중단). 변환기 scratchpad/survey/expand2.cjs(재조사 행이 더 풍부하면 교체, 사이트맵만 렌더된 화면 제외, 남은 ECOUNT 안내창 확인 버튼 제외).
+- 함정: (1) 4초 고정 대기는 입력/시리얼 화면 미렌더 → 제목 변경+컨트롤>3 대기 루프(최대 16초). (2) 계정별원장 프리셋 후 "검색창에 계정코드를 입력하고 검색 바랍니다" 안내가 무한 반복 — 자동 확인 클릭(setInterval)이 오히려 루프를 키움(6분 623회). 끄면 정상. (3) ERP 주소를 ec_req_sid 없이 다시 열면 로그아웃 → location.reload() 만 쓸 것. (4) 크롬 확장 재연결마다 탭 그룹 재생성.
+- 릴리스: PR #1215 90화면 조사 적재(+1,223버튼) · #1216 P020~P039 대상 셸(워커, 판정 규칙 3개 추가: 저장(F8)+저장/전표(F7)=input, 26 / 09 / 날짜 정규화, other 의 Search(F3)→토글) · #1217 회계I 7화면 추가(+74, 셸 169화면·ID 2,271·활성 1,054/자리표시 1,217). 전부 CI pass 후 squash.
+- 현황(2,047→3,344 관측 버튼): 버튼 목록 확보 202/373, 구현 817 / 미구현 1,076 / 조건부 13 / 미관측 1,313(새 셸은 크롤 전이라 아직 미관측) / API설계전용 125 / 검증 0. 남은 조사 28화면(회계I E010712~E010823), 재로그인 대기.
+- 다음: 남은 28화면 조사 → 대상 DOM 재크롤(로컬 prod 빌드 포트 3100, scripts/ecount-dom-crawl.cjs, 이전 크롤 union 필수) → 미관측→미구현/구현 재분류.
+- 검색어: ECOUNT 재개4차후반 PR1215 PR1216 PR1217 survey7 survey8 expand2 계정코드안내창루프 ec_req_sid로그아웃 BrowserJSExfil 97/125 셸169
+
 ## 2026-10-21 ECOUNT 이관 재개 4차 — 회수·셸 새창·InputDraft API·105화면 대상 DOM 병합
 - 회수(0단계): ECOUNT 관련 로컬/origin 브랜치·agent-* worktree 산출물은 전부 master 머지 확인(#1164~#1175, #1178~#1182, #1195). 유실 1건: 앞 세션(local_d76e6a38)의 P020~P039 125화면 원본 조사 결과(99/125)는 디스크 미저장·탭 메모리(window.__survey5)만 → 재조사 대상.
 - 릴리스4(이 세션): PR #1200 P008~P019 셸 검색패널 거래처/품목/창고 새창 연결(활성 437→440) · #1201 입력 화면 7종 InputDraft 저장 API(/api/ecount/input-drafts GET/POST/PATCH, 테이블 없으면 503 MIGRATION_PENDING, DDL 미실행)+InputDraftForm · #1202 셸에 폼 통합(sourceSaveButton prop 으로 matchId 중복 방지) · #1208 105화면 대상 DOM 크롤(로컬 prod 빌드 8ab5da0c, 포트 3100) 병합. 전부 CI verify pass 후 squash.
