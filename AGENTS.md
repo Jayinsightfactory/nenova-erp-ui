@@ -132,3 +132,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 배포 후 `https://nenovaweb.com/api/ping` 200, 버전 배지 = 커밋 해시.
 
 전역 규칙은 `~\/.codex\/AGENTS.md`, 진입 문서는 `.claude\/CLAUDE.md`·루트 `CLAUDE.md`.
+
+## 출고 연결 헤더 작업 시 추가 확인
+
+주문 업로드 또는 EXE 분배 연결 오류를 수정·보정할 때는 [출고 연결 헤더 계약](docs/knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md)을 먼저 읽는다. `FormOrderAdd`의 빈 헤더 준비와 `FormShipmentDistribution.GetShipmentMaster`의 조회 전제를 구분한다. 헤더 복구를 위해 예전 주문 파일을 재등록하지 않으며, 삭제 포함 기존 헤더가 있으면 단순 신규 생성으로 처리하지 않는다. 해당 source 계약과 실행형 API 회귀검사를 유지한다.
