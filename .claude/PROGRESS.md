@@ -2,6 +2,26 @@
 
 > 최신 항목이 위에 오도록 유지. Claude 가 매 세션 끝에 자동 추가.
 
+## [2026-10-21] 세션 — ECOUNT 이관 재개 1차(코덱스 인수)
+
+### 작업 내용
+- PR1161 운영회귀 닫기(API 2,217행/34구역 PASS, 다른 날짜 미수집 표시 PASS, 브라우저 표 렌더는 미로그인으로 미검증)
+- 33화면 대상 DOM 크롤 증거(운영 698/로컬 977 of 1,019) → button-matches.json 갱신, 1단계 분류표 생성
+- ACTION_IDS 누락 11데이터셋 수정 + 커버리지 테스트
+
+### 변경된 파일
+- components/ecount/ObservedPageControls.js: 11 데이터셋 ID 맵 추가
+- scripts/ecount-dom-crawl.cjs, ecount-merge-dom-evidence.cjs, ecount-step1-summary.cjs, ecount-update-resume-inventory.cjs: 신규
+- data/ecount-workbench/button-matches.json, evidence/*: 증거 병합
+- docs/ecount-migration/step1-closure-2026-10-21.md, docs/session-backups/2026-10-21_*: 현황/인벤토리
+
+### 다음 작업 예정
+- ECOUNT 로그인 후 33화면 기간 프리셋·새창 원본 관측 → 자리표시 708개 중 datePreset 가능 항목 활성화
+- P008~P019 미관측 묶음 버튼 조사
+
+### 미결 이슈 / 블로킹
+- 크롬 ECOUNT 세션 로그인 필요(사장님), 네노바웹 브라우저 로그인 없음(API 토큰으로 대체)
+
 ## [2026-10-19] Codex 인수 후 보완
 
 - 사용자 주문 선등록 정책 확인. 금액정렬 기본 SQL의 EstQuantity SET 제거, 혼합 Cost 보존.
