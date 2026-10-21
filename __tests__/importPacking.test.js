@@ -285,6 +285,7 @@ async function main() {
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
       '../../lib/importPackingSourceReview.js': sourceReview,
       '../../lib/importPackingMatchPreview.js': matchPreview,
+      '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),
       '../../lib/packingMatchReview.js': matchReview,
       '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,

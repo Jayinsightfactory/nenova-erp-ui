@@ -12,6 +12,7 @@ import { findLegacyChinaInvoiceCandidates, parseChinaLegacyInvoiceWorkbook } fro
 import { resolveLegacyChinaInvoice } from '../../lib/importChinaLegacyReview.js';
 import {packingErpCatalog,packingErpAliases} from '../../lib/importPackingErpMatches.js';
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
+import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
@@ -1733,6 +1734,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${rowIndex}`)
     ))).filter(review => review.needsReview).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
+  const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country);
+  const openValidationIssue = issue => {
+    setReviewInitialTarget({ invoiceIndex: issue.invoiceIndex, field: issue.field, lineIndex: issue.lineIndex });
+    setReviewOpen(true);
+  };
   const prepareReceipt = async () => {
     const blockedReason = !sharedReady ? '팀 공용 매칭 정보를 불러오는 중입니다. 조회 오류가 있으면 매칭 정보를 다시 불러오세요.'
       : savingRef.current ? '품목 매칭 저장이 끝난 뒤 진행해 주세요.'
@@ -1770,6 +1776,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       focusReceipt();
     } catch (error) {
       setStatus({ type: 'error', msg: `입고 업로드 준비 실패: ${error.message} · 「인식값 수정」에서 해당 값을 고쳐 주세요. 현재 매칭과 파일은 유지됩니다.` });
+      if (validationIssues.length) openValidationIssue(validationIssues[0]);
     } finally {
       processingRef.current = false; setProcessing(false);
     }
@@ -2141,6 +2148,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   );
                 })()}
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{excels.length ? t.generatedSection : 'DB 매칭 미리보기'}</div>
+                {validationIssues.length > 0 && <section aria-label="입고 진행을 막는 인식값" data-testid="packing-validation-issues" className={styles.sourceBadge}>
+                  <h3>입고 전 수정 필요 · {validationIssues.length}건</h3>
+                  <p>품목 매칭과 별도입니다. 아래 값을 수정하고 재검증하면 입고 준비를 이어갈 수 있습니다.</p>
+                  <ul>{validationIssues.map((issue,index) => <li key={`${issue.invoiceIndex}-${issue.code}-${index}`} style={{marginBottom:8,overflowWrap:'anywhere'}}>
+                    <strong>{issue.invoiceLabel}</strong> · {issue.text}{' '}
+                    <button type="button" disabled={processing || saving} onClick={() => openValidationIssue(issue)}>해당 값 수정</button>
+                  </li>)}</ul>
+                </section>}
                 <PackingResults
                   erpProducts={excels.length ? (generatedErp?.products || []) : (erpMatches?.products || [])}
                   receiptMatches={receiptMatches}
