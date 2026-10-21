@@ -660,3 +660,10 @@
 - 미검증: 이카운트 공식 help 대조, "커버리지 40%" 원문 미발견, 상위10이 실제 수기 관리인지(사장님 확인 필요), Amaranth/K-System 상세 모듈.
 - 맥락: 바이브코딩 직원→전산 연결 플랫폼 구상(데이터 계약·직원별 MCP 권한 토큰·검증게이트·실행consumer·절차 가이드 5층) 논의에서 파생.
 - 검색어: ERP공백 3축대조 이카운트430메뉴 미사용74% 여신한도 채권aging 환차손익 송금결재선 ERP_GAP_ANALYSIS 플랫폼5층
+
+## 2026-10-21 경영관리(mgmt) 모듈 기반 — ECOUNT 이관과 공존 설계·골격 PR
+- 설계 docs/mgmt/MGMT_CONTROLS_DESIGN.md: 이관 소유 경로(lib/ecount*, pages/(api/)ecount, components/ecount, data/ecount-workbench, docs/ecount-migration, ecount_work 스키마) 접촉 금지, mgmt 네임스페이스(lib/mgmt·pages/mgmt·pages/api/mgmt·web_mgmt 스키마) 분리, 공유 핫스팟(Layout.js·package.json·erpContractManifest.test.js) 최소 삽입+리베이스 규칙, ecount_work는 lib/mgmt/sources.js 어댑터로 읽기만, 승인모델은 이관 Outbox와 같은 상태의미(draft→requested→approved|rejected→applied, 요청자 본인 승인 금지, 하드삭제 트리거 차단).
+- 골격: web_mgmt 9테이블 DDL(docs/migrations/2026-10-21_web_mgmt_controls.sql, 멱등), lib/mgmt/{schema,schemaMeta,boundary,sources,approval,approvalPolicy}.js, /api/mgmt/approvals, /mgmt 홈(상위10 카드)·/mgmt/approvals, 계약 docs/contracts/management-controls.json, 메뉴 그룹 '경영관리'(nenovaSS3만).
+- 자동검사: __tests__/mgmtBoundary.test.js --changed-from origin/master 가 mgmt 변경 PR이 이관 파일을 건드리면 실패. SQL 쓰기동사 가드(ecount_work·ERP 원장). test:erp-contract 끝에 test:mgmt 연결.
+- 다음: A군(여신한도·aging·단가이력·클레임코드·마감체크·거래처이익/목표·감사뷰) 기능별 PR, B군(입금대사·환차손익·송금결재선)은 어댑터 소스 채워지는 대로. 각 PR 전 origin/master 리베이스.
+- 검색어: mgmt 경영관리 web_mgmt 경계 boundary ECOUNT이관공존 ApprovalRequest 결재선 management-controls 계약 MGMT_CONTROLS_DESIGN
