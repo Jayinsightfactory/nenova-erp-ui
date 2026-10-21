@@ -1,7 +1,7 @@
 {
  "observedOn": "2026-10-21",
  "site": "ECOUNT logincc.ecount.com/ec56 (owner session in Claude tab group, read-only survey)",
- "method": "in-page survey of P020~P039 (batch 1-2 of 3) programs: hash navigate, open search panel, enumerate visible controls [label, disabled, ctxCode], visible input fields [label, type, required], click 간편검색 presets (except 설정/검색(F8)) and read the date widget; no save/confirm/delete/transmit clicked; ECOUNT confirm dialogs cancelled with 취소/닫기; page alert/confirm silenced (confirm→false)",
+ "method": "in-page survey of P020~P039 (batch 1-3 partial) programs: hash navigate, open search panel, enumerate visible controls [label, disabled, ctxCode], visible input fields [label, type, required], click 간편검색 presets (except 설정/검색(F8)) and read the date widget; no save/confirm/delete/transmit clicked; ECOUNT confirm dialogs cancelled with 취소/닫기; page alert/confirm silenced (confirm→false)",
  "privacy": {
   "rawBusinessValues": false,
   "personalData": false,
@@ -11271,6 +11271,661 @@
     [
      "다시 작성",
      "26 10 27 01 26 10 25 12"
+    ]
+   ]
+  },
+  "E010812": {
+   "title": "손익계산서",
+   "panelText": "기본 부서표시방법 집계 종 횡 기준일자 26 / 01 ~ 26 / 10 직전기수 전기동일기간 당기누계 직접입력 선택안함 부서 기타 천단위 잔액0포함 내역없는부서/프로젝트제외 전표발생계정 사용중단/삭제포함 기초,당기,기말표시 양식 적용양식 기본(수정불가) 검색(F8) 금월(~오늘) 전월 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09 25 01 ~ 25"
+    ],
+    [
+     "이번기수",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12 24 01 ~ 24"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 10 26 01 ~ 26"
+    ]
+   ]
+  },
+  "E010844": {
+   "title": "계정명세서",
+   "panelText": "기본 기준일자 26 / 10 / 계정속성 전표입력계정 집계계정 계정 부서 대표거래처로 합산 거래처관계기준 개별거래처기준 양식 적용양식 기본(수정불가) 양식구분 결재방표시 데이터 보기형식 그래프로 보기 검색(F8) 금월(~오늘) 전월 전월+금월 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 09 ~ 26 10 21 26 10 ~"
+    ],
+    [
+     "금월(~오늘)",
+     "26 09 ~ 26 10 21 26 10 ~"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09 30 26 10 ~"
+    ],
+    [
+     "전월+금월",
+     "26 09 ~ 26 10 21 26 10 ~"
+    ],
+    [
+     "이번기수",
+     "26 09 ~ 26 10 21 26 10 ~"
+    ],
+    [
+     "직전기수",
+     "26 09 ~ 25 12 31 26 10 ~"
+    ],
+    [
+     "다시 작성",
+     "26 09 ~ 25 12 31 26 10 ~"
+    ]
+   ]
+  },
+  "E010811": {
+   "title": "합계잔액시산표",
+   "panelText": "기본 전체 조회일자 26 / 01 ~ 26 / 09 부서 기타 결재방표시 천단위 잔액0포함 전표발생계정 결산후 기본양식(누계) 검색(F8) 금월(~오늘) 이번기수(~전월) 전월 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본양식(누계)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수(~전월)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 01 ~ 26 09"
+    ],
+    [
+     "기본양식(누계)",
+     "26 01 ~ 26 09"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "이번기수(~전월)",
+     "26 01 ~ 26 09"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 09"
+    ]
+   ]
+  },
+  "E010861": {
+   "title": "현금흐름표",
+   "panelText": "기본 회계기수 기간 양식 적용양식 현금흐름표 검색(F8) 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "현금흐름표",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "신규(F2)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     ""
+    ],
+    [
+     "다시 작성",
+     ""
+    ]
+   ]
+  },
+  "E010817": {
+   "title": "이익잉여금처분계산서",
+   "panelText": "",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "신규(F2)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     ""
+    ]
+   ]
+  },
+  "E010832": {
+   "title": "수입지출명세서",
+   "panelText": "기본 전체 기준일자 26 / 01 ~ 26 / 10 부서 구분 사용안함 표시방법 집계 부서 인쇄 일반 월별 사용중단/삭제포함 기타 결재방표시 천단위 금액0포함 출력물 검색(F8) 금월(~오늘) 전월 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "사용안함",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "출력물",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "출력물",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09"
+    ],
+    [
+     "이번기수",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 10"
+    ]
+   ]
+  },
+  "E010730": {
+   "title": "회계 vs. 재고 비교",
+   "panelText": "기본 전체 조회일자 26 / 09 ~ 26 / 10 회계거래처 회계계정 회계부서 프로젝트그룹1 재고구분 판매 재고거래처 재고창고 프로젝트그룹1 금액 공급가액 합계금액 대상 거래처 검색(F8) 금월(~오늘) 전월 전월+금월 금년 전년 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "판매",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 09 ~ 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09"
+    ],
+    [
+     "전월+금월",
+     "26 09 ~ 26 10"
+    ],
+    [
+     "금년",
+     "26 01 ~ 26 12"
+    ],
+    [
+     "전년",
+     "25 01 ~ 25 12"
+    ],
+    [
+     "다시 작성",
+     "26 09 ~ 26 10"
     ]
    ]
   }
