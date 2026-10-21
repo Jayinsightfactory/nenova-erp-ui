@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
@@ -119,9 +118,6 @@ export default function DistributeImport() {
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
-  const [uploadSheets, setUploadSheets] = useState([]);
-  const [uploadSheet, setUploadSheet] = useState('');
-  const [uploadFamily, setUploadFamily] = useState('');
   const sheetLoadRef = useRef(0);
   const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
   const [preview, setPreview] = useState(null);
@@ -304,8 +300,8 @@ export default function DistributeImport() {
   const handlePreview = async (options = {}) => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
-    if (!uploadSheet || !uploadFamily) { setError('검증할 시트와 품종을 선택하세요.'); return; }
     if (options.requireConfirmation && !confirm(`선택 차수: ${weekInput.value}\n업로드 파일: ${file.name}\n\n해당 차수에 이 파일이 맞습니까?\n확인을 누르면 검증을 시작합니다.`)) return;
+    const fileRevision = sheetLoadRef.current;
     setLoading(true);
     setError('');
     if (!options.preserveMessage) setMessage('');
@@ -320,8 +316,6 @@ export default function DistributeImport() {
       form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
       form.append('earlyImportMode', earlyImportMode);
       form.append('file', file);
-      form.append('sheetName', uploadSheet);
-      form.append('productFamily', uploadFamily);
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
       }
@@ -336,6 +330,7 @@ export default function DistributeImport() {
       };
       const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
       const data = await res.json();
+      if (fileRevision !== sheetLoadRef.current) return;
       if (!data.success) throw new Error(data.error || '검증 실패');
       verifiedOverridesRef.current = submittedOverrides;
       setPreview(data);
@@ -375,9 +370,9 @@ export default function DistributeImport() {
         }
       }
     } catch (e) {
-      setError(e.message);
+      if (fileRevision === sheetLoadRef.current) setError(e.message);
     } finally {
-      setLoading(false);
+      if (fileRevision === sheetLoadRef.current) setLoading(false);
     }
   };
 
@@ -388,7 +383,6 @@ export default function DistributeImport() {
     }
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
-    if (!uploadSheet || !uploadFamily) { setError('검증할 시트와 품종을 선택하세요.'); return; }
     if (!confirm(`${weekInput.value}차 업로드 파일에서 매칭되는 품목 범위를 먼저 일괄 출고분배합니다.\n\n기준: 기존 주문등록 수량\n변경: 출고분배/출고일만 정리\n주문등록 수량은 변경하지 않습니다.\n\n이 작업 후 검증하기를 눌러 엑셀 변경분을 다시 확인하세요.`)) return;
 
     setPreAligning(true);
@@ -409,8 +403,6 @@ export default function DistributeImport() {
       const form = new FormData();
       form.append('week', weekInput.value);
       form.append('file', file);
-      form.append('sheetName', uploadSheet);
-      form.append('productFamily', uploadFamily);
       const res = await fetch('/api/shipment/distribute-import-prealign', { method: 'POST', body: form });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '일괄 출고분배 실패');
@@ -499,6 +491,7 @@ export default function DistributeImport() {
     if (!confirm(`${preview.orderYear}/${preview.week} 전체 분배 교체\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 파일에서 빠진 업체·품목의 기존 분배는 0으로 취소합니다. 전체 교체를 승인하시겠습니까?`)) {
       return;
     }
+    const fileRevision = sheetLoadRef.current;
     setApplying(true); setError(''); setMessage('');
     const initialApplyResult = {
       running: true,
@@ -526,6 +519,7 @@ export default function DistributeImport() {
           if (progressRes.status === 401) throw new Error('로그인 세션이 만료되었습니다.');
           if (!progressRes.ok) continue;
           const progressData = await progressRes.json();
+          if (fileRevision !== sheetLoadRef.current) return { success: false, error: '업로드 파일이 변경되었습니다. 새 파일을 검증하세요.' };
           const serverProgress = progressData?.progress;
           if (!serverProgress) continue;
           setApplyResult(prev => (prev?.running ? { ...prev, progress: serverProgress } : prev));
@@ -548,7 +542,7 @@ export default function DistributeImport() {
       try {
         const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
         const d = await r.json();
-        if (d?.progress) {
+        if (fileRevision === sheetLoadRef.current && d?.progress) {
           setApplyResult(prev => (prev && prev.running ? { ...prev, progress: d.progress } : prev));
         }
       } catch { /* 폴링 실패는 무시 — 본 요청이 결과를 준다 */ }
@@ -580,8 +574,9 @@ export default function DistributeImport() {
           data = await recoverApplyResult();
         }
       }
+      if (fileRevision !== sheetLoadRef.current) return;
       if (!data.success) {
-        if (res.status === 409 && data.code === 'QTY_WARNING') {
+        if (res?.status === 409 && data.code === 'QTY_WARNING') {
           throw new Error(data.error || '수량 단위 이상 징후로 적용이 차단되었습니다. 검증 화면을 다시 확인하세요.');
         }
         throw new Error(data.error || '적용 실패');
@@ -599,6 +594,7 @@ export default function DistributeImport() {
       if (verifyMismatchCount > 0) setError(`사후 검증에서 미반영·불일치 ${verifyMismatchCount}건이 발견됐습니다. 적용 내역 아래 검증 결과 표를 확인하세요.`);
       await handlePreview({ preserveMessage: true, preserveApplyResult: true });
     } catch (e) {
+      if (fileRevision !== sheetLoadRef.current) return;
       setError(e.message);
       setApplyResult(prev => ({
         ...(prev || initialApplyResult),
@@ -610,7 +606,7 @@ export default function DistributeImport() {
       setApplyModalOpen(true);
     } finally {
       clearInterval(pollTimer);
-      setApplying(false);
+      if (fileRevision === sheetLoadRef.current) setApplying(false);
     }
   };
 
@@ -666,10 +662,12 @@ export default function DistributeImport() {
             type="file"
             accept=".xlsx,.xls"
             style={{ display: 'none' }}
-            onChange={async e => {
+            onChange={e => {
               const selectedFile = e.target.files?.[0] || null;
-              const request = ++sheetLoadRef.current;
-              setFile(selectedFile); setUploadSheet(''); setUploadFamily(''); setUploadSheets([]);
+              ++sheetLoadRef.current;
+              setFile(selectedFile);
+              verifiedOverridesRef.current = { cust: {}, prod: {} };
+              setApplyModalOpen(false); setLoading(false);
               setPreview(null);
               setApplyResult(null);
               setPreAlignResult(null);
@@ -678,20 +676,11 @@ export default function DistributeImport() {
               setOverrides({});
               setProdOverridesState({});
               setUnmatchedModalOpen(false);
-              if (selectedFile) {
-                try {
-                  const book = XLSX.read(await selectedFile.arrayBuffer(), { type: 'array', bookSheets: false });
-                  if (request !== sheetLoadRef.current) return;
-                  const names = book.SheetNames.filter((name, index) => name !== '_keymap' && !book.Workbook?.Sheets?.[index]?.Hidden);
-                  setUploadSheets(names); if (names.length === 1) setUploadSheet(names[0]);
-                } catch { if (request === sheetLoadRef.current) setError('엑셀 시트 목록을 읽지 못했습니다.'); }
-              }
+
             }}
           />
           <button disabled={loading || applying || preAligning} style={st.secondaryBtn} onClick={() => fileRef.current?.click()}>파일 선택</button>
-          {uploadSheets.length > 0 && <label>적용 시트 <select disabled={loading || applying || preAligning} value={uploadSheet} onChange={e => { setUploadSheet(e.target.value); setPreview(null); setApplyResult(null); setOverrides({}); setProdOverridesState({}); }}><option value="">시트를 선택하세요</option>{uploadSheets.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
-          {file && <label>적용 품종 <select disabled={loading || applying || preAligning} value={uploadFamily} onChange={e => { setUploadFamily(e.target.value); setPreview(null); setApplyResult(null); setOverrides({}); setProdOverridesState({}); }}><option value="">품종을 선택하세요</option><option value="hydrangea">수국만</option><option value="carnation">카네이션만</option><option value="rose">장미만</option><option value="alstroemeria">알스트로만</option><option value="all">선택 시트의 전체 품종</option></select></label>}
-          <span style={st.fileName}>{file ? file.name : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
+          <span style={st.fileName}>{file ? `${file.name} · 새 파일 내용 기준` : '차수피벗 출고리스트 또는 분류프로그램 결과 물량표 엑셀을 선택하세요'}</span>
           <button
             style={preAlignAvailable ? st.preAlignBtn : st.preAlignDisabledBtn}
             onClick={handlePreAlign}

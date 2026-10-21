@@ -15,7 +15,8 @@
     "pages/shipment/distribute-import.js",
     "pages/api/shipment/distribute-import-preview.js",
     "lib/weekdayDistributionApply.js",
-    "pages/api/shipment/distribute-import-prealign.js"
+    "pages/api/shipment/distribute-import-prealign.js",
+    "__tests__/shipmentImportFileScope.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -47,7 +48,8 @@
   "requiredTestFiles": [
     "__tests__/jugwangWeekdayUpload.test.js",
     "__tests__/shipmentImportCustomerExclusionPreview.test.js",
-    "scripts/test-jugwang-upload-sql.cjs"
+    "scripts/test-jugwang-upload-sql.cjs",
+    "__tests__/shipmentImportFileScope.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -82,5 +84,5 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
   ],
-  "sheetScope": "Only selected visible sheet contributes rows and hidden keymap keys; stale removed-sheet keys excluded. Full replacement inside the explicitly selected category retains its existing contract."
+  "sheetScope": "Fresh visible workbook contents determine rows and family; no manual family/sheet choice. Hidden/deleted-sheet keymaps cannot expand source scope. Cross-family matching is blocked. Fresh file invalidates prior preview/mappings/progress. Existing category replacement write contract is preserved."
 }
