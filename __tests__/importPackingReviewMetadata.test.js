@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+require('./packingValidationIssues.test.js');
 
 const ready = import('../lib/importPackingReview.js');
 const component = fs.readFileSync(path.join(__dirname, '../components/import-tools/PackingEvidenceReview.js'), 'utf8');

@@ -7,8 +7,8 @@ const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
 const FIELD_TEST_IDS = { gw: 'field-gw', cw: 'field-cw', freight: 'field-freight' };
 const SOURCE_FIELD_LABELS = { description: '원문 품명', pcs: '박스', total_bunch: '단수', total_stems: '송이 수', steam_box: '박스당 송이', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
-const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total'];
-const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액' };
+const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total', 'handling'];
+const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액', handling: 'Handling 비용' };
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 const rowIdentity = row => String(row?.invoiceIndex ?? '');
@@ -104,11 +104,11 @@ function validateMetadataDraft(draft, baseline, rowErrors, requireConfirmation =
     } else if (field === 'date_kind' && required && !value) rowErrors.metadata_date_kind = '원문 날짜의 의미를 선택하세요.';
     if (field === 'currency' && value && !/^[A-Za-z]{3}$/.test(value)) rowErrors.metadata_currency = '원문에서 확인한 ISO 4217 3문자 통화를 입력하세요.';
     else if (field === 'currency' && required && !value) rowErrors.metadata_currency = '원문에서 확인한 ISO 4217 통화를 입력하세요.';
-    if (field === 'invoice_total' && value) {
+    if (['invoice_total', 'handling'].includes(field) && value) {
       const validAmount = /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,8})?$/.test(value);
       const amount = validAmount ? Number(value.replaceAll(',', '')) : NaN;
-      if (!validAmount || !Number.isFinite(amount) || Math.abs(amount) > 1e12) rowErrors.metadata_invoice_total = '송장 총액 숫자 형식 또는 범위를 확인하세요.';
-    } else if (field === 'invoice_total' && required) rowErrors.metadata_invoice_total = '원문에 인쇄된 송장 총액을 입력하세요.';
+      if (!validAmount || !Number.isFinite(amount) || Math.abs(amount) > 1e12) rowErrors[`metadata_${field}`] = `${METADATA_LABELS[field]} 숫자 형식 또는 범위를 확인하세요.`;
+    } else if (['invoice_total', 'handling'].includes(field) && required) rowErrors[`metadata_${field}`] = `원문에 인쇄된 ${METADATA_LABELS[field]}을 입력하세요.`;
     if (!required) continue;
     if (requireConfirmation && draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
     if (!stringValue(draft.metadata?.reasons?.[field]).trim()) rowErrors[`metadata_${field}_reason`] = `${METADATA_LABELS[field]} 확인 사유를 입력하세요.`;
@@ -185,7 +185,7 @@ export default function PackingEvidenceReview({
   const [drafts, setDrafts] = useState(() => safeRows.map(makeDraft));
   const [sourceDrafts, setSourceDrafts] = useState(() => sourceDraftsFrom(sourceEntries));
   const [showAllSourceRows, setShowAllSourceRows] = useState(() => targetEntry?.row?.reviewRequired === false);
-  const [selectedKey, setSelectedKey] = useState(() => targetEntry ? String(targetEntry.invoiceIndex) : rowIdentity(safeRows[0]));
+  const [selectedKey, setSelectedKey] = useState(() => Number.isInteger(initialTarget?.invoiceIndex) ? String(initialTarget.invoiceIndex) : rowIdentity(safeRows[0]));
   const [activeField, setActiveField] = useState(() => targetEntry
     ? { key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key }
     : safeRows.length ? { key: rowIdentity(safeRows[0]), field: 'gw' } : null);
@@ -205,6 +205,16 @@ export default function PackingEvidenceReview({
   const canvasRef = useRef(null);
   const canvasScrollerRef = useRef(null);
   const autoFitPreviewRef = useRef(null);
+
+  useEffect(() => {
+    if (!open || !initialTarget?.field) return;
+    setSelectedKey(String(initialTarget.invoiceIndex));
+    const timer = setTimeout(() => {
+      const input = dialogRef.current?.querySelector(`[id="metadata-${initialTarget.field}-${initialTarget.invoiceIndex}"]`);
+      input?.focus(); input?.scrollIntoView({ block: 'center' });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [open, initialTarget]);
 
   const invalidateConfirmations = () => {
     setSourceDrafts(previous => Object.fromEntries(Object.entries(previous).map(([key, draft]) => [key, { ...draft, confirmed: false }])));
@@ -245,6 +255,11 @@ export default function PackingEvidenceReview({
     setActiveField({ key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key });
     if (targetEntry.row?.reviewRequired === false) setShowAllSourceRows(true);
     if (preview && Number.isInteger(targetPage) && targetPage > 0 && targetPage <= preview.numPages) setPageNumber(targetPage);
+    const timer = setTimeout(() => {
+      const input = dialogRef.current?.querySelector(`[data-source-row-key="${targetEntry.key}"] input`);
+      input?.focus(); input?.scrollIntoView({ block: 'center' });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [open, targetEntry?.key, targetPage]);
 
   useEffect(() => {
@@ -546,7 +561,8 @@ export default function PackingEvidenceReview({
     {selectedRow.metadata.issues.length > 0 && <ul aria-label="원본 추출 문제">
       {selectedRow.metadata.issues.map((issue, index) => <li key={`${issue.code || 'issue'}-${index}`}>{issue.message || issue.code || '원문 확인 필요'}</li>)}
     </ul>}
-    {METADATA_FIELDS.map(field => {
+    <p className={styles.explanation} data-testid="invoice-total-breakdown">원본 상품 금액 합계 {selectedRow.metadata.goodsAmount ?? '미인식 상품행 있음'} + 운송·부대비 {selectedDraft?.values?.freight || '미인식'}{selectedRow.metadata.hasHandling ? ` + Handling ${selectedDraft?.metadata?.values?.handling || '미인식'}` : ''} = 송장 총액. 수정 상품값은 적용 시 다시 검산합니다. 차이는 0.01 이내여야 합니다. 빈 비용을 임의로 0 처리하지 않습니다.</p>
+    {METADATA_FIELDS.filter(field => field !== 'handling' || selectedRow.metadata.hasHandling).map(field => {
       const evidence = selectedRow.metadata.evidence?.[field];
       const id = `metadata-${field}-${selectedKey}`;
       const errorKey = `metadata_${field}`;
@@ -716,9 +732,9 @@ export default function PackingEvidenceReview({
 
               {selectedRow?.explanation && <p className={styles.explanation}>{selectedRow.explanation}</p>}
 
-              {sourceReviewSection}
-
               {showMetadataFirst && metadataSection}
+
+              {sourceReviewSection}
 
               <div className={styles.fields}>
                 {FIELDS.map(field => {

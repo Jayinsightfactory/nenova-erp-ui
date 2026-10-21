@@ -539,5 +539,6 @@
 
 
 - [2026-10-21 업로드·EXE 헤더 보정 인계](../session-backups/2026-10-21_upload-header-repair.md) — 10개 빈 헤더 보정 완료, 주문 등 14영역 보존, dnSpy 계약 연결.
+- [2026-10-21 매칭 이후 원문 오류 직접 수정](2026-10-21_packing-validation-repair.md) — 문제값/행 표시, PDF 직접 수정, 실제 7페이지 격리 검증, ERP 보존.
 
 - [2026-10-21 알스트로 입고 점검·업체명 병합](2026-10-21_alstro-incoming-headers.md)
