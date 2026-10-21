@@ -45,6 +45,36 @@ node scripts/check-ecount-button-matches.cjs --require-complete
 
 모델 회귀검사: `node __tests__/ecountParityReportModel.test.cjs`.
 
+## 2026-10-21 대상 DOM 분류 열
+
+2026-10-21 운영(baf6d3df)·로컬 빌드 DOM 크롤로 각 버튼의 `target.domState`({present, enabled, inDialog, observations[{kind:'production'|'local', build, observedOn, enabled}]}), `target.verificationScope`, `target.revokedStaticClaim`이 기록됐다. 분류는 `scripts/ecount-step1-summary.cjs`의 `classify(button, program)` 한 곳에서만 계산하며 평탄 모델이 이를 가져다 쓴다. 엑셀 빌더(`scripts/ecount-build-report.cjs`)는 분류를 다시 계산하지 않고 모델의 열과 `counts.classCounts`만 투영한다.
+
+평탄 모델 `버튼대응` 시트의 기존 12열 순서는 유지하고 뒤에 5열을 붙인다.
+
+| 열 | 값 | 출처 |
+|---|---|---|
+| 대상 렌더 | 예 / 아니오 / 미검증(domState 없음) | `domState.present` |
+| 활성 | 활성 / 비활성 / ''(미렌더) | `domState.enabled` (렌더된 버튼만) |
+| 분류 | 구현 / 미구현 / 조건부 / 미관측 / API설계전용 | `classify()` |
+| 관측 빌드 | `production:baf6d3df@2026-10-21; local:working-tree-ACTION_IDS-fix@2026-10-21` 형식, 관측 없으면 '' | `domState.observations` |
+| 검증범위 요약 | `verificationScope` 앞 200자, 없으면 미검증 | `target.verificationScope` (전문은 기존 `검증 범위` 열) |
+
+분류 정의(상호 배타, 이 순서로 판정):
+
+- **API설계전용** — 메일·메신저·은행·세금계산서·바코드·전자결재 등 외부연동 버튼. 범위는 UI와 저장 계약 설계까지이며 실행 동등성 대상이 아니다.
+- **구현** — 크롤한 빌드에서 대상 컨트롤이 렌더되고 활성이다. 렌더·활성 사실만 뜻하며 기능·새창·조회값 비교는 별도 상태(현재 미검증)다.
+- **미구현** — 대상 컨트롤이 렌더되지만 비활성이다(사유 표시 placeholder 포함). 매핑 ID가 있어도 기능 구현 완료가 아니다.
+- **조건부** — 어떤 크롤 빌드에서도 렌더되지 않았으나 코드에 컨트롤이 존재한다(ACTION_IDS 키 + 컴포넌트 문맥 리터럴). 집계 모드, 복수 종류 선택, 비활성 드롭다운 내부처럼 크롤러가 도달하지 않은 상태에서만 렌더된다는 뜻이며 실제 렌더·동작을 확인했다는 뜻이 아니다. 해당 상태를 재현한 DOM 관측이 추가되면 구현/미구현으로 옮겨진다.
+- **미관측** — 크롤 빌드에 대상 컨트롤이 없고 코드에서도 찾지 못했다.
+
+`미검증항목` 시트 첫머리에 분류별 집계 행(프로그램='전체', 상태='분류 집계 · {분류}', 남은 사항에 건수/관측 버튼 수)을 넣고, 이어서 `revokedStaticClaim`이 있는 버튼을 상태='정적 주장 철회' 개별 행(이전 actualStableId, 이전 근거, 사유, 현재 분류·렌더 여부)으로 노출한다. `counts.classCounts`(분류별 건수, 합계 = 관측 버튼 수)와 `counts.revokedStaticClaims`를 함께 반환한다.
+
+이 분류는 관측된 원본 버튼에 대한 대상 DOM 상태 집계일 뿐이다. 원본 전체 버튼 수(allSourceButtonsKnown)는 전 화면 미확정이므로 분모가 없고, 구현·미구현·조건부 어느 것도 기능·새창·조회값 동등성을 뜻하지 않는다. 따라서 `구현 ÷ 관측 버튼` 같은 완료율·진척률을 계산하거나 보고서에 적지 않는다. 표지의 분류 건수도 상태 집계로만 읽는다.
+
+엑셀의 `대상DOM분류` 시트는 모델의 `페이지`·`버튼대응`·`기능창값비교` 시트를 (프로그램, 버튼 ID)로 조인한 투영이며 열: 프로그램, 화면, 버튼ID, 원본 라벨, 원본 문맥, 분류, 대상 렌더, 활성, 관측 빌드, 라벨비교, 기능비교, 새창비교, 조회값비교, 검증범위.
+
+검사: `node __tests__/ecountParityReportModel.test.cjs`(새 열 존재, 분류 집계 합 = 관측 버튼 수, 철회 행 노출, 원시 업무값 미포함), `node scripts/ecount-build-report.cjs --out outputs/test/report.xlsx`(outputs/는 git 제외).
+
 ## 견적 안전 투영 검사
 
 2026-10-20 root가 원본 E040202의 2026-09-20~2026-11-19 범위에서 안전 숫자·날짜만 투영한 3행을 별도 SQL에 적재했다고 보고했다. revision 1, readback=true, 반복 적재 idempotent=true이며 CLI의 투영 content hash가 SQL과 일치했다. 실제 행 값이나 hash 값은 보고서에 복사하지 않는다. 이 검사는 안전 투영→SQL 구간만 확인하며 배포된 브라우저의 화면 값, 개인정보 등 제외된 필드, 전체 원본 기능 동등성은 확인하지 않는다. 버튼 조회값 비교 상태는 계속 미검증이다.
