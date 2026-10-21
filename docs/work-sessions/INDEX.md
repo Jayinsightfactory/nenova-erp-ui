@@ -1,3 +1,4 @@
+- [2026-10-21 팀 패킹 업로드 이력](2026-10-21_packing-shared-history.md) — 공용 매칭/개인 원본 보관 구분, 직원 중단 로그, 팀 불러오기, ERP 보존.
 - [2026-10-21 네노바 관리자 설치파일](2026-10-21_native-pivot-installer.md) — 음수 주문 피벗 단일 EXE 설치, 백업·버전 검사·UAC.
 - [2026-10-20 중국 인보이스 수량 보존](2026-10-20_invoice-source-quantities.md) — Order 박스/Bunch 단/PCS 송이 분리, 매칭 후 1로 덮어쓰기 제거.
 - [2026-10-20 44-1차 음수 주문 Pivot 진단](2026-10-20_pivot-negative-44-diagnosis.md) — 저장정상, 전산피벗 양수전용조건으로30행제외.

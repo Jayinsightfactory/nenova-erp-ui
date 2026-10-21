@@ -289,6 +289,7 @@ async function main() {
       '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,
       '../../lib/packingWorkDraft.js': workDraft,
+      '../../lib/packingSharedHistoryClient.js': {createPackingHistoryClient: () => ({save: async () => ({id:'test-history'})})},
       '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
