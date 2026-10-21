@@ -19,6 +19,7 @@ import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBan
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
+import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
 import ProfitValidationLink from '../../components/ProfitValidationLink';
 import { reportScopeFromSearch } from '../../lib/profitValidationWindow.mjs';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
@@ -326,17 +327,9 @@ export default function ProfitReportPage() {
   };
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
-  const [visibleCols, setVisibleCols] = useState(DEFAULT_VISIBLE_COL_KEYS);
+  const { columns: visibleCols, setColumns: setVisibleCols, ready: columnsReady, storageError: columnsStorageError } = useProfitColumnPreferences(LS_KEY, ALL_COL_KEYS, DEFAULT_VISIBLE_COL_KEYS);
   const [showColPicker, setShowColPicker] = useState(false);
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-      if (Array.isArray(saved) && saved.length) setVisibleCols(saved.filter(k => ALL_COL_KEYS.includes(k)));
-    } catch { /* 무시 — 기본 보고 컬럼 유지 */ }
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(visibleCols)); } catch { /* 저장 불가 환경 무시 */ }
-  }, [visibleCols]);
+  const colPickerButton = useRef(null);
   const isVisible = key => visibleCols.includes(key);
   const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && (isVisible(cd.key) || (cd.key === 'R' && data?.rows?.some(needsRateInput))));
@@ -1042,6 +1035,7 @@ export default function ProfitReportPage() {
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
               <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={shownColumns.map(cd => cd.key)} showCategory={isVisible('category')}
+                columnDefs={COLUMN_DEFS} columnsReady={columnsReady}
                 disabled={!data || saving || loading || String(data.orderYear) !== reportYear || Number(data.major) !== Number(weekInput.value)} beforeOutput={async () => !dirty || await save()} />
               <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
@@ -1122,11 +1116,11 @@ export default function ProfitReportPage() {
             </>
           )}
           <div style={{ position: 'relative' }}>
-            <button style={st.secondaryBtn} onClick={() => setShowColPicker(v => !v)} title="표시할 컬럼을 선택합니다 — 선택은 브라우저에 저장돼 다음에 열어도 유지됩니다">
+            <button ref={colPickerButton} disabled={!columnsReady} style={st.secondaryBtn} onClick={() => setShowColPicker(v => !v)} title="표시할 컬럼을 선택합니다 — 선택은 브라우저에 저장돼 다음에 열어도 유지됩니다">
               ⚙ 컬럼 ({visibleCols.length}/{ALL_COL_KEYS.length})
             </button>
             {showColPicker && (
-              <div style={st.colPicker}>
+              <div style={st.colPicker} onKeyDown={e => { if (e.key === 'Escape') { setShowColPicker(false); colPickerButton.current?.focus(); } }}>
                 <div style={st.colPickerHead}>
                   <span>표시할 컬럼</span>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -1134,6 +1128,7 @@ export default function ProfitReportPage() {
                     <button style={st.colPickerMiniBtn} onClick={() => setVisibleCols(['category'])}>해제</button>
                   </div>
                 </div>
+                <p role="status" style={{ margin: '6px 0' }}>{columnsStorageError || '자동 저장 · 같은 브라우저에서 다시 열어도 유지됩니다.'}</p>
                 {COLUMN_DEFS.map(cd => (
                   <label key={cd.key} style={st.colPickerRow}>
                     <input type="checkbox" checked={isVisible(cd.key)} onChange={() => toggleCol(cd.key)} />
@@ -1165,7 +1160,7 @@ export default function ProfitReportPage() {
                   <button style={st.colPickerMiniBtn} onClick={savePreset} disabled={!newPresetName.trim()} title="지금 체크한 컬럼 구성을 이 이름으로 저장">저장</button>
                 </div>
 
-                <button style={{ ...st.primaryBtn, width: '100%', marginTop: 8 }} onClick={() => setShowColPicker(false)}>닫기</button>
+                <button style={{ ...st.primaryBtn, width: '100%', marginTop: 8 }} onClick={() => { setShowColPicker(false); colPickerButton.current?.focus(); }}>닫기</button>
               </div>
             )}
           </div>
