@@ -4,9 +4,41 @@ const XLSX = require('xlsx-js-style');
 module.exports = (async () => {
   const { outputScope, outputWeeks, collectOutput, combineOutputBooks, outputPrintHtml } = await import('../lib/profitRangeOutput.mjs');
   const { buildProfitReportXlsx } = await import('../lib/profitReportExcel.js');
+  const { normalizeColumnSelection, readColumnSelection, writeColumnSelection, OUTPUT_COLUMNS_KEY } = await import('../lib/profitColumnPreferences.mjs');
+  const allowed = ['category', 'C', 'E', 'J', 'K'];
+  const fallback = ['category', 'C'];
+  assert.deepEqual(normalizeColumnSelection(null, allowed, fallback), fallback);
+  assert.deepEqual(normalizeColumnSelection(false, allowed, fallback), fallback);
+  assert.deepEqual(normalizeColumnSelection(0, allowed, fallback), fallback);
+  assert.deepEqual(normalizeColumnSelection([], allowed, fallback), []);
+  assert.deepEqual(normalizeColumnSelection(['J','C','J','old'], allowed, fallback), ['C','J']);
+  assert.deepEqual(normalizeColumnSelection(['old'], allowed, fallback), fallback);
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) ?? null, setItem: (key,value) => values.set(key,value) };
+  const screenKey = 'nenova_profitReport_visibleCols_v3';
+  assert.deepEqual(readColumnSelection(storage, screenKey, allowed, fallback).columns, fallback);
+  assert.equal(writeColumnSelection(storage, screenKey, ['category','E','J']), '');
+  assert.equal(writeColumnSelection(storage, OUTPUT_COLUMNS_KEY, ['C','K']), '');
+  assert.deepEqual(readColumnSelection(storage, screenKey, allowed, fallback).columns, ['category','E','J']);
+  assert.deepEqual(readColumnSelection(storage, OUTPUT_COLUMNS_KEY, allowed, fallback).columns, ['C','K']);
+  writeColumnSelection(storage, OUTPUT_COLUMNS_KEY, []);
+  assert.deepEqual(readColumnSelection(storage, OUTPUT_COLUMNS_KEY, allowed, fallback).columns, []);
+  storage.setItem(OUTPUT_COLUMNS_KEY, '{invalid');
+  assert.ok(readColumnSelection(storage, OUTPUT_COLUMNS_KEY, allowed, fallback).error);
+  assert.ok(writeColumnSelection({setItem(){throw Error('denied');}}, screenKey, []));
+  const hook = fs.readFileSync('lib/useProfitColumnPreferences.js','utf8');
+  assert.match(hook, /if \(!ready\) return/);
   assert.deepEqual(outputScope('2026', '1'), { year: '2026', major: '01' });
   for (const [y, m] of [[null, 1], ['2026', 0], ['2026', 54], ['2026', '1-01'], ['2026x', 1]]) assert.throws(() => outputScope(y, m));
   assert.equal(outputWeeks('2026', 41).length, 41);
+  const singleCalls = [];
+  await collectOutput({year:'2026',major:'41',selected:['41'],fetchWeek:async(y,w)=>{
+    singleCalls.push([y,w]); return {year:y,major:w,workbook:{Sheets:{'주차별 매출이익 보고서':{}}}};
+  }});
+  assert.deepEqual(singleCalls,[['2026','41']]);
+  let allCalls=0;
+  await collectOutput({year:'2025',major:'41',fetchWeek:async(y,w)=>{allCalls++;return {year:y,major:w,workbook:{Sheets:{'주차별 매출이익 보고서':{}}}};}});
+  assert.equal(allCalls,41);
   assert.deepEqual(outputWeeks('2026', 41, ['41', '1', '26', '26']), ['01', '26', '41']);
   assert.throws(() => outputWeeks('2026', 2, []));
   assert.throws(() => outputWeeks('2026', 2, ['3']));
@@ -16,6 +48,26 @@ module.exports = (async () => {
     note: '<script>alert(1)</script> 조정 확인', visibleCols: ['C','E','F','I','J','K'], returnWorkbook: true, displaySheetFirst: true }) });
   const calls = [];
   const items = await collectOutput({ year: '2026', major: '03', fetchWeek: async (y, m) => { calls.push([y,m]); return make(y,m); } });
+  const retryCalls = [], retryProgress = [], delays = [];
+  const retryItems = await collectOutput({year:'2026',major:'18',selected:['17','18'],waitRetry:async ms=>delays.push(ms),onProgress:p=>retryProgress.push(p),fetchWeek:async(y,m)=>{
+    retryCalls.push(m);
+    if(m==='18' && retryCalls.filter(w=>w==='18').length<3) throw Object.assign(new Error('HTTP 502'),{status:502});
+    return make(y,m);
+  }});
+  assert.deepEqual(retryCalls,['17','18','18','18']);
+  assert.deepEqual(delays,[2000,4000]);
+  assert.equal(retryItems.length,2); assert.equal(retryProgress.filter(p=>p.retry).length,2);
+  for(const status of [401,403,400,500,502,503,504]) {
+    let attempts=0;
+    await assert.rejects(collectOutput({year:'2026',major:'18',selected:['18'],waitRetry:async()=>{},fetchWeek:async()=>{attempts++;throw Object.assign(Error('HTTP '+status),{status});}}));
+    assert.equal(attempts,[502,503,504].includes(status)?3:1);
+  }
+  const retryAbort = new AbortController(); let abortAttempts=0;
+  await assert.rejects(collectOutput({year:'2026',major:'18',selected:['18'],signal:retryAbort.signal,waitRetry:async()=>retryAbort.abort(),fetchWeek:async()=>{abortAttempts++;throw Object.assign(Error('HTTP 502'),{status:502});}}));
+  assert.equal(abortAttempts,1);
+  let networkAttempts=0;
+  await collectOutput({year:'2026',major:'18',selected:['18'],waitRetry:async()=>{},fetchWeek:async(y,w)=>{if(++networkAttempts===1)throw new TypeError('Failed to fetch');return make(y,w);}});
+  assert.equal(networkAttempts,2);
   assert.deepEqual(calls, [['2026','01'],['2026','02'],['2026','03']]);
   const wb = combineOutputBooks(items);
   assert.deepEqual(wb.SheetNames, ['01차','02차','03차']);

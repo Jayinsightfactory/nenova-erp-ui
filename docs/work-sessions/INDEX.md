@@ -1,3 +1,4 @@
+- [2026-10-21 보고서 출력 선택·저장](2026-10-21_profit-output-preferences.md) — 화면/출력 컬럼 유지, 인쇄 차수 범위, 502 차수별 재시도.
 - [2026-10-21 유오디아 업로드→EXE 분배 헤더 누락 재발 방지](2026-10-21_euodia-native-header-prevention.md)
 - [2026-10-21 네노바 관리자 설치파일](2026-10-21_native-pivot-installer.md) — 음수 주문 피벗 단일 EXE 설치, 백업·버전 검사·UAC.
 - [2026-10-20 중국 인보이스 수량 보존](2026-10-20_invoice-source-quantities.md) — Order 박스/Bunch 단/PCS 송이 분리, 매칭 후 1로 덮어쓰기 제거.
