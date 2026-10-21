@@ -463,7 +463,7 @@ function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
     const cell = XLSX.utils.decode_cell(ref);
     return XLSX.utils.encode_cell({ r: cell.r, c: positions[cell.c] });
   };
-  const result = { ...ws, '!cols': [] };
+  const result = { ...ws, '!cols': [], '!merges': [] };
   Object.keys(result).filter(key => !key.startsWith('!')).forEach(key => delete result[key]);
   plan.forEach((col, index) => {
     const target = positions[index];
@@ -478,7 +478,11 @@ function pairAlstroBoxColumns(ws, plan, rows, dataStart, totalRow) {
       result[address] = cell;
       if (!paired(col)) continue;
       const boxAddress = encodeCell(r, target + 2);
-      result[boxAddress] = { t: 's', v: r === 3 ? '박스(자동)' : '', s: { ...cell.s } };
+      result[boxAddress] = { t: 's', v: r === 3 && col.type !== 'customer' ? '박스(자동)' : '', s: { ...cell.s } };
+      if (r === 3 && col.type === 'customer') {
+        result['!merges'].push({ s: { r: r - 1, c: target }, e: { r: r - 1, c: target + 1 } });
+        cell.s.alignment = { ...cell.s.alignment, horizontal: 'center' };
+      }
       if (r < dataStart) continue;
       const isAlstro = r === totalRow || isAlstroRow(rows[r - dataStart]);
       // Always include totals for initially empty columns, including manual stock.

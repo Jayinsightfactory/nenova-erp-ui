@@ -11,6 +11,10 @@ try {
   $bookTask = $excelTask.Workbooks.Open((Join-Path $directoryPath 'alstro-pairs.xlsx'))
   $sheetTask = $bookTask.Worksheets.Item('알스트로')
   $excelTask.CalculateFull()
+  Assert-Equal $sheetTask.Range('B3').MergeArea.Address() '$B$3:$C$3' 'Merged customer name'
+  Assert-Equal $sheetTask.Range('B3').Text 'Fixture A' 'Customer name only'
+  Assert-Equal $sheetTask.Range('H4').Value2 64 'Initial incoming'
+  Assert-Equal $sheetTask.Range('O4').Value2 64 'Initial farm quantity'
   Assert-Equal $sheetTask.Range('C4').Text '(2)' 'Initial box'
   $sheetTask.Range('B4').Value2 = 48
   $excelTask.CalculateFull()
@@ -20,6 +24,7 @@ try {
   [void]$sheetTask.Range('F:G').Insert(-4161)
   $excelTask.CutCopyMode = $false
   $sheetTask.Range('F3').Value2 = 'New customer'
+  Assert-Equal $sheetTask.Range('F3').MergeArea.Address() '$F$3:$G$3' 'Copied merged customer name'
   $sheetTask.Range('F4').Value2 = 16
   $excelTask.CalculateFull()
   Assert-Equal $sheetTask.Range('G4').Text '(1)' 'Inserted box'
@@ -47,6 +52,11 @@ try {
   $sheetTask.PageSetup.Zoom = $false
   $sheetTask.PageSetup.FitToPagesWide = 1
   $sheetTask.ExportAsFixedFormat(0, (Join-Path $directoryPath 'alstro-preview.pdf'))
+  [void]$sheetTask.Range('B:C').Delete()
+  $excelTask.CalculateFull()
+  Assert-Equal $sheetTask.Range('F6').Value2 28 'Deleted customer pair total'
+  Assert-Equal $sheetTask.Range('B3').Text 'Fixture B' 'Remaining customer header'
+  $bookTask.SaveAs((Join-Path $directoryPath 'alstro-deleted.xlsx'), 51)
   Write-Output 'Excel native recalculation: edit/delete/blank/negative/copied pair insertion/totals PASS'
 } finally {
   if ($bookTask) { $bookTask.Close($false) }
