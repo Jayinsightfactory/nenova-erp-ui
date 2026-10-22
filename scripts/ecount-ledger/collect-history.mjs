@@ -226,6 +226,9 @@ async function clickExcel(page) {
 async function downloadMonth(page, base, def, ym, file, ctxInfo) {
   await navigate(page, base, def);
   if (/login\.ecount\.com/i.test(page.url())) throw new Error('LOGIN_EXPIRED');
+  if (def.prgId === 'E010205') { // 입/출금계좌 조회: 기본 탭이 '미반영'(회계 미반영 행만) → '전체' 로 전환해야 그 달 전체 거래가 나온다
+    for (const f of FRAMES(page)) { try { const b = f.locator('button:has-text("전체"), a:has-text("전체")').filter({ hasNotText: /거래처|내.외자/ }).first(); if (await b.count() && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 2000 }); await page.waitForTimeout(800); break; } } catch {} }
+  }
   if (!isMaster(def.prgId)) await setPeriod(page, ym, ctxInfo);
   await page.keyboard.press('F8').catch(() => {});
   await page.waitForTimeout(3000);
@@ -240,6 +243,21 @@ async function downloadMonth(page, base, def, ym, file, ctxInfo) {
   if (!dl) throw new Error('Excel 다운로드 미시작');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   await dl.saveAs(file);
+  if (!isMaster(def.prgId)) {
+    // 안전장치: 엑셀 제목행의 기간("2026/09/01 ~ 2026/10/22")이 목표 월과 다르면 기간 설정이 먹지 않은 것 → 적재 금지
+    try {
+      const X = (await import('xlsx')).default;
+      const wb = X.read(fs.readFileSync(file), { type: 'buffer' });
+      const aoa = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      const head = aoa.slice(0, 5).map((r) => r.join(' ')).join(' ');
+      const m = head.match(/(\d{4})\/(\d{2})\/(\d{2})\s*~\s*(\d{4})\/(\d{2})\/(\d{2})/);
+      if (m) {
+        const [Y, M] = ym.split('-'); const last = String(new Date(Number(Y), Number(M), 0).getDate()).padStart(2, '0');
+        const got = `${m[1]}/${m[2]}/${m[3]}~${m[4]}/${m[5]}/${m[6]}`; const want = `${Y}/${M}/01~${Y}/${M}/${last}`;
+        if (got !== want) throw new Error(`PERIOD_MISMATCH 엑셀 기간 ${got} ≠ 목표 ${want}`);
+      }
+    } catch (e) { if (/PERIOD_MISMATCH/.test(e.message)) throw e; }
+  }
 }
 
 
