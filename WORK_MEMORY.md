@@ -863,3 +863,11 @@
 - 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.
 
 - 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기
+
+## 2026-10-22 이월 보정 완료와 네덜란드 원가 후속
+- PR1225/master78f19ba3, CI39702671667/Cafe24배포39702956142 및 hydration/ping 성공. 이전 항목의1221/1224는 이미 master에 병합된 상태를 확인하고 진행했다.
+- native-only 두 품목126snapshot 검산/113수정, rollback rehearsal 및 commit 별도 readback 성공. 이력/현재고/확정보고서 보존. 보정 재실행 금지.
+- 실제18·26·31·41 다운로드39704410335 모두 성공. 1~41재고15,692검사 대상문제0. 초기차수 다른18품목21관측,34·35입력경고 및 다른품목 음수재고 남음.
+- 수량 복원 후 드러난 네덜란드 오래된 매입의 판매단가 대체를 SELECT-only 취득원가 재현으로 보완. EUR/국가 cache 격리, 베트남 평균원가 공식 유지. 새 작업트리nw-netherlands-acquisition. 최종 CI/배포 진행 중.
+- 상세 docs/work-sessions/2026-10-22_carry-cascade.md. 실물/EXE GUI 미검증. 전체정상 주장 금지.
+- 검색어: PR1225 carry cascade 네덜란드 베트남 113 126 acquisition EUR 원가이월 재실행금지
