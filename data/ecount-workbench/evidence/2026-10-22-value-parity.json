@@ -1,0 +1,243 @@
+{
+ "kind": "ecount-value-parity",
+ "observedOn": "2026-10-22",
+ "base": "https://nenovaweb.com",
+ "privacy": "counts/booleans only; no names, amounts or row values stored",
+ "results": [
+  {
+   "program": "E040214",
+   "dataset": "ar",
+   "menuId": "MENUTREE_000500",
+   "observedAt": "2026-10-22T04:02:21.267Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": 782,
+    "sourceTakenAt": "2026-10-20T03:38:50.950Z",
+    "sourceKind": "existing-snapshot"
+   },
+   "latestSnapshotKey": 894,
+   "latestTakenAt": null,
+   "webVsSource": {
+    "rowCountWeb": 83,
+    "rowCountSource": 83,
+    "totalsFields": 4,
+    "totalsMismatch": [],
+    "comparedRows": 83,
+    "comparedFields": 4,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "webVsLatest": {
+    "rowCountLatest": 83,
+    "totalsMismatch": [
+     "salesTotal",
+     "receiptTotal",
+     "balance"
+    ],
+    "comparedRows": 83,
+    "comparedFields": 4,
+    "mismatchRows": 64,
+    "mismatchFields": 159
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "verdict": "불일치",
+   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+  },
+  {
+   "program": "E040309",
+   "dataset": "ap",
+   "menuId": "MENUTREE_000517",
+   "observedAt": "2026-10-22T04:02:22.216Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": 783,
+    "sourceTakenAt": "2026-10-20T03:39:02.723Z",
+    "sourceKind": "existing-snapshot"
+   },
+   "latestSnapshotKey": 895,
+   "latestTakenAt": null,
+   "webVsSource": {
+    "rowCountWeb": 172,
+    "rowCountSource": 172,
+    "totalsFields": 7,
+    "totalsMismatch": [],
+    "comparedRows": 172,
+    "comparedFields": 7,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "webVsLatest": {
+    "rowCountLatest": 181,
+    "totalsMismatch": [
+     "stockBuy",
+     "balance",
+     "unbilled"
+    ],
+    "comparedRows": 181,
+    "comparedFields": 7,
+    "mismatchRows": 168,
+    "mismatchFields": 678
+   },
+   "latestSelfCheck": {
+    "status": "RED",
+    "score": 75,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "verdict": "불일치",
+   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+  },
+  {
+   "program": "E010205",
+   "dataset": "cash",
+   "menuId": "MENUTREE_002563",
+   "observedAt": "2026-10-22T04:02:22.924Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": 781,
+    "sourceTakenAt": "2026-10-20T03:38:40.693Z",
+    "sourceKind": "existing-snapshot"
+   },
+   "latestSnapshotKey": 893,
+   "latestTakenAt": null,
+   "webVsSource": {
+    "rowCountWeb": 21,
+    "rowCountSource": 21,
+    "totalsFields": 2,
+    "totalsMismatch": [],
+    "comparedRows": 21,
+    "comparedFields": 2,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": null
+   },
+   "webVsLatest": {
+    "rowCountLatest": 8,
+    "totalsMismatch": [
+     "amount",
+     "balance"
+    ],
+    "comparedRows": 21,
+    "comparedFields": 2,
+    "mismatchRows": 21,
+    "mismatchFields": 16
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": null
+   },
+   "verdict": "불일치",
+   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+  },
+  {
+   "program": "E040207",
+   "dataset": "sales",
+   "menuId": "MENUTREE_000494",
+   "observedAt": "2026-10-22T04:02:23.631Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": 772,
+    "sourceTakenAt": "2026-10-19T23:31:36.133Z",
+    "sourceKind": "existing-snapshot"
+   },
+   "latestSnapshotKey": 896,
+   "latestTakenAt": null,
+   "webVsSource": {
+    "rowCountWeb": 5000,
+    "rowCountSource": 5000,
+    "totalsFields": 5,
+    "totalsMismatch": [],
+    "comparedRows": 5000,
+    "comparedFields": 5,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "webVsLatest": {
+    "rowCountLatest": 5000,
+    "totalsMismatch": [],
+    "comparedRows": 5000,
+    "comparedFields": 5,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
+   },
+   "verdict": "일치",
+   "cause": null
+  },
+  {
+   "program": "E040206",
+   "dataset": "saleQuery",
+   "menuId": "MENUTREE_000492",
+   "observedAt": "2026-10-22T04:02:25.227Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": null,
+    "sourceTakenAt": null,
+    "sourceKind": "upload",
+    "rowCount": 26
+   },
+   "latestSnapshotKey": null,
+   "latestTakenAt": null,
+   "verdict": "미확인",
+   "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요"
+  },
+  {
+   "program": "E010701",
+   "dataset": "journal",
+   "menuId": "MENUTREE_000098",
+   "observedAt": "2026-10-22T04:02:25.687Z",
+   "web": {
+    "httpStatus": 200,
+    "hasVersion": true,
+    "sourceSnapshotKey": null,
+    "sourceTakenAt": null,
+    "sourceKind": "upload",
+    "rowCount": 9
+   },
+   "latestSnapshotKey": null,
+   "latestTakenAt": null,
+   "verdict": "미확인",
+   "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요"
+  }
+ ]
+}
