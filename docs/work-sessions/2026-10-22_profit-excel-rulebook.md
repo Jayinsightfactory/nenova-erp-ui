@@ -6,7 +6,7 @@
 |화면|주차별 매출이익 보고서·원가 근거·Excel 다운로드|
 |원장 부작용|없음. SELECT 및 메모리 계산만. 확정 revision·재고조정·원가 증거 보존|
 |기준|origin/master f744878c, codex/profit-excel-rulebook|
-|배포/PR|최초 기록 시 대기. 아래 후속 기록 확인|
+|배포/PR|PR #1249, 8eb5d307 + 16f3cc75. 배포는 후속 기록 확인|
 |다음 채팅 힌트|26~31 계산식 우선, SQL 품목별 표시, DB 수정 금지|
 
 ## 이어받을 때 고정된 결정
@@ -31,11 +31,11 @@
 
 **A.** 판매단가 기준으로 저장된 증거를 매입원가로 오인하지 않도록 읽기 필터를 추가했다. DB의 증거는 삭제하지 않는다. 호주는 SQL 매입이 있어도 도착원가 객체가 비면 계산하지 않던 분기를 실제 품목 매입액/동일 단위 수량×매입시점 정확 AUD+동일 단위 통관비로 보완했다. 4차수 밖 실제 매입도 같은 연도·품목·단위·미래 금지·완전 매입 조건으로 조회한다. 일반 엑셀 품명을 색상별 품목으로 복제하지 않는다.
 
-**결과.** 26~31 및 41차 호주 누락 해소. 26/27 중국 E/F·28 중국 E, 38~41 태국 원가와 초기 일부 누락은 임의 보충하지 않는다.
+**결과.** 26~31 및 41차 호주 누락 해소. 중국3096은 19-01차 실제 매입과 정확 CNY·같은 품목/단위/행수의 운송·통관 원가가 있어 최근4차수 밖의 실제 근거를 조회하도록 보완했다. 26~31차 원가/환율 누락0. 38~41 태국 원가와 초기 일부 누락은 임의 보충하지 않는다.
 
 ### 3. 2026-10-22 — 검증 및 배포 경계
 
-**A.** 최종 1~41차 SQL 읽기 재계산 13,855 SELECT, 독립 산술15,058항목 실패0, 비교 가능한 E/F 불연속0. 시작/끝 원천 및 정책 지문 동일(STABLE_OBSERVED, atomicSnapshot=false). probe는 쓰기 SQL/execute/batch/transaction 차단. npm run verify:erp-change 전체 검사 및 build 성공. 실제 dnSpy CLI FormStockView/FormProductAdd/FormWarehouseView 읽기 확인.
+**A.** 최종 1~41차 SQL 읽기 재계산 14,022 SELECT, 독립 산술15,058항목 실패0, 비교 가능한 E/F 불연속0. 시작/끝 원천 및 정책 지문 동일(STABLE_OBSERVED, atomicSnapshot=false). probe는 쓰기 SQL/execute/batch/transaction 차단. npm run verify:erp-change 최초 전체 검사 및 build 성공, 중국 조회 추가 후 다시 전체검사 진행. 실제 dnSpy CLI FormStockView/FormProductAdd/FormWarehouseView 읽기 확인.
 
 **미완/한계.** PR/CI/배포/운영 다운로드는 후속 기록 필요. 18차 환율 원본 충돌, 일부 초기 차수 원가 누락, 32~41 원본 금액 비교는 미검증. SQL 기존 invalidKeyCount=3은 변경하지 않았고, 실제 EXE 화면 조작은 하지 않았다. 확정본 재저장/자동 보정은 금지.
 
