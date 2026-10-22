@@ -70,9 +70,12 @@ async function main() {
     '보고서 원천은 profit-report 전용 계산 프로파일을 명시');
   assert.match(api, /computeCategoryAverageInventoryValue/);
   assert.match(calc, /const C = N \+ L \+ O/);
-  assert.match(calc, /const P = Q \* n0\(R\)/);
-  assert.match(calc, /const T = n0\(S\) \* n0\(R\)/);
-  assert.match(calc, /n0\(E\) \+ G \+ n0\(H\) - n0\(F\)/);
+  const { computeProfitRow } = await import('../lib/profitReportCalc.js');
+  const input = {category:'태국',manual:{},auto:{N:1000,L:0,O:0,Q:2,R:100,S:3,E:100,F:20,H:10}};
+  const computed = computeProfitRow(input);
+  assert.equal(computed.P,200); assert.equal(computed.T,300); assert.equal(computed.I,590);
+  assert.equal(computeProfitRow({...input,auto:{...input.auto,R:null}}).J,null,
+    'missing FX cannot be silently multiplied as zero');
   assert.match(customs, /export async function loadWarehouseGw/);
   assert.match(customs, /export async function colombiaBoxQtyByCategory/);
   assert.match(customs, /export function effectiveCountryWorldFreight/);

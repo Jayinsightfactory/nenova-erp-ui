@@ -257,10 +257,10 @@ async function main() {
   console.log('\n=== 최대 스텝(무한루프 방지) ===');
   {
     check('MAX_CARRY_STEPS는 53(1년+버퍼)', MAX_CARRY_STEPS === 53);
-    // 53스텝을 넘어서도 원천이 없으면 조용히 미해결로 끝나야 한다(예외/무한루프 없음).
+      // 원본 환율 없는 2027년으로 maxSteps 종료를 검사한다(2026년 1~21차 원본은 존재).
     const fetchWeekContext = buildWeekWorld({});
     const results = await resolveCarriedRatesForCategories({
-      orderYear: '2026', major: '10',
+        orderYear: '2027', major: '10',
       categories: [{ key: '호주', currency: 'AUD' }],
       currentExactByCategory: { 호주: null },
       currentPurchaseQtyByCategory: { 호주: 0 },

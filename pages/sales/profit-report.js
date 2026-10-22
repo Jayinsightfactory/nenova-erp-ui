@@ -387,12 +387,12 @@ export default function ProfitReportPage() {
       setNote(d.note || '');
       setNoteDirty(false);
       loadConfirmStatus(wk, yr);
-      // 원천이 바뀌었거나 처음 보는 차수면 저장본/라이브값을 먼저 보여 주고, 백그라운드로 새 버전을 저장한다.
-      if (d.snapshot?.needsRefresh) refreshSnapshot(d.major || wk, d.orderYear || yr, { auto: true });
+      // 원천 변경 시 서버가 저장 없이 최신 계산을 반환한다.
+      // Live calculations are read-only. Never auto-save a cache on report open.
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   };
 
-  // ── 계산 결과 스냅샷 [최신화] — POST snapshotRefresh(동기 재계산 + 새 버전 저장)
+  // ── [최신화]는 GET 재조회만 한다. 저장된 확정본/캐시는 변경하지 않는다.
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotResult, setSnapshotResult] = useState(null);
   const editsRef = useRef(edits);
@@ -402,9 +402,8 @@ export default function ProfitReportPage() {
     const seq = ++loadSeqRef.current;
     setSnapshotBusy(true);
     try {
-      const res = await fetch('/api/sales/profit-report', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'snapshotRefresh', week: wk, year: yr }),
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}&auditLive=1`, {
+        credentials: 'same-origin',
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '최신화 실패');
@@ -1184,6 +1183,11 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
+      {data && !data.confirmed && data.rows?.some(row => row.category !== '기타(미분류)' && computeProfitRow(row, edits).J == null) && (
+        <div style={st.attentionBanner}>
+          계산 보류: 과세환율 또는 기초·기말재고 평가 근거가 없는 항목이 있습니다. 해당 원가·이익·이익률과 합계는 빈칸으로 표시합니다. 0원 원가나 확정 이익을 뜻하지 않습니다. 아래 입력·확인 필요 내역을 확인하세요.
+        </div>
+      )}
 
       {viewMode === 'category' && data && !data.confirmed && (
         <ProfitReportSnapshotBanner snapshot={data.snapshot} busy={snapshotBusy} lastResult={snapshotResult}
