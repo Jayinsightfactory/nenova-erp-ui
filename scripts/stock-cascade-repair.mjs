@@ -17,6 +17,7 @@ const mode=process.argv.includes('--apply')?'apply':process.argv.includes('--reh
 const dir=path.resolve('.verify/stock-cascade-repair');fs.mkdirSync(dir,{recursive:true});
 const save=(name,data)=>fs.writeFileSync(path.join(dir,name),JSON.stringify(data,null,2));
 const protectedQueries={
+  stockMasters:'SELECT * FROM StockMaster ORDER BY StockKey',
   products:`SELECT * FROM Product WHERE ProdKey IN (${keys}) ORDER BY ProdKey`,
   otherStock:`SELECT StockKey,ProdKey,Stock FROM ProductStock WHERE ProdKey NOT IN (${keys}) OR ProdKey IS NULL ORDER BY StockKey,ProdKey`,
   allHistory:'SELECT * FROM StockHistory ORDER BY StockHistoryKey',
@@ -25,7 +26,12 @@ const protectedQueries={
   shipments:'SELECT * FROM ShipmentDetail ORDER BY SdetailKey',
   shipmentMasters:'SELECT * FROM ShipmentMaster ORDER BY ShipmentKey',
   shipmentDates:'SELECT * FROM ShipmentDate ORDER BY SdateKey',
+  shipmentHistory:`SELECT sh.* FROM ShipmentHistory sh JOIN ShipmentDetail sd ON sd.SdetailKey=sh.SdetailKey
+    WHERE sd.ProdKey IN (${keys}) ORDER BY sh.SdetailKey,(SELECT sh.* FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)`,
   shipmentFarms:'SELECT * FROM ShipmentFarm ORDER BY SdetailKey,FarmKey,ShipmentQuantity',
+  warehouse:`SELECT wm.WarehouseKey AS HeaderKey,wm.OrderYear,wm.OrderWeek,wm.isDeleted,wd.*
+    FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wm.WarehouseKey=wd.WarehouseKey
+    WHERE wd.ProdKey IN (${keys}) ORDER BY wd.WdetailKey`,
   estimates:'SELECT * FROM Estimate ORDER BY EstimateKey',
   report:'SELECT * FROM WebProfitReport ORDER BY OrderYear,MajorWeek,Category,ColKey',
   viewOrder:`SELECT * FROM ViewOrder WHERE ProdKey IN (${keys}) ORDER BY OrderDetailKey`,
