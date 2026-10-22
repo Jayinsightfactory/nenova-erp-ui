@@ -22,9 +22,9 @@ test('refreshFromLatest: 기존 Head 마다 import-latest(IMPORT, 현재 revisio
   assert.equal(r.scopes[0].revision,4);assert.equal(r.scopes[1].error,'REVISION_CONFLICT');
 });
 
-test('refreshFromLatest: 수집 데이터셋(cash/ar/ap/sales) 밖은 건드리지 않는다', async()=>{
+test('refreshFromLatest: 수집 데이터셋 밖(예: quote)은 건드리지 않는다', async()=>{
   let q=0;const ctx=loadStore(async()=>{q++;return {recordset:[]};});
-  assert.equal((await ctx.refreshFromLatest('journal')).skipped,'NOT_SOURCE_DATASET');assert.equal(q,0);
+  assert.equal((await ctx.refreshFromLatest('quote')).skipped,'NOT_SOURCE_DATASET');assert.equal(q,0);
 });
 
 test('latestSource 는 수집 검사 RED 스냅샷을 건너뛴다(직전 정상본 유지)', ()=>{
@@ -42,4 +42,14 @@ test('합계 검사 허용폭 = max(1, 0.5×행수) — 채무 181행 2원 차(�
   assert.match(s,/const tol = Math\.max\(1, 0\.5 \* dataRows\.length\);/);
   const tol=rows=>Math.max(1,0.5*rows);
   assert.ok(2<=tol(181));assert.ok(!(2<=tol(1)));
+});
+
+test('2026-10-22 판매조회·회계거래조회 매일 수집: 화이트리스트·ingest·자동 갱신 대상에 함께 등록', ()=>{
+  const core=read('scripts/ecount-scraper/scrape-core.mjs');
+  assert.match(core,/saleQuery: \{ prgId: 'E040206', form: true/);assert.match(core,/journal: \{ prgId: 'E010701', form: true/);
+  assert.match(core,/const READONLY_PRGIDS = new Set\(Object\.values\(DEFS\)\.map\(d => d\.prgId\)\)/);
+  assert.match(read('lib/ecountIngest.js'),/saleQuery: \{ label: '판매조회', prgId: 'E040206'/);
+  assert.deepEqual([...policy.SOURCE_DATASETS],['cash','ar','ap','sales','saleQuery','journal']);
+  // 날짜는 원본 '일자-No.' 표기 그대로 보내고 작업본이 같은 규칙으로 정규화한다.
+  assert.deepEqual(policy.sanitizeRows('journal',[{sourceDateLabel:'2026/10/20 -12',amount:'30625700',isSubtotal:false}]).map(r=>[r.refDate,r.amount]),[['2026-10-20','30625700']]);
 });

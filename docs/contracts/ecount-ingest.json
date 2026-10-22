@@ -5,7 +5,9 @@
     "pages/api/ecount/ingest.js",
     "lib/ecountIngest.js",
     "lib/automationAuth.js",
-    "lib/ecountWorkspaceStore.js"
+    "lib/ecountWorkspaceStore.js",
+    "scripts/ecount-scraper/scrape-core.mjs",
+    "lib/ecountWorkspaceClient.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -29,7 +31,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "ERP 주문·출고·재고·견적을 쓰지 않는다. 사장님 PC 상주 스크레이퍼(읽기 전용 가드)가 ECOUNT 조회 화면 4종(입출금계좌·거래처채권·거래처채무·판매현황)을 엑셀로 받아 올리면 웹 전용 테이블 WebEcountSnapshot/WebEcountRow 에만 적재하고 4중 검증 점수를 돌려준다. 인증은 Bearer MOYI_API_TOKEN|AUTOMATION_API_TOKEN|ECOUNT_INGEST_TOKEN 또는(2026-10-08) 이 엔드포인트에 한해 ORBIT_DRIVE_INGEST_TOKEN(사장님 PC 데몬 토큰). 헤더 없으면 로그인 세션 폴백. 2026-10-22: 적재 직후 검사 상태가 RED 가 아니면 그 dataset(cash/ar/ap/sales)의 기존 웹 작업본(ecount_work.Head 가 있는 화면만)을 import-latest 로 자동 갱신한다(actor ecount-auto-refresh, reason IMPORT). latestSource 는 RED 스냅샷을 건너뛰므로 RED 수집이면 직전 정상본이 유지되고, 화면은 수집 기준 시각·검사 상태를 표시한다. 합계 검사 허용폭 = max(1, 0.5×행수)(원 단위 반올림). ERP 공유 원장 쓰기 없음."
+    "description": "ERP 주문·출고·재고·견적을 쓰지 않는다. 사장님 PC 상주 스크레이퍼(읽기 전용 가드)가 ECOUNT 조회 화면 4종(입출금계좌·거래처채권·거래처채무·판매현황)을 엑셀로 받아 올리면 웹 전용 테이블 WebEcountSnapshot/WebEcountRow 에만 적재하고 4중 검증 점수를 돌려준다. 인증은 Bearer MOYI_API_TOKEN|AUTOMATION_API_TOKEN|ECOUNT_INGEST_TOKEN 또는(2026-10-08) 이 엔드포인트에 한해 ORBIT_DRIVE_INGEST_TOKEN(사장님 PC 데몬 토큰). 헤더 없으면 로그인 세션 폴백. 2026-10-22: 적재 직후 검사 상태가 RED 가 아니면 그 dataset(cash/ar/ap/sales)의 기존 웹 작업본(ecount_work.Head 가 있는 화면만)을 import-latest 로 자동 갱신한다(actor ecount-auto-refresh, reason IMPORT). latestSource 는 RED 스냅샷을 건너뛰므로 RED 수집이면 직전 정상본이 유지되고, 화면은 수집 기준 시각·검사 상태를 표시한다. 합계 검사 허용폭 = max(1, 0.5×행수)(원 단위 반올림). ERP 공유 원장 쓰기 없음. 2026-10-22(2): 매일 수집에 판매조회(E040206, dataset saleQuery)·회계거래조회(E010701, dataset journal) 추가 — 기본 검색 기간(전월+금월 이상) 그대로 F8 → Excel 전체 행, prgId 화이트리스트(DEFS) + 쓰기 요청 차단 유지. 검사는 행수·합계(행당 0.5원 허용)·드리프트. 자동 갱신 대상(SOURCE_DATASETS)에 포함되며 기존 업로드 버전은 삭제·덮어쓰기 없이 이력에 남고 새 버전은 SourceKind=existing-snapshot 으로 구분된다."
   },
   "requiredTestFiles": [
     "__tests__/erpContractManifest.test.js",
