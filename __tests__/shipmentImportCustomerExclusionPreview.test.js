@@ -253,9 +253,9 @@ test('fresh hydrangea file derives scope without a manual family filter; foreign
   };
   const row={week:'43-01',customerLabel:customer.CustName,productLabel:'WHITE',productFamily:'hydrangea',uploadQty:5,outUnit:'박스',sheetName:'수국',rowNo:4,colNo:2,hasFinalDistributionDirective:true};
   const run=rows=>buildImportPreview({parsedRows:rows,rawWeek:'43-01',rawYear:'2026',fileBasedScope:true,queryFn});
-  const first=await run([{...row,productFamily:'carnation'}]);assert.deepEqual(first.replacementCategories,['콜롬비아카네이션']);
+  const first=await run([{...row,sheetName:'카네이션',productFamily:'carnation'}]);assert.deepEqual(first.replacementCategories,['콜롬비아카네이션']);
   const fresh=await run([row]);assert.deepEqual(fresh.rows.map(r=>r.prodKey),[501]);assert.deepEqual(fresh.replacementCategories,['콜롬비아수국']);
   assert.equal(fresh.rows[0].orderQty,5);assert.equal(fresh.rows[0].uploadQty,5);
   const badKey=await run([{...row,prodKey:502}]);assert.equal(badKey.rows.length,0);assert.equal(badKey.unmatched.length,1);
-  const ambiguous=await run([{...row,productFamily:''}]);assert.equal(ambiguous.rows.length,0);assert.equal(ambiguous.unmatched.length,1);
+  const ambiguous=await run([{...row,sheetName:'혼합',productFamily:''}]);assert.equal(ambiguous.rows.length,0);assert.equal(ambiguous.unmatched.length,1);
 });
