@@ -255,6 +255,7 @@ export default function Warehouse() {
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
         <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
         <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>
+        <Button size="small" href="/incoming/boxes">차수별 박스 입고 현황</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!filteredMasters.length} onClick={handleMasterExcel}>원장 목록 엑셀</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>선택 상세 엑셀</Button>
         <Button size="small" onClick={() => window.opener ? window.close() : history.back()}>닫기 / Cerrar</Button>

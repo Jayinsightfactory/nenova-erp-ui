@@ -1,4 +1,5 @@
 import styles from '../../styles/ImportPacking.module.css';
+import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
 import {createPackingHistoryClient} from '../../lib/packingSharedHistoryClient.js';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
@@ -892,7 +893,7 @@ function unresolvedExtractionIssues(invoices = [], result = null) {
   ];
   // Source/AI status flags are not proof that a validation issue was cleared.
   // Only the canonical reviewer may remove a resolved issue from the array.
-  return issues;
+  return blockingPackingIssues(issues);
 }
 function inlineJsonPayload(data) {
   if (!Array.isArray(data?.content)) return null;
