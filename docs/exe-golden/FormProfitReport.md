@@ -1,5 +1,17 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-22 태국 과거 매입 원가 연결
+
+실제 설치 EXE를 dnSpy.Console.exe --no-color -t FormWarehouseView로 조회했다.
+GetData/상세 WarehouseMaster·WarehouseDetail·Product와 UPrice/TPrice 조회를 재확인했다.
+변경문/프로시저/트랜잭션 차단 SQL probe에서 태국 두 품목의 같은 연도 34차 매입과
+38~41 재고 존재를 확인했다. 최근4차수 종료가 매입 부재를 뜻하지 않는다.
+태국 FIFO와 과거 이월은 같은 매입차수 exact 과세환율 재현 함수를 사용한다.
+현재환율로 계산된 값은 매입가격 하한 검사만으로 걸러지지 않으므로 대체한다.
+운임 원장과 통관 설정/기본값을 이용한 재현이며 실제 청구서 확정 인증이 아님을
+웹 검증 경고에 명시한다. H 산출 기준과 차이가 있을 수 있다. DB/확정본/EXE 수량 보존.
+계획: docs/plans/profit-thai-carry-2026-10-22.md.
+
 ## 2026-10-19 오래된 매입과 판매단가 대체 구분
 
 실제 `dnSpy.Console.exe --no-color -t FormWarehouseView` / `-t FormProductAdd`로
