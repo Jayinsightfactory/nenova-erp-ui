@@ -86,7 +86,10 @@
     "__tests__/weekdayCompactSummary.test.js",
     "lib/weekdayDialogKeyboard.js",
     "__tests__/weekdayDialogKeyboard.test.js",
-    "docs/plans/weekday-subweek-placement-2026-10-12.md"
+    "docs/plans/weekday-subweek-placement-2026-10-12.md",
+    "lib/weekdayNativeStock.js",
+    "__tests__/weekdayNativeStock.test.js",
+    "docs/plans/weekday-stock-date-2026-10-22.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -209,7 +212,8 @@
     "scripts/test-weekday-confirmation-lifecycle-sql.cjs",
     "__tests__/weekdayPrintReadiness.test.js",
     "__tests__/weekdayPrintEligibility.test.js",
-    "__tests__/weekdayDialogKeyboard.test.js"
+    "__tests__/weekdayDialogKeyboard.test.js",
+    "__tests__/weekdayNativeStock.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -275,7 +279,7 @@
     "unfixedDate": "confirm then move dates; combined quantity is saved first",
     "group": "year+customer+product date decreases and increases across requested subweeks classify movement",
     "zero": "cancel if fixed and purge; no empty confirmation",
-    "stock": "consumedDelta=finalFixed*newTotal-beforeFixed*oldTotal; native cascading recalculation and negative snapshot validation",
+    "stock": "Normal API: native week ledger preflight (previous snapshot + incoming - confirmed + StockType adjustments), batch earlier-week projection, native cascade and negative snapshot/readback validation. Product.Stock retains exact native consumedDelta accounting; never auto-adjust or use its existing drift as the FIX predicate. Fixed date-only changes preserve stock and skip CALC. Legacy early wrapper keeps its policy.",
     "master": "derive touched master status from all surviving children; never change other children",
     "audit": "before/final confirmation flags, intent, stages and scoped stock transitions stored atomically; rollback does not retain success audit",
     "print": "selected-day quote validates selected customer active selected-date details; major quote retains major guard"

@@ -55,7 +55,8 @@ export function createWeekdayApplyHandler({
       const mapped = weekdayDistributionErrorResponse(error);
       console.error('[weekday-apply]', { operationId: req.body?.operationId || null,
         code: error.code || 'INTERNAL_ERROR', stage: error.failureStage || 'TRANSACTION',
-        rolledBack: mapped.body.rolledBack === true });
+        rolledBack: mapped.body.rolledBack === true,
+        stockValidation: error.stockValidation || null });
       return res.status(mapped.status).json(mapped.body);
     }
   };

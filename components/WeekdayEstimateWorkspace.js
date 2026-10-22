@@ -1301,6 +1301,9 @@ export default function WeekdayEstimateWorkspace() {
         </fieldset>}
         <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !compareRows || !parsed || !selectedExportCycleKeys.length || originalWorkbook.current?.scope !== scopeKey} title="저장한 발주 양식의 디자인에 선택한 차수의 웹 전체 품목명·현재 수량·합계·잔량을 채웁니다. 검색이나 접힌 품목도 포함합니다.">{downloadBusy ? '엑셀 저장 중…' : '웹 작업 엑셀 다운로드'}</button>
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
+        {customer && <a href={`/estimate?${new URLSearchParams({year:String(year),week:String(majorWeek),custKey:String(customer.CustKey),custName:customer.CustName || '',includeUnfixed:'1',popup:'1',from:'weekday'})}`}
+          target="_blank" rel="noopener noreferrer" style={{padding:'5px 8px',border:'1px solid #7395c2',borderRadius:4,background:'#fff',color:'#16439a'}}
+          title="현재 중심 차수·업체로 견적서관리를 새 창에서 엽니다. 판매요청·불량/검역 등록이 가능합니다. 미적용 초안은 이 화면에 유지됩니다.">견적서관리 · 판매요청/검역</a>}
         <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
         <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
         <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>

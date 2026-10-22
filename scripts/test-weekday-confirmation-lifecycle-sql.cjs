@@ -42,10 +42,10 @@ async function main() {
       INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,
         BoxQuantity,BunchQuantity,SteamQuantity,EstQuantity,Cost,Amount,Vat,isFix)
         SELECT 90002,8002,533,ProdKey,ShipmentDtm,3,3,90,90,90,Cost,204555,20455,1 FROM ShipmentDetail WHERE SdetailKey=89892;`);
-    const [core,policy,gate,presence,print,bundle]=await Promise.all([
+    const [core,policy,gate,presence,print,bundle,allocationPrint]=await Promise.all([
       load('lib/weekdayDistributionApply.js'),load('lib/weekdayDistributionPolicy.js'),
       load('lib/estimateDirectionalQuantity.js'),load('lib/erpEditPresence.js'),
-      load('lib/weekdayEstimatePrint.js'),load('lib/weekdayEstimatePrintBundle.js')]);
+      load('lib/weekdayEstimatePrint.js'),load('lib/weekdayEstimatePrintBundle.js'),load('lib/weekdayAllocationPrint.js')]);
     const deps={...fixture.leaseDependencies(gate,presence),confirmationLifecycle:true};
     async function body(tQ,dates,week='37-01') {
       const change={year:'2026',orderWeek:week,custKey:533,prodKey:866,unit:'박스'};
@@ -371,9 +371,21 @@ async function main() {
     await transaction(pool,async tQ=>{
       await unfixed(tQ);await tQ('UPDATE Product SET Stock=0 WHERE ProdKey=866');
       const request=await body(tQ,[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}]);
+        const saved=await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
+        assert.equal(saved.saved,true);
+        const result=await state(tQ);sentinels(result);
+        assert.equal(result.stock,-25,'native consumption only; never top up cumulative stock');
+        assert.equal(result.history.filter(row=>row.Descr==='출고확정').length,1);
+        assert.equal(result.dates.find(row=>row.date.startsWith('2026-09-11')).ShipmentQuantity,5);
+        console.log('PASS divergent current counter does not block native week availability or date save');
+      });
+      await transaction(pool,async tQ=>{
+        await unfixed(tQ);
+        await tQ('UPDATE WarehouseDetail SET OutQuantity=0 WHERE WdetailKey=3701');
+        const request=await body(tQ,[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}]);
       await assert.rejects(()=>core.executeWeekdayDistributionApply(tQ,sql,request,user,deps),
         error=>error.code==='STOCK_SHORTAGE','unfixed date move must check full confirmation consumption');
-      console.log('PASS current stock shortage blocks unfixed date movement');
+        console.log('PASS actual week shortage blocks unfixed date movement');
     });
     await transaction(pool,async tQ=>{
       await tQ(`INSERT Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,
@@ -405,13 +417,26 @@ async function main() {
     // Exercise the production eligibility, EXE quote SQL and HTML print bundle.
     await transaction(pool,async tQ=>{
       await core.executeWeekdayDistributionApply(tQ,sql,await body(tQ,[{date:'2026-09-13',quantity:18}]),user,deps);
-      const request=print.normalizeWeekdayPrintRequest({year:2026,majorWeek:'37',custKey:533,mode:'dates',dates:['2026-09-13']});
-      const result=await print.readWeekdayPrintInTransaction(request,tQ,sql);
-      assert.equal(result.eligibility.eligible,true);
+      const request={...print.normalizeWeekdayPrintRequest({year:2026,majorWeek:'37',custKey:533,mode:'dates',dates:['2026-09-13']}),source:'ALLOCATION'};
+      const result=await allocationPrint.readWeekdayAllocationPrintInTransaction(request,tQ,sql);
+      assert.equal(result.confirmation.required,false);
       assert.equal(result.items.reduce((sum,row)=>sum+row.Quantity,0),540,'18 boxes x 30 estimate units');
-      const output=bundle.buildWeekdayEstimatePrintBundle({requests:[request],results:[{...result,scope:request,success:true,readOnly:true,draftIncluded:false}],printDate:'2026-09-13'});
+      const output=bundle.buildWeekdayEstimatePrintBundle({requests:[request],results:[{...result,scope:request,source:'ALLOCATION',success:true,readOnly:true,draftIncluded:false}],printDate:'2026-09-13'});
       assert.equal(output.documentCount,1);assert.ok(output.html.includes('Fixture Carnation'));
       console.log('PASS actual weekday quote joins and print HTML');
+    });
+    for (const fixed of [true,false]) await transaction(pool,async tQ=>{
+      if (!fixed) await unfixed(tQ);
+      await core.executeWeekdayDistributionApply(tQ,sql,await body(tQ,
+        [{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}]),user,deps);
+      const request={...print.normalizeWeekdayPrintRequest({year:2026,majorWeek:'37',custKey:533,mode:'dates',dates:['2026-09-11']}),source:'ALLOCATION'};
+      const result=await allocationPrint.readWeekdayAllocationPrintInTransaction(request,tQ,sql);
+      assert.equal(result.items.reduce((sum,row)=>sum+row.Quantity,0),150);
+      const old=await allocationPrint.readWeekdayAllocationPrintInTransaction({...request,dates:['2026-09-10']},tQ,sql);
+      assert.equal(old.items.length,0,'removed date cannot print stale quantities');
+      const output=bundle.buildWeekdayEstimatePrintBundle({requests:[request],results:[{...result,scope:request,source:'ALLOCATION',success:true,readOnly:true,draftIncluded:false}],printDate:'2026-09-11'});
+      assert.equal(output.documentCount,1);assert.ok(output.html.includes('2026-09-11'));
+      console.log(`PASS ${fixed?'fixed':'unfixed'} date move -> immediate selected-date quote; original day empty`);
     });
     console.log('PASS all isolated confirmation lifecycle scenarios');
   } finally {
