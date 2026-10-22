@@ -640,6 +640,13 @@
 - 함정: ArrayOfX 래퍼는 한 단계만 벗길 것(행 객체까지 풀면 값만 남음). 쓰기 API 는 BAROBILL_ALLOW_WRITE=1 없으면 호출 전 차단.
 - 남은 사람 작업: 테스트 사이트 공동인증서 등록, 계좌 4·카드 2 등록, BAROBILL_USERID 확정, 운영 전환.
 
+## 2026-10-22 ECOUNT P020~P039 원본 조사 125/125 완료 (PR #1222)
+- 남은 회계I 28화면을 2026-10-22 조사(사업자번호 [사업자번호] 마스킹)·셸·대상 DOM 크롤까지 한 PR. 증거 evidence/2026-10-22-source-survey-p020-p039-rest.json, 셸 197화면·ID 2,670, 버튼 3,743(+399), 목록 확보 230/373, 구현 1,649 / 미구현 1,899 / 미관측 49 / API설계 133 / 검증 0.
+- 조사일이 다른 증거 파일이 섞이므로 프리셋 날짜 대조는 page.sourceSurvey.observedOn 기준(822건 일치).
+- 안내창 루프 대응: closeDialogs 안에서 계정코드 안내창만 1회 확인 클릭(반복 setInterval 금지) → 28화면 약 10분.
+- 다음: 회계II P040~P051, 관리/그룹웨어 P052~P059, 사용자설정 P005~P007(원본 미조사 143).
+- 검색어: ECOUNT P020~P039 완료 PR1222 125/125 2026-10-22 rest 사업자번호마스킹 observedOn 화면별조사일
+
 ## 2026-10-21 ECOUNT 이관 재개 4차(후반) — P020~P039 원본 조사 97/125·셸 169화면
 - 원본 조사: 사장님 크롬 ECOUNT 세션 읽기 전용. 결과는 페이지 메모리→압축 행(JSON)으로 900자씩 읽어 scratchpad/survey/inbox/s*.json 에 즉시 저장(127.0.0.1 수신기 POST 는 자동승인 분류기가 Browser JS Exfil 로 차단 → 사용 중단). 변환기 scratchpad/survey/expand2.cjs(재조사 행이 더 풍부하면 교체, 사이트맵만 렌더된 화면 제외, 남은 ECOUNT 안내창 확인 버튼 제외).
 - 함정: (1) 4초 고정 대기는 입력/시리얼 화면 미렌더 → 제목 변경+컨트롤>3 대기 루프(최대 16초). (2) 계정별원장 프리셋 후 "검색창에 계정코드를 입력하고 검색 바랍니다" 안내가 무한 반복 — 자동 확인 클릭(setInterval)이 오히려 루프를 키움(6분 623회). 끄면 정상. (3) ERP 주소를 ec_req_sid 없이 다시 열면 로그아웃 → location.reload() 만 쓸 것. (4) 크롬 확장 재연결마다 탭 그룹 재생성.
@@ -836,3 +843,15 @@
 - 관련 회귀97개 통과. 전체검사·배포·운영보정은 진행 중(미완료). 상세는 docs/work-sessions/2026-10-22_carry-cascade.md.
 - 검색어: carry cascade Netherlands Vietnam 후속재고 출고삭제 41차
 
+
+
+## 2026-10-22 분배 업로드 수동 매칭·건너뛰기
+- 최신 master aea62143 기반 codex/import-manual-skip 작업트리. Product1717/3085 실측 및 FormShipmentDistribution fresh dnSpy 확인.
+- 수동 키 우선/무효키 자동fallback 금지, 명시 품목 건너뛰기/취소, 제외 시 남은 매칭품목 범위 HMAC/coverage/잠금/검증 일치. 제외·파일밖 품목 보존, 포함 품목 누락업체0 정책 유지.
+- 신규6회귀·관련 업로드 검사·격리 브라우저 수동→제외→재검증→취소→적용 payload 통과. 필수 전체검사 최종/CI/운영 배포 미검증(후속 예정).
+- 운영 쓰기/배포 없음. 사용자 업로드 보호 및 약2시간 유예 유지. docs/work-sessions/2026-10-22_import-manual-skip.md 참조.
+- 검색어: 루스커스 40cm manualChoice IMPORT_SKIP_PRODUCT_VALUE replacementProductKeys PR1213 회귀 업로드보호
+
+- 최종 검증: 전체 test:erp-contract 통과, test:nenova-dnspy-evidence/manifest/write guard 통과. 빌드 통과 후 마지막 UI 비동기 선택 처리까지 최종 재빌드 중. 운영 배포/실파일 적용은 유예 및 미검증.
+
+- 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.

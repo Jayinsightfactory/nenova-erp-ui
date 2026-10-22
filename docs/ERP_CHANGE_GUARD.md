@@ -953,3 +953,15 @@ transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터
 이월 누락 보정은 기존 이력으로 native 재생만 수행한다. Product.Stock·원장·확정 보고서 보존,
 지문 일치·명시 범위·rollback rehearsal 후에만 적용한다. 웹 보강이 EXE 직접 SQL 삭제까지
 보호한다고 주장하지 않는다. 회귀: stockCascade.test.cjs, stockCascadeRepair.test.cjs.
+
+## 2026-10-22 분배 업로드 수동 연결·품목 건너뛰기
+
+파일 제목에서 추론한 품종은 사용자의 유효한 수동 ProdKey 선택을 무효화하지 않는다.
+수동 키가 무효하면 자동 후보로 조용히 대체하지 않는다. 자동 연결의 교차품종 차단은 유지한다.
+명시 건너뛰기는 닫기와 다르며 재검증 후에만 반영된다. 제외 품목을 누락 분배0으로 만들지 않는다.
+미매칭 원문은 DB 키가 불명확할 수 있으므로 제외가 있는 업로드의 교체 범위는 파일에 남아
+매칭된 ProdKey로 한정하고 파일 밖 품목도 보존한다는 안내를 표시한다. 포함 품목의
+누락 업체 분배0 정책은 유지한다. 서버 HMAC에 이 범위를 포함하며 coverage·잠금검사·
+사후검증은 replacementScopeSql을 공유한다. 범위 없는 기존 전체교체 계약은 보존한다.
+근거/부작용: docs/plans/import-manual-skip-2026-10-22.md.
+회귀: shipmentImportManualSkip.test.js, shipmentReplacementPlan.test.js 및 격리 브라우저 스크립트.
