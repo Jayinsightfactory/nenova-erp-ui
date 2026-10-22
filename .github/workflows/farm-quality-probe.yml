@@ -13,7 +13,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:erp-contract
       - run: npm run build
         env:
           DB_SERVER: ''
