@@ -22,6 +22,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
  await query(pool,`UPDATE dbo.StockMaster SET OrderWeek='42-01',OrderYearWeek=OrderYear+'4201' WHERE StockKey IN (2501,2601);
  CREATE TABLE SystemActionLog(LogKey int IDENTITY PRIMARY KEY,ActionDtm datetime DEFAULT GETDATE(),Actor nvarchar(100),ActionType nvarchar(100),Method nvarchar(20),Endpoint nvarchar(200),AffectedTable nvarchar(100),AffectedCount int,Payload nvarchar(max),Result nvarchar(20),ResultDesc nvarchar(300),RiskLevel nvarchar(20));`);
  const protectedBefore=await protectedSnapshot(pool);console.log('42 fixture: browser start');
+ if(process.env.NENOVA_NATIVE_UI_TEST==='1')return require('./test-packing-native-local.cjs')({pool,sql,query,writer,documents,ctx,protectedSnapshot,protectedBefore,catalog,upsertPackingErpMatch});
  const listener=require('node:net').createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
  const base=`http://127.0.0.1:${port}`,secret=randomUUID(),env={...process.env,JWT_SECRET:secret};
  for(const k of Object.keys(env))if(/^(DB_|MSSQL|SQL_|NENOVAWEB_SERVICE)/.test(k))delete env[k];

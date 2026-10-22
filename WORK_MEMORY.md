@@ -837,6 +837,13 @@
 - DB 쓰기 없음. 기존 638행 실제 조회 성공, 새 경로 자동완료는 배포 후 검증 예정.
 - 검색어: shilla-check bridge workspace query redirect 1205
 
+## 2026-10-22 입고 참고일 차단 분리·박스 현황
+- 실제 dnSpy ExcelLoadingPackingList 기준 InputDate/OrderWeek/BoxQuantity 확인. 인쇄 날짜 경고는 보존하되 수량 오류처럼 진행을 막지 않음. 실제 입고일·연도·수량·금액 검증 유지.
+- 새 /incoming/boxes 조회 전용: 저장 BoxQuantity, 연도·세부차수·국가·품종 필터, NULL 별도 경고. DB 스키마·EXE·SP 변경 없음.
+- 직접 Computer Use로 42-1 PDF→Ammi 수동매칭→입고91001→원가 승인/재조회→엑셀 다운로드 완료(격리SQL). 64행/186박스, 도착원가29048581.029768원. 기존 동일 송장 환율215/품목별 추정 비용 근거 재현. 운영 DB 쓰기 없음. 종료 후 주문·분배 보존 검사 통과.
+- 전체 ERP 검사·빌드 통과, 최종 표시 보완 재빌드/PR/배포 진행 중. Excel 자체 머리글 시각검증과 운영 스모크는 미검증. 상세 docs/work-sessions/2026-10-22_receipt-boxes.md.
+- 검색어: 42-1 입고 참고날짜 박스현황 186 도착원가 다운로드 격리SQL
+
 
 
 ## 2026-10-22 분배 업로드 수동 매칭·건너뛰기
@@ -849,3 +856,5 @@
 - 최종 검증: 전체 test:erp-contract 통과, test:nenova-dnspy-evidence/manifest/write guard 통과. 빌드 통과 후 마지막 UI 비동기 선택 처리까지 최종 재빌드 중. 운영 배포/실파일 적용은 유예 및 미검증.
 
 - 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.
+
+- 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기

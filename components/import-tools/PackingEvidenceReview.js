@@ -92,7 +92,10 @@ function validateMetadataDraft(draft, baseline, rowErrors, requireConfirmation =
   if (!baseline?.metadata) return;
   for (const field of METADATA_FIELDS) {
     const value = stringValue(draft.metadata?.values?.[field]).trim();
-    const required = baseline.metadata.issueFields.includes(field) || metadataFieldChanged(draft, baseline, field);
+    const referenceDate = field === 'date' || field === 'date_kind';
+    const changed = metadataFieldChanged(draft, baseline, field);
+    if (referenceDate && !changed) continue;
+    const required = (!referenceDate && baseline.metadata.issueFields.includes(field)) || changed;
     if (field === 'date' && value) {
       const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       const date = match && new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
@@ -111,8 +114,8 @@ function validateMetadataDraft(draft, baseline, rowErrors, requireConfirmation =
       if (!validAmount || !Number.isFinite(amount) || Math.abs(amount) > 1e12) rowErrors[`metadata_${field}`] = `${METADATA_LABELS[field]} 숫자 형식 또는 범위를 확인하세요.`;
     } else if (['invoice_total', 'handling'].includes(field) && required) rowErrors[`metadata_${field}`] = `원문에 인쇄된 ${METADATA_LABELS[field]}을 입력하세요.`;
     if (!required) continue;
-    if (requireConfirmation && draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
-    if (!stringValue(draft.metadata?.reasons?.[field]).trim()) rowErrors[`metadata_${field}_reason`] = `${METADATA_LABELS[field]} 확인 사유를 입력하세요.`;
+    if (!referenceDate && requireConfirmation && draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
+    if (!referenceDate && !stringValue(draft.metadata?.reasons?.[field]).trim()) rowErrors[`metadata_${field}_reason`] = `${METADATA_LABELS[field]} 확인 사유를 입력하세요.`;
     if (stringValue(draft.metadata?.reasons?.[field]).trim().length > 1000) rowErrors[`metadata_${field}_reason`] = '확인 사유는 1,000자 이내로 입력하세요.';
   }
 }
@@ -596,7 +599,7 @@ export default function PackingEvidenceReview({
           <span>이 {METADATA_LABELS[field]}의 원문과 입력값을 각각 대조했습니다.</span>
         </label>}
         {confirmError && <p className={styles.error} role="alert">{confirmError}</p>}
-        <label className={styles.reasonLabel} htmlFor={`${id}-reason`}>{METADATA_LABELS[field]} 확인 사유
+        <label className={styles.reasonLabel} htmlFor={`${id}-reason`}>{METADATA_LABELS[field]} 확인 사유{['date','date_kind'].includes(field) ? ' (선택 · 입고일과 별도)' : ''}
           <input id={`${id}-reason`} type="text" value={selectedDraft?.metadata?.reasons?.[field] || ''} onChange={event => updateMetadataReason(selectedKey, field, event.target.value)} placeholder="원문 확인 또는 수정 근거" aria-invalid={Boolean(reasonError)} data-testid={`metadata-reason-${field}`} />
         </label>
         {reasonError && <p className={styles.error} role="alert">{reasonError}</p>}

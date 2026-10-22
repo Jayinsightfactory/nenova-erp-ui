@@ -288,6 +288,7 @@ async function main() {
       '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),
       '../../lib/packingMatchReview.js': matchReview,
       '../../lib/packingWeekDate.js': require('../lib/packingWeekDate.js'),
+      '../../lib/packingReceiptDatePolicy.js': require('../lib/packingReceiptDatePolicy.js'),
       '../../lib/packingReceiptMatchState.js': receiptMatchState,
       '../../lib/packingWorkDraft.js': workDraft,
       '../../lib/packingSharedHistoryClient.js': {createPackingHistoryClient: () => ({save: async () => ({id:'test-history'})})},
