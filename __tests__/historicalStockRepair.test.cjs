@@ -61,6 +61,16 @@ module.exports=(async()=>{
  const sentinel=earlyFixture();sentinel.incoming.push({ProdKey:1,OrderYear:'2025',OrderWeek:'04-01',OutQuantity:999});assert.equal(plan(sentinel,earlyScope).items[0].excess,30);
  const neutral=earlyFixture();neutral.incoming.push({ProdKey:1,OrderYear:'2026',OrderWeek:'04-02',OutQuantity:10});neutral.outgoing.push({...neutral.incoming[0]});assert.equal(plan(neutral,earlyScope).items[0].excess,30);
  const duplicateRead=structuredClone(ea);duplicateRead.stocks[2]={...duplicateRead.stocks[1]};assert.throws(()=>verify(eb,duplicateRead,ep),/READBACK/);
+ for(const failure of ['none','stale','busy','insert','native','readback']){
+  let live=earlyFixture(),working=structuredClone(live),read=0,writes=0,committed=false;
+  try{await execute({scope:earlyScope,expectedHash:failure==='stale'?'0'.repeat(64):digest(live),actor:'fixture',types:{NVarChar:'s',Float:'f',Int:'i'},
+   tQuery:async(text,params)=>{if(text.startsWith('SELECT'))return{recordset:[{...idle,...(failure==='busy'?{Mode:'RUN'}:{})}]};
+    assert.match(text,/INSERT INTO StockHistory/);assert.equal(params.wk.value,'04-01');assert.equal(params.amount.value,30);writes++;if(failure==='insert')throw Error('insert');return{};},
+   readState:async()=>++read===1?structuredClone(working):working,
+   runNative:async()=>{if(failure==='native')throw Error('native');working=structuredClone(ea);if(failure==='readback')working.products[0].Stock++;},
+  });live=working;committed=true;}catch{working=structuredClone(live);}
+  assert.equal(committed,failure==='none');if(!committed)assert.deepEqual(live,earlyFixture());if(['busy','stale'].includes(failure))assert.equal(writes,0);
+ }
  assert.match(script,/evidenceJson\(before\)/);assert.match(script,/NENOVA_REPAIR_ACTOR/);
  const {auditStockRange}=await import('../lib/profitIndependentAudit.mjs');
  const s=fixture();s.products[0]={...s.products[0],ProdName:'fixture',Category:'에콰도르',EstUnit:'송이',Stockable:1};s.prices=[];
