@@ -506,3 +506,21 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 
 ## 2026-10-21 새 파일 자동 범위 정정
 실제 설치 EXE CLI 재실행 및 감사122 SELECT 확인. 이번 범위는 웹 파일 파싱/매칭/화면 세대번호이며 ShipmentDetail/ShipmentDate writer·자동확정·주문/재고/견적 부작용은 변경하지 않음. 수국 원본은 품종 선택 없이 수국으로 읽고 다른 품종 key/이름 매칭을 차단. 현재 파일의 표시 시트만 사용. 이력 SUCCESS는 ERP 쓰기와 같은 transaction에서 기록되므로 STARTED 이력을 완료 업로드로 재사용하지 않음.
+
+
+## 2026-10-22 업로드 수동 연결·제외 정책
+
+실제 설치 EXE에 `dnSpy.Console.exe --no-color -t FormShipmentDistribution` 재실행.
+GetShipmentMaster의 선택 연도/차수/업체 연결, btnSave_Click의 상세→변경 농장→
+수량변경 시 ShipmentDate.Delete/Insert 순서를 확인했다. 웹 파일 매칭/건너뛰기는
+EXE에 없는 명시 입력 정책이며 native writer·환산·확정은 변경하지 않는다.
+
+SELECT-only: Ruscus Green=1717, Ruscus Green 40cm=3085, 콜롬비아루스커스/박스.
+동일 43-01/두 품목 기준 2025 ViewOrder22/ViewShipment22/ShipmentDate22/
+ShipmentFarm0/Estimate3/DetailFix1+Order+Date+PeriodDay 노출22,
+2026은 주문28/출고0/날짜0/농장0/견적0/노출0. 2025 출고58, Amount10368182.145454546,
+Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 적용 결과가 아니다.
+실제 사용자 파일·EXE GUI 적용은 미검증. 정책 및 교차연도 회귀는
+[계획](../plans/import-manual-skip-2026-10-22.md)에 기록한다.
+
+추가 SELECT: WebProfitReport 2025/2026 MajorWeek43은 저장행0. 2025 확정 출고22행 금액은 위 합계와 동일(부동소수점 합산 말자리 차이), 2026 해당 확정 출고0.

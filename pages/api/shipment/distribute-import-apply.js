@@ -35,6 +35,7 @@ async function handler(req, res) {
       earlyImportScope: req.body?.earlyImportScope,
       sourceFileName: req.body?.sourceFileName,
       fullCategoryReplacement: true,
+      replacementProductKeys: req.body?.replacementProductKeys,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
       shipmentOnly: false,
