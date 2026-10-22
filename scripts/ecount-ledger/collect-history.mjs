@@ -53,9 +53,68 @@ function restartDaemon(state) {
 // ───────── 화면 조작(읽기 전용) ─────────
 const FRAMES = (page) => [page, ...page.frames()];
 
+function probeHashCache() {
+  try { const j = JSON.parse(fs.readFileSync(path.join(HIST, '_probe', 'all.json'), 'utf8')); return Object.fromEntries(Object.entries(j).filter(([, v]) => v && v.hash).map(([k, v]) => [k, v.hash])); } catch { return {}; }
+}
+// 화면 제목(별 아이콘 옆)이 메뉴명과 같은지로 진입 성공을 판정한다(해시만 바뀌고 홈에 머무는 경우 방지)
+async function onProgram(page, def) {
+  if (!page.url().includes(`prgId=${def.prgId}`)) return false;
+  if (!def.menuName) return true;
+  // 왼쪽 메뉴 목록에도 메뉴명이 있으므로 body 전체가 아니라 '현재 프로그램 제목'(별 아이콘 옆 제목 요소)만 본다
+  const want = def.menuName.replace(/\s+/g, '');
+  for (const f of FRAMES(page)) {
+    try {
+      const ok = await f.evaluate((w) => {
+        const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+        // 실측(probe E040217): 프로그램 제목 = div.wrapper-title span.page-name, 좌측 메뉴 활성 = li.active > a, document.title 도 프로그램명
+        const norm = (t) => (t || '').replace(/\s+/g, '').replace(/^[★☆⭐]+/, '');
+        if (norm(document.title).startsWith(w)) return true;
+        const cands = [...document.querySelectorAll('.wrapper-title .page-name, span.page-name, li.active > a')].filter(vis);
+        return cands.some((e) => norm(e.textContent) === w);
+      }, want);
+      if (ok) return true;
+    } catch {}
+  }
+  return false;
+}
 async function navigate(page, base, def) {
-  await page.goto(base + def.hash, { waitUntil: 'networkidle' }).catch(() => {});
+  if (!def.hash) { const c = probeHashCache(); if (c[def.prgId]) def.hash = c[def.prgId]; }
+  if (def.hash) {
+    await page.goto(base + def.hash, { waitUntil: 'networkidle' }).catch(() => {});
+    await page.waitForTimeout(2800);
+    if (await onProgram(page, def)) return;
+  }
+  // 해시를 모르는 화면: 상단 '메뉴검색' 자동완성으로 진입(조회 전용 이동, 아무것도 저장하지 않음)
+  if (!def.menuName) throw new Error(`메뉴 해시·이름 없음: ${def.prgId}`);
+  // 남아 있는 알림 모달(존재하지 않는 메뉴명 등) 닫기
+  for (const f of FRAMES(page)) { try { const ok = f.locator('.modal button:has-text("확인"), [role="dialog"] button:has-text("확인")'); if (await ok.count() && await ok.first().isVisible({ timeout: 300 })) await ok.first().click({ timeout: 1000 }); } catch {} }
+  await page.keyboard.press('Escape').catch(() => {});
+  // 메뉴 유형 추정 해시(E01=회계 I MENUTREE_000001, E04=재고 I MENUTREE_000004)로 먼저 시도
+  const mt = def.prgId.startsWith('E01') ? 'MENUTREE_000001' : 'MENUTREE_000004';
+  const guess = `#menuType=${mt}&prgId=${def.prgId}&depth=3`;
+  await page.goto(base + guess, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2800);
+  if ((await onProgram(page, def)) && !(await page.locator('.modal:visible, [role="dialog"]:visible').count().catch(() => 0))) { def.hash = '#' + page.url().split('#')[1]; return; }
+  for (const f of FRAMES(page)) { try { const ok = f.locator('.modal button:has-text("확인"), [role="dialog"] button:has-text("확인")'); if (await ok.count() && await ok.first().isVisible({ timeout: 300 })) await ok.first().click({ timeout: 1000 }); } catch {} }
+  const box = page.locator('#inputFavMSearch').first();
+  await box.click({ timeout: 5000 }); await box.fill(''); await box.type(def.menuName, { delay: 40 });
+  await page.waitForTimeout(1800);
+  let clicked = false;
+  for (const f of FRAMES(page)) {
+    const items = f.locator('ul.ui-autocomplete li, .ui-autocomplete .ui-menu-item, [role="listbox"] li').filter({ hasText: def.menuName });
+    const n = await items.count().catch(() => 0);
+    for (let k = 0; k < n && !clicked; k++) { // 같은 이름 메뉴(재고/회계)가 여럿이면 순서대로 눌러 prgId 가 맞는 것을 찾는다
+      try {
+        await items.nth(k).click({ timeout: 2000 }); await page.waitForTimeout(3000);
+        if (await onProgram(page, def)) { clicked = true; break; }
+        await box.click({ timeout: 3000 }); await box.fill(''); await box.type(def.menuName, { delay: 40 }); await page.waitForTimeout(1800);
+      } catch {}
+    }
+    if (clicked) break;
+  }
+  if (!clicked) { await box.press('Enter'); await page.waitForTimeout(3000); }
+  if (!(await onProgram(page, def))) throw new Error(`메뉴검색 진입 실패: ${def.menuName} → ${page.url().slice(-80)}`);
+  def.hash = '#' + page.url().split('#')[1];
 }
 
 // 검색패널의 input/select 덤프(눌러보지 않음)
@@ -82,7 +141,8 @@ async function dumpInputs(page) {
 //   값을 바꾼 뒤 라벨·일 값을 읽어 목표와 같은지 확인하고, 다르면 throw(스크린샷은 호출측).
 async function openSearchPanel(page) {
   // 결과 화면에서는 검색 패널이 DOM 에 남아 있어도 숨겨져 있으므로 '보이는' 기준으로 판정한다
-  const has = async () => { for (const f of FRAMES(page)) { try { const l = f.locator('.wrapper-datepicker button[data-id="year"]').first(); if (await l.count() && await l.isVisible({ timeout: 500 })) return f; } catch {} } return null; };
+  // 숨은 템플릿이 먼저 잡히면 first().isVisible 이 false 가 되므로 :visible 로 센다
+  const has = async () => { for (const f of FRAMES(page)) { try { if (await f.locator('.wrapper-datepicker button.btn-selectbox:visible').count()) return f; } catch {} } return null; };
   let f = await has(); if (f) return f;
   await page.keyboard.press('F3').catch(() => {}); await page.waitForTimeout(1500);
   f = await has(); if (f) return f;
@@ -93,14 +153,11 @@ async function openSearchPanel(page) {
   await page.waitForTimeout(1500);
   return has();
 }
-async function pickSelectbox(page, frame, wrapperIdx, which, value2) {
-  const wrap = frame.locator('.wrapper-datepicker .wrapper-datepicker').nth(wrapperIdx);
-  const btn = wrap.locator(`button[data-id="${which}"]`).first();
+async function pickSelectbox(page, btn, which, value2) {
   const cur = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
-  if (cur === value2) return;
+  if (cur === value2 || cur === `20${value2}`) return;
   await btn.click({ timeout: 3000 });
   await page.waitForTimeout(500);
-  // 열린 레이어에서 값 선택(2자리 또는 4자리 연도 모두 허용)
   const cands = which === 'year' ? [value2, `20${value2}`] : [value2, String(Number(value2))];
   let done = false;
   for (const fr of FRAMES(page)) {
@@ -110,26 +167,43 @@ async function pickSelectbox(page, frame, wrapperIdx, which, value2) {
     }
     if (done) break;
   }
-  if (!done) { // 레이어 못 찾으면 직접입력 칸에 타이핑
-    await page.keyboard.type(value2, { delay: 60 }); await page.keyboard.press('Enter').catch(() => {});
-  }
+  if (!done) { await page.keyboard.type(value2, { delay: 60 }); await page.keyboard.press('Enter').catch(() => {}); }
   await page.waitForTimeout(400);
   const after = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
   if (after !== value2 && after !== `20${value2}`) throw new Error(`${which} 설정 실패: 목표 ${value2}, 현재 ${after}`);
 }
+// 화면마다 datepicker 구조가 다르다: 판매현황은 중첩 wrapper 2개(시작/종료), 채권·현황류는 wrapper 1개 안에 연/월/일 세트가 1~2개.
+// → 보이는 datepicker 영역에서 year/month 버튼과 #day 입력의 '순서'로 세트를 판정한다. 세트 2개면 월초~월말, 1개면 월말(기준일 스냅샷).
 const setPeriod = async (page, ym) => {
   const [Y, M] = ym.split('-'); const y2 = Y.slice(2); const last = String(new Date(Number(Y), Number(M), 0).getDate()).padStart(2, '0');
   const frame = await openSearchPanel(page);
-  if (!frame) throw new Error('검색 패널(기준일자) 못 찾음');
-  await pickSelectbox(page, frame, 0, 'year', y2); await pickSelectbox(page, frame, 0, 'month', M);
-  const days = frame.locator('.wrapper-datepicker input#day');
-  await days.nth(0).fill('01'); await days.nth(0).press('Tab');
-  await pickSelectbox(page, frame, 1, 'year', y2); await pickSelectbox(page, frame, 1, 'month', M);
-  await days.nth(1).fill(last); await days.nth(1).press('Tab');
+  if (!frame) {
+    const diag = [];
+    for (const f of FRAMES(page)) {
+      try {
+        const c = await f.evaluate(() => { const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; }; const all = [...document.querySelectorAll('.wrapper-datepicker')]; const yb = [...document.querySelectorAll('button[data-id="year"]')]; return { dp: all.length, dpVis: all.filter(vis).length, yr: yb.length, yrVis: yb.filter(vis).length, url: location.href.slice(0, 60) }; });
+        let pw = -1; try { pw = await f.locator('.wrapper-datepicker button[data-id="year"]:visible').count(); } catch (e) { pw = 'ERR ' + e.message.slice(0, 80); }
+        diag.push({ ...c, pwVisibleCount: pw });
+      } catch (e) { diag.push({ err: e.message.slice(0, 80) }); }
+    }
+    throw new Error('검색 패널(기준일자) 못 찾음 diag=' + JSON.stringify(diag));
+  }
+  // 두 가지 위젯 모두 흡수: (A) 판매현황형 button[data-id=year|month] + input#day, (B) 채권/현황형 button[data-role=date.selectbox] + input.form-control[data-index]
+  //   → 보이는 datepicker 안의 selectbox 버튼을 문서 순서로 (연,월) 쌍으로, 일 입력은 숨은 직접입력칸을 뺀 텍스트 input 순서로 짝짓는다.
+  const btns = frame.locator('.wrapper-datepicker button.btn-selectbox:visible');
+  const days = frame.locator('.wrapper-datepicker input.form-control:not(.select-direct-input):not(.hidden):visible');
+  const n = Math.min(Math.floor(await btns.count() / 2), await days.count());
+  if (n < 1) throw new Error(`기준일자 입력란 없음(selectbox ${await btns.count()}, day ${await days.count()})`);
+  const sets = n >= 2 ? [['01', 0], [last, 1]] : [[last, 0]];
+  for (const [dd, k] of sets) {
+    await pickSelectbox(page, btns.nth(2 * k), 'year', y2); await pickSelectbox(page, btns.nth(2 * k + 1), 'month', M);
+    await days.nth(k).fill(dd); await days.nth(k).press('Tab');
+  }
   await page.waitForTimeout(400);
-  const d0 = await days.nth(0).inputValue(); const d1 = await days.nth(1).inputValue();
-  if (d0 !== '01' || d1 !== last) throw new Error(`일 설정 실패: ${d0}~${d1} (목표 01~${last})`);
-  log(`기간 설정 ${y2}/${M}/01 ~ ${y2}/${M}/${last}`);
+  const got = []; for (const [, k] of sets) got.push(await days.nth(k).inputValue());
+  const want = sets.map(([dd]) => dd);
+  if (got.join() !== want.join()) throw new Error(`일 설정 실패: ${got.join('~')} (목표 ${want.join('~')})`);
+  log(`기간 설정 ${n >= 2 ? `${y2}/${M}/01 ~ ` : '기준일 '}${y2}/${M}/${last}`);
 };
 
 // 결과 0행 화면 판정(엑셀 다운로드가 시작되지 않는 빈 조회)
@@ -221,6 +295,51 @@ async function main() {
     log('이카운트 세션 확인');
 
     if (opt.probe) {
+      const { query: q0 } = await import('../../lib/db.js');
+      const dsAll = (await q0(`SELECT PrgId, MenuName FROM ecount.Dataset WHERE IsActive = 1 ORDER BY PrgId`)).recordset;
+      const want = opt.probe === true ? target : opt.probe;
+      const list = want === 'all' ? dsAll.map((d) => d.PrgId) : [want];
+      const nameOf = Object.fromEntries(dsAll.map((d) => [d.PrgId, d.MenuName]));
+      const shotDir = path.join(HIST, '_probe'); fs.mkdirSync(shotDir, { recursive: true });
+      const all = {};
+      for (const prg of list) {
+        const def = defByPrg[prg] ? { ...defByPrg[prg], menuName: nameOf[prg] } : { prgId: prg, hash: '', menuName: nameOf[prg] };
+        try {
+          let navErr = ''; try { await navigate(page, base, def); } catch (e) { navErr = e.message; } // probe 는 진입 판정 실패해도 화면을 덤프한다
+          await openSearchPanel(page).catch(() => null);
+          if (navErr) log(`  (진입 판정 실패지만 계속 덤프: ${navErr.slice(0, 80)})`);
+          await page.waitForTimeout(800);
+          const info = { hash: def.hash, url: page.url().slice(0, 160), docTitle: await page.title().catch(() => '') };
+          for (const f of FRAMES(page)) { try { const tc = await f.evaluate((w) => { const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; }; return [...document.querySelectorAll('*')].filter((e) => e.children.length === 0 && vis(e) && (e.textContent || '').replace(/\s+/g, '') === w).map((e) => { const r = e.getBoundingClientRect(); let path = []; let x = e; for (let i = 0; i < 4 && x; i++) { path.push(x.tagName.toLowerCase() + (x.className ? '.' + String(x.className).trim().split(/\s+/).slice(0, 2).join('.') : '')); x = x.parentElement; } return { x: Math.round(r.x), y: Math.round(r.y), path: path.join(' < ') }; }); }, (nameOf[prg] || '').replace(/\s+/g, '')); if (tc.length) { info.titleCands = tc; break; } } catch {} }
+          for (const f of FRAMES(page)) {
+            try {
+              const r = await f.evaluate(() => {
+                const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+                const pickers = [...document.querySelectorAll('.wrapper-datepicker')].filter((e) => vis(e) && !e.querySelector('.wrapper-datepicker'));
+                const rows = [...new Set(pickers.map((e) => { let r = e; for (let i = 0; i < 8 && r && r.tagName !== 'LI'; i++) r = r.parentElement; return r || e; }))];
+                const btns = [...document.querySelectorAll('button, a.btn')].filter(vis).map((b) => (b.textContent || '').trim()).filter((t) => t && t.length < 20);
+                return { pickers: pickers.length, dpHtml: pickers.map((e) => e.outerHTML.slice(0, 5000)), rows: rows.map((r) => ({ title: (r.querySelector('.title') || {}).textContent?.trim() || '', html: r.outerHTML.slice(0, 2500) })), buttons: [...new Set(btns)].slice(0, 60) };
+              });
+              if (r.pickers || r.buttons.length) { Object.assign(info, r); break; }
+            } catch {}
+          }
+          if (!info.pickers) {
+            for (const f of FRAMES(page)) { try { const b = f.locator('button:has-text("Search(F3)")').first(); if (await b.count() && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 2000 }); break; } } catch {} }
+            await page.waitForTimeout(1500);
+            const inputs = (await dumpInputs(page)).filter((r) => r.visible && (/\d{2,4}\/\d{2}/.test(String(r.value || '')) || /date|dt|일자|기간/i.test(`${r.id} ${r.name} ${r.cls} ${r.ph}`)));
+            info.f3Inputs = inputs;
+            for (const f of FRAMES(page)) { try { const h = await f.evaluate(() => { const el = [...document.querySelectorAll('input')].find((e) => /\d{2,4}\/\d{2}/.test(e.value || '')); if (!el) return ''; let r = el; for (let i = 0; i < 6 && r && !/^(LI|TR)$/.test(r.tagName); i++) r = r.parentElement; return (r || el).outerHTML.slice(0, 2500); }); if (h) { info.f3Html = h; break; } } catch {} }
+          }
+          all[prg] = info;
+          await page.screenshot({ path: path.join(shotDir, `${prg}.png`) }).catch(() => {});
+          log(`probe ${prg} ${nameOf[prg]}: pickers=${info.pickers ?? 0} rows=${(info.rows || []).map((x) => x.title).join('|')} excel=${(info.buttons || []).filter((b) => /excel|엑셀/i.test(b)).join('/')}`);
+        } catch (e) { all[prg] = { error: e.message }; log(`probe ${prg} 실패: ${e.message}`); await page.screenshot({ path: path.join(shotDir, `${prg}-fail.png`) }).catch(() => {}); }
+      }
+      fs.writeFileSync(path.join(shotDir, 'all.json'), JSON.stringify(all, null, 1));
+      log(`probe 저장: ${path.join(shotDir, 'all.json')}`);
+      return;
+    }
+    if (false) {
       const prg = opt.probe === true ? target : opt.probe;
       const def = defByPrg[prg] || { prgId: prg, hash: `#menuType=MENUTREE_000004&prgId=${prg}&depth=4` };
       await navigate(page, base, def);
@@ -271,7 +390,7 @@ async function main() {
     const summary = [];
     const failDir = path.join(HIST, '_fail'); fs.mkdirSync(failDir, { recursive: true });
     for (const prgId of targets) {
-      const def = defByPrg[prgId] || { prgId, hash: `#menuType=MENUTREE_000004&prgId=${prgId}&depth=4` };
+      const def = defByPrg[prgId] ? { ...defByPrg[prgId], menuName: menuOf[prgId] } : { prgId, hash: '', menuName: menuOf[prgId] };
       const master = isMaster(prgId);
       const months = master ? ['master'] : (opt.from ? monthRange(opt.from, to) : descendingMonths(to, DEFAULT_START_MONTH));
       const open = !opt.from && !master; // 거슬러 올라가기 모드: 빈 달 연속이면 중단
