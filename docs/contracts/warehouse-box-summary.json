@@ -1,0 +1,11 @@
+{
+  "id":"warehouse-box-summary",
+  "title":"입고 원장 박스 현황 읽기 전용",
+  "scope":["lib/warehouseBoxSummary.js","pages/api/warehouse/boxes.js","pages/incoming/boxes.js","pages/incoming.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READ_BOX_SUMMARY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"명시 연도, 차수/국가/품종 필터. WarehouseMaster/Detail 및 Product SELECT only. 저장 BoxQuantity만 집계, NULL 미기재 별도. Farm/Order 조인 없음. 모든 ERP/웹 원장 보존."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 동일 42-01 격리, 미기재/명시0/소수박스와 미분류 포함"},
+  "requiredTestFiles":["__tests__/warehouseBoxSummary.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-22 actual dnSpy ExcelLoadingPackingList BoxQuantity/InputDate/OrderWeek 재확인; docs/plans/receipt-boxes-2026-10-22.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","Product"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

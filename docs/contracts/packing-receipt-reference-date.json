@@ -1,0 +1,11 @@
+{
+ "id":"packing-receipt-reference-date",
+ "title":"입고일과 인보이스 참고일 분리",
+ "scope":["lib/packingReceiptDatePolicy.js","lib/importPackingMatchPreview.js","lib/importPackingSourceReview.js","lib/importPackingReview.js","lib/importPackingReceiptAdapter.js","lib/packingValidationIssues.js","components/import-tools/PackingListTool.js","components/import-tools/PackingEvidenceReview.js","components/import-tools/InvoiceReceiptWorkbench.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"REFERENCE_DATE_REVIEW","orderDetail":"preserve","shipmentDetail":"preserve","notes":"인쇄 날짜 미확인은 참고 경고로 보존, 입고 진행 차단 아님. 실제 입고일과 연도·세부차수/중복 송장 키 검증 유지. 수량·통화·총액/원본 해시·매칭 보호 유지. 새로운 DATE 오류는 기본 차단."}],
+ "crossYearFixture":{"required":true,"description":"2025/2026 참고일 편집과 실제 입고일-선택연도 충돌 검증 유지"},
+ "requiredTestFiles":["__tests__/packingReceiptDatePolicy.test.js","__tests__/packingBlockedNotice.test.js","__tests__/invoiceReceiptValidation.test.js"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-22 dnSpy ExcelLoadingPackingList; G3 InputDate와 G2 OrderWeek 별도. 인쇄 날짜 확인 사유 없음. 입고일 검증 보존.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

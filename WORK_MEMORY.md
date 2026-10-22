@@ -830,3 +830,10 @@
 - DB 쓰기 없음. 기존 638행 실제 조회 성공, 새 경로 자동완료는 배포 후 검증 예정.
 - 검색어: shilla-check bridge workspace query redirect 1205
 
+## 2026-10-22 입고 참고일 차단 분리·박스 현황
+- 실제 dnSpy ExcelLoadingPackingList 기준 InputDate/OrderWeek/BoxQuantity 확인. 인쇄 날짜 경고는 보존하되 수량 오류처럼 진행을 막지 않음. 실제 입고일·연도·수량·금액 검증 유지.
+- 새 /incoming/boxes 조회 전용: 저장 BoxQuantity, 연도·세부차수·국가·품종 필터, NULL 별도 경고. DB 스키마·EXE·SP 변경 없음.
+- 직접 Computer Use로 42-1 PDF→Ammi 수동매칭→입고91001→원가 승인/재조회→엑셀 다운로드 완료(격리SQL). 64행/186박스, 도착원가29048581.029768원. 기존 동일 송장 환율215/품목별 추정 비용 근거 재현. 운영 DB 쓰기 없음. 종료 후 주문·분배 보존 검사 통과.
+- 전체 ERP 검사·빌드 통과, 최종 표시 보완 재빌드/PR/배포 진행 중. Excel 자체 머리글 시각검증과 운영 스모크는 미검증. 상세 docs/work-sessions/2026-10-22_receipt-boxes.md.
+- 검색어: 42-1 입고 참고날짜 박스현황 186 도착원가 다운로드 격리SQL
+
