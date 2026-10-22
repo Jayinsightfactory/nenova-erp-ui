@@ -52,7 +52,8 @@ test('matching-first review defaults to manual rows and can open a specific sour
   assert.match(component, /sourceKey: targetEntry\.key/);
   assert.match(component, /targetPage <= result\.numPages/);
   assert.match(component, /targetEntry\?\.row\?\.reviewRequired === false/);
-  assert.match(component, /\.filter\(entry => showAllSourceRows \|\| sourceNeedsHumanReview\(entry\)\)/);
+  assert.match(component, /issue\.hasIssue && \(!issue\.canDismiss \|\| dismissedWarnings\[entry\.key\] !== issue\.signature\)/);
+  assert.match(component, /selectedEntry \? \[selectedEntry\] : \[\]/);
   assert.match(component, /data-testid="source-show-all"/);
   assert.match(component, /needsHumanReview \? <label/);
   assert.match(component, /자동 검산 완료/);
