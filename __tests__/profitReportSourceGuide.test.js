@@ -209,12 +209,12 @@ async function main() {
     && /실제로 쓴 차량·비용이 있으면 그 값이 항상 우선/.test(byKey['in-world'].source));
 
   // 기말재고 F 자동공식
-  // 2026-08-27 대표 확정: 검증 근거 전무 품목은 판매단가 기준 자동평가(백테스트 오차율 7.3%).
-  check('기말재고 설명이 원본 평균원가 공식·검증 보조 단가·판매단가 자동평가를 명시',
+  // 26~31차 원본 수식 우선: 판매단가와 숫자 입력을 원가 공식으로 인증하지 않는다.
+  check('기말재고 설명이 원본 평균원가·품목원가·판매단가 근사 배제를 명시',
     /\(매입액\+그외통관비\) ÷ 매입수량 × 마지막 재고수량/.test(byKey.F.formula)
     && /검증된 품목별 시점단가/.test(byKey.F.formula)
-    && /검증된 매입·취득원가/.test(byKey.F.note)
-    && /판매단가\(×1\.1\).*자동 평가/.test(byKey.F.note)
+    && /실제 매입·취득원가/.test(byKey.F.note)
+    && /판매단가·현재 환율 근사·원본 재고총액 복사는 사용하지 않/.test(byKey.F.note)
     && /Product\.Cost는 사용하지 않습니다/.test(byKey.F.note));
   check('기말재고 코드가 검증되지 않은 최근원가·평균 도착원가 폴백을 금지',
     /hasVerifiedStockPriceEvidence/.test(calcSource)

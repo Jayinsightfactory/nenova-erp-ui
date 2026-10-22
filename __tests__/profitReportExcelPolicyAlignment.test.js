@@ -118,10 +118,14 @@ async function main() {
     '당기 원천은 요청 연도를 사용');
   assert.match(apiSource, /computeCustomsAndForwarding\(prevMajor, prevOrderYear, \{ profile: 'profit-report' \}\)/,
     '전기 원천은 계산된 전기 연도 컨텍스트를 사용');
-  assert.match(apiSource, /computeCustomsAndForwarding\(ppMajor, ppYear, \{ profile: 'profit-report' \}\)/,
-    'FIFO 전전기 원천도 보고서 전용 계산 프로파일을 사용');
-  assert.match(apiSource, /const ppYear\s*=\s*prevOrderYear/,
-    'FIFO 전전기는 실제 계산된 전기 연도 컨텍스트를 사용');
+  assert.doesNotMatch(apiSource, /prevPrevUnitCost|anyCategory: true/,
+    '전전기 국가 총액으로 근사 단가를 만드는 경로는 제거');
+  const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
+  const layerContext = reportSource.slice(reportSource.indexOf('function fifoWeekRateContext'), reportSource.indexOf('async function fifoLayerRateAndCustoms'));
+  assert.match(layerContext, /const key = `\$\{orderYear\}:\$\{major\}`/,
+    '실제 품목 매입 레이어의 환율 캐시는 연도와 차수를 함께 구분');
+  assert.match(layerContext, /computeCustomsAndForwarding\(major, orderYear, \{ profile: 'profit-report' \}\)/,
+    '실제 품목 매입 레이어도 보고서 전용 통관 프로파일 사용');
   assert.match(apiSource, /currentMajor <= 1 \? String\(Number\(orderYear\) - 1\) : String\(orderYear\)/,
     '01차만 기초재고 연도를 전년도로 이동');
   assert.match(apiSource, /currentMajor <= 1 \? '52'/,

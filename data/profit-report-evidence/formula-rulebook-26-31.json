@@ -1,0 +1,1386 @@
+{
+  "basis": "26–31 primary; 1–25 corroboration only",
+  "sheet": "주차별 매출이익 보고서",
+  "workbooks": [
+    {
+      "week": 26,
+      "sha256": "b42bcce6779f2b31cfa6fc8393c3dde6827382495b1d63e3d8d01c1a40fe6f5a",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "공제",
+          "row": 22,
+          "formulas": {
+            "C": null,
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    },
+    {
+      "week": 27,
+      "sha256": "2906ec876160f7fa2f0fbaeb1c9b89e49bda6a933cad9b7cabad9fbd7dd36689",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "공제",
+          "row": 22,
+          "formulas": {
+            "C": null,
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    },
+    {
+      "week": 28,
+      "sha256": "91c9e34bbb89e5179d8fccb1ab1c05ef4ad9c37ec6e4f8a2541cdce580b7423d",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G7+H7)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B7,구매현황!D:D)*SUM(재고잔량!M7:M23)"
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G8+H8)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B8,구매현황!D:D)*SUM(재고잔량!M30:M32)"
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G9+H9)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B9,구매현황!D:D)*재고잔량!M92"
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G10+H10)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B10,구매현황!D:D)*재고잔량!M72"
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G11+H11)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B11,구매현황!D:D)*SUM(재고잔량!M79:M85)"
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G21+H21)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B21,구매현황!D:D)*SUM(재고잔량!M152:M155)"
+        },
+        {
+          "category": "국내",
+          "row": 22,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    },
+    {
+      "week": 29,
+      "sha256": "7a730f2ca845db43c6e82d456a6215bbbc6170f39125fd546c833c8665b88e50",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G7+H7)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B7,구매현황!D:D)*SUM(재고잔량!M7:M23)"
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G8+H8)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B8,구매현황!D:D)*SUM(재고잔량!M30:M32)"
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G9+H9)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B9,구매현황!D:D)*재고잔량!M92"
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G10+H10)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B10,구매현황!D:D)*재고잔량!M72"
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G11+H11)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B11,구매현황!D:D)*SUM(재고잔량!M79:M85)"
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G21+H21)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B21,구매현황!D:D)*SUM(재고잔량!M152:M155)"
+        },
+        {
+          "category": "국내",
+          "row": 22,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    },
+    {
+      "week": 30,
+      "sha256": "8bdc86c13736dadafd2d8a39c48c02155139a5f3febc3815ff100d45b958874f",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G7+H7)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B7,구매현황!D:D)*SUM(재고잔량!M7:M23)"
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G8+H8)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B8,구매현황!D:D)*SUM(재고잔량!M30:M32)"
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G9+H9)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B9,구매현황!D:D)*재고잔량!M92"
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G10+H10)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B10,구매현황!D:D)*재고잔량!M72"
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G11+H11)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B11,구매현황!D:D)*SUM(재고잔량!M79:M85)"
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I-4576000",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "국내",
+          "row": 22,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    },
+    {
+      "week": 31,
+      "sha256": "56a5fdd4f12b65edc253d09820baedc172081e0cb2f83df38a443328a69c9556",
+      "rows": [
+        {
+          "category": "콜롬비아 수국",
+          "row": 7,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G7+H7)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B7,구매현황!D:D)*SUM(재고잔량!M7:M23)"
+        },
+        {
+          "category": "콜롬비아 카네이션",
+          "row": 8,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G8+H8)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B8,구매현황!D:D)*SUM(재고잔량!M30:M32)"
+        },
+        {
+          "category": "콜롬비아 장미",
+          "row": 9,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G9+H9)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B9,구매현황!D:D)*재고잔량!M92"
+        },
+        {
+          "category": "콜롬비아 루스커스",
+          "row": 10,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G10+H10)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B10,구매현황!D:D)*재고잔량!M72"
+        },
+        {
+          "category": "콜롬비아 알스트로",
+          "row": 11,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G11+H11)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B11,구매현황!D:D)*SUM(재고잔량!M79:M85)"
+        },
+        {
+          "category": "네덜란드",
+          "row": 12,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "호주",
+          "row": 13,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "태국",
+          "row": 14,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "중국",
+          "row": 15,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "에콰도르",
+          "row": 16,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "미국",
+          "row": 17,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "이스라엘",
+          "row": 18,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "뉴질랜드",
+          "row": 19,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "일본",
+          "row": 20,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H",
+            "J": "C-I+F",
+            "K": "IFERROR((J/(C+F)),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": null
+        },
+        {
+          "category": "베트남",
+          "row": 21,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I+4576000",
+            "K": "IFERROR((J/C),\"\")",
+            "P": "Q*R",
+            "T": "S*R",
+            "G": "P+T"
+          },
+          "inventoryFormula": "=(G21+H21)/SUMIF(구매현황!N:N,'주차별 매출이익 보고서'!B21,구매현황!D:D)*SUM(재고잔량!M152:M155)"
+        },
+        {
+          "category": "국내",
+          "row": 22,
+          "formulas": {
+            "C": "N+L+O",
+            "I": "E+G+H-F",
+            "J": "C-I",
+            "K": "IFERROR((J/C),\"\")",
+            "P": null,
+            "T": null,
+            "G": null
+          },
+          "inventoryFormula": null
+        }
+      ]
+    }
+  ]
+}

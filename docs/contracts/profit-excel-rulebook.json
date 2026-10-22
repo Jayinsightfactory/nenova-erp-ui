@@ -1,0 +1,11 @@
+{
+  "id":"profit-excel-rulebook",
+  "title":"26~31차 엑셀 공통식 우선·추정 재고단가 배제",
+  "scope":["lib/profitReportExcelRulebook.mjs","lib/profitReportAcquisitionCarry.mjs","lib/profitReportValuation.mjs","lib/profitReport.js","lib/profitReportAudit.js","lib/profitReportSourceGuide.js","pages/api/sales/profit-report.js","data/profit-report-evidence/formula-rulebook-26-31.json"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"FORMULA_EVIDENCED_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. Preserve ProductStock, StockHistory, Estimate, WebProfitReport, confirmed snapshots and price evidence. Use 26–31 common formula and explicit category exceptions; no sales-price/current-rate/all-category average fallback or workbook F amount copying. E/F share same evidence policy."}],
+  "crossYearFixture":{"required":true,"description":"Same week 2025/2026 source refs stay separate; missing year is rejected. Existing SQL exact year/week/ProdKey constraints unchanged."},
+  "requiredTestFiles":["__tests__/profitReportExcelRulebook.test.cjs","__tests__/profitReportUnitValuation.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-excel-rulebook-2026-10-22.md","source":"Actual local FormStockView/FormProductAdd CLI plus SELECT-only 2026/26–41 evidence probe","methods":["FormStockView.GetData","FormProductAdd"],"tables":["Product","ProductStock","StockMaster","WebStockPriceEvidence","WarehouseMaster","WarehouseDetail","WebProfitReport"]},
+  "requiredCommands":["node __tests__/profitReportExcelRulebook.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

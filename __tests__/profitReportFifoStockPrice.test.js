@@ -97,10 +97,12 @@ async function main() {
   const snapshotBlock = reportSrc.slice(reportSrc.indexOf('export async function stockSnapshotByCategory'));
   assert.match(snapshotBlock, /fifoPurchaseLayersByProduct\(orderYear, major,/);
   assert.match(snapshotBlock, /directPrice != null \? directPrice : fifo \? fifo\.price/);
-  assert.match(snapshotBlock, /needsInputItems\.push/);
+  assert.match(snapshotBlock, /item\.missingItems\.push/);
+  assert.match(snapshotBlock, /item\.missing \? null : item\.value/);
   const rowsBlock = reportSrc.slice(reportSrc.indexOf('export async function stockPriceRows'), reportSrc.indexOf('export async function autoStockUnitPrices'));
   assert.match(rowsBlock, /beginFifo\?\.evidence \|\| selectStockPriceEvidence/);
-  assert.match(rowsBlock, /row\.RequiresInput = Boolean\(beginNoEvidence \|\| endNoEvidence\)/);
+  assert.match(rowsBlock, /const requiresInput = beginRequiresInput \|\| endRequiresInput/);
+  assert.doesNotMatch(rowsBlock, /resolveAutoStockPrice\(/, '근거 누락을 판매단가로 자동완성하지 않음');
   assert.match(apiSrc, /const resolvedEnd = selectReportInventoryValuation\(/, 'F와 다음 E는 같은 선택기를 사용');
   const { selectReportInventoryValuation } = await import('../lib/profitReportValuation.mjs');
   assert.equal(selectReportInventoryValuation({year:'2026',major:'31',average:{value:25},direct:999}).value,25,
