@@ -849,3 +849,5 @@
 - 최종 검증: 전체 test:erp-contract 통과, test:nenova-dnspy-evidence/manifest/write guard 통과. 빌드 통과 후 마지막 UI 비동기 선택 처리까지 최종 재빌드 중. 운영 배포/실파일 적용은 유예 및 미검증.
 
 - 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.
+
+- 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기
