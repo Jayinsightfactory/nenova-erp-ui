@@ -45,3 +45,15 @@ node run.mjs sales   ar   ap   cash        # 인자로 데이터셋 지정, 없�
 - 시계열: 직전 수집 대비 ±50% 급변 경고
 - 교차: sales ⟷ nenovaweb ShipmentDetail 기간 매출 대조
 → GREEN/YELLOW/RED + 신뢰도 점수. `/ecount` 대시보드에서 시각 확인.
+
+## 원본 화면 조사(survey-run.mjs) — 이관용, 읽기 전용
+ECOUNT 원본 화면의 버튼·검색패널·입력칸·간편검색 프리셋 날짜를 화면마다 디스크에 저장한다(데이터 값은 수집하지 않음).
+- 프로필: `ecount-profile-survey`(매일 수집 데몬의 `ecount-profile` 과 분리, git 제외)
+- 가드: prgId 화이트리스트(조사 목록만) + ECOUNT 쓰기 요청 abort(정적 파일 GET 만 예외) + 저장·삭제·전송 버튼 미클릭
+- 로그인: 회사코드·ID 칸만 비어 있을 때 채움. 비밀번호 칸·로그인 버튼은 건드리지 않음. 상태는 `<out>/_status.json`
+- **셸에 묶어 띄우지 말 것**: 도구 셸이 끝나면 브라우저가 같이 닫힌다 → wscript 숨김 .vbs 등으로 분리 기동
+- 이름에 삭제·백업·일괄·확정·신고 등이 들어간 관리 화면은 `SKIP_PRG` 로 제외(열지 않음)
+```powershell
+node survey-run.mjs --list list.json --out out\        # list = [[prgId, '#menuType=…&prgId=…', 묶음, 라벨], …]
+node survey-run.mjs --build out\ --out survey.json --label "P040~P059"   # ingest 형식으로 변환(마스킹 포함)
+```
