@@ -187,6 +187,16 @@
       "shipmentHistory": "append",
       "batchAtomic": true,
       "authorization": "server_admin_required"
+    },
+    {
+      "name": "IMPORT_DUPLICATE_REVIEW",
+      "description": "Original duplicate candidates remain visible after matching with ProdKey/country/species/unit and current-year/week file-customer positive-order evidence. Existing productOverrides permits corrections and invalidates signed preview. No catalog merge/delete or persistent default.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
     }
   ],
   "crossYearFixture": {

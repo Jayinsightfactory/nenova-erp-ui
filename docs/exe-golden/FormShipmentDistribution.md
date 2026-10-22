@@ -534,3 +534,6 @@ Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 
 - 설치 EXE FormShipmentDistribution dnSpy CLI 재실행. 선택 연도·차수·업체 Master 조회, 상세/농장/날짜 저장 순서 그대로. 이름 정규화/매칭은 웹 preview 정책이며 native SQL writer 변경 없음.
 - 실제 Product3359품목6175이름 SELECT 후 과거/현재 parser와preview 오프라인 비교. 이름 유일 후보 우선, 중복은 현재 연도차수업체의 양수 주문 또는 명시 선택 근거 필요. 잘못된 generic 품목 fallback 제거.
 - 실제 SELECT1043/1044/2738/2739,2025·2026의43-01: ViewOrder/ViewShipment/ShipmentDate/ShipmentFarm/Estimate/DetailFix1+Date+Order+PeriodDay 견적노출/확정매출 모두0. 기존 Ruscus downstream probe는 위 기록 참조. 시험 쓰기 없음. 실제 사용자 파일 적용/EXE GUI 미검증.
+
+## 2026-10-22 중복 품목 사용자 확인
+설치본 FormShipmentDistribution dnSpy CLI를 다시 실행하여 ViewOrder/ProdKey 연결을 확인했다. 이번 변경은 원문 중복 후보와 선택 결과를 preview 응답/브라우저에 추가하고 기존 productOverrides 재검증을 재사용한다. native 상세/농장/날짜/환산/확정 경로는 보존한다. 운영 SELECT 854/861,952/3464,1846/2030,2195/2197 확인: 두 코드 모두 주문 이력이 있는 쌍은 병합하지 않는다. 상세 기준은 docs/plans/import-duplicate-review-2026-10-22.md. 실제 EXE GUI 조작 및 운영 시험 분배는 미실시.
