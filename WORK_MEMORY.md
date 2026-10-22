@@ -902,3 +902,5 @@
 - NL42-2 실제125행 무료변환·매칭통과. US/AU/TH/EC/CO원본확보, AI최대6회 승인대기. VN41-1 PDF미확보. 국가별전체·Excel실앱디자인·전체키보드 미검증.
 - ERP계약/dnSpy/manifest146/writeguard/build통과, PR/배포진행. docs/work-sessions/2026-10-22_invoice-issue-review.md 참조.
 - 검색어: invoice-issue-review KEEP_SOURCE sourceCrop 42-1 2280 1985 NL125
+
+- 2026-10-22 후속: PR1235/master7a30f6ef CI39715921668 성공. NL실제UI 전체공용400매칭으로125행(정확1+수동124) 연결, 다음입고준비까지 통과. 중국용62개 fixture와 비교조건 차이를 확인했고 운영문제로 단정하지 않음. Tab/Shift+Tab/방향키/Enter/Escape·초점복귀 확인. 앞선배포39715500053 SSH기본10분초과로 최종빌드단계 중단, 배포timeout30m만 추가하는 후속PR. DB변경없음. 검색어: deploy-timeout 30m PR1235 NL125 400 62
