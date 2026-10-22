@@ -5,6 +5,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { ingestEcount, DATASETS } from '../../../lib/ecountIngest';
+import { refreshFromLatest } from '../../../lib/ecountWorkspaceStore';
 import crypto from 'crypto';
 import { checkAutomationAuth, getAutomationToken } from '../../../lib/automationAuth';
 
@@ -25,7 +26,11 @@ async function core(req, res) {
   try {
     const actor = req.user?.userName || req.user?.userId || 'scraper';
     const r = await ingestEcount({ dataset, rows, screenTotal, screenRowCnt, periodFrom, periodTo, actor, source: source || 'chrome', note });
-    return res.status(200).json({ success: true, ...r });
+    // 2026-10-22: 적재 직후 웹 작업본 자동 갱신(RED 면 건너뜀 → 직전 정상 수집본 유지). 갱신 실패가 적재 성공을 뒤집지 않는다.
+    let workspaceRefresh;
+    if (r.status === 'RED') workspaceRefresh = { dataset, skipped: 'VERIFY_RED' };
+    else { try { workspaceRefresh = await refreshFromLatest(dataset); } catch { workspaceRefresh = { dataset, skipped: 'REFRESH_FAILED' }; } }
+    return res.status(200).json({ success: true, ...r, workspaceRefresh });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
