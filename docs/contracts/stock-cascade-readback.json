@@ -1,0 +1,11 @@
+{
+  "id":"stock-cascade-readback",
+  "title":"재고조정·확정출고 삭제 후 후속 전차수 검산",
+  "scope":["lib/stockCascade.js","lib/stockCascadeRepair.mjs","scripts/stock-cascade-repair.mjs","pages/api/stock/index.js","pages/api/stock/adjust-batch.js","pages/api/shipment/stock-status.js","pages/shipment/stock-status.js","pages/api/shipment/ghost-master-cleanup.js","pages/api/estimate/update-date-quantity.js","lib/weekdayDistributionApply.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"RECALCULATE_AND_VERIFY","orderDetail":"preserve","shipmentDetail":"preserve","stock":"native calculation and all future snapshot readback in same caller transaction; failure rolls back; shipment mutations governed by existing caller contract","estimate":"preserve","webProfitReport":"preserve"},{"name":"APPROVED_CASCADE_REPAIR","orderDetail":"preserve","shipmentDetail":"preserve","stockHistory":"preserve","product":"preserve","productStock":"exact scoped native calculation only; preview hash + matching rollback rehearsal required"}],
+  "crossYearFixture":{"required":true,"description":"2025 same-week untouched; selected2026 onward includes2027 native snapshots. Legacy nodes explicitly acknowledged, not silently skipped."},
+  "requiredTestFiles":["__tests__/stockCascade.test.cjs","__tests__/stockCascadeRepair.test.cjs","__tests__/invoiceReceiptStockReadback.test.js","__tests__/orderStockCalculation.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/carry-cascade-2026-10-22.md","source":"Actual dnSpy FormStockAdd/ClassShipmentDetail/FormStockView and operating SQL definitions","methods":["FormStockAdd.btnSave_Click","ClassShipmentDetail.Delete","FormStockView.GetData","usp_StockCalculation"],"tables":["ProductStock","StockMaster","StockHistory","ShipmentDetail","ViewShipment","ViewWarehouse"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run verify:erp-change","npm run build"]
+}

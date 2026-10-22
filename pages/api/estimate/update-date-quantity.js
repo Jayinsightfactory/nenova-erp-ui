@@ -1,4 +1,5 @@
 import { withTransaction, sql } from '../../../lib/db';
+import { verifyInvoiceStockReadback } from '../../../lib/invoiceReceiptStockReadback.js';
 import { alignShipmentDetailMoneyToDatesMany } from '../../../lib/shipmentEstimateGuard.js';
 import { withAuth } from '../../../lib/auth';
 import {
@@ -518,6 +519,9 @@ export default withAuth(async function handler(req, res) {
           throw error;
         }
         assertNativeResult(calc);
+        // Decreases and deletion also invalidate every following stock snapshot.
+        await verifyInvoiceStockReadback(tQ, sql,
+          { orderYear: String(row.OrderYear), orderWeek: String(row.OrderWeek) }, [Number(row.ProdKey)]);
         if (!positiveFixedKeys.has(`${row.OrderYear}|${row.ProdKey}`)) continue;
         const negative = await tQ(
           `SELECT TOP 1 stm.OrderYear,stm.OrderWeek,ps.Stock

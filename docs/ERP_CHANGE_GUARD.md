@@ -943,3 +943,13 @@ transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터
 
 ## 2026-10-21 파일 자동 품종 범위
 사용자 의도는 수국 파일만 올리면 수국 처리다. 수동 시트/품종 선택을 강제하지 않는다. 현재 파일 내용에서 품종을 추출하고 known-family 교차 매칭/숨김 및 삭제시트 키맵을 차단한다. 새 파일은 override/검증서명/진행표 초기화와 이전 비동기응답 폐기를 수행한다. 같은 품종 내 최종분배 교체 계약은 별도이며 보존한다.
+
+## 2026-10-22 출고 삭제·재고조정의 후속 재고 검산
+과거 확정 출고 삭제/감소도 선택 차수 이후 ProductStock을 변경한다. 증가에만
+검산을 적용하지 않는다. 견적·요일 분배는 native 성공 직후 verifyInvoiceStockReadback으로
+후속연도·legacy 노드를 포함한 전체 산식을 확인하고 실패하면 같은 transaction을 rollback한다.
+단건·일괄 재고조정도 recalculateStockCascade로 native 결과/트랜잭션/후속 readback을 묶는다.
+구형 stock-status PATCH는 확정수량 수정/삭제를 허용하지 않고 안전한 기존 화면으로 안내한다.
+이월 누락 보정은 기존 이력으로 native 재생만 수행한다. Product.Stock·원장·확정 보고서 보존,
+지문 일치·명시 범위·rollback rehearsal 후에만 적용한다. 웹 보강이 EXE 직접 SQL 삭제까지
+보호한다고 주장하지 않는다. 회귀: stockCascade.test.cjs, stockCascadeRepair.test.cjs.

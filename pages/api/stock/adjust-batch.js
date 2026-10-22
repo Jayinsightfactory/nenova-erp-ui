@@ -9,8 +9,9 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { resolveStockTargetAdjustment } from '../../../lib/stockTargetAdjustment';
+import { recalculateStockCascade } from '../../../lib/stockCascade.js';
 
-async function loadFixedEditedProdKeys(orderYear, orderWeek, prodKeys) {
+async function loadFixedEditedProdKeys(orderYear, orderWeek, prodKeys, queryFn = query) {
   const keys = [...new Set((prodKeys || []).map(Number).filter(Number.isFinite))];
   if (!keys.length) return [];
   const values = keys.map((_, i) => `(@pk${i})`).join(',');
@@ -19,41 +20,16 @@ async function loadFixedEditedProdKeys(orderYear, orderWeek, prodKeys) {
     wk: { type: sql.NVarChar, value: orderWeek },
   };
   keys.forEach((pk, i) => { params[`pk${i}`] = { type: sql.Int, value: pk }; });
-  const r = await query(
+  const r = await queryFn(
     `WITH edited(ProdKey) AS (SELECT v.ProdKey FROM (VALUES ${values}) v(ProdKey))
      SELECT DISTINCT e.ProdKey
        FROM edited e
-       JOIN ShipmentDetail sd ON sd.ProdKey=e.ProdKey AND ISNULL(sd.isFix,0)=1
-       JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+       JOIN ShipmentDetail sd WITH (UPDLOCK,HOLDLOCK) ON sd.ProdKey=e.ProdKey AND ISNULL(sd.isFix,0)=1
+       JOIN ShipmentMaster sm WITH (UPDLOCK,HOLDLOCK) ON sm.ShipmentKey=sd.ShipmentKey
       WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0`,
     params
   );
   return r.recordset.map(row => Number(row.ProdKey));
-}
-
-function stockCalculationSql() {
-  return `IF EXISTS (
-            SELECT 1 FROM sys.parameters
-             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
-               AND name = N'@oResult'
-          )
-          BEGIN
-            DECLARE @r INT, @m NVARCHAR(MAX);
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid,
-                 @oResult = @r OUTPUT, @oMessage = @m OUTPUT;
-            IF ISNULL(@r,0) <> 0
-            BEGIN
-              SET @m = COALESCE(NULLIF(@m,N''),N'재고 재계산 실패');
-              THROW 51000, @m, 1;
-            END
-            SELECT @r AS result, @m AS message;
-          END
-          ELSE
-          BEGIN
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year, @OrderWeek = @week, @ProdKey = @pk, @iUserID = @uid;
-          END`;
 }
 
 export default withAuth(async function handler(req, res) {
@@ -91,7 +67,9 @@ export default withAuth(async function handler(req, res) {
       const pk = Number(e.prodKey);
       const after = Number(e.afterStock);
       const expectedSelectedStock = Number(e.expectedSelectedStock);
-      if (!Number.isFinite(pk) || !Number.isFinite(after) || !Number.isFinite(expectedSelectedStock)) {
+      if (!Number.isInteger(pk) || pk <= 0 || e.afterStock == null || e.afterStock === ''
+        || e.expectedSelectedStock == null || e.expectedSelectedStock === ''
+        || !Number.isFinite(after) || !Number.isFinite(expectedSelectedStock)) {
         return res.status(400).json({ success: false, error: '잘못된 재고 수정값이 포함되어 있습니다.' });
       }
       if (seenProdKeys.has(pk)) {
@@ -103,6 +81,10 @@ export default withAuth(async function handler(req, res) {
 
     const results = await withTransaction(async (tQuery) => {
       const appliedResults = [];
+      const stillFixed = await loadFixedEditedProdKeys(orderYear, week, requestedProdKeys, tQuery);
+      if (stillFixed.length) throw new Error('수정 중 확정 상태가 변경되었습니다. 새로 조회 후 다시 시도하세요.');
+      const kind = await tQuery("SELECT Descr FROM CodeInfo WITH (HOLDLOCK) WHERE Category=N'StockType' AND Descr=N'재고조정'");
+      if (kind.recordset.length !== 1) throw new Error('재고조정 코드가 없거나 중복되어 저장할 수 없습니다.');
       const nextResult = await tQuery(
         `SELECT TOP 1 OrderYear, OrderWeek
            FROM StockMaster WITH (UPDLOCK, HOLDLOCK)
@@ -161,12 +143,7 @@ export default withAuth(async function handler(req, res) {
             `UPDATE Product SET Stock = ROUND(@after, 2) WHERE ProdKey = @pk`,
             { after: { type: sql.Float, value: plan.liveAfter }, pk: { type: sql.Int, value: e.pk } }
           );
-          await tQuery(stockCalculationSql(), {
-            year: { type: sql.NVarChar, value: orderYear },
-            week: { type: sql.NVarChar, value: week },
-            uid:  { type: sql.NVarChar, value: uid },
-            pk:   { type: sql.Int, value: e.pk },
-          });
+          await recalculateStockCascade(tQuery, sql, { orderYear, orderWeek: week, uid, prodKeys: [e.pk] });
           appliedResults.push({ prodKey: e.pk, ok: true, changed: true, ...plan });
       }
       return appliedResults;

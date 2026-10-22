@@ -6,7 +6,7 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderUnit, normalizeOrderWeek, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, normalizeOrderWeek, resolveActiveOrderYear, requireOrderYear } from '../../../lib/orderUtils';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { useExeParityFlag, normalizeOrderYearWeek2 } from '../../../lib/exeParity/common.js';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql.js';
@@ -511,7 +511,7 @@ export default withAuth(async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        rows: [...(result.recordset || []), ...(shipmentOnly.recordset || [])],
+        rows: [...(result.recordset || []), ...(shipmentOnly.recordset || [])].map(row => ({ ...row, OrderYear: orderYear })),
       });
     }
 
@@ -593,7 +593,7 @@ export default withAuth(async function handler(req, res) {
          ORDER BY Manager, c.CustArea, c.CustName, om.OrderWeek, p.CounName, p.FlowerName`,
         params
       );
-      return res.status(200).json({ success: true, rows: result.recordset });
+      return res.status(200).json({ success: true, rows: result.recordset.map(row => ({ ...row, OrderYear: orderYear })) });
     }
 
     // ── FormQuantityPivot (exe 차수 피벗)
@@ -1171,8 +1171,7 @@ async function updateOutQty(req, res) {
     const ck  = parseInt(custKey);
     const pk  = parseInt(prodKey);
     const uid = req.user?.userId || 'system';
-    const orderYear = resolveActiveOrderYear(week, year);
-    const orderWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/)?.[1] || week;
+    const { orderYear, orderWeek } = requireOrderYear(week, year);
 
     // ── 업체별 BaseOutDay 조회 → 기존 전산 동일 로직으로 출고일 계산
     // 기준: 해당 주의 수요일 + BaseOutDay별 오프셋 (차수 -01/-02 무관)
@@ -1211,6 +1210,23 @@ async function updateOutQty(req, res) {
     const shipDtmParam = finalDate ? { shipDate: { type: sql.NVarChar, value: finalDate } } : {};
 
     await withTransaction(async (tQ) => {
+      // This legacy endpoint does not implement the fixed shipment lifecycle.
+      // Never let it bypass native CALC/history/live stock via a delete or decrease.
+      const fixedScope = await tQ(
+        `SELECT sm.ShipmentKey FROM ShipmentMaster sm WITH (UPDLOCK,HOLDLOCK)
+         WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0
+           AND (sm.CustKey=@ck OR EXISTS (SELECT 1 FROM ShipmentDetail sd WITH (UPDLOCK,HOLDLOCK)
+                WHERE sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=@ck AND sd.ProdKey=@pk))
+           AND (ISNULL(sm.isFix,0)=1 OR EXISTS (SELECT 1 FROM ShipmentDetail sd WITH (UPDLOCK,HOLDLOCK)
+                WHERE sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=@pk AND ISNULL(sd.isFix,0)=1))`,
+        { yr: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek },
+          ck: { type: sql.Int, value: ck }, pk: { type: sql.Int, value: pk } }
+      );
+      if (fixedScope.recordset.length) {
+        const error = new Error('확정 출고는 견적서관리 또는 요일별 분배에서 수정·삭제하세요. 후속 재고 검산이 필요합니다.');
+        error.code = 'FIXED_SHIPMENT_SAFE_ROUTE_REQUIRED';
+        throw error;
+      }
       // ── 1단계: 기존 ShipmentDetail 먼저 찾기 (어떤 ShipmentMaster에 있든)
       // 전산이 만든 레코드도 찾을 수 있도록 CustKey 없이 ProdKey+OrderWeek로 검색
       const existSD = await tQ(
@@ -1387,7 +1403,8 @@ async function updateOutQty(req, res) {
     }
     return res.status(200).json({ success: true, message: '출고수량 수정 완료' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || (err.code === 'FIXED_SHIPMENT_SAFE_ROUTE_REQUIRED' ? 409 : 500))
+      .json({ success: false, code: err.code, error: err.message });
   }
 }
 
@@ -1647,59 +1664,10 @@ async function insertOrderHistory(tQ, detailKey, before, after, descr, uid) {
 // ⚠️ isFix 는 2026-07-10까지 bit 컬럼이었음(2 저장 불가 + 조회조건 항상 불일치 → 매번 중복 행 생성).
 // docs/migrations/2026-07-10_stockmaster_isfix_tinyint.sql 로 tinyint 전환 후에만 정상 동작.
 async function saveStartStock(req, res) {
-  const { prodKey, week, stock, remark } = req.body;
-  if (!prodKey || !week) {
-    return res.status(400).json({ success: false, error: 'prodKey, week 필요' });
-  }
-  try {
-    const pk      = parseInt(prodKey);
-    const stockVal = parseFloat(stock) || 0;
-    const remarkVal = remark || '';
-    const orderYear = resolveActiveOrderYear(week, req.body?.year);
-    const orderWeek = normalizeOrderWeek(String(week));
-    const ywk = orderYear + orderWeek.replace('-', '');
-
-    await withTransaction(async (tQ) => {
-      // StockMaster: isFix=2 를 시작재고 전용 마커로 사용 (연도까지 일치해야 같은 앵커로 취급)
-      let smResult = await tQ(
-        `SELECT StockKey FROM StockMaster WITH (UPDLOCK, HOLDLOCK) WHERE OrderWeek=@wk AND OrderYear=@yr AND isFix=2`,
-        { wk: { type: sql.NVarChar, value: orderWeek }, yr: { type: sql.NVarChar, value: orderYear } }
-      );
-
-      let sk;
-      if (smResult.recordset.length === 0) {
-        const ins = await tQ(
-          `INSERT INTO StockMaster (OrderWeek, OrderYear, OrderYearWeek, isFix) OUTPUT INSERTED.StockKey VALUES (@wk, @yr, @ywk, 2)`,
-          { wk: { type: sql.NVarChar, value: orderWeek }, yr: { type: sql.NVarChar, value: orderYear }, ywk: { type: sql.NVarChar, value: ywk } }
-        );
-        sk = ins.recordset[0].StockKey;
-      } else {
-        sk = smResult.recordset[0].StockKey;
-      }
-
-      // ProductStock upsert (시작재고)
-      const remarkCol = await getProductStockRemarkColumn(tQ);
-      const updateRemark = remarkCol ? `, [${remarkCol}]=@remark` : '';
-      const insertRemarkCols = remarkCol ? `, [${remarkCol}]` : '';
-      const insertRemarkVals = remarkCol ? `, @remark` : '';
-      await tQ(
-        `MERGE INTO ProductStock WITH (HOLDLOCK) AS t
-         USING (VALUES (@pk, @sk)) AS s(ProdKey, StockKey) ON t.ProdKey=s.ProdKey AND t.StockKey=s.StockKey
-         WHEN MATCHED THEN UPDATE SET Stock=@stock${updateRemark}
-         WHEN NOT MATCHED THEN INSERT (ProdKey, StockKey, Stock${insertRemarkCols}) VALUES (@pk, @sk, @stock${insertRemarkVals});`,
-        {
-          pk: { type: sql.Int, value: pk },
-          sk: { type: sql.Int, value: sk },
-          stock: { type: sql.Float, value: stockVal },
-          remark: { type: sql.NVarChar, value: remarkVal },
-        }
-      );
-    });
-
-    return res.status(200).json({ success: true, message: '시작재고 저장 완료' });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  // Direct snapshot overwrite has no StockHistory basis and can create a duplicate
+  // native master. Do not silently translate an opening balance into a live delta.
+  return res.status(409).json({ success: false, code: 'DIRECT_STOCK_SNAPSHOT_WRITE_BLOCKED',
+    error: '시작재고 직접 덮어쓰기는 이월 불일치를 만들 수 있어 중단했습니다. 재고관리의 재고조정에서 이력을 남겨 수정하세요.' });
 }
 
 // ── POST action='addOrderDelta': 기존 주문수량에 delta 합산 (기존값 + 추가값)
