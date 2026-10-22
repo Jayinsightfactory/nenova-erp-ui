@@ -1565,14 +1565,239 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040723-A01",
+          "label": "사이트맵",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A04",
+          "label": "출력물",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A05",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A06",
+          "label": "금일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A07",
+          "label": "전일",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A08",
+          "label": "금주(~오늘)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A09",
+          "label": "전주",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A10",
+          "label": "금월(~오늘)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A11",
+          "label": "전월",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A12",
+          "label": "전월+금월",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A13",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A14",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A15",
+          "label": "Email",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040723-A16",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
@@ -1591,13 +1816,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040723-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -1642,7 +1871,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -2386,19 +2615,344 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040303-A01",
+          "label": "사이트맵",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A04",
+          "label": "부가세율 적용",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A05",
+          "label": "내자",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A06",
+          "label": "찾기(F3)",
+          "context": "하단",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A07",
+          "label": "정렬",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A08",
+          "label": "거래내역보기(구매)",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A09",
+          "label": "My품목",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A10",
+          "label": "발주",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A11",
+          "label": "주문",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A12",
+          "label": "할인",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A13",
+          "label": "전표불러오기",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A14",
+          "label": "재고불러오기",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A15",
+          "label": "바코드",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A16",
+          "label": "전표 바코드",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A17",
+          "label": "검증",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A18",
+          "label": "저장(F8)",
+          "context": "하단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A19",
+          "label": "저장/전표(F7)",
+          "context": "하단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A20",
+          "label": "다시 작성",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A21",
+          "label": "현금지급",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A22",
+          "label": "리스트",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040303-A23",
+          "label": "웹자료올리기",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -2412,13 +2966,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040303-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -2463,7 +3021,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -3269,19 +3827,330 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E040201-A01",
+          "label": "사이트맵",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A02",
+          "label": "기본견적서",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A03",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A04",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A05",
+          "label": "부가세율 적용",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A06",
+          "label": "내자",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A07",
+          "label": "찾기(F3)",
+          "context": "상단",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A08",
+          "label": "정렬",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A09",
+          "label": "거래내역보기(견적)",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A10",
+          "label": "My품목",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A11",
+          "label": "할인",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A12",
+          "label": "재고불러오기",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A13",
+          "label": "생성한 전표",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A14",
+          "label": "바코드",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A15",
+          "label": "검증",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A16",
+          "label": "이익계산",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A17",
+          "label": "전표불러오기",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A18",
+          "label": "저장(F8)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A19",
+          "label": "저장/전표(F7)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A20",
+          "label": "다시 작성",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A21",
+          "label": "리스트",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E040201-A22",
+          "label": "웹자료올리기",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -3300,8 +4169,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E040201-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -3346,7 +4217,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -3368,19 +4239,78 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E000106-A01",
+          "label": "사이트맵",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000106-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000106-A03",
+          "label": "저장(F8)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000106-A04",
+          "label": "H",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -3394,13 +4324,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000106-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -3445,7 +4379,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -3467,19 +4401,92 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E000113-A01",
+          "label": "사이트맵",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000113-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000113-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000113-A04",
+          "label": "한국어",
+          "context": "기타",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E000113-A05",
+          "label": "저장(F8)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -3493,13 +4500,17 @@
           "testEvidence": []
         },
         "filters": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E000113-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -3544,7 +4555,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -80724,19 +81735,120 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060403-A01",
+          "label": "Search(F3)",
+          "context": "상단",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A03",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A05",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A06",
+          "label": "신규(F2)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060403-A07",
+          "label": "선택삭제",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -80755,8 +81867,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060403-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -80801,7 +81915,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -80920,19 +82034,92 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060405-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060405-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060405-A03",
+          "label": "현황_거래처/채권번호",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060405-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060405-A05",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -80951,8 +82138,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060405-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -80997,7 +82186,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -81214,19 +82403,92 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060404-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060404-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060404-A03",
+          "label": "현황_집계(인쇄용)",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060404-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060404-A05",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -81245,8 +82507,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060404-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -81291,7 +82555,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -82194,19 +83458,92 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060504-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060504-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060504-A03",
+          "label": "현황_집계",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060504-A04",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060504-A05",
+          "label": "다시작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -82225,8 +83562,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060504-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -82271,7 +83610,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -83872,19 +85211,162 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E020511-A01",
+          "label": "Search(F3)",
+          "context": "기타",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A04",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A05",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A06",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A07",
+          "label": "신규(F2)",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A08",
+          "label": "회계처리",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A09",
+          "label": "선택삭제",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020511-A10",
+          "label": "Excel",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -83903,8 +85385,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020511-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -83949,7 +85433,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -83970,19 +85454,134 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E020523-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A03",
+          "label": "캘린더",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A04",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A05",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A06",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A07",
+          "label": "인쇄",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E020523-A08",
+          "label": "Excel",
+          "context": "하단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -84001,8 +85600,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E020523-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -84047,7 +85648,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -85748,19 +87349,148 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060208-A01",
+          "label": "Search(F3)",
+          "context": "기타",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A02",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A03",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A04",
+          "label": "기본(수정불가)",
+          "context": "검색 패널",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A05",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A06",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A07",
+          "label": "인쇄",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A08",
+          "label": "선택삭제",
+          "context": "상단",
+          "classification": "write",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060208-A09",
+          "label": "Excel",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -85779,8 +87509,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060208-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -85825,7 +87557,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
@@ -86540,19 +88272,92 @@
           "evidence": []
         }
       ],
-      "stage": "metadata",
+      "stage": "observed",
       "metadataEvidence": {
         "source": "source-menu.json",
         "capturedOn": "2026-10-20"
       },
       "actionCount": null,
       "windowCount": null,
-      "actions": [],
+      "actions": [
+        {
+          "id": "E060814-A01",
+          "label": "Option",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060814-A02",
+          "label": "도움말",
+          "context": "상단",
+          "classification": "read",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060814-A03",
+          "label": "검색(F8)",
+          "context": "검색 패널",
+          "classification": "query",
+          "stage": "observed",
+          "sourceExecutionAllowed": true,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060814-A04",
+          "label": "다시 작성",
+          "context": "검색 패널",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        },
+        {
+          "id": "E060814-A05",
+          "label": "가지급금정산서작성",
+          "context": "상단",
+          "classification": "unknown",
+          "stage": "observed",
+          "sourceExecutionAllowed": false,
+          "sourceExecuted": false,
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
+          "testEvidence": [],
+          "behavior": "Label/context observed by automated DOM survey; unexecuted control"
+        }
+      ],
       "windows": [],
       "dimensions": {
         "fields": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
           "testEvidence": []
         },
         "columns": {
@@ -86571,8 +88376,10 @@
           "testEvidence": []
         },
         "buttons": {
-          "stage": "unknown",
-          "evidence": [],
+          "stage": "observed",
+          "evidence": [
+            "source-action-audit.jsonl#SRC-20261022-E060814-SURVEY"
+          ],
           "testEvidence": []
         },
         "newWindows": {
@@ -86617,7 +88424,7 @@
         }
       },
       "blockers": [
-        "Original page actions and windows not surveyed"
+        "Automated button survey only; control behavior, windows and full source coverage unverified"
       ],
       "exclusions": []
     },
