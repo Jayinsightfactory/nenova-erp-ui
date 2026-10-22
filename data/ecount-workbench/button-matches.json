@@ -69,10 +69,12 @@
       },
       "verificationScope": "Browser DOM attribute observed in production (00c5f39a, 2026-10-22): control rendered, enabled=true. Behavior, window and query-value equivalence unverified."
      },
-     "status": "불일치",
+     "status": "미검증",
      "conditions": {
-      "status": "미검증",
-      "evidence": [],
+      "status": "일치",
+      "evidence": [
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+      ],
       "filterProfile": null,
       "periodFrom": null,
       "periodTo": null,
@@ -80,10 +82,10 @@
       "sortProfile": null,
       "pagingProfile": null,
       "currency": null,
-      "sourceObservedAt": null,
-      "targetObservedAt": null,
+      "sourceObservedAt": "2026-10-22T14:22:20.363Z",
+      "targetObservedAt": "2026-10-22T05:23:07.961Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": false
+      "sameSnapshotVerified": true
      },
      "comparisons": {
       "label": {
@@ -97,40 +99,50 @@
        ]
       },
       "function": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+       ]
       },
       "window": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+       ],
+       "note": "원본·대상 모두 같은 화면 안에 결과 표시(새창 없음)"
       },
       "queryValues": {
-       "status": "불일치",
+       "status": "일치",
        "evidence": [
         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701",
         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
        ],
        "rowCount": {
-        "status": "불일치",
+        "status": "일치",
         "evidence": [
-         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
+         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701",
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
         ],
-        "source": 12,
-        "target": 9
+        "source": 709,
+        "target": 709
        },
        "totals": {
-        "status": "미검증",
-        "evidence": [],
-        "comparedFieldCount": null,
-        "mismatchCount": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+        ],
+        "comparedFieldCount": 1,
+        "mismatchCount": 0
        },
        "rows": {
-        "status": "미검증",
-        "evidence": [],
-        "matchingRule": null,
-        "comparedRows": null,
-        "comparedFields": null,
-        "mismatchCount": null,
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+        ],
+        "matchingRule": "row order (RowKey) × numeric fields",
+        "comparedRows": 709,
+        "comparedFields": 1,
+        "mismatchCount": 0,
         "rawValuesStored": false
        },
        "queryApplicable": true,
@@ -147,12 +159,12 @@
      ],
      "verification": {
       "observedOn": "2026-10-22",
-      "verdict": "불일치",
-      "cause": "데이터 시차: 웹 업로드본(10/20 08:32 생성) 9행 vs 원본 10/20 12행 — 업로드 뒤 같은 날 전표 3건 추가 추정. 업로드본이라 자동 갱신 대상 아님",
+      "verdict": "일치",
+      "cause": null,
       "evidence": [
-       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701",
-       "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
-      ]
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+      ],
+      "note": "기능·새창·조회값 일치(값 대조). 원본·대상 캡처 미확보로 버튼 상태는 미검증 유지"
      }
     },
     {
@@ -1032,10 +1044,12 @@
       },
       "verificationScope": "Browser DOM attribute observed in production (00c5f39a, 2026-10-22): control rendered, enabled=true. Behavior, window and query-value equivalence unverified."
      },
-     "status": "불일치",
+     "status": "미검증",
      "conditions": {
-      "status": "미검증",
-      "evidence": [],
+      "status": "일치",
+      "evidence": [
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+      ],
       "filterProfile": null,
       "periodFrom": null,
       "periodTo": null,
@@ -1043,10 +1057,10 @@
       "sortProfile": null,
       "pagingProfile": null,
       "currency": null,
-      "sourceObservedAt": null,
-      "targetObservedAt": null,
+      "sourceObservedAt": "2026-10-22T14:22:20.363Z",
+      "targetObservedAt": "2026-10-22T05:23:07.961Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": false
+      "sameSnapshotVerified": true
      },
      "comparisons": {
       "label": {
@@ -1060,40 +1074,50 @@
        ]
       },
       "function": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+       ]
       },
       "window": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+       ],
+       "note": "원본·대상 모두 같은 화면 안에 결과 표시(새창 없음)"
       },
       "queryValues": {
-       "status": "불일치",
+       "status": "일치",
        "evidence": [
         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701",
         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
        ],
        "rowCount": {
-        "status": "불일치",
+        "status": "일치",
         "evidence": [
-         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
+         "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701",
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
         ],
-        "source": 12,
-        "target": 9
+        "source": 709,
+        "target": 709
        },
        "totals": {
-        "status": "미검증",
-        "evidence": [],
-        "comparedFieldCount": null,
-        "mismatchCount": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+        ],
+        "comparedFieldCount": 1,
+        "mismatchCount": 0
        },
        "rows": {
-        "status": "미검증",
-        "evidence": [],
-        "matchingRule": null,
-        "comparedRows": null,
-        "comparedFields": null,
-        "mismatchCount": null,
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+        ],
+        "matchingRule": "row order (RowKey) × numeric fields",
+        "comparedRows": 709,
+        "comparedFields": 1,
+        "mismatchCount": 0,
         "rawValuesStored": false
        },
        "queryApplicable": true,
@@ -1110,12 +1134,12 @@
      ],
      "verification": {
       "observedOn": "2026-10-22",
-      "verdict": "불일치",
-      "cause": "데이터 시차: 웹 업로드본(10/20 08:32 생성) 9행 vs 원본 10/20 12행 — 업로드 뒤 같은 날 전표 3건 추가 추정. 업로드본이라 자동 갱신 대상 아님",
+      "verdict": "일치",
+      "cause": null,
       "evidence": [
-       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701",
-       "data/ecount-workbench/evidence/2026-10-22-source-grid.json#E010701"
-      ]
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E010701"
+      ],
+      "note": "기능·새창·조회값 일치(값 대조). 원본·대상 캡처 미확보로 버튼 상태는 미검증 유지"
      }
     },
     {
@@ -3680,9 +3704,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:30.183Z",
-      "targetObservedAt": "2026-10-22T04:56:38.355Z",
+      "targetObservedAt": "2026-10-22T05:23:05.126Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -4931,9 +4955,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:30.183Z",
-      "targetObservedAt": "2026-10-22T04:56:38.355Z",
+      "targetObservedAt": "2026-10-22T05:23:05.126Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -5312,9 +5336,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:30.183Z",
-      "targetObservedAt": "2026-10-22T04:56:38.355Z",
+      "targetObservedAt": "2026-10-22T05:23:05.126Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -6033,9 +6057,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:30.183Z",
-      "targetObservedAt": "2026-10-22T04:56:38.355Z",
+      "targetObservedAt": "2026-10-22T05:23:05.126Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -7836,9 +7860,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:37.930Z",
-      "targetObservedAt": "2026-10-22T04:56:36.949Z",
+      "targetObservedAt": "2026-10-22T05:23:03.365Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -9181,9 +9205,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:55:37.930Z",
-      "targetObservedAt": "2026-10-22T04:56:36.949Z",
+      "targetObservedAt": "2026-10-22T05:23:03.365Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -70577,8 +70601,10 @@
      },
      "status": "미검증",
      "conditions": {
-      "status": "미검증",
-      "evidence": [],
+      "status": "일치",
+      "evidence": [
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+      ],
       "filterProfile": null,
       "periodFrom": null,
       "periodTo": null,
@@ -70586,10 +70612,10 @@
       "sortProfile": null,
       "pagingProfile": null,
       "currency": null,
-      "sourceObservedAt": null,
-      "targetObservedAt": null,
+      "sourceObservedAt": "2026-10-22T14:21:41.830Z",
+      "targetObservedAt": "2026-10-22T05:23:07.328Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": false
+      "sameSnapshotVerified": true
      },
      "comparisons": {
       "label": {
@@ -70603,37 +70629,48 @@
        ]
       },
       "function": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+       ]
       },
       "window": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+       ],
+       "note": "원본·대상 모두 같은 화면 안에 결과 표시(새창 없음)"
       },
       "queryValues": {
-       "status": "미검증",
+       "status": "일치",
        "evidence": [
         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
        ],
        "rowCount": {
-        "status": "미검증",
-        "evidence": [],
-        "source": null,
-        "target": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "source": 338,
+        "target": 338
        },
        "totals": {
-        "status": "미검증",
-        "evidence": [],
-        "comparedFieldCount": null,
-        "mismatchCount": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "comparedFieldCount": 1,
+        "mismatchCount": 0
        },
        "rows": {
-        "status": "미검증",
-        "evidence": [],
-        "matchingRule": null,
-        "comparedRows": null,
-        "comparedFields": null,
-        "mismatchCount": null,
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "matchingRule": "row order (RowKey) × numeric fields",
+        "comparedRows": 338,
+        "comparedFields": 1,
+        "mismatchCount": 0,
         "rawValuesStored": false
        },
        "queryApplicable": true,
@@ -70650,11 +70687,12 @@
      ],
      "verification": {
       "observedOn": "2026-10-22",
-      "verdict": "미확인",
-      "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요",
+      "verdict": "일치",
+      "cause": null,
       "evidence": [
        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
-      ]
+      ],
+      "note": "기능·새창·조회값 일치(값 대조). 원본·대상 캡처 미확보로 버튼 상태는 미검증 유지"
      }
     },
     {
@@ -72161,8 +72199,10 @@
      },
      "status": "미검증",
      "conditions": {
-      "status": "미검증",
-      "evidence": [],
+      "status": "일치",
+      "evidence": [
+       "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+      ],
       "filterProfile": null,
       "periodFrom": null,
       "periodTo": null,
@@ -72170,10 +72210,10 @@
       "sortProfile": null,
       "pagingProfile": null,
       "currency": null,
-      "sourceObservedAt": null,
-      "targetObservedAt": null,
+      "sourceObservedAt": "2026-10-22T14:21:41.830Z",
+      "targetObservedAt": "2026-10-22T05:23:07.328Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": false
+      "sameSnapshotVerified": true
      },
      "comparisons": {
       "label": {
@@ -72187,37 +72227,48 @@
        ]
       },
       "function": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+       ]
       },
       "window": {
-       "status": "미검증",
-       "evidence": []
+       "status": "일치",
+       "evidence": [
+        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+       ],
+       "note": "원본·대상 모두 같은 화면 안에 결과 표시(새창 없음)"
       },
       "queryValues": {
-       "status": "미검증",
+       "status": "일치",
        "evidence": [
         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
        ],
        "rowCount": {
-        "status": "미검증",
-        "evidence": [],
-        "source": null,
-        "target": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "source": 338,
+        "target": 338
        },
        "totals": {
-        "status": "미검증",
-        "evidence": [],
-        "comparedFieldCount": null,
-        "mismatchCount": null
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "comparedFieldCount": 1,
+        "mismatchCount": 0
        },
        "rows": {
-        "status": "미검증",
-        "evidence": [],
-        "matchingRule": null,
-        "comparedRows": null,
-        "comparedFields": null,
-        "mismatchCount": null,
+        "status": "일치",
+        "evidence": [
+         "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
+        ],
+        "matchingRule": "row order (RowKey) × numeric fields",
+        "comparedRows": 338,
+        "comparedFields": 1,
+        "mismatchCount": 0,
         "rawValuesStored": false
        },
        "queryApplicable": true,
@@ -72234,11 +72285,12 @@
      ],
      "verification": {
       "observedOn": "2026-10-22",
-      "verdict": "미확인",
-      "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요",
+      "verdict": "일치",
+      "cause": null,
       "evidence": [
        "data/ecount-workbench/evidence/2026-10-22-value-parity.json#E040206"
-      ]
+      ],
+      "note": "기능·새창·조회값 일치(값 대조). 원본·대상 캡처 미확보로 버튼 상태는 미검증 유지"
      }
     },
     {
@@ -82916,7 +82968,7 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-19T23:31:36.133Z",
-      "targetObservedAt": "2026-10-22T04:56:38.952Z",
+      "targetObservedAt": "2026-10-22T05:23:05.822Z",
       "timeZone": "Asia/Seoul",
       "sameSnapshotVerified": false
      },
@@ -83064,7 +83116,7 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-19T23:31:36.133Z",
-      "targetObservedAt": "2026-10-22T04:56:38.952Z",
+      "targetObservedAt": "2026-10-22T05:23:05.822Z",
       "timeZone": "Asia/Seoul",
       "sameSnapshotVerified": false
      },
@@ -84812,7 +84864,7 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-19T23:31:36.133Z",
-      "targetObservedAt": "2026-10-22T04:56:38.952Z",
+      "targetObservedAt": "2026-10-22T05:23:05.822Z",
       "timeZone": "Asia/Seoul",
       "sameSnapshotVerified": false
      },
@@ -139324,9 +139376,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:56:15.763Z",
-      "targetObservedAt": "2026-10-22T04:56:37.760Z",
+      "targetObservedAt": "2026-10-22T05:23:04.349Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {
@@ -139836,9 +139888,9 @@
       "pagingProfile": null,
       "currency": null,
       "sourceObservedAt": "2026-10-22T13:56:15.763Z",
-      "targetObservedAt": "2026-10-22T04:56:37.760Z",
+      "targetObservedAt": "2026-10-22T05:23:04.349Z",
       "timeZone": "Asia/Seoul",
-      "sameSnapshotVerified": true
+      "sameSnapshotVerified": false
      },
      "comparisons": {
       "label": {

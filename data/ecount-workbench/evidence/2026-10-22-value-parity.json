@@ -8,7 +8,7 @@
    "program": "E040214",
    "dataset": "ar",
    "menuId": "MENUTREE_000500",
-   "observedAt": "2026-10-22T04:56:36.949Z",
+   "observedAt": "2026-10-22T05:23:03.365Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -16,7 +16,7 @@
     "sourceTakenAt": "2026-10-22T13:55:37.930Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 910,
+   "latestSnapshotKey": 917,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 83,
@@ -35,7 +35,18 @@
     "totalMatchesScreen": true
    },
    "webVsLatest": {
-    "sameSnapshot": true
+    "rowCountLatest": 83,
+    "totalsMismatch": [],
+    "comparedRows": 83,
+    "comparedFields": 4,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
    },
    "verdict": "일치",
    "cause": null
@@ -44,7 +55,7 @@
    "program": "E040309",
    "dataset": "ap",
    "menuId": "MENUTREE_000517",
-   "observedAt": "2026-10-22T04:56:37.760Z",
+   "observedAt": "2026-10-22T05:23:04.349Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -52,7 +63,7 @@
     "sourceTakenAt": "2026-10-22T13:56:15.763Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 911,
+   "latestSnapshotKey": 918,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 181,
@@ -71,7 +82,18 @@
     "totalMatchesScreen": true
    },
    "webVsLatest": {
-    "sameSnapshot": true
+    "rowCountLatest": 181,
+    "totalsMismatch": [],
+    "comparedRows": 181,
+    "comparedFields": 7,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": true
    },
    "verdict": "일치",
    "cause": null
@@ -80,7 +102,7 @@
    "program": "E010205",
    "dataset": "cash",
    "menuId": "MENUTREE_002563",
-   "observedAt": "2026-10-22T04:56:38.355Z",
+   "observedAt": "2026-10-22T05:23:05.126Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -88,7 +110,7 @@
     "sourceTakenAt": "2026-10-22T13:55:30.183Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 909,
+   "latestSnapshotKey": 916,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 8,
@@ -107,7 +129,18 @@
     "totalMatchesScreen": null
    },
    "webVsLatest": {
-    "sameSnapshot": true
+    "rowCountLatest": 8,
+    "totalsMismatch": [],
+    "comparedRows": 8,
+    "comparedFields": 2,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "latestSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": null
    },
    "verdict": "일치",
    "cause": null
@@ -116,7 +149,7 @@
    "program": "E040207",
    "dataset": "sales",
    "menuId": "MENUTREE_000494",
-   "observedAt": "2026-10-22T04:56:38.952Z",
+   "observedAt": "2026-10-22T05:23:05.822Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -124,7 +157,7 @@
     "sourceTakenAt": "2026-10-19T23:31:36.133Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 904,
+   "latestSnapshotKey": 919,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 5000,
@@ -163,37 +196,73 @@
    "program": "E040206",
    "dataset": "saleQuery",
    "menuId": "MENUTREE_000492",
-   "observedAt": "2026-10-22T04:56:40.530Z",
+   "observedAt": "2026-10-22T05:23:07.328Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
-    "sourceSnapshotKey": null,
-    "sourceTakenAt": null,
-    "sourceKind": "upload",
-    "rowCount": 26
+    "sourceSnapshotKey": 920,
+    "sourceTakenAt": "2026-10-22T14:21:41.830Z",
+    "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": null,
+   "latestSnapshotKey": 920,
    "latestTakenAt": null,
-   "verdict": "미확인",
-   "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요"
+   "webVsSource": {
+    "rowCountWeb": 338,
+    "rowCountSource": 338,
+    "totalsFields": 1,
+    "totalsMismatch": [],
+    "comparedRows": 338,
+    "comparedFields": 1,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "GREEN",
+    "score": 100,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": null
+   },
+   "webVsLatest": {
+    "sameSnapshot": true
+   },
+   "verdict": "일치",
+   "cause": null
   },
   {
    "program": "E010701",
    "dataset": "journal",
    "menuId": "MENUTREE_000098",
-   "observedAt": "2026-10-22T04:56:40.996Z",
+   "observedAt": "2026-10-22T05:23:07.961Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
-    "sourceSnapshotKey": null,
-    "sourceTakenAt": null,
-    "sourceKind": "upload",
-    "rowCount": 9
+    "sourceSnapshotKey": 921,
+    "sourceTakenAt": "2026-10-22T14:22:20.363Z",
+    "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": null,
+   "latestSnapshotKey": 921,
    "latestTakenAt": null,
-   "verdict": "미확인",
-   "cause": "원천 스냅샷 없음(sourceKind=upload): 수집 데이터셋(cash/ar/ap/sales) 밖이라 ECOUNT 원본 화면 직접 대조 필요"
+   "webVsSource": {
+    "rowCountWeb": 709,
+    "rowCountSource": 709,
+    "totalsFields": 1,
+    "totalsMismatch": [],
+    "comparedRows": 709,
+    "comparedFields": 1,
+    "mismatchRows": 0,
+    "mismatchFields": 0
+   },
+   "sourceSelfCheck": {
+    "status": "YELLOW",
+    "score": 50,
+    "rowCountMatchesScreen": true,
+    "totalMatchesScreen": null
+   },
+   "webVsLatest": {
+    "sameSnapshot": true
+   },
+   "verdict": "일치",
+   "cause": null
   }
  ]
 }
