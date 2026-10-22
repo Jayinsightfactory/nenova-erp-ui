@@ -1,5 +1,11 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-22] 26~31차 우선 손익 계산 규칙·전산 품목 원가
+- codex/profit-excel-rulebook (base f744878c): 원본 858+23 계산 대조, 추정 평가 경로 제거, 호주 실제 품목 매입+정확 환율 재구성. 사용자 확인: 엑셀 묶음 단가를 색상별 품목으로 복제하지 않음.
+- 수정: profitReport/Valuation/AcquisitionCarry/Audit/SourceGuide/API, 순수 Rulebook, 근거 fixture/계약/회귀검사.
+- 41차 독립 산술15,058 실패0, 비교 가능한 E/F 불연속0. 최종 SELECT 14,022회, 전후 원천/정책 지문 동일. 중국 3096 과거 실제 매입 근거 연결 후 26~31 원가/환율 누락0. 최초 전체검사 성공 후 추가 변경 전체검사 재진행.
+- 다음: PR/CI/코드만 배포/운영 다운로드. 미검증·잔여는 docs/work-sessions/2026-10-22_profit-excel-rulebook.md 참조. DB 원장·확정 revision 무변경.
+
 ## [2026-10-22] 손익 단위·평가·환율 읽기 전용 수정
 - codex/profit-unit-valuation: 단위 분모, E/F 공통 평가, 원본 일치 환율과 누락 계산 보류. DB 수정 없음.
 - 41차 SELECT/독립 산술 대사 완료. 12~14차 단가·18차 원본충돌·32~41 원본부재는 미확인으로 유지.

@@ -17,12 +17,22 @@ async function main() {
   assert.equal(p.selectOlderAcquisitionPurchases([{...row, OrderWeek:'37-01'}], scope).length, 0);
   assert.equal(p.selectOlderAcquisitionPurchases([row, {...row, OrderWeek:'39-01', Complete:false}], scope).length, 0, 'newer invalid purchase blocks stale price');
   assert.equal(p.selectOlderAcquisitionPurchases([row], {...scope,existing:{7:{price:42}}}).length, 0, 'explicit evidence preserved');
-  for (const change of [{Category:'호주'}, {Quantity:0}, {ForeignTotal:0}, {Complete:false}, {OrderWeek:'30-01B'}]) {
+  assert.equal(p.selectOlderAcquisitionPurchases([{...row,Category:'호주'}],scope).length,1);
+  const china = {...row, Category:'중국', OrderWeek:'19-01', ProdKey:3096, EstUnit:'단', RowCount:1};
+  const chinaScope = {orderYear:'2026',targetWeek:'26-10'};
+  assert.equal(p.selectOlderAcquisitionPurchases([china],chinaScope).length,1);
+  for (const change of [{Category:'미국'}, {Quantity:0}, {ForeignTotal:0}, {Complete:false}, {OrderWeek:'30-01B'}]) {
     assert.equal(p.selectOlderAcquisitionPurchases([{...row,...change}], scope).length, 0);
   }
   const ctx = {...scope,rate:1400,rateSource:'kcs_api',arrival:{price:1700,unit:'송이',rowCount:2}};
   assert.equal(p.buildAcquisitionCarryEvidence(row,ctx).price,1700);
   assert.equal(p.buildAcquisitionCarryEvidence(dutch,{...ctx,...dutchScope}).price,1700);
+  const chinaContext={...chinaScope,rate:200,rateSource:'excel_historical_snapshot',arrival:{price:3000,unit:'단',rowCount:1}};
+  assert.equal(p.buildAcquisitionCarryEvidence(china,chinaContext).price,3000);
+  for(const change of [{OrderYear:'2025'},{OrderWeek:'27-01'},{Complete:false},{EstUnit:'송이'},{RowCount:2}]) {
+    assert.equal(p.buildAcquisitionCarryEvidence({...china,...change},chinaContext),null);
+  }
+  assert.equal(p.selectOlderAcquisitionPurchases([china,{...china,OrderWeek:'25-01',Complete:false}],chinaScope).length,0);
   for (const change of [{rate:0}, {rate:null}, {rateSource:'approximate_currency_master'}, {arrival:{price:0,unit:'송이',rowCount:2}}, {arrival:{price:1700,unit:'단',rowCount:2}}, {arrival:{price:1700,unit:'송이',rowCount:1}}, {arrival:{price:1700,unit:'송이',rowCount:2,goodsCostMissing:true}}]) {
     assert.equal(p.buildAcquisitionCarryEvidence(row,{...ctx,...change}),null);
   }
@@ -46,12 +56,12 @@ async function main() {
   const section=source.split('async function olderAcquisitionEvidence')[1].split('/** 재고단가 근거 저장')[0];
   assert.ok(!/\b(INSERT|UPDATE|DELETE|MERGE|ALTER|CREATE)\s/i.test(section));
   assert.ok(section.includes('wm.OrderYear=@yr') && section.includes('sm.OrderYear=@yr'));
-  assert.ok(section.includes("IN (N'에콰도르',N'네덜란드')"));
+  assert.ok(section.includes("IN (N'에콰도르',N'네덜란드',N'호주',N'중국')"));
   assert.ok(section.includes('`${row.OrderWeek}:${row.Category}`'));
   assert.ok(section.includes('currency: currencyCodeForCategory(row.Category), country: row.Category'));
   assert.ok(source.includes('beginOrderYear: String(prevOrderYear)'));
-  assert.ok(source.includes('autoStockUnitPrices(suggestTargets, prevOrderYear, rankOf(beginWeek))'));
-  assert.ok(source.includes('autoStockUnitPrices(suggestTargets, orderYear, rankOf(endWeek))'));
+  assert.ok(!source.includes('autoStockUnitPrices(suggestTargets, prevOrderYear, rankOf(beginWeek))'), '판매단가로 기초재고 원가를 자동 채우지 않는다');
+  assert.ok(!source.includes('autoStockUnitPrices(suggestTargets, orderYear, rankOf(endWeek))'), '판매단가로 기말재고 원가를 자동 채우지 않는다');
   const {buildProfitReportAudit}=await import('../lib/profitReportAudit.js');
   const issues=buildProfitReportAudit([{category:'에콰도르',auto:{E:170000},beginStock:{priceEvidenceSources:['erp-purchase-carry:synthetic']}}],{orderYear:'2026',major:'40'});
   assert.ok(issues.issues.some(x=>x.code==='OLDER_ACQUISITION_RECONSTRUCTED'&&x.columns[0]==='E'));
