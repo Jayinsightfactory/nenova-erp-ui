@@ -863,3 +863,11 @@
 - 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.
 
 - 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기
+
+## 2026-10-22 ECOUNT 데이터 → 우리 DB `ecount` 스키마 별도 적재(1단계) — 사장님 지시 "ecount db 별도, 검증 후 합치기"
+- DB 생성 권한 없음(nenova1_nenova: dbcreator 0, CREATE SCHEMA 1, SQL2016 Web) → 같은 DB 안 `ecount` 스키마로 분리. ecount_work(화면 동등성 작업영역)·web_mgmt 와 별개.
+- 구조: ecount.Dataset(13 prgId 사전)·LoadBatch(파일 sha·기간·행수·화면합계·InsertCnt/DedupCnt)·Raw_<PrgId>(이카운트 엑셀 헤더를 한글 그대로 열 이름, RowHash 중복생략, 합계행 IsSubtotal) + 대조 뷰 ecount.cmp_*(views.js 가 실제 열 보고 CREATE OR ALTER). lib/ecountLedger, scripts/ecount-ledger(load-xlsx·backfill-legacy·ensure-schema), /api/ecount-ledger/status(관리자). 계약 ecount-ledger.json.
+- 실측: 오늘 데몬 판매현황 엑셀(2026-09-01~10-22, 10,621행, 화면합계 3,060,164,321) load-xlsx 적재 OK(batch 1, dedup 0). cmp_sales_daily: ECOUNT 3,060,164,321 vs 우리 출고(isFix) 3,025,917,101, 차이 34,247,220(1.1%). **일자 기준이 달라 일별 매칭은 어긋남**(ECOUNT 판매일자 vs 우리 ShipmentDtm 기본출고일) → 차수·거래처 단위 대조 뷰 필요(2단계).
+- legacy dbo.WebEcountRow 80만행 backfill dry-run: 고유 15,779행(sales 13,885·ar 797·ap 831·cash 266), 영문 열(Payload 키) → 미적용. 엑셀 원본 수집으로 대체 예정.
+- 데몬 판매현황 전송 413 원인 nginx 1m → #1226 /api/ecount/ingest 20m. 데몬 세션 기본기간은 전월+금월, 과거 전기간 월단위 수집기는 2단계(데몬 일시정지 후 같은 프로필 사용).
+- 검색어: ecount스키마 ecount-ledger load-xlsx Raw_E040207 cmp_sales_daily 3060164321 34247220 일자기준불일치 backfill15779 413 nginx20m
