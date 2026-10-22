@@ -11,7 +11,10 @@ const styles = source.slice(source.lastIndexOf('const st ='));
 const code = transformSync(`${helpers}\n${component}\n${styles}\nmodule.exports={buildPivotModel,PivotComparison};`, false,
   Buffer.from(JSON.stringify({ jsc: { parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' } }))).code;
 const mod = { exports: {} };
-new Function('require', 'module', 'exports', code)(require, mod, mod.exports);
+const familyBody = fs.readFileSync('lib/shipmentImportQty.js', 'utf8')
+  .match(/export function isAlstroImportRow\(row\) \{([\s\S]*?)\r?\n\}/)[1];
+const isAlstroImportRow = new Function('row', familyBody);
+new Function('require', 'module', 'exports', 'isAlstroImportRow', code)(require, mod, mod.exports, isAlstroImportRow);
 const { buildPivotModel, PivotComparison } = mod.exports;
 const rows = [
   { custKey: 1, custName: '주광', prodKey: 1, prodName: '품목 A', uploadQty: 16, orderQty: 16, currentOutQty: 16, status: '동일' },
