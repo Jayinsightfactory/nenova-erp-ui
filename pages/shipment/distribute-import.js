@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
+import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
@@ -431,10 +431,15 @@ export default function DistributeImport() {
   };
 
   const pickProdOverride = (key, prodKey) => {
+    if (applying) return;
     const next = { ...prodOverridesRef.current };
-    if (prodKey) next[key] = Number(prodKey);
+    if (isImportSkipProductValue(prodKey)) next[key] = IMPORT_SKIP_PRODUCT_VALUE;
+    else if (prodKey) next[key] = Number(prodKey);
     else delete next[key];
     setProdOverridesState(next);
+    sheetLoadRef.current += 1;
+    setLoading(false); // discard an older in-flight preview without leaving its spinner locked
+    setPreview(prev => prev ? { ...prev, replacementPlan: null } : prev);
   };
 
   const handleReverify = async () => {
@@ -488,7 +493,7 @@ export default function DistributeImport() {
       ackQtyWarnings = true;
     }
     const missingCancellations = rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0);
-    if (!confirm(`${preview.orderYear}/${preview.week} 전체 분배 교체\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 파일에서 빠진 업체·품목의 기존 분배는 0으로 취소합니다. 전체 교체를 승인하시겠습니까?`)) {
+    if (!confirm(`${preview.orderYear}/${preview.week} ${preview.replacementProductKeys ? '선택 품목 분배 적용 (건너뛴 품목·파일 밖 품목 보존)' : '전체 분배 교체'}\n건너뛰기: ${(preview.skippedProducts || []).map(p => p.productLabel).join(', ') || '없음'}\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 적용 범위 안의 누락 분배만 0으로 취소합니다. 위 범위의 적용을 승인하시겠습니까?`)) {
       return;
     }
     const fileRevision = sheetLoadRef.current;
@@ -555,7 +560,7 @@ export default function DistributeImport() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan,
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan, replacementProductKeys: preview.replacementProductKeys,
             earlyImportMode: preview.earlyImport.mode, earlyLedgerFingerprint: preview.earlyImport.fingerprint, earlyImportScope: preview.earlyImport.scope }),
         });
       } catch {
@@ -708,9 +713,16 @@ export default function DistributeImport() {
         )}
         {preview && (
           <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', color: '#7c2d12', border: '1px solid #fdba74', borderRadius: 8 }}>
-            <strong>전체 교체 · {preview.orderYear}/{preview.week} · {(preview.replacementCategories || []).join(', ')}</strong>
-            <div>파일에서 빠진 업체·품목의 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>
-            {!preview.replacementPlan && <div>미매칭 또는 확정 차단을 해결한 뒤 다시 검증해야 적용할 수 있습니다.</div>}
+            <strong>{preview.replacementProductKeys ? '선택 품목 적용 (건너뛴 품목·파일 밖 품목 보존)' : '전체 교체'} · {preview.orderYear}/{preview.week} · {(preview.replacementCategories || []).join(', ')}</strong>
+            <div>적용 범위 안에서 빠진 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>
+            {(preview.skippedProducts || []).length > 0 && <div>
+              건너뛴 품목은 기존 주문·분배를 보존합니다. 이번 파일에서 매칭된 품목만 적용합니다.
+              {preview.skippedProducts.map(item => <div key={item.key}>
+                {item.sheetName} · {item.productLabel} ({item.count}행 제외)
+                <button type="button" style={st.miniBtn} disabled={loading || applying} onClick={() => { pickProdOverride(item.key, ''); handlePreview(); }}>건너뛰기 취소 후 재검증</button>
+              </div>)}
+            </div>}
+            {!preview.replacementPlan && <div>{rows.length === 0 && !(preview.unmatched || []).length ? '적용할 품목이 없습니다. 건너뛰기를 취소하거나 다른 파일을 검증하세요.' : '선택 변경·미매칭·확정 차단을 확인한 뒤 다시 검증해야 적용할 수 있습니다.'}</div>}
           </div>
         )}
         {preview && (
@@ -1868,13 +1880,20 @@ function UnmatchedMatchingModal({
                       <td>{it.count}</td>
                       <td>
                         <ProductSearchSelect
-                          value={prodOverrides[it.key] || ''}
+                          value={isImportSkipProductValue(prodOverrides[it.key]) ? '' : (prodOverrides[it.key] || '')}
                           onChange={v => onPickProduct(it.key, v)}
                           suggested={it.suggestedProducts}
                           options={productOptions}
                           placeholder="품목 검색·선택"
                           contextText={`${it.sheetName || ''} ${it.productFamily || ''} ${it.productLabel || ''}`}
                         />
+                        <button type="button" style={st.miniBtn} disabled={loading}
+                          aria-pressed={isImportSkipProductValue(prodOverrides[it.key])}
+                          onClick={() => onPickProduct(it.key, isImportSkipProductValue(prodOverrides[it.key]) ? '' : IMPORT_SKIP_PRODUCT_VALUE)}>
+                          {isImportSkipProductValue(prodOverrides[it.key]) ? '건너뛰기 취소' : '이 품목 건너뛰기'}
+                        </button>
+                        {isImportSkipProductValue(prodOverrides[it.key]) && <span> 재검증 후 제외 · 기존 주문/분배 보존</span>}
+
                       </td>
                     </tr>
                   ))}
@@ -1888,7 +1907,7 @@ function UnmatchedMatchingModal({
             업체 {custResolved}/{customerItems.length} · 품목 {prodResolved}/{productItems.length} 선택됨
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" style={st.secondaryBtn} onClick={onClose}>나중에</button>
+            <button type="button" style={st.secondaryBtn} onClick={onClose}>닫기 (제외하지 않음)</button>
             <button type="button" style={st.primaryBtn} onClick={onReverify} disabled={loading || !canReverify}>
               {loading ? '검증 중...' : '선택 반영 후 다시 검증'}
             </button>

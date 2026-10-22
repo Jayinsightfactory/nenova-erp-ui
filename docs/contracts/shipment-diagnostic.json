@@ -171,7 +171,9 @@
       "priorImportLineageScope": "superseded by categoryReplacement; historical sheet/keymap must not expand the current matched category scope",
       "explicitZero": "preserve_order_set_distribution_zero",
       "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope",
-      "customerColumnChoice": "Explicit original unmatched customer label only: include by selecting ERP customer, or ignore that source column for this file. Never auto-ignore early-shipment labels; preserve ordinary columns and existing category missing-to-zero policy; canceled choice requires revalidation."
+      "customerColumnChoice": "Explicit original unmatched customer label only: include by selecting ERP customer, or ignore that source column for this file. Never auto-ignore early-shipment labels; preserve ordinary columns and existing category missing-to-zero policy; canceled choice requires revalidation.",
+      "manualProductChoice": "Active manual ProdKey overrides inferred family and workbook key; invalid choice remains unmatched; automatic cross-family veto preserved.",
+      "explicitProductSkip": "Explicit per-file label skip removes source rows. Signed remaining matched product keys define replacement; skipped and out-of-file products preserve all ledgers. Included products retain missing-customer-to-zero policy. All-skipped has no plan. Same known ProdKey include/skip conflict blocks."
     },
     {
       "name": "DISTRIBUTE_IMPORT_ROLLBACK",
@@ -209,7 +211,8 @@
     "__tests__/erpContractManifest.test.js",
     "__tests__/kakaoChangeQueue.test.js",
     "__tests__/shipmentImportCustomerChoiceUi.test.js",
-    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js",
+    "__tests__/shipmentImportManualSkip.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
