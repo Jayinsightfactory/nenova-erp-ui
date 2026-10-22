@@ -7,6 +7,7 @@ import { normalizeOrderWeek, requireOrderYear } from '../../../lib/orderUtils';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import { sqlStockViewGetData, sqlStockViewHistory } from '../../../lib/exeStockViewSql.js';
 import { mapStockViewRow } from '../../../lib/exeParity/mapResponses.js';
+import { recalculateStockCascade } from '../../../lib/stockCascade.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getStock(req, res);
@@ -211,20 +212,26 @@ async function adjustStock(req, res) {
       if (!r.recordset[0]) return res.status(404).json({ success: false, error: '품목 없음' });
       pk = r.recordset[0].ProdKey;
     }
-    const stockQty = parseFloat(qty);
-    if (!(stockQty > 0)) return res.status(400).json({ success: false, error: '수량은 0보다 커야 합니다.' });
+    const stockQty = Number(qty);
+    if (!Number.isFinite(stockQty) || !(stockQty > 0) || !Number.isInteger(Number(pk)) || Number(pk) <= 0) return res.status(400).json({ success: false, error: '유효한 품목과 0보다 큰 수량이 필요합니다.' });
 
     // 재고조정은 현재 운영 차수 기준 — NN-NN→2025 레거시 규칙 금지 (StockHistory 연도 오염 방지)
     const orderYear = selected.orderYear;
     const uid = req.user?.userId || 'admin';
-    const beforeResult = await query(
-      `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
-      { pk: { type: sql.Int, value: pk } }
-    );
-    const before = Number(beforeResult.recordset[0]?.Stock || 0);
-    const after = before - stockQty;
-
     await withTransaction(async (tQuery) => {
+      const beforeResult = await tQuery(
+        `SELECT ISNULL(Stock,0) AS Stock FROM Product WITH (UPDLOCK,HOLDLOCK)
+          WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+        { pk: { type: sql.Int, value: Number(pk) } }
+      );
+      if (beforeResult.recordset.length !== 1) throw new Error('활성 품목을 찾을 수 없습니다.');
+      const kind = await tQuery(
+        `SELECT Descr FROM CodeInfo WITH (HOLDLOCK) WHERE Descr=@type AND Category=N'StockType'`,
+        { type: { type: sql.NVarChar, value: adjustType } }
+      );
+      if (kind.recordset.length !== 1) throw new Error('재고 계산에 반영되는 조정 구분을 선택하세요.');
+      const before = Number(beforeResult.recordset[0].Stock);
+      const after = before - stockQty;
       await tQuery(
         `INSERT INTO StockHistory
            (ChangeDtm, OrderYear, OrderWeek, ChangeID, ChangeType, ColumName,
@@ -252,15 +259,7 @@ async function adjustStock(req, res) {
         { after: { type: sql.Float, value: after }, pk: { type: sql.Int, value: pk } }
       );
 
-      await tQuery(
-        stockCalculationSql(),
-        {
-          year: { type: sql.NVarChar, value: orderYear },
-          week: { type: sql.NVarChar, value: week || '' },
-          uid:  { type: sql.NVarChar, value: uid },
-          pk:   { type: sql.Int, value: pk },
-        }
-      );
+      await recalculateStockCascade(tQuery, sql, { orderYear, orderWeek: week, uid, prodKeys: [Number(pk)] });
     });
 
     return res.status(200).json({
@@ -271,31 +270,4 @@ async function adjustStock(req, res) {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
-}
-
-function stockCalculationSql() {
-  return `IF EXISTS (
-            SELECT 1 FROM sys.parameters
-             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
-               AND name = N'@oResult'
-          )
-          BEGIN
-            DECLARE @r INT, @m NVARCHAR(MAX);
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @ProdKey   = @pk,
-                 @iUserID   = @uid,
-                 @oResult   = @r OUTPUT,
-                 @oMessage  = @m OUTPUT;
-            SELECT @r AS result, @m AS message;
-          END
-          ELSE
-          BEGIN
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @ProdKey   = @pk,
-                 @iUserID   = @uid;
-          END`;
 }

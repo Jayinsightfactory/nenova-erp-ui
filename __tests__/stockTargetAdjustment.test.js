@@ -30,7 +30,7 @@ async function main() {
   assert.match(api, /OrderYear > @year OR \(OrderYear=@year AND OrderWeek>@week\)/);
   assert.match(api, /HISTORICAL_STOCK_EDIT_BLOCKED/);
   assert.doesNotMatch(api, /후속스냅샷 보존/);
-  assert.match(api, /THROW 51000, @m, 1/);
+  assert.match(api, /await recalculateStockCascade\(tQuery, sql/);
   assert.match(api, /loadFixedEditedProdKeys/);
   assert.match(api, /sd\.ProdKey=e\.ProdKey AND ISNULL\(sd\.isFix,0\)=1/);
   assert.doesNotMatch(api, /SELECT TOP 1 1 AS x FROM/);

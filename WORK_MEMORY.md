@@ -837,6 +837,11 @@
 - DB 쓰기 없음. 기존 638행 실제 조회 성공, 새 경로 자동완료는 배포 후 검증 예정.
 - 검색어: shilla-check bridge workspace query redirect 1205
 
+## 2026-10-22 네덜란드·베트남 이월 및 후속 재계산
+- native CALC 후 전차수 원장 산식 검증을 재고조정·확정출고 감소/삭제에 추가. 구형 API의 확정수량 수정 우회 차단.
+- SQL 보정 미리보기: 승인 두 품목 126 snapshot 검사, 113 변경 예정. 기존 이력·현재고·확정보고서 보존, 에콰도르 재보정 금지.
+- 관련 회귀97개 통과. 전체검사·배포·운영보정은 진행 중(미완료). 상세는 docs/work-sessions/2026-10-22_carry-cascade.md.
+- 검색어: carry cascade Netherlands Vietnam 후속재고 출고삭제 41차
 ## 2026-10-22 입고 참고일 차단 분리·박스 현황
 - 실제 dnSpy ExcelLoadingPackingList 기준 InputDate/OrderWeek/BoxQuantity 확인. 인쇄 날짜 경고는 보존하되 수량 오류처럼 진행을 막지 않음. 실제 입고일·연도·수량·금액 검증 유지.
 - 새 /incoming/boxes 조회 전용: 저장 BoxQuantity, 연도·세부차수·국가·품종 필터, NULL 별도 경고. DB 스키마·EXE·SP 변경 없음.

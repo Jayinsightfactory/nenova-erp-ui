@@ -12,9 +12,9 @@ import * as XLSX from 'xlsx';
 // ─────────────────────────────────────────────────────────────
 const EditCtx = createContext(null);
 
-function OutQtyCell({ ck, pk, wk, baseQty }) {
+function OutQtyCell({ ck, pk, wk, year, baseQty }) {
   const { editMap, setEditMap, saving, handleSave } = useContext(EditCtx);
-  const k = `${ck}-${pk}-${wk}`;
+  const k = `${year}|${ck}-${pk}-${wk}`;
   const cur     = k in editMap ? editMap[k] : (baseQty ?? 0);
   const isDirty = k in editMap;
   const isSav   = saving === k;
@@ -36,7 +36,7 @@ function OutQtyCell({ ck, pk, wk, baseQty }) {
         />
         <button onClick={() => adjust(1)} style={st.pmBtn} disabled={isSav}>+</button>
         {isDirty && (
-          <button onClick={() => handleSave(ck, pk, wk)}
+          <button onClick={() => handleSave(ck, pk, wk, year)}
             style={{ ...st.pmBtn, background: isSav ? '#aaa' : '#1976d2', color: '#fff', padding: '2px 8px', fontSize: 10, width: 'auto' }}
             disabled={isSav}>
             {isSav ? '…' : '저장'}
@@ -675,14 +675,14 @@ export default function StockStatus() {
   }, [weekFrom]);
 
   // ── 저장
-  const handleSave = useCallback(async (ck, pk, wk) => {
-    const k = `${ck}-${pk}-${wk}`;
+  const handleSave = useCallback(async (ck, pk, wk, year) => {
+    const k = `${year}|${ck}-${pk}-${wk}`;
     const qty = editMap[k] ?? 0;
     setSaving(k);
     try {
       const r = await fetch('/api/shipment/stock-status', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, outQty: qty }),
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, year, outQty: qty }),
       });
       const d = await r.json();
       if (d.success) {
@@ -875,7 +875,7 @@ export default function StockStatus() {
                       <td style={{ ...st.td, textAlign:'right', background:'#e8f5e9', fontSize:11 }}>—</td>
                       <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd', fontSize:11 }}>{fmt(r2.totalInQty)}</td>
                       <td style={{ ...st.td, textAlign:'right', background:'#fff3e0', fontSize:11 }}>{fmt(r2.custOrderQty)}</td>
-                      <OutQtyCell ck={r2.CustKey} pk={r2.ProdKey} wk={r2.OrderWeek} baseQty={r2.outQty} />
+                      <OutQtyCell ck={r2.CustKey} pk={r2.ProdKey} wk={r2.OrderWeek} year={r2.OrderYear} baseQty={r2.outQty} />
                       <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5', fontSize:11,
                                    color:((r2.totalInQty||0)-(r2.totalOutQty||0))<0?'#d32f2f':'#388e3c' }}>
                         {fmt((r2.totalInQty||0)-(r2.totalOutQty||0))}
@@ -994,7 +994,7 @@ export default function StockStatus() {
                           <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(item.custOrderQty)}</td>
                           <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(item.totalInQty)}</td>
                           <td style={{ ...st.td, textAlign:'right', background:'#f0f4c3' }}>{fmt(item.totalOrderQty)}</td>
-                          <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} baseQty={item.outQty} />
+                          <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} year={item.OrderYear} baseQty={item.outQty} />
                           <td style={{ ...st.td, textAlign:'right', background:'#f3e5f5',
                                        color:remain<0?'#d32f2f':'#388e3c', fontWeight:700 }}>{fmt(remain)}</td>
                           <td style={{ ...st.td, fontSize:10, color:'#888', whiteSpace:'nowrap', textAlign:'center' }}>{item.outCreateDtm || '—'}</td>
@@ -1122,7 +1122,7 @@ export default function StockStatus() {
                                 <td style={{ ...st.td, textAlign:'right', background:'#fff3e0' }}>{fmt(item.custOrderQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#e3f2fd' }}>{fmt(item.totalInQty)}</td>
                                 <td style={{ ...st.td, textAlign:'right', background:'#f0f4c3' }}>{fmt(item.totalOrderQty)}</td>
-                                <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} baseQty={item.outQty} />
+                                <OutQtyCell ck={item.CustKey} pk={item.ProdKey} wk={item.OrderWeek} year={item.OrderYear} baseQty={item.outQty} />
                                 <td style={{ ...st.td, textAlign:'right', background:'#e0f7fa',
                                              color: remainSS!=null?(remainSS<0?'#d32f2f':'#006064'):'#999', fontWeight:700 }}>
                                   {remainSS!=null ? fmt(remainSS) : '-'}</td>
@@ -1175,7 +1175,7 @@ export default function StockStatus() {
   // 피벗 셀 인라인 편집
   const [pvEdit, setPvEdit] = useState(null); // { pk, ck, wk, val, newVal, custName }
 
-  const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName) => {
+  const savePvCell = useCallback(async (pk, ck, wk, newQty, oldQty, custName, year) => {
     const qty = parseFloat(newQty) || 0;
     const old = parseFloat(oldQty) || 0;
     if (qty === old) { setPvEdit(null); return; }
@@ -1184,7 +1184,7 @@ export default function StockStatus() {
       const diffStr = diff > 0 ? `${diff}추가` : `${Math.abs(diff)}감소`;
       const r = await fetch('/api/shipment/stock-status', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, outQty: qty,
+        body: JSON.stringify({ custKey: ck, prodKey: pk, week: wk, year, outQty: qty,
           descrLog: `${custName} ${old}>${qty}(${diffStr})` }),
       });
       const d = await r.json();
@@ -1824,7 +1824,7 @@ export default function StockStatus() {
                                         borderLeft: ci===0?'2px solid #e0e0e0':'none',
                                         color:v>0?'#1565c0':'#ddd',
                                         background: fixed?'#f5f5f5': pvEdit?.pk===pk&&pvEdit?.ck===ck&&pvEdit?.wk===wk?'#fff9c4':undefined}}
-                                        onClick={()=>{ if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;} setPvEdit({pk,ck,wk,val:v,newVal:v,custName:cShort(ck)}); }}>
+                                        onClick={()=>{ if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;} setPvEdit({pk,ck,wk,year:custRows.find(r=>r.OrderWeek===wk)?.OrderYear,val:v,newVal:v,custName:cShort(ck)}); }}>
                                       {v>0?fmt(v):'·'}
                                       {fixed && v>0 && <span style={{fontSize:7,color:'#999'}}>🔒</span>}
                                     </td>
@@ -2009,7 +2009,7 @@ export default function StockStatus() {
             </div>
             <div style={{display:'flex',gap:8,justifyContent:'center'}}>
               <button onClick={()=>setPvEdit(null)} style={{padding:'8px 20px',border:'1px solid #ccc',borderRadius:5,cursor:'pointer',background:'#f5f5f5'}}>취소</button>
-              <button onClick={()=>savePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName)}
+              <button onClick={()=>savePvCell(pvEdit.pk,pvEdit.ck,pvEdit.wk,pvEdit.newVal,pvEdit.val,pvEdit.custName,pvEdit.year)}
                 style={{padding:'8px 24px',background:'#1976d2',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>
                 저장
               </button>

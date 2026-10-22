@@ -28,13 +28,14 @@ async function handler(req, res) {
               sm.CustKey, sm.OrderYear, sm.OrderWeek,
               (SELECT COUNT(*) FROM ShipmentDetail sd JOIN Product p ON p.ProdKey=sd.ProdKey
                  WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)<>0 AND ISNULL(p.isDeleted,0)=0) AS VisCnt,
-              (SELECT COUNT(*) FROM ShipmentDetail sd WHERE sd.ShipmentKey=sm.ShipmentKey) AS DetailCnt
+              (SELECT COUNT(*) FROM ShipmentDetail sd WHERE sd.ShipmentKey=sm.ShipmentKey) AS DetailCnt,
+              (SELECT COUNT(*) FROM ShipmentDetail sd WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.isFix,0)=1) AS FixedDetailCnt
          FROM ShipmentMaster sm WHERE sm.ShipmentKey=@sk`,
       { sk: { type: sql.Int, value: shipmentKey } }
     );
     const m = chk.recordset[0];
     if (!m) return res.status(404).json({ success: false, error: '해당 ShipmentMaster 없음(이미 정리됨?)' });
-    if (Number(m.SmFix) === 1) {
+    if (Number(m.SmFix) === 1 || Number(m.FixedDetailCnt) > 0) {
       return res.status(409).json({ success: false, error: '확정(isFix=1)된 마스터는 정리할 수 없습니다. 전산에서 확정취소 후 진행하세요.' });
     }
     if (Number(m.VisCnt) > 0) {
@@ -45,6 +46,8 @@ async function handler(req, res) {
       // 재검증 (락 하에서)
       const re = await tQ(
         `SELECT ISNULL(sm.isFix,0) AS SmFix,
+                (SELECT COUNT(*) FROM ShipmentDetail sd WITH (UPDLOCK,HOLDLOCK)
+                   WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.isFix,0)=1) AS FixedDetailCnt,
                 (SELECT COUNT(*) FROM ShipmentDetail sd JOIN Product p ON p.ProdKey=sd.ProdKey
                    WHERE sd.ShipmentKey=sm.ShipmentKey AND ISNULL(sd.OutQuantity,0)<>0 AND ISNULL(p.isDeleted,0)=0) AS VisCnt
            FROM ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK) WHERE sm.ShipmentKey=@sk`,
@@ -52,7 +55,7 @@ async function handler(req, res) {
       );
       const r = re.recordset[0];
       if (!r) throw new Error('마스터가 사라졌습니다(동시 정리?)');
-      if (Number(r.SmFix) === 1) throw new Error('확정 마스터 — 정리 불가');
+      if (Number(r.SmFix) === 1 || Number(r.FixedDetailCnt) > 0) throw new Error('확정 출고 존재 — 정리 불가');
       if (Number(r.VisCnt) > 0) throw new Error('실제 분배 존재 — 정리 불가');
 
       const dDate = await tQ(
