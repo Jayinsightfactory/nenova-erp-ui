@@ -1,0 +1,678 @@
+{
+  "version": 1,
+  "decidedOn": "2026-10-22",
+  "decidedBy": "사장님",
+  "basis": "직원 관찰 2026-09-18~2026-10-14 ECOUNT 이용 기록 210건(대부분 강명훈)에서 실제로 열린 화면만 조사",
+  "surveyedUsed": [
+    "E060403",
+    "E060405",
+    "E060404",
+    "E060504",
+    "E020511",
+    "E020523",
+    "E060208",
+    "E060814"
+  ],
+  "unused": {
+    "label": "미사용(관찰 0건)·미조사",
+    "implementationTarget": false,
+    "programs": [
+      {
+        "program": "E000114",
+        "packet": "P005",
+        "label": "회사로고/도장"
+      },
+      {
+        "program": "E000125",
+        "packet": "P005",
+        "label": "API인증키발급"
+      },
+      {
+        "program": "E000107",
+        "packet": "P005",
+        "label": "사용자등록"
+      },
+      {
+        "program": "E000115",
+        "packet": "P005",
+        "label": "권한그룹 설정"
+      },
+      {
+        "program": "E000131",
+        "packet": "P005",
+        "label": "권한승인대기현황"
+      },
+      {
+        "program": "E000143",
+        "packet": "P005",
+        "label": "관리자설정"
+      },
+      {
+        "program": "C000113",
+        "packet": "P005",
+        "label": "기능설정"
+      },
+      {
+        "program": "C001124",
+        "packet": "P006",
+        "label": "기본값설정"
+      },
+      {
+        "program": "C001122",
+        "packet": "P006",
+        "label": "매핑센터"
+      },
+      {
+        "program": "E000109",
+        "packet": "P006",
+        "label": "기본설정"
+      },
+      {
+        "program": "E000126",
+        "packet": "P006",
+        "label": "C-Portal그룹별설정"
+      },
+      {
+        "program": "E000127",
+        "packet": "P006",
+        "label": "고객ID추가/설정"
+      },
+      {
+        "program": "E000137",
+        "packet": "P006",
+        "label": "Webmail설정"
+      },
+      {
+        "program": "E000138",
+        "packet": "P006",
+        "label": "Webmail ID 설정"
+      },
+      {
+        "program": "E000161",
+        "packet": "P006",
+        "label": "UserPay설정"
+      },
+      {
+        "program": "E000160",
+        "packet": "P006",
+        "label": "UserPay그룹별설정"
+      },
+      {
+        "program": "C001138",
+        "packet": "P006",
+        "label": "보안설정"
+      },
+      {
+        "program": "E000117",
+        "packet": "P007",
+        "label": "사용자접속현황"
+      },
+      {
+        "program": "E000132",
+        "packet": "P007",
+        "label": "로그인이력감시"
+      },
+      {
+        "program": "E000140",
+        "packet": "P007",
+        "label": "파일이력조회"
+      },
+      {
+        "program": "M000009",
+        "packet": "P007",
+        "label": "허용리스트"
+      },
+      {
+        "program": "E000129",
+        "packet": "P007",
+        "label": "엑셀자료올리기기능"
+      },
+      {
+        "program": "E000139",
+        "packet": "P007",
+        "label": "편의기능"
+      },
+      {
+        "program": "E060402",
+        "packet": "P040",
+        "label": "채권감소등록"
+      },
+      {
+        "program": "E060406",
+        "packet": "P040",
+        "label": "채권증가현황"
+      },
+      {
+        "program": "E060407",
+        "packet": "P040",
+        "label": "채권감소현황"
+      },
+      {
+        "program": "N000007",
+        "packet": "P040",
+        "label": "거래처채권관리대장"
+      },
+      {
+        "program": "N000045",
+        "packet": "P040",
+        "label": "거래처채권집계관리대장"
+      },
+      {
+        "program": "N000008",
+        "packet": "P040",
+        "label": "거래처채권관리대장인쇄"
+      },
+      {
+        "program": "E060408",
+        "packet": "P040",
+        "label": "채권잔액분석표"
+      },
+      {
+        "program": "E060503",
+        "packet": "P041",
+        "label": "채무조회"
+      },
+      {
+        "program": "E060502",
+        "packet": "P041",
+        "label": "채무감소등록"
+      },
+      {
+        "program": "E060505",
+        "packet": "P041",
+        "label": "채무거래내역"
+      },
+      {
+        "program": "E060506",
+        "packet": "P041",
+        "label": "채무증가현황"
+      },
+      {
+        "program": "E060507",
+        "packet": "P041",
+        "label": "채무감소현황"
+      },
+      {
+        "program": "N000012",
+        "packet": "P041",
+        "label": "거래처채무관리대장"
+      },
+      {
+        "program": "N000046",
+        "packet": "P041",
+        "label": "거래처채무집계관리대장"
+      },
+      {
+        "program": "N000013",
+        "packet": "P041",
+        "label": "거래처채무관리대장인쇄"
+      },
+      {
+        "program": "E060508",
+        "packet": "P041",
+        "label": "채무잔액분석표"
+      },
+      {
+        "program": "E060602",
+        "packet": "P042",
+        "label": "수령수표입금처리"
+      },
+      {
+        "program": "E060603",
+        "packet": "P042",
+        "label": "수령수표조회"
+      },
+      {
+        "program": "E060613",
+        "packet": "P042",
+        "label": "수령수표거래내역"
+      },
+      {
+        "program": "E060604",
+        "packet": "P042",
+        "label": "수령수표현황"
+      },
+      {
+        "program": "E060609",
+        "packet": "P042",
+        "label": "수령수표증가현황"
+      },
+      {
+        "program": "E060610",
+        "packet": "P042",
+        "label": "수령수표감소현황"
+      },
+      {
+        "program": "E060606",
+        "packet": "P042",
+        "label": "발행수표출금처리"
+      },
+      {
+        "program": "E060607",
+        "packet": "P042",
+        "label": "발행수표조회"
+      },
+      {
+        "program": "E060614",
+        "packet": "P042",
+        "label": "발행수표거래내역"
+      },
+      {
+        "program": "E060608",
+        "packet": "P042",
+        "label": "발행수표현황"
+      },
+      {
+        "program": "E060611",
+        "packet": "P043",
+        "label": "발행수표증가현황"
+      },
+      {
+        "program": "E060612",
+        "packet": "P043",
+        "label": "발행수표감소현황"
+      },
+      {
+        "program": "E020520",
+        "packet": "P044",
+        "label": "추정자금일보"
+      },
+      {
+        "program": "E020521",
+        "packet": "P044",
+        "label": "추정자금월보"
+      },
+      {
+        "program": "E020522",
+        "packet": "P044",
+        "label": "추정자금연보"
+      },
+      {
+        "program": "E020201",
+        "packet": "P044",
+        "label": "월별예산조회"
+      },
+      {
+        "program": "E020202",
+        "packet": "P044",
+        "label": "예산현황"
+      },
+      {
+        "program": "E020203",
+        "packet": "P044",
+        "label": "예산-실적비교표"
+      },
+      {
+        "program": "E020204",
+        "packet": "P044",
+        "label": "통제예산-실적대장"
+      },
+      {
+        "program": "E020205",
+        "packet": "P044",
+        "label": "예산-실적대장"
+      },
+      {
+        "program": "E020206",
+        "packet": "P045",
+        "label": "통제예산-실적비교표"
+      },
+      {
+        "program": "E060201",
+        "packet": "P046",
+        "label": "관리번호등록"
+      },
+      {
+        "program": "E060210",
+        "packet": "P046",
+        "label": "비용항목등록"
+      },
+      {
+        "program": "E060204",
+        "packet": "P046",
+        "label": "매입대금청구서수령"
+      },
+      {
+        "program": "E060203",
+        "packet": "P046",
+        "label": "일반영수증수령"
+      },
+      {
+        "program": "E060205",
+        "packet": "P046",
+        "label": "거래대금지급"
+      },
+      {
+        "program": "E060206",
+        "packet": "P046",
+        "label": "관세사에지급"
+      },
+      {
+        "program": "E060207",
+        "packet": "P046",
+        "label": "본계정대체"
+      },
+      {
+        "program": "E060209",
+        "packet": "P046",
+        "label": "수입관리대장"
+      },
+      {
+        "program": "E060808",
+        "packet": "P046",
+        "label": "통제유형등록"
+      },
+      {
+        "program": "E060809",
+        "packet": "P047",
+        "label": "비용등록"
+      },
+      {
+        "program": "E060810",
+        "packet": "P047",
+        "label": "비용그룹등록"
+      },
+      {
+        "program": "E060812",
+        "packet": "P047",
+        "label": "비용내역입력"
+      },
+      {
+        "program": "E060813",
+        "packet": "P047",
+        "label": "비용내역조회"
+      },
+      {
+        "program": "E060815",
+        "packet": "P047",
+        "label": "비용내역현황"
+      },
+      {
+        "program": "E060202",
+        "packet": "P048",
+        "label": "(세금)계산서수령"
+      },
+      {
+        "program": "E060910",
+        "packet": "P048",
+        "label": "매출(세금)계산서현황(계약)"
+      },
+      {
+        "program": "E060901",
+        "packet": "P049",
+        "label": "계약항목등록"
+      },
+      {
+        "program": "E060902",
+        "packet": "P049",
+        "label": "계약입력"
+      },
+      {
+        "program": "E060903",
+        "packet": "P049",
+        "label": "계약조회"
+      },
+      {
+        "program": "E060912",
+        "packet": "P049",
+        "label": "계약현황"
+      },
+      {
+        "program": "E060905",
+        "packet": "P049",
+        "label": "청구예정자료생성"
+      },
+      {
+        "program": "E060907",
+        "packet": "P049",
+        "label": "청구예정자료인쇄"
+      },
+      {
+        "program": "E060909",
+        "packet": "P049",
+        "label": "청구예정자료미생성현황"
+      },
+      {
+        "program": "E060908",
+        "packet": "P049",
+        "label": "회계미반영현황(계약)"
+      },
+      {
+        "program": "E061101",
+        "packet": "P049",
+        "label": "계약서진행단계"
+      },
+      {
+        "program": "E061102",
+        "packet": "P050",
+        "label": "계약서현황"
+      },
+      {
+        "program": "E090101",
+        "packet": "P052",
+        "label": "사원등록"
+      },
+      {
+        "program": "E020603",
+        "packet": "P052",
+        "label": "인사카드등록"
+      },
+      {
+        "program": "E020602",
+        "packet": "P052",
+        "label": "인사발령조회"
+      },
+      {
+        "program": "E020721",
+        "packet": "P052",
+        "label": "인사발령입력"
+      },
+      {
+        "program": "E020720",
+        "packet": "P052",
+        "label": "인사발령현황"
+      },
+      {
+        "program": "E020606",
+        "packet": "P052",
+        "label": "각종증명서인쇄"
+      },
+      {
+        "program": "E020609",
+        "packet": "P052",
+        "label": "인원현황"
+      },
+      {
+        "program": "E090222",
+        "packet": "P052",
+        "label": "조직도등록"
+      },
+      {
+        "program": "E090220",
+        "packet": "P052",
+        "label": "조직도현황"
+      },
+      {
+        "program": "E090103",
+        "packet": "P053",
+        "label": "수당항목등록"
+      },
+      {
+        "program": "E090114",
+        "packet": "P053",
+        "label": "공제항목등록"
+      },
+      {
+        "program": "E090104",
+        "packet": "P053",
+        "label": "수당/공제그룹등록"
+      },
+      {
+        "program": "E090106",
+        "packet": "P053",
+        "label": "급여계산/대장"
+      },
+      {
+        "program": "E090110",
+        "packet": "P053",
+        "label": "사원별급여조회"
+      },
+      {
+        "program": "E090115",
+        "packet": "P053",
+        "label": "급여현황"
+      },
+      {
+        "program": "E090102",
+        "packet": "P054",
+        "label": "인쇄용결재라인등록(관리)"
+      },
+      {
+        "program": "E090117",
+        "packet": "P055",
+        "label": "급여이체현황"
+      },
+      {
+        "program": "E020701",
+        "packet": "P057",
+        "label": "근태항목등록"
+      },
+      {
+        "program": "E020702",
+        "packet": "P057",
+        "label": "휴가항목등록"
+      },
+      {
+        "program": "E020703",
+        "packet": "P057",
+        "label": "사원별휴가일수조회"
+      },
+      {
+        "program": "E020710",
+        "packet": "P057",
+        "label": "근태입력"
+      },
+      {
+        "program": "E020711",
+        "packet": "P057",
+        "label": "근태조회"
+      },
+      {
+        "program": "E020715",
+        "packet": "P057",
+        "label": "근태현황"
+      },
+      {
+        "program": "E020725",
+        "packet": "P057",
+        "label": "출/퇴근반영기준"
+      },
+      {
+        "program": "E020726",
+        "packet": "P057",
+        "label": "출/퇴근기록부(사원)"
+      },
+      {
+        "program": "E020722",
+        "packet": "P057",
+        "label": "출/퇴근현황(사원)"
+      },
+      {
+        "program": "E020724",
+        "packet": "P057",
+        "label": "출/퇴근(사원)"
+      },
+      {
+        "program": "E020723",
+        "packet": "P058",
+        "label": "지각현황(사원)"
+      },
+      {
+        "program": "E020728",
+        "packet": "P058",
+        "label": "출퇴근/근태현황(사원)"
+      },
+      {
+        "program": "E020716",
+        "packet": "P058",
+        "label": "휴가잔여일수현황"
+      },
+      {
+        "program": "E020719",
+        "packet": "P058",
+        "label": "휴가사용실적현황"
+      },
+      {
+        "program": "E200062",
+        "packet": "P059",
+        "label": "공지사항"
+      },
+      {
+        "program": "E070201",
+        "packet": "P059",
+        "label": "일정관리"
+      },
+      {
+        "program": "E072501",
+        "packet": "P059",
+        "label": "게시판"
+      }
+    ]
+  },
+  "riskExcluded": {
+    "label": "위험 화면(일괄 변경·삭제·반영) — 열지 않음",
+    "implementationTarget": false,
+    "programs": [
+      {
+        "program": "P000054",
+        "packet": "P005",
+        "label": "백업 및 삭제"
+      },
+      {
+        "program": "E060811",
+        "packet": "P047",
+        "label": "비용일괄등록"
+      },
+      {
+        "program": "E060906",
+        "packet": "P049",
+        "label": "회계/판매일괄반영"
+      },
+      {
+        "program": "E060904",
+        "packet": "P051",
+        "label": "계약단가/수량일괄변경"
+      },
+      {
+        "program": "E090116",
+        "packet": "P053",
+        "label": "근무확정현황"
+      },
+      {
+        "program": "N001769",
+        "packet": "P056",
+        "label": "4대보험취득신고입력"
+      },
+      {
+        "program": "N001770",
+        "packet": "P056",
+        "label": "4대보험상실신고입력"
+      },
+      {
+        "program": "N001771",
+        "packet": "P056",
+        "label": "피부양자자격신고입력"
+      },
+      {
+        "program": "N001768",
+        "packet": "P056",
+        "label": "4대보험신고"
+      },
+      {
+        "program": "N000732",
+        "packet": "P056",
+        "label": "4대보험신고"
+      }
+    ]
+  }
+}
