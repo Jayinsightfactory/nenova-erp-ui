@@ -965,3 +965,6 @@ transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터
 사후검증은 replacementScopeSql을 공유한다. 범위 없는 기존 전체교체 계약은 보존한다.
 근거/부작용: docs/plans/import-manual-skip-2026-10-22.md.
 회귀: shipmentImportManualSkip.test.js, shipmentReplacementPlan.test.js 및 격리 브라우저 스크립트.
+
+## 2026-10-22 자동 매칭의 제목 품종 오염
+PR1213의 제목 우선 규칙은 혼합 파일의 루스커스를 수국으로 판정했다. PR1221 수동매칭 복구만으로 자동회귀가 해결되지는 않는다. 원문 행 품종을 우선하며 제목뿐인 힌트는 유일 DB 정확매칭을 막지 않는다. 동명 교차품종·외국품종 fuzzy·충돌키는 차단한다. DB FlowerName과 규격을 보존하고 알려진 품종을 sheetName으로 다시 환산하지 않는다. 실제 XLSX→preview 자동0수동 검증 및 교차연도/수동/skip 회귀: shipmentImportManualSkip.test.js. 기준표: docs/plans/import-family-recovery-2026-10-22.md.

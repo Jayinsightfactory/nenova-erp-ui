@@ -4,12 +4,12 @@ import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
+import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue, isAlstroImportRow } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
-  if (r.productFamily === 'alstroemeria' || /알스트로|alstroe?meria/i.test(`${r.sheetName || ''} ${r.productLabel || ''}`)) {
+  if (isAlstroImportRow(r)) {
     return `${fmt(r.uploadQty)}(${fmt(Number(r.uploadQty || 0) / 16)})`;
   }
   if (r.earlyImportMode) return fmt(r.uploadQty);

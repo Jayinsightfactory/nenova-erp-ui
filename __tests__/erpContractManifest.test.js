@@ -76,6 +76,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  // Imported API tests temporarily mock console.error; never hide the gate failure.
+  process.stderr.write(`${error?.stack || error}\n`);
   process.exitCode = 1;
 });

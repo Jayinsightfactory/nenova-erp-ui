@@ -172,8 +172,9 @@
       "explicitZero": "preserve_order_set_distribution_zero",
       "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope",
       "customerColumnChoice": "Explicit original unmatched customer label only: include by selecting ERP customer, or ignore that source column for this file. Never auto-ignore early-shipment labels; preserve ordinary columns and existing category missing-to-zero policy; canceled choice requires revalidation.",
-      "manualProductChoice": "Active manual ProdKey overrides inferred family and workbook key; invalid choice remains unmatched; automatic cross-family veto preserved.",
-      "explicitProductSkip": "Explicit per-file label skip removes source rows. Signed remaining matched product keys define replacement; skipped and out-of-file products preserve all ledgers. Included products retain missing-customer-to-zero policy. All-skipped has no plan. Same known ProdKey include/skip conflict blocks."
+      "manualProductChoice": "Active manual ProdKey overrides source family and workbook key; invalid choice remains unmatched. Explicit row species mismatch blocks automatic matching; heading-only hints yield to unique exact catalog names.",
+      "explicitProductSkip": "Explicit per-file label skip removes source rows. Signed remaining matched product keys define replacement; skipped and out-of-file products preserve all ledgers. Included products retain missing-customer-to-zero policy. All-skipped has no plan. Same known ProdKey include/skip conflict blocks.",
+      "automaticProductFamily": "Row species before sheet/title. Recognize Ruscus and preserve Green size aliases (40/50/70cm distinct). Unique full/normalized catalog name may override heading only. Ambiguous cross-species names require heading or manual choice; foreign fuzzy and stale conflicting workbook keys block. Matched Product.FlowerName governs preview/preflight quantity family; sheet name cannot override a known family. Preserve conversion formulas, signed scope and native writes."
     },
     {
       "name": "DISTRIBUTE_IMPORT_ROLLBACK",

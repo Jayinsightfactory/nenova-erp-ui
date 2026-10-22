@@ -8,6 +8,7 @@ async function main() {
   const helper = await import('../lib/pivotVolumeCombinedCells.js');
   const { volumeProdLabel } = await import('../lib/pivotVolumeProductLabel.js');
   const { pivotCustomerQuantity } = await import('../lib/pivotCustomerQuantity.js');
+  const { isAlstroImportRow } = await import('../lib/shipmentImportQty.js');
   const { combinedCellContext, combinedParts, combinedNumberFormat } = helper;
   const row = (key, qty) => ({ prodKey: key, prodName: 'same name', orders: { Customer: qty } });
   const data = { orderYear: 2026, weeks: ['36-02', '36-01'], byWeek: {
@@ -52,7 +53,7 @@ async function main() {
   // Exercise actual production sheet generator, replacing only imported read/presentation dependencies.
   const source = fs.readFileSync(path.join(__dirname, '../pages/api/stats/pivot-volume-excel.js'),'utf8')
     .split('export default withAuth')[0].replace(/^import[\s\S]*?;\r?\n/gm, '');
-  const context = { XLSX, ...helper, volumeProdLabel, pivotCustomerQuantity, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
+  const context = { XLSX, ...helper, volumeProdLabel, pivotCustomerQuantity, isAlstroImportRow, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
     DAY_ORDER:{}, extractDays:()=>[], pickDataDay:()=>'', isNetherlandsVolume:()=>false,
     buildPivotVolumeIdentityColumns:()=>[{type:'product'}], pivotVolumeFlowerLabel:r=>r.flower,
     sumOrderQty:r=>Object.values(r.orders||{}).reduce((a,b)=>a+b,0), sumIncomingQty:()=>0 };
@@ -106,4 +107,4 @@ async function main() {
   assert.equal(context.displayUpload({productFamily:'rose',uploadQty:16,excelQty:16}), '16');
   console.log('pivot combined cells: defaults, year, missing, precision, production sheet and XLSX roundtrip passed');
 }
-main().catch(e=>{ console.error(e); process.exitCode=1; });
+main().catch(e=>{ process.stderr.write(`${e?.stack || e}\n`); process.exitCode=1; });
