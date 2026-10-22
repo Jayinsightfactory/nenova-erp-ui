@@ -39,7 +39,7 @@ function load(filename) {
   return mod.exports;
 }
 const { buildImportPreview, parseAllocationWorkbook } = load(resolve(lib, 'shipmentImport.js'));
-const { normalizeUploadQtyForProduct } = load(resolve(lib, 'shipmentImportQty.js'));
+const { normalizeUploadQtyForProduct, isAlstroImportRow } = load(resolve(lib, 'shipmentImportQty.js'));
 
 
 const products = [
@@ -194,4 +194,12 @@ test('mixed sheet headings cannot change Ruscus quantities or the matched rose/a
       assert.equal(normalizeUploadQtyForProduct(row,[...actualRuscus,rose,alstro].find(p=>p.ProdKey===key)),qty);
     }
   }
+});
+
+test('screen quantity formatter uses the same resolved family as preview',()=>{
+  const source=readFileSync(resolve(lib,'../pages/shipment/distribute-import.js'),'utf8');
+  const formatter=source.slice(source.indexOf('const fmt ='),source.indexOf('const qtyWarningText'));
+  const fmtUpload=vm.runInNewContext(`${formatter}\nfmtUpload`,{isAlstroImportRow});
+  assert.equal(fmtUpload({sheetName:'알스트로',productFamily:'ruscus',uploadQty:2,excelQty:2}),'2');
+  assert.equal(fmtUpload({sheetName:'수국',productFamily:'alstroemeria',uploadQty:32,excelQty:2}),'32(2)');
 });
