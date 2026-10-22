@@ -101,7 +101,10 @@ async function main() {
   const rowsBlock = reportSrc.slice(reportSrc.indexOf('export async function stockPriceRows'), reportSrc.indexOf('export async function autoStockUnitPrices'));
   assert.match(rowsBlock, /beginFifo\?\.evidence \|\| selectStockPriceEvidence/);
   assert.match(rowsBlock, /row\.RequiresInput = Boolean\(beginNoEvidence \|\| endNoEvidence\)/);
-  assert.match(apiSrc, /const resolvedEnd = categoryAverageEnd\s*\?/, 'F 1순위 원본수식 경로는 그대로');
+  assert.match(apiSrc, /const resolvedEnd = selectReportInventoryValuation\(/, 'F와 다음 E는 같은 선택기를 사용');
+  const { selectReportInventoryValuation } = await import('../lib/profitReportValuation.mjs');
+  assert.equal(selectReportInventoryValuation({year:'2026',major:'31',average:{value:25},direct:999}).value,25,
+    'F 1순위 원본수식 경로는 그대로');
   assert.deepEqual([...calc.CATEGORY_AVERAGE_INVENTORY_KEYS], ['콜롬비아 수국', '콜롬비아 카네이션', '콜롬비아 장미', '콜롬비아 루스커스', '콜롬비아 알스트로', '베트남']);
 
   console.log('profitReportFifoStockPrice: ok');

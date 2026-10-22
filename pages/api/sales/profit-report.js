@@ -1,5 +1,6 @@
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
+import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   EXTRA_CATEGORY, CNF_CATEGORIES,
@@ -398,17 +399,13 @@ export async function loadReportData(major, orderYear) {
         const carry = currentCarryByCategory[key] || null;
         const hasManualR = Number(man.R) > 0;
         const hasExactR = resolvedRate.source !== RATE_SOURCE.MISSING && Number(resolvedRate.rate) > 0;
-        // 근사 환율(2026-08-26 사장님 방침 "근사치로라도 넣어놔") — 정확 원천도 이월값도 없으면
-        // CurrencyMaster 현재 환율을 근사치로 자동 적용한다. 화면 R 입력칸은 계속 열려 있어
-        // 통관 신고 환율 확인 후 수정·저장하면 수기값이 우선한다.
-        const approxRate = currencyCodeForCategory(key) && rateByCode[currencyCodeForCategory(key)] > 0
-          ? rateByCode[currencyCodeForCategory(key)] : null;
-        const autoR = hasExactR ? resolvedRate.rate : (carry ? carry.rate : (approxRate != null ? approxRate : resolvedRate.rate));
+        // 2026-10-22: 현재 환율로 과거 원가를 채우지 않는다. 원본/정확 원천이 없으면 계산 보류.
+        const autoR = hasExactR ? resolvedRate.rate : (carry ? carry.rate : null);
         const autoRSource = hasExactR
           ? resolvedRate.source
           : carry
             ? CARRIED_RATE_SOURCE
-            : approxRate != null ? 'approximate_currency_master' : resolvedRate.source;
+            : RATE_SOURCE.MISSING;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
@@ -439,33 +436,13 @@ export async function loadReportData(major, orderYear) {
         const carriedBegin = prevPrevUnitCost[key] && beginQtyValue > 0
           ? { value: prevPrevUnitCost[key].unitCost * beginQtyValue, sourceWeek: prevPrevUnitCost[key].sourceWeek }
           : null;
-        const resolvedBegin = previous.average
-          ? {
-              value: previous.average.value,
-              status: 'VERIFIED_CATEGORY_AVERAGE',
-              sources: [`erp:${prevOrderYear}:${stockBegin.week || `${prevMajor}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
-            }
-          : directBeginValue != null
-            ? {
-                value: directBeginValue,
-                status: stockBegin.priceEvidenceStatus?.[key] || 'VERIFIED',
-                sources: stockBegin.priceEvidenceSources?.[key] || [],
-              }
-            : previous.historical
-              ? { value: Number(previous.historical.value), status: previous.historical.status, sources: [previous.historical.sourceRef] }
-              : previous.averageFallback
-                ? {
-                    value: previous.averageFallback.value,
-                    status: 'VERIFIED_CATEGORY_AVERAGE_FALLBACK',
-                    sources: [`erp:${prevOrderYear}:${stockBegin.week || `${prevMajor}-last`}:category-average-fallback:(G+H)/purchaseQty*ProductStock`],
-                  }
-                : carriedBegin
-                  ? {
-                      value: carriedBegin.value,
-                      status: 'VERIFIED_CARRIED_UNIT_COST',
-                      sources: [`erp:${carriedBegin.sourceWeek}:carried-unit-cost->${prevOrderYear}:${prevMajor}`],
-                    }
-                  : null;
+        const resolvedBegin = selectReportInventoryValuation({
+          year: prevOrderYear, major: prevMajor, week: stockBegin.week,
+          average: previous.average, direct: directBeginValue,
+          directStatus: stockBegin.priceEvidenceStatus?.[key],
+          directSources: stockBegin.priceEvidenceSources?.[key],
+          historical: previous.historical, averageFallback: previous.averageFallback, carried: carriedBegin,
+        });
         // F(기말) — 공식 6키(1순위) > 품목별 검증 > historical > 공식 fallback(전 카테고리)
         //           > 매입 없는 주 단가이월(전차수 평가 단가 × 이번 수량). 2026-08-26 방침.
         const categoryAverageEndFallback = (!categoryAverageEnd && !endConversionMissing && !endUnitMismatch)
@@ -484,33 +461,14 @@ export async function loadReportData(major, orderYear) {
           && Number.isFinite(resolvedBegin.value / beginQtyValue)
           ? { value: (resolvedBegin.value / beginQtyValue) * endQtyValue }
           : null;
-        const resolvedEnd = categoryAverageEnd
-          ? {
-              value: categoryAverageEnd.value,
-              status: 'VERIFIED_CATEGORY_AVERAGE',
-              sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average:(G+H)/purchaseQty*ProductStock`],
-            }
-          : directEndValue != null
-            ? {
-                value: directEndValue,
-                status: stockEnd.priceEvidenceStatus?.[key] || 'VERIFIED',
-                sources: stockEnd.priceEvidenceSources?.[key] || [],
-              }
-            : historicalEnd
-              ? { value: Number(historicalEnd.value), status: historicalEnd.status, sources: [historicalEnd.sourceRef] }
-              : categoryAverageEndFallback
-                ? {
-                    value: categoryAverageEndFallback.value,
-                    status: 'VERIFIED_CATEGORY_AVERAGE_FALLBACK',
-                    sources: [`erp:${orderYear}:${stockEnd.week || `${major}-last`}:category-average-fallback:(G+H)/purchaseQty*ProductStock`],
-                  }
-                : carriedEnd
-                  ? {
-                      value: carriedEnd.value,
-                      status: 'VERIFIED_CARRIED_UNIT_COST',
-                      sources: [`erp:${prevOrderYear}:${prevMajor}:carried-unit-cost->${orderYear}:${major}`],
-                    }
-                  : null;
+        const resolvedEnd = selectReportInventoryValuation({
+          year: orderYear, major, week: stockEnd.week,
+          average: categoryAverageEnd, direct: directEndValue,
+          directStatus: stockEnd.priceEvidenceStatus?.[key],
+          directSources: stockEnd.priceEvidenceSources?.[key],
+          historical: historicalEnd, averageFallback: categoryAverageEndFallback,
+          carried: carriedEnd ? { ...carriedEnd, sourceWeek: `${prevOrderYear}:${prevMajor}` } : null,
+        });
         const stock = {
           week: stockEnd.week,
           endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
@@ -794,7 +752,7 @@ export default withAuth(async function handler(req, res) {
       // 화면 조회는 변경이 감지돼도 저장본을 먼저 보여 주고(needsRefresh), 엑셀은 항상 최신 계산값을 쓴다.
       // Independent audit needs a fresh read without writing/refreshing the stored snapshot.
       // Active confirmed revisions are still immutable inside loadWeeklyReportPayload.
-      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: req.query.excel === '1' || req.query.auditLive === '1' });
+      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: true });
 
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로. 화면과 동일하게
       // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.

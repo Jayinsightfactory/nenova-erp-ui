@@ -1,0 +1,11 @@
+{
+  "id":"profit-unit-valuation",
+  "title":"보고서 단위 분모·기초기말 평가·환율 누락 읽기 전용 수정",
+  "scope":["lib/profitReportUnitQuantity.mjs","lib/profitReportValuation.mjs","lib/profitReport.js","lib/profitReportCalc.js","lib/profitFormulaAudit.mjs","lib/profitReportAudit.js","lib/profitReportHistoricalCustoms.js","data/profit-report-evidence/historical-rates-2026-01-21.json","pages/api/sales/profit-report.js","pages/sales/profit-report.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"REPORT_READ_ONLY_RECALCULATE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. All ERP, manual input, confirmed revisions and calculation caches preserved. Sales/purchase price denominator uses matching Box/Bunch/Steam quantity or explicit box conversion; incomplete denominator is not averaged. E/F share same selector and exact historical rate policy. Missing FX/stock valuation makes dependent profit and totals unavailable, never zero cost. Browser refresh uses GET only."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 same week remain separate; valuation source year explicit, sales/purchase SQL year and cutoff retained; no default missing year."},
+  "requiredTestFiles":["__tests__/profitReportUnitValuation.test.cjs","__tests__/profitFormulaAudit.test.cjs","__tests__/profitReportWorkbookFullParity.test.js","__tests__/profitReportTaxableRateCarry.test.js","__tests__/profitReportMonthly.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-unit-valuation-2026-10-22.md","source":"Actual dnSpy.Console FormStockView and SELECT probe 2026/02-02,04-02; no ERP write changes","methods":["FormStockView.GetData"],"tables":["Product","ShipmentMaster","ShipmentDetail","WarehouseMaster","WarehouseDetail","StockMaster","ProductStock","WebProfitReport"]},
+  "requiredCommands":["node __tests__/profitReportUnitValuation.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

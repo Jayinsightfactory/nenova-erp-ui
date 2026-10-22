@@ -16,9 +16,15 @@ export default function ProfitReportSnapshotBanner({ snapshot, busy = false, las
   if (!snapshot || snapshot.state === 'disabled') return null;
   const refreshBtn = (
     <button type="button" style={btn} onClick={onRefresh} disabled={busy}
-      title="원천(출고·입고·재고·입력값)으로 지금 다시 계산해 새 버전으로 저장합니다. 이전 버전은 이력에 남습니다.">
+      title="원천(출고·입고·재고·입력값)을 다시 조회해 계산합니다. DB와 저장된 확정본은 변경하지 않습니다.">
       {busy ? '최신화 중…' : '🔄 최신화'}
     </button>
+  );
+  if (snapshot.servedFrom === 'live') return (
+    <div style={box('#ecfdf5', '#86efac', '#065f46')} data-testid="profit-snapshot-live">
+      <span><b>현재 원천으로 계산</b> · DB 저장 없이 표시합니다. 기존 확정본·입력값은 보존됩니다.</span>
+      <span style={{ marginLeft: 'auto' }}>{refreshBtn}</span>
+    </div>
   );
   if (snapshot.state === 'fresh' || (snapshot.state === 'computed' && !busy)) {
     const changedNote = snapshot.state === 'computed' && lastResult
