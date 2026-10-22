@@ -895,3 +895,10 @@
 - 2026-10-22 자동매칭 PR1229 master aa4970be, CI39707238221/격리 build+ERP39707238229 통과, Cafe24배포39707639322 진행. 열린 업로드의 이전 family 키 보존 후속: 동일 시트/품목 유일할 때 수동·무효·skip 복원, 현재 키 우선/모호한 선택 차단. 12개 실행형 fixture PASS. 운영 DB 쓰기 없음. 배포/실브라우저 최종 미검증.
 - 검색어: import-choice-stability PR1229 루스커스 수국 이전선택 건너뛰기 family suffix
 - 2026-10-22 전체 자동매칭 후속(codex/import-catalog-recovery): 사용자 즉시 수정/배포 승인.3359품목6175이름 전체 비교, 유일 원문 우선/오연결fallback 차단/원문별 선택·이전키 복원. 현재6159명칭 정확키, 실제중복16명칭(8품목) 명시차단, 오연결0.2025/2026 fixture 및 선택/skip 테스트17개 PASS.전체검사/최종build/배포 진행,운영시험쓰기 없음.검색어: catalog-recovery 6175 6159 16 8 269 61
+
+## 2026-10-22 인보이스 이슈 전용 검토
+- 원본행 캡처/DB품목 직접선택/이슈만 이전·다음/경고 원문값 유지 기록. 수량·금액 필수검증 우회 없음, SQL writer 변경 없음.
+- 42-1 실제 Computer Use 원본 업로드→2이슈 검토→격리입고→원가다운로드 완료.64행2280단/GW·CW1985/시험비용29,048,581.029768원. Order/Shipment보호snapshot 보존, 운영쓰기0.
+- NL42-2 실제125행 무료변환·매칭통과. US/AU/TH/EC/CO원본확보, AI최대6회 승인대기. VN41-1 PDF미확보. 국가별전체·Excel실앱디자인·전체키보드 미검증.
+- ERP계약/dnSpy/manifest146/writeguard/build통과, PR/배포진행. docs/work-sessions/2026-10-22_invoice-issue-review.md 참조.
+- 검색어: invoice-issue-review KEEP_SOURCE sourceCrop 42-1 2280 1985 NL125

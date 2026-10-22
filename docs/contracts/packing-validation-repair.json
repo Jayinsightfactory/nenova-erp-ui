@@ -1,11 +1,11 @@
 {
   "id":"packing-validation-repair",
   "title":"매칭 이후 원문 오류 상세와 직접 수정",
-  "scope":["lib/packingBlockedNotice.js","lib/packingValidationIssues.js","lib/importPackingReview.js","lib/importPackingMatchPreview.js","components/import-tools/PackingListTool.js","components/import-tools/PackingEvidenceReview.js"],
+  "scope":["lib/packingBlockedNotice.js","lib/packingValidationIssues.js","lib/packingIssueReview.js","lib/packingSourceMatch.js","lib/importPackingSourceReview.js","lib/importPackingReview.js","lib/importPackingMatchPreview.js","components/import-tools/PackingListTool.js","components/import-tools/PackingEvidenceReview.js","styles/PackingEvidenceReview.module.css"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"REPAIR_SOURCE_VALUES","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"원문·사유 보존, 수량/가격/총액 공통 재검증 후 기존 입고 준비 연결. ERP 승인·writer 변경 없음."}],
   "crossYearFixture":{"required":true,"description":"2025/2026 동일 차수의 원문 날짜를 보존. 수정 UI는 현재연도를 추정하지 않는다."},
-  "requiredTestFiles":["__tests__/packingBlockedNotice.test.js","__tests__/packingValidationIssues.test.js","__tests__/importPackingReviewMetadata.test.js","__tests__/packingMatchNext.test.js"],
+  "requiredTestFiles":["__tests__/packingIssueReview.test.js","__tests__/packingBlockedNotice.test.js","__tests__/packingValidationIssues.test.js","__tests__/importPackingReviewMetadata.test.js","__tests__/packingMatchNext.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-21 저장 decompile ExcelLoadingPackingList.cs 재조회. 수량 독립 필드 및 명시 저장 경계 유지; SQL writer 변경 없음.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData","ExcelLoadingPackingList.InsertMaster"],"tables":["Product","WarehouseMaster","WarehouseDetail","StockHistory","ProductStock"]},
   "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
 }

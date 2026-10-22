@@ -1818,10 +1818,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     <div ref={toolRoot} className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
-      {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+      {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen && !matchTarget} onClose={closeReview} onConfirm={confirmReview}
         onBlocked={recordBlocked}
         requireSourceConfirmation={false}
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
+        validationIssues={validationIssues} onMatch={openProductMatch}
+        products={matchingProducts} country={country}
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>

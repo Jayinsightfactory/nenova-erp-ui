@@ -7,6 +7,22 @@ const chinaModule = import('../lib/importChinaPdfInvoice.js');
 const fixtureModule = import('./fixtures/chinaPdfFixture.js');
 const responseModule = import('../lib/importPackingResponse.js');
 
+test('warning acknowledgement preserves invoice quantities and cannot bypass validation or stale snapshot', async () => {
+  const {makePackingSourceReview,applyPackingSourceReview}=await sourceModule;
+  const source=readyInvoice();
+  const draft=makePackingSourceReview(source,'CN');
+  draft.rows[0].warningDisposition={action:'KEEP_SOURCE',sourceSnapshotId:draft.rows[0].sourceSnapshotId,reason:'원문 수량 유지 확인'};
+  const apply=()=>applyPackingSourceReview(source,draft,'CN','2026-10-22T00:00:00Z',{requireConfirmation:false});
+  const result=apply();
+  assert.deepEqual(result.products,source.products);
+  assert.equal(result.packingReview.sourceReview.rows[0].warningDisposition.action,'KEEP_SOURCE');
+  draft.rows[0].values.total_bunch='bad';
+  assert.throws(apply);
+  draft.rows[0].values.total_bunch=source.products[0].total_bunch;
+  draft.rows[0].warningDisposition.sourceSnapshotId='2026 instead of original 2025';
+  assert.throws(apply,/경고 확인 근거/);
+});
+
 test('China stem correction preserves billed 15 bunches and records derived box count without acknowledgement', async () => {
   const { makePackingSourceReview, applyPackingSourceReview } = await sourceModule;
   const source = readyInvoice({ source_format: 'china_invoice_pdf', total_stems: 300,

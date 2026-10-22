@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/PackingEvidenceReview.module.css';
 import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPdfPreview.js';
-import { packingSourceMatchedName } from '../../lib/packingSourceMatch.js';
-import { packingReviewErrorSummary, notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
+import { packingSourceMatchedName, packingSourceProduct } from '../../lib/packingSourceMatch.js';
+import { packingRowReviewState } from '../../lib/packingIssueReview.js';
+import { packingMatchReview } from '../../lib/packingMatchReview.js';
+import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
+import { packingReviewErrorSummary } from '../../lib/packingBlockedNotice.js';
 
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
@@ -169,6 +172,10 @@ export default function PackingEvidenceReview({
   onClose,
   onInvalidate,
   matchedInvoices = [],
+  validationIssues = [],
+  onMatch,
+  products = [],
+  country,
   requireSourceConfirmation = true,
   pdfBase64,
   fileName,
@@ -190,6 +197,8 @@ export default function PackingEvidenceReview({
   const [drafts, setDrafts] = useState(() => safeRows.map(makeDraft));
   const [sourceDrafts, setSourceDrafts] = useState(() => sourceDraftsFrom(sourceEntries));
   const [showAllSourceRows, setShowAllSourceRows] = useState(() => targetEntry?.row?.reviewRequired === false);
+  const [dismissedWarnings, setDismissedWarnings] = useState({});
+  const [selectedSourceKey, setSelectedSourceKey] = useState(() => targetEntry?.key || '');
   const [selectedKey, setSelectedKey] = useState(() => Number.isInteger(initialTarget?.invoiceIndex) ? String(initialTarget.invoiceIndex) : rowIdentity(safeRows[0]));
   const [activeField, setActiveField] = useState(() => targetEntry
     ? { key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key }
@@ -208,6 +217,7 @@ export default function PackingEvidenceReview({
   const dialogRef = useRef(null);
   const firstControlRef = useRef(null);
   const canvasRef = useRef(null);
+  const cropRef = useRef(null);
   const canvasScrollerRef = useRef(null);
   const autoFitPreviewRef = useRef(null);
 
@@ -257,6 +267,7 @@ export default function PackingEvidenceReview({
   useEffect(() => {
     if (!open || !targetEntry) return;
     setSelectedKey(String(targetEntry.invoiceIndex));
+    setSelectedSourceKey(targetEntry.key);
     setActiveField({ key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key });
     if (targetEntry.row?.reviewRequired === false) setShowAllSourceRows(true);
     if (preview && Number.isInteger(targetPage) && targetPage > 0 && targetPage <= preview.numPages) setPageNumber(targetPage);
@@ -362,11 +373,23 @@ export default function PackingEvidenceReview({
   const matchedNameForSource = (invoiceIndex, sourceRow) => {
     return packingSourceMatchedName(matchedInvoices, invoiceIndex, sourceRow);
   };
+  const reviewState = entry => {
+    const product = packingSourceProduct(matchedInvoices, entry.invoiceIndex, entry.row);
+    const matchIssue = product && country && packingMatchReview(product, products, country).needsReview
+      ? [{invoiceIndex:entry.invoiceIndex, lineIndex:entry.row.lineIndex, text:'품목 연결을 확인하고 DB 품목을 선택하세요.'}] : [];
+    return packingRowReviewState(entry, sourceDrafts[entry.key], matchedNameForSource(entry.invoiceIndex, entry.row), [...validationIssues, ...matchIssue]);
+  };
+  const visibleEntries = sourceEntriesForInvoice(Number(selectedKey)).filter(entry => {
+    const issue = reviewState(entry);
+    return showAllSourceRows || (issue.hasIssue && (!issue.canDismiss || dismissedWarnings[entry.key] !== issue.signature));
+  });
+  const selectedEntry = visibleEntries.find(entry => entry.key === selectedSourceKey) || visibleEntries[0];
 
   const selectSourceEvidence = (entry, field) => {
     const evidence = entry.row?.evidence?.[field] || entry.row?.evidence;
     const page = Number(evidence?.page);
     setSelectedKey(String(entry.invoiceIndex));
+    setSelectedSourceKey(entry.key);
     setActiveField({ key: String(entry.invoiceIndex), field, sourceKey: entry.key });
     if (preview && Number.isInteger(page) && page >= 1 && page <= preview.numPages) setPageNumber(page);
   };
@@ -374,10 +397,14 @@ export default function PackingEvidenceReview({
   const updateSourceValue = (entry, field, value) => {
     onInvalidate?.();
     setSourceDrafts(previous => ({ ...previous, [entry.key]: {
-      ...previous[entry.key], values: { ...previous[entry.key]?.values, [field]: value }, confirmed: false,
+      ...previous[entry.key], values: { ...previous[entry.key]?.values, [field]: value }, confirmed: false, warningDisposition: null,
     } }));
     setSubmitError('');
   };
+
+  useEffect(() => {
+    if (open && selectedEntry && !initialTarget?.field) selectSourceEvidence(selectedEntry, 'description');
+  }, [open, selectedEntry?.key, preview]);
 
   const updateSourceConfirmed = (entry, confirmed) => {
     setSourceDrafts(previous => ({ ...previous, [entry.key]: { ...previous[entry.key], confirmed } }));
@@ -402,6 +429,19 @@ export default function PackingEvidenceReview({
     });
     return () => { stale = true; };
   }, [open, preview, pageNumber, activeEvidence]);
+
+  useEffect(() => {
+    const source = canvasRef.current, crop = cropRef.current;
+    if (!pdfReady || !source || !crop || !isValidNormalizedBBox(highlight.bbox)) return;
+    // Show the whole printed row around the proven location, never invent a crop
+    // when quote matching/bounding-box evidence is unavailable.
+    const top = Math.max(0, highlight.bbox[1] - 0.018);
+    const bottom = Math.min(1, highlight.bbox[1] + highlight.bbox[3] + 0.018);
+    crop.width = source.width;
+    crop.height = Math.max(1, Math.round(source.height * (bottom - top)));
+    const context = crop.getContext('2d');
+    context?.drawImage(source, 0, top * source.height, source.width, crop.height, 0, 0, crop.width, crop.height);
+  }, [pdfReady, renderedPage, highlight, zoom]);
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return undefined;
@@ -506,7 +546,7 @@ export default function PackingEvidenceReview({
     setSubmitError('');
   };
 
-  const reportBlocked = message => { setSubmitError(message); onBlocked?.(message); notifyPackingBlocked(message); };
+  const reportBlocked = message => { setSubmitError(message); onBlocked?.(message); };
   const confirmDrafts = async () => {
     if (requireSourceConfirmation && sourceReviewRequired && !pdfReady) {
       const message = !pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.';
@@ -545,6 +585,7 @@ export default function PackingEvidenceReview({
             values: { ...sourceDrafts[key]?.values },
             reason: stringValue(sourceDrafts[key]?.reason),
             confirmed: sourceDrafts[key]?.confirmed === true,
+            warningDisposition: sourceDrafts[key]?.warningDisposition || null,
             confirmedAt: sourceDrafts[key]?.confirmed === true ? new Date().toISOString() : null,
           })),
         };
@@ -564,7 +605,7 @@ export default function PackingEvidenceReview({
 
   if (!open) return null;
   const currentErrors = errors[selectedKey] || {};
-  const showMetadataFirst = Boolean(selectedRow?.metadata?.enabled && selectedRow.metadata.issues.length > 0);
+  const showMetadataFirst = Boolean(selectedRow?.metadata?.enabled && (blockingPackingIssues(selectedRow.metadata.issues).length > 0 || initialTarget?.field));
   const metadataSection = selectedRow?.metadata?.enabled ? <section className={styles.fields} aria-label="송장 날짜·통화·총액 원문 검토" data-testid="metadata-review">
     <h4>송장 원문 정보</h4>
     <p className={styles.original}>인식 원문 날짜: {selectedRow.metadata.rawDate == null ? '없음' : String(selectedRow.metadata.rawDate)} · 원문 값과 근거는 보존됩니다.</p>
@@ -609,21 +650,37 @@ export default function PackingEvidenceReview({
 
   const sourceReviewSection = sourceReviewRequired ? <section className={styles.sourceReview} aria-label="원본 PDF 상품행 검토" data-testid="source-review">
     <h4>수량·단가 수정</h4>
-    <p>{requireSourceConfirmation ? '각 상품행을 대조해 확인한 뒤 적용하세요.' : '잘못 읽힌 숫자가 있을 때만 고치고 수정 사유를 입력한 뒤 「수정값 적용」을 누르세요. 별도 원문확인 체크는 없습니다. 품목 매칭은 이전 화면에서 할 수 있습니다.'}</p>
+    <p>{requireSourceConfirmation ? '각 상품행을 대조해 확인한 뒤 적용하세요.' : '이슈 항목만 왼쪽 원문과 대조해 수정하세요. 박스·단·송이는 각각 독립된 수량입니다. 기존 입고 수량으로 바꾸지 않습니다.'}</p>
     {requireSourceConfirmation && <p role="status">자동 검산 {sourceEntries.length - manualSourceCount}건 · 직접 확인 {manualSourceCount - uncheckedSourceCount}/{manualSourceCount}건 · 남은 확인 {uncheckedSourceCount}건</p>}
     <button type="button" onClick={() => setShowAllSourceRows(value => !value)} data-testid="source-show-all">{showAllSourceRows ? '확인 필요만 보기' : '전체 상품행 보기'}</button>
+    <div className={styles.issueNavigator}>
+      <label>검토 항목 ({visibleEntries.length}건)
+        <select aria-label="검토할 이슈 선택" value={selectedEntry?.key || ''} onChange={event => {
+          const entry = visibleEntries.find(item => item.key === event.target.value);
+          if (entry) selectSourceEvidence(entry, 'description');
+        }}>
+          {!visibleEntries.length && <option value="">남은 상품행 이슈 없음</option>}
+          {visibleEntries.map(entry => <option value={entry.key} key={entry.key}>{entry.row.lineIndex + 1}행 · {entry.row.description}</option>)}
+        </select>
+      </label>
+      {[-1, 1].map(delta => <button key={delta} type="button" disabled={!selectedEntry || !visibleEntries[visibleEntries.indexOf(selectedEntry) + delta]}
+        onClick={() => selectSourceEvidence(visibleEntries[visibleEntries.indexOf(selectedEntry) + delta], 'description')}>{delta < 0 ? '이전 항목' : '다음 항목'}</button>)}
+    </div>
+    {!visibleEntries.length && <p role="status">상품행 이슈가 없습니다. 송장 총액과 입고 사전검사는 적용 후 별도로 검증합니다.</p>}
     {sourceEntriesForInvoice(Number(selectedKey)).length === 0
       ? <p role="alert" className={styles.error}>이 인보이스에 연결된 상품행 검토 스냅샷이 없습니다.</p>
       : <div className={styles.sourceTableViewport}>
         <table className={styles.sourceTable}>
           <thead className={styles.srOnly}><tr><th scope="col">품목과 대조 확인</th><th scope="col">원문값 확인·수정</th></tr></thead>
-          <tbody>{sourceEntriesForInvoice(Number(selectedKey)).filter(entry => showAllSourceRows || sourceNeedsHumanReview(entry)).map(entry => {
+          <tbody>{(selectedEntry ? [selectedEntry] : []).map(entry => {
             const sourceRow = entry.row;
             const current = sourceDrafts[entry.key] || { values: sourceRow.values || {}, confirmed: false };
             const needsHumanReview = sourceNeedsHumanReview(entry);
             const evidenceField = Object.keys(sourceRow.evidence || {})[0] || '';
             const original = sourceRow.originalValues || {};
             const matchedName = matchedNameForSource(entry.invoiceIndex, sourceRow);
+            const issue = reviewState(entry);
+            const product = packingSourceProduct(matchedInvoices, entry.invoiceIndex, sourceRow);
             return <tr key={entry.key} data-source-row-key={entry.key}>
               <th scope="row" className={styles.sourceName}>
                 {requireSourceConfirmation && (needsHumanReview ? <label className={styles.sourceConfirm}>
@@ -633,7 +690,18 @@ export default function PackingEvidenceReview({
                 </label> : <span className={styles.reviewed}>자동 검산 완료</span>)}
                 <span>{sourceRow.description || '원문 품명 없음'}</span><small>상품 {Number.isInteger(sourceRow.lineIndex) ? sourceRow.lineIndex + 1 : '—'}행</small>
                 <small>{matchedName || '미매칭 · 결과에서 선택 필요'}</small>
-                {sourceRow.quantityWarning && <small role="status">{sourceRow.quantityWarning}</small>}
+                {onMatch && product && <button type="button" onClick={() => onMatch(product)}>DB 품목 선택·변경</button>}
+                {issue.blocking.map((message, index) => <p className={styles.error} key={`error-${index}`}>수정 필요: {message}</p>)}
+                {issue.advisory.map((message, index) => <p className={styles.original} key={`warning-${index}`}>{message}</p>)}
+                {issue.canDismiss && <button type="button" disabled={sourceDraftChanged(sourceRow, current)} onClick={() => {
+                  setDismissedWarnings(previous => ({...previous, [entry.key]: issue.signature}));
+                  setSourceDrafts(previous => ({...previous, [entry.key]: {...previous[entry.key], warningDisposition: {
+                    action:'KEEP_SOURCE', sourceSnapshotId:sourceRow.sourceSnapshotId,
+                    reason:'원문과 대조 후 표시된 수량·단가를 유지하고 경고만 확인함',
+                  }}}));
+                  onInvalidate?.();
+                }}>원문값 유지 · 경고 확인</button>}
+                {issue.canDismiss && <small>이 화면의 경고만 숨깁니다. 수량 검증·입고 승인은 생략하지 않습니다.</small>}
                 <button type="button" className={styles.sourceEvidenceButton} onClick={() => selectSourceEvidence(entry, evidenceField)} disabled={!Object.keys(sourceRow.evidence || {}).length}>원문 페이지 열기</button>
               </th>
               <td><div className={styles.sourceEditFields}>{Object.entries(current.values || {}).map(([field, value]) => {
@@ -745,6 +813,10 @@ export default function PackingEvidenceReview({
 
               {showMetadataFirst && metadataSection}
 
+              {activeField?.sourceKey && pdfReady && highlight.bbox && <section className={styles.sourceCrop} aria-label="선택 항목 원본 캡처">
+                <strong>선택 항목 원본 캡처 · {pageNumber}페이지{highlight.source === 'bbox' ? ' · 추정 위치' : ''}</strong>
+                <canvas ref={cropRef} aria-label="선택 상품행 원본 이미지" />
+              </section>}
               {sourceReviewSection}
 
               <div className={styles.fields}>
@@ -779,7 +851,7 @@ export default function PackingEvidenceReview({
                 })}
               </div>
 
-              {!showMetadataFirst && metadataSection}
+              {!showMetadataFirst && <details><summary>송장 날짜·통화·총액 보기/수정 (선택)</summary>{metadataSection}</details>}
 
               <label className={styles.reasonLabel}>수정 사유
                 <input

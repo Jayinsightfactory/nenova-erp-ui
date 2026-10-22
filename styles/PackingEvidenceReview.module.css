@@ -77,6 +77,12 @@
 
 .sourceReview { margin-top: 12px; border: 1px solid #bfd0e7; border-radius: 9px; padding: 9px; background: #f8fbff; }
 .sourceReview h4 { margin: 0; font-size: 14px; }
+.sourceCrop { margin: 12px 0; padding: 8px; border: 2px solid #2457c5; border-radius: 8px; background: #fff; overflow-x: auto; }
+.sourceCrop strong { display: block; margin-bottom: 6px; font-size: 13px; }
+.sourceCrop canvas { display: block; width: 100%; min-width: 580px; height: auto; }
+.issueNavigator { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 12px 0; }
+.issueNavigator label { display: grid; gap: 5px; flex: 1 1 100%; font-weight: 700; }
+.issueNavigator select { width: 100%; min-width: 0; padding: 7px; border: 1px solid #aebbd0; border-radius: 6px; }
 .sourceReview > p { margin: 4px 0 8px; color: #526580; font-size: 12px; line-height: 1.4; }
 .sourceTableViewport { min-width: 0; border: 1px solid #dce4ef; border-radius: 7px; background: #fff; }
 .sourceTable { display: block; width: 100%; border-collapse: collapse; font-size: 13px; }
