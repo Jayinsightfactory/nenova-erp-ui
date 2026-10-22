@@ -52,7 +52,7 @@ test('uninventoried screens = 373 - pages with buttons, each with a label', () =
   const ids = new Set(m.uninventoried.flatMap(pk => pk.screens.map(s => s.program)));
   assert.equal(ids.size, count, 'no duplicate program across packets');
   for (const pk of m.uninventoried) for (const s of pk.screens) { assert.match(s.program, /^[A-Z]\d{6}$/); assert(s.label && s.label !== '-', `label missing for ${s.program}`); }
-  for (const r of m.rows) if (r.programsWithButtons === 0) assert.equal(r.status, '원본 미조사'); else assert.match(r.status, /원본 목록/);
+  for (const r of m.rows) if (r.programsWithButtons === 0) assert.match(r.status, /^(원본 미조사|(미사용\(관찰 0건\)·)?(미조사|위험제외) — 구현 대상 제외)$/); else assert.match(r.status, /원본 목록/);
 });
 
 test('PR section: gh result rendered as table, gh failure falls back to number only', () => {
@@ -99,4 +99,14 @@ test('decisions table renders, markdown has intact tables, no percent completion
   fs.writeFileSync(file, JSON.stringify(decisionRows));
   assert.equal(buildModel({ date: '2026-10-21', ghRunner: ghFail, decisions: file }).decisions[0].item, 'DECISION_SENTINEL_ITEM');
   fs.unlinkSync(file);
+});
+
+test('scope-decisions: 미사용·위험제외 화면은 구현 대상 제외로 집계', () => {
+  const m = buildModel({ date: '2026-10-22', evidenceDir: null });
+  const scope = require('../data/ecount-workbench/scope-decisions.json');
+  assert.equal(scope.unused.programs.length, 120);
+  assert.equal(scope.riskExcluded.programs.length, 10);
+  assert.equal(m.totals.unused + m.totals.riskExcluded <= 130, true);
+  const p052 = m.rows.find(r => r.id === 'P052');
+  if (p052 && p052.programsWithButtons === 0) assert.match(p052.status, /구현 대상 제외/);
 });

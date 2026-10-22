@@ -35,7 +35,10 @@ const {SOURCE_SAVE_MATCH_ID}=load('components/ecount/InputDraftForm.js');
 const presetDraft=args=>({...component.presetDraft(args)});
 const SURVEY_PROGRAMS=Object.keys(survey.results).sort();
 const SURVEY2_PROGRAMS=Object.keys(survey2.results).sort();
-const ALL_PROGRAMS=[...SURVEY_PROGRAMS,...SURVEY2_PROGRAMS].sort();
+// 2026-10-22 관찰 사용 화면 8 + 선행 조사 5 (scope-decisions.json surveyedUsed).
+const survey3=JSON.parse(fs.readFileSync(path.join(root,'data/ecount-workbench/evidence/2026-10-22-source-survey-used-p040-p047.json'),'utf8'));
+const SURVEY3_PROGRAMS=Object.keys(survey3.results).sort();
+const ALL_PROGRAMS=[...SURVEY_PROGRAMS,...SURVEY2_PROGRAMS,...SURVEY3_PROGRAMS].sort();
 const RESET=new Set(lib.RESET_LABELS);
 function buttons(html){
   const found=[];const re=/<button([^>]*)>([^<]*)<\/button>/g;let m;
@@ -66,7 +69,8 @@ test('every surveyed program (72) has a screen definition built only from button
   assert.equal(SURVEY2_PROGRAMS.length,125);
   assert.deepEqual(SURVEY_PROGRAMS.filter(program=>SURVEY2_PROGRAMS.includes(program)),[],'no program in both surveys');
   assert.deepEqual(lib.PROGRAMS,ALL_PROGRAMS);
-  assert.equal(lib.PROGRAMS.length,197);
+  assert.equal(SURVEY3_PROGRAMS.length,13);
+  assert.equal(lib.PROGRAMS.length,210);
   assert.deepEqual(lib.SKIPPED,[]);
   assert.deepEqual(lib.MISSING,[],'survey controls without a button-matches id must be reported, never invented');
   assert.deepEqual(lib.UNMAPPED,[]);
@@ -103,11 +107,11 @@ test('every surveyed program (72) has a screen definition built only from button
   assert.deepEqual(oldSummary.presets,{total:307,enabled:307,unverified:0});
   const summary=lib.summary();
   console.log('SURVEY_SCREENS',JSON.stringify(summary));
-  assert.equal(summary.screens,197);
-  assert.equal(summary.ids,2670);
-  assert.deepEqual(summary.kinds,{list:18,input:18,report:144,settings:14,hub:3});
-  assert.deepEqual(summary.dateModes,{range:118,single:18,none:61});
-  assert.deepEqual(summary.presets,{total:897,enabled:896,unverified:1});
+  assert.equal(summary.screens,210);
+  assert.equal(summary.ids,2794);
+  assert.deepEqual(summary.kinds,{list:18,input:20,report:153,settings:16,hub:3});
+  assert.deepEqual(summary.dateModes,{range:124,single:20,none:66});
+  assert.deepEqual(summary.presets,{total:904,enabled:903,unverified:1});
   // DATASETS(기존 33화면) 프로그램은 조사 셸 대상이 아니다.
   const workbench=fs.readFileSync(path.join(root,'pages/ecount/workbench.js'),'utf8');
   const datasets=Object.keys(Function(`return (${/const DATASETS = (\{[^}]*\})/.exec(workbench)[1]})`)());
@@ -225,7 +229,7 @@ test('SSR renders every button-matches id exactly once with the observed activat
     else assert.doesNotMatch(html,/type="date"/);
   }
   console.log('SURVEY_SCREEN_BUTTONS active',active,'placeholders',placeholders);
-  assert.equal(active+placeholders,2670);
+  assert.equal(active+placeholders,2794);
   const screens=ALL_PROGRAMS.map(program=>lib.SCREENS[program]);
   const expectedActive=screens.filter(screen=>screen.searchToggleId).length+screens.filter(screen=>screen.searchPanel.searchId).length+screens.filter(screen=>screen.searchPanel.resetId).length+screens.reduce((total,screen)=>total+screen.searchPanel.presets.filter(preset=>preset.enabled).length,0)+screens.reduce((total,screen)=>total+screen.searchPanel.formButtons.filter(item=>item.lookup).length,0);
   assert.equal(active,expectedActive);
