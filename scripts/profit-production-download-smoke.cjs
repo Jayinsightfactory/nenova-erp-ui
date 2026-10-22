@@ -59,6 +59,17 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   const initialScreenDifferences=financialRows.filter(r=>mainMap.has(r[0])).flatMap(r=>cols.filter((col,i)=>{
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
   }).map(column=>({category:r[0],column})));
+  assert.deepEqual(initialScreenDifferences,[],'download must match the initial web report');
+  if(process.env.PROBE_THAI_CARRY==='true'&&year==='2026'&&+week>=38&&+week<=41){
+   const thai=mainData.rows.find(r=>r.category==='태국');assert.ok(thai);
+   const calc=computeProfitRow(thai);assert.ok(calc.E!=null&&calc.F!=null);
+   assert.equal(thai.stock.missingPriceCount,0);assert.equal(thai.beginStock.missingPriceCount,0);
+   const refs=thai.stock.priceEvidenceSources||[];
+   assert.ok(refs.filter(ref=>ref.startsWith('erp-purchase-carry:2026:34-01->')).length>=2,
+    'both 34th-week purchases must remain available after the FIFO window');
+   assert.ok(refs.every(ref=>!/판매단가|approximate_currency_master/.test(ref)));
+   console.log(JSON.stringify({thaiCarrySmoke:'PASS',scope:{year,week},missing:0,actualBusinessWrites:0}));
+  }
   console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
   const auditResponse=page.waitForResponse(res=>{
    const u=new URL(res.url());return u.pathname==='/api/sales/profit-independent-audit'&&u.searchParams.get('year')===year&&u.searchParams.get('week')===week;

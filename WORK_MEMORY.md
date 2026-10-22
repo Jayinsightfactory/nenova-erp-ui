@@ -952,3 +952,8 @@
 - 실제 usp_ShipmentFix는 차수 검산, 주광은 Product.Stock 선차단이라는 불일치 수정. native 증감·cascade·실제 부족 rollback 보존, 임의 재고조정 없음. EXE에서 수정된 운영 날짜/수량 보존.
 - 격리 SQL lifecycle·새 날짜 인쇄/옛 날짜 빈 출력, 교차연도·실패 rollback 통과. ERP 계약·dnSpy·manifest·write guard 성공. 최초 기록 시 빌드/배포 최종 미검증; 세션 md 후속 확인.
 - 검색어: weekday-stock-date native-week-ledger 플라야블랑카 주광 STOCK_SHORTAGE
+## 2026-10-22 태국 매입 원가 이월
+- DB 무변경. 태국34차 매입의 FIFO 창 종료 후 누락, 현재 환율 혼입 수정. 최근/과거 이월에 정확 매입차수 환율 공유. legacy 단자리 차수 정규화.
+- 운송기준원가 통관 기본값과 손익 H는 별도이며 실제 청구 확인 완료가 아님을 웹 경고에 표시. 실제 청구서 원본 미검증.
+- 최초 기록 시 전체검사/1~41 검산 진행, 최종 PR/배포는 docs/work-sessions/2026-10-22_profit-thai-carry.md 후속 확인.
+- 검색어: profit-thai-carry 태국34차 38~41 과거매입 exactFX 통관기본값 DB불변

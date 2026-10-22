@@ -1,10 +1,10 @@
 {
   "id": "profit-acquisition-carry",
-  "title": "오래된 에콰도르·네덜란드 재고의 실제 매입 근거 우선 이월",
-  "scope": ["lib/profitReportAcquisitionCarry.mjs", "lib/profitReport.js", "lib/pivotFreightArrival.js", "lib/profitReportSnapshot.js"],
+  "title": "오래된 에콰도르·네덜란드·호주·중국·태국 재고의 매입 근거 이월",
+  "scope": ["lib/profitReportAcquisitionCarry.mjs", "lib/profitReport.js", "lib/pivotFreightArrival.js", "lib/profitReportSnapshot.js", "lib/profitReportAudit.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "공통 manifest의 CustKey는 재고 평가에 적용하지 않는다. 입고/재고는 연도·차수·품목으로 조회하며 존재하지 않는 업체 키를 만들지 않는다.",
-  "actions": [{"name":"OLDER_ACQUISITION_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only; preserve all ERP ledgers, manual values and confirmed revisions. Same-year last purchase outside four-week FIFO window, exact purchase-period taxable FX, complete same-unit arrival reconstruction precede sales approximation. Ecuador and Netherlands only; context is isolated by week AND category/currency. Vietnam category-average policy is unchanged. No future purchase or current CurrencyMaster fallback."}],
+  "actions": [{"name":"OLDER_ACQUISITION_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only; preserve all ERP ledgers, manual values and confirmed revisions. Same-year last purchase outside four-week FIFO window, exact purchase-period taxable FX, complete same-unit arrival reconstruction. Ecuador, Netherlands, Australia, China and Thailand; context isolated by week AND category/currency. Thai FIFO uses the same purchase-period exact FX reconstruction. Vietnam category-average unchanged. No future/current-FX/sales-price fallback. Freight/customs reconstruction is not certification of actual bills; defaults remain disclosed."}],
   "crossYearFixture":{"required":true,"description":"2025/2026 same ProdKey and OrderWeek cannot mix. Beginning and ending valuations each use their own year/week cutoff."},
   "requiredTestFiles":["__tests__/profitReportAcquisitionCarry.test.cjs"],
   "requiredCommands":["node __tests__/profitReportAcquisitionCarry.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run verify:erp-change","npm run build"],
