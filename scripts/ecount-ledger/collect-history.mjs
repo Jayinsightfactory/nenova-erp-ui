@@ -32,11 +32,19 @@ function stopDaemon() {
   const daemon = procs.filter((p) => /daemon\.mjs/i.test(p.CommandLine) && !/ecount-daemon-start/i.test(p.CommandLine));
   for (const p of launcher) { log(`데몬 런처 종료 pid=${p.ProcessId}`); spawnSync('taskkill', ['/PID', String(p.ProcessId), '/F']); }
   for (const p of daemon) { log(`데몬 종료 pid=${p.ProcessId} (브라우저 자식 포함)`); spawnSync('taskkill', ['/PID', String(p.ProcessId), '/F', '/T']); }
-  if (launcher.length || daemon.length) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 4']);
+  // 데몬의 Chromium(ecount-profile 사용)이 살아 있으면 프로필 잠금으로 새 컨텍스트가 깨진다 → 남은 브라우저까지 종료하고 완전히 사라질 때까지 대기(최대 30초)
+  const chromeQ = "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'chrome.exe' -and $_.CommandLine -match 'ecount-profile' } | Select-Object -ExpandProperty ProcessId";
+  const listChrome = () => (spawnSync('powershell', ['-NoProfile', '-Command', chromeQ], { encoding: 'utf8' }).stdout || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  let rest = listChrome();
+  if (rest.length) { log(`데몬 브라우저 종료 ${rest.length}개(ecount-profile)`); for (const pid of rest) spawnSync('taskkill', ['/PID', pid, '/F']); }
+  for (let i = 0; i < 15 && (rest = listChrome()).length; i++) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 2']);
+  if (rest.length) log(`⚠ ecount-profile 브라우저 ${rest.length}개가 아직 남아 있음`);
+  if (launcher.length || daemon.length) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 3']);
   return { wasRunning: !!(launcher.length || daemon.length), launcher: launcher.length, daemon: daemon.length };
 }
 function restartDaemon(state) {
-  if (!state.wasRunning) { log('데몬이 원래 꺼져 있었음 — 재시작 생략'); return; }
+  if (!state.wasRunning && process.env.ECOUNT_HISTORY_NO_RESTART) { log('데몬이 원래 꺼져 있었음 — 재시작 생략(ECOUNT_HISTORY_NO_RESTART)'); return; }
+  if (!state.wasRunning) log('데몬이 원래 꺼져 있었음 — 상주 수집이 끊기지 않도록 런처를 띄운다');
   const child = spawn(process.execPath, [LAUNCHER], { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref();
   log(`데몬 런처 재시작(detached) pid=${child.pid}`);
@@ -69,7 +77,60 @@ async function dumpInputs(page) {
 
 // 기간 입력란 설정. 화면 형식을 모르는 상태에서도 동작하도록 현재 value 패턴(yy/mm/dd, yyyy/mm/dd, yy/mm)에 맞춘다.
 // 구현은 probe 결과를 반영해 아래 setPeriod 에서 확정.
-let setPeriod = async () => { throw new Error('setPeriod 미구현'); };
+// probe(2026-10-22, E040207) 실측 구조: [data-item-key$="_search"] 안 .wrapper-datepicker 2개(시작/종료).
+//   연·월 = button[data-id=year|month] (.selectbox-label 표시, 클릭 시 레이어 목록) + 숨은 .select-direct-input, 일 = input#day.
+//   값을 바꾼 뒤 라벨·일 값을 읽어 목표와 같은지 확인하고, 다르면 throw(스크린샷은 호출측).
+async function openSearchPanel(page) {
+  // 결과 화면에서는 검색 패널이 DOM 에 남아 있어도 숨겨져 있으므로 '보이는' 기준으로 판정한다
+  const has = async () => { for (const f of FRAMES(page)) { try { const l = f.locator('.wrapper-datepicker button[data-id="year"]').first(); if (await l.count() && await l.isVisible({ timeout: 500 })) return f; } catch {} } return null; };
+  let f = await has(); if (f) return f;
+  await page.keyboard.press('F3').catch(() => {}); await page.waitForTimeout(1500);
+  f = await has(); if (f) return f;
+  for (const fr of FRAMES(page)) { try { const b = fr.locator('button:has-text("Search(F3)"), button:has-text("검색(F3)")').first(); if (await b.count() && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 2000 }); break; } } catch {} }
+  await page.waitForTimeout(1500);
+  f = await has(); if (f) return f;
+  for (const fr of FRAMES(page)) { try { await fr.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F3', bubbles: true }))); } catch {} }
+  await page.waitForTimeout(1500);
+  return has();
+}
+async function pickSelectbox(page, frame, wrapperIdx, which, value2) {
+  const wrap = frame.locator('.wrapper-datepicker .wrapper-datepicker').nth(wrapperIdx);
+  const btn = wrap.locator(`button[data-id="${which}"]`).first();
+  const cur = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
+  if (cur === value2) return;
+  await btn.click({ timeout: 3000 });
+  await page.waitForTimeout(500);
+  // 열린 레이어에서 값 선택(2자리 또는 4자리 연도 모두 허용)
+  const cands = which === 'year' ? [value2, `20${value2}`] : [value2, String(Number(value2))];
+  let done = false;
+  for (const fr of FRAMES(page)) {
+    for (const c of cands) {
+      const opt = fr.locator(`.layer-box li, .layer-box a, .layer-box button, [class*="layer"] li, [class*="layer"] a, [class*="layer"] button, [role="option"]`).filter({ hasText: new RegExp(`^\s*${c}\s*$`) });
+      try { if (await opt.count()) { await opt.first().click({ timeout: 2000 }); done = true; break; } } catch {}
+    }
+    if (done) break;
+  }
+  if (!done) { // 레이어 못 찾으면 직접입력 칸에 타이핑
+    await page.keyboard.type(value2, { delay: 60 }); await page.keyboard.press('Enter').catch(() => {});
+  }
+  await page.waitForTimeout(400);
+  const after = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
+  if (after !== value2 && after !== `20${value2}`) throw new Error(`${which} 설정 실패: 목표 ${value2}, 현재 ${after}`);
+}
+const setPeriod = async (page, ym) => {
+  const [Y, M] = ym.split('-'); const y2 = Y.slice(2); const last = String(new Date(Number(Y), Number(M), 0).getDate()).padStart(2, '0');
+  const frame = await openSearchPanel(page);
+  if (!frame) throw new Error('검색 패널(기준일자) 못 찾음');
+  await pickSelectbox(page, frame, 0, 'year', y2); await pickSelectbox(page, frame, 0, 'month', M);
+  const days = frame.locator('.wrapper-datepicker input#day');
+  await days.nth(0).fill('01'); await days.nth(0).press('Tab');
+  await pickSelectbox(page, frame, 1, 'year', y2); await pickSelectbox(page, frame, 1, 'month', M);
+  await days.nth(1).fill(last); await days.nth(1).press('Tab');
+  await page.waitForTimeout(400);
+  const d0 = await days.nth(0).inputValue(); const d1 = await days.nth(1).inputValue();
+  if (d0 !== '01' || d1 !== last) throw new Error(`일 설정 실패: ${d0}~${d1} (목표 01~${last})`);
+  log(`기간 설정 ${y2}/${M}/01 ~ ${y2}/${M}/${last}`);
+};
 
 // 결과 0행 화면 판정(엑셀 다운로드가 시작되지 않는 빈 조회)
 async function looksEmpty(page) {
@@ -121,7 +182,11 @@ async function main() {
 
   const { chromium } = await import('playwright');
   const core = await import('../ecount-scraper/scrape-core.mjs');
-  const { PROFILE, DEFS, installGuard, ensureBooted, isLoginPage } = core;
+  const { DEFS, installGuard, ensureBooted, isLoginPage } = core;
+  // 프로필은 데몬이 쓰는 원본 폴더의 것을 공유해야 저장된 회사코드·ID 로 자동 로그인된다(worktree 의 새 프로필은 비어 있음).
+  const MAIN_PROFILE = 'C:/Users/USER/nenova-erp-ui/scripts/ecount-scraper/ecount-profile';
+  const PROFILE = process.env.ECOUNT_PROFILE || (fs.existsSync(MAIN_PROFILE) ? MAIN_PROFILE : core.PROFILE);
+  log(`브라우저 프로필: ${PROFILE}`);
   const defByPrg = Object.fromEntries(Object.values(DEFS).map((d) => [d.prgId, d]));
 
   const state = stopDaemon();
@@ -137,9 +202,19 @@ async function main() {
     if (!base) { // 자동 로그인 금지: 사람이 열린 창에서 로그인할 때까지 대기(최대 15분)
       log('⚠ 로그인 필요 — 열린 창에서 직접 로그인하세요(최대 15분 대기).');
       await page.goto('https://login.ecount.com/').catch(() => {});
+      let lastClick = 0;
       for (let i = 0; i < 300 && !base; i++) {
         await page.waitForTimeout(3000);
-        if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { await page.waitForTimeout(5000); base = await ensureBooted(page); }
+        if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { await page.waitForTimeout(5000); base = await ensureBooted(page); continue; }
+        // 데몬(daemon.mjs)과 동일: 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 로그인 버튼을 누른다(값 입력은 하지 않음). 5분 1회.
+        if (Date.now() - lastClick > 5 * 60 * 1000) {
+          try {
+            const st = await page.evaluate(() => ['com_code', 'id', 'passwd'].map((k) => { const e = document.getElementById(k); return e ? (e.value ? e.value.length : 0) : -1; }));
+            if (i % 10 === 0) { log(`로그인 대기 ${i * 3}s url=${page.url().slice(0, 60)} 필드[회사,ID,PW]=${JSON.stringify(st)}`); await page.screenshot({ path: path.join(HIST, '_probe', 'login-wait.png') }).catch(() => {}); }
+            const ok = st.every((n) => n > 0);
+            if (ok) { lastClick = Date.now(); log('🔑 저장된 로그인 정보가 채워져 있어 로그인 버튼을 누릅니다.'); await page.click('#save', { timeout: 3000 }).catch(() => {}); await page.waitForTimeout(6000); }
+          } catch {}
+        }
       }
       if (!base) throw new Error('로그인 대기 시간 초과');
     }
@@ -149,9 +224,32 @@ async function main() {
       const prg = opt.probe === true ? target : opt.probe;
       const def = defByPrg[prg] || { prgId: prg, hash: `#menuType=MENUTREE_000004&prgId=${prg}&depth=4` };
       await navigate(page, base, def);
+      // 검색 패널(F3) 열기: 이관 크롤러(scripts/ecount-dom-crawl.cjs)와 같은 방식 — F3 keydown, 없으면 aria-controls 버튼 클릭
+      const panelOpen = async () => { for (const f of [page, ...page.frames()]) { try { if (await f.locator('#ecount-source-search').count()) return true; } catch {} } return false; };
+      await page.keyboard.press('F3').catch(() => {}); await page.waitForTimeout(1200);
+      if (!(await panelOpen())) { for (const f of [page, ...page.frames()]) { try { await f.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F3', bubbles: true }))); } catch {} } await page.waitForTimeout(1200); }
+      if (!(await panelOpen())) { for (const f of [page, ...page.frames()]) { try { const b = f.locator('[aria-controls="ecount-source-search"]'); if (await b.count()) { await b.first().click({ timeout: 1500 }); break; } } catch {} } await page.waitForTimeout(1500); }
+      log(`검색 패널 열림: ${await panelOpen()}`);
       const rows = await dumpInputs(page);
-      console.log(JSON.stringify({ url: page.url().slice(0, 140), inputs: rows }, null, 1));
+      // 기준일자 행의 DOM 구조(연/월 드롭다운 위젯) 덤프 — 값 입력은 하지 않는다
+      let dateRowHtml = '';
+      for (const f of [page, ...page.frames()]) {
+        try {
+          const h = await f.evaluate(() => {
+            const el = [...document.querySelectorAll('th, td, label, span, div')].find((e) => e.children.length === 0 && /^\s*기준일자\s*$/.test(e.textContent || ''));
+            if (!el) return '';
+            let row = el; for (let i = 0; i < 6 && row && !(row.querySelector && row.querySelector('#day')); i++) row = row.parentElement;
+            return row ? row.outerHTML.slice(0, 6000) : el.parentElement.outerHTML.slice(0, 3000);
+          });
+          if (h) { dateRowHtml = h; break; }
+        } catch {}
+      }
       const shot = path.join(HIST, '_probe'); fs.mkdirSync(shot, { recursive: true });
+      fs.writeFileSync(path.join(shot, `${prg}.date-row.html`), dateRowHtml);
+      log(`기준일자 행 HTML ${dateRowHtml.length}자 저장`);
+      fs.writeFileSync(path.join(shot, `${prg}.json`), JSON.stringify({ url: page.url().slice(0, 140), panelOpen: await panelOpen(), inputs: rows }, null, 1));
+      const dateLike = rows.filter((r) => /\d{2}\/\d{2}/.test(String(r.value || '')) || /date|일자|기간|dt/i.test(`${r.id} ${r.name} ${r.aria} ${r.ph} ${r.title} ${r.cls}`));
+      console.log(JSON.stringify({ url: page.url().slice(0, 140), total: rows.length, dateLike }, null, 1));
       await page.screenshot({ path: path.join(shot, `${prg}.png`) }).catch(() => {});
       return;
     }
