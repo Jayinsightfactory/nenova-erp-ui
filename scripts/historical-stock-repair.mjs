@@ -11,7 +11,8 @@ import { executeOrderedHistoricalStockRepair, readStockCalculationMetadata, plan
 const requestFile=process.argv.find(a=>a.startsWith('--request='))?.slice(10);
 if(!requestFile) throw Error('Private --request=.verify/file.json required');
 const request=JSON.parse(fs.readFileSync(requestFile,'utf8'));
-const {scope,expectedHash,actor}=request;
+const {scope,expectedHash}=request;
+const actor=request.actor || process.env.NENOVA_REPAIR_ACTOR;
 if (request.orderingFixApproved !== undefined && typeof request.orderingFixApproved !== 'boolean') throw Error('Explicit boolean ordering approval required');
 const orderingFixApproved=request.orderingFixApproved===true;
 if(!Array.isArray(scope?.prodKeys)||!scope.prodKeys.length||scope.prodKeys.length>20
@@ -19,6 +20,10 @@ if(!Array.isArray(scope?.prodKeys)||!scope.prodKeys.length||scope.prodKeys.lengt
 const keys=scope.prodKeys.join(',');
 const mode=process.argv.includes('--apply')?'apply':process.argv.includes('--rehearse')?'rehearse':'preview';
 const outputDir=path.resolve('.verify/historical-stock-repair');fs.mkdirSync(outputDir,{recursive:true});
+// Evidence contains quantities and hashes, never operator identities or arbitrary notes.
+const evidenceJson=value=>JSON.stringify(value,(key,value)=>
+ /^(CreateID|UpdateID|LastUpdateID|ChangeID|ConfirmedBy)$/i.test(key)?'[redacted]'
+ :key==='Descr'&&typeof value==='string'&&!value.includes('[historical-stock:')?`sha256:${stockRepairDigest(value)}`:value);
 const hashSql=(sqlText)=>`SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),(${sqlText} FOR JSON PATH,INCLUDE_NULL_VALUES))),2) AS Digest`;
 const protectedQueries={
   stockMaster:`SELECT * FROM StockMaster ORDER BY StockKey`,
@@ -71,7 +76,7 @@ try{
   if(mode==='preview'){
     const before=await readState(query),again=await readState(query);
     if(stockRepairDigest(before)!==stockRepairDigest(again))throw Error('Source changed during preview');
-    fs.writeFileSync(path.join(outputDir,'before.json'),JSON.stringify(before));
+    fs.writeFileSync(path.join(outputDir,'before.json'),evidenceJson(before));
     const plan=planHistoricalStockRepair(before,scope);
     const ordering=orderingFixApproved?planStockCalculationOrderRepair((await readStockCalculationMetadata(query)).definition):null;
     fs.writeFileSync(path.join(outputDir,'ordering-plan.json'),JSON.stringify(ordering&&{beforeHash:ordering.beforeHash,afterHashes:ordering.afterHashes}));
@@ -115,7 +120,7 @@ try{
         committing=true;await tx.commit();began=false;
         const after=await readState(query),readbackHash=stockRepairDigest(after);
         if(readbackHash!==result.afterHash)throw Error('Post-commit state changed; inspect private transaction evidence, do not repeat');
-        fs.writeFileSync(path.join(outputDir,'after.json'),JSON.stringify(after));
+        fs.writeFileSync(path.join(outputDir,'after.json'),evidenceJson(after));
         if(orderingFixApproved){
           const afterMetadata=await readStockCalculationMetadata(query);
           if(stockRepairDigest(afterMetadata)!==stockRepairDigest(result.afterMetadata))throw Error('Post-commit procedure metadata differs; do not repeat');
