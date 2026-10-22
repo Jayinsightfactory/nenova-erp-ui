@@ -1,5 +1,10 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-22] 태국 실제 운송·통관비
+- codex/profit-thai-actual-cost, base 1c0f5799. SQL 운송료는 있으나34차 통관실비 저장 없음. 기본값320200/GW추천168200은 실비가 아님.
+- 보고서 태국 H와 도착원가를 SQL 저장 근거로 제한; 미입력은null/이익률보류. 완전한 비용은 대차수1회배분, 행별단위 환산·총액보존. FIFO/샘플평균 우회 차단.
+- ERP/DB/확정revision 무변경. 최초 기록 시 전체검사/전후대사 진행, 최종배포 상태는 세션md 후속확인.
+
 ## [2026-10-22] 태국 원가 이월
 - codex/profit-thai-carry, base df626521. 두 품목 34차 매입은 존재하나 FIFO 창 종료+국가 누락으로 38~41 단가 누락.
 - loadPurchasePeriodArrivalEvidence로 과거 매입 환율을 FIFO/오래된 carry에서 공유. 현재 환율에 의한 과대값 방지, legacy 1-01 정규화 회귀 포함.

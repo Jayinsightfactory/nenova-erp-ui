@@ -23,6 +23,8 @@ async function main() {
   // 2) 하한 가드: 정상 근거처럼 보여도 매입×환율×0.5 미만이면 대체 + 플래그
   const low = g({ evidencePrice: 97, purchaseForeignPerUnit: 14.5, taxableRate: 1018.82, hShare: 0 });
   assert.strictEqual(low.flag, 'below-purchase-floor');
+  assert.strictEqual(g({ evidencePrice: 97, purchaseForeignPerUnit: 14.5, taxableRate: 1018.82, hShare: 300, strictActualCosts: true }).price, null);
+  assert.strictEqual(g({ evidencePrice: 74.44, goodsCostMissing: true, purchaseForeignPerUnit: 14.5, taxableRate: 1056.39, hShare: 300, strictActualCosts: true }).price, null);
   assert.ok(near(low.price, 14.5 * 1018.82));
   // 경계: 정확히 50%는 통과(미만만 차단)
   const edge = g({ evidencePrice: 0.5 * 10 * 1000, purchaseForeignPerUnit: 10, taxableRate: 1000 });

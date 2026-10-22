@@ -60,15 +60,19 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
   }).map(column=>({category:r[0],column})));
   assert.deepEqual(initialScreenDifferences,[],'download must match the initial web report');
-  if(process.env.PROBE_THAI_CARRY==='true'&&year==='2026'&&+week>=38&&+week<=41){
+  if(process.env.PROBE_THAI_CARRY==='true'&&year==='2026'&&+week>=34&&+week<=41){
    const thai=mainData.rows.find(r=>r.category==='태국');assert.ok(thai);
-   const calc=computeProfitRow(thai);assert.ok(calc.E!=null&&calc.F!=null);
-   assert.equal(thai.stock.missingPriceCount,0);assert.equal(thai.beginStock.missingPriceCount,0);
-   const refs=thai.stock.priceEvidenceSources||[];
-   assert.ok(refs.filter(ref=>ref.startsWith('erp-purchase-carry:2026:34-01->')).length>=2,
-    'both 34th-week purchases must remain available after the FIFO window');
-   assert.ok(refs.every(ref=>!/판매단가|approximate_currency_master/.test(ref)));
-   console.log(JSON.stringify({thaiCarrySmoke:'PASS',scope:{year,week},missing:0,actualBusinessWrites:0}));
+   const calc=computeProfitRow(thai);
+   if(thai.source.H==='actual_cost_missing'&&thai.manual.H==null){
+    assert.equal(calc.H,null);assert.equal(calc.I,null);assert.equal(calc.J,null);assert.equal(calc.K,null);
+    assert.ok((mainData.audit?.issues||[]).some(i=>i.code==='ACTUAL_CUSTOMS_COST_MISSING'));
+   }
+   if(+week>=38){
+    assert.equal(calc.F,null,'unverified 34th-week customs must not become carried cost');
+    assert.ok(thai.stock.missingPriceCount>=2);
+    assert.ok(!thai.stock.priceEvidenceSources.some(ref=>ref.startsWith('erp-purchase-carry:2026:34-01->')));
+   }
+   console.log(JSON.stringify({thaiActualCostSmoke:'PASS',scope:{year,week},costState:thai.source.H,actualBusinessWrites:0}));
   }
   console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
   const auditResponse=page.waitForResponse(res=>{
