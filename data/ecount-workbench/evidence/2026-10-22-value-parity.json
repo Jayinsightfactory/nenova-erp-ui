@@ -8,15 +8,15 @@
    "program": "E040214",
    "dataset": "ar",
    "menuId": "MENUTREE_000500",
-   "observedAt": "2026-10-22T04:02:21.267Z",
+   "observedAt": "2026-10-22T04:56:36.949Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
-    "sourceSnapshotKey": 782,
-    "sourceTakenAt": "2026-10-20T03:38:50.950Z",
+    "sourceSnapshotKey": 910,
+    "sourceTakenAt": "2026-10-22T13:55:37.930Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 894,
+   "latestSnapshotKey": 910,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 83,
@@ -35,46 +35,31 @@
     "totalMatchesScreen": true
    },
    "webVsLatest": {
-    "rowCountLatest": 83,
-    "totalsMismatch": [
-     "salesTotal",
-     "receiptTotal",
-     "balance"
-    ],
-    "comparedRows": 83,
-    "comparedFields": 4,
-    "mismatchRows": 64,
-    "mismatchFields": 159
+    "sameSnapshot": true
    },
-   "latestSelfCheck": {
-    "status": "GREEN",
-    "score": 100,
-    "rowCountMatchesScreen": true,
-    "totalMatchesScreen": true
-   },
-   "verdict": "불일치",
-   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+   "verdict": "일치",
+   "cause": null
   },
   {
    "program": "E040309",
    "dataset": "ap",
    "menuId": "MENUTREE_000517",
-   "observedAt": "2026-10-22T04:02:22.216Z",
+   "observedAt": "2026-10-22T04:56:37.760Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
-    "sourceSnapshotKey": 783,
-    "sourceTakenAt": "2026-10-20T03:39:02.723Z",
+    "sourceSnapshotKey": 911,
+    "sourceTakenAt": "2026-10-22T13:56:15.763Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 895,
+   "latestSnapshotKey": 911,
    "latestTakenAt": null,
    "webVsSource": {
-    "rowCountWeb": 172,
-    "rowCountSource": 172,
+    "rowCountWeb": 181,
+    "rowCountSource": 181,
     "totalsFields": 7,
     "totalsMismatch": [],
-    "comparedRows": 172,
+    "comparedRows": 181,
     "comparedFields": 7,
     "mismatchRows": 0,
     "mismatchFields": 0
@@ -86,46 +71,31 @@
     "totalMatchesScreen": true
    },
    "webVsLatest": {
-    "rowCountLatest": 181,
-    "totalsMismatch": [
-     "stockBuy",
-     "balance",
-     "unbilled"
-    ],
-    "comparedRows": 181,
-    "comparedFields": 7,
-    "mismatchRows": 168,
-    "mismatchFields": 678
+    "sameSnapshot": true
    },
-   "latestSelfCheck": {
-    "status": "RED",
-    "score": 75,
-    "rowCountMatchesScreen": true,
-    "totalMatchesScreen": true
-   },
-   "verdict": "불일치",
-   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+   "verdict": "일치",
+   "cause": null
   },
   {
    "program": "E010205",
    "dataset": "cash",
    "menuId": "MENUTREE_002563",
-   "observedAt": "2026-10-22T04:02:22.924Z",
+   "observedAt": "2026-10-22T04:56:38.355Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
-    "sourceSnapshotKey": 781,
-    "sourceTakenAt": "2026-10-20T03:38:40.693Z",
+    "sourceSnapshotKey": 909,
+    "sourceTakenAt": "2026-10-22T13:55:30.183Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 893,
+   "latestSnapshotKey": 909,
    "latestTakenAt": null,
    "webVsSource": {
-    "rowCountWeb": 21,
-    "rowCountSource": 21,
+    "rowCountWeb": 8,
+    "rowCountSource": 8,
     "totalsFields": 2,
     "totalsMismatch": [],
-    "comparedRows": 21,
+    "comparedRows": 8,
     "comparedFields": 2,
     "mismatchRows": 0,
     "mismatchFields": 0
@@ -137,30 +107,16 @@
     "totalMatchesScreen": null
    },
    "webVsLatest": {
-    "rowCountLatest": 8,
-    "totalsMismatch": [
-     "amount",
-     "balance"
-    ],
-    "comparedRows": 21,
-    "comparedFields": 2,
-    "mismatchRows": 21,
-    "mismatchFields": 16
+    "sameSnapshot": true
    },
-   "latestSelfCheck": {
-    "status": "GREEN",
-    "score": 100,
-    "rowCountMatchesScreen": true,
-    "totalMatchesScreen": null
-   },
-   "verdict": "불일치",
-   "cause": "데이터 시차(웹 버전이 최신 스냅샷보다 이전)"
+   "verdict": "일치",
+   "cause": null
   },
   {
    "program": "E040207",
    "dataset": "sales",
    "menuId": "MENUTREE_000494",
-   "observedAt": "2026-10-22T04:02:23.631Z",
+   "observedAt": "2026-10-22T04:56:38.952Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -168,7 +124,7 @@
     "sourceTakenAt": "2026-10-19T23:31:36.133Z",
     "sourceKind": "existing-snapshot"
    },
-   "latestSnapshotKey": 896,
+   "latestSnapshotKey": 904,
    "latestTakenAt": null,
    "webVsSource": {
     "rowCountWeb": 5000,
@@ -207,7 +163,7 @@
    "program": "E040206",
    "dataset": "saleQuery",
    "menuId": "MENUTREE_000492",
-   "observedAt": "2026-10-22T04:02:25.227Z",
+   "observedAt": "2026-10-22T04:56:40.530Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,
@@ -225,7 +181,7 @@
    "program": "E010701",
    "dataset": "journal",
    "menuId": "MENUTREE_000098",
-   "observedAt": "2026-10-22T04:02:25.687Z",
+   "observedAt": "2026-10-22T04:56:40.996Z",
    "web": {
     "httpStatus": 200,
     "hasVersion": true,

@@ -8,6 +8,9 @@ const fs=require('fs');const path=require('path');
 const root=path.join(__dirname,'..');
 const args=process.argv.slice(2);const file=args[0];
 const shell=(args.includes('--shell')?args[args.indexOf('--shell')+1]:'').split(',').filter(Boolean);
+// --source-grid: 원본 화면 직접 읽기 요약(evidence/*-source-grid.json). 원본이 0건이면 셸 화면의 빈 표와 행수 0=0 은 일치로 기록한다(자료 연결은 여전히 미구현).
+const gridFile=args.includes('--source-grid')?args[args.indexOf('--source-grid')+1]:null;
+const grid=gridFile?JSON.parse(fs.readFileSync(gridFile,'utf8')):null;const gridRel=gridFile?path.relative(root,path.resolve(gridFile)).split(path.sep).join('/'):null;
 const parity=JSON.parse(fs.readFileSync(file,'utf8'));const rel=path.relative(root,path.resolve(file)).replace(/\\/g,'/');
 const reportPath=path.join(root,'data/ecount-workbench/button-matches.json');
 const report=JSON.parse(fs.readFileSync(reportPath,'utf8'));
@@ -24,7 +27,7 @@ for(const page of report.pages){
     s.queryButtons++;const ev=`${rel}#${page.program}`;const qv=b.comparisons.queryValues;
     qv.queryApplicable=true;
     b.verification={observedOn:parity.observedOn,verdict:s.verdict,cause:s.cause||null,evidence:[ev]};
-    if(isShell){st(qv,'불일치',ev);st(qv.rowCount,'불일치',ev);qv.rowCount.source=null;qv.rowCount.target=0;st(b.comparisons.function,'불일치',ev);continue;}
+    if(isShell){const g=grid?.results?.[page.program];if(g&&g.rowCount===0){const gev=`${gridRel}#${page.program}`;st(qv,'미검증',gev);st(qv.rowCount,'일치',gev);qv.rowCount.source=0;qv.rowCount.target=0;b.verification.cause='원본 0건(등록된 데이터 없음) = 대상 빈 표. 자료 연결은 미구현이라 값 있는 날의 동작은 미검증';b.verification.evidence.push(gev);}else{st(qv,'불일치',ev);st(qv.rowCount,'불일치',ev);qv.rowCount.source=g?g.rowCount:null;qv.rowCount.target=0;}st(b.comparisons.function,'불일치',ev);continue;}
     if(r.verdict==='미확인'){st(qv,'미검증',ev);continue;} // 상태 어휘는 미검증/일치/불일치 뿐(check-ecount-button-matches.cjs). 미확인 사유는 b.verification 에 남긴다.
     const srcRows=r.webVsLatest?.rowCountLatest??r.webVsSource.rowCountSource;
     st(qv.rowCount,r.webVsLatest?.sameSnapshot||r.webVsSource.rowCountWeb===srcRows?'일치':'불일치',ev);qv.rowCount.source=srcRows;qv.rowCount.target=r.webVsSource.rowCountWeb;
