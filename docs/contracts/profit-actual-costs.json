@@ -1,0 +1,12 @@
+{
+  "id": "profit-actual-costs",
+  "title": "태국 SQL 실비 원가와 누락 계산 보류",
+  "scope": ["lib/profitReportActualCosts.mjs", "lib/customsForwarding.js", "lib/profitReport.js", "lib/pivotFreightArrival.js", "lib/profitReportCalc.js", "lib/profitFormulaAudit.mjs", "lib/profitReportAudit.js", "pages/api/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "identityNote": "CustKey is not applicable to stock acquisition. Year, week, AWB and product are required; no invented customer key.",
+  "actions": [{"name":"ACTUAL_COST_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. Preserve ERP quantities, Amount/Vat/isFix, Estimate, WebProfitReport and confirmed revisions. Thai report costs reject defaults; absent actual customs is null, never zero. Recorded zero remains valid. Same purchase-period FX and H; conserve cost pools, no partial unmapped lines, no stale FIFO substitution."}],
+  "crossYearFixture": {"required":true,"description":"Real loader fixture uses identical AWB and OrderWeek in 2025 and 2026; costs and products cannot mix."},
+  "requiredTestFiles": ["__tests__/profitReportActualCosts.test.cjs", "__tests__/profitReportAcquisitionCarry.test.cjs"],
+  "requiredCommands": ["node __tests__/profitReportActualCosts.test.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run verify:erp-change", "npm run build"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormProfitReport.md","source":"Actual CLI FormWarehouseView and SQL read-only probe, docs/plans/profit-thai-actual-cost-2026-10-22.md","methods":["FormWarehouseView.GetData","FormWarehouseView.grdViewMaster_FocusedRowChanged"],"tables":["WarehouseMaster","WarehouseDetail","Product","WebCustomsWeekly","WebProfitReport","ProductStock"]}
+}

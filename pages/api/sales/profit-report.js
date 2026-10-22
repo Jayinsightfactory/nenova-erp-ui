@@ -336,7 +336,7 @@ export async function loadReportData(major, orderYear) {
             ? CARRIED_RATE_SOURCE
             : RATE_SOURCE.MISSING;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
-        const autoH = customs.H[key] ?? 0;
+        const autoH = customs.actualCosts?.[key] ? customs.H[key] : customs.H[key] ?? 0;
         // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
@@ -452,6 +452,7 @@ export async function loadReportData(major, orderYear) {
           rateCarry: (hasManualR || hasExactR) ? null : carry,
           // H 구성요소(백상 GW/관세/선율/월드운송료/방역) — 화면이 "왜 이 금액인지"를 그대로 보여준다.
           customsComponents: customs.components?.H?.[key] || null,
+          actualCostEvidence: customs.actualCosts?.[key] || null,
           manual: {
             E: null,
             F: null,

@@ -620,3 +620,9 @@ ERP side effect는 이번 작업으로 전혀 바뀌지 않았고, 화면 배치
   Order/Shipment/Warehouse/Estimate/WebProfitReport는 보존한다. 확정 보고서에서는 현재 처리
   대상을 읽기 전용으로 보여주되 저장은 막고, 확정 취소 후에만 입력할 수 있다. 상세 품목을
   찾지 못해도 처리 영역을 숨기거나 ‘문제 없음’으로 표시하지 않는다. 변경은 `SystemActionLog`에 기록한다.
+# 2026-10-22 SQL 실비 조회 증거 (기존 golden 수식 변경 없음)
+
+- 실제 설치 EXE를 dnSpy.Console.exe로 FormWarehouseView.GetData/상세 포커스 조회 재확인했다. WarehouseMaster/Detail + Product JOIN, UPrice/TPrice 조회이며 웹 통관 추천값을 ERP 원장에 쓰는 경로는 없다.
+- 해당 업무키 SQL SELECT: 태국34차 실제 운송료 행 존재, FreightCost/WebCustomsWeekly/WebForwardingWeekly/WebArrivalCostLine/WebInvoiceCostRevision 및 근거 있는 WebProfitReport H 저장 없음. 현재 WebCustomsRateConfig/History도 빈 상태였다.
+- 기본 통관합계와 GW 추천합계를 실제 청구액으로 취급하지 않는다. 사용자 최신 지시에 따라 웹 태국 평가에 SQL 실제 비용 완전성 검사를 추가했다. SQL 미입력은 0원과 다르고 이익률을 보류한다. ERP·확정 revision은 보존한다.
+- 기준/부작용: docs/plans/profit-thai-actual-cost-2026-10-22.md. 실행 회귀: profitReportActualCosts.test.cjs (실제 로더 + SELECT fixture, 교차연도/세부차수/단위/0/미입력/미매칭/합계 보존).
