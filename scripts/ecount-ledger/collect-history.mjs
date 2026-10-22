@@ -258,8 +258,12 @@ async function main() {
   const core = await import('../ecount-scraper/scrape-core.mjs');
   const { DEFS, installGuard, ensureBooted, isLoginPage } = core;
   // 프로필은 데몬이 쓰는 원본 폴더의 것을 공유해야 저장된 회사코드·ID 로 자동 로그인된다(worktree 의 새 프로필은 비어 있음).
-  const MAIN_PROFILE = 'C:/Users/USER/nenova-erp-ui/scripts/ecount-scraper/ecount-profile';
-  const PROFILE = process.env.ECOUNT_PROFILE || (fs.existsSync(MAIN_PROFILE) ? MAIN_PROFILE : core.PROFILE);
+  // 2026-10-22 사장님 결정: 데몬 프로필(ecount-scraper/ecount-profile)과 분리한 수집기 전용 프로필을 쓴다.
+  //   같은 프로필을 공유하면 데몬 세션이 끊기고 로그인 창이 반복 노출됐다. 전용 프로필은 최초 1회만 사람이 로그인한다.
+  //   이카운트는 계정당 동시 세션이 1개라 수집 중에는 데몬을 멈추고(프로필은 건드리지 않음) 끝나면 다시 띄운다.
+  const OWN_PROFILE = 'C:/Users/USER/nenova-erp-ui/scripts/ecount-ledger/_profile';
+  const PROFILE = process.env.ECOUNT_PROFILE || OWN_PROFILE;
+  fs.mkdirSync(PROFILE, { recursive: true });
   log(`브라우저 프로필: ${PROFILE}`);
   const defByPrg = Object.fromEntries(Object.values(DEFS).map((d) => [d.prgId, d]));
 
@@ -274,10 +278,10 @@ async function main() {
     const page = ctx.pages()[0] || await ctx.newPage();
     let base = await ensureBooted(page);
     if (!base) { // 자동 로그인 금지: 사람이 열린 창에서 로그인할 때까지 대기(최대 15분)
-      log('⚠ 로그인 필요 — 열린 창에서 직접 로그인하세요(최대 15분 대기).');
+      log('⚠ 로그인 필요 — 열린 수집기 창에서 회사코드·ID·비밀번호로 직접 로그인하세요(저장 체크 권장, 최대 30분 대기).');
       await page.goto('https://login.ecount.com/').catch(() => {});
       let lastClick = 0;
-      for (let i = 0; i < 300 && !base; i++) {
+      for (let i = 0; i < 600 && !base; i++) { // 전용 프로필 최초 로그인: 최대 30분 대기
         await page.waitForTimeout(3000);
         if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { await page.waitForTimeout(5000); base = await ensureBooted(page); continue; }
         // 데몬(daemon.mjs)과 동일: 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 로그인 버튼을 누른다(값 입력은 하지 않음). 5분 1회.
