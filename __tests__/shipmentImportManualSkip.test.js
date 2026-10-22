@@ -74,6 +74,36 @@ async function preview(overrides={}, rows=sourceRows, year='2026', catalog=produ
 function body(p) {return {year:p.orderYear,week:p.week,rows:p.rows,fullCategoryReplacement:true,
   replacementProductKeys:p.replacementProductKeys,replacementPlan:createReplacementPlan(p,'actor',options)};}
 
+test('open upload choices survive family correction without changing manual, invalid or skipped intent',async()=>{
+  const rows=sourceRows.map((r,i)=>({...r,productFamily:i<2?'ruscus':r.productFamily}));
+  for (const year of ['2025','2026']) {
+    const p=await preview({[key(0)]:501,[key(1)]:IMPORT_SKIP_PRODUCT_VALUE},rows.slice(0,2),year);
+    assert.equal(p.unmatched.length,0);
+    assert.equal(p.skippedProducts.length,1);
+    assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===501).uploadQty,2);
+    assert(p.rows.every(r=>r.prodKey!==1717));
+    assert.deepEqual(p.replacementProductKeys,[501]);
+    assert.doesNotThrow(()=>assertReplacementPlan(body(p),'actor',options));
+    const invalid=await preview({[key(0)]:99999},[rows[0]],year);
+    assert.equal(invalid.unmatched.length,1);
+    assert.equal(createReplacementPlan(invalid,'actor',options),null);
+  }
+  const exact=await preview({[key(0)]:IMPORT_SKIP_PRODUCT_VALUE,[importProductOverrideKey(rows[0])]:1717},[rows[0]]);
+  assert.equal(exact.skippedProducts.length,0);
+  assert.equal(exact.rows.find(r=>r.custKey===1).prodKey,1717);
+  const stale=await preview({'other-sheet|루스커스|hydrangea':IMPORT_SKIP_PRODUCT_VALUE},[rows[0]]);
+  assert.equal(stale.skippedProducts.length,0);
+  assert.equal(stale.unmatched.length,0);
+});
+test('ambiguous historical choices require a new choice instead of silently auto matching',async()=>{
+  const row={...sourceRows[0],productFamily:'ruscus'};
+  const duplicate=await preview({[key(0)]:1717,[importProductOverrideKey({...row,productFamily:'rose'})]:IMPORT_SKIP_PRODUCT_VALUE},[row]);
+  assert.equal(duplicate.unmatched.length,1);
+  assert.equal(createReplacementPlan(duplicate,'actor',options),null);
+  const blocks=await preview({[key(0)]:IMPORT_SKIP_PRODUCT_VALUE},[row,{...row,productFamily:'rose'}]);
+  assert.equal(blocks.unmatched.length,2);
+  assert.equal(blocks.skippedProducts.length,0);
+});
 test('manual Ruscus and 40cm override title family and stale workbook key, with quantity preserved',async()=>{
   const auto=await preview();assert.equal(auto.unmatched.length,2);
   for (const year of ['2025','2026']) {
