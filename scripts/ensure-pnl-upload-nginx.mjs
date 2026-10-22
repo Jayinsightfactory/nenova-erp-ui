@@ -28,6 +28,8 @@ export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/import/tools/upload-history', bodyLimit: '72m' },
   // Private guidance attachment: 10MiB application limit plus multipart overhead.
   { location: '/api/operations-knowledge/attachments', bodyLimit: '12m' },
+  // 2026-10-22 ECOUNT 수집 데몬 JSON(판매현황 1만행≈4MB)이 기본 1m 에 413 → 전송 실패 반복.
+  { location: '/api/ecount/ingest', bodyLimit: '20m' },
 ];
 // 하위 호환 별칭 — 기존 테스트/호출부가 참조한다.
 export const PNL_UPLOAD_LOCATION = MANAGED_UPLOAD_ROUTES[0].location;
