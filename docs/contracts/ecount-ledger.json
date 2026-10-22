@@ -1,0 +1,95 @@
+{
+  "id": "ecount-ledger",
+  "title": "ECOUNT 원본 적재 스키마(ecount) — 우리 DB 별도 스키마, 이카운트 쓰기 없음",
+  "scope": [
+    "lib/ecountLedger/core.js",
+    "lib/ecountLedger/schema.js",
+    "lib/ecountLedger/loader.js",
+    "lib/ecountLedger/xlsx.js",
+    "lib/ecountLedger/views.js",
+    "pages/api/ecount-ledger/status.js",
+    "scripts/ecount-ledger/_env.mjs",
+    "scripts/ecount-ledger/ensure-schema.mjs",
+    "scripts/ecount-ledger/load-xlsx.mjs",
+    "scripts/ecount-ledger/backfill-legacy.mjs",
+    "docs/migrations/2026-10-22_ecount_schema.sql",
+    "docs/ecount-ledger/DESIGN.md"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "requestIdentity": "ecount.LoadBatch.BatchKey; CustKey/ProdKey는 대조 뷰에서 참조만",
+  "actions": [
+    {
+      "name": "ECOUNT_LEDGER_READ_ERP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "dbo ERP 원장·ecount_work·web_mgmt 는 대조 뷰/상태 API 에서 SELECT 만."
+    },
+    {
+      "name": "ECOUNT_LEDGER_LOAD_RAW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "ecount 스키마(LoadBatch·Dataset·Raw_<PrgId>)에만 INSERT/ALTER ADD. RowHash 중복은 삽입 생략. 이카운트 쓰기 없음."
+    },
+    {
+      "name": "ECOUNT_LEDGER_BACKFILL_LEGACY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "dbo.WebEcountSnapshot/WebEcountRow 를 읽어 ecount.Raw_* 로 복사(기본 dry-run). 옛 테이블은 수정하지 않는다."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "대조 뷰는 일자(ShipmentDtm/이카운트 일자)로 연도를 명시 비교. 타임스탬프에서 차수 연도를 유도하지 않는다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "ecount 스키마는 exe 쓰기 경로를 호출하지 않는다. 대조용 읽기만 Customer/ShipmentDetail 기준(FormEstimateView 골든).",
+    "methods": [
+      "ClassEstimate.Select"
+    ],
+    "tables": [
+      "Estimate",
+      "Customer"
+    ]
+  },
+  "preserves": [
+    "Customer",
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "ProductStock",
+    "StockHistory",
+    "StockMaster",
+    "Estimate",
+    "WebProfitReport",
+    "ecount_work.*"
+  ],
+  "boundary": {
+    "ecountOwnedUntouched": true,
+    "checker": "node __tests__/mgmtBoundary.test.js --changed-from origin/master",
+    "design": "docs/ecount-ledger/DESIGN.md"
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountLedgerXlsx.test.js",
+    "__tests__/ecountLedgerSchema.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run test:ecount-ledger",
+    "npm run build"
+  ]
+}
