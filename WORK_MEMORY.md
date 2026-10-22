@@ -863,3 +863,8 @@
 - 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.
 
 - 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기
+
+## 2026-10-22 기존 자동매칭 복구
+- 어제부터 자동매칭 품목이 전부 미매칭이며 루스커스가 수국으로 잡힌다는 사용자 확인. 제목보다 행/DB품목 우선, 루스커스 일반/40/50/70cm 분리, 미지원 DB품종명 보존, 수량표시/판정 공통 helper 적용.
+- 실제 XLSX→실제 preview 자동매칭/교차연도/제외 포함9회귀 PASS. manifest/쓰기가드 PASS. PC 가용 메모리 부족(일시100MB 이하)으로 전체검사/빌드 프로세스 중단, 운영 배포 전 원격 격리 CI로 전체 재검증 예정. 운영 DB 쓰기 없음.
+- 검색어: 자동매칭 루스커스 수국 PR1213 productFamilySource sourceProductFamily import-family-fix

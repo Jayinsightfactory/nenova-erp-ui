@@ -524,3 +524,9 @@ Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 
 [계획](../plans/import-manual-skip-2026-10-22.md)에 기록한다.
 
 추가 SELECT: WebProfitReport 2025/2026 MajorWeek43은 저장행0. 2025 확정 출고22행 금액은 위 합계와 동일(부동소수점 합산 말자리 차이), 2026 해당 확정 출고0.
+
+## 2026-10-22 자동 품종 매칭 회귀 재검증
+- 사용자 확인: 루스커스를 수국으로 판정, 어제부터 기존 자동 매칭도 미매칭. 실제 dnSpy FormShipmentDistribution 재실행 및 Product/원장 SELECT 확인.
+- Product1717/3085 DisplayName은 루스커스 그린/루스커스 그린 40CM. 2959=50cm,3023=70cm,2617=이스라엘 샘플,2205의 DB FlowerName은 왁스. 실제 DB 품종은 원본 상품명 추정보다 우선하며 규격을 보존한다.
+- 2025/43-01 해당 두 품목 ViewOrder22/ViewShipment22/Date22/Farm0/Estimate3/확정22/출고58. Amount10368182.145454548,Vat1036818.2245454547. 2026 같은 차수 주문28/출고0/날짜0/농장0/견적0. WebProfitReport2025/2026 MajorWeek43 저장행0. 견적노출 DetailFix+Date+Order+PeriodDay는 같은 세션 앞선 probe22/0 참조.
+- sourceProductFamily(row/heading), catalog 정확 이름 우선, Ruscus Green 규격 별칭을 회귀검증. 실제 XLSX→실제 preview에서 수동0회로1717/3085 자동 연결. 연도2025/2026,수국/장미/알스트로/루스커스 제목,동명/잘못된키/교차품종 fuzzy 차단 및 원장 불변 검사. writer/SQL/환산 공식 변경 없음. 실제 파일 저장과 EXE GUI는 미검증.

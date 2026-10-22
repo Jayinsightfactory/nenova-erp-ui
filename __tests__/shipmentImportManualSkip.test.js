@@ -55,12 +55,12 @@ const sourceRows = ['루스커스', '루스커스 40cm', 'White'].map((productLa
 const key = i => importProductOverrideKey(sourceRows[i]);
 const options = { secret: 'fixture-only', now: 10000 };
 const ledger = ['2025','2026'].flatMap(year => products.map(p=>({year,week:'43-01',CustKey:2,ProdKey:p.ProdKey,orderQty:9,currentOutQty:7,shipmentDateIssueCount:0})));
-async function preview(overrides={}, rows=sourceRows, year='2026') {
+async function preview(overrides={}, rows=sourceRows, year='2026', catalog=products) {
   const before=JSON.stringify(ledger);
   const queryFn=async(text, params={})=>{
     assert.doesNotMatch(text,/\b(?:INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
     if (params.weekKey) { assert.equal(params.yr.value,year); return {recordset:[]}; }
-    if (/FROM Product\s+WHERE/.test(text)) return {recordset:products};
+    if (/FROM Product\s+WHERE/.test(text)) return {recordset:catalog};
     if (/FROM Customer\s+WHERE/.test(text)) return {recordset:customers};
     assert.equal(params.importYear.value,year);assert.equal(params.week.value,'43-01');
     if (/AS yr, COUNT/.test(text)) return {recordset:[]};
@@ -132,4 +132,66 @@ test('coverage before and inside transaction and post-write verification use ide
   const result=await verify(query,'43-01',p.rows.map(r=>({...r,intended:r.uploadQty,verifyOrder:false})),'2026',true,p.replacementProductKeys);
   assert.equal(result.mismatchCount,0);
   await assert.rejects(assertReplacementCoverage(query,p.rows.slice(1),'2026','43-01',{NVarChar:'text'},true,p.replacementProductKeys),/既|기존 분배/);
+});
+
+const actualRuscus = products.slice(0,2).map((p,i)=>({...p,
+  ProdName: i ? 'Ruscus Green 40cm ' : 'Ruscus Green',
+  DisplayName: i ? '루스커스 그린 40CM' : '루스커스 그린'}));
+actualRuscus.push(
+  {...actualRuscus[0],ProdKey:2959,ProdName:'Ruscus Green 50cm ',DisplayName:'루스커스 그린 50CM'},
+  {...actualRuscus[0],ProdKey:3023,ProdName:'Ruscus Green 70cm ',DisplayName:'루스커스 그린 70CM'},
+  {...actualRuscus[0],ProdKey:2617,ProdName:'ISRAEL 루스쿠스. Sample Ruscus',DisplayName:'ISRAEL 루스쿠스. SAMPLE 루스커스',CountryFlower:'이스라엘루스커스'},
+  {...actualRuscus[0],ProdKey:2205,ProdName:'Ruscus israelí',DisplayName:'루스커스 ISRAELÍ',FlowerName:'왁스',CountryFlower:'국내왁스'});
+function allocationRows(labels, heading='수국') {
+  const XLSX=require('xlsx'), book=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([[heading],[],['','Fixture','주문','입고'],
+    ...labels.map((label,i)=>[label,i+2,i+2,0])]),heading);
+  return parseAllocationWorkbook(XLSX,book).rows;
+}
+test('actual workbook automatically matches Ruscus and 40cm under hydrangea heading, without manual choices',async()=>{
+  const rows=allocationRows(['루스커스','루스커스 40cm','White']);
+  assert.deepEqual(rows.map(r=>r.productFamily),['ruscus','ruscus','hydrangea']);
+  for (const year of ['2025','2026']) {
+    const p=await preview({},rows,year,[...actualRuscus,products[2]]);
+    assert.equal(p.unmatched.length,0);
+    const included=p.rows.filter(r=>r.custKey===1);
+    assert.deepEqual(included.map(r=>[r.prodKey,r.productFamily,r.uploadQty]),[[1717,'ruscus',2],[3085,'ruscus',3],[501,'hydrangea',4]]);
+    for (const r of included) assert.equal(normalizeUploadQtyForProduct(r,[...actualRuscus,products[2]].find(p=>p.ProdKey===r.prodKey)),r.uploadQty);
+    assert.doesNotThrow(()=>assertReplacementPlan(body(p),'actor',options));
+  }
+  const skipKey=importProductOverrideKey(rows[1]);
+  const skipped=await preview({[skipKey]:IMPORT_SKIP_PRODUCT_VALUE},rows,'2026',[...actualRuscus,products[2]]);
+  assert.equal(skipped.unmatched.length,0);assert(!skipped.rows.some(r=>r.prodKey===3085));
+});
+test('catalog exact name beats heading, ambiguous names use heading and foreign fuzzy/explicit keys remain blocked',async()=>{
+  const rose={...products[2],ProdKey:502,ProdName:'Rose White',DisplayName:'White',FlowerName:'장미',CountryFlower:'케냐장미'};
+  const unique={...rose,ProdKey:503,ProdName:'Rose Freedom',DisplayName:'프리덤'};
+  const catalog=[...actualRuscus,...products.slice(2),rose,unique];
+  const p=await preview({},allocationRows(['White','프리덤','Freedom']),'2026',catalog);
+  assert.equal(p.unmatched.length,0);
+  assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===501).productFamily,'hydrangea');
+  assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===503).productFamily,'rose');
+  assert.equal((await preview({},allocationRows(['Free']),'2026',catalog)).unmatched.length,1);
+  const keyed=allocationRows(['White']).map(r=>({...r,prodKey:1717}));
+  assert.equal((await preview({},keyed,'2026',catalog)).unmatched.length,1);
+  const explicit=allocationRows(['Hydrangea White']).map(r=>({...r,prodKey:502}));
+  assert.equal((await preview({},explicit,'2026',catalog)).unmatched.length,1);
+  const ambiguous=allocationRows(['White'],'2026 혼합');
+  assert.equal(ambiguous.length,1);
+  assert.equal((await preview({},ambiguous,'2026',catalog)).unmatched.length,1);
+});
+test('mixed sheet headings cannot change Ruscus quantities or the matched rose/alstro conversion',async()=>{
+  const rose={...products[2],ProdKey:502,ProdName:'Rose Freedom',DisplayName:'프리덤',FlowerName:'장미',CountryFlower:'케냐장미'};
+  const alstro={...products[2],ProdKey:503,ProdName:'Alstroemeria Yellow',DisplayName:'노랑알스트로',FlowerName:'알스트로메리아',CountryFlower:'콜롬비아알스트로'};
+  for(const heading of ['수국','알스트로','장미','루스커스']) {
+    const input=allocationRows(['루스커스','루스커스 40cm','프리덤','노랑알스트로'],heading).map(r=>r.productLabel==='프리덤'?{...r,outUnit:'단'}:r);
+    assert.equal(input.length,4);
+    const p=await preview({},input,'2026',[...actualRuscus,rose,alstro]);
+    assert.equal(p.unmatched.length,0);
+    for(const [key,qty] of [[1717,2],[3085,3],[502,0.4],[503,80]]) {
+      const row=p.rows.find(r=>r.custKey===1&&r.prodKey===key);
+      assert.equal(row.uploadQty,qty,`${heading}/${key}`);
+      assert.equal(normalizeUploadQtyForProduct(row,[...actualRuscus,rose,alstro].find(p=>p.ProdKey===key)),qty);
+    }
+  }
 });
