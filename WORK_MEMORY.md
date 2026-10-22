@@ -864,6 +864,14 @@
 
 - 2026-10-22 입고 박스 후속: 최종 미리보기 표시 보완 빌드/관련64통과1skip/UI/manifest144/writeguard 통과. PR1224 draft 생성, CI 대기. PR1221 업로드 보호 유예 기록 때문에 사용자에게 현재 업로드 종료 여부 확인 중, 답변 전 이번 배포 보류. 운영 DB 쓰기 없음. 검색어: PR1224 입고 박스 배포대기
 
+## 2026-10-22 이월 보정 완료와 네덜란드 원가 후속
+- PR1225/master78f19ba3, CI39702671667/Cafe24배포39702956142 및 hydration/ping 성공. 이전 항목의1221/1224는 이미 master에 병합된 상태를 확인하고 진행했다.
+- native-only 두 품목126snapshot 검산/113수정, rollback rehearsal 및 commit 별도 readback 성공. 이력/현재고/확정보고서 보존. 보정 재실행 금지.
+- 실제18·26·31·41 다운로드39704410335 모두 성공. 1~41재고15,692검사 대상문제0. 초기차수 다른18품목21관측,34·35입력경고 및 다른품목 음수재고 남음.
+- 수량 복원 후 드러난 네덜란드 오래된 매입의 판매단가 대체를 SELECT-only 취득원가 재현으로 보완. EUR/국가 cache 격리, 베트남 평균원가 공식 유지. 새 작업트리nw-netherlands-acquisition. 최종 CI/배포 진행 중.
+- 상세 docs/work-sessions/2026-10-22_carry-cascade.md. 실물/EXE GUI 미검증. 전체정상 주장 금지.
+- 검색어: PR1225 carry cascade 네덜란드 베트남 113 126 acquisition EUR 원가이월 재실행금지
+
 ## 2026-10-22 ECOUNT 데이터 → 우리 DB `ecount` 스키마 별도 적재(1단계) — 사장님 지시 "ecount db 별도, 검증 후 합치기"
 - DB 생성 권한 없음(nenova1_nenova: dbcreator 0, CREATE SCHEMA 1, SQL2016 Web) → 같은 DB 안 `ecount` 스키마로 분리. ecount_work(화면 동등성 작업영역)·web_mgmt 와 별개.
 - 구조: ecount.Dataset(13 prgId 사전)·LoadBatch(파일 sha·기간·행수·화면합계·InsertCnt/DedupCnt)·Raw_<PrgId>(이카운트 엑셀 헤더를 한글 그대로 열 이름, RowHash 중복생략, 합계행 IsSubtotal) + 대조 뷰 ecount.cmp_*(views.js 가 실제 열 보고 CREATE OR ALTER). lib/ecountLedger, scripts/ecount-ledger(load-xlsx·backfill-legacy·ensure-schema), /api/ecount-ledger/status(관리자). 계약 ecount-ledger.json.
@@ -871,3 +879,5 @@
 - legacy dbo.WebEcountRow 80만행 backfill dry-run: 고유 15,779행(sales 13,885·ar 797·ap 831·cash 266), 영문 열(Payload 키) → 미적용. 엑셀 원본 수집으로 대체 예정.
 - 데몬 판매현황 전송 413 원인 nginx 1m → #1226 /api/ecount/ingest 20m. 데몬 세션 기본기간은 전월+금월, 과거 전기간 월단위 수집기는 2단계(데몬 일시정지 후 같은 프로필 사용).
 - 검색어: ecount스키마 ecount-ledger load-xlsx Raw_E040207 cmp_sales_daily 3060164321 34247220 일자기준불일치 backfill15779 413 nginx20m
+
+- 2026-10-22 네덜란드 원가 후속 PR1228: 전체 ERP 계약·dnSpy·manifest·쓰기 가드/CI39705549884 통과. 로컬 최초 build는 메모리 부족 상태에서 종료, NODE_OPTIONS 1536MB 제한 재시도 성공. master의 ECOUNT 별도적재 변경은 그대로 보존해 통합 후 재빌드/CI 진행. 검색어: PR1228 네덜란드 취득원가 EUR 장기이월
