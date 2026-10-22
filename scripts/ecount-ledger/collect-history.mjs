@@ -70,7 +70,8 @@ async function onProgram(page, def) {
         const norm = (t) => (t || '').replace(/\s+/g, '').replace(/^[★☆⭐]+/, '');
         if (norm(document.title).startsWith(w)) return true;
         const cands = [...document.querySelectorAll('.wrapper-title .page-name, span.page-name, li.active > a')].filter(vis);
-        return cands.some((e) => norm(e.textContent) === w);
+        const w0 = w.replace(/\(.*$/, '');
+        return cands.some((e) => { const t = norm(e.textContent); return t === w || t === w0; });
       }, want);
       if (ok) return true;
     } catch {}
@@ -97,17 +98,20 @@ async function navigate(page, base, def) {
   if ((await onProgram(page, def)) && !(await page.locator('.modal:visible, [role="dialog"]:visible').count().catch(() => 0))) { def.hash = '#' + page.url().split('#')[1]; return; }
   for (const f of FRAMES(page)) { try { const ok = f.locator('.modal button:has-text("확인"), [role="dialog"] button:has-text("확인")'); if (await ok.count() && await ok.first().isVisible({ timeout: 300 })) await ok.first().click({ timeout: 1000 }); } catch {} }
   const box = page.locator('#inputFavMSearch').first();
-  await box.click({ timeout: 5000 }); await box.fill(''); await box.type(def.menuName, { delay: 40 });
+  // 검색어: 괄호 뒤 설명 제거("거래처별채무(채무현황)"→"거래처별채무"), 세금계산서는 "계산서현황"처럼 짧게
+  //   "거래처별채무(채무현황)"→"거래처별채무", "매출(세금)계산서현황"→"계산서현황"(같은 이름 재고/회계 후보를 순서대로 눌러 제목으로 판별)
+  const kw = (/\)$/.test(def.menuName) ? def.menuName.replace(/\s*\(.*\)$/, '') : def.menuName.replace(/^.*\)/, '')).trim() || def.menuName;
+  await box.click({ timeout: 5000 }); await box.fill(''); await box.type(kw, { delay: 40 });
   await page.waitForTimeout(1800);
   let clicked = false;
   for (const f of FRAMES(page)) {
-    const items = f.locator('ul.ui-autocomplete li, .ui-autocomplete .ui-menu-item, [role="listbox"] li').filter({ hasText: def.menuName });
+    const items = f.locator('ul.ui-autocomplete li, .ui-autocomplete .ui-menu-item, [role="listbox"] li').filter({ hasText: kw });
     const n = await items.count().catch(() => 0);
     for (let k = 0; k < n && !clicked; k++) { // 같은 이름 메뉴(재고/회계)가 여럿이면 순서대로 눌러 prgId 가 맞는 것을 찾는다
       try {
         await items.nth(k).click({ timeout: 2000 }); await page.waitForTimeout(3000);
         if (await onProgram(page, def)) { clicked = true; break; }
-        await box.click({ timeout: 3000 }); await box.fill(''); await box.type(def.menuName, { delay: 40 }); await page.waitForTimeout(1800);
+        await box.click({ timeout: 3000 }); await box.fill(''); await box.type(kw, { delay: 40 }); await page.waitForTimeout(1800);
       } catch {}
     }
     if (clicked) break;
@@ -169,8 +173,15 @@ async function pickSelectbox(page, btn, which, value2) {
   }
   if (!done) { await page.keyboard.type(value2, { delay: 60 }); await page.keyboard.press('Enter').catch(() => {}); }
   await page.waitForTimeout(400);
-  const after = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
-  if (after !== value2 && after !== `20${value2}`) throw new Error(`${which} 설정 실패: 목표 ${value2}, 현재 ${after}`);
+  let after = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
+  if (after !== value2 && after !== `20${value2}`) { // 레이어 타이밍 실패 → 1회 재시도
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(600);
+    await btn.click({ timeout: 3000 }); await page.waitForTimeout(800);
+    for (const fr of FRAMES(page)) { for (const c of cands) { const opt = fr.locator(`.layer-box li, .layer-box a, .layer-box button, [class*="layer"] li, [class*="layer"] a, [class*="layer"] button, [role="option"]`).filter({ hasText: new RegExp(`^\s*${c}\s*$`) }); try { if (await opt.count()) { await opt.first().click({ timeout: 2000 }); break; } } catch {} } }
+    await page.waitForTimeout(500);
+    after = (await btn.locator('.selectbox-label').innerText().catch(() => '')).trim();
+    if (after !== value2 && after !== `20${value2}`) throw new Error(`${which} 설정 실패: 목표 ${value2}, 현재 ${after}`);
+  }
 }
 // 화면마다 datepicker 구조가 다르다: 판매현황은 중첩 wrapper 2개(시작/종료), 채권·현황류는 wrapper 1개 안에 연/월/일 세트가 1~2개.
 // → 보이는 datepicker 영역에서 year/month 버튼과 #day 입력의 '순서'로 세트를 판정한다. 세트 2개면 월초~월말, 1개면 월말(기준일 스냅샷).
@@ -230,7 +241,9 @@ async function downloadMonth(page, base, def, ym, file, ctxInfo) {
     for (const f of FRAMES(page)) { try { const b = f.locator('button:has-text("전체"), a:has-text("전체")').filter({ hasNotText: /거래처|내.외자/ }).first(); if (await b.count() && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 2000 }); await page.waitForTimeout(800); break; } } catch {} }
   }
   if (!isMaster(def.prgId)) await setPeriod(page, ym, ctxInfo);
-  await page.keyboard.press('F8').catch(() => {});
+  let searched = false;
+  for (const f of FRAMES(page)) { try { const b = f.locator('button:has-text("검색(F8)")').first(); if (await b.count() && await b.isVisible({ timeout: 500 })) { await b.click({ timeout: 2000 }); searched = true; break; } } catch {} }
+  if (!searched) await page.keyboard.press('F8').catch(() => {});
   await page.waitForTimeout(3000);
   const dlP = page.waitForEvent('download', { timeout: 60000 }).catch(() => null);
   let clicked = false;
