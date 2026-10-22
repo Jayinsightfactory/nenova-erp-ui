@@ -41,7 +41,9 @@ test('packet rows cover all 59 packets and sums equal observed buttons', () => {
   }
   assert.equal(m.totals.programs, TOTAL_PROGRAMS);
   assert.equal(m.totals.programsWithButtons, pagesWithButtons);
-  assert.equal(m.totals.verified, 0, 'no button has function+window+queryValues all 일치 yet');
+  // 검증 완료 = 기능·새창·조회값 모두 일치. 2026-10-22 값 대조로 0 이 아니게 됨 → 원장과 같은 수인지만 본다.
+  const verifiedInReport = report.pages.flatMap(p => p.buttons).filter(b => ['function', 'window', 'queryValues'].every(k => b.comparisons?.[k]?.status === '일치')).length;
+  assert.equal(m.totals.verified, verifiedInReport, 'verified total equals buttons with function+window+queryValues all 일치');
 });
 
 test('uninventoried screens = 373 - pages with buttons, each with a label', () => {
