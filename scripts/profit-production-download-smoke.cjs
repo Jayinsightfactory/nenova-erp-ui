@@ -60,6 +60,21 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
   }).map(column=>({category:r[0],column})));
   console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
+  const auditResponse=page.waitForResponse(res=>{
+   const u=new URL(res.url());return u.pathname==='/api/sales/profit-independent-audit'&&u.searchParams.get('year')===year&&u.searchParams.get('week')===week;
+  },{timeout:120000});
+  await page.goto(`${origin}/sales/profit-validation?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
+  const response=await auditResponse;assert.equal(response.status(),200);
+  const audit=await response.json();assert.equal(audit.version,'independent-stock-v2');assert.equal(audit.orderYear,year);assert.equal(audit.major,week);
+  await page.waitForFunction(()=>document.querySelector('[aria-label="독립 검산 엔진"]')?.textContent.includes('버전 independent-stock-v2'),{timeout:120000});
+  const rendered=await page.$eval('[aria-label="독립 검산 엔진"]',el=>el.textContent);
+  const selectedAudit=audit.weeks.find(w=>w.major===week);assert.ok(selectedAudit);
+  if(selectedAudit.negativeCount)assert.ok(rendered.includes(`음수 ${selectedAudit.negativeProductCount}품목 / ${selectedAudit.negativeCount}개 차수 관측`));
+  for(const bridge of selectedAudit.legacyBridges||[])assert.ok(rendered.includes(bridge.period));
+  if(selectedAudit.openingBridge)assert.ok(rendered.includes('재고 자료 누락이 아니며'));
+  console.log(JSON.stringify({auditSmoke:'PASS',scope:{year,week},version:audit.version,status:selectedAudit.status,missing:selectedAudit.inputRequiredCount,
+   bridges:(selectedAudit.legacyBridges||[]).map(r=>({period:r.period,status:r.status})),openingBridge:!!selectedAudit.openingBridge,
+   negativeProducts:selectedAudit.negativeProductCount,negativeObservations:selectedAudit.negativeCount,actualBusinessWrites:0}));
   await page.close();
   }
  }finally{

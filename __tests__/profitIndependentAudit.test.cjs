@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
   await require('./historicalStockRepair.test.cjs');
-  const { auditStockRange, independentProfitMath, auditReportAgainstStock, roundQty, finite, auditUnitFactor } = await import('../lib/profitIndependentAudit.mjs');
+  const { auditStockRange, independentProfitMath, auditReportAgainstStock, roundQty, finite, auditUnitFactor,
+    ORDERED_STOCK_SP_CREATE_SHA256, explainNegativeStock } = await import('../lib/profitIndependentAudit.mjs');
   const product = {ProdKey:1,ProdName:'합성 알스트로',Category:'알스트로',OutUnit:'단',EstUnit:'단',Stockable:1,isDeleted:0};
   const fixture = () => ({products:[product],masters:[
     {StockKey:1,OrderYear:'2025',OrderWeek:'52-02'}, {StockKey:2,OrderYear:'2026',OrderWeek:'01-01'},
@@ -33,6 +34,48 @@ const fs = require('node:fs');
   f=fixture();f.masters[1].NativePreviousStockKey=999;assert.equal(run(f).weeks[0].status,'INPUT_REQUIRED');
   f=fixture();f.masters.push({StockKey:6,OrderYear:'2025',OrderWeek:'60-01'});f.stocks.push({StockKey:6,ProdKey:1,Stock:20});f.masters[1].NativePreviousStockKey=6;f.stocks[1].Stock=23;
   out=run(f);assert.equal(out.weeks[0].openingPolicyMismatch,true);assert.equal(out.weeks[0].localMismatchCount,0);
+  const integrity={status:'STABLE_OBSERVED',policyHash:ORDERED_STOCK_SP_CREATE_SHA256};
+  const bridged=()=>{const f=fixture();f.masters.push(
+    {StockKey:4,OrderYear:'2026',OrderWeek:'01-01A',OrderYearWeek:'20260101A',NativePreviousStockKey:2},
+    {StockKey:5,OrderYear:'2026',OrderWeek:'01-01B',OrderYearWeek:'20260101B',NativePreviousStockKey:4});
+    f.masters.find(m=>m.StockKey===3).NativePreviousStockKey=5;
+    f.stocks.push({StockKey:4,ProdKey:1,Stock:13},{StockKey:5,ProdKey:1,Stock:13});return f;};
+  const runBridge=f=>auditStockRange(f,{year:'2026',major:'02'},integrity);
+  f=bridged();const untouched=JSON.stringify(f);out=runBridge(f);
+  assert.equal(JSON.stringify(f),untouched,'read-only calculation must not mutate source');
+  assert.equal(out.weeks[0].inputRequiredCount,0);assert.equal(out.weeks[1].status,'MATCH');
+  assert.equal(out.weeks[1].openingBridge.basePeriod,'2026/01-01');assert.equal(out.weeks[1].begin.week,'01-01');
+  assert.equal(out.weeks[0].legacyBridges.length,2);assert.equal(out.invalidKeyCount,2);
+  for(const r of f.stocks)if([2,3,4,5].includes(r.StockKey))r.Stock+=2;
+  out=runBridge(f);assert.equal(out.weeks[1].status,'CARRIED');assert.equal(out.weeks[1].entries[0].openingError,2);
+  assert.equal(out.weeks[1].entries[0].firstObserved,'2026/01-01','legacy marker must not erase prior error');
+  for(const mutation of [
+    f=>{f.stocks.find(r=>r.StockKey===4).Stock++;},
+    f=>{f.stocks=f.stocks.filter(r=>r.StockKey!==4);},
+    f=>{f.stocks.find(r=>r.StockKey===4).Stock=null;},
+    f=>{f.stocks.push({...f.stocks.find(r=>r.StockKey===4)});},
+    f=>{f.masters.find(m=>m.StockKey===4).NativePreviousStockKey=9;},
+    f=>{f.masters.find(m=>m.StockKey===4).OrderYearWeek='20250101A';},
+    f=>{f.incoming.push({OrderYear:'2026',OrderWeek:'01-01A',ProdKey:1,OutQuantity:0});},
+    f=>{f.outgoing.push({OrderYear:'2026',OrderWeek:'01-01A',ProdKey:1,OutQuantity:1});},
+    f=>{f.adjustments.push({OrderYear:'2026',OrderWeek:'01-01A',ProdKey:1,BeforeValue:0,AfterValue:0,TypeMatches:1});},
+  ]){f=bridged();mutation(f);out=runBridge(f);assert.equal(out.weeks[0].status,'INPUT_REQUIRED');assert.equal(out.weeks[1].openingPolicyMismatch,true);}
+  for(const invalid of [{...integrity,status:'STALE'},{...integrity,policyHash:'unknown'}]){
+    assert.equal(auditStockRange(bridged(),{year:'2026',major:'02'},invalid).weeks[0].status,'INPUT_REQUIRED');
+  }
+  f=bridged();f.incoming.push({OrderYear:'2025',OrderWeek:'01-01A',ProdKey:1,OutQuantity:999});assert.equal(runBridge(f).weeks[1].status,'MATCH');
+  const neg={opening:0,receipt:27,shipped:27.07,adjusted:0,closing:-.07,expected:-.07,difference:0};
+  assert.equal(explainNegativeStock(neg).code,'SHIPMENT_SHORTFALL');
+  assert.equal(explainNegativeStock({...neg,opening:1,receipt:0,shipped:0,adjusted:-2,closing:-1,expected:-1}).code,'ADJUSTMENT');
+  assert.equal(explainNegativeStock({...neg,opening:-.07,receipt:0,shipped:0}).code,'OPENING_CARRY');
+  assert.equal(explainNegativeStock({...neg,expected:null}).code,'UNVERIFIED');
+  assert.equal(explainNegativeStock({...neg,difference:1}).code,'SNAPSHOT_MISMATCH');
+  assert.equal(explainNegativeStock({...neg,adjusted:-1}).code,'SHIPMENT_AND_ADJUSTMENT');
+  assert.equal(explainNegativeStock({...neg,closing:0}),null);
+  f=fixture();f.outgoing[0].OutQuantity=16;f.stocks[1].Stock=-1;f.stocks[2].Stock=-2;
+  out=run(f);assert.equal(out.weeks[0].status,'MATCH');assert.equal(out.weeks[0].negativeCount,1);assert.equal(out.weeks[0].negativeProductCount,1);
+  assert.equal(out.weeks[0].entries[0].negativeCause.code,'SHIPMENT_SHORTFALL');
+  f=fixture();out=run(f);
   assert.equal(finite(null),null);assert.equal(finite(0),0);assert.equal(roundQty(-1.235),-1.24);assert.equal(roundQty(1.235),1.24);
   assert.equal(auditUnitFactor({...product,OutUnit:'박스',BunchOf1Box:20}),20);assert.equal(auditUnitFactor({...product,OutUnit:'박스'}),null);
   f=fixture();f.prices=[{OrderYear:'2026',OrderWeek:'01-01',ProdKey:1,Price:100,EvidenceStatus:'VERIFIED',SourceRef:'fixture',EffectiveAt:'2026-01-01',ConfirmedBy:'fixture',ConfirmedAt:'2026-01-01'}];
@@ -62,6 +105,7 @@ const fs = require('node:fs');
   const ui=fs.readFileSync('components/ProfitIndependentAudit.js','utf8');
   assert.match(ui,/method: 'GET'/);assert.doesNotMatch(ui,/method: 'POST'|snapshotRefresh/);
   assert.match(ui,/미실행/);assert.match(ui,/판정 보류/);assert.match(ui,/전후 원천/);assert.match(ui,/request.current === controller/);
+  assert.match(ui,/negativeProductCount/);assert.match(ui,/negativeCause\?\.text/);assert.match(ui,/legacyBridges/);assert.match(ui,/자동으로 0처리하지 않습니다/);
   const vm=require('node:vm');let calls=0;const ctx={AbortController,console,withAuth:f=>f,
     outputScope:(await import('../lib/profitRangeOutput.mjs')).outputScope,
     collectIndependentAudit:async scope=>{calls++;return {...scope,weeks:[{major:'01',entries:[{fixture:true}],begin:null,end:null},{major:'02',entries:[],begin:null,end:null}]};}};

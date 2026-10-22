@@ -106,14 +106,14 @@ export default function ProfitIndependentAudit({ year, major, report }) {
       {!stable && <p role="alert" className={s.error}>판정 보류: {data.integrity.status === 'STALE' ? '조회 도중 원천이 변경되었습니다. 다시 조회하세요.'
         : data.integrity.status === 'POLICY_CONFLICT' ? '전산 재고 계산 절차가 검증한 버전과 다릅니다. 정책 재확인이 필요합니다.' : '비정상 재고 업무키가 발견되었습니다.'} 아래 수치는 참고이며 정상 판정으로 사용하지 마세요.</p>}
       <p className={s.muted}>수량: {year}년 1~{Number(major)}차 전체 세부차수 · 전후 원천 지문 {stable ? '일치 관측' : '판정 보류'} · {new Date(data.integrity.finishedAt).toLocaleString('ko-KR')}<br />금액 검산은 선택 차수부터 표시합니다. 전체 차수 버튼을 누르면 차례대로 읽으며, 미실행·실패 차수를 정상으로 표시하지 않습니다.</p>
-      {!!data.invalidKeyCount && <p className={s.notice}>조회 구간에 비표준 재고 차수 {data.invalidKeyCount}건이 있습니다. 해당 구간은 자료 확인 필요이며, 그 구간을 넘어 최초 원인을 단정하지 않습니다.</p>}
+      {!!data.invalidKeyCount && <p className={s.notice}>비표준 재고 차수 {data.invalidKeyCount}건은 별도로 대조합니다. 실제 직전 연결·무입출고·동일 수량이 확인된 중간 스냅샷만 이월 추적을 연결하며, 확인되지 않은 구간은 자료 확인 필요로 남깁니다.</p>}
       <button type="button" disabled={busy || !stable} onClick={() => loadReports(data.weeks.map(w => w.major))}>1~{Number(major)}차 금액·수익률도 모두 검산</button>
       <div className={s.horizontal}><table><caption>차수별 수량 원인과 금액 검산 진행 상태 · 행의 상세 버튼으로 확인</caption><colgroup>{[90,190,130,130,130,190].map((width,i)=><col key={i} style={{width}}/>)}</colgroup>
         <thead><tr><th>차수</th><th>수량 판정</th><th>이번 차이</th><th>앞 차수 영향</th><th>조정 품목·차수</th><th>금액·수익률</th></tr></thead>
         <tbody onKeyDown={event => { if (!['ArrowDown','ArrowUp'].includes(event.key)) return; const buttons=[...event.currentTarget.querySelectorAll('button')]; const i=buttons.indexOf(document.activeElement); if(i>=0){event.preventDefault(); buttons[Math.max(0,Math.min(buttons.length-1,i+(event.key==='ArrowDown'?1:-1)))].focus();} }}>
           {data.weeks.map(w => <tr key={w.major} className={selected===w.major?s.total:''}>
             <th><button type="button" disabled={busy} aria-pressed={selected===w.major} onClick={()=>selectWeek(w.major)}>{Number(w.major)}차 상세</button></th>
-            <td>{stable ? labels[w.status] : '판정 보류'}</td><td>{w.localMismatchCount}건</td><td>{w.carriedCount}건</td><td>{w.adjustedCount}건</td>
+            <td>{stable ? labels[w.status] : '판정 보류'}{!!w.negativeCount&&<><br /><span className={s.error}>음수 {w.negativeProductCount}품목 / {w.negativeCount}개 차수 관측</span></>}</td><td>{w.localMismatchCount}건</td><td>{w.carriedCount}건</td><td>{w.adjustedCount}건</td>
             <td>{reports[w.major]?.error ? '조회 실패' : reports[w.major] ? <>{`${reports[w.major].rows.filter(r=>r.mathStatus==='MATCH').length}행 산술 일치 / ${reports[w.major].rows.length}행`}<br />{reports[w.major].formulaAudit.status === 'MATCH' ? `전체 항목식 ${reports[w.major].formulaAudit.checked}개 일치` : `전체 항목식 확인 필요 ${reports[w.major].formulaAudit.issues.length}건`}<br />SQL 매출·매입: {reports[w.major].sqlAudit.status === 'MATCH' ? `${reports[w.major].sqlAudit.checked}개 일치` : labels[reports[w.major].sqlAudit.status]}{reports[w.major].sqlAudit.excludedKeyCount > 0 && <><br />연도키 충돌 제외 {reports[w.major].sqlAudit.excludedKeyCount}건</>}</> : '미실행'}</td>
           </tr>)}
         </tbody></table></div>
@@ -121,6 +121,8 @@ export default function ProfitIndependentAudit({ year, major, report }) {
         <h3>{year}년 {Number(selected)}차 · 수량 원인 상세</h3>
         <p>기초 기준 {week.begin ? `${week.begin.year}/${week.begin.week}`:'스냅샷 없음'} → 기말 기준 {week.end ? `${week.end.year}/${week.end.week}`:'스냅샷 없음'}. {week.checkedCount}개 품목·세부차수 식 비교, 자료 확인 필요 {week.inputRequiredCount}건.</p>
         {week.openingPolicyMismatch&&<p className={s.error}>보고서 기초재고 기준과 전산 재고 계산의 직전 기준({week.firstNativePeriod})이 다릅니다. 53차 또는 비표준 차수의 이월 정책 확인이 필요하며, 어느 쪽도 자동으로 바꾸지 않았습니다.</p>}
+        {week.openingBridge&&<p className={s.notice}>전산 직전 기준 {week.openingBridge.period}는 보고서 기초 기준 {week.openingBridge.basePeriod}에서 수량 변화 없이 연결된 중간 스냅샷입니다. 재고 자료 누락이 아니며, 원장을 변경하지 않았습니다.</p>}
+        {(week.legacyBridges||[]).map(bridge=><p key={bridge.period} className={bridge.status==='VERIFIED_BRIDGE'?s.notice:s.error}>{bridge.period}: {bridge.status==='VERIFIED_BRIDGE'?'이월 연결 검증':'자료 확인 필요'} · {bridge.reason}</p>)}
         <label>국가·품종으로 찾기 <select value={category} onChange={e=>{setCategory(e.target.value);setVisibleCount(30);}}><option value="">전체</option>{[...new Set(week.entries.map(item=>item.category))].sort().map(c=><option key={c}>{c}</option>)}</select></label>
         {week.detailsLoaded === false ? <p>품목별 상세 미조회 · 위 상세 버튼으로 다시 조회하세요.</p> : !week.entries.length ? <p>{week.status==='MATCH'?'현재 자료에서 수량 식의 차이가 발견되지 않았습니다. 실사·단가까지 검증 완료한 것은 아닙니다.':'비교 가능한 재고 자료가 부족합니다. 빈 결과를 정상으로 판단하지 마세요.'}</p>
           : <><p className={s.muted}>선택 분류 {filteredEntries.length}건 중 {Math.min(filteredEntries.length,visibleCount)}건 표시. 기초·입고·출고·조정은 품목의 출고단위 기준입니다.</p><ul className={s.issues}>{filteredEntries.slice(0,visibleCount).map((item,i)=><li key={`${item.period}-${item.prodKey}-${i}`}>
@@ -128,7 +130,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
             <p>기초 {number(item.opening)} + 입고 {number(item.receipt)} − 확정출고 {number(item.shipped)} + 조정 {number(item.adjusted)} = 계산 잔량 {number(item.expected)} {item.unit}<br />저장 잔량 {number(item.closing)} {item.unit} / 이번 차이 {number(item.difference)} {item.unit}</p>
             <p>{item.explanation}</p>
             {item.firstObserved&&<p>조회 범위의 최초 관측 차이: {item.firstObserved}. 기초 이월 차이 {number(item.openingError)}, 기말 누적 차이 {number(item.closingError)} {item.unit}. 실사 정답이 아닌 최초 조회 앵커 대비 추적값입니다.</p>}
-            {item.closing<0&&<p className={s.error}>저장 재고가 음수입니다. 수량 식이 맞더라도 실사·입고 누락 여부를 확인해야 합니다.</p>}
+            {item.closing<0&&<p className={s.error}>저장 재고가 음수입니다. {item.negativeCause?.text || '수량 식이 맞더라도 실사·입고 누락 여부를 확인해야 합니다.'} 자동으로 0처리하지 않습니다.</p>}
             {!!item.adjustmentCount&&<p>재고조정 {item.adjustmentCount}건 포함{item.missingReasonCount ? ` · 사유 없는 이력 ${item.missingReasonCount}건 확인 필요` : ''}. 조정 합계가 0이어도 이력은 표시합니다.</p>}
             <p className={s.muted}>{item.action}</p>
           </li>)}</ul>{filteredEntries.length>visibleCount&&<button type="button" onClick={()=>setVisibleCount(n=>n+30)}>다음 30건 더 보기</button>}</>}
