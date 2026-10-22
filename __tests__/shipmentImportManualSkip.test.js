@@ -292,6 +292,9 @@ test('unknown detailed names cannot collapse into generic species, and wrong sam
   assert.equal(missing.unmatched.length,1);
   const input=allocationRows(['[MEL] 장미 CHINA / 카롤라 (CAROLA)']).map(r=>({...r,prodKey:2739}));
   assert.equal((await preview({},input,'2026',fullCatalog,[])).unmatched.length,1);
+  const specific={...products[2],ProdKey:703,ProdName:'Rose Freedom',DisplayName:'장미',FlowerName:'장미',CountryFlower:'케냐장미'};
+  const abbreviated=await preview({},allocationRows(['Free'],'장미'),'2026',[specific],[]);
+  assert.equal(abbreviated.rows[0].prodKey,703,'generic display field must not hide a unique specific name');
 });
 test('original-name choice keys keep mix variants separate and safely recover old cleaned selections',async()=>{
   const names=[2520,2521].map(key=>fullCatalog.find(p=>p.ProdKey===key).ProdName);
