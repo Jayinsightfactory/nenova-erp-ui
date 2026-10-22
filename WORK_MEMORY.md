@@ -837,3 +837,15 @@
 - 전체 ERP 검사·빌드 통과, 최종 표시 보완 재빌드/PR/배포 진행 중. Excel 자체 머리글 시각검증과 운영 스모크는 미검증. 상세 docs/work-sessions/2026-10-22_receipt-boxes.md.
 - 검색어: 42-1 입고 참고날짜 박스현황 186 도착원가 다운로드 격리SQL
 
+
+
+## 2026-10-22 분배 업로드 수동 매칭·건너뛰기
+- 최신 master aea62143 기반 codex/import-manual-skip 작업트리. Product1717/3085 실측 및 FormShipmentDistribution fresh dnSpy 확인.
+- 수동 키 우선/무효키 자동fallback 금지, 명시 품목 건너뛰기/취소, 제외 시 남은 매칭품목 범위 HMAC/coverage/잠금/검증 일치. 제외·파일밖 품목 보존, 포함 품목 누락업체0 정책 유지.
+- 신규6회귀·관련 업로드 검사·격리 브라우저 수동→제외→재검증→취소→적용 payload 통과. 필수 전체검사 최종/CI/운영 배포 미검증(후속 예정).
+- 운영 쓰기/배포 없음. 사용자 업로드 보호 및 약2시간 유예 유지. docs/work-sessions/2026-10-22_import-manual-skip.md 참조.
+- 검색어: 루스커스 40cm manualChoice IMPORT_SKIP_PRODUCT_VALUE replacementProductKeys PR1213 회귀 업로드보호
+
+- 최종 검증: 전체 test:erp-contract 통과, test:nenova-dnspy-evidence/manifest/write guard 통과. 빌드 통과 후 마지막 UI 비동기 선택 처리까지 최종 재빌드 중. 운영 배포/실파일 적용은 유예 및 미검증.
+
+- 완료 검증: 마지막 UI 비동기 수정 포함 최종 npm run build 성공. 최종 산출물에서 격리 브라우저 전체 흐름 및 전부 건너뛰기 안내/비활성 통과. 전체 ERP 계약·dnSpy·manifest·쓰기 가드 성공. PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1221 draft 생성, CI는 원격 진행 중. 자동화에 작업트리/PR 인계 완료. 약11:22 이후 업로드 종료 확인 전까지 병합/배포 금지. 운영 스모크·실파일 저장·EXE GUI는 미검증.

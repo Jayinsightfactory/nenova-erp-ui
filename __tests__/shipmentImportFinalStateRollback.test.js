@@ -15,6 +15,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { replacementScopeSql } from '../lib/shipmentReplacementPlan.js';
 
 const assertLabel = (label, cond) => {
   if (!cond) { console.error(`  ✗ ${label}`); process.exitCode = 1; }
@@ -39,7 +40,7 @@ async function main() {
     const source = fs.readFileSync('lib/shipmentImport.js', 'utf8').replace(/\r\n/g, '\n');
     const begin = source.indexOf('async function verifyAppliedShipmentRows(');
     const end = source.indexOf('\n}\n', begin) + 2;
-    const verify = vm.runInNewContext(`(${source.slice(begin, end)})`, { sql: { NVarChar: 'nvarchar' }, compareVerifyResult });
+    const verify = vm.runInNewContext(`(${source.slice(begin, end)})`, { sql: { NVarChar: 'nvarchar' }, compareVerifyResult, replacementScopeSql });
     const requested = [{ custKey: 1, prodKey: 389, intended: 8, verifyOrder: false }];
     const data = [
       { year: '2026', week: '36-01', CustKey: 1, ProdKey: 389, OutQuantity: 8, DateQty: 8 },
@@ -158,7 +159,7 @@ async function main() {
   );
   assertLabel(
     '[요구사항5] 같은 트랜잭션 내부(tQ)에서 커밋 전 재조회·검증하고 불일치 시 throw(rollback)',
-    /const inTxVerification = await verifyAppliedShipmentRows\(tQ, week, inTxTargets, orderYear, fullCategoryReplacement\);/.test(src) &&
+    /const inTxVerification = await verifyAppliedShipmentRows\(tQ, week, inTxTargets, orderYear, fullCategoryReplacement, replacementProductKeys\);/.test(src) &&
     /if \(inTxVerification\.mismatchCount > 0\) \{/.test(src) &&
     /err\.code = 'APPLY_VERIFICATION_FAILED';/.test(src),
   );
@@ -173,7 +174,7 @@ async function main() {
   assertLabel(
     'verifyAppliedShipmentRows 는 queryFn 을 주입받아 트랜잭션 내부(tQ)/커밋후(query) 양쪽에서 재사용',
     /async function verifyAppliedShipmentRows\(queryFn, week, targets, orderYear/.test(src) &&
-    /await verifyAppliedShipmentRows\(query, week, dedupedVerifyTargets, orderYear, fullCategoryReplacement\);/.test(src),
+    /await verifyAppliedShipmentRows\(query, week, dedupedVerifyTargets, orderYear, fullCategoryReplacement, replacementProductKeys\);/.test(src),
   );
 
   console.log('\n=== 소스 계약 고정 — API/UI 연동 ===');
