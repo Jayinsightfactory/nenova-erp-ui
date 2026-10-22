@@ -530,3 +530,7 @@ Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 
 - Product1717/3085 DisplayName은 루스커스 그린/루스커스 그린 40CM. 2959=50cm,3023=70cm,2617=이스라엘 샘플,2205의 DB FlowerName은 왁스. 실제 DB 품종은 원본 상품명 추정보다 우선하며 규격을 보존한다.
 - 2025/43-01 해당 두 품목 ViewOrder22/ViewShipment22/Date22/Farm0/Estimate3/확정22/출고58. Amount10368182.145454548,Vat1036818.2245454547. 2026 같은 차수 주문28/출고0/날짜0/농장0/견적0. WebProfitReport2025/2026 MajorWeek43 저장행0. 견적노출 DetailFix+Date+Order+PeriodDay는 같은 세션 앞선 probe22/0 참조.
 - sourceProductFamily(row/heading), catalog 정확 이름 우선, Ruscus Green 규격 별칭을 회귀검증. 실제 XLSX→실제 preview에서 수동0회로1717/3085 자동 연결. 연도2025/2026,수국/장미/알스트로/루스커스 제목,동명/잘못된키/교차품종 fuzzy 차단 및 원장 불변 검사. writer/SQL/환산 공식 변경 없음. 실제 파일 저장과 EXE GUI는 미검증.
+## 2026-10-22 전체 품목 원문 매칭 복구
+- 설치 EXE FormShipmentDistribution dnSpy CLI 재실행. 선택 연도·차수·업체 Master 조회, 상세/농장/날짜 저장 순서 그대로. 이름 정규화/매칭은 웹 preview 정책이며 native SQL writer 변경 없음.
+- 실제 Product3359품목6175이름 SELECT 후 과거/현재 parser와preview 오프라인 비교. 이름 유일 후보 우선, 중복은 현재 연도차수업체의 양수 주문 또는 명시 선택 근거 필요. 잘못된 generic 품목 fallback 제거.
+- 실제 SELECT1043/1044/2738/2739,2025·2026의43-01: ViewOrder/ViewShipment/ShipmentDate/ShipmentFarm/Estimate/DetailFix1+Date+Order+PeriodDay 견적노출/확정매출 모두0. 기존 Ruscus downstream probe는 위 기록 참조. 시험 쓰기 없음. 실제 사용자 파일 적용/EXE GUI 미검증.

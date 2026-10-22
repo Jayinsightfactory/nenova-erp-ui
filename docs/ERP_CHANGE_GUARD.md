@@ -971,3 +971,6 @@ PR1213의 제목 우선 규칙은 혼합 파일의 루스커스를 수국으로 
 # 2026-10-22 열린 업로드의 품종 수정 전 선택 보존
 
 품종 suffix가 변경되면 동일 파일의 수동/건너뛰기 키가 낡을 수 있다. preview는 동일 sheet+normalized label이 유일하고 이전 선택도 하나일 때만 복원한다. 현재 정확한 키 우선, 모호하면 미매칭으로 재선택 요청. `shipmentImportManualSkip.test.js`에서 2025/2026 기존 원장 보존·수동/무효/skip·충돌을 실행 검증한다. 실제 dnSpy와 읽기 전용 downstream 증거는 이번 세션의 `docs/plans/import-family-recovery-2026-10-22.md` 및 exe-golden 기록을 따른다. 쓰기/수식/ERP 계약 범위 변경 없음.
+## 2026-10-22 전체 원문 자동매칭 및 오연결 차단
+- DB 활성3359품목6175이름을 과거 parser/preview와 비교해 누락269명칭과 신규 오연결61품목 재현. 유일 원문이 품종 추론보다 우선하고 중복은 명시 국가품종/품종/동일 연도차수업체 주문으로만 구분한다. 일반 ROSE로의 fuzzy 대체 금지.
+- `shipmentImportManualSkip.test.js` 전체 카탈로그2025/2026 fixture에서 기대키6159건 일치, 오연결0, 실제 중복16명칭 명시차단. 원문별 선택키·이전 키 유일 복원·MIX 규격별skip·서명범위 보존 검증. [기준표](plans/import-catalog-recovery-2026-10-22.md).
