@@ -1,0 +1,3834 @@
+{
+ "observedOn": "2026-10-22",
+ "site": "ECOUNT logincc.ecount.com/ec56 (owner session in Claude tab group, read-only survey)",
+ "method": "in-page survey of P020~P039 남은 28 programs: hash navigate, open search panel, enumerate visible controls [label, disabled, ctxCode], visible input fields [label, type, required], click 간편검색 presets (except 설정/검색(F8)) and read the date widget; no save/confirm/delete/transmit clicked; ECOUNT confirm dialogs cancelled with 취소/닫기; page alert/confirm silenced (confirm→false)",
+ "privacy": {
+  "rawBusinessValues": false,
+  "personalData": false,
+  "accountValues": false,
+  "credentials": false,
+  "sessionUrls": false
+ },
+ "notes": [
+  "transcribed from in-page compact rows (panelText cut at 300 chars); ctx codes T/S/B/D/O → wrapper-toolbar / header-search-btn-group / toolbar-collapse / dialog / other; fields carry label/type/required only",
+  "retry pass rows replace first-pass rows only when richer: none",
+  "not rendered (sitemap link only) and excluded: none",
+  "2026-10-21 조사의 이어서(같은 방법). 세무신고사업장 사업자번호는 [사업자번호]로 마스킹"
+ ],
+ "errors": [],
+ "results": {
+  "E010712": {
+   "title": "거래이력조회(회계)",
+   "panelText": "기본 전체 작업일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 작업시간 사용 전표일자 사용안함 전표상태 전체 전자결재 미확인 확인 거래처 부서 거래유형 계정 금액 ~ 적요 회계전표No. 작업자 행위 기타 최종이력만 검색 수정순 기본(수정불가) 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "사용안함",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22 26 10"
+    ],
+    [
+     "기본(수정불가)",
+     "26 10 01 ~ 26 10 22 26 10"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 26 10"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 26 10"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 26 10"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 26 10"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 26 10"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 09 30 26 10"
+    ]
+   ]
+  },
+  "E010705": {
+   "title": "잔액재집계",
+   "panelText": "",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "잔액재집계(F8)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     ""
+    ]
+   ]
+  },
+  "C000053": {
+   "title": "출력물",
+   "panelText": "",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "잔액재집계",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     ""
+    ]
+   ]
+  },
+  "E010211": {
+   "title": "잔액실사조회",
+   "panelText": "기본 기준일자 26 / 09 / ~ 26 / 10 / 부서 거래처 계정 금액 ~ 적요 최종작업일자 사용 최종수정자 삭제구분 전체 미삭제 삭제 구분 전체 계정별 거래처별 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 전월+금월 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "신규(F2)",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "선택삭제",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 22 ~ 26"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 ~ 26"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 ~ 26"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 ~ 26"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 ~ 26"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 ~ 26"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 ~ 26"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 22 ~ 26"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 10 22 ~ 26"
+    ]
+   ]
+  },
+  "E010849": {
+   "title": "(세금)계산서진행단계",
+   "panelText": "기본 기준일자 직접입력 26 / 09 / ~ 26 / 10 / 발행일자 직접입력 ==== / == / ~ ==== / == / 회계전표No. 거래처 거래처관리담당자 부서등록 금액 ~ 승인번호 계산서분류 전체 계산서 계산서(고정자산) 세금계산서 세금계산서(고정자산) 영세율 (세금)계산서구분 작성자 최종수정자 적용양식 세금계산서 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 전월+금월 다시작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "세금계산서",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "발행",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "발행취소",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "매출전표 I 생성",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "즉시전송",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Email",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Email예약",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Email예약취소",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "인증서관리",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "자동알림",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 ~ ~"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 ~ ~"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 ~ ~"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "다시작성",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ]
+   ]
+  },
+  "E010723": {
+   "title": "각종구분값변경",
+   "panelText": "기준일자 26 / 09 / ~ 26 / 10 / 거래처 세무신고거래처코드 거래처관리담당자 부서 매출/매입 구분 매출 매입 전체 예정누락 정상 예정누락 (세금)계산서구분 진행상태 전체 미발행 전송완료 메일발송완료 타발행 기한후발행 순서 일자순 거래처순 세무신고거래처순 구분순 최초작성자 최종수정자 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 전월+금월 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "전체",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종이(세금)계산서",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "변경",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기한후발행",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기한내발행으로변경",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "타발행",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "전자로변환",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 22"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 10 22"
+    ]
+   ]
+  },
+  "E010726": {
+   "title": "이카운트 vs 홈택스 자료비교",
+   "panelText": "기준일자 26 / 09 / ~ 26 / 10 / 거래처 세무신고거래처코드 거래처관리담당자 매입/매출구분 매출 매입 계산서분류 전체 세금계산서 계산서 수정세금계산서 수정계산서 세금계산서종류 전체 일반 일반(수정) 영세율 수입 수입(수정) 구분 거래처별 건별(국세청) 자료기준 전체 일치 불일치 일자 불일치 제외 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 이번기수 직전기수 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 09 22 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "이번기수",
+     "26 01 01 ~ 26 10 22"
+    ],
+    [
+     "직전기수",
+     "25 01 01 ~ 25 12 31"
+    ],
+    [
+     "다시 작성",
+     "26 09 22 ~ 26 10 22"
+    ]
+   ]
+  },
+  "E030206": {
+   "title": "매출(세금)계산서요약",
+   "panelText": "기본 전체 구분 세금계산서 계산서 기준일자 26 / 10 ~ 26 / 10 부서 기타 결재방표시 검색(F8) 금월(~오늘) 전월 이번기수 직전기수 직전분기 직전반기 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전분기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전반기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09 26 09 ~ 26"
+    ],
+    [
+     "이번기수",
+     "26 01 ~ 26 10 26 01 ~ 26"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12 25 01 ~ 25"
+    ],
+    [
+     "직전분기",
+     "26 07 ~ 26 09 26 07 ~ 26"
+    ],
+    [
+     "직전반기",
+     "26 01 ~ 26 06 26 01 ~ 26"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 06 26 01 ~ 26"
+    ]
+   ]
+  },
+  "E010729": {
+   "title": "전자(세금)계산서리스트",
+   "panelText": "기본 일자 전월+금월 26 / 09 / ~ 26 / 10 / 전송일자 사용 구분 전체 매출 매입 세무신고사업장 (주) 네노바 [사업자번호] 승인번호 공급자사업자번호 공급자상호 공급받는자사업자번호 공급받는자상호 기준품목 계산서분류 전체 세금계산서 계산서 수정세금계산서 수정계산서 계산서종류 전체 일반 일반(수정) 영세율 수입 수입(수정) 양식 적용양식 ㅇㅇ 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 전월+금월 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "(주) 네노바 [사업자번호]",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "ㅇㅇ",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "매출전표 I",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "즉시조회",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "인증서관리",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "매핑조회",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 22 26 09"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 26 09"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 26 09"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 26 09"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 26 09"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 26 09"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 26 09"
+    ],
+    [
+     "종료일",
+     "26 09 30 ~ 26 09 30 26 09"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 22 26 09"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 10 22 26 09"
+    ]
+   ]
+  },
+  "E010732": {
+   "title": "현금영수증리스트",
+   "panelText": "기본 일자 전월+금월 26 / 09 / ~ 26 / 10 / 구분 전체 매출 매입 세무신고사업장 (주) 네노바 [사업자번호] 승인번호 사용자명 가맹점사업자번호 가맹점상호 거래구분 전체 승인거래 취소거래 공제여부 전체 공제 불공제 양식 적용양식 기본(수정불가) 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 전월+금월 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "(주) 네노바 [사업자번호]",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월+금월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "매출전표 I",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "즉시조회",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "인증서관리",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "매핑조회",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 ~ ~"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 ~ ~"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 ~ ~"
+    ],
+    [
+     "종료일",
+     "26 09 30 ~ 26 09 30 ~ ~"
+    ],
+    [
+     "전월+금월",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ],
+    [
+     "다시 작성",
+     "26 09 01 ~ 26 10 22 ~ ~"
+    ]
+   ]
+  },
+  "E010727": {
+   "title": "매출(세금)계산서조회",
+   "panelText": "기본 기준일자 최근30일(+1개월) 26 / 09 / ~ 26 / 11 / 회계전표No. 부서 거래처 거래처관리담당자 부가세유형 최종수정자 발송여부 전체 미발송 발송 양식 적용양식 기본 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 직전분기 직전반기 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전분기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전반기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "Email",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "대화방",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "선택삭제",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 22 ~ 26 11 21"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "직전분기",
+     "26 07 01 ~ 26 09 30"
+    ],
+    [
+     "직전반기",
+     "26 01 01 ~ 26 06 30"
+    ],
+    [
+     "다시 작성",
+     "26 01 01 ~ 26 06 30"
+    ]
+   ]
+  },
+  "E010845": {
+   "title": "매출(세금)계산서현황",
+   "panelText": "기본 기준일자 최근30일 26 / 09 / ~ 26 / 10 / 회계전표No. 부서 거래처 거래처관리담당자 기타 세무신고거래처 부가세유형 상태 전체 결재중 미확인 확인 양식 적용양식 청구서 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 직전분기 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "청구서",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전분기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 09 22 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "직전분기",
+     "26 07 01 ~ 26 09 30"
+    ],
+    [
+     "다시 작성",
+     "26 07 01 ~ 26 09 30"
+    ]
+   ]
+  },
+  "E010716": {
+   "title": "매입청구서조회",
+   "panelText": "기본 기준일자 최근30일(+1개월) 26 / 09 / ~ 26 / 11 / 회계전표No. 부서 거래처 거래처관리담당자 부가세유형 최종수정자 양식 적용양식 기본 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 직전분기 직전반기 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전분기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전반기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "대화방",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "선택삭제",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 22 ~ 26 11 21"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "직전분기",
+     "26 07 01 ~ 26 09 30"
+    ],
+    [
+     "직전반기",
+     "26 01 01 ~ 26 06 30"
+    ],
+    [
+     "다시 작성",
+     "26 01 01 ~ 26 06 30"
+    ]
+   ]
+  },
+  "E010846": {
+   "title": "매입(세금)계산서현황",
+   "panelText": "기본 기준일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 회계전표No. 부서 거래처 거래처관리담당자 부가세유형 상태 전체 결재중 미확인 확인 양식 적용양식 기본(수정불가) 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 직전분기 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전분기",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "직전분기",
+     "26 07 01 ~ 26 09 30"
+    ],
+    [
+     "다시 작성",
+     "26 07 01 ~ 26 09 30"
+    ]
+   ]
+  },
+  "E010610": {
+   "title": "고정자산리스트",
+   "panelText": "기본 전체 고정자산코드 고정자산명 부서 고정자산계정 감가상각계산여부 전체 계산 계산안함 그룹코드1 그룹코드2 적요 기본(수정불가) 검색(F8) 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "신규(F2)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "사용중단/재사용",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "웹자료올리기",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "~ ~ ~"
+    ],
+    [
+     "기본(수정불가)",
+     "~ ~ ~"
+    ],
+    [
+     "다시 작성",
+     "~ ~ ~"
+    ]
+   ]
+  },
+  "E010611": {
+   "title": "고정자산증가",
+   "panelText": "",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "세.계(고정자산)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "저장(F8)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "저장/전표(F7)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "리스트",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "26",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "거래처",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "고정자산",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "공급가액",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "부가세",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "수수료",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "적요",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "출금계좌",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "부서",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     ""
+    ]
+   ]
+  },
+  "E010612": {
+   "title": "고정자산감소",
+   "panelText": "",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "세.계(고정자산)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "저장(F8)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "저장/전표(F7)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "리스트",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [
+    [
+     "26",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "거래처",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "고정자산",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "매각",
+     "radio",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "폐기",
+     "radio",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "취득원가",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "감가상각누계액",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "공급가액(매각액)",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "부가세",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "수수료",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "처분이익또는처분손실",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "처분손익계정",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "적요",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "입금계좌",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ],
+    [
+     "부서",
+     "text",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     ""
+    ]
+   ]
+  },
+  "E010619": {
+   "title": "고정자산전표조회",
+   "panelText": "기본 기준일자 최근30일(+1개월) 26 / 09 / ~ 26 / 11 / 고정자산계정 고정자산 구분 전체 자산증가 매각 폐기 감가상각 기타 수정순 양식 적용양식 기본(수정불가) 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "고정자산증가",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "내역등록",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "선택삭제",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [
+    [
+     "",
+     "checkbox",
+     "",
+     0,
+     "",
+     0
+    ]
+   ],
+   "presets": [
+    [
+     "initial",
+     "26 09 22 ~ 26 11 21 26 09"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22 26 09"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21 26 09"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22 26 09"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17 26 09"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22 26 09"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30 26 09"
+    ],
+    [
+     "종료일",
+     "26 09 30 ~ 26 09 30 26 09"
+    ],
+    [
+     "다시 작성",
+     "26 09 30 ~ 26 09 30 26 09"
+    ]
+   ]
+  },
+  "E010613": {
+   "title": "고정자산대장",
+   "panelText": "기본 조회일자 금일 26 / 10 / 부서 고정자산계정 고정자산 감가상각계산여부 전체 계산 계산안함 상태 전체 보유 상각완료 양식 적용양식 기본(수정불가) 양식구분 결재방표시 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 금년 전년 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 30"
+    ],
+    [
+     "금년",
+     "26 12 31"
+    ],
+    [
+     "전년",
+     "25 12 31"
+    ],
+    [
+     "다시 작성",
+     "25 12 31"
+    ]
+   ]
+  },
+  "E010614": {
+   "title": "고정자산증가내역",
+   "panelText": "기본 기준일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 부서 고정자산계정 고정자산 양식 적용양식 기본(수정불가) 양식구분 결재방표시 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 이번기수 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "이번기수",
+     "26 01 01 ~ 26 10 22"
+    ],
+    [
+     "다시 작성",
+     "26 01 01 ~ 26 10 22"
+    ]
+   ]
+  },
+  "E010615": {
+   "title": "고정자산감소내역",
+   "panelText": "기본 기준일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 부서 고정자산계정 고정자산 양식 적용양식 기본(수정불가) 양식구분 결재방표시 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 이번기수 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "이번기수",
+     "26 01 01 ~ 26 10 22"
+    ],
+    [
+     "다시 작성",
+     "26 01 01 ~ 26 10 22"
+    ]
+   ]
+  },
+  "E010617": {
+   "title": "고정자산증감대장",
+   "panelText": "기본 구분 원가+충당금 취득원가 감가상각충당금 기준일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 부서 고정자산계정 고정자산 양식 적용양식 기본(수정불가) 양식구분 결재방표시 정렬/소계기준 설정 데이터 보기형식 그래프로 보기 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 이번기수 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar.toolbar-collapse"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "이번기수",
+     "26 01 01 ~ 26 10 22"
+    ],
+    [
+     "다시 작성",
+     "26 01 01 ~ 26 10 22"
+    ]
+   ]
+  },
+  "E010618": {
+   "title": "고정자산수불부",
+   "panelText": "기본 구분 일반 집계표 조회일자 금월(~오늘) 26 / 10 / ~ 26 / 10 / 부서 고정자산계정 고정자산 양식 적용양식 기본(수정불가) 양식구분 결재방표시 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "기본(수정불가)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "인쇄",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "Excel",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22 ~ 26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 ~ 26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 18 ~ 26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 11 ~ 26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 01 ~ 26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 01 ~ 26 09 30"
+    ],
+    [
+     "종료일",
+     "26 09 30 ~ 26 09 30"
+    ],
+    [
+     "다시 작성",
+     "26 09 30 ~ 26 09 30"
+    ]
+   ]
+  },
+  "E010616": {
+   "title": "감가상각계산",
+   "panelText": "기본 기준일자 25 / 10 ~ 26 / 10 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 금년 전년 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Search(F3)",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전년",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "신규(F2)",
+     "",
+     0,
+     "wrapper-toolbar"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "25 10 ~ 26 10"
+    ],
+    [
+     "금일",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전일",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전주",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09"
+    ],
+    [
+     "금년",
+     "26 01 ~ 26 12"
+    ],
+    [
+     "전년",
+     "25 01 ~ 25 12"
+    ],
+    [
+     "다시 작성",
+     "25 01 ~ 25 12"
+    ]
+   ]
+  },
+  "E010824": {
+   "title": "월별원가분석",
+   "panelText": "기본 전체 기준일자 26 / 01 ~ 26 / 10 부서 구분 제품제조 5018 용역 6018 기타 7018 기타 결재방표시 기초,당기,기말표시 월별원가 검색(F8) 금월(~오늘) 전월 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "월별원가",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "월별원가",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09"
+    ],
+    [
+     "이번기수",
+     "26 01 ~ 26 10"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 10"
+    ]
+   ]
+  },
+  "E010816": {
+   "title": "원가명세서",
+   "panelText": "기본 전체 구분 제품제조 5018 용역 6018 기타 7018 부서표시방법 집계 종 횡 기준일자 26 / 01 ~ 26 / 10 직전기수 전기동일기간 당기누계 직접입력 선택안함 부서 기타 천단위 잔액0포함 내역없는부서/프로젝트제외 전표발생계정 현황 검색(F8) 금월(~오늘) 전월 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "현황",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "현황",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "전월",
+     "26 09 ~ 26 09 25 01 ~ 25"
+    ],
+    [
+     "이번기수",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ],
+    [
+     "직전기수",
+     "25 01 ~ 25 12 24 01 ~ 24"
+    ],
+    [
+     "다시 작성",
+     "26 01 ~ 26 10 25 01 ~ 25"
+    ]
+   ]
+  },
+  "E010822": {
+   "title": "채권/채무회수기간표",
+   "panelText": "기본 전체 조회일자 26 / 10 / 거래처 대표거래처로 합산 거래처관계기준 개별거래처기준 계정 부서 거래처관리담당자 기타 결재방표시 사용중단거래처포함 현황 검색(F8) 금일 전일 금주(~오늘) 전주 금월(~오늘) 전월 종료일 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "현황",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금주(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전주",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금월(~오늘)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전월",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "종료일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 22"
+    ],
+    [
+     "현황",
+     "26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21"
+    ],
+    [
+     "금주(~오늘)",
+     "26 10 22"
+    ],
+    [
+     "전주",
+     "26 10 17"
+    ],
+    [
+     "금월(~오늘)",
+     "26 10 22"
+    ],
+    [
+     "전월",
+     "26 09 30"
+    ],
+    [
+     "종료일",
+     "26 09 30"
+    ],
+    [
+     "다시 작성",
+     "26 10 22"
+    ]
+   ]
+  },
+  "E010823": {
+   "title": "채권/채무잔액분석표",
+   "panelText": "기본 전체 구분 채권 채무 조회일자 26 / 10 / 거래처 거래처관리담당자 부서 기타 결재방표시 담당자별집계 잔액0포함 천단위 사용중단거래처포함 대표거래처로 합산 거래처관계기준 개별거래처기준 출력물 검색(F8) 금일 전일 이번기수 직전기수 설정 다시 작성",
+   "controls": [
+    [
+     "사이트맵",
+     "",
+     0,
+     "other"
+    ],
+    [
+     "Option",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "도움말",
+     "",
+     0,
+     "wrapper-toolbar"
+    ],
+    [
+     "출력물",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "검색(F8)",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "금일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "전일",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "이번기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "직전기수",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "설정",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ],
+    [
+     "다시 작성",
+     "",
+     0,
+     "wrapper-toolbar.header-search-btn-group"
+    ]
+   ],
+   "fields": [],
+   "presets": [
+    [
+     "initial",
+     "26 10 22"
+    ],
+    [
+     "출력물",
+     "26 10 22"
+    ],
+    [
+     "금일",
+     "26 10 22"
+    ],
+    [
+     "전일",
+     "26 10 21 26 10 21"
+    ],
+    [
+     "이번기수",
+     "26 10 22 26 10 22"
+    ],
+    [
+     "직전기수",
+     "25 12 31 25 12 31"
+    ],
+    [
+     "다시 작성",
+     "25 12 31 25 12 31"
+    ]
+   ]
+  }
+ }
+}
