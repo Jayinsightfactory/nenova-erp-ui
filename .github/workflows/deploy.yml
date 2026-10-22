@@ -99,6 +99,9 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          # Tests plus webpack can exceed ssh-action's default ten minutes.
+          # Keep code-only migration gates and atomic build swap unchanged.
+          command_timeout: 30m
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
