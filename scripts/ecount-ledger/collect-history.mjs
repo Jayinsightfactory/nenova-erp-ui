@@ -32,7 +32,14 @@ function stopDaemon() {
   const daemon = procs.filter((p) => /daemon\.mjs/i.test(p.CommandLine) && !/ecount-daemon-start/i.test(p.CommandLine));
   for (const p of launcher) { log(`데몬 런처 종료 pid=${p.ProcessId}`); spawnSync('taskkill', ['/PID', String(p.ProcessId), '/F']); }
   for (const p of daemon) { log(`데몬 종료 pid=${p.ProcessId} (브라우저 자식 포함)`); spawnSync('taskkill', ['/PID', String(p.ProcessId), '/F', '/T']); }
-  if (launcher.length || daemon.length) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 4']);
+  // 데몬의 Chromium(ecount-profile 사용)이 살아 있으면 프로필 잠금으로 새 컨텍스트가 깨진다 → 남은 브라우저까지 종료하고 완전히 사라질 때까지 대기(최대 30초)
+  const chromeQ = "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'chrome.exe' -and $_.CommandLine -match 'ecount-profile' } | Select-Object -ExpandProperty ProcessId";
+  const listChrome = () => (spawnSync('powershell', ['-NoProfile', '-Command', chromeQ], { encoding: 'utf8' }).stdout || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  let rest = listChrome();
+  if (rest.length) { log(`데몬 브라우저 종료 ${rest.length}개(ecount-profile)`); for (const pid of rest) spawnSync('taskkill', ['/PID', pid, '/F']); }
+  for (let i = 0; i < 15 && (rest = listChrome()).length; i++) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 2']);
+  if (rest.length) log(`⚠ ecount-profile 브라우저 ${rest.length}개가 아직 남아 있음`);
+  if (launcher.length || daemon.length) spawnSync('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 3']);
   return { wasRunning: !!(launcher.length || daemon.length), launcher: launcher.length, daemon: daemon.length };
 }
 function restartDaemon(state) {
@@ -137,9 +144,17 @@ async function main() {
     if (!base) { // 자동 로그인 금지: 사람이 열린 창에서 로그인할 때까지 대기(최대 15분)
       log('⚠ 로그인 필요 — 열린 창에서 직접 로그인하세요(최대 15분 대기).');
       await page.goto('https://login.ecount.com/').catch(() => {});
+      let lastClick = 0;
       for (let i = 0; i < 300 && !base; i++) {
         await page.waitForTimeout(3000);
-        if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { await page.waitForTimeout(5000); base = await ensureBooted(page); }
+        if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { await page.waitForTimeout(5000); base = await ensureBooted(page); continue; }
+        // 데몬(daemon.mjs)과 동일: 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 로그인 버튼을 누른다(값 입력은 하지 않음). 5분 1회.
+        if (Date.now() - lastClick > 5 * 60 * 1000) {
+          try {
+            const ok = await page.evaluate(() => ['com_code', 'id', 'passwd'].every((k) => { const e = document.getElementById(k); return e && e.value && e.value.length > 0; }));
+            if (ok) { lastClick = Date.now(); log('🔑 저장된 로그인 정보가 채워져 있어 로그인 버튼을 누릅니다.'); await page.click('#save', { timeout: 3000 }).catch(() => {}); await page.waitForTimeout(6000); }
+          } catch {}
+        }
       }
       if (!base) throw new Error('로그인 대기 시간 초과');
     }
