@@ -27,4 +27,3 @@ PR1213의 제목 우선/교차품종 차단이 원인. PR1221은 수동 선택�
 - 복수 원본 품종 또는 복수 이전 선택이면 자동 추측하지 않고 해당 행을 미매칭으로 남겨 다시 선택하도록 한다. 다른 시트/품목 선택은 적용하지 않는다.
 - 수동 선택, 유효하지 않은 선택, 건너뛰기를 모두 보존한다. 적용 연도 2025/2026 교차 fixture로 확인한다.
 - 기존 dnSpy/읽기 전용 DB probe 증거와 downstream 표를 그대로 적용한다. 이번 변경은 preview 선택 해석만이며 OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/WebProfitReport 쓰기 및 수식 변경 없음.
-

@@ -971,4 +971,3 @@ PR1213의 제목 우선 규칙은 혼합 파일의 루스커스를 수국으로 
 # 2026-10-22 열린 업로드의 품종 수정 전 선택 보존
 
 품종 suffix가 변경되면 동일 파일의 수동/건너뛰기 키가 낡을 수 있다. preview는 동일 sheet+normalized label이 유일하고 이전 선택도 하나일 때만 복원한다. 현재 정확한 키 우선, 모호하면 미매칭으로 재선택 요청. `shipmentImportManualSkip.test.js`에서 2025/2026 기존 원장 보존·수동/무효/skip·충돌을 실행 검증한다. 실제 dnSpy와 읽기 전용 downstream 증거는 이번 세션의 `docs/plans/import-family-recovery-2026-10-22.md` 및 exe-golden 기록을 따른다. 쓰기/수식/ERP 계약 범위 변경 없음.
-
