@@ -79,10 +79,19 @@ const row = (p, qty) => ({ custKey: 1, custName: 'Fixture', prodKey: p.prodKey, 
     await click('이 품목 건너뛰기'); await click('선택 반영 후 다시 검증');
     await page.waitForFunction(() => !document.querySelector('[role=dialog]'));
     await page.setViewport({ width: 1280, height: 800 });
+    await page.screenshot({ path: path.join(dir, 'choices-preview.png'), fullPage: true });
     await click('승인 후 주문등록+분배');
     await page.waitForFunction(() => document.body.innerText.includes('Local fixture captured'));
     assert.equal(applied.length, 1); assert.deepEqual(applied[0].replacementProductKeys, [1717]);
     assert(applied[0].rows.every(r => r.prodKey === 1717)); assert.deepEqual(errors, []);
+    await click('닫기');
+    const second = path.join(dir, 'all-skip.xlsx'); fs.copyFileSync(file, second);
+    await (await page.$('input[type=file]')).uploadFile(second); await click('검증하기');
+    await page.waitForSelector('[role=dialog]');
+    await click('이 품목 건너뛰기'); await click('이 품목 건너뛰기'); await click('선택 반영 후 다시 검증');
+    await page.waitForFunction(() => !document.querySelector('[role=dialog]'));
+    assert.equal(await (await button('승인 후 주문등록+분배')).evaluate(e => e.disabled), true);
+    assert.match(await page.$eval('body', e => e.innerText), /적용할 품목이 없습니다/);
     await page.screenshot({ path: path.join(dir, 'choices.png'), fullPage: true });
     console.log('PASS local UI: manual choice, Space skip, reverify, undo, enabled apply, signed scope payload; all APIs intercepted. Screenshot: ' + path.join(dir, 'choices.png'));
   } finally { await browser.close(); }
