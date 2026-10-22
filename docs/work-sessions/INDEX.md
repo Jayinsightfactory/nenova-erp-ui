@@ -558,3 +558,4 @@
 - [2026-10-21 주광 요일 업로드·수국 품종 범위](2026-10-21_jugwang-weekday-upload.md)
 
 - [2026-10-21 새 파일 기준 자동 범위](2026-10-21_import-file-scope.md)
+- [2026-10-22 중복 품목 확인·수정](2026-10-22_import-duplicate-review.md)

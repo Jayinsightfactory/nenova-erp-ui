@@ -841,6 +841,29 @@ export default function DistributeImport() {
             )}
           </div>
         )}
+        {(preview?.duplicateProductReviews || []).length > 0 && (
+          <section style={{ ...st.message, color: '#334155' }} aria-label="중복 품목 매칭 확인">
+            <strong>중복 품목 매칭 확인·수정</strong>
+            <p>이름이 같은 품목입니다. 코드·국가·품종·단위를 확인하세요. 주문 표시는 {preview.orderYear}년 {preview.week} 차수의 파일 내 연결 업체 기준입니다. 변경 후 다시 검증해야 반영됩니다.</p>
+            {preview.duplicateProductReviews.map(item => {
+              const chosen = prodOverrides[item.key] ?? (item.selectedProdKeys.length === 1 ? item.selectedProdKeys[0] : '');
+              return <div key={item.key} style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontWeight: 700 }}>{item.sheetName} · {item.productLabel}
+                  <select aria-label={`${item.productLabel} 중복 품목 선택`} value={chosen}
+                    disabled={loading || applying} style={{ display: 'block', width: '100%', marginTop: 6, padding: 8 }}
+                    onChange={e => pickProdOverride(item.key, e.target.value)}>
+                    <option value="">{item.selectedProdKeys.length > 1 ? '업체별 연결이 다름 · 변경 시 파일 내 이 품목에 공통 적용' : '품목을 확인해 선택하세요'}</option>
+                    {item.candidates.map(p => <option key={p.prodKey} value={p.prodKey}>{productOptionLabel(p)}</option>)}
+                    {chosen && !isImportSkipProductValue(chosen) && !item.candidates.some(p => String(p.prodKey) === String(chosen)) &&
+                      <option value={chosen}>{productOptionLabel((preview.productOptions || []).find(p => String(p.prodKey) === String(chosen)) || { prodKey: chosen })}</option>}
+                    <option value={IMPORT_SKIP_PRODUCT_VALUE}>이번 파일에서 건너뛰기</option>
+                  </select>
+                </label>
+              </div>;
+            })}
+            <button type="button" style={st.secondaryBtn} disabled={loading || applying} onClick={() => handlePreview()}>중복 품목 선택 반영 후 다시 검증</button>
+          </section>
+        )}
         {staleOverrideWarnings.length > 0 && (
           <div style={{ ...st.error, background: '#fef2f2', borderColor: '#ef4444' }}>
             ⚠ 매칭 반영 실패 {staleOverrideWarnings.length}건 — 지정한 매칭이 검증 결과에 적용되지 않고 미매칭으로 되돌아왔습니다.
@@ -1575,7 +1598,11 @@ function productOptionLabel(p) {
   const name = p.displayName || p.DisplayName || p.prodName || p.ProdName || '';
   const unit = p.outUnit || p.OutUnit || '';
   const cf = p.countryFlower || p.CountryFlower || '';
-  return [name, unit, cf].filter(Boolean).join(' · ');
+  const key = p.prodKey ?? p.ProdKey;
+  const country = p.countryName || p.CounName || cf;
+  const flower = p.flowerName || p.FlowerName || '';
+  const order = p.hasCurrentOrder == null ? '' : p.hasCurrentOrder ? '해당 업체 주문 있음' : '해당 업체 주문 없음';
+  return [name, key != null ? `코드 ${key}` : '', country, flower, unit, order].filter(Boolean).join(' · ');
 }
 
 /** 품목 검색+선택 — CustomerSearchSelect 와 동일 UX (★추천 + 전체 검색, portal 드롭다운).

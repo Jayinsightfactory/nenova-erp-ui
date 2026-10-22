@@ -329,3 +329,27 @@ test('a correctly signed pre-fix preview cannot apply without revalidation',asyn
   b.replacementPlan=encoded+'.'+createHmac('sha256',options.secret).update('shipment-replacement-v1:'+encoded).digest('hex');
   assert.throws(()=>assertReplacementPlan(b,'actor',options),/매칭 기준.*다시 검증/);
 });
+
+test('duplicate review exposes every original candidate and only selected-year customer order evidence', async () => {
+  const catalog = [854,861].map(ProdKey => ({ ProdKey, ProdName:'Hyacinthus / Peach', DisplayName:'히아신스 피치', FlowerName:'히아신스', CounName:'네덜란드', CountryFlower:'네덜란드', OutUnit:'단', EstUnit:'단' }));
+  const rows = [{...sourceRows[0],productLabel:'Hyacinthus / Peach',rawProductLabel:'Hyacinthus / Peach',productFamily:'',sheetName:'히아신스'}];
+  const history = [{year:'2025',week:'43-01',CustKey:1,ProdKey:854,orderQty:3,currentOutQty:0}];
+  for(const year of ['2025','2026']) {
+    const p = await preview({},rows,year,catalog,history);
+    assert.equal(p.duplicateProductReviews.length,1);
+    const review = p.duplicateProductReviews[0];
+    assert.deepEqual(Array.from(review.candidates,p=>p.prodKey),[854,861]);
+    assert.equal(review.candidates[0].hasCurrentOrder,year==='2025');
+    assert.equal(review.candidates[1].hasCurrentOrder,false);
+    assert.equal(review.candidates[0].countryName,'네덜란드');
+    assert.equal(review.candidates[0].flowerName,'히아신스');
+    const choice = importProductOverrideKey(rows[0]);
+    const selected = await preview({[choice]:861},rows,year,catalog,history);
+    assert.deepEqual(Array.from(selected.duplicateProductReviews[0].selectedProdKeys),[861]);
+    const changed = await preview({[choice]:854},rows,year,catalog,history);
+    assert.deepEqual(Array.from(changed.duplicateProductReviews[0].selectedProdKeys),[854]);
+    const skipped = await preview({[choice]:IMPORT_SKIP_PRODUCT_VALUE},rows,year,catalog,history);
+    assert.equal(skipped.duplicateProductReviews.length,0);
+    assert.equal(skipped.skippedProducts.length,1);
+  }
+});
