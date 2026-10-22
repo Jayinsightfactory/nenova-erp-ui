@@ -12,6 +12,8 @@
     "scripts/ecount-ledger/ensure-schema.mjs",
     "scripts/ecount-ledger/load-xlsx.mjs",
     "scripts/ecount-ledger/backfill-legacy.mjs",
+    "scripts/ecount-ledger/collect-history.mjs",
+    "lib/ecountLedger/history.js",
     "docs/migrations/2026-10-22_ecount_schema.sql",
     "docs/ecount-ledger/DESIGN.md"
   ],
@@ -83,7 +85,8 @@
   },
   "requiredTestFiles": [
     "__tests__/ecountLedgerXlsx.test.js",
-    "__tests__/ecountLedgerSchema.test.js"
+    "__tests__/ecountLedgerSchema.test.js",
+    "__tests__/ecountLedgerHistory.test.js"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

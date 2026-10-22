@@ -6,6 +6,8 @@ import { query, sql } from '../../../lib/db.js';
 const VIEW_SUMMARY = {
   cmp_sales_daily: `SELECT COUNT(*) AS total, SUM(CASE WHEN ABS(Diff) > 1 THEN 1 ELSE 0 END) AS diffCnt, SUM(ABS(Diff)) AS diffAmt,
       SUM(CASE WHEN MatchState = N'ecount_only' THEN 1 ELSE 0 END) AS ecountOnly, SUM(CASE WHEN MatchState = N'ours_only' THEN 1 ELSE 0 END) AS oursOnly FROM ecount.cmp_sales_daily`,
+  cmp_sales_week: `SELECT COUNT(*) AS total, SUM(CASE WHEN ABS(Diff) > 1 THEN 1 ELSE 0 END) AS diffCnt, SUM(CASE WHEN ABS(Diff) <= 1 THEN 1 ELSE 0 END) AS zeroDiffCnt, SUM(ABS(Diff)) AS diffAmt,
+      SUM(CASE WHEN MatchState = N'ecount_only' THEN 1 ELSE 0 END) AS ecountOnly, SUM(CASE WHEN MatchState = N'ours_only' THEN 1 ELSE 0 END) AS oursOnly FROM ecount.cmp_sales_week`,
   cmp_ar_balance: `SELECT COUNT(*) AS total, SUM(CASE WHEN ABS(Diff) > 1 THEN 1 ELSE 0 END) AS diffCnt, SUM(ABS(Diff)) AS diffAmt,
       SUM(CASE WHEN MatchState = N'ecount_only' THEN 1 ELSE 0 END) AS ecountOnly, SUM(CASE WHEN MatchState = N'ours_only' THEN 1 ELSE 0 END) AS oursOnly FROM ecount.cmp_ar_balance`,
   cmp_customer_master: `SELECT COUNT(*) AS total, SUM(CASE WHEN Matched = 0 THEN 1 ELSE 0 END) AS diffCnt, CAST(100.0 * SUM(Matched) / NULLIF(COUNT(*), 0) AS DECIMAL(5,1)) AS matchPct FROM ecount.cmp_customer_master`,
