@@ -94,6 +94,23 @@ async function surveyInPage({ hash, minWait }) {
   return { t: document.title, x, c, f, p, w: waited };
 }
 
+// 2026-10-22 --grid 모드(검증용): 기본 조건 그대로 검색(F8) 1회 → 결과 표 머리글·행·하단 합계 텍스트만 읽는다(읽기 전용).
+//   값은 --out 로컬 폴더(git 밖)에만 저장하고 저장소에는 행수·일치 여부만 남긴다. 검색 외 버튼은 누르지 않는다.
+async function gridInPage({ hash, minWait }) {
+  const s = window.__srv; const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const before = document.title; location.hash = hash; await sleep(2500); let waited = 2500;
+  while (waited < minWait) { const c = s.controls(); if (document.title !== before && c.length > 3) break; await sleep(1000); waited += 1000; }
+  await sleep(1200); await s.closeDialogs(); await s.open();
+  let clicked = false;
+  for (const d of s.docs()) { const b = [...d.querySelectorAll('.header-search-btn-group button, .wrapper-header-search button')].find(b => s.vis(b) && /^검색\(F8\)$/.test(b.textContent.trim())); if (b) { b.click(); clicked = true; break; } }
+  await sleep(6000); await s.closeDialogs();
+  const tables = []; for (const d of s.docs()) for (const t of d.querySelectorAll('table')) if (s.vis(t)) tables.push(t);
+  const cell = e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim();
+  const grids = tables.map(t => ({ heads: [...t.querySelectorAll('thead th, thead td')].map(cell), rows: [...t.querySelectorAll('tbody tr')].filter(r => s.vis(r)).slice(0, 3000).map(r => [...r.querySelectorAll('td')].map(cell)), foot: [...t.querySelectorAll('tfoot tr')].map(r => [...r.querySelectorAll('td,th')].map(cell)) })).filter(g => g.rows.length || g.heads.length).sort((a, b) => b.rows.length - a.rows.length).slice(0, 3);
+  const pageText = (document.querySelector('.wrapper-grid-footer, .grid-footer, [class*=total]') || {}).innerText || '';
+  return { t: document.title, clicked, w: waited, grids, pageText: pageText.replace(/\s+/g, ' ').slice(0, 300) };
+}
+
 function writeStatus(out, data) { fs.writeFileSync(path.join(out, '_status.json'), JSON.stringify({ ...data, at: new Date().toISOString() }, null, 1)); }
 
 async function main() {
@@ -171,12 +188,13 @@ async function main() {
       writeStatus(OUT, { state: 'running', program: prg, packet, label, attempt, done: doneCount(), total: list.length });
       let result = null;
       try {
-        result = await Promise.race([page.evaluate(surveyInPage, { hash: await go(hash), minWait: attempt === 1 ? 16000 : 30000 }), new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 180000))]);
+        result = await Promise.race([page.evaluate(process.env.GRID === '1' ? gridInPage : surveyInPage, { hash: await go(hash), minWait: attempt === 1 ? 16000 : 30000 }), new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 180000))]);
       } catch (e) { console.error(`  [${prg}] ${e.message.slice(0, 120)}`); }
       if (!onErp()) continue;                                    // 조사 중 세션이 끊기면 재로그인 후 같은 화면 다시
-      const rendered = result && result.c.some(([l]) => l !== '사이트맵');
+      const rendered = result && (process.env.GRID === '1' ? result.grids.length > 0 : result.c.some(([l]) => l !== '사이트맵'));
       if (result && (rendered || attempt === 3)) {
-        fs.writeFileSync(file, JSON.stringify(mask({ program: prg, packet, menuLabel: label, observedOn: kstDate(), result }), null, 1));
+        fs.writeFileSync(file, JSON.stringify(process.env.GRID === '1' ? { program: prg, packet, menuLabel: label, observedOn: kstDate(), observedAt: new Date().toISOString(), result } : mask({ program: prg, packet, menuLabel: label, observedOn: kstDate(), result }), null, 1));
+        if (process.env.GRID === '1') { console.log(`  [${prg}] grid ${result.grids.map(g => g.rows.length + 'x' + g.heads.length).join(',')} clicked=${result.clicked}`); break; }
         console.log(`  [${prg}] ${packet} ${label}: 컨트롤 ${result.c.length} · 입력칸 ${result.f.length} · 프리셋 ${result.p.length}${rendered ? '' : ' (미렌더)'}`);
         break;
       }

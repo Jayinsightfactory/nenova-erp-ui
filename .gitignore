@@ -104,3 +104,4 @@ data/kakao-change-queue.json
 
 # ECOUNT parity report outputs (large, regenerated per release)
 outputs/
+.ecount-grid-capture/
