@@ -52,7 +52,7 @@ test('uninventoried screens = 373 - pages with buttons, each with a label', () =
   const ids = new Set(m.uninventoried.flatMap(pk => pk.screens.map(s => s.program)));
   assert.equal(ids.size, count, 'no duplicate program across packets');
   for (const pk of m.uninventoried) for (const s of pk.screens) { assert.match(s.program, /^[A-Z]\d{6}$/); assert(s.label && s.label !== '-', `label missing for ${s.program}`); }
-  for (const r of m.rows) if (r.programsWithButtons === 0) assert.match(r.status, /^(원본 미조사|미사용\(관찰 0건\)·(미조사|위험제외) — 구현 대상 제외)$/); else assert.match(r.status, /원본 목록/);
+  for (const r of m.rows) if (r.programsWithButtons === 0) assert.match(r.status, /^(원본 미조사|(미사용\(관찰 0건\)·)?(미조사|위험제외) — 구현 대상 제외)$/); else assert.match(r.status, /원본 목록/);
 });
 
 test('PR section: gh result rendered as table, gh failure falls back to number only', () => {

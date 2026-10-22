@@ -56,7 +56,7 @@ function isVerified(b) {
 
 function packetStatus(c) {
   if (c.programsWithButtons === 0) {
-    if (c.programs > 0 && c.unused + c.riskExcluded === c.programs) return c.riskExcluded ? '미사용(관찰 0건)·위험제외 — 구현 대상 제외' : '미사용(관찰 0건)·미조사 — 구현 대상 제외';
+    if (c.programs > 0 && c.unused + c.riskExcluded === c.programs) return c.riskExcluded ? (c.unused ? '미사용(관찰 0건)·위험제외 — 구현 대상 제외' : '위험제외 — 구현 대상 제외') : '미사용(관찰 0건)·미조사 — 구현 대상 제외';
     return '원본 미조사';
   }
   const scope = c.programsWithButtons < c.programs ? '원본 목록 일부 확보' : '원본 목록 확보';
@@ -187,7 +187,7 @@ function renderMarkdown(m) {
   const align = ['l', 'l', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'l'];
   const toCells = r => [r.id, r.group, r.programs, r.programsWithButtons, r.unused, r.riskExcluded, r.buttons, r['구현'], r['미구현'], r['조건부'], r['미관측'], r['API설계전용'], r.verified, r.status];
   L.push(...table(cols, [...m.rows.map(toCells), toCells(m.totals)], align), '');
-  L.push(`화면 기준: 버튼 목록 확보 ${m.pagesWithButtons}/${m.pages}, 미조사 ${m.pages - m.pagesWithButtons}. 관측 버튼 ${m.totals.buttons}개 중 검증 완료 ${m.totals.verified}개.`, '');
+  L.push(`화면 기준: 버튼 목록 확보 ${m.pagesWithButtons}/${m.pages}, 미조사 ${m.pages - m.pagesWithButtons}(미사용 ${m.totals.unused} · 위험제외 ${m.totals.riskExcluded} · 그 외 ${m.pages - m.pagesWithButtons - m.totals.unused - m.totals.riskExcluded}). 관측 버튼 ${m.totals.buttons}개 중 검증 완료 ${m.totals.verified}개.`, '');
 
   L.push('## 2. 남은 목록 — 프로그램 목록 확보 안 된 화면', '');
   if (!m.uninventoried.length) L.push('없음', '');
