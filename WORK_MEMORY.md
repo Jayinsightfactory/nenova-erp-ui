@@ -947,3 +947,8 @@
 - 원본858+23 계산 일치, 1~41 독립 산술15,058 실패0 및 비교 가능한 E/F 불연속0. 전체 ERP검사/빌드 성공. 전후 관측 DB 지문 동일.
 - PR1249, 최초 기록 시 CI/배포/운영 스모크 대기. 중국26/27 E/F·28 E도 같은 품목19-01 실제 매입/정확환율/도착원가로 해소해 26~31 원가/환율 누락0. 태국38~41 및 초기 일부 원가/18차 환율은 확인 필요.32~41 원본 대조 미검증.
 - 검색어: profit-excel-rulebook 26~31 SQL품목별 호주CNF 판매단가배제 1~41 DB불변
+
+## 2026-10-22 주광 장미 출고일·재고 판정
+- 실제 usp_ShipmentFix는 차수 검산, 주광은 Product.Stock 선차단이라는 불일치 수정. native 증감·cascade·실제 부족 rollback 보존, 임의 재고조정 없음. EXE에서 수정된 운영 날짜/수량 보존.
+- 격리 SQL lifecycle·새 날짜 인쇄/옛 날짜 빈 출력, 교차연도·실패 rollback 통과. ERP 계약·dnSpy·manifest·write guard 성공. 최초 기록 시 빌드/배포 최종 미검증; 세션 md 후속 확인.
+- 검색어: weekday-stock-date native-week-ledger 플라야블랑카 주광 STOCK_SHORTAGE

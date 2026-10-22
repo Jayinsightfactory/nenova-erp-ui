@@ -1,5 +1,15 @@
 # 주광 수량·요일 변경 확정 순서의 native 근거 — 2026-10-09
 
+## 2026-10-22 실제 운영 FIX 판정 정정
+
+설치 EXE FormShipmentDistribution을 dnSpy.Console.exe로 새 추출(exit0). btnFix_Click의 uspShipmentFix 성공 후 uspStockCalculation 호출(추출 942/947행), 취소도 같은 순서(995/1000행). 운영 OBJECT_DEFINITION으로 usp_ShipmentFix/usp_StockCalculation을 읽기 전용 확인했다.
+
+FIX의 부족 판정은 Product.Stock이 아닌 `직전 StockMaster의 ProductStock + 선택 연도/차수 ViewWarehouse - DetailFix=1 ViewShipment + CodeInfo StockType 조정 - 이번 확정량`이다. Product.Stock은 그 후 실제 확정량만 차감하며 CALC는 ProductStock만 재계산한다. 기존 주광 Product.Stock 사전/사후 음수 차단은 이 근거와 달라 normal lifecycle에 한해 차수 검산으로 교체한다. 웹의 소수 셋째자리 부족 차단 및 후속연도 음수 rollback은 유지한다. 기존 누적 현재고를 맞추기 위한 증액·재고조정은 하지 않는다.
+
+운영 읽기 확인: 43-01 미확정 당시 Mondial White60의 Product.Stock220 대 차수검산430, Ocean Song50은60 대70, Shimmer60은0 대10. 10월 StockHistory의 이전 After→다음 Before 단절은 이 5품목(플라야2종 포함)에서0건. 누적 차이는 이번 주광 실패 전부터 있었으며, 43-02 입고도 누적 현재고에 이미 반영되는 반면 차수 검산에는 해당 차수만 반영된다. 최초 역사적 차이 발생 행은 이번 조사에서 확정하지 않았다. 이를 특정 실패 요청의 품목 증거로 과장하지 않는다(실패 요청본문 미보관).
+
+격리 MSSQL fixture: 현재고0/차수재고충분 날짜이동 확정 성공, 현재고는 보충 없이 native25 차감; 실제 차수부족 차단; 교차세부차수/연도, 실패 단계별 전체 rollback, 날짜 저장→실제 ALLOCATION 출력 SQL→HTML 검증. 운영 업무값 쓰기 없음.
+
 ## 새 추출 및 읽기 전용 확인
 설치된 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`에서 dnSpy.Console.exe --no-color -t FormShipmentDistribution, FormEstimateView, FormShipmentView, ClassShipmentDate를 새로 추출했다(모두 exit0). FormEstimate라는 타입은 없어 첫 시도 실패 후 실제 FormEstimateView로 정정했다.
 Ignored `output/early-shipment-integration/fix-cycle-*.txt`와 운영 SELECT-only fix-cycle-probe.jsonl/downstream.jsonl에 원본을 보관한다. 스키마39열, PeriodDay21행, 선택한 주광 업무키 출고7행, 스냅샷15행, CodeInfo StockType8행, 실제 SP3개 정의를 확인했다. 운영 DB를 수정하지 않았다.

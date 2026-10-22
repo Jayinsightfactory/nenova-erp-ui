@@ -984,6 +984,7 @@ export default function Estimate() {
     const requestedWeek = String(params.get('week') || '').replace(/\D/g, '').slice(0, 2);
     const requestedCustKey = Number(params.get('custKey') || 0);
     const requestedCustName = String(params.get('custName') || '').trim();
+    if (params.get('from') === 'weekday' && requestedYear && requestedWeek && requestedCustKey > 0) setAutoLoad(true);
     if (params.get('includeUnfixed') === '1') {
       queryIncludeUnfixedRef.current = true;
       setIncludeUnfixed(true);
