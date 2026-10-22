@@ -10,6 +10,10 @@ on:
         description: Major weeks (comma-separated, at most 6; downloaded one at a time)
         default: '18'
         required: true
+      thai_carry:
+        description: Assert Thai historical acquisition evidence (2026 weeks 38-41)
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -28,5 +32,6 @@ jobs:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
           PROBE_WEEK: ${{ inputs.week }}
+          PROBE_THAI_CARRY: ${{ inputs.thai_carry }}
           CHROME_PATH: /usr/bin/google-chrome
         run: node scripts/profit-production-download-smoke.cjs

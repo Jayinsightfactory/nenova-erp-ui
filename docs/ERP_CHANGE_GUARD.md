@@ -968,6 +968,15 @@ transaction으로 rehearsal/rollback하고 별도 연결에서 함수·데이터
 
 ## 2026-10-22 자동 매칭의 제목 품종 오염
 PR1213의 제목 우선 규칙은 혼합 파일의 루스커스를 수국으로 판정했다. PR1221 수동매칭 복구만으로 자동회귀가 해결되지는 않는다. 원문 행 품종을 우선하며 제목뿐인 힌트는 유일 DB 정확매칭을 막지 않는다. 동명 교차품종·외국품종 fuzzy·충돌키는 차단한다. DB FlowerName과 규격을 보존하고 알려진 품종을 sheetName으로 다시 환산하지 않는다. 실제 XLSX→preview 자동0수동 검증 및 교차연도/수동/skip 회귀: shipmentImportManualSkip.test.js. 기준표: docs/plans/import-family-recovery-2026-10-22.md.
+## 2026-10-22 태국 오래된 원가·환율
+
+최근4차수 창 밖의 태국 매입도 같은 연도·품목의 마지막 완전한 매입과 당시 정확
+환율로 재현한다. 최근 FIFO와 오래된 carry는 loadPurchasePeriodArrivalEvidence를
+공유해 현재 CurrencyMaster 환율이 높은 값으로 통과하는 것을 막는다. 금액 하한
+검사만으로 환율 출처 검증을 대체하지 않는다. 통관 기본값을 실제 청구 확정액으로
+설명하지 않으며 별도 경고로 한계를 표시한다. DB·확정 revision·수량은 보존한다.
+회귀: profitReportAcquisitionCarry.test.cjs. 계획: profit-thai-carry-2026-10-22.md.
+
 # 2026-10-22 열린 업로드의 품종 수정 전 선택 보존
 
 품종 suffix가 변경되면 동일 파일의 수동/건너뛰기 키가 낡을 수 있다. preview는 동일 sheet+normalized label이 유일하고 이전 선택도 하나일 때만 복원한다. 현재 정확한 키 우선, 모호하면 미매칭으로 재선택 요청. `shipmentImportManualSkip.test.js`에서 2025/2026 기존 원장 보존·수동/무효/skip·충돌을 실행 검증한다. 실제 dnSpy와 읽기 전용 downstream 증거는 이번 세션의 `docs/plans/import-family-recovery-2026-10-22.md` 및 exe-golden 기록을 따른다. 쓰기/수식/ERP 계약 범위 변경 없음.

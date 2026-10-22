@@ -1,5 +1,11 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-22] 태국 원가 이월
+- codex/profit-thai-carry, base df626521. 두 품목 34차 매입은 존재하나 FIFO 창 종료+국가 누락으로 38~41 단가 누락.
+- loadPurchasePeriodArrivalEvidence로 과거 매입 환율을 FIFO/오래된 carry에서 공유. 현재 환율에 의한 과대값 방지, legacy 1-01 정규화 회귀 포함.
+- 통관 실제청구 미확인/기본값 한계는 웹 경고. 원장 쓰기 없음. 첫 41차 probe 도중 다른 원천 변화 감지로 전후 검증 재진행.
+- 상세/최종 배포 상태: docs/work-sessions/2026-10-22_profit-thai-carry.md. 최초 기록 시 테스트/배포 진행 중.
+
 ## [2026-10-22] 26~31차 우선 손익 계산 규칙·전산 품목 원가
 - codex/profit-excel-rulebook (base f744878c): 원본 858+23 계산 대조, 추정 평가 경로 제거, 호주 실제 품목 매입+정확 환율 재구성. 사용자 확인: 엑셀 묶음 단가를 색상별 품목으로 복제하지 않음.
 - 수정: profitReport/Valuation/AcquisitionCarry/Audit/SourceGuide/API, 순수 Rulebook, 근거 fixture/계약/회귀검사.
