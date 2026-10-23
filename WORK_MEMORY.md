@@ -1116,3 +1116,8 @@
 - exact100/80, 신규업체8단/80송이, 기존 주문 전열 보존, 반복/감소/0, 교차연도, 환산변조 rollback, 삭제헤더/경합 테스트 통과. 운영 쓰기 없음. 배포 후 결과는 세션 기록 참조.
 - 검색어: china-order-guard-review 주문100 분배80 EstQuantity chinaOrderUnits 삭제출고헤더 dnSpy
 
+## 2026-10-23 네덜란드 물량표 업체·지역·입고 품목
+- CL 별도 행, 지역별 전체 업체 열 이동, 업체/품목 추가 팝업 분리, 주문 없는 입고표 표시.
+- 실제 dnSpy·SELECT-only와 격리 SQL, 왕복/교차연도 fixture 확인. 원장 저장 경로 불변.
+- PR·배포·운영 스모크는 docs/work-sessions/2026-10-23_dutch-arrival-layout.md 후속 기록 참조. 현재 미검증.
+- 검색어: dutch-arrival-layout CL분리 지역이동 입고전용 품목추가

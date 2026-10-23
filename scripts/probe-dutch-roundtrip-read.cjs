@@ -18,6 +18,14 @@ async function main() {
       SELECT COUNT(*) FixedRows,SUM(sd.Amount) Amount,SUM(sd.Vat) Vat
       FROM ShipmentDetail sd INNER JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
       WHERE sm.OrderYear='2026' AND sm.OrderWeek='43-02' AND sd.isFix=1;
+      SELECT vw.OrderYear,vw.OrderWeek,vw.ProdKey,p.OutUnit,SUM(ISNULL(vw.OutQuantity,0)) Incoming,
+        (SELECT COUNT(*) FROM ViewOrder vo WHERE vo.OrderYear=vw.OrderYear
+          AND vo.OrderWeek=vw.OrderWeek AND vo.ProdKey=vw.ProdKey) OrderRows
+      FROM ViewWarehouse vw INNER JOIN Product p ON p.ProdKey=vw.ProdKey
+      WHERE vw.OrderYear='2026' AND vw.OrderWeek='43-01' AND p.CounName=N'네덜란드'
+      GROUP BY vw.OrderYear,vw.OrderWeek,vw.ProdKey,p.OutUnit
+      HAVING NOT EXISTS(SELECT 1 FROM ViewOrder vo WHERE vo.OrderYear=vw.OrderYear
+        AND vo.OrderWeek=vw.OrderWeek AND vo.ProdKey=vw.ProdKey);
     `);
     console.log(JSON.stringify(result.recordsets));
   } finally { await pool.close(); }
