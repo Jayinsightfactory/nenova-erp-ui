@@ -128,6 +128,8 @@ async function main() {
   assert.equal(aliases[23][0].cost, null, 'unknown units never silently become an empty source or 0 cost');
   const { withHotelArrivalReferences } = await import('../lib/raumPnlArrivalReference.js');
   const batch = await withHotelArrivalReferences([{itemKey: 10, prodKey: 456, unit: '단', major: 37}, {itemKey: 11, prodKey: 456, unit: '단', major: 36}], '2026', async (query, params) => {
+    if (query.includes('arrival-invoice:schema')) return {recordset:[{Available:0}]};
+    if (query.startsWith('SELECT ProdKey')) return {recordset:[{ProdKey:456}]};
     assert.equal(params.yr.value, '2026');
     assert.equal(params.major.value, 37);
     return {recordset: [...rows, ...fallbackRows]};
