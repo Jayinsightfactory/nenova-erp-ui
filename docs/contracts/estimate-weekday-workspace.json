@@ -126,7 +126,11 @@
     "lib/weekdayWebExportSnapshot.js",
     "__tests__/weekdayStyledWebWorkbook.test.js",
     "__tests__/weekdayWebExportSnapshot.test.js",
-    "docs/plans/weekday-latest-quantity-2026-10-15.md"
+    "docs/plans/weekday-latest-quantity-2026-10-15.md",
+    "lib/weekdayBoxParts.js",
+    "components/WeekdayBoxPartsDialog.js",
+    "__tests__/weekdayBoxParts.test.js",
+    "docs/plans/weekday-box-parts-2026-10-23.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -580,5 +584,6 @@
     "layout": "Weekday-only nativeLayout opt-in: A4, 180mm table, 6.35mm detail/header rows, ReportEstimate physical column widths/padding, 88.23121mm report header and 7.5mm total after 1.058333mm gap.",
     "preserves": "Existing selected-date document splitting, quantities, monetary totals, confirmation state, ERP ledger, and other print menus. No inferred box conversion.",
     "boxQuantity": "User requested Quantity+Unit(box number), e.g. 300송이(30), without 박스 word. Read-only BoxQuantity from selected stored ShipmentQuantity: OutUnit box direct, bunch / positive BunchOf1Box, stem / positive SteamOf1Box. No zero/null or chained fallback. All group contributions must be known, otherwise suffix omitted. Existing Quantity/Cost/Amount/Vat and deduction rows remain unchanged. Up to 3 decimals; positive below rounding resolution displays <0.001."
-  }
+  },
+  "boxPartsInput": "Carnation/hydrangea OutUnit=박스: keyboard keeps box input; click/F2 opens whole boxes + integer bunch/stem. Product conversion only, no guessed 15/30. Native display N2 does not round stored physical quantity. Nine-decimal transport and 1e-6 integral physical validation; existing ALLOCATION lifecycle/stock guard/readback/rollback preserved. Other families unchanged. Cross-year fixture remains mandatory."
 }
