@@ -1,0 +1,1 @@
+module.exports=function(source){return require('next/dist/build/swc').transformSync(source,{filename:this.resourcePath,jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'es6'}}).code;};

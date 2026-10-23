@@ -39,7 +39,7 @@ assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한
 assert.match(page, /source: 'orders' \}\),[\s\S]*source: 'incoming', country: 'china'/, '중국 물량표는 주문차수와 중국 실제 입고차수를 함께 조회한다');
 assert.match(page, /\.board td span\.qty\{left:0;width:100%;\}/, '중국 물량표 수량은 셀 전체 너비 기준으로 중앙 정렬한다');
 assert.match(page, /defaultPivotBoardWeek\(incomingWeeks, orderWeeks\)/, '페이지 최초 진입은 최신 중국 입고 차수를 우선 선택한다');
-assert.match(page, /buildChinaVolumeCustomerColumns\(\{ rows: chinaRows, customers: data\?\.customers \|\| \[\], packingRows, cells \}\)/, '중국 업체 열은 출고가 아닌 선택 차수의 품목별 주문등록 키로 만든다');
+assert.match(page, /buildChinaVolumeCustomerColumns\(\{ rows: chinaRows, customers: allCustomers, packingRows, cells \}\)/, '중국 업체 열은 출고가 아닌 선택 차수의 품목별 주문등록 키로 만든다');
 assert.match(page, /chinaOrderQuantity\(row, customer\)/, '그리드의 주문 기준 수량은 OrderDetail을 읽는다');
 assert.match(page, /availableWeeks\.map/, 'DB 입력 세부차수를 축약하지 않고 선택지로 표시한다');
 assert.match(page, /baseIndex - delta/, '이전·다음 이동은 계산한 주차가 아니라 DB 입력 차수 배열을 따른다');
@@ -80,7 +80,7 @@ assert.match(page, /xlsx-js-style/, '엑셀 다운로드는 웹과 유사한 색
 assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion을 함께 보내 동시수정을 막는다');
 assert.match(page, /STALE_BOARD_VERSION/, '낡은 작업본 저장 충돌은 재조회 안내로 표시한다');
 assert.ok(!page.includes('localStorage'), '작업본·입고원장은 브라우저 임시 저장소가 아니라 중국 전용 DB API에만 저장한다');
-assert.ok(!page.includes('/api/shipment/'), '웹 물량표 화면은 ERP 출고 쓰기 API를 호출하지 않는다');
+assert.ok(page.includes('/api/shipment/china-volume-preview') && page.includes('/api/shipment/china-volume-apply'), '명시 확인한 중국 셀만 주문 보존 코어에 전달한다');
 assert.match(page, /박스 일괄 입력/, '셀 편집 외에 품목·업체·수량·박스번호를 모아 입력하는 별도 창을 제공한다');
 assert.match(page, /onKeyDown=\{event => handleEnter\(event, index, [0-3]\)\}/, '일괄 입력창의 Enter 이동을 각 입력칸에 제공한다');
 assert.match(page, /전체 적용/, '일괄 입력 행 전체를 검증한 뒤 한 번에 적용한다');

@@ -22,6 +22,17 @@ export async function previewDutchVolume(body, user, deps = {}) {
   const readSnapshot = deps.readSnapshot || readDutchScopeSnapshot;
   const transact = deps.withTransaction || withTransaction;
   const input = normalizeDutchEntries(body);
+  const china = deps.country === '중국';
+  if (china && input.entries.some(entry => !entry.custKey || !entry.prodKey || !entry.unit || entry.unitPrice != null)) {
+    throw dutchError('CHINA_EXPLICIT_MATCH_REQUIRED', '중국 물량표는 DB 업체·품목·단위를 선택해야 합니다. 단가는 변경하지 않습니다.');
+  }
+  const pairKeys = new Set(input.entries.map(entry => `${entry.custKey}|${entry.prodKey}`));
+  const restrict = result => !china ? result : {
+    ...result,
+    rows: (result.rows || []).filter(row => pairKeys.has(`${row.custKey}|${row.prodKey}`) && !row.missingFromExcel),
+    // Shared summary rows omit database keys; derive explicit blockers from keyed rows.
+    fixBlockedRows: (result.rows || []).filter(row => row.fixBlocked && pairKeys.has(`${row.custKey}|${row.prodKey}`) && !row.missingFromExcel),
+  };
   const parsedRows = input.entries.map(entry => ({
     entryId: entry.id,
     sheetName: 'Dutch volume', rowNo: entry.index + 1, colNo: 1,
@@ -37,19 +48,20 @@ export async function previewDutchVolume(body, user, deps = {}) {
   const { preview, scoped, scope, snapshot, digest } = await transact(async (tQ) => {
     const previewInput = {
       parsedRows, rawWeek: input.week, rawYear: input.year,
-      strictMatching: true, countryFilter: '네덜란드', queryFn: tQ,
+      strictMatching: true, countryFilter: china ? '중국' : '네덜란드', queryFn: tQ,
     };
-    const preview = await buildPreview(previewInput);
+    const preview = restrict(await buildPreview(previewInput));
     const scoped = resolveDutchPairPolicy(preview.rows || [], input.entries);
     if (!preview.replacementCategories?.length) return { preview, scoped, scope: null, snapshot: null, digest: null };
     const scope = {
       year: input.year, week: input.week,
+      ...(china ? { country: '중국' } : {}),
       categories: [...new Set(preview.replacementCategories)].sort(),
       pairs: scoped,
     };
     const { snapshot, digest } = await readSnapshot(tQ, scope, true);
     assertUniqueDutchLedger(snapshot);
-    const confirmation = await buildPreview(previewInput);
+    const confirmation = restrict(await buildPreview(previewInput));
     if (dutchPreviewComparisonKey(preview) !== dutchPreviewComparisonKey(confirmation)) {
       throw dutchError('PREVIEW_CHANGED', '미리보기를 읽는 동안 원장 상태가 변경되었습니다. 다시 검증하세요.', 409);
     }
@@ -77,7 +89,7 @@ export async function previewDutchVolume(body, user, deps = {}) {
     return { ...preview, rows: scoped, entryMatches, planToken: null, blockers: ['네덜란드 국가·품종 범위가 비었습니다.'] };
   }
   const shipmentByPair = new Map(snapshot.shipments.map(row => [`${row.MasterCustKey}|${row.ProdKey}`, row]));
-  const orderPairs = new Set(snapshot.orders.map(row => `${row.CustKey}|${row.ProdKey}`));
+  const orderPairs = new Set(snapshot.orders.map(row => `${row.OrderCustKey ?? row.CustKey}|${row.ProdKey}`));
   const productByKey = new Map(snapshot.products.map(product => [Number(product.ProdKey), product]));
   const priceRows = scoped.map(row => {
     const existing = shipmentByPair.get(`${row.custKey}|${row.prodKey}`);
@@ -126,6 +138,7 @@ export async function previewDutchVolume(body, user, deps = {}) {
   if (!applyRows.length) blockers.push('변경할 주문·분배·단가가 없습니다.');
   const planToken = blockers.length ? null : issueDutchPlan({
     ...scope, rows: priceRows,
+    ...(china ? { existingOrders: snapshot.orders } : {}),
     scopeRows: priceRows,
     digest,
     sourceFileName: String(body?.sourceFileName || 'Dutch volume').slice(0, 200),
@@ -138,7 +151,7 @@ export async function previewDutchVolume(body, user, deps = {}) {
     entryMatches,
     blockers,
     planToken,
-    scopeMode: 'CATEGORY_REPLACE', sourceMode: 'DUTCH_VOLUME_KRW', currency: 'KRW',
+    scopeMode: china ? 'EXPLICIT_PAIRS' : 'CATEGORY_REPLACE', sourceMode: china ? 'CHINA_VOLUME' : 'DUTCH_VOLUME_KRW', currency: 'KRW',
     replacementCategories: scope.categories,
   };
 }
