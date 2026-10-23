@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import './arrivalInvoiceSource.test.js';
 import assert from 'node:assert/strict';
 
 const source = fs.readFileSync(new URL('../pages/arrival-cost.js', import.meta.url), 'utf8');

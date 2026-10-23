@@ -1,0 +1,10 @@
+{
+ "id":"invoice-arrival-unified","title":"승인 인보이스 원가의 기존 도착원가 본표 자동 연결",
+ "scope":["lib/arrivalInvoiceSource.js","lib/arrivalCost.js","lib/arrivalCostFxPreview.js","pages/arrival-cost.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"READ_UNIFIED_ARRIVAL_COST","orderDetail":"preserve","shipmentDetail":"preserve","notes":"현재 문서/operation/live receipt 검증된 APPROVED ACTUAL만 기존 본표·검색·품종·누락판정·SQL페이징에 포함. EXPECTED95/DRAFT/STALE 제외. 동일 연도/숫자차수/국가/품목/농장/단위 기존 엑셀은 삭제/수정 없이 상세 비교로 제공. 인보이스 행 별도 매칭저장 및 기존 단순환율식 사용 금지. ERP/웹 원장 쓰기 없음."}],
+ "crossYearFixture":{"required":true,"description":"2025/2026 동일38-1 분리, 38-01 정규화, stale/document/operation/receipt near-miss 거부"},
+ "requiredTestFiles":["__tests__/arrivalInvoiceSource.test.js","__tests__/arrivalCostPerformance.test.js","__tests__/arrivalCostPage.test.js","__tests__/arrivalCostFxPreview.test.js"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormArrivalCost.md","methods":["FormWarehouseView.GetData","FormWarehouseView.GetDetail"],"tables":["WarehouseMaster","WarehouseDetail","WebInvoiceCostRevision","WebInvoiceCostLine","WebArrivalCostLine"],"source":"2026-10-23 실제 dnSpy CLI 재실행 및7345/2026/38-01 읽기 probe. 원가 표시 전용이며 EXE 입고저장/삭제/native재고 경로 호출 안함."},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

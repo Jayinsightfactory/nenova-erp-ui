@@ -1,5 +1,10 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-10-23 인보이스 승인 원가 본표 자동 연결
+- 위 dnSpy CLI를 실제 재실행해 FormWarehouseView.GetData/GetDetail의 WarehouseMaster/Detail/Product 읽기 및 삭제의 StockHistory/native계산 경계를 확인. 본 변경은 SELECT 전용으로 삭제/입고/SP 호출 없음.
+- 운영 읽기 probe:2026/38-01 입고7345 현재 승인19행362단 총3184993.955819, 기존 WebArrivalCostLine2026/38-1 태국19행, 2025동일범위0. 기존품목667 단원가9033.7628과 승인9033.762767 대조.
+- readInvoiceCosts의 현재문서/operation/실제입고지문 검증 통과 ACTUAL만 main list에 UNION. 동일연도·숫자차수·국가·품목·농장·단위의 기존엑셀은 물리 보존하고 비교칸에 표시. 원장 복제/덮어쓰기 없음. 상세 기준은 plans/invoice-arrival-unified-2026-10-23.md.
+
 ## 2026-10-05 연도·차수·베트남 원가 안전성
 
 실제 dnSpy CLI FormWarehouseView 재실행: WarehouseMaster/WarehouseDetail 읽기 경계 유지.
