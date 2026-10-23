@@ -214,7 +214,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
     ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
-    approved_estimate: 'SQL 품목 매입액·매입 당시 과세환율·실제 국제운임에 사용자 승인 비용 추정을 더한 원가. 미매칭 입고 몫은 별도 제외하며 실제 청구 확정액이 아닙니다.',
+    approved_estimate: 'SQL 품목 매입액에 승인된 비용 또는 통관주간 추정 환율을 적용한 원가. 매입기간 근거를 유지하며 실제 청구·신고 확정액이 아닙니다.',
     verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 확인된 품목 단가 근거',
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
     verified_freight_arrival_calc: 'EXE ProductStock 수량 × 동일 연도·세부차수 입고·항공료 원장으로 계산한 도착원가',
@@ -234,9 +234,11 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const titles = {
     R: missingRate
       ? `⚠ 이 차수의 ${row.currency || '-'} 과세환율(관세청 신고환율) 원천이 없습니다. 통관 신고 환율을 이 칸에 입력하고 저장하세요.${suggestionText ? ` (참고값: ${suggestionText} — 참고값은 적용·저장해야 계산에 들어갑니다)` : ''}`
+      : row.rateEstimated || row.rateCarry?.estimated
+        ? `공식 과세환율 ${row.auto?.R ?? ''} — 적용 통관주간은 승인된 엑셀 패턴 추정입니다. ${carryText || ''} 실제 신고일 확정값이 아니며 저장·수기·확정 근거가 우선합니다.`
       : carryText
         ? `과세환율(관세청 신고환율, ${row.currency || '-'}) — ${carryText}. 현재 차수에 새 매입이 생기면 이월값을 쓰지 않고 해당 차수의 정확한 과세환율을 요구합니다.`
-        : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값 → 관세청 공식 환율 순으로 적용합니다. 현재 차수에 매입이 없을 때만 가장 최근의 정확한 과세환율을 이어 사용하며, 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
+        : `과세환율(${row.currency || '-'}) — 저장된 실제·수기 근거 → 해당 차수 원본 엑셀값 → 공식 환율 순입니다. 등록 국가의 적용주간은 승인 패턴 추정으로 별도 표시합니다. 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: row.source?.H === 'approved_estimate'
       ? '승인 비용 추정 포함: 백상460원/kg + 실제 관세(미입력은 태국5%) + 선율(32차 이후 공급가 가정·누락63,000원) + 합산 GW 차량비/1.1 + 방역/1.1. 수기 확정액 우선. 실제 청구 확정액은 아닙니다.'
@@ -1176,7 +1178,7 @@ export default function ProfitReportPage() {
         ) : (
           <>자동 입력: 매출·구매·재고수량·항공료는 전산에서 불러옵니다. <b>기초·기말상품재고액은 확정 재고수량에 확인된 매입원가를 적용</b>합니다.
           최신 계산은 백상460원/kg, 국내운송은 합산 입고중량별 차량비입니다(3톤: 187,000+99,000원, 부가세 포함). 입력된 실제 비용·수기 확정액은 우선하며 기존 확정본은 당시 값을 유지합니다. 태국 비용 누락은 승인 기준으로 추정하며 판매단가로 재고원가를 대체하지 않습니다.
-          과세환율은 해당 차수의 입고별 과세환율 → 해당 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 → 28차 이후 관세청 공식 환율 순서로 사용합니다. 이번 차수에 매입이 없으면 최근 이전 차수의 정확한 환율을 이어 사용하고, 매입이 있는데 원천이 없을 때만 표의 환율 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          과세환율은 수기·입고별·저장 환율을 우선하고, 검증된 원본 엑셀 환율과 관세청 공식 환율을 사용합니다. 2026년 28차 이후 공식 환율의 적용주간은 검증된 엑셀 패턴에 따른 추정이며, 실제 신고일 확정값과 구분해 표시합니다. 매입 없는 차수는 이전 근거와 추정 여부를 함께 이어 사용합니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}

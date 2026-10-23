@@ -15,14 +15,20 @@ const calc = fs.readFileSync(path.join(root, 'lib', 'profitReportCalc.js'), 'utf
 console.log('=== 주차별 손익 재고 원천 자동완성 계약 ===');
 
 const freightStart = report.indexOf('export async function freightArrivalPriceEvidenceByProduct');
-const freightEnd = report.indexOf('// 입고 라인의 금액단위 수량', freightStart);
+const freightEnd = report.indexOf('/** Report-only fallback', freightStart);
 const freightBlock = report.slice(freightStart, freightEnd);
 check('전산 도착원가는 요청한 같은 세부차수만 조회',
   /weekStart: String\(orderWeek\)/.test(freightBlock)
   && /weekEnd: String\(orderWeek\)/.test(freightBlock)
   && /orderYear: String\(orderYear\)/.test(freightBlock));
 check('전산 도착원가 resolver는 읽기 전용',
-  !/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP)\b/i.test(freightBlock));
+  freightEnd > freightStart && !/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP)\b/i.test(freightBlock));
+const periodStart = report.indexOf('async function reportPeriodFreightArrivalEvidence');
+const periodBlock = report.slice(periodStart, report.indexOf('function missingPriceItemFromRow', periodStart));
+check('구매기간 환율 보정은 SELECT와 메모리 객체 삭제만 사용',
+  periodStart >= 0 && periodBlock.includes('SELECT DISTINCT wd.ProdKey')
+    && periodBlock.includes('delete baseline[String(row.ProdKey)]')
+    && !/\b(?:INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|MERGE|CREATE|ALTER|DROP|withTransaction)\b/i.test(periodBlock));
 check('0원·단위 없는 전산 도착원가는 제외',
   /!\(price > 0\) \|\| !unit/.test(freightBlock));
 

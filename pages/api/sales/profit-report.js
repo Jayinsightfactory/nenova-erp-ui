@@ -2,6 +2,7 @@
 import { withAuth } from '../../../lib/auth';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
 import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
+import { isEstimatedPurchaseRate } from '../../../lib/profitReportAcquisitionCarry.mjs';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   EXTRA_CATEGORY, CNF_CATEGORIES,
@@ -64,7 +65,7 @@ function buildInventoryRateEvidenceByCurrency({
     return {
       AUD: {
         rate: carry.rate,
-        source: `profit-report:${targetYear}:${targetMajor}:호주:R:${CARRIED_RATE_SOURCE}`,
+        source: `profit-report:${targetYear}:${targetMajor}:호주:R:${CARRIED_RATE_SOURCE}:${carry.originalSource || ''}`,
         carry,
       },
     };
@@ -300,6 +301,10 @@ export async function loadReportData(major, orderYear) {
         };
         const average = (!previousConversionMissing && !previousUnitMismatch)
           ? computeCategoryAverageInventoryValue(averageInputs) : null;
+        if (average && previousManual.R == null && (isEstimatedPurchaseRate(resolved.source) || prevCarry?.estimated)) {
+          average.estimated = true;
+          average.sourceRefs = [`approved_customs_timing_estimate:${prevOrderYear}:${prevMajor}:category-average:${key}`];
+        }
         return [key, {
           average,
           conversionMissing: previousConversionMissing,
@@ -366,6 +371,10 @@ export async function loadReportData(major, orderYear) {
           purchaseQty: Number(purchaseQty[key] || 0),
           stockQty: Number(stockEnd.qtys[key] || 0),
         }) : null;
+        if (categoryAverageEnd && !hasManualR && (isEstimatedPurchaseRate(autoRSource) || carry?.estimated)) {
+          categoryAverageEnd.estimated = true;
+          categoryAverageEnd.sourceRefs = [`approved_customs_timing_estimate:${orderYear}:${major}:category-average:${key}`];
+        }
         const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
         // E는 전차수 F와 동일한 SQL 원천·평가 경계를 사용한다.
         const previous = previousValuation[key] || {};
@@ -456,7 +465,8 @@ export async function loadReportData(major, orderYear) {
           },
           // exact resolver 참고 제안. 무매입 제한 이월은 rateCarry로 별도 표시한다.
           rateSuggestions: resolvedRate.suggestions,
-          rateDetail: resolvedRate.detail,
+          rateDetail: !hasManualR && !hasExactR && carry?.detail ? carry.detail : resolvedRate.detail,
+          rateEstimated: !hasManualR && (isEstimatedPurchaseRate(autoRSource) || carry?.estimated === true),
           // 이번 차수에 재고화 대상 매입이 없어 과거 정확한 원천을 이어 쓴 경우에만 채워진다(그 외 null).
           // sourceYear/sourceMajor/originalSource/carryDepth/note — lib/profitReportTaxableRateCarry.js.
           rateCarry: (hasManualR || hasExactR) ? null : carry,
