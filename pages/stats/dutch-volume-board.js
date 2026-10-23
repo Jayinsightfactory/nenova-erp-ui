@@ -454,6 +454,7 @@ export default function DutchVolumeBoard() {
     const name = visibleSheetRef.current || entries.find(row => row.sheetName)?.sheetName;
     setActiveTab('sheet');
     openMatchPopup({ kind:'customer', initialQuery:'', options:customerOptions, returnFocusElement:document.activeElement, onPick: item => {
+      if (workBusyRef.current || applyingRef.current) { setError('저장·적용 중에는 업체를 추가할 수 없습니다. 완료 후 다시 선택하세요.'); return; }
       if (identity !== sourceRef.current || selectedYear !== yearRef.current || selectedWeek !== weekRef.current || revision !== revisionRef.current) { setError('물량표가 변경되어 업체 선택을 적용하지 않았습니다. 다시 추가하세요.'); return; }
       try {
         const result=addDutchInlineCustomer(XLSXStyled,workbook,entries,name,item,validationCurrent ? matchCache : {},customerOptions);
