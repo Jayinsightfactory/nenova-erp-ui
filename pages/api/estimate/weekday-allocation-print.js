@@ -2,8 +2,9 @@ import { withAuth } from '../../../lib/auth.js';
 import { withTransaction,sql } from '../../../lib/db.js';
 import { normalizeWeekdayPrintRequest,readWeekdayAllocationPrintInTransaction } from '../../../lib/weekdayAllocationPrint.js';
 import {weekdayPrintNotes} from '../../../lib/weekdayPrintNoteService.js';
+import {readEstimateSeal} from '../../../lib/server/estimateSeal.js';
 
-export function createWeekdayAllocationPrintHandler({transaction=withTransaction,types=sql,notes=weekdayPrintNotes}={}) {
+export function createWeekdayAllocationPrintHandler({transaction=withTransaction,types=sql,notes=weekdayPrintNotes,seal=readEstimateSeal}={}) {
   return async function handler(req,res) {
     if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).end();}
     let scope;
@@ -15,7 +16,7 @@ export function createWeekdayAllocationPrintHandler({transaction=withTransaction
       const result=await transaction(tQuery=>readWeekdayAllocationPrintInTransaction(scope,tQuery,types));
       const printNotes=await notes.list(scope,result.items);
       res.setHeader('Cache-Control','no-store');
-      return res.status(200).json({success:true,readOnly:true,draftIncluded:false,source:'ALLOCATION',scope,...result,printNotes,
+      return res.status(200).json({success:true,readOnly:true,draftIncluded:false,source:'ALLOCATION',scope,...result,printNotes,stampDataUrl:seal(),
         note:scope.mode==='major'?'저장 분배 기준 견적 · 확정 여부 무관 · 모든 등록 차감 포함':'선택일 저장 분배 기준 견적 · 확정 여부 무관 · 해당 날짜 등록 차감만 포함'});
     }catch(error){
       if(error.status===409||error.status===404)return res.status(error.status).json({success:false,readOnly:true,source:'ALLOCATION',error:error.message});
