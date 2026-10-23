@@ -1,6 +1,7 @@
 {
   "id": "profit-acquisition-carry",
   "title": "오래된 에콰도르·네덜란드·호주·중국·태국 재고의 매입 근거 이월",
+  "approvedEstimatePolicy": "2026-10-23: Thai FIFO/carry may use profit-actual-costs approved_estimate exception with exact purchase-period FX and actual international freight. Preserve estimate markers, no invented product or verified sample-peer promotion. All DB/confirmed revisions preserved.",
   "scope": ["lib/profitReportAcquisitionCarry.mjs", "lib/profitReport.js", "lib/pivotFreightArrival.js", "lib/profitReportSnapshot.js", "lib/profitReportAudit.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "공통 manifest의 CustKey는 재고 평가에 적용하지 않는다. 입고/재고는 연도·차수·품목으로 조회하며 존재하지 않는 업체 키를 만들지 않는다.",

@@ -40,6 +40,9 @@ async function main() {
       const ctx={...thaiScope,rate:1400,rateSource:'kcs_api',arrival:{price:2000+i*100,unit:'단',rowCount:1}};
       const evidence=p.buildAcquisitionCarryEvidence(thai,ctx);
       assert.equal(evidence.price,2000+i*100);
+      const estimated=p.buildAcquisitionCarryEvidence(thai,{...ctx,arrival:{...ctx.arrival,estimated:true,sourceRefs:['approved-estimate:2026-10-23']}});
+      assert.equal(estimated.source,'APPROVED_ESTIMATE');assert.equal(estimated.estimated,true);
+      assert.ok(estimated.sourceRefs.includes('approved-estimate:2026-10-23'));
       assert(evidence.sourceRefs[0].includes(`prod-${thai.ProdKey}`));
       for(const bad of [{OrderYear:'2025'},{OrderWeek:'42-01'},{Complete:false},{Quantity:0},{ForeignTotal:0},{RowCount:2},{EstUnit:'송이'}]) {
         assert.equal(p.buildAcquisitionCarryEvidence({...thai,...bad},ctx),null);

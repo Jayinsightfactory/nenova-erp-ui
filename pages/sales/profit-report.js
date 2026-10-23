@@ -214,6 +214,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const stockEvidenceText = (stock) => Array.isArray(stock?.priceEvidenceSources) && stock.priceEvidenceSources.length
     ? ` 근거: ${stock.priceEvidenceSources.join(' / ')}` : '';
   const F_SOURCE_TEXT = {
+    approved_estimate: 'SQL 품목 매입액·매입 당시 과세환율·실제 국제운임에 사용자 승인 비용 추정을 더한 원가. 미매칭 입고 몫은 별도 제외하며 실제 청구 확정액이 아닙니다.',
     verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 확인된 품목 단가 근거',
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
     verified_freight_arrival_calc: 'EXE ProductStock 수량 × 동일 연도·세부차수 입고·항공료 원장으로 계산한 도착원가',
@@ -237,7 +238,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
         ? `과세환율(관세청 신고환율, ${row.currency || '-'}) — ${carryText}. 현재 차수에 새 매입이 생기면 이월값을 쓰지 않고 해당 차수의 정확한 과세환율을 요구합니다.`
         : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값 → 관세청 공식 환율 순으로 적용합니다. 현재 차수에 매입이 없을 때만 가장 최근의 정확한 과세환율을 이어 사용하며, 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
-    H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
+    H: row.source?.H === 'approved_estimate'
+      ? '승인 비용 추정 포함: 백상460원/kg + 실제 관세(미입력은 태국5%) + 선율(32차 이후 공급가 가정·누락63,000원) + 합산 GW 차량비/1.1 + 방역/1.1. 수기 확정액 우선. 실제 청구 확정액은 아닙니다.'
+      : '백상460원/kg + 입력된 관세·선율·국내운송·방역. 합산 입고중량별 차량비를 계산하며 명시 실제금액은 우선합니다. 콜롬비아는 박스당무게×박스수량 비율 배분. 근거 있는 수기값 우선.',
     AC: '매출조정 — 다른 차수 귀속 매출(견적 누락분·차수 이동분)을 이 차수 매출에 가감합니다. 매출액(C)과 매출이익(J)에 함께 반영되며, 저장 시 근거(원본 보고서·사유)가 필요합니다.',
     AJ: '이익조정 — 매출은 그대로 두고 매출이익(J)만 가감합니다(원본 엑셀의 J셀 수동 수정과 동일). 저장 시 근거가 필요합니다.',
     E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
@@ -1172,7 +1175,7 @@ export default function ProfitReportPage() {
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
           <>자동 입력: 매출·구매·재고수량·항공료는 전산에서 불러옵니다. <b>기초·기말상품재고액은 확정 재고수량에 확인된 매입원가를 적용</b>합니다.
-          그외통관비와 원천이 없는 과세환율만 아래 <b>입력·확인 필요</b> 영역에서 입력하세요. 재고 매입단가는 검증된 매입근거가 없으면 최근 판매단가 기준으로 자동 평가되며(2026-08-27 확정), 실제 매입근거를 입력하면 그 값이 우선합니다.
+          최신 계산은 백상460원/kg, 국내운송은 합산 입고중량별 차량비입니다(3톤: 187,000+99,000원, 부가세 포함). 입력된 실제 비용·수기 확정액은 우선하며 기존 확정본은 당시 값을 유지합니다. 태국 비용 누락은 승인 기준으로 추정하며 판매단가로 재고원가를 대체하지 않습니다.
           과세환율은 해당 차수의 입고별 과세환율 → 해당 차수에 저장한 과세환율 → 2026년 22~27차 원본 엑셀값 → 28차 이후 관세청 공식 환율 순서로 사용합니다. 이번 차수에 매입이 없으면 최근 이전 차수의 정확한 환율을 이어 사용하고, 매입이 있는데 원천이 없을 때만 표의 환율 입력칸이 열립니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
           {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
@@ -1899,7 +1902,7 @@ export default function ProfitReportPage() {
               <span style={st.collapseBadgeOk}>입력한 값 {Object.keys(priceEdits).length}건</span>
               <button style={{ ...st.secondaryBtn, marginLeft: 'auto' }} onClick={applyAllSuggestions}
                 disabled={!priceInputRows.some(r => r.SuggestedPrice != null)}
-                title="판매단가(없으면 최근 매입원가 근사) 자동제안을 전 품목에 채웁니다 — 26~31차 백테스트에서 확정 엑셀 대비 오차율 7.3%로 검증된 기준입니다. 채운 뒤 개별 수정 가능하며, 저장 시 제안 출처가 근거로 기록됩니다">
+                title="같은 품목의 매입근거가 있는 제안을 채웁니다. 판매단가를 재고원가로 대체하지 않습니다. 저장 전 기준일과 근거를 확인하세요.">
                 ✨ 제안 모두 적용
               </button>
               <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
@@ -1913,7 +1916,7 @@ export default function ProfitReportPage() {
             <details style={{ margin: '4px 12px 6px', fontSize: 11, color: '#64748b' }}>
               <summary style={{ cursor: 'pointer' }}>계산 기준 보기</summary>
               <div style={{ padding: '4px 0', lineHeight: 1.6 }}>
-                검증된 매입근거가 없는 품목은 최근 확정 판매단가(×1.1) → 최근 매입 근사 순으로 자동 평가됩니다(2026-08-27 확정, 26~31차 백테스트 오차율 7.3%). 실제 매입근거를 저장하면 항상 그 값이 우선합니다.
+                같은 품목의 실제 매입과 당시 과세환율을 사용합니다. 태국은 승인 비용 추정이 포함될 수 있으며, 판매단가나 현재 환율로 과거 재고원가를 대체하지 않습니다.
                 콜롬비아 5품종·베트남은 원본 엑셀의 카테고리 평균매입원가 공식으로 자동 계산됩니다.
                 명시적 샘플 품목은 같은 재고시점·동일 단위의 검증된 매입원가만 평균합니다.
               </div>

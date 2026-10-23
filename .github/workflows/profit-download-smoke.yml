@@ -11,7 +11,7 @@ on:
         default: '18'
         required: true
       thai_carry:
-        description: Assert Thai actual-cost evidence / missing-cost blocking (2026 weeks 34-41)
+        description: Assert Thai approved-cost carry / missing-source blocking (2026 weeks 34-41)
         type: boolean
         default: false
 permissions:
