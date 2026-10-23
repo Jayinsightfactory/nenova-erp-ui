@@ -72,11 +72,11 @@ const assert = require('assert');
     cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
   });
   assert.deepStrictEqual(
-    workbookRows[3],
+    workbookRows[4],
     ['ROSE Diana 50cm full name', 20, 20, 20, '', 'ROSE Diana 50cm full name'],
     '패킹 미반영 시 주문=입고이므로 잔량은 0(빈칸), 마지막 열에 품목명을 한 번 더 적는다',
   );
-  assert.equal(workbookRows[3][1], 20, '수량 엑셀에는 박스번호가 섞이지 않은 숫자 수량만 내보낸다');
+  assert.equal(workbookRows[4][1], 20, '수량 엑셀에는 박스번호가 섞이지 않은 숫자 수량만 내보낸다');
   const appliedWorkbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
     week: '35-01',
@@ -95,7 +95,8 @@ const assert = require('assert');
   assert.deepStrictEqual(appliedWorkbookRows, [
     ['2026년 35-01 중국 물량표', '서울', '', '', '', ''],
     ['출고요일', '수', '', '', '', ''],
-    ['품목', 'CL1\nCL1', '주문', '입고', '잔량', '품목'],
+    ['업체', 'CL1', '', '', '', ''],
+    ['품목 / CL 번호', 'CL1', '주문', '입고', '잔량', '품목'],
     ['ROSE Diana', 20, 20, 20, '', 'ROSE Diana'],
   ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시하며, 마지막에 주문·입고·잔량·품목 반복 열이 붙는다');
 
@@ -109,10 +110,27 @@ const assert = require('assert');
     appliedOnly: true,
   });
   assert.deepStrictEqual(
-    shortageWorkbookRows[3].slice(2),
+    shortageWorkbookRows[4].slice(2),
     [18, 12, 6, 'ROSE Diana'],
     '전산 주문(18) 대비 실제 입고(12)가 적으면 잔량 6으로 부족분을 보여준다',
   );
+  for (const year of [2025, 2026]) {
+    const draftRows = buildChinaVolumeWorkbookRows({ year, week: '43-03',
+      customers: [{ custKey: 1, custName: '업체 A', orderCode: 'CL123', area: '부산' }, { custKey: 2, custName: '신규업체', orderCode: 'CL999', area: '서울' }],
+      customerDays: { 1: '화', 2: '금' },
+      rows: [{ prodKey: 9, prodName: 'Rose', outOrders: { '업체 A': 100 } }],
+      cells: { '1:9': { quantity: '80' }, '2:9': { quantity: '20' } },
+    });
+    assert.equal(draftRows[0][0], `${year}년 43-03 중국 물량표`);
+    assert.equal(draftRows[1][1], '화');
+    assert.equal(draftRows[2][1], '업체 A');
+    assert.equal(draftRows[3][1], 'CL123');
+    assert.equal(draftRows[4][4], 100, '수량 문자열을 숫자로 합산한다');
+    const XLSX = require('xlsx');
+    const sheet = XLSX.utils.aoa_to_sheet(draftRows);
+    assert.equal(sheet.B3.v, '업체 A'); assert.equal(sheet.B4.v, 'CL123');
+    assert.equal(sheet.B5.t, 'n'); assert.equal(sheet.B5.v, 80);
+  }
   assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
   assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
   assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
@@ -222,9 +240,9 @@ const assert = require('assert');
     rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
     cells: pivotCells,
   });
-  assert.strictEqual(packingWorkbookRows[3][1], 20, '엑셀 수량 셀에는 패킹 수량만 숫자로 출력한다');
+  assert.strictEqual(packingWorkbookRows[4][1], 20, '엑셀 수량 셀에는 패킹 수량만 숫자로 출력한다');
   assert.deepStrictEqual(
-    packingWorkbookRows[3].slice(2),
+    packingWorkbookRows[4].slice(2),
     [18, 20, -2, 'ROSE Diana'],
     '주문(전산 18)·입고(패킹 20)·잔량(주문-입고 -2)·품목 반복이 뒤에 붙는다',
   );

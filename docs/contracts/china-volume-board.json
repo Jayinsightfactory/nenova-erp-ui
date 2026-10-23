@@ -117,11 +117,11 @@
     "uploadPersistence": "a successful packing upload immediately saves parsed rows, file name, sheet name and mapping review state without replacing the ERP quantity grid; manual matches update the review snapshot, and only an explicit apply after every row is matched saves invoice quantities and box allocations as the applied page",
     "matchingFlow": "show the ERP quantity board first; keep invoice source rows and current customer/product mapping visible in the right comparison panel; both unmatched and already matched source rows can explicitly select a different customer and product; a rematch resets only that immutable source row's working distribution to the newly selected cell for the full invoice quantity and then opens box distribution; each matched invoice row may be split into one or more customer-product cells, but its distribution total must exactly equal the immutable invoice quantity; preserve original quantity and box numbers while splitting quantities; block apply for every unmatched or incompletely distributed row; only the explicit apply action changes the displayed packing quantities and enables the final workbook",
     "productLabel": "strip leading CHINA / only; preserve the full remaining product name in web and workbook",
-    "excelExport": "only explicitly APPLIED invoice cells or explicitly MANUAL box-entry cells export numeric quantities to the final quantity sheet; manual boxNumbers, allocation metadata and edit history are excluded from quantity cells; unmatched, unapplied ERP-order defaults and failed rows stay out of the final sheet. Customer.CustArea and the 중국 중-/中- weekday parsed from Customer.Descr form the region/ship-day headers. A separate 수량대조 audit sheet remains read-only evidence without ERP writes. Work-copy save and export remain ERP read-only. The separate confirmed 등록·분배 저장 follows china-volume-distribution: explicit cell final quantities, existing orders preserved, positive absent orders created.",
+    "excelExport": "Export and preview use identical current visible draft rows regardless of invoice phase or shipment confirmation. Customer name and CL code occupy separate cells in header rows 3 and 4. Numeric quantities only; explicit zero/blank overrides remain zero. Region/day draft overrides are included. No ERP writes. Existing china-volume-distribution order preservation is unchanged.",
     "reconciliationSource": "one shared summarizeChinaVolumeTotals helper for screen status, mismatch list, and XLSX audit sheet",
     "reconciliationPolicy": "packing total equals matched plus unmatched; every customer-product compares packing, current board display, and box allocation without offsetting another cell; visible totals are grouped by Product.unit so box, bunch, and stem are never presented as one meaningful quantity; pivot-versus-packing remains a reference difference because early shipment or carryover can be legitimate",
     "reuploadPolicy": "a new packing upload replaces prior browser cell state so stale allocations cannot remain",
-    "downloadWarning": "unmatched rows or cell quantity differences require explicit confirmation and remain visible in the 수량대조 sheet",
+    "downloadWarning": "Unapplied invoice notice appears in preview; audit sheet includes reconciliation. Download never requires invoice matching or shipment confirmation.",
     "persistence": {
       "businessScope": [
         "OrderYear",
@@ -205,5 +205,11 @@
     "StockHistory",
     "Estimate",
     "WebProfitReport"
-  ]
+  ],
+  "boardEditing": {
+    "region": "Native select from customer catalog regions; per-board reviewState.customerAreas only.",
+    "weekday": "Native weekday select; reviewState.customerDays only; no Customer or ShipmentDate mutation.",
+    "reset": "Discard unsaved edits after confirmation and reload selected year/week saved work copy. No ledger rollback.",
+    "preview": "Same AOA as Excel export, four header rows; available in EMPTY/REVIEW/APPLIED/MANUAL phases."
+  }
 }
