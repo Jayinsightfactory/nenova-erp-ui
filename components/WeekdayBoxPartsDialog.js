@@ -10,7 +10,7 @@ export default function WeekdayBoxPartsDialog({label,quantity,pack,onApply,onClo
   const dialog=useRef(null),returnFocus=useRef(null);
   useEffect(()=>{
     returnFocus.current=document.activeElement;
-    dialog.current?.querySelector('input,button')?.focus();
+    dialog.current?.querySelector('input:not(:disabled),button:not(:disabled)')?.focus();
     return ()=>returnFocus.current?.isConnected && returnFocus.current.focus({preventScroll:true});
   },[]);
   let result=null,error='';
@@ -25,7 +25,7 @@ export default function WeekdayBoxPartsDialog({label,quantity,pack,onApply,onClo
     <form ref={dialog} role="dialog" aria-modal="true" aria-label={`${label} 박스·낱개 수량`} onSubmit={submit}
       style={{background:'white',border:'1px solid #8aa8ce',borderRadius:8,padding:16,boxSizing:'border-box',width:'min(392px,calc(100vw - 32px))',maxHeight:'calc(100vh - 32px)',overflow:'auto',boxShadow:'0 4px 20px #172b4244'}}
       onKeyDown={event=>{
-        if(event.key==='Escape'&&!busy){event.preventDefault();event.stopPropagation();onClose();}
+        if(event.key==='Escape'&&!busy&&!event.nativeEvent?.isComposing){event.preventDefault();event.stopPropagation();onClose();}
         if(event.key==='Tab'){
           const controls=[...dialog.current.querySelectorAll('input:not(:disabled),button:not(:disabled)')];
           if(event.shiftKey&&document.activeElement===controls[0]){event.preventDefault();controls.at(-1)?.focus();}
