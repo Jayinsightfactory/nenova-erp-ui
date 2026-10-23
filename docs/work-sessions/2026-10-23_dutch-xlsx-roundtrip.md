@@ -16,7 +16,12 @@
 - 실제 xlsx-js-style 직렬화→재파싱 2회, 추가업체12.5/기존7/0취소, 단가15000/0/빈값, 단위·키, 합계, 수식, 2025/2026 범위 차단 통과.
 - 격리 SQL 실제 export/import→API preview→apply: 동일 수량/단가 계획, 기존 주문 보존, 신규 양수 주문, 환산단위, 누락0, native NULL, 날짜/농장/확정/동시변경/중복/rollback, Estimate/WebProfitReport/Stock/Warehouse 보존 통과.
 - 실제 dnSpy 재실행 및 SELECT-only 운영 기준선은 exe-golden/DutchVolumeDistribution.md 참조. 운영 시험 분배는 하지 않음.
-- 전체 ERP 계약, pivot, dnSpy evidence, manifest, write guard, UI layout, production build 통과. 배포·운영 브라우저 결과는 진행 중이며 완료 전 배포 완료로 간주하지 않음.
+- 전체 ERP 계약, pivot, dnSpy evidence, manifest, write guard, UI layout, production build 통과. 최신 master 중국 보호 로직 병합 후 SQL/전체 계약/가드/빌드 재실행도 통과.
+- PR #1278 squash merge 6cb792063881b6a71a2bb6d49bc968a8d2cc82ab. GitHub verify 39918798245 성공. Cafe24 배포 39919158769 및 hydration smoke 성공.
+- Chrome 운영 v6cb79206에서 테스트 원본 업로드→주광 수량1→7→일신원예 KCL52 추가→수량12→다운로드→재업로드 확인. 실제 다운로드 파일 D4=7,F4=12,G4=19,G6=21,F3=일신원예/KCL52. 재업로드 4행(명시0 포함) 동일 수량 확인.
+- 파일43-02에서43-01 선택 시 차수 불일치 안내와 entries 비움 확인;43-02로 돌아오면7/12/전체21 복원. 브라우저 console error0.
+- 합성 fixture의 Campanula 이름은 운영 품목 미매칭으로 정상 차단됨. 이를 억지 매칭하거나 운영 ERP 적용하지 않음. 실제 저장 성공 검증은 격리 SQL fixture에서 수행했다.
+- 운영 다운로드: C:/Users/USER/Downloads/roundtrip-browser-source_물량표.xlsx. 화면 증거: C:/Users/USER/nw-dutch-roundtrip/roundtrip-production-proof.png. 배포 후 같은 SELECT-only 기준선 재조회도 동일.
 
 ## 후속 시작점
 branch codex/dutch-roundtrip, worktree C:/Users/USER/nw-dutch-roundtrip. lib/dutchVolumeWorkbook.js, __tests__/dutchVolumeWorkbook.test.js, scripts/test-dutch-volume-distribution-sql.cjs 참조. 테스트 실패 시 배포 중지.
