@@ -199,6 +199,7 @@ async function runScenarios(app) {
   await query(app.pool,`UPDATE ShipmentDetail SET isFix=1 WHERE ShipmentKey=54001 AND ProdKey=2231`);
   const fixed=await preview(app,makeBody([entry('fixed',533,2231,10)]));
   assert.equal(fixed.planToken,null);
+  assert.ok(fixed.blockers.some(message=>message.includes('ERP 확정 출고 1건')));
   await query(app.pool,`UPDATE ShipmentDetail SET isFix=0 WHERE ShipmentKey=54001 AND ProdKey=2231`);
   const stale=await preview(app,makeBody([entry('stale',533,2231,13)]));
   await query(app.pool,`UPDATE ShipmentDetail SET Descr=N'fixture external edit' WHERE ShipmentKey=54001 AND ProdKey=2231`);

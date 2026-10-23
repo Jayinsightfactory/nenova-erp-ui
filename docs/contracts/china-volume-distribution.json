@@ -40,7 +40,7 @@
       "estimate": "preserve",
       "stock": "preserve",
       "webProfitReport": "preserve",
-      "policy": "preserve every existing active row; positive new order only if absent in selected year/week"
+      "policy": "preserve every existing active row; positive new order only if absent in selected year/week; fixed explicit pairs block the whole preview with an ERP confirmation message even when shared summary rows omit database keys"
     },
     {
       "name": "CHINA_ABSENT_POSITIVE",

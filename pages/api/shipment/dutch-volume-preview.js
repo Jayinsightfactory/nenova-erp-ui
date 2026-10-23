@@ -30,7 +30,8 @@ export async function previewDutchVolume(body, user, deps = {}) {
   const restrict = result => !china ? result : {
     ...result,
     rows: (result.rows || []).filter(row => pairKeys.has(`${row.custKey}|${row.prodKey}`) && !row.missingFromExcel),
-    fixBlockedRows: (result.fixBlockedRows || []).filter(row => pairKeys.has(`${row.custKey}|${row.prodKey}`) && !row.missingFromExcel),
+    // Shared summary rows omit database keys; derive explicit blockers from keyed rows.
+    fixBlockedRows: (result.rows || []).filter(row => row.fixBlocked && pairKeys.has(`${row.custKey}|${row.prodKey}`) && !row.missingFromExcel),
   };
   const parsedRows = input.entries.map(entry => ({
     entryId: entry.id,
