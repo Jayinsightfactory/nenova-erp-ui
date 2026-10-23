@@ -1121,3 +1121,8 @@
 - 실제 dnSpy·SELECT-only와 격리 SQL, 왕복/교차연도 fixture 확인. 원장 저장 경로 불변.
 - PR·배포·운영 스모크는 docs/work-sessions/2026-10-23_dutch-arrival-layout.md 후속 기록 참조. 현재 미검증.
 - 검색어: dutch-arrival-layout CL분리 지역이동 입고전용 품목추가
+
+## 2026-10-23 중국 물량표 지역·요일·엑셀
+- 지역/요일 native 선택, 미저장 변경 초기화, 확정/매칭 상태 무관 다운로드 및 동일 데이터 미리보기. 업체명/CL 별도 헤더 셀. ERP writer 변경 없음.
+- 교차연도 엑셀/작업본 테스트. 전체 검증·배포·운영 UI 결과는 세션 문서 후속 참조.
+- 검색어: china-board-options 지역선택 요일변경 변경초기화 엑셀미리보기 CL셀분리
