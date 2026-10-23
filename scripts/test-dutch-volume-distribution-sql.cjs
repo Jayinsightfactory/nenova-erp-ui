@@ -202,6 +202,29 @@ async function runScenarios(app) {
     makeEntry('new-order-zero-price', 'Dutch new-order', 534, 'Dutch Test Rose White', 2232, 5, '단', 0),
     makeEntry('fractional-multi-date', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단'),
   ]);
+  const XLSX = require('xlsx-js-style');
+  const { addDutchInlineCustomer } = await import('../lib/dutchInlineCustomer.js');
+  const { parseDutchPivotWorkbook, dutchPriceKey, createDutchBulkPriceConfig } = await import('../lib/dutchVolumePrice.js');
+  const { exportDutchVolumeWorkbook, importDutchVolumeWorkbook } = await import('../lib/dutchVolumeWorkbook.js');
+  const { buildDutchPreviewEntries } = await import('../lib/dutchVolumeDraft.js');
+  const source = { SheetNames:['네덜란드'], Sheets:{'네덜란드':XLSX.utils.aoa_to_sheet([
+    ['40-01','','','경부선'], ['','','','월'],
+    ['꽃','품목명','칼라','Dutch existing-order','주문','입고'],
+    ['장미','Dutch Test Rose Red','',77,77,100],
+    ['장미','Dutch Test Rose White','','',0,50],
+    ['장미','Dutch Fractional Date Product','','',0,10],
+    ['합계','','',77,77,160],
+  ])}};
+  const sourceEntries = parseDutchPivotWorkbook(XLSX,source).entries.map(e=>({...e,custKey:533,prodKey:2231,unit:'송이',quantity:60}));
+  const added = addDutchInlineCustomer(XLSX,source,sourceEntries,'네덜란드',{custKey:534,custName:'Dutch new-order',area:'경부선'}).entries;
+  const edited = added.filter(e=>!e.added || e.sourceRow!==3).map(e=>e.added ? {...e,prodKey:e.sourceRow===4?2232:2235,quantity:e.sourceRow===4?5:1,unit:'단'} : e);
+  const config = createDutchBulkPriceConfig(); config.enabled=false;
+  const priceMap = {[dutchPriceKey(edited.find(e=>e.prodKey===2232),config)]:0};
+  const bytes = await exportDutchVolumeWorkbook(XLSX,source,edited,priceMap,config,{year:2026,week:'40-01'});
+  const restored = importDutchVolumeWorkbook(XLSX,XLSX.read(bytes,{type:'array'}),{year:2026,week:'40-01'});
+  const restoredBody = makeBody(buildDutchPreviewEntries(restored.entries,restored.prices,e=>dutchPriceKey(e,restored.bulkPriceConfig)));
+  const businessRows = rows=>rows.map(({custKey,prodKey,quantity,unit,unitPrice})=>({custKey,prodKey,quantity,unit,unitPrice})).sort((a,b)=>a.prodKey-b.prodKey);
+  assert.deepEqual(businessRows(restoredBody.entries),businessRows(requestBody.entries),'downloaded added customer + edited quantity must rebuild identical API input');
   const before = await snapshot(app.pool);
   console.log('[fixture] baseline snapshot captured; requesting preview');
   const initialPlan = await preview(app, requestBody, true);
@@ -215,7 +238,10 @@ async function runScenarios(app) {
   assert.equal(initialPlan.rows.find((row) => row.entryIds?.includes('new-order-zero-price'))?.unitPrice, 0);
   assert(initialPlan.planToken, 'eligible preview must issue a server plan token');
 
-  const applied = await apply(app, initialPlan);
+  const roundtripPlan = await preview(app, restoredBody, true);
+  const planRows = plan=>plan.rows.map(({custKey,prodKey,uploadQty,unitPrice})=>({custKey,prodKey,uploadQty,unitPrice})).sort((a,b)=>a.custKey-b.custKey || a.prodKey-b.prodKey);
+  assert.deepEqual(planRows(roundtripPlan),planRows(initialPlan),'real SQL preview must have identical final quantities and prices after XLSX roundtrip');
+  const applied = await apply(app, roundtripPlan);
   console.log('[fixture] initial apply returned');
   assert.equal(applied.success, true, `apply must succeed: ${applied.error || JSON.stringify(applied.verification || {})}`);
   const after = await snapshot(app.pool);

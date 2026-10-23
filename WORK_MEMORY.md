@@ -1091,3 +1091,10 @@
 - 확정 출고 사유가 요약 DB키 부재로 누락되어 keyed rows에서 추출하도록 보완. 원장 쓰기 로직 변경 없음. 실제 SQL 및 단위 회귀에 확정 사유 검증 추가.
 - 검색어: china-volume-fixed-message 중국물량표 확정출고 사유누락 주문보존
 
+
+## 2026-10-23 네덜란드 Excel 추가 업체 왕복
+- 화면 전용 추가 업체가 다운로드에서 누락되던 경로 수정. 지역별 실제 열·최종 수량·합계·단가 좌표와 ERP적용초안 V1 매칭/단위/차수 연결.
+- 2회 XLSX 왕복 및 실제 격리 SQL preview/apply 동일 최종값 확인. 기존 주문·교차연도·Estimate/Stock/Warehouse 보존, 확정/동시수정/rollback 유지.
+- dnSpy 실제 재실행, SELECT-only 운영 기준선 확인. 운영 시험 분배 없음.
+- 전체 ERP 계약/pivot/dnSpy/manifest/write guard/layout/build 통과. 배포·운영 브라우저 검증은 세션 문서 후속 참조.
+- 검색어: dutch-xlsx-roundtrip ERP적용초안 추가업체 재업로드 동일분배

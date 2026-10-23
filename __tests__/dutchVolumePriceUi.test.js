@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import './dutchInlineCustomer.test.js';
+import './dutchVolumeWorkbook.test.js';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
@@ -119,11 +120,10 @@ assert.match(volumeSheet, /event\.key === 'Escape'\) \{ event\.preventDefault\(\
 assert.match(volumeSheet, /event\.key === 'Enter'\) \{ event\.preventDefault\(\); finishQuantityEdit\(true, true\); \}/, 'Enter는 검증 가능한 입력만 초안에 반영해야 합니다.');
 assert.match(page, /disabled=\{workBusy \|\| applying\} onQuantityChange=\{updateCellQuantity\}/, '기존 수량 수정과 빈 셀 추가 모두 preview를 무효화해야 합니다.');
 assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity, quantityHistory \}\]/, '빈 원본 셀 입력은 수정 이력과 함께 동일한 ERP 적용 entries 초안에만 추가해야 합니다.');
-assert.match(page, /buildDutchQuantitySummaryValues/, '수량 변경 뒤 화면과 엑셀에 주문 합계를 반영해야 합니다.');
+assert.match(page, /exportDutchVolumeWorkbook/, '검증된 원본 투영·수량 합계·재업로드 경로를 사용한다');
 assert.match(volumeSheet, /quantity-history-badge/, '수량 수정 이력이 있는 셀에 작은 표시를 제공해야 합니다.');
-assert.match(page, /if \(entry\.added \|\| !entry\.sheetName \|\| !entry\.cellAddress \|\| !copy\.Sheets\[entry\.sheetName\]\) continue/, '빈 원본 셀 초안은 엑셀 저장 시 그 원래 좌표에 기록해야 합니다.');
-assert.match(page, /addDutchPriceColumns/);
-assert.match(page, /addDutchPriceShapesToXlsx/, '다운로드 XLSX에 실제 단가 도형을 삽입해야 합니다.');
+assert.match(page, /importDutchVolumeWorkbook/, '재업로드는 표시 셀과 연결정보를 검증한다');
+assert.doesNotMatch(page, /function withEditedWorkbook/, '추가 업체를 건너뛰던 구형 다운로드 경로를 제거한다');
 assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
 assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
 assert.match(page, /pivot-volume-excel/);
