@@ -1133,6 +1133,10 @@
 - 빌드/dnSpy근거/manifest/write guard/layout 통과. 전체 ERP 및 배포는 세션 문서 후속 참조, 운영 시험 저장 없음.
 - 검색어: weekday-quantity-display 소수첫째자리 일반윌슨 원본정밀도 blur무저장
 
+
+## 2026-10-23 중국 품목·업체 즉시 검색
+- 닫힌 select 필터 대신 입력 아래 후보 목록. 이름/코드/복수어 검색 및 키보드·IME 보호. ERP writer 변경 없음.
+- 검색어: china-search-suggestions ChinaSearchSelect 자동완성 연관품목 업체추가
 ## 2026-10-23 승인 원가 격리 통합 검증·정수 표시
 - 실제 CO43-2 송장2914 캐시6품목으로 격리 SQL 입고/원가승인/재승인/엑셀 통과. 운영 DB 미접속.
 - hotel/catalog/pivot/incoming 실제 조회 함수의 최신43-2·단위 환산 일치. 과거원가 및 주문·출고·재고·입고 원장 snapshot 보존.

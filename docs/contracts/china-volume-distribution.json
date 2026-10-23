@@ -16,7 +16,8 @@
     "lib/shipmentImportQty.js",
     "__tests__/chinaVolumeEditing.test.js",
     "__tests__/chinaVolumeDistribution.test.js",
-    "scripts/test-china-volume-distribution-sql.cjs"
+    "scripts/test-china-volume-distribution-sql.cjs",
+    "lib/chinaSearchCandidates.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -83,5 +84,6 @@
     "npm run test:erp-manifest -- --changed-from HEAD^",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "lookupPolicy": "Product replace/add, customer add and invoice split use visible live DB catalog candidates. Case/NFKC/whitespace-normalized all-token matching; no invented DB keys. Explicit candidate click or keyboard selection required; typing clears stale selection. No ERP writes until existing confirmed distribution flow."
 }
