@@ -1,13 +1,14 @@
 {
   "id":"product-color",
   "title":"물량표 칼라의 공유 Product.Descr 저장",
-  "scope":["lib/productColor.js","pages/api/master/product-color.js","components/dutch/DutchVolumeSheet.js","pages/stats/dutch-volume-board.js"],
+  "scope":["lib/productColor.js","pages/api/master/product-color.js","components/dutch/DutchVolumeSheet.js","components/dutch/ProductColorDialog.js","pages/stats/dutch-volume-board.js"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "masterIdentity":"Product.ProdKey; no historical ledger changes",
   "actions":[{"name":"COLOR_SAVE","orderDetail":"preserve","shipmentDetail":"preserve","write":"Active Product.Descr and audit timestamps only; SystemActionLog in same transaction","preserve":["Stock","Cost","OutUnit","EstUnit","ShipmentDate","ShipmentFarm","Estimate","WebProfitReport","WarehouseDetail","ProductStock","StockHistory"]}],
   "criteria":{"expected":"Locked active product with exact expectedDescr, including null; stale 409","color":"1..40 chars, no slash/control chars; recognized color prefix replaced, unknown prose prefixed and preserved; total <=200 characters; user confirms resulting full description","readback":"Every Product field except Descr and audit timestamp/actor preserved; failure rolls back","authority":"User explicitly requested Product.Descr shared EXE storage; actual ClassProduct.Update and read-only schema/trigger probe"},
   "crossYearFixture":{"required":true,"description":"Year-independent Product change preserves 2025/2026 same-week ledger sentinels"},
-  "requiredTestFiles":["__tests__/productColor.test.js"],
+  "ui":"Page dialog replaces unsupported window.prompt/confirm. Shows full before/after Descr; explicit save only. Cancel/Escape never POST, saving prevents duplicate/close, errors retain input. Restore trigger focus on close.",
+  "requiredTestFiles":["__tests__/productColor.test.js","__tests__/dutchVolumePriceUi.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductColor.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["ClassProduct.Update","ClassProduct.GetData"],"tables":["Product"]},
   "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
 }

@@ -12,7 +12,7 @@ import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
 import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
-import { productColorDescription } from '../../lib/productColor';
+import ProductColorDialog from '../../components/dutch/ProductColorDialog';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
@@ -90,6 +90,8 @@ export default function DutchVolumeBoard() {
   const [activeJobId, setActiveJobId] = useState('');
   const [workName, setWorkName] = useState('');
   const [workBusy, setWorkBusy] = useState(false);
+  const [colorEditor, setColorEditor] = useState(null);
+  const colorReturnFocusRef = useRef(null);
   const [workNotice, setWorkNotice] = useState('');
   const [workError, setWorkError] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -188,7 +190,7 @@ export default function DutchVolumeBoard() {
         if (!selectedWeek) { if (sourceModeRef.current !== 'UPLOAD') setError(`${year}년 네덜란드 주문·입고 차수가 없습니다.`); return; }
         if (selectedWeek !== weekRef.current) { invalidate(); weekRef.current = selectedWeek; if (sourceModeRef.current === 'UPLOAD') reloadUploadedScope(); }
         setWeek(selectedWeek);
-        if (sourceModeRef.current !== 'UPLOAD') await loadLive(year, selectedWeek);
+        // Selecting a default scope must not fetch the volume sheet; the load button owns that action.
       } catch (cause) { if (active) setError(cause.message || 'DB 입력 차수 목록을 불러오지 못했습니다.'); }
       finally { if (active) setWeeksLoading(false); }
     }
@@ -456,16 +458,22 @@ export default function DutchVolumeBoard() {
     if(workBusyRef.current || applyingRef.current) return;
     const prodKey=Number(entry.prodKey || (validationCurrent ? matchCache[entry.id]?.prodKey : 0));
     if(!prodKey){setError('칼라를 저장할 ERP 품목을 먼저 매칭·검증하세요.');return;}
+    colorReturnFocusRef.current = document.activeElement;
     workBusyRef.current=true;setWorkBusy(true);setError('');
     try{
       const read=await fetch(`/api/master/product-color?prodKey=${prodKey}`,{cache:'no-store'});
       const before=await read.json();
       if(!read.ok||!before.success)throw Error('품목 비고를 조회하지 못했습니다.');
-      const color=window.prompt(`${before.data.ProdName} 칼라 (품목 비고 저장)`,currentColor);
-      if(color===null)return;
-      const descr=productColorDescription(before.data.Descr,color);
-      if(!window.confirm(`품목 비고가 다음과 같이 저장됩니다. EXE에도 반영됩니다.\n\n기존: ${before.data.Descr??'(없음)'}\n변경: ${descr}\n\n저장할까요?`))return;
-      const response=await fetch('/api/master/product-color',{method:'POST',headers:requestHeaders,body:JSON.stringify({prodKey,expectedDescr:before.data.Descr??null,color})});
+      setColorEditor({ product: before.data, prodKey, initialColor: currentColor });
+    }catch(cause){setError(cause.message);closeColorEditor();}
+  }
+  function closeColorEditor() {
+    setColorEditor(null); workBusyRef.current=false; setWorkBusy(false);
+    requestAnimationFrame(() => colorReturnFocusRef.current?.isConnected && colorReturnFocusRef.current.focus());
+  }
+  async function saveColor(color) {
+      const { prodKey, product } = colorEditor;
+      const response=await fetch('/api/master/product-color',{method:'POST',headers:requestHeaders,body:JSON.stringify({prodKey,expectedDescr:product.Descr??null,color})});
       const result=await response.json();
       if(!response.ok||!result.success)throw Error(result.error||'저장 결과를 확인하지 못했습니다. 재조회하세요.');
       setWorkbook(previous=>{
@@ -478,8 +486,7 @@ export default function DutchVolumeBoard() {
         return next;
       });
       setWorkNotice('칼라를 품목 비고에 저장했습니다. 품목관리·EXE는 같은 비고를 조회합니다.');
-    }catch(cause){setError(cause.message);}
-    finally{workBusyRef.current=false;setWorkBusy(false);}
+      closeColorEditor();
   }
 
   async function download() {
@@ -678,7 +685,8 @@ export default function DutchVolumeBoard() {
     {legacyCurrency && <div className="notice warning">이 파일의 이전 {legacyCurrency} 단가 초안은 원화로 재해석하지 않았습니다. 필요한 원화 단가를 다시 입력하세요.</div>}
     {draftReset && <div className="notice warning">이전 양식 초안은 자동 복원하지 않았습니다. 원본과 단가·매칭을 다시 확인하세요. 이전 저장값은 삭제하지 않았습니다.</div>}
     {rematchNotice && <div className="notice warning" role="status">{rematchNotice}</div>}
-    {!entries.length && !loading && <div className="empty">네덜란드 Pivot 엑셀을 올리거나 DB 물량을 조회해 주세요. 조회와 자동 매칭은 읽기 전용이며 적용 버튼을 누르기 전에는 ERP에 저장하지 않습니다.</div>}
+    {colorEditor && <ProductColorDialog product={colorEditor.product} initialColor={colorEditor.initialColor} onSave={saveColor} onClose={closeColorEditor}/>}
+    {!entries.length && !loading && <div className="empty">차수를 선택한 뒤 ‘네노바웹 물량 바로 불러오기’를 눌러 주세요. 네덜란드 Pivot 엑셀 업로드도 가능합니다. 조회만으로 ERP에 저장하지 않습니다.</div>}
     {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button className="bulk-settings-trigger" onClick={openBulkPriceSettings} disabled={workBusy || applying}>일괄업체 설정 · {bulkPriceConfig.enabled ? bulkCustomers.filter(item => !bulkPriceConfig.excludedCustomers.includes(item.id)).length : 0}개 포함</button><button onClick={download}>물량표 다운로드</button></div>
       {bulkPriceSettingsOpen && bulkPriceSettingsDraft && <div className="bulk-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setBulkPriceSettingsOpen(false); }}><section className="bulk-modal" role="dialog" aria-modal="true" aria-labelledby="bulk-settings-title"><header><div><h2 id="bulk-settings-title">일괄 단가 업체 설정</h2><p>체크한 업체는 일괄 단가에서 제외되어 업체별로 따로 입력됩니다.</p></div><button aria-label="닫기" onClick={() => setBulkPriceSettingsOpen(false)}>×</button></header><label className="bulk-enabled"><input type="checkbox" checked={bulkPriceSettingsDraft.enabled} onChange={event => setBulkPriceSettingsDraft(previous => ({ ...previous, enabled: event.target.checked }))}/> 일괄 단가 사용</label><div className="bulk-modal-count">포함 {bulkCustomers.filter(item => bulkPriceSettingsDraft.enabled && !bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 · 개별/제외 {bulkCustomers.filter(item => !bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 <span>주광은 기본 제외이며 변경할 수 있습니다.</span></div><input className="bulk-search" aria-label="업체 설정 검색" placeholder="업체 검색" value={bulkCustomerQuery} onChange={event => setBulkCustomerQuery(event.target.value)}/><div className="bulk-customer-list">{bulkCustomers.filter(item => item.label.toLowerCase().includes(bulkCustomerQuery.trim().toLowerCase())).map(item => <label key={item.id}><input type="checkbox" checked={bulkPriceSettingsDraft.excludedCustomers.includes(item.id)} disabled={!bulkPriceSettingsDraft.enabled} onChange={() => toggleBulkPriceExclusion(item.id)}/><span>{item.label}</span><small>{!bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id) ? '개별 단가' : '일괄 적용'}</small></label>)}</div><footer><button onClick={() => setBulkPriceSettingsOpen(false)}>취소</button><button className="save-bulk" onClick={saveBulkPriceSettings} disabled={workBusy || applying}>설정 저장</button></footer></section></div>}
       <div className="sheet-tabs" role="tablist" aria-label="물량표 작업 보기">

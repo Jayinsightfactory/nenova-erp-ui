@@ -1051,3 +1051,10 @@
 - Chrome 85행 미리보기 직인 및 표 선 겹침 확인. 실제 종이 출력 미검증. 필수 검사/배포 PR 참조.
 - 기준선 적용: shell/키보드/스크롤 유지. 신규 메뉴/원장 쓰기 해당없음, 예외없음.
 검색어: weekday-stamp 네노바직인 인증출력 회사정보
+
+## 2026-10-23 네덜란드 명시 조회·칼라 dialog
+- 초기/연도 effect는 차수 목록과 기본값만 준비, 물량은 버튼으로만 조회. 기존 업로드/저장본/분배 경로 보존.
+- 칼라 prompt/confirm을 페이지 dialog로 교체. 전체 비고 전후 표시, 취소/Escape 무쓰기, 저장 중복 방지, 실패 입력 유지, 초점 복귀.
+- 실제 dnSpy ClassProduct/FormQuantityPivot 확인, SELECT-only 품목 schema/trigger probe 재실행. SQL/API writer 변경 없음.
+- 관련 실행 검사/빌드 통과. 전체 gate·PR·배포 결과는 세션 기록 후속 참조. 운영 저장 시험 없음.
+- 검색어: dutch-explicit-load prompt not supported 칼라 dialog 명시조회
