@@ -1,6 +1,7 @@
 {
   "id": "invoice-additional-country-cost",
   "title": "국가별 근거 기반 도착원가 확장",
+  "thaiPackingBasis": "Default RECEIPT_LINES preserves strict existing behavior. Explicit TH-only PACKING_GROUP requires positive packingBoxTotal equal to the sum of positive group boxes; each group's stems must still equal actual received stems. Missing/zero native line boxes do not cause ERP repairs. Invoice prices and native full-snapshot drift guards remain authoritative. Input basis and total persist and restore; unsupported/zero/false/omitted and CO near-miss fixtures required.",
   "scope": ["lib/invoiceReceiptAdditionalCost.js", "lib/invoiceReceiptGroupedCost.js", "lib/invoiceReceiptCost.js", "components/import-tools/InvoiceReceiptCostReview.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [

@@ -1,5 +1,15 @@
 # FormWarehouse 입고 엑셀 업로드 — nenova.exe golden
 
+## 2026-10-23 태국 기존 입고 원가 전용 연결 재확인
+
+실제 dnSpy.Console.exe --no-color -t ExcelLoadingPackingList 명령을 설치된 Nenova.exe에 재실행했다.
+MakeTempTable은 박스/단/송이/UPrice/TPrice를 각각 보존하고 InsertMaster는
+uspCreateWarehouse 후 uspStockCalculation을 호출한다. 태국 원가 연결은 이 native
+쓰기 경로를 호출하지 않는다. 2026/38-01 Super Fresh 6902981 WarehouseKey7345는
+19행,362단,4300송이,USD1452.40,상세 박스0으로 SELECT-only 확인했다.
+원가 배분의 명시 패킹 그룹 박스는 웹 원가 입력이며 입고 박스를 채우는 값이 아니다.
+실제 수식·ERP golden 산식 변경 없음. 상세 기준은 plans/thai-existing-cost-2026-10-23.md.
+
 ## 2026-10-08 재검증 정정 — 아래 과거 요약보다 우선
 
 - 실제 `CommonLogic`을 dnSpy CLI로 다시 확인했다. `CheckFixSave`는 같은 CountryFlower의

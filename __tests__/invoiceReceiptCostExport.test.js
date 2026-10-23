@@ -149,6 +149,31 @@ test('CN existing receipt exports by bunch even when preserved native stems diff
  await assert.rejects(()=>createInvoiceCostWorkbook(f),{code:'COST_EXPORT_LINE_MISMATCH'});
 });
 
+test('TH existing zero-box receipt exports invoice prices and packing-group calculations',async()=>{
+ const f=invoiceCostExportFixture(19,'TH_GROUP_BOX_SHARE_V1');
+ const op=f.document.operations[0];op.action='LINK_EXISTING_COST';op.result.linkMode='EXISTING_TH';
+ f.snapshot.receiptSnapshot.linkMode='EXISTING_TH';
+ f.snapshot.input.groupBoxBasis='PACKING_GROUP';
+ f.snapshot.input.packingBoxTotal=f.snapshot.input.costGroups.reduce((s,g)=>s+g.boxQuantity,0);
+ const receipt=f.snapshot.receiptSnapshot.details.map((d,i)=>{
+  const stems=d.lineAmount/d.unitPrice;f.document.lines[i].stemQuantity=stems;
+  d.stemQuantity=stems;d.boxQuantity=0;d.bunchQuantity=stems/5;
+  const mapping={...d,outQuantity:stems/5,unit:'단',boxQuantity:null};op.result.lineMappings[i]=mapping;
+  return {...f.document.lines[i],...mapping,outUnit:'단'};
+ });
+ const calculated=previewInvoiceCost({...f.document,costInput:f.snapshot.input},receipt);
+ assert.equal(calculated.status,'APPROVED');
+ f.revision.lines=calculated.lines.map((l,i)=>({...l,wdetailKey:receipt[i].wdetailKey}));
+ f.revision.totalCostKRW=calculated.totals.totalCostKRW;
+ const before=JSON.stringify(f), bytes=await createInvoiceCostWorkbook(f);
+ assert.equal(JSON.stringify(f),before);
+ const workbook=XLSX.read(bytes), sheet=workbook.Sheets[workbook.SheetNames[0]];
+ assert.equal(workbook.SheetNames[0],'2026 41-02');assert.ok(workbook.SheetNames.includes('원본수식 비교'));
+ for(let i=0;i<19;i++){assert.equal(sheet[`G${15+i}`].v,f.document.lines[i].unitPrice);assert.ok(Math.abs(sheet[`Q${15+i}`].v-calculated.lines[i].totalCostKRW)<.00001);}
+ f.snapshot.input.packingBoxTotal++;
+ await assert.rejects(()=>createInvoiceCostWorkbook(f),{code:'COST_EXPORT_INPUT_INVALID'});
+});
+
 test('28 rows preserve OOXML style/theme/width/height/merges and exact approved unit/total values', async () => {
   const f = invoiceCostExportFixture(); const bytes = await createInvoiceCostWorkbook(f);
   const zip = await JSZip.loadAsync(bytes);

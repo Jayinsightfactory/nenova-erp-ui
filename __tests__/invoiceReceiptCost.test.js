@@ -397,6 +397,31 @@ test('US box conversion survives approval/readback and remains unconfirmed on re
   assert.equal((await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 })).currentActual, null);
 });
 
+test('TH existing receipt packing groups save/read/restore without native quantity writes', async () => {
+ const input=commonInput('TH_GROUP_BOX_SHARE_V1',{nativeCurrency:'USD',freightCurrency:'USD',customsTotalKRW:1000,
+  groupBoxBasis:'PACKING_GROUP',packingBoxTotal:1,lossTreatmentConfirmed:true,
+  costGroups:[{groupId:'OTHERS',quantity:100,boxQuantity:1}],
+  lineInputs:[{lineId:IDS.line1,groupId:'OTHERS',tariffRate:.05,stemsPerBunch:10}]});
+ const db=persistenceDb(input,{country:'TH',transportMode:'AIR',inputDate:'2026-10-08'});
+ Object.assign(db.state.documentLine,{Currency:'USD',PriceUnit:'STEM',StemQuantity:100,UnitPrice:1});
+ Object.assign(db.state.warehouseDetails[0],{BoxQuantity:0,UPrice:1});
+ const result=JSON.parse(db.state.operation.ResultJson);
+ result.linkMode='EXISTING_TH';result.excludedDetailKeys=[];
+ Object.assign(result.lineMappings[0],{outQuantity:10,unit:'단',stemQuantity:100,boxQuantity:null,bunchQuantity:10,unitPrice:1});
+ result.receiptSnapshot.details=structuredClone(db.state.warehouseDetails);
+ db.state.operation.Action='LINK_EXISTING_COST';db.state.operation.ResultJson=JSON.stringify(result);
+ const before=JSON.stringify(db.state.warehouseDetails);
+ await saveInvoiceCostRevision({withTransactionFn:db.withTransactionFn,types,documentId:IDS.document,revision:1,actor:'approver',input,reason:'Thai invoice price'});
+ const read=await readInvoiceCosts({queryFn:db.execute,types,warehouseKey:901});
+ assert.equal(read.currentActual.liveReceiptStatus,'MATCH');assert.equal(read.currentActual.lines[0].quantity,10);
+ assert.equal(read.currentActual.editableInput.input.groupBoxBasis,'PACKING_GROUP');
+ assert.equal(read.currentActual.editableInput.input.packingBoxTotal,1);
+ assert.equal(JSON.stringify(db.state.warehouseDetails),before);
+ assert.ok(!db.state.queries.some(q=>/(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:dbo\.)?(?:Warehouse|Stock|Shipment|Order|Estimate)/i.test(q.sql)));
+ db.state.warehouseDetails[0].BunchQuantity++;
+ assert.equal((await readInvoiceCosts({queryFn:db.execute,types,warehouseKey:901})).currentActual,null);
+});
+
 test('TH group identity and quantities restore without silently confirming loss treatment', async () => {
   const input = commonInput('TH_GROUP_BOX_SHARE_V1', { nativeCurrency: 'USD', freightCurrency: 'USD',
     freightAmount: 10, customsTotalKRW: 1000, lossTreatmentConfirmed: true,
