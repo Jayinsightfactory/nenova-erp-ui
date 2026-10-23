@@ -474,6 +474,7 @@ for (const [id, assetName, filename] of [
 }
 
 for (const [id, assetName, filename] of [
+  ['CO_42_1_ORIGINAL_V1', 'colombia-42-1', '42-1'],
   ['CO_ORIGINAL_V1', 'colombia', 'muki3lfy-23d4f8'], ['TH_ORIGINAL_V1', 'thailand', 'muulcr7t-dcbb0b'],
 ]) {
   test(`${id} source-bound grouped approved values, dynamic layout, and explicit TH first-row correction`, async () => {
@@ -542,7 +543,7 @@ test('every enabled profile preserves explicit cancelled rows without allocation
     const buffer = await createInvoiceCostWorkbook(f), sheet = XLSX.read(buffer).Sheets['2026 41-02'];
     const cost = f.revision.lines[0]; assert.equal(cost.quantity, 0); assert.equal(cost.costPerUnitKRW, null); assert.equal(cost.totalCostKRW, 0);
     const unitCostCol = p.id === 'CN_AIR_ORIGINAL_V1' ? 'M' : p.id === 'CN_SEA_ORIGINAL_V1' ? 'N'
-      : p.id === 'US_ORIGINAL_V1' ? 'L' : p.id === 'TH_ORIGINAL_V1' ? 'P' : ['NL_ORIGINAL_V1', 'EC_ORIGINAL_V1', 'CO_ORIGINAL_V1'].includes(p.id) ? 'O' : 'M';
+      : p.id === 'US_ORIGINAL_V1' ? 'L' : p.id === 'TH_ORIGINAL_V1' ? 'P' : ['NL_ORIGINAL_V1', 'EC_ORIGINAL_V1', 'CO_ORIGINAL_V1', 'CO_42_1_ORIGINAL_V1'].includes(p.id) ? 'O' : 'M';
     assert.equal(sheet[`${unitCostCol}${p.detailStartRow}`]?.v, undefined);
   }
 });

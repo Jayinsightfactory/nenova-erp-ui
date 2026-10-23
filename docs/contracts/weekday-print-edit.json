@@ -30,7 +30,7 @@
       "name": "PRINT_PREVIEW_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Stored allocation SELECT only. Header remarks exactly major week + 차. Every opening explicitly chooses boxes true/false/cancel. No confirmation/stock/money mutations. Existing native grouping and layout retained. User-supplied seal PNG is served through authenticated print response and overlaid only on native web preview/print; no ledger changes."
+      "sideEffect": "Stored allocation SELECT only. Header remarks exactly major week + 차. Every opening explicitly chooses boxes true/false/cancel. No confirmation/stock/money mutations. Existing native grouping and layout retained. User-supplied seal PNG is served through authenticated print response and overlaid only on native web preview/print; no ledger changes. User-requested web compact item row minimum4.8mm, zero vertical padding, unchanged8pt font; wrapped names/remarks grow naturally. Editable remark starts one line, grows on initial load/input and shrinks on deletion. EXE binary and all printed values preserved."
     },
     {
       "name": "PRINT_NOTE_SAVE",

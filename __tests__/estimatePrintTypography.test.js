@@ -46,7 +46,7 @@ test('weekday native layout has ReportEstimate metric geometry and independent f
   assert.equal(cssRule(native,'.native-estimate .native-amount').top,'79.5mm');
   assert.equal(cssRule(native,'.native-estimate .item-table')['table-layout'],'fixed');
   assert.equal(cssRule(native,'.native-estimate .item-table').width,'180mm');
-  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').height,'6.35mm');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').height,'4.8mm');
   assert.equal(cssRule(native,'.native-estimate .item-table tbody td').padding,'0 1mm 0 .5mm !important');
   const columns=[...native.match(/<table class="item-table">([\s\S]*?)<thead>/)[1].matchAll(/width:([\d.]+)%/g)].map(match=>Number(match[1]));
   assert.deepEqual(columns,[10.588235,58.235287,17,15.823528,23.294115,21.176469,33.882366].map(width=>width/180*100));
@@ -78,7 +78,7 @@ function cssRule(html, selector) {
     }));
 }
 
-function assertTypography(html) {
+function assertTypography(html, printFormat='estimate') {
   const body = cssRule(html, 'body');
   assert.match(body['font-family'], /^Gulim,'굴림',/);
   assert.equal(body.padding, '10mm 15mm');
@@ -89,7 +89,7 @@ function assertTypography(html) {
   assert.match(title['font-family'], /^Gulim,'굴림',/);
   const item = cssRule(html, '.item-table tbody td');
   assert.equal(item['font-size'], '8pt');
-  assert.equal(item.height, '6.35mm');
+  assert.equal(item.height, printFormat==='statement'?'6.35mm':'4.8mm');
   const header = cssRule(html, '.item-th');
   assert.equal(header['font-size'], '9pt');
   assert.equal(header['font-weight'], 'bold');
@@ -109,7 +109,7 @@ function assertTypography(html) {
 
 test('EXE typography is declared on rendered cells, not an unused item-td class', () => {
   for (const printFormat of ['estimate', 'supply', 'statement']) {
-    assertTypography(build({ printFormat }));
+    assertTypography(build({ printFormat }),printFormat);
   }
   const html = build();
   assert.match(html, /<h1>견 적 서<\/h1>/);
