@@ -39,7 +39,7 @@ export default function WeekdayBoxPartsDialog({label,quantity,pack,onApply,onClo
         <label>박스 ({pack.count ?? '?'}{pack.unit})<input aria-label="박스 수량" inputMode="numeric" value={boxes} disabled={busy||!pack.count} onChange={e=>setBoxes(e.target.value)} style={{width:100,display:'block'}}/></label>
         <label>+ {pack.unit}<input aria-label={`낱개 ${pack.unit} 수량`} inputMode="numeric" value={loose} disabled={busy||!pack.count} onChange={e=>setLoose(e.target.value)} style={{width:100,display:'block'}}/></label>
       </div>
-      <p aria-live="polite">{result?`합계 ${result.total}${pack.unit} · 전산 표시 ${result.quantity.toFixed(2)}박스`:error}</p>
+      <p aria-live="polite">{result?`합계 ${result.total}${pack.unit} · 박스 표시 ${result.quantity.toFixed(1)}박스`:error}</p>
       <small>초안 반영 후 ‘분배 적용 · 변경 확인’에서 저장합니다.</small>
       {failure&&<p role="alert">{failure}</p>}
       <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
