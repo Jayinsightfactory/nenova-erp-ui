@@ -110,3 +110,4 @@ scripts/ecount-ledger/_profile/
 scripts/ecount-ledger/_history/
 .local-hotel-ui/
 .local-arrival-e2e/
+.local-box-summary/

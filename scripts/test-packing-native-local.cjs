@@ -29,7 +29,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
   try{
    const chunks=[];for await(const c of req)chunks.push(c);const raw=Buffer.concat(chunks).toString();const body=raw?JSON.parse(raw):{};const id=route.split('/')[4];let d;
    if(route==='/api/auth/me')d={success:true,user:{userId:'invoice-fixture',authority:1,accountActive:true}};
-   else if(route==='/api/warehouse/boxes')d={success:true,rows:(await query(pool,WAREHOUSE_BOX_SQL,{year:{type:sql.NVarChar,value:boxSummaryYear(u.searchParams.get('year'))}})).recordset};
+   else if(route==='/api/warehouse/boxes')d={success:true,rows:(await query(pool,WAREHOUSE_BOX_SQL,{year:{type:sql.NVarChar,value:boxSummaryYear(u.searchParams.get('year'))},toYear:{type:sql.NVarChar,value:boxSummaryYear(u.searchParams.get('toYear')||u.searchParams.get('year'))}})).recordset};
    else if(route==='/api/import/tools/product-matches'){if(method==='POST')catalog.value=upsertPackingErpMatch(catalog.value,body,catalog.products);d={...catalog,success:true,scope:'team',revision:1};}
    else if(route==='/api/import/upload-issues'){if(method==='POST')await appendUploadIssue({withTransaction:ctx.withTransactionFn,sql,actor:'invoice-fixture',input:body});d={success:true,rows:(await query(pool,"SELECT LogKey,Actor,Payload FROM SystemActionLog")).recordset.map(x=>({id:x.LogKey,actor:x.Actor,...JSON.parse(x.Payload)}))};}
    else if(route==='/api/import/tools/parse-pdf'&&method==='POST'){

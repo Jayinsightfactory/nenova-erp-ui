@@ -67,7 +67,7 @@ export const MENU_ITEMS = [
     group: '입/출고관리',
     items: [
       { href: '/incoming',            labelKey: '입고관리',     popup: true },
-      { href: '/incoming/boxes',      labelKey: '차수별 박스 입고 현황', popup: true },
+      { href: '/incoming/boxes',      labelKey: '입고 박스·중량 현황', popup: true },
       { href: '/incoming/insight',    labelKey: '입고 인사이트',  popup: true },
       { href: '/incoming/kakao-summary', labelKey: '수입방 카톡 수량집계', popup: false },
       { href: '/incoming-price',      labelKey: '입고단가/송금', popup: false },

@@ -51,11 +51,12 @@ module.exports=async function(ctxAll){
  const saved=await costs.saveInvoiceCostRevision({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:document.documentId,revision:document.revision,actor:'invoice-fixture',reason:'TEST_ONLY download verification',input:{...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:date,nativeCurrency:invoice.currency,freightCurrency:invoice.currency,exchangeRateKRW:country==='AU'?950:1400,exchangeRateType:'TEST_ONLY',exchangeRateDate:date,freightAmount:0,customsTotalKRW:10000,expenseBasis:'ESTIMATED',estimateSource:'TEST_ONLY 시험값 · 실제 원가 아님',costSourceId:'TEST_ONLY:'+document.documentId,allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,
  lineInputs:document.lines.map(line=>({lineId:line.lineId,tariffRate:0,...{stemsPerBunch:line.bunchQuantity>0?line.stemQuantity/line.bunchQuantity:25,bunchesPerBox:line.boxQuantity>0&&line.bunchQuantity>0?line.bunchQuantity/line.boxQuantity:25}}))}});
  const out=await exportCurrentInvoiceCost({queryFn:ctx.queryFn,types:sql,documentId:document.documentId,warehouseKey:String(saved.warehouseKey),costRevisionId:saved.currentActual.costRevisionId});
- fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
+ if(process.env.NENOVA_BOX_SUMMARY_TEST!=='1')fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
  const readback=(await query(pool,'SELECT BoxQuantity,BunchQuantity,SteamQuantity,TPrice FROM WarehouseDetail WHERE WarehouseKey=@key',{key:{type:sql.Int,value:saved.warehouseKey}})).recordset;
  const totals=Object.fromEntries(['BoxQuantity','BunchQuantity','SteamQuantity','TPrice'].map(k=>[k,readback.reduce((s,r)=>s+Number(r[k]),0)]));
  assert.equal(totals.BoxQuantity,country==='AU'?56:70);assert.equal(totals.TPrice,country==='AU'?17706.25:4721.5);
+ if(process.env.NENOVA_BOX_SUMMARY_TEST==='1')await require('./test-receipt-box-summary-local.cjs')({pool,ctx,sql},{country,week,warehouseKey:saved.warehouseKey,totals});
  assert.deepEqual(await protectedSnapshot(pool),before);
- fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
+ if(process.env.NENOVA_BOX_SUMMARY_TEST!=='1')fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
  console.log('PASS',country,JSON.stringify(totals),'local receipt -> TEST_ONLY cost -> download');
 };
