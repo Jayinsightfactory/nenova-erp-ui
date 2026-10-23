@@ -37,6 +37,8 @@ module.exports=async function(ctxAll){
  const before=await protectedSnapshot(pool);
  const pdf=path.join('C:/Users/USER/Downloads',country==='AU'?'41-1 AUS CI.pdf':co?'43-2 수국 Hortensias CI Invoice.pdf':'41-1 US Hood Canal CI.pdf');
  const sourceHash=createHash('sha256').update(fs.readFileSync(pdf)).digest('hex');
+ const consumerTest=process.env.NENOVA_ARRIVAL_CONSUMER_TEST==='1'
+  ? await require('./test-arrival-approval-consumers-local.cjs')(ctxAll,keys) : null;
  if(process.env.NENOVA_NATIVE_UI_TEST==='1'){
   // This receipt regression deliberately selects one authentic invoice from the cached PDF.
   // It is not a new AI extraction or a completeness claim for all seven invoices.
@@ -61,16 +63,18 @@ module.exports=async function(ctxAll){
  const document=await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,actor:'invoice-fixture',input:{...draft,orderYear:'2026',orderWeek:week,invoiceYear:'2026',farmKey:7111,sourceHash,originalFileName:'TEST_ONLY '+path.basename(pdf),reviewedMetadata:{...draft.reviewedMetadata,country,farmName,transportMode:'AIR',inputDate:date,...(co?{gw:100,cw:200,weightBasis:'TEST_ONLY'}:{})},reason:'TEST_ONLY existing receipt comparison; no production learning'}});
  const preview=await ctx.preview(document.documentId,document.revision);assert.equal(preview.canCommit,true,JSON.stringify(preview.issues));
  await ctx.create({documentId:document.documentId,revision:document.revision,operationId:randomUUID(),receiptPartId:randomUUID(),baselineDigest:preview.baselineDigest,reason:'TEST_ONLY isolated country receipt',allowPendingCost:true,actor:'invoice-fixture'});
+ if(consumerTest) await consumerTest.beforeApproval();
  const formula=costs.INVOICE_COST_FORMULAS[country==='AU'?'AU_CNF_BUNCH_V1':co?'CO_GROUP_42_1_V1':'US_CNF_BOX_V1'];
  const saved=await costs.saveInvoiceCostRevision({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:document.documentId,revision:document.revision,actor:'invoice-fixture',reason:'TEST_ONLY download verification',input:{...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:date,nativeCurrency:invoice.currency,freightCurrency:invoice.currency,exchangeRateKRW:country==='AU'?950:1400,exchangeRateType:'TEST_ONLY',exchangeRateDate:date,freightAmount:co?100:0,customsTotalKRW:10000,expenseBasis:'ESTIMATED',estimateSource:'TEST_ONLY 시험값 · 실제 원가 아님',costSourceId:'TEST_ONLY:'+document.documentId,allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,
  ...(co?{costGroups:[{groupId:'HYDRANGEA',quantity:1440,boxQuantity:48,grossWeightKg:100,volumeWeightKg:200}]}:{}),
  lineInputs:document.lines.map(line=>({lineId:line.lineId,tariffRate:0,...(co?{groupId:'HYDRANGEA',stemsPerBunch:1,bunchesPerBox:30}:{stemsPerBunch:line.bunchQuantity>0?line.stemQuantity/line.bunchQuantity:25,bunchesPerBox:line.boxQuantity>0&&line.bunchQuantity>0?line.bunchQuantity/line.boxQuantity:25})}))}});
  const out=await exportCurrentInvoiceCost({queryFn:ctx.queryFn,types:sql,documentId:document.documentId,warehouseKey:String(saved.warehouseKey),costRevisionId:saved.currentActual.costRevisionId});
- fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
+ if(consumerTest) await consumerTest.afterApproval(saved,out);
+ if(!consumerTest)fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
  const readback=(await query(pool,'SELECT BoxQuantity,BunchQuantity,SteamQuantity,TPrice FROM WarehouseDetail WHERE WarehouseKey=@key',{key:{type:sql.Int,value:saved.warehouseKey}})).recordset;
  const totals=Object.fromEntries(['BoxQuantity','BunchQuantity','SteamQuantity','TPrice'].map(k=>[k,readback.reduce((s,r)=>s+Number(r[k]),0)]));
  assert.equal(totals.BoxQuantity,country==='AU'?56:co?48:70);assert.equal(totals.TPrice,country==='AU'?17706.25:co?1084.5:4721.5);
  assert.deepEqual(await protectedSnapshot(pool),before);
- fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
+ if(!consumerTest)fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
  console.log('PASS',country,JSON.stringify(totals),'local receipt -> TEST_ONLY cost -> download');
 };

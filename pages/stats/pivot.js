@@ -2026,8 +2026,8 @@ export function LegacyPivot() {
                           {showOutDate  && <td style={{fontSize:10}} title={r.outDate||''}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inTotal)}</td>}
-                          {showArrival     && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 · ${r.arrivalMeta?.source || '연결 원가 없음'}`}>{r.arrivalMeta?fmtNum(r.arrivalCost):'—'}{r.arrivalMeta?.arrivalWeek && <div>{r.arrivalMeta.arrivalWeek}차</div>}</td>}
-                          {showArrivalVat  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#6b4500':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가×1.1 (부가세포)`}>{r.arrivalMeta?fmtNum(arrivalCostWithVat(r.arrivalCost)):'—'}</td>}
+                          {showArrival     && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 · ${r.arrivalMeta?.source || '연결 원가 없음'}`}>{r.arrivalMeta?Number(r.arrivalCost).toLocaleString('ko-KR',{maximumFractionDigits:0}):'—'}{r.arrivalMeta?.arrivalWeek && <div>{r.arrivalMeta.arrivalWeek}차</div>}</td>}
+                          {showArrivalVat  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#6b4500':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가×1.1 (부가세포)`}>{r.arrivalMeta?Number(arrivalCostWithVat(r.arrivalCost)).toLocaleString('ko-KR',{maximumFractionDigits:0}):'—'}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fmtNum((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)'}} title={r.descr}>{r.descr||''}</td>}

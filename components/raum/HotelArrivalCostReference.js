@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { arrivalHistoryWeeks, compareHotelArrival } from '../../lib/hotelArrivalDisplay';
 
-const fmt = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 1 });
+const fmt = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+const fmtRate = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 1 });
 
 // Browser-only comparison. No save callback, mutation request or export payload.
 export default function HotelArrivalCostReference({ item, error, rates = {} }) {
@@ -31,7 +32,7 @@ export default function HotelArrivalCostReference({ item, error, rates = {} }) {
       {!history && ref.isFallback && <span style={{ color: '#c2410c' }}> · 이전 최신</span>}
       {!history && ref.isNextHotelWeek && <span style={{ color: '#0369a1' }}> · 호텔 다음 1차</span>}
       {ref.sourceKind==='INVOICE' && <span> · 인보이스 승인{ref.expenseBasis==='ESTIMATED'?' (비용 추정)':''}</span>}
-      {comparison.applied && <div style={{color:'#047857'}}>환율 비교 {ref.currency} {fmt(rates[ref.currency])} · 원본 {fmt(ref.cost)}원</div>}
+      {comparison.applied && <div style={{color:'#047857'}}>환율 비교 {ref.currency} {fmtRate(rates[ref.currency])} · 원본 {fmt(ref.cost)}원</div>}
       {!comparison.applied && Object.values(rates).some(Boolean) && comparison.reason && <div style={{color:'#b45309'}}>{comparison.reason} · 원본 유지</div>}
       <div style={{ color: '#64748b', fontSize: 10 }}>{ref.sourceSheet || '시트 미기재'}{ref.sourceRow ? ` ${ref.sourceRow}행` : ''}</div>
     </div>;})}
@@ -42,7 +43,7 @@ export default function HotelArrivalCostReference({ item, error, rates = {} }) {
       {refs.map(ref => {
         const result = compareHotelArrival(ref,ref.currency ? {[ref.currency]:fx} : {});
         const cost = result.applied ? result.cost : null;
-        return <div key={ref.referenceKey} style={{ marginTop: 4 }}><b>{ref.farm || '농장 미기재'} · {ref.week}</b> · {ref.currency || '통화 미확인'} 원본 환율 {ref.exchangeRate ? fmt(ref.exchangeRate) : '없음'}<br />
+        return <div key={ref.referenceKey} style={{ marginTop: 4 }}><b>{ref.farm || '농장 미기재'} · {ref.week}</b> · {ref.currency || '통화 미확인'} 원본 환율 {ref.exchangeRate ? fmtRate(ref.exchangeRate) : '없음'}<br />
           {cost != null ? <>비교 추정 <b>{fmt(cost)}원/{ref.unit}</b> · 차이 {fmt(cost - ref.cost)}원</> : (result.reason || '비교 환율을 입력하세요.')}
         </div>;
       })}

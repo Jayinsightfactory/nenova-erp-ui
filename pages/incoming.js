@@ -113,7 +113,7 @@ export default function Warehouse() {
   const renderCost = (detail, map, total = false) => {
     const line = map.get(Number(detail.WdetailKey));
     const value = line?.[total ? 'totalCostKRW' : 'costPerUnitKRW'];
-    return Number.isFinite(value) ? `${value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원${total ? '' : `/${line.unit}`}` : '—';
+    return Number.isFinite(value) ? `${value.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원${total ? '' : `/${line.unit}`}` : '—';
   };
 
   const farmOptions = useMemo(() => [...new Set(masters.map(m => m.FarmName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [masters]);
@@ -294,7 +294,7 @@ export default function Warehouse() {
           <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
               {costError ? <Alert type="warning" showIcon message={`도착원가 조회 실패: ${costError}`} /> : costLoading ? <Text>도착원가 조회 중…</Text> : invoiceCosts?.currentActual ?
-                <Space wrap><Tag color="green">실제 입고량 기준 원가</Tag><Text>합계 {fmt(invoiceCosts.currentActual.totalCostKRW)}원</Text><Text type="secondary">확인: {invoiceCosts.currentActual.approvedBy} · 95% 원가는 비교용</Text></Space> :
+                <Space wrap><Tag color="green">실제 입고량 기준 원가</Tag><Text>합계 {Number(invoiceCosts.currentActual.totalCostKRW).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원</Text><Text type="secondary">확인: {invoiceCosts.currentActual.approvedBy} · 95% 원가는 비교용</Text></Space> :
                 <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}
             </div>}
             {!selectedKey ? <Empty description="원장을 선택하세요" /> : (
