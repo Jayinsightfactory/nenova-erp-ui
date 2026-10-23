@@ -260,7 +260,12 @@ export default function DutchVolumeBoard() {
     try {
       const parsed = importDutchVolumeWorkbook(XLSXStyled, workbook, { year: yearRef.current, week: weekRef.current });
       void acceptSource(workbook, fileName, sourceBaseRef.current, parsed.entries, 'UPLOAD', parsed);
-    } catch (cause) { setError(cause.message || '업로드 원본을 다시 읽지 못했습니다.'); }
+    } catch (cause) {
+      // Keep the file so returning to its exact scope can reload it, but never
+      // let old-scope entries obtain a new plan after a scope validation error.
+      setEntries([]); setPrices({}); setMatchCache({});
+      setError(cause.message || '업로드 원본을 다시 읽지 못했습니다.');
+    }
   }
   function changeWeek(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); weekRef.current = value; setWeek(value); reloadUploadedScope(); }
   function changeYear(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); yearRef.current = value; setYear(value); reloadUploadedScope(); }

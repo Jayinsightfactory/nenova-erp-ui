@@ -123,6 +123,7 @@ assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity, quantityHisto
 assert.match(page, /exportDutchVolumeWorkbook/, '검증된 원본 투영·수량 합계·재업로드 경로를 사용한다');
 assert.match(volumeSheet, /quantity-history-badge/, '수량 수정 이력이 있는 셀에 작은 표시를 제공해야 합니다.');
 assert.match(page, /importDutchVolumeWorkbook/, '재업로드는 표시 셀과 연결정보를 검증한다');
+assert.match(page, /setEntries\(\[\]\); setPrices\(\{\}\); setMatchCache\(\{\}\);/, '재업로드 차수 불일치 후 기존 항목으로 새 차수 계획을 발급하면 안 된다');
 assert.doesNotMatch(page, /function withEditedWorkbook/, '추가 업체를 건너뛰던 구형 다운로드 경로를 제거한다');
 assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
 assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
