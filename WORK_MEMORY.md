@@ -1103,3 +1103,16 @@
 - dnSpy/SELECT-only/153품목·122최신인보이스/격리CUA/전체게이트·빌드 통과. PR·배포·운영 UI는 세션기록 후속 참조(현재 미검증).
 - 검색어: arrival-display-unify loadLatestArrivalReferences 최신 승인 도착원가 참고
 
+## 2026-10-23 네덜란드 Excel 추가 업체 왕복
+- 화면 전용 추가 업체가 다운로드에서 누락되던 경로 수정. 지역별 실제 열·최종 수량·합계·단가 좌표와 ERP적용초안 V1 매칭/단위/차수 연결.
+- 2회 XLSX 왕복 및 실제 격리 SQL preview/apply 동일 최종값 확인. 기존 주문·교차연도·Estimate/Stock/Warehouse 보존, 확정/동시수정/rollback 유지.
+- dnSpy 실제 재실행, SELECT-only 운영 기준선 확인. 운영 시험 분배 없음.
+- 전체 ERP 계약/pivot/dnSpy/manifest/write guard/layout/build 통과. 배포·운영 브라우저 검증은 세션 문서 후속 참조.
+- 검색어: dutch-xlsx-roundtrip ERP적용초안 추가업체 재업로드 동일분배
+## 2026-10-23 중국 물량표 dnSpy·등록분배 MD 재감사
+- 사용자 확인: 기존 주문100은 보존하고 분배80, 새 업체/품목은 주문·분배 동시 등록.
+- actual dnSpy FormOrderAdd/FormShipmentDistribution 및 운영 SELECT 재확인. 오래된 FormOrderAdd.md 양수 주문 덮어쓰기 설명 정정.
+- 격리 SQL에서 신규 주문 Est8(기대80) 반례 재현 후 중국 전용 native 환산·readback 보완. 삭제 출고헤더의 중복생성도 공통 snapshot 단계에서 차단.
+- exact100/80, 신규업체8단/80송이, 기존 주문 전열 보존, 반복/감소/0, 교차연도, 환산변조 rollback, 삭제헤더/경합 테스트 통과. 운영 쓰기 없음. 배포 후 결과는 세션 기록 참조.
+- 검색어: china-order-guard-review 주문100 분배80 EstQuantity chinaOrderUnits 삭제출고헤더 dnSpy
+
