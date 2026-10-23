@@ -76,6 +76,7 @@ jobs:
           APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
           MIGRATE_ORDER_MAPPINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate_order_mappings == true && 'true' || 'false' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          NENOVA_ESTIMATE_SEAL_PNG: ${{ secrets.NENOVA_ESTIMATE_SEAL_PNG }}
           WEEKDAY_TEMPLATE_KEY: ${{ secrets.WEEKDAY_TEMPLATE_KEY }}
           PUBLIC_API_KEY: ${{ secrets.PUBLIC_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -98,7 +99,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           # Tests plus webpack can exceed ssh-action's default ten minutes.
           # Keep code-only migration gates and atomic build swap unchanged.
           command_timeout: 30m
@@ -334,7 +335,7 @@ jobs:
               echo "ℹ️  KAKAO_SHEET_ID 미설정 — 기본 시트ID 사용"
             fi
             # Dedicated read-only feed credentials: never print their values.
-            for KEY in NENOVA_SALES_READ_TOKEN NENOVA_SALES_ROOM_ID; do
+            for KEY in NENOVA_SALES_READ_TOKEN NENOVA_SALES_ROOM_ID NENOVA_ESTIMATE_SEAL_PNG; do
               VALUE="$(printenv "$KEY")"
               if [ -n "$VALUE" ]; then
                 grep -v "^${KEY}=" .env.local > .env.local.tmp || true

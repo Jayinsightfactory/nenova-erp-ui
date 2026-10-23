@@ -102,14 +102,15 @@ test('API source contract returns unfixed allocation without any write or canoni
     id.includes('weekdayPrintNoteService')?{weekdayPrintNotes:{list:async()=>({})}}:
     id.includes('weekdayAllocationPrint')?{normalizeWeekdayPrintRequest:body=>({...scope,dates:body.dates}),
       readWeekdayAllocationPrintInTransaction:async()=>{reads++;return {customer:{CustKey:533,CustName:'주광'},
-        ...build(scope,[detail()],[day()])};}}:require(id);
+        ...build(scope,[detail()],[day()])};}}:createRequire(filename)(id);
   loaded._compile(transformSync(fs.readFileSync(filename,'utf8'),{filename,jsc:{parser:{syntax:'ecmascript'},target:'es2022'},module:{type:'commonjs'}}).code,filename);
-  const handler=loaded.exports.createWeekdayAllocationPrintHandler({transaction:callback=>callback(()=>{}),types:{}});
+  const handler=loaded.exports.createWeekdayAllocationPrintHandler({transaction:callback=>callback(()=>{}),types:{},seal:()=> 'data:image/png;base64,fixture'});
   const invoke=async body=>{let result,status;const res={setHeader(){},status(value){status=value;return this;},json(value){result=value;return this;}};
     await handler({method:'POST',body},res);return {result,status};};
   assert.equal((await invoke({...scope})).status,400);assert.equal(reads,0);
   const {result,status}=await invoke({...scope,source:'ALLOCATION'});
   assert.equal(status,200);assert.equal(result.source,'ALLOCATION');assert.equal(result.readOnly,true);
+  assert.match(result.stampDataUrl,/^data:image\/png;base64,/);
   assert.equal(result.draftIncluded,false);assert.equal(result.confirmation.unfixedCount,1);assert.equal(result.items[0].Quantity,180);
 });
 

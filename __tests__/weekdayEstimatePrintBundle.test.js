@@ -65,3 +65,17 @@ assert.throws(()=>bundle({requests:[{...requests[0],dates:['2026-09-17"><script>
 assert.equal(validate(requests[0],results[0]),results[0]);
 assert.throws(()=>validate({...requests[0],source:'ESTIMATE'},results[0]),/응답/,'legacy confirmed-quote request cannot consume allocation result');
 console.log('weekdayEstimatePrintBundle: per-date requests/isolated quantity+amount/2 headers+page sections/common typography/single+major exact HTML/empty notice/partial+scope failure/7-day limit PASS');
+
+// Exact user-provided image; authenticated API supplies it, never quantity conversion.
+const {readEstimateSeal}=await import('../lib/server/estimateSeal.js');
+const previousSeal=process.env.NENOVA_ESTIMATE_SEAL_PNG;
+process.env.NENOVA_ESTIMATE_SEAL_PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aK1sAAAAASUVORK5CYII=';
+const seal=readEstimateSeal();
+for(const invalid of ['', 'not-a-png', 'a'.repeat(60001)]){process.env.NENOVA_ESTIMATE_SEAL_PNG=invalid;assert.throws(()=>readEstimateSeal());}
+if(previousSeal===undefined)delete process.env.NENOVA_ESTIMATE_SEAL_PNG;else process.env.NENOVA_ESTIMATE_SEAL_PNG=previousSeal;
+const stamped=bundle({requests,results:results.map(result=>({...result,stampDataUrl:seal})),printDate,logoDataUrl});
+assert.equal((stamped.html.match(/class="native-company-stamp"/g)||[]).length,2,'each selected date receives one seal');
+assert.equal(stamped.html.replace(/<img class="native-company-stamp"[^>]*\/>/g,''),built.html,'seal preserves every quantity, money value and document field');
+assert.match(stamped.html,/mix-blend-mode:multiply/);
+assert.doesNotMatch(buildEstimateHtml({rows:[],printDate,stampDataUrl:seal}),/class="native-company-stamp"/,'legacy print remains unchanged');
+assert.doesNotMatch(buildEstimateHtml({rows:[],printDate,nativeLayout:true,stampDataUrl:'https://untrusted.invalid/stamp.png'}),/class="native-company-stamp"/);

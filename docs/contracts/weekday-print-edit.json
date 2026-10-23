@@ -16,7 +16,8 @@
     "__tests__/weekdayPrintNotes.test.js",
     "__tests__/fixtures/weekdayWorkbookTemplate.js",
     "__tests__/weekdayStyledWebWorkbook.test.js",
-    "scripts/test-weekday-confirmation-lifecycle-sql.cjs"
+    "scripts/test-weekday-confirmation-lifecycle-sql.cjs",
+    "lib/server/estimateSeal.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -29,7 +30,7 @@
       "name": "PRINT_PREVIEW_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Stored allocation SELECT only. Header remarks exactly major week + 차. Every opening explicitly chooses boxes true/false/cancel. No confirmation/stock/money mutations. Existing native grouping and layout retained."
+      "sideEffect": "Stored allocation SELECT only. Header remarks exactly major week + 차. Every opening explicitly chooses boxes true/false/cancel. No confirmation/stock/money mutations. Existing native grouping and layout retained. User-supplied seal PNG is served through authenticated print response and overlaid only on native web preview/print; no ledger changes."
     },
     {
       "name": "PRINT_NOTE_SAVE",
