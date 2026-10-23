@@ -13,6 +13,7 @@ import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import ProductColorDialog from '../../components/dutch/ProductColorDialog';
 import { addDutchInlineCustomer } from '../../lib/dutchInlineCustomer';
+import { addDutchMatrixProduct } from '../../lib/dutchMatrixProduct';
 import { exportDutchVolumeWorkbook, importDutchVolumeWorkbook } from '../../lib/dutchVolumeWorkbook';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
@@ -96,6 +97,12 @@ export default function DutchVolumeBoard() {
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
   }, [entries]);
   const enteredPriceCount = entries.filter(row => prices[dutchPriceKey(row, bulkPriceConfig)] !== '' && prices[dutchPriceKey(row, bulkPriceConfig)] !== undefined).length;
+  useEffect(() => {
+    if(!workbook)return;
+    let active=true;
+    apiGet('/api/customers/search',{}).then(result=>{if(active)setCustomerOptions((result.customers||[]).map(c=>({custKey:c.CustKey,custName:c.CustName,orderCode:c.OrderCode,area:c.CustArea})));}).catch(()=>{if(active)setError('업체 목록 조회에 실패했습니다. 물량표를 다시 불러오세요.');});
+    return ()=>{active=false;};
+  },[workbook]);
 
   useEffect(() => {
     if (activeTab !== 'edit' || !activeEntryId) return undefined;
@@ -217,7 +224,8 @@ export default function DutchVolumeBoard() {
     setWorkName(''); setWorkNotice(''); setWorkError('');
     setApplyResult(null);
     // Initial matching is a read-only preview. Apply is always a separate, explicit action.
-    await runPreview(saved.entries, migratedPrices, yearRef.current, weekRef.current, identity, name, nextBulkPriceConfig);
+    if(saved.entries.length) await runPreview(saved.entries, migratedPrices, yearRef.current, weekRef.current, identity, name, nextBulkPriceConfig);
+    else setRematchNotice('입고 품목을 표시했습니다. 업체 추가 후 수량을 입력하면 저장·분배 검증할 수 있습니다.');
   }
 
   async function loadLive(selectedYear = year, selectedWeek = week) {
@@ -225,13 +233,12 @@ export default function DutchVolumeBoard() {
     invalidate(); setLoading(true); setError('');
     try {
       const result = await apiGet('/api/stats/pivot-data', { orderYear: selectedYear, weekStart: selectedWeek, weekEnd: selectedWeek });
-      const liveEntries = buildDutchEntriesFromPivotData(result, selectedYear, selectedWeek);
-      if (!liveEntries.length) throw new Error(`${selectedYear}년 ${selectedWeek} 네덜란드 업체별 주문수량이 없습니다.`);
+      // Incoming-only products are already unioned by the year/week-scoped pivot reader.
       const params = new URLSearchParams({ orderYear: String(selectedYear), weekStart: selectedWeek, weekEnd: selectedWeek, species: 'country:네덜란드' });
       const volumeResponse = await fetch(`/api/stats/pivot-volume-excel?${params.toString()}`, { credentials: 'same-origin' });
       if (!volumeResponse.ok) { const detail = await volumeResponse.json().catch(() => ({})); throw new Error(detail.error || 'Pivot 물량표 원본 엑셀을 만들지 못했습니다.'); }
       const nextWorkbook = XLSXStyled.read(await volumeResponse.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
-      const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook);
+      const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook, {allowEmpty:true});
       if (request !== loadRequestRef.current || selectedYear !== yearRef.current || selectedWeek !== weekRef.current) return;
       const activeCustomerKeys = (result.customersByKey || result.customers || []).map(customer => customer.custKey);
       const liveEntriesWithIdentity = attachDutchLiveCustomerKeys(XLSXStyled, nextWorkbook, parsed.entries, activeCustomerKeys);
@@ -422,10 +429,10 @@ export default function DutchVolumeBoard() {
   }
   function addRow() {
     if (workBusyRef.current || applyingRef.current) return;
-    if (!workbook || !entries.length) { setError('먼저 물량표를 불러오세요.'); return; }
+    if (!workbook) { setError('먼저 물량표를 불러오세요.'); return; }
     if (!customerOptions.length) { setError('업체 목록을 준비하려면 ERP 매칭·최종수량 다시 검증을 눌러 주세요.'); return; }
     const identity = storageKey, selectedYear = year, selectedWeek = week, revision = revisionRef.current;
-    const name = visibleSheetRef.current || entries.find(row => row.sheetName)?.sheetName;
+    const name = visibleSheetRef.current || entries.find(row => row.sheetName)?.sheetName || workbook.SheetNames.find(n=>n!=='_keymap'&&n!=='ERP적용초안');
     setActiveTab('sheet');
     openMatchPopup({ kind:'customer', initialQuery:'', options:customerOptions, returnFocusElement:document.activeElement, onPick: item => {
       if (workBusyRef.current || applyingRef.current) { setError('저장·적용 중에는 업체를 추가할 수 없습니다. 완료 후 다시 선택하세요.'); return; }
@@ -437,6 +444,29 @@ export default function DutchVolumeBoard() {
         setRematchNotice(result.duplicate ? '이미 있는 업체입니다. 기존 수량 셀을 수정하세요.' : `${item.custName} · ${item.area || '기타'} 위치에 추가했습니다. 표에서 수량 입력 후 작업 저장·업로드 검토를 진행하세요.`);
       } catch(cause) { setError(cause.message); }
     }});
+  }
+  function addProductRow() {
+    if(workBusyRef.current||applyingRef.current||!workbook)return;
+    const revision=revisionRef.current, identity=sourceRef.current;
+    const name=visibleSheetRef.current || workbook.SheetNames.find(n=>n!=='_keymap'&&n!=='ERP적용초안');
+    setActiveTab('sheet');
+    openMatchPopup({kind:'product',country:'네덜란드',initialQuery:'',returnFocusElement:document.activeElement,onPick:item=>{
+      if(workBusyRef.current||applyingRef.current||revision!==revisionRef.current||identity!==sourceRef.current){setError('물량표가 변경되었습니다. 품목을 다시 선택하세요.');return;}
+      try {const result=addDutchMatrixProduct(XLSXStyled,workbook,entries,name,item);
+        if(!result.duplicate){
+          invalidate();setWorkbook(result.workbook);setEntries(result.entries);setApplyResult(null);
+          // Structural drafts must never restore against the unmodified source rows.
+          const nextIdentity=dutchSourceIdentity(`${sourceBaseRef.current}:product:${Date.now()}`,result.entries,yearRef.current,weekRef.current);
+          sourceRef.current=nextIdentity;setStorageKey(nextIdentity);
+        }
+        setActiveEntryId(result.focusId||'');setRematchNotice(result.duplicate?'이미 있는 품목입니다.':'품목을 추가했습니다. 업체별 수량을 입력한 뒤 저장·검증하세요.');
+      }catch(cause){setError(cause.message);}
+    }});
+  }
+  function changeRegion(entry, area) {
+    if(workBusyRef.current||applyingRef.current)return;
+    invalidate();setApplyResult(null);
+    setEntries(previous=>previous.map(row=>row.sheetName===entry.sheetName && (entry.added ? row.added&&row.custKey===entry.custKey : !row.added&&row.sourceColumn===entry.sourceColumn) ? {...row,customerArea:area} : row));
   }
   function removeRow(id) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => previous.filter(row => row.id !== id)); }
   function moveNext(event, index) { if (event.key === 'Enter') { event.preventDefault(); inputRefs.current[index + 1]?.focus(); inputRefs.current[index + 1]?.select(); } }
@@ -667,7 +697,7 @@ export default function DutchVolumeBoard() {
     <section className="source-controls" aria-label="물량표 불러오기"><h2>물량표 입력</h2><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" disabled={workBusy || applying} onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label>
       <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
     </section>
-    <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체·품목 행 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
+    <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체 추가</button><button onClick={addProductRow} disabled={workBusy || applying || !workbook}>품목 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
     <div className="board-layout">
     <aside className="board-side" aria-label="보조 기능">
       <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>
@@ -679,15 +709,15 @@ export default function DutchVolumeBoard() {
     {draftReset && <div className="notice warning">이전 양식 초안은 자동 복원하지 않았습니다. 원본과 단가·매칭을 다시 확인하세요. 이전 저장값은 삭제하지 않았습니다.</div>}
     {rematchNotice && <div className="notice warning" role="status">{rematchNotice}</div>}
     {colorEditor && <ProductColorDialog product={colorEditor.product} initialColor={colorEditor.initialColor} onSave={saveColor} onClose={closeColorEditor}/>}
-    {!entries.length && !loading && <div className="empty">차수를 선택한 뒤 ‘네노바웹 물량 바로 불러오기’를 눌러 주세요. 네덜란드 Pivot 엑셀 업로드도 가능합니다. 조회만으로 ERP에 저장하지 않습니다.</div>}
-    {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button className="bulk-settings-trigger" onClick={openBulkPriceSettings} disabled={workBusy || applying}>일괄업체 설정 · {bulkPriceConfig.enabled ? bulkCustomers.filter(item => !bulkPriceConfig.excludedCustomers.includes(item.id)).length : 0}개 포함</button><button onClick={download}>물량표 다운로드</button></div>
+    {!workbook && !loading && <div className="empty">차수를 선택한 뒤 ‘네노바웹 물량 바로 불러오기’를 눌러 주세요. 네덜란드 Pivot 엑셀 업로드도 가능합니다. 조회만으로 ERP에 저장하지 않습니다.</div>}
+    {!!workbook && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button className="bulk-settings-trigger" onClick={openBulkPriceSettings} disabled={workBusy || applying}>일괄업체 설정 · {bulkPriceConfig.enabled ? bulkCustomers.filter(item => !bulkPriceConfig.excludedCustomers.includes(item.id)).length : 0}개 포함</button><button onClick={download}>물량표 다운로드</button></div>
       {bulkPriceSettingsOpen && bulkPriceSettingsDraft && <div className="bulk-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setBulkPriceSettingsOpen(false); }}><section className="bulk-modal" role="dialog" aria-modal="true" aria-labelledby="bulk-settings-title"><header><div><h2 id="bulk-settings-title">일괄 단가 업체 설정</h2><p>체크한 업체는 일괄 단가에서 제외되어 업체별로 따로 입력됩니다.</p></div><button aria-label="닫기" onClick={() => setBulkPriceSettingsOpen(false)}>×</button></header><label className="bulk-enabled"><input type="checkbox" checked={bulkPriceSettingsDraft.enabled} onChange={event => setBulkPriceSettingsDraft(previous => ({ ...previous, enabled: event.target.checked }))}/> 일괄 단가 사용</label><div className="bulk-modal-count">포함 {bulkCustomers.filter(item => bulkPriceSettingsDraft.enabled && !bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 · 개별/제외 {bulkCustomers.filter(item => !bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 <span>주광은 기본 제외이며 변경할 수 있습니다.</span></div><input className="bulk-search" aria-label="업체 설정 검색" placeholder="업체 검색" value={bulkCustomerQuery} onChange={event => setBulkCustomerQuery(event.target.value)}/><div className="bulk-customer-list">{bulkCustomers.filter(item => item.label.toLowerCase().includes(bulkCustomerQuery.trim().toLowerCase())).map(item => <label key={item.id}><input type="checkbox" checked={bulkPriceSettingsDraft.excludedCustomers.includes(item.id)} disabled={!bulkPriceSettingsDraft.enabled} onChange={() => toggleBulkPriceExclusion(item.id)}/><span>{item.label}</span><small>{!bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id) ? '개별 단가' : '일괄 적용'}</small></label>)}</div><footer><button onClick={() => setBulkPriceSettingsOpen(false)}>취소</button><button className="save-bulk" onClick={saveBulkPriceSettings} disabled={workBusy || applying}>설정 저장</button></footer></section></div>}
       <div className="sheet-tabs" role="tablist" aria-label="물량표 작업 보기">
         <button role="tab" aria-selected={activeTab === 'sheet'} onClick={() => setActiveTab('sheet')}>원본 물량표</button>
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry} onSheetChange={name => { visibleSheetRef.current=name; }}/ >}
+      {activeTab === 'sheet' && <DutchVolumeSheet onRegionChange={changeRegion} regions={[...new Set(customerOptions.map(c=>c.area).filter(Boolean))]} workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry} onSheetChange={name => { visibleSheetRef.current=name; }}/ >}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>원본 품목 옆 ERP 품목, 원본 업체 옆 ERP 업체를 표시합니다. Enter로 선택 창을 열고 Esc로 닫을 수 있습니다.</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table className="mapping-table"><colgroup><col style={{ width: '14%' }}/><col style={{ width: '20%' }}/><col style={{ width: '12%' }}/><col style={{ width: '20%' }}/><col style={{ width: '6%' }}/><col style={{ width: '7%' }}/><col style={{ width: '14%' }}/><col style={{ width: '7%' }}/></colgroup><thead><tr><th>품목 / 원문</th><th>ERP 매칭 품목</th><th>업체 / 원문</th><th>ERP 매칭 업체</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);

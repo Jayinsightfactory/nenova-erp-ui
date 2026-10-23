@@ -238,7 +238,7 @@ function makeColumnPlan(rows, customers, farms, meta) {
 function makeSheet(rows, customers, farms, meta) {
   const colPlan = makeColumnPlan(rows, customers, farms, meta);
   const aoa = [[], [], []];
-  const separateClientRow = !isNetherlandsVolume(meta) && showsCustomerCL(meta);
+  const separateClientRow = showsCustomerCL(meta);
   const headerRows = separateClientRow ? 4 : 3;
   if (separateClientRow) aoa.push(['클라이언트 번호']);
 
@@ -439,7 +439,7 @@ function makeSheet(rows, customers, farms, meta) {
   const keymap = [];
   colPlan.forEach((col, idx) => {
     if (col.type === 'customer' && col.customer?.custKey) {
-      keymap.push({ kind: 'cust', label: String(aoa[2][idx] ?? ''), key: Number(col.customer.custKey) });
+      keymap.push({ kind: 'cust', label: isNetherlandsVolume(meta) && separateClientRow ? [aoa[2][idx],aoa[3][idx]].filter(Boolean).join('\n') : String(aoa[2][idx] ?? ''), key: Number(col.customer.custKey) });
     }
   });
   rows.forEach((row) => {
