@@ -48,6 +48,8 @@ test('manual percentage editor preserves zero and missing values and roundtrips 
   assert.equal(manual.tariffFraction(''), '');
   assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10, outUnit: '송이' }, { tariffRate: 0 }, ['tariffRate', 'stemsPerBunch']), []);
   assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10, outUnit: '단' }, { tariffRate: '', stemsPerBunch: 0 }, ['tariffRate', 'stemsPerBunch']), ['tariffRate', 'stemsPerBunch']);
+  assert.deepEqual(manual.manualFieldsNeeded({outQuantity:10,outUnit:'단'},{stemsPerBunch:5},['stemsPerBunch','bunchesPerBox']),[]);
+  assert.deepEqual(manual.manualFieldsNeeded({outQuantity:10,outUnit:'박스'},{stemsPerBunch:5},['stemsPerBunch','bunchesPerBox']),['bunchesPerBox']);
   for (const tariffRate of [-0.01, 1.01, 'invalid']) assert.deepEqual(manual.manualFieldsNeeded({ outQuantity: 10 }, { tariffRate }, ['tariffRate']), ['tariffRate']);
   assert.match(source, /manualLineFilter\?\.identity === identity/);
   assert.match(source, /ids: manualLineIds/);

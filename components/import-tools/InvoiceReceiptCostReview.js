@@ -52,6 +52,7 @@ function manualFieldsNeeded(line, input, fields) {
   if (Number(line.outQuantity) === 0 && line.outQuantity != null) return [];
   return fields.filter(key => {
     if (key === 'stemsPerBunch' && ['STEM', '송이', '스팀'].includes(line.outUnit)) return false;
+    if (key === 'bunchesPerBox' && ['BUNCH', '단', 'STEM', '송이', '스팀'].includes(line.outUnit)) return false;
     const value = numberOrNull(input[key]);
     if (value === null || !Number.isFinite(Number(value))) return true;
     if (key === 'tariffRate') return value < 0 || value > 1;
