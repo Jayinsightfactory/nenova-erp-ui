@@ -1015,3 +1015,9 @@
 - ERP 계약/dnSpy/manifest/write guard 통과. 빌드/배포/운영 브라우저는 후속 기록 전 미검증. 세션: docs/work-sessions/2026-10-23_invoice-arrival-unified.md.
 - 메뉴 기본값: 기존 shell/키보드 상세 펼치기/출처·오류 안내 적용. 인보이스는 기존 단순 환율식 차단, 수입부 재승인 안내.
 검색어: invoice-arrival-unified 자동 원가 본표 엑셀 비교 7345 38-01
+
+## 2026-10-23 주광 최초 진입 명시 조회
+- 메뉴 진입은 연도/차수/조회 폼만, 조회/Enter 후 Workspace 동적 로드. 명시 선택은 defaultNext 요청으로 덮어쓰지 않음.
+- 최초 렌더 mount/fetch 0회 및 교차연도/무효입력 테스트, Chrome 입력만으로 조회하지 않음/Enter로2026-43 전달 확인. ERP 원장 변경 없음.
+- 기준선 shell/키보드/스크롤 적용; 신규메뉴/ERP쓰기 변경 해당없음; 예외없음. 배포 후 검증은 PR 참조.
+검색어: weekday-explicit-query 조회버튼 최초진입 동적로딩
