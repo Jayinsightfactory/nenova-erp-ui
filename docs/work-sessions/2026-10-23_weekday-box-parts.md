@@ -20,3 +20,5 @@
 - test:erp-contract 전체 exit0, test:nenova-dnspy-evidence/erp-manifest/write-guard 통과. native helper/클라이언트 예외·교차연도/Wilson 정밀도 별도 테스트 통과.
 - 소수2자리 반올림에 의존하지 않는 실제 float fixture의 수국·카네이션 복수날짜 낱개 회귀와 기존 lifecycle 전체 통과.
 - 최종 빌드/PR/배포 결과는 후속 기록.
+
+- 최종 로컬 npm run build 성공. 전체 ERP 계약 exit0 및 추가 클라이언트/낱개/SSR 회귀 성공. PR CI와 운영 배포 확인 예정.
