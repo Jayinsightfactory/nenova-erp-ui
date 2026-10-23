@@ -1,5 +1,11 @@
 # Dutch volume distribution — native evidence, 2026-10-05
 
+## 2026-10-23 중국 신규 주문 재감사
+- 실제 EXE FormOrderAdd/FormShipmentDistribution CLI를 재실행했다. FormOrderAdd의 CellValueChanged는 박스/단/송이 환산열을 갱신하고 UnitQuantity(false)는 EstUnit의 열을 그대로 저장한다. 출고용 Est 정수 반올림을 주문에 적용하지 않는다.
+- 중국 신규 주문만 chinaOrderUnits를 미리보기/쓰기/커밋전 readback에서 공유한다. 기존 주문 모든 열은 보존한다. 8단/80송이 품목의 신규 주문 Est8 복제 반례를 수정했고, 기존 주문100→분배80/날짜80 및 새 업체 주문8/분배8/Est80을 실제 격리 SQL로 검증했다.
+- 삭제 헤더를 제외하지 않는 native GetShipmentMaster에 맞춰 중국 동일 연도·차수·업체의 삭제 헤더는 snapshot reader에서 preview/apply 모두 차단한다. 자동복구·삭제헤더 재사용·중복 신규생성은 하지 않는다. 전년도 삭제 헤더는 영향을 주지 않는다.
+- 근거/운영 SELECT 기준선/MD 충돌: [재검토 기준표](../work-plans/2026-10-23-china-order-guard-review.md). 운영 쓰기 없음. 다른 source 신규 주문 정책은 변경하지 않았다.
+
 ## 2026-10-23 inline customer display
 - Actual dnSpy.Console FormShipmentDistribution rerun; OrderYear/OrderWeek GetCustomerList and separate ShipmentDate/Farm write flow retained. No SQL/writer change.
 - SELECT-only active Customer675 / CustArea27; ViewOrder43-02 counts2025=306,2026=385. 2026/43-02 joined shipment sample empty, not proof of applied distribution.

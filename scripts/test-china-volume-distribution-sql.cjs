@@ -220,6 +220,64 @@ async function runScenarios(app) {
   await assert.rejects(()=>apply(app,corrupt),/기존 주문|주문/);
   await query(app.pool,`DROP TRIGGER TR_ChinaCorruptOrder`);
   assert.deepEqual(businessLedgers(await snapshot(app.pool)),beforeCorrupt);
+  // User's exact example: an existing 100 order stays 100 when final shipment is 80.
+  await query(app.pool, `UPDATE OrderDetail SET OutQuantity=100,EstQuantity=100,SteamQuantity=100 WHERE OrderDetailKey=44001;`);
+  const hundredBefore=await snapshot(app.pool);
+  const eighty=await preview(app,makeBody([entry('exact-100-to-80',533,2231,80)]));
+  assert.equal(eighty.rows[0].orderBeforeQty,100);
+  assert.equal(eighty.rows[0].orderAfterQty,100);
+  assert.equal((await apply(app,eighty)).success,true);
+  const hundredAfter=await snapshot(app.pool);
+  assert.deepEqual(hundredAfter.OrderDetail,hundredBefore.OrderDetail);
+  const exactShipment=hundredAfter.ShipmentDetail.find(r=>r.ShipmentKey===54001&&r.ProdKey===2231);
+  assert.equal(Number(exactShipment.OutQuantity),80);
+  assert.equal(hundredAfter.ShipmentDate.filter(r=>r.SdetailKey===exactShipment.SdetailKey).reduce((sum,r)=>sum+Number(r.ShipmentQuantity),0),80);
+  await assertNativeReadJoins(app.pool);
+  // A DB customer with no order or shipment master in this year/week.
+  await query(app.pool, `INSERT Customer(CustKey,CustName,Manager,OrderCode,BaseOutDay) VALUES(535,N'China new customer',N'dutch-fixture',N'C535',4);`);
+  const newCustomer=await preview(app,makeBody([makeEntry('new-customer', 'China new customer',535,'Dutch Test Rose White',2232,8,'단')]));
+  assert.equal((await apply(app,newCustomer)).success,true);
+  const newState=await snapshot(app.pool);
+  const newOm=newState.OrderMaster.filter(r=>r.CustKey===535&&r.OrderYear==='2026'&&r.OrderWeek==='40-01');
+  const newSm=newState.ShipmentMaster.filter(r=>r.CustKey===535&&r.OrderYear==='2026'&&r.OrderWeek==='40-01');
+  assert.equal(newOm.length,1); assert.equal(newSm.length,1);
+  assert.equal(newSm[0].OrderYearWeek,'202640');
+  const newOd=newState.OrderDetail.find(r=>r.OrderMasterKey===newOm[0].OrderMasterKey&&r.ProdKey===2232);
+  const newSd=newState.ShipmentDetail.find(r=>r.ShipmentKey===newSm[0].ShipmentKey&&r.ProdKey===2232);
+  assert.equal(Number(newOd.OutQuantity),8); assert.equal(Number(newOd.EstQuantity),80);
+  assert.equal(Number(newSd.OutQuantity),8); assert.equal(Number(newSd.EstQuantity),80);
+  assert.deepEqual(newState.OrderDetail.filter(r=>r.OrderDetailKey!==newOd.OrderDetailKey),hundredAfter.OrderDetail);
+  const repeated=await preview(app,makeBody([makeEntry('repeat','China new customer',535,'Dutch Test Rose White',2232,8,'단')]));
+  assert.equal(repeated.planToken,null,'same final value cannot duplicate order or shipment');
+  const reduceNew=await preview(app,makeBody([makeEntry('reduce','China new customer',535,'Dutch Test Rose White',2232,4,'단')]));
+  assert.equal((await apply(app,reduceNew)).success,true);
+  assert.deepEqual((await snapshot(app.pool)).OrderDetail,newState.OrderDetail);
+  const corruptEst=await preview(app,makeBody([makeEntry('corrupt-est','China new customer',535,'Dutch Test Rose Red',2231,9,'송이')]));
+  const beforeEstCorrupt=businessLedgers(await snapshot(app.pool));
+  await query(app.pool,`CREATE TRIGGER TR_ChinaCorruptEst ON OrderDetail AFTER INSERT AS UPDATE od SET EstQuantity=1 FROM OrderDetail od JOIN inserted i ON i.OrderDetailKey=od.OrderDetailKey;`);
+  await assert.rejects(()=>apply(app,corruptEst),/단위 환산 검증/);
+  await query(app.pool,`DROP TRIGGER TR_ChinaCorruptEst`);
+  assert.deepEqual(businessLedgers(await snapshot(app.pool)),beforeEstCorrupt);
+  await query(app.pool,`INSERT Customer(CustKey,CustName,Manager,OrderCode,BaseOutDay) VALUES(536,N'China deleted header',N'dutch-fixture',N'C536',4);
+    INSERT ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID)
+    VALUES(65000,N'2026',N'40-01',N'202640',536,0,1,1,N'dutch-fixture');`);
+  const deletedBody=makeBody([makeEntry('deleted-header','China deleted header',536,'Dutch Test Rose White',2232,8,'단')]);
+  const beforeDeleted=businessLedgers(await snapshot(app.pool));
+  await assert.rejects(()=>preview(app,deletedBody),/삭제된 출고 연결 헤더/);
+  assert.deepEqual(businessLedgers(await snapshot(app.pool)),beforeDeleted);
+  await query(app.pool,`UPDATE ShipmentMaster SET OrderYear=N'2025',OrderYearWeek=N'202540' WHERE ShipmentKey=65000;`);
+  const priorDeleted=await preview(app,deletedBody);
+  assert.ok(priorDeleted.planToken,'prior-year deleted header does not block selected year');
+  await query(app.pool,`UPDATE ShipmentMaster SET OrderYear=N'2026',OrderYearWeek=N'202640' WHERE ShipmentKey=65000;`);
+  const beforeHeaderRace=businessLedgers(await snapshot(app.pool));
+  await assert.rejects(()=>apply(app,priorDeleted),/삭제된 출고 연결 헤더/);
+  assert.deepEqual(businessLedgers(await snapshot(app.pool)),beforeHeaderRace);
+  await query(app.pool,`UPDATE Product SET SteamOf1Bunch=0 WHERE ProdKey=2232;`);
+  const missingRatio=await preview(app,makeBody([entry('missing-native-ratio',533,2232,8,'단')]));
+  assert.equal(missingRatio.planToken,null);
+  assert.ok(missingRatio.blockers.some(message=>message.includes('신규 주문의 견적단위 환산값')));
+  console.log('PASS exact order100/shipment80/date80 and new customer order8/shipment8/estimate80/native headers');
+  console.log('PASS repeated/reduced new order preserved, new estimate corruption rollback, deleted-header/cross-year/race guards');
   console.log('PASS China SQL: new positive/zero, existing increase/decrease/zero, immutable original orders, prior-year, omitted pairs, downstream, fixed/stale, atomic rollback and order-trigger guard');
 }
 

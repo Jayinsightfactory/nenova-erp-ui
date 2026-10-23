@@ -3,6 +3,7 @@ import { buildImportPreview } from '../../../lib/shipmentImport';
 import { normalizeDutchEntries, resolveDutchPairPolicy, issueDutchPlan, dutchError, dutchEstUnitConversionIssue, dutchComputedValueIssue, dutchInputUnitIssue } from '../../../lib/dutchVolumeDistribution';
 import { readDutchScopeSnapshot, assertUniqueDutchLedger, findDutchFarmQtyBlockers, findDutchDateIntegrityBlockers } from '../../../lib/dutchVolumeDistributionSnapshot';
 import { withTransaction } from '../../../lib/db';
+import { chinaOrderUnits } from '../../../lib/chinaOrderUnits.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
@@ -128,6 +129,10 @@ export async function previewDutchVolume(body, user, deps = {}) {
     if (issue) blockers.push(`${row.custName} / ${row.prodName}: ${issue}`);
   }
   for (const row of priceRows) {
+    if (china && row.uploadQty > 0 && !orderPairs.has(`${row.custKey}|${row.prodKey}`)) {
+      try { chinaOrderUnits(row.uploadQty, productByKey.get(Number(row.prodKey))); }
+      catch (error) { blockers.push(`${row.custName} / ${row.prodName}: ${error.message}`); }
+    }
     const issue = dutchEstUnitConversionIssue(productByKey.get(Number(row.prodKey)), row.uploadQty);
     if (issue) blockers.push(`${row.custName} / ${row.prodName}: ${issue}`);
     const computedIssue = dutchComputedValueIssue(productByKey.get(Number(row.prodKey)), row.uploadQty, row.targetCost);
