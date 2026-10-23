@@ -85,8 +85,9 @@ async function main() {
     check('호주 InputDate 누락은 승인된 차수 일정으로 보완',
       mapped.length === 1
         && mapped[0].date === '2026-07-06'
-        && mapped[0].dateSource === DECLARATION_DATE_SOURCE.CATEGORY_SCHEDULE
-        && mapped[0].scheduleId === 'AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1'
+        && mapped[0].dateSource === DECLARATION_DATE_SOURCE.APPROVED_TIMING_ESTIMATE
+        && mapped[0].estimated === true
+        && mapped[0].scheduleId === 'APPROVED_CUSTOMS_TIMING_2026-10-23_MAJOR_ISO_WEEK'
         && mapped[0].missingDeclarationDate === false,
       JSON.stringify(mapped));
   }
@@ -94,10 +95,11 @@ async function main() {
     const mapped = mapCategoryDateRowsToWeights([
       { Category: '호주', ResolvedDate: '2026-07-09', Weight: 100 },
     ], { orderYear: '2026', major: '28' });
-    check('호주도 실제 InputDate가 있으면 일정값보다 실제 날짜가 우선',
-      mapped[0]?.date === '2026-07-09'
-        && mapped[0]?.dateSource === DECLARATION_DATE_SOURCE.WAREHOUSE_INPUT_DATE
-        && mapped[0]?.scheduleId === null,
+    check('호주 입력일은 신고일이 아니므로 승인 일정이 우선이며 입력일 근거는 보존',
+      mapped[0]?.date === '2026-07-06'
+        && mapped[0]?.dateSource === DECLARATION_DATE_SOURCE.APPROVED_TIMING_ESTIMATE
+        && mapped[0]?.inputDate === '2026-07-09'
+        && mapped[0]?.estimated === true,
       JSON.stringify(mapped));
   }
   {
@@ -105,8 +107,8 @@ async function main() {
       { Category: '중국', ResolvedDate: null, Weight: 100 },
       { Category: '네덜란드', ResolvedDate: null, Weight: 100 },
     ], { orderYear: '2026', major: '28' });
-    check('예외가 있거나 규칙 미확정인 국가에는 호주 일정을 확대 적용하지 않음',
-      mapped.length === 2 && mapped.every((m) => m.date === null && m.dateSource === DECLARATION_DATE_SOURCE.MISSING),
+    check('중국과 네덜란드는 승인된 다음 ISO 주간을 적용하며 추정임을 표시',
+      mapped.length === 2 && mapped.every((m) => m.date === '2026-07-13' && m.dateSource === DECLARATION_DATE_SOURCE.APPROVED_TIMING_ESTIMATE && m.estimated),
       JSON.stringify(mapped));
   }
   {

@@ -94,7 +94,7 @@ async function main() {
   assert.ok(section.includes('wm.OrderYear=@yr') && section.includes('sm.OrderYear=@yr'));
   assert.ok(section.includes("IN (N'에콰도르',N'네덜란드',N'호주',N'중국',N'태국')"));
   const fifoSection=source.split('export async function fifoPurchaseLayersByProduct')[1].split('/** FIFO 적용 여부')[0];
-  assert(fifoSection.includes("if (row.Category === '태국')"));
+  assert(fifoSection.includes('needsPurchasePeriodFreight(row.OrderYear, major2, row.Category)'));
   assert(fifoSection.includes('loadPurchasePeriodArrivalEvidence'));
   assert(fifoSection.includes('freightRaw = thaiFreightCache.get(k)?.[prodKey]'));
   assert.ok(section.includes('`${row.OrderWeek}:${row.Category}`'));

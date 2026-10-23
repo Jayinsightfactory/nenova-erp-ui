@@ -1,5 +1,20 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-23 통관 환율 주간과 입력일자 분리
+
+실제 `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`를
+`C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe --no-color -t FormWarehouseView`로 재확인했다.
+`GetData`는 WarehouseMaster.OrderYear/OrderWeek/InputDate를 읽으며 InputDate의 화면
+Caption은 `입력일자`다. `GetDetail`은 WarehouseDetail과 Product를 연결해 TPrice를 읽는다.
+이 날짜를 실제 통관 신고일로 단정하지 않는다. 삭제 경로의 ClassWarehouseDetail.Delete,
+StockHistory 기록, uspStockCalculation 호출은 이번 작업에서 변경하거나 실행하지 않는다.
+
+26~31차 엑셀 본표 양수 환율59개는 공식 고시와 대조했다. 중국의 과거 예외는 원본값을
+보존하며 이후 다음 고시주간 적용은 사용자 승인 추정이다. 환율 자체는 공식 고시이나
+신고 적용주간은 추정이라는 구분을 FIFO/이월/보고서 경고에도 유지한다.
+원장 및 확정 revision 보존과 SELECT-only 검증은
+`docs/plans/profit-customs-rate-timing-2026-10-23.md`에 기록한다.
+
 ## 2026-10-23 사용자 승인 비용 추정
 
 실제 dnSpy.Console.exe --no-color -t FormWarehouseView로 GetData/상세의

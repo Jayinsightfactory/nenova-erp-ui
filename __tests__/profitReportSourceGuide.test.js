@@ -265,7 +265,8 @@ async function main() {
   check('설명이 당차수 우선·무매입 제한 이월을 명시',
     /매입이 없는 차수만/.test(byKey['bd-rate-source'].note)
     && /통화마스터/.test(byKey['bd-rate-source'].note)
-    && /최근의 정확한 환율/.test(byKey.R.formula));
+    && /최근의 유효한 환율/.test(byKey.R.formula)
+    && /추정 표시는 보존/.test(byKey.R.formula));
   check('R 설명이 같은 통화·다른 주차 차이를 예시로 명시', /1,548\.52/.test(byKey.R.note));
   check('H 시작차수와 R 원천 검증이 분리됨을 명시',
     /그외통관비\(H\)/.test(byKey['bd-country-start'].formula) && /과세환율\(R\)/.test(byKey['bd-country-start'].formula)

@@ -1,0 +1,345 @@
+[
+  {
+    "week": 26,
+    "file": "매출원가 양식 - 26차_재고수정 (2).xlsx",
+    "sha256": "b42bcce6779f2b31cfa6fc8393c3dde6827382495b1d63e3d8d01c1a40fe6f5a",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1516.02
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1516.02
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1516.02
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1516.02
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1516.02
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1753.54
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 224.27
+      },
+      {
+        "cell": "R16",
+        "category": "에콰도르",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R21",
+        "category": "베트남",
+        "rate": 1516.02
+      }
+    ]
+  },
+  {
+    "week": 27,
+    "file": "매출원가 양식 - 27차_재고수정 (3).xlsx",
+    "sha256": "2906ec876160f7fa2f0fbaeb1c9b89e49bda6a933cad9b7cabad9fbd7dd36689",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1538.3
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1766.5
+      },
+      {
+        "cell": "R13",
+        "category": "호주",
+        "rate": 1068.23
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 226.66
+      },
+      {
+        "cell": "R16",
+        "category": "에콰도르",
+        "rate": 1548.52
+      }
+    ]
+  },
+  {
+    "week": 28,
+    "file": "매출원가 양식 - 28차_재고수정.xlsx",
+    "sha256": "91c9e34bbb89e5179d8fccb1ab1c05ef4ad9c37ec6e4f8a2541cdce580b7423d",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1548.52
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1739.79
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 224.22
+      },
+      {
+        "cell": "R16",
+        "category": "에콰도르",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R21",
+        "category": "베트남",
+        "rate": 1548.52
+      }
+    ]
+  },
+  {
+    "week": 29,
+    "file": "매출원가 양식 - 29차_재고수정 (1).xlsx",
+    "sha256": "7a730f2ca845db43c6e82d456a6215bbbc6170f39125fd546c833c8665b88e50",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1522.44
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1710.49
+      },
+      {
+        "cell": "R13",
+        "category": "호주",
+        "rate": 1056.39
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 224.22
+      },
+      {
+        "cell": "R16",
+        "category": "에콰도르",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R21",
+        "category": "베트남",
+        "rate": 1522.44
+      }
+    ]
+  },
+  {
+    "week": 30,
+    "file": "매출원가 양식 - 30차_재고수정 (1).xlsx",
+    "sha256": "8bdc86c13736dadafd2d8a39c48c02155139a5f3febc3815ff100d45b958874f",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1498.25
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1686.2
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 218.37
+      }
+    ]
+  },
+  {
+    "week": 31,
+    "file": "매출원가 양식 - 31차_재고수정 (1).xlsx",
+    "sha256": "56a5fdd4f12b65edc253d09820baedc172081e0cb2f83df38a443328a69c9556",
+    "sheet": "주차별 매출이익 보고서",
+    "rates": [
+      {
+        "cell": "R7",
+        "category": "콜롬비아 수국",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R8",
+        "category": "콜롬비아 카네이션",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R9",
+        "category": "콜롬비아 장미",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R10",
+        "category": "콜롬비아 루스커스",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R11",
+        "category": "콜롬비아 알스트로",
+        "rate": 1478.44
+      },
+      {
+        "cell": "R12",
+        "category": "네덜란드",
+        "rate": 1666.02
+      },
+      {
+        "cell": "R14",
+        "category": "태국",
+        "rate": 1457.82
+      },
+      {
+        "cell": "R15",
+        "category": "중국",
+        "rate": 215.48
+      },
+      {
+        "cell": "R16",
+        "category": "에콰도르",
+        "rate": 1457.82
+      },
+      {
+        "cell": "R21",
+        "category": "베트남",
+        "rate": 1478.44
+      }
+    ]
+  }
+]
