@@ -4,7 +4,7 @@ import {installWeekdayDialogKeyboard} from '../lib/weekdayDialogKeyboard.js';
 export default function WeekdayPrintPreview({bundle,onClose,returnFocus}) {
   const frame=useRef(null),dialog=useRef(null),entries=useRef(new Map(bundle.noteEntries.map(entry=>[entry.id,{...entry,saved:entry.text}])));
   const queue=useRef(Promise.resolve()),listeners=useRef(()=>{}),mounted=useRef(true);
-  const [message,setMessage]=useState('적요 칸을 수정하면 칸을 벗어날 때 저장됩니다. 주광 출력용이며 ERP 원장 적요는 변경하지 않습니다.');
+  const [message,setMessage]=useState('차수 표시·적요를 수정하면 칸을 벗어날 때 저장됩니다. 주광 출력용이며 ERP 원장 차수·적요는 변경하지 않습니다.');
   const [saving,setSaving]=useState(false),[dirty,setDirty]=useState(false),[printing,setPrinting]=useState(false);
   const hasDirty=()=>[...entries.current.values()].some(entry=>entry.text!==entry.saved);
   function close() {
@@ -43,11 +43,11 @@ export default function WeekdayPrintPreview({bundle,onClose,returnFocus}) {
   function loaded() {
     listeners.current();
     const doc=frame.current?.contentDocument;if(!doc)return;
-    const inputs=[...doc.querySelectorAll('textarea[data-print-note-id]')];
+    const inputs=[...doc.querySelectorAll('[data-print-note-id]')];
     const input=e=>{
       const el=e.target,entry=entries.current.get(el.dataset.printNoteId);if(!entry)return;
       entry.text=el.value;const span=el.nextElementSibling;if(span)span.textContent=el.value;
-      el.style.height='auto';el.style.height=`${Math.max(30,el.scrollHeight)}px`;
+      if(el.tagName==='TEXTAREA'){el.style.height='auto';el.style.height=`${Math.max(30,el.scrollHeight)}px`;}
       setDirty(hasDirty());setMessage('적요 입력 중 · 칸을 벗어나면 저장');
     };
     const blur=e=>{if(entries.current.has(e.target.dataset.printNoteId))void saveEntries([e.target.dataset.printNoteId]);};
@@ -56,7 +56,12 @@ export default function WeekdayPrintPreview({bundle,onClose,returnFocus}) {
   }
   async function print() {
     if(printing)return;setPrinting(true);
-    try{if(await saveEntries([...entries.current.keys()]))frame.current?.contentWindow?.print();}
+    try{if(await saveEntries([...entries.current.keys()])){
+      const doc=frame.current?.contentDocument;
+      await doc?.fonts?.ready;
+      await Promise.all([...doc?.images||[]].filter(img=>img.getAttribute('src')).map(img=>img.decode()));
+      frame.current?.contentWindow?.print();
+    }}catch{if(mounted.current)setMessage('인쇄 이미지를 불러오지 못했습니다. 미리보기를 다시 열어주세요.');}
     finally{if(mounted.current)setPrinting(false);}
   }
   return <div className="weekday-print-overlay"><section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">

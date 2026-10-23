@@ -31,7 +31,7 @@ assert.match(sections[0][2],/70송이/);assert.match(sections[0][2],/6,364/);ass
 assert.match(sections[1][2],/200송이/);assert.match(sections[1][2],/18,182/);assert.doesNotMatch(sections[1][2],/70송이|6,364/);
 assert.ok(sections[0][2].includes('주광 &lt;농원&gt;'));assert.doesNotMatch(built.html,/<fixture>|<농원>/);
 assert.match(built.html,/body \{ padding:0; \}/);
-assert.match(built.html,/\.weekday-print-page \{ padding:10mm 15mm; break-before:page; page-break-before:always; \}/);
+assert.match(built.html,/\.weekday-print-page \{ padding:0; break-before:page; page-break-before:always; \}/);
 assert.match(built.html,/first-child \{ break-before:auto; page-break-before:auto; \}/);
 assert.match(built.html,/font-size:9pt; padding:10mm 15mm/);assert.match(built.html,/\.item-table tbody td \{ font-size:8pt/);assert.match(built.html,/h1[^}]*font-size:16pt/);
 assert.equal(JSON.stringify({requests,results}),before,'request scopes and server quantities/amounts remain immutable');
