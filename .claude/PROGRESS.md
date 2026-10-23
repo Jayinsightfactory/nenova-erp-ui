@@ -1,5 +1,11 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-23] SQL 수량 기준 4국가 평균 도착원가
+- codex/profit-country-average, base423b7fc2. 소액 수기 차이 허용/평균틀 승인에 따라 네덜란드·태국·중국·에콰도르 정규화 평가 구현.
+- 실제 국가 우선과 CO/아나나스 CHINA placeholder fallback을 함께 보존. SQL 분자/분모 범위 동일, 동일 StockKey, 비용누락/비율충돌 차단.
+- 관련 회귀 통과. 전체검증/배포 진행중이며 완료 전 운영 반영으로 주장하지 않는다.
+- 기록: docs/work-sessions/2026-10-23_profit-country-average.md
+
 ## [2026-10-23] 국가별 평균 도착원가 표시
 - codex/profit-average-landed, base fe57180f. 엑셀 평균식 확인된6분류와 나머지 국가의 직접입력/품목별 계산을 구별.
 - 실제 FormStockView dnSpy 및 SELECT19,708입고행 확인.26~31/41 현행 계산 조회4,845쿼리/관측원장 지문동일.
