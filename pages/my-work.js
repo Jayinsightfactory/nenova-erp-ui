@@ -870,7 +870,33 @@ function TrendChart({ days }) {
 function RadarTab() {
   const st = useFeature('adoption-ledger');
   const rep = useFeature('self-tune-report');
-  return <><SelfTuneReport st={rep} /><Loading st={st}><Radar data={st.data} /></Loading></>;
+  const proc = useFeature('process-chains');
+  return <><SelfTuneReport st={rep} /><ProcessReliability st={proc} /><Loading st={st}><Radar data={st.data} /></Loading></>;
+}
+// 과정 신뢰도(2026-10-14 사장님: "인보이스→AI변환→전산 업로드→도착원가→전달 같은 과정 단위 분석과 신뢰도, 전 직원 동일").
+//   process-chains.js 가 매일 올린 직원별 반복 과정(단계 체인)과 신뢰도 4요소(근거·이름·조작·일관), 자동화 힌트. 70점↑ 과정이 자동화 명세 후보.
+function ProcessReliability({ st }) {
+  if (st.loading || !st.data || !st.data.employees) return null;
+  const rows = Object.entries(st.data.employees).map(([name, e]) => ({ name, ...e })).sort((a, b) => b.avgScore - a.avgScore);
+  const regs = arr(st.data.regressions);
+  return (
+    <div className="doc radar">
+      <h1>과정 신뢰도 <small>{String(st.data.generatedAt || '').slice(0, 10)} · 직원 {rows.length}명 · 과정 {rows.reduce((a, r) => a + (r.processes || 0), 0)}개</small></h1>
+      <p className="dim">{dash(st.data.rule)}</p>
+      {regs.length ? <ul>{regs.map((l, i) => <li key={i} className="warn">⚠ {l}</li>)}</ul> : null}
+      <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>과정</th><th>평균</th><th>대표 과정</th><th>반복</th><th>근거/이름/조작/일관</th><th>약점</th><th>자동화 힌트</th></tr></thead>
+        <tbody>{rows.map((r) => { const t = arr(r.top)[0]; const rl = t?.reliability || {}; return (
+          <tr key={r.name} className={rl.score >= 70 ? 'ok' : ''}><td>{r.name}</td><td>{r.processes}</td><td><b>{r.avgScore}</b></td>
+            <td>{t ? t.sig : '-'}</td><td>{t ? `${t.episodes}회/${t.days}일 · ${t.medianMinutes}분` : '-'}</td>
+            <td>{t ? `${rl.evidence}/${rl.name}/${rl.ops}/${rl.consistency}` : '-'}</td><td>{dash(rl.weakest)}</td>
+            <td className="dim">{t ? arr(t.hints).map((h) => h.split(' → ')[0]).join(' · ') : '-'}</td></tr>); })}</tbody></table></div>
+      <details><summary>과정별 절차(대표 에피소드)</summary>
+        {rows.map((r) => arr(r.top).slice(0, 2).map((t, i) => (
+          <div key={r.name + i}><h3>{r.name} · {t.sig} <small>신뢰도 {t.reliability?.score} · {t.episodes}회</small></h3>
+            <ol>{arr(t.procedure).map((p, j) => <li key={j} className={/\[AI변환\]|\[전산업로드\]|\[전달\]/.test(p) ? 'warn' : ''}>{p}</li>)}</ol></div>)))}
+      </details>
+    </div>
+  );
 }
 // 자가수정 일일 보고(2026-10-09 사장님: "자가수정 로직은 도는데 보고가 없다"). self-tune-report.js 가 매일 올린 사람 문장 요약 + 직원별 확증 증감 + 채택 임박 별칭.
 function SelfTuneReport({ st }) {
