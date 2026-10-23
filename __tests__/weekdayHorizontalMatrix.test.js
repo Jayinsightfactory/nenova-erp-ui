@@ -314,7 +314,15 @@ assert.doesNotMatch(source, /viewport\.style\.maxHeight|window\.innerHeight/, 'p
 const compiled = transformSync(source + '\nexport { QuantityCell };', false, Buffer.from(JSON.stringify({ filename: 'WeekdayCycleMatrix.js',
   jsc: { target: 'es2020', parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' } })));
 const mod = { exports: {} };
-const componentRequire = createRequire(fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url)));
+const rawComponentRequire = createRequire(fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url)));
+const componentRequire = name => {
+  if (!name.includes('WeekdayBoxPartsDialog')) return rawComponentRequire(name);
+  const dialogSource=readFileSync(new URL('../components/WeekdayBoxPartsDialog.js',import.meta.url),'utf8');
+  const dialogCompiled=transformSync(dialogSource,false,Buffer.from(JSON.stringify({filename:'WeekdayBoxPartsDialog.js',jsc:{target:'es2020',parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}})));
+  const dialogModule={exports:{}};
+  new Function('require','module','exports',dialogCompiled.code)(rawComponentRequire,dialogModule,dialogModule.exports);
+  return dialogModule.exports;
+};
 new Function('require', 'module', 'exports', compiled.code)((name) => name.includes('weekdayHorizontalMatrix') ? helper : componentRequire(name), mod, mod.exports);
 const Component = mod.exports.default;
 const html = renderToStaticMarkup(React.createElement(Component, {

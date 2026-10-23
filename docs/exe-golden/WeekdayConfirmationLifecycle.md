@@ -37,3 +37,14 @@ Estimate/WebProfitReport 직접 쓰기 없음. 실제 저장 ShipmentDate와 Det
 운영 SELECT: 2026/41-01/533/359 상세94736은 확정6박스(10/11 4,10/13 2), 41-02 상세 없음. 원장 단가와 대상 CustomerProdCost가10500으로 같고 활성 주문은 각각5/3박스다. 농장 링크·Estimate·해당 WebProfitReport는 없었다. 실제 당시 입력 요청은 확인되지 않았으며 현재 코드 경로와 원장 불일치를 근거로 수정한다.
 
 명시적 정정은 source 날짜0과 canonical target 날짜2를 기존 ALLOCATION 단일 트랜잭션에 제출한다. source의 다른 날짜, 기존 양쪽 주문수량, 단가와 총 gross를 보존하며 확정 전환 및 native 재고 재계산을 수행한다. 실제 SQL fixture가 같은 날짜37-01→37-02, source25→23/target2, 타 날짜·타 업체·2025 보존, 생성/확정 실패 rollback, UUID replay를 검증한다. 운영 보정 결과는 해당 세션 기록을 따른다.
+
+## 2026-10-23 박스·낱개 입력의 표시/저장 정밀도
+실제 설치 EXE를 dnSpy.Console로 FormShipmentDistribution 및 ClassShipmentDetail 재추출(exit0). CellValueChanged 684~767행은 카네이션 단/BunchOf1Box, 수국 송이/SteamOf1Box를 decimal로 환산한다. 그리드 N2/F2는 표시이며 ClassShipmentDetail.Insert/Update(307/313행)는 수량에 ROUND를 적용하지 않는다. 공용 헬퍼의 과거 'EXE 소수2자리 저장' 주석을 이 기능의 근거로 사용하지 않는다.
+
+2026-10-23 SELECT probe: Product359/363/365/389/518는 15단·300송이/박스; 수국866는30,873는50,3472는16송이/박스. ShipmentDetail 수량 및 ShipmentDate.ShipmentQuantity/EstQuantity의 실제 SQL 타입은 float. 하드코딩 없이 최신 마스터를 사용한다.
+
+주광 카네이션/수국 박스 출고의 정수 낱개 환산만 명시적으로 확장: 입력/합계 소수9자리, 물리적 낱개 정수 검산 1e-6, 화면 소수2자리 표시와 별개. 기존 ALLOCATION 업무키·트랜잭션·확정·재고 부족·금액·롤백 계약 유지. Wilson은 웹 JSON 분류 정밀도만9자리로 확장(ERP 별도출고 없음). 운영 원장/제품 마스터/재고 보정 없음.
+
+격리 SQL fixture를 실제 float 타입으로 맞춘 시나리오에서 카네이션1단+1단, 수국1송이+1송이의 날짜합계·견적2단/2송이 검증. 전년도/타업체 보호 및 기존 실패단계 rollback도 통과. 자세한 작업/배포 결과: docs/work-sessions/2026-10-23_weekday-box-parts.md.
+
+추가 SELECT 근거: 주광2026/41-02 카네이션363는 OutQuantity=0.0666666666666667/BunchQuantity=1/SteamQuantity=20,39-02는0.2/3/60으로 실제 저장돼 있다. Product.Stock 및 StockHistory.BeforeValue/AfterValue도 float. 신규 UI는 이 native 분수 박스 원칙을 따른다(소수9자리 전달 오차만 허용). 운영값 변경 없음.

@@ -975,7 +975,7 @@ export default function WeekdayEstimateWorkspace() {
 
   function editGridCell(cell) {
     if(editLocked) return false;
-    const qty=Number(cell.quantity);
+    const qty=Number(Number(cell.quantity).toFixed(9));
     const destination=locateShippingDay(cycles,cell.date);
     const normalizedUnit=normalizeWeekdayUnit(cell.unit);
     if(!customer?.CustKey || !normalizedUnit || !destination || destination.day.calendarState!=='FOUND'
@@ -1031,7 +1031,7 @@ export default function WeekdayEstimateWorkspace() {
 
   async function editWilson({row,block,day,quantity,totalQuantity,classificationOnly=false}) {
     if(editLocked || wilsonLock.current || busy || !customer?.CustKey) return false;
-    const value=Number(quantity),total=Number(classificationOnly ? day.current : totalQuantity);
+    const value=Number(Number(quantity).toFixed(9)),total=Number(Number(classificationOnly ? day.current : totalQuantity).toFixed(9));
     if(!Number.isFinite(value) || value<0 || !Number.isFinite(total) || total<value
       || day.current==null && classificationOnly || day.editDisabledReason) {setWilsonError('일반·윌슨 합계와 실제 날짜·차수·단위를 확인하세요.');return false;}
     const identity={year:Number(block.cycle.year),majorWeek:String(block.cycle.majorWeek),orderWeek:day.effectiveOrderWeek ?? day.orderWeek,

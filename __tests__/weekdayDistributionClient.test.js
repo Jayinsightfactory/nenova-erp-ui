@@ -404,3 +404,13 @@ assert.equal((await save(submission,{fetcher:async(url,options)=>{calls.push({ur
 assert.equal(calls.length,4);assert.equal(calls.filter(call=>call.options.method==='POST').length,1,'HTTP request timeout is not known rollback');
 assert.equal((await save(submission,{fetcher:async(url,options)=>options.method==='POST'?{ok:true,status:200,json:async()=>{throw new Error('lost JSON');}}:reply(200,{success:true,saved:true,operation:{operationId}})})).state,'saved');
 console.log('weekdayDistributionClient: strict read scope/digest/confirmed rollback/full-date projection/legacy existing dates/changed-only/full snapshot/0/units/cross-year/scope/failed/status-only retry PASS');
+
+// Fractional native box inputs retain their physical count and scoped packaging.
+for(const [flowerName,estUnit,factor] of [['카네이션','단',15],['수국','송이',30]]) {
+  const quantity=Number((1/factor).toFixed(9));
+  const packRow={...emptyAllocation,flowerName,estUnit,packaging:{bunchOf1Box:estUnit==='단'?15:0,steamOf1Bunch:estUnit==='단'?20:0,steamOf1Box:estUnit==='단'?300:30}};
+  const submission=build({...allocationInput,compareRows:[packRow],plans:[{...plan,quantity}]});
+  assert.equal(submission.payload.changes[0].dates[0].quantity,quantity);
+  assert.throws(()=>build({...allocationInput,compareRows:[{...packRow,year:2025}],plans:[{...plan,quantity}]}),/조회 기준/);
+  assert.throws(()=>build({...allocationInput,compareRows:[{...packRow,flowerName:'장미'}],plans:[{...plan,quantity}]}),/소수 셋째/);
+}
