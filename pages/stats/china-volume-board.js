@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
@@ -31,6 +31,8 @@ import {
   validateChinaPackingDistribution,
 } from '../../lib/chinaVolumeBoard';
 import { extractDays, pickDataDay } from '../../lib/pivotVolumeCustDays';
+import { ChinaDialog, ChinaLookupDialog, ChinaSearchSelect } from '../../components/ChinaVolumeEditor';
+import { applyChinaInvoiceCells, chinaDistributionEntries, chinaEditableCustomers, chinaProductDifferences, remapChinaProduct } from '../../lib/chinaVolumeEditing';
 
 const currentYear = new Date().getFullYear();
 
@@ -56,7 +58,7 @@ function chinaMappingKey(value) {
 function mergeChinaProductCandidates(pivotData, productCatalog = []) {
   const byKey = new Map();
   [...(pivotData?.rows || []), ...(productCatalog || [])]
-    .filter(row => /중국/i.test(String(row?.country || '')))
+    .filter(isChinaVolumeRow)
     .forEach(row => {
       const key = Number(row.prodKey);
       const existing = byKey.get(key) || {};
@@ -79,7 +81,7 @@ function applySavedChinaMappings(rows, pivotData, productMappings = {}, productC
   return (rows || []).map(row => {
     const saved = productMappings[chinaMappingKey(row.sourceItemName)];
     const savedProdKey = Number(saved?.prodKey || saved?.ProdKey || saved || 0);
-    const product = savedProdKey ? products.find(item => Number(item.prodKey) === savedProdKey) : row.product;
+    const product = row.product?.prodKey ? products.find(item => Number(item.prodKey) === Number(row.product.prodKey)) || row.product : savedProdKey ? products.find(item => Number(item.prodKey) === savedProdKey) : null;
     if (!product) return row;
     const customer = row.customer;
     return {
@@ -280,9 +282,8 @@ function PackingDistributionModal({ draft, customers, products, onChange, onClos
   const update = (index, patch) => onChange({ ...draft, distributions: draft.distributions.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) });
   const customerOptions = (customers || []).filter(customer => Number(customer.custKey));
   const productOptions = (products || []).filter(product => Number(product.prodKey));
-  return <div className="modal-shade" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-    <section className="distribution-modal" role="dialog" aria-modal="true" aria-labelledby="distribution-title">
-      <header><strong id="distribution-title">인보이스 박스 직접 분배</strong><button onClick={onClose}>×</button></header>
+  return <ChinaDialog title="인보이스 박스 직접 분배" onClose={onClose}>
+    <section className="distribution-modal" style={{width:"100%",maxHeight:"none",boxShadow:"none"}}>
       <div className="distribution-source"><b>{draft.customerCode} · {draft.sourceItemName}</b><span>박스 {draft.sourceBoxText || draft.boxNumbers?.join(', ') || '-'} · 인보이스 수량 {fmt(draft.quantity)}</span><small>전산 원장은 변경하지 않으며 이 중국물량표 작업본에만 저장됩니다.</small></div>
       <div className="distribution-head"><b>분배 대상과 수량</b><span>한 박스를 여러 업체·품목으로 나눌 수 있습니다.</span></div>
       <div className="distribution-list">
@@ -292,17 +293,17 @@ function PackingDistributionModal({ draft, customers, products, onChange, onClos
           const orderedProducts = [...productOptions].sort((left, right) => chinaOrderQuantity(right, selectedCustomer) - chinaOrderQuantity(left, selectedCustomer));
           return <div className="distribution-row" key={index}>
             <label>전산 업체<select value={custKey} onChange={event => update(index, { cellKey: `${event.target.value}:${prodKey}` })}><option value="">업체 선택</option>{customerOptions.map(customer => <option key={customer.custKey} value={customer.custKey}>{customer.custName} · {customer.orderCode || '코드없음'}</option>)}</select></label>
-            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = chinaOrderQuantity(product, selectedCustomer); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
+            <ChinaSearchSelect label="전산 품목" value={prodKey} onChange={value => update(index, { cellKey: `${custKey}:${value}` })} options={orderedProducts.map(product => ({ value: product.prodKey, label: `${chinaVolumeProductLabel(product.prodName)} · ${product.unit} · 주문 ${fmt(chinaOrderQuantity(product, selectedCustomer))}` }))} />
             <label>분배수량<input type="number" min="0.001" step="0.001" value={item.quantity} onChange={event => update(index, { quantity: Number(event.target.value) })} /></label>
             <button className="remove" onClick={() => onChange({ ...draft, distributions: draft.distributions.filter((_, itemIndex) => itemIndex !== index) })}>삭제</button>
           </div>;
         })}
       </div>
-      <button className="add-distribution" onClick={() => onChange({ ...draft, distributions: [...draft.distributions, { cellKey: draft.cellKey || '', quantity: Math.max(0, check.remainingQuantity) }] })}>+ 분배 대상 추가</button>
+      <button className="add-distribution" onClick={() => onChange({ ...draft, distributions: [...draft.distributions, { cellKey: `${draft.customer?.custKey || ''}:`, quantity: Math.max(0, check.remainingQuantity) }] })}>+ 품목 수량 분할</button>
       <div className={`distribution-check ${check.valid ? 'ok' : 'bad'}`}><span>인보이스 <b>{fmt(check.sourceQuantity)}</b></span><span>분배 <b>{fmt(check.distributedQuantity)}</b></span><span>남은 수량 <b>{fmt(check.remainingQuantity)}</b></span><strong>{check.valid ? '✓ 전량 분배됨' : check.remainingQuantity < 0 ? '분배수량이 인보이스를 초과했습니다.' : '남은 수량을 모두 분배하세요.'}</strong></div>
       <footer><button onClick={onClose}>취소</button><button className="primary" disabled={!check.valid} onClick={onSave}>분배 저장</button></footer>
     </section>
-  </div>;
+  </ChinaDialog>;
 }
 
 function InlineReviewPanel({ open, phase, totals, packingRows, onClose, onMatch, onDistribution }) {
@@ -322,9 +323,9 @@ function InlineReviewPanel({ open, phase, totals, packingRows, onClose, onMatch,
     <div className="review-tabs"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>전체 {differences.length + unmatched.length}</button><button className={filter === 'shortage' ? 'active' : ''} onClick={() => setFilter('shortage')}>부족</button><button className={filter === 'excess' ? 'active' : ''} onClick={() => setFilter('excess')}>초과</button></div>
     <div className="review-scroll">
       {unmatched.length > 0 && <div className="review-block"><h3>미매칭 인보이스·품목</h3>{unmatched.map(row => <article className="review-row bad" key={`u-${row.sourceRow}`}><div><small>인보이스 품목</small><b>{row.sourceItemName}</b><span>{row.customerCode} · 박스 {row.sourceBoxText || '-'} · 수량 {fmt(row.quantity)}</span></div><div><small>DB 품목</small><b>매칭 필요</b><span>{row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 미매칭' : '품목 미매칭'}</span></div><button onClick={() => onMatch(row.sourceRow)}>매칭 변경</button></article>)}</div>}
-      <div className="review-block"><h3>전산 주문 대비 인보이스 수량</h3>{differences.map(item => { const diff = Number(item.invoiceDifference || 0); const related = sourceRows(item.cellKey); return <article className="review-row bad" key={item.cellKey}><div><small>업체 · DB 품목</small><b>{item.customerName} · {chinaVolumeProductLabel(item.productName)}</b><span>전산 주문 {fmt(item.pivotQuantity)}</span></div><div><small>인보이스 수량</small><b>{fmt(item.packingQuantity)} · {diff < 0 ? `${fmt(Math.abs(diff))} 부족` : `${fmt(diff)} 초과`}</b><span>{related.map(row => `${row.sourceItemName} [${row.sourceBoxText || '-'}]`).join(' · ') || '관련 인보이스 없음'}</span></div><div className="review-actions">{related.map(row => <span key={row.sourceRow}><button onClick={() => onMatch(row.sourceRow)}>매칭</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>박스 분할·배분</button></span>)}</div></article>; })}
+      <div className="review-block"><h3>전산 주문 대비 인보이스 수량</h3>{differences.map(item => { const diff = Number(item.invoiceDifference || 0); const related = sourceRows(item.cellKey); return <article className="review-row bad" key={item.cellKey}><div><small>업체 · DB 품목</small><b>{item.customerName} · {chinaVolumeProductLabel(item.productName)}</b><span>전산 주문 {fmt(item.pivotQuantity)}</span></div><div><small>인보이스 수량</small><b>{fmt(item.packingQuantity)} · {diff < 0 ? `${fmt(Math.abs(diff))} 부족` : `${fmt(diff)} 초과`}</b><span>{related.map(row => `${row.sourceItemName} [${row.sourceBoxText || '-'}]`).join(' · ') || '관련 인보이스 없음'}</span></div><div className="review-actions">{related.map(row => <span key={row.sourceRow}><button onClick={() => onMatch(row.sourceRow)}>매칭</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>품목 수량 분할</button></span>)}</div></article>; })}
       {!differences.length && !unmatched.length && <div className="review-complete">✓ 모든 인보이스 품목과 물량표 기준 수량이 일치합니다.</div>}</div>
-      {packingRows.filter(row => row.mappingStatus === 'MATCHED').map(row => { const check = validateChinaPackingDistribution(row); const orderQty = totals.invoiceMismatches.find(item => chinaPackingDistributions(row).some(dist => dist.cellKey === item.cellKey)); return <article className={`review-row ${check.valid && !orderQty ? 'good' : 'bad'}`} key={`p-${row.sourceRow}`}><div><small>인보이스 품목</small><b>{row.sourceItemName}</b><span>{row.customerCode} · 박스 {row.sourceBoxText || '-'}</span></div><div><small>DB 매칭 품목</small><b>{chinaVolumeProductLabel(row.product?.prodName)}</b><span>{row.customer?.custName} · 분배 {fmt(check.distributedQuantity)}/{fmt(check.sourceQuantity)}</span></div><div className="review-actions"><button onClick={() => onMatch(row.sourceRow)}>매칭 변경</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>박스 분할·배분</button></div></article>; })}
+      {packingRows.filter(row => row.mappingStatus === 'MATCHED').map(row => { const check = validateChinaPackingDistribution(row); const orderQty = totals.invoiceMismatches.find(item => chinaPackingDistributions(row).some(dist => dist.cellKey === item.cellKey)); return <article className={`review-row ${check.valid && !orderQty ? 'good' : 'bad'}`} key={`p-${row.sourceRow}`}><div><small>인보이스 품목</small><b>{row.sourceItemName}</b><span>{row.customerCode} · 박스 {row.sourceBoxText || '-'}</span></div><div><small>DB 매칭 품목</small><b>{chinaVolumeProductLabel(row.product?.prodName)}</b><span>{row.customer?.custName} · 분배 {fmt(check.distributedQuantity)}/{fmt(check.sourceQuantity)}</span></div><div className="review-actions"><button onClick={() => onMatch(row.sourceRow)}>매칭 변경</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>품목 수량 분할</button></div></article>; })}
     </div>
   </section>;
 }
@@ -360,6 +361,17 @@ export default function ChinaVolumeBoard() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [boxEntryOpen, setBoxEntryOpen] = useState(false);
   const [cellHistory, setCellHistory] = useState(null);
+  const [customerCatalog, setCustomerCatalog] = useState([]);
+  const [loadedScope, setLoadedScope] = useState(null);
+  const [lookup, setLookup] = useState(null);
+  const [regionDraft, setRegionDraft] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [applyMessage, setApplyMessage] = useState('');
+  const [ackWarnings, setAckWarnings] = useState(false);
+  const busyRef = useRef(false);
+  const querySeq = useRef(0);
+  const scopeCurrent = loadedScope?.year === year && loadedScope?.week === week;
+  const allCustomers = useMemo(() => [...new Map([...(data?.customers || []), ...customerCatalog].map(c => [Number(c.custKey), c])).values()], [data, customerCatalog]);
 
   const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
     const board = normalizeBoard(rawBoard);
@@ -390,6 +402,9 @@ export default function ChinaVolumeBoard() {
   };
 
   const load = async (targetYear = year, targetWeek = week) => {
+    if (busyRef.current) return;
+    if (dirty && !window.confirm('저장하지 않은 작업을 버리고 선택 차수를 조회할까요?')) return;
+    const sequence = ++querySeq.current;
     setLoading(true); setError('');
     try {
       const [result, history, catalogResult] = await Promise.all([
@@ -397,13 +412,17 @@ export default function ChinaVolumeBoard() {
         loadBoardHistory(targetYear, targetWeek),
         apiGet('/api/stats/china-volume-products'),
       ]);
+      if (sequence !== querySeq.current) return;
       const catalog = catalogResult.products || [];
       setProductCatalog(catalog);
+      setCustomerCatalog(catalogResult.customers || []);
+      setLoadedScope({ year: targetYear, week: targetWeek });
+      setPreview(null);
       setData(result);
       if (history.active) applyBoard(history.active, result, history.mappings, catalog);
       else {
         setBoardKey(''); setBoardName(`${targetYear}년 ${targetWeek} 중국 물량표`);
-        setCells({}); setPackingRows([]); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
+        setCells({}); setPackingRows([]); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
       }
     } catch (e) { setError(e.message || '물량표 조회 실패'); }
     finally { setLoading(false); }
@@ -440,7 +459,7 @@ export default function ChinaVolumeBoard() {
           return;
         }
         setWeek(targetWeek);
-        await load(year, targetWeek);
+        // Selection prepares the query only. The user loads the board explicitly.
       } catch (e) {
         if (active) setError(e.message || '입력 차수 조회 실패');
       } finally {
@@ -473,17 +492,94 @@ export default function ChinaVolumeBoard() {
       const product = matchProducts.find(item => Number(item.prodKey) === prodKey);
       if (product && !byKey.has(prodKey)) byKey.set(prodKey, { ...product, outOrders: {} });
     });
-    return [...byKey.values()];
-  }, [data, packingRows, productCatalog, cells, matchProducts]);
+    (reviewNotes.addedProducts || []).forEach(key => {
+      const product = matchProducts.find(item => Number(item.prodKey) === Number(key));
+      if (product && !byKey.has(Number(key))) byKey.set(Number(key), product);
+    });
+    return [...byKey.values()].filter(row => !(reviewNotes.hiddenProducts || []).includes(Number(row.prodKey)));
+  }, [data, packingRows, productCatalog, cells, matchProducts, reviewNotes]);
   const customers = useMemo(() => {
-    return buildChinaVolumeCustomerColumns({ rows: chinaRows, customers: data?.customers || [], packingRows, cells });
-  }, [data, chinaRows, packingRows, cells]);
+    const base = buildChinaVolumeCustomerColumns({ rows: chinaRows, customers: allCustomers, packingRows, cells });
+    const keys = new Set([...base.map(c => String(c.custKey)), ...(reviewNotes.addedCustomers || []).map(String)]);
+    const days = Object.fromEntries(allCustomers.map(customer => [customer.custKey, pickDataDay(extractDays(customer, '중국'))]));
+    return chinaEditableCustomers(allCustomers, keys, reviewNotes.customerAreas, days);
+  }, [allCustomers, chinaRows, packingRows, cells, reviewNotes]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const gridTotals = useMemo(() => buildChinaVolumeGridTotals({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
-  const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: chinaRows }, packingRows, cells }), [data, chinaRows, packingRows, cells]);
+  const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: matchProducts, customers: allCustomers }, packingRows, cells }), [data, matchProducts, allCustomers, packingRows, cells]);
   const customerDays = useMemo(() => Object.fromEntries(customers.map(customer => [customer.custKey, pickDataDay(extractDays(customer, '중국'))])), [customers]);
+  const productDifferences = useMemo(() => chinaProductDifferences((data?.rows || []).filter(isChinaVolumeRow), allCustomers, packingRows, matchProducts), [data, allCustomers, packingRows, matchProducts]);
+
+  const editQuantity = (row, customer, quantity) => {
+    if (!scopeCurrent || saving) return;
+    const key = `${customer.custKey}:${row.prodKey}`;
+    setCells(previous => ({ ...previous, [key]: { ...previous[key], quantity, quantityEdited: true } }));
+    setDirty(true); setPreview(null);
+    if (!packingRows.length) setPackingPhase('MANUAL');
+  };
+
+  const selectLookup = key => {
+    try {
+      if (lookup.kind === 'customer') setReviewNotes(previous => ({ ...previous, addedCustomers: [...new Set([...(previous.addedCustomers || []), key])] }));
+      else {
+        const product = matchProducts.find(p => Number(p.prodKey) === key);
+        if (lookup.oldProduct) setCells(remapChinaProduct({ cells, oldProduct: lookup.oldProduct, newProduct: product, customers }));
+        setReviewNotes(previous => ({ ...previous,
+          addedProducts: [...new Set([...(previous.addedProducts || []), key])],
+          hiddenProducts: [...new Set([...(previous.hiddenProducts || []), ...(lookup.oldProduct && Number(lookup.oldProduct.prodKey) !== key ? [Number(lookup.oldProduct.prodKey)] : [])])].filter(k => k !== key),
+        }));
+      }
+      setLookup(null); setDirty(true); setPreview(null);
+    } catch (cause) { setError(cause.message); }
+  };
+
+  const previewDistribution = async () => {
+    if (!scopeCurrent || busyRef.current || loading) return;
+    busyRef.current = true; setSaving(true); setError(''); setApplyMessage('');
+    try {
+      if (packingRows.length && packingPhase !== 'APPLIED') throw new Error('인보이스 매칭·분할을 확인한 뒤 매칭 적용을 눌러주세요.');
+      const entries = chinaDistributionEntries(cells, matchProducts, allCustomers);
+      const result = await apiPost('/api/shipment/china-volume-preview', { year, week, entries, sourceFileName: sourceFileName || boardName });
+      setPreview(result); setAckWarnings(false);
+    } catch (cause) { setError(cause.message); }
+    finally { busyRef.current = false; setSaving(false); }
+  };
+
+  const applyDistribution = async () => {
+    if (!scopeCurrent || !preview?.planToken || busyRef.current) return;
+    busyRef.current = true; setSaving(true); setError('');
+    const jobId = `china_${crypto.randomUUID()}`;
+    try {
+      await persistBoardSnapshot({ nextRows: packingRows, nextCells: cells });
+      setApplyMessage(`등록·분배 저장 중 · ${jobId}`);
+      const recover = async () => {
+        const deadline = Date.now() + 12 * 60 * 1000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          try {
+            const state = await apiGet('/api/shipment/distribute-import-apply-progress', { jobId });
+            const progress = state.progress;
+            if (progress?.finished) return progress.result || { success: false, error: progress.error?.message || '저장 실패' };
+            if (progress) setApplyMessage(`${progress.stage || '저장 중'} ${progress.done}/${progress.total} · ${jobId}`);
+          } catch (cause) { if (cause.status === 401 || cause.status === 403) throw cause; }
+        }
+        throw new Error(`결과 미확인: 재적용하지 말고 작업 ${jobId}의 이력을 확인하세요.`);
+      };
+      let response, result;
+      try { response = await fetch('/api/shipment/china-volume-apply', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planToken: preview.planToken, jobId, ackQtyWarnings: ackWarnings }) }); }
+      catch { result = await recover(); }
+      if (!result && [502,503,504].includes(response.status)) result = await recover();
+      if (!result) { try { result = await response.json(); } catch { result = await recover(); } }
+      if (!result.success) throw new Error(result.error || '저장 결과 검증 실패. 작업 이력을 확인하세요.');
+      setApplyMessage(`등록·분배 저장 완료. 기존 주문 수량 보존 · ${result.appliedCount ?? result.applied?.length ?? 0}건 · ${jobId}`);
+      const fresh = await apiGet('/api/stats/pivot-data', { orderYear: year, weekStart: week, weekEnd: week });
+      setData(fresh);
+    } catch (cause) { setError(`${cause.message} · 작업 ${jobId}`); }
+    finally { setPreview(null); busyRef.current = false; setSaving(false); }
+  };
 
   const persistBoardSnapshot = async ({ nextRows, nextCells, nextFileName = sourceFileName, nextSheetName = sourceSheetName, nextPhase = packingPhase }) => {
+    if (!scopeCurrent) throw new Error('선택한 연도·차수의 물량표를 먼저 조회하세요.');
     const name = boardName.trim() || `${year}년 ${week} 중국 물량표`;
     const saved = await apiPost('/api/stats/china-volume-board', {
       action: 'save', boardKey: boardKey || undefined, name, orderYear: year, orderWeek: week,
@@ -504,15 +600,17 @@ export default function ChinaVolumeBoard() {
   const handleUpload = async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !data) return;
+    if (!file || !data || !scopeCurrent || saving) return;
+    setSaving(true);
     setError('');
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      const candidateData = { ...data, rows: matchProducts };
+      const candidateData = { ...data, rows: matchProducts, customers: allCustomers };
       const matched = applySavedChinaMappings(matchChinaPackingRows(parseChinaPackingRows(aoa), candidateData), data, productMappings, productCatalog);
+      if (!matched.length) throw new Error('Customer / Box No. / Item Name / Quantity 형식의 품목·수량을 찾지 못했습니다. 파일 첫 시트를 확인하세요.');
       setPackingRows(matched);
       setCells({});
       setPackingPhase('REVIEW');
@@ -521,6 +619,7 @@ export default function ChinaVolumeBoard() {
       setDirty(true);
       await persistBoardSnapshot({ nextRows: matched, nextCells: {}, nextFileName: file.name, nextSheetName: workbook.SheetNames[0] || '', nextPhase: 'REVIEW' });
     } catch (e) { setError(`패킹리스트 분석 실패: ${e.message || e}`); }
+    finally { setSaving(false); }
   };
 
   const openCell = (row, customer) => {
@@ -565,7 +664,7 @@ export default function ChinaVolumeBoard() {
   };
 
   const applyBatchBoxEntries = entries => {
-    const result = applyChinaVolumeBoxEntries({ rows: chinaRows, customers: data?.customers || [], cells, entries });
+    const result = applyChinaVolumeBoxEntries({ rows: chinaRows, customers: allCustomers, cells, entries });
     if (!result.ok) {
       const first = result.errors[0];
       return { ok: false, message: `${first.index + 1}행: ${first.message}` };
@@ -642,12 +741,17 @@ export default function ChinaVolumeBoard() {
   };
 
   const savePackingDistribution = async () => {
+    if (saving) return;
     const check = validateChinaPackingDistribution(distributionDraft);
     if (!check.valid) { setError('인보이스 원본수량과 분배수량 합계가 같아야 저장할 수 있습니다.'); return; }
+    const sourceUnit = distributionDraft.product?.unit;
+    if (distributionDraft.distributions.some(item => matchProducts.find(p => Number(p.prodKey) === Number(item.cellKey.split(':')[1]))?.unit !== sourceUnit)) {
+      setError('분할 품목은 원본과 같은 단위로 선택하세요. 단위가 다른 실제 입고는 물량표에서 새 품목을 추가해 직접 입력하세요.'); return;
+    }
     setSaving(true); setError('');
     try {
       const nextRows = setChinaPackingRowDistributions(packingRows, distributionDraft.sourceRow, distributionDraft.distributions);
-      const nextCells = packingPhase === 'APPLIED' ? { ...mergeChinaPackingIntoPivotCells(nextRows, { ...data, rows: matchProducts }), ...cells } : cells;
+      const nextCells = packingPhase === 'APPLIED' ? applyChinaInvoiceCells(cells, nextRows, { ...data, rows: matchProducts, customers: allCustomers }) : cells;
       setPackingRows(nextRows);
       setCells(nextCells);
       setDistributionDraft(null);
@@ -681,7 +785,7 @@ export default function ChinaVolumeBoard() {
       await apiPost('/api/stats/china-volume-board', { action: 'save-mapping', sourceItemName: row.sourceItemName, prodKey: Number(product.prodKey), prodName: product.prodName });
       const nextMappings = { ...productMappings, [chinaMappingKey(row.sourceItemName)]: { prodKey: Number(product.prodKey), prodName: product.prodName } };
       const nextRows = rematchChinaPackingRow(packingRows, row.sourceRow, customer, product);
-      const nextCells = packingPhase === 'APPLIED' ? { ...mergeChinaPackingIntoPivotCells(nextRows, { ...data, rows: matchProducts }), ...cells } : cells;
+      const nextCells = packingPhase === 'APPLIED' ? applyChinaInvoiceCells(cells, nextRows, { ...data, rows: matchProducts, customers: allCustomers }) : cells;
       const nextRow = nextRows.find(item => Number(item.sourceRow) === Number(row.sourceRow));
       setProductMappings(nextMappings);
       setPackingRows(nextRows);
@@ -706,7 +810,7 @@ export default function ChinaVolumeBoard() {
     }
     setSaving(true); setError('');
     try {
-      const nextCells = { ...mergeChinaPackingIntoPivotCells(packingRows, { ...data, rows: matchProducts }), ...cells };
+      const nextCells = applyChinaInvoiceCells(cells, packingRows, { ...data, rows: matchProducts, customers: allCustomers });
       setCells(nextCells);
       setPackingPhase('APPLIED');
       await persistBoardSnapshot({ nextRows: packingRows, nextCells, nextPhase: 'APPLIED' });
@@ -791,11 +895,14 @@ export default function ChinaVolumeBoard() {
       <div className="page">
         <header className="titlebar"><b data-desktop-chrome>자동 중국물량표</b><span>1920×1080 기준</span><button onClick={() => window.opener ? window.close() : router.push('/dashboard')}>닫기</button></header>
         <div className="toolbar">
-          <label>연도<input type="number" value={year} onChange={e => setYear(Number(e.target.value))} /></label>
-          <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>
-          <button className="load" onClick={() => load(year, week)} disabled={loading || weeksLoading || !availableWeeks.length}>{loading || weeksLoading ? '조회 중…' : '중국 물량표 조회'}</button>
+          <label>연도<input type="number" value={year} disabled={saving || loading} onChange={e => setYear(Number(e.target.value))} /></label>
+          <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>
+          <button className="load" onClick={() => load(year, week)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{loading || weeksLoading ? '조회 중…' : '중국 물량표 조회'}</button>
+          <button disabled={!scopeCurrent || saving || loading} onClick={() => setLookup({ kind: 'customer' })}>업체 추가</button>
+          <button disabled={!scopeCurrent || saving || loading} onClick={() => setLookup({ kind: 'product' })}>품목 추가</button>
+          <button className="save-board" disabled={!scopeCurrent || saving || loading} onClick={previewDistribution}>등록·분배 저장</button>
           <label className="board-name">작업명<input value={boardName} onChange={event => { setBoardName(event.target.value); setDirty(true); }} placeholder="예: CL 1차 배정" /></label>
-          <select className="board-history" value={boardKey} onChange={event => {
+          <select className="board-history" disabled={!scopeCurrent || saving || loading} value={boardKey} onChange={event => {
             const next = workHistory.find(item => String(item.boardKey) === event.target.value);
             if (!next || (dirty && !window.confirm('저장하지 않은 변경사항이 있습니다. 저장본을 불러올까요?'))) return;
             applyBoard(next);
@@ -803,16 +910,16 @@ export default function ChinaVolumeBoard() {
             <option value="">새 작업본</option>
             {workHistory.map(item => <option key={item.boardKey} value={item.boardKey}>{item.name || '이름 없는 작업'} {item.updatedAt ? `· ${String(item.updatedAt).slice(0, 16)}` : ''}</option>)}
           </select>
-          <button className="save-board" onClick={saveBoard} disabled={!data || saving}>{saving ? '저장 중…' : dirty ? '● 작업 저장' : '✓ 저장됨'}</button>
-          <button onClick={newBoard} disabled={!data}>새 작업</button>
-          <button className="delete-board" onClick={deleteBoard} disabled={!boardKey || saving}>삭제</button>
-          <label className={`upload ${!data ? 'disabled' : ''}`}>패킹리스트 업로드<input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={!data} /></label>
+          <button className="save-board" onClick={saveBoard} disabled={!scopeCurrent || saving || loading || !data || saving}>{saving ? '저장 중…' : dirty ? '● 작업 저장' : '✓ 저장됨'}</button>
+          <button onClick={newBoard} disabled={!scopeCurrent || saving || loading || !data}>새 작업</button>
+          <button className="delete-board" onClick={deleteBoard} disabled={!scopeCurrent || loading || !boardKey || saving}>삭제</button>
+          <label className={`upload ${!data ? 'disabled' : ''}`}>패킹리스트 업로드<input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={!scopeCurrent || saving || loading || !data} /></label>
           <span className="source-file" title={sourceFileName || '적용된 패킹리스트 없음'}>{sourceFileName ? `적용: ${sourceFileName}` : '적용 파일 없음'}</span>
-          <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => openPackingMatch(null)} disabled={!packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
-          <button className="box-entry-open" onClick={() => setBoxEntryOpen(true)} disabled={!data || saving}>박스 일괄 입력</button>
-          <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || ['APPLIED', 'MANUAL'].includes(packingPhase) || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : packingPhase === 'MANUAL' ? '✓ 박스 입력 적용됨' : '매칭 적용'}</button>
-          <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
-          <button onClick={downloadExcel} disabled={!data || packingPhase === 'REVIEW'}>엑셀 다운로드</button>
+          <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => openPackingMatch(null)} disabled={!scopeCurrent || saving || loading || !packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
+          <button className="box-entry-open" onClick={() => setBoxEntryOpen(true)} disabled={!scopeCurrent || saving || loading || !data || saving}>박스 일괄 입력</button>
+          <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || !scopeCurrent || loading || ['APPLIED', 'MANUAL'].includes(packingPhase) || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : packingPhase === 'MANUAL' ? '✓ 박스 입력 적용됨' : '매칭 적용'}</button>
+          <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!scopeCurrent || saving || loading || !packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
+          <button onClick={downloadExcel} disabled={!scopeCurrent || saving || loading || !data || packingPhase === 'REVIEW'}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
@@ -826,15 +933,21 @@ export default function ChinaVolumeBoard() {
           {packingPhase !== 'REVIEW' && <><span>박스배정 <strong>{fmtUnitTotals(totals.unitTotals, 'allocated')}</strong></span><span className={Math.abs(totals.boardAllocationDifference) >= 0.001 ? 'warn' : ''}>최종표-박스 <strong>{fmtUnitDifferences(totals.unitTotals)}</strong></span></>}
           <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length : totals.mismatches.length) ? 'warn' : ''} onClick={openReconciliationReview}>{packingPhase === 'REVIEW' ? '주문과 다른 인보이스' : '적용 오류'} <strong>{packingPhase === 'REVIEW' ? totals.invoiceMismatches.length : totals.mismatches.length}</strong><small>업체·품목 확인</small></button>
         </section>}
-        <main>
+        {data && !scopeCurrent && <p className="scope-notice">연도·차수가 변경되었습니다. 물량표 조회를 누른 뒤 편집·저장하세요.</p>}
+        {applyMessage && <p className="scope-notice" role="status">{applyMessage}</p>}
+        <main inert={!scopeCurrent || saving || loading ? '' : undefined}>
           <section className="board-wrap">
             {!data && !loading && <div className="empty">연도·차수를 조회한 뒤 패킹리스트를 업로드하세요.</div>}
             {data && (
               <table className="board">
-                <thead><tr><th className="product-head">품종 · 품목</th>{customers.map(customer => <th key={customer.custKey}><small className="customer-area">{customer.area || '기타'} · {customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'}</small>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}<th className="summary-head">품목 합계</th></tr></thead>
+                <thead>
+                  <tr><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>품목 합계</th></tr>
+                  <tr>{customers.map(customer => <th key={customer.custKey}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'}</th>)}</tr>
+                  <tr>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr>
+                </thead>
                 <tbody>{chinaRows.map(row => (
                   <tr key={row.prodKey}>
-                    <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower}</small><span>{chinaVolumeProductLabel(row.prodName)}</span></th>
+                    <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower} · {row.unit}</small><button className="product-change" onClick={() => setLookup({ kind: 'product', oldProduct: row })}>{chinaVolumeProductLabel(row.prodName)}</button></th>
                     {customers.map(customer => {
                       const key = `${customer.custKey}:${row.prodKey}`;
                       const originalQty = chinaOrderQuantity(row, customer);
@@ -844,8 +957,17 @@ export default function ChinaVolumeBoard() {
                       const allocations = saved?.allocations || [];
                       const history = saved?.editHistory || [];
                       const boxNumbers = saved?.boxNumbers || [];
-                      return <td key={key} className={`${quantity > 0 ? 'active' : ''} ${allocations.length || boxNumbers.length ? 'boxed' : ''}`} onClick={() => openCell(row, customer)}>
-                        <span className="qty" title={`표시 ${fmt(quantity)} · 전산 주문 ${fmt(orderQuantity)}`}>{quantity > 0 ? fmt(quantity) : ''}</span>{quantity !== orderQuantity && <small className="order-qty">주문 {fmt(orderQuantity)}</small>}<BoxBadges allocations={allocations} boxNumbers={boxNumbers} area={boxAreas[key] || 'self'} />
+                      return <td key={key} className={`${quantity > 0 ? 'active' : ''} ${allocations.length || boxNumbers.length ? 'boxed' : ''}`}>
+                        <input className="inline-quantity" aria-label={`${customer.custName} ${row.prodName} 수량`} inputMode="decimal" value={quantity === 0 ? '' : quantity} onChange={event => editQuantity(row, customer, event.target.value)} onKeyDown={event => {
+                          if (event.key === 'Enter' || event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            const column = event.currentTarget.closest('td').cellIndex;
+                            const next = event.key === 'ArrowUp' ? event.currentTarget.closest('tr').previousElementSibling : event.currentTarget.closest('tr').nextElementSibling;
+                            next?.cells[column]?.querySelector('input')?.focus();
+                          }
+                        }} title={`전산 주문 ${fmt(orderQuantity)} · ${row.unit}`} />
+                        {Number(quantity) !== Number(orderQuantity) && <small className="order-qty">주문 {fmt(orderQuantity)}</small>}<BoxBadges allocations={allocations} boxNumbers={boxNumbers} area={boxAreas[key] || 'self'} />
+                        <button className="box-edit" aria-label={`${customer.custName} ${row.prodName} 박스번호 편집`} onClick={() => openCell(row, customer)}>박스</button>
                         {history.length > 0 && <button className="cell-history-badge" aria-label={`${row.prodName} ${customer.custName} 수정 이력 ${history.length}건`} title="수정 이력 보기" onClick={event => { event.stopPropagation(); setCellHistory({ title: `${customer.custName} · ${chinaVolumeProductLabel(row.prodName)}`, items: history }); }}>{history.length}회</button>}
                       </td>;
                     })}
@@ -857,6 +979,11 @@ export default function ChinaVolumeBoard() {
             )}
           </section>
           <aside>
+            {packingRows.length > 0 && <section className="simple-differences"><h3>주문 대비 초과·미입고</h3>
+              <table><thead><tr><th>품목</th><th>수량 차이</th></tr></thead><tbody>{productDifferences.map(item => <tr key={item.prodKey}><td>{chinaVolumeProductLabel(item.name)}</td><td className={item.difference < 0 ? 'short' : 'over'}>{fmt(Math.abs(item.difference))}{item.unit} {item.difference < 0 ? '부족' : '초과'}</td></tr>)}</tbody></table>
+              {!productDifferences.length && <p>매칭 품목의 주문·입고 수량이 같습니다.</p>}
+              {packingRows.filter(row => row.mappingStatus !== 'MATCHED').map(row => <p key={row.sourceRow}>{row.sourceItemName} {fmt(row.quantity)} · 미매칭 <button onClick={() => openPackingMatch(row.sourceRow)}>매칭</button></p>)}
+            </section>}
             <div className="aside-title"><b>인보이스·매칭 대조</b><span>{packingRows.length ? `${matchedCount}/${packingRows.length}건 매칭` : '업로드 대기'}</span></div>
             <p>{sourceFileName ? <><b>{sourceFileName}</b>{sourceSheetName ? ` · ${sourceSheetName}` : ''}<br /></> : ''}Customer 코드는 거래처 Client No., Item Name은 중국 품목으로 자동 매칭합니다.</p>
             <div className="packing-list">
@@ -864,7 +991,7 @@ export default function ChinaVolumeBoard() {
                 <header><b>{row.customerCode}</b><span>{row.sourceBoxText}</span></header>
                 <strong>{row.sourceItemName}</strong><div>{fmt(row.quantity)} · {row.allocations.map(a => <i key={`${a.boxNo}-${a.quantity}`}>{a.boxNo}:{fmt(a.quantity)}</i>)}</div>
                 <small>{row.mappingStatus === 'MATCHED' ? <>전산 매칭: {row.customer.custName} / {row.product.prodName} <button className="inline-match" onClick={() => openPackingMatch(row.sourceRow)}>매칭 수정</button></> : <>{row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 매칭 필요' : '품목 매칭 필요'} <button className="inline-match" onClick={() => openPackingMatch(row.sourceRow)}>수정</button></>}</small>
-                {row.mappingStatus === 'MATCHED' && <div className={`distribution-summary ${distribution.valid ? 'ok' : 'bad'}`}><span>분배 {fmt(distribution.distributedQuantity)} / {fmt(distribution.sourceQuantity)}</span><button onClick={() => openPackingDistribution(row.sourceRow)}>박스 분배</button></div>}
+                {row.mappingStatus === 'MATCHED' && <div className={`distribution-summary ${distribution.valid ? 'ok' : 'bad'}`}><span>분배 {fmt(distribution.distributedQuantity)} / {fmt(distribution.sourceQuantity)}</span><button onClick={() => openPackingDistribution(row.sourceRow)}>품목 수량 분할</button></div>}
               </article>; })}
               {!packingRows.length && <div className="aside-empty">예: ROSE Diana 20단 / NO.16.17<br />→ 16번 10단 + 17번 10단</div>}
             </div>
@@ -872,12 +999,22 @@ export default function ChinaVolumeBoard() {
         </main>
       </div>
       <CellEditor draft={draft} onChange={setDraft} onClose={() => setDraft(null)} onSave={saveCell} />
-      {boxEntryOpen && <BoxEntryModal products={chinaRows} customers={data?.customers || []} onClose={() => setBoxEntryOpen(false)} onApply={applyBatchBoxEntries} />}
+      {boxEntryOpen && <BoxEntryModal products={chinaRows} customers={allCustomers} onClose={() => setBoxEntryOpen(false)} onApply={applyBatchBoxEntries} />}
       <CellHistoryModal history={cellHistory} title={cellHistory?.title} onClose={() => setCellHistory(null)} />
-      <PackingDistributionModal draft={distributionDraft} customers={data?.customers || []} products={matchProducts} onChange={setDistributionDraft} onClose={() => setDistributionDraft(null)} onSave={savePackingDistribution} />
-      {matchOpen && <MatchingModal key={matchingSourceRow ?? 'unresolved'} rows={packingRows} products={matchProducts} customers={data?.customers || []} targetSourceRow={matchingSourceRow} onClose={() => { setMatchOpen(false); setMatchingSourceRow(null); }} onSave={saveFullMatch} />}
+      <PackingDistributionModal draft={distributionDraft} customers={allCustomers} products={matchProducts} onChange={setDistributionDraft} onClose={() => setDistributionDraft(null)} onSave={savePackingDistribution} />
+      {matchOpen && <MatchingModal key={matchingSourceRow ?? 'unresolved'} rows={packingRows} products={matchProducts} customers={allCustomers} targetSourceRow={matchingSourceRow} onClose={() => { setMatchOpen(false); setMatchingSourceRow(null); }} onSave={saveFullMatch} />}
       <InlineReviewPanel open={reviewOpen} phase={packingPhase} totals={totals} packingRows={packingRows} onClose={() => setReviewOpen(false)} onMatch={sourceRow => { setReviewOpen(false); openPackingMatch(sourceRow); }} onDistribution={sourceRow => { setReviewOpen(false); openPackingDistribution(sourceRow); }} />
-      <style jsx global>{`.board td span.qty{left:0;width:100%;}`}</style>
+      {lookup && <ChinaLookupDialog kind={lookup.kind} products={matchProducts} customers={allCustomers} onSelect={selectLookup} onClose={() => setLookup(null)} />}
+      {regionDraft && <ChinaDialog title="이 물량표의 업체 지역 변경" onClose={() => setRegionDraft(null)}><label>지역<input autoFocus value={regionDraft.value} maxLength={80} onChange={event => setRegionDraft({ ...regionDraft, value: event.target.value })} list="china-regions" /></label><datalist id="china-regions">{[...new Set(allCustomers.map(c => c.area).filter(Boolean))].map(area => <option key={area} value={area} />)}</datalist><footer><button onClick={() => setRegionDraft(null)}>취소</button><button className="primary" disabled={!regionDraft.value.trim()} onClick={() => { setReviewNotes(previous => ({ ...previous, customerAreas: { ...previous.customerAreas, [regionDraft.custKey]: regionDraft.value.trim() } })); setRegionDraft(null); setDirty(true); }}>적용</button></footer></ChinaDialog>}
+      {preview && <ChinaDialog title={`${year}년 ${week} 등록·분배 저장 확인`} onClose={() => setPreview(null)} busy={saving}>
+        <p>아래 셀의 분배를 최종 수량으로 저장합니다. <b>기존 주문 수량은 변경하지 않습니다.</b> 주문이 없는 양수 품목만 새로 등록합니다.</p>
+        {(preview.blockers || []).map((message,index) => <p role="alert" key={index}>{message}</p>)}
+        <table><thead><tr><th>업체 · 품목</th><th>주문 전 → 후</th><th>분배 현재 → 최종</th><th>증감</th></tr></thead><tbody>{(preview.rows || []).map(row => <tr key={row.key}><td>{row.custName} · {row.prodName}</td><td>{fmt(row.orderBeforeQty)} → {fmt(row.orderAfterQty)}</td><td>{fmt(row.currentOutQty)} → {fmt(row.uploadQty)} {row.outUnit}</td><td>{fmt(row.uploadQty - row.currentOutQty)}</td></tr>)}</tbody></table>
+        {(preview.rows || []).filter(row => row.hasQtyWarning).map(row => <p key={`warning-${row.key}`}>{row.custName} · {row.prodName}: {(row.qtyWarnings || []).map(w => w.message).join(' / ')}</p>)}
+        {(preview.rows || []).some(row => row.hasQtyWarning) && <label><input type="checkbox" checked={ackWarnings} onChange={event => setAckWarnings(event.target.checked)} />수량·단위 경고를 확인했습니다.</label>}
+        <footer><button disabled={saving} onClick={() => setPreview(null)}>취소</button><button className="primary" disabled={saving || !preview.planToken || ((preview.rows || []).some(row => row.hasQtyWarning) && !ackWarnings)} onClick={applyDistribution}>{saving ? '저장 중…' : '확인 후 등록·분배 저장'}</button></footer>
+      </ChinaDialog>}
+      <style jsx global>{`.board td span.qty{left:0;width:100%;}.toolbar .save-board{background:#155bd7;color:#fff;border-color:#155bd7}`}</style>
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
         *{box-sizing:border-box} button,input,select{font:inherit}.page{height:100vh;display:flex;flex-direction:column}.titlebar{height:27px;flex:none;background:linear-gradient(90deg,#071780,#087bc2);color:#fff;display:flex;align-items:center;padding:0 8px;font-size:11px;gap:10px}.titlebar span{font-weight:400;opacity:.8}.titlebar button{margin-left:auto;color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:3px;padding:2px 10px}.toolbar{min-height:40px;flex:none;display:flex;align-items:center;gap:4px;padding:4px 6px;background:#fff;border-bottom:1px solid #cdd5df;font-size:11px;white-space:nowrap;overflow-x:auto}.toolbar label:not(.upload){display:flex;align-items:center;gap:3px}.toolbar input,.toolbar select{height:25px;border:1px solid #aeb9c8;border-radius:3px;padding:2px 5px}.toolbar label:first-child input{width:58px}.toolbar label:nth-child(2) input{width:65px}.toolbar .board-name input{width:122px}.toolbar .board-history{width:170px}.toolbar button,.upload{height:25px;border:1px solid #9aa9bc;background:#fff;border-radius:3px;padding:3px 7px;cursor:pointer}.toolbar .load,.upload,.save-board{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:700}.toolbar .delete-board{color:#a11b1b;border-color:#e1a5a5}.toolbar .attention{background:#fff0e8;border-color:#e98145;color:#ae3c10;font-weight:800}.upload input{display:none}.upload.disabled{opacity:.45;cursor:not-allowed}.legend{margin-left:auto;color:#677388}.legend i,.box-badge{font-style:normal;color:#d31616;border:1px solid #e32626;background:#fff6f6;border-radius:3px;font-weight:800}.legend i{padding:1px 4px}.error{flex:none;background:#fff0f0;color:#b00020;padding:4px 8px;font-size:11px;border-bottom:1px solid #efb5bd}main{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:0;flex:1;gap:4px;padding:4px}.board-wrap,aside{background:#fff;border:1px solid #cbd3de;border-radius:4px;min-height:0;overflow:auto}.empty{padding:50px;text-align:center;color:#7c8797}.board{border-collapse:separate;border-spacing:0;font-size:10px;min-width:100%}.board th,.board td{border-right:1px solid #dde2e8;border-bottom:1px solid #dde2e8}.board thead th{position:sticky;top:0;z-index:4;background:#e8eef7;height:34px;min-width:76px;max-width:76px;padding:2px}.board thead small{display:block;color:#78869a;font-weight:400}.board .product-head,.board tbody th{position:sticky;left:0;z-index:5;min-width:260px;max-width:260px;background:#f7f9fc;text-align:left}.board tbody th{height:32px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.board tbody th small{display:inline;color:#6c7890;font-weight:400;margin-right:4px}.board td{position:relative;width:76px;min-width:76px;max-width:76px;height:32px;min-height:32px;text-align:center;cursor:pointer;background:#fff}.board td:hover{outline:2px solid #276fea;outline-offset:-2px}.board td.active{background:#f8fbff}.board td.boxed{background:#fffaf9}.qty{font-weight:800;color:#153b7a}.box-badges{position:absolute;right:2px;top:2px;display:flex;gap:2px;max-width:58px;overflow:hidden;pointer-events:none}.box-badge{font-size:9px;line-height:13px;height:15px;min-width:18px;padding:0 2px;white-space:nowrap}.box-badge.more{background:#e32626;color:#fff}.aside-title{position:sticky;top:0;z-index:2;background:#172b55;color:#fff;padding:6px 7px;display:flex;justify-content:space-between;font-size:11px}aside>p{font-size:10px;color:#667286;margin:5px 7px}.packing-list{padding:0 5px 6px}.packing-list article{padding:5px;margin-bottom:4px;border:1px solid #d7dde6;border-left:3px solid #239b56;border-radius:3px;font-size:10px}.packing-list article.unmatched{border-left-color:#e24b3b;background:#fff7f5}.packing-list article header{display:flex;justify-content:space-between;color:#56647a}.packing-list article strong{display:block;margin:2px 0}.packing-list article i{font-style:normal;color:#d31616;border:1px solid #ee9b9b;border-radius:3px;padding:1px 2px;margin-left:2px}.packing-list article small{display:block;margin-top:3px;color:#64748b}.aside-empty{text-align:center;color:#8894a5;padding:28px 8px;line-height:1.7}.modal-shade{position:fixed;inset:0;z-index:100;background:#08122688;display:flex;align-items:center;justify-content:center}.cell-modal,.match-modal{width:510px;max-height:85vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.cell-modal>header,.match-modal>header{height:36px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.cell-modal>header button,.match-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.modal-meta{padding:10px 13px;border-bottom:1px solid #e1e6ec}.modal-meta span,.modal-meta small{display:block;margin-top:3px}.modal-meta small{color:#b42318}.qty-field{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-weight:700}.qty-field input{width:150px}.cell-modal input{height:29px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.alloc-title{display:flex;justify-content:space-between;padding:7px 13px;background:#f3f6fa;font-size:12px}.alloc-title span{color:#657187}.alloc-list{padding:8px 13px}.alloc-row{display:grid;grid-template-columns:1fr 1fr 52px;gap:7px;margin-bottom:6px;align-items:end}.alloc-row label{font-size:11px}.alloc-row input{display:block;width:100%;margin-top:2px}.remove{height:29px;border:1px solid #e1a5a5;background:#fff;color:#b42318;border-radius:4px}.add-box{margin:0 13px 8px;border:1px dashed #df5454;background:#fff8f8;color:#c51f1f;border-radius:4px;padding:5px 10px}.allocation-check{margin:2px 13px;padding:7px;border-radius:4px;font-size:12px;font-weight:700}.allocation-check.ok{background:#eaf8ef;color:#176b35}.allocation-check.bad{background:#fff0f0;color:#ad1622}.cell-modal footer,.match-modal footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.cell-modal footer button,.match-modal footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.cell-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.cell-modal footer .primary:disabled{opacity:.45}
@@ -890,6 +1027,8 @@ export default function ChinaVolumeBoard() {
         .page,.toolbar,main,.board-wrap,aside{min-width:0}.board thead .customer-area{color:#225ea8;font-weight:700;font-size:8px}.inline-review{position:fixed;z-index:90;top:27px;right:0;bottom:0;width:min(860px,72vw);background:#eef2f7;border-left:2px solid #173b72;box-shadow:-10px 0 30px #09152b44;display:flex;flex-direction:column}.inline-review>header{min-height:48px;background:#173b72;color:#fff;display:flex;align-items:center;padding:7px 12px}.inline-review>header div{display:flex;flex-direction:column;gap:2px}.inline-review>header span{font-size:10px;opacity:.8}.inline-review>header button{margin-left:auto;border:0;background:transparent;color:#fff;font-size:24px}.review-tabs{display:flex;gap:5px;padding:7px;background:#fff;border-bottom:1px solid #cdd6e2}.review-tabs button{border:1px solid #aeb9c8;background:#fff;border-radius:3px;padding:5px 10px}.review-tabs button.active{background:#155bd7;color:#fff;border-color:#155bd7}.review-scroll{overflow:auto;padding:7px}.review-block{margin-bottom:8px}.review-block h3{font-size:11px;margin:0;padding:5px 7px;color:#173b72}.review-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(190px,1.2fr) 210px;gap:7px;align-items:center;margin-bottom:5px;padding:7px;border:1px solid;border-radius:4px;background:#fff}.review-row.good{border-color:#83b8ef;background:#edf6ff}.review-row.bad{border-color:#ef9b92;background:#fff3f1}.review-row small,.review-row b,.review-row span{display:block}.review-row small{font-size:9px;color:#637087}.review-row b{font-size:11px;margin:2px 0}.review-row span{font-size:9px;color:#526077;white-space:normal}.review-row>button,.review-actions button{border:1px solid #9baabd;background:#fff;border-radius:3px;padding:4px 7px;font-size:10px}.review-actions{display:flex;flex-direction:column;gap:3px}.review-actions>span{display:flex;gap:3px}.review-actions .primary{background:#155bd7;color:#fff;border-color:#155bd7}.review-complete{padding:22px;text-align:center;color:#155bd7;background:#edf6ff;border:1px solid #83b8ef;font-weight:800}
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}.inline-review{width:92vw}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        body{overflow:auto}.page{height:auto;min-height:100vh}.toolbar{flex-wrap:wrap;white-space:normal;overflow:visible}.board-wrap,aside{overflow:visible}main{align-items:start;flex:none}.board-wrap{overflow-x:auto}.board thead th{position:static}.board tbody th{white-space:normal;min-width:260px}.product-change{border:0;background:transparent;text-align:left;cursor:pointer;font-size:12px;white-space:normal}.region-button{border:0;background:transparent;color:#155bd7;cursor:pointer}.inline-quantity{position:relative;z-index:5;width:100%;height:30px;border:0;background:transparent;text-align:center;font-weight:800;color:#153b7a;padding:0 5px 9px;font-size:14px}.box-edit{position:absolute;bottom:0;right:2px;z-index:7;border:0;background:#f3f6fa;color:#617087;font-size:8px;padding:0 2px}.scope-notice{margin:0;padding:10px;background:#eef5ff;color:#173b72}.simple-differences{padding:10px;font-size:12px}.simple-differences h3{margin:0 0 8px}.simple-differences table{width:100%;border-collapse:collapse}.simple-differences th,.simple-differences td{padding:5px;border-bottom:1px solid #ddd;text-align:left}.simple-differences td:last-child{white-space:nowrap}.short{color:#b42318}.over{color:#155bd7}
+        @media(max-width:900px){main{display:flex;flex-direction:column}.board-wrap,aside{width:100%}.toolbar{gap:7px}.inline-review{width:96vw}}
       `}</style>
     </>
   );

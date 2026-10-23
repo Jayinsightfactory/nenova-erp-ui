@@ -14,8 +14,10 @@ export default withAuth(async function handler(req, res) {
             OR p.CountryFlower LIKE N'%중국%' OR p.CountryFlower LIKE N'%China%')
         ORDER BY p.FlowerName, p.ProdName, p.ProdKey`
     );
+    const customers = await query(`SELECT CustKey,CustName,CustArea,OrderCode,Descr FROM Customer WHERE ISNULL(isDeleted,0)=0 ORDER BY CustArea,CustName,CustKey`);
     return res.status(200).json({
       success: true,
+      customers: customers.recordset.map(row => ({ custKey: Number(row.CustKey), custName: row.CustName, area: row.CustArea || '기타', orderCode: row.OrderCode || '', custDescr: row.Descr || '' })),
       products: result.recordset.map(row => ({
         prodKey: Number(row.ProdKey),
         prodName: row.ProdName || '',
