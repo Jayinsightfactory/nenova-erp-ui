@@ -76,3 +76,4 @@
 - 최종 `verify:erp-change`의 전체 ERP계약·manifest·쓰기범위 검사가 모두 통과해 build 단계 진입. 별도로 실행한 `npm run build`도 exit0(프로덕션 webpack/130정적페이지 생성) 확인.
 - `npm run test:profit-report-22-28` 및 posttest 전체 통과. 원본 계산898셀 회귀 포함. 마지막 전체 gate의 중복build와 PR CI/배포 결과는 후속 기록.
 - 빌드가 생성한 data/generated 두 파일은 구현 변경과 분리해 커밋하지 않는다.
+- 최종 `npm run verify:erp-change` exit0 확인. PR1258 생성 후 다른 기능PR1256이 먼저 병합되어 최신master f6c5c8d2와 병합했다. 계산코드 충돌 없음; WORK_MEMORY 양쪽 기록을 모두 보존. 병합된 HEAD는 CI와 build로 재확인한다.

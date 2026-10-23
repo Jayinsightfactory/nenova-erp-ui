@@ -1,3 +1,5 @@
+import WeekdayBoxPartsDialog from './WeekdayBoxPartsDialog.js';
+import {weekdayBoxPack} from '../lib/weekdayBoxParts.js';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { observeWeekdayStickyHeader } from '../lib/weekdayStickyHeader.js';
 import { moveWeekdayQuantityFocus } from '../lib/weekdayQuantityKeyboard.js';
@@ -31,10 +33,14 @@ function WilsonCell({row,block,day,split,disabled,onEditWilson,onClearCell,onSel
   const [input,setInput]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const lock=useRef(false);
   const editableWilson=split.recovery?.wilson ?? split.wilson;
-  async function save(classificationOnly=false) {
-    if(!classificationOnly && input === null) return;
-    if(lock.current || disabled || typeof onEditWilson!=='function' || day.editDisabledReason || split.error && !split.recovery && !classificationOnly) return;
-    if(!classificationOnly && input?.trim()==='') {
+  const [partsOpen,setPartsOpen]=useState(false);
+  const boxPack=weekdayBoxPack(row,day.unit,block.packaging);
+  async function save(classificationOnly=false,override) {
+    if(partsOpen && typeof override!=='string')return false;
+    const nextInput=typeof override==='string'?override:input;
+    if(!classificationOnly && nextInput === null) return;
+    if(lock.current || disabled || typeof onEditWilson!=='function' || day.editDisabledReason || split.error && !split.recovery && !classificationOnly) return false;
+    if(!classificationOnly && nextInput?.trim()==='') {
       if(typeof onClearCell!=='function'){setError('입력 삭제 기능 미연결');return;}
       lock.current=true;setSaving(true);setError('');
       try {
@@ -45,7 +51,7 @@ function WilsonCell({row,block,day,split,disabled,onEditWilson,onClearCell,onSel
       finally{lock.current=false;setSaving(false);}
       return;
     }
-    const checked=validateHorizontalQuantity(input ?? String(editableWilson ?? split.savedWilson ?? 0));
+    const checked=validateHorizontalQuantity(nextInput ?? String(editableWilson ?? split.savedWilson ?? 0));
     if(checked.state!=='VALID') {if(checked.error)setError(checked.error);return;}
     if(!classificationOnly && split.recovery && checked.quantity===editableWilson) {setInput(null);setError('');return;}
     const total=classificationOnly ? split.savedTotal : (split.recovery?.general ?? split.total-split.wilson)+checked.quantity;
@@ -55,15 +61,18 @@ function WilsonCell({row,block,day,split,disabled,onEditWilson,onClearCell,onSel
       const result=await onEditWilson({row,block,day,quantity:checked.quantity,currentTotal:split.savedTotal,totalQuantity:total,classificationOnly});
       if(result===false || result?.success===false || result?.error)throw new Error(result?.error || '윌슨 기록 실패');
       setInput(null);
-    }catch(failure){setError(failure.message || '윌슨 기록 실패 · 입력 유지');}
+      return true;
+    }catch(failure){setError(failure.message || '윌슨 기록 실패 · 입력 유지');return false;}
     finally{lock.current=false;setSaving(false);}
   }
   return <div className="wcm-wilson-cell"><input type="text" inputMode="decimal" data-wcm-quantity={`${cycleKey(block.cycle)}|${day.date}|wilson`} aria-label={`${row.name} ${day.date} 윌슨 수량`} title={split.recovery?.notice || '방향키: 인접 수량 칸 이동 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안'} value={input ?? (editableWilson==null?'':String(editableWilson))}
     disabled={disabled || saving || Boolean(day.editDisabledReason) || split.total==null || typeof onEditWilson!=='function'}
+    onClick={()=>{if(boxPack)setPartsOpen(true);}}
     onFocus={()=>onSelect(`${row.name} · ${day.date} 윌슨\n일반 ${split.error?'미확인':numberLabel(split.total-split.wilson)} / 윌슨 ${split.error?'미확인':numberLabel(split.wilson)} / 합계 ${numberLabel(split.total)}${split.recovery?'\n'+split.recovery.notice:''}`)}
-    onChange={event=>setInput(event.target.value)} onBlur={()=>save()} onKeyDown={event=>{if(moveWeekdayQuantityFocus(event))return;if(event.key==='Enter'&&!event.nativeEvent?.isComposing){event.preventDefault();event.currentTarget.blur();}if(event.key==='Escape'){setInput(null);setError('');onSelect('');}}}/>
+    onChange={event=>setInput(event.target.value)} onBlur={()=>save()} onKeyDown={event=>{if(event.key==='F2'&&boxPack){event.preventDefault();setPartsOpen(true);return;}if(moveWeekdayQuantityFocus(event))return;if(event.key==='Enter'&&!event.nativeEvent?.isComposing){event.preventDefault();event.currentTarget.blur();}if(event.key==='Escape'){setInput(null);setError('');onSelect('');}}}/>
     <button type="button" disabled={disabled || saving || Boolean(day.editDisabledReason) || split.savedTotal==null || typeof onEditWilson!=='function'}
       onMouseDown={event=>event.preventDefault()} onClick={()=>save(true)} title="ERP 합계를 유지하고 일반·윌슨 분류만 저장">분류</button>
+    {partsOpen&&boxPack&&<WeekdayBoxPartsDialog label={`${row.name} ${day.date} 윌슨`} quantity={input ?? editableWilson ?? 0} pack={boxPack} onApply={value=>save(false,value)} onClose={()=>setPartsOpen(false)}/>}
     {split.draft && <small className="wcm-inline-status wcm-draft">초안</small>}
     {split.error && <span className="wcm-compact-warning"><SummaryDetails label={`${row.name} ${day.date} 윌슨 재확인`} description={split.recovery?.notice || `${split.error}\n전산 새로고침으로 날짜·단위·합계를 확인하세요. 최신 합계가 확인된 경우 윌슨 수량을 입력한 뒤 분류 버튼으로 재확인할 수 있습니다.`} visibleLabel="!"/></span>}
     {error && <span role="alert" className="wcm-compact-warning"><SummaryDetails label={`${row.name} ${day.date} 윌슨 입력 오류`} description={error} visibleLabel="!"/></span>}
@@ -97,6 +106,8 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   const [saving, setSaving] = useState(false);
   const lock = useRef(false);
   const inputControl = useRef(null);
+  const [partsOpen,setPartsOpen]=useState(false);
+  const boxPack=weekdayBoxPack(row,day.unit,block.packaging);
   const visibleQuantity = day.editValue ?? day.planned ?? day.displayCurrent ?? day.current;
   const value = input ?? (visibleQuantity == null ? '' : String(visibleQuantity));
   const reason = day.editDisabledReason || (typeof onEditCell !== 'function' ? '초안 편집 기능 미연결' : '');
@@ -110,14 +121,18 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   function focusQuantity(event) {
     if (event.target.closest?.('button,input')) return;
     if (blockedReason) { onSelect(`${description}\n편집 불가: ${blockedReason}`); return; }
-    inputControl.current?.focus(); inputControl.current?.select();
+    inputControl.current?.focus();
+    if(boxPack){setPartsOpen(true);return;}
+    inputControl.current?.select();
   }
-  async function commit() {
-    if (input === null || disabled || reason || lock.current) return;
-    const validated = validateHorizontalQuantity(input);
+  async function commit(override) {
+    if(partsOpen && typeof override!=='string')return false;
+    const nextInput=typeof override==='string'?override:input;
+    if (nextInput === null || disabled || reason || lock.current) return false;
+    const validated = validateHorizontalQuantity(nextInput);
     const clearing = validated.state === 'UNCHANGED';
     if (clearing && typeof onClearCell !== 'function') { setFailure('입력 삭제 기능 미연결'); return; }
-    if (validated.state === 'INVALID') { setFailure(validated.error); return; }
+    if (validated.state === 'INVALID') { setFailure(validated.error); return false; }
     if (!clearing && (validated.quantity === visibleQuantity)) {
       setInput(null); setFailure(''); return;
     }
@@ -127,10 +142,11 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
     try {
       const result = clearing
         ? await onClearCell({...horizontalEditPayload(row, block, day, '0'),quantity:null,clear:true,expectedDrafts:day.drafts})
-        : await onEditCell(horizontalEditPayload(row, block, day, input));
+        : await onEditCell(horizontalEditPayload(row, block, day, nextInput));
       if (result === false || result?.success === false || result?.error) throw new Error(result?.error || '초안 편집 실패');
       setInput(null);
-    } catch (error) { setFailure(error?.message || '초안 편집 실패 · 입력값 유지'); }
+      return true;
+    } catch (error) { setFailure(error?.message || '초안 편집 실패 · 입력값 유지'); return false; }
     finally { lock.current = false; setSaving(false); }
   }
   const changed = day.initialDelta != null && day.initialDelta !== 0;
@@ -138,6 +154,8 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
     <span className="wcm-number-display" aria-hidden="true"><QuantityLabel>{weekdayQuantityLabel(visibleQuantity,row,day.unit,block.packaging)}</QuantityLabel></span>
     <input ref={inputControl} type="text" inputMode="decimal" data-wcm-quantity={`${cycleKey(block.cycle)}|${day.date}|general`} value={value} placeholder="—" disabled={disabled || saving || Boolean(reason)}
       aria-label={`${row.name} ${block.cycle.year}/${day.effectiveOrderWeek} ${day.date} 미적용 초안 수량`}
+      onClick={()=>{if(boxPack&&!blockedReason)setPartsOpen(true);}}
+      title={boxPack?'방향키 입력: 박스 · 클릭/F2: 박스 + 낱개 입력':undefined}
       aria-invalid={Boolean(failure)} onFocus={() => onSelect(description)} onBlur={commit}
       onChange={(event) => {
         setInput(event.target.value);
@@ -145,10 +163,12 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
         setFailure(check.state === 'INVALID' ? check.error : '');
       }}
       onKeyDown={(event) => {
+        if(event.key==='F2'&&boxPack&&!blockedReason){event.preventDefault();setPartsOpen(true);return;}
         if (moveWeekdayQuantityFocus(event)) return;
         if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); event.currentTarget.blur(); }
         if (event.key === 'Escape') { setInput(null); setFailure(''); onSelect(''); }
       }} />
+    {partsOpen&&boxPack&&<WeekdayBoxPartsDialog label={`${row.name} ${day.date}`} quantity={value} pack={boxPack} onApply={commit} onClose={()=>setPartsOpen(false)}/>}
     <div className="wcm-cell-detail">{day.recoveryNotice && <span className="wcm-compact-warning"><SummaryDetails label={`${row.name} ${day.date} 일반 수량 재확인`} description={day.recoveryNotice} visibleLabel="!"/></span>}{day.planned!=null && <small className="wcm-original">초안 · 저장 <QuantityLabel>{weekdayQuantityLabel(day.displayCurrent ?? day.current,row,day.unit,block.packaging)}</QuantityLabel></small>}{changed && <small className="wcm-original"><QuantityLabel>{`(${weekdayQuantityLabel(day.initial,row,day.unit,block.packaging)})`}</QuantityLabel></small>}
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
@@ -775,7 +795,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   if(column.kind==='wilson')return <td key={`wilson|${day.date}`} className="wcm-wilson-column"><WilsonCell row={row} block={block} day={day} split={split} disabled={disabled || wilsonBusy} onEditWilson={onEditWilson} onClearCell={onClearCell} onSelect={selectInfo}/></td>;
                   if(column.kind==='dayTotal')return <td key={`dayTotal|${day.date}`} className="wcm-total"><SummaryDetails label={`${row.name} ${day.date} 일반·윌슨 합계 내역`} visibleLabel={weekdayQuantityLabel(split.total,row,day.unit,block.packaging)} description={`일반 ${split.error?'재확인':numberLabel(split.total-split.wilson)} / 윌슨 ${split.error?'재확인':numberLabel(split.wilson)} / 합계 ${numberLabel(split.total)} ${day.unit || ''}\n${split.error || '견적은 저장된 합계만 출력합니다.'}`}/></td>;
                   const selected=day.label===wilsonDay;
-                  const savedGeneral=split.savedTotal==null || split.error?null:Number((split.savedTotal-split.savedWilson).toFixed(6));
+                  const savedGeneral=split.savedTotal==null || split.error?null:Number((split.savedTotal-split.savedWilson).toFixed(9));
                   const projectedGeneral=split.total==null || split.error?null:split.total-split.wilson;
                   const recovery=selected && typeof onEditWilson==='function'?split.recovery:null;
                   const shown=selected?{...day,current:savedGeneral,displayCurrent:savedGeneral,planned:day.planned==null?null:projectedGeneral,

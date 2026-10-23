@@ -16,7 +16,15 @@ const source = readFileSync(filename, 'utf8');
 const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, QuantityCell, displayCycleColumns, carryoverInputAlerts };', false,
   Buffer.from(JSON.stringify({ filename, jsc: { target:'es2020', parser:{syntax:'ecmascript',jsx:true},
     transform:{react:{runtime:'automatic'}} }, module:{type:'commonjs'} })));
-const componentRequire = createRequire(filename);
+const rawComponentRequire = createRequire(filename);
+const componentRequire = name => {
+  if (!name.includes('WeekdayBoxPartsDialog')) return rawComponentRequire(name);
+  const dialogSource=readFileSync(new URL('../components/WeekdayBoxPartsDialog.js',import.meta.url),'utf8');
+  const dialogCompiled=transformSync(dialogSource,false,Buffer.from(JSON.stringify({filename:'WeekdayBoxPartsDialog.js',jsc:{target:'es2020',parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}})));
+  const dialogModule={exports:{}};
+  new Function('require','module','exports',dialogCompiled.code)(rawComponentRequire,dialogModule,dialogModule.exports);
+  return dialogModule.exports;
+};
 const load = (react = React) => {
   const mod = {exports:{}};
   new Function('require','module','exports',compiled.code)(name => name === 'react' ? react
