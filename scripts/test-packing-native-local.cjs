@@ -1,7 +1,7 @@
 // Local-only interactive Computer Use fixture. No production configuration or API forwarding.
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {spawn}=require('node:child_process'),{randomUUID}=require('node:crypto');
-module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnapshot,protectedBefore,catalog,upsertPackingErpMatch}){
+const {spawn}=require('node:child_process'),{randomUUID,createHash}=require('node:crypto');
+module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnapshot,protectedBefore,catalog,upsertPackingErpMatch,farms=[{FarmKey:7102,FarmName:'HUBFRESH'}],cachedAnalysis=null}){
  assert.equal(pool.config.server,'127.0.0.1');assert.equal(pool.config.port,14339);assert.match(pool.config.database,/^NenovaInvoiceFixture_/);
  const root=path.resolve(__dirname,'..'),secret=randomUUID(),env={...process.env,JWT_SECRET:secret};
  for(const k of Object.keys(env))if(/^(DB_|MSSQL|SQL_|NENOVAWEB_SERVICE)/.test(k))delete env[k];
@@ -32,7 +32,12 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    else if(route==='/api/warehouse/boxes')d={success:true,rows:(await query(pool,WAREHOUSE_BOX_SQL,{year:{type:sql.NVarChar,value:boxSummaryYear(u.searchParams.get('year'))}})).recordset};
    else if(route==='/api/import/tools/product-matches'){if(method==='POST')catalog.value=upsertPackingErpMatch(catalog.value,body,catalog.products);d={...catalog,success:true,scope:'team',revision:1};}
    else if(route==='/api/import/upload-issues'){if(method==='POST')await appendUploadIssue({withTransaction:ctx.withTransactionFn,sql,actor:'invoice-fixture',input:body});d={success:true,rows:(await query(pool,"SELECT LogKey,Actor,Payload FROM SystemActionLog")).recordset.map(x=>({id:x.LogKey,actor:x.Actor,...JSON.parse(x.Payload)}))};}
-   else if(route==='/api/arrival-cost')d={success:true,farms:[{FarmKey:7102,FarmName:'HUBFRESH'}]};
+   else if(route==='/api/import/tools/parse-pdf'&&method==='POST'){
+    assert.ok(cachedAnalysis,'NO_APPROVED_CACHED_ANALYSIS');assert.equal(body.country,cachedAnalysis.country);
+    const hash=createHash('sha256').update(Buffer.from(body.pdfBase64,'base64')).digest('hex');assert.equal(hash,cachedAnalysis.sourceHash,'SOURCE_HASH_MISMATCH');
+    d={...cachedAnalysis.ai,source:'cache',cacheSaved:true};
+   }
+   else if(route==='/api/arrival-cost')d={success:true,farms};
    else if(route==='/api/import/tools/state'){const key=u.searchParams.get('key')||body.key||'';if(method==='POST')shared.set(key,body.value);d={success:true,value:shared.get(key)||null,revision:0,history:[]};}
    else if(route==='/api/import/tools/upload-history')d={success:true,record:{id:'isolated-only'},rows:[]};
    else if(route==='/api/import/receipts/drafts'&&method==='POST')d={success:true,document:await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture'})};

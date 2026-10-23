@@ -11,7 +11,7 @@ import PackingMatchManager from './PackingMatchManager.js';
 import ChinaLegacyReview from './ChinaLegacyReview.js';
 import { findLegacyChinaInvoiceCandidates, parseChinaLegacyInvoiceWorkbook } from '../../lib/importChinaLegacyInvoice.js';
 import { resolveLegacyChinaInvoice } from '../../lib/importChinaLegacyReview.js';
-import {packingErpCatalog,packingErpAliases} from '../../lib/importPackingErpMatches.js';
+import {packingErpCatalog,packingErpAliases,packingLegacyExportBlocked} from '../../lib/importPackingErpMatches.js';
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
 import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
@@ -33,6 +33,7 @@ import { buildPackingMatchPreview } from '../../lib/importPackingMatchPreview.js
 import { packingWeekScope, needsPackingWeekDate, applyPackingWeekDate } from '../../lib/packingWeekDate.js';
 import { packingMatchReview } from '../../lib/packingMatchReview.js';
 import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
+import { needsInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -1486,6 +1487,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     finally{savingRef.current=false;setSaving(false);}
   };
   const openProductMatch=async product=>{
+    if(needsInvoiceAllocation(country,product.sourceName||product.matchingDescription)){await prepareReceipt();return;}
     if(savingRef.current||processingRef.current)return;
     const description=product.matchingDescription;
     if(!description){setStatus({type:'error',msg:'이 행의 원문 연결 정보가 없습니다. 파일을 다시 처리하세요.'});return;}
@@ -1693,7 +1695,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       return false;
     } catch { return true; }
   };
-  const isBlocked = excel => latestShared || !sharedReady || saving || processing || !reviewConfirmed || sourceReviewBlocked() || isPackingDownloadBlocked(excel, {
+  const isBlocked = excel => packingLegacyExportBlocked(excel, generatedErp?.products, country) || latestShared || !sharedReady || saving || processing || !reviewConfirmed || sourceReviewBlocked() || isPackingDownloadBlocked(excel, {
     pending, noMatches: allNoMatches, overrides: mismatchOverrides,
     truncated: lastExtraction?.wasTruncated,
   });
@@ -1736,7 +1738,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     (excel.products || []).map((row, rowIndex) => effectivePackingMatchReview(
       packingMatchReview(row, matchingProducts, country),
       receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${rowIndex}`)
-    ))).filter(review => review.needsReview).length;
+    ))).filter(review => review.needsReview && review.status !== 'ALLOCATION').length;
+  const allocationCount = receiptStatus?.valid && receiptStatus.allocationPending === 0 ? 0
+    : matchingRows.filter(row => needsInvoiceAllocation(country,row.sourceName||row.matchingDescription)).length;
   const matchingComplete = matchingRows.length > 0 && remainingMatches === 0;
   const validationIssues = packingValidationIssues(lastExtraction?.result?.invoices || [], country);
   const openValidationIssue = issue => {
@@ -2109,7 +2113,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             {(excels.length > 0 || matchPreview.length > 0 || reviewRows) && (
               <div ref={matchPreviewRef} style={{ marginTop: '1.25rem', scrollMarginTop: 12 }}>
                 <div className={styles.sourceBadge} role="status" data-testid="packing-upload-next">
-                  <strong>{matchingComplete ? `품목 매칭 완료 · ${matchingRows.length}행 유지` : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
+                  <strong>{matchingComplete ? (allocationCount ? `일반 매칭 완료 · Woolly bush ${allocationCount}행 입고량 분류 필요` : `품목 매칭 완료 · ${matchingRows.length}행 유지`) : `품목 매칭 확인 ${remainingMatches}행 남음`}</strong>
                   {lastExtraction?.result?.invoices?.some(needsPackingWeekDate) && <label style={{ display: 'block', marginTop: 8 }}>
                     원본 날짜 없음 · 적용 연도 <input aria-label="차수 날짜 적용 연도" inputMode="numeric" maxLength={4}
                       value={file?.name?.match(/(?:^|[^0-9])(20\d{2})(?=[^0-9]|$)/)?.[1] || dateYear}
@@ -2124,7 +2128,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
-                    {excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
+                    {allocationCount ? 'Woolly bush 품목·입고량 분류' : excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
                   </button>}
                   <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
@@ -2134,6 +2138,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   <p>수량·단가를 잘못 읽은 경우에만 인식값을 수정하세요. 실제 숫자 오류·단위 환산·중복입고는 저장 전에 다시 검사합니다.</p>
                   <div>미리보기와 확인은 ERP 입고 DB에 저장하지 않습니다.</div>
                 </div>
+                {excels.some(excel => packingLegacyExportBlocked(excel, generatedErp?.products, country)) && <p role="alert">다른 국가에 같은 이름의 품목이 있어 EXE용 패킹 엑셀 다운로드는 차단했습니다. 국가와 품목키로 구분되는 웹 입고 등록을 이용하세요. 도착원가 다운로드는 별도입니다.</p>}
                 {excels.length > 1 && (() => {
                   const anyBlocked = excels.some(isBlocked);
                   return (
