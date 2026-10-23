@@ -18,6 +18,11 @@ const Module = require('node:module');
   assert.equal(avg.average.totalCost, 14000);
   assert.equal(avg.average.unitCost, 1400);
   assert.equal(avg.unit, '송이');
+  const normalized = basis({ ...input, category: '태국', normalization: { eligible: true, unit: '송이', issues: [] } });
+  assert.equal(normalized.label, 'SQL 수량 기준 평균 도착원가');
+  assert.equal(normalized.normalization.eligible, true);
+  assert.match(normalized.normalization.note, /수기 잔량/);
+  assert.equal(basis({ ...input, confirmed: true, normalization: { eligible: true } }).normalization, undefined, 'confirmed values never get fresh normalization metadata');
   assert.equal(JSON.stringify(input), original, 'display never mutates valuation input');
   assert.equal(basis({ ...input, year: '2025' }).year, '2025');
   assert.equal(basis({ ...input, year: null }).average, null);
@@ -71,6 +76,11 @@ const Module = require('node:module');
   assert.notDeepEqual(previous, avg);
 
   const { computeProfitRow } = await import('../lib/profitReportCalc.js');
+  const { computeCategoryAverageInventoryValue } = await import('../lib/profitReportCalc.js');
+  assert.equal(computeCategoryAverageInventoryValue({ ...input.inputs, category: '태국' }), null);
+  assert.equal(computeCategoryAverageInventoryValue({ ...input.inputs, category: '태국' }, { approvedNormalizedCountry: '태국' }).value, 7000);
+  assert.equal(computeCategoryAverageInventoryValue({ ...input.inputs, category: '태국' }, { approvedNormalizedCountry: '중국' }), null);
+  assert.equal(computeCategoryAverageInventoryValue({ ...input.inputs, category: '호주' }, { approvedNormalizedCountry: '호주' }), null);
   const row = { category: input.category, manual: {}, stock: input.stock,
     auto: { N: 100000, L: -200, O: 100, Q: 10, S: 3, R: 1000, H: 1000, E: 6000, F: 7000 } };
   assert.deepEqual(computeProfitRow(row), computeProfitRow({ ...row, inventoryValuation: { begin: previous, end: avg } }), 'additive evidence leaves every numeric calculation unchanged');

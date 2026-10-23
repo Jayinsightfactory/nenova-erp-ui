@@ -1075,6 +1075,13 @@
 - 기록: docs/work-sessions/2026-10-23_colombia-hydrangea-42-1.md
 - 검색어: CO_GROUP_42_1_V1 HYDRANGEA 콜롬비아 수국 42-1
 
+## 2026-10-23 SQL 수량 기준 4국가 평균 도착원가
+- 소액 수기 차이 허용/평균 틀 승인에 따라 NL·TH·CN·EC 매입·재고 단위를 정규화. 같은 StockKey, 동일 상품 범위, 비용누락·환산충돌 fallback, 수동0·음수 보존.
+- NL China Pink/China white/Domenichina4품목 국가 오인 수정, CO/아나나스 CHINA placeholder 보존. DB 쓰기 없음.
+- SQL1~41 paired43,406 SELECT,16,257 산술/연속성/범위 검사 실패0, 관측원천 지문 동일. NL1959·EC3227 충돌은 기존 품목원가 유지.
+- 회귀16개+실제API통합/분류 parity 통과. 전체 gate/build·PR/배포/브라우저 최종상태는 docs/work-sessions/2026-10-23_profit-country-average.md 참조. EXE GUI·종이인쇄 미검증.
+- 검색어: profit-country-average 평균도착원가 China Pink Domenichina 태국루스블룸 샘플150 튤립1959
+
 ## 2026-10-23 최신 승인 도착원가·호텔 환율 비교
 - 호텔 원가 참고 표시를 인보이스 APPROVED ACTUAL 및 기존 엑셀 이력에 연결. 선택 연도 최신 세부차수 기본, 이전/다음 조회.
 - 사용자 확정: 환율은 도착원가 표시만 비교. 매입액·이익·확정 원가·운영 DB 보존.

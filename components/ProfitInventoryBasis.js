@@ -3,6 +3,9 @@ import { inventoryBasisReason } from '../lib/profitReportInventoryBasis.mjs';
 const number = (value, digits = 2) => value == null || !Number.isFinite(Number(value))
   ? '—' : Number(value).toLocaleString('ko-KR', { maximumFractionDigits: digits });
 const cell = { padding: '9px 12px', borderBottom: '1px solid #dbe3ee', verticalAlign: 'top', textAlign: 'left' };
+const quantityIssue = code => code === 'ambiguous_conversion' ? '입고·품목의 환산 비율이 서로 다름'
+  : code === 'missing_purchase_quantity' ? '매입수량 근거 없음'
+    : code === 'missing_stock_quantity' ? '재고수량 누락' : '단위 환산 근거 없음';
 
 function BasisCell({ basis, value, confirmed, stale }) {
   if (!basis) return <><strong>{number(value)}원</strong><div>{confirmed
@@ -21,6 +24,14 @@ function BasisCell({ basis, value, confirmed, stale }) {
       ? '환산재고: 단위별 확인 필요'
       : `환산재고 ${number(basis.quantity, 3)}${basis.unit ? ` ${basis.unit}` : ' (단위 혼합 또는 미확인)'}`}</div>}
     {inventoryBasisReason(basis) && <div style={{ color: '#64748b' }}>{inventoryBasisReason(basis)}</div>}
+    {basis.normalization && <div style={{ color: '#64748b' }}>{basis.normalization.note}
+      {!basis.normalization.eligible && <span> 평균 적용 보류: {basis.normalization.reason === 'no_purchase' ? '해당 차수 매입 없음' : '수량·환산 근거 확인 필요'}.</span>}
+      {basis.normalization.issues?.length > 0 && <div>확인 대상 {basis.normalization.issues.length}건:
+        {basis.normalization.issues.slice(0, 3).map((issue, i) => <div key={`${issue.prodKey}-${issue.phase}-${i}`}>
+          {issue.prodName || `품목 #${issue.prodKey}`} · {quantityIssue(issue.code)}
+        </div>)}
+      </div>}
+    </div>}
     {!basis.unit && basis.average && <div style={{ color: '#92400e' }}>단위 명칭 미확인 — 박스·단·송이로 임의 표기하지 않습니다.</div>}
     {stale && <div style={{ color: '#92400e' }}>입력 편집 중: 위 재고 근거는 마지막 서버 조회 기준입니다.</div>}
   </>;
