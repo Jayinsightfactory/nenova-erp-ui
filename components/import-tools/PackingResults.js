@@ -228,7 +228,7 @@ export default function PackingResults({
   const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts, receiptMatches), [safeExcels, country, notes, truncated, erpProducts, receiptMatches]);
   const reviewedExcels = safeExcels.map((excel, excelIndex) => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: effectivePackingMatchReview(
     packingMatchReview(product, erpProducts, country), receiptMatches.get(`${excel.sourceInvoiceIdentity?.sourceInvoiceIndex ?? excelIndex}:${index}`)) })) }));
-  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, DOCUMENT: 0, REVIEW: 0, UNMATCHED: 0 });
+  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: (result[row.review.status] || 0) + 1 }), { EXACT: 0, MANUAL: 0, DOCUMENT: 0, REVIEW: 0, UNMATCHED: 0, ALLOCATION: 0 });
   useEffect(() => {
     if (counts.EXACT + counts.MANUAL + counts.DOCUMENT > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
   }, [counts.EXACT, counts.MANUAL, counts.DOCUMENT, counts.REVIEW, counts.UNMATCHED]);
@@ -314,7 +314,7 @@ export default function PackingResults({
 
       <div className={styles.matchReviewBar}>
         <p role="status">정확 {counts.EXACT} · 팀 공용 수동 {counts.MANUAL} · 문서 행 선택 {counts.DOCUMENT} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
-          {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 매칭 확인 ${counts.REVIEW + counts.UNMATCHED}건`}
+          {counts.ALLOCATION ? ` · 파일별 분류 대상 ${counts.ALLOCATION}행 (입고 문서에서 확인)` : counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 매칭 확인 ${counts.REVIEW + counts.UNMATCHED}건`}
           {(() => { const count = reviewedExcels.flatMap(item => item.rows).filter(row => productSourceNeedsReview(row.product)).length;
             return count ? ` · 원문 확인 ${count}건` : ''; })()}</p>
         <button ref={filterButtonRef} type="button" aria-pressed={view === 'ALL'} data-testid="packing-results-view-toggle" onClick={() => setView(current => current === 'ALL' ? 'REVIEW_REQUIRED' : 'ALL')}>

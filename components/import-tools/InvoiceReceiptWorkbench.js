@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import InvoiceProductAllocation from './InvoiceProductAllocation.js';
+import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
@@ -180,6 +182,8 @@ export default function InvoiceReceiptWorkbench({
   const [farmOptions, setFarmOptions] = useState([]);
   const [farmBusy, setFarmBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [allocationOpen, setAllocationOpen] = useState(false);
+  const allocationPrompted = useRef(new Set());
   const [confirmReason, setConfirmReason] = useState('');
   const [copyOpen, setCopyOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -214,6 +218,14 @@ export default function InvoiceReceiptWorkbench({
   const selected = records.find(record => record.document.documentId === selectedId) || records[0] || null;
   const documentValue = selected?.document || null;
   const preview = selected?.preview || null;
+  useEffect(() => { allocationPrompted.current.clear(); setAllocationOpen(false); }, [file]);
+  useEffect(() => {
+    if (!documentValue || allocationPrompted.current.has(documentValue.documentId)) return;
+    if (allocationIssues(documentValue).length) {
+      allocationPrompted.current.add(documentValue.documentId);
+      setAllocationOpen(true);
+    }
+  }, [documentValue]);
   useEffect(() => {
     if (!documentValue || selected?.dirty) return;
     for (const stage of Object.values(selected?.stageProgress || {})) {
@@ -1078,6 +1090,7 @@ export default function InvoiceReceiptWorkbench({
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
+      {documentValue.rawMetadata?.allocationSources?.length > 0 && <button type="button" onClick={() => setAllocationOpen(true)} disabled={Boolean(busy) || committedOperations.length > 0}>Woolly bush 품목·입고량 분류</button>}
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
         {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}
       </button>
@@ -1145,6 +1158,8 @@ export default function InvoiceReceiptWorkbench({
     </div>
     </fieldset>
 
+    {allocationOpen && <InvoiceProductAllocation document={documentValue} products={products} file={file}
+      onClose={() => setAllocationOpen(false)} onApply={next => { updateSelected(() => next); setAllocationOpen(false); }} />}
     {!packingActive && renderSavedDocuments(true)}
 
     {currentRevisionCommitted

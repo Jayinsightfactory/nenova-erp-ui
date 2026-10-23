@@ -993,3 +993,10 @@
 ### 2026-10-23 주광 박스 소수 첫째 자리 표시
 - 사용자 확인: 실제 박스 소수값 한 자리 (1박스+3단/15단포장=1.2). 박스·낱개 입력창 표시만 변경, 저장 정밀도 보존. PR1256 본 기능 병합 후 추가 요청.
 - 검증/배포 진행 중. 검색어: weekday-box-one-decimal 소수첫째자리 박스낱개 1.2
+
+## 2026-10-23 호주·미국 인보이스 분리 배포
+- 사용자 요청으로 AU/US만 최신 master에 분리. TH는 다른 세션, CO/EC 미배포 작업 제외. 운영 DB 무변경.
+- Woolly bush 파일별 분류·PDF 대조·합계 검증·공용매칭 금지. US 국가별 ProdKey 선택 및 EXE 동일명 다운로드 안전차단.
+- 격리 SQL AU56박스/15500송이, US70박스/43750송이 입고→원가→다운로드 통과. TEST_ONLY 두 시트 표시 회귀 통과.
+- 전체 ERP/dnSpy/manifest/write guard 통과. 최종 모달 portal/너비 수정 후 빌드·브라우저 및 PR/배포 대기. 후속 결과 docs/work-sessions/2026-10-23_au-us-release.md.
+- 검색어: au-us-release Woolly bush TEST_ONLY ProdKey 파일별분류 운영DB불변

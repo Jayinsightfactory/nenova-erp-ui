@@ -13,7 +13,8 @@ const rows=[{ProdKey:1,ProdName:'ROSE China Red 60cm',CounName:'중국',ProdCode
  {ProdKey:3,ProdName:'Deleted',CounName:'중국',isDeleted:1},
  {ProdKey:4,ProdName:'Other country',CounName:'콜롬비아',isDeleted:0},
  {ProdKey:5,ProdName:'Duplicate',CounName:'중국',isDeleted:0},
- {ProdKey:6,ProdName:'duplicate',CounName:'콜롬비아',isDeleted:0}];
+ {ProdKey:6,ProdName:'duplicate',CounName:'콜롬비아',isDeleted:0},
+ {ProdKey:7,ProdName:'Duplicate',CounName:'중국',isDeleted:0}];
 const products=policy.packingErpProducts(rows);
 const request={country:'CN',description:'Rose Red length 60cm',prodKey:1};
 
@@ -26,7 +27,16 @@ test('candidate and save scope: positive active product; deleted, wrong country,
  for(const prodKey of [0,3,4,5,999,'1'])assert.throws(()=>policy.upsertPackingErpMatch(null,{...request,prodKey},products));
  for(const country of ['',undefined,'??','CO'])assert.throws(()=>policy.upsertPackingErpMatch(null,{...request,country},products));
  assert.throws(()=>policy.upsertPackingErpMatch(null,{...request,description:''},products));
- assert.equal(policy.packingErpCatalog(products).items.length,3);
+ assert.equal(policy.packingErpCatalog(products).items.length,4);
+});
+
+test('web country-key identity is separate from EXE name-only export',()=>{
+ const scoped=policy.packingErpProducts([{ProdKey:1718,ProdName:'SALAL TIPS',CounName:'미국'}, {ProdKey:2206,ProdName:'SALAL TIPS',CounName:'국내'}]);
+ assert.equal(scoped[0].selectable,true);
+ assert.equal(scoped[0].legacyExportSafe,false);
+ assert.equal(policy.upsertPackingErpMatch(null,{country:'US',description:'Salal tips',prodKey:1718},scoped).entries[0].prodKey,1718);
+ assert.equal(policy.packingLegacyExportBlocked({products:[{name:'SALAL TIPS'}]},scoped,'US'),true);
+ assert.equal(policy.packingLegacyExportBlocked({products:[{name:'OTHER'}]},scoped,'US'),false);
 });
 
 test('saved identity isolates country and length; stale/deleted identity cannot silently fuzzy rematch',()=>{

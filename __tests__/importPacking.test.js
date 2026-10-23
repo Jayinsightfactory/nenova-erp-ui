@@ -283,6 +283,7 @@ async function main() {
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
+      '../../lib/invoiceProductAllocation.js': require('../lib/invoiceProductAllocation.js'),
       '../../lib/importPackingSourceReview.js': sourceReview,
       '../../lib/importPackingMatchPreview.js': matchPreview,
       '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),

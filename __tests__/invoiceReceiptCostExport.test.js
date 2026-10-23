@@ -546,6 +546,18 @@ test('every enabled profile preserves explicit cancelled rows without allocation
   }
 });
 
+test('every country export retains an explicit TEST_ONLY warning on both sheets', async () => {
+  for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES)) {
+    const f = invoiceCostExportFixture(1, profile.formulaId);
+    f.snapshot.input.exchangeRateType = 'TEST_ONLY';
+    const before = JSON.stringify(f);
+    const book = XLSX.read(await createInvoiceCostWorkbook(f));
+    assert.match(book.Sheets[book.SheetNames[0]].B1.v, /TEST_ONLY/);
+    assert.match(book.Sheets['원본수식 비교'].A9.v, /TEST_ONLY/);
+    assert.equal(JSON.stringify(f), before);
+  }
+});
+
 test('export detail bound remains 1000 rows and rejects an oversized approved-looking scope', async () => {
   const f = invoiceCostExportFixture(1000, 'US_CNF_BOX_V1');
   const s = XLSX.read(await createInvoiceCostWorkbook(f)).Sheets['2026 41-02'];
