@@ -13,7 +13,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
  try {
   const context=await browser.createBrowserContext({downloadBehavior:{policy:'allow',downloadPath:directory}});
   for(const week of weeks) {
-  const page=await context.newPage();await page.setViewport({width:1440,height:1000});
+  const page=await context.newPage();await page.setViewport({width:1920,height:1080});
   await page.evaluateOnNewDocument(()=>localStorage.setItem('nenova_profitReport_outputCols_v1',JSON.stringify(['category','C','E','F','G','H','I','J','K'])));
   const responses=[],requests=[],reads=[];let blockedWrites=0,mainData=null;
   await page.setRequestInterception(true);
@@ -69,6 +69,11 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    assert.equal(basis.year, year);
    assert.equal(Number(basis.major), Number(week));
    assert.ok(inventoryText.includes(row.category));
+   if (['네덜란드','태국','중국','에콰도르'].includes(row.category)) {
+    assert.equal(basis.normalization?.eligible, true);
+    assert.equal(basis.unit, row.category === '중국' ? '단' : '송이');
+    assert.equal(basis.label, 'SQL 수량 기준 평균 도착원가');
+   }
   }
   if (averageRows.length) assert.ok(inventoryText.includes('평균 도착원가'));
   console.log(JSON.stringify({inventoryBasisSmoke:'PASS',scope:{year,week},averageRows:averageRows.length,actualBusinessWrites:0}));

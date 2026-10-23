@@ -12,6 +12,7 @@ import {
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote,
   periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
   assertProfitReportReadSchema, classifyUnclassifiedProfitProduct, refreshProfitCategorySql,
+  normalizedCountryInventoryQuantities,
 } from '../../../lib/profitReport';
 import {
   computeAutoEndingStock,
@@ -281,6 +282,13 @@ export async function loadReportData(major, orderYear) {
         stockSnapshotByCategory(major, orderYear, { rateEvidenceByCurrency: endRateEvidenceByCurrency }),
         stockSnapshotByCategory(prevMajor, prevOrderYear, { rateEvidenceByCurrency: beginRateEvidenceByCurrency }),
       ]);
+      // Pin normalization to the same selected StockKey, not a second latest-snapshot lookup.
+      const [normalizedEnd, normalizedBegin] = await Promise.all([
+        normalizedCountryInventoryQuantities(major, orderYear, { snapshot: {
+          orderYear, week: stockEnd.week, stockKey: stockEnd.stockKey, snapshotAvailable: stockEnd.snapshotAvailable } }),
+        normalizedCountryInventoryQuantities(prevMajor, prevOrderYear, { snapshot: {
+          orderYear: prevOrderYear, week: stockBegin.week, stockKey: stockBegin.stockKey, snapshotAvailable: stockBegin.snapshotAvailable } }),
+      ]);
       const previousValuation = Object.fromEntries(categories.map((definition) => {
         const key = definition.key;
         const previousManual = prev.manual[key] || {};
@@ -292,26 +300,43 @@ export async function loadReportData(major, orderYear) {
         const automaticS = hasStructured ? Number(prevCustoms.S[key] || 0) : Number(prevLegacyS[key] || 0);
         const previousConversionMissing = Number(stockBegin.conversionMissingCounts?.[key] || 0) > 0;
         const previousUnitMismatch = stockBegin.unitMismatch?.[key] === true;
+        const normalized = normalizedBegin[key];
+        const approvedPreviousCost = resolveApprovedThaiCustoms(prevCustoms.actualCosts?.[key], {
+          goods: prevQ[key], freight: previousManual.S != null ? Number(previousManual.S) : automaticS,
+          freightSource: previousManual.S != null ? 'manual' : structuredSource,
+          rate: previousManual.R != null ? Number(previousManual.R) : effectivePrevRate,
+          orderYear: prevOrderYear, major: prevMajor });
         const averageInputs = {
           category: key,
           purchaseForeign: Number(prevQ[key] || 0),
           forwardingForeign: previousManual.S != null ? Number(previousManual.S) : automaticS,
           taxableRate: previousManual.R != null ? Number(previousManual.R) : effectivePrevRate,
-          customsCost: previousManual.H != null ? Number(previousManual.H) : Number(prevCustoms.H[key] || 0),
-          purchaseQty: Number(prevPurchaseQty[key] || 0),
-          stockQty: Number(stockBegin.qtys[key] || 0),
+          customsCost: previousManual.H != null ? Number(previousManual.H) : Number(approvedPreviousCost?.total ?? prevCustoms.H[key] ?? 0),
+          purchaseQty: normalized?.eligible ? normalized.purchaseQty : Number(prevPurchaseQty[key] || 0),
+          stockQty: normalized?.eligible ? normalized.stockQty : Number(stockBegin.qtys[key] || 0),
         };
-        const average = (!previousConversionMissing && !previousUnitMismatch)
-          ? computeCategoryAverageInventoryValue(averageInputs) : null;
+        const missingPreviousCustoms = previousManual.H == null
+          && ['actual_cost_missing', 'missing', 'partial'].includes(approvedPreviousCost?.source ?? prevCustoms.sources?.H?.[key] ?? 'missing');
+        const missingPreviousForwarding = previousManual.S == null && (structuredSource === 'partial'
+          || (!hasStructured && prevLegacyS[key] == null));
+        const average = normalized
+          ? normalized.eligible && !missingPreviousCustoms && !missingPreviousForwarding ? computeCategoryAverageInventoryValue(averageInputs, { approvedNormalizedCountry: key }) : null
+          : (!previousConversionMissing && !previousUnitMismatch) ? computeCategoryAverageInventoryValue(averageInputs) : null;
+        if (average && normalized) average.sourceRefs = [...(normalized.sources || [])];
+        if (average && normalized && previousManual.H == null && approvedPreviousCost?.estimated) {
+          average.estimated = true;
+          average.sourceRefs.push(`approved_customs_cost_estimate:${prevOrderYear}:${prevMajor}:${key}`);
+        }
         if (average && previousManual.R == null && (isEstimatedPurchaseRate(resolved.source) || prevCarry?.estimated)) {
           average.estimated = true;
-          average.sourceRefs = [`approved_customs_timing_estimate:${prevOrderYear}:${prevMajor}:category-average:${key}`];
+          average.sourceRefs = [...(average.sourceRefs || []), `approved_customs_timing_estimate:${prevOrderYear}:${prevMajor}:category-average:${key}`];
         }
         return [key, {
           average,
           averageInputs,
           conversionMissing: previousConversionMissing,
           unitMismatch: previousUnitMismatch,
+          normalized,
         }];
       }));
 
@@ -359,26 +384,37 @@ export async function loadReportData(major, orderYear) {
           customs.sources.H[key] = approvedCost.source;
         }
         const autoH = approvedCost ? approvedCost.total : customs.H[key] ?? 0;
-        // F 1순위는 원본 workbook에 수식이 확인된 카테고리 평균원가 공식이다.
+        // F: 원본 수식 6품종 + 승인된 4국가의 동일단위 SQL 평균 도착원가.
         //   (상품+포워딩 매입액 + 그외통관비) / 당주 매입수량 * 마지막 ProductStock 환산수량
         // 이 공식 대상이 아니거나 필요한 원천이 없으면 품목별 취득원가 근거를 사용한다.
         // 원본의 F 숫자 입력은 현재 SQL 잔량에 적용할 공식을 증명하지 않는다.
         const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
         const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
+        const normalized = normalizedEnd[key];
         const currentAverageInputs = {
           category: key,
           purchaseForeign: Number(Q[key] || 0),
           forwardingForeign: man.S != null ? Number(man.S) : autoS,
           taxableRate: man.R != null ? Number(man.R) : autoR,
           customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
-          purchaseQty: Number(purchaseQty[key] || 0),
-          stockQty: Number(stockEnd.qtys[key] || 0),
+          purchaseQty: normalized?.eligible ? normalized.purchaseQty : Number(purchaseQty[key] || 0),
+          stockQty: normalized?.eligible ? normalized.stockQty : Number(stockEnd.qtys[key] || 0),
         };
-        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch)
-          ? computeCategoryAverageInventoryValue(currentAverageInputs) : null;
+        const missingCurrentCustoms = man.H == null
+          && ['actual_cost_missing', 'missing', 'partial'].includes(customs.sources?.H?.[key] ?? 'missing');
+        const missingCurrentForwarding = man.S == null && (structuredSSource === 'partial'
+          || (!hasStructuredS && S[key] == null));
+        const categoryAverageEnd = normalized
+          ? normalized.eligible && !missingCurrentCustoms && !missingCurrentForwarding ? computeCategoryAverageInventoryValue(currentAverageInputs, { approvedNormalizedCountry: key }) : null
+          : (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue(currentAverageInputs) : null;
+        if (categoryAverageEnd && normalized) categoryAverageEnd.sourceRefs = [...(normalized.sources || [])];
+        if (categoryAverageEnd && normalized && man.H == null && approvedCost?.estimated) {
+          categoryAverageEnd.estimated = true;
+          categoryAverageEnd.sourceRefs.push(`approved_customs_cost_estimate:${orderYear}:${major}:${key}`);
+        }
         if (categoryAverageEnd && !hasManualR && (isEstimatedPurchaseRate(autoRSource) || carry?.estimated)) {
           categoryAverageEnd.estimated = true;
-          categoryAverageEnd.sourceRefs = [`approved_customs_timing_estimate:${orderYear}:${major}:category-average:${key}`];
+          categoryAverageEnd.sourceRefs = [...(categoryAverageEnd.sourceRefs || []), `approved_customs_timing_estimate:${orderYear}:${major}:category-average:${key}`];
         }
         const directEndValue = stockEnd.values[key] != null ? Number(stockEnd.values[key]) : null;
         // E는 전차수 F와 동일한 SQL 원천·평가 경계를 사용한다.
@@ -390,7 +426,7 @@ export async function loadReportData(major, orderYear) {
           directStatus: stockBegin.priceEvidenceStatus?.[key],
           directSources: stockBegin.priceEvidenceSources?.[key],
         });
-        // 26~31차에서 입증된 6품종 평균식 또는 실제 품목 취득원가만 사용한다.
+        // 4국가는 독립 정규화가 완전한 경우만 확대하고 나머지는 기존 취득원가를 보존한다.
         const resolvedEnd = selectReportInventoryValuation({
           year: orderYear, major, week: stockEnd.week,
           average: categoryAverageEnd, direct: directEndValue,
@@ -399,7 +435,7 @@ export async function loadReportData(major, orderYear) {
         });
         const stock = {
           week: stockEnd.week,
-          endQty: stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
+          endQty: categoryAverageEnd && normalized?.eligible ? normalized.stockQty : stockEnd.qtys[key] != null ? Number(stockEnd.qtys[key]) : 0,
           evidenceValue: resolvedEnd?.value ?? null,
           snapshotConfirmed: stockEnd.snapshotAvailable === true,
           priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
@@ -409,10 +445,11 @@ export async function loadReportData(major, orderYear) {
           // FIFO 4차수 내 매입 없음 → 자동평가로 채운 품목(품목별 평가 경로가 채택된 경우만). 값은 반영됨, 입력 필요 표시.
           needsInputItems: resolvedEnd && resolvedEnd.status !== 'VERIFIED_CATEGORY_AVERAGE' && directEndValue != null
             && resolvedEnd.value === directEndValue ? (stockEnd.needsInputItems?.[key] || []) : [],
-          conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
-          conversionIssues: stockEnd.conversionIssues?.[key] || [],
-          unitMismatch: endUnitMismatch,
-          negativeQty: stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
+          conversionMissingCount: categoryAverageEnd && normalized?.eligible ? 0 : Number(stockEnd.conversionMissingCounts?.[key] || 0),
+          conversionIssues: categoryAverageEnd && normalized?.eligible ? [] : stockEnd.conversionIssues?.[key] || [],
+          unitMismatch: categoryAverageEnd && normalized?.eligible ? false : endUnitMismatch,
+          negativeQty: categoryAverageEnd && normalized?.eligible ? Number(normalized.negativeQty || 0)
+            : stockEnd.negativeQtys?.[key] != null ? Number(stockEnd.negativeQtys[key]) : 0,
         };
         const autoF = computeAutoEndingStock(stock);
         const stockFSourceKind = endingStockSourceKind(stock);
@@ -420,7 +457,7 @@ export async function loadReportData(major, orderYear) {
         // resolvedBegin은 위(F 단가이월 fallback 이전)에서 이미 확정했다.
         const beginStock = {
           week: stockBegin.week,
-          endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
+          endQty: previous.average && previous.normalized?.eligible ? previous.normalized.stockQty : stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           evidenceValue: resolvedBegin?.value ?? null,
           snapshotConfirmed: stockBegin.snapshotAvailable === true,
           priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
@@ -429,9 +466,9 @@ export async function loadReportData(major, orderYear) {
           missingPriceItems: resolvedBegin ? [] : (stockBegin.missingPriceItems?.[key] || []),
           needsInputItems: resolvedBegin && resolvedBegin.status !== 'VERIFIED_CATEGORY_AVERAGE' && directBeginValue != null
             && resolvedBegin.value === directBeginValue ? (stockBegin.needsInputItems?.[key] || []) : [],
-          conversionMissingCount: Number(stockBegin.conversionMissingCounts?.[key] || 0),
-          conversionIssues: stockBegin.conversionIssues?.[key] || [],
-          unitMismatch: previous.unitMismatch === true,
+          conversionMissingCount: previous.average && previous.normalized?.eligible ? 0 : Number(stockBegin.conversionMissingCounts?.[key] || 0),
+          conversionIssues: previous.average && previous.normalized?.eligible ? [] : stockBegin.conversionIssues?.[key] || [],
+          unitMismatch: previous.average && previous.normalized?.eligible ? false : previous.unitMismatch === true,
         };
         const autoE = computeAutoEndingStock(beginStock);
         const stockESourceKind = endingStockSourceKind(beginStock);
@@ -454,10 +491,14 @@ export async function loadReportData(major, orderYear) {
           inventoryValuation: {
             begin: buildInventoryBasis({ category: key, year: prevOrderYear, major: prevMajor,
               stock: beginStock, value: autoE, average: previous.average, inputs: previous.averageInputs,
-              averageEligible: CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key), units: stockBegin.unitsByCategory?.[key] || [] }),
+              normalization: previous.normalized,
+              averageEligible: Boolean(previous.normalized) || CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key),
+              units: previous.average && previous.normalized?.eligible ? [previous.normalized.unit] : stockBegin.unitsByCategory?.[key] || [] }),
             end: buildInventoryBasis({ category: key, year: orderYear, major,
               stock, value: autoF, average: categoryAverageEnd, inputs: currentAverageInputs,
-              averageEligible: CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key), units: stockEnd.unitsByCategory?.[key] || [] }),
+              normalization: normalized,
+              averageEligible: Boolean(normalized) || CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key),
+              units: categoryAverageEnd && normalized?.eligible ? [normalized.unit] : stockEnd.unitsByCategory?.[key] || [] }),
           },
           // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
           // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)

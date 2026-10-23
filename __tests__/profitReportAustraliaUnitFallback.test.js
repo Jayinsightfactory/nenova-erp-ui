@@ -100,9 +100,9 @@ async function main() {
     && /!previousConversionMissing && !previousUnitMismatch/.test(apiSource));
   check('직전 차수 단위 혼재 상태를 행 계산 범위에 안전하게 전달',
     /unitMismatch: previousUnitMismatch/.test(apiSource)
-    && /unitMismatch: previous\.unitMismatch === true/.test(apiSource));
+    && /unitMismatch: previous.average && previous.normalized\?\.eligible \? false : previous\.unitMismatch === true/.test(apiSource));
   check('단위 환산 누락 품목번호와 단위를 감사 영역에 전달',
-    /conversionIssues: stockEnd\.conversionIssues/.test(apiSource)
+    /conversionIssues: categoryAverageEnd && normalized\?\.eligible \? \[\] : stockEnd\.conversionIssues/.test(apiSource)
     && auditSource.includes('STOCK_END_UNIT_CONVERSION_MISSING')
     && auditSource.includes('STOCK_BEGIN_UNIT_CONVERSION_MISSING'));
   check('감사가 E/F 단가 증거 누락을 별도 오류로 차단',
