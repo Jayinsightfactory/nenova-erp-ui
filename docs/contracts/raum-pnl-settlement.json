@@ -2,6 +2,8 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라·등록 호텔 손익계산서 결산 계약",
   "scope": [
+    "lib/hotelArrivalDisplay.js",
+    "components/raum/ArrivalFxControls.js",
     "lib/raumPnlPeriod.js",
     "lib/pnlHotelCostHistory.js",
     "lib/pnlHotelCostPreview.js",
@@ -144,6 +146,7 @@
     "description": "같은 라움 차수와 품목이 2025·2026에 있어도 주문등록과 결산 저장은 선택한 OrderYear를 유지한다."
   },
   "costComparison": {
+    "latestArrivalHistory": "2026-10-23 user override for read-only reference displays: loadHotelArrivalHistory supplies all numeric subweeks in explicit selected year, latest subweek default and previous/next browsing; live-validated APPROVED ACTUAL invoice costs supersede identical legacy year/week/product/farm/country/unit only; every distinct farm retained. TEST_ONLY excluded. Legacy reference helper keeps its original window for compatibility. Header currency inputs apply only to arrival display using compareHotelArrival, never CostPrice/purchase/profit/save/export. Currency or unit/fixed-component evidence missing means original plus warning. Invoice components reconcile before FX; fixed KRW customs/other preserved, duty scales with currency-linked basis. Historical inventory valuation and confirmed reports remain as-of, not latest.",
     "compoundUnitReference": "Read-only explicit 단-N스팀/송이/대/st target cost uses N times original per-stem cost, deriving that cost from the original positive source pack count or existing Product conversion metadata. Missing/invalid pack facts remain errors; never change raw or manual prices. Numeric equivalent subweeks 01-2/1-2 collapse only exact duplicate farm/source/unit/cost references; exact year is preserved; current-major plus next-first hotel reference window and latest-prior fallback apply.",
     "sourceUnitEvidence": "Reference conversion can use the original RawJson.cells explicit 단당수량 (unique positive value) for per-stem conversion; no Product changes. FX fixed charges from SOURCE per-stem columns are scaled only when original per-stem cost times source pack count reconciles with displayed raw cost. Unknown expense units block FX preview. The comparison remains a fixed-charge estimate, not a re-execution of variable duty formulas.",
     "hotelArrivalPreview": "Detail and purchase-cost management share read-only source references: current-major subweeks plus the exact same-year next-major first subweek, with latest-prior fallback only when both are absent. Current-major rows display first; next-first references remain visibly labeled and never overwrite saved costs. 대/st/stem/스팀 normalize to 송이 only for reference conversion. Unknown unit/metadata failure stays visible with raw source cost; it is never shown as absent or 0. Shilla also loads its isolated stored weekly history. FX comparison preserves fixed KRW charges and labels the remaining currency-ratio calculation as an estimate, not workbook formula recalculation. No save/export/ERP effects. Source file/sheet/row and original FX remain inspectable.",
@@ -183,6 +186,7 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/hotelArrivalDisplay.test.js",
     "__tests__/raumPnlPeriod.test.js",
     "__tests__/shillaPnlPeriodImport.test.js",
     "__tests__/shillaPnlPeriodConsumers.test.js",

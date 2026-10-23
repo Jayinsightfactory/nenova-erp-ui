@@ -9,7 +9,7 @@ import { defaultPnlTitle } from '../../../lib/raumPnlPartner';
 import { requirePnlPartner } from '../../../lib/pnlHotelRegistry';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer';
-import { loadRaumPnlArrivalReferences } from '../../../lib/raumPnlArrivalReference';
+import { loadRaumPnlArrivalReferences, loadHotelArrivalHistory } from '../../../lib/raumPnlArrivalReference';
 import { comparePnlPeriods, normalizePnlPeriod, parsePnlPeriod, pnlPeriodBaseMajor } from '../../../lib/raumPnlPeriod';
 
 export default withAuth(async function handler(req, res) {
@@ -50,6 +50,7 @@ export default withAuth(async function handler(req, res) {
         // Transient web reference only. Excel export deliberately calls
         // loadRaumPnlDetail directly and never receives this property.
         let arrivalReferences = {};
+        let arrivalHistory = {};
         let arrivalReferenceError = null;
         try {
           arrivalReferences = await loadRaumPnlArrivalReferences({
@@ -57,6 +58,7 @@ export default withAuth(async function handler(req, res) {
             major: pnlPeriodBaseMajor(detail.master.MajorWeek),
             items: detail.items,
           });
+          arrivalHistory = await loadHotelArrivalHistory({orderYear:detail.master.OrderYear,major:pnlPeriodBaseMajor(detail.master.MajorWeek),items:detail.items});
         } catch (error) {
           // A read-only reference must never make the saved hotel detail unusable.
           arrivalReferenceError = '도착원가를 지금 확인할 수 없습니다.';
@@ -64,6 +66,7 @@ export default withAuth(async function handler(req, res) {
         detail.items = detail.items.map(item => ({
           ...item,
           arrivalReferences: arrivalReferences[item.itemKey] || [],
+          arrivalHistory: arrivalHistory[item.itemKey] || [],
         }));
         return res.status(200).json({ success: true, ...detail, arrivalReferenceError });
       }

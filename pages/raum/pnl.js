@@ -14,6 +14,7 @@ import { applyShillaDetailCostDraft, buildShillaDetailCostUpdates, withShillaDet
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import HotelArrivalCostReference from '../../components/raum/HotelArrivalCostReference';
+import ArrivalFxControls from '../../components/raum/ArrivalFxControls';
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
@@ -1190,6 +1191,7 @@ function GangnamMergeConfirmation({ decision, confirmed, onChange }) {
 }
 
 export default function RaumPnlPage() {
+  const [arrivalRates,setArrivalRates]=useState({});
   const [partnerCode, setPartnerCode] = useState('raum');
   const [partnerReady, setPartnerReady] = useState(false);
   const [hotelPartners, setHotelPartners] = useState(Object.values(PNL_PARTNERS));
@@ -1217,6 +1219,7 @@ export default function RaumPnlPage() {
   const [bulkPreview, setBulkPreview] = useState(null);
   // detail: { meta:{pnlKey?, orderYear, major, title, quoteDate, nenovaPct, note, sourceFile}, items, warnings, sheets, unsaved }
   const [detail, setDetail] = useState(null);
+  useEffect(()=>setArrivalRates({}),[partnerCode,detail?.meta?.pnlKey]);
   const [shillaMatchEdit, setShillaMatchEdit] = useState(null);
   const [shillaMatching, setShillaMatching] = useState(false);
   const [shillaBulkMatchOpen, setShillaBulkMatchOpen] = useState(false);
@@ -2609,7 +2612,7 @@ export default function RaumPnlPage() {
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
                   <th style={st.th} title="1개당 매입단가 · 원화 · 부가세 별도">1개당 매입단가<br />(원/VAT별도) ✏️</th>
-                  <th style={{ ...st.th, background: '#ecfeff' }} title="선택 연도의 해당 차수와 호텔 다음 1차 도착원가입니다. 둘 다 없으면 이전 최신 차수를 표시합니다. 저장된 매입단가는 변경하지 않으며 엑셀·인쇄에는 포함되지 않습니다.">해당 차수 도착원가<br />(웹 확인용)</th>
+                  <th style={{ ...st.th, background: '#ecfeff' }} title="선택 연도의 품목별 최신 도착원가입니다. 좌우 버튼으로 과거 차수를 비교합니다. 저장된 매입단가·이익은 변경하지 않으며 엑셀·인쇄에는 포함되지 않습니다.">해당 차수 도착원가<br />(웹 확인용 · 최신 기본)<ArrivalFxControls key={`${partnerCode}|${detail.meta?.pnlKey}`} currencies={[...new Set(['USD','EUR','CNY',...detail.items.flatMap(item=>(item.arrivalHistory || []).map(ref=>ref.currency).filter(Boolean))])]} onApply={setArrivalRates} /></th>
                   <th style={st.th}>매입액</th>
                   <th style={st.th}>매출단가</th>
                   <th style={st.th}>매출액</th>
@@ -2710,7 +2713,7 @@ export default function RaumPnlPage() {
                         </RaumCostHistoryPreview>}
                       </td>
                       <td style={{ ...st.td, ...st.num, background: '#f0fdfa', fontSize: 11 }}>
-                        <HotelArrivalCostReference key={`${it.itemKey}|${it.prodKey}|${detail.meta?.pnlKey}`} item={it} error={detail.arrivalReferenceError} />
+                <HotelArrivalCostReference key={`${it.itemKey}|${it.prodKey}|${detail.meta?.pnlKey}`} item={it} error={detail.arrivalReferenceError} rates={arrivalRates} />
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={!isShilla && erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : ''}>
