@@ -13,7 +13,8 @@ const compareHelper = read('lib/weekdayEstimateCompare.js');
 const manifest = JSON.parse(read('docs/contracts/estimate-weekday-workspace.json'));
 
 assert.match(menu, /href:\s*'\/estimate\/weekday',[\s\S]{0,80}labelKey:\s*'주광 견적서'/);
-assert.match(route, /<WeekdayEstimateWorkspace\s*\/>/);
+assert.match(route, /<WeekdayEstimateEntry renderWorkspace=/);
+assert.match(route, /<WeekdayEstimateWorkspace initialScope=\{scope\}/);
 assert.match(workspace, /선택 범위 전산 대조/);
 assert.match(workspace, /credentials:\s*'include'/);
 assert.match(workspace, /ERP 저장 · 변경 확인/);
