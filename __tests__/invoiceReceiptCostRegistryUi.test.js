@@ -13,6 +13,20 @@ const registry = {
 const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
 const ui = new Function('INVOICE_COST_FORMULAS', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry);
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
+
+test('automatically selected grouped formula initializes editable group rows without reselecting',()=>{
+ registry.TH_AUTO={...descriptor('TH_AUTO','TH','AIR',['groupId','stemsPerBunch']),groupIds:['OTHERS','LOOSE_BLOOMS']};
+ const form=ui.initialForm(doc('TH'),[]);
+ assert.equal(form.formulaId,'TH_AUTO');
+ assert.equal(form.costGroups.length,2);
+ const quantity=ui.editedGroupForm(form,'OTHERS','quantity','2600');
+ const boxes=ui.editedGroupForm(quantity,'OTHERS','boxQuantity','26');
+ assert.deepEqual(ui.payloadOf(boxes).costGroups,[{groupId:'OTHERS',quantity:2600,boxQuantity:26,grossWeightKg:null,volumeWeightKg:null}]);
+ const reopened=ui.initialForm({reviewedMetadata:{...doc('TH').reviewedMetadata,invoiceCostInput:ui.payloadOf(boxes)}},[]);
+ assert.equal(reopened.costGroups[0].quantity,2600);
+ assert.equal(reopened.formulaApplicabilityConfirmed,false);
+ delete registry.TH_AUTO;
+});
 test('Thai packing basis survives payload and invalidates confirmation on edit',()=>{
  registry.TH_PACK={...descriptor('TH_PACK','TH','AIR',['groupId','stemsPerBunch']),groupIds:['OTHERS']};
  const form=ui.initialForm(doc('TH'),[]);

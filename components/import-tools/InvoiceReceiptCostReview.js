@@ -141,7 +141,8 @@ function initialForm(document, receiptLines) {
   const lineCurrencies = new Set(receiptLines.map(line => String(line.currency || '').trim().toUpperCase()));
   const uniformNativeCurrency = lineCurrencies.size === 1 && /^[A-Z]{3}$/.test([...lineCurrencies][0])
     ? [...lineCurrencies][0] : '';
-  const verifiedFormula = INVOICE_COST_FORMULAS[saved.formulaId];
+  const initialFormulaId = saved.formulaId || applicableFormulaId(document);
+  const verifiedFormula = INVOICE_COST_FORMULAS[initialFormulaId];
   const savedLines = new Map((saved.lineInputs || []).map(line => [String(line.lineId).toLowerCase(), line]));
   return {
     ...EMPTY_FORM,
@@ -152,6 +153,7 @@ function initialForm(document, receiptLines) {
     } : {}),
     ...saved,
     ...(verifiedFormula ? {
+      formulaId: initialFormulaId,
       formulaVersion: verifiedFormula.formulaVersion,
       formulaSourceHash: verifiedFormula.formulaSourceHash,
       formulaSourceSheet: verifiedFormula.formulaSourceSheet,
