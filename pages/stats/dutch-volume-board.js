@@ -12,6 +12,7 @@ import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
 import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
+import { productColorDescription } from '../../lib/productColor';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
@@ -451,6 +452,36 @@ export default function DutchVolumeBoard() {
   function removeRow(id) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => previous.filter(row => row.id !== id)); }
   function moveNext(event, index) { if (event.key === 'Enter') { event.preventDefault(); inputRefs.current[index + 1]?.focus(); inputRefs.current[index + 1]?.select(); } }
 
+  async function updateColor(entry, currentColor) {
+    if(workBusyRef.current || applyingRef.current) return;
+    const prodKey=Number(entry.prodKey || (validationCurrent ? matchCache[entry.id]?.prodKey : 0));
+    if(!prodKey){setError('칼라를 저장할 ERP 품목을 먼저 매칭·검증하세요.');return;}
+    workBusyRef.current=true;setWorkBusy(true);setError('');
+    try{
+      const read=await fetch(`/api/master/product-color?prodKey=${prodKey}`,{cache:'no-store'});
+      const before=await read.json();
+      if(!read.ok||!before.success)throw Error('품목 비고를 조회하지 못했습니다.');
+      const color=window.prompt(`${before.data.ProdName} 칼라 (품목 비고 저장)`,currentColor);
+      if(color===null)return;
+      const descr=productColorDescription(before.data.Descr,color);
+      if(!window.confirm(`품목 비고가 다음과 같이 저장됩니다. EXE에도 반영됩니다.\n\n기존: ${before.data.Descr??'(없음)'}\n변경: ${descr}\n\n저장할까요?`))return;
+      const response=await fetch('/api/master/product-color',{method:'POST',headers:requestHeaders,body:JSON.stringify({prodKey,expectedDescr:before.data.Descr??null,color})});
+      const result=await response.json();
+      if(!response.ok||!result.success)throw Error(result.error||'저장 결과를 확인하지 못했습니다. 재조회하세요.');
+      setWorkbook(previous=>{
+        const next={...previous,Sheets:{...previous.Sheets}};
+        for(const row of entries.filter(row=>Number(row.prodKey || matchCache[row.id]?.prodKey)===prodKey)){
+          if(!next.Sheets[row.sheetName]||!Number.isInteger(row.sourceRow))continue;
+          const sheet={...next.Sheets[row.sheetName]},address=XLSXStyled.utils.encode_cell({r:row.sourceRow,c:2});
+          sheet[address]={...sheet[address],t:'s',v:color.trim()};next.Sheets[row.sheetName]=sheet;
+        }
+        return next;
+      });
+      setWorkNotice('칼라를 품목 비고에 저장했습니다. 품목관리·EXE는 같은 비고를 조회합니다.');
+    }catch(cause){setError(cause.message);}
+    finally{workBusyRef.current=false;setWorkBusy(false);}
+  }
+
   async function download() {
     if (!workbook) return;
     try {
@@ -586,7 +617,7 @@ export default function DutchVolumeBoard() {
   }
 
   return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><style jsx>{`
-    .dutch-board{padding:10px;min-height:calc(100vh - 44px);zoom:.7;width:142.8571429%;box-sizing:border-box}
+    .dutch-board{padding:6px;min-height:calc(100vh - 44px);width:100%;box-sizing:border-box}
     .dutch-board>header{padding:9px 14px}
     .board-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;align-items:start;margin-top:8px}
     .source-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-top:8px;padding:9px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}
@@ -655,7 +686,7 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onMatch={openUnmatchedEntry}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry}/>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>원본 품목 옆 ERP 품목, 원본 업체 옆 ERP 업체를 표시합니다. Enter로 선택 창을 열고 Esc로 닫을 수 있습니다.</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table className="mapping-table"><colgroup><col style={{ width: '14%' }}/><col style={{ width: '20%' }}/><col style={{ width: '12%' }}/><col style={{ width: '20%' }}/><col style={{ width: '6%' }}/><col style={{ width: '7%' }}/><col style={{ width: '14%' }}/><col style={{ width: '7%' }}/></colgroup><thead><tr><th>품목 / 원문</th><th>ERP 매칭 품목</th><th>업체 / 원문</th><th>ERP 매칭 업체</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);
