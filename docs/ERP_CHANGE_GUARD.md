@@ -1013,3 +1013,17 @@ PR1213의 제목 우선 규칙은 혼합 파일의 루스커스를 수국으로 
 ## 2026-10-22 전체 원문 자동매칭 및 오연결 차단
 - DB 활성3359품목6175이름을 과거 parser/preview와 비교해 누락269명칭과 신규 오연결61품목 재현. 유일 원문이 품종 추론보다 우선하고 중복은 명시 국가품종/품종/동일 연도차수업체 주문으로만 구분한다. 일반 ROSE로의 fuzzy 대체 금지.
 - `shipmentImportManualSkip.test.js` 전체 카탈로그2025/2026 fixture에서 기대키6159건 일치, 오연결0, 실제 중복16명칭 명시차단. 원문별 선택키·이전 키 유일 복원·MIX 규격별skip·서명범위 보존 검증. [기준표](plans/import-catalog-recovery-2026-10-22.md).
+## 2026-10-23 중국 물량표 신규 주문 환산 및 연결 헤더
+
+기존 주문이 있으면 입력100→80/0/120에도 OrderDetail 전체를 보존한다. 신규 양수 주문만 생성한다.
+FormOrderAdd.UnitQuantity(false)는 Product.EstUnit의 환산열이며 OutQuantity 복사나 출고용 정수반올림이 아니다.
+중국 경로는 chinaOrderUnits를 미리보기·신규 INSERT·커밋전 재조회에서 공유하고, 기존 주문을 보정하지 않는다.
+native GetShipmentMaster는 삭제행도 조회하므로 중국 같은 연도·차수·업체의 삭제 헤더가 있으면 새 헤더 생성 전에 전체 중단한다.
+readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년도 삭제 헤더는 제외한다.
+반례와 부작용표: docs/work-plans/2026-10-23-china-order-guard-review.md. 회귀: chinaVolumeDistribution.test.js 및 test-china-volume-distribution-sql.cjs.
+
+## 2026-10-23 국가 평균 도착원가의 수량·분류 경계
+- 승인된 네덜란드·태국·중국·에콰도르 평균식도 분자·분모 품목 범위가 같고 수량 단위가 같아야 한다. 중국은 단, 나머지는 송이. 실제 Box/Bunch/Steam이 같은 단위 Est/Out보다 우선하며 누락·상충 비율은 부분평균하지 않는다.
+- ProductStock을 읽은 동일 StockKey/연도/차수에 정규화 조회를 고정한다. 음수수량 표시도 선택된 정규화 단위를 따른다. 실제 입고 비율은 같은 ProdKey·연도·스냅샷 이하만 허용한다.
+- China Pink/Domenichina는 실제 네덜란드 품목이다. 반면 콜롬비아/아나나스로 저장된 CHINA 수입 placeholder는 기존 이름 fallback을 보존한다. 실제 전체 카탈로그와 1~41차 금액을 대조해야 단순 분류 테스트의 오판을 잡을 수 있다.
+- 통관/운송 누락은 자동0이 아니며 평균을 차단한다. 명시 저장0은 보존. 확정 revision·ERP 원장 쓰기는 없다. 기준: [계획](plans/profit-country-average-2026-10-23.md), 계약 profit-country-average, 실행 테스트 CountryAverage/Integration/CountryResolver.

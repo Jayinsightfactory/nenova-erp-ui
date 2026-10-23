@@ -1,0 +1,11 @@
+{
+  "id": "profit-country-average",
+  "title": "SQL 품목·단위 정규화 국가 평균 도착원가",
+  "scope": ["lib/profitReportCountryAverage.mjs", "lib/profitReport.js", "lib/profitReportCountryResolver.js", "lib/profitReportClassification.js", "lib/profitReportCalc.js", "lib/profitReportInventoryBasis.mjs", "pages/api/sales/profit-report.js", "components/ProfitInventoryBasis.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "READ_NORMALIZED_COUNTRY_AVERAGE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "SELECT only. Normalize purchase and stock to same unit and scope for NL/TH/CN/EC. Preserve ERP ledger, estimates, confirmed revisions and all database rows."}],
+  "crossYearFixture": {"required": true, "description": "Same week 2025/2026: reject previous-year and future acquisition conversion, retain explicit source year."},
+  "requiredTestFiles": ["__tests__/profitReportCountryAverage.test.cjs", "__tests__/profitReportCountryAverageIntegration.test.cjs", "__tests__/profitReportCountryResolver.test.js"],
+  "requiredCommands": ["npm run test:profit-inventory-basis", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run verify:erp-change", "npm run build"],
+  "dnspyEvidence": {"required": true, "record": "docs/plans/profit-country-average-2026-10-23.md", "source": "Actual dnSpy FormStockView.GetData and FormWarehouseView.GetDetail plus SELECT-only SQL probes", "methods": ["FormStockView.GetData", "FormWarehouseView.GetDetail"], "tables": ["ProductStock", "StockMaster", "Product", "WarehouseMaster", "WarehouseDetail", "WebProfitReport"]}
+}

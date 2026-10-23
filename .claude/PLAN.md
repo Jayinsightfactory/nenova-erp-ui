@@ -1,5 +1,12 @@
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
+## 2026-10-23 — SQL 수량 기준 4국가 평균 도착원가
+- [x] 사용자 승인 범위, 실제 dnSpy·SQL 근거, side-effect/기준표 작성
+- [x] 4국가 정규화·누락/상충 차단·동일 StockKey·분류 fallback 보존 구현/회귀
+- [x] 전체 gate/build·1~41 SQL 전후 비교
+- [ ] PR/CI·code-only 배포·브라우저
+- DB 수정 금지. 기록: docs/work-sessions/2026-10-23_profit-country-average.md
+
 ## 2026-10-23 — 국가별 평균 도착원가 표시
 - [x] 엑셀26~31 수식/상수 구분, 실제 dnSpy/SQL 읽기 전용 사전 확인
 - [x] 기존 콜롬비아5품종·베트남 평균 우선 및 단위혼합/무매입 예외 확인
