@@ -1,10 +1,6 @@
 // GET — 카탈로그 작성용 마스터 + 도착원가
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import {
-  getLatestWarehouseWeek,
-  getArrivalCostsWithFallback,
-} from '../../../lib/catalogArrival';
 import { loadArrivalOverrides, overridesToArrivalMap } from '../../../lib/catalogArrivalOverrides';
 import { splitCatalogWeekForApi } from '../../../lib/catalogUtils';
 import { resolveCatalogArrivalDisplay, catalogSaleUnit } from '../../../lib/catalogUnitMatch';
@@ -15,6 +11,7 @@ import {
   resolveCatalogProductNames,
 } from '../../../lib/catalogNameResolve';
 import { findCatalogMatchByProdKey } from '../../../lib/catalogNameResolve.js';
+import { loadLatestArrivalMap, arrivalWeekNumber } from '../../../lib/latestArrivalReference.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -52,8 +49,6 @@ export default withAuth(async function handler(req, res) {
       }
     }
 
-    const latest = skipArrivalLoad ? null : await getLatestWarehouseWeek(year);
-
     const [productsRes, customersRes, flowersRes] = await Promise.all([
       query(
         `SELECT p.ProdKey, p.ProdCode, p.ProdName, p.DisplayName, p.FlowerName, p.CounName,
@@ -79,8 +74,8 @@ export default withAuth(async function handler(req, res) {
     let arrivalError = weekParseError || null;
     let costMeta = {
       mode,
-      latestWeek: latest?.weekStart || null,
-      latestOrderYear: latest?.orderYear || year,
+      latestWeek: null,
+      latestOrderYear: year,
       anchorWeek: null,
       weeksScanned: 0,
       fromFallback: 0,
@@ -88,35 +83,19 @@ export default withAuth(async function handler(req, res) {
 
     if (!skipArrivalLoad) {
       if (mode === 'recent') {
-        const anchor = latest?.weekStart;
-        costMeta.anchorWeek = anchor;
-        if (anchor) {
-          try {
-            const fb = await getArrivalCostsWithFallback({
-              orderYear: latest?.orderYear || year,
-              anchorWeek: anchor,
-            });
-            arrivalMap = fb.map;
-            costMeta.weeksScanned = fb.weeksScanned;
-            costMeta.fromFallback = fb.fromFallback;
-            costMeta.anchorWeek = fb.anchorWeek;
-          } catch (e) {
-            arrivalError = e.message;
-            arrivalMap = {};
-          }
-        } else {
-          arrivalError = '입고 데이터가 있는 최신 차수를 찾을 수 없습니다.';
+        try {
+          arrivalMap = await loadLatestArrivalMap({orderYear:year,products:productsRes.recordset});
+          const weeks = Object.values(arrivalMap).map(v => v?.arrivalWeek).filter(Boolean);
+          costMeta.latestWeek = weeks.sort((a,b) => arrivalWeekNumber(b)-arrivalWeekNumber(a))[0] || null;
+          costMeta.anchorWeek = costMeta.latestWeek;
+        } catch (e) {
+          arrivalError = e.message;
+          arrivalMap = {};
         }
       } else if (parsed.weekStart && !weekParseError) {
         costMeta.anchorWeek = parsed.weekStart;
         try {
-          const fb = await getArrivalCostsWithFallback({
-            orderYear: parsed.orderYear,
-            anchorWeek: parsed.weekStart,
-          });
-          arrivalMap = fb.map;
-          costMeta.weeksScanned = fb.weeksScanned;
-          costMeta.fromFallback = fb.fromFallback;
+          arrivalMap = await loadLatestArrivalMap({orderYear:parsed.orderYear,products:productsRes.recordset,throughWeek:parsed.weekStart});
         } catch (e) {
           arrivalError = e.message;
           arrivalMap = {};
@@ -174,6 +153,7 @@ export default withAuth(async function handler(req, res) {
         arrivalSource: uploaded ? 'upload' : (arr.source || null),
         arrivalWeek: uploaded ? null : (arr.arrivalWeek || null),
         arrivalIsFallback: uploaded ? false : !!arr.isFallback,
+        arrivalReferences: uploaded ? [] : (arr.references || []),
         customerCost: customerCosts[p.ProdKey] ?? null,
         mappingKorName,
         catalogMatchEngName: catalogMatch?.engName || names.engName || null,

@@ -9,6 +9,8 @@ import { ConfigProvider, Table, Card, Tag, Select, Input, Button, Space, Typogra
 import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, DashboardOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
+import LatestArrivalReference from '../components/LatestArrivalReference.js';
+import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -105,6 +107,7 @@ export default function Warehouse() {
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  const latestArrival = useLatestArrivalReferences(selected?.OrderYear,details.map(d=>({prodKey:d.ProdKey,unit:''})));
   const actualCostByDetail = new Map((invoiceCosts?.currentActual?.lines || []).map(line => [Number(line.wdetailKey), line]));
   const expectedCostByDetail = new Map((invoiceCosts?.comparisons?.[0]?.lines || []).map(line => [Number(line.wdetailKey), line]));
   const renderCost = (detail, map, total = false) => {
@@ -316,6 +319,7 @@ export default function Warehouse() {
                   { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
                   { title: '출하단가', dataIndex: '총액', align: 'right', width: 80, render: fmt },
                   { title: '실제 도착원가', key: 'actualCost', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail) },
+                  { title: '최신 원가 참고 (당시 원가 유지)', key: 'latestArrival', width: 230, render: (_, d) => <LatestArrivalReference state={latestArrival} item={{prodKey:d.ProdKey,unit:''}} /> },
                   { title: '도착원가 합계', key: 'actualCostTotal', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail, true) },
                   { title: '95% 예상·비교', key: 'expectedCost', align: 'right', width: 140, render: (_, d) => renderCost(d, expectedCostByDetail) },
                 ]} />

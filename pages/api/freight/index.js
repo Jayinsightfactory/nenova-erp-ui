@@ -69,7 +69,7 @@ async function handleGet(req, res) {
           GroupKey: groupKey, AWB: m.AWB || '',
           PrimaryKey: m.WarehouseKey, AllKeys: [],
           MergeCount: 0,
-          FarmName: m.FarmName, OrderWeek: m.OrderWeek, InvoiceNo: m.InvoiceNo, InputDate: m.InputDate,
+          FarmName: m.FarmName, OrderYear: m.OrderYear, OrderWeek: m.OrderWeek, InvoiceNo: m.InvoiceNo, InputDate: m.InputDate,
           GrossWeight: 0, ChargeableWeight: 0, FreightRateUSD: null, DocFeeUSD: null,
           FreightKey: null,
         });

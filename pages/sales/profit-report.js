@@ -15,6 +15,8 @@ import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitInventoryBasis from '../../components/ProfitInventoryBasis';
+import LatestArrivalReference from '../../components/LatestArrivalReference';
+import { useLatestArrivalReferences } from '../../lib/useLatestArrivalReferences';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
@@ -752,6 +754,7 @@ export default function ProfitReportPage() {
 
   // ── 재고 평가단가표 모달
   const [priceModal, setPriceModal] = useState(null);   // { beginOrderYear, beginWeek, endOrderYear, endWeek, rows }
+  const latestPriceReferences = useLatestArrivalReferences(reportYear,(priceModal?.rows || []).map(row=>({prodKey:row.ProdKey,unit:row.EstUnit || ''})));
   const [priceEdits, setPriceEdits] = useState({});
   const priceInputRows = useMemo(() => (priceModal?.rows || []).flatMap(row => [
     row.BeginRequiresInput ? {
@@ -1960,7 +1963,9 @@ export default function ProfitReportPage() {
                       <tr key={r.EditKey}>
                         <td style={st.priceModalTd}>{r.ScopeLabel}<br /><small>{r.ScopeOrderYear}-{r.ScopeOrderWeek}</small></td>
                         <td style={st.priceModalTd}>{r.Category}</td>
-                        <td style={{ ...st.priceModalTd, whiteSpace: 'normal', wordBreak: 'break-word' }}>{r.ProdName}</td>
+                        <td style={{ ...st.priceModalTd, whiteSpace: 'normal', wordBreak: 'break-word' }}>{r.ProdName}
+                          <details><summary>최신 원가 비교 (과거 재고평가에 미적용)</summary><LatestArrivalReference state={latestPriceReferences} item={{prodKey:r.ProdKey,unit:r.EstUnit || ''}} /></details>
+                        </td>
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStock)}</td>
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStockEst)} {r.EstUnit || ''}</td>
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>
