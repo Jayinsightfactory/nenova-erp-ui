@@ -1,5 +1,11 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-23] 국가별 평균 도착원가 표시
+- codex/profit-average-landed, base fe57180f. 엑셀 평균식 확인된6분류와 나머지 국가의 직접입력/품목별 계산을 구별.
+- 실제 FormStockView dnSpy 및 SELECT19,708입고행 확인.26~31/41 현행 계산 조회4,845쿼리/관측원장 지문동일.
+- 기존 평균단가·평가수량·산식 표시 구현 중. 계산식/ERP/확정본 변경 없음. 최종검증/배포는 후속 기록 전 미완료.
+- 기록: docs/work-sessions/2026-10-23_profit-average-landed.md
+
 ## [2026-10-23] 중국 포함 승인 통관기간 환율
 - branch codex/profit-customs-rate-timing, base d58da555. 실제 dnSpy로 InputDate=입력일자 확인 후 보고서 전용 기간정책 적용. DB·재고·확정revision 변경 없음.
 - lib/profitReportCustomsRateTiming.mjs 및 환율/재고평가/API/출처UI 통합. 26~31 원본59환율 일치, 32~41 중국은 공식CNY값+다음고시주간 추정.

@@ -55,6 +55,23 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   const financialDigest=crypto.createHash('sha256').update(JSON.stringify(financialRows)).digest('hex');
   await Promise.all(reads);
   assert.ok(mainData?.success&&Array.isArray(mainData.rows),'initial screen response must be observed for the same scope');
+  const inventoryPanel = await page.$('[data-testid="profit-inventory-basis"]');
+  assert.ok(inventoryPanel, 'country inventory valuation panel must render');
+  const inventoryText = await inventoryPanel.evaluate(element => element.textContent);
+  assert.ok(inventoryText.includes('국가·품종별 재고 평가 기준'));
+  assert.ok(mainData.rows.every(row => row.inventoryValuation?.begin && row.inventoryValuation?.end), 'every country must expose its applied basis, including exceptions');
+  const averageRows = mainData.rows.filter(row => row.inventoryValuation?.end?.method === 'category_average');
+  for (const row of averageRows) {
+   const basis = row.inventoryValuation.end;
+   assert.ok(basis.average.purchaseQty > 0);
+   assert.ok(Math.abs(basis.average.totalCost / basis.average.purchaseQty - basis.average.unitCost) < 1e-7);
+   assert.ok(Math.abs(basis.average.unitCost * basis.quantity - basis.value) < 1e-7);
+   assert.equal(basis.year, year);
+   assert.equal(Number(basis.major), Number(week));
+   assert.ok(inventoryText.includes(row.category));
+  }
+  if (averageRows.length) assert.ok(inventoryText.includes('평균 도착원가'));
+  console.log(JSON.stringify({inventoryBasisSmoke:'PASS',scope:{year,week},averageRows:averageRows.length,actualBusinessWrites:0}));
   const cols=['C','E','F','G','H','I','J','K'],mainMap=new Map((mainData?.rows||[]).map(r=>[r.category,mainData.confirmed?r.calc:computeProfitRow(r)]));
   const initialScreenDifferences=financialRows.filter(r=>mainMap.has(r[0])).flatMap(r=>cols.filter((col,i)=>{
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);

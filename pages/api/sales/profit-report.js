@@ -1,6 +1,7 @@
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
+import { buildInventoryBasis } from '../../../lib/profitReportInventoryBasis.mjs';
 import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
 import { isEstimatedPurchaseRate } from '../../../lib/profitReportAcquisitionCarry.mjs';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
@@ -18,6 +19,7 @@ import {
   computeProfitRow,
   computeProfitTotals,
   computeCategoryAverageInventoryValue,
+  CATEGORY_AVERAGE_INVENTORY_KEYS,
 } from '../../../lib/profitReportCalc';
 import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
@@ -307,6 +309,7 @@ export async function loadReportData(major, orderYear) {
         }
         return [key, {
           average,
+          averageInputs,
           conversionMissing: previousConversionMissing,
           unitMismatch: previousUnitMismatch,
         }];
@@ -362,7 +365,7 @@ export async function loadReportData(major, orderYear) {
         // 원본의 F 숫자 입력은 현재 SQL 잔량에 적용할 공식을 증명하지 않는다.
         const endConversionMissing = Number(stockEnd.conversionMissingCounts?.[key] || 0) > 0;
         const endUnitMismatch = stockEnd.unitMismatch?.[key] === true;
-        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue({
+        const currentAverageInputs = {
           category: key,
           purchaseForeign: Number(Q[key] || 0),
           forwardingForeign: man.S != null ? Number(man.S) : autoS,
@@ -370,7 +373,9 @@ export async function loadReportData(major, orderYear) {
           customsCost: man.H != null ? Number(man.H) : Number(autoH || 0),
           purchaseQty: Number(purchaseQty[key] || 0),
           stockQty: Number(stockEnd.qtys[key] || 0),
-        }) : null;
+        };
+        const categoryAverageEnd = (!endConversionMissing && !endUnitMismatch)
+          ? computeCategoryAverageInventoryValue(currentAverageInputs) : null;
         if (categoryAverageEnd && !hasManualR && (isEstimatedPurchaseRate(autoRSource) || carry?.estimated)) {
           categoryAverageEnd.estimated = true;
           categoryAverageEnd.sourceRefs = [`approved_customs_timing_estimate:${orderYear}:${major}:category-average:${key}`];
@@ -446,6 +451,14 @@ export async function loadReportData(major, orderYear) {
           variant: def.variant || 'normal',
           stock,
           beginStock,
+          inventoryValuation: {
+            begin: buildInventoryBasis({ category: key, year: prevOrderYear, major: prevMajor,
+              stock: beginStock, value: autoE, average: previous.average, inputs: previous.averageInputs,
+              averageEligible: CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key), units: stockBegin.unitsByCategory?.[key] || [] }),
+            end: buildInventoryBasis({ category: key, year: orderYear, major,
+              stock, value: autoF, average: categoryAverageEnd, inputs: currentAverageInputs,
+              averageEligible: CATEGORY_AVERAGE_INVENTORY_KEYS.includes(key), units: stockEnd.unitsByCategory?.[key] || [] }),
+          },
           // 재고수량이 실사 앵커 기반인지(신뢰) 아니면 ProductStock 스냅샷에만 의존(확인 필요)인지 —
           // 값이 없는 카테고리(그 주 재고 자체가 0)는 null(확인 불필요)
           stockAnchored: {
@@ -545,6 +558,10 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
       category: key,
       variant: def.variant || 'normal',
       stock: {},
+      inventoryValuation: {
+        begin: buildInventoryBasis({ category: key, year: orderYear, major, value: calc.E, confirmed: true }),
+        end: buildInventoryBasis({ category: key, year: orderYear, major, value: calc.F, confirmed: true }),
+      },
       stockAnchored: { begin: null, end: null },
       auto: { N: calc.N, L: calc.L, O: calc.O, Q: calc.Q, S: calc.S, H: calc.H, E: calc.E, F: calc.F, R: calc.R },
       manual: { E: null, F: null, H: null, R: null, S: null, AC: calc.AC ?? null, AJ: calc.AJ ?? null },
