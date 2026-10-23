@@ -37,12 +37,12 @@ assert.match(built.html,/font-size:9pt; padding:10mm 15mm/);assert.match(built.h
 assert.equal(JSON.stringify({requests,results}),before,'request scopes and server quantities/amounts remain immutable');
 
 const single=bundle({requests:[requests[0]],results:[results[0]],printDate,logoDataUrl});
-assert.equal(single.html,buildEstimateHtml({bigoLabel:'38차 2026-09-17 · 분배 기준',custName:results[0].customer.CustName,rows:results[0].items,printDate,logoDataUrl,nativeLayout:true}),'single-day HTML uses the opt-in native geometry');
+assert.equal(single.html,buildEstimateHtml({bigoLabel:'38차',custName:results[0].customer.CustName,rows:results[0].items,printDate,logoDataUrl,nativeLayout:true}),'single-day HTML uses native geometry and only major week in remarks');
 assert.doesNotMatch(single.html,/weekday-print-page/);
 const major=requestsFor({...input,mode:'major'});
 assert.equal(major.length,1);assert.deepEqual(major[0].dates,[]);
 const majorResult=response(major[0],results.flatMap(result=>result.items));
-assert.equal(bundle({requests:major,results:[majorResult],printDate,logoDataUrl}).html,buildEstimateHtml({bigoLabel:'38차 전체 견적 · 분배 기준',custName:majorResult.customer.CustName,rows:majorResult.items,printDate,logoDataUrl,nativeLayout:true}),'major HTML also uses native geometry');
+assert.equal(bundle({requests:major,results:[majorResult],printDate,logoDataUrl}).html,buildEstimateHtml({bigoLabel:'38차',custName:majorResult.customer.CustName,rows:majorResult.items,printDate,logoDataUrl,nativeLayout:true}),'major HTML also uses native geometry');
 const someEmpty=bundle({requests,results:[results[0],response(requests[1],[])],printDate,logoDataUrl});
 assert.equal(someEmpty.documentCount,1);assert.deepEqual(someEmpty.emptyDates,[dates[1]]);assert.match(someEmpty.note,/2026-09-18: 저장된 분배 자료 없음/);
 assert.equal((someEmpty.html.match(/<h1>/g)||[]).length,1,'empty day must not fabricate a zero quote');

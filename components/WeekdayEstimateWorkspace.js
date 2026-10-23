@@ -20,6 +20,7 @@ import { locateShippingDay } from '../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 import { validateWeekdayConfirmationResponse } from '../lib/weekdayConfirmation.js';
 import { buildWeekdayPrintRequests, validateWeekdayPrintResponse, buildWeekdayEstimatePrintBundle } from '../lib/weekdayEstimatePrintBundle.js';
+import WeekdayPrintPreview from './WeekdayPrintPreview.js';
 import { buildWeekdayDistributionSubmission, clearSubmittedWeekdayDrafts, checkWeekdayDistributionStatus,
   saveWeekdayDistribution, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft, projectWeekdayDistribution,
   validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches, validateWeekdaySubweekTransfer } from '../lib/weekdayDistributionClient.js';
@@ -205,12 +206,13 @@ export default function WeekdayEstimateWorkspace() {
   const [inputListOpen, setInputListOpen] = useState(false);
   const [toolsOpen,setToolsOpen] = useState(false);
   const [printPreview,setPrintPreview] = useState(null);
+  const [printOptions,setPrintOptions]=useState(null);
+  const printOptionsDialog=useRef(null);
   const [printBusy,setPrintBusy] = useState(false);
   const defaultCustomerRequest=useRef(0);
   const printRequest=useRef(0);
   const printLock=useRef(false);
-  const previewFrame=useRef(null);
-  const applyDialog=useRef(null),printDialog=useRef(null);
+  const applyDialog=useRef(null);
   const applyReturnFocus=useRef(null),printReturnFocus=useRef(null);
   const applyBusyRef=useRef(false);applyBusyRef.current=applyBusy;
   useEffect(()=>{
@@ -219,10 +221,10 @@ export default function WeekdayEstimateWorkspace() {
       canClose:()=>!applyBusyRef.current,returnFocus:applyReturnFocus.current,initialSelector:'textarea'});
   },[Boolean(applyPreview)]);
   useEffect(()=>{
-    if(!printPreview || !printDialog.current) return;
-    return installWeekdayDialogKeyboard(printDialog.current,{onClose:()=>setPrintPreview(null),
-      returnFocus:printReturnFocus.current,initialSelector:'button[data-print-close]',frame:previewFrame.current});
-  },[Boolean(printPreview)]);
+    if(!printOptions || !printOptionsDialog.current) return;
+    return installWeekdayDialogKeyboard(printOptionsDialog.current,{onClose:()=>setPrintOptions(null),
+      returnFocus:printReturnFocus.current,initialSelector:'button'});
+  },[Boolean(printOptions)]);
   const calendarRequest = useRef(0);
   const defaultCalendarRequest = useRef(0);
   const centerTouched = useRef(false);
@@ -235,7 +237,7 @@ export default function WeekdayEstimateWorkspace() {
   const [autoRefresh,setAutoRefresh] = useState({running:false,error:'',lastSuccess:null});
   const backgroundRequest=useRef(null),autoRefreshCallback=useRef(null),autoRefreshBlocked=useRef(true);
   const automaticBlocked=busy || editLocked || baselineBusy || noteBusy || carryoverBusy || carryoverLoading
-    || Boolean(baselinePreview || noteForm || carryoverForm || printPreview) || printBusy || receiptBusy || downloadBusy || earlyActivity || wilsonPending.length>0;
+    || Boolean(baselinePreview || noteForm || carryoverForm || printPreview || printOptions) || printBusy || receiptBusy || downloadBusy || earlyActivity || wilsonPending.length>0;
   autoRefreshBlocked.current=automaticBlocked;
   autoRefreshCallback.current=()=>refreshErp([], {background:true});
   useEffect(()=>{
@@ -350,7 +352,7 @@ export default function WeekdayEstimateWorkspace() {
     return ()=>{comparisonRequest.current+=1;};
   },[customer?.CustKey,cycles]);
 
-  useEffect(()=>{setApplyPreview(null);printRequest.current+=1;uploadRequest.current+=1;setPrintPreview(null);},[scopeKey]);
+  useEffect(()=>{setApplyPreview(null);printRequest.current+=1;uploadRequest.current+=1;setPrintPreview(null);setPrintOptions(null);},[scopeKey]);
 
   useEffect(()=>{
     if (!inputUser) return;
@@ -1071,11 +1073,15 @@ export default function WeekdayEstimateWorkspace() {
     finally {wilsonLock.current=false;setWilsonBusy(false);}
   }
 
-  async function openWeekdayPrint({cycle,dates,mode}) {
+  async function openWeekdayPrint({cycle,dates,mode,showBoxQty}) {
     if(printLock.current||!customer?.CustKey) return;
     const draftReason=weekdayUnsavedPrintReason(plans,cycle,customer.CustKey,scopeKey);
     if(draftReason || pendingApply || applyBusy) {setMessage(draftReason || '저장 결과 확인 후 인쇄하세요.');return {success:false,error:draftReason || '저장 결과 확인 후 인쇄하세요.'};}
-    printReturnFocus.current=document.activeElement;
+    if(typeof showBoxQty!=='boolean') {
+      printReturnFocus.current=document.activeElement;
+      setPrintOptions({cycle,dates,mode});return {success:true};
+    }
+    setPrintOptions(null);
     const requestedScope=scopeKey;
     printLock.current=true;setPrintBusy(true);setPrintPreview(null);const request=++printRequest.current;
     try {
@@ -1094,7 +1100,7 @@ export default function WeekdayEstimateWorkspace() {
         logoDataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve('');reader.readAsDataURL(blob);});
       }
       if(request!==printRequest.current || requestedScope!==currentScope.current) return;
-      const bundle=buildWeekdayEstimatePrintBundle({requests,results,printDate:new Date().toISOString().slice(0,10),logoDataUrl});
+      const bundle=buildWeekdayEstimatePrintBundle({requests,results,printDate:new Date().toISOString().slice(0,10),logoDataUrl,showBoxQty,editableRemarks:true});
       if(!bundle.html) {setMessage(bundle.note || '선택 범위의 저장된 분배 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return {success:true,empty:true};}
       setPrintPreview(bundle);
       if(bundle.emptyDates.length)setMessage(bundle.note);
@@ -1528,12 +1534,10 @@ export default function WeekdayEstimateWorkspace() {
       </section>
     </div>
     </details>
-    {printPreview && <div className="weekday-print-overlay">
-      <section ref={printDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
-        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1,minWidth:0}}>{printPreview.label} · {printPreview.documentCount}문서 / {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button data-print-close autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
-        <div className="muted">{printPreview.note} · 미적용 초안 제외 · A4 / 배율 100% 권장</div>
-        <iframe ref={previewFrame} title="저장 분배 기준 견적서" srcDoc={printPreview.html}/>
-      </section>
-    </div>}
+    {printOptions && <div className="weekday-print-overlay"><section ref={printOptionsDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="박스 수량 표시 선택" style={{...panel,background:'white',width:'min(420px,100%)'}}>
+      <p><b>박스 수량을 표시하시겠습니까?</b></p><p>표시하면 수량 뒤에 18단(1.2)처럼 박스 수가 함께 나옵니다.</p>
+      <div style={{display:'flex',gap:8,marginTop:12}}><button onClick={()=>openWeekdayPrint({...printOptions,showBoxQty:true})}>예, 표시</button><button onClick={()=>openWeekdayPrint({...printOptions,showBoxQty:false})}>아니오, 숨김</button><button onClick={()=>setPrintOptions(null)}>취소</button></div>
+    </section></div>}
+    {printPreview && <WeekdayPrintPreview bundle={printPreview} returnFocus={printReturnFocus.current} onClose={()=>setPrintPreview(null)}/>}
   </main>;
 }

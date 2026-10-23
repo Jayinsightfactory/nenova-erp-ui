@@ -99,6 +99,7 @@ test('API source contract returns unfixed allocation without any write or canoni
   loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
   let reads=0;
   loaded.require=id=>id.includes('/auth')?{withAuth:handler=>handler}:id.includes('/db')?{withTransaction:()=>{},sql:{}}:
+    id.includes('weekdayPrintNoteService')?{weekdayPrintNotes:{list:async()=>({})}}:
     id.includes('weekdayAllocationPrint')?{normalizeWeekdayPrintRequest:body=>({...scope,dates:body.dates}),
       readWeekdayAllocationPrintInTransaction:async()=>{reads++;return {customer:{CustKey:533,CustName:'주광'},
         ...build(scope,[detail()],[day()])};}}:require(id);
