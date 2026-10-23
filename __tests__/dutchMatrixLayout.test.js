@@ -4,6 +4,7 @@ import { parseDutchPivotWorkbook } from '../lib/dutchVolumePrice.js';
 import { prepareDutchVolumeWorkbook, importDutchVolumeWorkbook } from '../lib/dutchVolumeWorkbook.js';
 import { projectDutchInlineCustomers } from '../lib/dutchInlineCustomer.js';
 import { addDutchMatrixProduct } from '../lib/dutchMatrixProduct.js';
+import { splitDutchClientRows } from '../lib/dutchMatrixLayout.js';
 
 const name='네덜란드';
 const sheet=XLSX.utils.aoa_to_sheet([
@@ -46,4 +47,9 @@ const incoming=structuredClone(workbook);
 for(const address of ['D5','E5','F5'])delete incoming.Sheets[name][address];
 assert.equal(parseDutchPivotWorkbook(XLSX,incoming,{allowEmpty:true}).entries.length,0);
 assert.equal(incoming.Sheets[name].H6.v,7);
+const legacyOther=XLSX.utils.aoa_to_sheet([[],[],['꽃','품목명','칼라','업체\nCL1'],['장미','Red','레드',2]]);
+const mixed={SheetNames:['콜롬비아','네덜란드'],Sheets:{'콜롬비아':structuredClone(legacyOther),'네덜란드':structuredClone(legacyOther)}};
+splitDutchClientRows(XLSX,mixed,[]);
+assert.equal(mixed.Sheets['콜롬비아'].A4.v,'장미','other countries are not rewritten');
+assert.equal(mixed.Sheets['네덜란드'].A4.v,'클라이언트 번호');
 console.log('Dutch matrix separate CL, region identity, incoming-only, product addition, cross-year XLSX roundtrip passed');
