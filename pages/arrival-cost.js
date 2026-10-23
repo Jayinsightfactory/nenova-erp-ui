@@ -327,12 +327,12 @@ export default function ArrivalCostPage() {
         <div className="arrival-title-row">
           <div>
             <h2 data-desktop-chrome>도착원가</h2>
-            <p>차수별 원가자료를 웹 전용 원장으로 관리합니다. 기존 입고·주문·출고·재고·손익 원장에는 자동 반영하지 않습니다.</p>
+            <p>인보이스에서 승인 저장한 도착원가가 아래 내역에 자동 반영됩니다. 엑셀 재업로드는 필요 없습니다. 기존 입고·주문·출고·재고·손익 원장은 변경하지 않습니다.</p>
           </div>
           <span className="read-only-badge">웹 원장 전용</span>
         </div>
 
-        <InvoiceArrivalCostPanel orderYear={appliedFilters.orderYear} orderWeek={appliedFilters.orderWeek} country={appliedFilters.country} />
+        <details><summary>인보이스 승인 이력·엑셀 다운로드</summary><InvoiceArrivalCostPanel orderYear={appliedFilters.orderYear} orderWeek={appliedFilters.orderWeek} country={appliedFilters.country} /></details>
         <ArrivalDriveAutoPanel />
         <section className="arrival-card">
           <div className="section-title">엑셀 업로드</div>
@@ -412,11 +412,12 @@ export default function ArrivalCostPage() {
           {weightRuleOn && weightHints.length > 0 && (
             <div className="hint">{weightHints.join(' · ')}. 활성화된 품종만 목록에 나옵니다. 다른 국가는 그대로입니다.</div>
           )}
-          <div className="hint">차수별로 품목 한 줄에 농장 원가를 모읍니다. 입고수량이 단이면 도착원가(단)을 씁니다. 행을 누르면 농장별 매칭을 수정할 수 있습니다.</div>
+          <div className="hint">승인된 인보이스 원가를 자동 표시합니다. 입고수량이 단이면 단 원가를 표시합니다. 같은 연도·차수·품목·농장·단위의 기존 엑셀 원가는 상세에서 비교하며 합산하지 않습니다. 인보이스 원가 수정은 수입부 업무도구에서 재승인하세요.</div>
         </section>
 
         {message && <div className="notice success">{message}</div>}
         {error && <div className="notice error">{error}</div>}
+        {(data.warnings || []).map(warning => <div className="notice error" key={warning}>{warning}</div>)}
 
         <section className="arrival-card table-card">
           <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
@@ -441,7 +442,7 @@ export default function ArrivalCostPage() {
                       <td>{group.orderWeek || '-'}</td>
                       <td>{group.countryName || '-'}</td>
                       <td>{group.countryFlower || '-'}</td>
-                      <td className="raw-name" title={group.productNameRaw}>{group.productName || group.productNameRaw}</td>
+                      <td className="raw-name" title={group.productNameRaw}><button type="button" aria-expanded={!!expandedGroups[group.key]} onClick={e => {e.stopPropagation();toggleGroup(group.key);}}>{group.productName || group.productNameRaw}</button>{group.rows.some(row => row.sourceKind === 'INVOICE') && <span className="auto-match"> 인보이스 자동 반영</span>}</td>
                       <td className="farm-costs">{formatFarmCostSummary(group.rows, undefined, farmSummaryCostFn)}</td>
                     </tr>,
                     ...(expandedGroups[group.key] ? group.rows.map(row => {
@@ -459,12 +460,17 @@ export default function ArrivalCostPage() {
                                   </span>
                                 : <span className="muted" title={preview.reason}>재계산 불가</span>;
                             })()}
+                            {row.sourceKind === 'INVOICE' ? <>
+                              <span>{row.notes}</span><a href="/import/tools">원가 수정·승인 이력</a>
+                              {row.legacyComparisons.map(old => <span key={old.ArrivalLineKey} className="muted">기존 엑셀 {fmt(old.SelectedArrivalCostKRW)}원/{old.Unit} · 차이 {fmt(row.selectedArrivalCostKRW - old.SelectedArrivalCostKRW)}원 · {old.SourceFileName}</span>)}
+                            </> : <>
                             <LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" />
                             <LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />
                             {row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}
                             {row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <>
                               <button onClick={(e) => { e.stopPropagation(); save(row); }}>저장</button>
                               <button onClick={(e) => { e.stopPropagation(); showHistory(row); }}>이력</button>
+                            </>}
                             </>}
                           </div>
                         </td>
