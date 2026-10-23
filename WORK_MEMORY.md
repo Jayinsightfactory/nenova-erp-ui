@@ -1001,3 +1001,15 @@
 - 격리 SQL AU56박스/15500송이, US70박스/43750송이 입고→원가→다운로드 통과. TEST_ONLY 두 시트 표시 회귀 통과.
 - 전체 ERP/dnSpy/manifest/write guard 통과. 최종 모달 portal/너비 수정 후 빌드·브라우저 및 PR/배포 대기. 후속 결과 docs/work-sessions/2026-10-23_au-us-release.md.
 - 검색어: au-us-release Woolly bush TEST_ONLY ProdKey 파일별분류 운영DB불변
+
+## 2026-10-23 네덜란드 인라인 작업 진행 중
+- 별도 nw-dutch-inline-workflow, codex/dutch-inline-workflow. 업체 열 축소/전체 zoom 제거/반복 단가 문구 제거 초안.
+- 실제 dnSpy ClassProduct Descr 공유 확인. 색상 별도 웹 저장 또는 공유 비고 수정 선택 대기. 추가 팝업/등록분배/인쇄/재업로드 미구현.
+- 전체 ERP 검사/빌드/브라우저 미검증, PR/배포 없음. 운영 원장 무변경.
+- 검색어: dutch-inline-workflow 칼라 Descr 업체36px 원본팝업 미배포
+
+## 2026-10-23 네덜란드 레이아웃·칼라 배포 검사
+- 사용자 Product.Descr 저장 확정. CAS·기존 설명 보존·전체 품목 readback·감사 원자 저장 구현. 원장 운영 시험 쓰기 없음.
+- ERP 전체/컬러/UI/dnSpy/manifest/write guard/build 통과. 실제 컴포넌트 브라우저 열36px/전체 늘어남 없음 확인.
+- 이번 배포 범위는 레이아웃·칼라. 업체추가 팝업/인쇄/재업로드는 미완으로 명시. PR/운영 스모크는 다음 기록 참조.
+- 검색어: product-color Descr 칼라 CAS compact-layout

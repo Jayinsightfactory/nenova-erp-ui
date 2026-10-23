@@ -21,7 +21,7 @@ assert.match(page, /disabled=\{workBusy \|\| applying \|\| previewLoading \|\| !
 assert.match(page, /grid-template-columns:minmax\(0,1fr\) 370px/, '1920×1080에서 물량표에 가변 폭을 주고 우측 패널 폭을 제한해야 합니다.');
 assert.match(page, /<div className="side-history"><DutchWorkHistory/, '저장 이력은 우측 세로 패널에 있어야 합니다.');
 assert.equal((page.match(/<DutchWorkHistory\b/g) || []).length, 1, '작업 저장 이력 UI를 복제하면 안 됩니다.');
-assert.match(page, /zoom:\.7;width:142\.8571429%/, '데스크톱 화면은 축소된 기본 배율로 넓은 물량표를 보여야 합니다.');
+assert.doesNotMatch(page, /zoom:\.7/, '전체 화면 축소 대신 셀 폭을 줄여 읽기 쉬운 글씨를 유지해야 합니다.');
 assert.match(page, /\.board-primary \.grid-wrap,\.board-primary \.preview-wrap\{max-height:none;min-height:0\}/, '물량표와 검토표는 자체 세로 스크롤 없이 페이지 높이에 맞춰 펼쳐져야 합니다.');
 assert.match(page, /\.board-primary :global\(\.sheet-scroll\)\{max-height:none;min-height:0\}/, '원본 Pivot 물량표는 내부 세로 스크롤 없이 전체 페이지 스크롤을 사용해야 합니다.');
 assert.doesNotMatch(page, /\.board-primary[^\n]*max-height:(?:calc\(100vh|65vh|55vh)/, '브레이크포인트에서도 물량 영역에 고정 높이/내부 세로 스크롤을 되살리면 안 됩니다.');
@@ -50,7 +50,7 @@ assert.match(volumeSheet, /snapshot: snapshotDutchPriceDraft\(prices, keys\)/, '
 assert.match(volumeSheet, /if \(!commit\) onPriceRestore\(current\.snapshot\)/, 'Escape 취소 시 공유 대상 가격 초안을 원래 상태로 복원해야 합니다.');
 assert.match(page, /onPriceRestore=\{restorePriceDraft\}/, '가격 편집 취소 콜백을 부모 draft 상태에 연결해야 합니다.');
 assert.match(volumeSheet, /onChange=\{event => onPriceChange\(entry, event\.target\.value\)\}/, '셀 원화 입력은 타이핑 즉시 전체 비주광 공통 초안에 반영해야 합니다.');
-assert.match(volumeSheet, /hasPrice\(price\) \? formatQty\(price\) : '단가 입력'/, '물량표 셀에는 단가 숫자만 표시하고 원 기호를 덧붙이지 않아야 합니다.');
+assert.match(volumeSheet, /hasPrice\(price\) \? formatQty\(price\) : '\\u00a0'/, '미입력 단가는 반복 문구 없이 빈 클릭 영역으로 표시해야 합니다.');
 assert.doesNotMatch(volumeSheet, /formatQty\(price\)}원/, '단가 수치 뒤에 원 단위를 반복 표시하면 안 됩니다.');
 assert.match(volumeSheet, /priceKey\(entry\)/, '셀의 원화 입력은 주광 개별·비주광 통합 가격키를 사용해야 합니다.');
 assert.match(volumeSheet, /\.quantity-cell\{padding:0!important;text-align:center\}/, '수량·원화 표시 셀은 여백 없이 가운데 정렬해야 합니다.');
@@ -93,8 +93,10 @@ assert.equal(defaultPivotBoardWeek(['41-01', '40-02'], ['40-03']), '41-01', '첫
 assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\) \? \[week, \.\.\.availableWeeks\] : availableWeeks\)\.map\(recordedWeek/, 'DB 입력 이력은 유지하고 저장본의 현재 차수도 선택지로 보존해야 합니다.');
 assert.match(page, /baseIndex - delta/, '이전·다음 버튼은 주차 계산이 아니라 DB 입력 차수 순서를 따라야 합니다.');
 assert.doesNotMatch(page, /let major = Number/, '35-01에서 36-01로 앞자리만 건너뛰는 계산 이동을 다시 사용하면 안 됩니다.');
-assert.match(volumeSheet, /const widths = \[96, 160, 76\]/, '고정 정보 열도 컴팩트하게 줄여 업체 수량 열을 더 보여야 합니다.');
-assert.match(volumeSheet, /widthOf = column => column < stickyCount \? widths\[column\] : 52/, '업체별 수량 셀은 더 좁고 균일해야 합니다.');
+assert.match(volumeSheet, /const widths = \[62, 152, 58\]/, '고정 정보 열도 컴팩트하게 줄여 업체 수량 열을 더 보여야 합니다.');
+assert.match(volumeSheet, /widthOf = column => column < stickyCount \? widths\[column\] : 36/, '업체별 수량 셀은 더 좁고 균일해야 합니다.');
+assert.match(volumeSheet, /max-width:2em/, '업체명은 두 글자 폭으로 줄바꿈해야 합니다.');
+assert.match(volumeSheet, /table\{min-width:0;font-size:12px\}/, '표 전체 폭에 맞추느라 업체 열이 늘어나면 안 됩니다.');
 assert.match(volumeSheet, /\.sheet-scroll table\{font-size:14px\}/, '좁힌 셀 안에서도 표 글자는 이전보다 커야 합니다.');
 assert.match(volumeSheet, /\.quantity-edit-trigger\{min-height:26px;font-size:15px;font-weight:800\}/, '물량 숫자는 축소된 전체 배율에서도 눈에 띄게 보여야 합니다.');
 assert.match(volumeSheet, /customer-header-label[\s\S]*customerLines\[0\][\s\S]*customerLines\[1\]/, '업체명과 CL 코드는 업체 열에서 위아래로 표시해야 합니다.');
