@@ -1,5 +1,9 @@
 # Product color description — 2026-10-23
 
+Follow-up: actual CLI ClassProduct and SELECT-only schema/trigger probe repeated.
+UI prompt/confirm replaced with page dialog showing full before/after description.
+The existing CAS API/write SQL, readback and audit remain unchanged; no operational test writes.
+
 Actual dnSpy.Console.exe against C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe,
 ClassProduct: Descr is loaded and included in native INSERT/UPDATE. No separate
 color field. Web changes only Descr and LastUpdateID/Dtm, not the native full row.

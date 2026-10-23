@@ -1,10 +1,69 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
+import { productColorDescription } from '../lib/productColor.js';
 import { defaultPivotBoardWeek } from '../lib/pivotAvailableWeeks.js';
 const page = fs.readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
 const volumeSheet = fs.readFileSync(new URL('../components/dutch/DutchVolumeSheet.js', import.meta.url), 'utf8');
 const pricing = fs.readFileSync(new URL('../lib/dutchVolumePrice.js', import.meta.url), 'utf8');
 const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
+const recordedLoader = page.slice(page.indexOf('async function loadRecordedWeeks() {'), page.indexOf('\n    loadRecordedWeeks();'));
+for (const year of [2025, 2026]) {
+  const calls = [], selected = [];
+  const context = {
+    year, active: true, sourceModeRef: { current: '' }, weekRef: { current: '' },
+    apiGet: async (url, params) => { calls.push({ url, params }); return { weeks: ['43-01'] }; },
+    mergePivotAvailableWeeks: (...lists) => [...new Set(lists.flat())], defaultPivotBoardWeek,
+    setWeeksLoading() {}, setAvailableWeeks() {}, setError(message) { throw Error(message); },
+    invalidate() {}, reloadUploadedScope() { throw Error('unexpected upload reload'); },
+    setWeek: value => selected.push(value), loadLive() { throw Error('automatic volume request'); },
+  };
+  await vm.runInNewContext(`${recordedLoader}; loadRecordedWeeks()`, context);
+  assert.deepEqual(selected, ['43-01']);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(call => call.url === '/api/stats/pivot-weeks' && call.params.orderYear === year));
+}
+const colorDialog = fs.readFileSync(new URL('../components/dutch/ProductColorDialog.js', import.meta.url), 'utf8');
+const colorFlow = page.slice(page.indexOf('async function updateColor('), page.indexOf('async function download()'));
+assert.doesNotMatch(colorFlow, /window\.(prompt|confirm)/);
+assert.match(colorDialog, /showModal\(\)/);
+assert.match(colorDialog, /productColorDescription\(product.Descr, color\)/);
+assert.match(colorDialog, /savingRef.current \|\| validationError/);
+assert.match(colorDialog, /onCancel=.*savingRef.current.*onClose/);
+assert.match(colorFlow, /expectedDescr:product.Descr\?\?null/);
+// Execute the actual dialog callbacks with isolated React state; no ERP writes.
+const require = createRequire(import.meta.url);
+const { transform, loadBindings } = require('next/dist/build/swc');
+await loadBindings();
+const dialogModule = { exports: {} };
+const states = [], refs = [];
+let stateIndex = 0, refIndex = 0;
+const fakeReact = {
+  createElement: (tag, props, ...children) => ({ tag, props: props || {}, children: children.flat() }),
+  useState(initial) { const index = stateIndex++; if (!(index in states)) states[index] = initial; return [states[index], value => { states[index] = value; }]; },
+  useRef(initial) { const index = refIndex++; return refs[index] ||= { current: initial }; },
+  useEffect() {},
+};
+const compiledDialog = (await transform(colorDialog, { jsc: { parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'classic', pragma: 'React.createElement' } } }, module: { type: 'commonjs' } })).code;
+vm.runInNewContext(compiledDialog, { module: dialogModule, exports: dialogModule.exports, React: fakeReact, require: name => name === 'react' ? fakeReact : { productColorDescription } });
+let saves = 0, closes = 0, finishSave;
+const props = { product: { ProdName: '시험 품목', Descr: '화이트 / 기존 설명' }, initialColor: '핑크', onClose() { closes++; }, onSave: () => { saves++; return new Promise(resolve => { finishSave = resolve; }); } };
+const renderDialog = () => { stateIndex = 0; refIndex = 0; return dialogModule.exports.default(props); };
+let dialogTree = renderDialog();
+const firstSubmit = dialogTree.children[0].props.onSubmit({ preventDefault() {} });
+await dialogTree.children[0].props.onSubmit({ preventDefault() {} });
+dialogTree.props.onCancel({ preventDefault() {} });
+assert.equal(saves, 1, 'double submit sends one save only');
+assert.equal(closes, 0, 'Escape cannot close during save');
+finishSave(); await firstSubmit;
+dialogTree.props.onCancel({ preventDefault() {} });
+assert.equal(closes, 1, 'Escape cancels without another save');
+props.onSave = async () => { throw Error('동시 변경: 다시 조회하세요'); };
+dialogTree = renderDialog();
+await dialogTree.children[0].props.onSubmit({ preventDefault() {} });
+assert.equal(states[0], '핑크', 'failed save preserves input');
+assert.equal(states[2], '동시 변경: 다시 조회하세요', 'failed save remains visible');
 assert.match(layout, /\/stats\/dutch-volume-board[^\n]+네덜란드 물량표/);
 assert.doesNotMatch(page, /<Layout|import Layout/);
 assert.match(page, /onKeyDown=\{event => moveNext\(event, index\)\}/);
