@@ -89,7 +89,11 @@
     "docs/plans/weekday-subweek-placement-2026-10-12.md",
     "lib/weekdayNativeStock.js",
     "__tests__/weekdayNativeStock.test.js",
-    "docs/plans/weekday-stock-date-2026-10-22.md"
+    "docs/plans/weekday-stock-date-2026-10-22.md",
+    "lib/weekdayBoxParts.js",
+    "components/WeekdayBoxPartsDialog.js",
+    "__tests__/weekdayBoxParts.test.js",
+    "docs/plans/weekday-box-parts-2026-10-23.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -302,5 +306,6 @@
       "scripts/test-weekday-confirmation-lifecycle-sql.cjs"
     ],
     "evidence": "docs/plans/weekday-subweek-placement-2026-10-12.md"
-  }
+  },
+  "boxPartsInput": "Carnation/hydrangea OutUnit=박스: keyboard keeps box input; click/F2 opens whole boxes + integer bunch/stem. Product conversion only, no guessed 15/30. Native display N2 does not round stored physical quantity. Nine-decimal transport and 1e-6 integral physical validation; existing ALLOCATION lifecycle/stock guard/readback/rollback preserved. Other families unchanged. Cross-year fixture remains mandatory."
 }

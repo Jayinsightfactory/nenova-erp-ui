@@ -438,6 +438,25 @@ async function main() {
       assert.equal(output.documentCount,1);assert.ok(output.html.includes('2026-09-11'));
       console.log(`PASS ${fixed?'fixed':'unfixed'} date move -> immediate selected-date quote; original day empty`);
     });
+    for (const family of ['카네이션','수국']) await transaction(pool,async tQ=>{
+      // Operational probe confirms float; legacy fixture decimal(18,4) truncates thirds.
+      for(const [table,columns] of Object.entries({ShipmentDetail:['OutQuantity','EstQuantity','BoxQuantity','BunchQuantity','SteamQuantity'],ShipmentDate:['ShipmentQuantity','EstQuantity'],Product:['Stock'],StockHistory:['BeforeValue','AfterValue']}))
+        for(const column of columns)await tQ(`ALTER TABLE dbo.${table} ALTER COLUMN ${column} float NOT NULL`);
+
+      await tQ(`UPDATE Product SET FlowerName=N'${family}',BunchOf1Box=${family==='카네이션'?15:0},SteamOf1Bunch=${family==='카네이션'?20:0},SteamOf1Box=${family==='카네이션'?300:30},EstUnit=N'${family==='카네이션'?'단':'송이'}' WHERE ProdKey=866`);
+      const factor=family==='카네이션'?15:30, q=Number((1/factor).toFixed(9));
+      const request=await body(tQ,[{date:'2026-09-10',quantity:q},{date:'2026-09-11',quantity:q},{date:'2026-09-13',quantity:0}]);
+      await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
+      const result=await state(tQ),detail=result.details.find(row=>row.SdetailKey===89892);
+      assert.ok(Math.abs(detail.OutQuantity-2/factor)<1e-6);
+      const days=result.dates.filter(row=>row.SdetailKey===89892);
+      assert.equal(days.length,2);assert.ok(days.every(row=>row.EstQuantity===1));
+      const printRequest={...print.normalizeWeekdayPrintRequest({year:2026,majorWeek:'37',custKey:533,mode:'dates',dates:['2026-09-10','2026-09-11']}),source:'ALLOCATION'};
+      const printed=await allocationPrint.readWeekdayAllocationPrintInTransaction(printRequest,tQ,sql);
+      assert.equal(printed.items.reduce((sum,row)=>sum+row.Quantity,0),2);
+      assert.ok(!result.history.some(row=>row.Descr==='재고조정'));
+      console.log(`PASS ${family} two dates one loose unit each, exact total and quote quantity`);
+    });
     console.log('PASS all isolated confirmation lifecycle scenarios');
   } finally {
     await pool?.close().catch(()=>{});
