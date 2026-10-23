@@ -47,3 +47,11 @@ User explicitly chose all input prices KRW. Blank means no price override; curre
 Reuse existing import quantity/identity/numbering/snapshot pipeline and EXE monetary helper. Price and quantity must commit atomically. New feature must recheck locked scope/fixed state/snapshot, then verify OrderDetail, ShipmentDetail, ShipmentDate, ViewOrder/ViewShipment and money before and after commit. Unrelated Estimate, WebProfitReport, ProductStock, StockHistory, Warehouse, CustomerProdCost and Product.Cost are preserved. Native existing CustKey=NULL is not a repair target.
 
 Implementation and test results are recorded separately; this evidence alone is not completion approval.
+
+## 2026-10-23 XLSX roundtrip recheck
+
+Local installed dnSpy.Console.exe was run again against installed Nenova.exe, type FormShipmentDistribution. btnSave_Click still resolves ShipmentMaster/customer + ProdKey, BaseOutDay date, Out/Box/Bunch/Steam/Est quantities and rounded EstQuantity-based Amount/Vat; quantity changes replace dates, price-only uses UpdateCost, changed farm rows require valid FarmKey, and the batch commits via ExcuteTransaction.
+
+SELECT-only probe `scripts/probe-dutch-roundtrip-read.cjs`: 2026/43-02/CustKey533/ProdKey1487 had OutQuantity200, DetailFix1, Amount381818, Vat38182, exact native PeriodDay join1, farm rows0. Same scope fixed totals: 5 rows, Amount2127273, Vat212727. Prior preflight ViewOrder same short week counts: 2025=306, 2026=385. No production data was changed.
+
+This patch changes workbook serialization/import only. It does not change native SQL writers, confirmation, stock, estimate or profit ledgers. Actual download→import input was passed to the existing isolated MSSQL preview/apply harness: added customer and edited quantities yielded the same final plan; native joins, blank/zero prices, unit conversion, old-year sentinels, order/downstream preservation and rollback passed. No production apply test was performed.

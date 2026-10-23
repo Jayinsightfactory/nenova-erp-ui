@@ -3,9 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
 import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
-import { addDutchPriceColumns, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
-import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
-import { appendDutchQuantityHistory, buildDutchQuantitySummaryValues } from '../../lib/dutchSheetQuantityEdit';
+import { buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
+import { appendDutchQuantityHistory } from '../../lib/dutchSheetQuantityEdit';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
@@ -14,6 +13,7 @@ import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import ProductColorDialog from '../../components/dutch/ProductColorDialog';
 import { addDutchInlineCustomer } from '../../lib/dutchInlineCustomer';
+import { exportDutchVolumeWorkbook, importDutchVolumeWorkbook } from '../../lib/dutchVolumeWorkbook';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
@@ -21,39 +21,6 @@ const fmt = value => Number(value || 0).toLocaleString('ko-KR', { maximumFractio
 const currentYear = new Date().getFullYear();
 const requestHeaders = { 'Content-Type': 'application/json' };
 const num = value => Number(value ?? 0);
-
-function withEditedWorkbook(workbook, entries, prices, bulkPriceConfig) {
-  const copy = { ...workbook, SheetNames: [...workbook.SheetNames], Sheets: { ...workbook.Sheets } };
-  const touched = new Set();
-  for (const entry of entries) {
-    if (entry.added || !entry.sheetName || !entry.cellAddress || !copy.Sheets[entry.sheetName]) continue;
-    if (!touched.has(entry.sheetName)) { copy.Sheets[entry.sheetName] = { ...copy.Sheets[entry.sheetName] }; touched.add(entry.sheetName); }
-    const sheet = copy.Sheets[entry.sheetName];
-    sheet[entry.cellAddress] = { ...(sheet[entry.cellAddress] || {}), t: 'n', v: Number(entry.quantity) };
-  }
-  for (const sheetName of copy.SheetNames) {
-    const sourceSheet = copy.Sheets[sheetName];
-    const summaries = buildDutchQuantitySummaryValues(XLSXStyled, sourceSheet, sheetName, entries);
-    if (!summaries.size) continue;
-    if (!touched.has(sheetName)) { copy.Sheets[sheetName] = { ...sourceSheet }; touched.add(sheetName); }
-    for (const [address, value] of summaries) {
-      const targetSheet = copy.Sheets[sheetName];
-      targetSheet[address] = { ...(targetSheet[address] || {}), t: 'n', v: value };
-    }
-  }
-  const added = entries.filter(entry => entry.added);
-  const rematched = entries.some(entry => Number(entry.custKey) > 0 || Number(entry.prodKey) > 0);
-  if (added.length || rematched) {
-    const sheetName = 'ERP적용초안';
-    if (!copy.SheetNames.includes(sheetName)) copy.SheetNames.push(sheetName);
-    copy.Sheets[sheetName] = XLSXStyled.utils.aoa_to_sheet([
-      ['ERP 적용 초안 — 원본 Pivot 셀 및 도형은 별도 보존'],
-      ['업체', '업체키', '품목', '품목키', '수량', '단위', 'KRW 입력값(빈칸=기존값 보존)', '원본 위치'],
-      ...entries.map(entry => [entry.customer, entry.custKey || entry.sourceCustKey || '', entry.product, entry.prodKey || '', Number(entry.quantity), entry.unit || 'ERP 출고단위', prices[dutchPriceKey(entry, bulkPriceConfig)] ?? '', entry.added ? '수동 추가행' : `${entry.sheetName}!${entry.cellAddress}`]),
-    ]);
-  }
-  return copy;
-}
 
 export default function DutchVolumeBoard() {
   const [fileName, setFileName] = useState('');
@@ -230,13 +197,15 @@ export default function DutchVolumeBoard() {
   const weekRef = useRef(week);
   yearRef.current = year; weekRef.current = week;
 
-  async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode) {
+  async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode, transfer = null) {
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
-    const saved = readDutchDraft(localStorage, identity, nextEntries, migrateDutchPriceDraft);
+    const saved = transfer?.roundtrip
+      ? { entries: nextEntries, prices: transfer.prices, bulkPriceConfig: transfer.bulkPriceConfig, dayEdits: {}, legacyCurrency: '' }
+      : readDutchDraft(localStorage, identity, nextEntries, migrateDutchPriceDraft);
     let globalBulkPriceConfig = null;
     try { globalBulkPriceConfig = JSON.parse(localStorage.getItem(BULK_PRICE_CONFIG_KEY) || 'null'); } catch { globalBulkPriceConfig = null; }
     const previousBulkPriceConfig = saved.bulkPriceConfig || undefined;
-    const nextBulkPriceConfig = normalizeDutchBulkPriceConfig(globalBulkPriceConfig || saved.bulkPriceConfig, nextEntries);
+    const nextBulkPriceConfig = normalizeDutchBulkPriceConfig(transfer?.roundtrip ? saved.bulkPriceConfig : (globalBulkPriceConfig || saved.bulkPriceConfig), nextEntries);
     const migratedPrices = migrateDutchBulkPriceConfig(saved.entries, saved.prices, previousBulkPriceConfig, nextBulkPriceConfig).prices;
     const restoredWorkbook = applyDutchWeekdayEdits(XLSXStyled, nextWorkbook, saved.dayEdits);
     invalidate(); sourceRef.current = identity; sourceBaseRef.current = baseIdentity; sourceModeRef.current = mode; setSourceMode(mode);
@@ -289,9 +258,14 @@ export default function DutchVolumeBoard() {
   function reloadUploadedScope() {
     if (sourceModeRef.current !== 'UPLOAD' || !workbook || !sourceBaseRef.current) return;
     try {
-      const parsed = parseDutchPivotWorkbook(XLSXStyled, workbook);
-      void acceptSource(workbook, fileName, sourceBaseRef.current, parsed.entries, 'UPLOAD');
-    } catch (cause) { setError(cause.message || '업로드 원본을 다시 읽지 못했습니다.'); }
+      const parsed = importDutchVolumeWorkbook(XLSXStyled, workbook, { year: yearRef.current, week: weekRef.current });
+      void acceptSource(workbook, fileName, sourceBaseRef.current, parsed.entries, 'UPLOAD', parsed);
+    } catch (cause) {
+      // Keep the file so returning to its exact scope can reload it, but never
+      // let old-scope entries obtain a new plan after a scope validation error.
+      setEntries([]); setPrices({}); setMatchCache({});
+      setError(cause.message || '업로드 원본을 다시 읽지 못했습니다.');
+    }
   }
   function changeWeek(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); weekRef.current = value; setWeek(value); reloadUploadedScope(); }
   function changeYear(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); yearRef.current = value; setYear(value); reloadUploadedScope(); }
@@ -302,10 +276,10 @@ export default function DutchVolumeBoard() {
     invalidate(); setLoading(true); setError('');
     try {
       const nextWorkbook = XLSXStyled.read(await file.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
-      const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook);
+      const parsed = importDutchVolumeWorkbook(XLSXStyled, nextWorkbook, { year: yearRef.current, week: weekRef.current });
       if (request !== loadRequestRef.current) return;
       const identity = `${file.name}:${file.size}:${file.lastModified}`;
-      await acceptSource(nextWorkbook, file.name, identity, parsed.entries, 'UPLOAD');
+      await acceptSource(nextWorkbook, file.name, identity, parsed.entries, 'UPLOAD', parsed);
     } catch (cause) { if (request === loadRequestRef.current) setError(cause.message || '엑셀 파일을 읽지 못했습니다.'); }
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
@@ -505,10 +479,7 @@ export default function DutchVolumeBoard() {
   async function download() {
     if (!workbook) return;
     try {
-      const edited = withEditedWorkbook(workbook, entries, prices, bulkPriceConfig);
-      const priced = addDutchPriceColumns(XLSXStyled, edited, entries, prices, 'KRW', bulkPriceConfig);
-      const base = XLSXStyled.write(priced.workbook, { type: 'array', bookType: 'xlsx', compression: true });
-      const shaped = await addDutchPriceShapesToXlsx(XLSXStyled, base, priced.workbook, entries.filter(row => !row.added), prices, bulkPriceConfig);
+      const shaped = await exportDutchVolumeWorkbook(XLSXStyled, workbook, entries, prices, bulkPriceConfig, { year, week }, matchCache);
       const url = URL.createObjectURL(new Blob([shaped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_물량표.xlsx`; anchor.click(); URL.revokeObjectURL(url);
     } catch (cause) { setError(cause.message || '물량표 다운로드에 실패했습니다.'); }
@@ -732,7 +703,7 @@ export default function DutchVolumeBoard() {
           <td className="status">{matchStatusUsable && match?.status === 'unmatched' ? <span style={{ color: '#b42318', fontWeight: 800, fontSize: 11 }}>미매칭 · {customerName(row.sourceCustomer || row.customer)}</span> : null}{row.added && <button onClick={() => removeRow(row.id)} disabled={workBusy || applying}>행 삭제</button>}</td>
         </tr>;
       })}</tbody></table></div></>}
-      {entries.some(row => row.added || row.prodKey || row.custKey) && <p className="export-note">원본 Pivot 셀과 단가 도형은 보존됩니다. 수동 추가·ERP 재매칭을 포함한 전체 입력은 내보내기 파일의 ‘ERP적용초안’ 시트에 별도로 기록됩니다. 원본 시트의 업체·품목 표시는 재매칭 결과로 바꾸지 않습니다.</p>}
+      {entries.some(row => row.added || row.prodKey || row.custKey) && <p className="export-note">추가 업체와 수정 수량은 원본 물량표에 표시됩니다. 재업로드 시 셀 수량과 ERP적용초안의 매칭·단위·단가를 함께 읽고 다시 검증합니다. 작업 저장·엑셀 다운로드만으로 ERP에 적용되지는 않습니다.</p>}
       {preview && <section className="review" ref={reviewRef}><div className="review-head"><h2>ERP 최종 적용 미리보기</h2><span>{validationCurrent ? '현재 초안 검증' : '초안 변경으로 무효화됨'}</span></div><p>범위: {preview.orderYear ?? year}년 {preview.week ?? week} · 서버가 판정한 CountryFlower {(preview.replacementCategories || []).join(', ') || '검증 범위'} 전체 교체. 파일에 없는 기존 업체·품목도 최종 0으로 표시됩니다. 표 필터와 무관하게 전체가 적용 대상입니다.</p><div className="kpis"><b>전체 {previewRows.length}</b><b>변경 {changedRows.length}</b><b>누락→0 {missingRows.length}</b><b>ERP 확정 출고(적용 불가) {blockedRows.length}</b><b>미매칭 {(preview.unmatched || []).length}</b></div>
         {!!blockedRows.length && <div className="notice warning" role="status">‘ERP 확정 출고’는 해당 차수의 품종 또는 거래처·품목 출고가 이미 확정되어 있어 이 화면에서 변경할 수 없는 상태입니다. 확정 출고가 있으면 전체 적용도 잠깁니다. 해당 출고의 확정을 ERP에서 취소한 뒤 다시 검증하세요.</div>}
         {(preview.unmatched || []).length > 0 && <div className="notice error">미매칭 {(preview.unmatched || []).length}건. 위 초안에서 ERP 업체·품목을 선택하고 다시 검증하세요. {(preview.unmatched || []).slice(0, 8).map(item => item.reason || item.product || item.customer).join(' / ')}</div>}
