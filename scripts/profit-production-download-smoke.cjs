@@ -67,12 +67,19 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
     assert.equal(calc.H,null);assert.equal(calc.I,null);assert.equal(calc.J,null);assert.equal(calc.K,null);
     assert.ok((mainData.audit?.issues||[]).some(i=>i.code==='ACTUAL_CUSTOMS_COST_MISSING'));
    }
-   if(+week>=38){
-    assert.equal(calc.F,null,'unverified 34th-week customs must not become carried cost');
-    assert.ok(thai.stock.missingPriceCount>=2);
-    assert.ok(!thai.stock.priceEvidenceSources.some(ref=>ref.startsWith('erp-purchase-carry:2026:34-01->')));
+   if(+week===34){
+    assert.equal(thai.source.H,'approved_estimate');
+    assert.ok(Number.isFinite(calc.H)&&calc.H>0);
+    assert.ok((mainData.audit?.issues||[]).some(i=>i.code==='APPROVED_CUSTOMS_ESTIMATE'));
    }
-   console.log(JSON.stringify({thaiActualCostSmoke:'PASS',scope:{year,week},costState:thai.source.H,actualBusinessWrites:0}));
+   if(+week>=38){
+    assert.ok(Number.isFinite(calc.F),'approved acquisition cost must reach closing inventory');
+    assert.equal(thai.stock.missingPriceCount,0);
+    assert.ok(thai.stock.priceEvidenceSources.some(ref=>ref.startsWith('erp-purchase-carry:2026:34-01->')));
+    assert.ok(thai.stock.priceEvidenceSources.some(ref=>ref.startsWith('approved-estimate:')));
+    assert.ok((mainData.audit?.issues||[]).some(i=>i.code==='THAI_ACQUISITION_COST_BASIS'&&i.message.includes('추정')));
+   }
+   console.log(JSON.stringify({thaiApprovedCostSmoke:'PASS',scope:{year,week},costState:thai.source.H,actualBusinessWrites:0}));
   }
   console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
   const auditResponse=page.waitForResponse(res=>{

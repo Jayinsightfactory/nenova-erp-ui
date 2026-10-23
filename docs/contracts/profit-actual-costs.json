@@ -1,6 +1,7 @@
 {
   "id": "profit-actual-costs",
-  "title": "태국 SQL 실비 원가와 누락 계산 보류",
+  "title": "태국 SQL 실비 원가와 사용자 승인 비용 추정",
+  "approvedEstimatePolicy": "2026-10-23 report-only exception to strict actual mode below: 460/kg, combined-GW trucks, Thai missing duty 5% with exact purchase-period FX, recent SunYul pattern. Actual zero and manual H/S preserved. Missing freight/FX/weight still blocks. Unmatched goods stay in allocation denominator and unallocated pool, no invented ProdKey. Mark estimates through FIFO/carry; exclude from verified sample peers. All DB/confirmed revisions preserved.",
   "scope": ["lib/profitReportActualCosts.mjs", "lib/customsForwarding.js", "lib/profitReport.js", "lib/pivotFreightArrival.js", "lib/profitReportCalc.js", "lib/profitFormulaAudit.mjs", "lib/profitReportAudit.js", "pages/api/sales/profit-report.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "CustKey is not applicable to stock acquisition. Year, week, AWB and product are required; no invented customer key.",

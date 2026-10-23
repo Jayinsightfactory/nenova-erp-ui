@@ -1,5 +1,15 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-23 사용자 승인 비용 추정
+
+실제 dnSpy.Console.exe --no-color -t FormWarehouseView로 GetData/상세의
+WarehouseMaster/Detail UPrice/TPrice 조회를 재확인했다. SELECT-only 운영 probe로
+2026 1~41차를 전후 조회한다. 보고서 전용 승인 비용(백상460원/kg·중량별 국내운송·
+태국 누락관세5%·선율 패턴)을 원장에 저장하지 않고 최신 표시/엑셀에서만 적용한다.
+미매칭 WdetailKey는 비용 배분 분모/미배부 풀에 남기며 가짜 Product를 만들지 않는다.
+같은 매입차수 환율·수량·업무키 및 Estimate/Shipment.Amount/Vat/isFix/확정 revision 보존.
+추정은 실제 청구 확인이 아니다. 기준표: docs/plans/profit-approved-cost-2026-10-23.md.
+
 ## 2026-10-22 태국 과거 매입 원가 연결
 
 실제 설치 EXE를 dnSpy.Console.exe --no-color -t FormWarehouseView로 조회했다.

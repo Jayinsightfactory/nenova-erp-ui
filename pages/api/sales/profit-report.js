@@ -1,6 +1,7 @@
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
+import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
   EXTRA_CATEGORY, CNF_CATEGORIES,
@@ -336,11 +337,20 @@ export async function loadReportData(major, orderYear) {
             ? CARRIED_RATE_SOURCE
             : RATE_SOURCE.MISSING;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
-        const autoH = customs.actualCosts?.[key] ? customs.H[key] : customs.H[key] ?? 0;
         // S 포워딩 — 구조화 입력값이 실제로 감지/저장됐으면 0도 유효값으로 존중하고, 원천 자체가 없을 때만 레거시 추정치로 fallback
         const structuredSSource = customs.sources?.S?.[key];
         const hasStructuredS = structuredSSource != null && structuredSSource !== 'missing';
         const autoS = hasStructuredS ? Number(customs.S[key] || 0) : Number(S[key] || 0);
+        const approvedCost = resolveApprovedThaiCustoms(customs.actualCosts?.[key], {
+          goods: Q[key], freight: man.S != null ? Number(man.S) : autoS,
+          freightSource: man.S != null ? 'manual' : structuredSSource,
+          rate: man.R != null ? Number(man.R) : autoR, orderYear, major });
+        if (approvedCost) {
+          customs.actualCosts[key] = approvedCost;
+          customs.H[key] = approvedCost.total;
+          customs.sources.H[key] = approvedCost.source;
+        }
+        const autoH = approvedCost ? approvedCost.total : customs.H[key] ?? 0;
         // F 1순위는 원본 workbook에 수식이 확인된 카테고리 평균원가 공식이다.
         //   (상품+포워딩 매입액 + 그외통관비) / 당주 매입수량 * 마지막 ProductStock 환산수량
         // 이 공식 대상이 아니거나 필요한 원천이 없으면 품목별 취득원가 근거를 사용한다.
