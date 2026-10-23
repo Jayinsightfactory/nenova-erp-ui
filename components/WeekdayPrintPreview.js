@@ -44,14 +44,16 @@ export default function WeekdayPrintPreview({bundle,onClose,returnFocus}) {
     listeners.current();
     const doc=frame.current?.contentDocument;if(!doc)return;
     const inputs=[...doc.querySelectorAll('[data-print-note-id]')];
+    const resize=el=>{if(el.tagName==='TEXTAREA'){el.style.height='auto';el.style.height=`${el.scrollHeight+2}px`;}};
     const input=e=>{
       const el=e.target,entry=entries.current.get(el.dataset.printNoteId);if(!entry)return;
       entry.text=el.value;const span=el.nextElementSibling;if(span)span.textContent=el.value;
-      if(el.tagName==='TEXTAREA'){el.style.height='auto';el.style.height=`${Math.max(30,el.scrollHeight)}px`;}
+      resize(el);
       setDirty(hasDirty());setMessage('적요 입력 중 · 칸을 벗어나면 저장');
     };
     const blur=e=>{if(entries.current.has(e.target.dataset.printNoteId))void saveEntries([e.target.dataset.printNoteId]);};
-    inputs.forEach(el=>{el.addEventListener('input',input);el.addEventListener('blur',blur);});
+    inputs.forEach(el=>{resize(el);el.addEventListener('input',input);el.addEventListener('blur',blur);});
+    void doc.fonts?.ready.then(()=>{if(frame.current?.contentDocument===doc)inputs.forEach(resize);});
     listeners.current=()=>inputs.forEach(el=>{el.removeEventListener('input',input);el.removeEventListener('blur',blur);});
   }
   async function print() {

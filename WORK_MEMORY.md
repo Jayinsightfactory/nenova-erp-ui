@@ -1058,3 +1058,9 @@
 - 실제 dnSpy ClassProduct/FormQuantityPivot 확인, SELECT-only 품목 schema/trigger probe 재실행. SQL/API writer 변경 없음.
 - 관련 실행 검사/빌드 통과. 전체 gate·PR·배포 결과는 세션 기록 후속 참조. 운영 저장 시험 없음.
 - 검색어: dutch-explicit-load prompt not supported 칼라 dialog 명시조회
+
+## 2026-10-23 차수 버튼·견적 행 간격
+- 첫 조회 차수 ▲▼56x44px, 웹 견적 한 줄4.8mm/여러 줄 자동확장, 빈 적요 입력도1줄. 수량·금액·원장·EXE 무변경.
+- Chrome 경계/키보드/자동행높이·적요저장 확인. 실제 종이 출력 미검증. 게이트/배포 PR참조.
+- 기준선 shell/키보드/스크롤 적용; 원장쓰기 해당없음. native 행높이 변경은 사용자 요청 예외.
+검색어: weekday-week-buttons compact-item-row 차수버튼 행여백
