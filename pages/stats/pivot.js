@@ -1444,7 +1444,7 @@ export function LegacyPivot() {
           onClick={()=>setViewMode('detail')}>▦ 상세</button>
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <button className={`btn btn-sm ${showArrival?'btn-primary':''}`} style={{height:22,fontSize:11}}
-          title="/freight 운송기준원가 (displayArrivalKRW)"
+          title="선택 연도의 최신 승인 인보이스·현재 엑셀 참고 원가"
           onClick={()=>setShowArrival(s=>!s)}>도착원가</button>
         {data?.arrivalError && <span role="alert" style={{color:'#a33'}}>{data.arrivalError}</span>}
         <button className={`btn btn-sm ${showArrivalVat?'btn-primary':''}`} style={{height:22,fontSize:11}}
@@ -2026,8 +2026,8 @@ export function LegacyPivot() {
                           {showOutDate  && <td style={{fontSize:10}} title={r.outDate||''}>{r.outDate||''}</td>}
                           {showInPrice  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inPrice)}</td>}
                           {showInTotal  && <td className="num" style={{fontSize:10}}>{fmtNum(r.inTotal)}</td>}
-                          {showArrival     && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 · ${r.arrivalMeta?.source || '연결 원가 없음'}`}>{r.arrivalCost>0?fmtNum(r.arrivalCost):'—'}{r.arrivalMeta?.arrivalWeek && <div>{r.arrivalMeta.arrivalWeek}차</div>}</td>}
-                          {showArrivalVat  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#6b4500':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가×1.1 (부가세포)`}>{fmtNum(arrivalCostWithVat(r.arrivalCost))}</td>}
+                          {showArrival     && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#8a5a00':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 · ${r.arrivalMeta?.source || '연결 원가 없음'}`}>{r.arrivalMeta?fmtNum(r.arrivalCost):'—'}{r.arrivalMeta?.arrivalWeek && <div>{r.arrivalMeta.arrivalWeek}차</div>}</td>}
+                          {showArrivalVat  && <td className="num" style={{fontSize:10,color:(r.arrivalCost||0)>0?'#6b4500':'var(--text3)'}} title={`${r.arrivalMeta?.displayUnit||r.unit||''}당 도착원가×1.1 (부가세포)`}>{r.arrivalMeta?fmtNum(arrivalCostWithVat(r.arrivalCost)):'—'}</td>}
                           {showAWB      && <td style={{fontSize:10}}>{r.awb||''}</td>}
                           {showAmount   && <td className="num" style={{fontSize:10,color:'var(--green)'}}>{fmtNum((r.cost||0)*(r.totalOrder||0))}</td>}
                           {showDescr    && <td style={{fontSize:10,color:'var(--text3)'}} title={r.descr}>{r.descr||''}</td>}
