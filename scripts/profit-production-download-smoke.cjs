@@ -60,6 +60,29 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
   }).map(column=>({category:r[0],column})));
   assert.deepEqual(initialScreenDifferences,[],'download must match the initial web report');
+  if(!mainData.confirmed){
+   const {getHistoricalTaxableRate}=await import('../lib/profitReportHistoricalCustoms.js');
+   const {approvedCustomsTiming}=await import('../lib/profitReportCustomsRateTiming.mjs');
+   const china=mainData.rows.find(row=>row.category==='중국');
+   if(china?.manual?.R==null&&china?.source?.R==='excel_historical_snapshot'&&year==='2026'&&+week>=26&&+week<=31){
+    assert.equal(china.auto.R,getHistoricalTaxableRate(year,week,'중국'));
+   }
+   const estimatedRates=mainData.rows.filter(row=>row.manual?.R==null&&row.source?.R==='approved_customs_timing_estimate');
+   for(const row of estimatedRates){
+    assert.equal(row.rateEstimated,true);
+    assert.equal(row.rateDetail?.estimated,true);
+    assert.equal(String(row.rateDetail?.orderYear),year);
+    assert.equal(Number(row.rateDetail?.major),Number(week));
+    assert.ok(row.rateDetail?.scheduleId||row.rateDetail?.scheduleIds?.length);
+    assert.ok(row.rateDetail?.officialSourceRange);
+    if(row.category==='중국'&&(Number(year)>2026||Number(week)>=32)){
+     const timing=approvedCustomsTiming({orderYear:year,major:week,category:'중국',currency:'CNY'});
+     assert.ok((row.rateDetail?.dates||[]).some(date=>date.date===timing.date),'China uses approved major+1 customs week');
+    }
+    assert.ok((mainData.audit?.issues||[]).some(issue=>issue.code==='APPROVED_CUSTOMS_TIMING_ESTIMATE'&&issue.category===row.category));
+   }
+   if(estimatedRates.length) console.log(JSON.stringify({customsTimingSmoke:'PASS',scope:{year,week},estimatedCategories:estimatedRates.map(row=>row.category),actualBusinessWrites:0}));
+  }
   if(process.env.PROBE_THAI_CARRY==='true'&&year==='2026'&&+week>=34&&+week<=41){
    const thai=mainData.rows.find(r=>r.category==='태국');assert.ok(thai);
    const calc=computeProfitRow(thai);

@@ -34,7 +34,7 @@ const check = (label, cond, detail = '') => {
 };
 
 async function main() {
-  const { kcsRatesByCategory } = await import('../lib/taxableExchangeRate.js');
+  const { kcsRatesByCategory, resolveTaxableRate, RATE_SOURCE } = await import('../lib/taxableExchangeRate.js');
   const kcs = await import('../lib/kcsTaxableRate.js');
 
   const originalFetch = global.fetch;
@@ -110,6 +110,31 @@ async function main() {
       check('일정 보완 출처와 규칙 ID가 응답에 남음',
         used?.dateSource === 'category_schedule' && used?.scheduleId === 'AUSTRALIA_AUD_MAJOR_ISO_WEEK_MONDAY_V1',
         JSON.stringify(used));
+    }
+
+    console.log('\n=== 여러 입력일이 동일 승인 고시일로 묶여도 추정 근거와 실제 날짜 수 보존 ===');
+    {
+      kcs.clearKcsTaxableRateCache();
+      globalThis.__mockLoadWarehouseDateWeights = async () => ['2026-08-01','2026-08-05'].map(inputDate => ({
+        category:'중국',currency:'CNY',date:'2026-08-10',weight:500,
+        dateSource:RATE_SOURCE.APPROVED_TIMING_ESTIMATE,estimated:true,inputDate,scheduleId:'CHINA_APPROVED_NEXT_WEEK',
+      }));
+      setFetchByDate({'2026-08-10':210.2});
+      const {byCategory} = await kcsRatesByCategory('32','2026');
+      const entry = byCategory['중국'];
+      check('같은 고시일 2입력행은 distinctDateCount=1, weightedAvg=false',entry?.detail?.distinctDateCount===1 && entry.detail.weightedAvg===false);
+      check('최상단 승인 추정 출처/규칙과 공식 기간 보존',entry?.detail?.source===RATE_SOURCE.APPROVED_TIMING_ESTIMATE && entry.detail.estimated===true && entry.detail.scheduleId==='CHINA_APPROVED_NEXT_WEEK' && entry.detail.dateSource===RATE_SOURCE.APPROVED_TIMING_ESTIMATE && entry.detail.officialSourceRange?.start==='2026-08-10',JSON.stringify(entry));
+      check('입력일 두 건은 원래 값으로 보존',entry?.detail?.dates?.[0]?.inputDate==='2026-08-01' && entry.detail.dates[1].inputDate==='2026-08-05');
+      check('최종 resolver는 실제 신고일 환율과 다른 source로 전달',resolveTaxableRate({kcsRate:entry?.rate,kcsDetail:entry?.detail}).source===RATE_SOURCE.APPROVED_TIMING_ESTIMATE);
+    }
+
+    console.log('\n=== 0/NaN/Infinity 공식 환율은 자동 적용하지 않음 ===');
+    for (const invalidRate of [0,NaN,Infinity]) {
+      kcs.clearKcsTaxableRateCache();
+      globalThis.__mockLoadWarehouseDateWeights = async () => [{category:'중국',currency:'CNY',date:'2026-08-10',weight:100}];
+      setFetchByDate({'2026-08-10':invalidRate});
+      const {byCategory,failuresByCategory} = await kcsRatesByCategory('32','2026');
+      check(`유효하지 않은 환율 ${invalidRate} 차단`,!byCategory['중국'] && failuresByCategory['중국']?.length>0);
     }
 
     console.log('\n=== 2개 날짜 중 1개 조회 실패 — 카테고리 전체를 입력 필요로 처리 ===');
