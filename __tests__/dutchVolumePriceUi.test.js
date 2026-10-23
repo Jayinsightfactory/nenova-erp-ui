@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './dutchInlineCustomer.test.js';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
@@ -77,7 +78,7 @@ assert.ok(page.indexOf('className="always-actions"') < page.indexOf('{!entries.l
 assert.match(page, /aria-label="차수" value=\{week\}/, '차수 선택은 데이터가 없어도 상단에서 계속 접근할 수 있어야 합니다.');
 assert.match(page, /className="load" onClick=\{\(\) => loadLive\(year, week\)\}/, '빈 차수에서도 직접 DB 조회를 재시도할 수 있어야 합니다.');
 assert.match(page, /disabled=\{workBusy \|\| applying \|\| previewLoading \|\| !entries\.length\}/, '물량이 없는 동안 ERP 검증은 비활성화하되 버튼은 보여야 합니다.');
-assert.match(page, /grid-template-columns:minmax\(0,1fr\) 370px/, '1920×1080에서 물량표에 가변 폭을 주고 우측 패널 폭을 제한해야 합니다.');
+assert.match(page, /grid-template-columns:minmax\(0,1fr\);/, '물량표는 우측 패널 없이 화면 전폭을 사용한다.');
 assert.match(page, /<div className="side-history"><DutchWorkHistory/, '저장 이력은 우측 세로 패널에 있어야 합니다.');
 assert.equal((page.match(/<DutchWorkHistory\b/g) || []).length, 1, '작업 저장 이력 UI를 복제하면 안 됩니다.');
 assert.doesNotMatch(page, /zoom:\.7/, '전체 화면 축소 대신 셀 폭을 줄여 읽기 쉬운 글씨를 유지해야 합니다.');
@@ -153,9 +154,9 @@ assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\
 assert.match(page, /baseIndex - delta/, '이전·다음 버튼은 주차 계산이 아니라 DB 입력 차수 순서를 따라야 합니다.');
 assert.doesNotMatch(page, /let major = Number/, '35-01에서 36-01로 앞자리만 건너뛰는 계산 이동을 다시 사용하면 안 됩니다.');
 assert.match(volumeSheet, /const widths = \[62, 152, 58\]/, '고정 정보 열도 컴팩트하게 줄여 업체 수량 열을 더 보여야 합니다.');
-assert.match(volumeSheet, /widthOf = column => column < stickyCount \? widths\[column\] : 36/, '업체별 수량 셀은 더 좁고 균일해야 합니다.');
+assert.match(volumeSheet, /repeatedProduct\(column\) \? 132 : 42/, '반복 품목명과 업체 폭을 구분한다.');
 assert.match(volumeSheet, /max-width:2em/, '업체명은 두 글자 폭으로 줄바꿈해야 합니다.');
-assert.match(volumeSheet, /table\{min-width:0;font-size:12px\}/, '표 전체 폭에 맞추느라 업체 열이 늘어나면 안 됩니다.');
+assert.match(volumeSheet, /table\{width:100%;min-width:100%;font-size:12px\}/, '빈 우측 공간까지 표가 활용한다.');
 assert.match(volumeSheet, /\.sheet-scroll table\{font-size:14px\}/, '좁힌 셀 안에서도 표 글자는 이전보다 커야 합니다.');
 assert.match(volumeSheet, /\.quantity-edit-trigger\{min-height:26px;font-size:15px;font-weight:800\}/, '물량 숫자는 축소된 전체 배율에서도 눈에 띄게 보여야 합니다.');
 assert.match(volumeSheet, /customer-header-label[\s\S]*customerLines\[0\][\s\S]*customerLines\[1\]/, '업체명과 CL 코드는 업체 열에서 위아래로 표시해야 합니다.');

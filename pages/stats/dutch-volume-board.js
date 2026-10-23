@@ -6,13 +6,14 @@ import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/d
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 import { appendDutchQuantityHistory, buildDutchQuantitySummaryValues } from '../../lib/dutchSheetQuantityEdit';
-import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
+import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
 import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import ProductColorDialog from '../../components/dutch/ProductColorDialog';
+import { addDutchInlineCustomer } from '../../lib/dutchInlineCustomer';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
@@ -81,6 +82,7 @@ export default function DutchVolumeBoard() {
   const [preview, setPreview] = useState(null);
   const [matchCache, setMatchCache] = useState({});
   const [customerOptions, setCustomerOptions] = useState([]);
+  const visibleSheetRef = useRef('');
   const [productOptions, setProductOptions] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [ackReplacement, setAckReplacement] = useState(false);
@@ -446,10 +448,21 @@ export default function DutchVolumeBoard() {
   }
   function addRow() {
     if (workBusyRef.current || applyingRef.current) return;
-    invalidate();
-    const id = `manual:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    setEntries(previous => [...previous, newDutchDraftEntry(id)]);
-    setActiveEntryId(id); setActiveTab('edit'); setQuery('');
+    if (!workbook || !entries.length) { setError('먼저 물량표를 불러오세요.'); return; }
+    if (!customerOptions.length) { setError('업체 목록을 준비하려면 ERP 매칭·최종수량 다시 검증을 눌러 주세요.'); return; }
+    const identity = storageKey, selectedYear = year, selectedWeek = week, revision = revisionRef.current;
+    const name = visibleSheetRef.current || entries.find(row => row.sheetName)?.sheetName;
+    setActiveTab('sheet');
+    openMatchPopup({ kind:'customer', initialQuery:'', options:customerOptions, returnFocusElement:document.activeElement, onPick: item => {
+      if (workBusyRef.current || applyingRef.current) { setError('저장·적용 중에는 업체를 추가할 수 없습니다. 완료 후 다시 선택하세요.'); return; }
+      if (identity !== sourceRef.current || selectedYear !== yearRef.current || selectedWeek !== weekRef.current || revision !== revisionRef.current) { setError('물량표가 변경되어 업체 선택을 적용하지 않았습니다. 다시 추가하세요.'); return; }
+      try {
+        const result=addDutchInlineCustomer(XLSXStyled,workbook,entries,name,item,validationCurrent ? matchCache : {},customerOptions);
+        if(!result.duplicate) { invalidate(); setApplyResult(null); setEntries(result.entries); }
+        setActiveEntryId(result.focusId); setActiveTab('sheet'); setQuery('');
+        setRematchNotice(result.duplicate ? '이미 있는 업체입니다. 기존 수량 셀을 수정하세요.' : `${item.custName} · ${item.area || '기타'} 위치에 추가했습니다. 표에서 수량 입력 후 작업 저장·업로드 검토를 진행하세요.`);
+      } catch(cause) { setError(cause.message); }
+    }});
   }
   function removeRow(id) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => previous.filter(row => row.id !== id)); }
   function moveNext(event, index) { if (event.key === 'Enter') { event.preventDefault(); inputRefs.current[index + 1]?.focus(); inputRefs.current[index + 1]?.select(); } }
@@ -626,7 +639,7 @@ export default function DutchVolumeBoard() {
   return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><style jsx>{`
     .dutch-board{padding:6px;min-height:calc(100vh - 44px);width:100%;box-sizing:border-box}
     .dutch-board>header{padding:9px 14px}
-    .board-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;align-items:start;margin-top:8px}
+    .board-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;margin-top:8px}
     .source-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-top:8px;padding:9px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}
     .source-controls h2{font-size:13px;color:#16335e;margin:0 6px 5px 0}
     .source-controls .upload{display:flex;align-items:center;justify-content:center;min-height:32px;padding:5px 12px;border:1px solid #aebbd0;border-radius:4px}
@@ -637,8 +650,9 @@ export default function DutchVolumeBoard() {
     .always-actions button{padding:7px 10px;border:1px solid #8aa8cc;border-radius:4px;background:#fff;color:#164c94;font-weight:800}
     .always-actions button:disabled{opacity:.55;cursor:not-allowed}
     .always-actions span{font-size:12px;color:#52647c}
-    .board-primary{grid-column:1;grid-row:1;min-width:0}
-    .board-side{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+    .board-primary{grid-column:1;grid-row:2;min-width:0}
+    .board-side{grid-column:1;grid-row:1;display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;min-width:0}
+    .board-side>section{flex:1;min-width:280px}
     .side-card{padding:9px;background:#fff;border:1px solid #c9d4e3;border-radius:5px;min-width:0}
     .side-card h2{font-size:13px;margin:0 0 7px;color:#16335e}
     .side-source{display:flex;flex-direction:column;gap:8px}
@@ -668,11 +682,14 @@ export default function DutchVolumeBoard() {
     .side-history :global(.work-actions){display:grid;grid-template-columns:1fr 1fr;gap:6px}
     .side-history :global(.work-actions input){grid-column:1/-1;min-width:0;width:100%;max-width:none;box-sizing:border-box}
     .side-history :global(.work-actions .primary){grid-column:1/-1;margin-left:0}
+    .board-side .side-history{flex:1;min-width:0}
+    .board-side .side-history :global(.work-actions){display:flex;flex-wrap:wrap;align-items:center}
+    .board-side .side-history :global(.work-actions input){width:260px;max-width:100%;flex:1}
     .side-history :global(.work-panel button){padding:6px 7px;font-size:11px}
     .side-history :global(.history-table){max-height:300px}
     .side-history :global(.history-table td:nth-child(2)){min-width:110px;max-width:150px}
-    @media(max-width:1200px){.board-layout{grid-template-columns:minmax(0,1fr) 320px}}
-    @media(max-width:1100px){.dutch-board{zoom:1;width:100%}.board-layout{display:flex;flex-direction:column}.board-primary{order:0;width:100%}.board-side{order:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.board-side .side-source{grid-column:1/-1}.side-history{grid-column:1/-1}.source-controls .live-load{min-width:min(480px,100%);flex-wrap:wrap}.source-controls .live-load>span{width:100%}}
+    @media(max-width:1200px){.board-layout{grid-template-columns:minmax(0,1fr)}}
+    @media(max-width:1100px){.dutch-board{zoom:1;width:100%}.board-layout{display:flex;flex-direction:column}.board-primary{order:1;width:100%}.board-side{order:0;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.board-side .side-source{grid-column:1/-1}.side-history{grid-column:1/-1}.source-controls .live-load{min-width:min(480px,100%);flex-wrap:wrap}.source-controls .live-load>span{width:100%}}
     @media(max-width:760px){.board-layout{display:flex}.board-side{display:flex}}
   `}</style><section className="dutch-board">
     <header><div><h1 data-desktop-chrome>네덜란드 물량표</h1><p>원본 엑셀을 올리고 ERP 업체·품목 매칭, 최종 분배수량, 원화 단가를 검토합니다.</p></div></header>
@@ -680,7 +697,12 @@ export default function DutchVolumeBoard() {
       <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
     </section>
     <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체·품목 행 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
-    <div className="board-layout"><main className="board-primary" aria-label="네덜란드 물량표">
+    <div className="board-layout">
+    <aside className="board-side" aria-label="보조 기능">
+      <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>
+      <div className="side-history"><DutchWorkHistory name={workName} onName={setWorkName} hasWork={!!entries.length} busy={workBusy || applying || loading || weeksLoading} saving={workBusy} reviewing={previewLoading} notice={workNotice} error={workError} onSave={saveWork} onReview={reviewForUpload} open={historyOpen} onToggle={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadWorkHistory(); }} items={workHistory} loading={historyLoading} cursor={historyCursor} onMore={() => loadWorkHistory(true)} onRestore={restoreWork}/></div>
+    </aside>
+    <main className="board-primary" aria-label="네덜란드 물량표">
     {error && <div className="notice error" role="alert">{error}</div>}
     {legacyCurrency && <div className="notice warning">이 파일의 이전 {legacyCurrency} 단가 초안은 원화로 재해석하지 않았습니다. 필요한 원화 단가를 다시 입력하세요.</div>}
     {draftReset && <div className="notice warning">이전 양식 초안은 자동 복원하지 않았습니다. 원본과 단가·매칭을 다시 확인하세요. 이전 저장값은 삭제하지 않았습니다.</div>}
@@ -694,7 +716,7 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry} onSheetChange={name => { visibleSheetRef.current=name; }}/ >}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>원본 품목 옆 ERP 품목, 원본 업체 옆 ERP 업체를 표시합니다. Enter로 선택 창을 열고 Esc로 닫을 수 있습니다.</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table className="mapping-table"><colgroup><col style={{ width: '14%' }}/><col style={{ width: '20%' }}/><col style={{ width: '12%' }}/><col style={{ width: '20%' }}/><col style={{ width: '6%' }}/><col style={{ width: '7%' }}/><col style={{ width: '14%' }}/><col style={{ width: '7%' }}/></colgroup><thead><tr><th>품목 / 원문</th><th>ERP 매칭 품목</th><th>업체 / 원문</th><th>ERP 매칭 업체</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);
@@ -721,9 +743,6 @@ export default function DutchVolumeBoard() {
       </section>}
       {applyResult && <section className="result" role="status"><h2>{applyResult.running ? '적용 진행 중' : applyResult.failed ? '적용 실패 또는 결과 확인 필요' : '적용 완료·DB 검증'}</h2><p>작업 ID: {activeJobId}</p>{applyResult.progress && <p>{applyResult.progress.stage} · {applyResult.progress.done}/{applyResult.progress.total}건 {applyResult.progress.current}</p>}{applyResult.error && <p className="error">{applyResult.error}</p>}{!applyResult.running && !applyResult.failed && <p>적용 {applyResult.appliedCount ?? 0}건 · 신규 주문 {applyResult.orderCreatedCount ?? 0}건 · 출고 변경 {applyResult.shipmentChangedCount ?? 0}건 · DB 사후검증 {applyResult.verification?.checked ?? 0}건 / 불일치 {applyResult.verification?.mismatchCount ?? 0}건</p>}<div className="logs">{(applyResult.logs || applyResult.progress?.logs || []).map((line, index) => <div key={index}>{typeof line === 'string' ? line : JSON.stringify(line)}</div>)}</div>{(applyResult.appliedRows || []).length > 0 && <details><summary>행별 적용·검증 결과</summary><div className="logs">{applyResult.appliedRows.map((row, index) => <div key={index}>{row.custName || row.customer} · {row.prodName || row.product} · {JSON.stringify(row)}</div>)}</div></details>}</section>}
     </>}
-    </main><aside className="board-side" aria-label="보조 기능">
-      <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>
-      <div className="side-history"><DutchWorkHistory name={workName} onName={setWorkName} hasWork={!!entries.length} busy={workBusy || applying || loading || weeksLoading} saving={workBusy} reviewing={previewLoading} notice={workNotice} error={workError} onSave={saveWork} onReview={reviewForUpload} open={historyOpen} onToggle={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadWorkHistory(); }} items={workHistory} loading={historyLoading} cursor={historyCursor} onMore={() => loadWorkHistory(true)} onRestore={restoreWork}/></div>
-    </aside></div>
+    </main></div>
   </section><style jsx>{`.bulk-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:#0d1b2a80}.bulk-modal{width:min(620px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#fff;border:1px solid #9db2cc;border-radius:8px;box-shadow:0 18px 60px #0d1b2a55;color:#172033;padding:16px}.bulk-modal>header{display:flex;align-items:flex-start;gap:12px;background:#f1f6fc;color:#172033;border-radius:5px;padding:12px}.bulk-modal>header h2{margin:0 0 4px}.bulk-modal>header p{margin:0;color:#52647c;font-size:12px}.bulk-modal>header>button{font-size:21px;border:0;background:transparent;color:#52647c}.bulk-enabled{display:flex;align-items:center;gap:8px;margin:12px 2px;font-weight:800}.bulk-modal-count{font-size:12px;font-weight:800;color:#1a4679;padding:8px;background:#edf5ff;border-radius:4px}.bulk-modal-count span{font-weight:400;color:#52647c;margin-left:8px}.bulk-search{height:34px;margin:9px 0;border:1px solid #bccbdd;border-radius:4px;padding:0 9px}.bulk-customer-list{overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px}.bulk-customer-list label{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 7px;border:1px solid #e1e7ef;border-radius:4px;font-size:12px}.bulk-customer-list label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.bulk-customer-list small{font-size:10px;color:#64748b}.bulk-modal>footer{display:flex;justify-content:flex-end;gap:7px;padding-top:12px}.bulk-modal>footer button{padding:7px 12px;border:1px solid #b3c0d0;border-radius:4px;background:#fff}.bulk-modal>footer .save-bulk{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:800}.bulk-settings-trigger{white-space:nowrap}.sheet-tabs{display:flex;align-items:center;gap:4px;border-bottom:2px solid #155bd7;margin:8px 0 0}.sheet-tabs button{padding:10px 18px;border:1px solid #c7d6e9;border-bottom:0;border-radius:6px 6px 0 0;background:#f3f6fa;color:#35516f;cursor:pointer;font-weight:800}.sheet-tabs button[aria-selected=true]{background:#155bd7;color:white;border-color:#155bd7}.sheet-tabs span{margin-left:12px;font-size:11px;color:#52647c}.editor-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 10px;background:#e8f1ff;border:1px solid #bfcada;font-size:12px}.editor-context button{background:white;color:#155bd7;border:1px solid #8eb2e2;border-radius:4px;padding:5px 9px}.editor-context span{font-size:11px;color:#52647c}.selected-entry{outline:2px solid #155bd7;outline-offset:-2px}@media(max-width:760px){.bulk-customer-list{grid-template-columns:1fr}.sheet-tabs{flex-wrap:wrap}.sheet-tabs span{width:100%;margin:5px}.editor-context b{overflow-wrap:anywhere}}.dutch-board{padding:14px;background:#eef2f7;min-height:calc(100vh - 44px);color:#172033;box-sizing:border-box}header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#102d72,#1676b8);color:#fff;padding:14px 18px;border-radius:5px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0}header p{margin:0;font-size:12px;opacity:.9}.upload{background:#fff;color:#164c94;padding:8px 14px;border-radius:4px;font-weight:800;cursor:pointer}.upload input{display:none}.live-load{display:flex;align-items:end;gap:8px;padding:10px;margin-top:8px;background:#fff;border:1px solid #c9d4e3}.live-load label{font-size:11px;font-weight:800}.live-load label>input{display:block;width:82px}.live-load label div{display:flex}.live-load input,.live-load select,.live-load button{height:31px;border:1px solid #aebbd0;padding:0 7px}.live-load label div select{width:86px;text-align:center;font-weight:800}.live-load .load{background:#148044;color:#fff;font-weight:800;border-color:#148044}.live-load span{color:#617188;font-size:11px;margin-left:5px}.empty,.notice{margin-top:12px;padding:12px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}.error{color:#a61b14;background:#fff1ef}.warning{color:#7a4a00;background:#fff7df}.toolbar{display:flex;gap:8px;align-items:center;margin-top:10px;padding:9px;background:#fff;border:1px solid #c9d4e3}.toolbar>div{display:flex;flex-direction:column;margin-right:auto}.toolbar span{font-size:11px;color:#617188}.toolbar input{width:240px}.toolbar input,.toolbar button{height:32px;border:1px solid #aebbd0;border-radius:3px;padding:0 9px}.toolbar button{background:#155bd7;color:#fff;font-weight:800}.currency{white-space:nowrap;font-weight:800;color:#136239!important}.guide{margin:7px 0;padding:8px 10px;background:#e8f1ff;border:1px solid #a8c7ef;font-size:12px}.guide b{margin-right:12px}.actions{display:flex;align-items:center;gap:8px;margin:8px 0}.actions button{padding:7px 10px;border:1px solid #8aa8cc;border-radius:4px;background:white;color:#164c94;font-weight:800}.actions span{font-size:12px;color:#52647c}.grid-wrap,.preview-wrap{overflow:auto;background:#fff;border:1px solid #bfcada}.grid-wrap{max-height:calc(100vh - 345px);min-height:160px}.preview-wrap{max-height:430px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}th{position:sticky;top:0;z-index:2;background:#dce6f4;color:#16335e}th,td{height:38px;padding:5px 8px;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;white-space:nowrap}td small{display:block;color:#64748b}td input,td select{width:115px;height:29px;border:1px solid #aebbd0;padding:3px 6px}.number{text-align:right}.status{max-width:230px;white-space:normal}.status button{margin-left:5px}.unmatched,.blocked{background:#fff1ef}.missing{background:#fff6df}.price{background:#eef7ff}.individual-price{color:#7a45b8}.uniform-price{color:#168447}.export-note{font-size:11px;color:#7b4a18}.review,.result{background:#fff;border:1px solid #bfcada;margin-top:12px;padding:12px}.review-head{display:flex;justify-content:space-between}.review p{font-size:12px}.kpis{display:flex;gap:7px;margin:9px 0;flex-wrap:wrap}.kpis b{background:#e8f1ff;padding:6px 10px;border-radius:4px}.approval{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px}.approval label{font-size:12px}.approval .apply{background:#148044;color:white;border:0;border-radius:4px;padding:9px 14px;font-weight:900}.approval .apply:disabled{background:#9ca9b7}.approval strong{color:#a61b14;font-size:12px}.logs{max-height:180px;overflow:auto;background:#f6f8fb;padding:8px;font-size:11px;white-space:pre-wrap}details{margin-top:10px;font-size:12px}@media(max-width:760px){.dutch-board{padding:7px}header{align-items:flex-start;gap:10px}header p{display:none}.live-load,.toolbar,.actions{flex-wrap:wrap}.live-load span,.toolbar>div{width:100%}.toolbar input{flex:1;width:auto}.grid-wrap{max-height:500px}.approval{align-items:flex-start;flex-direction:column}}`}</style></>;
 }

@@ -1,5 +1,10 @@
 # Dutch volume distribution — native evidence, 2026-10-05
 
+## 2026-10-23 inline customer display
+- Actual dnSpy.Console FormShipmentDistribution rerun; OrderYear/OrderWeek GetCustomerList and separate ShipmentDate/Farm write flow retained. No SQL/writer change.
+- SELECT-only active Customer675 / CustArea27; ViewOrder43-02 counts2025=306,2026=385. 2026/43-02 joined shipment sample empty, not proof of applied distribution.
+- Popup selection and matrix quantity edit remain drafts; immutable snapshot preserves customerArea and explicit customer key. Existing acknowledged preview/apply transaction/readback remains authoritative. Plan: work-plans/2026-10-23-dutch-inline-add.md.
+
 ## Actual CLI execution
 
 Source EXE: `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`.

@@ -16,6 +16,10 @@ IF COL_LENGTH(N'dbo.Customer', N'Descr') IS NULL
   ALTER TABLE dbo.Customer ADD Descr nvarchar(1000) NULL;
 IF COL_LENGTH(N'dbo.Customer', N'CustArea') IS NULL
   ALTER TABLE dbo.Customer ADD CustArea nvarchar(100) NULL;
+IF COL_LENGTH(N'dbo.PeriodDay', N'WeekStartYmd') IS NULL
+  ALTER TABLE dbo.PeriodDay ADD WeekStartYmd datetime NULL;
+IF COL_LENGTH(N'dbo.PeriodDay', N'WeekEndYmd') IS NULL
+  ALTER TABLE dbo.PeriodDay ADD WeekEndYmd datetime NULL;
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.ShipmentDetail') AND name=N'CustKey' AND is_nullable=0)
   ALTER TABLE dbo.ShipmentDetail ALTER COLUMN CustKey int NULL;
 GO
@@ -72,6 +76,9 @@ INSERT dbo.PeriodDay(OrderYearWeek,WeekDay,BaseYmd)
   VALUES (N'202640',4,CONVERT(datetime,'2026-10-01',121)),
          (N'202640',5,CONVERT(datetime,'2026-10-02',121)),
          (N'202540',5,CONVERT(datetime,'2025-10-02',121));
+-- Native calendar boundaries required by the current estimate visibility guard.
+UPDATE dbo.PeriodDay SET WeekStartYmd=DATEADD(day,-WeekDay,BaseYmd),
+  WeekEndYmd=DATEADD(day,6-WeekDay,BaseYmd);
 
 -- Native view/quote downstream sentinels are read-only assertions for this task.
 INSERT dbo.Estimate(EstimateKey,ShipmentKey,ProdKey,EstimateType,Unit,SdetailKey,Quantity,Cost,Amount,Vat,isFix,Descr,EstimateDtm)

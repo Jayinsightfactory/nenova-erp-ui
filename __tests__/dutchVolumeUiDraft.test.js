@@ -136,7 +136,7 @@ assert.match(page, /setCustomerOptions\(data\.customerOptions/);
 assert.match(page, /setEntries\(previous => previous\.map\(row => targetIds\.has\(row\.id\)/, 'ERP 업체·품목 수동 선택은 그룹 내 초안을 갱신한다');
 assert.match(page, /function updateEntry\(id, change\)[\s\S]*invalidate\(\); setApplyResult\(null\)/, '선택·수량 편집은 이전 계획을 무효화한다');
 assert.match(page, /function updatePrice\(entry, value\) \{\s*if \(workBusyRef\.current \|\| applyingRef\.current\) return;\s*invalidate\(\)/, '단가 편집은 이전 계획을 무효화한다');
-assert.match(page, /setEntries\(previous => \[\.\.\.previous, newDutchDraftEntry/, '기존 ERP 마스터 선택용 수동행을 추가한다');
+assert.match(page, /addDutchInlineCustomer\(XLSXStyled,workbook,entries,name,item/, '업체 popup 선택으로 원본 지역별 셀을 추가한다');
 assert.match(page, /planToken: preview\.planToken, jobId, ackQtyWarnings/);
 assert.match(page, /recoverJob\(jobId\)/);
 assert.match(page, /ERP적용초안/);
