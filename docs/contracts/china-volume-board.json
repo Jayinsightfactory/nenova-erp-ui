@@ -26,7 +26,12 @@
     "__tests__/chinaVolumeBoardReviewUi.test.js",
     "__tests__/pivotAvailableWeeks.test.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "CHINA_VOLUME_BOARD_READ",
@@ -64,7 +69,10 @@
       "warehouseDetail": "preserve",
       "estimate": "preserve",
       "stock": "preserve",
-      "writeAllowlist": ["WebChinaVolumeBoard", "WebChinaVolumeProductMap"]
+      "writeAllowlist": [
+        "WebChinaVolumeBoard",
+        "WebChinaVolumeProductMap"
+      ]
     },
     {
       "name": "CHINA_VOLUME_BOARD_DELETE",
@@ -74,7 +82,9 @@
       "warehouseDetail": "preserve",
       "estimate": "preserve",
       "stock": "preserve",
-      "writeAllowlist": ["WebChinaVolumeBoard"],
+      "writeAllowlist": [
+        "WebChinaVolumeBoard"
+      ],
       "deletePolicy": "soft delete only; the BoardKey JSON, packing file, matching rows, cell edits, and audit history remain queryable"
     },
     {
@@ -85,7 +95,10 @@
       "warehouseDetail": "preserve",
       "estimate": "preserve",
       "stock": "preserve",
-      "writeAllowlist": ["WebChinaVolumeProductMap", "WebChinaVolumeBoard"],
+      "writeAllowlist": [
+        "WebChinaVolumeProductMap",
+        "WebChinaVolumeBoard"
+      ],
       "matchPolicy": "never silently promote an ambiguous or unmatched row; save the selected CustKey/ProdKey and before/after mapping in history"
     }
   ],
@@ -100,18 +113,23 @@
     "manualBoxNumberInput": "1 becomes [1]; 11.12.13 becomes [11,12,13] and is shown in the web board as 11,12,13; values are stored as CellsJson boxNumbers independently from imported allocations[{boxNo,quantity}], never converted to quantity, and are excluded from the quantity workbook",
     "cellEditHistory": "each changed quantity or box-number list appends before/after values and timestamp to CellsJson editHistory; quantityEdited distinguishes an explicit manual quantity override from the legacy imported packing quantity; maximum 100 entries per cell; repeated no-op saves do not append; history badge opens full details",
     "batchBoxEntry": "separate keyboard-operable dialog with columns product, customer, quantity, box number; Enter moves forward and creates a row at the end; duplicate cells or any invalid row reject the full batch; successful apply changes browser draft and explicit 작업 저장 persists it",
-    "defaultWeek": "the page loads exact-year active OrderMaster OrderWeek values and exact-year positive incoming weeks from dbo.ViewWarehouse.OutQuantity for China using CounName or CountryFlower; both week discovery and pivot detail scope normalize legacy NN-N values such as 41-1 to NN-01 before exact year/subweek comparison, and the China board includes rows/candidates where China is identified by either field, so an available inbound week cannot disappear from the selected board; pivot inbound detail reads dbo.ViewWarehouse directly to preserve nenova.exe visibility semantics (no extra Product.isDeleted or WarehouseDetail.isDeleted filter); the selector is their union and initial default is the latest China inbound week, falling back to the latest order week only when no China inbound exists; preserve all recorded subweeks and navigate within the list",
+    "defaultWeek": "the page loads exact-year active OrderMaster OrderWeek values and exact-year positive incoming weeks from dbo.ViewWarehouse.OutQuantity for China using CounName or CountryFlower; both week discovery and pivot detail scope normalize legacy NN-N values such as 41-1 to NN-01 before exact year/subweek comparison, and the China board includes rows/candidates where China is identified by either field, so an available inbound week cannot disappear from the selected board; pivot inbound detail reads dbo.ViewWarehouse directly to preserve nenova.exe visibility semantics (no extra Product.isDeleted or WarehouseDetail.isDeleted filter); the selector is their union and initial default is the latest China inbound week, falling back to the latest order week only when no China inbound exists; preserve all recorded subweeks and navigate within the list 2026-10-23: 최초 진입은 차수 목록/기본값만 준비하고 물량은 조회 버튼으로만 불러온다.",
     "uploadPersistence": "a successful packing upload immediately saves parsed rows, file name, sheet name and mapping review state without replacing the ERP quantity grid; manual matches update the review snapshot, and only an explicit apply after every row is matched saves invoice quantities and box allocations as the applied page",
     "matchingFlow": "show the ERP quantity board first; keep invoice source rows and current customer/product mapping visible in the right comparison panel; both unmatched and already matched source rows can explicitly select a different customer and product; a rematch resets only that immutable source row's working distribution to the newly selected cell for the full invoice quantity and then opens box distribution; each matched invoice row may be split into one or more customer-product cells, but its distribution total must exactly equal the immutable invoice quantity; preserve original quantity and box numbers while splitting quantities; block apply for every unmatched or incompletely distributed row; only the explicit apply action changes the displayed packing quantities and enables the final workbook",
     "productLabel": "strip leading CHINA / only; preserve the full remaining product name in web and workbook",
-    "excelExport": "only explicitly APPLIED invoice cells or explicitly MANUAL box-entry cells export numeric quantities to the final quantity sheet; manual boxNumbers, allocation metadata and edit history are excluded from quantity cells; unmatched, unapplied ERP-order defaults and failed rows stay out of the final sheet. Customer.CustArea and the 중국 중-/中- weekday parsed from Customer.Descr form the region/ship-day headers. A separate 수량대조 audit sheet remains read-only evidence without ERP writes. This page saves a web work copy and downloads a workbook; it does not directly upload/write ERP order quantities.",
+    "excelExport": "only explicitly APPLIED invoice cells or explicitly MANUAL box-entry cells export numeric quantities to the final quantity sheet; manual boxNumbers, allocation metadata and edit history are excluded from quantity cells; unmatched, unapplied ERP-order defaults and failed rows stay out of the final sheet. Customer.CustArea and the 중국 중-/中- weekday parsed from Customer.Descr form the region/ship-day headers. A separate 수량대조 audit sheet remains read-only evidence without ERP writes. Work-copy save and export remain ERP read-only. The separate confirmed 등록·분배 저장 follows china-volume-distribution: explicit cell final quantities, existing orders preserved, positive absent orders created.",
     "reconciliationSource": "one shared summarizeChinaVolumeTotals helper for screen status, mismatch list, and XLSX audit sheet",
     "reconciliationPolicy": "packing total equals matched plus unmatched; every customer-product compares packing, current board display, and box allocation without offsetting another cell; visible totals are grouped by Product.unit so box, bunch, and stem are never presented as one meaningful quantity; pivot-versus-packing remains a reference difference because early shipment or carryover can be legitimate",
     "reuploadPolicy": "a new packing upload replaces prior browser cell state so stale allocations cannot remain",
     "downloadWarning": "unmatched rows or cell quantity differences require explicit confirmation and remain visible in the 수량대조 sheet",
     "persistence": {
-      "businessScope": ["OrderYear", "OrderWeek"],
-      "identity": ["BoardKey"],
+      "businessScope": [
+        "OrderYear",
+        "OrderWeek"
+      ],
+      "identity": [
+        "BoardKey"
+      ],
       "multipleWorkCopies": "multiple BoardKey work copies may coexist for the same OrderYear + OrderWeek; list GET uses the explicit year+week scope, optional detail GET may use BoardKey, and update POST/delete always identify BoardKey explicitly",
       "rowVersion": "every mutable BoardKey row has RowVersion; save/delete requires expectedRowVersion and returns HTTP 409 with no mutation when stale",
       "uploadRetention": "original file metadata, source sheet name, source row, raw customer/item/box text and parsed quantity are retained inside each BoardKey JSON payload",
@@ -121,7 +139,11 @@
     },
     "mismatchReview": {
       "open": "a dedicated confirmation button opens an inline right review panel in the same page; no popup is created or closed. During REVIEW it shows invoice source product and matched DB product together, compares ERP order quantity with invoice quantity, uses blue for exact matches and red for unmatched/shortage/excess, and opens that exact row's customer/product rematch or box distribution editor.",
-      "choices": ["keep current board quantity", "apply matched packing quantity", "leave unresolved and save for later"],
+      "choices": [
+        "keep current board quantity",
+        "apply matched packing quantity",
+        "leave unresolved and save for later"
+      ],
       "requiresReason": "choice and optional note are stored in history; unresolved rows remain visible and block a false OK status"
     },
     "excelLayout": {
@@ -148,8 +170,19 @@
     "required": true,
     "record": "docs/exe-golden/FormQuantityPivot.md",
     "source": "FormQuantityPivot read-only 수량 표시를 재사용하며 박스 배정은 ERP 원장을 변경하지 않는 웹 표시 기능이다.",
-    "methods": ["FormQuantityPivot read-only pivot grid"],
-    "tables": ["Product", "Customer", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "WarehouseMaster", "WarehouseDetail"]
+    "methods": [
+      "FormQuantityPivot read-only pivot grid"
+    ],
+    "tables": [
+      "Product",
+      "Customer",
+      "OrderMaster",
+      "OrderDetail",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "WarehouseMaster",
+      "WarehouseDetail"
+    ]
   },
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -159,5 +192,18 @@
     "npm run test:pivot",
     "npm run build"
   ],
-  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockHistory", "Estimate", "WebProfitReport"]
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ]
 }
