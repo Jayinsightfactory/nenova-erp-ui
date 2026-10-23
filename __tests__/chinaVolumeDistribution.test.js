@@ -19,6 +19,13 @@ let called;
 await applyChinaVolume({planToken:plan.planToken,jobId:'china_fixture_job_123456'},user,{applyImportRows:async args=>{called=args;return {success:true};}});
 assert.equal(called.fullCategoryReplacement,false);assert.equal(called.shipmentOnly,false);assert.equal(called.dutchPlan.existingOrders[0].OutQuantity,10);
 assert.equal(called.rows.length,1);assert.equal(called.rows[0].uploadQty,3);
+const fixedPlan = await previewChinaVolume(body,user,{...deps,buildPreview:async()=>({
+ rows:[{...row,fixBlocked:true,fixBlockReason:'ERP 확정'}],replacementCategories:['중국장미'],
+ fixBlockedRows:[{custName:'fixture customer',prodName:'fixture product',reason:'ERP 확정'}],unmatched:[],
+})});
+assert.equal(fixedPlan.planToken,null);
+assert.ok(fixedPlan.blockers.some(message=>message.includes('ERP 확정 출고 1건')));
+assert.equal(fixedPlan.fixBlockedRows.length,1);
 await assert.rejects(()=>applyChinaVolume({planToken:plan.planToken,jobId:'china_fixture_job_789012'},user),/이미/);
 await assert.rejects(()=>previewChinaVolume({...body,year:undefined},user,deps),/연도|year/i);
 await assert.rejects(()=>previewChinaVolume({...body,entries:[{...body.entries[0],custKey:null}]},user,deps),/DB/);
