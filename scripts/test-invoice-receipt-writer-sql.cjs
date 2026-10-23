@@ -1284,6 +1284,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_COUNTRY_FIXTURE_ROOT && process.env.NENOVA_TEST_COUNTRY==='CO'){
+      await require('./test-colombia-hydrangea-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
+      return;
+    }
     if(process.env.NENOVA_COUNTRY_FIXTURE_ROOT){
       ensure(['AU','US'].includes(process.env.NENOVA_TEST_COUNTRY),'country fixture only supports AU/US');
       await require('./test-country-receipt-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});

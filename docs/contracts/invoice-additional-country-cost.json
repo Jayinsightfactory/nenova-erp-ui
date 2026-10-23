@@ -1,6 +1,7 @@
 {
   "id": "invoice-additional-country-cost",
   "title": "국가별 근거 기반 도착원가 확장",
+  "colombiaHydrangeaBasis": "CO_GROUP_42_1_V1 adds HYDRANGEA using source SHA256 d5f71f57a93d3006bb889321d00e249592ab136b855f3f20a4b2b693f78a8da3, sheet 42-1. Weight/volume shares follow K11/M11/T11/U11 and rows 265 onward. Existing CO_GROUP_WEIGHT_VOLUME_V1 and approved revisions remain immutable. Current actual quantities and explicit current expenses are required; historical source values are not defaults. CO_42_1_ORIGINAL_V1 retains source formatting only. Local 2026/2025 sentinel SQL fixture must preserve all protected order/shipment/stock rows. No production DB writes or Thailand changes.",
   "thaiPackingBasis": "Default RECEIPT_LINES preserves strict existing behavior. Explicit TH-only PACKING_GROUP requires positive packingBoxTotal equal to the sum of positive group boxes; each group's stems must still equal actual received stems. Missing/zero native line boxes do not cause ERP repairs. Invoice prices and native full-snapshot drift guards remain authoritative. Input basis and total persist and restore; unsupported/zero/false/omitted and CO near-miss fixtures required.",
   "scope": ["lib/invoiceReceiptAdditionalCost.js", "lib/invoiceReceiptGroupedCost.js", "lib/invoiceReceiptCost.js", "components/import-tools/InvoiceReceiptCostReview.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],

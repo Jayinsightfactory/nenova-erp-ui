@@ -33,6 +33,35 @@ test('TH explicitly reviewed packing groups do not require invented native line 
  delete f.input.groupBoxBasis;blocks(f,'RECEIPT_BOX_QUANTITY_REQUIRED');
 });
 
+test('42-1 hydrangea uses explicit weight groups and leaves legacy four-group formula unchanged', () => {
+  const f=fixture();
+  f.common.formula=formulas.CO_GROUP_42_1_V1;f.input.formulaId=f.common.formula.formulaId;
+  f.input.costGroups[0].groupId='HYDRANGEA';
+  f.input.lineInputs[0].groupId=f.input.lineInputs[1].groupId='HYDRANGEA';
+  const result=run(f);assert.deepEqual(result.issues,[]);
+  near(result.lines[0].componentAmounts.freightNative,10);
+  near(result.lines[0].componentAmounts.customsKRW,800/3);
+  assert.equal(formulas.CO_GROUP_WEIGHT_VOLUME_V1.groupIds.includes('HYDRANGEA'),false);
+  assert.equal(f.common.formula.formulaSourceSheet,'42-1');
+});
+test('42-1 source hydrangea freight/customs arithmetic agrees at both exchange rates', () => {
+  const ids=['ROSE','CARNATION','ALSTROMERIA','RUSCUS','HYDRANGEA'];
+  const boxes=[223,632,82,78.4,556], quantities=[22300,189600,13120,49000,16730];
+  const gross=[8,11,9.7,8,5.5].map((v,i)=>v*boxes[i]);
+  const volume=[10,9,7,9.6,6.7].map((v,i)=>v*boxes[i]);
+  const totalG=gross.reduce((a,b)=>a+b),totalV=volume.reduce((a,b)=>a+b);
+  const freight=12633*2.76+104.97,customs=12633*460+33000+50000+99000+40000;
+  for(const fx of [1350,1400]){
+    const f={document:{reviewedMetadata:{country:'CO',transportMode:'AIR',gw:12633,cw:12633}},
+      rows:ids.map((id,i)=>({lineId:id,prodKey:i+1,actualQuantity:quantities[i],unit:'STEM',unitPrice:.61,lineAmount:quantities[i]*.61,currency:'USD',boxQuantity:boxes[i]})),
+      input:{formulaId:'CO_GROUP_42_1_V1',customsTotalKRW:customs,costGroups:ids.map((groupId,i)=>({groupId,quantity:quantities[i],boxQuantity:boxes[i],grossWeightKg:gross[i]/totalG*12633,volumeWeightKg:volume[i]/totalV*12633})),lineInputs:ids.map(id=>({lineId:id,groupId:id,tariffRate:0}))},
+      common:{formula:formulas.CO_GROUP_42_1_V1,nativeCurrency:'USD',freightCurrency:'USD',exchangeRate:fx,effectiveFreightAmount:freight,share:1}};
+    const r=run(f);assert.deepEqual(r.issues,[]);
+    const expected=(.61+freight*gross[4]/totalG/quantities[4])*fx+customs*gross[4]/totalG/quantities[4];
+    near(r.lines[4].costPerUnitKRW,expected);
+  }
+});
+
 test('CO volume freight and GW customs use explicit group actual stems, not names', () => {
   const f = fixture(); f.rows[0].productName = 'CARNATION misleading label';
   const before = JSON.stringify(f), r = run(f); assert.deepEqual(r.issues, []);
