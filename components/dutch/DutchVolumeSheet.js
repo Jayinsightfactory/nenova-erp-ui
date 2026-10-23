@@ -225,7 +225,7 @@ function DutchVolumeMatrix({ regions = [], onRegionChange = () => {}, workbook, 
           const displayValue = summaryValues.has(address) ? summaryValues.get(address) : cell?.v;
           const raw = displayValue == null ? (cell?.f ? '수식 캐시 없음' : '') : typeof displayValue === 'number' ? formatQty(displayValue) : String(displayValue);
           const weekdayKey = `${sheetName}!${address}`;
-          const weekdayEditable = rowIndex === 1 && colIndex >= stickyCount && colIndex < quantitySummaryStart && !repeatedProduct(colIndex) && !!String(sheet[XLSX.utils.encode_cell({ r: 2, c: colIndex })]?.v ?? '').trim() && !disabled && !cell?.f;
+          const weekdayEditable = rowIndex === 1 && colIndex >= stickyCount && colIndex < quantitySummaryStart && !repeatedProduct(colIndex) && !sheetEntries.some(item => item.sourceColumn === colIndex && item.inlineCustomer) && !!String(sheet[XLSX.utils.encode_cell({ r: 2, c: colIndex })]?.v ?? '').trim() && !disabled && !cell?.f;
           const isEditingDay = weekdayEditable && dayEdit?.key === weekdayKey;
           const edited = entry && Number.isFinite(Number(entry.quantity)) && Number(entry.quantity) !== Number(cell?.v);
           const header = rowIndex === 2 || (dutchDataStart(sheet) === 4 && rowIndex === 3);
