@@ -318,7 +318,7 @@ export async function loadReportData(major, orderYear) {
         const missingPreviousCustoms = previousManual.H == null
           && ['actual_cost_missing', 'missing', 'partial'].includes(approvedPreviousCost?.source ?? prevCustoms.sources?.H?.[key] ?? 'missing');
         const missingPreviousForwarding = previousManual.S == null && (structuredSource === 'partial'
-          || (!hasStructured && prevLegacyS[key] == null));
+          || (!hasStructured && !(Number(prevLegacyS[key]) > 0)));
         const average = normalized
           ? normalized.eligible && !missingPreviousCustoms && !missingPreviousForwarding ? computeCategoryAverageInventoryValue(averageInputs, { approvedNormalizedCountry: key }) : null
           : (!previousConversionMissing && !previousUnitMismatch) ? computeCategoryAverageInventoryValue(averageInputs) : null;
@@ -403,7 +403,7 @@ export async function loadReportData(major, orderYear) {
         const missingCurrentCustoms = man.H == null
           && ['actual_cost_missing', 'missing', 'partial'].includes(customs.sources?.H?.[key] ?? 'missing');
         const missingCurrentForwarding = man.S == null && (structuredSSource === 'partial'
-          || (!hasStructuredS && S[key] == null));
+          || (!hasStructuredS && !(Number(S[key]) > 0)));
         const categoryAverageEnd = normalized
           ? normalized.eligible && !missingCurrentCustoms && !missingCurrentForwarding ? computeCategoryAverageInventoryValue(currentAverageInputs, { approvedNormalizedCountry: key }) : null
           : (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue(currentAverageInputs) : null;

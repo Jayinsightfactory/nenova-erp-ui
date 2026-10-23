@@ -140,8 +140,13 @@ async function main() {
   p31.legacyS['중국'] = 10;
   assert.equal(row(await load('31', '2026'), '중국').auto.F, 48, 'verified legacy forwarding remains admissible with historical customs');
   p31.legacyS['중국'] = 0;
-  assert.equal(row(await load('31', '2026'), '중국').auto.F, 44, 'explicit legacy zero is distinguishable from absent legacy evidence');
-  assert.equal(row(await load('32', '2026'), '중국').auto.E, 44);
+  assert.equal(row(await load('31', '2026'), '중국').auto.F, 999, 'legacy SUM zero may be ISNULL of missing freight and cannot prove free forwarding');
+  assert.equal(row(await load('32', '2026'), '중국').auto.E, 999);
+  p31.SSource['중국'] = 'manual';
+  p31.S['중국'] = 0;
+  assert.equal(row(await load('31', '2026'), '중국').auto.F, 44, 'structured explicit zero remains valid forwarding evidence');
+  p31.S['중국'] = 10;
+  p31.SSource['중국'] = 'missing';
   p31.manual['중국'] = { S: 0 };
   delete p31.legacyS['중국'];
   assert.equal(row(await load('31', '2026'), '중국').auto.F, 44, 'manual zero forwarding is valid evidence');
