@@ -1,3 +1,4 @@
+import { chinaSearchCandidates } from '../lib/chinaSearchCandidates.js';
 import assert from 'node:assert/strict';
 import { applyChinaInvoiceCells, chinaDistributionEntries, chinaEditableCustomers, chinaProductDifferences, remapChinaProduct } from '../lib/chinaVolumeEditing.js';
 const customers = [{custKey:1,custName:'A',area:'서울'},{custKey:2,custName:'B',area:'부산'}];
@@ -21,3 +22,18 @@ const rematched=applyChinaInvoiceCells(fresh,[{...invoice[0],distributions:[{cel
 assert.equal(rematched['1:11'].quantity,0);assert.equal(rematched['2:12'].quantity,8);
 assert.equal(chinaEditableCustomers(customers,new Set(['1','2']),{1:'강원'})[0].area,'강원');
 console.log('PASS China draft blank→0, rematch old zero/new value, immutable order, split reconciliation, stale invoice cells, region');
+
+const catalog = [
+  {value:11,label:'CHINA / 퀵 샌드 (Quick Sand) 70cm · 단'},
+  {value:12,label:'CHINA / 퀵샌드 50cm · 단'},
+  {value:13,label:'CHINA / Diana 50cm · 단'},
+  {value:14,label:'주광농원 · 경부선 · YCL2'},
+];
+assert.deepEqual(chinaSearchCandidates(catalog,'퀵샌드').map(x=>x.value),[11,12]);
+assert.deepEqual(chinaSearchCandidates(catalog,'quick 70').map(x=>x.value),[11]);
+assert.deepEqual(chinaSearchCandidates(catalog,'ＹＣＬ２').map(x=>x.value),[14]);
+assert.deepEqual(chinaSearchCandidates(catalog,'주광 경부').map(x=>x.value),[14]);
+assert.deepEqual(chinaSearchCandidates(catalog,'없는품목'),[]);
+assert.deepEqual(chinaSearchCandidates(catalog,' '),catalog);
+assert.equal(catalog.length,4,'candidate lookup never mutates DB catalog');
+console.log('PASS China live search: whitespace, multiple words, CL/case/fullwidth, no match and immutable catalog');

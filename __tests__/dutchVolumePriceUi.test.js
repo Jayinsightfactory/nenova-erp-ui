@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './dutchMatrixLayout.test.js';
 import './dutchInlineCustomer.test.js';
 import './dutchVolumeWorkbook.test.js';
 import fs from 'node:fs';
@@ -75,7 +76,7 @@ assert.match(page, /className="board-side" aria-label="보조 기능"/, '작업 
 assert.match(page, /className="source-controls" aria-label="물량표 불러오기"/, '업로드와 차수 조회는 빈 데이터 상태와 관계없이 상단에서 보여야 합니다.');
 assert.match(page, /className="always-actions" aria-label="물량표 작업 도구"/, '행 추가·검증 작업 도구는 빈 데이터 안내 위에서도 보여야 합니다.');
 assert.ok(page.indexOf('className="source-controls"') < page.indexOf('className="board-layout"'), '입력 조작부는 엔트리 유무와 무관한 물량표 본문 바깥에 있어야 합니다.');
-assert.ok(page.indexOf('className="always-actions"') < page.indexOf('{!entries.length && !loading'), '작업 도구는 빈 데이터 조건보다 먼저 렌더되어야 합니다.');
+assert.ok(page.indexOf('className="always-actions"') < page.indexOf('{!workbook && !loading'), '작업 도구는 빈 데이터 조건보다 먼저 렌더되어야 합니다.');
 assert.match(page, /aria-label="차수" value=\{week\}/, '차수 선택은 데이터가 없어도 상단에서 계속 접근할 수 있어야 합니다.');
 assert.match(page, /className="load" onClick=\{\(\) => loadLive\(year, week\)\}/, '빈 차수에서도 직접 DB 조회를 재시도할 수 있어야 합니다.');
 assert.match(page, /disabled=\{workBusy \|\| applying \|\| previewLoading \|\| !entries\.length\}/, '물량이 없는 동안 ERP 검증은 비활성화하되 버튼은 보여야 합니다.');

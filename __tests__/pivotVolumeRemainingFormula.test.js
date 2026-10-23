@@ -55,7 +55,7 @@ async function main() {
     const plan = context.plan(rows, [customer], ['Farm'], meta);
     const columns = Object.fromEntries(plan.map((col, index) => [col.type === 'summary' ? col.label : '', index]));
     const cellAt = (label, row) => XLSX.utils.encode_cell({ r: row - 1, c: columns[label] });
-    const start = country === '중국' ? 5 : 4;
+    const start = ['중국', '네덜란드'].includes(country) ? 5 : 4;
     const total = start + rows.length;
     const original = context.generate(rows, [customer], ['Farm'], meta).ws;
     assert.equal(original['!freeze'].ySplit, start - 1);
@@ -95,7 +95,7 @@ async function main() {
     const rows = [makeRow(1, 5.5, 0, country)];
     const meta = { country, flower: '장미', weekLabel: '41-01' };
     const plan = context.plan(rows, [], ['Farm'], meta);
-    const first = country === '중국' ? 5 : 4;
+    const first = ['중국', '네덜란드'].includes(country) ? 5 : 4;
     const ws = roundtrip(context.generate(rows, [], ['Farm'], meta).ws);
     const remainCol = plan.findIndex(col => col.label === '잔량');
     assert.equal(evaluate(ws, XLSX.utils.encode_cell({ r: first - 1, c: remainCol })), 5.5);

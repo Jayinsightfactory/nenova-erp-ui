@@ -1116,12 +1116,20 @@
 - exact100/80, 신규업체8단/80송이, 기존 주문 전열 보존, 반복/감소/0, 교차연도, 환산변조 rollback, 삭제헤더/경합 테스트 통과. 운영 쓰기 없음. 배포 후 결과는 세션 기록 참조.
 - 검색어: china-order-guard-review 주문100 분배80 EstQuantity chinaOrderUnits 삭제출고헤더 dnSpy
 
+## 2026-10-23 네덜란드 물량표 업체·지역·입고 품목
+- CL 별도 행, 지역별 전체 업체 열 이동, 업체/품목 추가 팝업 분리, 주문 없는 입고표 표시.
+- 실제 dnSpy·SELECT-only와 격리 SQL, 왕복/교차연도 fixture 확인. 원장 저장 경로 불변.
+- PR·배포·운영 스모크는 docs/work-sessions/2026-10-23_dutch-arrival-layout.md 후속 기록 참조. 현재 미검증.
+- 검색어: dutch-arrival-layout CL분리 지역이동 입고전용 품목추가
 
 ## 2026-10-23 중국 물량표 지역·요일·엑셀
 - 지역/요일 native 선택, 미저장 변경 초기화, 확정/매칭 상태 무관 다운로드 및 동일 데이터 미리보기. 업체명/CL 별도 헤더 셀. ERP writer 변경 없음.
 - 교차연도 엑셀/작업본 테스트. 전체 검증·배포·운영 UI 결과는 세션 문서 후속 참조.
 - 검색어: china-board-options 지역선택 요일변경 변경초기화 엑셀미리보기 CL셀분리
 
+## 2026-10-23 중국 품목·업체 즉시 검색
+- 닫힌 select 필터 대신 입력 아래 후보 목록. 이름/코드/복수어 검색 및 키보드·IME 보호. ERP writer 변경 없음.
+- 검색어: china-search-suggestions ChinaSearchSelect 자동완성 연관품목 업체추가
 ## 2026-10-23 승인 원가 격리 통합 검증·정수 표시
 - 실제 CO43-2 송장2914 캐시6품목으로 격리 SQL 입고/원가승인/재승인/엑셀 통과. 운영 DB 미접속.
 - hotel/catalog/pivot/incoming 실제 조회 함수의 최신43-2·단위 환산 일치. 과거원가 및 주문·출고·재고·입고 원장 snapshot 보존.
