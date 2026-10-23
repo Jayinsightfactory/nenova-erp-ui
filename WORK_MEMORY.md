@@ -1098,3 +1098,10 @@
 - 확정 출고 사유가 요약 DB키 부재로 누락되어 keyed rows에서 추출하도록 보완. 원장 쓰기 로직 변경 없음. 실제 SQL 및 단위 회귀에 확정 사유 검증 추가.
 - 검색어: china-volume-fixed-message 중국물량표 확정출고 사유누락 주문보존
 
+## 2026-10-23 중국 물량표 dnSpy·등록분배 MD 재감사
+- 사용자 확인: 기존 주문100은 보존하고 분배80, 새 업체/품목은 주문·분배 동시 등록.
+- actual dnSpy FormOrderAdd/FormShipmentDistribution 및 운영 SELECT 재확인. 오래된 FormOrderAdd.md 양수 주문 덮어쓰기 설명 정정.
+- 격리 SQL에서 신규 주문 Est8(기대80) 반례 재현 후 중국 전용 native 환산·readback 보완. 삭제 출고헤더의 중복생성도 공통 snapshot 단계에서 차단.
+- exact100/80, 신규업체8단/80송이, 기존 주문 전열 보존, 반복/감소/0, 교차연도, 환산변조 rollback, 삭제헤더/경합 테스트 통과. 운영 쓰기 없음. 배포 후 결과는 세션 기록 참조.
+- 검색어: china-order-guard-review 주문100 분배80 EstQuantity chinaOrderUnits 삭제출고헤더 dnSpy
+
