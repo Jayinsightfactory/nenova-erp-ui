@@ -34,7 +34,8 @@ assert.match(workspace, /weekday-carryover', \{ year, majorWeek:String\(majorWee
 assert.match(workspace, /exact.length===1/);
 assert.match(workspace, /defaultCustomerRequest.current \+= 1/);
 assert.match(workspace, /weekday-products/);
-assert.match(workspace, /미적용 초안 제외/);
+assert.match(workspace, /<WeekdayPrintPreview/);
+assert.match(read('components/WeekdayPrintPreview.js'), /미적용 초안 제외/);
 assert.match(workspace, /WeekdayCycleMatrix key=\{`\$\{customer\?\.CustKey/);
 assert.match(workspace, /const related = activePlans.filter\(\(item\) => Number\(item.custKey\) === Number\(row.custKey\)/);
 assert.match(workspace, /확인 필요/);

@@ -435,27 +435,48 @@ async function main() {
       const old=await allocationPrint.readWeekdayAllocationPrintInTransaction({...request,dates:['2026-09-10']},tQ,sql);
       assert.equal(old.items.length,0,'removed date cannot print stale quantities');
       const output=bundle.buildWeekdayEstimatePrintBundle({requests:[request],results:[{...result,scope:request,source:'ALLOCATION',success:true,readOnly:true,draftIncluded:false}],printDate:'2026-09-11'});
-      assert.equal(output.documentCount,1);assert.ok(output.html.includes('2026-09-11'));
+      assert.equal(output.documentCount,1);assert.ok(output.label.includes('2026-09-11'));assert.ok(output.html.includes('>37차<'));
       console.log(`PASS ${fixed?'fixed':'unfixed'} date move -> immediate selected-date quote; original day empty`);
     });
-    for (const family of ['카네이션','수국']) await transaction(pool,async tQ=>{
+    for (const family of ['카네이션','수국']) for(const mixed of [false,true]) await transaction(pool,async tQ=>{
       // Operational probe confirms float; legacy fixture decimal(18,4) truncates thirds.
       for(const [table,columns] of Object.entries({ShipmentDetail:['OutQuantity','EstQuantity','BoxQuantity','BunchQuantity','SteamQuantity'],ShipmentDate:['ShipmentQuantity','EstQuantity'],Product:['Stock'],StockHistory:['BeforeValue','AfterValue']}))
         for(const column of columns)await tQ(`ALTER TABLE dbo.${table} ALTER COLUMN ${column} float NOT NULL`);
 
       await tQ(`UPDATE Product SET FlowerName=N'${family}',BunchOf1Box=${family==='카네이션'?15:0},SteamOf1Bunch=${family==='카네이션'?20:0},SteamOf1Box=${family==='카네이션'?300:30},EstUnit=N'${family==='카네이션'?'단':'송이'}' WHERE ProdKey=866`);
-      const factor=family==='카네이션'?15:30, q=Number((1/factor).toFixed(9));
+      const factor=family==='카네이션'?15:30, units=mixed?factor+3:1, q=Number((units/factor).toFixed(9));
       const request=await body(tQ,[{date:'2026-09-10',quantity:q},{date:'2026-09-11',quantity:q},{date:'2026-09-13',quantity:0}]);
       await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
       const result=await state(tQ),detail=result.details.find(row=>row.SdetailKey===89892);
-      assert.ok(Math.abs(detail.OutQuantity-2/factor)<1e-6);
+      assert.ok(Math.abs(detail.OutQuantity-2*units/factor)<1e-6);
       const days=result.dates.filter(row=>row.SdetailKey===89892);
-      assert.equal(days.length,2);assert.ok(days.every(row=>row.EstQuantity===1));
+      assert.equal(days.length,2);assert.ok(days.every(row=>row.EstQuantity===units));
       const printRequest={...print.normalizeWeekdayPrintRequest({year:2026,majorWeek:'37',custKey:533,mode:'dates',dates:['2026-09-10','2026-09-11']}),source:'ALLOCATION'};
       const printed=await allocationPrint.readWeekdayAllocationPrintInTransaction(printRequest,tQ,sql);
-      assert.equal(printed.items.reduce((sum,row)=>sum+row.Quantity,0),2);
+      assert.equal(printed.items.reduce((sum,row)=>sum+row.Quantity,0),2*units);
+      // Saved DB fractions -> actual web matrix -> Wilson split -> XLSX numeric cells.
+      const matrixModule=await load('lib/weekdayHorizontalMatrix.js'),exportModule=await load('lib/weekdayWebExportSnapshot.js');
+      const workbook=await load('lib/weekdayStyledWebWorkbook.js'),template=await load('__tests__/fixtures/weekdayWorkbookTemplate.js');
+      const XLSX=require('xlsx');
+      const cycle={offset:0,year:2026,majorWeek:'37',startDate:'2026-09-10',calendarState:'FOUND',days:Array.from({length:7},(_,i)=>({date:`2026-09-${10+i}`,label:['목','금','토','일','월','화','수'][i],orderWeek:i<4?'37-01':'37-02',calendarState:'FOUND'}))};
+      const comparisons=[{year:2026,orderWeek:'37-01',prodKey:866,prodName:family,flowerName:family,custKey:533,outUnit:'박스',state:'FIXED_REVIEW_REQUIRED',detailRows:1,
+        shipmentOutQuantity:detail.OutQuantity,shipmentDates:days.map(day=>({date:day.date.slice(0,10),shipmentQuantity:day.ShipmentQuantity}))},
+        {year:2026,orderWeek:'37-02',prodKey:866,custKey:533,outUnit:'박스',state:'NO_SHIPMENT',detailRows:0,shipmentOutQuantity:null,shipmentDates:[]}];
+      const baselines=['01','02'].map(suffix=>({custKey:533,year:2026,orderWeek:`37-${suffix}`,rows:[{prodKey:866,quantity:suffix==='01'?1:0,unit:'박스',shipmentDates:[]}]}));
+      const matrix=matrixModule.buildHorizontalWeekdayMatrix([cycle],[],comparisons,baselines);
+      const model=exportModule.buildWeekdayWebExportSnapshot(matrix,'격리 저장 후 수량 검증',{custKey:533,wilsonDay:'목',wilsonRecords:[{year:2026,orderWeek:'37-01',prodKey:866,custKey:533,date:'2026-09-10',unit:'박스',status:'CURRENT',total:q,wilson:q}]});
+      const val=kind=>model.rows[0].values[model.columns.find(col=>col.kind===kind).key];
+      assert.equal(val('day'),0);assert.equal(val('wilson'),q);assert.equal(val('dayTotal'),q);
+      assert.ok(Math.abs(val('sum01')-2*q)<1e-9);assert.ok(Math.abs(val('remaining01')-(1-2*q))<1e-9);
+      const bytes=await workbook.buildWeekdayStyledWebWorkbook(await template.weekdayWorkbookFixture(),model);
+      const sheet=XLSX.read(bytes,{type:'array'}).Sheets['주광 발주내역'];
+      const wilsonColumn=Object.entries(sheet).find(([key,cell])=>!key.startsWith('!')&&typeof cell.v==='string'&&cell.v.includes('윌슨'))[0].replace(/\d+$/,'');
+      assert.equal(sheet[`${wilsonColumn}4`].v,q);assert.equal(sheet[`${wilsonColumn}5`].v,q,'subtotal must not truncate to three decimals');
+      const quote=bundle.buildWeekdayEstimatePrintBundle({requests:[{...printRequest,dates:['2026-09-10']}],results:[{success:true,source:'ALLOCATION',readOnly:true,draftIncluded:false,
+        scope:{...printRequest,dates:['2026-09-10']},...(await allocationPrint.readWeekdayAllocationPrintInTransaction({...printRequest,dates:['2026-09-10']},tQ,sql))}],printDate:'2026-10-23'});
+      assert.ok(quote.html.includes(`${units}${family==='카네이션'?'단':'송이'}`));
       assert.ok(!result.history.some(row=>row.Descr==='재고조정'));
-      console.log(`PASS ${family} two dates one loose unit each, exact total and quote quantity`);
+      console.log(`PASS ${family} two dates ${units} loose units each, exact total and quote quantity`);
     });
     console.log('PASS all isolated confirmation lifecycle scenarios');
   } finally {
