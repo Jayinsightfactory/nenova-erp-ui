@@ -2,6 +2,7 @@
 // Pivot 통계 기반 통합 물량표 다운로드
 
 import XLSX from 'xlsx-js-style';
+import { productColorLabel } from '../../../lib/productColor';
 import { withAuth } from '../../../lib/auth';
 import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
@@ -149,10 +150,7 @@ function q(row, value) {
 }
 
 function dutchColorLabel(descr) {
-  const head = String(descr || '').split(/[\/／]/)[0]?.trim() || '';
-  if (!head || !/[가-힣]/.test(head)) return '';
-  if (/[0-9]|\bmoq\b|시즌|월|단색|단당|박스|스템|길이|원산지|최소|주문|포장/i.test(head)) return '';
-  return head.replace(/\s{2,}/g, ' ');
+  return productColorLabel(descr);
 }
 
 function extractCustomerAbbr(customer) {

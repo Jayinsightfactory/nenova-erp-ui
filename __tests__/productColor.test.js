@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import {productColorDescription,saveProductColor} from '../lib/productColor.js';
+import {productColorDescription,productColorLabel,saveProductColor} from '../lib/productColor.js';
+for(const color of ['핑크','블루','blue','연보라'])assert.equal(productColorLabel(productColorDescription('설명 보존',color)),color);
+for(const color of ['12cm','MOq 20','pink 123'])assert.throws(()=>productColorDescription(null,color));
 assert.equal(productColorDescription(null,'핑크'),'핑크');
 assert.equal(productColorDescription('화이트 / 60cm / 설명','레드'),'레드 / 60cm / 설명');
 assert.equal(productColorDescription('설명 보존','레드'),'레드 / 설명 보존');
