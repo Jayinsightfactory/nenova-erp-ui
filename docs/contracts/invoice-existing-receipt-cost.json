@@ -1,6 +1,7 @@
 {
  "id":"invoice-existing-receipt-cost",
- "title":"기존 입고 보존 원가 연결 (NL 송이 / CN 단)",
+ "title":"기존 입고 보존 원가 연결 (NL 송이 / CN·TH 단, TH 인보이스 송이 FOB)",
+ "thaiExtension":"TH USD/STEM invoice identity and exact product/price/stem/amount aggregate are checked by the same existing-link helper. Native bunch/box/stock remain unchanged. EXISTING_TH persists a complete snapshot and is rechecked at approval/readback/export. See docs/plans/thai-existing-cost-2026-10-23.md.",
  "scope":["lib/invoiceExistingReceipt.js","pages/api/import/receipts/[id]/link-existing.js","lib/invoiceReceiptCost.js","lib/invoiceReceiptWriter.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/InvoiceReceiptCostReview.js","lib/invoiceReceiptCostExport.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "actions":[{"name":"LINK_EXISTING_COST","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Explicit NL stem or CN CNY bunch existing receipt link only. Same year/week/farm/invoice, exact product+price grouped billed quantities and amounts. Preserve all source lines and complete native snapshot including CN null-product nonfinancial rows. Link operation and document/history only; lock and revalidate full snapshot. Block native writer for linked documents. No stock SP."}],

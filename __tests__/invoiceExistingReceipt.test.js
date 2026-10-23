@@ -44,6 +44,15 @@ function chinaFixture() {
  f.details.push({WdetailKey:4,ProdKey:null,ProdName:null,OutQuantity:null,EstQuantity:null,SteamQuantity:20,UPrice:0,TPrice:0});
  return f;
 }
+test('TH USD stem invoice links without changing native bunch/box quantities', () => {
+ const f=fixture(); f.document.reviewedMetadata.country='TH'; f.document.lines.forEach(l=>{l.currency='USD';l.bunchQuantity=l.stemQuantity/5;});
+ f.details[0].BoxQuantity=0; f.details[0].BunchQuantity=2; f.details[0].OutQuantity=2;
+ const before=JSON.stringify(f), result=planExistingReceiptLink(f.document,f.header,f.details,'Holex');
+ assert.equal(result.quantity,2); assert.equal(result.quantityUnit,'단'); assert.equal(JSON.stringify(f),before);
+ for(const mutate of [x=>x.header.OrderYear='2025',x=>x.document.lines[0].currency='EUR',x=>x.details[0].SteamQuantity=11,x=>x.details[0].UPrice=1]) {
+  const bad=structuredClone(f);mutate(bad);assert.throws(()=>planExistingReceiptLink(bad.document,bad.header,bad.details,'Holex'),{code:'EXISTING_RECEIPT_MISMATCH'});
+ }
+});
 test('CN keeps source stems distinct and links price-basis bunches without modifying native rows',()=>{
  const f=chinaFixture(),before=JSON.stringify(f),p=planExistingReceiptLink(f.document,f.header,f.details,'Holex');
  assert.equal(p.quantity,10);assert.equal(p.quantityUnit,'단');assert.equal(p.stemQuantity,100);

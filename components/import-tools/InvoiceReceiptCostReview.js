@@ -30,6 +30,8 @@ const EMPTY_FORM = Object.freeze({
   allocationShareDenominator: '',
   expected95Quantity: '',
   costGroups: [],
+  groupBoxBasis: 'RECEIPT_LINES',
+  packingBoxTotal: '',
   lossTreatmentConfirmed: false,
   lineInputs: [],
 });
@@ -98,6 +100,8 @@ function switchedFormulaForm(current, formulaId) {
   const formula = INVOICE_COST_FORMULAS[formulaId];
   const fields = new Set(formulaLineFields(formula));
   return { ...current, formulaId, formulaApplicabilityConfirmed: false,
+    groupBoxBasis: formula?.country === 'TH' ? current.groupBoxBasis ?? 'RECEIPT_LINES' : 'RECEIPT_LINES',
+    packingBoxTotal: formula?.country === 'TH' ? current.packingBoxTotal ?? '' : '',
     lossTreatmentConfirmed: false, costGroups: formulaGroups(formula, current.formulaId === formulaId ? current.costGroups : []),
     formulaVersion: formula?.formulaVersion || '', formulaSourceHash: formula?.formulaSourceHash || '',
     formulaSourceSheet: formula?.formulaSourceSheet || '', formulaSourceCells: formula?.formulaSourceCells || '',
@@ -272,6 +276,7 @@ function payloadOf(form) {
     exchangeRateKRW: numberOrNull(form.exchangeRateKRW),
     freightAmount: numberOrNull(form.freightAmount),
     customsTotalKRW: numberOrNull(form.customsTotalKRW),
+    packingBoxTotal: numberOrNull(form.packingBoxTotal),
     allocationShareNumerator: numberOrNull(form.allocationShareNumerator),
     allocationShareDenominator: numberOrNull(form.allocationShareDenominator),
     expected95Quantity: numberOrNull(form.expected95Quantity),
@@ -733,6 +738,14 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       행별 CBM 환산중량은 kg입니다. 원시 m³나 임의 환산계수를 입력하지 마세요. 인식 GW는 미확정 힌트이며 현재 자료와 대조해야 합니다.</p>}
     {groupIds.length > 0 && <>
       <h4>포장 그룹 수동 확인</h4>
+      {country === 'TH' && <>
+        <label>박스 배분 기준 <select aria-label="박스 배분 기준" value={form.groupBoxBasis ?? 'RECEIPT_LINES'} onChange={event => update('groupBoxBasis', event.target.value)}>
+          <option value="RECEIPT_LINES">입고 품목별 박스 합계</option>
+          <option value="PACKING_GROUP">패킹 그룹별 박스 (기존 입고 보존)</option>
+        </select></label>
+        {form.groupBoxBasis === 'PACKING_GROUP' && <label>패킹 전체 박스수 <input aria-label="패킹 전체 박스수" type="number" min="0" step="0.000001" value={form.packingBoxTotal ?? ''} onChange={event => update('packingBoxTotal', event.target.value)} /></label>}
+        <p>여러 품목이 한 박스를 공유하면 패킹 그룹별 박스를 선택하세요. 그룹 박스 비율 × 그룹 안의 송이 비율로 운임·통관비를 나눕니다. 기존 입고 박스수는 바꾸지 않습니다. 상품 단가는 인보이스 값을 사용합니다.</p>
+      </>}
       <p>송이수·박스수·중량은 원문 근거로 직접 입력하세요. 품목명으로 그룹을 추정하거나 자동 선택하지 않습니다. 사용하지 않는 그룹은 비워 두세요.</p>
       {country === 'CO' && <p role="status">그룹 실중량 합계는 문서 GW, 그룹 부피중량 합계는 문서 CW와 각각 일치해야 합니다 (0.01 kg). 합계가 다르면 계산 승인할 수 없습니다.</p>}
       {country === 'CO' && <p role="status">CO 운임은 문서 GW와 CW가 정확히 같을 때 실중량, CW가 더 클 때 부피중량으로 배분합니다. 중국 항공의 근사 일치 분기와 다릅니다. 통관비는 실중량 기준입니다.</p>}

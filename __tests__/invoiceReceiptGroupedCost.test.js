@@ -21,6 +21,17 @@ const fixture = createGroupedCostFixture;
 const run = f => { const issues = []; return { ...calculate(f.document, f.rows, f.input, f.common, issues), issues }; };
 const blocks = (f, code) => { const r = run(f); assert.deepEqual(r.lines, []); assert.ok(r.issues.some(i => i.code === code), JSON.stringify(r.issues)); };
 const near = (a, b) => assert.ok(Math.abs(a - b) < .000002, `${a} != ${b}`);
+test('TH explicitly reviewed packing groups do not require invented native line boxes', () => {
+ const f=fixture('TH'), expected=run(f); f.rows.forEach((r,i)=>r.boxQuantity=i===0?null:0);
+ Object.assign(f.input,{groupBoxBasis:'PACKING_GROUP',packingBoxTotal:4});
+ const before=JSON.stringify(f), actual=run(f);
+ assert.deepEqual(actual.issues,[]);assert.deepEqual(actual.lines,expected.lines);assert.equal(JSON.stringify(f),before);
+ for(const value of [undefined,null,0,false,'',3,Infinity]) {const bad=structuredClone(f);bad.input.packingBoxTotal=value;blocks(bad,'PACKING_BOX_TOTAL_MISMATCH');}
+ for(const value of [false,0,'UNKNOWN']) {const bad=structuredClone(f);bad.input.groupBoxBasis=value;blocks(bad,'GROUP_BOX_BASIS_INVALID');}
+ const mismatch=structuredClone(f);mismatch.input.costGroups[0].quantity++;blocks(mismatch,'GROUP_QUANTITY_MISMATCH');
+ const co=fixture('CO');Object.assign(co.input,{groupBoxBasis:'PACKING_GROUP',packingBoxTotal:4});blocks(co,'GROUP_BOX_BASIS_INVALID');
+ delete f.input.groupBoxBasis;blocks(f,'RECEIPT_BOX_QUANTITY_REQUIRED');
+});
 
 test('CO volume freight and GW customs use explicit group actual stems, not names', () => {
   const f = fixture(); f.rows[0].productName = 'CARNATION misleading label';

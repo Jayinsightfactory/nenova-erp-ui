@@ -13,6 +13,17 @@ const registry = {
 const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
 const ui = new Function('INVOICE_COST_FORMULAS', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry);
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
+test('Thai packing basis survives payload and invalidates confirmation on edit',()=>{
+ registry.TH_PACK={...descriptor('TH_PACK','TH','AIR',['groupId','stemsPerBunch']),groupIds:['OTHERS']};
+ const form=ui.initialForm(doc('TH'),[]);
+ const selected=ui.editedForm(form,'groupBoxBasis','PACKING_GROUP');
+ const counted=ui.editedForm(selected,'packingBoxTotal','27');
+ assert.equal(ui.payloadOf(counted).packingBoxTotal,27);
+ assert.equal(ui.payloadOf(counted).groupBoxBasis,'PACKING_GROUP');
+ assert.equal(counted.formulaApplicabilityConfirmed,false);
+ assert.equal(ui.switchedFormulaForm(counted,'US').groupBoxBasis,'RECEIPT_LINES');
+ delete registry.TH_PACK;
+});
 
 test('manual percentage editor preserves zero and missing values and roundtrips saved fractions', () => {
   const manual = new Function(`${helpers}; return { tariffPercent, tariffFraction, manualFieldsNeeded };`)();
