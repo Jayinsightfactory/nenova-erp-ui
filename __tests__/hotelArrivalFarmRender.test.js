@@ -25,7 +25,8 @@ const item = {prodKey:2330,costPrice:8280,arrivalReferences:[
 ]};
 const before=JSON.stringify(item);
 const html=renderToStaticMarkup(React.createElement(Component,{item}));
-for (const text of ['농장별 원가','3건','MELODY','11,450.7','9,796.8','8,641.4','농장 미기재','이전 최신','호텔 다음 1차','95%기준','46행']) assert.ok(html.includes(text),text);
+for (const text of ['농장별 원가','3건','MELODY','11,451','9,797','8,641','농장 미기재','이전 최신','호텔 다음 1차','95%기준','46행']) assert.ok(html.includes(text),text);
+for (const text of ['11,450.7','9,796.8','8,641.4']) assert.ok(!html.includes(text),text);
 assert.equal((html.match(/<b style="color:#0369a1">/g)||[]).length,3);
 assert.equal(JSON.stringify(item),before);
 console.log('Farm arrival reference real React render preserves all source prices and stored cost');
