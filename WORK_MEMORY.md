@@ -1058,3 +1058,10 @@
 - 실제 dnSpy ClassProduct/FormQuantityPivot 확인, SELECT-only 품목 schema/trigger probe 재실행. SQL/API writer 변경 없음.
 - 관련 실행 검사/빌드 통과. 전체 gate·PR·배포 결과는 세션 기록 후속 참조. 운영 저장 시험 없음.
 - 검색어: dutch-explicit-load prompt not supported 칼라 dialog 명시조회
+
+## 2026-10-23 콜롬비아 수국 42-1 원가 확장
+- 별도 CO_GROUP_42_1_V1 / CO_42_1_ORIGINAL_V1. 기존 승인 원가와 태국 정책 보존.
+- 격리 SQL에서 실제 송장 2914의 6품목 48박스/1440송이 입고→TEST_ONLY 원가→XLSX 통과. 운영 DB 수정 없음.
+- 1350/1400 독립 산식·원본 서식 검사 통과. 브라우저/배포 결과는 세션 기록에서 후속 확인. 전체 PDF 7송장 전수 미검증.
+- 기록: docs/work-sessions/2026-10-23_colombia-hydrangea-42-1.md
+- 검색어: CO_GROUP_42_1_V1 HYDRANGEA 콜롬비아 수국 42-1

@@ -166,8 +166,9 @@ test('actual registered CO/TH descriptors are eligible in UI only within verifie
   ]) {
     assert.ok(INVOICE_COST_FORMULAS[id]);
     for (const alias of aliases) {
-      assert.equal(actual.applicableFormulaId(doc(alias)), id);
+      assert.equal(actual.applicableFormulaId(doc(alias)), country === 'CO' ? '' : id);
       assert.ok(actual.applicableFormulas(doc(alias)).some(formula => formula.formulaId === id));
+      if (country === 'CO') assert.ok(actual.applicableFormulas(doc(alias)).some(formula => formula.formulaId === 'CO_GROUP_42_1_V1'));
     }
     assert.equal(actual.applicableFormulaId({ reviewedMetadata: { country, transportMode: 'SEA' } }), '');
     assert.equal(actual.applicableFormulaId({ reviewedMetadata: { country } }), '');
