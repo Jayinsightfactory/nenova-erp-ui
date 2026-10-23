@@ -67,7 +67,7 @@ function assertFormatOnlyStyleClones(actual, original) {
   const oldXfs = [...old[1].matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].map(m => m[0]);
   const normalize = xf => xf.replace(/\s+(?:numFmtId|applyNumberFormat)="[^"]*"/g, '');
   for (const match of next[1].slice(old[1].length).matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)) {
-    assert.match(match[0], /numFmtId="4"/);
+    assert.match(match[0], /numFmtId="(?:4|0)"/);
     assert.ok(oldXfs.some(xf => normalize(xf) === normalize(match[0])), 'clone may change only numeric formatting');
   }
   assert.equal(actual.replace(next[0], old[0]), original, 'fonts/colors/width-independent style parts stay exact');
@@ -169,6 +169,7 @@ test('TH existing zero-box receipt exports invoice prices and packing-group calc
  assert.equal(JSON.stringify(f),before);
  const workbook=XLSX.read(bytes), sheet=workbook.Sheets[workbook.SheetNames[0]];
  assert.equal(workbook.SheetNames[0],'2026 41-02');assert.ok(workbook.SheetNames.includes('원본수식 비교'));
+   assert.equal(XLSX.utils.format_cell({...sheet.G15,v:0.045,w:undefined}),'0.045');
  for(let i=0;i<19;i++){assert.equal(sheet[`G${15+i}`].v,f.document.lines[i].unitPrice);assert.ok(Math.abs(sheet[`Q${15+i}`].v-calculated.lines[i].totalCostKRW)<.00001);}
  f.snapshot.input.packingBoxTotal++;
  await assert.rejects(()=>createInvoiceCostWorkbook(f),{code:'COST_EXPORT_INPUT_INVALID'});

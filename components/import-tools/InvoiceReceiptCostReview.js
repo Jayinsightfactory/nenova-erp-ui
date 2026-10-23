@@ -52,6 +52,7 @@ function manualFieldsNeeded(line, input, fields) {
   if (Number(line.outQuantity) === 0 && line.outQuantity != null) return [];
   return fields.filter(key => {
     if (key === 'stemsPerBunch' && ['STEM', '송이', '스팀'].includes(line.outUnit)) return false;
+    if (key === 'bunchesPerBox' && ['BUNCH', '단', 'STEM', '송이', '스팀'].includes(line.outUnit)) return false;
     const value = numberOrNull(input[key]);
     if (value === null || !Number.isFinite(Number(value))) return true;
     if (key === 'tariffRate') return value < 0 || value > 1;
@@ -141,7 +142,8 @@ function initialForm(document, receiptLines) {
   const lineCurrencies = new Set(receiptLines.map(line => String(line.currency || '').trim().toUpperCase()));
   const uniformNativeCurrency = lineCurrencies.size === 1 && /^[A-Z]{3}$/.test([...lineCurrencies][0])
     ? [...lineCurrencies][0] : '';
-  const verifiedFormula = INVOICE_COST_FORMULAS[saved.formulaId];
+  const initialFormulaId = saved.formulaId || applicableFormulaId(document);
+  const verifiedFormula = INVOICE_COST_FORMULAS[initialFormulaId];
   const savedLines = new Map((saved.lineInputs || []).map(line => [String(line.lineId).toLowerCase(), line]));
   return {
     ...EMPTY_FORM,
@@ -152,6 +154,7 @@ function initialForm(document, receiptLines) {
     } : {}),
     ...saved,
     ...(verifiedFormula ? {
+      formulaId: initialFormulaId,
       formulaVersion: verifiedFormula.formulaVersion,
       formulaSourceHash: verifiedFormula.formulaSourceHash,
       formulaSourceSheet: verifiedFormula.formulaSourceSheet,
