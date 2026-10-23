@@ -13,7 +13,7 @@ export async function applyDutchVolume(body, user, deps = {}) {
   const jobId = String(body?.jobId || '').trim();
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(jobId)) throw dutchError('INVALID_JOB_ID', '새 작업 ID가 필요합니다. 기존 작업은 진행 조회로 확인하세요.');
   if (hasApplyProgress(jobId)) throw dutchError('JOB_ID_EXISTS', '이미 사용된 작업 ID입니다. 기존 작업의 진행을 확인하세요.', 409);
-  const plan = claim(token, user, jobId);
+  const plan = claim(token, user, jobId, deps.country || '네덜란드');
   if (!initApplyProgress(jobId, plan.rows.length, String(user?.userId || ''))) {
     throw dutchError('JOB_ID_EXISTS', '이미 사용된 작업 ID입니다. 기존 작업의 진행을 확인하세요.', 409);
   }
@@ -23,7 +23,7 @@ export async function applyDutchVolume(body, user, deps = {}) {
       rawYear: plan.year,
       rows: plan.rows,
       sourceFileName: plan.sourceFileName,
-      fullCategoryReplacement: true,
+      fullCategoryReplacement: plan.country !== '중국',
       dutchPlan: plan,
       user,
       ackQtyWarnings: body?.ackQtyWarnings === true,

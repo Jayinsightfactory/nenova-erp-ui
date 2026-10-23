@@ -9,7 +9,7 @@ assert.match(page, /인보이스 품목/, '인보이스 원본 품목명을 표�
 assert.match(page, /DB 매칭 품목/, 'DB 매칭 품목명을 나란히 표시해야 합니다.');
 assert.match(page, /미매칭 인보이스·품목/, '인보이스·품목 미매칭을 같은 패널에 표시해야 합니다.');
 assert.match(page, /부족|초과/, '수량 부족·초과 판정을 명확히 표시해야 합니다.');
-assert.match(page, /박스 분할·배분/, '검토 패널에서 박스 분할·배분으로 바로 이동해야 합니다.');
+assert.match(page, /품목 수량 분할/, '검토 패널에서 품목 수량 분할으로 바로 이동해야 합니다.');
 assert.match(page, /onMatch\(row\.sourceRow\)/, '정확한 원본 행의 매칭 편집을 열어야 합니다.');
 assert.match(page, /onDistribution\(row\.sourceRow\)/, '정확한 원본 행의 분배 편집을 열어야 합니다.');
 assert.match(page, /'good' : 'bad'/, '수량 일치 행은 블루, 불일치 행은 레드 상태를 사용해야 합니다.');
