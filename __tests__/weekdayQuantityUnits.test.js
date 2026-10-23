@@ -18,7 +18,7 @@ assert.equal(boxLabel(0.21, { steamOf1Box: 300 }), '63송이', 'stem-only packag
 assert.equal(weekdayQuantityLabel(1.25, {}, '단', carnation), '1단 5송이', 'fractional bunches use stems per bunch');
 assert.equal(stemsLabel(13), '13');
 assert.equal(weekdayQuantityLabel(1.2, {}, '단', { steamOf1Bunch: 20 }), '1단 4송이');
-assert.equal(boxLabel(0.21, { bunchOf1Box: 15, steamOf1Bunch: 20, steamOf1Box: 0 }), '0.21박스 · 환산 확인',
+assert.equal(boxLabel(0.21, { bunchOf1Box: 15, steamOf1Bunch: 20, steamOf1Box: 0 }), '0.2박스 · 환산 확인',
   'explicitly invalid packaging metadata blocks an otherwise derivable conversion');
 assert.equal(boxLabel(0.21, { bunchOf1Box: 15, steamOf1Bunch: 20, steamOf1Box: null }), '3단 3송이',
   'missing box-stem count may be derived from valid bunch counts for display only');
@@ -44,11 +44,11 @@ assert.equal(boxLabel(1.2, { ...carnation, steamOf1Box: 301 }), '1.2박스 · �
 const tiny = boxLabel(0.00000001);
 assert.notEqual(tiny, '0');
 assert.notEqual(tiny, '');
-assert.match(tiny, /(?:0\.00000001|1e-8)/);
+assert.match(tiny, /^0박스/);
 assert.match(tiny, /환산 확인/);
 const tinyUnknown = weekdayQuantityLabel(0.00000001, {}, '박스', null);
-assert.match(tinyUnknown, /(?:0\.00000001|1e-8)박스 · 환산 확인/,
-  'a tiny positive value without packaging metadata retains a nonzero raw label');
+assert.match(tinyUnknown, /^0박스 · 환산 확인/,
+  'rounding changes only the visible label, not the source');
 
 assert.equal(weekdayQuantityLabel(48, { flowerNames: ['알스트로'] }, '단', alstroPackaging), '48(3)');
 assert.equal(weekdayQuantityLabel(50, { flowerNames: ['알스트로'] }, '단', alstroPackaging), '50(3박스 2단)');

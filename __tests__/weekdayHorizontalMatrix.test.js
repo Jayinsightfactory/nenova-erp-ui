@@ -311,7 +311,7 @@ const targetSuffix = process.platform === 'win32' ? '-msvc' : process.platform =
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${targetSuffix}`);
 const source = readFileSync(new URL('../components/WeekdayCycleMatrix.js', import.meta.url), 'utf8');
 assert.doesNotMatch(source, /viewport\.style\.maxHeight|window\.innerHeight/, 'product rows must grow with the document instead of a nested viewport');
-const compiled = transformSync(source + '\nexport { QuantityCell };', false, Buffer.from(JSON.stringify({ filename: 'WeekdayCycleMatrix.js',
+const compiled = transformSync(source + '\nexport { QuantityCell, WilsonCell };', false, Buffer.from(JSON.stringify({ filename: 'WeekdayCycleMatrix.js',
   jsc: { target: 'es2020', parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' } })));
 const mod = { exports: {} };
 const rawComponentRequire = createRequire(fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url)));
@@ -670,3 +670,35 @@ for(const invalidBases of [cumulativeBases.slice(1),cumulativeBases.slice(0,1),
   cumulativeBases.map((record,index)=>index===0?{...record,year:2025}:record),
   cumulativeBases.map((record,index)=>index===0?{...record,rows:[{prodKey:101,unit:'단',quantity:30}]}:record)])
   assert.equal(cumulativeBlock([],invalidBases).subweek02.remainderView.value,null,'unknown/cross-year/unit basis is not zero');
+
+// One-decimal presentation must never feed its rounded value back into edits.
+for (const [raw, label] of [[1.066666667,'1.1'],[1.2,'1.2'],[2,'2'],[-1.266666667,'-1.3'],[0.00001,'0'],[null,'']]) {
+  assert.equal(helper.weekdayDecimalLabel(raw),label);
+}
+const exactQuantity=1.066666667;
+const exactRow=rowFor([], [actual({shipmentOutQuantity:exactQuantity,
+  packaging:{bunchOf1Box:15,steamOf1Bunch:20,steamOf1Box:300},
+  shipmentDates:[{date:'2026-09-17',shipmentQuantity:exactQuantity}]})]);
+const exactBlock=exactRow.blocks[1], exactDay=exactBlock.days[0];
+const exactWrites=[];
+for(const kind of ['general','wilson']) {
+  const props={row:exactRow,block:exactBlock,day:exactDay,disabled:false,onSelect(){},
+    onEditCell:p=>exactWrites.push(p),onEditWilson:p=>exactWrites.push(p),
+    split:{wilson:exactQuantity,total:exactQuantity*2,savedTotal:exactQuantity*2,savedWilson:exactQuantity}};
+  const host=mount(eventModule.exports[kind==='general'?'QuantityCell':'WilsonCell'],props);
+  assert.equal(inputFor(host).props.value,'1.1');
+  inputFor(host).props.onFocus();
+  await inputFor(host).props.onBlur();
+  assert.equal(exactWrites.length,0,'unchanged focus/blur must not save rounded values');
+  inputFor(host).props.onClick();
+  const dialog=descendants(host.render()).find(el=>el.type?.name==='WeekdayBoxPartsDialog');
+  assert.equal(dialog.props.quantity,exactQuantity,'box+loose receives full precision');
+  dialog.props.onClose();
+  inputFor(host).props.onChange({target:{value:'1.2'}});
+  assert.equal(inputFor(host).props.value,'1.2');
+  inputFor(host).props.onKeyDown({key:'Escape',currentTarget:{value:'1.2',selectionStart:0,selectionEnd:0}});
+  await inputFor(host).props.onBlur();
+  assert.equal(exactWrites.length,0,'Escape restores original without saving');
+}
+assert.equal(exactDay.current,exactQuantity);
+console.log('One decimal UI: normal/Wilson idle display, blur no-write, exact dialog value and Escape preservation passed');
