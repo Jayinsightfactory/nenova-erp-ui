@@ -74,7 +74,7 @@ function allLineFields() {
   return [...new Set([...Object.keys(LINE_FIELD_LABELS), ...Object.values(INVOICE_COST_FORMULAS).flatMap(formulaLineFields)])];
 }
 const GROUP_FIELD_LABELS = Object.freeze({ quantity: '송이수 (STEM)', boxQuantity: '박스수', grossWeightKg: '실중량 kg', volumeWeightKg: '부피중량 kg' });
-const GROUP_LABELS = Object.freeze({ ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', ANTHURIUM: '안스리움', OTHERS: '기타', LOOSE_BLOOMS: '루스블룸' });
+const GROUP_LABELS = Object.freeze({ ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', HYDRANGEA: '수국', ANTHURIUM: '안스리움', OTHERS: '기타', LOOSE_BLOOMS: '루스블룸' });
 const DERIVED_GROUP_LINE_FIELDS = ['grossWeightKg', 'volumeWeightKg', 'allocationShare'];
 function groupLabel(groupId) { return GROUP_LABELS[groupId] || groupId; }
 function visibleLineFields(formula) {
