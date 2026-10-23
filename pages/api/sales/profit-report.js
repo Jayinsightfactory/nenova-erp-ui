@@ -148,14 +148,14 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
+  const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
         purchaseQtyByCategory(major, orderYear),
         forwardingByCategory(major, orderYear),         // 레거시 FreightCost 추정치 — 구조화 입력값 없을 때만 fallback
         currencyRates(),
-        invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
+        invoiceRatesByCategory(major, orderYear, { withEvidence: true }), // R 우선 원천 및 부분/실패 진단
         loadManual(major, orderYear),
         loadManual(prevMajor, prevOrderYear), // 당차수 exact 제안 및 무매입 제한 이월 원천 판정에 사용
         computeCustomsAndForwarding(major, orderYear, { profile: 'profit-report' }),      // 그외통관비(H)+포워딩(S) — 보고서 전용 콜롬비아 배분
@@ -167,15 +167,24 @@ export async function loadReportData(major, orderYear) {
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
       // 웹 값에 섞이지 않는다. 01차만 전년도 52차를 사용한다.
-      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRates, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
+      const invoiceRates = invoiceRateResult.rates || invoiceRateResult;
+      const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
         purchaseByCategory(prevMajor, prevOrderYear),
         purchaseQtyByCategory(prevMajor, prevOrderYear),
         forwardingByCategory(prevMajor, prevOrderYear),
-        invoiceRatesByCategory(prevMajor, prevOrderYear),
+        invoiceRatesByCategory(prevMajor, prevOrderYear, { withEvidence: true }),
         computeCustomsAndForwarding(prevMajor, prevOrderYear, { profile: 'profit-report' }),
         loadTaxableRates(prevOrderYear, prevMajor),
         kcsRatesByCategory(prevMajor, prevOrderYear),
       ]);
+
+      const prevInvoiceRates = prevInvoiceRateResult.rates || prevInvoiceRateResult;
+      const invoiceEvidenceFor = (result, category) => result.evidence ? {
+        orderYear: result.evidence.orderYear, major: result.evidence.major, source: result.evidence.source,
+        status: result.evidence.status === 'query_failed' ? 'query_failed'
+          : result.evidence.byCategory?.[category]?.status || 'no_purchase',
+        ...result.evidence.byCategory?.[category],
+      } : null;
 
       const categories = profitReportCategoriesForWeek(currentMajor);
       const keys = [...categories.map(c => c.key)];
@@ -520,6 +529,12 @@ export async function loadReportData(major, orderYear) {
           // exact resolver 참고 제안. 무매입 제한 이월은 rateCarry로 별도 표시한다.
           rateSuggestions: resolvedRate.suggestions,
           rateDetail: !hasManualR && !hasExactR && carry?.detail ? carry.detail : resolvedRate.detail,
+          rateSourceEvidence: {
+            current: invoiceEvidenceFor(invoiceRateResult, key),
+            previous: invoiceEvidenceFor(prevInvoiceRateResult, key),
+            manualTakesPriority: hasManualR,
+            previousManualTakesPriority: Number(prev.manual[key]?.R) > 0,
+          },
           rateEstimated: !hasManualR && (isEstimatedPurchaseRate(autoRSource) || carry?.estimated === true),
           // 이번 차수에 재고화 대상 매입이 없어 과거 정확한 원천을 이어 쓴 경우에만 채워진다(그 외 null).
           // sourceYear/sourceMajor/originalSource/carryDepth/note — lib/profitReportTaxableRateCarry.js.

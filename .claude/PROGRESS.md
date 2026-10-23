@@ -1,5 +1,13 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-23] 비용·환율 SQL 연결 및 환산 충돌 조사
+- codex/profit-source-recovery, 최신 master 3e6846b7 기반. DB SELECT만 허용.
+- 40차 태국 EXCEL 운임640.75 USD 연결 누락 확인.18차 부분환율·35차NL 운임부재·39차TH 익명중량은 임의 보완 금지.
+- NL29/31 활성 입고 비율 및 EC33~35 잔존150+250송이 증명. NL09 불명확 조정은 보류.
+- 4차 수국 InvoiceNo→실제입고AWB 연결도 보완(+7938.7 USD). 최종 paired1~41/44,386 SELECT/9094검사 실패0,55셀 기대변경,원장·수기·확정본SHA동일. 첫 지문변동 관측은 제외하고 재실행했다.
+- 전체gate/build PASS, 최신12abb7a0 통합 후 재실행도 종료0. 최종 CI/배포/브라우저 근거 전 완료로 주장하지 않는다.
+- 기록: docs/work-sessions/2026-10-23_profit-source-recovery.md
+
 ## [2026-10-23] SQL 수량 기준 4국가 평균 도착원가
 - codex/profit-country-average, base423b7fc2. 소액 수기 차이 허용/평균틀 승인에 따라 네덜란드·태국·중국·에콰도르 정규화 평가 구현.
 - 실제 국가 우선과 CO/아나나스 CHINA placeholder fallback을 함께 보존. SQL 분자/분모 범위 동일, 동일 StockKey, 비용누락/비율충돌 차단.
