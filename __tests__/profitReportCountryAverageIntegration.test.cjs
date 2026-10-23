@@ -37,7 +37,13 @@ async function main() {
     purchaseQtyByCategory: async () => map(10),
     forwardingByCategory: async (m, y) => ({ ...period(m, y).legacyS }),
     currencyRates: async () => [],
-    invoiceRatesByCategory: async (m, y) => ({ ...period(m, y).R }),
+    invoiceRatesByCategory: async (m, y, options = {}) => {
+      const rates = { ...period(m, y).R };
+      return options.withEvidence ? { rates, evidence: {
+        orderYear: String(y), major: Number(m), source: 'FreightCost.ExchangeRate', status: 'available',
+        byCategory: Object.fromEntries(keys.map(key => [key, { status: rates[key] > 0 ? 'available' : 'absent' }])),
+      } } : rates;
+    },
     loadManual: async (m, y) => ({ manual: structuredClone(period(m, y).manual), evidence: {}, note: '' }),
     computeCustomsAndForwarding: async (m, y) => {
       const p = period(m, y);
@@ -81,6 +87,10 @@ async function main() {
     const r = row(first, country);
     assert.equal(r.auto.F, 48, `${country}: (100+10)*2+20, /10 *2`);
     assert.equal(r.auto.E, 48);
+    assert.equal(r.rateSourceEvidence.current.orderYear, '2026');
+    assert.equal(r.rateSourceEvidence.current.major, 31);
+    assert.equal(r.rateSourceEvidence.previous.major, 30);
+    assert.equal(r.rateSourceEvidence.current.status, 'available');
     assert.equal(r.stock.unitMismatch, false, 'successful normalized valuation removes raw unit conflict');
     assert.equal(r.stock.negativeQty, 3, 'negative stock evidence must use the same normalized unit as endQty, not legacy 30');
     assert.equal(r.inventoryValuation.end.average.purchaseQty, 10);
@@ -104,6 +114,8 @@ async function main() {
   const next = await load('32', '2026');
   for (const country of countries) assert.equal(row(next, country).auto.E, row(prior, country).auto.F, `${country}: previous E equals prior F with identical selected inputs`);
   assert.equal(row(prior, '네덜란드').auto.F, 60, 'manual zero H/S are not replaced');
+  assert.equal(row(prior, '네덜란드').rateSourceEvidence.manualTakesPriority, true);
+  assert.equal(row(next, '네덜란드').rateSourceEvidence.previousManualTakesPriority, true);
   assert.equal(row(prior, '태국').inventoryValuation.end.estimated, true);
   assert.equal(row(next, '태국').inventoryValuation.begin.estimated, true);
 

@@ -18,6 +18,7 @@ const customsPanel = read('components/CustomsClearancePanel.js');
 const forwardingPanel = read('components/ForwardingClearancePanel.js');
 const customerSql = read('lib/profitReportCustomerMixSql.js');
 const reportLib = read('lib/profitReport.js');
+const invoiceEvidence = read('lib/profitReportInvoiceRateEvidence.mjs');
 const dateWeights = read('lib/kcsRateDateWeights.js');
 
 console.log('=== 화면의 선택 연도 전달 ===');
@@ -42,7 +43,7 @@ console.log('\n=== 환율 완전성·전차수 독립 ===');
 check('현재 R에는 전차수 환율을 자동 적용하지 않고 제안으로만 전달',
   /previousWeekRate: prevMan\.R/.test(api) && /rateSuggestions: resolvedRate\.suggestions/.test(api));
 check('기초재고 E 재계산은 직전 차수의 정확한 환율 원천만 별도로 조회',
-  /invoiceRatesByCategory\(prevMajor, prevOrderYear\)/.test(api)
+  /invoiceRatesByCategory\(prevMajor, prevOrderYear, \{ withEvidence: true \}\)/.test(api)
   && /loadTaxableRates\(prevOrderYear, prevMajor\)/.test(api)
   && /kcsRatesByCategory\(prevMajor, prevOrderYear\)/.test(api));
 // 2026-08-26: 원본공식 fallback 확대로 공식 입력이 averageInputs 객체로 분리됨 — 계약 의도는 동일
@@ -52,7 +53,9 @@ check('기초재고 E는 전차수 마지막 ProductStock와 전차수 F 공식�
   && /evidenceValue: resolvedBegin\?\.value/.test(api)
   && /stockQty: normalized\?\.eligible \? normalized.stockQty : Number\(stockBegin\.qtys/.test(api)
   && /computeCategoryAverageInventoryValue\(averageInputs\)/.test(api));
-check('FreightCost 스냅샷은 전체/적용 구매금액을 함께 비교', reportLib.includes('TotalWeight') && reportLib.includes('CoveredWeight') && reportLib.includes('Math.abs(total - covered) <= tolerance'));
+check('FreightCost 스냅샷은 전체/적용 구매금액을 함께 비교', reportLib.includes('TotalWeight') && reportLib.includes('CoveredWeight')
+  && reportLib.includes('buildInvoiceRateEvidence(r.recordset || [], { orderYear, major })')
+  && invoiceEvidence.includes('Math.abs(total - covered) <= tolerance'));
 check('FreightCost 중복행은 최신 FreightKey 1건만 사용', reportLib.includes('SELECT TOP 1 fcx.ExchangeRate') && reportLib.includes('ORDER BY fcx.FreightKey DESC'));
 check('KCS 원본 입력일은 InputDate로 보존하고 UploadDtm으로 대체하지 않음', dateWeights.includes("const dateExpr = 'wm.InputDate'") && !dateWeights.includes('declarationDateDiagnostics()'));
 check('승인 시점 정책 이전의 InputDate 누락 보완은 호주 AUD 규칙으로 제한',

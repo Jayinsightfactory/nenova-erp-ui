@@ -1,5 +1,12 @@
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
+## 2026-10-23 — SQL 비용 연결·활성 입고 환산 복구 (DB 불변)
+- [x] 실제 dnSpy/SELECT 조사, guardian 선행검토, 두 읽기 전용 계획/부작용 표
+- [x] EXCEL 태국/수국 보조AWB 운임 누락 및 활성 입고분 환산 복구·회귀 계약
+- [x] 동일 SQL 기준 1~41차 paired 9094검사/실패0·원장/수기/확정본 지문 보존
+- [ ] 전체 ERP gate/build·PR/CI·code-only 배포·실브라우저 다운로드
+- 기록: docs/work-sessions/2026-10-23_profit-source-recovery.md. 근거 없는 비용/환율/lot 추정 금지.
+
 ## 2026-10-23 — SQL 수량 기준 4국가 평균 도착원가
 - [x] 사용자 승인 범위, 실제 dnSpy·SQL 근거, side-effect/기준표 작성
 - [x] 4국가 정규화·누락/상충 차단·동일 StockKey·분류 fallback 보존 구현/회귀

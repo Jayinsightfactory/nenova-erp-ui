@@ -1,0 +1,11 @@
+{
+  "id": "profit-cost-source-recovery",
+  "title": "SQL 비용 원천 조회 복구와 환율 부분/실패 진단",
+  "scope": ["lib/customsForwarding.js", "lib/profitReportInvoiceRateEvidence.mjs", "lib/profitReport.js", "lib/profitReportAudit.js", "pages/api/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "READ_COST_SOURCE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "SELECT only. Same-year major/BILL/AWB cost evidence. Exact EXCEL forwarder fallback must preserve explicit country and unique BILL/AWB context. Partial FX never applied to whole category; query_failed is distinct from absent. Preserve explicit manual zero, ERP stock/amount/VAT/isFix, Estimate, WebProfitReport and all confirmed revisions."}],
+  "crossYearFixture": {"required": true, "description": "EXCEL 640.75 USD fixture excludes identical 2025/40 and future 2026/41 rows; loader SQL requires both year and week; invoice evidence preserves requested year."},
+  "requiredTestFiles": ["__tests__/profitReportCostSourceRecovery.test.cjs", "__tests__/customsForwardingAuto.test.js", "__tests__/profitReportCountryAverageIntegration.test.cjs"],
+  "requiredCommands": ["npm run test:profit-cost-source-recovery", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run verify:erp-change", "npm run build"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormProfitReport.md", "source": "Actual CLI FormWarehouseView/FormStockView and SELECT-only 2026 1–41 probe; docs/plans/profit-cost-source-recovery-2026-10-23.md", "methods": ["FormWarehouseView.GetData", "FormWarehouseView.grdViewMaster_FocusedRowChanged"], "tables": ["WarehouseMaster", "WarehouseDetail", "Product", "FreightCost", "WebCustomsWeekly", "WebForwardingWeekly", "WebProfitReport"]}
+}

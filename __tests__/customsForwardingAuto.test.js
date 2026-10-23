@@ -71,6 +71,64 @@ async function main() {
       && near(reconciled.classificationDelta, 0));
   check('무게 placeholder 금액은 항공료 원천합계에서 제외', reconciled.sourceTotal === 100);
 
+  const excelFreight = (overrides = {}) => row({
+    OrderWeek: '40-01', WarehouseKey: 7581, WarehouseDetailKey: 44199,
+    OrderNo: '180-20089495', InvoiceNo: '180-20089495', FarmName: 'EXCEL',
+    ProdKey: 2182, ProdName: '운송료', FlowerName: '왁스', CounName: '국내',
+    TPrice: 483.7, ...overrides,
+  });
+  const recoveredThai = buildForwardingLedger([
+    excelFreight(), excelFreight({ WarehouseDetailKey: 44200, TPrice: 157.05 }),
+    row({ OrderWeek: '40-01', WarehouseKey: 7582, WarehouseDetailKey: 44201,
+      OrderNo: '', FarmName: 'Super Fresh', ProdName: 'Den. Sonia', CounName: '태국', FlowerName: '덴파레' }),
+    excelFreight({ OrderYear: '2025', TPrice: 9000 }),
+    excelFreight({ OrderWeek: '41-01', TPrice: 9000 }),
+  ], { major: 40, orderYear: '2026' });
+  check('40차 EXCEL 별도 운임 전표 두 행을 같은 연도·대차수 태국 USD 640.75로 복구',
+    near(recoveredThai.direct['태국'], 640.75) && recoveredThai.unmatchedRows.length === 0
+      && recoveredThai.coverageByCategory['태국'].source === 'auto'
+      && recoveredThai.classifiedRows.every(r => r.currency === 'USD' && r.reason === 'farm_invoice_fallback'));
+  for (const nearMiss of ['EXCELLENT', 'MY EXCEL', 'EXCEL THING']) {
+    const ledger = buildForwardingLedger([excelFreight({ FarmName: nearMiss })], { major: 40, orderYear: '2026' });
+    check(`EXCEL 유사 업체명 ${nearMiss}를 태국으로 추정하지 않음`, ledger.unmatchedRows.length === 1);
+  }
+  const explicitNl = buildForwardingLedger([excelFreight({ CounName: '네덜란드' })], { major: 40, orderYear: '2026' });
+  check('EXCEL fallback보다 명시 원천 국가가 우선', explicitNl.direct['네덜란드'] === 483.7);
+  const ambiguousExcel = buildForwardingLedger([
+    excelFreight(),
+    row({ OrderWeek: '40-01', WarehouseKey: 99, OrderNo: '180-20089495', CounName: '네덜란드' }),
+    row({ OrderWeek: '40-01', WarehouseKey: 98, OrderNo: '180-20089495', CounName: '태국' }),
+  ], { major: 40, orderYear: '2026' });
+  check('충돌하는 AWB 국가 근거는 EXCEL 업체명으로 덮지 않음', ambiguousExcel.unmatchedRows.length === 1);
+
+  const hydGoods = row({ OrderWeek: '04-01', WarehouseKey: 4283, OrderNo: '16096634963',
+    ProdName: 'Hydrangea White', CounName: '콜롬비아', FlowerName: '수국' });
+  const hydCost = row({ OrderWeek: '04-01', WarehouseKey: 4333, WarehouseDetailKey: 20930,
+    ProdKey: 2182, ProdName: '운송료', CounName: '국내', FlowerName: '왁스',
+    FarmName: '콜수국 AWB', OrderNo: '18012063074', InvoiceNo: '16096634963', TPrice: 4561.2 });
+  const invoiceAwbLedger = (goods = hydGoods, cost = hydCost, extra = []) => buildForwardingLedger([
+    goods, cost, ...extra,
+  ], { major: 4, orderYear: '2026' });
+  const recoveredHyd = invoiceAwbLedger(hydGoods, hydCost, [{ ...hydCost, WarehouseDetailKey: 20931, TPrice: 3377.5 }]);
+  check('04-01 실제 꽃 AWB와 정확히 같은 InvoiceNo 비용행 7938.7 USD를 수국에 연결',
+    near(recoveredHyd.direct['콜롬비아 수국'], 7938.7)
+      && recoveredHyd.classifiedRows.every(r => r.reason === 'invoice_matches_goods_awb'));
+  for (const [label, goods] of [
+    ['다른 연도', { ...hydGoods, OrderYear: '2025' }],
+    ['다른 대차수', { ...hydGoods, OrderWeek: '05-01' }],
+    ['다른 세부차수', { ...hydGoods, OrderWeek: '04-02' }],
+  ]) check(`${label} 실제 AWB는 보조 인보이스 근거로 연결하지 않음`, invoiceAwbLedger(goods).unmatchedRows.length === 1);
+  check('임의 11자리 숫자는 실제 꽃 AWB 일치 없이 연결하지 않음',
+    invoiceAwbLedger(hydGoods, { ...hydCost, InvoiceNo: '12345678901' }).unmatchedRows.length === 1);
+  check('보조 AWB가 복수 국가면 임의 배분하지 않음', invoiceAwbLedger(hydGoods, hydCost,
+    [{ ...hydGoods, WarehouseKey: 999, CounName: '네덜란드', FlowerName: '튤립', ProdName: 'Tulip' }]).unmatchedRows.length === 1);
+  const primaryConflict = invoiceAwbLedger(hydGoods, hydCost,
+    [{ ...hydGoods, WarehouseKey: 998, OrderNo: hydCost.OrderNo, CounName: '네덜란드', FlowerName: '튤립', ProdName: 'Tulip' }]);
+  check('기본 AWB의 명시 꽃 국가는 보조 AWB보다 우선',
+    primaryConflict.direct['네덜란드'] === 4561.2 && primaryConflict.direct['콜롬비아 수국'] == null);
+  check('원천 국가가 충돌하면 보조 AWB로 덮지 않음',
+    invoiceAwbLedger(hydGoods, { ...hydCost, CounName: '네덜란드' }).direct['네덜란드'] === 4561.2);
+
   const unknown = buildForwardingLedger([
     row({ WarehouseKey: 10, WarehouseDetailKey: 10, OrderNo: 'UNKNOWN', InvoiceNo: '', FarmName: '', ProdName: 'AIR FREIGHT', FlowerName: '', CounName: '', TPrice: 10 }),
   ], { major: 31, orderYear: '2026' });

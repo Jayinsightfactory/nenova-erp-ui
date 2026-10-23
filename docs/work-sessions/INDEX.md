@@ -1,3 +1,4 @@
+- [2026-10-23 SQL 비용 연결·실제 입고 환산 복구](2026-10-23_profit-source-recovery.md) — EXCEL 운임, zero-anchor, 혼합 박스 잔존량, DB 불변.
 - [2026-10-23 주광 소수 한 자리 표시](2026-10-23_weekday-quantity-display.md) — 일반·윌슨 표시, 원본 정밀도·blur 무저장 보존.
 
 
