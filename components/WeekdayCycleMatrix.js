@@ -6,7 +6,7 @@ import { moveWeekdayQuantityFocus } from '../lib/weekdayQuantityKeyboard.js';
 import { recoverWeekdayWilsonEditing } from '../lib/weekdayWilsonEditing.js';
 import { buildHorizontalWeekdayMatrix, horizontalCycleKey, horizontalEditPayload,
   horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity, weekdayFlowerGroup, compareWeekdayFlowerRows } from '../lib/weekdayHorizontalMatrix.js';
-import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } from '../lib/weekdayHorizontalMatrix.js';
+import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel, weekdayDecimalLabel } from '../lib/weekdayHorizontalMatrix.js';
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
 import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
@@ -15,7 +15,7 @@ import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 import { resolveWeekdayPrintReadiness } from '../lib/weekdayPrintReadiness.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
-  ? '미확인' : String(Number(value));
+  ? '미확인' : weekdayDecimalLabel(value);
 const cycleKey = horizontalCycleKey;
 const cycleLabel = (cycle) => `${cycle.year ?? '연도 미확인'} / ${cycle.majorWeek ?? '차수 미확인'}차`;
 const sourceLabel = (plan) => plan.sourceOrderWeek
@@ -65,7 +65,7 @@ function WilsonCell({row,block,day,split,disabled,onEditWilson,onClearCell,onSel
     }catch(failure){setError(failure.message || '윌슨 기록 실패 · 입력 유지');return false;}
     finally{lock.current=false;setSaving(false);}
   }
-  return <div className="wcm-wilson-cell"><input type="text" inputMode="decimal" data-wcm-quantity={`${cycleKey(block.cycle)}|${day.date}|wilson`} aria-label={`${row.name} ${day.date} 윌슨 수량`} title={split.recovery?.notice || '방향키: 인접 수량 칸 이동 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안'} value={input ?? (editableWilson==null?'':String(editableWilson))}
+  return <div className="wcm-wilson-cell"><input type="text" inputMode="decimal" data-wcm-quantity={`${cycleKey(block.cycle)}|${day.date}|wilson`} aria-label={`${row.name} ${day.date} 윌슨 수량`} title={split.recovery?.notice || '방향키: 인접 수량 칸 이동 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안'} value={input ?? weekdayDecimalLabel(editableWilson)}
     disabled={disabled || saving || Boolean(day.editDisabledReason) || split.total==null || typeof onEditWilson!=='function'}
     onClick={()=>{if(boxPack)setPartsOpen(true);}}
     onFocus={()=>onSelect(`${row.name} · ${day.date} 윌슨\n일반 ${split.error?'미확인':numberLabel(split.total-split.wilson)} / 윌슨 ${split.error?'미확인':numberLabel(split.wilson)} / 합계 ${numberLabel(split.total)}${split.recovery?'\n'+split.recovery.notice:''}`)}
@@ -109,7 +109,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   const [partsOpen,setPartsOpen]=useState(false);
   const boxPack=weekdayBoxPack(row,day.unit,block.packaging);
   const visibleQuantity = day.editValue ?? day.planned ?? day.displayCurrent ?? day.current;
-  const value = input ?? (visibleQuantity == null ? '' : String(visibleQuantity));
+  const value = input ?? weekdayDecimalLabel(visibleQuantity);
   const reason = day.editDisabledReason || (typeof onEditCell !== 'function' ? '초안 편집 기능 미연결' : '');
   const description = [cellDescription(row, block, day),day.recoveryNotice].filter(Boolean).join('\n');
   const blockedReason = reason || (disabled ? disabledReason || '조회·저장 확인 또는 초안 이동 처리 중입니다.' : saving ? '초안 입력 처리 중입니다.' : '');
@@ -168,7 +168,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
         if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); event.currentTarget.blur(); }
         if (event.key === 'Escape') { setInput(null); setFailure(''); onSelect(''); }
       }} />
-    {partsOpen&&boxPack&&<WeekdayBoxPartsDialog label={`${row.name} ${day.date}`} quantity={value} pack={boxPack} onApply={commit} onClose={()=>setPartsOpen(false)}/>}
+    {partsOpen&&boxPack&&<WeekdayBoxPartsDialog label={`${row.name} ${day.date}`} quantity={input ?? visibleQuantity ?? 0} pack={boxPack} onApply={commit} onClose={()=>setPartsOpen(false)}/>}
     <div className="wcm-cell-detail">{day.recoveryNotice && <span className="wcm-compact-warning"><SummaryDetails label={`${row.name} ${day.date} 일반 수량 재확인`} description={day.recoveryNotice} visibleLabel="!"/></span>}{day.planned!=null && <small className="wcm-original">초안 · 저장 <QuantityLabel>{weekdayQuantityLabel(day.displayCurrent ?? day.current,row,day.unit,block.packaging)}</QuantityLabel></small>}{changed && <small className="wcm-original"><QuantityLabel>{`(${weekdayQuantityLabel(day.initial,row,day.unit,block.packaging)})`}</QuantityLabel></small>}
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
