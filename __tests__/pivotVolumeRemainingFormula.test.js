@@ -35,7 +35,7 @@ function roundtrip(ws) {
 async function main() {
   const context = { XLSX, getFarmDisplayName: name => name, customerDisplayLabel: c => c.custName };
   for (const name of ['pivotVolumeRows', 'pivotVolumeCombinedCells', 'pivotVolumeProductLabel',
-    'pivotCustomerQuantity', 'pivotVolumeNetherlands', 'pivotVolumeCustDays']) {
+    'pivotCustomerQuantity', 'pivotVolumeNetherlands', 'pivotVolumeCustDays', 'productColor']) {
     Object.assign(context, await import(`../lib/${name}.js`));
   }
   const source = fs.readFileSync(path.join(__dirname, '../pages/api/stats/pivot-volume-excel.js'), 'utf8')
