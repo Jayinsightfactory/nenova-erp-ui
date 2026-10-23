@@ -75,9 +75,9 @@ export async function loadWeekdaySavedTemplate({ custKey, scopeKey, isCurrent, g
   return result;
 }
 
-export default function WeekdayEstimateWorkspace() {
-  const [year, setYear] = useState(String(initialYear));
-  const [majorWeek, setMajorWeek] = useState('');
+export default function WeekdayEstimateWorkspace({initialScope}={}) {
+  const [year, setYear] = useState(initialScope?.year ?? String(initialYear));
+  const [majorWeek, setMajorWeek] = useState(initialScope?.majorWeek ?? '');
   const [shipDate, setShipDate] = useState('');
   const [customerQuery, setCustomerQuery] = useState('주광농원');
   const [customers, setCustomers] = useState([]);
@@ -227,7 +227,7 @@ export default function WeekdayEstimateWorkspace() {
   },[Boolean(printOptions)]);
   const calendarRequest = useRef(0);
   const defaultCalendarRequest = useRef(0);
-  const centerTouched = useRef(false);
+  const centerTouched = useRef(Boolean(initialScope));
   const [defaultCalendarError, setDefaultCalendarError] = useState('');
   const comparisonRequest = useRef(0);
   const uploadRequest = useRef(0);
@@ -366,6 +366,7 @@ export default function WeekdayEstimateWorkspace() {
   },[inputUser]);
 
   useEffect(() => {
+    if(initialScope)return; // Explicit user selection must never trigger or be replaced by defaultNext.
     const request = ++defaultCalendarRequest.current;
     const date = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' })
       .formatToParts(new Date()).reduce((parts, part) => ({...parts, [part.type]:part.value}), {});
