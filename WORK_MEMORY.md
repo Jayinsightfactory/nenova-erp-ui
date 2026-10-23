@@ -1001,3 +1001,10 @@
 - 격리 SQL AU56박스/15500송이, US70박스/43750송이 입고→원가→다운로드 통과. TEST_ONLY 두 시트 표시 회귀 통과.
 - 전체 ERP/dnSpy/manifest/write guard 통과. 최종 모달 portal/너비 수정 후 빌드·브라우저 및 PR/배포 대기. 후속 결과 docs/work-sessions/2026-10-23_au-us-release.md.
 - 검색어: au-us-release Woolly bush TEST_ONLY ProdKey 파일별분류 운영DB불변
+
+## 2026-10-23 주광 인쇄 적요·박스 선택
+- 수량 적용→재조회→윌슨/Excel/인쇄 격리 SQL 검증: 카네이션1단/18단, 수국1송이/33송이 통과. 합계/잔량 정밀도9자리.
+- 출력마다 박스 표시 선택, 비고 대차수만, 품목 적요 web runtime 저장(CAS) 및 실패 인쇄차단. 운영 ERP 원장 보존.
+- Chrome 격리 컴포넌트 입력/저장/재열기/실패/Tab 확인. 운영 배포 후 스모크는 후속 기록. 실제 종이 출력 미검증.
+- 메뉴 기준 적용: shell/키보드/오류보존; 신규메뉴 해당없음; 명시적 인쇄모달 스크롤 예외.
+검색어: weekday-print-edit 박스 송이 단 적요 저장 인쇄 XLSX

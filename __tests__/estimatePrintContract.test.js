@@ -133,7 +133,7 @@ assert.doesNotMatch(builderSource, /window\.(?:onload|print|close|onafterprint)/
   '공통 빌더는 자동 인쇄 또는 부모 페이지 닫기 스크립트를 넣지 않는다.');
 assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 표시 옵션은 미표시가 기본값이다.');
 assert.match(pageSource, /불량차감 적요 표시/);
-assert.match(builderSource, /const descr = descLabel\(r\)/, 'EXE 인쇄도 descLabel로 불량차감 적요를 숨긴다.');
+assert.match(builderSource, /const descr = r\._printNoteOverride === true \? r\.Descr : descLabel\(r\)/, '명시적 출력 적요가 없는 EXE 인쇄는 descLabel로 불량차감 적요를 숨긴다.');
 assert.match(pageSource, /printDetail:\s*'1'/);
 assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(builderSource, /'견 적 서'/);

@@ -1,0 +1,16 @@
+{
+  "id": "weekday-print-edit",
+  "title": "주광 저장 수량의 출력 보존 및 인쇄용 적요",
+  "scope": ["lib/weekdayPrintNotes.js", "lib/weekdayPrintNoteService.js", "pages/api/estimate/weekday-print-note.js", "pages/api/estimate/weekday-allocation-print.js", "components/WeekdayPrintPreview.js", "components/WeekdayEstimateWorkspace.js", "lib/weekdayEstimatePrintBundle.js", "lib/estimatePrintHtml.js", "lib/weekdayAllocationPrint.js", "lib/weekdayStyledWebWorkbook.js", "lib/weekdayHorizontalMatrix.js", "__tests__/weekdayPrintNotes.test.js", "__tests__/fixtures/weekdayWorkbookTemplate.js", "__tests__/weekdayStyledWebWorkbook.test.js", "scripts/test-weekday-confirmation-lifecycle-sql.cjs"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"PRINT_PREVIEW_READ", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"Stored allocation SELECT only. Header remarks exactly major week + 차. Every opening explicitly chooses boxes true/false/cancel. No confirmation/stock/money mutations. Existing native grouping and layout retained."},
+    {"name":"PRINT_NOTE_SAVE", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"Authenticated web-only runtime file, exact year+major week+customer+document date or major+product+cost+type+deduction PK. Re-read same printable scope before save; unique row required; revision CAS, atomic file rename, explicit empty note. ShipmentDate/ShipmentFarm/Estimate/Amount/Vat/isFix/Stock/WebProfitReport all preserved. No runtime DDL."},
+    {"name":"SAVED_QUANTITY_EXPORT", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"Nine-decimal quantity subtotal/remainder normalization only, retain raw XLSX numbers and split Wilson fields. Estimate uses saved EstQuantity once; no double Wilson quantity."}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025/43 vs2026/43 notes isolated; same customer/product/date with differing year/cost/type not copied. Isolated SQL preserves prior-year sentinel and verifies applied loose-unit quantities through XLSX and selected-date quote."},
+  "defaults":{"boxOption":"every open asks; pure builder omitted=true, explicit false honored", "note":"existing native note unless explicitly saved including empty", "save":"blur and before print, failure retains text and blocks print", "ui":"Only remark textarea editable; numbers read-only. Escape/Tab/return focus; explicit modal scroll exception."},
+  "requiredTestFiles":["__tests__/weekdayPrintNotes.test.js","__tests__/weekdayEstimatePrintBundle.test.js","__tests__/weekdayAllocationPrint.test.js","__tests__/weekdayStyledWebWorkbook.test.js","scripts/test-weekday-confirmation-lifecycle-sql.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/WeekdayPrintNotes.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["FormEstimateView.GetPrintDetail","FormPrintEstimate.btnPrint_Click"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","Product","ProductSort","PeriodDay"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

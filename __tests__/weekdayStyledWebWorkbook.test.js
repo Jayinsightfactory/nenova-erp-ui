@@ -124,4 +124,11 @@ for(const address of ['C4','F4','I4','L4']) assert.equal(repeatedSheet[address].
 assert.equal(repeatedSheet.C6.v,2);assert.equal(repeatedSheet.C7.v,10,'mixed units retain separate subtotals, never sum to12');
 assert.match(repeatedXml,/<mergeCell ref="E2:E3"/,'repeated product header merges vertically');
 assert.match(repeatedXml,/<dimension ref="A1:M8"/,'dimension includes repeated name columns');
+const precise=0.033333333;
+const fractionBytes=await buildWeekdayStyledWebWorkbook(bytes,{columns:[{key:'q',kind:'day',label:'10/25 일'}],rows:[
+  {category:'수국',name:'1송이',unit:'박스',values:{q:precise}},
+  {category:'수국',name:'또 1송이',unit:'박스',values:{q:precise}}]});
+const fractionSheet=XLSX.read(fractionBytes,{type:'array'}).Sheets['주광 발주내역'];
+assert.equal(fractionSheet.D3.v,precise);assert.equal(fractionSheet.D4.v,precise);
+assert.equal(fractionSheet.D5.v,0.066666666,'XLSX subtotal preserves nine-decimal loose-unit box quantities');
 console.log('weekdayStyledWebWorkbook: full current names, quantities, dynamic groups, native cell styles, zero/null/negative and no stale source data passed');
