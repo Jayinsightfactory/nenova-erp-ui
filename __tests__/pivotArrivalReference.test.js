@@ -46,9 +46,9 @@ console.log('pivot uploaded arrival references and integer display passed');
 // this exact loader as well. No credentials or ERP mutations in this fixture.
 const referenceSql=fs.readFileSync(new URL('../lib/raumPnlArrivalReference.js',import.meta.url),'utf8').match(/export const RAUM_PNL_ARRIVAL_REFERENCE_SQL = `([\s\S]*?)`;/)[1];
 const calls=[];
-const context={buildPivotArrivalReferences,pivotArrivalWeek,RAUM_PNL_ARRIVAL_REFERENCE_SQL:referenceSql,sql:{NVarChar:'str',Int:'int'},query:async(statement,params)=>{calls.push({statement,params});return {recordset:[source]};}};
+const context={buildPivotArrivalReferences,pivotArrivalWeek,RAUM_PNL_ARRIVAL_REFERENCE_SQL:referenceSql,sql:{NVarChar:'str',Int:'int',Bit:'bit'},query:async(statement,params)=>{calls.push({statement,params});return {recordset:[source]};}};
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(new URL('../lib/pivotArrivalLedger.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export async function','async function')+'\nthis.load=loadPivotArrivalLedger;',context);
+vm.runInContext(fs.readFileSync(new URL('../lib/pivotArrivalLedger.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nthis.load=loadHistoricalPivotArrivalLedger;',context);
 await context.load([...Array.from({length:501},(_,i)=>({...target,ProdKey:i+1})),{...target,OrderYear:'2025'}]);
 assert.equal(calls.length,3);
 assert.deepEqual(calls.map(call=>call.params.yr.value),['2026','2026','2025']);
@@ -56,6 +56,7 @@ for(const call of calls){
   assert.match(call.statement,/l.OrderYear=@yr/);assert.match(call.statement,/ISNULL\(l.IsCurrent,0\)=1/);
   assert.match(call.statement,/l.ProdKey IN \(@pk0/);
   assert.doesNotMatch(call.statement,/\b(?:INSERT|UPDATE|DELETE|EXEC)\b/i);
-  assert.ok(Object.keys(call.params).length<=502);
+  assert.ok(Object.keys(call.params).length<=503);
+  assert.equal(call.params.history.value,false);
 }
 await assert.rejects(()=>context.load([target],async()=>{throw Error('read failed');}),/read failed/);

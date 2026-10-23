@@ -1,6 +1,8 @@
 // pages/freight.js — 운송기준원가 탭
 // BILL(AWB) 선택 → 차수 요약 + 카테고리 분배 + 품목 상세 그리드 → 스냅샷 저장 / 엑셀 다운로드
 import { useState, useEffect, useMemo } from 'react';
+import LatestArrivalReference from '../components/LatestArrivalReference.js';
+import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 import Head from 'next/head';
 import { apiGet } from '../lib/useApi';
 import { useLang } from '../lib/i18n';
@@ -146,6 +148,7 @@ export default function FreightPage() {
   }, [apiData, master, customs, rowsOverride, basis, catEditing]);
 
   const selectedGroup = groups.find(g => g.GroupKey === groupKey);
+  const latestArrival = useLatestArrivalReferences(selectedGroup?.OrderYear,liveResult?.rows?.map(r=>({prodKey:r.prodKey,unit:'송이'})) || []);
 
   const updateRow = (prodKey, field, val) => {
     setRowsOverride(m => ({ ...m, [prodKey]: { ...(m[prodKey] || {}), [field]: val === '' ? null : Number(val) } }));
@@ -753,6 +756,7 @@ export default function FreightPage() {
                     <th style={{ textAlign: 'right' }}>도착원가/송이</th>
                     <th style={{ textAlign: 'right' }}>단당송이(N)</th>
                     <th style={{ textAlign: 'right' }}>도착원가/단</th>
+                    <th>최신 원가 참고 (계산·저장값 유지)</th>
                     <th style={{ textAlign: 'right' }}>판매가(Q)</th>
                     <th style={{ textAlign: 'right' }}>단이익</th>
                     <th style={{ textAlign: 'right' }}>이익률</th>
@@ -819,6 +823,7 @@ export default function FreightPage() {
                             : fmt(r.stemsPerBunch)}
                         </td>
                         <td className="num">{fmt2(r.arrivalPerBunch)}</td>
+                        <td><LatestArrivalReference state={latestArrival} item={{prodKey:r.prodKey,unit:'송이'}} /></td>
                         <td className="num">
                           {editMode
                             ? <input type="number" value={rowsOverride[r.prodKey]?.salePriceKRW ?? r.salePriceKRW ?? ''} onChange={e => updateRow(r.prodKey, 'salePriceKRW', e.target.value)} style={iCell} />

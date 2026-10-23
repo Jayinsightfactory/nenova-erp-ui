@@ -1098,3 +1098,8 @@
 - 확정 출고 사유가 요약 DB키 부재로 누락되어 keyed rows에서 추출하도록 보완. 원장 쓰기 로직 변경 없음. 실제 SQL 및 단위 회귀에 확정 사유 검증 추가.
 - 검색어: china-volume-fixed-message 중국물량표 확정출고 사유누락 주문보존
 
+## 2026-10-23 최신 도착원가 참고 통합
+- 카탈로그·물량/전산피벗 공용 최신 조회, 입고/운송원가/재고평가 상세 최신 참고 별도 표시. 과거 계산·확정 원장 writer 변경 없음.
+- dnSpy/SELECT-only/153품목·122최신인보이스/격리CUA/전체게이트·빌드 통과. PR·배포·운영 UI는 세션기록 후속 참조(현재 미검증).
+- 검색어: arrival-display-unify loadLatestArrivalReferences 최신 승인 도착원가 참고
+

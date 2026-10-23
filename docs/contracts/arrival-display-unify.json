@@ -1,0 +1,11 @@
+{
+  "id":"arrival-display-unify",
+  "title":"최신 승인 원가 참고 표시 통합과 역사 원가 보존",
+  "scope":["lib/latestArrivalReference.js","lib/useLatestArrivalReferences.js","components/LatestArrivalReference.js","pages/api/arrival-cost/latest.js","pages/api/catalog/bootstrap.js","lib/pivotArrivalLedger.js","lib/pivotArrivalFx.js","lib/pivotStats.js","pages/stats/pivot.js","components/PivotExePanel.js","pages/incoming.js","pages/freight.js","pages/sales/profit-report.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READ_LATEST_REFERENCE_ONLY","orderDetail":"preserve","shipmentDetail":"preserve","notes":"최신 참고만. 명시 연도/품목단위, 승인ACTUAL/liveMATCH, TEST_ONLY제외. 원장·저장CostPrice·Amount·이익·재고·과거확정값 불변."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 same week and product must not mix; numeric week sorting; no fallback across years"},
+  "requiredTestFiles":["__tests__/latestArrivalReference.test.js","__tests__/arrivalInvoiceSource.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormArrivalCost.md","methods":["FormWarehouseView.GetData","FormWarehouseView.GetDetail"],"tables":["WarehouseMaster","WarehouseDetail","Product","WebArrivalCostLine","WebInvoiceCostRevision"],"source":"2026-10-23 dnSpy CLI and read-only probe, plans/arrival-display-unify-2026-10-23.md; reference only"},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

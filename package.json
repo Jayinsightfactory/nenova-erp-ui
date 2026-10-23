@@ -29,7 +29,7 @@
     "build": "next build --webpack",
     "start": "node web.js",
     "audit:prod": "npm audit --omit=dev",
-    "posttest:raum-pnl": "node __tests__/raumPnlCollisionLocationRender.test.js && node __tests__/hotelArrivalDisplay.test.js",
+    "posttest:raum-pnl": "node __tests__/raumPnlCollisionLocationRender.test.js && node __tests__/hotelArrivalDisplay.test.js && node --test __tests__/latestArrivalReference.test.js",
     "test:board": "node __tests__/shillaMiuBoard.test.js",
     "test:distribution-connection": "node __tests__/distributionDeliveryRefresh.test.js && node scripts/test-distribution-connection.cjs",
     "posttest:erp-contract": "npm run test:ecount-workbench && node __tests__/profitReportStockAdjustmentNotes.test.js && node __tests__/farmQuality.test.js && node __tests__/farmQualityStore.test.js && node __tests__/farmQualityEvidence.test.js && node __tests__/farmQualityCompactUi.test.js && node __tests__/farmQualityCoverage.test.js && node __tests__/farmQualityCoverageUi.test.js && node __tests__/farmQualityAllSourceSignals.test.js && node __tests__/farmQualityAllSourceUi.test.js && node __tests__/farmQualityInbox.test.js && node __tests__/farmQualityInboxStore.test.js && node __tests__/farmQualityInboxUi.test.js && node __tests__/farmQualityRequest.test.js && node __tests__/farmQualityInboxSummary.test.js && npm run test:distribution-connection && npm run test:weekday-estimate && npm run test:weekday-early-shipment && npm run test:stock-gate-atomic && npm run test:user-activity && npm run test:pending-stock-recovery && npm run test:stock-adjustment-matrix",
