@@ -1,0 +1,11 @@
+{
+  "id": "profit-inventory-basis-display",
+  "title": "국가별 적용 재고평가·평균 도착원가 읽기 전용 표시",
+  "scope": ["lib/profitReportInventoryBasis.mjs", "lib/profitReport.js", "pages/api/sales/profit-report.js", "pages/sales/profit-report.js", "components/ProfitInventoryBasis.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "DISPLAY_APPLIED_INVENTORY_BASIS", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "SELECT only. Add display metadata from existing selected valuation without changing E/F, formulas, purchase quantity, source selection or SQL predicates. Preserve all ERP, WebProfitReport, manual inputs, confirmed revisions and caches. Never retro-compute legacy confirmed operands."}],
+  "crossYearFixture": {"required": true, "description": "2025/2026 same major retain explicit source year, missing year has no fabricated average; E uses previous valuation inputs, F current inputs."},
+  "requiredTestFiles": ["__tests__/profitReportInventoryBasis.test.cjs"],
+  "requiredCommands": ["npm run test:profit-inventory-basis", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run verify:erp-change", "npm run build"],
+  "dnspyEvidence": {"required": true, "record": "docs/plans/profit-inventory-basis-display-2026-10-23.md", "source": "Actual dnSpy.Console.exe --no-color -t FormStockView and SELECT-only report evidence; display metadata only", "methods": ["FormStockView.GetData"], "tables": ["ProductStock", "StockMaster", "Product", "WarehouseMaster", "WarehouseDetail", "WebProfitReport"]}
+}

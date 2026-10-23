@@ -14,6 +14,7 @@ import ForwardingClearancePanel from '../../components/ForwardingClearancePanel'
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
+import ProfitInventoryBasis from '../../components/ProfitInventoryBasis';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
@@ -245,7 +246,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       : '백상460원/kg + 입력된 관세·선율·국내운송·방역. 합산 입고중량별 차량비를 계산하며 명시 실제금액은 우선합니다. 콜롬비아는 박스당무게×박스수량 비율 배분. 근거 있는 수기값 우선.',
     AC: '매출조정 — 다른 차수 귀속 매출(견적 누락분·차수 이동분)을 이 차수 매출에 가감합니다. 매출액(C)과 매출이익(J)에 함께 반영되며, 저장 시 근거(원본 보고서·사유)가 필요합니다.',
     AJ: '이익조정 — 매출은 그대로 두고 매출이익(J)만 가감합니다(원본 엑셀의 J셀 수동 수정과 동일). 저장 시 근거가 필요합니다.',
-    E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
+    E: `기초재고 — 전차수(01차만 전년도 52차)의 마지막 ProductStock 환산수량에 해당 차수의 엑셀식 평균 도착원가 또는 품목별 원가 근거를 적용합니다. 국가·품종별 평가 기준 표에서 적용 방식과 예외를 확인하세요.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
     F: `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
   };
   const title = missingRate
@@ -1185,6 +1186,10 @@ export default function ProfitReportPage() {
       </div>
 
       <ProfitReportSourceGuide />
+      {viewMode === 'category' && data && <a href="#profit-inventory-basis" style={{ display: 'inline-block', margin: '4px 0 8px', color: '#1d4ed8' }}
+        onClick={() => { const panel = document.getElementById('profit-inventory-basis'); if (panel) panel.open = true; }}>
+        국가별 평균 도착원가·재고 평가 근거 보기 ↓
+      </a>}
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
@@ -1479,6 +1484,8 @@ export default function ProfitReportPage() {
           </table>
         </div>
       )}
+
+      {viewMode === 'category' && <ProfitInventoryBasis data={data} edits={edits} />}
 
       {viewMode !== 'months' && data && (
         <div style={st.collapseWrap}>

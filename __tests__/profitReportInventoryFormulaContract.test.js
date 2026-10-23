@@ -55,7 +55,11 @@ async function main() {
 
   console.log('\n=== API 연결 계약 ===');
   const api = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
-  check('현재 F는 purchaseQty와 ProductStock으로 계산', /computeCategoryAverageInventoryValue\(\{[\s\S]*purchaseQty:[\s\S]*stockQty: Number\(stockEnd\.qtys/.test(api));
+  const currentAverageInputsBlock = api.match(/const currentAverageInputs = \{([\s\S]*?)\n\s*\};/)?.[1] || '';
+  check('현재 F는 purchaseQty와 ProductStock으로 계산',
+    /purchaseQty: Number\(purchaseQty\[key\] \|\| 0\)/.test(currentAverageInputsBlock)
+    && /stockQty: Number\(stockEnd\.qtys\[key\] \|\| 0\)/.test(currentAverageInputsBlock)
+    && /const categoryAverageEnd = \(!endConversionMissing && !endUnitMismatch\)\s*\? computeCategoryAverageInventoryValue\(currentAverageInputs\) : null/.test(api));
   check('E는 전차수 SQL 잔량과 F 공통 선택기를 사용하며 원본 총액을 복사하지 않음',
     /stockSnapshotByCategory\(prevMajor, prevOrderYear/.test(api)
     && /year: prevOrderYear, major: prevMajor, week: stockBegin.week/.test(api)
