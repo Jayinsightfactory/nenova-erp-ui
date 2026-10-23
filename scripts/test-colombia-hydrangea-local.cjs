@@ -70,11 +70,12 @@ module.exports=async function(ctxAll){
  lineInputs:document.lines.map(line=>({lineId:line.lineId,tariffRate:0,...(co?{groupId:'HYDRANGEA',stemsPerBunch:1,bunchesPerBox:30}:{stemsPerBunch:line.bunchQuantity>0?line.stemQuantity/line.bunchQuantity:25,bunchesPerBox:line.boxQuantity>0&&line.bunchQuantity>0?line.bunchQuantity/line.boxQuantity:25})}))}});
  const out=await exportCurrentInvoiceCost({queryFn:ctx.queryFn,types:sql,documentId:document.documentId,warehouseKey:String(saved.warehouseKey),costRevisionId:saved.currentActual.costRevisionId});
  if(consumerTest) await consumerTest.afterApproval(saved,out);
- if(!consumerTest)fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
+ if(!consumerTest&&process.env.NENOVA_BOX_SUMMARY_TEST!=='1')fs.writeFileSync(path.join(root,`TEST_ONLY-${country}-${week}-cost.xlsx`),out.buffer);
  const readback=(await query(pool,'SELECT BoxQuantity,BunchQuantity,SteamQuantity,TPrice FROM WarehouseDetail WHERE WarehouseKey=@key',{key:{type:sql.Int,value:saved.warehouseKey}})).recordset;
  const totals=Object.fromEntries(['BoxQuantity','BunchQuantity','SteamQuantity','TPrice'].map(k=>[k,readback.reduce((s,r)=>s+Number(r[k]),0)]));
  assert.equal(totals.BoxQuantity,country==='AU'?56:co?48:70);assert.equal(totals.TPrice,country==='AU'?17706.25:co?1084.5:4721.5);
+ if(process.env.NENOVA_BOX_SUMMARY_TEST==='1')await require('./test-receipt-box-summary-local.cjs')(ctxAll,{country,week,warehouseKey:saved.warehouseKey,totals});
  assert.deepEqual(await protectedSnapshot(pool),before);
- if(!consumerTest)fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
+ if(!consumerTest&&process.env.NENOVA_BOX_SUMMARY_TEST!=='1')fs.writeFileSync(path.join(root,`${country}.local-e2e.json`),JSON.stringify({country,totals,receipt:true,cost:true,downloadBytes:out.buffer.length,costBasis:'TEST_ONLY',browserVerified:false,productionModified:false}));
  console.log('PASS',country,JSON.stringify(totals),'local receipt -> TEST_ONLY cost -> download');
 };
