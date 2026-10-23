@@ -365,6 +365,8 @@ export default function ChinaVolumeBoard() {
   const [loadedScope, setLoadedScope] = useState(null);
   const [lookup, setLookup] = useState(null);
   const [regionDraft, setRegionDraft] = useState(null);
+  const [dayDraft, setDayDraft] = useState(null);
+  const [excelOpen, setExcelOpen] = useState(false);
   const [preview, setPreview] = useState(null);
   const [applyMessage, setApplyMessage] = useState('');
   const [ackWarnings, setAckWarnings] = useState(false);
@@ -502,12 +504,13 @@ export default function ChinaVolumeBoard() {
     const base = buildChinaVolumeCustomerColumns({ rows: chinaRows, customers: allCustomers, packingRows, cells });
     const keys = new Set([...base.map(c => String(c.custKey)), ...(reviewNotes.addedCustomers || []).map(String)]);
     const days = Object.fromEntries(allCustomers.map(customer => [customer.custKey, pickDataDay(extractDays(customer, '중국'))]));
-    return chinaEditableCustomers(allCustomers, keys, reviewNotes.customerAreas, days);
+    return chinaEditableCustomers(allCustomers, keys, reviewNotes.customerAreas, { ...days, ...reviewNotes.customerDays });
   }, [allCustomers, chinaRows, packingRows, cells, reviewNotes]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const gridTotals = useMemo(() => buildChinaVolumeGridTotals({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: matchProducts, customers: allCustomers }, packingRows, cells }), [data, matchProducts, allCustomers, packingRows, cells]);
-  const customerDays = useMemo(() => Object.fromEntries(customers.map(customer => [customer.custKey, pickDataDay(extractDays(customer, '중국'))])), [customers]);
+  const customerDays = useMemo(() => Object.fromEntries(customers.map(customer => [customer.custKey, reviewNotes.customerDays?.[customer.custKey] ?? pickDataDay(extractDays(customer, '중국'))])), [customers, reviewNotes.customerDays]);
+  const excelRows = useMemo(() => buildChinaVolumeWorkbookRows({ year, week, rows: chinaRows, customers, cells, customerDays }), [year, week, chinaRows, customers, cells, customerDays]);
   const productDifferences = useMemo(() => chinaProductDifferences((data?.rows || []).filter(isChinaVolumeRow), allCustomers, packingRows, matchProducts), [data, allCustomers, packingRows, matchProducts]);
 
   const editQuantity = (row, customer, quantity) => {
@@ -826,25 +829,23 @@ export default function ChinaVolumeBoard() {
 
   const downloadExcel = () => {
     if (!data) return;
-    if (!['APPLIED', 'MANUAL'].includes(packingPhase)) { setError('매칭·박스 배분을 저장하고 [매칭 적용] 또는 [박스 일괄 입력]을 완료한 뒤 엑셀을 다운로드하세요.'); return; }
-    if (packingRows.length && totals.status === 'WARNING' && !window.confirm(`수량 대조 경고가 ${totals.mismatches.length + totals.unmatchedRowCount}건 있습니다. 대조내역을 포함해 엑셀을 다운로드할까요?`)) return;
-    const appliedCustomers = customers.filter(customer => chinaRows.some(row => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
-    const appliedRows = chinaRows.filter(row => appliedCustomers.some(customer => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
-    const sheet = XLSXStyled.utils.aoa_to_sheet(buildChinaVolumeWorkbookRows({ year, week, rows: appliedRows, customers: appliedCustomers, cells, appliedOnly: true, customerDays }));
+    const appliedCustomers = customers;
+    const appliedRows = chinaRows;
+    const sheet = XLSXStyled.utils.aoa_to_sheet(excelRows);
     // 마지막 거래처 열 다음에 주문·입고·잔량·품목(반복) 4개 열이 붙는다.
     const summaryColCount = 4;
     const lastColIndex = appliedCustomers.length + summaryColCount;
     sheet['!cols'] = [{ wch: 48 }, ...appliedCustomers.map(() => ({ wch: 16 })), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 48 }];
-    sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 34 }, ...appliedRows.map(() => ({ hpt: 24 }))];
-    sheet['!autofilter'] = { ref: `A3:${XLSX.utils.encode_col(lastColIndex)}${appliedRows.length + 3}` };
-    sheet['!freeze'] = { xSplit: 1, ySplit: 3 };
+    sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 24 }, { hpt: 20 }, ...appliedRows.map(() => ({ hpt: 24 }))];
+    sheet['!autofilter'] = { ref: `A4:${XLSX.utils.encode_col(lastColIndex)}${appliedRows.length + 4}` };
+    sheet['!freeze'] = { xSplit: 1, ySplit: 4 };
     const border = { top: { style: 'thin', color: { rgb: 'DDE2E8' } }, bottom: { style: 'thin', color: { rgb: 'DDE2E8' } }, left: { style: 'thin', color: { rgb: 'DDE2E8' } }, right: { style: 'thin', color: { rgb: 'DDE2E8' } } };
-    for (let rowIndex = 0; rowIndex < appliedRows.length + 3; rowIndex += 1) {
+    for (let rowIndex = 0; rowIndex < appliedRows.length + 4; rowIndex += 1) {
       for (let colIndex = 0; colIndex <= lastColIndex; colIndex += 1) {
         const address = XLSXStyled.utils.encode_cell({ r: rowIndex, c: colIndex });
         if (!sheet[address]) continue;
         const isTitle = rowIndex === 0;
-        const isHeader = rowIndex === 1 || rowIndex === 2;
+        const isHeader = rowIndex > 0 && rowIndex < 4;
         const isProduct = colIndex === 0;
         const hasBoxes = /\(/.test(String(sheet[address].v || ''));
         sheet[address].s = {
@@ -919,7 +920,9 @@ export default function ChinaVolumeBoard() {
           <button className="box-entry-open" onClick={() => setBoxEntryOpen(true)} disabled={!scopeCurrent || saving || loading || !data || saving}>박스 일괄 입력</button>
           <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || !scopeCurrent || loading || ['APPLIED', 'MANUAL'].includes(packingPhase) || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : packingPhase === 'MANUAL' ? '✓ 박스 입력 적용됨' : '매칭 적용'}</button>
           <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!scopeCurrent || saving || loading || !packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
-          <button onClick={downloadExcel} disabled={!scopeCurrent || saving || loading || !data || packingPhase === 'REVIEW'}>엑셀 다운로드</button>
+          <button onClick={() => load()} disabled={!scopeCurrent || saving || loading || !data || !dirty} title="저장하지 않은 변경을 버리고 저장본을 다시 조회합니다">변경 초기화</button>
+          <button onClick={() => setExcelOpen(true)} disabled={!scopeCurrent || saving || loading || !data}>엑셀 미리보기</button>
+          <button onClick={downloadExcel} disabled={!scopeCurrent || saving || loading || !data}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
@@ -942,7 +945,7 @@ export default function ChinaVolumeBoard() {
               <table className="board">
                 <thead>
                   <tr><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>품목 합계</th></tr>
-                  <tr>{customers.map(customer => <th key={customer.custKey}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'}</th>)}</tr>
+                  <tr>{customers.map(customer => <th key={customer.custKey}><button disabled={!scopeCurrent || saving || loading} aria-label={`${customer.custName} 요일 변경`} onClick={() => setDayDraft({ custKey: customer.custKey, value: customerDays[customer.custKey] || '' })}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'} ▾</button></th>)}</tr>
                   <tr>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr>
                 </thead>
                 <tbody>{chinaRows.map(row => (
@@ -1005,7 +1008,9 @@ export default function ChinaVolumeBoard() {
       {matchOpen && <MatchingModal key={matchingSourceRow ?? 'unresolved'} rows={packingRows} products={matchProducts} customers={allCustomers} targetSourceRow={matchingSourceRow} onClose={() => { setMatchOpen(false); setMatchingSourceRow(null); }} onSave={saveFullMatch} />}
       <InlineReviewPanel open={reviewOpen} phase={packingPhase} totals={totals} packingRows={packingRows} onClose={() => setReviewOpen(false)} onMatch={sourceRow => { setReviewOpen(false); openPackingMatch(sourceRow); }} onDistribution={sourceRow => { setReviewOpen(false); openPackingDistribution(sourceRow); }} />
       {lookup && <ChinaLookupDialog kind={lookup.kind} products={matchProducts} customers={allCustomers} onSelect={selectLookup} onClose={() => setLookup(null)} />}
-      {regionDraft && <ChinaDialog title="이 물량표의 업체 지역 변경" onClose={() => setRegionDraft(null)}><label>지역<input autoFocus value={regionDraft.value} maxLength={80} onChange={event => setRegionDraft({ ...regionDraft, value: event.target.value })} list="china-regions" /></label><datalist id="china-regions">{[...new Set(allCustomers.map(c => c.area).filter(Boolean))].map(area => <option key={area} value={area} />)}</datalist><footer><button onClick={() => setRegionDraft(null)}>취소</button><button className="primary" disabled={!regionDraft.value.trim()} onClick={() => { setReviewNotes(previous => ({ ...previous, customerAreas: { ...previous.customerAreas, [regionDraft.custKey]: regionDraft.value.trim() } })); setRegionDraft(null); setDirty(true); }}>적용</button></footer></ChinaDialog>}
+      {regionDraft && <ChinaDialog title="이 물량표의 업체 지역 변경" onClose={() => setRegionDraft(null)}><label>지역<select autoFocus value={regionDraft.value} onChange={event => setRegionDraft({ ...regionDraft, value: event.target.value })}>{[...new Set([regionDraft.value, '기타', ...allCustomers.map(c => c.area), ...Object.values(reviewNotes.customerAreas || {})].filter(Boolean))].sort((a,b) => a.localeCompare(b, 'ko')).map(area => <option key={area} value={area}>{area}</option>)}</select></label><footer><button onClick={() => setRegionDraft(null)}>취소</button><button className="primary" disabled={!regionDraft.value.trim()} onClick={() => { setReviewNotes(previous => ({ ...previous, customerAreas: { ...previous.customerAreas, [regionDraft.custKey]: regionDraft.value.trim() } })); setRegionDraft(null); setDirty(true); }}>적용</button></footer></ChinaDialog>}
+      {dayDraft && <ChinaDialog title="이 물량표의 업체 요일 변경" onClose={() => setDayDraft(null)}><label>요일<select autoFocus value={dayDraft.value} onChange={event => setDayDraft({ ...dayDraft, value: event.target.value })}><option value="">요일미등록</option>{['월','화','수','목','금','토','일'].map(day => <option key={day} value={day}>{day}요일</option>)}</select></label><footer><button onClick={() => setDayDraft(null)}>취소</button><button className="primary" onClick={() => { setReviewNotes(previous => ({ ...previous, customerDays: { ...previous.customerDays, [dayDraft.custKey]: dayDraft.value } })); setDayDraft(null); setDirty(true); }}>적용</button></footer></ChinaDialog>}
+      {excelOpen && <ChinaDialog title="엑셀 미리보기" onClose={() => setExcelOpen(false)}><p>현재 화면 수량 기준 · {dirty ? '저장하지 않은 변경 포함' : '저장된 작업'} · 확정 여부와 관계없이 다운로드할 수 있습니다. 업체명과 CL 번호는 별도 셀입니다.</p>{packingPhase === 'REVIEW' && <p>인보이스 매칭 적용 전입니다. 아직 적용하지 않은 인보이스 수량은 포함되지 않습니다.</p>}<div style={{ overflowX: 'auto' }}><table><tbody>{excelRows.map((row, r) => <tr key={r}>{row.map((value,c) => r < 4 ? <th key={c}>{value}</th> : <td key={c}>{value}</td>)}</tr>)}</tbody></table></div><footer><button onClick={() => setExcelOpen(false)}>닫기</button><button className="primary" onClick={downloadExcel} disabled={!scopeCurrent || saving || loading}>엑셀 다운로드</button></footer></ChinaDialog>}
       {preview && <ChinaDialog title={`${year}년 ${week} 등록·분배 저장 확인`} onClose={() => setPreview(null)} busy={saving}>
         <p>아래 셀의 분배를 최종 수량으로 저장합니다. <b>기존 주문 수량은 변경하지 않습니다.</b> 주문이 없는 양수 품목만 새로 등록합니다.</p>
         {(preview.blockers || []).map((message,index) => <p role="alert" key={index}>{message}</p>)}

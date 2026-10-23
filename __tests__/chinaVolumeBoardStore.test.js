@@ -22,6 +22,11 @@ function response() {
     orderYear: 2026, orderWeek: '35-1', name: '', packingRows: [], cells: {},
     matchOverrides: {}, reviewState: { resolved: false, quantity: 0 },
   });
+  for (const orderYear of [2025, 2026]) {
+    const options = { customerAreas: { 7: '서울' }, customerDays: { 7: '월', 8: '' } };
+    const savedOptions = store.normalizeChinaVolumeBoardSave({ orderYear, orderWeek: '43-03', name: '표', packingRows: [], cells: {}, matchOverrides: {}, reviewState: options });
+    assert.deepEqual(JSON.parse(savedOptions.reviewStateJson), options, '지역/요일 및 미등록 요일을 차수 작업본에 보존');
+  }
   assert.equal(normalized.name, '35-01 중국물량표');
   assert.deepEqual(JSON.parse(normalized.packingRowsJson), []);
   assert.deepEqual(JSON.parse(normalized.reviewStateJson), { resolved: false, quantity: 0 }, 'false와 0을 기본값으로 덮지 않는다');
