@@ -39,3 +39,37 @@ test('preview editable notes, explicit box false, header week only, escape HTML 
   assert.match(no.html,/>43차</);assert.doesNotMatch(no.html,/43차 .*분배 기준/);
   assert.equal(no.noteEntries[0].text,result.printNotes[weekdayPrintRowKey(row)].note);assert.equal(JSON.stringify(result),before);
 });
+
+test('document header is durable, separate from rows and years, clears explicitly, and rejects concurrent saves',async()=>{
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'nenova-print-header-'));
+  const key='@document-header',read=async()=>({items:[row]});
+  const service=createWeekdayPrintNoteService({directory,read});
+  const payload={scope,rowKey:key,note:'43차 추가 출고',expectedRevision:0};
+  try{
+    await service.save(payload,user,null,{});
+    const fresh=createWeekdayPrintNoteService({directory,read});
+    assert.equal((await fresh.list(scope,[row]))[key].note,payload.note);
+    assert.deepEqual(await fresh.list({...scope,year:2025},[row]),{});
+    assert.deepEqual(await fresh.list({...scope,dates:['2026-10-26']},[row]),{});
+    await assert.rejects(fresh.save(payload,user,null,{}),e=>e.code==='REVISION_CONFLICT');
+    await assert.rejects(fresh.save({...payload,note:'bad\nline'},user,null,{}),e=>e.code==='INVALID_INPUT');
+    await fresh.save({...payload,note:'',expectedRevision:1},user,null,{});
+    assert.equal((await fresh.list(scope,[row]))[key].note,'');
+    assert.equal((await fresh.list(scope,[row]))[weekdayPrintRowKey(row)],undefined);
+    const result={success:true,readOnly:true,draftIncluded:false,source:'ALLOCATION',scope,customer:{CustKey:533,CustName:'fixture'},items:[row],confirmation:{required:false,fixedCount:0,unfixedCount:1,unknownCount:0},printNotes:await fresh.list(scope,[row])};
+    const bundle=buildWeekdayEstimatePrintBundle({requests:[scope],results:[result],editableRemarks:true});
+    assert.equal(bundle.noteEntries.find(e=>e.rowKey===key).text,'');
+    assert.ok(bundle.html.includes('aria-label="견적서 차수 표시"'));
+    assert.ok(bundle.html.includes('@page { size:A4; margin:10mm 15mm; }'));
+    assert.ok(bundle.html.includes('tr { break-inside:avoid; page-break-inside:avoid; }'));
+  }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('customer phone and header text are escaped without changing printable quantities',()=>{
+  const result={success:true,readOnly:true,draftIncluded:false,source:'ALLOCATION',scope,customer:{CustKey:533,CustName:'fixture',Tel:'<test-phone>'},items:[row],confirmation:{required:false,fixedCount:1,unfixedCount:0,unknownCount:0},printNotes:{'@document-header':{note:'43차 <추가>',revision:1}}};
+  const output=buildWeekdayEstimatePrintBundle({requests:[scope],results:[result],editableRemarks:true});
+  assert.ok(output.html.includes('&lt;test-phone&gt;'));
+  assert.ok(output.html.includes('43차 &lt;추가&gt;'));
+  assert.ok(output.html.includes('18단<wbr>(1.2)'));
+  assert.equal(result.items[0].Quantity,18);
+});
