@@ -1058,3 +1058,8 @@
 - 실제 dnSpy ClassProduct/FormQuantityPivot 확인, SELECT-only 품목 schema/trigger probe 재실행. SQL/API writer 변경 없음.
 - 관련 실행 검사/빌드 통과. 전체 gate·PR·배포 결과는 세션 기록 후속 참조. 운영 저장 시험 없음.
 - 검색어: dutch-explicit-load prompt not supported 칼라 dialog 명시조회
+
+## 2026-10-23 네덜란드 원본 표 업체 추가
+- 업체 popup 선택 → 현재 시트 지역별 수량 열 표시. 원본 workbook 불변 projection, 추가 entries/지역 저장 복원, 기존 명시 검토·분배 계약 유지.
+- 표 전폭과 반복 품목명 두 줄 제한. 전체 검사/배포/실화면 확인은 docs/work-sessions/2026-10-23_dutch-inline-add.md 참조. 운영 시험 분배 없음.
+- 검색어: dutch-inline-add 업체추가 지역배치 반복품목명 전폭

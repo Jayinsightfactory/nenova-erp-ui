@@ -2,11 +2,32 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { buildDutchQuantitySummaryValues, createDutchBlankCellEntry, normalizeDutchQuantityHistory, parseDutchSheetQuantity } from '../../lib/dutchSheetQuantityEdit';
 import { dutchUniformPricePeerKeys, snapshotDutchPriceDraft } from '../../lib/dutchVolumePrice';
+import { projectDutchInlineCustomers } from '../../lib/dutchInlineCustomer';
 
 const formatQty = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
 const hasPrice = value => value !== undefined && value !== null && String(value) !== '';
 
-export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, priceKey, matchCache = {}, validationCurrent = false, onMatch = () => {}, onQuantityChange = () => {}, onPriceChange = () => {}, onPriceRestore = () => {}, onDayChange = () => {}, onColorChange = () => {}, activeEntryId = '', disabled = false }) {
+export default function DutchVolumeSheet(props) {
+  const projection = useMemo(() => projectDutchInlineCustomers(XLSX, props.workbook, props.entries || []), [props.workbook, props.entries]);
+  return <DutchVolumeMatrix {...props} workbook={projection.workbook} entries={projection.entries}
+    onMatch={(entry,kind) => props.onMatch?.((props.entries || []).find(row => row.id === entry.id) || entry,kind)}
+    onDayChange={(name,address,value) => { const original=projection.originalAddress(name,address); if(original) props.onDayChange?.(name,original,value); }}
+    onQuantityChange={(id,quantity,newEntry) => {
+      if (!newEntry) return props.onQuantityChange?.(id,quantity);
+      const address=projection.originalAddress(newEntry.sheetName,newEntry.cellAddress);
+      if (!address) {
+        const column=projection.entries.find(row => row.sheetName===newEntry.sheetName && row.sourceColumn===newEntry.sourceColumn && row.customerArea !== undefined);
+        if (!column) return;
+        const inline={...newEntry,id:`inline:${newEntry.sheetName}:${newEntry.sourceRow}:${column.custKey}`,added:true,customer:column.customer,sourceCustomer:column.sourceCustomer,custKey:column.custKey,customerArea:column.customerArea};
+        delete inline.cellAddress; delete inline.sourceColumn;
+        return props.onQuantityChange?.(inline.id,quantity,inline);
+      }
+      const original={...newEntry,id:`${newEntry.sheetName}!${address}`,cellAddress:address,sourceColumn:XLSX.utils.decode_cell(address).c};
+      props.onQuantityChange?.(original.id,quantity,original);
+    }}/>
+}
+
+function DutchVolumeMatrix({ workbook, entries = [], prices = {}, priceKey, matchCache = {}, validationCurrent = false, onMatch = () => {}, onQuantityChange = () => {}, onPriceChange = () => {}, onPriceRestore = () => {}, onDayChange = () => {}, onColorChange = () => {}, onSheetChange = () => {}, activeEntryId = '', disabled = false }) {
   const sheets = useMemo(() => [...new Set(entries.filter(entry => !entry.added && entry.sheetName && workbook?.Sheets?.[entry.sheetName]).map(entry => entry.sheetName))], [entries, workbook]);
   const [sheetName, setSheetName] = useState('');
   const scrollRef = useRef(null);
@@ -23,6 +44,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
   const [dayEdit, setDayEdit] = useState(null);
   const [scrollMetrics, setScrollMetrics] = useState({ content: 0, viewport: 0 });
   useEffect(() => { if (!sheets.includes(sheetName)) setSheetName(sheets[0] || ''); }, [sheets, sheetName]);
+  useEffect(() => { if(sheetName) onSheetChange(sheetName); }, [sheetName]);
   useEffect(() => {
     const viewport = scrollRef.current;
     const table = viewport?.querySelector('table');
@@ -39,6 +61,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     if (!activeEntryId || !scrollRef.current) return;
     const cell = [...scrollRef.current.querySelectorAll('[data-entry-id]')].find(item => item.dataset.entryId === activeEntryId);
     cell?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const frame=requestAnimationFrame(() => cell?.querySelector('button:not(:disabled)')?.focus());
+    return () => cancelAnimationFrame(frame);
   }, [activeEntryId, sheetName]);
   useEffect(() => {
     if (!quantityEdit) return;
@@ -139,7 +163,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
   const layoutVersion = sheetEntries[0]?.layoutVersion || 3;
   const stickyCount = layoutVersion === 3 ? 3 : 2;
   const widths = [62, 152, 58];
-  const widthOf = column => column < stickyCount ? widths[column] : 36;
+  const repeatedProduct = column => column >= stickyCount && ['품목명','품목'].includes(String(sheet?.[XLSX.utils.encode_cell({r:2,c:column})]?.v || '').trim());
+  const widthOf = column => column < stickyCount ? widths[column] : repeatedProduct(column) ? 132 : 42;
   const leftOf = column => widths.slice(0, column).reduce((sum, width) => sum + width, 0);
   const syncHorizontalScroll = (sourceRef, targetRef) => {
     const source = sourceRef.current;
@@ -197,11 +222,11 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
           const displayValue = summaryValues.has(address) ? summaryValues.get(address) : cell?.v;
           const raw = displayValue == null ? (cell?.f ? '수식 캐시 없음' : '') : typeof displayValue === 'number' ? formatQty(displayValue) : String(displayValue);
           const weekdayKey = `${sheetName}!${address}`;
-          const weekdayEditable = rowIndex === 1 && colIndex >= stickyCount && colIndex < quantitySummaryStart && !!String(sheet[XLSX.utils.encode_cell({ r: 2, c: colIndex })]?.v ?? '').trim() && !disabled && !cell?.f;
+          const weekdayEditable = rowIndex === 1 && colIndex >= stickyCount && colIndex < quantitySummaryStart && !repeatedProduct(colIndex) && !sheetEntries.some(item => item.sourceColumn === colIndex && item.customerArea !== undefined) && !!String(sheet[XLSX.utils.encode_cell({ r: 2, c: colIndex })]?.v ?? '').trim() && !disabled && !cell?.f;
           const isEditingDay = weekdayEditable && dayEdit?.key === weekdayKey;
           const edited = entry && Number.isFinite(Number(entry.quantity)) && Number(entry.quantity) !== Number(cell?.v);
           const header = rowIndex === 2;
-          const customerColumn = header && colIndex >= stickyCount && colIndex < quantitySummaryStart;
+          const customerColumn = header && colIndex >= stickyCount && colIndex < quantitySummaryStart && !repeatedProduct(colIndex);
           const columnEntry = customerColumn ? sheetEntries.find(item => item.sourceColumn === colIndex) : null;
           const customerUnmatchedEntry = customerColumn && validationCurrent
             ? sheetEntries.find(item => item.sourceColumn === colIndex && matchCache[item.id]?.status === 'unmatched' && !matchCache[item.id]?.custKey)
@@ -244,7 +269,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
                   ? <div className="customer-header-label"><span>{customerLines[0] || raw}</span>{customerLines[1] && <small>{customerLines[1]}</small>}{customerUnmatchedEntry && <button type="button" className="unmatched-link" onClick={() => onMatch(customerUnmatchedEntry, 'customer') } title="별도 창에서 ERP 업체 매칭">미매칭</button>}</div>
                   : colIndex === 2 && stickyCount === 3 && rowIndex >= 3 && sheetEntries.some(item => item.sourceRow === rowIndex)
                     ? <button type="button" className="weekday-edit-trigger" disabled={disabled} title="품목 비고에 칼라 저장" aria-label={`${String(sheet[XLSX.utils.encode_cell({r:rowIndex,c:1})]?.v || '')} 칼라 수정`} onClick={() => onColorChange(sheetEntries.find(item => item.sourceRow === rowIndex), raw)}>{raw || '\u00a0'}</button>
-                    : <><span className="source-value">{raw}</span>{productUnmatchedEntry && <button type="button" className="unmatched-link" onClick={() => onMatch(productUnmatchedEntry, 'product') } title="별도 창에서 ERP 품목 매칭">미매칭</button>}</>}
+                    : <><span className={`source-value ${repeatedProduct(colIndex) ? 'repeated-product' : ''}`} title={raw}>{raw}</span>{productUnmatchedEntry && <button type="button" className="unmatched-link" onClick={() => onMatch(productUnmatchedEntry, 'product') } title="별도 창에서 ERP 품목 매칭">미매칭</button>}</>}
             {entry && <>
               {edited && <span className="draft-quantity">원본 {raw} {entry.unit || ''}</span>}
               <div className="cell-price">
@@ -273,7 +298,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     <style jsx>{`.source-sheet{min-width:0;background:#fff;border:1px solid #bfcada}.sheet-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 7px;border-bottom:1px solid #cbd5e1}.sheet-bar div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.sheet-bar b{font-size:12px;color:#14345b}.sheet-bar span,.manual-note{font-size:10px;color:#52647c}.sheet-bar select{height:26px;border:1px solid #aebbd0}.sheet-top-scroll{height:14px;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:stable;margin:2px 0;overscroll-behavior-x:contain}.sheet-top-scroll[hidden]{display:none}.sheet-top-scroll-inner{height:1px}.sheet-scroll{overflow:auto;max-height:none;min-height:0;scrollbar-gutter:auto;overscroll-behavior-x:contain}.sheet-scroll table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:10px}.sheet-scroll td{height:30px;box-sizing:border-box;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;padding:2px 3px;vertical-align:middle;background:#fff;white-space:normal;overflow:hidden;overflow-wrap:anywhere}.source-value{font-weight:600}.customer-header-label{display:flex;min-height:26px;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;overflow-wrap:anywhere}.customer-header-label>span{max-width:100%;font-weight:800}.customer-header-label small{font-size:9px;font-weight:700;color:#435a79}.quantity-cell{text-align:right}.quantity-edit-trigger{display:block;width:100%;min-height:24px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:right;cursor:text}.quantity-edit-trigger:hover,.quantity-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.quantity-edit-input{box-sizing:border-box;width:100%;min-width:0;height:25px;padding:1px 2px;border:1px solid #155bd7;border-radius:2px;text-align:right;font:inherit}.header-cell{position:sticky;top:0;z-index:3;background:#dce6f4!important;color:#16335e;font-weight:800}.sticky-cell{position:sticky;z-index:2;background:#f7f9fc!important;box-shadow:1px 0 #cbd5e1}.header-cell.sticky-cell{z-index:4;background:#dce6f4!important}.editable-cell{background:#f6fbff!important}.editable-cell.sticky-cell{background:#eef7ff!important}.active-cell{outline:2px solid #155bd7;outline-offset:-2px}.unmatched-link{display:inline-block;margin-left:3px;border:0;padding:0 2px;background:#fff0ee;color:#bb2920;font-size:9px;font-weight:800;line-height:1.2;cursor:pointer}.draft-quantity{display:block;color:#7a4a00;font-size:9px}.manual-note{margin:5px 7px}@media(max-width:760px){.sheet-bar div{display:block}.sheet-top-scroll{height:15px}}`}</style>
     <style jsx>{`.quantity-cell{padding:0!important;text-align:center}.quantity-edit-trigger{min-height:26px;text-align:center}.quantity-edit-input,.price-edit-input{height:27px;padding:0;text-align:center}.weekday-edit-trigger{display:block;width:100%;min-height:20px;border:0;padding:0 3px;background:transparent;color:inherit;font:inherit;text-align:center;cursor:text}.weekday-edit-trigger:hover,.weekday-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.day-edit-input{box-sizing:border-box;width:100%;min-width:0;height:22px;padding:0 2px;border:1px solid #155bd7;text-align:center;font:inherit}.header-cell{text-align:center}.cell-price{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0}.price-edit-trigger,.source-link{border:0;background:transparent;color:#155bd7;text-decoration:underline;font-size:10px;cursor:pointer;padding:0;white-space:nowrap}.price-edit-trigger{font-weight:800;color:#075c37}.price-edit-trigger:disabled,.source-link:disabled{cursor:default;opacity:.65}.draft-quantity{text-align:center}`}</style>
     <style jsx>{`
-      .sheet-scroll table{min-width:0;font-size:12px}
+      .sheet-scroll table{width:100%;min-width:100%;font-size:12px}
+      .repeated-product{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:2.3em;word-break:normal;overflow-wrap:break-word;text-align:left}
       .sheet-scroll td{padding:1px;line-height:1.15}
       .customer-header-label>span{max-width:2em;font-size:12px;word-break:break-all}
       .customer-header-label small{font-size:10px}
