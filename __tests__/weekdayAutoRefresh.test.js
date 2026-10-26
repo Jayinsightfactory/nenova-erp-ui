@@ -13,7 +13,7 @@ test('30 second schedule, tab return, busy skipping, no overlap and disposal',as
   scheduler.dispose();assert.equal(cleared,true);await scheduler.trigger();assert.equal(calls,2);
 });
 
-function workspaceHarness({failWilson=false,failPrint=false,gate=null,quantityFocused=false}={}) {
+function workspaceHarness({failWilson=false,failPrint=false,gate=null,quantityFocused=false,baselineCode=null}={}) {
   const source=readFileSync(new URL('../components/WeekdayEstimateWorkspace.js',import.meta.url),'utf8');
   const start=source.indexOf('  async function refreshErp('),end=source.indexOf('\n  function shiftCenter',start);
   const body=source.slice(start,end),writes={},ref=current=>({current});
@@ -26,7 +26,7 @@ function workspaceHarness({failWilson=false,failPrint=false,gate=null,quantityFo
     validateWeekdaySavedHistoryScope(){},isExpectedWeekdayPrintBlock:()=>false,refreshCarryover:async()=>({}),
     apiGet:async path=>{
       if(path.endsWith('weekday-products'))return {products:[{ProdKey:389}],scope:{orderWeeks:['42-01']}};
-      if(path.endsWith('weekday-baseline'))return {baselines:[{year:2026,orderWeek:'42-01',custKey:533,rows:[]}]};
+      if(path.endsWith('weekday-baseline'))return {baselines:baselineCode?[]:[{year:2026,orderWeek:'42-01',custKey:533,rows:[]}]};
       if(path.endsWith('weekday-early-shipment'))return {success:true,readOnly:true,records:[],nextCycle:{year:2026,majorWeek:'43'}};
       if(path.endsWith('weekday-wilson')){if(failWilson)throw Error('Wilson failed');return {success:true,records:[{revision:4}]};}
       if(path.endsWith('weekday-confirmation'))return {state:'FIXED'};
@@ -35,6 +35,7 @@ function workspaceHarness({failWilson=false,failPrint=false,gate=null,quantityFo
       if(path.endsWith('weekday-carryover'))return {success:true,readOnly:true,records:[],context:{custKey:533,cycles:[],inputs:[]}};
       return {items:[]};
     },fetch:async path=>{
+      if(path.endsWith('weekday-baseline'))return {ok:false,json:async()=>({success:false,code:baselineCode,error:'baseline unavailable'})};
       if(path.endsWith('weekday-print')){if(gate)await gate;if(failPrint)throw Error('Print failed');return {ok:true,json:async()=>({success:true,items:[]})};}
       return {ok:true,json:async()=>({success:true,rows:[{quantity:13}],sourceLots:[],history:[]})};
     }};
@@ -73,4 +74,18 @@ test('failed ancillary refresh cannot publish partial safety snapshot; expected 
     assert.deepEqual(weekdayAutoRefreshFailures([],[{[key]:'network failure'}],carry),['network failure']);
   assert.deepEqual(weekdayAutoRefreshFailures([{candidates:[{error:'baseline failure'}]}],[{quote:{error:'print failure'}}],null),
     ['baseline failure','이월 조회 응답을 확인할 수 없습니다.']);
+});
+
+
+test('legacy baseline rejection does not suppress latest quantities or erase drafts',async()=>{
+  const h=workspaceHarness({baselineCode:'INVALID_ERP_DATES'}),before=JSON.stringify([h.plans,h.wilsonDrafts]);
+  assert.equal(await h.run([],{background:true}),true);
+  assert.deepEqual(h.writes.setCompareRows,[{quantity:13}]);
+  assert.equal(h.writes.setBaselineCandidates[0].errorCode,'INVALID_ERP_DATES');
+  assert.deepEqual(h.writes.setBaselineCandidates[0].rows,[]);
+  assert.equal(h.writes.setAutoRefresh.error,'');assert.ok(h.writes.setAutoRefresh.lastSuccess);
+  assert.equal(JSON.stringify([h.plans,h.wilsonDrafts]),before);
+  const failed=workspaceHarness({baselineCode:'BASELINE_READ_FAILED'});
+  assert.equal((await failed.run([],{background:true})).success,false);
+  assert.equal(failed.writes.setCompareRows,undefined);
 });

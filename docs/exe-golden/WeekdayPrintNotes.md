@@ -9,3 +9,6 @@
 - 운영 SELECT Cust533/2026/43-01 Prod359: 10/25 3박스45단,10/27 2박스30단;866:10/25 15박스450송이. isFix=false에서도 주광 분배 인쇄 대상. 2025/43 동일키는 다른행·EstQuantity NULL이며 혼합하지 않는다. ShipmentDate 양 수량컬럼 float 확인.
 - 신규 적요는 EXE ShipmentDate.Descr/Estimate.Descr을 수정하지 않는 웹 출력 overlay다. 별도 runtime/weekday-print-notes 파일에 exactscope/revision 저장. 수량/금액/확정/재고/매출은 보존한다.
 - native 조회 산식/정렬/셀 크기는 수정하지 않는다. 사용자의 헤더 차수 단독 표기·박스 선택·셀 적요 편집만 출력용 확장.
+
+## 2026-10-26 주광 조회 검증 분리
+ClassShipmentDate 설치본 CLI 재추출 및 SELECT 결과는 docs/plans/weekday-refresh-2026-10-26.md 참조. 과거 EstQuantity NULL을0으로 만들지 않고 기준 확정 불가와 분배 조회 성공을 구분한다. DB 쓰기·확정·견적·매출 변경 없음.

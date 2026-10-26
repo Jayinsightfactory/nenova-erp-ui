@@ -21,7 +21,8 @@
     "scripts/apply-weekday-early-shipment-migration.mjs",
     "scripts/test-weekday-early-shipment-sql.cjs",
     "scripts/test-weekday-distribution-sql.cjs",
-    "docs/migrations/2026-10-08_weekday_early_shipment.sql"
+    "docs/migrations/2026-10-08_weekday_early_shipment.sql",
+    "__tests__/weekdayEarlyShipmentReadScope.test.js"
   ],
   "evidence": [
     "output/early-shipment-integration/FormStockAdd.txt",
@@ -208,7 +209,8 @@
     "__tests__/weekdayEarlyShipmentPresentation.test.js",
     "__tests__/weekdayEarlyShipmentImport.test.js",
     "__tests__/shipmentImportCustomerExclusionPreview.test.js",
-    "__tests__/weekdayDistributionApply.test.js"
+    "__tests__/weekdayDistributionApply.test.js",
+    "__tests__/weekdayEarlyShipmentReadScope.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -244,5 +246,6 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "node scripts/test-weekday-early-shipment-sql.cjs",
     "npm run build"
-  ]
+  ],
+  "historicalReadScope": "GET accepts2000..2200 including2025/52 at the2026/01 boundary. Read keys retain year/majorWeek/customer; POST normalizeEarlyShipmentRequest remains2026+. No ledger writes."
 }
