@@ -1195,3 +1195,9 @@
 - 44-1 송장25529 7행107박스3210송이 격리 SQL/CUA 입고→시험원가 저장→엑셀 다운로드 확인. 운영 DB 수정 없음.
 - 전체12페이지 AI 검증 아님. 나머지 페이지/실제 비용 미검증. 전체gate/배포는 docs/work-sessions/2026-10-26_invoice-auto-flow.md 후속 확인.
 - 검색어: invoice-auto-flow 44-01 25529 Balverde 23OCT2026 AIR onebutton TEST_ONLY
+
+## 2026-10-26 GW 자동입력·CW 직접 입력
+- evidence-only 중량을 미리보기/결과/입고에 동일 적용. 같은 원본의 빈 미등록 초안만 복원. 수기/0/기등록 보존, GW/NET→CW 추정 금지.
+- 격리 Chrome44-1 대표7행107박스3210송이 GW759.7/CW시험800 입고→원가 승인·재조회→다운로드 확인. 운영 입고/원가 변경 없음.
+- 전체12페이지 AI 미검증. 최종 캡처는 브라우저 도구 오류. 배포 결과는 docs/work-sessions/2026-10-26_invoice-weight.md 참조.
+- 검색어: GW CW review_evidence packingWeight weightManual 44-01 25529 TEST_ONLY

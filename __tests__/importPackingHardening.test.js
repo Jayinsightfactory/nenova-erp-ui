@@ -160,6 +160,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/packingValidationIssues.js': require('../lib/packingValidationIssues.js'),
     '../../lib/invoiceProductAllocation.js': require('../lib/invoiceProductAllocation.js'),
     '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
+    '../../lib/invoiceReceiptAutoFill.js': require('../lib/invoiceReceiptAutoFill.js'),
     '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,
     '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
     '../../lib/importPackingSourceReview.js': sourceReview,

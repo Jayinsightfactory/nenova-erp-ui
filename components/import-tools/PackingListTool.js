@@ -18,6 +18,7 @@ import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
+import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
 import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
@@ -1437,8 +1438,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
       return { ...res, products: reviewedProducts, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
-        grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
-        chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
+        grossWeight: packingWeight(inv, 'gw'),
+        chargeableWeight: packingWeight(inv, 'cw') };
     });
     // Dedup pending/noMatches by aliasKey so the user sees each distinct
     // description only once, even if it appeared in multiple invoices/farms.
