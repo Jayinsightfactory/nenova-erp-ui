@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compareHotelArrival,arrivalHistoryWeeks } from '../lib/hotelArrivalDisplay.js';
-import { buildRaumPnlArrivalReferences } from '../lib/raumPnlArrivalReference.js';
+import { buildRaumPnlArrivalReferences, hotelSourceStemCost, hotelSourceStemCount } from '../lib/raumPnlArrivalReference.js';
 import { invoiceArrivalRows } from '../lib/arrivalInvoiceSource.js';
 
 test('FX changes display only, scales duty but preserves KRW fixed charges',()=>{
@@ -33,4 +33,54 @@ test('invoice FX evidence requires reconciliation, test-only excluded',()=>{
  assert.equal(invoiceArrivalRows(costs,{WarehouseKey:1},'2026')[0].FixedPerUnitKRW,null);
  actual.expenseBasis='TEST_ONLY';
  assert.deepEqual(invoiceArrivalRows(costs,{WarehouseKey:1},'2026'),[]);
+});
+
+test('legacy workbook aliases and country currency reach the displayed won cost without changing saved costs',()=>{
+ const cells={'도착원가(송이) (부가세 별도)':1901.697673086564,'도착원가(단) (부가세 포함)':20918.6744,'단당  수량':10};
+ const source={OrderYear:'2026',OrderWeek:'40-1',ProdKey:1,ArrivalLineKey:41837,CountryName:'네덜란드',ArrivalUnit:'단',SelectedArrivalCostKRW:19017,ExchangeRate:1760,SourceStemsPerBunch:10,AllocationBasis:'SOURCE',CustomsPerUnitKRW:0,OtherPerUnitKRW:142.1982,RawJson:JSON.stringify({cells})};
+ const item={itemKey:1,prodKey:1,unit:'단',costPrice:9000};
+ const before=JSON.stringify({item,source});
+ const refs=buildRaumPnlArrivalReferences([item],[source,{...source,OrderYear:'2025',SelectedArrivalCostKRW:99999}],40,'2026',true)[1];
+ assert.equal(refs.length,1);
+ assert.equal(refs[0].fxExpenseFactor,10);
+ const result=compareHotelArrival(refs[0],{EUR:1900});
+ assert.equal(result.applied,true);
+ assert.equal(Math.round(result.cost),20417);
+ assert.equal(compareHotelArrival(refs[0],{}).cost,19017);
+ assert.equal(compareHotelArrival(refs[0],{USD:1900}).reason,'EUR 환율 미입력');
+ assert.equal(JSON.stringify({item,source}),before);
+ for(const [country,currency] of [['중국','CNY'],['태국','USD'],['베트남','USD'],['에콰도르','USD']]) {
+   const ref=buildRaumPnlArrivalReferences([item],[{...source,CountryName:country,RawJson:JSON.stringify({cells:{'도착원가(단)':1200,'단당수량':1}}),SelectedArrivalCostKRW:1200,ExchangeRate:1000,SourceStemsPerBunch:1,OtherPerUnitKRW:200}],40,'2026')[1][0];
+   assert.equal(ref.currency,currency);
+   assert.equal(compareHotelArrival(ref,{[currency]:1400}).cost,1600);
+ }
+ const explicit=buildRaumPnlArrivalReferences([item],[{...source,CountryName:'중국',Currency:' usd '}],40,'2026')[1][0];
+ assert.equal(explicit.currency,'USD');
+ const unknown=buildRaumPnlArrivalReferences([item],[{...source,CountryName:'알수없음'}],40,'2026')[1][0];
+ assert.equal(compareHotelArrival(unknown,{USD:1400}).applied,false);
+ const mismatch=buildRaumPnlArrivalReferences([item],[{...source,SelectedArrivalCostKRW:25000}],40,'2026')[1][0];
+ assert.equal(compareHotelArrival(mismatch,{EUR:1900}).applied,false);
+});
+
+test('stem evidence accepts whitespace/송의/exclusive VAT, rejects inclusive VAT and conflicting aliases',()=>{
+ for(const header of ['도착원가(송이)','도착원가(송의)','도착원가(송이)\r\n(부가세 별도)']) {
+   assert.equal(hotelSourceStemCost({cells:{[header]:100}}),100);
+ }
+ for(const raw of [{cells:{'도착원가(송이) (부가세 포함)':110}}, {cells:{'도착원가(송이)':100,'도착원가(송의)':200}}, {cells:{'도착원가(송이)':null}}, '{broken']) {
+   assert.equal(hotelSourceStemCost(raw,100),null);
+ }
+ assert.equal(hotelSourceStemCost(undefined,100),100);
+});
+
+test('early parallel header/cell arrays recover original pack evidence without trusting Product defaults',()=>{
+ const raw={headers:['그외통관(송이당)','도착원가(송이)','단당  수량','도착원가(단)'],cells:[76.3064892495204,1992.70052598368,10,19927.0052598368]};
+ assert.equal(hotelSourceStemCount(raw),10);
+ const row={OrderYear:'2026',OrderWeek:'52-2',ProdKey:1,ArrivalLineKey:941,CountryName:'네덜란드',ArrivalUnit:'단',SelectedArrivalCostKRW:19927,ExchangeRate:1750,AllocationBasis:'SOURCE',CustomsPerUnitKRW:0,OtherPerUnitKRW:76,RawJson:JSON.stringify(raw),SteamOf1Bunch:5};
+ const ref=buildRaumPnlArrivalReferences([{itemKey:1,prodKey:1,unit:'송이'}],[row],40,'2026',true)[1][0];
+ assert.equal(ref.sourceStemsPerBunch,10);
+ assert.equal(ref.fxExpenseFactor,10);
+ assert.equal(ref.cost,1992.7);
+ assert.equal(Math.round(compareHotelArrival(ref,{EUR:1900}).cost),2157);
+ assert.equal(hotelSourceStemCount({...raw,headers:[...raw.headers,'단당수량'],cells:[...raw.cells,5]}),null);
+ assert.equal(hotelSourceStemCost({...raw,headers:raw.headers.slice(1)}),null);
 });
