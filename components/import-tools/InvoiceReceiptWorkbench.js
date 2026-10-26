@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
+import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
@@ -54,7 +55,7 @@ function resetWorkflowStages() {
 async function readJson(response) {
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.success) {
-    const error = new Error(data?.error || `요청에 실패했습니다. (${response.status})`);
+    const error = new Error(draftConflictMessage(data?.code) || data?.error || `요청에 실패했습니다. (${response.status})`);
     error.code = data?.code || null;
     error.httpStatus = response.status;
     error.resultUnknown = data?.resultUnknown;
@@ -173,6 +174,8 @@ export default function InvoiceReceiptWorkbench({
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
 }) {
   const [records, setRecords] = useState([]);
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
   const [selectedId, setSelectedId] = useState('');
   const [sourceState, setSourceState] = useState({ busy: false, error: '', hash: '' });
   const [notice, setNotice] = useState(null);
@@ -275,11 +278,18 @@ export default function InvoiceReceiptWorkbench({
         excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated,
       });
       if (!active) return;
-      const next = documents.map(document => ({ document, dirty: true, preview: null, pendingOperation: loadPendingOperation(document.documentId) }));
+      const saved = await Promise.all(documents.map(document => readExistingReceiptSource(document, readDocument)));
+      if (!active) return;
+      const next = documents.map((document, index) => ({
+        ...resumeReceiptSource(document, recordsRef.current.find(record => record.document.documentId === document.documentId), saved[index]),
+        pendingOperation: loadPendingOperation(document.documentId),
+      }));
       setRecords(next);
-      setSelectedId(next[0]?.document.documentId || '');
+      setSelectedId(current => documents.some(document => document.documentId === current) ? current : documents[0]?.documentId || '');
       setSourceState({ busy: false, error: '', hash, scope: { file, excels, invoices, country } });
-      setNotice({ type: 'info', text: '분석값을 입고 초안으로 준비했습니다. 아직 ERP 입고가 등록된 상태가 아닙니다.' });
+      setNotice({ type: 'info', text: saved.some(Boolean)
+        ? '같은 인보이스의 저장 문서를 연결했습니다. 기존 매칭·입력값·저장 버전으로 다음 단계를 이어갑니다.'
+        : '분석값을 입고 초안으로 준비했습니다. 아직 ERP 입고가 등록된 상태가 아닙니다.' });
     })().catch(error => {
       if (active) setSourceState({ busy: false, error: error.message, hash: '' });
     });
@@ -484,7 +494,7 @@ export default function InvoiceReceiptWorkbench({
       setNotice({ type: 'success', text: `초안 revision ${saved.revision}을 저장했습니다. ERP 입고 등록은 아직 실행되지 않았습니다.` });
     } catch (error) {
       setManualStage(selected.document.documentId, 'draft', error.resultUnknown || !error.httpStatus || error.httpStatus >= 500 ? 'unknown' : 'failed', error.message);
-      if (error.resultUnknown || !error.httpStatus || error.httpStatus >= 500) {
+      if (draftConflictMessage(error.code) || error.resultUnknown || !error.httpStatus || error.httpStatus >= 500) {
         setRecords(current => current.map(record => record.document.documentId === selected.document.documentId
           ? { ...record, recoveryRequired: true, stageProgress: { ...(record.stageProgress || {}),
             draft: { id: 'draft', status: 'unknown', message: '저장 결과 확인이 필요합니다. 같은 문서를 다시 불러오세요.', at: new Date().toISOString() } } } : record));
@@ -693,7 +703,7 @@ export default function InvoiceReceiptWorkbench({
               } : item));
           }
         }
-        if (result.stage === 'draft' && result.status === 'UNKNOWN') {
+        if (result.stage === 'draft' && (result.status === 'UNKNOWN' || draftConflictMessage(result.code))) {
           setRecords(current => current.map(item => item.document.documentId === documentId
             ? { ...item, recoveryRequired: true } : item));
         }

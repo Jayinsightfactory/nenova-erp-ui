@@ -1178,3 +1178,9 @@
 - 2026/44-01 CO 문서966a9e13의 generic503 원인은 기존 음수 주문을 대조 함수가 거부한 것. 순합산 보존 수정 후 SELECT-only 실제 preview151행 정상, 입고일/농장 누락만 안내. 운영 DB 변경 없음.
 - focused73 통과, CUA 격리 UI 확인. 전체검사/배포 후속은 세션 MD 참조. 실제 운영 입고 쓰기는 미검증/미실행.
 - 검색어: invoice-auto-year-preview invoiceDateYear signed orders 44-01 INPUT_DATE_REQUIRED FARM_REQUIRED
+
+## 2026-10-26 인보이스 초안 재개·다음 단계
+- 고정 문서ID source 재준비가 revision을 지우고 재업로드가 GET 없이 POST하여 중복409 발생. 기존 저장 문서 자동GET/검증 재개, source 변경 3-way 병합, null revision 보존,409 한국어 복구 안내.
+- 집중56/ERP gates/build/격리 SQL 통과. CUA 실제 Workbench rev3 next→refresh→수정PATCH rev4→next→입고 확인 모달 검증. 운영 DB 수정 없음. 운영 인증 후 버튼 조작 미검증.
+- 상세·배포 결과: docs/work-sessions/2026-10-26_invoice-draft-next.md.
+- 검색어: invoice-draft-next source-resume POST can only create revision PATCH

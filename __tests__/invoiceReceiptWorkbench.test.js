@@ -161,7 +161,7 @@ test('automatic receipt progress is scope-locked and never commits or approves c
   assert.match(auto, /assertReceiptScope\(returned, target\.document, returned\.revision\)/);
   assert.match(auto, /sameRevision && result\.preview/);
   assert.match(auto, /Number\(returned\.revision\) > 0/);
-  assert.match(auto, /result\.stage === 'draft' && result\.status === 'UNKNOWN'/);
+  assert.match(auto, /result\.stage === 'draft' && \(result\.status === 'UNKNOWN' \|\| draftConflictMessage\(result\.code\)\)/);
   assert.doesNotMatch(auto, /result\.stage === 'draft' && result\.status === 'FAILED'/);
   assert.doesNotMatch(auto, /commitReceipt\(|submitReceiptCommit\(|cost-revisions/);
   assert.match(source, /event\.documentId !== documentId/);
@@ -189,12 +189,12 @@ test('automatic receipt progress is scope-locked and never commits or approves c
   assert.match(workflowSource, /draftSaveAttempted/);
 });
 
-test('definite automatic draft rejection stays editable; manual-save recovery lock is unknown-only', () => {
+test('validation rejection stays editable; unknown and version conflicts require readback', () => {
   const auto = source.slice(source.indexOf('async function runAutomaticPreparation'), source.indexOf('async function readDocument'));
   const manualSave = source.slice(source.indexOf('async function saveDraft()'), source.indexOf('function installSavedDocument'));
-  assert.match(auto, /if \(result\.stage === 'draft' && result\.status === 'UNKNOWN'\)[\s\S]*?recoveryRequired: true/);
+  assert.match(auto, /if \(result\.stage === 'draft' && \(result\.status === 'UNKNOWN' \|\| draftConflictMessage\(result\.code\)\)\)[\s\S]*?recoveryRequired: true/);
   assert.doesNotMatch(auto, /\['UNKNOWN', 'FAILED'\]/);
-  assert.match(manualSave, /if \(error\.resultUnknown \|\| !error\.httpStatus \|\| error\.httpStatus >= 500\)[\s\S]*?recoveryRequired: true/);
+  assert.match(manualSave, /if \(draftConflictMessage\(error\.code\) \|\| error\.resultUnknown \|\| !error\.httpStatus \|\| error\.httpStatus >= 500\)[\s\S]*?recoveryRequired: true/);
   assert.match(manualSave, /setManualStage\(selected\.document\.documentId, 'draft', error\.resultUnknown \|\| !error\.httpStatus \|\| error\.httpStatus >= 500 \? 'unknown' : 'failed'/);
 });
 
