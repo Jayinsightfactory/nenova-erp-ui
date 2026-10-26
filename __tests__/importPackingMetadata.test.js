@@ -50,6 +50,10 @@ test('numeric dates normalize only with unambiguous or source-declared order and
   assert.equal(normalizePackingDate('4/17', { dateOrder: 'MDY', yearEvidence: 2026 }), '2026/04/17');
   assert.equal(normalizePackingDate('4/6', { dateOrder: 'MDY' }), null);
   assert.equal(normalizePackingDate('03 maart 2025', { dateOrder: 'DMY' }), '2025/03/03');
+  assert.equal(normalizePackingDate('23OCT2026'), '2026/10/23');
+  assert.equal(normalizePackingDate('31FEB2026'), null);
+  assert.equal(normalizePackingDate('23OCT26'), null);
+  assert.equal(normalizePackingDate('23OCT2026', { dateOrder: 'MDY' }), null);
   assert.equal(normalizePackingDate('03-maart-2025', { dateOrder: 'DMY' }), '2025/03/03');
   assert.equal(normalizePackingDate('03 maart 25', { dateOrder: 'DMY' }), null, 'named months never expand a two-digit year');
   assert.equal(normalizePackingDate('03 maart 2025', { dateOrder: 'MDY' }), null);

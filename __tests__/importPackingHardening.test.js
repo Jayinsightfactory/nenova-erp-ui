@@ -65,7 +65,7 @@ function browserPdfFile(file) {
 }
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
-async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es', userId = '', savedWork = null } = {}) {
+async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es', userId = '', savedWork = null, autoAnalyze = false } = {}) {
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
     chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview, matchReview, packingWorkDraft,
     receiptMatchState] = await modulesReady;
@@ -110,6 +110,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     FlowerName: product.flowerKr ?? '',
   })));
   const fetchStub = (url, options) => {
+    if (url === '/api/import/tools/upload-history') return Promise.resolve({ok:true,status:200,json:async()=>({success:true,rows:[]})});
     if (url === '/api/auth/me') return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, user: { userId } }) });
     if (url.startsWith('/api/import/tools/product-matches')) {
       erpRequests.push({ url, options });
@@ -181,7 +182,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, storageReads, receiptSources, tree: null,
     components: { PackingResultsStub, PackingProductMatchDialogStub, PackingMatchManagerStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
-      : module.exports.default({ storage, onReceiptSourceChange, userId }); return this.tree; },
+      : module.exports.default({ storage, onReceiptSourceChange, userId, autoAnalyze }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
     async refresh() { this.render(); this.effects(); await tick(); return this.render(); },
     nodes(type) { return flatten(this.tree).filter(n => n.type === type); },
@@ -272,9 +273,9 @@ test('Korean is the default and country keys, optional languages and catalog con
   const co = h.nodes('button').find(node => node.props.type === 'button' && node.props['aria-label'] === '콜롬비아');
   assert.equal(co.props.type, 'button');
   co.props.onClick(); h.render();
-  assert.ok(text(h.tree).includes('무료 로컬 분석 우선'));
+  assert.ok(text(h.tree).includes('무료 분석 우선'));
   assert.ok(text(h.tree).includes('비용이 발생할 수 있습니다.'));
-  assert.ok(text(h.tree).includes('ERP 원장에는 반영하지 않습니다.'));
+  assert.ok(text(h.tree).includes('입고등록 버튼을 누르기 전에는 ERP 원장에 반영하지 않습니다.'));
   await h.upload(catalogFile([[1, 'Z', 'Original document name', '', '태국']]));
   assert.ok(text(h.tree).includes('카탈로그 미리보기'));
   assert.ok(text(h.tree).includes('전체 교체'));
@@ -290,7 +291,7 @@ test('Korean is the default and country keys, optional languages and catalog con
 });
 
 test('China accepts a 33MiB XLSX locally and rejects oversize files without AI requests', async () => {
-  const h = await harness({ lang: 'ko' });
+  const h = await harness({ lang: 'ko', autoAnalyze: true });
   h.nodes('button').find(n => n.props['aria-label'] === '중국').props.onClick();
   h.render();
   const upload = file => {
@@ -298,6 +299,7 @@ test('China accepts a 33MiB XLSX locally and rejects oversize files without AI r
     h.render();
   };
   upload({name:'41-1 중국 해상 ci1.xlsx',size:34304924,type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  await h.waitForRealSha(0); await h.refresh();
   assert.equal(h.readers.length, 1);
   await h.readers[0].complete('fixture'); h.render();
   assert.ok(text(h.tree).includes('41-1 중국 해상 ci1.xlsx'));
@@ -306,11 +308,11 @@ test('China accepts a 33MiB XLSX locally and rejects oversize files without AI r
   assert.equal(h.readers.length, 1);
   assert.equal(h.extractionCalls.length, 0);
   assert.equal(h.requests.length, 0);
-  assert.equal(h.button('패킹 리스트 생성').props.disabled, true);
+  assert.ok(text(h.tree).includes('41-1 중국 해상 ci1.xlsx'), 'invalid replacement preserves the prior file');
 });
 
 test('legacy China promotion is local and genChina stays gated until separate packing review', async () => {
-  const h = await harness({ lang: 'ko' });
+  const h = await harness({ lang: 'ko', autoAnalyze: true });
   h.nodes('button').find(node => node.props['aria-label'] === '중국').props.onClick(); h.render();
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
@@ -324,8 +326,9 @@ test('legacy China promotion is local and genChina stays gated until separate pa
   h.nodes('input').find(node => node.props.accept === '.pdf,.xlsx').props.onChange({ target: {
     files: [{ name: '41-1-legacy.xlsx', size: 1000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }], value: 'legacy',
   } }); h.render();
+  await h.waitForRealSha(0); await h.refresh();
   await h.readers.at(-1).complete(base64); h.render();
-  await h.button('패킹 리스트 생성').props.onClick(); await h.refresh();
+  await h.refresh(); await h.waitForRealSha(1); await h.refresh();
   assert.equal(h.requests.length, 0); assert.equal(h.extractionCalls.length, 0);
   assert.equal(h.generationCalls.length, 0, 'raw legacy source never reaches genChina');
   assert.ok(h.nodes('ChinaLegacyReview').length, text(h.tree));
@@ -980,6 +983,21 @@ test('source resolved flags do not clear extraction issues or open the generator
   assert.equal(results.props.excels.length, 1);
   assert.equal(results.props.excels[0].products[0].sourceReview.required, true);
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'preview never publishes receipt adaptation data');
+});
+
+test('first upload automatically tries local then one AI request, failure never auto-retries', async () => {
+  const h = await harness({autoAnalyze:true});
+  h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
+  h.inputPdf({name:'44-1.pdf',type:'application/pdf',size:1024});
+  await h.waitForRealSha(0); await h.refresh();
+  assert.equal(h.readers.length,1);
+  await h.readers[0].complete(); await h.refresh(); await h.refresh();
+  await h.waitForRealSha(1); await h.refresh();
+  assert.deepEqual(h.extractionCalls.map(call=>call.allowAI),[false,true]);
+  assert.equal(h.requests.length,1);
+  h.requests[0].resolve({ok:false,status:504,json:async()=>({error:'TEST timeout'})});
+  await h.refresh(); await h.refresh();
+  assert.equal(h.requests.length,1,'no automatic paid retry');
 });
 
 test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {

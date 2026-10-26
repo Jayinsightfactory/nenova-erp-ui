@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
+import { applyInvoiceHeader } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
@@ -178,11 +179,13 @@ export default function InvoiceReceiptWorkbench({
   recordsRef.current = records;
   const [selectedId, setSelectedId] = useState('');
   const [sourceState, setSourceState] = useState({ busy: false, error: '', hash: '' });
+  const [sourceAttempt, setSourceAttempt] = useState(0);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState('');
   const [savedDocuments, setSavedDocuments] = useState([]);
   const [savedError, setSavedError] = useState('');
   const [farmQuery, setFarmQuery] = useState('');
+  const [runThroughCostId, setRunThroughCostId] = useState('');
   const [farmOptions, setFarmOptions] = useState([]);
   const [farmBusy, setFarmBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -280,10 +283,24 @@ export default function InvoiceReceiptWorkbench({
       if (!active) return;
       const saved = await Promise.all(documents.map(document => readExistingReceiptSource(document, readDocument)));
       if (!active) return;
-      const next = documents.map((document, index) => ({
+      const resumed = documents.map((document, index) => ({
         ...resumeReceiptSource(document, recordsRef.current.find(record => record.document.documentId === document.documentId), saved[index]),
         pendingOperation: loadPendingOperation(document.documentId),
       }));
+      const next = await Promise.all(resumed.map(async record => {
+        const document = record.document;
+        if (recordsRef.current.some(previous => previous.document.documentId === document.documentId)
+          || record.pendingOperation || document.receiptStatus === 'COMMITTED'
+          || (document.farmKey && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
+        const data = await readJson(await fetch('/api/import/receipts/auto-fill', {
+          method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
+          body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,
+            rawMetadata:{supplier:document.rawMetadata?.supplier,invoiceDate:document.rawMetadata?.invoiceDate,rawDate:document.rawMetadata?.rawDate},
+            reviewedMetadata:{farmName:document.reviewedMetadata?.farmName,inputDate:document.reviewedMetadata?.inputDate,awb:document.reviewedMetadata?.awb,transportMode:document.reviewedMetadata?.transportMode}}),
+        }));
+        return applyInvoiceHeader(record, data.resolution);
+      }));
+      if (!active) return;
       setRecords(next);
       setSelectedId(current => documents.some(document => document.documentId === current) ? current : documents[0]?.documentId || '');
       setSourceState({ busy: false, error: '', hash, scope: { file, excels, invoices, country } });
@@ -294,7 +311,7 @@ export default function InvoiceReceiptWorkbench({
       if (active) setSourceState({ busy: false, error: error.message, hash: '' });
     });
     return () => { active = false; };
-  }, [country, excels, file, invoices, products, reviewConfirmed, truncated]);
+  }, [country, excels, file, invoices, products, reviewConfirmed, truncated, sourceAttempt]);
 
   useEffect(() => {
     const scope = sourceState.scope;
@@ -654,7 +671,7 @@ export default function InvoiceReceiptWorkbench({
       ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
   }
 
-  async function runAutomaticPreparation() {
+  async function runAutomaticPreparation(registerRequested = false) {
     if (!selected || busy || workflowLockRef.current || selected.recoveryRequired) return;
     const target = selected;
     const documentId = target.document.documentId;
@@ -708,6 +725,22 @@ export default function InvoiceReceiptWorkbench({
             ? { ...item, recoveryRequired: true } : item));
         }
         if (result.status === 'RECEIPT_VERIFIED') installSavedDocument(result.document);
+        if (registerRequested === true && result.status === 'WAITING_CONFIRMATION') {
+          const operation = buildReceiptCommitPending({document:result.document,preview:result.preview,
+            reason:'담당자 입고등록·도착원가 생성 실행',operationId:newUuid(),
+            receiptPartId:receiptPartIdForCommit(result.document,newUuid)});
+          storePendingOperation(documentId,operation);
+          setRecords(current=>current.map(item=>item.document.documentId===documentId?{...item,pendingOperation:operation}:item));
+          setManualStage(documentId,'receipt','running','입고등록·도착원가 생성 버튼으로 승인한 입고를 등록합니다.');
+          try {
+            const data=await submitReceiptCommit(operation);
+            if(!data.result)throw Object.assign(new Error('입고 결과를 확인하지 못했습니다. 같은 작업 상태를 조회하세요.'),{resultUnknown:true});
+            await acceptCommitResult(operation,data.result,'입고 재조회 완료. 도착원가 계산으로 이어갑니다.',isCurrent,result.document);
+            if(isCurrent())setRunThroughCostId(`${documentId}:${result.document.revision}:${result.document.sourceHash}`);
+          }catch(error){handleCommitFailure(operation,error);}
+          return;
+        }
+        if(registerRequested === true && result.status === 'RECEIPT_VERIFIED')setRunThroughCostId(`${documentId}:${result.document.revision}:${result.document.sourceHash}`);
         setNotice({ type: result.status === 'BLOCKED' || result.status === 'FAILED' || result.status === 'UNKNOWN' ? 'error' : 'info',
         text: result.error || (result.status === 'WAITING_CONFIRMATION'
           ? '초안과 서버 검증을 마쳤습니다. 입고 등록은 실행하지 않았습니다. 범위·사유를 확인하고 명시적으로 승인하세요.'
@@ -750,8 +783,8 @@ export default function InvoiceReceiptWorkbench({
         documentId, revision: record.document.revision } } } : record));
   }
 
-  async function acceptCommitResult(pending, result, message, isCurrent = () => true) {
-    const expected = records.find(record => record.document.documentId === pending.documentId)?.document;
+  async function acceptCommitResult(pending, result, message, isCurrent = () => true, expectedDocument = null) {
+    const expected = expectedDocument || records.find(record => record.document.documentId === pending.documentId)?.document;
     if (!expected) throw new Error('등록 작업의 원본 문서가 없어 readback 신원을 확인할 수 없습니다.');
     if (isCurrent()) setRecords(current => current.map(record => record.document.documentId === pending.documentId
       ? { ...record, stageProgress: { ...(record.stageProgress || {}),
@@ -955,7 +988,7 @@ export default function InvoiceReceiptWorkbench({
   }
 
   if (packingActive && (!file || !excels.length)) return null;
-  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p></section>;
+  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p><button type="button" onClick={() => setSourceAttempt(value => value + 1)}>입고 준비만 다시 시도 (AI 재분석 없음)</button></section>;
   if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
   if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
   if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
@@ -1019,8 +1052,8 @@ export default function InvoiceReceiptWorkbench({
           {stage.message && <small>{stage.message}</small>}
         </div>;
       })}</div>
-      <small className={styles.scopeHint}>자동 실행 범위: 선택 문서 1건 · sourceHash/revision/연도/차수 고정 · 입고와 원가 승인은 별도 확인</small>
-      <p>품목 매칭·필수값 확인 후 입고와 원가를 각각 승인하세요. 다운로드는 원가 완료 후 선택할 수 있습니다.</p>
+      <small className={styles.scopeHint}>자동 실행 범위: 선택 문서 1건 · sourceHash/revision/연도/차수 고정</small>
+      <p>「입고등록·도착원가 생성」으로 초안·검증·입고·원가를 이어서 처리합니다. 누락되거나 서로 다른 값만 확인하며, 완료된 입고는 반복 등록하지 않습니다.</p>
       {documentValue.lines.some(line => !line.prodKey) && <p role="alert">품목 수동 매칭이 필요합니다. 미매칭 행을 선택하고 필수 수량·단위·단가 및 농장·연도·차수를 확인하세요.</p>}
     </section>
     <section aria-label="현재 버전 처리 로그">
@@ -1116,6 +1149,7 @@ export default function InvoiceReceiptWorkbench({
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
+      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>입고등록·도착원가 생성</button>
       {documentValue.rawMetadata?.allocationSources?.length > 0 && <button type="button" onClick={() => setAllocationOpen(true)} disabled={Boolean(busy) || committedOperations.length > 0}>Woolly bush 품목·입고량 분류</button>}
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
         {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}
@@ -1190,7 +1224,7 @@ export default function InvoiceReceiptWorkbench({
 
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
-        autoProcess={receiptReadbackPassed} onStageChange={onCostStageChange} />
+        autoSaveRequested={runThroughCostId === `${documentValue.documentId}:${documentValue.revision}:${documentValue.sourceHash}`} autoProcess={receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale
         ? <section className={styles.costStale} role="alert"><strong>도착원가 STALE</strong><span>입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다. 수정 입고를 다시 preview·commit한 뒤 원가를 재검토하세요.</span></section>
         : <section className={styles.costPending} role="status"><strong>도착원가 PENDING</strong><span>현재 문서 revision의 입고 등록이 완료되면 실제 입고량 원가 검토를 시작할 수 있습니다.</span></section>}

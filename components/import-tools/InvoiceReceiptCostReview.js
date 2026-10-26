@@ -313,7 +313,8 @@ function unitLabel(value) {
   return ({ BUNCH: '단', STEM: '송이', BOX: '박스' })[value] || value || '';
 }
 
-export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, onStageChange }) {
+export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange }) {
+  const automaticSaveAttempts = useRef(new Set());
   const receiptLines = useMemo(() => committedReceiptLines(document), [document]);
   const identity = `${String(document?.documentId || '')}:${Number(document?.revision)}:${document?.sourceHash || ''}`;
   const identityRef = useRef(identity);
@@ -438,6 +439,15 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     return () => { active = false; };
   }, [identity, formIdentity, form, receiptLines, autoProcess, pendingIdentity, pending]);
 
+  useEffect(() => {
+    if (!autoSaveRequested || !autoProcess || preview?.status !== 'APPROVED' || pending || busy
+      || document?.costStatus === 'APPROVED' || formIdentity !== identity) return;
+    const attempt = `${identity}:${JSON.stringify(payloadOf(form))}`;
+    if (automaticSaveAttempts.current.has(attempt)) return;
+    automaticSaveAttempts.current.add(attempt);
+    save('담당자 입고등록·도착원가 생성 실행');
+  }, [autoSaveRequested,autoProcess,preview,pending,busy,formIdentity,identity,form,document?.costStatus]);
+
   if (!document) return null;
 
   function update(name, value) {
@@ -531,12 +541,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       : { type: 'error', text: '입력 검토가 필요합니다. 누락값을 0으로 대신하지 않았습니다.' });
   }
 
-  async function save() {
+  async function save(automaticReason) {
+    const saveReason = typeof automaticReason === 'string' ? automaticReason : reason.trim();
     const expectedIdentity = identity;
     const expectedGeneration = generationRef.current;
     const capturedDocument = document;
     const locks = workflowLocksRef.current;
-    if (preview?.status !== 'APPROVED' || !reason.trim() || pending) return;
+    if (preview?.status !== 'APPROVED' || !saveReason || pending) return;
     if (!acquireInvoiceCostWorkflowLock(locks, expectedIdentity)) return;
     const current = () => isCurrent(expectedIdentity, expectedGeneration);
     const warehouseKey = currentCommittedWarehouseKey(capturedDocument);
@@ -545,7 +556,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       locks.delete(expectedIdentity);
       return;
     }
-    const request = { revision: capturedDocument.revision, input: payloadOf(form), reason: reason.trim() };
+    const request = { revision: capturedDocument.revision, input: payloadOf(form), reason: saveReason };
     const nextPending = { kind: 'post', request, warehouseKey };
     if (current()) { setPending(nextPending); setBusyIdentity(expectedIdentity); setNotice(null); }
     writePending(capturedDocument, nextPending);

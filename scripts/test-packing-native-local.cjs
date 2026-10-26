@@ -38,6 +38,9 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
     d={...cachedAnalysis.ai,source:'cache',cacheSaved:true};
    }
    else if(route==='/api/arrival-cost')d={success:true,farms};
+   else if(route==='/api/import/receipts/auto-fill'){
+    const {resolveInvoiceHeader}=await import('../lib/invoiceReceiptAutoFill.js');d={success:true,resolution:resolveInvoiceHeader(body,farms)};
+   }
    else if(route==='/api/import/tools/state'){const key=u.searchParams.get('key')||body.key||'';if(method==='POST')shared.set(key,body.value);d={success:true,value:shared.get(key)||null,revision:0,history:[]};}
    else if(route==='/api/import/tools/upload-history')d={success:true,record:{id:'isolated-only'},rows:[]};
    else if(route==='/api/import/receipts/drafts'&&method==='POST')d={success:true,document:await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture'})};
@@ -48,11 +51,11 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    else if(route==='/api/warehouse/invoice-costs')d={success:true,costs:await costs.readInvoiceCosts({queryFn:ctx.queryFn,types:sql,warehouseKey:u.searchParams.get('warehouseKey')})};
    else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/stage-events'))d={success:true,...await appendInvoiceReceiptStageEvent({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:id,actor:'invoice-fixture',input:body})};
    else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/cost-export')){const out=await exportCurrentInvoiceCost({queryFn:ctx.queryFn,types:sql,documentId:id,warehouseKey:u.searchParams.get('warehouseKey'),costRevisionId:u.searchParams.get('costRevisionId')});events.push({route,method,status:200,bytes:out.buffer.length});res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':`attachment; filename="${out.filename}"`});res.end(out.buffer);return;}
-   else if(route.startsWith('/api/import/receipts/')&&route.split('/').length===5&&id!=='drafts'){if(method==='PATCH')await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture',documentId:id});d={success:true,document:await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId:id})};}
+   else if(route.startsWith('/api/import/receipts/')&&route.split('/').length===5&&id!=='drafts'){if(method==='PATCH')await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture',documentId:id});d={success:true,document:await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId:id})};if(!d.document)throw Object.assign(new Error('문서를 찾지 못했습니다.'),{statusCode:404,code:'INVOICE_DOCUMENT_NOT_FOUND'});}
    else if(method==='GET')d={success:true,rows:[],items:[],documents:[],value:null,revision:0};
    else return send({success:false,error:'LOCAL_FIXTURE_ENDPOINT_NOT_IMPLEMENTED',route},501);
    events.push({route,method,status:200});send(d);
-  }catch(e){events.push({route,method,status:400,code:e.code,message:e.message});console.log('TEST_API_ERROR',route,e.code,e.message);send({success:false,code:e.code,error:e.message,issues:e.issues},400);}
+  }catch(e){const status=e.statusCode||400;events.push({route,method,status,code:e.code,message:e.message});console.log('TEST_API_ERROR',route,e.code,e.message);send({success:false,code:e.code,error:e.message,issues:e.issues},status);}
  });
  try{for(let i=0;i<100;i++){try{await fetch('http://127.0.0.1:'+internalPort);break;}catch{}await new Promise(r=>setTimeout(r,300));}
   await new Promise((r,j)=>server.once('error',j).listen(publicPort,'127.0.0.1',r));console.log('NATIVE_UI_READY http://127.0.0.1:19422/import/tools?popup=1');await done;
