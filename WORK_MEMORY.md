@@ -1167,3 +1167,8 @@
 - 네덜란드 단계 안내/끄기 저장, 양국 수정 고객합계 기준 주문·잔량 화면/XLSX 동기화. ERP writer 변경 없음.
 - 전체 ERP gates/build/pivot/격리 SQL 및 CUA 양국 5→8, 입고20/잔량12 확인. 운영 시험 쓰기 미실행; 배포 결과 세션 기록 참조.
 - 검색어: volume-guide-totals 네덜란드 중국 가이드 주문 입고 잔량 수식캐시
+
+## 2026-10-26 인보이스 입고 scope 문자열 오류
+- 빈 연도·차수를 null로 보내던 payload 수정, 명시 orderWeekDate 차수 보존, 저장 전 한국어 안내. 매칭값·ERP writer·재고/원가 불변.
+- focused 51건 통과. 전체 gate/build/배포는 세션 문서 후속 결과 확인. 실제 실패 파일 개별 원인은 미확정이며 운영 입고 시험 미실행.
+- 검색어: invoice-scope-type orderYear orderWeek must be strings receiptScopeIssue 입고 연도

@@ -7,6 +7,26 @@ const base = () => ({ documentId: '11111111-1111-4111-8111-111111111111', source
   reviewedMetadata: { country: 'CN' }, lines: [{ lineId: 'L1', bunchQuantity: 0 }] });
 const preview = document => ({ canCommit: true, issues: [], documentRevision: document.revision,
   document, baselineDigest: 'b'.repeat(64) });
+test('missing receipt scope blocks before saving and corrected scope preserves matching', async () => {
+  for (const scope of [{orderYear: null}, {orderYear: ''}, {orderWeek: null}, {orderWeek: ''}, {orderWeek: '54-01'}]) {
+    const document = {...base(), ...scope};
+    const ctx = context({document, dirty: true});
+    const result = await runReceiptPreparation(ctx);
+    assert.equal(result.status, 'BLOCKED');
+    assert.match(result.error, /입고 연도|세부차수/);
+    assert.deepEqual(ctx.calls, []);
+    assert.deepEqual(result.document.lines, document.lines);
+  }
+  for (const orderYear of ['2025', '2026']) {
+    const document = {...base(), orderYear, orderWeek: '43-02'};
+    const ctx = context({document, dirty: true});
+    const result = await runReceiptPreparation(ctx);
+    assert.equal(result.status, 'WAITING_CONFIRMATION');
+    assert.equal(result.document.orderYear, orderYear);
+    assert.deepEqual(result.document.lines, document.lines);
+    assert.deepEqual(ctx.calls, ['save', 'preview']);
+  }
+});
 function committed(document = base()) {
   return { ...document, receiptStatus: 'COMMITTED', warehouseKey: 19, operations: [{
     operationId: 'operation1', documentRevision: document.revision, status: 'COMMITTED',

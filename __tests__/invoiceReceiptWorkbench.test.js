@@ -13,6 +13,12 @@ const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'),
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
 
+test('local scope validation errors are not replaced by response scope checks', () => {
+  assert.match(source, /if \(revisionAdvanced \|\| \(sameRevision && result\.preview\)\) \{[\s\S]*?assertReceiptScope\(returned, target\.document, returned\.revision\)/);
+  const flow = source.slice(source.indexOf('const returned = result.document;'), source.indexOf("if (result.stage === 'draft'"));
+  assert.ok(flow.indexOf('assertReceiptScope') > flow.indexOf('if (revisionAdvanced'));
+});
+
 test('active packing never falls through to saved-document lookup during preparation', () => {
   const lookup = source.indexOf('if (!selected || !documentValue) return');
   for (const guard of ['if (packingActive && (!file || !excels.length)) return null;', 'if (packingActive && sourceState.error)', 'if (packingActive && (!selected || !documentValue))']) {

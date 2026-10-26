@@ -3,6 +3,14 @@ const test = require('node:test');
 
 const ready = import('../lib/importPackingReceiptAdapter.js');
 const sourceReviewReady = import('../lib/importPackingSourceReview.js');
+test('receipt payload scope always uses strings without inventing a missing year', async () => {
+  const {toReceiptDraftPayload} = await ready;
+  for (const orderYear of [undefined, null, '', 2026, '2025']) {
+    const result = toReceiptDraftPayload({orderYear, orderWeek: '43-02', lines: []});
+    assert.equal(result.orderYear, orderYear == null ? '' : String(orderYear));
+    assert.equal(result.orderWeek, '43-02');
+  }
+});
 
 test('mixed local parser and human source audits retain distinct receipt provenance', async () => {
   const adapter = await ready, review = await sourceReviewReady;
@@ -142,6 +150,12 @@ test('hashes the original file bytes and creates stable UUIDv8 document and line
   assert.equal(first[0].orderYear, '2026');
   assert.equal(first[0].orderWeek, '41-01');
   assert.equal(first[0].invoiceYear, '2026');
+  const explicitlyScoped = await adapter.adaptPackingReceipts({...input, fileName: 'renamed.xlsx',
+    invoices: input.invoices.map(invoice => ({...invoice, orderWeekDate: {orderYear: '2025', orderWeek: '43-02'}}))});
+  assert.equal(explicitlyScoped[0].orderYear, '2025');
+  assert.equal(explicitlyScoped[0].orderWeek, '43-02');
+  const unscoped = await adapter.adaptPackingReceipts({...input, fileName: '43-02_CN.xlsx'});
+  assert.equal(adapter.toReceiptDraftPayload(unscoped[0]).orderYear, '', 'invoice date must not silently select receipt year');
   assert.deepEqual(first[0].lines[0].reviewed, {
     sourceConfirmed: true,
     erpMatchConfirmed: false,
