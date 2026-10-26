@@ -3,6 +3,9 @@
   "title": "서버 승인 원가의 국가별 원본 양식 출력과 내구성 단계 이력",
   "scope": [
     "lib/invoiceReceiptCostExport.js",
+    "lib/invoiceCostOriginalColombia.js",
+    "lib/invoiceCostTemplates/colombia-42-1-content.json",
+    "scripts/build-colombia-cost-content.cjs",
     "lib/invoiceCostFormulaComparison.js",
     "lib/invoiceCostExportProfiles.js",
     "lib/invoiceReceiptStageLog.js",
@@ -79,6 +82,7 @@
     }
   ],
   "templateProfile": {
+    "colombiaOriginalContent": "CO_42_1 adds and opens original-layout calculation sheet. Hash-bound labels/default coefficients preserved, current validated receipt/FX/freight bound. Historical products/amounts/sales not copied. Default customs is explicitly unapproved comparison and cannot alter persisted approval. Approved original-format snapshot and original-formula comparison remain unchanged. See docs/plans/colombia-template-content-preservation.md.",
     "chinaSeaReadableSummary": "CN_SEA runtime-only summary replaces empty historical 95% and sales blocks; current goods/freight/tariff/other totals, original customs labels with unavailable breakdown explicit, full estimate source, bounded current rows, widened numeric columns, wrapped headers, A3 print area B:P. Asset hash and all approved amounts unchanged. See docs/plans/china-cost-export-layout-repair.md.",
     "id": "CN_AIR_ORIGINAL_V1",
     "version": "1.0.0",

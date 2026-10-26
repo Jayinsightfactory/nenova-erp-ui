@@ -17,6 +17,52 @@ const OP = '22222222-2222-8222-8222-222222222222';
 const COST = '33333333-3333-8333-8333-333333333333';
 const FORMULA = INVOICE_COST_FORMULAS.CN_AIR_WEIGHT_CBM_V1;
 
+test('CO 42-1 restores original labels, defaults and live formulas without changing approval or copying old transactions', async () => {
+  const f = invoiceCostExportFixture(7, 'CO_GROUP_42_1_V1');
+  const before = JSON.stringify(f);
+  const bytes = await createInvoiceCostWorkbook(f), book = XLSX.read(bytes, { cellFormula: true });
+  const s = book.Sheets['원본 양식 계산'];
+  assert.equal(JSON.stringify(f), before);
+  assert.equal(s.C5.v, '2026/41-02');
+  assert.equal(s.C7.v, f.snapshot.input.exchangeRateKRW);
+  assert.equal(s.P7.v, 33000); assert.equal(s.P9.v, 99000); assert.equal(s.R6.v, 40000);
+  assert.equal(s.AL11.v, 5.5); assert.equal(s.AM11.v, 6.7);
+  assert.equal(s.P6.f, 'C8*460'); assert.equal(s.P10.f, 'SUM(P6:P9)+R6+R7');
+  assert.equal(s.E11.v, '내역 없음');
+  assert.equal(s.C10.f, 'SUM(E15:E21)');
+  assert.equal(s.AL4.v, f.revision.totalCostKRW);
+  assert.equal(book.Sheets['2026 41-02'].C10.v, f.revision.totalCostKRW);
+  assert.match(s.B2.v, /미승인/);
+  for (let i=0; i<7; i++) {
+    const r=15+i;
+    assert.equal(s[`B${r}`].v,f.document.lines[i].originalName);
+    assert.equal(s[`M${r}`].f,`J${r}+K${r}+L${r}`);
+    assert.equal(s[`Q${r}`]?.v,undefined,'historical sale price must not be copied');
+    assert.equal(s[`P${r}`].v,'');
+  }
+  assert.ok(Math.abs(s.AL12.v - Array.from({length:7},(_,i)=>s[`E${15+i}`].v*s[`M${15+i}`].v).reduce((a,b)=>a+b,0))<0.01);
+  assert.equal(s.B22,undefined,'historical source rows must not leak');
+  const zip=await JSZip.loadAsync(bytes);
+  assert.match(await zip.file('xl/workbook.xml').async('string'), /activeTab="2"/);
+});
+
+test('CO original calculation keeps prior-year scope and explicit zero freight, and escapes names as text', async () => {
+  const f = invoiceCostExportFixture(2, 'CO_GROUP_42_1_V1');
+  f.document.orderYear='2025';
+  f.document.lines[0].originalName='=HYPERLINK("https://example.invalid") & <flower>\u0001';
+  f.snapshot.input.freightAmount=0;
+  const computed=previewInvoiceCost({...f.document,costInput:f.snapshot.input}, f.snapshot.receiptSnapshot.details.map((detail,i)=>({
+    ...f.document.lines[i],...detail,outUnit:f.revision.lines[i].unit,
+  })));
+  assert.equal(computed.status,'APPROVED');
+  f.revision.lines=computed.lines.map((line,i)=>({...line,wdetailKey:f.snapshot.receiptSnapshot.details[i].wdetailKey}));
+  f.revision.totalCostKRW=computed.totals.totalCostKRW;
+  const bytes=await createInvoiceCostWorkbook(f), s=XLSX.read(bytes).Sheets['원본 양식 계산'];
+  assert.equal(s.C5.v,'2025/41-02'); assert.equal(s.C11.v,0); assert.equal(s.G15.v,0);
+  assert.equal(s.B15.f,undefined); assert.match(s.B15.v,/HYPERLINK/);
+  assert.ok(!s.B15.v.includes('\u0001'));
+});
+
 test('all ten exports retain approvals and add live original-formula comparison with honest missing CBM', async () => {
   for (const profile of Object.values(INVOICE_COST_EXPORT_PROFILES)) {
     const f = invoiceCostExportFixture(3, profile.formulaId), before = JSON.stringify(f);
