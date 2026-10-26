@@ -16,7 +16,7 @@ assert.match(script, /WebCustomsRateHistory/);
 assert.match(script, /ReportProvenance/);
 assert.match(evidenceSql, /SET XACT_ABORT ON;[\s\S]*BEGIN TRANSACTION;[\s\S]*COMMIT TRANSACTION;/i);
 assert.match(rateSql, /SET XACT_ABORT ON;[\s\S]*BEGIN TRANSACTION;[\s\S]*COMMIT TRANSACTION;/i);
-assert.match(workflow, /npm install --omit=dev[\s\S]*node scripts\/apply-profit-report-evidence-migrations\.mjs --apply[\s\S]*npm run build/,
-  '운영 반영은 의존성 설치 후·빌드 전 트랜잭션 마이그레이션을 실행해야 합니다.');
+assert.match(workflow, /npm ci --omit=dev[\s\S]*node scripts\/apply-profit-report-evidence-migrations\.mjs --apply[\s\S]*atomic build swap/,
+  '명시 승인된 마이그레이션은 서버 의존성 설치 후·검증된 CI 산출물 교체 전에 실행해야 합니다.');
 
 console.log('profit report deployment migration contract tests passed');
