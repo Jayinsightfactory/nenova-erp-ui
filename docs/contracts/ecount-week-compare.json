@@ -1,0 +1,56 @@
+{
+  "id": "ecount-week-compare",
+  "title": "ECOUNT·전산 차수 비교(/api/ecount/week-compare, 읽기 전용) 계약",
+  "scope": [
+    "pages/api/ecount/week-compare.js",
+    "pages/ecount/week-compare.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "ECOUNT_WEEK_COMPARE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "GET ?year&week 읽기 전용. ERP 테이블(ShipmentMaster/ShipmentDetail/Estimate/CodeInfo/Customer/Product/ShipmentHistory)과 웹 전용 테이블(WebEcountSnapshot/WebEcountRow)을 SELECT 만 하며 INSERT/UPDATE/DELETE 없음. 차수 키는 ShipmentMaster.OrderYearWeek = 연도 + 2자리 차수(교차연도 혼동 없음). 매출일 = 2026년은 2026-01-06(화) + 7×(w−1), 다른 연도는 그 해 첫 화요일 기준. 이카운트는 매출일을 포함한 가장 최신 SnapshotKey 하나(Dataset='sales', IsSubtotal=0, Payload.qty/unitPrice/supplyAmt). 전산 = ShipmentDetail(isFix=1, Amount≠0, 삭제 거래처·품목 코드 포함 LEFT JOIN) + Estimate(차감·판매요청, CodeInfo EstimateType Descr 유형명). 거래처 별칭표·품목 괄호/기호 제거 정규화·차감 유형명 단위 묶음은 사장님 대사 스크립트(ecount-vs-estimate gap.js)와 동일. 매출일 23:59 KST 이후 ShipmentHistory 변경 또는 매출일 이후 견적 등록은 '업로드 후 전산 변경'으로 표시하고, 현재 금액이 이카운트와 다르면 '이카운트 반영 필요' 배지."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 매출/불량 탭과 이카운트 판매현황을 대조하는 웹 전용 조회 기능. ERP 테이블 side effect 는 모두 preserve(SELECT 만). ECOUNT 에는 쓰지 않는다.",
+    "methods": [
+      "pages/api/ecount/week-compare.saleDateOfWeek (차수→매출일 화요일 계산)",
+      "pages/api/ecount/week-compare.makeNp (품목·차감유형 정규화)"
+    ],
+    "tables": [
+      "ShipmentMaster (read)",
+      "ShipmentDetail (read)",
+      "Estimate (read)",
+      "CodeInfo (read)",
+      "Customer (read)",
+      "Product (read)",
+      "ShipmentHistory (read)",
+      "WebEcountSnapshot (read, 웹 전용)",
+      "WebEcountRow (read, 웹 전용)",
+      "OrderDetail (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
