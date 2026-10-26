@@ -17,7 +17,8 @@ module.exports=async function({pool,sql,query,writer,documents,costs,ctx,protect
   [889,'HYDRANGEA WHITE PREMIUM','Hydrangea White',20,600,.7,420],
  ];
  const products=sourceRows.map(([ProdKey,,ProdName])=>({ProdKey,ProdName,CountryFlower:2000,CounName:'콜롬비아',FlowerName:'수국',OutUnit:'박스',EstUnit:'송이',BunchOf1Box:30,SteamOf1Bunch:1,SteamOf1Box:30}));
- const invoice={invoice:'25529',supplier:'CI FLORES BALVERDE SAS',date:'2026-10-23',raw_date:'23OCT2026',date_kind:'invoice',currency:'USD',awb:'160-96630575',invoice_total:2733,gross_weight:759.7,
+ const invoice={invoice:'25529',supplier:'CI FLORES BALVERDE SAS',date:'2026-10-23',raw_date:'23OCT2026',date_kind:'invoice',currency:'USD',awb:'160-96630575',invoice_total:2733,freight_total:0,
+  review_evidence:{gross_weight:{value:759.7,unit:'kg',page:1,quote:'GRSWGHT 759,70',bbox:null},vol_weight:{value:null,unit:'kg',page:null,quote:'',bbox:null}},
   products:sourceRows.map(([,description,,pcs,total_stems,u_price,t_price])=>({description,pcs,total_stems,total_bunch:total_stems,bunch_st:1,steam_box:30,u_price,t_price}))};
  const catalog={products:packingErpProducts(products),value:{version:1,entries:[]},revision:1};
  sourceRows.forEach(([prodKey,description])=>{catalog.value=upsertPackingErpMatch(catalog.value,{country:'CO',description,prodKey},catalog.products);});
@@ -37,18 +38,23 @@ module.exports=async function({pool,sql,query,writer,documents,costs,ctx,protect
  let draft=(await adaptPackingReceipts({sourceHash,country:'CO',fileName:'2026 44-1 콜수국.xlsx',invoices:[invoice],excels,products:catalog.products,reviewConfirmed:true}))[0];
  draft=applyInvoiceHeader({document:draft},resolveInvoiceHeader(draft,[{FarmKey:41,FarmName:'Balverde'}])).document;
  assert.equal(draft.reviewedMetadata.inputDate,'2026-10-23');assert.equal(draft.farmKey,41);
- draft.reviewedMetadata.transportMode='AIR';draft.reviewedMetadata.gw=759.7;draft.reviewedMetadata.cw=759.7; // CW is TEST_ONLY, not printed GW inference.
- draft.reviewedMetadata.receiptNotes='TEST_ONLY CW=GW; existing ERP matching selected for comparison, no shared learning';
+ assert.equal(draft.reviewedMetadata.gw,759.7);assert.equal(draft.reviewedMetadata.cw,null);
+ draft.reviewedMetadata.transportMode='AIR';draft.reviewedMetadata.cw=800; // TEST_ONLY manually entered, NOT inferred from GW.
+ draft.reviewedMetadata.receiptNotes='TEST_ONLY CW800 manually entered; existing ERP matching selected for comparison, no shared learning';
  const saved=await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,actor:'invoice-fixture',input:toReceiptDraftPayload(draft)});
  const preview=await ctx.preview(saved.documentId,saved.revision);assert.equal(preview.canCommit,true,JSON.stringify(preview.issues));
  const commit=await ctx.create({documentId:saved.documentId,revision:saved.revision,operationId:randomUUID(),receiptPartId:randomUUID(),baselineDigest:preview.baselineDigest,reason:'TEST_ONLY 44-1 source comparison',allowPendingCost:true,actor:'invoice-fixture'});
  const detail=(await query(pool,'SELECT ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,UPrice,TPrice FROM dbo.WarehouseDetail WHERE WarehouseKey=@wk',{wk:{type:sql.Int,value:commit.warehouseKey}})).recordset;
  for(const [key,, ,box,stem,price,amount]of sourceRows){const row=detail.find(r=>r.ProdKey===key);assert.deepEqual([row.BoxQuantity,row.BunchQuantity,row.SteamQuantity,row.UPrice,row.TPrice],[box,stem,stem,price,amount]);}
  assert.equal(detail.reduce((s,r)=>s+r.BoxQuantity,0),107);
+ const header=(await query(pool,'SELECT GrossWeight,ChargeableWeight FROM dbo.WarehouseMaster WHERE WarehouseKey=@wk',{wk:{type:sql.Int,value:commit.warehouseKey}})).recordset[0];
+ assert.equal(header.GrossWeight,759.7);assert.equal(header.ChargeableWeight,800);
  const formula=costs.INVOICE_COST_FORMULAS.CO_GROUP_42_1_V1;
- const cost=await costs.saveInvoiceCostRevision({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:saved.documentId,revision:saved.revision,actor:'invoice-fixture',reason:'TEST_ONLY download, not real cost',input:{...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:'2026-10-23',nativeCurrency:'USD',freightCurrency:'USD',exchangeRateKRW:1400,exchangeRateType:'TEST_ONLY',exchangeRateDate:'2026-10-23',freightAmount:100,customsTotalKRW:10000,expenseBasis:'ESTIMATED',estimateSource:'TEST_ONLY 시험값',costSourceId:'TEST_ONLY:'+saved.documentId,allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,costGroups:[{groupId:'HYDRANGEA',quantity:3210,boxQuantity:107,grossWeightKg:759.7,volumeWeightKg:759.7}],lineInputs:saved.lines.map(l=>({lineId:l.lineId,tariffRate:0,groupId:'HYDRANGEA',stemsPerBunch:1,bunchesPerBox:30}))}});
+ const cost=await costs.saveInvoiceCostRevision({withTransactionFn:ctx.withTransactionFn,types:sql,documentId:saved.documentId,revision:saved.revision,actor:'invoice-fixture',reason:'TEST_ONLY download, not real cost',input:{...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:'2026-10-23',nativeCurrency:'USD',freightCurrency:'USD',exchangeRateKRW:1400,exchangeRateType:'TEST_ONLY',exchangeRateDate:'2026-10-23',freightAmount:100,customsTotalKRW:10000,expenseBasis:'ESTIMATED',estimateSource:'TEST_ONLY 시험값',costSourceId:'TEST_ONLY:'+saved.documentId,allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,costGroups:[{groupId:'HYDRANGEA',quantity:3210,boxQuantity:107,grossWeightKg:759.7,volumeWeightKg:800}],lineInputs:saved.lines.map(l=>({lineId:l.lineId,tariffRate:0,groupId:'HYDRANGEA',stemsPerBunch:1,bunchesPerBox:30}))}});
  const out=await exportCurrentInvoiceCost({queryFn:ctx.queryFn,types:sql,documentId:saved.documentId,warehouseKey:String(commit.warehouseKey),costRevisionId:cost.currentActual.costRevisionId});
  assert.ok(out.buffer.length>1000);assert.deepEqual(await protectedSnapshot(pool),before);
+ fs.mkdirSync(require('node:path').join(__dirname,'../outputs'),{recursive:true});
+ fs.writeFileSync(require('node:path').join(__dirname,'../outputs/44-1-weight-test-only.xlsx'),out.buffer);
  // An alternate spelling must not bypass duplicate checking, in either preview or commit.
  await query(pool,'UPDATE dbo.WarehouseMaster SET FarmName=N\'C.I Flores Balverde S.A.S\' WHERE WarehouseKey=@wk',{wk:{type:sql.Int,value:commit.warehouseKey}});
  const other={...draft,documentId:randomUUID(),sourceHash:createHash('sha256').update('alternate source').digest('hex'),lines:draft.lines.map(l=>({...l,lineId:randomUUID()}))};

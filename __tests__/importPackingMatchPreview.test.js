@@ -4,6 +4,13 @@ const { buildPackingMatchPreview, previewQuantity } = require('../lib/importPack
 const { packingErpProducts, upsertPackingErpMatch } = require('../lib/importPackingErpMatches.js');
 const { makePackingSourceReview, applyPackingSourceReview } = require('../lib/importPackingSourceReview.js');
 
+test('preview shares evidence-only GW and preserves absent CW', () => {
+  const [preview] = buildPackingMatchPreview({country:'CO', invoices:[{products:[],
+    review_evidence:{gross_weight:{value:759.7,unit:'kg'},vol_weight:{value:null,unit:'kg'}}}]});
+  assert.equal(preview.grossWeight,759.7);
+  assert.equal(preview.chargeableWeight,null);
+});
+
 test('applied manual review clears preview warning only for the unchanged source, including year', () => {
   for (const year of [2025, 2026]) {
     const invoice = { invoice: '41-02', invoice_year: year, date: `${year}-10-10`, supplier: 'Cloudland',

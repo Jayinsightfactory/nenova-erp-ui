@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
-import { applyInvoiceHeader } from '../../lib/invoiceReceiptAutoFill.js';
+import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
@@ -283,10 +283,10 @@ export default function InvoiceReceiptWorkbench({
       if (!active) return;
       const saved = await Promise.all(documents.map(document => readExistingReceiptSource(document, readDocument)));
       if (!active) return;
-      const resumed = documents.map((document, index) => ({
+      const resumed = documents.map((document, index) => fillMissingReceiptWeights({
         ...resumeReceiptSource(document, recordsRef.current.find(record => record.document.documentId === document.documentId), saved[index]),
         pendingOperation: loadPendingOperation(document.documentId),
-      }));
+      }, document));
       const next = await Promise.all(resumed.map(async record => {
         const document = record.document;
         if (recordsRef.current.some(previous => previous.document.documentId === document.documentId)
@@ -398,7 +398,9 @@ export default function InvoiceReceiptWorkbench({
   }
 
   function updateMetadata(field, value) {
-    updateSelected(document => ({ ...document, reviewedMetadata: { ...document.reviewedMetadata, [field]: value } }));
+    updateSelected(document => ({ ...document, reviewedMetadata: { ...document.reviewedMetadata, [field]: value,
+      ...(['gw','cw'].includes(field) ? {weightManual:{...document.reviewedMetadata.weightManual,[field]:true}} : {}),
+    } }));
   }
 
   function updateFreightCurrency(value) {
@@ -1126,8 +1128,12 @@ export default function InvoiceReceiptWorkbench({
         <option value="">선택 필요</option><option value="AIR">AIR</option><option value="SEA">SEA</option><option value="OTHER">OTHER</option>
       </select></Field>
       <Field label="AWB"><input value={documentValue.reviewedMetadata.awb || ''} onChange={event => updateMetadata('awb', event.target.value)} /></Field>
-      <Field label="GW"><NumberInput label="GW" value={documentValue.reviewedMetadata.gw} onChange={value => updateMetadata('gw', value)} /></Field>
-      <Field label="CW"><NumberInput label="CW" value={documentValue.reviewedMetadata.cw} onChange={value => updateMetadata('cw', value)} /></Field>
+      <Field label="GW (kg)"><NumberInput label="GW" value={documentValue.reviewedMetadata.gw} onChange={value => updateMetadata('gw', value)} />
+        {documentValue.reviewedMetadata.weightSourceEvidence?.gw?.quote && <small>원문: {documentValue.reviewedMetadata.weightSourceEvidence.gw.quote}</small>}
+      </Field>
+      <Field label="CW (kg)"><NumberInput label="CW" value={documentValue.reviewedMetadata.cw} onChange={value => updateMetadata('cw', value)} />
+        {nullableNumber(documentValue.reviewedMetadata.cw) == null && <small role="status" style={{color:'#9a3412'}}>CW 미입력 · 원문·항공운송장을 확인하고 청구중량(kg)을 직접 입력하세요. GW·순중량으로 대신 채우지 않습니다. 원가 생성 전에 필요합니다.</small>}
+      </Field>
       <Field label="운임 통화"><input value={documentValue.reviewedMetadata.freightCurrency || ''} maxLength={3} placeholder="명시 필요" onChange={event => updateFreightCurrency(event.target.value)} /></Field>
       <Field label="운송·부대비 총액 (원가)"><NumberInput label="운송·부대비 총액 원가" value={documentValue.reviewedMetadata.costInputs?.freight?.amount} onChange={value => updateCostInput('freight', value)} /></Field>
       {documentValue.reviewedMetadata.freightCurrency === 'USD' ? <>
