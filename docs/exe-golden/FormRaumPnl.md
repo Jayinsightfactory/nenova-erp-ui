@@ -172,3 +172,10 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 ## 2026-10-21 신라 자동 확인 탭
 
 실제 dnSpy.Console.exe --no-color -t FormEstimateView "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe" 실행 성공. GetDetail은 ViewShipment+ViewOrder의 OrderYearWeek2/CustKey/ProdKey 조인과 ShipmentDate/PeriodDay, DetailFix=1을 사용하고 Estimate를 별도 UNION한다. 새 탭은 기존 분배·판매요청 SELECT를 재사용하며 견적 발행 여부로 확정하지 않는다. QuoteDate만 SQL varchar(10)으로 읽어 시간대 변환을 피한다. 2026 신라 read-only probe: 안시리움40 분배520 + Estimate10040 판매요청1 = 원본/입고521. 저장/SP 호출 없음, Order/Shipment/Estimate/Stock/WebProfitReport 보존. 기준표와 검증은 work-sessions/2026-10-21_shilla-check.md.
+
+### 2026-10-26 호텔 참고 환율 읽기 복구
+- 실제 dnSpy CLI FormWarehouseView 재실행 성공, GetData의 OrderYear/OrderWeek 및 GetDetail의 UPrice/TPrice 확인. EXE 저장 산식·SP 변경 없음.
+- 2026 신라/라움 연결141품목·단위, 읽기 전용 참조4873개 중 통화누락243개·EUR 비용단위근거누락95개 확인. 원본 JSON의 부가세 별도 접미사/송의 제목을 SQL 정확키가 놓쳤다.
+- 국가별 기존 COUNTRY_CURRENCY_MAP과 원본 VAT별도 셀·단당수량을 조회 계산에 사용. 원본 환율0/불명/상충값은 보류한다. WebRaumPnlItem.CostPrice 및 Order/Shipment/Date/Farm/Warehouse/Stock/Estimate/WebProfitReport 보존. DB 쓰기 없음.
+- fixture: hotelArrivalDisplay.test.js의 실제 별도VAT 예시, 국가통화/명시override/미확인/교차연도/원본복원/상충별칭/포함VAT/잘못된환율. 세션 기록: docs/work-sessions/2026-10-26_hotel-arrival-exchange.md.
+- 초기 RawJson.headers/cells 병렬 배열도 실제 저장 근거로 확인했다. 길이/중복값 검증 후 원본단당수량·송이원가를 읽어 EUR65개 추가 복구, 최종309개 비교 계산 복구. 기존 전산 품목의 단당수량을 임의로 변경하지 않는다.

@@ -1027,3 +1027,10 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 - ProductStock을 읽은 동일 StockKey/연도/차수에 정규화 조회를 고정한다. 음수수량 표시도 선택된 정규화 단위를 따른다. 실제 입고 비율은 같은 ProdKey·연도·스냅샷 이하만 허용한다.
 - China Pink/Domenichina는 실제 네덜란드 품목이다. 반면 콜롬비아/아나나스로 저장된 CHINA 수입 placeholder는 기존 이름 fallback을 보존한다. 실제 전체 카탈로그와 1~41차 금액을 대조해야 단순 분류 테스트의 오판을 잡을 수 있다.
 - 통관/운송 누락은 자동0이 아니며 평균을 차단한다. 명시 저장0은 보존. 확정 revision·ERP 원장 쓰기는 없다. 기준: [계획](plans/profit-country-average-2026-10-23.md), 계약 profit-country-average, 실행 테스트 CountryAverage/Integration/CountryResolver.
+
+## 2026-10-26 호텔 도착원가 환율 무반응
+신라·라움 웹 참고 원가의 통화누락과 VAT별도/송의 원본 제목 누락을 복구한다.
+명시 통화 우선·정확 국가 매핑, 유일 VAT별도 원가/원본단당수량 검증을 사용한다.
+단당1은 송이/단 비용단위 동일, 그 외는 원본 원가 대조가 필수다. 불명·상충·0환율은 보류.
+환율 적용·원본복원은 브라우저 비교만 수행하며 매입가·손익·ERP 원장/저장/엑셀 보존.
+회귀: hotelArrivalDisplay.test.js, raumPnlArrivalReference.test.js. 계약: raum-pnl-settlement.json.

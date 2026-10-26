@@ -1156,3 +1156,9 @@
 - 실제 CO/AU/US 캐시 인보이스 격리 입고→현황48/56/70박스, 27조합/교차연도/NULL/삭제/혼합 readback 통과. 운영 DB 무접속·원장/SP 변경 없음.
 - 실제 페이지 CUA 필터 검증, 전체gate/build 통과. 1920화면 미검증; 최종 PR/배포는 세션 기록 후속 참조.
 - 검색어: receipt-box-weight-summary 입고박스 중량 월별 연도별 혼합입고 WarehouseKey
+
+## 2026-10-26 신라·라움 환율 적용
+- 통화 매핑 누락·VAT별도/송의 셀 제목·초기 배열형 원본 누락을 웹 참고 조회에서 복구. 원본/ERP/매입단가 쓰기 없음.
+- 실제 dnSpy/SELECT-only4873참조, 비교 가능309개 복구. 원본환율/단위 부족36개 명시 보류.
+- 교차연도/원본복원/잘못된환율/중복제목/배열단위 회귀 및 CUA 입력·Enter 확인. 최종gate/PR/배포 결과는 세션 문서 후속 기록 참조, 현재 미검증.
+- 검색어: hotel-arrival-exchange 신라 라움 환율 도착원가 RawJson 배열 VAT별도 COUNTRY_CURRENCY_MAP
