@@ -1,5 +1,11 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-10-26 물량표 메뉴 단일차수·입고 우선 기본
+- 실제 설치 EXE dnSpy.Console `FormQuantityPivot` 재확인: SetCombo는 시작/끝에 같은 첫 항목을 지정하며 GetData의 ViewWarehouse 및 btnExcel_Click의 ExportToXlsx 유지.
+- 웹은 기존 사용자 요청에 맞춰 선택연도 최신 양수 입고→최신 주문→빈값으로 기본 선택. 미래 주문50-01을 실제입고44-01보다 우선하던 오류 제거. native StockMaster 최상위값 기본과 의도적 UI 차이이며 SQL 원장 계약 변경 없음.
+- 운영 SELECT 2026 ViewWarehouse44-01 273행 / OrderMaster MAX50-01. 2026/43-02/Cust533/Prod1487 출고200·확정·금액/날짜/농장 및 확정매출 조회 근거는 `docs/plans/volume-menu-week-2026-10-26.md`.
+- `volumeMenuWeeks` 앞뒤5/연도경계/단일·명시범위 helper와 실제 pivot-weeks handler 2025/2026/invalid fixture. 조회·다운로드 GET만 사용하며 주문/분배/입고/재고/견적/매출 보존.
+
 ## 2026-09-29 피벗 환율 미리보기
 - 실제 dnSpy.Console.exe --no-color -t FormQuantityPivot 재확인: GetData/ViewWarehouse/ExportToXlsx. native 조회/수량과 모든 원장 보존.
 - 운영 SELECT 2026 current 원가의 RawJson CNF 외화/원화/도착원가/단당수량 확인. 기존 환율 helper의 비용 누락0 역산을 쓰지 않고 원본 대조된 SOURCE 행만 외화 비용 재계산. 관세 포함 KRW 구성은 유지.

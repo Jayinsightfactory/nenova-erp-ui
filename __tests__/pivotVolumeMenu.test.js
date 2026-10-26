@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { shiftOrderWeek } from '../lib/orderUtils.js';
+import { normalizeRoundInput, volumeMenuQuickWeeks, volumeMenuQuery } from '../lib/volumeMenuWeeks.js';
+import { defaultPivotBoardWeek } from '../lib/pivotAvailableWeeks.js';
 
 const menu = fs.readFileSync('components/Layout.js', 'utf8');
 const pivot = fs.readFileSync('pages/stats/pivot.js', 'utf8');
@@ -22,16 +24,32 @@ assert.doesNotMatch(page, /<select\b/,
   '차수 선택은 드롭다운 대신 한눈에 보이는 버튼 목록이어야 합니다.');
 assert.match(page, /role="radiogroup" aria-label=\{`\$\{group\.label\} 선택`\}/,
   '시작/끝 차수 버튼은 보조기술에 선택 그룹으로 전달되어야 합니다.');
-assert.match(page, /for \(let offset = 0; offset <= 5; offset \+= 1\)/,
-  '기준 차수부터 다음 5차수까지만 빠른 선택 버튼으로 보여야 합니다.');
+assert.match(page, /volumeMenuQuickWeeks\(baseWeek\)/);
+assert.match(page, /\[rangeMode, setRangeMode\] = useState\(false\)/, '기본은 한 차수 선택');
+assert.match(page, /defaultPivotBoardWeek\(incomingWeeks, orderWeeks\)/, '입고 우선 공통 정책');
+assert.doesNotMatch(page, /nextWeeks\[0\]|weeks\[0\]/, '미래 주문 MAX를 기본값으로 쓰지 않는다');
 assert.match(page, /범위 밖 직접 입력/,
   '빠른 선택 범위를 넘는 차수는 시작/끝 차수별로 직접 입력할 수 있어야 합니다.');
 assert.match(page, /normalizeRoundInput/,
   '직접 입력 차수는 연도 내 유효 범위인 01-01~52-04로 검증해야 합니다.');
-assert.match(page, /shiftOrderWeek\(current, 1\)/,
-  '빠른 선택 차수 계산은 공통 주문 차수 이동 규칙을 사용해야 합니다.');
-assert.match(page, /roundOrdinal\(next\) <= roundOrdinal\(current\)/,
-  '연도 마지막 차수에서 빠른 선택이 차수 순서를 역행하거나 순환하지 않아야 합니다.');
+assert.deepEqual(volumeMenuQuickWeeks('44-01'), ['42-04','43-01','43-02','43-03','43-04','44-01','44-02','44-03','44-04','45-01','45-02']);
+assert.deepEqual(volumeMenuQuickWeeks('01-01'), ['01-01','01-02','01-03','01-04','02-01','02-02']);
+assert.deepEqual(volumeMenuQuickWeeks('52-04'), ['51-03','51-04','52-01','52-02','52-03','52-04']);
+for (const invalid of [undefined, '', 0, false, '2025-44-01', '00-01', '53-01', '44-00']) {
+  assert.equal(normalizeRoundInput(invalid), '');
+  assert.deepEqual(volumeMenuQuickWeeks(invalid), []);
+}
+assert.equal(normalizeRoundInput('44-1'), '44-01');
+assert.equal(defaultPivotBoardWeek(['43-02','44-01'], ['50-01']), '44-01');
+assert.equal(defaultPivotBoardWeek([], ['43-02']), '43-02');
+assert.equal(defaultPivotBoardWeek([], []), '');
+for (const year of ['2025','2026']) {
+  for (const mode of [undefined, false, 0]) {
+    assert.deepEqual(volumeMenuQuery(year, '44-01', '50-01', mode), { orderYear: year, weekStart: '44-01', weekEnd: '44-01' }, '단일모드에서는 오래된 끝 차수를 무시');
+  }
+  assert.deepEqual(volumeMenuQuery(year, '44-01', '44-02', true), { orderYear: year, weekStart: '44-01', weekEnd: '44-02' });
+}
+assert.match(page, /setItems\(\[\]\);[\s\S]*?\}, \[baseParams\]\)/, '조회조건 변경시 이전 목록 무효화');
 assert.equal(shiftOrderWeek('41-04', 1), '42-01', '본차수 경계에서는 다음 본차수의 첫 세부차수로 이동해야 합니다.');
 assert.equal(shiftOrderWeek('52-04', 1), '52-01', '공통 차수 이동기의 연도 마지막 경계는 순환하므로 UI에서 이를 차단해야 합니다.');
 assert.match(page, /role="radio"[\s\S]*?aria-checked=\{active\}/,

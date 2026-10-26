@@ -11,7 +11,7 @@ export default withAuth(async function handler(req, res) {
   if (!Number.isInteger(orderYear) || orderYear < 2020 || orderYear > 2099) {
     return res.status(400).json({ success: false, error: '조회 연도를 확인하세요.' });
   }
-  if (source === 'incoming' && !['netherlands', 'china'].includes(country)) {
+  if (source === 'incoming' && !['netherlands', 'china', 'all'].includes(country)) {
     return res.status(400).json({ success: false, error: '입고 조회 국가를 확인하세요.' });
   }
 

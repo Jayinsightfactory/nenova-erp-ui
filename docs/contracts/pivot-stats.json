@@ -17,6 +17,7 @@
     "lib/pivotExeWeekGrouping.js",
     "pages/stats/pivot.js",
     "pages/stats/volume-board.js",
+    "lib/volumeMenuWeeks.js",
     "pages/api/stats/pivot-weeks.js",
     "pages/api/stats/pivot-volume-excel.js",
     "lib/pivotVolumeProductLabel.js",
@@ -93,7 +94,7 @@
     },
     {
       "name": "PIVOT_VOLUME_MENU_SPECIES_DOWNLOAD",
-      "description": "통계 메뉴의 물량표 화면에서 연도와 시작/끝 차수를 선택한다. 기준 차수부터 공통 차수 이동 규칙으로 다음 5차수까지 버튼 빠른 선택을 제공하고, 범위 밖은 연도 내 유효한 01-01~52-04 형식으로 직접 입력할 수 있다. 기존 pivot-volume-excel 목록 및 품종별 XLSX 다운로드를 재사용한다. 조회·다운로드 전용이며 ERP 원장을 변경하지 않는다.",
+      "description": "물량표 메뉴는 단일차수(시작=끝)가 기본이다. 선택연도 양수 ViewWarehouse 최신 입고를 기본으로 하고 없으면 최신 주문, 모두 없으면 빈값이다. 미래 주문 MAX가 입고를 덮지 않으며 연도변경시 이전 선택을 폐기한다. 공통 01~04 차수 순서로 기본 앞뒤5개(총11개), 연도경계에서 순환하지 않는다. 범위 밖 직접입력 01-01~52-04 및 명시 범위조회/합산 옵션을 유지한다. 조건변경시 이전 품종목록을 폐기하고 동일 OrderYear/weekStart/weekEnd로 기존 목록·다운로드 GET을 사용한다. incoming country=all은 명시적으로 전 국가 양수입고를 읽으며 기존 중국·네덜란드 조건을 보존한다. ERP 쓰기 없음.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     },
