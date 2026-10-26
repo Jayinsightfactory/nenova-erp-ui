@@ -1219,3 +1219,9 @@
 - dnSpy ClassShipmentDate/운영 SELECT 근거: docs/plans/weekday-refresh-2026-10-26.md. DB 변경 없음. 배포 검증 진행 중.
 - 검색어: 주광 44 43 1 자동갱신 EstQuantity NULL INVALID_ERP_DATES 2025 52
 - 검증추가: 전체 ERP계약/dnSpy/manifest/writeguard/UIlayout/build통과,대상29건. 격리 Chrome44→43 및 키보드/조회값43 유지 확인. PR/배포 진행.
+
+## 2026-10-26 도착원가 원본 기본값 복원
+- CO42-1 원본 고정 문구/기본 통관비/계수/수식을 별도 원본 양식 계산 탭에 복원. 승인 스냅샷 보존, 기본값 미승인·차액 명시. 현재 데이터만 대입.
+- 44-1 수국 12송장/39행/619박스/18,710송이 격리 replay 다운로드, 25529 파일 재계산/수량·환율 변경/시각검증 통과. 운영 DB 접근·수정 없음.
+- 콜카장36페이지 신규 AI/다른 국가 원본 기본값 복원 미검증. 상세/배포: docs/work-sessions/2026-10-26_cost-template-content.md.
+- 검색어: cost-template-content 기본셀 기본값 사라짐 CO_GROUP_42_1 원본 양식 계산 25529
