@@ -37,6 +37,14 @@ function validDraft(overrides = {}) {
   };
 }
 
+test('invalid scope reports actionable Korean errors while retaining strict string types', () => {
+  for (const orderYear of [null, undefined, 2026]) {
+    assert.throws(() => normalizeInvoiceDraft(validDraft({orderYear})), /입고 연도와 세부차수/);
+  }
+  assert.throws(() => normalizeInvoiceDraft(validDraft({orderYear: ''})), /입고 연도를 4자리/);
+  assert.throws(() => normalizeInvoiceDraft(validDraft({orderWeek: ''})), /세부차수를 43-02/);
+});
+
 test('document audit supports multi-page invoices without relaxing row or total limits', () => {
   const audit = { sourceReview: { rows: Array.from({ length: 146 }, (_, lineIndex) => ({
     lineIndex, evidence: '원문 검산 '.repeat(140), method: 'MACHINE_VERIFIED', confirmed: false,
