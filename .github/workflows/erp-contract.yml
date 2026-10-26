@@ -17,6 +17,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: CI build artifact contracts
+        run: node --test __tests__/ciBuildArtifact.test.cjs __tests__/codeOnlyDeployment.test.cjs
       - name: ERP contract manifests
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -38,3 +40,14 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: npm run guard:erp-writes -- --changed-from "$BASE_SHA"
+      - name: Linux webpack build (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          DB_SERVER: ''
+          NEXT_DIST_DIR: .next-build
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm run build
+          node scripts/ci-build-smoke.cjs
+          node scripts/ci-build-manifest.cjs create "$GITHUB_SHA"
+          node scripts/ci-build-manifest.cjs verify "$GITHUB_SHA"

@@ -66,15 +66,44 @@ jobs:
           BASE_SHA="${BASE_SHA:-$(git rev-parse "${GITHUB_SHA}^")}"
           npm ci
           node --test __tests__/codeOnlyDeployment.test.cjs
+          node --test __tests__/ciBuildArtifact.test.cjs
           npm run test:erp-contract
           npm run test:erp-manifest -- --changed-from "$BASE_SHA"
           npm run guard:erp-writes -- --changed-from "$BASE_SHA"
+
+      - name: Build webpack on GitHub (no production DB)
+        env:
+          DB_SERVER: ''
+          NEXT_DIST_DIR: .next-build
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build
+
+      - name: Package verified CI build
+        id: bundle
+        run: |
+          node scripts/ci-build-smoke.cjs
+          node scripts/ci-build-manifest.cjs create "$GITHUB_SHA"
+          tar --exclude='.next-build/cache' -czf nenova-build.tar.gz .next-build data/generated/full-development-history.json data/generated/menu-development-history.json
+          echo "sha256=$(sha256sum nenova-build.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Transfer build to isolated release directory
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: nenova-build.tar.gz
+          target: /var/lib/nenova/deploy-artifacts/${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
         env:
           APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
           MIGRATE_ORDER_MAPPINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate_order_mappings == true && 'true' || 'false' }}
+          DEPLOY_SHA: ${{ github.sha }}
+          BUILD_ARCHIVE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          BUILD_RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           NENOVA_ESTIMATE_SEAL_PNG: ${{ secrets.NENOVA_ESTIMATE_SEAL_PNG }}
           WEEKDAY_TEMPLATE_KEY: ${{ secrets.WEEKDAY_TEMPLATE_KEY }}
@@ -99,16 +128,20 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,DEPLOY_SHA,BUILD_ARCHIVE_SHA256,BUILD_RELEASE_ID,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           # Tests plus webpack can exceed ssh-action's default ten minutes.
           # Keep code-only migration gates and atomic build swap unchanged.
           command_timeout: 30m
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
-            cd /var/www/nenova-erp
+            cd /var/www/nenova-erp || exit 1
+            [[ "$DEPLOY_SHA" =~ ^[a-f0-9]{40}$ && "$BUILD_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ && "$BUILD_RELEASE_ID" =~ ^[0-9]+-[0-9]+$ ]] || exit 1
+            build_archive="/var/lib/nenova/deploy-artifacts/$BUILD_RELEASE_ID/nenova-build.tar.gz"
+            printf '%s  %s\n' "$BUILD_ARCHIVE_SHA256" "$build_archive" | sha256sum -c - || exit 1
             echo "=== git pull ==="
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
+            [ "$(git rev-parse origin/master)" = "$DEPLOY_SHA" ] || { echo 'STALE_RELEASE: newer master exists; stopped'; exit 1; }
             # Preserve existing user mappings before reset replaces the tracked seed.
             # copyFileSync(COPYFILE_EXCL) never overwrites a migrated runtime store.
             if [ ! -f .next/.mapping-db-capable ]; then
@@ -155,6 +188,7 @@ jobs:
               exit 1
             fi
             git merge --ff-only origin/master || exit 1
+            [ "$(git rev-parse HEAD)" = "$DEPLOY_SHA" ] || exit 1
             # Audit events survive source resets/build swaps and are never release artifacts.
             export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
             mkdir -p "$NENOVA_ACTIVITY_DIR"
@@ -351,7 +385,7 @@ jobs:
             else
               echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
             fi
-            npm install --omit=dev
+            npm ci --omit=dev || exit 1
             # BEGIN EXPLICIT_DB_MIGRATIONS: push/default dispatch is code-only.
             if [ "${APPLY_DB_MIGRATIONS:-false}" = "true" ]; then
             echo "=== 주차별 매출이익 근거 스키마 적용 ==="
@@ -381,14 +415,10 @@ jobs:
               echo "CODE_ONLY_DEPLOY: all DB migrations skipped; no SQL repair or recalculation."
             fi
             # END EXPLICIT_DB_MIGRATIONS
-            echo "=== build ==="
+            echo "=== install verified GitHub build (no server compilation) ==="
             rm -rf .next-build
-            # Build workers must not connect to SQL or start DB-backed schedulers.
-            # Inline environment is build-only; the running app keeps its existing DB configuration.
-            # Bound only the build process heap; do not change the running ERP process.
-            # Unbounded webpack was killed twice before the atomic swap (2026-10-26).
-            free -m || true
-            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build NODE_OPTIONS='--max-old-space-size=1536' npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            tar -xzf "$build_archive" --no-same-owner || exit 1
+            node scripts/ci-build-manifest.cjs verify "$DEPLOY_SHA" || exit 1
             if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
             # BEGIN ORDER_MAPPING_CUTOVER: explicit first migration only, after successful build.
             if ! node scripts/migrate-order-mappings.mjs --check-ready; then
@@ -464,6 +494,7 @@ jobs:
             pm2 save || exit 1
             node scripts/check-pending-stock-recovery-worker.cjs || exit 1
             echo "✅ 배포 완료"
+            rm -f -- "$build_archive"
 
       # 화면은 그려져도 React가 시동 안 되는 "조용한 장애" 감지 (2026-07-10 Turbopack 사고 재발 방지)
       # API 스모크는 이 유형을 못 잡는다 — Actions 러너의 실브라우저로 fiber 부착 여부를 직접 확인

@@ -111,3 +111,5 @@ scripts/ecount-ledger/_history/
 .local-hotel-ui/
 .local-arrival-e2e/
 .local-box-summary/
+.next-build/
+nenova-build.tar.gz

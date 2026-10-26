@@ -614,3 +614,4 @@
 
 - [2026-10-26 주광 차수·자동 갱신](2026-10-26_weekday-refresh.md)
 - [2026-10-26 주광 웹앱 첫 차수 선택](2026-10-26_weekday-entry-default.md)
+- [2026-10-26 GitHub 빌드로 배포 전환](2026-10-26_ci-build-deploy.md) — 운영 서버 OOM 회피, SHA/checksum 확인, 코드 전용 배포.
