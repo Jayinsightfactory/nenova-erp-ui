@@ -44,6 +44,7 @@ test('CO 42-1 restores original labels, defaults and live formulas without chang
   assert.equal(s.B22,undefined,'historical source rows must not leak');
   const zip=await JSZip.loadAsync(bytes);
   assert.match(await zip.file('xl/workbook.xml').async('string'), /activeTab="2"/);
+  assert.match(await zip.file('xl/worksheets/sheet3.xml').async('string'), /activeCell="A1"/);
 });
 
 test('CO original calculation keeps prior-year scope and explicit zero freight, and escapes names as text', async () => {
