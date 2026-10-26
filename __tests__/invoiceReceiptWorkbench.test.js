@@ -153,7 +153,7 @@ test('1920 workbench is dense, scroll-safe and keeps headers and issue rail visi
   assert.doesNotMatch(css, /width:\s*1920px|height:\s*1080px/);
 });
 
-test('automatic receipt progress is scope-locked and never commits or approves cost', () => {
+test('preparation is scope-locked; only explicit one-button intent can commit', () => {
   const auto = source.slice(source.indexOf('async function runAutomaticPreparation'), source.indexOf('async function readDocument'));
   assert.match(auto, /runReceiptPreparation/);
   assert.match(auto, /previewDraft:\s*document\s*=>\s*previewDraft\(\{\s*document\s*\}\)/);
@@ -163,7 +163,10 @@ test('automatic receipt progress is scope-locked and never commits or approves c
   assert.match(auto, /Number\(returned\.revision\) > 0/);
   assert.match(auto, /result\.stage === 'draft' && \(result\.status === 'UNKNOWN' \|\| draftConflictMessage\(result\.code\)\)/);
   assert.doesNotMatch(auto, /result\.stage === 'draft' && result\.status === 'FAILED'/);
-  assert.doesNotMatch(auto, /commitReceipt\(|submitReceiptCommit\(|cost-revisions/);
+  assert.match(auto, /registerRequested === true && result.status === 'WAITING_CONFIRMATION'/);
+  assert.match(auto, /storePendingOperation\(documentId,operation\)/);
+  assert.match(auto, /acceptCommitResult\(operation,data.result/);
+  assert.doesNotMatch(auto, /cost-revisions/);
   assert.match(source, /event\.documentId !== documentId/);
   assert.match(source, /event\.revision/);
   assert.match(source, /setBusy\('auto-workflow'\)/);

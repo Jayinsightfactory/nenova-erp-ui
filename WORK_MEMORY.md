@@ -1184,3 +1184,9 @@
 - 집중56/ERP gates/build/격리 SQL 통과. CUA 실제 Workbench rev3 next→refresh→수정PATCH rev4→next→입고 확인 모달 검증. 운영 DB 수정 없음. 운영 인증 후 버튼 조작 미검증.
 - 상세·배포 결과: docs/work-sessions/2026-10-26_invoice-draft-next.md.
 - 검색어: invoice-draft-next source-resume POST can only create revision PATCH
+
+## 2026-10-26 인보이스 자동 입력·연속 실행
+- 최초 자동 분석, 정상 매칭 후 자동 준비, 원문 날짜·유일농장·AWB AIR 제안, 선택 문서 입고/원가 연속 실행. 동일 송장 농장 약칭 중복 차단.
+- 44-1 송장25529 7행107박스3210송이 격리 SQL/CUA 입고→시험원가 저장→엑셀 다운로드 확인. 운영 DB 수정 없음.
+- 전체12페이지 AI 검증 아님. 나머지 페이지/실제 비용 미검증. 전체gate/배포는 docs/work-sessions/2026-10-26_invoice-auto-flow.md 후속 확인.
+- 검색어: invoice-auto-flow 44-01 25529 Balverde 23OCT2026 AIR onebutton TEST_ONLY

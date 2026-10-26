@@ -309,7 +309,7 @@ async function main() {
     new Function('require','module','exports','fetch','FileReader', code + '\nmodule.exports.NoticeText = NoticeText;')(
       key => modules[key], module, module.exports,
       fetchStub, Reader);
-    const render = () => { cursor = 0; effectCursor = 0; refCursor = 0; memoCursor = 0; return module.exports.default({ storage }); };
+    const render = () => { cursor = 0; effectCursor = 0; refCursor = 0; memoCursor = 0; return module.exports.default({ storage, autoAnalyze: false }); };
     const flatten = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(flatten) : [node, ...flatten(node.props?.children)];
     const text = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(text).join('') : node?.props ? text(node.props.children) : '';
     const hostileNotice = module.exports.NoticeText({ text: 'Safe <strong>bold</strong><img src=x onerror=alert(1)>' });
