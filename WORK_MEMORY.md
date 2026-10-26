@@ -1172,3 +1172,9 @@
 - 빈 연도·차수를 null로 보내던 payload 수정, 명시 orderWeekDate 차수 보존, 저장 전 한국어 안내. 매칭값·ERP writer·재고/원가 불변.
 - focused 51건 통과. 전체 gate/build/배포는 세션 문서 후속 결과 확인. 실제 실패 파일 개별 원인은 미확정이며 운영 입고 시험 미실행.
 - 검색어: invoice-scope-type orderYear orderWeek must be strings receiptScopeIssue 입고 연도
+
+## 2026-10-26 인보이스 연도 자동 입력·검증 실패
+- 최신 지시로 인보이스 날짜 연도 자동 제안 허용. 명시 선택 우선, 충돌 확인, 현재연도 fallback 없음. 이전 수동 정책 대체.
+- 2026/44-01 CO 문서966a9e13의 generic503 원인은 기존 음수 주문을 대조 함수가 거부한 것. 순합산 보존 수정 후 SELECT-only 실제 preview151행 정상, 입고일/농장 누락만 안내. 운영 DB 변경 없음.
+- focused73 통과, CUA 격리 UI 확인. 전체검사/배포 후속은 세션 MD 참조. 실제 운영 입고 쓰기는 미검증/미실행.
+- 검색어: invoice-auto-year-preview invoiceDateYear signed orders 44-01 INPUT_DATE_REQUIRED FARM_REQUIRED

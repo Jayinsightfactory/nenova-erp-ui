@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
@@ -196,6 +197,7 @@ export default function InvoiceReceiptWorkbench({
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const confirmButtonRef = useRef(null);
+  const orderYearRef = useRef(null);
   const reasonRef = useRef(null);
   const copyRef = useRef(null);
   const rowRefs = useRef(new Map());
@@ -359,7 +361,13 @@ export default function InvoiceReceiptWorkbench({
   }
 
   function updateDocumentField(field, value) {
-    updateSelected(document => ({ ...document, [field]: value }));
+    updateSelected(document => ({ ...document, [field]: value,
+      ...(field === 'orderYear' && document.reviewedMetadata?.orderYearEvidence ? {
+        reviewedMetadata: { ...document.reviewedMetadata, orderYearEvidence: {
+          ...document.reviewedMetadata.orderYearEvidence, source: 'USER', confirmedYear: '',
+        } },
+      } : {}),
+    }));
   }
 
   function updateMetadata(field, value) {
@@ -1059,7 +1067,13 @@ export default function InvoiceReceiptWorkbench({
       문서비·검역비 등이 포함될 수 있어 항공운임으로 자동 입력하지 않았습니다. 원문 내역을 대조해 원가 항목별로 입력하세요.
     </p>}
     <div className={styles.metadata}>
-      <Field label="입고 연도"><input value={documentValue.orderYear ?? ''} inputMode="numeric" placeholder="예: 2026" onChange={event => updateDocumentField('orderYear', event.target.value)} /></Field>
+      <Field label="입고 연도"><input ref={orderYearRef} aria-label="입고 연도" value={documentValue.orderYear ?? ''} inputMode="numeric" placeholder="예: 2026" onChange={event => updateDocumentField('orderYear', event.target.value)} />
+        {documentValue.reviewedMetadata.orderYearEvidence?.invoiceYear && <small>인보이스 연도: {documentValue.reviewedMetadata.orderYearEvidence.invoiceYear}
+          {documentValue.reviewedMetadata.orderYearEvidence.source === 'INVOICE_DATE' ? ' · 원본 기준 자동 입력' : ''}</small>}
+        {receiptYearConflict(documentValue) && <button type="button" onClick={() => { updateMetadata('orderYearEvidence', {
+          ...documentValue.reviewedMetadata.orderYearEvidence, confirmedYear: String(documentValue.orderYear).trim(),
+        }); orderYearRef.current?.focus(); }}>연도 차이 확인 · {documentValue.orderYear}년 적용</button>}
+      </Field>
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>
       <Field label="인보이스 번호"><input value={documentValue.invoiceNo ?? ''} onChange={event => updateDocumentField('invoiceNo', event.target.value)} /></Field>
       <Field label="인보이스 연도"><input value={documentValue.invoiceYear ?? ''} inputMode="numeric" onChange={event => updateDocumentField('invoiceYear', event.target.value)} /></Field>

@@ -1,3 +1,4 @@
+- [2026-10-26 인보이스 연도 자동 입력·검증 복구](2026-10-26_invoice-auto-year-preview.md) — 날짜 연도 제안, 충돌 확인, 음수 주문 순합산.
 - [2026-10-26 인보이스 입고 연도·차수 오류](2026-10-26_invoice-scope-type.md) — null 전달 제거, 매칭 보존, 한국어 수정 안내.
 - [2026-10-23 입고 박스·중량 현황](2026-10-23_receipt-box-weight-summary.md) — 국가·품종, 차수·월·연도, 실제 격리 입고 대조.
 - [2026-10-23 SQL 비용 연결·실제 입고 환산 복구](2026-10-23_profit-source-recovery.md) — EXCEL 운임, zero-anchor, 혼합 박스 잔존량, DB 불변.
