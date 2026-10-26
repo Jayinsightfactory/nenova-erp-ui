@@ -9,3 +9,4 @@ A.Native Nenova Desktop에서새로진입한빈칸(예:43)→▼1을재현했다
 검색어: 첫진입 ▲▼ placeholder defaultNext 44 43 빈칸1 Nenova Desktop
 검증완료:전체ERP계약/dnSpy근거/manifest/writeguard/UIlayout/build통과.배포후Native웹앱첫진입검증예정.
 배포 재시도도 Killed로 실패. 빌드에만 1536MiB 힙 제한을 적용하는 후속 수정 진행. ERP 원장 변경 없음.
+사용자 최종 결정: GitHub에서 빌드, Cafe24에는 완성 파일 전달. Railway 이전 아님. docs/plans/github-build-cafe24-release-2026-10-26.md 참조.

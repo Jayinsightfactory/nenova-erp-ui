@@ -65,14 +65,38 @@ jobs:
         run: |
           BASE_SHA="${BASE_SHA:-$(git rev-parse "${GITHUB_SHA}^")}"
           npm ci
-          node --test __tests__/codeOnlyDeployment.test.cjs
+          node --test __tests__/codeOnlyDeployment.test.cjs __tests__/ciBuildRelease.test.cjs
           npm run test:erp-contract
           npm run test:erp-manifest -- --changed-from "$BASE_SHA"
           npm run guard:erp-writes -- --changed-from "$BASE_SHA"
 
+      - name: Build release on GitHub
+        env:
+          DB_SERVER: ''
+          NEXT_DIST_DIR: .next-build
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm run build
+          mkdir -p release
+          node scripts/ci-build-release.cjs pack release/nenova.tar.gz "$GITHUB_SHA"
+          NENOVA_DEPLOY_BACKUP_ROOT="$RUNNER_TEMP/release-check" node scripts/ci-build-release.cjs stage release/nenova.tar.gz "$GITHUB_SHA"
+
+      - name: Transfer verified build to Cafe24
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: release/nenova.tar.gz,release/nenova.tar.gz.sha256
+          target: /var/lib/nenova/releases/incoming/${{ github.run_id }}-${{ github.run_attempt }}
+          strip_components: 1
+
       - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
         env:
+          DEPLOY_SHA: ${{ github.sha }}
+          RELEASE_BUNDLE: /var/lib/nenova/releases/incoming/${{ github.run_id }}-${{ github.run_attempt }}/nenova.tar.gz
           APPLY_DB_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' || 'false' }}
           MIGRATE_ORDER_MAPPINGS: ${{ github.event_name == 'workflow_dispatch' && inputs.migrate_order_mappings == true && 'true' || 'false' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -99,8 +123,8 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
-          # Tests plus webpack can exceed ssh-action's default ten minutes.
+          envs: DEPLOY_SHA,RELEASE_BUNDLE,APPLY_DB_MIGRATIONS,MIGRATE_ORDER_MAPPINGS,JWT_SECRET,NENOVA_ESTIMATE_SEAL_PNG,WEEKDAY_TEMPLATE_KEY,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,ORBIT_OWNER_TOKEN,NENOVAWEB_SERVICE_TOKEN,BAROBILL_ENV,BAROBILL_CERTKEY,BAROBILL_CORPNUM,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          # Build runs on GitHub; allow time for dependency install and deployment checks.
           # Keep code-only migration gates and atomic build swap unchanged.
           command_timeout: 30m
           script: |
@@ -129,7 +153,7 @@ jobs:
                 data/order-import-units.json)
                   # Live learned units are NOT generated output. Never restore them.
                   # Only allow an ff update that leaves this tracked path untouched.
-                  git diff --quiet HEAD origin/master -- "$changed" || { echo 'DEPLOY_RUNTIME_UPSTREAM_CONFLICT: learned units require reconciliation'; exit 1; }
+                  git diff --quiet HEAD "$DEPLOY_SHA" -- "$changed" || { echo 'DEPLOY_RUNTIME_UPSTREAM_CONFLICT: learned units require reconciliation'; exit 1; }
                   node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync("data/order-import-units.json","utf8"));if(!v||Array.isArray(v)||typeof v!=="object")process.exit(1);' || exit 1
                   ;;
                 *) printf 'DEPLOY_CHECKOUT_DIRTY: unrecognized tracked change: %s; stopped\n' "$changed"; exit 1 ;;
@@ -154,7 +178,8 @@ jobs:
               git status --short
               exit 1
             fi
-            git merge --ff-only origin/master || exit 1
+            git merge --ff-only "$DEPLOY_SHA" || exit 1
+            test "$(git rev-parse HEAD)" = "$DEPLOY_SHA" || exit 1
             # Audit events survive source resets/build swaps and are never release artifacts.
             export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
             mkdir -p "$NENOVA_ACTIVITY_DIR"
@@ -351,7 +376,9 @@ jobs:
             else
               echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
             fi
-            npm install --omit=dev
+            npm ci --omit=dev || exit 1
+            echo "=== validate and stage GitHub build ==="
+            node scripts/ci-build-release.cjs stage "$RELEASE_BUNDLE" "$DEPLOY_SHA" || exit 1
             # BEGIN EXPLICIT_DB_MIGRATIONS: push/default dispatch is code-only.
             if [ "${APPLY_DB_MIGRATIONS:-false}" = "true" ]; then
             echo "=== 주차별 매출이익 근거 스키마 적용 ==="
@@ -381,15 +408,6 @@ jobs:
               echo "CODE_ONLY_DEPLOY: all DB migrations skipped; no SQL repair or recalculation."
             fi
             # END EXPLICIT_DB_MIGRATIONS
-            echo "=== build ==="
-            rm -rf .next-build
-            # Build workers must not connect to SQL or start DB-backed schedulers.
-            # Inline environment is build-only; the running app keeps its existing DB configuration.
-            # Bound only the build process heap; do not change the running ERP process.
-            # Unbounded webpack was killed twice before the atomic swap (2026-10-26).
-            free -m || true
-            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build NODE_OPTIONS='--max-old-space-size=1536' npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
-            if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
             # BEGIN ORDER_MAPPING_CUTOVER: explicit first migration only, after successful build.
             if ! node scripts/migrate-order-mappings.mjs --check-ready; then
               if [ "${MIGRATE_ORDER_MAPPINGS:-false}" != "true" ]; then

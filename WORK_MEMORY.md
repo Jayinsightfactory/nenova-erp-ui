@@ -1236,3 +1236,10 @@
 - 빌드 명령에만 NODE_OPTIONS 1536MiB 힙 제한을 적용. 기존 서비스/ERP DB/원자적 교체/실패 시 보존은 유지. 서버 자원 현황 free -m 기록 추가.
 - 제한 빌드와 배포 검증 진행 중. 검색어: 1302 40289366107 Killed build heap 1536 첫 차수
 검증: 1536MiB 제한 production build, 배포 검사15건, 전체ERP계약, dnSpy, manifest, write guard 통과.
+
+## 2026-10-26 GitHub 빌드/Cafe24 런타임
+- 사용자 지시에 따라 서버 빌드 메모리 조정 대신 GitHub에서 빌드하여 완성 파일만 Cafe24에 전송하는 방식으로 변경. Railway 이전 없음.
+- 압축 SHA256/소스 커밋/lock/Node/플랫폼/BUILD_ID 검사 후 기존 원자적 교체 유지. runtime 데이터와 환경설정은 압축에서 제외.
+- 배포/압축검사20건 통과, 전체 검사와 운영 검증 진행 중.
+- 검색어: GitHub build Cafe24 artifact ci-build-release PR1302 first week
+검증: 전체ERP계약/dnSpy/manifest/write guard/build 통과. 배포 검사20건 및 실제 약12MB 빌드 압축·복원 검증 통과. 운영 검증 예정.

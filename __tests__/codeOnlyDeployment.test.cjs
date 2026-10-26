@@ -39,7 +39,7 @@ for (const mode of ['known', 'unknown', 'staged']) {
       if (mode === 'staged') git('add', 'package-lock.json');
       const r = spawnSync(bash, ['--noprofile', '--norc', '-c', preserve], {
         cwd: dir, encoding: 'utf8', windowsHide: true,
-        env: { ...process.env, NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
+        env: { ...process.env, DEPLOY_SHA:'origin/master', NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
       });
       assert.equal(r.status, mode === 'known' ? 0 : 1, r.stderr);
       if (mode === 'unknown') assert.match(r.stdout, /DEPLOY_CHECKOUT_DIRTY:.*server.js/);
@@ -56,11 +56,12 @@ for (const mode of ['known', 'unknown', 'staged']) {
 
 test('push and default dispatch never opt into database migrations', () => {
   assert.doesNotMatch(source, /git reset --hard|git push --force|--no-verify/);
-  assert.match(source, /git merge --ff-only origin\/master \|\| exit 1/);
+  assert.match(source, /git merge --ff-only "\$DEPLOY_SHA" \|\| exit 1/);
   assert.match(source, /apply_db_migrations:[\s\S]*?type: boolean[\s\S]*?default: false/);
   assert.match(source, /APPLY_DB_MIGRATIONS: \$\{\{ github.event_name == 'workflow_dispatch' && inputs.apply_db_migrations == true && 'true' \|\| 'false' \}\}/);
-  assert.match(source, /envs: APPLY_DB_MIGRATIONS,/);
-  assert.match(source, /if ! DB_SERVER='' NEXT_DIST_DIR=\.next-build NODE_OPTIONS='--max-old-space-size=1536' npm run build/);
+  assert.match(source, /envs: DEPLOY_SHA,RELEASE_BUNDLE,APPLY_DB_MIGRATIONS,/);
+  assert.match(source, /node scripts\/ci-build-release.cjs stage/);
+  assert.doesNotMatch(source.slice(source.indexOf('      - name: SSH Deploy to Cafe24')), /npm run build/);
   assert(start > 0 && end > start);
   const outside = source.slice(0, start) + source.slice(end);
   assert.doesNotMatch(outside, /node scripts\/apply-[^\n]+--apply/);
@@ -90,7 +91,7 @@ for (const mode of ['learned', 'upstream-conflict', 'invalid-json', 'concurrent-
       fs.writeFileSync(unitPath, learned);
       const r = spawnSync(bash, ['--noprofile', '--norc', '-c', preserve], {
         cwd: dir, encoding: 'utf8', windowsHide: true,
-        env: { ...process.env, NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
+        env: { ...process.env, DEPLOY_SHA:'origin/master', NENOVA_DEPLOY_BACKUP_ROOT: path.join(dir, 'backups').replaceAll('\\', '/') },
       });
       const blocked = mode === 'upstream-conflict' || mode === 'invalid-json';
       assert.equal(r.status, blocked ? 1 : 0, r.stderr);
