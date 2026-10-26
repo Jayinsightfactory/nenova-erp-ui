@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
+import ChinaVolumeGuide from '../../components/ChinaVolumeGuide';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
 import XLSXStyled from 'xlsx-js-style';
@@ -371,12 +372,18 @@ export default function ChinaVolumeBoard() {
   const [preview, setPreview] = useState(null);
   const [applyMessage, setApplyMessage] = useState('');
   const [ackWarnings, setAckWarnings] = useState(false);
+  const [guideScope, setGuideScope] = useState('');
+  const [guideEditedScope, setGuideEditedScope] = useState('');
+  const [guideAppliedStamp, setGuideAppliedStamp] = useState('');
+  const guideScopeKey = `${year}:${week}`;
+  const guideStamp = useMemo(() => JSON.stringify([year, week, cells, packingRows, reviewNotes]), [year, week, cells, packingRows, reviewNotes]);
   const busyRef = useRef(false);
   const querySeq = useRef(0);
   const scopeCurrent = loadedScope?.year === year && loadedScope?.week === week;
   const allCustomers = useMemo(() => [...new Map([...(data?.customers || []), ...customerCatalog].map(c => [Number(c.custKey), c])).values()], [data, customerCatalog]);
 
   const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
+    setGuideEditedScope(''); setGuideAppliedStamp('');
     const board = normalizeBoard(rawBoard);
     if (!board) return;
     setBoardKey(board.boardKey);
@@ -420,6 +427,7 @@ export default function ChinaVolumeBoard() {
       setProductCatalog(catalog);
       setCustomerCatalog(catalogResult.customers || []);
       setLoadedScope({ year: targetYear, week: targetWeek });
+      setGuideEditedScope(''); setGuideAppliedStamp('');
       setPreview(null);
       setData(result);
       if (history.active) applyBoard(history.active, result, history.mappings, catalog);
@@ -575,6 +583,7 @@ export default function ChinaVolumeBoard() {
       if (!result && [502,503,504].includes(response.status)) result = await recover();
       if (!result) { try { result = await response.json(); } catch { result = await recover(); } }
       if (!result.success) throw new Error(result.error || '저장 결과 검증 실패. 작업 이력을 확인하세요.');
+      setGuideAppliedStamp(guideStamp);
       setApplyMessage(`등록·분배 저장 완료. 기존 주문 수량 보존 · ${result.appliedCount ?? result.applied?.length ?? 0}건 · ${jobId}`);
       const fresh = await apiGet('/api/stats/pivot-data', { orderYear: year, weekStart: week, weekEnd: week });
       setData(fresh);
@@ -696,7 +705,23 @@ export default function ChinaVolumeBoard() {
 
   const newBoard = () => {
     if (dirty && !window.confirm('저장하지 않은 작업이 있습니다. 새 작업으로 전환할까요?')) return;
+    setGuideEditedScope(''); setGuideAppliedStamp('');
     setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`); setPackingRows([]); setCells({}); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
+  };
+
+  const resetWork = async () => {
+    if (!scopeCurrent || saving || loading || busyRef.current) return;
+    if (!boardKey) { setError('현재 작업의 저장본이 없습니다. 작업 저장 후부터 초기화할 수 있습니다. 입력 내용은 유지했습니다.'); return; }
+    if (!window.confirm('저장하지 않은 변경만 버리고 현재 작업의 마지막 저장본으로 돌아갈까요? 저장 이력과 ERP 주문·분배는 변경하지 않습니다.')) return;
+    busyRef.current = true; setSaving(true); setError('');
+    try {
+      const result = await apiGet('/api/stats/china-volume-board', { boardKey });
+      const restored = normalizeBoard(result.current || result.boards?.[0]);
+      if (!restored || String(restored.boardKey) !== String(boardKey) || restored.orderYear !== year || restored.orderWeek !== week) throw new Error('현재 연도·차수의 저장본을 확인하지 못했습니다. 입력 내용은 유지했습니다.');
+      applyBoard(restored);
+      setPreview(null); setAckWarnings(false); setApplyMessage(''); setDraft(null); setSelectedKey(''); setLookup(null); setReviewOpen(false); setMatchOpen(false); setDistributionDraft(null); setBoxEntryOpen(false); setCellHistory(null); setRegionDraft(null); setDayDraft(null); setExcelOpen(false);
+    } catch (cause) { setError(`작업 초기화 실패: ${cause.message}`); }
+    finally { busyRef.current = false; setSaving(false); }
   };
 
   const deleteBoard = async () => {
@@ -891,18 +916,20 @@ export default function ChinaVolumeBoard() {
     XLSXStyled.writeFile(workbook, `${year}_${week}_자동중국물량표.xlsx`, { compression: true });
   };
 
+  const guide = <ChinaVolumeGuide state={{ week, scopeConfirmed: guideScope === guideScopeKey, scopeCurrent: scopeCurrent && !!data, busy: loading || saving || weeksLoading, error: !!error, applied: guideAppliedStamp === guideStamp && !dirty, preview: !!preview, canApply: !!preview?.planToken && !(preview.rows || []).some(row => row.hasQtyWarning && !ackWarnings), packingReview: packingRows.length > 0 && packingPhase !== 'APPLIED', unmatched: totals.unmatchedRowCount > 0, canMatch: canApplyChinaPackingRows(packingRows), editReady: guideEditedScope === guideScopeKey, saved: !!boardKey && !dirty }} onNext={step => step === 'scope' ? setGuideScope(guideScopeKey) : setGuideEditedScope(guideScopeKey)} />;
   return (
     <>
       <Head><title>자동 중국물량표 - nenova ERP</title></Head>
       <div className="page">
         <header className="titlebar"><b data-desktop-chrome>자동 중국물량표</b><span>1920×1080 기준</span><button onClick={() => window.opener ? window.close() : router.push('/dashboard')}>닫기</button></header>
+        {!preview && guide}
         <div className="toolbar">
           <label>연도<input type="number" value={year} disabled={saving || loading} onChange={e => setYear(Number(e.target.value))} /></label>
-          <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>
-          <button className="load" onClick={() => load(year, week)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{loading || weeksLoading ? '조회 중…' : '중국 물량표 조회'}</button>
+          <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select data-china-guide="week" aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={saving || loading || weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>
+          <button data-china-guide="load" className="load" onClick={() => load(year, week)} disabled={saving || loading || weeksLoading || !availableWeeks.length}>{loading || weeksLoading ? '조회 중…' : '중국 물량표 조회'}</button>
           <button disabled={!scopeCurrent || saving || loading} onClick={() => setLookup({ kind: 'customer' })}>업체 추가</button>
           <button disabled={!scopeCurrent || saving || loading} onClick={() => setLookup({ kind: 'product' })}>품목 추가</button>
-          <button className="save-board" disabled={!scopeCurrent || saving || loading} onClick={previewDistribution}>등록·분배 저장</button>
+          <button data-china-guide="review" className="save-board" disabled={!scopeCurrent || saving || loading} onClick={previewDistribution}>등록·분배 저장</button>
           <label className="board-name">작업명<input value={boardName} onChange={event => { setBoardName(event.target.value); setDirty(true); }} placeholder="예: CL 1차 배정" /></label>
           <select className="board-history" disabled={!scopeCurrent || saving || loading} value={boardKey} onChange={event => {
             const next = workHistory.find(item => String(item.boardKey) === event.target.value);
@@ -912,21 +939,21 @@ export default function ChinaVolumeBoard() {
             <option value="">새 작업본</option>
             {workHistory.map(item => <option key={item.boardKey} value={item.boardKey}>{item.name || '이름 없는 작업'} {item.updatedAt ? `· ${String(item.updatedAt).slice(0, 16)}` : ''}</option>)}
           </select>
-          <button className="save-board" onClick={saveBoard} disabled={!scopeCurrent || saving || loading || !data || saving}>{saving ? '저장 중…' : dirty ? '● 작업 저장' : '✓ 저장됨'}</button>
+          <button data-china-guide="save" className="save-board" onClick={saveBoard} disabled={!scopeCurrent || saving || loading || !data || saving}>{saving ? '저장 중…' : dirty ? '● 작업 저장' : boardKey ? '✓ 저장됨' : '작업 저장'}</button>
           <button onClick={newBoard} disabled={!scopeCurrent || saving || loading || !data}>새 작업</button>
           <button className="delete-board" onClick={deleteBoard} disabled={!scopeCurrent || loading || !boardKey || saving}>삭제</button>
           <label className={`upload ${!data ? 'disabled' : ''}`}>패킹리스트 업로드<input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={!scopeCurrent || saving || loading || !data} /></label>
           <span className="source-file" title={sourceFileName || '적용된 패킹리스트 없음'}>{sourceFileName ? `적용: ${sourceFileName}` : '적용 파일 없음'}</span>
-          <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => openPackingMatch(null)} disabled={!scopeCurrent || saving || loading || !packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
+          <button data-china-guide="match" className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => openPackingMatch(null)} disabled={!scopeCurrent || saving || loading || !packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
           <button className="box-entry-open" onClick={() => setBoxEntryOpen(true)} disabled={!scopeCurrent || saving || loading || !data || saving}>박스 일괄 입력</button>
-          <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || !scopeCurrent || loading || ['APPLIED', 'MANUAL'].includes(packingPhase) || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : packingPhase === 'MANUAL' ? '✓ 박스 입력 적용됨' : '매칭 적용'}</button>
-          <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!scopeCurrent || saving || loading || !packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
-          <button onClick={() => load()} disabled={!scopeCurrent || saving || loading || !data || !dirty} title="저장하지 않은 변경을 버리고 저장본을 다시 조회합니다">변경 초기화</button>
+          <button data-china-guide="packing" className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || !scopeCurrent || loading || ['APPLIED', 'MANUAL'].includes(packingPhase) || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : packingPhase === 'MANUAL' ? '✓ 박스 입력 적용됨' : '매칭 적용'}</button>
+          <button data-china-guide="reconcile" className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!scopeCurrent || saving || loading || !packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
+          <button onClick={resetWork} disabled={!scopeCurrent || saving || loading || !data} title="저장하지 않은 변경만 버리고 현재 작업의 마지막 저장본으로 복구합니다. ERP 원장은 변경하지 않습니다.">작업 초기화</button>
           <button onClick={() => setExcelOpen(true)} disabled={!scopeCurrent || saving || loading || !data}>엑셀 미리보기</button>
-          <button onClick={downloadExcel} disabled={!scopeCurrent || saving || loading || !data}>엑셀 다운로드</button>
+          <button data-china-guide="download" onClick={downloadExcel} disabled={!scopeCurrent || saving || loading || !data}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
-        {error && <div className="error" role="alert">{error}</div>}
+        {error && <div data-china-guide="error" tabIndex={-1} className="error" role="alert">{error}</div>}
         {packingPhase === 'REVIEW' && <div className="matching-guide"><b>1. 전산 물량표 확인</b><span>2. 오른쪽 인보이스·매칭 결과 확인</span><span>3. 미매칭 수정</span><strong>4. 매칭 적용</strong></div>}
         {data && <section className={`reconcile ${packingRows.length ? ((packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'warning' : 'ok') : 'idle'}`} aria-label="총수량 대조">
           <b>{!packingRows.length ? '수량 대조 · 패킹리스트 업로드 대기' : packingPhase === 'REVIEW' ? ((totals.invoiceMismatches.length || totals.unmatchedRowCount) ? '⚠ 주문과 인보이스 확인 필요' : '✓ 주문과 인보이스 수량 일치') : (totals.status === 'OK' ? '✓ 적용 결과 정상' : '⚠ 적용 결과 확인 필요')}</b>
@@ -940,7 +967,7 @@ export default function ChinaVolumeBoard() {
         {data && !scopeCurrent && <p className="scope-notice">연도·차수가 변경되었습니다. 물량표 조회를 누른 뒤 편집·저장하세요.</p>}
         {applyMessage && <p className="scope-notice" role="status">{applyMessage}</p>}
         <main inert={!scopeCurrent || saving || loading ? '' : undefined}>
-          <section className="board-wrap">
+          <section data-china-guide="matrix" className="board-wrap">
             {!data && !loading && <div className="empty">연도·차수를 조회한 뒤 패킹리스트를 업로드하세요.</div>}
             {data && (
               <table className="board">
@@ -1013,12 +1040,14 @@ export default function ChinaVolumeBoard() {
       {dayDraft && <ChinaDialog title="이 물량표의 업체 요일 변경" onClose={() => setDayDraft(null)}><label>요일<select autoFocus value={dayDraft.value} onChange={event => setDayDraft({ ...dayDraft, value: event.target.value })}><option value="">요일미등록</option>{['월','화','수','목','금','토','일'].map(day => <option key={day} value={day}>{day}요일</option>)}</select></label><footer><button onClick={() => setDayDraft(null)}>취소</button><button className="primary" onClick={() => { setReviewNotes(previous => ({ ...previous, customerDays: { ...previous.customerDays, [dayDraft.custKey]: dayDraft.value } })); setDayDraft(null); setDirty(true); }}>적용</button></footer></ChinaDialog>}
       {excelOpen && <ChinaDialog title="엑셀 미리보기" onClose={() => setExcelOpen(false)}><p>현재 화면 수량 기준 · {dirty ? '저장하지 않은 변경 포함' : '저장된 작업'} · 확정 여부와 관계없이 다운로드할 수 있습니다. 업체명과 CL 번호는 별도 셀입니다.</p>{packingPhase === 'REVIEW' && <p>인보이스 매칭 적용 전입니다. 아직 적용하지 않은 인보이스 수량은 포함되지 않습니다.</p>}<div style={{ overflowX: 'auto' }}><table><tbody>{excelRows.map((row, r) => <tr key={r}>{row.map((value,c) => r < 4 ? <th key={c}>{value}</th> : <td key={c}>{value}</td>)}</tr>)}</tbody></table></div><footer><button onClick={() => setExcelOpen(false)}>닫기</button><button className="primary" onClick={downloadExcel} disabled={!scopeCurrent || saving || loading}>엑셀 다운로드</button></footer></ChinaDialog>}
       {preview && <ChinaDialog title={`${year}년 ${week} 등록·분배 저장 확인`} onClose={() => setPreview(null)} busy={saving}>
+        {guide}
+        <div data-china-guide="preview" tabIndex={-1}>검증 결과와 수량 경고를 확인하세요. 미충족 시 취소 후 수정할 수 있습니다.</div>
         <p>아래 셀의 분배를 최종 수량으로 저장합니다. <b>기존 주문 수량은 변경하지 않습니다.</b> 주문이 없는 양수 품목만 새로 등록합니다.</p>
         {(preview.blockers || []).map((message,index) => <p role="alert" key={index}>{message}</p>)}
         <table><thead><tr><th>업체 · 품목</th><th>주문 전 → 후</th><th>분배 현재 → 최종</th><th>증감</th></tr></thead><tbody>{(preview.rows || []).map(row => <tr key={row.key}><td>{row.custName} · {row.prodName}</td><td>{fmt(row.orderBeforeQty)} → {fmt(row.orderAfterQty)}</td><td>{fmt(row.currentOutQty)} → {fmt(row.uploadQty)} {row.outUnit}</td><td>{fmt(row.uploadQty - row.currentOutQty)}</td></tr>)}</tbody></table>
         {(preview.rows || []).filter(row => row.hasQtyWarning).map(row => <p key={`warning-${row.key}`}>{row.custName} · {row.prodName}: {(row.qtyWarnings || []).map(w => w.message).join(' / ')}</p>)}
         {(preview.rows || []).some(row => row.hasQtyWarning) && <label><input type="checkbox" checked={ackWarnings} onChange={event => setAckWarnings(event.target.checked)} />수량·단위 경고를 확인했습니다.</label>}
-        <footer><button disabled={saving} onClick={() => setPreview(null)}>취소</button><button className="primary" disabled={saving || !preview.planToken || ((preview.rows || []).some(row => row.hasQtyWarning) && !ackWarnings)} onClick={applyDistribution}>{saving ? '저장 중…' : '확인 후 등록·분배 저장'}</button></footer>
+        <footer><button disabled={saving} onClick={() => setPreview(null)}>취소</button><button data-china-guide="apply" className="primary" disabled={saving || !preview.planToken || ((preview.rows || []).some(row => row.hasQtyWarning) && !ackWarnings)} onClick={applyDistribution}>{saving ? '저장 중…' : '확인 후 등록·분배 저장'}</button></footer>
       </ChinaDialog>}
       <style jsx global>{`.board td span.qty{left:0;width:100%;}.toolbar .save-board{background:#155bd7;color:#fff;border-color:#155bd7}`}</style>
       <style jsx global>{`

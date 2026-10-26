@@ -5,7 +5,7 @@ const XLSX = require('xlsx-js-style');
 const app = next({ dev: false, hostname: '127.0.0.1', port: 3196 });
 const customers=[{custKey:1,custName:'검증업체',orderCode:'CL1',area:'서울'}];
 const rows=[{prodKey:9,prodName:'CHINA / Blue',country:'중국',countryFlower:'중국',flower:'수국',unit:'단',ordersByCustKey:{1:5},orders:{검증업체:5},totalIncoming:20,incoming:{검증농장:20}}];
-let snapshot;
+let snapshot, chinaSnapshot;
 app.prepare().then(()=>http.createServer(async(req,res)=>{
   const path=new URL(req.url,'http://127.0.0.1').pathname;
   if(!path.startsWith('/api/'))return app.getRequestHandler()(req,res);
@@ -22,8 +22,14 @@ app.prepare().then(()=>http.createServer(async(req,res)=>{
   }
   if(path==='/api/shipment/dutch-volume-work'){
     if(req.method==='POST') {let raw='';for await(const b of req)raw+=b;const p=JSON.parse(raw);snapshot={...p,id:'fixture',name:'격리 작업',savedAt:new Date().toISOString(),savedBy:'fixture'};return send({success:true,snapshot});}
+    if(new URL(req.url,'http://127.0.0.1').searchParams.has('id'))return send({success:true,snapshot});
     return send({success:true,items:[],nextCursor:null});
   }
+  if(path==='/api/stats/china-volume-board') {
+    if(req.method==='POST'){let raw='';for await(const b of req)raw+=b;const p=JSON.parse(raw);chinaSnapshot={...p,boardKey:'fixture-cn',rowVersion:'v1'};return send({success:true,board:chinaSnapshot});}
+    return send({success:true,boards:chinaSnapshot?[chinaSnapshot]:[],current:chinaSnapshot||null,productMappings:{}});
+  }
+  if(path==='/api/shipment/china-volume-preview')return send({success:true,rows:[],blockers:['격리 검증: ERP 적용 금지']});
   if(path==='/api/shipment/dutch-volume-preview')return send({success:true,rows:[],unmatched:[{reason:'격리 fixture 미매칭'}],entryMatches:[],blockers:['격리 검증: ERP 적용 금지'],customerOptions:customers,productOptions:[]});
   if(path.includes('-apply')){res.statusCode=403;return send({success:false,error:'Fixture never applies ERP'});}
   return send({success:true,items:[],boards:[],favorites:[],productMappings:{}});
