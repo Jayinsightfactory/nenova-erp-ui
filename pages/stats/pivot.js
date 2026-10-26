@@ -20,7 +20,7 @@ import {
   PIVOT_FIELDS, FIELD_BY_ID, ZONES, canDropInZone, COL_GROUP_LABELS, COL_GROUP_FIELD_MAP,
   DEFAULT_COLUMN_ZONE, sectionsFromColumnZone, columnZoneFromSections,
 } from '../../lib/pivotFieldRegistry';
-import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters } from '../../lib/pivotFilterOptions';
+import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters, updatePivotDimensionFilter, togglePivotFilterValue } from '../../lib/pivotFilterOptions';
 import { buildPivotProductSearchAliases, pivotProductOptionMatches } from '../../lib/pivotProductSearch.js';
 import { selectedPivotWeekValue } from '../../lib/pivotAvailableWeeks';
 import { formatOrderWeekDateRange } from '../../lib/orderWeekDate';
@@ -483,18 +483,18 @@ export function LegacyPivot() {
   // 열 필터
   const [filters, setFilters] = useState({});
   const handleFilter = useCallback((key, vals) => {
-    setFilters((f) => {
-      let next = { ...f, [key]: vals };
-      if (key === 'country') {
-        delete next.flower;
-        delete next.prodName;
-      } else if (key === 'flower') {
-        delete next.prodName;
-      }
-      if (data?.rows?.length) next = pruneDimensionFilters(next, data.rows);
-      return next;
-    });
-  }, [data?.rows]);
+    setFilters(f => updatePivotDimensionFilter(f, key, vals));
+    setFieldFilters(f => updatePivotDimensionFilter(f, key, vals));
+  }, []);
+
+  const handleFieldFilter = (id, vals) => {
+    if (['country', 'flower', 'prodName'].includes(id)) handleFilter(id, vals);
+    else setFieldFilters(ff => ({ ...ff, [id]: vals }));
+  };
+  const resetAllFilters = () => {
+    setFilters({}); setFieldFilters({}); setFilterConditions([]);
+    setCustFilter(''); setVisibleCustNames([]); setOpenFilterChip(null);
+  };
 
   // 접기
   const [collapsed, setCollapsed] = useState(new Set());
@@ -660,7 +660,7 @@ export function LegacyPivot() {
     setFilterZone(z => z.filter(x => x !== id));
     setFieldFilters(ff => { const n = { ...ff }; delete n[id]; return n; });
     if (openFilterChip === id) setOpenFilterChip(null);
-  }, [openFilterChip]);
+  }, [openFilterChip, handleFilter]);
 
   const removeFromColumnZone = useCallback((id) => {
     setColumnZone((z) => {
@@ -1378,6 +1378,7 @@ export function LegacyPivot() {
           <button className="btn" onClick={handleExcel}>{t('엑셀')}</button>
           {/* 즐겨찾기 */}
           <div style={{position:'relative', display:'inline-block'}}>
+            <button type="button" className="btn" data-testid="pivot-legacy-reset-filters" onClick={resetAllFilters}>전체 필터 초기화</button>
             <button className="btn" onClick={()=>setShowFavMenu(s=>!s)}>
               ⭐ 즐겨찾기{favorites.length>0?` (${favorites.length})`:''}
             </button>
@@ -1519,16 +1520,8 @@ export function LegacyPivot() {
           return sel.includes(v);
         };
         const toggleFilterValue = (id, v, checked) => {
-          setFieldFilters(ff => {
-            const all = getValuesForFieldId(id);
-            let cur;
-            if (ff[id]?.includes('__EMPTY__')) cur = [];
-            else if (!ff[id]?.length) cur = [...all];
-            else cur = [...ff[id]];
-            let next = checked ? [...new Set([...cur, v])] : cur.filter(x => x !== v);
-            if (next.length >= all.length) next = [];
-            return { ...ff, [id]: next };
-          });
+          const next = togglePivotFilterValue(fieldFilters[id], getValuesForFieldId(id), v, checked);
+          handleFieldFilter(id, next);
         };
         const removeFromZone = (f, zoneId) => removeFieldFromZone(f.id, zoneId);
         const Chip = ({ f, zoneId, removable }) => (
@@ -1593,9 +1586,9 @@ export function LegacyPivot() {
                             <div style={{padding:'4px 8px',background:'#f0f4fa',fontSize:10,color:'var(--text3)',
                               display:'flex',gap:6,position:'sticky',top:0}}>
                               <span style={{cursor:'pointer',color:'var(--blue)'}}
-                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:[]}))}>전체선택</span>
+                                onClick={()=>handleFieldFilter(f.id, [])}>전체선택</span>
                               <span style={{cursor:'pointer',color:'var(--red)'}}
-                                onClick={()=>setFieldFilters(ff=>({...ff,[f.id]:['__EMPTY__']}))}>전체해제</span>
+                                onClick={()=>handleFieldFilter(f.id, ['__EMPTY__'])}>전체해제</span>
                               <span style={{marginLeft:'auto',cursor:'pointer'}} onClick={()=>setOpenFilterChip(null)}>닫기</span>
                             </div>
                             <div style={{padding:'4px 8px',position:'sticky',top:28,background:'#fff',borderBottom:'1px solid var(--border)'}}>
@@ -2143,7 +2136,7 @@ export function LegacyPivot() {
                 </>
               )}
               <span style={{cursor:'pointer',color:'var(--red)',marginLeft:2,fontSize:12}}
-                onClick={()=>setFieldFilters(ff=>({...ff,[id]:[]}))}>×</span>
+                onClick={()=>handleFieldFilter(id, [])}>×</span>
             </span>
           </span>
         ))}

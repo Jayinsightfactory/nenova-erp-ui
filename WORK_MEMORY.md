@@ -1184,3 +1184,9 @@
 - 집중56/ERP gates/build/격리 SQL 통과. CUA 실제 Workbench rev3 next→refresh→수정PATCH rev4→next→입고 확인 모달 검증. 운영 DB 수정 없음. 운영 인증 후 버튼 조작 미검증.
 - 상세·배포 결과: docs/work-sessions/2026-10-26_invoice-draft-next.md.
 - 검색어: invoice-draft-next source-resume POST can only create revision PATCH
+
+## 2026-10-26 피벗 필터 동기화·초기화
+- 기존 화면 헤더/필터 영역 선택 동기화, 국가/품종 하위 조건 해제, 마지막 체크 0행 수정. 양쪽 상단 전체 초기화 및 전산 피벗 관련 품목 선택 초기화.
+- 실제 dnSpy FormQuantityPivot 및 SELECT-only43-02 대조. API/SQL/ERP 원장 변경 없음.
+- 전체검사·브라우저·배포 결과: docs/work-sessions/2026-10-26_pivot-filter-sync.md (진행 중 단계는 미검증).
+- 검색어: pivot-filter-sync 국가 품종 필터 고정 초기화 fieldFilters __EMPTY__ linkedFilters
