@@ -1185,6 +1185,11 @@
 - 상세·배포 결과: docs/work-sessions/2026-10-26_invoice-draft-next.md.
 - 검색어: invoice-draft-next source-resume POST can only create revision PATCH
 
+## 2026-10-26 피벗 필터 동기화·초기화
+- 기존 화면 헤더/필터 영역 선택 동기화, 국가/품종 하위 조건 해제, 마지막 체크 0행 수정. 양쪽 상단 전체 초기화 및 전산 피벗 관련 품목 선택 초기화.
+- 실제 dnSpy FormQuantityPivot 및 SELECT-only43-02 대조. API/SQL/ERP 원장 변경 없음.
+- 전체검사·브라우저·배포 결과: docs/work-sessions/2026-10-26_pivot-filter-sync.md (진행 중 단계는 미검증).
+- 검색어: pivot-filter-sync 국가 품종 필터 고정 초기화 fieldFilters __EMPTY__ linkedFilters
 ## 2026-10-26 인보이스 자동 입력·연속 실행
 - 최초 자동 분석, 정상 매칭 후 자동 준비, 원문 날짜·유일농장·AWB AIR 제안, 선택 문서 입고/원가 연속 실행. 동일 송장 농장 약칭 중복 차단.
 - 44-1 송장25529 7행107박스3210송이 격리 SQL/CUA 입고→시험원가 저장→엑셀 다운로드 확인. 운영 DB 수정 없음.

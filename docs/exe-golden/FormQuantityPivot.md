@@ -140,3 +140,8 @@ verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존
 원본/수정 EXE에서 추출한 SQL 직접 SELECT 비교: 20264401 기존1227행 동일+음수31행/-103, 대상 콜롬비아 카네이션 여분26행/-76. 20264402 588행,20254401 3336행 동일. 개인정보 출력/저장 없음.
 원본/수정 hash: 4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63 / FEDEA619A6E54D6CDD58802E0707DD51D06F5D46E883F53F00134E801AC62F79. 배포는 사용자 PC만, 다른 직원 실행파일 자동변경 아님. 실행중 프로세스 강제종료 금지, 닫힌 뒤 원본 백업과 atomic replace.
 메뉴 기준선: 적용—기존 화면/키보드/스크롤/필터 보존. 해당 없음—웹 shell/입력/매칭/DB쓰기. 화면상 실제 로그인 조회는 아직 미검증. native control 시험과 실제SQL 읽기검증은 완료.
+
+## 2026-10-26 피벗 필터 동기화·복구
+- 기존 헤더/필드 선택 상태 동기화 및 마지막 체크 해제 0행 유지. EXE 국가/품종/품목 조건을 명시 초기화하며 고급조건은 보존. 양쪽 상단 전체 초기화 제공.
+- dnSpy.Console -t FormQuantityPivot 실제 EXE GetData ViewOrder/ViewWarehouse/ExportToXlsx 재확인. SELECT-only 2026/43-02/CustKey533/ProdKey1487 수량200/DetailFix1, NativeDateJoins1. SQL·수식·ERP 원장 불변.
+- 기준/검증: docs/work-sessions/2026-10-26_pivot-filter-sync.md.

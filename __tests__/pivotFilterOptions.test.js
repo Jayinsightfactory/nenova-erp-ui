@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 // Pivot 필터 옵션 단위 검증
 // 실행: node __tests__/pivotFilterOptions.test.js
 
@@ -55,7 +56,20 @@ async function main() {
   assert('콜롬비아 꽃만', wd2.flowers.length === 2);
 
   console.log(`\n=== RESULT: ${pass} passed, ${fail} failed ===`);
-  process.exit(fail > 0 ? 1 : 0);
+  process.exitCode = fail > 0 ? 1 : 0;
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
+
+const { updatePivotDimensionFilter, togglePivotFilterValue } = await import('../lib/pivotFilterOptions.js');
+for (const year of [2025, 2026]) {
+  const old = { country: ['콜롬비아'], flower: ['수국'], prodName: ['White'], year: [year] };
+  const header = updatePivotDimensionFilter(old, 'country', ['중국']);
+  const chip = updatePivotDimensionFilter(old, 'country', ['중국']);
+  assert.deepEqual(header, chip);
+  assert.deepEqual(header, { country: ['중국'], year: [year] });
+  assert.deepEqual(old.flower, ['수국']);
+}
+assert.deepEqual(togglePivotFilterValue(['중국'], ['중국','콜롬비아'], '중국', false), ['__EMPTY__']);
+assert.deepEqual(togglePivotFilterValue(['__EMPTY__'], ['중국','콜롬비아'], '중국', true), ['중국']);
+assert.deepEqual(togglePivotFilterValue(['중국'], ['중국','콜롬비아'], '콜롬비아', true), []);

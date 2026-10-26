@@ -25,3 +25,13 @@ assert.deepEqual(applyLinkedPivotSelection({},'FlowerName',['장미','튤립'],[
 assert.deepEqual(applyLinkedPivotSelection({},'FlowerName',[],['장미']),{FlowerName:[]});
 assert.deepEqual(applyLinkedPivotSelection({},'FlowerName',['stale'],['장미']),{FlowerName:['stale']});
 console.log('linked pivot facets: bidirectional, year/week/customer/type/zero/null, AST, disabled, stale and contextual select-all passed');
+
+const { clearPivotProductSelections } = await import('../lib/pivotLinkedFilters.js');
+for (const year of [2025,2026]) {
+ const locked={CounName:['콜롬비아'],FlowerName:['수국'],CountryFlower:['콜롬비아 수국'],ProdName:['Old'],OrderYear:[year]};
+ const cleared=clearPivotProductSelections(locked);
+ assert.deepEqual(cleared,{OrderYear:[year]});
+ assert.deepEqual(get('CounName',cleared),year===2025?['콜롬비아']:['콜롬비아','중국','네덜란드']);
+ assert.deepEqual(locked.FlowerName,['수국']);
+}
+assert.deepEqual(clearPivotProductSelections({CounName:[],Quantity:[0],CustName:[]}),{Quantity:[0],CustName:[]});
