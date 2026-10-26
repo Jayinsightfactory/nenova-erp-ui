@@ -20,6 +20,8 @@ test('local scope validation errors are not replaced by response scope checks', 
 });
 
 test('active packing never falls through to saved-document lookup during preparation', () => {
+  assert.match(source, /setSourceAttempt\(value => value \+ 1\)/);
+  assert.match(source, /truncated, sourceAttempt\]/);
   const lookup = source.indexOf('if (!selected || !documentValue) return');
   for (const guard of ['if (packingActive && (!file || !excels.length)) return null;', 'if (packingActive && sourceState.error)', 'if (packingActive && (!selected || !documentValue))']) {
     assert.ok(source.indexOf(guard) >= 0 && source.indexOf(guard) < lookup);

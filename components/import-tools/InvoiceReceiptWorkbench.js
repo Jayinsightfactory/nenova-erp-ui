@@ -179,6 +179,7 @@ export default function InvoiceReceiptWorkbench({
   recordsRef.current = records;
   const [selectedId, setSelectedId] = useState('');
   const [sourceState, setSourceState] = useState({ busy: false, error: '', hash: '' });
+  const [sourceAttempt, setSourceAttempt] = useState(0);
   const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState('');
   const [savedDocuments, setSavedDocuments] = useState([]);
@@ -310,7 +311,7 @@ export default function InvoiceReceiptWorkbench({
       if (active) setSourceState({ busy: false, error: error.message, hash: '' });
     });
     return () => { active = false; };
-  }, [country, excels, file, invoices, products, reviewConfirmed, truncated]);
+  }, [country, excels, file, invoices, products, reviewConfirmed, truncated, sourceAttempt]);
 
   useEffect(() => {
     const scope = sourceState.scope;
@@ -987,7 +988,7 @@ export default function InvoiceReceiptWorkbench({
   }
 
   if (packingActive && (!file || !excels.length)) return null;
-  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p></section>;
+  if (packingActive && sourceState.error) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p className={styles.error} role="alert">입고 업로드 준비 실패: {sourceState.error} · 위 매칭표와 원본 파일은 유지됩니다. 확인값을 수정한 뒤 다시 준비하세요.</p><button type="button" onClick={() => setSourceAttempt(value => value + 1)}>입고 준비만 다시 시도 (AI 재분석 없음)</button></section>;
   if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
   if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
   if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
