@@ -952,7 +952,10 @@ async function testExistingCostLink(pool, costs, thai = false) {
   assert.equal(saved.currentActual.liveReceiptStatus,'MATCH');assert.equal(saved.currentActual.lines.length,2);
   const output=await exporter.exportCurrentInvoiceCost({...args,warehouseKey:String(wk),costRevisionId:saved.currentActual.costRevisionId});
   const book=require('xlsx').read(output.buffer);
-  assert.deepEqual(book.SheetNames,['2026 41-01','원본수식 비교']);assert.match(book.Sheets['2026 41-01'].B1.v,/추정 통관비/);
+  assert.deepEqual(book.SheetNames,['2026 41-01','원본수식 비교']);
+  // TEST_ONLY takes precedence over the estimated-expense label in the exporter.
+  assert.equal(book.Sheets['2026 41-01'].B1.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
+  assert.equal(book.Sheets['원본수식 비교'].A9.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
   if(thai){assert.equal(book.Sheets['2026 41-01'].G15.v,2);assert.equal(book.Sheets['2026 41-01'].R15.v,'BUNCH');assert.equal(saved.currentActual.editableInput.input.packingBoxTotal,1);}
   else assert.equal(book.Sheets['2026 41-01'].C6.v,20);
   assert.deepEqual(await stockSnapshot(pool),before);assert.deepEqual(await protectedSnapshot(pool),protectedBefore);

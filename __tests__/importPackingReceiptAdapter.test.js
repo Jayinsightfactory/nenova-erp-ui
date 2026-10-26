@@ -155,7 +155,7 @@ test('hashes the original file bytes and creates stable UUIDv8 document and line
   assert.equal(explicitlyScoped[0].orderYear, '2025');
   assert.equal(explicitlyScoped[0].orderWeek, '43-02');
   const unscoped = await adapter.adaptPackingReceipts({...input, fileName: '43-02_CN.xlsx'});
-  assert.equal(adapter.toReceiptDraftPayload(unscoped[0]).orderYear, '', 'invoice date must not silently select receipt year');
+  assert.equal(adapter.toReceiptDraftPayload(unscoped[0]).orderYear, '2026', 'user-approved invoice date year default');
   assert.deepEqual(first[0].lines[0].reviewed, {
     sourceConfirmed: true,
     erpMatchConfirmed: false,

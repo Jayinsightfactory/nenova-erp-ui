@@ -12,6 +12,15 @@ const row = (patch = {}) => ({
   ...patch,
 });
 
+test('existing signed order adjustments remain in net orders without allowing negative draft receipts',()=>{
+  const input={orderYear:2026,orderWeek:'41-01',orders:[row({quantity:10}),row({quantity:-2}),row({orderYear:2025,quantity:-900})],receipts:[],draft:[row({quantity:8})]};
+  const result=reconcileInvoiceReceipt(input);
+  assert.equal(result.rows[0].orderedQty,8);
+  assert.equal(result.rows[0].difference,0);
+  assert.throws(()=>reconcileInvoiceReceipt({...input,draft:[row({quantity:-1})]}));
+  assert.throws(()=>reconcileInvoiceReceipt({...input,orders:[row({quantity:-1e15})]}));
+});
+
 test('normalizes the selected week and excludes valid rows from another year or week', () => {
   const result = reconcileInvoiceReceipt({
     orderYear: '2026',
@@ -151,7 +160,7 @@ test('requires collections, accepts explicit zero, and rejects invalid selected 
     draft: [],
   }).rows[0].orderedQty, 1000, 'finite scientific notation is a valid numeric string');
 
-  for (const quantity of [null, '', ' ', true, false, NaN, Infinity, -1, '0x10', '1_000', '1;DROP TABLE', {}, []]) {
+  for (const quantity of [null, '', ' ', true, false, NaN, Infinity, '0x10', '1_000', '1;DROP TABLE', {}, []]) {
     assert.throws(() => reconcileInvoiceReceipt({
       orderYear: 2026,
       orderWeek: '41-01',

@@ -38,6 +38,10 @@ function validDraft(overrides = {}) {
 }
 
 test('invalid scope reports actionable Korean errors while retaining strict string types', () => {
+  const conflict=validDraft({orderYear:'2025',reviewedMetadata:{country:'CN',orderYearEvidence:{invoiceYear:'2026',confirmedYear:''}}});
+  assert.throws(()=>normalizeInvoiceDraft(conflict), /인보이스 연도가 다릅니다/);
+  conflict.reviewedMetadata.orderYearEvidence.confirmedYear='2025';
+  assert.equal(normalizeInvoiceDraft(conflict).orderYear,'2025');
   for (const orderYear of [null, undefined, 2026]) {
     assert.throws(() => normalizeInvoiceDraft(validDraft({orderYear})), /입고 연도와 세부차수/);
   }
