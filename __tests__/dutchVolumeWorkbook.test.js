@@ -39,9 +39,12 @@ for (const year of [2025,2026]) {
   assert.equal(out.H7.v,24.5);
   assert.equal(out.E7.v,12.5);
   assert.equal(out.K5.f,'I5+J5-H5');
+  assert.equal(out.K5.v,7.5,'remaining cache uses edited order total');
+  assert.equal(out.K7.v,25.5,'remaining footer follows the same draft');
   assert.equal(prepared.workbook.Sheets['참고'].A1.f,"SUM('네덜란드'!D5:G5)");
   const bytes = await exportDutchVolumeWorkbook(XLSX,wb,entries,prices,config,scope);
   const disk = XLSX.read(bytes,{type:'array',cellStyles:true,cellFormula:true});
+  assert.equal(disk.Sheets[name].K5.v,7.5,'actual XLSX retains recalculated remaining');
   const imported = importDutchVolumeWorkbook(XLSX,disk,scope);
   assert.deepEqual(payload(imported.entries,imported.prices,imported.bulkPriceConfig),payload(entries,prices,config));
   assert.equal(disk.Sheets[name].E5.t,'n','price decoration never replaces quantity');

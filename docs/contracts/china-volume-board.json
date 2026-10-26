@@ -103,6 +103,7 @@
     }
   ],
   "criteriaLedger": {
+    "draftTotals20261026": "Current customer-cell quantities form the displayed order sum. Inbound remains original selected-scope inbound; remaining=inbound-order (plus explicit Dutch stock cell). Zero/decimal/negative remaining and incoming-only rows are supported. Formula cache is refreshed without deleting formulas. Screen and XLSX use the same sources. Existing ERP OrderDetail preservation and explicit apply contract unchanged.",
     "viewport": "1920x1080 CSS px, browser zoom 100%",
     "boxSource": "packing list column B Box No.",
     "quantitySource": "packing list column D Quantity",

@@ -75,7 +75,7 @@ assert.match(page, /rematchChinaPackingRow/, '기존 분배를 남겨 다른 업
 assert.match(page, /InlineReviewPanel/, '누락·초과 확인은 같은 페이지 검토 패널에서 처리한다');
 assert.match(page, /extractDays\(customer, '중국'\)/, '거래처 비고의 중국 출고요일을 기존 물량표 기준으로 사용한다');
 assert.match(page, /customer\.area \|\| '기타'/, '거래처 지역을 기존 물량표 기준으로 표시한다');
-assert.match(page, /appliedOnly: true/, '최종 엑셀은 적용된 인보이스 셀만 출력한다');
+assert.match(page, /buildChinaVolumeWorkbookRows\(\{ year, week, rows: chinaRows, customers, cells, customerDays \}\)/, '엑셀은 현재 화면 초안 전체를 출력한다');
 assert.match(page, /xlsx-js-style/, '엑셀 다운로드는 웹과 유사한 색상·글꼴 스타일을 지원한다');
 assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion을 함께 보내 동시수정을 막는다');
 assert.match(page, /STALE_BOARD_VERSION/, '낡은 작업본 저장 충돌은 재조회 안내로 표시한다');
@@ -86,7 +86,7 @@ assert.match(page, /onKeyDown=\{event => handleEnter\(event, index, [0-3]\)\}/, 
 assert.match(page, /전체 적용/, '일괄 입력 행 전체를 검증한 뒤 한 번에 적용한다');
 assert.match(page, /CellHistoryModal/, '셀에 표시된 수정 횟수를 눌러 변경 이력을 확인한다');
 assert.match(page, /buildChinaVolumeGridTotals/, '수량 편집 때 품목·업체·전체 합계를 셀에서 재계산한다');
-assert.match(page, /품목 합계/, '품목 합계를 그리드에 표시한다');
+assert.match(page, /chinaVolumeIncomingQuantity\(row\) - \(gridTotals.rowTotals/, '품목별 현재 주문 합계와 원장 입고의 차이를 잔량으로 표시한다');
 assert.match(page, /업체 합계/, '업체별 합계를 그리드 하단에 표시한다');
 assert.match(page, /parseChinaManualBoxNumbers/, '점으로 구분한 박스번호를 숫자 목록으로 정규화한다');
 console.log('chinaVolumeBoard UI contract passed');

@@ -175,3 +175,4 @@ assert.match(page, /미매칭 · \{customerName\(row\.sourceCustomer \|\| row\.c
 assert.match(page, /finalProgress = payload\.progress \|\| null/, '적용 실패 시 최종 서버 작업 로그를 다시 읽어 표시해야 합니다.');
 assert.match(page, /수정 후 다시 적용할 때는/, '오류를 수정한 뒤 새 검증을 거쳐 재적용하도록 안내해야 합니다.');
 console.log('dutch volume price UI tests passed');
+import './volumeGuideTotals.test.js';

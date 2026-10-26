@@ -96,7 +96,7 @@ const assert = require('node:assert/strict');
     cells: { '11:71': { quantity: 12, boxNumbers: ['11', '12', '13'] } },
     appliedOnly: true,
   });
-  assert.equal(workbookRows[3][1], 12, '엑셀 수량 시트에는 수량만 내보내고 박스번호 메타데이터는 제외한다');
+  assert.equal(workbookRows[4][1], 12, '별도 CL 헤더 다음 수량 셀에는 박스번호 메타데이터가 섞이지 않는다');
 
   console.log('china volume box entry contract passed');
 })().catch(error => {

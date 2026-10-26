@@ -1162,3 +1162,8 @@
 - 실제 dnSpy/SELECT-only4873참조, 비교 가능309개 복구. 원본환율/단위 부족36개 명시 보류.
 - 교차연도/원본복원/잘못된환율/중복제목/배열단위 회귀 및 CUA 입력·Enter 확인. 최종gate/PR/배포 결과는 세션 문서 후속 기록 참조, 현재 미검증.
 - 검색어: hotel-arrival-exchange 신라 라움 환율 도착원가 RawJson 배열 VAT별도 COUNTRY_CURRENCY_MAP
+
+## 2026-10-26 물량표 가이드·즉시 합계
+- 네덜란드 단계 안내/끄기 저장, 양국 수정 고객합계 기준 주문·잔량 화면/XLSX 동기화. ERP writer 변경 없음.
+- 전체 ERP gates/build/pivot/격리 SQL 및 CUA 양국 5→8, 입고20/잔량12 확인. 운영 시험 쓰기 미실행; 배포 결과 세션 기록 참조.
+- 검색어: volume-guide-totals 네덜란드 중국 가이드 주문 입고 잔량 수식캐시

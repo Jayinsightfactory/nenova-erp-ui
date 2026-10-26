@@ -7,6 +7,7 @@ import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import {
   buildChinaVolumeWorkbookRows,
+  chinaVolumeIncomingQuantity,
   buildChinaVolumeCustomerColumns,
   applyChinaPackingCustomerMatch,
   applyChinaVolumeBoxEntries,
@@ -944,7 +945,7 @@ export default function ChinaVolumeBoard() {
             {data && (
               <table className="board">
                 <thead>
-                  <tr><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>품목 합계</th></tr>
+                  <tr><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>주문</th><th className="summary-head" rowSpan={3}>입고</th><th className="summary-head" rowSpan={3}>잔량</th></tr>
                   <tr>{customers.map(customer => <th key={customer.custKey}><button disabled={!scopeCurrent || saving || loading} aria-label={`${customer.custName} 요일 변경`} onClick={() => setDayDraft({ custKey: customer.custKey, value: customerDays[customer.custKey] || '' })}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'} ▾</button></th>)}</tr>
                   <tr>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr>
                 </thead>
@@ -974,10 +975,10 @@ export default function ChinaVolumeBoard() {
                         {history.length > 0 && <button className="cell-history-badge" aria-label={`${row.prodName} ${customer.custName} 수정 이력 ${history.length}건`} title="수정 이력 보기" onClick={event => { event.stopPropagation(); setCellHistory({ title: `${customer.custName} · ${chinaVolumeProductLabel(row.prodName)}`, items: history }); }}>{history.length}회</button>}
                       </td>;
                     })}
-                    <td className="row-total">{fmt(gridTotals.rowTotals[String(row.prodKey)] || 0)}</td>
+                    <td className="row-total">{fmt(gridTotals.rowTotals[String(row.prodKey)] || 0)}</td><td className="row-total">{fmt(chinaVolumeIncomingQuantity(row))}</td><td className="row-total">{fmt(chinaVolumeIncomingQuantity(row) - (gridTotals.rowTotals[String(row.prodKey)] || 0))}</td>
                   </tr>
                 ))}</tbody>
-                <tfoot><tr><th>업체 합계</th>{customers.map(customer => <td key={customer.custKey}>{fmt(gridTotals.customerTotals[String(customer.custKey)] || 0)}</td>)}<td className="row-total grand-total">{fmt(gridTotals.grandTotal)}</td></tr></tfoot>
+                <tfoot><tr><th>업체 합계</th>{customers.map(customer => <td key={customer.custKey}>{fmt(gridTotals.customerTotals[String(customer.custKey)] || 0)}</td>)}<td className="row-total grand-total">{fmt(gridTotals.grandTotal)}</td><td className="row-total">{fmt(chinaRows.reduce((sum, row) => sum + chinaVolumeIncomingQuantity(row), 0))}</td><td className="row-total">{fmt(chinaRows.reduce((sum, row) => sum + chinaVolumeIncomingQuantity(row), 0) - gridTotals.grandTotal)}</td></tr></tfoot>
               </table>
             )}
           </section>
