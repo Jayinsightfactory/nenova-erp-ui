@@ -12,3 +12,6 @@
 
 ## 2026-10-26 주광 조회 검증 분리
 ClassShipmentDate 설치본 CLI 재추출 및 SELECT 결과는 docs/plans/weekday-refresh-2026-10-26.md 참조. 과거 EstQuantity NULL을0으로 만들지 않고 기준 확정 불가와 분배 조회 성공을 구분한다. DB 쓰기·확정·견적·매출 변경 없음.
+
+## 2026-10-26 최초 차수 빈값 증감 재현
+설치FormEstimateView CLI 재확인 및 PeriodDay SELECT(202643=10/22,202644=10/29). UI초기화는기존defaultNext 달력GET만재사용하며ERP원장불변. docs/plans/weekday-entry-default-2026-10-26.md.

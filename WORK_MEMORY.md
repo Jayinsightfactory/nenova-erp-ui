@@ -1225,3 +1225,8 @@
 - 44-1 수국 12송장/39행/619박스/18,710송이 격리 replay 다운로드, 25529 파일 재계산/수량·환율 변경/시각검증 통과. 운영 DB 접근·수정 없음.
 - 콜카장36페이지 신규 AI/다른 국가 원본 기본값 복원 미검증. 상세/배포: docs/work-sessions/2026-10-26_cost-template-content.md.
 - 검색어: cost-template-content 기본셀 기본값 사라짐 CO_GROUP_42_1 원본 양식 계산 25529
+
+## 2026-10-26 주광 첫진입 차수 빈값
+- Native웹앱첫화면빈값(예시43)→▼1재현.기존직접입력후검증에서누락.기본전산차수44를달력GET1회로실제입력,빈값버튼차단,수동값우선.분배표는조회버튼후만로드.
+- 검색어: weekday entry defaultNext placeholder 빈칸44 43 Nenova Desktop
+- 검증추가:entry/default9건,전체ERP계약,dnSpy근거,manifest,쓰기guard,UIlayout,production build통과.배포후Native웹앱첫진입재검증예정.
