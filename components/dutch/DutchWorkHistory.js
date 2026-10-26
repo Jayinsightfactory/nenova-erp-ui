@@ -2,9 +2,9 @@ export default function DutchWorkHistory({ name, onName, hasWork, busy, saving, 
   return <section className="work-panel" aria-label="작업 저장 및 업로드">
     <div className="work-actions">
       <input aria-label="작업 저장 이름" maxLength={160} value={name} onChange={event => onName(event.target.value)} placeholder="저장 이름 (미입력 시 파일명·차수)" disabled={busy}/>
-      <button disabled={!hasWork || busy} onClick={onSave}>{saving ? '저장·불러오기 중…' : '작업 저장'}</button>
+      <button data-volume-guide="save" disabled={!hasWork || busy} onClick={onSave}>{saving ? '저장·불러오기 중…' : '작업 저장'}</button>
       <button aria-expanded={open} onClick={onToggle} disabled={busy}>저장 이력·불러오기</button>
-      <button className="primary" disabled={!hasWork || busy || reviewing} onClick={onReview}>{reviewing ? '현재 DB 검증 중…' : '작업 완료·업로드 검토'}</button>
+      <button data-volume-guide="review" className="primary" disabled={!hasWork || busy || reviewing} onClick={onReview}>{reviewing ? '현재 DB 검증 중…' : '작업 완료·업로드 검토'}</button>
     </div>
     <p>① 원본·단가·매칭 편집 → ② 작업 저장 → ③ 업로드 검토 → ④ 변경값 확인 후 주문·분배 적용. 저장본 불러오기는 ERP를 변경하지 않습니다.</p>
     {notice && <div className="notice" role="status">{notice}</div>}

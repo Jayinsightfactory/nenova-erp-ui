@@ -9,6 +9,7 @@ import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, edi
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
 import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
+import DutchVolumeGuide from '../../components/dutch/DutchVolumeGuide';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import ProductColorDialog from '../../components/dutch/ProductColorDialog';
@@ -59,6 +60,11 @@ export default function DutchVolumeBoard() {
   const [applyResult, setApplyResult] = useState(null);
   const [activeJobId, setActiveJobId] = useState('');
   const [workName, setWorkName] = useState('');
+  const [guideScopeConfirmed, setGuideScopeConfirmed] = useState(false);
+  const [guideEditReady, setGuideEditReady] = useState(false);
+  const [guideSavedStamp, setGuideSavedStamp] = useState('');
+  const [guideReviewed, setGuideReviewed] = useState(false);
+  const guideStamp = useMemo(() => JSON.stringify([year, week, storageKey, entries, prices, dayEdits, bulkPriceConfig]), [year, week, storageKey, entries, prices, dayEdits, bulkPriceConfig]);
   const [workBusy, setWorkBusy] = useState(false);
   const [colorEditor, setColorEditor] = useState(null);
   const colorReturnFocusRef = useRef(null);
@@ -175,6 +181,8 @@ export default function DutchVolumeBoard() {
   }, [year]);
 
   function invalidate() {
+    setGuideReviewed(false);
+    if (!applyingRef.current) setApplyResult(null);
     revisionRef.current += 1;
     previewRequestRef.current += 1;
     setPreview(null); setAckReplacement(false); setAckQtyWarnings(false);
@@ -205,6 +213,7 @@ export default function DutchVolumeBoard() {
   yearRef.current = year; weekRef.current = week;
 
   async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode, transfer = null) {
+    setGuideEditReady(false); setGuideSavedStamp('');
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
     const saved = transfer?.roundtrip
       ? { entries: nextEntries, prices: transfer.prices, bulkPriceConfig: transfer.bulkPriceConfig, dayEdits: {}, legacyCurrency: '' }
@@ -539,6 +548,7 @@ export default function DutchVolumeBoard() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.success) throw new Error(data.error || '작업 저장 응답을 확인하지 못했습니다. 저장 이력을 먼저 확인하세요.');
     setWorkNotice(`작업 저장 완료 · ${data.snapshot.name} · ${new Date(data.snapshot.savedAt).toLocaleString('ko-KR')} (ERP 반영과 별도)`);
+    setGuideSavedStamp(guideStamp);
     setHistoryOpen(true);
     void loadWorkHistory();
     return data.snapshot;
@@ -578,6 +588,7 @@ export default function DutchVolumeBoard() {
   async function reviewForUpload() {
     if (workBusyRef.current || applyingRef.current || loading || previewLoading) return;
     const result = await runPreview();
+    if (result) setGuideReviewed(true);
     if (result) requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
   }
 
@@ -694,8 +705,9 @@ export default function DutchVolumeBoard() {
     @media(max-width:760px){.board-layout{display:flex}.board-side{display:flex}}
   `}</style><section className="dutch-board">
     <header><div><h1 data-desktop-chrome>네덜란드 물량표</h1><p>원본 엑셀을 올리고 ERP 업체·품목 매칭, 최종 분배수량, 원화 단가를 검토합니다.</p></div></header>
+    <DutchVolumeGuide state={{ week, scopeConfirmed: guideScopeConfirmed, hasWork: !!workbook, editReady: guideEditReady, saved: guideSavedStamp === guideStamp, reviewed: guideReviewed, validationCurrent, canApply: previewCurrent && !blockedRows.length && !(preview?.unmatched || []).length, busy: loading || workBusy || applying || previewLoading, applied: !!applyResult?.success && !applyResult?.failed && !applyResult?.running }} onNext={step => step === 'scope' ? setGuideScopeConfirmed(true) : setGuideEditReady(true)}/>
     <section className="source-controls" aria-label="물량표 불러오기"><h2>물량표 입력</h2><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" disabled={workBusy || applying} onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label>
-      <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
+      <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select data-volume-guide="week" aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button data-volume-guide="load" className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
     </section>
     <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체 추가</button><button onClick={addProductRow} disabled={workBusy || applying || !workbook}>품목 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
     <div className="board-layout">
@@ -717,7 +729,7 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet onRegionChange={changeRegion} regions={[...new Set(customerOptions.map(c=>c.area).filter(Boolean))]} workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry} onSheetChange={name => { visibleSheetRef.current=name; }}/ >}
+      {activeTab === 'sheet' && <div data-volume-guide="matrix"><DutchVolumeSheet onRegionChange={changeRegion} regions={[...new Set(customerOptions.map(c=>c.area).filter(Boolean))]} workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onColorChange={updateColor} onMatch={openUnmatchedEntry} onSheetChange={name => { visibleSheetRef.current=name; }}/ ></div>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>원본 품목 옆 ERP 품목, 원본 업체 옆 ERP 업체를 표시합니다. Enter로 선택 창을 열고 Esc로 닫을 수 있습니다.</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table className="mapping-table"><colgroup><col style={{ width: '14%' }}/><col style={{ width: '20%' }}/><col style={{ width: '12%' }}/><col style={{ width: '20%' }}/><col style={{ width: '6%' }}/><col style={{ width: '7%' }}/><col style={{ width: '14%' }}/><col style={{ width: '7%' }}/></colgroup><thead><tr><th>품목 / 원문</th><th>ERP 매칭 품목</th><th>업체 / 원문</th><th>ERP 매칭 업체</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);
@@ -734,13 +746,13 @@ export default function DutchVolumeBoard() {
         </tr>;
       })}</tbody></table></div></>}
       {entries.some(row => row.added || row.prodKey || row.custKey) && <p className="export-note">추가 업체와 수정 수량은 원본 물량표에 표시됩니다. 재업로드 시 셀 수량과 ERP적용초안의 매칭·단위·단가를 함께 읽고 다시 검증합니다. 작업 저장·엑셀 다운로드만으로 ERP에 적용되지는 않습니다.</p>}
-      {preview && <section className="review" ref={reviewRef}><div className="review-head"><h2>ERP 최종 적용 미리보기</h2><span>{validationCurrent ? '현재 초안 검증' : '초안 변경으로 무효화됨'}</span></div><p>범위: {preview.orderYear ?? year}년 {preview.week ?? week} · 서버가 판정한 CountryFlower {(preview.replacementCategories || []).join(', ') || '검증 범위'} 전체 교체. 파일에 없는 기존 업체·품목도 최종 0으로 표시됩니다. 표 필터와 무관하게 전체가 적용 대상입니다.</p><div className="kpis"><b>전체 {previewRows.length}</b><b>변경 {changedRows.length}</b><b>누락→0 {missingRows.length}</b><b>ERP 확정 출고(적용 불가) {blockedRows.length}</b><b>미매칭 {(preview.unmatched || []).length}</b></div>
+      {preview && <section className="review" data-volume-guide="review-result" ref={reviewRef}><div className="review-head"><h2>ERP 최종 적용 미리보기</h2><span>{validationCurrent ? '현재 초안 검증' : '초안 변경으로 무효화됨'}</span></div><p>범위: {preview.orderYear ?? year}년 {preview.week ?? week} · 서버가 판정한 CountryFlower {(preview.replacementCategories || []).join(', ') || '검증 범위'} 전체 교체. 파일에 없는 기존 업체·품목도 최종 0으로 표시됩니다. 표 필터와 무관하게 전체가 적용 대상입니다.</p><div className="kpis"><b>전체 {previewRows.length}</b><b>변경 {changedRows.length}</b><b>누락→0 {missingRows.length}</b><b>ERP 확정 출고(적용 불가) {blockedRows.length}</b><b>미매칭 {(preview.unmatched || []).length}</b></div>
         {!!blockedRows.length && <div className="notice warning" role="status">‘ERP 확정 출고’는 해당 차수의 품종 또는 거래처·품목 출고가 이미 확정되어 있어 이 화면에서 변경할 수 없는 상태입니다. 확정 출고가 있으면 전체 적용도 잠깁니다. 해당 출고의 확정을 ERP에서 취소한 뒤 다시 검증하세요.</div>}
         {(preview.unmatched || []).length > 0 && <div className="notice error">미매칭 {(preview.unmatched || []).length}건. 위 초안에서 ERP 업체·품목을 선택하고 다시 검증하세요. {(preview.unmatched || []).slice(0, 8).map(item => item.reason || item.product || item.customer).join(' / ')}</div>}
         {!!preview.blockers?.length && <div className="notice warning" role="alert">{preview.blockers.join(' / ')}</div>}
         <div className="preview-wrap" aria-label="전체 교체 미리보기 표 가로 스크롤"><table><thead><tr><th>구분</th><th>업체</th><th>품목</th><th>기존 주문</th><th>적용 후 주문</th><th>기존 분배</th><th>최종 분배 (출고단위)</th><th>증감</th><th>기존 단가</th><th>최종 단가 KRW / 견적단위</th><th>상태 / 차단 사유</th></tr></thead><tbody>{previewRows.map((row, index) => <tr key={`${row.custKey}:${row.prodKey}:${index}`} className={dutchPreviewRowKind(row)}><td>{row.missingFromExcel ? '파일 누락→0' : row.priceChanged && !num(row.shipmentDiffQty) ? '단가만' : '입력'}</td><td>{row.custName || row.customer}</td><td>{row.prodName || row.product || row.displayName}</td><td className="number">{fmt(row.orderBeforeQty ?? row.orderQty)}</td><td className="number">{fmt(row.orderAfterQty ?? row.orderBeforeQty ?? row.orderQty)}</td><td className="number">{fmt(row.currentOutQty)}</td><td className="number">{fmt(row.uploadQty)} {row.outUnit || ''}</td><td className="number">{fmt(row.shipmentDiffQty)}</td><td className="number">{row.currentCost == null ? '-' : fmt(row.currentCost)}</td><td className="number">{row.unitPrice == null ? '보존' : `${fmt(row.targetCost ?? row.unitPrice)}${num(row.unitPrice) === 0 ? ' (명시 0원)' : ''}`} {row.estUnit || ''}</td><td>{row.fixBlocked ? 'ERP 확정 · 적용 불가' : row.qtyWarnings?.map(item => item.message).join(' / ') || row.status || '검증'} {row.reason || ''}</td></tr>)}</tbody></table></div>
         {!!(preview.logs || []).length && <details><summary>검증 로그</summary><div className="logs">{preview.logs.map((line, index) => <div key={index}>{typeof line === 'string' ? line : JSON.stringify(line)}</div>)}</div></details>}
-        <div className="approval"><label><input type="checkbox" checked={ackReplacement} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckReplacement(event.target.checked)}/> 파일 누락행의 최종 0과 위 전체 수량·주문·원화 단가를 확인했습니다.</label>{warningRows.length > 0 && <label><input type="checkbox" checked={ackQtyWarnings} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckQtyWarnings(event.target.checked)}/> 수량 경고 {warningRows.length}건을 확인했습니다.</label>}<button className="apply" disabled={workBusy || !previewCurrent || !ackReplacement || !!blockedRows.length || !!(preview.unmatched || []).length || !!(warningRows.length && !ackQtyWarnings) || applying} onClick={applyPreview}>{applying ? '적용 중…' : '확인한 전체 범위 ERP 적용'}</button>{!preview?.planToken && <strong>서버가 적용 계획을 발행하지 않았습니다. 사유를 수정하고 다시 검증하세요.</strong>}</div>
+        <div className="approval"><label><input type="checkbox" checked={ackReplacement} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckReplacement(event.target.checked)}/> 파일 누락행의 최종 0과 위 전체 수량·주문·원화 단가를 확인했습니다.</label>{warningRows.length > 0 && <label><input type="checkbox" checked={ackQtyWarnings} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckQtyWarnings(event.target.checked)}/> 수량 경고 {warningRows.length}건을 확인했습니다.</label>}<button data-volume-guide="apply" className="apply" disabled={workBusy || !previewCurrent || !ackReplacement || !!blockedRows.length || !!(preview.unmatched || []).length || !!(warningRows.length && !ackQtyWarnings) || applying} onClick={applyPreview}>{applying ? '적용 중…' : '확인한 전체 범위 ERP 적용'}</button>{!preview?.planToken && <strong>서버가 적용 계획을 발행하지 않았습니다. 사유를 수정하고 다시 검증하세요.</strong>}</div>
       </section>}
       {applyResult && <section className="result" role="status"><h2>{applyResult.running ? '적용 진행 중' : applyResult.failed ? '적용 실패 또는 결과 확인 필요' : '적용 완료·DB 검증'}</h2><p>작업 ID: {activeJobId}</p>{applyResult.progress && <p>{applyResult.progress.stage} · {applyResult.progress.done}/{applyResult.progress.total}건 {applyResult.progress.current}</p>}{applyResult.error && <p className="error">{applyResult.error}</p>}{!applyResult.running && !applyResult.failed && <p>적용 {applyResult.appliedCount ?? 0}건 · 신규 주문 {applyResult.orderCreatedCount ?? 0}건 · 출고 변경 {applyResult.shipmentChangedCount ?? 0}건 · DB 사후검증 {applyResult.verification?.checked ?? 0}건 / 불일치 {applyResult.verification?.mismatchCount ?? 0}건</p>}<div className="logs">{(applyResult.logs || applyResult.progress?.logs || []).map((line, index) => <div key={index}>{typeof line === 'string' ? line : JSON.stringify(line)}</div>)}</div>{(applyResult.appliedRows || []).length > 0 && <details><summary>행별 적용·검증 결과</summary><div className="logs">{applyResult.appliedRows.map((row, index) => <div key={index}>{row.custName || row.customer} · {row.prodName || row.product} · {JSON.stringify(row)}</div>)}</div></details>}</section>}
     </>}

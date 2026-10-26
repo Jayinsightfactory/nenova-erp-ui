@@ -73,8 +73,8 @@ const assert = require('assert');
   });
   assert.deepStrictEqual(
     workbookRows[4],
-    ['ROSE Diana 50cm full name', 20, 20, 20, '', 'ROSE Diana 50cm full name'],
-    '패킹 미반영 시 주문=입고이므로 잔량은 0(빈칸), 마지막 열에 품목명을 한 번 더 적는다',
+    ['ROSE Diana 50cm full name', 20, 20, '', -20, 'ROSE Diana 50cm full name'],
+    '수정 수량은 주문, 입고 자료가 없으면 0이며 잔량은 입고-주문이다',
   );
   assert.equal(workbookRows[4][1], 20, '수량 엑셀에는 박스번호가 섞이지 않은 숫자 수량만 내보낸다');
   const appliedWorkbookRows = buildChinaVolumeWorkbookRows({
@@ -97,7 +97,7 @@ const assert = require('assert');
     ['출고요일', '수', '', '', '', ''],
     ['업체', 'CL1', '', '', '', ''],
     ['품목 / CL 번호', 'CL1', '주문', '입고', '잔량', '품목'],
-    ['ROSE Diana', 20, 20, 20, '', 'ROSE Diana'],
+    ['ROSE Diana', 20, 20, '', -20, 'ROSE Diana'],
   ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시하며, 마지막에 주문·입고·잔량·품목 반복 열이 붙는다');
 
   const shortageWorkbookRows = buildChinaVolumeWorkbookRows({
@@ -105,14 +105,14 @@ const assert = require('assert');
     week: '35-01',
     customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1', area: '서울' }],
     customerDays: { 7: '수' },
-    rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
+    rows: [{ prodKey: 70, prodName: 'ROSE Diana', totalIncoming: 18, outOrders: { 주광농원: 18 } }],
     cells: { '7:70': { quantity: 12, orderQuantity: 18, allocations: [{ boxNo: '16', quantity: 12 }] } },
     appliedOnly: true,
   });
   assert.deepStrictEqual(
     shortageWorkbookRows[4].slice(2),
-    [18, 12, 6, 'ROSE Diana'],
-    '전산 주문(18) 대비 실제 입고(12)가 적으면 잔량 6으로 부족분을 보여준다',
+    [12, 18, 6, 'ROSE Diana'],
+    '수정 주문12, 실제 입고18이면 잔량6; 기존 ERP 주문18은 수정하지 않는다',
   );
   for (const year of [2025, 2026]) {
     const draftRows = buildChinaVolumeWorkbookRows({ year, week: '43-03',
@@ -125,7 +125,7 @@ const assert = require('assert');
     assert.equal(draftRows[1][1], '화');
     assert.equal(draftRows[2][1], '업체 A');
     assert.equal(draftRows[3][1], 'CL123');
-    assert.equal(draftRows[4][4], 100, '수량 문자열을 숫자로 합산한다');
+    assert.equal(draftRows[4][3], 100, '현재 수량 문자열을 주문 합계로 합산한다');
     const XLSX = require('xlsx');
     const sheet = XLSX.utils.aoa_to_sheet(draftRows);
     assert.equal(sheet.B3.v, '업체 A'); assert.equal(sheet.B4.v, 'CL123');
@@ -243,8 +243,8 @@ const assert = require('assert');
   assert.strictEqual(packingWorkbookRows[4][1], 20, '엑셀 수량 셀에는 패킹 수량만 숫자로 출력한다');
   assert.deepStrictEqual(
     packingWorkbookRows[4].slice(2),
-    [18, 20, -2, 'ROSE Diana'],
-    '주문(전산 18)·입고(패킹 20)·잔량(주문-입고 -2)·품목 반복이 뒤에 붙는다',
+    [20, '', -20, 'ROSE Diana'],
+    '현재 셀20은 주문 합계, 원장 입고 미존재0이며 잔량은 -20이다',
   );
   const restoredCells = restoreChinaPackingCells({
     '7:70': { quantity: 18, packingQuantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] },
