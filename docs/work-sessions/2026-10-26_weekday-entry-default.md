@@ -8,3 +8,4 @@ A.Native Nenova Desktop에서새로진입한빈칸(예:43)→▼1을재현했다
 메뉴기준선:명시조회·키보드·페이지스크롤적용.초기무조회계약은기본차수달력GET1회만예외.신규메뉴/출력/DB쓰기해당없음.
 검색어: 첫진입 ▲▼ placeholder defaultNext 44 43 빈칸1 Nenova Desktop
 검증완료:전체ERP계약/dnSpy근거/manifest/writeguard/UIlayout/build통과.배포후Native웹앱첫진입검증예정.
+배포 재시도도 Killed로 실패. 빌드에만 1536MiB 힙 제한을 적용하는 후속 수정 진행. ERP 원장 변경 없음.

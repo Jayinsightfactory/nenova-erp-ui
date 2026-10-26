@@ -385,7 +385,10 @@ jobs:
             rm -rf .next-build
             # Build workers must not connect to SQL or start DB-backed schedulers.
             # Inline environment is build-only; the running app keeps its existing DB configuration.
-            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            # Bound only the build process heap; do not change the running ERP process.
+            # Unbounded webpack was killed twice before the atomic swap (2026-10-26).
+            free -m || true
+            if ! DB_SERVER='' NEXT_DIST_DIR=.next-build NODE_OPTIONS='--max-old-space-size=1536' npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
             if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
             # BEGIN ORDER_MAPPING_CUTOVER: explicit first migration only, after successful build.
             if ! node scripts/migrate-order-mappings.mjs --check-ready; then
