@@ -1207,3 +1207,9 @@
 - 격리 Chrome44-1 대표7행107박스3210송이 GW759.7/CW시험800 입고→원가 승인·재조회→다운로드 확인. 운영 입고/원가 변경 없음.
 - 전체12페이지 AI 미검증. 최종 캡처는 브라우저 도구 오류. 배포 결과는 docs/work-sessions/2026-10-26_invoice-weight.md 참조.
 - 검색어: GW CW review_evidence packingWeight weightManual 44-01 25529 TEST_ONLY
+
+## 2026-10-26 주광 차수/자동 갱신
+- DOM step 대신 React 값 기반 차수 증감. 기준 미리보기 INVALID_ERP_DATES는 확정 불가로 남기되 분배 갱신은 허용. 과거 선출고 GET2000..2200,POST2026+불변.
+- dnSpy ClassShipmentDate/운영 SELECT 근거: docs/plans/weekday-refresh-2026-10-26.md. DB 변경 없음. 배포 검증 진행 중.
+- 검색어: 주광 44 43 1 자동갱신 EstQuantity NULL INVALID_ERP_DATES 2025 52
+- 검증추가: 전체 ERP계약/dnSpy/manifest/writeguard/UIlayout/build통과,대상29건. 격리 Chrome44→43 및 키보드/조회값43 유지 확인. PR/배포 진행.
