@@ -1,12 +1,65 @@
 {
-  "id":"weekday-explicit-query",
-  "title":"주광 최초 진입의 명시 차수 조회",
-  "scope":["components/WeekdayEstimateEntry.js","pages/estimate/weekday.js","components/WeekdayEstimateWorkspace.js","lib/weekdayQuerySelection.js","__tests__/weekdayQuerySelection.test.js"],
-  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
-  "actions":[{"name":"ENTRY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Only local year/week form. Week selection uses 56x44px increment/decrement buttons, preserves direct input and ArrowUp/Down, clamps native step to1..53 without changing year; blank starts at1. Heavy workspace remains unmounted, no weekday calendar/default/customer/distribution/template/polling requests until submit."},{"name":"EXPLICIT_QUERY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Valid year2000..2200 + majorWeek01..53 initializes existing workspace. Skip defaultNext so explicit selection cannot be overwritten. All existing read/write/refresh/draft/print policies retained after query."}],
-  "crossYearFixture":{"required":true,"description":"2025/43 and2026/43 distinct;2026/53 and2027/01 retain explicit year. Empty,zero,false,malformed selection never mounts workspace."},
-  "requiredTestFiles":["__tests__/weekdayQuerySelection.test.js","__tests__/weekdayDefaultCenter.test.js","__tests__/estimateWeekdayWorkspace.test.js"],
-  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/WeekdayPrintNotes.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["FormEstimateView.GetPrintDetail","FormPrintEstimate.btnPrint_Click"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","PeriodDay"],"reason":"UI mount timing only; native SQL and shared ledger behavior unchanged. Current SELECT probe rerun before implementation."},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"],
-  "steppingRegression":"44 down =>43, then43 up=>44. Use React state arithmetic, preserving the visible numeric input and falling back to state if blur temporarily empties the DOM. Bounds1..53, no year change."
+  "id": "weekday-explicit-query",
+  "title": "주광 최초 진입의 명시 차수 조회",
+  "scope": [
+    "components/WeekdayEstimateEntry.js",
+    "pages/estimate/weekday.js",
+    "components/WeekdayEstimateWorkspace.js",
+    "lib/weekdayQuerySelection.js",
+    "__tests__/weekdayQuerySelection.test.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "ENTRY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Entry mounts only year/week selection. One authenticated read-only defaultNext calendar request fills the actual upcoming ERP major week in Asia/Seoul. No customer/distribution/template/polling requests until submit. Empty/invalid value disables stepping and submit; never defaults to1. Typed year/week wins over a late response; abort on unmount. Buttons56x44 and native ArrowUp/Down preserved."
+    },
+    {
+      "name": "EXPLICIT_QUERY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Valid year2000..2200 + majorWeek01..53 initializes existing workspace. Skip defaultNext so explicit selection cannot be overwritten. All existing read/write/refresh/draft/print policies retained after query."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/43 and2026/43 distinct;2026/53 and2027/01 retain explicit year. Empty,zero,false,malformed selection never mounts workspace."
+  },
+  "requiredTestFiles": [
+    "__tests__/weekdayQuerySelection.test.js",
+    "__tests__/weekdayDefaultCenter.test.js",
+    "__tests__/estimateWeekdayWorkspace.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WeekdayPrintNotes.md",
+    "source": "C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe",
+    "methods": [
+      "FormEstimateView.GetPrintDetail",
+      "FormPrintEstimate.btnPrint_Click"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "Estimate",
+      "PeriodDay"
+    ],
+    "reason": "UI default uses existing native PeriodDay calendar read, no query or ledger mutation change.2026-10-26 installed FormEstimateView CLI and SELECT202643/202644 anchors verified."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ],
+  "steppingRegression": "Untouched entry loads44, one down43; empty remains empty. Year2027/week01 preserved, late defaults cannot overwrite manual values. Heavy workspace only mounts on explicit submit."
 }
