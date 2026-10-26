@@ -66,6 +66,7 @@ export default function DutchVolumeBoard() {
   const [guideReviewed, setGuideReviewed] = useState(false);
   const guideStamp = useMemo(() => JSON.stringify([year, week, storageKey, entries, prices, dayEdits, bulkPriceConfig]), [year, week, storageKey, entries, prices, dayEdits, bulkPriceConfig]);
   const [workBusy, setWorkBusy] = useState(false);
+  const [lastSavedWork, setLastSavedWork] = useState(null);
   const [colorEditor, setColorEditor] = useState(null);
   const colorReturnFocusRef = useRef(null);
   const [workNotice, setWorkNotice] = useState('');
@@ -213,6 +214,7 @@ export default function DutchVolumeBoard() {
   yearRef.current = year; weekRef.current = week;
 
   async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode, transfer = null) {
+    setLastSavedWork(null);
     setGuideEditReady(false); setGuideSavedStamp('');
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
     const saved = transfer?.roundtrip
@@ -549,6 +551,7 @@ export default function DutchVolumeBoard() {
     if (!response.ok || !data.success) throw new Error(data.error || '작업 저장 응답을 확인하지 못했습니다. 저장 이력을 먼저 확인하세요.');
     setWorkNotice(`작업 저장 완료 · ${data.snapshot.name} · ${new Date(data.snapshot.savedAt).toLocaleString('ko-KR')} (ERP 반영과 별도)`);
     setGuideSavedStamp(guideStamp);
+    setLastSavedWork({ id: data.snapshot.id, year, week });
     setHistoryOpen(true);
     void loadWorkHistory();
     return data.snapshot;
@@ -562,9 +565,9 @@ export default function DutchVolumeBoard() {
     finally { workBusyRef.current = false; setWorkBusy(false); }
   }
 
-  async function restoreWork(id) {
+  async function restoreWork(id, resetting = false) {
     if (workBusyRef.current || applyingRef.current || loading) return;
-    if (!window.confirm('저장본의 연도·차수, 원본 시트, 수량·매칭·단가로 현재 작업을 교체합니다. 아직 저장하지 않은 수정은 먼저 작업 저장하세요. 불러오기만으로 ERP에는 반영되지 않습니다. 계속하시겠습니까?')) return;
+    if (!window.confirm(resetting ? '저장하지 않은 변경만 버리고 현재 작업의 마지막 저장본으로 돌아갈까요? 저장 이력과 ERP 주문·분배, 이미 저장한 품목 비고는 변경하지 않습니다.' : '저장본의 연도·차수, 원본 시트, 수량·매칭·단가로 현재 작업을 교체합니다. 아직 저장하지 않은 수정은 먼저 작업 저장하세요. 불러오기만으로 ERP에는 반영되지 않습니다. 계속하시겠습니까?')) return;
     workBusyRef.current = true; setWorkBusy(true); setWorkError(''); setWorkNotice('');
     ++loadRequestRef.current; invalidate();
     try {
@@ -572,7 +575,9 @@ export default function DutchVolumeBoard() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || '저장본을 불러오지 못했습니다.');
       const restored = restoreDutchWorkSnapshot(data.snapshot);
+      setLastSavedWork({ id: data.snapshot.id, year: restored.year, week: restored.week });
       const restoredBulkConfig = normalizeDutchBulkPriceConfig(restored.bulkPriceConfig, restored.entries);
+      setGuideSavedStamp(JSON.stringify([restored.year, restored.week, restored.identity, restored.entries, restored.prices, {}, restoredBulkConfig]));
       sourceModeRef.current = 'SAVED'; sourceRef.current = restored.identity; sourceBaseRef.current = restored.baseIdentity;
       yearRef.current = restored.year; weekRef.current = restored.week;
       setYear(restored.year); setWeek(restored.week); setSourceMode('SAVED'); setStorageKey(restored.identity);
@@ -590,6 +595,15 @@ export default function DutchVolumeBoard() {
     const result = await runPreview();
     if (result) setGuideReviewed(true);
     if (result) requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  }
+
+  function resetWork() {
+    if (workBusyRef.current || applyingRef.current || loading) return;
+    if (!lastSavedWork?.id || lastSavedWork.year !== year || lastSavedWork.week !== week) {
+      setWorkError('현재 작업의 저장본이 없습니다. 작업 저장 또는 저장 이력에서 불러온 후 초기화할 수 있습니다. 입력 내용은 유지했습니다.');
+      return;
+    }
+    void restoreWork(lastSavedWork.id, true);
   }
 
   async function recoverJob(jobId) {
@@ -709,7 +723,7 @@ export default function DutchVolumeBoard() {
     <section className="source-controls" aria-label="물량표 불러오기"><h2>물량표 입력</h2><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" disabled={workBusy || applying} onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label>
       <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select data-volume-guide="week" aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button data-volume-guide="load" className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
     </section>
-    <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체 추가</button><button onClick={addProductRow} disabled={workBusy || applying || !workbook}>품목 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
+    <div className="always-actions" aria-label="물량표 작업 도구"><button onClick={addRow} disabled={workBusy || applying}>업체 추가</button><button onClick={addProductRow} disabled={workBusy || applying || !workbook}>품목 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading || !entries.length}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><button onClick={resetWork} disabled={workBusy || applying || loading || !workbook}>작업 초기화</button><span>{entries.length ? (previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·ERP 확정 출고 안내를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.') : '물량표를 불러오거나 엑셀을 업로드하면 작업할 수 있습니다.'}</span></div>
     <div className="board-layout">
     <aside className="board-side" aria-label="보조 기능">
       <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>

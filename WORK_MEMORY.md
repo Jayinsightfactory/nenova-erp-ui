@@ -1196,6 +1196,12 @@
 - 전체12페이지 AI 검증 아님. 나머지 페이지/실제 비용 미검증. 전체gate/배포는 docs/work-sessions/2026-10-26_invoice-auto-flow.md 후속 확인.
 - 검색어: invoice-auto-flow 44-01 25529 Balverde 23OCT2026 AIR onebutton TEST_ONLY
 
+## 2026-10-26 중국 단계 안내·양쪽 작업 초기화
+- 중국 상태별 말풍선/버튼 강조/끄기 저장. 중국·네덜란드 미저장 변경만 마지막 작업 저장본으로 복구. 저장 이력/ERP/품목 비고 보존.
+- ERP gates/build/실제 함수 실행 통과. 격리 화면 저장·수량·가이드 유지 확인. 네이티브 확인창 이후 시각적 복구는 브라우저 제어 오류로 미검증.
+- PR·배포 후속 결과: docs/work-sessions/2026-10-26_china-guide-reset.md.
+- 검색어: china-guide-reset 작업 초기화 마지막 저장본 BoardKey guideSavedStamp
+
 ## 2026-10-26 GW 자동입력·CW 직접 입력
 - evidence-only 중량을 미리보기/결과/입고에 동일 적용. 같은 원본의 빈 미등록 초안만 복원. 수기/0/기등록 보존, GW/NET→CW 추정 금지.
 - 격리 Chrome44-1 대표7행107박스3210송이 GW759.7/CW시험800 입고→원가 승인·재조회→다운로드 확인. 운영 입고/원가 변경 없음.

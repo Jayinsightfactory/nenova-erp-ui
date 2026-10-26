@@ -40,7 +40,7 @@ assert.throws(() => restoreDutchWorkSnapshot({ ...payload, id: 'x', orderWeek: '
 assert.equal(DUTCH_WORK_CLIENT_MAX_BYTES, 900 * 1024);
 
 const page = readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
-const restoreStart = page.indexOf('async function restoreWork(id) {');
+const restoreStart = page.indexOf('async function restoreWork(id, resetting = false) {');
 const restoreEnd = page.indexOf('\n  async function reviewForUpload()', restoreStart);
 assert.ok(restoreStart >= 0 && restoreEnd > restoreStart, 'restoreWork can be isolated for contract checks');
 const restoreFunctionSource = page.slice(restoreStart, restoreEnd);
@@ -102,6 +102,7 @@ const restoreState = { setters: [], fetches: [], invalidated: 0 };
 const setter = name => value => restoreState.setters.push([name, value]);
 const restoredSnapshot = { id: '0f43b19d-3a34-4f02-8f67-8d5d6ea4a540', name: '저장본', fileName: 'saved.xlsx', orderYear: 2025, orderWeek: '39-02', workbook, entries, prices };
 const restoreValues = {
+  setLastSavedWork: setter('lastSavedWork'), setGuideSavedStamp: setter('guideSavedStamp'),
   workBusyRef: { current: false }, applyingRef: { current: false }, loading: false, window: { confirm: () => true }, setWorkBusy: setter('busy'), setWorkError: setter('error'), setWorkNotice: setter('notice'),
   loadRequestRef: { current: 0 }, invalidate: () => { restoreState.invalidated += 1; }, fetch: async (...args) => { restoreState.fetches.push(args); return { ok: true, json: async () => ({ success: true, snapshot: restoredSnapshot }) }; },
   restoreDutchWorkSnapshot, sourceModeRef: {}, sourceRef: {}, sourceBaseRef: {}, yearRef: {}, weekRef: {}, setYear: setter('year'), setWeek: setter('week'), setSourceMode: setter('sourceMode'), setStorageKey: setter('storageKey'),
@@ -115,6 +116,15 @@ assert.equal(restoreState.invalidated, 1);
 assert.equal(restoreState.fetches.length, 1);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'year'), ['year', 2025]);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'week'), ['week', '39-02']);
+assert.deepEqual(restoreState.setters.find(([name]) => name === 'lastSavedWork')[1], { id: restoredSnapshot.id, year: 2025, week: '39-02' });
+assert(restoreState.setters.some(([name]) => name === 'guideSavedStamp'));
+const beforeCancel = restoreState.fetches.length;
+restoreValues.window.confirm = () => false;
+await restoreFn('saved-id', true);
+assert.equal(restoreState.fetches.length, beforeCancel, 'reset cancellation does not read or replace anything');
+restoreValues.window.confirm = () => true;
+await restoreFn('saved-id', true);
+assert.equal(restoreState.fetches.length, beforeCancel + 1, 'reset uses the same read-only snapshot restoration');
 for (const name of ['dayEdits', 'bulkPriceConfig', 'bulkPriceSettingsDraft', 'bulkPriceSettingsOpen', 'matchCache', 'products', 'customers', 'applyResult', 'jobId', 'currency', 'draftReset', 'rematch', 'query', 'tab', 'entry']) assert(restoreState.setters.some(([key]) => key === name), `restore clears/restores ${name}`);
 
 console.log('dutch volume work client tests passed');

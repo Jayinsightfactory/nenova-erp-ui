@@ -2,6 +2,10 @@
   "id": "china-volume-board",
   "title": "자동 중국물량표 패킹리스트 박스 배정 계약",
   "scope": [
+    "components/ChinaVolumeGuide.js",
+    "lib/chinaVolumeGuide.js",
+    "__tests__/chinaVolumeGuide.test.js",
+    "scripts/volume-guide-fixture-server.cjs",
     "pages/stats/china-volume-board.js",
     "pages/stats/china-volume-board-review.js",
     "pages/api/stats/china-volume-board.js",
@@ -103,6 +107,7 @@
     }
   ],
   "criteriaLedger": {
+    "guideAndReset20261026": "UI-only scope/load/edit/save/preview/explicit apply guidance; packing matching branch; independent false preference; only exact current draft successful apply shows complete. Reset fetches the selected BoardKey and verifies year/week before replacing browser draft; no saved board refuses without clearing. Existing ERP writers/guards untouched.",
     "draftTotals20261026": "Current customer-cell quantities form the displayed order sum. Inbound remains original selected-scope inbound; remaining=inbound-order (plus explicit Dutch stock cell). Zero/decimal/negative remaining and incoming-only rows are supported. Formula cache is refreshed without deleting formulas. Screen and XLSX use the same sources. Existing ERP OrderDetail preservation and explicit apply contract unchanged.",
     "viewport": "1920x1080 CSS px, browser zoom 100%",
     "boxSource": "packing list column B Box No.",
