@@ -1190,3 +1190,8 @@
 - 실제 dnSpy FormQuantityPivot 및 SELECT-only43-02 대조. API/SQL/ERP 원장 변경 없음.
 - 전체검사·브라우저·배포 결과: docs/work-sessions/2026-10-26_pivot-filter-sync.md (진행 중 단계는 미검증).
 - 검색어: pivot-filter-sync 국가 품종 필터 고정 초기화 fieldFilters __EMPTY__ linkedFilters
+## 2026-10-26 인보이스 자동 입력·연속 실행
+- 최초 자동 분석, 정상 매칭 후 자동 준비, 원문 날짜·유일농장·AWB AIR 제안, 선택 문서 입고/원가 연속 실행. 동일 송장 농장 약칭 중복 차단.
+- 44-1 송장25529 7행107박스3210송이 격리 SQL/CUA 입고→시험원가 저장→엑셀 다운로드 확인. 운영 DB 수정 없음.
+- 전체12페이지 AI 검증 아님. 나머지 페이지/실제 비용 미검증. 전체gate/배포는 docs/work-sessions/2026-10-26_invoice-auto-flow.md 후속 확인.
+- 검색어: invoice-auto-flow 44-01 25529 Balverde 23OCT2026 AIR onebutton TEST_ONLY

@@ -89,7 +89,7 @@ const UI_COPY = {
   perInvoice: ["인보이스별 패킹 리스트 생성","One packing list per invoice","Un packing list por invoice"],
   awbTile: ["항공 운송료 · EXCEL, FREIGHTWISE","Air freight · EXCEL, FREIGHTWISE","Aviones — EXCEL, FREIGHTWISE"],
   awbBadge: ["운송장","Air waybill","AWB"],
-  localMode: ["무료 로컬 분석 우선 · AI는 별도 선택","Free local analysis first · AI is optional","Análisis local gratuito primero · IA opcional"],
+  localMode: ["업로드 후 자동 분석 · 무료 분석 우선, 필요 시 AI 사용","Automatic analysis · local first, AI when needed","Análisis automático · local primero, IA si hace falta"],
   noMatchesFile: ["Excel에 유효한 매칭이 없습니다.","No valid matches in Excel.","No hay matches válidos en Excel."],
   noInvoices: ["PDF에서 인보이스를 찾지 못했습니다.","No invoices found in PDF","No se encontraron invoices en PDF"],
   errorPrefix: ["오류: ","Error: ","Error: "],
@@ -224,7 +224,7 @@ function NoMatchItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
 // =============================================================================
 const I18N = {
   en: {
-    pdfNotice: 'PDF up to 20MiB. Known layouts are processed locally first, without AI fees. Only explicit AI analysis sends the PDF to the AI service. Same-account cached results are reused for up to 30 days. Nothing is posted to the ERP ledger.',
+    pdfNotice: 'PDF up to 20MiB. Upload starts local analysis, then the AI service when needed; AI fees may apply. Cached analysis is reused. ERP registration requires the receipt registration action.',
     localUnavailable: 'This layout could not be fully verified locally. Choose AI analysis if needed (may incur a fee).',
     aiAnalyze: 'AI analysis (may incur a fee)', sourceLocal: 'Local code · no AI call', sourceCache: 'Previous analysis reused · no new AI call', sourceAI: 'AI analysis completed', cacheNotSaved: 'Result not cached; a retry may incur a fee',
     reload: 'Reload shared data', saving: 'Saving shared data…',
@@ -280,7 +280,7 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches loaded${base ? ` · ${base} base` : ''}`,
   },
   es: {
-    pdfNotice: 'PDF hasta 20MiB. Primero se procesan formatos conocidos localmente, sin coste de IA. Solo el análisis IA explícito envía el PDF al servicio de IA. Se reutilizan resultados de la misma cuenta hasta 30 días. No se registra nada en el ERP.',
+    pdfNotice: 'PDF hasta 20MiB. La carga inicia análisis local y, si hace falta, el servicio de IA con posible coste. Se reutiliza el análisis guardado. El registro ERP requiere la acción de registrar recepción.',
     localUnavailable: 'No se pudo verificar este formato localmente. Puedes elegir análisis IA (puede generar costes).',
     aiAnalyze: 'Analizar con IA (posible coste)', sourceLocal: 'Código local · sin llamada IA', sourceCache: 'Análisis anterior reutilizado · sin nueva llamada IA', sourceAI: 'Análisis IA completado', cacheNotSaved: 'Resultado no guardado en caché; repetir puede generar costes',
     reload: 'Recargar datos compartidos', saving: 'Guardando datos compartidos…',
@@ -336,7 +336,7 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches cargados${base ? ` · ${base} base` : ''}`,
   },
   ko: {
-    pdfNotice: 'PDF 최대 20MiB. 지원 양식은 먼저 코드로 무료 분석합니다. AI 분석을 선택할 때만 PDF를 AI 서비스로 전송하며 비용이 발생할 수 있습니다. 같은 계정의 기존 분석 결과는 최대 30일간 재사용합니다. ERP 원장에는 반영하지 않습니다.',
+    pdfNotice: 'PDF 최대 20MiB. 업로드하면 무료 분석을 먼저 실행하고, 필요한 경우 AI 서비스로 자동 분석하여 비용이 발생할 수 있습니다. 기존 분석은 재사용합니다. 입고등록 버튼을 누르기 전에는 ERP 원장에 반영하지 않습니다.',
     localUnavailable: '이 양식은 무료 분석으로 전체 값을 검증하지 못했습니다. 필요하면 AI 분석을 선택하세요(비용 발생 가능).',
     aiAnalyze: 'AI 분석 (비용 발생 가능)', sourceLocal: '코드 분석 · AI 호출 없음', sourceCache: '기존 분석 재사용 · 새 AI 호출 없음', sourceAI: 'AI 분석 완료', cacheNotSaved: '결과 캐시 저장 안 됨 · 재시도 시 비용 발생 가능',
     reload: '공동 데이터 다시 불러오기', saving: '공동 데이터 저장 중…',
@@ -929,7 +929,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -1343,10 +1343,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     cfg[2] = ['NL', 'CN', 'TH'].includes(country) ? t.autoSupplier : country === 'CO' ? t.autoFarm : t.perInvoice;
   }
 
-  const handleFile = (f) => {
+  const autoAnalysisFile = useRef(null);
+  const autoPreparedSources = useRef(new WeakSet());
+  const handleFile = async (f) => {
     if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
-    setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
     const isChinaExcel = country === 'CN' && /\.xlsx$/i.test(f.name);
     if (f.size > (isChinaExcel ? CHINA_INVOICE_MAX_BYTES : PACKING_PDF_MAX_BYTES)) {
       setStatus({ type: 'error', msg: isChinaExcel ? '중국 인보이스 Excel은 최대 50MiB까지 지원합니다.' : t.pdfLimit });
@@ -1356,6 +1357,17 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
     }
+    if (autoAnalyze) try {
+      const sourceHash = await sha256File(f);
+      const response = await fetch('/api/import/tools/upload-history', {credentials:'same-origin',cache:'no-store'});
+      const data = await response.json();
+      if (readerVersion.current !== version) return;
+      if (!response.ok || !data.success || !Array.isArray(data.rows)) throw new Error(data.error || '업로드 이력을 확인하지 못했습니다. 다시 시도하세요.');
+      const previous = data.rows.find(row => row.sourceHash === sourceHash && row.country === country);
+      if (previous && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이미 업로드한 파일입니다. 최신 공용 매칭으로 재검증할까요? 기존 입고는 중복 등록하지 않습니다.')) return;
+    } catch (error) { if (readerVersion.current === version) setStatus({type:'error',msg:error.message}); return; }
+    setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
+    autoAnalysisFile.current = autoAnalyze ? f : null;
     setFile(f);
     const reader = new FileReader();
     reader.onload = () => {
@@ -1606,6 +1618,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               ? '분석 작업을 접수합니다. 원본 파일은 유지됩니다.'
               : `AI 분석 결과를 확인하고 있습니다${progress.elapsedSeconds ? ` (${progress.elapsedSeconds}초 경과)` : ''}. 결과 조회는 AI를 다시 호출하지 않습니다.`});
           }});
+        if (extraction.needsAI && allowAI === 'auto' && isCurrent()) {
+          setStatus({type:'info',msg:'자동 AI 분석 중입니다. 분석 비용이 발생할 수 있습니다. 원본 파일은 유지됩니다.'});
+          extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:true});
+        }
       }
       if (!isCurrent()) return;
       if(extraction.needsAI){
@@ -1678,7 +1694,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (isCurrent()) {
         setStatus({ type: 'error', msg: t.errorPrefix + e.message });
         setSteps([{label:'인보이스 분석 중단 · 파일 유지',state:'error'}]);
-        if (allowAI===true) setNeedsAI(true);
+        if (allowAI===true || allowAI==='auto') setNeedsAI(true);
         setPdfRetryJobId(e.pdfRetryJobId || null);
       }
     } finally {
@@ -1686,6 +1702,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setProcessing(false);
     }
   };
+
+  useEffect(() => {
+    if (autoAnalysisFile.current !== file || !file || !pdfBase64 || !xlsxLib || !sharedReady
+      || saving || processing || catalogParsing) return;
+    autoAnalysisFile.current = null;
+    process('auto');
+  }, [file, pdfBase64, xlsxLib, sharedReady, saving, processing, catalogParsing]);
 
   const sourceReviewBlocked = () => {
     if (!/\.pdf$/i.test(file?.name || '')) return false;
@@ -1817,6 +1840,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setReviewConfirmed(true); closeReview();
     if (receiptIntent.current) { receiptIntent.current = false; focusReceipt(); }
   };
+
+  useEffect(() => {
+    // Preparing the mapped source is not ERP registration. The single explicit
+    // receipt/cost button in the workbench remains the mutation boundary.
+    if (!autoAnalyze || !lastExtraction || !matchingComplete || validationIssues.length
+      || processing || saving || !sharedReady || latestShared || reviewOpen || matchTarget
+      || (excels.length && reviewConfirmed) || autoPreparedSources.current.has(lastExtraction)) return;
+    autoPreparedSources.current.add(lastExtraction);
+    prepareReceipt();
+  }, [autoAnalyze,lastExtraction,matchingComplete,validationIssues.length,processing,saving,sharedReady,latestShared,reviewOpen,matchTarget,excels.length,reviewConfirmed]);
 
   return (
     <div ref={toolRoot} className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
