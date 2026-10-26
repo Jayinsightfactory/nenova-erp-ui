@@ -30,6 +30,9 @@
 - 미검증: 사용자의 실제 파일로 운영 입고 재등록(운영 DB 보호를 위해 수행하지 않음).
 
 ## 근거
+- CUA로 실제 Workbench를 격리 HTTP fixture에서 실행: 연도 삭제 → 정확한 한국어 차단 안내 → 2026 재입력 → 초안 revision 2 및 ERP 입고 확인 버튼 활성화. 품목 #77·2박스/20단/200송이 보존. API는 로컬 메모리 mock이며 실제 입고 저장 아님.
+- 화면 테스트에서 로컬 차단 결과에 서버 scope assert를 적용해 안내를 덮던 문제도 발견·수정. 서버 응답/새 버전/preview의 scope 검증은 유지.
+- 스크린샷: outputs/scope-missing-year.png, outputs/scope-corrected.png (로컬 비커밋).
 - 실제 dnSpy `ExcelLoadingPackingList` OrderYear/OrderWeek 문자열 사용 재확인.
 - `docs/plans/invoice-scope-2026-10-26.md` 부작용/검증 계획 참조.
 - 로컬 `scope-*.log`는 검증 로그로 커밋하지 않는다.

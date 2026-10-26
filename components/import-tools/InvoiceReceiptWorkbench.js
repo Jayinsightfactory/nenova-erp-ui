@@ -671,11 +671,13 @@ export default function InvoiceReceiptWorkbench({
         const returned = result.document;
         if (returned && returned.documentId === target.document.documentId
           && Number.isSafeInteger(Number(returned.revision)) && Number(returned.revision) > 0) {
-          assertReceiptScope(returned, target.document, returned.revision);
           const revisionAdvanced = target.document.revision == null
             || Number(returned.revision) > Number(target.document.revision);
           const sameRevision = Number(returned.revision) === Number(target.document.revision);
           if (revisionAdvanced || (sameRevision && result.preview)) {
+            // A local validation block returns the unchanged editable draft,
+            // not a server response. Keep its field-specific error intact.
+            assertReceiptScope(returned, target.document, returned.revision);
             setRecords(current => current.map(item => item.document.documentId === documentId
               ? { ...item,
                 ...(revisionAdvanced ? { document: returned, dirty: false, recoveryRequired: false } : {}),
