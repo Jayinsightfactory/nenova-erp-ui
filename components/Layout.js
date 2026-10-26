@@ -67,6 +67,7 @@ export const MENU_ITEMS = [
       { href: '/sales/tax-invoice',  labelKey: '세금계산서 진행단계', popup: false },
       { href: '/ecount/dashboard',   labelKey: '이카운트 연동',       popup: false },
       { href: '/ecount/reconcile',   labelKey: '🔁 ECOUNT 자동대사',  popup: false },
+      { href: '/ecount/week-compare', labelKey: '📊 ECOUNT·전산 차수 비교', popup: false },
       { href: '/ecount/receivables', labelKey: '💳 채권(미수) 현황',   popup: false },
       { href: '/ecount',             labelKey: 'ECOUNT 수집 데이터', popup: false },
     ]
