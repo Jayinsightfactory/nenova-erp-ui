@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
-import { shiftOrderWeek } from '../../lib/orderUtils';
+import { defaultPivotBoardWeek } from '../../lib/pivotAvailableWeeks';
+import { normalizeRoundInput, roundOrdinal, volumeMenuQuickWeeks, volumeMenuQuery } from '../../lib/volumeMenuWeeks';
 
 const inputStyle = {
   border: '1px solid #9db4d0', borderRadius: 5, padding: '8px 10px',
@@ -11,25 +12,11 @@ const buttonStyle = {
   minHeight: 38, fontSize: 14, fontWeight: 700, cursor: 'pointer',
 };
 
-const normalizeRoundInput = (value) => {
-  const match = String(value || '').trim().match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
-  if (!match) return '';
-  const major = Number(match[1]);
-  const sub = Number(match[2]);
-  if (major < 1 || major > 52 || sub < 1 || sub > 4) return '';
-  return `${String(major).padStart(2, '0')}-${String(sub).padStart(2, '0')}`;
-};
-
-const roundOrdinal = (value) => {
-  const normalized = normalizeRoundInput(value);
-  if (!normalized) return NaN;
-  const [major, sub] = normalized.split('-').map(Number);
-  return (major - 1) * 4 + sub;
-};
-
 export default function VolumeBoard() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [weeks, setWeeks] = useState([]);
+  const [baseWeek, setBaseWeek] = useState('');
+  const [baseSource, setBaseSource] = useState('');
+  const [rangeMode, setRangeMode] = useState(false);
   const [weekStart, setWeekStart] = useState('');
   const [weekEnd, setWeekEnd] = useState('');
   const [weekStartDraft, setWeekStartDraft] = useState('');
@@ -49,8 +36,14 @@ export default function VolumeBoard() {
     setSelected(new Set());
     setError('');
     setMessage('');
+    setBaseWeek('');
+    setWeekStart('');
+    setWeekEnd('');
+    setWeekStartDraft('');
+    setWeekEndDraft('');
+    setRangeMode(false);
+    setCombineSubweeks(false);
     if (!/^\d{4}$/.test(year) || Number(year) < 2020 || Number(year) > 2099) {
-      setWeeks([]);
       setWeekStart('');
       setWeekEnd('');
       setWeekStartDraft('');
@@ -59,50 +52,44 @@ export default function VolumeBoard() {
       setWeeksBusy(false);
       return () => { active = false; };
     }
-    fetch(`/api/stats/pivot-weeks?${new URLSearchParams({ orderYear: year })}`)
-      .then(async response => {
+    Promise.all(['incoming', 'orders'].map(async source => {
+        const response = await fetch(`/api/stats/pivot-weeks?${new URLSearchParams({ orderYear: year, source, ...(source === 'incoming' ? { country: 'all' } : {}) })}`);
         const payload = await response.json();
         if (!response.ok || !payload.success) throw new Error(payload.error || '차수 목록을 불러오지 못했습니다.');
+        return Array.isArray(payload.weeks) ? payload.weeks : [];
+      }))
+      .then(([incomingWeeks, orderWeeks]) => {
         if (!active) return;
-        const nextWeeks = Array.isArray(payload.weeks) ? payload.weeks : [];
-        const nextStart = nextWeeks.includes(weekStart) ? weekStart : (nextWeeks[0] || '');
-        const nextEnd = nextWeeks.includes(weekEnd) ? weekEnd : nextStart;
-        setWeeks(nextWeeks);
+        const nextStart = defaultPivotBoardWeek(incomingWeeks, orderWeeks);
+        setBaseWeek(nextStart);
+        setBaseSource(incomingWeeks.length ? '최신 입고' : '입고 없음 · 최신 주문');
         setWeekStart(nextStart);
-        setWeekEnd(nextEnd);
+        setWeekEnd(nextStart);
         setWeekStartDraft(nextStart);
-        setWeekEndDraft(nextEnd);
-        if (!nextWeeks.length) setMessage(`${year}년에 선택할 수 있는 차수가 없습니다.`);
+        setWeekEndDraft(nextStart);
+        if (!nextStart) setMessage(`${year}년에 입고·주문 이력이 없습니다. 조회할 차수를 직접 입력하세요.`);
       })
-      .catch(err => { if (active) { setWeeks([]); setWeekStart(''); setWeekEnd(''); setWeekStartDraft(''); setWeekEndDraft(''); setError(err.message); } })
+      .catch(err => { if (active) setError(err.message); })
       .finally(() => { if (active) setWeeksBusy(false); });
     return () => { active = false; };
-  // Year changes reload the actual order/inbound/shipment/stock week list.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Never carry another year's selection or a future order maximum into the default.
   }, [year]);
 
-  const baseParams = useMemo(() => ({ orderYear: year, weekStart, weekEnd: weekEnd || weekStart }), [year, weekStart, weekEnd]);
+  const baseParams = useMemo(() => volumeMenuQuery(year, weekStart, weekEnd, rangeMode), [year, weekStart, weekEnd, rangeMode]);
+  useEffect(() => {
+    setItems([]);
+    setSelected(new Set());
+    setMessage('');
+  }, [baseParams]);
   const startIndex = roundOrdinal(weekStart);
   const endIndex = roundOrdinal(weekEnd || weekStart);
   const invalidRange = Number.isFinite(startIndex) && Number.isFinite(endIndex) && startIndex > endIndex;
-  const quickWeeks = useMemo(() => {
-    if (!weeks[0]) return [];
-    const options = [];
-    let current = weeks[0];
-    for (let offset = 0; offset <= 5; offset += 1) {
-      if (!current || options.includes(current)) break;
-      options.push(current);
-      const next = shiftOrderWeek(current, 1);
-      if (next === current || roundOrdinal(next) <= roundOrdinal(current)) break;
-      current = next;
-    }
-    return options;
-  }, [weeks]);
+  const quickWeeks = useMemo(() => volumeMenuQuickWeeks(baseWeek), [baseWeek]);
 
   const selectStartWeek = (week) => {
     setWeekStart(week);
     setWeekStartDraft(week);
-    if (roundOrdinal(weekEnd) < roundOrdinal(week)) {
+    if (!rangeMode || !weekEnd || roundOrdinal(weekEnd) < roundOrdinal(week)) {
       setWeekEnd(week);
       setWeekEndDraft(week);
     }
@@ -226,11 +213,11 @@ export default function VolumeBoard() {
             <div className="round-selection-grid">
               <label className="year-picker" style={{ display: 'grid', gap: 5, fontSize: 13, fontWeight: 700, color: '#284564' }}>
                 연도
-                <input aria-label="연도" type="number" min="2020" max="2099" step="1" value={year} onChange={event => setYear(event.target.value)} style={inputStyle} />
+                <input aria-label="연도" type="number" min="2020" max="2099" step="1" value={year} disabled={!!busy} onChange={event => setYear(event.target.value)} style={inputStyle} />
               </label>
               {[
-                { label: '시작 차수', value: weekStart, onSelect: selectStartWeek },
-                { label: '끝 차수', value: weekEnd, onSelect: (week) => { setWeekEnd(week); setWeekEndDraft(week); } },
+                { label: rangeMode ? '시작 차수' : '차수', isStart: true, value: weekStart, onSelect: selectStartWeek },
+                ...(rangeMode ? [{ label: '끝 차수', isStart: false, value: weekEnd, onSelect: (week) => { setWeekEnd(week); setWeekEndDraft(week); } }] : []),
               ].map(group => (
                 <fieldset key={group.label} className="week-picker">
                   <legend>{group.label}</legend>
@@ -265,28 +252,37 @@ export default function VolumeBoard() {
                       aria-label={`${group.label} 직접 입력`}
                       inputMode="numeric"
                       placeholder="예: 42-02"
-                      value={group.label === '시작 차수' ? weekStartDraft : weekEndDraft}
-                      onChange={event => (group.label === '시작 차수' ? setWeekStartDraft(event.target.value) : setWeekEndDraft(event.target.value))}
-                      onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyManualWeek(group.label === '시작 차수' ? 'start' : 'end'); } }}
+                      value={group.isStart ? weekStartDraft : weekEndDraft}
+                      onChange={event => (group.isStart ? setWeekStartDraft(event.target.value) : setWeekEndDraft(event.target.value))}
+                      onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyManualWeek(group.isStart ? 'start' : 'end'); } }}
                       disabled={weeksBusy || !!busy}
                     />
-                    <button type="button" className="manual-week-apply" onClick={() => applyManualWeek(group.label === '시작 차수' ? 'start' : 'end')} disabled={weeksBusy || !!busy}>적용</button>
+                    <button type="button" className="manual-week-apply" onClick={() => applyManualWeek(group.isStart ? 'start' : 'end')} disabled={weeksBusy || !!busy}>적용</button>
                   </div>
                 </fieldset>
               ))}
             </div>
+            <label style={{ display: 'block', marginTop: 12, fontSize: 13 }}>
+              <input type="checkbox" checked={rangeMode} disabled={weeksBusy || !!busy} onChange={event => {
+                setRangeMode(event.target.checked);
+                setWeekEnd(weekStart);
+                setWeekEndDraft(weekStart);
+                setCombineSubweeks(false);
+                setError('');
+              }} /> 여러 차수 범위 조회
+            </label>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 16, flexWrap: 'wrap' }}>
               <button type="submit" style={{ ...buttonStyle, color: '#fff', background: '#1764b0' }} disabled={weeksBusy || !!busy || !weekStart || !weekEnd}>
-                {weeksBusy ? '차수 불러오는 중…' : '품종 목록 불러오기'}
+                {weeksBusy ? '차수 불러오는 중…' : '조회 · 품종 목록 불러오기'}
               </button>
-              <span style={{ fontSize: 12, color: '#61758d' }}>{quickWeeks.length ? `${year}년 기준 차수 ${quickWeeks[0]}부터 +5차 빠른 선택 · 범위 밖은 직접 입력` : ''}</span>
+              <span style={{ fontSize: 12, color: '#61758d' }}>{baseWeek ? `${year}년 기본 ${baseWeek} (${baseSource}) · 앞뒤 5차수 · 범위 밖은 직접 입력` : ''}</span>
             </div>
             {invalidRange && <p role="alert" style={{ color: '#b42318', margin: '10px 0 0', fontSize: 13 }}>끝 차수는 시작 차수와 같거나 이후 차수로 선택하세요.</p>}
-            <label style={{ display: 'block', marginTop: 16, padding: 12, background: '#eef5ff', borderRadius: 6, lineHeight: 1.6, fontSize: 13 }}>
-              <input type="checkbox" checked={combineSubweeks} onChange={event => setCombineSubweeks(event.target.checked)} />{' '}
+            {rangeMode && <label style={{ display: 'block', marginTop: 16, padding: 12, background: '#eef5ff', borderRadius: 6, lineHeight: 1.6, fontSize: 13 }}>
+              <input type="checkbox" checked={combineSubweeks} disabled={!!busy} onChange={event => setCombineSubweeks(event.target.checked)} />{' '}
               같은 본차수 세부차수 합산 — 셀에 합계와 차수별 수량 표시
               <div style={{ color: '#58708c', marginLeft: 23 }}>예: 30(10,20) · 업체별 합산</div>
-            </label>
+            </label>}
             {items.length > 0 && (
               <section aria-label="다운로드 품종 선택" style={{ marginTop: 18, border: '1px solid #d5e0ec', borderRadius: 7, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 12px', background: '#f5f8fc', borderBottom: '1px solid #d5e0ec' }}>
@@ -318,7 +314,8 @@ export default function VolumeBoard() {
         </section>
       </main>
       <style jsx>{`
-        .round-selection-grid { display: grid; grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+        .round-selection-grid { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; align-items: start; }
+        .week-picker + .week-picker { grid-column: 2; }
         .week-picker { min-width: 0; margin: 0; padding: 8px 10px 10px; border: 1px solid #cbd8e8; border-radius: 7px; }
         .week-picker legend { padding: 0 5px; color: #284564; font-size: 13px; font-weight: 700; }
         .week-choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
@@ -332,8 +329,7 @@ export default function VolumeBoard() {
         .manual-week-apply { min-height: 34px; padding: 4px 10px; border: 1px solid #7593b5; border-radius: 5px; background: #fff; color: #174b89; font-weight: 700; cursor: pointer; }
         .manual-week-apply:focus-visible { outline: 3px solid #e5a900; outline-offset: 2px; }
         .manual-week-apply:disabled { opacity: .45; cursor: not-allowed; }
-        @media (max-width: 800px) { .round-selection-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .year-picker { grid-column: 1 / -1; max-width: 170px; } }
-        @media (max-width: 560px) { .round-selection-grid { grid-template-columns: minmax(0, 1fr); } .year-picker { grid-column: auto; } }
+        @media (max-width: 560px) { .round-selection-grid { grid-template-columns: minmax(0, 1fr); } .year-picker { max-width: 130px; } .week-picker + .week-picker { grid-column: auto; } }
       `}</style>
     </>
   );

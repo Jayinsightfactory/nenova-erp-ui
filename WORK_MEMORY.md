@@ -1208,6 +1208,12 @@
 - 전체12페이지 AI 미검증. 최종 캡처는 브라우저 도구 오류. 배포 결과는 docs/work-sessions/2026-10-26_invoice-weight.md 참조.
 - 검색어: GW CW review_evidence packingWeight weightManual 44-01 25529 TEST_ONLY
 
+## 2026-10-26 물량표 메뉴 단일차수·입고 기본
+- 사용자 확정: 실제 입고 최신차수 우선. 미래 주문50-01 대신 현재 양수입고44-01 기본, 한차수 선택 및 앞뒤5개 버튼. 범위모드는 명시 체크로 유지.
+- 연도별 조회·다운로드 범위 일치, 조건변경시 품종목록 폐기. ERP 쓰기 없음. dnSpy/SELECT 근거·기준표: docs/plans/volume-menu-week-2026-10-26.md.
+- 빌드/전체 ERP 계약/국소·피벗/manifest/write/dnSpy/UI layout 통과. 격리 실브라우저 단일·범위·방향키·직접입력·교차연도·빈기록 확인. 배포 결과는 세션 md 후속 기록.
+- 검색어: volume-menu-week 50-01 44-01 최신입고 단일차수 앞뒤5개 volumeMenuQuickWeeks
+
 ## 2026-10-26 주광 차수/자동 갱신
 - DOM step 대신 React 값 기반 차수 증감. 기준 미리보기 INVALID_ERP_DATES는 확정 불가로 남기되 분배 갱신은 허용. 과거 선출고 GET2000..2200,POST2026+불변.
 - dnSpy ClassShipmentDate/운영 SELECT 근거: docs/plans/weekday-refresh-2026-10-26.md. DB 변경 없음. 배포 검증 진행 중.
