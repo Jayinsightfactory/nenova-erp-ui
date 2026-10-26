@@ -747,11 +747,11 @@ export default function WeekdayEstimateWorkspace({initialScope}={}) {
           try {
             const response=await fetch('/api/estimate/weekday-baseline',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'preview',...scope})});
             const result=await response.json();
-            if(!response.ok || !result.success) throw new Error(result.error || '현재 분배 기준 조회 실패');
+            if(!response.ok || !result.success) throw Object.assign(new Error(result.error || '현재 분배 기준 조회 실패'),{code:result.code});
             const preview=result.preview;
             if(result.readOnly!==true || Number(preview?.year)!==scope.year || preview?.orderWeek!==orderWeek || Number(preview?.custKey)!==scope.custKey || !Array.isArray(preview?.rows)) throw new Error('분배 기준 응답 범위 확인 필요');
             return {...preview,provisional:true};
-          } catch(error) {return {...scope,provisional:true,error:error.message,rows:[]};}
+          } catch(error) {return {...scope,provisional:true,error:error.message,errorCode:error.code,rows:[]};}
         }));
         const scope=`${customer.CustKey}|${year}|${majorWeek}`;
         const addedKeys=addedProductScope.current.scope===scope ? addedProductScope.current.keys : [];

@@ -1213,3 +1213,9 @@
 - 연도별 조회·다운로드 범위 일치, 조건변경시 품종목록 폐기. ERP 쓰기 없음. dnSpy/SELECT 근거·기준표: docs/plans/volume-menu-week-2026-10-26.md.
 - 빌드/전체 ERP 계약/국소·피벗/manifest/write/dnSpy/UI layout 통과. 격리 실브라우저 단일·범위·방향키·직접입력·교차연도·빈기록 확인. 배포 결과는 세션 md 후속 기록.
 - 검색어: volume-menu-week 50-01 44-01 최신입고 단일차수 앞뒤5개 volumeMenuQuickWeeks
+
+## 2026-10-26 주광 차수/자동 갱신
+- DOM step 대신 React 값 기반 차수 증감. 기준 미리보기 INVALID_ERP_DATES는 확정 불가로 남기되 분배 갱신은 허용. 과거 선출고 GET2000..2200,POST2026+불변.
+- dnSpy ClassShipmentDate/운영 SELECT 근거: docs/plans/weekday-refresh-2026-10-26.md. DB 변경 없음. 배포 검증 진행 중.
+- 검색어: 주광 44 43 1 자동갱신 EstQuantity NULL INVALID_ERP_DATES 2025 52
+- 검증추가: 전체 ERP계약/dnSpy/manifest/writeguard/UIlayout/build통과,대상29건. 격리 Chrome44→43 및 키보드/조회값43 유지 확인. PR/배포 진행.

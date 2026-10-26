@@ -18,7 +18,7 @@ const runtimeDependencies={
 
 function lookupScope(input={}) {
   const year=Number(input.year),majorWeek=String(input.majorWeek??'').padStart(2,'0'),custKey=Number(input.custKey);
-  if (!Number.isSafeInteger(year)||year<2026||year>2200||!/^\d{2}$/.test(majorWeek)
+  if (!Number.isSafeInteger(year)||year<2000||year>2200||!/^\d{2}$/.test(majorWeek)
     ||Number(majorWeek)<1||Number(majorWeek)>53||!Number.isSafeInteger(custKey)||custKey<1)
     throw Object.assign(new Error('year, majorWeek, custKey를 확인하세요.'),{code:'EARLY_INVALID_SCOPE',statusCode:400});
   return {year,majorWeek,custKey};

@@ -1,5 +1,5 @@
 import {useRef,useState} from 'react';
-import {parseWeekdayQuerySelection} from '../lib/weekdayQuerySelection.js';
+import {parseWeekdayQuerySelection,stepWeekdayQuerySelection} from '../lib/weekdayQuerySelection.js';
 
 export default function WeekdayEstimateEntry({renderWorkspace}) {
   const [year,setYear]=useState(String(new Date().getFullYear()));
@@ -8,10 +8,9 @@ export default function WeekdayEstimateEntry({renderWorkspace}) {
   function stepWeek(direction){
     const input=weekInput.current;
     if(!input)return;
-    if(!input.value)input.value='1';
-    else if(direction>0)input.stepUp();
-    else input.stepDown();
-    setWeek(input.value);
+    // Keep React as the owner of the value; native stepUp/Down mutates only the DOM.
+    const visible=input.value;
+    setWeek(current=>stepWeekdayQuerySelection(visible || current,direction));
   }
   if(selected)return renderWorkspace(selected);
   function query(event){

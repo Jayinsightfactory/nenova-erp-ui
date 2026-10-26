@@ -7,5 +7,6 @@
   "crossYearFixture":{"required":true,"description":"2025/43 and2026/43 distinct;2026/53 and2027/01 retain explicit year. Empty,zero,false,malformed selection never mounts workspace."},
   "requiredTestFiles":["__tests__/weekdayQuerySelection.test.js","__tests__/weekdayDefaultCenter.test.js","__tests__/estimateWeekdayWorkspace.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/WeekdayPrintNotes.md","source":"C:\\Program Files (x86)\\Wooribnc\\Nenova\\Nenova.exe","methods":["FormEstimateView.GetPrintDetail","FormPrintEstimate.btnPrint_Click"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Estimate","PeriodDay"],"reason":"UI mount timing only; native SQL and shared ledger behavior unchanged. Current SELECT probe rerun before implementation."},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"],
+  "steppingRegression":"44 down =>43, then43 up=>44. Use React state arithmetic, preserving the visible numeric input and falling back to state if blur temporarily empties the DOM. Bounds1..53, no year change."
 }
