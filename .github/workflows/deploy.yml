@@ -22,7 +22,7 @@ on:
     branches: [master]
 
 concurrency:
-  group: nenova-cafe24-production
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_checkout_only == true && 'nenova-cafe24-readonly-diagnosis' || 'nenova-cafe24-production' }}
   cancel-in-progress: false
 
 jobs:
@@ -44,6 +44,18 @@ jobs:
             git status --short --untracked-files=no
             git diff --numstat
             git diff --cached --numstat
+            echo '=== read-only memory and swap ==='
+            date -u
+            free -m
+            swapon --show --noheadings --output TYPE,SIZE,USED,PRIO
+            echo '=== largest RSS: no arguments or environment ==='
+            ps -eo pid,comm,rss --sort=-rss | head -12
+            echo '=== recent kernel OOM events ==='
+            journalctl -k --since '3 hours ago' --no-pager | grep -Ei 'out of memory|killed process|oom-kill' | tail -30 || true
+            echo '=== root cgroup memory counters ==='
+            for f in /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max; do
+              if [ -r "$f" ]; then printf '%s\n' "$f"; head -20 "$f"; fi
+            done
   deploy:
     if: github.event_name != 'workflow_dispatch' || inputs.diagnose_checkout_only != true
     runs-on: ubuntu-latest
