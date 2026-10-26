@@ -1230,3 +1230,9 @@
 - Native웹앱첫화면빈값(예시43)→▼1재현.기존직접입력후검증에서누락.기본전산차수44를달력GET1회로실제입력,빈값버튼차단,수동값우선.분배표는조회버튼후만로드.
 - 검색어: weekday entry defaultNext placeholder 빈칸44 43 Nenova Desktop
 - 검증추가:entry/default9건,전체ERP계약,dnSpy근거,manifest,쓰기guard,UIlayout,production build통과.배포후Native웹앱첫진입재검증예정.
+
+## 2026-10-26 주광 첫 차수 배포 복구
+- PR1302 병합 후 Cafe24 40289366107의 두 시도에서 webpack이 Killed로 끝나 이전 버전이 유지됨. 커널 OOM 로그는 접근하지 못했으므로 메모리 부족 확정은 아님.
+- 빌드 명령에만 NODE_OPTIONS 1536MiB 힙 제한을 적용. 기존 서비스/ERP DB/원자적 교체/실패 시 보존은 유지. 서버 자원 현황 free -m 기록 추가.
+- 제한 빌드와 배포 검증 진행 중. 검색어: 1302 40289366107 Killed build heap 1536 첫 차수
+검증: 1536MiB 제한 production build, 배포 검사15건, 전체ERP계약, dnSpy, manifest, write guard 통과.
