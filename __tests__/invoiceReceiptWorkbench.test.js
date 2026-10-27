@@ -51,7 +51,8 @@ test('cost review is gated by a committed operation for the current revision and
   assert.match(source, /committedOperations\.length > 0 && \(selected\.dirty \|\| !currentRevisionCommitted\)/);
   assert.match(source, /currentRevisionCommitted[\s\S]*?<InvoiceReceiptCostReview document=\{documentValue\} onSaved=\{refreshAfterCostSave\}[\s\S]*?autoSaveRequested=\{false\} autoProcess=\{workspaceMode === 'cost' && receiptReadbackPassed\}/);
   assert.match(source, /refreshAfterCostSave[\s\S]*?readDocument\(documentId\)[\s\S]*?if \(!isCurrent\(\)\) return;[\s\S]*?installSavedDocument\(refreshed\)/);
-  assert.match(source, /기존 입고 확인 후 원가만 작업/);
+  assert.match(source, /선택 사항 · 기존 입고 연결 후 승인 원가 저장/);
+  assert.match(source, /업로드 인보이스 기준/);
   assert.match(source, /도착원가 STALE/);
   assert.match(source, /입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다/);
 });

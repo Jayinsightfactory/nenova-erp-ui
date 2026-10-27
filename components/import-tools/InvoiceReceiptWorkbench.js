@@ -3,6 +3,7 @@ import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import InvoiceDraftCost from './InvoiceDraftCost.js';
 import { prepareInvoiceCostOnly } from '../../lib/invoiceCostOnlyWorkflow.js';
 import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput.js';
 import InvoiceWarehouseCostBrowse from './InvoiceWarehouseCostBrowse.js';
@@ -209,6 +210,9 @@ export default function InvoiceReceiptWorkbench({
   const [browseMode, setBrowseMode] = useState('documents');
   const [browseInputError, setBrowseInputError] = useState('');
   const [nativeCostScope, setNativeCostScope] = useState(null);
+  const [costSource,setCostSource] = useState('invoice');
+  const [invoiceCostOpened,setInvoiceCostOpened] = useState(workspaceMode==='cost');
+  useEffect(()=>{if(workspaceMode==='cost')setInvoiceCostOpened(true);},[workspaceMode]);
   useEffect(() => {
     const [year, week, sequence] = getCurrentWeek().split('-');
     setBrowseYear(year); setBrowseWeek(`${week}-${sequence}`);
@@ -1095,6 +1099,7 @@ export default function InvoiceReceiptWorkbench({
       </button>)}
     </div>
 
+    <div hidden={workspaceMode==='cost'&&costSource==='invoice'}>
     {notice && <p className={notice.type === 'error' ? styles.error : notice.type === 'success' ? styles.success : styles.info}
       role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
     {localWarnings.map(warning => <p className={styles.warning} role="alert" key={warning}>{warning}</p>)}
@@ -1138,6 +1143,7 @@ export default function InvoiceReceiptWorkbench({
       </details>
     </section>
 
+    </div>
     <div hidden={workspaceMode !== 'receipt'}>
     <fieldset disabled={Boolean(busy)} className={styles.editFieldset}>
     {mismatchRows.length > 0 && <section className={styles.conversionReview} aria-label="국가별 패킹 변환 수량 차이 검토">
@@ -1288,6 +1294,12 @@ export default function InvoiceReceiptWorkbench({
     {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
     <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">
+    <div className={styles.actions} aria-label="원가 계산 자료 선택">
+      <button type="button" aria-pressed={costSource==='invoice'} onClick={()=>{setCostSource('invoice');setNotice(null);}}>업로드 인보이스 기준</button>
+      <button type="button" aria-pressed={costSource==='existing'} onClick={()=>setCostSource('existing')}>기존 입고·승인 원가 기준</button>
+    </div>
+    <div hidden={costSource!=='invoice'}>{invoiceCostOpened && <InvoiceDraftCost document={documentValue} onEdit={() => setWorkspaceMode('receipt')} onMetadataChange={updateMetadata} />}</div>
+    {costSource==='existing' && <>
     <div className={styles.costPending}>
       <strong>기존 입고로 도착원가 엑셀 받기</strong>
       <p>입고가 이미 있으면 문서 연결 없이 기존 입고자료로 계산본을 다운로드할 수 있습니다. 입고·재고·승인 원가는 변경하지 않습니다.</p>
@@ -1297,19 +1309,20 @@ export default function InvoiceReceiptWorkbench({
     </div>
     {nativeCostScope === `${documentValue.documentId}/${documentValue.orderYear}/${documentValue.orderWeek}/${documentValue.invoiceNo}` &&
       <InvoiceWarehouseCostBrowse key={nativeCostScope} orderYear={documentValue.orderYear} orderWeek={documentValue.orderWeek} invoiceNo={documentValue.invoiceNo} />}
-    {!currentRevisionCommitted && <div className={styles.costPending}>
-      <strong>기존 입고 확인 후 원가만 작업</strong>
+    {!currentRevisionCommitted && ['NL','CN','TH'].includes(documentValue.reviewedMetadata?.country) && <details className={styles.costPending}>
+      <summary>선택 사항 · 기존 입고 연결 후 승인 원가 저장</summary>
       <p>연도·차수·농장·송장과 품목·수량·금액을 대조합니다. 일치하지 않으면 이유를 표시하며, 새 입고를 자동 등록하지 않습니다.</p>
       <button type="button" className={styles.primary} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)} onClick={connectExistingCostOnly}>{busy === 'existing-cost' ? '기존 입고 확인 중…' : '기존 입고 확인 · 입고 건너뛰기'}</button>
       {selected.recoveryRequired && <button type="button" disabled={Boolean(busy)} onClick={() => loadDocument(documentValue.documentId)}>같은 문서 다시 불러오기</button>}
       <button type="button" onClick={() => setWorkspaceMode('receipt')} disabled={Boolean(busy)}>인보이스 입력값 확인·수정</button>
-    </div>}
+    </details>}
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
         autoSaveRequested={false} autoProcess={workspaceMode === 'cost' && receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale
         ? <section className={styles.costStale} role="alert"><strong>도착원가 STALE</strong><span>입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다. 수정 입고를 다시 preview·commit한 뒤 원가를 재검토하세요.</span></section>
         : null}
+    </>}
     </section>
 
     {copyOpen && <Modal title="특이사항 복사" onClose={() => setCopyOpen(false)} initialFocusRef={copyRef} footer={<><button type="button" onClick={() => setCopyOpen(false)}>닫기</button><button type="button" className={styles.primary} onClick={copyBrief}>{copied ? '복사됨' : '클립보드 복사'}</button></>}>

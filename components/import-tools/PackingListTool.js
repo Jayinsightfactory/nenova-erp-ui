@@ -930,7 +930,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue, costOnly = false }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -2162,13 +2162,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   {receiptStatus?.valid && <div role="status" data-testid="packing-receipt-match-summary">입고 문서 행별 품목 선택 {receiptStatus.documentTotal - receiptStatus.documentPending}/{receiptStatus.documentTotal}행 · {receiptStatus.documentPending}행 미선택 · 팀 공용 별칭 저장 아님{!receiptStatus.overlayComplete ? ' · 생성 패킹 행과 직접 연결되지 않아 패킹 상태는 별도 표시' : ''}</div>}
                   {matchingComplete && <button type="button" data-testid="packing-receipt-prepare" onClick={prepareReceipt}
                     disabled={saving || processing || !sharedReady || latestShared} style={{ marginLeft: 16, padding: '10px 20px', background: '#2457c5', color: '#fff', border: 0, borderRadius: 8, fontWeight: 700 }}>
-                    {allocationCount ? 'Woolly bush 품목·입고량 분류' : excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
+                    {allocationCount ? 'Woolly bush 품목·입고량 분류' : costOnly ? '다음 · 도착원가 준비' : excels.length && reviewConfirmed ? '입고 업로드로 이동' : '다음 · 입고 준비'}
                   </button>}
                   <p>팀 공용 DB 매칭과 입고 문서의 행별 품목 선택은 별개입니다. 행별 선택은 팀 공용 별칭으로 저장되지 않으며, 이미 생성된 패킹 파일의 다운로드는 기존 검증을 유지합니다. 변경된 품목을 패킹 파일에 반영하려면 다시 생성하세요. 매칭만으로 입고·재고가 변경되지 않습니다.</p>
                 </div>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
                   <button ref={reviewButtonRef} type="button" onClick={() => { setReviewInitialTarget(null); setReviewOpen(true); }} disabled={processing || saving} data-testid="packing-review-open">인식값 수정 · 원본 PDF 보기</button>
-                  <span style={{ marginLeft: 12 }}>원본 품명 옆에 DB 품목을 모두 연결한 뒤 「다음 · 입고 준비」를 누르세요. 별도 원문확인 체크는 필요 없습니다.</span>
+                  <span style={{ marginLeft: 12 }}>원본 품명 옆에 DB 품목을 모두 연결한 뒤 「{costOnly ? '다음 · 도착원가 준비' : '다음 · 입고 준비'}」를 누르세요. 별도 원문확인 체크는 필요 없습니다.</span>
                   <p>수량·단가를 잘못 읽은 경우에만 인식값을 수정하세요. 실제 숫자 오류·단위 환산·중복입고는 저장 전에 다시 검사합니다.</p>
                   <div>미리보기와 확인은 ERP 입고 DB에 저장하지 않습니다.</div>
                 </div>

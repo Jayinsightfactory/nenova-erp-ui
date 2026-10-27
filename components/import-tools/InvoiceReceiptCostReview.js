@@ -317,7 +317,8 @@ function unitLabel(value) {
   return ({ BUNCH: '단', STEM: '송이', BOX: '박스' })[value] || value || '';
 }
 
-export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange, nativePreview = false, onNativeAction }) {
+export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange, nativePreview: nativeReceiptPreview = false, invoicePreview = false, onNativeAction }) {
+  const nativePreview = nativeReceiptPreview || invoicePreview; // Both calculation modes must never save an approval.
   const automaticSaveAttempts = useRef(new Set());
   const receiptLines = useMemo(() => committedReceiptLines(document), [document]);
   const identity = `${String(document?.documentId || '')}:${Number(document?.revision)}:${document?.sourceHash || ''}`;
@@ -709,9 +710,9 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
   return <section className={styles.root} aria-label="인보이스 도착원가 검토">
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>실제 입고량 도착원가</h3>
+      <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>{invoicePreview ? '인보이스 수량 도착원가' : '실제 입고량 도착원가'}</h3>
         <p>검증된 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
-      <div className={styles.status}><span>{nativePreview ? '입고 번호' : '문서 버전'}</span><strong>{nativePreview ? document.warehouseKey : document.revision ?? '—'}</strong><span>입고 상태</span><strong>{nativePreview ? '기존 입고 조회' : receiptStatusLabel(document.receiptStatus)}</strong></div>
+      <div className={styles.status}><span>{invoicePreview ? '인보이스' : nativePreview ? '입고 번호' : '문서 버전'}</span><strong>{invoicePreview ? document.invoiceNo : nativePreview ? document.warehouseKey : document.revision ?? '—'}</strong><span>자료 기준</span><strong>{invoicePreview ? '업로드 원문 · 입고 미반영' : nativePreview ? '기존 입고 조회' : receiptStatusLabel(document.receiptStatus)}</strong></div>
     </header>
 
     {exportActual && <div className={`${styles.actions} ${styles.savedActions}`} aria-label="승인 원가 양식 다운로드">
@@ -725,7 +726,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <p>현재 버전의 승인 입력을 불러옵니다. 편집값은 덮어쓰지 않으며 적용 확인은 다시 필요합니다.</p>
     </div>}
     <h4>자동으로 찾지 못한 값 · 직접 입력</h4>
-    <p>{nativePreview ? '품목·수량·매입금액은 기존 입고를 그대로 사용합니다. 부족한 비용만 입력하세요. 이 화면에서는 원장·승인 원가를 저장하지 않습니다.' : '품목은 위 입고 문서의 전산 품목 검색에서 직접 지정하세요. 환율·통관비·관세율은 직접 입력할 수 있습니다.'} 관세율은 25%이면 25, 확인된 면세만 0을 입력하세요.</p>
+    <p>{invoicePreview ? '업로드한 인보이스의 매칭 품목·수량·금액으로 계산합니다. 부족한 비용만 입력하세요. 기존 입고 금액과 별개인 미승인 계산본입니다.' : nativePreview ? '품목·수량·매입금액은 기존 입고를 그대로 사용합니다. 부족한 비용만 입력하세요. 이 화면에서는 원장·승인 원가를 저장하지 않습니다.' : '품목은 위 입고 문서의 전산 품목 검색에서 직접 지정하세요. 환율·통관비·관세율은 직접 입력할 수 있습니다.'} 관세율은 25%이면 25, 확인된 면세만 0을 입력하세요.</p>
     {!nativePreview && <p>원가 승인 저장을 누르면 직접 입력한 값과 사유가 서버에 저장됩니다. 다시 열었을 때 ‘승인 입력 불러오기’로 복원할 수 있습니다. 저장 전 편집값은 아직 서버에 반영되지 않습니다.</p>}
     {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
 
@@ -847,7 +848,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {nativePreview ? <button type="button" className={styles.primary} disabled={busy || preview?.status !== 'APPROVED'} onClick={async () => {
         const expectedIdentity = identity, generation = generationRef.current;
         setBusyIdentity(identity);
-        try { await onNativeAction('download', payloadOf(form)); }
+        try { await onNativeAction('download', payloadOf(form)); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
         catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
         finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
       }}>도착원가 엑셀 다운로드 · 미승인 계산본</button> : <>
@@ -864,7 +865,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </div>}
 
     {preview && <section className={styles.result} aria-live="polite">
-      <header><strong>{preview.status === 'APPROVED' ? nativePreview ? '계산 완료 · 미승인' : '계산 승인 가능' : '검토 필요'}</strong><span>실제 입고량 기준 합계 {money(preview.totals?.totalCostKRW)}</span></header>
+      <header><strong>{preview.status === 'APPROVED' ? nativePreview ? '계산 완료 · 미승인' : '계산 승인 가능' : '검토 필요'}</strong><span>{invoicePreview ? '인보이스 수량' : '실제 입고량'} 기준 합계 {money(preview.totals?.totalCostKRW)}</span></header>
       {preview.issues.length > 0 && <ul>{preview.issues.map((item, index) => <li key={`${item.code}-${item.lineId || index}`} className={item.severity === 'warning' ? styles.warning : styles.issue}>{item.message}</li>)}</ul>}
       {preview.expected95 && <div className={styles.comparison}><strong>95% 예상 비교</strong><span>{preview.expected95.quantity} {preview.expected95.unit} 기준</span><span>실제 원가를 대체하지 않음</span></div>}
       <p>{preview.note}</p>
