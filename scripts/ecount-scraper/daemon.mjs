@@ -6,6 +6,7 @@
 // 환경변수: INTERVAL_MIN(기본 30) · NENOVA_URL · NENOVA_TOKEN(권장: nenovaweb 토큰=MOYI_API_TOKEN 값) · NENOVA_COOKIE(대안: 로그인쿠키) · HEADLESS=1(창 숨김; 최초 로그인 후에만 권장)
 import { chromium } from 'playwright';
 import fs from 'fs';
+import { startCustomerLedgerSchedule } from './customer-ledger.mjs';
 import { PROFILE, DEFS, ERP_ROOT, installGuard, ensureBooted, collectOne, postIngest, isLoginPage } from './scrape-core.mjs';
 
 const INTERVAL = Math.max(5, Number(process.env.INTERVAL_MIN) || 30) * 60 * 1000;
@@ -21,10 +22,9 @@ async function waitForLogin(page) {
   for (;;) {
     await page.waitForTimeout(3000);
     if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) {
-      console.log(`✅ [${now()}] 로그인 감지됨. (URL: ${page.url().slice(0, 120)})`);
+      console.log(`✅ [${now()}] 로그인 감지됨.`);
       await page.waitForTimeout(5000);
-      // 진단: 로그인 직후 열린 모든 창(팝업 포함) URL과 화면을 남긴다
-      try { const ps = page.context().pages(); console.log(`   (열린 창 ${ps.length}개: ${ps.map(p => p.url().slice(0, 100)).join(' | ')})`); for (let k = 0; k < ps.length; k++) await ps[k].screenshot({ path: `_downloads/page-${k}.png` }).catch(() => {}); } catch {}
+      // Session URLs and screenshots may expose credentials or personal data.
       return;
     }
     // 2026-10-08 사장님 지시: 세션이 풀리면 로그인 버튼을 눌러 재개. 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 누르고,
@@ -37,7 +37,6 @@ async function waitForLogin(page) {
           console.log(`🔑 [${now()}] 저장된 로그인 정보가 채워져 있어 로그인 버튼을 누릅니다.`);
           await page.click("#save", { timeout: 3000 }).catch(() => {});
           await page.waitForTimeout(6000);
-          await page.screenshot({ path: "_downloads/after-login.png" }).catch(() => {});
         }
       } catch {}
     }
@@ -67,6 +66,8 @@ async function cycle(page, base) {
 
   let base = await ensureBooted(page);
   if (!base) { await waitForLogin(page); base = await ensureBooted(page); }
+  // Independent report page; legacy datasets retain their existing interval.
+  startCustomerLedgerSchedule(ctx, () => base, NENOVA);
   console.log(`\n🟢 [${now()}] ECOUNT 상주 수집 데몬 시작 — ${INTERVAL / 60000}분 주기. (창을 닫지 마세요)`);
 
   for (;;) {
@@ -75,7 +76,6 @@ async function cycle(page, base) {
     catch (e) {
       if (e.message === 'LOGIN_EXPIRED') {
         console.log(`\n⚠ [${now()}] 세션 만료 감지 — 재로그인 대기.`);
-        try { console.log(`   (만료 시점 URL: ${page.url()})`); await page.screenshot({ path: '_downloads/expired.png' }); } catch {}
         await waitForLogin(page); base = await ensureBooted(page); continue;
       }
       console.error('사이클 오류:', e.message);
