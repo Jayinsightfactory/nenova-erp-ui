@@ -317,7 +317,7 @@ function unitLabel(value) {
   return ({ BUNCH: '단', STEM: '송이', BOX: '박스' })[value] || value || '';
 }
 
-export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange, nativePreview: nativeReceiptPreview = false, invoicePreview = false, onNativeAction }) {
+export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange, nativePreview: nativeReceiptPreview = false, invoicePreview = false, onNativeAction, products = [], onEditAllocation, onInputDraftChange }) {
   const nativePreview = nativeReceiptPreview || invoicePreview; // Both calculation modes must never save an approval.
   const automaticSaveAttempts = useRef(new Set());
   const receiptLines = useMemo(() => committedReceiptLines(document), [document]);
@@ -342,6 +342,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       formulaSourceSheet: formula.formulaSourceSheet, formulaSourceCells: formula.formulaSourceCells } : value;
   });
   const [preview, setPreview] = useState(null);
+  useEffect(() => { onInputDraftChange?.(payloadOf(form)); }, [form, onInputDraftChange]);
   const [reason, setReason] = useState('');
   const [busyIdentity, setBusyIdentity] = useState('');
   const busy = busyIdentity === identity || workflowLocksRef.current.has(identity);
@@ -831,7 +832,11 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
           if (manualLineFilter?.identity === identity && !manualLineFilter.ids.includes(line.lineId)) return null;
           const lineInput = form.lineInputs.find(item => item.lineId === line.lineId) || {};
           const result = lineResult.get(String(line.lineId).toLowerCase());
-          return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small></td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
+          const matchedProduct = products.find(product => Number(product.ProdKey) === Number(line.prodKey));
+          return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small>
+            {matchedProduct && <small>매칭: {matchedProduct.ProdName}{matchedProduct.DisplayName && matchedProduct.DisplayName !== matchedProduct.ProdName ? ` · ${matchedProduct.DisplayName}` : ''}</small>}
+            {onEditAllocation && line.sourceEvidence?.allocationSourceId && <button type="button" disabled={busy || exportBusy} onClick={onEditAllocation} aria-label={`${line.lineNo ?? index + 1}행 Woolly bush 품목 변경`}>품목 선택·변경</button>}
+          </td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
             {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
             {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '100' : undefined} step="0.000001" placeholder="직접 입력" aria-invalid={neededByLine.get(line.lineId).includes(key)} value={key === 'tariffRate' ? lineInput.tariffPercentText ?? tariffPercent(lineInput[key]) : lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, key === 'tariffRate' ? tariffFraction(event.target.value) : event.target.value, event.target.value)} />
               {key === 'tariffRate' && <small>% · 25 입력 = 25%</small>}
