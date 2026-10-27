@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import InvoiceReceiptProductPicker from './InvoiceReceiptProductPicker.js';
 import { applyInvoiceAllocation, needsInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import { loadPdfPreview, isValidNormalizedBBox } from '../../lib/importPackingPdfPreview.js';
@@ -52,14 +53,17 @@ export default function InvoiceProductAllocation({ document:doc, products, file,
   const save=()=>{
     try{
       let next=doc;
-      for(const source of doc.rawMetadata.allocationSources) next=applyInvoiceAllocation(next,source.sourceLineId,rows.filter(row=>row.sourceEvidence.allocationSourceId===source.sourceLineId),products);
+      for(const [index,source] of doc.rawMetadata.allocationSources.entries()) {
+        try { next=applyInvoiceAllocation(next,source.sourceLineId,rows.filter(row=>row.sourceEvidence.allocationSourceId===source.sourceLineId),products); }
+        catch(error) { throw new Error(`원본 ${index+1} · ${source.originalName}\n${error.message}`); }
+      }
       onApply(next);
     }catch(error){setError(error.message);}
   };
   return createPortal(<div className={styles.modalBackdrop}><section ref={dialog} className={styles.modal} style={{width:'min(1440px, calc(100vw - 48px))',minWidth:0}} role="dialog" aria-modal="true" aria-label="Woolly bush 입고량 분류">
     <header><h3>Woolly bush · 품목별 입고량 분류</h3><button type="button" onClick={onClose}>닫기 · 미확인 유지</button></header>
     <div className={styles.modalBody}>
-      <p>원본에는 색상 구분이 없습니다. 담당자가 전산 품목을 선택하고 박스·단·송이를 나누어 입력하세요. 이 파일에만 저장되며 다음 업로드에서는 다시 확인합니다.</p>
+      <p>원본의 색상·규격과 대조하여 전산 품목을 선택하고 박스·단·송이를 확인하세요. 색상이 구분되지 않는 경우만 물량을 나누세요. 이 파일에만 적용되며 다음 업로드에서는 다시 확인합니다.</p>
       <div style={{display:'flex',flexWrap:'wrap',gap:16,alignItems:'flex-start'}}>
         <div style={{flex:'1 1 360px',minWidth:0}}>
           <div><button type="button" disabled={!preview||page<=1} onClick={()=>{setPage(page-1);setHighlight(null);}}>이전 페이지</button> {page} / {preview?.numPages||'?'} <button type="button" disabled={!preview||page>=preview.numPages} onClick={()=>{setPage(page+1);setHighlight(null);}}>다음 페이지</button></div>
@@ -81,7 +85,7 @@ export default function InvoiceProductAllocation({ document:doc, products, file,
             <p>원본: {source.boxQuantity??'미확인'}박스 / {source.bunchQuantity??'미확인'}단 / {source.stemQuantity??'미확인'}송이 · 단가 {source.unitPrice} {source.currency} / {source.priceUnit} · 금액 {source.lineAmount}</p>
             <div style={{overflowX:'auto'}}><table className={styles.sheet}><thead><tr><th>전산 품목</th>{labels.map(label=><th key={label}>{label}</th>)}<th>행</th></tr></thead><tbody>
               {rows.filter(row=>row.sourceEvidence.allocationSourceId===source.sourceLineId).map((row,index)=><tr key={row.lineId}>
-                <td><select aria-label={`원본 ${sourceIndex+1} 분류 ${index+1} 품목`} value={row.prodKey||''} onChange={e=>change(row.lineId,'prodKey',e.target.value)}><option value="">품목 선택</option>{candidates.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName} (#{p.ProdKey})</option>)}</select></td>
+                <td><InvoiceReceiptProductPicker label={`원본 ${sourceIndex+1} 분류 ${index+1} 품목`} products={candidates} product={candidates.find(p=>Number(p.ProdKey)===Number(row.prodKey))} onSelect={p=>{change(row.lineId,'prodKey',Number(p.ProdKey));setError('');}}/></td>
                 {fields.map((field,i)=><td key={field}><input style={{width:90}} inputMode="decimal" aria-label={`원본 ${sourceIndex+1} 분류 ${index+1} ${labels[i]}`} value={row[field]??''} disabled={source[field]==null} onChange={e=>change(row.lineId,field,e.target.value)}/></td>)}
                 <td><button type="button" onClick={()=>setRows(current=>current.filter(item=>item.lineId!==row.lineId))}>제거</button></td>
               </tr>)}
@@ -90,8 +94,7 @@ export default function InvoiceProductAllocation({ document:doc, products, file,
           </section>)}
         </div>
       </div>
-      {error&&<p role="alert" style={{color:'#b42318',whiteSpace:'pre-wrap'}}>{error}</p>}
     </div>
-    <footer><button type="button" onClick={onClose}>취소</button><button type="button" onClick={save}>합계 검증 · 문서에 적용</button></footer>
+    <footer style={{flexWrap:'wrap'}}>{error&&<p role="alert" style={{width:'100%',color:'#b42318',whiteSpace:'pre-wrap'}}>적용하지 못했습니다: {error}</p>}<button type="button" onClick={onClose}>취소</button><button type="button" onClick={save}>합계 검증 · 문서에 적용</button></footer>
   </section></div>, document.body);
 }

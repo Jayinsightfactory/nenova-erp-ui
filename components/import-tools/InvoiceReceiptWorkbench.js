@@ -8,7 +8,9 @@ import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput.js';
 import InvoiceWarehouseCostBrowse from './InvoiceWarehouseCostBrowse.js';
 import { normalizeWarehouseBrowse } from '../../lib/invoiceWarehouseBrowse.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
-import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
+import InvoiceReceiptProductPicker from './InvoiceReceiptProductPicker.js';
+import { receiptProductLabel } from '../../lib/invoiceReceiptProductSearch.js';
+import { allocationIssues, applyInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
@@ -89,8 +91,7 @@ function displayNumber(value) {
 }
 
 function productLabel(product) {
-  if (!product) return '';
-  return `${product.DisplayName || product.ProdName || product.ProdCode || '이름 없음'} (#${product.ProdKey})`;
+  return receiptProductLabel(product);
 }
 
 function newUuid() {
@@ -279,7 +280,6 @@ export default function InvoiceReceiptWorkbench({
   const selectableProducts = useMemo(() => (products || []).filter(product => product?.selectable !== false
     && (!documentValue?.reviewedMetadata?.country || product.country === documentValue.reviewedMetadata.country)),
   [documentValue?.reviewedMetadata?.country, products]);
-  const productByLabel = useMemo(() => new Map(selectableProducts.map(product => [productLabel(product), product])), [selectableProducts]);
   const onCostStageChange = useCallback(event => {
     if (!event || event.documentId !== selectedIdRef.current || Number(event.revision) !== Number(documentValue?.revision)) return;
     logStage(event, documentValue);
@@ -478,15 +478,22 @@ export default function InvoiceReceiptWorkbench({
     }));
   }
 
-  function updateLineProduct(lineId, value) {
-    const product = productByLabel.get(value) || null;
-    updateSelected(document => ({
-      ...document,
-      lines: document.lines.map(line => line.lineId === lineId
-        ? { ...line, productSearch: value, prodKey: product ? Number(product.ProdKey) : null,
-          reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product) } }
-        : line),
-    }));
+  function updateLineProduct(lineId, product) {
+    let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
+      ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
+        reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product),
+          ...(line.sourceEvidence?.allocationSourceId ? { allocationConfirmed: false } : {}) } } : line) };
+    const sourceId = next.lines.find(line => line.lineId === lineId)?.sourceEvidence?.allocationSourceId;
+    if (sourceId) {
+      const rows = next.lines.filter(line => line.sourceEvidence?.allocationSourceId === sourceId);
+      try {
+        next = applyInvoiceAllocation(next, sourceId, rows, products);
+        setNotice({ type: 'success', text: '품목 선택과 원본 합계 검증을 문서에 적용했습니다. 입고 등록은 아직 실행하지 않았습니다.' });
+      } catch (error) {
+        setNotice({ type: 'error', text: `품목은 선택했지만 분류 검증이 필요합니다: ${error.message}` });
+      }
+    }
+    updateSelected(() => next);
   }
 
   async function saveDraftRecord(target, isCurrent = () => true, applyToState = true) {
@@ -1182,7 +1189,9 @@ export default function InvoiceReceiptWorkbench({
         {documentValue.reviewedMetadata.weightSourceEvidence?.gw?.quote && <small>원문: {documentValue.reviewedMetadata.weightSourceEvidence.gw.quote}</small>}
       </Field>
       <Field label="CW (kg)"><NumberInput label="CW" value={documentValue.reviewedMetadata.cw} onChange={value => updateMetadata('cw', value)} />
-        {nullableNumber(documentValue.reviewedMetadata.cw) == null && <small role="status" style={{color:'#9a3412'}}>CW 미입력 · 원문·항공운송장을 확인하고 청구중량(kg)을 직접 입력하세요. GW·순중량으로 대신 채우지 않습니다. 원가 생성 전에 필요합니다.</small>}
+        {nullableNumber(documentValue.reviewedMetadata.cw) == null && <small role="status" style={{color:'#9a3412'}}>{['AU','AUSTRALIA','호주'].includes(String(documentValue.reviewedMetadata.country || '').toUpperCase())
+          ? '호주 CNF 단가는 운임 포함입니다. CW는 해당 원가 계산에 필요하지 않아 미기재로 진행할 수 있습니다. GW·CW는 확인된 중량만 입력하세요.'
+          : 'CW 미입력 · 중량 기준 원가식에는 청구중량 확인이 필요합니다. GW·순중량으로 대신 채우지 않습니다.'}</small>}
       </Field>
       <Field label="운임 통화"><input value={documentValue.reviewedMetadata.freightCurrency || ''} maxLength={3} placeholder="명시 필요" onChange={event => updateFreightCurrency(event.target.value)} /></Field>
       <Field label="운송·부대비 총액 (원가)"><NumberInput label="운송·부대비 총액 원가" value={documentValue.reviewedMetadata.costInputs?.freight?.amount} onChange={value => updateCostInput('freight', value)} /></Field>
@@ -1236,16 +1245,13 @@ export default function InvoiceReceiptWorkbench({
           <tbody>{documentValue.lines.map(line => {
             const product = productByKey.get(Number(line.prodKey));
             const committedProduct = committedLineIds.has(line.lineId);
-            const productSearch = line.productSearch ?? productLabel(product);
             const rowIssues = issuesByLine.get(line.lineId) || [];
             const reconciliation = reconciliationByLine.get(line.lineId);
             return <tr key={line.lineId} ref={element => element ? rowRefs.current.set(line.lineId, element) : rowRefs.current.delete(line.lineId)} className={rowIssues.length ? styles.issueRow : ''}>
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}</td>
               <td>{committedProduct
                 ? <div className={styles.productLock}><strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong><small>확정 입고 행의 품목은 변경할 수 없습니다. 수량 0 취소 후 새 행을 사용하세요.</small></div>
-                : <div className={styles.productPicker}><input type="search" list="invoice-receipt-products" aria-label={`${line.lineNo}행 전산 품목 검색`}
-                  placeholder="품목명 또는 코드 검색" value={productSearch} onChange={event => updateLineProduct(line.lineId, event.target.value)} />
-                  {!product && <small className={styles.required}>목록에서 전산 품목을 선택하세요.</small>}</div>}</td>
+                : <InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />}</td>
               {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => <td key={field}><NumberInput className={styles.cellInput} label={`${line.lineNo}행 ${['박스','단','송이'][index]}`} value={line[field]} onChange={value => updateLine(line.lineId, field, value)} /></td>)}
               <td><select className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>
@@ -1256,7 +1262,6 @@ export default function InvoiceReceiptWorkbench({
             </tr>;
           })}</tbody>
         </table>
-        <datalist id="invoice-receipt-products">{selectableProducts.map(product => <option key={product.ProdKey} value={productLabel(product)} />)}</datalist>
       </div>
 
       <aside className={styles.issues} aria-label="미리보기 이슈">
@@ -1277,7 +1282,8 @@ export default function InvoiceReceiptWorkbench({
     </div>
 
     {allocationOpen && <InvoiceProductAllocation document={documentValue} products={products} file={file}
-      onClose={() => setAllocationOpen(false)} onApply={next => { updateSelected(() => next); setAllocationOpen(false); }} />}
+      onClose={() => setAllocationOpen(false)} onApply={next => { updateSelected(() => next); setAllocationOpen(false);
+        setNotice({ type: 'success', text: '분류 품목과 박스·단·송이·금액 합계 검증을 문서에 적용했습니다. 입고 등록은 아직 실행하지 않았습니다.' }); }} />}
     {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
     <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">

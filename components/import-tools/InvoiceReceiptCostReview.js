@@ -153,6 +153,10 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
+    ...(verifiedFormula?.country === 'AU' && verifiedFormula?.freightIncluded === true ? {
+      freightAmount: numberOrNull(saved.freightAmount) === null ? (recognizedFreight ? Number(freight.amount) : 0) : saved.freightAmount,
+      freightCurrency: String(saved.freightCurrency || '').trim() || (recognizedFreight ? String(freight.currency).trim().toUpperCase() : uniformNativeCurrency),
+    } : {}),
     ...(verifiedFormula ? {
       formulaId: initialFormulaId,
       formulaVersion: verifiedFormula.formulaVersion,
@@ -769,7 +773,9 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     <p role="status">원문 가격 기준: {formulaPriceBasis(selectedFormula)} · 실제 원가 단위는 각 행의 ERP 단위입니다. 환산계수는 원문 근거로 직접 입력하세요.
       공식 전환 시 새 공식에서 사용하지 않는 행 입력은 비우며, 적용 확인을 다시 해야 합니다.</p>
-    {selectedFormula?.freightIncluded === true && <p role="alert" className={styles.reviewOnly}>CNF 가격에 운임이 포함되어 있습니다. 중복 가산을 막기 위해 별도 운임 원금에 0을 직접 입력하고 운임 통화도 확인하세요.
+    {selectedFormula?.freightIncluded === true && <p role="alert" className={styles.reviewOnly}>{selectedFormula.country === 'AU'
+      ? '호주 CNF 단가는 운임 포함입니다. 별도 운임이 없는 새 입력은 0으로 준비합니다. CW는 이 계산에 필요하지 않습니다.'
+      : 'CNF 가격에 운임이 포함되어 있습니다. 중복 가산을 막기 위해 별도 운임 원금에 0을 직접 입력하고 운임 통화도 확인하세요.'}
       기존 운임을 자동으로 0으로 바꾸지 않습니다. 다른 청구 비용은 해당 공식의 입력 근거를 확인하세요.</p>}
     <p role="status">현재 문서 GW: {document.reviewedMetadata?.gw ?? '미확인'} kg · CW: {document.reviewedMetadata?.cw ?? '미확인'} kg.
       중량 입력·확인은 문서 메타데이터 검토에서 수행하세요. 운임·환율·통관비와 단위 환산은 현재 자료로 직접 확인하며 누락값을 0으로 대신하지 않습니다.</p>

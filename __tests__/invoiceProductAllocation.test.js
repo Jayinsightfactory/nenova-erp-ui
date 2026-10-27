@@ -9,6 +9,10 @@ import { packingReceiptMatchState } from '../lib/packingReceiptMatchState.js';
 import { buildPackingMatchPreview } from '../lib/importPackingMatchPreview.js';
 import { packingSourceKey } from '../lib/importPacking.js';
 import { makePackingSourceReview, applyPackingSourceReview } from '../lib/importPackingSourceReview.js';
+import { INVOICE_COST_FORMULAS, previewInvoiceCost } from '../lib/invoiceReceiptCost.js';
+import { createNativeCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
+import JSZip from 'jszip';
+import { readFileSync } from 'node:fs';
 const products=[{ProdKey:2997,ProdName:'Wolly Bush Green Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'},
   {ProdKey:2998,ProdName:'Wolly Bush Red Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'}];
 async function fixture(year='2026',hash='a'){
@@ -32,6 +36,27 @@ test('fresh file never inherits approval; split preserves all four totals and or
   assert.equal(next.lines.length,2);assert.equal(next.lines[1].lineNo,2);
   assert.ok(allocationIssues(await fixture('2025','b')).length);
   assert.ok(allocationIssues(await fixture('2026','c')).length);
+});
+
+test('allocation clears stale typed search while retaining selected keys and exact original totals',async()=>{
+ const doc=await fixture(),rows=split(doc).map(row=>({...row,productSearch:'woo'}));
+ const next=applyInvoiceAllocation(doc,doc.lines[0].lineId,rows,products);
+ assert.deepEqual(next.lines.map(line=>line.prodKey),[2997,2998]);
+ assert.ok(next.lines.every(line=>line.productSearch===undefined));
+ assert.deepEqual(allocationIssues(next,products),[]);
+});
+
+test('actual workbench selection callback applies allocation and keeps invalid quantities visibly blocked',async()=>{
+ const source=readFileSync(new URL('../components/import-tools/InvoiceReceiptWorkbench.js',import.meta.url),'utf8');
+ const callback=source.slice(source.indexOf('  function updateLineProduct('),source.indexOf('  async function saveDraftRecord('));
+ const invoke=new Function('documentValue','products','applyInvoiceAllocation','updateSelected','setNotice','lineId','product',`${callback};updateLineProduct(lineId,product);`);
+ let doc=await fixture(),notice;
+ const select=()=>invoke(doc,products,applyInvoiceAllocation,mutator=>{doc=mutator(doc);},value=>{notice=value;},doc.lines[0].lineId,products[0]);
+ select();assert.equal(doc.lines[0].prodKey,2997);assert.equal(doc.lines[0].reviewed.allocationConfirmed,true);
+ assert.equal(notice.type,'success');assert.deepEqual(allocationIssues(doc,products),[]);
+ doc={...doc,lines:doc.lines.map(line=>({...line,boxQuantity:8}))};
+ select();assert.equal(notice.type,'error');assert.match(notice.text,/박스 원본 7 \/ 분류 8/);
+ assert.equal(doc.lines[0].reviewed.allocationConfirmed,false);assert.ok(allocationIssues(doc,products).length);
 });
 test('missing/negative/changed totals and invalid country rejected, explicit zero preserved',async()=>{
   const doc=await fixture(),id=doc.lines[0].lineId;
@@ -100,4 +125,24 @@ test('44-01 AU saved nine matches reuse while two Woolly source rows keep indepe
     [[2997,6,180,900,1530],[2998,4,120,600,1020]]);
   assert.equal(classified.lines.reduce((n,l)=>n+l.boxQuantity,0),65);
   assert.equal(classified.lines.reduce((n,l)=>n+l.lineAmount,0),20443.75);
+  // TEST_ONLY receipt snapshot: no writer/DB. AU CNF never requires invented CW.
+  const formula=INVOICE_COST_FORMULAS.AU_CNF_BUNCH_V1;
+  const input={...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:'2026-10-27',
+    nativeCurrency:'AUD',freightCurrency:'AUD',freightAmount:0,exchangeRateKRW:1000,
+    exchangeRateType:'TEST_ONLY',exchangeRateDate:'2026-10-27',customsTotalKRW:10000,
+    costSourceId:'TEST_ONLY:AU41002',allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,
+    lineInputs:classified.lines.map(line=>({lineId:line.lineId,tariffRate:0,
+      stemsPerBunch:line.stemQuantity/line.bunchQuantity,bunchesPerBox:line.bunchQuantity/line.boxQuantity}))};
+  const receiptLines=classified.lines.map(line=>({...line,outUnit:'단',outQuantity:line.bunchQuantity}));
+  const native={...classified,orderYear:'2026',orderWeek:'44-01',revision:1,receiptStatus:'NATIVE_READONLY',costStatus:'PREVIEW_ONLY',receiptLines,
+    reviewedMetadata:{...classified.reviewedMetadata,country:'AU',transportMode:'AIR',inputDate:'2026-10-27',gw:null,cw:null}};
+  const cost=previewInvoiceCost({...native,costInput:input},receiptLines);
+  assert.equal(cost.status,'APPROVED',JSON.stringify(cost.issues));
+  assert.equal(cost.lines.length,11);
+  assert.ok(Math.abs(cost.totals.totalCostKRW-20453750)<0.01);
+  const workbook=await createNativeCostWorkbook({document:native,input});
+  const zip=await JSZip.loadAsync(workbook);
+  assert.ok(zip.file('xl/workbook.xml'));
+  const duplicated=previewInvoiceCost({...native,costInput:{...input,freightAmount:1}},receiptLines);
+  assert.ok(duplicated.issues.some(issue=>issue.code==='CNF_FREIGHT_DOUBLE_COUNT'));
 });

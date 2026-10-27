@@ -1,11 +1,11 @@
 {
   "id":"invoice-product-allocation",
   "title":"호주 Woolly bush 파일별 입고량 분류",
-  "scope":["lib/invoiceProductAllocation.js","components/import-tools/InvoiceProductAllocation.js","lib/invoiceReceiptValidation.js","lib/importPackingReceiptAdapter.js","lib/importPackingErpMatches.js","lib/importPacking.js","lib/packingMatchReview.js","lib/packingReceiptMatchState.js","components/import-tools/PackingResults.js","components/import-tools/PackingListTool.js","components/import-tools/InvoiceReceiptWorkbench.js"],
+  "scope":["lib/invoiceReceiptProductSearch.js","components/import-tools/InvoiceReceiptProductPicker.js","lib/invoiceProductAllocation.js","components/import-tools/InvoiceProductAllocation.js","lib/invoiceReceiptValidation.js","lib/importPackingReceiptAdapter.js","lib/importPackingErpMatches.js","lib/importPacking.js","lib/packingMatchReview.js","lib/packingReceiptMatchState.js","components/import-tools/PackingResults.js","components/import-tools/PackingListTool.js","components/import-tools/InvoiceReceiptWorkbench.js"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[{"name":"ALLOCATE_SOURCE_ROW","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"웹 문서별 분류·이력만. 공용 별칭 저장 금지. 원본 박스/단/송이/금액 보존 검증 후 기존 writer 사용."}],
   "crossYearFixture":{"required":true,"description":"2025/2026 동일 세부차수도 파일별 sourceHash와 documentId 분리. 다음 업로드에 분류 승인 재사용 금지."},
-  "requiredTestFiles":["__tests__/invoiceProductAllocation.test.js","__tests__/importPackingErpMatches.test.js"],
+  "requiredTestFiles":["__tests__/invoiceReceiptProductSearch.test.js","__tests__/invoiceProductAllocation.test.js","__tests__/importPackingErpMatches.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"ExcelLoadingPackingList.MakeTempTable 별도 Box/Bunch/Steam/UPrice/TPrice, 읽기 전용 AU40927 기존 입고 대조: 동일 원문 Woolly bush가 Green/Red로 분리. 색상 자동 추정 근거 아님.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData"],"tables":["Product","WarehouseMaster","WarehouseDetail","StockHistory","ProductStock"]},
   "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
 }

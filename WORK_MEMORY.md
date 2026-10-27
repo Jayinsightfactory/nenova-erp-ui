@@ -1277,6 +1277,11 @@
 - 관련22테스트 통과, 전체검증/PR/배포 결과 세션 MD 후속 기록. 운영 직원 실제 저장 미검증.
 - 검색어: au44-import-access Woolly bush Authority4 Authority7 DeptName 수입부 관리자오류 41002
 
+## 2026-10-27 호주 품목검색·분류적용·CNF 안내
+- 영문 ProdName 대신 한글 DisplayName만 datalist에 노출되어 Woolly검색 실패. 한/영/코드 후보검색·명시선택, 분류적용시 임시검색어 제거·성공안내·고정오류표시.
+- AU CNF 새입력 추가운임0 준비, 기존 양수보존/중복가산차단. CW미기재 진행 가능 안내(중량값 자체 보존).
+-101관련테스트,44-01 11행65박스 fixture 원가/XLSX 생성,CW null통과. Chrome 격리화면 Green/Red 선택→이슈0 확인. 운영 실제 저장 미검증, Product SELECT외 쓰기없음.
+- 검색어: au44-flow Wolly Woolly DisplayName productSearch CNF CW 2997 2998
 ## 2026-10-27 태국39차 사진 승인 중량 (DB 불변)
 - 사용자 확인2026/39-01 AWB21710637233 EXCEL7474에 GW164kg/CW225.5kg 사진 근거를 보고서 읽기 계산에만 연결. SQL 운임772.315USD 및 원장·수기·확정 revision 쓰기 없음.
 - 다른 연도/차수/AWB/전표/농장/원문 지문은 거절. 신규 실제 중량·수기0 우선, 부분 실제값과 사진이 역전쌍을 만들면 사진 필드만 보류. 기존 NULL0 보조행 분류·상품분모는 그대로.
