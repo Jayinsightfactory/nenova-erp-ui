@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const PROFILE = path.join(__dirname, 'ecount-profile');
+export const PROFILE = process.env.ECOUNT_PROFILE_DIR || path.join(__dirname, 'ecount-profile');
 const DL = path.join(__dirname, '_downloads');
 export const ERP_ROOT = 'https://logincc.ecount.com/ec56/view/erp'; // 2026-10-08: 이카운트가 /ec5 → /ec56 으로 바뀜(옛 주소는 로그인 페이지로 튕겨 "만료" 오판)
 
@@ -32,7 +32,7 @@ export async function installGuard(ctx) {
     try { const url = new URL(u); host = url.hostname; pathq = url.pathname + url.search; } catch {}
     const isEcount = /(^|\.)ecount\.com$/i.test(host);
     const isWrite = (WRITE_RE.test(pathq) && !READ_RE.test(pathq)) || ['PUT', 'DELETE', 'PATCH'].includes(m);
-    if (isEcount && isWrite) { console.error(`🛑 [READ-ONLY GUARD] ECOUNT 쓰기 차단: ${m} ${u.slice(0, 100)}`); return route.abort(); }
+    if (isEcount && isWrite) { console.error(`🛑 [READ-ONLY GUARD] ECOUNT 쓰기 차단: ${m}`); return route.abort(); }
     return route.continue();
   });
 }
@@ -89,7 +89,7 @@ export async function collectOne(page, base, ds) {
   // 세션ID 유지: base(세션query 포함) + 정확한 메뉴 해시로 앱내 이동. full goto 로 딥링크 접속 금지.
   await page.goto(base + def.hash, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2800);
-  if (isLoginPage(page)) { console.log(`   (collectOne ${ds}: base=${String(base).slice(0, 90)} → ${page.url().slice(0, 120)})`); throw new Error('LOGIN_EXPIRED'); }
+  if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
   const dlP = page.waitForEvent('download', { timeout: ds === 'sales' ? 60000 : 15000 }).catch(() => null);
   let clicked = false;
