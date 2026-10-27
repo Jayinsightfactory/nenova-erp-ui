@@ -1402,3 +1402,11 @@
 - 저장청록·조회보라·매칭파랑·주문초록·삭제연빨강·재시도황토, 비활성 회색과 focus ring. 이벤트/disabled/서버저장/ERP SQL 변경0.
 - Chrome 격리실화면 요청30/분류표·버튼높이32px·색상·Tab초점 확인. build/dnSpy/manifest167/writeguard0/UI57 통과, 전체회귀/PR/배포 진행중.
 - 검색어: hotel-buttons 버튼통일 data-tone 32px 청록 보라 초록
+
+## 2026-10-27 ECOUNT 담당 거래처 채권 최신화 요청 및 메뉴 노출
+- Finance 상단 `ECOUNT 채권` 바로 옆에 `거래처관리대장1(채권)` 링크를 추가해 전표별 최근 1개월 화면 진입점을 노출.
+- 기존 정시수집을 KST 평일 08:00·11:00·14:00으로 변경(09시·정오·15시 전). 놓친 회차는 따라잡지 않음.
+- 선택한 담당·식별값 연결 거래처만 평일 08:00~18:00 수동 최신화 요청 가능. 요청은 WebEcountSnapshot ledger723 대기 이벤트에 append-only 저장하고 원본 PC 수집기가 예약 배치 종료 뒤 순차 처리; 요청 중복 억제, 실행상태 15초 폴링, 10분 cooldown, 2시간 이상 정지한 건 재시도 가능.
+- ECOUNT 조회 전용 유지. source code/요청자 정보는 대기 이벤트에 저장하지 않고, ECOUNT 및 공유 ERP 원장/테이블은 수정하지 않음.
+- 정책/API/큐 회귀 25건 통과. `npm run test:erp-contract`, `npm run test:nenova-dnspy-evidence`, `npm run test:erp-manifest -- --changed-from HEAD^`, `npm run guard:erp-writes -- --changed-from HEAD^`, `npm run build` 통과. 원본 PC 예약 작업과 배포 후 실브라우저는 PR/배포 후 확인 예정.
+- 검색어: ecount-ledger refresh-request 거래처관리대장1 E040723 08:00 11:00 14:00

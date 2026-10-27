@@ -12,9 +12,9 @@ const number=v=>{
   if(!/^-?\d*(\.\d+)?$/.test(s))throw new Error('SOURCE_NUMBER_INVALID');
   const n=Number(s);if(!Number.isFinite(n))throw new Error('SOURCE_NUMBER_INVALID');return n;
 };
-async function api(base,body){
+async function api(base,body=null,suffix=''){
   if(!process.env.NENOVA_TOKEN)throw new Error('SYNC_TOKEN_MISSING');
-  const response=await fetch(`${base}/api/ecount/customer-ledger-sync`,{method:body?'POST':'GET',
+  const response=await fetch(`${base}/api/ecount/customer-ledger-sync${suffix}`,{method:body?'POST':'GET',
     headers:{Authorization:`Bearer ${process.env.NENOVA_TOKEN}`,'Content-Type':'application/json'},
     body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
   const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
@@ -164,20 +164,48 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
   let lastAttempt=null,busy=false;
   try{lastAttempt=JSON.parse(fs.readFileSync(STATE,'utf8')).lastAttempt;}catch{}
   const tick=async()=>{
-    const slot=schedule.dueSlot(Date.now(),lastAttempt,process.env.ECOUNT_LEDGER_BOOTSTRAP==='1');
-    if(slot===null||busy)return;
-    busy=true;lastAttempt=slot;
-    let page,ok=0,failed=0,total=0;
+    if(busy)return;
+    const slot=schedule.dueSlot(Date.now(),lastAttempt);
+    if(slot===null&&!schedule.isRefreshRequestAllowed())return;
+    busy=true;
     try{
-      // Claim before collection, including across process restarts. No midnight/weekend catch-up.
-      fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
-      const work=await api(nenova);total=work.customers.length;
-      page=await ctx.newPage();
-      ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
-    }catch{failed=Math.max(failed,1);}
-    finally{
-      if(page)await page.close().catch(()=>{});
-      console.log(`[ledger723] slot=${new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed}`);
+      if(slot!==null){
+        lastAttempt=slot;
+        // Claim before collection, including across process restarts. No missed-slot catch-up.
+        fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
+        let page,ok=0,failed=0,total=0;
+        try{
+          const work=await api(nenova);total=work.customers.length;
+          page=await ctx.newPage();
+          ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
+        }catch{failed=Math.max(failed,1);}
+        finally{
+          if(page)await page.close().catch(()=>{});
+          console.log(`[ledger723] slot=${new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed}`);
+        }
+        return;
+      }
+      const result=await api(nenova,null,'?queue=refresh');
+      const request=result.refreshRequest;
+      if(!request)return;
+      let page,success=false;
+      try{
+        page=await ctx.newPage();
+        const payload=await collectCustomerLedger(page,getBase(),{custKey:request.custKey,sourceCode:request.sourceCode},request.period);
+        await api(nenova,payload);
+        success=true;
+      }catch(e){
+        const reason=/^[A-Z_]+$/.test(e?.message||'')?e.message:'SOURCE_LOOKUP_FAILED';
+        try{await api(nenova,{custKey:request.custKey,requestedCode:request.sourceCode,periodFrom:request.period.from,periodTo:request.period.to,collectedAt:new Date().toISOString(),failure:['SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS','SOURCE_CUSTOMER_AMBIGUOUS','SOURCE_IDENTITY_MISMATCH'].includes(reason)?'LINK_CHECK_REQUIRED':'SOURCE_UNAVAILABLE'});}catch{}
+      }finally{
+        if(page)await page.close().catch(()=>{});
+        try{await api(nenova,{refreshRequestId:request.requestId,refreshSuccess:success});}catch{}
+        console.log(`[ledger723] userRefresh customerKey=${request.custKey} success=${success}`);
+      }
+    }catch{
+      // Keep diagnostics free of source data, tokens and customer identifiers.
+      console.log('[ledger723] refresh dispatcher unavailable');
+    }finally{
       busy=false;
     }
   };

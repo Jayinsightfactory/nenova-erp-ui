@@ -91,7 +91,7 @@ function loadHandler(deps){
 function response(){return {statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(s){this.statusCode=s;return this;},json(data){this.data=data;return this;}};}
 test('API checks fresh owner scope before every ledger read, including forged admin query',async()=>{
  let owner='alice',reads=0;
- const deps={ledgerCustomers:async uid=>uid===owner?[{custKey:7,name:'fixture',active:true,managerUserId:owner,ecountCode:'fixture-code',codeMatchCount:1,linked:true}]:[],readLedger:async()=>{reads++;return {ledger:{rows:[]}};},...policy,...schedule};
+ const deps={ledgerCustomers:async uid=>uid===owner?[{custKey:7,name:'fixture',active:true,managerUserId:owner,ecountCode:'fixture-code',codeMatchCount:1,linked:true}]:[],readLedger:async()=>{reads++;return {ledger:{rows:[]}};},readLedgerRefreshRequest:async()=>null,...policy,...schedule};
  const handler=loadHandler(deps);
  for(const [uid,key,status] of [['alice','7',200],['bob','7',403],['alice','8',403],['alice','7 OR 1=1',400]]){
    const res=response();await handler({method:'GET',user:{userId:uid,authority:1},query:{custKey:key,userId:'alice'}},res);assert.equal(res.statusCode,status);
@@ -99,8 +99,53 @@ test('API checks fresh owner scope before every ledger read, including forged ad
  owner='bob';const res=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},res);assert.equal(res.statusCode,403);assert.equal(reads,1);
 });
 test('API list strips source identifiers and unavailable owner yields no customers',async()=>{
- const handler=loadHandler({ledgerCustomers:async uid=>uid==='alice'?[{custKey:7,name:'fixture',linked:true,ecountCode:'private',managerUserId:'alice'}]:[],readLedger:()=>assert.fail(),...policy,...schedule});
+ const handler=loadHandler({ledgerCustomers:async uid=>uid==='alice'?[{custKey:7,name:'fixture',linked:true,ecountCode:'private',managerUserId:'alice'}]:[],readLedger:()=>assert.fail(),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
  const res=response();await handler({method:'GET',user:{userId:'alice'},query:{}},res);
  assert.deepEqual(res.data.customers,[{custKey:7,name:'fixture',linked:true}]);assert.equal(res.headers['Cache-Control'],'private, no-store');
  const inactive=response();await handler({method:'GET',user:{userId:'inactive'},query:{}},inactive);assert.deepEqual(inactive.data.customers,[]);
+});
+test('manual refresh API rechecks the live owner, accepts only linked customers and returns no source identity',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger-refresh.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default withAuth(handler);','return handler;');
+ const calls=[];
+ const handler=new Function('ledgerCustomers','readLedgerRefreshRequest','requestLedgerRefresh',source)(
+  async uid=>uid==='alice'?[{custKey:7,linked:true,ecountCode:'1234567890'}]:[],
+  async key=>({status:'PENDING',requestedAt:'2026-10-27T00:00:00.000Z'}),
+  async(uid,key)=>{calls.push([uid,key]);return {status:'PENDING',requestedAt:'2026-10-27T00:00:00.000Z'};});
+ const ok=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:7}},ok);
+ assert.equal(ok.statusCode,200);assert.deepEqual(calls,[['alice',7]]);assert.equal(JSON.stringify(ok.data).includes('1234567890'),false);
+ const other=response();await handler({method:'POST',user:{userId:'bob'},body:{custKey:7}},other);assert.equal(other.statusCode,403);assert.equal(calls.length,1);
+ const invalid=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:'7 OR 1=1'}},invalid);assert.equal(invalid.statusCode,400);
+ const status=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},status);assert.equal(status.data.request.status,'PENDING');
+ const anonymous=response();await handler({method:'POST',body:{custKey:7}},anonymous);assert.equal(anonymous.statusCode,401);
+});
+test('refresh queue writes append-only web events, deduplicates pending requests and enforces cooldown/window',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {requestLedgerRefresh};';
+ let current=null,nextKey=100;const writes=[];
+ const query=async(q,p)=>{
+  if(q.includes('FROM Customer c'))return {recordset:p.uid.value==='alice'?[{CustKey:7,CustName:'private customer',code:'1234567890',managerUserId:'alice',codeMatchCount:1}]:[]};
+  if(q.includes('SELECT TOP (1) SnapshotKey,VerifyStatus,VerifyDetail'))return {recordset:current?[current]:[]};
+  if(q.includes('INSERT INTO WebEcountSnapshot')){
+   const row={SnapshotKey:nextKey++,VerifyStatus:p.status.value,VerifyDetail:p.payload.value};current=row;writes.push({row,params:p});return {recordset:[{SnapshotKey:row.SnapshotKey}]};
+  }
+  assert.fail(`unexpected query ${q}`);
+ };
+ const sql={MAX:'max',Int:'int',NVarChar:()=> 'nvarchar'};
+ const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness','isRefreshRequestAllowed',source)(require('crypto'),query,sql,policy.recentMonth,validateLedger,validateFailure,schedule.freshness,schedule.isRefreshRequestAllowed);
+ const now=Date.parse('2026-10-27T00:00:00Z');
+ const first=await store.requestLedgerRefresh('alice',7,now);assert.equal(first.status,'PENDING');assert.equal(writes.length,1);
+ assert.equal(writes[0].row.VerifyStatus,'AMBER');assert.equal(writes[0].params.note.value,'refresh-request:7');
+ assert.equal(writes[0].row.VerifyDetail.includes('alice'),false);assert.equal(writes[0].row.VerifyDetail.includes('1234567890'),false);
+ assert.equal((await store.requestLedgerRefresh('alice',7,now+1000)).status,'PENDING');assert.equal(writes.length,1);
+ await assert.rejects(store.requestLedgerRefresh('bob',7,now+2000),{message:'CUSTOMER_FORBIDDEN'});
+ await assert.rejects(store.requestLedgerRefresh('alice',7,Date.parse('2026-10-27T09:00:00Z')),{message:'REQUEST_WINDOW_CLOSED'});
+ current={SnapshotKey:500,VerifyStatus:'GREEN',VerifyDetail:JSON.stringify({kind:'LEDGER_REFRESH_REQUEST',state:'COMPLETE',custKey:7,requestedAt:new Date(now).toISOString(),updatedAt:new Date(now).toISOString()})};
+ await assert.rejects(store.requestLedgerRefresh('alice',7,now+30000),{message:'REQUEST_RATE_LIMIT'});
+});
+test('collector queue endpoint requires automation auth and exposes only the one claimed request to the worker',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger-sync.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default async function handler','async function handler').replace(/export const config=.*;/,'')+'\nreturn handler;';
+ let claims=0,finished=[];
+ const handler=new Function('crypto','getAutomationToken','checkAutomationAuth','ledgerCustomers','saveLedger','saveLedgerFailure','claimNextLedgerRefresh','finishLedgerRefreshRequest','recentMonth','isRefreshRequestAllowed',source)(require('crypto'),()=>'',req=>({ok:req.authorized}),async()=>[],async()=>({snapshotKey:1}),async()=>({snapshotKey:2}),async()=>{claims++;return {requestId:55,custKey:7,sourceCode:'1234567890',period:{from:'2026-09-27',to:'2026-10-27'}};},async(id,success)=>{finished.push([id,success]);return {status:success?'COMPLETE':'FAILED'};},policy.recentMonth,()=>true);
+ const denied=response();await handler({method:'GET',query:{queue:'refresh'}},denied);assert.equal(denied.statusCode,401);assert.equal(claims,0);
+ const claimed=response();await handler({method:'GET',authorized:true,query:{queue:'refresh'}},claimed);assert.deepEqual(claimed.data.refreshRequest,{requestId:55,custKey:7,sourceCode:'1234567890',period:{from:'2026-09-27',to:'2026-10-27'}});assert.equal(claims,1);
+ const complete=response();await handler({method:'POST',authorized:true,body:{refreshRequestId:55,refreshSuccess:true}},complete);assert.deepEqual(finished,[[55,true]]);assert.equal(complete.data.status,'COMPLETE');
 });
