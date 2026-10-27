@@ -43,6 +43,11 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">전산 입고의 품목·수량·단가를 불러오는 중…</p>}
     {data && <>
+      {data.source.country === 'AU' && <div role="status"><strong>호주 원가는 입고관리의 저장 총액(출하단가)을 기준으로 계산합니다.</strong>
+        <p>CNF 단당 계산값 = 저장 총액 ÷ 단수. 입고의 원래 단가·총액은 변경하지 않습니다.</p>
+        {data.document.lines.filter(line => line.nativePriceBasis && Math.abs(Number(line.nativeStoredUnitPrice) - line.unitPrice) > 0.000001).map(line =>
+          <p key={line.lineId}>{line.originalName} · 저장 단가 {line.nativeStoredUnitPrice} · 저장 총액 {line.lineAmount} ÷ {line.bunchQuantity}단 = 원가 계산용 {line.unitPrice}/단</p>)}
+      </div>}
       <form className={styles.metadata} onSubmit={event => { event.preventDefault(); generation.current++; setApplied({ ...metadata }); }}>
         <p>입고자료에 저장되지 않은 계산 기준만 확인하세요. 인보이스 파일은 필요하지 않습니다.</p>
         <label>매입 통화<select required value={metadata.currency} onChange={e => updateMetadata('currency', e.target.value)}><option value="">통화 선택</option>{['USD','EUR','CNY','AUD','NZD','THB'].map(value => <option key={value}>{value}</option>)}</select></label>

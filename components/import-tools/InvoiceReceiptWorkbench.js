@@ -208,6 +208,7 @@ export default function InvoiceReceiptWorkbench({
   const [browseScope, setBrowseScope] = useState({ orderYear: '', orderWeek: '' });
   const [browseMode, setBrowseMode] = useState('documents');
   const [browseInputError, setBrowseInputError] = useState('');
+  const [nativeCostScope, setNativeCostScope] = useState(null);
   useEffect(() => {
     const [year, week, sequence] = getCurrentWeek().split('-');
     setBrowseYear(year); setBrowseWeek(`${week}-${sequence}`);
@@ -1287,6 +1288,15 @@ export default function InvoiceReceiptWorkbench({
     {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
     <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">
+    <div className={styles.costPending}>
+      <strong>기존 입고로 도착원가 엑셀 받기</strong>
+      <p>입고가 이미 있으면 문서 연결 없이 기존 입고자료로 계산본을 다운로드할 수 있습니다. 입고·재고·승인 원가는 변경하지 않습니다.</p>
+      <button type="button" className={styles.primary} disabled={Boolean(busy) || !documentValue.orderYear || !documentValue.orderWeek || !documentValue.invoiceNo}
+        onClick={() => { setNotice(null); setNativeCostScope(`${documentValue.documentId}/${documentValue.orderYear}/${documentValue.orderWeek}/${documentValue.invoiceNo}`); }}>도착원가 엑셀 생성·다운로드 · 기존 입고</button>
+      {(!documentValue.orderYear || !documentValue.orderWeek || !documentValue.invoiceNo) && <p>연도·세부차수·송장번호를 먼저 입력하세요.</p>}
+    </div>
+    {nativeCostScope === `${documentValue.documentId}/${documentValue.orderYear}/${documentValue.orderWeek}/${documentValue.invoiceNo}` &&
+      <InvoiceWarehouseCostBrowse key={nativeCostScope} orderYear={documentValue.orderYear} orderWeek={documentValue.orderWeek} invoiceNo={documentValue.invoiceNo} />}
     {!currentRevisionCommitted && <div className={styles.costPending}>
       <strong>기존 입고 확인 후 원가만 작업</strong>
       <p>연도·차수·농장·송장과 품목·수량·금액을 대조합니다. 일치하지 않으면 이유를 표시하며, 새 입고를 자동 등록하지 않습니다.</p>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import XLSX from 'xlsx';
-import { readNativeCostSource, calculateNativeCost } from '../lib/nativeReceiptCost.js';
+import { readNativeCostSource, calculateNativeCost, nativeCostDocument } from '../lib/nativeReceiptCost.js';
 import { createNativeCostWorkbook, createInvoiceCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
 import { invoiceCostExportFixture } from './invoiceReceiptCostExport.test.js';
 import { createNativeCostHandler } from '../lib/nativeCostHttp.js';
@@ -48,6 +48,25 @@ for (const formula of ['CN_AIR_WEIGHT_CBM_V1','CN_SEA_ACTUAL_V1','NL_AMOUNT_V1',
     await assert.rejects(() => createInvoiceCostWorkbook({ document: result.document, revision: f.revision, snapshot: f.snapshot }));
   });
 }
+test('AU existing receipt preserves saved shipment total instead of multiplying saved UPrice by bunches', async () => {
+  const {source,request}=await fixture('AU_CNF_BUNCH_V1');
+  source.lines=[{...source.lines[0],originalName:'Wolly Bush Red Tip',bunchQuantity:120,stemQuantity:600,boxQuantity:4,outQuantity:120,outUnit:'단',unitPrice:8.5,lineAmount:5100}];
+  source.lines[0].stemsPerBox=30;
+  const defaults=nativeCostDocument(source,request.metadata).reviewedMetadata.invoiceCostInput.lineInputs[0];
+  assert.equal(defaults.bunchesPerBox,30);assert.equal(defaults.stemsPerBunch,5);
+  request.input.lineInputs=[{...request.input.lineInputs[0],...defaults}];
+  const before=JSON.stringify(source), result=calculateNativeCost(source,request);
+  assert.equal(result.preview.status,'APPROVED',JSON.stringify(result.preview.issues));
+  assert.equal(result.document.lines[0].unitPrice,42.5);
+  assert.equal(result.document.lines[0].nativeStoredUnitPrice,8.5);
+  assert.equal(result.preview.lines[0].componentAmounts.cnfNative,5100);
+  assert.equal(JSON.stringify(source),before);
+  const book=XLSX.read(await createNativeCostWorkbook(result));
+  const values=Object.values(book.Sheets[book.SheetNames[0]]).map(c=>c?.v);
+  assert.ok(values.includes(5100));assert.ok(values.includes(42.5));
+  assert.ok(values.some(v=>typeof v==='string'&&v.includes('저장총액')));
+});
+
 test('native scope, stale receipt, missing exchange rate, wrong formula and explicit zero remain guarded', async () => {
   const { source, request, queryFn } = await fixture('CN_SEA_ACTUAL_V1');
   await assert.rejects(() => readNativeCostSource({ queryFn, types, input: { ...request, orderYear: '2025' } }), /입고 상세/);
