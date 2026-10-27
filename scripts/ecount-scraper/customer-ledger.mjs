@@ -75,8 +75,8 @@ export async function collectCustomerLedger(page,base,customer,period){
     if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_PERIOD_MISMATCH');
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
-  stage='SEARCH_CLICK';
-  await search.click();
+  stage='SEARCH_SUBMIT';
+  await search.press('F8');
   stage='REPORT';
   // A correct complete report, not a search panel's visibility, establishes completion.
   await waitForReport(page,period,customer.sourceCode);
@@ -91,7 +91,20 @@ export async function collectCustomerLedger(page,base,customer,period){
     return {headers,rows,periods,identity:idCell?.nextElementSibling?.innerText.replace(/\D/g,'')};
   });
   return parseLedgerReport(source,customer,period);
-  }catch(e){if(/^[A-Z_]+$/.test(e.message))throw e;throw new Error(`SOURCE_${stage}_FAILED`);}
+  }catch(e){
+    if(/^[A-Z_]+$/.test(e.message))throw e;
+    if(stage==='REPORT'){
+      let scope;
+      try{scope=await page.evaluate(({code,expected})=>{
+        const id=Array.from(document.querySelectorAll('td')).find(c=>c.getClientRects().length&&c.innerText.trim()==='사업자등록번호');
+        return {hasIdentity:!!id,identity:id?.nextElementSibling?.innerText.replace(/\D/g,'')===code,
+          period:Array.from(document.querySelectorAll('body *')).some(c=>!c.children.length&&c.getClientRects().length&&c.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected)};
+      },{code:customer.sourceCode,expected:`${period.from}~${period.to}`});}catch{}
+      if(scope?.hasIdentity&&!scope.identity)throw new Error('SOURCE_IDENTITY_MISMATCH');
+      if(scope?.identity&&!scope.period)throw new Error('SOURCE_REPORT_PERIOD_NOT_UPDATED');
+    }
+    throw new Error(`SOURCE_${stage}_FAILED`);
+  }
 }
 export function parseLedgerReport(source,customer,period,collectedAt=new Date()){
   if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||source.identity!==customer.sourceCode)throw new Error('SOURCE_IDENTITY_MISMATCH');
