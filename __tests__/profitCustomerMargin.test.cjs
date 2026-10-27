@@ -80,3 +80,72 @@ test('all categories/customers retained and units partitioned; customer share us
   const groups=buildCustomerMarginGroups({currentRows:rows,previousRows:[],currentCosts:{1:{unitCost:10}},decompose:()=>({})});
   assert.equal(groups.length,2);assert.equal(groups[0].customers.length,350);assert.equal(groups[0].customers[0].current.quantityShare,1/350);
 });
+
+test('strict receipt identity recovers duplicate products without changing legacy weighted display',async()=>{
+  const {arrivalReceiptRow,aggregateArrivalCosts}=await import('../lib/pivotArrivalCalc.js');
+  const {completeReceiptCoverage}=await load();
+  const rows=[{WdetailKey:101,ProdKey:1,OutQuantity:10},{WdetailKey:102,ProdKey:1,OutQuantity:30}];
+  const calculated=[{warehouseDetailKey:101,prodKey:1,displayArrivalKRW:100},{warehouseDetailKey:102,prodKey:1,displayArrivalKRW:200}];
+  const aggregate=strictReceiptLines=>aggregateArrivalCosts(calculated.map(r=>{
+    const source=arrivalReceiptRow(rows,r,{strictReceiptLines});return{...r,warehouseDetailKey:source.WdetailKey,
+      inQty:source.OutQuantity,displayUnit:'단',source:'live'};
+  }),{mode:'weighted'})[1];
+  const legacy=aggregate(false),strict=aggregate(true);
+  assert.equal(legacy.arrivalCost,150);assert.deepEqual(legacy.receiptCoverage.lineKeys,[101,101]);
+  assert.equal(strict.arrivalCost,175);assert.deepEqual(strict.receiptCoverage.lineKeys,[101,102]);
+  assert.equal(completeReceiptCoverage(legacy,[101,102],40),false);
+  assert.equal(completeReceiptCoverage(strict,[101,102],40),true);
+  for(const changed of [{warehouseDetailKey:null,prodKey:1},{warehouseDetailKey:999,prodKey:1},{warehouseDetailKey:101,prodKey:2}])
+    assert.equal(arrivalReceiptRow(rows,changed,{strictReceiptLines:true}),undefined);
+  assert.equal(arrivalReceiptRow([...rows,rows[0]],calculated[0],{strictReceiptLines:true}),undefined);
+  const mixed=aggregateArrivalCosts([{prodKey:1,warehouseDetailKey:101,inQty:10,displayArrivalKRW:100,displayUnit:'단'},
+    {prodKey:1,warehouseDetailKey:102,inQty:30,displayArrivalKRW:200,displayUnit:'박스'}],{mode:'weighted'})[1];
+  assert.equal(completeReceiptCoverage(mixed,[101,102],40),false);
+});
+
+test('native minor ROUND2 proof reconciles without changing quantities or inventing acquisition value',async()=>{
+  const {reconcileNativeMarginQuantity,reconstructProductCost}=await load();
+  const steps=[{OrderYear:'2026',OrderWeek:'38-02',RawIn:0,RawOut:0.3366666666666667,RawAdjust:0,NativeIn:0,NativeOut:0.34,NativeAdjust:0},
+    {OrderYear:'2026',OrderWeek:'38-01',RawIn:1,RawOut:0.33,RawAdjust:0,NativeIn:1,NativeOut:0.33,NativeAdjust:0}];
+  const input={openingQuantity:0,endQuantity:4.95,factor:15,steps,year:'2026',major:38,rawQuantities:{receipt:15,ship:10,adjustment:0}};
+  const proof=reconcileNativeMarginQuantity(input);assert.equal(proof.matched,true);assert.deepEqual(proof.minorPeriods,['38-01','38-02']);
+  assert.equal(reconcileNativeMarginQuantity({...input,endQuantity:5.1}).matched,false);
+  assert.equal(reconcileNativeMarginQuantity({...input,steps:[{...steps[0],OrderYear:'2025'}]}),null);
+  assert.equal(reconcileNativeMarginQuantity({...input,steps:[steps[0],steps[0]]}),null);
+  const current=period(38,{receiptQuantity:15,receiptAmount:150,shipQuantity:10,adjustmentQuantity:0,endQuantity:4.95,nativeFactor:15,nativeSteps:steps});
+  const cost=reconstructProductCost({product,periods:[period(37),current],targetMajor:38});
+  assert.equal(cost.unitCost,10);assert.equal(cost.receiptQuantity,15);assert.equal(cost.shipQuantity,10);
+  assert.equal(cost.rawBalanced,false);assert.equal(cost.balanced,true);
+  for(const bad of [{receiptAmount:null,receiptComplete:false},{receiptQuantity:null},{hasPositiveAdjustment:true},{unitKnown:false}])
+    assert.equal(reconstructProductCost({product,periods:[period(37),{...current,...bad}],targetMajor:38}).unitCost,null);
+  // A same-quantity negative adjustment is not proof of the positive adjustment's acquisition cost.
+  assert.equal(reconstructProductCost({product,periods:[period(37),{...current,hasPositiveAdjustment:true,adjustmentQuantity:0}],targetMajor:38}).unitCost,null);
+  const mismatch=period(38,{receiptQuantity:100,receiptAmount:1000,endQuantity:200,nativeFactor:1,
+    nativeSteps:[{OrderYear:'2026',OrderWeek:'38-01',RawIn:200,RawOut:0,RawAdjust:0,NativeIn:200,NativeOut:0,NativeAdjust:0}]});
+  const rejected=reconstructProductCost({product,periods:[period(37),mismatch],targetMajor:38});
+  assert.equal(rejected.unitCost,null);assert.equal(rejected.quantityReconciliation.inputsMatched,false);
+  assert.equal(reconcileNativeMarginQuantity({...input,rawQuantities:{receipt:15,ship:11,adjustment:0}}).matched,false);
+});
+
+test('zero physical field requires two agreeing positive source fields; conflicts and negative values survive',async()=>{
+  const {physicalMarginReceipt,reconstructProductCost}=await load();
+  const p={...product,BunchOf1Box:25,SteamOf1Box:625,SteamOf1Bunch:25};
+  const r={BoxQuantity:70,BunchQuantity:0,SteamQuantity:43750,OutQuantity:70};
+  assert.equal(physicalMarginReceipt(r,p),1750);
+  assert.equal(physicalMarginReceipt({...r,SteamQuantity:0},p),0);
+  assert.equal(physicalMarginReceipt({...r,SteamQuantity:40000},p),0);
+  assert.equal(physicalMarginReceipt({...r,BunchQuantity:100},p),100);
+  assert.equal(physicalMarginReceipt({...r,BunchQuantity:-1},p),-1);
+  assert.equal(physicalMarginReceipt({...r,OutQuantity:0},p),0);
+  assert.equal(reconstructProductCost({product:p,periods:[period(37),period(38,{unitKnown:false,receiptQuantity:100,receiptAmount:100,endQuantity:100})],targetMajor:38}).unitCost,null);
+});
+
+test('exact historical FX evidence is accepted, current/master and carry/unknown FX are not',async()=>{
+  const {hasHistoricalMarginFx}=await load();
+  for(const source of ['freight_snapshot','freight_cost_snapshot','source_workbook_week','report_purchase_period_taxable','approved_customs_timing_estimate','manual'])
+    assert.equal(hasHistoricalMarginFx({reportRateEvidence:[{source,rate:1400}]}),true,source);
+  for(const source of ['currency_master','approximate_currency_master','source_workbook_major','source_workbook_carry','missing','none','VERIFIED'])
+    assert.equal(hasHistoricalMarginFx({reportRateEvidence:[{source,rate:1400}],sourceRefs:['erp:report-purchase-fx-1400']}),false,source);
+  assert.equal(hasHistoricalMarginFx({reportRateEvidence:[{source:'freight_snapshot',rate:null}]}),false);
+  assert.equal(hasHistoricalMarginFx({reportRateEvidence:[{source:'freight_snapshot',rate:1400},{source:'currency_master',rate:1400}]}),false);
+});

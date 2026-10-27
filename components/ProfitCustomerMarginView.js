@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import {
   displayNumber as num, displayPercent as pct, displayPoints as pp, differencePoints,
-  coverageText, filterMarginGroups, warningText, navigateMarginRows, closeMarginDetails, salesPhysicalAverageCost, attachGroupCostBasis, marginGroupLabel,
+  coverageText, filterMarginGroups, warningText, navigateMarginRows, closeMarginDetails, salesPhysicalAverageCost, attachGroupCostBasis, marginGroupLabel, reconciliationReason,
 } from '../lib/profitCustomerMarginPresentation.mjs';
 
 const period = p => p ? `${p.year}년 ${Number(p.major)}차` : '비교 차수 없음';
@@ -15,6 +15,49 @@ function Warnings({ items = [] }) {
 }
 function Cols({ widths }) { return <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>; }
 function ScrollTable({ children, label }) { return <div className="pcm-table-wrap" role="region" aria-label={label} tabIndex={0}>{children}</div>; }
+
+export function ReconciliationDetails({ data }) {
+  const evidence=data.metadata?.reconciliationDetails;
+  if(!evidence) return null;
+  const labels={N:'N 출고매출',L:'L 불량차감',O:'O 운임·기타'};
+  const needsAttention=evidence.summaries.some(s=>s.status!=='match');
+  return <section aria-labelledby="pcm-reconciliation-title">
+    <h2 id="pcm-reconciliation-title">저장본·SQL 대사 근거</h2>
+    <details open={needsAttention} onKeyDown={closeMarginDetails}><summary>{evidence.summaries.map(s=>`${period(s.scope)} ${s.status==='match'?'일치':s.status==='different'?'차이 있음':'근거 부족'}`).join(' · ')} — 금액·조회범위 확인</summary>
+    <p>저장 당시 보고서와 지금 SQL을 비교합니다. 차이는 원가 미확정과 별개입니다. 기존 수익률·확정본·계산 저장본은 변경하지 않습니다.</p>
+    <p>현재 SQL 조회 시작: {asOf(evidence.asOf)} · 여러 SELECT의 순차·병렬 읽기이며 한 시점으로 잠근 스냅샷은 아닙니다.</p>
+    {(evidence.summaries||[]).map(summary=>{
+      const differences=evidence.entries.filter(r=>r.side===summary.side&&r.status!=='match');
+      return <article key={summary.side} className="pcm-driver">
+        <h3>{period(summary.scope)} · {summary.status==='match'?'N/L/O 일치':summary.status==='different'?'금액 차이 있음':'비교 근거 부족'}</h3>
+        <p>{summary.source==='confirmed'?'확정본':summary.source==='stored'?'계산 저장본':'저장본 없음'} 기준: {asOf(summary.storedAt)}
+          {summary.provenance?.versionNo!=null?` · 저장 버전 ${summary.provenance.versionNo}`:''}
+          {summary.provenance?.revisionNo!=null?` · 확정 개정 ${summary.provenance.revisionNo}`:''}</p>
+        <ScrollTable label={`${period(summary.scope)} N/L/O 전체금액 대사`}><table style={{minWidth:680}}>
+          <caption>기존 보고서와 같은 합계 범위 · 차이 = 현재 SQL − 저장본 (원)</caption>
+          <Cols widths={[140,130,130,130,180]} />
+          <thead><tr><th scope="col">항목</th><th scope="col">현재 SQL</th><th scope="col">저장본</th><th scope="col">차이</th><th scope="col">다른 분류 / 미확인 분류</th></tr></thead>
+          <tbody>{summary.totals.map(r=><tr key={r.column}><th scope="row">{labels[r.column]}</th><td>{num(r.sqlValue)}</td><td>{num(r.reported)}</td><td>{num(r.delta,2)}</td><td>{r.differingCategories} / {r.incompleteCategories}</td></tr>)}</tbody>
+        </table></ScrollTable>
+        {summary.totals.some(r=>r.excludedSqlValue!==0)&&<p>본표 합계에서 제외되는 기타(미분류)·공제·국내는 분류별 대사에는 남깁니다: {summary.totals.map(r=>`${r.column} ${num(r.excludedSqlValue)}원`).join(' · ')}. 이 금액을 본표 합계 오류로 판정하지 않습니다.</p>}
+        {summary.interpretation==='CATEGORY_REDISTRIBUTION_CANDIDATE'&&<p>전체 합계는 같지만 국가·품종별 배분이 다릅니다. 분류 이동 가능성이 있으며, 과거 변경 이력까지 확인된 것은 아닙니다.</p>}
+        {differences.length>0&&<ScrollTable label={`${period(summary.scope)} 분류별 대사 차이`}><table style={{minWidth:1000}}>
+          <caption>차이 또는 근거가 부족한 항목만 표시</caption><Cols widths={[200,120,120,120,130,310]} /><thead><tr><th scope="col">국가·품종 / 항목</th><th scope="col">저장본</th><th scope="col">현재 SQL</th><th scope="col">차이</th><th scope="col">기본 분류 SQL</th><th scope="col">확인된 근거</th></tr></thead>
+          <tbody>{differences.map(r=><tr key={`${r.category}:${r.column}`}><th scope="row">{r.category} · {labels[r.column]}</th><td>{num(r.reported)}</td><td>{num(r.sqlValue)}</td><td>{num(r.delta,2)}</td><td>{num(r.baseSqlValue)}</td><td>{reconciliationReason(r.reason)}</td></tr>)}</tbody>
+        </table></ScrollTable>}
+        <details><summary>SQL 조회 범위·분류 적용 근거</summary>
+          <p>선택 연도 + 세부차수 접두어 + 원본 OrderYearWeek가 모두 일치하는 활성·확정 마스터가 대상입니다. 출고는 상세 확정·실출고수량 0 제외, 무게행 제외이며 견적 차감·기타는 별도로 합산합니다.</p>
+          <p>대상 연도·차수의 제외 후보: 원본 연도차수 불일치 {num(summary.scopeCoverage?.yearWeekMismatchRows)}행, 미확정 {num(summary.scopeCoverage?.unconfirmedRows)}행, 실출고수량 0 {num(summary.scopeCoverage?.zeroPhysicalRows)}행 / {num(summary.scopeCoverage?.zeroPhysicalAmount)}원. 사유는 서로 중복될 수 있습니다.</p>
+          <ul>{summary.observedScopes.map((s,i)=><li key={i}>{s.year}년 {s.week||'세부차수 미확인'} · raw {s.rawYearWeek||'미확인'} · {s.table||'원천 미확인'} {s.rowCount}행</li>)}</ul>
+          {summary.classificationEffects.length===0?<p>현재 SQL 대상 중 기본 분류와 수동 분류가 달라지는 행은 없습니다.</p>:<ul>{summary.classificationEffects.map((e,i)=><li key={i}>{e.baseCategory} → {e.category} · {labels[e.column]} {num(e.amount)}원 · {e.productCount}품목 (ProdKey 예시 {e.sampleProdKeys.join(', ')}{e.omittedProductCount?` 외 ${e.omittedProductCount}개`:''})</li>)}</ul>}
+          <p>분류 규칙 {evidence.classification?.entryCount??'미확인'}건 · 지문 {evidence.classification?.fingerprint||'미확인'}. 지문만으로 저장 당시의 규칙을 추정하지 않습니다.</p>
+        </details>
+      </article>;
+    })}
+    <p>{evidence.note}</p>
+    </details>
+  </section>;
+}
 
 export function CostCoverageSummary({ coverage, current, previous }) {
   const periods = [['previous', '비교', previous], ['current', '조회', current]];
@@ -146,6 +189,7 @@ export default function ProfitCustomerMarginView({ data }) {
     <p className="pcm-note">현재 SQL 조회시점: {asOf(data.current?.asOf)} · 비교 SQL 조회시점: {asOf(data.previous?.asOf)}. 저장 보고서와 SQL의 기준시점이 다를 수 있습니다.</p>
     <CostCoverageSummary coverage={data.metadata?.costCoverage} current={data.current} previous={data.previous} />
     <Warnings items={data.warnings} />
+    <ReconciliationDetails data={data} />
     <section className="pcm-intro"><b>판매마진 = (순판매액 − 실제 판매분 원가) ÷ 순판매액</b><p>원가는 같은 품목의 이월재고와 당차수 입고를 함께 고려한 가중평균 도착원가입니다. 판매가와 VAT는 원가에 섞지 않습니다. 물량·업체 구성과 재고평가·조정 영향을 나누어 확인합니다.</p></section>
     <section><h2>모든 품종 · 업체비중과 판매마진</h2>
       <label className="pcm-search">국가·품종·업체·품목 찾기 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="예: 카네이션, 주광" /></label>

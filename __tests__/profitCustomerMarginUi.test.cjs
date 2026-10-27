@@ -29,6 +29,24 @@ const group = { key: 'CO|카네이션|단', category: '콜롬비아 카네이션
   drivers: { profitDelta: null, marginDeltaPp: null, contributions: [], residual: null,
     coverage: { commonPairs: 1, pricedCommonPairs: 0 }, commonCohort: { revenueDelta: 1000 }, revenueDrivers: [{ key: 'mix', label: '업체 구성', amount: 1000 }], warnings: ['원가 미확정'] } };
 
+test('reconciliation UI renders exact side/category/source differences without declaring stale values corrected',async()=>{
+ const h=await helper;const ui=compile('components/ProfitCustomerMarginView.js',h);
+ const {buildMarginReconciliation}=await import('../lib/profitCustomerMarginReconciliation.mjs');
+ const evidence=buildMarginReconciliation({asOf:'2026-10-27T09:00:00Z',classification:{entryCount:1,fingerprint:'abcd'},periods:[{
+  side:'current',scope:{year:'2026',major:'39'},rows:[{category:'태국',baseCategory:'중국',prodKey:55,kind:'N',amount:1234}],
+  stored:{source:'stored',asOf:'2026-10-26T00:00:00Z',provenance:{versionNo:7},rows:[{category:'태국',calc:{N:0,L:0,O:0}},{category:'중국',calc:{N:1234,L:0,O:0}}],totals:{N:1234,L:0,O:0}},
+ }]});
+ const html=renderToStaticMarkup(React.createElement(ui.ReconciliationDetails,{data:{metadata:{reconciliationDetails:evidence}}}));
+ assert.match(html,/2026년 39차/);assert.match(html,/1,234/);assert.match(html,/-1,234/);assert.match(html,/2026-10-26T00:00:00Z/);assert.match(html,/저장 버전 7/);
+ assert.match(html,/전체 합계는 같지만/);assert.match(html,/기본 분류 합계는 저장값과 같음/);assert.match(html,/중국 → 태국/);assert.match(html,/ProdKey 예시 55/);
+ assert.match(html,/원가 미확정과 별개/);assert.match(html,/기존 수익률·확정본·계산 저장본은 변경하지 않습니다/);assert.match(html,/미확정/);
+ assert.match(html,/<details open=""/);assert.equal((html.match(/<table/g)||[]).length,(html.match(/<colgroup/g)||[]).length);
+ assert.doesNotMatch(html,/자동 갱신|새로 저장|수정 완료/);
+ const matched=buildMarginReconciliation({periods:[{side:'current',scope:{year:'2026',major:'39'},rows:[],stored:{source:'stored',rows:[{category:'태국',calc:{N:0,L:0,O:0}}],totals:{N:0,L:0,O:0}}}]});
+ const collapsed=renderToStaticMarkup(React.createElement(ui.ReconciliationDetails,{data:{metadata:{reconciliationDetails:matched}}}));
+ assert.doesNotMatch(collapsed,/<details open/);assert.match(collapsed,/2026년 39차 일치/);
+});
+
 test('presentation preserves null/zero, fraction percentages, point differences and full-scope unit groups', async () => {
   const h = await helper;
   assert.equal(h.displayNumber(null), '미확정'); assert.equal(h.displayNumber(0), '0'); assert.equal(h.displayNumber(NaN), '미확정');

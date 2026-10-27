@@ -1402,3 +1402,11 @@
 - 저장청록·조회보라·매칭파랑·주문초록·삭제연빨강·재시도황토, 비활성 회색과 focus ring. 이벤트/disabled/서버저장/ERP SQL 변경0.
 - Chrome 격리실화면 요청30/분류표·버튼높이32px·색상·Tab초점 확인. build/dnSpy/manifest167/writeguard0/UI57 통과, 전체회귀/PR/배포 진행중.
 - 검색어: hotel-buttons 버튼통일 data-tone 32px 청록 보라 초록
+
+## 2026-10-27 업체 판매마진 원가 미확정·운영 대사 경고 보완
+- 사용자 요청: DB를 변경하지 않고 미확정119품목과 저장본·SQL 경고를 진단/보완/검증/배포. 별도 nw-profit-margin-evidence, base cb485cbc.
+- 정확한 WdetailKey 대신 동일 ProdKey 첫 입고로 연결하던 부분을 새 분석 strict 옵션에서 보완. 기존 주차별 보고서 기본 호출/원가/수익률은 보존한다.
+- 실제 0재고 앵커 이후 입고 조회한도와 native ROUND2를 검증. 원가원천 raw 입고/출고/조정과 native 원시합계가 다르면 잔량이 맞아도 원가 승격 금지.
+- 경량 대사 GET와 SQL/저장본 차액·분류 적용·시점·합계 제외범위 표시. 운영 원인은 운영 응답 확인 전 미검증, 로컬 일치를 운영 전체 일치로 보고하지 않음.
+- 39차119→98/38차86→45, 기존본표/판매값19,629비교·기존도착원가371품목 불변. SELECT1238/쓰기0/8.255초,52회귀·전체verify/build·manifest168/writeguard1·production로컬UI 통과. CI·배포·운영 브라우저 아직 미검증. 기록: docs/work-sessions/2026-10-27_profit-margin-evidence.md.
+- 검색어: profit-margin-evidence 원가미확정119 WdetailKey strictReceiptLines nativeROUND2 원천범위 reconciliation 저장본SQL
