@@ -53,13 +53,21 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='CUSTOMER_LOOKUP';
   await field.fill(customer.sourceCode);await field.press('Enter');
   // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
-  try{await remove.waitFor({state:'visible',timeout:10000});}
+  try{
+    const found=await Promise.race([
+      remove.waitFor({state:'visible',timeout:10000}).then(()=>true),
+      page.getByRole('button',{name:'적용(F8)',exact:true}).waitFor({state:'visible',timeout:10000}).then(()=>false),
+    ]);
+    if(!found)throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');
+  }
   catch{throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');}
   if(await remove.count()!==1||await page.getByRole('button',{name:'적용(F8)',exact:true}).count())throw new Error('SOURCE_CUSTOMER_AMBIGUOUS');
   stage='PERIOD';
   // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
   await page.getByRole('button',{name:'전월+금월',exact:true}).click();
-  await waitForReport(page,null,customer.sourceCode);
+  // The previous report can remain visible while the shortcut request is in flight.
+  await page.waitForLoadState('networkidle',{timeout:15000});
+  await waitForReport(page,{from:`${period.from.slice(0,7)}-01`,to:period.to},customer.sourceCode);
   const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
   if(!await search.isVisible()){await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();}
   for(const [date,offset] of [[period.from,0],[period.to,3]]){
@@ -69,18 +77,17 @@ export async function collectCustomerLedger(page,base,customer,period){
       if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
     }
     const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
-    // ECOUNT's date model listens to keyboard events; fill() can change only the DOM.
-    await dayField.press('Control+A');
-    await dayField.press('Backspace');
-    for(const digit of day)await dayField.press(digit);
+    await dayField.fill(day);
     // Commit and read back ECOUNT's edited day before requesting the report.
     await dayField.press('Tab');
-    if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_PERIOD_MISMATCH');
+    if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_DAY_INPUT_NOT_COMMITTED');
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
   stage='SEARCH_SUBMIT';
-  await search.press('F8');
+  // Click this page's search button; global F8 can be ignored while the legacy tab is active.
+  await search.click();
   stage='REPORT';
+  await page.waitForLoadState('networkidle',{timeout:15000});
   // A correct complete report, not a search panel's visibility, establishes completion.
   await waitForReport(page,period,customer.sourceCode);
   const source=await page.evaluate(()=>{
