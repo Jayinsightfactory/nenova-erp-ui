@@ -17,6 +17,23 @@ const OP = '22222222-2222-8222-8222-222222222222';
 const COST = '33333333-3333-8333-8333-333333333333';
 const FORMULA = INVOICE_COST_FORMULAS.CN_AIR_WEIGHT_CBM_V1;
 
+test('AU original template restores defaults, formulas, full range and preserves approved snapshot',async()=>{
+  const f=invoiceCostExportFixture(11,'AU_CNF_BUNCH_V1'), before=JSON.stringify(f);
+  const bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true}),s=book.Sheets['원본 양식 계산'];
+  assert.equal(JSON.stringify(f),before);
+  assert.equal(s.N6.v,33000);assert.equal(s.N8.v,90000);assert.equal(s.W14.v,460);assert.equal(s.W15.v,10000);
+  assert.equal(s.D5.f,'SUM(G13:G23)');assert.equal(s.D9.f,'SUM(E13:E23)');
+  assert.match(s.N5.f,/D7\*W14/);assert.match(s.N7.f,/D8\*W15/);
+  assert.match(s.N23.f,/O23\/1.1/);assert.match(s.P23.f,/M23\/0.77/);assert.match(s.R23.f,/N23=0/);
+  assert.equal(s.O23?.v,undefined);assert.equal(s.N23.v,'');
+  for(const [ref,label] of Object.entries({N12:'판매(부가세 별도)',Q12:'이익',R12:'이익률',S12:'총판매가',T12:'총이익',R10:'총이익률',S10:'총판매가',T10:'총이익'}))assert.equal(s[ref].v,label);
+  assert.match(s.O12.v,/매주 확인/);assert.match(s.R11.f,/T11\/S11/);assert.match(s.S11.f,/SUM\(S13:S23\)/);assert.match(s.T11.f,/SUM\(T13:T23\)/);
+  assert.match(s.V2.v,/38-1.*현재 판매가 아님/);
+  assert.equal(s.W18.v,f.snapshot.input.customsTotalKRW);
+  assert.ok(Math.abs(s.W22.v)<0.01);
+  assert.match(await (await JSZip.loadAsync(bytes)).file('xl/workbook.xml').async('string'),/activeTab="2"/);
+});
+
 test('CO 42-1 restores original labels, defaults and live formulas without changing approval or copying old transactions', async () => {
   const f = invoiceCostExportFixture(7, 'CO_GROUP_42_1_V1');
   const before = JSON.stringify(f);
@@ -485,7 +502,7 @@ for (const [id, assetName, filename] of [
     for (const row of asset.rows) assert.ok(xml.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(xml.includes(`ref="${merge}"`));
     const book = XLSX.read(buffer, { cellNF: true }), s = book.Sheets['2026 41-02'];
-    assert.deepEqual(book.SheetNames, ['2026 41-02', '원본수식 비교']);
+    assert.deepEqual(book.SheetNames, ['2026 41-02', '원본수식 비교', ...(id === 'AU_ORIGINAL_V1' ? ['원본 양식 계산'] : [])]);
     const us = id === 'US_ORIGINAL_V1', ec = id === 'EC_ORIGINAL_V1';
     f.revision.lines.forEach((line, i) => {
       const r = p.detailStartRow + i, unit = s[`${us ? 'N' : ec ? 'Q' : 'O'}${r}`], qty = s[`${us ? 'O' : ec ? 'R' : 'P'}${r}`];
