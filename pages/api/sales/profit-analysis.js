@@ -96,8 +96,8 @@ export async function loadCategoryEvidence(orderYear, major) {
   const { prevOrderYear, prevMajor } = prevMajorYear(orderYear, majorNum);
   const withCalc = (rows) => (rows || []).map((row) => ({ ...row, calc: row.confirmed && row.calc ? row.calc : computeProfitRow(row) }));
   const [currentPayload, prevPayload, currentSales, prevSales] = await Promise.all([
-    loadWeeklyReportPayload(major, orderYear),
-    loadWeeklyReportPayload(prevMajor, prevOrderYear).catch(() => ({ rows: [] })),
+    loadWeeklyReportPayload(major, orderYear, {mode:'liveAudit'}),
+    loadWeeklyReportPayload(prevMajor, prevOrderYear, {mode:'liveAudit'}).catch(() => ({ rows: [] })),
     loadCustomerProductSales(orderYear, major, { withCategory: true }),
     loadCustomerProductSales(prevOrderYear, prevMajor, { withCategory: true }).catch(() => []),
   ]);

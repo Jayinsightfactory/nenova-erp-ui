@@ -1300,3 +1300,11 @@
 - 원가탭 업로드인보이스/기존자료 선택, 인보이스업로드→매칭→도착원가 준비. 미매칭/원문 불일치 행별 차단, 날짜/운송 직접 수정, 지문 재검증. 입력은 작업탭 전환에도 유지.
 - 국가별 공식·양식회귀 및 격리Chrome 계산→XLSX 다운로드 확인. 운영실제7863 readonly지문 동일. 운영 업로드/승인실행은 미검증(금지). PR/배포 진행 전, 최종결과 세션MD.
 - 검색어: invoice-cost-independent INVOICE_PREVIEW PREVIEW_ONLY 원가단독 인보이스 미승인 다운로드
+
+## 2026-10-27 주차별·월별 보고서 수요일 계산본 저장
+- 요청: 수요일에 이번주 직전1차수를 저장하고 과거조회 재계산 제거. 실제 PeriodDay로10/28current44→43저장, KST06시·지연슬롯고정·DB잠금/멱등/원천변경검사. 기존 WebProfitReportSnapshot INSERT만, ERP·수기·확정원장보존.
+- v1 row.calc/totals 저장값을 웹·엑셀·월별이공유,legacy/miss409,확정CALC우선. 과거패널자동원천조회제거·명시수정후캐시갱신/실패분리·UI경합보호.
+- 사용자 선택 "저장된 차수 우선, 최신 차수는 별도 조회": 월별기본현재미만hasData만,진행/미래는체크명시. 캐시미준비합계를0으로숨기지않음. 일반GET쓰기0.
+- 실제SELECT-only검증:41차26.4초/1174SELECT→저장형식17행/합계exact일치. 기본월별472ms/6SELECT/live0(아직missing42). 원장guard로쓰기0;동시운영3테이블변화는전체불변이라고과장하지않음.
+- 전체verify:erp-change/webpack·신규3회귀·manifest166·dnSpy·쓰기guard통과. PR/CI/배포/최초2026 1~42준비/운영스모크는이기록시점미검증. 결과는 docs/plans/profit-weekly-cache-2026-10-27.md에 이어 기록한다.
+- 검색어: profit-weekly-cache 수요일06시 PeriodDay43 44 cachePolicyVersion 저장된계산본 월별최신차수포함 BACKFILL

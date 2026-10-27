@@ -69,10 +69,12 @@ async function main() {
       && source.includes('연결된 품목마스터 상세를 찾지 못했습니다'));
   check('확정본에서는 확정 취소 후 입력 가능하다는 안내를 표시',
     source.includes('아래 분류 입력과 저장 버튼이 활성화됩니다'));
-  check('CustomsClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
-    /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\}( focus=\{customsFocus\})? \/>/.test(source));
-  check('ForwardingClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
-    /<ForwardingClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
+  check('CustomsClearancePanel 이 기존 week/year를 유지하고 명시 저장 뒤 계산본을 갱신함',
+    /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{reloadAfterSourceSave\}( focus=\{customsFocus\})? \/>/.test(source));
+  check('ForwardingClearancePanel 이 기존 week/year를 유지하고 명시 저장 뒤 계산본을 갱신함',
+    /<ForwardingClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{reloadAfterSourceSave\} \/>/.test(source));
+  check('원천 저장과 계산본 갱신 실패를 구분하고 다른 선택 차수를 덮지 않음',
+    source.includes('원천 저장은 완료되었으나 계산본 갱신에 실패') && source.includes("if(ok==='stale') return false"));
 
   console.log('\n=== 1-1) 보고서 확정 상태가 현재 차수와 차수별 목록에 항상 보임 ===');
   check('현재 차수 상단에 확정됨/미확정 배지와 revision을 표시',

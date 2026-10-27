@@ -10,10 +10,10 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { composeProfitReportNote, periodDayRangesByMajor } from '../../../lib/profitReport';
-import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly';
-import { computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
+import { buildMonthlyProfitSummary, partitionMonthlyProfitPeriods } from '../../../lib/profitReportMonthly';
+import { profitDisplayCalculation } from '../../../lib/profitReportStoredCalculation';
 import { buildProfitReportXlsx } from '../../../lib/profitReportExcel';
-import { loadWeeklyReportPayload, parseMajor } from '../sales/profit-report';
+import { loadWeeklyReportPayload, parseMajor, currentProfitPeriod } from '../sales/profit-report';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '1mb' }, responseLimit: '8mb' },
@@ -102,13 +102,13 @@ function fileNameFor(orderYear, major) {
 // 진행상황 (프로세스 메모리 — pm2 fork 단일 프로세스 기준. 영구 기록은 WebMoyiReportPush)
 let activeJob = null;
 
-async function runSyncJob(job, { orderYear, requestedWeeks, actor, base, token }) {
+async function runSyncJob(job, { orderYear, requestedWeeks, actor, base, token, includeLive=false }) {
   const step = (phase, detail) => { job.phase = phase; job.detail = detail || ''; };
 
   // 1) 차수 목록 + 주차 원장 1회 로드 (모든 파일이 같은 월별 요약을 공유)
   step('period', '차수 범위 조회');
   const periods = await periodDayRangesByMajor(orderYear);
-  const activePeriods = periods.filter(p => p.hasData);
+  const {selected:activePeriods}=partitionMonthlyProfitPeriods(periods,orderYear,await currentProfitPeriod(),{includeLive});
   const payloads = new Map();
   const weeks = [];
   const concurrency = 2;
@@ -117,10 +117,8 @@ async function runSyncJob(job, { orderYear, requestedWeeks, actor, base, token }
     step('load', `주차 계산 ${Math.min(i + concurrency, activePeriods.length)}/${activePeriods.length}`);
     const results = await Promise.all(batch.map(async period => {
       try {
-        const data = await loadWeeklyReportPayload(period.major, orderYear);
-        const totals = data.confirmed
-          ? data.confirmedTotals
-          : computeProfitTotals((data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) })));
+        const data = await loadWeeklyReportPayload(period.major, orderYear, {mode:'display'});
+        const {totals}=profitDisplayCalculation(data);
         return { major: period.major, period, totals, data };
       } catch (error) {
         return { major: period.major, period, error: error.message || '주차 보고서 조회 실패' };
@@ -150,7 +148,7 @@ async function runSyncJob(job, { orderYear, requestedWeeks, actor, base, token }
         rows: data.rows,
         note: composeProfitReportNote(data.note, data.autoNote),
         audit: data.audit,
-        confirmedTotals: data.confirmedTotals,
+        confirmedTotals: data.confirmed ? data.confirmedTotals : data.totals || null,
         monthly,
       });
       files.push({ major, fileName: fileNameFor(orderYear, major), buffer, sha256: crypto.createHash('sha256').update(buffer).digest('hex') });
@@ -245,7 +243,7 @@ async function startSync(req, res) {
   };
   activeJob = job;
   // 연도 전체 계산이 nginx 프록시 한도(300s)를 넘을 수 있어 응답과 분리해 실행한다.
-  runSyncJob(job, { orderYear, requestedWeeks, actor, base, token })
+  runSyncJob(job, { orderYear, requestedWeeks, actor, base, token, includeLive:true })
     .catch(error => { job.error = truncate(error.message); })
     .finally(() => { job.done = true; job.finishedAt = new Date().toISOString(); job.phase = 'done'; });
 

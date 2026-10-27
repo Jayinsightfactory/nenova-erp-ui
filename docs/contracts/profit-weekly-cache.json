@@ -1,0 +1,39 @@
+{
+  "id": "profit-weekly-cache",
+  "title": "과거 차수 저장 계산본 전용 조회와 웹·월별·엑셀 일치",
+  "scope": [
+    "lib/profitReportSnapshot.js", "lib/profitReportStoredCalculation.js", "lib/profitReportConfirm.js",
+    "lib/profitReportExcel.js", "lib/profitReportMonthly.js",
+    "pages/api/sales/profit-report.js", "pages/api/sales/profit-report-output.js",
+    "pages/api/sales/profit-analysis.js", "pages/api/moyi/drive-report-sync.js",
+    "pages/sales/profit-report.js", "components/ProfitReportSnapshotBanner.js", "components/ProfitWeekCheckPanel.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "cacheIdentity": ["OrderYear", "MajorWeek", "VersionNo"],
+  "actions": [
+    {"name": "HISTORICAL_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "확정 CALC 우선, 아니면 v1 row.calc/totals 저장값만. 일반 조회에서 지문/원가/이월 원천 조회와 수식 재적용 및 쓰기 금지."},
+    {"name": "CURRENT_OR_EXPLICIT_AUDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "현재·미래 실제 업무차수 및 명시 auditLive는 기존 원천 계산만. GET은 저장하지 않음."},
+    {"name": "EXPLICIT_OR_SCHEDULED_CACHE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "WebProfitReportSnapshot INSERT만. 동일 세션 연도차수 applock, 계산 전후 강제 새 지문 비교, 저장직전 확정 잠금 재검사. ERP·WebProfitReport 수기·확정 revision 보존."},
+    {"name": "EXPLICIT_INPUT_SAVE_FOLLOWUP", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "기존 명시 입력 저장 로직 불변. 성공 후 같은 차수 계산본을 명시 갱신. 원천 저장과 계산본 실패는 별도 표시; 일반 조회가 갱신을 유발하지 않음."}
+  ],
+  "rules": {
+    "payload": "cachePolicyVersion=1, 전체 row.calc 및 totals를 저장하며 표/인쇄/단일·범위·MOYI 엑셀/월별 모두 같은 값 사용. null과 수기0 그대로 보존. table key와 payload key 불일치 거부.",
+    "missing": "과거 미저장/legacy/손상은409 SNAPSHOT_NOT_READY, 현재값으로 자동 대체하지 않음. 월별 포함차수 누락은 incomplete와 null 합계 표시.",
+    "calendar": "실제 KST 날짜 PeriodDay의 현재 업무차수, URL/직접 선택 보존. 기본조회는 서버 달력 직전 차수. 정기53차 누락 가능하나 수동 조회/갱신/백필53 지원.",
+    "monthly": "기존 periodDayRangesByMajor hasData metadata 원장 SELECT 1회. 기본은 현재 업무차수 미만인 모든 hasData 과거 차수(누락도 포함)를 확정/계산본 batch로 조회하며 live0. 현재 기준·마지막 포함·제외 진행미래 목록을 표시. 사용자 최신 차수 포함 체크/GET includeLive=1에서만 기존 전체 hasData 범위의 현재·미래를 live 계산. MOYI 전체연간 전송은 includeLive:true 명시. 미래 달력만으로 가짜 포함차수 생성 금지.",
+    "idempotency": "WEEKLY 동일 연도/차수/CreatedBy=weekly-scheduler:YYYY-MM-DD 전체 이력 존재 시 계산 전 skip. BACKFILL은 v1 최신본/확정 있으면 skip, REFRESH는 새버전. 첫확정조회는 일반SELECT, 직전 재확인만 UPDLOCK/HOLDLOCK.",
+    "consistency": "저장 전후 지문은 force=true로15초 캐시 우회. 불일치 PROFIT_SOURCES_CHANGED이면INSERT0/rollback. SQL snapshot isolation/DDL/ERP원장쓰기 없음.",
+    "rollout": "배포 후 명시 초기 백필2026년1~42차는 기존 저장본을 삭제하지 않고 새 계산본 버전 생성. 운영 테스트에서 ERP원장·수기·확정 수정 금지. 실패 차수는 원인 확인 후 명시 재시도.",
+    "disclosure": "저장된 계산본은 회계 확정 아님. 저장시각/버전 표시; 조회 지문 검사·자동 최신화·확정됨 오표시 없음. 과거 참고 원장 패널은 명시 클릭에서만 조회. 확정본도 auditLive 명시 검산에서는 현재 미분류 진단을 추가 조회하되 확정 CALC/합계는 보존."
+  },
+  "crossYearFixture": {"required": true, "description": "2026/31 요청에2025/31 payload 거부, 저장 계산 결과가 다른 연도이면INSERT0; 달력 현재2026/44에서31과44 분리. scheduler 계약의2025/53→2026/01 경계 공유."},
+  "requiredTestFiles": ["__tests__/profitReportWeeklyCache.test.js", "__tests__/profitReportSnapshot.test.js", "__tests__/profitReportMonthly.test.js", "__tests__/profitReportClassificationInput.test.js", "__tests__/profitReportConfirmSnapshotImmutability.test.js", "__tests__/profitRangeOutput.test.cjs"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/profit-weekly-cache-evidence-2026-10-27.md",
+    "source": "실제 FormSalesView.GetData PeriodDay 근거 및 SELECT-only 저장본/달력 확인. 웹 캐시는 nenova.exe 원장/수식 변경이 아님.",
+    "methods": ["FormSalesView.GetData", "loadWeeklyReportPayload", "saveProfitReportCache", "saveProfitCache"],
+    "tables": ["PeriodDay (SELECT)", "WebProfitReportSnapshot (existing INSERT-only)", "WebProfitReportConfirm/WebProfitReportConfirmDetail (SELECT/preserve)", "ERP source tables (calculation SELECT only)", "WebProfitReport (preserve)"]
+  },
+  "requiredCommands": ["node __tests__/profitReportWeeklyCache.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

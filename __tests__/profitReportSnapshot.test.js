@@ -58,7 +58,7 @@ async function main() {
   const getBlock = api.slice(api.indexOf("if (req.method === 'GET')"), api.indexOf("if (req.method === 'POST')"));
   check('API GET 블록에 refreshProfitReportSnapshot 없음', !/refreshProfitReportSnapshot\(/.test(strip(getBlock)));
   const postBlock = api.slice(api.indexOf("if (req.method === 'POST')"));
-  check('API POST 에 snapshotRefresh 액션', /action === 'snapshotRefresh'[\s\S]{0,600}refreshProfitReportSnapshot\(/.test(postBlock));
+  check('API POST 에 snapshotRefresh 액션', /action === 'snapshotRefresh'[\s\S]{0,800}saveProfitReportCache\(/.test(postBlock));
   check('스냅샷 INSERT 는 웹 전용 테이블만', /INSERT INTO dbo\.\$\{SNAPSHOT_TABLE\}/.test(lib) && !/INSERT INTO (dbo\.)?(Shipment|Warehouse|Estimate|Product|Stock)/i.test(lib));
   const mig = fs.readFileSync(path.join(__dirname, '..', 'docs', 'migrations', '2026-09-30_profit_report_snapshot.sql'), 'utf8');
   check('마이그레이션: 불변 트리거', /INSTEAD OF UPDATE, DELETE/.test(mig));

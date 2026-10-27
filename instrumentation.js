@@ -2,6 +2,15 @@
 // (화 17:00 최종분배 / 수 16:00 점검 / 30분 변경감지 — lib/salesSnapshot.js)
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'edge') return;
+  // Build workers must never schedule report writes or open report SQL connections.
+  if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV === 'production' && process.env.DB_SERVER) {
+    try {
+      const { startProfitReportWeeklyScheduler } = await import('./lib/profitReportWeeklyScheduler');
+      startProfitReportWeeklyScheduler();
+    } catch (e) {
+      console.warn('[instrumentation] profit-weekly-cache 시작 실패:', e.code || 'START_FAILED');
+    }
+  }
   try {
     if (process.env.NODE_ENV === 'production' && process.env.DB_SERVER) {
       const { startArrivalDriveScheduler } = await import('./lib/arrivalDriveAuto');

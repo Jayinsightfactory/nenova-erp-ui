@@ -101,11 +101,11 @@ module.exports = (async () => {
   assert.match(html, /2026년 1차/); assert.match(html, /2026년 3차/); assert.doesNotMatch(html, /2026년 2차/);
   assert.doesNotMatch(html, /<script>/); assert.match(html, /&lt;script&gt;/); assert.match(html, /-30.00%/);
   const api = fs.readFileSync('pages/api/sales/profit-report-output.js','utf8');
-  assert.match(api, /req.method !== 'GET'/); assert.match(api, /preferLive: true/);
+  assert.match(api, /req.method !== 'GET'/); assert.match(api, /mode:'display'/);
   assert.doesNotMatch(api, /snapshotRefresh|saveManual|refreshProfitReportSnapshot|\b(?:INSERT INTO|UPDATE dbo|DELETE FROM|MERGE INTO)\b/i);
   const reads = [];
   const context = {module:{exports:null},withAuth: fn=>fn,outputScope,buildProfitReportXlsx,
-    loadWeeklyReportPayload:async (m,y,options)=>{reads.push([m,y,options.preferLive]);return {rows:[{category:'에콰도르',confirmed:true,calc:sample}],confirmed:{revisionNo:1},confirmedTotals:sample};}};
+    loadWeeklyReportPayload:async (m,y,options)=>{reads.push([m,y,options.mode]);return {rows:[{category:'에콰도르',confirmed:true,calc:sample}],confirmed:{revisionNo:1},confirmedTotals:sample};}};
   require('node:vm').runInNewContext(api.replace(/^import .+;\r?\n/gm,'').replace('export default withAuth(', 'module.exports = withAuth('),context);
   const request=async(method,query)=>{const res={code:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.code=n;return this},json(data){this.data=data;return this}};await context.module.exports({method,query},res);return res;};
   assert.equal((await request('POST',{year:'2026',week:'1'})).code,405);
@@ -114,7 +114,7 @@ module.exports = (async () => {
   assert.equal(reads.length,0);
   const valid=await request('GET',{year:'2026',week:'1',cols:'C,J,K,AC,AJ'});
   assert.equal(valid.code,200);assert.equal(valid.headers['Cache-Control'],'private, no-store');
-  assert.deepEqual(reads,[['01','2026',true]]);
+  assert.deepEqual(reads,[['01','2026','display']]);
   const original=valid.data.workbook.Sheets['주차별 매출이익 보고서'];
   const row = Object.keys(original).find(key => /^B\d+$/.test(key) && original[key].v === '에콰도르').slice(1);
   assert.equal(original[`K${row}`].v,-0.3);
