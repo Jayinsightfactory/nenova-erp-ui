@@ -19,16 +19,18 @@ async function api(base,body){
     body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
   const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
 }
-async function waitForReport(page,period=null){
+async function waitForReport(page,period=null,identity=null){
   await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
-  await page.waitForFunction(expected=>{
+  await page.waitForFunction(({expected,identity})=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     if(!th)return false;
+    const id=Array.from(document.querySelectorAll('td')).find(e=>e.getClientRects().length&&e.innerText.trim()==='사업자등록번호');
+    if(identity&&id?.nextElementSibling?.innerText.replace(/\D/g,'')!==identity)return false;
     if(expected&&!Array.from(document.querySelectorAll('body *')).some(e=>e.children.length===0&&e.getClientRects().length&&e.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected))return false;
     const rows=Array.from(th.closest('table').rows).filter(r=>!r.querySelector('th'));
     return rows.some(r=>/합계|등록된 데이터가 없습니다\./.test(r.innerText))||
       (rows.length===1&&rows[0].cells.length===4&&rows[0].cells[0].innerText.trim()==='이월잔액');
-  },period?`${period.from}~${period.to}`:null,{timeout:30000});
+  },{expected:period?`${period.from}~${period.to}`:null,identity},{timeout:30000});
 }
 export async function collectCustomerLedger(page,base,customer,period){
   let stage='NAVIGATION';
@@ -57,10 +59,9 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='PERIOD';
   // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
   await page.getByRole('button',{name:'전월+금월',exact:true}).click();
-  await search.waitFor({state:'hidden',timeout:30000});
-  await waitForReport(page);
+  await waitForReport(page,null,customer.sourceCode);
   const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
-  await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();
+  if(!await search.isVisible()){await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();}
   for(const [date,offset] of [[period.from,0],[period.to,3]]){
     const [year,month,day]=date.split('-');
     for(const [index,value] of [[offset,year.slice(-2)],[offset+1,month]]){
@@ -69,17 +70,16 @@ export async function collectCustomerLedger(page,base,customer,period){
     }
     const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
     await dayField.fill(day);
-    // ECOUNT commits date edits on blur; otherwise that rerender can consume the search click.
+    // Commit and read back ECOUNT's edited day before requesting the report.
     await dayField.press('Tab');
     if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_PERIOD_MISMATCH');
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
   stage='SEARCH_CLICK';
   await search.click();
-  stage='SEARCH_RESULT';
-  await search.waitFor({state:'hidden',timeout:30000});
   stage='REPORT';
-  await waitForReport(page,period);
+  // A correct complete report, not a search panel's visibility, establishes completion.
+  await waitForReport(page,period,customer.sourceCode);
   const source=await page.evaluate(()=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     const table=th.closest('table');
