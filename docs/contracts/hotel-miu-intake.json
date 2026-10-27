@@ -31,7 +31,7 @@
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "JSON text and TXT/TSV use parseHotelMiuText; XLS/XLSX/CSV use explicit single-sheet parseOrderImportSheetRows; multi-sheet returns sheet choices without matching. Images use Vision OCR. Temp files cleaned. Active Product, shared mappings, confirmed Raum/Shilla/Choimun/MIU(IAM)/Eunhwa hotel rows and board overlay are read. Conflicting hotel names require explicit board selection. No common mapping or Order/Shipment writes. Canonical Product factors returned for workspace unit normalization."
+      "sideEffect": "JSON text and TXT/TSV use parseHotelMiuText; XLS/XLSX/CSV use explicit single-sheet parseOrderImportSheetRows; multi-sheet returns sheet choices without matching. Images use Vision OCR. Temp files cleaned. Active Product, shared mappings, confirmed Raum/Shilla/Choimun/MIU(IAM)/Eunhwa hotel rows and board overlay are read. Conflicting hotel names require explicit board selection. No common mapping or Order/Shipment writes. Canonical Product factors returned for workspace unit normalization. Legacy text paste match rows retain the compact 입력/매칭/수량 table packed left (not stretched flex)."
     },
     {
       "name": "SAVE_BOARD_PRODUCT_MAP",
