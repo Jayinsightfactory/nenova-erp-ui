@@ -313,7 +313,7 @@ function unitLabel(value) {
   return ({ BUNCH: '단', STEM: '송이', BOX: '박스' })[value] || value || '';
 }
 
-export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange }) {
+export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, autoSaveRequested = false, onStageChange, nativePreview = false, onNativeAction }) {
   const automaticSaveAttempts = useRef(new Set());
   const receiptLines = useMemo(() => committedReceiptLines(document), [document]);
   const identity = `${String(document?.documentId || '')}:${Number(document?.revision)}:${document?.sourceHash || ''}`;
@@ -387,7 +387,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     setPreview(null);
     setReason('');
     setNotice(null);
-    const stored = typeof window !== 'undefined' ? readPending(document) : null;
+    const stored = !nativePreview && typeof window !== 'undefined' ? readPending(document) : null;
     setPending(stored);
     setPendingIdentity(identity);
     setBusyIdentity('');
@@ -530,6 +530,18 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   async function runPreview() {
     const expectedIdentity = identity;
     const expectedGeneration = generationRef.current;
+    if (nativePreview) {
+      setBusyIdentity(identity);
+      try {
+        const data = await onNativeAction('preview', payloadOf(form));
+        if (isCurrent(expectedIdentity, expectedGeneration)) {
+          setPreview(data.preview);
+          setNotice({ type: data.preview?.status === 'APPROVED' ? 'success' : 'error', text: data.preview?.status === 'APPROVED' ? '계산 완료. 운영 DB 저장 없이 엑셀을 다운로드할 수 있습니다.' : '아래 누락 항목을 입력하세요. 입고자료는 변경하지 않았습니다.' });
+        }
+      } catch (error) { if (isCurrent(expectedIdentity, expectedGeneration)) setNotice({ type: 'error', text: error.message }); }
+      finally { if (isCurrent(expectedIdentity, expectedGeneration)) setBusyIdentity(''); }
+      return;
+    }
     const result = await runInvoiceCostStageRunner({
       document, calculate: () => previewInvoiceCost({ ...document, costInput: payloadOf(form) }, receiptLines),
       emit: event => { if (isCurrent(expectedIdentity, expectedGeneration)) emitStage(event.id, event.status, event.message); },
@@ -542,6 +554,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   async function save(automaticReason) {
+    if (nativePreview) return;
     const saveReason = typeof automaticReason === 'string' ? automaticReason : reason.trim();
     const expectedIdentity = identity;
     const expectedGeneration = generationRef.current;
@@ -694,7 +707,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>실제 입고량 도착원가</h3>
         <p>검증된 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
-      <div className={styles.status}><span>문서 버전</span><strong>{document.revision ?? '—'}</strong><span>입고 상태</span><strong>{receiptStatusLabel(document.receiptStatus)}</strong></div>
+      <div className={styles.status}><span>{nativePreview ? '입고 번호' : '문서 버전'}</span><strong>{nativePreview ? document.warehouseKey : document.revision ?? '—'}</strong><span>입고 상태</span><strong>{nativePreview ? '기존 입고 조회' : receiptStatusLabel(document.receiptStatus)}</strong></div>
     </header>
 
     {exportActual && <div className={`${styles.actions} ${styles.savedActions}`} aria-label="승인 원가 양식 다운로드">
@@ -703,20 +716,20 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
         : <p role="status">{exportEligibility.message}</p>}
     </div>}
     {reviewOnly && <p className={styles.reviewOnly} role="status">{country} / {documentTransport(document) || '운송 미확인'} 조합에는 검증된 원가 공식이 없습니다. 입고 성공은 보존되며 원가는 계산·저장되지 않습니다.</p>}
-    <div className={`${styles.actions} ${styles.savedActions}`}>
+    {!nativePreview && <div className={`${styles.actions} ${styles.savedActions}`}>
       <button type="button" onClick={loadApprovedInput} disabled={busy || Boolean(pending) || inputEdited || formIdentity !== identity || !currentCommittedWarehouseKey(document)}>승인 입력 불러오기</button>
       <p>현재 버전의 승인 입력을 불러옵니다. 편집값은 덮어쓰지 않으며 적용 확인은 다시 필요합니다.</p>
-    </div>
+    </div>}
     <h4>자동으로 찾지 못한 값 · 직접 입력</h4>
-    <p>품목은 위 입고 문서의 전산 품목 검색에서 직접 지정하세요. 아래 환율·통관비·관세율은 직접 입력할 수 있습니다. 관세율은 25%이면 25를 입력하며, 면세가 확인된 경우에만 0을 입력하세요.</p>
-    <p>원가 승인 저장을 누르면 직접 입력한 값과 사유가 서버에 저장됩니다. 다시 열었을 때 ‘승인 입력 불러오기’로 복원할 수 있습니다. 저장 전 편집값은 아직 서버에 반영되지 않습니다. 기존 입고 연결 건은 원가만 저장하며 입고를 다시 등록하지 않습니다.</p>
+    <p>{nativePreview ? '품목·수량·매입금액은 기존 입고를 그대로 사용합니다. 부족한 비용만 입력하세요. 이 화면에서는 원장·승인 원가를 저장하지 않습니다.' : '품목은 위 입고 문서의 전산 품목 검색에서 직접 지정하세요. 환율·통관비·관세율은 직접 입력할 수 있습니다.'} 관세율은 25%이면 25, 확인된 면세만 0을 입력하세요.</p>
+    {!nativePreview && <p>원가 승인 저장을 누르면 직접 입력한 값과 사유가 서버에 저장됩니다. 다시 열었을 때 ‘승인 입력 불러오기’로 복원할 수 있습니다. 저장 전 편집값은 아직 서버에 반영되지 않습니다.</p>}
     {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
 
-    <ol className={styles.workflow} aria-label="원가 처리 단계">
+    {!nativePreview && <ol className={styles.workflow} aria-label="원가 처리 단계">
       <li><strong>원가 계산</strong><span>{autoProcess ? '자동 계산' : '수동 미리보기'}</span></li>
       <li><strong>승인 저장</strong><span>사유·명시 버튼 필요</span></li>
       <li><strong>원가 재조회</strong><span>저장 후 별도 확인</span></li>
-    </ol>
+    </ol>}
 
     <fieldset className={styles.editor} disabled={Boolean(pending) || busy}>
     <div className={styles.formGrid}>
@@ -725,21 +738,34 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
         {form.formulaId && (!selectedFormula || !allowedFormulaIds.includes(form.formulaId)) && <option value={form.formulaId}>적용 범위 밖 공식 · 검토 전용</option>}
         {allowedFormulas.map(formula => <option key={formula.formulaId} value={formula.formulaId}>{formula.label}</option>)}
       </select></Field>
-      <Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
-      <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field>
+      {!nativePreview && <><Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
+      <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field></>}
       <Field label="환율 (원/통화)"><input type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
-      <Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
-      <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field>
+      {!nativePreview && <><Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
+      <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field></>}
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
-      <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>
-      <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>
+      {(!nativePreview || form.formulaId !== 'CN_SEA_ACTUAL_V1') && <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>}
+      {!nativePreview && <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>}
       <Field label="통관비 기준"><select value={form.expenseBasis || 'CONFIRMED'} onChange={event => update('expenseBasis', event.target.value)}><option value="CONFIRMED">확인된 비용</option><option value="ESTIMATED">이전 자료로 추정한 비용</option></select></Field>
       {form.expenseBasis === 'ESTIMATED' && <Field label="추정 근거 (실제 청구액 아님)" wide><input value={form.estimateSource || ''} onChange={event => update('estimateSource', event.target.value)} placeholder="원본 파일 · 기준 차수 · 금액과 계산식" /></Field>}
-      <Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
-      <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field>
+      {!nativePreview && <><Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
+      <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field></>}
       {form.formulaId === 'CN_SEA_ACTUAL_V1' && <Field label="95% 예상수량 (비교 전용)"><input type="number" step="0.000001" min="0" value={form.expected95Quantity} onChange={event => update('expected95Quantity', event.target.value)} /></Field>}
-      <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onInput={event => update('formulaEffectiveDate', event.currentTarget.value)} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>
+      {!nativePreview && <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onInput={event => update('formulaEffectiveDate', event.currentTarget.value)} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>}
     </div>
+
+    {nativePreview && <div className={styles.formGrid}>
+      <Field label="전체 품목 관세율 (%)"><input type="number" min="0" max="100" step="any" placeholder="동일 관세율일 때 일괄 입력" onChange={event => {
+        const percentText = event.target.value, value = tariffFraction(percentText); pristineRef.current = false; setInputEdited(true); setPreview(null);
+        setForm(current => ({ ...current, formulaApplicabilityConfirmed: false,
+          lineInputs: current.lineInputs.map(line => ({ ...line, tariffRate: value, tariffPercentText: percentText })) }));
+      }} /></Field>
+      {form.formulaId === 'CN_SEA_ACTUAL_V1' && <Field label="전체 품목 통관·기타비 (원/입고단위)"><input type="number" min="0" step="any" placeholder="동일 단위·비용일 때만 입력" onChange={event => {
+        const value = event.target.value; pristineRef.current = false; setInputEdited(true); setPreview(null);
+        setForm(current => ({ ...current, formulaApplicabilityConfirmed: false,
+          lineInputs: current.lineInputs.map(line => ({ ...line, otherCostPerUnitKRW: value })) }));
+      }} /></Field>}
+    </div>}
 
     <p role="status">원문 가격 기준: {formulaPriceBasis(selectedFormula)} · 실제 원가 단위는 각 행의 ERP 단위입니다. 환산계수는 원문 근거로 직접 입력하세요.
       공식 전환 시 새 공식에서 사용하지 않는 행 입력은 비우며, 적용 확인을 다시 해야 합니다.</p>
@@ -812,8 +838,16 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     <div className={styles.actions}>
       <button type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); update('formulaApplicabilityConfirmed', false); }} placeholder="검토 근거를 입력하세요" /></label>
-      <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
+      {nativePreview ? <button type="button" className={styles.primary} disabled={busy || preview?.status !== 'APPROVED'} onClick={async () => {
+        const expectedIdentity = identity, generation = generationRef.current;
+        setBusyIdentity(identity);
+        try { await onNativeAction('download', payloadOf(form)); }
+        catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
+        finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
+      }}>도착원가 엑셀 다운로드 · 미승인 계산본</button> : <>
+        <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); update('formulaApplicabilityConfirmed', false); }} placeholder="검토 근거를 입력하세요" /></label>
+        <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
+      </>}
     </div>
     </fieldset>
 
@@ -824,7 +858,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </div>}
 
     {preview && <section className={styles.result} aria-live="polite">
-      <header><strong>{preview.status === 'APPROVED' ? '계산 승인 가능' : '검토 필요'}</strong><span>실제 입고량 기준 합계 {money(preview.totals?.totalCostKRW)}</span></header>
+      <header><strong>{preview.status === 'APPROVED' ? nativePreview ? '계산 완료 · 미승인' : '계산 승인 가능' : '검토 필요'}</strong><span>실제 입고량 기준 합계 {money(preview.totals?.totalCostKRW)}</span></header>
       {preview.issues.length > 0 && <ul>{preview.issues.map((item, index) => <li key={`${item.code}-${item.lineId || index}`} className={item.severity === 'warning' ? styles.warning : styles.issue}>{item.message}</li>)}</ul>}
       {preview.expected95 && <div className={styles.comparison}><strong>95% 예상 비교</strong><span>{preview.expected95.quantity} {preview.expected95.unit} 기준</span><span>실제 원가를 대체하지 않음</span></div>}
       <p>{preview.note}</p>
