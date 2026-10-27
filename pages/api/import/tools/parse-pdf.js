@@ -6,7 +6,7 @@ import {reservePackingPdfRequest} from '../../../../lib/importTeamPdfQuota';
 import {packingPdfCacheKey,readPackingPdfCache,writePackingPdfCache,PDF_ANALYSIS_MODEL} from '../../../../lib/importTeamPdfCache';
 import {PDF_JOB_TIMEOUT_MS,getPackingPdfJob,findPackingPdfJobByKey,startPackingPdfJob,markPackingPdfAttempt,finishPackingPdfJob,markPackingPdfCacheSaved} from '../../../../lib/importTeamPdfJobs';
 
-export const config={api:{bodyParser:{sizeLimit:'30mb'},responseLimit:'10mb'}};
+export const config={api:{bodyParser:{sizeLimit:'55mb'},responseLimit:'10mb'}};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const storageError={error:{message:'PDF 분석 작업 저장소를 사용할 수 없습니다. 파일을 유지하고 잠시 후 다시 확인하세요.'}};
 
@@ -15,9 +15,13 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key})
   try{
     if(!await markPackingPdfAttempt(uid,jobId,token))return null;
     dispatched=true;
+    const documents=[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.pdfBase64}},
+      ...(parsed.awbPdfBase64?[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.awbPdfBase64}}]:[])];
     const response=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},signal:AbortSignal.timeout(PDF_JOB_TIMEOUT_MS),
-      body:JSON.stringify({model:PDF_ANALYSIS_MODEL,max_tokens:64000,system:prompt,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.pdfBase64}},{type:'text',text:'Extract all invoices from this PDF. Return ONLY the JSON object, no other text.'}]}]})
+      body:JSON.stringify({model:PDF_ANALYSIS_MODEL,max_tokens:64000,system:prompt,messages:[{role:'user',content:[...documents,{type:'text',text:parsed.awbPdfBase64
+        ?'The first PDF is the commercial invoice and the second PDF is its supporting AWB. Extract the invoice and the AWB fields requested by the system instructions, keep the sources separate, and return ONLY the JSON object, no other text.'
+        :'Extract all invoices from this PDF. Return ONLY the JSON object, no other text.'}]}]})
     });
     if(!response.ok){
       return await finishPackingPdfJob(uid,jobId,token,{error:{message:response.status===429?'PDF 분석 요청이 많습니다. 파일은 유지됩니다. 추가 비용을 확인한 뒤 다시 분석하세요.':'PDF 분석 서비스 요청에 실패했습니다. 파일은 유지됩니다. 추가 비용을 확인한 뒤 다시 분석하세요.',code:'PDF_ANALYSIS_UNCERTAIN'}});
@@ -67,7 +71,7 @@ export default withAuth(async(req,res)=>{
   let parsed;
   try{parsed=validatePackingPdf(req.body);}catch(e){return res.status(e.statusCode||400).json({error:{message:e.message}});}
   if(req.user?.userId==null||!String(req.user.userId).trim())return res.status(401).json({error:{message:'사용자 인증 정보를 확인할 수 없습니다. 다시 로그인하세요.'}});
-  const uid=String(req.user.userId),prompt=buildPrompt(parsed.country),cacheKey=packingPdfCacheKey({...parsed,prompt});
+  const uid=String(req.user.userId),prompt=buildPrompt(parsed.country,{awbDocument:Boolean(parsed.awbPdfBase64)}),cacheKey=packingPdfCacheKey({...parsed,prompt});
   res.setHeader('Cache-Control','private, no-store');
   try{
     const retryJobId=req.body?.retryJobId;

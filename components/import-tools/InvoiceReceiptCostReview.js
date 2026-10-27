@@ -146,6 +146,7 @@ function initialForm(document, receiptLines) {
     ? [...lineCurrencies][0] : '';
   const initialFormulaId = saved.formulaId || applicableFormulaId(document);
   const verifiedFormula = INVOICE_COST_FORMULAS[initialFormulaId];
+  const marketRate = document?.reviewedMetadata?.audMarketRate || null;
   const savedLines = new Map((saved.lineInputs || []).map(line => [String(line.lineId).toLowerCase(), line]));
   return {
     ...EMPTY_FORM,
@@ -155,6 +156,15 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
+    ...(verifiedFormula?.country === 'AU' ? {
+      exchangeRateKRW: saved.exchangeRateKRW ?? marketRate?.rate ?? '',
+      exchangeRateType: saved.exchangeRateType ?? 'MARKET_SEARCH',
+      exchangeRateDate: saved.exchangeRateDate ?? marketRate?.rateDate ?? '',
+      exchangeRateSource: saved.exchangeRateSource ?? marketRate?.source ?? '',
+      exchangeRateSourceUrl: saved.exchangeRateSourceUrl ?? marketRate?.sourceUrl ?? '',
+      exchangeRateRequestedDate: saved.exchangeRateRequestedDate ?? marketRate?.requestedDate ?? document?.reviewedMetadata?.invoiceUploadDate ?? '',
+      exchangeRateCarriedForward: saved.exchangeRateCarriedForward ?? marketRate?.carriedForward ?? false,
+    } : {}),
     ...(verifiedFormula?.country === 'AU' ? { auOriginal: initialAuOriginalInputs(document, saved),
       auOriginalMode: document.costStatus === 'PREVIEW_ONLY' ? saved.auOriginalMode || (numberOrNull(saved.customsTotalKRW) === null ? 'FORMULA' : 'TOTAL') : 'TOTAL' } : {}),
     ...(verifiedFormula?.country === 'AU' && verifiedFormula?.freightIncluded === true ? {
@@ -347,6 +357,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     return formula ? { ...value, formulaId, formulaVersion: formula.formulaVersion, formulaSourceHash: formula.formulaSourceHash,
       formulaSourceSheet: formula.formulaSourceSheet, formulaSourceCells: formula.formulaSourceCells } : value;
   });
+  const [exchangeRateStatus, setExchangeRateStatus] = useState('');
+  const [exchangeRateRetry, setExchangeRateRetry] = useState(0);
   const [preview, setPreview] = useState(null);
   useEffect(() => { onInputDraftChange?.(payloadOf(form)); }, [form, onInputDraftChange]);
   const [reason, setReason] = useState('');
@@ -378,6 +390,38 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       generationRef.current += 1;
     };
   }, [identity]);
+
+  useEffect(() => {
+    if (documentCountry(document) !== 'AU' || numberOrNull(form.exchangeRateKRW) !== null) return;
+    const requestedDate = String(form.exchangeRateRequestedDate || document?.reviewedMetadata?.invoiceUploadDate
+      || document?.reviewedMetadata?.awbAttachment?.uploadDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      setExchangeRateStatus('인보이스 업로드일이 없어 AUD 환율을 자동 조회할 수 없습니다. 기준일을 확인하세요.');
+      return;
+    }
+    const controller = new AbortController();
+    setExchangeRateStatus(`${requestedDate} 업로드일 기준 시장 환율 조회 중…`);
+    fetch(`/api/import/receipts/aud-exchange-rate?date=${encodeURIComponent(requestedDate)}`, {
+      credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+    }).then(async response => {
+      const result = await response.json();
+      if (!response.ok || !result?.success) throw new Error(result?.error || 'AUD 환율을 조회하지 못했습니다.');
+      return result;
+    }).then(result => {
+      setForm(current => {
+        if (numberOrNull(current.exchangeRateKRW) !== null) return current;
+        pristineRef.current = false; setInputEdited(true); setPreview(null);
+        return { ...current, exchangeRateKRW: result.rate, exchangeRateType: 'MARKET_SEARCH',
+          exchangeRateDate: result.rateDate, exchangeRateSource: result.source,
+          exchangeRateSourceUrl: result.sourceUrl,
+          exchangeRateRequestedDate: result.requestedDate, exchangeRateCarriedForward: result.carriedForward };
+      });
+      setExchangeRateStatus(`${result.source} · 기준일 ${result.requestedDate} · 적용일 ${result.rateDate}${result.carriedForward ? ' (직전 고시일)' : ''}`);
+    }).catch(error => {
+      if (error.name !== 'AbortError') setExchangeRateStatus(`환율 자동 조회 실패: ${error.message}`);
+    });
+    return () => controller.abort();
+  }, [identity, form.exchangeRateKRW, form.exchangeRateRequestedDate, exchangeRateRetry]);
 
   function emitStage(id, status, message) {
     if (stageStatuses.current[id] === status) return;
@@ -467,7 +511,13 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
-    setForm(current => editedForm(current, name, value));
+    setForm(current => {
+      const next = editedForm(current, name, value);
+      if (documentCountry(document) === 'AU' && ['exchangeRateKRW', 'exchangeRateDate'].includes(name)) {
+        return { ...next, exchangeRateType: 'USER_INPUT', exchangeRateSource: '담당자 직접 입력', exchangeRateSourceUrl: '', exchangeRateCarriedForward: false };
+      }
+      return next;
+    });
     setPreview(null);
   }
 
@@ -758,6 +808,15 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {!nativePreview && <><Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
       <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field></>}
       <Field label="환율 (원/통화)"><input type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
+      {form.formulaId === 'AU_CNF_BUNCH_V1' && <div role="status" style={{ gridColumn: '1 / -1', fontSize: 12, color: '#526580', marginTop: -10 }}>
+        {form.exchangeRateKRW ? <>
+          인보이스 업로드일 {form.exchangeRateRequestedDate || document.reviewedMetadata?.invoiceUploadDate || '미확인'} 기준 · 적용 환율 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '환율 출처 미확인'}{form.exchangeRateCarriedForward ? ' · 휴일/미고시일로 직전 고시값 적용' : ''}
+          {form.exchangeRateSourceUrl && <> · <a href={form.exchangeRateSourceUrl} target="_blank" rel="noreferrer">출처</a></>}
+        </> : <>
+          {exchangeRateStatus || '업로드일 기준 AUD/KRW 시장 환율을 조회합니다.'}
+          <button type="button" onClick={() => setExchangeRateRetry(value => value + 1)} style={{ marginLeft: 8 }}>환율 다시 조회</button>
+        </>}
+      </div>}
       {!nativePreview && <><Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
       <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field></>}
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>

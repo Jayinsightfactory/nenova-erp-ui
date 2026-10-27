@@ -1418,3 +1418,9 @@
 - ECOUNT 조회 전용 유지. source code/요청자 정보는 대기 이벤트에 저장하지 않고, ECOUNT 및 공유 ERP 원장/테이블은 수정하지 않음.
 - 정책/API/큐 회귀 25건 통과. `npm run test:erp-contract`, `npm run test:nenova-dnspy-evidence`, `npm run test:erp-manifest -- --changed-from HEAD^`, `npm run guard:erp-writes -- --changed-from HEAD^`, `npm run build` 통과. 원본 PC 예약 작업과 배포 후 실브라우저는 PR/배포 후 확인 예정.
 - 검색어: ecount-ledger refresh-request 거래처관리대장1 E040723 08:00 11:00 14:00
+## 2026-10-27 호주 44-01 CI·AWB 결합/도착원가
+- 44-01 CI와 AWB 동시 업로드 흐름 구현. AWB 번호·65박스·GW/CW 805kg은 원문 근거/지문/사용자 확인 없이는 입고 검증 통과 불가. CI가 C+F라 AU AWB 운임을 원가에 중복 가산하지 않음.
+- AUD/KRW는 업로드일의 Yahoo Finance 시장 일봉, 비거래일에는 직전 quote를 사용하고 고시일·출처를 보존. 인보이스 작성일은 KST 2026-10-26, 업로드 기준일은 2026-10-27.
+- AU AWB 자동화 5/5, import-team 120 pass·18 선택 원본 생략, exporter 35 pass·9 선택 원본 생략, ERP 계약 전체 통과. `npm run build`, write-guard, dnSpy golden, ERP manifest, 격리 SQL writer 테스트도 통과. 운영 DB 쓰기 0.
+- 실제 PDF는 로컬 격리 브라우저에서 업로드 UI까지 확인했으나 OCR/AI 호출과 실제 입고 writer는 mock. 이어지는 전체 UI에서 원가 다운로드를 클릭해 끝내는 E2E는 미검증이므로 실입고·배포 완료로 주장하지 않는다. PR·CI·Cafe24 배포 상태는 별도 작업 세션 기록을 따른다.
+- 검색어: AU AWB 44-01 805kg 65박스 AUDKRW C+F 업로드환율 도착원가 다운로드

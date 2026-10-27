@@ -179,6 +179,7 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
 export default function InvoiceReceiptWorkbench({
   userId='',
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
+  awb = null, invoiceUploadDate = '', audMarketRate = null, audMarketRateError = '',
   workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange,
 }) {
   const [records, setRecords] = useState([]);
@@ -302,9 +303,56 @@ export default function InvoiceReceiptWorkbench({
     setSourceState({ busy: true, error: '', hash: '' });
     (async () => {
       const hash = await sha256File(file);
-      const documents = await adaptPackingReceipts({
+      const adaptedDocuments = await adaptPackingReceipts({
         excels, invoices, country, fileName: file.name, products, sourceHash: hash, reviewConfirmed, truncated,
       });
+      const documents = country === 'AU' ? adaptedDocuments.map(document => {
+        const review = awb?.review || null;
+        const evidence = review?.evidence || {};
+        const attachment = awb ? {
+          source: 'AWB_PDF', sourceHash: awb.sourceHash, fileName: awb.fileName,
+          awb: review?.awb || '', invoiceAwb: review?.invoiceAwb || '',
+          packageCount: review?.packages ?? null, uploadDate: awb.uploadDate || invoiceUploadDate,
+          grossWeightKg: review?.grossWeightKg ?? null, chargeableWeightKg: review?.chargeableWeightKg ?? null,
+          reviewed: Boolean(awb.confirmed && review?.ready), issues: review?.issues || [], evidence,
+        } : null;
+        const sourceWeight = (field, proofKey) => review?.[field] == null ? null : {
+          source: 'AWB_PDF', sourceHash: awb?.sourceHash || '', fileName: awb?.fileName || '',
+          awb: review?.awb || '', page: evidence[proofKey]?.page ?? null,
+          quote: evidence[proofKey]?.quote || '', unit: 'kg',
+          manuallyReviewed: (awb?.manualFields || []).includes(proofKey),
+        };
+        return {
+          ...document,
+          rawMetadata: {
+            ...document.rawMetadata,
+            invoiceUploadDate: awb?.uploadDate || invoiceUploadDate || '',
+            awb: review?.awb || '',
+            awbAttachment: attachment,
+          },
+          reviewedMetadata: {
+            ...document.reviewedMetadata,
+            invoiceUploadDate: awb?.uploadDate || invoiceUploadDate || '',
+            awb: review?.awb || document.reviewedMetadata?.awb || '',
+            gw: review?.grossWeightKg ?? document.reviewedMetadata?.gw ?? null,
+            cw: review?.chargeableWeightKg ?? document.reviewedMetadata?.cw ?? null,
+            awbReviewed: Boolean(awb?.confirmed && review?.ready),
+            awbAttachment: attachment,
+            weightManual: {
+              ...document.reviewedMetadata?.weightManual,
+              gw: (awb?.manualFields || []).includes('gross_weight_kg'),
+              cw: (awb?.manualFields || []).includes('chargeable_weight_kg'),
+            },
+            weightSourceEvidence: {
+              ...document.reviewedMetadata?.weightSourceEvidence,
+              ...(sourceWeight('grossWeightKg', 'gross_weight_kg') ? { gw: sourceWeight('grossWeightKg', 'gross_weight_kg') } : {}),
+              ...(sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') ? { cw: sourceWeight('chargeableWeightKg', 'chargeable_weight_kg') } : {}),
+            },
+            ...(audMarketRate ? { audMarketRate } : {}),
+            ...(audMarketRateError ? { audMarketRateError } : {}),
+          },
+        };
+      }) : adaptedDocuments;
       if (!active) return;
       const saved = await Promise.all(documents.map(document => readExistingReceiptSource(document, readDocument)));
       if (!active) return;
@@ -336,7 +384,8 @@ export default function InvoiceReceiptWorkbench({
       if (active) setSourceState({ busy: false, error: error.message, hash: '' });
     });
     return () => { active = false; };
-  }, [country, excels, file, invoices, products, reviewConfirmed, truncated, sourceAttempt]);
+  }, [country, excels, file, invoices, products, reviewConfirmed, truncated, sourceAttempt,
+    awb, invoiceUploadDate, audMarketRate, audMarketRateError]);
 
   useEffect(() => {
     const scope = sourceState.scope;
@@ -1087,6 +1136,21 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" aria-pressed={workspaceMode === 'receipt'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('receipt')}><strong>입고 작업</strong><small>수량 검토 · 입고 등록</small></button>
       <button type="button" aria-pressed={workspaceMode === 'cost'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('cost')}><strong>도착원가만 작업</strong><small>기존 입고 확인 · 원가 파일 다운로드</small></button>
     </nav>}
+
+    {documentCountry(documentValue) === 'AU' && documentValue.reviewedMetadata?.awbAttachment && <section className={documentValue.reviewedMetadata.awbReviewed ? styles.info : styles.error} aria-label="AWB 중량 근거">
+      <strong>연결 AWB · {documentValue.reviewedMetadata.awbAttachment.fileName}</strong>
+      {' · '}AWB {documentValue.reviewedMetadata.awbAttachment.awb || '미확인'}
+      {' · '}포장 {documentValue.reviewedMetadata.awbAttachment.packageCount ?? '미확인'}박스
+      {' · '}GW {documentValue.reviewedMetadata.awbAttachment.grossWeightKg ?? '미확인'}kg
+      {' · '}CW {documentValue.reviewedMetadata.awbAttachment.chargeableWeightKg ?? '미확인'}kg
+      {' · '}인보이스 업로드일 {documentValue.reviewedMetadata.invoiceUploadDate || '미확인'}
+      {documentValue.reviewedMetadata.awbAttachment.reviewed ? ' · 원문 대조 완료' : ' · 원문 대조 확인 필요'}
+      {(documentValue.reviewedMetadata.awbAttachment.issues || []).length > 0 && <ul>{documentValue.reviewedMetadata.awbAttachment.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
+      {['awb','packages','gross_weight_kg','chargeable_weight_kg'].map(key => {
+        const proof = documentValue.reviewedMetadata.awbAttachment.evidence?.[key];
+        return proof?.quote ? <small key={key} style={{ display: 'block' }}>AWB p.{proof.page || '—'} · {proof.quote}</small> : null;
+      })}
+    </section>}
 
     <div className={styles.documentTabs} role="tablist" aria-label="원본 인보이스">
       {records.map((record, index) => <button type="button" role="tab" aria-selected={record.document.documentId === selected.document.documentId}

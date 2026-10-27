@@ -11,6 +11,10 @@
     "pages/import/tools.js",
     "pages/api/import/tools/state.js",
     "pages/api/import/tools/parse-pdf.js",
+    "pages/api/import/receipts/aud-exchange-rate.js",
+    "lib/audMarketExchangeRate.js",
+    "lib/invoiceAwbEvidence.js",
+    "__tests__/auAwbFlow.test.cjs",
     "lib/importTeamStore.js",
     "lib/importTeamClient.js",
     "lib/importTeamPdf.js",
@@ -91,6 +95,13 @@
       "runtimeFile": "none; local PDF evidence preview and editable GW/CW/freight confirmation; workbook audit sheet only, no ERP save"
     },
     {
+      "name": "AU_INVOICE_AWB_AND_UPLOAD_DATE_FX",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "send both Australian invoice and AWB PDFs in one bounded parse request; retain AWB file hash/page evidence, reconcile AWB number and carton totals, require human confirmation of package/GW/CW; attach public AUDKRW=X daily close for the KST upload date (carry preceding market quote on non-trading days); source prices are C+F, so do not add AWB freight again; no OCR fixture values are pre-seeded"
+    },
+    {
       "name": "PREVIEW_AND_COPY_RESULTS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -127,6 +138,7 @@
     "__tests__/importTeamTools.test.js",
     "__tests__/importTeamChecklist.test.js",
     "__tests__/importPacking.test.js",
+    "__tests__/auAwbFlow.test.cjs",
     "__tests__/importPackingReview.test.js",
     "__tests__/packingEvidenceReview.test.js",
     "__tests__/packingResultsUi.test.js",
