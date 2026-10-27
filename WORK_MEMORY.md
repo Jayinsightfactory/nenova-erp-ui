@@ -1301,6 +1301,12 @@
 - 국가별 공식·양식회귀 및 격리Chrome 계산→XLSX 다운로드 확인. 운영실제7863 readonly지문 동일. 운영 업로드/승인실행은 미검증(금지). PR/배포 진행 전, 최종결과 세션MD.
 - 검색어: invoice-cost-independent INVOICE_PREVIEW PREVIEW_ONLY 원가단독 인보이스 미승인 다운로드
 
+## 2026-10-27 거래처관리대장1(채권) 구성 착수
+- 사용자 범위 E040723 전표별/담당거래처/최근1개월/KST평일09~18 정시. 운영 메뉴 자료미수집 확인. ar 요약과 별개.
+- 원본 전표37행 판매/수금/이월/잔액 대조일치. OrderCode는 이카운트코드와 다름을 확인해 유일한 사업자 식별값으로만 연결. 담당125/수집후보120/연결확인5. 전용API/UI/정시수집 연결, 일반snapshot API에서 ledger723 차단. 개인정보 대신 날짜·금액·내부키만 웹snapshot에 저장.
+- 정책/권한/API/검증16테스트 통과. 전체ERP/build 통과(기존공유 node_modules 누락은 독립 npm ci로 해소). PR/배포/실제예약수집은 아직 미검증. ECOUNT와 공유ERP원장 쓰기없음.
+- 세션: docs/work-sessions/2026-10-27_ecount-ar-hourly.md
+- 검색어: E040723 거래처관리대장1 전표별 담당거래처 최근1개월 평일09-18
 ## 2026-10-27 주차별·월별 보고서 수요일 계산본 저장
 - 요청: 수요일에 이번주 직전1차수를 저장하고 과거조회 재계산 제거. 실제 PeriodDay로10/28current44→43저장, KST06시·지연슬롯고정·DB잠금/멱등/원천변경검사. 기존 WebProfitReportSnapshot INSERT만, ERP·수기·확정원장보존.
 - v1 row.calc/totals 저장값을 웹·엑셀·월별이공유,legacy/miss409,확정CALC우선. 과거패널자동원천조회제거·명시수정후캐시갱신/실패분리·UI경합보호.

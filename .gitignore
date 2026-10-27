@@ -113,3 +113,5 @@ scripts/ecount-ledger/_history/
 .local-box-summary/
 .next-build/
 nenova-build.tar.gz
+# Local hourly slot claim (contains timestamps only).
+scripts/ecount-scraper/.ledger-schedule.json

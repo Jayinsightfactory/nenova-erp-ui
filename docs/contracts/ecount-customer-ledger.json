@@ -1,0 +1,69 @@
+{
+  "id": "ecount-customer-ledger",
+  "title": "E040723 담당 거래처 전표별 채권 및 평일 정시 수집",
+  "scope": [
+    "lib/ecountCustomerLedgerPolicy.cjs",
+    "lib/ecountLedgerSchedule.cjs",
+    "lib/ecountLedgerValidation.cjs",
+    "lib/ecountCustomerLedgerStore.js",
+    "lib/ecountIngest.js",
+    "pages/api/ecount/customer-ledger.js",
+    "pages/api/ecount/customer-ledger-sync.js",
+    "pages/ecount/customer-ledger.js",
+    "pages/ecount/workbench.js",
+    "components/Layout.js",
+    "scripts/ecount-scraper/customer-ledger.mjs",
+    "scripts/ecount-scraper/daemon.mjs",
+    "scripts/ecount-scraper/scrape-core.mjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "VALIDATE_LEDGER_READ_SCOPE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": ["WebEcountSnapshot"]
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "KST 평일 09~18 정시 시작, 중복 슬롯/주말/야간 차단, 연말 및 윤년 최근1개월, 재배정/비활성/중복 식별값/타 거래처 접근 차단, 원본 전체 행·합계·잔액 검증. 휴일/업무시간 밖의 마지막 검증본은 실제 수집기간을 표시한다. 웹 전용 snapshot만 추가하며 원본 ECOUNT와 공유 ERP 원장은 보존한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountCustomerLedgerPolicy.test.cjs",
+    "__tests__/ecountCustomerLedger.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/EcountCustomerLedger.md",
+    "source": "설치 EXE ClassCustomer/FormCustomerInfo dnSpy CLI 확인 및 Customer/UserInfo 읽기 전용 probe. 원본 E040723 전표 37행의 합계/잔액 일치. ECOUNT 조회 전용, WebEcountSnapshot에 날짜/숫자만 저장. OrderCode 추정 매핑 금지.",
+    "methods": [
+      "recentMonth",
+      "canReadCustomer",
+      "authorizeSnapshot",
+      "dueSlot",
+      "ClassCustomer.GetData",
+      "FormCustomerInfo.InitializeComponent"
+    ],
+    "tables": [
+      "Customer (read)",
+      "UserInfo (read)",
+      "WebEcountSnapshot (write, web-only)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "Estimate (preserve)",
+      "WebProfitReport (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
