@@ -7,6 +7,18 @@ const policy=require('../lib/ecountCustomerLedgerPolicy.cjs');
 const schedule=require('../lib/ecountLedgerSchedule.cjs');
 const now=new Date('2026-10-27T02:00:00Z');
 const sample=()=>({program:'E040723',mode:'voucher',individual:true,custKey:7,periodFrom:'2026-09-27',periodTo:'2026-10-27',opening:100,screenRowCount:2,rows:[{date:'2026-09-27',sales:30,receipt:0,balance:130,memo:'must not persist'},{date:'2026-10-27',sales:0,receipt:20,balance:110}],totals:{sales:30,receipt:20,balance:110}});
+test('failed customer popup is discarded before the next customer, with safe diagnostics',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ let reset=false;const uploaded=[],logs=[];
+ const r=await collectLedgerBatch({page:{goto:async url=>{assert.equal(url,'about:blank');reset=true;}},getBase:()=>'',work:{customers:[{custKey:1},{custKey:2}],period:{}},
+ collect:async(_p,_b,c)=>{if(c.custKey===1)throw new Error('sensitive source detail');assert.equal(reset,true);return c;},upload:async p=>uploaded.push(p.custKey),log:s=>logs.push(s)});
+ assert.deepEqual(r,{ok:1,failed:1,total:2});assert.deepEqual(uploaded,[2]);assert.ok(logs.every(s=>!s.includes('sensitive source detail')));
+});
+test('a closed browser cannot carry a failed lookup forward',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');let calls=0;
+ const r=await collectLedgerBatch({page:{goto:async()=>{throw new Error('closed');}},getBase:()=>'',work:{customers:[{custKey:1},{custKey:2}],period:{}},collect:async()=>{calls++;throw new Error('closed');},upload:async()=>assert.fail(),log:()=>{}});
+ assert.equal(calls,1);assert.deepEqual(r,{ok:0,failed:2,total:2});
+});
 test('voucher totals and rolling balance; no source personal fields retained',()=>{
  const p=validateLedger({...sample(),customerName:'must not persist',observedCode:'secret'},now);
  assert.equal(p.rows.length,2);assert.equal(p.rows[0].memo,undefined);assert.equal(p.customerName,undefined);assert.equal(p.observedCode,undefined);

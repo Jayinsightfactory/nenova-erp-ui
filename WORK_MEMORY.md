@@ -1320,3 +1320,9 @@
 - 품목 변경→새 prepare지문/미리보기 필요, 환율·통관비 보존, 변경된 행 관세/배분입력 재확인. 다른 문서/연도 입력승계 금지.
 - dnSpy 재실행 및 Product2997/2998 활성AU SELECT확인. Chrome 격리 전체Workbench에서 Red→Green 선택/적용→관세0 시험값→원가2560000→TEST_ONLY XLSX 다운로드 확인. 실제원가 승인 아님. 75표적검사66통과9선택원본생략. 전체검증/배포 진행중.
 - 검색어: woolly-cost-edit onEditAllocation invoiceCostEditing GreenTip RedTip 원가표 품목변경
+
+## 2026-10-27 거래처관리대장 운영 검증 보완
+- PR1317/28c8e8e3 Cafe24 배포 성공, 운영 worklist120·관리자 무배정 빈목록·웹snapshot 첫8전표 적재 확인. PC 런처 백업(.bak-1027) 후 독립 .orbit/ecount-runtime으로 교체, 원래 로그인 프로필 유지 및 자동 로그인 성공.
+- 실제 빌드의 40행 가상자료 브라우저 검증에서 공통 .table-scroll max-height 충돌 발견: 고유 클래스명으로 수정. 원본 검색 실패 팝업이 다음 고객에 영향을 주지 않도록 매 고객 새 문서 및 실패 복구를 추가하고 실패단계만 기록(원문/개인정보 로그 없음).
+- 정책/API/산술/실패격리18테스트와 webpack build 통과. 보완 PR/배포 및 전체 첫 배치는 진행 중. 첫 운영 배치 전체 성공으로 판정하지 않음.
+- 검색어: E040723 ledger723 팝업격리 ledger-table-scroll 수집복구

@@ -20,22 +20,30 @@ async function api(base,body){
   const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
 }
 export async function collectCustomerLedger(page,base,customer,period){
-  await page.goto(base+HASH,{waitUntil:'domcontentloaded'});
+  let stage='NAVIGATION';
+  try{
+  // A fresh document prevents customer lookup modals/SPA panels surviving a same-hash navigation.
+  await page.goto('about:blank',{waitUntil:'domcontentloaded'});
+  await page.goto(base+HASH,{waitUntil:'networkidle'});
   const search=page.getByRole('button',{name:'검색(F8)',exact:true});
   // The SPA retains the preceding customer's report when revisiting the same hash.
   await page.getByRole('button',{name:/^(검색\(F8\)|Search\(F3\))$/}).first().waitFor({state:'visible',timeout:30000});
   if(!await search.isVisible())await page.getByRole('button',{name:'Search(F3)',exact:true}).click();
   await search.waitFor({state:'visible',timeout:30000});
+  stage='FILTERS';
   await page.getByRole('radio',{name:' 전표별',exact:true}).check();
   await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).check();
   const remove=page.getByRole('button',{name:'',exact:true});
   for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
   if(await remove.count())throw new Error('SOURCE_CUSTOMER_NOT_CLEARED');
   const field=page.getByRole('textbox',{name:'거래처',exact:true});
+  stage='CUSTOMER_LOOKUP';
   await field.fill(customer.sourceCode);await field.press('Enter');
   // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
-  await remove.waitFor({state:'visible',timeout:10000});
+  try{await remove.waitFor({state:'visible',timeout:10000});}
+  catch{throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');}
   if(await remove.count()!==1||await page.getByRole('button',{name:'적용(F8)',exact:true}).count())throw new Error('SOURCE_CUSTOMER_AMBIGUOUS');
+  stage='PERIOD';
   // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
   await page.getByRole('button',{name:'전월+금월',exact:true}).click();
   const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
@@ -49,10 +57,12 @@ export async function collectCustomerLedger(page,base,customer,period){
     await page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`).fill(day);
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
+  stage='SEARCH';
   await search.click();
   await search.waitFor({state:'hidden',timeout:30000});
   await page.waitForTimeout(700);
   await page.waitForLoadState('networkidle',{timeout:15000});
+  stage='REPORT';
   await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
   // The print report is a full DOM table (not a virtualized paginated grid).
   await page.waitForFunction(()=>{
@@ -86,6 +96,23 @@ export async function collectCustomerLedger(page,base,customer,period){
     observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:new Date().toISOString()};
   validation.validateLedger(payload);
   return payload;
+  }catch(e){if(/^[A-Z_]+$/.test(e.message))throw e;throw new Error(`SOURCE_${stage}_FAILED`);}
+}
+export async function collectLedgerBatch({page,getBase,work,upload,collect=collectCustomerLedger,now=Date.now,log=console.log}){
+  const startedAt=now(),total=work.customers.length;let ok=0,failed=0;
+  for(const customer of work.customers){
+    if(now()-startedAt>45*60000){failed+=total-ok-failed;break;}
+    try{const payload=await collect(page,getBase(),customer,work.period);await upload(payload);ok++;}
+    catch(e){
+      failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';
+      log(`[ledger723] customerKey=${customer.custKey} failure=${reason}`);
+      // A failed lookup may leave a modal open in the SPA. Never carry it to another customer.
+      try{await page.goto('about:blank',{waitUntil:'domcontentloaded'});}
+      catch{failed+=total-ok-failed;break;}
+    }
+    if((ok+failed)%10===0||ok+failed===1)log(`[ledger723] progress=${ok+failed}/${total} verified=${ok} failed=${failed}`);
+  }
+  return {ok,failed,total};
 }
 export function startCustomerLedgerSchedule(ctx,getBase,nenova){
   let lastAttempt=null,busy=false;
@@ -94,19 +121,13 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
     const slot=schedule.dueSlot(Date.now(),lastAttempt,process.env.ECOUNT_LEDGER_BOOTSTRAP==='1');
     if(slot===null||busy)return;
     busy=true;lastAttempt=slot;
-    const startedAt=Date.now();
     let page,ok=0,failed=0,total=0;
     try{
       // Claim before collection, including across process restarts. No midnight/weekend catch-up.
       fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
       const work=await api(nenova);total=work.customers.length;
       page=await ctx.newPage();
-      for(const customer of work.customers){
-        if(Date.now()-startedAt>45*60000){failed+=total-ok-failed;break;}
-        try{const payload=await collectCustomerLedger(page,getBase(),customer,work.period);await api(nenova,payload);ok++;}
-        catch(e){failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';console.log(`[ledger723] customerKey=${customer.custKey} failure=${reason}`);}
-        if((ok+failed)%10===0||ok+failed===1)console.log(`[ledger723] progress=${ok+failed}/${total} verified=${ok} failed=${failed}`);
-      }
+      ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload)}));
     }catch{failed=Math.max(failed,1);}
     finally{
       if(page)await page.close().catch(()=>{});
