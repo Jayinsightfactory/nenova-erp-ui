@@ -8,7 +8,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { getPreviousProfitReportPeriod } from '../../lib/profitReportDefaultPeriod.mjs';
-import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
+import { calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
+import { profitDisplayCalculation, hasStoredRowCalculation, profitScopeMatches } from '../../lib/profitReportStoredCalculation';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
@@ -378,17 +379,24 @@ export default function ProfitReportPage() {
   const [expandedWeeks, setExpandedWeeks] = useState(new Set());
   const [monthlyYear, setMonthlyYear] = useState(getDefaultYear());
   const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyIncludeLive,setMonthlyIncludeLive]=useState(false);
+  const monthlyRequestSeq=useRef(0);
   const [monthlyData, setMonthlyData] = useState(null);
   const [expandedMonths, setExpandedMonths] = useState(new Set());
+  const [cacheMissing,setCacheMissing]=useState(null);
+  const [showSourceChecks,setShowSourceChecks]=useState(false);
 
   const load = async (weekOverride, yearOverride) => {
     const wk = weekOverride ?? weekInput.value;
     const yr = yearOverride ?? reportYear;
     setLoading(true); setError(''); setMessage(''); setEdits({});
-    loadSeqRef.current += 1; setSnapshotBusy(false); setSnapshotResult(null);
+    const seq=++loadSeqRef.current; setSnapshotBusy(false); setSnapshotResult(null);
+    setCacheMissing(null);setShowSourceChecks(false);setData(null);
     try {
       const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
+      if(seq!==loadSeqRef.current) return;
+      if(d.code==='SNAPSHOT_NOT_READY') setCacheMissing({major:wk,year:yr});
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       setReportYear(String(d.orderYear || yr));
@@ -397,36 +405,50 @@ export default function ProfitReportPage() {
       loadConfirmStatus(wk, yr);
       // 원천 변경 시 서버가 저장 없이 최신 계산을 반환한다.
       // Live calculations are read-only. Never auto-save a cache on report open.
-    } catch (e) { setError(e.message); } finally { setLoading(false); }
+    } catch (e) { if(seq===loadSeqRef.current) setError(e.message); } finally { if(seq===loadSeqRef.current) setLoading(false); }
   };
 
-  // ── [최신화]는 GET 재조회만 한다. 저장된 확정본/캐시는 변경하지 않는다.
+  // Explicit refresh creates a new web-only calculation cache; never modifies confirmed revisions.
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotResult, setSnapshotResult] = useState(null);
-  const editsRef = useRef(edits);
-  editsRef.current = edits;
   const loadSeqRef = useRef(0);
-  const refreshSnapshot = async (wk, yr, { auto = false } = {}) => {
-    const seq = ++loadSeqRef.current;
-    setSnapshotBusy(true);
+  const userSelectedPeriodRef=useRef(false);
+  const viewScopeRef=useRef(null);
+  viewScopeRef.current={year:reportYear,major:weekInput.value};
+  const refreshSnapshot = async (wk, yr) => {
+    const visible=profitScopeMatches(viewScopeRef.current,yr,wk);
+    const seq = visible ? ++loadSeqRef.current : null;
+    if(visible) setSnapshotBusy(true);
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}&auditLive=1`, {
-        credentials: 'same-origin',
+      const res = await fetch('/api/sales/profit-report', {
+        credentials: 'same-origin',method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({week:wk,year:yr,action:'snapshotRefresh'}),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '최신화 실패');
-      if (seq !== loadSeqRef.current) return; // 그 사이 다른 차수를 열었으면 버린다
-      if (auto && Object.keys(editsRef.current || {}).length > 0) {
-        setMessage('최신화 계산이 끝났지만 편집 중이라 화면에 반영하지 않았습니다 — 저장 후 [🔄 최신화]를 누르세요.');
-        return;
-      }
+      if (!visible || seq !== loadSeqRef.current || !profitScopeMatches(viewScopeRef.current,yr,wk)) return 'stale';
       setData(d);
+      setCacheMissing(null);setError('');setNote(d.note || '');setNoteDirty(false);
       setSnapshotResult({ at: Date.now(), changed: d.snapshot?.changedFromPrev });
+      return true;
     } catch (e) {
-      if (!auto) setError(e.message);
+      if(!visible || seq!==loadSeqRef.current || !profitScopeMatches(viewScopeRef.current,yr,wk)) return 'stale';
+      setError(e.message);
+      return false;
     } finally {
       if (seq === loadSeqRef.current) setSnapshotBusy(false);
     }
+  };
+  const reloadAfterSourceSave = async () => {
+    const ok=await refreshSnapshot(weekInput.value,reportYear);
+    if(ok==='stale') return false; // Source/cache save may finish, but never overwrite another selected period.
+    if(!ok) {
+      setData(null);setCacheMissing({major:weekInput.value,year:reportYear});
+      setMessage('원천 저장 완료');
+      setError(previous=>`원천 저장은 완료되었으나 계산본 갱신에 실패했습니다. ${previous || ''}`);
+      return false;
+    }
+    setEdits({});return true;
   };
   useEffect(() => {
     try {
@@ -434,7 +456,14 @@ export default function ProfitReportPage() {
       if (linked) {
         setReportYear(linked.year); weekInput.setValue(linked.major);
         load(linked.major, linked.year);
-      } else load();
+      } else {
+        fetch('/api/sales/profit-report?context=1',{credentials:'same-origin'}).then(r=>r.json()).then(context=>{
+          if(userSelectedPeriodRef.current || loadSeqRef.current>0) return;
+          if(!context.success || !context.previous) throw new Error(context.error || '전산 달력의 기본 차수를 확인하지 못했습니다.');
+          const p=context.previous;
+          setReportYear(p.orderYear);weekInput.setValue(p.major);load(p.major,p.orderYear);
+        }).catch(e=>{if(!userSelectedPeriodRef.current&&loadSeqRef.current===0)setError(e.message);});
+      }
     } catch (e) { setError(e.message); }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
@@ -481,10 +510,7 @@ export default function ProfitReportPage() {
           const d = await res.json();
           if (!d.success) return { major: mj, error: d.error || '조회 실패' };
           // 확정된 차수는 저장된 calc를 그대로 쓴다(재계산 금지 — 계산식이 나중에 바뀌어도 과거 확정본은 불변).
-          const rows = d.confirmed
-            ? (d.rows || []).map(r => ({ ...r, calc: r.calc || {} }))
-            : (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
-          const totals = d.confirmed ? (d.confirmedTotals || {}) : computeProfitTotals(rows);
+          const {rows,totals}=profitDisplayCalculation(d);
           return { major: mj, rows, totals, confirmed: Boolean(d.confirmed) };
         } catch (e) { return { major: mj, error: e.message }; }
       }));
@@ -500,17 +526,19 @@ export default function ProfitReportPage() {
       setRangeTo(String(cur).padStart(2, '0'));
     }
   };
-  const loadMonthly = async (yearOverride) => {
+  const loadMonthly = async (yearOverride, {includeLive=monthlyIncludeLive}={}) => {
     const year = String(yearOverride ?? monthlyYear).replace(/\D/g, '').slice(0, 4);
     if (!/^\d{4}$/.test(year)) { setError('연도를 확인하세요 (예: 2026)'); return; }
     setMonthlyYear(year);
+    const seq=++monthlyRequestSeq.current;
     setMonthlyData(null); setMonthlyLoading(true); setError(''); setMessage('');
     try {
-      const res = await fetch(`/api/sales/profit-report?period=annual&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?period=annual&year=${encodeURIComponent(year)}${includeLive?'&includeLive=1':''}`, { credentials: 'same-origin' });
       const d = await res.json();
+      if(seq!==monthlyRequestSeq.current)return;
       if (!d.success) throw new Error(d.error || '월별 보고서 조회 실패');
       setMonthlyData(d);
-    } catch (e) { setError(e.message); } finally { setMonthlyLoading(false); }
+    } catch (e) { if(seq===monthlyRequestSeq.current)setError(e.message); } finally { if(seq===monthlyRequestSeq.current)setMonthlyLoading(false); }
   };
   const switchToMonthsView = () => {
     setViewMode('months');
@@ -604,13 +632,13 @@ export default function ProfitReportPage() {
         try {
           await Promise.all(rateSaves);
         } catch (rateError) {
-          await load();
+          if(!await reloadAfterSourceSave()) return false;
           setMessage('보고서 수기값은 저장되었습니다.');
           setError(`${rateError.message} — 과세환율을 확인해 다시 저장하세요.`);
           return false;
         }
       }
-      await load();
+      if(!await reloadAfterSourceSave()) return false;
       setMessage('저장 완료 — 외부 근거가 연결된 통관비/환율/포워딩 값과 비고가 보관되었습니다.');
       return true;
     } catch (e) { setError(e.message); return false; } finally { setSaving(false); }
@@ -625,21 +653,14 @@ export default function ProfitReportPage() {
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '비고 저장 실패');
-      await load();
+      if(!await reloadAfterSourceSave()) return;
       setMessage('비고사항 저장 완료');
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   };
 
   // 확정된 주차는 저장된 calc를 그대로 쓴다(재계산 금지 — 이후 계산식이 바뀌어도 과거 확정본은 불변).
   // edits는 확정 화면에서는 애초에 입력칸이 잠겨 있어 채워지지 않지만, 방어적으로도 무시한다.
-  const rowsCalc = useMemo(() => {
-    if (data?.confirmed) {
-      const rows = (data?.rows || []).map(r => ({ ...r, calc: r.calc || {} }));
-      return { rows, totals: data.confirmedTotals || {} };
-    }
-    const rows = (data?.rows || []).map(r => ({ ...r, calc: computeProfitRow(r, edits) }));
-    return { rows, totals: computeProfitTotals(rows) };
-  }, [data, edits]);
+  const rowsCalc = useMemo(() => profitDisplayCalculation(data,edits), [data, edits]);
 
   const confirmReport = async (force) => {
     setConfirmBusy(true); setError(''); setMessage('');
@@ -668,7 +689,7 @@ export default function ProfitReportPage() {
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '확정 취소 실패');
       await load();
-      setMessage('확정 취소 완료 — 다시 라이브 자동값으로 계산합니다. 필요하면 값을 확인한 뒤 다시 확정하세요.');
+      setMessage('확정 취소 완료 — 저장된 계산본으로 돌아갑니다. 최신 원천을 반영하려면 계산본 생성·갱신 후 다시 확정하세요.');
     } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
   };
 
@@ -838,8 +859,8 @@ export default function ProfitReportPage() {
         if (!d.success) throw new Error(d.error || `${batch.orderYear}년 ${batch.orderWeek} 단가 저장 실패`);
       }
       setPriceModal(null);
+      if(!await reloadAfterSourceSave()) return;
       setMessage('재고 매입단가 근거 저장 — 기초·기말 평가액을 다시 계산했습니다.');
-      await load();
     } catch (e) { setError(e.message); }
   };
 
@@ -861,8 +882,8 @@ export default function ProfitReportPage() {
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error || '과세환율 저장 실패');
+      if(!await reloadAfterSourceSave()) return;
       setMessage(`${row.category} 과세환율을 저장하고 보고서를 다시 계산했습니다.`);
-      await load();
     } catch (e) { setError(e.message); } finally { setRateBusy(''); }
   };
   const unclassifiedProducts = useMemo(() => {
@@ -887,8 +908,8 @@ export default function ProfitReportPage() {
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error || '품목 분류 저장 실패');
+      if(!await reloadAfterSourceSave()) return;
       setMessage(`${row.product}을(를) 이 보고서에서 ${category}(으)로 분류하고 다시 계산했습니다. 전산 품목마스터는 변경하지 않았습니다.`);
-      await load();
     } catch (e) { setError(e.message); } finally { setClassificationBusy(0); }
   };
   const dirty = Object.keys(edits).length > 0 || noteDirty;
@@ -964,8 +985,8 @@ export default function ProfitReportPage() {
           const c = row.calc;
           // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 비율 공식이 나중에 바뀌어도
           // 과거 확정본은 불변이어야 한다. 2026-08-11 결함수정).
-          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals);
-          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
+          const D = hasStoredRowCalculation(row) ? c.D : calcRevenueRatio(c, wTotals);
+          const U = hasStoredRowCalculation(row) ? c.U : calcPurchaseRatio(c, wTotals);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
               {isVisible('category') && (
@@ -1024,14 +1045,14 @@ export default function ProfitReportPage() {
               <input
                 style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
                 value={reportYear}
-                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={e => {userSelectedPeriodRef.current=true;setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4));}}
                 onKeyDown={e => { if (e.key === 'Enter') load(undefined, reportYear); }}
                 placeholder="2026"
                 aria-label="보고서 연도"
               />
               <label style={st.label}>차수</label>
               <div style={st.weekStepperWrap}>
-                <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="27" />
+                <input style={st.weekInput} value={weekInput.value} onChange={e => {userSelectedPeriodRef.current=true;weekInput.setValue(e.target.value);}} placeholder="27" />
                 <div style={st.weekStepperBtns}>
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(1)} disabled={loading} title="다음 차수">▲</button>
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} disabled={loading} title="이전 차수">▼</button>
@@ -1121,6 +1142,9 @@ export default function ProfitReportPage() {
                 placeholder="2026"
               />
               <button style={st.primaryBtn} onClick={() => loadMonthly()} disabled={monthlyLoading}>{monthlyLoading ? '조회 중…' : '조회'}</button>
+              <label style={st.label}><input type="checkbox" checked={monthlyIncludeLive} disabled={monthlyLoading}
+                onChange={e=>{const includeLive=e.target.checked;setMonthlyIncludeLive(includeLive);loadMonthly(monthlyYear,{includeLive});}} /> 최신 차수 포함</label>
+              {monthlyLoading&&<span>{monthlyIncludeLive?'진행·미래 차수 원천 계산 중…':'저장된 과거 계산본 조회 중…'}</span>}
             </>
           )}
           <div style={{ position: 'relative' }}>
@@ -1195,8 +1219,10 @@ export default function ProfitReportPage() {
       </a>}
 
       {error && <div style={st.error}>{error}</div>}
+      {cacheMissing && <button type="button" disabled={snapshotBusy} onClick={()=>refreshSnapshot(cacheMissing.major,cacheMissing.year)}>
+        {snapshotBusy?'계산본 준비 중…':'계산본 생성·갱신'}</button>}
       {message && <div style={st.message}>{message}</div>}
-      {data && !data.confirmed && data.rows?.some(row => row.category !== '기타(미분류)' && computeProfitRow(row, edits).J == null) && (
+      {data && !data.confirmed && rowsCalc.rows.some(row => row.category !== '기타(미분류)' && row.calc.J == null) && (
         <div style={st.attentionBanner}>
           계산 보류: 과세환율 또는 기초·기말재고 평가 근거가 없는 항목이 있습니다. 해당 원가·이익·이익률과 합계는 빈칸으로 표시합니다. 0원 원가나 확정 이익을 뜻하지 않습니다. 아래 입력·확인 필요 내역을 확인하세요.
         </div>
@@ -1206,7 +1232,9 @@ export default function ProfitReportPage() {
         <ProfitReportSnapshotBanner snapshot={data.snapshot} busy={snapshotBusy} lastResult={snapshotResult}
           onRefresh={() => refreshSnapshot(data.major, data.orderYear)} />
       )}
-      {viewMode === 'category' && data && (
+      {viewMode==='category' && data && data.readMode!=='live' && <button type="button" onClick={()=>setShowSourceChecks(v=>!v)}>
+        {showSourceChecks?'현재 원장 참고 닫기':'현재 원장 점검·재고조정 이력 보기 (별도 조회)'}</button>}
+      {viewMode === 'category' && data && (data.readMode==='live'||showSourceChecks) && (
         <ProfitWeekCheckPanel orderYear={data.orderYear} major={data.major} />
       )}
       {viewMode === 'category' && data?.confirmed && (
@@ -1380,7 +1408,7 @@ export default function ProfitReportPage() {
                 <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
               </div>
               <div style={st.embedPanelBody}>
-                <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} focus={customsFocus} />
+                <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={reloadAfterSourceSave} focus={customsFocus} />
               </div>
             </div>
           )}
@@ -1391,7 +1419,7 @@ export default function ProfitReportPage() {
                 <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
               </div>
               <div style={st.embedPanelBody}>
-                <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+                <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={reloadAfterSourceSave} />
               </div>
             </div>
           )}
@@ -1454,8 +1482,8 @@ export default function ProfitReportPage() {
               {rows.map(row => {
                 const c = row.calc;
                 // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 2026-08-11 결함수정).
-                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals);
-                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
+                const D = hasStoredRowCalculation(row) ? c.D : calcRevenueRatio(c, totals);
+                const U = hasStoredRowCalculation(row) ? c.U : calcPurchaseRatio(c, totals);
                 return (
                   <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
                     {isVisible('category') && (
@@ -1774,6 +1802,8 @@ export default function ProfitReportPage() {
           <div style={st.monthlyInfo}>
             <b>{monthlyData.year}년 월별 관리손익</b> — 기존 주차별 계산 결과를 <b>PeriodDay 종료일이 속한 달</b>에 차수 단위로 귀속합니다.
             월경계를 넘는 차수도 종료일 기준 다음 달에 한 번만 포함하며, 기초·기말재고는 월 단위로 재계산하거나 합산하지 않습니다.
+            <div>현재 전산 차수: {monthlyData.currentPeriod?.orderYear}년 {Number(monthlyData.currentPeriod?.major)}차 · 마지막 포함: {monthlyData.lastIncludedMajor?`${Number(monthlyData.lastIncludedMajor)}차`:'없음'} · {monthlyData.includeLive?'최신 차수 포함 (현재 원천 계산)':'과거 저장 계산본 우선'}</div>
+            {monthlyData.excludedLivePeriods?.length>0&&<div>진행·미래 차수 제외: {monthlyData.excludedLivePeriods.map(p=>`${Number(p.major)}차`).join(', ')} — 필요할 때 ‘최신 차수 포함’을 선택하세요.</div>}
           </div>
           <div style={st.tableWrap}>
             <table style={{ ...st.table, minWidth: 980 }}>
@@ -1793,7 +1823,7 @@ export default function ProfitReportPage() {
                 {(monthlyData.months || []).map(month => {
                   const expanded = expandedMonths.has(month.month);
                   const hasData = month.includedWeeks?.length > 0;
-                  const status = month.status === 'included_with_boundary'
+                  const status = month.status === 'incomplete' ? '계산본 누락 · 합계 미완성' : month.status === 'included_with_boundary'
                     ? '포함 차수 + 월경계 귀속'
                     : month.status === 'included'
                       ? '포함 완료'
@@ -1896,7 +1926,7 @@ export default function ProfitReportPage() {
               {saving ? '저장 중…' : '비고 저장'}
             </button>
           </div>
-          <ProfitStockAdjustmentNotes orderYear={data.orderYear} major={data.major} confirmed={Boolean(data.confirmed)} refreshToken={data} />
+          {(data.readMode==='live'||showSourceChecks) && <ProfitStockAdjustmentNotes orderYear={data.orderYear} major={data.major} confirmed={Boolean(data.confirmed)} refreshToken={data} />}
         </div>
       )}
 

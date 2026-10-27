@@ -101,27 +101,29 @@ async function main() {
   const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'sales', 'profit-report.js'), 'utf8');
   const excelSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportExcel.js'), 'utf8');
   const apiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
+  const stored=await import('../lib/profitReportStoredCalculation.js');
+  const frozenFixture={confirmed:{revisionNo:1},rows:[{confirmed:true,calc:{C:123,D:.1,U:.2}}],confirmedTotals:{C:456}};
   check('화면 rowsCalc가 data.confirmed일 때 computeProfitRow 재계산을 건너뜀',
-    /if \(data\?\.confirmed\) \{[\s\S]{0,200}calc: r\.calc \|\| \{\}/.test(pageSource));
+    /profitDisplayCalculation\(data,edits\)/.test(pageSource) && stored.profitDisplayCalculation(frozenFixture).rows[0].calc.C===123);
   check('엑셀 생성이 row.confirmed면 저장된 calc를 그대로 씀(computeProfitRow 재호출 안 함)',
-    /r\.confirmed && r\.calc \? r\.calc : computeProfitRow\(r\)/.test(excelSource));
+    /hasStoredRowCalculation\(r\) \? r.calc/.test(excelSource) && stored.hasStoredRowCalculation(frozenFixture.rows[0]));
   check('엑셀 합계도 confirmedTotals가 있으면 그것을 사용(재계산 안 함)', /confirmedTotals \|\| computeProfitTotals\(bodyRows\)/.test(excelSource));
   check('API가 활성 확정본이 있으면 buildConfirmedPayload로 서빙(라이브 재계산 skip)',
     /if \(activeConfirm\.initialized && activeConfirm\.confirm\)/.test(apiSource));
   check('월별 보기도 확정 주차는 확정 totals를 그대로 재사용(중복 계산 없음)',
-    /data\.confirmed \? data\.confirmedTotals : computeProfitTotals/.test(apiSource));
+    /profitDisplayCalculation\(data\)/.test(apiSource) && stored.profitDisplayCalculation(frozenFixture).totals.C===456);
 
   console.log('\n=== 결함수정 5: 확정 스냅샷의 D(매출비율)/U(구매비율)도 저장값 그대로 사용(재계산 금지) ===');
   // 2026-08-11 이전에는 row.calc 전체는 확정 스냅샷을 쓰면서도 D/U만 calcRevenueRatio/calcPurchaseRatio로
   // 매번 다시 계산했다 — 오늘은 같은 입력이라 값이 같지만, 비율 공식이 나중에 바뀌면 과거 확정본의
   // D/U가 저장값과 달라지는 잠재 결함이었다. 화면(메인표+세부표)과 엑셀(원본시트+선택컬럼시트) 4곳 모두
   // row.confirmed일 때는 계산 함수를 호출하지 않고 저장된 c.D/c.U를 그대로 써야 한다.
-  const pageConfirmedDGuards = pageSource.match(/row\.confirmed \? c\.D : calcRevenueRatio/g) || [];
-  const pageConfirmedUGuards = pageSource.match(/row\.confirmed \? c\.U : calcPurchaseRatio/g) || [];
+  const pageConfirmedDGuards = pageSource.match(/hasStoredRowCalculation\(row\) \? c\.D : calcRevenueRatio/g) || [];
+  const pageConfirmedUGuards = pageSource.match(/hasStoredRowCalculation\(row\) \? c\.U : calcPurchaseRatio/g) || [];
   check('화면(메인표+세부표) 2곳 모두 confirmed면 저장된 D를 그대로 씀', pageConfirmedDGuards.length === 2, `실제=${pageConfirmedDGuards.length}`);
   check('화면(메인표+세부표) 2곳 모두 confirmed면 저장된 U를 그대로 씀', pageConfirmedUGuards.length === 2, `실제=${pageConfirmedUGuards.length}`);
-  const excelConfirmedDGuards = excelSource.match(/row\.confirmed \? c\.D : calcRevenueRatio/g) || [];
-  const excelConfirmedUGuards = excelSource.match(/row\.confirmed \? c\.U : calcPurchaseRatio/g) || [];
+  const excelConfirmedDGuards = excelSource.match(/hasStoredRowCalculation\(row\) \? c\.D : calcRevenueRatio/g) || [];
+  const excelConfirmedUGuards = excelSource.match(/hasStoredRowCalculation\(row\) \? c\.U : calcPurchaseRatio/g) || [];
   check('엑셀(원본시트+선택컬럼시트) 2곳 모두 confirmed면 저장된 D를 그대로 씀', excelConfirmedDGuards.length === 2, `실제=${excelConfirmedDGuards.length}`);
   check('엑셀(원본시트+선택컬럼시트) 2곳 모두 confirmed면 저장된 U를 그대로 씀', excelConfirmedUGuards.length === 2, `실제=${excelConfirmedUGuards.length}`);
 

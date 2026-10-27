@@ -26,15 +26,17 @@ import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { getHistoricalTaxableRate } from '../../../lib/profitReportHistoricalCustoms';
 import { loadTaxableRates, resolveTaxableRate, saveTaxableRate, RATE_SOURCE, kcsRatesByCategory } from '../../../lib/taxableExchangeRate';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
-import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
-import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
+import { buildMonthlyProfitSummary, partitionMonthlyProfitPeriods } from '../../../lib/profitReportMonthly.js';
+import { getActiveConfirm, getActiveConfirms } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 import { resolveCarriedRatesForCategories, createWeekContextCache, CARRIED_RATE_SOURCE } from '../../../lib/profitReportTaxableRateCarry.js';
-import { readProfitReportWithSnapshot, refreshProfitReportSnapshot, snapshotHistory } from '../../../lib/profitReportSnapshot.js';
+import { readStoredProfitPayload, storedProfitPayload, latestSnapshots, saveProfitCache, snapshotHistory } from '../../../lib/profitReportSnapshot.js';
+import { profitDisplayCalculation } from '../../../lib/profitReportStoredCalculation.js';
+import { loadProfitReportCalendar, resolveCurrentProfitWeek, resolvePreviousProfitWeek } from '../../../lib/profitReportWeeklySchedule.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
-  return m ? m[1].padStart(2, '0') : null;
+  return m && Number(m[1])>=1 && Number(m[1])<=53 ? m[1].padStart(2, '0') : null;
 }
 
 // 호주/AUD 재고 평가 근거 — 행별 R과 같은 우선순위(정확한 원천만)를 쓰되, missing이면서 이번(그) 차수에
@@ -602,12 +604,6 @@ export async function loadReportData(major, orderYear) {
  * 모양을 기대하므로 shape을 맞춘다. row.calc는 확정 시점 값 그대로(재계산 금지) — 화면은 이 calc를 그대로 써야 한다. */
 async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
   const { confirm, rowsByCategory, totalsCalc } = activeConfirmResult;
-  const [manual, rates, unclassifiedDetails] = await Promise.all([
-    loadManual(major, orderYear),
-    currencyRates(),
-    // 확정 스냅샷 금액은 불변으로 유지하고, 경고 처리 대상만 현재 원장에서 읽기 전용 제공한다.
-    unclassifiedDetailsByCategory(major, orderYear),
-  ]);
   const categories = profitReportCategoriesForWeek(Number(major));
   const rows = Object.keys(rowsByCategory).map((key) => {
     const def = categories.find(c => c.key === key) || {};
@@ -639,11 +635,11 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
   const warningCount = auditIssues.filter(i => i.severity === 'warning').length;
   return {
     rows,
-    note: manual.note,
+    note: confirm.notes || '',
     autoNote: '',
-    unclassifiedDetails,
-    unclassifiedDetailsSource: 'live_read_only',
-    rates,
+    unclassifiedDetails: [],
+    unclassifiedDetailsSource: 'not_requested',
+    rates: [],
     confirmed: {
       confirmKey: confirm.confirmKey,
       revisionNo: confirm.revisionNo,
@@ -670,19 +666,34 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
   };
 }
 
-/** GET/엑셀/월별 보기 공용 진입점 — 활성 확정 스냅샷이 있으면 그 저장값만 반환하고,
- * 없으면 loadReportData()의 라이브 미리보기를 반환한다. */
-export async function loadWeeklyReportPayload(major, orderYear, { preferLive = true } = {}) {
-  const activeConfirm = await getActiveConfirm(orderYear, major);
-  if (activeConfirm.initialized && activeConfirm.confirm) {
-    return buildConfirmedPayload(major, orderYear, activeConfirm);
+/** Display reads: immutable confirmation first, historical v1 cache second, current/future live.
+ * Explicit audit may read diagnostics, never recalculate a confirmed CALC or write data. */
+export async function currentProfitPeriod() {
+  const dateOnly=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+  return resolveCurrentProfitWeek(await loadProfitReportCalendar(dateOnly),dateOnly);
+}
+export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
+  const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;
+  const activeConfirm = confirmedResult !== undefined ? confirmedResult : await getActiveConfirm(orderYear, major);
+  if (activeConfirm?.initialized && activeConfirm.confirm) {
+    const data=await buildConfirmedPayload(major, orderYear, activeConfirm);
+    if(mode==='liveAudit'||preferLive) {
+      return {...data,major,orderYear,readMode:'confirmed',unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'};
+    }
+    return {...data,major,orderYear,readMode:'confirmed'};
   }
-  // 계산 결과 스냅샷(웹 전용): 원천 지문이 같으면 저장본을 즉시 반환한다(읽기 전용, INSERT 없음).
-  // preferLive=true(기본): 원천이 바뀌었으면 저장 없이 라이브 계산값 — 엑셀·분석·월별이 항상 최신값을 쓴다.
-  // preferLive=false(보고서 화면): 저장본 즉시 반환 + 변경 내역, 화면이 POST snapshotRefresh 로 새 버전 저장.
-  const data = await readProfitReportWithSnapshot(major, orderYear, loadReportData, { preferLive });
+  // Display never fingerprints or silently falls back on a historical cache miss.
+  const current=currentPeriod || (mode==='liveAudit'||preferLive ? null : await currentProfitPeriod());
+  const historical=current && Number(orderYear)*100+Number(major)<Number(current.orderYear)*100+Number(current.major);
+  const live=mode==='liveAudit' || preferLive || !historical;
+  const data = live ? {...await loadReportData(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
+    : storedResult !== undefined ? storedProfitPayload(storedResult,{orderYear,major}) : await readStoredProfitPayload(orderYear,major);
   if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
-  return data;
+  return {...data,major,orderYear,readMode:live?'live':'stored'};
+}
+
+export async function saveProfitReportCache(options) {
+  return saveProfitCache(options,loadReportData);
 }
 
 /**
@@ -690,21 +701,27 @@ export async function loadWeeklyReportPayload(major, orderYear, { preferLive = t
  * 각 주차를 loadWeeklyReportPayload로 계산한 뒤(확정 주차는 확정값을 그대로 재사용 — 중복 계산하지 않음),
  * PeriodDay 종료일이 속한 달에 차수 전체를 귀속한다. E/F는 월별로 합산하지 않고 주차 원장에만 남긴다.
  */
-export async function loadAnnualMonthlyReportData(orderYear) {
+export async function loadAnnualMonthlyReportData(orderYear, {includeLive=false}={}) {
+  const current=await currentProfitPeriod();
+  // One metadata query preserves the existing hasData scope, including real future receipts.
+  // Current/future work is excluded unless the user explicitly asks to include it.
   const periods = await periodDayRangesByMajor(orderYear);
-  const activePeriods = periods.filter(period => period.hasData);
+  const {selected:activePeriods,excluded}=partitionMonthlyProfitPeriods(periods,orderYear,current,{includeLive});
+  const majors=activePeriods.map(period=>period.major);
+  const [stored,confirmed]=await Promise.all([latestSnapshots(orderYear,majors),getActiveConfirms(orderYear,majors)]);
   const weeks = [];
   const concurrency = 3;
   for (let i = 0; i < activePeriods.length; i += concurrency) {
     const batch = activePeriods.slice(i, i + concurrency);
     const results = await Promise.all(batch.map(async period => {
       try {
-        const data = await loadWeeklyReportPayload(period.major, orderYear);
-        const totals = data.confirmed ? data.confirmedTotals : computeProfitTotals((data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) })));
+        const data = await loadWeeklyReportPayload(period.major, orderYear,{currentPeriod:current,storedResult:stored.get(period.major)||null,confirmedResult:confirmed.get(period.major)||null});
+        const {totals}=profitDisplayCalculation(data);
         return {
           major: period.major,
           period,
           totals,
+          source:data.readMode,
         };
       } catch (error) {
         return { major: period.major, period, error: error.message || '주차 보고서 조회 실패' };
@@ -713,17 +730,25 @@ export async function loadAnnualMonthlyReportData(orderYear) {
     weeks.push(...results);
   }
   const summary = buildMonthlyProfitSummary(weeks, orderYear);
-  return { ...summary, periods, weeks };
+  return { ...summary, periods, weeks, includeLive, currentPeriod:current,
+    lastIncludedMajor:activePeriods.length?String(Math.max(...activePeriods.map(p=>Number(p.major)))).padStart(2,'0'):null,
+    excludedLivePeriods:excluded.map(period=>({...period,orderYear:String(orderYear)})) };
 }
 
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (req.query.context==='1') {
+        const dateOnly=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+        const calendar=await loadProfitReportCalendar(dateOnly);
+        const current=resolveCurrentProfitWeek(calendar,dateOnly);
+        return res.status(200).json({success:true,current,previous:resolvePreviousProfitWeek(calendar,current)});
+      }
       // GET은 SELECT 전용이다. 스키마 생성은 POST/배포 마이그레이션에서만 수행한다.
       await assertProfitReportReadSchema();
       if (String(req.query.period || '').toLowerCase() === 'annual' || req.query.monthly === '1') {
         const orderYear = resolveActiveOrderYear('', req.query.year);
-        const data = await loadAnnualMonthlyReportData(orderYear);
+        const data = await loadAnnualMonthlyReportData(orderYear,{includeLive:req.query.includeLive==='1'});
         return res.status(200).json({ success: true, ...data });
       }
       const major = parseMajor(req.query.week);
@@ -754,7 +779,7 @@ export default withAuth(async function handler(req, res) {
       // 화면 조회는 변경이 감지돼도 저장본을 먼저 보여 주고(needsRefresh), 엑셀은 항상 최신 계산값을 쓴다.
       // Independent audit needs a fresh read without writing/refreshing the stored snapshot.
       // Active confirmed revisions are still immutable inside loadWeeklyReportPayload.
-      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: true });
+      const data = await loadWeeklyReportPayload(major, orderYear, { mode:req.query.auditLive==='1'?'liveAudit':'display' });
 
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로. 화면과 동일하게
       // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.
@@ -765,7 +790,7 @@ export default withAuth(async function handler(req, res) {
           // 자동 미분류 내역은 웹에서 확인·처리하는 검증 정보다. 다운로드 파일에는
           // 사용자가 직접 작성한 비고만 남겨 보고용 엑셀에 미분류 원문이 노출되지 않게 한다.
           major, rows: data.rows, note: data.note, audit: data.audit, visibleCols, displaySheetFirst: true,
-          confirmedTotals: data.confirmed ? data.confirmedTotals : null,
+          confirmedTotals: data.confirmed ? data.confirmedTotals : data.totals || null,
         });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -788,7 +813,8 @@ export default withAuth(async function handler(req, res) {
           const confirmed = await loadWeeklyReportPayload(major, orderYear);
           return res.status(200).json({ success: true, major, orderYear, ...confirmed });
         }
-        const data = await refreshProfitReportSnapshot(major, orderYear, loadReportData, { actor });
+        const result = await saveProfitReportCache({orderYear,major,actor,reason:'REFRESH'});
+        const data = result.payload || await loadWeeklyReportPayload(major,orderYear);
         if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
         return res.status(200).json({ success: true, major, orderYear, ...data });
       }

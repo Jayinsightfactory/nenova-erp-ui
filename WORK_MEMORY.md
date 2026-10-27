@@ -1307,3 +1307,10 @@
 - 정책/권한/API/검증16테스트 통과. 전체ERP/build 통과(기존공유 node_modules 누락은 독립 npm ci로 해소). PR/배포/실제예약수집은 아직 미검증. ECOUNT와 공유ERP원장 쓰기없음.
 - 세션: docs/work-sessions/2026-10-27_ecount-ar-hourly.md
 - 검색어: E040723 거래처관리대장1 전표별 담당거래처 최근1개월 평일09-18
+## 2026-10-27 주차별·월별 보고서 수요일 계산본 저장
+- 요청: 수요일에 이번주 직전1차수를 저장하고 과거조회 재계산 제거. 실제 PeriodDay로10/28current44→43저장, KST06시·지연슬롯고정·DB잠금/멱등/원천변경검사. 기존 WebProfitReportSnapshot INSERT만, ERP·수기·확정원장보존.
+- v1 row.calc/totals 저장값을 웹·엑셀·월별이공유,legacy/miss409,확정CALC우선. 과거패널자동원천조회제거·명시수정후캐시갱신/실패분리·UI경합보호.
+- 사용자 선택 "저장된 차수 우선, 최신 차수는 별도 조회": 월별기본현재미만hasData만,진행/미래는체크명시. 캐시미준비합계를0으로숨기지않음. 일반GET쓰기0.
+- 실제SELECT-only검증:41차26.4초/1174SELECT→저장형식17행/합계exact일치. 기본월별472ms/6SELECT/live0(아직missing42). 원장guard로쓰기0;동시운영3테이블변화는전체불변이라고과장하지않음.
+- 전체verify:erp-change/webpack·신규3회귀·manifest166·dnSpy·쓰기guard통과. PR/CI/배포/최초2026 1~42준비/운영스모크는이기록시점미검증. 결과는 docs/plans/profit-weekly-cache-2026-10-27.md에 이어 기록한다.
+- 검색어: profit-weekly-cache 수요일06시 PeriodDay43 44 cachePolicyVersion 저장된계산본 월별최신차수포함 BACKFILL

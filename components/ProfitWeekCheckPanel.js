@@ -16,7 +16,7 @@ export default function ProfitWeekCheckPanel({ orderYear, major }) {
     if (!orderYear || !major) return undefined;
     let cancelled = false;
     setState({ loading: true, error: '', data: null });
-    fetch(`/api/sales/profit-report-week-check?year=${encodeURIComponent(orderYear)}&week=${encodeURIComponent(major)}`, { credentials: 'same-origin' })
+    fetch(`/api/sales/profit-report-week-check?year=${encodeURIComponent(orderYear)}&week=${encodeURIComponent(major)}&auditLive=1`, { credentials: 'same-origin' })
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
