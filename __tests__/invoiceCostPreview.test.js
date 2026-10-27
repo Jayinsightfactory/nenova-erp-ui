@@ -7,9 +7,28 @@ import {INVOICE_COST_FORMULAS} from '../lib/invoiceReceiptCost.js';
 import {readFileSync} from 'node:fs';
 import {rememberInvoiceCostInput,restoreInvoiceCostInput} from '../lib/invoiceCostEditing.js';
 import {applyInvoiceAllocation,allocationSource} from '../lib/invoiceProductAllocation.js';
+import {auInvoiceTariffDefault} from '../lib/auInvoiceTariffDefaults.js';
 import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
 
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+test('AU source-bound historical tariffs, manual zero and changed product defaults',async()=>{
+ const f=fixture();Object.assign(f.products[0],{ProdKey:2999,ProdName:'Copper Glow'});f.document.lines[0].prodKey=2999;
+ const p=await prepare(f);assert.equal(p.document.reviewedMetadata.invoiceCostInput.lineInputs[0].tariffRate,.069);
+ assert.match(p.document.reviewedMetadata.tariffDefaults[id].label,/39-1.*I18/);
+ for(const value of [0,.08,-1,'']){
+  f.document.reviewedMetadata.invoiceCostInput={lineInputs:[{lineId:id,tariffRate:value}]};
+  assert.equal((await prepare(f)).document.reviewedMetadata.invoiceCostInput.lineInputs[0].tariffRate,value);
+ }
+ delete f.document.reviewedMetadata.invoiceCostInput;
+ const remembered=rememberInvoiceCostInput(p.document,{exchangeRateKRW:1000,lineInputs:[{lineId:id,tariffRate:.069}]});
+ Object.assign(f.products[0],{ProdKey:2998,ProdName:'Wolly Bush Red Tip'});f.document.lines[0].prodKey=2998;
+ const changed=await prepare(f),restored=restoreInvoiceCostInput(changed.document,remembered);
+ assert.equal(restored.reviewedMetadata.invoiceCostInput.lineInputs[0].tariffRate,0);
+ assert.match(restored.reviewedMetadata.tariffDefaults[id].label,/승인/);
+ for(const bad of [{orderYear:'2025'},{orderYear:'2027'},{orderWeek:'38-01'},{reviewedMetadata:{country:'US',transportMode:'AIR'}}])assert.equal(auInvoiceTariffDefault({...f.document,...bad},f.products[0]),null);
+ for(const bad of [{ProdKey:123},{ProdName:'Unknown'},{isDeleted:true},{CounName:'미국'}])assert.equal(auInvoiceTariffDefault(f.document,{...f.products[0],...bad}),null);
+ assert.equal(auInvoiceTariffDefault(f.document,{...f.products[0],ProdKey:2997,ProdName:'Wolly Bush Green Tip '}).tariffRate,0);
+});
 test('cost edit preserves header and unchanged row inputs; changed product requires new tariff and preview',()=>{
  const f=fixture(),doc=f.document;
  doc.reviewedMetadata.invoiceCostInput={lineInputs:[{lineId:id,stemsPerBunch:5,bunchesPerBox:30}]};

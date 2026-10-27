@@ -1326,6 +1326,12 @@
 - dnSpy 재실행 및 Product2997/2998 활성AU SELECT확인. Chrome 격리 전체Workbench에서 Red→Green 선택/적용→관세0 시험값→원가2560000→TEST_ONLY XLSX 다운로드 확인. 실제원가 승인 아님. 75표적검사66통과9선택원본생략. 전체검증/배포 진행중.
 - 검색어: woolly-cost-edit onEditAllocation invoiceCostEditing GreenTip RedTip 원가표 품목변경
 
+## 2026-10-27 호주 관세율 기본값·실제44-01 검증
+- 기존 호주39-1 원가파일 SHA7cb66c 품목별율: CopperGlow6.9%,9품목0%. RedTip은 사용자 별도0%승인. 활성ProdKey+정확이름/2026이후39차/AU AIR만 자동입력, 근거표시·수기보존·품목변경시기본율재준비.
+- 실제44-01 PDF SHA994541과 저장분석본11행 일치SELECT. Chrome 격리Workbench에서 Red/Green검색선택·합계적용·관세변경·환율보존·미리보기·다운로드 완료. 파일11행2385단20443.75AUD, 전체수식차이1전미만/렌더확인. TEST_ONLY1090원/AUD·통관10000원, 원가22370401.7. 운영쓰기0.
+- 표적76검사67통과9선택원본생략. 전체회귀/webpack/CI/배포 진행중. 자세한근거 docs/work-sessions/2026-10-27_au-tariff-defaults.md.
+- 검색어: au-tariff-defaults CopperGlow6.9 GreenTip0 RedTip0 39-1I18 44-01TEST_ONLY
+
 ## 2026-10-27 계산본 1~42차 준비·운영 다운로드 검증
 - BACKFILL 1~41 새 버전41개, 42차는 운영 예약저장본을 그대로 사용. SQL22429조회/INSERT시도41/차단0. ERP·수기·확정원장 쓰기 금지 유지.
 - 저장본 조회 18/26/31/41/42 모두 stored, 각100~331ms/4~5SELECT. 월별42차 missing0,753ms/5SELECT/live0. 월별156개 금액·이익률 대조통과(부동소수점 최대차2.78e-17, 음수0은 JSON상0).
