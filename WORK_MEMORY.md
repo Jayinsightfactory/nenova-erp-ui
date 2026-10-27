@@ -1256,6 +1256,14 @@
 - 기본 작업 분리 PR1306 병합851077eb, 배포40426114758 진행 중. 추가 작업 회귀26통과, 전체계약·build 진행 중. 운영 DB 수정 없음.
 - 검색어: invoiceWarehouseBrowse warehouse-list 저장연도 기본차수 입고내역 원가다운로드
 
+## 2026-10-27 기존 전산 입고로 원가 계산·다운로드
+- 인보이스 재연결 없이 WarehouseMaster/Detail/Product SELECT-only → 검증된 국가 공식 계산 → 미승인 XLSX 다운로드 경로 추가. 원장/재고/웹 승인 원가 쓰기 없음.
+- 연도·차수·입고번호 및 조회 지문을 재검증, 다운로드 생성 후 재조회. 기존 승인 원가 export의 승인/commit 검증은 보존.
+- 통화·운송 미저장 값은 확인 입력, GW/CW 단일 명확 중량행 보완(충돌은 미기재), 관세/기타비 일괄입력. 연도·차수 및 조회 버튼 압축 배치, 잘못된 ‘미입력’ 빈 화면 제거.
+- dnSpy 실제 실행 및 2026/43-01 입고7771 SELECT 대조:64품목+3비상품행. TEST_ONLY 원가 XLSX 생성, 전후 지문 동일. 10공식 계산/출력 회귀 통과. Chrome 격리 UI에서 비용 누락 안내→입력→다운로드1회, 쓰기 요청0 확인.
+- 최종 webpack 빌드/전체계약/manifest/쓰기guard/dnSpy 통과. Chrome 최종 UI 다운로드 금액144,000 및 품목2,600/4,600원 XLSX 일치, 저장요청0. PR1309 CI·배포 진행 중, 운영 화면 최종 검증 미검증. 상세 docs/work-sessions/2026-10-27_native-cost.md.
+- 검색어: nativeReceiptCost nativeCostHttp 기존입고 인보이스없이 원가계산 미승인계산본
+
 ## 2026-10-27 입고관리 조회 기본기간·태국 EXCEL 중량
 - 조회 기본값만7일→KST 달력3개월~오늘. URL/수동값 및 uploadMeta 기존 입력일 기본값 보존. DB·입고·원가 계산 변경 없음.
 - SELECT:39-01 EXCEL7474 상세42868/42869 SteamQuantity209/270.5는 남아 있지만 ProdKey=NULL.40-01 EXCEL7581은Gross weight225/Chargeable weight345.5 정상 연결.39차운임270.5×1.65=446.325, 원문라벨 확정은 아님.

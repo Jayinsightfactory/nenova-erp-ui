@@ -1030,19 +1030,19 @@ export default function InvoiceReceiptWorkbench({
   if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
   if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
   if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
-    <header className={styles.heading}><div><h2>{workspaceMode === 'cost' ? '도착원가 작업할 인보이스 찾기' : '저장 인보이스 입고 문서'}</h2><p>파일을 다시 올리지 않아도 저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.</p></div></header>
+    <header className={styles.heading}><div><h2>{workspaceMode === 'cost' ? '기존 입고로 도착원가 만들기' : '저장 인보이스 입고 문서'}</h2><p>{workspaceMode === 'cost' ? '연도·차수 선택 → 입고 조회 → 부족한 비용 입력 → 엑셀 다운로드. 인보이스를 다시 올리지 않아도 됩니다.' : '저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.'}</p></div></header>
     {sourceState.error && <p className={styles.error} role="alert">{sourceState.error}</p>}
     <form className={styles.savedScope} onSubmit={submitSavedScope} aria-label="저장 인보이스 검색">
       <Field label="저장 연도"><div className={styles.browseStepper}><button type="button" aria-label="이전 연도" disabled={!/^20\d{2}$/.test(browseYear) || +browseYear <= 2000} onClick={() => setBrowseYear(value => String(+value - 1))}>‹</button><input aria-label="저장 연도" value={browseYear} inputMode="numeric" placeholder="2026" onChange={event => setBrowseYear(event.target.value)} /><button type="button" aria-label="다음 연도" disabled={!/^20\d{2}$/.test(browseYear) || +browseYear >= 2099} onClick={() => setBrowseYear(value => String(+value + 1))}>›</button></div></Field>
       <Field label="저장 세부차수"><div className={styles.browseStepper}><button type="button" aria-label="이전 세부차수" onClick={() => moveBrowseWeek('prev')}>‹</button><input aria-label="저장 세부차수" value={browseWeek} placeholder="44-01" onChange={event => setBrowseWeek(event.target.value)} /><button type="button" aria-label="다음 세부차수" onClick={() => moveBrowseWeek('next')}>›</button></div></Field>
-      <button type="submit" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>{busy === 'load' ? '문서 불러오는 중…' : '저장 문서 조회'}</button>
-      {workspaceMode === 'cost' && <button type="submit" value="warehouse" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>입고내역으로 도착원가 생성 / 다운로드</button>}
+      {workspaceMode === 'cost' && <button type="submit" value="warehouse" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>입고내역 조회 · 원가 계산</button>}
+      <button className={workspaceMode === 'cost' ? styles.secondaryBrowse : undefined} type="submit" value="documents" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>{busy === 'load' ? '문서 불러오는 중…' : '저장 문서 조회'}</button>
     </form>
     {browseInputError && <p role="alert" className={styles.error}>{browseInputError}</p>}
     {notice && <p role="alert" className={notice.type === 'error' ? styles.error : styles.notice}>{notice.text}</p>}
     {browseMode === 'warehouse' && browseScope.orderYear && workspaceMode === 'cost'
       ? <InvoiceWarehouseCostBrowse orderYear={browseScope.orderYear} orderWeek={browseScope.orderWeek} onOpenDocument={loadDocument} />
-      : renderSavedDocuments(false)}
+      : browseScope.orderYear ? renderSavedDocuments(false) : <div className={styles.browseEmpty}><strong>{browseYear} / {browseWeek}</strong><p>조회 버튼을 누르면 해당 차수의 자료가 표시됩니다. 운영 입고는 변경하지 않습니다.</p></div>}
   </section>;
 
   const localWarnings = conversionWarnings(documentValue);

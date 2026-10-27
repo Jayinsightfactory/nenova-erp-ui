@@ -502,7 +502,7 @@
 
 .savedScope {
   display: grid;
-  grid-template-columns: minmax(150px, 220px) minmax(170px, 240px) auto;
+  grid-template-columns: minmax(150px, 200px) minmax(170px, 220px) max-content max-content;
   gap: 9px;
   align-items: end;
   margin: 14px 0 4px;
@@ -798,3 +798,8 @@
 .browseStepper { display: flex; align-items: center; gap: 4px; }
 .browseStepper input { min-width: 70px; width: 100%; }
 .browseStepper button { flex: 0 0 32px; padding: 6px; font-size: 20px; }
+.savedScope .secondaryBrowse { background:#fff; color:#365675; border-color:#bdcce0; }
+.browseEmpty { padding:22px; text-align:center; background:#f8fafc; border:1px dashed #cbd8e8; border-radius:10px; margin-top:14px; color:#6a7e96; }
+.browseEmpty strong { color:#365675; }
+@media (max-width:1100px) { .savedScope { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:560px) { .savedScope { grid-template-columns:1fr; } }
