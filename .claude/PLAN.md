@@ -1,5 +1,13 @@
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
+## 2026-10-27 — 입고관리 기본 조회기간·EXCEL 중량 재확인
+- [x] 실제 dnSpy/SELECT 및 운영 Chrome 사전 확인: 기존 7일, 3개월 범위 1,112건, EXCEL39차 NULL 품목행 제외
+- [x] 조회 초기값만 KST 달력 3개월로 확대하는 범위 고정; URL/수동 선택 및 uploadMeta 기존 기본값 보존
+- [x] 날짜 helper·실제 초기화 회귀, 전체 ERP gate/build·dnSpy·UI layout57건 통과
+- [ ] PR/CI·Cafe24 배포·변경 후 운영 브라우저 검증
+- [!] 39차209/270.5는 SQL SteamQuantity에 남아 있지만 ProdKey/원문 라벨 없음. 비용 계산·품목 연결·DB 보정은 이번 범위 아님.
+- 기록: docs/work-sessions/2026-10-27_incoming-date-default.md
+
 ## 2026-10-23 — SQL 비용 연결·활성 입고 환산 복구 (DB 불변)
 - [x] 실제 dnSpy/SELECT 조사, guardian 선행검토, 두 읽기 전용 계획/부작용 표
 - [x] EXCEL 태국/수국 보조AWB 운임 누락 및 활성 입고분 환산 복구·회귀 계약
