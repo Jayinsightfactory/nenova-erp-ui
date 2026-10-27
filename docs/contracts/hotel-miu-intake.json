@@ -1,6 +1,6 @@
 {
   "id": "hotel-miu-intake",
-  "title": "호텔+미우 통합게시판 주문입력 — 이미지/텍스트 합산 후 주문수량만 가산",
+  "title": "호텔+미우 주문전용 — 요청/발주 매칭·잔량 업체 분류·주문 전후 검증",
   "scope": [
     "pages/sales/shilla-miu-board.js",
     "pages/sales/shilla-miu-allocation.js",
@@ -14,15 +14,24 @@
     "docs/exe-golden/FormOrderAdd.md",
     "docs/migrations/2026-08-19_web_hotel_miu_intake.sql",
     "docs/migrations/2026-08-20_web_hotel_miu_register_snap.sql",
-    "docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql"
+    "docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql",
+    "components/HotelOrderWorkspace.js",
+    "lib/hotelOrderWorkspace.js",
+    "__tests__/hotelOrderWorkspace.test.js",
+    "__tests__/hotelOrderParseApi.test.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "JSON {text} uses parseHotelMiuText only (no Vision, no image matchName). multipart file uses Vision OCR. Clipboard with Excel TSV+bitmap prefers text. Unit 대 is 송이 (steam), not 박스. read Product + order-mappings.json + WebHotelMiuProductMap overlay, then applyBoardOverlay so a once-picked name stays matched. Text paste match rows render as a compact 입력/매칭/수량 table packed left (not stretched flex). No persistImportMatchMappings. No Order/Shipment write."
+      "sideEffect": "JSON text and TXT/TSV use parseHotelMiuText; XLS/XLSX/CSV use explicit single-sheet parseOrderImportSheetRows; multi-sheet returns sheet choices without matching. Images use Vision OCR. Temp files cleaned. Active Product, shared mappings, confirmed Raum/Shilla/Choimun/MIU(IAM)/Eunhwa hotel rows and board overlay are read. Conflicting hotel names require explicit board selection. No common mapping or Order/Shipment writes. Canonical Product factors returned for workspace unit normalization. Legacy text paste match rows retain the compact 입력/매칭/수량 table packed left (not stretched flex)."
     },
     {
       "name": "SAVE_BOARD_PRODUCT_MAP",
@@ -95,6 +104,12 @@
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
       "sideEffect": "Week popup 등록내역을 전산에 다시 더하기 posts snap afterQty as signed add for selected OrderYear+OrderWeek+CustKey+ProdKey. Revives hidden OrderDetail instead of a second row. Does not write Shipment*/Estimate/WebProfitReport. Cross-year same OrderWeek is excluded."
+    },
+    {
+      "name": "HOTEL_ORDER_WORKSPACE",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection."
     }
   ],
   "crossYearFixture": {
@@ -104,8 +119,12 @@
       "selectedOrderYear": "2026",
       "orderWeek": "39-02",
       "priorYear": "2025",
-      "expectedIncludedYears": ["2026"],
-      "expectedExcludedYears": ["2025"]
+      "expectedIncludedYears": [
+        "2026"
+      ],
+      "expectedExcludedYears": [
+        "2025"
+      ]
     }
   },
   "dnspyEvidence": {
@@ -154,9 +173,13 @@
     "Estimate",
     "WebProfitReport"
   ],
-  "requiredTests": ["__tests__/hotelMiuIntake.test.js"],
+  "requiredTests": [
+    "__tests__/hotelMiuIntake.test.js"
+  ],
   "requiredTestFiles": [
     "__tests__/hotelMiuIntake.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/hotelOrderWorkspace.test.js",
+    "__tests__/hotelOrderParseApi.test.js"
   ]
 }

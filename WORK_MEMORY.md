@@ -1326,6 +1326,11 @@
 - dnSpy 재실행 및 Product2997/2998 활성AU SELECT확인. Chrome 격리 전체Workbench에서 Red→Green 선택/적용→관세0 시험값→원가2560000→TEST_ONLY XLSX 다운로드 확인. 실제원가 승인 아님. 75표적검사66통과9선택원본생략. 전체검증/배포 진행중.
 - 검색어: woolly-cost-edit onEditAllocation invoiceCostEditing GreenTip RedTip 원가표 품목변경
 
+## 2026-10-27 호텔+미우 주문전용
+- 기본 호텔 주문등록 탭: 요청/발주 TXT·Excel·이미지·텍스트 매칭, Product.OutUnit 합산, 발주→라움/완성박스잔량→호텔여분/잔여→선택업체. 기존 합산·이력 보조탭 유지.
+- 기존 my-customer ADD/expectedCurrentQty writer 사용, 원장 직접SQL 추가0. 로그인별 브라우저 초안·등록전 pending저장·실패재등록차단·서버 previous/final 결과·이력보관. 공용/호텔 저장 매칭1035행146품목, 충돌 수동선택.
+- 실제 dnSpy·SELECT-only downstream 확인, 신규6회귀 및 전체ERP/dnSpy/manifest/writeguard/화면틀 통과. 격리Chrome 정상/응답유실 시험 통과. 빌드·PR·배포는 이기록시점 진행중이며 실제업무주문/외부OCR사진 전송은 미검증.
+- 검색어: hotel-order-only 요청수량 발주수량 호텔여분 분류필요 expectedCurrentQty 호텔주문전용
 ## 2026-10-27 호주 관세율 기본값·실제44-01 검증
 - 기존 호주39-1 원가파일 SHA7cb66c 품목별율: CopperGlow6.9%,9품목0%. RedTip은 사용자 별도0%승인. 활성ProdKey+정확이름/2026이후39차/AU AIR만 자동입력, 근거표시·수기보존·품목변경시기본율재준비.
 - 실제44-01 PDF SHA994541과 저장분석본11행 일치SELECT. Chrome 격리Workbench에서 Red/Green검색선택·합계적용·관세변경·환율보존·미리보기·다운로드 완료. 파일11행2385단20443.75AUD, 전체수식차이1전미만/렌더확인. TEST_ONLY1090원/AUD·통관10000원, 원가22370401.7. 운영쓰기0.

@@ -1,6 +1,7 @@
 // 호텔+미우 통합게시판 홈 — 업체에 합산을 쌓은 뒤 주문만 가산 등록
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
+import HotelOrderWorkspace from '../../components/HotelOrderWorkspace';
 import { getClipboardImage } from '../../lib/raumPnlImage';
 import {
   HOTEL_MIU_BATCH_DRAFT,
@@ -129,6 +130,19 @@ function HistoryQtyTable({ view, exeQty, products, selectedVarieties = [], onTog
 }
 
 export default function HotelMiuIntakePage() {
+  const [tab, setTab] = useState('hotel');
+  return <div>
+    <h1 style={{ padding: '20px 20px 0' }}>호텔+미우 주문전용</h1>
+    <nav aria-label="주문 작업 탭" style={{ padding: '0 20px', display: 'flex', gap: 12 }}>
+      <button aria-pressed={tab === 'hotel'} onClick={() => setTab('hotel')}>호텔 주문등록</button>
+      <button aria-pressed={tab === 'history'} onClick={() => setTab('history')}>기존 업체별 입력 · 등록내역</button>
+    </nav>
+    <div hidden={tab !== 'hotel'}><HotelOrderWorkspace /></div>
+    <div hidden={tab !== 'history'}><LegacyHotelMiuIntakePage /></div>
+  </div>;
+}
+
+function LegacyHotelMiuIntakePage() {
   const initial = useMemo(() => defaultScope(), []);
   const majorOptions = initial.majors;
   const [year, setYear] = useState(initial.year);
@@ -698,7 +712,7 @@ export default function HotelMiuIntakePage() {
     <div style={st.page} onPaste={onPaste}>
       <div style={st.head}>
         <div>
-          <h1 data-desktop-chrome style={st.h1}>호텔+미우 통합게시판</h1>
+          <h2 data-desktop-chrome style={st.h1}>기존 업체별 입력 · 등록내역</h2>
           <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 영업 기준 차수부터 +9차수 안의 세부 1·2·3·4를 고른 뒤, 이미지·텍스트를 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>

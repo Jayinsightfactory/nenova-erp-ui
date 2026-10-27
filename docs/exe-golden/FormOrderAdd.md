@@ -1,5 +1,11 @@
 # FormOrderAdd 주문등록 근거
 
+## 2026-10-27 호텔 주문전용 입력면
+
+실제 dnSpy CLI로 FormOrderAdd.btnSave_Click/UnitQuantity의 Master→Detail→History transaction과 신규 ShipmentMaster/stock 후속 호출을 재확인했다. 새 요청·발주 분류 UI는 이미 검증된 `source=my-customer`, `orderMode=ADD`, `expectedCurrentQty` 계약을 재사용한다. 따라서 native 신규 저장의 출고 헤더/재고 후속 호출을 새로 모방하지 않으며 기존 주문전용 정책대로 보존한다. 기존 호텔 합산 탭 정책은 그대로다.
+
+동일키 SELECT-only: 2026/44-01/Cust680 ViewOrder3행, 전년도 동일키0행, ViewShipment0행, ShipmentDate0, ShipmentFarm0, DetailFix=1·ViewOrder·PeriodDay JOIN 견적노출0, 연결 Estimate0, 2026/44 WebProfitReport0. 실제 신규 매칭 조회 SQL1035행/146품목 성공. 실제 업무 주문을 등록한 결과가 아니라 변경 전 읽기 검증이다. 세부 기준·테스트는 [작업 기록](../plans/hotel-order-only-2026-10-27.md).
+
 - EXE: `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`
 - decompile: `C:\Users\USER\nenova-decompiled\Nenova\FormOrderAdd.cs`
 - 확인 메서드: `btnSave_Click`, `UnitQuantity`, `MergeDataBefore`
