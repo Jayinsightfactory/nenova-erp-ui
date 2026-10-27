@@ -1298,7 +1298,9 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" aria-pressed={costSource==='invoice'} onClick={()=>{setCostSource('invoice');setNotice(null);}}>업로드 인보이스 기준</button>
       <button type="button" aria-pressed={costSource==='existing'} onClick={()=>setCostSource('existing')}>기존 입고·승인 원가 기준</button>
     </div>
-    <div hidden={costSource!=='invoice'}>{invoiceCostOpened && <InvoiceDraftCost document={documentValue} onEdit={() => setWorkspaceMode('receipt')} onMetadataChange={updateMetadata} />}</div>
+    <div hidden={costSource!=='invoice'}>{invoiceCostOpened && <InvoiceDraftCost document={documentValue} products={products}
+      onEditAllocation={documentValue.rawMetadata?.allocationSources?.length > 0 && committedOperations.length === 0 && !busy ? () => setAllocationOpen(true) : undefined}
+      onEdit={() => setWorkspaceMode('receipt')} onMetadataChange={updateMetadata} />}</div>
     {costSource==='existing' && <>
     <div className={styles.costPending}>
       <strong>기존 입고로 도착원가 엑셀 받기</strong>

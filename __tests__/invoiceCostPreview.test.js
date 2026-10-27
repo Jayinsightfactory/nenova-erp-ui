@@ -5,9 +5,31 @@ import {prepareInvoiceCostPreview,calculateInvoiceCostPreview,createInvoiceCostP
 import {createInvoicePreviewCostWorkbook,createInvoiceCostWorkbook,createNativeCostWorkbook} from '../lib/invoiceReceiptCostExport.js';
 import {INVOICE_COST_FORMULAS} from '../lib/invoiceReceiptCost.js';
 import {readFileSync} from 'node:fs';
+import {rememberInvoiceCostInput,restoreInvoiceCostInput} from '../lib/invoiceCostEditing.js';
+import {applyInvoiceAllocation,allocationSource} from '../lib/invoiceProductAllocation.js';
 import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
 
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+test('cost edit preserves header and unchanged row inputs; changed product requires new tariff and preview',()=>{
+ const f=fixture(),doc=f.document;
+ doc.reviewedMetadata.invoiceCostInput={lineInputs:[{lineId:id,stemsPerBunch:5,bunchesPerBox:30}]};
+ const saved=rememberInvoiceCostInput(doc,{exchangeRateKRW:1000,customsTotalKRW:10000,freightAmount:0,lineInputs:[{lineId:id,tariffRate:0}]});
+ assert.equal(restoreInvoiceCostInput(doc,saved).reviewedMetadata.invoiceCostInput.lineInputs[0].tariffRate,0);
+ const changed=structuredClone(doc);changed.lines[0].prodKey=2998;
+ const restored=restoreInvoiceCostInput(changed,saved).reviewedMetadata.invoiceCostInput;
+ assert.equal(restored.exchangeRateKRW,1000);assert.equal(restored.customsTotalKRW,10000);assert.equal(restored.freightAmount,0);
+ assert.equal(restored.lineInputs[0].tariffRate,undefined);assert.equal(restored.lineInputs[0].stemsPerBunch,5);
+ assert.equal(restored.formulaApplicabilityConfirmed,false);
+ for(const field of ['orderYear','orderWeek','sourceHash','documentId']){const other={...doc,[field]:'different'};assert.equal(restoreInvoiceCostInput(other,saved),other);}
+});
+test('cost view exposes Woolly editor even with no prepare issue and renders matched names',()=>{
+ const draft=readFileSync(new URL('../components/import-tools/InvoiceDraftCost.js',import.meta.url),'utf8');
+ const review=readFileSync(new URL('../components/import-tools/InvoiceReceiptCostReview.js',import.meta.url),'utf8');
+ const bench=readFileSync(new URL('../components/import-tools/InvoiceReceiptWorkbench.js',import.meta.url),'utf8');
+ assert.match(draft,/Woolly bush 품목 선택·변경/);assert.match(draft,/restoreInvoiceCostInput/);
+ assert.match(review,/matchedProduct\.ProdName/);assert.match(review,/onClick=\{onEditAllocation\}/);
+ assert.match(bench,/onEditAllocation=.*setAllocationOpen\(true\)/);
+});
 function fixture(){
  const document={orderYear:'2026',orderWeek:'44-01',sourceHash:'ab'.repeat(32),originalFileName:'44-01 호주 CI.pdf',
   invoiceNo:'41002',farmKey:null,invoiceYear:null,rawMetadata:{},reviewedMetadata:{country:'AU',transportMode:'AIR',inputDate:'2026-10-26'},
@@ -23,6 +45,23 @@ function fixture(){
 }
 const prepare=f=>prepareInvoiceCostPreview({...f,request:{document:f.document}});
 const request=(p,input)=>({baselineDigest:p.baselineDigest,input});
+test('Woolly product change revalidates, rejects old digest and exports with exact totals in each year',async()=>{
+ for(const year of ['2025','2026']){
+  const f=fixture();f.document.orderYear=year;f.document.reviewedMetadata.inputDate=`${year}-10-26`;
+  const line=f.document.lines[0];line.originalName='Woolly bush';line.prodKey=2997;
+  f.document.rawMetadata.allocationSources=[allocationSource(line)];
+  line.sourceEvidence={allocationSourceId:id};line.reviewed.allocationConfirmed=true;
+  f.products.splice(0,1,...[2997,2998].map((ProdKey,i)=>({...f.products[0],ProdKey,ProdName:`Wolly Bush ${i?'Red':'Green'} Tip`,country:'AU',selectable:true})));
+  const old=await prepare(f);assert.deepEqual(old.issues,[]);
+  f.document=applyInvoiceAllocation(f.document,id,[{...line,prodKey:2998}],f.products);
+  const next=await prepare(f);assert.deepEqual(next.issues,[]);assert.notEqual(old.baselineDigest,next.baselineDigest);
+  assert.throws(()=>calculateInvoiceCostPreview(next,request(old,f.input)),/변경/);
+  f.input.formulaEffectiveDate=`${year}-10-26`;f.input.exchangeRateDate=`${year}-10-26`;
+  const result=calculateInvoiceCostPreview(next,request(next,f.input));assert.equal(result.preview.status,'APPROVED');
+  assert.equal(next.document.receiptLines[0].prodKey,2998);assert.equal(next.document.receiptLines[0].lineAmount,1020);
+  assert.equal(result.preview.totals.totalCostKRW,1030000);assert.ok((await createInvoicePreviewCostWorkbook(result)).length>1000);
+ }
+});
 test('new AU upload calculates and exports without FarmKey, native receipt, CW, draft save or approval',async()=>{
  const f=fixture(),before=JSON.stringify(f.document),p=await prepare(f);assert.deepEqual(p.issues,[]);
  assert.deepEqual(p.document.operations,[]);assert.equal(p.document.receiptStatus,'INVOICE_PREVIEW');

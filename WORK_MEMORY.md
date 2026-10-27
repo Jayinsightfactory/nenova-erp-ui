@@ -1301,6 +1301,12 @@
 - 국가별 공식·양식회귀 및 격리Chrome 계산→XLSX 다운로드 확인. 운영실제7863 readonly지문 동일. 운영 업로드/승인실행은 미검증(금지). PR/배포 진행 전, 최종결과 세션MD.
 - 검색어: invoice-cost-independent INVOICE_PREVIEW PREVIEW_ONLY 원가단독 인보이스 미승인 다운로드
 
+## 2026-10-27 거래처관리대장1(채권) 구성 착수
+- 사용자 범위 E040723 전표별/담당거래처/최근1개월/KST평일09~18 정시. 운영 메뉴 자료미수집 확인. ar 요약과 별개.
+- 원본 전표37행 판매/수금/이월/잔액 대조일치. OrderCode는 이카운트코드와 다름을 확인해 유일한 사업자 식별값으로만 연결. 담당125/수집후보120/연결확인5. 전용API/UI/정시수집 연결, 일반snapshot API에서 ledger723 차단. 개인정보 대신 날짜·금액·내부키만 웹snapshot에 저장.
+- 정책/권한/API/검증16테스트 통과. 전체ERP/build 통과(기존공유 node_modules 누락은 독립 npm ci로 해소). PR/배포/실제예약수집은 아직 미검증. ECOUNT와 공유ERP원장 쓰기없음.
+- 세션: docs/work-sessions/2026-10-27_ecount-ar-hourly.md
+- 검색어: E040723 거래처관리대장1 전표별 담당거래처 최근1개월 평일09-18
 ## 2026-10-27 주차별·월별 보고서 수요일 계산본 저장
 - 요청: 수요일에 이번주 직전1차수를 저장하고 과거조회 재계산 제거. 실제 PeriodDay로10/28current44→43저장, KST06시·지연슬롯고정·DB잠금/멱등/원천변경검사. 기존 WebProfitReportSnapshot INSERT만, ERP·수기·확정원장보존.
 - v1 row.calc/totals 저장값을 웹·엑셀·월별이공유,legacy/miss409,확정CALC우선. 과거패널자동원천조회제거·명시수정후캐시갱신/실패분리·UI경합보호.
@@ -1313,3 +1319,17 @@
 - PR1316 master a6a7619, CI40458268697 및 Cafe24배포40458808503 성공. 배포 ping/hydration 통과.
 - 최초 준비는 조건부 테이블 존재 확인 SELECT를 가드가 차단하여 1차에서 중단(INSERT시도0). 좁은 IF OBJECT_ID SELECT 허용 및 실제 함수회귀 추가, DML/DDL/SP 차단과 실패 latch 유지. 운영원장수정 없음; 최초저장 완료 여부는 후속 검증 기록 참조.
 - 검색어: profit-cache-backfill-guard sourceWorkbookFx IF_OBJECT_ID CACHE_ONLY_SQL_BLOCKED PR1316
+
+## 2026-10-27 원가표 Woolly 품목 변경
+- 원가표가 ProdKey만 보여주고 분류버튼은 입고탭에만 있었음. 원가탭/행 버튼에서 기존 합계검증 분류모달 연결, 영문/한글 매칭명 표시. 운영원장·공용매칭·원가식 쓰기없음.
+- 품목 변경→새 prepare지문/미리보기 필요, 환율·통관비 보존, 변경된 행 관세/배분입력 재확인. 다른 문서/연도 입력승계 금지.
+- dnSpy 재실행 및 Product2997/2998 활성AU SELECT확인. Chrome 격리 전체Workbench에서 Red→Green 선택/적용→관세0 시험값→원가2560000→TEST_ONLY XLSX 다운로드 확인. 실제원가 승인 아님. 75표적검사66통과9선택원본생략. 전체검증/배포 진행중.
+- 검색어: woolly-cost-edit onEditAllocation invoiceCostEditing GreenTip RedTip 원가표 품목변경
+
+## 2026-10-27 계산본 1~42차 준비·운영 다운로드 검증
+- BACKFILL 1~41 새 버전41개, 42차는 운영 예약저장본을 그대로 사용. SQL22429조회/INSERT시도41/차단0. ERP·수기·확정원장 쓰기 금지 유지.
+- 저장본 조회 18/26/31/41/42 모두 stored, 각100~331ms/4~5SELECT. 월별42차 missing0,753ms/5SELECT/live0. 월별156개 금액·이익률 대조통과(부동소수점 최대차2.78e-17, 음수0은 JSON상0).
+- 예약42차는WEEKLY/weekly-scheduler:2026-10-21/version1. 보호20테이블중17관측동일,OrderMaster/OrderDetail/ShipmentMaster는동시업무로변화. 수기/확정/환율/통관비웹테이블은동일. 본작업 원장쓰기0.
+- 운영 다운로드 run40460713452 성공:18차985ms/36315bytes,41차943ms/36444bytes,각HTTP200/1시트/화면금액차이0/업무쓰기0. 원가미확정 null은0으로대체하지않는다.
+- PR1319 후속보완은 동시 master WORK_MEMORY 추가내용을 모두 보존하여 병합 후 CI 재실행. 최종배포는 후속 기록 참조.
+- 검색어: profit-weekly-cache 1-42 materialized monthly753 18xlsx 41xlsx 40460713452

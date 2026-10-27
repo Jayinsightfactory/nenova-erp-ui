@@ -115,6 +115,7 @@ export const MENU_ITEMS = [
       { href: '/ecount/reconcile',   labelKey: '🔁 ECOUNT 자동대사',  popup: false },
       { href: '/ecount/week-compare', labelKey: '📊 ECOUNT·전산 차수 비교', popup: false },
       { href: '/ecount/receivables', labelKey: '💳 채권(미수) 현황',   popup: false },
+      { href: '/ecount/customer-ledger', labelKey: '거래처관리대장1(채권)', popup: false },
       { href: '/ecount',             labelKey: 'ECOUNT 수집 데이터', popup: false },
       { href: '/ecount/workbench',   labelKey: 'ECOUNT ERP', popup: false },
     ]

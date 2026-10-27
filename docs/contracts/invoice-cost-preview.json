@@ -1,6 +1,6 @@
 {
  "id":"invoice-cost-preview","title":"입고 없이 인보이스 원가 계산본 다운로드",
- "scope":["lib/invoiceCostPreview.js","pages/api/import/receipts/invoice-cost.js","components/import-tools/InvoiceDraftCost.js","components/import-tools/InvoiceReceiptCostReview.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/PackingListTool.js","pages/import/tools.js","lib/invoiceReceiptCostExport.js"],
+ "scope":["lib/invoiceCostEditing.js","lib/invoiceCostPreview.js","pages/api/import/receipts/invoice-cost.js","components/import-tools/InvoiceDraftCost.js","components/import-tools/InvoiceReceiptCostReview.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/PackingListTool.js","pages/import/tools.js","lib/invoiceReceiptCostExport.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "actions":[{"name":"INVOICE_COST_PREVIEW_DOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Only Product SELECT. No invoice persistence, link, approval, warehouse writer or stock SP. Normalized upload and actual active product units shared by prepare/preview/download; source digest and post-render recheck."}],
  "crossYearFixture":{"required":true,"description":"2025 and2026 same invoice/week preserve distinct output scope; inputDate/orderYear conflict rejected, prepared digest cannot be reused across year."},

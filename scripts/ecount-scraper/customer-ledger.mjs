@@ -1,0 +1,119 @@
+// Production read-only E040723 adapter. No exports, screenshots, session URLs or source PII logs.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import policy from '../../lib/ecountCustomerLedgerPolicy.cjs';
+import schedule from '../../lib/ecountLedgerSchedule.cjs';
+import validation from '../../lib/ecountLedgerValidation.cjs';
+const HASH='#menuType=MENUTREE_000004&menuSeq=MENUTREE_001903&groupSeq=MENUTREE_000035&prgId=E040723&depth=4';
+const STATE=path.join(path.dirname(fileURLToPath(import.meta.url)),'.ledger-schedule.json');
+const number=v=>{
+  const s=String(v??'').replace(/[,\s]/g,'');
+  if(!/^-?\d*(\.\d+)?$/.test(s))throw new Error('SOURCE_NUMBER_INVALID');
+  const n=Number(s);if(!Number.isFinite(n))throw new Error('SOURCE_NUMBER_INVALID');return n;
+};
+async function api(base,body){
+  if(!process.env.NENOVA_TOKEN)throw new Error('SYNC_TOKEN_MISSING');
+  const response=await fetch(`${base}/api/ecount/customer-ledger-sync`,{method:body?'POST':'GET',
+    headers:{Authorization:`Bearer ${process.env.NENOVA_TOKEN}`,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
+  const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
+}
+export async function collectCustomerLedger(page,base,customer,period){
+  await page.goto(base+HASH,{waitUntil:'domcontentloaded'});
+  const search=page.getByRole('button',{name:'검색(F8)',exact:true});
+  // The SPA retains the preceding customer's report when revisiting the same hash.
+  await page.getByRole('button',{name:/^(검색\(F8\)|Search\(F3\))$/}).first().waitFor({state:'visible',timeout:30000});
+  if(!await search.isVisible())await page.getByRole('button',{name:'Search(F3)',exact:true}).click();
+  await search.waitFor({state:'visible',timeout:30000});
+  await page.getByRole('radio',{name:' 전표별',exact:true}).check();
+  await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).check();
+  const remove=page.getByRole('button',{name:'',exact:true});
+  for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
+  if(await remove.count())throw new Error('SOURCE_CUSTOMER_NOT_CLEARED');
+  const field=page.getByRole('textbox',{name:'거래처',exact:true});
+  await field.fill(customer.sourceCode);await field.press('Enter');
+  // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
+  await remove.waitFor({state:'visible',timeout:10000});
+  if(await remove.count()!==1||await page.getByRole('button',{name:'적용(F8)',exact:true}).count())throw new Error('SOURCE_CUSTOMER_AMBIGUOUS');
+  // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
+  await page.getByRole('button',{name:'전월+금월',exact:true}).click();
+  const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
+  await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();
+  for(const [date,offset] of [[period.from,0],[period.to,3]]){
+    const [year,month,day]=date.split('-');
+    for(const [index,value] of [[offset,year.slice(-2)],[offset+1,month]]){
+      const label=await page.locator(`button[data-cid="ddlSYear_DATE"][data-index="${index}"]:visible`).innerText();
+      if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
+    }
+    await page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`).fill(day);
+  }
+  if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
+  await search.click();
+  await search.waitFor({state:'hidden',timeout:30000});
+  await page.waitForTimeout(700);
+  await page.waitForLoadState('networkidle',{timeout:15000});
+  await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
+  // The print report is a full DOM table (not a virtualized paginated grid).
+  await page.waitForFunction(()=>{
+    const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
+    return th&&Array.from(th.closest('table').rows).some(r=>/합계|등록된 데이터가 없습니다\./.test(r.innerText));
+  },null,{timeout:30000});
+  const source=await page.evaluate(()=>{
+    const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
+    const table=th.closest('table');
+    const headers=Array.from(table.querySelectorAll('th')).map(e=>e.innerText.trim());
+    const rows=Array.from(table.rows).filter(r=>!r.querySelector('th')).map(r=>Array.from(r.cells).map(c=>c.innerText.trim()));
+    const idCell=Array.from(document.querySelectorAll('td')).find(c=>c.innerText.trim()==='사업자등록번호'&&c.getClientRects().length);
+    const periods=Array.from(document.querySelectorAll('body *')).filter(e=>e.children.length===0&&e.getClientRects().length)
+      .map(e=>e.innerText?.trim()).filter(s=>/^\d{4}\/\d{2}\/\d{2}\s*~\s*\d{4}\/\d{2}\/\d{2}$/.test(s));
+    return {headers,rows,periods,identity:idCell?.nextElementSibling?.innerText.replace(/\D/g,'')};
+  });
+  if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||source.identity!==customer.sourceCode)throw new Error('SOURCE_IDENTITY_MISMATCH');
+  const expectedPeriod=`${period.from}~${period.to}`;
+  if(source.periods.length!==1||source.periods[0].replaceAll('/','-').replace(/\s/g,'')!==expectedPeriod)throw new Error('SOURCE_PERIOD_MISMATCH');
+  const empty=source.rows.length===1&&source.rows[0].join('')==='등록된 데이터가 없습니다.';
+  let opening=null,totals=null;const rows=[];
+  for(const cells of source.rows){
+    if(empty)break;
+    if(cells.length===4&&cells[0]==='이월잔액'){if(opening!==null)throw new Error('SOURCE_DUPLICATE_OPENING');opening=number(cells[3]);}
+    else if(cells.length===4&&cells[0]==='합계'){if(totals)throw new Error('SOURCE_DUPLICATE_TOTAL');totals={sales:number(cells[1]),receipt:number(cells[2]),balance:number(cells[3])};}
+    else if(cells.length===5&&/^\d{4}\/\d{2}\/\d{2}$/.test(cells[0]))rows.push({date:cells[0].replaceAll('/','-'),sales:number(cells[2]),receipt:number(cells[3]),balance:number(cells[4])});
+    else throw new Error('SOURCE_UNEXPECTED_ROW');
+  }
+  const payload={program:policy.PROGRAM,mode:policy.MODE,individual:true,custKey:customer.custKey,
+    periodFrom:period.from,periodTo:period.to,rows,opening,totals,empty,screenRowCount:rows.length,
+    observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:new Date().toISOString()};
+  validation.validateLedger(payload);
+  return payload;
+}
+export function startCustomerLedgerSchedule(ctx,getBase,nenova){
+  let lastAttempt=null,busy=false;
+  try{lastAttempt=JSON.parse(fs.readFileSync(STATE,'utf8')).lastAttempt;}catch{}
+  const tick=async()=>{
+    const slot=schedule.dueSlot(Date.now(),lastAttempt,process.env.ECOUNT_LEDGER_BOOTSTRAP==='1');
+    if(slot===null||busy)return;
+    busy=true;lastAttempt=slot;
+    const startedAt=Date.now();
+    let page,ok=0,failed=0,total=0;
+    try{
+      // Claim before collection, including across process restarts. No midnight/weekend catch-up.
+      fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
+      const work=await api(nenova);total=work.customers.length;
+      page=await ctx.newPage();
+      for(const customer of work.customers){
+        if(Date.now()-startedAt>45*60000){failed+=total-ok-failed;break;}
+        try{const payload=await collectCustomerLedger(page,getBase(),customer,work.period);await api(nenova,payload);ok++;}
+        catch(e){failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';console.log(`[ledger723] customerKey=${customer.custKey} failure=${reason}`);}
+        if((ok+failed)%10===0||ok+failed===1)console.log(`[ledger723] progress=${ok+failed}/${total} verified=${ok} failed=${failed}`);
+      }
+    }catch{failed=Math.max(failed,1);}
+    finally{
+      if(page)await page.close().catch(()=>{});
+      console.log(`[ledger723] slot=${new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed}`);
+      busy=false;
+    }
+  };
+  const timer=setInterval(()=>void tick(),15000);void tick();
+  return ()=>clearInterval(timer);
+}
