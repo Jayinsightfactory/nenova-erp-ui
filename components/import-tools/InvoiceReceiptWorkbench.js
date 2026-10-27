@@ -3,6 +3,7 @@ import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import { prepareInvoiceCostOnly } from '../../lib/invoiceCostOnlyWorkflow.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
@@ -173,8 +174,12 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
 export default function InvoiceReceiptWorkbench({
   userId='',
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
+  workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange,
 }) {
   const [records, setRecords] = useState([]);
+  const [localWorkspaceMode, setLocalWorkspaceMode] = useState('receipt');
+  const workspaceMode = requestedWorkspaceMode || localWorkspaceMode;
+  const setWorkspaceMode = mode => { setLocalWorkspaceMode(mode); onWorkspaceModeChange?.(mode); };
   const recordsRef = useRef(records);
   recordsRef.current = records;
   const [selectedId, setSelectedId] = useState('');
@@ -185,7 +190,6 @@ export default function InvoiceReceiptWorkbench({
   const [savedDocuments, setSavedDocuments] = useState([]);
   const [savedError, setSavedError] = useState('');
   const [farmQuery, setFarmQuery] = useState('');
-  const [runThroughCostId, setRunThroughCostId] = useState('');
   const [farmOptions, setFarmOptions] = useState([]);
   const [farmBusy, setFarmBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -598,23 +602,33 @@ export default function InvoiceReceiptWorkbench({
   }
 
   async function connectExistingCostOnly() {
-    if (!selected || selected.dirty || busy || workflowLockRef.current) return;
+    if (!selected || busy || workflowLockRef.current) return;
+    if (unresolvedConversionMismatchLines(selected.document).length || selected.document.sourceWarnings?.length) {
+      setNotice({ type: 'error', text: '원문 수량·변환 이슈를 먼저 확인하세요. 입고 작업 화면에서 수정할 수 있습니다. 기존 입고는 변경하지 않습니다.' });
+      return;
+    }
+    const generation = workflowGenerationRef.current;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === selected.document.documentId;
     workflowLockRef.current = { kind: 'existing-cost', documentId: selected.document.documentId };
     setBusy('existing-cost'); setNotice(null);
-    const doc = selected.document;
-    const post = body => fetch(`/api/import/receipts/${doc.documentId}/link-existing`, {
+    let linking = false;
+    const post = (doc, body) => fetch(`/api/import/receipts/${doc.documentId}/link-existing`, {
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ revision: doc.revision, ...body }),
     }).then(readJson);
     try {
-      const { preview } = await post({ mode: 'preview' });
-      if (!window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n농장 ${preview.farmName} · 입고일 ${preview.inputDate}\n송장 ${preview.invoiceNo}\n원문 ${preview.sourceCount}행 → 기존 상품 ${preview.goodsCount}행 · ${preview.quantity ?? preview.stemQuantity}${preview.quantityUnit ?? '송이'} 일치\n입고·재고를 변경하지 않고 원가만 연결할까요?`)) return;
-      const { result } = await post({ mode: 'link', baselineDigest: preview.baselineDigest, operationId: crypto.randomUUID() });
-      const fresh = await readDocument(doc.documentId);
-      verifyReceiptDocument(fresh, { ...doc, operationId: result.operationId, warehouseKey: result.warehouseKey });
+      const fresh = await prepareInvoiceCostOnly({ record: selected, isCurrent,
+        saveDraft: target => saveDraftRecord(target, isCurrent), readDocument, verify: verifyReceiptDocument,
+        previewLink: async doc => (await post(doc, { mode: 'preview' })).preview,
+        confirmLink: (preview, doc) => window.confirm(`${doc.orderYear} ${doc.orderWeek} · 기존 입고 ${preview.warehouseKey}\n농장 ${preview.farmName} · 입고일 ${preview.inputDate}\n송장 ${preview.invoiceNo}\n품목·수량·금액 대조 완료\n입고·재고를 변경하지 않고 원가만 연결할까요?`),
+        linkExisting: async (doc, preview) => { linking = true; return (await post(doc, { mode: 'link', baselineDigest: preview.baselineDigest, operationId: crypto.randomUUID() })).result; },
+      });
+      if (!fresh || !isCurrent()) return;
       installSavedDocument(fresh);
-      setNotice({ type: 'success', text: '기존 입고는 그대로 두고 원가 연결을 저장·재조회했습니다. 아래에서 원가를 입력하세요.' });
+      setWorkspaceMode('cost');
+      setNotice({ type: 'success', text: '기존 입고 확인 완료 · 입고 등록은 건너뛰었습니다. 도착원가만 작업하고 파일을 다운로드할 수 있습니다.' });
     } catch (error) {
+      if (linking && isCurrent()) setRecords(current => current.map(record => record.document.documentId === selected.document.documentId ? { ...record, recoveryRequired: true } : record));
       setNotice({ type: 'error', text: `${error.message} · 연결 응답이 끊겼다면 저장 문서를 다시 불러와 상태를 확인하세요. 입고를 다시 등록하지 마세요.` });
     } finally { workflowLockRef.current = null; setBusy(''); }
   }
@@ -729,20 +743,18 @@ export default function InvoiceReceiptWorkbench({
         if (result.status === 'RECEIPT_VERIFIED') installSavedDocument(result.document);
         if (registerRequested === true && result.status === 'WAITING_CONFIRMATION') {
           const operation = buildReceiptCommitPending({document:result.document,preview:result.preview,
-            reason:'담당자 입고등록·도착원가 생성 실행',operationId:newUuid(),
+            reason:'담당자 입고등록 실행 (원가 작업 별도)',operationId:newUuid(),
             receiptPartId:receiptPartIdForCommit(result.document,newUuid)});
           storePendingOperation(documentId,operation);
           setRecords(current=>current.map(item=>item.document.documentId===documentId?{...item,pendingOperation:operation}:item));
-          setManualStage(documentId,'receipt','running','입고등록·도착원가 생성 버튼으로 승인한 입고를 등록합니다.');
+          setManualStage(documentId,'receipt','running','입고 등록 버튼으로 승인한 입고를 등록합니다. 원가는 별도로 작업합니다.');
           try {
             const data=await submitReceiptCommit(operation);
             if(!data.result)throw Object.assign(new Error('입고 결과를 확인하지 못했습니다. 같은 작업 상태를 조회하세요.'),{resultUnknown:true});
-            await acceptCommitResult(operation,data.result,'입고 재조회 완료. 도착원가 계산으로 이어갑니다.',isCurrent,result.document);
-            if(isCurrent())setRunThroughCostId(`${documentId}:${result.document.revision}:${result.document.sourceHash}`);
+            await acceptCommitResult(operation,data.result,'입고 등록·재조회 완료. 도착원가 작업을 선택하면 원가를 별도로 만들 수 있습니다.',isCurrent,result.document);
           }catch(error){handleCommitFailure(operation,error);}
           return;
         }
-        if(registerRequested === true && result.status === 'RECEIPT_VERIFIED')setRunThroughCostId(`${documentId}:${result.document.revision}:${result.document.sourceHash}`);
         setNotice({ type: result.status === 'BLOCKED' || result.status === 'FAILED' || result.status === 'UNKNOWN' ? 'error' : 'info',
         text: result.error || (result.status === 'WAITING_CONFIRMATION'
           ? '초안과 서버 검증을 마쳤습니다. 입고 등록은 실행하지 않았습니다. 범위·사유를 확인하고 명시적으로 승인하세요.'
@@ -994,7 +1006,7 @@ export default function InvoiceReceiptWorkbench({
   if (sourceState.busy) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">원본 파일 SHA-256과 입고 초안을 준비하는 중입니다…</p></section>;
   if (packingActive && (!selected || !documentValue)) return <section className={styles.root} aria-label="인보이스 입고 작업대"><p role="status">현재 매칭 결과로 입고 업로드를 준비하는 중입니다…</p></section>;
   if (!selected || !documentValue) return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
-    <header className={styles.heading}><div><span className={styles.eyebrow}>CONNECTED RECEIPT WORKBENCH</span><h2>저장 인보이스 입고 문서</h2><p>파일을 다시 올리지 않아도 저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.</p></div></header>
+    <header className={styles.heading}><div><h2>{workspaceMode === 'cost' ? '도착원가 작업할 인보이스 찾기' : '저장 인보이스 입고 문서'}</h2><p>파일을 다시 올리지 않아도 저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.</p></div></header>
     {sourceState.error && <p className={styles.error} role="alert">{sourceState.error}</p>}
     <form className={styles.savedScope} onSubmit={submitSavedScope} aria-label="저장 인보이스 검색">
       <Field label="저장 연도"><input value={browseYear} inputMode="numeric" placeholder="예: 2026" onChange={event => setBrowseYear(event.target.value)} /></Field>
@@ -1025,10 +1037,15 @@ export default function InvoiceReceiptWorkbench({
 
   return <section className={styles.root} aria-label="인보이스 입고 작업대" data-testid="invoice-receipt-workbench">
     <header className={styles.heading}>
-      <div><span className={styles.eyebrow}>CONNECTED RECEIPT WORKBENCH</span><h2>인보이스 입고 검토·등록</h2>
-        <p>분석 완료는 입고 완료가 아닙니다. 초안 저장 → 서버 미리보기 → 명시 확인 후에만 등록됩니다.</p></div>
+      <div><h2>입고 · 도착원가</h2>
+        <p>입고와 원가는 따로 작업합니다. 이미 입고된 자료는 다시 등록하지 않습니다.</p></div>
       <div className={styles.hash} title={documentValue.sourceHash}>원본 SHA-256 <code>{documentValue.sourceHash.slice(0, 12)}…</code></div>
     </header>
+
+    {!onWorkspaceModeChange && <nav className={styles.workspaceModes} aria-label="입고와 도착원가 작업 선택">
+      <button type="button" aria-pressed={workspaceMode === 'receipt'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('receipt')}><strong>입고 작업</strong><small>수량 검토 · 입고 등록</small></button>
+      <button type="button" aria-pressed={workspaceMode === 'cost'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('cost')}><strong>도착원가만 작업</strong><small>기존 입고 확인 · 원가 파일 다운로드</small></button>
+    </nav>}
 
     <div className={styles.documentTabs} role="tablist" aria-label="원본 인보이스">
       {records.map((record, index) => <button type="button" role="tab" aria-selected={record.document.documentId === selected.document.documentId}
@@ -1045,7 +1062,9 @@ export default function InvoiceReceiptWorkbench({
       role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
     {localWarnings.map(warning => <p className={styles.warning} role="alert" key={warning}>{warning}</p>)}
 
-    <section className={styles.stagePanel} aria-label="문서별 독립 단계 진행" aria-live="polite">
+    <details className={styles.stagePanel} open={Object.values(selected.stageProgress || {}).some(stage => ['failed', 'unknown'].includes(stage.status))}>
+      <summary>진행 상태 · 상세 단계 확인{Object.values(selected.stageProgress || {}).some(stage => stage.status === 'blocked') ? ' · 확인할 항목 있음' : ''}</summary>
+    <section aria-label="문서별 독립 단계 진행" aria-live="polite">
       <header><strong>문서 단계</strong><span>{documentValue.documentId} · {documentValue.orderYear || '연도 미입력'} / {documentValue.orderWeek || '차수 미입력'} · revision {documentValue.revision ?? '미저장'} · {documentValue.sourceHash?.slice(0, 12) || 'hash 없음'}</span></header>
       <div className={styles.stageGrid}>{WORKFLOW_STAGES.map(([id, label]) => {
         const stage = selected.stageProgress?.[id] || { status: 'waiting' };
@@ -1055,9 +1074,10 @@ export default function InvoiceReceiptWorkbench({
         </div>;
       })}</div>
       <small className={styles.scopeHint}>자동 실행 범위: 선택 문서 1건 · sourceHash/revision/연도/차수 고정</small>
-      <p>「입고등록·도착원가 생성」으로 초안·검증·입고·원가를 이어서 처리합니다. 누락되거나 서로 다른 값만 확인하며, 완료된 입고는 반복 등록하지 않습니다.</p>
+      <p>입고는 ‘입고 작업’, 원가 계산과 다운로드는 ‘도착원가만 작업’에서 진행합니다.</p>
       {documentValue.lines.some(line => !line.prodKey) && <p role="alert">품목 수동 매칭이 필요합니다. 미매칭 행을 선택하고 필수 수량·단위·단가 및 농장·연도·차수를 확인하세요.</p>}
     </section>
+    </details>
     <section aria-label="현재 버전 처리 로그">
       {stageLog.storageError&&<p role="alert">{stageLog.storageError}</p>}
       <label><input type="checkbox" checked={allLogVersions} onChange={e=>setAllLogVersions(e.target.checked)}/> 수정 전 버전의 문제 기록도 보기</label>
@@ -1081,6 +1101,7 @@ export default function InvoiceReceiptWorkbench({
       </details>
     </section>
 
+    <div hidden={workspaceMode !== 'receipt'}>
     <fieldset disabled={Boolean(busy)} className={styles.editFieldset}>
     {mismatchRows.length > 0 && <section className={styles.conversionReview} aria-label="국가별 패킹 변환 수량 차이 검토">
       <header><strong>원문 수량과 국가별 변환 대조</strong><span>각 행을 비교하고 실제 입고 수량을 입력한 뒤 행별로 확인하세요.</span></header>
@@ -1155,7 +1176,8 @@ export default function InvoiceReceiptWorkbench({
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
-      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>입고등록·도착원가 생성</button>
+      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={currentRevisionCommitted || Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>{currentRevisionCommitted ? '입고 완료 · 재등록하지 않음' : '입고 등록'}</button>
+      <button type="button" onClick={() => setWorkspaceMode('cost')} disabled={Boolean(busy)}>{currentRevisionCommitted ? '도착원가 작업으로 이동' : '이미 입고된 자료 · 원가만 작업'}</button>
       {documentValue.rawMetadata?.allocationSources?.length > 0 && <button type="button" onClick={() => setAllocationOpen(true)} disabled={Boolean(busy) || committedOperations.length > 0}>Woolly bush 품목·입고량 분류</button>}
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
         {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}
@@ -1223,17 +1245,27 @@ export default function InvoiceReceiptWorkbench({
       </aside>
     </div>
     </fieldset>
+    </div>
 
     {allocationOpen && <InvoiceProductAllocation document={documentValue} products={products} file={file}
       onClose={() => setAllocationOpen(false)} onApply={next => { updateSelected(() => next); setAllocationOpen(false); }} />}
-    {!packingActive && renderSavedDocuments(true)}
+    {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
+    <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">
+    {!currentRevisionCommitted && <div className={styles.costPending}>
+      <strong>기존 입고 확인 후 원가만 작업</strong>
+      <p>연도·차수·농장·송장과 품목·수량·금액을 대조합니다. 일치하지 않으면 이유를 표시하며, 새 입고를 자동 등록하지 않습니다.</p>
+      <button type="button" className={styles.primary} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)} onClick={connectExistingCostOnly}>{busy === 'existing-cost' ? '기존 입고 확인 중…' : '기존 입고 확인 · 입고 건너뛰기'}</button>
+      {selected.recoveryRequired && <button type="button" disabled={Boolean(busy)} onClick={() => loadDocument(documentValue.documentId)}>같은 문서 다시 불러오기</button>}
+      <button type="button" onClick={() => setWorkspaceMode('receipt')} disabled={Boolean(busy)}>인보이스 입력값 확인·수정</button>
+    </div>}
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
-        autoSaveRequested={runThroughCostId === `${documentValue.documentId}:${documentValue.revision}:${documentValue.sourceHash}`} autoProcess={receiptReadbackPassed} onStageChange={onCostStageChange} />
+        autoSaveRequested={false} autoProcess={workspaceMode === 'cost' && receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale
         ? <section className={styles.costStale} role="alert"><strong>도착원가 STALE</strong><span>입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다. 수정 입고를 다시 preview·commit한 뒤 원가를 재검토하세요.</span></section>
-        : <section className={styles.costPending} role="status"><strong>도착원가 PENDING</strong><span>현재 문서 revision의 입고 등록이 완료되면 실제 입고량 원가 검토를 시작할 수 있습니다.</span></section>}
+        : null}
+    </section>
 
     {copyOpen && <Modal title="특이사항 복사" onClose={() => setCopyOpen(false)} initialFocusRef={copyRef} footer={<><button type="button" onClick={() => setCopyOpen(false)}>닫기</button><button type="button" className={styles.primary} onClick={copyBrief}>{copied ? '복사됨' : '클립보드 복사'}</button></>}>
       <p>서버가 반환한 이슈 사실만 포함합니다. HTML로 해석하지 않는 안전한 텍스트입니다.</p>

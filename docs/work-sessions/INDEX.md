@@ -615,3 +615,4 @@
 - [2026-10-26 주광 차수·자동 갱신](2026-10-26_weekday-refresh.md)
 - [2026-10-26 주광 웹앱 첫 차수 선택](2026-10-26_weekday-entry-default.md)
 - [2026-10-26 GitHub 빌드로 배포 전환](2026-10-26_ci-build-deploy.md) — 운영 서버 OOM 회피, SHA/checksum 확인, 코드 전용 배포.
+- [2026-10-27 입고·도착원가 작업 분리](2026-10-27_import-workspace.md) — 기존 입고 보존, 원가 전용 workflow, 작업 화면 분리·입력 유지.

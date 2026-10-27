@@ -43,8 +43,9 @@ function History({onRestore}){
  </section>;
 }
 export default function ImportTools({userId=''}){
+ const [packingWorkMode,setPackingWorkMode]=useState('upload');
  const [sharedRestore,setSharedRestore]=useState(null);
- const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');},[]);
+ const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');setPackingWorkMode('upload');},[]);
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [receiptMatchState,setReceiptMatchState]=useState(null);
@@ -64,13 +65,22 @@ export default function ImportTools({userId=''}){
  const [productsVisited,setProductsVisited]=useState(false),[productsDirty,setProductsDirty]=useState(false);
  function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);if(id==='products')setProductsVisited(true);}
  const storage=useMemo(()=>createImportTeamStorage(setSaveError),[]);
- return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={`${styles.workspace} ${desktopUi.page}`}>
+ return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={`${styles.workspace} ${tab==='packing'?styles.packingWorkspace:''} ${desktopUi.page}`}>
   <header className={styles.header}><div><span data-desktop-chrome className={styles.eyebrow}>수입 업무</span><h1 data-desktop-chrome>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
   <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState}/></div></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}>
+    <nav className={styles.packingWorkModes} aria-label="인보이스 작업 선택">
+     {[['upload','파일 · 품목 매칭','업로드하고 확인할 품목만 검토'],['receipt','입고 작업','수량 확인 · 입고 등록'],['cost','도착원가 작업','기존 입고는 건너뛰고 원가 다운로드']].map(([id,label,hint])=><button type="button" key={id} aria-pressed={packingWorkMode===id} onClick={()=>setPackingWorkMode(id)}><strong>{label}</strong><small>{hint}</small></button>)}
+    </nav>
+    <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
+    <div id="packing-receipt-stage" hidden={packingWorkMode==='upload'} tabIndex={-1} style={{scrollMarginTop:16}}>
+     {receiptSource.packingActive && !receiptSource.excels.length && <p role="status">파일 · 품목 매칭에서 인보이스를 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>파일 · 품목 매칭으로 돌아가기</button></p>}
+     <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode={packingWorkMode==='cost'?'cost':'receipt'} onWorkspaceModeChange={setPackingWorkMode}/>
+    </div>
+   </div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>

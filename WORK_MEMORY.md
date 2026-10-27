@@ -1242,3 +1242,10 @@
 - tar SHA256, 커밋/lock/BUILD_ID 검증과 최신 master 일치 확인 뒤 기존 DB gate/pm2 교체. 직원 학습값·업로드·.env 미포함. 원장/SQL/EXE 변경 없음.
 - 로컬 webpack/로그인 기동/산출물 양성·불일치6개 fixture 통과. 전체 계약 및 Linux PR build/운영 배포 결과는 세션 MD 후속 기록.
 - 검색어: ci-build-deploy ci-build-manifest GitHub 빌드 OOM Cafe24 체크섬
+
+## 2026-10-27 수입부 입고·도착원가 작업 분리
+- 파일·매칭/입고/원가 화면 분리, 입력 유지, 상세 단계·이력 접기. 입고 버튼은 원가 자동 승인하지 않음.
+- 원가 전용 workflow는 기존 입고 대조·웹 연결·재조회만 사용하고 실패 시 신규 입고로 전환하지 않음. 전산-only NL/CN/TH 범위 유지, 이미 웹 등록 문서는 모든 지원 국가 재조회.
+- 운영 DB/SQL/EXE 변경 없음. 55회귀 통과, 원가69통과9선택skip, 전체계약·manifest·write guard·dnSpy·webpack 통과. Chrome 격리 fixture에서 기존입고 연결1회/입고commit0/원가승인0 및 환율 입력 유지 확인.
+- 최종 UI build·PR·배포 진행 중. 운영 직접 SQL/실제 원가 다운로드는 이번 세션 미검증. 세션: docs/work-sessions/2026-10-27_import-workspace.md.
+- 검색어: import-workspace cost-only 입고원가분리 기존입고 건너뛰기

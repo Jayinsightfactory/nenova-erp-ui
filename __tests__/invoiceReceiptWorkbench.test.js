@@ -37,7 +37,7 @@ test('component compiles and is connected only through the bounded packing sourc
     babelrc: false,
   });
   assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
-  assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} userId=\{userId\} \{\.\.\.receiptSource\} onMatchStateChange=\{changeReceiptMatchState\}\/>/);
+  assert.match(pageSource, /<InvoiceReceiptWorkbench key=\{userId\} userId=\{userId\} \{\.\.\.receiptSource\} onMatchStateChange=\{changeReceiptMatchState\} workspaceMode=/);
   assert.doesNotMatch(pageSource, /receiptSource&&<InvoiceReceiptWorkbench/);
   assert.match(pageSource, /EMPTY_RECEIPT_SOURCE=Object\.freeze/);
   assert.match(pageSource, /입고 등록은 초안·미리보기·명시 확인 후에만 실행/);
@@ -49,9 +49,9 @@ test('cost review is gated by a committed operation for the current revision and
   assert.match(source, /Number\(operation\.documentRevision\) === Number\(documentValue\.revision\)/);
   assert.match(source, /currentRevisionCommitted = !selected\.dirty/);
   assert.match(source, /committedOperations\.length > 0 && \(selected\.dirty \|\| !currentRevisionCommitted\)/);
-  assert.match(source, /currentRevisionCommitted[\s\S]*?<InvoiceReceiptCostReview document=\{documentValue\} onSaved=\{refreshAfterCostSave\}[\s\S]*?autoProcess=\{receiptReadbackPassed\} onStageChange=\{onCostStageChange\} \/>/);
+  assert.match(source, /currentRevisionCommitted[\s\S]*?<InvoiceReceiptCostReview document=\{documentValue\} onSaved=\{refreshAfterCostSave\}[\s\S]*?autoSaveRequested=\{false\} autoProcess=\{workspaceMode === 'cost' && receiptReadbackPassed\}/);
   assert.match(source, /refreshAfterCostSave[\s\S]*?readDocument\(documentId\)[\s\S]*?if \(!isCurrent\(\)\) return;[\s\S]*?installSavedDocument\(refreshed\)/);
-  assert.match(source, /도착원가 PENDING/);
+  assert.match(source, /기존 입고 확인 후 원가만 작업/);
   assert.match(source, /도착원가 STALE/);
   assert.match(source, /입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다/);
 });
@@ -103,7 +103,7 @@ test('commit stays gated by saved clean preview with zero issues and explicit re
   assert.match(source, /issues\.length === 0/);
   assert.match(source, /disabled=\{!confirmReason\.trim\(\)\}/);
   assert.match(source, /Warehouse와 재고에 영향을 줍니다/);
-  assert.match(source, /분석 완료는 입고 완료가 아닙니다/);
+  assert.match(source, /입고와 원가는 따로 작업합니다/);
   assert.match(source, /ERP 입고가 등록된 상태가 아닙니다/);
   assert.match(source, /preview\?\.lines/);
   assert.match(source, /output\.outQuantity/);

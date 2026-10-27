@@ -930,7 +930,7 @@ async function requestErpMatches(body, revisionOnly = false) {
   if(!response.ok||!data?.success){const error=new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');error.statusCode=response.status;throw error;}
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange, receiptMatchState, userId = '', sharedRestore, autoAnalyze = true, onContinue }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -1748,11 +1748,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
   const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
-  const focusReceipt = () => setTimeout(() => {
+  const focusReceipt = () => { onContinue?.(); return setTimeout(() => {
     const target = toolRoot.current?.ownerDocument?.getElementById('packing-receipt-stage');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     target?.focus({ preventScroll: true });
-  }, 200);
+  }, 200); };
   const receiptStatus = excels.length ? packingReceiptMatchState({ snapshot: receiptMatchState, file, excels,
     invoices: lastExtraction?.result?.invoices, country, products: erpMatches?.products || [] }) : null;
   const receiptMatches = receiptStatus?.byRow || new Map();
