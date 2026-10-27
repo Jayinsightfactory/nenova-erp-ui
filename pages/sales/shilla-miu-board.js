@@ -2,6 +2,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import HotelOrderWorkspace from '../../components/HotelOrderWorkspace';
+import buttonStyles from '../../styles/hotelOrderButtons.module.css';
 import { getClipboardImage } from '../../lib/raumPnlImage';
 import {
   HOTEL_MIU_BATCH_DRAFT,
@@ -131,9 +132,9 @@ function HistoryQtyTable({ view, exeQty, products, selectedVarieties = [], onTog
 
 export default function HotelMiuIntakePage() {
   const [tab, setTab] = useState('hotel');
-  return <div>
+  return <div className={buttonStyles.page}>
     <h1 style={{ padding: '20px 20px 0' }}>호텔+미우 주문전용</h1>
-    <nav aria-label="주문 작업 탭" style={{ padding: '0 20px', display: 'flex', gap: 12 }}>
+    <nav aria-label="주문 작업 탭" className={buttonStyles.tabs}>
       <button aria-pressed={tab === 'hotel'} onClick={() => setTab('hotel')}>호텔 주문등록</button>
       <button aria-pressed={tab === 'history'} onClick={() => setTab('history')}>기존 업체별 입력 · 등록내역</button>
     </nav>
