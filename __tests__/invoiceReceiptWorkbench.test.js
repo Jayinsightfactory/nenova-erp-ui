@@ -125,9 +125,13 @@ test('workbench exposes editable raw quantities, explicit metadata, saved histor
   assert.match(source, /<textarea ref=\{copyRef\} readOnly value=\{issueBrief\}/);
   assert.match(source, /ERP 헤더 FreightRate \(USD\/kg\)/);
   assert.match(source, /운송·부대비 총액 \(원가\)/);
-  assert.match(source, /type="search" list="invoice-receipt-products"/);
-  assert.match(source, /productByLabel\.get\(value\)/);
-  assert.match(source, /productSearch: value, prodKey: product \? Number\(product\.ProdKey\) : null/);
+  assert.match(source, /<InvoiceReceiptProductPicker/);
+  assert.match(source, /products=\{selectableProducts\}/);
+  assert.match(source, /onSelect=\{selected => updateLineProduct\(line\.lineId, selected\)\}/);
+  assert.match(source, /productSearch: undefined, prodKey: Number\(product\.ProdKey\)/);
+  const picker=fs.readFileSync(path.join(root,'components/import-tools/InvoiceReceiptProductPicker.js'),'utf8');
+  assert.match(picker,/onSelect\(candidate\); setQuery\(''\); setOpen\(false\)/);
+  assert.doesNotMatch(picker,/onChange[^\n]*onSelect/);
   assert.match(source, /committedLineIds\.has\(line\.lineId\)/);
   assert.match(source, /확정 입고 행의 품목은 변경할 수 없습니다/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|innerHTML/);

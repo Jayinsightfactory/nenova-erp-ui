@@ -14,6 +14,20 @@ const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf(
 const ui = new Function('INVOICE_COST_FORMULAS', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry);
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
 
+test('AU freight-included form prepares only missing separate freight, preserves positive source/saved values',()=>{
+ registry.AU={...descriptor('AU','AU','AIR',['tariffRate']),freightIncluded:true};
+ const document=doc('AU'), lines=[{lineId:'a',currency:'AUD'}];
+ let form=ui.initialForm(document,lines);
+ assert.equal(form.freightAmount,0);assert.equal(form.freightCurrency,'AUD');
+ assert.equal(form.exchangeRateKRW,'');assert.equal(form.customsTotalKRW,'');
+ document.reviewedMetadata.costInputs={freight:{source:'invoice',amount:123,currency:'AUD'}};
+ assert.equal(ui.initialForm(document,lines).freightAmount,123);
+ document.reviewedMetadata.invoiceCostInput={freightAmount:234,freightCurrency:'USD'};
+ form=ui.initialForm(document,lines);assert.equal(form.freightAmount,234);assert.equal(form.freightCurrency,'USD');
+ assert.equal(ui.initialForm(doc('VN'),[{lineId:'a',currency:'USD'}]).freightAmount,'');
+ delete registry.AU;
+});
+
 test('automatically selected grouped formula initializes editable group rows without reselecting',()=>{
  registry.TH_AUTO={...descriptor('TH_AUTO','TH','AIR',['groupId','stemsPerBunch']),groupIds:['OTHERS','LOOSE_BLOOMS']};
  const form=ui.initialForm(doc('TH'),[]);

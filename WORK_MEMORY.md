@@ -1276,3 +1276,9 @@
 - 44-01 호주41002 제품11행 replay: 일반9행 공용매칭 재사용, Woolly2행 문서별 분류·65박스/AUD20443.75 보존. 유사명 전체 자동확정이나 색상 자동추정은 하지 않음.
 - 관련22테스트 통과, 전체검증/PR/배포 결과 세션 MD 후속 기록. 운영 직원 실제 저장 미검증.
 - 검색어: au44-import-access Woolly bush Authority4 Authority7 DeptName 수입부 관리자오류 41002
+
+## 2026-10-27 호주 품목검색·분류적용·CNF 안내
+- 영문 ProdName 대신 한글 DisplayName만 datalist에 노출되어 Woolly검색 실패. 한/영/코드 후보검색·명시선택, 분류적용시 임시검색어 제거·성공안내·고정오류표시.
+- AU CNF 새입력 추가운임0 준비, 기존 양수보존/중복가산차단. CW미기재 진행 가능 안내(중량값 자체 보존).
+-101관련테스트,44-01 11행65박스 fixture 원가/XLSX 생성,CW null통과. Chrome 격리화면 Green/Red 선택→이슈0 확인. 운영 실제 저장 미검증, Product SELECT외 쓰기없음.
+- 검색어: au44-flow Wolly Woolly DisplayName productSearch CNF CW 2997 2998
