@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { getAutomationToken, checkAutomationAuth } from '../../../lib/automationAuth';
-import { ledgerCustomers, saveLedger } from '../../../lib/ecountCustomerLedgerStore';
+import { ledgerCustomers, saveLedger, saveLedgerFailure } from '../../../lib/ecountCustomerLedgerStore';
 import { recentMonth } from '../../../lib/ecountCustomerLedgerPolicy.cjs';
 
 export default async function handler(req,res) {
@@ -10,7 +10,7 @@ export default async function handler(req,res) {
   if(!drive && !checkAutomationAuth(req).ok) return res.status(401).json({success:false,error:'UNAUTHORIZED'});
   try {
     if(req.method==='GET') return res.json({success:true,period:recentMonth(),customers:(await ledgerCustomers()).filter(c=>c.linked).map(c=>({custKey:c.custKey,sourceCode:c.ecountCode}))});
-    if(req.method==='POST') return res.json({success:true,...await saveLedger(req.body)});
+    if(req.method==='POST') return res.json({success:true,...await (req.body?.failure?saveLedgerFailure(req.body):saveLedger(req.body))});
     return res.status(405).json({success:false,error:'METHOD_NOT_ALLOWED'});
   } catch(e) {
     const expectedErrors=['INVALID_LEDGER','SOURCE_IDENTITY_MISMATCH','EXPIRED_COLLECTION'];

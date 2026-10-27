@@ -19,12 +19,23 @@ async function api(base,body){
     body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
   const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
 }
+async function waitForReport(page,period=null){
+  await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
+  await page.waitForFunction(expected=>{
+    const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
+    if(!th)return false;
+    if(expected&&!Array.from(document.querySelectorAll('body *')).some(e=>e.children.length===0&&e.getClientRects().length&&e.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected))return false;
+    const rows=Array.from(th.closest('table').rows).filter(r=>!r.querySelector('th'));
+    return rows.some(r=>/합계|등록된 데이터가 없습니다\./.test(r.innerText))||
+      (rows.length===1&&rows[0].cells.length===4&&rows[0].cells[0].innerText.trim()==='이월잔액');
+  },period?`${period.from}~${period.to}`:null,{timeout:30000});
+}
 export async function collectCustomerLedger(page,base,customer,period){
   let stage='NAVIGATION';
   try{
   // A fresh document prevents customer lookup modals/SPA panels surviving a same-hash navigation.
   await page.goto('about:blank',{waitUntil:'domcontentloaded'});
-  await page.goto(base+HASH,{waitUntil:'networkidle'});
+  await page.goto(base+HASH,{waitUntil:'domcontentloaded'});
   const search=page.getByRole('button',{name:'검색(F8)',exact:true});
   // The SPA retains the preceding customer's report when revisiting the same hash.
   await page.getByRole('button',{name:/^(검색\(F8\)|Search\(F3\))$/}).first().waitFor({state:'visible',timeout:30000});
@@ -46,6 +57,8 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='PERIOD';
   // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
   await page.getByRole('button',{name:'전월+금월',exact:true}).click();
+  await search.waitFor({state:'hidden',timeout:30000});
+  await waitForReport(page);
   const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
   await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();
   for(const [date,offset] of [[period.from,0],[period.to,3]]){
@@ -60,15 +73,8 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='SEARCH';
   await search.click();
   await search.waitFor({state:'hidden',timeout:30000});
-  await page.waitForTimeout(700);
-  await page.waitForLoadState('networkidle',{timeout:15000});
   stage='REPORT';
-  await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
-  // The print report is a full DOM table (not a virtualized paginated grid).
-  await page.waitForFunction(()=>{
-    const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
-    return th&&Array.from(th.closest('table').rows).some(r=>/합계|등록된 데이터가 없습니다\./.test(r.innerText));
-  },null,{timeout:30000});
+  await waitForReport(page,period);
   const source=await page.evaluate(()=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     const table=th.closest('table');
@@ -79,6 +85,10 @@ export async function collectCustomerLedger(page,base,customer,period){
       .map(e=>e.innerText?.trim()).filter(s=>/^\d{4}\/\d{2}\/\d{2}\s*~\s*\d{4}\/\d{2}\/\d{2}$/.test(s));
     return {headers,rows,periods,identity:idCell?.nextElementSibling?.innerText.replace(/\D/g,'')};
   });
+  return parseLedgerReport(source,customer,period);
+  }catch(e){if(/^[A-Z_]+$/.test(e.message))throw e;throw new Error(`SOURCE_${stage}_FAILED`);}
+}
+export function parseLedgerReport(source,customer,period,collectedAt=new Date()){
   if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||source.identity!==customer.sourceCode)throw new Error('SOURCE_IDENTITY_MISMATCH');
   const expectedPeriod=`${period.from}~${period.to}`;
   if(source.periods.length!==1||source.periods[0].replaceAll('/','-').replace(/\s/g,'')!==expectedPeriod)throw new Error('SOURCE_PERIOD_MISMATCH');
@@ -91,14 +101,19 @@ export async function collectCustomerLedger(page,base,customer,period){
     else if(cells.length===5&&/^\d{4}\/\d{2}\/\d{2}$/.test(cells[0]))rows.push({date:cells[0].replaceAll('/','-'),sales:number(cells[2]),receipt:number(cells[3]),balance:number(cells[4])});
     else throw new Error('SOURCE_UNEXPECTED_ROW');
   }
+  // ECOUNT renders only 이월잔액, without 합계, when this period has no movements.
+  const balanceOnly=source.rows.length===1&&opening!==null&&!totals&&rows.length===0;
+  if(balanceOnly){
+    if(number(source.rows[0][1])!==0||number(source.rows[0][2])!==0)throw new Error('SOURCE_UNEXPECTED_ROW');
+    totals={sales:0,receipt:0,balance:opening};
+  }
   const payload={program:policy.PROGRAM,mode:policy.MODE,individual:true,custKey:customer.custKey,
     periodFrom:period.from,periodTo:period.to,rows,opening,totals,empty,screenRowCount:rows.length,
-    observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:new Date().toISOString()};
-  validation.validateLedger(payload);
+    balanceOnly,observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:collectedAt.toISOString()};
+  validation.validateLedger(payload,collectedAt);
   return payload;
-  }catch(e){if(/^[A-Z_]+$/.test(e.message))throw e;throw new Error(`SOURCE_${stage}_FAILED`);}
 }
-export async function collectLedgerBatch({page,getBase,work,upload,collect=collectCustomerLedger,now=Date.now,log=console.log}){
+export async function collectLedgerBatch({page,getBase,work,upload,recordFailure=async()=>{},collect=collectCustomerLedger,now=Date.now,log=console.log}){
   const startedAt=now(),total=work.customers.length;let ok=0,failed=0;
   for(const customer of work.customers){
     if(now()-startedAt>45*60000){failed+=total-ok-failed;break;}
@@ -106,6 +121,9 @@ export async function collectLedgerBatch({page,getBase,work,upload,collect=colle
     catch(e){
       failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';
       log(`[ledger723] customerKey=${customer.custKey} failure=${reason}`);
+      try{await recordFailure({custKey:customer.custKey,requestedCode:customer.sourceCode,
+        periodFrom:work.period.from,periodTo:work.period.to,collectedAt:new Date(now()).toISOString(),
+        failure:['SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS','SOURCE_CUSTOMER_AMBIGUOUS','SOURCE_IDENTITY_MISMATCH'].includes(reason)?'LINK_CHECK_REQUIRED':'SOURCE_UNAVAILABLE'});}catch{}
       // A failed lookup may leave a modal open in the SPA. Never carry it to another customer.
       try{await page.goto('about:blank',{waitUntil:'domcontentloaded'});}
       catch{failed+=total-ok-failed;break;}
@@ -127,7 +145,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
       fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
       const work=await api(nenova);total=work.customers.length;
       page=await ctx.newPage();
-      ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload)}));
+      ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
     }catch{failed=Math.max(failed,1);}
     finally{
       if(page)await page.close().catch(()=>{});

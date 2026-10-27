@@ -45,11 +45,12 @@ export default function CustomerLedger(){
     {customers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
-    {selected&&data&&!ledger&&<p className="notice">이 거래처의 최근 1개월 자료가 아직 수집되지 않았습니다. 수집 PC의 로그인과 거래처 연결을 확인해야 합니다. 자료가 없는 상태를 채권 0원으로 표시하지 않습니다.</p>}
+    {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 정시에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}
+    {selected&&data&&!ledger&&!data.failure&&<p className="notice">이 거래처의 최근 1개월 자료가 아직 수집되지 않았습니다. 수집 PC의 로그인과 거래처 연결을 확인해야 합니다. 자료가 없는 상태를 채권 0원으로 표시하지 않습니다.</p>}
     {ledger&&<>
-      {schedule?.stale&&<p role="status" className="notice">예정된 갱신 시각이 지났습니다. 아래 자료는 마지막으로 검증된 수집본입니다.</p>}
+      {schedule?.stale&&!data?.failure&&<p role="status" className="notice">예정된 갱신 시각이 지났습니다. 아래 자료는 마지막으로 검증된 수집본입니다.</p>}
       <div className="totals">{[['이월잔액',ledger.opening],['판매 합계',ledger.totals?.sales],['수금 합계',ledger.totals?.receipt],['최종잔액',ledger.totals?.balance]].map(([label,value])=><div key={label}><span>{label}</span><strong>{money(value)}</strong></div>)}</div>
-      <p>{ledger.rows.length.toLocaleString()}건 · 원본 합계 및 잔액 검증 완료</p>
+      <p>{ledger.rows.length.toLocaleString()}건 · {ledger.balanceOnly?'해당 기간 전표 없음 · 원본 이월잔액 확인':ledger.totals?'원본 합계 및 잔액 검증 완료':'원본에서 전표 없음 확인 · 잔액 미제공'}</p>
       <div className="ledger-table-scroll"><table><caption className="sr-only">선택 거래처의 최근 1개월 전표별 채권</caption><colgroup><col style={{width:70}}/><col style={{width:140}}/><col style={{width:170}}/><col style={{width:170}}/><col style={{width:180}}/></colgroup>
         <thead><tr><th scope="col">순번</th><th scope="col">일자</th><th scope="col">판매</th><th scope="col">수금</th><th scope="col">잔액</th></tr></thead>
         <tbody>{ledger.rows.length?ledger.rows.map(r=><tr key={r.sequence}><td>{r.sequence}</td><td>{r.date}</td><td>{money(r.sales)}</td><td>{money(r.receipt)}</td><td>{money(r.balance)}</td></tr>):<tr><td colSpan={5}>해당 기간에 조회된 전표가 없습니다.</td></tr>}</tbody>
