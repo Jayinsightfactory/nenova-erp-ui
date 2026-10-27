@@ -1314,3 +1314,9 @@
 - 실제SELECT-only검증:41차26.4초/1174SELECT→저장형식17행/합계exact일치. 기본월별472ms/6SELECT/live0(아직missing42). 원장guard로쓰기0;동시운영3테이블변화는전체불변이라고과장하지않음.
 - 전체verify:erp-change/webpack·신규3회귀·manifest166·dnSpy·쓰기guard통과. PR/CI/배포/최초2026 1~42준비/운영스모크는이기록시점미검증. 결과는 docs/plans/profit-weekly-cache-2026-10-27.md에 이어 기록한다.
 - 검색어: profit-weekly-cache 수요일06시 PeriodDay43 44 cachePolicyVersion 저장된계산본 월별최신차수포함 BACKFILL
+
+## 2026-10-27 원가표 Woolly 품목 변경
+- 원가표가 ProdKey만 보여주고 분류버튼은 입고탭에만 있었음. 원가탭/행 버튼에서 기존 합계검증 분류모달 연결, 영문/한글 매칭명 표시. 운영원장·공용매칭·원가식 쓰기없음.
+- 품목 변경→새 prepare지문/미리보기 필요, 환율·통관비 보존, 변경된 행 관세/배분입력 재확인. 다른 문서/연도 입력승계 금지.
+- dnSpy 재실행 및 Product2997/2998 활성AU SELECT확인. Chrome 격리 전체Workbench에서 Red→Green 선택/적용→관세0 시험값→원가2560000→TEST_ONLY XLSX 다운로드 확인. 실제원가 승인 아님. 75표적검사66통과9선택원본생략. 전체검증/배포 진행중.
+- 검색어: woolly-cost-edit onEditAllocation invoiceCostEditing GreenTip RedTip 원가표 품목변경
