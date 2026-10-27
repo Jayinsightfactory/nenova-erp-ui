@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } from '../../lib/invoiceReceiptCost';
 import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoiceCostApprovalInvalidationEvents, isInvoiceCostGenerationCurrent, runInvoiceCostSaveWorkflow, runInvoiceCostStageRunner, shouldShowInvoiceCostPreviewNotice, verifyInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import styles from '../../styles/InvoiceReceiptCost.module.css';
+import { invoiceCostDownloadFeedback } from '../../lib/invoiceCostDownloadFeedback.js';
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import { AU_ORIGINAL_SOURCE, initialAuOriginalInputs, calculateAuOriginalCustoms } from '../../lib/auOriginalCostInputs.js';
@@ -495,6 +496,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   function updateGroup(groupId, name, value) {
+    setNotice(null);
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -704,6 +706,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || !allowedFormulaIds.includes(form.formulaId)));
   const exportActual = verifiedExport?.identity === identity ? verifiedExport.actual : null;
   const exportEligibility = invoiceCostExportEligibility(document, exportActual);
+  const downloadFeedback = invoiceCostDownloadFeedback({busy,preview,notice,form,reviewOnly,manualLineCount:manualLineIds.length,inputEdited});
   async function downloadCost() {
     if (busy || pending || exportLockRef.current || !exportEligibility.allowed) return;
     const expectedIdentity = identity, expectedGeneration = generationRef.current;
@@ -871,17 +874,18 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     <div className={styles.actions}>
       <button type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      {nativePreview ? <button type="button" className={styles.primary} disabled={busy || preview?.status !== 'APPROVED'} onClick={async () => {
+      {nativePreview ? <button type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
         const expectedIdentity = identity, generation = generationRef.current;
         setBusyIdentity(identity);
         try { await onNativeAction('download', payloadOf(form)); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }
         catch (error) { if (isCurrent(expectedIdentity, generation)) setNotice({ type: 'error', text: error.message }); }
         finally { if (isCurrent(expectedIdentity, generation)) setBusyIdentity(''); }
-      }}>도착원가 엑셀 다운로드 · 미승인 계산본</button> : <>
+      }}><span>도착원가 엑셀 다운로드 · 미승인 계산본</span>{downloadFeedback.disabled && <small className={styles.downloadReason}>{downloadFeedback.reason.length > 180 ? `${downloadFeedback.reason.slice(0,180)}… (아래 상세 사유 확인)` : downloadFeedback.reason}</small>}</button> : <>
         <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); update('formulaApplicabilityConfirmed', false); }} placeholder="검토 근거를 입력하세요" /></label>
         <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
       </>}
     </div>
+    {nativePreview && downloadFeedback.disabled && <p id="cost-download-reason" className={styles.downloadHelp} role="status">다운로드 대기: {downloadFeedback.reason}</p>}
     </fieldset>
 
     {pending && <div className={styles.pending} role="alert">

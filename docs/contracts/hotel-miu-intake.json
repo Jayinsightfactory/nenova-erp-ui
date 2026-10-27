@@ -21,7 +21,8 @@
     "__tests__/hotelOrderParseApi.test.js",
     "pages/api/sales/hotel-order-drafts.js",
     "lib/hotelOrderDraftStore.cjs",
-    "__tests__/hotelOrderDraftStore.test.cjs"
+    "__tests__/hotelOrderDraftStore.test.cjs",
+    "styles/hotelOrderButtons.module.css"
   ],
   "businessIdentity": [
     "OrderYear",

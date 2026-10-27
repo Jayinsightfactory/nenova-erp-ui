@@ -1,0 +1,52 @@
+/* Hotel order page only: shared ERP proportions, color by action. */
+.page button,
+.page input[type='file']::file-selector-button {
+  min-height: 32px;
+  height: auto !important;
+  padding: 6px 12px !important;
+  border: 1px solid var(--border2, #b9c7d8);
+  border-radius: var(--ui-radius, 6px) !important;
+  font-family: var(--ui-font, system-ui, sans-serif) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  vertical-align: middle;
+  color: var(--text1, #243247);
+  background: #fff;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+.page button:hover:not(:disabled),
+.page input[type='file']:not(:disabled)::file-selector-button:hover {
+  background: #edf3ff;
+  border-color: #8caeee;
+}
+.page button[data-tone='save'] { background: #e7f5f2; color: #115e59; border-color: #8acbc0; }
+.page button[data-tone='save']:hover:not(:disabled) { background: #ccebe4; border-color: #47998a; }
+.page button[data-tone='load'] { background: #edf0ff; color: #4338a4; border-color: #b8b4e8; }
+.page button[data-tone='load']:hover:not(:disabled) { background: #dfe2fa; border-color: #8c85d0; }
+.page button[data-tone='match'] { background: #eaf2ff; color: #1d4fa5; border-color: #a8c4eb; }
+.page button[data-tone='match']:hover:not(:disabled) { background: #d6e6ff; border-color: #709ad6; }
+.page button[data-tone='order'] { background: #167047; color: #fff; border-color: #12603c; }
+.page button[data-tone='order']:hover:not(:disabled) { background: #105736; border-color: #0e4b30; }
+.page button[data-tone='danger'] { background: #fff0f2; color: #a82132; border-color: #e6b3bc; }
+.page button[data-tone='danger']:hover:not(:disabled) { background: #fbdde3; border-color: #d07b8b; }
+.page button[data-tone='retry'] { background: #fff7e5; color: #885b0b; border-color: #ddc58b; }
+.page button[data-tone='retry']:hover:not(:disabled) { background: #ffedc3; border-color: #bd9d54; }
+.page button:disabled,
+.page fieldset:disabled button,
+.page input[type='file']:disabled::file-selector-button {
+  color: #788599 !important;
+  background: #eef1f5 !important;
+  border-color: #d6dee8 !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
+.page button:focus-visible,
+.page input[type='file']:focus-visible { outline: 3px solid #245bd7; outline-offset: 2px; }
+.tabs { padding: 0 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.tabs button[aria-pressed='true'] { background: #245bd7; border-color: #245bd7; color: #fff; }
+.tabs button[aria-pressed='true']:hover { background: #1b49ae; border-color: #1b49ae; }
+.page input[type='file']::file-selector-button { margin-right: 10px; }
+@media (prefers-reduced-motion: reduce) { .page button { transition: none; } }
