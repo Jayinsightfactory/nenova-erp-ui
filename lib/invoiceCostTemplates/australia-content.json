@@ -1,0 +1,110 @@
+{
+  "sourceHash": "7cb66ca12afce9ff937ea8bd6fda597c4ce411174961638fa276ed6713dfd320",
+  "sourceSheet": "38-1",
+  "labels": {
+    "B1": "PREMIUM GREENS                        원가자료",
+    "B4": "차수",
+    "F4": "Double check",
+    "M4": "그외에 통관비",
+    "B5": "총금액 Invoice",
+    "H5": "Flowers ",
+    "J5": "Until 2031",
+    "M5": "백상",
+    "B6": "환율",
+    "H6": "Copper Glow",
+    "M6": "통관 수수료",
+    "B7": "Gross Weight",
+    "M7": "검역 수수료 ",
+    "B8": "포목수 ",
+    "H8": "Boxes",
+    "M8": "국내 운송비",
+    "B9": "총수량 단",
+    "M9": "Total",
+    "R10": "종  이익률",
+    "S10": "종  판매가",
+    "T10": "종이익",
+    "O11": "<영업부>",
+    "B12": "Color\r\nGrade",
+    "E12": "수량",
+    "F12": "CNF (단)",
+    "G12": "총금액",
+    "H12": "CNF (원화)",
+    "I12": "관세",
+    "J12": "그외통관(단)",
+    "K12": "도착원가(단)",
+    "L12": "단당  수량",
+    "M12": "도착원가(단)",
+    "N12": "판매(부가세 별도)",
+    "O12": "판매가 (부가세 포함) 매주 확인 ",
+    "P12": "15% 이익 판매가",
+    "Q12": "이익",
+    "R12": "이익률",
+    "S12": "종  판매가",
+    "T12": "종이익"
+  },
+  "defaults": {
+    "N6": 33000,
+    "N8": 90000,
+    "I5": 0.069
+  },
+  "formulas": {
+    "N5": "D7*460",
+    "N7": "D8*10000",
+    "N9": "SUM(N5:N8)",
+    "G13": "E13*F13",
+    "H13": "F13*$D$6",
+    "I13": "H13*0",
+    "J13": "$N$9/$D$9",
+    "K13": "H13+I13+J13",
+    "M13": "K13*L13",
+    "N13": "O13/1.1",
+    "P13": "(M13/0.77)",
+    "Q13": "N13-M13",
+    "R13": "Q13/N13",
+    "S13": "N13*E13/L13",
+    "T13": "E13*Q13/L13"
+  },
+  "referencePrices": [
+    {
+      "name": "Emu Grass",
+      "price": 7200
+    },
+    {
+      "name": "Steel Grass",
+      "price": 5400
+    },
+    {
+      "name": "Banker Bush",
+      "price": 19500
+    },
+    {
+      "name": "Stenocarpus",
+      "price": 16500
+    },
+    {
+      "name": "Fern Umbrella",
+      "price": 10200
+    },
+    {
+      "name": "Koala Fern",
+      "price": 7100
+    },
+    {
+      "name": "Fern Sea Star",
+      "price": 9700
+    },
+    {
+      "name": "Emu Feather",
+      "price": 6200
+    },
+    {
+      "name": "Dingo Fern",
+      "price": 6500
+    },
+    {
+      "name": "Goanna Claw",
+      "price": 6000
+    }
+  ],
+  "assetHash": "229876192d96e6768bfae274a187afa93b452142f3a0ab5ffa430c3f64a7e013"
+}
