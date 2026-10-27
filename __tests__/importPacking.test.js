@@ -38,7 +38,7 @@ async function main() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('original prompts preserved except verified CO totals and CN source-unit correction', () => {
+  await check('original prompts preserved except verified CO/CN corrections and AU invoice+AWB extraction', () => {
     const correctedCoCheck = '- Sum the t_price values of all products, then add freight_total. Does goods + extras equal invoice_total? If not, you missed a row, duplicated one, or selected the wrong charge/total — re-read the invoice top to bottom. Do NOT compare goods alone to a grand total that includes extras.';
     const originalCoCheck = '- Sum the t_price values of all your products. Does it equal invoice_total? If not, you missed a row or duplicated one — re-read the invoice top to bottom.';
     assert.ok(prompt.buildPrompt('CO').includes(correctedCoCheck));
@@ -52,7 +52,7 @@ async function main() {
       CN: 'cdb64e5933e3ab18b628e178a6d7e5f250880a958deaad7e24aedaae8c94503a',
       EC: '9ea4cce8f2461a8e6c21d732029f29c26da9d4e6884a5634959d74dcb91965fa',
       TH: '07e6964383ae6dcefb0cd331f6c79f5d7e214cd3324a8d68c51440fd2d5d313d',
-      AU: '259502f79eaa9c362360755a3ef0fc3ede810162d404c032021d96088db79d8d',
+      AU: '8e8ef22e1bcac2b56a57404ffc165bb6afbd28378a18a507243be611695fbcda',
       US: '59954e0c51bf5f9ac3e4732842297ead452e4d3aaa5c31fb961de4f53c90be70',
       VN: '2010b95a63ee0da81dd1fd60829956283551a0d4e600fd6af202075d5e14ac29',
     };
@@ -66,7 +66,7 @@ async function main() {
     if (source) {
       const a = source.indexOf('function buildPrompt('), b = source.indexOf('function parseWeekFromFilename(', a);
       const original = vm.runInNewContext(source.slice(a, b) + '\nbuildPrompt');
-      for (const country of prompt.PACKING_COUNTRIES.filter(country => country !== 'CN')) assert.equal(originalPart(country), original(country));
+      for (const country of prompt.PACKING_COUNTRIES.filter(country => !['CN', 'AU'].includes(country))) assert.equal(originalPart(country), original(country));
     }
     assert.equal(prompt.PACKING_COUNTRIES.length, 8); assert.throws(() => prompt.buildPrompt('XX'), /Unsupported/);
   });
@@ -210,7 +210,7 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,awbPdfBase64:country==='AU'\?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,/);
     assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
     assert.match(componentSource, /return process\(true,pdfRetryJobId\)/);
     assert.match(componentSource, /pdfRetryJobId && !toolRoot\.current\?\.ownerDocument\?\.defaultView\?\.confirm/);
@@ -218,7 +218,7 @@ async function main() {
     assert.equal(state.PACKING_PDF_MAX_BYTES, 20 * 1024 * 1024);
     const extractionSource = fs.readFileSync(path.join(root, 'lib/importPackingExtractClient.js'), 'utf8');
     assert.match(extractionSource, /fetchImpl\('\/api\/import\/tools\/parse-pdf'/);
-    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64,async:true,/);
+    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64,\.\.\.\(awbPdfBase64\?\{awbPdfBase64\}:\{\}\),async:true,/);
     for (const notice of ['AI service', 'servicio de IA', 'AI 서비스']) assert.ok(componentSource.includes(notice));
   });
   // Real handler tests with local hooks; no browser, network, or mounted app.

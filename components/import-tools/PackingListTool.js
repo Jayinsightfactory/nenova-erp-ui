@@ -35,6 +35,7 @@ import { packingWeekScope, needsPackingWeekDate, applyPackingWeekDate } from '..
 import { packingMatchReview } from '../../lib/packingMatchReview.js';
 import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
 import { needsInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
+import { invoiceBoxTotal, reviewAirWaybill } from '../../lib/invoiceAwbEvidence.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -501,6 +502,14 @@ async function parseAWBPdf(pdfBase64, readAwbPdf, t) {
   }
 }
 
+function seoulCalendarDate(value = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(value);
+  const fields = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${fields.year}-${fields.month}-${fields.day}`;
+}
+
 // =============================================================================
 // AWBPanel — the AWB screen.  Self-contained UI.
 // All state lives here; nothing leaks into the farm flow.
@@ -937,6 +946,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
   const [file, setFile] = useState(null);
+  const [invoiceUploadDate, setInvoiceUploadDate] = useState('');
+  const [audMarketRate, setAudMarketRate] = useState(null);
+  const [audMarketRateError, setAudMarketRateError] = useState('');
+  const [awbFile, setAwbFile] = useState(null);
+  const [awbPdfBase64, setAwbPdfBase64] = useState('');
+  const [awbSourceHash, setAwbSourceHash] = useState('');
+  const [awbValues, setAwbValues] = useState(null);
+  const [awbManualFields, setAwbManualFields] = useState([]);
+  const [awbReviewed, setAwbReviewed] = useState(false);
+  const awbFileRef = useRef(null);
   const [dateYear, setDateYear] = useState('');
   useEffect(() => { setDateYear(new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(new Date())); }, []);
   const [pdfBase64, setPdfBase64] = useState(null);
@@ -953,6 +972,37 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const catalogRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
   const [xlsxLib, setXlsxLib] = useState(null);
+  const [lastExtraction, setLastExtraction] = useState(null);
+  const awbReview = useMemo(() => {
+    if (country !== 'AU') return null;
+    const parsed = lastExtraction?.result?.awb_document || {};
+    const edited = awbValues || {};
+    return reviewAirWaybill({
+      awbDocument: {
+        ...parsed,
+        awb: edited.awb ?? parsed.awb,
+        packages: edited.packages ?? parsed.packages,
+        gross_weight_kg: edited.grossWeightKg ?? parsed.gross_weight_kg,
+        chargeable_weight_kg: edited.chargeableWeightKg ?? parsed.chargeable_weight_kg,
+      },
+      invoices: lastExtraction?.result?.invoices || [],
+      packageTotal: invoiceBoxTotal(lastExtraction?.result?.invoices || []),
+      manualFields: awbManualFields,
+    });
+  }, [awbManualFields, awbValues, country, lastExtraction]);
+  const awbObjectUrl = useMemo(() => awbFile && typeof URL !== 'undefined' && URL.createObjectURL
+    ? URL.createObjectURL(awbFile) : '', [awbFile]);
+  useEffect(() => () => { if (awbObjectUrl) URL.revokeObjectURL(awbObjectUrl); }, [awbObjectUrl]);
+  useEffect(() => {
+    const parsed = lastExtraction?.result?.awb_document;
+    if (country !== 'AU' || !parsed) return;
+    setAwbValues({
+      awb: parsed.awb || '', packages: parsed.packages ?? '',
+      grossWeightKg: parsed.gross_weight_kg ?? '', chargeableWeightKg: parsed.chargeable_weight_kg ?? '',
+    });
+    setAwbManualFields([]);
+    setAwbReviewed(false);
+  }, [country, lastExtraction?.sourceHash, lastExtraction?.result?.awb_document]);
 
   // Catalog (Lista de productos Nenova) — persists across sessions
   const [catalog, setCatalog] = useState(null);
@@ -998,7 +1048,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   // mismatch block ("desbloquear manualmente").  Key is `${country}|${invoice}`.
   const [mismatchOverrides, setMismatchOverrides] = useState(new Set());
   // Last-extracted result so we can rebuild excels after user confirms aliases
-  const [lastExtraction, setLastExtraction] = useState(null);
   const [legacyReviewData, setLegacyReviewData] = useState(null);
   const [legacyPackingReviewRequired, setLegacyPackingReviewRequired] = useState(false);
   const [reviewRows, setReviewRows] = useState(null);
@@ -1154,6 +1203,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         reviewConfirmed: false,
         truncated: false,
         packingActive: Boolean(file),
+        awb: null,
+        invoiceUploadDate: '',
+        audMarketRate: null,
+        audMarketRateError: '',
       });
       return;
     }
@@ -1166,8 +1219,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       reviewConfirmed,
       truncated: lastExtraction.wasTruncated === true,
       packingActive: true,
+      invoiceUploadDate,
+      awb: country === 'AU' && awbFile ? {
+        fileName: awbFile.name, sourceHash: awbSourceHash, uploadDate: invoiceUploadDate,
+        review: awbReview, confirmed: awbReviewed, manualFields: awbManualFields,
+      } : null,
+      audMarketRate: country === 'AU' ? audMarketRate : null,
+      audMarketRateError: country === 'AU' ? audMarketRateError : '',
     });
-  }, [country, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared]);
+  }, [country, generatedErp, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed, latestShared,
+    invoiceUploadDate, awbFile, awbSourceHash, awbReview, awbReviewed, awbManualFields, audMarketRate, audMarketRateError]);
 
   const resetResults = () => {
     receiptIntent.current = false;
@@ -1346,6 +1407,27 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   const autoAnalysisFile = useRef(null);
   const autoPreparedSources = useRef(new WeakSet());
+  const handleAwbFile = async f => {
+    if (!f || processingRef.current || savingRef.current) return;
+    if (!file) { setStatus({ type: 'error', msg: '인보이스를 먼저 선택한 뒤 해당 인보이스의 AWB를 올리세요.' }); return; }
+    if (f.size > PACKING_PDF_MAX_BYTES || !/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
+      setStatus({ type: 'error', msg: 'AWB는 20MiB 이하 PDF 파일만 지원합니다.' }); return;
+    }
+    try {
+      const [hash, base64] = await Promise.all([sha256File(f), new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(new Error('AWB PDF 파일을 읽지 못했습니다.'));
+        reader.readAsDataURL(f);
+      })]);
+      if (!base64) throw new Error('AWB PDF 파일에 데이터가 없습니다.');
+      setAwbFile(f); setAwbPdfBase64(base64); setAwbSourceHash(hash);
+      setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+      resetResults();
+      autoAnalysisFile.current = autoAnalyze ? file : null;
+      setStatus({ type: 'info', msg: '인보이스와 AWB를 함께 분석합니다. GW·CW는 AWB 원문 대조를 확인하세요.' });
+    } catch (error) { setStatus({ type: 'error', msg: error.message }); }
+  };
   const handleFile = async (f) => {
     if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
@@ -1368,6 +1450,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (previous && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이미 업로드한 파일입니다. 최신 공용 매칭으로 재검증할까요? 기존 입고는 중복 등록하지 않습니다.')) return;
     } catch (error) { if (readerVersion.current === version) setStatus({type:'error',msg:error.message}); return; }
     setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
+    const uploadDate = seoulCalendarDate();
+    setInvoiceUploadDate(uploadDate);
+    setAudMarketRate(null); setAudMarketRateError('');
+    if (country === 'AU') {
+      fetch(`/api/import/receipts/aud-exchange-rate?date=${encodeURIComponent(uploadDate)}`, { credentials: 'same-origin', cache: 'no-store' })
+        .then(async response => { const data = await response.json(); if (!response.ok || !data?.success) throw new Error(data?.error || 'AUD 환율을 조회하지 못했습니다.'); return data; })
+        .then(data => setAudMarketRate(data))
+        .catch(error => setAudMarketRateError(error.message));
+    }
+    setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
     autoAnalysisFile.current = autoAnalyze ? f : null;
     setFile(f);
     const reader = new FileReader();
@@ -1572,6 +1664,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   const process = async (allowAI = false, retryJobId = null) => {
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
+    if (country === 'AU' && !awbPdfBase64) {
+      setStatus({ type: 'error', msg: '호주 인보이스는 AWB PDF도 선택해야 GW·CW를 원문에서 확인하고 진행할 수 있습니다.' });
+      return;
+    }
     const parsed = parseWeekFromFilename(file.name);
     if (!parsed) {
       setStatus({ type: 'error', msg: t.errWeek(file.name) });
@@ -1610,7 +1706,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }
         }
       } else {
-        extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
+        extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
           onProgress: progress => {
             if (!isCurrent()) return;
             const label=progress.stage==='SUBMITTING'?'PDF 분석 접수 중':'AI 분석 중 · 결과 확인 중';
@@ -1621,7 +1717,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }});
         if (extraction.needsAI && allowAI === 'auto' && isCurrent()) {
           setStatus({type:'info',msg:'자동 AI 분석 중입니다. 분석 비용이 발생할 수 있습니다. 원본 파일은 유지됩니다.'});
-          extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:true});
+          extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true});
         }
       }
       if (!isCurrent()) return;
@@ -1705,13 +1801,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   };
 
   useEffect(() => {
-    if (autoAnalysisFile.current !== file || !file || !pdfBase64 || !xlsxLib || !sharedReady
+    if (autoAnalysisFile.current !== file || !file || !pdfBase64 || (country === 'AU' && !awbPdfBase64) || !xlsxLib || !sharedReady
       || saving || processing || catalogParsing) return;
     autoAnalysisFile.current = null;
     process('auto');
-  }, [file, pdfBase64, xlsxLib, sharedReady, saving, processing, catalogParsing]);
+  }, [file, pdfBase64, awbPdfBase64, country, xlsxLib, sharedReady, saving, processing, catalogParsing]);
 
   const sourceReviewBlocked = () => {
+    if (country === 'AU' && (!awbFile || !awbReview?.ready || !awbReviewed)) return true;
     if (!/\.pdf$/i.test(file?.name || '')) return false;
     try {
       if (!lastExtraction?.result?.invoices?.length) return true;
@@ -1748,7 +1845,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
   const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
-  const focusReceipt = () => { onContinue?.(); return setTimeout(() => {
+  const focusReceipt = () => {
+    if (country === 'AU' && (!awbFile || !awbReview?.ready || !awbReviewed)) {
+      setStatus({ type: 'error', msg: 'AWB 원문과 인보이스 번호·박스·GW·CW를 대조하고 「AWB 원문 대조 완료」를 체크해야 다음 단계로 갈 수 있습니다.' });
+      return;
+    }
+    onContinue?.(); return setTimeout(() => {
     const target = toolRoot.current?.ownerDocument?.getElementById('packing-receipt-stage');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     target?.focus({ preventScroll: true });
@@ -2030,7 +2132,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.selectCountry}</div>
             <div className={styles.countryGrid}>
               {countryLabels.map((c) => (
-                <button type="button" key={c.code} aria-label={c.name} onClick={() => { ++readerVersion.current; resetResults(); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null); }}
+                <button type="button" key={c.code} aria-label={c.name} onClick={() => {
+                  ++readerVersion.current; resetResults(); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null);
+                  setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
+                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+                }}
                   style={{ border: '1px solid #dce4ef', borderRadius: 12, padding: '16px', textAlign: 'left', cursor: 'pointer', position: 'relative', background: '#fff', transition: 'all 0.15s' }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#172b4d'; e.currentTarget.style.background = '#fafafa'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#dce4ef'; e.currentTarget.style.background = '#fff'; }}>
@@ -2085,18 +2191,71 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{file.name}</div>
                   <div style={{ fontSize: 13, color: '#526580' }}>{(file.size / 1024).toFixed(0)} KB</div>
                 </div>
-                <button onClick={() => { ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null); }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
+                <button onClick={() => {
+                  ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null);
+                  setInvoiceUploadDate(''); setAudMarketRate(null); setAudMarketRateError('');
+                  setAwbFile(null); setAwbPdfBase64(''); setAwbSourceHash(''); setAwbValues(null); setAwbManualFields([]); setAwbReviewed(false);
+                }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
               </div>
             )}
+            {country === 'AU' && <section aria-label="호주 AWB 업로드 및 검토" style={{ marginTop: 12, border: '1px solid #c9d8ef', borderRadius: 10, padding: 14, background: '#f8fbff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <strong style={{ color: '#172b4d' }}>AWB 항공운송장 PDF</strong>
+                  <div style={{ fontSize: 12, color: '#526580', marginTop: 4 }}>인보이스와 같은 항공편의 AWB를 올리세요. GW·CW·포장 수량은 AWB에서만 가져오고 입고 전 원문 대조가 필요합니다.</div>
+                </div>
+                <input ref={awbFileRef} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={event => { handleAwbFile(event.target.files?.[0]); event.target.value = ''; }} />
+                <button type="button" onClick={() => awbFileRef.current?.click()} disabled={!file || processing} style={{ border: '1px solid #2457c5', borderRadius: 7, padding: '8px 12px', background: '#fff', color: '#2457c5', cursor: file && !processing ? 'pointer' : 'not-allowed', opacity: file && !processing ? 1 : .5 }}>AWB PDF 선택</button>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#526580' }}>
+                인보이스 업로드일 <strong>{invoiceUploadDate || '인보이스 선택 시 자동 입력'}</strong>
+                {' · '}AUD 환율 {audMarketRate?.rate ? <strong>1 AUD = {Number(audMarketRate.rate).toLocaleString('ko-KR')} KRW · {audMarketRate.rateDate}{audMarketRate.carriedForward ? ' (직전 고시일)' : ''}</strong> : audMarketRateError ? <span role="alert" style={{ color: '#b42318' }}>{audMarketRateError} · 원가 단계에서 다시 조회할 수 있습니다.</span> : <span>시장 검색 환율 조회 중…</span>}
+              </div>
+              {awbFile && <div style={{ marginTop: 10, borderTop: '1px solid #dce4ef', paddingTop: 10 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+                  <strong>{awbFile.name}</strong><span style={{ color: '#526580' }}>{(awbFile.size / 1024).toFixed(0)} KB</span>
+                  {awbObjectUrl && <a href={awbObjectUrl} target="_blank" rel="noreferrer" style={{ color: '#2457c5' }}>원본 AWB 열기</a>}
+                  {lastExtraction?.result?.invoices?.length ? <span>인보이스 박스 합계: <strong>{invoiceBoxTotal(lastExtraction.result.invoices) ?? '확인 필요'}</strong></span> : <span style={{ color: '#526580' }}>인보이스 분석 후 박스 합계를 대조합니다.</span>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8, marginTop: 10 }}>
+                  {[
+                    ['awb', 'AWB 번호', 'text', ''], ['packages', '포장 수(박스)', 'number', ''],
+                    ['grossWeightKg', 'GW (kg)', 'number', 'gross_weight_kg'], ['chargeableWeightKg', 'CW (kg)', 'number', 'chargeable_weight_kg'],
+                  ].map(([field, label, type, proofKey]) => {
+                    const parsed = lastExtraction?.result?.awb_document || {};
+                    const current = awbValues?.[field] ?? (field === 'grossWeightKg' ? parsed.gross_weight_kg : field === 'chargeableWeightKg' ? parsed.chargeable_weight_kg : parsed[field]) ?? '';
+                    const proof = proofKey ? parsed.evidence?.[proofKey] : null;
+                    return <label key={field} style={{ fontSize: 12, color: '#344054' }}>{label}
+                      <input aria-label={label} type={type} min={type === 'number' ? '0' : undefined} step={type === 'number' ? 'any' : undefined} value={current}
+                        onChange={event => {
+                          setAwbValues(previous => ({ ...(previous || {}), [field]: event.target.value }));
+                          setAwbManualFields(previous => previous.includes(field === 'grossWeightKg' ? 'gross_weight_kg' : field === 'chargeableWeightKg' ? 'chargeable_weight_kg' : field) ? previous : [...previous, field === 'grossWeightKg' ? 'gross_weight_kg' : field === 'chargeableWeightKg' ? 'chargeable_weight_kg' : field]);
+                          setAwbReviewed(false);
+                        }}
+                        style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '7px 9px', border: '1px solid #b8c7dc', borderRadius: 6, background: '#fff' }} />
+                      {proof && <small style={{ display: 'block', color: '#526580', marginTop: 3 }}>p.{proof.page || '—'} · {proof.quote || '원문 위치 확인 필요'}</small>}
+                    </label>;
+                  })}
+                </div>
+                {awbReview?.issues?.length > 0 && <div role="alert" style={{ marginTop: 9, padding: 8, background: '#fff4e5', border: '1px solid #f4c990', borderRadius: 6, color: '#8a4b08', fontSize: 12 }}>
+                  {awbReview.issues.map((issue, index) => <div key={index}>• {issue}</div>)}
+                </div>}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 13, color: awbReview?.ready ? '#176039' : '#667085' }}>
+                  <input type="checkbox" checked={awbReviewed} disabled={!awbReview?.ready} onChange={event => setAwbReviewed(event.target.checked)} />
+                  AWB 원문과 번호·포장 수·GW·CW 대조 완료
+                </label>
+                {awbReview?.ready && !awbReviewed && <small style={{ display: 'block', marginTop: 4, color: '#b42318' }}>대조 완료를 체크해야 입고 단계로 진행할 수 있습니다.</small>}
+              </div>}
+            </section>}
             <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
+              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
               {needsAI&&<button onClick={()=>{
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);
-              }} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
+              }} disabled={processing || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
             </div>
             <div className={styles.modeBadge}>{t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}

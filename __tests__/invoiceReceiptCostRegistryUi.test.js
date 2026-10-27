@@ -11,7 +11,7 @@ const registry = {
   CN_AIR_WEIGHT_CBM_V1: descriptor('CN_AIR_WEIGHT_CBM_V1', 'CN', 'AIR'),
 };
 const helpers = source.slice(source.indexOf('const EMPTY_FORM'), source.indexOf('function Field('));
-const ui = new Function('INVOICE_COST_FORMULAS', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry);
+const ui = new Function('INVOICE_COST_FORMULAS', 'initialAuOriginalInputs', 'calculateAuOriginalCustoms', `${helpers}; return { applicableFormulas, applicableFormulaId, formulaLineFields, initialForm, payloadOf, editedForm, switchedFormulaForm, formulaPriceBasis, formulaGroupIds, formulaGroupFields, editedGroupForm, groupLabel, visibleLineFields };`)(registry, () => ({}), () => ({ total: null, missing: [] }));
 const doc = country => ({ reviewedMetadata: { country, transportMode: 'AIR' } });
 
 test('AU freight-included form prepares only missing separate freight, preserves positive source/saved values',()=>{
@@ -20,6 +20,11 @@ test('AU freight-included form prepares only missing separate freight, preserves
  let form=ui.initialForm(document,lines);
  assert.equal(form.freightAmount,0);assert.equal(form.freightCurrency,'AUD');
  assert.equal(form.exchangeRateKRW,'');assert.equal(form.customsTotalKRW,'');
+ document.reviewedMetadata.invoiceUploadDate='2026-10-27';
+ document.reviewedMetadata.audMarketRate={rate:931.8,requestedDate:'2026-10-27',rateDate:'2026-10-27',carriedForward:false,source:'Yahoo Finance AUD/KRW 일일 시세'};
+ const fromUpload=ui.initialForm(document,lines);
+ assert.equal(fromUpload.exchangeRateKRW,931.8);assert.equal(fromUpload.exchangeRateRequestedDate,'2026-10-27');
+ assert.equal(fromUpload.exchangeRateDate,'2026-10-27');assert.equal(fromUpload.exchangeRateType,'MARKET_SEARCH');
  document.reviewedMetadata.costInputs={freight:{source:'invoice',amount:123,currency:'AUD'}};
  assert.equal(ui.initialForm(document,lines).freightAmount,123);
  document.reviewedMetadata.costInputs={freight:{source:'review',amount:321,currency:'AUD'}};
@@ -144,7 +149,7 @@ test('formula and line edit handlers invalidate approval and preserve existing s
     let form = { formulaApplicabilityConfirmed: true, lossTreatmentConfirmed: true, lineInputs: [{ lineId: 'line', bunchesPerBox: '' }] }, invalidations = 0;
     const body = source.slice(source.indexOf(start), source.indexOf(end));
     const name = /function (\w+)/.exec(body)[1];
-    const run = new Function('INVOICE_COST_FORMULAS', 'pristineRef', 'setInputEdited', 'invalidateApprovalStages', 'setForm', 'setPreview', 'switchedFormulaForm', `${body}; return ${name};`)(registry, { current: true }, () => {}, () => invalidations++, update => { form = update(form); }, () => {}, ui.switchedFormulaForm);
+    const run = new Function('INVOICE_COST_FORMULAS', 'pristineRef', 'setInputEdited', 'invalidateApprovalStages', 'setForm', 'setPreview', 'switchedFormulaForm', 'setNotice', `${body}; return ${name};`)(registry, { current: true }, () => {}, () => invalidations++, update => { form = update(form); }, () => {}, ui.switchedFormulaForm, () => {});
     run(...args); assert.equal(form.formulaApplicabilityConfirmed, false); assert.equal(form.lossTreatmentConfirmed, false); assert.equal(invalidations, 1);
   }
   require('next/dist/compiled/babel/core').transformSync(source, { filename: 'InvoiceReceiptCostReview.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
