@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { kstDateOnly, latestWednesdaySlot, resolveCurrentProfitWeek, resolvePreviousProfitWeek, resolveWeeklySchedule } from '../lib/profitReportWeeklySchedule.js';
@@ -46,6 +47,23 @@ assertHistoricalBackfill({ ...args, year: '2025', to: 53 }, { orderYear: '2026',
 assert.deepEqual(inspectCacheOnlySql("SELECT 'UPDATE', 'DROP', @value FROM Product WITH (NOLOCK) -- DELETE\n"), { insertAttempts: 0, appLockCalls: 0 });
 assert.equal(inspectCacheOnlySql('INSERT INTO dbo.WebProfitReportSnapshot SELECT @y, @m').insertAttempts, 1);
 assert.equal(inspectCacheOnlySql('DECLARE @r INT; EXEC @r = sys.sp_getapplock @Resource=@key; SELECT @r AS result').appLockCalls, 1);
+// Execute the production optional-table loader with a query spy, not a DB.
+const workbookSource = fs.readFileSync(new URL('../lib/sourceWorkbookFx.js', import.meta.url), 'utf8');
+const loaderBody = workbookSource.slice(workbookSource.indexOf('export async function loadSourceWorkbookFxRows')).replace('export ', '');
+let workbookSelects = 0;
+const workbookLoader = new Function('query', 'sql', `${loaderBody}; return loadSourceWorkbookFxRows;`)(async (text, params) => {
+  assert.deepEqual(inspectCacheOnlySql(text), { insertAttempts: 0, appLockCalls: 0 });
+  assert.equal(params.y0.value, '2026');
+  workbookSelects++;
+  return { recordset: [{ OrderYear: '2026', OrderWeek: '01-01', ExchangeRate: 1400 }] };
+}, { NVarChar: 'nvarchar' });
+assert.equal((await workbookLoader(['2026']))[0].ExchangeRate, 1400);
+assert.equal(workbookSelects, 1);
+const optionalTablePrefix = "IF OBJECT_ID(N'dbo.WebArrivalCostLine', N'U') IS NOT NULL ";
+for (const suffix of ['UPDATE Product SET Stock=0', 'SELECT 1; DELETE FROM Estimate', 'SELECT 1 INTO #copy', 'SELECT 1; INSERT INTO WebProfitReportSnapshot SELECT 1', 'SELECT 1; EXEC sys.sp_getapplock @Resource=@key', 'SELECT 1; EXEC usp_StockCalculation', 'BEGIN CREATE TABLE X(Y INT) END']) {
+  assert.throws(() => inspectCacheOnlySql(optionalTablePrefix + suffix));
+}
+assert.throws(() => inspectCacheOnlySql('IF 1=1 SELECT 1'), 'unrelated IF shapes remain blocked');
 for (const text of ['UPDATE Product SET Stock=1', 'DELETE FROM WebProfitReportSnapshot', 'SELECT * INTO #temp FROM Product', 'EXEC usp_StockCalculation', 'INSERT INTO Estimate SELECT 1', 'INSERT INTO WebProfitReportSnapshot SELECT 1; INSERT INTO StockHistory SELECT 1', 'ALTER TABLE X ADD Y INT', 'EXEC(@sql)', 'SELECT 1; EXEC sp_executesql @sql']) assert.throws(() => inspectCacheOnlySql(text));
 const stats = { queries: 0, insertAttempts: 0, appLockCalls: 0, blocked: 0 };
 const guard = createCacheSqlGuard(stats);

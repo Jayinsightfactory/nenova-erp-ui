@@ -1315,6 +1315,11 @@
 - 전체verify:erp-change/webpack·신규3회귀·manifest166·dnSpy·쓰기guard통과. PR/CI/배포/최초2026 1~42준비/운영스모크는이기록시점미검증. 결과는 docs/plans/profit-weekly-cache-2026-10-27.md에 이어 기록한다.
 - 검색어: profit-weekly-cache 수요일06시 PeriodDay43 44 cachePolicyVersion 저장된계산본 월별최신차수포함 BACKFILL
 
+## 2026-10-27 계산본 최초 준비 가드 보완
+- PR1316 master a6a7619, CI40458268697 및 Cafe24배포40458808503 성공. 배포 ping/hydration 통과.
+- 최초 준비는 조건부 테이블 존재 확인 SELECT를 가드가 차단하여 1차에서 중단(INSERT시도0). 좁은 IF OBJECT_ID SELECT 허용 및 실제 함수회귀 추가, DML/DDL/SP 차단과 실패 latch 유지. 운영원장수정 없음; 최초저장 완료 여부는 후속 검증 기록 참조.
+- 검색어: profit-cache-backfill-guard sourceWorkbookFx IF_OBJECT_ID CACHE_ONLY_SQL_BLOCKED PR1316
+
 ## 2026-10-27 원가표 Woolly 품목 변경
 - 원가표가 ProdKey만 보여주고 분류버튼은 입고탭에만 있었음. 원가탭/행 버튼에서 기존 합계검증 분류모달 연결, 영문/한글 매칭명 표시. 운영원장·공용매칭·원가식 쓰기없음.
 - 품목 변경→새 prepare지문/미리보기 필요, 환율·통관비 보존, 변경된 행 관세/배분입력 재확인. 다른 문서/연도 입력승계 금지.
@@ -1326,3 +1331,11 @@
 - 실제44-01 PDF SHA994541과 저장분석본11행 일치SELECT. Chrome 격리Workbench에서 Red/Green검색선택·합계적용·관세변경·환율보존·미리보기·다운로드 완료. 파일11행2385단20443.75AUD, 전체수식차이1전미만/렌더확인. TEST_ONLY1090원/AUD·통관10000원, 원가22370401.7. 운영쓰기0.
 - 표적76검사67통과9선택원본생략. 전체회귀/webpack/CI/배포 진행중. 자세한근거 docs/work-sessions/2026-10-27_au-tariff-defaults.md.
 - 검색어: au-tariff-defaults CopperGlow6.9 GreenTip0 RedTip0 39-1I18 44-01TEST_ONLY
+
+## 2026-10-27 계산본 1~42차 준비·운영 다운로드 검증
+- BACKFILL 1~41 새 버전41개, 42차는 운영 예약저장본을 그대로 사용. SQL22429조회/INSERT시도41/차단0. ERP·수기·확정원장 쓰기 금지 유지.
+- 저장본 조회 18/26/31/41/42 모두 stored, 각100~331ms/4~5SELECT. 월별42차 missing0,753ms/5SELECT/live0. 월별156개 금액·이익률 대조통과(부동소수점 최대차2.78e-17, 음수0은 JSON상0).
+- 예약42차는WEEKLY/weekly-scheduler:2026-10-21/version1. 보호20테이블중17관측동일,OrderMaster/OrderDetail/ShipmentMaster는동시업무로변화. 수기/확정/환율/통관비웹테이블은동일. 본작업 원장쓰기0.
+- 운영 다운로드 run40460713452 성공:18차985ms/36315bytes,41차943ms/36444bytes,각HTTP200/1시트/화면금액차이0/업무쓰기0. 원가미확정 null은0으로대체하지않는다.
+- PR1319 후속보완은 동시 master WORK_MEMORY 추가내용을 모두 보존하여 병합 후 CI 재실행. 최종배포는 후속 기록 참조.
+- 검색어: profit-weekly-cache 1-42 materialized monthly753 18xlsx 41xlsx 40460713452
