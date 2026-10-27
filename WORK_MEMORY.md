@@ -1382,3 +1382,9 @@
 - 입력 텍스트/매칭/업체배정/결과 자동저장, 명시 저장/목록/복구, 기존 localStorage 초안 deterministic ID 가져오기. pending 서버저장 완료 후 기존 주문 POST, frozen/완료결과 보존.
 - 신규 실행형5검사 및 전체 ERP 계약/dnSpy/manifest167/변경API1 writeguard/UI layout 통과. Chrome 두 창90→120 공유·오래된150 차단·격리 등록5→125 결과 새로고침 복구·응답유실 조회복구 Enter 확인. 실주문 쓰기0.
 - 최종빌드/PR/운영배포는 후속기록 참조. 검색어: hotel-server-drafts 서버초안 차수별 CAS immutable revision 응답유실
+
+## 2026-10-27 호텔 주문전용 버튼 디자인 통일
+- 요청: 버튼 모양을 통일하고 색감으로 구분. 호텔 페이지 전용 CSS Module에서 공통ERP radius/font를 사용하고 높이32px·13px·padding6/12로 통일. 탭/파일선택/기존탭 버튼도 동일 형태.
+- 저장청록·조회보라·매칭파랑·주문초록·삭제연빨강·재시도황토, 비활성 회색과 focus ring. 이벤트/disabled/서버저장/ERP SQL 변경0.
+- Chrome 격리실화면 요청30/분류표·버튼높이32px·색상·Tab초점 확인. build/dnSpy/manifest167/writeguard0/UI57 통과, 전체회귀/PR/배포 진행중.
+- 검색어: hotel-buttons 버튼통일 data-tone 32px 청록 보라 초록
