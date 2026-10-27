@@ -34,7 +34,12 @@ export function inspectCacheOnlySql(text) {
   const execs = [...clean.matchAll(/\bEXEC(?:UTE)?\b/gi)];
   const allowedExecs = [...clean.matchAll(/\bEXEC(?:UTE)?\s+(?:@\w+\s*=\s*)?(?:sys\.|dbo\.)?sp_(?:getapplock|releaseapplock)\b/gi)];
   if (execs.length !== allowedExecs.length || /\bINTO\b/i.test(clean.replace(/\bINSERT\s+INTO\s+(?:dbo\.)?WebProfitReportSnapshot\b/gi, ''))) throw Error('CACHE_ONLY_SQL_BLOCKED');
-  if (!/^\s*(SELECT|WITH|DECLARE|SET|EXEC|INSERT)\b/i.test(clean)) throw Error('CACHE_ONLY_SQL_BLOCKED');
+  // sourceWorkbookFx reads an optional table via IF OBJECT_ID(N'...',N'U')
+  // IS NOT NULL SELECT. Literals above become whitespace (their N prefix remains).
+  // Allow only this conditional read shape: no INSERT or EXEC anywhere in it.
+  const optionalTableRead = inserts.length === 0 && execs.length === 0
+    && /^\s*IF\s+OBJECT_ID\s*\(\s*N?\s*,\s*N?\s*\)\s+IS\s+NOT\s+NULL\s+SELECT\b/i.test(clean);
+  if (!/^\s*(SELECT|WITH|DECLARE|SET|EXEC|INSERT)\b/i.test(clean) && !optionalTableRead) throw Error('CACHE_ONLY_SQL_BLOCKED');
   return { insertAttempts: inserts.length, appLockCalls: allowedExecs.length };
 }
 
