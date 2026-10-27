@@ -796,6 +796,14 @@
   .conversionReviewRow { grid-template-columns: 1fr; }
 }
 .browseStepper { display: flex; align-items: center; gap: 4px; }
+.invoiceCostPreview { display:block; min-width:0; margin-top:12px; }
+.invoiceCostPreview > strong { display:block; font-size:16px; color:#193a60; }
+.invoiceCostPreview > p { margin:8px 0; line-height:1.5; color:#52677f; }
+.invoiceCostPreview > .actions { margin:12px 0; gap:16px; }
+.invoiceCostPreview > .actions label { display:flex; align-items:center; gap:8px; }
+.invoiceCostPreview > .actions input,
+.invoiceCostPreview > .actions select { padding:7px 10px; border:1px solid #b8c9df; border-radius:6px; }
+.invoiceCostPreview > ul { padding:12px 12px 12px 32px; background:#fff4f2; border:1px solid #efb9b0; border-radius:8px; line-height:1.7; }
 .browseStepper input { min-width: 70px; width: 100%; }
 .browseStepper button { flex: 0 0 32px; padding: 6px; font-size: 20px; }
 .savedScope .secondaryBrowse { background:#fff; color:#365675; border-color:#bdcce0; }

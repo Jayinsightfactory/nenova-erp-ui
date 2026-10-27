@@ -1294,3 +1294,9 @@
 - 사용자가 RedTip5100 확인. 출하단가=TPrice총액, EXE도 UPrice/TPrice 별도. AU native 계산용단가=저장총액/실제단수(5100/120=42.5), 저장8.5 및 원장 불변. 실제수량비율 사용.
 -72회귀,실제7863SELECT·TEST_ONLY XLSX·원장지문동일 확인. 배포진행 전, 최종결과 세션MD 기록.
 - 검색어: au-cost-download TPrice5100 RedTip42.5 nativePriceBasis 기존입고 다운로드
+
+## 2026-10-27 인보이스 기준 독립 원가 계산·다운로드
+- 기존입고 미지원 국가를 강제연결하지 않고 업로드 원문으로 미승인 계산본 생성. Product SELECT-only, 입고/재고/초안/승인원가 쓰기 없음. 기존입고 TPrice5100 기준 경로 보존.
+- 원가탭 업로드인보이스/기존자료 선택, 인보이스업로드→매칭→도착원가 준비. 미매칭/원문 불일치 행별 차단, 날짜/운송 직접 수정, 지문 재검증. 입력은 작업탭 전환에도 유지.
+- 국가별 공식·양식회귀 및 격리Chrome 계산→XLSX 다운로드 확인. 운영실제7863 readonly지문 동일. 운영 업로드/승인실행은 미검증(금지). PR/배포 진행 전, 최종결과 세션MD.
+- 검색어: invoice-cost-independent INVOICE_PREVIEW PREVIEW_ONLY 원가단독 인보이스 미승인 다운로드
