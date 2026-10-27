@@ -3,12 +3,21 @@
   "title": "입고관리 파킹리스트 업로드 nenova.exe 호환 계약",
   "scope": [
     "pages/incoming.js",
+    "lib/incomingQueryDateRange.js",
     "pages/api/warehouse/index.js",
     "lib/exeWarehouseViewSql.js",
     "lib/warehousePackingImport.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "warehouseIdentity": ["OrderYear", "OrderWeek", "WarehouseKey", "ProdKey"],
+  "listDateContract": {
+    "plan": "docs/plans/incoming-date-default-2026-10-27.md",
+    "field": "WarehouseMaster.UploadDtm (existing EXE parity GET)",
+    "default": "Asia/Seoul today minus 3 calendar months, month-end clamped, through today inclusive",
+    "url": "nonempty from/to each independently override only that endpoint; preserve historical and cross-year selections",
+    "uploadInputDate": "preserve existing UTC-day default; query defaults do not change upload metadata",
+    "fixtures": ["2026-10-27 => 2026-07-27", "2026-05-31 => 2026-02-28", "2024-05-31 => 2024-02-29", "2026-01-31 => 2025-10-31", "KST midnight, host timezone independence, URL overrides"]
+  },
   "actions": [
     {
       "name": "WAREHOUSE_LIST_AND_DETAIL_READ",
@@ -83,6 +92,7 @@
   "requiredTestFiles": [
     "__tests__/warehousePackingImport.test.js",
     "__tests__/incomingWarehouseDisplay.test.js",
+    "__tests__/incomingQueryDateRange.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

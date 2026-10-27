@@ -1261,5 +1261,12 @@
 - 연도·차수·입고번호 및 조회 지문을 재검증, 다운로드 생성 후 재조회. 기존 승인 원가 export의 승인/commit 검증은 보존.
 - 통화·운송 미저장 값은 확인 입력, GW/CW 단일 명확 중량행 보완(충돌은 미기재), 관세/기타비 일괄입력. 연도·차수 및 조회 버튼 압축 배치, 잘못된 ‘미입력’ 빈 화면 제거.
 - dnSpy 실제 실행 및 2026/43-01 입고7771 SELECT 대조:64품목+3비상품행. TEST_ONLY 원가 XLSX 생성, 전후 지문 동일. 10공식 계산/출력 회귀 통과. Chrome 격리 UI에서 비용 누락 안내→입력→다운로드1회, 쓰기 요청0 확인.
-- 최종 빌드/전체계약/PR·배포 진행 중. 운영 화면 최종 검증은 미검증. 상세 docs/work-sessions/2026-10-27_native-cost.md.
+- 최종 webpack 빌드/전체계약/manifest/쓰기guard/dnSpy 통과. Chrome 최종 UI 다운로드 금액144,000 및 품목2,600/4,600원 XLSX 일치, 저장요청0. PR1309 CI·배포 진행 중, 운영 화면 최종 검증 미검증. 상세 docs/work-sessions/2026-10-27_native-cost.md.
 - 검색어: nativeReceiptCost nativeCostHttp 기존입고 인보이스없이 원가계산 미승인계산본
+
+## 2026-10-27 입고관리 조회 기본기간·태국 EXCEL 중량
+- 조회 기본값만7일→KST 달력3개월~오늘. URL/수동값 및 uploadMeta 기존 입력일 기본값 보존. DB·입고·원가 계산 변경 없음.
+- SELECT:39-01 EXCEL7474 상세42868/42869 SteamQuantity209/270.5는 남아 있지만 ProdKey=NULL.40-01 EXCEL7581은Gross weight225/Chargeable weight345.5 정상 연결.39차운임270.5×1.65=446.325, 원문라벨 확정은 아님.
+- 실제dnSpy/웹 기본 INNER JOIN Product가39차NULL두행을 제외한다. 운영 Chrome65635f23에서39차 EXCEL1/1112건·GW/CW–·운송료2행 확인. UploadDtm07/27~10/27 SQL1112건, 두전표 포함.
+- 전체 verify:erp-change/webpack·dnSpy·manifest·쓰기guard·UI layout57 통과. PR·배포 및 변경 후 운영스모크 진행 중/미검증. 결과는 docs/work-sessions/2026-10-27_incoming-date-default.md에 후속 기록.
+- 검색어: incoming-date-default KST 달력3개월 UploadDtm 7474 7581 EXCEL 209 270.5 ProdKey NULL 1112

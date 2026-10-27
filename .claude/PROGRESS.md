@@ -1,5 +1,13 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-27] 입고관리 기본 조회기간·태국 EXCEL 중량 조사
+- 작업트리 nw-incoming-date-default, codex/incoming-date-default, base65635f23. 조회 초기값만 최근7일→KST 달력3개월~오늘; URL/수동값 및 uploadMeta 기존 기본값 보존.
+- 실제 dnSpy FormWarehouseView와 SELECT 확인:39-01 EXCEL7474의42868/42869에 SteamQuantity209/270.5가 남아 있으나 ProdKey=NULL.40-01 EXCEL7581은3100 Gross weight225/3101 Chargeable weight345.5 정상 연결.39차 운임270.5×1.65=446.325 일치. 원문 GW/CW 라벨은 미확인, 임의 보정 금지.
+- EXE와 웹 기본 apiGetExe 상세는 INNER JOIN Product라 NULL두행 제외. 운영 Chrome65635f23에서 최초10/20~10/27, 지정07/27~10/27·EXCEL·39-01은1/1112건/GW·CW–/운송료2행 확인. 레거시 exeParity=0의 LEFT JOIN과 구분한다.
+- SQL UploadDtm 범위07/27~10/27 활성1112건 및 실제 목록 JOIN1112건, EXCEL 두 전표 포함. DB·제품코드 보정 없음.
+- 전체 verify:erp-change/webpack·dnSpy·manifest·쓰기guard·UI layout57 통과. PR·배포 진행 중. 후속: 변경 후 실제 운영 기본기간/URL 복원 확인.
+- 기록: docs/work-sessions/2026-10-27_incoming-date-default.md; 진단 .verify/는 커밋 제외.
+
 ## [2026-10-26 20:50] 세션 — ECOUNT·전산 차수 비교 페이지
 
 ### 작업 내용
