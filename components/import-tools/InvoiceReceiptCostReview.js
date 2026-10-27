@@ -154,8 +154,8 @@ function initialForm(document, receiptLines) {
     } : {}),
     ...saved,
     ...(verifiedFormula?.country === 'AU' && verifiedFormula?.freightIncluded === true ? {
-      freightAmount: numberOrNull(saved.freightAmount) === null ? (recognizedFreight ? Number(freight.amount) : 0) : saved.freightAmount,
-      freightCurrency: String(saved.freightCurrency || '').trim() || (recognizedFreight ? String(freight.currency).trim().toUpperCase() : uniformNativeCurrency),
+      freightAmount: numberOrNull(saved.freightAmount) === null ? (numberOrNull(freight?.amount) === null ? 0 : freight.amount) : saved.freightAmount,
+      freightCurrency: String(saved.freightCurrency || '').trim() || String(freight?.currency || uniformNativeCurrency).trim().toUpperCase(),
     } : {}),
     ...(verifiedFormula ? {
       formulaId: initialFormulaId,

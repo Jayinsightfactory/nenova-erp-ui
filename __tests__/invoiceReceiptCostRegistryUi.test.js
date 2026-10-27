@@ -22,6 +22,8 @@ test('AU freight-included form prepares only missing separate freight, preserves
  assert.equal(form.exchangeRateKRW,'');assert.equal(form.customsTotalKRW,'');
  document.reviewedMetadata.costInputs={freight:{source:'invoice',amount:123,currency:'AUD'}};
  assert.equal(ui.initialForm(document,lines).freightAmount,123);
+ document.reviewedMetadata.costInputs={freight:{source:'review',amount:321,currency:'AUD'}};
+ assert.equal(ui.initialForm(document,lines).freightAmount,321,'manual metadata expenses must not be replaced with CNF zero');
  document.reviewedMetadata.invoiceCostInput={freightAmount:234,freightCurrency:'USD'};
  form=ui.initialForm(document,lines);assert.equal(form.freightAmount,234);assert.equal(form.freightCurrency,'USD');
  assert.equal(ui.initialForm(doc('VN'),[{lineId:'a',currency:'USD'}]).freightAmount,'');
