@@ -795,3 +795,6 @@
   .confirmLine strong { text-align: left; }
   .conversionReviewRow { grid-template-columns: 1fr; }
 }
+.browseStepper { display: flex; align-items: center; gap: 4px; }
+.browseStepper input { min-width: 70px; width: 100%; }
+.browseStepper button { flex: 0 0 32px; padding: 6px; font-size: 20px; }

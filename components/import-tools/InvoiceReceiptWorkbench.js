@@ -4,6 +4,9 @@ import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoice
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import { prepareInvoiceCostOnly } from '../../lib/invoiceCostOnlyWorkflow.js';
+import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput.js';
+import InvoiceWarehouseCostBrowse from './InvoiceWarehouseCostBrowse.js';
+import { normalizeWarehouseBrowse } from '../../lib/invoiceWarehouseBrowse.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import { allocationIssues } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
@@ -202,6 +205,19 @@ export default function InvoiceReceiptWorkbench({
   const [browseYear, setBrowseYear] = useState('');
   const [browseWeek, setBrowseWeek] = useState('');
   const [browseScope, setBrowseScope] = useState({ orderYear: '', orderWeek: '' });
+  const [browseMode, setBrowseMode] = useState('documents');
+  const [browseInputError, setBrowseInputError] = useState('');
+  useEffect(() => {
+    const [year, week, sequence] = getCurrentWeek().split('-');
+    setBrowseYear(year); setBrowseWeek(`${week}-${sequence}`);
+  }, []);
+  function moveBrowseWeek(direction) {
+    try {
+      const current = normalizeWarehouseBrowse({ orderYear: browseYear, orderWeek: browseWeek });
+      const [year, week, sequence] = stepWeek(`${current.orderYear}-${current.orderWeek}`, direction).split('-');
+      setBrowseYear(year); setBrowseWeek(`${week}-${sequence}`); setBrowseInputError('');
+    } catch (error) { setBrowseInputError(error.message); }
+  }
   const workflowGenerationRef = useRef(0);
   const workflowLockRef = useRef(null);
   const selectedIdRef = useRef(selectedId);
@@ -584,13 +600,17 @@ export default function InvoiceReceiptWorkbench({
     return normalized;
   }
 
-  async function loadDocument(documentId) {
+  async function loadDocument(documentId, expectedScope) {
     const generation = workflowGenerationRef.current;
     setBusy('load'); setNotice(null);
     try {
       const data = await readJson(await fetch(`/api/import/receipts/${documentId}`, { credentials: 'same-origin', cache: 'no-store' }));
       const loaded = responseDocument(data);
       if (!loaded) throw new Error('저장 문서를 불러오지 못했습니다.');
+      if (expectedScope && (String(loaded.orderYear) !== expectedScope.orderYear || loaded.orderWeek !== expectedScope.orderWeek
+        || !(loaded.operations || []).some(operation => operation.status === 'COMMITTED' && Number(operation.warehouseKey) === Number(expectedScope.warehouseKey)))) {
+        throw new Error('입고와 연결 문서의 연도·차수·입고번호가 다릅니다. 입고내역을 다시 조회하세요.');
+      }
       if (workflowGenerationRef.current !== generation) return;
       installSavedDocument(loaded);
       setNotice({ type: 'success', text: '저장 초안과 행·이력을 불러왔습니다.' });
@@ -985,7 +1005,11 @@ export default function InvoiceReceiptWorkbench({
 
   function submitSavedScope(event) {
     event.preventDefault();
-    setBrowseScope({ orderYear: browseYear.trim(), orderWeek: browseWeek.trim() });
+    try {
+      const scope = normalizeWarehouseBrowse({ orderYear: browseYear, orderWeek: browseWeek });
+      setBrowseInputError(''); setBrowseScope(scope);
+      setBrowseMode(event.nativeEvent?.submitter?.value === 'warehouse' ? 'warehouse' : 'documents');
+    } catch (error) { setBrowseInputError(error.message); }
   }
 
   function renderSavedDocuments(includeHistory = false) {
@@ -1009,11 +1033,16 @@ export default function InvoiceReceiptWorkbench({
     <header className={styles.heading}><div><h2>{workspaceMode === 'cost' ? '도착원가 작업할 인보이스 찾기' : '저장 인보이스 입고 문서'}</h2><p>파일을 다시 올리지 않아도 저장된 문서를 연도와 세부차수로 찾아 이어서 검토할 수 있습니다.</p></div></header>
     {sourceState.error && <p className={styles.error} role="alert">{sourceState.error}</p>}
     <form className={styles.savedScope} onSubmit={submitSavedScope} aria-label="저장 인보이스 검색">
-      <Field label="저장 연도"><input value={browseYear} inputMode="numeric" placeholder="예: 2026" onChange={event => setBrowseYear(event.target.value)} /></Field>
-      <Field label="저장 세부차수"><input value={browseWeek} placeholder="예: 41-01" onChange={event => setBrowseWeek(event.target.value)} /></Field>
+      <Field label="저장 연도"><div className={styles.browseStepper}><button type="button" aria-label="이전 연도" disabled={!/^20\d{2}$/.test(browseYear) || +browseYear <= 2000} onClick={() => setBrowseYear(value => String(+value - 1))}>‹</button><input aria-label="저장 연도" value={browseYear} inputMode="numeric" placeholder="2026" onChange={event => setBrowseYear(event.target.value)} /><button type="button" aria-label="다음 연도" disabled={!/^20\d{2}$/.test(browseYear) || +browseYear >= 2099} onClick={() => setBrowseYear(value => String(+value + 1))}>›</button></div></Field>
+      <Field label="저장 세부차수"><div className={styles.browseStepper}><button type="button" aria-label="이전 세부차수" onClick={() => moveBrowseWeek('prev')}>‹</button><input aria-label="저장 세부차수" value={browseWeek} placeholder="44-01" onChange={event => setBrowseWeek(event.target.value)} /><button type="button" aria-label="다음 세부차수" onClick={() => moveBrowseWeek('next')}>›</button></div></Field>
       <button type="submit" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>{busy === 'load' ? '문서 불러오는 중…' : '저장 문서 조회'}</button>
+      {workspaceMode === 'cost' && <button type="submit" value="warehouse" disabled={!browseYear.trim() || !browseWeek.trim() || Boolean(busy)}>입고내역으로 도착원가 생성 / 다운로드</button>}
     </form>
-    {renderSavedDocuments(false)}
+    {browseInputError && <p role="alert" className={styles.error}>{browseInputError}</p>}
+    {notice && <p role="alert" className={notice.type === 'error' ? styles.error : styles.notice}>{notice.text}</p>}
+    {browseMode === 'warehouse' && browseScope.orderYear && workspaceMode === 'cost'
+      ? <InvoiceWarehouseCostBrowse orderYear={browseScope.orderYear} orderWeek={browseScope.orderWeek} onOpenDocument={loadDocument} />
+      : renderSavedDocuments(false)}
   </section>;
 
   const localWarnings = conversionWarnings(documentValue);

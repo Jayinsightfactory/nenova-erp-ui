@@ -1249,3 +1249,9 @@
 - 운영 DB/SQL/EXE 변경 없음. 55회귀 통과, 원가69통과9선택skip, 전체계약·manifest·write guard·dnSpy·webpack 통과. Chrome 격리 fixture에서 기존입고 연결1회/입고commit0/원가승인0 및 환율 입력 유지 확인.
 - 최종 UI build·PR·배포 진행 중. 운영 직접 SQL/실제 원가 다운로드는 이번 세션 미검증. 세션: docs/work-sessions/2026-10-27_import-workspace.md.
 - 검색어: import-workspace cost-only 입고원가분리 기존입고 건너뛰기
+
+## 2026-10-27 추가: 연도·세부차수 기본값 / 입고내역 원가 진입
+- 현재 연도(2026) 및 공용 getCurrentWeek 기본값. 연도 직접 수정·좌우 이동, 공용 stepWeek 세부차수 이동. 조회 버튼과 입고내역 원가 버튼 분리.
+- 신규 GET warehouse-list는 OrderYear+OrderWeek 필수 SELECT-only. 기존 승인 원가 다운로드 경로 재사용. 생성은 연결된 문서 연도/차수/입고번호 검증 후 열기. 연결 없는 과거 전산 입고는 원본 연결 안내, 임의 입고/원가 생성 금지.
+- 기본 작업 분리 PR1306 병합851077eb, 배포40426114758 진행 중. 추가 작업 회귀26통과, 전체계약·build 진행 중. 운영 DB 수정 없음.
+- 검색어: invoiceWarehouseBrowse warehouse-list 저장연도 기본차수 입고내역 원가다운로드
