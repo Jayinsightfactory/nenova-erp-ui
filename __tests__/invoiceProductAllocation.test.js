@@ -12,6 +12,7 @@ import { makePackingSourceReview, applyPackingSourceReview } from '../lib/import
 import { INVOICE_COST_FORMULAS, previewInvoiceCost } from '../lib/invoiceReceiptCost.js';
 import { createNativeCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
 import JSZip from 'jszip';
+import { readFileSync } from 'node:fs';
 const products=[{ProdKey:2997,ProdName:'Wolly Bush Green Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'},
   {ProdKey:2998,ProdName:'Wolly Bush Red Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'}];
 async function fixture(year='2026',hash='a'){
@@ -43,6 +44,19 @@ test('allocation clears stale typed search while retaining selected keys and exa
  assert.deepEqual(next.lines.map(line=>line.prodKey),[2997,2998]);
  assert.ok(next.lines.every(line=>line.productSearch===undefined));
  assert.deepEqual(allocationIssues(next,products),[]);
+});
+
+test('actual workbench selection callback applies allocation and keeps invalid quantities visibly blocked',async()=>{
+ const source=readFileSync(new URL('../components/import-tools/InvoiceReceiptWorkbench.js',import.meta.url),'utf8');
+ const callback=source.slice(source.indexOf('  function updateLineProduct('),source.indexOf('  async function saveDraftRecord('));
+ const invoke=new Function('documentValue','products','applyInvoiceAllocation','updateSelected','setNotice','lineId','product',`${callback};updateLineProduct(lineId,product);`);
+ let doc=await fixture(),notice;
+ const select=()=>invoke(doc,products,applyInvoiceAllocation,mutator=>{doc=mutator(doc);},value=>{notice=value;},doc.lines[0].lineId,products[0]);
+ select();assert.equal(doc.lines[0].prodKey,2997);assert.equal(doc.lines[0].reviewed.allocationConfirmed,true);
+ assert.equal(notice.type,'success');assert.deepEqual(allocationIssues(doc,products),[]);
+ doc={...doc,lines:doc.lines.map(line=>({...line,boxQuantity:8}))};
+ select();assert.equal(notice.type,'error');assert.match(notice.text,/박스 원본 7 \/ 분류 8/);
+ assert.equal(doc.lines[0].reviewed.allocationConfirmed,false);assert.ok(allocationIssues(doc,products).length);
 });
 test('missing/negative/changed totals and invalid country rejected, explicit zero preserved',async()=>{
   const doc=await fixture(),id=doc.lines[0].lineId;
