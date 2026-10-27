@@ -1,0 +1,12 @@
+{
+  "id": "profit-awb-weight-evidence",
+  "title": "39-01 Thai report-only user-confirmed AWB photo weight evidence",
+  "scope": ["lib/freightWeightEvidence.cjs", "data/profit-report-evidence/awb-weight-attestations.v1.json", "lib/customsForwarding.js", "lib/pivotFreightArrival.js", "lib/profitReport.js", "lib/profitReportAudit.js", "lib/profitReportCalcHash.cjs", "pages/api/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "identityNote": "CustKey/ProdKey are not fabricated for non-inventory evidence. Require exact year/subweek/AWB/anchorWarehouseKey/farm plus full source detail fingerprints and Thai group context.",
+  "actions": [{"name":"REPORT_PHOTO_WEIGHT_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT-only source selection. 2026/39-01/AWB21710637233/7474 EXCEL only: user photo GW164 CW225.5. Preserve explicit named/header/snapshot/manual including0, stored freight TPrice772.315, all ERP quantities and financial ledgers, WebProfitReport and confirmed revisions. Existing isFreightRow classification unchanged; unrelated unmatched goods remain in existing allocation pools. Source is user_confirmed_awb_photo, never SQL actual; approved_estimate customs unchanged."}],
+  "crossYearFixture": {"required":true,"description":"2025/2027 same AWB and39-01,2026/39-02,otherAWB/header/farm,deleted/mixed context,source fingerprint changes/duplicates all reject photo fallback. Real SELECT-only loaders agree on164/225.5 and conserve772.315USD."},
+  "requiredTestFiles": ["__tests__/profitReportWeightEvidence.test.cjs", "__tests__/profitReportActualCosts.test.cjs", "__tests__/profitReportAcquisitionCarry.test.cjs"],
+  "requiredCommands": ["node __tests__/profitReportWeightEvidence.test.cjs", "node __tests__/profitReportActualCosts.test.cjs", "npm run test:erp-contract", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run verify:erp-change", "npm run test:nenova-dnspy-evidence", "npm run build"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormProfitReport.md","source":"docs/plans/profit-thai39-weight-evidence-2026-10-27.md: guardian fresh dnSpy FormWarehouseView and5 SELECTs, photo SHA256 and explicit user identity confirmation","methods":["FormWarehouseView.GetData","FormWarehouseView.grdViewMaster_FocusedRowChanged"],"tables":["WarehouseMaster","WarehouseDetail","Product","FreightCost","WebCustomsWeekly","WebProfitReport","ProductStock"]}
+}

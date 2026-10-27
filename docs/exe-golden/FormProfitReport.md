@@ -651,3 +651,11 @@ ERP side effect는 이번 작업으로 전혀 바뀌지 않았고, 화면 배치
 - 해당 업무키 SQL SELECT: 태국34차 실제 운송료 행 존재, FreightCost/WebCustomsWeekly/WebForwardingWeekly/WebArrivalCostLine/WebInvoiceCostRevision 및 근거 있는 WebProfitReport H 저장 없음. 현재 WebCustomsRateConfig/History도 빈 상태였다.
 - 기본 통관합계와 GW 추천합계를 실제 청구액으로 취급하지 않는다. 사용자 최신 지시에 따라 웹 태국 평가에 SQL 실제 비용 완전성 검사를 추가했다. SQL 미입력은 0원과 다르고 이익률을 보류한다. ERP·확정 revision은 보존한다.
 - 기준/부작용: docs/plans/profit-thai-actual-cost-2026-10-22.md. 실행 회귀: profitReportActualCosts.test.cjs (실제 로더 + SELECT fixture, 교차연도/세부차수/단위/0/미입력/미매칭/합계 보존).
+
+## 2026-10-27 보고서 한정 AWB 사진 중량 근거 (기존 golden 수식 불변)
+
+- guardian가 실제 설치 EXE의 FormWarehouseView를 dnSpy CLI로 재실행하고 동일 업무키에 총 5 SELECT를 수행했다. 상세의 WarehouseDetail JOIN Product는 ProdKey NULL 행을 표시하지 않는다. 원장 삭제/신규 Product 생성 근거가 아니다.
+- 사용자가 확인한 사진은 2026/39-01/AWB21710637233/EXCEL/WarehouseKey7474의 GW164kg/CW225.5kg이다. 이미지 SHA256과 실제 CLI 명령/SELECT 근거는 `docs/plans/profit-thai39-weight-evidence-2026-10-27.md`에 기록했다. 잘린 사진의 AWB 연결은 OCR가 아니라 사용자 확인이다.
+- 7470/7471/7474 헤더 중량 NULL, 해당 FreightCost 및 2026/39 태국 WebCustomsWeekly 없음. 42868/42869의 ProdKey NULL·원문 유실 보조행 지문은 사진 적용의 동일 전표 가드이며 209/270.5를 GW/CW로 추정하지 않는다. 기존 isFreightRow/미매칭 상품 분류와 비용 배분은 보존한다.
+- 보고서 전용 helper만 사진 중량을 읽고 기존 명시 중량(0 포함)·수기 H/S/R·확정 revision을 보존한다. 저장 운임 TPrice446.325+325.99=772.315USD는 사진 CW로 재계산하지 않는다. SQL 실비가 아닌 사용자 확인 문서 근거이며 통관비는 기존 approved_estimate 상태를 유지한다.
+- 계약 `profit-awb-weight-evidence.json`, 실행형 `profitReportWeightEvidence.test.cjs`: 연도/반차수/AWB/전표/농장/국가/지문 near-miss, 명시0/원장우선, 실제 두 SELECT 로더 일치, 미배부 상품 보존, 운임 합계, provenance, 계산 지문 포함을 검증한다. ERP·웹 DB 쓰기는 없다.

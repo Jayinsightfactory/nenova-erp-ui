@@ -1,5 +1,12 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-27] 태국39차 사진 승인 중량
+- 작업트리 nw-thai39-weight-evidence / codex/thai39-weight-evidence, base acdc90d7. 이전 입고기간 변경(PR1308/d2c838eb)은 배포·브라우저 검증 완료; 이번에는 별도 중량 근거 작업.
+- 사용자 최종 확인: 사진 GW164kg/CW225.5kg은2026/39-01 AWB21710637233에 해당. EXCEL7474 운임772.315USD 보존, DB 변경 금지.
+- guardian 실제 dnSpy/SELECT 확인: 관련3전표 header중량NULL, FreightCost/태국39 WebCustomsWeekly 없음. NULL품목42868/42869의209/270.5를 사진 중량과 동일시하지 않는다.
+- baseline38~41차4034/최종after4038SELECT·1070검사실패0·원장/수기/확정본 관측지문동일. 전체verify:erp-change/webpack·dnSpy·manifest163·쓰기guard 및guardian표적회귀 통과. PR/CI·배포는 진행 중/미검증.
+- 기록: docs/work-sessions/2026-10-27_thai39-weight-evidence.md.
+
 ## [2026-10-27] 입고관리 기본 조회기간·태국 EXCEL 중량 조사
 - 작업트리 nw-incoming-date-default, codex/incoming-date-default, base65635f23. 조회 초기값만 최근7일→KST 달력3개월~오늘; URL/수동값 및 uploadMeta 기존 기본값 보존.
 - 실제 dnSpy FormWarehouseView와 SELECT 확인:39-01 EXCEL7474의42868/42869에 SteamQuantity209/270.5가 남아 있으나 ProdKey=NULL.40-01 EXCEL7581은3100 Gross weight225/3101 Chargeable weight345.5 정상 연결.39차 운임270.5×1.65=446.325 일치. 원문 GW/CW 라벨은 미확인, 임의 보정 금지.
