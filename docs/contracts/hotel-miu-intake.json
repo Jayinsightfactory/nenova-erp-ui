@@ -18,7 +18,10 @@
     "components/HotelOrderWorkspace.js",
     "lib/hotelOrderWorkspace.js",
     "__tests__/hotelOrderWorkspace.test.js",
-    "__tests__/hotelOrderParseApi.test.js"
+    "__tests__/hotelOrderParseApi.test.js",
+    "pages/api/sales/hotel-order-drafts.js",
+    "lib/hotelOrderDraftStore.cjs",
+    "__tests__/hotelOrderDraftStore.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -110,6 +113,12 @@
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
       "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection."
+    },
+    {
+      "name": "SAVE_SERVER_WORKSPACE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Authenticated userId + OrderYear + OrderWeek + UUID scoped immutable server runtime revision files. Autosave includes raw text, matched rows, allocation and before/after results. Atomic exclusive publication rejects stale/concurrent revision with 409. Frozen intent and each pending receipt saved before existing orders POST; no blind retry or completed receipt removal. Same-account other PCs list and resume by year/week. Legacy browser import uses deterministic identity and never replaces newer server work. No SQL/schema/ERP ledger writes."
     }
   ],
   "crossYearFixture": {
@@ -180,6 +189,7 @@
     "__tests__/hotelMiuIntake.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/hotelOrderWorkspace.test.js",
-    "__tests__/hotelOrderParseApi.test.js"
+    "__tests__/hotelOrderParseApi.test.js",
+    "__tests__/hotelOrderDraftStore.test.cjs"
   ]
 }

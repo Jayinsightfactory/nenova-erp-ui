@@ -9,6 +9,22 @@ import {rememberInvoiceCostInput,restoreInvoiceCostInput} from '../lib/invoiceCo
 import {applyInvoiceAllocation,allocationSource} from '../lib/invoiceProductAllocation.js';
 import {auInvoiceTariffDefault} from '../lib/auInvoiceTariffDefaults.js';
 import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
+import {AU_ORIGINAL_DEFAULTS} from '../lib/auOriginalCostInputs.js';
+
+test('AU source customs recomputed server-side; missing GW blocks; original formula download equals preview',async()=>{
+ const f=fixture(),p=await prepare(f);
+ const input={...f.input,auOriginalMode:'FORMULA',auOriginal:{...AU_ORIGINAL_DEFAULTS,gw:265.5,itemCount:1},customsTotalKRW:1};
+ const calculated=calculateInvoiceCostPreview(p,request(p,input));
+ assert.equal(calculated.input.customsTotalKRW,255130);
+ assert.equal(calculated.input.expenseBasis,'ESTIMATED');
+ assert.equal(input.customsTotalKRW,1);
+ const s=XLSX.read(await createInvoicePreviewCostWorkbook(calculated),{cellFormula:true}).Sheets['원본 양식 계산'];
+ assert.equal(s.N9.v,255130);assert.equal(s.W18?.v,undefined);assert.ok(Math.abs(s.W22.v)<0.01);
+ assert.equal(s.W19.v,255130);assert.equal(s.D7.v,265.5);
+ for(const gw of ['',false,null])assert.throws(()=>calculateInvoiceCostPreview(p,request(p,{...input,auOriginal:{...input.auOriginal,gw}})),/GW/);
+ const zero=calculateInvoiceCostPreview(p,request(p,{...input,auOriginal:{gw:0,itemCount:0,baeksangRateKRW:0,clearanceFeeKRW:0,inspectionRateKRW:0,domesticTransportKRW:0}}));
+ assert.equal(zero.input.customsTotalKRW,0);
+});
 
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 test('AU source-bound historical tariffs, manual zero and changed product defaults',async()=>{

@@ -4,6 +4,7 @@ import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoic
 import styles from '../../styles/InvoiceReceiptCost.module.css';
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
+import { AU_ORIGINAL_SOURCE, initialAuOriginalInputs, calculateAuOriginalCustoms } from '../../lib/auOriginalCostInputs.js';
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -153,6 +154,8 @@ function initialForm(document, receiptLines) {
       freightCurrency: String(freight.currency).trim().toUpperCase(),
     } : {}),
     ...saved,
+    ...(verifiedFormula?.country === 'AU' ? { auOriginal: initialAuOriginalInputs(document, saved),
+      auOriginalMode: document.costStatus === 'PREVIEW_ONLY' ? saved.auOriginalMode || (numberOrNull(saved.customsTotalKRW) === null ? 'FORMULA' : 'TOTAL') : 'TOTAL' } : {}),
     ...(verifiedFormula?.country === 'AU' && verifiedFormula?.freightIncluded === true ? {
       freightAmount: numberOrNull(saved.freightAmount) === null ? (numberOrNull(freight?.amount) === null ? 0 : freight.amount) : saved.freightAmount,
       freightCurrency: String(saved.freightCurrency || '').trim() || String(freight?.currency || uniformNativeCurrency).trim().toUpperCase(),
@@ -278,11 +281,13 @@ async function postInvoiceCostRequest(documentId, request) {
 }
 
 function payloadOf(form) {
+  const auFormula = form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA';
   return {
     ...form,
     exchangeRateKRW: numberOrNull(form.exchangeRateKRW),
     freightAmount: numberOrNull(form.freightAmount),
-    customsTotalKRW: numberOrNull(form.customsTotalKRW),
+    customsTotalKRW: auFormula ? calculateAuOriginalCustoms(form.auOriginal).total : numberOrNull(form.customsTotalKRW),
+    ...(auFormula ? { expenseBasis: 'ESTIMATED', estimateSource: AU_ORIGINAL_SOURCE } : {}),
     packingBoxTotal: numberOrNull(form.packingBoxTotal),
     allocationShareNumerator: numberOrNull(form.allocationShareNumerator),
     allocationShareDenominator: numberOrNull(form.allocationShareDenominator),
@@ -457,6 +462,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   if (!document) return null;
 
   function update(name, value) {
+    setNotice(null);
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -465,6 +471,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   function chooseFormula(formulaId) {
+    setNotice(null);
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -473,6 +480,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   function updateLine(lineId, name, value, displayValue) {
+    setNotice(null);
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
@@ -750,15 +758,27 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {!nativePreview && <><Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
       <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onInput={event => update('exchangeRateDate', event.currentTarget.value)} onChange={event => update('exchangeRateDate', event.target.value)} /></Field></>}
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
-      {(!nativePreview || form.formulaId !== 'CN_SEA_ACTUAL_V1') && <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>}
+      {nativePreview && form.formulaId === 'AU_CNF_BUNCH_V1' && <Field label="호주 통관비 계산 방식"><select value={form.auOriginalMode || 'TOTAL'} onChange={event => update('auOriginalMode', event.target.value)}><option value="FORMULA">원본 수식 · 기본값 적용</option><option value="TOTAL">확인한 합계 직접 입력</option></select></Field>}
+      {(!nativePreview || form.formulaId !== 'CN_SEA_ACTUAL_V1') && <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" readOnly={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA'} value={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA' ? calculateAuOriginalCustoms(form.auOriginal).total ?? '' : form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>}
       {!nativePreview && <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>}
-      <Field label="통관비 기준"><select value={form.expenseBasis || 'CONFIRMED'} onChange={event => update('expenseBasis', event.target.value)}><option value="CONFIRMED">확인된 비용</option><option value="ESTIMATED">이전 자료로 추정한 비용</option></select></Field>
+      <Field label="통관비 기준"><select disabled={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA'} value={form.formulaId === 'AU_CNF_BUNCH_V1' && form.auOriginalMode === 'FORMULA' ? 'ESTIMATED' : form.expenseBasis || 'CONFIRMED'} onChange={event => update('expenseBasis', event.target.value)}><option value="CONFIRMED">확인된 비용</option><option value="ESTIMATED">이전 자료로 추정한 비용</option></select></Field>
       {form.expenseBasis === 'ESTIMATED' && <Field label="추정 근거 (실제 청구액 아님)" wide><input value={form.estimateSource || ''} onChange={event => update('estimateSource', event.target.value)} placeholder="원본 파일 · 기준 차수 · 금액과 계산식" /></Field>}
       {!nativePreview && <><Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
       <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field></>}
       {form.formulaId === 'CN_SEA_ACTUAL_V1' && <Field label="95% 예상수량 (비교 전용)"><input type="number" step="0.000001" min="0" value={form.expected95Quantity} onChange={event => update('expected95Quantity', event.target.value)} /></Field>}
       {!nativePreview && <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onInput={event => update('formulaEffectiveDate', event.currentTarget.value)} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>}
     </div>
+
+    {nativePreview && form.formulaId === 'AU_CNF_BUNCH_V1' && <details open={form.auOriginalMode === 'FORMULA'}>
+      <summary>호주 원본 양식 기본값 · 수정 가능</summary>
+      <p>{AU_ORIGINAL_SOURCE}. 현재 청구 확정값이 아닌 원본 가정값입니다. 운임은 CNF에 포함되어 중복 가산하지 않습니다. CW는 요구하지 않습니다.</p>
+      <div className={styles.formGrid}>
+        {Object.entries({gw:'호주 GW (kg)',itemCount:'검역 품목수',baeksangRateKRW:'백상 요율 (원/kg)',clearanceFeeKRW:'통관 수수료 (원)',inspectionRateKRW:'검역 요율 (원/품목)',domesticTransportKRW:'국내 운송비 (원)'}).map(([key,label])=>
+          <Field key={key} label={label}><input type="number" min="0" step={key==='itemCount'?'1':'any'} value={form.auOriginal?.[key] ?? ''} onChange={event=>update('auOriginal',{...form.auOriginal,[key]:event.target.value})} placeholder="미확인 · 직접 입력"/></Field>)}
+      </div>
+      {form.auOriginalMode === 'FORMULA' && calculateAuOriginalCustoms(form.auOriginal).total === null && <p role="status">원본 통관비 수식에 필요한 값이 없습니다. GW 등 빈 입력칸을 확인하거나, 확인한 통관비 합계를 직접 입력하세요. 미기재 값은 0으로 처리하지 않습니다.</p>}
+      <p>다운로드 시 원본 양식 계산 시트가 열립니다. 현재 판매가는 엑셀 O열에 선택 입력하고, 우측 38-1 참고판매가와 구분하세요.</p>
+    </details>}
 
     {nativePreview && <div className={styles.formGrid}>
       <Field label="전체 품목 관세율 (%)"><input type="number" min="0" max="100" step="any" placeholder="동일 관세율일 때 일괄 입력" onChange={event => {
@@ -780,7 +800,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       : 'CNF 가격에 운임이 포함되어 있습니다. 중복 가산을 막기 위해 별도 운임 원금에 0을 직접 입력하고 운임 통화도 확인하세요.'}
       기존 운임을 자동으로 0으로 바꾸지 않습니다. 다른 청구 비용은 해당 공식의 입력 근거를 확인하세요.</p>}
     <p role="status">현재 문서 GW: {document.reviewedMetadata?.gw ?? '미확인'} kg · CW: {document.reviewedMetadata?.cw ?? '미확인'} kg.
-      중량 입력·확인은 문서 메타데이터 검토에서 수행하세요. 운임·환율·통관비와 단위 환산은 현재 자료로 직접 확인하며 누락값을 0으로 대신하지 않습니다.</p>
+      {nativePreview && form.formulaId === 'AU_CNF_BUNCH_V1' ? ` 원가 계산용 GW: ${form.auOriginal?.gw === '' || form.auOriginal?.gw == null ? '미확인' : form.auOriginal.gw} kg. 위 호주 기본값에서 수정하며 원본 입고 중량은 변경하지 않습니다.` : ' 중량 입력·확인은 문서 메타데이터 검토에서 수행하세요.'} 운임·환율·통관비와 단위 환산은 현재 자료로 직접 확인하며 누락값을 0으로 대신하지 않습니다.</p>
     {isChinaAir && <p role="status">
       GW/CW가 없거나 잘못되면 문서 메타데이터 검토에서 수정하세요. GW≈CW(0.01kg)는 실중량, CW&gt;GW는 CBM 환산중량으로 운임을 배분하며 통관비는 항상 실중량으로 배분합니다.
       행별 CBM 환산중량은 kg입니다. 원시 m³나 임의 환산계수를 입력하지 마세요. 인식 GW는 미확정 힌트이며 현재 자료와 대조해야 합니다.</p>}

@@ -2,6 +2,10 @@
   "id": "invoice-cost-export",
   "title": "서버 승인 원가의 국가별 원본 양식 출력과 내구성 단계 이력",
   "scope": [
+    "lib/invoiceCostOriginalAustralia.js",
+    "lib/auOriginalCostInputs.js",
+    "lib/invoiceCostTemplates/australia-content.json",
+    "scripts/build-au-cost-content.cjs",
     "lib/invoiceReceiptCostExport.js",
     "lib/invoiceCostOriginalColombia.js",
     "lib/invoiceCostTemplates/colombia-42-1-content.json",
@@ -82,6 +86,7 @@
     }
   ],
   "templateProfile": {
+    "australiaOriginalContent": "AU adds default-active original-layout calculation with hash-bound 38-1 fixed labels/defaults/formulas; current validated quantities/prices/rates, all-row totals, editable missing GW, original customs or explicit aggregate override, guarded optional sales formulas. Historical reference sale prices labeled 38-1 and never applied automatically. Existing approved snapshot remains unchanged. UI preview-only source defaults are ESTIMATED; no operating DB writes. See docs/plans/au-template-restoration-1027.md.",
     "colombiaOriginalContent": "CO_42_1 adds and opens original-layout calculation sheet. Hash-bound labels/default coefficients preserved, current validated receipt/FX/freight bound. Historical products/amounts/sales not copied. Default customs is explicitly unapproved comparison and cannot alter persisted approval. Approved original-format snapshot and original-formula comparison remain unchanged. See docs/plans/colombia-template-content-preservation.md.",
     "chinaSeaReadableSummary": "CN_SEA runtime-only summary replaces empty historical 95% and sales blocks; current goods/freight/tariff/other totals, original customs labels with unavailable breakdown explicit, full estimate source, bounded current rows, widened numeric columns, wrapped headers, A3 print area B:P. Asset hash and all approved amounts unchanged. See docs/plans/china-cost-export-layout-repair.md.",
     "id": "CN_AIR_ORIGINAL_V1",
