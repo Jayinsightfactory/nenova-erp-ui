@@ -67,11 +67,16 @@ export async function collectCustomerLedger(page,base,customer,period){
       const label=await page.locator(`button[data-cid="ddlSYear_DATE"][data-index="${index}"]:visible`).innerText();
       if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
     }
-    await page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`).fill(day);
+    const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
+    await dayField.fill(day);
+    // ECOUNT commits date edits on blur; otherwise that rerender can consume the search click.
+    await dayField.press('Tab');
+    if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_PERIOD_MISMATCH');
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
-  stage='SEARCH';
+  stage='SEARCH_CLICK';
   await search.click();
+  stage='SEARCH_RESULT';
   await search.waitFor({state:'hidden',timeout:30000});
   stage='REPORT';
   await waitForReport(page,period);
