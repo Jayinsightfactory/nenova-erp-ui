@@ -1,4 +1,5 @@
 .workspace { padding:20px; min-width:0; color:#172b4d; font-size:14px; line-height:1.5; }
+.costEntry{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin:12px 0 18px}.costEntry button{min-height:40px;padding:9px 16px;border:1px solid #2457c5;border-radius:7px;background:#2457c5;color:#fff;font:inherit;font-weight:600;cursor:pointer;white-space:normal}.costEntry button:hover{background:#194caa}.costEntry span{color:#54657d;font-size:13px}
 .workspace * { box-sizing:border-box; }
 .workspace [hidden] { display:none !important; }
 .header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
