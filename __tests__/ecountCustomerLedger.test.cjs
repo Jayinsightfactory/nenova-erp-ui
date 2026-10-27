@@ -2,11 +2,49 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {validateLedger}=require('../lib/ecountLedgerValidation.cjs');
+const {validateLedger,validateFailure}=require('../lib/ecountLedgerValidation.cjs');
 const policy=require('../lib/ecountCustomerLedgerPolicy.cjs');
 const schedule=require('../lib/ecountLedgerSchedule.cjs');
 const now=new Date('2026-10-27T02:00:00Z');
 const sample=()=>({program:'E040723',mode:'voucher',individual:true,custKey:7,periodFrom:'2026-09-27',periodTo:'2026-10-27',opening:100,screenRowCount:2,rows:[{date:'2026-09-27',sales:30,receipt:0,balance:130,memo:'must not persist'},{date:'2026-10-27',sales:0,receipt:20,balance:110}],totals:{sales:30,receipt:20,balance:110}});
+test('source opening-only report preserves positive/negative balance without inventing vouchers',async()=>{
+ const {parseLedgerReport}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ for(const value of ['12,345','-123']){
+  const source={headers:['일자','적요','판매','수금','잔액'],identity:'fixture',periods:['2026/09/27 ~ 2026/10/27'],rows:[['이월잔액','','',value]]};
+  const p=parseLedgerReport(source,{custKey:7,sourceCode:'fixture'},policy.recentMonth(now),now);
+  const ledger=validateLedger(p,now);assert.equal(ledger.balanceOnly,true);assert.equal(ledger.rows.length,0);assert.equal(ledger.totals.balance,Number(value.replace(',','')));
+  assert.throws(()=>parseLedgerReport({...source,rows:[...source.rows,['2026/10/27','private memo','10','0','12355']]},{custKey:7,sourceCode:'fixture'},policy.recentMonth(now),now));
+  assert.throws(()=>parseLedgerReport({...source,identity:'different'},{custKey:7,sourceCode:'fixture'},policy.recentMonth(now),now));
+ }
+});
+test('failure status accepts only known reasons and drops source detail',()=>{
+ const input={custKey:7,periodFrom:'2026-09-27',periodTo:'2026-10-27',failure:'LINK_CHECK_REQUIRED',sourceName:'private'};
+ assert.equal(validateFailure(input,now).sourceName,undefined);
+ assert.throws(()=>validateFailure({...input,failure:'private source error'},now));
+ assert.throws(()=>validateFailure({...input,periodFrom:'2025-09-27'},now));
+ assert.throws(()=>validateLedger({...sample(),balanceOnly:true},now));
+});
+test('failed refresh retains last good cross-year snapshot and a changed identity exposes neither',async()=>{
+ const crypto=require('crypto');
+ const codeHash=crypto.createHash('sha256').update('E040723:fixture').digest('hex');
+ const period={periodFrom:'2025-12-01',periodTo:'2026-01-01'};
+ const good={SnapshotKey:4,VerifyStatus:'GREEN',VerifyDetail:JSON.stringify({...validateLedger({...sample(),...period,rows:[{date:'2025-12-01',sales:30,receipt:0,balance:130},{date:'2026-01-01',sales:0,receipt:20,balance:110}]},new Date('2026-01-01T02:00:00Z')),codeHash,collectedAt:'2026-01-01T02:00:00Z'})};
+ let latest={SnapshotKey:5,VerifyStatus:'RED',VerifyDetail:JSON.stringify({custKey:7,...period,codeHash,collectedAt:'2026-01-01T03:00:00Z',failure:'LINK_CHECK_REQUIRED'})};
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger};';
+ const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(crypto,async q=>({recordset:[q.includes("VerifyStatus='GREEN'")?good:latest]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger.totals.balance,110);assert.equal(result.failure.reason,'LINK_CHECK_REQUIRED');
+ const changed=await store.readLedger({custKey:7,ecountCode:'changed'});assert.equal(changed.ledger,null);assert.equal(changed.failure,null);
+ latest={...latest,SnapshotKey:3};assert.equal((await store.readLedger({custKey:7,ecountCode:'fixture'})).failure,null);
+ latest=good;assert.equal((await store.readLedger({custKey:7,ecountCode:'fixture'})).failure,null);
+});
+test('failure writes recheck current source identity and retain only safe attempt metadata',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {saveLedgerFailure};';
+ const writes=[];const query=async(q,p)=>{if(q.includes('INSERT INTO WebEcountSnapshot')){writes.push(JSON.parse(p.payload.value));return {recordset:[{SnapshotKey:9}]};}return {recordset:[{CustKey:7,CustName:'private name',code:'1234567890',managerUserId:'alice',codeMatchCount:1}]};};
+ const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(require('crypto'),query,{NVarChar:()=>'',MAX:'max'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const p=policy.recentMonth();const input={custKey:7,periodFrom:p.from,periodTo:p.to,collectedAt:new Date().toISOString(),requestedCode:'1234567890',failure:'LINK_CHECK_REQUIRED',rawError:'private detail'};
+ await store.saveLedgerFailure(input);assert.equal(writes.length,1);assert.equal(writes[0].failure,'LINK_CHECK_REQUIRED');assert.ok(!JSON.stringify(writes).includes('private'));assert.ok(!JSON.stringify(writes).includes('1234567890'));
+ await assert.rejects(store.saveLedgerFailure({...input,requestedCode:'different'}));await assert.rejects(store.saveLedgerFailure({...input,collectedAt:'2020-01-01'}));assert.equal(writes.length,1);
+});
 test('failed customer popup is discarded before the next customer, with safe diagnostics',async()=>{
  const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
  let reset=false;const uploaded=[],logs=[];
