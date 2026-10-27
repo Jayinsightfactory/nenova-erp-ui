@@ -3,6 +3,8 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "test:profit-customer-margin": "node --test __tests__/profitCustomerMargin.test.cjs __tests__/profitCustomerMarginApi.test.cjs __tests__/profitCustomerMarginDrivers.test.cjs __tests__/profitCustomerMarginUi.test.cjs",
+    "pretest:profit-weekly-cache": "npm run test:profit-customer-margin",
     "test:profit-weekly-cache": "node __tests__/profitReportWeeklySchedule.test.js && node __tests__/profitReportWeeklyScheduler.test.js && node __tests__/profitReportWeeklyCache.test.js",
     "test:profit-cost-source-recovery": "node __tests__/profitReportCostSourceRecovery.test.cjs && node __tests__/customsForwardingAuto.test.js && node __tests__/profitReportCountryAverageIntegration.test.cjs",
     "pretest:profit-inventory-basis": "npm run test:profit-cost-source-recovery",

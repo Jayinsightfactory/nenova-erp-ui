@@ -25,6 +25,7 @@ import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNo
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
 import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
 import ProfitValidationLink from '../../components/ProfitValidationLink';
+import ProfitCustomerMarginLink from '../../components/ProfitCustomerMarginLink';
 import { reportScopeFromSearch } from '../../lib/profitValidationWindow.mjs';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
@@ -1030,6 +1031,9 @@ export default function ProfitReportPage() {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <ProfitValidationLink year={data?.orderYear} major={data?.major}
+            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
+            style={{ ...st.primaryBtn, textDecoration: 'none', display: 'inline-block' }} />
+          <ProfitCustomerMarginLink year={data?.orderYear} major={data?.major}
             disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
             style={{ ...st.primaryBtn, textDecoration: 'none', display: 'inline-block' }} />
           <div style={st.viewToggleWrap}>
