@@ -20,6 +20,8 @@
 - 격리Chrome19846 실제 InvoiceDraftCost/InvoiceReceiptCostReview 및 실제 endpoint handler 사용. Product만fixture, 운영 DB 연결 없음.
 - Woolly Green180단/1530AUD,Red120단/1020AUD **원문경로 시험자료**. FX1000/통관10000/관세0 TEST_ONLY 입력→합계2560000→다운로드 파일 생성·셀 확인. 실제입고5100 기준으로 승인한 결과가 아님.
 - 미매칭 Red행으로 변경하면 행번호/품명/수정사유 표시 및 다운로드 차단 확인. 입고 연결 API/원가승인 API 호출 없음.
+- 전체 Workbench 격리 화면에서도 미입고 DRAFT 선택→입고연결 없이 원가 패널 확인. 기존자료/인보이스 전환 후 환율1000·통관10000·관세0 보존 확인. 기존 costPending flex 때문에 설명이 세로로 찌그러지는 문제를 독립 block 스타일로 수정하고 화면 확인.
+- 표적159 검사:141통과/18선택적 private원본 parity 생략/실패0. 생략은 신규 업무검증 실패가 아닌 원본파일 환경변수 미제공 항목.
 - 로컬 전체 ERP 계약·dnSpy guard·manifest·write guard·webpack 통과. 최종 증분검증/PR CI·배포 후 결과는 아래 기록 예정.
 
 ## 보존/남은 확인

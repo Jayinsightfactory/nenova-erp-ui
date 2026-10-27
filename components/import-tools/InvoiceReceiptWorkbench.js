@@ -1294,7 +1294,7 @@ export default function InvoiceReceiptWorkbench({
     {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
     <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">
-    <div className={styles.actions} aria-label="원가 계산 자료 선택">
+    <div className={styles.workspaceModes} aria-label="원가 계산 자료 선택">
       <button type="button" aria-pressed={costSource==='invoice'} onClick={()=>{setCostSource('invoice');setNotice(null);}}>업로드 인보이스 기준</button>
       <button type="button" aria-pressed={costSource==='existing'} onClick={()=>setCostSource('existing')}>기존 입고·승인 원가 기준</button>
     </div>

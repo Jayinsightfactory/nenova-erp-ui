@@ -31,7 +31,7 @@ export default function InvoiceDraftCost({document,onEdit,onMetadataChange}){
   a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  }
  const data=prepared?.identity===serialized?prepared.data:null;
- return <section aria-label="인보이스 기준 원가 계산" className={styles.costPending}>
+ return <section aria-label="인보이스 기준 원가 계산" className={styles.invoiceCostPreview}>
   <strong>업로드 인보이스로 도착원가 계산·다운로드</strong>
   <p>기존 입고 연결 없이 계산합니다. 결과는 미승인 계산본이며 입고·재고·최신 승인 원가에 반영되지 않습니다.</p>
   <p>{document.orderYear}/{document.orderWeek} · 인보이스 {document.invoiceNo}</p>

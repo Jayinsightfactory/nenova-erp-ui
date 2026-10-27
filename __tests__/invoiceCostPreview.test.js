@@ -93,6 +93,7 @@ test('post-render Product change blocks download',async()=>{
 test('UI has independent upload and existing data paths, no receipt/write request in invoice calculator',()=>{
  const ui=readFileSync('components/import-tools/InvoiceDraftCost.js','utf8');assert.doesNotMatch(ui,/link-existing|\/commit|saveDraft|\/cost-export|\/cost['"`]/);
  assert.match(ui,/baselineDigest/);assert.match(ui,/active.current!==serialized/);
+ assert.match(ui,/className={styles.invoiceCostPreview}/);assert.match(readFileSync('styles/InvoiceReceipt.module.css','utf8'),/\.invoiceCostPreview\s*\{\s*display:block/);
  assert.match(readFileSync('pages/import/tools.js','utf8'),/invoiceCostIntent\?'cost':'receipt'/);
  assert.match(readFileSync('components/import-tools/InvoiceReceiptWorkbench.js','utf8'),/InvoiceDraftCost document={documentValue}/);
 });
