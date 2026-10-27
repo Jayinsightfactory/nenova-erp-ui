@@ -69,3 +69,11 @@ DB schema/ERP SP/기존기록 UPDATE·DELETE 없음. EXE에 대응 자동저장 
 ## 메뉴 기본선
 
 적용: 저장시각/확정과캐시구분/키보드수동갱신/오류안내/기존필터보존/실브라우저. 해당없음: 신규메뉴·파일매칭·ERP반영. 기존표가로스크롤만유지하며관련없는레이아웃을재설계하지않는다.
+
+## 운영 적용 및 최초 준비 기록
+
+- PR #1316 / merge `a6a7619dd10ad5440f3af6dafc31d618cf03420a`, CI 40458268697 및 Cafe24 40458808503 성공. 운영 ping DB 연결과 배포 hydration smoke 성공.
+- 최초 backfill 1~42는 1차에서 안전 중단: sourceWorkbookFx의 `IF OBJECT_ID(...) IS NOT NULL SELECT`를 CLI 가드가 오탐. 308조회, INSERT 시도0, 차단3. 실패 latch가 fallback 결과 저장을 막았으며 부분 성공 없음.
+- 후속 보완은 이 조건부 SELECT 형태만 허용하고 같은 batch INSERT/EXEC 및 기존 DML/DDL 차단을 보존. 실제 sourceWorkbookFx 함수본문을 mock query로 실행하는 회귀와 거부 fixture 추가. 새 보고서 파일로 재시도하며 운영 원장 보정은 하지 않는다.
+- 로컬 추가 MOYI HTTP E2E는 node_modules junction의 Turbopack 경계 때문에 기동 실패. 동일 MOYI 단계는 깨끗한 GitHub CI에서 통과했으며 로컬 webpack/전체 ERP 검증도 통과했다.
+- 좁은 가드 수정 후 최초 준비가 31차까지 진행됐고 차단0. 전체 verify:erp-change/webpack 재실행 통과. 월경계 차수를 종료월에 한 번 포함한다는 기존 실제 계산과 어긋난 화면 안내도 문구만 바로잡았다(계산식 불변).

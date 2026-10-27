@@ -1308,3 +1308,8 @@
 - 실제SELECT-only검증:41차26.4초/1174SELECT→저장형식17행/합계exact일치. 기본월별472ms/6SELECT/live0(아직missing42). 원장guard로쓰기0;동시운영3테이블변화는전체불변이라고과장하지않음.
 - 전체verify:erp-change/webpack·신규3회귀·manifest166·dnSpy·쓰기guard통과. PR/CI/배포/최초2026 1~42준비/운영스모크는이기록시점미검증. 결과는 docs/plans/profit-weekly-cache-2026-10-27.md에 이어 기록한다.
 - 검색어: profit-weekly-cache 수요일06시 PeriodDay43 44 cachePolicyVersion 저장된계산본 월별최신차수포함 BACKFILL
+
+## 2026-10-27 계산본 최초 준비 가드 보완
+- PR1316 master a6a7619, CI40458268697 및 Cafe24배포40458808503 성공. 배포 ping/hydration 통과.
+- 최초 준비는 조건부 테이블 존재 확인 SELECT를 가드가 차단하여 1차에서 중단(INSERT시도0). 좁은 IF OBJECT_ID SELECT 허용 및 실제 함수회귀 추가, DML/DDL/SP 차단과 실패 latch 유지. 운영원장수정 없음; 최초저장 완료 여부는 후속 검증 기록 참조.
+- 검색어: profit-cache-backfill-guard sourceWorkbookFx IF_OBJECT_ID CACHE_ONLY_SQL_BLOCKED PR1316
