@@ -1034,3 +1034,12 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 단당1은 송이/단 비용단위 동일, 그 외는 원본 원가 대조가 필수다. 불명·상충·0환율은 보류.
 환율 적용·원본복원은 브라우저 비교만 수행하며 매입가·손익·ERP 원장/저장/엑셀 보존.
 회귀: hotelArrivalDisplay.test.js, raumPnlArrivalReference.test.js. 계약: raum-pnl-settlement.json.
+
+## 2026-10-27 주차별·월별 보고서 계산본 고정 조회
+
+- 최신 요청은 과거 일반 조회의 자동 지문검사/재계산 정책을 대체한다. 활성 확정 revision 최우선, 그 외 과거는 새 저장정책 버전의 row.calc·합계를 그대로 읽는다. 계산본은 회계 확정이 아니다.
+- 구형 계산본을 그대로 사용하면 최근 원가 수정 전 수치가 재등장한다. 신규 정책 최초준비는 명시 backfill로 수행하고, 누락/구형은 자동 계산 대신 준비 필요로 표시한다. 월별 누락차수를 0으로 숨기지 않는다.
+- 매주 수요일06:00 KST 당시 PeriodDay 기준 현재차수의 직전 업무차수 한 개를 저장한다. 단순 ISO/연중7일 차수, 전년52 고정은 금지한다. 지연 실행도 당시 수요일 슬롯을 보존한다. 짧은53차가 예약대상에서 빠지는 경우는 수동 계산본 생성 대상이다.
+- 저장은 기존 WebProfitReportSnapshot 새 버전 INSERT만 허용하며 동일 연도·차수 DB applock/슬롯 중복/활성 확정 검사를 거친다. 원장·수기값·확정 기록 UPDATE/DELETE 및 runtime DDL 금지.
+- 일반 GET과 접힌 참고 패널은 저장/자동 갱신하지 않는다. 명시 검산은 최신 원천을 읽되 확정값은 보존한다. 원천을 사용자가 명시 저장한 뒤에는 계산본 갱신 결과를 별도로 확인하고, 갱신 실패를 전체 성공으로 표시하지 않는다.
+- 기준/부작용: plans/profit-weekly-cache-2026-10-27.md. 실제 EXE·PeriodDay·legacy 회귀 증거: plans/profit-weekly-cache-evidence-2026-10-27.md.

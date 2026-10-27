@@ -1,5 +1,13 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-27] 주차별·월별 보고서 수요일 계산본
+- 작업트리 nw-profit-weekly-cache / codex/profit-weekly-cache, base7ff11536. 과거 일반조회 재계산 제거·수요일06시 직전1차수 저장 요청.
+- 실제 EXE/SELECT 선행검증6회·쓰기0. PeriodDay상10/28current44→저장43이며 getCurrentWeek의42타깃은 잘못됨. 구형37~41캐시는 최신 원가 수정 전이므로 재사용하지 않는다.
+- 신규정책 calc+합계 고정, 활성확정 우선, 현재live, 월별 포함범위 보존, 웹snapshot INSERT만. 보호20테이블 변경전 관측 기록.
+- API/UI와 스케줄 guardian 분리 구현·교차리뷰 완료. 전체 verify:erp-change/webpack 통과. CLI 실제loader import무SQL·활성timer 종료 회귀 통과. PR/배포/초기준비/운영스모크는 후속 미완료.
+- 사용자 월별기본 past-only 선택 반영: 현재43~50 중6개는 최신차수포함에서만 계산. 실제기본월별472ms/6SELECT/live0(초기준비전missing42 상태),41차1174SELECT/26.4초 계산값17행·합계저장형식 exact일치.
+- 기준: docs/plans/profit-weekly-cache-2026-10-27.md.
+
 ## [2026-10-27] 태국39차 사진 승인 중량
 - 작업트리 nw-thai39-weight-evidence / codex/thai39-weight-evidence, base acdc90d7. 이전 입고기간 변경(PR1308/d2c838eb)은 배포·브라우저 검증 완료; 이번에는 별도 중량 근거 작업.
 - 사용자 최종 확인: 사진 GW164kg/CW225.5kg은2026/39-01 AWB21710637233에 해당. EXCEL7474 운임772.315USD 보존, DB 변경 금지.

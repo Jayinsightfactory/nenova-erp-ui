@@ -26,7 +26,9 @@ const overridden = buildProfitOverrideCaseSqlFromMap("CASE WHEN p.CounName=N'중
 });
 assert.match(overridden, /WHEN p\.ProdKey=101 THEN N'네덜란드'/, '허용된 품목 오버라이드를 SQL 분류보다 우선해야 함');
 assert.doesNotMatch(overridden, /ProdKey=102/, '허용 목록 밖 분류는 SQL에 넣지 않아야 함');
-const confirmedBuilder = apiSource.slice(apiSource.indexOf('async function buildConfirmedPayload'), apiSource.indexOf('export default'));
-assert.match(confirmedBuilder, /unclassifiedDetailsByCategory\(major, orderYear\)/, '확정본도 처리 대상 품목을 읽기 전용으로 제공해야 함');
-assert.match(confirmedBuilder, /unclassifiedDetailsSource: 'live_read_only'/, '확정값과 현재 처리대상을 구분해야 함');
+const confirmedBuilder = apiSource.slice(apiSource.indexOf('async function buildConfirmedPayload'), apiSource.indexOf('export async function currentProfitPeriod'));
+assert.doesNotMatch(confirmedBuilder, /unclassifiedDetailsByCategory\(/, '기본 확정본 조회는 원천 진단 SQL을 실행하지 않음');
+const loader=apiSource.slice(apiSource.indexOf('export async function loadWeeklyReportPayload'),apiSource.indexOf('export async function saveProfitReportCache'));
+assert.match(loader, /if\(mode==='liveAudit'\|\|preferLive\)[\s\S]*unclassifiedDetailsByCategory\(major, orderYear\)/, '명시 검산에서는 확정본 처리대상을 현재 원장에서 읽기 전용 제공');
+assert.match(loader, /unclassifiedDetailsSource: 'live_read_only'/, '불변 확정값과 현재 처리대상을 구분');
 console.log('profit report classification input tests passed');

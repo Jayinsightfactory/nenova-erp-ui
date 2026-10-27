@@ -1,0 +1,29 @@
+{
+  "id": "profit-report-weekly-schedule",
+  "title": "수요일 06시 한국시간 직전 업무차수 보고서 계산본 예약 — 기존 웹 캐시만 저장",
+  "scope": ["lib/profitReportWeeklySchedule.js", "lib/profitReportWeeklyScheduler.js", "instrumentation.js", "scripts/backfill-profit-report-cache.mjs"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "cacheIdentity": ["OrderYear", "MajorWeek", "scheduleSlot"],
+  "actions": [
+    {"name": "PROFIT_WEEKLY_CALENDAR_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "PeriodDay SELECT only; 실제 한국 날짜의 업무차수와 직전 달력 범위를 검증한다."},
+    {"name": "PROFIT_WEEKLY_CACHE_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "기존 공통 저장 서비스에 정확한 연도·차수·수요일 슬롯 한 개만 전달한다. WebProfitReportSnapshot 새 버전 INSERT만 허용하며 ERP·수기·확정 원장은 보존한다."},
+    {"name": "PROFIT_EXPLICIT_CACHE_BACKFILL", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "명시 --apply 및 연도·범위가 있을 때만 완료된 과거 차수를 순차 계산한다. 유효 신규정책본·확정본은 건너뛰며 실패시 중단한다. DDL 없음."}
+  ],
+  "rules": {
+    "calendar": "KST 날짜와 PeriodDay 실제 raw OrderYearWeek를 사용한다. ISO 주차/단순 ceil/전년52 고정 금지. 공백·중복·연도키 불일치·불연속은 오류다.",
+    "slot": "마지막 도래한 수요일06시 슬롯을 기준으로 정확히 직전 업무차수 한 개. 목·금 catchup도 슬롯 날짜를 사용한다. 짧은53차의 정기슬롯 부재는 수동 backfill로만 처리한다.",
+    "idempotency": "저장 서비스가 동일 DB 세션 applock·슬롯 전체 이력·활성 확정 재검사를 수행한다. runner는 동시 tick을 합치고 실패만 재시도한다.",
+    "startup": "production 서버 런타임만, build/edge/test/dev에서는 타이머 및 SQL 금지. 시작 지연 후 복구하고 성공한 슬롯은 다음 수요일까지 다시 실행하지 않는다.",
+    "preserve": "기존 계산식·추정/누락 경고·수기0·확정 revision·다른 스케줄 및 ERP 원장 불변. 자동 캐시 저장은 회계 확정이 아니다. 운영 테스트 쓰기 금지."
+  },
+  "crossYearFixture": {"required": true, "description": "2026/01의 직전 실제2025/53, 2027/01의 직전2026/53; 같은43차 타연도와 혼동 금지. 수요일05:59/06:00, UTC/KST 경계와 지연 실행을 검증한다."},
+  "requiredTestFiles": ["__tests__/profitReportWeeklySchedule.test.js", "__tests__/profitReportWeeklyScheduler.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/profit-weekly-cache-evidence-2026-10-27.md",
+    "source": "실제 Nenova.exe dnSpy.Console.exe FormSalesView.GetData의 PeriodDay 조인과 운영 SELECT-only 달력/저장본 확인",
+    "methods": ["FormSalesView.GetData", "loadProfitReportCalendar", "resolveWeeklySchedule"],
+    "tables": ["PeriodDay (SELECT only)", "WebProfitReportSnapshot (existing web-only INSERT service)", "WebProfitReportConfirm/WebProfitReportConfirmDetail (preserve)"]
+  },
+  "requiredCommands": ["node __tests__/profitReportWeeklySchedule.test.js", "node __tests__/profitReportWeeklyScheduler.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

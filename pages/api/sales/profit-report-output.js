@@ -15,11 +15,11 @@ export default withAuth(async function handler(req, res) {
     return res.status(400).json({ success: false, error: '출력할 표시열을 확인하세요.' });
   }
   try {
-    const data = await loadWeeklyReportPayload(scope.major, scope.year, { preferLive: true });
+    const data = await loadWeeklyReportPayload(scope.major, scope.year, { mode:'display' });
     const workbook = buildProfitReportXlsx({ major: scope.major, rows: data.rows, note: data.note,
-      audit: data.audit, visibleCols, confirmedTotals: data.confirmed ? data.confirmedTotals : null,
+      audit: data.audit, visibleCols, confirmedTotals: data.confirmed ? data.confirmedTotals : data.totals || null,
       displaySheetFirst: true, displayCategory, returnWorkbook: true });
     res.setHeader('Cache-Control', 'private, no-store');
     return res.status(200).json({ success: true, ...scope, workbook });
-  } catch (e) { return res.status(500).json({ success: false, error: e.message || '출력 자료 조회 실패' }); }
+  } catch (e) { return res.status(e.statusCode || 500).json({ success: false, code:e.code, error: e.message || '출력 자료 조회 실패' }); }
 });
