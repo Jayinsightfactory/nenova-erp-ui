@@ -1356,3 +1356,10 @@
 - 번호 불일치/검색 불명확을 이름으로 추정 연결하지 않음. 안전한 원인코드·시각만 RED snapshot에 추가하고 마지막 검증 자료를 유지하도록 API/화면 구성. 원장·거래처 정보 수정 없음.
 - 해당 변경은 테스트/CI/배포 및 다음 실제 배치 검증 진행 중이며 전체 고객 성공으로 판정하지 않음.
 - 검색어: E040723 이월잔액 단독행 balanceOnly LINK_CHECK_REQUIRED RED GREEN 갱신실패
+
+## 2026-10-27 호텔 주문 초안·결과 서버 보관
+- 사용자 요청: 다른 PC에서도 연도·차수별 초안/결과를 불러와 이어서 작업.
+- data/runtime/hotel-orders의 사용자별/연도/차수/작업UUID 서버 저장. immutable revision + fsync + atomic exclusive link로 동시 덮어쓰기409. MSSQL 스키마/ERP writer 변경 없음.
+- 입력 텍스트/매칭/업체배정/결과 자동저장, 명시 저장/목록/복구, 기존 localStorage 초안 deterministic ID 가져오기. pending 서버저장 완료 후 기존 주문 POST, frozen/완료결과 보존.
+- 신규 실행형5검사 및 전체 ERP 계약/dnSpy/manifest167/변경API1 writeguard/UI layout 통과. Chrome 두 창90→120 공유·오래된150 차단·격리 등록5→125 결과 새로고침 복구·응답유실 조회복구 Enter 확인. 실주문 쓰기0.
+- 최종빌드/PR/운영배포는 후속기록 참조. 검색어: hotel-server-drafts 서버초안 차수별 CAS immutable revision 응답유실
