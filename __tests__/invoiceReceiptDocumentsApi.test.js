@@ -51,6 +51,57 @@ test('draft API denies unauthorized users before touching the database', async (
   assert.equal(res.statusCode, 403); assert.equal(res.payload.code, 'INVOICE_RECEIPT_FORBIDDEN'); assert.equal(touched, false);
 });
 
+test('native import roles work without DeptName, but unrelated and inactive accounts do not', () => {
+  const canManage = loadAccess();
+  for (const authority of [4, '4', ' 4 ', 7, '7']) {
+    assert.equal(canManage({ userId: 'import-staff', authority, deptName: '' }), true);
+    assert.equal(canManage({ UserID: 'import-staff', Authority: authority }), true);
+    assert.equal(canManage({ userId: 'import-staff', authority, accountActive: false }), false);
+    assert.equal(canManage({ userId: 'import-staff', authority, isDeleted: true }), false);
+    assert.equal(canManage({ authority }), false);
+  }
+  for (const authority of [2, 3, 5, 6, 9, '2', '3', '5', '6', '9', '', null, undefined, '4admin', '7x']) {
+    assert.equal(canManage({ userId: 'other-staff', authority, deptName: '' }), false);
+  }
+});
+
+test('import role can save/read its draft across years without changing actor or scope', async () => {
+  const calls = [];
+  const handler = loadApi('pages/api/import/receipts/drafts.js', 'createInvoiceReceiptDraftsHandler', {
+    listInvoiceDocuments: async input => { calls.push(input); return []; },
+    saveInvoiceDraft: async input => { calls.push(input); return { documentId: 'isolated-fixture' }; },
+  })({ queryFn: 'no-live-db', withTransactionFn: 'no-live-db' });
+  for (const orderYear of ['2025', '2026']) {
+    const user = { userId: 'import-staff', authority: 4, deptName: '' };
+    const get = response();
+    await handler({ method: 'GET', query: { orderYear, orderWeek: '44-01' }, user }, get);
+    assert.equal(get.statusCode, 200);
+    assert.equal(calls.at(-1).orderYear, orderYear);
+    const post = response();
+    await handler({ method: 'POST', body: { orderYear, orderWeek: '44-01', actor: 'forged' }, user }, post);
+    assert.equal(post.statusCode, 201);
+    assert.equal(calls.at(-1).actor, 'import-staff');
+    assert.equal(calls.at(-1).input.orderYear, orderYear);
+  }
+});
+
+test('receipt operation wrapper accepts native import role and rejects sales before operation', async () => {
+  const source = fs.readFileSync('lib/invoiceReceiptApi.js', 'utf8')
+    .replace(/^import .*;\s*$/gm, '').replace('export function', 'function');
+  const factory = new Function('canManageInvoiceReceipt', source + '\nreturn receiptApiHandler;')(loadAccess());
+  let calls = 0;
+  const handler = factory('POST', async () => { calls++; return { fixture: true }; });
+  for (const authority of [4, 7]) {
+    const res = response();
+    await handler({ method: 'POST', user: { userId: 'import-staff', authority, deptName: '' } }, res);
+    assert.equal(res.statusCode, 200);
+  }
+  const denied = response();
+  await handler({ method: 'POST', user: { userId: 'sales-staff', authority: 6, deptName: '' } }, denied);
+  assert.equal(denied.statusCode, 403);
+  assert.equal(calls, 2);
+});
+
 test('draft GET validates input and returns bound list output without a real DB', async () => {
   const calls = [];
   const createHandler = loadApi('pages/api/import/receipts/drafts.js', 'createInvoiceReceiptDraftsHandler', {

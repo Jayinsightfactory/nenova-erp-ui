@@ -1270,3 +1270,9 @@
 - 실제dnSpy/웹 기본 INNER JOIN Product가39차NULL두행을 제외한다. 운영 Chrome65635f23에서39차 EXCEL1/1112건·GW/CW–·운송료2행 확인. UploadDtm07/27~10/27 SQL1112건, 두전표 포함.
 - 전체 verify:erp-change/webpack·dnSpy·manifest·쓰기guard·UI layout57 통과. PR·배포 및 변경 후 운영스모크 진행 중/미검증. 결과는 docs/work-sessions/2026-10-27_incoming-date-default.md에 후속 기록.
 - 검색어: incoming-date-default KST 달력3개월 UploadDtm 7474 7581 EXCEL 209 270.5 ProdKey NULL 1112
+
+## 2026-10-27 호주 Woolly 분류 수입부 권한
+- canManageInvoiceReceipt가 DeptName 공란의 Authority4(수입부)를 거절. 기존 역할4/7 허용, 비활성/타부서 거절 유지. 계정/운영 원장 수정 없음.
+- 44-01 호주41002 제품11행 replay: 일반9행 공용매칭 재사용, Woolly2행 문서별 분류·65박스/AUD20443.75 보존. 유사명 전체 자동확정이나 색상 자동추정은 하지 않음.
+- 관련22테스트 통과, 전체검증/PR/배포 결과 세션 MD 후속 기록. 운영 직원 실제 저장 미검증.
+- 검색어: au44-import-access Woolly bush Authority4 Authority7 DeptName 수입부 관리자오류 41002

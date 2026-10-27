@@ -6,6 +6,9 @@ import { upsertPackingErpMatch } from '../lib/importPackingErpMatches.js';
 import { makeProductResolver } from '../lib/importPacking.js';
 import { validateInvoiceReceiptLines } from '../lib/invoiceReceiptValidation.js';
 import { packingReceiptMatchState } from '../lib/packingReceiptMatchState.js';
+import { buildPackingMatchPreview } from '../lib/importPackingMatchPreview.js';
+import { packingSourceKey } from '../lib/importPacking.js';
+import { makePackingSourceReview, applyPackingSourceReview } from '../lib/importPackingSourceReview.js';
 const products=[{ProdKey:2997,ProdName:'Wolly Bush Green Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'},
   {ProdKey:2998,ProdName:'Wolly Bush Red Tip',country:'AU',CounName:'호주',selectable:true,isDeleted:0,OutUnit:'단',EstUnit:'단'}];
 async function fixture(year='2026',hash='a'){
@@ -57,4 +60,44 @@ test('split document remains valid for header status without pretending generate
   assert.equal(status.allocationPending,0);assert.equal(status.overlayComplete,false);
   next.lines[0].stemQuantity=749;
   assert.ok(packingReceiptMatchState({snapshot,file,excels,invoices,country:'AU',products}).allocationPending>0);
+});
+
+test('44-01 AU saved nine matches reuse while two Woolly source rows keep independent quantities', async () => {
+  // Product table only, transcribed from the supplied invoice/stored extraction.
+  // No customer, account, credentials or live DB connection in this replay.
+  const data = [
+    ['Barker bush x 5 (5 stems/bunch)',251,'Banker Bush',20,500,5,14.5],
+    ['Emu feather™ (10 stems/bunch)',717,'Emu Feather',2,200,10,4.05],
+    ['Emu grass x 10 (10 stems/bunch)',823,'Emu Grass',2,100,10,7],
+    ['Koala fern™ 80cm (10 stems/bunch)',719,'Koala Fern',5,250,10,4.8],
+    ['Leptospermum (10 stems/bunch)',2999,'Copper Glow',4,120,10,8.5],
+    ['Sea Star fern™ (10 stems/bunch)',721,'Fern Sea Star',1,50,10,6.65],
+    ['Steel grass (Premium) 120cm (x50) (50 stems/bunch)',824,'Steel Grass',2,240,50,3.5],
+    ['Stenocarpus (80cm) x 10st (10 stems/bunch)',1742,'Stenocarpus',13,325,10,11.25],
+    ['Umbrella fern (10 stems/bunch)',723,'Fern Umbrella',6,300,10,6.95],
+  ];
+  const catalog = [...data.map(([,ProdKey,ProdName]) => ({ProdKey,ProdName,country:'AU',CounName:'호주',selectable:true})),...products];
+  const entries = data.map(([description,prodKey,prodName]) => ({country:'AU',description,sourceKey:packingSourceKey(description),prodKey,prodName}));
+  const rows = data.map(([description,,,pcs,total_bunch,bunch_st,u_price]) => ({description,pcs,total_bunch,bunch_st,u_price,t_price:total_bunch*u_price}));
+  rows.push({description:'Woolly bush (5 stems/bunch)',pcs:6,total_bunch:180,bunch_st:5,u_price:8.5,t_price:1530},
+    {description:'Woolly bush (5 stems/bunch)',pcs:4,total_bunch:120,bunch_st:5,u_price:8.5,t_price:1020});
+  const raw = {invoice:'41002',date:'2026/10/26',currency:'AUD',products:rows,pdfSourceHash:'d'.repeat(64)};
+  const review = makePackingSourceReview(raw,'AU');
+  review.pdf = {rendered:true,page:1};
+  review.rows = review.rows.map(row=>({...row,confirmed:true,reason:'TEST_ONLY 상품표 대조 fixture'}));
+  const invoice = applyPackingSourceReview(raw,review,'AU','2026-10-27T00:00:00.000Z');
+  const preview = buildPackingMatchPreview({invoices:[invoice],country:'AU',erpMatches:{products:catalog,value:{version:1,entries}}});
+  assert.deepEqual(preview[0].products.map(p=>p.matchReview.status),[...Array(9).fill('MANUAL'),'ALLOCATION','ALLOCATION']);
+  const [doc] = await adaptPackingReceipts({country:'AU',fileName:'44-01 호주 CI.pdf',sourceHash:'d'.repeat(64),products:catalog,
+    reviewConfirmed:true,invoices:[invoice],excels:preview});
+  let classified = doc;
+  for (const [index,prodKey] of [[9,2997],[10,2998]]) {
+    const line = classified.lines[index];
+    classified = applyInvoiceAllocation(classified,line.lineId,[{...line,prodKey}],catalog);
+  }
+  assert.deepEqual(allocationIssues(classified,catalog),[]);
+  assert.deepEqual(classified.lines.slice(9).map(l=>[l.prodKey,l.boxQuantity,l.bunchQuantity,l.stemQuantity,l.lineAmount]),
+    [[2997,6,180,900,1530],[2998,4,120,600,1020]]);
+  assert.equal(classified.lines.reduce((n,l)=>n+l.boxQuantity,0),65);
+  assert.equal(classified.lines.reduce((n,l)=>n+l.lineAmount,0),20443.75);
 });
