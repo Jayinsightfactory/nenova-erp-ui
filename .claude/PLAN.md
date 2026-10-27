@@ -1,5 +1,14 @@
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
+## 2026-10-27 — 태국39차 사용자 확인 AWB 중량 (DB 불변)
+- [x] 2026/39-01·AWB21710637233 사진 GW164/CW225.5 사용자 확인; EXCEL 운임772.315USD 보존
+- [x] guardian 실제 dnSpy·SELECT 선행검증, 정확 업무키·부작용 기준 고정
+- [x] 공통 읽기 전용 근거 helper, H 및 원가/FIFO/이월 연결, provenance·교차연도 회귀
+- [x] 수정 전후38~41차1070검사·원장/수기/확정본 불변·전체 verify:erp-change/webpack·dnSpy·manifest163·write guard
+- [ ] PR/CI·squash 병합·코드 전용 Cafe24 배포·운영 브라우저/API 확인
+- 사진 승인값과 SQL 익명209/270.5의 의미는 별개다. 익명값을 GW/CW로 단정하거나 DB에 수정 저장하지 않는다.
+- 기록: docs/work-sessions/2026-10-27_thai39-weight-evidence.md
+
 ## 2026-10-27 — 입고관리 기본 조회기간·EXCEL 중량 재확인
 - [x] 실제 dnSpy/SELECT 및 운영 Chrome 사전 확인: 기존 7일, 3개월 범위 1,112건, EXCEL39차 NULL 품목행 제외
 - [x] 조회 초기값만 KST 달력 3개월로 확대하는 범위 고정; URL/수동 선택 및 uploadMeta 기존 기본값 보존

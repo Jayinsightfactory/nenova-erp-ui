@@ -1276,3 +1276,10 @@
 - 44-01 호주41002 제품11행 replay: 일반9행 공용매칭 재사용, Woolly2행 문서별 분류·65박스/AUD20443.75 보존. 유사명 전체 자동확정이나 색상 자동추정은 하지 않음.
 - 관련22테스트 통과, 전체검증/PR/배포 결과 세션 MD 후속 기록. 운영 직원 실제 저장 미검증.
 - 검색어: au44-import-access Woolly bush Authority4 Authority7 DeptName 수입부 관리자오류 41002
+
+## 2026-10-27 태국39차 사진 승인 중량 (DB 불변)
+- 사용자 확인2026/39-01 AWB21710637233 EXCEL7474에 GW164kg/CW225.5kg 사진 근거를 보고서 읽기 계산에만 연결. SQL 운임772.315USD 및 원장·수기·확정 revision 쓰기 없음.
+- 다른 연도/차수/AWB/전표/농장/원문 지문은 거절. 신규 실제 중량·수기0 우선, 부분 실제값과 사진이 역전쌍을 만들면 사진 필드만 보류. 기존 NULL0 보조행 분류·상품분모는 그대로.
+- 수정 전후38~41차 baseline4034/after4037SELECT, 독립1070검사 실패0, 원장·수기·확정본 관측지문 동일.39H미확정→412050(승인 추정),39F/40E105268.700315→95032.543002. 다른 국가/차수auto값 불변.
+- 최종after4038SELECT/1070검사실패0 재확인. 전체verify:erp-change/webpack·dnSpy·manifest163·쓰기guard·guardian표적회귀 통과. PR/CI·배포는 진행 중/미검증. 상세 docs/work-sessions/2026-10-27_thai39-weight-evidence.md.
+- 검색어: thai39-weight-evidence EXCEL7474 AWB21710637233 GW164 CW225.5 772.315 412050 photo 39F40E

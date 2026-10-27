@@ -332,6 +332,8 @@ export async function loadReportData(major, orderYear) {
           ? normalized.eligible && !missingPreviousCustoms && !missingPreviousForwarding ? computeCategoryAverageInventoryValue(averageInputs, { approvedNormalizedCountry: key }) : null
           : (!previousConversionMissing && !previousUnitMismatch) ? computeCategoryAverageInventoryValue(averageInputs) : null;
         if (average && normalized) average.sourceRefs = [...(normalized.sources || [])];
+        if (average && previousManual.H == null) average.sourceRefs = [...(average.sourceRefs || []),
+          ...(approvedPreviousCost?.weightEvidence || []).filter(item => item.appliedFields.includes('GrossWeight')).map(item => item.id)];
         if (average && normalized && previousManual.H == null && approvedPreviousCost?.estimated) {
           average.estimated = true;
           average.sourceRefs.push(`approved_customs_cost_estimate:${prevOrderYear}:${prevMajor}:${key}`);
@@ -417,6 +419,8 @@ export async function loadReportData(major, orderYear) {
           ? normalized.eligible && !missingCurrentCustoms && !missingCurrentForwarding ? computeCategoryAverageInventoryValue(currentAverageInputs, { approvedNormalizedCountry: key }) : null
           : (!endConversionMissing && !endUnitMismatch) ? computeCategoryAverageInventoryValue(currentAverageInputs) : null;
         if (categoryAverageEnd && normalized) categoryAverageEnd.sourceRefs = [...(normalized.sources || [])];
+        if (categoryAverageEnd && man.H == null) categoryAverageEnd.sourceRefs = [...(categoryAverageEnd.sourceRefs || []),
+          ...(approvedCost?.weightEvidence || []).filter(item => item.appliedFields.includes('GrossWeight')).map(item => item.id)];
         if (categoryAverageEnd && normalized && man.H == null && approvedCost?.estimated) {
           categoryAverageEnd.estimated = true;
           categoryAverageEnd.sourceRefs.push(`approved_customs_cost_estimate:${orderYear}:${major}:${key}`);

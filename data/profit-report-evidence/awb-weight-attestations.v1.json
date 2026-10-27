@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "user-confirmed-awb-photo:2026:39-01:21710637233:7474",
+      "source": "user_confirmed_awb_photo",
+      "confirmedOn": "2026-10-27",
+      "photoSha256": "364a7be5616b2cdb1fcb4711da0c4b6f35f380013aa322004101dfbba9e40427",
+      "photoReference": "codex-clipboard-df652109-d3c3-4360-b366-7af0dc480446.png",
+      "orderYear": "2026",
+      "orderWeek": "39-01",
+      "awb": "21710637233",
+      "warehouseKey": 7474,
+      "farmName": "EXCEL",
+      "grossWeight": 164,
+      "chargeableWeight": 225.5,
+      "basis": "사용자가 해당 차수·AWB·EXCEL 전표의 사진임을 확인한 중량. SQL 저장값이 아님.",
+      "nonInventoryAuxiliaryRows": [
+        { "WdetailKey": 42868, "ProdKey": null, "OrderCode": "3", "BoxQuantity": 1, "BunchQuantity": 1, "SteamQuantity": 209, "OutQuantity": null, "EstQuantity": null, "SteamOf1Box": 1, "SteamOf1Bunch": 1, "UPrice": 0, "TPrice": 0 },
+        { "WdetailKey": 42869, "ProdKey": null, "OrderCode": "4", "BoxQuantity": 1, "BunchQuantity": 1, "SteamQuantity": 270.5, "OutQuantity": null, "EstQuantity": null, "SteamOf1Box": 1, "SteamOf1Bunch": 1, "UPrice": 0, "TPrice": 0 }
+      ],
+      "auxiliaryBasis": "해당 운송사 전표의 원문 유실 비재고 보조행. 209/270.5를 GW/CW로 해석하지 않으며 사진 중량 근거와 별개로 정확한 행 지문만 분류한다.",
+      "freightPolicy": "SQL TPrice 446.325 + 325.99 = 772.315 USD 보존. 사진 CW로 항공료를 재계산하지 않는다."
+    }
+  ]
+}

@@ -75,7 +75,7 @@ async function main() {
     if(q.includes('FROM WarehouseDetail wd'))return {recordset:details.filter(r=>selected.some(m=>m.WarehouseKey===r.WarehouseKey))};
     return {recordset:[]};
   };
-  const deps={...freight,...order,...arrival,...country,...carry,...policy,query,sql:{NVarChar:'nvarchar'},loadOverrides:()=>({}),loadSourceWorkbookFxRows:async()=>[],resolveFreightExchangeRate:()=>({rate:99999})};
+  const deps={...freight,...order,...arrival,...country,...carry,...policy,...require('../lib/freightWeightEvidence.cjs'),query,sql:{NVarChar:'nvarchar'},loadOverrides:()=>({}),loadSourceWorkbookFxRows:async()=>[],resolveFreightExchangeRate:()=>({rate:99999})};
   const code=fs.readFileSync('lib/pivotFreightArrival.js','utf8').replace(/^import\s[\s\S]*?from ['"][^'"]+['"];\r?\n/gm,'')
     .replace(/^export \{[^}]+\};/gm,'').replace(/^export /gm,'');
   const api=new Function(...Object.keys(deps),code+'\nreturn {getArrivalCostsForWeekRange};')(...Object.values(deps));
