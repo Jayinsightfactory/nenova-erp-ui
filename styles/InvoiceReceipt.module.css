@@ -11,6 +11,13 @@
   font-size: 14px;
 }
 
+.workspaceModes { display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+.workspaceModes button { flex: 1 1 240px; text-align: left; padding: 12px 16px; border: 1px solid #bccbdd; border-radius: 10px; background: #f8fafc; color: #243b53; }
+.workspaceModes button[aria-pressed="true"] { border-color: #2463be; background: #eaf2ff; box-shadow: inset 3px 0 #2463be; }
+.workspaceModes small { display: block; margin-top: 4px; }
+.workspaceModes button:focus-visible { outline: 3px solid #2463be; outline-offset: 2px; }
+.stagePanel > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+
 .root button,
 .root input,
 .root select,
