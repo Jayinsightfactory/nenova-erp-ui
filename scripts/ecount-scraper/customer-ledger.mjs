@@ -94,6 +94,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
     const slot=schedule.dueSlot(Date.now(),lastAttempt,process.env.ECOUNT_LEDGER_BOOTSTRAP==='1');
     if(slot===null||busy)return;
     busy=true;lastAttempt=slot;
+    const startedAt=Date.now();
     let page,ok=0,failed=0,total=0;
     try{
       // Claim before collection, including across process restarts. No midnight/weekend catch-up.
@@ -101,7 +102,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
       const work=await api(nenova);total=work.customers.length;
       page=await ctx.newPage();
       for(const customer of work.customers){
-        if(Date.now()-slot>45*60000){failed+=total-ok-failed;break;}
+        if(Date.now()-startedAt>45*60000){failed+=total-ok-failed;break;}
         try{const payload=await collectCustomerLedger(page,getBase(),customer,work.period);await api(nenova,payload);ok++;}
         catch(e){failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';console.log(`[ledger723] customerKey=${customer.custKey} failure=${reason}`);}
         if((ok+failed)%10===0||ok+failed===1)console.log(`[ledger723] progress=${ok+failed}/${total} verified=${ok} failed=${failed}`);
