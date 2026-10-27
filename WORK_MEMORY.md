@@ -1331,6 +1331,12 @@
 - 기존 my-customer ADD/expectedCurrentQty writer 사용, 원장 직접SQL 추가0. 로그인별 브라우저 초안·등록전 pending저장·실패재등록차단·서버 previous/final 결과·이력보관. 공용/호텔 저장 매칭1035행146품목, 충돌 수동선택.
 - 실제 dnSpy·SELECT-only downstream 확인, 신규6회귀 및 전체ERP/dnSpy/manifest/writeguard/화면틀 통과. 격리Chrome 정상/응답유실 시험 통과. 빌드·PR·배포는 이기록시점 진행중이며 실제업무주문/외부OCR사진 전송은 미검증.
 - 검색어: hotel-order-only 요청수량 발주수량 호텔여분 분류필요 expectedCurrentQty 호텔주문전용
+## 2026-10-27 호주 관세율 기본값·실제44-01 검증
+- 기존 호주39-1 원가파일 SHA7cb66c 품목별율: CopperGlow6.9%,9품목0%. RedTip은 사용자 별도0%승인. 활성ProdKey+정확이름/2026이후39차/AU AIR만 자동입력, 근거표시·수기보존·품목변경시기본율재준비.
+- 실제44-01 PDF SHA994541과 저장분석본11행 일치SELECT. Chrome 격리Workbench에서 Red/Green검색선택·합계적용·관세변경·환율보존·미리보기·다운로드 완료. 파일11행2385단20443.75AUD, 전체수식차이1전미만/렌더확인. TEST_ONLY1090원/AUD·통관10000원, 원가22370401.7. 운영쓰기0.
+- 표적76검사67통과9선택원본생략. 전체회귀/webpack/CI/배포 진행중. 자세한근거 docs/work-sessions/2026-10-27_au-tariff-defaults.md.
+- 검색어: au-tariff-defaults CopperGlow6.9 GreenTip0 RedTip0 39-1I18 44-01TEST_ONLY
+
 ## 2026-10-27 계산본 1~42차 준비·운영 다운로드 검증
 - BACKFILL 1~41 새 버전41개, 42차는 운영 예약저장본을 그대로 사용. SQL22429조회/INSERT시도41/차단0. ERP·수기·확정원장 쓰기 금지 유지.
 - 저장본 조회 18/26/31/41/42 모두 stored, 각100~331ms/4~5SELECT. 월별42차 missing0,753ms/5SELECT/live0. 월별156개 금액·이익률 대조통과(부동소수점 최대차2.78e-17, 음수0은 JSON상0).
@@ -1338,3 +1344,9 @@
 - 운영 다운로드 run40460713452 성공:18차985ms/36315bytes,41차943ms/36444bytes,각HTTP200/1시트/화면금액차이0/업무쓰기0. 원가미확정 null은0으로대체하지않는다.
 - PR1319 후속보완은 동시 master WORK_MEMORY 추가내용을 모두 보존하여 병합 후 CI 재실행. 최종배포는 후속 기록 참조.
 - 검색어: profit-weekly-cache 1-42 materialized monthly753 18xlsx 41xlsx 40460713452
+
+## 2026-10-27 거래처관리대장 운영 검증 보완
+- PR1317/28c8e8e3 Cafe24 배포 성공, 운영 worklist120·관리자 무배정 빈목록·웹snapshot 첫8전표 적재 확인. PC 런처 백업(.bak-1027) 후 독립 .orbit/ecount-runtime으로 교체, 원래 로그인 프로필 유지 및 자동 로그인 성공.
+- 실제 빌드의 40행 가상자료 브라우저 검증에서 공통 .table-scroll max-height 충돌 발견: 고유 클래스명으로 수정. 원본 검색 실패 팝업이 다음 고객에 영향을 주지 않도록 매 고객 새 문서 및 실패 복구를 추가하고 실패단계만 기록(원문/개인정보 로그 없음).
+- 정책/API/산술/실패격리18테스트와 webpack build 통과. 보완 PR/배포 및 전체 첫 배치는 진행 중. 첫 운영 배치 전체 성공으로 판정하지 않음.
+- 검색어: E040723 ledger723 팝업격리 ledger-table-scroll 수집복구

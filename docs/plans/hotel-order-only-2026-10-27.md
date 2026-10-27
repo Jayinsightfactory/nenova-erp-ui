@@ -32,3 +32,5 @@ SELECT-only 운영 probe: 활성 Product3373. 라움 Cust680, 호텔여분690, �
 - Chrome 격리 UI: 요청105·발주30→라움30/호텔여분60/은화15. 기존5에서 서버 결과35/65/20 표시. 두번째 업체 저장후 응답유실 시험에서 첫업체 완료/두번째 확인필요/재등록 비활성/현재조회65 확인. 운영 POST 없음.
 - 실제 매칭 SQL1035행/146품목 조회. downstream SELECT: ViewOrder3, ViewShipment0, ShipmentDate0, ShipmentFarm0, 견적 DetailFix=1 조인0, Estimate0, WebProfitReport0. 초기 Estimate 컬럼 가정 오류는 실제 schema 확인 후 ShipmentKey→Master 업무키로 정정; 데이터 쓰기0.
 - 첫 전체검증은 공유 node_modules의 puppeteer-core 누락으로 중단. 별도 npm ci 설치 후 재실행 중. 전체검증/빌드/PR/배포는 완료 후 아래 기록.
+
+- 전체 ERP 계약, dnSpy, manifest167, 변경API 쓰기guard, UI layout, 최종 webpack build 통과. 최신 master 병합의 충돌은 작업기록 두 파일에서 양쪽 내용을 보존해 해결.
