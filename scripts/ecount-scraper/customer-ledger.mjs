@@ -19,16 +19,18 @@ async function api(base,body){
     body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
   const result=await response.json();if(!response.ok||!result.success)throw new Error('SYNC_API_FAILED');return result;
 }
-async function waitForReport(page,period=null){
+async function waitForReport(page,period=null,identity=null){
   await page.getByRole('columnheader',{name:'일자',exact:true}).waitFor({state:'visible',timeout:30000});
-  await page.waitForFunction(expected=>{
+  await page.waitForFunction(({expected,identity})=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     if(!th)return false;
+    const id=Array.from(document.querySelectorAll('td')).find(e=>e.getClientRects().length&&e.innerText.trim()==='사업자등록번호');
+    if(identity&&id?.nextElementSibling?.innerText.replace(/\D/g,'')!==identity)return false;
     if(expected&&!Array.from(document.querySelectorAll('body *')).some(e=>e.children.length===0&&e.getClientRects().length&&e.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected))return false;
     const rows=Array.from(th.closest('table').rows).filter(r=>!r.querySelector('th'));
     return rows.some(r=>/합계|등록된 데이터가 없습니다\./.test(r.innerText))||
       (rows.length===1&&rows[0].cells.length===4&&rows[0].cells[0].innerText.trim()==='이월잔액');
-  },period?`${period.from}~${period.to}`:null,{timeout:30000});
+  },{expected:period?`${period.from}~${period.to}`:null,identity},{timeout:30000});
 }
 export async function collectCustomerLedger(page,base,customer,period){
   let stage='NAVIGATION';
@@ -51,30 +53,43 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='CUSTOMER_LOOKUP';
   await field.fill(customer.sourceCode);await field.press('Enter');
   // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
-  try{await remove.waitFor({state:'visible',timeout:10000});}
+  try{
+    const found=await Promise.race([
+      remove.waitFor({state:'visible',timeout:10000}).then(()=>true),
+      page.getByRole('button',{name:'적용(F8)',exact:true}).waitFor({state:'visible',timeout:10000}).then(()=>false),
+    ]);
+    if(!found)throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');
+  }
   catch{throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');}
   if(await remove.count()!==1||await page.getByRole('button',{name:'적용(F8)',exact:true}).count())throw new Error('SOURCE_CUSTOMER_AMBIGUOUS');
   stage='PERIOD';
   // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
   await page.getByRole('button',{name:'전월+금월',exact:true}).click();
-  await search.waitFor({state:'hidden',timeout:30000});
-  await waitForReport(page);
+  // The previous report can remain visible while the shortcut request is in flight.
+  await page.waitForLoadState('networkidle',{timeout:15000});
+  await waitForReport(page,{from:`${period.from.slice(0,7)}-01`,to:period.to},customer.sourceCode);
   const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
-  await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();
+  if(!await search.isVisible()){await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();}
   for(const [date,offset] of [[period.from,0],[period.to,3]]){
     const [year,month,day]=date.split('-');
     for(const [index,value] of [[offset,year.slice(-2)],[offset+1,month]]){
       const label=await page.locator(`button[data-cid="ddlSYear_DATE"][data-index="${index}"]:visible`).innerText();
       if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
     }
-    await page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`).fill(day);
+    const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
+    await dayField.fill(day);
+    // Commit and read back ECOUNT's edited day before requesting the report.
+    await dayField.press('Tab');
+    if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_DAY_INPUT_NOT_COMMITTED');
   }
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
-  stage='SEARCH';
+  stage='SEARCH_SUBMIT';
+  // Click this page's search button; global F8 can be ignored while the legacy tab is active.
   await search.click();
-  await search.waitFor({state:'hidden',timeout:30000});
   stage='REPORT';
-  await waitForReport(page,period);
+  await page.waitForLoadState('networkidle',{timeout:15000});
+  // A correct complete report, not a search panel's visibility, establishes completion.
+  await waitForReport(page,period,customer.sourceCode);
   const source=await page.evaluate(()=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     const table=th.closest('table');
@@ -86,7 +101,20 @@ export async function collectCustomerLedger(page,base,customer,period){
     return {headers,rows,periods,identity:idCell?.nextElementSibling?.innerText.replace(/\D/g,'')};
   });
   return parseLedgerReport(source,customer,period);
-  }catch(e){if(/^[A-Z_]+$/.test(e.message))throw e;throw new Error(`SOURCE_${stage}_FAILED`);}
+  }catch(e){
+    if(/^[A-Z_]+$/.test(e.message))throw e;
+    if(stage==='REPORT'){
+      let scope;
+      try{scope=await page.evaluate(({code,expected})=>{
+        const id=Array.from(document.querySelectorAll('td')).find(c=>c.getClientRects().length&&c.innerText.trim()==='사업자등록번호');
+        return {hasIdentity:!!id,identity:id?.nextElementSibling?.innerText.replace(/\D/g,'')===code,
+          period:Array.from(document.querySelectorAll('body *')).some(c=>!c.children.length&&c.getClientRects().length&&c.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected)};
+      },{code:customer.sourceCode,expected:`${period.from}~${period.to}`});}catch{}
+      if(scope?.hasIdentity&&!scope.identity)throw new Error('SOURCE_IDENTITY_MISMATCH');
+      if(scope?.identity&&!scope.period)throw new Error('SOURCE_REPORT_PERIOD_NOT_UPDATED');
+    }
+    throw new Error(`SOURCE_${stage}_FAILED`);
+  }
 }
 export function parseLedgerReport(source,customer,period,collectedAt=new Date()){
   if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||source.identity!==customer.sourceCode)throw new Error('SOURCE_IDENTITY_MISMATCH');
