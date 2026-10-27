@@ -70,18 +70,24 @@ async function main() {
   const timingPolicy=await import('../lib/profitReportCustomsRateTiming.mjs');
   const wrapperStart=sourceCode.indexOf('async function reportPeriodFreightArrivalEvidence(');
   const wrapperEnd=sourceCode.indexOf('\nfunction missingPriceItemFromRow',wrapperStart);
+  const arrivalOptions=[];
   const fallback=new Function('freightArrivalPriceEvidenceByProduct','isApprovedCustomsTimingPeriod','query','CASE_CATEGORY','NORMALIZED_ORDER_WEEK_SQL','stockablePurchaseItemSql','sql','needsPurchasePeriodFreight','fifoLayerRateAndCustoms','loadPurchasePeriodArrivalEvidence','currencyCodeForCategory',
     sourceCode.slice(wrapperStart,wrapperEnd)+';return reportPeriodFreightArrivalEvidence;')(
-    async()=>({7:{price:999,source:'old-current-fx'},8:{price:999},9:{price:123}}),timingPolicy.isApprovedCustomsTimingPeriod,
+    async(y,w,options)=>{arrivalOptions.push(options);return {7:{price:999,source:'old-current-fx'},8:{price:999},9:{price:123}};},timingPolicy.isApprovedCustomsTimingPeriod,
     async(sqlText,params)=>{assert.match(sqlText,/wm.OrderYear=@yr/);assert.equal(params.yr.value,'2026');assert.equal(params.week.value,'34-01');return {recordset:[{ProdKey:7,Category:'중국'},{ProdKey:8,Category:'네덜란드'}]};},
     'category',x=>x,()=> '1=1',{NVarChar:'nvarchar'},carry.needsPurchasePeriodFreight,
     async(y,m,c)=>({rate:c==='중국'?200:null,rateSource:source,rateDetail:detail}),
-    async({country})=>country==='중국'?{7:estimated,8:{price:222}}:{},()=> 'CNY');
+    async({country,orderYear,orderWeek},loadArrival)=>{await loadArrival(orderYear,orderWeek,{reportExchangeRate:{currency:'CNY',country,rate:200}});return country==='중국'?{7:estimated,8:{price:222}}:{};},()=> 'CNY');
   const corrected=await fallback('2026','34-01');
   assert.equal(corrected[7].price,100,'fallback uses scoped purchase-period FX, not current FX');
   assert.equal(corrected[8],undefined,'missing scoped evidence cannot reveal stale fallback or another country result');
   assert.equal(corrected[9].price,123,'unrelated scope is preserved');
   assert.equal((await fallback('2026','27-01'))[7].price,999,'pre-policy non-Thai fallback unchanged');
+  assert(arrivalOptions.every(options=>options.strictReceiptLines===false),'existing callers keep strict line matching off');
+  arrivalOptions.length=0;
+  await fallback('2026','34-01',{strictReceiptLines:true});
+  assert(arrivalOptions.length>1 && arrivalOptions.every(options=>options.strictReceiptLines===true),'new strict option reaches baseline and purchase-period FX loaders');
+  assert(arrivalOptions.some(options=>options.reportExchangeRate?.rate===200),'strict option preserves scoped purchase FX options');
   assert.ok(sourceCode.includes('beginWeek ? reportPeriodFreightArrivalEvidence(prevOrderYear, beginWeek)'));
   assert.ok(sourceCode.includes('reportPeriodFreightArrivalEvidence(orderYear, week),'));
   assert.ok(sourceCode.includes('(chosen === arrival || chosen?.reportRateApplied === false)'));

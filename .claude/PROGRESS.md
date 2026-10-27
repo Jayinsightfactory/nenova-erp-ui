@@ -1,5 +1,12 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-27] 업체 판매마진 원가 근거·저장본 대사 보완
+- nw-profit-margin-evidence / codex/profit-margin-evidence, base cb485cbc. DB 변경금지, 본표 수익률/확정본/저장본 보존.
+- 동일 ProdKey 복수 입고의 첫 행 재연결을 신규 분석 전용 strict WdetailKey로 보완. 12세부차수 제한 대신 실제 0재고 앵커 이후 필요한 입고 근거를 조회.
+- 경량 인증 GET view=reconciliation과 차수/분류/NLO/시점/실제 분류효과 표. 합계는 본표 제외분류와 전체 원장 범위를 따로 표시. 로컬만 일치한다고 운영 경고를 지우지 않는다.
+- native/raw 원천범위 교차리뷰·52회귀·전체verify/build·manifest168/writeguard1·production로컬UI 통과. 19,629 비교에서 본표/판매값 불변, 기존도착원가371품목 JSON동일. CI·배포·운영 원인 확인 진행 중. 아직 완료 판정 아님.
+- 기준: docs/plans/profit-margin-evidence-2026-10-27.md.
+
 ## [2026-10-27] 주차별·월별 보고서 수요일 계산본
 - 작업트리 nw-profit-weekly-cache / codex/profit-weekly-cache, base7ff11536. 과거 일반조회 재계산 제거·수요일06시 직전1차수 저장 요청.
 - 실제 EXE/SELECT 선행검증6회·쓰기0. PeriodDay상10/28current44→저장43이며 getCurrentWeek의42타깃은 잘못됨. 구형37~41캐시는 최신 원가 수정 전이므로 재사용하지 않는다.

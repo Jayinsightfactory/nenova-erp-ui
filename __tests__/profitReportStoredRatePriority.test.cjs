@@ -4,17 +4,18 @@ const fs = require('node:fs');
 (async () => {
   const { resolveAcquisitionCarryFx } = await import('../lib/profitReportAcquisitionCarry.mjs');
   const { aggregateArrivalCosts } = await import('../lib/pivotArrivalCalc.js');
+  const { hasHistoricalMarginFx } = await import('../lib/profitCustomerMargin.mjs');
   const code = fs.readFileSync('lib/pivotFreightArrival.js', 'utf8');
   const start = code.indexOf('  const invoiceCurrency = detectInvoiceCurrency(');
   const end = code.indexOf('  // 카테고리 오버라이드 적용', start);
   assert(start > 0 && end > start, 'execute the production FX selection block');
   const select = new Function('snap','reportExchangeRate','rows','currencyRates','masters','primaryKey','workbookFxRows',
-    'detectInvoiceCurrency','dominantBaseCountry','resolveAcquisitionCarryFx','resolveFreightExchangeRate',
+    'detectInvoiceCurrency','dominantBaseCountry','resolveAcquisitionCarryFx','resolveFreightExchangeRate','strictReceiptLines = false',
     code.slice(start,end)+';return {fx,metadata:reportRateMetadata};');
   let genericCalls=0;
-  const run=(snapshot,report,category='중국',currency='CNY')=>select(snapshot==null?null:{ExchangeRate:snapshot},report,
+  const run=(snapshot,report,category='중국',currency='CNY',options={})=>select(snapshot==null?null:{ExchangeRate:snapshot},report,
     [{CounName:category}],{CNY:999},[{WarehouseKey:7,OrderYear:'2026',OrderWeek:'34-01'}],7,[],
-    ()=>currency,()=>category,resolveAcquisitionCarryFx,()=>{genericCalls++;return {rate:999,source:'currency_master'};});
+    ()=>currency,()=>category,resolveAcquisitionCarryFx,()=>{genericCalls++;return options.genericFx || {rate:999,source:'currency_master'};},options.strictReceiptLines===true);
   const request={currency:'CNY',country:'중국',rate:200,source:'approved_customs_timing_estimate',estimated:true,
     preserveStoredExchangeRate:true,detail:{orderYear:'2026',major:'34'}};
   const actual=run(205,request);
@@ -36,6 +37,23 @@ const fs = require('node:fs');
   assert.equal(run(205,{...request,preserveStoredExchangeRate:undefined}).fx.rate,200,'legacy opt-in override behavior unchanged');
   assert.equal(run(205,undefined).fx.rate,999,'ordinary callers preserve prior generic resolver');
   assert.equal(genericCalls,1);
+
+  assert.deepEqual(run(205,undefined).metadata,{},'ordinary default-false caller retains its prior provenance shape');
+  const strictCurrent=run(null,undefined,'중국','CNY',{strictReceiptLines:true});
+  assert.equal(strictCurrent.fx.rate,999,'strict audit exposes source without silently rewriting the legacy resolver');
+  assert.equal(strictCurrent.metadata.reportRateEvidence[0].source,'currency_master');
+  assert.equal(hasHistoricalMarginFx(strictCurrent.metadata),false,'current FX cannot be promoted into acquisition evidence');
+  const strictStored=run(205,undefined,'중국','CNY',{strictReceiptLines:true,genericFx:{rate:205,source:'freight_snapshot'}});
+  assert.equal(strictStored.metadata.reportRateApplied,false);
+  assert.equal(strictStored.metadata.reportRateEvidence[0].rate,205);
+  assert.equal(hasHistoricalMarginFx(strictStored.metadata),true);
+  const strictMissing=run(null,undefined,'중국','CNY',{strictReceiptLines:true,genericFx:{rate:0,source:'none'}});
+  assert.equal(hasHistoricalMarginFx(strictMissing.metadata),false);
+  const strictScoped=run(205,request,'중국','CNY',{strictReceiptLines:true});
+  assert.deepEqual(strictScoped,actual,'strict line identity must not change saved-AWB FX priority');
+  const strictPolicy=run(null,{...request,preserveStoredExchangeRate:undefined},'중국','CNY',{strictReceiptLines:true});
+  assert.equal(strictPolicy.fx.rate,200);assert.equal(strictPolicy.metadata.reportRateApplied,true);
+  assert.equal(hasHistoricalMarginFx(strictPolicy.metadata),true);
 
   const makeRow=(qty,price,metadata,unit='단')=>({prodKey:1,inQty:qty,displayArrivalKRW:price,arrivalPerStem:price/10,displayUnit:unit,source:'live',...metadata});
   const savedRow=makeRow(2,205,actual.metadata), estimatedRow=makeRow(1,200,fallback.metadata);
