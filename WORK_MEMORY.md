@@ -1288,3 +1288,9 @@
 - 수정 전후38~41차 baseline4034/after4037SELECT, 독립1070검사 실패0, 원장·수기·확정본 관측지문 동일.39H미확정→412050(승인 추정),39F/40E105268.700315→95032.543002. 다른 국가/차수auto값 불변.
 - 최종after4038SELECT/1070검사실패0 재확인. 전체verify:erp-change/webpack·dnSpy·manifest163·쓰기guard·guardian표적회귀 통과. PR/CI·배포는 진행 중/미검증. 상세 docs/work-sessions/2026-10-27_thai39-weight-evidence.md.
 - 검색어: thai39-weight-evidence EXCEL7474 AWB21710637233 GW164 CW225.5 772.315 412050 photo 39F40E
+
+## 2026-10-27 호주 기존 입고 원가 다운로드 진입·출하단가
+- AU 기존연결 미지원으로 원가패널 숨김. 동일연도/차수/송장 native 조회·계산본 다운로드 진입 추가. 운영 DB 쓰기 없음.
+- 사용자가 RedTip5100 확인. 출하단가=TPrice총액, EXE도 UPrice/TPrice 별도. AU native 계산용단가=저장총액/실제단수(5100/120=42.5), 저장8.5 및 원장 불변. 실제수량비율 사용.
+-72회귀,실제7863SELECT·TEST_ONLY XLSX·원장지문동일 확인. 배포진행 전, 최종결과 세션MD 기록.
+- 검색어: au-cost-download TPrice5100 RedTip42.5 nativePriceBasis 기존입고 다운로드

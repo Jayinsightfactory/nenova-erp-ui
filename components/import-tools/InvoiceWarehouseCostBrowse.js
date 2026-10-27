@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import NativeReceiptCost from './NativeReceiptCost';
+import { filterInvoiceWarehouses } from '../../lib/invoiceWarehouseBrowse.js';
 
-export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek }) {
-  const scope = `${orderYear}/${orderWeek}`;
+export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek, invoiceNo }) {
+  const scope = `${orderYear}/${orderWeek}/${invoiceNo ?? '*'}`;
   const live = useRef(scope); live.current = scope;
   const [state, setState] = useState({ rows: [], loading: true });
   const [action, setAction] = useState({ busy: false, error: '' });
@@ -19,7 +20,8 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek }) {
       .then(data => { if (!controller.signal.aborted) setState({ ...data, loading: false }); })
       .catch(error => { if (!controller.signal.aborted) setState({ rows: [], loading: false, error: error.message }); });
     return () => controller.abort();
-  }, [orderYear, orderWeek]);
+  }, [orderYear, orderWeek, invoiceNo]);
+  const rows = filterInvoiceWarehouses(state.rows, { orderYear, orderWeek }, invoiceNo);
   async function open(row, download) {
     if (!download) { setNativeKey(row.WarehouseKey); return; }
     if (lock.current) return;
@@ -39,15 +41,16 @@ export default function InvoiceWarehouseCostBrowse({ orderYear, orderWeek }) {
   return <section className={styles.saved} aria-label="입고내역 도착원가 작업">
     <h3>{orderYear} / {orderWeek} 입고내역</h3>
     <p>인보이스 재연결 없이 입고자료로 계산합니다. 기존 입고·재고·승인 원가는 변경하지 않습니다.</p>
+    {invoiceNo != null && <p>송장 {invoiceNo}의 기존 입고만 표시합니다. 현재 초안의 수정값은 사용하지 않습니다. 농장·송장을 확인하고 선택하세요.</p>}
     {state.loading && <p role="status">입고내역 조회 중…</p>}
     {(state.error || action.error) && <p className={styles.error} role="alert">{state.error || action.error}</p>}
-    {nativeKey ? <NativeReceiptCost key={`${scope}/${nativeKey}`} orderYear={orderYear} orderWeek={orderWeek} warehouseKey={nativeKey} onClose={() => setNativeKey(null)} /> : <div className={styles.savedList}>{state.rows.map(row => <div key={row.WarehouseKey}>
+    {nativeKey ? <NativeReceiptCost key={`${scope}/${nativeKey}`} orderYear={orderYear} orderWeek={orderWeek} warehouseKey={nativeKey} onClose={() => setNativeKey(null)} /> : <div className={styles.savedList}>{rows.map(row => <div key={row.WarehouseKey}>
       <strong>{row.FarmName || '농장 미기재'} · {row.InvoiceNo || '송장번호 미기재'}</strong>
       <p>입고 #{row.WarehouseKey} · {row.InputDate} · GW {row.GrossWeight ?? '미기재'} / CW {row.ChargeableWeight ?? '미기재'} kg</p>
-      <button type="button" disabled={action.busy} onClick={() => open(row, false)}>입고자료로 원가 계산</button>{' '}
+      <button type="button" disabled={action.busy} onClick={() => open(row, false)}>도착원가 엑셀 생성·다운로드</button>{' '}
       <button type="button" disabled={action.busy} onClick={() => open(row, true)}>기존 승인 원가 다운로드</button>
     </div>)}</div>}
-    {!state.loading && !state.error && !state.rows.length && <p>해당 연도·세부차수의 입고내역이 없습니다.</p>}
+    {!state.loading && !state.error && !rows.length && <p>해당 연도·세부차수{invoiceNo != null ? '·송장' : ''}의 입고내역이 없습니다. 조회 조건을 확인하세요. 새 입고를 자동 등록하지 않습니다.</p>}
     {state.hasMore && <p>최신 500건까지 표시합니다. 입고관리에서 나머지 내역을 확인하세요.</p>}
   </section>;
 }
