@@ -69,7 +69,10 @@ export async function collectCustomerLedger(page,base,customer,period){
       if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
     }
     const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
-    await dayField.fill(day);
+    // ECOUNT's date model listens to keyboard events; fill() can change only the DOM.
+    await dayField.press('Control+A');
+    await dayField.press('Backspace');
+    for(const digit of day)await dayField.press(digit);
     // Commit and read back ECOUNT's edited day before requesting the report.
     await dayField.press('Tab');
     if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_PERIOD_MISMATCH');
