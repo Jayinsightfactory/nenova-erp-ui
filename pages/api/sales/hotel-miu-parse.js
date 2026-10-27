@@ -1,14 +1,16 @@
 // 호텔+미우 주문입력 — 이미지/텍스트 파싱 + 품목 매칭.
 // 공통 order-mappings 는 읽기만 하고, 게시판 overlay 가 덮는다. 공통 매핑 파일에 저장하지 않음.
 import fs from 'fs';
+import XLSX from 'xlsx';
 import formidable from 'formidable';
 import Anthropic from '@anthropic-ai/sdk';
 import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
 import { trackLLMCall } from '../../../lib/chat/costTracker';
-import { normalizeVisionItems } from '../../../lib/orderImportParse';
+import { normalizeVisionItems, parseOrderImportSheetRows } from '../../../lib/orderImportParse';
+import { uniqueHotelMappings } from '../../../lib/hotelOrderWorkspace';
 import { matchImportRows, summarizeMatches } from '../../../lib/orderImportMatch';
-import { loadMappings } from '../../../lib/parseMappings';
+import { loadMappings, normalizeToken } from '../../../lib/parseMappings';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import {
   HOTEL_MIU_VISION_PROMPT,
@@ -60,12 +62,22 @@ async function loadBoardOverlay() {
 async function loadMatchContext() {
   const [prodRes, overlay] = await Promise.all([
     query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName,
-           FlowerName, CounName, OutUnit
+           FlowerName, CounName, OutUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch
            FROM Product WHERE isDeleted = 0 ORDER BY ProdName`, {}),
     loadBoardOverlay(),
   ]);
   const allProducts = prodRes.recordset || [];
+  const hotelMaps = await query(`SELECT i.ItemName,i.ProdKey
+    FROM WebRaumPnl m JOIN WebRaumPnlItem i ON i.PnlKey=m.PnlKey
+    JOIN Product p ON p.ProdKey=i.ProdKey AND p.isDeleted=0
+    WHERE ISNULL(m.isDeleted,0)=0 AND ISNULL(i.IsCustom,0)=0
+      AND (m.PartnerCode IN ('raum','shilla','choimun') OR m.PartnerCode IN (
+        SELECT PartnerCode FROM WebPnlHotel WHERE IsActive=1 AND
+          ([Name] LIKE N'%미우%' OR [Name] LIKE N'%아이엠%' OR [Name] LIKE N'%은화%')))
+    UNION ALL SELECT m.ItemName,m.ProdKey FROM WebRaumItemMap m
+      JOIN Product p ON p.ProdKey=m.ProdKey AND p.isDeleted=0`, {});
   return {
+    hotelMappings: uniqueHotelMappings(hotelMaps.recordset || []),
     allProducts,
     productByKey: new Map(allProducts.map((p) => [Number(p.ProdKey), p])),
     overlay,
@@ -125,10 +137,28 @@ export default withAuth(async function handler(req, res) {
       const file = Array.isArray(files.file) ? files.file[0] : files.file;
       const text = fieldVal(fields, 'text');
       if (file) {
-        sourceType = 'image';
-        const vision = await parseImageWithVision(file);
-        parsedRows = vision.rows;
-        logs = vision.logs;
+        try {
+          const name = String(file.originalFilename || '').toLowerCase();
+          if (/\.(xlsx|xls|csv)$/.test(name)) {
+            sourceType = 'excel';
+            const book = XLSX.readFile(file.filepath);
+            const sheet = fieldVal(fields, 'sheet');
+            if (!sheet && book.SheetNames.length > 1) return res.status(200).json({ success: true, sheetNames: book.SheetNames, items: [] });
+            const selected = sheet || book.SheetNames[0];
+            if (!book.Sheets[selected]) throw Error('엑셀 시트를 선택하세요.');
+            const parsed = parseOrderImportSheetRows(XLSX.utils.sheet_to_json(book.Sheets[selected], { header: 1, defval: '' }), { sourceName: selected });
+            parsedRows = parsed.rows; logs = parsed.logs;
+          } else if (/\.(txt|tsv)$/.test(name)) {
+            sourceType = 'text';
+            const buf = fs.readFileSync(file.filepath);
+            let raw = new TextDecoder(buf[0] === 0xff && buf[1] === 0xfe ? 'utf-16le' : buf[0] === 0xfe && buf[1] === 0xff ? 'utf-16be' : 'utf-8').decode(buf);
+            if (raw.includes('\ufffd')) raw = new TextDecoder('euc-kr').decode(buf);
+            const parsed = parseHotelMiuText(raw); parsedRows = parsed.rows; logs = parsed.logs;
+          } else if (/^image\/(png|jpeg|webp|gif)$/.test(file.mimetype || '')) {
+            sourceType = 'image';
+            const vision = await parseImageWithVision(file); parsedRows = vision.rows; logs = vision.logs;
+          } else throw Error('TXT, TSV, CSV, XLS, XLSX 또는 PNG/JPG/WEBP/GIF를 올리세요.');
+        } finally { fs.rmSync(file.filepath, { force: true }); }
       } else if (text) {
         const parsed = parseHotelMiuText(String(text));
         parsedRows = parsed.rows;
@@ -147,14 +177,25 @@ export default withAuth(async function handler(req, res) {
     }
 
     const ctx = await loadMatchContext();
+    const mappedRows = decorateIntakeRows(parsedRows, { forImage: sourceType === 'image' }).map(row => {
+      const keys = ctx.hotelMappings.groups.get(ctx.hotelMappings.token(row.inputName || row.matchName));
+      return keys?.size === 1 ? { ...row, preferredProdKey: [...keys][0] } : row;
+    });
     const items = applyBoardOverlay(
       matchImportRows(
-        decorateIntakeRows(parsedRows, { forImage: sourceType === 'image' }),
+        mappedRows,
         { ...ctx, mappingRelevanceMode: sourceType === 'image' ? 'image' : 'standard' },
-      ),
+      ).map(it => {
+        const keys = ctx.hotelMappings.groups.get(ctx.hotelMappings.token(it.inputName || it.matchName));
+        const p = keys?.size === 1 ? ctx.productByKey.get([...keys][0]) : null;
+        return p ? { ...it, prodKey: p.ProdKey, prodName: p.ProdName, displayName: p.DisplayName, outUnit: p.OutUnit, fromMapping: true } : it;
+      }),
       ctx.overlay,
       ctx.productByKey,
     ).map((it) => {
+      const keys = ctx.hotelMappings.groups.get(ctx.hotelMappings.token(it.inputName || it.matchName));
+      const explicit = ctx.overlay[normalizeToken(it.inputName)];
+      if (keys?.size > 1 && !ctx.productByKey.has(Number(explicit?.prodKey))) return { ...it, prodKey: null, prodName: '', displayName: '', matchWarning: '호텔 저장 매칭이 충돌합니다. 품목을 직접 선택하세요.' };
       if (it.prodKey) return it;
       const jamo = rankJamoCandidates(it.inputName || it.matchName, ctx.allProducts, 8);
       const seen = new Set((it.suggestedProducts || []).map((p) => Number(p.ProdKey || p.prodKey)));
@@ -165,6 +206,7 @@ export default withAuth(async function handler(req, res) {
       success: true,
       sourceType,
       items,
+      products: ctx.allProducts.filter(p => items.some(it => Number(it.prodKey) === Number(p.ProdKey))),
       summary: summarizeMatches(items),
       logs,
     });

@@ -107,7 +107,7 @@ export const MENU_ITEMS = [
       { href: '/raum/shilla-analysis/check', labelKey: '신라 입고·견적·손익 확인', popup: true },
       { href: '/raum/shilla-analysis', labelKey: '신라호텔 입고 조회·분석', popup: true },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },
-      { href: '/sales/shilla-miu-board', labelKey: '호텔+미우 통합게시판', popup: false },
+      { href: '/sales/shilla-miu-board', labelKey: '호텔+미우 주문전용', popup: false },
       { href: '/catalog',              labelKey: '거래처 카탈로그', popup: true },
       { href: '/sales/ar',           labelKey: '거래처별 채권',      popup: false },
       { href: '/sales/tax-invoice',  labelKey: '세금계산서 진행단계', popup: false },

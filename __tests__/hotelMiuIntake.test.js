@@ -433,7 +433,7 @@ assert.equal(pickHotelMiuCustomer([{ CustKey: 456, CustName: '아이엠' }], '�
 const page = fs.readFileSync('pages/sales/shilla-miu-board.js', 'utf8');
 assert.doesNotMatch(page, /from ['"].*components\/Layout['"]/);
 assert.doesNotMatch(page, /<Layout/);
-assert.match(page, /호텔\+미우 통합게시판/);
+assert.match(page, /호텔\+미우 주문전용/);
 assert.match(page, /source: 'hotel-miu-board'/);
 assert.match(page, /\/api\/orders/);
 assert.match(page, /status: HOTEL_MIU_BATCH_DRAFT/);
@@ -614,7 +614,7 @@ assert.match(alloc, /잔량분배표/);
 
 const layout = fs.readFileSync('components/Layout.js', 'utf8');
 assert.match(layout, /href: '\/sales\/shilla-miu-board'/);
-assert.match(layout, /호텔\+미우 통합게시판/);
+assert.match(layout, /호텔\+미우 주문전용/);
 
 const contract = JSON.parse(fs.readFileSync('docs/contracts/hotel-miu-intake.json', 'utf8'));
 assert.equal(contract.id, 'hotel-miu-intake');
