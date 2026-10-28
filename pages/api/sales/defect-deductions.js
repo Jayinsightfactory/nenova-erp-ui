@@ -108,7 +108,7 @@ async function handler(req, res) {
 
       if (action === 'review-source') {
         if (!isDefectAdmin(req.user)) return res.status(403).json({ success: false, error: '관리자 원문 재검토 권한이 필요합니다.' });
-        const result = await releaseReviewedSources({ year, week, rows: req.body.rows, preview: req.body.preview, user: req.user });
+        const result = await releaseReviewedSources({ year, week, rows: req.body.rows, preview: req.body.preview, mode: req.body.mode, user: req.user });
         return res.status(200).json({ success: true, ...result });
       }
 
