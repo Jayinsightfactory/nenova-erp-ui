@@ -1,6 +1,6 @@
 {
   "id": "sales-defect-deduction",
-  "sharedDuplicateLock": "Final lock:true Estimate revalidation uses estimateDuplicateWriteGuard transaction lock shared with direct estimate create/update, keyed by year+parentWeek+customer+product. Existing conservative support duplicate predicate, auto-source sticky guard and carryover requestKey remain unchanged.",
+  "sharedDuplicateLock": "Final lock:true Estimate revalidation uses estimateDuplicateWriteGuard transaction lock shared with direct estimate create/update, keyed by year+parentWeek+customer+product. Existing conservative support duplicate predicate and carryover requestKey remain unchanged. Automatic provenance is retained for audit and duplicate detection, never a standalone batch-registration exclusion.",
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "displaySorting": "Sales input and saved-summary default to customer then manager; manager then customer is selectable. Incoming confirmation supports both and retains country/product grouping. Display projections preserve row references and sourceIndex; selection, edit, deletion and save identity and ERP write behavior remain unchanged across years.",
   "scope": [
@@ -51,6 +51,8 @@
     "__tests__/salesDefectDeductions.test.js",
     "__tests__/salesDefectDeductionState.test.js",
     "__tests__/salesDefectAutoSource.test.js",
+    "__tests__/salesDefectRegistrationProvenance.test.js",
+    "scripts/audit-defect-registration-api.mjs",
     "scripts/audit-auto-defect-registration.mjs",
     "lib/defectDuplicateCleanup.js",
     "scripts/cleanup-reviewed-defect-drafts.mjs",
