@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { buildHotelOrderRows, hotelRegistrationPlan, hasHotelDraftContent } from '../lib/hotelOrderWorkspace';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks';
-import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches } from '../lib/hotelOrderReview';
+import { commitHotelReview, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity } from '../lib/hotelOrderReview';
+
+import HotelMatchReview from './HotelMatchReview';
+import HotelQuantityMatrix from './HotelQuantityMatrix';
 
 const STORE = 'hotel-order-workspace-v1';
 const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 6 });
@@ -175,10 +178,10 @@ export default function HotelOrderWorkspace() {
         d = await res.json(); if (!res.ok || !d.success) throw Error(d.error || '파일 분석 실패');
         if (d.sheetNames) { setSheets({ side, file, names: d.sheetNames }); return; }
       } else d = await apiPost('/api/sales/hotel-miu-parse', { text: texts[side] });
-      const rows = (d.items || []).filter(r => !r.skip).map(r => ({ ...r, id: crypto.randomUUID(), source: file?.name || '붙여넣기', originalQty: r.qty, originalUnit: r.unit }));
+      const rows = (d.items || []).filter(r => !r.skip).map((r, sourceRowIndex) => ({ ...r, sourceRowIndex, id: crypto.randomUUID(), source: file?.name || '붙여넣기', originalQty: r.qty, originalUnit: r.unit }));
       if (!rows.length) throw Error(`품명·수량 열을 확인하세요. ${(d.logs || []).join(' / ')}`);
       setProducts(p => ({ ...p, ...Object.fromEntries((d.products || []).map(x => [Number(x.ProdKey), x])) }));
-      setWork(w => ({ ...w, pending: { ...w.pending, [side]: { id: crypto.randomUUID(), source: file?.name || '붙여넣기', imageId, text: file ? '' : texts[side], rows } } })); setPreview(null);
+      setWork(w => ({ ...w, pending: { ...w.pending, [side]: { id: crypto.randomUUID(), source: file?.name || '붙여넣기', imageId, text: file ? '' : texts[side], sourceRowCount: rows.length, rows } } })); setPreview(null);
       setTexts(t => ({ ...t, [side]: '' })); setSheets(null);
       setInfo(`${rows.length}행을 매칭했습니다. 원본 옆 결과를 확인하고 저장 버튼을 눌러 수량에 반영하세요. ${(d.logs || []).join(' / ')}`);
     } catch (e) { setError(e.message); } finally { if (localUrl) URL.revokeObjectURL(localUrl); setUploadPreview(null); lock.current = false; setBusy(''); }
@@ -190,8 +193,15 @@ export default function HotelOrderWorkspace() {
     patch({ [side]: work[side].map(r => r.id === id ? { ...r, ...update } : r), allocations: {} });
   }
   function deleteLine(side, id) {
-    if (work.pending?.[side]?.rows.some(r => r.id === id)) patch({ pending: { ...work.pending, [side]: { ...work.pending[side], rows: work.pending[side].rows.filter(r => r.id !== id) } } });
-    else patch({ [side]: work[side].filter(r => r.id !== id), allocations: {} });
+    const pending=work.pending?.[side];
+    const retain=rows=>rows.map((r,i)=>({...r,sourceRowIndex:r.sourceRowIndex??i})).filter(r=>r.id!==id);
+    if (pending?.rows.some(r => r.id === id)) patch({ pending: { ...work.pending, [side]: { ...pending, sourceRowCount:pending.sourceRowCount??pending.rows.length, rows:retain(pending.rows) } } });
+    else {
+      const batch=hotelSavedBatches(work,side).find(b=>b.rows.some(r=>r.id===id));
+      if(!batch)return;
+      const rows=new Map(retain(batch.rows).map(r=>[r.id,r]));
+      patch({[side]:work[side].filter(r=>r.id!==id).map(r=>rows.get(r.id)||r),allocations:{},batches:{...work.batches,[side]:(work.batches?.[side]||[]).map(b=>b.id===batch.id?{...b,sourceRowCount:b.sourceRowCount??batch.rows.length}:b)}});
+    }
   }
   async function saveReview(side) {
     if (blocked || lock.current) return;
@@ -269,29 +279,10 @@ export default function HotelOrderWorkspace() {
   }
   const customerOptions = <><option value="">업체 선택</option>{customers.map(c => <option key={c.CustKey} value={c.CustKey}>{c.CustName}</option>)}</>;
   function reviewView(side, batch) {
-    const image = hotelImageUrl(batch.imageId);
-    return <div className="hotel-review">
-      <section className="hotel-source" aria-label="업로드 원본">
-        <h4>업로드 원본 <small>{batch.source}</small></h4>
-        {image ? <><a href={image} target="_blank" rel="noreferrer">원본 크게 보기</a><img src={image} alt={`${side === 'request' ? '요청' : '발주'} 업로드 원본`} /></> : batch.text ? <pre>{batch.text}</pre> : <p>매칭표의 원문·원본 수량을 대조하세요.</p>}
-      </section>
-      <fieldset className="hotel-line-edit" disabled={blocked}><legend>품목 · 수량 매칭</legend><div className="hotel-scroll"><table><thead><tr><th>원문 / 출처</th><th>매칭 품목</th><th>수량</th><th>단위</th><th>삭제</th></tr></thead><tbody>
-        {batch.rows.map(r => <tr key={r.id}><td>{r.inputName}<small>{r.source} · 원본 {r.originalQty} {r.originalUnit}</small></td><td><button data-tone="match" id={`match-${r.id}`} onClick={() => { setPicker({ side, id: r.id }); setSearch(r.inputName || ''); }}>{r.prodName || r.displayName || '품목 선택'}</button>{!r.prodKey && <small className="hotel-warning">매칭 필요</small>}{r.matchWarning && <small>{r.matchWarning}</small>}</td><td><input aria-label={`${r.inputName} 수량`} type="number" min="0" step="any" value={r.qty} onChange={e => editLine(side, r.id, { qty: e.target.value })} /></td><td><select aria-label={`${r.inputName} 단위`} value={r.unit || ''} onChange={e => editLine(side, r.id, { unit: e.target.value })}><option value="">선택</option>{['박스', '단', '송이', '대', '개'].map(u => <option key={u}>{u}</option>)}</select></td><td><button data-tone="danger" aria-label={`${r.inputName} 삭제`} onClick={() => deleteLine(side, r.id)}>삭제</button></td></tr>)}
-      </tbody></table></div></fieldset>
-      <style jsx>{`
-        .hotel-review {display:grid;grid-template-columns:minmax(260px,35%) minmax(0,1fr);gap:20px;align-items:start}
-        .hotel-source {min-width:0;background:#f5f7fa;border:1px solid #dfe5ed;border-radius:8px;padding:12px}
-        h4 {margin:0 0 12px} img {display:block;width:100%;height:auto;margin-top:10px}
-        pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit} small {display:block;color:#586982;margin-top:5px}
-        .hotel-line-edit {border:0;padding:0;margin:0;min-width:0} legend {font-weight:700}
-        .hotel-scroll {overflow-x:auto} table {border-collapse:collapse;width:100%;margin:12px 0}
-        td,th {padding:10px;border-bottom:1px solid #dfe5ed;text-align:left;vertical-align:top} th {background:#edf3fa;white-space:nowrap}
-        input,select {font:inherit;border:1px solid #bac8db;border-radius:6px;padding:8px;background:white;color:#17243c}
-        input[type=number] {width:100px} button {margin:4px} :focus-visible {outline:3px solid #2871dd;outline-offset:2px}
-        .hotel-warning {color:#a32b19;background:#fff1ec;padding:12px}
-        @media(max-width:760px) {.hotel-review {grid-template-columns:minmax(0,1fr)}}
-      `}</style>
-    </div>;
+    return <HotelMatchReview key={batch.id} batch={batch} side={side} blocked={blocked}
+      onEdit={(id,update)=>editLine(side,id,update)} onDelete={id=>deleteLine(side,id)}
+      onPick={r=>{setPicker({side,id:r.id});setSearch(r.inputName || '');}}
+      onAlign={alignment=>{if(work.pending?.[side]?.id===batch.id)patch({pending:{...work.pending,[side]:{...work.pending[side],alignment}}});else patch({batches:{...work.batches,[side]:work.batches[side].map(b=>b.id===batch.id?{...b,alignment}:b)}});}}/>;
   }
   return <section className="hotel-work">
     <h2>호텔 주문등록</h2>
@@ -318,11 +309,12 @@ export default function HotelOrderWorkspace() {
     </fieldset>
     {meta.current.revision > 0 && <p>서버에 저장된 작업의 차수는 고정됩니다. 다른 차수는 아래 ‘새 작업’에서 시작하세요.</p>}
     <div className="hotel-inputs">
-      {['request', 'purchase'].map(side => <fieldset key={side} disabled={inputBlocked}>
+      {['request', 'purchase'].map(side => <fieldset key={side}>
         <legend>{side === 'request' ? '2. 요청수량 업로드' : '3. 발주수량 업로드'}</legend>
+        <div className="hotel-entry-columns"><div>
         <p>TXT · Excel · CSV · 이미지 / 텍스트·이미지 붙여넣기</p>
         <input disabled={blocked || !work.week || !!work.pending?.[side]} aria-label={`${side === 'request' ? '요청' : '발주'} 파일 업로드`} type="file" accept=".txt,.tsv,.csv,.xlsx,.xls,image/png,image/jpeg,image/webp,image/gif" onChange={e => { if(e.target.files?.[0]) parse(side, e.target.files[0]); e.target.value = ''; }} />
-        <textarea aria-label={`${side === 'request' ? '요청' : '발주'} 텍스트 또는 이미지 붙여넣기`} rows={5} placeholder="품명 · 수량 · 단위가 있는 텍스트를 붙여넣거나 이미지를 붙여넣으세요." value={texts[side]} onChange={e => setTexts(t => ({ ...t, [side]: e.target.value }))} onPaste={e => {
+        <textarea disabled={inputBlocked} aria-label={`${side === 'request' ? '요청' : '발주'} 텍스트 또는 이미지 붙여넣기`} rows={5} placeholder="품명 · 수량 · 단위가 있는 텍스트를 붙여넣거나 이미지를 붙여넣으세요." value={texts[side]} onChange={e => setTexts(t => ({ ...t, [side]: e.target.value }))} onPaste={e => {
           if (e.clipboardData.getData('text/plain')) return;
           const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
           if (item) { e.preventDefault(); if (blocked) { setError('이미지 매칭은 서버 저장 완료·오류 해결 후 다시 붙여넣어 주세요. 텍스트 입력은 계속할 수 있습니다.'); return; } parse(side, item.getAsFile()); }
@@ -330,6 +322,7 @@ export default function HotelOrderWorkspace() {
         {!work.week && <p>텍스트는 먼저 입력할 수 있습니다. 매칭·서버 저장 전에 주문 차수를 선택하세요.</p>}
         <button data-tone="match" onClick={() => parse(side)} disabled={blocked || !work.week || !texts[side].trim() || !!work.pending?.[side]}>텍스트 매칭</button>
         <span> 저장된 수량 {work[side].length}행</span>
+        </div><HotelQuantityMatrix matrix={hotelBatchMatrix(work,side,products)} side={side} blocked={blocked} renderSource={batch=>reviewView(side,batch)} onEdit={(batchId,key,value)=>{try {setWork(editHotelBatchQuantity(work,side,batchId,key,value,products));setPreview(null);}catch(e){setError(e.message);}}}/></div>
         {uploadPreview?.side === side && <div className="hotel-review"><div className="hotel-source"><img src={uploadPreview.url} alt="매칭 중인 업로드 원본" /></div><p role="status">품목 · 수량을 매칭하고 있습니다…</p></div>}
         {work.pending?.[side] && <section className="hotel-pending" aria-label={`${side === 'request' ? '요청' : '발주'} 저장 전 검토`}>
           <h3>저장 전 검토 · {work.pending[side].rows.length}행</h3><p>이미지·원문 옆에서 품목과 수량을 확인하세요. 아직 아래 합산수량에는 포함되지 않았습니다. 검토 내용도 서버에 자동 보관됩니다.</p>
@@ -337,7 +330,6 @@ export default function HotelOrderWorkspace() {
           <button data-tone="save" disabled={blocked || !work.pending[side].rows.length} onClick={() => saveReview(side)}>{side === 'request' ? '요청' : '발주'}수량{hotelNextBatchNumber(work,side)}에 저장</button>
           <button data-tone="danger" disabled={blocked} onClick={() => { if(window.confirm('현재 검토 자료를 취소할까요? 저장된 수량은 유지됩니다.')) patch({pending:{...work.pending,[side]:null}}); }}>검토 취소</button>
         </section>}
-        {hotelSavedBatches(work,side).map(batch => <details className="hotel-batch" key={batch.id} open><summary><strong>{side === 'request' ? '요청' : '발주'}수량{batch.number}</strong> · {batch.rows.length}행 · {batch.source}</summary>{reviewView(side,batch)}</details>)}
       </fieldset>)}
     </div>
     {sheets && <fieldset disabled={!!busy}><legend>엑셀 시트 선택</legend>{sheets.names.map(name => <button data-tone="match" key={name} onClick={() => parse(sheets.side, sheets.file, name)}>{name}</button>)}<button onClick={() => setSheets(null)}>취소</button></fieldset>}
@@ -367,6 +359,7 @@ export default function HotelOrderWorkspace() {
       if (e.key === 'Tab') { const all = [...e.currentTarget.querySelectorAll('button,input,select')]; const first = all[0], last = all[all.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
     }}><h3>품목 선택</h3><input ref={focus} aria-label="품목 검색" value={search} onChange={e => setSearch(e.target.value)} /><select size={12} aria-label="품목 검색 결과" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const p = hits.find(p => String(p.ProdKey) === e.currentTarget.value); if (p) chooseProduct(p); } }} id="hotel-product-choice"><option value="">품목 선택 후 아래 적용</option>{hits.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.DisplayName} / {p.ProdName} ({p.ProdKey})</option>)}</select><button data-tone="match" onClick={() => { const p = hits.find(p => String(p.ProdKey) === document.getElementById('hotel-product-choice').value); if (p) chooseProduct(p); }}>선택 적용</button><button onClick={() => { const id = picker.id; setPicker(null); document.getElementById(`match-${id}`)?.focus(); }}>닫기</button></div>}
     <style jsx>{`
+      .hotel-entry-columns {display:grid;grid-template-columns:minmax(250px,32%) minmax(0,1fr);gap:20px;align-items:start} @media(max-width:900px){.hotel-entry-columns {grid-template-columns:minmax(0,1fr)}}
       .hotel-review {display:grid;grid-template-columns:minmax(260px,35%) minmax(0,1fr);gap:20px;align-items:start} .hotel-source {min-width:0;background:#f5f7fa;border:1px solid #dfe5ed;border-radius:8px;padding:12px} .hotel-source h4 {margin:0 0 12px} .hotel-source img {display:block;width:100%;height:auto;margin-top:10px} .hotel-source pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit} .hotel-pending {margin-top:16px;border-top:3px solid #237e83;padding-top:12px} .hotel-pending h3 {margin-top:0} .hotel-batch {margin-top:16px;border:1px solid #bbd4d0;border-radius:8px;padding:12px} .hotel-batch summary {cursor:pointer;padding:8px;background:#eef8f5;color:#195e56;margin-bottom:12px} .hotel-review .hotel-line-edit {margin:0} @media(max-width:760px) {.hotel-review {grid-template-columns:minmax(0,1fr)}}
       .hotel-weeks {display:flex;flex-wrap:wrap;gap:4px} .hotel-weeks button[aria-pressed=true] {background:#1d4fa5;color:white;border-color:#1d4fa5} .hotel-line-edit {border:0;padding:0;margin:12px 0}
       .hotel-work {padding:20px; color:#17243c; font-size:15px} h2 {margin-top:0} fieldset {border:1px solid #ccd7e5;border-radius:10px;padding:16px;margin:16px 0;min-width:0} legend {font-weight:700} label {display:inline-flex;gap:8px;align-items:center;margin:6px 12px 6px 0} input,select,textarea {font:inherit;border:1px solid #bac8db;border-radius:6px;padding:8px;background:white;color:#17243c} button {margin:4px} :focus-visible {outline:3px solid #2871dd;outline-offset:2px} input[type=number] {width:100px} textarea {width:100%;box-sizing:border-box;display:block;margin:10px 0} small {display:block;color:#586982;margin-top:5px} .hotel-inputs {display:grid;grid-template-columns:minmax(0,1fr);gap:8px} .hotel-scroll {overflow-x:auto} table {border-collapse:collapse;width:100%;margin:12px 0} td,th {padding:10px;border-bottom:1px solid #dfe5ed;text-align:left;vertical-align:top} th {background:#edf3fa;white-space:nowrap} .hotel-warning,.hotel-error {color:#a32b19;background:#fff1ec;padding:12px} .hotel-picker {position:fixed;z-index:2000;inset:10% 15%;background:white;box-shadow:0 0 0 100vmax #0007;padding:24px;overflow:auto;border-radius:12px} .hotel-picker select {display:block;width:100%;margin-top:12px} @media(max-width:1000px) {.hotel-inputs {grid-template-columns:1fr}.hotel-picker {inset:5%}.hotel-work {padding:10px}}

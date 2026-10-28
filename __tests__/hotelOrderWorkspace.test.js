@@ -2,7 +2,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHotelOrderRows, hotelRegistrationPlan, hotelConvert, uniqueHotelMappings, hasHotelDraftContent } from '../lib/hotelOrderWorkspace.js';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks.js';
-import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches } from '../lib/hotelOrderReview.js';
+import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds } from '../lib/hotelOrderReview.js';
+
+test('numbered quantity matrix edits preserve exact scope and original evidence, normalize mixed units and conserve totals',()=>{
+  const products={7:{ProdKey:7,DisplayName:'TEST',OutUnit:'송이',SteamOf1Box:30,SteamOf1Bunch:10,BunchOf1Box:3}};
+  for(const year of ['2025','2026']){
+    const w={year,week:'44-01',request:[{id:'a',batchId:'one',prodKey:7,qty:2,unit:'단',originalQty:2,originalUnit:'단'},{id:'b',batchId:'one',prodKey:7,qty:10,unit:'송이',originalQty:10},{id:'c',batchId:'two',prodKey:7,qty:1,unit:'박스'}],purchase:[],batches:{request:[{id:'one',number:1},{id:'two',number:2}]},allocations:{7:{8:5}}};
+    const first=hotelBatchMatrix(w,'request',products);assert.equal(first.rows[0].total,60);assert.equal(first.rows[0].cells.one.qty,30);
+    const changed=editHotelBatchQuantity(w,'request','one','p:7','31',products),matrix=hotelBatchMatrix(changed,'request',products);
+    assert.equal(matrix.rows[0].total,61);assert.equal(matrix.rows[0].cells.one.qty,31);
+    assert.equal(changed.year,year);assert.equal(changed.week,'44-01');assert.equal(changed.request[0].originalQty,2);assert.equal(changed.request[0].originalUnit,'단');assert.deepEqual(changed.allocations,{});
+    assert.equal(buildHotelOrderRows(changed.request,[],products).rows[0].request,61);
+    const zero=editHotelBatchQuantity(changed,'request','one','p:7',0,products);assert.equal(hotelBatchMatrix(zero,'request',products).rows[0].total,30);
+    const restored=editHotelBatchQuantity(zero,'request','one','p:7',5,products);assert.equal(hotelBatchMatrix(restored,'request',products).rows[0].total,35);
+    assert.throws(()=>editHotelBatchQuantity(w,'request','one','p:7','',products));
+    assert.throws(()=>editHotelBatchQuantity({...w,frozen:true},'request','one','p:7',5,products));
+    assert.throws(()=>editHotelBatchQuantity(w,'request','missing','p:7',5,products));
+    assert.equal(w.request[0].qty,2);
+  }
+});
+test('unmatched item rows stay distinct rather than merging guessed identities',()=>{
+  const w={request:[{id:'x',inputName:'A',qty:3,unit:'송이'},{id:'y',inputName:'A',qty:4,unit:'송이'}]};
+  assert.equal(hotelBatchMatrix(w,'request',{}).rows.length,2);
+  assert.equal(editHotelBatchQuantity(w,'request','legacy','r:x',5,{}).request[1].qty,4);
+});
+test('ruled image rows align with title/header, reject omitted rows, nonuniform tables and images without rules',()=>{
+  const width=100,height=216,data=new Uint8ClampedArray(width*height*4).fill(255);
+  for(const y of [0,54,95,135,175,215]) for(let x=0;x<width;x++){const i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=0;}
+  assert.deepEqual(hotelImageRowBounds({data,width,height},3),[95,135,175,215].map(y=>y/height));
+  assert.equal(hotelImageRowBounds({data,width,height},2),null);
+  assert.equal(hotelImageRowBounds({data:new Uint8ClampedArray(width*height*4).fill(255),width,height},3),null);
+  assert.equal(hotelImageRowBounds({data,width,height},8),null);
+});
 
 test('review is excluded until saved; sequential batches retain images, edits, and cross-year scope', () => {
   const p = {7:{ProdKey:7,OutUnit:'송이',SteamOf1Box:30}}, review={id:'one',imageId:'a'.repeat(64)+'.png',rows:[{id:'a',prodKey:7,qty:303,unit:'송이'}]};
