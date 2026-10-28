@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './salesDefectSourceReconciliation.test.js';
 import './salesDefectRegistrationProvenance.test.js';
 import fs from 'node:fs';
 import {
