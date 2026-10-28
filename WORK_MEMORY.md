@@ -1527,3 +1527,6 @@
 ## 2026-10-28 PR1348 CI 보완
 - PR1348 첫 CI에서 `importPackingHardening.test.js` harness가 새 `packingReceiptPreparation` 모듈을 mock registry에 등록하지 않아 한 테스트가 실패함. 앱 로직 실패가 아닌 테스트 harness import 누락으로 확인, helper를 harness에 등록해 수정.
 - 검색어: PR1348 CI packingPreparationBlockReason importPackingHardening harness dependency
+
+## 2026-10-28 다음차수 차단 유지
+비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
