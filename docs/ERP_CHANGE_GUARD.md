@@ -1,5 +1,13 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-28 과거 해제자료 재등록 및 삭제견적 완료 표시
+
+일반 자동수집 등록 허용은 과거 오등록 해제자료의 재허용을 뜻하지 않는다. 현재/과거 자동원천+ESTIMATE_UNLINK는 원문 재확인으로 격리하고, 실제 Estimate가 사라진 연결키는 등록완료로 표시하거나 자동 재생성하지 않는다. 공통 SQL metadata와 순수 판정을 목록/검토/등록 최종잠금에 공유한다. 사용자 확인 원장722/740/859/868/877은 기존 이력보존 archive로 정리하고 정상 과거 견적은 보존한다. 회귀: salesDefectSourceReconciliation.test.js. 근거/부작용: plans/defect-source-reconciliation-2026-10-28.md.
+
+## 2026-10-28 자동수집 일괄등록 기준 정정
+
+자동수집 출처만으로 영업지원 전산등록을 차단하지 않는다. 현재/과거 원천 표식은 감사와 중복 견적 판정에 사용하고 정상 업체·품목·수량·출고·단가 검증을 대체하지 않는다. 공통 계획 함수에 남은 과거 차단도 제거했다. CI의 독립 `salesDefectRegistrationProvenance.test.js`는 업체·연도·확인·현재/과거원천 96조합의 정상 등록과 업무상 차단을 실행 검증한다. 예전 차단을 다시 추가하면 양성 fixture가 실패해야 한다. 전수 대조 및 부작용 기준: `docs/plans/defect-registration-provenance-parity-2026-10-28.md`.
+
 ## 2026-10-23 통관 환율 적용주간 승인 추정
 
 WarehouseMaster.InputDate는 실제 EXE의 입력일자이며 통관 신고일 인증 근거가 아니다.
@@ -1043,3 +1051,9 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 - 저장은 기존 WebProfitReportSnapshot 새 버전 INSERT만 허용하며 동일 연도·차수 DB applock/슬롯 중복/활성 확정 검사를 거친다. 원장·수기값·확정 기록 UPDATE/DELETE 및 runtime DDL 금지.
 - 일반 GET과 접힌 참고 패널은 저장/자동 갱신하지 않는다. 명시 검산은 최신 원천을 읽되 확정값은 보존한다. 원천을 사용자가 명시 저장한 뒤에는 계산본 갱신 결과를 별도로 확인하고, 갱신 실패를 전체 성공으로 표시하지 않는다.
 - 기준/부작용: plans/profit-weekly-cache-2026-10-27.md. 실제 EXE·PeriodDay·legacy 회귀 증거: plans/profit-weekly-cache-evidence-2026-10-27.md.
+
+## 2026-10-28 원문 재검토 후 정상 후보 복원
+과거 ESTIMATE_UNLINK 이력이 있다는 이유로 원문이 검증된 정상 자료까지 영구 차단하지 않는다. 관리자 원문SHA/항목근거·현재버전 및 실제견적/부분적용 부재를 확인한 review-source는 웹원장/감사만 갱신한다. 재승인 예외는 동일 연도·원차수·업체·품목·수량·단위·원천·비고에만 적용되고 이후unlink에는 무효다. 정상 일괄등록은 기존 EXE/단가/중복 검증을 보존한다. 원문수량과 처리수량이 다르면 차액을 추정해 자동등록하지 않는다. 기준/부작용: plans/defect-source-92-evidence-2026-10-28.md, 회귀 defectSourceRelease.test.js. 사용자제공 원문은 저장소에 복사하지 않는다.
+
+## 2026-10-28 원문수량·업체 혼합의 실제 43차 오등록
+원문 브르트5단이15단으로 저장되고 한 자동원천표식으로 주광·태림의 다른 품목·수량이 함께 저장된 사례를 확인했다. 항목비고없는 자동원천/여러업체공유표식을 정상 일괄등록 근거로 삼지 않는다. 관리자 원문확인은 정상 현재 음수견적을 변경하지 않는 confirm-linked를 사용하며 다른업체/품목/수량/단위/연도/차수/양수반례를 거부한다. 환산미확정은 SOURCE_UNIT_REVIEW로 후보/preview/final등록 공통차단. 정상96조합유지. 기준·명시12개견적정정·선택외ERP보존계획은 plans/defect-current-source-42-2026-10-28.md. 원문 사진/환산근거가없으면 값이나 신고 사실을추정하지않는다.

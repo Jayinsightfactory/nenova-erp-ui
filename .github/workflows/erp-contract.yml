@@ -27,6 +27,8 @@ jobs:
         run: npm run test:nenova-dnspy-evidence
       - name: ERP behavior contracts
         run: npm run test:erp-contract
+      - name: Automatic and manual defect registration parity
+        run: node __tests__/salesDefectRegistrationProvenance.test.js
       - name: Desktop personal home contracts
         run: |
           node __tests__/desktopHomeWorkspace.test.cjs
