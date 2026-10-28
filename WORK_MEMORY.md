@@ -1430,3 +1430,9 @@
 - 무담당/중복담당 거래처도 관리자 목록에 표시하되, 식별값 누락·중복 거래처는 비활성 선택. 관리자는 타 담당 거래처 최신화 버튼을 사용할 수 없도록 구분.
 - 계약에 관리자 조회 범위와 제한을 반영. targeted ECOUNT 28/28, ERP contract, dnSpy evidence, ERP manifest 168, write guard, build 통과. PR/CI/배포 후 브라우저는 미검증.
 - 검색어: ecount-customer-ledger nenovaSS3 전체 거래처 관리자 refreshable
+
+## 2026-10-28 호텔 차수·카톡 입력
+- 기본차수 ±5 및 세부01~04 버튼, 초기 기본차수 선택. 빈 작업 자동저장 잠금 방지.
+- 자동저장 중/실패에도 텍스트 입력 유지. Chrome 8초 지연 중 요청·발주 추가 paste→revision2 전체원문 보존,503후 편집 유지 확인. ERP writer/API 변경0.
+- 검증/배포 진행중. docs/work-sessions/2026-10-28_hotel-input.md 참조.
+- 검색어: hotel-input 카톡 붙여넣기 autosave disabled ±5
