@@ -1437,6 +1437,13 @@
 - 검증/배포 진행중. docs/work-sessions/2026-10-28_hotel-input.md 참조.
 - 검색어: hotel-input 카톡 붙여넣기 autosave disabled ±5
 
+## 2026-10-28 도착원가 작업대 client exception
+- 운영 Console 증거: `ReferenceError: documentCountry is not defined` at `InvoiceReceiptWorkbench` AU AWB render condition. `documentCountry`는 비용검토 파일 내부 비공개 함수였고 작업대에서 미정의 식별자로 호출되어 선택 문서 렌더링을 중단.
+- 작업대에 local `isAustraliaReceiptDocument` predicate 추가(AU/AUSTRALIA/호주) 및 regression test. `invoiceReceiptWorkbench`, `invoiceReceiptSourceResume`, `auAwbFlow` 28/28 통과; 전체 `verify:erp-change`가 계약/manifest/writeguard/build까지 진행되어 빌드 성공.
+- 동일 콘솔의 receipt GET 404는 `readExistingReceiptSource`가 `INVOICE_DOCUMENT_NOT_FOUND`에 대해 신규 초안으로 이어가도록 설계된 사전 조회 miss이며 테스트로 확인. 입고·원가 저장 API/DB 쓰기 0.
+- 적용 기준: 기존 작업대 UI의 국가 렌더 조건만 수정, 메뉴 기준선·페이지 스크롤/키보드 동작은 해당 없음. PR/배포 상태는 후속 기록.
+- 검색어: documentCountry is not defined ReferenceError AU AWB workbench expected receipt GET 404
+
 ## 2026-10-28 ECOUNT 채권 요약 및 평균 매출
 - `/ecount/receivables` 표를 거래처명·매출합계·수금합계·기타할인등차액·잔액·미회수월 + 월평균·차수평균으로 확장하고 메뉴명을 `ECOUNT 채권 요약`으로 명확화.
 - 일반 담당자는 유일하게 이름·담당자가 확인된 거래처만 조회, `nenovaSS3`는 ECOUNT 행 전체 조회. ECOUNT 행을 ERP 거래처에 유일 연결할 수 없는 경우 평균은 추정하지 않음.

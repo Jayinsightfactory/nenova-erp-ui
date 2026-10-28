@@ -29,6 +29,11 @@ test('active packing never falls through to saved-document lookup during prepara
   assert.match(source, /!packingActive && renderSavedDocuments\(true\)/);
 });
 
+test('AU AWB rendering uses a locally defined safe country predicate', () => {
+  assert.match(source, /function isAustraliaReceiptDocument\(document\)/);
+  assert.match(source, /isAustraliaReceiptDocument\(documentValue\) && documentValue\.reviewedMetadata\?\.awbAttachment/);
+});
+
 test('component compiles and is connected only through the bounded packing source props', () => {
   babel.transformSync(source, {
     filename: componentPath,

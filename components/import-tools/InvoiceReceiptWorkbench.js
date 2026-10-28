@@ -50,6 +50,11 @@ function conversionWarnings(document) {
   return unresolvedConversionMismatchLines(document).length ? [...warnings, CONVERSION_MISMATCH_WARNING] : warnings;
 }
 
+function isAustraliaReceiptDocument(document) {
+  const country = String(document?.reviewedMetadata?.country || '').trim().toUpperCase();
+  return ['AU', 'AUSTRALIA', '호주'].includes(country);
+}
+
 function applyConversionReviewState(document) {
   return { ...document, sourceWarnings: conversionWarnings(document) };
 }
@@ -1137,7 +1142,7 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" aria-pressed={workspaceMode === 'cost'} disabled={Boolean(busy)} onClick={() => setWorkspaceMode('cost')}><strong>도착원가만 작업</strong><small>기존 입고 확인 · 원가 파일 다운로드</small></button>
     </nav>}
 
-    {documentCountry(documentValue) === 'AU' && documentValue.reviewedMetadata?.awbAttachment && <section className={documentValue.reviewedMetadata.awbReviewed ? styles.info : styles.error} aria-label="AWB 중량 근거">
+    {isAustraliaReceiptDocument(documentValue) && documentValue.reviewedMetadata?.awbAttachment && <section className={documentValue.reviewedMetadata.awbReviewed ? styles.info : styles.error} aria-label="AWB 중량 근거">
       <strong>연결 AWB · {documentValue.reviewedMetadata.awbAttachment.fileName}</strong>
       {' · '}AWB {documentValue.reviewedMetadata.awbAttachment.awb || '미확인'}
       {' · '}포장 {documentValue.reviewedMetadata.awbAttachment.packageCount ?? '미확인'}박스
