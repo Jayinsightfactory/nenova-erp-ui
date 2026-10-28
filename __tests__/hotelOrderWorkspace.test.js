@@ -2,6 +2,37 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHotelOrderRows, hotelRegistrationPlan, hotelConvert, uniqueHotelMappings, hasHotelDraftContent } from '../lib/hotelOrderWorkspace.js';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks.js';
+import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches } from '../lib/hotelOrderReview.js';
+
+test('review is excluded until saved; sequential batches retain images, edits, and cross-year scope', () => {
+  const p = {7:{ProdKey:7,OutUnit:'송이',SteamOf1Box:30}}, review={id:'one',imageId:'a'.repeat(64)+'.png',rows:[{id:'a',prodKey:7,qty:303,unit:'송이'}]};
+  for (const year of ['2025','2026']) {
+    const w={year,week:'44-01',request:[],purchase:[],allocations:{},pending:{request:review}};
+    assert.equal(hasHotelDraftContent(w),true);
+    assert.equal(buildHotelOrderRows(w.request,w.purchase,p).rows.length,0);
+    const saved=commitHotelReview(w,'request','time');
+    assert.equal(saved.year,year); assert.equal(saved.week,'44-01');
+    assert.equal(saved.pending.request,null); assert.equal(saved.batches.request[0].number,1);
+    assert.equal(hotelSavedBatches(saved,'request')[0].imageId,review.imageId);
+    assert.equal(buildHotelOrderRows(saved.request,saved.purchase,p).rows[0].request,303);
+    const duplicate=commitHotelReview({...saved,pending:{request:review}},'request','later');
+    assert.equal(duplicate.request.length,1);
+    const next=commitHotelReview({...saved,pending:{request:{...review,id:'two',rows:[{...review.rows[0],id:'b',qty:103}]}}},'request','later');
+    assert.equal(buildHotelOrderRows(next.request,next.purchase,p).rows[0].request,406);
+    assert.equal(hotelSavedBatches(next,'request')[1].number,2);
+    assert.equal(hotelNextBatchNumber({...next,request:[]},'request'),3);
+    assert.equal(hotelNextBatchNumber({...w,request:review.rows},'request'),2);
+    assert.equal(hotelNextBatchNumber(next,'purchase'),1);
+  }
+});
+test('review refuses invalid quantities/frozen state and image URLs cannot escape the authenticated endpoint', () => {
+  const w={request:[],pending:{request:{id:'x',rows:[{qty:'',unit:'송이'}]}}};
+  assert.throws(()=>commitHotelReview(w,'request'),/수량/);
+  assert.throws(()=>commitHotelReview({...w,frozen:true},'request'));
+  assert.equal(hotelImageUrl('javascript:alert(1)'), '');
+  assert.equal(hotelImageUrl('../other.png'), '');
+  assert.equal(hotelImageUrl('b'.repeat(64)+'.png').startsWith('/api/sales/hotel-order-images?id='),true);
+});
 
 test('hotel quick choices show base plus/minus five majors with exact years and unchanged legacy defaults', () => {
   const opts = hotelMiuMajorWeekOptions(new Date(2026, 9, 28), 5, 5);

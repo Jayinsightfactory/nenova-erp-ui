@@ -1457,3 +1457,8 @@
 - policy/API 회귀 테스트와 ECOUNT 계약 설명 갱신. 정책/API 테스트, `test:erp-contract`, dnSpy evidence, manifest 169개, write guard, Next build 통과. 빌드가 재생성한 개발 이력 JSON은 작업 범위 밖이라 복원.
 - ECOUNT 및 ERP 원장 쓰기 없음. 운영 화면 스모크는 미검증.
 - 검색어: ecount receivables company search manager filter 담당자 버튼 업체명 검색
+## 2026-10-28 호텔 원본 대조·번호별 수량 저장
+- 원본 이미지/텍스트 옆 품목·수량 편집표, pending 서버 검토 → 명시 요청수량1·2/발주수량1·2 저장, 합산 반영. 기존 행은1로 보존.
+- 이미지 원본은 인증 사용자별 immutable runtime 파일(15MB), pending/batches는 기존 차수별 CAS 초안. ERP/SQL 쓰기 변경 없음, frozen 보호 확장.
+- Chrome 합성 이미지303→305 수정/503실패 보존/요청수량2=103/합산408/재불러오기 원본 복원 확인, 주문 호출0. build·단위/API 검증 통과; CI/배포 후 결과 추가. 실제 업무 OCR·주문등록은 미검증.
+- 검색어: 호텔 원본 이미지 나란히 매칭 요청수량1 pending batches hotel-order-images
