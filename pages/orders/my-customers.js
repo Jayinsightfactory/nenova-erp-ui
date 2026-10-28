@@ -28,6 +28,12 @@ function ProductName({ name }) {
   return parts.map((part, index) => <Fragment key={index}><span data-product-name-part style={{display:'inline-block',maxWidth:'100%',whiteSpace:'normal',overflowWrap:'anywhere',verticalAlign:'top'}}>{part.trim()}{index < parts.length - 1 ? ' /' : ''}</span>{index < parts.length - 1 && <>{' '}<wbr/></>}</Fragment>);
 }
 
+function TemplateFlowerFilter({ template, filter, setFilter, products }) {
+  if (!template) return null;
+  const names = [...new Set((template.items || []).map(item => item.countryFlower || item.flowerName || products.find(p => Number(p.ProdKey) === Number(item.prodKey))?.CountryFlower || products.find(p => Number(p.ProdKey) === Number(item.prodKey))?.FlowerName || '기타'))];
+  return <div className="template-flower-filter"><b>불러올 품종</b><button type="button" className={!filter ? 'active' : ''} onClick={() => setFilter('')}>전품종</button>{names.map(name => <button type="button" key={name} className={filter === name ? 'active' : ''} onClick={() => setFilter(name)}>{name}</button>)}</div>;
+}
+
 export default function MyCustomerOrders() {
   const weekChoices = useMemo(() => buildForwardOrderWeeks(new Date()), []);
   const defaultWeek = useMemo(() => weekChoices.find(w => w.default) || weekChoices[0], [weekChoices]);
@@ -57,6 +63,8 @@ export default function MyCustomerOrders() {
   const [history, setHistory] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templateFlowerFilter, setTemplateFlowerFilter] = useState('');
+  useEffect(() => { setTemplateFlowerFilter(''); }, [selectedTemplate?.id, selectedTemplate?.favoriteKey]);
   const [templateBusy, setTemplateBusy] = useState(false);
   const [previousOrderWeek, setPreviousOrderWeek] = useState('');
   const [orderMode, setOrderMode] = useState('ADD');
@@ -188,8 +196,12 @@ export default function MyCustomerOrders() {
     const valid = new Map(products.map(p => [Number(p.ProdKey), p]));
     const nextQty = {};
     const nextUnits = {};
-    for (const item of template.items || []) if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) { nextQty[item.prodKey] = String(Number(item.qty)); nextUnits[item.prodKey] = salesPasteUnitOptions().includes(item.unit) ? item.unit : valid.get(Number(item.prodKey)).OutUnit; }
-    setQty(nextQty); setFinalQty({}); setUnits(nextUnits); setShowTemplates(false); setSelectedTemplate(null);
+    for (const item of template.items || []) {
+      const flower = item.countryFlower || item.flowerName || valid.get(Number(item.prodKey))?.CountryFlower || valid.get(Number(item.prodKey))?.FlowerName || '기타';
+      if (templateFlowerFilter && flower !== templateFlowerFilter) continue;
+      if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) { nextQty[item.prodKey] = String(Number(item.qty)); nextUnits[item.prodKey] = salesPasteUnitOptions().includes(item.unit) ? item.unit : valid.get(Number(item.prodKey)).OutUnit; }
+    }
+    setQty(nextQty); setFinalQty({}); setUnits(nextUnits); setShowTemplates(false); setSelectedTemplate(null); setTemplateFlowerFilter('');
     setMessage(`${template.name || `${template.year}년 ${template.week}`} 주문 ${Object.keys(nextQty).length}개 품목을 불러왔습니다. 수량 수정·삭제 후 주문등록하세요.`);
   };
   const loadPreviousOrderDraft = async () => {
@@ -335,6 +347,7 @@ export default function MyCustomerOrders() {
 
   return <>
     <Head><title>내 업체 주문등록</title></Head>
+    <TemplateFlowerFilter template={selectedTemplate} filter={templateFlowerFilter} setFilter={setTemplateFlowerFilter} products={products}/>
     <main className={`my-order-page ${desktopUi.page}`}>
       <div className="title-row"><div><h1 data-desktop-chrome>내 업체 주문등록</h1><p>차수와 업체를 고른 뒤, 품종별 세로 목록에서 A–Z 순으로 입력하고 좌우로 이동합니다.</p><nav className="entry-tabs" aria-label="주문 입력 방식"><span aria-current="page">수량 직접 입력</span><Link href="/orders/sales-paste">붙여서 주문등록</Link></nav></div><div className="page-actions"><button onClick={loadPreviousOrderDraft} disabled={busy||templateBusy||submitting||loadedScope!==scopeKey}>{templateBusy?'불러오는 중':previousOrderWeek?'더 이전 차수 주문 불러오기':'바로 이전 차수 주문 불러오기'}</button><button onClick={loadTemplates} disabled={busy||templateBusy||submitting}>과거·고정 주문</button><button onClick={()=>load({confirmDraft:true})} disabled={busy||submitting}>최신 다시불러오기</button><button type="button" onClick={()=>setShowExecutionLog(true)}>실행 로그</button></div></div>
       {<section className="filters" aria-label="차수·업체 변경">
