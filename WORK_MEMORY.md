@@ -1462,3 +1462,11 @@
 - 이미지 원본은 인증 사용자별 immutable runtime 파일(15MB), pending/batches는 기존 차수별 CAS 초안. ERP/SQL 쓰기 변경 없음, frozen 보호 확장.
 - Chrome 합성 이미지303→305 수정/503실패 보존/요청수량2=103/합산408/재불러오기 원본 복원 확인, 주문 호출0. build·단위/API 검증 통과; CI/배포 후 결과 추가. 실제 업무 OCR·주문등록은 미검증.
 - 검색어: 호텔 원본 이미지 나란히 매칭 요청수량1 pending batches hotel-order-images
+
+## 2026-10-28 호주 Woolly 분류 버튼·AWB 차단 안내
+- 실제 운영 웹 화면(44-01 AU)에서 Woolly 행의 빨간 분류 버튼을 눌러 재현: 행 포커스만 바뀌고 분류 작업대로 진입하지 않음. 원인은 `PackingResults`가 ALLOCATION 상태도 일반 DB 매칭 콜백으로 보내고, 부모의 `prepareReceipt`가 AWB 확인을 먼저 요구해 분류 모달이 있는 입고 작업대를 마운트하지 않은 것.
+- ALLOCATION 전용 콜백으로 분리해 해당 행 버튼/상단 분류 CTA가 입고량 분류 작업대를 먼저 열도록 수정. 이 분류 단계는 AWB 확인 전에도 열리지만 입고·도착원가 이동은 계속 AWB 검증·완료 확인을 요구함.
+- AWB 차단 시 원인 문구를 CTA 옆에 표시하고 버튼 문구를 `AWB 대조 항목 확인`으로 변경, 클릭하면 AWB 검토 구역으로 스크롤·포커스. 안전 차단 조건은 완화하지 않음.
+- 회귀 테스트 추가: Woolly 상태 버튼/원문 품목 버튼이 분류 콜백으로 가고 일반 DB 매칭 콜백으로 빠지지 않는지 확인. `test:import-team`, `test:erp-contract`, `test:erp-manifest -- --changed-from origin/master`, `guard:erp-writes -- --changed-from origin/master`, `test:ui-layout`, `build` 통과. 빌드 후 생성된 이력 스냅샷은 정리.
+- 입고/원가 승인이나 ERP 원장 저장은 하지 않음. 운영 브라우저에서 수정 전 결함은 재현했으나 수정 후 브라우저 E2E·CI·배포는 미검증.
+- 검색어: Woolly bush 파일별 품목 입고량 분류 onAllocate AWB 검증 focusReceipt disabled button 실제 웹 재현

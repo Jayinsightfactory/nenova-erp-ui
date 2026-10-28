@@ -206,6 +206,7 @@ export default function PackingResults({
   blocked,
   onDownload,
   onMatch,
+  onAllocate,
   mappingDisabled = false,
   truncated = false,
   erpProducts = [],
@@ -411,11 +412,13 @@ export default function PackingResults({
                         Number(item.ProdKey) === Number(review.prodKey) && (!country || !item.country || item.country === country));
                       const matchedName = String(matchedProduct?.ProdName || '').trim();
                       const status = review.label;
-                      const matchDisabled = typeof onMatch !== 'function' || mappingDisabled;
+                      const allocationAction = review.status === 'ALLOCATION';
+                      const matchAction = allocationAction ? onAllocate : onMatch;
+                      const matchDisabled = typeof matchAction !== 'function' || mappingDisabled;
                       const openMatch = () => {
                         if (matchDisabled) return;
                         setSelected({ excelName: excel.name, rowKey: key });
-                        onMatch(product, excel, index);
+                        matchAction(product, excel, index);
                       };
                       return (
                         <tr
@@ -448,8 +451,8 @@ export default function PackingResults({
                               {review.prodKey != null && <strong className={styles.matchTarget}>{matchedName || '전산 품목 정보 없음'}</strong>}
                               <div className={styles.matchActions}>
                                 {review.needsReview
-                                  ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-status-match"
-                                      aria-label={`${status}: ${sourceName} 전산 품목 확인`}
+                                  ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid={allocationAction ? 'packing-result-status-allocation' : 'packing-result-status-match'}
+                                      aria-label={allocationAction ? `${status}: ${sourceName} 품목·입고량 분류 열기` : `${status}: ${sourceName} 전산 품목 확인`}
                                       disabled={matchDisabled} onClick={openMatch}>{status}</button>
                                   : <span className={`${styles.statusChip} ${['MANUAL', 'DOCUMENT'].includes(review.status) ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
                                 {productSourceNeedsReview(product) && (
