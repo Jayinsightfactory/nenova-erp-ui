@@ -13,6 +13,7 @@ const context = { console: { error() {} }, Date, ...core,
     manageCalls++; const request = normalizeManagementRequest(input);
     return { preview: request.preview, rows: [{ deductionKey: 252, noteOnly: true }] };
   },
+  releaseReviewedSources: async (input) => ({ preview: input.preview, rows: [{ deductionKey: 603 }] }),
 };
 const source = fs.readFileSync(new URL('../pages/api/sales/defect-deductions.js', import.meta.url), 'utf8')
   .replace(/import[\s\S]*?from\s+['"][^'"]+['"];\s*/g, '')
@@ -42,4 +43,10 @@ await call({ action: 'unsupported', preview: true });
 assert.equal(logCalls, 2, 'only the narrow management preview branch bypasses logging');
 assert.equal(ddlCalls, 1, 'unrelated behavior remains unchanged');
 assert.equal(authCalls, 6, 'all branches retain authentication');
+const releaseDenied = await call({ action:'review-source' }, {authority:2});
+assert.equal(releaseDenied.statusCode,403);
+const releasePreview = await call({ action:'review-source' }, {authority:0});
+assert.equal(releasePreview.statusCode,200);
+assert.equal(logCalls,2,'source preview is authenticated but does not write an action log');
+assert.equal(ddlCalls,1,'source reconciliation never runs runtime schema setup');
 console.log('defect management HTTP route: read-only logger bypass, denied preview, raw year conflict and write audit passed');

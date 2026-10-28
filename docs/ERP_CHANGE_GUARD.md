@@ -1051,3 +1051,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 - 저장은 기존 WebProfitReportSnapshot 새 버전 INSERT만 허용하며 동일 연도·차수 DB applock/슬롯 중복/활성 확정 검사를 거친다. 원장·수기값·확정 기록 UPDATE/DELETE 및 runtime DDL 금지.
 - 일반 GET과 접힌 참고 패널은 저장/자동 갱신하지 않는다. 명시 검산은 최신 원천을 읽되 확정값은 보존한다. 원천을 사용자가 명시 저장한 뒤에는 계산본 갱신 결과를 별도로 확인하고, 갱신 실패를 전체 성공으로 표시하지 않는다.
 - 기준/부작용: plans/profit-weekly-cache-2026-10-27.md. 실제 EXE·PeriodDay·legacy 회귀 증거: plans/profit-weekly-cache-evidence-2026-10-27.md.
+
+## 2026-10-28 원문 재검토 후 정상 후보 복원
+과거 ESTIMATE_UNLINK 이력이 있다는 이유로 원문이 검증된 정상 자료까지 영구 차단하지 않는다. 관리자 원문SHA/항목근거·현재버전 및 실제견적/부분적용 부재를 확인한 review-source는 웹원장/감사만 갱신한다. 재승인 예외는 동일 연도·원차수·업체·품목·수량·단위·원천·비고에만 적용되고 이후unlink에는 무효다. 정상 일괄등록은 기존 EXE/단가/중복 검증을 보존한다. 원문수량과 처리수량이 다르면 차액을 추정해 자동등록하지 않는다. 기준/부작용: plans/defect-source-92-evidence-2026-10-28.md, 회귀 defectSourceRelease.test.js. 사용자제공 원문은 저장소에 복사하지 않는다.

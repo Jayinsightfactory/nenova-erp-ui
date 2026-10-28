@@ -7,6 +7,7 @@ import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
   correctDraftPeriod,
+  releaseReviewedSources,
   manageDeductions,
   deleteDeductions,
   cancelIncomingDeductions,
@@ -86,7 +87,7 @@ async function handler(req, res) {
     }
 
     // Management previews and writes use the installed schema; never run DDL.
-    if (!['manage-edit', 'manage-archive'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
+    if (!['manage-edit', 'manage-archive', 'review-source'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
 
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
@@ -104,6 +105,12 @@ async function handler(req, res) {
       const year = normalizeYear(req.body?.year);
       const week = normalizeParentWeek(req.body?.week);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
+
+      if (action === 'review-source') {
+        if (!isDefectAdmin(req.user)) return res.status(403).json({ success: false, error: '관리자 원문 재검토 권한이 필요합니다.' });
+        const result = await releaseReviewedSources({ year, week, rows: req.body.rows, preview: req.body.preview, user: req.user });
+        return res.status(200).json({ success: true, ...result });
+      }
 
       if (action === 'manage-edit' || action === 'manage-archive') {
         const result = await manageDeductions({ action, year: req.body.year, week: req.body.week, rows: req.body.rows,
@@ -252,5 +259,5 @@ const loggedHandler = withActionLog(handler, {
 // Read-only management previews must also bypass the action logger's DDL/INSERT.
 // Authentication and policy errors still run normally; actual mutations retain audit logging.
 export default withAuth((req, res) => req.method === 'POST'
-  && ['manage-edit', 'manage-archive'].includes(String(req.body?.action || ''))
+  && ['manage-edit', 'manage-archive', 'review-source'].includes(String(req.body?.action || ''))
   && req.body?.preview === true ? handler(req, res) : loggedHandler(req, res));

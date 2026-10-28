@@ -19,6 +19,10 @@
     "pages/api/estimate/update-entry.js",
     "lib/salesDefectDeductionCore.js",
     "lib/salesDefectAutoSource.js",
+    "lib/defectSourceRelease.js",
+    "lib/defectSourceExport.js",
+    "__tests__/defectSourceRelease.test.js",
+    "scripts/reconcile-defect-source-evidence.mjs",
     "lib/salesDefectDeductionState.js",
     "lib/salesDefectManualCost.js",
     "lib/defectEstimateTargetScope.js",
@@ -72,6 +76,14 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "SOURCE_REVIEW_RELEASE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stockMaster": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "관리자만 원문 파일/메시지 SHA256·항목번호·동일 연도 업체/품목/수량/단위 근거와 현재 rowversion을 제시해 원문 검토 후보를 복원한다. 살아있는 Estimate PK나 부분이월 적용이 있으면 거절한다. 웹 원장 잔존 견적/적용 연결과 상태만 초기화하고 SOURCE_REVIEW_RELEASE 감사를 남긴다. 과거 unlink보다 뒤의 같은 원차수/업체/품목/수량/단위/원천표식 재승인만 차단 예외로 인정한다. 정상 등록으로 버전이 증가해도 근거는 유지되고 사실 변경이나 이후 unlink에는 효력이 없다. preview/POST 모두 runtime DDL이 없고 preview는 감사 INSERT도 없다. 복원은 Estimate 쓰기가 아니며 기존 EXE/단가/중복 검증을 통과해야 일괄등록할 수 있다."
+    },
     {
       "name": "SOURCE_RECONCILIATION_REVIEW",
       "orderDetail": "preserve",
