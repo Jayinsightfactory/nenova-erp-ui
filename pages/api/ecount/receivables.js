@@ -18,10 +18,10 @@ const roundWon = (value) => Math.round(Number(value || 0));
 async function loadCustomers() {
   const result = await query(`
     SELECT c.CustKey, c.CustName, CASE WHEN ISNULL(c.isDeleted,0)=0 THEN 1 ELSE 0 END AS active,
-           owner.UserID AS managerUserId, owner.matches AS managerMatchCount
+           owner.UserID AS managerUserId, owner.UserName AS managerUserName, owner.matches AS managerMatchCount
       FROM dbo.Customer c
       CROSS APPLY (
-        SELECT COUNT(*) AS matches, MIN(u.UserID) AS UserID
+        SELECT COUNT(*) AS matches, MIN(u.UserID) AS UserID, MIN(u.UserName) AS UserName
         FROM dbo.UserInfo u
         WHERE ISNULL(u.isDeleted,0)=0 AND NULLIF(LTRIM(RTRIM(c.Manager)),'') IS NOT NULL
           AND (LTRIM(RTRIM(c.Manager))=u.UserID OR LTRIM(RTRIM(c.Manager))=u.UserName)

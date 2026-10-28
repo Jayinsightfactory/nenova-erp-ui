@@ -1,5 +1,6 @@
 // ECOUNT 채권 스냅샷 요약과 Nenovaweb 확정 출고 기준 최근 12개월 매출 평균.
 import { useState, useEffect, useCallback } from 'react';
+const { getReceivablesManagers, filterReceivablesRows } = require('../../lib/ecountReceivablesPolicy.cjs');
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const won = (n) => fmt(Math.round(n));
@@ -10,6 +11,8 @@ export default function EcountReceivablesPage() {
   const [err, setErr] = useState('');
   const [sortBy, setSortBy] = useState('balance'); // balance | aging
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [companySearch, setCompanySearch] = useState('');
+  const [selectedManager, setSelectedManager] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
@@ -24,7 +27,9 @@ export default function EcountReceivablesPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const s = data?.summary;
-  let rows = data?.rows || [];
+  const allRows = data?.rows || [];
+  const managers = getReceivablesManagers(allRows);
+  let rows = filterReceivablesRows(allRows, { search: companySearch, manager: selectedManager });
   if (overdueOnly) rows = rows.filter((r) => r.agingMonths >= 4 && r.balance > 0);
   rows = [...rows].sort((a, b) => (sortBy === 'aging' ? b.agingMonths - a.agingMonths || b.balance - a.balance : b.balance - a.balance));
   const shownTotal = rows.reduce((total, row) => ({
@@ -82,6 +87,19 @@ export default function EcountReceivablesPage() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#475569' }}>
+          <span>업체 검색</span>
+          <input type="search" value={companySearch} onChange={(e) => setCompanySearch(e.target.value)} placeholder="업체명 입력" aria-label="업체명 검색"
+            style={{ width: 190, border: '1px solid #cbd5e1', borderRadius: 7, padding: '6px 9px', fontSize: 12 }} />
+        </label>
+        <span style={{ fontSize: 12, color: '#64748b' }}>담당자</span>
+        <button type="button" aria-pressed={!selectedManager} onClick={() => setSelectedManager('')} style={segStyle(!selectedManager)}>전체</button>
+        {managers.map((manager) => (
+          <button key={manager} type="button" aria-pressed={selectedManager === manager}
+            onClick={() => setSelectedManager(selectedManager === manager ? '' : manager)} style={segStyle(selectedManager === manager)}>
+            {manager}
+          </button>
+        ))}
         <span style={{ fontSize: 12, color: '#64748b' }}>정렬</span>
         <button onClick={() => setSortBy('balance')} style={segStyle(sortBy === 'balance')}>잔액 큰 순</button>
         <button onClick={() => setSortBy('aging')} style={segStyle(sortBy === 'aging')}>오래된 순</button>
@@ -93,11 +111,14 @@ export default function EcountReceivablesPage() {
 
       {data && !data.noEcount && (
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '7px 12px', fontSize: 11, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
+            검색·담당자 필터 결과 {fmt(rows.length)}개
+          </div>
           <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
               <tr style={{ background: '#f1f5f9' }}>
-                  <th style={{ textAlign: 'left', padding: '7px 12px', whiteSpace: 'nowrap' }}>거래처명</th>
+                  <th style={{ textAlign: 'left', padding: '7px 12px', whiteSpace: 'nowrap' }}>거래처명 / 담당자</th>
                   <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>매출합계</th>
                   <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>수금합계</th>
                   <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>기타할인등차액</th>
@@ -111,7 +132,10 @@ export default function EcountReceivablesPage() {
                 {rows.length === 0 && <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>표시할 거래처가 없습니다. 담당자 배정과 ECOUNT 거래처명을 확인해 주세요.</td></tr>}
                 {rows.map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #eef2f7' }}>
-                    <td style={{ padding: '7px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.name}</td>
+                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 700 }}>{r.name}</span>
+                      <span style={{ marginLeft: 8, padding: '2px 7px', borderRadius: 999, background: '#eff6ff', color: '#1d4ed8', fontSize: 11, fontWeight: 600 }}>{r.managerName || '담당자 미확인'}</span>
+                    </td>
                     <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.sales)}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.receipt)}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.etcDiff)}</td>
