@@ -163,6 +163,11 @@ assert.equal(mixed.registered.some((row) => row.deductionKey === 12), true, 'aut
 assert.equal(mixed.skipped.length, 0);
 assert.equal(registerWrites.some((entry) => entry.key === 12), true, 'eligible auto row is written through the normal guarded path');
 assert.equal(registerWrites.some((entry) => /INSERT INTO Estimate/.test(entry.source)), true, 'marker-free manual row still registers');
+registerRows.set(12, { ...autoDbRow });
+const eligibleAutoPreflight = await preflightRegistration({ year: 2026, week: '41', rows: [{ deductionKey: 12 }] }, fakeRegisterQuery);
+assert.equal(eligibleAutoPreflight[0].error, '', 'automatic source passes actual service preflight with valid shipment and cost');
+assert.equal(Number(eligibleAutoPreflight[0].shipmentKey), 8001);
+assert.equal(Number(eligibleAutoPreflight[0].cost), 1200);
 
 const overrideWrites = [];
 const overrideMarkerResult = await registerDeductions({
