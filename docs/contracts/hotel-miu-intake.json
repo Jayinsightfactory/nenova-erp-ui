@@ -26,7 +26,9 @@
     "pages/api/sales/hotel-order-drafts.js",
     "lib/hotelOrderDraftStore.cjs",
     "__tests__/hotelOrderDraftStore.test.cjs",
-    "styles/hotelOrderButtons.module.css"
+    "styles/hotelOrderButtons.module.css",
+    "components/HotelMatchReview.js",
+    "components/HotelQuantityMatrix.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -35,6 +37,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "SOURCE_ROW_COMPARISON_AND_BATCH_QUANTITY_GRID",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Compact image-aligned matching rows without repeated source column. Saved batches displayed as1..4 and later columns with canonical-unit totals. Cell edits use hotelConvert and preserve exact year/week and original evidence; allocations cleared. Hover/focus/click source comparison; frozen/storage failure block edits. No SQL or ERP changes."
+    },
     {
       "name": "REVIEW_IMAGE_AND_SAVE_NUMBERED_QUANTITY",
       "orderDetail": "preserve",
