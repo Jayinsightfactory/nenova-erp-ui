@@ -9,6 +9,7 @@ const require=createRequire('C:/Users/USER/nenova-erp-ui/package.json');
 const sql=require('mssql');process.loadEnvFile('C:/Users/USER/nenova-erp-ui/.env.local');
 const hash=v=>createHash('sha256').update(v).digest('hex');
 const plan=JSON.parse(await fs.readFile(new URL('../docs/audits/defect-current-42-source-2026-10-28.json',import.meta.url),'utf8'));
+if(plan.executable!==true)throw Error('이 정정 계획은 수기입력 보존 확인으로 철회됐습니다. 실행하지 마세요.');
 const source=await fs.readFile('C:/Users/USER/Downloads/KakaoTalk_20261028_1552_47_184_group.txt','utf8');
 if(hash(source)!==plan.sourceSha256)throw Error('원문 검토본이 변경됐습니다.');
 const messages=parseDefectSourceExport(source);
