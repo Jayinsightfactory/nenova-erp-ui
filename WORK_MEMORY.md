@@ -1462,3 +1462,8 @@
 - 이미지 원본은 인증 사용자별 immutable runtime 파일(15MB), pending/batches는 기존 차수별 CAS 초안. ERP/SQL 쓰기 변경 없음, frozen 보호 확장.
 - Chrome 합성 이미지303→305 수정/503실패 보존/요청수량2=103/합산408/재불러오기 원본 복원 확인, 주문 호출0. build·단위/API 검증 통과; CI/배포 후 결과 추가. 실제 업무 OCR·주문등록은 미검증.
 - 검색어: 호텔 원본 이미지 나란히 매칭 요청수량1 pending batches hotel-order-images
+
+## 2026-10-28 자동수집 일괄등록
+- 자동수집 영업지원 등록 허용. 혼합 등록과 주광·태림 43차 양성/출고 없음/0원 단가/중복 fixture 통과. PR #1339 검증 진행.
+- 검색어: 자동수집 주광 태림 43차 AUTO_SOURCE_REVIEW_REQUIRED
+

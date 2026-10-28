@@ -62,11 +62,18 @@ for (const row of [
 
 assert.equal(evaluateDefectRegistrationEligibility({
   row: { ...manual, autoSourceExcluded: true }, context: { shipmentKey: 1, cost: 1000 },
-}).code, AUTO_SOURCE_REVIEW_REQUIRED);
+}).eligible, true);
 assert.equal(evaluateDefectRegistrationEligibility({
   row: manual, context: { shipmentKey: 1, cost: 1000 }, exactExistingEstimate: true, exactExistingAutoSource: true,
 }).code, AUTO_SOURCE_ESTIMATE_CONFLICT);
 assert.equal(evaluateDefectRegistrationEligibility({ row: manual, context: { shipmentKey: 1, cost: 1000 } }).eligible, true);
+for (const customer of [533, 565]) {
+  const row = { ...manual, custKey: customer, orderYear: 2026, orderWeek: '43', autoSourceExcluded: true };
+  assert.equal(evaluateDefectRegistrationEligibility({ row, context: { shipmentKey: 1, cost: 1000 } }).eligible, true);
+  assert.equal(evaluateDefectRegistrationEligibility({ row, context: { cost: 1000 } }).code, 'CUSTOMER_SALE_MISSING');
+  assert.equal(evaluateDefectRegistrationEligibility({ row, context: { shipmentKey: 1, cost: 0 } }).code, 'COST_MISSING');
+  assert.equal(evaluateDefectRegistrationEligibility({ row, context: { shipmentKey: 1, cost: 1000 }, exactExistingEstimate: true }).code, 'EXISTING_ESTIMATE');
+}
 
 const priorYearCarryover = planDeductionRegistration({
   row: { ...manual, OrderYear: 2025, OrderWeek: '41', IsCarryoverLedger: 1, OriginalQuantity: 3 },
@@ -76,9 +83,9 @@ const priorYearCarryover = planDeductionRegistration({
 assert.equal(priorYearCarryover.action, 'APPLY', 'marker-free prior-year manual carryover remains supported');
 
 const autoUi = { ...manual, deductionKey: 12, autoSourceExcluded: true, registrationEligibilityCode: AUTO_SOURCE_REVIEW_REQUIRED };
-assert.equal(deriveSupportProcessingStatus(autoUi).processingStatus, 'AUTO_SOURCE_REVIEW');
+assert.equal(deriveSupportProcessingStatus(autoUi).processingStatus, 'UNREGISTERED');
 assert.equal(isSupportManualCompleteSelectable(autoUi), false);
-assert.match(supportRegistrationDecisionLabel(autoUi), /자동수집 자료/);
+assert.equal(supportRegistrationDecisionLabel(autoUi), '자동수집 자료 · 별도 검토');
 
 let linkedWrites = 0;
 await assert.rejects(
@@ -104,9 +111,9 @@ const autoReadOnlyQuery = async (statement) => {
   throw new Error(`unexpected auto read query: ${statement}`);
 };
 const autoPreflight = await preflightRegistration({ year: 2026, week: '41', rows: [{ deductionKey: 12 }] }, autoReadOnlyQuery);
-assert.equal(autoPreflight[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED);
+assert.notEqual(autoPreflight[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED);
 const autoPreview = await registrationPreview({ year: 2026, week: '41', ids: [12] }, autoReadOnlyQuery);
-assert.equal(autoPreview[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED, 'direct preview URL cannot bypass the guard');
+assert.notEqual(autoPreview[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED, 'direct preview URL uses the same registration eligibility rules');
 assert.equal(autoReadOnlyQueries.some((statement) => /\b(?:INSERT|UPDATE|DELETE)\b/i.test(statement)), false);
 
 const manualDbRow = {
@@ -151,13 +158,16 @@ const mixed = await registerDeductions({
   ensureTables: async () => {},
   withTransaction: async (callback) => callback(fakeRegisterQuery, { attempt: 0 }),
 });
-assert.equal(mixed.registered.length, 1);
-assert.equal(mixed.registered[0].deductionKey, 13);
-assert.equal(mixed.skipped.length, 1);
-assert.equal(mixed.skipped[0].deductionKey, 12);
-assert.equal(mixed.skipped[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED);
-assert.equal(registerWrites.some((entry) => entry.key === 12), false, 'blocked auto row causes zero writes in a mixed batch');
+assert.equal(mixed.registered.length, 2);
+assert.equal(mixed.registered.some((row) => row.deductionKey === 12), true, 'auto-source row can register when ordinary eligibility passes');
+assert.equal(mixed.skipped.length, 0);
+assert.equal(registerWrites.some((entry) => entry.key === 12), true, 'eligible auto row is written through the normal guarded path');
 assert.equal(registerWrites.some((entry) => /INSERT INTO Estimate/.test(entry.source)), true, 'marker-free manual row still registers');
+registerRows.set(12, { ...autoDbRow });
+const eligibleAutoPreflight = await preflightRegistration({ year: 2026, week: '41', rows: [{ deductionKey: 12 }] }, fakeRegisterQuery);
+assert.equal(eligibleAutoPreflight[0].error, '', 'automatic source passes actual service preflight with valid shipment and cost');
+assert.equal(Number(eligibleAutoPreflight[0].shipmentKey), 8001);
+assert.equal(Number(eligibleAutoPreflight[0].cost), 1200);
 
 const overrideWrites = [];
 const overrideMarkerResult = await registerDeductions({
@@ -173,9 +183,7 @@ const overrideMarkerResult = await registerDeductions({
     throw new Error(`unexpected override marker query: ${source}`);
   }, { attempt: 0 }),
 });
-assert.equal(overrideMarkerResult.registered.length, 0);
-assert.equal(overrideMarkerResult.skipped[0].errorCode, AUTO_SOURCE_REVIEW_REQUIRED);
-assert.equal(overrideWrites.length, 0, 'direct override marker is blocked before REVIEW_UPDATE/Estimate/History writes');
+assert.notEqual(overrideMarkerResult.skipped[0]?.errorCode, AUTO_SOURCE_REVIEW_REQUIRED);
 
 let finalReadCount = 0;
 const finalRereadWrites = [];
@@ -191,7 +199,7 @@ await assert.rejects(registerDeductions({
     if (/CodeInfo/.test(source)) return { recordset: [{ DetailCode: '불량차감' }] };
     if (/FROM WebSalesDefectDeduction d/.test(source)) {
       finalReadCount += 1;
-      return { recordset: [{ ...manualDbRow, AutoSourceExcluded: finalReadCount >= 2 ? 1 : 0,
+      return { recordset: [{ ...registerRows.get(13), AutoSourceExcluded: finalReadCount >= 2 ? 1 : 0,
         AutoSourceEvidence: finalReadCount >= 2 ? 'HISTORY_SOURCE' : '' }] };
     }
     if (/FROM ShipmentMaster sm/.test(source) && /TargetOrderYear/.test(source)) {
@@ -205,11 +213,11 @@ await assert.rejects(registerDeductions({
     if (/SELECT TOP 1 EstUnit, OutUnit FROM Product/.test(source)) return { recordset: [{ EstUnit: '단', OutUnit: '단' }] };
     if (/ActionType=@action/.test(source)) return { recordset: [] };
     if (/SELECT e\.EstimateKey/.test(source)) return { recordset: [] };
-    throw new Error(`unexpected final reread query: ${source}`);
+    return fakeRegisterQuery(statement, params);
   }, { attempt: 0 }),
-}), (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED);
-assert.equal(finalReadCount, 2, 'automatic history added after planning is detected by the final locked reread');
-assert.equal(finalRereadWrites.length, 0, 'final reread guard precedes REVIEW_UPDATE/Estimate/History writes');
+}).then((result) => { assert.equal(result.registered.length, 1); return Promise.reject(new Error('registration-passed')); }), (error) => error.message === 'registration-passed');
+assert.ok(finalReadCount >= 2, 'final locked reread retains provenance without excluding registration');
+assert.ok(finalRereadWrites.length > 0, 'eligible automatic history uses the normal write path');
 
 const linkedDraftWrites = [];
 const linkedManualRow = {
@@ -274,9 +282,7 @@ assert.doesNotMatch(saveSource, /SET[\s\S]{0,500}SourceFileName=@file/, 'existin
 assert.ok(saveSource.indexOf('assertNotDefectAutoSource(before)') < saveSource.indexOf('UPDATE WebSalesDefectDeduction'),
   'linked auto source is rejected before the web ledger update');
 const registerSource = serviceSource.slice(serviceSource.indexOf('export async function registerDeductions'), serviceSource.indexOf('export async function manageDeductions'));
-assert.ok((registerSource.match(/assertNotDefectAutoSource\(dbRow\)/g) || []).length >= 2,
-  'planning and final locked reads both run the same auto-source guard');
-assert.ok(registerSource.lastIndexOf('assertNotDefectAutoSource(dbRow)') < registerSource.indexOf('UPDATE Estimate'),
-  'final guard precedes Estimate UPDATE/INSERT');
+assert.doesNotMatch(registerSource, /assertNotDefectAutoSource\(dbRow\)/,
+  'automatic provenance alone cannot block ordinary registration');
 
 console.log('salesDefectAutoSource tests passed');
