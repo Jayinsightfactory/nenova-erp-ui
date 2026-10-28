@@ -36,6 +36,7 @@ import { packingMatchReview } from '../../lib/packingMatchReview.js';
 import { createPackingWorkDraftStore } from '../../lib/packingWorkDraft.js';
 import { needsInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 import { invoiceBoxTotal, reviewAirWaybill } from '../../lib/invoiceAwbEvidence.js';
+import { packingPreparationBlockReason } from '../../lib/packingReceiptPreparation.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -1889,11 +1890,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setReviewOpen(true);
   };
   const prepareReceipt = async ({ allowAllocationReview = false } = {}) => {
-    const blockedReason = !sharedReady ? '팀 공용 매칭 정보를 불러오는 중입니다. 조회 오류가 있으면 매칭 정보를 다시 불러오세요.'
-      : savingRef.current ? '품목 매칭 저장이 끝난 뒤 진행해 주세요.'
-      : processingRef.current ? '파일 분석이 끝난 뒤 진행해 주세요.'
-      : latestShared ? '다른 작업자가 매칭을 변경했습니다. 최신 매칭을 불러온 뒤 다시 진행해 주세요.'
-      : !matchingComplete ? `전산 품목을 확인할 행이 ${remainingMatches}건 남았습니다. 해당 품목을 선택해 주세요.` : '';
+    const blockedReason = packingPreparationBlockReason({
+      sharedReady, saving: savingRef.current, processing: processingRef.current, latestShared,
+      matchingComplete, remainingMatches, allowAllocationReview, allocationCount,
+    });
     if (blockedReason) { setStatus({ type: 'error', msg: blockedReason }); recordBlocked(blockedReason,'PREPARE_BLOCKED'); notifyPackingBlocked(blockedReason); return; }
     receiptIntent.current = true;
     processingRef.current = true; setProcessing(true);
