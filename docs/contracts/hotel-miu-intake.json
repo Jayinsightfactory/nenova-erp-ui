@@ -17,6 +17,9 @@
     "docs/migrations/2026-08-20_web_hotel_miu_register_snap.sql",
     "docs/migrations/2026-08-20_web_hotel_miu_product_map_perbox.sql",
     "components/HotelOrderWorkspace.js",
+    "lib/hotelOrderReview.js",
+    "lib/hotelOrderImages.cjs",
+    "pages/api/sales/hotel-order-images.js",
     "lib/hotelOrderWorkspace.js",
     "__tests__/hotelOrderWorkspace.test.js",
     "__tests__/hotelOrderParseApi.test.js",
@@ -32,6 +35,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "REVIEW_IMAGE_AND_SAVE_NUMBERED_QUANTITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Parsed rows first enter pending review, excluded from aggregate/order plan. Image original displayed beside editable matches; authenticated immutable owner-hashed PNG/JPEG/GIF/WEBP files live in data/runtime/hotel-order-images, max15MB. Explicit quantityN save commits source id + rows exactly once to server CAS draft, preserving year/week and image id. Legacy rows are quantity1. Pending review blocks order preparation. Frozen drafts protect pending/batches as well. No SQL/ERP changes."
+    },
     {
       "name": "WORKSPACE_PERIOD_AND_TEXT_INPUT",
       "orderDetail": "preserve",
