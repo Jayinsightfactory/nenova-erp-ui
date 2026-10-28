@@ -1516,3 +1516,10 @@
 - 수정 후 최신 빌드의 실제 격리 웹앱에서 동일 인보이스/AWB를 다시 선택. 9개 유사매칭이 남은 상태에서도 버튼이 분류 대화상자를 열었고, 검색에서 Wolly Bush Green Tip(#2997), Red Tip(#2998)을 각각 골라 `합계 검증·문서에 적용` 후 10·11행에 반영된 것을 UI로 확인. 분석 결과/AWB 필드는 로컬 fixture 응답이며 실 AI/OCR은 호출하지 않음.
 - 입고 등록·원가 승인·다운로드는 실행하지 않았고, API fixture는 DB에 연결하지 않음. 격리 UI에서 분류표시·검색·선택·문서 적용까지 검증 완료. 화면 검증 시 가로로 넓은 모달의 일부 DOM 클릭은 위치가 어긋나 실제 화면 좌표 조작으로 후보 버튼을 선택함.
 - 검색어: 44-01 AU actual UI Woolly classification 9 fuzzy unresolved packingPreparationBlockReason test build
+## 2026-10-28 최종 수기입력 보존 정정
+사용자 “수기입력 묶음은 모두 보존” 확인. 앞선16archive/11견적삭제/4초안 계획은 실행 전 철회했고 해당 JSON은 executable:false로 봉쇄했다. 브라우저 혼합저장에서 첫 자동행의 sourceFileName이 수기행까지 공통 적용된 실제 저장버그를 확인했다. 1019 및1048~1060 총14수기와1139~1142 다음저장4수기는 수량·견적·원장버전 전부 보존하고 감사 이력만으로 출처를 정정한다.926도 보존한다.1066/1067 자동2건은 원문5233(25/6)과15/15 불일치로 삭제 없이 검토표시.별도 과거해제자동864→43차10803만 기존 선택삭제/편집잠금으로 정리한다.최종 고정계획 defect-manual-provenance-final-2026-10-28.json 및 reconcile-defect-manual-origin.mjs가 이전 계획보다 우선한다.
+검색어: 수기입력 모두보존 sourceFileName 혼합저장 MANUAL_SOURCE_CONFIRM SOURCE_FACT_REVIEW 10803
+
+검증: 전체 test:erp-contract, dnSpy evidence, 변경분 manifest/write guard 통과. 운영DB CTE SELECT-only로 수기확인 양성1/다른원천·다른근거종류·false3음성 통과. 원인코드는26bf5a555(2026-07-22)부터 있던 공통파일 우선순위이며2026-10-26/28 혼합저장 감사로 실제오염 확인. build/CI/배포는 진행중.
+
+로컬 production build 통과. PR1346 CI 진행. 이전현재정정계획 문서 상단에 철회 고지, 감사조회도 수기확인 이력을 존중하도록 정합성 보완.

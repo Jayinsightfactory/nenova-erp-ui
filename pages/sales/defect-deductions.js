@@ -101,6 +101,7 @@ const UNIT_OPTIONS = [
 ];
 const emptyRow = () => ({
   deductionKey: null,
+  sourceFileName: '',
   customerName: '', custKey: null,
   productName: '', prodKey: null,
   colorName: '', quantity: '', sourceUnit: '단', unit: '단',
@@ -990,7 +991,7 @@ export default function SalesDefectDeductionsPage() {
         action: 'save', year, week, rows: submittedRows,
         managerId: manager,
         managerName: selectedManager?.managerName || '',
-        sourceFileName: rows.find((r) => r.sourceFileName)?.sourceFileName || '',
+        sourceFileName: '',
       });
       const savedRows = data.rows || [];
       await Promise.allSettled(submittedRows.filter((row) => row.prodKey).map((row) => apiPost('/api/product-matching/events', {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import './salesDefectSourceReconciliation.test.js';
 import './defectSourceRelease.test.js';
 import './defectSourceFacts.test.js';
+import './defectSourceProvenance.test.js';
 import './salesDefectRegistrationProvenance.test.js';
 import fs from 'node:fs';
 import {

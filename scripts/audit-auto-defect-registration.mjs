@@ -19,7 +19,7 @@ try {
   const history = (await pool.request().query('SELECT HistoryKey,DeductionKey,ActionType,ChangedBy,ChangedByName,ChangedAt,BeforeJson,AfterJson,ChangeSummary FROM dbo.WebSalesDefectDeductionHistory ORDER BY HistoryKey')).recordset;
   const byKey = new Map();
   for (const h of history) {h.before=parse(h.BeforeJson);h.after=parse(h.AfterJson); const a=byKey.get(h.DeductionKey)||[];a.push(h);byKey.set(h.DeductionKey,a);}
-  const candidates = drafts.filter(d=>auto(d)||(byKey.get(d.DeductionKey)||[]).some(h=>auto(h.before)||auto(h.after)));
+  const candidates = drafts.filter(d=>!d.ManualSourceConfirmed && (auto(d)||(byKey.get(d.DeductionKey)||[]).some(h=>auto(h.before)||auto(h.after))));
   const sqlKeys = drafts.filter(d=>d.AutoSourceExcluded).map(d=>d.DeductionKey).sort((a,b)=>a-b);
   const auditKeys = candidates.map(d=>d.DeductionKey).sort((a,b)=>a-b);
   if (JSON.stringify(sqlKeys)!==JSON.stringify(auditKeys)) throw new Error('SQL policy and historical audit disagree: inspect before deployment');

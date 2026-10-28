@@ -22,6 +22,8 @@ const input = {year: 2026, week:43,user:{authority:0,userId:'test'},preview:fals
 const plan = (changes={}) => planReviewedSourceRelease({...input,selection:input.rows[0],row,...changes});
 assert.equal(plan().reviewedRowVersionNo,8);
 assert.equal(defectSourceReview({IncompleteAutoSource:true}).code,'SOURCE_EVIDENCE_INCOMPLETE');
+assert.equal(defectSourceReview({SourceFactReview:true}).code,'SOURCE_FACT_REVIEW_REQUIRED');
+assert.throws(()=>plan({mode:'manual-provenance'}));
 assert.equal(defectSourceReview({SourceUnitReview:true}).code,'SOURCE_UNIT_CONVERSION_REQUIRED');
 const linked={CustKey:100,ProdKey:200,OrderYear:2026,OrderWeek:'43-01',Quantity:-1,Unit:'단',MasterDeleted:false};
 assert.equal(plan({mode:'confirm-linked',selection:{...input.rows[0],linkedEstimateExists:true,linkedEstimate:linked}}).retainLinked,true);
@@ -64,6 +66,17 @@ await releaseReviewedSources({...input,mode:'confirm-linked'},{withTransaction:f
   throw Error('Unexpected confirm query');
 })});
 assert.deepEqual(confirmWrites,['metadata','audit']);
+const manualInput={...input,mode:'manual-provenance',rows:[{...input.rows[0],evidence:{...source,kind:'USER_CONFIRMED_MANUAL_INPUT'}}]};
+let manualUpdates=0,manualHistories=0;
+await releaseReviewedSources(manualInput,{withTransaction:fn=>fn(async(q,p)=>{
+  if(/FROM WebSalesDefectDeduction d/.test(q))return {recordset:[confirmRow]};
+  if(/FROM WebSalesCarryoverApplication/.test(q))return {recordset:[]};
+  if(/FROM Estimate e/.test(q))return {recordset:[linked]};
+  if(/UPDATE/.test(q)){manualUpdates++;throw Error('manual classification cannot update inputs');}
+  if(/INSERT INTO WebSalesDefectDeductionHistory/.test(q)){manualHistories++;assert.equal(p.action.value,'MANUAL_SOURCE_CONFIRM');const after=JSON.parse(p.after.value);assert.equal(after.manualSourceConfirmed,true);assert.equal(after.rowVersionNo,confirmRow.RowVersionNo);assert.equal(after.estimateKey,confirmRow.EstimateKey);return {rowsAffected:[1]};}
+  throw Error('unexpected manual source query');
+})});
+assert.equal(manualUpdates,0);assert.equal(manualHistories,1);
 const projection=buildDefectAutoSourceSql('d').projection;
 for(const key of ['orderYear','orderWeek','custKey','prodKey','quantity','sourceUnit','reviewedSourceFileName']) assert.ok(projection.includes(`$.${key}`));
 assert.match(projection,/reviewedHistory.HistoryKey>rejectedHistory.HistoryKey/);
