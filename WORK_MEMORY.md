@@ -1478,3 +1478,10 @@
 - 전체 SELECT: 자동원천+과거ESTIMATE_UNLINK78행/24업체, 연결견적없음65행/17업체(중복집합있음). 전부 오등록으로 삭제하지 않고 공통 SQL/순수 판정으로 SOURCE_REVIEW 격리. 목록/preflight/preview/planning/final잠금/완료/선택에 적용.
 - 기존 정상 자동/수동96조합 및 실사례5행의 변조preflight/preview/register 쓰기0 회귀 통과. 사용자확인5행은 배포 후 기존 버전검증 manage-archive로 실제견적/적용이력 보존하며 정리할 예정. 원문 범위는09/14까지이므로10월 미게시 여부를 역추정하지 않음.
 - 검색어: 희경15 레바논2 주광화이트 rejectedAutoSource missingLinkedEstimate ESTIMATE_UNLINK 722 740 859 868 877
+
+## 2026-10-28 92건 원문 대조·정상 후보 복원 진행
+- 사용자 제공10/28 불량 공유방 원문5392항목(05/13~10/28)을 메모리에서 대조. 원문·발신자는 저장소에 복사하지 않고 SHA/ordinal/업무키만 감사계획에 기록.
+- 운영43차 검토92건=과거해제자동73+유효연결부재19. 고정계획62 archive/4 release/26 hold. 실제보존견적·수량·단위/다른규격까지 재검증. 26건은 실제차감과 원문수량차이·원문부재·다른신고 구분 등 미확정 판단으로, 사용자가 기준 선택 중.
+- 관리자 원문 근거/현재버전/실제견적부재/부분적용부재를 확인하는 review-source preview/apply 추가. 웹원장/감사만 변경하고 ERP/Estimate/Application 보존. 복원603/1010/1013/1015는 정상일괄등록의 EXE/단가/중복 검사를 다시 통과해야 함.
+- 실제 MSSQL SELECT-only CTE9반례(정상/교차연도/업체/품목/수량/단위/원천/비고/이후unlink) 통과. 단순 등록버전 증가는 원문 재승인을 무효화하지 않음. 실제dnSpy ClassEstimate 저장대상 재확인.
+- 검색어: 92건 원문 5392 source review release 603 1010 1013 1015 SHA ordinal 다른규격62 26hold
