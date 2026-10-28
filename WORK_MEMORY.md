@@ -1424,3 +1424,9 @@
 - AU AWB 자동화 5/5, import-team 120 pass·18 선택 원본 생략, exporter 35 pass·9 선택 원본 생략, ERP 계약 전체 통과. `npm run build`, write-guard, dnSpy golden, ERP manifest, 격리 SQL writer 테스트도 통과. 운영 DB 쓰기 0.
 - 실제 PDF는 로컬 격리 브라우저에서 업로드 UI까지 확인했으나 OCR/AI 호출과 실제 입고 writer는 mock. 이어지는 전체 UI에서 원가 다운로드를 클릭해 끝내는 E2E는 미검증이므로 실입고·배포 완료로 주장하지 않는다. PR·CI·Cafe24 배포 상태는 별도 작업 세션 기록을 따른다.
 - 검색어: AU AWB 44-01 805kg 65박스 AUDKRW C+F 업로드환율 도착원가 다운로드
+
+## 2026-10-28 SS3 관리자 전체 거래처 채권 조회
+- 채권대장 GET에서 관리자 계정 `nenovaSS3`는 전체 활성 거래처 목록과 유일한 ECOUNT 식별값이 연결된 검증 대장을 읽도록 범위를 추가. 담당자 계정은 기존 배정 범위를 유지.
+- 무담당/중복담당 거래처도 관리자 목록에 표시하되, 식별값 누락·중복 거래처는 비활성 선택. 관리자는 타 담당 거래처 최신화 버튼을 사용할 수 없도록 구분.
+- 계약에 관리자 조회 범위와 제한을 반영. targeted ECOUNT 28/28, ERP contract, dnSpy evidence, ERP manifest 168, write guard, build 통과. PR/CI/배포 후 브라우저는 미검증.
+- 검색어: ecount-customer-ledger nenovaSS3 전체 거래처 관리자 refreshable

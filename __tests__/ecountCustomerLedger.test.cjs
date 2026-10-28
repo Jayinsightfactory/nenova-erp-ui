@@ -101,8 +101,35 @@ test('API checks fresh owner scope before every ledger read, including forged ad
 test('API list strips source identifiers and unavailable owner yields no customers',async()=>{
  const handler=loadHandler({ledgerCustomers:async uid=>uid==='alice'?[{custKey:7,name:'fixture',linked:true,ecountCode:'private',managerUserId:'alice'}]:[],readLedger:()=>assert.fail(),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
  const res=response();await handler({method:'GET',user:{userId:'alice'},query:{}},res);
- assert.deepEqual(res.data.customers,[{custKey:7,name:'fixture',linked:true}]);assert.equal(res.headers['Cache-Control'],'private, no-store');
+ assert.deepEqual(res.data.customers,[{custKey:7,name:'fixture',linked:true,refreshable:true}]);assert.equal(res.headers['Cache-Control'],'private, no-store');
  const inactive=response();await handler({method:'GET',user:{userId:'inactive'},query:{}},inactive);assert.deepEqual(inactive.data.customers,[]);
+});
+test('SS3 lists all active customers and reads other managers’ uniquely linked snapshots',async()=>{
+ const customers=[
+  {custKey:7,name:'fixture-a',active:true,managerUserId:'alice',managerMatchCount:1,codeMatchCount:1,ecountCode:'1234567890',linked:true},
+  {custKey:8,name:'fixture-b',active:true,managerUserId:null,managerMatchCount:0,codeMatchCount:0,ecountCode:'',linked:false},
+ ];
+ const scopes=[];
+ const handler=loadHandler({ledgerCustomers:async(uid,all)=>{scopes.push([uid,all]);return all?customers:[];},readLedger:async customer=>({ledger:{custKey:customer.custKey,rows:[]}}),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
+ const list=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{}},list);
+ assert.deepEqual(scopes[0],['nenovaSS3',true]);assert.equal(list.data.scope,'all');
+ assert.deepEqual(list.data.customers,[{custKey:7,name:'fixture-a',linked:true,refreshable:false},{custKey:8,name:'fixture-b',linked:false,refreshable:false}]);
+ const detail=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'7'}},detail);
+ assert.equal(detail.statusCode,200);assert.equal(detail.data.ledger.custKey,7);
+ const unlinked=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'8'}},unlinked);
+ assert.equal(unlinked.statusCode,409);
+ const other=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},other);
+ assert.equal(other.statusCode,403);
+});
+test('all-customer lookup requires a live admin UserInfo row and does not change owner-only callers',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8');
+ const code=source.slice(source.indexOf('export async function ledgerCustomers'),source.indexOf('export async function readLedger')).replace('export async function','async function')+'\nreturn ledgerCustomers;';
+ const queries=[];const lookup=new Function('query','sql',code)(async(text,params)=>{queries.push({text,params});return {recordset:[]};},{NVarChar:'nvarchar',Bit:'bit'});
+ await lookup('nenovaSS3',true);await lookup('alice',false);
+ assert.match(queries[0].text,/EXISTS \(SELECT 1 FROM UserInfo adminUser WHERE ISNULL\(adminUser\.isDeleted,0\)=0 AND adminUser\.UserID=@uid\)/);
+ assert.equal(queries[0].params.uid.value,'nenovaSS3');assert.equal(queries[0].params.allActive.value,true);
+ assert.match(queries[1].text,/owner\.matches=1 AND \(@uid IS NULL OR owner\.UserID=@uid\)/);
+ assert.equal(queries[1].params.allActive.value,false);
 });
 test('manual refresh API rechecks the live owner, accepts only linked customers and returns no source identity',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger-refresh.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default withAuth(handler);','return handler;');
@@ -114,6 +141,7 @@ test('manual refresh API rechecks the live owner, accepts only linked customers 
  const ok=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:7}},ok);
  assert.equal(ok.statusCode,200);assert.deepEqual(calls,[['alice',7]]);assert.equal(JSON.stringify(ok.data).includes('1234567890'),false);
  const other=response();await handler({method:'POST',user:{userId:'bob'},body:{custKey:7}},other);assert.equal(other.statusCode,403);assert.equal(calls.length,1);
+ const adminReadOnly=response();await handler({method:'POST',user:{userId:'nenovaSS3'},body:{custKey:7}},adminReadOnly);assert.equal(adminReadOnly.statusCode,403);assert.equal(calls.length,1);
  const invalid=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:'7 OR 1=1'}},invalid);assert.equal(invalid.statusCode,400);
  const status=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},status);assert.equal(status.data.request.status,'PENDING');
  const anonymous=response();await handler({method:'POST',body:{custKey:7}},anonymous);assert.equal(anonymous.statusCode,401);

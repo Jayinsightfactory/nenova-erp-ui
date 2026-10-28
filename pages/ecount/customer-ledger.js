@@ -7,7 +7,7 @@ export default function CustomerLedger(){
   const requestId=useRef(0);
   async function loadCustomers(){
     setListError('');
-    try{const res=await fetch('/api/ecount/customer-ledger',{cache:'no-store'});const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'담당 거래처를 불러오지 못했습니다.');setCustomers(d.customers);setMeta(d);}
+    try{const res=await fetch('/api/ecount/customer-ledger',{cache:'no-store'});const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'거래처 목록을 불러오지 못했습니다.');setCustomers(d.customers);setMeta(d);}
     catch(e){setCustomers([]);setListError(e.message);}
   }
   async function load(key){
@@ -46,12 +46,12 @@ export default function CustomerLedger(){
   const ledger=data?.ledger,period=data?.period||meta?.period,schedule=data?.schedule||meta?.schedule,refreshStatus=data?.refreshRequest?.status,refreshPending=['PENDING','RUNNING'].includes(refreshStatus),selectedCustomer=customers.find(c=>String(c.custKey)===selected);
   return <section className="ledger-page">
     <h1 data-ui-page-title>거래처관리대장1(채권)</h1>
-    <p className="muted">담당 거래처의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 개별거래처 기준</p>
-    <div className="controls"><label htmlFor="ledger-customer">내 거래처</label>
+    <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 개별거래처 기준</p>
+    <div className="controls"><label htmlFor="ledger-customer">{meta?.scope==='all'?'전체 거래처':'내 거래처'}</label>
       <select id="ledger-customer" value={selected} onChange={e=>{requestId.current++;setData(null);setSelected(e.target.value);}}>
         <option value="">거래처를 선택하세요</option>
         {customers.map(c=><option key={c.custKey} value={c.custKey} disabled={!c.linked}>{c.name}{!c.linked?' · 연결 확인 필요':''}</option>)}
-      </select><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button>
+      </select><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button>
     </div>
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 09:00~18:00 매 정시 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
@@ -60,6 +60,7 @@ export default function CustomerLedger(){
     {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
     {!listError&&meta&&customers.length===0&&<p className="notice">배정된 거래처가 없습니다. 전산의 거래처 담당자 배정을 확인해 주세요.</p>}
     {customers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
+    {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">최신화 요청은 담당자로 배정된 거래처에서 가능합니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
     {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 정시에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}

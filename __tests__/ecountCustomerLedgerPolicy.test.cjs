@@ -48,6 +48,14 @@ const snapshot = { program:'E040723', mode:'voucher', custKey:1, ecountCode:'001
 test('assigned customer and exact verified voucher scope allowed', () => {
   assert.equal(p.authorizeSnapshot(user, customer, snapshot, at('2026-10-27T09:00:00')).allowed, true);
 });
+test('SS3 admin can read any active uniquely linked customer, but no alias or unlinked customer', () => {
+  const admin={userId:'nenovaSS3',accountActive:true};
+  assert.equal(p.isLedgerAdmin(admin),true);
+  assert.equal(p.isLedgerAdmin({userId:'SS3'}),false);
+  assert.equal(p.canReadCustomer(admin,{...customer,managerUserId:'sales-b'}),true);
+  for(const change of [{active:false},{codeMatchCount:2},{ecountCode:''}])
+    assert.equal(p.canReadCustomer(admin,{...customer,managerUserId:'sales-b',...change}),false);
+});
 test('other manager, unassigned, inactive and ambiguous mapping denied; no implicit admin bypass', () => {
   for (const change of [{managerUserId:'sales-b'},{managerUserId:''},{active:false},{codeMatchCount:0},{codeMatchCount:2},{ecountCode:''}]) {
     assert.equal(p.canReadCustomer(user, {...customer,...change}), false);
