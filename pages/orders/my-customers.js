@@ -271,6 +271,30 @@ export default function MyCustomerOrders() {
     setCollapsedFlowers(v => ({ ...v, [flowerName]: false }));
     setTimeout(() => groupRefs.current[flowerName]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' }), 0);
   };
+  const orderCopyLine = p => `${label(p)} ${Math.round(Number(draftFor(p).finalQty ?? p.CurrentQty ?? 0))}${p.OutUnit || ''}`;
+  const copyLiveOrderSelection = event => {
+    const selected = window.getSelection?.()?.toString() || '';
+    if (!selected) return;
+    const lines = enteredRows.filter(p => selected.includes(label(p)) || selected.includes(displayLabel(p))).map(orderCopyLine);
+    if (lines.length) {
+      event.clipboardData.setData('text/plain', lines.join('\n'));
+      event.preventDefault();
+    }
+  };
+  const copyAllLiveOrder = async () => {
+    try {
+      await navigator.clipboard.writeText(enteredRows.map(orderCopyLine).join('\n'));
+      setMessage('주문품목을 클립보드에 복사했습니다.');
+    } catch { setMessage('클립보드 복사에 실패했습니다.'); }
+  };
+  useEffect(() => {
+    const handleCopy = event => {
+      if (!event.target.closest?.('.live-order')) return;
+      copyLiveOrderSelection(event);
+    };
+    document.addEventListener('copy', handleCopy);
+    return () => document.removeEventListener('copy', handleCopy);
+  }, [enteredRows, draftFor]);
   const submit = async (requestedMode = orderMode, approvedFingerprint = '') => {
     if (submitLockRef.current || submitting || needsReload || loadedScope !== scopeKey) return setMessage('현재 업체·차수 수량을 다시 불러온 뒤 등록하세요.');
     if (requestedMode === 'ADD' && Object.keys(finalQty).length) return setMessage('최종 수량을 수정한 품목이 있습니다. 변경등록으로 저장하세요.');
@@ -331,6 +355,7 @@ export default function MyCustomerOrders() {
       <div className="board-guide">품종별 A–Z 정렬 · 아래 가로 스크롤로 좌우 이동 <span className="legend-existing">기존 주문</span> <span className="legend-changed">수량 변경</span> <span className="legend-new">신규 추가</span></div><div className="product-list" tabIndex={0} role="region" aria-label="품종별 가로 목록">{loadedScope===scopeKey&&filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>String(qty[p.ProdKey] ?? '')!==''); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section ref={el=>groupRefs.current[group.flowerName]=el} className={`flower-group ${entered.length?'has-entered':''}`} key={group.flowerName}><button type="button" className="flower-toggle" disabled={submitting} aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=>{ const hasInput=String(qty[p.ProdKey] ?? '')!==''; const converted=hasInput?convertedInputQty(p):0; return <div className={`product-row ${Number(p.CurrentQty||0)>0?'has-existing':''} order-${customerOrderHighlight(draftFor(p))}`} key={p.ProdKey} title={label(p)}><span className="product-name"><b><ProductName name={displayLabel(p)}/></b></span><strong className={Number(p.CurrentQty||0)>0?'current-positive':''}>기존 {Number(p.CurrentQty||0)}{p.OutUnit}</strong><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey] ?? ''} onChange={e=>editAdditional(p,e.target.value)} onKeyDown={e=>move(e,p.ProdKey)} disabled={submitting||loadedScope!==scopeKey} type="number" min="0" step="any" placeholder="+ 수량" aria-label={`${displayLabel(p)} 추가 입력수량`}/><select value={selectedUnit(p)} onChange={e=>setUnits(v=>({...v,[p.ProdKey]:e.target.value}))} disabled={submitting||loadedScope!==scopeKey} aria-label={`${displayLabel(p)} 입력단위`}>{salesPasteUnitOptions().map(unit=><option key={unit} value={unit}>{unit}</option>)}</select><strong className={converted===null?'conversion-error':''}>{converted===null?'환산 불가':`최종 ${draftFor(p).finalQty ?? '확인필요'}${p.OutUnit}`}</strong></div>})}</div>}</section>})}</div>
       {products.length>0&&filteredProductGroups.length===0&&<div className="empty">검색 또는 알파벳 조건에 맞는 품목이 없습니다.</div>}
       {!busy && loadedScope===scopeKey && products.length===0 && <div className="empty">이 업체의 기존 주문 품목이 없습니다. 검색으로 품목을 추가하세요.</div>}</div></section>
+      <div className="live-order-copy"><button type="button" onClick={copyAllLiveOrder} disabled={!enteredRows.length}>주문품목 복사</button><small>드래그 선택 후 복사하면 품목 수량만 줄바꿈으로 복사됩니다.</small></div>
       <aside className="side-tools"><div className="live-order" aria-live="polite"><strong>주문 품목 {enteredRows.length}개</strong><p>기존 주문 포함 · 우측 수량은 최종 주문수량</p><small>추가 입력 품목 {changed.length}개 · 최종 수정 {Object.keys(finalQty).length}개</small>{enteredRows.length>0?<div>{enteredRows.map(p=><div className={`live-order-item order-${customerOrderHighlight(draftFor(p))}`} key={p.ProdKey}>
         <span className="live-order-name" title={label(p)}><strong><ProductName name={displayLabel(p)}/></strong><small>{({existing:'기존 주문',changed:'수량 변경',new:'신규 추가',invalid:'입력 확인',none:''})[customerOrderHighlight(draftFor(p))]} · 기존 {Number(p.CurrentQty||0)}{p.OutUnit}{draftFor(p).touched ? ` → 최종 ${draftFor(p).finalQty ?? '확인필요'}${p.OutUnit}` : ''}</small></span>
         <label className="live-order-quantity">
@@ -387,6 +412,7 @@ export default function MyCustomerOrders() {
       .live-order-quantity b{font-size:12px}.live-order button.live-order-remove{display:block;width:28px;min-height:28px;padding:0;text-align:center;color:#b42318;background:#fff5f5;border-color:#fecdca;font-size:18px}
       .flower-products{align-items:start}
       @media(min-width:761px) and (max-width:1500px){.flower-products{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      .live-order-copy{display:flex;align-items:center;gap:6px;padding:4px 6px;background:#fffaeb;border:1px solid #fedf89;border-radius:8px}.live-order-copy button{min-height:28px;font-weight:800;color:#1849a9;background:#eef4ff;border-color:#84adff}.live-order-copy small{font-size:11px}
       .product-row{grid-template-columns:minmax(0,1fr) max-content 60px 56px max-content;gap:3px 5px;padding:3px 6px;align-content:start;min-height:33px}
       .product-row .product-name{grid-column:auto;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.35;font-size:13px}
       .product-row .product-name b{white-space:normal;overflow-wrap:anywhere}
@@ -403,7 +429,7 @@ export default function MyCustomerOrders() {
       .product-scroll{max-height:none;min-height:0;overflow:hidden}.board-guide{font-size:12px;color:#475467;padding:5px 8px;background:#f8fafc}
       .product-list{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;align-items:flex-start;padding:4px 4px 12px;scrollbar-width:auto;scroll-snap-type:x proximity}
       .product-list:focus-visible{outline:2px solid #155eef;outline-offset:-2px}
-      .product-list .flower-group{flex:0 0 410px;min-width:0;margin:0;scroll-snap-align:start;box-sizing:border-box}
+      .product-list .flower-group{flex:0 0 calc(50% - 4px);min-width:0;margin:0;scroll-snap-align:start;box-sizing:border-box}
       .product-list .flower-products{display:flex;flex-direction:column;align-items:stretch;max-height:calc(100vh - 460px);min-height:120px;overflow-y:auto;overflow-x:hidden}
       .product-list .flower-toggle{position:static;min-height:35px}.product-list .product-row{flex:none;min-height:35px}.side-tools{top:8px;margin-top:0}
       .product-filter input{min-width:0}.board-guide{white-space:normal}
