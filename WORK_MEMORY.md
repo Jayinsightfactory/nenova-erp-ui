@@ -1471,6 +1471,12 @@
 - 입고/원가 승인이나 ERP 원장 저장은 하지 않음. 운영 브라우저에서 수정 전 결함은 재현했으나 수정 후 브라우저 E2E·CI·배포는 미검증.
 - 검색어: Woolly bush 파일별 품목 입고량 분류 onAllocate AWB 검증 focusReceipt disabled button 실제 웹 재현
 
+## 2026-10-28 Woolly 분류 버튼 배포 확인
+- PR #1344 CI 통과 후 squash merge `300f0294`; Cafe24 배포 run `40652729466` 성공. GitHub 빌드·SSH 배포·Hydration 실브라우저 스모크 모두 통과.
+- 사용자의 Chrome CDP 탭 연결은 `Emulation.setFocusEmulationEnabled` 10초 타임아웃으로 재시도 후에도 연결 실패. 따라서 배포 후 운영 UI에서 Woolly 버튼을 직접 클릭한 E2E는 미검증. 수정 전 실제 운영 클릭 무반응은 재현했고, 변경 후 콜백 회귀테스트/로컬 빌드 통과.
+- ERP 입고·재고·원가 저장 없음. AWB 근거 대조 가드는 보존.
+- 검색어: PR1344 300f0294 Cafe24 40652729466 Woolly onAllocate Chrome CDP E2E 미검증
+
 ## 2026-10-28 자동수집 일괄등록
 - 자동수집 영업지원 등록 허용. 혼합 등록과 주광·태림 43차 양성/출고 없음/0원 단가/중복 fixture 통과. PR #1339 검증 진행.
 - 검색어: 자동수집 주광 태림 43차 AUTO_SOURCE_REVIEW_REQUIRED
@@ -1503,6 +1509,13 @@
 - 검색어:42차이후 10806브르트5vs15 대한25/6 17archive12withdraw 926 유칼립투스환산 SOURCE_EVIDENCE_INCOMPLETE SOURCE_UNIT_REVIEW
 - 사용자 최종 답변:926안시리움과1052유칼립투스는직접입력같으니냅둬.두원장/실제10811견적보존,원문추정/환산/복원중지.최종범위16archive/11견적삭제/정상3견적확인/4초안.두수기행전후스냅샷확인.
 
+## 2026-10-28 Woolly 분류 버튼 실제 UI 차단 재현 및 수정
+- 로컬 `격리 테스트` 웹앱 화면에 실제 44-01 호주 CI/AWB PDF를 선택, mock 분석 응답으로 11행 결과를 렌더링. 실제 AI/OCR가 아닌 UI 흐름 검증이며 운영 DB 미접속.
+- 9개 유사매칭 미확인 상태에서 10/11행 Woolly 분류 버튼을 누르자 앱이 `전산 품목을 확인할 행이 9건 남았습니다` 안내로 분류 화면 진입을 막는 것을 직접 재현. 원인은 분류 검토용 준비 요청이 일반 입고 진행과 같은 전체매칭 완료 검증을 공유한 것.
+- 수정: Woolly 행별 분류 검토 진입만 잔여 일반 매칭 검증을 우회. 팀 매칭 로딩/저장/분석/최신 revision 보호는 유지하고, 일반 입고 진행은 계속 모든 매칭 완료를 요구. pure gate 회귀 3건 및 packing-team 관련 138건(120 pass/18 optional skip), `npm run build` 통과.
+- 수정 후 최신 빌드의 실제 격리 웹앱에서 동일 인보이스/AWB를 다시 선택. 9개 유사매칭이 남은 상태에서도 버튼이 분류 대화상자를 열었고, 검색에서 Wolly Bush Green Tip(#2997), Red Tip(#2998)을 각각 골라 `합계 검증·문서에 적용` 후 10·11행에 반영된 것을 UI로 확인. 분석 결과/AWB 필드는 로컬 fixture 응답이며 실 AI/OCR은 호출하지 않음.
+- 입고 등록·원가 승인·다운로드는 실행하지 않았고, API fixture는 DB에 연결하지 않음. 격리 UI에서 분류표시·검색·선택·문서 적용까지 검증 완료. 화면 검증 시 가로로 넓은 모달의 일부 DOM 클릭은 위치가 어긋나 실제 화면 좌표 조작으로 후보 버튼을 선택함.
+- 검색어: 44-01 AU actual UI Woolly classification 9 fuzzy unresolved packingPreparationBlockReason test build
 ## 2026-10-28 최종 수기입력 보존 정정
 사용자 “수기입력 묶음은 모두 보존” 확인. 앞선16archive/11견적삭제/4초안 계획은 실행 전 철회했고 해당 JSON은 executable:false로 봉쇄했다. 브라우저 혼합저장에서 첫 자동행의 sourceFileName이 수기행까지 공통 적용된 실제 저장버그를 확인했다. 1019 및1048~1060 총14수기와1139~1142 다음저장4수기는 수량·견적·원장버전 전부 보존하고 감사 이력만으로 출처를 정정한다.926도 보존한다.1066/1067 자동2건은 원문5233(25/6)과15/15 불일치로 삭제 없이 검토표시.별도 과거해제자동864→43차10803만 기존 선택삭제/편집잠금으로 정리한다.최종 고정계획 defect-manual-provenance-final-2026-10-28.json 및 reconcile-defect-manual-origin.mjs가 이전 계획보다 우선한다.
 검색어: 수기입력 모두보존 sourceFileName 혼합저장 MANUAL_SOURCE_CONFIRM SOURCE_FACT_REVIEW 10803
@@ -1510,3 +1523,7 @@
 검증: 전체 test:erp-contract, dnSpy evidence, 변경분 manifest/write guard 통과. 운영DB CTE SELECT-only로 수기확인 양성1/다른원천·다른근거종류·false3음성 통과. 원인코드는26bf5a555(2026-07-22)부터 있던 공통파일 우선순위이며2026-10-26/28 혼합저장 감사로 실제오염 확인. build/CI/배포는 진행중.
 
 로컬 production build 통과. PR1346 CI 진행. 이전현재정정계획 문서 상단에 철회 고지, 감사조회도 수기확인 이력을 존중하도록 정합성 보완.
+
+## 2026-10-28 PR1348 CI 보완
+- PR1348 첫 CI에서 `importPackingHardening.test.js` harness가 새 `packingReceiptPreparation` 모듈을 mock registry에 등록하지 않아 한 테스트가 실패함. 앱 로직 실패가 아닌 테스트 harness import 누락으로 확인, helper를 harness에 등록해 수정.
+- 검색어: PR1348 CI packingPreparationBlockReason importPackingHardening harness dependency
