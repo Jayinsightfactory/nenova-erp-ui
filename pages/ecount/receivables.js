@@ -1,5 +1,4 @@
-// ECOUNT 채권(미수) 현황 — 거래처별 미수 잔액 + 미수개월(aging). 장기미수 경고.
-// 웹엔 없는 정보(누가 얼마를 얼마나 오래 안 갚았나)를 ECOUNT 기준으로.
+// ECOUNT 채권 스냅샷 요약과 Nenovaweb 확정 출고 기준 최근 12개월 매출 평균.
 import { useState, useEffect, useCallback } from 'react';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -28,14 +27,25 @@ export default function EcountReceivablesPage() {
   let rows = data?.rows || [];
   if (overdueOnly) rows = rows.filter((r) => r.agingMonths >= 4 && r.balance > 0);
   rows = [...rows].sort((a, b) => (sortBy === 'aging' ? b.agingMonths - a.agingMonths || b.balance - a.balance : b.balance - a.balance));
+  const shownTotal = rows.reduce((total, row) => ({
+    sales: total.sales + row.sales, receipt: total.receipt + row.receipt,
+    etcDiff: total.etcDiff + row.etcDiff, balance: total.balance + row.balance,
+  }), { sales: 0, receipt: 0, etcDiff: 0, balance: 0 });
+  const lastIncludedDay = data?.averageWindow?.to
+    ? new Date(`${data.averageWindow.to}T00:00:00Z`)
+    : null;
+  if (lastIncludedDay) lastIncludedDay.setUTCDate(lastIncludedDay.getUTCDate() - 1);
+  const avgWindowLabel = data?.averageWindow?.from && data?.averageWindow?.to
+    ? `${data.averageWindow.from} ~ ${lastIncludedDay.toISOString().slice(0, 10)} 최근 12개월`
+    : '최근 12개월';
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
-      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>💳 ECOUNT 채권(미수) 현황</h1>
+      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>💳 ECOUNT 채권 요약</h1>
       <p style={{ fontSize: 13, color: '#475569', margin: '0 0 12px', lineHeight: 1.6 }}>
-        ECOUNT 기준 거래처별 <b>미수 잔액 + 미수개월(aging)</b>. 오래된 미수일수록 빨갛게 — 누가 얼마를 얼마나 오래 안 갚았는지 한눈에.
+        {data?.scope === 'all' ? '관리자 전체 거래처' : '담당자 배정 거래처'}의 매출·수금·할인 차액과 잔액을 표시합니다.
         {data?.takenAt && <span style={{ color: '#94a3b8' }}> · 스냅샷 #{data.snapshotKey} ({data.takenAt})</span>}
-        <button onClick={load} disabled={loading} style={{ marginLeft: 10, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{loading ? '조회 중…' : '새로고침'}</button>
+        <button onClick={load} disabled={loading} style={{ marginLeft: 10, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{loading ? '조회 중…' : '화면 새로고침'}</button>
       </p>
 
       {err && <div style={{ background: '#fef2f2', border: '1px solid #ef4444', color: '#b91c1c', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 10 }}>⚠️ {err}</div>}
@@ -86,31 +96,47 @@ export default function EcountReceivablesPage() {
           <div style={{ maxHeight: 'calc(100vh - 340px)', overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#f1f5f9' }}>
-                  <th style={{ textAlign: 'left', padding: '7px 12px' }}>거래처</th>
-                  <th style={{ textAlign: 'right', padding: '7px 12px' }}>매출합계</th>
-                  <th style={{ textAlign: 'right', padding: '7px 12px' }}>수금합계</th>
-                  <th style={{ textAlign: 'right', padding: '7px 12px' }}>미수 잔액</th>
-                  <th style={{ textAlign: 'center', padding: '7px 12px' }}>미수개월</th>
+              <tr style={{ background: '#f1f5f9' }}>
+                  <th style={{ textAlign: 'left', padding: '7px 12px', whiteSpace: 'nowrap' }}>거래처명</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>매출합계</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>수금합계</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>기타할인등차액</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>잔액</th>
+                  <th style={{ textAlign: 'center', padding: '7px 12px', whiteSpace: 'nowrap' }}>미회수월</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>월평균 매출</th>
+                  <th style={{ textAlign: 'right', padding: '7px 12px', whiteSpace: 'nowrap' }}>차수별 평균 매출</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>표시할 미수가 없습니다</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>표시할 거래처가 없습니다. 담당자 배정과 ECOUNT 거래처명을 확인해 주세요.</td></tr>}
                 {rows.map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #eef2f7' }}>
-                    <td style={{ padding: '7px 12px', fontWeight: 700 }}>{r.name}</td>
-                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b' }}>{won(r.sales)}</td>
-                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b' }}>{won(r.receipt)}</td>
-                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', fontWeight: 800, color: r.balance < 0 ? '#2563eb' : '#0f172a' }}>{won(r.balance)}</td>
+                    <td style={{ padding: '7px 12px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.name}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.sales)}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.receipt)}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', color: '#64748b', whiteSpace: 'nowrap' }}>{won(r.etcDiff)}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', fontWeight: 800, color: r.balance < 0 ? '#2563eb' : '#0f172a', whiteSpace: 'nowrap' }}>{won(r.balance)}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'center' }}>
-                      {r.agingMonths > 0 && (
+                      {r.agingRaw ? (
                         <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: r.color, borderRadius: 999, padding: '2px 9px' }}>
-                          {r.agingRaw || `${r.agingMonths}개월`}
+                          {r.agingRaw}
                         </span>
-                      )}
+                      ) : r.agingMonths > 0 ? `${r.agingMonths}개월` : ''}
                     </td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.avgSalesMonthly == null ? '—' : won(r.avgSalesMonthly)}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{r.avgSalesCycle == null ? '—' : won(r.avgSalesCycle)}</td>
                   </tr>
                 ))}
+                {rows.length > 0 && <tr style={{ background: '#f1f5f9', fontWeight: 800, borderTop: '2px solid #cbd5e1' }}>
+                  <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>표시 합계</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{won(shownTotal.sales)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{won(shownTotal.receipt)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{won(shownTotal.etcDiff)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'ui-monospace,monospace', whiteSpace: 'nowrap' }}>{won(shownTotal.balance)}</td>
+                  <td />
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>—</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>—</td>
+                </tr>}
               </tbody>
             </table>
           </div>
@@ -118,8 +144,9 @@ export default function EcountReceivablesPage() {
       )}
 
       <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 12, lineHeight: 1.6 }}>
-        · 미수개월 색: 초록(1개월↓) → 노랑(2~3) → 주황(4~6) → 빨강(7~12) → 진빨강(13+). · 잔액 음수(파랑)=선수금/과입금.
-        · 매출·수금은 ECOUNT 채권 리포트 기간 값. 잔액은 이월분(기초) 포함 실제 미수.
+        · 매출·수금·기타할인등차액·잔액·미회수월은 ECOUNT 채권 리포트 값입니다. 매출 평균은 Nenovaweb 확정 출고(Amount+Vat) 기준입니다.
+        · 월평균은 {avgWindowLabel} 매출을 12로 나눈 값, 차수별 평균은 같은 기간 매출이 발생한 연도·대차수(세부차수 합산) 단위 평균입니다. 거래처명이 ERP 거래처와 유일하게 연결되지 않으면 평균은 —로 표시합니다.
+        · 화면 새로고침은 현재 저장된 스냅샷을 다시 읽습니다.
       </p>
     </div>
   );

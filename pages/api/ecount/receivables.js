@@ -1,12 +1,10 @@
-// GET /api/ecount/receivables — ECOUNT 채권(미수) 현황: 거래처별 미수 잔액 + 미수개월(aging).
-//   웹엔 없는 정보(누가 얼마를 얼마나 오래 안 갚았나)를 ECOUNT 기준으로 제공. 장기미수 경고.
+// ECOUNT 채권 요약은 스냅샷을 읽고, 매출 평균은 확정 출고 원장에서 읽기 전용으로 계산한다.
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
+import { isLedgerAdmin } from '../../../lib/ecountCustomerLedgerPolicy.cjs';
+import { averageSalesWindow, attachCustomerAverages } from '../../../lib/ecountReceivablesPolicy.cjs';
 
-// "2 개월" / "12 개월" → 숫자. 없으면 0.
-const agingNum = (s) => { const m = String(s || '').match(/-?\d+/); return m ? Number(m[0]) : 0; };
-
-// aging 버킷 (미수 경과 개월)
+const agingNum = (value) => { const match = String(value || '').match(/-?\d+/); return match ? Number(match[0]) : 0; };
 const BUCKETS = [
   { key: 'b1', label: '1개월 이하', min: -999, max: 1, color: '#16a34a' },
   { key: 'b2', label: '2~3개월', min: 2, max: 3, color: '#ca8a04' },
@@ -14,59 +12,130 @@ const BUCKETS = [
   { key: 'b4', label: '7~12개월', min: 7, max: 12, color: '#dc2626' },
   { key: 'b5', label: '13개월 이상', min: 13, max: 9999, color: '#7f1d1d' },
 ];
-const bucketOf = (mon) => BUCKETS.find((b) => mon >= b.min && mon <= b.max) || BUCKETS[0];
+const bucketOf = (months) => BUCKETS.find((bucket) => months >= bucket.min && months <= bucket.max) || BUCKETS[0];
+const roundWon = (value) => Math.round(Number(value || 0));
+
+async function loadCustomers() {
+  const result = await query(`
+    SELECT c.CustKey, c.CustName, CASE WHEN ISNULL(c.isDeleted,0)=0 THEN 1 ELSE 0 END AS active,
+           owner.UserID AS managerUserId, owner.matches AS managerMatchCount
+      FROM dbo.Customer c
+      CROSS APPLY (
+        SELECT COUNT(*) AS matches, MIN(u.UserID) AS UserID
+        FROM dbo.UserInfo u
+        WHERE ISNULL(u.isDeleted,0)=0 AND NULLIF(LTRIM(RTRIM(c.Manager)),'') IS NOT NULL
+          AND (LTRIM(RTRIM(c.Manager))=u.UserID OR LTRIM(RTRIM(c.Manager))=u.UserName)
+      ) owner`);
+  return result?.recordset || [];
+}
+
+async function loadAverageMetrics(window) {
+  const result = await query(`
+    WITH customerSales AS (
+      SELECT sm.CustKey, TRY_CONVERT(INT, sm.OrderYear) AS OrderYear,
+             TRY_CONVERT(INT, LEFT(sm.OrderWeek, CHARINDEX(N'-', sm.OrderWeek + N'-') - 1)) AS MajorWeek,
+             SUM(ISNULL(sd.Amount, 0) + ISNULL(sd.Vat, 0)) AS cycleSales
+      FROM dbo.ShipmentMaster sm
+      JOIN dbo.ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+      JOIN dbo.Customer c ON c.CustKey=sm.CustKey AND ISNULL(c.isDeleted,0)=0
+      JOIN dbo.Product p ON p.ProdKey=sd.ProdKey AND ISNULL(p.isDeleted,0)=0
+      WHERE ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.isFix,0)=1
+        AND sd.ShipmentDtm >= @from AND sd.ShipmentDtm < @to
+      GROUP BY sm.CustKey, TRY_CONVERT(INT, sm.OrderYear),
+               TRY_CONVERT(INT, LEFT(sm.OrderWeek, CHARINDEX(N'-', sm.OrderWeek + N'-') - 1))
+    ), totals AS (
+      SELECT CustKey, SUM(cycleSales) AS totalSales
+      FROM customerSales GROUP BY CustKey
+    ), cycles AS (
+      SELECT CustKey, COUNT(*) AS cycleCount, SUM(cycleSales) AS cycleSales
+      FROM customerSales
+      WHERE OrderYear IS NOT NULL AND MajorWeek BETWEEN 1 AND 53 AND cycleSales <> 0
+      GROUP BY CustKey
+    )
+    SELECT t.CustKey, t.totalSales / 12.0 AS avgSalesMonthly,
+           CASE WHEN ISNULL(c.cycleCount,0)=0 THEN NULL ELSE c.cycleSales / c.cycleCount END AS avgSalesCycle,
+           ISNULL(c.cycleCount,0) AS cycleCount
+    FROM totals t LEFT JOIN cycles c ON c.CustKey=t.CustKey`, {
+    from: { type: sql.Date, value: window.from },
+    to: { type: sql.Date, value: window.to },
+  });
+  return result?.recordset || [];
+}
 
 export default withAuth(async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') return res.status(405).end();
+  if (!req.user?.userId) return res.status(401).json({ success: false, error: 'LOGIN_REQUIRED' });
   try {
-    const snap = req.query.snapshotKey
-      ? { SnapshotKey: Number(req.query.snapshotKey) }
-      : (await query(`SELECT TOP 1 SnapshotKey, CONVERT(varchar(19),TakenAt,120) AS takenAt FROM WebEcountSnapshot WHERE Dataset='ar' ORDER BY SnapshotKey DESC`)).recordset[0];
-    if (!snap) return res.status(200).json({ success: true, noEcount: true, rows: [] });
+    const admin = isLedgerAdmin(req.user);
+    const window = averageSalesWindow();
+    const scope = admin ? 'all' : 'assigned';
+    let snapshot;
+    if (req.query.snapshotKey !== undefined) {
+      const key = Number(req.query.snapshotKey);
+      if (!Number.isSafeInteger(key) || key < 1) return res.status(400).json({ success: false, error: 'INVALID_SNAPSHOT' });
+      snapshot = (await query(
+        `SELECT SnapshotKey, CONVERT(varchar(19),TakenAt,120) AS takenAt FROM dbo.WebEcountSnapshot WHERE SnapshotKey=@sk AND Dataset='ar'`,
+        { sk: { type: sql.Int, value: key } },
+      )).recordset[0];
+    } else {
+      snapshot = (await query(`SELECT TOP 1 SnapshotKey, CONVERT(varchar(19),TakenAt,120) AS takenAt FROM dbo.WebEcountSnapshot WHERE Dataset='ar' ORDER BY SnapshotKey DESC`)).recordset[0];
+    }
+    if (!snapshot) return res.status(200).json({ success: true, noEcount: true, scope, rows: [], averageWindow: window });
 
-    const meta = (await query(`SELECT CONVERT(varchar(19),TakenAt,120) AS takenAt FROM WebEcountSnapshot WHERE SnapshotKey=@sk`, { sk: { type: sql.Int, value: snap.SnapshotKey } })).recordset[0];
-    const ec = await query(
-      `SELECT CustName, Payload FROM WebEcountRow WHERE SnapshotKey=@sk AND ISNULL(IsSubtotal,0)=0`,
-      { sk: { type: sql.Int, value: snap.SnapshotKey } });
+    const [customers, averages, ec] = await Promise.all([
+      loadCustomers(),
+      loadAverageMetrics(window),
+      query(`SELECT CustName, Payload FROM dbo.WebEcountRow WHERE SnapshotKey=@sk AND ISNULL(IsSubtotal,0)=0`,
+        { sk: { type: sql.Int, value: snapshot.SnapshotKey } }),
+    ]);
+    const customerMetrics = new Map(customers.map((customer) => [Number(customer.CustKey), { avgSalesMonthly: 0, avgSalesCycle: null, cycleCount: 0 }]));
+    for (const metric of averages) customerMetrics.set(Number(metric.CustKey), {
+      avgSalesMonthly: Number(metric.avgSalesMonthly) || 0,
+      avgSalesCycle: metric.avgSalesCycle == null ? null : Number(metric.avgSalesCycle) || 0,
+      cycleCount: Number(metric.cycleCount) || 0,
+    });
 
-    const round = (v) => Math.round(Number(v || 0));
-    const rows = [];
-    for (const r of ec.recordset) {
-      let o; try { o = JSON.parse(r.Payload); } catch { continue; }
-      const balance = round(o.balance);
-      if (balance === 0 && round(o.salesTotal) === 0 && round(o.receiptTotal) === 0) continue;
-      const mon = agingNum(o.agingMonth);
-      const b = bucketOf(mon);
-      rows.push({
-        name: r.CustName || o.custName || '(미지정)',
-        sales: round(o.salesTotal), receipt: round(o.receiptTotal),
-        balance, agingMonths: mon, agingRaw: o.agingMonth || '',
-        bucket: b.key, bucketLabel: b.label, color: b.color,
+    const sourceRows = [];
+    for (const row of ec.recordset || []) {
+      let payload;
+      try { payload = JSON.parse(row.Payload); } catch { continue; }
+      const balance = roundWon(payload.balance);
+      const sales = roundWon(payload.salesTotal);
+      const receipt = roundWon(payload.receiptTotal);
+      const etcDiff = roundWon(payload.etcDiff);
+      if (balance === 0 && sales === 0 && receipt === 0 && etcDiff === 0) continue;
+      const agingMonths = agingNum(payload.agingMonth);
+      const bucket = bucketOf(agingMonths);
+      sourceRows.push({
+        name: row.CustName || payload.custName || '(미지정)',
+        sales, receipt, etcDiff, balance, agingMonths,
+        agingRaw: payload.agingMonth || '', bucket: bucket.key, bucketLabel: bucket.label, color: bucket.color,
       });
     }
-    rows.sort((a, b) => b.balance - a.balance);
-
-    // aging 버킷 집계 (미수 잔액 > 0 인 것만)
-    const aging = BUCKETS.map((b) => {
-      const inb = rows.filter((r) => r.bucket === b.key && r.balance > 0);
-      return { key: b.key, label: b.label, color: b.color, count: inb.length, amount: inb.reduce((a, r) => a + r.balance, 0) };
+    const rows = attachCustomerAverages(sourceRows, customers, customerMetrics, {
+      userId: req.user.userId, admin,
+    }).sort((a, b) => b.balance - a.balance);
+    const posBal = rows.filter((row) => row.balance > 0);
+    const overdue = (min) => {
+      const found = posBal.filter((row) => row.agingMonths >= min);
+      return { count: found.length, amount: found.reduce((sum, row) => sum + row.balance, 0) };
+    };
+    const aging = BUCKETS.map((bucket) => {
+      const found = rows.filter((row) => row.bucket === bucket.key && row.balance > 0);
+      return { key: bucket.key, label: bucket.label, color: bucket.color, count: found.length,
+        amount: found.reduce((sum, row) => sum + row.balance, 0) };
     });
-
-    const posBal = rows.filter((r) => r.balance > 0);
-    const overdue = (min) => { const f = posBal.filter((r) => r.agingMonths >= min); return { count: f.length, amount: f.reduce((a, r) => a + r.balance, 0) }; };
-
     return res.status(200).json({
-      success: true,
-      snapshotKey: snap.SnapshotKey, takenAt: meta?.takenAt || '',
+      success: true, snapshotKey: snapshot.SnapshotKey, takenAt: snapshot.takenAt || '', scope,
+      averageWindow: window,
       summary: {
-        totalBalance: rows.reduce((a, r) => a + r.balance, 0),
-        posCount: posBal.length,
+        totalBalance: rows.reduce((sum, row) => sum + row.balance, 0), posCount: posBal.length,
         overdue4: overdue(4), overdue7: overdue(7), overdue13: overdue(13),
       },
-      aging,
-      rows,
+      aging, rows,
     });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+  } catch {
+    return res.status(500).json({ success: false, error: 'RECEIVABLES_UNAVAILABLE' });
   }
 });
