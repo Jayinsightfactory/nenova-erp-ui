@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-28 과거 해제자료 재등록 및 삭제견적 완료 표시
+
+일반 자동수집 등록 허용은 과거 오등록 해제자료의 재허용을 뜻하지 않는다. 현재/과거 자동원천+ESTIMATE_UNLINK는 원문 재확인으로 격리하고, 실제 Estimate가 사라진 연결키는 등록완료로 표시하거나 자동 재생성하지 않는다. 공통 SQL metadata와 순수 판정을 목록/검토/등록 최종잠금에 공유한다. 사용자 확인 원장722/740/859/868/877은 기존 이력보존 archive로 정리하고 정상 과거 견적은 보존한다. 회귀: salesDefectSourceReconciliation.test.js. 근거/부작용: plans/defect-source-reconciliation-2026-10-28.md.
+
 ## 2026-10-28 자동수집 일괄등록 기준 정정
 
 자동수집 출처만으로 영업지원 전산등록을 차단하지 않는다. 현재/과거 원천 표식은 감사와 중복 견적 판정에 사용하고 정상 업체·품목·수량·출고·단가 검증을 대체하지 않는다. 공통 계획 함수에 남은 과거 차단도 제거했다. CI의 독립 `salesDefectRegistrationProvenance.test.js`는 업체·연도·확인·현재/과거원천 96조합의 정상 등록과 업무상 차단을 실행 검증한다. 예전 차단을 다시 추가하면 양성 fixture가 실패해야 한다. 전수 대조 및 부작용 기준: `docs/plans/defect-registration-provenance-parity-2026-10-28.md`.
