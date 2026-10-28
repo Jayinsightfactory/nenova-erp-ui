@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 53118)
-Total output lines: 1464
-
 # 작업 기록
 
 ## 2026-10-22 ECOUNT 검증 2~3차(자동 갱신·원본 대조·수집 추가)
@@ -670,7 +667,60 @@ Total output lines: 1464
 - 원본 조사: 사장님 크롬 ECOUNT 세션 읽기 전용. 결과는 페이지 메모리→압축 행(JSON)으로 900자씩 읽어 scratchpad/survey/inbox/s*.json 에 즉시 저장(127.0.0.1 수신기 POST 는 자동승인 분류기가 Browser JS Exfil 로 차단 → 사용 중단). 변환기 scratchpad/survey/expand2.cjs(재조사 행이 더 풍부하면 교체, 사이트맵만 렌더된 화면 제외, 남은 ECOUNT 안내창 확인 버튼 제외).
 - 함정: (1) 4초 고정 대기는 입력/시리얼 화면 미렌더 → 제목 변경+컨트롤>3 대기 루프(최대 16초). (2) 계정별원장 프리셋 후 "검색창에 계정코드를 입력하고 검색 바랍니다" 안내가 무한 반복 — 자동 확인 클릭(setInterval)이 오히려 루프를 키움(6분 623회). 끄면 정상. (3) ERP 주소를 ec_req_sid 없이 다시 열면 로그아웃 → location.reload() 만 쓸 것. (4) 크롬 확장 재연결마다 탭 그룹 재생성.
 - 릴리스: PR #1215 90화면 조사 적재(+1,223버튼) · #1216 P020~P039 대상 셸(워커, 판정 규칙 3개 추가: 저장(F8)+저장/전표(F7)=input, 26 / 09 / 날짜 정규화, other 의 Search(F3)→토글) · #1217 회계I 7화면 추가(+74, 셸 169화면·ID 2,271·활성 1,054/자리표시 1,217). 전부 CI pass 후 squash.
-- 현황(2,047→3,344 관측 버튼): 버튼 목록 확보 202/373, 구현 817 / …3118 tokens truncated… 출력 선택·기억
+- 현황(2,047→3,344 관측 버튼): 버튼 목록 확보 202/373, 구현 817 / 미구현 1,076 / 조건부 13 / 미관측 1,313(새 셸은 크롤 전이라 아직 미관측) / API설계전용 125 / 검증 0. 남은 조사 28화면(회계I E010712~E010823), 재로그인 대기.
+- 다음: 남은 28화면 조사 → 대상 DOM 재크롤(로컬 prod 빌드 포트 3100, scripts/ecount-dom-crawl.cjs, 이전 크롤 union 필수) → 미관측→미구현/구현 재분류.
+- 검색어: ECOUNT 재개4차후반 PR1215 PR1216 PR1217 survey7 survey8 expand2 계정코드안내창루프 ec_req_sid로그아웃 BrowserJSExfil 97/125 셸169
+
+## 2026-10-21 ECOUNT 이관 재개 4차 — 회수·셸 새창·InputDraft API·105화면 대상 DOM 병합
+- 회수(0단계): ECOUNT 관련 로컬/origin 브랜치·agent-* worktree 산출물은 전부 master 머지 확인(#1164~#1175, #1178~#1182, #1195). 유실 1건: 앞 세션(local_d76e6a38)의 P020~P039 125화면 원본 조사 결과(99/125)는 디스크 미저장·탭 메모리(window.__survey5)만 → 재조사 대상.
+- 릴리스4(이 세션): PR #1200 P008~P019 셸 검색패널 거래처/품목/창고 새창 연결(활성 437→440) · #1201 입력 화면 7종 InputDraft 저장 API(/api/ecount/input-drafts GET/POST/PATCH, 테이블 없으면 503 MIGRATION_PENDING, DDL 미실행)+InputDraftForm · #1202 셸에 폼 통합(sourceSaveButton prop 으로 matchId 중복 방지) · #1208 105화면 대상 DOM 크롤(로컬 prod 빌드 8ab5da0c, 포트 3100) 병합. 전부 CI verify pass 후 squash.
+- 분류 변화(2,047 관측 버튼): 구현 220→817 / 미구현 718→1,076 / 조건부 26→13 / 미관측 991→49 / API설계전용 92 / 검증 완료 0. 함정: 새 크롤 파일을 단독 병합하면 이전 33화면 로컬 크롤의 정적 주장 66건이 철회됨 → 크롤러 union 규칙과 같은 방식으로 이전 로컬 크롤을 union 한 뒤 병합(철회 0, E040207 거래처 대화상자 7건은 조건부).
+- 비교 엑셀 outputs/ecount-parity-20261021/ECOUNT_버튼별_비교보고서.xlsx 9시트 7,924,251B sha256 0f658763…(이미지 미삽입).
+- 차단: 크롬 확장 재연결(deviceId 변경)마다 Claude in Chrome 탭 그룹이 재생성되어 로그인된 ECOUNT 탭·진행 중 조사를 잃음. 조사 중 확장 재연결·다른 세션 브라우저 전환 금지. 조사 스크립트(srv/run/expand)는 세션 scratchpad 에 보관, 결과는 화면 배치마다 즉시 evidence JSON 저장 원칙.
+- 검색어: ECOUNT 재개4차 PR1200 PR1201 PR1202 PR1208 InputDraft API MIGRATION_PENDING 대상DOM크롤 r4 union 철회66 미관측49 구현817 탭그룹재생성 survey6
+
+## 2026-10-21 ECOUNT 이관 재개 1차 — PR1161 운영회귀 닫기 · 33화면 대상 DOM 증거 · ACTION_IDS 누락 11화면 수정
+- 재개 기준: docs/session-backups/2026-10-21_ecount-status-and-replan.md + resume-inventory.json(이 브랜치에 복사). 코덱스 앞선 3커밋(dayAll 미관측 날짜 미수집)은 master 9a8e55a7(#1161)에 동일 포함 확인(파일 diff 동일).
+- PR1161 운영회귀: 서비스 토큰 API dayAll 2026-10-20 → 200/2,217행/34구역/revision1 PASS, 10-19·10-21 → 400 INVALID_COVERAGE_SCOPE(설계상 정상). 브라우저(사장님 크롬, 네노바웹 미로그인): 10-19·금일 검색 시 53표 전부 '미수집', alert 0, 서버 요청 0 PASS. 10-20 표 렌더는 401로 미검증. 증거 data/ecount-workbench/evidence/2026-10-21-pr1161-daily-regression.json.
+- 대상 DOM 크롤러 scripts/ecount-dom-crawl.cjs(puppeteer-core+시스템 크롬, 미로그인 셸, 메뉴 해시→F3→활성 버튼 클릭→data-ecount-action-id 스냅샷, lookup 창 페이지 포함, window.open 스텁, 재실행 시 union). 운영(baf6d3df) 698개, 로컬(수정 트리) 977개/1,019. 병합 scripts/ecount-merge-dom-evidence.cjs → button-matches.json target.actualStableId/domState/verificationScope, 라벨 일치 888. 미재현 정적 주장은 자동 철회(이번 최종 0건; 중간 실행에서 7건 철회 후 로컬 재현으로 복구).
+- 결함 수정: ObservedPageControls ACTION_IDS에 receipt/payment/poQuery/buyStatus/discount/buyDisc/quoteStat/orderQuery/saleQuery/unsold/unbought 11 데이터셋 맵이 없어 해당 11화면(약 280버튼)이 ID 없이 렌더되던 문제 → 소스 라벨·문맥 그대로 생성해 추가. 회귀검사 __tests__/ecountActionIdCoverage.test.cjs(27 데이터셋 전수 커버리지·중복/타프로그램 금지).
+- 1단계 분류표 docs/ecount-migration/step1-closure-2026-10-21.md: 1,019버튼 = 구현(활성) 212 / 미구현(비활성 자리표시) 708 / 미관측(대상 컨트롤 없음) 42 / API설계전용 57. 기능·새창·조회값 비교는 전부 미검증(검증대기 1,019). 어떤 화면도 100% 아님.
+- 차단: ECOUNT 원본 관측은 크롬 ECOUNT 세션이 로그인 페이지로 튕겨 불가(사장님 로그인 요청 전달). 로그인 후 33화면 기간 프리셋/새창 원본 관측 → 708 자리표시 중 datePreset 가능 항목부터 활성화 예정.
+- ERP 원장·ECOUNT 쓰기 없음. test:erp-contract 통과(수정 트리), manifest·write guard 통과, build/CI는 PR에서 확인.
+- 검색어: ECOUNT 재개 ACTION_IDS 누락 11데이터셋 ecount-dom-crawl 977/1019 step1-closure 미관측42 PR1161 2217 INVALID_COVERAGE_SCOPE ECOUNT로그인차단
+- 2026-10-21 릴리스1: PR #1164 CI verify SUCCESS(3회, 최종 bcc10069) → squash d3c33993 → deploy run 39532373778 success(02:26Z). 운영 스모크: /api/ping OK, dayAll 2026-10-20 API 200/2,217행/34구역, 수정 11화면 운영 크롤 279 ID 렌더(배포 전 0). 비교 엑셀 outputs/ecount-parity-20261021/ECOUNT_버튼별_비교보고서.xlsx 9시트 3,686,914B sha256 616f5756…6b4107(이미지 미삽입). 검색어: PR1164 d3c33993 39532373778 운영스모크 279ID
+- 2026-10-21 릴리스2(하위 작업자 3건): PR #1165 프리셋 라벨 매핑(77c9a4fc, deploy 39535003807 success) · PR #1166 보고서 모델 DOM 분류(733a244c, 39535327937 success) · PR #1167 Excel 내보내기 35버튼(170de90d, 39536243857 success). 모두 CI verify SUCCESS 확인 후 squash. 로컬 스모크: 수금현황 227행 Excel 클릭 → xlsx 38,711B/2시트/228행 캡처 PASS. 운영 로그인 다운로드·원본 서식 동일성 미검증. 증거 evidence/2026-10-21-release2-smoke.json. 검색어: PR1165 PR1166 PR1167 Excel내보내기 presetIdForLabel 릴리스2
+- 2026-10-21 원본 조사 1차: 사장님 크롬 ECOUNT 세션(Claude 탭 그룹)에서 33화면 검색패널 컨트롤·간편검색 프리셋을 조회만으로 관측(evidence/2026-10-21-source-survey.json, 간편검색설정 39종 목록은 닫기로 종료·저장 안 함). 프리셋 공통: 금주 시작 일요일, 전월+금월, 말일=당월말, 이번기수=당해1/1~오늘, 직전분기/반기, 금년/전년/직전기수, 종료일=현재 종료일을 시작일로 복사(순서의존 확인), 단일기준일 화면은 금일/전일만, 영업주기 화면은 종료일만 변경. ingest(PR #1168 스크립트+라벨 단독 매칭 보완)로 button-matches 1,073버튼(신규 54: 입/출금·판매현황·구매현황·채무 프리셋, 기본(수정불가)/정렬기준 설정/양식 버튼 등). 검색어: source-survey 간편검색 프리셋 관측 1073버튼 신규54 종료일복사 주시작일요일
+
+## 2026-10-21 패킹 팀 업로드 이력 / 직원 중단 진단
+- 공용 품목 매칭은 기존 팀 레코드. 원본·분석 복구는 개인 IndexedDB뿐이던 공백을 웹 파일 이력으로 보완. 원본 해시 검증, 불변 revision, 작성 계정, 최신 공용 매칭 재적용, ERP 승인 정보 제외.
+- 10/20 16:41KST 다음·입고준비 → 원문 박스/단수 확인창 →16:42 취소 확인. 클릭로그로 잘못된 숫자를 확정하지 않음. 과거 UPLOAD_FAILED2건은 상세 없음; 일부 문서 COMMITTED/APPROVED 확인. 운영 ERP SELECT만.
+- 전체 ERP/packing-team/UI/manifest/write/evidence guard/build 통과. 격리 실제 Chrome A 보관→B 조회/키보드복구 성공, ERP write0. 새 dnSpy 실행은 CLR 오류로 실패, 기존 native 근거 사용; ERP writer 변경 없음.
+- 최종 PR/배포/운영 확인은 세션 문서에 추가. 실물 인보이스 입고·도착원가 E2E는 이번 작업 미검증.
+- 검색어: packing-shared-history upload-history 팀공용 원본복구 직원로그 다음입고준비 취소 IndexedDB
+
+## 2026-10-21 ERP 관리기능 공백 3축 대조(이카운트 메뉴 430·중견 ERP 모듈·네노바웹 9단계) — 보고서만
+- 산출물 docs/ERP_GAP_ANALYSIS_2026-10.md + 메뉴별 태그 CSV. 코드·수식·contracts·이카운트 쓰기 없음.
+- 이카운트 말단 430메뉴: 웹에 이미 있음 96(22%) / 실사용인데 웹 없음 17(4%, 거의 회계I 전표·원장·카드·계좌) / 미사용 317(74%). 사장님 판단("대부분 안 쓴다") 수치로 확인.
+- 9단계 공백 중 '필요' 상위10: 여신한도·채권aging 일수구간·입금대사·환차손익·송금결재선·단가변경이력·클레임사유코드·차수마감체크리스트·거래처별이익/목표·변경감사로그 통합. 불필요=고정자산·연결회계·급여인사·생산BOM·A/S·수표·전자계약.
+- 미검증: 이카운트 공식 help 대조, "커버리지 40%" 원문 미발견, 상위10이 실제 수기 관리인지(사장님 확인 필요), Amaranth/K-System 상세 모듈.
+- 맥락: 바이브코딩 직원→전산 연결 플랫폼 구상(데이터 계약·직원별 MCP 권한 토큰·검증게이트·실행consumer·절차 가이드 5층) 논의에서 파생.
+- 검색어: ERP공백 3축대조 이카운트430메뉴 미사용74% 여신한도 채권aging 환차손익 송금결재선 ERP_GAP_ANALYSIS 플랫폼5층
+
+## 2026-10-21 중국발주현황 두 시트 다운로드
+- 선택 세부차수 다운로드에 기존 품목별업체수량 + 단수량 시트 추가. HF/품목/CL 순서 보존, 단 전용은 숫자형 저장. 박스/송이는 등록 포장비율 환산, 누락/불일치 시 환산확인 및 합계 전파.
+- 중국발주 관련 20개 검사 및 XLSX 재읽기/교차연도/필터 검사 통과. manifest/write guard 통과. 전체 계약/빌드 최초 실행은 PC 메모리 부족으로 실패하여 재검증 중. 운영 배포/실브라우저 미검증.
+- 원장/API/SQL 쓰기 없음. 이전 인보이스 매칭·양방향 수량 편집은 이번 변경 범위 밖.
+- 검색어: 중국발주현황 단수량 두시트 품목별업체수량 박스 송이 환산확인
+- 최종 요청 변경: 다운로드 버튼 두 개로 분리, 각 파일에 선택 형식 한 시트만 생성. 단박스/단만 파일명 구분. 관련 20개 검사 재통과. 로컬 Next 빌드는 메모리 부족으로 2회 실패, 운영 미배포. PR #1177.
+## 2026-10-21 경영관리(mgmt) 모듈 기반 — ECOUNT 이관과 공존 설계·골격 PR
+- 설계 docs/mgmt/MGMT_CONTROLS_DESIGN.md: 이관 소유 경로(lib/ecount*, pages/(api/)ecount, components/ecount, data/ecount-workbench, docs/ecount-migration, ecount_work 스키마) 접촉 금지, mgmt 네임스페이스(lib/mgmt·pages/mgmt·pages/api/mgmt·web_mgmt 스키마) 분리, 공유 핫스팟(Layout.js·package.json·erpContractManifest.test.js) 최소 삽입+리베이스 규칙, ecount_work는 lib/mgmt/sources.js 어댑터로 읽기만, 승인모델은 이관 Outbox와 같은 상태의미(draft→requested→approved|rejected→applied, 요청자 본인 승인 금지, 하드삭제 트리거 차단).
+- 골격: web_mgmt 9테이블 DDL(docs/migrations/2026-10-21_web_mgmt_controls.sql, 멱등), lib/mgmt/{schema,schemaMeta,boundary,sources,approval,approvalPolicy}.js, /api/mgmt/approvals, /mgmt 홈(상위10 카드)·/mgmt/approvals, 계약 docs/contracts/management-controls.json, 메뉴 그룹 '경영관리'(nenovaSS3만).
+- 자동검사: __tests__/mgmtBoundary.test.js --changed-from origin/master 가 mgmt 변경 PR이 이관 파일을 건드리면 실패. SQL 쓰기동사 가드(ecount_work·ERP 원장). test:erp-contract 끝에 test:mgmt 연결.
+- 다음: A군(여신한도·aging·단가이력·클레임코드·마감체크·거래처이익/목표·감사뷰) 기능별 PR, B군(입금대사·환차손익·송금결재선)은 어댑터 소스 채워지는 대로. 각 PR 전 origin/master 리베이스.
+- 검색어: mgmt 경영관리 web_mgmt 경계 boundary ECOUNT이관공존 ApprovalRequest 결재선 management-controls 계약 MGMT_CONTROLS_DESIGN
+
+## 2026-10-21 주차별 보고서 출력 선택·기억
 - 엑셀은 1~조회차수 전체/한 차수 한 시트, 인쇄 미리보기는 체크한 차수만이라는 기존 범위를 명시하고 개수 표시. 별도 출력 항목 선택과 화면 컬럼 가져오기 제공.
 - 기존 화면 컬럼 v3를 보존하며 첫 복원 전 기본값 덮어쓰기 방지. 출력 항목은 별도 localStorage에 저장하고 빈 선택도 유지/출력 차단. 같은 브라우저 범위이며 계정·기기 간 동기화 아님.
 - 18차 HTTP502 신고: 502/503/504/네트워크 GET 실패만 해당 차수 최대2회 재시도, 이전 완료분 유지, 실패 시 부분파일 금지. 운영 ping200/다른 배포 진행 확인만으로 최초502 원인을 단정하지 않음.
@@ -1414,6 +1464,6 @@ Total output lines: 1464
 - 검색어: 호텔 원본 이미지 나란히 매칭 요청수량1 pending batches hotel-order-images
 
 ## 2026-10-28 자동수집 일괄등록
-- 자동 원천도 일반 출고·단가·중복 검증 후 영업지원 일괄등록 허용. 자동/수동 혼합 등록 및 주광·태림 43차 양성/음성 fixture 통과. 운영 배포 결과 후속 기록.
+- 자동수집 영업지원 등록 허용. 혼합 등록과 주광·태림 43차 양성/출고 없음/0원 단가/중복 fixture 통과. PR #1339 검증 진행.
 - 검색어: 자동수집 주광 태림 43차 AUTO_SOURCE_REVIEW_REQUIRED
 
