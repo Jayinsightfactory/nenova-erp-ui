@@ -1,26 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
-import { buildHotelOrderRows, hotelRegistrationPlan } from '../lib/hotelOrderWorkspace';
+import { buildHotelOrderRows, hotelRegistrationPlan, hasHotelDraftContent } from '../lib/hotelOrderWorkspace';
+import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks';
 
 const STORE = 'hotel-order-workspace-v1';
 const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 6 });
-const empty = () => ({ year: String(new Date().getFullYear()), week: '', request: [], purchase: [], allocations: {}, pinned: [], raum: '', surplus: '', receipts: [], history: [], frozen: false, texts: { request: '', purchase: '' } });
+const moveWeekFocus = e => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const buttons = [...e.currentTarget.querySelectorAll('button')].filter(b => !b.matches(':disabled'));
+  const index = buttons.indexOf(e.target);
+  if (index < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (index + (e.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[next]?.focus();
+};
+const empty = () => {
+  const base = hotelMiuMajorWeekOptions(new Date(), 0)[0];
+  return { year: base.year, week: `${base.majorText}-01`, request: [], purchase: [], allocations: {}, pinned: [], raum: '', surplus: '', receipts: [], history: [], frozen: false, texts: { request: '', purchase: '' } };
+};
 
 export default function HotelOrderWorkspace() {
   const [work, setWork] = useState(empty), [ready, setReady] = useState(false);
+  const [quickWeeks] = useState(() => hotelMiuMajorWeekOptions(new Date(), 5, 5));
   const [customers, setCustomers] = useState([]), [products, setProducts] = useState({});
   const texts = work.texts || { request: '', purchase: '' };
-  const setTexts = update => setWork(w => ({ ...w, texts: typeof update === 'function' ? update(w.texts || { request: '', purchase: '' }) : update }));
+  const setTexts = update => { setPreview(null); setWork(w => ({ ...w, texts: typeof update === 'function' ? update(w.texts || { request: '', purchase: '' }) : update })); };
   const [saved, setSaved] = useState(''), [saving, setSaving] = useState(false), [storageError, setStorageError] = useState('');
-  const [records, setRecords] = useState([]), [browseYear, setBrowseYear] = useState(String(new Date().getFullYear())), [browseWeek, setBrowseWeek] = useState('');
+  const [records, setRecords] = useState([]), [browseYear, setBrowseYear] = useState(work.year), [browseWeek, setBrowseWeek] = useState(work.week);
   const [legacy, setLegacy] = useState(null);
   const meta = useRef({ id: '', revision: 0 }), savedJson = useRef(''), queue = useRef(Promise.resolve()), failed = useRef(false), epoch = useRef(0);
-  const dirty = JSON.stringify(work) !== savedJson.current && !!work.week;
+  const dirty = JSON.stringify(work) !== savedJson.current && (meta.current.revision > 0 || hasHotelDraftContent(work));
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [info, setInfo] = useState('');
   const [search, setSearch] = useState(''), [picker, setPicker] = useState(null), [hits, setHits] = useState([]);
   const [vendor, setVendor] = useState(''), [preview, setPreview] = useState(null), [sheets, setSheets] = useState(null);
   const lock = useRef(false), focus = useRef(null), lookup = useRef(0), storageKey = useRef('');
   const blocked = !!busy || saving || !!storageError || work.frozen || !ready;
+  // Background autosave must never steal focus or block the next paste/keystroke.
+  const inputBlocked = !!busy || work.frozen || !ready;
   const model = useMemo(() => buildHotelOrderRows(work.request, work.purchase, products, work.allocations), [work, products]);
   const patch = value => { setPreview(null); setWork(w => ({ ...w, ...value })); };
   function persist(next) {
@@ -228,7 +244,7 @@ export default function HotelOrderWorkspace() {
     <p>차수 선택 → 요청·발주 자료 매칭 → 잔량 업체 분류 → 주문등록. 초안과 결과는 서버에 저장됩니다. 같은 계정으로 다른 PC에서도 차수별로 불러와 이어서 작업할 수 있습니다.</p>
     <section aria-label="서버 작업 보관">
       <h3>차수별 서버 작업</h3>
-      <p role="status">{saving ? '서버 저장 중…' : storageError ? '서버 저장 실패 · 현재 내용은 화면에 남아 있습니다' : dirty ? '미저장 변경 · 잠시 후 자동 저장' : saved ? `서버 저장 완료 · ${new Date(saved).toLocaleString('ko-KR')} · 버전 ${meta.current.revision}` : '차수를 선택하면 자동 저장합니다.'}</p>
+      <p role="status">{saving ? '서버 저장 중… 입력은 계속할 수 있습니다.' : storageError ? '서버 저장 실패 · 현재 내용은 화면에 남아 있습니다' : dirty ? (work.week ? '미저장 변경 · 잠시 후 자동 저장' : '미저장 변경 · 주문 차수를 선택하세요.') : saved ? `서버 저장 완료 · ${new Date(saved).toLocaleString('ko-KR')} · 버전 ${meta.current.revision}` : '선택한 차수에 내용을 입력하면 자동 저장합니다.'}</p>
       {storageError && <><p role="alert" className="hotel-error">{storageError}</p><button data-tone="retry" disabled={!!busy || saving} onClick={retryStorage}>저장 상태 확인 · 재시도</button></>}
       <button data-tone="save" disabled={!ready || !work.week || !!busy || saving || !!storageError} onClick={() => persist(work).catch(() => {})}>서버에 지금 저장</button>
       {meta.current.id && <button data-tone="load" disabled={!!busy || saving} onClick={() => loadDraft(meta.current.id, work.year, work.week)}>현재 서버 작업 다시 불러오기</button>}
@@ -240,24 +256,29 @@ export default function HotelOrderWorkspace() {
     </section>
     <fieldset disabled={blocked || !ready || meta.current.revision > 0 || work.request.length > 0 || work.purchase.length > 0}>
       <legend>1. 주문 연도 · 차수</legend>
+      <p>기본 차수 앞뒤 5차수 · 세부차수 01~04</p>
+      <div className="hotel-weeks" role="group" aria-label="주문 대차수 빠른 선택" onKeyDown={moveWeekFocus}>{quickWeeks.map(opt => <button type="button" key={`${opt.year}-${opt.major}`} aria-pressed={work.year === opt.year && Number(work.week.split('-')[0]) === opt.major} onClick={() => patch({ year: opt.year, week: `${opt.majorText}-${work.week.split('-')[1] || '01'}` })}>{opt.label}</button>)}</div>
+      <div className="hotel-weeks" role="group" aria-label="주문 세부차수 선택" onKeyDown={moveWeekFocus}>{['01', '02', '03', '04'].map(sub => <button type="button" key={sub} aria-pressed={work.week.split('-')[1] === sub} disabled={!work.week} onClick={() => patch({ week: `${work.week.split('-')[0]}-${sub}` })}>{sub}</button>)}</div>
       <label>연도 <input aria-label="주문 연도" type="number" min="2020" max="2100" value={work.year} onChange={e => patch({ year: e.target.value, week: '' })} /></label>
       <label>차수 <select aria-label="주문 차수" value={work.week} onChange={e => patch({ week: e.target.value })}><option value="">차수 선택</option>{Array.from({ length: 53 }, (_, i) => [1, 2, 3, 4].map(j => { const w = `${String(i + 1).padStart(2, '0')}-0${j}`; return <option key={w}>{w}</option>; }))}</select></label>
     </fieldset>
+    {meta.current.revision > 0 && <p>서버에 저장된 작업의 차수는 고정됩니다. 다른 차수는 아래 ‘새 작업’에서 시작하세요.</p>}
     <div className="hotel-inputs">
-      {['request', 'purchase'].map(side => <fieldset key={side} disabled={blocked || !work.week}>
+      {['request', 'purchase'].map(side => <fieldset key={side} disabled={inputBlocked}>
         <legend>{side === 'request' ? '2. 요청수량 업로드' : '3. 발주수량 업로드'}</legend>
         <p>TXT · Excel · CSV · 이미지 / 텍스트·이미지 붙여넣기</p>
-        <input aria-label={`${side === 'request' ? '요청' : '발주'} 파일 업로드`} type="file" accept=".txt,.tsv,.csv,.xlsx,.xls,image/png,image/jpeg,image/webp,image/gif" onChange={e => { parse(side, e.target.files?.[0]); e.target.value = ''; }} />
+        <input disabled={blocked || !work.week} aria-label={`${side === 'request' ? '요청' : '발주'} 파일 업로드`} type="file" accept=".txt,.tsv,.csv,.xlsx,.xls,image/png,image/jpeg,image/webp,image/gif" onChange={e => { parse(side, e.target.files?.[0]); e.target.value = ''; }} />
         <textarea aria-label={`${side === 'request' ? '요청' : '발주'} 텍스트 또는 이미지 붙여넣기`} rows={5} placeholder="품명 · 수량 · 단위가 있는 텍스트를 붙여넣거나 이미지를 붙여넣으세요." value={texts[side]} onChange={e => setTexts(t => ({ ...t, [side]: e.target.value }))} onPaste={e => {
           if (e.clipboardData.getData('text/plain')) return;
           const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
-          if (item) { e.preventDefault(); parse(side, item.getAsFile()); }
+          if (item) { e.preventDefault(); if (blocked) { setError('이미지 매칭은 서버 저장 완료·오류 해결 후 다시 붙여넣어 주세요. 텍스트 입력은 계속할 수 있습니다.'); return; } parse(side, item.getAsFile()); }
         }} />
-        <button data-tone="match" onClick={() => parse(side)} disabled={!texts[side].trim()}>텍스트 매칭 · 합산</button>
+        {!work.week && <p>텍스트는 먼저 입력할 수 있습니다. 매칭·서버 저장 전에 주문 차수를 선택하세요.</p>}
+        <button data-tone="match" onClick={() => parse(side)} disabled={blocked || !work.week || !texts[side].trim()}>텍스트 매칭 · 합산</button>
         <span> {work[side].length}행</span>
-        <div className="hotel-scroll"><table><thead><tr><th>원문 / 출처</th><th>매칭 품목</th><th>수량</th><th>단위</th><th>삭제</th></tr></thead><tbody>
+        <fieldset className="hotel-line-edit" disabled={blocked}><legend>매칭 내역</legend><div className="hotel-scroll"><table><thead><tr><th>원문 / 출처</th><th>매칭 품목</th><th>수량</th><th>단위</th><th>삭제</th></tr></thead><tbody>
           {work[side].map(r => <tr key={r.id}><td>{r.inputName}<small>{r.source} · 원본 {r.originalQty} {r.originalUnit}</small></td><td><button data-tone="match" id={`match-${r.id}`} onClick={() => { setPicker({ side, id: r.id }); setSearch(r.inputName || ''); }}>{r.prodName || r.displayName || '품목 선택'}</button>{r.matchWarning && <small>{r.matchWarning}</small>}</td><td><input aria-label={`${r.inputName} 수량`} type="number" min="0" step="any" value={r.qty} onChange={e => editLine(side, r.id, { qty: e.target.value })} /></td><td><select aria-label={`${r.inputName} 단위`} value={r.unit || ''} onChange={e => editLine(side, r.id, { unit: e.target.value })}><option value="">선택</option>{['박스', '단', '송이', '대', '개'].map(u => <option key={u}>{u}</option>)}</select></td><td><button data-tone="danger" aria-label={`${r.inputName} 삭제`} onClick={() => patch({ [side]: work[side].filter(x => x.id !== r.id), allocations: {} })}>삭제</button></td></tr>)}
-        </tbody></table></div>
+        </tbody></table></div></fieldset>
       </fieldset>)}
     </div>
     {sheets && <fieldset disabled={!!busy}><legend>엑셀 시트 선택</legend>{sheets.names.map(name => <button data-tone="match" key={name} onClick={() => parse(sheets.side, sheets.file, name)}>{name}</button>)}<button onClick={() => setSheets(null)}>취소</button></fieldset>}
@@ -286,6 +307,7 @@ export default function HotelOrderWorkspace() {
       if (e.key === 'Tab') { const all = [...e.currentTarget.querySelectorAll('button,input,select')]; const first = all[0], last = all[all.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
     }}><h3>품목 선택</h3><input ref={focus} aria-label="품목 검색" value={search} onChange={e => setSearch(e.target.value)} /><select size={12} aria-label="품목 검색 결과" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const p = hits.find(p => String(p.ProdKey) === e.currentTarget.value); if (p) chooseProduct(p); } }} id="hotel-product-choice"><option value="">품목 선택 후 아래 적용</option>{hits.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.DisplayName} / {p.ProdName} ({p.ProdKey})</option>)}</select><button data-tone="match" onClick={() => { const p = hits.find(p => String(p.ProdKey) === document.getElementById('hotel-product-choice').value); if (p) chooseProduct(p); }}>선택 적용</button><button onClick={() => { const id = picker.id; setPicker(null); document.getElementById(`match-${id}`)?.focus(); }}>닫기</button></div>}
     <style jsx>{`
+      .hotel-weeks {display:flex;flex-wrap:wrap;gap:4px} .hotel-weeks button[aria-pressed=true] {background:#1d4fa5;color:white;border-color:#1d4fa5} .hotel-line-edit {border:0;padding:0;margin:12px 0}
       .hotel-work {padding:20px; color:#17243c; font-size:15px} h2 {margin-top:0} fieldset {border:1px solid #ccd7e5;border-radius:10px;padding:16px;margin:16px 0;min-width:0} legend {font-weight:700} label {display:inline-flex;gap:8px;align-items:center;margin:6px 12px 6px 0} input,select,textarea {font:inherit;border:1px solid #bac8db;border-radius:6px;padding:8px;background:white;color:#17243c} button {margin:4px} :focus-visible {outline:3px solid #2871dd;outline-offset:2px} input[type=number] {width:100px} textarea {width:100%;box-sizing:border-box;display:block;margin:10px 0} small {display:block;color:#586982;margin-top:5px} .hotel-inputs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px} .hotel-scroll {overflow-x:auto} table {border-collapse:collapse;width:100%;margin:12px 0} td,th {padding:10px;border-bottom:1px solid #dfe5ed;text-align:left;vertical-align:top} th {background:#edf3fa;white-space:nowrap} .hotel-warning,.hotel-error {color:#a32b19;background:#fff1ec;padding:12px} .hotel-picker {position:fixed;z-index:2000;inset:10% 15%;background:white;box-shadow:0 0 0 100vmax #0007;padding:24px;overflow:auto;border-radius:12px} .hotel-picker select {display:block;width:100%;margin-top:12px} @media(max-width:1000px) {.hotel-inputs {grid-template-columns:1fr}.hotel-picker {inset:5%}.hotel-work {padding:10px}}
     `}</style>
   </section>;

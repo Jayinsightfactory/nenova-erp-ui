@@ -8,6 +8,7 @@
     "pages/api/sales/hotel-miu-intake.js",
     "pages/api/orders/index.js",
     "lib/hotelMiuIntake.js",
+    "lib/hotelMiuWeeks.js",
     "components/Layout.js",
     "__tests__/hotelMiuIntake.test.js",
     "docs/contracts/hotel-miu-intake.json",
@@ -31,6 +32,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "WORKSPACE_PERIOD_AND_TEXT_INPUT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Hotel workspace defaults to existing sales business base major + subweek01; quick choices expose base-5 through base+5 with explicit rollover years and subweeks01..04. Legacy vendor tab keeps base..+9. Empty new period/default vendors do not autosave-lock the period. Text paste remains editable during background autosave or storage failure; latest text is queued by existing revision autosave, parse/registration remain blocked. Busy/frozen/not-ready input remains blocked. Saved scopes and old drafts are not silently reassigned. No SQL/API writer or downstream change."
+    },
     {
       "name": "PARSE_IMAGE_OR_TEXT",
       "orderDetail": "preserve",
