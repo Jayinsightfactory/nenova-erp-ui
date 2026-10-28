@@ -15,6 +15,7 @@ import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIn
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
 import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
+import { defectSourceReview } from '../../lib/salesDefectAutoSource.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -1542,7 +1543,7 @@ export default function SalesDefectDeductionsPage() {
   });
   const toggleAll = () => setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)));
 
-  const statusText = (row) => row.status === 'REGISTERED'
+  const statusText = (row) => defectSourceReview(row) ? '원문·견적 확인 필요' : row.status === 'REGISTERED'
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
     : row.status === 'MANUAL_COMPLETED' ? '수동처리완료'
     : row.status === 'DELETED' ? '삭제됨' : salesRowSaveState(row);
@@ -1555,6 +1556,7 @@ export default function SalesDefectDeductionsPage() {
     return map;
   }, [history]);
   const estimateStatusText = (row) => {
+    if (defectSourceReview(row)) return '원문·견적 확인 필요';
     if (row.status !== 'REGISTERED') return '-';
     const item = registrationHistoryByKey.get(Number(row.deductionKey || 0));
     const actor = item?.ChangedByName || item?.ChangedBy;
