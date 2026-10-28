@@ -3,7 +3,7 @@ import { defectSourceReview } from '../lib/salesDefectAutoSource.js';
 import { evaluateDefectRegistrationEligibility } from '../lib/defectEstimateTargetScope.js';
 import { deriveSupportProcessingStatus, isSupportProcessingComplete, isSupportManualCompleteSelectable, supportRegistrationDecisionLabel } from '../lib/salesDefectSupportStatus.js';
 import { preflightRegistration, registrationPreview, registerDeductions } from '../lib/salesDefectDeductions.js';
-for (const [key, flag, code] of [[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[740,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[859,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[868,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[877,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING']]) {
+for (const [key, flag, code] of [[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[740,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[859,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[868,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[877,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[1054,'IncompleteAutoSource','SOURCE_EVIDENCE_INCOMPLETE'],[1527,'SourceUnitReview','SOURCE_UNIT_CONVERSION_REQUIRED']]) {
   const row={DeductionKey:key,OrderYear:2026,OrderWeek:'40',CustKey:533,ProdKey:889,Quantity:1,SourceUnit:'송이',Status:'REGISTERED',EstimateKey:10802,[flag]:true};
   const ui={...row,deductionKey:key,status:'REGISTERED',estimateKey:10802,processingStatus:'REGISTERED',rejectedAutoSource:flag==='RejectedAutoSource',missingLinkedEstimate:flag==='MissingLinkedEstimate'};
   assert.equal(defectSourceReview(row).code,code);

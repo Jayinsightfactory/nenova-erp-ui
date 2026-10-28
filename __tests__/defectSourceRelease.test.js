@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { planReviewedSourceRelease } from '../lib/defectSourceRelease.js';
 import { releaseReviewedSources } from '../lib/salesDefectDeductions.js';
 import { buildDefectAutoSourceSql } from '../lib/salesDefectAutoSource.js';
+import { defectSourceReview } from '../lib/salesDefectAutoSource.js';
 import { parseDefectSourceExport } from '../lib/defectSourceExport.js';
 
 const parsed = parseDefectSourceExport('네노바 수입(불량 공유방) 님과 카카오톡 대화\r\n--------------- 2026년 10월 22일 목요일 ---------------\r\n[작성자] [오후 6:05] 42-1 카네이션\r\n가상업체\r\n폴림니아 4단\r\n--------------- 2026년 10월 23일 금요일 ---------------\r\n[작성자] [오전 8:00] 사진\r\n');
@@ -20,6 +21,13 @@ const input = {year: 2026, week:43,user:{authority:0,userId:'test'},preview:fals
   rows:[{deductionKey:603,expectedRowVersionNo:7,evidence:source}]};
 const plan = (changes={}) => planReviewedSourceRelease({...input,selection:input.rows[0],row,...changes});
 assert.equal(plan().reviewedRowVersionNo,8);
+assert.equal(defectSourceReview({IncompleteAutoSource:true}).code,'SOURCE_EVIDENCE_INCOMPLETE');
+assert.equal(defectSourceReview({SourceUnitReview:true}).code,'SOURCE_UNIT_CONVERSION_REQUIRED');
+const linked={CustKey:100,ProdKey:200,OrderYear:2026,OrderWeek:'43-01',Quantity:-1,Unit:'단',MasterDeleted:false};
+assert.equal(plan({mode:'confirm-linked',selection:{...input.rows[0],linkedEstimateExists:true,linkedEstimate:linked}}).retainLinked,true);
+for(const patch of [{CustKey:101},{ProdKey:201},{OrderYear:2025},{OrderWeek:'42-01'},{Quantity:1},{Quantity:-2},{Unit:'박스'},{MasterDeleted:true}]) {
+  assert.throws(()=>plan({mode:'confirm-linked',selection:{...input.rows[0],linkedEstimateExists:true,linkedEstimate:{...linked,...patch}}}));
+}
 for (const changes of [{year:2025},{week:39},{user:{authority:6}},{row:{...row,IsDeleted:true}},
   {row:{...row,RowVersionNo:8}}, {row:{...row,IsCarryoverLedger:true}}, {applications:[{AppliedQuantity:1}]},
   {row:{...row,RejectedAutoSource:false}}, {selection:{...input.rows[0],linkedEstimateExists:true}}]) {
@@ -45,6 +53,17 @@ for (const preview of [true,false]) {
 let touched=false;
 await assert.rejects(releaseReviewedSources({...input,rows:[input.rows[0],input.rows[0]]},{withTransaction:()=>{touched=true}}));
 assert.equal(touched,false);
+const confirmRow={...row,EstimateKey:10808,Status:'REGISTERED',RejectedAutoSource:false,IncompleteAutoSource:true};
+const confirmWrites=[];
+await releaseReviewedSources({...input,mode:'confirm-linked'},{withTransaction:fn=>fn(async(q,params)=>{
+  if(/FROM WebSalesDefectDeduction d/.test(q))return {recordset:[confirmRow]};
+  if(/FROM WebSalesCarryoverApplication/.test(q))return {recordset:[]};
+  if(/FROM Estimate e/.test(q))return {recordset:[linked]};
+  if(/UPDATE WebSalesDefectDeduction/.test(q)){assert.doesNotMatch(q,/EstimateKey=NULL|Status=N'DRAFT'/);confirmWrites.push('metadata');return {rowsAffected:[1]};}
+  if(/INSERT INTO WebSalesDefectDeductionHistory/.test(q)){assert.equal(params.action.value,'SOURCE_REVIEW_CONFIRM');const after=JSON.parse(params.after.value);assert.equal(after.estimateKey,10808);assert.equal(after.status,'REGISTERED');confirmWrites.push('audit');return {rowsAffected:[1]};}
+  throw Error('Unexpected confirm query');
+})});
+assert.deepEqual(confirmWrites,['metadata','audit']);
 const projection=buildDefectAutoSourceSql('d').projection;
 for(const key of ['orderYear','orderWeek','custKey','prodKey','quantity','sourceUnit','reviewedSourceFileName']) assert.ok(projection.includes(`$.${key}`));
 assert.match(projection,/reviewedHistory.HistoryKey>rejectedHistory.HistoryKey/);

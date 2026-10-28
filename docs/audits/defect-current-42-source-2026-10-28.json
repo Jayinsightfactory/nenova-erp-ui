@@ -1,0 +1,563 @@
+{
+  "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
+  "scope": {
+    "year": 2026,
+    "week": 43,
+    "minRelevantWeek": 42
+  },
+  "archive": [
+    {
+      "key": 864,
+      "year": 2026,
+      "week": "40",
+      "cust": 533,
+      "prod": 518,
+      "qty": 7,
+      "unit": "단",
+      "version": 8,
+      "estimate": 10803
+    },
+    {
+      "key": 899,
+      "year": 2026,
+      "week": "42",
+      "cust": 578,
+      "prod": 2467,
+      "qty": 20,
+      "unit": "단",
+      "version": 4,
+      "estimate": 10472
+    },
+    {
+      "key": 905,
+      "year": 2026,
+      "week": "42",
+      "cust": 640,
+      "prod": 889,
+      "qty": 30,
+      "unit": "스팀(대)",
+      "version": 3,
+      "estimate": 10478
+    },
+    {
+      "key": 995,
+      "year": 2026,
+      "week": "42",
+      "cust": 533,
+      "prod": 866,
+      "qty": 6,
+      "unit": "박스",
+      "version": 6,
+      "estimate": 10545
+    },
+    {
+      "key": 1019,
+      "year": 2026,
+      "week": "43",
+      "cust": 533,
+      "prod": 359,
+      "qty": 15,
+      "unit": "단",
+      "version": 4,
+      "estimate": 10806
+    },
+    {
+      "key": 1048,
+      "year": 2026,
+      "week": "43",
+      "cust": 533,
+      "prod": 409,
+      "qty": 5,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10807
+    },
+    {
+      "key": 1050,
+      "year": 2026,
+      "week": "43",
+      "cust": 533,
+      "prod": 365,
+      "qty": 15,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10809
+    },
+    {
+      "key": 1051,
+      "year": 2026,
+      "week": "43",
+      "cust": 533,
+      "prod": 53,
+      "qty": 160,
+      "unit": "스팀(대)",
+      "version": 3,
+      "estimate": 10810
+    },
+    {
+      "key": 1053,
+      "year": 2026,
+      "week": "43",
+      "cust": 533,
+      "prod": 1959,
+      "qty": 10,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10812
+    },
+    {
+      "key": 1054,
+      "year": 2026,
+      "week": "43",
+      "cust": 565,
+      "prod": 889,
+      "qty": 50,
+      "unit": "스팀(대)",
+      "version": 3,
+      "estimate": 10813
+    },
+    {
+      "key": 1055,
+      "year": 2026,
+      "week": "43",
+      "cust": 565,
+      "prod": 868,
+      "qty": 30,
+      "unit": "스팀(대)",
+      "version": 3,
+      "estimate": 10814
+    },
+    {
+      "key": 1058,
+      "year": 2026,
+      "week": "43",
+      "cust": 565,
+      "prod": 2412,
+      "qty": 15,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10817
+    },
+    {
+      "key": 1059,
+      "year": 2026,
+      "week": "43",
+      "cust": 565,
+      "prod": 2328,
+      "qty": 14,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10818
+    },
+    {
+      "key": 1060,
+      "year": 2026,
+      "week": "43",
+      "cust": 565,
+      "prod": 3378,
+      "qty": 30,
+      "unit": "단",
+      "version": 3,
+      "estimate": 10819
+    },
+    {
+      "key": 1066,
+      "year": 2026,
+      "week": "43",
+      "cust": 352,
+      "prod": 889,
+      "qty": 15,
+      "unit": "스팀(대)",
+      "version": 1,
+      "estimate": null
+    },
+    {
+      "key": 1067,
+      "year": 2026,
+      "week": "43",
+      "cust": 352,
+      "prod": 866,
+      "qty": 15,
+      "unit": "스팀(대)",
+      "version": 1,
+      "estimate": null
+    }
+  ],
+  "withdraw": [
+    {
+      "key": 10803,
+      "cust": 533,
+      "prod": 518,
+      "shipment": 6852,
+      "quantity": -7,
+      "cost": 10500,
+      "amount": -66818,
+      "vat": -6682,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10806,
+      "cust": 533,
+      "prod": 359,
+      "shipment": 6852,
+      "quantity": -15,
+      "cost": 10500,
+      "amount": -143182,
+      "vat": -14318,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10807,
+      "cust": 533,
+      "prod": 409,
+      "shipment": 6852,
+      "quantity": -5,
+      "cost": 10500,
+      "amount": -47727,
+      "vat": -4773,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10809,
+      "cust": 533,
+      "prod": 365,
+      "shipment": 6852,
+      "quantity": -15,
+      "cost": 10500,
+      "amount": -143182,
+      "vat": -14318,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10810,
+      "cust": 533,
+      "prod": 53,
+      "shipment": 6852,
+      "quantity": -160,
+      "cost": 700,
+      "amount": -101818,
+      "vat": -10182,
+      "unit": "송이",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10812,
+      "cust": 533,
+      "prod": 1959,
+      "shipment": 6852,
+      "quantity": -10,
+      "cost": 12000,
+      "amount": -109091,
+      "vat": -10909,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-28",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10813,
+      "cust": 565,
+      "prod": 889,
+      "shipment": 6877,
+      "quantity": -50,
+      "cost": 2500,
+      "amount": -113636,
+      "vat": -11364,
+      "unit": "송이",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-21",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10814,
+      "cust": 565,
+      "prod": 868,
+      "shipment": 6877,
+      "quantity": -30,
+      "cost": 3300,
+      "amount": -90000,
+      "vat": -9000,
+      "unit": "송이",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-21",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10817,
+      "cust": 565,
+      "prod": 2412,
+      "shipment": 6877,
+      "quantity": -15,
+      "cost": 11000,
+      "amount": -150000,
+      "vat": -15000,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-21",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10818,
+      "cust": 565,
+      "prod": 2328,
+      "shipment": 6877,
+      "quantity": -14,
+      "cost": 7500,
+      "amount": -95455,
+      "vat": -9545,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-21",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "key": 10819,
+      "cust": 565,
+      "prod": 3378,
+      "shipment": 6877,
+      "quantity": -30,
+      "cost": 8300,
+      "amount": -226364,
+      "vat": -22636,
+      "unit": "단",
+      "type": "FEE03-KR0010",
+      "date": "2026-10-21",
+      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "confirm": [
+    {
+      "key": 1049,
+      "ordinal": 5091,
+      "sha": "251314ffc04dcf150da4e2b4fd643cd3892c4576c284534e902438e7acfd77c8",
+      "sourceWeek": 42,
+      "cust": 533,
+      "prod": 866,
+      "quantity": 30,
+      "unit": "스팀(대)",
+      "version": 3,
+      "sourceFacts": {
+        "customerAliases": [
+          "주광",
+          "주광농원"
+        ],
+        "itemTokens": [
+          "블루"
+        ],
+        "quantity": 30,
+        "unit": "송이"
+      }
+    },
+    {
+      "key": 1056,
+      "ordinal": 5205,
+      "sha": "d86da239683caf4fc0e89d2ddd290656b1f125624619ce0bbf9f3a9bd8806704",
+      "sourceWeek": 43,
+      "cust": 565,
+      "prod": 3208,
+      "quantity": 60,
+      "unit": "스팀(대)",
+      "version": 3,
+      "sourceFacts": {
+        "customerAliases": [
+          "태림",
+          "태림원예"
+        ],
+        "itemTokens": [
+          "레몬그린"
+        ],
+        "quantity": 2,
+        "unit": "박스"
+      }
+    },
+    {
+      "key": 1057,
+      "ordinal": 5392,
+      "sha": "54398279fccce9941dbcb1506318338adf1ec8c6d0d5bc4b86c41990cbf2d4aa",
+      "sourceWeek": 43,
+      "cust": 565,
+      "prod": 2321,
+      "quantity": 15,
+      "unit": "단",
+      "version": 3,
+      "sourceFacts": {
+        "customerAliases": [
+          "태림",
+          "태림원예"
+        ],
+        "itemTokens": [
+          "ard"
+        ],
+        "quantity": 15,
+        "unit": "단"
+      }
+    }
+  ],
+  "release": [
+    {
+      "deductionKey": 1010,
+      "action": "release",
+      "year": 2026,
+      "week": 43,
+      "sourceYear": 2026,
+      "sourceWeek": "43",
+      "expectedRowVersionNo": 5,
+      "custKey": 401,
+      "prodKey": 467,
+      "quantity": 4,
+      "sourceUnit": "단",
+      "expectedEstimateKey": 10710,
+      "canonicalEstimate": null,
+      "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
+      "messageOrdinal": 5143,
+      "messageSha256": "344f75c3ce13cd1ff68dd1f907c6abae71d966aa2bf3c6f853c0b1c00698f10c",
+      "originalParentWeek": 42,
+      "reasonCode": "ORIGINAL_CONFIRMED_NO_ACTUAL_ESTIMATE"
+    },
+    {
+      "deductionKey": 1013,
+      "action": "release",
+      "year": 2026,
+      "week": 43,
+      "sourceYear": 2026,
+      "sourceWeek": "43",
+      "expectedRowVersionNo": 5,
+      "custKey": 439,
+      "prodKey": 408,
+      "quantity": 15,
+      "sourceUnit": "단",
+      "expectedEstimateKey": 10713,
+      "canonicalEstimate": null,
+      "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
+      "messageOrdinal": 5153,
+      "messageSha256": "d30b74cfa0cdc6ed618d27e6dcbe3c355efcd269914eb9fe50a43a81bf29bc94",
+      "originalParentWeek": 42,
+      "reasonCode": "ORIGINAL_CONFIRMED_NO_ACTUAL_ESTIMATE"
+    },
+    {
+      "deductionKey": 1015,
+      "action": "release",
+      "year": 2026,
+      "week": 43,
+      "sourceYear": 2026,
+      "sourceWeek": "43",
+      "expectedRowVersionNo": 4,
+      "custKey": 439,
+      "prodKey": 456,
+      "quantity": 10,
+      "sourceUnit": "단",
+      "expectedEstimateKey": 10715,
+      "canonicalEstimate": null,
+      "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
+      "messageOrdinal": 5159,
+      "messageSha256": "00b1d8fbff44bbfa2047e18be0822a4af6358d5df6ab371d47541c21f2c75e28",
+      "originalParentWeek": 42,
+      "reasonCode": "ORIGINAL_CONFIRMED_NO_ACTUAL_ESTIMATE"
+    }
+  ],
+  "drafts": [
+    {
+      "cust": 533,
+      "prod": 359,
+      "quantity": 5,
+      "unit": "단",
+      "ordinal": 5210,
+      "sourceWeek": 42,
+      "original": "브르트 5단",
+      "sha": "c7985e43767fa5920c7a6d8865f25488ce65fe66b0eb605b90e307ac362ccf93",
+      "sourceFacts": {
+        "customerAliases": [
+          "주광",
+          "주광농원"
+        ],
+        "itemTokens": [
+          "브르트"
+        ],
+        "quantity": 5,
+        "unit": "단"
+      }
+    },
+    {
+      "cust": 565,
+      "prod": 53,
+      "quantity": 160,
+      "unit": "스팀(대)",
+      "ordinal": 5383,
+      "sourceWeek": 43,
+      "original": "휘슬러 16단 × 품목기준10송이",
+      "sha": "bc5ec47dad6395f9c87e84318f9d67871c1e276e697f4e6c5296b35a71b9c818",
+      "sourceFacts": {
+        "customerAliases": [
+          "태림",
+          "태림원예"
+        ],
+        "itemTokens": [
+          "휘슬러"
+        ],
+        "quantity": 16,
+        "unit": "단"
+      }
+    },
+    {
+      "cust": 565,
+      "prod": 2345,
+      "quantity": 10,
+      "unit": "단",
+      "ordinal": 5392,
+      "sourceWeek": 43,
+      "original": "솔로미오 Striplefly 10단",
+      "sha": "54398279fccce9941dbcb1506318338adf1ec8c6d0d5bc4b86c41990cbf2d4aa",
+      "sourceFacts": {
+        "customerAliases": [
+          "태림",
+          "태림원예"
+        ],
+        "itemTokens": [
+          "striplefly"
+        ],
+        "quantity": 10,
+        "unit": "단"
+      }
+    },
+    {
+      "cust": 565,
+      "prod": 2328,
+      "quantity": 20,
+      "unit": "단",
+      "ordinal": 5313,
+      "sourceWeek": 43,
+      "original": "디디스커스 전량: 43-01 실제 출고20단",
+      "sha": "5198958e6bfc49378e91dd659ba1b89a6d2d4ad428234266d3853dfe0ef51665",
+      "sourceFacts": {
+        "customerAliases": [
+          "태림",
+          "태림원예"
+        ],
+        "itemTokens": [
+          "디디스커스"
+        ],
+        "allQuantity": true
+      }
+    }
+  ],
+  "hold": [],
+  "manualKeepRows": [
+    926,
+    1052
+  ],
+  "manualKeepReason": "사용자 지시: 그건 직접 입력한 것 같은데 냅둬. 입력/견적 원장 보존, 환산·신고 유추 및 재차감 금지."
+}
