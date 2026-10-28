@@ -762,7 +762,7 @@
     },
     {
       "deductionKey": 642,
-      "action": "hold",
+      "action": "archive",
       "year": 2026,
       "week": 43,
       "sourceYear": 2026,
@@ -773,12 +773,20 @@
       "quantity": 5,
       "sourceUnit": "단",
       "expectedEstimateKey": null,
-      "canonicalEstimate": null,
+      "canonicalEstimate": {
+        "key": 9877,
+        "custKey": 297,
+        "prodKey": 1251,
+        "quantity": -5,
+        "unit": "단",
+        "year": 2026,
+        "week": "40-01"
+      },
       "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
       "messageOrdinal": 4272,
       "messageSha256": "cf4bfff0b9c3538598b705a6c96c53e25aba618207ddaaf803adae31690cc370",
       "originalParentWeek": 38,
-      "reasonCode": "SOURCE_VS_SETTLED_QUANTITY_OR_MAPPING_REVIEW"
+      "reasonCode": "UNIQUE_SOURCE_EXACT_DELAYED_ESTIMATE"
     },
     {
       "deductionKey": 643,
@@ -974,7 +982,7 @@
     },
     {
       "deductionKey": 651,
-      "action": "archive",
+      "action": "hold",
       "year": 2026,
       "week": 43,
       "sourceYear": 2026,
@@ -985,20 +993,12 @@
       "quantity": 15,
       "sourceUnit": "단",
       "expectedEstimateKey": null,
-      "canonicalEstimate": {
-        "key": 9684,
-        "custKey": 682,
-        "prodKey": 447,
-        "quantity": -15,
-        "unit": "단",
-        "year": 2026,
-        "week": "39-02"
-      },
+      "canonicalEstimate": null,
       "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
       "messageOrdinal": 4020,
       "messageSha256": "2afaf3ef31e85b152a8705deadd266d8b85049b52ddd9b54c00d6933f4d01f65",
       "originalParentWeek": 37,
-      "reasonCode": "DUPLICATE_ACTUAL_ESTIMATE"
+      "reasonCode": "DISTINCT_LATER_REPORT_SAME_QUANTITY"
     },
     {
       "deductionKey": 652,
@@ -2227,9 +2227,9 @@
       "expectedEstimateKey": 10472,
       "canonicalEstimate": null,
       "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
-      "messageOrdinal": null,
-      "messageSha256": null,
-      "originalParentWeek": null,
+      "messageOrdinal": 4919,
+      "messageSha256": "64d1b04e25db10de5006efccd5a65bb1b717c34183766b8db3a9f14f4bd4dab2",
+      "originalParentWeek": 41,
       "reasonCode": "SOURCE_VS_SETTLED_QUANTITY_OR_MAPPING_REVIEW"
     },
     {
@@ -2267,9 +2267,9 @@
       "expectedEstimateKey": 10545,
       "canonicalEstimate": null,
       "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
-      "messageOrdinal": null,
-      "messageSha256": null,
-      "originalParentWeek": null,
+      "messageOrdinal": 5091,
+      "messageSha256": "251314ffc04dcf150da4e2b4fd643cd3892c4576c284534e902438e7acfd77c8",
+      "originalParentWeek": 42,
       "reasonCode": "SOURCE_30_STEMS_VS_LEDGER_6_BOXES"
     },
     {
