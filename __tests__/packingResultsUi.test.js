@@ -235,6 +235,27 @@ test('DB-missing and similar-review status buttons invoke the existing match cal
   assert.deepEqual(calls[2], [products[0], excel, 0], 'the original source-name action remains available');
 });
 
+test('Woolly bush allocation status opens row-level allocation instead of generic DB matching', () => {
+  state.length = 0;
+  const product = { sourceName: 'Woolly bush (5 stems/bunch)', matchingDescription: 'Woolly bush', qty: 180 };
+  const excel = { name: '44-01 Australia.xlsx', products: [product] };
+  const matches = [], allocations = [];
+  const tree = render({ excels: [excel], country: 'AU', erpProducts: [], blocked: () => false,
+    onDownload() {}, onMatch: (...args) => matches.push(args), onAllocate: (...args) => allocations.push(args) });
+  const nodes = flatten(tree);
+  const allocationAction = nodes.find(node => node.props?.['data-testid'] === 'packing-result-status-allocation');
+  assert.ok(allocationAction, 'the allocation-required badge is an explicit action');
+  assert.equal(allocationAction.type, 'button');
+  assert.match(allocationAction.props['aria-label'], /품목·입고량 분류 열기/);
+  assert.equal(allocationAction.props.disabled, false);
+  allocationAction.props.onClick();
+  assert.deepEqual(allocations[0], [product, excel, 0]);
+  const sourceAction = nodes.find(node => node.props?.['data-testid'] === 'packing-product-match');
+  sourceAction.props.onClick();
+  assert.deepEqual(allocations[1], [product, excel, 0], 'clicking the source name opens the same allocation flow');
+  assert.equal(matches.length, 0, 'allocation-required rows do not enter the generic DB match dialog');
+});
+
 test('disables matching without a parent callback or while mapping is disabled', () => {
   state.length = 0;
   const excel = { name: 'disabled.xlsx', products: [{ sourceName: 'ROSE', name: 'ROSE', qty: 1 }] };
