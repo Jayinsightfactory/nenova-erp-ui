@@ -17,9 +17,13 @@ assert.match(api, /sd\.ShipmentDtm >= @from AND sd\.ShipmentDtm < @to/);
 assert.doesNotMatch(api, /\b(?:INSERT\s+INTO|UPDATE\s+dbo\.|DELETE\s+FROM|MERGE\s+dbo\.)/i,
   'ECOUNT receivables and average metrics are read-only');
 
-for (const label of ['거래처명', '매출합계', '수금합계', '기타할인등차액', '잔액', '미회수월', '월평균 매출', '차수별 평균 매출']) {
+for (const label of ['거래처명 / 담당자', '매출합계', '수금합계', '기타할인등차액', '잔액', '미회수월', '월평균 매출', '차수별 평균 매출']) {
   assert.ok(ui.includes(label), `missing table column: ${label}`);
 }
+assert.match(ui, /type="search"/);
+assert.match(ui, /aria-label="업체명 검색"/);
+assert.match(ui, /aria-pressed=\{selectedManager === manager\}/);
+assert.match(ui, /getReceivablesManagers\(allRows\)/);
 assert.match(ui, /최근 12개월/);
 assert.match(layout, /href: '\/ecount\/receivables', labelKey: '💳 ECOUNT 채권 요약'/);
 
@@ -28,8 +32,8 @@ const transformed = api
   .replace('export default withAuth(async function handler(', 'module.exports = withAuth(async function handler(');
 const moduleBox = { exports: {} };
 const users = [
-  { CustKey: 1, CustName: 'A', managerUserId: 'alice', managerMatchCount: 1 },
-  { CustKey: 2, CustName: 'B', managerUserId: 'bob', managerMatchCount: 1 },
+  { CustKey: 1, CustName: 'A', managerUserId: 'alice', managerUserName: '앨리스', managerMatchCount: 1 },
+  { CustKey: 2, CustName: 'B', managerUserId: 'bob', managerUserName: '밥', managerMatchCount: 1 },
   { CustKey: 3, CustName: 'Duplicate', managerUserId: 'alice', managerMatchCount: 1 },
   { CustKey: 4, CustName: ' Duplicate ', managerUserId: 'bob', managerMatchCount: 1 },
 ];
@@ -70,10 +74,12 @@ async function invoke(userId) {
   assert.equal(owner.body.rows[0].etcDiff, 5);
   assert.equal(owner.body.rows[0].avgSalesMonthly, 1200);
   assert.equal(owner.body.rows[0].avgSalesCycle, 300);
+  assert.equal(owner.body.rows[0].managerName, '앨리스');
   const admin = await invoke('nenovaSS3');
   assert.equal(admin.body.rows.length, 4);
   assert.equal(admin.body.scope, 'all');
   assert.equal(admin.body.rows.find((row) => row.name === 'Duplicate').avgSalesMonthly, null);
+  assert.equal(admin.body.rows.find((row) => row.name === 'A').managerName, '앨리스');
   console.log('ecountReceivablesApi: mocked handler scope and display calculations passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('ecountReceivablesApi: read-only scope, averages and navigation passed');
