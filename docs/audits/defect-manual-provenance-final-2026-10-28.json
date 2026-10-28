@@ -1,0 +1,96 @@
+{
+  "year": 2026,
+  "userDirectiveSha256": "0df9de4de3ad99506ff61d38f71333600157af80fa691807980f215234ee1335",
+  "sourceSha256": "cf29758220380777d30f81dddde4dc74f1232db595697a8a642364e4a88ae9a9",
+  "manualKeys": [
+    1019,
+    1048,
+    1049,
+    1050,
+    1051,
+    1052,
+    1053,
+    1054,
+    1055,
+    1056,
+    1057,
+    1058,
+    1059,
+    1060,
+    1139,
+    1140,
+    1141,
+    1142
+  ],
+  "manualBrowserSaves": [
+    {
+      "at": "2026-10-26T11:35:45.487",
+      "count": 14
+    },
+    {
+      "at": "2026-10-28T13:20:14.900",
+      "count": 5
+    }
+  ],
+  "quarantine": [
+    {
+      "key": 1066,
+      "year": 2026,
+      "week": "43",
+      "cust": 352,
+      "prod": 889,
+      "quantity": 15,
+      "unit": "스팀(대)",
+      "sourceOrdinal": 5233,
+      "messageSha256": "f37847cdfd52e8c9e3e4833efa85ca0476f503098e03ed5c7df3017d3fe0c42a"
+    },
+    {
+      "key": 1067,
+      "year": 2026,
+      "week": "43",
+      "cust": 352,
+      "prod": 866,
+      "quantity": 15,
+      "unit": "스팀(대)",
+      "sourceOrdinal": 5233,
+      "messageSha256": "f37847cdfd52e8c9e3e4833efa85ca0476f503098e03ed5c7df3017d3fe0c42a"
+    }
+  ],
+  "withdrawPastReplay": {
+    "key": 10803,
+    "cust": 533,
+    "prod": 518,
+    "shipment": 6852,
+    "quantity": -7,
+    "cost": 10500,
+    "amount": -66818,
+    "vat": -6682,
+    "unit": "단",
+    "type": "FEE03-KR0010",
+    "date": "2026-10-28",
+    "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "replayLedgerKey": 864,
+  "protectedManualRows": [
+    926,
+    1019,
+    1048,
+    1049,
+    1050,
+    1051,
+    1052,
+    1053,
+    1054,
+    1055,
+    1056,
+    1057,
+    1058,
+    1059,
+    1060,
+    1139,
+    1140,
+    1141,
+    1142
+  ],
+  "status": "USER_CONFIRMED_FINAL_SOURCE_CLASSIFICATION_ONLY"
+}

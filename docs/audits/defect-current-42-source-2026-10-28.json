@@ -559,5 +559,8 @@
     926,
     1052
   ],
-  "manualKeepReason": "사용자 지시: 그건 직접 입력한 것 같은데 냅둬. 입력/견적 원장 보존, 환산·신고 유추 및 재차감 금지."
+  "manualKeepReason": "사용자 지시: 그건 직접 입력한 것 같은데 냅둬. 입력/견적 원장 보존, 환산·신고 유추 및 재차감 금지.",
+  "executable": false,
+  "status": "WITHDRAWN_USER_CONFIRMED_MANUAL_BATCH",
+  "supersededBy": "defect-manual-provenance-final-2026-10-28.json"
 }
