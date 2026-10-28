@@ -1436,3 +1436,10 @@
 - 자동저장 중/실패에도 텍스트 입력 유지. Chrome 8초 지연 중 요청·발주 추가 paste→revision2 전체원문 보존,503후 편집 유지 확인. ERP writer/API 변경0.
 - 검증/배포 진행중. docs/work-sessions/2026-10-28_hotel-input.md 참조.
 - 검색어: hotel-input 카톡 붙여넣기 autosave disabled ±5
+
+## 2026-10-28 ECOUNT 채권 요약 및 평균 매출
+- `/ecount/receivables` 표를 거래처명·매출합계·수금합계·기타할인등차액·잔액·미회수월 + 월평균·차수평균으로 확장하고 메뉴명을 `ECOUNT 채권 요약`으로 명확화.
+- 일반 담당자는 유일하게 이름·담당자가 확인된 거래처만 조회, `nenovaSS3`는 ECOUNT 행 전체 조회. ECOUNT 행을 ERP 거래처에 유일 연결할 수 없는 경우 평균은 추정하지 않음.
+- 평균 매출은 KST 최근 12개월 `ShipmentDetail.isFix=1` 확정 출고의 `Amount+Vat` 기준. 월평균 분모 12, 차수평균은 매출 발생 `OrderYear+MajorWeek` 단위(세부차수 합산).
+- ECOUNT 스냅샷·공유 ERP 원장 읽기 전용. policy/API mocked UI tests, ERP contract, dnSpy evidence, manifest 169, write guard, Next build 통과.
+- 검색어: ecount-receivables etcDiff manager-scope rolling-12-month major-week average

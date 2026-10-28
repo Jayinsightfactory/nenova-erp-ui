@@ -1,0 +1,44 @@
+{
+  "id": "ecount-receivables",
+  "title": "ECOUNT 채권 요약, 담당자 거래처 제한 및 확정매출 평균",
+  "scope": [
+    "lib/ecountReceivablesPolicy.cjs",
+    "pages/api/ecount/receivables.js",
+    "pages/ecount/receivables.js",
+    "components/Layout.js",
+    "__tests__/ecountReceivablesPolicy.test.cjs",
+    "__tests__/ecountReceivablesApi.test.cjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "READ_SCOPED_ECOUNT_RECEIVABLES_AND_CONFIRMED_SALES_AVERAGES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "readTables": ["WebEcountSnapshot", "WebEcountRow", "Customer", "UserInfo", "ShipmentMaster", "ShipmentDetail", "Product"],
+      "writeTables": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "KST 오늘 기준 rolling 최근 12개월의 확정 출고 매출만 사용하고 12로 나눠 월평균을 낸다. 차수 집계는 OrderYear와 MajorWeek를 함께 사용하므로 2025년 01차와 2026년 01차를 합치지 않으며, -01/-02 세부차수는 같은 대차수로 합산한다. 매출합계가 0이 아닌 차수만 차수별 평균의 분모에 넣는다. 일반 담당자는 활성 Customer의 유일하게 확인된 Manager 배정과 유일한 거래처명 일치 행만 본다. nenovaSS3는 ECOUNT 행 전체를 볼 수 있으며, ERP 거래처에 유일 매칭되지 않는 행의 평균은 추정하지 않는다. ECOUNT 스냅샷과 Nenova 확정 출고 원장은 모두 읽기 전용이다."
+  },
+  "requiredTestFiles": [
+    "__tests__/ecountReceivablesPolicy.test.cjs",
+    "__tests__/ecountReceivablesApi.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WebSalesRegistrationHistory.md",
+    "source": "FormSalesView is the native sales-view reference; the average uses the existing read-only confirmed ShipmentMaster⋈ShipmentDetail Amount+Vat basis from lib/mgmt/receivables.js and filters ShipmentDetail.isFix=1.",
+    "methods": ["FormSalesView", "lib/mgmt/receivables.js:getArBalances"],
+    "tables": ["ShipmentMaster (read)", "ShipmentDetail (read)", "Customer (read)", "Product (read)", "WebEcountSnapshot (read)", "WebEcountRow (read)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
