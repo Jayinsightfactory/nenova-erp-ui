@@ -1508,3 +1508,5 @@
 검색어: 수기입력 모두보존 sourceFileName 혼합저장 MANUAL_SOURCE_CONFIRM SOURCE_FACT_REVIEW 10803
 
 검증: 전체 test:erp-contract, dnSpy evidence, 변경분 manifest/write guard 통과. 운영DB CTE SELECT-only로 수기확인 양성1/다른원천·다른근거종류·false3음성 통과. 원인코드는26bf5a555(2026-07-22)부터 있던 공통파일 우선순위이며2026-10-26/28 혼합저장 감사로 실제오염 확인. build/CI/배포는 진행중.
+
+로컬 production build 통과. PR1346 CI 진행. 이전현재정정계획 문서 상단에 철회 고지, 감사조회도 수기확인 이력을 존중하도록 정합성 보완.
