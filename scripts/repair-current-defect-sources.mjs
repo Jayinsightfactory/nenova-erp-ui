@@ -24,6 +24,9 @@ const api=async(path,body)=>{
 const ledgerApi='/api/sales/defect-deductions';
 const leases=[];
 try {
+  if(plan.archive.some(d=>plan.manualKeepRows.includes(d.key)) || plan.withdraw.some(d=>d.key===10811))throw Error('사용자 수기입력 보존 범위 충돌');
+  const manualSnapshot=async()=> (await pool.request().query(`SELECT * FROM WebSalesDefectDeduction WHERE DeductionKey IN(${plan.manualKeepRows.join(',')}) ORDER BY DeductionKey`)).recordset;
+  const manualBefore=JSON.stringify(await manualSnapshot());
   const liveRows=(await pool.request().query(`SELECT * FROM WebSalesDefectDeduction WHERE DeductionKey IN(${plan.archive.map(r=>r.key).join(',')})`)).recordset;
   const archives=[];
   for(const d of plan.archive){const r=liveRows.find(r=>r.DeductionKey===d.key);
@@ -86,6 +89,8 @@ try {
     const after=await snapshot(true);console.log(JSON.stringify({otherErpPreserved:JSON.stringify(before)===JSON.stringify(after),before,after}));
     if(JSON.stringify(before)!==JSON.stringify(after))throw Error('다른 ERP 원장 동시 변경 감지: 전후 대조 필요');
     const remaining=(await pool.request().query(`SELECT EstimateKey FROM Estimate WHERE EstimateKey IN(${plan.withdraw.map(e=>e.key).join(',')})`)).recordset;if(remaining.length)throw Error('선택 오등록 견적 삭제 검증 실패');
+    if(manualBefore!==JSON.stringify(await manualSnapshot()))throw Error('수기입력 보존 대상에 동시 변경 발생');
+    console.log(JSON.stringify({manualInputPreserved:plan.manualKeepRows}));
   }
 } finally {
   for(const lease of leases){try{await api('/api/erp/edit-presence',{action:'release',...lease});}catch{console.log(JSON.stringify({leaseRelease:'retry-needed',custKey:lease.custKey}));}}

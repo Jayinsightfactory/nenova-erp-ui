@@ -95,17 +95,6 @@
       "estimate": 10810
     },
     {
-      "key": 1052,
-      "year": 2026,
-      "week": "43",
-      "cust": 533,
-      "prod": 1527,
-      "qty": 5,
-      "unit": "단",
-      "version": 3,
-      "estimate": 10811
-    },
-    {
       "key": 1053,
       "year": 2026,
       "week": "43",
@@ -260,20 +249,6 @@
       "cost": 700,
       "amount": -101818,
       "vat": -10182,
-      "unit": "송이",
-      "type": "FEE03-KR0010",
-      "date": "2026-10-28",
-      "descrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
-    {
-      "key": 10811,
-      "cust": 533,
-      "prod": 1527,
-      "shipment": 6852,
-      "quantity": -5,
-      "cost": 2600,
-      "amount": -11818,
-      "vat": -1182,
       "unit": "송이",
       "type": "FEE03-KR0010",
       "date": "2026-10-28",
@@ -577,34 +552,12 @@
         ],
         "allQuantity": true
       }
-    },
-    {
-      "cust": 533,
-      "prod": 1527,
-      "quantity": 6,
-      "unit": "단",
-      "ordinal": 5201,
-      "sourceWeek": 42,
-      "original": "라이트유칼립투스 6단; 송이 환산근거 없음",
-      "unitReview": true,
-      "sha": "5ed512c03cba1ca8c737bae531939de155e139b022526754a50667e051d83fc3",
-      "sourceFacts": {
-        "customerAliases": [
-          "주광",
-          "주광농원"
-        ],
-        "itemTokens": [
-          "라이트유칼립투스"
-        ],
-        "quantity": 6,
-        "unit": "단"
-      }
     }
   ],
-  "hold": [
-    {
-      "key": 926,
-      "reason": "제공 원문에 안시리움 텍스트 없음; 사진 원문 확인 필요. 현재 견적없음, 등록차단 유지."
-    }
-  ]
+  "hold": [],
+  "manualKeepRows": [
+    926,
+    1052
+  ],
+  "manualKeepReason": "사용자 지시: 그건 직접 입력한 것 같은데 냅둬. 입력/견적 원장 보존, 환산·신고 유추 및 재차감 금지."
 }
