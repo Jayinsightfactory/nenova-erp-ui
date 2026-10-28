@@ -1061,3 +1061,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 ## 2026-10-28 최종 수기입력 보존 정정
 사용자 “수기입력 묶음은 모두 보존” 확인. 앞선16archive/11견적삭제/4초안 계획은 실행 전 철회했고 해당 JSON은 executable:false로 봉쇄했다. 브라우저 혼합저장에서 첫 자동행의 sourceFileName이 수기행까지 공통 적용된 실제 저장버그를 확인했다. 1019 및1048~1060 총14수기와1139~1142 다음저장4수기는 수량·견적·원장버전 전부 보존하고 감사 이력만으로 출처를 정정한다.926도 보존한다.1066/1067 자동2건은 원문5233(25/6)과15/15 불일치로 삭제 없이 검토표시.별도 과거해제자동864→43차10803만 기존 선택삭제/편집잠금으로 정리한다.최종 고정계획 defect-manual-provenance-final-2026-10-28.json 및 reconcile-defect-manual-origin.mjs가 이전 계획보다 우선한다.
 검색어: 수기입력 모두보존 sourceFileName 혼합저장 MANUAL_SOURCE_CONFIRM SOURCE_FACT_REVIEW 10803
+
+## 2026-10-28 다음차수 차단 유지
+비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW

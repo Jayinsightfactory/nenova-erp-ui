@@ -73,7 +73,8 @@
     "scripts/defect-compact-support-smoke.cjs",
     "lib/defectSourceProvenance.js",
     "__tests__/defectSourceProvenance.test.js",
-    "scripts/reconcile-defect-manual-origin.mjs"
+    "scripts/reconcile-defect-manual-origin.mjs",
+    "scripts/probe-defect-next-period.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -88,7 +89,7 @@
       "shipmentDetail": "preserve",
       "stockMaster": "preserve",
       "estimate": "preserve",
-      "sideEffect": "수기입력의 공통 자동원천 표식 오염은 관리자·사용자 수기확인·현재버전·업무사실 검증 후 History MANUAL_SOURCE_CONFIRM만 INSERT한다. 원장값·수량·버전·견적은 바꾸지 않는다. 확인된 수기는 자동자료/여러업체표식 판정에서 제외한다. 일반 저장은 행별 명시 sourceFileName(빈문자열 포함)을 최우선하며, 항목근거 없는 구버전 공통 Kakao 표식은 거절한다. Excel 공통파일 호환은 유지한다. SOURCE_FACT_REVIEW 원문수량불일치는 선택/미리보기/최종저장 공통 격리한다.2025/2026 혼합수기·자동·Excel 실제저장 fixture 필수."
+      "sideEffect": "수기입력의 공통 자동원천 표식 오염은 관리자·사용자 수기확인·현재버전·업무사실 검증 후 History MANUAL_SOURCE_CONFIRM만 INSERT한다. 원장값·수량·버전·견적은 바꾸지 않는다. 확인된 수기는 자동자료/여러업체표식 판정에서 제외한다. 일반 저장은 행별 명시 sourceFileName(빈문자열 포함)을 최우선하며, 항목근거 없는 구버전 공통 Kakao 표식은 거절한다. Excel 공통파일 호환은 유지한다. SOURCE_FACT_REVIEW 원문수량불일치는 선택/미리보기/최종저장 공통 격리한다.2025/2026 혼합수기·자동·Excel 실제저장 fixture 필수. 원문수량 검토차단은 현재비고와 감사이력에 유지하며 비고재저장이나 다음차수 조회로 해제하지 않는다. 차단 이후 동일업무사실의 관리자 원문재검토만 해제한다."
     },
     {
       "name": "CURRENT_SOURCE_EVIDENCE_GUARD",

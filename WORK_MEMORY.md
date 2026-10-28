@@ -1532,3 +1532,5 @@
 - 저장자료1~4차 및 총수량 우측표, 셀수정/원본 hover비교. 반복출처 제거, 원본 경계선 행정렬과 수동조정. ERP SQL/API 불변.
 - 단위11개/Chrome 행좌표·수정·원본보존 검증. 필수검사·배포 진행, 실제주문 미검증.
 - 검색어: HotelQuantityMatrix HotelMatchReview 1차 총수량 원본 줄정렬
+## 2026-10-28 다음차수 차단 유지
+비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
