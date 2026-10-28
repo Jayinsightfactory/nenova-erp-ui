@@ -1523,3 +1523,7 @@
 검증: 전체 test:erp-contract, dnSpy evidence, 변경분 manifest/write guard 통과. 운영DB CTE SELECT-only로 수기확인 양성1/다른원천·다른근거종류·false3음성 통과. 원인코드는26bf5a555(2026-07-22)부터 있던 공통파일 우선순위이며2026-10-26/28 혼합저장 감사로 실제오염 확인. build/CI/배포는 진행중.
 
 로컬 production build 통과. PR1346 CI 진행. 이전현재정정계획 문서 상단에 철회 고지, 감사조회도 수기확인 이력을 존중하도록 정합성 보완.
+
+## 2026-10-28 PR1348 CI 보완
+- PR1348 첫 CI에서 `importPackingHardening.test.js` harness가 새 `packingReceiptPreparation` 모듈을 mock registry에 등록하지 않아 한 테스트가 실패함. 앱 로직 실패가 아닌 테스트 harness import 누락으로 확인, helper를 harness에 등록해 수정.
+- 검색어: PR1348 CI packingPreparationBlockReason importPackingHardening harness dependency
