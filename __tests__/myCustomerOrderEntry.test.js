@@ -112,7 +112,7 @@ const fs = require('node:fs');
   assert.match(page,/검색 또는 알파벳 조건에 맞는 품목이 없습니다/);
   assert.match(page,/groupLabel/); assert.match(own,/p\.CountryFlower/); assert.match(own,/COALESCE\(NULLIF\(LTRIM\(RTRIM\(p\.CountryFlower\)\),''\)/);
   assert.match(page,/고정주문 불러오기/); assert.match(page,/ORDER_FAVORITE_PAGE/); assert.match(page,/apiDelete/);
-  assert.match(page,/selectedTemplate/); assert.match(page,/주문내역/); assert.match(page,/이 주문 불러오기/);
+  assert.match(page,/selectedTemplate/); assert.match(page,/주문내역/); assert.match(page,/선택 품종 주문 불러오기/);
   assert.match(page,/template-browser/); assert.match(page,/preview-pane/); assert.match(page,/주문을 선택하세요/);
   assert.match(page,/grid-template-columns:minmax\(470px,1fr\) minmax\(430px,1\.15fr\)/);
   assert.match(page,/pinned-favorites/); assert.match(page,/★ 고정 주문/); assert.match(page,/loadCustomerFavorites/);
