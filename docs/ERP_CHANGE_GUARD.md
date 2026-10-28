@@ -1,5 +1,9 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-28 자동수집 일괄등록 기준 정정
+
+자동수집 출처만으로 영업지원 전산등록을 차단하지 않는다. 현재/과거 원천 표식은 감사와 중복 견적 판정에 사용하고 정상 업체·품목·수량·출고·단가 검증을 대체하지 않는다. 공통 계획 함수에 남은 과거 차단도 제거했다. CI의 독립 `salesDefectRegistrationProvenance.test.js`는 업체·연도·확인·현재/과거원천 96조합의 정상 등록과 업무상 차단을 실행 검증한다. 예전 차단을 다시 추가하면 양성 fixture가 실패해야 한다. 전수 대조 및 부작용 기준: `docs/plans/defect-registration-provenance-parity-2026-10-28.md`.
+
 ## 2026-10-23 통관 환율 적용주간 승인 추정
 
 WarehouseMaster.InputDate는 실제 EXE의 입력일자이며 통관 신고일 인증 근거가 아니다.

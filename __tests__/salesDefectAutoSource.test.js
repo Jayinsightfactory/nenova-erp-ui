@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './salesDefectRegistrationProvenance.test.js';
 import fs from 'node:fs';
 import {
   AUTO_SOURCE_ESTIMATE_CONFLICT,
@@ -53,9 +54,10 @@ for (const row of [
   { ...manual, AutoSourceExcluded: 1, OrderYear: 2025, OrderWeek: '41', IsCarryoverLedger: 1 },
 ]) {
   assert.throws(() => assertNotDefectAutoSource(row), (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED);
-  assert.throws(() => planDeductionRegistration({
+  assert.equal(planDeductionRegistration({
     row, targetYear: 2026, targetWeek: '41', customerShipmentExists: true, shipmentKey: 1, cost: 1000,
-  }), (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED);
+    requestKey: 'automatic-history-carryover',
+  }).action, 'APPLY');
   assert.throws(() => planManualProcessingComplete({ row, targetYear: 2026, targetWeek: '41' }), (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED);
   assert.equal(canEditManualCost(row), false);
 }
@@ -187,7 +189,7 @@ assert.notEqual(overrideMarkerResult.skipped[0]?.errorCode, AUTO_SOURCE_REVIEW_R
 
 let finalReadCount = 0;
 const finalRereadWrites = [];
-await assert.rejects(registerDeductions({
+const finalRereadResult = await registerDeductions({
   year: 2026, week: '41', ids: [13], user: { userId: 'support', userName: '지원' },
   overrides: { 13: { quantity: 3, note: 'ordinary review', sourceUnit: '단' } },
 }, {
@@ -215,7 +217,8 @@ await assert.rejects(registerDeductions({
     if (/SELECT e\.EstimateKey/.test(source)) return { recordset: [] };
     return fakeRegisterQuery(statement, params);
   }, { attempt: 0 }),
-}).then((result) => { assert.equal(result.registered.length, 1); return Promise.reject(new Error('registration-passed')); }), (error) => error.message === 'registration-passed');
+});
+assert.equal(finalRereadResult.registered.length, 1);
 assert.ok(finalReadCount >= 2, 'final locked reread retains provenance without excluding registration');
 assert.ok(finalRereadWrites.length > 0, 'eligible automatic history uses the normal write path');
 
