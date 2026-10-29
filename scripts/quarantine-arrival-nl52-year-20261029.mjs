@@ -13,8 +13,8 @@ const reviewed = process.argv.find(value => value.startsWith('--review-sha='))?.
 const pool = await sql.connect({ server: process.env.DB_SERVER, port: Number(process.env.DB_PORT || 1433),
   database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD,
   options: { encrypt: false, trustServerCertificate: true } });
-const predicate = `l.ImportKey=23 AND l.OrderYear=N'2026' AND l.OrderWeek=N'52-2'
-  AND l.SheetName=N'52-2' AND l.CountryName=N'네덜란드' AND l.SourceFileName=N'37-2 NL 원가자료 (2).xlsx' AND l.IsCurrent=1`;
+const predicate = `l.ImportKey=23 AND l.OrderYear=N'2026' AND l.OrderWeek IN (N'47-1',N'48-1',N'49-1',N'50-1',N'50-2',N'51-1',N'51-2',N'52-2')
+  AND l.SheetName=l.OrderWeek AND l.CountryName=N'네덜란드' AND l.SourceFileName=N'37-2 NL 원가자료 (2).xlsx' AND l.IsCurrent=1`;
 let transaction;
 try {
   if (apply) {
@@ -28,15 +28,15 @@ try {
   const request = () => new sql.Request(transaction || pool);
   const before = (await request().query(`SELECT l.* FROM dbo.WebArrivalCostLine l
     ${apply ? 'WITH (UPDLOCK,HOLDLOCK)' : ''} WHERE ${predicate} ORDER BY l.ArrivalLineKey`)).recordset;
-  if (before.length !== 54) throw new Error('Expected exactly 54 reviewed current incident rows; inspect changes before rerunning');
+  if (before.length !== 382) throw new Error('Expected exactly 382 reviewed current incident rows; inspect changes before rerunning');
   if (before.some(row => JSON.parse(row.RawJson || '{}').meta?.yearEvidence?.status === 'verified')) throw new Error('Source-year evidence changed; review again');
   const edits = (await request().query(`SELECT h.HistoryKey,h.ArrivalLineKey,h.ActionType
     FROM dbo.WebArrivalCostHistory h JOIN dbo.WebArrivalCostLine l ON l.ArrivalLineKey=h.ArrivalLineKey
     WHERE ${predicate} AND h.ActionType IN (N'MATCH',N'BASIS_CHANGE') ORDER BY h.HistoryKey`)).recordset;
   const sha = crypto.createHash('sha256').update(JSON.stringify({ before, edits })).digest('hex');
   console.log(JSON.stringify({ mode: apply ? 'apply' : 'review', count: before.length, manualEdits: edits.length,
-    reviewSha: sha, keys: before.map(row => row.ArrivalLineKey),
-    reason: 'Undated 52-2 sheet imported in September from 37-2 workbook was assigned 2026; actual source year remains unproven' }, null, 2));
+    reviewSha: sha, scopes: Object.fromEntries([...new Set(before.map(row => row.OrderWeek))].map(week => [week, before.filter(row => row.OrderWeek === week).length])),
+    reason: 'Undated 47-52 sheets imported in September from 37-2 workbook was assigned 2026; actual source year remains unproven' }, null, 2));
   if (edits.length) throw new Error('Manual matching/basis history exists: quarantine requires a separate reviewed plan');
   if (apply) {
     if (sha !== reviewed) throw new Error('Incident rows changed since review');

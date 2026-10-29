@@ -115,7 +115,7 @@
       "name": "ARRIVAL_ROLLING_WORKBOOK_YEAR_GUARD",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "Without explicit source-year evidence, a sheet later than the filename week cannot inherit selected year. Common parser marks conflict; validateArrivalImportYear rejects before writes. After deployment, only reviewed Import23/2026/NL/52-2 54 current rows may be quarantined with exact digest, no manual edits, before/after audit and IsCurrent-only readback. Never relabel as 2025 without evidence. Other scopes and all ERP ledgers preserved."
+      "notes": "Without explicit source-year evidence, a sheet later than the filename week cannot inherit selected year. Common parser marks conflict; validateArrivalImportYear rejects before writes. After deployment, only reviewed Import23/2026/NL 47-1,48-1,49-1,50-1,50-2,51-1,51-2,52-2: exactly 382 current rows may be quarantined with exact digest, no manual edits, before/after audit and IsCurrent-only readback. Never relabel as 2025 without evidence. Other scopes and all ERP ledgers preserved."
     }
   ],
   "crossYearFixture": {
