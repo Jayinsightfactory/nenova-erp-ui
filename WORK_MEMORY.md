@@ -1708,3 +1708,15 @@
 
 2026-10-29 관세 양식 승인추정 표시 독립검증: nw-profit-template-duty에서 DB SELECT만 실행. 1~41차164국가행 산술·원본불변·멱등 위반0. 기존 AWB 운임 절대액 보존 후 원행 단/박스 또는 실제 송이로 bucket내 환산. EC41 관세445,176.58원·이월기초증가96,793.67원, 표시K4.8694→−17.3591%. 태국38/39 미승인품목 보류 유지. 실제 주차38/39/41 및 월별43차수 대사5.052초/28SELECT/쓰기0/불일치0. 전체CI·배포·다운로드 파일·브라우저는 부모 최종 확인 전 미검증. 근거 docs/work-sessions/2026-10-29_profit-template-duty-release.md.
 - 검색어: 관세 양식 승인추정 AWB 절대운임 445176 96793 41차 에콰도르 templateDuty
+
+2026-10-29 관세 양식 표시 배포 후속: PR1381 최종CI40856429505 통과, squash a3de9d96bb939e311daf94afb1500f51e435b75f, Cafe24 deploy40857166305 SUCCESS. 부모가 운영Chrome41차 에콰 E499547/H581177/J−423246/K−17.4%,38·39태국 보류, 월별43차까지 저장본우선·44~50제외·누락합계공란 확인. ping200/DB연결·hydration 성공. DB쓰기·저장·확정 없음. 41차 실제XLSX 파일대사는 아직 미검증/대기. 근거 docs/work-sessions/2026-10-29_profit-template-duty-release.md.
+- 검색어: 관세양식 배포1381 a3de9d96 40857166305 에콰41 태국보류 XLSX대사
+
+2026-10-29 운영다운로드 검증완료: Downloads/매출이익_2026_41차.xlsx 실제1시트41차, 에콰A14에서헤더추적 E14=499547.13826/H14=581176.577125/J14=−423246.023885/이익률L14=−.17359068219830806 독립값일치. SHA256 aa6ea41a2fb4852d90816dae98cff1825aceea7c35d954f6509730d60056b105 읽기전후불변. 파일수정없음. 감사요약첫8경고제한으로새에콰관세추정문구는직접표시안됨(환율추정·외33건웹확인만표시),설명제한별도보고.
+- 검색어: 41차 단일시트 다운로드 검산 L14 581176 관세추정 설명제한
+
+2026-10-29 출력 설명 후속진행: 운영XLSX 관세추정 라벨 누락으로 완료보류. codex/profit-template-duty-export-label에서 선택시트/합본/인쇄 안내보존만3파일수정, 계산·DB불변. E/H/J/K 선택→단일41시트→binary읽기/인쇄회귀통과,독립소스리뷰추가핵심문제없음. 전체guard/build진행중;새PR·CI·배포·운영재다운로드확인전미완료.
+- 검색어: 관세추정 라벨 export-label A1 A2 combineOutputBooks 인쇄 실제납부확정아님
+
+2026-10-29 출력라벨 후속 전체검증: npm run verify:erp-change exit0 PASS(webpack build포함,.verify/erp-export-label.log),명시writeguard origin/master대비0API PASS. 후속PR/최종CI/배포/운영재다운로드는대기. 문서커밋전상태동결.
+- 검색어: 관세라벨 전체검증 PASS export-label 재다운로드대기
