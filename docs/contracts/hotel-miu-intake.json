@@ -38,6 +38,12 @@
   ],
   "actions": [
     {
+      "name": "IMAGE_SOURCE_LINKS_COMPACT_REVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Vision returns validated normalized per-item sourceBox for multi-table images. Hover/focus shows source highlight and connector; explicit source location click updates only draft row.sourceBox with existing CAS. Old/missing boxes remain manual; never invent row correspondence. Compact30px rows/26px controls. Existing quantity, mapping and ERP flows preserved."
+    },
+    {
       "name": "SOURCE_ROW_COMPARISON_AND_BATCH_QUANTITY_GRID",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",

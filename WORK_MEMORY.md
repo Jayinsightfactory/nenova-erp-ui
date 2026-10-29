@@ -1534,3 +1534,8 @@
 - 검색어: HotelQuantityMatrix HotelMatchReview 1차 총수량 원본 줄정렬
 ## 2026-10-28 다음차수 차단 유지
 비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
+
+## 2026-10-29 호텔 원본 연결선·여백
+- 다중표 OCR sourceBox 추가,hover/focus 연결선·원본강조,기존자료 명시원본클릭 위치수정.행30/컨트롤26px.수량/ERP쓰기 불변.
+- 단위/API14개·Chrome 우측표연결 및좌표수정후 수량보존 확인.실업무OCR·주문등록 미검증.배포후추가.
+- 검색어: 호텔 sourceBox 연결선 다중표 여백

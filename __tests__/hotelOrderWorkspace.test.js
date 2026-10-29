@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHotelOrderRows, hotelRegistrationPlan, hotelConvert, uniqueHotelMappings, hasHotelDraftContent } from '../lib/hotelOrderWorkspace.js';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks.js';
-import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds } from '../lib/hotelOrderReview.js';
+import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds, hotelSourceBox } from '../lib/hotelOrderReview.js';
 
 test('numbered quantity matrix edits preserve exact scope and original evidence, normalize mixed units and conserve totals',()=>{
   const products={7:{ProdKey:7,DisplayName:'TEST',OutUnit:'송이',SteamOf1Box:30,SteamOf1Bunch:10,BunchOf1Box:3}};
@@ -130,4 +130,10 @@ test('saved mappings cannot resolve conflicting hotel names arbitrarily', () => 
   const x = uniqueHotelMappings([{ ItemName: '수국 화이트', ProdKey: 10 }, { ItemName: '수국화이트', ProdKey: 11 }, { ItemName: '장미', ProdKey: 12 }, { ItemName: '장미', ProdKey: 12 }]);
   assert.equal(x.groups.get(x.token('수국 화이트')).size, 2);
   assert.equal(x.groups.get(x.token('장미')).size, 1);
+});
+
+test('source coordinates stay normalized and cannot affect quantity or cross-year scope',()=>{
+  assert.deepEqual(hotelSourceBox([.52,.2,.4,.05]),[.52,.2,.4,.05]);
+  for(const v of [null,[],[-1,0,.2,.2],[0,0,2,1],[0,NaN,1,1],[0,0,0,1],['0',0,1,1]])assert.equal(hotelSourceBox(v),null);
+  for(const year of ['2025','2026']){const w={year,week:'44-01',request:[],purchase:[],pending:{request:{id:'test',rows:[{id:'a',qty:30,unit:'송이',sourceBox:[.52,.2,.4,.05]}]}}};const saved=commitHotelReview(w,'request','time');assert.equal(saved.year,year);assert.equal(saved.request[0].qty,30);assert.deepEqual(saved.request[0].sourceBox,[.52,.2,.4,.05]);}
 });
