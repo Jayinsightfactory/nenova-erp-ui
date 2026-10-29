@@ -41,7 +41,7 @@
       "name": "IMAGE_SOURCE_LINKS_COMPACT_REVIEW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Vision returns validated normalized per-item sourceBox for multi-table images. Hover/focus shows source highlight and connector; explicit source location click updates only draft row.sourceBox with existing CAS. Old/missing boxes remain manual; never invent row correspondence. Disjoint horizontal source boxes form 2-4 horizontally cropped source/matching panels (full vertical image preserved against approximate OCR coordinates), preserving row IDs and global coordinates. Compact30px rows/26px controls with 4px source gap. Existing quantity, mapping and ERP flows preserved."
+      "sideEffect": "Vision returns validated normalized per-item sourceBox for multi-table images. Hover/focus shows source highlight and connector; explicit source location click updates only draft row.sourceBox with existing CAS. Old/missing boxes remain manual; never invent row correspondence. Disjoint horizontal source boxes form 2-4 horizontally cropped source/matching panels (full vertical image preserved against approximate OCR coordinates), preserving row IDs and global coordinates. Each panel detects actual monochrome table rules independently, ignores yellow headers/light blank grid, and shares first-row offset and minimum30px row heights with image vertical display scale. Uncertain row counts retain fallback/manual per-panel alignment in server draft metadata. No OCR box based vertical cropping. Compact26px controls with 4px source gap. Existing quantity, mapping and ERP flows preserved."
     },
     {
       "name": "SOURCE_ROW_COMPARISON_AND_BATCH_QUANTITY_GRID",

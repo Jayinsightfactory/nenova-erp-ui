@@ -1587,3 +1587,8 @@
 - 업로드회귀/dnSpy/manifest/write guard 통과. 전체검사/빌드는 기존공유node_modules 누락으로 독립의존성 설치후 재검증중. Linux 실제flock·CI·배포·실브라우저는 아직 미검증.
 - 검색어: 카네이션 381행 Audit135 Audit136 IMPORT_DEPLOY_BUSY IMPORT_PROGRESS_LOST flock deploy drain
 
+
+## 2026-10-29 호텔 원본·매칭 같은 가로줄
+- 원본 표 경계선을 패널별로 검출해 첫 행 위치/최소30px 행 높이를 이미지와 매칭표에 공통 적용. 표별 수동 줄 조정은 기존 서버 초안 alignment.panels에 보관. 제목/노란 배경/연한 빈 격자/행 개수 불일치 방어. ERP/API 쓰기 변경 없음.
+- 22행/14행 서로 다른 제목 높이 합성 이미지 실제 컴포넌트에서 1920px/800px 정렬·수량 격리·Tab/Shift+Tab 확인. 16개 단위/API 회귀 통과. 전체 검사/빌드/CI/배포는 진행 중(미검증).
+- 검색어: 호텔 같은 줄 행 정렬 hotelImageRowBounds alignment.panels
