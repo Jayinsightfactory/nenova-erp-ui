@@ -1,5 +1,16 @@
 # E040723 담당 거래처 채권 — 2026-10-27
 
+## 2026-10-29 입금 비교 및 실제 관리대장 검색
+로컬 dnSpy CLI ClassCustomer.GetData의 BusinessNumber/Manager 필드를 다시 확인했다.
+읽기 전용 운영 DB probe는 활성 거래처675, 활성 UserInfo에 유일하게 연결되는 담당
+거래처125를 확인했다. UserName은 단일 담당자일 때만 표시하며 기존 조회권한은 유지한다.
+E010205 실제 UI에서 회계반영/미반영 탭과 입금 검색, 전월 조회기간, 13열을 확인했다.
+미반영 입금이 없는 결과는 명시적 빈 행으로 표시됐다. 같은 전표번호의 복수 은행행이
+존재하므로 전표번호를 은행거래 식별자로 사용하지 않는다. 은행계좌/입금처/거래시각/
+금액/은행잔액/지점 조합을 HMAC으로 변환하며 원문을 저장하지 않는다.
+부작용/계산 기준: docs/plans/ecount-pending-receipts-2026-10-29.md.
+Customer/UserInfo read, WebEcountSnapshot append only. 주문·출고·견적·매출·재고 모두 preserve.
+
 외부 ECOUNT 조회 보고서를 웹 전용 WebEcountSnapshot에 보관하는 기능이다. EXE 정산/채권 원장을 구현하거나 수정하지 않는다.
 
 로컬 설치 Nenova.exe를 dnSpy.Console.exe --no-color -t ClassCustomer 및 -t FormCustomerInfo로 직접 조회(exit 0). ClassCustomer.GetData의 BusinessNumber/Manager/OrderCode 읽기 필드와 FormCustomerInfo의 사업자번호/Manager/거래처주문코드 표시를 확인했다. OrderCode는 이카운트 거래처코드로 추정할 수 없다. 이번 작업은 해당 테이블에 쓰지 않는다.

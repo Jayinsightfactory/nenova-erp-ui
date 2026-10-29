@@ -15,7 +15,9 @@
     "components/Layout.js",
     "scripts/ecount-scraper/customer-ledger.mjs",
     "scripts/ecount-scraper/daemon.mjs",
-    "scripts/ecount-scraper/scrape-core.mjs"
+    "scripts/ecount-scraper/scrape-core.mjs",
+    "lib/ecountPendingReceipts.cjs",
+    "scripts/ecount-scraper/pending-receipts.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -43,11 +45,12 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "KST 평일 08:00·11:00·14:00 수집, 각 5분 이내 단일 실행, 주말 및 누락 회차 뒤늦은 catch-up 차단. 담당자는 담당 거래처만 평일 08~18시 최신화 요청 가능. 관리자 계정 nenovaSS3은 전체 활성 거래처 목록과 유일하게 연결된 거래처의 검증 대장을 조회할 수 있으나, ECOUNT 식별값이 없거나 중복된 거래처는 대장 조회를 차단한다. 요청은 WebEcountSnapshot ledger723 대기 이벤트로만 기록하고 원본 PC가 순차 처리, 성공·실패 결과를 추가 기록한다. 요청 중복은 억제하고 worker 복구를 위해 2시간 지난 실행은 재시도 가능. 연말 및 윤년 최근1개월, 재배정/비활성/중복 식별값/일반 사용자 타 거래처 접근 차단, 원본 전체 행·합계·잔액 검증. 이월잔액 한 행뿐인 원본은 0건 전표와 이월잔액을 보존하며 잔액 미제공과 구분한다. 실패는 허용된 원인코드만 RED snapshot에 저장하고 마지막 GREEN 원본을 보존한다. 휴일/업무시간 밖의 마지막 검증본은 실제 수집기간을 표시한다. 고객마다 새 문서를 열고 실패 팝업을 복구한다. 웹 전용 snapshot만 추가하며 원본 ECOUNT와 공유 ERP 원장은 보존한다. 날짜 입력은 포커스 이동으로 확정하고 숫자 일자를 대조한 뒤 검색하며, 최종 보고서의 전체 기간을 다시 검증한다."
+    "description": "KST 평일 08:00·11:00·14:00 수집, 각 5분 이내 단일 실행, 주말 및 누락 회차 뒤늦은 catch-up 차단. 담당자는 담당 거래처만 평일 08~18시 최신화 요청 가능. 관리자 계정 nenovaSS3은 전체 활성 거래처 목록과 유일하게 연결된 거래처의 검증 대장을 조회할 수 있으나, ECOUNT 식별값이 없거나 중복된 거래처는 대장 조회를 차단한다. 요청은 WebEcountSnapshot ledger723 대기 이벤트로만 기록하고 원본 PC가 순차 처리, 성공·실패 결과를 추가 기록한다. 요청 중복은 억제하고 worker 복구를 위해 2시간 지난 실행은 재시도 가능. 연말 및 윤년 최근1개월, 재배정/비활성/중복 식별값/일반 사용자 타 거래처 접근 차단, 원본 전체 행·합계·잔액 검증. 이월잔액 한 행뿐인 원본은 0건 전표와 이월잔액을 보존하며 잔액 미제공과 구분한다. 실패는 허용된 원인코드만 RED snapshot에 저장하고 마지막 GREEN 원본을 보존한다. 휴일/업무시간 밖의 마지막 검증본은 실제 수집기간을 표시한다. 고객마다 새 문서를 열고 실패 팝업을 복구한다. 웹 전용 snapshot만 추가하며 원본 ECOUNT와 공유 ERP 원장은 보존한다. 날짜 입력은 포커스 이동으로 확정하고 숫자 일자를 대조한 뒤 검색하며, 최종 보고서의 전체 기간을 다시 검증한다. 2026-10-29: 거래처관리대장 검색/담당자 버튼, 전월/금월 입금 조회, 미반영 전후 스냅샷과 동일 대장 원자 저장. 회계반영 이력의 정확한 패턴/코드만 연결. 복수 코드/중복 은행식별/기반기간 불일치/수집실패/수금동일금액 보류. 회계반영 전환 시 차감0 및 공식잔액 반영 회귀. 개인정보 원문 저장 없음. SS3은 이미 전체조회 권한을 가진 단일 담당자 배정 거래처의 최신화도 요청할 수 있다. 미배정/중복담당은 수집대상에서 제외하고 일반계정 타거래처 요청 차단은 유지한다."
   },
   "requiredTestFiles": [
     "__tests__/ecountCustomerLedgerPolicy.test.cjs",
-    "__tests__/ecountCustomerLedger.test.cjs"
+    "__tests__/ecountCustomerLedger.test.cjs",
+    "__tests__/ecountPendingReceipts.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

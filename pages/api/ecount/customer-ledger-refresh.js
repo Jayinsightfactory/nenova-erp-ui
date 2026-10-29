@@ -1,5 +1,6 @@
 import { withAuth } from '../../../lib/auth';
 import { ledgerCustomers, readLedgerRefreshRequest, requestLedgerRefresh } from '../../../lib/ecountCustomerLedgerStore';
+import { isLedgerAdmin } from '../../../lib/ecountCustomerLedgerPolicy.cjs';
 
 async function handler(req,res){
   res.setHeader('Cache-Control','private, no-store');
@@ -9,11 +10,13 @@ async function handler(req,res){
   const key=String(raw??'');
   if(!/^[1-9]\d*$/.test(key)||!Number.isSafeInteger(Number(key)))return res.status(400).json({success:false,error:'INVALID_CUSTOMER'});
   try{
-    const customer=(await ledgerCustomers(req.user.userId)).find(c=>c.custKey===Number(key));
+    const admin=isLedgerAdmin(req.user);
+    const customer=(await ledgerCustomers(req.user.userId,admin)).find(c=>c.custKey===Number(key));
     if(!customer)return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
+    if(admin&&customer.managerMatchCount!==1)return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
     if(!customer.linked)return res.status(409).json({success:false,error:'CUSTOMER_LINK_REQUIRED'});
     if(req.method==='GET')return res.json({success:true,request:await readLedgerRefreshRequest(customer.custKey)});
-    return res.json({success:true,request:await requestLedgerRefresh(req.user.userId,customer.custKey)});
+    return res.json({success:true,request:await requestLedgerRefresh(req.user.userId,customer.custKey,Date.now(),admin)});
   }catch(e){
     const status={REQUEST_WINDOW_CLOSED:409,REQUEST_RATE_LIMIT:429,CUSTOMER_LINK_REQUIRED:409,CUSTOMER_FORBIDDEN:403}[e.message];
     return res.status(status||503).json({success:false,error:status?e.message:'REFRESH_REQUEST_UNAVAILABLE'});
