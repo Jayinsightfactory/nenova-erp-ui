@@ -116,7 +116,7 @@
     "test:user-activity": "node scripts/test-user-activity-server.cjs && node --test __tests__/userActivityClient.test.js && node --test desktop/tests/activity.test.cjs",
     "test:pending-stock-recovery": "node --test __tests__/pendingStockRecovery.test.cjs __tests__/pendingStockRecoveryWorker.test.cjs __tests__/pendingStockRecoveryService.test.cjs",
     "test:stock-adjustment-matrix": "node --test __tests__/stockAdjustmentMatrix.test.js __tests__/stockAdjustmentMatrixWorkbook.test.js __tests__/stockAdjustmentMatrixApi.test.js __tests__/stockAdjustmentMatrixUi.test.cjs",
-    "test:kakao-stock": "node __tests__/kakaoStockLedger.test.js"
+    "test:kakao-stock": "node __tests__/kakaoStockLedger.test.js && node __tests__/kakaoStockInbox.test.js"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
