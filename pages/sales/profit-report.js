@@ -679,7 +679,7 @@ export default function ProfitReportPage() {
       if (!d.success) throw new Error(d.error || '확정 실패');
       setShowConfirmPanel(false); setForceReason('');
       await load();
-      setMessage(`보고서 기준 확정 완료 — Revision ${d.revisionNo}${force ? ' (강제 확정)' : ''}. 이 차수는 이제 저장된 확정값만 표시됩니다.`);
+      setMessage(`보고서 기준 확정 완료 — Revision ${d.revisionNo}${force ? ' (강제 확정)' : ''}. ${data?.templateDuty?'확정 원본은 보존되며 현재 표시는 관세 보완 추정값을 포함합니다.':'이 차수는 이제 저장된 확정값만 표시됩니다.'}`);
     } catch (e) { setError(e.message); } finally { setConfirmBusy(false); }
   };
 
@@ -1029,10 +1029,10 @@ export default function ProfitReportPage() {
         {viewMode === 'category' && data && (
           <span
             style={data.confirmed ? st.reportStatusConfirmed : st.reportStatusDraft}
-            title="보고서 기준 확정 상태입니다. 출고 확정 상태와는 별개입니다."
-            aria-label={`보고서 상태: ${data.confirmed ? '확정됨' : '미확정'}`}
+            title={data.templateDuty?.derivedFromConfirmed?'원본 보고서는 확정 상태입니다. 현재 표시는 관세 보완 추정값을 포함하며 확정 원본값 자체가 아닙니다.':'보고서 기준 확정 상태입니다. 출고 확정 상태와는 별개입니다.'}
+            aria-label={`보고서 상태: ${data.templateDuty?.derivedFromConfirmed?'원본 확정 · 현재 표시는 관세보완 추정':data.confirmed ? '확정됨' : '미확정'}`}
           >
-            {data.confirmed ? `✓ 확정됨 · R${data.confirmed.revisionNo}` : '● 미확정'}
+            {data.confirmed ? `✓ ${data.templateDuty?.derivedFromConfirmed?'원본 확정 · 현재 표시는 관세보완 추정':'확정됨'} · R${data.confirmed.revisionNo}` : '● 미확정'}
           </span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
@@ -1249,11 +1249,11 @@ export default function ProfitReportPage() {
       )}
       {viewMode === 'category' && data?.confirmed && (
         <div style={st.confirmBanner}>
-          ✅ <b>확정됨</b> — Revision {data.confirmed.revisionNo} · 확정자 {data.confirmed.confirmedByName || data.confirmed.confirmedBy || '-'} ·{' '}
+          ✅ <b>{data.templateDuty?.derivedFromConfirmed?'원본 확정 · 현재 표시는 관세보완 추정':'확정됨'}</b> — Revision {data.confirmed.revisionNo} · 확정자 {data.confirmed.confirmedByName || data.confirmed.confirmedBy || '-'} ·{' '}
           {data.confirmed.confirmedAt ? new Date(data.confirmed.confirmedAt).toLocaleString('ko-KR') : '-'}
           {data.confirmed.isForced && <span style={{ marginLeft: 6, color: '#b91c1c', fontWeight: 800 }}>· 강제 확정 (사유: {data.confirmed.forceReason || '-'})</span>}
           <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 400 }}>
-            이 차수는 확정 시점에 저장된 값만 표시합니다(원천이 나중에 바뀌어도 재계산하지 않음). 값을 다시 계산하려면 위 <b>확정 취소 후 다시 계산</b>을 누르세요.
+            {data.templateDuty?.derivedFromConfirmed?'확정 원본·DB는 변경하지 않았습니다. 현재 본표·다운로드는 저장본 기반 관세 보완 추정값이며 회계 확정 원본 수익률과 구분해야 합니다.':<>이 차수는 확정 시점에 저장된 값만 표시합니다(원천이 나중에 바뀌어도 재계산하지 않음). 값을 다시 계산하려면 위 <b>확정 취소 후 다시 계산</b>을 누르세요.</>}
           </div>
         </div>
       )}
