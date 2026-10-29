@@ -495,7 +495,8 @@ for (const [id, assetName, filename] of [
     const p = INVOICE_COST_EXPORT_PROFILES[id], f = invoiceCostExportFixture(28, p.formulaId);
     const asset = require(`../lib/invoiceCostTemplates/${assetName}-v1.json`);
     const buffer = await createInvoiceCostWorkbook(f), output = await JSZip.loadAsync(buffer);
-    assertFormatOnlyStyleClones(await output.file('xl/styles.xml').async('string'), asset.styles);
+    const expectedStyles = id === 'AU_ORIGINAL_V1' ? asset.styles.replace(/<fonts\b[\s\S]*?<\/fonts>/, fonts => fonts.replace(/<sz val="(?:8|9)"\s*\/>/g, '<sz val="11"/>').replace(/<name val="Calibri"\s*\/>/g, '<name val="맑은 고딕"/>')) : asset.styles;
+    assertFormatOnlyStyleClones(await output.file('xl/styles.xml').async('string'), expectedStyles);
     assert.equal(await output.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const xml = await output.file('xl/worksheets/sheet1.xml').async('string');
     for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(xml.includes(part));

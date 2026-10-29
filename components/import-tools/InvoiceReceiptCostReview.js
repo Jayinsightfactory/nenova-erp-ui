@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } from '../../lib/invoiceReceiptCost';
 import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoiceCostApprovalInvalidationEvents, isInvoiceCostGenerationCurrent, runInvoiceCostSaveWorkflow, runInvoiceCostStageRunner, shouldShowInvoiceCostPreviewNotice, verifyInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import styles from '../../styles/InvoiceReceiptCost.module.css';
+import useCostStepGuide from './useCostStepGuide';
 import { invoiceCostDownloadFeedback } from '../../lib/invoiceCostDownloadFeedback.js';
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
@@ -757,6 +758,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const exportActual = verifiedExport?.identity === identity ? verifiedExport.actual : null;
   const exportEligibility = invoiceCostExportEligibility(document, exportActual);
   const downloadFeedback = invoiceCostDownloadFeedback({busy,preview,notice,form,reviewOnly,manualLineCount:manualLineIds.length,inputEdited});
+  const guideRoot = useCostStepGuide(JSON.stringify(form) + String(busy) + String(preview?.status), nativePreview && !downloadFeedback.disabled);
   async function downloadCost() {
     if (busy || pending || exportLockRef.current || !exportEligibility.allowed) return;
     const expectedIdentity = identity, expectedGeneration = generationRef.current;
@@ -770,7 +772,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     finally { exportLockRef.current = false; if (isCurrent(expectedIdentity, expectedGeneration)) setExportBusy(false); }
   }
 
-  return <section className={styles.root} aria-label="인보이스 도착원가 검토">
+  return <section ref={guideRoot} className={styles.root} aria-label="인보이스 도착원가 검토">
+    <p role="status">강조된 입력칸을 확인하세요. 입력 후 미리보기·다운로드 순서로 안내합니다.</p>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>{invoicePreview ? '인보이스 수량 도착원가' : '실제 입고량 도착원가'}</h3>
         <p>검증된 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
@@ -807,7 +810,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       </select></Field>
       {!nativePreview && <><Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
       <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field></>}
-      <Field label="환율 (원/통화)"><input type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
+      <Field label="환율 (원/통화)"><input aria-required="true" aria-invalid={!Number.isFinite(Number(form.exchangeRateKRW)) || Number(form.exchangeRateKRW) <= 0} type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
       {form.formulaId === 'AU_CNF_BUNCH_V1' && <div role="status" style={{ gridColumn: '1 / -1', fontSize: 12, color: '#526580', marginTop: -10 }}>
         {form.exchangeRateKRW ? <>
           인보이스 업로드일 {form.exchangeRateRequestedDate || document.reviewedMetadata?.invoiceUploadDate || '미확인'} 기준 · 적용 환율 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '환율 출처 미확인'}{form.exchangeRateCarriedForward ? ' · 휴일/미고시일로 직전 고시값 적용' : ''}
@@ -836,7 +839,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <p>{AU_ORIGINAL_SOURCE}. 현재 청구 확정값이 아닌 원본 가정값입니다. 운임은 CNF에 포함되어 중복 가산하지 않습니다. CW는 요구하지 않습니다.</p>
       <div className={styles.formGrid}>
         {Object.entries({gw:'호주 GW (kg)',itemCount:'검역 품목수',baeksangRateKRW:'백상 요율 (원/kg)',clearanceFeeKRW:'통관 수수료 (원)',inspectionRateKRW:'검역 요율 (원/품목)',domesticTransportKRW:'국내 운송비 (원)'}).map(([key,label])=>
-          <Field key={key} label={label}><input type="number" min="0" step={key==='itemCount'?'1':'any'} value={form.auOriginal?.[key] ?? ''} onChange={event=>update('auOriginal',{...form.auOriginal,[key]:event.target.value})} placeholder="미확인 · 직접 입력"/></Field>)}
+          <Field key={key} label={label}><input aria-invalid={form.auOriginalMode === 'FORMULA' && calculateAuOriginalCustoms(form.auOriginal).missing.includes(key)} type="number" min="0" step={key==='itemCount'?'1':'any'} value={form.auOriginal?.[key] ?? ''} onChange={event=>update('auOriginal',{...form.auOriginal,[key]:event.target.value})} placeholder="미확인 · 직접 입력"/></Field>)}
       </div>
       {form.auOriginalMode === 'FORMULA' && calculateAuOriginalCustoms(form.auOriginal).total === null && <p role="status">원본 통관비 수식에 필요한 값이 없습니다. GW 등 빈 입력칸을 확인하거나, 확인한 통관비 합계를 직접 입력하세요. 미기재 값은 0으로 처리하지 않습니다.</p>}
       <p>다운로드 시 원본 양식 계산 시트가 열립니다. 현재 판매가는 엑셀 O열에 선택 입력하고, 우측 38-1 참고판매가와 구분하세요.</p>
@@ -891,7 +894,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {country === 'TH' && <label className={styles.confirmation}><input type="checkbox" checked={form.lossTreatmentConfirmed === true} onChange={event => update('lossTreatmentConfirmed', event.target.checked)} />
         <span>검역 손실·소독비를 확인하고 현재 통관비 합계에 포함했습니다 (없으면 0 확인)</span></label>}
     </>}
-    <label className={styles.confirmation}><input type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
+    <label className={styles.confirmation}><input data-cost-confirm type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
       onChange={event => update('formulaApplicabilityConfirmed', event.target.checked)} />
       <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다{isChinaAir ? ' · 현재 GW/CW와 행별 실중량·CBM 환산중량을 직접 검토했습니다' : ''}</span></label>
 
@@ -932,8 +935,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </div>
 
     <div className={styles.actions}>
-      <button type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      {nativePreview ? <button type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
+      <button data-cost-preview type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
+      {nativePreview ? <button data-cost-download type="button" className={styles.primary} disabled={downloadFeedback.disabled} title={downloadFeedback.reason || '미승인 계산본을 다운로드합니다.'} aria-describedby={downloadFeedback.disabled ? 'cost-download-reason' : undefined} onClick={async () => {
         const expectedIdentity = identity, generation = generationRef.current;
         setBusyIdentity(identity);
         try { await onNativeAction('download', payloadOf(form)); if(isCurrent(expectedIdentity,generation))setNotice({type:'success',text:'미승인 계산본 엑셀 다운로드를 시작했습니다. 입고·승인 원가는 변경하지 않았습니다.'}); }

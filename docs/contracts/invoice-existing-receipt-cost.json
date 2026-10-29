@@ -1,5 +1,6 @@
 {
  "id":"invoice-existing-receipt-cost",
+ "costStepGuide":"2026-10-29 presentation-only: invalid inputs then formula confirmation, preview and enabled native download are highlighted in order. No focus theft while typing. AU export font readability changes only; sales/profit remain formula-driven pending current selling price. ERP data/approval unchanged.",
  "independentCostWorkspace":"2026-10-29: cost menu defaults to existing receipt browse. Independent mounted cost workspace never navigates to receipt upload; new invoice mode stays inside cost. Local packing recovery is namespaced by authenticated owner AND workspace. Existing receipt/native calculation APIs and ERP writes unchanged.",
  "auNativeAmount":"User confirmed stored shipment total5100 is correct for 44-01 Red Tip. Native AU preview derives bunch price TPrice/BunchQuantity and retains nativeStoredUnitPrice. UI and XLSX identify saved total basis. No stored values or approved/invoice calculations change.",
  "invoiceDownloadShortcut":"2026-10-27: selected invoice exposes native read-only cost/download browser independently of LINK_EXISTING_COST country support or draft receipt status. Exact year/week/invoice filter, explicit warehouse/farm selection, no draft values copied to native source. Native amount mismatches remain blocking. See plans/au-cost-download-2026-10-27.md.",
