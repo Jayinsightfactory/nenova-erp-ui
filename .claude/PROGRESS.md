@@ -1,5 +1,10 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-10-29] 주차별 수익률 원천 검증 표시 — 진행 중
+- nw-profit-validation-gate / codex/profit-validation-gate, base d002020ac. DB 쓰기·보고서 자동 갱신 금지.
+- 38·39차 카네이션 입고량 및 양수 재고조정/38차 환산195단 충돌, 39차 중국중량·미국운임 누락 확인. 상세 docs/work-sessions/2026-10-29_profit-38-39-rootcause.md.
+- 검증 표시/API 및 원문 행 대사 구현·회귀 진행. 아직 배포 완료 아님. 실브라우저 연결 초기화 오류로 재연결 요청.
+
 ## [2026-10-27] 업체 판매마진 원가 근거·저장본 대사 보완
 - nw-profit-margin-evidence / codex/profit-margin-evidence, base cb485cbc. DB 변경금지, 본표 수익률/확정본/저장본 보존.
 - 동일 ProdKey 복수 입고의 첫 행 재연결을 신규 분석 전용 strict WdetailKey로 보완. 12세부차수 제한 대신 실제 0재고 앵커 이후 필요한 입고 근거를 조회.

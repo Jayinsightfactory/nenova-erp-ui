@@ -1,3 +1,5 @@
+- [2026-10-29 주차별 수익률 원천 검증 표시](2026-10-29_profit-validation-gate.md)
+- [2026-10-29 38·39차 수익률 SQL 근거](2026-10-29_profit-38-39-rootcause.md)
 - [2026-10-29 호텔 원본 연결선·여백](2026-10-29_hotel-source-links.md)
 - [2026-10-28 호텔 차별 수량표·원본 행 정렬](2026-10-28_hotel-row-align.md)
 - [2026-10-28 불량 수기입력 보존·출처 정정](2026-10-28_defect-manual-provenance.md)
