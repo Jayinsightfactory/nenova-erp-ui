@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {recentSalesPeriod,refreshSalesFeed,retainRecentSalesRows} from '../../lib/distributionSalesInboxRefresh';
+import {createAppendFeedReader,retainRecentSalesRows} from '../../lib/distributionSalesInboxRefresh';
 import {stockSourceWeek,stockInboxRows,mergeStockInbox} from '../../lib/kakaoStockInbox';
 import PasteErpHistoryEvidence from './PasteErpHistoryEvidence';
 
@@ -8,19 +8,17 @@ export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onA
   const [rows,setRows]=useState([]),[selectedId,setSelectedId]=useState('');
   const [search,setSearch]=useState(''),[page,setPage]=useState(0),[cursor,setCursor]=useState('');
   const [loading,setLoading]=useState(false),[error,setError]=useState(''),[loadedAt,setLoadedAt]=useState('');
-  const active=useRef(false),busy=useRef(false),controller=useRef(null),cursorRef=useRef(''),periodRef=useRef('');
-  const refresh=useCallback(async(more=false)=>{
+  const active=useRef(false),busy=useRef(false),controller=useRef(null),reader=useRef(null);
+  if(!reader.current)reader.current=createAppendFeedReader();
+  const refresh=useCallback(async()=>{
     if(busy.current)return;
     busy.current=true;setLoading(true);setError('');controller.current=new AbortController();
-    const period=recentSalesPeriod(),periodKey=`${period.from}/${period.to}`;
     try {
-      const result=await refreshSalesFeed({...period,afterKey:more&&periodRef.current===periodKey?cursorRef.current:'',signal:controller.current.signal,maxPages:3});
+      const result=await reader.current({signal:controller.current.signal,maxPages:3});
       if(!active.current)return;
       setRows(previous=>mergeStockInbox(retainRecentSalesRows(previous),result.messages));
       setSelectedId(previous=>previous||stockInboxRows(result.messages)[0]?.identity||'');
-      // A first-page refresh must not move the user's older-history cursor backwards.
-      if(more||periodRef.current!==periodKey){cursorRef.current=result.complete?'':result.nextAfterKey;setCursor(cursorRef.current);}
-      periodRef.current=periodKey;
+      setCursor(result.complete?'':result.nextAfterKey);
       setLoadedAt(new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'}));
     }catch(e){if(active.current&&e.name!=='AbortError')setError(e.message);}
     finally{busy.current=false;if(active.current)setLoading(false);}
@@ -40,7 +38,7 @@ export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onA
         <label><input type="radio" name="stock-source" aria-label={`원문 선택 ${message.identity}`} checked={message.identity===selectedId} onChange={()=>setSelectedId(message.identity)}/><strong>{message.sender||'영업방'} · {Number.isFinite(Date.parse(message.created_at))?new Date(message.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'시각 확인 필요'}</strong>{applied.includes(message.message.trim())&&<span>재고장 적용됨</span>}</label>
         <pre>{message.message}</pre>
       </article>)}</div>
-      <nav aria-label="영업방 원문 목록 페이지"><button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>원문 이전</button><span>{currentPage+1} / {maxPage+1}</span><button disabled={currentPage>=maxPage} onClick={()=>setPage(currentPage+1)}>원문 다음</button>{cursor&&<button disabled={loading||disabled} onClick={()=>refresh(true)}>이전 대화 더 불러오기</button>}</nav>
+      <nav aria-label="영업방 원문 목록 페이지"><button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>원문 이전</button><span>{currentPage+1} / {maxPage+1}</span><button disabled={currentPage>=maxPage} onClick={()=>setPage(currentPage+1)}>원문 다음</button>{cursor&&<button disabled={loading||disabled} onClick={()=>refresh()}>대화 이어서 불러오기</button>}</nav>
     </div><div className="selected-history"><h3>선택 원문의 최신 전산이력</h3>
       {selected?<><p>원문 차수 {sourceWeek||'복수 차수 · 확인 필요'} · 재고장 {week}</p><pre className="selected-source">{selected.message}</pre>
         <button className="analyze" disabled={disabled||!canAnalyze||sourceWeek!==week||alreadyApplied} onClick={()=>onAnalyze({...selected})}>{alreadyApplied?'이 재고장에 적용한 원문':'선택 원문 분석 → 적용 확인'}</button>

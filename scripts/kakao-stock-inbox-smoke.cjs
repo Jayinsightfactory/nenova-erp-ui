@@ -2,18 +2,19 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
 (async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
 const page=await browser.newPage({viewport:{width:1920,height:1080}}),history=[],mutations=[],errors=[];
 const raw='43-1 콜 카네이션 변경사항\n주광\n문라이트 1추가\n노비아 1취소';
-let feedFailure=false;
+let feedFailure=false;const feedCursors=[];
 const messages=[{source:'nenovakakao',chat_id:'fixture',external_message_id:'1',message:raw,created_at:new Date().toISOString()},{source:'nenovakakao',chat_id:'fixture',external_message_id:'2',message:'2025-43-1 변경사항\n주광\n문라이트 1추가',created_at:new Date(Date.now()-1000).toISOString()}];
 page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>localStorage.setItem('nenovaUser',JSON.stringify({userId:'fixture',userName:'검증',authority:1})));
 await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());let data={success:true,items:[],data:[],rows:[],favorites:[]};
 if(url.pathname==='/api/auth/me')data={success:true,user:{userId:'fixture',userName:'검증',authority:1,accountActive:true}};
 if(url.pathname==='/api/kakao/sales-feed'&&feedFailure){await route.fulfill({status:503,json:{error:'fixture unavailable'}});return;}
-if(url.pathname==='/api/kakao/sales-feed')data={ok:true,messages,hasMore:false,nextAfterKey:null};
+if(url.pathname==='/api/kakao/sales-feed'){const key=url.searchParams.get('afterKey')||'';feedCursors.push(key);const next={'':'page1',page1:'page2',page2:'page3'}[key]||null;data={ok:true,messages,hasMore:!!next,nextAfterKey:next};}
 if(url.pathname==='/api/orders/distribution-live-history'){const body=req.postDataJSON();history.push(body);data={success:true,erpAction:'NONE',scope:{year:body.year,weeks:[body.week],from:body.from,to:body.to},asOf:new Date().toISOString(),balanceComparison:{products:[]},items:body.messages.map(m=>({sourceIdentity:m.identity,requests:[{id:m.identity+':1',customerText:'주광',productText:'문라이트',reason:'테스트 이력',orderEvents:[{eventId:'order1',before:0,after:1,unit:'박스',changeAt:'검증시각'}],shipmentEvents:[]}]}))};}
 else if(req.method()!=='GET')mutations.push(url.pathname);
 await route.fulfill({json:data});});
 await page.goto(process.argv[2]||'http://localhost:3240/orders/kakao-stock');await page.getByRole('heading',{name:'영업방 원문 · 최신 전산이력',exact:true}).waitFor();
 await page.getByLabel('연도·차수',{exact:true}).fill('2026-43-01');await page.getByText('주문 0 → 1 박스 · 검증시각',{exact:true}).waitFor();
+await page.getByRole('button',{name:'대화 이어서 불러오기',exact:true}).click();await page.getByRole('button',{name:'대화 이어서 불러오기',exact:true}).waitFor({state:'hidden'});assert.deepEqual(feedCursors.slice(0,4),['','page1','page2','page3']);
 assert.equal(await page.getByRole('button',{name:'선택 원문 분석 → 적용 확인',exact:true}).isEnabled(),false);
 await page.getByLabel('시작재고 입력',{exact:true}).fill('문라이트 3\n노비아 2');await page.getByRole('button',{name:'시작재고 적용·수정',exact:true}).click();
 await page.getByLabel('업체',{exact:true}).fill('주광');await page.locator('form select').nth(0).selectOption('노비아');await page.locator('form select').nth(1).selectOption('BASELINE');await page.getByLabel('수량',{exact:true}).fill('1');await page.getByRole('button',{name:'재고장에 적용',exact:true}).click();
