@@ -13,7 +13,7 @@ export async function handler(req,res) {
     const admin = isLedgerAdmin(req.user);
     const visible = await ledgerCustomers(req.user.userId, admin);
     if(req.query.custKey===undefined) return res.json({success:true,scope:admin?'all':'assigned',customers:visible.map(c=>({
-      custKey:c.custKey,name:c.name,managerName:c.managerName||'담당자 미확인',linked:c.linked,refreshable:!admin||c.managerMatchCount===1,
+      custKey:c.custKey,name:c.name,managerName:c.managerName||'담당자 미확인',linked:c.linked,...(c.sharedLedgerName?{sharedLedgerName:c.sharedLedgerName}:{}),refreshable:!admin||c.managerMatchCount===1,
     })),period:recentMonth(),schedule:freshness(null)});
     const key=String(req.query.custKey);
     if(!/^[1-9]\d*$/.test(key)) return res.status(400).json({success:false,error:'INVALID_CUSTOMER'});
@@ -21,7 +21,7 @@ export async function handler(req,res) {
     if(!customer) return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
     if(!canReadCustomer({userId:req.user.userId,accountActive:true},customer)) return res.status(409).json({success:false,error:'CUSTOMER_LINK_REQUIRED'});
     const snapshot=await readLedger(customer);
-    return res.json({success:true,...snapshot,weekComparison:await readLedgerWeekComparison(snapshot),refreshRequest:await readLedgerRefreshRequest(customer.custKey)});
+    return res.json({success:true,...snapshot,weekComparison:await readLedgerWeekComparison(snapshot),refreshRequest:await readLedgerRefreshRequest(customer.canonicalKey||customer.custKey)});
   } catch {return res.status(503).json({success:false,error:'LEDGER_UNAVAILABLE'});}
 }
 export default withAuth(handler);

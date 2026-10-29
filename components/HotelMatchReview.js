@@ -1,3 +1,4 @@
+import HotelQuantityInput from './HotelQuantityInput';
 import { useEffect, useRef, useState } from 'react';
 import { hotelImageUrl, hotelImageRowBounds, hotelSourceBox, hotelSourcePanels, hotelBoxInRegion } from '../lib/hotelOrderReview';
 
@@ -59,16 +60,16 @@ function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,onLocate
       .comparison {min-width:0}.link-tools {display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;margin:0 0 4px;color:#52637b}.link-tools button {font-size:12px}.source-link {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1}.source-link path {stroke:#1763e8;stroke-width:2;fill:none}.source-link rect {stroke:#1763e8;stroke-width:1.5;fill:#1763e820}.source-link circle {fill:#1763e8}.placing {cursor:crosshair}.tools {display:flex;align-items:center;gap:16px;margin-bottom:4px;font-size:13px}.tools details {position:relative}.tools fieldset {position:absolute;z-index:2;left:0;background:white;box-shadow:0 3px 15px #0002;min-width:300px} .tools label {display:inline-flex;align-items:center;gap:6px} .tools input {width:65px} summary {cursor:pointer}
       .compare-scroll {overflow:auto}.compare-grid {position:relative;display:grid;grid-template-columns:minmax(160px,44%) minmax(300px,1fr);gap:4px;align-items:start}.compare-grid:not(:has(.source)) {grid-template-columns:minmax(300px,1fr)}
       .source {min-width:0}.image-crop {position:relative;overflow:hidden;width:100%} img {display:block;width:100%;height:auto;margin:0} pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#f5f7fa;padding:10px;margin:0}
-      .matches {border:0;padding:0;margin:0;min-width:300px} table {border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;margin:0} thead tr {height:28px} th {height:28px;box-sizing:border-box;padding:0 3px;text-align:left;background:#edf3fa;white-space:nowrap} th:nth-child(2) {width:66px} th:nth-child(3) {width:66px} th:nth-child(4) {width:28px}
+      .matches {border:0;padding:0;margin:0;min-width:300px} table {border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;margin:0} thead tr {height:28px} th {height:28px;box-sizing:border-box;padding:0 3px;text-align:left;background:#edf3fa;white-space:nowrap} th:nth-child(2) {width:98px} th:nth-child(3) {width:66px} th:nth-child(4) {width:28px}
       .sr-only {position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
     `}</style>
   </section>;
 }
 function Rows({row:r,gap,height,onPick,onEdit,onDelete,selected,onActivate}) {
-  const warning=r.matchWarning || (!r.prodKey ? '매칭 필요' : '');
+  const warning=r.specialName ? '' : r.matchWarning || (!r.prodKey ? '매칭 필요' : '');
   return <>{gap>0 && <tr aria-hidden="true" style={{height:gap}}><td colSpan={4} className="gap"/></tr>}<tr data-source-row={r.id} className={selected?'selected':''} onMouseEnter={onActivate} onFocus={onActivate} style={{height}}>
-    <td><div className="product"><button data-tone="match" id={`match-${r.id}`} title={warning || r.inputName} aria-label={`${r.inputName} 품목 매칭`} onClick={onPick}>{r.prodName || r.displayName || '품목 선택'}</button>{warning && <span className="warning" role="img" aria-label={warning} title={warning}>!</span>}</div></td>
-    <td><input aria-label={`${r.inputName} 수량`} title={`원본 ${r.originalQty ?? r.qty} ${r.originalUnit || r.unit}`} type="number" min="0" step="any" value={r.qty} onChange={e=>onEdit({qty:e.target.value})}/></td>
+    <td><div className="product"><button data-tone="match" id={`match-${r.id}`} title={warning || r.inputName} aria-label={`${r.inputName} 품목 매칭`} onClick={onPick}>{r.specialName ? `특수 · ${r.specialName}` : r.prodName || r.displayName || '품목 선택'}</button>{warning && <span className="warning" role="img" aria-label={warning} title={warning}>!</span>}</div></td>
+    <td><HotelQuantityInput label={`${r.inputName} 수량`} title={`원본 ${r.originalQty ?? r.qty} ${r.originalUnit || r.unit}`} value={r.qty} onCommit={qty=>onEdit({qty})}/></td>
     <td><select aria-label={`${r.inputName} 단위`} value={r.unit || ''} onChange={e=>onEdit({unit:e.target.value})}><option value="">선택</option>{['박스','단','송이','대','개'].map(u=><option key={u}>{u}</option>)}</select></td>
     <td><button data-tone="danger" aria-label={`${r.inputName} 삭제`} title="행 삭제" onClick={onDelete}>×</button></td>
   </tr><style jsx>{`

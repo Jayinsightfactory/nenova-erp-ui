@@ -19,7 +19,9 @@
     "lib/ecountPendingReceipts.cjs",
     "lib/ecountLedgerWeekComparison.cjs",
     "lib/ecountLedgerWeekStore.js",
-    "scripts/ecount-scraper/pending-receipts.mjs"
+    "scripts/ecount-scraper/pending-receipts.mjs",
+    "lib/ecountVerifiedCustomerLinks.cjs",
+    "lib/ecountVerifiedCustomerLinks.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -92,5 +94,11 @@
     "keyboard": "Tab/Shift+Tab, arrows/Home/End move focus, Enter/Space activate",
     "sideEffects": "UI filter only; existing snapshot reads and explicit refresh unchanged; all ERP tables preserved",
     "crossYear": "UI does not change period or OrderYear/OrderWeek; existing cross-year fixtures retained"
+  },
+  "verifiedLinks": {
+    "identity": "Reviewed source-code SHA256 plus local Customer identity SHA256; exact name and hash must match; no raw identifiers persisted",
+    "scope": "All active customers checked for source collisions before owner filtering; aliases require same unique owner and one live canonical customer",
+    "aliases": "351 and 646 share canonical646 per user approval; one snapshot and refresh queue; collector canonical rows only",
+    "fixtures": "Changed local/source identity, missing canonical, other-owner alias, unauthorized collision, duplicate lookup candidates, cross-year snapshot and canonical refresh dedup"
   }
 }

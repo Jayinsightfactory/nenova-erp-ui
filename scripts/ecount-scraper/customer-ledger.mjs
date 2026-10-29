@@ -1,5 +1,6 @@
 // Production read-only E040723 adapter. No exports, screenshots, session URLs or source PII logs.
 import fs from 'node:fs';
+import links from '../../lib/ecountVerifiedCustomerLinks.cjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import policy from '../../lib/ecountCustomerLedgerPolicy.cjs';
@@ -34,7 +35,7 @@ async function waitForReport(page,period=null,identity=null){
   },{expected:period?`${period.from}~${period.to}`:null,identity},{timeout:30000});
 }
 export async function collectCustomerLedger(page,base,customer,period){
-  let stage='NAVIGATION';
+  let stage='NAVIGATION',sourceCode=customer.sourceCode;
   try{
   // A fresh document prevents customer lookup modals/SPA panels surviving a same-hash navigation.
   await page.goto('about:blank',{waitUntil:'domcontentloaded'});
@@ -52,7 +53,17 @@ export async function collectCustomerLedger(page,base,customer,period){
   if(await remove.count())throw new Error('SOURCE_CUSTOMER_NOT_CLEARED');
   const field=page.getByRole('textbox',{name:'거래처',exact:true});
   stage='CUSTOMER_LOOKUP';
-  await field.fill(customer.sourceCode);await field.press('Enter');
+  if(customer.lookupName){
+    await field.fill(customer.lookupQuery||customer.lookupName);await field.press('Enter');
+    await page.getByRole('button',{name:'적용(F8)',exact:true}).waitFor({state:'visible',timeout:10000});
+    const candidates=await page.evaluate(()=>Array.from(document.querySelectorAll('tr'))
+      .filter(r=>r.getClientRects().length&&r.cells.length===5&&r.cells[4].innerText.trim()==='내역')
+      .map(r=>({code:r.cells[1].innerText.trim(),name:r.cells[2].innerText.trim()})));
+    sourceCode=selectVerifiedCode(candidates,customer);
+    await page.getByRole('button',{name:'닫기',exact:true}).click();
+    for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
+  }
+  await field.fill(sourceCode);await field.press('Enter');
   // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
   try{
     const found=await Promise.race([
@@ -73,7 +84,7 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='REPORT';
   await page.waitForLoadState('networkidle',{timeout:15000});
   // A correct complete report, not a search panel's visibility, establishes completion.
-  await waitForReport(page,period,customer.sourceCode);
+  await waitForReport(page,period,sourceCode);
   const source=await page.evaluate(()=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     const table=th.closest('table');
@@ -93,15 +104,20 @@ export async function collectCustomerLedger(page,base,customer,period){
         const id=Array.from(document.querySelectorAll('td')).find(c=>c.getClientRects().length&&c.innerText.trim()==='사업자등록번호');
         return {hasIdentity:!!id,identity:id?.nextElementSibling?.innerText.replace(/\D/g,'')===code,
           period:Array.from(document.querySelectorAll('body *')).some(c=>!c.children.length&&c.getClientRects().length&&c.innerText?.replaceAll('/','-').replace(/\s/g,'')===expected)};
-      },{code:customer.sourceCode,expected:`${period.from}~${period.to}`});}catch{}
+      },{code:sourceCode,expected:`${period.from}~${period.to}`});}catch{}
       if(scope?.hasIdentity&&!scope.identity)throw new Error('SOURCE_IDENTITY_MISMATCH');
       if(scope?.identity&&!scope.period)throw new Error('SOURCE_REPORT_PERIOD_NOT_UPDATED');
     }
     throw new Error(`SOURCE_${stage}_FAILED`);
   }
 }
+export function selectVerifiedCode(candidates,customer){
+  const matches=candidates.filter(c=>c.name===customer.lookupName&&links.fingerprint(c.code)===links.fingerprint(customer.sourceCode));
+  if(matches.length!==1)throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');
+  return matches[0].code;
+}
 export function parseLedgerReport(source,customer,period,collectedAt=new Date()){
-  if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||source.identity!==customer.sourceCode)throw new Error('SOURCE_IDENTITY_MISMATCH');
+  if(source.headers.join('|')!=='일자|적요|판매|수금|잔액'||links.fingerprint(source.identity)!==links.fingerprint(customer.sourceCode))throw new Error('SOURCE_IDENTITY_MISMATCH');
   const expectedPeriod=`${period.from}~${period.to}`;
   if(source.periods.length!==1||source.periods[0].replaceAll('/','-').replace(/\s/g,'')!==expectedPeriod)throw new Error('SOURCE_PERIOD_MISMATCH');
   const empty=source.rows.length===1&&source.rows[0].join('')==='등록된 데이터가 없습니다.';
@@ -182,7 +198,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
         bankPage=await ctx.newPage();
         let history=null;
         try{history=await collectBankSnapshot(bankPage,getBase(),request.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
-        const payload=await collectLedgerWithBank({page,bankPage,base:getBase(),customer:{custKey:request.custKey,sourceCode:request.sourceCode},period:request.period,history,collectLedger:collectCustomerLedger});
+        const payload=await collectLedgerWithBank({page,bankPage,base:getBase(),customer:request,period:request.period,history,collectLedger:collectCustomerLedger});
         await api(nenova,payload);
         success=true;
       }catch(e){
