@@ -24,7 +24,7 @@
     "idempotency": "WEEKLY 동일 연도/차수/CreatedBy=weekly-scheduler:YYYY-MM-DD 전체 이력 존재 시 계산 전 skip. BACKFILL은 v1 최신본/확정 있으면 skip, REFRESH는 새버전. 첫확정조회는 일반SELECT, 직전 재확인만 UPDLOCK/HOLDLOCK.",
     "consistency": "저장 전후 지문은 force=true로15초 캐시 우회. 불일치 PROFIT_SOURCES_CHANGED이면INSERT0/rollback. SQL snapshot isolation/DDL/ERP원장쓰기 없음.",
     "rollout": "배포 후 명시 초기 백필2026년1~42차는 기존 저장본을 삭제하지 않고 새 계산본 버전 생성. 운영 테스트에서 ERP원장·수기·확정 수정 금지. 실패 차수는 원인 확인 후 명시 재시도.",
-    "disclosure": "저장된 계산본은 회계 확정 아님. 저장시각/버전 표시; 조회 지문 검사·자동 최신화·확정됨 오표시 없음. 과거 참고 원장 패널은 명시 클릭에서만 조회. 확정본도 auditLive 명시 검산에서는 현재 미분류 진단을 추가 조회하되 확정 CALC/합계는 보존."
+    "disclosure": "저장된 계산본은 회계 확정 아님. 저장시각/버전 표시; 조회 지문 검사·자동 최신화·확정됨 오표시 없음. 과거 참고 원장 패널은 명시 클릭에서만 조회. 확정본도 auditLive 명시 검산에서는 현재 미분류 진단을 추가 조회하되 확정 CALC/합계는 보존. 2026-10-29 명시 사용자 승인 예외: 품목별 관세 보완은 DB 확정 CALC/저장본을 수정하지 않는 파생 읽기 화면으로 본표·월별·출력에 동일 적용. originalConfirmedTotals/originalCalc에 원래 값 보존, effectiveViewTotals 및 파생 라벨 표시. 원가 근거 부족 시 수익률 보류; 자동 재저장/재확정 금지."
   },
   "crossYearFixture": {"required": true, "description": "2026/31 요청에2025/31 payload 거부, 저장 계산 결과가 다른 연도이면INSERT0; 달력 현재2026/44에서31과44 분리. scheduler 계약의2025/53→2026/01 경계 공유."},
   "requiredTestFiles": ["__tests__/profitReportWeeklyCache.test.js", "__tests__/profitReportSnapshot.test.js", "__tests__/profitReportMonthly.test.js", "__tests__/profitReportClassificationInput.test.js", "__tests__/profitReportConfirmSnapshotImmutability.test.js", "__tests__/profitRangeOutput.test.cjs"],

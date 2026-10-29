@@ -1,0 +1,5878 @@
+{
+  "version": "2026-10-29-v1",
+  "orderYear": "2026",
+  "approvedEstimate": true,
+  "sourceYearsVerified": false,
+  "products": [
+    {
+      "prodKey": 53,
+      "name": "ALSTROMERIA Whistler",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 54,
+      "name": "ALSTROMERIA Dubai",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 59,
+      "name": "ALSTROMERIA Lavender ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 64,
+      "name": "ALSTROMERIA Gold",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 66,
+      "name": "ALSTROMERIA Orange Queen",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 69,
+      "name": "ALSTROMERIA Fifi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 77,
+      "name": "ALSTROMERIA Nora",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 96,
+      "name": "ALSTROMERIA Himalaya",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 251,
+      "name": "Banker Bush",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        242
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 341,
+      "name": "CARNATION Amico Lavender",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 345,
+      "name": "CARNATION Apple Tea",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 359,
+      "name": "CARNATION Brut",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 363,
+      "name": "CARNATION Caramel",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 364,
+      "name": "CARNATION Caroline",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 365,
+      "name": "CARNATION Caroline Gold",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 368,
+      "name": "CARNATION Cherrio",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 380,
+      "name": "CARNATION Crimea",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 383,
+      "name": "CARNATION Damina",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 386,
+      "name": "CARNATION Diletta Cream",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 387,
+      "name": "CARNATION Diletta (Yellow)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 389,
+      "name": "CARNATION Doncel",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 390,
+      "name": "CARNATION Don pedro (Red)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 402,
+      "name": "CARNATION Gobi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 403,
+      "name": "CARNATION Goblin",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 404,
+      "name": "CARNATION Golem",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 408,
+      "name": "CARNATION Hermes",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 409,
+      "name": "CARNATION Hermes Orange",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 411,
+      "name": "CARNATION Ikebana",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 413,
+      "name": "CARNATION Jodie",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 417,
+      "name": "CARNATION Kaori",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 423,
+      "name": "CARNATION Clear Water",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 429,
+      "name": "CARNATION Lion King",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 430,
+      "name": "CARNATION Lizzy",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 431,
+      "name": "CARNATION Majesta",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 433,
+      "name": "CARNATION Mandalay",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 435,
+      "name": "CARNATION Mariposa",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 436,
+      "name": "CARNATION Maruchi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 442,
+      "name": "CARNATION Mix box",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 447,
+      "name": "CARNATION Moon Light",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 456,
+      "name": "CARNATION Novia",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 464,
+      "name": "CARNATION Peach Mambo",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 466,
+      "name": "CARNATION dollar",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 467,
+      "name": "CARNATION Polimnia",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 470,
+      "name": "CARNATION Prado Mint",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 476,
+      "name": "CARNATION rodas",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 500,
+      "name": "CARNATION Yukari Oscuro",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 502,
+      "name": "CARNATION Yukari Cherry",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 504,
+      "name": "CARNATION Zurigo",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 508,
+      "name": "CARNATION Pink Corvette",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 511,
+      "name": "CARNATION Wedding",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 513,
+      "name": "CARNATION Ness",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 516,
+      "name": "CARNATION damascus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 517,
+      "name": "CARNATION Electric Purple",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 518,
+      "name": "CARNATION Giogia",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 522,
+      "name": "CARNATION Megan",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 525,
+      "name": "CARNATION Goldi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 527,
+      "name": "CARNATION Charisma",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 542,
+      "name": "CARNATION Lipsstic",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 551,
+      "name": "CARNATION Verona Pink",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 608,
+      "name": "Den. White Bom (화이트) M",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        267
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 609,
+      "name": "Den. Jinda Sweet (피치) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        261
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 619,
+      "name": "Den. Jinda Sweet (피치) L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        260
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 625,
+      "name": "MOK Orange Peach XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        271
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 627,
+      "name": "ARAN.Juling Red XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        266
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 667,
+      "name": "Den. Big White (화이트) L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        268
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 717,
+      "name": "Emu Feather",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        244
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 823,
+      "name": "Emu Grass",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        245
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 824,
+      "name": "Steel Grass",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        246
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 866,
+      "name": "Hydrangea Blue (블루）",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 868,
+      "name": "Hydrangea Dark Pink (진핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 869,
+      "name": "Hydrangea G/ Esmeral (진그린)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 871,
+      "name": "Hydrangea Lavender (라벤더)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 873,
+      "name": "Hydrangea M/ GREEN (BG) Mojito (미니 그린 베이스)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 878,
+      "name": "Hydrangea P.PK (BA) (연핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 879,
+      "name": "Hydrangea Peach (Florentina) 피치",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 881,
+      "name": "Hydrangea Rosewood (BA) (로즈우드)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 883,
+      "name": "Hydrangea S/GN (연그린)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 887,
+      "name": "Hydrangea Albari coque (알바리코케)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 889,
+      "name": "Hydrangea White (화이트)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1043,
+      "name": "Minicarnation Aragon(레드)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1046,
+      "name": "Minicarnation caesar/ILias(노랑)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1047,
+      "name": "Minicarnation Chateau",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1052,
+      "name": "Minicarnation Scarlete",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1060,
+      "name": "MiniCarnation 피치(HAMADA)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1061,
+      "name": "MiniCarnation Artic/Ibis(화이트)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1065,
+      "name": "MiniCarnation Athena/Jane/Zagara(연핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1080,
+      "name": "Minicarnation Pink pigeon(연핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1197,
+      "name": "ROSE / Blush",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1198,
+      "name": "ROSE / Candlelight 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1204,
+      "name": "ROSE / Hearts 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1206,
+      "name": "ROSE / Pink Floyd (Hot Pink) 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1213,
+      "name": "ROSE / Lavander Deep Purple",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1219,
+      "name": "ROSE / Coral Reef 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1223,
+      "name": "ROSE / Tiffany 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1235,
+      "name": "ROSE / Silantoi 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1239,
+      "name": "ROSE / Deep Silver 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1245,
+      "name": "ROSE / Freedom 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1251,
+      "name": "ROSE / Mandala 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1254,
+      "name": "ROSE / Novia 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1255,
+      "name": "ROSE / Pink Mondial 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1260,
+      "name": "ROSE / Shimmer 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1263,
+      "name": "ROSE / Sweetness(Ossimo) 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1264,
+      "name": "ROSE / Pink xpression 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1267,
+      "name": "ROSE / Proud 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1270,
+      "name": "ROSE / Star Platinum(Lavender) 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1276,
+      "name": "ROSE / Mondial White 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1277,
+      "name": "ROSE / Playa Blanca 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1283,
+      "name": "ROSE / Brighton 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1284,
+      "name": "ROSE / Yellow Dejavu 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1287,
+      "name": "ROSE / Explorer 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1300,
+      "name": "SPRAY ROSE / Snow Flake",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1304,
+      "name": "ROSE / Quick Sand 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1312,
+      "name": "ROSE / Lollipop White Blue 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1313,
+      "name": "ROSE / Tinted Aurora 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1314,
+      "name": "ROSE / Mirabel 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1316,
+      "name": "ROSE / Iguana(Ossimo) 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1323,
+      "name": "ROSE / Lola 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1328,
+      "name": "ROSE / Tinted Blue 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1330,
+      "name": "ROSE / Be Sweet 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1331,
+      "name": "ROSE / Country Blues 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1334,
+      "name": "ROSE / Absolute pink 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1336,
+      "name": "ROSE / Red Panther 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1337,
+      "name": "ROSE / Momentum 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1341,
+      "name": "ROSE / Mix Box 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1349,
+      "name": "ROSE / Lollipop White Red 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1351,
+      "name": "ROSE / Hermosa(Ossimo) 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1352,
+      "name": "ROSE / Gisele 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1356,
+      "name": "ROSE / Chanel 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1364,
+      "name": "ROSE / Ocean song 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1371,
+      "name": "ROSE / Be Sweet 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1386,
+      "name": "ROSE / Country Blues 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1394,
+      "name": "ROSE / Freedom 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1404,
+      "name": "ROSE / Hermosa(Ossimo) 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1419,
+      "name": "ROSE / Mandala 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1426,
+      "name": "ROSE / Mondial White 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1435,
+      "name": "ROSE / Pink Floyd (Hot Pink) 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1438,
+      "name": "ROSE / Pink Mondial 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1443,
+      "name": "ROSE / Playa Blanca 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1455,
+      "name": "ROSE / Shimmer 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1466,
+      "name": "ROSE / Sweetness(Ossimo) 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1494,
+      "name": "Ecuador Tinted Dark Whisper AS033",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        5
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1496,
+      "name": "Ecuador Tinted Shiny Pearl AS047",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        7
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1524,
+      "name": "Ecuador Tinted Sweet Lavender AS198",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        8
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1526,
+      "name": "Ecuador Tinted Blush AS243",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        4
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1527,
+      "name": "Ecuador Tinted Light Eucalyptus AS231",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        6
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1544,
+      "name": "Ecuador Dark Expression ",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        2
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1556,
+      "name": "Ecuador Channel  AS154 ",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        1
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1717,
+      "name": "Ruscus Green",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1742,
+      "name": "Stenocarpus",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        243
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2076,
+      "name": "ROSE / Freedom 100cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2099,
+      "name": "ROSE CHINA / 킹스데이(Kings day) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        125
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2101,
+      "name": "ROSE CHINA / 주밀리아(Jumilia) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        81
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2103,
+      "name": "ROSE CHINA / 로맨틱 비치(Romantic Beach) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        105
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2105,
+      "name": "ROSE CHINA / 나이팅게일(Nightingale, Purple Fairy)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        75
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2111,
+      "name": "ROSE CHINA / 킴벌리(Kimberly) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        194
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2113,
+      "name": "ROSE CHINA / 다이아나(Diana) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        147
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2125,
+      "name": "SPRAY ROSE CHINA / 리플렉스 (Spray-Rose Reflex) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        186
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2127,
+      "name": "SPRAY ROSE CHINA / 줄리에타 (Spray-Rose Julieta) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        227
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2129,
+      "name": "SPRAY ROSE CHINA / 소피아 베베 (Spray-Rose Sofia babe) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        188
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2137,
+      "name": "SPRAY ROSE CHINA / 아프리콧 테라짜 (Spray-rose Apricot Terrazza)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        212
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2165,
+      "name": "ALSTROMERIA Fifi Butterplus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2226,
+      "name": "Eucalyptus CHINA / 블랙잭 (베이비 블루) (대) 1Kg",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        72
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2232,
+      "name": "Minicarnation Carimbo",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2240,
+      "name": "Ecuador Electric MO AS295",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        3
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2241,
+      "name": "CARNATION Cosmo lilac ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2265,
+      "name": "ROSE CHINA / 프라우드(White proud) [red box]",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        83
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2269,
+      "name": "Lisianthus CHINA / 화이트 (Rosita 3 Type white) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        184
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2294,
+      "name": "Eucalyptus CHINA / 포퓰러스 그레인, 열매 (populus grain) 600g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        239
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2318,
+      "name": "Spray Carnation CHINA / 트렌디 테시노 (Trendy Tessino)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        204
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2322,
+      "name": "MINICARNATION Mix Box",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2342,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Rose (pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        200
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2345,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Striplefly (Red-White)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        199
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2372,
+      "name": "MInicarnation Minuetto",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2377,
+      "name": "Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        73
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2380,
+      "name": "Ping Pong CHINA / 퐁퐁 화이트 (White)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        221
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2381,
+      "name": "Ping Pong CHINA / 퐁퐁 핑크 (Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        220
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2393,
+      "name": "Spray Carnation CHINA / 체리 테시노 (SP Carnation-Cherry Tessino)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        205
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2469,
+      "name": "SPRAY ROSE CHINA / Yellow Babe",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        195
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2471,
+      "name": "ROSE CHINA / 피치 아바란체 (Peach avalanche)샴페인",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        224
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2478,
+      "name": "Hydrangea Lavender Intenso (진 라벤더)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2483,
+      "name": "Minicarnation MixBox (Peach, Yellow)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2498,
+      "name": "MOK.Salaya Red L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        282
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2499,
+      "name": "ALSTROMERIA Hot pepper",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2502,
+      "name": "ROSE / Kahala",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2505,
+      "name": "SPRAY ROSE CHINA / Fairy Lola",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        211
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2515,
+      "name": "CARNATION MIx Box A (Doncel. Novia, Moonlight)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2516,
+      "name": "CARNATION MIx Box B (Megan. Hermes, Ikebana)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2517,
+      "name": "CARNATION MIx Box C (Crimea. Polimnia, Maruchi)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2518,
+      "name": "CARNATION MIx Box D (Mariposa. Yukari cherry, Cherrio)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2519,
+      "name": "CARNATION MIx Box E (Mandalay. Farida, Zurigo)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2543,
+      "name": "Hydrangea Sundance (Yellow) (노랑)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2605,
+      "name": "Hydrangea N. Pink 2 (중간 핑크2)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2628,
+      "name": "ALSTROMERIA MIX BOX (Hot pepper, Goldi) ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2645,
+      "name": "CARNATION Royal damascus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2678,
+      "name": "CARNATION Ilias",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2718,
+      "name": "ALSTROMERIA Red Queen",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2735,
+      "name": "[MEL] ROSE CHINA / 플라터 레드 (Plateau Red) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        32
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2739,
+      "name": "[MEL] ROSE CHINA / 루어 샨 (Luo shen) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        116
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2741,
+      "name": "[MEL] ROSE CHINA / 다이아나 (Diana) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        43
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2742,
+      "name": "[MEL] ROSE CHINA / 골렘 (Golestem) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        27
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2744,
+      "name": "[MEL] ROSE CHINA / 프라우드 (Pride) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        37
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2746,
+      "name": "[MEL] ROSE CHINA / 크림 컵 (Cream cup) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        65
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2748,
+      "name": "[MEL] CHINA / 안개꽃 1Kg (Gypsophila white)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        59
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2751,
+      "name": "[MEL] ROSE CHINA / 에이샤 (Aisha) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        34
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2754,
+      "name": "[MEL] CHINA / 리모늄 시네신스 화이트 (Sinensis white) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        88
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2755,
+      "name": "[MEL] CHINA Eucalyptus / 블랙잭 (베이비 블루) (대) 1Kg",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        31
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2836,
+      "name": "[MEL]CHINA / 리모늄 스타티스 연보라 (Statice light purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        118
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2848,
+      "name": "[MEL]Lisianthus CHINA / Eustoma White  600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        57
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2851,
+      "name": "[MEL] ROSE CHINA / 케서린 (Catherine) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        62
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2854,
+      "name": "[MEL] ROSE CHINA / 오션송 (Song of the ocean) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        131
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2870,
+      "name": "Minicarnation Yellow",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2873,
+      "name": "ROSE / Lollipop White Pink 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 874,
+      "name": "Hydrangea M/ GREEN (BW) Mini green (미니 그린 화이트 베이스)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 893,
+      "name": "Hydrangea S.PK (P) (스페셜 핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1268,
+      "name": "ROSE / Saga 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1339,
+      "name": "ROSE / Cotton Candy 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1379,
+      "name": "ROSE / Candlelight 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2157,
+      "name": "CHINA / 리모늄 미스티 블루(Limonium Misty blue) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        177
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2158,
+      "name": "CHINA / 리모늄 시네신스 화이트 (Sinensis white) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        56
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2220,
+      "name": "CHINA / 안개꽃 (Gypsophila white)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        148
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2270,
+      "name": "Lisianthus CHINA / 샴페인 (Reina Champagne) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        181
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2433,
+      "name": "ROSE / Phoenix 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2560,
+      "name": "Delphinium CHINA / 화이트 White ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        159
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2561,
+      "name": "Delphinium CHINA / 연블루 Light Blue",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        175
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2562,
+      "name": "Delphinium CHINA / 라벤더 Lavender",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        213
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 360,
+      "name": "CARNATION Bublicius(Pink)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 437,
+      "name": "CARNATION Marvellous",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 441,
+      "name": "CARNATION Minerva",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 446,
+      "name": "CARNATION Moon Golem",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 465,
+      "name": "CARNATION Piet",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 507,
+      "name": "CARNATION Spritz Sport",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 524,
+      "name": "CARNATION Emma",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 550,
+      "name": "CARNATION maracuya",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 630,
+      "name": "Den. white bom loose blooms",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        274
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1087,
+      "name": "MiniCarnation Epsilon",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1335,
+      "name": "ROSE / White Shimmer 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1344,
+      "name": "ROSE / Pink Ohara 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1377,
+      "name": "ROSE / Brighton 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2089,
+      "name": "ROSE CHINA / 만달라(Mandala) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        76
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2095,
+      "name": "ROSE CHINA / 문워크(Moon walk)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        170
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2400,
+      "name": "MOK.Salaya Red XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        276
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2513,
+      "name": "ROSE CHINA / 프라우드(White proud) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        70
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2643,
+      "name": "ROSE / Red Black",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2676,
+      "name": "MOK Boonglong XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        273
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2834,
+      "name": "[MEL]CHINA / 리모늄 스타티스 화이트 (Statice white)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        66
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2892,
+      "name": "ALSTROMERIA Himalaya Butterplus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 350,
+      "name": "CARNATION Bernard",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1390,
+      "name": "ROSE / Deep Silver 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2366,
+      "name": "Minicarnation Romany ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 640,
+      "name": "Den. Big White (화이트) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        258
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 723,
+      "name": "Fern Umbrella",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        247
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1226,
+      "name": "ROSE / Orange Bicolor Cabaret",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1227,
+      "name": "ROSE / Carpe Diem 50cm Orange Bicolor",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2263,
+      "name": "ROSE / Momentum 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2410,
+      "name": "ROSE CHINA / 티나 (Tina)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        171
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2479,
+      "name": "ROSE / Alive 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2488,
+      "name": "CHINA / 왁스 샴페인 (Wax champange)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        178
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2524,
+      "name": "ALSTROMERIA MIX BOX (White, dubai) ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2918,
+      "name": "[MEL] ROSE CHINA / 시시아 페어리 (Zixia Fairy) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        67
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2482,
+      "name": "Minicarnation MixBox (Peach, Cream)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 420,
+      "name": "CARNATION Komachi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 634,
+      "name": "Den. White 5N (화이트) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        257
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1408,
+      "name": "ROSE / Iguana(Ossimo) 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2233,
+      "name": "CARNATION Indie",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2267,
+      "name": "MOK Ruby Red XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        265
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2886,
+      "name": "ROSE / Cobalt Blue",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2920,
+      "name": "MiniCarnation 피치(DANNY)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 395,
+      "name": "CARNATION Farida",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 543,
+      "name": "CARNATION Rainbow",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 721,
+      "name": "Fern Sea Star",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        248
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 894,
+      "name": "Hydrangea L.Peach (BA) (연피치)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1051,
+      "name": "Minicarnation Rosita",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1071,
+      "name": "Minicarnation cherry Tessino(체리복색)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1233,
+      "name": "ROSE / Orange Crush 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2133,
+      "name": "SPRAY ROSE CHINA / 스칼렛 벨벳 (Spray-Rose Scarlet Velvet) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        237
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2155,
+      "name": "ROSE CHINA / 안슬레이(Annesley/Katherin)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        78
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2321,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Ard (White)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        231
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2928,
+      "name": "ROSE / Cosmic Blue 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2929,
+      "name": "ROSE / Turquoise Sky 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2931,
+      "name": "ROSE / Candy Xpression",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2937,
+      "name": "CARNATION Don Luis",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2938,
+      "name": "Hydrangea Bright Pink (브라이트 핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 635,
+      "name": "MOK Calipso Pink XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        269
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 654,
+      "name": "MOK Jairak Blue (보라) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        262
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1320,
+      "name": "ROSE / Millenial Pink 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2123,
+      "name": "ROSE CHINA / 레드니스(Redness) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        136
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2174,
+      "name": "MOK Jitti XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        270
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2932,
+      "name": "ROSE / Freedom 110cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 449,
+      "name": "CARNATION Mustard",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2641,
+      "name": "CARNATION Sample",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2673,
+      "name": "ALSTROMERIA Sample",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2905,
+      "name": "ROSE / Be Sweet mc 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2909,
+      "name": "ROSE / Freedom mc 50cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2911,
+      "name": "ROSE / Mandala mc 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2916,
+      "name": "ROSE / Silantoi mc 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 355,
+      "name": "CARNATION Bizet",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 512,
+      "name": "CARNATION Zeppelin",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1281,
+      "name": "ROSE / Vendela 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1305,
+      "name": "ROSE / Luciano 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2436,
+      "name": "ROSE / Sample",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2907,
+      "name": "ROSE / Coral Reef mc 50cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2913,
+      "name": "ROSE / Mondial White mc 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2914,
+      "name": "ROSE / Pink Mondial mc 50cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2077,
+      "name": "ROSE CHINA / 프라우드(White proud) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        82
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2670,
+      "name": "SPRAY ROSE CHINA / 블랙뷰티 (Spray-Rose Black Beauty) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        187
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2720,
+      "name": "ROSE / Barista",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 622,
+      "name": "Den. Burana Jade (그린) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        259
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 641,
+      "name": "MOK Nora blue XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        275
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2093,
+      "name": "ROSE CHINA / 버터컵(Butter cup) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        69
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2115,
+      "name": "ROSE CHINA / 나오미(Naomi) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        193
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2430,
+      "name": "ROSE / Bimba 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2950,
+      "name": "CHINA / 블러싱 브라이드(Serruria Florida)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        218
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2954,
+      "name": "MOK Jubkuan Pink XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        263
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2955,
+      "name": "Den Siam Blue( SIB ) XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        256
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2534,
+      "name": "Lisianthus CHINA / 핑크 (Rosita 3 Type pink) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        183
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2685,
+      "name": "Lisianthus CHINA / 아레나 R1 2호 피플 피코티 (Areana R1 2 purple picotee) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        182
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2957,
+      "name": "Lisianthus CHINA / 로잔 3호 그린 (Rosanne 2 Green) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        238
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 719,
+      "name": "Koala Fern",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        249
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1217,
+      "name": "ROSE / Moonston 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1280,
+      "name": "ROSE / Sugar Doll 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1393,
+      "name": "ROSE / Freedom 40cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2388,
+      "name": "ROSE CHINA / 만달라(Mandala) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        68
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2406,
+      "name": "Minicarnation MixBox ( Ligth pink, white)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2951,
+      "name": "ROSE / Freedom 80cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2961,
+      "name": "[MEL] ROSE CHINA / 퀵샌드 (Drift Sand)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        64
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2963,
+      "name": "ROSE CHINA / 골드핀치 (Goldfinch)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        233
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2964,
+      "name": "ROSE / Explorer 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2960,
+      "name": "Hydrangea Super light pink (연연핑크) (BA)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2968,
+      "name": "DAHLIA CHINA / 달리아 오렌지 (Orange Stone)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        241
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 636,
+      "name": "Den. Jinda Sweet (피치) M",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        277
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1246,
+      "name": "ROSE / Frutteto 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1522,
+      "name": "Ecuador Tinted Light Purple D71",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        9
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2959,
+      "name": "Ruscus Green 50cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 68,
+      "name": "ALSTROMERIA MIX BOX",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 624,
+      "name": "MOK Orange Peach L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        272
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2997,
+      "name": "Wolly Bush Green Tip ",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        251
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2999,
+      "name": "Copper Glow",
+      "country": "호주",
+      "rate": 0.069,
+      "ruleIds": [
+        250
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3003,
+      "name": "[MEL] CHINA / 라스라지 화이트 (Gladiolus White)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        44
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3005,
+      "name": "[MEL] Spray Carnation CHINA / 펄핑크 (Pearl Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        95
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3006,
+      "name": "[MEL] Spray Carnation CHINA / 체리 핑크 (Cherry price)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        94
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3022,
+      "name": "[MEL] ROSE CHINA / 레바이벌 (Wake Up) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        33
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3037,
+      "name": "MOK Nora blue L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        264
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2085,
+      "name": "ROSE CHINA / 오션송(Ocean song) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        108
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 553,
+      "name": "Goanna Claw",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        252
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3023,
+      "name": "Ruscus Green 70cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 890,
+      "name": "Hydrangea GOLD PEACH (F) (골드피치)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 425,
+      "name": "CARNATION Lege Pink",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1529,
+      "name": "Ecuador Tinted Sunset Bloom",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        10
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2819,
+      "name": "CARNATION Jelly",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3057,
+      "name": "[MEL] Spray Carnation CHINA / 솔로미오 Solomio Pink Butterfly (Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        40
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3059,
+      "name": "[MEL] Spray Carnation CHINA / 솔로미오 Solomio Down (Cream)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        38
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3060,
+      "name": "[MEL] Spray Carnation CHINA / 솔로미오 Solomio Little Strawberry (Bi Pink,Red)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        39
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3063,
+      "name": "[MEL] Spray Carnation CHINA / 솔로미오 Solomio Swamp (Pink, White)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        41
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3066,
+      "name": "CARNATION Safari",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3076,
+      "name": "[MEL] Amaranthus CHINA Fresh GREEN / 줄맨드라미 생화 그린",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        58
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3078,
+      "name": "[MEL] Lisianthus CHINA WHITE / 화이트 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        61
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3084,
+      "name": "[MEL] Lisianthus CHINA / 핑크 (mariachi Light pink) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        60
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 471,
+      "name": "CARNATION Red Frontera",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3046,
+      "name": "CARNATION Orange Flame",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3068,
+      "name": "[MEL] Spray Carnation CHINA / 래드 (Barbra Red-multi)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        91
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3070,
+      "name": "[MEL] Spray Carnation CHINA / 노랑 (Yellow-multiheads)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        90
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3071,
+      "name": "Hydrangea Yellow Lemon Ice (옐로우 레몬 아이스)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3079,
+      "name": "[MEL]Lisianthus CHINA / Eustoma Pink 800g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        101
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3080,
+      "name": "[MEL]Lisianthus CHINA / Eustoma White 800g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        102
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3081,
+      "name": "[MEL]Lisianthus CHINA / Eustoma White&Purple 800g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        103
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3082,
+      "name": "[MEL] Spray Carnation CHINA / 피치 (Hamada)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        97
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3083,
+      "name": "[MEL] Spray Carnation CHINA / 스칼렛 (Scarlett)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        92
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3090,
+      "name": "[MEL] ROSE CHINA / KING DAY",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        36
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 392,
+      "name": "CARNATION Extasis",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 414,
+      "name": "CARNATION Joshua",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1050,
+      "name": "Minicarnation Rosemary",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1053,
+      "name": "Minicarnation Trendy tessino(보라복색)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3092,
+      "name": "CARNATION Olimpia",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3095,
+      "name": "ROSE CHINA / 버터컵(Butter cup) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        77
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 515,
+      "name": "CARNATION Ilusion",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 523,
+      "name": "CARNATION Virgilio",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 653,
+      "name": "Oncidium Golden Shower",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        279
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 720,
+      "name": "Fern Rainbow",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        254
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1064,
+      "name": "MiniCarnation 크림(Cream/Tayrona)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1084,
+      "name": "Minicarnation Hot Pink",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2159,
+      "name": "CHINA / 리모늄 시네신스 옐로우 (Sinensis Yellow) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        232
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3085,
+      "name": "Ruscus Green 40cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3096,
+      "name": "CHINA / 리모늄 시네신스 연핑크 (Sinensis Light Pink) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        55
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3097,
+      "name": "[MEL] Spray Carnation CHINA / 솔로미오 Solomio Original Inspection (Kai,Red)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        42
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3103,
+      "name": "[MEL] ROSE CHINA / 파이시스,킴벌리 (Pisces) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        35
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2599,
+      "name": "CARNATION Yukari Violet",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3093,
+      "name": "[MEL] ROSE CHINA / 케서린 (Catherine) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        63
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 491,
+      "name": "CARNATION True Love",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1490,
+      "name": "Ecuador Mayra Rose Bridal Pink",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        11
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2079,
+      "name": "ROSE CHINA / 쉬머(Shimmer) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        106
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2119,
+      "name": "ROSE CHINA / 프루테토, 큐피트　(Frutteto, Cupid)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        84
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2446,
+      "name": "ROSE CHINA / 아도레 (Adore)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        107
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2596,
+      "name": "ROSE CHINA / 안슬레이(Annesley/Katherin) A-grade 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        79
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2824,
+      "name": "Minicarnation Lina",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3099,
+      "name": "CARNATION Montoya",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3105,
+      "name": "[MEL]Lisianthus CHINA / Light Pink 800g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        104
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3108,
+      "name": "CLEMATIS CHINA / 클레마티스 연보라 (Rooguchi Sophie Light purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        71
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3109,
+      "name": "[MEL] Carnation CHINA / 핑크 뷰티 (Pink Beauty)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        87
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3110,
+      "name": "[MEL] Spray Carnation CHINA / 연핑크 (Barbra light pink multi)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        93
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3112,
+      "name": "[MEL] Spray Carnation CHINA / 화이트, 핑크 (Pakchoi)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        98
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3113,
+      "name": "[MEL] Spray Carnation CHINA / 피치 (Barbra peach multi)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        96
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3115,
+      "name": "[MEL]Lisianthus CHINA / Eustoma Champagne 800g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        100
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3119,
+      "name": "Greens CHINA / 에리카 골드 (Melaleuca) 400g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        85
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3121,
+      "name": "Greens CHINA / 스네이크 알륨 (Allium fistulosum) 200g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        86
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3098,
+      "name": "[MEL] CHINA / 리모늄 시네신스 연핀크 (Sinensis light pink) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        113
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3125,
+      "name": "[MEL] ROSE CHINA / 아도레 (Adore)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        111
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3126,
+      "name": "[MEL] ROSE CHINA / 로맨틱 비치(Romantic Beach)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        110
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3127,
+      "name": "[MEL] ROSE CHINA / 쉬머 (Glimmer)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        109
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3128,
+      "name": "[MEL] ROSE CHINA / 티나 (Tina)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        112
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3124,
+      "name": "Hydrangea Burgundy (버건디)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3134,
+      "name": "[MEL] ROSE CHINA / 프라우드 (Pride) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        117
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1123,
+      "name": "Oncidium",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        283
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2166,
+      "name": "ROSE / Mondial White 70cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3104,
+      "name": "ROSE Preserved / Magna (princess white)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3122,
+      "name": "GREENS CHINA / 홍철나무 (Loropetalum) 500g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        123
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3129,
+      "name": "Greens CHINA / 에버그린 (Evergreen) 300g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        121
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3130,
+      "name": "Greens CHINA /미스칸투스 (Miscanthus) 80g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        124
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3131,
+      "name": "Greens CHINA / 제로필룸 (Xerophyllum) 60g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        122
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3132,
+      "name": "Greens CHINA / 석죽 (Dianthus green) 300g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        120
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3133,
+      "name": "[MEL] ROSE CHINA / 루어 샨 (Luo shen) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        129
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3135,
+      "name": "[MEL] ROSE CHINA / 다이아나 (Diana) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        127
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3141,
+      "name": "[MEL] ROSE CHINA / 프루테토, 큐피트 (Pink Cupid)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        126
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3142,
+      "name": "[MEL] ROSE CHINA / 크림 컵 (Cream cup) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        128
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3143,
+      "name": "[MEL] ROSE CHINA / 레드니스(Redness)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        130
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2992,
+      "name": "MiniCarnation Athena (연핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3150,
+      "name": "[MEL] Greens CHINA / 에리카 골드 (Melaleuca) 400g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        133
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3151,
+      "name": "[MEL] Greens CHINA / 석죽 (Dianthus green) 300g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        132
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3152,
+      "name": "[MEL] Greens CHINA / 스네이크 알륨 개화 전 (Allium fistulosum Before Blooming) 200g",
+      "country": "중국",
+      "rate": 0.08,
+      "ruleIds": [
+        134
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2237,
+      "name": "Ecuador Royal Blue D29",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        13
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2239,
+      "name": "Ecuador Dark Navy Blue D73",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        12
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3140,
+      "name": "Hydrangea Red (레드)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3146,
+      "name": "[MEL] ROSE CHINA / 만타 (Manta)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        139
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3162,
+      "name": "ROSE CHINA / 골렘 (Golestem)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        137
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3163,
+      "name": "[MEL] ROSE CHINA / 프라우드(White proud) [red box]",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        141
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3169,
+      "name": "[MEL] ROSE CHINA / 퀵샌드 (Drift Sand) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        140
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 652,
+      "name": "MOK Jairak Blue (보라) L",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        286
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 656,
+      "name": "Oncidium Grower Ramsey XL",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        284
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1766,
+      "name": "Thryptomene Calycina Natural White",
+      "country": "호주",
+      "rate": 0,
+      "ruleIds": [
+        255
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3147,
+      "name": "ROSE CHINA / 만타 (Manta)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        143
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3173,
+      "name": "Den. Mix box loose blooms (WB(화) 13 + JS(피) 4)",
+      "country": "태국",
+      "rate": 0.05,
+      "ruleIds": [
+        285
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3171,
+      "name": "ROSE CHINA / 레드니스(Redness) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        144
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1324,
+      "name": "ROSE / White Ohara 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3176,
+      "name": "ROSE / Crystal Fairy 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3182,
+      "name": "[MEL] CHINA / 백합 시베리아 화이트 (Siberia White) 2 Buds/봉오리",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        146
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3186,
+      "name": "[MEL] ROSE CHINA / 프라우드(White pride) 75-80cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        145
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3177,
+      "name": "ROSE / Mama Mia 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3179,
+      "name": "CARNATION Mochi",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2429,
+      "name": "ALSTROMERIA Mila",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3178,
+      "name": "ROSE CHINA / 프라우드(White proud) 75-80cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        153
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3190,
+      "name": "ROSE CHINA / 프라우드(White proud) [red box] 75-80cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        152
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3191,
+      "name": "ROSE CHINA / 프라우드(White proud) 65-70cm JCF",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        151
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3192,
+      "name": "CHINA / 백합 시베리아 화이트 (Siberia White) 2 Buds/봉오리 Double",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        150
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3193,
+      "name": "ASPARAGUS CHINA Preserved White / 미디오 (화이트)",
+      "country": "중국",
+      "rate": 0.25,
+      "ruleIds": [
+        149
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1062,
+      "name": "MiniCarnation White",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1256,
+      "name": "ROSE / Pink Priceless",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2243,
+      "name": "ROSE / Garden mayra pink 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2421,
+      "name": "ROSE / Tabatha 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3188,
+      "name": "ROSE / Garden Mayra Bridal Pink 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3189,
+      "name": "ROSE / Sweet Cake 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1218,
+      "name": "ROSE / New Face(red)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1350,
+      "name": "ROSE / Free Spirit 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2091,
+      "name": "ROSE CHINA / 아바란체(Avalanche) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        158
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2109,
+      "name": "ROSE CHINA / 스윗 아바란체(Sweet Avalanche) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        157
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2821,
+      "name": "ROSE / Movie Star",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3198,
+      "name": "MiniCarnation Moca Sweet (모카 스위트)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1207,
+      "name": "ROSE / Hot Pink Queen Berry",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2512,
+      "name": "ROSE / Stardust",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3187,
+      "name": "ROSE / Yellow Summer 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 97,
+      "name": "ALSTROMERIA Nadya",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2266,
+      "name": "ROSE CHINA / 아바란체(Avalanche) 40cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        164
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3208,
+      "name": "Hydrangea tinted lime green (염색연그린) AT",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3209,
+      "name": "Hydrangea tinted ligth green (염색연그린) GL",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3199,
+      "name": "CARNATION Pastel Crimea",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3214,
+      "name": "ROSE / Tinted Cosmic Green",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3215,
+      "name": "ROSE / Tinted Gray Ash ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 67,
+      "name": "ALSTROMERIA Red",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2221,
+      "name": "CARNATION Tinted Lavender",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3051,
+      "name": "Delphinium CHINA / 연보라 Light Purple",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        166
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3216,
+      "name": "Hydrangea Light pink peach (연핑크피치)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1221,
+      "name": "ROSE / Novelties Lemonade",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1487,
+      "name": "Ecuador Candy X-pression",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        26
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3206,
+      "name": "CARNATION Jungle (정글)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3212,
+      "name": "ASPARAGUS CHINA Preserved Pink / 미디오 (연핑크)",
+      "country": "중국",
+      "rate": 0.25,
+      "ruleIds": [
+        168
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3221,
+      "name": "Hydrangea Tinted Light lavender (Flor) (염색 연한 라벤더)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3222,
+      "name": "Spray carnation Caja A (Artic, Chatteau)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3223,
+      "name": "Spray Carnation Caja B (Caesar, Romany Orange)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3224,
+      "name": "Spray Carnation Caja C (Hamada, Pink pigeon)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3225,
+      "name": "Spray Carnation Caja D (Pigeon Hot Pink, Purple)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3226,
+      "name": "DAHLIA CHINA / 달리아 투톤 연핑크 (Chen Yingjun)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        169
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1361,
+      "name": "ROSE / Ragazza 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1441,
+      "name": "ROSE / Pink xpression 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3220,
+      "name": "Hydrangea Natural lila [ANT] (자연 라벤더)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3228,
+      "name": "SPRAY ROSE CHINA / 레파인젠시 (Refingency)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        174
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1460,
+      "name": "ROSE / Star Platinum(Lavender) 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3231,
+      "name": "Hydrangea Antique Green Base  Florentina (안티케 그린 베이스)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3237,
+      "name": "Delphinium CHINA / 진블루 Blue",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        176
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1272,
+      "name": "ROSE / Sweet Mama 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1307,
+      "name": "ROSE / Black Tinted 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2107,
+      "name": "ROSE CHINA / 갓챠(Gotcha) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        185
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2715,
+      "name": "Lisianthus CHINA / 그린 (Rosita 4 Green) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        180
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2820,
+      "name": "CARNATION Altair",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3246,
+      "name": "DAHLIA CHINA / 달리아 투톤 연핑크 2 (Chen baby girl)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        179
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1269,
+      "name": "ROSE / Soul(White,Cream)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2328,
+      "name": "CHINA / 디디스커스 화이트 (Didiscus caeruleus-white)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        191
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2338,
+      "name": "CHINA / 디디스커스 핑크 (Didiscus caeruleus-pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        190
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3241,
+      "name": "CHINA / 디디스커스 블루 (Didiscus blue)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        189
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3242,
+      "name": "ROSE CHINA / 스터닝블루(stoning blue) 75-80cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        192
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3244,
+      "name": "Hydrangea Tinted Light lavender (Antioquia) (염색 연한 라벤더)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3247,
+      "name": "Hydrangea Light pink peach (연핑크피치) (GL)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 50,
+      "name": "ALSTROMERIA YELLOW",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1067,
+      "name": "Minicarnation Jade",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2087,
+      "name": "ROSE CHINA / 타이쿤(Tycoon) ",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        197
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3250,
+      "name": "Hydrangea White Select (화이트 셀렉트)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 450,
+      "name": "CARNATION Nahema",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1311,
+      "name": "ROSE / Blessing 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2329,
+      "name": "CHINA / 디디스커스 퍼플 (Didiscus caeruleus-light purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        198
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3180,
+      "name": "ROSE CHINA / 나이팅게일(Nightingale, Purple Fairy) 65-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        208
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3271,
+      "name": "ROSE CHINA / 주밀리아(Jumilia) 70cm-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        210
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3298,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Ard (White) Hasfarm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        206
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3299,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Fen (Dark Pink) Hasfarm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        207
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3302,
+      "name": "CARNATION Handel",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3310,
+      "name": "Carnation CHINA / 연노랑 light yellow",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        202
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3312,
+      "name": "Spray Carnation CHINA / 솔로미오 Solomio Bondfly (yellow)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        201
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2439,
+      "name": "ROSE CHINA / 카푸치노 (Capuchino)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        215
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3303,
+      "name": "Rice Flower CHINA  / 라이스 플라워 화이트 (white) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        219
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3313,
+      "name": "Minicarnation Pigeon(찐핑크)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3315,
+      "name": "Hydrangea White Super CB  (특별 화이트)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3316,
+      "name": "Hydrangea MIX Super CB  (특별 믹스)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1250,
+      "name": "ROSE / Malibu 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1306,
+      "name": "ROSE / Be Sweet",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2139,
+      "name": "SPRAY ROSE CHINA / 유키히메 (Yukihime)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        226
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2242,
+      "name": "ROSE / Garden mayra white 50cm ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2418,
+      "name": "Minicarnation Roxanne (Light pink)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2601,
+      "name": "Minicarnation MixBox (Athena, Malibu)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2642,
+      "name": "CARNATION Pastel damascus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2917,
+      "name": "ROSE / Sweetness mc 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3203,
+      "name": "ROSE / Sweet Memory 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3282,
+      "name": "ROSE CHINA / 타이쿤(Tycoon) 70cm-75cm",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        225
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3321,
+      "name": "CARNATION Cristallo",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3322,
+      "name": "CARNATION Spiritz Arancio",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3323,
+      "name": "ROSE / Freedom 70cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3328,
+      "name": "Carnation CHINA / 핑크 레이디 (Pink Lady)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        228
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3329,
+      "name": "Carnation CHINA / 라이트 파우더 (Flowing light powder)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        229
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3330,
+      "name": "Carnation CHINA / 홍푸 (Hongfu) 레드",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        230
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 61,
+      "name": "ALSTROMERIA Voyager",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1338,
+      "name": "ROSE / London Eye 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1415,
+      "name": "ROSE / Luciano 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2131,
+      "name": "SPRAY ROSE CHINA / 라일라 (Laila)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        235
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2506,
+      "name": "SPRAY ROSE CHINA / Fairy Kiss",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        234
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3327,
+      "name": "SPRAY ROSE CHINA / 발코니 (Balcony)",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        236
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 1525,
+      "name": "Ecuador Tinted Azure AS244",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        23
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3341,
+      "name": "ALSTROMERIA Navarro",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 63,
+      "name": "ALSTROMERIA Bella Star",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 2180,
+      "name": "ALSTROMERIA Whistler Butterplus",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 528,
+      "name": "CARNATION Tinted Mix",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 888,
+      "name": "Hydrangea tinted Lavender",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1539,
+      "name": "Ecuador Playa Blanca (ro)",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        14
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3344,
+      "name": "Gypsophilia Overtime 750g",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        16
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3349,
+      "name": "Ecuador Vendela ",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        15
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 424,
+      "name": "CARNATION Lege Marrone",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1433,
+      "name": "ROSE / Orange Crush 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3304,
+      "name": "ROSE / Hermosa 50cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 499,
+      "name": "CARNATION Yellow",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3377,
+      "name": "Hydrangea Sample box",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 86,
+      "name": "ALSTROMERIA Senna",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 73,
+      "name": "ALSTROMERIA Romance",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 382,
+      "name": "CARNATION Cute",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1447,
+      "name": "ROSE / Quick Sand 60cm",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 1552,
+      "name": "Ecuador Choco Bloom AS73",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        25
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 2507,
+      "name": "SPRAY ROSE CHINA / Draft Win",
+      "country": "중국",
+      "rate": 0.214,
+      "ruleIds": [
+        173
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3245,
+      "name": "CARNATION MIx Box F (Caroline. Goblin, yukari oscuro)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3372,
+      "name": "CARNATION Honey",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3348,
+      "name": "ROSE / Cafe Latte",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3418,
+      "name": "ALSTROMERIA Fifi Butterfly",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3424,
+      "name": "Ecuador Barista 50cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        20
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3425,
+      "name": "Ecuador Hearts 50cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        19
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3426,
+      "name": "Ecuador Explorer 60cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        22
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3427,
+      "name": "Ecuador Barista 60cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        21
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3428,
+      "name": "Ecuador Hearts 60cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        17
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3430,
+      "name": "Gypsophilia Xcelence 750g",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        24
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 3431,
+      "name": "Ecuador Playa Blanca 50cm",
+      "country": "에콰도르",
+      "rate": 0.25,
+      "ruleIds": [
+        18
+      ],
+      "source": "exact_name_candidate"
+    },
+    {
+      "prodKey": 88,
+      "name": "ALSTROMERIA SunnyLday",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 85,
+      "name": "ALSTROMERIA Gypsy",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 876,
+      "name": "Hydrangea Paint LIGHT PINK (AMERICAN)",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3436,
+      "name": "Hydrangea Bright Burgundy (밝은 버건디) ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3437,
+      "name": "Hydrangea Red (레드) FL ",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    },
+    {
+      "prodKey": 3467,
+      "name": "ALSTROMERIA Tampa",
+      "country": "콜롬비아",
+      "rate": 0,
+      "ruleIds": [
+        294
+      ],
+      "source": "user_policy_candidate"
+    }
+  ]
+}

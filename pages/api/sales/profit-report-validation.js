@@ -7,6 +7,7 @@ import {auditProfitFormulas} from '../../../lib/profitFormulaAudit.mjs';
 import {auditReportSqlLineage} from '../../../lib/profitSqlLineageAudit.mjs';
 import {loadProfitReportSourceReconciliation} from '../../../lib/profitReportSourceReconciliation';
 import {buildProfitValidationGate} from '../../../lib/profitReportValidationGate.mjs';
+import {applyTemplateDutyToReport,clearTemplateDutyCache} from '../../../lib/profitTemplateDutyData';
 
 // Explicit verification only. Never refresh a snapshot or execute a mutation here.
 export default withAuth(async function handler(req,res) {
@@ -24,16 +25,20 @@ export default withAuth(async function handler(req,res) {
   try {
     const audit=await collectIndependentAudit(scope,controller.signal);
     controller.signal.throwIfAborted();
+    // Explicit verification must not certify the normal-view 60s cache. Both
+    // projections below share the newly started context; final hash checks races.
+    clearTemplateDutyCache();
     const [raw,saved]=await Promise.all([loadReportData(scope.major,scope.year),loadWeeklyReportPayload(scope.major,scope.year)]);
     controller.signal.throwIfAborted();
-    const live=materializeProfitPayload({...raw,orderYear:scope.year,major:scope.major});
-    const sources=await loadProfitReportSourceReconciliation({year:scope.year,major:scope.major,report:live,signal:controller.signal});
+    const rawLive=materializeProfitPayload({...raw,orderYear:scope.year,major:scope.major});
+    const live=await applyTemplateDutyToReport(rawLive,scope.year,scope.major);
+    const sources=await loadProfitReportSourceReconciliation({year:scope.year,major:scope.major,report:rawLive,signal:controller.signal});
     const final=await readIndependentSources(scope,controller.signal);
     const integrity={...audit.integrity,status:audit.integrity?.sourceHash===final.hash?audit.integrity.status:'STALE'};
     const stock=audit.weeks.find(w=>Number(w.major)===Number(scope.major));
-    const display={...profitDisplayCalculation(saved),audit:saved.audit};
-    const result=buildProfitValidationGate({year:scope.year,major:scope.major,display,live,
-      formula:auditProfitFormulas(live,live.rows,live.totals),lineage:auditReportSqlLineage(live,stock?.sqlLineage),stock,sources,integrity});
+    const display={...profitDisplayCalculation(saved),audit:saved.audit,templateDuty:saved.templateDuty};
+    const result=buildProfitValidationGate({year:scope.year,major:scope.major,display,live,rawLive,
+      formula:auditProfitFormulas(rawLive,rawLive.rows,rawLive.totals),lineage:auditReportSqlLineage(rawLive,stock?.sqlLineage),stock,sources,integrity});
     controller.signal.throwIfAborted();
     return res.status(200).json({success:true,...result,sourceBoundary:sources.boundary});
   } catch(error) {

@@ -1,3 +1,7 @@
+- [2026-10-29 관세 양식 승인추정 표시·독립 검증](2026-10-29_profit-template-duty-release.md) — 1~41차164행·주차/월별 대사, DB 보존, 배포 확인 대기.
+- [2026-10-29 관세 규칙 SQL 커버리지](2026-10-29_tariff-sql-coverage.md)
+- [2026-10-29 관세 원본 양식 규칙](2026-10-29_tariff-template-rules.md)
+- [2026-10-29 태국·에콰도르 관세 원천](2026-10-29_th-ec-duty-audit.md)
 - [2026-10-29 호텔 특수매칭·최종등록](2026-10-29_hotel-special-orders.md)
 - [2026-10-29 관리대장 버튼 선택](2026-10-29_ecount-ledger-buttons.md)
 - [2026-10-29 송이 기준 원가·독립 SQL/엑셀 검증](2026-10-29_profit-stem-independent-audit.md) — DB 보존, 1~44차 품목검산 및38/39 통합조회, 비용 배분 대사 보완 중.
