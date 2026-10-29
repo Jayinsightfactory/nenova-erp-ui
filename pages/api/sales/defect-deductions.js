@@ -147,7 +147,7 @@ async function handler(req, res) {
           managerId: req.body?.managerId || '', managerName: req.body?.managerName || '',
           sourceFileName: req.body?.sourceFileName || '',
         });
-        return res.status(200).json({ success: true, saved: rows.length, rows });
+        return res.status(200).json({ success: true, saved: rows.length, excludedCount: Math.max(0,(req.body?.rows || []).length-rows.length), rows });
       }
       if (action === 'incoming-confirm') {
         if (!canUseDefectIncoming(req.user)) {
