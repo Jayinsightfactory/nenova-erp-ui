@@ -9,6 +9,7 @@ import { query } from '../../../lib/db';
 import { trackLLMCall } from '../../../lib/chat/costTracker';
 import { normalizeVisionItems, parseOrderImportSheetRows } from '../../../lib/orderImportParse';
 import { uniqueHotelMappings } from '../../../lib/hotelOrderWorkspace';
+import { hotelSourceBox } from '../../../lib/hotelOrderReview';
 import { matchImportRows, summarizeMatches } from '../../../lib/orderImportMatch';
 import { loadMappings, normalizeToken } from '../../../lib/parseMappings';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
@@ -113,7 +114,8 @@ async function parseImageWithVision(file) {
   const jsonText = (raw.match(/\{[\s\S]*\}/) || [null])[0];
   if (!jsonText) throw new Error('이미지 OCR JSON 파싱 실패');
   const parsed = JSON.parse(jsonText);
-  return normalizeVisionItems(parsed.items || parsed.rows || []);
+  const items=parsed.items || parsed.rows || [], result=normalizeVisionItems(items);
+  return {...result,rows:result.rows.map(row=>({...row,sourceBox:hotelSourceBox(items[row.rowNo-1]?.sourceBox)}))};
 }
 
 function fieldVal(fields, name) {
@@ -205,7 +207,7 @@ export default withAuth(async function handler(req, res) {
     return res.status(200).json({
       success: true,
       sourceType,
-      items,
+      items:items.map(it=>({...it,sourceBox:hotelSourceBox(parsedRows.find(r=>r.rowNo===it.rowNo)?.sourceBox)})),
       products: ctx.allProducts.filter(p => items.some(it => Number(it.prodKey) === Number(p.ProdKey))),
       summary: summarizeMatches(items),
       logs,

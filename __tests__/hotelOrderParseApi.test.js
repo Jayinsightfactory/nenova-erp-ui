@@ -10,6 +10,7 @@ import * as parse from '../lib/orderImportParse.js';
 import * as match from '../lib/orderImportMatch.js';
 import { normalizeToken } from '../lib/pasteMappingMatch.js';
 import * as workspace from '../lib/hotelOrderWorkspace.js';
+import * as review from '../lib/hotelOrderReview.js';
 const require = createRequire(import.meta.url), XLSX = require('xlsx');
 const swc = require('next/dist/build/swc');
 const product = { ProdKey: 10, ProdName: '수국 화이트', DisplayName: '수국 화이트', OutUnit: '송이', SteamOf1Box: 30 };
@@ -18,7 +19,7 @@ function handler(file, fields = {}, mappings = []) {
   const imports = {
     fs, xlsx: XLSX,
     formidable: () => ({ parse: (_, cb) => cb(null, fields, { file }) }),
-    '@anthropic-ai/sdk': class { constructor() { this.messages = { create: async () => ({ content: [{ type: 'text', text: JSON.stringify({ items: [{ name: '수국 화이트', qty: 15, unit: '송이' }] }) }] }) }; } },
+    '@anthropic-ai/sdk': class { constructor() { this.messages = { create: async () => ({ content: [{ type: 'text', text: JSON.stringify({ items: [{ name: '수국 화이트', qty: 15, unit: '송이', sourceBox: [0.52,0.2,0.4,0.05] }] }) }] }) }; } },
     '../../../lib/auth': { withAuth: fn => fn },
     '../../../lib/db': { query: async sql => { calls.push(sql); assert.ok(/^SELECT/i.test(sql.trim())); return { recordset: sql.includes('FROM Product WHERE') ? [product] : sql.includes('FROM WebRaumPnl') ? mappings : [] }; } },
     '../../../lib/chat/costTracker': { trackLLMCall() {} },
@@ -28,6 +29,7 @@ function handler(file, fields = {}, mappings = []) {
     '../../../lib/orderImportUnits': { loadImportUnits: () => ({}) },
     '../../../lib/hotelMiuIntake': intake,
     '../../../lib/hotelOrderWorkspace': workspace,
+    '../../../lib/hotelOrderReview': review,
   };
   const source = swc.transformSync(fs.readFileSync('pages/api/sales/hotel-miu-parse.js', 'utf8'), { filename: 'hotel-api.js', jsc: { parser: { syntax: 'ecmascript' }, target: 'es2022' }, module: { type: 'commonjs' } }).code;
   const module = { exports: {} };
@@ -50,7 +52,7 @@ test('actual parse API accepts text, TXT, Excel and OCR without ERP writes', asy
     const xlsx = path.join(dir, 'input.xlsx'); XLSX.writeFile(book, xlsx);
     const c = await invoke({ filepath: xlsx, originalFilename: 'input.xlsx' }); assert.equal(c.code, 200); assert.equal(c.data.items[0].qty, 15);
     const img = path.join(dir, 'input.png'); fs.writeFileSync(img, 'fixture');
-    const d = await invoke({ filepath: img, originalFilename: 'input.png', mimetype: 'image/png' }); assert.equal(d.code, 200); assert.equal(d.data.sourceType, 'image'); assert.equal(d.data.items[0].qty, 15);
+    const d = await invoke({ filepath: img, originalFilename: 'input.png', mimetype: 'image/png' }); assert.equal(d.code, 200); assert.equal(d.data.sourceType, 'image'); assert.equal(d.data.items[0].qty, 15); assert.deepEqual([...d.data.items[0].sourceBox], [0.52,0.2,0.4,0.05]);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('multiple sheets require explicit selection; conflicting saved mappings require review', async () => {
