@@ -247,7 +247,9 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
         ? `과세환율(관세청 신고환율, ${row.currency || '-'}) — ${carryText}. 현재 차수에 새 매입이 생기면 이월값을 쓰지 않고 해당 차수의 정확한 과세환율을 요구합니다.`
         : `과세환율(${row.currency || '-'}) — 저장된 실제·수기 근거 → 해당 차수 원본 엑셀값 → 공식 환율 순입니다. 등록 국가의 적용주간은 승인 패턴 추정으로 별도 표시합니다. 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
-    H: row.source?.H === 'approved_estimate'
+    H: row.templateDuty
+      ? `저장 입력 H ${row.templateDuty.originalCalc?.H?.toLocaleString()??'미확인'}원 → 관세 보완 H ${row.calc?.H?.toLocaleString()??'미확인'}원. 관세 ${row.templateDuty.total?.toLocaleString()??'미확인'}원(기존분 제거 후 1회 적용). ${row.templateDuty.status==='approved_estimate'?'승인 양식 품목별 추정이며 실제 납부 확정액이 아닙니다.':'실제·명시 0·수기 입력 우선.'} DB 저장값은 바꾸지 않습니다.`
+      : row.source?.H === 'approved_estimate'
       ? '승인 비용 추정 포함: 백상460원/kg + 실제 관세(미입력은 태국5%) + 선율(32차 이후 공급가 가정·누락63,000원) + 합산 GW 차량비/1.1 + 방역/1.1. 수기 확정액 우선. 실제 청구 확정액은 아닙니다.'
       : '백상460원/kg + 입력된 관세·선율·국내운송·방역. 합산 입고중량별 차량비를 계산하며 명시 실제금액은 우선합니다. 콜롬비아는 박스당무게×박스수량 비율 배분. 근거 있는 수기값 우선.',
     AC: '매출조정 — 다른 차수 귀속 매출(견적 누락분·차수 이동분)을 이 차수 매출에 가감합니다. 매출액(C)과 매출이익(J)에 함께 반영되며, 저장 시 근거(원본 보고서·사유)가 필요합니다.',
@@ -1412,7 +1414,7 @@ export default function ProfitReportPage() {
           {showCustoms && (
             <div style={st.embedPanel}>
               <div style={st.embedPanelHead}>
-                <strong>📦 그외통관비 입력 — {data.major}차</strong>
+                <strong>📦 그외통관비 저장 입력{data.templateDuty?' (관세 추정 보완 전)':''} — {data.major}차</strong>
                 <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
               </div>
               <div style={st.embedPanelBody}>
@@ -1478,7 +1480,7 @@ export default function ProfitReportPage() {
       )}
 
       {viewMode === 'category' && data && <ProfitStemCost year={reportYear} major={weekInput.value} dirty={dirty || String(data.orderYear)!==String(reportYear) || Number(data.major)!==Number(weekInput.value)} />}
-      {viewMode === 'category' && data && <h2 style={{fontSize:16,margin:'12px 0 6px'}}>기존 엑셀식 저장 참고 · 기존 다운로드/인쇄 기준</h2>}
+      {viewMode === 'category' && data && <h2 style={{fontSize:16,margin:'12px 0 6px'}}>{data.templateDuty?'관세 보완 적용 본표 · 다운로드/인쇄 동일 기준':'기존 엑셀식 저장 참고 · 기존 다운로드/인쇄 기준'}</h2>}
       {viewMode === 'category' && data && <ProfitReportValidationGate validation={sourceValidation} />}
       {viewMode === 'category' && data && (
         <div style={st.tableWrap}>

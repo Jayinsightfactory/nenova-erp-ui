@@ -1,5 +1,6 @@
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
+import { applyTemplateDutyToReport, clearTemplateDutyCache } from '../../../lib/profitTemplateDutyData';
 import { selectReportInventoryValuation } from '../../../lib/profitReportValuation.mjs';
 import { buildInventoryBasis } from '../../../lib/profitReportInventoryBasis.mjs';
 import { resolveApprovedThaiCustoms } from '../../../lib/profitReportActualCosts.mjs';
@@ -678,9 +679,9 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   if (activeConfirm?.initialized && activeConfirm.confirm) {
     const data=await buildConfirmedPayload(major, orderYear, activeConfirm);
     if(mode==='liveAudit'||preferLive) {
-      return {...data,major,orderYear,readMode:'confirmed',unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'};
+      return applyTemplateDutyToReport({...data,major,orderYear,readMode:'confirmed',unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'},orderYear,major);
     }
-    return {...data,major,orderYear,readMode:'confirmed'};
+    return applyTemplateDutyToReport({...data,major,orderYear,readMode:'confirmed'},orderYear,major);
   }
   // Display never fingerprints or silently falls back on a historical cache miss.
   const current=currentPeriod || (mode==='liveAudit'||preferLive ? null : await currentProfitPeriod());
@@ -689,7 +690,7 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const data = live ? {...await loadReportData(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
     : storedResult !== undefined ? storedProfitPayload(storedResult,{orderYear,major}) : await readStoredProfitPayload(orderYear,major);
   if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
-  return {...data,major,orderYear,readMode:live?'live':'stored'};
+  return applyTemplateDutyToReport({...data,major,orderYear,readMode:live?'live':'stored'},orderYear,major);
 }
 
 export async function saveProfitReportCache(options) {
@@ -811,10 +812,11 @@ export default withAuth(async function handler(req, res) {
       if (req.body?.action === 'snapshotRefresh') {
         if (activeConfirm.initialized && activeConfirm.confirm) {
           const confirmed = await loadWeeklyReportPayload(major, orderYear);
-          return res.status(200).json({ success: true, major, orderYear, ...confirmed });
+          return res.status(200).json({ success: true, major, orderYear, ...await applyTemplateDutyToReport(confirmed,orderYear,major) });
         }
         const result = await saveProfitReportCache({orderYear,major,actor,reason:'REFRESH'});
-        const data = result.payload || await loadWeeklyReportPayload(major,orderYear);
+        clearTemplateDutyCache();
+        const data = result.payload ? await applyTemplateDutyToReport(result.payload,orderYear,major) : await loadWeeklyReportPayload(major,orderYear);
         if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
         return res.status(200).json({ success: true, major, orderYear, ...data });
       }

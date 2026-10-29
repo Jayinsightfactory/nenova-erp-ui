@@ -33,6 +33,7 @@ async function main(){
   let live=0, reads=0, confirm=null,diagnostics=0;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
+    applyTemplateDutyToReport:async payload=>payload,
     loadProfitReportCalendar:async()=>[scopeFixture],resolveCurrentProfitWeek:()=>({orderYear:'2026',major:'44'}),
     getActiveConfirm:async()=>confirm,buildConfirmedPayload:async()=>({confirmed:{revisionNo:4},rows:[],confirmedTotals:{C:71}}),
     loadReportData:async()=>{live++;return raw;},readStoredProfitPayload:async(y,m)=>{reads++;return S.storedProfitPayload(stored,{orderYear:y,major:m});},
