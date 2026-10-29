@@ -74,7 +74,7 @@ export default function HotelOrderWorkspace() {
   async function loadDraft(id, year = browseYear, week = browseWeek) {
     if (busy || saving) return;
     if (dirty && !window.confirm('현재 미저장 내용을 서버 저장본으로 바꿀까요? 필요한 내용은 먼저 다운로드하세요.')) return;
-    epoch.current++; setBusy('서버 작업 불러오기'); setPreview(null); setError('');
+    epoch.current++; setBusy('서버 작업 불러오기'); setPreview(null); setError(''); setInfo('');
     try {
       await queue.current;
       const d = await apiGet('/api/sales/hotel-order-drafts', { year, week, id });
