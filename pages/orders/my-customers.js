@@ -428,6 +428,7 @@ export default function MyCustomerOrders() {
       @media(max-width:1050px){.entry-layout{grid-template-columns:1fr}.side-tools{position:static;max-height:none;order:2}.variety-nav>div{flex-direction:row;overflow-x:auto}.variety-nav button{flex:0 0 auto;gap:8px}.live-order{max-height:260px;overflow:auto}.live-order>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.product-row{grid-template-columns:1fr 1fr}}@media(max-width:620px){.live-order>div{grid-template-columns:1fr}}
       .live-order .live-order-name small{display:block;font-size:11px;color:#667085}.live-order>div{max-height:55vh;overflow:auto}.live-order-item{display:grid;grid-template-columns:minmax(0,1fr) auto 28px;align-items:center;gap:12px;padding:3px 5px;background:white;border:1px solid #e4e7ec;border-radius:6px;min-width:0}
       .live-order-name{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+      .live-order-item{grid-template-columns:minmax(0,320px) max-content 28px;justify-content:start;column-gap:8px}
       .live-order-quantity{display:flex;align-items:center;gap:3px;color:#155eef;white-space:nowrap}
       .live-order-quantity input{width:62px;min-width:0;min-height:28px;box-sizing:border-box;padding:2px 4px;text-align:right;font-size:14px;font-weight:700;color:#155eef;border:1px solid transparent;border-radius:4px;appearance:textfield}
       .live-order-quantity input::-webkit-inner-spin-button,.live-order-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
