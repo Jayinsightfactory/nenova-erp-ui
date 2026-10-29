@@ -5,16 +5,16 @@ const time=s=>s?new Date(s).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'아
 const messages={CUSTOMER_FORBIDDEN:'현재 담당하는 거래처만 조회할 수 있습니다. 거래처 목록을 다시 불러와 주세요.',CUSTOMER_LINK_REQUIRED:'거래처 식별값이 없거나 중복되어 연결을 확인해야 합니다.',LOGIN_REQUIRED:'로그인 후 이용해 주세요.',LEDGER_UNAVAILABLE:'채권 자료를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.',REQUEST_WINDOW_CLOSED:'최신화 요청은 평일 오전 8시부터 오후 6시까지 할 수 있습니다.',REQUEST_RATE_LIMIT:'이 거래처는 잠시 전에 조회를 요청했습니다. 10분 후 다시 요청해 주세요.',REFRESH_REQUEST_UNAVAILABLE:'최신화 요청을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
 export default function CustomerLedger(){
   const [customers,setCustomers]=useState([]),[selected,setSelected]=useState(''),[data,setData]=useState(null),[meta,setMeta]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[listError,setListError]=useState(''),[requesting,setRequesting]=useState(false);
-  const requestId=useRef(0);
+  const requestId=useRef(0),selectionId=useRef(0);
   const [search,setSearch]=useState(''),[manager,setManager]=useState('');
   const managers=getReceivablesManagers(customers);
   const filteredCustomers=filterReceivablesRows(customers,{search,manager});
   function selectManager(name){
     if(name===manager)return;
-    requestId.current++;setData(null);setError('');setSelected('');setManager(name);
+    selectionId.current++;requestId.current++;setData(null);setError('');setSelected('');setManager(name);
   }
   function selectCustomer(key){
-    requestId.current++;setData(null);setError('');setSelected(selected===key?'':key);
+    selectionId.current++;requestId.current++;setData(null);setError('');setSelected(selected===key?'':key);
   }
   function navigateButtons(event){
     const keys=['ArrowRight','ArrowDown','ArrowLeft','ArrowUp','Home','End'];
@@ -39,16 +39,18 @@ export default function CustomerLedger(){
   }
   async function requestRefresh(){
     if(!selected)return;
+    const key=selected,selection=selectionId.current;
     setRequesting(true);setError('');
     try{
-      const res=await fetch('/api/ecount/customer-ledger-refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:selected}),cache:'no-store'});
+      const res=await fetch('/api/ecount/customer-ledger-refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:key}),cache:'no-store'});
       const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'최신화 요청을 접수하지 못했습니다.');
+      if(selection!==selectionId.current)return;
       setData(current=>current?{...current,refreshRequest:d.request}:current);
-      await load(selected);
-    }catch(e){setError(e.message);}
+      await load(key);
+    }catch(e){if(selection===selectionId.current)setError(e.message);}
     finally{setRequesting(false);}
   }
-  useEffect(()=>{loadCustomers();return()=>{requestId.current++;};},[]);
+  useEffect(()=>{loadCustomers();return()=>{selectionId.current++;requestId.current++;};},[]);
   useEffect(()=>{
     setData(null);setError('');requestId.current++;
     if(!selected){setLoading(false);return;}
@@ -88,7 +90,7 @@ export default function CustomerLedger(){
     {error&&<p role="alert" className="error">{error}</p>}
     {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
     {!listError&&meta&&customers.length===0&&<p className="notice">배정된 거래처가 없습니다. 전산의 거래처 담당자 배정을 확인해 주세요.</p>}
-    {customers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
+    {filteredCustomers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
     {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
