@@ -5,16 +5,16 @@ const time=s=>s?new Date(s).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'아
 const messages={CUSTOMER_FORBIDDEN:'현재 담당하는 거래처만 조회할 수 있습니다. 거래처 목록을 다시 불러와 주세요.',CUSTOMER_LINK_REQUIRED:'거래처 식별값이 없거나 중복되어 연결을 확인해야 합니다.',LOGIN_REQUIRED:'로그인 후 이용해 주세요.',LEDGER_UNAVAILABLE:'채권 자료를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.',REQUEST_WINDOW_CLOSED:'최신화 요청은 평일 오전 8시부터 오후 6시까지 할 수 있습니다.',REQUEST_RATE_LIMIT:'이 거래처는 잠시 전에 조회를 요청했습니다. 10분 후 다시 요청해 주세요.',REFRESH_REQUEST_UNAVAILABLE:'최신화 요청을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
 export default function CustomerLedger(){
   const [customers,setCustomers]=useState([]),[selected,setSelected]=useState(''),[data,setData]=useState(null),[meta,setMeta]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[listError,setListError]=useState(''),[requesting,setRequesting]=useState(false);
-  const requestId=useRef(0);
+  const requestId=useRef(0),selectionId=useRef(0);
   const [search,setSearch]=useState(''),[manager,setManager]=useState('');
   const managers=getReceivablesManagers(customers);
   const filteredCustomers=filterReceivablesRows(customers,{search,manager});
   function selectManager(name){
     if(name===manager)return;
-    requestId.current++;setData(null);setError('');setSelected('');setManager(name);
+    selectionId.current++;requestId.current++;setData(null);setError('');setSelected('');setManager(name);
   }
   function selectCustomer(key){
-    requestId.current++;setData(null);setError('');setSelected(selected===key?'':key);
+    selectionId.current++;requestId.current++;setData(null);setError('');setSelected(selected===key?'':key);
   }
   function navigateButtons(event){
     const keys=['ArrowRight','ArrowDown','ArrowLeft','ArrowUp','Home','End'];
@@ -39,16 +39,18 @@ export default function CustomerLedger(){
   }
   async function requestRefresh(){
     if(!selected)return;
+    const key=selected,selection=selectionId.current;
     setRequesting(true);setError('');
     try{
-      const res=await fetch('/api/ecount/customer-ledger-refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:selected}),cache:'no-store'});
+      const res=await fetch('/api/ecount/customer-ledger-refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:key}),cache:'no-store'});
       const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'최신화 요청을 접수하지 못했습니다.');
+      if(selection!==selectionId.current)return;
       setData(current=>current?{...current,refreshRequest:d.request}:current);
-      await load(selected);
-    }catch(e){setError(e.message);}
+      await load(key);
+    }catch(e){if(selection===selectionId.current)setError(e.message);}
     finally{setRequesting(false);}
   }
-  useEffect(()=>{loadCustomers();return()=>{requestId.current++;};},[]);
+  useEffect(()=>{loadCustomers();return()=>{selectionId.current++;requestId.current++;};},[]);
   useEffect(()=>{
     setData(null);setError('');requestId.current++;
     if(!selected){setLoading(false);return;}

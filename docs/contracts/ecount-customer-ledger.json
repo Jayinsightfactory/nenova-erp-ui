@@ -93,7 +93,8 @@
     "customerButtons": "single selection; pressed active, second click clears; unlinked disabled",
     "keyboard": "Tab/Shift+Tab, arrows/Home/End move focus, Enter/Space activate",
     "sideEffects": "UI filter only; existing snapshot reads and explicit refresh unchanged; all ERP tables preserved",
-    "crossYear": "UI does not change period or OrderYear/OrderWeek; existing cross-year fixtures retained"
+    "crossYear": "UI does not change period or OrderYear/OrderWeek; existing cross-year fixtures retained",
+    "refreshResponse": "Capture selection version + customer key at request start. On customer/manager change, deselection, ABA selection or unmount, ignore old POST success/error and do not load old customer. Ordinary background reads do not invalidate selection version."
   },
   "verifiedLinks": {
     "identity": "Reviewed source-code SHA256 plus local Customer identity SHA256; exact name and hash must match; no raw identifiers persisted",

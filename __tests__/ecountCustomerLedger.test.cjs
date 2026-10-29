@@ -253,3 +253,25 @@ test('old individual snapshot cannot remain visible after basis correction',asyn
  const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(verifiedLinks,require('crypto'),async()=>({recordset:[row]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
  const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger,null);assert.equal(result.basisChanged,true);
 });
+
+test('delayed refresh success/failure never replaces a different customer or manager selection',async()=>{
+ const page=fs.readFileSync(path.join(__dirname,'../pages/ecount/customer-ledger.js'),'utf8');
+ const selection=page.slice(page.indexOf('  function selectManager('),page.indexOf('  function navigateButtons('));
+ const refresh=page.slice(page.indexOf('  async function requestRefresh('),page.indexOf('  useEffect('));
+ for(const change of ['none','customer','manager','away-back','unmount','failed-other']){
+  let finish;const gate=new Promise((resolve,reject)=>{finish=change==='failed-other'?()=>reject(new Error('old customer error')):()=>resolve({ok:true,json:async()=>({success:true,request:{status:'PENDING'}})});});
+  const loads=[],data=[],errors=[],posted=[];const selectionId={current:0},requestId={current:0};
+  const deps={selected:'13',manager:'',selectionId,requestId,fetch:async(_url,options)=>{posted.push(JSON.parse(options.body));return gate;},setRequesting:()=>{},setError:e=>errors.push(e),setData:d=>data.push(d),load:async key=>loads.push(key),setSelected:()=>{},setManager:()=>{},messages:{}};
+  const actions=new Function(...Object.keys(deps),selection+refresh+'\nreturn {selectCustomer,selectManager,requestRefresh};')(...Object.values(deps));
+  const pending=actions.requestRefresh();
+  if(['customer','away-back','failed-other'].includes(change))actions.selectCustomer('446');
+  if(change==='away-back')actions.selectCustomer('13');
+  if(change==='manager')actions.selectManager('other');
+  if(change==='unmount')selectionId.current++;
+  finish();await pending;
+  assert.deepEqual(posted,[{custKey:'13'}]);
+  assert.deepEqual(loads,change==='none'?['13']:[]);
+  assert.equal(data.filter(v=>typeof v==='function').length,change==='none'?1:0);
+  assert.ok(errors.every(e=>e===''));
+ }
+});
