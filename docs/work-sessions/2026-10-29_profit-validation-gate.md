@@ -22,18 +22,25 @@ Q. SQL 조회나 계산 누락으로 정상처럼 표시되는 수익률을 막�
 
 A. 독립 계산·SQL 대사·입고 운임행 대사를 본표 수익률 상태와 연결하는 작업을 진행한다. 39차 저장본 자체에도 중국 중량·미국 운임 누락 오류가 있었으므로 기존 34.81%를 검증된 정상 수익률로 해석할 수 없다. 구체 수량 및 비용 근거는 [38·39차 조사](2026-10-29_profit-38-39-rootcause.md)에 기록한다.
 
+## 확인한 검증 결과
+
+- 신규 원천 대사 21개 fixture, 표시 게이트/지연 응답 및 API GET·400·405·500 회귀 통과. `test:profit-validation`을 ERP 계약 CI에 연결했다.
+- 변경 API 쓰기 scope guard 1개, manifest 170개, dnSpy 근거 검사 통과. 전체 `test:erp-contract` 통과, webpack 빌드 통과. 최신 master 병합 후 `verify:erp-change` 재검증 진행.
+- 실제 SQL handler 첫 조회: 38차 31.149초/39차31.583초 HTTP200 보류. SELECT만 실행했고 차단/실행 쓰기 모두0. 후속 조회는 각각50초 제한으로 HTTP503 보류. 느린 원천 조회가 정상 판정을 만들지 않지만 성능 한계는 남는다.
+- 별도 headless Chrome의 실제 React component/hook: 1920×1080 및390px 폭, 키보드 details, 기본 조회 자동검증0회, 실패표시, 늦은38차 응답의39차 오적용 차단, 미저장 변경 차단, JS오류0. 로그인된 운영 전체 화면 검증과는 다르다.
+
 ## 검증 경계
 
 - 실제 dnSpy Console FormStockView.GetData 재확인: StockMaster/ProductStock, 이전차수, ViewWarehouse OutQuantity를 사용한다. 웹 조회를 맞추기 위해 원장을 보정하지 않는다.
 - 컴퓨터 사용 도구(cua 및 node_repl)는 `failed to write kernel assets` 초기화 오류. 재연결 요청했으며 실브라우저 확인은 아직 미검증.
-- 로컬 진단 산출물 `.verify/`, `.verify-erp-contract.log`는 커밋하지 않는다.
+- 로컬 진단 산출물 `.verify/`, `.verify-*.log`는 커밋하지 않는다.
 
 ## 메뉴 기준
 
 | 기준 | 판정 |
 |---|---|
 | 기존 shell/메뉴 | 적용, 새 shell·메뉴 없음 |
-| 페이지 스크롤/키보드 | 적용 대상, native button/details 사용. 실브라우저 대기 |
+| 페이지 스크롤/키보드 | 적용, native button/details 사용. 격리 Chrome 검증, 운영 전체 화면은 대기 |
 | ERP 반영 전 확인 | 해당 없음, 신규 기능은 조회 전용 |
 | 실패 상태와 재시도 | 적용 대상, 실패 시 참고값/보류 유지 |
 | 배포 후 확인 | 미완료 |
