@@ -17,6 +17,8 @@
     "scripts/ecount-scraper/daemon.mjs",
     "scripts/ecount-scraper/scrape-core.mjs",
     "lib/ecountPendingReceipts.cjs",
+    "lib/ecountLedgerWeekComparison.cjs",
+    "lib/ecountLedgerWeekStore.js",
     "scripts/ecount-scraper/pending-receipts.mjs"
   ],
   "businessIdentity": [
@@ -50,7 +52,8 @@
   "requiredTestFiles": [
     "__tests__/ecountCustomerLedgerPolicy.test.cjs",
     "__tests__/ecountCustomerLedger.test.cjs",
-    "__tests__/ecountPendingReceipts.test.cjs"
+    "__tests__/ecountPendingReceipts.test.cjs",
+    "__tests__/ecountLedgerWeekComparison.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -66,6 +69,7 @@
     ],
     "tables": [
       "Customer (read)",
+      "PeriodDay (read)",
       "UserInfo (read)",
       "WebEcountSnapshot (write, web-only)",
       "OrderDetail (preserve)",
@@ -79,5 +83,14 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "weeklyFlow": "User-approved bank date grouping by PeriodDay.OrderYearWeek; ECOUNT sales date totals, reflected bank deposits plus eligible pending minus sales; opening excluded; partial weeks labelled; unverified/held comparison null; no invoice allocation. Cross-year 202553/202601 fixtures.",
+  "uiSelection": {
+    "defaultManager": "all",
+    "managerChange": "clear selected customer and cached detail; only show selected manager customers",
+    "customerButtons": "single selection; pressed active, second click clears; unlinked disabled",
+    "keyboard": "Tab/Shift+Tab, arrows/Home/End move focus, Enter/Space activate",
+    "sideEffects": "UI filter only; existing snapshot reads and explicit refresh unchanged; all ERP tables preserved",
+    "crossYear": "UI does not change period or OrderYear/OrderWeek; existing cross-year fixtures retained"
+  }
 }

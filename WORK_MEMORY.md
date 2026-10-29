@@ -1587,3 +1587,11 @@
 - 업로드회귀/dnSpy/manifest/write guard 통과. 전체검사/빌드는 기존공유node_modules 누락으로 독립의존성 설치후 재검증중. Linux 실제flock·CI·배포·실브라우저는 아직 미검증.
 - 검색어: 카네이션 381행 Audit135 Audit136 IMPORT_DEPLOY_BUSY IMPORT_PROGRESS_LOST flock deploy drain
 
+
+## 2026-10-29 관리대장 담당자·업체 버튼 선택
+- 담당자 전체/개별 및 업체를 aria-pressed 버튼으로 변경. 담당자 변경시 업체선택/상세 초기화, 업체 재클릭 해제, 연결불가 disabled. 검색과 기존 권한 유지.
+- 방향키/Home/End 초점 이동, Enter/Space 선택. UI만 변경하며 API/SQL/ECOUNT/공유 원장 보존. 기존 교차연도 fixture 유지.
+- 검증/배포 진행 중. 추가 요청의 부호는 입금-판매(초과+,미수-), 차수귀속 기준은 사용자 확인 대기.
+- 검색어: customer-ledger 담당자 업체 버튼 aria-pressed signed balance
+
+- 추가 결정: 입금일 기준 차수 비교, 입금−판매(초과+,미수−). PeriodDay read-only 및 dnSpy CommonLogic 근거 확인. 달력31일/유일31/202639~44. 검증 반영입금+미반영deduct−ECOUNT판매, 이월 제외/부분차수 표시. 관련33테스트 통과, 통합검증/배포 진행중.
