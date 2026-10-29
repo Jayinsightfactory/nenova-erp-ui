@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,roundHotelQuantity,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot,hotelQuantityLabel,hotelAdjustmentLabel} from '../lib/hotelOrderEdits.js';
 import {buildHotelOrderRows,hotelRegistrationPlan} from '../lib/hotelOrderWorkspace.js';
-import {commitHotelReview,hotelBatchMatrix,editHotelBatchQuantity} from '../lib/hotelOrderReview.js';
+import {deleteHotelBatch,commitHotelReview,hotelBatchMatrix,editHotelBatchQuantity} from '../lib/hotelOrderReview.js';
 const products={10:{ProdKey:10,DisplayName:'Rose',OutUnit:'단',BunchOf1Box:10}},customers=[{CustKey:1,CustName:'A'},{CustKey:2,CustName:'B'},{CustKey:3,CustName:'C'}];
 const empty=year=>({year,week:'45-01',request:[],purchase:[],allocations:{},pinned:[],receipts:[],history:[],frozen:false,raum:1,surplus:2});
 const row=(id,qty=1)=>({id,inputName:'Original',prodKey:10,unit:'단',qty,originalQty:qty,originalUnit:'단'});
@@ -74,4 +74,14 @@ test('dual quantity labels use actual factors without changing quantities or inv
  assert.equal(hotelQuantityLabel(6,'송이',{SteamOf1Box:0}),'6 송이 / 박스 기준 없음');
  assert.equal(hotelQuantityLabel(2,'박스',{}),'2 박스');
  assert.equal(hotelQuantityLabel(0,'단',{BunchOf1Box:10}),'0 단 / 0 박스');
+});
+
+test('delete batch preserves other periods, rows and evidence, clears derived quantities and rejects frozen work',()=>{
+ for(const year of ['2025','2026']){
+  const w={...empty(year),request:[{...row('a'),batchId:'one'},{...row('b',2),batchId:'two'}],batches:{request:[{id:'one',number:1},{id:'two',number:2}]},orderTotals:{x:1},allocations:{x:2}};
+  const next=deleteHotelBatch(w,'request','one','now');
+  assert.equal(next.year,year);assert.equal(next.week,w.week);assert.deepEqual(next.request,[w.request[1]]);assert.equal(next.batches.request[0].number,2);assert.deepEqual(next.orderTotals,{});assert.deepEqual(next.allocations,{});assert.equal(next.batchHistory[0].rows[0].id,'a');assert.equal(w.request.length,2);
+  assert.throws(()=>deleteHotelBatch({...w,frozen:true},'request','one'));assert.throws(()=>deleteHotelBatch(w,'request','missing'));
+ }
+ const legacy={...empty('2026'),purchase:[row('old')]};assert.equal(deleteHotelBatch(legacy,'purchase','legacy').purchase.length,0);
 });

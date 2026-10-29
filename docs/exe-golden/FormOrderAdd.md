@@ -10,7 +10,7 @@
 - decompile: `C:\Users\USER\nenova-decompiled\Nenova\FormOrderAdd.cs`
 - 확인 메서드: `btnSave_Click`, `UnitQuantity`, `MergeDataBefore`
 - `btnSave_Click`는 `OrderMaster`에 연도·차수·담당자·업체를 저장한 뒤 `OrderDetail` 수량과 `OrderHistory`를 저장한다.
-- 웹 메뉴 `source=my-customer`는 ADD(기존 수량 가산)와 REPLACE(명시 입력한 품목만 절대수량 변경)를 구분한다. `OrderMaster`/`OrderDetail`/`OrderHistory`만 직접 변경하고 출고·견적·손익 원장은 보존한다. REPLACE는 EXE EditMode=2처럼 재고계산을 실행하지 않는다. ADD의 기존 재고계산 경로는 유지한다.
+- 웹 메뉴 `source=my-customer`는 ADD(기존 수량 가산)와 REPLACE(명시 입력한 품목만 절대수량 변경)를 구분한다. `OrderMaster`/`OrderDetail`/`OrderHistory`만 직접 변경하고 출고·견적·손익 원장은 보존한다. REPLACE는 EXE EditMode=2처럼 재고계산을 실행하지 않는다. 현재 my-customer ADD도 주문전용 정책에 따라 재고계산을 실행하지 않는다.
 - 업로드 주문등록 `source=order-import-final`은 사용자가 확인한 파일을 해당 `OrderYear+OrderWeek+CustKey`의 전체 최종본으로 취급한다. 파일 안의 같은 `ProdKey` 행은 합산한 절대수량으로 저장하고, 파일에 없는 기존 활성 주문은 0/삭제한다. 단, 누락 품목에 `ShipmentDetail`이 있으면 FormOrderAdd의 0수량 방어와 동일하게 전체 트랜잭션을 거부한다. 같은 파일 재실행은 수량을 가산하지 않으며 `Shipment*`, `Stock*`, `Estimate`, `WebProfitReport`를 변경하지 않는다.
 - 출고분배 엑셀 및 중국 물량표는 주문 최종본 업로드와 다르다. 같은 연도·차수·업체·품목의 활성 주문이 있으면 양수·감소·0 모두 기존 `OrderDetail`을 보존하고, 분배만 입력 최종값으로 맞춘다. 활성 주문이 없는 양수 입력에만 주문을 신규 생성한다. 신규 주문과 분배는 같은 웹 트랜잭션에서 검증되며 한쪽만 성공하지 않는다. 중국 물량표는 명시 입력 셀만 대상으로 하므로 미입력 업체·품목을 0 처리하지 않는다. 2026-10-23 실제 dnSpy 재확인 및 `resolveImportOrderSyncPlan`/`china-volume-distribution.json`에 따라 과거 양수 주문 덮어쓰기 설명을 정정했다.
 - 업무키는 `OrderYear + OrderWeek + CustKey + ProdKey`이며 이전 연도 같은 차수 Master를 재사용하지 않는다.
@@ -49,3 +49,6 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 
 ## 2026-10-29 호텔 박스계수 조건 분리
 실제 dnSpy CLI btnSave_Click/UnitQuantity 재확인. GRACIOSA 활성7품목은 OutUnit=EstUnit=송이, 박스계수0. 입력 송이 그대로 Out/Est 저장하는 기존 my-customer 산식 유지. 박스 자동여분 분류 불가를 주문 차단으로 취급한 UI 조건만 제거. 읽기 전용 downstream0 확인. [기준표](../plans/hotel-no-box-factor-2026-10-29.md).
+
+## 2026-10-29 차수 조작 후속 재검토
+실제 dnSpy FormOrderAdd Master→Detail Out/Est→History 재확인. 현재 orders/index.js 965의 isMyCustomerSource 분기는 ADD/REPLACE 모두 stockWarning=null로 재고계산을 생략한다. 과거 MD의 ADD 재고계산 유지 설명을 현행 코드/주문전용 계약에 맞게 정정했다. native 신규 전체저장 부작용과 웹 주문전용 정책을 구분한다. 동일키 SELECT-only downstream0, 새 ERP 쓰기 없음.

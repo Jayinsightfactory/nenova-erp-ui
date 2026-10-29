@@ -42,6 +42,12 @@
   ],
   "actions": [
     {
+      "name": "SEARCH_VENDOR_DELETE_DRAFT_BATCH_CLICK_SOURCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Customer name search requires an exact selected key. Source comparison opens on click only. Product result double-click applies the selected product. Explicit confirmed batch deletion removes only selected draft side/id, preserves original evidence in batchHistory, stable remaining numbers and year/week, clears derived allocations/orderTotals, reuses server CAS, rejects frozen work. No ERP write or registration policy change."
+    },
+    {
       "name": "SPECIAL_MATCH_FINAL_QUANTITY_AND_OMISSION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -57,7 +63,7 @@
       "name": "SOURCE_ROW_COMPARISON_AND_BATCH_QUANTITY_GRID",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Compact image-aligned matching rows without repeated source column. Saved batches displayed as1..4 and later columns with canonical-unit totals. Cell edits use hotelConvert and preserve exact year/week and original evidence; allocations cleared. Hover/focus/click source comparison; frozen/storage failure block edits. No SQL or ERP changes."
+      "sideEffect": "Compact image-aligned matching rows without repeated source column. Saved batches displayed as1..4 and later columns with canonical-unit totals. Cell edits use hotelConvert and preserve exact year/week and original evidence; allocations cleared. Click-only source comparison; hover/focus do not open the comparison dialog; frozen/storage failure block edits. No SQL or ERP changes."
     },
     {
       "name": "REVIEW_IMAGE_AND_SAVE_NUMBERED_QUANTITY",

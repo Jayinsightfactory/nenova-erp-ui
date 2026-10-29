@@ -113,5 +113,5 @@ test('special names, final overrides, omissions and registration snapshot surviv
  const opts=await fixture(t),id=randomUUID(),w={...work(),quantityHistory:[{method:'ceil',before:1.5,after:2}],specialMappings:{'a|단':'Special'},orderTotals:{'p:3':{qty:0,unit:'단'}},omitted:{'p:4':true},registrationSnapshot:{time:'now',rows:[{key:'p:4',excluded:true}],groups:[]}};
  await store.save('a',{id,work:w,expectedRevision:0},opts);assert.deepEqual((await store.read('a','2026','44-01',id,opts)).work,w);
  const frozen={...w,frozen:true};await store.save('a',{id,work:frozen,expectedRevision:1},opts);
- for(const key of ['specialMappings','orderTotals','omitted','registrationSnapshot','quantityHistory'])await assert.rejects(store.save('a',{id,work:{...frozen,[key]:{}},expectedRevision:2},opts),{statusCode:409});
+ for(const key of ['specialMappings','orderTotals','omitted','registrationSnapshot','quantityHistory', 'batchHistory'])await assert.rejects(store.save('a',{id,work:{...frozen,[key]:{}},expectedRevision:2},opts),{statusCode:409});
 });
