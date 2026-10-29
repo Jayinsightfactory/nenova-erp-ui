@@ -43,3 +43,6 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 - 주문등록 확인표의 반올림/반내림 버튼 옆에 결과 박스 수량을 붙인다. 박스당 단·송이 계수가 틀리면 그 칸에서 고친다. 고친 값은 `WebHotelMiuProductMap` overlay 토큰 `prodbox:{ProdKey}`에 저장되어 다음 확인표에 다시 나온다. `Product` 마스터와 출고분배는 바꾸지 않는다.
 - 주문등록 후 **주문반영 내역**에 1차/2차/3차 합산 원문과 반올림 전·후를 상시 표시한다. 송이·단 수량은 `2065송이 (68박스 + 25송이)`처럼 괄호에 박스+나머지를 붙인다. 차수 버튼 팝업에도 같은 표가 있다.
 - 주문반영 내역·확인표는 `Product.FlowerName`(없으면 `CountryFlower`, 없으면 품목명 접두)으로 품종 헤더를 묶고, **전체 / 수국 / 장미** 같은 버튼으로 켜고 끈다. 선택은 화면 필터만이며 `OrderDetail`/`Shipment*`는 바꾸지 않는다. EXE `FormOrderAdd.GetDataCountry`의 국가+품종 분류와 같은 마스터 필드를 읽기만 한다.
+
+## 2026-10-29 호텔 특수매칭·최종수량
+실제 dnSpy CLI FormOrderAdd btnSave_Click/UnitQuantity 재확인(Master→Detail Out/Est→History). 기존 my-customer ADD/expectedCurrentQty writer 재사용. 특수매칭/누락은 payload 제외, 최종합산 조절만 기존단위로 전달. SELECT-only 2026/45-01 Cust680 및2025동일키 ViewOrder0, ViewShipment/ShipmentDate/ShipmentFarm/Estimate0, DetailFix=1+ViewOrder+PeriodDay 견적노출0, 확정 Amount/Vat0, WebProfitReport2026/45 0. 신규 ERP SQL/스키마/운영 시험주문 없음. [기준표](../plans/hotel-special-orders-2026-10-29.md).
