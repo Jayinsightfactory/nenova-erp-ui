@@ -53,3 +53,6 @@ ClassCustomer dnSpy CLI 재확인(exit0), Customer/ShipmentMaster/ShipmentDetail
 resolveLinks에서 전체 활성 고객 충돌 검사 후 소유권 필터. 별칭은 같은 단일 담당자와 canonical 활성 조건.
 canonical646 수집/요청/잔액1개, 별칭 원장복사 금지. Customer 및 공유 ERP원장 변경없음.
 기준/부작용: docs/plans/ecount-verified-links-2026-10-29.md.
+
+## 2026-10-29 실제 채권 조회기준 정정
+원본 E040214 요약 및 직접연 상세와 E040723 관계기준 전표 결과를 실제 대조: 미카엘4,997,800원 동일. 개별기준115,902,350과 다름. 기본조회 관계기준으로 정정하고 구 basis없는snapshot은 재수집 전 미표시. 수치수식 임의변경없음. dnSpy ClassCustomer exit0/SQL SELECT-only 재확인, 모든ERP원장 preserve. 신라호텔 실제5자리코드, 태림A→태림원예 단일원장 근거는 plans/ecount-relation-basis-2026-10-29.md.

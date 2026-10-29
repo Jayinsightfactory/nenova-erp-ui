@@ -47,7 +47,7 @@ export async function collectCustomerLedger(page,base,customer,period){
   await search.waitFor({state:'visible',timeout:30000});
   stage='FILTERS';
   await page.getByRole('radio',{name:' 전표별',exact:true}).check();
-  await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).check();
+  await page.getByRole('radio',{name:' 거래처관계기준',exact:true}).check();
   const remove=page.getByRole('button',{name:'',exact:true});
   for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
   if(await remove.count())throw new Error('SOURCE_CUSTOMER_NOT_CLEARED');
@@ -55,15 +55,18 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='CUSTOMER_LOOKUP';
   if(customer.lookupName){
     await field.fill(customer.lookupQuery||customer.lookupName);await field.press('Enter');
-    await page.getByRole('button',{name:'적용(F8)',exact:true}).waitFor({state:'visible',timeout:10000});
-    const candidates=await page.evaluate(()=>Array.from(document.querySelectorAll('tr'))
-      .filter(r=>r.getClientRects().length&&r.cells.length===5&&r.cells[4].innerText.trim()==='내역')
-      .map(r=>({code:r.cells[1].innerText.trim(),name:r.cells[2].innerText.trim()})));
-    sourceCode=selectVerifiedCode(candidates,customer);
-    await page.getByRole('button',{name:'닫기',exact:true}).click();
-    for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
-  }
-  await field.fill(sourceCode);await field.press('Enter');
+    const popup=page.getByRole('button',{name:'적용(F8)',exact:true});
+    await Promise.race([remove.waitFor({state:'visible',timeout:10000}),popup.waitFor({state:'visible',timeout:10000})]);
+    if(await popup.isVisible()){
+      const candidates=await page.evaluate(()=>Array.from(document.querySelectorAll('tr'))
+        .filter(r=>r.getClientRects().length&&r.cells.length===5&&r.cells[4].innerText.trim()==='내역')
+        .map(r=>({code:r.cells[1].innerText.trim(),name:r.cells[2].innerText.trim()})));
+      sourceCode=selectVerifiedCode(candidates,customer);
+      await page.getByRole('button',{name:'닫기',exact:true}).click();
+      for(let i=0;i<20&&await remove.count();i++)await remove.first().click();
+      await field.fill(sourceCode);await field.press('Enter');
+    }
+  }else{await field.fill(sourceCode);await field.press('Enter');}
   // Exact unique code auto-selects; a popup/ambiguity is never resolved by a name guess.
   try{
     const found=await Promise.race([
@@ -77,14 +80,14 @@ export async function collectCustomerLedger(page,base,customer,period){
   stage='PERIOD';
   // Shortcut buttons can be hidden by responsive ECOUNT layouts. Set actual date widgets.
   await setReportPeriod(page,period);
-  if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
+  if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 거래처관계기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
   stage='SEARCH_SUBMIT';
   // Click this page's search button; global F8 can be ignored while the legacy tab is active.
   await search.click();
   stage='REPORT';
   await page.waitForLoadState('networkidle',{timeout:15000});
   // A correct complete report, not a search panel's visibility, establishes completion.
-  await waitForReport(page,period,sourceCode);
+  await waitForReport(page,period,sourceCode.startsWith('sha256:')?null:sourceCode);
   const source=await page.evaluate(()=>{
     const th=Array.from(document.querySelectorAll('th')).find(e=>e.innerText.trim()==='일자'&&e.getClientRects().length);
     const table=th.closest('table');
@@ -137,7 +140,7 @@ export function parseLedgerReport(source,customer,period,collectedAt=new Date())
   }
   const payload={program:policy.PROGRAM,mode:policy.MODE,individual:true,custKey:customer.custKey,
     periodFrom:period.from,periodTo:period.to,rows,opening,totals,empty,screenRowCount:rows.length,
-    balanceOnly,observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:collectedAt.toISOString()};
+    basis:'relation-v1',balanceOnly,observedCode:customer.sourceCode,observedBusinessIdentity:source.identity,collectedAt:collectedAt.toISOString()};
   validation.validateLedger(payload,collectedAt);
   return payload;
 }
