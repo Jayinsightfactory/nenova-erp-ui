@@ -63,7 +63,7 @@
       "name": "SOURCE_ROW_COMPARISON_AND_BATCH_QUANTITY_GRID",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Compact image-aligned matching rows without repeated source column. Saved batches displayed as1..4 and later columns with canonical-unit totals. Cell edits use hotelConvert and preserve exact year/week and original evidence; allocations cleared. Click-only source comparison; hover/focus do not open the comparison dialog; frozen/storage failure block edits. No SQL or ERP changes."
+      "sideEffect": "Compact image-aligned matching rows without repeated source column. Saved batches displayed as1..4 and later columns with canonical-unit totals. Cell edits use hotelConvert and preserve exact year/week and original evidence; allocations cleared. Explicit batch edit scrolls/focuses its editor and enables product rematching in that same side/batch source comparison; other source comparisons remain read-only. Click-only source comparison; hover/focus do not open the comparison dialog; frozen/storage failure block edits. No SQL or ERP changes."
     },
     {
       "name": "REVIEW_IMAGE_AND_SAVE_NUMBERED_QUANTITY",
