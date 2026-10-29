@@ -66,9 +66,9 @@ export async function collectBankSnapshot(page,base,period,status,secret){
       allRows.push(...sanitizeBankRows(source,status,secret));
       if(n===pages)break;
       if(n===200)throw new Error('BANK_TOO_MANY_PAGES');
-      const next=page.locator('.wrapper-pagination:visible').getByRole('link',{name:String(n+1),exact:true});
+      const next=page.locator('.wrapper-pagination:visible').first().getByRole('link',{name:String(n+1),exact:true});
       if(await next.count())await next.click();
-      else await page.locator('.wrapper-pagination:visible .next-page a').click();
+      else await page.locator('.wrapper-pagination:visible').first().locator('.next-page a').click();
       await page.waitForFunction(expected=>Number([...document.querySelectorAll('.wrapper-pagination')].find(e=>e.getClientRects().length)?.querySelector('li.active')?.innerText)===expected,n+1,{timeout:30000});
       await waitReport(page);
     }
