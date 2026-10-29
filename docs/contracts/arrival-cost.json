@@ -24,7 +24,8 @@
     "__tests__/arrivalYearEvidence.test.js",
     "__tests__/arrivalVietnamWorkbook.test.js",
     "__tests__/arrivalProductCountryTie.test.js",
-    "scripts/import-reviewed-vietnam-arrival-20261005.mjs"
+    "scripts/import-reviewed-vietnam-arrival-20261005.mjs",
+    "scripts/quarantine-arrival-nl52-year-20261029.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -109,11 +110,17 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "notes": "NL 강제2026 제거; 파일명/시트/날짜 연도 충돌 및 혼합연도는 저장 전 차단. 자동반영 미확인 연도 보류.34-2A/B CLOUD는34-2로 파싱. VT Color/송의 헤더 및 베트남 자동반영 국가 지원, kg견적 제외. 품목 국가 충돌/최고점 동률 미매칭. 반복 복사 접미만 파일군 정규화. 운영 China Import33 오류48행은 배포후 검토SHA와 수동이력0 확인 및 fullfieldaudit로 현재본격리; 연도 재배정/삭제 금지. 호텔/ERP/가격/수량/매칭 보존."
+    },
+    {
+      "name": "ARRIVAL_ROLLING_WORKBOOK_YEAR_GUARD",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Without explicit source-year evidence, a sheet later than the filename week cannot inherit selected year. Common parser marks conflict; validateArrivalImportYear rejects before writes. After deployment, only reviewed Import23/2026/NL 47-1,48-1,49-1,50-1,50-2,51-1,51-2,52-2: exactly 382 current rows may be quarantined with exact digest, no manual edits, before/after audit and IsCurrent-only readback. Never relabel as 2025 without evidence. Other scopes and all ERP ledgers preserved."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
+    "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다. 37-2 NL workbook / undated 52-2 is rejected for both 2025 and 2026; explicit source years and current/prior sheets retain normal validation."
   },
   "requiredTestFiles": [
     "__tests__/arrivalDecimalBinding.test.js",
