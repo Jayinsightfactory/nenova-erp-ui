@@ -1534,3 +1534,10 @@
 - 검색어: HotelQuantityMatrix HotelMatchReview 1차 총수량 원본 줄정렬
 ## 2026-10-28 다음차수 차단 유지
 비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
+
+## 2026-10-29 도착원가 독립 작업대
+- 도착원가 메뉴 기본 진입을 기존 입고 조회로 분리. 새 인보이스 원가도 같은 메뉴 내부 처리, 입고 업로드와 초안 저장소를 분리하여 재업로드/재매칭 왕복 제거.
+- 실제 Nenova Desktop에서 기존 44-01 호주 입고 #7863 조회 확인. 관세율 기본값 누락 발견 후 승인된 호주 품목별 기본값을 읽기 전용 계산에 연결.
+- 격리 웹화면에서 실제 입고 SELECT 복사자료 11행으로 조회→AUD/항공/GW·CW805→시험환율950→미리보기→엑셀 다운로드 완료. Green/Red 매칭 유지, Red 저장총액5100 유지. 다운로드 3시트 및 계산 수식 확인; 합계23967723.5원(시험값, 승인원가 아님).
+- production build/packing-team/native-cost 테스트 통과. 운영 DB 쓰기 없음. PR CI/배포 및 배포 후 설치 웹앱 다운로드는 이 기록 시점 미검증, 완료 후 추가 기록.
+- 검색어: IndependentCostWorkspace cost draft native-cost AU 44-01 7863 tariffDefaults 재업로드 재매칭 분리

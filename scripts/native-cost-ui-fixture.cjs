@@ -6,7 +6,7 @@ const http = require('node:http'), crypto = require('node:crypto'), { spawn } = 
   const secret = crypto.randomBytes(32).toString('hex'), user = { userId:'fixture-user', userName:'테스트 담당자', authority:1, deptName:'테스트' };
   const token = jwt.sign(user, secret, { expiresIn:'2h' });
   const counts = { read:0, preview:0, download:0, blockedWrites:0 };
-  const raw = [1,2].map(i => ({ WarehouseKey:90001, OrderYear:'2026', OrderWeek:'43-01', FarmName:'TEST_ONLY FARM', InvoiceNo:'격리 계산 시험',
+  const raw = process.env.NATIVE_COST_FIXTURE ? JSON.parse(require('node:fs').readFileSync(process.env.NATIVE_COST_FIXTURE, 'utf8')) : [1,2].map(i => ({ WarehouseKey:90001, OrderYear:'2026', OrderWeek:'43-01', FarmName:'TEST_ONLY FARM', InvoiceNo:'격리 계산 시험',
     InputDate:'2026-10-20', GrossWeight:20, ChargeableWeight:25, WdetailKey:91000+i, ProdKey:92000+i,
     ProdName:`테스트 수국 ${i}`, CounName:'중국', FlowerName:'수국', OutUnit:'단', BoxQuantity:1, BunchQuantity:20, SteamQuantity:200,
     OutQuantity:20, UPrice:10*i, TPrice:200*i, SteamOf1Bunch:10, SteamOf1Box:200 }));
