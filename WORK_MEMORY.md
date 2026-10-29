@@ -1696,3 +1696,10 @@
 - 검색어: ledger-selection selectionId 늦은응답 거래처전환 미카엘 관계기준
 
 2026-10-29 호텔 후속: 분류업체 이름검색/차수삭제(원본 batchHistory 보존·frozen잠금)/원본 클릭열기/검색결과 더블클릭 적용. dnSpy 재추출 및 동일키 읽기 probe0. MD 오래된 my-customer ADD 재고계산 설명 정정, 현행 코드 주문전용 재고보존 확인. 테스트/배포 진행중. 검색어: 호텔 차수삭제 업체검색 더블클릭 batchHistory
+
+## 2026-10-29 기존 채권 확인 자료 복구 진행
+- 사용자: 전체자료안보임,기존확인건유지요청. 기준변경시구자료ledger=null분기가원인. currenthash와권한유지,관계기준GREEN우선/없으면이전GREEN을이전기준참고자료로보존. 미카엘4,997,800유지,옛115,902,350으로회귀없음.
+- 담당125개:현재기준7(별칭포함),이전기준80,현재연결에맞는검증본없음38. 87개모두날짜/숫자/합계재검증pass/invalid0. 기존자료삭제없음.
+- 실제읽기31영남꽃소재25,362,700/확인시각11:01:58KST복구,13미카엘4,997,800유지. 시간외requestAllowed=false지만둘다조회가능. 시간외버튼비활성/안내,COMPLETE와없음안내동시표시차단.
+- 전체계약/dnSpy/manifest/writeguard/webpack exit0,관련28개테스트. 배포/실웹최종확인진행중(미검증). ECOUNT/공유ERP원장쓰기없음.
+- 검색어: ledger-recovery legacy-reference 기존자료유지 80곳 28검사 requestAllowed

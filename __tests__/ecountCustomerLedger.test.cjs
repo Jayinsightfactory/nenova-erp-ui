@@ -247,11 +247,11 @@ test('Mikael relation basis preserves actual 4997800 without old individual open
  const result=parseLedgerReport(source,{custKey:13,sourceCode:'fixture'},{from:'2026-09-29',to:'2026-10-29'},new Date('2026-10-29T07:00:00Z'));
  assert.equal(result.basis,'relation-v1');assert.equal(result.opening,0);assert.equal(result.totals.balance,4997800);
 });
-test('old individual snapshot cannot remain visible after basis correction',async()=>{
+test('old verified individual snapshot stays visible as labelled reference after basis correction',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger};';
  const {basis,...legacy}=sample();const row={SnapshotKey:4,VerifyDetail:JSON.stringify({...legacy,custKey:7,codeHash:verifiedLinks.fingerprint('fixture'),collectedAt:'2026-10-27T02:00:00Z'})};
  const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(verifiedLinks,require('crypto'),async()=>({recordset:[row]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
- const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger,null);assert.equal(result.basisChanged,true);
+ const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger.totals.balance,110);assert.equal(result.basisChanged,true);assert.equal(result.receipts,null);assert.equal(result.takenAt,'2026-10-27T02:00:00Z');
 });
 
 test('delayed refresh success/failure never replaces a different customer or manager selection',async()=>{
@@ -274,4 +274,27 @@ test('delayed refresh success/failure never replaces a different customer or man
   assert.equal(data.filter(v=>typeof v==='function').length,change==='none'?1:0);
   assert.ok(errors.every(e=>e===''));
  }
+});
+
+test('completed requests do not claim fresh success for missing or retained legacy data',()=>{
+ const {displayRefreshStatus}=policy;
+ const completed={refreshRequest:{status:'COMPLETE'}};
+ assert.equal(displayRefreshStatus(completed),null);
+ assert.equal(displayRefreshStatus({...completed,ledger:{},basisChanged:true}),null);
+ assert.equal(displayRefreshStatus({...completed,ledger:{},basisChanged:false}),'COMPLETE');
+ for(const status of ['PENDING','RUNNING','FAILED'])assert.equal(displayRefreshStatus({refreshRequest:{status},ledger:{},basisChanged:true}),status);
+});
+test('business-hour restriction changes refresh availability but never data retention',()=>{
+ for(const [time,allowed] of [['2026-10-29T08:59:59Z',true],['2026-10-29T09:00:00Z',false],['2026-10-30T23:00:00Z',false],['2026-11-01T23:00:00Z',true]]){
+  assert.equal(schedule.freshness('2026-10-29T08:00:00Z',Date.parse(time)).requestAllowed,allowed);
+ }
+});
+
+test('retained cross-year reference preserves its original period and amounts',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger};';
+ const {basis,...legacy}=sample();const payload={...legacy,periodFrom:'2025-12-01',periodTo:'2026-01-01',rows:[{date:'2025-12-01',sales:30,receipt:0,balance:130},{date:'2026-01-01',sales:0,receipt:20,balance:110}],codeHash:verifiedLinks.fingerprint('fixture'),collectedAt:'2026-01-01T02:00:00Z'};
+ const row={SnapshotKey:4,VerifyDetail:JSON.stringify(payload)};
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(verifiedLinks,require('crypto'),async()=>({recordset:[row]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const result=await store.readLedger({custKey:7,ecountCode:'fixture'});
+ assert.equal(result.basisChanged,true);assert.deepEqual(result.period,{from:'2025-12-01',to:'2026-01-01'});assert.equal(result.ledger.totals.balance,110);assert.equal(result.takenAt,payload.collectedAt);
 });

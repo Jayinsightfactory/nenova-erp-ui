@@ -105,8 +105,14 @@
   "relationBasis": {
     "basis": "relation-v1",
     "source": "E040723 거래처관계기준 + 전표별, single selected lookup target",
-    "legacy": "개별기준/미표시 이전snapshot 노출 차단, 최신화 안내. 관계기준 수집본만 신규 적재",
+    "legacy": "사용자 정정: 마지막 확인본은 보존·조회 유지. 현 연결 지문과 맞는 관계기준 GREEN을 우선하고, 없으면 이전 개별기준 GREEN을 이전 기준 자료로 표시. 이전기준에는 현재 공식잔액/새 입금계산/차수차액 미적용. 신규 적재는 관계기준만 허용.",
     "proof": "미카엘 관계기준과 원본요약 상세 모두4,997,800; 개별기준115,902,350. 상수 보정/이월 임의제외 금지",
     "matching": "신라호텔 5자리 실제 코드와 고유업체명/매출금액·거래일 대조. 태림A 3개 매출 태림원예 동일원장, canonical565 단일수집/조회."
+  },
+  "retainedSnapshot": {
+    "read": "business-hours independent; preserve actual period/takenAt; prefer relation-v1 before SnapshotKey descending; match current source hash/customer",
+    "messages": "COMPLETE is visible as fresh success only with a current-basis ledger; legacy/missing must not show contradictory success/empty notices",
+    "refresh": "same weekday08-18 policy, requestAllowed returned from server, refresh disabled outside window while read stays available",
+    "fixtures": "verified legacy retained, current basis preferred, identity change rejected, off-hours/weekend flags, incomplete successful-request display suppressed"
   }
 }

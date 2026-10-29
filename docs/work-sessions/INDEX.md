@@ -660,3 +660,5 @@
 
 
 - [2026-10-29 호텔 차수 조작](2026-10-29_hotel-batch-controls.md)
+
+- [2026-10-29 기존 확인 채권 자료 유지](2026-10-29_ecount-ledger-retention.md)
