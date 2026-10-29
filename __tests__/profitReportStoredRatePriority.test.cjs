@@ -10,7 +10,7 @@ const fs = require('node:fs');
   const end = code.indexOf('  // 카테고리 오버라이드 적용', start);
   assert(start > 0 && end > start, 'execute the production FX selection block');
   const select = new Function('snap','reportExchangeRate','rows','currencyRates','masters','primaryKey','workbookFxRows',
-    'detectInvoiceCurrency','dominantBaseCountry','resolveAcquisitionCarryFx','resolveFreightExchangeRate','strictReceiptLines = false',
+    'detectInvoiceCurrency','dominantBaseCountry','resolveAcquisitionCarryFx','resolveFreightExchangeRate','strictReceiptLines = false','dutyBasisOnly = false',
     code.slice(start,end)+';return {fx,metadata:reportRateMetadata};');
   let genericCalls=0;
   const run=(snapshot,report,category='중국',currency='CNY',options={})=>select(snapshot==null?null:{ExchangeRate:snapshot},report,
