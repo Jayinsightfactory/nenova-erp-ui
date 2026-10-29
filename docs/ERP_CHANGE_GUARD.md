@@ -1072,3 +1072,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 
 ## 2026-10-29 분배 적용 도중 배포
 엑셀 적용은 감사 시작부터 검증 완료까지 shared OS lease를 유지하고 배포는 admission gate 후 exclusive lease를 얻은 뒤에만 build swap/reload한다. timeout이면 기존 앱을 보존한다. 진행정보 소실은 결과불명으로 표시하고 자동 재적용하지 않는다. SQL/환산/주문보존/트랜잭션 정책 변경 없음. 회귀: importApplyLease.test.cjs, shipmentImportProgressRecovery.test.cjs.
+
+## 2026-10-29 선택 누락 고정예외
+History PERMANENT_OMIT는 연도+원차수+업체+품목+수량+단위 완전일치에만 적용. 새차수·다른수량 정상자료는 제외금지. 업로드미리보기/새원장save/목록/preflight/preview/최종register 공통예외. 기존 견적과 수기원장은 보존. 계약 sales-defect-deduction, 회귀 defectPermanentOmission 및 salesDefectSourceReconciliation.

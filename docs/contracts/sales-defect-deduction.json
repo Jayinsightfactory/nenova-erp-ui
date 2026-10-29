@@ -74,7 +74,9 @@
     "lib/defectSourceProvenance.js",
     "__tests__/defectSourceProvenance.test.js",
     "scripts/reconcile-defect-manual-origin.mjs",
-    "scripts/probe-defect-next-period.mjs"
+    "scripts/probe-defect-next-period.mjs",
+    "lib/defectPermanentOmission.js",
+    "__tests__/defectPermanentOmission.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -83,6 +85,13 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "PERMANENT_OMIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "영업지원이 선택한 미등록 행의 현재버전 검증 후 History PERMANENT_OMIT만 기록한다. 연도+원차수+업체+품목+수량+정규단위가 일치하는 업로드/저장/등록을 고정 제외한다. 새 차수·다른 수량은 허용하며 수동완료와 구분한다."
+    },
     {
       "name": "MANUAL_SOURCE_PROVENANCE_CONFIRM",
       "orderDetail": "preserve",
@@ -419,7 +428,8 @@
     "__tests__/defectLedgerManagementApi.test.js",
     "__tests__/defectDragSelection.test.js",
     "__tests__/defectProductDisplay.test.js",
-    "__tests__/defectSourceProvenance.test.js"
+    "__tests__/defectSourceProvenance.test.js",
+    "__tests__/defectPermanentOmission.test.js"
   ],
   "requiredTestFiles": [
     "__tests__/defectPeriodCorrection.test.js",

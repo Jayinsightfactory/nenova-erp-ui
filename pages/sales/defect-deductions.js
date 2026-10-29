@@ -969,6 +969,7 @@ export default function SalesDefectDeductionsPage() {
     try {
       const form = new FormData();
       form.append('file', file);
+      form.append('year',String(year));form.append('week',String(week));
       const res = await fetch('/api/sales/defect-deductions-upload', {
         method: 'POST', credentials: 'include', body: form,
       });
@@ -977,7 +978,7 @@ export default function SalesDefectDeductionsPage() {
       setRows((current) => [...current, ...(data.rows || [])]);
       setSalesViewMode('edit');
       const summary = data.summary || {};
-      setMessage(`엑셀 ${data.rows?.length || 0}건을 불러왔습니다. 거래처 매칭 ${summary.customerMatched || 0}건 · 품목 매칭 ${summary.productMatched || 0}건 · 확인 필요 ${summary.needsReview || 0}건`);
+      setMessage(`엑셀 ${data.rows?.length || 0}건을 불러왔습니다. 누락 고정 제외 ${data.excludedCount || 0}건 · 거래처 매칭 ${summary.customerMatched || 0}건 · 품목 매칭 ${summary.productMatched || 0}건 · 확인 필요 ${summary.needsReview || 0}건`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); if (fileRef.current) fileRef.current.value = ''; }
   };
@@ -1147,6 +1148,14 @@ export default function SalesDefectDeductionsPage() {
       setError(e.message);
     }
     finally { if (!handedOffToReview) setSupportRegistering(false); }
+  };
+
+  const markSupportOmitted = async () => {
+    const selected=supportRows.filter(r=>supportSelected.has(Number(r.deductionKey))&&r.registrationEligible);
+    if(!selected.length){setError('등록 가능한 행을 선택하세요.');return;}
+    if(!window.confirm(`선택한 ${selected.length}건을 누락 처리합니다. 같은 연도·차수·업체·품목·수량·단위는 이후 업로드에서도 고정 제외됩니다. 새 차수나 다른 수량은 제외하지 않습니다.`))return;
+    setSupportLoading(true);setError('');
+    try{const data=await apiPost('/api/sales/defect-deductions',{action:'permanent-omit',year,week,rows:selected.map(r=>({deductionKey:r.deductionKey,expectedRowVersionNo:r.rowVersionNo}))});setMessage(`누락 처리 ${data.omitted}건 · 동일 자료 재업로드 고정 제외`);setSupportSelected(new Set());if(activeTab==='carryover')await loadCarryover();else await loadSupport();}catch(e){setError(e.message);}finally{setSupportLoading(false);}
   };
 
   const markSupportManualComplete = async () => {
@@ -1706,6 +1715,7 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'support' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
@@ -1719,6 +1729,7 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'carryover' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
+            <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>

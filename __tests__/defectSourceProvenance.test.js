@@ -14,6 +14,7 @@ assert.equal(detectDefectAutoSource({row:manual}).excluded,false);
 assert.equal(autoSourceStateFromRow(manual).excluded,false);
 const captured=[];let stored,key=2000;
 const query=async(q,p)=>{
+  if(/AS Omitted/.test(q))return {recordset:[]};
   if(/INSERT INTO WebSalesDefectDeduction\s/.test(q)){
     key++;captured.push(p.file.value);stored={DeductionKey:key,OrderYear:p.year.value,OrderWeek:p.week.value,
       CustKey:p.ck.value,CustName:p.cn.value,ProdKey:p.pk.value,ProdName:p.pn.value,Quantity:p.qty.value,SourceUnit:p.unit.value,

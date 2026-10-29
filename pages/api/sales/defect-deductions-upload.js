@@ -6,6 +6,7 @@ import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  filterPermanentlyOmittedRows,
   loadMatchContext,
   matchSalesDefectRows,
 } from '../../../lib/salesDefectDeductions.js';
@@ -41,13 +42,15 @@ async function handler(req, res) {
   try {
     const parsed = await parseSalesDefectWorkbook(fs.readFileSync(file.filepath));
     const context = await loadMatchContext();
-    const rows = matchSalesDefectRows(parsed.rows, context).map((row) => ({
+    const matchedRows = matchSalesDefectRows(parsed.rows, context).map((row) => ({
       ...row,
       sourceFileName: file.originalFilename || '',
     }));
+    const {rows,excludedCount}=await filterPermanentlyOmittedRows({year:first(fields.year),week:first(fields.week),rows:matchedRows});
     return res.status(200).json({
       success: true,
       sourceFileName: file.originalFilename || '',
+      excludedCount,
       sheetName: parsed.sheetName,
       title: parsed.title,
       rows,
