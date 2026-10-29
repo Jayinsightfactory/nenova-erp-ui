@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import policy from '../../lib/ecountCustomerLedgerPolicy.cjs';
 import schedule from '../../lib/ecountLedgerSchedule.cjs';
 import validation from '../../lib/ecountLedgerValidation.cjs';
-import { collectBankSnapshot, collectLedgerWithBank } from './pending-receipts.mjs';
+import { collectBankSnapshot, collectLedgerWithBank, setReportPeriod } from './pending-receipts.mjs';
 const HASH='#menuType=MENUTREE_000004&menuSeq=MENUTREE_001903&groupSeq=MENUTREE_000035&prgId=E040723&depth=4';
 const STATE=path.join(path.dirname(fileURLToPath(import.meta.url)),'.ledger-schedule.json');
 const number=v=>{
@@ -64,25 +64,8 @@ export async function collectCustomerLedger(page,base,customer,period){
   catch{throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');}
   if(await remove.count()!==1||await page.getByRole('button',{name:'적용(F8)',exact:true}).count())throw new Error('SOURCE_CUSTOMER_AMBIGUOUS');
   stage='PERIOD';
-  // Date shortcuts immediately search in ECOUNT. Reopen the filter before setting exact days.
-  await page.getByRole('button',{name:'전월+금월',exact:true}).click();
-  // The previous report can remain visible while the shortcut request is in flight.
-  await page.waitForLoadState('networkidle',{timeout:15000});
-  await waitForReport(page,{from:`${period.from.slice(0,7)}-01`,to:period.to},customer.sourceCode);
-  const reopen=page.getByRole('button',{name:'Search(F3)',exact:true});
-  if(!await search.isVisible()){await reopen.waitFor({state:'visible',timeout:30000});await reopen.click();}
-  for(const [date,offset] of [[period.from,0],[period.to,3]]){
-    const [year,month,day]=date.split('-');
-    for(const [index,value] of [[offset,year.slice(-2)],[offset+1,month]]){
-      const label=await page.locator(`button[data-cid="ddlSYear_DATE"][data-index="${index}"]:visible`).innerText();
-      if(label.trim()!==value)throw new Error('SOURCE_PERIOD_MISMATCH');
-    }
-    const dayField=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
-    await dayField.fill(day);
-    // Commit and read back ECOUNT's edited day before requesting the report.
-    await dayField.press('Tab');
-    if(Number(await dayField.inputValue())!==Number(day))throw new Error('SOURCE_DAY_INPUT_NOT_COMMITTED');
-  }
+  // Shortcut buttons can be hidden by responsive ECOUNT layouts. Set actual date widgets.
+  await setReportPeriod(page,period);
   if(!await page.getByRole('radio',{name:' 전표별',exact:true}).isChecked()||!await page.getByRole('radio',{name:' 개별거래처기준',exact:true}).isChecked())throw new Error('SOURCE_MODE_MISMATCH');
   stage='SEARCH_SUBMIT';
   // Click this page's search button; global F8 can be ignored while the legacy tab is active.
@@ -180,7 +163,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
           page=await ctx.newPage();
           bankPage=await ctx.newPage();
           let history=null;
-          try{history=await collectBankSnapshot(bankPage,getBase(),work.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch{console.log('[ledger723] bank history unavailable');}
+          try{history=await collectBankSnapshot(bankPage,getBase(),work.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
           ({ok,failed}=await collectLedgerBatch({page,getBase,work,collect:(page,base,customer,period)=>collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger:collectCustomerLedger}),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
         }catch{failed=Math.max(failed,1);}
         finally{
@@ -198,7 +181,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
         page=await ctx.newPage();
         bankPage=await ctx.newPage();
         let history=null;
-        try{history=await collectBankSnapshot(bankPage,getBase(),request.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch{console.log('[ledger723] bank history unavailable');}
+        try{history=await collectBankSnapshot(bankPage,getBase(),request.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
         const payload=await collectLedgerWithBank({page,bankPage,base:getBase(),customer:{custKey:request.custKey,sourceCode:request.sourceCode},period:request.period,history,collectLedger:collectCustomerLedger});
         await api(nenova,payload);
         success=true;
