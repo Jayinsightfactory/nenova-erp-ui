@@ -16,3 +16,7 @@
 @media(max-width:760px){.workflow{grid-template-columns:1fr}.workflow li{align-items:flex-start}.pending{grid-template-columns:1fr}.pending span,.pending button{grid-column:1;grid-row:auto}.pending button{width:100%}}
 @media(max-width:480px){.formGrid{grid-template-columns:1fr}.wideField{grid-column:auto}.header h3{font-size:21px}.result header{flex-direction:column}}
 .actions .primary{background:#2457c5;border-color:#2457c5}.actions .primary:hover:not(:disabled){background:#194caa;color:#fff}.actions .primary:disabled{opacity:1;background:#e8edf6;border-color:#c5d1e3;color:#526580}
+.root input[aria-required="true"][aria-invalid="true"]{background:#fff4cc;border:2px solid #d58b00;box-shadow:0 0 0 3px #ffe7a0}
+.root input[aria-required="true"][aria-invalid="false"]{background:#fff;border-color:#b9c9df;box-shadow:none}
+.root [data-cost-next="true"]{outline:3px solid #da9200!important;outline-offset:4px;background-color:#fff3c4!important;color:#172e54!important;scroll-margin:100px}
+.root button[data-cost-download][data-cost-next="true"]{outline-color:#188257!important;background:#e5f7ec!important;color:#105335!important}

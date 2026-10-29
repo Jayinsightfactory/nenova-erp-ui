@@ -172,3 +172,4 @@ test('UI has independent upload and existing data paths, no receipt/write reques
  assert.match(readFileSync('components/import-tools/IndependentCostWorkspace.js','utf8'),/workspaceMode="cost"/);
  assert.match(readFileSync('components/import-tools/InvoiceReceiptWorkbench.js','utf8'),/InvoiceDraftCost document={documentValue}/);
 });
+import './costStepGuide.test.cjs';
