@@ -16,6 +16,7 @@ import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitInventoryBasis from '../../components/ProfitInventoryBasis';
+import ProfitReportValidationGate, {useProfitValidationGate, ProfitValidationRateLabel} from '../../components/ProfitReportValidationGate';
 import LatestArrivalReference from '../../components/LatestArrivalReference';
 import { useLatestArrivalReferences } from '../../lib/useLatestArrivalReferences';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
@@ -915,6 +916,8 @@ export default function ProfitReportPage() {
   };
   const dirty = Object.keys(edits).length > 0 || noteDirty;
   const { rows, totals } = rowsCalc;
+  const sourceValidation = useProfitValidationGate({year:reportYear,major:weekInput.value,rows,totals,audit:data?.audit,
+    dirty:dirty || String(data?.orderYear)!==String(reportYear) || Number(data?.major)!==Number(weekInput.value)});
   const needsAttention = attentionRows(rows);
 
   // ── 검증·입력 접기 영역 요약 — 배너 4종(감사 오류/실사 확인/과세환율 입력/기타미분류)의
@@ -1473,6 +1476,7 @@ export default function ProfitReportPage() {
         </div>
       )}
 
+      {viewMode === 'category' && data && <ProfitReportValidationGate validation={sourceValidation} />}
       {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
           <table style={st.table}>
@@ -1502,6 +1506,7 @@ export default function ProfitReportPage() {
                           && (cd.key === 'R' ? needsRateInput(row) : (cd.key === 'AC' || cd.key === 'AJ'))
                           ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
                           : readonlyValue(cd.key, c, { D, U })}
+                        {cd.key === 'K' && <ProfitValidationRateLabel validation={sourceValidation} category={row.category} />}
                       </td>
                     ))}
                   </tr>
@@ -1512,6 +1517,7 @@ export default function ProfitReportPage() {
                 {shownColumns.map(cd => (
                   <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (totals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
                     {readonlyValue(cd.key, totals, { D: totals.D, U: totals.U })}
+                    {cd.key === 'K' && <ProfitValidationRateLabel validation={sourceValidation} />}
                   </td>
                 ))}
               </tr>
@@ -1535,7 +1541,7 @@ export default function ProfitReportPage() {
             <span aria-hidden="true" style={st.caret}>{showValidation ? '▾' : '▸'}</span>
             상세 확인 내역
             <span style={validationCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
-              {validationCount > 0 ? `상세 확인 ${validationCount}건` : '상세 확인 (문제 없음)'}
+              {validationCount > 0 ? `상세 확인 ${validationCount}건` : '기존 입력 경고 없음 · 원천 검증 별도'}
             </span>
             <span style={st.toggleHint}>{showValidation ? '접기' : '펼치기'}</span>
           </button>

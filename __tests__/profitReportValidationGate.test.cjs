@@ -1,0 +1,38 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+ const {buildProfitValidationGate:gate,VALIDATION_COLUMNS,profitValidationDisplayKey:key,acceptsProfitValidationResponse:accepts}=await import('../lib/profitReportValidationGate.mjs');
+ const calc=Object.fromEntries(VALIDATION_COLUMNS.map(k=>[k,1]));
+ const row={category:'태국',calc};
+ const fixture=()=>({year:'2026',major:'38',display:{rows:[row],totals:calc},live:{orderYear:'2026',major:'38',rows:[row],totals:calc},formula:{status:'MATCH',inputWarnings:[]},lineage:{status:'MATCH'},stock:{status:'MATCH',negativeCount:0},sources:{status:'matched',issues:[]},integrity:{status:'STABLE_OBSERVED'},coverage:{Q:true,E:true,F:true,R:true,S:true,H:true,P:true,T:true}});
+ let input=fixture();assert.equal(gate(input).state,'verified');
+ input=fixture();input.live.orderYear='2025';assert.equal(gate(input).state,'held');
+ input=fixture();input.live.major='39';assert.equal(gate(input).state,'held');
+ for(const field of ['Q','E','F','R','S','H','P','T']){input=fixture();delete input.coverage[field];assert.equal(gate(input).state,'held',field);}
+ for(const field of ['formula','lineage','stock','sources','integrity']){input=fixture();delete input[field];assert.equal(gate(input).state,'held',field);}
+ input=fixture();input.live.rows=[{...row,rateEstimated:true}];assert.equal(gate(input).state,'estimated');
+ input=fixture();input.live.rows=[{...row,calc:{...calc,E:null}}];assert.equal(gate(input).state,'held');
+ input=fixture();input.live.rows=[{...row,calc:{...calc,E:0}}];assert.equal(gate(input).state,'held');
+ input=fixture();input.live.rows=[{...row,calc:{...calc,K:.8}}];assert.equal(gate(input).state,'held');
+ input=fixture();input.stock.negativeCount=1;assert.equal(gate(input).state,'held');
+ input=fixture();input.integrity.status='STALE';assert.equal(gate(input).state,'held');
+ input=fixture();input.formula.inputWarnings=['missing'];assert.equal(gate(input).state,'held');
+ input=fixture();const before=JSON.stringify(input);gate(input);assert.equal(JSON.stringify(input),before,'preserve all original financial values');
+ assert.notEqual(key('2025','38',[row],calc),key('2026','38',[row],calc));
+ assert.notEqual(key('2026','38',[row],calc),key('2026','38',[{...row,calc:{...calc,E:2}}],calc));
+ const api=fs.readFileSync('pages/api/sales/profit-report-validation.js','utf8');
+ assert.match(api,/req.method!=='GET'/);assert.match(api,/outputScope\(req.query.year,req.query.week\)/);
+ assert.doesNotMatch(api,/confirmSnapshot|saveSnapshot|persist|refreshHistorical|\.execute\(/);
+ const ui=fs.readFileSync('components/ProfitReportValidationGate.js','utf8');
+ assert.match(ui,/acceptsProfitValidationResponse\(/);assert.match(ui,/current.current!==runKey/);assert.match(ui,/controller.signal.aborted/);
+ assert.match(ui,/onClick=\{validation.run\}/);
+ const ok={runKey:'a',currentKey:'a',displayKey:'a',year:'2026',major:'38',responseYear:'2026',responseMajor:'38',aborted:false,dirty:false};
+ assert.equal(accepts(ok),true);
+ for(const patch of [{currentKey:'b'},{displayKey:'b'},{responseYear:'2025'},{responseMajor:'39'},{aborted:true},{dirty:true}])assert.equal(accepts({...ok,...patch}),false);
+ let resolve,currentKey='a';const pending=new Promise(r=>resolve=r).then(body=>accepts({...ok,currentKey,...body}));currentKey='b';resolve({displayKey:'a'});assert.equal(await pending,false,'late promise cannot certify new scope');
+ input=fixture();input.live.rows=[{...row,rateCarry:{sourceMajor:'37'}}];assert.equal(gate(input).state,'verified','exact carried FX is not estimated by presence alone');
+ input=fixture();input.live.audit={issues:[{severity:'error',category:'태국',message:'통관 중량 누락'}]};assert.equal(gate(input).state,'held');assert.ok(gate(input).rows[0].reasons.some(r=>r.includes('통관 중량 누락')));
+ input=fixture();input.display.audit={issues:[{severity:'warning',category:'태국',message:'저장 운임 미확정'}]};assert.equal(gate(input).state,'held');
+ input=fixture();input.live.totals={...calc,J:9};assert.equal(gate(input).state,'held');
+ console.log('profitReportValidationGate: positive/near-miss, deferred stale response, preserved figures and side-effect checks passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

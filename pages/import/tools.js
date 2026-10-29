@@ -10,6 +10,7 @@ import SharedPackingHistory from '../../components/import-tools/SharedPackingHis
 const loading=()=> <p className={styles.loading} role="status">업무도구를 불러오는 중입니다…</p>;
 const PackingListTool=dynamic(()=>import('../../components/import-tools/PackingListTool'),{ssr:false,loading});
 const InvoiceReceiptWorkbench=dynamic(()=>import('../../components/import-tools/InvoiceReceiptWorkbench'),{ssr:false,loading});
+const IndependentCostWorkspace=dynamic(()=>import('../../components/import-tools/IndependentCostWorkspace'),{ssr:false,loading});
 const PedidosTool=dynamic(()=>import('../../components/import-tools/PedidosTool'),{ssr:false,loading});
 const ChecklistTool=dynamic(()=>import('../../components/import-tools/ChecklistTool'),{ssr:false,loading});
 const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'),{ssr:false,loading});
@@ -44,7 +45,7 @@ function History({onRestore}){
 }
 export default function ImportTools({userId=''}){
  const [packingWorkMode,setPackingWorkMode]=useState('upload');
- const [invoiceCostIntent,setInvoiceCostIntent]=useState(false);
+ const [costVisited,setCostVisited]=useState(false);
  const [sharedRestore,setSharedRestore]=useState(null);
  const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');setPackingWorkMode('upload');},[]);
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
@@ -74,14 +75,13 @@ export default function ImportTools({userId=''}){
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
    <div id="import-panel-packing" hidden={tab!=='packing'}>
     <nav className={styles.packingWorkModes} aria-label="인보이스 작업 선택">
-     {[['upload','파일 · 품목 매칭','업로드하고 확인할 품목만 검토'],['receipt','입고 작업','수량 확인 · 입고 등록'],['cost','도착원가 작업','기존 입고는 건너뛰고 원가 다운로드']].map(([id,label,hint])=><button type="button" key={id} aria-pressed={packingWorkMode===id} onClick={()=>setPackingWorkMode(id)}><strong>{label}</strong><small>{hint}</small></button>)}
+     {[['upload','파일 · 품목 매칭','업로드하고 확인할 품목만 검토'],['receipt','입고 작업','수량 확인 · 입고 등록'],['cost','도착원가 작업','기존 입고자료로 바로 생성 · 다운로드']].map(([id,label,hint])=><button type="button" key={id} aria-pressed={packingWorkMode===id} onClick={()=>{if(id==='cost')setCostVisited(true);setPackingWorkMode(id);}}><strong>{label}</strong><small>{hint}</small></button>)}
     </nav>
-    {packingWorkMode==='cost'&&<p className={styles.costEntry}><button type="button" onClick={()=>{setInvoiceCostIntent(true);setPackingWorkMode('upload');}}>인보이스 업로드 → 도착원가 생성·다운로드</button><span>기존 입고가 없어도 원가 계산본을 만들 수 있습니다.</span></p>}
-    {packingWorkMode==='upload'&&invoiceCostIntent&&<p className={styles.costEntry} role="status">인보이스 원가 작업: 파일 업로드·매칭 후 도착원가로 이동합니다. 입고는 등록하지 않습니다. <button type="button" onClick={()=>setInvoiceCostIntent(false)}>일반 입고 작업으로 변경</button></p>}
-    <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} costOnly={invoiceCostIntent} onContinue={()=>setPackingWorkMode(invoiceCostIntent?'cost':'receipt')}/></div>
-    <div id="packing-receipt-stage" hidden={packingWorkMode==='upload'} tabIndex={-1} style={{scrollMarginTop:16}}>
+    {costVisited&&<div hidden={packingWorkMode!=='cost'}><IndependentCostWorkspace key={userId} userId={userId} storage={storage}/></div>}
+    <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
+    <div id="packing-receipt-stage" hidden={packingWorkMode!=='receipt'} tabIndex={-1} style={{scrollMarginTop:16}}>
      {receiptSource.packingActive && !receiptSource.excels.length && <p role="status">파일 · 품목 매칭에서 인보이스를 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>파일 · 품목 매칭으로 돌아가기</button></p>}
-     <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode={packingWorkMode==='cost'?'cost':'receipt'} onWorkspaceModeChange={setPackingWorkMode}/>
+     <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode="receipt" onWorkspaceModeChange={mode=>{if(mode==='cost')setCostVisited(true);setPackingWorkMode(mode);}}/>
     </div>
    </div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>

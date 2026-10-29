@@ -1,0 +1,12 @@
+{
+  "id":"profit-validation-gate",
+  "title":"주차별 수익률 원천 검증 표시 게이트",
+  "scope":["lib/profitReportValidationGate.mjs","lib/profitReportSourceReconciliation.js","lib/profitReportSourceReconciliation.mjs","pages/api/sales/profit-report-validation.js","components/ProfitReportValidationGate.js","pages/sales/profit-report.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"VERIFY_READ_ONLY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Explicit GET only. Preserve Estimate, ShipmentDate, ShipmentFarm, ShipmentDetail Amount/Vat/isFix, ProductStock, StockHistory, WebProfitReport and confirmed snapshots. No refresh or save. Ordinary saved view never starts live verification."}],
+  "crossYearFixture":{"required":true,"description":"Same week in another year cannot certify report. Changed scope or display values invalidate client result immediately."},
+  "criteria":{"default":"held/unverified reference","unknown":"never zero","verified":"all independent coverage including E/F/R/H/P/T, stable SQL and displayed values agree","estimated":"explicit estimated evidence, never verified","failure":"held; original numbers preserved"},
+  "requiredTestFiles":["__tests__/profitReportValidationGate.test.cjs","__tests__/profitReportValidationApi.test.cjs","__tests__/profitReportSourceReconciliation.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"plans/profit-validation-gate-2026-10-29.md","source":"Actual local FormStockView.GetData CLI and read-only raw receipt probe; no ERP write behavior changed","methods":["FormStockView.GetData"],"tables":["StockMaster","ProductStock","WarehouseMaster","WarehouseDetail","ShipmentMaster","ShipmentDetail","Estimate"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run test:nenova-dnspy-evidence","npm run verify:erp-change","npm run build"]
+}

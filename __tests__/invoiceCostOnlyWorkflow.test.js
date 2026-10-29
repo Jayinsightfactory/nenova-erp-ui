@@ -1,5 +1,6 @@
 const test = require('node:test');
 require('./invoiceCostDownloadFeedback.test.js');
+require('./independentCostWorkspace.test.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -73,7 +74,7 @@ test('UI preserves mounted drafts and separates explicit receipt from cost appro
   const source = fs.readFileSync(path.join(root, 'components/import-tools/InvoiceReceiptWorkbench.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
   assert.match(page, /hidden=\{packingWorkMode!=='upload'\}/);
-  assert.match(page, /hidden=\{packingWorkMode==='upload'\}/);
+  assert.match(page, /hidden=\{packingWorkMode!=='receipt'\}/);
   assert.match(source, /hidden=\{workspaceMode !== 'cost'\}/);
   assert.match(source, /autoSaveRequested=\{false\}/);
   assert.match(source, /autoProcess=\{workspaceMode === 'cost' && receiptReadbackPassed\}/);

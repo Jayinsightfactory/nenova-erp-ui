@@ -141,7 +141,7 @@ test('source coordinates stay normalized and cannot affect quantity or cross-yea
 
 test('split source panels preserve row identity, order, quantities and global coordinates',()=>{
  const rows=[{id:'a',qty:70,sourceBox:[.01,.2,.45,.09]},{id:'c',qty:30,sourceBox:[.55,.2,.44,.09]},{id:'b',qty:432,sourceBox:[.01,.29,.45,.09]}];
- const panels=hotelSourcePanels(rows);assert.equal(panels.length,2);
+ const panels=hotelSourcePanels(rows);assert.equal(panels.length,2);assert.ok(panels.every(p=>p.region[1]===0 && p.region[3]===1));
  assert.deepEqual(panels.map(p=>p.rows.map(r=>r.id)),[['a','b'],['c']]);
  for(const panel of panels)for(const row of panel.rows){assert.equal(rows.find(r=>r.id===row.id),row);const restored=hotelBoxInRegion(hotelBoxInRegion(row.sourceBox,panel.region),panel.region,true);restored.forEach((n,i)=>assert.ok(Math.abs(n-row.sourceBox[i])<1e-10));}
  assert.deepEqual(hotelSourcePanels([{id:'x'},...rows]),[]);

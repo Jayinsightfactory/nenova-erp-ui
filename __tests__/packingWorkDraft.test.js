@@ -38,6 +38,20 @@ function file(bytes = 'packing bytes') {
   return blob;
 }
 const hash = 'a'.repeat(64);
+
+test('receipt and cost recovery remain isolated for the same authenticated owner', async () => {
+  const { createPackingWorkDraftStore } = await packingWorkDraft();
+  const indexedDB = memoryIndexedDB();
+  const receipt = createPackingWorkDraftStore('alice', { indexedDB });
+  const cost = createPackingWorkDraftStore('alice', { indexedDB, workspace: 'cost' });
+  await receipt.save(snapshot({ country: 'CO' }));
+  await cost.save(snapshot({ country: 'AU' }));
+  assert.equal((await receipt.load()).country, 'CO');
+  assert.equal((await cost.load()).country, 'AU');
+  await cost.clear();
+  assert.equal((await receipt.load()).country, 'CO');
+  assert.equal(await cost.load(), null);
+});
 test('selected year survives restore; legacy work never invents the current year', async()=>{
  const {normalizePackingWorkSnapshot}=await packingWorkDraft();
  for(const dateYear of ['2025','2026']) assert.equal(normalizePackingWorkSnapshot(snapshot({dateYear})).dateYear,dateYear);

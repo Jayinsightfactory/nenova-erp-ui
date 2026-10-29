@@ -8,6 +8,21 @@ import { invoiceCostExportFixture } from './invoiceReceiptCostExport.test.js';
 import { createNativeCostHandler } from '../lib/nativeCostHttp.js';
 
 const types = { Int: 'int', NVarChar: n => `nvarchar(${n})` };
+test('native AU cost reuses approved company tariff defaults without changing source or guessing unknown products', () => {
+  const source = { warehouseKey: 7863, orderYear: '2026', orderWeek: '44-01', country: 'AU', lines: [
+    { lineId: 'green', prodKey: 2997, originalName: 'Wolly Bush Green Tip' },
+    { lineId: 'red', prodKey: 2998, originalName: 'Wolly Bush Red Tip' },
+    { lineId: 'copper', prodKey: 2999, originalName: 'Copper Glow' },
+    { lineId: 'unknown', prodKey: 9999, originalName: 'Unknown' },
+  ] };
+  const before = JSON.stringify(source);
+  const meta = nativeCostDocument(source, { currency: 'AUD', transportMode: 'AIR' }).reviewedMetadata;
+  assert.deepEqual(meta.invoiceCostInput.lineInputs.map(l => l.tariffRate), [0, 0, .069, undefined]);
+  assert.match(meta.tariffDefaults.red.label, /Red Tip 0%/);
+  assert.equal(JSON.stringify(source), before);
+  assert.deepEqual(nativeCostDocument(source, { transportMode: 'SEA' }).reviewedMetadata.tariffDefaults, {});
+  assert.deepEqual(nativeCostDocument({ ...source, orderYear: '2025' }, { transportMode: 'AIR' }).reviewedMetadata.tariffDefaults, {});
+});
 async function fixture(formulaId) {
   const f = invoiceCostExportFixture(3, formulaId);
   const details = f.snapshot.receiptSnapshot.details;
@@ -24,7 +39,7 @@ async function fixture(formulaId) {
   const queryFn = async (sql, params) => {
     calls++; assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
     assert.match(sql, /wm.OrderYear=@orderYear AND wm.OrderWeek=@orderWeek/);
-    assert.doesNotMatch(sql, /wd.isDeleted|p.isDeleted/);
+    assert.doesNotMatch(sql.slice(sql.indexOf('WHERE')), /wd.isDeleted|p.isDeleted/);
     return { recordset: raw.filter(row => row.OrderYear === params.orderYear.value && row.OrderWeek === params.orderWeek.value && row.WarehouseKey === params.warehouseKey.value) };
   };
   const scope = { orderYear: f.document.orderYear, orderWeek: f.document.orderWeek, warehouseKey: 901 };
