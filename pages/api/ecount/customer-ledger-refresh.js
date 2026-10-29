@@ -15,7 +15,7 @@ async function handler(req,res){
     if(!customer)return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
     if(admin&&customer.managerMatchCount!==1)return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
     if(!customer.linked)return res.status(409).json({success:false,error:'CUSTOMER_LINK_REQUIRED'});
-    if(req.method==='GET')return res.json({success:true,request:await readLedgerRefreshRequest(customer.custKey)});
+    if(req.method==='GET')return res.json({success:true,request:await readLedgerRefreshRequest(customer.canonicalKey||customer.custKey)});
     return res.json({success:true,request:await requestLedgerRefresh(req.user.userId,customer.custKey,Date.now(),admin)});
   }catch(e){
     const status={REQUEST_WINDOW_CLOSED:409,REQUEST_RATE_LIMIT:429,CUSTOMER_LINK_REQUIRED:409,CUSTOMER_FORBIDDEN:403}[e.message];

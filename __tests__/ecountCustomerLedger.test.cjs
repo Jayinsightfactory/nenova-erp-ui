@@ -31,7 +31,7 @@ test('failed refresh retains last good cross-year snapshot and a changed identit
  const good={SnapshotKey:4,VerifyStatus:'GREEN',VerifyDetail:JSON.stringify({...validateLedger({...sample(),...period,rows:[{date:'2025-12-01',sales:30,receipt:0,balance:130},{date:'2026-01-01',sales:0,receipt:20,balance:110}]},new Date('2026-01-01T02:00:00Z')),codeHash,collectedAt:'2026-01-01T02:00:00Z'})};
  let latest={SnapshotKey:5,VerifyStatus:'RED',VerifyDetail:JSON.stringify({custKey:7,...period,codeHash,collectedAt:'2026-01-01T03:00:00Z',failure:'LINK_CHECK_REQUIRED'})};
  const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger};';
- const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(crypto,async q=>({recordset:[q.includes("VerifyStatus='GREEN'")?good:latest]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(require('../lib/ecountVerifiedCustomerLinks.cjs'),crypto,async q=>({recordset:[q.includes("VerifyStatus='GREEN'")?good:latest]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
  const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger.totals.balance,110);assert.equal(result.failure.reason,'LINK_CHECK_REQUIRED');
  const changed=await store.readLedger({custKey:7,ecountCode:'changed'});assert.equal(changed.ledger,null);assert.equal(changed.failure,null);
  latest={...latest,SnapshotKey:3};assert.equal((await store.readLedger({custKey:7,ecountCode:'fixture'})).failure,null);
@@ -39,8 +39,8 @@ test('failed refresh retains last good cross-year snapshot and a changed identit
 });
 test('failure writes recheck current source identity and retain only safe attempt metadata',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {saveLedgerFailure};';
- const writes=[];const query=async(q,p)=>{if(q.includes('INSERT INTO WebEcountSnapshot')){writes.push(JSON.parse(p.payload.value));return {recordset:[{SnapshotKey:9}]};}return {recordset:[{CustKey:7,CustName:'private name',code:'1234567890',managerUserId:'alice',codeMatchCount:1}]};};
- const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(require('crypto'),query,{NVarChar:()=>'',MAX:'max'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const writes=[];const query=async(q,p)=>{if(q.includes('INSERT INTO WebEcountSnapshot')){writes.push(JSON.parse(p.payload.value));return {recordset:[{SnapshotKey:9}]};}return {recordset:[{CustKey:7,CustName:'private name',code:'1234567890',managerUserId:'alice',managerMatchCount:1,accountActive:1,codeMatchCount:1}]};};
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(require('../lib/ecountVerifiedCustomerLinks.cjs'),require('crypto'),query,{NVarChar:()=>'',MAX:'max'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
  const p=policy.recentMonth();const input={custKey:7,periodFrom:p.from,periodTo:p.to,collectedAt:new Date().toISOString(),requestedCode:'1234567890',failure:'LINK_CHECK_REQUIRED',rawError:'private detail'};
  await store.saveLedgerFailure(input);assert.equal(writes.length,1);assert.equal(writes[0].failure,'LINK_CHECK_REQUIRED');assert.ok(!JSON.stringify(writes).includes('private'));assert.ok(!JSON.stringify(writes).includes('1234567890'));
  await assert.rejects(store.saveLedgerFailure({...input,requestedCode:'different'}));await assert.rejects(store.saveLedgerFailure({...input,collectedAt:'2020-01-01'}));assert.equal(writes.length,1);
@@ -122,16 +122,18 @@ test('SS3 lists all active customers and reads other managers’ uniquely linked
  const other=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},other);
  assert.equal(other.statusCode,403);
 });
-test('all-customer lookup requires a live admin UserInfo row and does not change owner-only callers',async()=>{
+test('all-customer collision detection precedes owner filtering and inactive accounts stay blocked',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8');
  const code=source.slice(source.indexOf('export async function ledgerCustomers'),source.indexOf('export async function readLedger')).replace('export async function','async function')+'\nreturn ledgerCustomers;';
- const queries=[];const lookup=new Function('query','sql',code)(async(text,params)=>{queries.push({text,params});return {recordset:[]};},{NVarChar:'nvarchar',Bit:'bit'});
- await lookup('nenovaSS3',true);await lookup('alice',false);
- assert.match(queries[0].text,/EXISTS \(SELECT 1 FROM UserInfo adminUser WHERE ISNULL\(adminUser\.isDeleted,0\)=0 AND adminUser\.UserID=@uid\)/);
- assert.equal(queries[0].params.uid.value,'nenovaSS3');assert.equal(queries[0].params.allActive.value,true);
- assert.match(queries[1].text,/owner\.matches=1 AND \(@uid IS NULL OR owner\.UserID=@uid\)/);
- assert.equal(queries[1].params.allActive.value,false);
+ const lookup=new Function('links','query','sql',code)(require('../lib/ecountVerifiedCustomerLinks.cjs'),async(_q,p)=>({recordset:[
+  {CustKey:7,CustName:'A',code:'1234567890',managerUserId:'alice',managerMatchCount:1,codeMatchCount:1,accountActive:p.uid.value==='inactive'?0:1},
+  {CustKey:8,CustName:'B',code:'1234567890',managerUserId:'bob',managerMatchCount:1,codeMatchCount:1,accountActive:p.uid.value==='inactive'?0:1}
+ ]}),{NVarChar:'nvarchar',Bit:'bit'});
+ assert.equal((await lookup('nenovaSS3',true)).length,2);
+ const own=await lookup('alice',false);assert.equal(own.length,1);assert.equal(own[0].linked,false);
+ assert.deepEqual(await lookup('inactive',true),[]);assert.deepEqual(await lookup('unknown',false),[]);
 });
+
 test('manual refresh API rechecks the live owner, accepts only linked customers and returns no source identity',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger-refresh.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default withAuth(handler);','return handler;');
  const calls=[];
@@ -152,7 +154,7 @@ test('refresh queue writes append-only web events, deduplicates pending requests
  const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {requestLedgerRefresh};';
  let current=null,nextKey=100;const writes=[];
  const query=async(q,p)=>{
-  if(q.includes('FROM Customer c'))return {recordset:p.uid.value==='alice'?[{CustKey:7,CustName:'private customer',code:'1234567890',managerUserId:'alice',codeMatchCount:1}]:[]};
+  if(q.includes('FROM Customer c'))return {recordset:p.uid.value==='alice'?[{CustKey:7,CustName:'private customer',code:'1234567890',managerUserId:'alice',managerMatchCount:1,accountActive:1,codeMatchCount:1}]:[]};
   if(q.includes('SELECT TOP (1) SnapshotKey,VerifyStatus,VerifyDetail'))return {recordset:current?[current]:[]};
   if(q.includes('INSERT INTO WebEcountSnapshot')){
    const row={SnapshotKey:nextKey++,VerifyStatus:p.status.value,VerifyDetail:p.payload.value};current=row;writes.push({row,params:p});return {recordset:[{SnapshotKey:row.SnapshotKey}]};
@@ -160,7 +162,7 @@ test('refresh queue writes append-only web events, deduplicates pending requests
   assert.fail(`unexpected query ${q}`);
  };
  const sql={MAX:'max',Int:'int',NVarChar:()=> 'nvarchar'};
- const store=new Function('crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness','isRefreshRequestAllowed',source)(require('crypto'),query,sql,policy.recentMonth,validateLedger,validateFailure,schedule.freshness,schedule.isRefreshRequestAllowed);
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness','isRefreshRequestAllowed',source)(require('../lib/ecountVerifiedCustomerLinks.cjs'),require('crypto'),query,sql,policy.recentMonth,validateLedger,validateFailure,schedule.freshness,schedule.isRefreshRequestAllowed);
  const now=Date.parse('2026-10-27T00:00:00Z');
  const first=await store.requestLedgerRefresh('alice',7,now);assert.equal(first.status,'PENDING');assert.equal(writes.length,1);
  assert.equal(writes[0].row.VerifyStatus,'AMBER');assert.equal(writes[0].params.note.value,'refresh-request:7');
@@ -178,4 +180,61 @@ test('collector queue endpoint requires automation auth and exposes only the one
  const denied=response();await handler({method:'GET',query:{queue:'refresh'}},denied);assert.equal(denied.statusCode,401);assert.equal(claims,0);
  const claimed=response();await handler({method:'GET',authorized:true,query:{queue:'refresh'}},claimed);assert.deepEqual(claimed.data.refreshRequest,{requestId:55,custKey:7,sourceCode:'1234567890',period:{from:'2026-09-27',to:'2026-10-27'}});assert.equal(claims,1);
  const complete=response();await handler({method:'POST',authorized:true,body:{refreshRequestId:55,refreshSuccess:true}},complete);assert.deepEqual(finished,[[55,true]]);assert.equal(complete.data.status,'COMPLETE');
+});
+
+const verifiedLinks=require('../lib/ecountVerifiedCustomerLinks.cjs');
+const linkedRows=()=>[
+ {CustKey:1,CustName:'Old',code:'local-shared',managerUserId:'alice',managerMatchCount:1,accountActive:1,codeMatchCount:2},
+ {CustKey:2,CustName:'Current',code:'local-shared',managerUserId:'alice',managerMatchCount:1,accountActive:1,codeMatchCount:2},
+];
+const linkedEntries=()=>linkedRows().map(r=>({custKey:r.CustKey,name:r.CustName,canonicalKey:2,lookupName:'Current',lookupQuery:'Cur',sourceHash:verifiedLinks.fingerprint('verified-source'),localIdentityHash:verifiedLinks.localIdentityHash(r.code)}));
+test('verified aliases use one canonical source; collisions and changed identities fail closed',()=>{
+ const rows=linkedRows(),entries=linkedEntries();const linked=verifiedLinks.resolveLinks(rows,entries);
+ assert.ok(linked.every(c=>c.linked&&c.canonicalKey===2&&c.sharedLedgerName==='Current'));
+ assert.equal(linked.filter(c=>c.linked&&c.canonicalKey===c.custKey).length,1);
+ const mutations=[r=>r.pop(),r=>r[1].code='changed',r=>r[1].CustName='changed',r=>r[0].managerUserId='bob',r=>r[1].managerMatchCount=2];
+ for(const change of mutations){const altered=linkedRows();change(altered);assert.equal(verifiedLinks.resolveLinks(altered,entries)[0].linked,false);}
+ const conflict={...entries[1],custKey:3,name:'Third',canonicalKey:3};
+ assert.ok(verifiedLinks.resolveLinks([...rows,{...rows[1],CustKey:3,CustName:'Third'}],[...entries,conflict]).every(c=>!c.linked));
+ assert.ok(verifiedLinks.resolveLinks(rows,[]).every(c=>!c.linked));
+});
+test('reviewed lookup selects exact hash, never first same-name row; wrong/duplicate results rejected',async()=>{
+ const {selectVerifiedCode,parseLedgerReport}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ const customer={custKey:2,lookupName:'Same',sourceCode:'sha256:'+verifiedLinks.fingerprint('second')};
+ const candidates=[{name:'Same',code:'first'},{name:'Same',code:'second'}];
+ assert.equal(selectVerifiedCode(candidates,customer),'second');
+ for(const invalid of [[candidates[0]],[candidates[1],candidates[1]],[{name:'Other',code:'second'}]])assert.throws(()=>selectVerifiedCode(invalid,customer));
+ const source={headers:['일자','적요','판매','수금','잔액'],identity:'second',periods:['2025/12/01 ~ 2026/01/01'],rows:[['이월잔액','','','100']]};
+ const report=parseLedgerReport(source,customer,{from:'2025-12-01',to:'2026-01-01'},new Date('2026-01-01T02:00:00Z'));
+ assert.equal(report.totals.balance,100);assert.equal(report.observedCode,customer.sourceCode);
+ assert.throws(()=>parseLedgerReport({...source,identity:'first'},customer,{from:'2025-12-01',to:'2026-01-01'}));
+});
+test('alias reads the canonical cross-year snapshot and both names deduplicate one refresh queue',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger,requestLedgerRefresh};';
+ const links={...verifiedLinks,resolveLinks:rows=>verifiedLinks.resolveLinks(rows,linkedEntries())};
+ let event=null;const notes=[],writes=[];
+ const sql={NVarChar:()=>'',MAX:'max'};
+ const query=async(q,p)=>{
+  if(q.includes('FROM Customer c'))return {recordset:linkedRows()};
+  if(q.includes('INSERT INTO WebEcountSnapshot')){writes.push(p.note.value);event={VerifyDetail:p.payload.value};return {recordset:[{SnapshotKey:1}]};}
+  if(p.scope){notes.push(p.scope.value);return {recordset:[]};}
+  return {recordset:event?[event]:[]};
+ };
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness','isRefreshRequestAllowed',source)(links,require('crypto'),query,sql,policy.recentMonth,validateLedger,validateFailure,schedule.freshness,schedule.isRefreshRequestAllowed);
+ const customers=links.resolveLinks(linkedRows());for(const c of customers)await store.readLedger(c);
+ assert.ok(notes.every(n=>n==='customer:2'));
+ const time=Date.parse('2026-10-29T02:00:00Z');await store.requestLedgerRefresh('alice',1,time);await store.requestLedgerRefresh('alice',2,time);
+ assert.deepEqual(writes,['refresh-request:2']);
+ await assert.rejects(store.requestLedgerRefresh('bob',1,time),{message:'CUSTOMER_FORBIDDEN'});
+});
+
+test('only canonical customer can ingest a verified source; alias cannot create a second balance',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {saveLedger};';
+ const links={...verifiedLinks,resolveLinks:rows=>verifiedLinks.resolveLinks(rows,linkedEntries())};const writes=[];
+ const query=async(q,p)=>{if(q.includes('FROM Customer c'))return {recordset:linkedRows()};assert.match(q,/INSERT INTO WebEcountSnapshot/);writes.push(JSON.parse(p.payload.value));return {recordset:[{SnapshotKey:9}]};};
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(links,require('crypto'),query,{NVarChar:()=>'',MAX:'max'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const period=policy.recentMonth();const input={...sample(),custKey:2,periodFrom:period.from,periodTo:period.to,rows:[],screenRowCount:0,opening:100,totals:{sales:0,receipt:0,balance:100},balanceOnly:true,collectedAt:new Date().toISOString(),observedCode:'sha256:'+links.fingerprint('verified-source'),observedBusinessIdentity:'verified-source'};
+ await assert.rejects(store.saveLedger({...input,custKey:1}),{message:'SOURCE_IDENTITY_MISMATCH'});
+ await assert.rejects(store.saveLedger({...input,observedBusinessIdentity:'wrong'}),{message:'SOURCE_IDENTITY_MISMATCH'});
+ await store.saveLedger(input);assert.equal(writes.length,1);assert.equal(writes[0].custKey,2);assert.equal(writes[0].codeHash,links.fingerprint('verified-source'));assert.ok(!JSON.stringify(writes).includes('verified-source'));
 });

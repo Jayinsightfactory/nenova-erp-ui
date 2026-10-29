@@ -76,12 +76,12 @@ export default function CustomerLedger(){
     <p className="muted">파란색은 선택된 항목입니다. 업체 버튼을 다시 누르면 선택이 해제됩니다. 방향키로 이동하고 Enter 또는 Space로 선택할 수 있습니다.</p>
     <div className="customer-buttons" role="group" aria-label="거래처 선택" onKeyDown={navigateButtons}>
       {filteredCustomers.map(c=><button type="button" key={c.custKey} aria-pressed={selected===String(c.custKey)} disabled={!c.linked} onClick={()=>selectCustomer(String(c.custKey))}>
-        <strong>{c.name}</strong><span>{c.managerName||'담당자 미확인'}{!c.linked?' · 연결 확인 필요':''}</span>
+        <strong>{c.name}</strong><span>{c.managerName||'담당자 미확인'}{!c.linked?' · 연결 확인 필요':c.sharedLedgerName?` · ${c.sharedLedgerName} 원장 공유`:''}</span>
       </button>)}
     </div>
     {meta&&!listError&&filteredCustomers.length===0&&<p className="empty">조건에 맞는 거래처가 없습니다. 검색어나 담당자를 변경해 주세요.</p>}
     <div className="controls"><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button></div>
-    {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}</p>}
+    {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}{selectedCustomer.sharedLedgerName&&` · ${selectedCustomer.sharedLedgerName} 원장 공유 (중복 집계 없음)`}</p>}
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
     {listError&&<p role="alert" className="error">{listError} <button onClick={loadCustomers}>목록 다시 불러오기</button></p>}
