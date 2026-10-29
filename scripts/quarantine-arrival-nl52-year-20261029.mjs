@@ -14,7 +14,8 @@ const pool = await sql.connect({ server: process.env.DB_SERVER, port: Number(pro
   database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD,
   options: { encrypt: false, trustServerCertificate: true } });
 const predicate = `l.ImportKey=23 AND l.OrderYear=N'2026' AND l.OrderWeek IN (N'47-1',N'48-1',N'49-1',N'50-1',N'50-2',N'51-1',N'51-2',N'52-2')
-  AND l.SheetName=l.OrderWeek AND l.CountryName=N'네덜란드' AND l.SourceFileName=N'37-2 NL 원가자료 (2).xlsx' AND l.IsCurrent=1`;
+  AND l.SheetName=CASE WHEN l.OrderWeek IN (N'47-1',N'48-1',N'49-1') THEN LEFT(l.OrderWeek,2) ELSE l.OrderWeek END
+  AND l.CountryName=N'네덜란드' AND l.SourceFileName=N'37-2 NL 원가자료 (2).xlsx' AND l.IsCurrent=1`;
 let transaction;
 try {
   if (apply) {

@@ -53,7 +53,7 @@ for (const selectedYear of ['2025', '2026']) {
     assert.equal(validateArrivalImportYear({ rows: [valid] }, selectedYear), selectedYear);
   }
 }
-for (const sheet of ['52-02', '52-2A', '47-1']) {
+for (const sheet of ['52-02', '52-2A', '47-1', '47', '48', '49']) {
   assert.equal(parse({ fileName: '37-2 NL 원가자료.xlsx', sheet }).yearEvidence.status, 'conflict');
 }
 assert.equal(parse({ fileName: '37-2 NL 원가자료.xlsx', sheet: '52-2', header: '2026년 NL 원가자료' }).yearEvidence.status, 'verified');
