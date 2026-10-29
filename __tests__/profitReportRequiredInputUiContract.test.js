@@ -77,9 +77,20 @@ async function main() {
     source.includes('원천 저장은 완료되었으나 계산본 갱신에 실패') && source.includes("if(ok==='stale') return false"));
 
   console.log('\n=== 1-1) 보고서 확정 상태가 현재 차수와 차수별 목록에 항상 보임 ===');
-  check('현재 차수 상단에 확정됨/미확정 배지와 revision을 표시',
-    source.includes("data.confirmed ? `✓ 확정됨 · R${data.confirmed.revisionNo}` : '● 미확정'")
-      && source.includes('보고서 상태:'));
+  const statusExpression=source.match(/\{(data\.confirmed \? `✓ [^\r\n]+ : '● 미확정')\}/)?.[1];
+  const ariaExpression=source.match(/aria-label=\{(`보고서 상태: [^\r\n]+`)\}/)?.[1];
+  const statusText=statusExpression?new Function('data',`return ${statusExpression};`):()=>null;
+  const ariaText=ariaExpression?new Function('data',`return ${ariaExpression};`):()=>null;
+  const confirmedFixture={confirmed:{revisionNo:7}};
+  const derivedFixture={...confirmedFixture,templateDuty:{derivedFromConfirmed:true}};
+  check('현재 차수 원본 확정/미확정 배지와 revision을 유지',
+    statusText(confirmedFixture)==='✓ 확정됨 · R7' && statusText({})==='● 미확정');
+  check('관세 보완된 확정본은 원본 확정과 현재 추정 표시를 revision과 함께 구분',
+    statusText(derivedFixture)==='✓ 원본 확정 · 현재 표시는 관세보완 추정 · R7');
+  check('접근성 상태도 확정 원본/관세보완 추정/미확정 세 분기를 구분',
+    ariaText(confirmedFixture)==='보고서 상태: 확정됨'
+      && ariaText(derivedFixture)==='보고서 상태: 원본 확정 · 현재 표시는 관세보완 추정'
+      && ariaText({})==='보고서 상태: 미확정');
   check('차수별 목록에 별도 보고서 상태 열과 확정됨/미확정 배지를 표시',
     source.includes('<th style={st.th}>보고서 상태</th>')
       && source.includes("w.confirmed ? '✓ 확정됨' : '● 미확정'"));
