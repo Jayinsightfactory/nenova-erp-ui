@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,roundHotelQuantity,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot,hotelQuantityLabel} from '../lib/hotelOrderEdits.js';
+import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,roundHotelQuantity,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot,hotelQuantityLabel,hotelAdjustmentLabel} from '../lib/hotelOrderEdits.js';
 import {buildHotelOrderRows,hotelRegistrationPlan} from '../lib/hotelOrderWorkspace.js';
 import {commitHotelReview,hotelBatchMatrix,editHotelBatchQuantity} from '../lib/hotelOrderReview.js';
 const products={10:{ProdKey:10,DisplayName:'Rose',OutUnit:'단',BunchOf1Box:10}},customers=[{CustKey:1,CustName:'A'},{CustKey:2,CustName:'B'},{CustKey:3,CustName:'C'}];
@@ -66,6 +66,7 @@ test('direct rounding and reset persist accurate history and immutable registrat
  }
 });
 test('dual quantity labels use actual factors without changing quantities or inventing missing ratios',()=>{
+ assert.equal(hotelAdjustmentLabel(undefined),'수량 조절');
  assert.equal(hotelQuantityLabel(23.2,'박스',{SteamOf1Box:30},'송이'),'696 송이 / 23.2 박스');
  assert.equal(hotelQuantityLabel(38,'단',{BunchOf1Box:10}),'38 단 / 3.8 박스');
  assert.equal(hotelQuantityLabel(24,'박스',{BunchOf1Box:10},'단'),'240 단 / 24 박스');
