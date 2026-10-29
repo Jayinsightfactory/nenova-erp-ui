@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHotelOrderRows, hotelRegistrationPlan, hotelConvert, uniqueHotelMappings, hasHotelDraftContent } from '../lib/hotelOrderWorkspace.js';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks.js';
-import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds } from '../lib/hotelOrderReview.js';
+import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds, hotelSourceBox, hotelSourcePanels, hotelBoxInRegion } from '../lib/hotelOrderReview.js';
 
 test('numbered quantity matrix edits preserve exact scope and original evidence, normalize mixed units and conserve totals',()=>{
   const products={7:{ProdKey:7,DisplayName:'TEST',OutUnit:'송이',SteamOf1Box:30,SteamOf1Bunch:10,BunchOf1Box:3}};
@@ -130,4 +130,20 @@ test('saved mappings cannot resolve conflicting hotel names arbitrarily', () => 
   const x = uniqueHotelMappings([{ ItemName: '수국 화이트', ProdKey: 10 }, { ItemName: '수국화이트', ProdKey: 11 }, { ItemName: '장미', ProdKey: 12 }, { ItemName: '장미', ProdKey: 12 }]);
   assert.equal(x.groups.get(x.token('수국 화이트')).size, 2);
   assert.equal(x.groups.get(x.token('장미')).size, 1);
+});
+
+test('source coordinates stay normalized and cannot affect quantity or cross-year scope',()=>{
+  assert.deepEqual(hotelSourceBox([.52,.2,.4,.05]),[.52,.2,.4,.05]);
+  for(const v of [null,[],[-1,0,.2,.2],[0,0,2,1],[0,NaN,1,1],[0,0,0,1],['0',0,1,1]])assert.equal(hotelSourceBox(v),null);
+  for(const year of ['2025','2026']){const w={year,week:'44-01',request:[],purchase:[],pending:{request:{id:'test',rows:[{id:'a',qty:30,unit:'송이',sourceBox:[.52,.2,.4,.05]}]}}};const saved=commitHotelReview(w,'request','time');assert.equal(saved.year,year);assert.equal(saved.request[0].qty,30);assert.deepEqual(saved.request[0].sourceBox,[.52,.2,.4,.05]);}
+});
+
+
+test('split source panels preserve row identity, order, quantities and global coordinates',()=>{
+ const rows=[{id:'a',qty:70,sourceBox:[.01,.2,.45,.09]},{id:'c',qty:30,sourceBox:[.55,.2,.44,.09]},{id:'b',qty:432,sourceBox:[.01,.29,.45,.09]}];
+ const panels=hotelSourcePanels(rows);assert.equal(panels.length,2);
+ assert.deepEqual(panels.map(p=>p.rows.map(r=>r.id)),[['a','b'],['c']]);
+ for(const panel of panels)for(const row of panel.rows){assert.equal(rows.find(r=>r.id===row.id),row);const restored=hotelBoxInRegion(hotelBoxInRegion(row.sourceBox,panel.region),panel.region,true);restored.forEach((n,i)=>assert.ok(Math.abs(n-row.sourceBox[i])<1e-10));}
+ assert.deepEqual(hotelSourcePanels([{id:'x'},...rows]),[]);
+ assert.deepEqual(hotelSourcePanels(rows.filter(r=>r.id!=='c')),[]);
 });
