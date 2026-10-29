@@ -45,7 +45,7 @@
       "name": "SPECIAL_MATCH_FINAL_QUANTITY_AND_OMISSION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Special names aggregate by normalized name+unit without ProdKey and never enter ERP registration. Explicit batch edit resets final overrides/classification. Omitted rows remain visible but excluded from totals/classification/order payload. Final quantity overrides preserve source sum and validate current unit, including explicit zero. ceil/floor/round buttons act only on explicit input. Immutable registrationSnapshot captures totals/special/omitted and groups before existing my-customer ADD call. Existing CAS owner/year/week scope and frozen receipts preserved. No SQL/schema or existing order writer changes."
+      "sideEffect": "Special names aggregate by normalized name+unit without ProdKey and never enter ERP registration. Explicit batch edit resets final overrides/classification. Omitted rows remain visible but excluded from totals/classification/order payload. Final quantity overrides preserve source sum and validate current unit, including explicit zero. ceil/floor/round buttons act only on explicit input. Immutable registrationSnapshot captures totals/special/omitted and groups before existing my-customer ADD call. Existing CAS owner/year/week scope and frozen receipts preserved. No SQL/schema or existing order writer changes. Final quantity controls expose ceil/round/floor inline, and persist method/before/after/unit/time in quantityHistory and current override adjustment; final snapshot preserves both. Frozen draft protects quantityHistory. Dual-unit labels are display-only from actual Product factors and original unit; missing factors never become 1. Compact intrinsic-width tables keep names next to quantities. Explicit work-save reuses server CAS."
     },
     {
       "name": "IMAGE_SOURCE_LINKS_COMPACT_REVIEW",
@@ -153,7 +153,7 @@
       "name": "HOTEL_ORDER_WORKSPACE",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection."
+      "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection. Same-unit orders require no box factor: missing/zero factor yields zero automatic surplus and the whole balance remains explicitly assignable. Mixed-unit conversion still requires actual ratios. Display and final preflight share buildHotelOrderRows; existing my-customer writer unchanged."
     },
     {
       "name": "SAVE_SERVER_WORKSPACE",

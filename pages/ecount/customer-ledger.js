@@ -67,7 +67,7 @@ export default function CustomerLedger(){
   const ledger=data?.ledger,period=data?.period||meta?.period,schedule=data?.schedule||meta?.schedule,refreshStatus=data?.refreshRequest?.status,refreshPending=['PENDING','RUNNING'].includes(refreshStatus),selectedCustomer=customers.find(c=>String(c.custKey)===selected);
   return <section className="ledger-page">
     <h1 data-ui-page-title>거래처관리대장1(채권)</h1>
-    <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 개별거래처 기준</p>
+    <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 거래처관계기준</p>
     <div className="controls"><label htmlFor="ledger-search">거래처 검색</label><input id="ledger-search" type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="업체명 또는 담당자" /></div>
     <h2 className="selection-title">1. 담당자 선택</h2>
     <div className="managers" role="group" aria-label="담당자 선택" onKeyDown={navigateButtons}><button aria-pressed={!manager} onClick={()=>selectManager('')}>전체 담당자</button>{managers.map(name=><button key={name} aria-pressed={manager===name} onClick={()=>selectManager(manager===name?'':name)}>{name}</button>)}</div>
@@ -76,12 +76,12 @@ export default function CustomerLedger(){
     <p className="muted">파란색은 선택된 항목입니다. 업체 버튼을 다시 누르면 선택이 해제됩니다. 방향키로 이동하고 Enter 또는 Space로 선택할 수 있습니다.</p>
     <div className="customer-buttons" role="group" aria-label="거래처 선택" onKeyDown={navigateButtons}>
       {filteredCustomers.map(c=><button type="button" key={c.custKey} aria-pressed={selected===String(c.custKey)} disabled={!c.linked} onClick={()=>selectCustomer(String(c.custKey))}>
-        <strong>{c.name}</strong><span>{c.managerName||'담당자 미확인'}{!c.linked?' · 연결 확인 필요':''}</span>
+        <strong>{c.name}</strong><span>{c.managerName||'담당자 미확인'}{!c.linked?' · 연결 확인 필요':c.sharedLedgerName?` · ${c.sharedLedgerName} 원장 공유`:''}</span>
       </button>)}
     </div>
     {meta&&!listError&&filteredCustomers.length===0&&<p className="empty">조건에 맞는 거래처가 없습니다. 검색어나 담당자를 변경해 주세요.</p>}
     <div className="controls"><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button></div>
-    {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}</p>}
+    {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}{selectedCustomer.sharedLedgerName&&` · ${selectedCustomer.sharedLedgerName} 원장 공유 (중복 집계 없음)`}</p>}
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
     {listError&&<p role="alert" className="error">{listError} <button onClick={loadCustomers}>목록 다시 불러오기</button></p>}
@@ -92,6 +92,7 @@ export default function CustomerLedger(){
     {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
+    {data?.basisChanged&&<p role="status" className="notice">이카운트와 동일한 거래처관계기준으로 다시 확인해야 합니다. 최신화 요청을 눌러 주세요.</p>}
     {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 자동 수집 시각에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}
     {selected&&data&&!ledger&&!data.failure&&<p className="notice">이 거래처의 최근 1개월 자료가 아직 수집되지 않았습니다. 수집 PC의 로그인과 거래처 연결을 확인해야 합니다. 자료가 없는 상태를 채권 0원으로 표시하지 않습니다.</p>}
     {ledger&&<>

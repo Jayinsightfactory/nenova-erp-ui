@@ -45,3 +45,14 @@ PR1355 Cafe24 배포 및 SS3 검색/담당자필터/요청 성공. 최초 실수
 
 ## 2026-10-29 입금일 차수 비교
 사용자 확정: 입금일 기준 차수, 입금−판매(초과+,미수−). 로컬 dnSpy CommonLogic의 PeriodDay.BaseYmd/OrderYearWeek=연도+대차수 읽기 확인(exit0). SELECT-only probe 2026-09-29~10-29 달력31행/유일날짜31/202639~202644,10-29=202644. UI 버튼 선택은 shared 원장 쓰기 없음. 비교는 검증된 ECOUNT 일자별 판매와 은행 실제 입금일만 사용, 회계반영 이력의 공식수금합계 검증이 맞아야 입금 제공. 미반영은 기존 중복방지 정책의 deduct=true만 합산. 보류 차수는 차액null, 달력중복/누락은 비교불가. 이월금 제외 흐름비교이고 전표미수 귀속 아님. PeriodDay read 추가, Estimate/ShipmentDetail.Amount/Vat/isFix/WebProfitReport 등 전체 preserve.
+
+## 2026-10-29 검증 예외 연결과 원장 공유
+ClassCustomer dnSpy CLI 재확인(exit0), Customer/ShipmentMaster/ShipmentDetail SELECT-only 대조.
+다원 두 번째 코드 매출8건 일치. 대지원예 구거래2건은 대지원예2 원장과 일치하고 대지원예(X)에는 없음.
+사용자가351/646 같은 원장 공유 승인. source/local identity 지문 고정, 현재 전표 identity 확인 유지.
+resolveLinks에서 전체 활성 고객 충돌 검사 후 소유권 필터. 별칭은 같은 단일 담당자와 canonical 활성 조건.
+canonical646 수집/요청/잔액1개, 별칭 원장복사 금지. Customer 및 공유 ERP원장 변경없음.
+기준/부작용: docs/plans/ecount-verified-links-2026-10-29.md.
+
+## 2026-10-29 실제 채권 조회기준 정정
+원본 E040214 요약 및 직접연 상세와 E040723 관계기준 전표 결과를 실제 대조: 미카엘4,997,800원 동일. 개별기준115,902,350과 다름. 기본조회 관계기준으로 정정하고 구 basis없는snapshot은 재수집 전 미표시. 수치수식 임의변경없음. dnSpy ClassCustomer exit0/SQL SELECT-only 재확인, 모든ERP원장 preserve. 신라호텔 실제5자리코드, 태림A→태림원예 단일원장 근거는 plans/ecount-relation-basis-2026-10-29.md.

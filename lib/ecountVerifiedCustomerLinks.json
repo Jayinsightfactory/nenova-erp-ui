@@ -1,0 +1,47 @@
+[
+  {
+    "custKey": 340,
+    "name": "다원플라워",
+    "lookupName": "다원플라워",
+    "sourceHash": "6fe2ebf2b0fc952683c7569293039faa22e0d669208ecd2dc1f20d9e94e5f21d",
+    "localIdentityHash": "5a5f2d7b85997b73798c967d26768f5ec7062c02c2bd771f64e02d4d08058273",
+    "canonicalKey": 340,
+    "lookupQuery": "다원플라워"
+  },
+  {
+    "custKey": 646,
+    "name": "대지원예2",
+    "lookupName": "대지원예2",
+    "sourceHash": "54fe140b4fc75f3225a2df90a9890f99aa150db13593f7d6e0a435956d606335",
+    "localIdentityHash": "f238d72c9a8fa98b792e0e9ebc79b65770767f6ed6d4c45d5c569832e5ca0607",
+    "canonicalKey": 646,
+    "lookupQuery": "대지"
+  },
+  {
+    "custKey": 351,
+    "name": "대지원예",
+    "lookupName": "대지원예2",
+    "sourceHash": "54fe140b4fc75f3225a2df90a9890f99aa150db13593f7d6e0a435956d606335",
+    "localIdentityHash": "f238d72c9a8fa98b792e0e9ebc79b65770767f6ed6d4c45d5c569832e5ca0607",
+    "canonicalKey": 646,
+    "lookupQuery": "대지"
+  },
+  {
+    "custKey": 446,
+    "name": "신라호텔",
+    "lookupName": "신라호텔",
+    "lookupQuery": "신라호텔",
+    "sourceHash": "83557f79cbdfc006bc3504567fc508c3532574700573b07cb80f29b614861312",
+    "localIdentityHash": "d7f3f2f2739fc924774df51aec94f68b9f6a443676d5f71b51f233678a2d229c",
+    "canonicalKey": 446
+  },
+  {
+    "custKey": 689,
+    "name": "태림A",
+    "lookupName": "태림원예",
+    "lookupQuery": "태림원예",
+    "sourceHash": "93b20bb0088e8275cbe86fea1ad480ab41fbcb445c11ef7760c2ac88b3a5d746",
+    "localIdentityHash": "fb55434f202858f7bdc2247f9c7c385f1e65db060500589725fcc25a751f2fcb",
+    "canonicalKey": 565
+  }
+]

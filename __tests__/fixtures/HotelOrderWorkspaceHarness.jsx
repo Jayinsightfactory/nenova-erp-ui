@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import buttonStyles from '../../styles/hotelOrderButtons.module.css';
 import HotelOrderWorkspace from '../../components/HotelOrderWorkspace';
-const products=[{ProdKey:10,DisplayName:'검증 장미',ProdName:'검증 장미',OutUnit:'단',BunchOf1Box:10},{ProdKey:20,DisplayName:'검증 수국',ProdName:'검증 수국',OutUnit:'단',BunchOf1Box:10}];
+const products=[{ProdKey:10,DisplayName:'검증 장미',ProdName:'검증 장미',OutUnit:'단',BunchOf1Box:10},{ProdKey:20,DisplayName:'검증 수국',ProdName:'검증 수국',OutUnit:'단',BunchOf1Box:10},{ProdKey:30,DisplayName:'검증 박스',ProdName:'검증 박스',OutUnit:'박스',SteamOf1Box:30},{ProdKey:40,DisplayName:'검증 무계수',ProdName:'검증 무계수',OutUnit:'단'}];
 let saved=new Map(),calls=[],failSecond=false;
 export default function Fixture(){const [events,setEvents]=useState([]);const show=()=>setEvents([...calls]);
  const get=async(url,q={})=>{
@@ -13,7 +13,7 @@ export default function Fixture(){const [events,setEvents]=useState([]);const sh
  throw Error('Unexpected GET '+url);
  };
  const post=async(url,body)=>{
- if(url==='/api/sales/hotel-miu-parse')return {success:true,items:String(body.text).trim().split('\n').map((t,i)=>{const [inputName,qty]=t.split(',');return {inputName,qty:Number(qty),unit:'단',prodKey:inputName==='검증 장미'?10:null,prodName:inputName==='검증 장미'?'검증 장미':'',rowNo:i+1};}),products};
+ if(url==='/api/sales/hotel-miu-parse')return {success:true,items:String(body.text).trim().split('\n').map((t,i)=>{const [inputName,qty]=t.split(','),p=products.find(p=>p.ProdName===inputName);return {inputName,qty:Number(qty),unit:p?.OutUnit||'단',prodKey:p?.ProdKey||null,prodName:p?.ProdName||'',rowNo:i+1};}),products};
  if(url==='/api/sales/hotel-miu-intake'){calls.push({type:'DB_MAPPING'});show();return {success:true};}
  if(url==='/api/sales/hotel-order-drafts'){const old=saved.get(body.id);if((old?.revision||0)!==body.expectedRevision)throw Error('CAS 충돌');const record={id:body.id,revision:body.expectedRevision+1,updatedAt:new Date().toISOString(),work:JSON.parse(JSON.stringify(body.work))};saved.set(body.id,record);return {record};}
  if(url==='/api/orders'){calls.push({type:'ORDER',custKey:body.custKey,year:body.year,week:body.week,mode:body.orderMode,items:body.items});show();if(failSecond&&calls.filter(c=>c.type==='ORDER').length===2)throw Error('모형 응답 유실');return {success:true,verified:true,results:body.items.map(i=>({prodKey:i.prodKey,previousQty:i.expectedCurrentQty,finalQty:i.expectedCurrentQty+i.qty}))};}
