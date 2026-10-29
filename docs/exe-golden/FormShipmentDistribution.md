@@ -537,3 +537,6 @@ Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 
 
 ## 2026-10-22 중복 품목 사용자 확인
 설치본 FormShipmentDistribution dnSpy CLI를 다시 실행하여 ViewOrder/ProdKey 연결을 확인했다. 이번 변경은 원문 중복 후보와 선택 결과를 preview 응답/브라우저에 추가하고 기존 productOverrides 재검증을 재사용한다. native 상세/농장/날짜/환산/확정 경로는 보존한다. 운영 SELECT 854/861,952/3464,1846/2030,2195/2197 확인: 두 코드 모두 주문 이력이 있는 쌍은 병합하지 않는다. 상세 기준은 docs/plans/import-duplicate-review-2026-10-22.md. 실제 EXE GUI 조작 및 운영 시험 분배는 미실시.
+
+## 2026-10-29 카네이션 적용 중 배포 재시작
+실제 설치 EXE dnSpy CLI FormShipmentDistribution 재실행. 업무키/원장 저장 SQL 변경 없이 applyImportRows 전체에 배포 공유 lease를 추가. SELECT-only Audit135/136(2026/44-01,381행) STARTED와 배포시각 중첩 확인. 근거·부작용·미검증 범위: docs/work-reports/2026-10-29_carnation-import-interruption.md.

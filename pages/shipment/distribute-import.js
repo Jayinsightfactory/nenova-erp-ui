@@ -512,6 +512,7 @@ export default function DistributeImport() {
     const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const recoverApplyResult = async () => {
       const deadline = Date.now() + (12 * 60 * 1000);
+      let missingProgressCount = 0;
       setApplyResult(prev => ({
         ...(prev || initialApplyResult),
         running: true,
@@ -520,13 +521,18 @@ export default function DistributeImport() {
       while (Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 1200));
         try {
-          const progressRes = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
+          const progressRes = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
           if (progressRes.status === 401) throw new Error('로그인 세션이 만료되었습니다.');
           if (!progressRes.ok) continue;
           const progressData = await progressRes.json();
           if (fileRevision !== sheetLoadRef.current) return { success: false, error: '업로드 파일이 변경되었습니다. 새 파일을 검증하세요.' };
           const serverProgress = progressData?.progress;
-          if (!serverProgress) continue;
+          if (!serverProgress) {
+            missingProgressCount += 1;
+            if (missingProgressCount >= 10) throw Object.assign(new Error('서버에서 진행 정보를 찾을 수 없습니다. 서버 재시작 등으로 작업이 중단됐을 수 있습니다. 자동 재적용하지 않았습니다. 적용 이력과 재검증 결과로 실제 반영 여부를 먼저 확인하세요.'), { code: 'IMPORT_PROGRESS_LOST' });
+            continue;
+          }
+          missingProgressCount = 0;
           setApplyResult(prev => (prev?.running ? { ...prev, progress: serverProgress } : prev));
           if (!serverProgress.finished) continue;
           if (serverProgress.result) return serverProgress.result;
@@ -538,14 +544,14 @@ export default function DistributeImport() {
             };
           }
         } catch (progressError) {
-          if (progressError?.message?.includes('로그인 세션')) throw progressError;
+          if (progressError?.message?.includes('로그인 세션') || progressError?.code === 'IMPORT_PROGRESS_LOST') throw progressError;
         }
       }
       throw new Error('서버 응답은 끊겼고 12분 내에 처리 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.');
     };
     const pollTimer = setInterval(async () => {
       try {
-        const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
+        const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
         const d = await r.json();
         if (fileRevision === sheetLoadRef.current && d?.progress) {
           setApplyResult(prev => (prev && prev.running ? { ...prev, progress: d.progress } : prev));
@@ -558,6 +564,7 @@ export default function DistributeImport() {
       try {
         res = await fetch('/api/shipment/distribute-import-apply', {
           method: 'POST',
+          signal: AbortSignal.timeout(60000),
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId, replacementPlan: preview.replacementPlan, replacementProductKeys: preview.replacementProductKeys,
@@ -565,6 +572,10 @@ export default function DistributeImport() {
         });
       } catch {
         data = await recoverApplyResult();
+      }
+      if (!data && res?.status === 503) {
+        const unavailable = await res.clone().json().catch(() => null);
+        if (unavailable?.code === 'IMPORT_DEPLOY_BUSY') data = unavailable;
       }
       if (!data && res && [502, 503, 504].includes(res.status)) {
         data = await recoverApplyResult();

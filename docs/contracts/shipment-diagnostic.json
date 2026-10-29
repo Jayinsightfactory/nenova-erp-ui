@@ -60,7 +60,11 @@
     "__tests__/shipmentImportFinalStateRollback.test.js",
     "package.json",
     "__tests__/shipmentImportCustomerChoiceUi.test.js",
-    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js",
+    "lib/importApplyLease.cjs",
+    "__tests__/importApplyLease.test.cjs",
+    "__tests__/shipmentImportProgressRecovery.test.cjs",
+    ".github/workflows/deploy.yml"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -197,6 +201,17 @@
       "shipmentFarm": "preserve",
       "estimate": "preserve",
       "stock": "preserve"
+    },
+    {
+      "name": "IMPORT_DEPLOY_DRAIN",
+      "description": "Shared OS lease covers import audit initialization through final verification/audit. Deployment closes admission, waits exclusively before restart; timeout preserves running app. Missing progress is unknown, never automatic replay.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "yearFixture": "2025 and 2026 44-01 arguments preserved verbatim by lease wrapper"
     }
   ],
   "crossYearFixture": {
@@ -223,7 +238,9 @@
     "__tests__/kakaoChangeQueue.test.js",
     "__tests__/shipmentImportCustomerChoiceUi.test.js",
     "__tests__/shipmentImportCustomerExclusionPreview.test.js",
-    "__tests__/shipmentImportManualSkip.test.js"
+    "__tests__/shipmentImportManualSkip.test.js",
+    "__tests__/importApplyLease.test.cjs",
+    "__tests__/shipmentImportProgressRecovery.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
