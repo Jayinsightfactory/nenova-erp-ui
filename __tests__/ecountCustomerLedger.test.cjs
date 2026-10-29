@@ -6,7 +6,7 @@ const {validateLedger,validateFailure}=require('../lib/ecountLedgerValidation.cj
 const policy=require('../lib/ecountCustomerLedgerPolicy.cjs');
 const schedule=require('../lib/ecountLedgerSchedule.cjs');
 const now=new Date('2026-10-27T02:00:00Z');
-const sample=()=>({program:'E040723',mode:'voucher',individual:true,custKey:7,periodFrom:'2026-09-27',periodTo:'2026-10-27',opening:100,screenRowCount:2,rows:[{date:'2026-09-27',sales:30,receipt:0,balance:130,memo:'must not persist'},{date:'2026-10-27',sales:0,receipt:20,balance:110}],totals:{sales:30,receipt:20,balance:110}});
+const sample=()=>({program:'E040723',mode:'voucher',basis:'relation-v1',individual:true,custKey:7,periodFrom:'2026-09-27',periodTo:'2026-10-27',opening:100,screenRowCount:2,rows:[{date:'2026-09-27',sales:30,receipt:0,balance:130,memo:'must not persist'},{date:'2026-10-27',sales:0,receipt:20,balance:110}],totals:{sales:30,receipt:20,balance:110}});
 test('source opening-only report preserves positive/negative balance without inventing vouchers',async()=>{
  const {parseLedgerReport}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
  for(const value of ['12,345','-123']){
@@ -237,4 +237,19 @@ test('only canonical customer can ingest a verified source; alias cannot create 
  await assert.rejects(store.saveLedger({...input,custKey:1}),{message:'SOURCE_IDENTITY_MISMATCH'});
  await assert.rejects(store.saveLedger({...input,observedBusinessIdentity:'wrong'}),{message:'SOURCE_IDENTITY_MISMATCH'});
  await store.saveLedger(input);assert.equal(writes.length,1);assert.equal(writes[0].custKey,2);assert.equal(writes[0].codeHash,links.fingerprint('verified-source'));assert.ok(!JSON.stringify(writes).includes('verified-source'));
+});
+
+test('Mikael relation basis preserves actual 4997800 without old individual opening carry',async()=>{
+ const {parseLedgerReport}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ const values=[['2026/09/29',4574500,0],['2026/10/03',0,4574500],['2026/10/06',9373000,0],['2026/10/10',0,9373000],['2026/10/13',6764100,0],['2026/10/17',0,6714100],['2026/10/20',6339900,0],['2026/10/24',0,6339900],['2026/10/27',4947800,0]];
+ let balance=0,sales=0,receipt=0;const rows=values.map(([date,s,r])=>{balance+=s-r;sales+=s;receipt+=r;return [date,'',String(s),String(r),String(balance)];});
+ const source={headers:['일자','적요','판매','수금','잔액'],identity:'fixture',periods:['2026/09/29 ~ 2026/10/29'],rows:[['이월잔액','','','0'],...rows,['합계',String(sales),String(receipt),String(balance)]]};
+ const result=parseLedgerReport(source,{custKey:13,sourceCode:'fixture'},{from:'2026-09-29',to:'2026-10-29'},new Date('2026-10-29T07:00:00Z'));
+ assert.equal(result.basis,'relation-v1');assert.equal(result.opening,0);assert.equal(result.totals.balance,4997800);
+});
+test('old individual snapshot cannot remain visible after basis correction',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../lib/ecountCustomerLedgerStore.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nreturn {readLedger};';
+ const {basis,...legacy}=sample();const row={SnapshotKey:4,VerifyDetail:JSON.stringify({...legacy,custKey:7,codeHash:verifiedLinks.fingerprint('fixture'),collectedAt:'2026-10-27T02:00:00Z'})};
+ const store=new Function('links','crypto','query','sql','recentMonth','validateLedger','validateFailure','freshness',source)(verifiedLinks,require('crypto'),async()=>({recordset:[row]}),{NVarChar:'str'},policy.recentMonth,validateLedger,validateFailure,schedule.freshness);
+ const result=await store.readLedger({custKey:7,ecountCode:'fixture'});assert.equal(result.ledger,null);assert.equal(result.basisChanged,true);
 });
