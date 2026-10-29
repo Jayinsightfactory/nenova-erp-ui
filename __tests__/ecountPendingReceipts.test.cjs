@@ -47,7 +47,7 @@ test('bundled receipts and delayed bank statuses require reflected totals to rec
  const e=evidence([row()],[posted,second]);
  assert.equal(calculatePendingReceipts(e,ledger({totals:{balance:1000,receipt:700}}),target).pendingAmount,200);
  const delayed=calculatePendingReceipts(e,ledger({totals:{balance:800,receipt:900}}),target);
- assert.equal(delayed.pendingAmount,0);assert.equal(delayed.rows[0].reason,'ACCOUNTING_RECONCILIATION');
+ assert.equal(delayed.pendingAmount,0);assert.equal(delayed.calculatedBalance,null);assert.equal(delayed.rows[0].reason,'ACCOUNTING_RECONCILIATION');
 });
 test('bank adapter hashes private data, preserves two same-time payments with different running balances',async()=>{
  const {sanitizeBankRows}=await import('../scripts/ecount-scraper/pending-receipts.mjs');

@@ -62,7 +62,7 @@ export default function CustomerLedger(){
       </select><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button>
     </div>
     {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}</p>}
-    <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 09:00~18:00 매 정시 (한국시간)'}</span></div>
+    <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
     {listError&&<p role="alert" className="error">{listError} <button onClick={loadCustomers}>목록 다시 불러오기</button></p>}
     {error&&<p role="alert" className="error">{error}</p>}
@@ -72,7 +72,7 @@ export default function CustomerLedger(){
     {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
-    {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 정시에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}
+    {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 자동 수집 시각에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}
     {selected&&data&&!ledger&&!data.failure&&<p className="notice">이 거래처의 최근 1개월 자료가 아직 수집되지 않았습니다. 수집 PC의 로그인과 거래처 연결을 확인해야 합니다. 자료가 없는 상태를 채권 0원으로 표시하지 않습니다.</p>}
     {ledger&&<>
       {schedule?.stale&&!data?.failure&&<p role="status" className="notice">예정된 갱신 시각이 지났습니다. 아래 자료는 마지막으로 검증된 수집본입니다.</p>}
@@ -81,7 +81,7 @@ export default function CustomerLedger(){
       {data.receipts?.status==='VERIFIED'?<>
         <div className="totals">{[['이카운트 공식잔액',ledger.totals?.balance],['확인된 미반영 입금',data.receipts.pendingAmount],['계산 잔액 (참고)',data.receipts.calculatedBalance]].map(([label,value])=><div key={label}><span>{label}</span><strong>{money(value)}</strong></div>)}</div>
         <p className="muted">입금 확인: {time(data.receipts.checkedAt)} · 위 조회기간 내 입금만 비교합니다. 회계반영 건은 다시 차감하지 않습니다. 미매칭 입금과 조회기간 이전 입금은 계산에서 제외됩니다. 실시간 은행 잔액이 아닌 수집 시점의 참고 금액입니다.</p>
-        {data.receipts.heldCount>0&&<p className="notice">{data.receipts.heldCount}건은 중복 반영 가능성 또는 매칭 충돌로 차감을 보류했습니다.</p>}
+        {data.receipts.heldCount>0&&<p className="notice">{data.receipts.heldCount}건은 중복 반영 가능성 또는 수금·매칭 불일치로 확인이 필요합니다. 계산 잔액은 확인 전까지 표시하지 않습니다.</p>}
         {data.receipts.rows.length>0&&<div className="ledger-table-scroll"><table><caption>거래처에 연결된 미반영 입금</caption><thead><tr><th>입금일</th><th>입금액</th><th>연결 근거</th><th>계산 적용</th></tr></thead><tbody>{data.receipts.rows.map((r,i)=><tr key={`${r.id}-${i}`}><td>{r.date}</td><td>{money(r.amount)}</td><td>{r.matchedBy==='SOURCE_CODE'?'이카운트 거래처코드':'회계반영 이력 일치'}</td><td>{r.deduct?'차감':r.reason==='POSSIBLE_POSTED_RECEIPT'?'동일 금액 수금 확인 필요':r.reason==='ALREADY_REFLECTED'?'회계반영 확인됨':r.reason==='ACCOUNTING_RECONCILIATION'?'수금합계 대조 필요':'확인 필요 · 차감 보류'}</td></tr>)}</tbody></table></div>}
       </>:<p className="notice">미반영 입금 비교가 아직 완료되지 않아 계산 잔액을 표시하지 않습니다. 최신화를 요청하면 입금 내역과 채권을 함께 확인합니다. 조회 중 반영 상태가 바뀌거나 은행 조회에 실패하면 기존 공식잔액만 표시합니다.</p>}
       <p>{ledger.rows.length.toLocaleString()}건 · {ledger.balanceOnly?'해당 기간 전표 없음 · 원본 이월잔액 확인':ledger.totals?'원본 합계 및 잔액 검증 완료':'원본에서 전표 없음 확인 · 잔액 미제공'}</p>
