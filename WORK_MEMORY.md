@@ -1639,3 +1639,7 @@
 - 기존 sales-feed GET 및 distribution-live-history 읽기 전용 재사용, SQL·EXE 저장순서·ERP 원장 변경 없음. 교차연도 fixture/계약 갱신.
 - 빌드/manifest/dnSpy/write guard/UI layout 통과. Chrome 1920/390: 원문 선택→분석→예시 적용, 전년도 정확한 이력범위, 중복 차단, 조회실패 보존 통과. 기존 복사/저장재열기/정정 smoke도 통과. 전체 회귀/CI/배포는 진행 중(미검증).
 - 검색어: 카톡방 재고관리 영업방 원문 최신 전산이력 KakaoStockInbox stockSourceWeek
+
+## 2026-10-29 재고 우선 배치
+기초재고와 현재재고·변경내역 나란히, 카톡 원문은 뒤에 배치. 최근 변경 한건/품목별 전체본 토글, 변경 클릭시 해당 품목 직접입력 펼침. ERP 계산/저장 API 불변. 검증 진행 중.
+검색어: 카톡 재고 최신변경 전체본 directOpen
