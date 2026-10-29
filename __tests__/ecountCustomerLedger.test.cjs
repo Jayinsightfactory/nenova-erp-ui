@@ -99,9 +99,9 @@ test('API checks fresh owner scope before every ledger read, including forged ad
  owner='bob';const res=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},res);assert.equal(res.statusCode,403);assert.equal(reads,1);
 });
 test('API list strips source identifiers and unavailable owner yields no customers',async()=>{
- const handler=loadHandler({ledgerCustomers:async uid=>uid==='alice'?[{custKey:7,name:'fixture',linked:true,ecountCode:'private',managerUserId:'alice'}]:[],readLedger:()=>assert.fail(),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
+ const handler=loadHandler({ledgerCustomers:async uid=>uid==='alice'?[{custKey:7,name:'fixture',managerName:'담당자 A',linked:true,ecountCode:'private',managerUserId:'alice'}]:[],readLedger:()=>assert.fail(),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
  const res=response();await handler({method:'GET',user:{userId:'alice'},query:{}},res);
- assert.deepEqual(res.data.customers,[{custKey:7,name:'fixture',linked:true,refreshable:true}]);assert.equal(res.headers['Cache-Control'],'private, no-store');
+ assert.deepEqual(res.data.customers,[{custKey:7,name:'fixture',managerName:'담당자 A',linked:true,refreshable:true}]);assert.equal(res.headers['Cache-Control'],'private, no-store');
  const inactive=response();await handler({method:'GET',user:{userId:'inactive'},query:{}},inactive);assert.deepEqual(inactive.data.customers,[]);
 });
 test('SS3 lists all active customers and reads other managers’ uniquely linked snapshots',async()=>{
@@ -113,7 +113,7 @@ test('SS3 lists all active customers and reads other managers’ uniquely linked
  const handler=loadHandler({ledgerCustomers:async(uid,all)=>{scopes.push([uid,all]);return all?customers:[];},readLedger:async customer=>({ledger:{custKey:customer.custKey,rows:[]}}),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
  const list=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{}},list);
  assert.deepEqual(scopes[0],['nenovaSS3',true]);assert.equal(list.data.scope,'all');
- assert.deepEqual(list.data.customers,[{custKey:7,name:'fixture-a',linked:true,refreshable:false},{custKey:8,name:'fixture-b',linked:false,refreshable:false}]);
+ assert.deepEqual(list.data.customers,[{custKey:7,name:'fixture-a',managerName:'담당자 미확인',linked:true,refreshable:false},{custKey:8,name:'fixture-b',managerName:'담당자 미확인',linked:false,refreshable:false}]);
  const detail=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'7'}},detail);
  assert.equal(detail.statusCode,200);assert.equal(detail.data.ledger.custKey,7);
  const unlinked=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'8'}},unlinked);

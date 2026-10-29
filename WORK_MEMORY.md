@@ -1534,3 +1534,9 @@
 - 검색어: HotelQuantityMatrix HotelMatchReview 1차 총수량 원본 줄정렬
 ## 2026-10-28 다음차수 차단 유지
 비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
+
+## 2026-10-29 거래처관리대장 검색/담당자 및 미반영 입금 비교
+- 실제 /ecount/customer-ledger에 업체/담당자 검색, 담당자 토글, 업체명 옆 담당자 표시. 서버의 담당자 범위/SS3 전체조회 유지.
+- E010205 입금의 회계반영 이력 정확 패턴과 코드로 연결, 미반영 전후/대장 수금합계 대조. 중복식별/이미반영/수금합계불일치/코드충돌/자체이체/수집실패 보류. 같은 대장 snapshot에만 계산근거 저장하며 누적차감하지 않음. 원문 계좌/입금자는 저장하지 않음.
+- dnSpy ClassCustomer와 SELECT-only probe(활성675/유일담당125), 실제 UI13열/전월/빈입금/회계반영 숫자footer 확인. 관련38테스트, 전체ERP계약, dnSpy/manifest/write guard 통과. 빌드/CI/운영배포 및 원본PC 적용은 이 기록 시점 진행중(미검증). 실제 미반영 입금 양성 사례는 원본에 없어 fixture로 검증.
+- 검색어: customer-ledger managerName pending-receipts BANK_CHANGED ACCOUNTING_RECONCILIATION 중복차감 미반영입금

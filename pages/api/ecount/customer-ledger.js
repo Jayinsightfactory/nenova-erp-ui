@@ -12,7 +12,7 @@ export async function handler(req,res) {
     const admin = isLedgerAdmin(req.user);
     const visible = await ledgerCustomers(req.user.userId, admin);
     if(req.query.custKey===undefined) return res.json({success:true,scope:admin?'all':'assigned',customers:visible.map(c=>({
-      custKey:c.custKey,name:c.name,linked:c.linked,refreshable:!admin||(c.managerMatchCount===1&&c.managerUserId===req.user.userId),
+      custKey:c.custKey,name:c.name,managerName:c.managerName||'담당자 미확인',linked:c.linked,refreshable:!admin||(c.managerMatchCount===1&&c.managerUserId===req.user.userId),
     })),period:recentMonth(),schedule:freshness(null)});
     const key=String(req.query.custKey);
     if(!/^[1-9]\d*$/.test(key)) return res.status(400).json({success:false,error:'INVALID_CUSTOMER'});
