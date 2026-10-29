@@ -6,7 +6,7 @@ export default function HotelMatchReview(props) {
   if(panels.length)return <div className="source-panels">{panels.map((panel,i)=><section key={i}><h4>{panels.length===2?(i===0?'왼쪽 표':'오른쪽 표'):`${i+1}번 표`}</h4><ReviewPanel {...props} region={panel.region} batch={{...props.batch,alignment:props.batch.alignment?.panels?.[i] || null,sourceRowCount:panel.rows.length,rows:panel.rows.map((r,index)=>({...r,sourceRowIndex:index,sourceBox:hotelBoxInRegion(r.sourceBox,panel.region)}))}} onAlign={value=>props.onAlign({...props.batch.alignment,panels:{...props.batch.alignment?.panels,[i]:value}})} onEdit={(id,v)=>props.onEdit(id,v.sourceBox?{...v,sourceBox:hotelBoxInRegion(v.sourceBox,panel.region,true)}:v)}/></section>)}<style jsx>{`.source-panels {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.source-panels section {min-width:0;border:1px solid #dbe4ef;padding:4px}h4 {margin:0 0 3px;font-size:12px;color:#52637b}@media(max-width:1100px){.source-panels{grid-template-columns:1fr}}`}</style></div>;
   return <ReviewPanel {...props}/>;
 }
-function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,region}) {
+function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,onLocate,region}) {
   const image=hotelImageUrl(batch.imageId),[geometry,setGeometry]=useState(null);
   const root=useRef(null),imageRef=useRef(null),[active,setActive]=useState(null),[placing,setPlacing]=useState(false),[link,setLink]=useState(null);
   const activeRow=batch.rows.find(r=>r.id===active) || batch.rows[0];
@@ -39,7 +39,7 @@ function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,region})
   },[activeRow?.id,JSON.stringify(activeBox),geometry,batch.rows.length]);
   let previous=0;
   return <section className="comparison">
-    {image && !region && <div className="link-tools"><span>행에 마우스를 올리면 원본 위치와 선으로 연결됩니다.</span><button disabled={blocked || !activeRow} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{placing ? '원본에서 해당 품목을 클릭하세요 · 취소' : '선택 행 원본 위치 지정'}</button>{activeRow && <span>선택: {activeRow.inputName}</span>}{!activeBox && <span>위치 정보가 없으면 원본 위치를 지정하세요.</span>}</div>}
+    {image && !region && <div className="link-tools">{onLocate && batch.rows.some(r=>!hotelSourceBox(r.sourceBox)) && <button data-tone="match" disabled={blocked} onClick={onLocate}>원본 위치 다시 읽기</button>}<span>행에 마우스를 올리면 원본 위치와 선으로 연결됩니다.</span><button disabled={blocked || !activeRow} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{placing ? '원본에서 해당 품목을 클릭하세요 · 취소' : '선택 행 원본 위치 지정'}</button>{activeRow && <span>선택: {activeRow.inputName}</span>}{!activeBox && <span>위치 정보가 없으면 원본 위치를 지정하세요.</span>}</div>}
     {image && <div className="tools"><a href={image} target="_blank" rel="noreferrer">원본 크게 보기</a><details><summary>줄 위치 조정{geometry && !automatic && !batch.alignment ? ' · 자동 맞춤 불가' : ''}</summary><fieldset disabled={blocked}>
       <label>첫 줄 위치 <input aria-label="원본 첫 줄 위치" type="number" min="0" value={Math.round(top)} onChange={e=>onAlign({top:Math.max(0,Number(e.target.value)),step})}/></label>
       <label>줄 간격 <input aria-label="원본 줄 간격" type="number" min="8" value={Math.round(step)} onChange={e=>onAlign({top,step:Math.max(8,Number(e.target.value))})}/></label><button onClick={()=>onAlign(null)}>자동 맞춤</button>
