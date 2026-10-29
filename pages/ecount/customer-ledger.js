@@ -69,7 +69,7 @@ export default function CustomerLedger(){
     {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
     {!listError&&meta&&customers.length===0&&<p className="notice">배정된 거래처가 없습니다. 전산의 거래처 담당자 배정을 확인해 주세요.</p>}
     {customers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
-    {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">최신화 요청은 담당자로 배정된 거래처에서 가능합니다.</p>}
+    {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
     {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 정시에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}

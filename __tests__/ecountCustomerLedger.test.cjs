@@ -113,7 +113,7 @@ test('SS3 lists all active customers and reads other managers’ uniquely linked
  const handler=loadHandler({ledgerCustomers:async(uid,all)=>{scopes.push([uid,all]);return all?customers:[];},readLedger:async customer=>({ledger:{custKey:customer.custKey,rows:[]}}),readLedgerRefreshRequest:async()=>null,...policy,...schedule});
  const list=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{}},list);
  assert.deepEqual(scopes[0],['nenovaSS3',true]);assert.equal(list.data.scope,'all');
- assert.deepEqual(list.data.customers,[{custKey:7,name:'fixture-a',managerName:'담당자 미확인',linked:true,refreshable:false},{custKey:8,name:'fixture-b',managerName:'담당자 미확인',linked:false,refreshable:false}]);
+ assert.deepEqual(list.data.customers,[{custKey:7,name:'fixture-a',managerName:'담당자 미확인',linked:true,refreshable:true},{custKey:8,name:'fixture-b',managerName:'담당자 미확인',linked:false,refreshable:false}]);
  const detail=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'7'}},detail);
  assert.equal(detail.statusCode,200);assert.equal(detail.data.ledger.custKey,7);
  const unlinked=response();await handler({method:'GET',user:{userId:'nenovaSS3'},query:{custKey:'8'}},unlinked);
@@ -134,14 +134,15 @@ test('all-customer lookup requires a live admin UserInfo row and does not change
 test('manual refresh API rechecks the live owner, accepts only linked customers and returns no source identity',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger-refresh.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default withAuth(handler);','return handler;');
  const calls=[];
- const handler=new Function('ledgerCustomers','readLedgerRefreshRequest','requestLedgerRefresh',source)(
-  async uid=>uid==='alice'?[{custKey:7,linked:true,ecountCode:'1234567890'}]:[],
+ const handler=new Function('isLedgerAdmin','ledgerCustomers','readLedgerRefreshRequest','requestLedgerRefresh',source)(policy.isLedgerAdmin,
+  async(uid,all)=>uid==='alice'||all?[{custKey:7,linked:true,managerMatchCount:1,ecountCode:'1234567890'},{custKey:8,linked:true,managerMatchCount:0}]:[],
   async key=>({status:'PENDING',requestedAt:'2026-10-27T00:00:00.000Z'}),
   async(uid,key)=>{calls.push([uid,key]);return {status:'PENDING',requestedAt:'2026-10-27T00:00:00.000Z'};});
  const ok=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:7}},ok);
  assert.equal(ok.statusCode,200);assert.deepEqual(calls,[['alice',7]]);assert.equal(JSON.stringify(ok.data).includes('1234567890'),false);
  const other=response();await handler({method:'POST',user:{userId:'bob'},body:{custKey:7}},other);assert.equal(other.statusCode,403);assert.equal(calls.length,1);
- const adminReadOnly=response();await handler({method:'POST',user:{userId:'nenovaSS3'},body:{custKey:7}},adminReadOnly);assert.equal(adminReadOnly.statusCode,403);assert.equal(calls.length,1);
+ const adminReadOnly=response();await handler({method:'POST',user:{userId:'nenovaSS3'},body:{custKey:7}},adminReadOnly);assert.equal(adminReadOnly.statusCode,200);assert.equal(calls.length,2);
+ const unassigned=response();await handler({method:'POST',user:{userId:'nenovaSS3'},body:{custKey:8}},unassigned);assert.equal(unassigned.statusCode,403);assert.equal(calls.length,2);
  const invalid=response();await handler({method:'POST',user:{userId:'alice'},body:{custKey:'7 OR 1=1'}},invalid);assert.equal(invalid.statusCode,400);
  const status=response();await handler({method:'GET',user:{userId:'alice'},query:{custKey:'7'}},status);assert.equal(status.data.request.status,'PENDING');
  const anonymous=response();await handler({method:'POST',body:{custKey:7}},anonymous);assert.equal(anonymous.statusCode,401);
