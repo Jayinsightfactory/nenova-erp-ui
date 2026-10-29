@@ -547,7 +547,7 @@ export default function DistributeImport() {
           if (progressError?.message?.includes('로그인 세션') || progressError?.code === 'IMPORT_PROGRESS_LOST') throw progressError;
         }
       }
-      throw new Error('서버 응답은 끊겼고 12분 내에 처리 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.');
+      throw Object.assign(new Error('서버 응답은 끊겼고 12분 내에 처리 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.'), { code: 'IMPORT_PROGRESS_LOST' });
     };
     const pollTimer = setInterval(async () => {
       try {
@@ -616,6 +616,7 @@ export default function DistributeImport() {
         ...(prev || initialApplyResult),
         running: false,
         failed: true,
+        outcomeUnknown: e.code === 'IMPORT_PROGRESS_LOST',
         error: e.message,
         logs: [...((prev || initialApplyResult).logs || []), `오류: ${e.message}`],
       }));
@@ -1143,7 +1144,7 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
 
 function ApplyProgressModal({ result, open, onClose }) {
   if (!open || !result) return null;
-  const statusText = result.running ? '처리 중' : result.failed ? '오류 발생' : `작업 ${fmt(result.appliedCount)}건 완료`;
+  const statusText = result.running ? '처리 중' : result.outcomeUnknown ? '반영 여부 확인 필요' : result.failed ? '오류 발생' : `작업 ${fmt(result.appliedCount)}건 완료`;
   return (
     <div style={st.modalOverlay}>
       <div style={st.modalCard} role="dialog" aria-modal="true" aria-label="작업 현황">
@@ -1176,7 +1177,7 @@ function ApplyResultLog({ result }) {
       <div style={st.panelHead}>
         <strong>주문등록 및 출고분배 작업 내역</strong>
         <span style={{ fontSize: 12, color: result.running ? '#b45309' : result.failed ? '#b91c1c' : '#166534', fontWeight: 800 }}>
-          {result.running ? '처리 중' : result.failed ? '오류 발생' : `작업 ${fmt(result.appliedCount)}건 완료`}
+          {result.running ? '처리 중' : result.outcomeUnknown ? '반영 여부 확인 필요' : result.failed ? '오류 발생' : `작업 ${fmt(result.appliedCount)}건 완료`}
         </span>
       </div>
       <ApplyResultContent result={result} />
@@ -1330,7 +1331,7 @@ function ApplyResultContent({ result }) {
         {summary.map(s => (
           <div key={s.label} style={st.applySummaryCard}>
             <span>{s.label}</span>
-            <strong style={{ color: s.tone }}>{fmt(s.value)}</strong>
+            <strong style={{ color: s.tone }}>{result.outcomeUnknown ? '확인 필요' : fmt(s.value)}</strong>
           </div>
         ))}
       </div>
