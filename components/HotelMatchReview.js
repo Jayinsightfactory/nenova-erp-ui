@@ -3,14 +3,31 @@ import { hotelImageUrl, hotelImageRowBounds, hotelSourceBox, hotelSourcePanels, 
 
 export default function HotelMatchReview(props) {
   const panels=hotelSourcePanels(props.batch.rows);
-  if(panels.length)return <div className="source-panels">{panels.map((panel,i)=><section key={i}><h4>{panels.length===2?(i===0?'왼쪽 표':'오른쪽 표'):`${i+1}번 표`}</h4><ReviewPanel {...props} region={panel.region} batch={{...props.batch,alignment:null,rows:panel.rows.map(r=>({...r,sourceBox:hotelBoxInRegion(r.sourceBox,panel.region)}))}} onEdit={(id,v)=>props.onEdit(id,v.sourceBox?{...v,sourceBox:hotelBoxInRegion(v.sourceBox,panel.region,true)}:v)}/></section>)}<style jsx>{`.source-panels {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.source-panels section {min-width:0;border:1px solid #dbe4ef;padding:4px}h4 {margin:0 0 3px;font-size:12px;color:#52637b}@media(max-width:1100px){.source-panels{grid-template-columns:1fr}}`}</style></div>;
+  if(panels.length)return <div className="source-panels">{panels.map((panel,i)=><section key={i}><h4>{panels.length===2?(i===0?'왼쪽 표':'오른쪽 표'):`${i+1}번 표`}</h4><ReviewPanel {...props} region={panel.region} batch={{...props.batch,alignment:props.batch.alignment?.panels?.[i] || null,sourceRowCount:panel.rows.length,rows:panel.rows.map((r,index)=>({...r,sourceRowIndex:index,sourceBox:hotelBoxInRegion(r.sourceBox,panel.region)}))}} onAlign={value=>props.onAlign({...props.batch.alignment,panels:{...props.batch.alignment?.panels,[i]:value}})} onEdit={(id,v)=>props.onEdit(id,v.sourceBox?{...v,sourceBox:hotelBoxInRegion(v.sourceBox,panel.region,true)}:v)}/></section>)}<style jsx>{`.source-panels {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.source-panels section {min-width:0;border:1px solid #dbe4ef;padding:4px}h4 {margin:0 0 3px;font-size:12px;color:#52637b}@media(max-width:1100px){.source-panels{grid-template-columns:1fr}}`}</style></div>;
   return <ReviewPanel {...props}/>;
 }
 function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,region}) {
   const image=hotelImageUrl(batch.imageId),[geometry,setGeometry]=useState(null);
   const root=useRef(null),imageRef=useRef(null),[active,setActive]=useState(null),[placing,setPlacing]=useState(false),[link,setLink]=useState(null);
   const activeRow=batch.rows.find(r=>r.id===active) || batch.rows[0];
-  const activeBox=hotelSourceBox(activeRow?.sourceBox);
+  const count=batch.sourceRowCount || Math.max(batch.rows.length,...batch.rows.map(r=>(r.sourceRowIndex??-1)+1));
+  function loaded(e){
+    const img=e.currentTarget,[x,y,w,h]=region || [0,0,1,1],width=img.naturalWidth*w,height=img.naturalHeight*h;
+    const sampleScale=Math.min(1,900/width,6000/height),canvas=document.createElement('canvas');
+    canvas.width=Math.round(width*sampleScale);canvas.height=Math.round(height*sampleScale);
+    let bounds=null;
+    try { const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,img.naturalWidth*x,img.naturalHeight*y,width,height,0,0,canvas.width,canvas.height);bounds=hotelImageRowBounds(ctx.getImageData(0,0,canvas.width,canvas.height),count,{allowTrailingSpace:!!region}); } catch { /* Manual alignment remains available. */ }
+    setGeometry({width,height,bounds});
+  }
+
+  useEffect(()=>{const img=imageRef.current;if(img?.complete && img.naturalWidth)loaded({currentTarget:img});},[image,count,JSON.stringify(region)]);
+  const automatic=geometry?.bounds?.map(y=>y*geometry.height);
+  const top=batch.alignment?.top ?? automatic?.[0] ?? 0, step=batch.alignment?.step ?? (automatic ? (automatic.at(-1)-automatic[0])/count : 30);
+  const bounds=Number.isFinite(batch.alignment?.top) || !automatic ? Array.from({length:count+1},(_,i)=>top+step*i) : automatic;
+  const scale=geometry ? 30/Math.min(...bounds.slice(1).map((y,i)=>y-bounds[i])) : 1;
+  const aligned=!!image && !!geometry && (!!automatic || Number.isFinite(batch.alignment?.top)), first=top*scale, imageOffset=Math.max(0,28-first);
+  const activeIndex=activeRow?.sourceRowIndex ?? batch.rows.findIndex(r=>r.id===activeRow?.id);
+  const activeBox=aligned && bounds[activeIndex+1]!==undefined ? [0,bounds[activeIndex]/geometry.height,1,(bounds[activeIndex+1]-bounds[activeIndex])/geometry.height] : hotelSourceBox(activeRow?.sourceBox);
   useEffect(()=>{
     function measure(){
       const host=root.current,img=imageRef.current,row=[...(host?.querySelectorAll("[data-source-row]")||[])].find(el=>el.dataset.sourceRow===activeRow?.id);
@@ -20,28 +37,15 @@ function ReviewPanel({batch,side,blocked,onEdit,onDelete,onPick,onAlign,region})
     }
     measure();const observer=new ResizeObserver(measure);if(root.current)observer.observe(root.current);if(imageRef.current)observer.observe(imageRef.current);window.addEventListener('resize',measure);return()=>{observer.disconnect();window.removeEventListener('resize',measure);};
   },[activeRow?.id,JSON.stringify(activeBox),geometry,batch.rows.length]);
-  const count=batch.sourceRowCount || Math.max(batch.rows.length,...batch.rows.map(r=>(r.sourceRowIndex??-1)+1));
-  function loaded(e){
-    const img=e.currentTarget,scale=Math.min(1,900/img.naturalWidth,6000/img.naturalHeight),canvas=document.createElement('canvas');
-    canvas.width=Math.round(img.naturalWidth*scale);canvas.height=Math.round(img.naturalHeight*scale);
-    let bounds=null;
-    try { const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,canvas.width,canvas.height);bounds=hotelImageRowBounds(ctx.getImageData(0,0,canvas.width,canvas.height),count); } catch { /* Manual alignment remains available. */ }
-    setGeometry({width:img.naturalWidth,height:img.naturalHeight,bounds});
-  }
-  const automatic=geometry?.bounds?.map(y=>y*geometry.height);
-  const top=batch.alignment?.top ?? automatic?.[0] ?? 0, step=batch.alignment?.step ?? (automatic ? (automatic.at(-1)-automatic[0])/count : 30);
-  const bounds=batch.alignment || !automatic ? Array.from({length:count+1},(_,i)=>top+step*i) : automatic;
-  const scale=geometry ? Math.max(Math.min(560/geometry.width,1),30/Math.min(...bounds.slice(1).map((y,i)=>y-bounds[i]))) : 1;
-  const aligned=!!image && !!geometry && !region && (!!automatic || !!batch.alignment) && !batch.rows.some(r=>hotelSourceBox(r.sourceBox)), first=top*scale, imageOffset=Math.max(0,28-first);
   let previous=0;
   return <section className="comparison">
     {image && !region && <div className="link-tools"><span>행에 마우스를 올리면 원본 위치와 선으로 연결됩니다.</span><button disabled={blocked || !activeRow} aria-pressed={placing} onClick={()=>setPlacing(!placing)}>{placing ? '원본에서 해당 품목을 클릭하세요 · 취소' : '선택 행 원본 위치 지정'}</button>{activeRow && <span>선택: {activeRow.inputName}</span>}{!activeBox && <span>위치 정보가 없으면 원본 위치를 지정하세요.</span>}</div>}
-    {image && !region && <div className="tools"><a href={image} target="_blank" rel="noreferrer">원본 크게 보기</a><details><summary>줄 위치 조정{geometry && !automatic && !batch.alignment && !batch.rows.some(r=>hotelSourceBox(r.sourceBox)) ? ' · 자동 맞춤 불가' : ''}</summary><fieldset disabled={blocked}>
+    {image && <div className="tools"><a href={image} target="_blank" rel="noreferrer">원본 크게 보기</a><details><summary>줄 위치 조정{geometry && !automatic && !batch.alignment ? ' · 자동 맞춤 불가' : ''}</summary><fieldset disabled={blocked}>
       <label>첫 줄 위치 <input aria-label="원본 첫 줄 위치" type="number" min="0" value={Math.round(top)} onChange={e=>onAlign({top:Math.max(0,Number(e.target.value)),step})}/></label>
       <label>줄 간격 <input aria-label="원본 줄 간격" type="number" min="8" value={Math.round(step)} onChange={e=>onAlign({top,step:Math.max(8,Number(e.target.value))})}/></label><button onClick={()=>onAlign(null)}>자동 맞춤</button>
     </fieldset></details></div>}
-    <div className="compare-scroll"><div ref={root} className={`compare-grid ${image ? 'with-image' : ''}`} style={aligned ? {gridTemplateColumns:`${Math.ceil(geometry.width*scale)}px minmax(300px,1fr)`} : undefined}>
-      {(image || batch.text) && <div className="source" style={aligned ? {paddingTop:imageOffset} : undefined}>{image ? <div className="image-crop" style={region&&geometry?{aspectRatio:`${geometry.width*region[2]}/${geometry.height*region[3]}`} : undefined}><img ref={imageRef} className={placing?'placing':''} onClick={e=>{if(!placing||blocked||!activeRow)return;const r=(e.currentTarget.closest(".image-crop")||e.currentTarget).getBoundingClientRect(),x=Math.max(0,Math.min(.98,(e.clientX-r.left)/r.width)),y=Math.max(0,Math.min(.98,(e.clientY-r.top)/r.height));onEdit(activeRow.id,{sourceBox:[Math.max(0,x-.12),Math.max(0,y-.015),Math.min(.24,1-Math.max(0,x-.12)),Math.min(.03,1-Math.max(0,y-.015))]});setPlacing(false);}} style={region?{width:`${100/region[2]}%`,maxWidth:"none",position:"absolute",left:`${-region[0]/region[2]*100}%`,top:`${-region[1]/region[3]*100}%`}:undefined} src={image} alt={`${side==='request'?'요청':'발주'} 업로드 원본`} onLoad={loaded}/></div> : <pre>{batch.text}</pre>}</div>}
+    <div className="compare-scroll"><div ref={root} className={`compare-grid ${image ? 'with-image' : ''}`} data-row-aligned={aligned ? "true" : "false"}>
+      {(image || batch.text) && <div className="source" style={aligned ? {paddingTop:imageOffset} : undefined}>{image ? <div className="image-crop" style={aligned ? {height:geometry.height*scale} : region&&geometry?{aspectRatio:`${geometry.width}/${geometry.height}`} : undefined}><img ref={imageRef} className={placing?'placing':''} onClick={e=>{if(!placing||blocked||!activeRow)return;const r=(e.currentTarget.closest(".image-crop")||e.currentTarget).getBoundingClientRect(),x=Math.max(0,Math.min(.98,(e.clientX-r.left)/r.width)),y=Math.max(0,Math.min(.98,(e.clientY-r.top)/r.height));onEdit(activeRow.id,{sourceBox:[Math.max(0,x-.12),Math.max(0,y-.015),Math.min(.24,1-Math.max(0,x-.12)),Math.min(.03,1-Math.max(0,y-.015))]});setPlacing(false);}} style={region?{height:aligned?geometry.height*scale/region[3]:undefined,width:`${100/region[2]}%`,maxWidth:"none",position:"absolute",left:`${-region[0]/region[2]*100}%`,top:`${-region[1]/region[3]*100}%`}:aligned?{height:geometry.height*scale}:undefined} src={image} alt={`${side==='request'?'요청':'발주'} 업로드 원본`} onLoad={loaded}/></div> : <pre>{batch.text}</pre>}</div>}
       <fieldset className="matches" disabled={blocked} style={aligned ? {paddingTop:Math.max(0,first-28)} : undefined}><table aria-label="원본 대조 매칭표"><thead><tr><th>매칭 품목</th><th>수량</th><th>단위</th><th><span className="sr-only">삭제</span></th></tr></thead><tbody>
       {batch.rows.map((r,i)=>{
         const index=r.sourceRowIndex ?? i, start=aligned ? (bounds[index]??top+step*index)*scale : 0;

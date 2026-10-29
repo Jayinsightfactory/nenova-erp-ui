@@ -1587,3 +1587,21 @@
 - 업로드회귀/dnSpy/manifest/write guard 통과. 전체검사/빌드는 기존공유node_modules 누락으로 독립의존성 설치후 재검증중. Linux 실제flock·CI·배포·실브라우저는 아직 미검증.
 - 검색어: 카네이션 381행 Audit135 Audit136 IMPORT_DEPLOY_BUSY IMPORT_PROGRESS_LOST flock deploy drain
 
+
+## 2026-10-29 호텔 원본·매칭 같은 가로줄
+- 원본 표 경계선을 패널별로 검출해 첫 행 위치/최소30px 행 높이를 이미지와 매칭표에 공통 적용. 표별 수동 줄 조정은 기존 서버 초안 alignment.panels에 보관. 제목/노란 배경/연한 빈 격자/행 개수 불일치 방어. ERP/API 쓰기 변경 없음.
+- 22행/14행 서로 다른 제목 높이 합성 이미지 실제 컴포넌트에서 1920px/800px 정렬·수량 격리·Tab/Shift+Tab 확인. 16개 단위/API 회귀 통과. 전체 검사/빌드/CI/배포는 진행 중(미검증).
+- 검색어: 호텔 같은 줄 행 정렬 hotelImageRowBounds alignment.panels
+## 2026-10-29 관리대장 담당자·업체 버튼 선택
+- 담당자 전체/개별 및 업체를 aria-pressed 버튼으로 변경. 담당자 변경시 업체선택/상세 초기화, 업체 재클릭 해제, 연결불가 disabled. 검색과 기존 권한 유지.
+- 방향키/Home/End 초점 이동, Enter/Space 선택. UI만 변경하며 API/SQL/ECOUNT/공유 원장 보존. 기존 교차연도 fixture 유지.
+- 검증/배포 진행 중. 추가 요청의 부호는 입금-판매(초과+,미수-), 차수귀속 기준은 사용자 확인 대기.
+- 검색어: customer-ledger 담당자 업체 버튼 aria-pressed signed balance
+
+- 추가 결정: 입금일 기준 차수 비교, 입금−판매(초과+,미수−). PeriodDay read-only 및 dnSpy CommonLogic 근거 확인. 달력31일/유일31/202639~44. 검증 반영입금+미반영deduct−ECOUNT판매, 이월 제외/부분차수 표시. 관련33테스트 통과, 통합검증/배포 진행중.
+
+## 2026-10-29 카네이션 완료 후12분 결과확인 경고
+- SELECT-only Audit137:2026/44-01,10:53:24 시작→11:05:53 SUCCESS(12분29초),381중324반영/57동일,사후381MATCHED/불일치0,스냅샷648. 재적용 불필요.
+- UI 총12분 제한을 진행정보updatedAt 미갱신12분 기준으로 변경. 실제진행만 대기연장,같은/역행/잘못된timestamp와정보소실은 연장하지않음. POST재전송/원장SQL변경없음.
+- 13분지속후성공·정체·역행·잘못된timestamp 회귀7개통과. 전체검사/빌드/CI/배포는 진행중(미검증). 검색어: Audit137 381 324 57 12분29초 idle timeout updatedAt
+

@@ -147,3 +147,24 @@ test('split source panels preserve row identity, order, quantities and global co
  assert.deepEqual(hotelSourcePanels([{id:'x'},...rows]),[]);
  assert.deepEqual(hotelSourcePanels(rows.filter(r=>r.id!=='c')),[]);
 });
+
+
+test('panel rules align long/short tables independently despite yellow headers and trailing blank grid',()=>{
+ function table(count,top){
+  const width=100,height=800,data=new Uint8ClampedArray(width*height*4).fill(255);
+  for(let y=top-22;y<top;y++)for(let x=0;x<width;x++){const i=(y*width+x)*4;data[i]=190;data[i+1]=145;data[i+2]=0;}
+  for(const y of [0,top-22,...Array.from({length:count+1},(_,i)=>top+i*22)])for(let x=0;x<width;x++){const i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=150;}
+  // Spreadsheet grid below the source is light gray, not table rules.
+  for(let y=top+(count+1)*22;y<height;y+=22)for(let x=0;x<width;x++){const i=(y*width+x)*4;data[i]=data[i+1]=data[i+2]=225;}
+  return {data,width,height};
+ }
+ for(const [count,top] of [[22,82],[14,122]]){
+  const image=table(count,top),bounds=hotelImageRowBounds(image,count,{allowTrailingSpace:true});
+  assert.deepEqual(bounds,Array.from({length:count+1},(_,i)=>(top+i*22)/800));
+  assert.equal(hotelImageRowBounds(image,count-1,{allowTrailingSpace:true}),null);
+  assert.equal(hotelImageRowBounds(image,count+1,{allowTrailingSpace:true}),null);
+  // A colored header bottom has no monochrome rule (as in the reported image).
+  for(let x=0;x<image.width;x++){const offset=(top*image.width+x)*4;image.data[offset]=255;image.data[offset+1]=255;image.data[offset+2]=255;}
+  assert.deepEqual(hotelImageRowBounds(image,count,{allowTrailingSpace:true}),bounds);
+ }
+});

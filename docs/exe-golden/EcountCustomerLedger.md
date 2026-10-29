@@ -42,3 +42,6 @@ OrderDetail, ShipmentDetail(Amount/Vat/isFix 포함), ShipmentFarm, ShipmentDate
 
 ## 2026-10-29 운영 수집 후속 검증
 PR1355 Cafe24 배포 및 SS3 검색/담당자필터/요청 성공. 최초 실수집은 채권 성공·은행 비교 보류였다. E010205 화면에서 폭에 따라 금월/전월 버튼이 숨겨지는 것을 확인했다. 날짜 연도 선택의 data-value는4자리, 표시2자리, 월은2자리다. 직접선택으로 2026-10-01~2026-10-29 조회 성공. 금월255입금행 중 확인한 첫100/마지막55행은13열과회계전표/정수금액/잔액 형식 일치. 숫자footer 유지. 같은날 E040723 최근한달조회/식별일치/11전표를 수동 조회로 확인했다. 공통 날짜helper로원본조건을 직접확정한다. 원본데이터 쓰기없음.
+
+## 2026-10-29 입금일 차수 비교
+사용자 확정: 입금일 기준 차수, 입금−판매(초과+,미수−). 로컬 dnSpy CommonLogic의 PeriodDay.BaseYmd/OrderYearWeek=연도+대차수 읽기 확인(exit0). SELECT-only probe 2026-09-29~10-29 달력31행/유일날짜31/202639~202644,10-29=202644. UI 버튼 선택은 shared 원장 쓰기 없음. 비교는 검증된 ECOUNT 일자별 판매와 은행 실제 입금일만 사용, 회계반영 이력의 공식수금합계 검증이 맞아야 입금 제공. 미반영은 기존 중복방지 정책의 deduct=true만 합산. 보류 차수는 차액null, 달력중복/누락은 비교불가. 이월금 제외 흐름비교이고 전표미수 귀속 아님. PeriodDay read 추가, Estimate/ShipmentDetail.Amount/Vat/isFix/WebProfitReport 등 전체 preserve.

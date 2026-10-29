@@ -211,7 +211,8 @@
       "shipmentFarm": "preserve",
       "estimate": "preserve",
       "stock": "preserve",
-      "yearFixture": "2025 and 2026 44-01 arguments preserved verbatim by lease wrapper"
+      "yearFixture": "2025 and 2026 44-01 arguments preserved verbatim by lease wrapper",
+      "progressTimeout": "12 minutes without an advancing finite server updatedAt; active jobs may exceed 12 minutes total; missing/stale/invalid progress never triggers automatic replay"
     }
   ],
   "crossYearFixture": {

@@ -1,3 +1,4 @@
+- [2026-10-29 관리대장 버튼 선택](2026-10-29_ecount-ledger-buttons.md)
 - [2026-10-29 네덜란드52차 연도](2026-10-29_arrival-nl52-year.md)
 - [2026-10-29 주차별 수익률 원천 검증 표시](2026-10-29_profit-validation-gate.md)
 - [2026-10-29 38·39차 수익률 SQL 근거](2026-10-29_profit-38-39-rootcause.md)
