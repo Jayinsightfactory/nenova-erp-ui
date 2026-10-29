@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import {displayRefreshStatus} from '../../lib/ecountCustomerLedgerPolicy.cjs';
 import { getReceivablesManagers, filterReceivablesRows } from '../../lib/ecountReceivablesPolicy.cjs';
 const money=n=>n==null?'—':n.toLocaleString('ko-KR');
 const time=s=>s?new Date(s).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'아직 수집되지 않음';
@@ -66,10 +67,11 @@ export default function CustomerLedger(){
     return()=>clearInterval(timer);
   },[selected,data?.refreshRequest?.status]);
   useEffect(()=>{const back=e=>{if(selected){e.preventDefault();setSelected('');}};window.addEventListener('nenova:menu-back-request',back);return()=>window.removeEventListener('nenova:menu-back-request',back);},[selected]);
-  const ledger=data?.ledger,period=data?.period||meta?.period,schedule=data?.schedule||meta?.schedule,refreshStatus=data?.refreshRequest?.status,refreshPending=['PENDING','RUNNING'].includes(refreshStatus),selectedCustomer=customers.find(c=>String(c.custKey)===selected);
+  const ledger=data?.ledger,period=data?.period||meta?.period,schedule=data?.schedule||meta?.schedule,refreshStatus=displayRefreshStatus(data),refreshPending=['PENDING','RUNNING'].includes(refreshStatus),selectedCustomer=customers.find(c=>String(c.custKey)===selected);
+  const refreshAllowed=schedule?.requestAllowed!==false;
   return <section className="ledger-page">
     <h1 data-ui-page-title>거래처관리대장1(채권)</h1>
-    <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 거래처관계기준</p>
+    <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · {data?.basisChanged?'이전 확인 자료 · 개별거래처기준':'이카운트 거래처관계기준'}</p>
     <div className="controls"><label htmlFor="ledger-search">거래처 검색</label><input id="ledger-search" type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="업체명 또는 담당자" /></div>
     <h2 className="selection-title">1. 담당자 선택</h2>
     <div className="managers" role="group" aria-label="담당자 선택" onKeyDown={navigateButtons}><button aria-pressed={!manager} onClick={()=>selectManager('')}>전체 담당자</button>{managers.map(name=><button key={name} aria-pressed={manager===name} onClick={()=>selectManager(manager===name?'':name)}>{name}</button>)}</div>
@@ -82,24 +84,27 @@ export default function CustomerLedger(){
       </button>)}
     </div>
     {meta&&!listError&&filteredCustomers.length===0&&<p className="empty">조건에 맞는 거래처가 없습니다. 검색어나 담당자를 변경해 주세요.</p>}
-    <div className="controls"><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button></div>
+    <div className="controls"><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||loading||requesting||refreshPending||!refreshAllowed}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button></div>
+    {selectedCustomer&&!refreshAllowed&&<p className="muted">최신화 가능 시간은 평일 08:00~18:00입니다. 기존 확인 자료는 시간과 관계없이 조회할 수 있습니다.</p>}
     {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}{selectedCustomer.sharedLedgerName&&` · ${selectedCustomer.sharedLedgerName} 원장 공유 (중복 집계 없음)`}</p>}
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
     {listError&&<p role="alert" className="error">{listError} <button onClick={loadCustomers}>목록 다시 불러오기</button></p>}
     {error&&<p role="alert" className="error">{error}</p>}
-    {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
+    {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?(refreshAllowed?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':'접수된 최신화 요청은 다음 가능 시간부터 처리됩니다. 기존 확인 자료는 계속 조회할 수 있습니다.'):refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
     {!listError&&meta&&customers.length===0&&<p className="notice">배정된 거래처가 없습니다. 전산의 거래처 담당자 배정을 확인해 주세요.</p>}
     {filteredCustomers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
     {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
     {!selected&&<p className="empty">거래처를 선택하면 전표별 판매·수금·잔액을 바로 확인할 수 있습니다.</p>}
     {loading&&<p role="status">자료를 확인하고 있습니다.</p>}
-    {data?.basisChanged&&<p role="status" className="notice">이카운트와 동일한 거래처관계기준으로 다시 확인해야 합니다. 최신화 요청을 눌러 주세요.</p>}
+    {data?.basisChanged&&<p role="status" className="notice">기존에 확인한 자료를 그대로 표시합니다. 아래 금액은 이전 개별기준 자료이며, 현재 거래처관계기준 잔액과 다를 수 있습니다. {refreshAllowed?'최신화 요청으로 새 기준 자료를 확인할 수 있습니다.':'다음 최신화 가능 시간에 새 기준으로 확인할 수 있습니다.'}</p>}
     {data?.failure&&<p role="status" className="notice">{data.failure.reason==='LINK_CHECK_REQUIRED'?'이카운트에서 이 거래처의 식별정보가 일치하는지 확인하지 못했습니다. 거래처 연결 확인이 필요합니다.':'최근 자동 조회를 완료하지 못했습니다. 다음 자동 수집 시각에 다시 조회합니다.'} 확인 시각: {time(data.failure.at)}{ledger?' 아래는 마지막으로 검증된 수집본입니다.':' 미확인 자료를 채권 0원으로 표시하지 않습니다.'}</p>}
-    {selected&&data&&!ledger&&!data.failure&&<p className="notice">이 거래처의 최근 1개월 자료가 아직 수집되지 않았습니다. 수집 PC의 로그인과 거래처 연결을 확인해야 합니다. 자료가 없는 상태를 채권 0원으로 표시하지 않습니다.</p>}
+    {selected&&data&&!ledger&&!data.failure&&!loading&&<p className="notice">아직 표시할 수 있는 검증본이 없습니다. {refreshAllowed?'최신화 요청으로 자료를 확인할 수 있습니다.':'최신화 가능 시간에 수집한 뒤 조회할 수 있습니다.'}</p>}
     {ledger&&<>
       {schedule?.stale&&!data?.failure&&<p role="status" className="notice">예정된 갱신 시각이 지났습니다. 아래 자료는 마지막으로 검증된 수집본입니다.</p>}
-      <div className="totals">{[['이월잔액',ledger.opening],['판매 합계',ledger.totals?.sales],['수금 합계',ledger.totals?.receipt],['최종잔액',ledger.totals?.balance]].map(([label,value])=><div key={label}><span>{label}</span><strong>{money(value)}</strong></div>)}</div>
+      <div className="totals">{[['이월잔액',ledger.opening],['판매 합계',ledger.totals?.sales],['수금 합계',ledger.totals?.receipt],[data?.basisChanged?'이전 기준 잔액':'최종잔액',ledger.totals?.balance]].map(([label,value])=><div key={label}><span>{label}</span><strong>{money(value)}</strong></div>)}</div>
+      {data?.basisChanged&&<p className="muted">이전 확인 전표·잔액을 보관하여 표시합니다. 새 입금 계산은 같은 조회 기준으로 갱신한 뒤 표시합니다.</p>}
+      {!data?.basisChanged&&<>
       <h2>입금 확인 후 계산 잔액</h2>
       {data.receipts?.status==='VERIFIED'?<>
         <div className="totals">{[['이카운트 공식잔액',ledger.totals?.balance],['확인된 미반영 입금',data.receipts.pendingAmount],['계산 잔액 (참고)',data.receipts.calculatedBalance]].map(([label,value])=><div key={label}><span>{label}</span><strong>{money(value)}</strong></div>)}</div>
@@ -115,6 +120,7 @@ export default function CustomerLedger(){
           {data.weekComparison.rows.map(w=><tr key={w.key}><td>{w.key.slice(0,4)}년 {Number(w.key.slice(4))}차</td><td>{w.from} ~ {w.to}{w.partial?' (일부 기간)':''}</td><td>{money(w.sales)}</td><td>{money(w.posted)}</td><td>{money(w.pending)}</td><td className={w.difference>0?'surplus':w.difference<0?'shortfall':''}>{w.difference==null?'확인 필요':`${w.difference>0?'+':''}${money(w.difference)} · ${w.difference>0?'초과입금':w.difference<0?'미수':'일치'}`}</td></tr>)}
         </tbody></table></div>
       </>:<p className="notice">전산 차수 달력을 확인하지 못해 차수별 비교를 표시하지 않습니다.</p>}
+      </>}
       <p>{ledger.rows.length.toLocaleString()}건 · {ledger.balanceOnly?'해당 기간 전표 없음 · 원본 이월잔액 확인':ledger.totals?'원본 합계 및 잔액 검증 완료':'원본에서 전표 없음 확인 · 잔액 미제공'}</p>
       <div className="ledger-table-scroll"><table><caption className="sr-only">선택 거래처의 최근 1개월 전표별 채권</caption><colgroup><col style={{width:70}}/><col style={{width:140}}/><col style={{width:170}}/><col style={{width:170}}/><col style={{width:180}}/></colgroup>
         <thead><tr><th scope="col">순번</th><th scope="col">일자</th><th scope="col">판매</th><th scope="col">수금</th><th scope="col">잔액</th></tr></thead>
