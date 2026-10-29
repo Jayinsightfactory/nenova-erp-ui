@@ -1593,3 +1593,5 @@
 - 방향키/Home/End 초점 이동, Enter/Space 선택. UI만 변경하며 API/SQL/ECOUNT/공유 원장 보존. 기존 교차연도 fixture 유지.
 - 검증/배포 진행 중. 추가 요청의 부호는 입금-판매(초과+,미수-), 차수귀속 기준은 사용자 확인 대기.
 - 검색어: customer-ledger 담당자 업체 버튼 aria-pressed signed balance
+
+- 추가 결정: 입금일 기준 차수 비교, 입금−판매(초과+,미수−). PeriodDay read-only 및 dnSpy CommonLogic 근거 확인. 달력31일/유일31/202639~44. 검증 반영입금+미반영deduct−ECOUNT판매, 이월 제외/부분차수 표시. 관련33테스트 통과, 통합검증/배포 진행중.
