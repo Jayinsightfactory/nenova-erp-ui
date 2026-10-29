@@ -1595,3 +1595,9 @@
 - 검색어: customer-ledger 담당자 업체 버튼 aria-pressed signed balance
 
 - 추가 결정: 입금일 기준 차수 비교, 입금−판매(초과+,미수−). PeriodDay read-only 및 dnSpy CommonLogic 근거 확인. 달력31일/유일31/202639~44. 검증 반영입금+미반영deduct−ECOUNT판매, 이월 제외/부분차수 표시. 관련33테스트 통과, 통합검증/배포 진행중.
+
+## 2026-10-29 카네이션 완료 후12분 결과확인 경고
+- SELECT-only Audit137:2026/44-01,10:53:24 시작→11:05:53 SUCCESS(12분29초),381중324반영/57동일,사후381MATCHED/불일치0,스냅샷648. 재적용 불필요.
+- UI 총12분 제한을 진행정보updatedAt 미갱신12분 기준으로 변경. 실제진행만 대기연장,같은/역행/잘못된timestamp와정보소실은 연장하지않음. POST재전송/원장SQL변경없음.
+- 13분지속후성공·정체·역행·잘못된timestamp 회귀7개통과. 전체검사/빌드/CI/배포는 진행중(미검증). 검색어: Audit137 381 324 57 12분29초 idle timeout updatedAt
+

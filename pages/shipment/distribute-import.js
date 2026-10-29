@@ -511,7 +511,8 @@ export default function DistributeImport() {
     // 실시간 진행 로그 — 서버 트랜잭션이 도는 동안 몇 건째/어떤 업체·품목을 입력 중인지 폴링으로 표시
     const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const recoverApplyResult = async () => {
-      const deadline = Date.now() + (12 * 60 * 1000);
+      let deadline = Date.now() + (12 * 60 * 1000);
+      let lastProgressUpdatedAt = 0;
       let missingProgressCount = 0;
       setApplyResult(prev => ({
         ...(prev || initialApplyResult),
@@ -533,6 +534,13 @@ export default function DistributeImport() {
             continue;
           }
           missingProgressCount = 0;
+          // Bound silence, not total duration: large files may legitimately
+          // take longer than 12 minutes. Repeated stale polls are not progress.
+          const updatedAt = Number(serverProgress.updatedAt);
+          if (Number.isFinite(updatedAt) && updatedAt > lastProgressUpdatedAt) {
+            lastProgressUpdatedAt = updatedAt;
+            deadline = Date.now() + (12 * 60 * 1000);
+          }
           setApplyResult(prev => (prev?.running ? { ...prev, progress: serverProgress } : prev));
           if (!serverProgress.finished) continue;
           if (serverProgress.result) return serverProgress.result;
@@ -547,7 +555,7 @@ export default function DistributeImport() {
           if (progressError?.message?.includes('로그인 세션') || progressError?.code === 'IMPORT_PROGRESS_LOST') throw progressError;
         }
       }
-      throw Object.assign(new Error('서버 응답은 끊겼고 12분 내에 처리 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.'), { code: 'IMPORT_PROGRESS_LOST' });
+      throw Object.assign(new Error('12분 동안 서버 처리 진행이 갱신되지 않아 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.'), { code: 'IMPORT_PROGRESS_LOST' });
     };
     const pollTimer = setInterval(async () => {
       try {
