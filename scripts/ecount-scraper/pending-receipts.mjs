@@ -13,9 +13,12 @@ export function sanitizeBankRows(source,status,secret){
   return source.rows.filter(c=>!isFooter(c)).map(c=>{
     if(c.length!==13||c[2]!=='입금'||!/^\d{4}\/\d{2}\/\d{2}\s+(오전|오후)\s+\d{1,2}:\d{2}:\d{2}$/.test(normalize(c[1])))throw new Error('BANK_ROW_MISMATCH');
     const amount=Number(c[7].replace(/,/g,'')),balance=Number(c[10].replace(/,/g,''));
-    if(!c[3]||!c[8]||!c[10]||!Number.isSafeInteger(amount)||amount<=0||!Number.isFinite(balance)||(status==='PENDING'?!!c[12]:!/^\d{4}\/\d{2}\/\d{2}-\d+$/.test(c[12])))throw new Error('BANK_STATUS_MISMATCH');
-    const pattern=digest([normalize(c[3]),normalize(c[8]),normalize(c[11])]);
-    return {id:digest([normalize(c[3]),normalize(c[1]),amount,balance,normalize(c[8]),normalize(c[11])]),pattern,date:c[1].slice(0,10).replaceAll('/','-'),amount,status,
+    if(!c[3]||!c[10]||!Number.isSafeInteger(amount)||amount<=0||!Number.isFinite(balance)||(status==='PENDING'?!!c[12]:!/^\d{4}\/\d{2}\/\d{2}-\d+$/.test(c[12])))throw new Error('BANK_STATUS_MISMATCH');
+    const id=digest([normalize(c[3]),normalize(c[1]),amount,balance,normalize(c[8]),normalize(c[11])]);
+    // Own-account transfers can have no payer. Retain their status, but never learn
+    // a customer alias from an empty payer shared by unrelated transactions.
+    const pattern=c[8]?digest([normalize(c[3]),normalize(c[8]),normalize(c[11])]):digest(['NO_PAYER',id]);
+    return {id,pattern,date:c[1].slice(0,10).replaceAll('/','-'),amount,status,
       code:c[5]?pending.codeHash(c[5]):null,self:/네노바|nenova/i.test(normalize(c[6])),postingDate:status==='REFLECTED'?c[12].slice(0,10).replaceAll('/','-'):null};
   });
 }
@@ -35,11 +38,30 @@ async function waitReport(page){
   await page.getByRole('columnheader',{name:'거래처코드',exact:true}).waitFor({state:'visible',timeout:30000});
   await page.waitForLoadState('networkidle',{timeout:15000});
 }
+export async function setReportPeriod(page,period){
+  for(const [date,offset] of [[period.from,0],[period.to,3]]){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('SOURCE_PERIOD_MISMATCH');
+    const [year,month,day]=date.split('-');
+    for(const [index,value,label] of [[offset,year,year.slice(-2)],[offset+1,month,month]]){
+      const field=page.locator(`button[data-cid="ddlSYear_DATE"][data-index="${index}"]:visible`);
+      if((await field.innerText()).trim()!==label){
+        await field.click();
+        await page.locator(`ul.dropdown-menu-selectbox:visible li[data-value="${value}"] a`).click();
+      }
+      if((await field.innerText()).trim()!==label)throw new Error('SOURCE_PERIOD_MISMATCH');
+    }
+    const field=page.locator(`input[data-cid="ddlSYear_DATE"][data-index="${offset+2}"]:visible`);
+    await field.fill(day);await field.press('Tab');
+    if(Number(await field.inputValue())!==Number(day))throw new Error('SOURCE_DAY_INPUT_NOT_COMMITTED');
+  }
+  // Let date-widget blur/re-render finish before clicking the search button.
+  await page.waitForLoadState('networkidle',{timeout:15000});
+}
 export async function collectBankSnapshot(page,base,period,status,secret){
   const allRows=[];
   const prevFrom=`${period.from.slice(0,7)}-01`,currentFrom=`${period.to.slice(0,7)}-01`;
   const prevTo=new Date(Date.parse(`${currentFrom}T00:00:00Z`)-86400000).toISOString().slice(0,10);
-  for(const [shortcut,from,to] of [['전월',prevFrom,prevTo],['금월(~오늘)',currentFrom,period.to]]){
+  for(const [from,to] of [[prevFrom,prevTo],[currentFrom,period.to]]){
     await page.goto('about:blank',{waitUntil:'domcontentloaded'});
     await page.goto(base+HASH,{waitUntil:'domcontentloaded'});
     const search=page.getByRole('button',{name:'검색(F8)',exact:true});
@@ -52,7 +74,8 @@ export async function collectBankSnapshot(page,base,period,status,secret){
     }
     if(await page.getByRole('button',{name:'',exact:true}).count())throw new Error('BANK_ACCOUNT_FILTER_ACTIVE');
     await page.getByRole('radio',{name:' 입금',exact:true}).check();
-    await page.getByRole('button',{name:shortcut,exact:true}).click();
+    await setReportPeriod(page,{from,to});
+    await search.click();
     await waitReport(page);
     const tab=status==='PENDING'?'미반영':'회계반영',tabId=status==='PENDING'?'tabUnReflect':'tabAccountReflect';
     await page.getByRole('link',{name:tab,exact:true}).click();

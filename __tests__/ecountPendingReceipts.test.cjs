@@ -56,6 +56,10 @@ test('bank adapter hashes private data, preserves two same-time payments with di
  const rows=sanitizeBankRows({headers,rows:[cells,[...cells.slice(0,10),'1200',...cells.slice(11)]]},'PENDING','fixture-secret');
  const footer=Array(13).fill('');footer[7]='400';footer[10]='1200';
  assert.equal(sanitizeBankRows({headers,rows:[cells,footer]},'PENDING','fixture-secret').length,1);
+ const blankPayer=[...cells];blankPayer[8]='';blankPayer[6]='네노바';
+ const blankOther=[...blankPayer];blankOther[10]='1200';
+ const own=sanitizeBankRows({headers,rows:[blankPayer,blankOther]},'PENDING','fixture-secret');
+ assert.equal(own[0].self,true);assert.notEqual(own[0].pattern,own[1].pattern);
  assert.notEqual(rows[0].id,rows[1].id);assert.equal(rows[0].pattern,rows[1].pattern);assert.equal(rows[0].code,target);
  assert.ok(!JSON.stringify(rows).includes('fixture'));assert.ok(!JSON.stringify(rows).includes('1234567890'));
  assert.throws(()=>sanitizeBankRows({headers,rows:[[...cells.slice(0,12),'2026/01/02-1']]},'PENDING','secret'));
@@ -67,6 +71,19 @@ test('stored evidence remains scoped and recalculates after sanitization',()=>{
  const safe=Object.fromEntries(Object.entries(e).map(([k,v])=>[k,validateBankSnapshot(v)]));
  const base=ledger({totals:{balance:1000,receipt:700}});
  assert.deepEqual(calculatePendingReceipts(safe,base,target),calculatePendingReceipts(e,base,target));
+});
+test('explicit date widgets work across years without responsive shortcut buttons',async()=>{
+ const {setReportPeriod}=await import('../scripts/ecount-scraper/pending-receipts.mjs');
+ const values=['26','10','29','26','10','29'];let active=null,settled=false;
+ const page={waitForLoadState:async()=>{settled=true;},locator:selector=>{
+  const index=selector.match(/data-index="(\d)"/);
+  if(index){const n=Number(index[1]);return {innerText:async()=>values[n],click:async()=>{active=n;},fill:async v=>{values[n]=v;},press:async key=>assert.equal(key,'Tab'),inputValue:async()=>values[n]};}
+  const option=selector.match(/data-value="(\d+)"/);assert.ok(option,selector);
+  return {click:async()=>{values[active]=option[1].length===4?option[1].slice(-2):option[1];}};
+ }};
+ await setReportPeriod(page,{from:'2025-12-31',to:'2026-01-31'});
+ assert.deepEqual(values,['25','12','31','26','01','31']);assert.equal(settled,true);
+ await assert.rejects(setReportPeriod(page,{from:'bad',to:'2026-01-31'}),{message:'SOURCE_PERIOD_MISMATCH'});
 });
 test('orchestration brackets ledger collection and never fabricates bank zero after failure',async()=>{
  const {collectLedgerWithBank}=await import('../scripts/ecount-scraper/pending-receipts.mjs');
