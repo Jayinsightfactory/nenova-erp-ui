@@ -46,3 +46,6 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 
 ## 2026-10-29 호텔 특수매칭·최종수량
 실제 dnSpy CLI FormOrderAdd btnSave_Click/UnitQuantity 재확인(Master→Detail Out/Est→History). 기존 my-customer ADD/expectedCurrentQty writer 재사용. 특수매칭/누락은 payload 제외, 최종합산 조절만 기존단위로 전달. SELECT-only 2026/45-01 Cust680 및2025동일키 ViewOrder0, ViewShipment/ShipmentDate/ShipmentFarm/Estimate0, DetailFix=1+ViewOrder+PeriodDay 견적노출0, 확정 Amount/Vat0, WebProfitReport2026/45 0. 신규 ERP SQL/스키마/운영 시험주문 없음. [기준표](../plans/hotel-special-orders-2026-10-29.md).
+
+## 2026-10-29 호텔 박스계수 조건 분리
+실제 dnSpy CLI btnSave_Click/UnitQuantity 재확인. GRACIOSA 활성7품목은 OutUnit=EstUnit=송이, 박스계수0. 입력 송이 그대로 Out/Est 저장하는 기존 my-customer 산식 유지. 박스 자동여분 분류 불가를 주문 차단으로 취급한 UI 조건만 제거. 읽기 전용 downstream0 확인. [기준표](../plans/hotel-no-box-factor-2026-10-29.md).

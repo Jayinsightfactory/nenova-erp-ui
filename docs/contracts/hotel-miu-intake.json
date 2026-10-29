@@ -153,7 +153,7 @@
       "name": "HOTEL_ORDER_WORKSPACE",
       "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection."
+      "sideEffect": "Default hotel order workspace: request minus purchase; purchase to Raum, whole residual boxes to hotel surplus, remainder explicitly assigned. Uses existing my-customer ADD with expectedCurrentQty, preserving stock/shipment/estimate/profit. Client persists pending receipt before each POST; unknown outcomes block retry. Server results previousQty/finalQty are the audit values. Parse reads existing shared and hotel mappings only; ambiguous matches require selection. Same-unit orders require no box factor: missing/zero factor yields zero automatic surplus and the whole balance remains explicitly assignable. Mixed-unit conversion still requires actual ratios. Display and final preflight share buildHotelOrderRows; existing my-customer writer unchanged."
     },
     {
       "name": "SAVE_SERVER_WORKSPACE",

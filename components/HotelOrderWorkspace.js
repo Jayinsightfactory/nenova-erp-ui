@@ -377,7 +377,7 @@ export default function HotelOrderWorkspace({apiGet=liveGet,apiPost=livePost}={}
       <legend>4. 선택업체 분류</legend>
       <label>발주수량 → 라움 <select value={work.raum} onChange={e => patch({ raum: e.target.value })}>{customerOptions}</select></label>
       <label>완성 박스 잔량 → 호텔여분 <select value={work.surplus} onChange={e => patch({ surplus: e.target.value })}>{customerOptions}</select></label>
-      <p>잔량 = 요청 − 발주. 정확히 1박스 이상은 완성 박스만 호텔여분으로 배정하고 나머지는 직접 분류합니다. 예: 잔량 75송이, 박스당 30송이 → 호텔여분 60, 분류필요 15.</p>
+      <p>잔량 = 요청 − 발주. 정확히 1박스 이상은 완성 박스만 호텔여분으로 배정하고 나머지는 직접 분류합니다. 예: 잔량 75송이, 박스당 30송이 → 호텔여분 60, 분류필요 15. 박스 기준이 없는 품목은 잔량을 직접 업체에 배정하면 환산 없이 등록할 수 있습니다.</p>
       <label>분류 업체 추가 <select value={vendor} onChange={e => setVendor(e.target.value)}>{customerOptions}</select></label><button data-tone="match" disabled={!vendor || work.pinned.includes(vendor)} onClick={() => patch({ pinned: [...work.pinned, vendor] })}>업체 고정 추가</button>
       {work.pinned.map(key => <button data-tone="danger" key={key} onClick={() => { const allocations = Object.fromEntries(Object.entries(work.allocations).map(([pk, row]) => [pk, Object.fromEntries(Object.entries(row).filter(([ck]) => ck !== key))])); patch({ pinned: work.pinned.filter(k => k !== key), allocations }); }}>{customers.find(c => String(c.CustKey) === key)?.CustName || key} 고정 취소</button>)}
       <div className="hotel-scroll"><table><thead><tr><th>품목 / 단위</th><th>요청수량</th><th>발주수량 · 라움</th><th>잔량</th><th>호텔여분</th><th>분류필요</th>{work.pinned.map(key => <th key={key}>{customers.find(c => String(c.CustKey) === key)?.CustName || key}</th>)}</tr></thead><tbody>
