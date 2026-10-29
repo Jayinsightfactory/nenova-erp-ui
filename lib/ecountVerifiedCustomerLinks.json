@@ -1,0 +1,29 @@
+[
+  {
+    "custKey": 340,
+    "name": "다원플라워",
+    "lookupName": "다원플라워",
+    "sourceHash": "6fe2ebf2b0fc952683c7569293039faa22e0d669208ecd2dc1f20d9e94e5f21d",
+    "localIdentityHash": "5a5f2d7b85997b73798c967d26768f5ec7062c02c2bd771f64e02d4d08058273",
+    "canonicalKey": 340,
+    "lookupQuery": "다원플라워"
+  },
+  {
+    "custKey": 646,
+    "name": "대지원예2",
+    "lookupName": "대지원예2",
+    "sourceHash": "54fe140b4fc75f3225a2df90a9890f99aa150db13593f7d6e0a435956d606335",
+    "localIdentityHash": "f238d72c9a8fa98b792e0e9ebc79b65770767f6ed6d4c45d5c569832e5ca0607",
+    "canonicalKey": 646,
+    "lookupQuery": "대지"
+  },
+  {
+    "custKey": 351,
+    "name": "대지원예",
+    "lookupName": "대지원예2",
+    "sourceHash": "54fe140b4fc75f3225a2df90a9890f99aa150db13593f7d6e0a435956d606335",
+    "localIdentityHash": "f238d72c9a8fa98b792e0e9ebc79b65770767f6ed6d4c45d5c569832e5ca0607",
+    "canonicalKey": 646,
+    "lookupQuery": "대지"
+  }
+]
