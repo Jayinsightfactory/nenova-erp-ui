@@ -1,11 +1,12 @@
+import HotelQuantityInput from './HotelQuantityInput';
 import { useEffect, useRef, useState } from 'react';
 
-export default function HotelQuantityMatrix({matrix,side,blocked,onEdit,renderSource}) {
+export default function HotelQuantityMatrix({matrix,side,blocked,onEdit,renderSource,editingId,onEditBatch}) {
   const numbers=Array.from({length:Math.max(4,...matrix.batches.map(b=>b.number))},(_,i)=>i+1);
   return <section className="quantity-matrix" aria-label={`${side==='request'?'요청':'발주'} 차별 수량표`}>
-    <h3>{side==='request'?'요청':'발주'}수량 · 차별 합계</h3><p>저장자료 순서입니다. 수량 수정 후 Enter 또는 다른 칸을 누르면 반영됩니다.</p>
-    <div className="matrix-scroll"><table><thead><tr><th>품목 / 단위</th>{numbers.map(n=>{const batch=matrix.batches.find(b=>b.number===n);return <th key={n}>{n}차{batch && <SourcePopover label={`${n}차 원본`}>{renderSource(batch)}</SourcePopover>}</th>;})}<th>총수량</th></tr></thead><tbody>
-      {matrix.rows.map(row=><tr key={row.key}><th title={row.name}>{row.name}<small>{row.unit}{row.error && ' · 원본 확인 필요'}</small></th>{numbers.map(n=>{const batch=matrix.batches.find(b=>b.number===n),cell=batch && row.cells[batch.id];return <td key={n}>{cell ? <Quantity value={cell.qty} disabled={blocked || !!cell.error} label={`${side==='request'?'요청':'발주'} ${n}차 ${row.name} 수량`} onCommit={value=>onEdit(batch.id,row.key,value)}/> : <span>—</span>}</td>;})}<td className="total">{row.error ? '확인 필요' : row.total.toLocaleString('ko-KR',{maximumFractionDigits:6})}</td></tr>)}
+    <h3>{side==='request'?'요청':'발주'}수량 · 차별 합계</h3><p>저장자료 순서입니다. 각 차수의 수정 버튼을 누르면 품목·수량을 고칠 수 있습니다. ± 버튼으로 소수점을 조절합니다.</p>
+    <div className="matrix-scroll"><table><thead><tr><th>품목 / 단위</th>{numbers.map(n=>{const batch=matrix.batches.find(b=>b.number===n);return <th key={n}>{n}차{batch && <button disabled={blocked} onClick={()=>onEditBatch(batch.id)}>{editingId===batch.id?`${n}차 수정 중`:`${n}차 수정`}</button>}{batch && <SourcePopover label={`${n}차 원본`}>{renderSource(batch)}</SourcePopover>}</th>;})}<th>총수량</th></tr></thead><tbody>
+      {matrix.rows.map(row=><tr key={row.key}><th title={row.name}>{row.name}<small>{row.unit}{row.special && ' · 특수매칭'}{row.excluded && ' · 누락'}{row.error && ' · 원본 확인 필요'}</small></th>{numbers.map(n=>{const batch=matrix.batches.find(b=>b.number===n),cell=batch && row.cells[batch.id];return <td key={n}>{cell ? <HotelQuantityInput value={cell.qty} disabled={blocked || !!cell.error || editingId!==batch.id} label={`${side==='request'?'요청':'발주'} ${n}차 ${row.name} 수량`} onCommit={value=>onEdit(batch.id,row.key,value)}/> : <span>—</span>}</td>;})}<td className="total">{row.excluded ? '0 · 누락' : row.error ? '확인 필요' : row.total.toLocaleString('ko-KR',{maximumFractionDigits:6})}</td></tr>)}
       {!matrix.rows.length && <tr><td colSpan={numbers.length+2}>매칭 결과를 저장하면 이곳에 표시됩니다.</td></tr>}
     </tbody></table></div>
     <style jsx>{`
@@ -13,11 +14,6 @@ export default function HotelQuantityMatrix({matrix,side,blocked,onEdit,renderSo
       .matrix-scroll {overflow:auto} table {border-collapse:separate;border-spacing:0;min-width:640px;width:100%;font-size:13px} th,td {padding:7px 5px;border-bottom:1px solid #dfe5ed;text-align:center;vertical-align:middle} thead th {background:#e7f4f0;white-space:nowrap} th:first-child {text-align:left;min-width:150px;max-width:220px} tbody th {font-weight:500;background:#fff} small {display:block;color:#586982;margin-top:3px} .total {font-weight:700;color:#115e59;background:#eef8f5;white-space:nowrap}
     `}</style>
   </section>;
-}
-function Quantity({value,disabled,label,onCommit}) {
-  const [draft,setDraft]=useState(String(value));useEffect(()=>setDraft(String(value)),[value]);
-  const commit=()=>{if(draft!==String(value)){if(draft!=='' && Number.isFinite(Number(draft)) && Number(draft)>=0)onCommit(draft);else setDraft(String(value));}};
-  return <><input aria-label={label} type="number" min="0" step="any" value={draft} disabled={disabled} onChange={e=>setDraft(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){setDraft(String(value));}}}/><style jsx>{`input {width:76px;box-sizing:border-box;font:inherit;border:1px solid #bac8db;border-radius:6px;padding:6px;background:white;color:#17243c;text-align:right}`}</style></>;
 }
 function SourcePopover({label,children}) {
   const [open,setOpen]=useState(false),timer=useRef(),trigger=useRef(),pinned=useRef(false),root=useRef();

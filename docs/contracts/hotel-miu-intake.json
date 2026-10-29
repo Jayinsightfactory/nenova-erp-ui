@@ -28,7 +28,11 @@
     "__tests__/hotelOrderDraftStore.test.cjs",
     "styles/hotelOrderButtons.module.css",
     "components/HotelMatchReview.js",
-    "components/HotelQuantityMatrix.js"
+    "components/HotelQuantityMatrix.js",
+    "lib/hotelOrderEdits.js",
+    "components/HotelQuantityInput.js",
+    "components/HotelFinalQuantities.js",
+    "__tests__/hotelOrderEdits.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -37,6 +41,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "SPECIAL_MATCH_FINAL_QUANTITY_AND_OMISSION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Special names aggregate by normalized name+unit without ProdKey and never enter ERP registration. Explicit batch edit resets final overrides/classification. Omitted rows remain visible but excluded from totals/classification/order payload. Final quantity overrides preserve source sum and validate current unit, including explicit zero. ceil/floor/round buttons act only on explicit input. Immutable registrationSnapshot captures totals/special/omitted and groups before existing my-customer ADD call. Existing CAS owner/year/week scope and frozen receipts preserved. No SQL/schema or existing order writer changes."
+    },
     {
       "name": "IMAGE_SOURCE_LINKS_COMPACT_REVIEW",
       "orderDetail": "preserve",
@@ -221,6 +231,7 @@
     "__tests__/erpContractManifest.test.js",
     "__tests__/hotelOrderWorkspace.test.js",
     "__tests__/hotelOrderParseApi.test.js",
-    "__tests__/hotelOrderDraftStore.test.cjs"
+    "__tests__/hotelOrderDraftStore.test.cjs",
+    "__tests__/hotelOrderEdits.test.js"
   ]
 }

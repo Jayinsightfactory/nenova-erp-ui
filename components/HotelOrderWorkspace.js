@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost } from '../lib/useApi';
+import { apiGet as liveGet, apiPost as livePost } from '../lib/useApi';
 import { buildHotelOrderRows, hotelRegistrationPlan, hasHotelDraftContent } from '../lib/hotelOrderWorkspace';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks';
 import { commitHotelReview, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageUrl, hotelSourceBox, recoverHotelSourceRows, recoverHotelWorkLocations } from '../lib/hotelOrderReview';
 
 import HotelMatchReview from './HotelMatchReview';
 import HotelQuantityMatrix from './HotelQuantityMatrix';
+import HotelFinalQuantities from './HotelFinalQuantities';
+import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot} from '../lib/hotelOrderEdits';
 
 const STORE = 'hotel-order-workspace-v1';
 const fmt = n => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: 6 });
@@ -23,7 +25,7 @@ const empty = () => {
   return { year: base.year, week: `${base.majorText}-01`, request: [], purchase: [], allocations: {}, pinned: [], raum: '', surplus: '', receipts: [], history: [], frozen: false, texts: { request: '', purchase: '' } };
 };
 
-export default function HotelOrderWorkspace() {
+export default function HotelOrderWorkspace({apiGet=liveGet,apiPost=livePost}={}) {
   const [work, setWork] = useState(empty), [ready, setReady] = useState(false);
   const [quickWeeks] = useState(() => hotelMiuMajorWeekOptions(new Date(), 5, 5));
   const [customers, setCustomers] = useState([]), [products, setProducts] = useState({});
@@ -37,12 +39,12 @@ export default function HotelOrderWorkspace() {
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [info, setInfo] = useState('');
   const [search, setSearch] = useState(''), [picker, setPicker] = useState(null), [hits, setHits] = useState([]);
   const [vendor, setVendor] = useState(''), [preview, setPreview] = useState(null), [sheets, setSheets] = useState(null);
-  const [uploadPreview, setUploadPreview] = useState(null);
+  const [uploadPreview, setUploadPreview] = useState(null), [editingBatch,setEditingBatch]=useState(null);
   const lock = useRef(false), focus = useRef(null), lookup = useRef(0), storageKey = useRef('');
   const blocked = !!busy || saving || !!storageError || work.frozen || !ready;
   // Background autosave must never steal focus or block the next paste/keystroke.
   const inputBlocked = !!busy || work.frozen || !ready;
-  const model = useMemo(() => buildHotelOrderRows(work.request, work.purchase, products, work.allocations), [work, products]);
+  const model = useMemo(() => buildHotelOrderRows(work.request, work.purchase, products, work.allocations, work), [work, products]);
   const patch = value => { setPreview(null); setWork(w => ({ ...w, ...value })); };
   function persist(next) {
     const snapshot = JSON.parse(JSON.stringify(next)), generation = epoch.current;
@@ -74,7 +76,7 @@ export default function HotelOrderWorkspace() {
   async function loadDraft(id, year = browseYear, week = browseWeek) {
     if (busy || saving) return;
     if (dirty && !window.confirm('현재 미저장 내용을 서버 저장본으로 바꿀까요? 필요한 내용은 먼저 다운로드하세요.')) return;
-    epoch.current++; setBusy('서버 작업 불러오기'); setPreview(null); setError(''); setInfo('');
+    epoch.current++; setEditingBatch(null); setBusy('서버 작업 불러오기'); setPreview(null); setError(''); setInfo('');
     try {
       await queue.current;
       const d = await apiGet('/api/sales/hotel-order-drafts', { year, week, id });
@@ -128,7 +130,7 @@ export default function HotelOrderWorkspace() {
   function newWork() {
     if (!window.confirm('새 작업을 시작할까요? 서버에 저장된 이전 작업은 목록에서 다시 열 수 있습니다. 미저장 내용은 먼저 다운로드하세요.')) return;
     epoch.current++; meta.current = { id: '', revision: 0 }; savedJson.current = ''; failed.current = false;
-    setWork({ ...empty(), pinned: work.pinned, raum: work.raum, surplus: work.surplus }); setSaved(''); setStorageError(''); setError(''); setInfo(''); setPreview(null); setSheets(null);
+    setEditingBatch(null); setWork({ ...empty(), pinned: work.pinned, raum: work.raum, surplus: work.surplus }); setSaved(''); setStorageError(''); setError(''); setInfo(''); setPreview(null); setSheets(null);
   }
   useEffect(() => {
     apiGet('/api/auth/me').then(d => {
@@ -157,7 +159,7 @@ export default function HotelOrderWorkspace() {
     return () => { live = false; };
   }, [ready]); // restored drafts need fresh product factors
   useEffect(() => {
-    if (!picker) return;
+    if (!picker || picker.special) return;
     const seq = ++lookup.current;
     const timer = setTimeout(() => apiGet('/api/products/search', { q: search }).then(d => { if (seq === lookup.current) setHits((d.products || []).slice(0, 100)); }).catch(e => setError(e.message)), 250);
     return () => { clearTimeout(timer); lookup.current++; };
@@ -188,7 +190,7 @@ export default function HotelOrderWorkspace() {
         d = await res.json(); if (!res.ok || !d.success) throw Error(d.error || '파일 분석 실패');
         if (d.sheetNames) { setSheets({ side, file, names: d.sheetNames }); return; }
       } else d = await apiPost('/api/sales/hotel-miu-parse', { text: texts[side] });
-      const rows = (d.items || []).filter(r => !r.skip).map((r, sourceRowIndex) => ({ ...r, sourceRowIndex, id: crypto.randomUUID(), source: file?.name || '붙여넣기', originalQty: r.qty, originalUnit: r.unit }));
+      const rows = applyHotelSpecialMappings((d.items || []).filter(r => !r.skip).map((r, sourceRowIndex) => ({ ...r, sourceRowIndex, id: crypto.randomUUID(), source: file?.name || '붙여넣기', originalQty: r.qty, originalUnit: r.unit })), work.specialMappings);
       if (!rows.length) throw Error(`품명·수량 열을 확인하세요. ${(d.logs || []).join(' / ')}`);
       setProducts(p => ({ ...p, ...Object.fromEntries((d.products || []).map(x => [Number(x.ProdKey), x])) }));
       setWork(w => ({ ...w, pending: { ...w.pending, [side]: { id: crypto.randomUUID(), source: file?.name || '붙여넣기', imageId, text: file ? '' : texts[side], sourceRowCount: rows.length, rows } } })); setPreview(null);
@@ -216,7 +218,7 @@ export default function HotelOrderWorkspace() {
     if (work.pending?.[side]?.rows.some(r => r.id === id)) {
       patch({ pending: { ...work.pending, [side]: { ...work.pending[side], rows: work.pending[side].rows.map(r => r.id === id ? { ...r, ...update } : r) } } }); return;
     }
-    patch({ [side]: work[side].map(r => r.id === id ? { ...r, ...update } : r), allocations: {} });
+    patch({ [side]: work[side].map(r => r.id === id ? { ...r, ...update } : r), allocations: {}, orderTotals: {} });
   }
   function deleteLine(side, id) {
     const pending=work.pending?.[side];
@@ -226,7 +228,7 @@ export default function HotelOrderWorkspace() {
       const batch=hotelSavedBatches(work,side).find(b=>b.rows.some(r=>r.id===id));
       if(!batch)return;
       const rows=new Map(retain(batch.rows).map(r=>[r.id,r]));
-      patch({[side]:work[side].filter(r=>r.id!==id).map(r=>rows.get(r.id)||r),allocations:{},batches:{...work.batches,[side]:(work.batches?.[side]||[]).map(b=>b.id===batch.id?{...b,sourceRowCount:b.sourceRowCount??batch.rows.length}:b)}});
+      patch({[side]:work[side].filter(r=>r.id!==id).map(r=>rows.get(r.id)||r),allocations:{},orderTotals:{},batches:{...work.batches,[side]:(work.batches?.[side]||[]).map(b=>b.id===batch.id?{...b,sourceRowCount:b.sourceRowCount??batch.rows.length}:b)}});
     }
   }
   async function saveReview(side) {
@@ -242,11 +244,21 @@ export default function HotelOrderWorkspace() {
   }
   async function chooseProduct(p) {
     const selected = picker, line = [...work[selected.side], ...(work.pending?.[selected.side]?.rows || [])].find(r => r.id === selected.id);
-    editLine(selected.side, selected.id, { prodKey: p.ProdKey, prodName: p.DisplayName || p.ProdName, unit: line.unit || p.OutUnit });
+    editLine(selected.side, selected.id, { specialName: '', prodKey: p.ProdKey, prodName: p.DisplayName || p.ProdName, displayName:p.DisplayName || p.ProdName, matchWarning:'', unit: line.unit || p.OutUnit });
+    setWork(w=>({...w,specialMappings:rememberHotelSpecial(w,line,null)}));
     setProducts(v => ({ ...v, [p.ProdKey]: p })); setPicker(null);
     document.getElementById(`match-${selected.id}`)?.focus();
     try { await apiPost('/api/sales/hotel-miu-intake', { action: 'saveMapping', inputName: line.inputName, prod: { prodKey: p.ProdKey, prodName: p.ProdName, displayName: p.DisplayName, flowerName: p.FlowerName, counName: p.CounName }, unit: line.unit || p.OutUnit }); }
     catch (e) { setError(`이번 선택은 적용됐지만 매칭 기억 저장 실패: ${e.message}`); }
+  }
+  function chooseSpecial() {
+    if(blocked || !picker)return;
+    const selected=picker,line=[...work[selected.side],...(work.pending?.[selected.side]?.rows||[])].find(r=>r.id===selected.id);
+    try {const special=specialHotelLine(line,search);editLine(selected.side,selected.id,special);setWork(w=>({...w,specialMappings:rememberHotelSpecial(w,line,search)}));setPicker(null);document.getElementById(`match-${selected.id}`)?.focus();setInfo('특수매칭을 저장했습니다. 같은 이름·단위는 차수별로 합산하며 ERP 주문에는 포함하지 않습니다.');}catch(e){setError(e.message);}
+  }
+  async function finishBatchEdit() {
+    if(blocked)return;
+    try {await persist(work);setEditingBatch(null);setInfo('차수의 품목·수량 수정을 서버에 저장했습니다.');}catch(e){setError(e.message);}
   }
   async function prepare() {
     if (lock.current || work.frozen) return;
@@ -255,7 +267,7 @@ export default function HotelOrderWorkspace() {
     try {
       const catalog = await apiGet('/api/products/search', { refresh: '1' });
       const freshProducts = Object.fromEntries((catalog.products || []).map(p => [Number(p.ProdKey), p]));
-      const freshModel = buildHotelOrderRows(work.request, work.purchase, freshProducts, work.allocations);
+      const freshModel = buildHotelOrderRows(work.request, work.purchase, freshProducts, work.allocations, work);
       setProducts(freshProducts);
       if (JSON.stringify(freshModel) !== JSON.stringify(model)) throw Error('품목 정보가 변경되어 합산·분류표를 갱신했습니다. 다시 확인 후 등록하세요.');
       const groups = hotelRegistrationPlan(freshModel, { ...work, customers });
@@ -275,7 +287,7 @@ export default function HotelOrderWorkspace() {
   async function register() {
     if (!preview || lock.current || work.frozen) return;
     lock.current = true; setBusy('주문등록 중'); setError('');
-    let state = { ...work, frozen: true, receipts: [] };
+    let state = { ...work, frozen: true, receipts: [], registrationSnapshot:hotelRegistrationSnapshot(work,products,preview,new Date().toISOString()) };
     try {
       // Persist intent BEFORE the network write: a lost response cannot become a blind retry.
       await storeNow(state);
@@ -304,10 +316,10 @@ export default function HotelOrderWorkspace() {
     } catch (e) { setError(e.message); } finally { lock.current = false; setBusy(''); }
   }
   const customerOptions = <><option value="">업체 선택</option>{customers.map(c => <option key={c.CustKey} value={c.CustKey}>{c.CustName}</option>)}</>;
-  function reviewView(side, batch) {
-    return <HotelMatchReview key={batch.id} batch={batch} side={side} blocked={blocked} onLocate={()=>locateSource(side,batch)}
+  function reviewView(side, batch, editable=true) {
+    return <HotelMatchReview key={batch.id} batch={batch} side={side} blocked={blocked || !editable} onLocate={()=>locateSource(side,batch)}
       onEdit={(id,update)=>editLine(side,id,update)} onDelete={id=>deleteLine(side,id)}
-      onPick={r=>{setPicker({side,id:r.id});setSearch(r.inputName || '');}}
+      onPick={r=>{setPicker({side,id:r.id,special:!!r.specialName});setSearch(r.specialName || r.inputName || '');}}
       onAlign={alignment=>{if(work.pending?.[side]?.id===batch.id)patch({pending:{...work.pending,[side]:{...work.pending[side],alignment}}});else patch({batches:{...work.batches,[side]:work.batches[side].map(b=>b.id===batch.id?{...b,alignment}:b)}});}}/>;
   }
   return <section className="hotel-work">
@@ -348,7 +360,8 @@ export default function HotelOrderWorkspace() {
         {!work.week && <p>텍스트는 먼저 입력할 수 있습니다. 매칭·서버 저장 전에 주문 차수를 선택하세요.</p>}
         <button data-tone="match" onClick={() => parse(side)} disabled={blocked || !work.week || !texts[side].trim() || !!work.pending?.[side]}>텍스트 매칭</button>
         <span> 저장된 수량 {work[side].length}행</span>
-        </div><HotelQuantityMatrix matrix={hotelBatchMatrix(work,side,products)} side={side} blocked={blocked} renderSource={batch=>reviewView(side,batch)} onEdit={(batchId,key,value)=>{try {setWork(editHotelBatchQuantity(work,side,batchId,key,value,products));setPreview(null);}catch(e){setError(e.message);}}}/></div>
+        </div><HotelQuantityMatrix matrix={hotelBatchMatrix(work,side,products)} side={side} blocked={blocked} editingId={editingBatch?.side===side?editingBatch.id:null} onEditBatch={id=>setEditingBatch({side,id})} renderSource={batch=>reviewView(side,batch,false)} onEdit={(batchId,key,value)=>{try {setWork(editHotelBatchQuantity(work,side,batchId,key,value,products));setPreview(null);}catch(e){setError(e.message);}}}/></div>
+        {editingBatch?.side===side && hotelSavedBatches(work,side).filter(b=>b.id===editingBatch.id).map(b=><section key={b.id} aria-label={`${side==='request'?'요청':'발주'} ${b.number}차 수정`}><h3>{b.number}차 수정</h3><p>수정은 서버에 자동 보관됩니다. 품목·수량 변경 시 최종수량 조절과 업체 분류를 초기화합니다.</p>{reviewView(side,b)}<button data-tone="save" disabled={blocked} onClick={finishBatchEdit}>{b.number}차 수정 완료 · 저장</button></section>)}
         {uploadPreview?.side === side && <div className="hotel-review"><div className="hotel-source"><img src={uploadPreview.url} alt="매칭 중인 업로드 원본" /></div><p role="status">품목 · 수량을 매칭하고 있습니다…</p></div>}
         {work.pending?.[side] && <section className="hotel-pending" aria-label={`${side === 'request' ? '요청' : '발주'} 저장 전 검토`}>
           <h3>저장 전 검토 · {work.pending[side].rows.length}행</h3><p>이미지·원문 옆에서 품목과 수량을 확인하세요. 아직 아래 합산수량에는 포함되지 않았습니다. 검토 내용도 서버에 자동 보관됩니다.</p>
@@ -359,6 +372,7 @@ export default function HotelOrderWorkspace() {
       </fieldset>)}
     </div>
     {sheets && <fieldset disabled={!!busy}><legend>엑셀 시트 선택</legend>{sheets.names.map(name => <button data-tone="match" key={name} onClick={() => parse(sheets.side, sheets.file, name)}>{name}</button>)}<button onClick={() => setSheets(null)}>취소</button></fieldset>}
+    <HotelFinalQuantities rows={hotelFinalQuantities(work,products)} blocked={blocked} onEdit={(row,value)=>{try{setWork(setHotelFinalQuantity(work,row,value));setPreview(null);}catch(e){setError(e.message);}}} onOmit={(key,excluded)=>{setWork(omitHotelItem(work,key,excluded));setPreview(null);}} onReset={key=>{const orderTotals={...work.orderTotals};delete orderTotals[key];patch({orderTotals,allocations:{}});}}/>
     <fieldset disabled={blocked}>
       <legend>4. 선택업체 분류</legend>
       <label>발주수량 → 라움 <select value={work.raum} onChange={e => patch({ raum: e.target.value })}>{customerOptions}</select></label>
@@ -372,10 +386,11 @@ export default function HotelOrderWorkspace() {
     </fieldset>
     {model.errors.length > 0 && <div role="alert" className="hotel-error">{model.errors.map((e, i) => <div key={i}>{e}</div>)}</div>}
     {(work.pending?.request || work.pending?.purchase) && <p className="hotel-warning">검토 중인 자료를 수량에 저장하거나 검토 취소한 뒤 주문등록을 진행하세요.</p>}
-    <button data-tone="order" disabled={blocked || !model.rows.length || !!model.errors.length || !!work.pending?.request || !!work.pending?.purchase} onClick={prepare}>주문등록 전 내역 확인</button>
-    {preview && <section><h3>등록 전 확인 — {work.year} / {work.week}</h3><p>아래 수량을 기존 주문에 더합니다. 업체별로 저장하며, 중간 실패 시 완료된 업체는 유지됩니다.</p><table><thead><tr><th>업체</th><th>품목</th><th>작업 전</th><th>추가</th><th>예상 작업 후</th></tr></thead><tbody>{preview.flatMap(g => g.items.map(it => <tr key={`${g.custKey}-${it.prodKey}`}><td>{g.custName}</td><td>{it.prodName} ({it.unit})</td><td>{fmt(it.expectedCurrentQty)}</td><td>+{fmt(it.qty)}</td><td>{fmt(it.expectedCurrentQty + it.qty)}</td></tr>))}</tbody></table><button data-tone="order" disabled={blocked} onClick={register}>확인 · 주문등록 시작</button><button disabled={!!busy} onClick={() => setPreview(null)}>취소</button></section>}
+    <button data-tone="order" disabled={blocked || !model.rows.length || !!model.errors.length || !!work.pending?.request || !!work.pending?.purchase} onClick={prepare}>최종 주문등록 · 합계 확인</button>
+    {preview && <section><h3>등록 전 확인 — {work.year} / {work.week}</h3><p>아래 수량을 기존 주문에 더합니다. 업체별로 저장하며, 중간 실패 시 완료된 업체는 유지됩니다.</p><div className="hotel-scroll"><table><thead><tr><th>업체</th><th>품목</th><th>작업 전</th><th>추가</th><th>예상 작업 후</th></tr></thead><tbody>{preview.flatMap(g => g.items.map(it => <tr key={`${g.custKey}-${it.prodKey}`}><td>{g.custName}</td><td>{it.prodName} ({it.unit})</td><td>{fmt(it.expectedCurrentQty)}</td><td>+{fmt(it.qty)}</td><td>{fmt(it.expectedCurrentQty + it.qty)}</td></tr>))}</tbody></table></div><button data-tone="order" disabled={blocked} onClick={register}>확인 · 합계수량 주문등록</button><button disabled={!!busy} onClick={() => setPreview(null)}>취소</button></section>}
     {busy && <p role="status">{busy}</p>}{error && <p role="alert" className="hotel-error">{error}</p>}{info && <p role="status">{info}</p>}
-    {(work.frozen || work.history?.length > 0) && <section><h3>작업 전 · 작업 후 등록내역</h3><p>등록을 시작한 초안은 잠겨 있습니다. 결과가 불명확한 업체는 현재 주문을 대조한 뒤 별도 작업으로 처리하세요.</p><button data-tone="load" disabled={!!busy || saving || !!storageError} onClick={readback}>현재 주문 다시 조회</button>{[...(work.history || []), ...work.receipts].map((r, i) => <section key={i}><h4>{r.custName} · {r.year}/{r.week} · {r.status}</h4><p>{new Date(r.time).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} {r.warning}</p><table><thead><tr><th>품목</th><th>작업 전</th><th>등록량</th><th>작업 후 (서버 확인)</th><th>현재 조회</th></tr></thead><tbody>{r.items.map(it => { const result = r.results.find(x => Number(x.prodKey) === it.prodKey); return <tr key={it.prodKey}><td>{it.prodName} ({it.unit})</td><td>{fmt(result?.previousQty ?? it.expectedCurrentQty)}</td><td>{fmt(it.qty)}</td><td>{result ? fmt(result.finalQty) : '확인 필요'}</td><td>{r.current ? fmt(r.current[it.prodKey] ?? 0) : '미조회'}</td></tr>; })}</tbody></table></section>)}</section>}
+    {work.registrationSnapshot && <section aria-label="등록 시점 합계와 누락 이력"><h3>등록 시점 합계 · 누락 이력</h3><p>{new Date(work.registrationSnapshot.time).toLocaleString('ko-KR')} · {work.registrationSnapshot.year}/{work.registrationSnapshot.week}</p><div className="hotel-scroll"><table><thead><tr><th>품목</th><th>원본 요청 합계</th><th>최종 요청수량</th><th>처리</th></tr></thead><tbody>{work.registrationSnapshot.rows.map(r=><tr key={r.key}><td>{r.name} ({r.unit})</td><td>{fmt(r.sourceQty)}</td><td>{r.excluded?0:fmt(r.finalQty)}</td><td>{r.excluded?'누락':r.special?'특수매칭 · 합산 전용':r.registration?'주문 대상':'수량 0 · 제외'}</td></tr>)}</tbody></table></div></section>}
+    {(work.frozen || work.history?.length > 0) && <section><h3>등록 히스토리 · 작업 전 / 작업 후</h3><p>등록을 시작한 초안은 잠겨 있습니다. 결과가 불명확한 업체는 현재 주문을 대조한 뒤 별도 작업으로 처리하세요.</p><button data-tone="load" disabled={!!busy || saving || !!storageError} onClick={readback}>현재 주문 다시 조회</button>{[...(work.history || []), ...work.receipts].map((r, i) => <section key={i}><h4>{r.custName} · {r.year}/{r.week} · {r.status}</h4><p>{new Date(r.time).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} {r.warning}</p><div className="hotel-scroll"><table><thead><tr><th>품목</th><th>작업 전</th><th>등록량</th><th>작업 후 (서버 확인)</th><th>현재 조회</th></tr></thead><tbody>{r.items.map(it => { const result = r.results.find(x => Number(x.prodKey) === it.prodKey); return <tr key={it.prodKey}><td>{it.prodName} ({it.unit})</td><td>{fmt(result?.previousQty ?? it.expectedCurrentQty)}</td><td>{fmt(it.qty)}</td><td>{result ? fmt(result.finalQty) : '확인 필요'}</td><td>{r.current ? fmt(r.current[it.prodKey] ?? 0) : '미조회'}</td></tr>; })}</tbody></table></div></section>)}</section>}
     <button data-tone="load" disabled={!!busy || saving} onClick={newWork}>새 작업</button>
     <button disabled={!work.week} onClick={() => {
       const a = document.createElement('a'), url = URL.createObjectURL(new Blob([JSON.stringify(work, null, 2)], { type: 'application/json' })); a.href = url; a.download = `호텔주문-${work.year}-${work.week}.json`; a.click(); URL.revokeObjectURL(url);
@@ -383,7 +398,7 @@ export default function HotelOrderWorkspace() {
     {picker && <div className="hotel-picker" role="dialog" aria-modal="true" aria-label="품목 매칭" onKeyDown={e => {
       if (e.key === 'Escape') { const id = picker.id; setPicker(null); document.getElementById(`match-${id}`)?.focus(); }
       if (e.key === 'Tab') { const all = [...e.currentTarget.querySelectorAll('button,input,select')]; const first = all[0], last = all[all.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
-    }}><h3>품목 선택</h3><input ref={focus} aria-label="품목 검색" value={search} onChange={e => setSearch(e.target.value)} /><select size={12} aria-label="품목 검색 결과" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const p = hits.find(p => String(p.ProdKey) === e.currentTarget.value); if (p) chooseProduct(p); } }} id="hotel-product-choice"><option value="">품목 선택 후 아래 적용</option>{hits.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.DisplayName} / {p.ProdName} ({p.ProdKey})</option>)}</select><button data-tone="match" onClick={() => { const p = hits.find(p => String(p.ProdKey) === document.getElementById('hotel-product-choice').value); if (p) chooseProduct(p); }}>선택 적용</button><button onClick={() => { const id = picker.id; setPicker(null); document.getElementById(`match-${id}`)?.focus(); }}>닫기</button></div>}
+    }}><h3>{picker.special?'특수매칭 직접입력':'품목 선택'}</h3><button data-tone="match" onClick={()=>setPicker({...picker,special:!picker.special})}>{picker.special?'DB 품목 선택':'특수매칭'}</button>{picker.special&&<p>DB에 없는 합산용 품목입니다. 같은 이름·단위는 1차·2차·3차에 합산되며 ERP 주문에는 포함되지 않습니다.</p>}<input ref={focus} aria-label={picker.special?'특수매칭 이름':'품목 검색'} maxLength={picker.special?100:undefined} value={search} onChange={e => setSearch(e.target.value)} />{picker.special?<button data-tone="save" disabled={blocked||!search.trim()} onClick={chooseSpecial}>특수매칭 저장</button>:<><select size={12} aria-label="품목 검색 결과" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const p = hits.find(p => String(p.ProdKey) === e.currentTarget.value); if (p) chooseProduct(p); } }} id="hotel-product-choice"><option value="">품목 선택 후 아래 적용</option>{hits.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.DisplayName} / {p.ProdName} ({p.ProdKey})</option>)}</select><button data-tone="match" onClick={() => { const p = hits.find(p => String(p.ProdKey) === document.getElementById('hotel-product-choice').value); if (p) chooseProduct(p); }}>선택 적용</button></>}<button onClick={() => { const id = picker.id; setPicker(null); document.getElementById(`match-${id}`)?.focus(); }}>닫기</button></div>}
     <style jsx>{`
       .hotel-entry-columns {display:grid;grid-template-columns:minmax(250px,32%) minmax(0,1fr);gap:20px;align-items:start} @media(max-width:900px){.hotel-entry-columns {grid-template-columns:minmax(0,1fr)}}
       .hotel-review {display:grid;grid-template-columns:minmax(260px,35%) minmax(0,1fr);gap:20px;align-items:start} .hotel-source {min-width:0;background:#f5f7fa;border:1px solid #dfe5ed;border-radius:8px;padding:12px} .hotel-source h4 {margin:0 0 12px} .hotel-source img {display:block;width:100%;height:auto;margin-top:10px} .hotel-source pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit} .hotel-pending {margin-top:8px;border-top:2px solid #237e83;padding-top:4px} .hotel-pending p {margin:3px 0;font-size:13px} .hotel-pending h3 {margin-top:0} .hotel-batch {margin-top:16px;border:1px solid #bbd4d0;border-radius:8px;padding:12px} .hotel-batch summary {cursor:pointer;padding:8px;background:#eef8f5;color:#195e56;margin-bottom:12px} .hotel-review .hotel-line-edit {margin:0} @media(max-width:760px) {.hotel-review {grid-template-columns:minmax(0,1fr)}}

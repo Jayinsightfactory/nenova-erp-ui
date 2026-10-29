@@ -1639,3 +1639,7 @@
 - 기존 sales-feed GET 및 distribution-live-history 읽기 전용 재사용, SQL·EXE 저장순서·ERP 원장 변경 없음. 교차연도 fixture/계약 갱신.
 - 빌드/manifest/dnSpy/write guard/UI layout 통과. Chrome 1920/390: 원문 선택→분석→예시 적용, 전년도 정확한 이력범위, 중복 차단, 조회실패 보존 통과. 기존 복사/저장재열기/정정 smoke도 통과. 전체 회귀/CI/배포는 진행 중(미검증).
 - 검색어: 카톡방 재고관리 영업방 원문 최신 전산이력 KakaoStockInbox stockSourceWeek
+
+## 2026-10-29 호텔 특수매칭·최종등록
+- 특수 이름/단위 차별합산, 차수수정, 최종수량 조절/누락복원, 소수3방식, 등록 snapshot/잠금히스토리.32개 테스트와 격리 UI(3차합산/수정/누락/round/ADD/부분실패) 통과. 필수검사·배포 진행중. 운영주문 쓰기0.
+- 검색어: 호텔 특수매칭 누락 최종수량 registrationSnapshot hotelOrderEdits
