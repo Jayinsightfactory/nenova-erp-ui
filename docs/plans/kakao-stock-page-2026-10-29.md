@@ -13,3 +13,6 @@
 웹 전용 설정 분류: docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md §2. ERP SQL 신설/수정 없음. 설치 EXE ClassOrderDetail dnSpy CLI 확인(2026-10-29): OutQuantity 및 OrderDetail 저장은 native 원장 경로이며 새 페이지에서 호출하지 않음. 기존 FormShipmentDistribution golden 참조. 새 ERP 업무키 대상 쓰기가 없으므로 운영 원장 전후 probe/downstream 변경 검증은 해당 없음. 참고 이력은 기존 읽기 API 계약 유지.
 
 메뉴 기준: 공통 shell 적용, 페이지 세로 스크롤, 반응형, 기본 HTML 컨트롤 및 focus 표시. ERP 반영 확인은 해당 없음(반영 기능 없음). 실제 브라우저·테스트·빌드 검증은 작업 후 기록.
+
+## 원문·이력 상시 표시 후속
+기존 원문 피드 GET과 PasteErpHistoryEvidence 읽기 전용 API만 재사용. 원장/기존 처리표시 변경 없음. 새 판정은 원문 연도·차수 유일성뿐이며 표시와 분석버튼 모두 같은 sourceWeek helper 사용. 자동 피드 조회 실패는 기존 목록 보존, 사용자 선택은 identity로 보존. 분석은 클릭한 원문 snapshot을 검토 화면에 전달하고 재고 적용은 별도 확인. 메뉴 기준: 페이지 스크롤/검색/페이지 이동/라디오 방향키 선택 적용. 기존 SQL·EXE 저장 순서 불변.

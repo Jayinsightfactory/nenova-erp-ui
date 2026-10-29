@@ -21,3 +21,10 @@ A. UserFavorite의 kakao-stock-ledger namespace에 독립 저장본을 추가한
 - 검색어: 카톡방 재고관리 시작재고 변경내역 kakao-stock-ledger
 
 - 검증 완료: 전체 test:erp-contract, dnSpy, manifest, ERP write guard, UI layout, webpack build 통과. Chrome 1920/390에서 예시 계산·복사·저장재열기·Enter/Escape·정정·시작재고 수정 통과, ERP 쓰기 요청 0. PR/배포는 후속 진행.
+
+## 2026-10-29 카톡 재고장 원문·이력 상시 표시
+- 접힌 원문 영역을 상단 2열로 분리: 최근 3일 자동 조회/검색/페이지 이동/선택 원문 전체 및 최신 전산이력. 원문 30초/선택 이력 10초 갱신.
+- 선택 원문 분석 → 적용 전 확인 → 명시적 재고 적용. ERP 이력과 독립 적용표시, 중복 적용/다른 연도·차수/복수차수 차단. 조회 실패는 목록·선택·입력 유지.
+- 기존 sales-feed GET 및 distribution-live-history 읽기 전용 재사용, SQL·EXE 저장순서·ERP 원장 변경 없음. 교차연도 fixture/계약 갱신.
+- 빌드/manifest/dnSpy/write guard/UI layout 통과. Chrome 1920/390: 원문 선택→분석→예시 적용, 전년도 정확한 이력범위, 중복 차단, 조회실패 보존 통과. 기존 복사/저장재열기/정정 smoke도 통과. 전체 회귀/CI/배포는 진행 중(미검증).
+- 검색어: 카톡방 재고관리 영업방 원문 최신 전산이력 KakaoStockInbox stockSourceWeek

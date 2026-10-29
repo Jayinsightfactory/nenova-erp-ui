@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {stockSourceWeek,stockInboxRows,mergeStockInbox} from '../lib/kakaoStockInbox.js';
+assert.equal(stockSourceWeek('43-1 콜 카네이션 변경사항','2026-43-01'),'2026-43-01');
+assert.equal(stockSourceWeek('2025-43-1 변경사항','2026-43-01'),'2025-43-01');
+assert.equal(stockSourceWeek('44-1 변경사항','2026-43-01'),'2026-44-01');
+assert.equal(stockSourceWeek('43-1 변경\n44-1 변경','2026-43-01'),null);
+assert.equal(stockSourceWeek('2025-43-1 변경\n2026-43-1 변경','2026-43-01'),null);
+assert.equal(stockSourceWeek('0-1 변경','2026-43-01'),null);
+assert.equal(stockSourceWeek('문라이트 1추가','2026-43-01'),'2026-43-01');
+assert.equal(stockSourceWeek('문라이트 1추가','43-01'),null);
+const old={identity:'old',created_at:'2026-10-28T01:00:00Z',message:'문라이트 1추가'};
+const fresh={identity:'new',created_at:'2026-10-29T01:00:00Z',message:'노비아 1취소'};
+assert.deepEqual(stockInboxRows([old,fresh]).map(r=>r.identity),['new','old']);
+assert.deepEqual(stockInboxRows([old,fresh],'문라이트').map(r=>r.identity),['old']);
+assert.equal(mergeStockInbox([old],[fresh,{...old,message:'문라이트 2추가'}]).length,2);
+assert.equal(mergeStockInbox([old],[fresh,{...old,message:'문라이트 2추가'}])[1].message,'문라이트 2추가');
+console.log('stock inbox scope, cross-year, mixed scope, search, ordering, stable identities passed');
