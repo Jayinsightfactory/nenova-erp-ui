@@ -48,6 +48,7 @@ export const MENU_ITEMS = [
       { href: '/orders/sales-paste', labelKey: '영업부 붙여서 주문등록', popup: false },
       { href: '/orders/paste', labelKey: '붙여넣기 주문등록',  popup: true  },
       { href: '/orders/import', labelKey: '업로드 주문등록',    popup: false },
+      { href: '/orders/kakao-stock', labelKey: '카톡방 재고관리', popup: false },
       { href: '/orders/kakao-audit', labelKey: '카톡 변경 검증', popup: false },
       { href: '/orders/change-queue', labelKey: '카톡 변경 큐', popup: false },
       { href: '/orders',       labelKey: '주문관리',          popup: false },

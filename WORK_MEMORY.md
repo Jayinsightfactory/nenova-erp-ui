@@ -1605,3 +1605,10 @@
 - UI 총12분 제한을 진행정보updatedAt 미갱신12분 기준으로 변경. 실제진행만 대기연장,같은/역행/잘못된timestamp와정보소실은 연장하지않음. POST재전송/원장SQL변경없음.
 - 13분지속후성공·정체·역행·잘못된timestamp 회귀7개통과. 전체검사/빌드/CI/배포는 진행중(미검증). 검색어: Audit137 381 324 57 12분29초 idle timeout updatedAt
 
+
+## 2026-10-29 카톡방 재고관리
+- 페이지 전용 재고장/원문 분석/직접입력/시작재고 정정/카톡 복사 구현. UserFavorite 별도 저장본, ERP 원장 변경 없음.
+- 예시·0·취소초과·단위·교차연도 테스트와 메뉴/write guard 통과. 전체검사/빌드/브라우저/배포 진행 중(미검증).
+- 검색어: 카톡방 재고관리 kakao-stock-ledger 시작재고 업체수량 변경내역
+
+- 검증 완료: 전체 test:erp-contract, dnSpy, manifest, ERP write guard, UI layout, webpack build 통과. Chrome 1920/390에서 예시 계산·복사·저장재열기·Enter/Escape·정정·시작재고 수정 통과, ERP 쓰기 요청 0. PR/배포는 후속 진행.
