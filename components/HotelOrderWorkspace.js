@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { buildHotelOrderRows, hotelRegistrationPlan, hasHotelDraftContent } from '../lib/hotelOrderWorkspace';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks';
-import { commitHotelReview, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity } from '../lib/hotelOrderReview';
+import { commitHotelReview, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageUrl, hotelSourceBox, recoverHotelSourceRows, recoverHotelWorkLocations } from '../lib/hotelOrderReview';
 
 import HotelMatchReview from './HotelMatchReview';
 import HotelQuantityMatrix from './HotelQuantityMatrix';
@@ -79,7 +79,17 @@ export default function HotelOrderWorkspace() {
       await queue.current;
       const d = await apiGet('/api/sales/hotel-order-drafts', { year, week, id });
       meta.current = { id, revision: d.record.revision }; failed.current = false; savedJson.current = JSON.stringify(d.record.work);
-      setWork(d.record.work); setSaved(d.record.updatedAt); setStorageError(''); setSheets(null);
+      let restored=d.record.work;
+      const needsLocations=['request','purchase'].some(side=>[...(restored.pending?.[side]?[restored.pending[side]]:[]),...hotelSavedBatches(restored,side)].some(b=>b.imageId && b.rows.some(r=>!hotelSourceBox(r.sourceBox))));
+      if(needsLocations && !restored.frozen){
+        try {
+          const list=await apiGet('/api/sales/hotel-order-drafts',{year,week}),peers=[];
+          for(const record of list.records || [])if(record.id!==id){try{peers.push((await apiGet('/api/sales/hotel-order-drafts',{year,week,id:record.id})).record.work);}catch{/* Optional recovery never blocks loading. */}}
+          restored=recoverHotelWorkLocations(restored,peers);
+          if(restored!==d.record.work)setInfo('같은 원본의 저장 위치를 복구했습니다. 기존 품목·수량은 유지됩니다.');
+        }catch{setInfo('저장 자료는 불러왔습니다. 원본 위치 다시 읽기로 정렬을 복구할 수 있습니다.');}
+      }
+      setWork(restored); setSaved(d.record.updatedAt); setStorageError(''); setSheets(null);
       const catalog = await apiGet('/api/products/search'); setProducts(Object.fromEntries((catalog.products || []).map(p => [Number(p.ProdKey), p])));
     } catch (e) { setError(e.message); } finally { setBusy(''); }
   }
@@ -186,6 +196,22 @@ export default function HotelOrderWorkspace() {
       setInfo(`${rows.length}행을 매칭했습니다. 원본 옆 결과를 확인하고 저장 버튼을 눌러 수량에 반영하세요. ${(d.logs || []).join(' / ')}`);
     } catch (e) { setError(e.message); } finally { if (localUrl) URL.revokeObjectURL(localUrl); setUploadPreview(null); lock.current = false; setBusy(''); }
   }
+  async function locateSource(side,batch) {
+    if(lock.current || blocked)return;
+    lock.current=true;setBusy('원본 품목 위치 확인 중');setError('');
+    try {
+      const image=await fetch(hotelImageUrl(batch.imageId),{credentials:'include'});if(!image.ok)throw Error('원본 이미지를 불러오지 못했습니다.');
+      const fd=new FormData();fd.append('file',await image.blob(),batch.imageId);
+      const response=await fetch('/api/sales/hotel-miu-parse',{method:'POST',credentials:'include',body:fd});
+      const parsed=await response.json();if(!response.ok||!parsed.success)throw Error(parsed.error||'위치 분석 실패');
+      const rows=recoverHotelSourceRows(batch.rows,(parsed.items||[]).filter(r=>!r.skip));
+      if(!rows)throw Error('원본 품목명·수량이 모두 일치하지 않아 위치를 적용하지 않았습니다. 기존 값은 유지됩니다.');
+      let next;
+      if(work.pending?.[side]?.id===batch.id)next={...work,pending:{...work.pending,[side]:{...work.pending[side],rows}}};
+      else {const byId=new Map(rows.map(r=>[r.id,r]));next={...work,[side]:work[side].map(r=>byId.get(r.id)||r)};}
+      await storeNow(next);setInfo('원본 위치를 서버에 저장했습니다. 기존 품목·수량·단위는 유지됩니다.');
+    }catch(e){setError(e.message);}finally{lock.current=false;setBusy('');}
+  }
   function editLine(side, id, update) {
     if (work.pending?.[side]?.rows.some(r => r.id === id)) {
       patch({ pending: { ...work.pending, [side]: { ...work.pending[side], rows: work.pending[side].rows.map(r => r.id === id ? { ...r, ...update } : r) } } }); return;
@@ -279,7 +305,7 @@ export default function HotelOrderWorkspace() {
   }
   const customerOptions = <><option value="">업체 선택</option>{customers.map(c => <option key={c.CustKey} value={c.CustKey}>{c.CustName}</option>)}</>;
   function reviewView(side, batch) {
-    return <HotelMatchReview key={batch.id} batch={batch} side={side} blocked={blocked}
+    return <HotelMatchReview key={batch.id} batch={batch} side={side} blocked={blocked} onLocate={()=>locateSource(side,batch)}
       onEdit={(id,update)=>editLine(side,id,update)} onDelete={id=>deleteLine(side,id)}
       onPick={r=>{setPicker({side,id:r.id});setSearch(r.inputName || '');}}
       onAlign={alignment=>{if(work.pending?.[side]?.id===batch.id)patch({pending:{...work.pending,[side]:{...work.pending[side],alignment}}});else patch({batches:{...work.batches,[side]:work.batches[side].map(b=>b.id===batch.id?{...b,alignment}:b)}});}}/>;

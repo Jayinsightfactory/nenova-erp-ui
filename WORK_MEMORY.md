@@ -1626,3 +1626,7 @@
 - 검색어: 카톡방 재고관리 kakao-stock-ledger 시작재고 업체수량 변경내역
 
 - 검증 완료: 전체 test:erp-contract, dnSpy, manifest, ERP write guard, UI layout, webpack build 통과. Chrome 1920/390에서 예시 계산·복사·저장재열기·Enter/Escape·정정·시작재고 수정 통과, ERP 쓰기 요청 0. PR/배포는 후속 진행.
+
+## 2026-10-29 이전 초안 위치 복구
+- 동일 계정/연도/차수/원본이미지 후보 중 원본품목명+원본수량 유일일치 위치만 복구. 기존 edited qty/unit/prodKey/배분/로그 보존. 실패/중복/충돌/잠금은 적용 안 함. 별도 원본 위치 다시 읽기 제공. 위치만 기존 서버CAS로 보관. 26개 회귀 통과, 전체검사/배포/실자료확인 진행 중.
+- 검색어: 호텔 이전초안 위치복구 recoverHotelSourceRows 동일이미지

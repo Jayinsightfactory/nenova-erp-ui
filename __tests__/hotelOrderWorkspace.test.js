@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHotelOrderRows, hotelRegistrationPlan, hotelConvert, uniqueHotelMappings, hasHotelDraftContent } from '../lib/hotelOrderWorkspace.js';
 import { hotelMiuMajorWeekOptions } from '../lib/hotelMiuWeeks.js';
-import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds, hotelSourceBox, hotelSourcePanels, hotelBoxInRegion } from '../lib/hotelOrderReview.js';
+import { commitHotelReview, hotelImageUrl, hotelNextBatchNumber, hotelSavedBatches, hotelBatchMatrix, editHotelBatchQuantity, hotelImageRowBounds, hotelSourceBox, hotelSourcePanels, hotelBoxInRegion, recoverHotelSourceRows, recoverHotelWorkLocations } from '../lib/hotelOrderReview.js';
 
 test('numbered quantity matrix edits preserve exact scope and original evidence, normalize mixed units and conserve totals',()=>{
   const products={7:{ProdKey:7,DisplayName:'TEST',OutUnit:'송이',SteamOf1Box:30,SteamOf1Bunch:10,BunchOf1Box:3}};
@@ -167,4 +167,25 @@ test('panel rules align long/short tables independently despite yellow headers a
   for(let x=0;x<image.width;x++){const offset=(top*image.width+x)*4;image.data[offset]=255;image.data[offset+1]=255;image.data[offset+2]=255;}
   assert.deepEqual(hotelImageRowBounds(image,count,{allowTrailingSpace:true}),bounds);
  }
+});
+
+
+test('legacy positions reuse only identical image and year/week without replacing edited values',()=>{
+ const imageId='a'.repeat(64)+'.png',box=[.52,.2,.4,.05];
+ for(const year of ['2025','2026']){
+  const row={id:'r',inputName:'수국(화이트)',originalQty:30,qty:31,unit:'단',prodKey:7};
+  const work={year,week:'44-01',request:[],purchase:[],allocations:{7:{9:2}},pending:{request:{id:'old',imageId,rows:[row]}}};
+  const peer={...work,pending:{request:{id:'new',imageId,rows:[{...row,id:'other',inputName:'수국 화이트',qty:999,prodKey:999,sourceBox:box}]}}};
+  const repaired=recoverHotelWorkLocations(work,[peer]);assert.deepEqual(repaired.pending.request.rows[0],{...row,sourceBox:box});assert.equal(work.pending.request.rows[0].sourceBox,undefined);assert.equal(repaired.allocations,work.allocations);
+  assert.equal(recoverHotelWorkLocations({...work,frozen:true},[peer]).pending,work.pending);
+  for(const wrong of [{...peer,year:String(Number(year)-1)},{...peer,week:'43-01'},{...peer,pending:{request:{...peer.pending.request,imageId:'b'.repeat(64)+'.png'}}}])assert.equal(recoverHotelWorkLocations(work,[wrong]),work);
+  const saved={...work,pending:{},request:[{...row,batchId:'old'}],batches:{request:[{id:'old',imageId}]}};assert.deepEqual(recoverHotelWorkLocations(saved,[peer]).request[0],{...saved.request[0],sourceBox:box});
+ }
+});
+test('recovery refuses ambiguity, missing evidence and partial updates',()=>{
+ const r={id:'r',inputName:'A',qty:30},box=[.1,.2,.3,.04];
+ for(const candidates of [[],[{...r,qty:31,sourceBox:box}],[{...r,sourceBox:null}],[{...r,sourceBox:box},{...r,sourceBox:[.6,.2,.3,.04]}]])assert.equal(recoverHotelSourceRows([r],candidates),null);
+ assert.equal(recoverHotelSourceRows([r,{...r,id:'duplicate'}],[{...r,sourceBox:box}]),null);
+ assert.equal(recoverHotelSourceRows([r,{...r,id:'b',inputName:'B'}],[{...r,sourceBox:box}]),null);
+ const complete=[{...r,sourceBox:box}];assert.equal(recoverHotelSourceRows(complete,[]),complete);
 });
