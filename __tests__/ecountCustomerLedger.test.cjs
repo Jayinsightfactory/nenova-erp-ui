@@ -86,6 +86,7 @@ test('cross-year and leap-day voucher validation',()=>{
 });
 function loadHandler(deps){
  let code=fs.readFileSync(path.join(__dirname,'../pages/api/ecount/customer-ledger.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export async function handler','async function handler').replace('export default withAuth(handler);','return handler;');
+ deps={readLedgerWeekComparison:async()=>null,...deps};
  return new Function(...Object.keys(deps),code)(...Object.values(deps));
 }
 function response(){return {statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(s){this.statusCode=s;return this;},json(data){this.data=data;return this;}};}
