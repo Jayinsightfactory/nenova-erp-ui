@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import policy from '../../lib/ecountCustomerLedgerPolicy.cjs';
 import schedule from '../../lib/ecountLedgerSchedule.cjs';
 import validation from '../../lib/ecountLedgerValidation.cjs';
+import { collectBankSnapshot, collectLedgerWithBank } from './pending-receipts.mjs';
 const HASH='#menuType=MENUTREE_000004&menuSeq=MENUTREE_001903&groupSeq=MENUTREE_000035&prgId=E040723&depth=4';
 const STATE=path.join(path.dirname(fileURLToPath(import.meta.url)),'.ledger-schedule.json');
 const number=v=>{
@@ -173,14 +174,18 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
         lastAttempt=slot;
         // Claim before collection, including across process restarts. No missed-slot catch-up.
         fs.writeFileSync(STATE,JSON.stringify({lastAttempt:slot}));
-        let page,ok=0,failed=0,total=0;
+        let page,bankPage,ok=0,failed=0,total=0;
         try{
           const work=await api(nenova);total=work.customers.length;
           page=await ctx.newPage();
-          ({ok,failed}=await collectLedgerBatch({page,getBase,work,upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
+          bankPage=await ctx.newPage();
+          let history=null;
+          try{history=await collectBankSnapshot(bankPage,getBase(),work.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch{console.log('[ledger723] bank history unavailable');}
+          ({ok,failed}=await collectLedgerBatch({page,getBase,work,collect:(page,base,customer,period)=>collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger:collectCustomerLedger}),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
         }catch{failed=Math.max(failed,1);}
         finally{
           if(page)await page.close().catch(()=>{});
+          if(bankPage)await bankPage.close().catch(()=>{});
           console.log(`[ledger723] slot=${new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed}`);
         }
         return;
@@ -188,10 +193,13 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
       const result=await api(nenova,null,'?queue=refresh');
       const request=result.refreshRequest;
       if(!request)return;
-      let page,success=false;
+      let page,bankPage,success=false;
       try{
         page=await ctx.newPage();
-        const payload=await collectCustomerLedger(page,getBase(),{custKey:request.custKey,sourceCode:request.sourceCode},request.period);
+        bankPage=await ctx.newPage();
+        let history=null;
+        try{history=await collectBankSnapshot(bankPage,getBase(),request.period,'REFLECTED',process.env.NENOVA_TOKEN);}catch{console.log('[ledger723] bank history unavailable');}
+        const payload=await collectLedgerWithBank({page,bankPage,base:getBase(),customer:{custKey:request.custKey,sourceCode:request.sourceCode},period:request.period,history,collectLedger:collectCustomerLedger});
         await api(nenova,payload);
         success=true;
       }catch(e){
@@ -199,6 +207,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova){
         try{await api(nenova,{custKey:request.custKey,requestedCode:request.sourceCode,periodFrom:request.period.from,periodTo:request.period.to,collectedAt:new Date().toISOString(),failure:['SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS','SOURCE_CUSTOMER_AMBIGUOUS','SOURCE_IDENTITY_MISMATCH'].includes(reason)?'LINK_CHECK_REQUIRED':'SOURCE_UNAVAILABLE'});}catch{}
       }finally{
         if(page)await page.close().catch(()=>{});
+        if(bankPage)await bankPage.close().catch(()=>{});
         try{await api(nenova,{refreshRequestId:request.requestId,refreshSuccess:success});}catch{}
         console.log(`[ledger723] userRefresh customerKey=${request.custKey} success=${success}`);
       }
