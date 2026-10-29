@@ -293,3 +293,5 @@ assert.doesNotMatch(registerSource, /assertNotDefectAutoSource\(dbRow\)/,
   'automatic provenance alone cannot block ordinary registration');
 
 console.log('salesDefectAutoSource tests passed');
+
+await import('./defectPermanentOmission.test.js');

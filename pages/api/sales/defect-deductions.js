@@ -6,6 +6,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  permanentlyOmitDeductions,
   correctDraftPeriod,
   releaseReviewedSources,
   manageDeductions,
@@ -87,10 +88,11 @@ async function handler(req, res) {
     }
 
     // Management previews and writes use the installed schema; never run DDL.
-    if (!['manage-edit', 'manage-archive', 'review-source'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
+    if (!['manage-edit', 'manage-archive', 'review-source', 'permanent-omit'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
 
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
+      if(action==='permanent-omit')return res.status(200).json({success:true,...await permanentlyOmitDeductions({year,week,rows:req.body.rows,user:req.user})});
       if (action === 'manager-save') {
         if (!isDefectAdmin(req.user)) {
           return res.status(403).json({ success: false, error: '담당자 설정은 관리자만 변경할 수 있습니다.' });
@@ -145,7 +147,7 @@ async function handler(req, res) {
           managerId: req.body?.managerId || '', managerName: req.body?.managerName || '',
           sourceFileName: req.body?.sourceFileName || '',
         });
-        return res.status(200).json({ success: true, saved: rows.length, rows });
+        return res.status(200).json({ success: true, saved: rows.length, excludedCount: Math.max(0,(req.body?.rows || []).length-rows.length), rows });
       }
       if (action === 'incoming-confirm') {
         if (!canUseDefectIncoming(req.user)) {
@@ -259,5 +261,5 @@ const loggedHandler = withActionLog(handler, {
 // Read-only management previews must also bypass the action logger's DDL/INSERT.
 // Authentication and policy errors still run normally; actual mutations retain audit logging.
 export default withAuth((req, res) => req.method === 'POST'
-  && ['manage-edit', 'manage-archive', 'review-source'].includes(String(req.body?.action || ''))
+  && ['manage-edit', 'manage-archive', 'review-source', 'permanent-omit'].includes(String(req.body?.action || ''))
   && req.body?.preview === true ? handler(req, res) : loggedHandler(req, res));
