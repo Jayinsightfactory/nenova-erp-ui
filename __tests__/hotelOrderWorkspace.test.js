@@ -189,3 +189,13 @@ test('recovery refuses ambiguity, missing evidence and partial updates',()=>{
  assert.equal(recoverHotelSourceRows([r,{...r,id:'b',inputName:'B'}],[{...r,sourceBox:box}]),null);
  const complete=[{...r,sourceBox:box}];assert.equal(recoverHotelSourceRows(complete,[]),complete);
 });
+
+test('same-image full ordinal evidence tolerates OCR spelling but rejects reordered, partial or changed originals',()=>{
+ const rows=Array.from({length:10},(_,i)=>({id:String(i),inputName:`flower${i}`,rowNo:i+1,sourceRowIndex:i,originalQty:i+1,originalUnit:'단',qty:100+i,unit:'송이',prodKey:10+i}));
+ const candidates=rows.map((r,i)=>({...r,inputName:i===4?'OCR typo':r.inputName,sourceBox:[.1,.1+i*.05,.3,.04]}));
+ assert.equal(recoverHotelSourceRows(rows,candidates),null);
+ const repaired=recoverHotelSourceRows(rows,candidates,{sameImageOrder:true});assert.deepEqual(repaired.map(({sourceBox,...r})=>r),rows);assert.ok(repaired.every(r=>r.sourceBox));
+ for(const bad of [candidates.slice(1),[...candidates].reverse(),candidates.map((r,i)=>i===4?{...r,originalQty:999}:r),candidates.map((r,i)=>i===4?{...r,originalUnit:'송이'}:r),candidates.map((r,i)=>i===4?{...r,rowNo:6}:r),candidates.map((r,i)=>i===4?{...r,sourceRowIndex:5}:r),candidates.map((r,i)=>i<4?{...r,inputName:'different'}:r),[...candidates,...candidates]])assert.equal(recoverHotelSourceRows(rows,bad,{sameImageOrder:true}),null);
+ const imageId='a'.repeat(64)+'.png',work={year:'2026',week:'45-01',request:[],purchase:[],pending:{request:{id:'old',imageId,rows}}},peer={...work,pending:{request:{id:'new',imageId,rows:candidates}}};
+ assert.ok(recoverHotelWorkLocations(work,[peer]).pending.request.rows.every(r=>r.sourceBox));assert.equal(recoverHotelWorkLocations(work,[{...peer,year:'2025'}]),work);
+});
