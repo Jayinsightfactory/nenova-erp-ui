@@ -1619,3 +1619,10 @@
 - 최종38차36.857초·39차31.928초, 전체수익률 보류. 기존 대사차이는 금액을 억지로 맞추지 않고 표시. 상세 `docs/work-sessions/2026-10-29_profit-stem-independent-audit.md`; 원천 `.verify/`는 커밋 제외. CI·배포 결과는 부모 작업에서 확인 중(미검증).
 - 검색어: stem v3 2431 4266 DEFAULT_CUSTOMS gw_auto AWB 송이 평균원가 no_activity
 
+
+## 2026-10-29 카톡방 재고관리
+- 페이지 전용 재고장/원문 분석/직접입력/시작재고 정정/카톡 복사 구현. UserFavorite 별도 저장본, ERP 원장 변경 없음.
+- 예시·0·취소초과·단위·교차연도 테스트와 메뉴/write guard 통과. 전체검사/빌드/브라우저/배포 진행 중(미검증).
+- 검색어: 카톡방 재고관리 kakao-stock-ledger 시작재고 업체수량 변경내역
+
+- 검증 완료: 전체 test:erp-contract, dnSpy, manifest, ERP write guard, UI layout, webpack build 통과. Chrome 1920/390에서 예시 계산·복사·저장재열기·Enter/Escape·정정·시작재고 수정 통과, ERP 쓰기 요청 0. PR/배포는 후속 진행.
