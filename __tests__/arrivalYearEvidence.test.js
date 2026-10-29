@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import { inferArrivalYearEvidence, parseArrivalCostWorkbook } from '../lib/arrivalCostExcel.js';
+import { validateArrivalImportYear } from '../lib/arrivalImportPolicy.js';
 
 function parse({ fileName = '40-1 NL 원가자료.xlsx', orderYear = '2026', sheet = '40-1', header = 'NL 원가자료' } = {}) {
   const book = XLSX.utils.book_new();
@@ -39,3 +40,23 @@ for (const sheet of ['34-2B CLOUD', '34-2A CLOUD', '34-2B', '34-2 CLOUD']) {
   assert.equal(JSON.parse(row.rawJson).meta.orderYear, '2026');
 }
 console.log('Arrival source years: 2025/2026 separation, conflicting/internal years, missing evidence and letter-suffix sheet weeks passed');
+
+// Actual incident: September's NL workbook retained an undated December sheet.
+for (const selectedYear of ['2025', '2026']) {
+  const oldSheet = parse({ fileName: '37-2 NL 원가자료 (2).xlsx', sheet: '52-2', orderYear: selectedYear });
+  assert.equal(oldSheet.orderYear, '');
+  assert.equal(oldSheet.yearEvidence.status, 'conflict');
+  assert.throws(() => validateArrivalImportYear({ rows: [oldSheet] }, selectedYear), /52-2.*연도/);
+  assert.throws(() => validateArrivalImportYear({ rows: [], rejectedRows: [oldSheet] }, selectedYear), /52-2.*연도/);
+  for (const sheet of ['36-2', '37-2']) {
+    const valid = parse({ fileName: '37-2 NL 원가자료.xlsx', sheet, orderYear: selectedYear });
+    assert.equal(validateArrivalImportYear({ rows: [valid] }, selectedYear), selectedYear);
+  }
+}
+for (const sheet of ['52-02', '52-2A', '47-1']) {
+  assert.equal(parse({ fileName: '37-2 NL 원가자료.xlsx', sheet }).yearEvidence.status, 'conflict');
+}
+assert.equal(parse({ fileName: '37-2 NL 원가자료.xlsx', sheet: '52-2', header: '2026년 NL 원가자료' }).yearEvidence.status, 'verified');
+assert.equal(parse({ fileName: '37-2 NL 원가자료.xlsx', sheet: '52-2', header: '2025년 NL 원가자료' }).yearEvidence.status, 'conflict');
+assert.equal(parse({ fileName: 'NL 원가자료.xlsx', sheet: '52-2' }).yearEvidence.status, 'unverified', 'no filename week must not invent chronology');
+console.log('Undated rolling workbook 52-2 cannot inherit the selected year from 37-2; explicit years and normal current/prior sheets preserved');

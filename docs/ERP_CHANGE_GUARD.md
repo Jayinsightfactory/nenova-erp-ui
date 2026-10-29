@@ -1064,3 +1064,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 
 ## 2026-10-28 다음차수 차단 유지
 비고재저장으로 SOURCE_FACT_REVIEW 차단이 풀리는 경로 보완. 감사이력의 차단도 조회하며 뒤의 원문재검토만 해제.43/44/45/53차 목록·preflight·preview·최종등록의 잘못된클라이언트플래그 반례와 쓰기0 검증.수기확인·원장·견적은 보존. 검색어: 다음차수 factHistory laterFact SOURCE_FACT_REVIEW
+
+## 2026-10-29 누적 원가 엑셀의 연말 시트 연도
+37-2 네덜란드 파일의 연도없는52-2가2026으로 저장된54행 확인. 명시 원본연도가 없고 파일 차수보다 뒤인 시트는 공통 연도검증에서 차단한다. 선택연도/수정시각으로 전년시트를 당해연도로 추정하지 않는다. 기존54행은 배포후 감사·해시·수동변경 부재 검증으로 IsCurrent만 격리하며2025로 임의 재배정하지 않는다. 근거: docs/work-reports/2026-10-29_arrival-nl52-year.md; 회귀: arrivalYearEvidence.test.js.
