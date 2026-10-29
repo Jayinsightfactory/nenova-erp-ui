@@ -42,6 +42,12 @@
   ],
   "actions": [
     {
+      "name": "SEARCH_VENDOR_DELETE_DRAFT_BATCH_CLICK_SOURCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Customer name search requires an exact selected key. Source comparison opens on click only. Product result double-click applies the selected product. Explicit confirmed batch deletion removes only selected draft side/id, preserves original evidence in batchHistory, stable remaining numbers and year/week, clears derived allocations/orderTotals, reuses server CAS, rejects frozen work. No ERP write or registration policy change."
+    },
+    {
       "name": "SPECIAL_MATCH_FINAL_QUANTITY_AND_OMISSION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",

@@ -658,3 +658,5 @@
 
 - [2026-10-29 미카엘 잔액 관계기준 정정](2026-10-29_ecount-relation-basis.md)
 
+
+- [2026-10-29 호텔 차수 조작](2026-10-29_hotel-batch-controls.md)
