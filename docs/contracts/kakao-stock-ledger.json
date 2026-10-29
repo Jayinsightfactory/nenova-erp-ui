@@ -1,0 +1,58 @@
+{
+  "id": "kakao-stock-ledger",
+  "title": "웹 전용 재고장과 카톡 복사",
+  "scope": [
+    "pages/orders/kakao-stock.js",
+    "lib/kakaoStockLedger.js",
+    "__tests__/kakaoStockLedger.test.js",
+    "scripts/kakao-stock-smoke.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "EDIT_WEB_LEDGER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": [
+        "all ERP tables"
+      ]
+    }
+  ],
+  "criteria": {
+    "scope": "UserFavorite namespace kakao-stock-ledger, immutable save snapshots; no ERP mutations.",
+    "calculation": "Beginning total minus current customer quantities, shared calculateLedger for preview/apply/copy; zero valid; cancel overflow blocked; negative remaining displayed.",
+    "source": "Bounded parser rejects unknown lines, cross-year header mismatch and duplicate source; manual changes supported."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025-43-01 source cannot apply to 2026-43-01 ledger; same-week saved documents remain separate."
+  },
+  "requiredTestFiles": [
+    "__tests__/kakaoStockLedger.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList"
+    ],
+    "tables": [
+      "ShipmentDetail",
+      "ShipmentDate"
+    ],
+    "note": "Web favorite draft only; existing ERP save SQL and native forms unchanged."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

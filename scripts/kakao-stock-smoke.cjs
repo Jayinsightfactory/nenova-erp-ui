@@ -1,0 +1,23 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
+const context=await browser.newContext({viewport:{width:1920,height:1080},permissions:['clipboard-read','clipboard-write']});const page=await context.newPage(),saved=[],writes=[],errors=[];
+page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>localStorage.setItem('nenovaUser',JSON.stringify({userId:'fixture',userName:'검증',authority:1})));
+await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());let data={success:true,items:[],data:[],rows:[],favorites:[]};if(url.pathname==='/api/auth/me')data={success:true,user:{userId:'fixture',userName:'검증',authority:1,accountActive:true}};
+if(url.pathname==='/api/favorites'){if(req.method()==='POST'){const b=req.postDataJSON();assert.equal(b.page,'kakao-stock-ledger');saved.push({FavoriteKey:saved.length+1,FavName:b.name,FilterData:b.filterData});data={success:true,favoriteKey:saved.length};}else data={success:true,favorites:saved};}else if(req.method()!=='GET')writes.push(url.pathname);await route.fulfill({json:data});});
+await page.goto(process.argv[2]||'http://localhost:3239/orders/kakao-stock');await page.getByRole('heading',{name:'카톡방 재고관리',exact:true}).waitFor();
+await page.getByLabel('연도·차수',{exact:true}).fill('2026-43-01');await page.getByLabel('시작재고 입력',{exact:true}).fill('문라이트 3\n노비아 2\n쥬리고 1\n---------------\n화이트 10\n블루 3\n버건디 1');await page.getByRole('button',{name:'시작재고 적용·수정',exact:true}).click();
+await page.getByLabel('업체',{exact:true}).fill('주광');await page.locator('form select').nth(0).selectOption('노비아');await page.locator('form select').nth(1).selectOption('BASELINE');await page.getByLabel('수량',{exact:true}).fill('1');await page.getByLabel('수량',{exact:true}).press('Enter');
+await page.getByLabel('카톡 원문',{exact:true}).fill('43-1 콜 카네이션 변경사항\n주광\n문라이트 1추가\n노비아 1취소');await page.getByRole('button',{name:'변경내용 분석',exact:true}).click();await page.getByRole('button',{name:'확인한 변경 적용',exact:true}).click();
+const expected='문라이트 2 시작3 주광 0>1(3>2)\n노비아 2 시작2 주광 1>0(1>2)\n쥬리고 1\n---------------\n화이트 10\n블루 3\n버건디 1';assert.equal(await page.getByLabel('복사 미리보기').inputValue(),expected);
+await page.getByRole('button',{name:'카톡용 텍스트 복사',exact:true}).click();assert.equal((await page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n'),expected);
+await page.getByRole('button',{name:'저장본 남기기',exact:true}).click();await page.getByRole('status').filter({hasText:'저장했습니다'}).waitFor();assert.equal(saved.length,1);
+await page.reload();await page.getByText('재고장 저장본 (1)',{exact:true}).click();await page.getByRole('button',{name:/2026-43-01 카톡방 재고장/}).click();assert.equal(await page.getByLabel('복사 미리보기').inputValue(),expected);
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'kakao-stock-desktop.png',fullPage:true});
+await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'kakao-stock-mobile.png',fullPage:true});
+await page.setViewportSize({width:1920,height:1080});
+await page.getByText('입력 이력 · 정정 (3)',{exact:true}).click();
+await page.getByRole('button',{name:'정정',exact:true}).nth(1).click();await page.getByLabel('수량',{exact:true}).fill('2');await page.getByLabel('수량',{exact:true}).press('Escape');assert.equal(await page.getByLabel('복사 미리보기').inputValue(),expected);
+await page.getByRole('button',{name:'정정',exact:true}).nth(1).click();await page.getByLabel('수량',{exact:true}).fill('2');await page.getByRole('button',{name:'정정 적용',exact:true}).click();assert.match(await page.getByLabel('복사 미리보기').inputValue(),/문라이트 1 시작3/);
+await page.getByLabel('시작재고 입력',{exact:true}).fill('문라이트 5\n노비아 2\n쥬리고 1\n---------------\n화이트 10\n블루 3\n버건디 1');await page.getByRole('button',{name:'시작재고 적용·수정',exact:true}).click();assert.match(await page.getByLabel('복사 미리보기').inputValue(),/문라이트 3 시작5/);
+assert.deepEqual(errors,[]);assert.deepEqual(writes.filter(p=>!['/api/user-activity','/api/replay','/api/log'].some(a=>p.startsWith(a))),[]);console.log('PASS: example, Enter submit, analysis, clipboard, saved reload, 1920/mobile, zero ERP writes',writes);
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1)});
