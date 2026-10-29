@@ -163,5 +163,8 @@ test('panel rules align long/short tables independently despite yellow headers a
   assert.deepEqual(bounds,Array.from({length:count+1},(_,i)=>(top+i*22)/800));
   assert.equal(hotelImageRowBounds(image,count-1,{allowTrailingSpace:true}),null);
   assert.equal(hotelImageRowBounds(image,count+1,{allowTrailingSpace:true}),null);
+  // A colored header bottom has no monochrome rule (as in the reported image).
+  for(let x=0;x<image.width;x++){const offset=(top*image.width+x)*4;image.data[offset]=255;image.data[offset+1]=255;image.data[offset+2]=255;}
+  assert.deepEqual(hotelImageRowBounds(image,count,{allowTrailingSpace:true}),bounds);
  }
 });
