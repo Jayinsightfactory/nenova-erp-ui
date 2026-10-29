@@ -10,8 +10,8 @@ export default function HotelQuantityMatrix({matrix,side,blocked,onEdit,renderSo
       {!matrix.rows.length && <tr><td colSpan={numbers.length+2}>매칭 결과를 저장하면 이곳에 표시됩니다.</td></tr>}
     </tbody></table></div>
     <style jsx>{`
-      .quantity-matrix {min-width:0;border:1px solid #bbd4d0;border-radius:8px;padding:12px;background:#f8fcfb} h3 {margin:0 0 8px} p {font-size:12px;color:#586982;margin:0 0 10px}
-      .matrix-scroll {overflow:auto} table {border-collapse:separate;border-spacing:0;min-width:640px;width:100%;font-size:13px} th,td {padding:7px 5px;border-bottom:1px solid #dfe5ed;text-align:center;vertical-align:middle} thead th {background:#e7f4f0;white-space:nowrap} th:first-child {text-align:left;min-width:150px;max-width:220px} tbody th {font-weight:500;background:#fff} small {display:block;color:#586982;margin-top:3px} .total {font-weight:700;color:#115e59;background:#eef8f5;white-space:nowrap}
+      .quantity-matrix {min-width:0;border:1px solid #bbd4d0;border-radius:8px;padding:6px;background:#f8fcfb} h3 {margin:0 0 4px} p {font-size:12px;color:#586982;margin:0 0 4px}
+      .matrix-scroll {overflow:auto} table {border-collapse:separate;border-spacing:0;min-width:640px;width:max-content;font-size:13px} th,td {padding:3px 5px;border-bottom:1px solid #dfe5ed;text-align:center;vertical-align:middle} thead th {background:#e7f4f0;white-space:nowrap} th:first-child {text-align:left;min-width:150px;max-width:220px} tbody th {font-weight:500;background:#fff} small {display:block;color:#586982;margin-top:1px} .total {font-weight:700;color:#115e59;background:#eef8f5;white-space:nowrap}
     `}</style>
   </section>;
 }

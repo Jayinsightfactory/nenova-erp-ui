@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,roundHotelQuantity,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot} from '../lib/hotelOrderEdits.js';
+import {specialHotelLine,rememberHotelSpecial,applyHotelSpecialMappings,roundHotelQuantity,hotelFinalQuantities,setHotelFinalQuantity,omitHotelItem,hotelRegistrationSnapshot,hotelQuantityLabel,hotelAdjustmentLabel} from '../lib/hotelOrderEdits.js';
 import {buildHotelOrderRows,hotelRegistrationPlan} from '../lib/hotelOrderWorkspace.js';
 import {commitHotelReview,hotelBatchMatrix,editHotelBatchQuantity} from '../lib/hotelOrderReview.js';
 const products={10:{ProdKey:10,DisplayName:'Rose',OutUnit:'단',BunchOf1Box:10}},customers=[{CustKey:1,CustName:'A'},{CustKey:2,CustName:'B'},{CustKey:3,CustName:'C'}];
@@ -48,4 +48,30 @@ test('explicit zero, invalid, stale units, frozen state and rounding boundaries 
  assert.deepEqual(['ceil','round','floor'].map(m=>roundHotelQuantity(2.49,m)),[3,2,2]);assert.equal(roundHotelQuantity(2.5,'round'),3);assert.equal(roundHotelQuantity(2,'ceil'),2);assert.throws(()=>roundHotelQuantity(2,'bad'));
  assert.throws(()=>setHotelFinalQuantity({...w,frozen:true},r,3));assert.throws(()=>omitHotelItem({...w,frozen:true},r.key,true));
  const changed=setHotelFinalQuantity(w,r,2);assert.ok(buildHotelOrderRows(w.request,[],{10:{...products[10],OutUnit:'송이',SteamOf1Box:100,SteamOf1Bunch:10}},w.allocations,changed).errors.some(e=>e.includes('최종수량')));
+});
+
+
+test('direct rounding and reset persist accurate history and immutable registration evidence across years',()=>{
+ for(const year of ['2025','2026']){
+  let w=save(empty(year),'one',[row('a',23.2)]);
+  for(const [method,before,after] of [['ceil',23.2,24],['round',23.5,24],['floor',23.8,23]]){
+   w=setHotelFinalQuantity(w,hotelFinalQuantities(w,products)[0],after,{method,before,time:'2026-10-29T00:00:00Z'});
+   const current=hotelFinalQuantities(w,products)[0];assert.equal(current.adjustment.method,method);
+   assert.deepEqual(w.quantityHistory.at(-1),{key:'p:10',name:'Rose',unit:'단',method,before,after,time:'2026-10-29T00:00:00Z'});
+  }
+  const snap=hotelRegistrationSnapshot(w,products,[],'now');assert.equal(snap.rows[0].adjustment.method,'floor');assert.equal(snap.quantityHistory.length,3);
+  w.quantityHistory[0].after=99;assert.equal(snap.quantityHistory[0].after,24);
+  w=setHotelFinalQuantity(w,hotelFinalQuantities(w,products)[0],23.2,{method:'reset'});assert.equal(w.orderTotals['p:10'],undefined);assert.equal(w.quantityHistory.at(-1).method,'reset');assert.equal(w.year,year);
+  assert.throws(()=>setHotelFinalQuantity(w,hotelFinalQuantities(w,products)[0],23,{method:'ceil',before:23.2}));
+ }
+});
+test('dual quantity labels use actual factors without changing quantities or inventing missing ratios',()=>{
+ assert.equal(hotelAdjustmentLabel(undefined),'수량 조절');
+ assert.equal(hotelQuantityLabel(23.2,'박스',{SteamOf1Box:30},'송이'),'696 송이 / 23.2 박스');
+ assert.equal(hotelQuantityLabel(38,'단',{BunchOf1Box:10}),'38 단 / 3.8 박스');
+ assert.equal(hotelQuantityLabel(24,'박스',{BunchOf1Box:10},'단'),'240 단 / 24 박스');
+ assert.equal(hotelQuantityLabel(6,'송이',{}),'6 송이 / 박스 기준 없음');
+ assert.equal(hotelQuantityLabel(6,'송이',{SteamOf1Box:0}),'6 송이 / 박스 기준 없음');
+ assert.equal(hotelQuantityLabel(2,'박스',{}),'2 박스');
+ assert.equal(hotelQuantityLabel(0,'단',{BunchOf1Box:10}),'0 단 / 0 박스');
 });

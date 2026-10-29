@@ -199,3 +199,25 @@ test('same-image full ordinal evidence tolerates OCR spelling but rejects reorde
  const imageId='a'.repeat(64)+'.png',work={year:'2026',week:'45-01',request:[],purchase:[],pending:{request:{id:'old',imageId,rows}}},peer={...work,pending:{request:{id:'new',imageId,rows:candidates}}};
  assert.ok(recoverHotelWorkLocations(work,[peer]).pending.request.rows.every(r=>r.sourceBox));assert.equal(recoverHotelWorkLocations(work,[{...peer,year:'2025'}]),work);
 });
+
+
+test('same-unit orders without box factors conserve quantities and register only after explicit assignment across years',()=>{
+  for(const year of ['2025','2026'])for(const unit of ['송이','단','박스'])for(const factors of [{},{SteamOf1Box:0,BunchOf1Box:0,SteamOf1Bunch:0}]){
+    const catalog={10:{ProdKey:10,OutUnit:unit,EstUnit:unit,...factors}},request=[line(12.5,unit)],purchase=[line(2.5,unit)];
+    const manual=unit==='박스'?{}:{10:{691:10}};
+    const m=buildHotelOrderRows(request,purchase,catalog,manual);
+    assert.deepEqual(m.errors,[]);assert.equal(m.rows[0].request,12.5);assert.equal(m.rows[0].remaining,10);
+    assert.equal(m.rows[0].surplus,unit==='박스'?10:0);assert.equal(m.rows[0].unassigned,0);
+    const plan=hotelRegistrationPlan(m,{...scope,year});assert.ok(plan.every(g=>g.year===year&&g.week===scope.week));
+    assert.equal(plan.flatMap(g=>g.items).reduce((n,i)=>n+i.qty,0),12.5);
+    assert.ok(plan.flatMap(g=>g.items).every(i=>i.unit===unit));
+    if(unit!=='박스'){
+      const unassigned=buildHotelOrderRows(request,purchase,catalog);assert.deepEqual(unassigned.errors,[]);
+      assert.throws(()=>hotelRegistrationPlan(unassigned,{...scope,year}),/분류필요/);
+      assert.throws(()=>hotelRegistrationPlan(buildHotelOrderRows(request,purchase,catalog,{10:{691:11}}),{...scope,year}),/잔량/);
+    }
+    const allPurchased=buildHotelOrderRows(request,request,catalog);assert.equal(hotelRegistrationPlan(allPurchased,{...scope,year})[0].items[0].qty,12.5);
+  }
+  const missing={10:{ProdKey:10,OutUnit:'송이'}};
+  assert.throws(()=>hotelRegistrationPlan(buildHotelOrderRows([line(2,'단')],[],missing,{10:{691:2}}),scope),/환산/);
+});
