@@ -53,7 +53,7 @@ export default function KakaoStockPage() {
     if(raw.trim()&&raw!==message.message&&!window.confirm('현재 분석 원문을 선택한 영업방 대화로 바꿀까요? 적용한 재고내역은 유지됩니다.'))return;
     try{const next=analyzeLedgerText(message.message,base,week);setRaw(message.message);setSources([message]);setReview({...next,raw:message.message,week,base});mark('영업방 원문 선택·분석');requestAnimationFrame(()=>{analysisRef.current?.scrollIntoView({block:'start'});analysisRef.current?.focus({preventScroll:true});});}catch(e){setError(e.message);}
   }
-  function openDirect(row,click){editReturnRef.current=click.currentTarget;setEditing(null);setForm({...emptyForm,product:row.key,unit:row.unit});setDirectOpen(true);}
+  function openDirect(row,click){editReturnRef.current=click.currentTarget;setEditing(null);setForm({...emptyForm,product:row.key,unit:row.unit||'박스'});setDirectOpen(true);}
   useEffect(()=>{if(directOpen){formRef.current?.querySelector('input')?.focus();}},[directOpen]);
   async function copyText(){if(base!==baseDraft)throw new Error('시작재고 수정을 적용한 뒤 복사하세요.');await navigator.clipboard.writeText(copy);setStatus('복사했습니다. 카톡에 붙여넣으세요.');}
   return <main className="stock-page">
@@ -81,3 +81,4 @@ export default function KakaoStockPage() {
     `}</style>
   </main>;
 }
+

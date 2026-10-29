@@ -58,6 +58,11 @@
         "popup": false
       },
       {
+        "href": "/orders/kakao-stock",
+        "labelKey": "카톡방 재고관리",
+        "popup": false
+      },
+      {
         "href": "/orders/kakao-audit",
         "labelKey": "카톡 변경 검증",
         "popup": false
@@ -110,6 +115,11 @@
       {
         "href": "/incoming",
         "labelKey": "입고관리",
+        "popup": true
+      },
+      {
+        "href": "/incoming/boxes",
+        "labelKey": "입고 박스·중량 현황",
         "popup": true
       },
       {
@@ -238,6 +248,11 @@
         "popup": true
       },
       {
+        "href": "/sales/profit-validation",
+        "labelKey": "매출이익 수익률 검증",
+        "popup": true
+      },
+      {
         "href": "/raum/pnl",
         "labelKey": "라움 초이문 손익계산서 · 신라호텔",
         "popup": true
@@ -248,13 +263,23 @@
         "popup": true
       },
       {
+        "href": "/raum/shilla-analysis/check",
+        "labelKey": "신라 입고·견적·손익 확인",
+        "popup": true
+      },
+      {
+        "href": "/raum/shilla-analysis",
+        "labelKey": "신라호텔 입고 조회·분석",
+        "popup": true
+      },
+      {
         "href": "/sales/revenue-management",
         "labelKey": "영업매출관리",
         "popup": false
       },
       {
         "href": "/sales/shilla-miu-board",
-        "labelKey": "호텔+미우 통합게시판",
+        "labelKey": "호텔+미우 주문전용",
         "popup": false
       },
       {
@@ -283,13 +308,28 @@
         "popup": false
       },
       {
+        "href": "/ecount/week-compare",
+        "labelKey": "📊 ECOUNT·전산 차수 비교",
+        "popup": false
+      },
+      {
         "href": "/ecount/receivables",
-        "labelKey": "💳 채권(미수) 현황",
+        "labelKey": "💳 ECOUNT 채권 요약",
+        "popup": false
+      },
+      {
+        "href": "/ecount/customer-ledger",
+        "labelKey": "거래처관리대장1(채권)",
         "popup": false
       },
       {
         "href": "/ecount",
         "labelKey": "ECOUNT 수집 데이터",
+        "popup": false
+      },
+      {
+        "href": "/ecount/workbench",
+        "labelKey": "ECOUNT ERP",
         "popup": false
       }
     ]
