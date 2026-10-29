@@ -16,6 +16,7 @@ import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitInventoryBasis from '../../components/ProfitInventoryBasis';
+import ProfitStemCost from '../../components/ProfitStemCost';
 import ProfitReportValidationGate, {useProfitValidationGate, ProfitValidationRateLabel} from '../../components/ProfitReportValidationGate';
 import LatestArrivalReference from '../../components/LatestArrivalReference';
 import { useLatestArrivalReferences } from '../../lib/useLatestArrivalReferences';
@@ -1476,6 +1477,8 @@ export default function ProfitReportPage() {
         </div>
       )}
 
+      {viewMode === 'category' && data && <ProfitStemCost year={reportYear} major={weekInput.value} dirty={dirty || String(data.orderYear)!==String(reportYear) || Number(data.major)!==Number(weekInput.value)} />}
+      {viewMode === 'category' && data && <h2 style={{fontSize:16,margin:'12px 0 6px'}}>기존 엑셀식 저장 참고 · 기존 다운로드/인쇄 기준</h2>}
       {viewMode === 'category' && data && <ProfitReportValidationGate validation={sourceValidation} />}
       {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
