@@ -1069,3 +1069,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 37-2 네덜란드 파일의 연도없는52-2가2026으로 저장된54행 확인. 명시 원본연도가 없고 파일 차수보다 뒤인 시트는 공통 연도검증에서 차단한다. 선택연도/수정시각으로 전년시트를 당해연도로 추정하지 않는다. 기존54행은 배포후 감사·해시·수동변경 부재 검증으로 IsCurrent만 격리하며2025로 임의 재배정하지 않는다. 근거: docs/work-reports/2026-10-29_arrival-nl52-year.md; 회귀: arrivalYearEvidence.test.js.
 
 - 2026-10-29 범위 보완: 동일 Import23의47-1(73),48-1(66),49-1(66),50-1(15),50-2(51),51-1(7),51-2(50),52-2(54), 총382행 모두 연도근거/수동수정이력0. 같은원인의 미확인 연말범위 전체를 격리 대상으로 확정(위54행 한정계획 대체).1~37차 및 다른Import/연도/국가는 보존. 아직 실행 전.
+
+## 2026-10-29 분배 적용 도중 배포
+엑셀 적용은 감사 시작부터 검증 완료까지 shared OS lease를 유지하고 배포는 admission gate 후 exclusive lease를 얻은 뒤에만 build swap/reload한다. timeout이면 기존 앱을 보존한다. 진행정보 소실은 결과불명으로 표시하고 자동 재적용하지 않는다. SQL/환산/주문보존/트랜잭션 정책 변경 없음. 회귀: importApplyLease.test.cjs, shipmentImportProgressRecovery.test.cjs.

@@ -1580,3 +1580,10 @@
 - 검색어: 도착원가 네덜란드 52-2 Import23 37-2 연도미확인 rolloverUnproven
 
 - 2026-10-29 범위 보완: 동일 Import23의47-1(73),48-1(66),49-1(66),50-1(15),50-2(51),51-1(7),51-2(50),52-2(54), 총382행 모두 연도근거/수동수정이력0. 같은원인의 미확인 연말범위 전체를 격리 대상으로 확정(위54행 한정계획 대체).1~37차 및 다른Import/연도/국가는 보존. 아직 실행 전.
+
+## 2026-10-29 카네이션 엑셀 분배 적용 멈춤
+- 44-01 카네이션381행 Audit135/136 시작상태와09:59/10:14 배포reload 중첩 확인. 현재DB 실행요청0. 특정 업로드 rollback 여부는 미확정, 운영원장/이력보정 없음.
+- applyImportRows 전체 공유flock, 배포gate+exclusive drain(20분 timeout시 배포중단), 진행정보소실/네트워크대기 제한. EXE CLI 확인, 원장SQL/환산/기존주문보존 불변.
+- 업로드회귀/dnSpy/manifest/write guard 통과. 전체검사/빌드는 기존공유node_modules 누락으로 독립의존성 설치후 재검증중. Linux 실제flock·CI·배포·실브라우저는 아직 미검증.
+- 검색어: 카네이션 381행 Audit135 Audit136 IMPORT_DEPLOY_BUSY IMPORT_PROGRESS_LOST flock deploy drain
+
