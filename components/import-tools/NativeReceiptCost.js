@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
 
@@ -32,10 +33,14 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
   let costDocument = null;
   if (data && applied && JSON.stringify(applied) === JSON.stringify(metadata)) {
     const lines = data.document.lines.map(line => ({ ...line, currency: applied.currency }));
+    const tariffDefaults = Object.fromEntries(lines.map(line => [line.lineId, auInvoiceTariffDefault({
+      ...data.document, reviewedMetadata: { ...data.document.reviewedMetadata, transportMode: applied.transportMode },
+    }, { ProdKey: line.prodKey, ProdName: line.originalName, CounName: line.country === 'AU' ? '호주' : line.country, isDeleted: line.productDeleted })]).filter(([, value]) => value));
     costDocument = { ...data.document, lines, receiptLines: lines,
-      reviewedMetadata: { ...data.document.reviewedMetadata, ...applied,
+      reviewedMetadata: { ...data.document.reviewedMetadata, ...applied, tariffDefaults,
         gw: applied.gw === '' ? null : Number(applied.gw), cw: applied.cw === '' ? null : Number(applied.cw),
-        invoiceCostInput: { ...data.document.reviewedMetadata.invoiceCostInput, nativeCurrency: applied.currency, freightCurrency: applied.currency } } };
+        invoiceCostInput: { ...data.document.reviewedMetadata.invoiceCostInput, nativeCurrency: applied.currency, freightCurrency: applied.currency,
+          lineInputs: data.document.reviewedMetadata.invoiceCostInput.lineInputs.map(line => ({ ...line, ...(tariffDefaults[line.lineId] ? { tariffRate: tariffDefaults[line.lineId].tariffRate } : {}) })) } } };
   }
   return <section className={styles.panel} aria-label="기존 입고자료 원가 계산">
     <header className={styles.header}><div><small>입고자료로 바로 계산 · 원장 변경 없음</small><h3>{data?.source.farmName || '입고자료 조회'} <span>{orderYear} / {orderWeek}</span></h3>

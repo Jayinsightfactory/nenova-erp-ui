@@ -1060,7 +1060,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const matchPreviewRef = useRef(null);
   const [reviewInitialTarget, setReviewInitialTarget] = useState(null);
   const receiptIntent = useRef(false);
-  const workStore = useMemo(() => userId ? createPackingWorkDraftStore(userId) : null, [userId]);
+  const workStore = useMemo(() => userId ? createPackingWorkDraftStore(userId, { workspace: costOnly ? 'cost' : 'receipt' }) : null, [userId, costOnly]);
   const [savedWork, setSavedWork] = useState(null);
   const [workReady, setWorkReady] = useState(false);
   const [workMessage, setWorkMessage] = useState('');
@@ -1860,7 +1860,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       return false;
     }
     onContinue?.(); return setTimeout(() => {
-    const target = toolRoot.current?.ownerDocument?.getElementById('packing-receipt-stage');
+    const target = toolRoot.current?.ownerDocument?.getElementById(costOnly ? 'packing-cost-stage' : 'packing-receipt-stage');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     target?.focus({ preventScroll: true });
   }, 200);
