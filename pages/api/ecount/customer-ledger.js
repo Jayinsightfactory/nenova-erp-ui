@@ -1,3 +1,4 @@
+import { readLedgerWeekComparison } from '../../../lib/ecountLedgerWeekStore';
 import { withAuth } from '../../../lib/auth';
 import { ledgerCustomers, readLedger, readLedgerRefreshRequest } from '../../../lib/ecountCustomerLedgerStore';
 import { canReadCustomer, isLedgerAdmin, recentMonth } from '../../../lib/ecountCustomerLedgerPolicy.cjs';
@@ -19,7 +20,8 @@ export async function handler(req,res) {
     const customer=visible.find(c=>c.custKey===Number(key));
     if(!customer) return res.status(403).json({success:false,error:'CUSTOMER_FORBIDDEN'});
     if(!canReadCustomer({userId:req.user.userId,accountActive:true},customer)) return res.status(409).json({success:false,error:'CUSTOMER_LINK_REQUIRED'});
-    return res.json({success:true,...await readLedger(customer),refreshRequest:await readLedgerRefreshRequest(customer.custKey)});
+    const snapshot=await readLedger(customer);
+    return res.json({success:true,...snapshot,weekComparison:await readLedgerWeekComparison(snapshot),refreshRequest:await readLedgerRefreshRequest(customer.custKey)});
   } catch {return res.status(503).json({success:false,error:'LEDGER_UNAVAILABLE'});}
 }
 export default withAuth(handler);
