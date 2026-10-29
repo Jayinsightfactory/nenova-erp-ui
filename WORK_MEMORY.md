@@ -1703,3 +1703,5 @@
 - 실제읽기31영남꽃소재25,362,700/확인시각11:01:58KST복구,13미카엘4,997,800유지. 시간외requestAllowed=false지만둘다조회가능. 시간외버튼비활성/안내,COMPLETE와없음안내동시표시차단.
 - 전체계약/dnSpy/manifest/writeguard/webpack exit0,관련28개테스트. 배포/실웹최종확인진행중(미검증). ECOUNT/공유ERP원장쓰기없음.
 - 검색어: ledger-recovery legacy-reference 기존자료유지 80곳 28검사 requestAllowed
+
+2026-10-29 차수 품목수정 후속: 수정 중 차수 원본 비교창 편집 허용, 수정 버튼은 편집영역 이동/초점. frozen/CAS 및 ERP등록경로 유지. 검증/배포 진행중. 검색어: 호텔 차수 품목 재매칭 batchEditor

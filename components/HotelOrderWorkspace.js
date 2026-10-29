@@ -41,6 +41,12 @@ export default function HotelOrderWorkspace({apiGet=liveGet,apiPost=livePost}={}
   const [search, setSearch] = useState(''), [picker, setPicker] = useState(null), [hits, setHits] = useState([]);
   const [vendor, setVendor] = useState(''), [preview, setPreview] = useState(null), [sheets, setSheets] = useState(null);
   const [uploadPreview, setUploadPreview] = useState(null), [editingBatch,setEditingBatch]=useState(null);
+  const batchEditor=useRef(null);
+  useEffect(()=>{
+    if(!editingBatch)return;
+    batchEditor.current?.scrollIntoView({block:'start'});
+    batchEditor.current?.querySelector('h3')?.focus({preventScroll:true});
+  },[editingBatch]);
   const lock = useRef(false), focus = useRef(null), lookup = useRef(0), storageKey = useRef('');
   const blocked = !!busy || saving || !!storageError || work.frozen || !ready;
   // Background autosave must never steal focus or block the next paste/keystroke.
@@ -368,8 +374,8 @@ export default function HotelOrderWorkspace({apiGet=liveGet,apiPost=livePost}={}
         {!work.week && <p>텍스트는 먼저 입력할 수 있습니다. 매칭·서버 저장 전에 주문 차수를 선택하세요.</p>}
         <button data-tone="match" onClick={() => parse(side)} disabled={blocked || !work.week || !texts[side].trim() || !!work.pending?.[side]}>텍스트 매칭</button>
         <span> 저장된 수량 {work[side].length}행</span>
-        </div><HotelQuantityMatrix matrix={hotelBatchMatrix(work,side,products)} side={side} blocked={blocked} editingId={editingBatch?.side===side?editingBatch.id:null} onDeleteBatch={async id=>{if(blocked)return;if(!window.confirm("이 차수의 저장 자료를 삭제할까요? 합계·최종수량 조절·업체 분류가 다시 계산됩니다."))return;try{await storeNow(deleteHotelBatch(work,side,id));setEditingBatch(null);setPreview(null);}catch(e){setError(e.message);}}} onEditBatch={id=>setEditingBatch({side,id})} renderSource={batch=>reviewView(side,batch,false)} onEdit={(batchId,key,value)=>{try {setWork(editHotelBatchQuantity(work,side,batchId,key,value,products));setPreview(null);}catch(e){setError(e.message);}}}/></div>
-        {editingBatch?.side===side && hotelSavedBatches(work,side).filter(b=>b.id===editingBatch.id).map(b=><section key={b.id} aria-label={`${side==='request'?'요청':'발주'} ${b.number}차 수정`}><h3>{b.number}차 수정</h3><p>수정은 서버에 자동 보관됩니다. 품목·수량 변경 시 최종수량 조절과 업체 분류를 초기화합니다.</p>{reviewView(side,b)}<button data-tone="save" disabled={blocked} onClick={finishBatchEdit}>{b.number}차 수정 완료 · 저장</button></section>)}
+        </div><HotelQuantityMatrix matrix={hotelBatchMatrix(work,side,products)} side={side} blocked={blocked} editingId={editingBatch?.side===side?editingBatch.id:null} onDeleteBatch={async id=>{if(blocked)return;if(!window.confirm("이 차수의 저장 자료를 삭제할까요? 합계·최종수량 조절·업체 분류가 다시 계산됩니다."))return;try{await storeNow(deleteHotelBatch(work,side,id));setEditingBatch(null);setPreview(null);}catch(e){setError(e.message);}}} onEditBatch={id=>setEditingBatch({side,id})} renderSource={batch=>reviewView(side,batch,editingBatch?.side===side&&editingBatch.id===batch.id)} onEdit={(batchId,key,value)=>{try {setWork(editHotelBatchQuantity(work,side,batchId,key,value,products));setPreview(null);}catch(e){setError(e.message);}}}/></div>
+        {editingBatch?.side===side && hotelSavedBatches(work,side).filter(b=>b.id===editingBatch.id).map(b=><section ref={batchEditor} key={b.id} aria-label={`${side==='request'?'요청':'발주'} ${b.number}차 수정`}><h3 tabIndex={-1}>{b.number}차 품목·수량 수정</h3><p>수정은 서버에 자동 보관됩니다. 품목·수량 변경 시 최종수량 조절과 업체 분류를 초기화합니다.</p>{reviewView(side,b)}<button data-tone="save" disabled={blocked} onClick={finishBatchEdit}>{b.number}차 수정 완료 · 저장</button></section>)}
         {uploadPreview?.side === side && <div className="hotel-review"><div className="hotel-source"><img src={uploadPreview.url} alt="매칭 중인 업로드 원본" /></div><p role="status">품목 · 수량을 매칭하고 있습니다…</p></div>}
         {work.pending?.[side] && <section className="hotel-pending" aria-label={`${side === 'request' ? '요청' : '발주'} 저장 전 검토`}>
           <h3>저장 전 검토 · {work.pending[side].rows.length}행</h3><p>이미지·원문 옆에서 품목과 수량을 확인하세요. 아직 아래 합산수량에는 포함되지 않았습니다. 검토 내용도 서버에 자동 보관됩니다.</p>
