@@ -9,6 +9,23 @@ export default function CustomerLedger(){
   const [search,setSearch]=useState(''),[manager,setManager]=useState('');
   const managers=getReceivablesManagers(customers);
   const filteredCustomers=filterReceivablesRows(customers,{search,manager});
+  function selectManager(name){
+    if(name===manager)return;
+    requestId.current++;setData(null);setError('');setSelected('');setManager(name);
+  }
+  function selectCustomer(key){
+    requestId.current++;setData(null);setError('');setSelected(selected===key?'':key);
+  }
+  function navigateButtons(event){
+    const keys=['ArrowRight','ArrowDown','ArrowLeft','ArrowUp','Home','End'];
+    if(!keys.includes(event.key))return;
+    const buttons=Array.from(event.currentTarget.querySelectorAll('button:not(:disabled)'));
+    const index=buttons.indexOf(document.activeElement);
+    if(index<0||!buttons.length)return;
+    event.preventDefault();
+    const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'||event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;
+    buttons[next].focus();
+  }
   async function loadCustomers(){
     setListError('');
     try{const res=await fetch('/api/ecount/customer-ledger',{cache:'no-store'});const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'거래처 목록을 불러오지 못했습니다.');setCustomers(d.customers);setMeta(d);}
@@ -52,15 +69,18 @@ export default function CustomerLedger(){
     <h1 data-ui-page-title>거래처관리대장1(채권)</h1>
     <p className="muted">{meta?.scope==='all'?'전체 거래처':'담당 거래처'}의 최근 1개월 전표별 채권 · 마지막 수집일 기준 · 이카운트 개별거래처 기준</p>
     <div className="controls"><label htmlFor="ledger-search">거래처 검색</label><input id="ledger-search" type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="업체명 또는 담당자" /></div>
-    <div className="managers" role="group" aria-label="담당자 선택"><button aria-pressed={!manager} onClick={()=>setManager('')}>전체 담당자</button>{managers.map(name=><button key={name} aria-pressed={manager===name} onClick={()=>setManager(manager===name?'':name)}>{name}</button>)}</div>
+    <h2 className="selection-title">1. 담당자 선택</h2>
+    <div className="managers" role="group" aria-label="담당자 선택" onKeyDown={navigateButtons}><button aria-pressed={!manager} onClick={()=>selectManager('')}>전체 담당자</button>{managers.map(name=><button key={name} aria-pressed={manager===name} onClick={()=>selectManager(manager===name?'':name)}>{name}</button>)}</div>
     <p className="muted" role="status">검색 결과 {filteredCustomers.length}개 / 조회 가능한 거래처 {customers.length}개{selected&&!filteredCustomers.some(c=>String(c.custKey)===selected)?' · 선택한 거래처는 현재 검색 범위 밖입니다. 아래 조회 내용은 유지됩니다.':''}</p>
-    <div className="controls"><label htmlFor="ledger-customer">{meta?.scope==='all'?'전체 거래처':'내 거래처'}</label>
-      <select id="ledger-customer" value={selected} onChange={e=>{requestId.current++;setData(null);setSelected(e.target.value);}}>
-        <option value="">거래처를 선택하세요</option>
-        {selectedCustomer&&!filteredCustomers.includes(selectedCustomer)&&<option value={selected}>{selectedCustomer.name} · {selectedCustomer.managerName} (현재 선택)</option>}
-        {filteredCustomers.map(c=><option key={c.custKey} value={c.custKey} disabled={!c.linked}>{c.name} · {c.managerName}{!c.linked?' · 연결 확인 필요':''}</option>)}
-      </select><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button>
+    <h2 className="selection-title">2. {manager||'전체 담당자'} 거래처 선택</h2>
+    <p className="muted">파란색은 선택된 항목입니다. 업체 버튼을 다시 누르면 선택이 해제됩니다. 방향키로 이동하고 Enter 또는 Space로 선택할 수 있습니다.</p>
+    <div className="customer-buttons" role="group" aria-label="거래처 선택" onKeyDown={navigateButtons}>
+      {filteredCustomers.map(c=><button type="button" key={c.custKey} aria-pressed={selected===String(c.custKey)} disabled={!c.linked} onClick={()=>selectCustomer(String(c.custKey))}>
+        <strong>{c.name}</strong><span>{c.managerName||'담당자 미확인'}{!c.linked?' · 연결 확인 필요':''}</span>
+      </button>)}
     </div>
+    {meta&&!listError&&filteredCustomers.length===0&&<p className="empty">조건에 맞는 거래처가 없습니다. 검색어나 담당자를 변경해 주세요.</p>}
+    <div className="controls"><button onClick={()=>selected?load(selected):loadCustomers()} disabled={loading}>{loading?'조회 중…':'화면 새로고침'}</button><button onClick={requestRefresh} disabled={!selectedCustomer?.linked||!selectedCustomer?.refreshable||requesting||refreshPending}>{requesting?'요청 접수 중…':refreshPending?'최신화 대기 중':'최신화 요청'}</button></div>
     {selectedCustomer&&<p><strong>{selectedCustomer.name}</strong> · 담당자 {selectedCustomer.managerName}</p>}
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
@@ -91,7 +111,7 @@ export default function CustomerLedger(){
       </table></div>
     </>}
     <style jsx>{`
-      .managers{display:flex;gap:8px;flex-wrap:wrap}.managers button[aria-pressed=true]{background:#1769aa;color:white;border-color:#1769aa}input[type=search]{padding:11px;border:1px solid #b7c8d8;border-radius:8px;min-width:250px;max-width:100%}input:focus-visible{outline:3px solid #1985d0;outline-offset:2px}
+      .selection-title{font-size:16px;margin:20px 0 10px}.customer-buttons{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px}.customer-buttons button{text-align:left;min-width:0;overflow-wrap:anywhere}.customer-buttons strong,.customer-buttons span{display:block}.customer-buttons span{font-size:12px;margin-top:5px;opacity:.85}.customer-buttons button[aria-pressed=true]{background:#1769aa;color:white;border-color:#1769aa;box-shadow:inset 0 0 0 1px #1769aa}.customer-buttons button:disabled{cursor:not-allowed;background:#edf0f3}.managers{display:flex;gap:8px;flex-wrap:wrap}.managers button[aria-pressed=true]{background:#1769aa;color:white;border-color:#1769aa}input[type=search]{padding:11px;border:1px solid #b7c8d8;border-radius:8px;min-width:250px;max-width:100%}input:focus-visible{outline:3px solid #1985d0;outline-offset:2px}
       @media(max-width:600px){:global([data-ui-popupbar]>[data-ui-page-title]){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}:global([data-ui-popupbar]>span:last-child){flex-shrink:0}:global([data-ui-popupbar]>span:last-child>span){display:none}:global([data-ui-popupbar] button){white-space:nowrap;flex-shrink:0}}
       .ledger-page{padding:24px;max-width:1200px;margin:0 auto;color:#172c40}.ledger-page h1{font-size:23px;margin:0 0 8px}.muted{color:#607286;font-size:13px;line-height:1.7}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 16px}.controls label{font-weight:700}select{min-width:250px;max-width:100%;padding:11px;border:1px solid #b7c8d8;border-radius:8px;background:#fff}button{padding:10px 16px;border:1px solid #b7c8d8;border-radius:8px;background:#fff;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button:focus-visible,select:focus-visible{outline:3px solid #1985d0;outline-offset:2px}.info{display:flex;gap:24px;flex-wrap:wrap;font-size:14px}.notice,.error,.empty,.refresh-status{padding:16px;border-radius:8px;line-height:1.7}.notice{background:#fff5d9;color:#795514}.refresh-status{background:#e9f5ff;color:#194b74}.error{background:#fff0f0;color:#a02020}.empty{background:#f0f5fa;margin-top:24px}.totals{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.totals>div{min-width:180px;padding:18px;border:1px solid #d7e2eb;border-radius:10px;background:white}.totals span{display:block;font-size:13px;color:#607286}.totals strong{display:block;margin-top:8px;font-size:22px;font-variant-numeric:tabular-nums}.ledger-table-scroll{overflow-x:auto}table{width:auto;border-collapse:collapse;table-layout:fixed;background:white}th,td{padding:11px 16px;border-bottom:1px solid #e2eaf1;text-align:right;font-variant-numeric:tabular-nums}th{background:#eef4f8}th:nth-child(2),td:nth-child(2){text-align:left}td[colspan]{text-align:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.ledger-page{padding:16px}.totals>div{min-width:140px;flex:1}.info{gap:8px}select{width:100%}}
     `}</style>

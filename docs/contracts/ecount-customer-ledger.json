@@ -79,5 +79,13 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "uiSelection": {
+    "defaultManager": "all",
+    "managerChange": "clear selected customer and cached detail; only show selected manager customers",
+    "customerButtons": "single selection; pressed active, second click clears; unlinked disabled",
+    "keyboard": "Tab/Shift+Tab, arrows/Home/End move focus, Enter/Space activate",
+    "sideEffects": "UI filter only; existing snapshot reads and explicit refresh unchanged; all ERP tables preserved",
+    "crossYear": "UI does not change period or OrderYear/OrderWeek; existing cross-year fixtures retained"
+  }
 }
