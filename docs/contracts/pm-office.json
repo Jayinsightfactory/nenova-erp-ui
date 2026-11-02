@@ -6,12 +6,35 @@
     "pages/api/pm/office.js",
     "pages/api/work/feature-data-ingest.js",
     "lib/workFeatureData.js",
-    "lib/orbitReportAccess.js"
+    "lib/orbitReportAccess.js",
+    "pages/api/pm/staff.js",
+    "lib/pmStaff.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
-    { "name": "PM_OFFICE_INGEST", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
-    { "name": "PM_OFFICE_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+    {
+      "name": "PM_OFFICE_INGEST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_OFFICE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_STAFF_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
   ],
   "crossYearFixture": {
     "required": true,
@@ -19,20 +42,28 @@
   },
   "requiredTestFiles": [
     "__tests__/workFeatureData.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/pmStaff.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/README.md",
     "source": "PM 사무실은 nenova.exe 기능이 아닌 웹 전용 파일 조회 기능이며 ERP 테이블 side effect는 모두 preserve다. 수신은 ORBIT_DRIVE_INGEST_TOKEN(서버 전용 토큰), 열람은 /my-work 와 같은 isOrbitReportViewer 게이트(404 은닉).",
-    "methods": ["NenovaWeb JWT UserInfo.UserID claim check (lib/orbitReportAccess.isOrbitReportViewer)"],
-    "tables": ["UserInfo (login source only; no write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+    "methods": [
+      "NenovaWeb JWT UserInfo.UserID claim check (lib/orbitReportAccess.isOrbitReportViewer)"
+    ],
+    "tables": [
+      "UserInfo (login source only; no write)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)"
+    ]
   },
   "requiredCommands": [
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "node __tests__/workFeatureData.test.js",
-    "npm run build"
+    "npm run build",
+    "node __tests__/pmStaff.test.js"
   ]
 }
