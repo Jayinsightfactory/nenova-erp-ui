@@ -23,7 +23,8 @@
     "lib/ecountVerifiedCustomerLinks.cjs",
     "lib/ecountVerifiedCustomerLinks.json",
     "lib/ecountLedgerTable.cjs",
-    "lib/ecountCollectorRecovery.cjs"
+    "lib/ecountCollectorRecovery.cjs",
+    "lib/ecountReadReuse.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -125,7 +126,7 @@
     "tests": "six-row screenshot fixture, two receipts same day, empty week balance carry, null/zero, 202553/202601"
   },
   "sessionRecovery": {
-    "login": "exact source login host; one retry after shared reauthentication; refresh current base before retry; never persist session URL/credentials",
+    "login": "HTTPS exact login.ecount.com or observed logincc.ecount.com/ecNN/view/login/erp_login; authenticated base only exact logincc /ecNN/view/erp; never popup/login/blank as base. Bounded DOM boot (15/30s), browser start180s, fixed stage logs without URLs; one shared reauthentication retry.",
     "manualRecovery": "explicit operator marker consumed before run, valid weekday08–18 for10min, persistent id prevents restart replay; no missed-slot catch-up without marker",
     "preserve": "source ECOUNT writes blocked; shadow verified snapshots only; canonical customer/source dedup and bank deduction unchanged",
     "fixtures": "coalesced login, bounded retry, genuine source failures, bank auth, old/weekend marker, year boundary, real dispatcher manual priority/continuation/restart, untouched-only timeout, stale/cross-year discard, owned fresh-page cleanup/transient-only retry, context loss deferral, per-customer cursor, API outage retention, private error suppression",
@@ -138,5 +139,12 @@
     "requestFailure": "Separate persistent rejection from cached polling errors; suppress stale COMPLETE after rejection; clear on new source time/request/selection",
     "rateLimit": "Existing server ten-minute rule remains; message is relative to prior processing, not every rejected attempt",
     "fixture": "__tests__/ecountLedgerRequestFeedback.test.cjs (network/503 retention, 403 clearing, rate rejection across polling, accepted retry, cross-year late scope denial)"
+  },
+  "readReduction": {
+    "bank": "A sanitized global PENDING after-read can be the next before-read for <90s only, identical period/session. Always fetch a fresh after; original 5min bracket, unchanged before/after, reflected reconciliation and duplicate guards unchanged. Failure/expiry/session/period invalidates.",
+    "legacy": "Six report exports share canonical weekday08/11/14 dueSlot, atomic slot checkpoint before operation, no startup hourly/night/weekend/catch-up replay. One source-read serial queue.",
+    "lookupFailure": "Only accepted LINK_CHECK_REQUIRED is held using SHA256 of source identity/query, same KST day, <24h. Changed mapping/manual/success/expiry retries; technical errors not held. No new official zero/fresh time.",
+    "preserve": "Existing verified detail, original collection timestamp, source identity/basis, canonical aliases and financial calculations; no core ERP or source writes.",
+    "fixtures": "__tests__/ecountReadReuse.test.cjs; real dispatcher recovery/manual/continuation fixtures; 2026/2027 scopes, zero TTL, stale and invalid evidence"
   }
 }

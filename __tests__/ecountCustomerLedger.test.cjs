@@ -1,3 +1,5 @@
+const readReuse=require('../lib/ecountReadReuse.cjs');
+function withFailureDisk(disk){const files=new Map();return {...disk,readFileSync:n=>{if(String(n).includes('lookup-failures')){if(!files.has(n))throw Error('missing');return files.get(n);}return disk.readFileSync(n);},writeFileSync:(n,v)=>String(n).includes('lookup-failures')?files.set(n,v):disk.writeFileSync(n,v),renameSync:(a,b)=>{if(String(a).includes('lookup-failures')){files.set(b,files.get(a));files.delete(a);}else disk.renameSync(a,b);}};}
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -341,7 +343,7 @@ test('actual dispatcher consumes explicit recovery before collection and does no
  const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(name,value)=>{assert.equal(name,'state.tmp');temp=JSON.parse(value);},renameSync:(a,b)=>{assert.equal(a,'state.tmp');assert.equal(b,'state');state=temp;}};
  const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8');
  const body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
- const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},{...recovery,recoveryRequestId:(r,id)=>recovery.recoveryRequestId(r,id,fixed),makeContinuation:(w,k)=>recovery.makeContinuation(w,k,fixed)},async(_base,_body,suffix)=>suffix?{refreshRequest:null}:{customers:[{custKey:1}],period:{from:'2026-10-02',to:'2026-11-02'}},async()=>({}),async args=>{assert.equal(state.lastRecoveryId,marker.id);batches++;await args.onProgress([]);return {ok:1,failed:0};},()=>{},()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const start=new Function('reads','fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(readReuse,withFailureDisk(disk),'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},{...recovery,recoveryRequestId:(r,id)=>recovery.recoveryRequestId(r,id,fixed),makeContinuation:(w,k)=>recovery.makeContinuation(w,k,fixed)},async(_base,_body,suffix)=>suffix?{refreshRequest:null}:{customers:[{custKey:1}],period:{from:'2026-10-02',to:'2026-11-02'}},async()=>({}),async args=>{assert.equal(state.lastRecoveryId,marker.id);batches++;await args.onProgress([]);return {ok:1,failed:0};},()=>{},()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
  const ctx={newPage:async()=>({close:async()=>{}})};const flush=()=>new Promise(setImmediate);
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);tick();await flush();assert.equal(batches,1);
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);assert.equal(state.lastAttempt,fixed-3600000);
@@ -366,7 +368,7 @@ test('actual dispatcher prioritizes manual refresh then resumes only deferred ca
  const batch=async args=>{batches.push(args.work.customers.map(c=>c.custKey));if(batches.length===1){await args.onDeferred([3]);return {ok:1,failed:0,deferred:1};}await args.onProgress([]);return {ok:1,failed:0};};
  const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
  const recovery={...real,recoveryRequestId:(r,id)=>real.recoveryRequestId(r,id,fixed),continuationEligible:c=>real.continuationEligible(c,fixed),makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
- const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),batch,async({customer})=>({custKey:customer.custKey}),()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const start=new Function('reads','fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(readReuse,withFailureDisk(disk),'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),batch,async({customer})=>({custKey:customer.custKey}),()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
  const ctx={newPage:async()=>({close:async()=>{}})},flush=()=>new Promise(setImmediate);
  start(ctx,()=>'', '');await flush();assert.deepEqual(uploads,[9]);assert.equal(batches.length,0);assert.deepEqual(state.continuation.keys,[2,3]);
  tick();await flush();assert.deepEqual(batches,[]);assert.deepEqual(state.continuation.keys,[2,3]);
@@ -397,7 +399,20 @@ test('actual dispatcher serves a newly queued manual request between customers i
  const collect=async({customer})=>{reads.push(customer.custKey);if(customer.custKey===1)queued={requestId:9,custKey:9,period:work.period};if(customer.custKey===9)assert.deepEqual(state.continuation.keys,[2]);return {custKey:customer.custKey};};
  const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
  const recovery={...real,makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
- const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>fixed,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),collectLedgerBatch,collect,()=>{},()=>1,()=>{}, {log:()=>{}});
+ const start=new Function('reads','fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(readReuse,withFailureDisk(disk),'state','request',{dueSlot:()=>fixed,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),collectLedgerBatch,collect,()=>{},()=>1,()=>{}, {log:()=>{}});
  start({newPage:async()=>({close:async()=>{}})},()=>'', '');for(let i=0;i<5;i++)await new Promise(setImmediate);
  assert.deepEqual(reads,[1,9,2]);assert.deepEqual(uploads,[1,9,2]);assert.equal(state.continuation,null);
+});
+
+test('actual dispatcher suppresses accepted unchanged link failures but manual requests bypass the hold',async()=>{
+ const real=require('../lib/ecountCollectorRecovery.cjs'),{collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ let state={lastAttempt:null},tmp,tick,slot=100,queued=null;const reads=[],failures=[],customers=[{custKey:1,sourceCode:'fixture-a'},{custKey:2,sourceCode:'fixture-b'}],period={from:'2026-10-02',to:'2026-11-02'};
+ const disk=withFailureDisk({readFileSync:n=>{if(n!=='state')throw Error('missing');return JSON.stringify(state);},writeFileSync:(n,v)=>tmp=JSON.parse(v),renameSync:()=>state=tmp});
+ const api=async(_url,body,suffix)=>{if(suffix){const r=queued;queued=null;return {refreshRequest:r};}if(body){if(body.failure)failures.push(body.custKey);return {};}return {period,customers:[...customers]};};
+ const collect=async({customer})=>{reads.push(customer.custKey);if(customer.custKey===2)throw Error('SOURCE_CUSTOMER_AMBIGUOUS');return {custKey:customer.custKey};};
+ const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
+ const start=new Function('reads','fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(readReuse,disk,'state','request',{dueSlot:(_n,last)=>slot!==last?slot:null,isRefreshRequestAllowed:()=>true},real,api,async()=>({}),collectLedgerBatch,collect,()=>{},fn=>{tick=fn;return 1;},()=>{},{log:()=>{}});
+ start({newPage:async()=>({close:async()=>{}})},()=>'', '');const flush=async()=>{for(let i=0;i<12;i++)await new Promise(setImmediate);};await flush();assert.deepEqual(reads,[1,2]);assert.deepEqual(failures,[2]);
+ slot=101;tick();await flush();assert.deepEqual(reads,[1,2,1]);assert.deepEqual(failures,[2]);
+ queued={...customers[1],requestId:9,period};tick();await flush();assert.deepEqual(reads,[1,2,1,2]);assert.deepEqual(failures,[2,2]);
 });
