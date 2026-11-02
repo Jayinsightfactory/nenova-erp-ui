@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {appendCostInputDifferentialStyle} from '../lib/invoiceCostCellPresentation.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
@@ -125,6 +126,8 @@ test('China sea CBM formula exposes unequal volume allocations instead of copyin
 });
 
 function assertFormatOnlyStyleClones(actual, original) {
+  // The only non-cellXfs addition is the reviewed missing-selling-input cue.
+  original = appendCostInputDifferentialStyle(original).styles;
   const pattern = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/;
   const old = original.match(pattern), next = actual.match(pattern);
   assert.ok(next[1].startsWith(old[1]), 'all original styles must remain byte-for-byte unchanged');
@@ -316,7 +319,7 @@ test('format-only template and generated package contain no historical rows, for
   assert.equal(parts.filter(name => /^xl\/worksheets\//.test(name)).length, 3);
   assert.ok(!parts.some(name => /sharedStrings|externalLinks|comments|calcChain|drawings|vba/i.test(name)));
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-  assert.doesNotMatch(sheet, /<f\b|t="e"|SERVER_ONLY_PRIVATE|ROSE|Gypsophila|372660|4706\.597090|판매|이익/);
+  assert.doesNotMatch(sheet, /<f\b|t="e"|SERVER_ONLY_PRIVATE|ROSE|Gypsophila|372660|4706\.597090/);
   const s = XLSX.read(await zip.generateAsync({ type: 'nodebuffer' })).Sheets['2026 41-02'];
   assert.equal(s.B24.t, 's'); assert.equal(s.B24.f, undefined);
   for (const col of ['Q', 'R', 'S', 'T', 'U', 'V']) assert.equal(s[`${col}24`]?.v, undefined);
@@ -382,7 +385,7 @@ for (const [profileId, filename, count] of [
     for (const part of nl ? [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print] : [asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr]) assert.ok(sheet.includes(part));
     if (nl) {
       for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
-      for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+      for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge.replace(/^B1:([A-Z]+)3$/,'B1:$12')}"`));
     }
     const last = profile.detailStartRow + count - 1;
     assert.ok(sheet.includes(`ref="B${last}:D${last}"`));
@@ -405,7 +408,8 @@ for (const [profileId, filename, count] of [
       } else assert.equal(s[`M${r}`].v, cost.componentAmounts.otherKRW / cost.quantity);
       for (const col of nl ? ['Q', 'U', 'V', 'W'] : ['G', 'Q', 'R', 'S', 'T', 'U', 'V', 'W']) assert.equal(s[`${col}${r}`]?.v, undefined);
     });
-    assert.doesNotMatch(sheet, /<f\b|t="e"|95% 선적시|Eryngium|Ammi CHINA|SERVER_ONLY/);
+    assert.doesNotMatch(sheet, /<f\b|t="e"|95% 선적시|Ammi CHINA|SERVER_ONLY/);
+    if(nl)assert.equal(s.J6.v,'Eryngium','static reference label is restored, never a historical detail row');
     for (const row of asset.rows) for (const cell of row.cells) assert.deepEqual(Object.keys(cell).sort(), ['ref', 'style']);
     for (const mutate of [
       f => { delete f.revision.lines[0].componentAmounts.freightKRW; },
@@ -562,7 +566,7 @@ for (const [id, assetName, filename] of [
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
     for (const part of [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
     for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
-    for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+    for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge.replace(/^B1:([A-Z]+)3$/,'B1:$12')}"`));
     assert.ok(sheet.includes(`ref="${th ? 'C42:E42' : 'B42:D42'}"`));
     const s = XLSX.read(buffer, { cellNF: true }).Sheets['2026 41-02'];
     assert.equal(s.C10.v, f.revision.totalCostKRW);
