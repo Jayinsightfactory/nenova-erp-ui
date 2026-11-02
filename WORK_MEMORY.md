@@ -1806,7 +1806,11 @@
 - 원장 writer 변경 없음. 설치 EXE UpdateCost 확인 및 운영 SELECT-only 2025/2026 44-02 조회 근거: docs/work-sessions/2026-11-02_volume-price-restore.md.
 - 단가 순수/실제 페이지 함수 검사, 기존 작업/엑셀 회귀, pivot, dnSpy/manifest/write guard, build, 격리 MSSQL fixture, 실제 Next 브라우저(단가 입력·수량 변경 재조회·전체 새로고침) 통과. 전체 ERP 계약 재실행 중(첫 실행 Node 네이티브 초기화 실패), PR/배포/운영 스모크는 아직 미검증.
 검색어: 네덜란드 단가 재조회 바로 불러오기 dutchLivePriceRestore currentCost pending price
+
 2026-11-02 업로드 성능 원인 진단 진행: Cafe24 배포 SSH를 통한 읽기 전용 PM2/nginx 집계 경로 추가. 운영 로그·DB 대기 원인과 수정은 미검증.
 검색어: upload performance diagnostic pm2 nginx read-only
 2026-11-02 업로드 느림 조사: 운영 nginx 7일 532317요청 중 activity me GET 308792/POST8549; 업로드504·DB timeout 유형280·OOM은10/26만. 기록권한폴링5→60초/숨김탭중지, 기록 fsync worker 이관. 활동 테스트PASS, 로컬build는페이징부족으로 page-data 단계실패. CI·운영개선효과 미검증. docs/work-sessions/2026-11-02_upload-performance-audit.md
 검색어: activity me poll 308792 fsync worker upload 504 db timeout
+
+2026-11-02 라움·신라 손익 HTTP 413 원인 보완: 운영 무인증 무해 본문 probe에서 /api/raum/pnl-import 30MiB는 401(nginx 통과), 33MiB는 413. /api/raum/pnl 및 /api/raum/pnl-image-import는 2MiB도 413으로 nginx 기본 제한 확인. exact 경로에 각각 8m/32m 추가, JSON 결산 저장 Next bodyParser 8mb 일치. WebRaumPnl 및 ERP 원장 로직 변경 없음. nginx helper·전체 ERP 계약·dnSpy·manifest·write guard·build PASS. CI/운영 적용은 진행 중(미검증).
+검색어: 라움 신라 손익 업로드 413 nginx pnl-image-import pnl JSON bodyParser

@@ -12,6 +12,8 @@ import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostCompariso
 import { loadRaumPnlArrivalReferences, loadHotelArrivalHistory } from '../../../lib/raumPnlArrivalReference';
 import { comparePnlPeriods, normalizePnlPeriod, parsePnlPeriod, pnlPeriodBaseMajor } from '../../../lib/raumPnlPeriod';
 
+export const config = { api: { bodyParser: { sizeLimit: '8mb' } } };
+
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
