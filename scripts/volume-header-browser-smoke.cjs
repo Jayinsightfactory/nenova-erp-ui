@@ -48,4 +48,3 @@ const puppeteer = require('puppeteer-core');
   assert.deepEqual(errors,[]);console.log('Volume header browser smoke PASS');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
-
