@@ -2,7 +2,7 @@
 // PM 사무실 — AI 에이전트·직원을 픽셀 사무실 책상으로 보여주는 실시간 화면(20초 폴링).
 // 데이터: GET /api/pm/office (사장님 PC 가 ~1분마다 name=pm-office 로 올리는 runtime JSON). 읽기 전용.
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
@@ -64,17 +64,18 @@ function Sprite({ status, color, robot }) {
   );
 }
 
-function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty }) {
+function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty, onOpen }) {
   const st = empty ? 'off' : (STATUS_LABEL[status] ? status : 'off');
   const tip = [name, STATUS_LABEL[st], sub, activity, ago(lastAt, now), extra].filter(Boolean).join(' · ');
   const showBubble = activity && st !== 'off';
   return (
-    <div className={`seat d-${st} ${empty ? 'empty-seat' : ''}`} title={tip}>
+    <div className={`seat d-${st} ${empty ? 'empty-seat' : ''} ${onOpen ? 'clickable' : ''}`} title={tip}
+      {...(onOpen ? { role: 'button', tabIndex: 0, onClick: onOpen, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } } } : {})}>
       <div className={`bubble ${showBubble ? '' : 'none'}`}>{showBubble ? activity : ''}</div>
       {empty ? <div className="sprite st-off"><div className="desk"><div className="monitor"><div className="screen" /></div></div></div>
         : <Sprite status={st} color={hashColor(name)} robot={robot} />}
       <div className="nm">{name || '?'}</div>
-      <div className="chip"><span className={`dot dot-${st}`} />{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
+      <div className={`chip chip-${empty ? 'empty' : st}`}>{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
     </div>
   );
 }
@@ -91,10 +92,168 @@ function Table({ seats, render }) {
   );
 }
 
+
+const BASIS_LABEL = { 'erp-verified': '전산 확인', confirmed: '확정', estimated: '추정' };
+const PIPE = ['관찰', '절차 확정', '시험실행(dry-run)', '승인', '실행'];
+
+function StaffDrawer({ name, live, now, onClose }) {
+  const [tab, setTab] = useState('auto');
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState('');
+  const [open, setOpen] = useState({});
+  useEffect(() => {
+    let alive = true; setRes(null); setErr(''); setTab('auto'); setOpen({});
+    fetch('/api/pm/staff?name=' + encodeURIComponent(name), { cache: 'no-store' })
+      .then((r) => r.json().then((j) => ({ r, j })))
+      .then(({ r, j }) => { if (!alive) return; if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`); setRes(j.data); })
+      .catch((e) => alive && setErr(String(e.message || e)));
+    const esc = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', esc);
+    return () => { alive = false; window.removeEventListener('keydown', esc); };
+  }, [name, onClose]);
+  const d = res;
+  const noData = d && !d.hasData;
+  return (
+    <div className="drawer-back" onClick={onClose}>
+      <aside className="drawer" role="dialog" aria-label={`${name} 직원 상세`} onClick={(e) => e.stopPropagation()}>
+        <div className="dh">
+          <h2>직원 상세 · {name}{d?.dataName && d.dataName !== name ? <small> ({d.dataName})</small> : null}</h2>
+          <button type="button" className="x" onClick={onClose} aria-label="닫기">×</button>
+        </div>
+        <div className="tabs" role="tablist">
+          {[['auto', '자동화'], ['role', '역할'], ['now', '지금']].map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
+          ))}
+        </div>
+        <div className="db">
+          {err && <p className="warn">불러오기 실패: {err}</p>}
+          {!d && !err && <p className="muted">불러오는 중…</p>}
+          {noData && tab !== 'now' && <p className="muted">관찰 데이터 없음</p>}
+          {d && !noData && tab === 'auto' && (
+            <div>
+              <div className="sum">
+                <div><b>{d.summary.workflowCount}</b><span>반복 업무</span></div>
+                <div><b>{d.summary.confirmedRatio}%</b><span>확정 단계 ({d.summary.confSteps}/{d.summary.totalSteps})</span></div>
+                <div><b>{d.summary.savedPerWeekMin != null ? `${d.summary.savedPerWeekMin}분` : '–'}</b><span>예상 절감/주</span></div>
+              </div>
+              {d.summary.candidates.length > 0 && (
+                <div className="card">
+                  <h3>자동화 후보 TOP {d.summary.candidates.length}</h3>
+                  <ol className="cand">{d.summary.candidates.map((c) => (
+                    <li key={c.name}><b>{c.name}</b> <span className="muted">확정 {c.ratio}% · {c.frequency || '빈도 미상'}{c.savedPerCase ? ` · 건당 ${c.savedPerCase}분 절감` : ''}</span></li>
+                  ))}</ol>
+                </div>
+              )}
+              <h3>반복 업무</h3>
+              {d.workflows.map((w, wi) => {
+                const r = w.readiness; const pi = PIPE.indexOf(w.pipelineStage);
+                return (
+                  <div key={wi} className="card">
+                    <div className="wt"><b>{w.name}</b>{w.confidence && <span className="pill">{w.confidence}</span>}</div>
+                    <div className="pipe">{PIPE.map((p, i) => <span key={p} className={i <= pi ? 'done' : ''}>{p}</span>)}</div>
+                    <div className="bar" aria-label={`확정 ${r.ratio}%`}><i style={{ width: `${r.ratio}%` }} /></div>
+                    <div className="kv">단계 {r.total} · 확정 {r.confirmed} · 전산확인 {r.erpVerified} · 실행대상(전산/네노바웹) {r.executable} · 추정 {r.estimated}</div>
+                    {(w.stage?.length ? <div className="kv">단계: {[].concat(w.stage).join(' / ')}</div> : null)}
+                    {w.why && <div className="kv">이유: {w.why}</div>}
+                    {w.trigger && <div className="kv">시작: {w.trigger}</div>}
+                    {w.frequency && <div className="kv">빈도: {w.frequency}</div>}
+                    {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
+                    {w.steps.length > 0 && (
+                      <button type="button" className="lnk" onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</button>
+                    )}
+                    {open[wi] && (
+                      <ol className="steps">{w.steps.map((st, si) => (
+                        <li key={si}>
+                          <div>{st.no != null ? `${st.no}. ` : ''}{st.text} <span className={`basis b-${st.basis}`}>{BASIS_LABEL[st.basis] || st.basis || '–'}</span></div>
+                          <div className="muted">{[st.source?.app, st.source?.screen, st.source?.field].filter(Boolean).join(' › ') || '?'}{st.destination ? ` → ${[st.destination.app, st.destination.screen, st.destination.field].filter(Boolean).join(' › ')}` : ''}{st.action ? ` · ${st.action}` : ''}</div>
+                          {st.example && <div className="ex">예: {st.example}</div>}
+                        </li>
+                      ))}</ol>
+                    )}
+                    {w.pitfalls.length > 0 && <div className="kv"><b>함정</b><ul>{w.pitfalls.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+                    {w.decisions.length > 0 && <div className="kv"><b>판단</b><ul>{w.decisions.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+                  </div>
+                );
+              })}
+              {d.simulations.length > 0 && <h3>개선안</h3>}
+              {d.simulations.map((sm, i) => (
+                <div key={i} className="card sim">
+                  <div className="wt"><b>{sm.title}</b>{sm.savedPerCase > 0 && <span className="save">건당 −{sm.savedPerCase}분</span>}</div>
+                  {sm.menu && <div className="kv">메뉴: {sm.menu}</div>}
+                  {sm.observed && <div className="kv">관찰: {sm.observed}</div>}
+                  {sm.proposal && <div className="kv">제안: {sm.proposal}</div>}
+                  <div className="kv">지금 {sm.beforeMin}분 → 개선 후 {sm.afterMin}분{sm.savingPerWeekMin ? ` · 주 ${sm.savingPerWeekMin}분 절감` : ''}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {d && !noData && tab === 'role' && (
+            d.role ? (
+              <div>
+                {d.role.dept && <div className="kv">부서: {d.role.dept}</div>}
+                {d.role.roleSummary && <div className="card">{d.role.roleSummary}</div>}
+                {d.role.weekRhythm && <div className="card"><h3>주간 리듬</h3>{typeof d.role.weekRhythm === 'string' ? d.role.weekRhythm : <ul>{Object.entries(d.role.weekRhythm).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
+                {d.role.unknowns?.length > 0 && <div className="card"><h3>아직 모르는 것</h3><ul>{d.role.unknowns.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+                {d.role.dataStrength && <div className="card"><h3>데이터 강도</h3>{typeof d.role.dataStrength === 'string' ? d.role.dataStrength : <ul>{Object.entries(d.role.dataStrength).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
+              </div>
+            ) : <p className="muted">역할 요약 없음</p>
+          )}
+          {tab === 'now' && (
+            live ? (
+              <div className="card">
+                <div className="kv">상태: <span className={`chip chip-${STATUS_LABEL[live.status] ? live.status : 'off'}`}>{STATUS_LABEL[live.status] || '꺼짐'}</span></div>
+                {live.app && <div className="kv">사용 앱: {live.app}</div>}
+                <div className="kv">마지막: {ago(live.lastAt, now) || '–'}</div>
+                {live.events15m != null && <div className="kv">최근 15분 이벤트: {live.events15m}건</div>}
+              </div>
+            ) : <p className="muted">실시간 데이터 없음</p>
+          )}
+        </div>
+      </aside>
+      <style jsx>{`
+        .drawer-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; justify-content: flex-end; }
+        .drawer { width: min(560px, 100%); height: 100%; background: #f6f7fa; color: #1b1f2a; display: flex; flex-direction: column; box-shadow: -6px 0 18px rgba(0,0,0,.35); }
+        .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #262b3c; color: #fff; }
+        .dh h2 { margin: 0; font-size: 16px; } .dh small { color: #c7cde0; font-weight: normal; }
+        .x { background: none; border: 0; color: #fff; font-size: 24px; cursor: pointer; min-width: 44px; min-height: 44px; }
+        .tabs { display: flex; border-bottom: 1px solid #d0d4de; background: #fff; }
+        .tabs button { flex: 1; padding: 10px; border: 0; background: none; font-size: 14px; color: #4a5164; cursor: pointer; border-bottom: 3px solid transparent; }
+        .tabs .on { color: #1b1f2a; font-weight: bold; border-bottom-color: #3f7fff; }
+        .db { flex: 1; overflow-y: auto; padding: 12px 16px 24px; font-size: 13px; line-height: 1.5; }
+        h3 { font-size: 13px; margin: 12px 0 6px; }
+        .muted { color: #5a6276; } .warn { color: #a3260f; }
+        .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .sum div { background: #fff; border: 1px solid #d0d4de; border-radius: 6px; padding: 8px; text-align: center; }
+        .sum b { display: block; font-size: 20px; } .sum span { font-size: 11px; color: #4a5164; }
+        .card { background: #fff; border: 1px solid #d0d4de; border-radius: 6px; padding: 10px; margin-top: 8px; }
+        .wt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .pill { font-size: 11px; background: #e3e7f0; border-radius: 8px; padding: 0 6px; }
+        .save { font-size: 12px; font-weight: bold; background: #b9f5cf; color: #0b3d1f; border-radius: 8px; padding: 0 7px; }
+        .pipe { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; }
+        .pipe span { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #e3e7f0; color: #5a6276; }
+        .pipe span.done { background: #2f6fe0; color: #fff; }
+        .bar { height: 8px; background: #e3e7f0; border-radius: 4px; overflow: hidden; } .bar i { display: block; height: 100%; background: #1f9d55; }
+        .kv { margin-top: 4px; } .kv ul { margin: 2px 0 0 18px; padding: 0; }
+        .lnk { margin-top: 6px; background: none; border: 0; color: #2f6fe0; cursor: pointer; padding: 4px 0; font-size: 13px; }
+        .steps { margin: 6px 0 0 0; padding-left: 0; list-style: none; } .steps li { border-top: 1px solid #eceef3; padding: 6px 0; }
+        .ex { font-size: 12px; color: #3a4152; background: #f1f3f8; padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
+        .basis { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #e3e7f0; color: #1f2430; }
+        .b-erp-verified { background: #b9f5cf; color: #0b3d1f; } .b-confirmed { background: #cfe0ff; color: #0c2a63; } .b-estimated { background: #ffe7a3; color: #4a3200; }
+        .cand { margin: 0; padding-left: 20px; }
+        .chip { display: inline-block; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; }
+        .chip-working { background: #b9f5cf; color: #0b3d1f; } .chip-idle { background: #ffe7a3; color: #4a3200; } .chip-off { background: #d7dbe3; color: #1f2430; } .chip-error { background: #ffc9c2; color: #5c0d05; }
+        @media (max-width: 640px) { .drawer { width: 100%; } .sum b { font-size: 16px; } }
+      `}</style>
+    </div>
+  );
+}
+
 export default function PmOffice() {
   const [resp, setResp] = useState(null);
   const [err, setErr] = useState('');
   const [now, setNow] = useState(0);
+  const [sel, setSel] = useState(null);
+  const closeSel = useCallback(() => setSel(null), []);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -180,7 +339,7 @@ export default function PmOffice() {
               <section key={r.dept} className="room dept" style={{ background: ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
                 <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small></div>
                 <Table seats={r.seats} render={(x, i) => (
-                  <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status}
+                  <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status} onOpen={x.empty ? undefined : () => setSel(x.name)}
                     activity={x.app ? `${x.app} 사용 중` : ''} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
                 )} />
               </section>
@@ -219,6 +378,7 @@ export default function PmOffice() {
           </section>
         </aside>
       </div>
+      {sel && <StaffDrawer name={sel} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} />}
       <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
       <style jsx>{`
         .pm { min-height: 100vh; background: #1e2230; color: #e8ebf2; padding: 12px 16px 24px; font-size: 13px; }
@@ -246,19 +406,21 @@ export default function PmOffice() {
         .row { display: flex; gap: 6px; }
         .divider { height: 4px; margin: 3px 0; background: #c9ced9; box-shadow: 0 1px 0 #6b7186; }
         .seat { width: 120px; height: 148px; flex: 0 0 120px; box-sizing: border-box; background: rgba(15,18,28,.55); border: 2px solid #3a4158; border-radius: 3px; padding: 4px; text-align: center; overflow: hidden; }
-        .seat.d-off { filter: grayscale(.85) brightness(.55); }
+        .seat.d-off .sprite { filter: grayscale(.85) brightness(.55); } .seat.d-off { background: rgba(10,12,18,.7); }
+        .seat.clickable { cursor: pointer; } .seat.clickable:hover, .seat.clickable:focus-visible { outline: 2px solid #ffd76a; outline-offset: 1px; }
         .seat.d-error { border-color: #e0483a; } .seat.d-working { border-color: #3fbf7f; }
         .empty-seat { border-style: dashed; }
-        .chip { display: inline-block; max-width: 100%; font-size: 10px; background: #2f3548; border-radius: 8px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chip { display: inline-block; max-width: 100%; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .deskcard { background: rgba(20, 23, 34, .75); border: 2px solid #3a4158; border-radius: 4px; padding: 6px; text-align: center; position: relative; }
         .deskcard.d-off { opacity: .45; filter: grayscale(.8); }
         .deskcard.d-error { border-color: #e0483a; }
         .deskcard.d-working { border-color: #3fbf7f; }
-        .bubble { background: #fff; color: #222; border-radius: 6px; padding: 2px 5px; font-size: 10px; height: 28px; box-sizing: border-box; word-break: break-all; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; position: relative; margin-bottom: 6px; }
+        .bubble { background: #fff; color: #111; border-radius: 6px; padding: 2px 5px; font-size: 10px; height: 28px; box-sizing: border-box; word-break: break-all; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; position: relative; margin-bottom: 6px; }
         .bubble:after { content: ''; position: absolute; left: 50%; bottom: -5px; border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
         .bubble.none { visibility: hidden; }
-        .nm { font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .meta { font-size: 11px; color: #9aa3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chip-working { background: #b9f5cf; color: #0b3d1f; } .chip-idle { background: #ffe7a3; color: #4a3200; } .chip-off { background: #d7dbe3; color: #1f2430; } .chip-error { background: #ffc9c2; color: #5c0d05; } .chip-empty { background: #3a4158; color: #f0f2f7; }
+        .nm { color: #fff; font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .meta { font-size: 11px; color: #d5dae6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; background: #666; }
         .dot-working { background: #3fbf7f; } .dot-idle { background: #ffcc3f; } .dot-error { background: #e0483a; }
         .panel { background: #262b3c; border: 2px solid #3a4158; border-radius: 4px; padding: 10px; margin-bottom: 12px; }
