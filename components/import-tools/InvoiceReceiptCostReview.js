@@ -393,36 +393,33 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }, [identity]);
 
   useEffect(() => {
-    if (documentCountry(document) !== 'AU' || numberOrNull(form.exchangeRateKRW) !== null) return;
-    const requestedDate = String(form.exchangeRateRequestedDate || document?.reviewedMetadata?.invoiceUploadDate
-      || document?.reviewedMetadata?.awbAttachment?.uploadDate || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
-      setExchangeRateStatus('인보이스 업로드일이 없어 AUD 환율을 자동 조회할 수 없습니다. 기준일을 확인하세요.');
-      return;
-    }
+    if (!document || numberOrNull(form.exchangeRateKRW) !== null || document.costStatus === 'APPROVED') return;
+    const currency = String(form.nativeCurrency || '').toUpperCase();
+    if (!['USD','EUR','CNY','AUD','NZD','THB'].includes(currency)) return;
     const controller = new AbortController();
-    setExchangeRateStatus(`${requestedDate} 업로드일 기준 시장 환율 조회 중…`);
-    fetch(`/api/import/receipts/aud-exchange-rate?date=${encodeURIComponent(requestedDate)}`, {
+    setExchangeRateStatus(`${currency}/KRW 현재 시세 +15원 조회 중…`);
+    fetch(`/api/import/receipts/live-exchange-rate?currency=${encodeURIComponent(currency)}`, {
       credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
     }).then(async response => {
       const result = await response.json();
       if (!response.ok || !result?.success) throw new Error(result?.error || 'AUD 환율을 조회하지 못했습니다.');
       return result;
     }).then(result => {
+      if (controller.signal.aborted) return;
       setForm(current => {
-        if (numberOrNull(current.exchangeRateKRW) !== null) return current;
+        if (numberOrNull(current.exchangeRateKRW) !== null || String(current.nativeCurrency).toUpperCase() !== currency) return current;
         pristineRef.current = false; setInputEdited(true); setPreview(null);
-        return { ...current, exchangeRateKRW: result.rate, exchangeRateType: 'MARKET_SEARCH',
-          exchangeRateDate: result.rateDate, exchangeRateSource: result.source,
+        return { ...current, exchangeRateKRW: result.rate, exchangeRateType: 'LIVE_MARKET_PLUS_15',
+          exchangeRateDate: result.quoteAt.slice(0,10), exchangeRateSource: `${result.source} · 시세 ${result.marketRate} +15원`,
           exchangeRateSourceUrl: result.sourceUrl,
-          exchangeRateRequestedDate: result.requestedDate, exchangeRateCarriedForward: result.carriedForward };
+          exchangeRateRequestedDate: result.requestedAt.slice(0,10), exchangeRateQuoteAt: result.quoteAt, exchangeRateMarketRate: result.marketRate, exchangeRateAdjustmentKRW: 15 };
       });
-      setExchangeRateStatus(`${result.source} · 기준일 ${result.requestedDate} · 적용일 ${result.rateDate}${result.carriedForward ? ' (직전 고시일)' : ''}`);
+      setExchangeRateStatus(`${result.source} · ${result.quoteAt} · 시세 ${result.marketRate} +15원 = ${result.rate}`);
     }).catch(error => {
       if (error.name !== 'AbortError') setExchangeRateStatus(`환율 자동 조회 실패: ${error.message}`);
     });
     return () => controller.abort();
-  }, [identity, form.exchangeRateKRW, form.exchangeRateRequestedDate, exchangeRateRetry]);
+  }, [identity, document?.costStatus, form.nativeCurrency, form.exchangeRateKRW, exchangeRateRetry]);
 
   function emitStage(id, status, message) {
     if (stageStatuses.current[id] === status) return;
@@ -811,12 +808,12 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       {!nativePreview && <><Field label="매입 통화"><input maxLength={3} value={form.nativeCurrency} onChange={event => update('nativeCurrency', event.target.value.toUpperCase())} placeholder="CNY / EUR 등" /></Field>
       <Field label="운임 통화"><input maxLength={3} value={form.freightCurrency} onChange={event => update('freightCurrency', event.target.value.toUpperCase())} placeholder="명시 입력" /></Field></>}
       <Field label="환율 (원/통화)"><input aria-required="true" aria-invalid={!Number.isFinite(Number(form.exchangeRateKRW)) || Number(form.exchangeRateKRW) <= 0} type="number" step="0.000001" value={form.exchangeRateKRW} onChange={event => update('exchangeRateKRW', event.target.value)} /></Field>
-      {form.formulaId === 'AU_CNF_BUNCH_V1' && <div role="status" style={{ gridColumn: '1 / -1', fontSize: 12, color: '#526580', marginTop: -10 }}>
+      {<div role="status" style={{ gridColumn: '1 / -1', fontSize: 12, color: '#526580', marginTop: -10 }}>
         {form.exchangeRateKRW ? <>
-          인보이스 업로드일 {form.exchangeRateRequestedDate || document.reviewedMetadata?.invoiceUploadDate || '미확인'} 기준 · 적용 환율 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '환율 출처 미확인'}{form.exchangeRateCarriedForward ? ' · 휴일/미고시일로 직전 고시값 적용' : ''}
+          환율 기준일 {form.exchangeRateDate || '기준일 미확인'} · {form.exchangeRateSource || '담당자 입력 또는 저장값'}{form.exchangeRateQuoteAt ? ` · 시세 시각 ${form.exchangeRateQuoteAt}` : ''}
           {form.exchangeRateSourceUrl && <> · <a href={form.exchangeRateSourceUrl} target="_blank" rel="noreferrer">출처</a></>}
         </> : <>
-          {exchangeRateStatus || '업로드일 기준 AUD/KRW 시장 환율을 조회합니다.'}
+          {exchangeRateStatus || '현재 시장 환율에 15원을 더한 기본값을 조회합니다.'}
           <button type="button" onClick={() => setExchangeRateRetry(value => value + 1)} style={{ marginLeft: 8 }}>환율 다시 조회</button>
         </>}
       </div>}
