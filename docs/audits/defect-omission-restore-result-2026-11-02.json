@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-02",
+  "pr": 1383,
+  "deployedSha": "a6360410eb46314a4bb57edbb3e54f1c5922287f",
+  "ci": 41365441887,
+  "deploy": 41365999030,
+  "status": "DEPLOYED_VERIFIED",
+  "checks": [
+    "local full ERP contract",
+    "dnSpy evidence",
+    "manifest",
+    "write scope",
+    "local build",
+    "CI build",
+    "production hydration smoke",
+    "service cancel idempotent/year guard/audit only",
+    "SQL omission-cancel-reomit",
+    "browser history dialog"
+  ],
+  "productionHistory": {
+    "year": 2026,
+    "http": 200,
+    "total": 0
+  },
+  "productionCancellationsApplied": 0,
+  "limitations": "운영 이력0건으로 실제 운영 취소는 수행하지 않음. 취소 및 재등록예외해제는 서비스모의트랜잭션과 실제SQL SELECT-only CTE로 검증."
+}
