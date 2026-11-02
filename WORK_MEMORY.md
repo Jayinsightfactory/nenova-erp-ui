@@ -1801,3 +1801,5 @@
 검색어: ecount manual login only account locked Disable-ScheduledTask password retry removal
 2026-11-02 업로드 성능 원인 진단 진행: Cafe24 배포 SSH를 통한 읽기 전용 PM2/nginx 집계 경로 추가. 운영 로그·DB 대기 원인과 수정은 미검증.
 검색어: upload performance diagnostic pm2 nginx read-only
+2026-11-02 업로드 느림 조사: 운영 nginx 7일 532317요청 중 activity me GET 308792/POST8549; 업로드504·DB timeout 유형280·OOM은10/26만. 기록권한폴링5→60초/숨김탭중지, 기록 fsync worker 이관. 활동 테스트PASS, 로컬build는페이징부족으로 page-data 단계실패. CI·운영개선효과 미검증. docs/work-sessions/2026-11-02_upload-performance-audit.md
+검색어: activity me poll 308792 fsync worker upload 504 db timeout
