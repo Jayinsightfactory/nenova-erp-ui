@@ -273,3 +273,7 @@ Nenova 꽃 수입·유통 ERP 의 **웹·모바일 프런트 + AI 챗봇 + 운�
 - DB·원장·수치 보존. 기록: docs/work-sessions/2026-11-02_profit-report-status-toolbar.md
 
 2026-11-02 검증 갱신: 전체 ERP 가드2차/build PASS 및 명시 manifest174/쓰기0API PASS. 합계K 표시 좁은 후속수정의 타겟 재PASS. 후속 최종build·PR/CI·배포·실브라우저는 대기.
+
+2026-11-02 후속 확인: CI41370537123 SUCCESS, PR #1387 squash master d61bc68cfa1a2171abe149e601ea610e315515d3 병합 완료. Cafe2441371056883 진행 중이며 운영 화면 검증은 대기. 추가 로컬 기록만 수행한다.
+
+2026-11-02 compact 후속 로컬 검증: 운영 장문 행 문제를 표시만 보완. 실제CSS·113px 열폭18열 TH157/CN170/EC153px 및142원문 상세/키보드 PASS. 타겟5·dnSpy·manifest175·쓰기0API·build PASS. 후속 CI/배포/실운영 밀도 재검증 대기, DB/수치/판정 변경0.

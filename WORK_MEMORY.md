@@ -1754,6 +1754,12 @@
 
 - 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.
 
+2026-11-02 상태툴바 CI·병합 갱신: CI41370537123 SUCCESS, PR #1387 squash master d61bc68cfa1a2171abe149e601ea610e315515d3 병합 완료(01:10:26Z). Cafe2441371056883 진행 중, 배포·실브라우저는 아직 미검증. DB 쓰기0, 추가 commit/PR/push 없음.
+- 검색어: 상태툴바 PR1387 CI41370537123 d61bc68c 배포대기
+
+2026-11-02 상태셀 compact 후속: 기존 배포 운영에서 긴 원문 반복으로 행1000px 초과 발견. 원인/DB위치 기본 요약과 전체원문 펼침으로 표시만 보완. 실제CSS·113px·18열 로컬Chrome TH157/CN170/EC153px,142원문보존·Enter PASS. 타겟5/금융parity31/50동작, dnSpy/manifest175/쓰기0API/build PASS. 후속 CI·배포·운영최종은 미완료. DB쓰기0.
+- 검색어: compactCause 180px 142원문보존 상태셀 원인상세
+
 2026-11-02 자동수집 복구 착수: 8시124건전체실패·8:56재로그인뒤오전실패분재개없음. 수동미카엘갱신성공(10/31수금4,947,800→잔액50,000). 공용로그인복구/해당작업1회재시도/일회복구마커중복방지/이카운트잔액라벨. 대상59검사통과, 전체검증·배포·카나리·전체재수집대기. docs/work-sessions/2026-11-02_ecount-collector-recovery.md
 - 검색어: 자동수집 LOGIN_EXPIRED singleFlight recoveryRequestId 124건 8시실패
 
