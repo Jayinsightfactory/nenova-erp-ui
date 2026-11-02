@@ -62,7 +62,7 @@ jobs:
             printf "\nNODE_DIAG\npython3 <<'PY_DIAG'\n"
             cat scripts/diagnose-nginx-readonly.py
             printf "\nPY_DIAG\n"
-          } > "$RUNNER_TEMP/perf-diagnose.sh"
+          } > "$GITHUB_WORKSPACE/perf-diagnose.sh"
       - name: Read-only sanitized server performance diagnosis
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -70,7 +70,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          script_path: ${{ runner.temp }}/perf-diagnose.sh
+          script_path: /github/workspace/perf-diagnose.sh
   deploy:
     if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true)
     runs-on: ubuntu-latest
