@@ -7,6 +7,8 @@ import { invoiceCostDownloadFeedback } from '../../lib/invoiceCostDownloadFeedba
 import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import { AU_ORIGINAL_SOURCE, initialAuOriginalInputs, calculateAuOriginalCustoms } from '../../lib/auOriginalCostInputs.js';
+import { nlInvoiceTariffRate } from '../../lib/nlInvoiceTariffReference.js';
+import { nlInvoiceDraftTemplate } from '../../lib/nlInvoiceDraftDefaults.js';
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -185,7 +187,9 @@ function initialForm(document, receiptLines) {
     lineInputs: receiptLines.map(line => ({
       lineId: line.lineId,
       ...Object.fromEntries(allLineFields().map(key => [key, savedLines.get(String(line.lineId).toLowerCase())?.[key] ?? ''])),
-      tariffRate: savedLines.get(String(line.lineId).toLowerCase())?.tariffRate ?? '',
+      tariffRate: savedLines.get(String(line.lineId).toLowerCase())?.tariffRate
+        ?? (verifiedFormula?.country === 'NL' ? (typeof line.tariffRate === 'number' ? line.tariffRate
+          : nlInvoiceTariffRate(line.originalName, line.originName || line.countryName)) : ''),
       otherCostPerUnitKRW: savedLines.get(String(line.lineId).toLowerCase())?.otherCostPerUnitKRW ?? '',
       stemsPerBunch: savedLines.get(String(line.lineId).toLowerCase())?.stemsPerBunch ?? '',
       grossWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.grossWeightKg
@@ -362,6 +366,14 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const [exchangeRateRetry, setExchangeRateRetry] = useState(0);
   const [preview, setPreview] = useState(null);
   useEffect(() => { onInputDraftChange?.(payloadOf(form)); }, [form, onInputDraftChange]);
+  useEffect(() => {
+    const template = nlInvoiceDraftTemplate(document, receiptLines, form);
+    if (!template || (Number(form.customsTotalKRW) === template.total
+      && JSON.stringify(form.nlTemplateCosts) === JSON.stringify(template.costs))) return;
+    setForm(current => ({ ...current, customsTotalKRW:template.total,
+      nlTemplateCosts:template.costs, expenseBasis:'ESTIMATED', estimateSource:template.estimateSource,
+      formulaApplicabilityConfirmed:false }));
+  }, [form, document, receiptLines]);
   const [reason, setReason] = useState('');
   const [busyIdentity, setBusyIdentity] = useState('');
   const busy = busyIdentity === identity || workflowLocksRef.current.has(identity);

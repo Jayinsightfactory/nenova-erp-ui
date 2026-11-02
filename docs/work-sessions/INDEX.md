@@ -679,3 +679,4 @@
 - [2026-10-29 기존 확인 채권 자료 유지](2026-10-29_ecount-ledger-retention.md)
 
 - [2026-10-29 호텔 차수 품목 수정](2026-10-29_hotel-rematch-edit.md)
+- [2026-11-02 네덜란드 품목별 관세·검역 차감](2026-11-02_nl-tariff-quarantine.md)
