@@ -66,7 +66,8 @@ assert.equal(writeDutchPriceCarry({ setItem() { throw Error('quota'); } }, carry
 // and the final plan must use the restored prices, not the initial empty input.
 const page = fs.readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
 const source = page.slice(page.indexOf('  async function acceptSource('), page.indexOf('  async function loadLive('));
-for (const mode of ['LIVE', 'UPLOAD']) {
+for (const scenario of ['LIVE', 'UPLOAD', 'failed', 'stale']) {
+  const mode = scenario === 'UPLOAD' ? 'UPLOAD' : 'LIVE';
   const calls = [], state = {};
   const context = {
     priceBaselineRef: { current: {} }, yearRef: { current: 2026 }, weekRef: { current: '44-02' }, sourceRef: {}, sourceBaseRef: {}, sourceModeRef: {},
@@ -76,13 +77,19 @@ for (const mode of ['LIVE', 'UPLOAD']) {
     applyDutchWeekdayEdits: (_x, workbook) => workbook, XLSXStyled: {}, invalidate() {},
     buildDutchPriceCarry, restoreDutchLivePrices,
     runPreview: async (_entries, prices, year, week, _identity, _name, bulkPriceConfig) => {
+      if (scenario === 'failed') return undefined;
+      if (scenario === 'stale') context.yearRef.current = 2025;
       calls.push({ prices, year, week, bulkPriceConfig }); return preview(entries, [15000, 0, null]);
     },
   };
   for (const name of new Set(source.match(/\bset[A-Z]\w+/g))) context[name] = value => { state[name] = value; };
   await vm.runInNewContext(`${source}; acceptSource({}, 'fixture.xlsx', 'live:2026:44-02', [], '${mode}', {livePriceCarry: ${JSON.stringify(carry)}})`, context);
-  assert.equal(calls.length, mode === 'LIVE' ? 2 : 1);
-  if (mode === 'LIVE') {
+  assert.equal(calls.length, scenario === 'failed' ? 0 : scenario === 'LIVE' ? 2 : 1);
+  if (scenario === 'failed' || scenario === 'stale') {
+    assert.equal(context.priceBaselineRef.current, null, 'failed/stale matching cannot replace the pending-edit cache');
+    assert.deepEqual(state.setPrices, {});
+  }
+  if (scenario === 'LIVE') {
     assert.equal(calls[1].prices[dutchPriceKey(a, calls[1].bulkPriceConfig)], '18000');
     assert.equal(calls[1].prices[dutchPriceKey(b, calls[1].bulkPriceConfig)], 0);
     assert.equal(context.priceBaselineRef.current[a.id], 15000);
