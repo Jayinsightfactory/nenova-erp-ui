@@ -116,6 +116,17 @@ test('NL GET automatically prepares current quote and same-receipt defaults; quo
   assert.match(missing.body.rateError,/EUR/);assert.ok(missing.body.automatic.missing.includes('현재 EUR 환율'));
 });
 
+test('NL native workbook retains template customs components and estimated warning',async()=>{
+ const f=await fixture('NL_AMOUNT_V1');
+ f.request.input={...f.request.input,customsTotalKRW:1617006,expenseBasis:'ESTIMATED',estimateSource:'NL company template',
+  nlTemplateCosts:{bakSang:564006,handling:33000,quarantine:710000,domestic:90000,extra:220000,deduct:0}};
+ const result=calculateNativeCost(f.source,f.request);
+ const book=XLSX.read(await createNativeCostWorkbook(result)),sheet=book.Sheets[book.SheetNames[0]];
+ assert.match(sheet.B1.v,/미승인 계산본.*추정 통관비.*실제 청구액 아님/);
+ assert.equal(sheet.Q6.v,564006);assert.equal(sheet.Q7.v,33000);assert.equal(sheet.Q8.v,710000);
+ assert.equal(sheet.Q9.v,90000);assert.equal(sheet.S6.v,0);assert.equal(sheet.S7.v,220000);
+});
+
 test('actual HTTP handler enforces access/methods, exports binary and blocks concurrent receipt changes', async () => {
   const f = await fixture('CN_SEA_ACTUAL_V1');
   const response = () => ({ code:200, headers:{}, setHeader(k,v){this.headers[k]=v;}, status(n){this.code=n;return this;},
