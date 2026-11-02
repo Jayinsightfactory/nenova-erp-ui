@@ -592,6 +592,7 @@ test('every enabled profile preserves explicit cancelled rows without allocation
     source.lineAmount = 0; detail.lineAmount = 0; detail.outQuantity = 0; detail.stemQuantity = 0;
     f.document.operations[0].result.lineMappings[0].outQuantity = 0;
     const settings = f.snapshot.input.lineInputs[0]; settings.grossWeightKg = 0; settings.volumeWeightKg = 0;
+    if(p.id==='EC_ORIGINAL_V1')delete settings.stemsPerBunch; // valid cancelled row: never contaminate live allocation with 0*undefined
     if (p.formulaId === 'CN_AIR_WEIGHT_CBM_V1') { f.document.reviewedMetadata.gw -= 2; f.document.reviewedMetadata.cw -= 3; }
     if (p.grouped) {
       const group = f.snapshot.input.costGroups.find(group => group.groupId === settings.groupId);
@@ -606,6 +607,10 @@ test('every enabled profile preserves explicit cancelled rows without allocation
     f.revision.lines = computed.lines.map((line, i) => ({ ...line, wdetailKey: f.snapshot.receiptSnapshot.details[i].wdetailKey }));
     f.revision.totalCostKRW = computed.totals.totalCostKRW;
     const buffer = await createInvoiceCostWorkbook(f), sheet = XLSX.read(buffer).Sheets['2026 41-02'];
+    if(p.id==='EC_ORIGINAL_V1'){
+      const original=XLSX.read(buffer).Sheets['원본 양식 계산'];
+      assert.equal(original.G14.v,0);assert.ok(original.G15.v>0);assert.ok(Number.isFinite(original.AB7.v));
+    }
     const cost = f.revision.lines[0]; assert.equal(cost.quantity, 0); assert.equal(cost.costPerUnitKRW, null); assert.equal(cost.totalCostKRW, 0);
     const unitCostCol = p.id === 'CN_AIR_ORIGINAL_V1' ? 'M' : p.id === 'CN_SEA_ORIGINAL_V1' ? 'N'
       : p.id === 'US_ORIGINAL_V1' ? 'L' : p.id === 'TH_ORIGINAL_V1' ? 'P' : ['NL_ORIGINAL_V1', 'EC_ORIGINAL_V1', 'CO_ORIGINAL_V1', 'CO_42_1_ORIGINAL_V1'].includes(p.id) ? 'O' : 'M';
