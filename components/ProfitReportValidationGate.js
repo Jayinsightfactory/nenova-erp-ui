@@ -36,18 +36,27 @@ export function ProfitMissingValue({validation,row,column}) {
   const cell=profitMissingCell({row,column,rows:validation?.displayRows,totals:validation?.displayTotals,
     issues:[...(validation?.knownIssues||[]),...(model.result?.issues||[])]});
   if(!cell)return null;
-  return <div className={`${ui.missingCell} ${cell.label==='수익률 해당없음'?ui.neutralCell:''}`}><strong>{cell.label}</strong><span className={ui.secondary}>{cell.reason}</span>
-    {cell.source&&<><span className={ui.secondary}>{cell.source.status}</span><span className={ui.secondary}>확인 위치: {cell.source.shortLocation || cell.source.location}</span><details><summary>데이터·메뉴 상세</summary><span className={ui.secondary}>{cell.source.location}</span></details></>}
+  return <div className={`${ui.missingCell} ${cell.label==='수익률 해당없음'?ui.neutralCell:''}`}><strong>{cell.label}</strong><span className={ui.secondary}>{cell.compactReason || cell.reason}</span>
+    {cell.source&&<span className={ui.secondary}>확인: {cell.compactLocation || cell.source.shortLocation || cell.source.location}</span>}
+    {(cell.source || cell.detailReasons?.length>0)&&<details><summary>원인·데이터 상세</summary>
+      {cell.source&&<><span className={ui.secondary}>{cell.source.status}</span><span className={ui.secondary}>{cell.source.location}</span></>}
+      {cell.detailReasons?.length>0&&<ul>{cell.detailReasons.map((reason,index)=><li key={index}>{reason}</li>)}</ul>}
+    </details>}
   </div>;
 }
 export function ProfitValidationRateLabel({validation,category}) {
   const model=presentation(validation);
   const item=category?model.items.find(row=>row.category===category):model.total;
   if(!item)return null;
-  return <small className={ui.rateLabel} title={[...item.reasons,item.secondary].join('\n')} data-profit-status={item.state}>
-    <StatusBadge item={item} />
+  const row=validation?.displayRows?.find(value=>value.category===category);
+  const duplicateMissingLabel=item.state==='unavailable' && row?.calc?.K==null
+    && profitMissingCell({row,column:'K'})?.label===item.label;
+  const secondary=model.common ? validation.dirty?'변경 후 재대조 필요(위 안내)':validation.error?'원천 대조 실패(위 안내)':validation.busy?'원천 대조 중'
+    : !model.result?`원천 대조 전${model.globalIssues.length?'(공통 안내)':''}`:'공통 대조 미완료(위 안내)' : item.secondary;
+  return <small className={ui.rateLabel} title={[item.label,secondary].filter(Boolean).join(' · ')} data-profit-status={item.state}>
+    {!duplicateMissingLabel&&<StatusBadge item={item} />}
     {item.estimated&&item.state!=='estimated'&&<span className={ui.secondary}>추정 근거 포함</span>}
-    {item.secondary&&<span className={ui.secondary}>{item.secondary}</span>}
+    {secondary&&<span className={ui.secondary}>{secondary}</span>}
   </small>;
 }
 export default function ProfitReportValidationGate({validation}) {
