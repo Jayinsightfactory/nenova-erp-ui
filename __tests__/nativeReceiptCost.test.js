@@ -102,6 +102,20 @@ test('native API and component expose calculation/export only, not approval or r
   assert.doesNotMatch(ui, /autoSaveRequested|cost-revisions|\/commit/);
 });
 
+test('NL GET automatically prepares current quote and same-receipt defaults; quote failure remains editable', async () => {
+  const f=await fixture('NL_AMOUNT_V1');
+  const response=()=>({setHeader(){},status(n){this.code=n;return this;},json(body){this.body=body;return this;}});
+  const handler=createNativeCostHandler({queryFn:f.queryFn,types,authorize:()=>true,
+    fetchRate:async currency=>{assert.equal(currency,'EUR');return {rate:1515,marketRate:1500,requestedAt:'2026-11-02T00:00:00Z'};}});
+  const res=response();await handler({method:'GET',query:f.request},res);
+  assert.equal(res.body.automatic.input.exchangeRateKRW,1515);
+  assert.equal(res.body.automatic.metadata.currency,'EUR');assert.equal(res.body.automatic.metadata.transportMode,'AIR');
+  assert.equal(res.body.document.costStatus,'PREVIEW_ONLY');
+  const failed=createNativeCostHandler({queryFn:f.queryFn,types,authorize:()=>true,fetchRate:async()=>{throw Error('unavailable');}});
+  const missing=response();await failed({method:'GET',query:f.request},missing);
+  assert.match(missing.body.rateError,/EUR/);assert.ok(missing.body.automatic.missing.includes('현재 EUR 환율'));
+});
+
 test('actual HTTP handler enforces access/methods, exports binary and blocks concurrent receipt changes', async () => {
   const f = await fixture('CN_SEA_ACTUAL_V1');
   const response = () => ({ code:200, headers:{}, setHeader(k,v){this.headers[k]=v;}, status(n){this.code=n;return this;},
@@ -126,6 +140,8 @@ test('weight rows are separated, conflicts stay missing, zero header is preserve
   f.raw.push({...f.raw[0],WdetailKey:9991,ProdName:'Gross weight',OutQuantity:123,BoxQuantity:0,BunchQuantity:123,SteamQuantity:123});
   const source=await readNativeCostSource({queryFn:f.queryFn,types,input:f.request});
   assert.equal(source.gw,123);assert.equal(source.cw,0);assert.equal(source.lines.length,3);assert.equal(source.excluded.length,1);
+  f.raw.at(-1).BoxQuantity=1;f.raw.at(-1).BunchQuantity=1;
+  assert.equal((await readNativeCostSource({queryFn:f.queryFn,types,input:f.request})).gw,123);
   const request={...f.request,sourceHash:source.sourceHash,lines:[{lineAmount:999999}]};
   assert.equal(calculateNativeCost(source,request).preview.totals.totalCostKRW,f.f.revision.totalCostKRW);
   f.raw.at(-1).SteamQuantity=456;
