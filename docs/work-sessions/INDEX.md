@@ -1,3 +1,6 @@
+- [불량차감 유지보수 기준·세션 오류 해결](../DEFECT_DEDUCTION_MAINTENANCE.md)
+- [2026-11-02 세션 인수 기록](../session-backups/2026-11-02_defect-incident-maintenance.md)
+- [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)
 - [2026-11-02 이카운트 자동수집 복구](2026-11-02_ecount-collector-recovery.md)
 
 - [2026-11-02 수국 업로드 품종 경계](2026-11-02_import-category-guard.md) — 카네이션 삭제 재발 방지 및 전품목 회귀.

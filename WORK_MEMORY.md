@@ -1725,6 +1725,7 @@
 - 검색어: 차수 전표 통합표 ledgerTableGroups 원본잔액 은행중복합산금지
 2026-11-02 누락 내역/취소 착수. 원HistoryKey별 취소감사만추가,기존ERP보존,재누락시옛취소무효.검증진행. 검색어:PERMANENT_OMIT_CANCEL 누락취소
 
+2026-11-02 세션오류해결/유지보수기준 문서화. docs/DEFECT_DEDUCTION_MAINTENANCE.md에 원인·사용자최종결정·수기보존·누락키/취소·철회계획·검증한계 정리,AGENTS/ERP가드/계약에연결. 검색어: 불량차감 유지보수 누락취소 수기보존
 2026-11-02 주차별 매출이익 상태·버튼·빈 값 원천 안내: 표시전용 및 진단메타 추가, DB쓰기0. 43차 TH14/CN39/EC1 입고행 승인정책 key부재와 CN15행 운임배분대사실패를 확인; 태국 재고null은통관비후속보류, 중국기초는웹평가방식지원제약. WebCustomsWeekly2026/43 실제저장행0 확인. baseline31시나리오금융출력·50버튼handler보존 타겟PASS. fullguard/CI/배포/실브라우저검증은아직미완료. QA정본 docs/work-sessions/2026-11-02_profit-report-status-toolbar.md.
 - 검색어: 매출 상태툴바 어떤DB 원천대조전 관세규칙미매칭 운임배분대사 재고평가 진단메타
 

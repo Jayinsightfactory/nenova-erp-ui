@@ -27,7 +27,7 @@ export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onA
   const filtered=useMemo(()=>stockInboxRows(rows,search),[rows,search]);
   const maxPage=Math.max(0,Math.ceil(filtered.length/PAGE_SIZE)-1),currentPage=Math.min(page,maxPage);
   const shown=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
-  const selected=rows.find(r=>r.identity===selectedId),sourceWeek=selected?stockSourceWeek(selected.message,week):null;
+  const selected=rows.find(r=>r.identity===selectedId),sourceWeek=selected?stockSourceWeek(selected.message,week,selected.created_at):null;
   const alreadyApplied=!!selected&&applied.includes(selected.message.trim());
   return <section className={`stock-inbox ${compact?'compact':''}`} aria-label="영업방 원문과 최신 전산이력">
     <header><div><h2>{compact?'카톡방 불러오기':'영업방 원문 · 최신 전산이력'}</h2><p>최근 3일 대화 · 원문은 30초마다, 선택한 원문의 전산이력은 10초마다 확인합니다.</p></div><button type="button" disabled={loading||disabled} onClick={()=>refresh()}>{loading?'영업방 조회 중…':'영업방 새로고침'}</button></header>
