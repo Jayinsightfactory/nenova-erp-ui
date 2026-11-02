@@ -12,7 +12,8 @@
     "scripts/kakao-stock-inbox-smoke.cjs",
     "lib/kakaoStockPages.js",
     "__tests__/kakaoStockPages.test.js",
-    "scripts/kakao-stock-pages-smoke.cjs"
+    "scripts/kakao-stock-pages-smoke.cjs",
+    "components/orders/StockInputRemarks.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -35,7 +36,7 @@
     "calculation": "Beginning total minus current customer quantities, shared calculateLedger for preview/apply/copy; zero valid; cancel overflow blocked; negative remaining displayed.",
     "source": "Bounded parser rejects unknown lines, cross-year header mismatch and duplicate source; manual changes supported.",
     "inbox": "Always visible source/history workspace, recent-three-day automatic read, newest-first search/pagination, stable selected identity. Read-only existing PasteErpHistoryEvidence for exact source year/week; mixed scopes blocked. Analyze explicitly transfers exact source snapshot, application still requires review; source selection never changes ledger.",
-    "layout": "Left single table has exactly two columns: stock name/remaining (beginning quantity shown underneath when changed), and latest change/memo. Chat is adjacent right. Bulk stock text and saved snapshots are always collapsed below rows, including empty books; compact item+quantity add form supports empty books. Page/year/week isolation unchanged.",
+    "layout": "Always-visible actual beginning-stock textarea next to line-indexed remarks, with chat to the right. No replacement stock table. Textarea never wraps or vertically scrolls; fixed 28px line-height and auto-height preserve blank/separator lines. History opens as a positioned overlay without moving note rows. Pending/duplicate edits cannot apply changes.",
     "pages": "Version 2 immutable UserFavorite snapshots keyed by stable pageId plus full YYYY-WW-SS; duplicate same-page week opens existing. Identical product/week on other pages and years isolated. Unsaved switches keep in-memory drafts with window-close warning. v1 title-grouped latest snapshot read compatibility."
   },
   "crossYearFixture": {
