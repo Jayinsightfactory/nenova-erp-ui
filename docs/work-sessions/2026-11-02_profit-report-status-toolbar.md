@@ -61,6 +61,8 @@
 
 ### 검증 상태 갱신
 
+- PR #1387 생성·첨부 완료. 이후 origin/master a428b88be(PR #1385 네덜란드 입고원가)가 추가되어 일반 merge로 통합했다. WORK_MEMORY 충돌은 본 작업6줄과 upstream 네덜란드 기록 모두 보존했다. upstream 앱 코드와 빌드 생성 이력 파일은 이 문서 담당자가 수정하지 않았다. 통합 CI·배포는 아직 대기다.
+
 - 부모 세션의 전체 `npm run verify:erp-change` 2차 exit0: 계약·dnSpy·UI·manifest·쓰기 가드·build 통과. origin/master 대비 명시 manifest174개/쓰기 가드0 API도 exit0이다.
 - 이후 합계 K 설명만 좁게 보완했다. 개별 국가 K가 정상적으로 분모0이라 null인 경우를 합계 원가누락 원인으로 나열하지 않고, 합계 분자인 J와 분모 C/F의 실제 누락 행만 대상으로 삼는다. 합계 C+F=0도 원천 누락과 별도로 설명한다. 원 계산·금액은 변경하지 않았다.
 - 보완 후 상태·금융parity31·50handler 타겟을 부모가 재통과했고 독립 상태 테스트도 재통과했다. 최종 build 재실행 및 PR/CI/배포/운영 검증은 결과 대기다.
