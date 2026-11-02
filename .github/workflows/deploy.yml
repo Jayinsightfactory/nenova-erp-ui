@@ -8,6 +8,11 @@ on:
         type: boolean
         required: false
         default: false
+      diagnose_performance_only:
+        description: '읽기 전용: 최근 7일 서버/업로드 요청 통계, PM2 재시작·오류 건수'
+        type: boolean
+        required: false
+        default: false
       migrate_order_mappings:
         description: '승인된 업체·품목 매칭 파일의 공유 DB 최초 이전'
         type: boolean
@@ -44,8 +49,33 @@ jobs:
             git status --short --untracked-files=no
             git diff --numstat
             git diff --cached --numstat
+  diagnose-performance:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package read-only diagnostic commands
+        id: perf-script
+        run: |
+          {
+            echo 'script<<PERF_DIAG_EOF'
+            printf "node <<'NODE_DIAG'\n"
+            cat scripts/diagnose-runtime-readonly.cjs
+            printf "\nNODE_DIAG\npython3 <<'PY_DIAG'\n"
+            cat scripts/diagnose-nginx-readonly.py
+            printf "\nPY_DIAG\n"
+            echo 'PERF_DIAG_EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Read-only sanitized server performance diagnosis
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: ${{ steps.perf-script.outputs.script }}
   deploy:
-    if: github.event_name != 'workflow_dispatch' || inputs.diagnose_checkout_only != true
+    if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)

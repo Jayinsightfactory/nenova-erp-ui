@@ -32,7 +32,7 @@ test('overflow and storage failure are explicit and overflow survives ACK/reload
   assert.match(failed.status().error, /저장 실패/); assert.equal(failed.batch().length, 1);
 });
 function fixture() {
-  const events = new Map(), calls = [], handlers = new Map(); let me = 'alice', health = true;
+  const events = new Map(), calls = [], handlers = new Map(); let me = 'alice', health = true, tick = null;
   class XMLHttpRequest {
     constructor() { this.headers = {}; }
     open(...args) { this.openArgs = args; }
@@ -44,10 +44,21 @@ function fixture() {
   const win = { document: { addEventListener: (k, fn) => handlers.set(k, fn), removeEventListener: k => handlers.delete(k) }, sessionStorage: storage(), localStorage: storage(), Headers,
     XMLHttpRequest,
     location: { href: 'https://nenova.test/orders?secret=hide', pathname: '/orders', origin: 'https://nenova.test' }, queueMicrotask, setTimeout,
-    addEventListener: (k, fn) => events.set(k, fn), removeEventListener: k => events.delete(k), setInterval: () => 1, clearInterval() {},
+    addEventListener: (k, fn) => events.set(k, fn), removeEventListener: k => events.delete(k), setInterval: fn => { tick = fn; return 1; }, clearInterval() {},
     fetch: async (input, init) => { calls.push({ input, init }); if (String(input).includes('?me=1')) return { ok: true, json: async () => ({ userId: me, record: true, health: { ok: health } }) }; return { ok: true, json: async () => ({ acceptedIds: init?.body ? JSON.parse(init.body).events.map(e => e.id) : [] }) }; } };
-  return { win, calls, handlers, events, setMe(value) { me = value; }, setHealth(value) { health = value; } };
+  return { win, calls, handlers, events, tick: () => tick(), setMe(value) { me = value; }, setHealth(value) { health = value; } };
 }
+test('activity flush timer does not repeat identity checks every five seconds', async () => {
+  const f = fixture(), recorder = startActivityRecorder(f.win, () => {}); await turn();
+  const checks = () => f.calls.filter(c => String(c.input).includes('?me=1')).length;
+  assert.equal(checks(), 1);
+  for (let i = 0; i < 12; i++) f.tick();
+  await turn(); assert.equal(checks(), 1);
+  f.win.document.visibilityState = 'hidden'; f.tick();
+  await turn(); assert.equal(checks(), 1);
+  f.events.get('focus')(); await turn(); assert.equal(checks(), 2);
+  recorder.stop();
+});
 test('sync click correlation preserves Request headers; polling gets no stale action; cleanup', async () => {
   const f = fixture(), original = f.win.fetch, recorder = startActivityRecorder(f.win, () => {}); await turn();
   const event = { type: 'click', eventPhase: 3, target: element('BUTTON', {}, '저장') };
