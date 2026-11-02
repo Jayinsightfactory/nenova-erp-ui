@@ -32,7 +32,7 @@
     "calculation": "Beginning total minus current customer quantities, shared calculateLedger for preview/apply/copy; zero valid; cancel overflow blocked; negative remaining displayed.",
     "source": "Bounded parser rejects unknown lines, cross-year header mismatch and duplicate source; manual changes supported.",
     "inbox": "Always visible source/history workspace, recent-three-day automatic read, newest-first search/pagination, stable selected identity. Read-only existing PasteErpHistoryEvidence for exact source year/week; mixed scopes blocked. Analyze explicitly transfers exact source snapshot, application still requires review; source selection never changes ledger.",
-    "layout": "Beginning stock beside current stock and latest per-product change, per-product full history toggle, click change opens direct entry with that product; chat source follows inventory workspace."
+    "layout": "Desktop three-column: beginning stock, applied changes/memos with direct entry, chat source with history. Compact textareas and expandable copy preview; mobile stacks. No fixed-height nested scrolling."
   },
   "crossYearFixture": {
     "required": true,

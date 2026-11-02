@@ -298,3 +298,77 @@ test('retained cross-year reference preserves its original period and amounts',a
  const result=await store.readLedger({custKey:7,ecountCode:'fixture'});
  assert.equal(result.basisChanged,true);assert.deepEqual(result.period,{from:'2025-12-01',to:'2026-01-01'});assert.equal(result.ledger.totals.balance,110);assert.equal(result.takenAt,payload.collectedAt);
 });
+
+
+test('source session recovery coalesces concurrent login and ignores late failures from the old session',async()=>{
+ const {singleFlight,withSessionRecovery}=require('../lib/ecountCollectorRecovery.cjs');
+ let calls=0,release;const recovery=singleFlight(async()=>{calls++;await new Promise(r=>release=r);});
+ const a=recovery(),b=recovery();await Promise.resolve();assert.equal(calls,1);release();await Promise.all([a,b]);assert.equal(recovery.version(),1);
+ let failOld,tries=0;const late=withSessionRecovery(async()=>{if(++tries===1)return new Promise((_r,reject)=>failOld=reject);return 'fresh';},recovery);
+ const c=recovery();await Promise.resolve();release();await c;failOld(new Error('LOGIN_EXPIRED'));assert.equal(await late,'fresh');assert.equal(calls,2);
+});
+test('ledger retries current customer with renewed base and uploads exactly once; repeated auth failure is bounded',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');
+ let base='old',recoveries=0,attempts=0;const uploaded=[],failures=[];
+ const result=await collectLedgerBatch({page:{goto:async()=>{}},getBase:()=>base,work:{customers:[{custKey:1},{custKey:2}],period:{}},recoverSession:async()=>{recoveries++;base='new';},collect:async(_p,b,c)=>{attempts++;if(b==='old')throw new Error('LOGIN_EXPIRED');return c;},upload:async p=>uploaded.push(p.custKey),recordFailure:async p=>failures.push(p),log:()=>{}});
+ assert.deepEqual(result,{ok:2,failed:0,total:2});assert.deepEqual(uploaded,[1,2]);assert.equal(recoveries,1);assert.equal(attempts,3);assert.equal(failures.length,0);
+ const {withSessionRecovery}=require('../lib/ecountCollectorRecovery.cjs');let retries=0,relogin=0;
+ await assert.rejects(withSessionRecovery(async()=>{retries++;throw new Error('LOGIN_EXPIRED');},async()=>{relogin++;}),/LOGIN_EXPIRED/);assert.equal(retries,2);assert.equal(relogin,1);
+ await assert.rejects(withSessionRecovery(async()=>{throw new Error('SOURCE_IDENTITY_MISMATCH');},async()=>assert.fail()),/SOURCE_IDENTITY_MISMATCH/);
+});
+test('explicit recovery marker is recent, business-hours only and never replayed across restart/year boundary',()=>{
+ const {recoveryRequestId,isSourceLoginUrl}=require('../lib/ecountCollectorRecovery.cjs');
+ const id='00000000-0000-0000-0000-000000000001';
+ for(const date of ['2025-11-03T09:00:00+09:00','2026-11-02T09:00:00+09:00','2027-01-04T09:00:00+09:00']){
+  const now=Date.parse(date),request={id,requestedAt:new Date(now-1000).toISOString()};
+  assert.equal(recoveryRequestId(request,null,now),id);assert.equal(recoveryRequestId(request,id,now),null);
+  assert.equal(recoveryRequestId({...request,requestedAt:new Date(now-600000).toISOString()},null,now),null);
+  assert.equal(recoveryRequestId({...request,requestedAt:new Date(now+1).toISOString()},null,now),null);
+ }
+ for(const date of ['2026-11-01T09:00:00+09:00','2026-11-02T18:00:00+09:00']){const now=Date.parse(date);assert.equal(recoveryRequestId({id,requestedAt:new Date(now).toISOString()},null,now),null);}
+ for(const requestedAt of [null,{},2])assert.equal(recoveryRequestId({id,requestedAt},null,Date.now()),null);
+ assert.equal(isSourceLoginUrl('https://login.ecount.com/'),true);assert.equal(isSourceLoginUrl('https://logincc.ecount.com/ec56/view/erp'),false);assert.equal(isSourceLoginUrl('https://login.ecount.com.evil.invalid/'),false);
+});
+test('bank login expiry is propagated before or after ledger, never uploaded as a completed reconciliation',async()=>{
+ const {collectLedgerWithBank}=await import('../scripts/ecount-scraper/pending-receipts.mjs');
+ for(const failAt of [1,2]){let calls=0;await assert.rejects(collectLedgerWithBank({page:{},bankPage:{},base:'',customer:{},period:{},history:{},collectLedger:async()=>({}),collectBank:async()=>{if(++calls===failAt)throw new Error('LOGIN_EXPIRED');return {};} }),/LOGIN_EXPIRED/);assert.equal(calls,failAt);}
+});
+
+test('actual dispatcher consumes explicit recovery before collection and does not replay it on tick or restart',async()=>{
+ const recovery=require('../lib/ecountCollectorRecovery.cjs'),fixed=Date.parse('2026-11-02T09:00:00+09:00');
+ const marker={id:'00000000-0000-0000-0000-000000000002',requestedAt:new Date(fixed).toISOString()};
+ let state={lastAttempt:fixed-3600000},temp,tick,batches=0;
+ const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(name,value)=>{assert.equal(name,'state.tmp');temp=JSON.parse(value);},renameSync:(a,b)=>{assert.equal(a,'state.tmp');assert.equal(b,'state');state=temp;}};
+ const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8');
+ const body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
+ const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},{...recovery,recoveryRequestId:(r,id)=>recovery.recoveryRequestId(r,id,fixed)},async(_base,_body,suffix)=>suffix?{refreshRequest:null}:{customers:[{custKey:1}],period:{}},async()=>({}),async()=>{assert.equal(state.lastRecoveryId,marker.id);batches++;return {ok:1,failed:0};},()=>{},()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const ctx={newPage:async()=>({close:async()=>{}})};const flush=()=>new Promise(setImmediate);
+ start(ctx,()=>'', '');await flush();assert.equal(batches,1);tick();await flush();assert.equal(batches,1);
+ start(ctx,()=>'', '');await flush();assert.equal(batches,1);assert.equal(state.lastAttempt,fixed-3600000);
+});
+
+test('45-minute budget defers only untouched customers without marking them failed or uploading twice',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');let clock=0;const uploads=[],deferred=[];
+ const r=await collectLedgerBatch({page:{},getBase:()=>'',work:{customers:[{custKey:1},{custKey:2},{custKey:3}],period:{}},now:()=>clock,collect:async(_p,_b,c)=>{clock=45*60000+1;return c;},upload:async p=>uploads.push(p.custKey),recordFailure:()=>assert.fail(),onDeferred:async keys=>deferred.push(keys),log:()=>{}});
+ assert.deepEqual(r,{ok:1,failed:0,total:3,deferred:2});assert.deepEqual(uploads,[1]);assert.deepEqual(deferred,[[2,3]]);
+});
+test('continuation excludes malformed keys, stale days and cross-year periods',()=>{
+ const {makeContinuation,continuationEligible}=require('../lib/ecountCollectorRecovery.cjs');const now=Date.parse('2026-12-31T17:30:00+09:00'),work={period:{from:'2026-11-30',to:'2026-12-31'}};
+ const c=makeContinuation(work,[2,3],now);assert.equal(continuationEligible(c,now),true);assert.equal(continuationEligible(c,Date.parse('2027-01-01T09:00:00+09:00')),false);assert.equal(continuationEligible(c,Date.parse('2025-12-31T09:00:00+09:00')),false);assert.equal(continuationEligible(c,Date.parse('2026-12-31T18:00:00+09:00')),false);
+ for(const keys of [[2,2],[-1],['2'],[]])assert.equal(makeContinuation(work,keys,now),null);
+});
+test('actual dispatcher prioritizes manual refresh then resumes only deferred canonical keys across restart',async()=>{
+ const real=require('../lib/ecountCollectorRecovery.cjs'),fixed=Date.parse('2026-11-02T09:00:00+09:00'),work={customers:[{custKey:1},{custKey:2},{custKey:3}],period:{from:'2026-10-02',to:'2026-11-02'}};
+ const marker={id:'00000000-0000-0000-0000-000000000003',requestedAt:new Date(fixed).toISOString()};
+ let state={lastAttempt:fixed,lastRecoveryId:marker.id,continuation:real.makeContinuation(work,[2,3],fixed)},temp,tick,queued={requestId:9,custKey:9,period:work.period};const batches=[],uploads=[];
+ const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(_name,value)=>temp=JSON.parse(value),renameSync:()=>state=temp};
+ const api=async(_url,body,suffix)=>{if(suffix){const r=queued;queued=null;return {refreshRequest:r};}if(body){if(body.custKey)uploads.push(body.custKey);return {};}return {...work,customers:[...work.customers]};};
+ const batch=async args=>{batches.push(args.work.customers.map(c=>c.custKey));if(batches.length===1){await args.onDeferred([3]);return {ok:1,failed:0,deferred:1};}return {ok:1,failed:0};};
+ const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
+ const recovery={...real,recoveryRequestId:(r,id)=>real.recoveryRequestId(r,id,fixed),continuationEligible:c=>real.continuationEligible(c,fixed),makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
+ const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),batch,async({customer})=>({custKey:customer.custKey}),()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const ctx={newPage:async()=>({close:async()=>{}})},flush=()=>new Promise(setImmediate);
+ start(ctx,()=>'', '');await flush();assert.deepEqual(uploads,[9]);assert.equal(batches.length,0);assert.deepEqual(state.continuation.keys,[2,3]);
+ tick();await flush();assert.deepEqual(batches,[[2,3]]);assert.deepEqual(state.continuation.keys,[3]);
+ start(ctx,()=>'', '');await flush();assert.deepEqual(batches,[[2,3],[3]]);assert.equal(state.continuation,null);tick();await flush();assert.equal(batches.length,2);
+});

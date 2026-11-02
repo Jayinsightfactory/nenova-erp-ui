@@ -117,11 +117,11 @@ export default function CustomerLedger(){
       </>}
       <p>{ledger.rows.length.toLocaleString()}건 · {ledger.balanceOnly?'해당 기간 전표 없음 · 원본 이월잔액 확인':ledger.totals?'원본 합계 및 잔액 검증 완료':'원본에서 전표 없음 확인 · 잔액 미제공'}</p>
       <h2>차수별 채권 · 전표 내역</h2>
-      <p className="muted">차수 합계 아래에 날짜별 전표를 표시합니다. 입금 − 판매는 이월잔액을 제외한 입금일 기준의 흐름 비교입니다. 채권잔액은 오른쪽 잔액(원본)에서 확인하세요. 은행 입금은 개별 전표에 임의 배정하거나 원본 수금과 중복 합산하지 않습니다.</p>
+      <p className="muted">차수 합계 아래에 날짜별 전표를 표시합니다. 이카운트 잔액은 마지막 수집 시점의 대장 잔액입니다. 입금 − 판매는 이월잔액을 제외한 입금일 기준의 흐름 비교입니다. 채권잔액은 오른쪽 이카운트 잔액에서 확인하세요. 은행 입금은 개별 전표에 임의 배정하거나 원본 수금과 중복 합산하지 않습니다.</p>
       {!data?.basisChanged&&data?.weekComparison?.status!=='READY'&&<p className="notice">차수 달력을 확인하지 못해 전표 내역만 표시합니다.</p>}
       {!data?.basisChanged&&data?.weekComparison?.status==='READY'&&!data.weekComparison.bankReady&&<p className="notice">입금 대조가 완료되지 않아 차수별 은행 입금과 차액은 확인 필요로 표시합니다.</p>}
       <div className="ledger-table-scroll"><table className="combined-ledger"><caption className="sr-only">차수별 요약과 전표 내역 통합 채권대장</caption>
-        <thead><tr><th scope="col">차수 / 구분</th><th scope="col">일자 / 비교기간</th><th scope="col">판매</th><th scope="col">수금<br/>(원본)</th><th scope="col">반영 입금<br/>(은행)</th><th scope="col">미반영 입금</th><th scope="col">입금 − 판매</th><th scope="col">잔액<br/>(원본)</th></tr></thead>
+        <thead><tr><th scope="col">차수 / 구분</th><th scope="col">일자 / 비교기간</th><th scope="col">판매</th><th scope="col">수금<br/>(원본)</th><th scope="col">반영 입금<br/>(은행)</th><th scope="col">미반영 입금</th><th scope="col">입금 − 판매</th><th scope="col">이카운트<br/>잔액</th></tr></thead>
         <tbody>{tableGroups.map(g=><Fragment key={g.key}>
           {g.week&&<tr className="week-summary"><th scope="row">{g.week.key.slice(0,4)}년 {Number(g.week.key.slice(4))}차 합계</th><td>{g.week.from} ~ {g.week.to}{g.week.partial&&<small>일부 기간</small>}</td><td>{money(g.week.sales)}</td><td>{money(g.receipt)}</td><td>{money(g.week.posted)}</td><td>{money(g.week.pending)}</td><td className={g.week.difference>0?'surplus':g.week.difference<0?'shortfall':''}>{g.week.difference==null?'확인 필요':`${g.week.difference>0?'+':''}${money(g.week.difference)} · ${g.week.difference>0?'초과입금':g.week.difference<0?'미수':'일치'}`}</td><td>{money(g.closing)}</td></tr>}
           {g.rows.map(r=><tr key={r.sequence}><td>전표 {r.sequence}</td><td>{r.date}</td><td>{money(r.sales)}</td><td>{money(r.receipt)}</td><td>—</td><td>—</td><td>—</td><td>{money(r.balance)}</td></tr>)}

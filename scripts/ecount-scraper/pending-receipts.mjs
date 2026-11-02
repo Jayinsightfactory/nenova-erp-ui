@@ -1,5 +1,6 @@
 // E010205 read-only queries. Raw counterpart/account strings never leave this process.
 import crypto from 'node:crypto';
+import recovery from '../../lib/ecountCollectorRecovery.cjs';
 import pending from '../../lib/ecountPendingReceipts.cjs';
 const HASH='#menuType=MENUTREE_000001&menuSeq=MENUTREE_002563&groupSeq=MENUTREE_002562&prgId=E010205&depth=3';
 const HEADERS=['','입/출금일자','구분','계좌번호','계좌명','거래처코드','거래처명','금액','입금처(출금처)','비 고','원화잔액','지점명/상대은행','회계전표'];
@@ -64,6 +65,7 @@ export async function collectBankSnapshot(page,base,period,status,secret){
   for(const [from,to] of [[prevFrom,prevTo],[currentFrom,period.to]]){
     await page.goto('about:blank',{waitUntil:'domcontentloaded'});
     await page.goto(base+HASH,{waitUntil:'domcontentloaded'});
+    if(recovery.isSourceLoginUrl(page.url()))throw new Error('LOGIN_EXPIRED');
     const search=page.getByRole('button',{name:'검색(F8)',exact:true});
     await page.getByRole('button',{name:/^(검색\(F8\)|Search\(F3\))$/}).first().waitFor({state:'visible',timeout:30000});
     if(!await search.isVisible())await page.getByRole('button',{name:'Search(F3)',exact:true}).click();
@@ -100,11 +102,11 @@ export async function collectBankSnapshot(page,base,period,status,secret){
 }
 export async function collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger,collectBank=collectBankSnapshot,secret=process.env.NENOVA_TOKEN}){
   let before=null;
-  try{before=await collectBank(bankPage,base,period,'PENDING',secret);}catch{}
+  try{before=await collectBank(bankPage,base,period,'PENDING',secret);}catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;}
   const ledger=await collectLedger(page,base,customer,period);
   if(!before||!history)return {...ledger,bankEvidence:{unavailable:true}};
   try{
     const after=await collectBank(bankPage,base,period,'PENDING',secret);
     return {...ledger,bankEvidence:{before,after,history}};
-  }catch{return {...ledger,bankEvidence:{unavailable:true}};}
+  }catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;return {...ledger,bankEvidence:{unavailable:true}};}
 }
