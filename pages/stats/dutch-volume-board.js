@@ -155,7 +155,7 @@ export default function DutchVolumeBoard() {
 
   useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices, dayEdits, bulkPriceConfig); }, [storageKey, entries, prices, dayEdits, bulkPriceConfig]);
   useEffect(() => {
-    if (loading || !storageKey || !entries.length) return;
+    if (loading || !storageKey || !entries.length || (sourceModeRef.current === 'LIVE' && priceBaselineRef.current === null)) return;
     writeDutchPriceCarry(localStorage, buildDutchPriceCarry({ year, week, entries, prices, bulkPriceConfig, matches: matchCache, baseline: priceBaselineRef.current }));
   }, [loading, storageKey, entries, prices, bulkPriceConfig, matchCache, year, week]);
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function DutchVolumeBoard() {
   yearRef.current = year; weekRef.current = week;
 
   async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode, transfer = null) {
-    priceBaselineRef.current = {};
+    priceBaselineRef.current = mode === 'LIVE' ? null : {};
     setLastSavedWork(null);
     setGuideEditReady(false); setGuideSavedStamp('');
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
@@ -258,9 +258,11 @@ export default function DutchVolumeBoard() {
   }
 
   async function loadLive(selectedYear = year, selectedWeek = week) {
-    const livePriceCarry = entries.length && selectedYear === year && selectedWeek === week
+    const livePriceCarry = entries.length && selectedYear === year && selectedWeek === week && priceBaselineRef.current !== null
       ? buildDutchPriceCarry({ year, week, entries, prices, bulkPriceConfig, matches: matchCache, baseline: priceBaselineRef.current })
       : readDutchPriceCarry(localStorage, selectedYear, selectedWeek);
+    // Keep pending edits recoverable even when the read-only matching request fails.
+    if (livePriceCarry) writeDutchPriceCarry(localStorage, livePriceCarry);
     const request = ++loadRequestRef.current;
     invalidate(); setLoading(true); setError('');
     try {
