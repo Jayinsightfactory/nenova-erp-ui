@@ -493,7 +493,7 @@ export default function DistributeImport() {
       ackQtyWarnings = true;
     }
     const missingCancellations = rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0);
-    if (!confirm(`${preview.orderYear}/${preview.week} ${preview.replacementProductKeys ? '선택 품목 분배 적용 (건너뛴 품목·파일 밖 품목 보존)' : '전체 분배 교체'}\n건너뛰기: ${(preview.skippedProducts || []).map(p => p.productLabel).join(', ') || '없음'}\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 적용 범위 안의 누락 분배만 0으로 취소합니다. 위 범위의 적용을 승인하시겠습니까?`)) {
+    if (!confirm(`${preview.orderYear}/${preview.week} ${preview.skippedProducts?.length ? '선택 품목 분배 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 분배 교체 (다른 품종 보존)'}\n건너뛰기: ${(preview.skippedProducts || []).map(p => p.productLabel).join(', ') || '없음'}\n범위: ${(preview.replacementCategories || []).join(', ')}\n적용대상 ${applyRows.length}건 · 파일 누락 취소 ${missingCancellations.length}건\n${missingCancellations.slice(0, 6).map(r => `${r.custName} / ${r.prodName}: ${r.currentOutQty} → 0`).join('\n')}${missingCancellations.length > 6 ? '\n나머지는 검증표의 엑셀누락 행을 확인하세요.' : ''}\n\n기존 주문은 보존합니다. 주문이 없는 양수 분배만 신규 주문을 만듭니다. 적용 범위 안의 누락 분배만 0으로 취소합니다. 위 범위의 적용을 승인하시겠습니까?`)) {
       return;
     }
     const fileRevision = sheetLoadRef.current;
@@ -733,7 +733,7 @@ export default function DistributeImport() {
         )}
         {preview && (
           <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', color: '#7c2d12', border: '1px solid #fdba74', borderRadius: 8 }}>
-            <strong>{preview.replacementProductKeys ? '선택 품목 적용 (건너뛴 품목·파일 밖 품목 보존)' : '전체 교체'} · {preview.orderYear}/{preview.week} · {(preview.replacementCategories || []).join(', ')}</strong>
+            <strong>{preview.skippedProducts?.length ? '선택 품목 적용 (건너뛴 품목 보존)' : '검증된 품종 범위 교체 (다른 품종 보존)'} · {preview.orderYear}/{preview.week} · {(preview.replacementCategories || []).join(', ')}</strong>
             <div>적용 범위 안에서 빠진 기존 분배 {rows.filter(r => r.missingFromExcel && Number(r.currentOutQty) !== 0).length}건을 0으로 취소합니다. 기존 주문은 보존합니다.</div>
             {(preview.skippedProducts || []).length > 0 && <div>
               건너뛴 품목은 기존 주문·분배를 보존합니다. 이번 파일에서 매칭된 품목만 적용합니다.

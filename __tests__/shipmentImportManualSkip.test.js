@@ -7,7 +7,7 @@ import test from 'node:test';
 import { createHmac } from 'node:crypto';
 import vm from 'node:vm';
 import { createReplacementPlan, assertReplacementPlan, assertReplacementCoverage, replacementScopeSql } from '../lib/shipmentReplacementPlan.js';
-import { importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, compareVerifyResult } from '../lib/shipmentImportQty.js';
+import { importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, compareVerifyResult, buildReplacementProductKeys } from '../lib/shipmentImportQty.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 
 // Compile the actual preview and its matching/quantity/fix policies locally.
@@ -75,16 +75,14 @@ async function preview(overrides={}, rows=sourceRows, year='2026', catalog=produ
 function body(p) {return {year:p.orderYear,week:p.week,rows:p.rows,fullCategoryReplacement:true,
   replacementProductKeys:p.replacementProductKeys,replacementPlan:createReplacementPlan(p,'actor',options)};}
 
-test('open upload choices survive family correction without changing manual, invalid or skipped intent',async()=>{
+test('old cross-species manual choices require correction; valid manual and skip intent survive',async()=>{
   const rows=sourceRows.map((r,i)=>({...r,productFamily:i<2?'ruscus':r.productFamily}));
   for (const year of ['2025','2026']) {
     const p=await preview({[key(0)]:501,[key(1)]:IMPORT_SKIP_PRODUCT_VALUE},rows.slice(0,2),year);
-    assert.equal(p.unmatched.length,0);
+    assert.equal(p.unmatched.length,1);
     assert.equal(p.skippedProducts.length,1);
-    assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===501).uploadQty,2);
-    assert(p.rows.every(r=>r.prodKey!==1717));
-    assert.deepEqual(p.replacementProductKeys,[501]);
-    assert.doesNotThrow(()=>assertReplacementPlan(body(p),'actor',options));
+    assert.equal(p.rows.length,0);
+    assert.equal(createReplacementPlan(p,'actor',options),null);
     const invalid=await preview({[key(0)]:99999},[rows[0]],year);
     assert.equal(invalid.unmatched.length,1);
     assert.equal(createReplacementPlan(invalid,'actor',options),null);
@@ -141,7 +139,7 @@ test('skip protects existing same-category product, while remaining product and 
 test('all skipped, stale skip keys and same known product include/skip conflict cannot silently apply',async()=>{
   const p=await preview(Object.fromEntries(sourceRows.map((r,i)=>[key(i),IMPORT_SKIP_PRODUCT_VALUE])));
   assert.equal(p.rows.length,0);assert.equal(createReplacementPlan(p,'actor',options),null);
-  const stale=await preview({'old-sheet|old-label|hydrangea':IMPORT_SKIP_PRODUCT_VALUE});assert.equal(stale.unmatched.length,0);assert.equal(stale.skippedProducts.length,0);assert.equal(stale.replacementProductKeys,undefined);
+  const stale=await preview({'old-sheet|old-label|hydrangea':IMPORT_SKIP_PRODUCT_VALUE});assert.equal(stale.unmatched.length,0);assert.equal(stale.skippedProducts.length,0);assert.deepEqual(stale.replacementProductKeys,[501,1717,3085]);
   await assert.rejects(preview({[key(0)]:IMPORT_SKIP_PRODUCT_VALUE,[key(1)]:1717}),/함께 선택/);
 });
 test('unidentified skipped label cannot cancel any out-of-file ERP product',async()=>{
@@ -195,11 +193,14 @@ test('actual workbook automatically matches Ruscus and 40cm under hydrangea head
   const skipped=await preview({[skipKey]:IMPORT_SKIP_PRODUCT_VALUE},rows,'2026',[...actualRuscus,products[2]]);
   assert.equal(skipped.unmatched.length,0);assert(!skipped.rows.some(r=>r.prodKey===3085));
 });
-test('catalog exact name beats heading, ambiguous names use heading and foreign fuzzy/explicit keys remain blocked',async()=>{
+test('generic exact aliases cannot override source species; explicit mixed species remain supported',async()=>{
   const rose={...products[2],ProdKey:502,ProdName:'Rose White',DisplayName:'White',FlowerName:'장미',CountryFlower:'케냐장미'};
   const unique={...rose,ProdKey:503,ProdName:'Rose Freedom',DisplayName:'프리덤'};
   const catalog=[...actualRuscus,...products.slice(2),rose,unique];
-  const p=await preview({},allocationRows(['White','프리덤','Freedom']),'2026',catalog);
+  const rejected=await preview({},allocationRows(['프리덤','Freedom']),'2026',catalog);
+  assert.equal(rejected.unmatched.length,2);
+  assert.equal(createReplacementPlan(rejected,'actor',options),null);
+  const p=await preview({},allocationRows(['White','Rose Freedom']),'2026',catalog);
   assert.equal(p.unmatched.length,0);
   assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===501).productFamily,'hydrangea');
   assert.equal(p.rows.find(r=>r.custKey===1&&r.prodKey===503).productFamily,'rose');
@@ -216,7 +217,7 @@ test('mixed sheet headings cannot change Ruscus quantities or the matched rose/a
   const rose={...products[2],ProdKey:502,ProdName:'Rose Freedom',DisplayName:'프리덤',FlowerName:'장미',CountryFlower:'케냐장미'};
   const alstro={...products[2],ProdKey:503,ProdName:'Alstroemeria Yellow',DisplayName:'노랑알스트로',FlowerName:'알스트로메리아',CountryFlower:'콜롬비아알스트로'};
   for(const heading of ['수국','알스트로','장미','루스커스']) {
-    const input=allocationRows(['루스커스','루스커스 40cm','프리덤','노랑알스트로'],heading).map(r=>r.productLabel==='프리덤'?{...r,outUnit:'단'}:r);
+    const input=allocationRows(['루스커스','루스커스 40cm','Rose Freedom','노랑알스트로'],heading).map(r=>r.rawProductLabel==='Rose Freedom'?{...r,outUnit:'단'}:r);
     assert.equal(input.length,4);
     const p=await preview({},input,'2026',[...actualRuscus,rose,alstro]);
     assert.equal(p.unmatched.length,0);
@@ -352,4 +353,83 @@ test('duplicate review exposes every original candidate and only selected-year c
     assert.equal(skipped.duplicateProductReviews.length,0);
     assert.equal(skipped.skippedProducts.length,1);
   }
+});
+
+
+test('incident replay: hydrangea WHITE never deletes 76 boxes of carnations, in either year', async () => {
+  const catalog = fullCatalog.filter(p => [345,889,1062,1717].includes(p.ProdKey));
+  const history = ['2025','2026'].flatMap(year => [
+    {year,week:'43-01',CustKey:2,ProdKey:345,orderQty:76,currentOutQty:76},
+    {year,week:'43-01',CustKey:2,ProdKey:1062,orderQty:2,currentOutQty:2},
+    {year,week:'43-01',CustKey:2,ProdKey:1717,orderQty:9,currentOutQty:9},
+    {year,week:'43-01',CustKey:2,ProdKey:889,orderQty:10,currentOutQty:10},
+  ]);
+  for (const year of ['2025','2026']) {
+    const input = allocationRows(['WHITE']);
+    const p = await preview({},input,year,catalog,history);
+    assert.equal(p.unmatched.length,0);
+    assert.equal(p.rows.find(r=>r.custKey===1).prodKey,889);
+    assert.deepEqual(p.replacementProductKeys,[889]);
+    assert(p.rows.every(r=>r.prodKey===889));
+    assert.equal(p.rows.find(r=>r.custKey===2).uploadQty,0,'same species missing customer still cancels');
+    assert.doesNotThrow(()=>assertReplacementPlan(body(p),'actor',options));
+    for (const options of [{ rows: input.map(r=>({...r,prodKey:1062})), overrides:{} },
+      { rows: input, overrides:{[importProductOverrideKey(input[0])]:1062} }]) {
+      const bad=await preview(options.overrides,options.rows,year,catalog,history);
+      assert.equal(bad.unmatched.length,1);
+      assert.equal(bad.rows.length,0);
+      assert.equal(createReplacementPlan(bad,'actor',{secret:'test',now:1}),null);
+    }
+    const mixed=await preview({},allocationRows(['WHITE','루스커스']),year,catalog,history);
+    assert.deepEqual(mixed.replacementProductKeys,[889,1717]);
+    assert(mixed.rows.every(r=>![345,1062].includes(r.prodKey)));
+  }
+});
+
+test('each known species rejects other species WHITE aliases, keys and manual overrides', async () => {
+  const families = [['수국','Hydrangea'],['카네이션','Carnation'],['장미','Rose'],['루스커스','Ruscus'],['알스트로메리아','Alstroemeria'],['튤립','Tulip']];
+  const catalog = families.map(([flower,en],i)=>({...products[2],ProdKey:7000+i,ProdName:en+' White',DisplayName:'White',FlowerName:flower,CountryFlower:'공통국가'}));
+  for(const [i,[flower]] of families.entries()) {
+    const input=allocationRows(['White'],'2026 '+flower);
+    const p=await preview({},input,'2026',catalog,[]);
+    assert.equal(p.unmatched.length,0,flower);
+    assert.deepEqual(p.replacementProductKeys,[7000+i],flower);
+    for(const other of catalog.filter(p=>p.ProdKey!==7000+i)) {
+      const bad=await preview({[importProductOverrideKey(input[0])]:other.ProdKey},input,'2026',catalog,[]);
+      assert.equal(bad.unmatched.length,1,flower+'/'+other.FlowerName);
+      assert.equal(createReplacementPlan(bad,'actor',options),null);
+    }
+  }
+});
+
+test('all catalog products preserve other countries/species, even country-only CountryFlower buckets', () => {
+  for(const product of fullCatalog) {
+    const scope=buildReplacementProductKeys(fullCatalog,new Set([product.ProdKey]));
+    assert(scope.has(product.ProdKey));
+    for(const other of fullCatalog.filter(p=>scope.has(p.ProdKey))) {
+      assert.equal(other.CountryFlower,product.CountryFlower);
+      assert.equal(other.FlowerName,product.FlowerName);
+    }
+    assert.deepEqual([...buildReplacementProductKeys(fullCatalog,new Set([product.ProdKey]),new Set())],[product.ProdKey]);
+  }
+});
+
+test('an unclassified source cannot widen a manual choice to other products of its category',async()=>{
+  const input=allocationRows(['Unclassified'],'2026 Sheet1');
+  const p=await preview({[importProductOverrideKey(input[0])]:1717},input,'2026',actualRuscus,ledger);
+  assert.equal(p.unmatched.length,0);
+  assert.deepEqual(p.replacementProductKeys,[1717]);
+  assert(!p.rows.some(r=>r.prodKey===3085));
+});
+
+
+test('explicit country heading rejects same-species keys from another country', async () => {
+  const catalog = ['콜롬비아','케냐'].map((country,i)=>({...products[2],ProdKey:8100+i,CounName:country,FlowerName:'장미',CountryFlower:country+'장미',ProdName:'Rose White'}));
+  const input=allocationRows(['White'],'콜롬비아장미');
+  const p=await preview({},input,'2026',catalog,[]);
+  assert.equal(p.unmatched.length,0);
+  assert.deepEqual(p.replacementProductKeys,[8100]);
+  const bad=await preview({[importProductOverrideKey(input[0])]:8101},input,'2026',catalog,[]);
+  assert.equal(bad.unmatched.length,1);
+  assert.equal(createReplacementPlan(bad,'actor',options),null);
 });

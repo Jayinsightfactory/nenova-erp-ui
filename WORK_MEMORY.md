@@ -1737,3 +1737,11 @@
 - 기존 NL 관세표/통관상수 재사용, native 단/송이 비율로 Nicholii50단=150송이 환산. 현재EUR시세+15, 통관비는 서식기본 추정으로 표시. 승인/ERP 쓰기없음.
 - 실제71행 계산 issues0, XLSX48356bytes 생성. 회귀·전체검증·배포·실웹앱다운로드는 진행중(미검증).
 - 검색어: nlNativeCostDefaults Holex7814 GW1226.1 CW1364 보조수량1 Nicholii 다운로드
+
+
+## 2026-11-02 업로드 품종 경계 재발 방지
+- Audit140 수국파일에서 카네이션42행76박스가 엑셀누락 삭제된 사건 수정. 원본 국가/품종 검증을 자동·명시키·수동 연결에 공통 적용; 혼합원문의 명시 Ruscus 정상허용.
+- 교체범위 CountryFlower+FlowerName, 원본근거불명은 실제품목만. 모든 preview에 정확 제품키목록 서명/source-species-scope-v3; 기존 미리보기 재검증 필요. 명시 skip/주문보존/환산/native writer 유지.
+- 40개 대상검사 및3359품목6175원문/전분류 경계/교차연도 통과. dnSpy·manifest·write guard 통과, 전체ERP/build/CI/배포/브라우저는 진행중(미검증).
+- 운영DB SELECT-only: 2025/2026 44-02 대상3분류 ViewOrder202/137, ViewShipment148/128, Date148/128,Farm0/0,Estimate1/0,견적노출148/65. 운영보정/시험쓰기없음.
+- 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard

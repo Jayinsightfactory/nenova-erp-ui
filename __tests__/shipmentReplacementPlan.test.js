@@ -7,10 +7,10 @@ const options = { secret: 'isolated-test-secret-not-a-live-key', now: 10000000 }
 const rows = [{ custKey: 1, prodKey: 389, uploadQty: 10, currentOutQty: 8 },
   ...[389, 390, 391, 392, 393, 394].map((prodKey, i) => ({ custKey: 686, prodKey,
     uploadQty: 0, currentOutQty: [5, 2, 3, 1, 1, 2][i], missingFromExcel: true }))];
-const preview = { success: true, orderYear: '2026', week: '36-01', rows, unmatched: [],
+const preview = { replacementProductKeys: [389,390,391,392,393,394], success: true, orderYear: '2026', week: '36-01', rows, unmatched: [],
   earlyImport: { mode: 'ALREADY_EXCLUDED', fingerprint: 'isolated-ledger', scope: { year: '2026' } } };
 function body() {
-  return { year: preview.orderYear, week: preview.week, rows: structuredClone(rows), fullCategoryReplacement: true,
+  return { replacementProductKeys: [...preview.replacementProductKeys], year: preview.orderYear, week: preview.week, rows: structuredClone(rows), fullCategoryReplacement: true,
     earlyImportMode: preview.earlyImport.mode, earlyLedgerFingerprint: preview.earlyImport.fingerprint,
     earlyImportScope: preview.earlyImport.scope, replacementPlan: createReplacementPlan(preview, 'tester', options) };
 }
@@ -29,6 +29,8 @@ for (const [name, mutate] of [
   ['category flag omitted', b => delete b.fullCategoryReplacement],
   ['early scope shrunk', b => b.earlyImportScope = {}],
   ['unsigned request', b => delete b.replacementPlan],
+  ['missing signed product scope', b => delete b.replacementProductKeys],
+  ['expanded signed scope', b => b.replacementProductKeys.push(999)],
 ]) test(`reject ${name} before writes`, () => {
   const request = body(); mutate(request);
   assert.throws(() => assertReplacementPlan(request, 'tester', options), { code: 'SHIPMENT_REPLACEMENT_REVERIFY' });

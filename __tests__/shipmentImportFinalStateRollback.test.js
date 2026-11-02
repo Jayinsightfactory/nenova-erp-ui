@@ -29,14 +29,14 @@ async function main() {
   const { buildReplacementProductKeys } = await import('../lib/shipmentImportQty.js');
   {
     const catalog = [
-      { ProdKey: 389, CountryFlower: '콜롬비아카네이션' },
-      { ProdKey: 456, CountryFlower: '콜롬비아카네이션' },
+      { ProdKey: 389, CountryFlower: '콜롬비아카네이션', FlowerName: '카네이션' },
+      { ProdKey: 456, CountryFlower: '콜롬비아카네이션', FlowerName: '카네이션' },
       { ProdKey: 999, CountryFlower: '콜롬비아장미' },
       { ProdKey: 888, CountryFlower: '' },
     ];
     assert.deepEqual([...buildReplacementProductKeys(catalog, new Set([389]))], [389, 456]);
     assert.equal(buildReplacementProductKeys(catalog, new Set()).size, 0);
-    assert.equal(buildReplacementProductKeys(catalog, new Set([888])).size, 0);
+    assert.deepEqual([...buildReplacementProductKeys(catalog, new Set([888]))], [888]);
     const source = fs.readFileSync('lib/shipmentImport.js', 'utf8').replace(/\r\n/g, '\n');
     const begin = source.indexOf('async function verifyAppliedShipmentRows(');
     const end = source.indexOf('\n}\n', begin) + 2;
