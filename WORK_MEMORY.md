@@ -1745,3 +1745,5 @@
 - 40개 대상검사 및3359품목6175원문/전분류 경계/교차연도 통과. dnSpy·manifest·write guard 통과, 전체ERP/build/CI/배포/브라우저는 진행중(미검증).
 - 운영DB SELECT-only: 2025/2026 44-02 대상3분류 ViewOrder202/137, ViewShipment148/128, Date148/128,Farm0/0,Estimate1/0,견적노출148/65. 운영보정/시험쓰기없음.
 - 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard
+
+- 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.
