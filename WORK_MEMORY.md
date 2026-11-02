@@ -1747,3 +1747,6 @@
 - 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard
 
 - 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.
+
+2026-11-02 자동수집 복구 착수: 8시124건전체실패·8:56재로그인뒤오전실패분재개없음. 수동미카엘갱신성공(10/31수금4,947,800→잔액50,000). 공용로그인복구/해당작업1회재시도/일회복구마커중복방지/이카운트잔액라벨. 대상59검사통과, 전체검증·배포·카나리·전체재수집대기. docs/work-sessions/2026-11-02_ecount-collector-recovery.md
+- 검색어: 자동수집 LOGIN_EXPIRED singleFlight recoveryRequestId 124건 8시실패

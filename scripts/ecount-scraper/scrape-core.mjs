@@ -1,5 +1,6 @@
 // ECOUNT 수집 공통 코어 (run.mjs 단발 / daemon.mjs 상주 공용). ⛔ 읽기 전용.
 import XLSX from 'xlsx';
+import recovery from '../../lib/ecountCollectorRecovery.cjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -37,7 +38,7 @@ export async function installGuard(ctx) {
   });
 }
 
-export function isLoginPage(page) { return /login\.ecount\.com/i.test(page.url()); }
+export function isLoginPage(page) { return recovery.isSourceLoginUrl(page.url()); }
 
 // 앱 세션 부팅: 루트로 이동해 쿠키→세션 복원. 성공 시 세션ID 포함된 base URL(해시 제외) 반환, 실패 시 null.
 export async function ensureBooted(page) {
