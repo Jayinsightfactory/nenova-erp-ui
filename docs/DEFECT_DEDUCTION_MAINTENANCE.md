@@ -50,3 +50,5 @@
 검색어: 불량차감 수기보존 동일차수수량 누락취소 PERMANENT_OMIT_CANCEL ESTIMATE_UNLINK sourceFileName
 
 2026-11-02 영업지원 기본목록은 등록완료 숨김. 원장삭제없이 isSupportPendingRow 서버필터. 부분잔량/검토필요/다른수량 유지. 입력/이력 보존. 검색어:영업지원 미등록목록 SUPPORT_PENDING_LIST
+
+등록목록 실페이지 회귀: 이월 잔량 값만으로 노출하지 않는다. ALREADY_REGISTERED 판정은 잔량보다 우선해 숨긴다. 실제 처리가능 잔량만 유지하고 원장 잔량을 임의수정하지 않는다.
