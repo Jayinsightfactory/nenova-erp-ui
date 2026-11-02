@@ -1,6 +1,6 @@
 {
  "id":"cost-blank-cell-restoration","title":"국가별 원가 항목·빈셀·입력역할 복원",
- "scope":["lib/invoiceCostCellPresentation.js","lib/invoiceReceiptCostExport.js"],
+ "scope":["lib/invoiceCostCellPresentation.js","lib/invoiceReceiptCostExport.js","lib/invoiceCostOriginalColombia.js"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "actions":[{"name":"DOWNLOAD_FILE_PRESENTATION","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"File-only labels/current evidence/input cues; no database writes, historical sales or approval mutations."}],
  "crossYearFixture":{"required":true,"description":"2025/2026 same week retain exact identity and never reuse historical transactions."},
