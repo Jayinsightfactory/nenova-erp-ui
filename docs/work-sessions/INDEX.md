@@ -1,3 +1,5 @@
+- [2026-11-02 이카운트 자동수집 복구](2026-11-02_ecount-collector-recovery.md)
+
 - [2026-11-02 수국 업로드 품종 경계](2026-11-02_import-category-guard.md) — 카네이션 삭제 재발 방지 및 전품목 회귀.
 - [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)
 - [2026-11-02 매출이익 상태·버튼·빈 값 근거](2026-11-02_profit-report-status-toolbar.md) — DB 쓰기0, 금융parity31건·전체가드2차 PASS, 최종build·CI·배포 대기.
