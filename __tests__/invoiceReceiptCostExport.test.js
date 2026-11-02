@@ -245,7 +245,7 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assertFormatOnlyStyleClones(await zip.file('xl/styles.xml').async('string'), template.styles);
   assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), template.theme);
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-  for (const part of [template.cols, template.sheetFormatPr, template.sheetViews, template.print]) assert.ok(sheet.includes(part));
+  for (const part of [template.cols, template.sheetFormatPr, template.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), template.print]) assert.ok(sheet.includes(part));
   for (const merge of template.merges.filter(ref => ref !== 'B5:B6' && ref !== 'C5:C6')) assert.ok(sheet.includes(`ref="${merge}"`));
   assert.ok(sheet.includes('ref="C5:D5"'));
   assert.ok(!sheet.includes('ref="B5:B6"') && !sheet.includes('ref="C5:C6"'));
@@ -256,7 +256,7 @@ test('28 rows preserve OOXML style/theme/width/height/merges and exact approved 
   assert.ok(sheet.includes('<c r="M24" s="114">'));
   assert.ok(sheet.includes('<c r="M51" s="114">'));
   const workbook = XLSX.read(bytes, { cellStyles: true });
-  assert.deepEqual(workbook.SheetNames, ['2026 41-02', '원본수식 비교']); const s = workbook.Sheets['2026 41-02'];
+  assert.deepEqual(workbook.SheetNames, ['2026 41-02', '원본수식 비교', '원본 양식 계산']); const s = workbook.Sheets['2026 41-02'];
   assert.equal(s.M23.v, '도착원가(단위)'); assert.equal(s.O23.v, '총 도착원가'); assert.equal(s.N23.v, 'ERP 단위');
   f.revision.lines.forEach((line, i) => {
     assert.equal(s[`B${24 + i}`].v, f.document.lines[i].originalName);
@@ -313,7 +313,7 @@ test('format-only template and generated package contain no historical rows, for
   f.snapshot.privateField = 'SERVER_ONLY_PRIVATE';
   const zip = await JSZip.loadAsync(await createInvoiceCostWorkbook(f));
   const parts = Object.keys(zip.files).filter(name => !zip.files[name].dir);
-  assert.equal(parts.filter(name => /^xl\/worksheets\//.test(name)).length, 2);
+  assert.equal(parts.filter(name => /^xl\/worksheets\//.test(name)).length, 3);
   assert.ok(!parts.some(name => /sharedStrings|externalLinks|comments|calcChain|drawings|vba/i.test(name)));
   const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
   assert.doesNotMatch(sheet, /<f\b|t="e"|SERVER_ONLY_PRIVATE|ROSE|Gypsophila|372660|4706\.597090|판매|이익/);
@@ -379,7 +379,7 @@ for (const [profileId, filename, count] of [
     else assert.ok(styleXml.includes(asset.styles.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)[1]), 'source styles retained before readable clones');
     assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-    for (const part of nl ? [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print] : [asset.sheetViews, asset.sheetFormatPr]) assert.ok(sheet.includes(part));
+    for (const part of nl ? [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print] : [asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr]) assert.ok(sheet.includes(part));
     if (nl) {
       for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
       for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
@@ -389,7 +389,7 @@ for (const [profileId, filename, count] of [
     const refs = [...sheet.matchAll(/<row\s+r="(\d+)"/g)].map(m => m[1]);
     assert.equal(new Set(refs).size, refs.length); assert.equal(refs.at(-1), String(last));
     const output = XLSX.read(bytes, { cellNF: true }), s = output.Sheets['2026 41-02'];
-    assert.deepEqual(output.SheetNames, ['2026 41-02', '원본수식 비교']); assert.equal(s.C10.v, f.revision.totalCostKRW);
+    assert.deepEqual(output.SheetNames, ['2026 41-02', '원본수식 비교', '원본 양식 계산']); assert.equal(s.C10.v, f.revision.totalCostKRW);
     f.revision.lines.forEach((cost, i) => {
       const r = profile.detailStartRow + i;
       assert.equal(s[`B${r}`].v, f.document.lines[i].originalName);
@@ -499,11 +499,11 @@ for (const [id, assetName, filename] of [
     assertFormatOnlyStyleClones(await output.file('xl/styles.xml').async('string'), expectedStyles);
     assert.equal(await output.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const xml = await output.file('xl/worksheets/sheet1.xml').async('string');
-    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(xml.includes(part));
+    for (const part of [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print]) assert.ok(xml.includes(part));
     for (const row of asset.rows) assert.ok(xml.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(xml.includes(`ref="${merge}"`));
     const book = XLSX.read(buffer, { cellNF: true }), s = book.Sheets['2026 41-02'];
-    assert.deepEqual(book.SheetNames, ['2026 41-02', '원본수식 비교', ...(id === 'AU_ORIGINAL_V1' ? ['원본 양식 계산'] : [])]);
+    assert.deepEqual(book.SheetNames, ['2026 41-02', '원본수식 비교', '원본 양식 계산']);
     const us = id === 'US_ORIGINAL_V1', ec = id === 'EC_ORIGINAL_V1';
     f.revision.lines.forEach((line, i) => {
       const r = p.detailStartRow + i, unit = s[`${us ? 'N' : ec ? 'Q' : 'O'}${r}`], qty = s[`${us ? 'O' : ec ? 'R' : 'P'}${r}`];
@@ -549,7 +549,7 @@ for (const [id, assetName, filename] of [
     assertFormatOnlyStyleClones(await zip.file('xl/styles.xml').async('string'), asset.styles);
     assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
+    for (const part of [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
     for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
     assert.ok(sheet.includes(`ref="${th ? 'C42:E42' : 'B42:D42'}"`));

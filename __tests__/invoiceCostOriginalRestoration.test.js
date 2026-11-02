@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import JSZip from 'jszip';
+import {invoiceCostExportFixture} from './invoiceReceiptCostExport.test.js';
+import {createInvoiceCostWorkbook} from '../lib/invoiceReceiptCostExport.js';
+import {RESTORED_COST_LAYOUTS} from '../lib/invoiceCostOriginalRestoration.js';
+import {INVOICE_COST_EXPORT_PROFILES} from '../lib/invoiceCostExportProfiles.js';
+const XLSX=createRequire(import.meta.url)('xlsx');
+for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original calculation restores sales/formulas/summary without historic input`,async()=>{
+ const profile=INVOICE_COST_EXPORT_PROFILES[id],f=invoiceCostExportFixture(7,profile.formulaId),before=JSON.stringify(f);
+ const bytes=await createInvoiceCostWorkbook(f),book=XLSX.read(bytes,{cellFormula:true,cellNF:true}),s=book.Sheets['원본 양식 계산'];
+ assert.equal(JSON.stringify(f),before);assert.ok(s);assert.equal(s[p.fx].v,f.snapshot.input.exchangeRateKRW);
+ const header=profile.headerRow??p.first-1,last=p.first+6,summary=header-1;
+ assert.match(s[`${p.input}${header}`].v,/매주 확인/);
+ for(const r of [p.first,p.first+3,last]){
+  assert.equal(s[`${p.input}${r}`]?.v,undefined);
+  assert.match(s[`${p.sale}${r}`].f,new RegExp(`ISNUMBER\\(${p.input}${r}\\)`));
+  assert.match(s[`${p.profit}${r}`].f,/ISNUMBER/);assert.match(s[`${p.margin}${r}`].f,/=0/);
+  assert.ok(s[`${p.sales}${r}`].f);assert.ok(s[`${p.profits}${r}`].f);assert.ok(s[`${p.unitCost}${r}`].f);
+ }
+ assert.match(s[`${p.sales}${summary}`].f,new RegExp(`${p.input}${p.first}:${p.input}${last}`));
+ assert.equal(s.AB6.v,f.revision.totalCostKRW);
+ if(id==='CN_SEA_ORIGINAL_V1'){
+  assert.equal(s.AB7.v,'입력 필요');assert.equal(s.AB8.v,'입력 필요');
+  assert.equal(s[`${p.unitCost}${p.first}`].v,'입력 필요');assert.match(s[`AD${p.first}`].f,/ISNUMBER/);
+ }else{assert.ok(Math.abs(s.AB7.v-s.AB6.v)<.01);assert.ok(Math.abs(s.AB8.v)<.01);}
+ const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="2"/);
+ for(const file of ['sheet1.xml','sheet2.xml'])assert.doesNotMatch(await zip.file(`xl/worksheets/${file}`).async('string'),/tabSelected="1"/);
+ assert.doesNotMatch(await zip.file('xl/worksheets/sheet3.xml').async('string'),/#REF!|<externalLink/);
+ if(id==='TH_ORIGINAL_V1')assert.doesNotMatch(s.P15.z,/%/,'legacy first-row percent style must not format currency');
+ if(id!=='NL_ORIGINAL_V1'){
+  const compact=profile.priceBasis&&id!=='EC_ORIGINAL_V1',us=id==='US_ORIGINAL_V1',th=id==='TH_ORIGINAL_V1';
+  const valueCol=compact?(us?'M':'N'):th?'N':'P',firstFee=compact?5:6;
+  assert.equal(s[`${valueCol}${firstFee}`].f,'$AB$5');
+  assert.equal(s[`${valueCol}${firstFee+2}`].v,'내역 미보유');
+  assert.ok(s[`${valueCol}${firstFee+4}`].f);
+  if(!compact)assert.ok(s[`${th?'I':id==='CN_SEA_ORIGINAL_V1'?'I':'H'}${p.first}`].f,'CNF intermediate formula');
+ }
+});
+test('NL current template defaults recalculate and prior-year identity is preserved',async()=>{
+ const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1');f.document.orderYear='2025';
+ const s=XLSX.read(await createInvoiceCostWorkbook(f),{cellFormula:true}).Sheets['원본 양식 계산'];
+ assert.equal(s.C5.v,'2025/41-02');assert.equal(s.C9.v,3);assert.equal(s.C10.f,'SUM(E15:E17)');
+ assert.equal(s.D6.f,'SUMPRODUCT(E15:E17,F15:F17)');assert.equal(s.C6.f,'D6+C11');
+ assert.equal(s.O15.f,'M15*N15');assert.equal(s.Q15.f,'IF(ISNUMBER(R15),R15/1.1,"")');
+ assert.equal(s.V13.f,'IF(COUNT(R15:R17)=0,"",SUM(V15:V17))');
+ assert.equal(s.Q6.v,'내역 미보유');assert.equal(s.Q10.v,f.snapshot.input.customsTotalKRW);
+});
