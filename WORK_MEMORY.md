@@ -1784,3 +1784,9 @@
 2026-11-02 영업지원 기본목록은 등록완료 숨김. 원장삭제없이 isSupportPendingRow 서버필터. 부분잔량/검토필요/다른수량 유지. 입력/이력 보존. 검색어:영업지원 미등록목록 SUPPORT_PENDING_LIST
 
 2026-11-02 실페이지검증추가:44차161개이월행은잔량양수지만ALREADY_REGISTERED.미등록목록은잔량보다실제등록판정을우선해숨긴다.모든원장보존. 검색어:ALREADY_REGISTERED 이월잔량161
+
+2026-11-02 이카운트 반복조회 감소: 최신master e08e8007 분리worktree. sanitized은행after→다음before(<90초/동일기간·세션), source직렬화, legacy6종평일08/11/14, 동일연결실패당일보류(수동/변경우회). 상세원본시각·금액·중복차감·공유원장 보존. 대상60 PASS; 전체ERP/build/CI/배포/runtime카나리는 진행중(미검증). 전체요약으로 변동업체선별은 로그인근거 미확정으로배포제외.
+검색어: ecountReadReuse sharedPendingReader scheduledReadCycle lookupFailureMemo 원본시각보존
+
+2026-11-02 반복조회감소 로컬검증 완료: 대상60/전체test:erp-contract(후처리포함)/dnSpy/manifest178/ERP쓰기0API/webpack build 모두PASS. CI·배포·owner-PC카나리는 아직미검증.
+검색어: read-reduction local gates PASS 60 fixture

@@ -66,3 +66,5 @@ canonical646 수집/요청/잔액1개, 별칭 원장복사 금지. Customer 및 
 2026-11-02 자동수집 복구: ERP/SQL/계산 변경 없음. 기존 E040723 관계기준/은행 입출금 조회/원본 합계 및 잔액 검증 유지. 운영 웹 수동 재조회에서 미카엘10/31수금4,947,800·잔액50,000 확인. 로그인 만료 재시도와 일회성 명시 복구만 변경. docs/plans/ecount-collector-recovery-2026-11-02.md 참고.
 
 2026-11-02 후속: 조회탭 상태/전환 실패에 대해 작업별 소유 탭만 분리·폐기, 미확인 커서 영속화, context 종료시 configured launcher 재시작. dnSpy/ERP 공용 SQL 업무 경로 변경 없음. 은행 비교불가 고정 enum 진단만 shadow JSON에 보존; 원문 오류·거래처코드·계좌 저장 금지, 불가 금액 null 유지.
+
+2026-11-02 반복조회감소: dnSpy ClassCustomer 실제 exit0/GetData/BusinessNumber/Manager/OrderCode 재확인, SELECT-only 활성676/ledger7231780. 공유ERP SQL/금액산식 변경 없음. 기존 sanitized 은행after 재사용(<90초/동일기간·세션)과 원래 before/after 검증 보존, legacy6종 weekday08/11/14, 동일 식별의 연결실패동일보류(수동/변경 재시도). docs/plans/ecount-read-reduction-2026-11-02.md 및 교차연도 회귀 참조.
