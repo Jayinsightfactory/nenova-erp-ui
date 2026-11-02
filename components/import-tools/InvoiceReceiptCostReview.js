@@ -393,7 +393,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }, [identity]);
 
   useEffect(() => {
-    if (numberOrNull(form.exchangeRateKRW) !== null || document.costStatus === 'APPROVED') return;
+    if (!document || numberOrNull(form.exchangeRateKRW) !== null || document.costStatus === 'APPROVED') return;
     const currency = String(form.nativeCurrency || '').toUpperCase();
     if (!['USD','EUR','CNY','AUD','NZD','THB'].includes(currency)) return;
     const controller = new AbortController();
@@ -419,7 +419,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       if (error.name !== 'AbortError') setExchangeRateStatus(`환율 자동 조회 실패: ${error.message}`);
     });
     return () => controller.abort();
-  }, [identity, document.costStatus, form.nativeCurrency, form.exchangeRateKRW, exchangeRateRetry]);
+  }, [identity, document?.costStatus, form.nativeCurrency, form.exchangeRateKRW, exchangeRateRetry]);
 
   function emitStage(id, status, message) {
     if (stageStatuses.current[id] === status) return;
