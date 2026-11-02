@@ -295,3 +295,5 @@ assert.doesNotMatch(registerSource, /assertNotDefectAutoSource\(dbRow\)/,
 console.log('salesDefectAutoSource tests passed');
 
 await import('./defectPermanentOmission.test.js');
+
+await import('./defectSupportPending.test.js');

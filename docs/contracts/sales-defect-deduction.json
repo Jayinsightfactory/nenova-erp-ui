@@ -76,7 +76,8 @@
     "scripts/reconcile-defect-manual-origin.mjs",
     "scripts/probe-defect-next-period.mjs",
     "lib/defectPermanentOmission.js",
-    "__tests__/defectPermanentOmission.test.js"
+    "__tests__/defectPermanentOmission.test.js",
+    "__tests__/defectSupportPending.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -85,6 +86,13 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "SUPPORT_PENDING_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "영업지원 기본목록은 등록/수동완료/동일기존견적 완료를 숨긴다. 원장/견적 삭제없음. 양수잔량 부분처리와 유령연결 등 검토필요는 유지. 다른수량 별도신고 유지. 영업입력/이력조회는 보존."
+    },
     {
       "name": "PERMANENT_OMIT_CANCEL",
       "orderDetail": "preserve",
@@ -436,7 +444,8 @@
     "__tests__/defectDragSelection.test.js",
     "__tests__/defectProductDisplay.test.js",
     "__tests__/defectSourceProvenance.test.js",
-    "__tests__/defectPermanentOmission.test.js"
+    "__tests__/defectPermanentOmission.test.js",
+    "__tests__/defectSupportPending.test.js"
   ],
   "requiredTestFiles": [
     "__tests__/defectPeriodCorrection.test.js",
