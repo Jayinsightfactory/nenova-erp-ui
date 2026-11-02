@@ -1,7 +1,11 @@
 - [불량차감 유지보수 기준·세션 오류 해결](../DEFECT_DEDUCTION_MAINTENANCE.md)
 - [2026-11-02 세션 인수 기록](../session-backups/2026-11-02_defect-incident-maintenance.md)
 - [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)
+- [2026-11-02 이카운트 자동수집 복구](2026-11-02_ecount-collector-recovery.md)
 
+- [2026-11-02 수국 업로드 품종 경계](2026-11-02_import-category-guard.md) — 카네이션 삭제 재발 방지 및 전품목 회귀.
+- [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)
+- [2026-11-02 매출이익 상태·버튼·빈 값 근거](2026-11-02_profit-report-status-toolbar.md) — DB 쓰기0, 금융parity31건·전체가드2차 PASS, 최종build·CI·배포 대기.
 - [2026-10-29 관세 양식 승인추정 표시·독립 검증](2026-10-29_profit-template-duty-release.md) — 1~41차164행·주차/월별 대사, DB 보존, 배포 확인 대기.
 - [2026-10-29 관세 규칙 SQL 커버리지](2026-10-29_tariff-sql-coverage.md)
 - [2026-10-29 관세 원본 양식 규칙](2026-10-29_tariff-template-rules.md)

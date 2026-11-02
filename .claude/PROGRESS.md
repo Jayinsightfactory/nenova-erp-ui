@@ -1222,3 +1222,17 @@ IMPORT"로 드러남. 빈 문자열 조기 리턴으로 수정, 실제 방 이�
 ---
 
 *새 세션이 끝날 때마다 위 형식으로 앞에 추가. 커밋 SHA + 변경 파일 + 다음 예정 + 미결 이슈 필수.*
+
+## 2026-11-02 매출이익 상태·빈 값 원천 안내 (진행 중)
+
+- 상태표시/툴바/진단metadata 구현 및 독립 타겟 검증: 금융parity31건·50버튼 AST PASS.
+- SQL SELECT-only43에서 승인관세규칙 미매칭, 중국운임배분대사실패, 재고재평가 의존/지원제약 구분. DB쓰기0.
+- 변경범위/원인: docs/plans/profit-report-status-toolbar-2026-11-02.md 및 QA정본 참조.
+- 커밋/PR/배포: 미완료. 전체가드·CI·운영스모크는 부모 세션 후속 결과 대기.
+- 검색어: profit-report-status-toolbar 어떤DB 계산불가 sourceGuidance
+
+2026-11-02 상태툴바 후속: 전체 ERP 가드2차 exit0 및 manifest174/쓰기0API PASS. 합계K 원인설명에서 정상 국가0분모를 누락원인에 넣지 않도록 표시만 보완, 대상검사 재PASS. 최종build·CI·배포·운영확인은 미완료.
+
+2026-11-02 CI·병합 갱신: CI41370537123 SUCCESS, PR #1387 squash merge d61bc68cfa1a2171abe149e601ea610e315515d3 완료. Cafe2441371056883 진행 중으로 배포·실브라우저 완료 주장은 보류한다. DB 쓰기 및 추가 commit/PR/push 없음.
+
+2026-11-02 compact 후속: 원래 배포 운영 QA에서 행1000px 초과로 재보완. 로컬 실제CSS/113px/18열 TH157·CN170·EC153px,142원문 보존 및Enter PASS. 타겟5·dnSpy·manifest175·쓰기0API·build PASS. 표시만 변경, 금융/서버판정/DB 불변. 후속 CI·배포·운영 최종은 대기.

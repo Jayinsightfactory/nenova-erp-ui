@@ -7,6 +7,7 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
   const [data, setData] = useState(null), [error, setError] = useState('');
   const [metadata, setMetadata] = useState({ currency: '', transportMode: '', gw: '', cw: '' });
   const [applied, setApplied] = useState(null);
+  const [downloading, setDownloading] = useState(false);
   const active = useRef(true), generation = useRef(0);
   function updateMetadata(key, value) { generation.current++; setMetadata(v => ({ ...v, [key]: value })); }
   useEffect(() => {
@@ -14,7 +15,12 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     setData(null); setApplied(null); setError('');
     fetch(`/api/import/receipts/native-cost?${new URLSearchParams({ orderYear, orderWeek, warehouseKey })}`, { cache: 'no-store', signal: abort.signal })
       .then(async response => { const value = await response.json(); if (!response.ok || !value.success) throw new Error(value.error || '입고 조회 실패'); return value; })
-      .then(value => { if (!abort.signal.aborted) { setData(value); setMetadata({ currency: '', transportMode: '', gw: value.source.gw ?? '', cw: value.source.cw ?? '' }); } })
+      .then(value => { if (!abort.signal.aborted) {
+        setData(value);
+        const defaults = value.automatic?.metadata || { currency: '', transportMode: '', gw: value.source.gw ?? '', cw: value.source.cw ?? '' };
+        setMetadata(defaults);
+        if (value.automatic) setApplied(defaults);
+      } })
       .catch(e => { if (!abort.signal.aborted) setError(e.message); });
     return () => { active.current = false; generation.current++; abort.abort(); };
   }, [orderYear, orderWeek, warehouseKey]);
@@ -39,8 +45,8 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     costDocument = { ...data.document, lines, receiptLines: lines,
       reviewedMetadata: { ...data.document.reviewedMetadata, ...applied, tariffDefaults,
         gw: applied.gw === '' ? null : Number(applied.gw), cw: applied.cw === '' ? null : Number(applied.cw),
-        invoiceCostInput: { ...data.document.reviewedMetadata.invoiceCostInput, nativeCurrency: applied.currency, freightCurrency: applied.currency,
-          lineInputs: data.document.reviewedMetadata.invoiceCostInput.lineInputs.map(line => ({ ...line, ...(tariffDefaults[line.lineId] ? { tariffRate: tariffDefaults[line.lineId].tariffRate } : {}) })) } } };
+        invoiceCostInput: { ...data.document.reviewedMetadata.invoiceCostInput, ...data.automatic?.input, nativeCurrency: applied.currency, freightCurrency: applied.currency,
+          lineInputs: (data.automatic?.input?.lineInputs || data.document.reviewedMetadata.invoiceCostInput.lineInputs).map(line => ({ ...line, ...(tariffDefaults[line.lineId] ? { tariffRate: tariffDefaults[line.lineId].tariffRate } : {}) })) } } };
   }
   return <section className={styles.panel} aria-label="기존 입고자료 원가 계산">
     <header className={styles.header}><div><small>입고자료로 바로 계산 · 원장 변경 없음</small><h3>{data?.source.farmName || '입고자료 조회'} <span>{orderYear} / {orderWeek}</span></h3>
@@ -48,6 +54,17 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">전산 입고의 품목·수량·단가를 불러오는 중…</p>}
     {data && <>
+      {data.automatic && <div className={styles.automatic} role="status">
+        <strong>네덜란드 입고자료 자동 연결</strong>
+        <p>EUR · 항공 · GW {data.source.gw ?? '미기재'}kg · CW {data.source.cw ?? '미기재'}kg · 저장 운송료 {data.automatic.input.freightAmount ?? '미기재'} EUR</p>
+        <p>적용 환율 {data.automatic.input.exchangeRateKRW ?? '조회 필요'}원/EUR (현재 시세 + 15원) · 서식 통관비 {data.automatic.input.customsTotalKRW?.toLocaleString('ko-KR') ?? '중량 확인 필요'}원</p>
+        <p>{data.automatic.input.estimateSource}</p>
+        {data.rateError && <p role="alert">{data.rateError}</p>}
+        <button type="button" disabled={downloading || data.automatic.missing.length > 0 || JSON.stringify(applied) !== JSON.stringify(metadata)}
+          onClick={async () => { setDownloading(true); setError(''); try { await action('download', data.automatic.input); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
+          {downloading ? '네덜란드 엑셀 생성 중…' : data.automatic.missing.length ? `자동 다운로드 대기 · ${data.automatic.missing.join(' · ')} 확인 필요` : '네덜란드 도착원가 엑셀 다운로드 · 서식 기본값 계산본'}
+        </button>
+      </div>}
       {data.source.country === 'AU' && <div role="status"><strong>호주 원가는 입고관리의 저장 총액(출하단가)을 기준으로 계산합니다.</strong>
         <p>CNF 단당 계산값 = 저장 총액 ÷ 단수. 입고의 원래 단가·총액은 변경하지 않습니다.</p>
         {data.document.lines.filter(line => line.nativePriceBasis && Math.abs(Number(line.nativeStoredUnitPrice) - line.unitPrice) > 0.000001).map(line =>

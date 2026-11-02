@@ -22,7 +22,8 @@
     "scripts/ecount-scraper/pending-receipts.mjs",
     "lib/ecountVerifiedCustomerLinks.cjs",
     "lib/ecountVerifiedCustomerLinks.json",
-    "lib/ecountLedgerTable.cjs"
+    "lib/ecountLedgerTable.cjs",
+    "lib/ecountCollectorRecovery.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -121,5 +122,12 @@
     "amounts": "Source sale/receipt/balance unchanged. Bank reflected/pending/difference stay week-level; no voucher allocation. Week closing is last source balance carried forward, not a new cash calculation.",
     "fallback": "Legacy or calendar unavailable/overlap/gap: preserve all vouchers without invented week; no dropped or duplicated voucher.",
     "tests": "six-row screenshot fixture, two receipts same day, empty week balance carry, null/zero, 202553/202601"
+  },
+  "sessionRecovery": {
+    "login": "exact source login host; one retry after shared reauthentication; refresh current base before retry; never persist session URL/credentials",
+    "manualRecovery": "explicit operator marker consumed before run, valid weekday08–18 for10min, persistent id prevents restart replay; no missed-slot catch-up without marker",
+    "preserve": "source ECOUNT writes blocked; shadow verified snapshots only; canonical customer/source dedup and bank deduction unchanged",
+    "fixtures": "coalesced login, bounded retry, genuine source failures, bank auth, old/weekend marker, year boundary, real dispatcher manual priority/continuation/restart, untouched-only timeout, stale/cross-year discard",
+    "continuation": "45min budget checkpoints only untouched canonical customer keys; same KST day and exact server period; atomic state before/after chunks; manual request priority between chunks; no duplicate uploads or failed classification of deferred rows"
   }
 }

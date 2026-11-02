@@ -1,0 +1,12 @@
+{
+ "id":"nl-native-automatic-cost",
+ "title":"네덜란드 기존 입고 자동 계산본 다운로드",
+ "scope":["lib/nlNativeCostDefaults.js","lib/invoiceLiveExchangeRate.js","pages/api/import/receipts/live-exchange-rate.js","lib/nativeReceiptCost.js","lib/nativeCostHttp.js","components/import-tools/NativeReceiptCost.js","components/import-tools/InvoiceReceiptCostReview.js"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "receiptIdentity":["OrderYear","OrderWeek","WarehouseKey"],
+ "actions":[{"name":"READ_CALCULATE_DOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Same receipt weights/freight and saved quantities. NL template constants ESTIMATED; live EUR+15. Existing sourceHash and second read guard preserved; no approval/writer/SP."}],
+ "crossYearFixture":{"required":true,"description":"nativeReceiptCost tests reject2025 same week/key and preserve explicit zero/header and conflicting weights. No prior-year cost copied."},
+ "requiredTestFiles":["__tests__/nativeReceiptCost.test.js","__tests__/nlNativeCostDefaults.test.js","__tests__/invoiceLiveExchangeRate.test.js"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"ExcelLoadingPackingList native Box/Bunch/Steam/UPrice/TPrice independent fields; new download reads only and never invokes InsertMaster or stock calculation. 2026/43-02 warehouse7814 SELECT-only74 rows.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","Product"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

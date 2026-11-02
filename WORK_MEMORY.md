@@ -1726,3 +1726,43 @@
 2026-11-02 누락 내역/취소 착수. 원HistoryKey별 취소감사만추가,기존ERP보존,재누락시옛취소무효.검증진행. 검색어:PERMANENT_OMIT_CANCEL 누락취소
 
 2026-11-02 세션오류해결/유지보수기준 문서화. docs/DEFECT_DEDUCTION_MAINTENANCE.md에 원인·사용자최종결정·수기보존·누락키/취소·철회계획·검증한계 정리,AGENTS/ERP가드/계약에연결. 검색어: 불량차감 유지보수 누락취소 수기보존
+2026-11-02 주차별 매출이익 상태·버튼·빈 값 원천 안내: 표시전용 및 진단메타 추가, DB쓰기0. 43차 TH14/CN39/EC1 입고행 승인정책 key부재와 CN15행 운임배분대사실패를 확인; 태국 재고null은통관비후속보류, 중국기초는웹평가방식지원제약. WebCustomsWeekly2026/43 실제저장행0 확인. baseline31시나리오금융출력·50버튼handler보존 타겟PASS. fullguard/CI/배포/실브라우저검증은아직미완료. QA정본 docs/work-sessions/2026-11-02_profit-report-status-toolbar.md.
+- 검색어: 매출 상태툴바 어떤DB 원천대조전 관세규칙미매칭 운임배분대사 재고평가 진단메타
+
+2026-11-02 상태툴바 검증갱신: 전체 verify:erp-change2차 exit0(계약/dnSpy/UI/manifest/쓰기가드/build), 명시 manifest174/쓰기0API PASS. 이후합계K의정상0분모행오인만표시보완, 상태/parity31/50handler 재PASS. 최종build·PR/CI·배포·운영스모크대기. 최초소스앵커실패와수정기록은QA에보존.
+- 검색어: 상태툴바 전체가드2차 PASS 합계K C+F 원천누락 분모0
+
+## 2026-10-29 네덜란드 자동원가·주광 비교 진행중
+- 사용자 정정: 별도 주광 원가식 불필요. CL2주광 주문수량과 기타주문합계, 입고량/단가/원가 비교 목적. 고객별 실제입고량은 총입고에서 임의 배분하지 않음. 미입고 '-'와 실제0 구분.
+- nw-nl-cost-split-1029 branch: 현재시세+15원6통화 helper/GET API, 원가화면 자동조회 연결(빈환율만, 승인/기존값보존,통화경합차단). 주광/기타 순수비교 helper 교차연도·미입고·0 테스트4pass.
+- 기존37-1/37-2NL 원가파일 역검증: GW*460+33000+품목수*10000+90000+검역차감/소독추가, 운임=항공기본료+CW*요율; 상품금액비 배분. 개별차수 운임요율/추가비를 무근거로 추정하지 않음.
+- 미완료: 화면/엑셀 주문조회·비교표 연결, NL 자동비용기본값, 실제파일 무입력 E2E, 회귀/CI/배포. 운영DB쓰기0. 미배포 상태.
+- 검색어: invoiceLiveExchangeRate netherlandsCostCustomerComparison CL2 주광 현재시세15 미입고
+
+## 2026-11-02 네덜란드 실제 다운로드 차단 수정
+- 43-02 Holex 7814 SELECT-only: 상품71행, GW1226.1/CW1364, 운송료3689.69EUR. 중량행 보조Box/Bunch=1 때문에 기존 strict 중량판정이 null이 된 원인 수정. 서로 다른 실제중량 충돌과 명시header0 보존.
+- 기존 NL 관세표/통관상수 재사용, native 단/송이 비율로 Nicholii50단=150송이 환산. 현재EUR시세+15, 통관비는 서식기본 추정으로 표시. 승인/ERP 쓰기없음.
+- 실제71행 계산 issues0, XLSX48356bytes 생성. 회귀·전체검증·배포·실웹앱다운로드는 진행중(미검증).
+- 검색어: nlNativeCostDefaults Holex7814 GW1226.1 CW1364 보조수량1 Nicholii 다운로드
+
+
+## 2026-11-02 업로드 품종 경계 재발 방지
+- Audit140 수국파일에서 카네이션42행76박스가 엑셀누락 삭제된 사건 수정. 원본 국가/품종 검증을 자동·명시키·수동 연결에 공통 적용; 혼합원문의 명시 Ruscus 정상허용.
+- 교체범위 CountryFlower+FlowerName, 원본근거불명은 실제품목만. 모든 preview에 정확 제품키목록 서명/source-species-scope-v3; 기존 미리보기 재검증 필요. 명시 skip/주문보존/환산/native writer 유지.
+- 40개 대상검사 및3359품목6175원문/전분류 경계/교차연도 통과. dnSpy·manifest·write guard 통과, 전체ERP/build/CI/배포/브라우저는 진행중(미검증).
+- 운영DB SELECT-only: 2025/2026 44-02 대상3분류 ViewOrder202/137, ViewShipment148/128, Date148/128,Farm0/0,Estimate1/0,견적노출148/65. 운영보정/시험쓰기없음.
+- 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard
+
+- 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.
+
+2026-11-02 상태툴바 CI·병합 갱신: CI41370537123 SUCCESS, PR #1387 squash master d61bc68cfa1a2171abe149e601ea610e315515d3 병합 완료(01:10:26Z). Cafe2441371056883 진행 중, 배포·실브라우저는 아직 미검증. DB 쓰기0, 추가 commit/PR/push 없음.
+- 검색어: 상태툴바 PR1387 CI41370537123 d61bc68c 배포대기
+
+2026-11-02 상태셀 compact 후속: 기존 배포 운영에서 긴 원문 반복으로 행1000px 초과 발견. 원인/DB위치 기본 요약과 전체원문 펼침으로 표시만 보완. 실제CSS·113px·18열 로컬Chrome TH157/CN170/EC153px,142원문보존·Enter PASS. 타겟5/금융parity31/50동작, dnSpy/manifest175/쓰기0API/build PASS. 후속 CI·배포·운영최종은 미완료. DB쓰기0.
+- 검색어: compactCause 180px 142원문보존 상태셀 원인상세
+
+2026-11-02 자동수집 복구 착수: 8시124건전체실패·8:56재로그인뒤오전실패분재개없음. 수동미카엘갱신성공(10/31수금4,947,800→잔액50,000). 공용로그인복구/해당작업1회재시도/일회복구마커중복방지/이카운트잔액라벨. 대상59검사통과, 전체검증·배포·카나리·전체재수집대기. docs/work-sessions/2026-11-02_ecount-collector-recovery.md
+- 검색어: 자동수집 LOGIN_EXPIRED singleFlight recoveryRequestId 124건 8시실패
+
+2026-11-02 자동수집1차 PR1389 CI41371944528/79bb5f0a,수집기6파일백업·적용/새PID42352/10:26로그인복구/미카엘canary성공. 추가45분제한후미시도원장누락확인→continuation후속:원자적미시도key/같은KST날짜·period/수동요청우선/중복업로드없음. 대상63검사PASS. 최종배포·전체재수집대기.
+- 검색어: 45분 continuation deferred 원장누락 PR1389 79bb5f0a

@@ -11,3 +11,8 @@
 .metadata input,.metadata select { min-width:0; width:100%; padding:9px; border:1px solid #b9cce2; border-radius:6px; background:white; color:#18334f; box-sizing:border-box; }
 .metadata button { background:#2457c5; color:#fff; border-color:#2457c5; }
 .panel details { padding:12px; border:1px solid #e1e8f0; border-radius:8px; font-size:13px; }
+.automatic { padding:16px; margin:16px 0; border:1px solid #a9c9eb; border-radius:9px; background:#f0f7ff; }
+.automatic p { margin:8px 0; line-height:1.5; overflow-wrap:anywhere; }
+.automatic button { background:#2457c5; border-color:#2457c5; color:white; font-weight:600; }
+.panel button:disabled { cursor:not-allowed; opacity:.6; }
+.panel button:focus-visible { outline:3px solid #e8a21b; outline-offset:3px; }

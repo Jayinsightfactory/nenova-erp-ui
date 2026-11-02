@@ -1080,3 +1080,5 @@ History PERMANENT_OMIT는 연도+원차수+업체+품목+수량+단위 완전일
 
 ## 불량차감 관련 작업 필수 근거
 영업수입불량차감·자동수집·재업로드·일괄등록·이월·누락/취소를 변경하기 전에 [불량차감 유지보수 기준](DEFECT_DEDUCTION_MAINTENANCE.md)을 읽는다. docs 폴더 문서에서는 파일명 DEFECT_DEDUCTION_MAINTENANCE.md를 기준으로 찾는다. 수기보존·정확한 차수수량 예외키·원HistoryKey별 취소·공통SQL·양성/반례 검사를 유지하고, 철회된 보정계획은 재실행하지 않는다.
+## 2026-11-02 수국 업로드가 카네이션을 지운 사고
+Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 교체로 확장되어 기존42행76박스가 엑셀누락으로 삭제됐다. 이름유일/수동이라는 이유로 원본 품종경계를 무시하지 않는다. 원본명·제목의 품종/국가를 먼저 검증하며 확실한 혼합품종 행은 해당 품종으로 읽는다. 삭제범위는 CountryFlower+FlowerName으로 분리하고 근거불명은 실제 연결품목만 허용. 정확 제품키목록을 항상 서명하여 preflight/transaction/readback에 공유, 기존 v2서명 폐기. source scope는 사용자가 잘못 연결한 결과에서 역추정하지 않는다. 회귀 shipmentImportManualSkip 및 shipmentReplacementPlan, 전체3359품목 교차분류·6175원문과2025/2026 fixture. 운영보정 없음.
