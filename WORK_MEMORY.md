@@ -1814,3 +1814,6 @@
 
 2026-11-02 라움·신라 손익 HTTP 413 원인 보완: 운영 무인증 무해 본문 probe에서 /api/raum/pnl-import 30MiB는 401(nginx 통과), 33MiB는 413. /api/raum/pnl 및 /api/raum/pnl-image-import는 2MiB도 413으로 nginx 기본 제한 확인. exact 경로에 각각 8m/32m 추가, JSON 결산 저장 Next bodyParser 8mb 일치. WebRaumPnl 및 ERP 원장 로직 변경 없음. nginx helper·전체 ERP 계약·dnSpy·manifest·write guard·build PASS. CI/운영 적용은 진행 중(미검증).
 검색어: 라움 신라 손익 업로드 413 nginx pnl-image-import pnl JSON bodyParser
+
+2026-11-02 네덜란드 도착원가 원본 세율·검역 차감: PR #1416(f16cae97)은 원본 품목/원산지 세율, 종류별 최저 도착원가 품목 선정, 원본 차감 송이수×선택 FOB/송이×환율을 계산본에 연결. 샘플표에 없는 Amerine·Onisogallium·Weigelia는 담당자 결정대로 차감0을 표시. PR #1418(2268c3e1)은 Excel 감사표 AA:AC 폭/FOB 표시 소수 둘째 자리 수정. CI·Cafe24 배포 41413705901·Aside 실다운로드 성공. 2026/43-02 Holex 입고7814 재다운로드 파일 71품목, 검역24종 수수료240000원, 차감323124.70원=감사합계, 통관비823881.30원, Excel 오류0·판매/이익 수식 PASS, 감사 설명 잘림 없음. EUR 실시간 환율1518.8원 기준 추정 계산본이며 운영 DB 입고·재고·확정 원가·손익 쓰기 없음. 다른 국가 전체 실파일 Aside 다운로드는 미검증. 근거 docs/work-sessions/2026-11-02_nl-tariff-quarantine.md.
+검색어: NL quarantine FOB sample stems cheapest landed tariff 43-02 Holex 7814 Aside audit Excel 2268c3e1
