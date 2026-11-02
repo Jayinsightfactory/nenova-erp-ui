@@ -53,6 +53,16 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Package read-only diagnostic commands
+        run: |
+          {
+            printf "node <<'NODE_DIAG'\n"
+            cat scripts/diagnose-runtime-readonly.cjs
+            printf "\nNODE_DIAG\npython3 <<'PY_DIAG'\n"
+            cat scripts/diagnose-nginx-readonly.py
+            printf "\nPY_DIAG\n"
+          } > "$RUNNER_TEMP/perf-diagnose.sh"
       - name: Read-only sanitized server performance diagnosis
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -60,10 +70,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          script: |
-            cd /var/www/nenova-erp || exit 1
-            node scripts/diagnose-runtime-readonly.cjs
-            python3 scripts/diagnose-nginx-readonly.py
+          script_path: ${{ runner.temp }}/perf-diagnose.sh
   deploy:
     if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true)
     runs-on: ubuntu-latest
