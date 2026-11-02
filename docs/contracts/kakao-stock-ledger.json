@@ -15,7 +15,8 @@
     "scripts/kakao-stock-pages-smoke.cjs",
     "components/orders/StockInputRemarks.js",
     "__tests__/kakaoStockSections.test.js",
-    "__tests__/fixtures/kakaoStockSectionedBase.txt"
+    "__tests__/fixtures/kakaoStockSectionedBase.txt",
+    "scripts/kakao-stock-sections-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",

@@ -1,3 +1,4 @@
+import {stockSourceWeek} from '../lib/kakaoStockInbox.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {parseLedgerBase,calculateLedger,ledgerCopy,analyzeLedgerText,ledgerScopeWeeks} from '../lib/kakaoStockLedger.js';
@@ -30,3 +31,5 @@ assert.throws(()=>parseLedgerBase('44-1 카네이션 수국\n노비아1'),/품�
 const species='44-1 카네이션\n화이트2\n44-1 장미\n화이트3';
 assert(analyzeLedgerText('44-1 변경사항\n주광\n화이트 1추가',species,'2026-44-01').errors.length);
 const selected=analyzeLedgerText('44-1 장미\n주광\n화이트 1추가',species,'2026-44-01');assert.deepEqual(selected.errors,[]);assert.deepEqual(calculateLedger(species,selected.changes).rows.map(r=>r.remaining),[2,2]);
+
+assert.equal(stockSourceWeek('44-2수국 변경사항','2026-44-01'),'2026-44-02');
