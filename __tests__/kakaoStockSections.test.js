@@ -33,3 +33,13 @@ assert(analyzeLedgerText('44-1 변경사항\n주광\n화이트 1추가',species,
 const selected=analyzeLedgerText('44-1 장미\n주광\n화이트 1추가',species,'2026-44-01');assert.deepEqual(selected.errors,[]);assert.deepEqual(calculateLedger(species,selected.changes).rows.map(r=>r.remaining),[2,2]);
 
 assert.equal(stockSourceWeek('44-2수국 변경사항','2026-44-01'),'2026-44-02');
+
+assert(analyzeLedgerText('주광\n유카리체리 1추가',base,'2026-44-01',{sourceWeek:'2026-44-01'}).errors.length,'feed page-week fallback must not guess a section when raw text has no header');
+
+const pick44=parseLedgerBase(base).find(r=>r.section?.shortWeek==='44-01'&&r.name==='유카리체리').key;
+const picked=analyzeLedgerText('주광\n유카리체리 1추가',base,'2026-44-01',{targetSection:pick44});
+assert.deepEqual(picked.errors,[]);assert.equal(picked.changes[0].product,pick44);
+assert.equal(calculateLedger(base,picked.changes).rows.find(r=>r.key===pick44).remaining,8);
+assert.equal(calculateLedger(base,picked.changes).rows.find(r=>r.section?.shortWeek==='43-01'&&r.name==='유카리체리').remaining,1);
+assert.equal(analyzeLedgerText('43-1 카네이션\n주광\n유카리체리 1추가',base,'2026-44-01',{targetSection:pick44}).changes[0].product,pick44);
+assert(analyzeLedgerText('주광\n유카리체리 1추가',base,'2026-44-01',{targetSection:'stale'}).errors.length);
