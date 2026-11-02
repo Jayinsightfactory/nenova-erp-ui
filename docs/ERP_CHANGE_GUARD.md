@@ -1075,3 +1075,5 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 
 ## 2026-10-29 선택 누락 고정예외
 History PERMANENT_OMIT는 연도+원차수+업체+품목+수량+단위 완전일치에만 적용. 새차수·다른수량 정상자료는 제외금지. 업로드미리보기/새원장save/목록/preflight/preview/최종register 공통예외. 기존 견적과 수기원장은 보존. 계약 sales-defect-deduction, 회귀 defectPermanentOmission 및 salesDefectSourceReconciliation.
+
+2026-11-02 누락취소는 원HistoryKey별 감사만추가,재누락별도유효. 공통omissionSql로 모든경로복원. 기존ERP보존.
