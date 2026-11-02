@@ -1787,3 +1787,12 @@
 
 2026-11-02 네덜란드·중국 물량표 업체명 상단 고정/위쪽정렬. 원래 헤더 셀을 공통 useVolumePageHeader로 이동해 페이지/팝업 스크롤·가로 정렬·기존 입력 보존. API/SQL/ERP 원장 변경0. ERP전체/pivot/dnSpy/manifest179/쓰기0API/build PASS; 실제Chrome 1366/760, 일반/팝업,3/4행,print/복귀/가로정렬 PASS. CI·운영배포는 진행중(미검증). docs/work-sessions/2026-11-02_volume-customer-sticky.md
 검색어: volume-customer-sticky 업체명 고정 위쪽정렬 네덜란드 중국
+
+2026-11-02 이카운트 반복조회 감소: 최신master e08e8007 분리worktree. sanitized은행after→다음before(<90초/동일기간·세션), source직렬화, legacy6종평일08/11/14, 동일연결실패당일보류(수동/변경우회). 상세원본시각·금액·중복차감·공유원장 보존. 대상60 PASS; 전체ERP/build/CI/배포/runtime카나리는 진행중(미검증). 전체요약으로 변동업체선별은 로그인근거 미확정으로배포제외.
+검색어: ecountReadReuse sharedPendingReader scheduledReadCycle lookupFailureMemo 원본시각보존
+
+2026-11-02 반복조회감소 로컬검증 완료: 대상60/전체test:erp-contract(후처리포함)/dnSpy/manifest178/ERP쓰기0API/webpack build 모두PASS. CI·배포·owner-PC카나리는 아직미검증.
+검색어: read-reduction local gates PASS 60 fixture
+
+2026-11-02 반복조회카나리시작후 실제logincc/ec56/view/login/erp_login을 기존auth감지가놓치는문제추가보완. 실제ERP경로만base, networkidle대신DOM15/30초, browser180초, 단계enum로그. 원본source수식·PII출력없음. 대상62 PASS. CI/runtime재확인대기.
+검색어: ecountSourceBootstrap logincc erp_login bounded DOM 180000
