@@ -101,9 +101,9 @@ export async function collectBankSnapshot(page,base,period,status,secret){
   return pending.validateBankSnapshot({at:new Date().toISOString(),from:prevFrom,to:period.to,complete:true,rows:allRows});
 }
 const bankFailure=reason=>{const safe=pending.unavailableEvidence(reason);return safe.reason==='INVALID_EVIDENCE'?pending.unavailableEvidence('BANK_QUERY_FAILED'):safe;};
-export async function collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger,collectBank=collectBankSnapshot,secret=process.env.NENOVA_TOKEN}){
+export async function collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger,collectBank=collectBankSnapshot,collectBefore=collectBank,secret=process.env.NENOVA_TOKEN}){
   let before=null,beforeReason=null;
-  try{before=await collectBank(bankPage,base,period,'PENDING',secret);}catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;beforeReason=e?.message;}
+  try{before=await collectBefore(bankPage,base,period,'PENDING',secret);}catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;beforeReason=e?.message;}
   const ledger=await collectLedger(page,base,customer,period);
   if(!before||!history)return {...ledger,bankEvidence:bankFailure(!before?(beforeReason||'BANK_QUERY_FAILED'):'BANK_HISTORY_UNAVAILABLE')};
   try{

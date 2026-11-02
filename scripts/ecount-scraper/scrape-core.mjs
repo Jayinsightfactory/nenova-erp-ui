@@ -42,12 +42,15 @@ export function isLoginPage(page) { return recovery.isSourceLoginUrl(page.url())
 
 // 앱 세션 부팅: 루트로 이동해 쿠키→세션 복원. 성공 시 세션ID 포함된 base URL(해시 제외) 반환, 실패 시 null.
 export async function ensureBooted(page) {
-  // 2026-10-08: 방금 로그인해 이미 /view/erp(세션ID 포함) 에 있으면 새로 goto 하지 않는다 — 세션ID 없는 루트로 다시 가면 로그인으로 튕긴다(base=null 원인).
-  if (page.url().includes('logincc.ecount.com/') && page.url().includes('/view/erp')) { await page.waitForLoadState('networkidle').catch(() => {}); await page.waitForTimeout(2500); if (!isLoginPage(page)) return page.url().split('#')[0]; }
-  await page.goto(ERP_ROOT, { waitUntil: 'networkidle' }).catch(() => {});
+  // Login redirects may never become network-idle. Bound DOM readiness, then pin the real ERP path.
+  if(recovery.isSourceErpUrl(page.url())){
+    await page.waitForLoadState('domcontentloaded',{timeout:15000}).catch(()=>{});
+    await page.waitForTimeout(2500);
+    if(recovery.isSourceErpUrl(page.url()))return page.url().split('#')[0];
+  }
+  await page.goto(ERP_ROOT,{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>{});
   await page.waitForTimeout(2500);
-  if (isLoginPage(page)) return null;
-  return page.url().split('#')[0];   // 예: https://logincc.ecount.com/ec5/view/erp?w_flag=1&ec_req_sid=CC-...
+  return recovery.isSourceErpUrl(page.url())?page.url().split('#')[0]:null;
 }
 
 function findHeaderRow(aoa, labels) {
