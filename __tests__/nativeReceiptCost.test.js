@@ -122,13 +122,17 @@ test('NL native workbook retains template customs components and estimated warni
   nlTemplateCosts:{bakSang:564006,handling:33000,quarantine:20000,domestic:90000,extra:220000,deduct:1500,kindCount:2,
     selections:[{kind:'Tulip',originalName:'Tulip sample',stems:10,fobPerStem:.1,deductionKRW:1500}],excluded:[{kind:'Amerine'}]}};
  const result=calculateNativeCost(f.source,f.request);
- const book=XLSX.read(await createNativeCostWorkbook(result)),sheet=book.Sheets[book.SheetNames[0]];
+ const book=XLSX.read(await createNativeCostWorkbook(result),{cellStyles:true}),sheet=book.Sheets[book.SheetNames[0]];
  assert.match(sheet.B1.v,/미승인 계산본.*추정 통관비.*실제 청구액 아님/);
  assert.equal(sheet.Q6.v,564006);assert.equal(sheet.Q7.v,33000);assert.equal(sheet.Q8.v,20000);
  assert.equal(sheet.Q9.v,90000);assert.equal(sheet.S6.v,1500);assert.equal(sheet.S7.v,220000);
  const original=book.Sheets['원본 양식 계산'];
  assert.equal(original.C9.v,2);assert.equal(original.Q8.v,20000);assert.equal(original.S6.v,1500);
  assert.equal(original.AC15.v,1500);assert.equal(original.AC16.v,0);
+ assert.match(original.AB15.v,/FOB 0\.10 EUR/);
+ assert.ok(original['!cols'][26].width>=19); // AA: kind name
+ assert.ok(original['!cols'][27].width>=96); // AB: full audit description
+ assert.ok(original['!cols'][28].width>=22); // AC: deduction amount
 });
 
 test('actual HTTP handler enforces access/methods, exports binary and blocks concurrent receipt changes', async () => {
