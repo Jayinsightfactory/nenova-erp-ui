@@ -5,7 +5,7 @@ import {INVOICE_COST_EXPORT_PROFILES} from '../lib/invoiceCostExportProfiles.js'
 import {readNativeCostSource,calculateNativeCost} from '../lib/nativeReceiptCost.js';
 import {nlNativeCostDefaults} from '../lib/nlNativeCostDefaults.js';
 import sql from 'mssql';
-const out=new URL('../outputs/cost-restoration-1102/',import.meta.url);await fs.mkdir(out,{recursive:true});
+const out=new URL('../outputs/cost-restoration-1102-final/',import.meta.url);await fs.mkdir(out,{recursive:true});
 for(const p of Object.values(INVOICE_COST_EXPORT_PROFILES)){
  const f=invoiceCostExportFixture(3,p.formulaId);f.snapshot.input.exchangeRateType='TEST_ONLY';
  const bytes=await createInvoiceCostWorkbook(f);await fs.writeFile(new URL(`${p.id}_TEST_ONLY.xlsx`,out),bytes);
