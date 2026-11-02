@@ -1782,3 +1782,5 @@
 검색어: ecount request feedback rate limit cached polling preserve 503 clear 403
 
 2026-11-02 영업지원 기본목록은 등록완료 숨김. 원장삭제없이 isSupportPendingRow 서버필터. 부분잔량/검토필요/다른수량 유지. 입력/이력 보존. 검색어:영업지원 미등록목록 SUPPORT_PENDING_LIST
+
+2026-11-02 실페이지검증추가:44차161개이월행은잔량양수지만ALREADY_REGISTERED.미등록목록은잔량보다실제등록판정을우선해숨긴다.모든원장보존. 검색어:ALREADY_REGISTERED 이월잔량161
