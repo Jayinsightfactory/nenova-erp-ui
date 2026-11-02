@@ -1,0 +1,51 @@
+const assert = require('node:assert/strict');
+const puppeteer = require('puppeteer-core');
+(async () => {
+ const browser = await puppeteer.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+ try {
+  const page=await browser.newPage();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  for (const width of [1366,760]) for(const country of ['dutch','china']) {
+   await page.setViewport({width,height:768});
+   await page.goto(`http://127.0.0.1:3198/stats/${country}-volume-board${process.env.SMOKE_POPUP==='1'?'?popup=1':''}`,{waitUntil:'networkidle0'});
+   const loadSelector=country==='china'?'[data-china-guide="load"]':'[data-volume-guide="load"]';
+   await page.waitForFunction(selector=>{const b=document.querySelector(selector);return b&&!b.disabled;},{},loadSelector);
+   await page.click(loadSelector);
+   await page.waitForSelector('[data-volume-header-row] .customer-heading',{timeout:60000});
+   const report=await page.evaluate(async country=>{
+    const wrap=document.querySelector(country==='dutch'?'.sheet-scroll':'.board-wrap');
+    const first=wrap.querySelector('[data-volume-header-row]').cells[0];
+    const customer=wrap.querySelector('.customer-heading');
+    const controls=wrap.querySelectorAll('button,input,select').length;
+    const pause=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    let scroller=wrap.parentElement;
+    while(scroller && !(scroller.scrollHeight>scroller.clientHeight+100 && /auto|scroll/.test(getComputedStyle(scroller).overflowY)))scroller=scroller.parentElement;
+    const before=first.getBoundingClientRect().top;
+    if(scroller)scroller.scrollTop+=before-scroller.getBoundingClientRect().top+480;else window.scrollTo(0,window.scrollY+before+480);
+    await pause();
+    const top=first.getBoundingClientRect().top;
+    const expected=scroller?Math.max(0,scroller.getBoundingClientRect().top+scroller.clientTop):0;
+    const customerTop=customer.getBoundingClientRect().top;
+    const x=customer.getBoundingClientRect().left;
+    wrap.scrollLeft=190;
+    await pause();
+    const xAfter=customer.getBoundingClientRect().left;
+    const result={top,expected,customerTop,verticalAlign:getComputedStyle(customer).verticalAlign,xDelta:x-xAfter,scrollLeft:wrap.scrollLeft,controlsPreserved:controls===wrap.querySelectorAll('button,input,select').length,offset:wrap.style.getPropertyValue('--volume-header-offset')};
+    if(scroller)scroller.scrollTop=0;else window.scrollTo(0,0);
+    await pause();
+    result.reset=wrap.style.getPropertyValue('--volume-header-offset');
+    return result;
+   },country);
+   assert.ok(Math.abs(report.top-report.expected)<3,JSON.stringify({width,country,...report}));
+   assert.equal(report.verticalAlign,'top');assert.equal(report.controlsPreserved,true);
+   assert.ok(Math.abs(report.xDelta-report.scrollLeft)<3);
+   assert.equal(report.reset,'0px');
+   await page.emulateMediaType('print');
+   assert.equal(await page.$eval('.customer-heading',el=>getComputedStyle(el).transform),'none');
+   await page.emulateMediaType('screen');
+   console.log(JSON.stringify({width,country,...report}));
+  }
+  assert.deepEqual(errors,[]);console.log('Volume header browser smoke PASS');
+ } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});
+

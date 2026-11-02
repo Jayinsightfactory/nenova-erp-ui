@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
+import useVolumePageHeader from '../../lib/useVolumePageHeader';
 import ChinaVolumeGuide from '../../components/ChinaVolumeGuide';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
@@ -377,6 +378,8 @@ export default function ChinaVolumeBoard() {
   const [guideAppliedStamp, setGuideAppliedStamp] = useState('');
   const guideScopeKey = `${year}:${week}`;
   const guideStamp = useMemo(() => JSON.stringify([year, week, cells, packingRows, reviewNotes]), [year, week, cells, packingRows, reviewNotes]);
+  const boardScrollRef = useRef(null);
+  useVolumePageHeader(boardScrollRef);
   const busyRef = useRef(false);
   const querySeq = useRef(0);
   const scopeCurrent = loadedScope?.year === year && loadedScope?.week === week;
@@ -967,14 +970,14 @@ export default function ChinaVolumeBoard() {
         {data && !scopeCurrent && <p className="scope-notice">연도·차수가 변경되었습니다. 물량표 조회를 누른 뒤 편집·저장하세요.</p>}
         {applyMessage && <p className="scope-notice" role="status">{applyMessage}</p>}
         <main inert={!scopeCurrent || saving || loading ? '' : undefined}>
-          <section data-china-guide="matrix" className="board-wrap">
+          <section ref={boardScrollRef} data-china-guide="matrix" className="board-wrap">
             {!data && !loading && <div className="empty">연도·차수를 조회한 뒤 패킹리스트를 업로드하세요.</div>}
             {data && (
               <table className="board">
                 <thead>
-                  <tr><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>주문</th><th className="summary-head" rowSpan={3}>입고</th><th className="summary-head" rowSpan={3}>잔량</th></tr>
-                  <tr>{customers.map(customer => <th key={customer.custKey}><button disabled={!scopeCurrent || saving || loading} aria-label={`${customer.custName} 요일 변경`} onClick={() => setDayDraft({ custKey: customer.custKey, value: customerDays[customer.custKey] || '' })}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'} ▾</button></th>)}</tr>
-                  <tr>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr>
+                  <tr data-volume-header-row><th className="product-head" rowSpan={3}>품종 · 품목 (클릭하여 변경)</th>{customers.map(customer => <th key={customer.custKey}><button className="region-button" onClick={() => setRegionDraft({ custKey: customer.custKey, value: customer.area || '기타' })}>{customer.area || '기타'}</button></th>)}<th className="summary-head" rowSpan={3}>주문</th><th className="summary-head" rowSpan={3}>입고</th><th className="summary-head" rowSpan={3}>잔량</th></tr>
+                  <tr data-volume-header-row>{customers.map(customer => <th key={customer.custKey}><button disabled={!scopeCurrent || saving || loading} aria-label={`${customer.custName} 요일 변경`} onClick={() => setDayDraft({ custKey: customer.custKey, value: customerDays[customer.custKey] || '' })}>{customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'} ▾</button></th>)}</tr>
+                  <tr data-volume-header-row>{customers.map(customer => <th className="customer-heading" key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr>
                 </thead>
                 <tbody>{chinaRows.map(row => (
                   <tr key={row.prodKey}>
@@ -1063,6 +1066,10 @@ export default function ChinaVolumeBoard() {
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}.inline-review{width:92vw}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
         body{overflow:auto}.page{height:auto;min-height:100vh}.toolbar{flex-wrap:wrap;white-space:normal;overflow:visible}.board-wrap,aside{overflow:visible}main{align-items:start;flex:none}.board-wrap{overflow-x:auto}.board thead th{position:static}.board tbody th{white-space:normal;min-width:260px}.product-change{border:0;background:transparent;text-align:left;cursor:pointer;font-size:12px;white-space:normal}.region-button{border:0;background:transparent;color:#155bd7;cursor:pointer}.inline-quantity{position:relative;z-index:5;width:100%;height:30px;border:0;background:transparent;text-align:center;font-weight:800;color:#153b7a;padding:0 5px 9px;font-size:14px}.box-edit{position:absolute;bottom:0;right:2px;z-index:7;border:0;background:#f3f6fa;color:#617087;font-size:8px;padding:0 2px}.scope-notice{margin:0;padding:10px;background:#eef5ff;color:#173b72}.simple-differences{padding:10px;font-size:12px}.simple-differences h3{margin:0 0 8px}.simple-differences table{width:100%;border-collapse:collapse}.simple-differences th,.simple-differences td{padding:5px;border-bottom:1px solid #ddd;text-align:left}.simple-differences td:last-child{white-space:nowrap}.short{color:#b42318}.over{color:#155bd7}
+        .board thead th{position:relative;top:auto;z-index:20;transform:translateY(var(--volume-header-offset,0px))}
+        .board thead .product-head{position:sticky;z-index:21}
+        .board thead .customer-heading{vertical-align:top}
+        @media print{.board thead th{position:static;transform:none}}
         @media(max-width:900px){main{display:flex;flex-direction:column}.board-wrap,aside{width:100%}.toolbar{gap:7px}.inline-review{width:96vw}}
       `}</style>
     </>

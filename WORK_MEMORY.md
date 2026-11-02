@@ -1784,3 +1784,6 @@
 2026-11-02 영업지원 기본목록은 등록완료 숨김. 원장삭제없이 isSupportPendingRow 서버필터. 부분잔량/검토필요/다른수량 유지. 입력/이력 보존. 검색어:영업지원 미등록목록 SUPPORT_PENDING_LIST
 
 2026-11-02 실페이지검증추가:44차161개이월행은잔량양수지만ALREADY_REGISTERED.미등록목록은잔량보다실제등록판정을우선해숨긴다.모든원장보존. 검색어:ALREADY_REGISTERED 이월잔량161
+
+2026-11-02 네덜란드·중국 물량표 업체명 상단 고정/위쪽정렬. 원래 헤더 셀을 공통 useVolumePageHeader로 이동해 페이지/팝업 스크롤·가로 정렬·기존 입력 보존. API/SQL/ERP 원장 변경0. ERP전체/pivot/dnSpy/manifest179/쓰기0API/build PASS; 실제Chrome 1366/760, 일반/팝업,3/4행,print/복귀/가로정렬 PASS. CI·운영배포는 진행중(미검증). docs/work-sessions/2026-11-02_volume-customer-sticky.md
+검색어: volume-customer-sticky 업체명 고정 위쪽정렬 네덜란드 중국
