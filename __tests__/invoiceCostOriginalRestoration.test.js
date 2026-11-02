@@ -34,6 +34,11 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  for(const file of ['sheet1.xml','sheet2.xml'])assert.doesNotMatch(await zip.file(`xl/worksheets/${file}`).async('string'),/tabSelected="1"/);
  assert.doesNotMatch(await zip.file('xl/worksheets/sheet3.xml').async('string'),/#REF!|<externalLink/);
  if(id==='TH_ORIGINAL_V1')assert.doesNotMatch(s.P15.z,/%/,'legacy first-row percent style must not format currency');
+ if(id==='TH_ORIGINAL_V1'){
+  assert.equal(s.J10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.boxQuantity,0));
+  assert.equal(s.K10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.quantity,0));
+ }
+ if(id==='CO_ORIGINAL_V1')assert.match(s.K7.f,/SUMPRODUCT/);
  if(id!=='NL_ORIGINAL_V1'){
   const compact=profile.priceBasis&&id!=='EC_ORIGINAL_V1',us=id==='US_ORIGINAL_V1',th=id==='TH_ORIGINAL_V1';
   const valueCol=compact?(us?'M':'N'):th?'N':'P',firstFee=compact?5:6;
