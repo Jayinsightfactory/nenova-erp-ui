@@ -23,6 +23,12 @@ function ClientDate() {
 
 export const MENU_ITEMS = [
   {
+    group: 'PM',
+    items: [
+      { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false, userIds: ['nenovaSS3'] },
+    ]
+  },
+  {
     group: '연동',
     items: [
       { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
