@@ -16,7 +16,11 @@
     "components/orders/StockInputRemarks.js",
     "__tests__/kakaoStockSections.test.js",
     "__tests__/fixtures/kakaoStockSectionedBase.txt",
-    "scripts/kakao-stock-sections-smoke.cjs"
+    "scripts/kakao-stock-sections-smoke.cjs",
+    "lib/kakaoStockCustomers.js",
+    "components/orders/StockCustomerPicker.js",
+    "__tests__/kakaoStockCustomers.test.js",
+    "scripts/kakao-stock-quick-change-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -42,7 +46,8 @@
     "inbox": "Always visible source/history workspace, recent-three-day automatic read, newest-first search/pagination, stable selected identity. Read-only existing PasteErpHistoryEvidence for exact source year/week; mixed scopes blocked. Analyze explicitly transfers exact source snapshot, application still requires review; source selection never changes ledger.",
     "layout": "Always-visible actual beginning-stock textarea next to line-indexed remarks, with chat to the right. No replacement stock table. Textarea never wraps or vertically scrolls; fixed 28px line-height and auto-height preserve blank/separator lines. History opens as a positioned overlay without moving note rows. Pending/duplicate edits cannot apply changes.",
     "pages": "Version 2 immutable UserFavorite snapshots keyed by stable pageId plus full YYYY-WW-SS; duplicate same-page week opens existing. Identical product/week on other pages and years isolated. Unsaved switches keep in-memory drafts with window-close warning. v1 title-grouped latest snapshot read compatibility.",
-    "sections": "Within a single document, year(if explicit)+week/subweek+flower section+normalized product identifies stock. Duplicate names across sections are allowed; same-scope duplicates rejected. Original headings/lines preserved. Scoped event keys cannot migrate into another scope. Old unscoped events resolve only to a unique product; ambiguous legacy changes fail closed. Analysis requires an unambiguous section match and accepts included section weeks instead of only page week."
+    "sections": "Within a single document, year(if explicit)+week/subweek+flower section+normalized product identifies stock. Duplicate names across sections are allowed; same-scope duplicates rejected. Original headings/lines preserved. Scoped event keys cannot migrate into another scope. Old unscoped events resolve only to a unique product; ambiguous legacy changes fail closed. Analysis requires an unambiguous section match and accepts included section weeks instead of only page week.",
+    "quickChange": "Native modal opens on exact scoped product, customer substring/initial search uses recent two KST calendar months sales descending from existing read-only monthly EXE parity API; client cache five minutes; manual customer fallback explicit on error. Apply uses calculateLedger only, no ERP distribution writes. Close/Escape restore focus. Current remainder shown in note row. Two always-visible copy buttons independently use ledgerCopy(false/true), preserving all sections."
   },
   "crossYearFixture": {
     "required": true,
@@ -52,7 +57,8 @@
     "__tests__/kakaoStockLedger.test.js",
     "__tests__/kakaoStockInbox.test.js",
     "__tests__/kakaoStockPages.test.js",
-    "__tests__/kakaoStockSections.test.js"
+    "__tests__/kakaoStockSections.test.js",
+    "__tests__/kakaoStockCustomers.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
