@@ -6,5 +6,5 @@
  "crossYearFixture":{"required":true,"description":"2025/2026 same week and product remain distinct; duplicate customer/warehouse excluded by exact identity."},
  "requiredTestFiles":["__tests__/nlCostCustomerComparison.test.js"],
  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"Read local ExcelLoadingPackingList.cs MakeTempTable OrderCode=COD; no customer receipt ownership exists. Existing unit fields retained, no SQL writes.","methods":["ExcelLoadingPackingList.MakeTempTable"],"tables":["OrderMaster","OrderDetail","Customer","Product","WarehouseMaster","WarehouseDetail"]},
- "requiredCommands":["npm run verify:erp-change"]
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run test:erp-manifest -- --changed-from origin/master","npm run build","npm run verify:erp-change"]
 }
