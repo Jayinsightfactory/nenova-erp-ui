@@ -17,7 +17,7 @@ import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab'
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitInventoryBasis from '../../components/ProfitInventoryBasis';
 import ProfitStemCost from '../../components/ProfitStemCost';
-import ProfitReportValidationGate, {useProfitValidationGate, ProfitValidationRateLabel} from '../../components/ProfitReportValidationGate';
+import ProfitReportValidationGate, {useProfitValidationGate, ProfitValidationRateLabel, ProfitMissingValue} from '../../components/ProfitReportValidationGate';
 import LatestArrivalReference from '../../components/LatestArrivalReference';
 import { useLatestArrivalReferences } from '../../lib/useLatestArrivalReferences';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
@@ -25,6 +25,7 @@ import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBan
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
+import toolbar from '../../styles/ProfitReportToolbar.module.css';
 import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
 import ProfitValidationLink from '../../components/ProfitValidationLink';
 import ProfitCustomerMarginLink from '../../components/ProfitCustomerMarginLink';
@@ -1035,14 +1036,8 @@ export default function ProfitReportPage() {
             {data.confirmed ? `✓ ${data.templateDuty?.derivedFromConfirmed?'원본 확정 · 현재 표시는 관세보완 추정':'확정됨'} · R${data.confirmed.revisionNo}` : '● 미확정'}
           </span>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          <ProfitValidationLink year={data?.orderYear} major={data?.major}
-            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
-            style={{ ...st.primaryBtn, textDecoration: 'none', display: 'inline-block' }} />
-          <ProfitCustomerMarginLink year={data?.orderYear} major={data?.major}
-            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
-            style={{ ...st.primaryBtn, textDecoration: 'none', display: 'inline-block' }} />
-          <div style={st.viewToggleWrap}>
+        <div className={toolbar.toolbar} aria-label="매출이익 보고서 작업">
+          <div className={toolbar.query} aria-label="보고서 보기">
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
             <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>
             <button style={viewMode === 'months' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToMonthsView}>월별</button>
@@ -1051,6 +1046,8 @@ export default function ProfitReportPage() {
           </div>
           {viewMode === 'category' ? (
             <>
+              <div className={toolbar.query} aria-label="조회 조건">
+              <span className={toolbar.groupLabel}>조회</span>
               <label style={st.label}>연도</label>
               <input
                 style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
@@ -1068,43 +1065,46 @@ export default function ProfitReportPage() {
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} disabled={loading} title="이전 차수">▼</button>
                 </div>
               </div>
-              <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data || data?.confirmed}
+              <button className={`btn btn-primary ${toolbar.button} ${toolbar.primaryButton}`} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
+              </div>
+              <div className={toolbar.primary} aria-label="주요 작업">
+              <span className={toolbar.groupLabel}>주요 작업</span>
+              <button className={`btn btn-primary ${toolbar.button} ${toolbar.primaryButton}`} onClick={save} disabled={saving || !data || data?.confirmed}
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : undefined}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
-              <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={shownColumns.map(cd => cd.key)} showCategory={isVisible('category')}
+              <ProfitRangeOutput year={data?.orderYear} major={data?.major} visibleCols={shownColumns.map(cd => cd.key)} showCategory={isVisible('category')} toolbarClassName={toolbar.output} buttonClassName={`btn ${toolbar.button}`}
                 columnDefs={COLUMN_DEFS} columnsReady={columnsReady}
                 disabled={!data || saving || loading || String(data.orderYear) !== reportYear || Number(data.major) !== Number(weekInput.value)} beforeOutput={async () => !dirty || await save()} />
-              <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
+              </div>
+              <details className={toolbar.more} onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+                <summary className={`btn ${toolbar.button}`}>더 보기 · 전송·확정·이력</summary>
+                <div className={toolbar.moreBody}>
+              <button className={`btn ${toolbar.button}`} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
-              <button style={{ ...st.primaryBtn, background: '#4338ca' }} onClick={syncDriveToMoyi} disabled={moyiDriveSyncing}
+              <button className={`btn ${toolbar.button}`} onClick={syncDriveToMoyi} disabled={moyiDriveSyncing}
                 title="올해 전체 차수의 매출이익 엑셀(첫 시트=주차, 2번째 시트=월별)을 MOYI 회사 드라이브 경영지원/보고 폴더에 차수별 파일로 동기화합니다">
                 {moyiDriveSyncing ? '📲 드라이브 동기화 중…' : '📲 MOYI 드라이브 동기화'}
               </button>
-              <button style={{ ...st.primaryBtn, background: '#b45309' }} onClick={() => excelAuditFileRef.current?.click()} disabled={!data || excelAuditBusy}
-                title="확정 매출원가 양식 엑셀을 업로드하면 이 차수의 웹 계산과 셀 단위로 대조해, 규칙 분류와 AI 소견으로 오류값 여부를 알려줍니다(저장·수정 없음)">
-                {excelAuditBusy ? '📑 대조 중…' : '📑 확정엑셀 대조'}
-              </button>
-              <input ref={excelAuditFileRef} type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} aria-label="확정엑셀 대조 파일 선택"
-                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) runExcelAudit(f); }} />
               {data?.confirmed ? (
-                <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={cancelConfirmReport} disabled={confirmBusy}
+                <button className={`btn ${toolbar.button} ${toolbar.dangerButton}`} onClick={cancelConfirmReport} disabled={confirmBusy}
                   title="확정을 취소하면 다시 라이브 자동값으로 계산합니다. 취소해도 이전 확정 기록은 이력에 남습니다">
                   {confirmBusy ? '처리 중…' : '↩ 확정 취소 후 다시 계산'}
                 </button>
               ) : (
-                <button style={{ ...st.primaryBtn, background: '#0369a1' }} onClick={() => setShowConfirmPanel(v => !v)} disabled={!data || confirmBusy}
+                <button className={`btn ${toolbar.button}`} onClick={() => setShowConfirmPanel(v => !v)} disabled={!data || confirmBusy}
                   title="현재 계산값을 이 차수의 확정본으로 저장합니다 — 이후 원천이 바뀌어도 이 값은 그대로 유지됩니다">
                   📌 보고서 기준 확정
                 </button>
               )}
-              <button style={showConfirmHistory ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowConfirmHistory(v => !v)} disabled={!data}
+              <button className={`btn ${toolbar.button}`} aria-expanded={showConfirmHistory} onClick={() => setShowConfirmHistory(v => !v)} disabled={!data}
                 title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
+                </div>
+              </details>
             </>
           ) : (viewMode === 'analysis' || viewMode === 'sources') ? (
             <>
@@ -1205,6 +1205,25 @@ export default function ProfitReportPage() {
                 <button style={{ ...st.primaryBtn, width: '100%', marginTop: 8 }} onClick={() => { setShowColPicker(false); colPickerButton.current?.focus(); }}>닫기</button>
               </div>
             )}
+          </div>
+          <div className={toolbar.analysis} aria-label="보조 분석">
+            <span className={toolbar.groupLabel}>보조 분석</span>
+          <ProfitValidationLink year={data?.orderYear} major={data?.major}
+            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
+            style={{ ...st.secondaryBtn, textDecoration: 'none', display: 'inline-block' }} />
+          <ProfitCustomerMarginLink year={data?.orderYear} major={data?.major}
+            disabled={loading || !data || String(data.orderYear) !== String(reportYear) || Number(data.major) !== Number(weekInput.value)}
+            style={{ ...st.secondaryBtn, textDecoration: 'none', display: 'inline-block' }} />
+
+            {viewMode === 'category' && <>
+              <button className={`btn ${toolbar.button}`} onClick={() => excelAuditFileRef.current?.click()} disabled={!data || excelAuditBusy}
+                title="확정 매출원가 양식 엑셀을 업로드하면 이 차수의 웹 계산과 셀 단위로 대조해, 규칙 분류와 AI 소견으로 오류값 여부를 알려줍니다(저장·수정 없음)">
+                {excelAuditBusy ? '📑 대조 중…' : '📑 확정엑셀 대조'}
+              </button>
+              <input ref={excelAuditFileRef} type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} aria-label="확정엑셀 대조 파일 선택"
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) runExcelAudit(f); }} />
+
+            </>}
           </div>
         </div>
       </div>
@@ -1511,6 +1530,7 @@ export default function ProfitReportPage() {
                           && (cd.key === 'R' ? needsRateInput(row) : (cd.key === 'AC' || cd.key === 'AJ'))
                           ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
                           : readonlyValue(cd.key, c, { D, U })}
+                        <ProfitMissingValue validation={sourceValidation} row={row} column={cd.key} />
                         {cd.key === 'K' && <ProfitValidationRateLabel validation={sourceValidation} category={row.category} />}
                       </td>
                     ))}
@@ -1522,6 +1542,7 @@ export default function ProfitReportPage() {
                 {shownColumns.map(cd => (
                   <td key={cd.key} style={{ ...st.tdNum, color: cd.key === 'J' ? (totals.J < 0 ? '#dc2626' : '#166534') : undefined }}>
                     {readonlyValue(cd.key, totals, { D: totals.D, U: totals.U })}
+                    <ProfitMissingValue validation={sourceValidation} column={cd.key} />
                     {cd.key === 'K' && <ProfitValidationRateLabel validation={sourceValidation} />}
                   </td>
                 ))}
@@ -2070,12 +2091,12 @@ const st = {
   weekStepperWrap: { display: 'flex', alignItems: 'stretch' },
   weekStepperBtns: { display: 'flex', flexDirection: 'column', border: '1px solid #cbd5e1', borderRadius: '0 8px 8px 0', overflow: 'hidden' },
   weekStepperBtn: { background: '#f8fafc', border: 'none', borderBottom: '1px solid #e2e8f0', color: '#334155', fontSize: 9, padding: '0 6px', cursor: 'pointer', lineHeight: 1, flex: 1 },
-  primaryBtn: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  secondaryBtn: { background: '#fff', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  primaryBtn: { background: 'var(--blue, #245bd7)', color: '#fff', border: '1px solid var(--blue, #245bd7)', borderRadius: 6, padding: '6px 12px', minHeight: 34, fontSize: 13, fontWeight: 500, cursor: 'pointer' },
+  secondaryBtn: { background: 'var(--surface, #fff)', color: 'var(--text1, #243247)', border: '1px solid var(--border2, #b9c7d8)', borderRadius: 6, padding: '6px 12px', minHeight: 34, boxSizing: 'border-box', lineHeight: '20px', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
   toggleBtnOn: { background: '#1d4ed8', color: '#fff', border: '1px solid #1d4ed8', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   viewToggleWrap: { display: 'flex', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' },
-  viewToggleOn: { background: '#1e293b', color: '#fff', border: 'none', padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  viewToggleOff: { background: '#fff', color: '#334155', border: 'none', padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  viewToggleOn: { background: 'var(--blue, #245bd7)', color: '#fff', border: '1px solid var(--blue, #245bd7)', borderRadius:6, minHeight:34, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
+  viewToggleOff: { background: 'var(--surface, #fff)', color: 'var(--text2, #41536b)', border: '1px solid var(--border2, #b9c7d8)', borderRadius:6, minHeight:34, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
   colPicker: { position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, boxShadow: '0 12px 32px rgba(15,23,42,0.18)', padding: 10, width: 220, maxHeight: '60vh', overflow: 'auto', zIndex: 20 },
   colPickerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#334155', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' },
   colPickerMiniBtn: { background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '2px 7px', fontSize: 10, cursor: 'pointer' },

@@ -1,0 +1,24 @@
+{
+  "id": "profit-report-status-toolbar",
+  "title": "주차별 매출이익 상태 의미·버튼 일관성 — 표시 전용",
+  "scope": ["lib/profitReportStatusPresentation.mjs", "lib/profitTemplateDuty.mjs", "styles/ProfitReportToolbar.module.css", "components/ProfitReportValidationGate.js", "components/ProfitRangeOutput.js", "components/ProfitReportSnapshotBanner.js", "pages/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "PRESENT_STATUS_AND_EXISTING_ACTIONS", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "Pure presentation only. Preserve existing handlers, auth, disabled/loading, confirmation and dirty/stale/abort guards. No new automatic verification, refresh, save, or SQL writes. Existing explicit verification GET stays unchanged."}],
+  "criteria": {
+    "notChecked": "Neutral source-not-compared is not an error verdict.",
+    "usable": "Only actual server verified row whose year/week/display key and dirty/stale/abort protections pass. Never infer from finite numbers or stored/confirmed status.",
+    "estimate": "Explicit estimate provenance remains distinct from verification and direct blocking issues. Never certify estimated as verified.",
+    "blocking": "Missing required numeric inputs => calculation unavailable; finite direct error or unknown warning => needs review. Preserve backend held and original reasons.",
+    "global": "COVERAGE/STALE/global issues displayed once with per-row qualification; never label every category as proven monetary error.",
+    "noActivity": "Label profit rate not applicable, not no transactions: confirmed zero sales/cost/inventory and no denominator do not disprove free movements. Missing inventory evidence and inventory-only rows are excluded. Zero denominator K null alone is not missing cost.",
+    "impact": "No invented monetary impact; retain proven units or say impact unknown. Partial totals cannot appear complete.",
+    "missingCells": "Render visible field name and supported cause at the null cell, not tooltip alone. Derived I/J/K explain actual missing E/F/H/rate sources rather than merely missing result. Total null explains affected country/category and field. Preserve inputs, original values, formulas and Excel output. Zero-denominator not-applicable stays distinct.",
+    "sourceLocation": "Show supported menu/table/column or policy-file location. Distinguish absent SQL input, unmatched approved rule, allocation reconciliation failure and unsupported web inventory revaluation. Never claim DB missing from derived null or generic metadata alone. Duty-H null causing E/F null is a dependency, not proof ProductStock or average formula is missing. No hardcoded week43 findings or new automatic query.",
+    "diagnosticMetadataOnly": "profitTemplateDuty may append display-only diagnostics at existing missing/revalue failure branches. Preserve all conditions, branch order, formulas, numeric values, nulls, statuses, original reason strings and input immutability. No SQL/API/cost reloading/cache/storage changes. Identify exact rule-key vs name/country, freight allocation conservation vs absent evidence, and actual failed revaluation prerequisites.",
+    "financialParity": "Required tests compare before/after H/E/F/I/J/K/totals/null/status/original reasons with only new diagnostic metadata stripped. Include actual-shape missing cases, manual/explicit zero/no inbound/zero tariff/mixed rules/confirmed and cross-year near misses. Any numerical or verdict difference blocks release."
+  },
+  "crossYearFixture": {"required": true, "description": "Same week in another year, stale display, dirty edit, aborted/late response cannot retain usable state; current server acceptance function unchanged."},
+  "requiredTestFiles": ["__tests__/profitReportStatusPresentation.test.cjs", "__tests__/profitReportToolbar.test.cjs", "__tests__/profitTemplateDutyDiagnostics.test.cjs", "__tests__/profitReportValidationGate.test.cjs", "__tests__/profitReportValidationApi.test.cjs"],
+  "dnspyEvidence": {"required": true, "record": "docs/plans/profit-report-status-toolbar-2026-11-02.md", "source": "Actual local FormStockView.GetData CLI and SELECT-only 2026 38/39/43 snapshot probe. Presentation-only, ERP and web calculation/storage unchanged.", "methods": ["FormStockView.GetData"], "tables": ["StockMaster", "ProductStock", "ShipmentMaster", "ShipmentDetail", "Estimate", "WebProfitReport", "WebProfitReportSnapshot"]},
+  "requiredCommands": ["node __tests__/profitReportStatusPresentation.test.cjs", "node __tests__/profitReportToolbar.test.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run verify:erp-change", "npm run test:ui-layout", "npm run build"]
+}

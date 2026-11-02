@@ -1725,6 +1725,12 @@
 - 검색어: 차수 전표 통합표 ledgerTableGroups 원본잔액 은행중복합산금지
 2026-11-02 누락 내역/취소 착수. 원HistoryKey별 취소감사만추가,기존ERP보존,재누락시옛취소무효.검증진행. 검색어:PERMANENT_OMIT_CANCEL 누락취소
 
+2026-11-02 주차별 매출이익 상태·버튼·빈 값 원천 안내: 표시전용 및 진단메타 추가, DB쓰기0. 43차 TH14/CN39/EC1 입고행 승인정책 key부재와 CN15행 운임배분대사실패를 확인; 태국 재고null은통관비후속보류, 중국기초는웹평가방식지원제약. WebCustomsWeekly2026/43 실제저장행0 확인. baseline31시나리오금융출력·50버튼handler보존 타겟PASS. fullguard/CI/배포/실브라우저검증은아직미완료. QA정본 docs/work-sessions/2026-11-02_profit-report-status-toolbar.md.
+- 검색어: 매출 상태툴바 어떤DB 원천대조전 관세규칙미매칭 운임배분대사 재고평가 진단메타
+
+2026-11-02 상태툴바 검증갱신: 전체 verify:erp-change2차 exit0(계약/dnSpy/UI/manifest/쓰기가드/build), 명시 manifest174/쓰기0API PASS. 이후합계K의정상0분모행오인만표시보완, 상태/parity31/50handler 재PASS. 최종build·PR/CI·배포·운영스모크대기. 최초소스앵커실패와수정기록은QA에보존.
+- 검색어: 상태툴바 전체가드2차 PASS 합계K C+F 원천누락 분모0
+
 ## 2026-10-29 네덜란드 자동원가·주광 비교 진행중
 - 사용자 정정: 별도 주광 원가식 불필요. CL2주광 주문수량과 기타주문합계, 입고량/단가/원가 비교 목적. 고객별 실제입고량은 총입고에서 임의 배분하지 않음. 미입고 '-'와 실제0 구분.
 - nw-nl-cost-split-1029 branch: 현재시세+15원6통화 helper/GET API, 원가화면 자동조회 연결(빈환율만, 승인/기존값보존,통화경합차단). 주광/기타 순수비교 helper 교차연도·미입고·0 테스트4pass.
