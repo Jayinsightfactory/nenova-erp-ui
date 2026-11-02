@@ -1799,3 +1799,10 @@
 
 2026-11-02 15:15 사용자계정정지보고. ecount전용launcher/collector즉시종료, NenovaEcountDaemon Disabled. 저장정보DOM읽기/로그인클릭/5분자동재시도삭제, 수동URL로그인대기만. 잠금해제/패스워드변경/추가로그인시도없음, user계정복구확인전재가동금지. 원본그대로,canary0/2미검증.
 검색어: ecount manual login only account locked Disable-ScheduledTask password retry removal
+
+## 2026-11-02 네덜란드 물량 재조회 단가 복원
+- `네노바웹 물량 바로 불러오기`가 같은 연도·차수 출고의 preview.currentCost를 표시하도록 수정. 단가 0/빈칸, 업체별 서로 다른 값 유지.
+- 수량·엑셀 주소가 바뀌어도 미반영 단가만 같은 업체·품목으로 복원. 자동 표시한 DB값은 임시수정으로 저장하지 않아 최신 DB 단가를 가리지 않음. 연도·차수/업체·품목 교차 복원 금지.
+- 원장 writer 변경 없음. 설치 EXE UpdateCost 확인 및 운영 SELECT-only 2025/2026 44-02 조회 근거: docs/work-sessions/2026-11-02_volume-price-restore.md.
+- 단가 순수/실제 페이지 함수 검사, 기존 작업/엑셀 회귀, pivot, dnSpy/manifest/write guard, build, 격리 MSSQL fixture, 실제 Next 브라우저(단가 입력·수량 변경 재조회·전체 새로고침) 통과. 전체 ERP 계약 재실행 중(첫 실행 Node 네이티브 초기화 실패), PR/배포/운영 스모크는 아직 미검증.
+검색어: 네덜란드 단가 재조회 바로 불러오기 dutchLivePriceRestore currentCost pending price

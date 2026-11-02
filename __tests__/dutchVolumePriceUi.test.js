@@ -119,7 +119,7 @@ assert.match(volumeSheet, /\.quantity-cell\{padding:0!important;text-align:cente
 assert.match(volumeSheet, /onBlur=\{\(\) => finishQuantityEdit\(true\)\}/, '셀 수량 입력은 포커스를 벗어나면 초안에 반영되어야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Escape'\) \{ event\.preventDefault\(\); finishQuantityEdit\(false\); \}/, 'Escape는 셀 편집을 취소해야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Enter'\) \{ event\.preventDefault\(\); finishQuantityEdit\(true, true\); \}/, 'Enter는 검증 가능한 입력만 초안에 반영해야 합니다.');
-assert.match(page, /disabled=\{workBusy \|\| applying\} onQuantityChange=\{updateCellQuantity\}/, '기존 수량 수정과 빈 셀 추가 모두 preview를 무효화해야 합니다.');
+assert.match(page, /disabled=\{workBusy \|\| applying \|\| loading\} onQuantityChange=\{updateCellQuantity\}/, '기존 수량 수정과 빈 셀 추가 모두 preview를 무효화해야 합니다.');
 assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity, quantityHistory \}\]/, '빈 원본 셀 입력은 수정 이력과 함께 동일한 ERP 적용 entries 초안에만 추가해야 합니다.');
 assert.match(page, /exportDutchVolumeWorkbook/, '검증된 원본 투영·수량 합계·재업로드 경로를 사용한다');
 assert.match(volumeSheet, /quantity-history-badge/, '수량 수정 이력이 있는 셀에 작은 표시를 제공해야 합니다.');
