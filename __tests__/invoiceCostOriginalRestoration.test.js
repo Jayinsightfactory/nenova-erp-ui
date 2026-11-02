@@ -33,6 +33,7 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  const zip=await JSZip.loadAsync(bytes);assert.match(await zip.file('xl/workbook.xml').async('string'),/activeTab="2"/);
  for(const file of ['sheet1.xml','sheet2.xml'])assert.doesNotMatch(await zip.file(`xl/worksheets/${file}`).async('string'),/tabSelected="1"/);
  assert.doesNotMatch(await zip.file('xl/worksheets/sheet3.xml').async('string'),/#REF!|<externalLink/);
+ if(header>18)assert.match(await zip.file('xl/worksheets/sheet3.xml').async('string'),new RegExp(`ySplit="3" topLeftCell="B${header}"`),'long layouts must not freeze the data out of the viewport');
  if(id==='TH_ORIGINAL_V1')assert.doesNotMatch(s.P15.z,/%/,'legacy first-row percent style must not format currency');
  if(id==='TH_ORIGINAL_V1'){
   assert.equal(s.J10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.boxQuantity,0));
