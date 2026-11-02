@@ -1,3 +1,5 @@
+- [불량차감 유지보수 기준·세션 오류 해결](../DEFECT_DEDUCTION_MAINTENANCE.md)
+- [2026-11-02 세션 인수 기록](../session-backups/2026-11-02_defect-incident-maintenance.md)
 - [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)
 
 - [2026-10-29 관세 양식 승인추정 표시·독립 검증](2026-10-29_profit-template-duty-release.md) — 1~41차164행·주차/월별 대사, DB 보존, 배포 확인 대기.

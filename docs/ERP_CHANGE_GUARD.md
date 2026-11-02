@@ -1077,3 +1077,6 @@ readDutchScopeSnapshot의 같은 검사를 preview/apply에 적용하며 전년�
 History PERMANENT_OMIT는 연도+원차수+업체+품목+수량+단위 완전일치에만 적용. 새차수·다른수량 정상자료는 제외금지. 업로드미리보기/새원장save/목록/preflight/preview/최종register 공통예외. 기존 견적과 수기원장은 보존. 계약 sales-defect-deduction, 회귀 defectPermanentOmission 및 salesDefectSourceReconciliation.
 
 2026-11-02 누락취소는 원HistoryKey별 감사만추가,재누락별도유효. 공통omissionSql로 모든경로복원. 기존ERP보존.
+
+## 불량차감 관련 작업 필수 근거
+영업수입불량차감·자동수집·재업로드·일괄등록·이월·누락/취소를 변경하기 전에 [불량차감 유지보수 기준](DEFECT_DEDUCTION_MAINTENANCE.md)을 읽는다. docs 폴더 문서에서는 파일명 DEFECT_DEDUCTION_MAINTENANCE.md를 기준으로 찾는다. 수기보존·정확한 차수수량 예외키·원HistoryKey별 취소·공통SQL·양성/반례 검사를 유지하고, 철회된 보정계획은 재실행하지 않는다.
