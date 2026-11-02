@@ -15,3 +15,8 @@ assert.deepEqual(stockInboxRows([old,fresh],'문라이트').map(r=>r.identity),[
 assert.equal(mergeStockInbox([old],[fresh,{...old,message:'문라이트 2추가'}]).length,2);
 assert.equal(mergeStockInbox([old],[fresh,{...old,message:'문라이트 2추가'}])[1].message,'문라이트 2추가');
 console.log('stock inbox scope, cross-year, mixed scope, search, ordering, stable identities passed');
+
+assert.equal(stockSourceWeek('43-1 변경','2026-43-01','2025-10-20T01:00:00Z'),'2025-43-01');
+assert.equal(stockSourceWeek('2027-43-1 변경','2026-43-01','2026-10-20T01:00:00Z'),'2027-43-01');
+assert.equal(stockSourceWeek('주광\n문라이트 1추가','2026-43-01','2025-10-20T01:00:00Z'),'2025-43-01');
+assert.equal(stockSourceWeek('01-1 변경','2026-01-01','2025-12-31T15:01:00Z'),'2026-01-01');

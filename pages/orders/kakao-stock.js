@@ -58,7 +58,7 @@ export default function KakaoStockPage() {
   function load(item){try{const doc=stockPageDocuments([item])[0];if(!doc)throw Error('지원하지 않는 저장본입니다.');if(dirty&&!window.confirm('현재 미저장 초안은 보관하고 이전 저장본을 열까요?'))return;rememberPage();restorePage(doc);}catch(e){setError(e.message);}}
   function analyzeSource(message){
     if(!base||base!==baseDraft){setError('기초재고를 먼저 적용하세요.');return;}
-    if(stockSourceWeek(message.message,week)!==week){setError('원문과 재고장의 연도·차수를 확인하세요.');return;}
+    if(stockSourceWeek(message.message,week,message.created_at)!==week){setError('원문과 재고장의 연도·차수를 확인하세요.');return;}
     if(raw.trim()&&raw!==message.message&&!window.confirm('현재 분석 원문을 선택한 영업방 대화로 바꿀까요? 적용한 재고내역은 유지됩니다.'))return;
     try{const next=analyzeLedgerText(message.message,base,week);setRaw(message.message);setSources([message]);setReview({...next,raw:message.message,week,base});mark('영업방 원문 선택·분석');requestAnimationFrame(()=>{analysisRef.current?.scrollIntoView({block:'start'});analysisRef.current?.focus({preventScroll:true});});}catch(e){setError(e.message);}
   }
