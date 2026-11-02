@@ -17,6 +17,7 @@ for file in glob.glob('/var/log/nginx/*access*.log*'):
     total+=1;code=m[3];status[code[0]+'xx']+=1;hour=dt.strftime('%Y-%m-%dT%H:00%z');hours[hour]+=1
     parts=m[2].split('/')
     group=('api/'+parts[2]) if len(parts)>2 and parts[1]=='api' and re.fullmatch(r'[a-z-]{1,30}',parts[2]) else 'other'
+    if group in ('api/work','api/moyi') and len(parts)>3 and re.fullmatch(r'[a-z-]{1,40}',parts[3]):group+='/'+parts[3]
     groups[(hour,group,code[0]+'xx')]+=1
     route=paths.get(m[2]);
     if route:uploads[(hour,route,code)]+=1
