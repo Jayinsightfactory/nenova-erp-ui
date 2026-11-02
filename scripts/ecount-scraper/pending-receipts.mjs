@@ -100,13 +100,14 @@ export async function collectBankSnapshot(page,base,period,status,secret){
   }
   return pending.validateBankSnapshot({at:new Date().toISOString(),from:prevFrom,to:period.to,complete:true,rows:allRows});
 }
+const bankFailure=reason=>{const safe=pending.unavailableEvidence(reason);return safe.reason==='INVALID_EVIDENCE'?pending.unavailableEvidence('BANK_QUERY_FAILED'):safe;};
 export async function collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger,collectBank=collectBankSnapshot,secret=process.env.NENOVA_TOKEN}){
-  let before=null;
-  try{before=await collectBank(bankPage,base,period,'PENDING',secret);}catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;}
+  let before=null,beforeReason=null;
+  try{before=await collectBank(bankPage,base,period,'PENDING',secret);}catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;beforeReason=e?.message;}
   const ledger=await collectLedger(page,base,customer,period);
-  if(!before||!history)return {...ledger,bankEvidence:{unavailable:true}};
+  if(!before||!history)return {...ledger,bankEvidence:bankFailure(!before?(beforeReason||'BANK_QUERY_FAILED'):'BANK_HISTORY_UNAVAILABLE')};
   try{
     const after=await collectBank(bankPage,base,period,'PENDING',secret);
     return {...ledger,bankEvidence:{before,after,history}};
-  }catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;return {...ledger,bankEvidence:{unavailable:true}};}
+  }catch(e){if(e?.message==='LOGIN_EXPIRED')throw e;return {...ledger,bankEvidence:bankFailure(e?.message||'BANK_QUERY_FAILED')};}
 }
