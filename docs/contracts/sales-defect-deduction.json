@@ -86,6 +86,13 @@
   ],
   "actions": [
     {
+      "name": "PERMANENT_OMIT_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "영업지원이 선택연도의 원 누락 HistoryKey를 잠금검증 후 취소이력만 추가. 목록/업로드/save/최종등록 공통예외SQL은 취소된 원이력을 제외한다. 재누락은 새이력으로 차단되며 옛취소가 새누락을 해제하지 않는다. 중복취소는 멱등. 원장·견적 보존."
+    },
+    {
       "name": "PERMANENT_OMIT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
