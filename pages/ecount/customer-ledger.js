@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import {ledgerTableGroups} from '../../lib/ecountLedgerTable.cjs';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {displayRefreshStatus} from '../../lib/ecountCustomerLedgerPolicy.cjs';
 import { getReceivablesManagers, filterReceivablesRows } from '../../lib/ecountReceivablesPolicy.cjs';
 const money=n=>n==null?'—':n.toLocaleString('ko-KR');
@@ -68,6 +69,7 @@ export default function CustomerLedger(){
   },[selected,data?.refreshRequest?.status]);
   useEffect(()=>{const back=e=>{if(selected){e.preventDefault();setSelected('');}};window.addEventListener('nenova:menu-back-request',back);return()=>window.removeEventListener('nenova:menu-back-request',back);},[selected]);
   const ledger=data?.ledger,period=data?.period||meta?.period,schedule=data?.schedule||meta?.schedule,refreshStatus=displayRefreshStatus(data),refreshPending=['PENDING','RUNNING'].includes(refreshStatus),selectedCustomer=customers.find(c=>String(c.custKey)===selected);
+  const tableGroups=ledgerTableGroups(ledger,data?.basisChanged?null:data?.weekComparison);
   const refreshAllowed=schedule?.requestAllowed!==false;
   return <section className="ledger-page">
     <h1 data-ui-page-title>거래처관리대장1(채권)</h1>
@@ -112,22 +114,24 @@ export default function CustomerLedger(){
         {data.receipts.heldCount>0&&<p className="notice">{data.receipts.heldCount}건은 중복 반영 가능성 또는 수금·매칭 불일치로 확인이 필요합니다. 계산 잔액은 확인 전까지 표시하지 않습니다.</p>}
         {data.receipts.rows.length>0&&<div className="ledger-table-scroll"><table><caption>거래처에 연결된 미반영 입금</caption><thead><tr><th>입금일</th><th>입금액</th><th>연결 근거</th><th>계산 적용</th></tr></thead><tbody>{data.receipts.rows.map((r,i)=><tr key={`${r.id}-${i}`}><td>{r.date}</td><td>{money(r.amount)}</td><td>{r.matchedBy==='SOURCE_CODE'?'이카운트 거래처코드':'회계반영 이력 일치'}</td><td>{r.deduct?'차감':r.reason==='POSSIBLE_POSTED_RECEIPT'?'동일 금액 수금 확인 필요':r.reason==='ALREADY_REFLECTED'?'회계반영 확인됨':r.reason==='ACCOUNTING_RECONCILIATION'?'수금합계 대조 필요':'확인 필요 · 차감 보류'}</td></tr>)}</tbody></table></div>}
       </>:<p className="notice">미반영 입금 비교가 아직 완료되지 않아 계산 잔액을 표시하지 않습니다. 최신화를 요청하면 입금 내역과 채권을 함께 확인합니다. 조회 중 반영 상태가 바뀌거나 은행 조회에 실패하면 기존 공식잔액만 표시합니다.</p>}
-      <h2>차수별 입금 − 판매</h2>
-      <p className="muted">입금일과 판매일을 전산 달력의 연도·대차수로 묶습니다. 회계반영 입금 + 확인된 미반영 입금 − 판매금액입니다. +는 초과입금, −는 미수이며, 이월잔액을 제외한 해당 기간의 흐름 비교입니다. 실제 전표별 미수 배정이나 누적 잔액과 다릅니다.</p>
-      {data.weekComparison?.status==='READY'?<>
-        {!data.weekComparison.bankReady&&<p className="notice">입금 내역과 회계 수금의 대조가 완료되지 않아 차수별 입금·차액은 표시하지 않습니다.</p>}
-        <div className="ledger-table-scroll"><table><caption className="sr-only">입금일 기준 차수별 판매 대비 입금</caption><thead><tr><th>연도·차수</th><th>비교기간</th><th>판매</th><th>반영 입금</th><th>미반영 입금</th><th>입금 − 판매</th></tr></thead><tbody>
-          {data.weekComparison.rows.map(w=><tr key={w.key}><td>{w.key.slice(0,4)}년 {Number(w.key.slice(4))}차</td><td>{w.from} ~ {w.to}{w.partial?' (일부 기간)':''}</td><td>{money(w.sales)}</td><td>{money(w.posted)}</td><td>{money(w.pending)}</td><td className={w.difference>0?'surplus':w.difference<0?'shortfall':''}>{w.difference==null?'확인 필요':`${w.difference>0?'+':''}${money(w.difference)} · ${w.difference>0?'초과입금':w.difference<0?'미수':'일치'}`}</td></tr>)}
-        </tbody></table></div>
-      </>:<p className="notice">전산 차수 달력을 확인하지 못해 차수별 비교를 표시하지 않습니다.</p>}
       </>}
       <p>{ledger.rows.length.toLocaleString()}건 · {ledger.balanceOnly?'해당 기간 전표 없음 · 원본 이월잔액 확인':ledger.totals?'원본 합계 및 잔액 검증 완료':'원본에서 전표 없음 확인 · 잔액 미제공'}</p>
-      <div className="ledger-table-scroll"><table><caption className="sr-only">선택 거래처의 최근 1개월 전표별 채권</caption><colgroup><col style={{width:70}}/><col style={{width:140}}/><col style={{width:170}}/><col style={{width:170}}/><col style={{width:180}}/></colgroup>
-        <thead><tr><th scope="col">순번</th><th scope="col">일자</th><th scope="col">판매</th><th scope="col">수금</th><th scope="col">잔액</th></tr></thead>
-        <tbody>{ledger.rows.length?ledger.rows.map(r=><tr key={r.sequence}><td>{r.sequence}</td><td>{r.date}</td><td>{money(r.sales)}</td><td>{money(r.receipt)}</td><td>{money(r.balance)}</td></tr>):<tr><td colSpan={5}>해당 기간에 조회된 전표가 없습니다.</td></tr>}</tbody>
+      <h2>차수별 채권 · 전표 내역</h2>
+      <p className="muted">차수 합계 아래에 날짜별 전표를 표시합니다. 입금 − 판매는 이월잔액을 제외한 입금일 기준의 흐름 비교입니다. 채권잔액은 오른쪽 잔액(원본)에서 확인하세요. 은행 입금은 개별 전표에 임의 배정하거나 원본 수금과 중복 합산하지 않습니다.</p>
+      {!data?.basisChanged&&data?.weekComparison?.status!=='READY'&&<p className="notice">차수 달력을 확인하지 못해 전표 내역만 표시합니다.</p>}
+      {!data?.basisChanged&&data?.weekComparison?.status==='READY'&&!data.weekComparison.bankReady&&<p className="notice">입금 대조가 완료되지 않아 차수별 은행 입금과 차액은 확인 필요로 표시합니다.</p>}
+      <div className="ledger-table-scroll"><table className="combined-ledger"><caption className="sr-only">차수별 요약과 전표 내역 통합 채권대장</caption>
+        <thead><tr><th scope="col">차수 / 구분</th><th scope="col">일자 / 비교기간</th><th scope="col">판매</th><th scope="col">수금<br/>(원본)</th><th scope="col">반영 입금<br/>(은행)</th><th scope="col">미반영 입금</th><th scope="col">입금 − 판매</th><th scope="col">잔액<br/>(원본)</th></tr></thead>
+        <tbody>{tableGroups.map(g=><Fragment key={g.key}>
+          {g.week&&<tr className="week-summary"><th scope="row">{g.week.key.slice(0,4)}년 {Number(g.week.key.slice(4))}차 합계</th><td>{g.week.from} ~ {g.week.to}{g.week.partial&&<small>일부 기간</small>}</td><td>{money(g.week.sales)}</td><td>{money(g.receipt)}</td><td>{money(g.week.posted)}</td><td>{money(g.week.pending)}</td><td className={g.week.difference>0?'surplus':g.week.difference<0?'shortfall':''}>{g.week.difference==null?'확인 필요':`${g.week.difference>0?'+':''}${money(g.week.difference)} · ${g.week.difference>0?'초과입금':g.week.difference<0?'미수':'일치'}`}</td><td>{money(g.closing)}</td></tr>}
+          {g.rows.map(r=><tr key={r.sequence}><td>전표 {r.sequence}</td><td>{r.date}</td><td>{money(r.sales)}</td><td>{money(r.receipt)}</td><td>—</td><td>—</td><td>—</td><td>{money(r.balance)}</td></tr>)}
+        </Fragment>)}</tbody>
       </table></div>
+      {!ledger.rows.length&&<p className="muted">해당 기간에 조회된 전표가 없습니다.</p>}
+
     </>}
     <style jsx>{`
+      .combined-ledger{min-width:1100px}.combined-ledger th,.combined-ledger td{white-space:nowrap;padding:10px}.week-summary small{display:block;font-size:inherit;font-weight:400;color:#607286}.week-summary{background:#edf4fc;font-weight:700}.week-summary th{background:#edf4fc;text-align:left}.week-summary td{border-top:2px solid #d2e2f3}.combined-ledger tbody tr:not(.week-summary) td:first-child{padding-left:28px;color:#607286}
       .surplus{color:#1769aa;font-weight:700}.shortfall{color:#b42318;font-weight:700}.selection-title{font-size:16px;margin:20px 0 10px}.customer-buttons{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px}.customer-buttons button{text-align:left;min-width:0;overflow-wrap:anywhere}.customer-buttons strong,.customer-buttons span{display:block}.customer-buttons span{font-size:12px;margin-top:5px;opacity:.85}.customer-buttons button[aria-pressed=true]{background:#1769aa;color:white;border-color:#1769aa;box-shadow:inset 0 0 0 1px #1769aa}.customer-buttons button:disabled{cursor:not-allowed;background:#edf0f3}.managers{display:flex;gap:8px;flex-wrap:wrap}.managers button[aria-pressed=true]{background:#1769aa;color:white;border-color:#1769aa}input[type=search]{padding:11px;border:1px solid #b7c8d8;border-radius:8px;min-width:250px;max-width:100%}input:focus-visible{outline:3px solid #1985d0;outline-offset:2px}
       @media(max-width:600px){:global([data-ui-popupbar]>[data-ui-page-title]){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}:global([data-ui-popupbar]>span:last-child){flex-shrink:0}:global([data-ui-popupbar]>span:last-child>span){display:none}:global([data-ui-popupbar] button){white-space:nowrap;flex-shrink:0}}
       .ledger-page{padding:24px;max-width:1200px;margin:0 auto;color:#172c40}.ledger-page h1{font-size:23px;margin:0 0 8px}.muted{color:#607286;font-size:13px;line-height:1.7}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 16px}.controls label{font-weight:700}select{min-width:250px;max-width:100%;padding:11px;border:1px solid #b7c8d8;border-radius:8px;background:#fff}button{padding:10px 16px;border:1px solid #b7c8d8;border-radius:8px;background:#fff;cursor:pointer}button:disabled{opacity:.55;cursor:wait}button:focus-visible,select:focus-visible{outline:3px solid #1985d0;outline-offset:2px}.info{display:flex;gap:24px;flex-wrap:wrap;font-size:14px}.notice,.error,.empty,.refresh-status{padding:16px;border-radius:8px;line-height:1.7}.notice{background:#fff5d9;color:#795514}.refresh-status{background:#e9f5ff;color:#194b74}.error{background:#fff0f0;color:#a02020}.empty{background:#f0f5fa;margin-top:24px}.totals{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.totals>div{min-width:180px;padding:18px;border:1px solid #d7e2eb;border-radius:10px;background:white}.totals span{display:block;font-size:13px;color:#607286}.totals strong{display:block;margin-top:8px;font-size:22px;font-variant-numeric:tabular-nums}.ledger-table-scroll{overflow-x:auto}table{width:auto;border-collapse:collapse;table-layout:fixed;background:white}th,td{padding:11px 16px;border-bottom:1px solid #e2eaf1;text-align:right;font-variant-numeric:tabular-nums}th{background:#eef4f8}th:nth-child(2),td:nth-child(2){text-align:left}td[colspan]{text-align:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.ledger-page{padding:16px}.totals>div{min-width:140px;flex:1}.info{gap:8px}select{width:100%}}

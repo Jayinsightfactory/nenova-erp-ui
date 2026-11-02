@@ -21,7 +21,8 @@
     "lib/ecountLedgerWeekStore.js",
     "scripts/ecount-scraper/pending-receipts.mjs",
     "lib/ecountVerifiedCustomerLinks.cjs",
-    "lib/ecountVerifiedCustomerLinks.json"
+    "lib/ecountVerifiedCustomerLinks.json",
+    "lib/ecountLedgerTable.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -114,5 +115,11 @@
     "messages": "COMPLETE is visible as fresh success only with a current-basis ledger; legacy/missing must not show contradictory success/empty notices",
     "refresh": "same weekday08-18 policy, requestAllowed returned from server, refresh disabled outside window while read stays available",
     "fixtures": "verified legacy retained, current basis preferred, identity change rejected, off-hours/weekend flags, incomplete successful-request display suppressed"
+  },
+  "combinedTable": {
+    "layout": "One table: week summary followed by all its vouchers, all visible",
+    "amounts": "Source sale/receipt/balance unchanged. Bank reflected/pending/difference stay week-level; no voucher allocation. Week closing is last source balance carried forward, not a new cash calculation.",
+    "fallback": "Legacy or calendar unavailable/overlap/gap: preserve all vouchers without invented week; no dropped or duplicated voucher.",
+    "tests": "six-row screenshot fixture, two receipts same day, empty week balance carry, null/zero, 202553/202601"
   }
 }
