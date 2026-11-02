@@ -57,7 +57,8 @@
     "__tests__/ecountCustomerLedgerPolicy.test.cjs",
     "__tests__/ecountCustomerLedger.test.cjs",
     "__tests__/ecountPendingReceipts.test.cjs",
-    "__tests__/ecountLedgerWeekComparison.test.cjs"
+    "__tests__/ecountLedgerWeekComparison.test.cjs",
+    "__tests__/ecountLedgerRequestFeedback.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -131,5 +132,11 @@
     "continuation": "Atomic unconfirmed customer cursor before browser work and after each accepted result; same KST day/exact server period; preserve on work-API outage; timeout/context loss defers untouched keys rather than marking failed; manual priority between customers",
     "readPages": "Each ledger/bank operation owns a fresh read-only tab; bounded retry for closed/transient navigation/scope; close only owned tabs without beforeunload; context unavailable persists cursor before launcher restart",
     "bankDiagnostics": "Store only fixed whitelisted unavailable reason enums; unavailable money remains null; all identity/time/before-after/double-deduction guards unchanged"
+  },
+  "clientFeedback": {
+    "transientLookupFailure": "Retain current selected snapshot for network/5xx errors; clear on 4xx or denied scope; ignore late previous-selection errors",
+    "requestFailure": "Separate persistent rejection from cached polling errors; suppress stale COMPLETE after rejection; clear on new source time/request/selection",
+    "rateLimit": "Existing server ten-minute rule remains; message is relative to prior processing, not every rejected attempt",
+    "fixture": "__tests__/ecountLedgerRequestFeedback.test.cjs (network/503 retention, 403 clearing, rate rejection across polling, accepted retry, cross-year late scope denial)"
   }
 }

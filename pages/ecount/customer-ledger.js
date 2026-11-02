@@ -4,9 +4,9 @@ import {displayRefreshStatus} from '../../lib/ecountCustomerLedgerPolicy.cjs';
 import { getReceivablesManagers, filterReceivablesRows } from '../../lib/ecountReceivablesPolicy.cjs';
 const money=n=>n==null?'—':n.toLocaleString('ko-KR');
 const time=s=>s?new Date(s).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'아직 수집되지 않음';
-const messages={CUSTOMER_FORBIDDEN:'현재 담당하는 거래처만 조회할 수 있습니다. 거래처 목록을 다시 불러와 주세요.',CUSTOMER_LINK_REQUIRED:'거래처 식별값이 없거나 중복되어 연결을 확인해야 합니다.',LOGIN_REQUIRED:'로그인 후 이용해 주세요.',LEDGER_UNAVAILABLE:'채권 자료를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.',REQUEST_WINDOW_CLOSED:'최신화 요청은 평일 오전 8시부터 오후 6시까지 할 수 있습니다.',REQUEST_RATE_LIMIT:'이 거래처는 잠시 전에 조회를 요청했습니다. 10분 후 다시 요청해 주세요.',REFRESH_REQUEST_UNAVAILABLE:'최신화 요청을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
+const messages={CUSTOMER_FORBIDDEN:'현재 담당하는 거래처만 조회할 수 있습니다. 거래처 목록을 다시 불러와 주세요.',CUSTOMER_LINK_REQUIRED:'거래처 식별값이 없거나 중복되어 연결을 확인해야 합니다.',LOGIN_REQUIRED:'로그인 후 이용해 주세요.',LEDGER_UNAVAILABLE:'채권 자료를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.',REQUEST_WINDOW_CLOSED:'최신화 요청은 평일 오전 8시부터 오후 6시까지 할 수 있습니다.',REQUEST_RATE_LIMIT:'이 거래처는 직전 요청 처리 후 10분이 지나면 다시 최신화할 수 있습니다.',REFRESH_REQUEST_UNAVAILABLE:'최신화 요청을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
 export default function CustomerLedger(){
-  const [customers,setCustomers]=useState([]),[selected,setSelected]=useState(''),[data,setData]=useState(null),[meta,setMeta]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[listError,setListError]=useState(''),[requesting,setRequesting]=useState(false);
+  const [customers,setCustomers]=useState([]),[selected,setSelected]=useState(''),[data,setData]=useState(null),[meta,setMeta]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[listError,setListError]=useState(''),[requesting,setRequesting]=useState(false),[requestError,setRequestError]=useState('');
   const requestId=useRef(0),selectionId=useRef(0);
   const [search,setSearch]=useState(''),[manager,setManager]=useState('');
   const managers=getReceivablesManagers(customers);
@@ -34,24 +34,26 @@ export default function CustomerLedger(){
     catch(e){setCustomers([]);setListError(e.message);}
   }
   async function load(key){
-    const id=++requestId.current;setLoading(true);setError('');
-    try{const res=await fetch(`/api/ecount/customer-ledger?custKey=${encodeURIComponent(key)}`,{cache:'no-store'});const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'자료를 불러오지 못했습니다.');if(id===requestId.current)setData(d);}
-    catch(e){if(id===requestId.current){setData(null);setError(e.message);}}
+    const id=++requestId.current;let clearOnError=false;setLoading(true);setError('');
+    try{const res=await fetch(`/api/ecount/customer-ledger?custKey=${encodeURIComponent(key)}`,{cache:'no-store'});if(res.status>=400&&res.status<500)clearOnError=true;const d=await res.json();if(!res.ok||!d.success){if(res.status<500)clearOnError=true;throw new Error(messages[d.error]||'자료를 불러오지 못했습니다.');}if(id===requestId.current)setData(d);}
+    catch(e){if(id===requestId.current){if(clearOnError)setData(null);setError(e.message);}}
     finally{if(id===requestId.current)setLoading(false);}
   }
   async function requestRefresh(){
     if(!selected)return;
     const key=selected,selection=selectionId.current;
-    setRequesting(true);setError('');
+    setRequesting(true);setError('');setRequestError('');
     try{
       const res=await fetch('/api/ecount/customer-ledger-refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({custKey:key}),cache:'no-store'});
+      if(selection===selectionId.current&&[401,403].includes(res.status))setData(null);
       const d=await res.json();if(!res.ok||!d.success)throw new Error(messages[d.error]||'최신화 요청을 접수하지 못했습니다.');
       if(selection!==selectionId.current)return;
       setData(current=>current?{...current,refreshRequest:d.request}:current);
       await load(key);
-    }catch(e){if(selection===selectionId.current)setError(e.message);}
+    }catch(e){if(selection===selectionId.current)setRequestError(e.message);}
     finally{setRequesting(false);}
   }
+  useEffect(()=>{setRequestError('');},[selected,data?.takenAt,data?.refreshRequest?.requestedAt]);
   useEffect(()=>{loadCustomers();return()=>{selectionId.current++;requestId.current++;};},[]);
   useEffect(()=>{
     setData(null);setError('');requestId.current++;
@@ -92,8 +94,8 @@ export default function CustomerLedger(){
     <div className="info"><span>조회기간: {period?`${period.from} ~ ${period.to}`:'확인 중'}</span><span>{schedule?.label||'평일 08:00·11:00·14:00 자동 수집 (한국시간)'}</span></div>
     <p className="muted">마지막 수집: {time(data?.takenAt)}{schedule?.nextAt&&` · 다음 예정: ${time(schedule.nextAt)}`}</p>
     {listError&&<p role="alert" className="error">{listError} <button onClick={loadCustomers}>목록 다시 불러오기</button></p>}
-    {error&&<p role="alert" className="error">{error}</p>}
-    {refreshStatus&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?(refreshAllowed?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':'접수된 최신화 요청은 다음 가능 시간부터 처리됩니다. 기존 확인 자료는 계속 조회할 수 있습니다.'):refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'요청한 최신화가 완료되었습니다. 최신 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
+    {(error||requestError)&&<p role="alert" className="error">{error||requestError}</p>}
+    {!requesting&&refreshStatus&&!(requestError&&refreshStatus==='COMPLETE')&&<p role="status" className={refreshStatus==='FAILED'?'notice':'refresh-status'}>{refreshStatus==='PENDING'?(refreshAllowed?'최신화 요청이 접수되었습니다. 원본 PC에서 진행 중인 수집이 끝나면 순서대로 조회합니다.':'접수된 최신화 요청은 다음 가능 시간부터 처리됩니다. 기존 확인 자료는 계속 조회할 수 있습니다.'):refreshStatus==='RUNNING'?'이카운트 원본에서 선택한 거래처를 조회하고 있습니다.':refreshStatus==='COMPLETE'?'마지막 최신화 요청이 완료되었습니다. 아래 수집 시각을 확인해 주세요.':data.refreshRequest?.error==='SOURCE_UNAVAILABLE'?'이카운트 조회를 완료하지 못했습니다. 연결과 원본 PC 상태를 확인한 뒤 다시 요청해 주세요.':'이카운트 조회를 완료하지 못했습니다. 잠시 후 다시 요청해 주세요.'}</p>}
     {!listError&&meta&&customers.length===0&&<p className="notice">배정된 거래처가 없습니다. 전산의 거래처 담당자 배정을 확인해 주세요.</p>}
     {filteredCustomers.some(c=>!c.linked)&&<p className="notice">‘연결 확인 필요’ 거래처는 식별값이 없거나 중복되어 조회할 수 없습니다.</p>}
     {meta?.scope==='all'&&selectedCustomer&&!selectedCustomer.refreshable&&<p className="muted">담당자 배정이 확인되지 않은 거래처는 최신화 요청을 할 수 없습니다.</p>}
