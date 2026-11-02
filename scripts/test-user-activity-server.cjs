@@ -6,11 +6,19 @@ const { randomUUID } = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { spawnSync } = require('node:child_process');
 const store = require('../lib/userActivityStore.cjs');
+const asyncStore = require('../lib/userActivityAsync.cjs');
 const { attachRequestAudit, retryPending } = require('../lib/userActivityHttp.cjs');
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nenova-activity-test-'));
 process.env.NENOVA_ACTIVITY_DIR = directory;
 const user = { userId: 'nenovaSS3', userName: '관리자' };
 const id = randomUUID();
+async function waitFor(check) {
+  for (let i = 0; i < 100; i++) {
+    if (await check()) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  throw new Error('activity write did not finish');
+}
 (async () => {
 try {
   const event = { id, kind: 'click', path: '/orders?token=SECRET#SECRET', label: '저장', input: 'SECRET', password: 'SECRET', userId: 'forged', source: 'desktop' };
@@ -36,6 +44,7 @@ try {
     res.json(scenario === 'false200' ? { success: false, secret: 'SECRET' } : { success: true });
     res.emit(scenario === 'closed' ? 'close' : 'finish'); res.emit('close');
   }
+  await waitFor(async () => (await store.listEvents({ kind: 'api' })).items.length === 3);
   const api = (await store.listEvents({ kind: 'api' })).items;
   assert.equal(api.length, 3); assert.equal(api.filter(r => r.outcome === 'failure').length, 2);
   assert.ok(api.every(r => r.recordedBy === 'server' && r.path === '/api/test'));
@@ -49,6 +58,7 @@ try {
   attachRequestAudit(lateReq, late, { userId: 'anonymous' });
   late.json = function () { return this; };
   attachRequestAudit(lateReq, late, user); late.json({ success: true }); late.emit('finish');
+  await waitFor(async () => (await store.listEvents({ path: '/api/auth/login' })).items.length === 1);
   const login = (await store.listEvents({ path: '/api/auth/login' })).items;
   assert.equal(login.length, 1); assert.equal(login[0].userId, user.userId); assert.equal(login[0].outcome, 'success');
   assert.equal((await store.listEvents({ hour: (new Date().getUTCHours() + 9) % 24 })).items.length, 5);
@@ -78,15 +88,15 @@ try {
   process.env.NENOVA_ACTIVITY_DIR = blocker;
   const failedResponse = new EventEmitter(); failedResponse.statusCode = 200;
   const oldError = console.error; console.error = () => {};
-  try { attachRequestAudit({ url: '/api/retry-fixture', method: 'POST', headers: {} }, failedResponse, user); failedResponse.emit('finish'); } finally { console.error = oldError; }
+  try { attachRequestAudit({ url: '/api/retry-fixture', method: 'POST', headers: {} }, failedResponse, user); failedResponse.emit('finish'); await waitFor(() => store.getHealth().pending === 1); } finally { console.error = oldError; }
   assert.equal(store.getHealth().pending, 1); assert.equal(store.getHealth().healthy, false);
-  process.env.NENOVA_ACTIVITY_DIR = directory; retryPending();
+  process.env.NENOVA_ACTIVITY_DIR = directory; await retryPending();
   assert.equal(store.getHealth().pending, 0); assert.equal((await store.listEvents({ path: '/api/retry-fixture' })).items.length, 1);
   // API authentication/authorization and account-binding behavior, without loading Next.js or a real DB.
   const vm = require('node:vm');
   let source = fs.readFileSync(path.resolve(__dirname, '../pages/api/work/activity.js'), 'utf8');
   source = source.replace(/^import .*;\r?\n/gm, '').replace(/export const config/, 'const config').replace('export async function activityHandler', 'async function activityHandler').replace('export default withAuth(activityHandler);', 'module.exports = activityHandler;');
-  const sandbox = { module: { exports: {} }, store, console, isOrbitReportViewer: u => u.userId === 'nenovaSS3' };
+  const sandbox = { module: { exports: {} }, store, asyncStore, console, isOrbitReportViewer: u => u.userId === 'nenovaSS3' };
   vm.runInNewContext(source, sandbox);
   const handler = sandbox.module.exports;
   const response = () => ({ setHeader() {}, status(n) { this.statusCode = n; return this; }, json(body) { this.body = body; return this; } });

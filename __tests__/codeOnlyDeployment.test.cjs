@@ -13,9 +13,12 @@ const preserve = source.slice(source.indexOf('# BEGIN PRESERVE_BUILD_OUTPUTS'), 
 
 test('checkout diagnosis is explicit, read-only and mutually exclusive with deployment', () => {
   assert.match(source, /diagnose_checkout_only:[\s\S]*?default: false/);
-  const diagnosis = source.slice(source.indexOf('  diagnose-checkout:'), source.indexOf('  deploy:'));
+  const diagnosis = source.slice(source.indexOf('  diagnose-checkout:'), source.indexOf('  diagnose-performance:'));
+  const performance = source.slice(source.indexOf('  diagnose-performance:'), source.indexOf('  deploy:'));
   assert.match(diagnosis, /inputs.diagnose_checkout_only == true/);
-  assert.match(source, /  deploy:\s+if: github.event_name != 'workflow_dispatch' \|\| inputs.diagnose_checkout_only != true/);
+  assert.match(performance, /inputs.diagnose_performance_only == true/);
+  assert.match(source, /diagnose_performance_only:[\s\S]*?default: false/);
+  assert.match(source, /  deploy:\s+if: github.event_name != 'workflow_dispatch' \|\| \(inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true\)/);
   assert.match(diagnosis, /GIT_OPTIONAL_LOCKS=0/);
   assert.match(diagnosis, /git status --short --untracked-files=no/);
   assert.doesNotMatch(diagnosis, /git (?:fetch|pull|merge|restore|reset)|npm |pm2 |\.env|DB_SERVER|git diff --binary/);

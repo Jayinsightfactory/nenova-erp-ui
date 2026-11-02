@@ -1,6 +1,7 @@
 import { withAuth } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import store from '../../../lib/userActivityStore.cjs';
+import asyncStore from '../../../lib/userActivityAsync.cjs';
 
 export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };
 export async function activityHandler(req, res) {
@@ -15,7 +16,7 @@ export async function activityHandler(req, res) {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       if (body?.expectedUserId !== req.user.userId) return res.status(409).json({ success: false, error: '로그인 계정이 변경되었습니다.', code: 'ACTIVITY_ACCOUNT_CHANGED' });
-      const result = store.appendEvents(req.user, body?.events, store.sourceFromRequest(req));
+      const result = await asyncStore.appendEvents(req.user, body?.events, store.sourceFromRequest(req));
       return res.status(200).json({ success: true, ...result });
     } catch (error) {
       const invalid = error instanceof SyntaxError || error.message.startsWith('INVALID_');

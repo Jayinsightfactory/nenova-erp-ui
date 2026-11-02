@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {stockCustomerResults,stockSalesPeriod} from '../lib/kakaoStockCustomers.js';
+const customers=[{CustKey:1,CustName:'주광',CustArea:'서울'},{CustKey:2,CustName:'꽃장',CustArea:'서울'},{CustKey:3,CustName:'장미',CustArea:'부산'},{CustKey:4,CustName:'라움',CustArea:'서울'}];
+const sales=[{CustName:'주광',area:'서울',curSales:2,prevSales:20},{CustName:'꽃장',area:'서울',curSales:100,prevSales:0},{CustName:'장미',area:'부산',curSales:0,prevSales:1},{CustName:'주광',area:'부산',curSales:9999,prevSales:0}];
+assert.deepEqual(stockCustomerResults(customers,sales,'ㅈ').map(c=>c.CustKey),[2,1,3]);
+assert.deepEqual(stockCustomerResults(customers,sales,'주광').map(c=>c.CustKey),[1]);
+assert.equal(stockCustomerResults(customers,sales,'').at(-1).CustKey,4);
+assert.equal(stockCustomerResults(customers,[],'ㅈ').length,3);
+assert.equal(stockCustomerResults(customers,sales,'ㅈㄱ')[0].CustKey,1);
+assert.equal(stockSalesPeriod(new Date('2025-12-31T15:00:00Z')).label,'2025년 12월~2026년 1월 매출순');
+assert.equal(stockSalesPeriod(new Date('2026-11-01T00:00:00Z')).month,11);
+console.log('PASS customer initial substring search, two-month sales descending, area isolation, zero sales, KST cross-year period');

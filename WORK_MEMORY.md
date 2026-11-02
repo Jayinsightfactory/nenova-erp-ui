@@ -1806,3 +1806,7 @@
 - 원장 writer 변경 없음. 설치 EXE UpdateCost 확인 및 운영 SELECT-only 2025/2026 44-02 조회 근거: docs/work-sessions/2026-11-02_volume-price-restore.md.
 - 단가 순수/실제 페이지 함수 검사, 기존 작업/엑셀 회귀, pivot, dnSpy/manifest/write guard, build, 격리 MSSQL fixture, 실제 Next 브라우저(단가 입력·수량 변경 재조회·전체 새로고침) 통과. 전체 ERP 계약 재실행 중(첫 실행 Node 네이티브 초기화 실패), PR/배포/운영 스모크는 아직 미검증.
 검색어: 네덜란드 단가 재조회 바로 불러오기 dutchLivePriceRestore currentCost pending price
+2026-11-02 업로드 성능 원인 진단 진행: Cafe24 배포 SSH를 통한 읽기 전용 PM2/nginx 집계 경로 추가. 운영 로그·DB 대기 원인과 수정은 미검증.
+검색어: upload performance diagnostic pm2 nginx read-only
+2026-11-02 업로드 느림 조사: 운영 nginx 7일 532317요청 중 activity me GET 308792/POST8549; 업로드504·DB timeout 유형280·OOM은10/26만. 기록권한폴링5→60초/숨김탭중지, 기록 fsync worker 이관. 활동 테스트PASS, 로컬build는페이징부족으로 page-data 단계실패. CI·운영개선효과 미검증. docs/work-sessions/2026-11-02_upload-performance-audit.md
+검색어: activity me poll 308792 fsync worker upload 504 db timeout
