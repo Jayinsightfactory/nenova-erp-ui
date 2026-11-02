@@ -20,9 +20,9 @@ for file in glob.glob('/var/log/nginx/*access*.log*'):
     if group in ('api/work','api/moyi') and len(parts)>3 and re.fullmatch(r'[a-z-]{1,40}',parts[3]):group+='/'+parts[3]
     groups[(hour,group,code[0]+'xx')]+=1
     if m[2]=='/api/work/activity':
-     method='POST' if '"POST /api/work/activity' in line else 'GET' if '"GET /api/work/activity' in line else 'OTHER'
+     method='POST' if '"POST /api/work/activity' in line else 'ME_GET' if '"GET /api/work/activity?me=1' in line else 'GET' if '"GET /api/work/activity' in line else 'OTHER'
      activityMethods[(hour,method)]+=1
     route=paths.get(m[2]);
     if route:uploads[(hour,route,code)]+=1
  except (OSError,EOFError):continue
-print(json.dumps({'section':'nginx_7d','files':files,'total':total,'status':dict(status),'busiestHours':hours.most_common(20),'targetRoutes':[[*k,v] for k,v in uploads.most_common(80)],'topApiGroups':[[*k,v] for k,v in groups.most_common(60)],'errorGroups':[[*k,v] for k,v in groups.most_common() if k[2]=='5xx'][:40],'activityMethods':[[*k,v] for k,v in activityMethods.most_common(40)]},ensure_ascii=False))
+print(json.dumps({'section':'nginx_7d','files':files,'total':total,'status':dict(status),'busiestHours':hours.most_common(20),'targetRoutes':[[*k,v] for k,v in uploads.most_common(80)],'topApiGroups':[[*k,v] for k,v in groups.most_common(60)],'errorGroups':[[*k,v] for k,v in groups.most_common() if k[2]=='5xx'][:40],'activityMethods':[[*k,v] for k,v in activityMethods.most_common(40)],'activityTotals':dict(collections.Counter({method:sum(v for (hour,m),v in activityMethods.items() if m==method) for method in ['POST','GET','ME_GET','OTHER']}))},ensure_ascii=False))
