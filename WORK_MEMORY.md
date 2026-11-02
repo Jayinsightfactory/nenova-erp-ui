@@ -1799,3 +1799,5 @@
 
 2026-11-02 15:15 사용자계정정지보고. ecount전용launcher/collector즉시종료, NenovaEcountDaemon Disabled. 저장정보DOM읽기/로그인클릭/5분자동재시도삭제, 수동URL로그인대기만. 잠금해제/패스워드변경/추가로그인시도없음, user계정복구확인전재가동금지. 원본그대로,canary0/2미검증.
 검색어: ecount manual login only account locked Disable-ScheduledTask password retry removal
+2026-11-02 업로드 성능 원인 진단 진행: Cafe24 배포 SSH를 통한 읽기 전용 PM2/nginx 집계 경로 추가. 운영 로그·DB 대기 원인과 수정은 미검증.
+검색어: upload performance diagnostic pm2 nginx read-only
