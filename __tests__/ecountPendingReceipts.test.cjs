@@ -90,5 +90,11 @@ test('orchestration brackets ledger collection and never fabricates bank zero af
  const events=[];let count=0;
  const args={page:{},bankPage:{},base:'fixture',customer:{},period:{},history:evidence().history,secret:'fixture',collectLedger:async()=>{events.push('ledger');return ledger();},collectBank:async()=>{events.push('bank');return ++count===1?evidence().before:evidence().after;}};
  const collected=await collectLedgerWithBank(args);assert.deepEqual(events,['bank','ledger','bank']);assert.equal(calculatePendingReceipts(collected.bankEvidence,collected,target).pendingAmount,200);
- const failed=await collectLedgerWithBank({...args,collectBank:async()=>{throw new Error('fixture');}});assert.equal(calculatePendingReceipts(failed.bankEvidence,failed,target).status,'UNAVAILABLE');
+ const failed=await collectLedgerWithBank({...args,collectBank:async()=>{throw new Error('fixture');}});assert.equal(calculatePendingReceipts(failed.bankEvidence,failed,target).status,'UNAVAILABLE');assert.deepEqual(failed.bankEvidence,{unavailable:true,reason:'BANK_QUERY_FAILED'});
+});
+
+test('unavailable bank diagnostics are fixed enums and never expose source text or imply zero',()=>{
+ const {unavailableEvidence}=require('../lib/ecountPendingReceipts.cjs');
+ for(const reason of ['BANK_SCOPE_MISMATCH','BANK_CHANGED','COLLECTION_MISMATCH']){const r=calculatePendingReceipts(unavailableEvidence(reason),ledger(),target);assert.equal(r.reason,reason);assert.equal(r.pendingAmount,null);assert.equal(r.calculatedBalance,null);}
+ const r=calculatePendingReceipts({unavailable:true,reason:'private source details'},ledger(),target);assert.equal(r.reason,'INVALID_EVIDENCE');assert.equal(JSON.stringify(r).includes('private'),false);
 });

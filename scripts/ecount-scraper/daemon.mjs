@@ -74,7 +74,7 @@ async function cycle(page, getBase, recoverSession) {
   });
   if (!base) await recoverSession();
   // Independent report page; legacy datasets retain their existing interval.
-  startCustomerLedgerSchedule(ctx, () => base, NENOVA, {recoverSession});
+  startCustomerLedgerSchedule(ctx, () => base, NENOVA, {recoverSession,onUnavailable:()=>{console.log('[ledger723] source context unavailable; restarting collector');process.exit(2);}});
   console.log(`\n🟢 [${now()}] ECOUNT 상주 수집 데몬 시작 — ${INTERVAL / 60000}분 주기. (창을 닫지 마세요)`);
 
   for (;;) {

@@ -55,7 +55,7 @@ test('failed customer popup is discarded before the next customer, with safe dia
 test('a closed browser cannot carry a failed lookup forward',async()=>{
  const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');let calls=0;
  const r=await collectLedgerBatch({page:{goto:async()=>{throw new Error('closed');}},getBase:()=>'',work:{customers:[{custKey:1},{custKey:2}],period:{}},collect:async()=>{calls++;throw new Error('closed');},upload:async()=>assert.fail(),log:()=>{}});
- assert.equal(calls,1);assert.deepEqual(r,{ok:0,failed:2,total:2});
+ assert.equal(calls,1);assert.deepEqual(r,{ok:0,failed:1,total:2,deferred:1});
 });
 test('voucher totals and rolling balance; no source personal fields retained',()=>{
  const p=validateLedger({...sample(),customerName:'must not persist',observedCode:'secret'},now);
@@ -341,7 +341,7 @@ test('actual dispatcher consumes explicit recovery before collection and does no
  const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(name,value)=>{assert.equal(name,'state.tmp');temp=JSON.parse(value);},renameSync:(a,b)=>{assert.equal(a,'state.tmp');assert.equal(b,'state');state=temp;}};
  const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8');
  const body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
- const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},{...recovery,recoveryRequestId:(r,id)=>recovery.recoveryRequestId(r,id,fixed)},async(_base,_body,suffix)=>suffix?{refreshRequest:null}:{customers:[{custKey:1}],period:{}},async()=>({}),async()=>{assert.equal(state.lastRecoveryId,marker.id);batches++;return {ok:1,failed:0};},()=>{},()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},{...recovery,recoveryRequestId:(r,id)=>recovery.recoveryRequestId(r,id,fixed),makeContinuation:(w,k)=>recovery.makeContinuation(w,k,fixed)},async(_base,_body,suffix)=>suffix?{refreshRequest:null}:{customers:[{custKey:1}],period:{from:'2026-10-02',to:'2026-11-02'}},async()=>({}),async args=>{assert.equal(state.lastRecoveryId,marker.id);batches++;await args.onProgress([]);return {ok:1,failed:0};},()=>{},()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
  const ctx={newPage:async()=>({close:async()=>{}})};const flush=()=>new Promise(setImmediate);
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);tick();await flush();assert.equal(batches,1);
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);assert.equal(state.lastAttempt,fixed-3600000);
@@ -360,15 +360,31 @@ test('continuation excludes malformed keys, stale days and cross-year periods',(
 test('actual dispatcher prioritizes manual refresh then resumes only deferred canonical keys across restart',async()=>{
  const real=require('../lib/ecountCollectorRecovery.cjs'),fixed=Date.parse('2026-11-02T09:00:00+09:00'),work={customers:[{custKey:1},{custKey:2},{custKey:3}],period:{from:'2026-10-02',to:'2026-11-02'}};
  const marker={id:'00000000-0000-0000-0000-000000000003',requestedAt:new Date(fixed).toISOString()};
- let state={lastAttempt:fixed,lastRecoveryId:marker.id,continuation:real.makeContinuation(work,[2,3],fixed)},temp,tick,queued={requestId:9,custKey:9,period:work.period};const batches=[],uploads=[];
+ let state={lastAttempt:fixed,lastRecoveryId:marker.id,continuation:real.makeContinuation(work,[2,3],fixed)},temp,tick,queued={requestId:9,custKey:9,period:work.period};const batches=[],uploads=[];let failWorkOnce=true;
  const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(_name,value)=>temp=JSON.parse(value),renameSync:()=>state=temp};
- const api=async(_url,body,suffix)=>{if(suffix){const r=queued;queued=null;return {refreshRequest:r};}if(body){if(body.custKey)uploads.push(body.custKey);return {};}return {...work,customers:[...work.customers]};};
- const batch=async args=>{batches.push(args.work.customers.map(c=>c.custKey));if(batches.length===1){await args.onDeferred([3]);return {ok:1,failed:0,deferred:1};}return {ok:1,failed:0};};
+ const api=async(_url,body,suffix)=>{if(suffix){const r=queued;queued=null;return {refreshRequest:r};}if(body){if(body.custKey)uploads.push(body.custKey);return {};}if(failWorkOnce){failWorkOnce=false;throw new Error('temporary API outage');}return {...work,customers:[...work.customers]};};
+ const batch=async args=>{batches.push(args.work.customers.map(c=>c.custKey));if(batches.length===1){await args.onDeferred([3]);return {ok:1,failed:0,deferred:1};}await args.onProgress([]);return {ok:1,failed:0};};
  const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
  const recovery={...real,recoveryRequestId:(r,id)=>real.recoveryRequestId(r,id,fixed),continuationEligible:c=>real.continuationEligible(c,fixed),makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
  const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),batch,async({customer})=>({custKey:customer.custKey}),()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
  const ctx={newPage:async()=>({close:async()=>{}})},flush=()=>new Promise(setImmediate);
  start(ctx,()=>'', '');await flush();assert.deepEqual(uploads,[9]);assert.equal(batches.length,0);assert.deepEqual(state.continuation.keys,[2,3]);
+ tick();await flush();assert.deepEqual(batches,[]);assert.deepEqual(state.continuation.keys,[2,3]);
  tick();await flush();assert.deepEqual(batches,[[2,3]]);assert.deepEqual(state.continuation.keys,[3]);
  start(ctx,()=>'', '');await flush();assert.deepEqual(batches,[[2,3],[3]]);assert.equal(state.continuation,null);tick();await flush();assert.equal(batches.length,2);
+});
+
+test('owned read pages isolate modal failures, retry only transient reads and close only their own tabs',async()=>{
+ const {withReadPage}=require('../lib/ecountCollectorRecovery.cjs');let serial=0;const closed=[],seen=[];
+ const ctx={newPage:async()=>{const id=++serial;return {id,isClosed:()=>false,close:async options=>{assert.equal(options.runBeforeUnload,false);closed.push(id);}};}};
+ assert.equal(await withReadPage(ctx,async page=>{seen.push(page.id);if(page.id===1)throw new Error('SOURCE_NAVIGATION_FAILED');return 42;}),42);
+ await assert.rejects(withReadPage(ctx,async()=>{throw new Error('SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS');}),/SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS/);
+ assert.deepEqual(seen,[1,2]);assert.deepEqual(closed,[1,2,3]);assert.equal(serial,3);
+ await assert.rejects(withReadPage({newPage:async()=>{throw new Error('private source details');}},()=>assert.fail()),{message:'SOURCE_CONTEXT_UNAVAILABLE'});
+});
+test('context loss checkpoints the current customer and untouched tail without recording false failures',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');const progress=[],deferred=[],uploads=[];
+ const work={customers:[{custKey:1},{custKey:2},{custKey:3}],period:{}};
+ const result=await collectLedgerBatch({getBase:()=>'',work,collect:async(_p,_b,c)=>{if(c.custKey===2)throw new Error('SOURCE_CONTEXT_UNAVAILABLE');return c;},upload:async p=>uploads.push(p.custKey),onProgress:async keys=>progress.push(keys),onDeferred:async keys=>deferred.push(keys),recordFailure:()=>assert.fail(),log:()=>{}});
+ assert.deepEqual(result,{ok:1,failed:0,total:3,deferred:2,contextUnavailable:true});assert.deepEqual(uploads,[1]);assert.deepEqual(progress,[[2,3]]);assert.deepEqual(deferred,[[2,3]]);
 });
