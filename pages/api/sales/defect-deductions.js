@@ -81,6 +81,7 @@ async function handler(req, res) {
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
         includeCarryover: String(req.query.view || '') === 'support',
+        pendingSupportOnly: String(req.query.view || '') === 'support',
         // 영업지원은 수입부 미확정 행도 업무 대기 목록에서 확인한다.
         // 등록은 업체 분배·단가·잔여수량·중복 여부를 공통 경로에서 검증한다.
         importConfirmedOnly: false,
