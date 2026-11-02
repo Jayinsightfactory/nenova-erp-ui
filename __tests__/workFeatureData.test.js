@@ -11,7 +11,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workFeatureData.js'), 'utf8')
   .replace(/^import fs from 'fs';/m, "const fs = require('fs');")
   .replace(/^import path from 'path';/m, "const path = require('path');")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { FEATURE_NAMES, FEATURE_MAX, featureFilePath, saveFeatureFile };';
+  + '\nmodule.exports = { FEATURE_NAMES, FEATURE_MAX, FEATURE_NAME_MAX, featureFilePath, saveFeatureFile };';
 const modPath = path.join(tmp, 'workFeatureData.cjs');
 fs.writeFileSync(modPath, src);
 process.chdir(tmp);
@@ -20,7 +20,11 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
-assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger']);
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office']);
+// pm-office: 2MB 상한·generatedAt 필수·runtime 저장
+assert.strictEqual(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: 'x', pad: 'a'.repeat(2 * 1024 * 1024) }))).status, 413);
+assert.ok(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: '2026-11-02T00:00:00Z', agents: [] }))).ok);
+assert.strictEqual(w.featureFilePath('pm-office'), path.join(tmp, 'data', 'runtime', 'work-feature-pm-office.json'));
 // 도입 레이더 장부: 파일명 adoption-ledger.json, updatedAt 만 있어도 받는다
 assert.strictEqual(w.featureFilePath('adoption-ledger'), path.join(tmp, 'data', 'adoption-ledger.json'));
 assert.strictEqual(w.saveFeatureFile('adoption-ledger', Buffer.from('{"days":[]}')).status, 400, 'adoption-ledger 는 updatedAt 필수');
