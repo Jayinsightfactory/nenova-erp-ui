@@ -13,6 +13,9 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  assert.equal(JSON.stringify(f),before);assert.ok(s);assert.equal(s[p.fx].v,f.snapshot.input.exchangeRateKRW);
  const header=profile.headerRow??p.first-1,last=p.first+6,summary=header-1;
  assert.match(s[`${p.input}${header}`].v,/매주 확인/);
+ assert.match(s[`${p.margin}${p.first}`].z,/%/,'profit ratio must be percentage');
+ assert.match(s[`${p.margin}${summary}`].z,/%/,'summary ratio must be percentage');
+ assert.doesNotMatch(s[`${p.sales}${p.first}`].z,/%/,'sales total is money, never percentage');
  for(const r of [p.first,p.first+3,last]){
   assert.equal(s[`${p.input}${r}`]?.v,undefined);
   assert.match(s[`${p.sale}${r}`].f,new RegExp(`ISNUMBER\\(${p.input}${r}\\)`));
@@ -37,6 +40,11 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
   assert.ok(s[`${valueCol}${firstFee+4}`].f);
   if(!compact)assert.ok(s[`${th?'I':id==='CN_SEA_ORIGINAL_V1'?'I':'H'}${p.first}`].f,'CNF intermediate formula');
  }
+});
+
+test('NZ source has E quantity and M cost, unlike US D/L layout',()=>{
+ const p=RESTORED_COST_LAYOUTS.NZ_ORIGINAL_V1;
+ assert.deepEqual([p.qty,p.factor,p.unitCost,p.sale,p.input,p.profit,p.margin,p.sales,p.profits],['E','L','M','N','O','Q','R','S','T']);
 });
 test('NL current template defaults recalculate and prior-year identity is preserved',async()=>{
  const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1');f.document.orderYear='2025';
