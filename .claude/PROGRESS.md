@@ -1222,3 +1222,13 @@ IMPORT"로 드러남. 빈 문자열 조기 리턴으로 수정, 실제 방 이�
 ---
 
 *새 세션이 끝날 때마다 위 형식으로 앞에 추가. 커밋 SHA + 변경 파일 + 다음 예정 + 미결 이슈 필수.*
+
+## 2026-11-02 매출이익 상태·빈 값 원천 안내 (진행 중)
+
+- 상태표시/툴바/진단metadata 구현 및 독립 타겟 검증: 금융parity31건·50버튼 AST PASS.
+- SQL SELECT-only43에서 승인관세규칙 미매칭, 중국운임배분대사실패, 재고재평가 의존/지원제약 구분. DB쓰기0.
+- 변경범위/원인: docs/plans/profit-report-status-toolbar-2026-11-02.md 및 QA정본 참조.
+- 커밋/PR/배포: 미완료. 전체가드·CI·운영스모크는 부모 세션 후속 결과 대기.
+- 검색어: profit-report-status-toolbar 어떤DB 계산불가 sourceGuidance
+
+2026-11-02 상태툴바 후속: 전체 ERP 가드2차 exit0 및 manifest174/쓰기0API PASS. 합계K 원인설명에서 정상 국가0분모를 누락원인에 넣지 않도록 표시만 보완, 대상검사 재PASS. 최종build·CI·배포·운영확인은 미완료.

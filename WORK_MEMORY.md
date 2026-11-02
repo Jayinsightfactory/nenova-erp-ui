@@ -1724,3 +1724,9 @@
 2026-11-02 채권 통합표: 차수 요약과 원본 전표를 한 표로 통합. 각 차수 아래 전표 전부 표시, 은행 입금은 차수 합계에만 표시. 원본/기존자료/수집/DB/권한 변경 없음. 대상34검사 통과. 전체검증·배포·운영확인 진행 중. 근거 docs/work-sessions/2026-11-02_ecount-unified-ledger.md.
 - 검색어: 차수 전표 통합표 ledgerTableGroups 원본잔액 은행중복합산금지
 2026-11-02 누락 내역/취소 착수. 원HistoryKey별 취소감사만추가,기존ERP보존,재누락시옛취소무효.검증진행. 검색어:PERMANENT_OMIT_CANCEL 누락취소
+
+2026-11-02 주차별 매출이익 상태·버튼·빈 값 원천 안내: 표시전용 및 진단메타 추가, DB쓰기0. 43차 TH14/CN39/EC1 입고행 승인정책 key부재와 CN15행 운임배분대사실패를 확인; 태국 재고null은통관비후속보류, 중국기초는웹평가방식지원제약. WebCustomsWeekly2026/43 실제저장행0 확인. baseline31시나리오금융출력·50버튼handler보존 타겟PASS. fullguard/CI/배포/실브라우저검증은아직미완료. QA정본 docs/work-sessions/2026-11-02_profit-report-status-toolbar.md.
+- 검색어: 매출 상태툴바 어떤DB 원천대조전 관세규칙미매칭 운임배분대사 재고평가 진단메타
+
+2026-11-02 상태툴바 검증갱신: 전체 verify:erp-change2차 exit0(계약/dnSpy/UI/manifest/쓰기가드/build), 명시 manifest174/쓰기0API PASS. 이후합계K의정상0분모행오인만표시보완, 상태/parity31/50handler 재PASS. 최종build·PR/CI·배포·운영스모크대기. 최초소스앵커실패와수정기록은QA에보존.
+- 검색어: 상태툴바 전체가드2차 PASS 합계K C+F 원천누락 분모0
