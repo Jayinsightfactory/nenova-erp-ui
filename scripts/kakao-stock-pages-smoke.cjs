@@ -1,9 +1,9 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict');
 (async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
-const page=await browser.newPage({viewport:{width:1920,height:1080}}),requests=[],errors=[],answers=[];
+const page=await browser.newPage({viewport:{width:1920,height:1080}}),requests=[],errors=[],answers=[],confirmDecisions=[];
 const legacy=week=>({version:1,title:'기존재고',week,base:'문라이트 3',events:[],audit:[],applied:[],sources:[],raw:''});
 const saved=[{FavoriteKey:1,FavName:'2025 기존재고',FilterData:JSON.stringify(legacy('2025-43-01'))},{FavoriteKey:2,FavName:'2026 기존재고',FilterData:JSON.stringify(legacy('2026-43-01'))}];
-page.on('pageerror',e=>errors.push(e.message));page.on('dialog',async d=>{if(d.type()==='prompt'){const answer=answers.shift();assert.equal(typeof answer,'string');await d.accept(answer);}else await d.accept();});
+page.on('pageerror',e=>errors.push(e.message));page.on('dialog',async d=>{if(d.type()==='prompt'){const answer=answers.shift();assert.equal(typeof answer,'string');await d.accept(answer);}else if(d.type()==='confirm'&&confirmDecisions.shift()===false)await d.dismiss();else await d.accept();});
 await page.addInitScript(()=>localStorage.setItem('nenovaUser',JSON.stringify({userId:'fixture',userName:'검증',authority:1})));
 await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());let data={success:true,items:[],data:[],rows:[]};
 if(url.pathname==='/api/auth/me')data={success:true,user:{userId:'fixture',userName:'검증',authority:1,accountActive:true}};
@@ -31,10 +31,12 @@ await page.getByRole('navigation',{name:'기초재고 페이지',exact:true}).ge
 await applyRaw();await page.getByRole('alert').filter({hasText:'이미 적용한 원문'}).waitFor();assert.equal((await product())[2],'1');
 await openBase();await page.getByLabel('시작재고 입력',{exact:true}).fill('문라이트 4\n노비아 2');
 await page.getByRole('navigation',{name:'기초재고 페이지',exact:true}).getByRole('button',{name:'알스트로',exact:true}).click();assert.equal((await product())[2],'2');
+await openBase();await page.getByText(`재고장 저장본 (${saved.length})`,{exact:true}).click();confirmDecisions.push(false);await page.getByRole('button',{name:/^2026-43-01 카네이션 · #/}).first().click();assert.equal(await title(),'알스트로');
 await page.getByRole('navigation',{name:'기초재고 페이지',exact:true}).getByRole('button',{name:'카네이션',exact:true}).click();await openBase();assert.equal(await page.getByLabel('시작재고 입력',{exact:true}).inputValue(),'문라이트 4\n노비아 2');await page.getByRole('button',{name:'시작재고 적용·수정',exact:true}).click();assert.deepEqual((await product()).slice(0,3),['문라이트','4','2']);await save();
 await page.reload();await ready();assert.equal(await title(),'카네이션');assert.equal((await product())[2],'2');assert.equal(await page.getByRole('navigation',{name:'기초재고 페이지'}).getByRole('button',{name:'카네이션',exact:true}).count(),1);
 await page.getByRole('navigation',{name:'기초재고 페이지'}).getByRole('button',{name:'기존재고',exact:true}).click();await page.getByLabel('연도·차수',{exact:true}).selectOption('2025-43-01');assert.equal((await product())[2],'3');
 await page.getByRole('navigation',{name:'기초재고 페이지'}).getByRole('button',{name:'카네이션',exact:true}).click();assert.equal((await product())[2],'2');
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'stock-pages-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'stock-pages-mobile.png',fullPage:true});
+saved.length=0;await page.setViewportSize({width:1920,height:1080});await page.reload();await ready();await base();await add();const initialWeek=await page.getByLabel('연도·차수',{exact:true}).inputValue();await week(initialWeek);assert.equal(saved.length,0);assert.equal((await product())[2],'2');await create('두번째');await page.getByRole('navigation',{name:'기초재고 페이지'}).getByRole('button',{name:'카톡방 재고장',exact:true}).click();assert.equal((await product())[2],'2');
 assert.deepEqual(errors,[]);assert.deepEqual(requests.filter(p=>!['/api/favorites','/api/user-activity','/api/replay','/api/log'].some(a=>p.startsWith(a))),[]);console.log('PASS aligned row, page add/switch, week/year/duplicate isolation, raw dedup scoped to document, draft preservation, v1 reload, saved reload, 1920/390, zero ERP writes');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1)});
