@@ -33,3 +33,5 @@ assert(analyzeLedgerText('44-1 변경사항\n주광\n화이트 1추가',species,
 const selected=analyzeLedgerText('44-1 장미\n주광\n화이트 1추가',species,'2026-44-01');assert.deepEqual(selected.errors,[]);assert.deepEqual(calculateLedger(species,selected.changes).rows.map(r=>r.remaining),[2,2]);
 
 assert.equal(stockSourceWeek('44-2수국 변경사항','2026-44-01'),'2026-44-02');
+
+assert(analyzeLedgerText('주광\n유카리체리 1추가',base,'2026-44-01',{sourceWeek:'2026-44-01'}).errors.length,'feed page-week fallback must not guess a section when raw text has no header');
