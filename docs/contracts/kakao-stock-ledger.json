@@ -11,7 +11,8 @@
     "__tests__/kakaoStockInbox.test.js",
     "scripts/kakao-stock-inbox-smoke.cjs",
     "lib/kakaoStockPages.js",
-    "__tests__/kakaoStockPages.test.js"
+    "__tests__/kakaoStockPages.test.js",
+    "scripts/kakao-stock-pages-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
