@@ -1720,3 +1720,6 @@
 
 2026-10-29 출력라벨 후속 전체검증: npm run verify:erp-change exit0 PASS(webpack build포함,.verify/erp-export-label.log),명시writeguard origin/master대비0API PASS. 후속PR/최종CI/배포/운영재다운로드는대기. 문서커밋전상태동결.
 - 검색어: 관세라벨 전체검증 PASS export-label 재다운로드대기
+
+2026-11-02 채권 통합표: 차수 요약과 원본 전표를 한 표로 통합. 각 차수 아래 전표 전부 표시, 은행 입금은 차수 합계에만 표시. 원본/기존자료/수집/DB/권한 변경 없음. 대상34검사 통과. 전체검증·배포·운영확인 진행 중. 근거 docs/work-sessions/2026-11-02_ecount-unified-ledger.md.
+- 검색어: 차수 전표 통합표 ledgerTableGroups 원본잔액 은행중복합산금지
