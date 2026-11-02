@@ -346,3 +346,29 @@ test('actual dispatcher consumes explicit recovery before collection and does no
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);tick();await flush();assert.equal(batches,1);
  start(ctx,()=>'', '');await flush();assert.equal(batches,1);assert.equal(state.lastAttempt,fixed-3600000);
 });
+
+test('45-minute budget defers only untouched customers without marking them failed or uploading twice',async()=>{
+ const {collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs');let clock=0;const uploads=[],deferred=[];
+ const r=await collectLedgerBatch({page:{},getBase:()=>'',work:{customers:[{custKey:1},{custKey:2},{custKey:3}],period:{}},now:()=>clock,collect:async(_p,_b,c)=>{clock=45*60000+1;return c;},upload:async p=>uploads.push(p.custKey),recordFailure:()=>assert.fail(),onDeferred:async keys=>deferred.push(keys),log:()=>{}});
+ assert.deepEqual(r,{ok:1,failed:0,total:3,deferred:2});assert.deepEqual(uploads,[1]);assert.deepEqual(deferred,[[2,3]]);
+});
+test('continuation excludes malformed keys, stale days and cross-year periods',()=>{
+ const {makeContinuation,continuationEligible}=require('../lib/ecountCollectorRecovery.cjs');const now=Date.parse('2026-12-31T17:30:00+09:00'),work={period:{from:'2026-11-30',to:'2026-12-31'}};
+ const c=makeContinuation(work,[2,3],now);assert.equal(continuationEligible(c,now),true);assert.equal(continuationEligible(c,Date.parse('2027-01-01T09:00:00+09:00')),false);assert.equal(continuationEligible(c,Date.parse('2025-12-31T09:00:00+09:00')),false);assert.equal(continuationEligible(c,Date.parse('2026-12-31T18:00:00+09:00')),false);
+ for(const keys of [[2,2],[-1],['2'],[]])assert.equal(makeContinuation(work,keys,now),null);
+});
+test('actual dispatcher prioritizes manual refresh then resumes only deferred canonical keys across restart',async()=>{
+ const real=require('../lib/ecountCollectorRecovery.cjs'),fixed=Date.parse('2026-11-02T09:00:00+09:00'),work={customers:[{custKey:1},{custKey:2},{custKey:3}],period:{from:'2026-10-02',to:'2026-11-02'}};
+ const marker={id:'00000000-0000-0000-0000-000000000003',requestedAt:new Date(fixed).toISOString()};
+ let state={lastAttempt:fixed,lastRecoveryId:marker.id,continuation:real.makeContinuation(work,[2,3],fixed)},temp,tick,queued={requestId:9,custKey:9,period:work.period};const batches=[],uploads=[];
+ const disk={readFileSync:name=>JSON.stringify(name==='state'?state:marker),writeFileSync:(_name,value)=>temp=JSON.parse(value),renameSync:()=>state=temp};
+ const api=async(_url,body,suffix)=>{if(suffix){const r=queued;queued=null;return {refreshRequest:r};}if(body){if(body.custKey)uploads.push(body.custKey);return {};}return {...work,customers:[...work.customers]};};
+ const batch=async args=>{batches.push(args.work.customers.map(c=>c.custKey));if(batches.length===1){await args.onDeferred([3]);return {ok:1,failed:0,deferred:1};}return {ok:1,failed:0};};
+ const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
+ const recovery={...real,recoveryRequestId:(r,id)=>real.recoveryRequestId(r,id,fixed),continuationEligible:c=>real.continuationEligible(c,fixed),makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
+ const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>null,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),batch,async({customer})=>({custKey:customer.custKey}),()=>{},fn=>{tick=fn;return 1;},()=>{}, {log:()=>{}});
+ const ctx={newPage:async()=>({close:async()=>{}})},flush=()=>new Promise(setImmediate);
+ start(ctx,()=>'', '');await flush();assert.deepEqual(uploads,[9]);assert.equal(batches.length,0);assert.deepEqual(state.continuation.keys,[2,3]);
+ tick();await flush();assert.deepEqual(batches,[[2,3]]);assert.deepEqual(state.continuation.keys,[3]);
+ start(ctx,()=>'', '');await flush();assert.deepEqual(batches,[[2,3],[3]]);assert.equal(state.continuation,null);tick();await flush();assert.equal(batches.length,2);
+});

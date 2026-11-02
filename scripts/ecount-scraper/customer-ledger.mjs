@@ -148,10 +148,10 @@ export function parseLedgerReport(source,customer,period,collectedAt=new Date())
   validation.validateLedger(payload,collectedAt);
   return payload;
 }
-export async function collectLedgerBatch({page,getBase,work,upload,recordFailure=async()=>{},collect=collectCustomerLedger,recoverSession,now=Date.now,log=console.log}){
-  const startedAt=now(),total=work.customers.length;let ok=0,failed=0;
+export async function collectLedgerBatch({page,getBase,work,upload,recordFailure=async()=>{},collect=collectCustomerLedger,recoverSession,onDeferred=async()=>{},now=Date.now,log=console.log}){
+  const startedAt=now(),total=work.customers.length;let ok=0,failed=0,deferred=0;
   for(const customer of work.customers){
-    if(now()-startedAt>45*60000){failed+=total-ok-failed;break;}
+    if(now()-startedAt>45*60000){const remaining=work.customers.slice(ok+failed).map(c=>c.custKey);await onDeferred(remaining);deferred=remaining.length;break;}
     try{const payload=await recovery.withSessionRecovery(()=>collect(page,getBase(),customer,work.period),recoverSession);await upload(payload);ok++;}
     catch(e){
       failed++;const reason=/^[A-Z_]+$/.test(e.message)?e.message:'SOURCE_LOOKUP_FAILED';
@@ -165,11 +165,12 @@ export async function collectLedgerBatch({page,getBase,work,upload,recordFailure
     }
     if((ok+failed)%10===0||ok+failed===1)log(`[ledger723] progress=${ok+failed}/${total} verified=${ok} failed=${failed}`);
   }
-  return {ok,failed,total};
+  return {ok,failed,total,...(deferred?{deferred}: {})};
 }
 export function startCustomerLedgerSchedule(ctx,getBase,nenova,{recoverSession}={}){
-  let lastAttempt=null,lastRecoveryId=null,busy=false;
-  try{const state=JSON.parse(fs.readFileSync(STATE,'utf8'));lastAttempt=state.lastAttempt;lastRecoveryId=state.lastRecoveryId??null;}catch{}
+  let lastAttempt=null,lastRecoveryId=null,continuation=null,busy=false;
+  try{const state=JSON.parse(fs.readFileSync(STATE,'utf8'));lastAttempt=state.lastAttempt;lastRecoveryId=state.lastRecoveryId??null;continuation=state.continuation??null;}catch{}
+  const saveState=()=>{fs.writeFileSync(STATE+'.tmp',JSON.stringify({lastAttempt,lastRecoveryId,continuation}));fs.renameSync(STATE+'.tmp',STATE);};
   const tick=async()=>{
     if(busy)return;
     const slot=schedule.dueSlot(Date.now(),lastAttempt);
@@ -178,29 +179,37 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova,{recoverSession}=
     if(slot===null&&!schedule.isRefreshRequestAllowed())return;
     busy=true;
     try{
-      if(slot!==null||recoveryId){
+      const resume=recovery.continuationEligible(continuation);
+      let priorityRequest=null;
+      if(slot===null&&!recoveryId&&resume)priorityRequest=(await api(nenova,null,'?queue=refresh')).refreshRequest;
+      if(slot!==null||recoveryId||(resume&&!priorityRequest)){
+        const pending=slot===null&&!recoveryId?continuation:null;
         if(slot!==null)lastAttempt=slot;
         if(recoveryId)lastRecoveryId=recoveryId;
         // Claim before collection, including across process restarts. No missed-slot catch-up.
-        fs.writeFileSync(STATE+'.tmp',JSON.stringify({lastAttempt,lastRecoveryId}));
-        fs.renameSync(STATE+'.tmp',STATE);
-        let page,bankPage,ok=0,failed=0,total=0;
+        continuation=null;saveState();
+        let page,bankPage,ok=0,failed=0,deferred=0,total=0;
         try{
-          const work=await api(nenova);total=work.customers.length;
+          const work=await api(nenova);
+          if(pending){
+            if(pending.period.from!==work.period.from||pending.period.to!==work.period.to){console.log('[ledger723] stale continuation discarded');return;}
+            const keys=new Set(pending.keys);work.customers=work.customers.filter(c=>keys.has(c.custKey));
+          }
+          total=work.customers.length;
           page=await ctx.newPage();
           bankPage=await ctx.newPage();
           let history=null;
           try{history=await recovery.withSessionRecovery(()=>collectBankSnapshot(bankPage,getBase(),work.period,'REFLECTED',process.env.NENOVA_TOKEN),recoverSession);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
-          ({ok,failed}=await collectLedgerBatch({page,getBase,work,recoverSession,collect:(page,base,customer,period)=>collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger:collectCustomerLedger}),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
+          ({ok,failed,deferred=0}=await collectLedgerBatch({page,getBase,work,recoverSession,onDeferred:async keys=>{continuation=recovery.makeContinuation(work,keys);if(!continuation)throw new Error('CONTINUATION_SCOPE_INVALID');saveState();},collect:(page,base,customer,period)=>collectLedgerWithBank({page,bankPage,base,customer,period,history,collectLedger:collectCustomerLedger}),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
         }catch{failed=Math.max(failed,1);}
         finally{
           if(page)await page.close().catch(()=>{});
           if(bankPage)await bankPage.close().catch(()=>{});
-          console.log(`[ledger723] slot=${slot===null?'requested-recovery':new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed}`);
+          console.log(`[ledger723] slot=${slot===null?(pending?'continuation':'requested-recovery'):new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed} deferred=${deferred}`);
         }
         return;
       }
-      const result=await api(nenova,null,'?queue=refresh');
+      const result=priorityRequest?{refreshRequest:priorityRequest}:await api(nenova,null,'?queue=refresh');
       const request=result.refreshRequest;
       if(!request)return;
       let page,bankPage,success=false;
