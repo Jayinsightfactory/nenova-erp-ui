@@ -1720,3 +1720,5 @@
 
 2026-10-29 출력라벨 후속 전체검증: npm run verify:erp-change exit0 PASS(webpack build포함,.verify/erp-export-label.log),명시writeguard origin/master대비0API PASS. 후속PR/최종CI/배포/운영재다운로드는대기. 문서커밋전상태동결.
 - 검색어: 관세라벨 전체검증 PASS export-label 재다운로드대기
+
+2026-11-02 누락 내역/취소 착수. 원HistoryKey별 취소감사만추가,기존ERP보존,재누락시옛취소무효.검증진행. 검색어:PERMANENT_OMIT_CANCEL 누락취소

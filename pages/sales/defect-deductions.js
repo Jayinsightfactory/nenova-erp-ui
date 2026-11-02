@@ -150,6 +150,8 @@ export default function SalesDefectDeductionsPage() {
   const scope = useMemo(initialScope, []);
   const [year, setYear] = useState(scope.year);
   const [week, setWeek] = useState(scope.week);
+  const [omissionRows,setOmissionRows]=useState(null);
+  const [omissionBusy,setOmissionBusy]=useState(false);
   const [manager, setManager] = useState('');
   const [managerOptions, setManagerOptions] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1150,6 +1152,8 @@ export default function SalesDefectDeductionsPage() {
     finally { if (!handedOffToReview) setSupportRegistering(false); }
   };
 
+  const loadOmissionHistory=async()=>{setOmissionBusy(true);try{const r=await fetch(`/api/sales/defect-deductions?view=omission-history&year=${year}`,{credentials:'include'});const d=await parseJsonResponse(r);if(!r.ok||!d.success)throw Error(d.error||'조회 실패');setOmissionRows(d.rows);}catch(e){setError(e.message);}finally{setOmissionBusy(false);}};
+  const undoOmission=async(row)=>{if(!window.confirm(`${row.customerName||''} / ${row.productName||''} / ${row.orderWeek}차 ${row.quantity}${row.sourceUnit} 누락 처리를 취소합니까?`))return;setOmissionBusy(true);try{await apiPost('/api/sales/defect-deductions',{action:'permanent-omit-cancel',year,historyKey:row.historyKey});await loadOmissionHistory();if(activeTab==='carryover')await loadCarryover();else await loadSupport();setMessage('누락 취소 완료. 출고·단가·중복 검사 후 등록할 수 있습니다.');}catch(e){setError(e.message);}finally{setOmissionBusy(false);}};
   const markSupportOmitted = async () => {
     const selected=supportRows.filter(r=>supportSelected.has(Number(r.deductionKey))&&r.registrationEligible);
     if(!selected.length){setError('등록 가능한 행을 선택하세요.');return;}
@@ -1716,6 +1720,8 @@ export default function SalesDefectDeductionsPage() {
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
+            <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
+            {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
@@ -1730,6 +1736,8 @@ export default function SalesDefectDeductionsPage() {
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
+            <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
+            {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>

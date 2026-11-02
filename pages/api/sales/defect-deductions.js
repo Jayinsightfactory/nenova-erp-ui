@@ -6,6 +6,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  listOmissionHistory, cancelPermanentOmission,
   permanentlyOmitDeductions,
   correctDraftPeriod,
   releaseReviewedSources,
@@ -42,6 +43,7 @@ function defaultYear() { return new Date().getFullYear(); }
 async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if(req.query.view==='omission-history')return res.status(200).json({success:true,rows:await listOmissionHistory({year:req.query.year,user:req.user})});
       if (req.query.view === 'lookups') {
         const data = await loadLookupData({ q: req.query.q || '', kind: req.query.kind || 'farm' });
         return res.status(200).json({ success: true, ...data });
@@ -88,10 +90,11 @@ async function handler(req, res) {
     }
 
     // Management previews and writes use the installed schema; never run DDL.
-    if (!['manage-edit', 'manage-archive', 'review-source', 'permanent-omit'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
+    if (!['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
 
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
+      if(action==='permanent-omit-cancel')return res.status(200).json({success:true,...await cancelPermanentOmission({year,historyKey:req.body.historyKey,user:req.user})});
       if(action==='permanent-omit')return res.status(200).json({success:true,...await permanentlyOmitDeductions({year,week,rows:req.body.rows,user:req.user})});
       if (action === 'manager-save') {
         if (!isDefectAdmin(req.user)) {
@@ -261,5 +264,5 @@ const loggedHandler = withActionLog(handler, {
 // Read-only management previews must also bypass the action logger's DDL/INSERT.
 // Authentication and policy errors still run normally; actual mutations retain audit logging.
 export default withAuth((req, res) => req.method === 'POST'
-  && ['manage-edit', 'manage-archive', 'review-source', 'permanent-omit'].includes(String(req.body?.action || ''))
+  && ['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel'].includes(String(req.body?.action || ''))
   && req.body?.preview === true ? handler(req, res) : loggedHandler(req, res));
