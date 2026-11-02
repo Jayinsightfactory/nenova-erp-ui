@@ -6,8 +6,9 @@ function loadCustomers(period,retry=false){
   const key=`${period.year}-${period.month}`;
   if(!retry&&cache?.key===key&&Date.now()<cache.expires)return cache.promise;
   const read=async url=>{const r=await fetch(url);const d=await r.json();if(!r.ok||d.success===false)throw Error('업체·매출 목록을 불러오지 못했습니다.');return d;};
-  const promise=Promise.all([read('/api/customers/search'),read(`/api/stats/sales?type=monthly&exeParity=1&year=${period.year}&month=${period.month}`)])
-    .then(([c,s])=>({customers:(c.customers||[]).map(({CustKey,CustName,CustArea})=>({CustKey,CustName,CustArea})),sales:s.byCustomer||[]})).catch(e=>{cache=null;throw e;});
+  const monthly=(year,month)=>read(`/api/stats/sales?type=monthly&exeParity=1&year=${year}&month=${month}`);
+  const promise=Promise.all([read('/api/customers/search'),monthly(period.year,period.month),monthly(period.previousYear,period.previousMonth)])
+    .then(([c,current,previous])=>({customers:(c.customers||[]).map(({CustKey,CustName,CustArea})=>({CustKey,CustName,CustArea})),sales:[...(current.byCustomer||[]),...(previous.byCustomer||[])].map(r=>({...r,prevSales:0}))})).catch(e=>{cache=null;throw e;});
   cache={key,expires:Date.now()+5*60*1000,promise};return promise;
 }
 
