@@ -10,6 +10,7 @@ export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.body?.jobId || '').slice(0, 80);
+  let progressStarted = false;
   try {
     // Before audit initialization or any ERP write, require the complete server-verified preview.
     assertReplacementPlan(req.body || {}, req.user.userId);
@@ -23,9 +24,13 @@ async function handler(req, res) {
       error.statusCode = 400;
       throw error;
     }
-    if (jobId && !initApplyProgress(jobId, (req.body?.rows || []).length, String(req.user.userId || ''))) {
+    if (!/^[a-zA-Z0-9_-]{16,80}$/.test(jobId)) {
+      return res.status(400).json({ success: false, code: 'INVALID_JOB_ID', error: '새 작업번호가 필요합니다. 화면을 새로고침하고 다시 검증하세요.' });
+    }
+    if (!initApplyProgress(jobId, (req.body?.rows || []).length, String(req.user.userId || ''), { year: req.body.year, week: req.body.week })) {
       return res.status(409).json({ success: false, code: 'JOB_ID_EXISTS', error: '다른 작업에서 사용 중인 작업 ID입니다.' });
     }
+    progressStarted = true;
     const result = await applyImportRows({
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
@@ -50,10 +55,15 @@ async function handler(req, res) {
       });
     return res.status(200).json(result);
   } catch (e) {
-    if (jobId) finishApplyProgress(jobId, {
+    const knownRejection = (Number(e.statusCode) >= 400 && Number(e.statusCode) < 500) ||
+      ['IMPORT_DEPLOY_BUSY', 'IMPORT_PROGRESS_STORAGE', 'QTY_WARNING'].includes(e.code);
+    const outcomeUnknown = progressStarted && !knownRejection && e.transactionRolledBack !== true;
+    const code = outcomeUnknown ? 'IMPORT_PROGRESS_LOST' : e.code;
+    const message = outcomeUnknown ? '저장 결과를 확정할 수 없습니다. 작업번호를 보관했습니다. 업로드 이력과 결과 다시 확인으로 확인하세요.' : e.message;
+    if (progressStarted) finishApplyProgress(jobId, {
       failed: true,
-      log: `오류: ${e.message}`,
-      error: { message: e.message, code: e.code || '', statusCode: Number(e.statusCode) || 500 },
+      log: `오류: ${message}`,
+      error: { message, code: code || '', statusCode: Number(e.statusCode) || 500 },
     });
     if (e.code === 'QTY_WARNING') {
       return res.status(409).json({
@@ -64,9 +74,9 @@ async function handler(req, res) {
       });
     }
     if (e.statusCode) {
-      return res.status(e.statusCode).json({ success: false, error: e.message, code: e.code });
+      return res.status(e.statusCode).json({ success: false, error: message, code, outcomeUnknown });
     }
-    return res.status(500).json({ success: false, error: e.message, code: e.code });
+    return res.status(500).json({ success: false, error: message, code, outcomeUnknown });
   }
 }
 

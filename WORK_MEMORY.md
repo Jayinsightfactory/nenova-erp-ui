@@ -1766,3 +1766,9 @@
 
 2026-11-02 자동수집1차 PR1389 CI41371944528/79bb5f0a,수집기6파일백업·적용/새PID42352/10:26로그인복구/미카엘canary성공. 추가45분제한후미시도원장누락확인→continuation후속:원자적미시도key/같은KST날짜·period/수동요청우선/중복업로드없음. 대상63검사PASS. 최종배포·전체재수집대기.
 - 검색어: 45분 continuation deferred 원장누락 PR1389 79bb5f0a
+
+## 2026-11-02 분배 업로드 중단·결과 복구 수정
+- 최신origin/master383520ae5 기반 codex/import-timeout-recovery. Audit137381행749초정상완료;135/136STARTED와기존배포재시작중첩. 기존lease/진척기준대기는유지.
+- private aggregate저널+owner해시/감사키, 새로고침동일GET복구, 결과불명새POST차단, 기존job상태/성공감사보호. ERP writer/품종범위/환산/금액/확정불변.
+- 관련shipment-import전체통과.750행15분진척, 실child종료/교차연도/권한/보관실패/중복/unknowncommit검증. 전체ERP/build/CI/배포/브라우저는진행중(미검증).
+- 검색어: import-timeout-recovery importProgressJournal IMPORT_COMMITTED_REVIEW_REQUIRED 749초 Audit137
