@@ -1080,3 +1080,7 @@ History PERMANENT_OMIT는 연도+원차수+업체+품목+수량+단위 완전일
 
 ## 2026-11-02 수국 업로드가 카네이션을 지운 사고
 Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 교체로 확장되어 기존42행76박스가 엑셀누락으로 삭제됐다. 이름유일/수동이라는 이유로 원본 품종경계를 무시하지 않는다. 원본명·제목의 품종/국가를 먼저 검증하며 확실한 혼합품종 행은 해당 품종으로 읽는다. 삭제범위는 CountryFlower+FlowerName으로 분리하고 근거불명은 실제 연결품목만 허용. 정확 제품키목록을 항상 서명하여 preflight/transaction/readback에 공유, 기존 v2서명 폐기. source scope는 사용자가 잘못 연결한 결과에서 역추정하지 않는다. 회귀 shipmentImportManualSkip 및 shipmentReplacementPlan, 전체3359품목 교차분류·6175원문과2025/2026 fixture. 운영보정 없음.
+
+## 2026-11-02 분배 업로드 응답 단절 복구
+작업번호를 서버 private runtime 저널에 소유자 해시/연도/차수/감사키/집계만 저장한다. 원본 파일·인증토큰·업체명·행값은 기록하지 않는다. 메모리의 상세 진행을 유지하되 활성 작업은 TTL로 버리지 않는다. 접수 또는 감사키 바인딩 실패는 원장 쓰기 전에 차단한다. 재시작 후 보관된 완료 결과가 없으면 소유자+연도+세부차수+감사키 SELECT만 수행한다. 커밋 이력만 확인된 작업은 최종 결과 미확인으로 표시하며 자동 재실행하지 않는다. 오류 처리로 SUCCESS 감사 이력을 FAILED로 덮어쓰지 않는다.
+브라우저는 사용자별 해시 키로 작업번호만 보관해 새로고침 시 동일 GET 조회를 재개한다. 결과불명 상태에서 새 POST를 차단하고, 서버가 살아 있는 진행 중 상태에서는 확인 해제도 차단한다. 기존 전체교체 서명/품종 범위/트랜잭션/배포 lease 보존. 회귀: importProgressJournal.test.cjs, shipmentImportProgressRecovery.test.cjs. 기준: plans/import-timeout-recovery-2026-11-02.md.

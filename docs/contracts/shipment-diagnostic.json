@@ -64,7 +64,13 @@
     "lib/importApplyLease.cjs",
     "__tests__/importApplyLease.test.cjs",
     "__tests__/shipmentImportProgressRecovery.test.cjs",
-    ".github/workflows/deploy.yml"
+    ".github/workflows/deploy.yml",
+    "lib/importApplyProgress.js",
+    "lib/importProgressJournal.cjs",
+    "lib/importProgressRecovery.js",
+    "lib/importApplyClient.js",
+    "pages/api/shipment/distribute-import-apply-progress.js",
+    "__tests__/importProgressJournal.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -213,6 +219,16 @@
       "stock": "preserve",
       "yearFixture": "2025 and 2026 44-01 arguments preserved verbatim by lease wrapper",
       "progressTimeout": "12 minutes without an advancing finite server updatedAt; active jobs may exceed 12 minutes total; missing/stale/invalid progress never triggers automatic replay"
+    },
+    {
+      "name": "IMPORT_DURABLE_RESULT_RECOVERY",
+      "description": "Same job GET only; private aggregate progress and audit identity survive restart. Active records never TTL-pruned. Owner hash and audit owner/year/week enforced. Commit-only evidence is unknown final outcome. Browser pending job survives refresh, blocks new POST until terminal result or explicit history review. Preflight rejection/duplicate ID cannot finish another job. Unknown commit errors do not authorize retry. Existing signed scope/native writer/transaction/lease remain unchanged.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -241,7 +257,8 @@
     "__tests__/shipmentImportCustomerExclusionPreview.test.js",
     "__tests__/shipmentImportManualSkip.test.js",
     "__tests__/importApplyLease.test.cjs",
-    "__tests__/shipmentImportProgressRecovery.test.cjs"
+    "__tests__/shipmentImportProgressRecovery.test.cjs",
+    "__tests__/importProgressJournal.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

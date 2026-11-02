@@ -1,3 +1,4 @@
+- [2026-11-02 분배 업로드 12분 결과 미확인 복구](2026-11-02_import-timeout-recovery.md)
 - [2026-11-02 이카운트 자동수집 복구](2026-11-02_ecount-collector-recovery.md)
 
 - [2026-11-02 수국 업로드 품종 경계](2026-11-02_import-category-guard.md) — 카네이션 삭제 재발 방지 및 전품목 회귀.
