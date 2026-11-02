@@ -1,3 +1,4 @@
+- [2026-11-02 분배 업로드 12분 결과 미확인 복구](2026-11-02_import-timeout-recovery.md)
 - [불량차감 유지보수 기준·세션 오류 해결](../DEFECT_DEDUCTION_MAINTENANCE.md)
 - [2026-11-02 세션 인수 기록](../session-backups/2026-11-02_defect-incident-maintenance.md)
 - [2026-11-02 차수 요약과 전표 통합](2026-11-02_ecount-unified-ledger.md)

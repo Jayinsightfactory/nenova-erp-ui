@@ -6,6 +6,7 @@ import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_SKIP_PRODUCT_VALUE, isImportSkipProductValue, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue, isAlstroImportRow } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
+import { waitForImportResult, IMPORT_UNKNOWN_CODES, importPendingKey, readPendingImport, savePendingImport, clearPendingImport } from '../../lib/importApplyClient';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -123,6 +124,11 @@ export default function DistributeImport() {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [pendingJob, setPendingJob] = useState(null);
+  const [pendingReady, setPendingReady] = useState(false);
+  const pendingKeyRef = useRef(null);
+  const mountedRef = useRef(true);
+  const watchingRef = useRef(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [applyResult, setApplyResult] = useState(null);
@@ -143,6 +149,49 @@ export default function DistributeImport() {
   const verifiedOverridesRef = useRef({ cust: {}, prod: {} });  // 직전 검증에 보낸 override 스냅샷
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
   const setProdOverridesState = next => { prodOverridesRef.current = next; setProdOverrides(next); };
+
+  const finishPendingJob = job => {
+    clearPendingImport(window.localStorage, pendingKeyRef.current, job.jobId);
+    setPendingJob(null);
+  };
+  const recoverPendingJob = async job => {
+    if (watchingRef.current) return;
+    watchingRef.current = true;
+    setApplying(true); setError(''); setApplyModalOpen(true);
+    setApplyResult({ running: true, appliedRows: [], logs: [`${job.year}/${job.week} 이전 작업의 결과를 조회합니다. 새 적용 요청은 보내지 않습니다.`] });
+    try {
+      const data = await waitForImportResult({ ...job, isCurrent: () => mountedRef.current,
+        onProgress: progress => setApplyResult(prev => ({ ...prev, progress })) });
+      if (!mountedRef.current) return;
+      const unknown = IMPORT_UNKNOWN_CODES.has(data.code);
+      setApplyResult({ ...data, running: false, failed: !data.success, outcomeUnknown: unknown, logs: data.logs || [data.error || '처리 결과 확인'] });
+      if (!unknown) finishPendingJob(job);
+      setPreview(null);
+      if (data.success) setMessage(`${job.year}/${job.week} 이전 작업 완료를 확인했습니다. 적용 ${data.appliedCount || 0}건. 새 파일은 다시 검증하세요.`);
+      else setError(data.error || '이전 적용 작업이 실패했습니다.');
+    } catch (e) {
+      if (!mountedRef.current) return;
+      setError(e.message);
+      setApplyResult(prev => ({ ...prev, running: false, failed: true, outcomeUnknown: true, error: e.message }));
+    } finally {
+      watchingRef.current = false;
+      if (mountedRef.current) setApplying(false);
+    }
+  };
+  useEffect(() => {
+    mountedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const user = JSON.parse(window.localStorage.getItem('nenovaUser') || 'null');
+      const key = await importPendingKey(user?.userId);
+      if (cancelled) return;
+      pendingKeyRef.current = key;
+      const job = readPendingImport(window.localStorage, key);
+      setPendingReady(true); setPendingJob(job);
+      if (job) recoverPendingJob(job);
+    })().catch(e => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, []);
 
   const loadImportHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -447,6 +496,10 @@ export default function DistributeImport() {
   };
 
   const handleApply = async () => {
+    if (!pendingReady || pendingJob || applying) {
+      setError('이전 작업의 결과 확인을 마친 뒤 새로 적용하세요.');
+      return;
+    }
     if (!preview) return;
     if (!preview.replacementPlan) {
       setError('전체 교체 검증이 완료되지 않았습니다. 미매칭·확정 차단을 해결하고 다시 검증하세요.');
@@ -510,61 +563,35 @@ export default function DistributeImport() {
     setApplyModalOpen(true);
     // 실시간 진행 로그 — 서버 트랜잭션이 도는 동안 몇 건째/어떤 업체·품목을 입력 중인지 폴링으로 표시
     const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const job = { jobId, year: preview.orderYear, week: preview.week };
+    try {
+      savePendingImport(window.localStorage, pendingKeyRef.current, job);
+      setPendingJob(job);
+    } catch (e) {
+      setApplying(false); setError(e.message);
+      setApplyResult({ running: false, failed: true, logs: ['작업번호를 보관하지 못해 적용 요청을 보내지 않았습니다.'], appliedRows: [] });
+      return;
+    }
+    let pollTimer;
+    let polling = false;
     const recoverApplyResult = async () => {
-      let deadline = Date.now() + (12 * 60 * 1000);
-      let lastProgressUpdatedAt = 0;
-      let missingProgressCount = 0;
-      setApplyResult(prev => ({
-        ...(prev || initialApplyResult),
-        running: true,
-        logs: [...((prev || initialApplyResult).logs || []), '서버 응답이 끊겨 실제 처리 상태를 자동 확인 중입니다. 재실행하지 마세요.'],
-      }));
-      while (Date.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-        try {
-          const progressRes = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
-          if (progressRes.status === 401) throw new Error('로그인 세션이 만료되었습니다.');
-          if (!progressRes.ok) continue;
-          const progressData = await progressRes.json();
-          if (fileRevision !== sheetLoadRef.current) return { success: false, error: '업로드 파일이 변경되었습니다. 새 파일을 검증하세요.' };
-          const serverProgress = progressData?.progress;
-          if (!serverProgress) {
-            missingProgressCount += 1;
-            if (missingProgressCount >= 10) throw Object.assign(new Error('서버에서 진행 정보를 찾을 수 없습니다. 서버 재시작 등으로 작업이 중단됐을 수 있습니다. 자동 재적용하지 않았습니다. 적용 이력과 재검증 결과로 실제 반영 여부를 먼저 확인하세요.'), { code: 'IMPORT_PROGRESS_LOST' });
-            continue;
-          }
-          missingProgressCount = 0;
-          // Bound silence, not total duration: large files may legitimately
-          // take longer than 12 minutes. Repeated stale polls are not progress.
-          const updatedAt = Number(serverProgress.updatedAt);
-          if (Number.isFinite(updatedAt) && updatedAt > lastProgressUpdatedAt) {
-            lastProgressUpdatedAt = updatedAt;
-            deadline = Date.now() + (12 * 60 * 1000);
-          }
-          setApplyResult(prev => (prev?.running ? { ...prev, progress: serverProgress } : prev));
-          if (!serverProgress.finished) continue;
-          if (serverProgress.result) return serverProgress.result;
-          if (serverProgress.failed) {
-            return {
-              success: false,
-              error: serverProgress.error?.message || '서버 적용 작업이 실패했습니다.',
-              code: serverProgress.error?.code || '',
-            };
-          }
-        } catch (progressError) {
-          if (progressError?.message?.includes('로그인 세션') || progressError?.code === 'IMPORT_PROGRESS_LOST') throw progressError;
-        }
-      }
-      throw Object.assign(new Error('12분 동안 서버 처리 진행이 갱신되지 않아 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.'), { code: 'IMPORT_PROGRESS_LOST' });
+      clearInterval(pollTimer);
+      setApplyResult(prev => ({ ...(prev || initialApplyResult), running: true,
+        logs: [...((prev || initialApplyResult).logs || []), '서버의 실제 처리 상태를 자동 확인 중입니다. 작업번호를 보관했으므로 새로고침 후에도 같은 결과를 조회합니다. 재실행하지 마세요.'] }));
+      return waitForImportResult({ ...job, isCurrent: () => mountedRef.current,
+        onProgress: progress => setApplyResult(prev => ({ ...(prev || initialApplyResult), progress })) });
     };
-    const pollTimer = setInterval(async () => {
+    pollTimer = setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
         const d = await r.json();
         if (fileRevision === sheetLoadRef.current && d?.progress) {
           setApplyResult(prev => (prev && prev.running ? { ...prev, progress: d.progress } : prev));
         }
-      } catch { /* 폴링 실패는 무시 — 본 요청이 결과를 준다 */ }
+      } catch { /* 본 요청 또는 같은 작업 결과 조회로 확인 */ }
+      finally { polling = false; }
     }, 900);
     try {
       let res = null;
@@ -583,7 +610,7 @@ export default function DistributeImport() {
       }
       if (!data && res?.status === 503) {
         const unavailable = await res.clone().json().catch(() => null);
-        if (unavailable?.code === 'IMPORT_DEPLOY_BUSY') data = unavailable;
+        if (['IMPORT_DEPLOY_BUSY', 'IMPORT_PROGRESS_STORAGE'].includes(unavailable?.code)) data = unavailable;
       }
       if (!data && res && [502, 503, 504].includes(res.status)) {
         data = await recoverApplyResult();
@@ -598,12 +625,14 @@ export default function DistributeImport() {
           data = await recoverApplyResult();
         }
       }
+      if (data?.code === 'JOB_ID_EXISTS') data = await recoverApplyResult();
+      if (!IMPORT_UNKNOWN_CODES.has(data?.code)) finishPendingJob(job);
       if (fileRevision !== sheetLoadRef.current) return;
       if (!data.success) {
         if (res?.status === 409 && data.code === 'QTY_WARNING') {
           throw new Error(data.error || '수량 단위 이상 징후로 적용이 차단되었습니다. 검증 화면을 다시 확인하세요.');
         }
-        throw new Error(data.error || '적용 실패');
+        throw Object.assign(new Error(data.error || '적용 실패'), { code: data.code });
       }
       setApplyResult(data);
       const verifyMismatchCount = data.verification?.mismatchCount || 0;
@@ -624,7 +653,7 @@ export default function DistributeImport() {
         ...(prev || initialApplyResult),
         running: false,
         failed: true,
-        outcomeUnknown: e.code === 'IMPORT_PROGRESS_LOST',
+        outcomeUnknown: IMPORT_UNKNOWN_CODES.has(e.code),
         error: e.message,
         logs: [...((prev || initialApplyResult).logs || []), `오류: ${e.message}`],
       }));
@@ -666,14 +695,14 @@ export default function DistributeImport() {
                 </span>
               )}
               <button style={st.miniBtn} onClick={handlePreview} disabled={loading}>{loading ? '검증중…' : '검증'}</button>
-              <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !preview}>{applying ? '적용중…' : '적용'}</button>
+              <button style={st.miniApplyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview}>{applying ? '적용중…' : '적용'}</button>
             </span>
           )}
         >
         <div style={st.uploadBand}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, whiteSpace: 'nowrap' }}>
             선출고 원문
-            <select value={earlyImportMode} onChange={event => {
+            <select value={earlyImportMode} disabled={applying} onChange={event => {
               setEarlyImportMode(event.target.value);
               setPreview(null);
               setMessage('원문 기준이 바뀌었습니다. 다시 검증하세요.');
@@ -685,6 +714,7 @@ export default function DistributeImport() {
           <input
             ref={fileRef}
             type="file"
+            disabled={applying}
             accept=".xlsx,.xls"
             style={{ display: 'none' }}
             onChange={e => {
@@ -714,13 +744,24 @@ export default function DistributeImport() {
           >
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
-          <button style={st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
+          <button style={st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading || applying}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
-          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview?.replacementPlan}>
+          <button style={st.applyBtn} onClick={handleApply} disabled={applying || !!pendingJob || !pendingReady || !preview?.replacementPlan}>
             {applying ? '적용 중...' : '승인 후 주문등록+분배'}
           </button>
         </div>
 
+        {pendingJob && <div role="status" style={{ marginBottom: 12, padding: 12, background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8 }}>
+          <strong>{pendingJob.year}/{pendingJob.week} 처리 결과 확인 중</strong>
+          <div>작업번호 {pendingJob.jobId} · 확인이 끝날 때까지 새 적용은 차단됩니다.</div>
+          <button style={st.secondaryBtn} disabled={applying} onClick={() => recoverPendingJob(pendingJob)}>결과 다시 확인</button>
+          <button style={st.secondaryBtn} disabled={applying || !historyOpen || historyLoading || !historyRows.length || (applyResult?.progress?.workerAlive === true && !applyResult?.progress?.finished)} onClick={() => {
+            if (!confirm('업로드 이력과 현재 분배를 확인했고, 기존 작업이 진행 중이 아님을 확인했습니까? 이 버튼은 기존 작업을 취소하거나 다시 실행하지 않습니다. 새 파일은 다시 검증해야 합니다.')) return;
+            finishPendingJob(pendingJob); setPreview(null); setError('');
+            setMessage('확인 상태를 해제했습니다. 원본 파일을 다시 검증하세요.');
+          }}>이력 확인 완료 · 새 검증</button>
+          {!historyOpen && <div>반영 여부를 직접 확인하려면 업로드 이력을 먼저 여세요.</div>}
+        </div>}
         {preAlignResult && (
           <div style={{ marginBottom: 12 }}>
             <PreAlignResultLog result={preAlignResult} />

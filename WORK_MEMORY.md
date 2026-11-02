@@ -1770,3 +1770,9 @@
 ### 2026-11-02 이카운트 조회탭 격리·계속수집 보완
 10:44 전체재수집117 중2검증 뒤 화면전환/reset 실패가 나머지를 실패로 집계하는 증상. 작업별 소유 조회탭 분리/정리, 미확인 커서의 거래처별 원자 저장, API 장애시 커서 보존, context 소실시 커서 후 launcher 재시작. 은행불가 사유는 고정 enum 진단만 보존, 미검증 금액 null/기존 검증본 보존/중복차감 방지 유지. 회귀67 PASS, CI/배포/최종수집 미검증(진행 중).
 검색어: ecount isolated reads SOURCE_CONTEXT_UNAVAILABLE per-customer checkpoint bank unavailable diagnostics
+
+## 2026-11-02 분배 업로드 중단·결과 복구 수정
+- 최신origin/master383520ae5 기반 codex/import-timeout-recovery. Audit137381행749초정상완료;135/136STARTED와기존배포재시작중첩. 기존lease/진척기준대기는유지.
+- private aggregate저널+owner해시/감사키, 새로고침동일GET복구, 결과불명새POST차단, 기존job상태/성공감사보호. ERP writer/품종범위/환산/금액/확정불변.
+- 관련shipment-import전체통과.750행15분진척, 실child종료/교차연도/권한/보관실패/중복/unknowncommit검증. 전체ERP/build/CI/배포/브라우저는진행중(미검증).
+- 검색어: import-timeout-recovery importProgressJournal IMPORT_COMMITTED_REVIEW_REQUIRED 749초 Audit137
