@@ -14,3 +14,5 @@
 월경계/교차연도 키와 explicit0 TTL/오류상태/재시작/동시요청 검증. 생략은 source identity 실패 검색과 은행중복조회에 한정. 판매/입금 전체 변경감지로 상세까지 생략하려면 E040723의 동일관계기준 전체요약 모드/필터/합계 완전성을 실제 로그인 화면에서 검증해야 하므로 미검증 구현은 배포하지 않는다.
 
 읽기/쓰기 및 downstream: Customer/UserInfo/PeriodDay read 및 WebEcountSnapshot 기존 append 그대로. Order/ShipmentMaster/Detail/Farm/Date, Estimate, StockHistory, ProductStock, WebProfitReport 전체 preserve. 원장수식·개별기준 전환 없음.
+
+재가동근거 추가: 실제 로그인 URL은 logincc의 /ec56/view/login/erp_login도 사용함. 기존 exact login.ecount.com 감지는 이 주소를 로그인으로 인식하지 못하고, hostname만 본 대기루프는 인증완료로 오인 가능. 실제ERP경로만 base로 허용하고, networkidle 대신 bounded DOM readiness(15/30초), 브라우저시작180초와 고정단계로그를 사용. URL/세션/입력값은기록없음, 저장된입력값이모두채워졌을때기존로그인버튼만사용하며시간외자동클릭없음. 실제경로/유사경로/팝업/빈화면/외부host/갱신sid/경계버전 fixture 포함대상62 PASS.

@@ -33,3 +33,6 @@
 
 ### 3. 14:52 — 로컬 배포 게이트
 **A.** 대상60·전체ERP계약(후처리포함)·dnSpy근거·manifest178·ERP쓰기(변경API0)·webpack build 모두 exit0. CI/배포/runtime/실브라우저는 다음단계.
+
+### 4. 15:02 — 재가동 로그인 감지 보완
+**A.** 재가동 CFT 로그인 화면과 기존isSourceLoginUrl의 불일치 확인. 실제logincc/ec56/view/login/erp_login도 auth로인식, 정확한ERP경로만base허용. networkidle시작대기 대신15/30초DOM, 브라우저180초, 고정시작단계로그. URL/자격증명입력값 미기록. 대상62 PASS. 초기카나리는시작대기상태에서중단했으며 성공으로집계하지않음; 신규카나리재개예정.

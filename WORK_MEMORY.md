@@ -1790,3 +1790,6 @@
 
 2026-11-02 반복조회감소 로컬검증 완료: 대상60/전체test:erp-contract(후처리포함)/dnSpy/manifest178/ERP쓰기0API/webpack build 모두PASS. CI·배포·owner-PC카나리는 아직미검증.
 검색어: read-reduction local gates PASS 60 fixture
+
+2026-11-02 반복조회카나리시작후 실제logincc/ec56/view/login/erp_login을 기존auth감지가놓치는문제추가보완. 실제ERP경로만base, networkidle대신DOM15/30초, browser180초, 단계enum로그. 원본source수식·PII출력없음. 대상62 PASS. CI/runtime재확인대기.
+검색어: ecountSourceBootstrap logincc erp_login bounded DOM 180000
