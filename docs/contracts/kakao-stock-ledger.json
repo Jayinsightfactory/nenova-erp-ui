@@ -35,7 +35,7 @@
     "calculation": "Beginning total minus current customer quantities, shared calculateLedger for preview/apply/copy; zero valid; cancel overflow blocked; negative remaining displayed.",
     "source": "Bounded parser rejects unknown lines, cross-year header mismatch and duplicate source; manual changes supported.",
     "inbox": "Always visible source/history workspace, recent-three-day automatic read, newest-first search/pagination, stable selected identity. Read-only existing PasteErpHistoryEvidence for exact source year/week; mixed scopes blocked. Analyze explicitly transfers exact source snapshot, application still requires review; source selection never changes ledger.",
-    "layout": "Single product table row aligns beginning qty, remaining qty and latest change; full history per row. Beginning text editor collapses after apply. Page tabs and full-year week selector.",
+    "layout": "Left single table has exactly two columns: stock name/remaining (beginning quantity shown underneath when changed), and latest change/memo. Chat is adjacent right. Bulk stock text and saved snapshots are always collapsed below rows, including empty books; compact item+quantity add form supports empty books. Page/year/week isolation unchanged.",
     "pages": "Version 2 immutable UserFavorite snapshots keyed by stable pageId plus full YYYY-WW-SS; duplicate same-page week opens existing. Identical product/week on other pages and years isolated. Unsaved switches keep in-memory drafts with window-close warning. v1 title-grouped latest snapshot read compatibility."
   },
   "crossYearFixture": {
