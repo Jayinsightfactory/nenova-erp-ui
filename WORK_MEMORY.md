@@ -1741,3 +1741,12 @@
 ## 2026-11-02 카톡 재고 한 화면 3열
 기초재고/적용내역·비고/카톡방 불러오기 3열. 시작입력9행, 원문3행, 복사미리보기 접기. 직접입력은 중앙 변경내역 안에 배치. 1100px 이하2열, 700px 이하세로. 계산/API 불변. 검증 진행 중.
 검색어: 카톡 재고 compact 3열 한화면
+
+## 2026-11-02 업로드 품종 경계 재발 방지
+- Audit140 수국파일에서 카네이션42행76박스가 엑셀누락 삭제된 사건 수정. 원본 국가/품종 검증을 자동·명시키·수동 연결에 공통 적용; 혼합원문의 명시 Ruscus 정상허용.
+- 교체범위 CountryFlower+FlowerName, 원본근거불명은 실제품목만. 모든 preview에 정확 제품키목록 서명/source-species-scope-v3; 기존 미리보기 재검증 필요. 명시 skip/주문보존/환산/native writer 유지.
+- 40개 대상검사 및3359품목6175원문/전분류 경계/교차연도 통과. dnSpy·manifest·write guard 통과, 전체ERP/build/CI/배포/브라우저는 진행중(미검증).
+- 운영DB SELECT-only: 2025/2026 44-02 대상3분류 ViewOrder202/137, ViewShipment148/128, Date148/128,Farm0/0,Estimate1/0,견적노출148/65. 운영보정/시험쓰기없음.
+- 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard
+
+- 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.

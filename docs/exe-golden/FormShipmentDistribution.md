@@ -540,3 +540,7 @@ Vat1036818.2245454545, 확정22. 이 probe는 읽기 전용이며 현재 파일 
 
 ## 2026-10-29 카네이션 적용 중 배포 재시작
 실제 설치 EXE dnSpy CLI FormShipmentDistribution 재실행. 업무키/원장 저장 SQL 변경 없이 applyImportRows 전체에 배포 공유 lease를 추가. SELECT-only Audit135/136(2026/44-01,381행) STARTED와 배포시각 중첩 확인. 근거·부작용·미검증 범위: docs/work-reports/2026-10-29_carnation-import-interruption.md.
+
+## 2026-11-02 업로드 품종 경계
+설치 EXE dnSpy.Console.exe --no-color -t FormShipmentDistribution 재실행. GetShipmentMaster는 선택 연도/차수/업체 조회, btnSave_Click은 수정 CustKey/ProdKey 상세 후 변경 농장과 ShipmentDate.Delete/Insert. 다른 품종을 지우는 국가그룹 교체는 native 요구가 아니다. 환산/날짜/확정 writer 보존, 웹 입력 검증과 교체 범위만 제한한다.
+SELECT-only 2025/2026 44-02 콜롬비아 카네이션·수국·루스커스: ViewOrder202/137행(481/726), ViewShipment148/128행(391/459), ShipmentDate148/128, Farm0/0, Estimate1/0, DetailFix1+ViewOrder+Date+PeriodDay 노출148/65. WebProfitReport 대차수44 저장0. 2025상세Amount32800454.545454524/Vat3280045.454545454,2026 Amount41276585/Vat4127665, Master확정Amount3625906. 감사138→140 카네이션42행76→0 및142재등록 확인. 운영 원장시험쓰기/보정 없음. 상세 기준 docs/plans/import-category-guard-2026-11-02.md. GUI EXE 저장은 미실시.
