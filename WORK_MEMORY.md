@@ -1753,3 +1753,11 @@
 - 검색어: 수국 카네이션 WHITE 76 Audit140 source-species-scope-v3 import-category-guard
 
 - 2026-11-02 검증 보완: 전체 ERP 검사에서 기존 replacementCategories 응답값에 표시용 화종을 덧붙인 3개 회귀 실패를 발견. 기존 응답 의미를 보존하고 replacementScopeLabels를 별도 표시값으로 분리. 관련 재검증 통과 후 CI 진행. webpack 빌드/dnSpy/manifest/write guard 통과. PR1386.
+
+## 2026-11-02 국가별 도착원가 엑셀 수식 복원
+- NL 기존 원가자료와 US/NZ/VN/EC/CN항공·해상/CO/TH 원본 배치 대조. 기존 스냅샷·원본수식 비교는 보존하고, 원본 양식 계산을 기본 활성화하여 판매·매주 확인·이익·이익률·합계를 복원. AU/CO42 전용 계산 유지.
+- NL 상품금액비 운임·통관 배분, GW·CW·환율·통관기본값/합계 연결. 과거 판매가·미보유 세부청구액은 복사/추정하지 않음. 현재 판매가 입력 전 손익은 빈칸이지만 수식 존재. 명시 판매0은 유효하고 0분모 이익률은 빈칸.
+- 실제 Excel(CUA) NL 판매5500 입력: 순판매5000, 총판매800000, 총이익363949.061859. 환율1509.8→1600 변경 시 원가·이익 재계산 확인. US/TH 판매5500+명시0 입력·재계산·저장·다시읽기 오류셀0. TH 첫행 원가의 잘못된 %서식 발견 후 정상 prototype16 서식 적용/회귀 추가.
+- 다중 시트 tabSelected로 Excel [그룹]이 되어 입력이 스냅샷에 복제될 위험 수정: 계산시트만 선택. CN해상 CBM 미보유는 입력필요로 유지하고 미완성 합계를 정상0처럼 표시하지 않음.
+- 대상 회귀54개 중45통과/원본파일 선택검사9skip. 전체 verify 1차는 신규 manifest dnSpy 근거 항목 누락으로 중단→기존 WarehouseUpload 근거 연결 후 재진행. 최종 전체검사·CI·배포·배포후 실제 웹앱 다운로드는 아직 미검증. 운영 DB 쓰기0.
+- 검색어: cost-original-formula-restoration 원본양식계산 판매 매주확인 총이익 tabSelected TH P15 prototype16 CBM 입력필요
