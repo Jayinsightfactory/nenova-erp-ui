@@ -136,3 +136,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## 출고 연결 헤더 작업 시 추가 확인
 
 주문 업로드 또는 EXE 분배 연결 오류를 수정·보정할 때는 [출고 연결 헤더 계약](docs/knowledge/NATIVE_SHIPMENT_HEADER_CONTRACT.md)을 먼저 읽는다. `FormOrderAdd`의 빈 헤더 준비와 `FormShipmentDistribution.GetShipmentMaster`의 조회 전제를 구분한다. 헤더 복구를 위해 예전 주문 파일을 재등록하지 않으며, 삭제 포함 기존 헤더가 있으면 단순 신규 생성으로 처리하지 않는다. 해당 source 계약과 실행형 API 회귀검사를 유지한다.
+
+## 불량차감 관련 작업 필수 근거
+영업수입불량차감·자동수집·재업로드·일괄등록·이월·누락/취소를 변경하기 전에 [불량차감 유지보수 기준](docs/DEFECT_DEDUCTION_MAINTENANCE.md)을 읽는다. docs 폴더 문서에서는 파일명 DEFECT_DEDUCTION_MAINTENANCE.md를 기준으로 찾는다. 수기보존·정확한 차수수량 예외키·원HistoryKey별 취소·공통SQL·양성/반례 검사를 유지하고, 철회된 보정계획은 재실행하지 않는다.

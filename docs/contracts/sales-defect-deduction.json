@@ -451,5 +451,6 @@
     "__tests__/defectLedgerManagementApi.test.js",
     "__tests__/defectDragSelection.test.js",
     "__tests__/defectProductDisplay.test.js"
-  ]
+  ],
+  "maintenanceGuide": "docs/DEFECT_DEDUCTION_MAINTENANCE.md"
 }
