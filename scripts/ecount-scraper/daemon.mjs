@@ -6,6 +6,7 @@
 // 환경변수: INTERVAL_MIN(기본 30) · NENOVA_URL · NENOVA_TOKEN(권장: nenovaweb 토큰=MOYI_API_TOKEN 값) · NENOVA_COOKIE(대안: 로그인쿠키) · HEADLESS=1(창 숨김; 최초 로그인 후에만 권장)
 import { chromium } from 'playwright';
 import fs from 'fs';
+import recovery from '../../lib/ecountCollectorRecovery.cjs';
 import { startCustomerLedgerSchedule } from './customer-ledger.mjs';
 import { PROFILE, DEFS, ERP_ROOT, installGuard, ensureBooted, collectOne, postIngest, isLoginPage } from './scrape-core.mjs';
 
@@ -43,10 +44,10 @@ async function waitForLogin(page) {
   }
 }
 
-async function cycle(page, base) {
+async function cycle(page, getBase, recoverSession) {
   for (const ds of Object.keys(DEFS)) {
     try {
-      const data = await collectOne(page, base, ds);
+      const data = await recovery.withSessionRecovery(()=>collectOne(page, getBase(), ds), recoverSession);
       if (!data.rows.length) { console.log(`  [${ds}] 0행(파싱실패)`); continue; }
       const r = await postIngest(NENOVA, COOKIE, ds, data);
       console.log(`  [${ds}] rows=${data.rows.length} 합계=${data.screenTotal ?? '?'} → ${r.success ? `${r.status} ${r.score}점 #${r.snapshotKey}` : '전송실패:' + r.error}`);
@@ -65,18 +66,24 @@ async function cycle(page, base) {
   const page = ctx.pages()[0] || await ctx.newPage();
 
   let base = await ensureBooted(page);
-  if (!base) { await waitForLogin(page); base = await ensureBooted(page); }
+  const recoverSession = recovery.singleFlight(async()=>{
+    await waitForLogin(page);
+    const next=await ensureBooted(page);
+    if(!next)throw new Error('LOGIN_EXPIRED');
+    base=next;
+  });
+  if (!base) await recoverSession();
   // Independent report page; legacy datasets retain their existing interval.
-  startCustomerLedgerSchedule(ctx, () => base, NENOVA);
+  startCustomerLedgerSchedule(ctx, () => base, NENOVA, {recoverSession});
   console.log(`\n🟢 [${now()}] ECOUNT 상주 수집 데몬 시작 — ${INTERVAL / 60000}분 주기. (창을 닫지 마세요)`);
 
   for (;;) {
     console.log(`\n───── [${now()}] 수집 사이클 ─────`);
-    try { await cycle(page, base); }
+    try { await cycle(page, () => base, recoverSession); }
     catch (e) {
       if (e.message === 'LOGIN_EXPIRED') {
         console.log(`\n⚠ [${now()}] 세션 만료 감지 — 재로그인 대기.`);
-        await waitForLogin(page); base = await ensureBooted(page); continue;
+        await recoverSession(); continue;
       }
       console.error('사이클 오류:', e.message);
       if (/has been closed|browser.*closed|Target closed/i.test(e.message)) { console.error('브라우저가 닫혀 데몬을 종료합니다(런처가 재기동).'); process.exit(2); }

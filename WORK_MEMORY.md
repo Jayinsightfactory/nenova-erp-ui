@@ -1761,3 +1761,6 @@
 - 다중 시트 tabSelected로 Excel [그룹]이 되어 입력이 스냅샷에 복제될 위험 수정: 계산시트만 선택. CN해상 CBM 미보유는 입력필요로 유지하고 미완성 합계를 정상0처럼 표시하지 않음.
 - 대상 회귀54개 중45통과/원본파일 선택검사9skip. 전체 verify 1차는 신규 manifest dnSpy 근거 항목 누락으로 중단→기존 WarehouseUpload 근거 연결 후 재진행. 최종 전체검사·CI·배포·배포후 실제 웹앱 다운로드는 아직 미검증. 운영 DB 쓰기0.
 - 검색어: cost-original-formula-restoration 원본양식계산 판매 매주확인 총이익 tabSelected TH P15 prototype16 CBM 입력필요
+
+2026-11-02 자동수집 복구 착수: 8시124건전체실패·8:56재로그인뒤오전실패분재개없음. 수동미카엘갱신성공(10/31수금4,947,800→잔액50,000). 공용로그인복구/해당작업1회재시도/일회복구마커중복방지/이카운트잔액라벨. 대상59검사통과, 전체검증·배포·카나리·전체재수집대기. docs/work-sessions/2026-11-02_ecount-collector-recovery.md
+- 검색어: 자동수집 LOGIN_EXPIRED singleFlight recoveryRequestId 124건 8시실패
