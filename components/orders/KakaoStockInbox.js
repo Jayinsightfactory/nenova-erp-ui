@@ -36,7 +36,7 @@ export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onA
       {!loading&&!filtered.length&&<p>표시할 대화가 없습니다. 검색어를 바꾸거나 아래 원문 입력칸에 직접 붙여넣으세요.</p>}
       <div role="radiogroup" aria-label="분석할 영업방 원문 선택">{shown.map(message=><article key={message.identity} className={message.identity===selectedId?'selected':''}>
         <label><input type="radio" name="stock-source" aria-label={`원문 선택 ${message.identity}`} checked={message.identity===selectedId} onChange={()=>setSelectedId(message.identity)}/><strong>{message.sender||'영업방'} · {Number.isFinite(Date.parse(message.created_at))?new Date(message.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'시각 확인 필요'}</strong>{applied.includes(message.message.trim())&&<span>재고장 적용됨</span>}</label>
-        <pre>{message.message}</pre>
+        <pre>{compact?message.message.split('\n').slice(0,7).join('\n'):message.message}</pre>{compact&&message.message.split('\n').length>7&&<details><summary>전체 원문 보기 ({message.message.split('\n').length}줄)</summary><pre>{message.message}</pre></details>}
       </article>)}</div>
       <nav aria-label="영업방 원문 목록 페이지"><button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>원문 이전</button><span>{currentPage+1} / {maxPage+1}</span><button disabled={currentPage>=maxPage} onClick={()=>setPage(currentPage+1)}>원문 다음</button>{cursor&&<button disabled={loading||disabled} onClick={()=>refresh()}>대화 이어서 불러오기</button>}</nav>
     </div><div className="selected-history"><h3>선택 원문의 최신 전산이력</h3>
