@@ -1776,3 +1776,7 @@
 - private aggregate저널+owner해시/감사키, 새로고침동일GET복구, 결과불명새POST차단, 기존job상태/성공감사보호. ERP writer/품종범위/환산/금액/확정불변.
 - 관련shipment-import전체통과.750행15분진척, 실child종료/교차연도/권한/보관실패/중복/unknowncommit검증. 전체ERP/build/CI/배포/브라우저는진행중(미검증).
 - 검색어: import-timeout-recovery importProgressJournal IMPORT_COMMITTED_REVIEW_REQUIRED 749초 Audit137
+
+### 2026-11-02 채권 최신화 거절/캐시 조회 피드백
+새 수집기11:45 실제조회와 은행수금5건 대조 확인. 직전 처리10분 내 재요청의 거절 오류가60초캐시 polling에 지워져 이전완료만 보이는 UI문제 보완. 요청오류 분리유지, 새선택/새자료/새요청에 해제, 거절때이전COMPLETE숨김. 일시 network/5xx는 현재 확인본 유지하며 권한4xx는 비움. 이전선택의 늦은거절은 새거래처에 반영안함. 원본ERP/금액/서버10분제한 불변. 최종CI/배포 미검증(진행 중).
+검색어: ecount request feedback rate limit cached polling preserve 503 clear 403

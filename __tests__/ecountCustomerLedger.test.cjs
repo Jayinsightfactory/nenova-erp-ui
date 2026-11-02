@@ -261,7 +261,7 @@ test('delayed refresh success/failure never replaces a different customer or man
  for(const change of ['none','customer','manager','away-back','unmount','failed-other']){
   let finish;const gate=new Promise((resolve,reject)=>{finish=change==='failed-other'?()=>reject(new Error('old customer error')):()=>resolve({ok:true,json:async()=>({success:true,request:{status:'PENDING'}})});});
   const loads=[],data=[],errors=[],posted=[];const selectionId={current:0},requestId={current:0};
-  const deps={selected:'13',manager:'',selectionId,requestId,fetch:async(_url,options)=>{posted.push(JSON.parse(options.body));return gate;},setRequesting:()=>{},setError:e=>errors.push(e),setData:d=>data.push(d),load:async key=>loads.push(key),setSelected:()=>{},setManager:()=>{},messages:{}};
+  const deps={selected:'13',manager:'',selectionId,requestId,fetch:async(_url,options)=>{posted.push(JSON.parse(options.body));return gate;},setRequesting:()=>{},setRequestError:e=>errors.push(e),setError:e=>errors.push(e),setData:d=>data.push(d),load:async key=>loads.push(key),setSelected:()=>{},setManager:()=>{},messages:{}};
   const actions=new Function(...Object.keys(deps),selection+refresh+'\nreturn {selectCustomer,selectManager,requestRefresh};')(...Object.values(deps));
   const pending=actions.requestRefresh();
   if(['customer','away-back','failed-other'].includes(change))actions.selectCustomer('446');
