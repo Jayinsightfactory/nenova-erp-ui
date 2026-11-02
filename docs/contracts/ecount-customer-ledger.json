@@ -127,6 +127,7 @@
     "login": "exact source login host; one retry after shared reauthentication; refresh current base before retry; never persist session URL/credentials",
     "manualRecovery": "explicit operator marker consumed before run, valid weekday08–18 for10min, persistent id prevents restart replay; no missed-slot catch-up without marker",
     "preserve": "source ECOUNT writes blocked; shadow verified snapshots only; canonical customer/source dedup and bank deduction unchanged",
-    "fixtures": "coalesced login, bounded retry, genuine source failures, bank auth, old/weekend marker, year boundary"
+    "fixtures": "coalesced login, bounded retry, genuine source failures, bank auth, old/weekend marker, year boundary, real dispatcher manual priority/continuation/restart, untouched-only timeout, stale/cross-year discard",
+    "continuation": "45min budget checkpoints only untouched canonical customer keys; same KST day and exact server period; atomic state before/after chunks; manual request priority between chunks; no duplicate uploads or failed classification of deferred rows"
   }
 }
