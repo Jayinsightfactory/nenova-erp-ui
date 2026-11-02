@@ -419,6 +419,11 @@ for (const [profileId, filename, count] of [
   });
   test(`${profileId} private wrapper retains current approval and second live check`, async () => {
     const h = harness(); Object.assign(h.f, invoiceCostExportFixture(2, INVOICE_COST_EXPORT_PROFILES[profileId].formulaId));
+    if(profileId==='NL_ORIGINAL_V1'){
+      h.args.types.NVarChar=n=>n;
+      const original=h.args.queryFn;
+      h.args.queryFn=async(sql,params)=>sql.includes('nl-cost:readonly-customer-comparison')?{recordsets:[[{CustKey:533,OrderCode:'YCL2'}],[],h.f.revision.lines.map((cost,i)=>({OrderYear:h.f.document.orderYear,OrderWeek:h.f.document.orderWeek,WarehouseKey:Number(h.args.warehouseKey),WdetailKey:1000+i,ProdKey:h.f.document.lines[i].prodKey,ProdName:h.f.document.lines[i].originalName,SteamQuantity:cost.quantity*(cost.unit==='BUNCH'?5:1)}))]}:original(sql,params);
+    }
     assert.ok((await exportCurrentInvoiceCost(h.args)).buffer); assert.equal(h.reads(), 2);
     h.f.revision.liveReceiptStatus = 'STALE'; await assert.rejects(exportCurrentInvoiceCost(h.args));
   });
