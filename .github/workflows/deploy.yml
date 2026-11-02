@@ -55,14 +55,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Package read-only diagnostic commands
+        id: perf-script
         run: |
           {
+            echo 'script<<PERF_DIAG_EOF'
             printf "node <<'NODE_DIAG'\n"
             cat scripts/diagnose-runtime-readonly.cjs
             printf "\nNODE_DIAG\npython3 <<'PY_DIAG'\n"
             cat scripts/diagnose-nginx-readonly.py
             printf "\nPY_DIAG\n"
-          } > "$GITHUB_WORKSPACE/perf-diagnose.sh"
+            echo 'PERF_DIAG_EOF'
+          } >> "$GITHUB_OUTPUT"
       - name: Read-only sanitized server performance diagnosis
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -70,7 +73,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          script_path: /github/workspace/perf-diagnose.sh
+          script: ${{ steps.perf-script.outputs.script }}
   deploy:
     if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true)
     runs-on: ubuntu-latest
