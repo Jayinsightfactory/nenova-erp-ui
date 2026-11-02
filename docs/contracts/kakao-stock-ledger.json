@@ -9,7 +9,9 @@
     "components/orders/KakaoStockInbox.js",
     "lib/kakaoStockInbox.js",
     "__tests__/kakaoStockInbox.test.js",
-    "scripts/kakao-stock-inbox-smoke.cjs"
+    "scripts/kakao-stock-inbox-smoke.cjs",
+    "lib/kakaoStockPages.js",
+    "__tests__/kakaoStockPages.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -32,7 +34,8 @@
     "calculation": "Beginning total minus current customer quantities, shared calculateLedger for preview/apply/copy; zero valid; cancel overflow blocked; negative remaining displayed.",
     "source": "Bounded parser rejects unknown lines, cross-year header mismatch and duplicate source; manual changes supported.",
     "inbox": "Always visible source/history workspace, recent-three-day automatic read, newest-first search/pagination, stable selected identity. Read-only existing PasteErpHistoryEvidence for exact source year/week; mixed scopes blocked. Analyze explicitly transfers exact source snapshot, application still requires review; source selection never changes ledger.",
-    "layout": "Desktop three-column: beginning stock, applied changes/memos with direct entry, chat source with history. Compact textareas and expandable copy preview; mobile stacks. No fixed-height nested scrolling."
+    "layout": "Single product table row aligns beginning qty, remaining qty and latest change; full history per row. Beginning text editor collapses after apply. Page tabs and full-year week selector.",
+    "pages": "Version 2 immutable UserFavorite snapshots keyed by stable pageId plus full YYYY-WW-SS; duplicate same-page week opens existing. Identical product/week on other pages and years isolated. Unsaved switches keep in-memory drafts with window-close warning. v1 title-grouped latest snapshot read compatibility."
   },
   "crossYearFixture": {
     "required": true,
@@ -40,7 +43,8 @@
   },
   "requiredTestFiles": [
     "__tests__/kakaoStockLedger.test.js",
-    "__tests__/kakaoStockInbox.test.js"
+    "__tests__/kakaoStockInbox.test.js",
+    "__tests__/kakaoStockPages.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
