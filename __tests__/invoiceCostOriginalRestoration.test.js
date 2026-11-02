@@ -16,6 +16,8 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  assert.match(s[`${p.margin}${p.first}`].z,/%/,'profit ratio must be percentage');
  assert.match(s[`${p.margin}${summary}`].z,/%/,'summary ratio must be percentage');
  assert.doesNotMatch(s[`${p.sales}${p.first}`].z,/%/,'sales total is money, never percentage');
+ assert.equal(s[`${p.unitCost}${p.first}`].z,'#,##0.00','KRW must not inherit a foreign-currency symbol or text format');
+ assert.equal(s[`${p.sales}${summary}`].z,'#,##0.00');
  for(const r of [p.first,p.first+3,last]){
   assert.equal(s[`${p.input}${r}`]?.v,undefined);
   assert.match(s[`${p.sale}${r}`].f,new RegExp(`ISNUMBER\\(${p.input}${r}\\)`));
