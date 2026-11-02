@@ -70,3 +70,5 @@ canonical646 수집/요청/잔액1개, 별칭 원장복사 금지. Customer 및 
 2026-11-02 반복조회감소: dnSpy ClassCustomer 실제 exit0/GetData/BusinessNumber/Manager/OrderCode 재확인, SELECT-only 활성676/ledger7231780. 공유ERP SQL/금액산식 변경 없음. 기존 sanitized 은행after 재사용(<90초/동일기간·세션)과 원래 before/after 검증 보존, legacy6종 weekday08/11/14, 동일 식별의 연결실패동일보류(수동/변경 재시도). docs/plans/ecount-read-reduction-2026-11-02.md 및 교차연도 회귀 참조.
 
 2026-11-02 수집시작근거: CUA 관찰 로그인cc /ec56/view/login/erp_login을 로그인으로추가인식, 실제 /ecNN/view/erp만 인증base로사용. DOM 준비15/30초·브라우저시작180초로유한대기, URL/세션기록없음. Source lookup/은행검산/ERP SQL 불변, sourceBootstrap62대상회귀 포함.
+
+2026-11-02 15:15 이후 인증정책 철회/수동전용: 사용자 비밀번호오류계정정지보고로 즉시 owner-PC source2프로세스종료·예약Disabled. 저장자격증명 DOM 읽기·로그인버튼클릭·시간별재시도 삭제. 수동 로그인 실제ERP URL 관찰만. 타임아웃/원장조회/중복차감 보존. actual waitForLogin 실행 fixture에서 credential evaluate/click 금지와 locked silent wait 검증. 잠금해제확인전수집재시작금지.

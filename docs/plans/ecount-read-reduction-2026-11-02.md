@@ -16,3 +16,5 @@
 읽기/쓰기 및 downstream: Customer/UserInfo/PeriodDay read 및 WebEcountSnapshot 기존 append 그대로. Order/ShipmentMaster/Detail/Farm/Date, Estimate, StockHistory, ProductStock, WebProfitReport 전체 preserve. 원장수식·개별기준 전환 없음.
 
 재가동근거 추가: 실제 로그인 URL은 logincc의 /ec56/view/login/erp_login도 사용함. 기존 exact login.ecount.com 감지는 이 주소를 로그인으로 인식하지 못하고, hostname만 본 대기루프는 인증완료로 오인 가능. 실제ERP경로만 base로 허용하고, networkidle 대신 bounded DOM readiness(15/30초), 브라우저시작180초와 고정단계로그를 사용. URL/세션/입력값은기록없음, 저장된입력값이모두채워졌을때기존로그인버튼만사용하며시간외자동클릭없음. 실제경로/유사경로/팝업/빈화면/외부host/갱신sid/경계버전 fixture 포함대상62 PASS.
+
+15:15 사용자보고: 비밀번호오류반복으로이카운트계정정지. 확인된launcher/collector만종료하고 NenovaEcountDaemon예약비활성화. 저장자격증명DOM조회/로그인버튼클릭/5분재시도 코드를전부제거. 인증복구는수동로그인URL1회열고실제ERP경로변경만관찰; 비밀번호/잠금해제시도없음. 계정복구전수집재시작금지. 실제대기함수로credential read/click금지 및locked반복poll만수행 fixture 추가. 기존확인본/수집시각/금액은보존.

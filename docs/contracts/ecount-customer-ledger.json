@@ -132,7 +132,8 @@
     "fixtures": "coalesced login, bounded retry, genuine source failures, bank auth, old/weekend marker, year boundary, real dispatcher manual priority/continuation/restart, untouched-only timeout, stale/cross-year discard, owned fresh-page cleanup/transient-only retry, context loss deferral, per-customer cursor, API outage retention, private error suppression",
     "continuation": "Atomic unconfirmed customer cursor before browser work and after each accepted result; same KST day/exact server period; preserve on work-API outage; timeout/context loss defers untouched keys rather than marking failed; manual priority between customers",
     "readPages": "Each ledger/bank operation owns a fresh read-only tab; bounded retry for closed/transient navigation/scope; close only owned tabs without beforeunload; context unavailable persists cursor before launcher restart",
-    "bankDiagnostics": "Store only fixed whitelisted unavailable reason enums; unavailable money remains null; all identity/time/before-after/double-deduction guards unchanged"
+    "bankDiagnostics": "Store only fixed whitelisted unavailable reason enums; unavailable money remains null; all identity/time/before-after/double-deduction guards unchanged",
+    "credentials": "Manual login only. Never inspect saved company/id/password values, fill credentials, click login, or retry a failed password. Recovery opens canonical login once and only observes the exact authenticated ERP URL. Locked owner-PC task remains disabled until user confirms account recovery."
   },
   "clientFeedback": {
     "transientLookupFailure": "Retain current selected snapshot for network/5xx errors; clear on 4xx or denied scope; ignore late previous-selection errors",
