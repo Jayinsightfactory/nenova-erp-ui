@@ -26,7 +26,7 @@ test('AU original template restores defaults, formulas, full range and preserves
   assert.equal(s.D5.f,'SUM(G13:G23)');assert.equal(s.D9.f,'SUM(E13:E23)');
   assert.match(s.N5.f,/D7\*W14/);assert.match(s.N7.f,/D8\*W15/);
   assert.match(s.N23.f,/O23\/1.1/);assert.match(s.P23.f,/M23\/0.77/);assert.match(s.R23.f,/N23=0/);
-  assert.equal(s.O23?.v,undefined);assert.equal(s.N23.v,'');
+  assert.equal(s.O23.v,s.P23.v);assert.equal(s.N23.v,s.O23.v/1.1);
   for(const [ref,label] of Object.entries({N12:'판매(부가세 별도)',Q12:'이익',R12:'이익률',S12:'총판매가',T12:'총이익',R10:'총이익률',S10:'총판매가',T10:'총이익'}))assert.equal(s[ref].v,label);
   assert.match(s.O12.v,/매주 확인/);assert.match(s.R11.f,/T11\/S11/);assert.match(s.S11.f,/SUM\(S13:S23\)/);assert.match(s.T11.f,/SUM\(T13:T23\)/);
   assert.match(s.V2.v,/38-1.*현재 판매가 아님/);
@@ -55,8 +55,8 @@ test('CO 42-1 restores original labels, defaults and live formulas without chang
     const r=15+i;
     assert.equal(s[`B${r}`].v,f.document.lines[i].originalName);
     assert.equal(s[`M${r}`].f,`J${r}+K${r}+L${r}`);
-    assert.equal(s[`Q${r}`]?.v,undefined,'historical sale price must not be copied');
-    assert.equal(s[`P${r}`].v,'');
+    assert.equal(s[`Q${r}`]?.v,s[`R${r}`].v,'unmatched item uses live recommendation, not another item price');
+    assert.equal(s[`P${r}`].v,s[`Q${r}`].v/1.1);
   }
   assert.ok(Math.abs(s.AL12.v - Array.from({length:7},(_,i)=>s[`E${15+i}`].v*s[`M${15+i}`].v).reduce((a,b)=>a+b,0))<0.01);
   assert.equal(s.B22,undefined,'historical source rows must not leak');
@@ -134,7 +134,7 @@ function assertFormatOnlyStyleClones(actual, original) {
   const oldXfs = [...old[1].matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].map(m => m[0]);
   const normalize = xf => xf.replace(/\s+(?:numFmtId|applyNumberFormat)="[^"]*"/g, '');
   for (const match of next[1].slice(old[1].length).matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)) {
-    assert.match(match[0], /numFmtId="(?:4|0)"/);
+    assert.match(match[0], /numFmtId="(?:4|3|0)"/);
     assert.ok(oldXfs.some(xf => normalize(xf) === normalize(match[0])), 'clone may change only numeric formatting');
   }
   assert.equal(actual.replace(next[0], old[0]), original, 'fonts/colors/width-independent style parts stay exact');

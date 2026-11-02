@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "NL_ORIGINAL_V1": {
+      "sourceHash": "fc9448ed983d18f0c180b4b8e1f27c1a7ef935b2e657c429eb42f2251b836d42",
+      "sourceSheet": "40-2",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": []
+    },
+    "CN_SEA_ORIGINAL_V1": {
+      "sourceHash": "5e9241ac85d3152b976419422d2cce6498c02346563e2dc1a637e7eace9187a7",
+      "sourceSheet": "41-1 해상 (95% 기준)",
+      "divisor": 0.85,
+      "multiplier": 1.1,
+      "records": []
+    },
+    "US_ORIGINAL_V1": {
+      "sourceHash": "49d523cd457f0e6c36cd4fb50f72705344899968b91b1142f8da5130b4d589df",
+      "sourceSheet": "40-1",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": [
+        {
+          "name": "Salal",
+          "price": 5500,
+          "factor": 25,
+          "cell": "N13"
+        }
+      ]
+    },
+    "VN_ORIGINAL_V1": {
+      "sourceHash": "81123f0c69859eab1b78ed6d4d722c7738d4395df9e0d2b8d7cd25a7e39969c6",
+      "sourceSheet": "24-1",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": [
+        {
+          "name": "ORCHID VIETNAM / 호접란  화이트 8 (Party grade White 8) ",
+          "price": 15080.6385281385,
+          "factor": 1,
+          "cell": "O19"
+        },
+        {
+          "name": "ORCHID VIETNAM / 호접란  화이트 7 (Party grade White 7) ",
+          "price": 15080.6385281385,
+          "factor": 1,
+          "cell": "O20"
+        },
+        {
+          "name": "ORCHID VIETNAM / 호접란  연노랑　( Single dyed color YELLOW)",
+          "price": 18873.1060606061,
+          "factor": 1,
+          "cell": "O21"
+        }
+      ]
+    },
+    "AU_ORIGINAL_V1": {
+      "sourceHash": "7cb66ca12afce9ff937ea8bd6fda597c4ce411174961638fa276ed6713dfd320",
+      "sourceSheet": "38-1",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": [
+        {
+          "name": "Emu Grass",
+          "price": 7200,
+          "factor": 1,
+          "cell": "W3"
+        },
+        {
+          "name": "Steel Grass",
+          "price": 5400,
+          "factor": 1,
+          "cell": "W4"
+        },
+        {
+          "name": "Banker Bush",
+          "price": 19500,
+          "factor": 1,
+          "cell": "W5"
+        },
+        {
+          "name": "Stenocarpus",
+          "price": 16500,
+          "factor": 1,
+          "cell": "W6"
+        },
+        {
+          "name": "Fern Umbrella",
+          "price": 10200,
+          "factor": 1,
+          "cell": "W7"
+        },
+        {
+          "name": "Koala Fern",
+          "price": 7100,
+          "factor": 1,
+          "cell": "W8"
+        },
+        {
+          "name": "Fern Sea Star",
+          "price": 9700,
+          "factor": 1,
+          "cell": "W9"
+        },
+        {
+          "name": "Emu Feather",
+          "price": 6200,
+          "factor": 1,
+          "cell": "W10"
+        },
+        {
+          "name": "Dingo Fern",
+          "price": 6500,
+          "factor": 1,
+          "cell": "W11"
+        },
+        {
+          "name": "Goanna Claw",
+          "price": 6000,
+          "factor": 1,
+          "cell": "W12"
+        }
+      ]
+    },
+    "NZ_ORIGINAL_V1": {
+      "sourceHash": "c58848b2daf200d650548d932b514acc8499e2d020ed721cd6bfff7bbdf692a4",
+      "sourceSheet": "Sheet1",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": [
+        {
+          "name": "Hydrangea / New Zealand. AA Dark Blue , Renate",
+          "price": 6242.89759398496,
+          "factor": 1,
+          "cell": "O13"
+        },
+        {
+          "name": "Hydrangea / New Zealand. AAA Pink (Hot) 40cm+ (limiited), (Alpine Glow (Hot Pink))",
+          "price": 8684.00200956938,
+          "factor": 1,
+          "cell": "O14"
+        },
+        {
+          "name": "Hydrangea / New Zealand. AA Pink (Hot) 40cm+ (limiited), (Alpine Glow (Hot Pink))",
+          "price": 6714.1999316473,
+          "factor": 1,
+          "cell": "O15"
+        },
+        {
+          "name": "Hydrangea / New Zealand. AAA Purple 40cm+ (limited), (Masja (Purple))",
+          "price": 7584.29655502392,
+          "factor": 1,
+          "cell": "O16"
+        },
+        {
+          "name": "Peony / New Zealand. Bowl of Cream AA (60cm/4cm)",
+          "price": 39311.2204374573,
+          "factor": 5,
+          "cell": "O17"
+        },
+        {
+          "name": "Peony / New Zealand. Red Charm AA (50cm/4cm)",
+          "price": 44386.7840738209,
+          "factor": 5,
+          "cell": "O18"
+        },
+        {
+          "name": "Peony / New Zealand. Sarah Bernhardt AAA (60cm/4.5cm)",
+          "price": 33510.5762816131,
+          "factor": 5,
+          "cell": "O19"
+        }
+      ]
+    },
+    "EC_ORIGINAL_V1": {
+      "sourceHash": "9f889056cbed364d30b20edd51cc803f2ba8a4c789ac17cf9908ab80976406eb",
+      "sourceSheet": "40-2",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": [
+        {
+          "name": "Ecuador Hearts 60cm",
+          "price": 1650,
+          "factor": 1,
+          "cell": "Q14"
+        },
+        {
+          "name": "Ecuador Hearts 50cm",
+          "price": 1600,
+          "factor": 1,
+          "cell": "Q16"
+        },
+        {
+          "name": "Ecuador Barista 50cm",
+          "price": 1600,
+          "factor": 1,
+          "cell": "Q18"
+        },
+        {
+          "name": "Ecuador Barista 60cm",
+          "price": 1700,
+          "factor": 1,
+          "cell": "Q19"
+        },
+        {
+          "name": "Ecuador Explorer 60cm",
+          "price": 1400,
+          "factor": 1,
+          "cell": "Q22"
+        },
+        {
+          "name": "Ecuador Hearts 50cm",
+          "price": 1600,
+          "factor": 1,
+          "cell": "Q25"
+        },
+        {
+          "name": "Ecuador Hearts 60cm",
+          "price": 1650,
+          "factor": 1,
+          "cell": "Q26"
+        }
+      ]
+    },
+    "CO_ORIGINAL_V1": {
+      "sourceHash": "23d4f8065148bf31b09669d4ea8904cf07077ab7a9a843b147eacd7a5d430afc",
+      "sourceSheet": "12-2",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": []
+    },
+    "TH_ORIGINAL_V1": {
+      "sourceHash": "dcbb0bdb1ebd8fc0011d8b0bc41877413ff794407b16baabebf469939350f900",
+      "sourceSheet": "40",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": []
+    },
+    "CO_42_1_ORIGINAL_V1": {
+      "sourceHash": "d5f71f57a93d3006bb889321d00e249592ab136b855f3f20a4b2b693f78a8da3",
+      "sourceSheet": "42-1",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": []
+    },
+    "CN_AIR_ORIGINAL_V1": {
+      "sourceHash": "e1bb0315998c2f3550a0edab8353147612cd6c46d7247b287656eca1c3ee4233",
+      "sourceSheet": "27-2 CLOUD",
+      "divisor": 0.77,
+      "multiplier": 1,
+      "records": []
+    }
+  },
+  "assetHash": "9f70dd526e07beeedd93897dc6c40517147ea5b9dfe8ad92898303a2b3a3ff03"
+}

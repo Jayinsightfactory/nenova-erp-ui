@@ -17,14 +17,15 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  assert.match(s[`${p.margin}${summary}`].z,/%/,'summary ratio must be percentage');
  assert.doesNotMatch(s[`${p.sales}${p.first}`].z,/%/,'sales total is money, never percentage');
  assert.equal(s[`${p.unitCost}${p.first}`].z,'#,##0.00','KRW must not inherit a foreign-currency symbol or text format');
- assert.equal(s[`${p.sales}${summary}`].z,'#,##0.00');
+ assert.equal(s[`${p.sales}${summary}`].z,'#,##0');
  for(const r of [p.first,p.first+3,last]){
-  assert.equal(s[`${p.input}${r}`]?.v,undefined);
+  if(id==='CN_SEA_ORIGINAL_V1')assert.equal(s[`${p.input}${r}`]?.v,'');
+  else assert.equal(typeof s[`${p.input}${r}`]?.v,'number');
   assert.match(s[`${p.sale}${r}`].f,new RegExp(`ISNUMBER\\(${p.input}${r}\\)`));
   assert.match(s[`${p.profit}${r}`].f,/ISNUMBER/);assert.match(s[`${p.margin}${r}`].f,/=0/);
   assert.ok(s[`${p.sales}${r}`].f);assert.ok(s[`${p.profits}${r}`].f);assert.ok(s[`${p.unitCost}${r}`].f);
  }
- assert.match(s[`${p.sales}${summary}`].f,new RegExp(`${p.input}${p.first}:${p.input}${last}`));
+ assert.match(s[`${p.sales}${summary}`].f,new RegExp(`${p.sales}${p.first}:${p.sales}${last}`));
  assert.equal(s.AB6.v,f.revision.totalCostKRW);
  if(id==='CN_SEA_ORIGINAL_V1'){
   assert.equal(s.AB7.v,'입력 필요');assert.equal(s.AB8.v,'입력 필요');
@@ -60,6 +61,6 @@ test('NL current template defaults recalculate and prior-year identity is preser
  assert.equal(s.C5.v,'2025/41-02');assert.equal(s.C9.v,3);assert.equal(s.C10.f,'SUM(E15:E17)');
  assert.equal(s.D6.f,'SUMPRODUCT(E15:E17,F15:F17)');assert.equal(s.C6.f,'D6+C11');
  assert.equal(s.O15.f,'M15*N15');assert.equal(s.Q15.f,'IF(ISNUMBER(R15),R15/1.1,"")');
- assert.equal(s.V13.f,'IF(COUNT(R15:R17)=0,"",SUM(V15:V17))');
+ assert.equal(s.V13.f,'IF(COUNT(V15:V17)=3,SUM(V15:V17),"입력 필요")');
  assert.equal(s.Q6.v,'내역 미보유');assert.equal(s.Q10.v,f.snapshot.input.customsTotalKRW);
 });

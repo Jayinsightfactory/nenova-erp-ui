@@ -1,3 +1,4 @@
+- [2026-11-02 원가 레퍼런스 판매가·손익 자동 계산](2026-11-02_cost-sales-defaults.md)
 - [2026-11-02 이카운트 반복 조회 감소](2026-11-02_ecount-read-reduction.md)
 - [2026-11-02 분배 업로드 12분 결과 미확인 복구](2026-11-02_import-timeout-recovery.md)
 - [불량차감 유지보수 기준·세션 오류 해결](../DEFECT_DEDUCTION_MAINTENANCE.md)
