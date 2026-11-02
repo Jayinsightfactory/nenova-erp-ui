@@ -7,7 +7,7 @@ await page.route('**/api/**',async route=>{const r=route.request(),p=new URL(r.u
 if(p==='/api/auth/me')data={success:true,user:{userId:'fixture',userName:'검증',authority:1,accountActive:true}};
 if(p==='/api/favorites')data={success:true,favorites:[]};
 if(p==='/api/customers/search')data={success:true,customers:[{CustKey:1,CustName:'주광',CustArea:'서울'},{CustKey:2,CustName:'꽃장',CustArea:'서울'},{CustKey:3,CustName:'라움',CustArea:'서울'}]};
-if(p==='/api/stats/sales'){salesReads++;data={success:true,byCustomer:[{CustName:'주광',area:'서울',curSales:5,prevSales:10},{CustName:'꽃장',area:'서울',curSales:100,prevSales:0}]};}
+if(p==='/api/stats/sales'){salesReads++;data={success:true,byCustomer:salesReads===1?[{CustName:'주광',area:'서울',curSales:5,prevSales:0}]:[{CustName:'꽃장',area:'서울',curSales:100,prevSales:0}]};}
 if(r.method()!=='GET')writes.push(p);await route.fulfill({json:data});});
 await page.goto(process.argv[2]||'http://localhost:3245/orders/kakao-stock');await page.getByRole('button',{name:'+ 차수 추가',exact:true}).waitFor({state:'visible'});
 const base='43-1 카네이션\n유카리체리1\n-----------------------------------\n44-1 카네이션\n유카리체리9';
