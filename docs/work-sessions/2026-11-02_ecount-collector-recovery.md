@@ -25,4 +25,4 @@
 **발견.** 기존45분budget후미처리key저장없어뒤쪽업체누락. 후속branch codex/ecount-collector-continuation에서같은날/같은period/미시도원장만원자적checkpoint. chunk사이수동요청우선. 대상63검사PASS(실제dispatcher재시작/우선순위/교차연도포함).최종CI/배포/추가runtime적용/전체재수집대기.
 
 ## 조회화면 격리 후속
-운영 재수집117 중2검증 후 화면전환/reset 실패로 남은115가 함께 실패집계되는 증상 확인. 작업별 새 조회탭(소유탭만 close), 미확인 거래처 커서의 시작/매거래처 원자 저장, context 불가시 커서 후 기존 launcher 재시작, work API 일시오류시 커서 보존. 은행불가 사유는 고정 enum만 shadow 저장하며 금융계산/중복방지 가드 불변. 대상 회귀66 PASS. 최종 CI/배포/runtime/전체수집 확인 대기.
+운영 재수집117 중2검증 후 화면전환/reset 실패로 남은115가 함께 실패집계되는 증상 확인. 작업별 새 조회탭(소유탭만 close), 미확인 거래처 커서의 시작/매거래처 원자 저장, context 불가시 커서 후 기존 launcher 재시작, work API 일시오류시 커서 보존. 은행불가 사유는 고정 enum만 shadow 저장하며 금융계산/중복방지 가드 불변. 대상 회귀67 PASS. 최종 CI/배포/runtime/전체수집 확인 대기.

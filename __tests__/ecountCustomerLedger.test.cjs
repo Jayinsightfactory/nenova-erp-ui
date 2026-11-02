@@ -388,3 +388,16 @@ test('context loss checkpoints the current customer and untouched tail without r
  const result=await collectLedgerBatch({getBase:()=>'',work,collect:async(_p,_b,c)=>{if(c.custKey===2)throw new Error('SOURCE_CONTEXT_UNAVAILABLE');return c;},upload:async p=>uploads.push(p.custKey),onProgress:async keys=>progress.push(keys),onDeferred:async keys=>deferred.push(keys),recordFailure:()=>assert.fail(),log:()=>{}});
  assert.deepEqual(result,{ok:1,failed:0,total:3,deferred:2,contextUnavailable:true});assert.deepEqual(uploads,[1]);assert.deepEqual(progress,[[2,3]]);assert.deepEqual(deferred,[[2,3]]);
 });
+
+test('actual dispatcher serves a newly queued manual request between customers instead of waiting for a 45-minute chunk',async()=>{
+ const real=require('../lib/ecountCollectorRecovery.cjs'),{collectLedgerBatch}=await import('../scripts/ecount-scraper/customer-ledger.mjs'),fixed=Date.parse('2026-11-02T11:00:00+09:00');
+ const work={customers:[{custKey:1},{custKey:2}],period:{from:'2026-10-02',to:'2026-11-02'}};let state={lastAttempt:fixed-3600000},temp,queued=null;const reads=[],uploads=[];
+ const disk={readFileSync:name=>{if(name!=='state')throw Error('missing');return JSON.stringify(state);},writeFileSync:(_name,value)=>temp=JSON.parse(value),renameSync:()=>state=temp};
+ const api=async(_url,body,suffix)=>{if(suffix){const item=queued;queued=null;return {refreshRequest:item};}if(body){if(body.custKey)uploads.push(body.custKey);return {};}return {...work,customers:[...work.customers]};};
+ const collect=async({customer})=>{reads.push(customer.custKey);if(customer.custKey===1)queued={requestId:9,custKey:9,period:work.period};if(customer.custKey===9)assert.deepEqual(state.continuation.keys,[2]);return {custKey:customer.custKey};};
+ const code=fs.readFileSync(path.join(__dirname,'../scripts/ecount-scraper/customer-ledger.mjs'),'utf8'),body=code.slice(code.indexOf('export function startCustomerLedgerSchedule')).replace('export function','return function');
+ const recovery={...real,makeContinuation:(w,k)=>real.makeContinuation(w,k,fixed)};
+ const start=new Function('fs','STATE','RECOVERY_REQUEST','schedule','recovery','api','collectBankSnapshot','collectLedgerBatch','collectLedgerWithBank','collectCustomerLedger','setInterval','clearInterval','console',body)(disk,'state','request',{dueSlot:()=>fixed,isRefreshRequestAllowed:()=>true},recovery,api,async()=>({}),collectLedgerBatch,collect,()=>{},()=>1,()=>{}, {log:()=>{}});
+ start({newPage:async()=>({close:async()=>{}})},()=>'', '');for(let i=0;i<5;i++)await new Promise(setImmediate);
+ assert.deepEqual(reads,[1,9,2]);assert.deepEqual(uploads,[1,9,2]);assert.equal(state.continuation,null);
+});

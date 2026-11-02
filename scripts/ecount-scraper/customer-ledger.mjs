@@ -177,6 +177,23 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova,{recoverSession,o
   const bankRead=(base,period,status,secret)=>recovery.withReadPage(ctx,page=>collectBankSnapshot(page,base,period,status,secret));
   const ledgerRead=(customer,period,history)=>recovery.withReadPage(ctx,page=>collectLedgerWithBank({page,bankPage:null,base:getBase(),customer,period,history,collectLedger:collectCustomerLedger,collectBank:(_page,...args)=>bankRead(...args)}));
   const historyRead=period=>recovery.withSessionRecovery(()=>bankRead(getBase(),period,'REFLECTED',process.env.NENOVA_TOKEN),recoverSession);
+  const refreshOne=async item=>{
+    if(!item)return;
+    let success=false,contextUnavailable=false;
+    try{
+      let history=null;
+      try{history=await historyRead(item.period);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
+      const payload=await recovery.withSessionRecovery(()=>ledgerRead(item,item.period,history),recoverSession);
+      await api(nenova,payload);success=true;
+    }catch(e){
+      const reason=/^[A-Z_]+$/.test(e?.message||'')?e.message:'SOURCE_LOOKUP_FAILED';contextUnavailable=reason==='SOURCE_CONTEXT_UNAVAILABLE';
+      try{await api(nenova,{custKey:item.custKey,requestedCode:item.sourceCode,periodFrom:item.period.from,periodTo:item.period.to,collectedAt:new Date().toISOString(),failure:['SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS','SOURCE_CUSTOMER_AMBIGUOUS','SOURCE_IDENTITY_MISMATCH'].includes(reason)?'LINK_CHECK_REQUIRED':'SOURCE_UNAVAILABLE'});}catch{}
+    }finally{
+      try{await api(nenova,{refreshRequestId:item.requestId,refreshSuccess:success});}catch{}
+      console.log(`[ledger723] userRefresh customerKey=${item.custKey} success=${success}`);
+    }
+    if(contextUnavailable)onUnavailable?.();
+  };
   const tick=async()=>{
     if(busy)return;
     const slot=schedule.dueSlot(Date.now(),lastAttempt);
@@ -202,11 +219,12 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova,{recoverSession,o
           }
           total=work.customers.length;
           const checkpoint=async keys=>{continuation=keys.length?recovery.makeContinuation(work,keys):null;if(keys.length&&!continuation)throw new Error('CONTINUATION_SCOPE_INVALID');saveState();};
+          const progress=async keys=>{await checkpoint(keys);if(!schedule.isRefreshRequestAllowed())return;try{await refreshOne((await api(nenova,null,'?queue=refresh')).refreshRequest);}catch{console.log('[ledger723] manual dispatcher unavailable');}};
           // Persist the unconfirmed current customer before touching the browser; crashes cannot lose the tail.
           await checkpoint(work.customers.map(c=>c.custKey));
           let history=null;
           try{history=await historyRead(work.period);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
-          ({ok,failed,deferred=0,contextUnavailable=false}=await collectLedgerBatch({page:null,getBase,work,recoverSession,onDeferred:checkpoint,onProgress:checkpoint,resetAfterFailure:async()=>{},collect:(_page,_base,customer,period)=>ledgerRead(customer,period,history),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
+          ({ok,failed,deferred=0,contextUnavailable=false}=await collectLedgerBatch({page:null,getBase,work,recoverSession,onDeferred:checkpoint,onProgress:progress,resetAfterFailure:async()=>{},collect:(_page,_base,customer,period)=>ledgerRead(customer,period,history),upload:payload=>api(nenova,payload),recordFailure:payload=>api(nenova,payload)}));
         }catch{failed=Math.max(failed,1);}
         finally{console.log(`[ledger723] slot=${slot===null?(pending?'continuation':'requested-recovery'):new Date(slot).toISOString()} total=${total} verified=${ok} failed=${failed} deferred=${deferred}`);}
         if(contextUnavailable)onUnavailable?.();
@@ -215,20 +233,7 @@ export function startCustomerLedgerSchedule(ctx,getBase,nenova,{recoverSession,o
       const result=priorityRequest?{refreshRequest:priorityRequest}:await api(nenova,null,'?queue=refresh');
       const item=result.refreshRequest;
       if(!item)return;
-      let success=false,contextUnavailable=false;
-      try{
-        let history=null;
-        try{history=await historyRead(item.period);}catch(e){console.log(`[ledger723] bank history unavailable ${/^[A-Z_]+$/.test(e.message)?e.message:'BANK_LOOKUP_FAILED'}`);}
-        const payload=await recovery.withSessionRecovery(()=>ledgerRead(item,item.period,history),recoverSession);
-        await api(nenova,payload);success=true;
-      }catch(e){
-        const reason=/^[A-Z_]+$/.test(e?.message||'')?e.message:'SOURCE_LOOKUP_FAILED';contextUnavailable=reason==='SOURCE_CONTEXT_UNAVAILABLE';
-        try{await api(nenova,{custKey:item.custKey,requestedCode:item.sourceCode,periodFrom:item.period.from,periodTo:item.period.to,collectedAt:new Date().toISOString(),failure:['SOURCE_CUSTOMER_NOT_FOUND_OR_AMBIGUOUS','SOURCE_CUSTOMER_AMBIGUOUS','SOURCE_IDENTITY_MISMATCH'].includes(reason)?'LINK_CHECK_REQUIRED':'SOURCE_UNAVAILABLE'});}catch{}
-      }finally{
-        try{await api(nenova,{refreshRequestId:item.requestId,refreshSuccess:success});}catch{}
-        console.log(`[ledger723] userRefresh customerKey=${item.custKey} success=${success}`);
-      }
-      if(contextUnavailable)onUnavailable?.();
+      await refreshOne(item);
     }catch{console.log('[ledger723] refresh dispatcher unavailable');}
     finally{busy=false;}
   };

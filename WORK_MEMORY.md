@@ -1768,5 +1768,5 @@
 - 검색어: 45분 continuation deferred 원장누락 PR1389 79bb5f0a
 
 ### 2026-11-02 이카운트 조회탭 격리·계속수집 보완
-10:44 전체재수집117 중2검증 뒤 화면전환/reset 실패가 나머지를 실패로 집계하는 증상. 작업별 소유 조회탭 분리/정리, 미확인 커서의 거래처별 원자 저장, API 장애시 커서 보존, context 소실시 커서 후 launcher 재시작. 은행불가 사유는 고정 enum 진단만 보존, 미검증 금액 null/기존 검증본 보존/중복차감 방지 유지. 회귀66 PASS, CI/배포/최종수집 미검증(진행 중).
+10:44 전체재수집117 중2검증 뒤 화면전환/reset 실패가 나머지를 실패로 집계하는 증상. 작업별 소유 조회탭 분리/정리, 미확인 커서의 거래처별 원자 저장, API 장애시 커서 보존, context 소실시 커서 후 launcher 재시작. 은행불가 사유는 고정 enum 진단만 보존, 미검증 금액 null/기존 검증본 보존/중복차감 방지 유지. 회귀67 PASS, CI/배포/최종수집 미검증(진행 중).
 검색어: ecount isolated reads SOURCE_CONTEXT_UNAVAILABLE per-customer checkpoint bank unavailable diagnostics
