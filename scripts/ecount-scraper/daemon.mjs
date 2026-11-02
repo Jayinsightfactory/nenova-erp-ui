@@ -1,18 +1,17 @@
 // ECOUNT read-only daemon: weekday 08/11/14 scheduled reports, on-demand customer reads.
 // 세션이 브라우저 인스턴스에 묶여 있어, 창을 유지하면 세션이 안 죽는다(=무인 반복 가능).
-// 사람은 최초 1회(또는 만료 시)만 열린 창에서 직접 로그인. ⛔ 자동 로그인 안 함(읽기 전용).
+// 최초/만료 시 사용자가 직접 로그인. 저장된 자격증명 조회·입력·로그인 버튼 클릭·자동 재시도 금지.
 //
 // 사용: node daemon.mjs
 // 환경변수: NENOVA_URL · NENOVA_TOKEN(권장: nenovaweb 토큰=MOYI_API_TOKEN 값) · NENOVA_COOKIE(대안: 로그인쿠키) · HEADLESS=1(창 숨김; 최초 로그인 후에만 권장)
 import { chromium } from 'playwright';
 import fs from 'fs';
 import recovery from '../../lib/ecountCollectorRecovery.cjs';
-import schedule from '../../lib/ecountLedgerSchedule.cjs';
 import changes from '../../lib/ecountReadReuse.cjs';
 const sourceRead=changes.serialReads();
 const LEGACY_STATE=new URL('./.legacy-schedule.json',import.meta.url);
 import { startCustomerLedgerSchedule } from './customer-ledger.mjs';
-import { PROFILE, DEFS, ERP_ROOT, installGuard, ensureBooted, collectOne, postIngest, isLoginPage } from './scrape-core.mjs';
+import { PROFILE, DEFS, installGuard, ensureBooted, collectOne, postIngest } from './scrape-core.mjs';
 
 const POLL_MS = 15000;
 const NENOVA = process.env.NENOVA_URL || 'https://nenovaweb.com';
@@ -20,30 +19,14 @@ const COOKIE = process.env.NENOVA_COOKIE || '';
 const now = () => new Date().toLocaleString('ko-KR');
 
 async function waitForLogin(page) {
-  await page.goto('https://login.ecount.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(() => {});
-  console.log(`\n⚠ [${now()}] ECOUNT 로그인이 필요합니다. 열린 창에서 직접 로그인하세요(등록 팝업까지).`);
-  console.log('   로그인되면 자동으로 감지해 수집을 시작/재개합니다. (창은 절대 닫지 마세요)\n');
-  let lastClick = 0;
-  for (;;) {
+  await page.goto('https://login.ecount.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>{});
+  console.log(`[${now()}] ECOUNT 수동 로그인이 필요합니다. 자동 로그인이나 비밀번호 재시도는 하지 않습니다.`);
+  for(;;){
     await page.waitForTimeout(3000);
-    if (recovery.isSourceErpUrl(page.url())) {
-      console.log(`✅ [${now()}] 로그인 감지됨.`);
+    if(recovery.isSourceErpUrl(page.url())){
+      console.log(`[${now()}] 사용자 로그인 완료를 감지했습니다.`);
       await page.waitForTimeout(5000);
-      // Session URLs and screenshots may expose credentials or personal data.
       return;
-    }
-    // 2026-10-08 사장님 지시: 세션이 풀리면 로그인 버튼을 눌러 재개. 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 누르고,
-    //   스크레이퍼는 어떤 값도 입력하지 않는다(비어 있으면 사람이 로그인할 때까지 대기). 5분에 1회만 시도.
-    if (schedule.isRefreshRequestAllowed() && Date.now() - lastClick > 5 * 60 * 1000) {
-      try {
-        const ok = await page.evaluate(() => ["com_code", "id", "passwd"].every(i => { const e = document.getElementById(i); return e && e.value && e.value.length > 0; }));
-        if (ok) {
-          lastClick = Date.now();
-          console.log(`🔑 [${now()}] 저장된 로그인 정보가 채워져 있어 로그인 버튼을 누릅니다.`);
-          await page.click("#save", { timeout: 3000 }).catch(() => {});
-          await page.waitForTimeout(6000);
-        }
-      } catch {}
     }
   }
 }

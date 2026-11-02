@@ -1796,3 +1796,6 @@
 
 2026-11-02 반복조회카나리시작후 실제logincc/ec56/view/login/erp_login을 기존auth감지가놓치는문제추가보완. 실제ERP경로만base, networkidle대신DOM15/30초, browser180초, 단계enum로그. 원본source수식·PII출력없음. 대상62 PASS. CI/runtime재확인대기.
 검색어: ecountSourceBootstrap logincc erp_login bounded DOM 180000
+
+2026-11-02 15:15 사용자계정정지보고. ecount전용launcher/collector즉시종료, NenovaEcountDaemon Disabled. 저장정보DOM읽기/로그인클릭/5분자동재시도삭제, 수동URL로그인대기만. 잠금해제/패스워드변경/추가로그인시도없음, user계정복구확인전재가동금지. 원본그대로,canary0/2미검증.
+검색어: ecount manual login only account locked Disable-ScheduledTask password retry removal

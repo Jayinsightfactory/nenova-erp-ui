@@ -15,3 +15,19 @@ test('bootstrap waits for bounded DOM load, does not require network-idle, and r
  current=ERP;page.waitForLoadState=async()=>{current=LOGIN;throw Error('bounded timeout');};page.goto=async()=>{};assert.equal(await ensureBooted(page),null);
  current='about:blank';page.goto=async()=>{current=ERP+'?ec_req_sid=renewed#menu';};assert.equal(await ensureBooted(page),ERP+'?ec_req_sid=renewed');
 });
+
+function manualWaitFunction(log=[]){
+ const fs=require('node:fs'),source=fs.readFileSync(require('node:path').join(__dirname,'../scripts/ecount-scraper/daemon.mjs'),'utf8');
+ const body=source.slice(source.indexOf('async function waitForLogin(page) {'),source.indexOf('\nasync function cycle('));
+ return new Function('recovery','now','console',body+';return waitForLogin;')(require('../lib/ecountCollectorRecovery.cjs'),()=> 'fixture',{log:x=>log.push(x)});
+}
+test('real login wait never reads credentials or clicks login; only a manual ERP navigation completes it',async()=>{
+ const events=[],log=[];let current=LOGIN,turn=0;
+ const page={goto:async(url,options)=>{events.push('navigate');assert.equal(url,'https://login.ecount.com/');assert.equal(options.timeout,30000);},url:()=>current,evaluate:()=>assert.fail('credential read'),click:()=>assert.fail('automatic login'),waitForTimeout:async ms=>{if(ms===3000&&++turn===2)current=ERP+'?ec_req_sid=fixture';else assert.ok([3000,5000].includes(ms));}};
+ await manualWaitFunction(log)(page);assert.deepEqual(events,['navigate']);assert.equal(turn,2);assert.equal(log.length,2);assert.ok(!log.join().includes('ec_req_sid'));assert.ok(!log.join().includes('https://'));
+});
+test('failed/locked login waits silently without repeated navigation or password retries',async()=>{
+ let navigations=0,polls=0;const log=[];
+ const page={goto:async()=>navigations++,url:()=>LOGIN,evaluate:()=>assert.fail('credential read'),click:()=>assert.fail('automatic login'),waitForTimeout:async()=>{if(++polls===3)throw Error('MANUAL_LOGIN_PENDING');}};
+ await assert.rejects(manualWaitFunction(log)(page),/MANUAL_LOGIN_PENDING/);assert.equal(navigations,1);assert.equal(log.length,1);assert.equal(polls,3);
+});
