@@ -3,7 +3,7 @@ import {createAppendFeedReader,retainRecentSalesRows} from '../../lib/distributi
 import {stockSourceWeek,stockInboxRows,mergeStockInbox} from '../../lib/kakaoStockInbox';
 import PasteErpHistoryEvidence from './PasteErpHistoryEvidence';
 
-export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onAnalyze,compact=false}) {
+export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onAnalyze,compact=false,allowedWeeks=[week]}) {
   const PAGE_SIZE=compact?1:3;
   const [rows,setRows]=useState([]),[selectedId,setSelectedId]=useState('');
   const [search,setSearch]=useState(''),[page,setPage]=useState(0),[cursor,setCursor]=useState('');
@@ -41,8 +41,8 @@ export default function KakaoStockInbox({week,disabled,canAnalyze,applied=[],onA
       <nav aria-label="영업방 원문 목록 페이지"><button disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>원문 이전</button><span>{currentPage+1} / {maxPage+1}</span><button disabled={currentPage>=maxPage} onClick={()=>setPage(currentPage+1)}>원문 다음</button>{cursor&&<button disabled={loading||disabled} onClick={()=>refresh()}>대화 이어서 불러오기</button>}</nav>
     </div><div className="selected-history"><h3>선택 원문의 최신 전산이력</h3>
       {selected?<><p>원문 차수 {sourceWeek||'복수 차수 · 확인 필요'} · 재고장 {week}</p><pre className="selected-source">{selected.message}</pre>
-        <button className="analyze" disabled={disabled||!canAnalyze||sourceWeek!==week||alreadyApplied} onClick={()=>onAnalyze({...selected})}>{alreadyApplied?'이 재고장에 적용한 원문':'선택 원문 분석 → 적용 확인'}</button>
-        {!canAnalyze&&<p>왼쪽 기초재고를 먼저 적용하세요. 수정 중인 시작재고도 적용해야 합니다.</p>}{sourceWeek!==week&&<p role="status">원문의 연도·차수와 재고장이 다르거나 여러 차수가 섞였습니다. 맞는 재고장에서 분석하세요.</p>}
+        <button className="analyze" disabled={disabled||!canAnalyze||!allowedWeeks.includes(sourceWeek)||alreadyApplied} onClick={()=>onAnalyze({...selected})}>{alreadyApplied?'이 재고장에 적용한 원문':'선택 원문 분석 → 적용 확인'}</button>
+        {!canAnalyze&&<p>왼쪽 기초재고를 먼저 적용하세요. 수정 중인 시작재고도 적용해야 합니다.</p>}{!allowedWeeks.includes(sourceWeek)&&<p role="status">원문의 연도·차수와 재고장이 다르거나 여러 차수가 섞였습니다. 맞는 재고장에서 분석하세요.</p>}
         <p>전산 처리이력은 참고 자료입니다. 재고장 적용 여부와 별개이며 주문·분배를 변경하지 않습니다.</p>
         {sourceWeek&&<PasteErpHistoryEvidence key={`${selected.identity}:${sourceWeek}`} week={sourceWeek} text={selected.message} messages={[selected]}/>}
       </>:<p>왼쪽에서 원문을 선택하면 주문·분배의 최신 수량 변동 이력을 나란히 확인할 수 있습니다.</p>}
