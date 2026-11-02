@@ -23,6 +23,20 @@ const TASK_GROUPS = [
   { key: 'investigate', label: '조사예정', match: (s) => /조사|investig|todo|plan/i.test(s) },
   { key: 'verify', label: '검증중', match: (s) => /검증|verif|check/i.test(s) },
 ];
+const DEFAULT_DEPT_ORDER = ['경영지원', '영업지원', '영업부', '수입부', '미배치'];
+const ROSTER = {
+  '경영지원': ['강명훈', '설연주'],
+  '영업지원': ['임재용', '강현우', '김도준'],
+  '영업부': ['김원영', '박성수', '정재훈', '조현욱', { empty: '신규 PC' }],
+  '수입부': ['김원빈', '김지니'],
+};
+const ROOM_FLOOR = {
+  '경영지원': 'repeating-linear-gradient(90deg,#5a4634 0 14px,#523f2f 14px 28px)',
+  '영업지원': 'repeating-conic-gradient(#33415c 0 25%,#2e3a52 0 50%) 0 0/20px 20px',
+  '영업부': 'radial-gradient(#4a3550 1px,#3e2c44 1px) 0 0/6px 6px',
+  '수입부': 'repeating-conic-gradient(#2f4a3e 0 25%,#2a4237 0 50%) 0 0/24px 24px',
+  '미배치': '#2b2f3a',
+};
 const SHIRTS = ['#4f8cff', '#ff8a4f', '#3fbf7f', '#c26bff', '#ffcc3f', '#ff5f8f', '#3fc8d8', '#9a7b4f'];
 
 function hashColor(s) { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return SHIRTS[h % SHIRTS.length]; }
@@ -50,15 +64,29 @@ function Sprite({ status, color, robot }) {
   );
 }
 
-function Desk({ name, sub, status, activity, lastAt, now, robot, extra }) {
-  const st = STATUS_LABEL[status] ? status : 'off';
+function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty }) {
+  const st = empty ? 'off' : (STATUS_LABEL[status] ? status : 'off');
+  const tip = [name, STATUS_LABEL[st], sub, activity, ago(lastAt, now), extra].filter(Boolean).join(' · ');
+  const showBubble = activity && st !== 'off';
   return (
-    <div className={`deskcard d-${st}`} title={activity || ''}>
-      {activity && st !== 'off' ? <div className="bubble">{activity}</div> : <div className="bubble empty">{st === 'off' ? '자리 비움' : '…'}</div>}
-      <Sprite status={st} color={hashColor(name)} robot={robot} />
+    <div className={`seat d-${st} ${empty ? 'empty-seat' : ''}`} title={tip}>
+      <div className={`bubble ${showBubble ? '' : 'none'}`}>{showBubble ? activity : ''}</div>
+      {empty ? <div className="sprite st-off"><div className="desk"><div className="monitor"><div className="screen" /></div></div></div>
+        : <Sprite status={st} color={hashColor(name)} robot={robot} />}
       <div className="nm">{name || '?'}</div>
-      <div className="meta"><span className={`dot dot-${st}`} />{STATUS_LABEL[st]}{sub ? ` · ${sub}` : ''}</div>
-      <div className="meta">{ago(lastAt, now)}{extra ? ` · ${extra}` : ''}</div>
+      <div className="chip"><span className={`dot dot-${st}`} />{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
+    </div>
+  );
+}
+
+// 마주보는 2열 공유 책상(가운데 칸막이)
+function Table({ seats, render }) {
+  const half = Math.ceil(seats.length / 2);
+  return (
+    <div className="table">
+      <div className="row">{seats.slice(0, half).map((x, i) => render(x, i))}</div>
+      <div className="divider" />
+      <div className="row">{seats.slice(half).map((x, i) => render(x, i + half))}</div>
     </div>
   );
 }
@@ -89,8 +117,25 @@ export default function PmOffice() {
   const ageSec = resp?.ageSec == null ? null : resp.ageSec + fetchedAgo;
   const stale = ageSec == null || ageSec > STALE_SEC;
   const mode = d.mode === 'live' ? 'live' : 'shadow';
-  const depts = {};
-  for (const s of staff) (depts[s.dept || '기타'] ||= []).push(s);
+  const deptOrder = arr(d.deptOrder).length ? arr(d.deptOrder) : DEFAULT_DEPT_ORDER;
+  const byName = new Map(staff.map((x) => [x.name, x]));
+  const placed = new Set();
+  const rooms = deptOrder.map((dept) => ({
+    dept,
+    seats: (ROSTER[dept] || []).map((m) => {
+      if (typeof m === 'object') return { empty: true, name: m.empty };
+      placed.add(m); return byName.get(m) || { name: m, dept, status: 'off' };
+    }),
+  }));
+  for (const x of staff) {
+    if (placed.has(x.name)) continue;
+    let r = rooms.find((rm) => rm.dept === x.dept) || rooms.find((rm) => rm.dept === '미배치');
+    if (!r) { r = { dept: '미배치', seats: [] }; rooms.push(r); }
+    r.seats.push(x);
+  }
+  const visibleRooms = rooms.filter((r) => r.dept !== '미배치' || r.seats.length);
+  const pmAgent = agents.find((a) => a.id === 'pm');
+  const labAgents = agents.filter((a) => a !== pmAgent);
   const grouped = TASK_GROUPS.map((g) => ({ ...g, items: [] }));
   const other = [];
   for (const t of tasks) { const s = `${t.state || ''}`; const g = grouped.find((x) => x.match(s, t)); (g ? g.items : other).push(t); }
@@ -110,29 +155,37 @@ export default function PmOffice() {
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
       <div className="wrap">
         <main className="floor">
-          <section className="zone">
-            <h2>AI 팀 <small>{agents.length}명</small></h2>
-            <div className="desks">
-              {agents.map((a) => (
-                <Desk key={a.id || a.name} robot name={a.name || a.id} sub={a.role} status={a.status} activity={a.activity} lastAt={a.lastAt} now={now}
-                  extra={a.today?.done != null ? `오늘 ${a.today.done}건` : ''} />
-              ))}
-            </div>
-          </section>
-          <section className="zone">
-            <h2>직원 <small>{staff.length}명</small></h2>
-            {Object.entries(depts).map(([dept, list]) => (
-              <div key={dept} className="dept">
-                <h3>{dept}</h3>
-                <div className="desks">
-                  {list.map((s) => (
-                    <Desk key={s.name} name={s.name} sub={s.app} status={s.status} activity={s.app ? `${s.app} 사용 중` : ''} lastAt={s.lastAt} now={now}
-                      extra={s.events15m != null ? `15분 ${s.events15m}건` : ''} />
-                  ))}
-                </div>
+          <div className="topwing">
+            <section className="room lab">
+              <div className="plate">AI 연구실 · 서버실 <small>{labAgents.length}</small></div>
+              <div className="rows">
+                {labAgents.map((a) => (
+                  <Seat key={a.id || a.name} robot name={a.name || a.id} sub={a.role} status={a.status} activity={a.activity} lastAt={a.lastAt} now={now}
+                    extra={a.today?.done != null ? `오늘 ${a.today.done}건` : ''} />
+                ))}
+                {!labAgents.length && <p className="muted">에이전트 없음</p>}
               </div>
+            </section>
+            <section className="room mgr">
+              <div className="plate">PM 실</div>
+              <div className="rows">
+                {pmAgent ? <Seat robot name={pmAgent.name || 'PM'} sub={pmAgent.role} status={pmAgent.status} activity={pmAgent.activity} lastAt={pmAgent.lastAt} now={now}
+                  extra={pmAgent.today?.done != null ? `오늘 ${pmAgent.today.done}건` : ''} /> : <Seat empty name="PM" />}
+              </div>
+            </section>
+          </div>
+          <div className="hall">복도</div>
+          <div className="wing">
+            {visibleRooms.map((r) => (
+              <section key={r.dept} className="room dept" style={{ background: ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
+                <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small></div>
+                <Table seats={r.seats} render={(x, i) => (
+                  <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status}
+                    activity={x.app ? `${x.app} 사용 중` : ''} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
+                )} />
+              </section>
             ))}
-          </section>
+          </div>
         </main>
         <aside className="side">
           <section className="panel">
@@ -180,15 +233,31 @@ export default function PmOffice() {
         .zone + .zone { margin-top: 16px; border-top: 4px dashed #3a4158; padding-top: 12px; }
         h2 { font-size: 14px; margin: 0 0 8px; } h3 { font-size: 12px; margin: 8px 0 6px; color: #c7cde0; }
         small { color: #9aa3b8; font-weight: normal; }
-        .desks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+        .floor { background: #3a3f4f !important; padding: 10px !important; }
+        .topwing { display: flex; gap: 10px; flex-wrap: wrap; }
+        .room { position: relative; border: 6px solid #8d93a6; border-radius: 2px; padding: 26px 10px 10px; box-shadow: inset 0 0 0 2px #23273a; }
+        .plate { position: absolute; top: -6px; left: 14px; background: #d9c08a; color: #2b2214; font-weight: bold; font-size: 12px; padding: 2px 10px; border: 2px solid #6b5a33; }
+        .lab { flex: 1 1 520px; background: repeating-linear-gradient(0deg,#1d2b36 0 1px,transparent 1px 16px), repeating-linear-gradient(90deg,#1d2b36 0 1px,#22323f 1px 16px); border-color: #9fd8ff; border-style: double; box-shadow: 0 0 12px rgba(120,200,255,.35) inset; }
+        .mgr { flex: 0 0 150px; background: repeating-linear-gradient(45deg,#6b4a2e 0 6px,#5f4128 6px 12px); }
+        .rows { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; justify-content: start; }
+        .hall { margin: 10px 0; height: 26px; line-height: 26px; text-align: center; color: #8d93a6; letter-spacing: 8px; font-size: 11px; background: repeating-linear-gradient(90deg,#4a5064 0 30px,#454b5e 30px 60px); border-top: 2px dashed #6b7186; border-bottom: 2px dashed #6b7186; }
+        .wing { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+        .table { display: inline-flex; flex-direction: column; max-width: 100%; overflow-x: auto; background: rgba(0,0,0,.18); padding: 6px; border-radius: 3px; }
+        .row { display: flex; gap: 6px; }
+        .divider { height: 4px; margin: 3px 0; background: #c9ced9; box-shadow: 0 1px 0 #6b7186; }
+        .seat { width: 120px; height: 148px; flex: 0 0 120px; box-sizing: border-box; background: rgba(15,18,28,.55); border: 2px solid #3a4158; border-radius: 3px; padding: 4px; text-align: center; overflow: hidden; }
+        .seat.d-off { filter: grayscale(.85) brightness(.55); }
+        .seat.d-error { border-color: #e0483a; } .seat.d-working { border-color: #3fbf7f; }
+        .empty-seat { border-style: dashed; }
+        .chip { display: inline-block; max-width: 100%; font-size: 10px; background: #2f3548; border-radius: 8px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .deskcard { background: rgba(20, 23, 34, .75); border: 2px solid #3a4158; border-radius: 4px; padding: 6px; text-align: center; position: relative; }
         .deskcard.d-off { opacity: .45; filter: grayscale(.8); }
         .deskcard.d-error { border-color: #e0483a; }
         .deskcard.d-working { border-color: #3fbf7f; }
-        .bubble { background: #fff; color: #222; border-radius: 6px; padding: 3px 6px; font-size: 11px; min-height: 30px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; position: relative; margin-bottom: 6px; }
+        .bubble { background: #fff; color: #222; border-radius: 6px; padding: 2px 5px; font-size: 10px; height: 28px; box-sizing: border-box; word-break: break-all; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; position: relative; margin-bottom: 6px; }
         .bubble:after { content: ''; position: absolute; left: 50%; bottom: -5px; border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
-        .bubble.empty { background: #3a4158; color: #9aa3b8; } .bubble.empty:after { border-top-color: #3a4158; }
-        .nm { font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bubble.none { visibility: hidden; }
+        .nm { font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .meta { font-size: 11px; color: #9aa3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; background: #666; }
         .dot-working { background: #3fbf7f; } .dot-idle { background: #ffcc3f; } .dot-error { background: #e0483a; }
@@ -203,7 +272,7 @@ export default function PmOffice() {
         .mh { font-size: 11px; } .mt { margin-left: 6px; background: #3a4158; padding: 0 5px; border-radius: 6px; }
         .mb { margin-top: 2px; line-height: 1.4; word-break: break-word; }
         .credit { margin-top: 12px; font-size: 11px; color: #6f7890; }
-        @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } .desks { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); } .feed { max-height: none; } }
+        @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } .wing { grid-template-columns: 1fr; } .mgr, .lab { flex: 1 1 100%; } .feed { max-height: none; } }
       `}</style>
       <style jsx global>{`
         .sprite { position: relative; width: 64px; height: 64px; margin: 0 auto; image-rendering: pixelated; }
