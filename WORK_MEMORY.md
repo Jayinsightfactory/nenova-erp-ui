@@ -1880,3 +1880,6 @@
 2026-11-03 후속검증: 독립 npm ci 후 verify:erp-change exit0, dnSpy/manifest/write guard PASS. 실제SQL CTE 업체5차수우선/타업체최신/6차수·전년도·현재차수제외 PASS. PR1433 CI41586734943 success, master25fc0530, Cafe24배포41587424121 success. 운영버전25fc0530 확인, UI최종검증진행. 검색어: 최근5차수 타업체단가 PR1433 25fc0530
 
 2026-11-03 15:34등록중단: 수경원예1073(44차)/1080(43차)동일품목10단이 같은트랜잭션에서 모두사전검사통과후앞행견적10936생성→뒤행중복throw→전체rollback. 현재10936없음SELECT확인. typed duplicate만 쓰기전skip,기타오류rollback유지,preview전체선택묶음중복경고. 실제registerDeductions 모의3행 정상2/중복1/다른수량허용/중복행쓰기0 PASS. 검색어: sameTransactionDuplicates 1073 1080 10936
+
+2026-11-03 중국45-1 날짜/GW: 원문 HUBFRESH DMY 02/11/2026→2026-11-02, A.G.W.T. TOTAL1684.8kg 보완. Aside 실제 업로드/미매칭1선택/자동 날짜GW/총액77095확인/격리SQL입고91001/새창조회 PASS(54행180박스1905단21900송이39720CNY). CW미기재보존, 운영DB쓰기0/AI0. 빌드PASS, 전체gate진행·배포미완. 정본 docs/work-sessions/2026-11-03_cn45-header.md.
+검색어: cn45-header 45-1 DMY GW1684.8 Aside 자동입력 격리91001
