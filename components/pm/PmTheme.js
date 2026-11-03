@@ -56,10 +56,10 @@ export function Avatar({ cfg, state = 'idle', size = 40, className = '' }) {
   const over = items.filter((x) => !(x.category === 'pet' || x.category === 'desk'));
   return (
     <span className={`pav pmc-${state} ${className}`} style={{ width: size, height: size }} aria-hidden>
-      {under.map((x) => <img key={x.id} src={x.src} alt="" loading="lazy" decoding="async" />)}
+      {under.map((x) => <img key={x.id} className={`it it-${x.category}`} src={x.src} alt="" loading="lazy" decoding="async" />)}
       <span className="pbody">
-        <img src={ch.src} alt="" loading="lazy" decoding="async" />
-        {over.map((x) => <img key={x.id} src={x.src} alt="" loading="lazy" decoding="async" />)}
+        <img className="ch" src={ch.src} alt="" loading="lazy" decoding="async" />
+        {over.map((x) => <img key={x.id} className={`it it-${x.category}`} src={x.src} alt="" loading="lazy" decoding="async" />)}
       </span>
     </span>
   );
