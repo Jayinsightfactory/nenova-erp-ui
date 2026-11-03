@@ -1875,6 +1875,26 @@
 2026-11-03 원천연결최종로컬gate: verify:erp-change session30084 exit0,webpack60초/134페이지.별도dnSpy exit0,origin/master manifest183PASS·쓰기guard exit0(변경API0),운영smoke nodecheck/mock PASS. 독립정책/표시/옵트인DOM검증 승인.정책연결파생3셀복구와표시금액불변을계약/계획/최종보고서에분리정정.운영옵트인클릭검증은basisLinks>0/detailsOpenedtrue로그필요.커밋/PR/배포/운영스모크아직대기.
 검색어: profit-source-completion gatePASS 183manifest 134pages source_completion_checks 배포대기
 
+2026-11-03 평균 대체 및 원본 관세 조사: 누락 평균가 허용 후 최신 요청에 따라 중국·태국 도착원가 Excel 원본 대조를 우선했다. 중국 장미21.4/유칼립투스8/일부Preserved25%, 태국 확인품목5% 실제 셀 확인. 중국27-2 비짜루·PreservedBlue 원본21.4 예외 및21-2 K30→J31 참조 오류 보존. CO는 원산지증명서이며3.2%는 검사 원본 셀에서 미확인(콜롬비아와 무관). 정확 태국36 ARAN Azima 원본5%는638 연결후보. 기존25%와39차형태추론8% 정책우선순위 충돌은 미수정 조사결과다. 국가 전체 평균 확대는 미승인. 평균 설계·계약 초안만 작성했고 금융코드/정책/원본Excel/DB 변경0, 신규PR·배포0. 정본 docs/work-sessions/2026-11-03_profit-average-and-duty-source-review.md 및 docs/work-reports/2026-11-03_china-thailand-original-duty-cells.md.
+검색어: average-fallback 원본관세 중국21.4 소재8 Preserved25 태국5 CO원산지증명3.2미확인 27-2예외 21-2행참조 정책우선순위 국가평균미승인 DB쓰기0
+
+2026-11-03 원본 관세 적용 승인 후: 조사 단계와 달리 사용자가 웹 적용을 승인했다. codex/profit-workbook-duty-apply 기준961bad438 보존. exact상품213/직접세부차수1087,실제납부·명시0·수기우선,원본예외17/27/28/32보존,K30오참조제외.원본후보1238행/214키는runtime규칙수와별개다.재생01~43 신규SQL0/DB쓰기0,미연결443→371입고진단행/146→128품목.태국34~38 K5행복구,중국27−0.359%p/28−0.102%p(관세/이월).매출있는520행중K389/보류131,0매출192(완전무활동180)완료집계제외.39태국JamesStory/Sonia/Sunrise·CO3.2·18환율/원가/단위잔여보존.독립core승인·표적5PASS,v4및구파생재적용차단.전체gate진행/PR배포대기. 정본 docs/work-sessions/2026-11-03_profit-workbook-duty-apply.md 및 work-reports/workbook-duty-apply-final/remaining.
+검색어: workbook-duty-apply 213상품 1087차수 128품목 태국34~38복구 39태국3품목 27관세28이월 131보류 v4 DB쓰기0 배포대기
+
+2026-11-03 후속승인: 사용자가 수익률보류금지 후 국가평균 및 유사품목 단/송이환산을 명시승인했다. 이전 '국가평균미승인'은이후승인으로대체. 기존실제/명시0/수기보존·결손만보완,샘플가능성은추측일뿐확정표기금지.131행 rawK59/원본K도없음72(재고E/F50,H만8,G/R13,G/H/R1).raw59무조건복원금지(중국시네신스101906원/단+2025live출처등검증필요).이전연도읽기허용하되평가시점이하 OrderYear+fullWeek,미래/재귀fallback donor금지.원본category_average255는AU/US0·NL최초16/TH27/EC15/CN16으로재사용만으로전부해결불가.국가평균/유사환산보완구현진행,관세코드보존·배포잠시보류. 독립설계 docs/plans/profit-no-hold-average-independent-2026-11-03.md.
+검색어: 국가평균승인 유사품목환산승인 raw59 공란72 131보류해소 평가시점이하 이전연도읽기 미래donor금지 DB쓰기0 배포보류
+
+2026-11-03 관세단계gate PASS:verify:erp-change2479 exit0,별도dnSpy PASS,origin/master manifest185/writeguard변경API0 PASS. 후속국가평균·유사환산진행으로배포보류.2025독립원천지도조사:추가SELECT2성공+구문오류1정정/쓰기0. ArrivalCostLine·CustomsWeekly·ProfitReport≤2025 및FreightCost2025헤더0.그러나2025입고운임상품205행/169AWB그룹과호주연초5품목exact매입이있으므로과거원가전혀없음단정금지.2025당시FX/통관·호주운임포함여부는별도부족.정본 docs/work-reports/2026-11-03_average-2025-source-map.md.2026전체구현차단으로확대하지않는다.
+검색어: 관세gatePASS185 2025도착원가 원입고운임205 호주기초5품목 과거환율통관부족 국가평균진행 DB쓰기0
+
+2026-11-03 평균기간정책추가: 국가평균·공란보완승인에맞춰historical donor(이전연도포함평가시점이하)우선,없을때같은국가완전원도착원가의후대참고평균 country_reference_period 허용을주담당이사용자에게안내.후대자료를당시실매입으로인증하지않고sourcePeriods/참조시작끝/평가시점보존.과거근거있으면후대로교체금지,대체결과재귀/다른국가혼합/판매단가/실제0·수기덮기금지유지.초기설계동일연도/미래절대금지는최신독립설계의두경로정책으로대체.
+검색어: country_reference_period 과거우선 후대국가참고평균 자료기간명시 실제매입인증아님 DB쓰기0
+
+2026-11-03 국가평균 최신 독립검산: 저장01~43차712행/매출비0인520행중K514. 관세후기준선대비공란125회복·기존율86변경·303동일,미분류6잔존. 미분류는ProdKeyNULL입고16행Q합계일치이며송장통화미확인. NZ01/JP01·02 Hmissing0 및 CO양수partial11은완전비용인증아님. 실제런타임SELECT3/쓰기0,cold14.373초/warm0ms;43최신원본별도1292SELECT/쓰기0,중국재고147→210단StockKey297파생메타반영. canonicalStockKey/혼합단위/실제Q/S보존/중복donor차단보완. 우선순위는품목past→품목reference→품종past→품종reference→국가past→국가reference. 전체gate·배포·운영스모크대기. 정본 docs/work-reports/2026-11-03_average-fallback-final-review.md 및 docs/work-sessions/2026-11-03_profit-average-fallback-final.md.
+검색어: 평균보완514 공란125회복 기존율86변경 미분류6 NULL입고16 partialH11 43중국210단 DB쓰기0 배포대기
+
+2026-11-03 평균보완 코드동결 독립검토: 현재발견P1없음,전체gate·운영스모크조건부승인. 평균상세UI페이지연결/80품목성분환산기간/실납부미인증/원본메타분리확인. 최종재생F→E재사용75쌍불일치0,보완행양수매출100%초과또는−50%미만0. 이전prototype극단값은최종값아님. 원천불변fingerprint재사용629ms는주담당측정이며운영성능인증아님. 전체gate·배포대기유지.
+검색어: 독립P1없음 조건부승인 E/F75쌍 극단값해소 상세UI80 gate배포대기
 2026-11-03 불량차감 후속 진행: nw-defect-support-1103. 사용자 최종정책: 같은연도 직전5차수 업체단가우선/없으면타업체최신동일품목단가, 전년도제외. 적용차수 업체분배없음 보류/후속차수대기 유지. ClassEstimate dnSpy CLI와 FormEstimateAdd ShipmentKey/ProdKey 독립저장 확인. 오류로그16519 견적10930중복; 현재10930 실제연결조회0건으로 업체확정미완. UI13px/핵심열/오류업체품목표시 수정중. 기본불량/원문보존 회귀PASS, 전체가드진행중, 배포미완. 검색어: 최근5차수 타업체단가 등록보류 10930
 
 2026-11-03 후속검증: 독립 npm ci 후 verify:erp-change exit0, dnSpy/manifest/write guard PASS. 실제SQL CTE 업체5차수우선/타업체최신/6차수·전년도·현재차수제외 PASS. PR1433 CI41586734943 success, master25fc0530, Cafe24배포41587424121 success. 운영버전25fc0530 확인, UI최종검증진행. 검색어: 최근5차수 타업체단가 PR1433 25fc0530

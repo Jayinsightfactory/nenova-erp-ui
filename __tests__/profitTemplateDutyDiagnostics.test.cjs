@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
  // This unchanged-policy matrix keeps every amount/verdict/output field intact.
  // Only the explicit release-version bump, approved display label, and additive diagnostics
  // are normalized. Official mappings/historical blank changes have separate tests.
- assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v3');
+ assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v4');
  const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,key==='version'&&child===current.TEMPLATE_DUTY_VERSION?baseline.TEMPLATE_DUTY_VERSION:key==='label'&&child==='저장본 기반 관세 계산 반영 · 적용기준 상세 확인 · 원본 확정본·DB 미변경'?'저장본 기반 관세 보완(추정 포함) · 원본 확정본·DB 미변경':clean(child)])):value;
  const scenarios=[
   ()=>{},

@@ -1,0 +1,11 @@
+{
+  "id":"profit-workbook-duty-apply",
+  "title":"원본 차수별 관세 및 승인 품목분류 읽기 적용",
+  "scope":["lib/profitTemplateDuty.mjs","lib/profitTemplateDutyData.js","data/profit-workbook-duty-2026.json"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READ_WORKBOOK_DUTY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Clone-only duty recalculation; actual payment/explicit zero/manual H first, exact receipt-scoped workbook exception next, approved exact product form before generic HS inference. Preserve all SQL ledgers, snapshots, confirmed raw payloads. No country-wide averages, no CO3.2 without certificate. Preserve incomplete FX/freight holds and canonical monthly/export/print calculation."}],
+  "crossYearFixture":{"required":true,"description":"2025/2027 identical week and product cannot consume 2026 registry; exact country/name and complete subweek scope required."},
+  "requiredTestFiles":["__tests__/profitTemplateDuty.test.cjs","__tests__/profitWorkbookDuty.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-workbook-duty-apply-2026-11-03.md","source":"Actual dnSpy.Console FormWarehouseView; reused SELECT-only annual receipt/report evidence","methods":["FormWarehouseView.GetData"],"tables":["WarehouseMaster","WarehouseDetail","Product","FreightCost","FreightCostDetail","WebProfitReport","WebProfitReportSnapshot"]},
+  "requiredCommands":["npm run verify:erp-change","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

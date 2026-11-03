@@ -10,6 +10,7 @@ import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { getPreviousProfitReportPeriod } from '../../lib/profitReportDefaultPeriod.mjs';
 import { calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
 import { profitDisplayCalculation, hasStoredRowCalculation, profitScopeMatches } from '../../lib/profitReportStoredCalculation';
+import ProfitAverageEvidence from '../../components/ProfitAverageEvidence';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
@@ -1501,6 +1502,7 @@ export default function ProfitReportPage() {
       {viewMode === 'category' && data && <ProfitStemCost year={reportYear} major={weekInput.value} dirty={dirty || String(data.orderYear)!==String(reportYear) || Number(data.major)!==Number(weekInput.value)} />}
       {viewMode === 'category' && data && <h2 style={{fontSize:16,margin:'12px 0 6px'}}>{data.templateDuty?'관세 보완 적용 본표 · 다운로드/인쇄 동일 기준':'기존 엑셀식 저장 참고 · 기존 다운로드/인쇄 기준'}</h2>}
       {viewMode === 'category' && data && <ProfitReportValidationGate validation={sourceValidation} />}
+      {viewMode === 'category' && data && <ProfitAverageEvidence data={data} />}
       {viewMode === 'category' && data && (
         <div style={st.tableWrap}>
           <table style={st.table}>
