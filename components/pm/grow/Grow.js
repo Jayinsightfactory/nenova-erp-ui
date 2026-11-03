@@ -71,7 +71,7 @@ export function DeskPot({ name }) {
   if (!p) return null;
   return (
     <span className="desk-pot">
-      <GrowSprite line={p.line} stage={p.stage} mood={p.mood} size={30} title={`${name}의 ${p.name} · ${MOOD_LABEL[p.mood]}`} />
+      <GrowSprite line={p.line} stage={p.stage} mood={p.mood} size={30} title={`${name}의 ${p.stageName} · ${MOOD_LABEL[p.mood]}`} />
       <style jsx global>{`.pm .seat { position: relative; } .desk-pot { position: absolute; right: 4px; top: 58px; pointer-events: none; z-index: 2; }`}</style>
     </span>
   );
@@ -89,7 +89,7 @@ export function GrowTab({ name }) {
       <div className="hero">
         <GrowSprite line={p.line} stage={p.stage} mood={p.mood} size={128} />
         <div>
-          <b className="nm">{p.stage}단계 · {p.name}</b>
+          <b className="nm">{p.stage}단계 · {p.stageName}</b>
           <div className="muted">{MOOD_LABEL[p.mood]} · 누적 {p.points}점</div>
           {p.next ? <>
             <div className="bar" aria-label={`다음 단계까지 ${Math.round(p.progress * 100)}%`}><i style={{ width: `${Math.round(p.progress * 100)}%` }} /></div>
@@ -110,7 +110,7 @@ export function GrowTab({ name }) {
         : <p className="muted">오늘 기록 없음</p>}
       <h3>돌봄</h3>
       <p className="muted">물뿌리개: 오래 쉬어 시무룩해진 모습만 되돌립니다(성장치는 그대로). 상점 연동 후 사용 가능.</p>
-      {garden && <><h3>{garden.dept} 정원</h3><p className="muted">부서원 {garden.members}명 평균으로 {garden.stage}단계 {garden.name}</p></>}
+      {garden && <><h3>{garden.dept} 정원</h3><p className="muted">부서원 {garden.members}명 평균으로 {garden.stage}단계 {garden.stageName}</p></>}
       <p className="note">업무시간으로 자라며 오래 쉬어도 시들거나 단계가 내려가지 않아요. 급여·평가와 무관합니다.</p>
       <style jsx>{`
         .hero { display: flex; gap: 14px; align-items: center; background: #fff; border: 1px solid #d0d4de; border-radius: 8px; padding: 10px; }
@@ -133,7 +133,7 @@ export function GardenStrip() {
   return (
     <div className="garden" aria-label="부서 정원">
       {view.gardens.map((g) => (
-        <span key={g.dept} className="g"><GrowSprite stage={g.stage} mood="idle" size={36} /><small>{g.dept} 정원 · {g.name}</small></span>
+        <span key={g.dept} className="g"><GrowSprite stage={g.stage} mood="idle" size={36} /><small>{g.dept} 정원 · {g.stageName}</small></span>
       ))}
       <style jsx>{`
         .garden { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding: 6px 0; }
