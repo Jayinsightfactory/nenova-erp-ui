@@ -1883,3 +1883,7 @@
 
 2026-11-03 문제 해결 창: nw-defect-resolution-1103. 단가/매칭/원문대조/중복한건선택 후 기존 register 실행. 정상 자동원천 단가 감사허용, source flags 보존. 실제SELECT1073=10943(사용자등록 추정),1080미등록으로 자동보정안함. 신규행동/다른연도·수량·단위/실제manual-cost 모의쓰기2건 회귀PASS. 전체검사/빌드/UI/배포 진행중.
 검색어: defectResolution 문제해결창 manualCost 자동수집 원문대조
+2026-11-03 15:34등록중단: 수경원예1073(44차)/1080(43차)동일품목10단이 같은트랜잭션에서 모두사전검사통과후앞행견적10936생성→뒤행중복throw→전체rollback. 현재10936없음SELECT확인. typed duplicate만 쓰기전skip,기타오류rollback유지,preview전체선택묶음중복경고. 실제registerDeductions 모의3행 정상2/중복1/다른수량허용/중복행쓰기0 PASS. 검색어: sameTransactionDuplicates 1073 1080 10936
+
+2026-11-03 중국45-1 날짜/GW: 원문 HUBFRESH DMY 02/11/2026→2026-11-02, A.G.W.T. TOTAL1684.8kg 보완. Aside 실제 업로드/미매칭1선택/자동 날짜GW/총액77095확인/격리SQL입고91001/새창조회 PASS(54행180박스1905단21900송이39720CNY). CW미기재보존, 운영DB쓰기0/AI0. 빌드PASS, 전체gate진행·배포미완. 정본 docs/work-sessions/2026-11-03_cn45-header.md.
+검색어: cn45-header 45-1 DMY GW1684.8 Aside 자동입력 격리91001
