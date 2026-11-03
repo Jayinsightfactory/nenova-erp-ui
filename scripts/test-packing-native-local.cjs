@@ -22,7 +22,7 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
   if(route==='/__test/status')return send({testOnly:true,database:pool.config.database,events});
   if(route==='/__test/stop'&&method==='POST'){send({success:true});return stop();}
   if(!route.startsWith('/api/')){
-   if(!(route==='/import/tools'||route==='/incoming/boxes'||route.startsWith('/_next/')||route.startsWith('/fonts/')||route.startsWith('/images/')||route.endsWith('.ico')||route.endsWith('.svg')||route.endsWith('.js')||route.endsWith('.wasm')))return send({error:'TEST_ROUTE_NOT_ALLOWED'},403);
+   if(!(route==='/import/tools'||route==='/incoming'||route==='/incoming/boxes'||route.startsWith('/_next/')||route.startsWith('/fonts/')||route.startsWith('/images/')||route.endsWith('.ico')||route.endsWith('.svg')||route.endsWith('.js')||route.endsWith('.wasm')))return send({error:'TEST_ROUTE_NOT_ALLOWED'},403);
    const h={...req.headers,host:'127.0.0.1:'+internalPort,cookie:'nenovaToken='+token};
    const upstream=http.request({hostname:'127.0.0.1',port:internalPort,path:req.url,method,headers:h},r=>{res.writeHead(r.statusCode,{...r.headers,'set-cookie':'nenovaToken='+token+'; Path=/; HttpOnly; SameSite=Strict','content-security-policy':"connect-src 'self' blob: data:; form-action 'self';"});r.pipe(res);});upstream.on('error',()=>send({error:'LOCAL_FRONTEND_UNAVAILABLE'},503));req.pipe(upstream);return;
   }
@@ -39,7 +39,18 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    }
    else if(route==='/api/arrival-cost')d={success:true,farms};
    else if(route==='/api/import/receipts/auto-fill'){
-    const {resolveInvoiceHeader}=await import('../lib/invoiceReceiptAutoFill.js');d={success:true,resolution:resolveInvoiceHeader(body,farms)};
+    const {resolveInvoiceHeader}=await import('../lib/invoiceReceiptAutoFill.js');
+    const {listInvoiceFarmSources}=await import('../lib/invoiceFarmSource.js');
+    const choices=await listInvoiceFarmSources(ctx.queryFn);
+    d=method==='GET'?{success:true,farms:choices.filter(f=>f.FarmName.toLowerCase().includes((u.searchParams.get('q')||'').toLowerCase()))}:{success:true,resolution:resolveInvoiceHeader(body,choices)};
+   }
+   else if(route==='/api/warehouse'&&method==='GET'){
+    const {sqlWarehouseViewGetData}=await import('../lib/exeWarehouseViewSql.js');
+    d={success:true,masters:(await query(pool,sqlWarehouseViewGetData(),{startDate:{type:sql.Date,value:u.searchParams.get('startDate')},endDate:{type:sql.Date,value:u.searchParams.get('endDate')}})).recordset};
+   }
+   else if(/^\/api\/warehouse\/\d+$/.test(route)&&method==='GET'){
+    const {sqlWarehouseViewGetDetail}=await import('../lib/exeWarehouseViewSql.js');
+    d={success:true,items:(await query(pool,sqlWarehouseViewGetDetail(),{warehouseKey:{type:sql.Int,value:Number(route.split('/').at(-1))}})).recordset};
    }
    else if(route==='/api/import/tools/state'){const key=u.searchParams.get('key')||body.key||'';if(method==='POST')shared.set(key,body.value);d={success:true,value:shared.get(key)||null,revision:0,history:[]};}
    else if(route==='/api/import/tools/upload-history')d={success:true,record:{id:'isolated-only'},rows:[]};

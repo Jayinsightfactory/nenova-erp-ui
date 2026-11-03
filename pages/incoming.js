@@ -49,6 +49,8 @@ export default function Warehouse() {
   const fileRef = useRef();
   const loadSeq = useRef(0);
   const detailSeq = useRef(0);
+  const linkedWarehouse=useRef(null);
+  const linkedOpened=useRef(false);
 
   const load = () => {
     const seq = ++loadSeq.current;
@@ -63,6 +65,8 @@ export default function Warehouse() {
     const d = new Date();
     const today = d.toISOString().slice(0, 10);
     const q = new URLSearchParams(window.location.search);
+    const linked=Number(q.get('warehouseKey'));
+    if(Number.isSafeInteger(linked)&&linked>0)linkedWarehouse.current=linked;
     const queryRange = incomingQueryDateRange(window.location.search, d);
     setEndDate(queryRange.endDate);
     setUploadMeta(m => ({ ...m, inputDate: today }));
@@ -78,6 +82,8 @@ export default function Warehouse() {
   useEffect(() => {
     if (!urlApplied.current || !startDate || !endDate) return;
     const q = new URLSearchParams();
+    if(linkedWarehouse.current)q.set('warehouseKey',String(linkedWarehouse.current));
+    if(new URLSearchParams(window.location.search).get('popup')==='1')q.set('popup','1');
     q.set('from', startDate); q.set('to', endDate);
     if (farmFilter) q.set('farm', farmFilter);
     if (weekFilter) q.set('week', weekFilter);
@@ -108,6 +114,11 @@ export default function Warehouse() {
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  useEffect(()=>{
+    if(!loading&&!linkedOpened.current&&linkedWarehouse.current&&masters.some(m=>Number(m.WarehouseKey)===linkedWarehouse.current)){
+      linkedOpened.current=true;selectMaster(linkedWarehouse.current);
+    }
+  },[loading,masters]);
   const latestArrival = useLatestArrivalReferences(selected?.OrderYear,details.map(d=>({prodKey:d.ProdKey,unit:''})));
   const actualCostByDetail = new Map((invoiceCosts?.currentActual?.lines || []).map(line => [Number(line.wdetailKey), line]));
   const expectedCostByDetail = new Map((invoiceCosts?.comparisons?.[0]?.lines || []).map(line => [Number(line.wdetailKey), line]));

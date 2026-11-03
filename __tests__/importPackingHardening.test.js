@@ -153,6 +153,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   };
   const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
+    '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
     '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
