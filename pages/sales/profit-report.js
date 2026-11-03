@@ -28,6 +28,7 @@ import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNo
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
 import toolbar from '../../styles/ProfitReportToolbar.module.css';
 import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
+import { profitPopoverPosition, navigateProfitCheckboxes } from '../../lib/profitPrintLayout.mjs';
 import ProfitValidationLink from '../../components/ProfitValidationLink';
 import ProfitCustomerMarginLink from '../../components/ProfitCustomerMarginLink';
 import { reportScopeFromSearch } from '../../lib/profitValidationWindow.mjs';
@@ -80,11 +81,9 @@ const COLUMN_DEFS = [
   { key: 'U', label: '상품구매비율' },
 ];
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
-// 기본 보고 화면은 합계 중심으로 보여주고, 매출 구성 세부열은 컬럼 설정에서 필요할 때 켠다.
-// v3: 기존 전체표시 저장값을 한 번 초기화해 새 기본값을 실제 사용자에게 적용한다.
-const DEFAULT_HIDDEN_COL_KEYS = new Set(['L', 'M', 'N', 'O']);
-const DEFAULT_VISIBLE_COL_KEYS = ALL_COL_KEYS.filter(key => !DEFAULT_HIDDEN_COL_KEYS.has(key));
-const LS_KEY = 'nenova_profitReport_visibleCols_v3';
+// v4: 최신 요청의 22개 전체 기본값을 한 번 적용. 이후 사용자 선택/프리셋 보존.
+const DEFAULT_VISIBLE_COL_KEYS = ALL_COL_KEYS;
+const LS_KEY = 'nenova_profitReport_visibleCols_v4';
 const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
 const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
 const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
@@ -346,6 +345,19 @@ export default function ProfitReportPage() {
   const { columns: visibleCols, setColumns: setVisibleCols, ready: columnsReady, storageError: columnsStorageError } = useProfitColumnPreferences(LS_KEY, ALL_COL_KEYS, DEFAULT_VISIBLE_COL_KEYS);
   const [showColPicker, setShowColPicker] = useState(false);
   const colPickerButton = useRef(null);
+  const colPickerPanel = useRef(null);
+  const [colPickerPosition, setColPickerPosition] = useState({ left: 8, top: 8 });
+  useEffect(() => {
+    if (!showColPicker) return;
+    const position = () => setColPickerPosition(profitPopoverPosition(colPickerButton.current.getBoundingClientRect(), window.innerWidth, window.innerHeight));
+    position();
+    colPickerPanel.current?.querySelector('input[type="checkbox"]')?.focus();
+    const outside = e => { if (!colPickerPanel.current?.contains(e.target) && !colPickerButton.current?.contains(e.target)) setShowColPicker(false); };
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    document.addEventListener('pointerdown', outside);
+    return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); document.removeEventListener('pointerdown', outside); };
+  }, [showColPicker]);
   const isVisible = key => visibleCols.includes(key);
   const toggleCol = key => setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   const shownColumns = COLUMN_DEFS.filter(cd => cd.key !== 'category' && (isVisible(cd.key) || (cd.key === 'R' && data?.rows?.some(needsRateInput))));
@@ -1159,11 +1171,11 @@ export default function ProfitReportPage() {
             </>
           )}
           <div style={{ position: 'relative' }}>
-            <button ref={colPickerButton} disabled={!columnsReady} style={st.secondaryBtn} onClick={() => setShowColPicker(v => !v)} title="표시할 컬럼을 선택합니다 — 선택은 브라우저에 저장돼 다음에 열어도 유지됩니다">
+            <button data-testid="profit-columns-button" aria-expanded={showColPicker} aria-controls="profit-columns-panel" ref={colPickerButton} disabled={!columnsReady} style={st.secondaryBtn} onClick={() => setShowColPicker(v => !v)} title="표시할 컬럼을 선택합니다 — 선택은 브라우저에 저장돼 다음에 열어도 유지됩니다">
               ⚙ 컬럼 ({visibleCols.length}/{ALL_COL_KEYS.length})
             </button>
             {showColPicker && (
-              <div style={st.colPicker} onKeyDown={e => { if (e.key === 'Escape') { setShowColPicker(false); colPickerButton.current?.focus(); } }}>
+              <div id="profit-columns-panel" data-testid="profit-columns-panel" ref={colPickerPanel} role="group" aria-label="표시할 컬럼" style={{ ...st.colPicker, ...colPickerPosition }} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setShowColPicker(false); colPickerButton.current?.focus(); } else navigateProfitCheckboxes(e); }}>
                 <div style={st.colPickerHead}>
                   <span>표시할 컬럼</span>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -1171,7 +1183,7 @@ export default function ProfitReportPage() {
                     <button style={st.colPickerMiniBtn} onClick={() => setVisibleCols(['category'])}>해제</button>
                   </div>
                 </div>
-                <p role="status" style={{ margin: '6px 0' }}>{columnsStorageError || '자동 저장 · 같은 브라우저에서 다시 열어도 유지됩니다.'}</p>
+                <p role="status" style={{ margin: '6px 0' }}>{columnsStorageError || '기본 22개 전체 · 변경한 선택은 자동 저장됩니다.'}</p>
                 {COLUMN_DEFS.map(cd => (
                   <label key={cd.key} style={st.colPickerRow}>
                     <input type="checkbox" checked={isVisible(cd.key)} onChange={() => toggleCol(cd.key)} />
@@ -2099,7 +2111,7 @@ const st = {
   viewToggleWrap: { display: 'flex', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' },
   viewToggleOn: { background: 'var(--blue, #245bd7)', color: '#fff', border: '1px solid var(--blue, #245bd7)', borderRadius:6, minHeight:34, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
   viewToggleOff: { background: 'var(--surface, #fff)', color: 'var(--text2, #41536b)', border: '1px solid var(--border2, #b9c7d8)', borderRadius:6, minHeight:34, padding: '6px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
-  colPicker: { position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, boxShadow: '0 12px 32px rgba(15,23,42,0.18)', padding: 10, width: 220, maxHeight: '60vh', overflow: 'auto', zIndex: 20 },
+  colPicker: { position: 'fixed', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, boxShadow: '0 12px 32px rgba(15,23,42,0.18)', padding: 10, boxSizing: 'border-box', overflowY: 'auto', zIndex: 1000 },
   colPickerHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#334155', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' },
   colPickerMiniBtn: { background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 5, padding: '2px 7px', fontSize: 10, cursor: 'pointer' },
   colPickerRow: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#334155', padding: '3px 2px', cursor: 'pointer' },
@@ -2162,7 +2174,7 @@ const st = {
   monthBoundaryGlobalRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '5px 7px', marginBottom: 3, background: '#fff', border: '1px solid #fde68a', borderRadius: 5, fontSize: 11.5, color: '#475569' },
   monthlyEmpty: { color: '#78716c', fontSize: 12 },
   monthlyMissing: { marginTop: 8, paddingTop: 8, borderTop: '1px solid #fcd34d', color: '#b91c1c', fontSize: 11.5 },
-  tableWrap: { overflow: 'auto', maxHeight: 'calc(100vh - 220px)', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff' },
+  tableWrap: { overflowX: 'auto', border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff' },
   table: { borderCollapse: 'collapse', fontSize: 12, minWidth: 1800 },
   th: { position: 'sticky', top: 0, background: '#1e293b', color: '#fff', padding: '7px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 2 },
   stickyCol: { position: 'sticky', left: 0, background: '#f8fafc', zIndex: 1, minWidth: 130 },
