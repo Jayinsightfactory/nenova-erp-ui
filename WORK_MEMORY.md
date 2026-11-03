@@ -1924,3 +1924,6 @@
 검색어: profit-print-layout production-build mockUI 390px PR1447 41604410811
 2026-11-03 데스크톱 앱 1.3.11 작업: 1.3.2 사용자 화면에서 로그아웃·오늘의 내 업무가 보이지 않는 문제 확인. 네이티브 홈에 로그아웃/계정 변경, 서버 세션 해제 후 탭·저장 구성 정리·로그인 진입 추가. 오늘 업무 '보관'을 복구 가능한 '삭제'로 표시하고 수정·삭제·보관함·계정 전환 Electron smoke 보강. 탭 닫기 기본 선택은 최신 코드에서 이미 닫기이며 smoke 확인. 데스크톱 AI 도구/버튼별 사람용 작업 원장 설계 docs/plans/desktop-ai-action-ledger-2026-11-03.md 작성; 신규 API는 미구현. desktop 단위28·smoke·restore·updater PASS, 전체 ERP 계약/웹빌드·PR/릴리스·운영 설치 스모크 진행 중으로 미검증.
 검색어: desktop 1.3.11 로그아웃 계정변경 오늘업무 수정 삭제 탭닫기 기본 닫기 AI MCP 작업원장 actionId operationId
+
+2026-11-03 업체별 불량목록: 영업 입력/영업지원 검색·업체버튼·행별 입력출처 표시. 선택업체 전체선택/문제해결 범위 일치, 원sourceIndex 보존. SQL/권한/원장쓰기 변경없음. 계획 docs/plans/defect-company-filter-2026-11-03.md. 단위회귀통과, 전체검증/배포 진행중.
+검색어: defectCompanyFilter 업체버튼 입력출처 직접입력 자동수집
