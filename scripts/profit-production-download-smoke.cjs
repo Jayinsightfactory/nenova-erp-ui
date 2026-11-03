@@ -4,7 +4,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
 (async()=>{
  const token=process.env.NENOVAWEB_SERVICE_TOKEN;
  if(!token)throw Error('Configured service credential is unavailable');
- const {computeProfitRow}=await import('../lib/profitReportCalc.js');
+ const {compareProfitSmokeOutput}=await import('./profit-smoke-comparison.mjs');
  const year=String(process.env.PROBE_YEAR||'2026'),weeks=String(process.env.PROBE_WEEK||'18').split(',').map(w=>w.trim().padStart(2,'0'));
  if(!/^20\d\d$/.test(year)||weeks.length>6||new Set(weeks).size!==weeks.length||weeks.some(week=>!/^\d{2}$/.test(week)||+week<1||+week>53))throw Error('Invalid probe scope');
  const origin='https://nenovaweb.com';
@@ -15,7 +15,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   for(const week of weeks) {
   const page=await context.newPage();await page.setViewport({width:1920,height:1080});
   await page.evaluateOnNewDocument(()=>localStorage.setItem('nenova_profitReport_outputCols_v1',JSON.stringify(['category','C','E','F','G','H','I','J','K'])));
-  const responses=[],requests=[],reads=[];let blockedWrites=0,mainData=null;
+  const responses=[],requests=[],reads=[],responseObservations=[];let blockedWrites=0,mainData=null;
   await page.setRequestInterception(true);
   page.on('request',req=>{
    const u=new URL(req.url());
@@ -31,7 +31,8 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   });
   page.on('response',res=>{
    const responseUrl=new URL(res.url()),pathname=responseUrl.pathname;
-   if(pathname==='/api/sales/profit-report-output')responses.push(res.status());
+   if(pathname==='/api/sales/profit-report-output'){responses.push(res.status());responseObservations.push({kind:'output',status:res.status(),observedAt:new Date().toISOString()});}
+   if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week))responseObservations.push({kind:'screen',status:res.status(),observedAt:new Date().toISOString()});
    if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week)&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
   });
   await page.goto(`${origin}/sales/profit-report?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
@@ -77,10 +78,12 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   }
   if (averageRows.length) assert.ok(inventoryText.includes('평균 도착원가'));
   console.log(JSON.stringify({inventoryBasisSmoke:'PASS',scope:{year,week},averageRows:averageRows.length,actualBusinessWrites:0}));
-  const cols=['C','E','F','G','H','I','J','K'],mainMap=new Map((mainData?.rows||[]).map(r=>[r.category,mainData.confirmed?r.calc:computeProfitRow(r)]));
-  const initialScreenDifferences=financialRows.filter(r=>mainMap.has(r[0])).flatMap(r=>cols.filter((col,i)=>{
-   const a=r[i+1]??null,b=mainMap.get(r[0])?.[col]??null;return a!==b&&!(typeof a==='number'&&typeof b==='number'&&Math.abs(a-b)<1e-8);
-  }).map(column=>({category:r[0],column})));
+  const comparison=compareProfitSmokeOutput(mainData,financialRows);
+  const initialScreenDifferences=comparison.differences;
+  if(initialScreenDifferences.length)console.log(JSON.stringify({profitOutputMismatch:{scope:{year,week},elapsedMs:Date.now()-started,
+   readMode:mainData.readMode,templateDutyVersion:mainData.templateDuty?.version,
+   snapshot:{state:mainData.snapshot?.state,servedFrom:mainData.snapshot?.servedFrom},
+   responseObservations,differences:initialScreenDifferences,evidence:comparison.evidence}}));
   assert.deepEqual(initialScreenDifferences,[],'download must match the initial web report');
   if(!mainData.confirmed){
    const {getHistoricalTaxableRate}=await import('../lib/profitReportHistoricalCustoms.js');
@@ -107,7 +110,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   }
   if(process.env.PROBE_THAI_CARRY==='true'&&year==='2026'&&+week>=34&&+week<=41){
    const thai=mainData.rows.find(r=>r.category==='태국');assert.ok(thai);
-   const calc=computeProfitRow(thai);
+   const calc=comparison.displayed.rows.find(r=>r.category==='태국').calc;
    if(thai.source.H==='actual_cost_missing'&&thai.manual.H==null){
     assert.equal(calc.H,null);assert.equal(calc.I,null);assert.equal(calc.J,null);assert.equal(calc.K,null);
     assert.ok((mainData.audit?.issues||[]).some(i=>i.code==='ACTUAL_CUSTOMS_COST_MISSING'));
