@@ -29,6 +29,7 @@ CREATE TABLE dbo.Customer (
   CustKey int NOT NULL PRIMARY KEY,
   CustName nvarchar(200) NOT NULL,
   CustArea nvarchar(100) NULL,
+  OrderCode nvarchar(100) NULL,
   Manager nvarchar(20) NULL,
   Descr nvarchar(1000) NULL,
   isDeleted bit NOT NULL CONSTRAINT DF_InvoiceFixtureCustomerDeleted DEFAULT(0)

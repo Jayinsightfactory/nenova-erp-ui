@@ -49,7 +49,8 @@ async function main() {
     const hashes = {
       CO: 'a0c7454452f7fe85d46b6fd5799b8292fe468d03938a8bc6a2b206a4187309a0',
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
-      CN: 'cdb64e5933e3ab18b628e178a6d7e5f250880a958deaad7e24aedaae8c94503a',
+      // 45-1 original header: HUBFRESH, not the cached Cloudland guess; numeric date must retain ambiguity.
+      CN: '4b68d30fce3d9c834251c312a6907a1f4f0a44e42fafc68cd31b61ebfcbc7db8',
       EC: '9ea4cce8f2461a8e6c21d732029f29c26da9d4e6884a5634959d74dcb91965fa',
       TH: '07e6964383ae6dcefb0cd331f6c79f5d7e214cd3324a8d68c51440fd2d5d313d',
       AU: '8e8ef22e1bcac2b56a57404ffc165bb6afbd28378a18a507243be611695fbcda',
@@ -280,6 +281,7 @@ async function main() {
     };
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
+      '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,

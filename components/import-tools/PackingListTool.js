@@ -16,6 +16,7 @@ import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '
 import { packingValidationIssues } from '../../lib/packingValidationIssues.js';
 import { notifyPackingBlocked } from '../../lib/packingBlockedNotice.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
+import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
@@ -1755,6 +1756,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         return;
       }
       const { result, wasTruncated } = parsePackingResponse(data, country);
+      result.invoices=result.invoices.map(invoice=>reconcileInvoiceSupplier(invoice,country,extraction.localSource));
       const invoices = (result.invoices || []).map(invoice => {
         const withSource = /\.pdf$/i.test(file?.name || '')
           ? { ...invoice, pdfReviewRequired: true, pdfSourceHash: sourceHash } : invoice;

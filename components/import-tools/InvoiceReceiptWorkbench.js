@@ -3,6 +3,8 @@ import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import InvoiceTotalEvidence from './InvoiceTotalEvidence.js';
+import {invoiceAmountReview,invoiceAmountConfirmed} from '../../lib/invoiceAmountReview.js';
 import InvoiceDraftCost from './InvoiceDraftCost.js';
 import { prepareInvoiceCostOnly } from '../../lib/invoiceCostOnlyWorkflow.js';
 import { getCurrentWeek, stepWeek } from '../../lib/useWeekInput.js';
@@ -163,7 +165,7 @@ function Field({ label, children, wide = false }) {
   return <label className={wide ? styles.fieldWide : styles.field}><span>{label}</span>{children}</label>;
 }
 
-function Modal({ title, onClose, children, initialFocusRef, footer }) {
+function Modal({ title, onClose, children, initialFocusRef, footer, wide=false }) {
   useEffect(() => {
     initialFocusRef?.current?.focus();
     const onKey = event => { if (event.key === 'Escape') onClose(); };
@@ -173,7 +175,7 @@ function Modal({ title, onClose, children, initialFocusRef, footer }) {
   return <div className={styles.modalBackdrop} role="presentation" onMouseDown={event => {
     if (event.target === event.currentTarget) onClose();
   }}>
-    <section className={styles.modal} role="dialog" aria-modal="true" aria-label={title}>
+    <section className={styles.modal} style={wide?{width:'min(1400px,96vw)',maxWidth:'96vw'}:undefined} role="dialog" aria-modal="true" aria-label={title}>
       <header><h3>{title}</h3><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
       <div className={styles.modalBody}>{children}</div>
       {footer && <footer>{footer}</footer>}
@@ -203,7 +205,13 @@ export default function InvoiceReceiptWorkbench({
   const [farmQuery, setFarmQuery] = useState('');
   const [farmOptions, setFarmOptions] = useState([]);
   const [farmBusy, setFarmBusy] = useState(false);
+  const [farmError, setFarmError] = useState('');
+  const [farmSearchAttempt, setFarmSearchAttempt] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [amountOpen,setAmountOpen]=useState(false);
+  const [amountSourceReady,setAmountSourceReady]=useState(false);
+  const [amountChecked,setAmountChecked]=useState(false);
+  const receiptWindowRef=useRef(null);
   const [allocationOpen, setAllocationOpen] = useState(false);
   const allocationPrompted = useRef(new Set());
   const [confirmReason, setConfirmReason] = useState('');
@@ -257,6 +265,8 @@ export default function InvoiceReceiptWorkbench({
 
   const selected = records.find(record => record.document.documentId === selectedId) || records[0] || null;
   const documentValue = selected?.document || null;
+  const amountBasis=invoiceAmountReview(documentValue).basis;
+  useEffect(()=>{setAmountChecked(false);},[amountBasis]);
   const preview = selected?.preview || null;
   useEffect(() => { allocationPrompted.current.clear(); setAllocationOpen(false); }, [file]);
   useEffect(() => {
@@ -367,9 +377,8 @@ export default function InvoiceReceiptWorkbench({
       }, document));
       const next = await Promise.all(resumed.map(async record => {
         const document = record.document;
-        if (recordsRef.current.some(previous => previous.document.documentId === document.documentId)
-          || record.pendingOperation || document.receiptStatus === 'COMMITTED'
-          || (document.farmKey && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
+        if (record.pendingOperation || record.recoveryRequired || document.receiptStatus === 'COMMITTED'
+          || ((document.farmKey || document.reviewedMetadata?.farmSourceWarehouseKey) && document.reviewedMetadata?.inputDate && document.reviewedMetadata?.transportMode)) return record;
         const data = await readJson(await fetch('/api/import/receipts/auto-fill', {
           method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
           body: JSON.stringify({orderYear:document.orderYear,farmKey:document.farmKey,
@@ -409,22 +418,29 @@ export default function InvoiceReceiptWorkbench({
 
   useEffect(() => {
     const controller = new AbortController();
+    setFarmBusy(true);
+    setFarmError('');
+    setFarmOptions([]);
     const timer = setTimeout(async () => {
       setFarmBusy(true);
       try {
-        const response = await fetch(`/api/arrival-cost?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}&limit=30`, {
+        const response = await fetch(`/api/import/receipts/auto-fill?lookup=farms&q=${encodeURIComponent(farmQuery.trim())}`, {
           credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
         });
         const data = await readJson(response);
-        setFarmOptions(data.farms || []);
+        if (!Array.isArray(data.farms)) throw new Error('농장 검색 응답이 올바르지 않습니다. 다시 검색해 주세요.');
+        if (!controller.signal.aborted) setFarmOptions(data.farms);
       } catch (error) {
-        if (error.name !== 'AbortError') setFarmOptions([]);
+        if (!controller.signal.aborted) {
+          setFarmOptions([]);
+          setFarmError(error.message || '농장 검색에 실패했습니다. 다시 검색해 주세요.');
+        }
       } finally {
         if (!controller.signal.aborted) setFarmBusy(false);
       }
     }, 220);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [farmQuery]);
+  }, [farmQuery, farmSearchAttempt]);
 
   const scopeYear = documentValue?.orderYear || browseScope.orderYear;
   const scopeWeek = documentValue?.orderWeek || browseScope.orderWeek;
@@ -773,9 +789,12 @@ export default function InvoiceReceiptWorkbench({
       ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
   }
 
-  async function runAutomaticPreparation(registerRequested = false) {
+  async function runAutomaticPreparation(registerRequested = false, reviewedRecord = null) {
     if (!selected || busy || workflowLockRef.current || selected.recoveryRequired) return;
-    const target = selected;
+    const target = reviewedRecord || selected;
+    if(registerRequested&&!invoiceAmountConfirmed(target.document)){
+      setAmountChecked(false);setAmountSourceReady(false);setAmountOpen(true);return;
+    }
     const documentId = target.document.documentId;
     const unresolvedConversions = unresolvedConversionMismatchLines(target.document);
     if (unresolvedConversions.length) {
@@ -829,15 +848,15 @@ export default function InvoiceReceiptWorkbench({
         if (result.status === 'RECEIPT_VERIFIED') installSavedDocument(result.document);
         if (registerRequested === true && result.status === 'WAITING_CONFIRMATION') {
           const operation = buildReceiptCommitPending({document:result.document,preview:result.preview,
-            reason:'담당자 입고등록 실행 (원가 작업 별도)',operationId:newUuid(),
+            reason:'담당자 입고등록·도착원가 생성 실행',operationId:newUuid(),
             receiptPartId:receiptPartIdForCommit(result.document,newUuid)});
           storePendingOperation(documentId,operation);
           setRecords(current=>current.map(item=>item.document.documentId===documentId?{...item,pendingOperation:operation}:item));
-          setManualStage(documentId,'receipt','running','입고 등록 버튼으로 승인한 입고를 등록합니다. 원가는 별도로 작업합니다.');
+          setManualStage(documentId,'receipt','running','승인한 입고를 등록합니다. 재조회 검증 후 같은 문서의 도착원가를 계산합니다.');
           try {
             const data=await submitReceiptCommit(operation);
             if(!data.result)throw Object.assign(new Error('입고 결과를 확인하지 못했습니다. 같은 작업 상태를 조회하세요.'),{resultUnknown:true});
-            await acceptCommitResult(operation,data.result,'입고 등록·재조회 완료. 도착원가 작업을 선택하면 원가를 별도로 만들 수 있습니다.',isCurrent,result.document);
+            await acceptCommitResult(operation,data.result,'입고 등록·재조회 완료. 같은 문서로 도착원가 계산을 이어갑니다.',isCurrent,result.document);
           }catch(error){handleCommitFailure(operation,error);}
           return;
         }
@@ -901,6 +920,10 @@ export default function InvoiceReceiptWorkbench({
       installSavedDocument(fresh);
       clearPendingCommit(pending.documentId);
       setOperationResult(result);
+      openVerifiedReceipt(result,fresh);
+      // Only the verified current operation can advance to cost calculation.
+      // No receipt lookup, source rematching or automatic cost approval here.
+      setWorkspaceMode('cost');
       setNotice({ type: 'success', text: `${message} WarehouseKey ${result.warehouseKey ?? '응답 누락'} · 원가 ${result.costStatus || '상태 미확인'}` });
     } catch (refreshError) {
       if (!isCurrent()) {
@@ -934,9 +957,29 @@ export default function InvoiceReceiptWorkbench({
     setNotice({ type: 'error', text: `${error.message} 결과가 확정되지 않아 원래 요청 전체와 같은 operationId를 보존했습니다. 새 ID로 자동 재시도하지 않습니다.` });
   }
 
+  function openVerifiedReceipt(result,document) {
+    const params=new URLSearchParams({warehouseKey:String(result.warehouseKey),from:`${document.orderYear}-01-01`,to:`${document.orderYear}-12-31`,week:document.orderWeek,popup:'1'});
+    const target=receiptWindowRef.current;
+    if(target&&!target.closed)target.location.replace(`/incoming?${params}`);
+    receiptWindowRef.current=null;
+  }
+
+  function confirmAmountAndRegister() {
+    if(!selected||!amountSourceReady||!amountChecked||busy)return;
+    const review=invoiceAmountReview(selected.document);
+    if(!review.matches)return;
+    const record={...selected,dirty:true,preview:null,document:{...selected.document,
+      reviewedMetadata:{...selected.document.reviewedMetadata,amountConfirmation:{basis:review.basis,sourceSeen:true,confirmedAt:new Date().toISOString()}}}};
+    setRecords(current=>current.map(item=>item.document.documentId===record.document.documentId?record:item));
+    receiptWindowRef.current=window.open('about:blank','nenova-invoice-receipt');
+    setAmountOpen(false);
+    void runAutomaticPreparation(true,record);
+  }
+
   async function commitReceipt() {
     const reason = confirmReason.trim();
     if (!selected || !reason || !canCommitReceipt(selected) || busy || workflowLockRef.current) return;
+    if(!invoiceAmountConfirmed(selected.document)){setConfirmOpen(false);setAmountChecked(false);setAmountSourceReady(false);setAmountOpen(true);return;}
     const generation = workflowGenerationRef.current;
     const documentId = selected.document.documentId;
     const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
@@ -1277,20 +1320,30 @@ export default function InvoiceReceiptWorkbench({
       </> : <>
         <Field label="비USD 문서비 원가"><NumberInput label="비USD 문서비 원가" value={documentValue.reviewedMetadata.costInputs?.docFee?.amount} onChange={value => updateCostInput('docFee', value)} /></Field>
       </>}
-      <Field label="농장 검색" wide><input value={farmQuery} placeholder="기존 Farm 마스터 검색" onChange={event => setFarmQuery(event.target.value)} /></Field>
-      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select value={documentValue.farmKey ?? ''} onChange={event => {
-        const key = Number(event.target.value) || null;
-        const farm = farmOptions.find(option => Number(option.FarmKey) === key);
-        updateSelected(document => ({ ...document, farmKey: key, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '' } }));
+      <Field label="농장 검색" wide><input value={farmQuery} placeholder="농장명 입력 후 아래 검색 결과를 선택하세요" onChange={event => setFarmQuery(event.target.value)} />
+        {farmError && <span role="alert">농장 검색 실패: {farmError}</span>}
+        {!farmBusy && !farmError && farmQuery.trim() && farmOptions.length === 0 && <span role="status">일치하는 농장이 없습니다. 농장명의 일부로 다시 검색해 주세요.</span>}
+        <button type="button" onClick={() => setFarmSearchAttempt(value => value + 1)} disabled={farmBusy}>농장 다시 검색</button>
+        {!farmBusy && !farmError && farmQuery.trim() && <div role="group" aria-label="농장 검색 결과">{farmOptions.map(farm => <button type="button" key={farm.FarmKey ? `farm:${farm.FarmKey}` : `receipt:${farm.WarehouseKey}`}
+          onClick={() => updateSelected(document => ({ ...document, farmKey: farm.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm.FarmName, farmSourceWarehouseKey: farm.WarehouseKey ?? null } }))}>
+          {farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'} · 선택
+        </button>)}</div>}
+        <span role="status">{documentValue.farmKey || documentValue.reviewedMetadata.farmSourceWarehouseKey ? `선택된 농장: ${documentValue.reviewedMetadata.farmName || '저장 농장'}` : '농장 미선택 · 검색어 입력만으로 선택되지 않습니다. 검색 결과의 농장을 눌러 주세요.'}</span>
+      </Field>
+      <Field label={farmBusy ? '농장 검색 중…' : '농장 선택'} wide><select value={documentValue.farmKey ?? (documentValue.reviewedMetadata.farmSourceWarehouseKey ? `receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}` : '')} onChange={event => {
+        const farm = farmOptions.find(option => String(option.FarmKey ?? `receipt:${option.WarehouseKey}`) === event.target.value);
+        updateSelected(document => ({ ...document, farmKey: farm?.FarmKey ?? null, reviewedMetadata: { ...document.reviewedMetadata, farmName: farm?.FarmName || '', farmSourceWarehouseKey:farm?.WarehouseKey ?? null } }));
       }}><option value="">신규 입고는 선택 · 기존 입고 연결은 생략 가능</option>{documentValue.farmKey && !farmOptions.some(farm => Number(farm.FarmKey) === Number(documentValue.farmKey))
         ? <option value={documentValue.farmKey}>{documentValue.reviewedMetadata.farmName || '저장 농장'} (#{documentValue.farmKey})</option> : null}
-      {farmOptions.map(farm => <option key={farm.FarmKey} value={farm.FarmKey}>{farm.FarmName} (#{farm.FarmKey})</option>)}</select></Field>
+      {!documentValue.farmKey && documentValue.reviewedMetadata.farmSourceWarehouseKey && !farmOptions.some(farm=>farm.WarehouseKey===documentValue.reviewedMetadata.farmSourceWarehouseKey)
+        ? <option value={`receipt:${documentValue.reviewedMetadata.farmSourceWarehouseKey}`}>{documentValue.reviewedMetadata.farmName} · 기존 입고 농장</option> : null}
+      {farmOptions.map(farm => <option key={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`} value={farm.FarmKey ?? `receipt:${farm.WarehouseKey}`}>{farm.FarmName} · {farm.FarmKey ? '농장 마스터' : '기존 입고 농장'}</option>)}</select></Field>
       <Field label="입고 메모" wide><input value={documentValue.reviewedMetadata.receiptNotes || ''} onChange={event => updateMetadata('receiptNotes', event.target.value)} /></Field>
     </div>
 
     {['NL', 'CN', 'TH'].includes(documentValue.reviewedMetadata?.country) && committedOperations.length === 0 && <p>이미 입고된 자료는 농장이 검색되지 않아도 초안을 저장한 뒤 ‘기존 입고 유지 · 원가만 연결’을 누르세요. 같은 연도·차수·송장과 품목·수량·금액을 대조하고, 연결할 농장과 입고일을 보여드립니다. 새 입고는 등록하지 않습니다.</p>}
     <div className={styles.actionBar}>
-      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={currentRevisionCommitted || Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>{currentRevisionCommitted ? '입고 완료 · 재등록하지 않음' : '입고 등록'}</button>
+      <button type="button" className={styles.primary} onClick={() => runAutomaticPreparation(true)} disabled={currentRevisionCommitted || Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>{currentRevisionCommitted ? '입고 완료 · 재등록하지 않음' : '입고 등록 · 도착원가 생성'}</button>
       <button type="button" onClick={() => setWorkspaceMode('cost')} disabled={Boolean(busy)}>{currentRevisionCommitted ? '도착원가 작업으로 이동' : '이미 입고된 자료 · 원가만 작업'}</button>
       {documentValue.rawMetadata?.allocationSources?.length > 0 && <button type="button" onClick={() => setAllocationOpen(true)} disabled={Boolean(busy) || committedOperations.length > 0}>Woolly bush 품목·입고량 분류</button>}
       <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
@@ -1313,6 +1366,7 @@ export default function InvoiceReceiptWorkbench({
 
     {documentValue.receiptStatus === 'COMMITTED' && <p className={styles.committed}>등록 문서 · WarehouseKey {documentValue.warehouseKey ?? '확인 중'}{selected.dirty ? ' · 편집 초안은 저장 API 처리 전까지 기존 입고를 바꾸지 않습니다.' : ''}</p>}
     {operationResult && <div className={styles.resultReadback}><strong>작업 readback</strong><span>상태 {operationResult.status || 'SUCCESS'}</span><span>WarehouseKey {operationResult.warehouseKey ?? '—'}</span><span>원가 {operationResult.costStatus || '—'}</span></div>}
+    {currentRevisionCommitted && Number(operationResult?.warehouseKey)>0 && <a target="_blank" rel="noopener noreferrer" href={`/incoming?${new URLSearchParams({warehouseKey:String(operationResult.warehouseKey),from:`${documentValue.orderYear}-01-01`,to:`${documentValue.orderYear}-12-31`,week:documentValue.orderWeek,popup:'1'})}`}>등록된 입고건 새창 조회 · 팝업이 차단되면 눌러 주세요</a>}
 
     <div className={styles.workspace}>
       <div className={styles.sheetScroll} tabIndex={0} role="region" aria-label="입고 검토 행 표">
@@ -1363,14 +1417,14 @@ export default function InvoiceReceiptWorkbench({
     {!packingActive && <details><summary>다른 저장 문서 · 이력 보기</summary>{!packingActive && renderSavedDocuments(true)}</details>}
 
     <section hidden={workspaceMode !== 'cost'} aria-label="도착원가 전용 작업">
-    <div className={styles.workspaceModes} aria-label="원가 계산 자료 선택">
+    {!currentRevisionCommitted && <div className={styles.workspaceModes} aria-label="원가 계산 자료 선택">
       <button type="button" aria-pressed={costSource==='invoice'} onClick={()=>{setCostSource('invoice');setNotice(null);}}>업로드 인보이스 기준</button>
       <button type="button" aria-pressed={costSource==='existing'} onClick={()=>setCostSource('existing')}>기존 입고·승인 원가 기준</button>
-    </div>
-    <div hidden={costSource!=='invoice'}>{invoiceCostOpened && <InvoiceDraftCost document={documentValue} products={products}
+    </div>}
+    <div hidden={currentRevisionCommitted || costSource!=='invoice'}>{!currentRevisionCommitted && invoiceCostOpened && <InvoiceDraftCost document={documentValue} products={products}
       onEditAllocation={documentValue.rawMetadata?.allocationSources?.length > 0 && committedOperations.length === 0 && !busy ? () => setAllocationOpen(true) : undefined}
       onEdit={() => setWorkspaceMode('receipt')} onMetadataChange={updateMetadata} />}</div>
-    {costSource==='existing' && <>
+    {!currentRevisionCommitted && costSource==='existing' && <>
     <div className={styles.costPending}>
       <strong>기존 입고로 도착원가 엑셀 받기</strong>
       <p>입고가 이미 있으면 문서 연결 없이 기존 입고자료로 계산본을 다운로드할 수 있습니다. 입고·재고·승인 원가는 변경하지 않습니다.</p>
@@ -1387,18 +1441,38 @@ export default function InvoiceReceiptWorkbench({
       {selected.recoveryRequired && <button type="button" disabled={Boolean(busy)} onClick={() => loadDocument(documentValue.documentId)}>같은 문서 다시 불러오기</button>}
       <button type="button" onClick={() => setWorkspaceMode('receipt')} disabled={Boolean(busy)}>인보이스 입력값 확인·수정</button>
     </details>}
+    </>}
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
         autoSaveRequested={false} autoProcess={workspaceMode === 'cost' && receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale
         ? <section className={styles.costStale} role="alert"><strong>도착원가 STALE</strong><span>입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다. 수정 입고를 다시 preview·commit한 뒤 원가를 재검토하세요.</span></section>
         : null}
-    </>}
     </section>
 
     {copyOpen && <Modal title="특이사항 복사" onClose={() => setCopyOpen(false)} initialFocusRef={copyRef} footer={<><button type="button" onClick={() => setCopyOpen(false)}>닫기</button><button type="button" className={styles.primary} onClick={copyBrief}>{copied ? '복사됨' : '클립보드 복사'}</button></>}>
       <p>서버가 반환한 이슈 사실만 포함합니다. HTML로 해석하지 않는 안전한 텍스트입니다.</p>
       <textarea ref={copyRef} readOnly value={issueBrief} rows={Math.min(16, Math.max(5, issueBrief.split('\n').length + 1))} />
+    </Modal>}
+
+    {amountOpen && <Modal wide title="인보이스 총금액 확인 · 입고 등록" onClose={()=>setAmountOpen(false)} footer={<>
+      <button type="button" onClick={()=>setAmountOpen(false)}>닫기 · 입력값 유지</button>
+      <button type="button" className={styles.primary} disabled={!amountSourceReady||!amountChecked||!invoiceAmountReview(documentValue).matches||Boolean(busy)} onClick={confirmAmountAndRegister}>금액 확인 · 입고 등록</button>
+    </>}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:16}}>
+        <InvoiceTotalEvidence file={file} evidence={documentValue.rawMetadata?.metadataEvidence?.invoice_total || documentValue.rawMetadata?.metadataEvidence?.total_value || documentValue.rawMetadata?.reviewEvidence?.invoice_total || documentValue.rawMetadata?.reviewEvidence?.total_value} onReady={setAmountSourceReady}/>
+        <section aria-label="입고 금액 대조">{(()=>{const review=invoiceAmountReview(documentValue);return <>
+          <h3>{documentValue.orderYear}/{documentValue.orderWeek} · {documentValue.invoiceNo}</h3>
+          <p>농장: {documentValue.reviewedMetadata.farmName||'미선택'}</p>
+          <p>원본 인보이스 총액: <strong>{displayNumber(review.printed)} {review.currency}</strong></p>
+          <p>입고 상품금액 합계: <strong>{displayNumber(review.goods)} {review.currency}</strong></p>
+          <p>원문 운송·부대비: {displayNumber(review.extras)} {review.currency} (상품금액에 중복 등록하지 않음)</p>
+          <p>상품금액 + 부대비: <strong>{displayNumber(review.total)} {review.currency}</strong></p>
+          <p role="status">차액: {displayNumber(review.difference)} {review.currency} · {review.message}</p>
+          <label><input type="checkbox" checked={amountChecked} disabled={!amountSourceReady||!review.matches} onChange={e=>setAmountChecked(e.target.checked)}/>원본의 총금액·통화와 등록 금액을 확인했습니다.</label>
+          <p>확인 후 서버 재검증을 통과한 경우에만 입고등록됩니다. 완료된 입고건은 새창으로 표시됩니다.</p>
+        </>;})()}</section>
+      </div>
     </Modal>}
 
     {confirmOpen && <Modal title="ERP 입고 등록 최종 확인" onClose={closeCommit} initialFocusRef={reasonRef} footer={<><button type="button" onClick={closeCommit}>취소</button><button type="button" className={styles.danger} onClick={commitReceipt} disabled={!confirmReason.trim()}>이 범위로 등록</button></>}>
