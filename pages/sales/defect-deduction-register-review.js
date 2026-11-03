@@ -1,4 +1,7 @@
 import { defectBatchDuplicates } from '../../lib/defectBatchDuplicates.js';
+import { defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../../lib/defectResolution.js';
+import DefectResolutionEditor from '../../components/DefectResolutionEditor';
+import { isDefectAdmin } from '../../lib/salesDefectDeductionCore.js';
 // 영업수입불량차감 — 견적서 등록 전후 검토/수정/재조회 검증 창
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +45,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [logs, setLogs] = useState([]);
+  const [editorBusy, setEditorBusy] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  const [showNormal, setShowNormal] = useState(false);
+  const [loadComplete, setLoadComplete] = useState(false);
 
   const ids = useMemo(() => {
     const raw = router.query.ids;
@@ -51,6 +58,17 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const week = String(router.query.week || '');
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
+  const resolveMode = String(router.query.resolve || '') === '1';
+  const duplicateGroups = useMemo(() => resolutionDuplicateGroups(rows, excludedKeys), [rows, excludedKeys]);
+  const duplicateKeys = new Set(duplicateGroups.flat().map(row => Number(row.deductionKey)));
+  const readyRows = resolutionReadyRows(rows, excludedKeys);
+  const displayRows = resolveMode ? [...rows].sort((a, b) => {
+    const order = { cost: 0, match: 1, existing: 2, source: 3, unit: 4, other: 5, defer: 6, omitted: 7, ready: 8 };
+    return (order[defectResolution(a).kind] ?? 5) - (order[defectResolution(b).kind] ?? 5)
+      || Number(b.sourceOrderWeek || b.orderWeek || 0) - Number(a.sourceOrderWeek || a.orderWeek || 0);
+  }) : rows;
+  const unresolvedCount = rows.filter(row => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || duplicateKeys.has(Number(row.deductionKey)))).length;
+  useEffect(() => { apiGet('/api/auth/me').then(data => setAdmin(isDefectAdmin(data.user || data))).catch(() => setAdmin(false)); }, []);
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
   const batchDuplicates = useMemo(() => defectBatchDuplicates(rows, excludedKeys), [rows, excludedKeys]);
   const waitingForApply = !loading && !applying && !verified && rows.length > 0;
@@ -62,33 +80,48 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     } catch { /* opener가 닫힌 경우 검토창 로그만 유지 */ }
   };
 
-  const load = useCallback(async ({ throwOnError = false } = {}) => {
+  const load = useCallback(async ({ throwOnError = false, verifySaved = false } = {}) => {
     if (!router.isReady || !ids.length || !year || !week) return;
-    setLoading(true); setError('');
+    setLoading(true); setLoadComplete(false); setError('');
     appendLog(`대상 ${ids.length}건 기존 견적서·출고키·이전차수 단가 조회 시작`);
     try {
       const nextRows = [];
+      // Resolution starts from all pending work, including rows disabled in the old table.
+      const resolving = resolveMode && !verifySaved;
+      const metadata = resolving ? (await apiGet('/api/sales/defect-deductions', { view: 'support', year, week })).rows || [] : [];
+      const metadataByKey = new Map(metadata.map(row => [Number(row.deductionKey), row]));
       for (let offset = 0; offset < ids.length; offset += REGISTRATION_PREVIEW_BATCH_SIZE) {
         const batchIds = ids.slice(offset, offset + REGISTRATION_PREVIEW_BATCH_SIZE);
-        const data = await apiGet('/api/sales/defect-deductions', {
-          view: 'registration-preview', year, week, ids: batchIds.join(','), type: deductionType,
-        });
-        nextRows.push(...(data.rows || []).map((row) => ({
+        const previewIds = resolving ? batchIds.filter(id => metadataByKey.get(id)?.registrationEligible) : batchIds;
+        const data = previewIds.length ? await apiGet('/api/sales/defect-deductions', {
+          view: 'registration-preview', year, week, ids: previewIds.join(','), type: deductionType,
+        }) : { rows: [] };
+        const previews = new Map((data.rows || []).map(row => [Number(row.deductionKey), row]));
+        const combinedRows = resolving ? batchIds.filter(id => metadataByKey.has(id)).map(id => {
+          const meta = metadataByKey.get(id);
+          return { ...meta, sourceOrderYear: meta.orderYear, sourceOrderWeek: meta.orderWeek,
+            productDbName: meta.matchedProductDbName || meta.matchedProductName,
+            error: meta.registrationEligible ? '' : meta.registrationError || defectResolution(meta).title,
+            after: null, ...previews.get(id) };
+        }) : data.rows || [];
+        nextRows.push(...combinedRows.map((row) => ({
           ...row,
           editQuantity: row.quantity,
           editNote: row.note || '',
         })));
-        setRows([...nextRows]);
+        if (!resolving) setRows([...nextRows]);
         appendLog(`기존 견적서 조회 진행 · ${Math.min(offset + batchIds.length, ids.length)}/${ids.length}건`);
       }
       appendLog(`기존 견적서 조회 완료 · 신규 ${nextRows.filter((row) => !row.before).length}건 · 수정 ${nextRows.filter((row) => row.before).length}건`);
+      if (resolving) setRows(nextRows);
+      setLoadComplete(true);
       return nextRows;
     } catch (e) {
       setError(e.message);
       if (throwOnError) throw e;
     }
     finally { setLoading(false); }
-  }, [router.isReady, ids, year, week, deductionType]);
+  }, [router.isReady, ids, year, week, deductionType, resolveMode]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -138,11 +171,13 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   };
 
   const apply = async () => {
-    const activeRows = rows.filter((row) => !excludedKeys.has(Number(row.deductionKey)));
+    if (loading || !loadComplete || applying || editorBusy || verified) return;
+    const activeRows = resolveMode ? resolutionReadyRows(rows, excludedKeys) : rows.filter((row) => !excludedKeys.has(Number(row.deductionKey)));
     if (!activeRows.length) {
       setError('등록할 행이 없습니다. 제외를 해제하거나 창을 닫아주세요.');
       return;
     }
+    if (resolveMode && !window.confirm(`${year}년 ${week}차에 정상 ${activeRows.length}건을 등록합니다.\n미해결 ${unresolvedCount}건·이번 보류 ${excludedKeys.size}건은 등록하지 않습니다.\n최종 수량과 단가는 '등록 예정 품목'에서 확인할 수 있습니다.`)) return;
     const invalid = activeRows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
     if (invalid.length) {
       setError(`오류가 있는 ${invalid.length}건을 수정하거나 「오류 건 제외하고 계속」을 눌러주세요.`);
@@ -194,12 +229,13 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       }
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
       setMessage(`${data.registered || 0}건 적용 완료${skippedKeys.length ? ` · 중복/오류 ${skippedKeys.length}건 제외` : ''}. 기존 견적서를 다시 불러와 검증 중입니다.`);
-      const refreshedRows = await load({ throwOnError: true }) || [];
+      const refreshedRows = await load({ throwOnError: true, verifySaved: true }) || [];
       const registeredKeys = new Set((data.rows || []).map((row) => Number(row.deductionKey)));
       const mismatches = refreshedRows
         .filter((row) => registeredKeys.has(Number(row.deductionKey)))
         .filter((row) => !verifyAppliedRow(row, originalRowByKey.get(Number(row.deductionKey))))
         .map((row) => row.deductionKey);
+      for (const key of registeredKeys) if (!refreshedRows.some(row => Number(row.deductionKey) === key)) mismatches.push(key);
       const registrationVerified = registeredKeys.size > 0 && mismatches.length === 0;
       if (!registeredKeys.size) {
         appendLog('등록할 유효행 없음 · 중복/오류 행만 제외');
@@ -249,48 +285,72 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   };
 
   return (
-    <Layout title={supportMode ? '영업지원 전산등록 결과' : '견적서 등록 검토'}>
+    <Layout title={resolveMode ? '불량차감 문제 해결·등록' : supportMode ? '영업지원 전산등록 결과' : '견적서 등록 검토'}>
       <div className="review-page">
         <div className="review-head">
           <div>
-            <h2>{supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
+            <h2>{resolveMode ? '불량차감 — 필요한 내용만 해결하고 등록' : supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !loadComplete || editorBusy || verified || !rows.length || (resolveMode && !readyRows.length)}>{resolveMode ? (verified ? '등록 완료' : `정상 ${readyRows.length}건 등록하기`) : supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{!resolveMode && rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={() => load()} disabled={loading || applying || editorBusy}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
-        {waitingForApply && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단의 「전산등록 실행 및 검증 ← 클릭」 버튼을 눌러야 실제 등록이 시작됩니다.</div>}
+        {!resolveMode && waitingForApply && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단의 「전산등록 실행 및 검증 ← 클릭」 버튼을 눌러야 실제 등록이 시작됩니다.</div>}
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
         {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록 제외 {excludedRows.length}건</strong>{excludedRows.map((row) => <div key={row.deductionKey}><b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(row.editQuantity || row.quantity)} {row.sourceUnit || row.after?.Unit || ''} · 원장키 #{row.deductionKey}{row.error ? ` · ${row.error}` : ''}</div>)}</div>}
-        <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
+        {!resolveMode && <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
           <ol>{SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
-        </div>
-        <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다. 「기존 견적서 조회 완료」가 로그에 뜨면 「전산등록 실행 및 검증」을 누르세요.</div>
+        </div>}
+        {!resolveMode && <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다. 「기존 견적서 조회 완료」가 로그에 뜨면 「전산등록 실행 및 검증」을 누르세요.</div>}
         <div className="process-log" aria-live="polite"><strong>처리 로그</strong>{logs.length ? logs.map((log, index) => <div key={`${log.at}-${index}`}><span>{log.at}</span> {log.label}</div>) : <div className="empty">아직 처리 로그가 없습니다.</div>}</div>
         <div className="review-list">
-          {rows.map((row, index) => {
+          {resolveMode && <section className="resolution-summary" aria-live="polite">
+            <strong>{loading ? '출고·단가·기존 견적을 확인 중입니다…' : verified ? '등록 결과를 재조회했습니다.' : `등록 준비 ${readyRows.length}건 · 입력/대조 필요 ${unresolvedCount}건 · 이번 보류 ${excludedKeys.size}건`}</strong>
+            <p>아래 문제만 해결하세요. 저장 후 서버가 다시 검사합니다. 해결하지 못한 항목은 보류하고 정상 건만 등록할 수 있습니다.</p>
+            <button type="button" onClick={() => setShowNormal(!showNormal)}>{showNormal ? '정상 품목 접기' : `등록 예정 품목 ${readyRows.length}건 펼치기`}</button>
+          </section>}
+          {resolveMode && duplicateGroups.map(group => <section className="resolution-duplicate" key={group[0].deductionKey}>
+            <h3>같은 수량의 신고 {group.length}건 — 재업로드인지 확인하세요</h3>
+            <p>{group[0].customerName} / {rowProductName(group[0])} / 각각 {group[0].quantity}{group[0].sourceUnit}. 선택 전에는 이 묶음을 등록하지 않습니다.</p>
+            {group.map(item => <div key={item.deductionKey}><p>원문 #{item.deductionKey} · {item.sourceOrderYear}년 {item.sourceOrderWeek}차 · {item.quantity}{item.sourceUnit}</p><p>{item.note || '저장된 원문 없음'}</p>
+              <button type="button" disabled={loading || applying || editorBusy} onClick={() => {
+                setExcludedKeys(current => new Set([...current, ...group.filter(r => r.deductionKey !== item.deductionKey).map(r => Number(r.deductionKey))]));
+                setMessage(`같은 신고의 재업로드로 확인: ${item.customerName} / ${rowProductName(item)} — 이번 등록은 ${item.quantity}${item.sourceUnit} 한 건만 반영합니다.`);
+              }}>같은 신고입니다 — 이 {item.quantity}{item.sourceUnit} 1건만 등록</button></div>)}
+            <button type="button" disabled={loading || applying || editorBusy} onClick={() => setExcludedKeys(current => new Set([...current, ...group.map(r => Number(r.deductionKey))]))}>판단 보류 — 이 묶음은 이번에 등록 안 함</button>
+            <p>서로 다른 신고라면 합치거나 수량을 임의로 바꾸지 말고 원문을 대조하세요. 다른 수량은 이 중복 묶음에 포함하지 않습니다.</p>
+          </section>)}
+          {displayRows.map((row, index) => {
             const after = adjustedAfter(row);
             const excluded = excludedKeys.has(Number(row.deductionKey));
+            if (resolveMode && !verified && !showNormal && !row.error && row.after && !excluded && !duplicateKeys.has(Number(row.deductionKey))) return null;
             return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
-              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying}>{excluded ? '제외 해제' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
-              {batchDuplicates.has(Number(row.deductionKey)) && <div className="row-error" role="status">{batchDuplicates.get(Number(row.deductionKey))}</div>}
-              {row.error && <div className="row-error">{row.error}</div>}
-              <div className="compare-grid">
+              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying || editorBusy}>{excluded ? '보류 취소' : resolveMode ? '이번 등록 보류' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
+              {resolveMode && <div className="resolution-row-facts">{row.sourceOrderYear || row.orderYear}년 {row.sourceOrderWeek || row.orderWeek}차 원문 · 수량 <b>{row.quantity}{row.sourceUnit}</b> · 단가 <b>{Number(row.distributionCost || row.after?.Cost) > 0 ? `${fmt(row.distributionCost || row.after?.Cost)}원` : '입력 필요'}</b>{row.after && !row.error && !duplicateKeys.has(Number(row.deductionKey)) && !excluded && ` · ${week}차 ${verified ? '반영 결과' : '등록 예정'}: ${row.after.Quantity}${row.after.Unit}`}</div>}
+              {!resolveMode && batchDuplicates.has(Number(row.deductionKey)) && <div className="row-error" role="status">{batchDuplicates.get(Number(row.deductionKey))}</div>}
+              {row.error && !resolveMode && <div className="row-error">{row.error}</div>}
+              {resolveMode && row.error && !excluded && !verified && <DefectResolutionEditor key={`${row.deductionKey}-${row.rowVersionNo}`} row={row} year={year} week={week} admin={admin} disabled={loading || applying || editorBusy} onBusy={setEditorBusy} onSaved={async () => { await load({ throwOnError: true }); setMessage('저장 완료. 등록 가능 여부를 다시 검사했습니다.'); }} />}
+              {!resolveMode && <div className="compare-grid">
                 <section className="compare-pane before"><h3>기존 견적서 내용</h3>{row.before ? <>
                   <div><b>견적서 키</b> #{row.before.EstimateKey}</div><div><b>일자</b> {dateText(row.before.EstimateDtm)}</div><div><b>수량</b> {fmt(row.before.Quantity)} {row.before.Unit || ''}</div><div><b>단가</b> {fmt(row.before.Cost)}원</div><div><b>금액</b> {fmt(row.before.Amount)}원 / 부가세 {fmt(row.before.Vat)}원</div><div><b>적요</b> {row.before.Descr || '-'}</div>
                 </> : <div className="empty">기존 견적서 미등록 — 신규 등록 예정</div>}</section>
                 <section className="compare-pane after"><h3>적용 후 내용</h3>{after ? <>
                   <div className="estimate-view-preview"><b>견적서관리 표시</b> [{row.estimateTypeLabel || deductionType}] {after.ProdName || row.productDbName || row.productName || '-'} · {after.Quantity} {after.Unit || row.sourceUnit || ''} · {fmt(after.Amount)}원</div>
-                  <div className="edit-line"><b>차감수량</b><input type="number" min="1" value={row.editQuantity} onChange={(e) => updateRow(index, { editQuantity: e.target.value })} /> {after.Unit || row.sourceUnit || ''}</div>
+                  <div className="edit-line"><b>차감수량</b><input type="number" min="1" disabled={resolveMode || applying || loading} value={row.editQuantity} onChange={(e) => updateRow(index, { editQuantity: e.target.value })} /> {after.Unit || row.sourceUnit || ''}</div>
                   <div><b>일자</b> {dateText(after.EstimateDtm)} · 출고키 #{after.ShipmentKey}</div><div><b>분배단가</b> {fmt(after.Cost)}원 <small>({after.CostOrderWeek || '타임라인 자동매칭'})</small></div><div><b>금액</b> {fmt(after.Amount)}원 / 부가세 {fmt(after.Vat)}원</div>
-                  <div className="edit-line"><b>웹 비고</b><input value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /><small>수입부 원장만 유지 · 견적서 적요에 올리지 않음</small></div>
+                  <div className="edit-line"><b>웹 비고</b><input disabled={resolveMode || applying || loading} value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /><small>수입부 원장만 유지 · 견적서 적요에 올리지 않음</small></div>
                 </> : <div className="empty">적용값을 계산할 수 없습니다.</div>}</section>
-              </div>
+              </div>}
             </div>;
           })}
           {!loading && !rows.length && <div className="empty-block">검토할 견적서 등록 행이 없습니다.</div>}
         </div>
         <style jsx>{`
+          .resolution-summary,.resolution-duplicate { padding:12px; border:1px solid #d5b579; background:#fff8eb; font-size:13px; }
+          .resolution-summary { background:#eff6ff; border-color:#93c5fd; } .resolution-duplicate p { white-space:pre-wrap; overflow-wrap:anywhere; }
+          .resolution-row-facts { padding:8px 12px; font-size:13px; }
+          .resolution-duplicate button,.resolution-summary button { padding:7px 12px; margin:4px; border:1px solid #94a3b8; border-radius:4px; background:white; font:inherit; cursor:pointer; }
+          button:focus-visible,input:focus-visible { outline:3px solid #2563eb; outline-offset:2px; }
           .review-page { min-width: 0; padding: 2px; color: #0f172a; }
           .review-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #94a3b8; background: #f8fafc; }
           h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }

@@ -1095,8 +1095,8 @@ export default function SalesDefectDeductionsPage() {
     }
   }, [loadCarryover, loadSupport]);
 
-  const registerSupport = async () => {
-    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportRegistrationSelectable(row, activeTab));
+  const registerSupport = async (resolveAll = false) => {
+    const selectedRows = resolveAll ? supportRows : supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportRegistrationSelectable(row, activeTab));
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
     const startedAt = new Date().toLocaleTimeString('ko-KR');
@@ -1111,7 +1111,7 @@ export default function SalesDefectDeductionsPage() {
     try {
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `서버 사전검증 시작 · ${REGISTRATION_PREFLIGHT_BATCH_SIZE}건씩 출고·단가·중복 확인` }]);
       const checkedRows = [];
-      for (let offset = 0; offset < selectedRows.length; offset += REGISTRATION_PREFLIGHT_BATCH_SIZE) {
+      if (!resolveAll) for (let offset = 0; offset < selectedRows.length; offset += REGISTRATION_PREFLIGHT_BATCH_SIZE) {
         const batch = selectedRows.slice(offset, offset + REGISTRATION_PREFLIGHT_BATCH_SIZE);
         const check = await apiPost('/api/sales/defect-deductions', { action: 'preflight', year, week, rows: batch });
         checkedRows.push(...(check.rows || []).map((row) => ({ ...row, index: offset + Number(row.index || 0) })));
@@ -1119,7 +1119,7 @@ export default function SalesDefectDeductionsPage() {
         setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 진행 · ${completed}/${selectedRows.length}건` }]);
         setMessage(`영업지원 전산등록 대상 사전검증 ${completed}/${selectedRows.length}건…`);
       }
-      const { valid, invalid } = partitionRegistrationPreflight(checkedRows);
+      const { valid, invalid } = resolveAll ? { valid: selectedRows, invalid: [] } : partitionRegistrationPreflight(checkedRows);
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 완료 · 등록 가능 ${valid.length}건 · 오류 제외 ${invalid.length}건` }]);
       for (const rejected of invalid) {
         const source = selectedRows[rejected.index] || {};
@@ -1129,7 +1129,7 @@ export default function SalesDefectDeductionsPage() {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
       const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
-      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1`;
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1${resolveAll ? '&resolve=1&popup=1' : ''}`;
       reviewWindow.location.href = reviewUrl;
       handedOffToReview = true;
       supportReviewWindowRef.current = reviewWindow;
@@ -1721,8 +1721,9 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
+            <button type="button" className="btn btn-primary" onClick={() => registerSupport(true)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportRows.length}>전체 불량 확인·등록 (문제 해결 창)</button>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
             {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
@@ -1738,7 +1739,7 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'carryover' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
+            <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
             {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}

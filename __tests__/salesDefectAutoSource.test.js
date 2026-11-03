@@ -63,7 +63,7 @@ for (const row of [
     requestKey: 'automatic-history-carryover',
   }).action, 'APPLY');
   assert.throws(() => planManualProcessingComplete({ row, targetYear: 2026, targetWeek: '41' }), (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED);
-  assert.equal(canEditManualCost(row), false);
+  assert.equal(canEditManualCost(row), true);
 }
 
 assert.equal(evaluateDefectRegistrationEligibility({
@@ -247,7 +247,7 @@ await assert.rejects(saveDraftRows({
 assert.equal(linkedDraftWrites.length, 0,
   'a new marker on a linked manual draft is rejected before ledger/Estimate/History writes');
 
-for (const blockedRow of [auto, { ...manual, AutoSourceExcluded: 1, AutoSourceEvidence: 'HISTORY_SOURCE' }]) {
+for (const blockedRow of [{ ...auto, RejectedAutoSource: true }, { ...manual, AutoSourceExcluded: 1, AutoSourceEvidence: 'HISTORY_SOURCE', RejectedAutoSource: true }]) {
   const calls = [];
   await assert.rejects(
     saveManualCost({
@@ -258,10 +258,10 @@ for (const blockedRow of [auto, { ...manual, AutoSourceExcluded: 1, AutoSourceEv
       calls.push(String(statement));
       return { recordset: [{ ...blockedRow, RowVersionNo: 1 }] };
     })),
-    (error) => error.code === AUTO_SOURCE_REVIEW_REQUIRED,
+    (error) => error.code === 'REJECTED_AUTO_SOURCE',
   );
   assert.equal(calls.filter((statement) => /\b(?:INSERT|UPDATE|DELETE)\b/i.test(statement)).length, 0,
-    'manual cost guard blocks current/history-only auto sources before writes');
+    'manual cost guard blocks unreviewed withdrawn sources before writes');
 }
 
 const sql = buildDefectAutoSourceSql('d');

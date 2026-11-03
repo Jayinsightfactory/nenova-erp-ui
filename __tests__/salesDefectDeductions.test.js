@@ -221,7 +221,7 @@ assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
 assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 웹 비고를 수정할 수 있어야 합니다.');
 assert.ok(supportReviewSource.includes('오류 건 제외하고 계속') && supportReviewSource.includes('이 행 제외'), '검토창은 중복·오류 행을 제외하고 나머지 행을 계속 등록할 수 있어야 합니다.');
-assert.match(supportReviewSource, /const activeRows = rows\.filter\([\s\S]*excludedKeys/, '제외한 원장키는 실제 등록 대상에서 빠져야 합니다.');
+assert.match(supportReviewSource, /const activeRows = [^;]*rows\.filter\([\s\S]*excludedKeys/, '제외한 원장키는 실제 등록 대상에서 빠져야 합니다.');
 assert.match(supportReviewSource, /const batchRows = activeRows\.slice[\s\S]*ids: batchIds/, '등록 API에는 제외 후 남은 원장키만 10건 단위로 전달해야 합니다.');
 assert.match(supportReviewSource, /registeredKeys\.has\(Number\(row\.deductionKey\)\)/, '재조회 검증은 최종 등록 성공행만 대상으로 해야 합니다.');
 assert.ok(supportReviewSource.includes('이번 등록 제외') && supportReviewSource.includes('rowIdentityText'), '제외 안내는 원장키뿐 아니라 업체·품목·수량을 함께 표시해야 합니다.');
