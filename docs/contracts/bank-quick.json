@@ -1,0 +1,86 @@
+{
+  "id": "bank-quick",
+  "title": "은행 빠른조회 원본 적재 스키마(bank) — 우리 DB 별도 스키마, 은행 조회 전용",
+  "scope": [
+    "lib/bankQuick/core.js",
+    "lib/bankQuick/schema.js",
+    "lib/bankQuick/loader.js",
+    "lib/bankQuick/credentials.js",
+    "lib/bankQuick/xlsx.js",
+    "scripts/bank-quick/probe-nh.mjs",
+    "scripts/bank-quick/collect.mjs",
+    "scripts/bank-quick/register-account.ps1",
+    "docs/migrations/2026-11-03_bank_schema.sql",
+    "docs/bank-quick/DESIGN.md"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "requestIdentity": "bank.LoadBatch.BatchKey; 대조는 읽기만",
+  "actions": [
+    {
+      "name": "BANK_QUICK_LOAD_RAW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "bank 스키마(Account·LoadBatch·Txn)에만 INSERT. (AccountKey,RowHash) 중복은 삽입 생략. 은행에서는 조회만, 이체·설정변경 없음."
+    },
+    {
+      "name": "BANK_QUICK_READ_ERP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sideEffect": "dbo ERP 원장은 대조 시 SELECT 만(현 단계 코드 없음)."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "거래일(TxnDate)로 연도를 명시 비교하며 타임스탬프에서 차수 연도를 유도하지 않는다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "bank 스키마는 exe 쓰기 경로를 호출하지 않는다. 대조용 읽기만 Customer/Estimate 기준.",
+    "methods": [
+      "ClassEstimate.Select"
+    ],
+    "tables": [
+      "Estimate",
+      "Customer"
+    ]
+  },
+  "preserves": [
+    "Customer",
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "ProductStock",
+    "StockHistory",
+    "StockMaster",
+    "Estimate",
+    "WebProfitReport",
+    "ecount.*"
+  ],
+  "boundary": {
+    "ecountOwnedUntouched": true,
+    "checker": "node __tests__/mgmtBoundary.test.js --changed-from origin/master",
+    "design": "docs/bank-quick/DESIGN.md"
+  },
+  "requiredTestFiles": [
+    "__tests__/bankQuickParse.test.js",
+    "__tests__/bankQuickSchema.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run test:bank-quick",
+    "npm run build"
+  ]
+}
