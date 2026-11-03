@@ -33,5 +33,9 @@ test('personal operations require confirmation, persist, verify and isolate acco
     assert.equal((await confirmOperation(user,stale.operationId,{confirmed:true,expectedRevision:4},options)).state,'failed');
     const list=await listOperations(user,{},options);assert.equal(list.total,7);assert.ok(list.items.some(item=>item.operationId===archived.operationId));
     assert.equal((await listOperations(other,{},options)).total,0);
+    const previousYear=await previewOperation(other,{toolId:'personal-home.create',input:{date:'2025-11-03',title:'전년도 기록'}},options);
+    assert.equal((await confirmOperation(other,previousYear.operationId,{confirmed:true,expectedRevision:0},options)).state,'verified');
+    const currentYear=await previewOperation(other,{toolId:'personal-home.list',input:{date:'2026-11-03'}},options);
+    assert.equal(currentYear.result.count,1);assert.equal(currentYear.result.tasks[0].date,'2025-11-03');
   }finally{await fs.rm(temp,{recursive:true,force:true});}
 });
