@@ -1851,3 +1851,9 @@
 
 2026-11-03 추가운영검증: 별도run41568834599는47·48PASS후49콜롬비아루스커스E불일치로실패.46과49의실제차이금액은아직없어새진단로그필요.전체운영완료아님.
 검색어: 49루스커스E 41568834599 47·48PASS 진단금액대기
+
+2026-11-03 원천연결보완: 중국exact71추가(동일형태32+공식장미문언39), 총162정책. 실제0/수기/실납부우선·E1조건보존·신규AWB직접증거복제금지.01~43메모리재검산추가SQL0:미연결705→443입고행/217→146품목;38중국H3705660.52/F3945448.56,39중국E3945448.56만복구.수익률전체해결아님.18공식환율조회가능하나legacyFIFO원천FX/평균불가/19연쇄미확인으로제외.표시는중립계산기준/제목보고서,상세미확정유지.독립diff검토blocker없음(계약표현정정요청),전체gate진행중/PR배포미완.정본docs/work-sessions/2026-11-03_profit-source-completion.md 및work-reports동명final/remaining.csv1092진단행.
+검색어: profit-source-completion exact71 162정책 146품목 38중국 39중국 3셀복구 18환율FIFO 계산기준 DB쓰기0 gate대기
+
+2026-11-03 원천연결최종로컬gate: verify:erp-change session30084 exit0,webpack60초/134페이지.별도dnSpy exit0,origin/master manifest183PASS·쓰기guard exit0(변경API0),운영smoke nodecheck/mock PASS. 독립정책/표시/옵트인DOM검증 승인.정책연결파생3셀복구와표시금액불변을계약/계획/최종보고서에분리정정.운영옵트인클릭검증은basisLinks>0/detailsOpenedtrue로그필요.커밋/PR/배포/운영스모크아직대기.
+검색어: profit-source-completion gatePASS 183manifest 134pages source_completion_checks 배포대기

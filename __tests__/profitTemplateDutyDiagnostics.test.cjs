@@ -7,10 +7,10 @@ const assert=require('node:assert/strict');
  const line=(extra={})=>({prodKey:1,name:'품목 A',country:'에콰도르',category:'에콰도르',orderYear:'2026',orderWeek:'43-01',goodsForeign:100,freightForeign:20,currency:'USD',warehouseDetailKey:10,...extra});
  const ctx=()=>({year:'2026',major:'43',policy:{products:[{prodKey:1,name:'품목 A',country:'에콰도르',rate:.25,ruleIds:['source!K14']}]},lines:[line(),line({orderWeek:'42-01',warehouseDetailKey:9})],customsByWeek:{},previousPayload:{rows:[row()]}});
  // This unchanged-policy matrix keeps every amount/verdict/output field intact.
- // Only the explicit release-version bump and pre-existing additive diagnostics
+ // Only the explicit release-version bump, approved display label, and additive diagnostics
  // are normalized. Official mappings/historical blank changes have separate tests.
  assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v3');
- const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,key==='version'&&child===current.TEMPLATE_DUTY_VERSION?baseline.TEMPLATE_DUTY_VERSION:clean(child)])):value;
+ const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,key==='version'&&child===current.TEMPLATE_DUTY_VERSION?baseline.TEMPLATE_DUTY_VERSION:key==='label'&&child==='저장본 기반 관세 계산 반영 · 적용기준 상세 확인 · 원본 확정본·DB 미변경'?'저장본 기반 관세 보완(추정 포함) · 원본 확정본·DB 미변경':clean(child)])):value;
  const scenarios=[
   ()=>{},
   (p,c)=>{p.confirmed={key:7};p.confirmedTotals={C:2000,J:920};},

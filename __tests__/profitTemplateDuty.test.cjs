@@ -125,6 +125,24 @@ test('official China mapping is exact, dated and conditional, never broad Greens
  const retained=m.calculateTemplateDuty({year:'2026',major:'29',category:'중국',row:china,lines:[l],policy:p,customsRow:{Customs1:739050,Customs2:420110}});
  assert.equal(retained.total,1159160);assert.equal(retained.status,'actual_preserved');
  assert.ok(official.products.some(x=>/PHYLICA/i.test(x.exactName)&&x.rate===.214));
+ const additions=official.products.filter(x=>x.referenceProdKey);
+ assert.equal(additions.length,71);
+ assert.equal(additions.filter(x=>x.hs==='0603110000').length,65);
+ assert.equal(additions.filter(x=>x.matchLevel==='SAME_PRODUCT_FORM_INFERENCE').length,32);
+ assert.equal(additions.filter(x=>x.matchLevel==='OFFICIAL_HS_PRODUCT_FORM_INFERENCE').length,39);
+ for(const product of additions){
+  assert.equal(product.observedAwbs,undefined);assert.equal(product.newDeclarationVerified,false);
+  assert.ok(['SAME_PRODUCT_FORM_INFERENCE','OFFICIAL_HS_PRODUCT_FORM_INFERENCE'].includes(product.matchLevel));
+  assert.equal(product.basicRate,product.rateType==='E1'?.25:.08);
+  const target=line({prodKey:product.prodKey,name:product.exactName,country:'중국',category:'중국',currency:'CNY',orderWeek:'29-01'});
+  const rule=m.resolveTemplateDutyRule(target,p,'2026');
+  assert.equal(rule.officialEvidence.referenceProdKey,product.referenceProdKey);
+  assert.equal(rule.officialEvidence.newDeclarationVerified,false);
+  assert.equal(m.resolveTemplateDutyRule({...target,name:product.exactName+' Petal Use'},p,'2026'),null);
+  const explicit=m.calculateTemplateDuty({year:'2026',major:'29',category:'중국',row:china,lines:[target],policy:p,customsRow:{Customs1:0,Customs2:0}});
+  assert.equal(explicit.total,0);assert.equal(explicit.status,'actual_preserved');
+ }
+ for(const prodKey of [3207,3453,3462,2454,3351])assert.equal(m.resolveTemplateDutyRule(line({prodKey,name:'Sample Petal Use',country:'중국'}),p,'2026'),null);
 });
 
 test('only verified historical 27 China blank is restored; actual SQL zeros still dominate',async()=>{
