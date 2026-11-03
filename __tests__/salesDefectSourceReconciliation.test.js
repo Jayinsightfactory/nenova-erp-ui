@@ -11,7 +11,7 @@ for (const [key, flag, code] of [[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE
   assert.equal(deriveSupportProcessingStatus(ui).processingStatus,'SOURCE_REVIEW');
   assert.equal(isSupportProcessingComplete(ui),false);
   assert.equal(isSupportManualCompleteSelectable(ui),false);
-  assert.equal(supportRegistrationDecisionLabel(ui),'확인 필요 · 등록 제외');
+  assert.equal(supportRegistrationDecisionLabel(ui),'원문·견적 확인 대기');
   let writes=0;
   const query=async(sql)=>{
     if (/\b(INSERT|UPDATE|DELETE)\s+(INTO|Estimate|WebSales)/i.test(sql)) writes++;
