@@ -1929,3 +1929,6 @@
 검색어: defectCompanyFilter 업체버튼 입력출처 직접입력 자동수집
 2026-11-03 AI 작업 원장 1단계: 개인 업무 조회/추가/수정/삭제/복구 5개 capability, 미리보기→명시확인→기존 개인업무 저장→재조회 검증 API와 계정별 작업 상태 원장 구현. /work/operations에 처리/확인 결과와 본인 버튼·API 활동 기록 표시. 기존 개인업무 revision/requestId 및 결정적 taskId로 중복 재시도 보호. 표적·기존 개인업무·활동 테스트 PASS, 웹 build PASS, ERP 가드 진행 중, PR/배포/운영스모크 미검증. ERP 원장 쓰기 도구 미등록.
 검색어: AI 작업원장 operationId capabilities preview confirm personal-home 버튼로그 내작업기록 재조회검증
+
+2026-11-03 불량 업체필터 검증: verify:erp-change exit0, manifest186/dnSpy PASS, 모의UI 두탭 필터·출처·선택·원인덱스·검토창ids·키보드 PASS. 기능PR1449=90820b27, CI41608005201 성공. UI모의 빈창/location 이동 및 preflight 조회POST 구분 수정.
+검색어: defect-company-filter-smoke 업체필터 UI검증 90820b27
