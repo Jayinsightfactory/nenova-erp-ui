@@ -1887,3 +1887,6 @@
 
 2026-11-03 중국45-1 날짜/GW: 원문 HUBFRESH DMY 02/11/2026→2026-11-02, A.G.W.T. TOTAL1684.8kg 보완. Aside 실제 업로드/미매칭1선택/자동 날짜GW/총액77095확인/격리SQL입고91001/새창조회 PASS(54행180박스1905단21900송이39720CNY). CW미기재보존, 운영DB쓰기0/AI0. 빌드PASS, 전체gate진행·배포미완. 정본 docs/work-sessions/2026-11-03_cn45-header.md.
 검색어: cn45-header 45-1 DMY GW1684.8 Aside 자동입력 격리91001
+
+2026-11-03 문제 해결 창 검증: verify:erp-change exit0, 변경기준 f10c1057 manifest184PASS/쓰기guardPASS. 최신운영빌드 모의UI 단가/매칭/원문TXT/중복한건/최종ids/재조회실패잠금/Tab·ShiftTab·Enter·Escape초점복귀 PASS. 수경44실제SELECT10943=-10단한건, DB보정없음. PR1443 최신CI/배포대기.
+검색어: defectResolution UI PASS 원문파일 키보드 10943
