@@ -1945,3 +1945,6 @@
 
 2026-11-03 입고 수정 구현: /incoming 선택 원장의 FARM/REPLACE 미리보기·명시확인·UUID재시도·초안·감사 추가. 공용 staging 없이 차액 Product.Stock/입고이력/native V2 재고·후속음수 검증과 원장 사후대조 원자 저장. 원가/정산/확정/농장분배/미매칭 원장 차단. Unit10·격리SQL1·모의UI1920/390·기존입고3·UI-layout·manifest187·dnSpy·쓰기guard PASS. 운영7970 읽기전용 preflight 성공/확정 차단, 운영쓰기0. 전체ERP/최종build·PR/배포 진행중. 정본 docs/work-sessions/2026-11-03_incoming-correction.md.
 검색어: warehouseCorrection 입고수정 파일교체 FARM REPLACE nativeGate UUID SystemActionLog
+
+2026-11-03 입고 수정 완료: 전체 ERP·webpack·dnSpy·최신manifest188/writeguard PASS. PR1454 CI41611968875 성공 후67b3dd431 squash. 최초배포41612676481은 후속master로 STALE_RELEASE 안전중단, 입고수정 포함84717f875 배포41613086795 SUCCESS. 운영v1.0.2·84717f87/ping200, 실Chrome 일반/팝업·원장7970·GET/미리보기200·확정차단·1920/390·Escape PASS, pageerror0/운영수정쓰기0. 최초UI 표본조회 InputDate 하루→UploadDtm 조회기간 정정. 실제commit은 격리SQL에서 성공/동시UUID/롤백 검증, 운영commit 미실행. 정본 docs/work-reports/2026-11-03-incoming-correction-qa.md.
+검색어: 입고수정 완료 PR1454 67b3dd431 84717f87 41613086795 운영스모크 warehouseCorrection 파일교체

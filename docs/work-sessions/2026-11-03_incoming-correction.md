@@ -23,7 +23,7 @@
 ### 2. 웹 적용 요청
 **Q.** 그 구조를 설계하고 네노바웹 메뉴에 적용.
 **A.** 입고관리 선택 원장에 수정창/API/공통 preflight·저장 정책/원자 writer/감사/초안/키보드 구현. 로컬 unit·격리 실제 SQL·모의 브라우저 검증 수행. 운영 쓰기0.
-**결과.** 설계·계약 warehouse-correction.json, QA 정본. 전체 ERP/최종 빌드 PASS. PR/배포 후속 진행.
+**결과.** 설계·계약 warehouse-correction.json, QA 정본. 전체 ERP/최종 빌드 PASS. PR1454 CI41611968875 성공 후67b3dd431 병합. 후속 master84717f875 포함 배포41613086795 SUCCESS, 운영 배지84717f87·ping200. 일반/팝업·미리보기·차단·PC/모바일 실브라우저 PASS. 운영 수정쓰기0, 실제 commit 검증은 격리 SQL에서 수행.
 
 ## 이어받기
 현재 branch `codex/review-incoming-reupload`, worktree `C:/Users/USER/.codex/worktrees/5569/nw-incoming-reupload-review`. `.verify/` 로그/스크린샷은 로컬 검증 산출물로 커밋 제외. npm prebuild로 생긴 무관한 data/generated 이력 변경은 포함하지 않는다. `.env`/JWT/연결 비밀번호를 저장하지 않는다.
