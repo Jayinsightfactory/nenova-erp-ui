@@ -50,5 +50,8 @@ assert.ok(Math.abs(m.stageOf(150).progress - 0.5) < 1e-9);
 // 화면 요약: 부서 정원
 const v = m.growView(st, t1);
 assert.strictEqual(v.gardens[0].dept, '경영지원');
+assert.strictEqual(v.people[0].name, '설연주', '직원 이름이 단계 이름에 덮이지 않음');
+assert.strictEqual(v.people[0].stageName, '씨앗');
+assert.strictEqual(v.people[0].points, 11); // 1시간 10 + 3시간 틈 중 5분만 인정(≈0.83)
 assert.strictEqual(m.cleanLabel('콜롬비아 분배작업 중 (16:36)'), '콜롬비아 분배작업');
 console.log('pmGrow ok');
