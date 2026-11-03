@@ -26,6 +26,7 @@ import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBan
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import ProfitRangeOutput from '../../components/ProfitRangeOutput';
+import { profitWeeksScope, profitWeeksScopeMatches, collectProfitWeeks } from '../../lib/profitRangeOutput.mjs';
 import toolbar from '../../styles/ProfitReportToolbar.module.css';
 import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
 import { profitPopoverPosition, navigateProfitCheckboxes } from '../../lib/profitPrintLayout.mjs';
@@ -395,6 +396,17 @@ export default function ProfitReportPage() {
   const [rangeTo, setRangeTo] = useState('');
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [weeksData, setWeeksData] = useState([]); // [{ major, rows, totals, error }]
+  const [weeksScope, setWeeksScope] = useState(null);
+  const weeksRequest = useRef({ seq:0, controller:null });
+  const weeksInputs = useRef(null);
+  weeksInputs.current = {year:reportYear,from:rangeFrom,to:rangeTo,viewMode};
+  useEffect(() => {
+    weeksRequest.current.seq += 1;
+    weeksRequest.current.controller?.abort();
+    weeksRequest.current.controller = null;
+    setWeeksLoading(false);
+    return () => { weeksRequest.current.seq += 1; weeksRequest.current.controller?.abort(); };
+  }, [reportYear,rangeFrom,rangeTo,viewMode]);
   const [expandedWeeks, setExpandedWeeks] = useState(new Set());
   const [monthlyYear, setMonthlyYear] = useState(getDefaultYear());
   const [monthlyLoading, setMonthlyLoading] = useState(false);
@@ -517,24 +529,27 @@ export default function ProfitReportPage() {
   };
 
   const loadWeeksRange = async () => {
-    const from = Number(rangeFrom), to = Number(rangeTo);
-    if (!from || !to || from > to) { setError('차수 범위를 확인하세요 (예: 25 ~ 30)'); return; }
-    setWeeksLoading(true); setError('');
+    let scope;
+    try { scope=profitWeeksScope(reportYear,rangeFrom,rangeTo); }
+    catch (e) { setError(e.message); return; }
+    weeksRequest.current.controller?.abort();
+    const controller=new AbortController();
+    const seq=++weeksRequest.current.seq;
+    weeksRequest.current.controller=controller;
+    setWeeksLoading(true); setError(''); setWeeksScope(null); setWeeksData([]);
     try {
-      const majors = [];
-      for (let m = to; m >= from; m--) majors.push(String(m).padStart(2, '0')); // 최신 차수가 위로
-      const results = await Promise.all(majors.map(async (mj) => {
-        try {
-          const res = await fetch(`/api/sales/profit-report?week=${mj}&year=${encodeURIComponent(reportYear)}`, { credentials: 'same-origin' });
-          const d = await res.json();
-          if (!d.success) return { major: mj, error: d.error || '조회 실패' };
-          // 확정된 차수는 저장된 calc를 그대로 쓴다(재계산 금지 — 계산식이 나중에 바뀌어도 과거 확정본은 불변).
-          const {rows,totals}=profitDisplayCalculation(d);
-          return { major: mj, rows, totals, confirmed: Boolean(d.confirmed) };
-        } catch (e) { return { major: mj, error: e.message }; }
-      }));
-      setWeeksData(results);
-    } finally { setWeeksLoading(false); }
+      const result=await collectProfitWeeks(scope,async (year,mj,signal)=>{
+        const res=await fetch(`/api/sales/profit-report?week=${mj}&year=${encodeURIComponent(year)}`,{credentials:'same-origin',signal});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      },profitDisplayCalculation,controller.signal);
+      const current=weeksInputs.current;
+      if(seq!==weeksRequest.current.seq || current.viewMode!=='weeks' || !profitWeeksScopeMatches(scope,current.year,current.from,current.to)) return;
+      setWeeksData(result.rows);
+      if(result.complete) setWeeksScope(scope);
+      else setError(`${result.rows.filter(row=>row.error).map(row=>`${Number(row.major)}차`).join(', ')} 조회 실패 · 범위 전체를 다시 조회한 뒤 출력하세요.`);
+    } catch(e) { if(seq===weeksRequest.current.seq && !controller.signal.aborted) setError(e.message); }
+    finally { if(seq===weeksRequest.current.seq) {setWeeksLoading(false);weeksRequest.current.controller=null;} }
   };
 
   const switchToWeeksView = () => {
@@ -932,6 +947,7 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); } finally { setClassificationBusy(0); }
   };
   const dirty = Object.keys(edits).length > 0 || noteDirty;
+  const weeksOutputReady = Boolean(weeksScope && !weeksLoading && !dirty && !saving && profitWeeksScopeMatches(weeksScope,reportYear,rangeFrom,rangeTo));
   const { rows, totals } = rowsCalc;
   const sourceValidation = useProfitValidationGate({year:reportYear,major:weekInput.value,rows,totals,audit:data?.audit,
     dirty:dirty || String(data?.orderYear)!==String(reportYear) || Number(data?.major)!==Number(weekInput.value)});
@@ -1149,10 +1165,17 @@ export default function ProfitReportPage() {
                 aria-label="차수별 보고서 연도"
               />
               <label style={st.label}>차수범위</label>
-              <input style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
+              <input aria-label="시작 차수" style={{ ...st.weekInput, width: 50 }} value={rangeFrom} onChange={e => setRangeFrom(e.target.value.replace(/\D/g, ''))} placeholder="25" />
               <span style={{ color: '#94a3b8' }}>~</span>
-              <input style={{ ...st.weekInput, width: 50 }} value={rangeTo} onChange={e => setRangeTo(e.target.value.replace(/\D/g, ''))} placeholder="30" />
+              <input aria-label="마지막 차수" style={{ ...st.weekInput, width: 50 }} value={rangeTo} onChange={e => setRangeTo(e.target.value.replace(/\D/g, ''))} placeholder="30" />
               <button style={st.primaryBtn} onClick={loadWeeksRange} disabled={weeksLoading}>{weeksLoading ? '조회 중…' : '조회'}</button>
+              <div data-testid="profit-weeks-output" className={toolbar.output}>
+                <ProfitRangeOutput year={weeksScope?.year} major={weeksScope?.to} rangeWeeks={weeksScope?.weeks || []}
+                  requestScopeKey={`${reportYear}:${rangeFrom}:${rangeTo}:${weeksLoading}:${dirty}:${saving}`}
+                  visibleCols={shownColumns.map(cd=>cd.key)} showCategory={isVisible('category')} columnDefs={COLUMN_DEFS} columnsReady={columnsReady}
+                  toolbarClassName={toolbar.output} buttonClassName={`btn ${toolbar.button}`} disabled={!weeksOutputReady} />
+                {!weeksOutputReady && <p role="status">{dirty ? '카테고리별 화면의 미저장 변경을 저장하거나 취소한 뒤 출력하세요.' : weeksLoading ? '조회 중입니다. 범위 전체 조회가 끝나면 출력할 수 있습니다.' : '선택 연도·범위를 조회 완료한 뒤 엑셀·인쇄할 수 있습니다.'}</p>}
+              </div>
             </>
           ) : (
             <>

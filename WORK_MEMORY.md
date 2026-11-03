@@ -1927,3 +1927,6 @@
 
 2026-11-03 AI 작업 원장 1단계: 개인 업무 조회/추가/수정/삭제/복구 5개 capability, 미리보기→명시확인→기존 개인업무 저장→재조회 검증 API와 계정별 작업 상태 원장 구현. /work/operations에 처리/확인 결과와 본인 버튼·API 활동 기록 표시. 기존 개인업무 revision/requestId 및 결정적 taskId로 중복 재시도 보호. 표적·기존 개인업무·활동 테스트 PASS, 웹 build PASS, ERP 가드 진행 중, PR/배포/운영스모크 미검증. ERP 원장 쓰기 도구 미등록.
 검색어: AI 작업원장 operationId capabilities preview confirm personal-home 버튼로그 내작업기록 재조회검증
+
+2026-11-03 차수별 출력·가로 비고: 완료된 연도/from/to 범위에 출력 연결, 부분실패·stale·dirty·입력범위변경 출력차단 독립검토 P1없음. 인쇄 userNote만 줄trim/가운데점 연결, 원문/Excel/금융값보존. 실제Chromium PDF1주1장/3주3장/22열/문라이트1~50가로흐름·마지막50·workbook불변 PASS, 실제PDF PNG확인. 운영weeks_view옵트인추가(연속1/3주,기본false), 모든변경요청abort. 앱통합/전체gate/배포운영은 진행 중. 정본 docs/work-sessions/2026-11-03_profit-weeks-output.md.
+검색어: profit-weeks-output 차수별출력 가로비고 문라이트 범위완료 stale dirty

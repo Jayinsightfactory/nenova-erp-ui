@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { collectOutput, combineOutputBooks, outputPrintHtml, outputWeeks, outputFileName } from '../lib/profitRangeOutput.mjs';
+import { collectOutput, combineOutputBooks, outputPrintHtml, availableOutputWeeks, outputFileName } from '../lib/profitRangeOutput.mjs';
 import { OUTPUT_COLUMNS_KEY } from '../lib/profitColumnPreferences.mjs';
 import { useProfitColumnPreferences } from '../lib/useProfitColumnPreferences';
 import { fitProfitPrintDocument, navigateProfitCheckboxes } from '../lib/profitPrintLayout.mjs';
@@ -8,7 +8,7 @@ export default function ProfitRangeOutput(props) {
   return props.columnsReady === false ? null : <OutputControls {...props} />;
 }
 
-function OutputControls({ year, major, visibleCols, columnDefs, showCategory = true, beforeOutput, disabled, toolbarClassName, buttonClassName }) {
+function OutputControls({ year, major, visibleCols, columnDefs, showCategory = true, beforeOutput, disabled, toolbarClassName, buttonClassName, rangeWeeks, requestScopeKey }) {
   const screenColumns = [...(showCategory ? ['category'] : []), ...visibleCols.filter(key => key !== 'category')];
   const { columns: outputColumns, setColumns: setOutputColumns, ready: columnsReady, storageError } = useProfitColumnPreferences(OUTPUT_COLUMNS_KEY, columnDefs.map(c => c.key), columnDefs.map(c => c.key));
   const [selected, setSelected] = useState(major ? [major] : []);
@@ -23,18 +23,29 @@ function OutputControls({ year, major, visibleCols, columnDefs, showCategory = t
   const columnChoices = useRef(null);
   const printButton = useRef(null);
   let weeks = [];
-  try { weeks = outputWeeks(year, major); } catch { /* no loaded report */ }
+  try { weeks = availableOutputWeeks(year, major, rangeWeeks); } catch { /* no loaded report */ }
+  const rangeSignature = rangeWeeks?.join(',');
+  const selectionAllowed = selected.length > 0 && selected.every(w=>weeks.includes(w));
   useEffect(() => {
     controller.current?.abort();
     controller.current = null;
-    setBusy(false); setProgress(''); setError(''); setPreview(''); setSelected(major ? [major] : []);
+    printRequest.current += 1;
+    setBusy(false); setProgress(''); setError(''); setPreview(''); setSelected(rangeWeeks === undefined ? (major ? [major] : []) : weeks);
     return () => controller.current?.abort();
-  }, [year, major]);
+    // Range values are normalized by the parent; reset only when its loaded scope changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, major, rangeSignature]);
+  useEffect(() => {
+    if (requestScopeKey === undefined) return;
+    controller.current?.abort(); controller.current = null;
+    printRequest.current += 1;
+    setBusy(false); setPreview(''); setProgress('');
+  }, [requestScopeKey]);
   const selectionSignature = `${outputColumns.join(',')}|${selected.join(',')}`;
   useEffect(() => { printRequest.current += 1; setPreview(''); setProgress(''); }, [selectionSignature]);
 
   async function run(kind) {
-    if (controller.current || disabled || !columnsReady || !outputColumns.length || !selected.length) return;
+    if (controller.current || disabled || !columnsReady || !outputColumns.length || !selected.length || !selectionAllowed) return;
     const abort = new AbortController(); controller.current = abort;
     printRequest.current += 1;
     setBusy(true); setError(''); setPreview('');
@@ -111,7 +122,7 @@ function OutputControls({ year, major, visibleCols, columnDefs, showCategory = t
       <details data-testid="profit-output-weeks" ref={choices} style={{ maxWidth: '100%' }} onKeyDown={e => closeOnEscape(e, choices)}>
         <summary className={buttonClassName} style={buttonClassName ? undefined : { cursor: 'pointer', padding: 7 }}>엑셀·인쇄 차수 선택 ({selected.length}개)</summary>
         <fieldset disabled={unavailable} style={{ margin: '8px 0', maxWidth: 850, minWidth: 0, boxSizing: 'border-box' }}>
-          <legend>{year}년 · 다운로드·인쇄할 차수</legend>
+          <legend>{year}년 · 다운로드·인쇄할 차수{rangeWeeks !== undefined ? ' (조회 범위 안)' : ''}</legend>
           <button type="button" className={buttonClassName} style={buttonStyle} onClick={() => setSelected(weeks)}>전체 선택</button>{' '}
           <button type="button" className={buttonClassName} style={buttonStyle} onClick={() => setSelected([major])}>현재 차수만</button>{' '}
           <button type="button" className={buttonClassName} style={buttonStyle} onClick={() => setSelected([])}>선택 해제</button>
@@ -125,7 +136,7 @@ function OutputControls({ year, major, visibleCols, columnDefs, showCategory = t
       {busy && <button className={buttonClassName} style={buttonStyle} onClick={() => controller.current?.abort()}>출력 취소</button>}
       <span role="status">{progress}</span>
     </div>
-    <p style={{ margin: '6px 0' }}>엑셀·인쇄 모두 체크한 {selected.length}개 차수만 처리합니다. 전체 선택은 1~{Number(major) || '조회'}차 전체입니다. 항목 {outputColumns.length}개 선택.</p>
+    <p style={{ margin: '6px 0' }}>엑셀·인쇄 모두 체크한 {selected.length}개 차수만 처리합니다. 전체 선택은 {rangeWeeks !== undefined ? `${Number(weeks[0]) || '조회'}~` : '1~'}{Number(major) || '조회'}차 전체입니다. 항목 {outputColumns.length}개 선택.</p>
     {!selected.length && <p role="alert">출력할 차수를 1개 이상 선택하세요.</p>}
     {!outputColumns.length && <p role="alert">출력할 항목을 1개 이상 선택하세요.</p>}
     {error && <p role="alert" style={{ color: '#b91c1c' }}>{error} · 부분 파일은 생성하지 않았습니다. 다시 시도하세요.</p>}

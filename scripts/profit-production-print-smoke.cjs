@@ -7,9 +7,11 @@ const puppeteer = require('puppeteer-core');
   assert.ok(token, 'Configured service credential is unavailable');
   const year = String(process.env.PROBE_YEAR || '2026');
   const weeks = String(process.env.PROBE_WEEKS || '18,38,39').split(',').map(w => w.trim().padStart(2, '0')).sort();
+  const weeksView = process.env.PROBE_WEEKS_VIEW === 'true';
   assert.match(year, /^20\d\d$/);
   assert.ok([1, 3].includes(weeks.length) && new Set(weeks).size === weeks.length);
   assert.ok(weeks.every(w => /^\d{2}$/.test(w) && +w >= 1 && +w <= 53));
+  if (weeksView) assert.ok(weeks.every((w, i) => i === 0 || Number(w) === Number(weeks[i - 1]) + 1), 'Weeks-view probe requires consecutive weeks to bound production reads');
   const origin = 'https://nenovaweb.com';
   const normalizePdfText = text => String(text).replace(/\s/g, '');
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -19,6 +21,7 @@ const puppeteer = require('puppeteer-core');
   let unexpectedMutationAttempts = 0;
   const blockedWriteEndpoints = new Map();
   const requested = [], statuses = [];
+  const outputReads = [], sourceNotes = new Map();
   try {
     const context = await browser.createBrowserContext();
     // Public synthetic text distinguishes missing CJK glyphs from production data.
@@ -64,7 +67,13 @@ const puppeteer = require('puppeteer-core');
       }
       return request.continue();
     });
-    page.on('response', response => { if (new URL(response.url()).pathname === '/api/sales/profit-report-output') statuses.push(response.status()); });
+    page.on('response', response => {
+      if (new URL(response.url()).pathname !== '/api/sales/profit-report-output') return;
+      statuses.push(response.status());
+      if (response.status() === 200) outputReads.push(response.json().then(data => {
+        sourceNotes.set(String(data.major), String(data.workbook?.Sheets?.['주차별 매출이익 보고서']?.['!profitPrint']?.userNote ?? ''));
+      }));
+    });
     await page.goto(`${origin}/sales/profit-report?year=${year}&week=${weeks.at(-1)}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.startsWith('엑셀 다운로드') && !b.disabled), { timeout: 150000 });
     const findSummary = prefix => page.evaluateHandle(p => [...document.querySelectorAll('summary')].find(s => s.textContent.startsWith(p)), prefix);
@@ -98,6 +107,27 @@ const puppeteer = require('puppeteer-core');
       assert.equal(await columnSummary.evaluate(e => !e.parentElement.open && document.activeElement === e), true);
     }
     await page.setViewport({ width: 1920, height: 1080 });
+    if (weeksView) {
+      const modeButton = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '차수별'));
+      await modeButton.asElement().click();
+      await page.waitForSelector('[data-testid="profit-weeks-output"]');
+      assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Unloaded weeks scope must not print');
+      for (const [label, value] of [['시작 차수', String(Number(weeks[0]))], ['마지막 차수', String(Number(weeks.at(-1)))]]) {
+        const input = await page.$(`input[aria-label="${label}"]`);
+        await input.click({ clickCount: 3 }); await input.press('Backspace'); await input.type(value);
+      }
+      const query = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '조회'));
+      await query.asElement().click();
+      await page.waitForFunction(() => { const b = document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]'); return b && !b.disabled; }, { timeout: 180000 });
+      const available = await page.$$eval('[data-testid="profit-output-weeks"] input[type="checkbox"]', inputs => inputs.map(input => ({ week: input.closest('label').textContent.match(/(\d+)차/)[1].padStart(2, '0'), checked: input.checked })));
+      assert.deepEqual(available.map(i => i.week), weeks);
+      assert.ok(available.every(i => i.checked), 'All loaded weeks must initially be selected');
+      const fromInput = await page.$('input[aria-label="시작 차수"]');
+      await fromInput.click({ clickCount: 3 }); await fromInput.press('Backspace');
+      assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Edited scope must block stale output');
+      await fromInput.type(String(Number(weeks[0])));
+      await page.waitForFunction(() => !document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]').disabled);
+    }
     const weekSummary = await findSummary('엑셀·인쇄 차수 선택');
     await weekSummary.asElement().click();
     await weekSummary.evaluate((summary, selected) => {
@@ -123,11 +153,18 @@ const puppeteer = require('puppeteer-core');
       const withoutNotes = section.cloneNode(true);
       withoutNotes.querySelectorAll('.note').forEach(note => note.remove());
       return { headers: [...section.querySelectorAll('th')].map(c => c.textContent),
+        userNote: section.querySelector('.note > div')?.textContent || '',
         hasAutomaticStatus: /검증 보류|입력 안 됨|저장 참고값|수익률 원천 검증 전/.test(withoutNotes.textContent),
         numbers: cells.map(c => c.textContent.trim()).filter(v => /^-?[\d,]+(?:\.\d+)?%?$/.test(v)),
         fits: cells.every(c => { const r = c.getBoundingClientRect(); return r.left >= outer.left - 1 && r.right <= outer.right + 1 && r.bottom <= outer.bottom + 1; }) };
     }));
     assert.equal(sections.length, weeks.length);
+    await Promise.all(outputReads);
+    for (let i = 0; i < sections.length; i++) {
+      assert.ok(sourceNotes.has(weeks[i]), 'Source note metadata must be read for the exact selected week');
+      const expectedNote = sourceNotes.get(weeks[i]).split(/\r\n|\n|\r/).map(line => line.trim()).filter(Boolean).join(' · ');
+      assert.equal(sections[i].userNote, expectedNote, 'Print note must preserve every source item in original order');
+    }
     for (const section of sections) { assert.equal(section.headers.length, 22); assert.equal(section.hasAutomaticStatus, false); assert.ok(section.fits, 'All table cells must fit their printed page'); }
     const printHtml = await frame.content();
     const pdfPage = await context.newPage();
@@ -149,6 +186,9 @@ const puppeteer = require('puppeteer-core');
       assert.ok(titleMatches, 'Exact report title must survive PDF rendering (whitespace normalized)');
       for (const header of sections[i - 1].headers) assert.ok(normalizedText.includes(header.replace(/\s/g, '')), 'All selected column headers must survive PDF rendering');
       for (const number of sections[i - 1].numbers) assert.ok(normalizedText.includes(number), 'Printed numeric cell must survive PDF rendering');
+      const userNote = sections[i - 1].userNote;
+      assert.ok(!/[\r\n]/.test(userNote), 'Print note must use horizontal flow instead of source line breaks');
+      if (userNote) assert.ok(normalizedText.includes(normalizePdfText(userNote)), 'Entire author note including its last item must survive PDF rendering');
     }
     await document.destroy();
     assert.deepEqual([...new Set(requested)].sort(), weeks);
@@ -156,6 +196,6 @@ const puppeteer = require('puppeteer-core');
     if (blockedWrites) console.log(JSON.stringify({ blockedWriteDiagnostic: [...blockedWriteEndpoints].map(([endpoint, count]) => ({ endpoint, count })), actualBusinessWrites: 0 }));
     assert.equal(unexpectedMutationAttempts, 0, 'No business or unexpected mutation may be attempted');
     assert.equal(blockedWrites, blockedTelemetry, 'Every blocked mutation must be the exact same-origin activity POST');
-    console.log(JSON.stringify({ printSmoke: 'PASS', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], blockedTelemetry, unexpectedMutationAttempts, actualBusinessWrites: 0 }));
+    console.log(JSON.stringify({ printSmoke: 'PASS', view: weeksView ? 'weeks' : 'category', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], blockedTelemetry, unexpectedMutationAttempts, actualBusinessWrites: 0 }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });

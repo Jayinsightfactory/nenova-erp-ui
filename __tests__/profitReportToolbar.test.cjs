@@ -45,6 +45,7 @@ const run=range.slice(range.indexOf('  async function run(kind)'),range.indexOf(
  .replace('    printRequest.current += 1;\n','').replace('    printRequest.current += 1;\r\n','')
  .replace("setBusy(true); setError(''); setPreview('');", "setBusy(true); setError(''); setPreview(''); setReady(false);")
  .replace('`${items.length}개 차수 · ${items.length}장 인쇄 준비 중…`','`${items.length}개 차수 인쇄 미리보기 준비 완료`')
+ .replace(' || !selectionAllowed','') // Added bounded-week eligibility; exercised in range regression.
  .replace(/\s+/g,' ').trim();
 assert.equal(crypto.createHash('sha256').update(run).digest('hex'),'5c0a84e8228403ba87b34d40f9fc913bb8b4bf0999fa0f16254f2973caf94b06','download/cancel/save-before-output unchanged; only approved print preparation state/text normalized');
 assert.match(range,/buttonClassName \? undefined :/,'other consumers retain their original styling');
