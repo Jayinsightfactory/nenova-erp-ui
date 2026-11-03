@@ -12,7 +12,9 @@
     "pages/api/pm/request.js",
     "pages/api/pm/requests/index.js",
     "pages/api/pm/requests/ack.js",
-    "lib/pmRequests.js"
+    "lib/pmRequests.js",
+    "pages/api/pm/timesave.js",
+    "lib/pmTimesave.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -56,6 +58,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "writeAllowlist": []
+    },
+    {
+      "name": "PM_TIMESAVE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
     }
   ],
   "crossYearFixture": {
@@ -66,7 +74,8 @@
     "__tests__/workFeatureData.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/pmStaff.test.js",
-    "__tests__/pmRequests.test.js"
+    "__tests__/pmRequests.test.js",
+    "__tests__/pmTimesave.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -88,6 +97,7 @@
     "node __tests__/workFeatureData.test.js",
     "npm run build",
     "node __tests__/pmStaff.test.js",
-    "node __tests__/pmRequests.test.js"
+    "node __tests__/pmRequests.test.js",
+    "node __tests__/pmTimesave.test.js"
   ]
 }
