@@ -1895,6 +1895,9 @@
 
 2026-11-03 평균보완 코드동결 독립검토: 현재발견P1없음,전체gate·운영스모크조건부승인. 평균상세UI페이지연결/80품목성분환산기간/실납부미인증/원본메타분리확인. 최종재생F→E재사용75쌍불일치0,보완행양수매출100%초과또는−50%미만0. 이전prototype극단값은최종값아님. 원천불변fingerprint재사용629ms는주담당측정이며운영성능인증아님. 전체gate·배포대기유지.
 검색어: 독립P1없음 조건부승인 E/F75쌍 극단값해소 상세UI80 gate배포대기
+
+2026-11-03 운영후속정정:18차스모크41597970882 화면/Excel금액일치후rateEstimated false!==true실패. 전체스모크미완. 공식참고시점환율fallback의source/auto만갱신되고rateEstimated/rateDetail/auditcanonical메타누락이원인. base53eb9e4ca codex/profit-average-rate-evidence 메타전용보완진행,숫자불변·수기R보존·actualDeclarationDateVerifiedfalse·assert완화금지. 후속배포/재스모크성공전완료판정금지.
+검색어: 운영18스모크41597970882 rateEstimated 메타회귀 숫자일치 전체미완 환율근거hotfix
 2026-11-03 불량차감 후속 진행: nw-defect-support-1103. 사용자 최종정책: 같은연도 직전5차수 업체단가우선/없으면타업체최신동일품목단가, 전년도제외. 적용차수 업체분배없음 보류/후속차수대기 유지. ClassEstimate dnSpy CLI와 FormEstimateAdd ShipmentKey/ProdKey 독립저장 확인. 오류로그16519 견적10930중복; 현재10930 실제연결조회0건으로 업체확정미완. UI13px/핵심열/오류업체품목표시 수정중. 기본불량/원문보존 회귀PASS, 전체가드진행중, 배포미완. 검색어: 최근5차수 타업체단가 등록보류 10930
 
 2026-11-03 후속검증: 독립 npm ci 후 verify:erp-change exit0, dnSpy/manifest/write guard PASS. 실제SQL CTE 업체5차수우선/타업체최신/6차수·전년도·현재차수제외 PASS. PR1433 CI41586734943 success, master25fc0530, Cafe24배포41587424121 success. 운영버전25fc0530 확인, UI최종검증진행. 검색어: 최근5차수 타업체단가 PR1433 25fc0530
@@ -1910,3 +1913,6 @@
 
 2026-11-03 문제 해결 창 검증: verify:erp-change exit0, 변경기준 f10c1057 manifest184PASS/쓰기guardPASS. 최신운영빌드 모의UI 단가/매칭/원문TXT/중복한건/최종ids/재조회실패잠금/Tab·ShiftTab·Enter·Escape초점복귀 PASS. 수경44실제SELECT10943=-10단한건, DB보정없음. PR1443 최신CI/배포대기.
 검색어: defectResolution UI PASS 원문파일 키보드 10943
+
+2026-11-03 주차별 평균원가 공식환율 메타 보완: 운영 smoke41597970882에서 18차 웹/엑셀 금액은 일치했으나 rateEstimated 누락으로 실패. 공식환율 적용 행의 rateEstimated/rateDetail(연도·차수·승인 일정·고시기간·실제신고일미인증)과 canonical 감사 issue를 메타만 복원한다. 파생 v1 재입력도 숫자 재계산 없이 복구, 기존 rateDetail 보존, 실제/수기/명시0 및 교차연도 보호. 표적22 PASS, 실제43보고서9행 메타수정·calc/totals 변경0·SQL호출0/쓰기0. 기존 production smoke assertion 완화 없음. manifest186/쓰기guard/dnSpy PASS, webpack build EXIT0(.verify/average-rate-metadata-build.log), 독립리뷰 P1없음. 운영 재배포·18차 재스모크는 아직 미검증.
+검색어: average-rate-evidence 18차 rateEstimated rateDetail APPROVED_CUSTOMS_TIMING_ESTIMATE metadata-only

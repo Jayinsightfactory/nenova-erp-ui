@@ -2,6 +2,7 @@
   "id": "profit-average-fallback",
   "title": "승인된 국가 가중평균 도착원가와 유사품목 환산 보완",
   "status": "approved_implementation_in_progress",
+  "rateMetadataHotfix": "2026-11-03: official missing-FX recovery must carry canonical rateEstimated/rateDetail/orderYear/major/schedule/date/sourceRange and APPROVED_CUSTOMS_TIMING_ESTIMATE audit issue. Metadata-only repair also accepts already-derived v1 payloads; all calc/total/confirmed amounts, original evidence, actual/manual/explicit-zero rates and prior-year scopes are preserved. Existing production smoke assertions are unchanged.",
   "scope": ["lib/profitAverageFallback.mjs", "lib/profitAverageSources.mjs", "lib/profitAverageView.mjs", "lib/profitAverageData.js", "lib/profitReportCustomsRateTiming.mjs", "lib/profitReportStatusPresentation.mjs", "components/ProfitAverageEvidence.js", "pages/sales/profit-report.js", "lib/profitReportStoredCalculation.js", "lib/profitReportCalc.js", "lib/profitTemplateDutyData.js", "lib/profitReportInventoryBasis.mjs"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "CustKey not applicable to stock valuation; exact receipt WdetailKey/AWB and target cutoff required. No invented customer identity.",
