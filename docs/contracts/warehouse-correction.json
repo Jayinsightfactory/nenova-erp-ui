@@ -1,0 +1,105 @@
+{
+  "id": "warehouse-correction",
+  "title": "입고관리 농장 수정 및 선택 원장 파킹파일 교체",
+  "scope": [
+    "lib/warehouseCorrection.js",
+    "lib/warehouseCorrectionPolicy.js",
+    "components/WarehouseCorrection.js",
+    "pages/api/warehouse/correction.js",
+    "pages/incoming.js",
+    "__tests__/warehouseCorrection.test.mjs",
+    "__tests__/warehouseCorrectionSql.test.mjs",
+    "scripts/warehouse-correction-ui-smoke.cjs",
+    "package.json",
+    "__tests__/fixtures/warehouseCorrectionNative.sql"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "warehouseIdentity": [
+    "WarehouseKey",
+    "OrderYear",
+    "OrderWeek",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "read-only"
+    },
+    {
+      "name": "FARM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "FarmName and audit fields only",
+      "warehouseDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "REPLACE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve identity and metadata; update FarmName and audit fields",
+      "warehouseDetail": "replace only unlinked receipt",
+      "stock": "delta Product.Stock + StockHistory; native current/future ProductStock recalculation"
+    }
+  ],
+  "writes": [
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "Product",
+    "StockHistory",
+    "StockMaster",
+    "ProductStock",
+    "SystemActionLog"
+  ],
+  "preserves": [
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "Estimate",
+    "WebProfitReport",
+    "FreightCost",
+    "WebInvoiceOperation"
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026 동일 차수에서 명시 WarehouseKey+연도+차수만 교체. 2025 보존, 이후 연도 재고는 native cascade 후 음수 검사."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WarehouseCorrection.md",
+    "source": "actual dnSpy CLI FormWarehouseAdd/ExcelLoadingPackingList/FormWarehouseView and live SELECT-only SQL definitions",
+    "methods": [
+      "FormWarehouseAdd.btnSave_Click",
+      "ExcelLoadingPackingList.InsertMaster",
+      "FormWarehouseView.GetDetail"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "StockHistory",
+      "ProductStock"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/warehouseCorrection.test.mjs",
+    "__tests__/warehouseCorrectionSql.test.mjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
