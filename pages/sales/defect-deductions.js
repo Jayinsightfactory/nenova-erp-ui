@@ -1129,7 +1129,7 @@ export default function SalesDefectDeductionsPage() {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
       const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
-      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1${resolveAll ? '&resolve=1' : ''}`;
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1${resolveAll ? '&resolve=1&popup=1' : ''}`;
       reviewWindow.location.href = reviewUrl;
       handedOffToReview = true;
       supportReviewWindowRef.current = reviewWindow;

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { defectResolution, resolutionDescriptor } from '../lib/defectResolution.js';
 import { parseDefectSourceExport } from '../lib/defectSourceExport.js';
 
 const endpoint = '/api/sales/defect-deductions';
-const sha256 = async text => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))).map(b => b.toString(16).padStart(2, '0')).join('');
+const sha256 = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', typeof value === 'string' ? new TextEncoder().encode(value) : value))).map(b => b.toString(16).padStart(2, '0')).join('');
 
 export default function DefectResolutionEditor({ row, year, week, admin, disabled, onSaved, onBusy }) {
   const issue = defectResolution(row);
@@ -20,6 +20,14 @@ export default function DefectResolutionEditor({ row, year, week, admin, disable
   const [message, setMessage] = useState(null);
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const editButton = useRef(null);
+  const searchInput = useRef(null);
+  useEffect(() => { if (edit) searchInput.current?.focus(); }, [Boolean(edit)]);
+  const cancelEdit = () => {
+    const dirty = edit && Object.entries(edit).some(([key,value]) => String(value ?? '') !== String(row[key] ?? ''));
+    if (dirty && !window.confirm('저장하지 않은 매칭·수량 변경을 취소할까요?')) return;
+    setEdit(null); editButton.current?.focus();
+  };
   const locked = disabled || busy;
   const run = async operation => {
     setBusy(true); onBusy?.(true); setError('');
@@ -52,12 +60,14 @@ export default function DefectResolutionEditor({ row, year, week, admin, disable
   const readSource = file => run(async () => {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) throw Error('원문 파일은 20MB 이하로 선택하세요.');
-    const text = await file.text();
+    const bytes = await file.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(bytes);
     const messages = parseDefectSourceExport(text);
-    setSource({ hash: await sha256(text), messages }); setMessage(null); setConfirmed(false);
+    setSource({ hash: await sha256(bytes), messages }); setMessage(null); setConfirmed(false);
   });
   const release = () => run(async () => {
     if (!source || !message || !confirmed || reason.trim().length < 10) throw Error('원문 메시지를 선택하고 대조 결과를 10자 이상 입력한 뒤 일치 확인을 체크하세요.');
+    if (Number(message.stamp.match(/^(\d{4})년/)?.[1]) !== Number(row.orderYear)) throw Error('선택한 메시지의 연도가 원장 연도와 다릅니다. 같은 연도 원문을 선택하세요.');
     const evidence = { sourceSha256: source.hash, messageSha256: await sha256(message.content), messageOrdinal: message.ordinal,
       sourceYear: Number(row.orderYear), sourceWeek: row.orderWeek, custKey: row.custKey, prodKey: row.prodKey,
       quantity: row.quantity, sourceUnit: row.sourceUnit, reason: reason.trim() };
@@ -76,11 +86,11 @@ export default function DefectResolutionEditor({ row, year, week, admin, disable
       <label>단가 (원/{row.distributionCostUnit || row.sourceUnit}) <input aria-label={`${row.customerName} 단가`} inputMode="decimal" value={cost} disabled={locked} onChange={e => setCost(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveCost(); } }} /></label>
       <button type="button" disabled={locked || !cost.trim()} onClick={saveCost}>단가 저장하고 재검사</button>
     </div> : <p>현재 자료는 단가만 저장할 수 없습니다. 아래 매칭·입력을 확인하고 재검사하세요.</p>)}
-    {['match', 'cost', 'source', 'other', 'unit'].includes(issue.kind) && <button type="button" disabled={locked} onClick={openEdit}>업체·품목 매칭 / 수량 수정</button>}
-    {edit && <fieldset disabled={locked}>
+    {['match', 'cost', 'source', 'other', 'unit'].includes(issue.kind) && <button ref={editButton} type="button" disabled={locked} onClick={openEdit}>업체·품목 매칭 / 수량 수정</button>}
+    {edit && <fieldset disabled={locked} onKeyDown={e => { if (e.key === 'Escape' && !locked) { e.preventDefault(); cancelEdit(); } }}>
       <legend>원본: {row.customerName} / {row.productName} / {row.quantity}{row.sourceUnit}</legend>
       <div className="actions"><select aria-label="검색 대상" value={kind} onChange={e => { setKind(e.target.value); setCandidates([]); }}><option value="product">품목</option><option value="customer">업체</option></select>
-        <input aria-label="업체 품목 검색" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchCandidates(); } }} />
+        <input ref={searchInput} aria-label="업체 품목 검색" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchCandidates(); } }} />
         <button type="button" onClick={searchCandidates}>검색</button></div>
       <div className="candidates" onKeyDown={e => { if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return; const buttons = [...e.currentTarget.querySelectorAll('button')]; const index = buttons.indexOf(document.activeElement); if (buttons.length) { e.preventDefault(); buttons[(index + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus(); } }}>
         {candidates.map(item => <button type="button" key={item.CustKey || item.ProdKey} onClick={() => { setEdit({ ...edit, ...(kind === 'customer' ? { custKey: item.CustKey, customerName: item.CustName } : { prodKey: item.ProdKey, productName: item.ProdName }) }); setCandidates([]); }}>{item.CustName || `${item.CounName || ''} ${item.FlowerName || ''} ${item.ProdName || ''}`}</button>)}
@@ -88,7 +98,7 @@ export default function DefectResolutionEditor({ row, year, week, admin, disable
       <p>선택: {edit.customerName} / {edit.productName}</p>
       <div className="actions"><label>수량 <input aria-label="정정 수량" type="number" min="0.0001" step="any" value={edit.quantity} onChange={e => setEdit({ ...edit, quantity: e.target.value })} /></label>
         <label>단위 <select value={edit.sourceUnit} onChange={e => setEdit({ ...edit, sourceUnit: e.target.value })}>{[...new Set([edit.sourceUnit, '단', '박스', '스팀(대)'])].filter(Boolean).map(u => <option key={u}>{u}</option>)}</select></label>
-        <button type="button" onClick={saveEdit}>수정 저장하고 재검사</button><button type="button" onClick={() => setEdit(null)}>수정 취소</button></div>
+        <button type="button" onClick={saveEdit}>수정 저장하고 재검사</button><button type="button" onClick={cancelEdit}>수정 취소</button></div>
     </fieldset>}
     {(issue.kind === 'source' || issue.kind === 'existing') && <details><summary>원문·기존 견적 비교</summary>
       <p>입력 원차수: {row.orderYear}년 {row.orderWeek}차 · {row.quantity}{row.sourceUnit}</p>

@@ -280,7 +280,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   };
 
   return (
-    <Layout title={supportMode ? '영업지원 전산등록 결과' : '견적서 등록 검토'}>
+    <Layout title={resolveMode ? '불량차감 문제 해결·등록' : supportMode ? '영업지원 전산등록 결과' : '견적서 등록 검토'}>
       <div className="review-page">
         <div className="review-head">
           <div>
