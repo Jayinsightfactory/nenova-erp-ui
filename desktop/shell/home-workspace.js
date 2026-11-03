@@ -29,7 +29,7 @@
   const refresh = button('다시 조회', () => { failures = 0; void load(); });
   const current = button('오늘', () => changeDate(today(), true));
   const filter = node('select'); filter.setAttribute('aria-label', '업무 보기');
-  for (const [value, label] of [['active', '전체 업무'], ['pending', '미완료'], ['done', '완료'], ['repeat', '반복 업무'], ['archived', '보관함']]) filter.add(new Option(label, value));
+  for (const [value, label] of [['active', '전체 업무'], ['pending', '미완료'], ['done', '완료'], ['repeat', '반복 업무'], ['archived', '삭제한 업무']]) filter.add(new Option(label, value));
   heading.append(title, date, weekday, current, filter, count, refresh);
   const status = node('p', 'hw-status'); status.setAttribute('role', 'status');
   const error = node('div', 'hw-error'); error.setAttribute('role', 'alert'); error.hidden = true;
@@ -94,12 +94,15 @@
   function mutate(action, fields, done) {
     if (busy || !owner || !snapshot) return;
     if (pending) { setError('이전 저장 결과를 먼저 다시 시도해 확인해 주세요. 입력은 유지됩니다.'); return; }
-    pending = { command: { action, expectedRevision: snapshot.revision, requestId: crypto.randomUUID(), date: selectedDate, ...fields }, done };
+    const target = fields.taskId && snapshot.tasks.find(task => rowKey(task) === String(fields.taskId) + '|' + fields.date);
+    pending = { command: { action, expectedRevision: snapshot.revision, requestId: crypto.randomUUID(), date: selectedDate, ...fields }, done,
+      baseline: target ? taskFingerprint(target) : null, retries: 0 };
     draftSignal();
     void sendPending();
   }
   async function sendPending() {
     if (!pending || busy || !owner) return;
+    let retryUnchanged = false;
     const request = pending, ticket = epoch; readGeneration++; querying = false; busy = true; lock(); renderTasks(); setError('');
     try { const data = await invoke({ method: 'POST', command: request.command });
       if (ticket !== epoch) return;
@@ -109,11 +112,21 @@
       // Mutations of carried occurrences may return that original date: reload the selected view.
       busy = false; querying = false; await load();
     } catch (e) { if (ticket !== epoch) return; setError((e.conflict ? '다른 창에서 변경했습니다. 최신 자료를 읽고 입력은 유지합니다. ' : '') + (e.message || '저장 실패') + ' 다시 시도해 주세요.');
-      if (e.conflict) { busy = false; await load(); if (pending === request && snapshot) request.command = { ...request.command, expectedRevision: snapshot.revision, requestId: crypto.randomUUID() }; }
-    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing) focusTask(request.command.taskId); draftSignal(); schedule(); } }
+      if (e.conflict) {
+        busy = false; await load();
+        if (pending === request && snapshot) {
+          const current = request.command.taskId && snapshot.tasks.find(task => rowKey(task) === String(request.command.taskId) + '|' + request.command.date);
+          const unchanged = request.command.taskId ? current && taskFingerprint(current) === request.baseline : true;
+          if (unchanged && request.retries < 1 && snapshot.revision !== request.command.expectedRevision) {
+            request.retries++; request.command = { ...request.command, expectedRevision: snapshot.revision, requestId: crypto.randomUUID() }; retryUnchanged = true;
+          }
+        }
+      }
+    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing) focusTask(request.command.taskId); draftSignal(); schedule(); if (retryUnchanged) queueMicrotask(() => void sendPending()); } }
   }
   function renderData() { status.textContent = '마지막 갱신 ' + stamp(snapshot.syncedAt) + ' · 홈 표시 중 30초마다 확인'; renderTasks(); renderFeeds(); lock(); }
   function rowKey(task) { return String(task.id) + '|' + (task.occurrenceDate || selectedDate); }
+  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.occurrenceDate, !!task.done, !!task.archived, !!task.stopped]); }
   function focusTask(id) { [...rows.querySelectorAll('.hw-task')].find(r => r.dataset.task.startsWith(String(id) + '|'))?.querySelector('button:not(:disabled),input:not(:disabled)')?.focus(); }
   function taskFields(task) { return { taskId: task.id, date: task.occurrenceDate || selectedDate }; }
   function renderTasks() {
@@ -136,9 +149,9 @@
       const action = (text, fn) => { const b = button(text, fn); b.disabled = busy; row.append(b); return b; };
       if (task.archived) action('복구', () => mutate('restore', taskFields(task)));
       else { action('수정', () => { editing = rowKey(task); editDraft = { title: task.title, startDate: task.startDate || selectedDate, weekdays: task.weekdays || [] }; renderTasks(); rows.querySelector('.hw-edit input')?.focus(); });
-        action('보관', () => { confirmation = { key: rowKey(task), action: 'archive' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); });
+        action('삭제', () => { confirmation = { key: rowKey(task), action: 'archive' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); });
         if (task.weekdays?.length && !task.stopped) action('반복 종료', () => { confirmation = { key: rowKey(task), action: 'stop' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); }); }
-      if (confirmation?.key === rowKey(task)) { const confirm = node('div', 'hw-confirm'); confirm.append(node('span', '', confirmation.action === 'stop' ? '오늘(또는 선택한 미래 날짜) 이후 반복을 종료합니다. 과거·미완료 기록은 유지됩니다.' : '이 날짜의 실행 건만 보관합니다. 보관함에서 복구할 수 있습니다.'));
+      if (confirmation?.key === rowKey(task)) { const confirm = node('div', 'hw-confirm'); confirm.append(node('span', '', confirmation.action === 'stop' ? '오늘(또는 선택한 미래 날짜) 이후 반복을 종료합니다. 과거·미완료 기록은 유지됩니다.' : '이 날짜의 업무를 삭제합니다. 삭제한 업무에서 복구할 수 있습니다.'));
         const cancel = () => { confirmation = null; renderTasks(); focusTask(task.id); };
         const yes = button('확인', () => mutate(confirmation.action, taskFields(task))); yes.disabled = busy; confirm.append(yes, button('취소', cancel)); confirm.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancel(); } }); row.append(confirm); }
       rows.append(row);
