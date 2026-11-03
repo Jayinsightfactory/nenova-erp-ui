@@ -5,7 +5,7 @@
 | 작업트리 | C:/Users/USER/nw-profit-weeks-output |
 | 기준 |6428f624에서 시작, 검증기 d0efb7133 포함 최신 master 반영 |
 | 원장 부작용 | DB/API 쓰기 금지, 금융값·원본 비고·Excel 보존 |
-| 상태 | 독립 PDF·기존 모의 UI PASS, 후속 제목 범위 결함 보완 재검증 대기/운영 미완 |
+| 상태 | 독립 PDF·제목 보완 포함 모의 UI 재검증 PASS, PR1453 CI·전체 gate 진행/운영 미완 |
 | 근거 | [독립 QA](../work-reports/2026-11-03_profit-weeks-output-qa.md) |
 
 ## 고정 결정
@@ -34,3 +34,7 @@
 **A.** 생산 빌드 EXIT0, 실제 Chrome 모의 UI PASS:27~29기본3주→27/29선택2주,2025격리,28부분실패차단,지연응답+범위변경차단,dirty비고 차단,직접print총3회,가로비고,390pxbounds,API쓰기0/pageerror0. 최초 검사 입력 triple-click 실패는 Ctrl+A 테스트 입력으로만 정정했다.
 
 **결과.** 앱 freeze. 설치 EXE dnSpy 재확인 EXIT0. PR1453 CI/전체verify28427 진행 중, 배포·운영 미완.
+
+### 3. 제목 연도·범위 후속 검증 완료
+
+모바일 추가 QA에서 차수별 제목에 이전 카테고리 연도·차수가 남는 결함을 발견해 보완했다. production build34802 및 실제 ChromeUI61340 EXIT0. 2026년27~29→미조회→2025년27~29→부분실패 미조회→2025년27~30, 카테고리 복귀 원제목 exact PASS. 기존 선택/dirty/late/부분실패/인쇄/비고/390px/API쓰기0도 재실행 PASS. PR1453 head4be68df3e CI41610146868·전체verify28427 진행, 배포·운영 대기. 이 최종 기록은 로컬 append이며 별도 커밋하지 않는다.

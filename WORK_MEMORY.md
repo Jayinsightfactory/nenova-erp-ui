@@ -1935,3 +1935,6 @@
 
 2026-11-03 차수별 출력 후속: production build EXIT0, 실제Chrome mockUI PASS(27~29기본3→27/29선택2,2025격리,28부분실패차단,늦은응답·범위변경차단,미저장비고차단,직접print총3,가로비고,390pxbounds,API쓰기0/pageerror0). 첫시험입력실패는tripleclick→Ctrl+A테스트만정정. 실제FormStockView dnSpy재확인EXIT0,앱freeze,PR1453 CI/전체verify28427 진행·운영미완. QA/세션정본갱신.
 검색어: weeks-output mockUI PR1453 partial stale dirty 390px
+
+2026-11-03 차수별 제목 후속완료: production build34802/ChromeUI61340 EXIT0. 2026 27~29→미조회→2025 27~29→부분실패미조회→2025 27~30·category원제목복귀 exactPASS. 기존3/2주선택·dirty·late·부분실패·print·가로비고·390px·API쓰기0 재검증PASS. PR1453head4be68df3e CI41610146868 및전체verify28427 진행,배포운영대기. 문서최종로컬append만,커밋없음.
+검색어: weeks-title header 2025 27~30 61340 41610146868
