@@ -204,5 +204,37 @@ module.exports = (async () => {
   storage.setItem('nenova_profitReport_visibleCols_v4',JSON.stringify(['C','J']));
   assert.deepEqual(readColumnSelection(storage,'nenova_profitReport_visibleCols_v4',allowed,allowed).columns,['C','J']);
   assert.equal(storage.getItem('nenova_profitReport_visibleCols_v3'),'["J"]');
+  const {profitWeeksScope,profitWeeksScopeMatches,collectProfitWeeks,availableOutputWeeks,formatPrintUserNote}=await import('../lib/profitRangeOutput.mjs');
+  const range=profitWeeksScope('2026','27','29');
+  assert.deepEqual(range.weeks,['27','28','29']);
+  assert.equal(profitWeeksScopeMatches(range,'2026','027','29'),false);
+  assert.equal(profitWeeksScopeMatches(range,'2025','27','29'),false);
+  assert.equal(profitWeeksScopeMatches(range,'2026','27','30'),false);
+  assert.equal(profitWeeksScopeMatches(range,'2026','27','29'),true);
+  for(const args of [[null,27,29],['2026',0,29],['2026',29,27],['2026',1,54],['2026','',29]]) assert.throws(()=>profitWeeksScope(...args));
+  assert.deepEqual(availableOutputWeeks('2026','29',range.weeks),['27','28','29']);
+  assert.deepEqual(availableOutputWeeks('2026','29',[]),[]);
+  assert.equal(availableOutputWeeks('2026','29').length,29);
+  assert.throws(()=>availableOutputWeeks('2026','29',['30']));
+  const rangeCalls=[];
+  const rangeResult=await collectProfitWeeks(range,async(year,major)=>{rangeCalls.push([year,major]);return {success:true,orderYear:year,major,rows:[],confirmed:true};},d=>({rows:d.rows,totals:{C:0,J:-5}}));
+  assert.equal(rangeResult.complete,true); assert.deepEqual(rangeCalls,[['2026','29'],['2026','28'],['2026','27']]);
+  assert.deepEqual(rangeResult.rows[0],{major:'29',rows:[],totals:{C:0,J:-5},confirmed:true});
+  for(const invalid of [{success:false,error:'502'},{success:true,orderYear:'2025',major:'28',rows:[]},{success:true,orderYear:'2026',major:'27',rows:[]},{success:true,orderYear:'2026',major:'28'}]) {
+    const failed=await collectProfitWeeks(range,async(year,major)=>major==='28'?invalid:{success:true,orderYear:year,major,rows:[]},()=>({rows:[],totals:{}}));
+    assert.equal(failed.complete,false); assert.equal(failed.rows.filter(r=>r.error).length,1); assert.equal(failed.rows.find(r=>r.error).major,'28');
+  }
+  const rangeAbort=new AbortController();rangeAbort.abort();
+  await assert.rejects(collectProfitWeeks(range,async()=>{throw Error('must not fetch');},()=>({}),rangeAbort.signal));
+  assert.equal(formatPrintUserNote('  문라이트1\r\n\r\n문라이트2 \n문라이트3\r끝'), '문라이트1 · 문라이트2 · 문라이트3 · 끝');
+  assert.equal(formatPrintUserNote(null),'');
+  const note50=Array.from({length:50},(_,i)=>`문라이트${i+1}`).join('\n');
+  assert.equal(formatPrintUserNote(note50).split(' · ').length,50);
+  assert.equal(formatPrintUserNote(note50).endsWith('문라이트50'),true);
+  assert.match(page,/rangeWeeks=\{weeksScope\?\.weeks \|\| \[\]\}/);
+  assert.match(page,/seq!==weeksRequest.current.seq/);
+  assert.match(page,/requestScopeKey=\{/);
+  assert.match(controls,/\|\| !selectionAllowed\) return/);
+  assert.match(controls,/\[requestScopeKey\]/);
   console.log('profitRangeOutput: PASS (scope, confirmed values, 0, styles, print selection, failures, cancellation)');
 })().catch(e => { console.error(e); process.exitCode = 1; });
