@@ -44,6 +44,7 @@ export const MENU_ITEMS = [
       { href: '/work/manuals', labelKey: '부서별 업무 매뉴얼', popup: false },
       { href: '/operations-knowledge', labelKey: '주의·이슈 및 업무처리 지침', popup: false },
       { href: '/work/drive', labelKey: '업무 드라이브', popup: false },
+      { href: '/work/operations', labelKey: '내 작업 기록', popup: false },
     ]
   },
   {
