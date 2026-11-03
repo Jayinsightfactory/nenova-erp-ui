@@ -1,6 +1,16 @@
 # 네노바 데스크톱 AI 작업·버튼 이력 설계
 
-작성: 2026-11-03. 상태: 설계. 이 문서의 신규 API와 작업 원장은 아직 구현·배포되지 않았다.
+작성: 2026-11-03. 상태: 1단계 구현 중. 개인 업무 조회·추가·수정·삭제·복구 API와 계정별 작업 원장, 본인 버튼 기록 조회 화면을 구현했다. 다른 ERP 기능의 AI 도구는 아직 등록하지 않았다.
+
+## 1단계 실제 API
+
+- `GET /api/operations/capabilities`: 현재 계정에 등록된 개인 업무 도구 5개.
+- `POST /api/operations/preview`: `{ "toolId":"personal-home.create", "origin":"ai", "input":{"date":"2026-11-03","title":"발주 확인"} }`. 쓰기 미리보기는 `operationId`, `expectedRevision`, 한국어 확인 문구를 반환하며 아직 저장하지 않는다. 조회 도구는 개인 업무 저장본을 읽고 즉시 `verified`가 된다.
+- `POST /api/operations/{operationId}/confirm`: `{ "confirmed":true, "expectedRevision":0 }`. 사용자의 명시적 확인을 받은 호출자가 전송해야 한다. 서버는 인증 계정·기존 미리보기·버전을 확인하고 개인 업무 저장소의 중복 방지 `requestId`로 적용한다. 작업을 다시 조회해 `verified` 또는 `verification_failed`로 기록한다.
+- `GET /api/operations/{operationId}`와 `GET /api/operations?offset=0&limit=50`: 해당 로그인 계정의 상태·결과·근거를 조회한다.
+- `GET /api/operations/activity`: 현재 로그인 계정의 오늘 버튼·API 기록 최대 200건을 조회한다. `/work/operations`는 두 기록을 구별해서 보여준다. 버튼 조작만으로 저장 성공을 뜻하지 않는다.
+
+현재 원장은 `data/runtime/operations`의 계정별 파일이며, 개인 업무 원장은 기존 `data/runtime/personal-home`에 남는다. 서버 운영 저장소의 영속성·백업은 배포 환경에서 확인해야 한다. API는 임의 SQL, 임의 HTTP, ECOUNT 변경을 제공하지 않는다.
 
 ## 사용자에게 보여줄 결과
 
