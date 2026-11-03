@@ -1,3 +1,4 @@
+// [중단됨 2026-11-03] 1차 대상이 농협에서 하나은행 기업뱅킹(HANA)으로 정정됨. 참고용으로만 남기고 사용하지 않는다.
 // 농협 인터넷뱅킹 '빠른조회' 입력 화면 구조 probe. 값 입력·조회 클릭 금지(읽기만). 산출물: _probe/nh.json, nh.png (git 제외)
 // 근거 URL(웹 검색 결과로 확인된 농협 공개 진입점): https://banking.nonghyup.com/nhbank.html (개인 인터넷뱅킹 메인, 로그인 전 '빠른조회' 메뉴 링크)
 //   보조 후보: https://banking.nonghyup.com/servlet/IPCNPA000I.view , https://banking.nonghyup.com/servlet/IPAIP0011R.view (검색 노출 URL, 용도 미확정)

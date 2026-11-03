@@ -1,3 +1,4 @@
+# [선택] 빠른조회 은행(농협·국민 등)용. 하나은행 기업뱅킹(HANA)은 사람 로그인 세션을 재사용하므로 불필요.
 # 은행 빠른조회 자격증명 등록(사장님 PC 에서 직접 실행). 값은 화면에 출력하지 않고 DPAPI(CurrentUser)로 암호화해 저장만 한다.
 # 저장 위치: %USERPROFILE%\.nenova\bank-credentials.dpapi  (같은 사용자·같은 PC 에서만 복호화 가능)
 $ErrorActionPreference = 'Stop'
