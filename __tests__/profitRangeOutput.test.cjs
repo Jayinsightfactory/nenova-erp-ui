@@ -17,8 +17,7 @@ module.exports = (async () => {
   const dutyValues=XLSX.utils.sheet_to_json(dutyDecoded,{header:1}).find(r=>r[0]==='에콰도르');
   assert.deepEqual(dutyValues,['에콰도르',dutyCalc.E,dutyCalc.H,dutyCalc.J,dutyCalc.K]);
   const dutyPrint=outputPrintHtml([dutyItem],ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}));
-  assert.match(dutyPrint,/계산 기준: 입고 매입·운임/);
-  assert.match(dutyPrint,/실제 납부 확정액 아님.*원본 DB 미변경/);
+  assert.doesNotMatch(dutyPrint,/계산 기준: 입고 매입·운임|실제 납부 확정액 아님/);
   assert.match(dutyPrint,/-17\.36%/);
   assert.doesNotMatch(dutyPrint,/추정 포함/);
   assert.equal(dutyBook.Sheets['화면표시(선택컬럼)']['!profitEvidence'].dutyApplied,true);
@@ -29,7 +28,7 @@ module.exports = (async () => {
   const renamedBook=combineOutputBooks([JSON.parse(JSON.stringify(renamedItem))]);
   assert.match(renamedBook.Sheets['41차'].A2.v,/계산 기준: 입고 매입·운임/);
   assert.deepEqual(XLSX.utils.sheet_to_json(renamedBook.Sheets['41차'],{header:1}).find(r=>r[0]==='에콰도르'),dutyValues);
-  assert.match(outputPrintHtml([renamedItem],ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''})),/실제 납부 확정액 아님/);
+  assert.doesNotMatch(outputPrintHtml([renamedItem],ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''})),/실제 납부 확정액 아님/);
   const falseTitle=structuredClone(dutyItem);
   falseTitle.workbook.Sheets['화면표시(선택컬럼)']['!profitEvidence'].dutyApplied=false;
   assert.doesNotMatch(combineOutputBooks([falseTitle]).Sheets['41차'].A2.v,/계산 기준: 입고 매입·운임/);
@@ -45,7 +44,7 @@ module.exports = (async () => {
   assert.deepEqual(normalizeColumnSelection(['old'], allowed, fallback), fallback);
   const values = new Map();
   const storage = { getItem: key => values.get(key) ?? null, setItem: (key,value) => values.set(key,value) };
-  const screenKey = 'nenova_profitReport_visibleCols_v3';
+  const screenKey = 'nenova_profitReport_visibleCols_v4';
   assert.deepEqual(readColumnSelection(storage, screenKey, allowed, fallback).columns, fallback);
   assert.equal(writeColumnSelection(storage, screenKey, ['category','E','J']), '');
   assert.equal(writeColumnSelection(storage, OUTPUT_COLUMNS_KEY, ['C','K']), '');
@@ -163,5 +162,47 @@ module.exports = (async () => {
   assert.match(page,/showCategory=\{isVisible\('category'\)\}/);
   assert.match(page,/String\(data.orderYear\) !== reportYear/);
   assert.match(page,/Number\(data.major\) !== Number\(weekInput.value\)/);
+  // Print-only presentation: do not strip matching words from an author's note.
+  const authorNote='입력안됨은 담당자 메모입니다.\n검증 보류 사유를 다음 회의에서 확인 <보존>';
+  const auditedItem={year:'2026',major:'01',workbook:buildProfitReportXlsx({major:1,rows:[{category:'에콰도르',confirmed:true,calc:sample}],note:authorNote,
+    audit:{issues:[{category:'에콰도르',severity:'error',columns:['H'],message:'자동 상태 안내는 인쇄하지 않음'}]},
+    visibleCols:['C','E','F','I','J','K'],returnWorkbook:true})};
+  const before=JSON.stringify(auditedItem);
+  const printed=outputPrintHtml([auditedItem],ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}));
+  assert.match(printed,/입력안됨은 담당자 메모입니다/);
+  assert.match(printed,/검증 보류 사유를 다음 회의에서 확인 &lt;보존&gt;/);
+  assert.doesNotMatch(printed,/자동검증|자동 상태 안내는 인쇄하지 않음/);
+  assert.match(auditedItem.workbook.Sheets['주차별 매출이익 보고서'].B28.v,/자동 상태 안내는 인쇄하지 않음/);
+  assert.equal(JSON.stringify(auditedItem),before);
+  assert.match(printed,/@page\{size:A4 landscape/);
+  assert.match(printed,/white-space:nowrap/);
+  assert.equal((outputPrintHtml(items,ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''})).match(/<section /g)||[]).length,3);
+  const {fitProfitPrintDocument,profitPopoverPosition,navigateProfitCheckboxes}=await import('../lib/profitPrintLayout.mjs');
+  const content={style:{},scrollWidth:1200,scrollHeight:1600};
+  const sheetPage={clientWidth:1062,clientHeight:729,dataset:{},style:{},querySelector:()=>content};
+  fitProfitPrintDocument({querySelectorAll:()=>[sheetPage]});
+  assert.equal(content.style.transform,`scale(${729/1600})`);
+  for(const width of [320,640,1920]) for(const left of [-40,10,width-20]) {
+    const pos=profitPopoverPosition({left,bottom:950},width,900);
+    assert.ok(pos.left>=8 && pos.left+pos.width<=width-8);
+    assert.ok(pos.top>=8 && pos.top+pos.maxHeight<=892);
+  }
+  let focus=-1;
+  const boxes=[0,1,2].map(i=>({type:'checkbox',focus:()=>{focus=i;}}));
+  for(const [key,expected] of [['ArrowDown',2],['ArrowUp',0],['Home',0],['End',2]]) {
+    navigateProfitCheckboxes({key,target:boxes[1],currentTarget:{querySelectorAll:()=>boxes},preventDefault(){}});
+    assert.equal(focus,expected);
+  }
+  assert.match(controls,/await win.document.fonts\?\.ready/);
+  assert.match(controls,/fitProfitPrintDocument\(win.document\);\s*win.focus\(\);\s*win.print\(\)/);
+  assert.doesNotMatch(controls,/인쇄 미리보기|미리보기 닫기/);
+  assert.match(page,/const DEFAULT_VISIBLE_COL_KEYS = ALL_COL_KEYS;/);
+  assert.match(page,/visibleCols_v4/);
+  assert.doesNotMatch(page,/DEFAULT_HIDDEN_COL_KEYS/);
+  // A new preference version does not destroy the user's legacy saved selection.
+  storage.setItem('nenova_profitReport_visibleCols_v3',JSON.stringify(['J']));
+  storage.setItem('nenova_profitReport_visibleCols_v4',JSON.stringify(['C','J']));
+  assert.deepEqual(readColumnSelection(storage,'nenova_profitReport_visibleCols_v4',allowed,allowed).columns,['C','J']);
+  assert.equal(storage.getItem('nenova_profitReport_visibleCols_v3'),'["J"]');
   console.log('profitRangeOutput: PASS (scope, confirmed values, 0, styles, print selection, failures, cancellation)');
 })().catch(e => { console.error(e); process.exitCode = 1; });

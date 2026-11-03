@@ -1916,3 +1916,6 @@
 
 2026-11-03 주차별 평균원가 공식환율 메타 보완: 운영 smoke41597970882에서 18차 웹/엑셀 금액은 일치했으나 rateEstimated 누락으로 실패. 공식환율 적용 행의 rateEstimated/rateDetail(연도·차수·승인 일정·고시기간·실제신고일미인증)과 canonical 감사 issue를 메타만 복원한다. 파생 v1 재입력도 숫자 재계산 없이 복구, 기존 rateDetail 보존, 실제/수기/명시0 및 교차연도 보호. 표적22 PASS, 실제43보고서9행 메타수정·calc/totals 변경0·SQL호출0/쓰기0. 기존 production smoke assertion 완화 없음. manifest186/쓰기guard/dnSpy PASS, webpack build EXIT0(.verify/average-rate-metadata-build.log), 독립리뷰 P1없음. 운영 재배포·18차 재스모크는 아직 미검증.
 검색어: average-rate-evidence 18차 rateEstimated rateDetail APPROVED_CUSTOMS_TIMING_ESTIMATE metadata-only
+
+2026-11-03 주차별 매출 인쇄: 사용자 비고 보존·자동 상태문구 인쇄 제외·22열 기본·선택 한 차수 A4 가로 한 장·바로 인쇄 요청·컬럼 메뉴 viewport/키보드 보완. 독립 실제 Chromium PDF 1주1장/3주3장/긴 비고50줄1장 PASS, PDF 렌더 시각확인. 긴비고 fragmentation 결함 수정, 숫자/빈칸/0/음수/마지막 비고 보존. 금융 계산/API/DB 쓰기0. 브라우저 연결 비활성으로 headless 사용, 물리 프린터 미검증. 앱통합/전체gate/운영배포는 진행 중. 정본 docs/work-sessions/2026-11-03_profit-print-layout.md 및 docs/work-reports/2026-11-03_profit-print-layout-qa.md.
+검색어: profit-print-layout A4 22열 비고 fragmentation 직접인쇄 viewport
