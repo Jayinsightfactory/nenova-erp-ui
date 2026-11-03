@@ -1932,3 +1932,8 @@
 
 2026-11-03 불량 업체필터 검증: verify:erp-change exit0, manifest186/dnSpy PASS, 모의UI 두탭 필터·출처·선택·원인덱스·검토창ids·키보드 PASS. 기능PR1449=90820b27, CI41608005201 성공. UI모의 빈창/location 이동 및 preflight 조회POST 구분 수정.
 검색어: defect-company-filter-smoke 업체필터 UI검증 90820b27
+2026-11-03 입고 재업로드 수정 조사: 최신 origin/master 6428f624e 및 실제 dnSpy 3타입, 운영 SP/View SELECT 확인. 현재 웹/EXE 업로드는 신규 추가이며 교체 불가. EXE A→B 수정 원래 품목 재계산 누락, 웹 삭제 Product.Stock 차감 부재 확인. 선택 WarehouseKey 기준 원자적 교체·양쪽품목 재고·원가연결 검증 필요. 구현/운영쓰기/배포 없음, 실제 수정 및 downstream 전후 미검증. 정본 docs/work-reports/2026-11-03-incoming-reupload-review.md.
+검색어: 입고 재업로드 농장 품목 수정 WarehouseKey FormWarehouseAdd Product.Stock 교체업로드
+
+2026-11-03 입고 수정 구현: /incoming 선택 원장의 FARM/REPLACE 미리보기·명시확인·UUID재시도·초안·감사 추가. 공용 staging 없이 차액 Product.Stock/입고이력/native V2 재고·후속음수 검증과 원장 사후대조 원자 저장. 원가/정산/확정/농장분배/미매칭 원장 차단. Unit10·격리SQL1·모의UI1920/390·기존입고3·UI-layout·manifest187·dnSpy·쓰기guard PASS. 운영7970 읽기전용 preflight 성공/확정 차단, 운영쓰기0. 전체ERP/최종build·PR/배포 진행중. 정본 docs/work-sessions/2026-11-03_incoming-correction.md.
+검색어: warehouseCorrection 입고수정 파일교체 FARM REPLACE nativeGate UUID SystemActionLog

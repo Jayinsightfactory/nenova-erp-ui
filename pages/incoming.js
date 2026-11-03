@@ -11,6 +11,7 @@ import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, Dashb
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
 import LatestArrivalReference from '../components/LatestArrivalReference.js';
+import WarehouseCorrection from '../components/WarehouseCorrection.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 const { Text } = Typography;
 
@@ -34,6 +35,7 @@ export default function Warehouse() {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [correctionTarget, setCorrectionTarget] = useState(null);
   const [uploadData, setUploadData] = useState(null);
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
   // [2026-09-22] 입고 원장 탐색 보강 — nenova.exe에서 농장명 컬럼 필터를 반복 클릭하던 작업(Orbit 실측)을 웹에서 끝내기 위해:
@@ -268,6 +270,7 @@ export default function Warehouse() {
         <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>{t('새로고침')}</Button>
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
+        <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected})}>농장·품목 수정 / 파일 교체</Button>
         <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
         <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>
         <Button size="small" href="/incoming/boxes">차수별 박스 입고 현황</Button>
@@ -283,8 +286,8 @@ export default function Warehouse() {
       <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
         <Col flex="1 1 0" style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space size={4}><Text type="secondary" style={{ fontSize: 11 }}>최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
-            <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000, y: 'calc(100vh - 330px)' }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
-              rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ onClick: () => selectMaster(m.WarehouseKey), style: { cursor: 'pointer' } })}
+            <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000 }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
+              rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ tabIndex: 0, 'aria-selected': selectedKey === m.WarehouseKey, onClick: () => selectMaster(m.WarehouseKey), onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMaster(m.WarehouseKey); } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); (e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling)?.focus(); } }, style: { cursor: 'pointer' } })}
               summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
               columns={[
                 { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
@@ -310,7 +313,7 @@ export default function Warehouse() {
                 <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}
             </div>}
             {!selectedKey ? <Empty description="원장을 선택하세요" /> : (
-              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 1450, y: 'calc(100vh - 370px)' }}
+              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 1450 }}
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
@@ -340,6 +343,7 @@ export default function Warehouse() {
         </Col>
       </Row>
 
+      {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(`입고 #${result.warehouseKey} 수정 완료`); setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>
