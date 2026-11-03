@@ -11,11 +11,28 @@ const puppeteer = require('puppeteer-core');
   assert.ok([1, 3].includes(weeks.length) && new Set(weeks).size === weeks.length);
   assert.ok(weeks.every(w => /^\d{2}$/.test(w) && +w >= 1 && +w <= 53));
   const origin = 'https://nenovaweb.com';
+  const normalizePdfText = text => String(text).replace(/\s/g, '');
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: process.env.CI ? ['--no-sandbox'] : [] });
   let blockedWrites = 0;
+  let blockedTelemetry = 0;
+  let unexpectedMutationAttempts = 0;
+  const blockedWriteEndpoints = new Map();
   const requested = [], statuses = [];
   try {
     const context = await browser.createBrowserContext();
+    // Public synthetic text distinguishes missing CJK glyphs from production data.
+    const fontProbe = await context.newPage();
+    const syntheticTitle = `${year}년 ${Number(weeks[0])}차 매출이익 보고서`;
+    await fontProbe.setContent(`<html lang="ko"><style>body{font-family:Arial,"Malgun Gothic",sans-serif}</style><h1>${syntheticTitle}</h1></html>`);
+    await fontProbe.evaluate(() => document.fonts.ready);
+    const fontPdf = await fontProbe.pdf({ format: 'A4' });
+    const fontDocument = await getDocument({ data: new Uint8Array(fontPdf), useSystemFonts: true }).promise;
+    const syntheticExtracted = (await (await fontDocument.getPage(1)).getTextContent()).items.map(item => item.str).join('');
+    const fontPass = normalizePdfText(syntheticExtracted).includes(normalizePdfText(syntheticTitle));
+    console.log(JSON.stringify({ printFontPreflight: fontPass ? 'PASS' : 'FAIL', syntheticTitleCodePoints: [...syntheticExtracted].map(c => c.codePointAt(0)), containsHangul: /[가-힣]/.test(syntheticExtracted) }));
+    await fontDocument.destroy(); await fontProbe.close();
+    assert.ok(fontPass, 'Synthetic Korean PDF title must survive font rendering and text extraction');
     const page = await context.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
     await page.evaluateOnNewDocument(() => {
@@ -24,7 +41,18 @@ const puppeteer = require('puppeteer-core');
     });
     await page.setRequestInterception(true);
     page.on('request', request => {
-      if (!['GET', 'HEAD'].includes(request.method())) { blockedWrites++; return request.abort('blockedbyclient'); }
+      if (!['GET', 'HEAD'].includes(request.method())) {
+        blockedWrites++;
+        const blockedUrl = new URL(request.url());
+        // _app's global userActivityClient flushes metadata every five seconds.
+        // Still abort it: this exception classifies an attempted telemetry send,
+        // never permits a request or weakens the business-mutation assertion.
+        if (request.method() === 'POST' && blockedUrl.origin === origin && blockedUrl.pathname === '/api/work/activity') blockedTelemetry++;
+        else unexpectedMutationAttempts++;
+        const endpoint = `${request.method()} ${blockedUrl.pathname}`;
+        blockedWriteEndpoints.set(endpoint, (blockedWriteEndpoints.get(endpoint) || 0) + 1);
+        return request.abort('blockedbyclient');
+      }
       const url = new URL(request.url());
       if (url.origin === origin && url.pathname.startsWith('/api/')) {
         if (url.pathname === '/api/sales/profit-report-output') {
@@ -105,8 +133,8 @@ const puppeteer = require('puppeteer-core');
     const pdfPage = await context.newPage();
     await pdfPage.setContent(printHtml, { waitUntil: 'load' });
     await pdfPage.emulateMediaType('print');
+    await pdfPage.evaluate(() => document.fonts.ready);
     const pdf = await pdfPage.pdf({ preferCSSPageSize: true, printBackground: true });
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const document = await getDocument({ data: new Uint8Array(pdf), useSystemFonts: true }).promise;
     assert.equal(document.numPages, weeks.length, 'Each selected week must occupy exactly one page');
     for (let i = 1; i <= document.numPages; i++) {
@@ -114,15 +142,20 @@ const puppeteer = require('puppeteer-core');
       const viewport = pdfSheet.getViewport({ scale: 1 });
       assert.ok(Math.abs(viewport.width - 841.89) < 2 && Math.abs(viewport.height - 595.28) < 2, 'A4 landscape required');
       const text = (await pdfSheet.getTextContent()).items.map(item => item.str).join('');
-      assert.ok(text.includes(`${year}년`) && text.includes(`${Number(weeks[i - 1])}차`));
-      const normalizedText = text.replace(/\s/g, '');
+      const normalizedText = normalizePdfText(text);
+      const expectedTitle = normalizePdfText(`${year}년 ${Number(weeks[i - 1])}차 매출이익 보고서`);
+      const titleMatches = normalizedText.includes(expectedTitle);
+      if (!titleMatches) console.log(JSON.stringify({ printTitleDiagnostic: 'FAIL', page: i, year, week: weeks[i - 1], containsHangul: /[가-힣]/.test(text), replacementGlyphCount: (text.match(/\uFFFD/g) || []).length, whitespaceCount: (text.match(/\s/g) || []).length }));
+      assert.ok(titleMatches, 'Exact report title must survive PDF rendering (whitespace normalized)');
       for (const header of sections[i - 1].headers) assert.ok(normalizedText.includes(header.replace(/\s/g, '')), 'All selected column headers must survive PDF rendering');
       for (const number of sections[i - 1].numbers) assert.ok(normalizedText.includes(number), 'Printed numeric cell must survive PDF rendering');
     }
     await document.destroy();
     assert.deepEqual([...new Set(requested)].sort(), weeks);
     assert.ok(statuses.length >= weeks.length && statuses.every(status => status === 200));
-    assert.equal(blockedWrites, 0);
-    console.log(JSON.stringify({ printSmoke: 'PASS', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], actualBusinessWrites: 0 }));
+    if (blockedWrites) console.log(JSON.stringify({ blockedWriteDiagnostic: [...blockedWriteEndpoints].map(([endpoint, count]) => ({ endpoint, count })), actualBusinessWrites: 0 }));
+    assert.equal(unexpectedMutationAttempts, 0, 'No business or unexpected mutation may be attempted');
+    assert.equal(blockedWrites, blockedTelemetry, 'Every blocked mutation must be the exact same-origin activity POST');
+    console.log(JSON.stringify({ printSmoke: 'PASS', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], blockedTelemetry, unexpectedMutationAttempts, actualBusinessWrites: 0 }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
