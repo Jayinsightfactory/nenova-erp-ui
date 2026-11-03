@@ -7,6 +7,7 @@ import { verifyReqUser } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { featureFilePath } from '../../../lib/workFeatureData';
 import { buildStaffSlice, findPerson } from '../../../lib/pmStaff';
+import { timesavePerson } from '../../../lib/pmTimesave';
 
 const _cache = {};
 function readCached(name, map) {
@@ -33,5 +34,7 @@ export default async function handler(req, res) {
     workflows: readCached('workflows'), simulations: readCached('simulations'), proposals: readCached('proposals'),
     storySummary: findPerson(story?.people, name),
   });
+  slice.timesave = timesavePerson(readCached('timesave'), name);
+  if (slice.timesave) slice.hasData = true;
   return res.status(200).json({ success: true, data: slice });
 }

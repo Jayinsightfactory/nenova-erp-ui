@@ -118,6 +118,42 @@ function DryRunButton({ req, busy, onMake }) {
   );
 }
 
+const TCOLORS = ['#2f6fe0', '#1f9d55', '#c26b00', '#8e44ad', '#d6336c', '#0b8a8a', '#6b7a1f', '#9a5b2e', '#5a6276'];
+function HBars({ rows, unit = 'h' }) {
+  const max = Math.max(1, ...rows.map((r) => r.h));
+  return (
+    <div className="hbars">{rows.map((r) => (
+      <div key={r.name} className="hb"><span className="hbn" title={r.name}>{r.name}</span><span className="hbt"><i style={{ width: `${(r.h / max) * 100}%` }} /></span><span className="hbv">{r.h}{unit}</span></div>
+    ))}</div>
+  );
+}
+
+function TimeTab({ t }) {
+  const segs = [...t.workflows.filter((w) => w.measuredHoursPerWeek > 0).map((w) => ({ name: w.name, h: w.measuredHoursPerWeek, kind: 'wf' })), ...t.other.map((o) => ({ name: `미특정 · ${o.name}`, h: o.h, kind: 'other' }))];
+  const total = segs.reduce((a, x) => a + x.h, 0) || 1;
+  return (
+    <div>
+      <div className="sum">
+        <div><b>{t.activeHoursPerWeek}h</b><span>활성/주</span></div>
+        <div><b>{t.assignedHoursPerWeek}h</b><span>업무 특정/주</span></div>
+        <div><b>{t.saveHoursPerWeek}h</b><span>절감 가능/주</span></div>
+      </div>
+      <p className="muted" title={t.method}>추정치 · {t.workDays != null ? `근무 ${t.workDays}일 관찰 · ` : ''}방법 보기(마우스)</p>
+      <h3>시간 구성(주)</h3>
+      <div className="stack" aria-label="업무별 시간 구성">{segs.map((x, i) => (
+        <i key={x.name} title={`${x.name} ${x.h}h`} style={{ width: `${(x.h / total) * 100}%`, background: x.kind === 'wf' ? TCOLORS[i % 8] : '#b8bfcc' }} />
+      ))}</div>
+      <ul className="legend">{segs.map((x, i) => (
+        <li key={x.name}><span className="sw" style={{ background: x.kind === 'wf' ? TCOLORS[i % 8] : '#b8bfcc' }} />{x.name} <b>{x.h}h</b></li>
+      ))}</ul>
+      {t.workflows.length > 0 && <><h3>업무별 실측·절감</h3><HBars rows={t.workflows.map((w) => ({ name: `${w.name}${w.saveHoursPerWeek ? ` (−${w.saveHoursPerWeek}h)` : ''}`, h: w.measuredHoursPerWeek }))} /></>}
+      {t.kakaoRooms.length > 0 && <><h3>카톡 시간 · 방별</h3><HBars rows={t.kakaoRooms} /></>}
+      {t.kakaoTypes.length > 0 && <><h3>카톡 시간 · 유형별</h3><HBars rows={t.kakaoTypes} /></>}
+      {t.erpScreens.length > 0 && <><h3>전산 시간 · 화면별</h3><HBars rows={t.erpScreens} /></>}
+    </div>
+  );
+}
+
 function StaffDrawer({ name, live, now, onClose }) {
   const [tab, setTab] = useState('auto');
   const [res, setRes] = useState(null);
@@ -158,14 +194,14 @@ function StaffDrawer({ name, live, now, onClose }) {
           <button type="button" className="x" onClick={onClose} aria-label="닫기">×</button>
         </div>
         <div className="tabs" role="tablist">
-          {[['auto', '자동화'], ['role', '역할'], ['now', '지금']].map(([k, l]) => (
+          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금']].map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
           {!d && !err && <p className="muted">불러오는 중…</p>}
-          {noData && tab !== 'now' && <p className="muted">관찰 데이터 없음</p>}
+          {noData && tab !== 'now' && tab !== 'time' && <p className="muted">관찰 데이터 없음</p>}
           {d && !noData && tab === 'auto' && (
             <div>
               <div className="sum">
@@ -197,6 +233,7 @@ function StaffDrawer({ name, live, now, onClose }) {
                     {w.frequency && <div className="kv">빈도: {w.frequency}</div>}
                     {w.observed && <div className="kv">근거 확인 {w.observed.days}일 / 관찰 {w.observed.weeks}주 <span className="muted">(표본 수집이라 최소치)</span></div>}
                     {w.freq && <div className="kv" title={w.freq.assumptions?.length ? '가정: ' + w.freq.assumptions.join(' / ') : ''}>주 {w.freq.perWeek}회 <span className="muted">(추정 근거: {w.freq.label}{w.freq.assumptions?.length ? ' · 가정 보기' : ''})</span></div>}
+                    {(() => { const tw = d.timesave?.workflows?.find((x) => x.name === w.name); return tw ? <div className="kv"><b>실측 {tw.measuredHoursPerWeek}h/주</b> · 절감 {tw.saveHoursPerWeek}h/주 <span className="muted">(추정치)</span></div> : null; })()}
                     {w.link && <div className="kv">개선안: {w.link.title}{w.link.basis === 'estimated' ? <span className="pill est">추정 연결</span> : null}</div>}
                     <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />
                     {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
@@ -240,6 +277,7 @@ function StaffDrawer({ name, live, now, onClose }) {
               </div>
             ) : <p className="muted">역할 요약 없음</p>
           )}
+          {d && tab === 'time' && (d.timesave ? <TimeTab t={d.timesave} /> : <p className="muted">시간 측정 데이터 없음</p>)}
           {tab === 'now' && (
             live ? (
               <div className="card">
@@ -283,6 +321,15 @@ function StaffDrawer({ name, live, now, onClose }) {
         .pm .drawer-back .a-anchored { background: #b9f5cf; color: #0b3d1f; } .a-none { background: #e3e7f0; color: #1f2430; } .a-erp { background: #ffd8b0; color: #4a2300; }
         .b-erp-verified { background: #b9f5cf; color: #0b3d1f; } .pm .drawer-back .b-confirmed { background: #cfe0ff; color: #0c2a63; } .pm .drawer-back .b-estimated { background: #ffe7a3; color: #4a3200; }
         .pm .drawer-back .cand { margin: 0; padding-left: 20px; }
+        .pm .drawer-back .stack { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: #e3e7f0; }
+        .pm .drawer-back .stack i { display: block; height: 100%; min-width: 2px; }
+        .pm .drawer-back .legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+        .pm .drawer-back .sw { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; }
+        .pm .drawer-back .hbars { display: grid; gap: 4px; }
+        .pm .drawer-back .hb { display: grid; grid-template-columns: minmax(0, 40%) 1fr 48px; gap: 6px; align-items: center; font-size: 12px; }
+        .pm .drawer-back .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .drawer-back .hbt { height: 10px; background: #e3e7f0; border-radius: 3px; overflow: hidden; } .pm .drawer-back .hbt i { display: block; height: 100%; background: #2f6fe0; }
+        .pm .drawer-back .hbv { text-align: right; font-weight: bold; }
         .pm .drawer-back .pill.est { background: #ffe7a3; color: #4a3200; margin-left: 6px; }
         .pm .drawer-back .dry { margin-top: 8px; }
         .pm .drawer-back .drybtn { background: #2f6fe0; color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; min-height: 36px; }
@@ -302,6 +349,7 @@ export default function PmOffice() {
   const [err, setErr] = useState('');
   const [now, setNow] = useState(0);
   const [sel, setSel] = useState(null);
+  const [ts, setTs] = useState(null);
   const closeSel = useCallback(() => setSel(null), []);
   useEffect(() => {
     let alive = true;
@@ -312,6 +360,7 @@ export default function PmOffice() {
         if (!alive) return;
         if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
         setResp(j); setErr('');
+        fetch('/api/pm/timesave', { cache: 'no-store' }).then((r) => r.json()).then((t) => { if (alive && t.success) setTs(t); }).catch(() => {});
       } catch (e) { if (alive) setErr(String(e.message || e)); }
     };
     load(); setNow(Date.now());
@@ -359,6 +408,16 @@ export default function PmOffice() {
         <span className="badge plain">작업중 {working}</span>
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
+      {ts?.data && (
+        <div className="tstrip" title={ts.data.method || ''}>
+          <b>업무 시간 계기판</b>
+          <span>전 직원 활성 <b>{ts.data.totals.activeHoursPerWeek}h/주</b></span>
+          <span>업무 특정 <b>{ts.data.totals.assignedHoursPerWeek}h</b></span>
+          <span>절감 가능 <b className="g">{ts.data.totals.saveHoursPerWeek}h/주</b></span>
+          <span className="est">추정치</span>
+          <span className="muted">데이터 {fmtAge(ts.ageSec)} 전{ts.data.days ? ` · ${ts.data.days}일 관찰` : ''}</span>
+        </div>
+      )}
       {!resp && !err && <p className="muted">불러오는 중…</p>}
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
       <div className="wrap">
@@ -396,6 +455,25 @@ export default function PmOffice() {
           </div>
         </main>
         <aside className="side">
+          {ts?.data && (
+            <details className="panel" open>
+              <summary><h2>네노바웹 기능 후보 <small>실측 절감순</small></h2></summary>
+              <ol className="feat">{ts.data.features.slice(0, 12).map((f, i) => (
+                <li key={f.title + i}>
+                  <div className="ft"><b>{f.title}</b><span className="fh">−{f.saveHoursPerWeek}h/주</span></div>
+                  {f.menu && <div className="muted">메뉴: {f.menu}</div>}
+                  <div className="pchips">{f.people.map((p) => <span key={p}>{p}</span>)}</div>
+                </li>
+              ))}</ol>
+              {!ts.data.features.length && <p className="muted">후보 없음</p>}
+              {ts.data.unproposed.length > 0 && <>
+                <h3>개선안 없는 큰 업무</h3>
+                <ul className="unp">{ts.data.unproposed.slice(0, 10).map((u, i) => (
+                  <li key={u.person + u.name + i}><b>{u.name}</b> <span className="muted">{u.person} · 실측 {u.measuredHoursPerWeek}h/주</span></li>
+                ))}</ul>
+              </>}
+            </details>
+          )}
           <section className="panel">
             <h2>PM 업무 대장 <small>{tasks.length}</small></h2>
             {[...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length).map((g) => (
@@ -472,6 +550,15 @@ export default function PmOffice() {
         .pm .meta { font-size: 11px; color: #d5dae6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pm .dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; background: #666; }
         .pm .dot-working { background: #3fbf7f; } .pm .dot-idle { background: #ffcc3f; } .pm .dot-error { background: #e0483a; }
+        .pm .wrap > *, .pm .floor, .pm .room, .pm .topwing > * { min-width: 0; }
+        .pm .tstrip { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: #262b3c; border: 2px solid #3a4158; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; color: #e8ebf2; }
+        .pm .tstrip b.g { color: #7ee2a2; }
+        .pm .tstrip .est { background: #ffe7a3; color: #4a3200; border-radius: 8px; padding: 0 7px; font-size: 11px; font-weight: bold; }
+        .pm details.panel > summary { cursor: pointer; list-style: none; } .pm details.panel > summary h2 { display: inline; }
+        .pm .feat { margin: 8px 0 0; padding-left: 20px; } .pm .feat li { margin-bottom: 8px; }
+        .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { color: #7ee2a2; font-weight: bold; white-space: nowrap; }
+        .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; } .pm .pchips span { background: #3a4158; color: #f0f2f7; border-radius: 8px; padding: 0 6px; font-size: 11px; }
+        .pm .unp { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
         .pm .panel { background: #262b3c; border: 2px solid #3a4158; border-radius: 4px; padding: 10px; margin-bottom: 12px; }
         .pm .tg h3 { border-left: 4px solid #666; padding-left: 6px; }
         .pm .tg-approval { border-color: #e0483a !important; } .pm .tg-day3 { border-color: #ff8a4f !important; } .pm .tg-investigate { border-color: #4f8cff !important; } .pm .tg-verify { border-color: #3fbf7f !important; }
