@@ -5,6 +5,7 @@ import { verifyReqUser } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { featureFilePath } from '../../../lib/workFeatureData';
 import { timesaveSummary } from '../../../lib/pmTimesave';
+import { buildCorridor } from '../../../lib/pmStages';
 
 export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
@@ -14,6 +15,7 @@ export default async function handler(req, res) {
   let ts = null;
   try { ts = JSON.parse(fs.readFileSync(featureFilePath('timesave'), 'utf8')); } catch { ts = null; }
   const s = timesaveSummary(ts);
+  if (s) s.corridor = buildCorridor(ts.people); // 복도 9단계: 업무 이름 키워드 규칙 매핑(미확인 별도)
   const gen = s?.generatedAt ? Date.parse(s.generatedAt) : NaN;
   return res.status(200).json({ success: true, ageSec: Number.isFinite(gen) ? Math.max(0, Math.round((Date.now() - gen) / 1000)) : null, data: s });
 }
