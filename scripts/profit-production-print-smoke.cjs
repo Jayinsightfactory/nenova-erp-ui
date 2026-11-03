@@ -111,6 +111,7 @@ const puppeteer = require('puppeteer-core');
       const modeButton = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '차수별'));
       await modeButton.asElement().click();
       await page.waitForSelector('[data-testid="profit-weeks-output"]');
+      assert.equal(await page.$eval('h1', e => e.textContent.trim()), '📈 차수별 매출이익 보고서 — 조회 범위 확인 필요');
       assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Unloaded weeks scope must not print');
       for (const [label, value] of [['시작 차수', String(Number(weeks[0]))], ['마지막 차수', String(Number(weeks.at(-1)))]]) {
         const input = await page.$(`input[aria-label="${label}"]`);
@@ -119,14 +120,18 @@ const puppeteer = require('puppeteer-core');
       const query = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '조회'));
       await query.asElement().click();
       await page.waitForFunction(() => { const b = document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]'); return b && !b.disabled; }, { timeout: 180000 });
+      const expectedWeeksTitle = `📈 차수별 매출이익 보고서 — ${Number(weeks[0])}~${Number(weeks.at(-1))}차 (${year})`;
+      assert.equal(await page.$eval('h1', e => e.textContent.trim()), expectedWeeksTitle, 'Weeks heading must match the completed range and year');
       const available = await page.$$eval('[data-testid="profit-output-weeks"] input[type="checkbox"]', inputs => inputs.map(input => ({ week: input.closest('label').textContent.match(/(\d+)차/)[1].padStart(2, '0'), checked: input.checked })));
       assert.deepEqual(available.map(i => i.week), weeks);
       assert.ok(available.every(i => i.checked), 'All loaded weeks must initially be selected');
       const fromInput = await page.$('input[aria-label="시작 차수"]');
       await fromInput.click({ clickCount: 3 }); await fromInput.press('Backspace');
       assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Edited scope must block stale output');
+      assert.equal(await page.$eval('h1', e => e.textContent.trim()), '📈 차수별 매출이익 보고서 — 조회 범위 확인 필요', 'Edited scope must not display an old category title');
       await fromInput.type(String(Number(weeks[0])));
       await page.waitForFunction(() => !document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]').disabled);
+      assert.equal(await page.$eval('h1', e => e.textContent.trim()), expectedWeeksTitle);
     }
     const weekSummary = await findSummary('엑셀·인쇄 차수 선택');
     await weekSummary.asElement().click();

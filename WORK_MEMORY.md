@@ -1930,3 +1930,6 @@
 
 2026-11-03 차수별 출력·가로 비고: 완료된 연도/from/to 범위에 출력 연결, 부분실패·stale·dirty·입력범위변경 출력차단 독립검토 P1없음. 인쇄 userNote만 줄trim/가운데점 연결, 원문/Excel/금융값보존. 실제Chromium PDF1주1장/3주3장/22열/문라이트1~50가로흐름·마지막50·workbook불변 PASS, 실제PDF PNG확인. 운영weeks_view옵트인추가(연속1/3주,기본false), 모든변경요청abort. 앱통합/전체gate/배포운영은 진행 중. 정본 docs/work-sessions/2026-11-03_profit-weeks-output.md.
 검색어: profit-weeks-output 차수별출력 가로비고 문라이트 범위완료 stale dirty
+
+2026-11-03 차수별 출력 후속: production build EXIT0, 실제Chrome mockUI PASS(27~29기본3→27/29선택2,2025격리,28부분실패차단,늦은응답·범위변경차단,미저장비고차단,직접print총3,가로비고,390pxbounds,API쓰기0/pageerror0). 첫시험입력실패는tripleclick→Ctrl+A테스트만정정. 실제FormStockView dnSpy재확인EXIT0,앱freeze,PR1453 CI/전체verify28427 진행·운영미완. QA/세션정본갱신.
+검색어: weeks-output mockUI PR1453 partial stale dirty 390px

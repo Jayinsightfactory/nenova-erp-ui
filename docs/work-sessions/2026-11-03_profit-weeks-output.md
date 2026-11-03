@@ -5,7 +5,7 @@
 | 작업트리 | C:/Users/USER/nw-profit-weeks-output |
 | 기준 |6428f624에서 시작, 검증기 d0efb7133 포함 최신 master 반영 |
 | 원장 부작용 | DB/API 쓰기 금지, 금융값·원본 비고·Excel 보존 |
-| 상태 | 독립 PDF PASS, 앱 UI·전체 gate·배포/운영 검증 진행 중 |
+| 상태 | 독립 PDF·기존 모의 UI PASS, 후속 제목 범위 결함 보완 재검증 대기/운영 미완 |
 | 근거 | [독립 QA](../work-reports/2026-11-03_profit-weeks-output-qa.md) |
 
 ## 고정 결정
@@ -26,3 +26,11 @@
 ## 이어받기
 
 앱/계약은 구현 담당, 독립QA/문서는 별도 담당. `.verify/weeks-output-pdf*` 합성 산출물은 커밋 제외. 전체 gate/CI/배포/운영 완료 결과를 받은 뒤 추가 기록한다. 이전 운영41607954025는 이전 인쇄 task 통과이며 새 차수별 연결 인증이 아니다.
+
+### 2. 실제 Chromium 모의 UI 통과
+
+**Q.** 범위 선택·연도·조회 실패·늦은 응답·미저장 상태까지 검증.
+
+**A.** 생산 빌드 EXIT0, 실제 Chrome 모의 UI PASS:27~29기본3주→27/29선택2주,2025격리,28부분실패차단,지연응답+범위변경차단,dirty비고 차단,직접print총3회,가로비고,390pxbounds,API쓰기0/pageerror0. 최초 검사 입력 triple-click 실패는 Ctrl+A 테스트 입력으로만 정정했다.
+
+**결과.** 앱 freeze. 설치 EXE dnSpy 재확인 EXIT0. PR1453 CI/전체verify28427 진행 중, 배포·운영 미완.

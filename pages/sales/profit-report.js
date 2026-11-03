@@ -1055,7 +1055,9 @@ export default function ProfitReportPage() {
   return (
     <div style={st.page}>
       <div style={st.bar}>
-        <h1 style={st.h1}>📈 {viewMode === 'months' ? '월별 매출이익 보고서' : '주차별 매출이익 보고서'}{viewMode === 'months' && monthlyData ? ` — ${monthlyData.year}` : data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
+        <h1 style={st.h1}>📈 {viewMode === 'weeks'
+          ? `차수별 매출이익 보고서${weeksScope && !weeksLoading && profitWeeksScopeMatches(weeksScope,reportYear,rangeFrom,rangeTo) ? ` — ${Number(weeksScope.from)}~${Number(weeksScope.to)}차 (${weeksScope.year})` : ' — 조회 범위 확인 필요'}`
+          : <>{viewMode === 'months' ? '월별 매출이익 보고서' : '주차별 매출이익 보고서'}{viewMode === 'months' && monthlyData ? ` — ${monthlyData.year}` : data ? ` — ${data.major}차 (${data.orderYear})` : ''}</>}</h1>
         {viewMode === 'category' && data && (
           <span
             style={data.confirmed ? st.reportStatusConfirmed : st.reportStatusDraft}
