@@ -15,6 +15,9 @@ const puppeteer = require('puppeteer-core');
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: process.env.CI ? ['--no-sandbox'] : [] });
   let blockedWrites = 0;
+  let blockedTelemetry = 0;
+  let unexpectedMutationAttempts = 0;
+  const blockedWriteEndpoints = new Map();
   const requested = [], statuses = [];
   try {
     const context = await browser.createBrowserContext();
@@ -38,7 +41,18 @@ const puppeteer = require('puppeteer-core');
     });
     await page.setRequestInterception(true);
     page.on('request', request => {
-      if (!['GET', 'HEAD'].includes(request.method())) { blockedWrites++; return request.abort('blockedbyclient'); }
+      if (!['GET', 'HEAD'].includes(request.method())) {
+        blockedWrites++;
+        const blockedUrl = new URL(request.url());
+        // _app's global userActivityClient flushes metadata every five seconds.
+        // Still abort it: this exception classifies an attempted telemetry send,
+        // never permits a request or weakens the business-mutation assertion.
+        if (request.method() === 'POST' && blockedUrl.origin === origin && blockedUrl.pathname === '/api/work/activity') blockedTelemetry++;
+        else unexpectedMutationAttempts++;
+        const endpoint = `${request.method()} ${blockedUrl.pathname}`;
+        blockedWriteEndpoints.set(endpoint, (blockedWriteEndpoints.get(endpoint) || 0) + 1);
+        return request.abort('blockedbyclient');
+      }
       const url = new URL(request.url());
       if (url.origin === origin && url.pathname.startsWith('/api/')) {
         if (url.pathname === '/api/sales/profit-report-output') {
@@ -139,7 +153,9 @@ const puppeteer = require('puppeteer-core');
     await document.destroy();
     assert.deepEqual([...new Set(requested)].sort(), weeks);
     assert.ok(statuses.length >= weeks.length && statuses.every(status => status === 200));
-    assert.equal(blockedWrites, 0);
-    console.log(JSON.stringify({ printSmoke: 'PASS', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], actualBusinessWrites: 0 }));
+    if (blockedWrites) console.log(JSON.stringify({ blockedWriteDiagnostic: [...blockedWriteEndpoints].map(([endpoint, count]) => ({ endpoint, count })), actualBusinessWrites: 0 }));
+    assert.equal(unexpectedMutationAttempts, 0, 'No business or unexpected mutation may be attempted');
+    assert.equal(blockedWrites, blockedTelemetry, 'Every blocked mutation must be the exact same-origin activity POST');
+    console.log(JSON.stringify({ printSmoke: 'PASS', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], blockedTelemetry, unexpectedMutationAttempts, actualBusinessWrites: 0 }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
