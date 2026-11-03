@@ -1,0 +1,311 @@
+{
+ "version": 1,
+ "frameSize": 160,
+ "lines": {
+  "flower": {
+   "label": "꽃",
+   "stages": [
+    {
+     "stage": 1,
+     "name": "씨앗",
+     "threshold": 0,
+     "actions": {
+      "idle": {
+       "file": "flower-s1-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "flower-s1-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "flower-s1-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "flower-s1-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 2,
+     "name": "새싹",
+     "threshold": 60,
+     "actions": {
+      "idle": {
+       "file": "flower-s2-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "flower-s2-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "flower-s2-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "flower-s2-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 3,
+     "name": "꽃봉오리",
+     "threshold": 240,
+     "actions": {
+      "idle": {
+       "file": "flower-s3-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "flower-s3-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "flower-s3-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "flower-s3-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 4,
+     "name": "만개",
+     "threshold": 600,
+     "actions": {
+      "idle": {
+       "file": "flower-s4-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "flower-s4-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "flower-s4-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "flower-s4-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 5,
+     "name": "전설 꽃",
+     "threshold": 1500,
+     "actions": {
+      "idle": {
+       "file": "flower-s5-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "flower-s5-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "flower-s5-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "flower-s5-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    }
+   ],
+   "source": {
+    "tool": "Higgsfield",
+    "model": "nano_banana_2 (UI: Nano Banana Pro)",
+    "generationId": "6783b7fe-d721-463f-9ae3-29d636202b6a",
+    "credits": 2,
+    "prompt": "Game character sprite sheet, 5 growth stages of one cute flower mascot in terracotta pot, chibi kawaii like Animal Crossing and Tamagotchi, soft clay 3D render, three-quarter isometric, pastel, plain white background"
+   }
+  },
+  "cat": {
+   "label": "고양이",
+   "stages": [
+    {
+     "stage": 1,
+     "name": "알",
+     "threshold": 0,
+     "actions": {
+      "idle": {
+       "file": "cat-s1-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "cat-s1-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "cat-s1-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "cat-s1-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 2,
+     "name": "아기 고양이",
+     "threshold": 60,
+     "actions": {
+      "idle": {
+       "file": "cat-s2-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "cat-s2-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "cat-s2-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "cat-s2-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 3,
+     "name": "꽃 고양이",
+     "threshold": 240,
+     "actions": {
+      "idle": {
+       "file": "cat-s3-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "cat-s3-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "cat-s3-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "cat-s3-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 4,
+     "name": "꽃목걸이 고양이",
+     "threshold": 600,
+     "actions": {
+      "idle": {
+       "file": "cat-s4-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "cat-s4-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "cat-s4-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "cat-s4-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    },
+    {
+     "stage": 5,
+     "name": "전설 고양이",
+     "threshold": 1500,
+     "actions": {
+      "idle": {
+       "file": "cat-s5-idle.webp",
+       "frames": 4,
+       "fps": 4
+      },
+      "work": {
+       "file": "cat-s5-work.webp",
+       "frames": 6,
+       "fps": 8
+      },
+      "sleep": {
+       "file": "cat-s5-sleep.webp",
+       "frames": 4,
+       "fps": 2
+      },
+      "wilt": {
+       "file": "cat-s5-wilt.webp",
+       "frames": 1,
+       "fps": 1
+      }
+     }
+    }
+   ],
+   "source": {
+    "tool": "Higgsfield",
+    "model": "nano_banana_2 (UI: Nano Banana Pro)",
+    "generationId": "184e1272-569f-439e-98e7-5c23f0d477d2",
+    "credits": 2,
+    "prompt": "Game character sprite sheet, 5 growth stages of one cute baby cat mascot on grass base, chibi kawaii like Animal Crossing and Tamagotchi, soft clay 3D render, three-quarter isometric, pastel, plain white background"
+   }
+  }
+ },
+ "render": {
+  "tool": "Blender 5.2.3 (headless -b -P render_sprites.py)",
+  "rig": "이미지 판 8x24 그리드 + 정점그룹(아래 28% 화분/받침 고정) + SimpleDeform BEND, 동작=굽힘·스쿼시·기울기·채도",
+  "camera": "정사영 160px 투명배경",
+  "actions": {
+   "idle": "숨쉬기 4f",
+   "work": "작업 통통 6f",
+   "sleep": "졸기 4f",
+   "wilt": "시무룩 1f(외형만)"
+  }
+ }
+}

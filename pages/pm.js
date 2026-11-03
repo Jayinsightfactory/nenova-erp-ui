@@ -9,6 +9,7 @@ import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, s
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
+import { GrowProvider, DeskPot, GrowTab, GardenStrip } from '../components/pm/grow/Grow';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 
@@ -82,6 +83,7 @@ function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty, o
       <div className={`bubble ${showBubble ? '' : 'none'}`}>{showBubble ? activity : ''}</div>
       {empty ? <div className="sprite st-off"><div className="desk"><div className="monitor"><div className="screen" /></div></div></div>
         : <Sprite status={st} color={hashColor(name)} robot={robot} avatar={robot ? null : avatars[name]} />}
+      {!empty && !robot && <DeskPot name={name} />}
       <div className="nm">{name || '?'}</div>
       <div className={`chip chip-${empty ? 'empty' : st}`}>{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
     </div>
@@ -202,12 +204,13 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
           <IconButton className="x" label="닫기" onClick={onClose} />
         </div>
         <Tabs className="tabs" label="직원 상세 탭" value={tab} onChange={setTab}
-          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기']]} />
+          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기'], ['grow', '키우기']]} />
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
           {tab === 'look' && <CustomizePanel name={name} />}
-          {!d && !err && tab !== 'look' && <p className="muted">불러오는 중…</p>}
-          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && <p className="muted">관찰 데이터 없음</p>}
+          {tab === 'grow' && <GrowTab name={name} />}
+          {!d && !err && tab !== 'look' && tab !== 'grow' && <p className="muted">불러오는 중…</p>}
+          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && tab !== 'grow' && <p className="muted">관찰 데이터 없음</p>}
           {d && !noData && tab === 'auto' && (
             <div>
               <div className="sum">
@@ -689,6 +692,7 @@ export default function PmOffice() {
 
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
+    <GrowProvider>
     <div className="pm" data-theme={pmTheme.themeId}>
       <PmUiStyles />
       {pmTheme.css && <style>{pmTheme.css}</style>}
@@ -701,6 +705,7 @@ export default function PmOffice() {
         <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
+      <GardenStrip />
       {ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
           <b>업무 시간 계기판</b>
@@ -990,6 +995,7 @@ export default function PmOffice() {
         @media (prefers-reduced-motion: reduce) { .pav, .pav *, .pm .clink .ftok { animation: none !important; } }
       `}</style>
     </div>
+    </GrowProvider>
     </PmThemeCtx.Provider>
   );
 }

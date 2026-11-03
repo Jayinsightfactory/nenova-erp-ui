@@ -6,6 +6,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import formidable from 'formidable';
 import { saveFeatureFile, FEATURE_MAX } from '../../../lib/workFeatureData';
+import { tickGrowFromOffice } from '../../../lib/pmGrowStore';
 
 export const config = { api: { bodyParser: false } };
 
@@ -32,5 +33,7 @@ export default async function handler(req, res) {
   try { buffer = fs.readFileSync(f.filepath); } finally { try { fs.unlinkSync(f.filepath); } catch {} }
   const r = saveFeatureFile(name, buffer);
   if (!r.ok) return res.status(r.status).json({ success: false, error: r.error });
+  // /pm 키우기: 사무실 피드가 들어올 때마다 서버가 성장치를 한 번 갱신(실패해도 수신은 성공 처리)
+  if (name === 'pm-office') { try { tickGrowFromOffice(JSON.parse(buffer.toString('utf8'))); } catch (e) { console.warn('[pm-grow] tick 실패', e.message); } }
   return res.status(200).json({ success: true, ...r });
 }
