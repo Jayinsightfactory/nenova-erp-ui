@@ -4,6 +4,7 @@
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
+import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
@@ -504,6 +505,35 @@ function FilterChips({ label, items, value, onChange }) {
   );
 }
 
+// 재발 학습 카드: 피드 playbooks 없으면 패널 숨김(구버전 호환). 카드 클릭=전체 펼침.
+function PlaybookPanel({ playbooks }) {
+  const [open, setOpen] = useState('');
+  const pb = normalizePlaybooks(playbooks);
+  if (!pb) return null;
+  const s = playbookSummary(pb);
+  const cards = sortPlaybookCards(pb.cards);
+  return (
+    <section className="panel pbpanel">
+      <h2>재발 학습 카드 <small>{s.total}</small></h2>
+      <div className="pbsum">카드 {s.total}장 · 새로 학습 {s.learned} · 재발 적중 {s.hits} · 자동 해결 {s.auto} · 조사 완료 {s.investigated} · 사장님 확인 {s.escalated}</div>
+      {cards.map((c, i) => {
+        const id = c.id || String(i); const on = open === id;
+        return (
+          <button type="button" key={id} className={`task pbcard ${on ? 'on' : ''}`} aria-expanded={on} onClick={() => setOpen(on ? '' : id)}>
+            <div className="tk pbh"><span>{c.title || c.id}</span><span className={`chip ${Number(c.hits) > 0 ? 'chip-error' : 'chip-off'}`}>적중 {Number(c.hits) || 0}</span></div>
+            {c.learnedAt && <div className="pblearn"><span className="chip chip-working">학습됨{c.learnedFrom ? ` · ${c.learnedFrom}` : ''} · {kstDateTime(c.learnedAt)}</span></div>}
+            {c.signature && <div className={on ? '' : 'pbl'}><span className="muted">증상</span> {c.signature}</div>}
+            {c.fix && <div className={on ? '' : 'pbl'}><span className="muted">조치</span> {c.fix}</div>}
+            <div className="muted">마지막 적중 {c.lastHit ? `${kstDateTime(c.lastHit)} KST` : '없음'}</div>
+            {on && c.keys && <div className="muted pbk">작업키 {c.keys}</div>}
+          </button>
+        );
+      })}
+      {!cards.length && <p className="muted">카드 없음</p>}
+    </section>
+  );
+}
+
 function WorkLogPanel({ workLog, onOpenPerson }) {
   const [f, setF] = useState({ dept: '', country: '', stage: '' });
   const facets = logFacets(workLog);
@@ -755,6 +785,7 @@ export default function PmOffice() {
             ))}
             {!tasks.length && <p className="muted">열린 업무 없음</p>}
           </section>
+          <PlaybookPanel playbooks={d.playbooks} />
           <section className="panel">
             <h2>에이전트 대화</h2>
             <div className="feed">
@@ -829,6 +860,12 @@ export default function PmOffice() {
         .pm .task { background: #1e2230; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; line-height: 1.4; }
         .pm .tk { font-weight: bold; word-break: break-all; } .pm .days { margin-left: 6px; background: #b8452f; padding: 0 5px; border-radius: 6px; font-size: 11px; }
         .pm .dec { color: #ffcc3f; }
+        .pm .pbsum { font-size: 12px; color: #c7cde0; margin-bottom: 8px; line-height: 1.5; }
+        .pm .pbcard { display: block; width: 100%; text-align: left; color: inherit; font: inherit; border: 0; cursor: pointer; }
+        .pm .pblearn { margin: 2px 0; }
+        .pm .pbcard.on { outline: 2px solid #3a4158; }
+        .pm .pbh { display: flex; justify-content: space-between; gap: 6px; } .pm .pbh .chip { flex: none; }
+        .pm .pbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .pbk { word-break: break-all; }
         .pm .feed { max-height: 60vh; overflow-y: auto; }
         .pm .msg { background: #1e2230; border-radius: 10px 10px 10px 2px; padding: 6px 9px; margin-bottom: 6px; }
         .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; background: #3a4158; padding: 0 5px; border-radius: 6px; }
