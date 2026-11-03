@@ -22,6 +22,9 @@ const puppeteer = require('puppeteer-core');
   const blockedWriteEndpoints = new Map();
   const requested = [], statuses = [];
   const outputReads = [], sourceNotes = new Map();
+  const reportReads = [];
+  let stage = 'font-preflight', activePage = null;
+  const mark = next => { stage = next; console.log(JSON.stringify({printSmokeStage:stage})); };
   try {
     const context = await browser.createBrowserContext();
     // Public synthetic text distinguishes missing CJK glyphs from production data.
@@ -37,6 +40,15 @@ const puppeteer = require('puppeteer-core');
     await fontDocument.destroy(); await fontProbe.close();
     assert.ok(fontPass, 'Synthetic Korean PDF title must survive font rendering and text extraction');
     const page = await context.newPage();
+    activePage = page;
+    const fillScopeInput = async (label, value) => {
+      const selector = `input[aria-label="${label}"]`;
+      await page.focus(selector);
+      await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control');
+      await page.keyboard.press('Backspace');
+      if (value) await page.keyboard.type(value);
+      assert.equal(await page.$eval(selector, e => e.value), value, `Exact ${label} value must be entered`);
+    };
     await page.setViewport({ width: 1920, height: 1080 });
     await page.evaluateOnNewDocument(() => {
       window.__profitPrintCalls = 0;
@@ -68,12 +80,15 @@ const puppeteer = require('puppeteer-core');
       return request.continue();
     });
     page.on('response', response => {
-      if (new URL(response.url()).pathname !== '/api/sales/profit-report-output') return;
+      const responseUrl = new URL(response.url());
+      if (responseUrl.pathname === '/api/sales/profit-report') reportReads.push({year:responseUrl.searchParams.get('year'),week:responseUrl.searchParams.get('week'),status:response.status()});
+      if (responseUrl.pathname !== '/api/sales/profit-report-output') return;
       statuses.push(response.status());
       if (response.status() === 200) outputReads.push(response.json().then(data => {
         sourceNotes.set(String(data.major), String(data.workbook?.Sheets?.['주차별 매출이익 보고서']?.['!profitPrint']?.userNote ?? ''));
       }));
     });
+    mark('initial-report');
     await page.goto(`${origin}/sales/profit-report?year=${year}&week=${weeks.at(-1)}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.startsWith('엑셀 다운로드') && !b.disabled), { timeout: 150000 });
     const findSummary = prefix => page.evaluateHandle(p => [...document.querySelectorAll('summary')].find(s => s.textContent.startsWith(p)), prefix);
@@ -108,28 +123,30 @@ const puppeteer = require('puppeteer-core');
     }
     await page.setViewport({ width: 1920, height: 1080 });
     if (weeksView) {
+      mark('weeks-scope-input');
       const modeButton = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '차수별'));
       await modeButton.asElement().click();
       await page.waitForSelector('[data-testid="profit-weeks-output"]');
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), '📈 차수별 매출이익 보고서 — 조회 범위 확인 필요');
       assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Unloaded weeks scope must not print');
       for (const [label, value] of [['시작 차수', String(Number(weeks[0]))], ['마지막 차수', String(Number(weeks.at(-1)))]]) {
-        const input = await page.$(`input[aria-label="${label}"]`);
-        await input.click({ clickCount: 3 }); await input.press('Backspace'); await input.type(value);
+        await fillScopeInput(label, value);
       }
+      assert.equal(await page.$eval('input[aria-label="차수별 보고서 연도"]', e => e.value), year);
       const query = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '조회'));
       await query.asElement().click();
+      mark('weeks-query-ready');
       await page.waitForFunction(() => { const b = document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]'); return b && !b.disabled; }, { timeout: 180000 });
       const expectedWeeksTitle = `📈 차수별 매출이익 보고서 — ${Number(weeks[0])}~${Number(weeks.at(-1))}차 (${year})`;
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), expectedWeeksTitle, 'Weeks heading must match the completed range and year');
       const available = await page.$$eval('[data-testid="profit-output-weeks"] input[type="checkbox"]', inputs => inputs.map(input => ({ week: input.closest('label').textContent.match(/(\d+)차/)[1].padStart(2, '0'), checked: input.checked })));
       assert.deepEqual(available.map(i => i.week), weeks);
       assert.ok(available.every(i => i.checked), 'All loaded weeks must initially be selected');
-      const fromInput = await page.$('input[aria-label="시작 차수"]');
-      await fromInput.click({ clickCount: 3 }); await fromInput.press('Backspace');
+      mark('weeks-stale-scope-guard');
+      await fillScopeInput('시작 차수', '');
       assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Edited scope must block stale output');
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), '📈 차수별 매출이익 보고서 — 조회 범위 확인 필요', 'Edited scope must not display an old category title');
-      await fromInput.type(String(Number(weeks[0])));
+      await fillScopeInput('시작 차수', String(Number(weeks[0])));
       await page.waitForFunction(() => !document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]').disabled);
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), expectedWeeksTitle);
     }
@@ -148,6 +165,7 @@ const puppeteer = require('puppeteer-core');
     const printButton = await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => /^인쇄/.test(b.textContent) && !b.disabled));
     assert.ok(printButton.asElement(), 'Print action must exist');
     await printButton.asElement().click();
+    mark('print-dialog-ready');
     await page.waitForFunction(() => window.__profitPrintCalls === 1, { timeout: 180000 });
     assert.equal(await page.evaluate(() => window.__profitPrintCalls), 1);
     const frame = page.frames().find(f => f !== page.mainFrame() && f.url() === 'about:srcdoc');
@@ -202,5 +220,17 @@ const puppeteer = require('puppeteer-core');
     assert.equal(unexpectedMutationAttempts, 0, 'No business or unexpected mutation may be attempted');
     assert.equal(blockedWrites, blockedTelemetry, 'Every blocked mutation must be the exact same-origin activity POST');
     console.log(JSON.stringify({ printSmoke: 'PASS', view: weeksView ? 'weeks' : 'category', year, weeks, pages: weeks.length, pageSize: 'A4 landscape', defaultColumns: 22, printCalls: 1, viewports: [1920, 390], blockedTelemetry, unexpectedMutationAttempts, actualBusinessWrites: 0 }));
+  } catch (error) {
+    const scope = activePage ? await activePage.evaluate(() => ({
+      title:document.querySelector('h1')?.textContent,
+      inputs:['차수별 보고서 연도','시작 차수','마지막 차수'].map(label=>({label,value:document.querySelector(`input[aria-label="${label}"]`)?.value})),
+      printDisabled:document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]')?.disabled,
+      queryPending:[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='조회 중…'),
+      rangeInvalid:document.body.innerText.includes('차수는 1~53차로 선택하세요.'),
+      partialFailure:document.body.innerText.includes('범위 전체를 다시 조회한 뒤 출력하세요.'),
+      dirtyBlocked:document.body.innerText.includes('미저장 변경을 저장하거나 취소')
+    })).catch(()=>null) : null;
+    console.error(JSON.stringify({printSmokeFailure:{stage,scope,reportReads,outputStatuses:statuses,outputWeeks:requested}}));
+    throw error;
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
