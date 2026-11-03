@@ -1,4 +1,5 @@
 - [2026-11-03 입고 농장·품목 수정/파일 교체](2026-11-03_incoming-correction.md) — 기존 원장 최종값 교체, native 재고·감사 원자 저장, 격리 SQL/브라우저 PASS, 배포 진행.
+- [2026-11-03 차수별 출력·가로 비고](2026-11-03_profit-weeks-output.md) — 완료 범위 출력·stale/dirty 차단, 가로 비고 PDF PASS·운영 대기.
 - [2026-11-03 주차별 매출이익 인쇄](2026-11-03_profit-print-layout.md) — 22열·사용자 비고·A4 차수당 한 장 PDF QA 통과, 앱·운영 검증 진행.
 - [2026-11-03 영업지원 문제 해결 창](2026-11-03_defect-resolution-window.md) — 단가입력·매칭·원문대조·중복보류 후 등록.
 - [2026-11-03 중국45-1 날짜·GW](2026-11-03_cn45-header.md) — DMY 원문·GW TOTAL 자동입력 보완, 운영 DB 변경 금지, Aside 검증 진행.

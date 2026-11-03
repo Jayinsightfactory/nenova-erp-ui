@@ -10,6 +10,10 @@ on:
         description: Selected weeks (1 or 3 weeks)
         default: '18,38,39'
         required: true
+      weeks_view:
+        description: Test weeks-view output (use one week or three consecutive weeks)
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -33,5 +37,6 @@ jobs:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
           PROBE_WEEKS: ${{ inputs.weeks }}
+          PROBE_WEEKS_VIEW: ${{ inputs.weeks_view }}
           CHROME_PATH: /usr/bin/google-chrome
         run: node scripts/profit-production-print-smoke.cjs
