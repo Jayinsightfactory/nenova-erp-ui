@@ -62,7 +62,7 @@ export function ReconciliationDetails({ data }) {
 export function CostCoverageSummary({ coverage, current, previous }) {
   const periods = [['previous', '비교', previous], ['current', '조회', current]];
   return <section className="pcm-coverage" aria-labelledby="pcm-cost-coverage-title">
-    <h2 id="pcm-cost-coverage-title">원가 확인범위 (승인 추정 포함)</h2>
+    <h2 id="pcm-cost-coverage-title">원가 확인범위 · 적용기준</h2>
     <p><b>일부 품목의 높은 판매마진을 전체 확정 영업마진으로 해석하지 마세요.</b> 원가가 일부만 확인되면 전체 판매마진은 미확정입니다.</p>
     <ScrollTable label="두 차수 원가 확인범위"><table><caption>전체 조회 범위 · 검색·품종 펼치기와 무관</caption><Cols widths={[170, 115, 115, 240, 120]} />
       <thead><tr>{['차수', '원가 확인 품목', '원가 미확정 품목', '원가 확인 매출 / 대상 매출(원)', '매출액 기준 확인률'].map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead>
@@ -121,7 +121,7 @@ export function ProductCostDetails({ product }) {
     <details onKeyDown={closeMarginDetails}><summary>원천 식별값 · 상태 원문 보기</summary><dl>
       <dt>상태 원문</dt><dd>{basis.status ?? '없음'}</dd><dt>원천 구분 원문</dt><dd>{basis.source ?? '없음'}</dd>
       <dt>수량 대사</dt><dd>{basis.balanced === true ? '산식 일치' : basis.balanced === false ? '산식 불일치' : '미확인'}</dd>
-      <dt>승인 추정 포함</dt><dd>{basis.estimated === true ? '포함 · 실제 청구 확정과 다름' : basis.estimated === false ? '미포함' : '미확인'}</dd>
+      <dt>승인 계산기준</dt><dd>{basis.estimated === true ? '적용 · 실제 청구 확정과 다름' : basis.estimated === false ? '미적용' : '미확인'}</dd>
     </dl><ul>{(basis.sourceRefs ?? []).map((ref, i) => <li key={i}>{typeof ref === 'string' ? ref : warningText(ref)}</li>)}</ul></details>
   </div>;
 }

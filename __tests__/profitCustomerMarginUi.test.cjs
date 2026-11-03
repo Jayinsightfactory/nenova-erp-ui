@@ -135,12 +135,12 @@ test('top-level cost coverage compares both periods, preserves missing versus ze
   const html = render(coverage);
   assert.match(html, /2026년 38차/); assert.match(html, /2026년 39차/); assert.match(html, /23.8%/); assert.match(html, /23.2%/);
   assert.match(html, /70,364,125 \/ 295,687,742/); assert.match(html, /<td>176<\/td>/); assert.match(html, /<td>119<\/td>/);
-  assert.match(html, /승인 추정 포함/); assert.match(html, /전체 확정 영업마진으로 해석하지/); assert.match(html, /중복될 수 있으므로 합산하지/);
+  assert.match(html, /원가 확인범위 · 적용기준/); assert.match(html, /실제 청구 확정과 다릅니다/); assert.doesNotMatch(html,/추정 포함/); assert.match(html, /전체 확정 영업마진으로 해석하지/); assert.match(html, /중복될 수 있으므로 합산하지/);
   assert.match(html, /수량 대사 추가 검산 필요/); assert.doesNotMatch(html, /18,000/);
   const missing = render(undefined); assert.match(missing, /<b>미확정<\/b>/); assert.doesNotMatch(missing, /<b>0%<\/b>/);
   assert.match(render({ current: { knownProducts: 0, unknownProducts: 1, knownSales: 0, totalSales: 100, salesCoverage: 0 } }), /<b>0%<\/b>/);
   const page = renderToStaticMarkup(React.createElement(ui.default, { data: { current, previous, groups: [group], reported: [], metadata: { costCoverage: coverage } } }));
-  assert(page.indexOf('원가 확인범위 (승인 추정 포함)') < page.indexOf('모든 품종 · 업체비중과 판매마진'));
+  assert(page.indexOf('원가 확인범위 · 적용기준') < page.indexOf('모든 품종 · 업체비중과 판매마진'));
 });
 
 test('real driver payload with all costs unknown still renders price analysis without claiming full profit attribution', async () => {

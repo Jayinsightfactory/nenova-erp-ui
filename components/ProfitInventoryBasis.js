@@ -13,7 +13,7 @@ function BasisCell({ basis, value, confirmed, stale }) {
     : '상세 평가 근거 미제공 — 최신 조회 결과에서 확인하세요.'}</div></>;
   const unit = basis.unit || '단위 미확인';
   return <>
-    <div><strong>{basis.label}</strong>{basis.estimated && <span style={{ color: '#92400e' }}> · 승인 추정 포함</span>}</div>
+    <div><strong>{basis.label}</strong>{basis.estimated && <span style={{ color: '#92400e' }}> · 승인 계산기준 적용 (실제 비용 확정 아님)</span>}</div>
     <div style={{ color: '#475569' }}>{basis.year && basis.major ? `${basis.year}년 ${basis.major}차` : '확정 저장값'}{basis.week ? ` · 재고 ${basis.week}` : ''} · <strong>{number(basis.value)}원</strong></div>
     {basis.average && <>
       <div>총 도착원가 {number(basis.average.totalCost)}원 ÷ 매입 {number(basis.average.purchaseQty, 3)} {unit}</div>

@@ -56,6 +56,25 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   const financialDigest=crypto.createHash('sha256').update(JSON.stringify(financialRows)).digest('hex');
   await Promise.all(reads);
   assert.ok(mainData?.success&&Array.isArray(mainData.rows),'initial screen response must be observed for the same scope');
+  // BEGIN SOURCE_COMPLETION_CHECKS: opt-in presentation assertions, no business writes.
+  if(process.env.PROBE_SOURCE_COMPLETION_CHECKS==='true'){
+   const presentation=await page.evaluate(()=>({
+    obsoleteLabel:document.body.textContent.includes('추정 포함'),
+    detailsPresent:!!document.getElementById('profit-calculation-details'),
+    links:document.querySelectorAll('a[href="#profit-calculation-details"]').length,
+   }));
+   assert.equal(presentation.obsoleteLabel,false,'obsolete repeated estimate label must not render');
+   assert.equal(presentation.detailsPresent,true,'calculation basis details must render');
+   if(presentation.links>0){
+    await page.evaluate(()=>{document.getElementById('profit-calculation-details').open=false;});
+    await page.click('a[href="#profit-calculation-details"]');
+    assert.equal(await page.$eval('#profit-calculation-details',el=>el.open),true,'basis link must open details');
+   }
+   assert.equal(wb.Sheets[week+'차'].A1?.v,`${year}년 ${Number(week)}차 매출이익 보고서`);
+   for(const cell of Object.values(wb.Sheets[week+'차']))if(cell?.t==='s')assert.ok(!String(cell.v).includes('추정 포함'),'XLSX must not repeat obsolete estimate label');
+   console.log(JSON.stringify({sourceCompletionSmoke:'PASS',scope:{year,week},basisLinks:presentation.links,detailsOpened:presentation.links>0,actualBusinessWrites:0}));
+  }
+  // END SOURCE_COMPLETION_CHECKS
   const inventoryPanel = await page.$('[data-testid="profit-inventory-basis"]');
   assert.ok(inventoryPanel, 'country inventory valuation panel must render');
   const inventoryText = await inventoryPanel.evaluate(element => element.textContent);

@@ -103,7 +103,7 @@ const Module = require('node:module');
     { category: '확정본 예시', inventoryValuation: { begin: confirmed, end: confirmed } },
   ] };
   const html = renderToStaticMarkup(React.createElement(ui.exports.default, { data, edits: { '콜롬비아 수국': { R: 1200 } } }));
-  for (const text of ['평균 도착원가', '14,000', '1,400', '송이', '승인 추정 포함', '단위가 혼합', '매입수량이 없어', '확정 당시', '역산하지 않습니다', '입력 편집 중']) assert.ok(html.includes(text), text);
+  for (const text of ['평균 도착원가', '14,000', '1,400', '송이', '승인 계산기준 적용', '단위가 혼합', '매입수량이 없어', '확정 당시', '역산하지 않습니다', '입력 편집 중']) assert.ok(html.includes(text), text);
   assert.match(html, /<details open=""/);
   assert.match(html, /<summary/);
   assert.match(html, /id="profit-inventory-basis"/);
