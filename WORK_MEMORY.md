@@ -1938,3 +1938,5 @@
 
 2026-11-03 차수별 제목 후속완료: production build34802/ChromeUI61340 EXIT0. 2026 27~29→미조회→2025 27~29→부분실패미조회→2025 27~30·category원제목복귀 exactPASS. 기존3/2주선택·dirty·late·부분실패·print·가로비고·390px·API쓰기0 재검증PASS. PR1453head4be68df3e CI41610146868 및전체verify28427 진행,배포운영대기. 문서최종로컬append만,커밋없음.
 검색어: weeks-title header 2025 27~30 61340 41610146868
+2026-11-03 불량 업체필터 검증: verify:erp-change exit0, manifest186/dnSpy PASS, 모의UI 두탭 필터·출처·선택·원인덱스·검토창ids·키보드 PASS. 기능PR1449=90820b27, CI41608005201 성공. UI모의 빈창/location 이동 및 preflight 조회POST 구분 수정.
+검색어: defect-company-filter-smoke 업체필터 UI검증 90820b27
