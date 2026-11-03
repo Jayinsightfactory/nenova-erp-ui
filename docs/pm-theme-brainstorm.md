@@ -83,3 +83,11 @@ Higgsfield 생성 도구가 붙으면 같은 파일명으로 PNG/WebP 를 교체
 - 생성 26장 → webp 151개: 단계 아이콘 8테마×9=72, 부서 바닥 7테마×4=28(사이버 바닥은 미생성 → SVG 유지), 캐릭터 10, 꾸미기 41.
 - 공통 프롬프트 꼬리: `soft clay 3D render, kawaii isometric game item style, consistent soft lighting, chunky readable silhouettes, plain pure white background, no text, no letters, each object fully separated with generous white space` (rpg=32-bit pixel art, subway=flat vector).
 - 애니메이션: AutoSprite(스프라이트 시트) 모델은 Higgsfield MCP 전용이라 웹에서 못 씀(이 세션 MCP 에 생성 도구 없음) → 새 캐릭터 그림에 기존 CSS 상태 애니메이션(대기·작업중·꺼짐·오류·넘김) 적용. 영상 크레딧 0.
+
+## PR④ 효율 보상(기본 OFF) — 구현 상태 11/03
+- `lib/pmBonus.js` + `GET /api/pm/bonus`(사장님만, 읽기 전용). `PM_BONUS_ENABLED=1` 이 아니면 **기록만**(보상 0).
+- 처리시간 = 작업 로그에서 같은 사람의 다음 줄까지 시간(3시간 초과는 측정 불가). 업무 키 = 단계+국가. 기준선 = 4주 중앙값, 표본 5건 미만·첫 2주 = 판정 불가/기록만.
+- 보상 = (기준 − 실제)/10 × 난이도(분배·해외송금·정산 1.5, 이익 1.3, 견적 1.2), 하루 30 상한. 느려도 감점 없음.
+- 품질계수(재수정·무결성 오류·다음 부서 반려)는 **아직 신호 미연결** → 모든 건 '판정 불가'. 켜기 전에 scan:integrity·재수정 감지 연결 필요.
+- 레벨 1~6(누적 0/100/300/700/1500/3000), 레벨3=희귀·레벨5=전설 해금(상점 연동은 켤 때). 숙련 배지(빠르고 무오류 10건)·연속 5일은 상수만 정의.
+- 팀 퀘스트: 같은 국가 넘김이 6시간 안에 이어진 건(추정) 하루 3건 = 관련 부서 공동 달성. 개인 랭킹 없음.

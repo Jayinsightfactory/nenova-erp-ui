@@ -25,7 +25,9 @@
     "lib/pmGrowStore.js",
     "components/pm/grow/Grow.js",
     "pages/api/pm/shop.js",
-    "lib/pmWallet.js"
+    "lib/pmWallet.js",
+    "pages/api/pm/bonus.js",
+    "lib/pmBonus.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -99,6 +101,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "writeAllowlist": []
+    },
+    {
+      "name": "PM_BONUS_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
     }
   ],
   "crossYearFixture": {
@@ -114,7 +122,8 @@
     "__tests__/pmAvatars.test.js",
     "__tests__/pmUiKit.test.js",
     "__tests__/pmGrow.test.js",
-    "__tests__/pmWallet.test.js"
+    "__tests__/pmWallet.test.js",
+    "__tests__/pmBonus.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -141,6 +150,7 @@
     "node __tests__/pmAvatars.test.js",
     "npm run test:pm",
     "node __tests__/pmGrow.test.js",
-    "node __tests__/pmWallet.test.js"
+    "node __tests__/pmWallet.test.js",
+    "node __tests__/pmBonus.test.js"
   ]
 }
