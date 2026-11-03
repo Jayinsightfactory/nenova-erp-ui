@@ -13,3 +13,23 @@ assert.doesNotMatch(text,/setExtraHTTPHeaders|console\.log\(token|screenshot\(/)
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/profit-download-smoke.yml'),'utf8');
 assert.match(workflow,/workflow_dispatch:/);assert.doesNotMatch(workflow,/upload-artifact|pull_request:|push:/);
 console.log('PASS production download guard: same-origin credentials, GET-only, selected year/week, no business artifact publishing');
+(async()=>{
+ const {compareProfitSmokeOutput:compare}=await import('../scripts/profit-smoke-comparison.mjs');
+ const calc={C:100,E:55,F:10,G:20,H:5,I:70,J:30,K:.3};
+ const row={category:'콜롬비아 수국',calc,auto:{N:100,L:0,O:0,Q:2,E:999,F:10,H:5,S:0,R:10},manual:{},
+  inventoryValuation:{begin:{year:'2026',major:'45',week:'45-03',value:55,quantity:2,method:'category_average',sources:['PRIVATE SOURCE'],average:{unitCost:27.5,totalCost:550,purchaseQty:20,private:'PRIVATE'}},end:null},secret:'TOKEN'};
+ const payload={orderYear:'2026',major:'46',templateDuty:{version:'fixture'},effectiveViewTotals:{},rows:[row],token:'SECRET'};
+ const output=[['콜롬비아 수국',100,55,10,20,5,70,30,.3]];
+ assert.equal(compare(payload,output).differences.length,0,'derived projection wins over stale auto.E');
+ assert.equal(compare({...payload,templateDuty:null,confirmed:true,confirmedTotals:{}},output).differences.length,0);
+ assert.equal(compare({...payload,templateDuty:null},output).differences.find(d=>d.column==='E').screenValue,999,'ordinary live uses the same current calculator as the web');
+ const mismatch=structuredClone(output);mismatch[0][2]=56;
+ const diff=compare(payload,mismatch);assert.equal(diff.differences[0].absoluteDelta,1);assert.equal(diff.differences[0].screenValue,55);
+ assert.deepEqual(diff.differences[0].roundedWon,{screen:55,output:56});assert.equal(diff.evidence[0].begin.major,'45');
+ assert.doesNotMatch(JSON.stringify(diff.evidence),/PRIVATE|TOKEN|SECRET|sources/);
+ const precision=structuredClone(output);precision[0][2]=55+2e-8;assert.equal(compare(payload,precision).differences.length,1,'diagnostics must not loosen tolerance');
+ const foreign=structuredClone(payload);foreign.orderYear='2025';foreign.rows[0].calc.E=7;
+ assert.equal(compare(foreign,output).differences[0].screenValue,7,'no cross-year cached row reuse');
+ assert.match(text,/compareProfitSmokeOutput\(mainData,financialRows\)/);assert.doesNotMatch(text,/computeProfitRow/);
+ console.log('PASS production comparison: shared frozen/confirmed projection, strict real differences, precise diagnostics, privacy, year isolation');
+})().catch(error=>{console.error(error);process.exitCode=1;});

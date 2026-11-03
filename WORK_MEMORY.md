@@ -1845,3 +1845,9 @@
 
 2026-11-03 44차최종검증: v3 raw포함SELECT1291/쓰기0,전후C/E/F/G/H/I/J/K변동0.중국33입고행/32고유품목관세미연결·legacy비용분리부족등59진단행CSV별도생성.산출완료후상주핸들로자연exit0아님/해당probePID만종료.45~50는수정전조회성공,배포후브라우저검증대기.로컬gate/core독립승인완료,커밋/PR/배포는아직미완료.
 검색어: 44최종 v3 1291SELECT 59진단 중국33행32품목 금액변동0
+
+2026-11-03 운영출력대사후속: PR1429/CI41566371024성공,merge4ffcdccf410d56dabdbe63c36bab9ae6cb76bc6a,Cafe24배포41567162600성공/ping200·DB연결/CODE_ONLY_DEPLOY·DBmigrationfalse.운영41567880503(26~31)/41567888169(38~43)/41567904134(01/09/18/50)성공.41567895590은44/45성공후46수국E대사실패,47~49해당run미실행(별도진행).새nw-profit-live-output-consistency에서smoke의confirmed전용재계산분기를실제웹profitDisplayCalculation과통일,1e-8/assert유지·금액차이/원천basis/응답시각진단추가.금융API·웹계산변경0/DB쓰기0.표적·manifest·쓰기guard·dnSpy PASS전달및독립승인.46직접원인미확정,새진단운영run대기.정본 docs/work-sessions/2026-11-03_profit-live-output-consistency.md.
+검색어: profit-live-output-consistency 46수국E smoke공통표시 epsilon1e-8 PR1429 배포성공 직접원인미확정
+
+2026-11-03 추가운영검증: 별도run41568834599는47·48PASS후49콜롬비아루스커스E불일치로실패.46과49의실제차이금액은아직없어새진단로그필요.전체운영완료아님.
+검색어: 49루스커스E 41568834599 47·48PASS 진단금액대기
