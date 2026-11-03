@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const src = fs.readFileSync(path.join(process.cwd(), 'lib', 'pmStaff.js'), 'utf8').replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { buildStaffSlice, summarizeWorkflow, freqPerWeek, findPerson };';
+  + '\nmodule.exports = { anchorState, buildStaffSlice, summarizeWorkflow, freqPerWeek, findPerson };';
 const mod = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pms-')), 'pmStaff.cjs');
 fs.writeFileSync(mod, src);
 const m = require(mod);
@@ -39,4 +39,10 @@ assert.strictEqual(r2.workflows[0].freq.source, 'observed');
 assert.strictEqual(r2.workflows[0].freq.perWeek, 2);
 assert.strictEqual(r2.workflows[1].link.basis, 'exact');
 assert.strictEqual(r2.workflows[1].freq.source, 'simulation');
+// 실행 앵커: 상태 배지·준비도 반영
+assert.strictEqual(m.anchorState({ anchor: { clickXY: [1, 2] } }), 'anchored');
+assert.strictEqual(m.anchorState({ destination: { app: '전산' } }), 'erp');
+assert.strictEqual(m.anchorState({ source: { app: '엑셀' } }), 'none');
+const aw = m.summarizeWorkflow({ name: 'x', anchorCoverage: { steps: 2, eligible: 2, anchored: 0, erpSteps: 1 }, stepsDetail: [step('confirmed'), step('confirmed')] });
+assert.strictEqual(aw.readiness.ratio, 100); assert.strictEqual(aw.readiness.anchorRatio, 0); assert.strictEqual(aw.readiness.score, 50);
 console.log('pmStaff tests passed');
