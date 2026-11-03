@@ -252,6 +252,7 @@
     $('zoomButton').textContent = `${Math.round((tab?.zoom || 1) * 100)}%`;
     $('connectionIndicator').className = `connection-indicator ${state.online ? 'online' : 'offline'}`;
     $('connectionText').textContent = state.online ? '로그인됨' : '로그인 필요';
+    $('logoutButton').disabled = !state.online;
     $('syncButton').disabled = state.syncStatus === 'checking';
     $('syncButton').textContent = state.syncStatus === 'checking' ? '웹 메뉴 확인 중…' : '웹 메뉴 갱신';
     $('syncButton').title = state.webVersion ? `웹 메뉴·기능 확인 (${state.webVersion})` : '로그인 후 최신 웹 메뉴·기능을 확인합니다';
@@ -311,6 +312,7 @@
     });
     window.addEventListener('online', () => run('appUpdate', { automatic: true }));
     $('appUpdateButton').addEventListener('click', () => run('appUpdate'));
+    $('logoutButton').addEventListener('click', () => run('logout'));
     $('cancelUpdateButton').addEventListener('click', () => run('cancelUpdate'));
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));

@@ -11,7 +11,7 @@ const SHELL = 'nenova-app://shell/index.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
-let webSession, updater, updateScheduler, updateTimer;
+let webSession, updater, updateScheduler, updateTimer, logoutInProgress = false;
 let activity, activityTimer, activityWarning = '';
 const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -275,6 +275,7 @@ function command(w, action, p = {}) {
         isCurrent: () => !locked && actor === owner && authGeneration === generation,
         onUnauthorized: () => { lockAccount(); ++authGeneration; verifyAccount().catch(() => {}); } });
     }
+    case 'logout': return logout(w);
     case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
@@ -333,6 +334,40 @@ function lockAccount() {
   for (const t of tabs.values()) if (new URL(t.url).pathname !== '/login') { t.view.webContents.stop(); t.view.setVisible(false); }
   for (const w of auxiliary) w.destroy();
   broadcast();
+}
+async function logout(w) {
+  if (locked || !actor || logoutInProgress) return state(w);
+  if (!confirm(w, '열린 업무 화면과 미저장 입력을 닫고 로그아웃할까요?', '로그아웃')) return state(w);
+  const generation = ++authGeneration;
+  clearTimeout(authTimer);
+  logoutInProgress = true;
+  try {
+    const response = await webSession.fetch(`${ORIGIN}/api/auth/logout`, {
+      method: 'POST', credentials: 'include', cache: 'no-store', redirect: 'error',
+      headers: { Origin: ORIGIN }, signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) throw new Error('Logout failed');
+  } catch {
+    logoutInProgress = false;
+    reportFailure(w, '로그아웃에 실패했습니다. 연결을 확인하고 다시 시도하세요.');
+    broadcast(); return state(w);
+  }
+  logoutInProgress = false;
+  if (generation !== authGeneration || quitting) return state(w);
+  lockAccount();
+  clearTimeout(authTimer);
+  ++authGeneration;
+  for (const tab of [...tabs.values()]) destroyTab(tab);
+  actor = ''; favorites = []; menus = []; menuVersion = ''; webVersion = ''; saved = null; syncStatus = 'error';
+  try { fs.rmSync(statePath(), { force: true }); } catch { /* No old tabs are restored while logged out. */ }
+  try {
+    await webSession.clearStorageData({ origin: ORIGIN, storages: ['localstorage', 'indexdb', 'serviceworkers', 'cachestorage', 'websql', 'filesystem'] });
+    await webSession.clearCache();
+  } catch { reportFailure(w, '로그아웃했습니다. 이 PC의 화면 저장소 정리를 확인해 주세요.'); }
+  const target = [...windows.values()][0] || w;
+  for (const item of windows.values()) { item.menuOpen = true; item.message = '로그아웃했습니다. 다른 계정으로 로그인할 수 있습니다.'; layout(item); }
+  openTab(target, { url: '/login', title: '네노바 로그인' });
+  broadcast(); return state(w);
 }
 async function verifyAccount(initial = false) {
   const generation = ++authGeneration;
@@ -464,7 +499,8 @@ app.whenReady().then(async () => {
   });
   Menu.setApplicationMenu(null);
   saved = readSaved(); createWindow();
-  webSession.cookies.on('changed', (_event, cookie) => {
+  webSession.cookies.on('changed', (_event, cookie, _cause, removed) => {
+    if (logoutInProgress || (removed && locked && !actor)) return;
     if (cookie.name !== 'nenovaToken' || !['nenovaweb.com', '.nenovaweb.com'].includes(cookie.domain)) return;
     lockAccount(); ++authGeneration; clearTimeout(authTimer); authTimer = setTimeout(() => verifyAccount(), 150);
   });
