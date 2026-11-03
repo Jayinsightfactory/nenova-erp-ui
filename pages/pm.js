@@ -3,6 +3,7 @@
 // 데이터: GET /api/pm/office (사장님 PC 가 ~1분마다 name=pm-office 로 올리는 runtime JSON). 읽기 전용.
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Button, IconButton, LinkButton, PersonChip, PmUiStyles, SelectCard, Tabs, ToggleChip } from '../components/pm/ui';
 import { Avatar, CustomizePanel, PmThemeCtx, ThemePicker, usePmTheme, usePmThemeState } from '../components/pm/PmTheme';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
@@ -114,7 +115,7 @@ function DryRunButton({ req, busy, onMake }) {
   else if (st === 'done' || st === 'failed') label = '다시 만들기';
   return (
     <div className="dry">
-      <button type="button" className="drybtn" disabled={busy || active} onClick={onMake}>{busy ? '요청 중…' : label}</button>
+      <Button variant="primary" loading={busy} disabled={active} onClick={onMake}>{busy ? '요청 중…' : label}</Button>
       {st === 'done' && (
         <div className="dryres ok">완료 · 시험 대본{r.draftId ? ` #${r.draftId}` : ''}{r.clicks != null ? ` · 클릭 ${r.clicks}` : ''}{r.humanStops != null ? ` · 사람확인 ${r.humanStops}` : ''} · <b>승인 대기</b>{r.message ? <div className="muted">{r.message}</div> : null}</div>
       )}
@@ -198,13 +199,10 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
       <aside className="drawer" role="dialog" aria-label={`${name} 직원 상세`} onClick={(e) => e.stopPropagation()}>
         <div className="dh">
           <h2>직원 상세 · {name}{d?.dataName && d.dataName !== name ? <small> ({d.dataName})</small> : null}</h2>
-          <button type="button" className="x" onClick={onClose} aria-label="닫기">×</button>
+          <IconButton className="x" label="닫기" onClick={onClose} />
         </div>
-        <div className="tabs" role="tablist">
-          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기']].map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-          ))}
-        </div>
+        <Tabs className="tabs" label="직원 상세 탭" value={tab} onChange={setTab}
+          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기']]} />
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
           {tab === 'look' && <CustomizePanel name={name} />}
@@ -246,7 +244,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
                     <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />
                     {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
                     {w.steps.length > 0 && (
-                      <button type="button" className="lnk" onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</button>
+                      <LinkButton onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</LinkButton>
                     )}
                     {open[wi] && (
                       <ol className="steps">{w.steps.map((st, si) => (
@@ -305,10 +303,8 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
         .pm .drawer-back .drawer { width: min(560px, 100%); height: 100%; background: #f6f7fa; color: #1b1f2a; display: flex; flex-direction: column; box-shadow: -6px 0 18px rgba(0,0,0,.35); }
         .pm .drawer-back .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #262b3c; color: #fff; }
         .pm .drawer-back .dh h2 { margin: 0; font-size: 16px; } .pm .drawer-back .dh small { color: #c7cde0; font-weight: normal; }
-        .pm .drawer-back .x { background: none; border: 0; color: #fff; font-size: 24px; cursor: pointer; min-width: 44px; min-height: 44px; }
+        .pm .drawer-back .x { color: #fff; font-size: 24px; min-width: 44px; min-height: 44px; }
         .pm .drawer-back .tabs { display: flex; border-bottom: 1px solid #d0d4de; background: #fff; }
-        .pm .drawer-back .tabs button { flex: 1; padding: 10px; border: 0; background: none; font-size: 14px; color: #4a5164; cursor: pointer; border-bottom: 3px solid transparent; }
-        .pm .drawer-back .tabs .on { color: #1b1f2a; font-weight: bold; border-bottom-color: #3f7fff; }
         .pm .drawer-back .db { flex: 1; overflow-y: auto; padding: 12px 16px 24px; font-size: 13px; line-height: 1.5; }
         .pm .drawer-back h3 { font-size: 13px; margin: 12px 0 6px; color: #1b1f2a; }
         .pm .drawer-back .muted { color: #5a6276; } .pm .drawer-back .warn { color: #a3260f; }
@@ -324,7 +320,6 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
         .pm .drawer-back .pipe span.done { background: #2f6fe0; color: #fff; }
         .pm .drawer-back .bar { height: 8px; background: #e3e7f0; border-radius: 4px; overflow: hidden; } .pm .drawer-back .bar i { display: block; height: 100%; background: #1f9d55; }
         .pm .drawer-back .kv { margin-top: 4px; } .pm .drawer-back .kv ul { margin: 2px 0 0 18px; padding: 0; }
-        .pm .drawer-back .lnk { margin-top: 6px; background: none; border: 0; color: #2f6fe0; cursor: pointer; padding: 4px 0; font-size: 13px; }
         .pm .drawer-back .steps { margin: 6px 0 0 0; padding-left: 0; list-style: none; } .pm .drawer-back .steps li { border-top: 1px solid #eceef3; padding: 6px 0; }
         .pm .drawer-back .ex { font-size: 12px; color: #3a4152; background: #f1f3f8; padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
         .pm .drawer-back .basis { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #e3e7f0; color: #1f2430; }
@@ -342,8 +337,6 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
         .pm .drawer-back .hbv { text-align: right; font-weight: bold; }
         .pm .drawer-back .pill.est { background: #ffe7a3; color: #4a3200; margin-left: 6px; }
         .pm .drawer-back .dry { margin-top: 8px; }
-        .pm .drawer-back .drybtn { background: #2f6fe0; color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; min-height: 36px; }
-        .pm .drawer-back .drybtn:disabled { background: #8a93a8; cursor: default; }
         .pm .drawer-back .dryres { margin-top: 6px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
         .pm .drawer-back .dryres.ok { background: #e3f8eb; color: #0b3d1f; } .pm .drawer-back .dryres.bad { background: #ffe9e5; color: #5c0d05; }
         .pm .drawer-back .chip { display: inline-block; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; }
@@ -369,7 +362,7 @@ function Corridor({ corridor, links, selStage, onPick, onTip }) {
         const mine = links.filter((l) => l.stage === st.no);
         return (
           <div key={st.no} className="ccol">
-            <button type="button" data-stage={st.no} className={`cell ${selStage === st.no ? 'on' : ''}`}
+            <SelectCard data-stage={st.no} className="cell" on={selStage === st.no} pressed={selStage === st.no}
               style={{ '--sc': STAGE_COLOR[st.no] }} onClick={() => onPick(selStage === st.no ? null : st.no)}
               aria-label={`${st.no}단계 ${st.label} 이번 주 ${st.h ?? '?'}시간, 지금 ${nowR.rows.length + nowR.more}명`}>
               <span className="ch">{st.h == null ? '–' : `${st.h}h`}</span>
@@ -380,7 +373,7 @@ function Corridor({ corridor, links, selStage, onPick, onTip }) {
                   {nowR.more > 0 && <span className="cn dim">+{nowR.more}</span>}
                 </span>
               )}
-            </button>
+            </SelectCard>
             {mine.length > 0 && (
               <div className="lchips" style={{ '--sc': STAGE_COLOR[st.no] }}>
                 {mine.slice(0, CHIP_MAX).map((l) => (
@@ -408,11 +401,11 @@ function StagePanel({ no, corridor, liveRows, onClose, onOpenPerson }) {
   return (
     <div className="spanel" role="region" aria-label={`${stageLabel(no)} 단계 담당자`}>
       <div className="sph"><b style={{ color: STAGE_COLOR[no] }}>{CIRCLED[no]} {stageLabel(no)}</b> 이번 주 {st ? `${st.h}h` : '–'} <span className="muted">(업무 이름 규칙 매핑 · 추정치)</span>
-        <button type="button" className="spx" onClick={onClose} aria-label="닫기">×</button></div>
-      {liveRows.length > 0 && <div className="spl">지금: {liveRows.map((r) => <button key={r.name} type="button" className="pp" onClick={() => onOpenPerson(r.name)}>{r.name}{r.text ? ` · ${r.text}` : ''}</button>)}</div>}
+        <IconButton className="spx" label="닫기" onClick={onClose} /></div>
+      {liveRows.length > 0 && <div className="spl">지금: {liveRows.map((r) => <PersonChip key={r.name} onClick={() => onOpenPerson(r.name)}>{r.name}{r.text ? ` · ${r.text}` : ''}</PersonChip>)}</div>}
       {st?.people?.length ? (
         <ul className="spu">{st.people.map((p) => (
-          <li key={p.name}><button type="button" className="pp" onClick={() => onOpenPerson(p.name)}>{p.name}</button> <b>{p.h}h/주</b></li>
+          <li key={p.name}><PersonChip onClick={() => onOpenPerson(p.name)}>{p.name}</PersonChip> <b>{p.h}h/주</b></li>
         ))}</ul>
       ) : <p className="muted">이 단계로 매핑된 업무 시간 없음</p>}
     </div>
@@ -489,7 +482,7 @@ function WorkLogList({ rows, onOpenPerson, light, empty, max = 300 }) {
             <div className="wrow">
               <span className="wt">{kstHM(r.at)}</span>
               <DeptSw dept={r.dept} />
-              {onOpenPerson ? <button type="button" className="wn" onClick={() => onOpenPerson(r.name)}>{r.name}</button> : <b className="wn">{r.name}</b>}
+              {onOpenPerson ? <PersonChip plain className="wn" onClick={() => onOpenPerson(r.name)}>{r.name}</PersonChip> : <b className="wn">{r.name}</b>}
               <span className="wl">{no ? <b style={light ? undefined : { color: STAGE_COLOR[no] }}>{CIRCLED[no]} </b> : null}{r.label || r.stage || '–'}</span>
             </div>
           </li>
@@ -504,8 +497,8 @@ function FilterChips({ label, items, value, onChange }) {
   return (
     <div className="fchips" role="group" aria-label={`${label} 필터`}>
       <span className="muted">{label}</span>
-      <button type="button" className={!value ? 'on' : ''} aria-pressed={!value} onClick={() => onChange('')}>전체</button>
-      {items.map((x) => <button key={x} type="button" className={value === x ? 'on' : ''} aria-pressed={value === x} onClick={() => onChange(value === x ? '' : x)}>{x}</button>)}
+      <ToggleChip on={!value} onClick={() => onChange('')}>전체</ToggleChip>
+      {items.map((x) => <ToggleChip key={x} on={value === x} onClick={() => onChange(value === x ? '' : x)}>{x}</ToggleChip>)}
     </div>
   );
 }
@@ -524,14 +517,14 @@ function PlaybookPanel({ playbooks }) {
       {cards.map((c, i) => {
         const id = c.id || String(i); const on = open === id;
         return (
-          <button type="button" key={id} className={`task pbcard ${on ? 'on' : ''}`} aria-expanded={on} onClick={() => setOpen(on ? '' : id)}>
+          <SelectCard key={id} className="task pbcard" on={on} expanded={on} onClick={() => setOpen(on ? '' : id)}>
             <div className="tk pbh"><span>{c.title || c.id}</span><span className={`chip ${Number(c.hits) > 0 ? 'chip-error' : 'chip-off'}`}>적중 {Number(c.hits) || 0}</span></div>
             {c.learnedAt && <div className="pblearn"><span className="chip chip-working">학습됨{c.learnedFrom ? ` · ${c.learnedFrom}` : ''} · {kstDateTime(c.learnedAt)}</span></div>}
             {c.signature && <div className={on ? '' : 'pbl'}><span className="muted">증상</span> {c.signature}</div>}
             {c.fix && <div className={on ? '' : 'pbl'}><span className="muted">조치</span> {c.fix}</div>}
             <div className="muted">마지막 적중 {c.lastHit ? `${kstDateTime(c.lastHit)} KST` : '없음'}</div>
             {on && c.keys && <div className="muted pbk">작업키 {c.keys}</div>}
-          </button>
+          </SelectCard>
         );
       })}
       {!cards.length && <p className="muted">카드 없음</p>}
@@ -606,9 +599,9 @@ function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
           <li key={i} title={h.basis}>
             <span className="est">추정</span>
             {avatars[h.a.name] && <Avatar cfg={avatars[h.a.name]} state={reduced ? 'idle' : 'handoff'} size={22} />}
-            <button type="button" className="pp" onClick={() => onOpenPerson(h.a.name)}>{h.a.name} {h.country} {h.a.stage} {kstHM(h.a.at)}</button>
+            <PersonChip onClick={() => onOpenPerson(h.a.name)}>{h.a.name} {h.country} {h.a.stage} {kstHM(h.a.at)}</PersonChip>
             <span aria-hidden>→</span>
-            <button type="button" className="pp" onClick={() => onOpenPerson(h.b.name)}>{h.b.name} {h.country} {h.b.stage} {kstHM(h.b.at)}</button>
+            <PersonChip onClick={() => onOpenPerson(h.b.name)}>{h.b.name} {h.country} {h.b.stage} {kstHM(h.b.at)}</PersonChip>
             <span className="muted">{fmtGap(h.gapMin)} 뒤</span>
           </li>
         ))}</ul>
@@ -697,6 +690,7 @@ export default function PmOffice() {
   return (
     <PmThemeCtx.Provider value={pmTheme.ctx}>
     <div className="pm" data-theme={pmTheme.themeId}>
+      <PmUiStyles />
       {pmTheme.css && <style>{pmTheme.css}</style>}
       <header className="top">
         <MenuBackButton />
@@ -743,7 +737,7 @@ export default function PmOffice() {
           <div className="hallwrap">
             <div className="hall-t">복도 · 업무 파이프라인 <small>이번 주 사람시간(h) · 칸 클릭=담당자 · 선 클릭=직원 시간</small></div>
             <Corridor corridor={corridor} links={links} selStage={selStage} onPick={setSelStage} onTip={onTip} />
-            {tip && <div className="spanel ltip" role="status">{linkTipText(tip.name, tip)} <button type="button" className="spx" onClick={() => setTip(null)} aria-label="닫기">×</button></div>}
+            {tip && <div className="spanel ltip" role="status">{linkTipText(tip.name, tip)} <IconButton className="spx" label="닫기" onClick={() => setTip(null)} /></div>}
             {selStage && <StagePanel no={selStage} corridor={corridor} liveRows={liveRowsByStage[selStage] || []} onClose={() => setSelStage(null)} onOpenPerson={(n) => openPerson(n, 'time')} />}
             <HandoffChains workLog={workLog} handoffs={handoffs} reduced={reduced} onOpenPerson={(n) => openPerson(n, 'log')} />
           </div>
@@ -908,9 +902,8 @@ export default function PmOffice() {
         .pm .ltip { font-size: 12px; }
         .pm .cell.unk { --sc: #9aa3b8; cursor: default; border-style: dashed; } .pm .cell.unk .ch { color: #c4cad6; }
         .pm .spanel { margin-top: 8px; background: #1e2230; border: 2px solid #3a4158; border-radius: 4px; padding: 8px 10px; color: #e8ebf2; }
-        .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; background: none; border: 0; color: #fff; font-size: 20px; min-width: 36px; min-height: 36px; cursor: pointer; }
+        .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; color: #fff; }
         .pm .spu { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; } .pm .spl { margin-top: 4px; }
-        .pm .pp { background: #3a4158; color: #f0f2f7; border: 0; border-radius: 8px; padding: 2px 8px; margin: 2px 4px 2px 0; cursor: pointer; font: inherit; font-size: 12px; }
         .pm .flows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; }
         /* 칸·책상은 선 위에 올려 글씨를 가리지 않게(선은 사이 공간에서 보임) */
         .pm .corridor .cell, .pm .seat, .pm .plate, .pm .hall-t, .pm .spanel { position: relative; z-index: 6; }
@@ -935,15 +928,12 @@ export default function PmOffice() {
         .pm .hnone { margin: 4px 0 0; font-size: 12px; color: #e3e7ef; }
         .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border: 1px solid #8d93a6; }
         .pm .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 4px 0; }
-        .pm .fchips button { background: #3a4158; color: #f0f2f7; border: 0; border-radius: 8px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; min-height: 24px; }
-        .pm .fchips button.on { background: #ffd76a; color: #2b2214; font-weight: bold; }
         .pm .wlscroll { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
         .pm .wlog { list-style: none; margin: 0; padding: 0; }
         .pm .wday { font-size: 11px; color: #c7cde0; margin: 6px 0 2px; border-bottom: 1px solid #3a4158; }
         .pm .wrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; min-width: 0; font-size: 12px; }
         .pm .wt { font-variant-numeric: tabular-nums; color: #c7cde0; flex: 0 0 auto; }
-        .pm .wn { flex: 0 0 auto; background: none; border: 0; padding: 0; color: #fff; font: inherit; font-weight: bold; cursor: pointer; }
-        .pm button.wn:hover, .pm button.wn:focus-visible { text-decoration: underline; }
+        .pm .wn { flex: 0 0 auto; color: #fff; font-weight: bold; }
         .pm .wl { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pm .drawer-back .wlog.light .wt { color: #4a5164; } .pm .drawer-back .wlog.light .wn { color: #1b1f2a; } .pm .drawer-back .wlog.light .wday { color: #4a5164; border-color: #d0d4de; }
         @media (max-width: 640px) { .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } }

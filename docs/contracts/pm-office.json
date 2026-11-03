@@ -18,7 +18,8 @@
     "pages/api/pm/avatars.js",
     "lib/pmAvatars.js",
     "lib/pmThemes.js",
-    "components/pm/PmTheme.js"
+    "components/pm/PmTheme.js",
+    "components/pm/ui.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -86,7 +87,8 @@
     "__tests__/pmStaff.test.js",
     "__tests__/pmRequests.test.js",
     "__tests__/pmTimesave.test.js",
-    "__tests__/pmAvatars.test.js"
+    "__tests__/pmAvatars.test.js",
+    "__tests__/pmUiKit.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -110,6 +112,7 @@
     "node __tests__/pmStaff.test.js",
     "node __tests__/pmRequests.test.js",
     "node __tests__/pmTimesave.test.js",
-    "node __tests__/pmAvatars.test.js"
+    "node __tests__/pmAvatars.test.js",
+    "npm run test:pm"
   ]
 }
