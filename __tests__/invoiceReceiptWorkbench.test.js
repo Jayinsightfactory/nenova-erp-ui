@@ -6,7 +6,7 @@ const babel = require('next/dist/compiled/babel/core');
 
 const root = path.join(__dirname, '..');
 const componentPath = path.join(root, 'components/import-tools/InvoiceReceiptWorkbench.js');
-const source = fs.readFileSync(componentPath, 'utf8');
+const source = fs.readFileSync(componentPath, 'utf8').replace(/\r\n/g, '\n');
 const adapterSource = fs.readFileSync(path.join(root, 'lib/importPackingReceiptAdapter.js'), 'utf8');
 const workflowSource = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWorkflow.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'), 'utf8');
