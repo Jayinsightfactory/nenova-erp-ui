@@ -30,4 +30,13 @@ assert.ok(!JSON.stringify(s).includes('secret-window-title'), 'evidence 미노�
 const none = m.buildStaffSlice('임재용', { workflows, simulations });
 assert.strictEqual(none.hasData, false);
 assert.strictEqual(m.freqPerWeek('매일'), 5);
+// workflowRefs 정확 연결 우선, perWeek 출처
+const w2 = { people: [{ name: 'A', workflows: [{ name: '발주', frequency: '매일', observed: { days: 6, weeks: 3, perWeek: 2, basis: 'evidence-capture-days' }, stepsDetail: [step('confirmed')] }, { name: '정산', stepsDetail: [step('confirmed')] }] }] };
+const s2 = { people: [{ name: 'A', items: [{ title: '정산 자동', workflowRefs: ['정산'], observed: '발주', before: { totalMinutes: 10, perWeek: 3 }, after: { totalMinutes: 4 } }] }] };
+const r2 = m.buildStaffSlice('A', { workflows: w2, simulations: s2 });
+assert.strictEqual(r2.workflows[0].link, null, 'refs 있는 개선안은 이름포함 추정연결 안 함');
+assert.strictEqual(r2.workflows[0].freq.source, 'observed');
+assert.strictEqual(r2.workflows[0].freq.perWeek, 2);
+assert.strictEqual(r2.workflows[1].link.basis, 'exact');
+assert.strictEqual(r2.workflows[1].freq.source, 'simulation');
 console.log('pmStaff tests passed');

@@ -96,11 +96,47 @@ function Table({ seats, render }) {
 const BASIS_LABEL = { 'erp-verified': '전산 확인', confirmed: '확정', estimated: '추정' };
 const PIPE = ['관찰', '절차 확정', '시험실행(dry-run)', '승인', '실행'];
 
+function DryRunButton({ req, busy, onMake }) {
+  const st = req?.status;
+  const r = req?.result || {};
+  const active = st === 'queued' || st === 'processing';
+  let label = '시험 실행 만들기';
+  if (st === 'queued') label = '대기 중…';
+  else if (st === 'processing') label = '처리 중…';
+  else if (st === 'done' || st === 'failed') label = '다시 만들기';
+  return (
+    <div className="dry">
+      <button type="button" className="drybtn" disabled={busy || active} onClick={onMake}>{busy ? '요청 중…' : label}</button>
+      {st === 'done' && (
+        <div className="dryres ok">완료 · 시험 대본{r.draftId ? ` #${r.draftId}` : ''}{r.clicks != null ? ` · 클릭 ${r.clicks}` : ''}{r.humanStops != null ? ` · 사람확인 ${r.humanStops}` : ''} · <b>승인 대기</b>{r.message ? <div className="muted">{r.message}</div> : null}</div>
+      )}
+      {st === 'failed' && (
+        <div className="dryres bad">{/좌표|coord/i.test(`${r.reason || ''}${r.message || ''}`) ? '좌표 부족' : '실패'}{r.reason ? ` — ${r.reason}` : ''}{r.message ? <div className="muted">{r.message}</div> : null}</div>
+      )}
+    </div>
+  );
+}
+
 function StaffDrawer({ name, live, now, onClose }) {
   const [tab, setTab] = useState('auto');
   const [res, setRes] = useState(null);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState({});
+  const [reqs, setReqs] = useState([]);
+  const [busy, setBusy] = useState({});
+  const loadReqs = useCallback(() => {
+    fetch('/api/pm/request?person=' + encodeURIComponent(name), { cache: 'no-store' })
+      .then((r) => r.json()).then((j) => { if (j.success) setReqs(j.requests || []); }).catch(() => {});
+  }, [name]);
+  useEffect(() => { loadReqs(); const t = setInterval(loadReqs, POLL_MS); return () => clearInterval(t); }, [loadReqs]);
+  const makeDryRun = async (wf) => {
+    setBusy((b) => ({ ...b, [wf]: true }));
+    try {
+      await fetch('/api/pm/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'dry-run', person: name, dataName: res?.dataName || name, workflow: wf }) });
+      loadReqs();
+    } finally { setBusy((b) => ({ ...b, [wf]: false })); }
+  };
+  const lastReq = (wf) => reqs.filter((r) => r.workflow === wf).slice(-1)[0] || null;
   useEffect(() => {
     let alive = true; setRes(null); setErr(''); setTab('auto'); setOpen({});
     fetch('/api/pm/staff?name=' + encodeURIComponent(name), { cache: 'no-store' })
@@ -140,7 +176,7 @@ function StaffDrawer({ name, live, now, onClose }) {
                 <div className="card">
                   <h3>자동화 후보 TOP {d.summary.candidates.length}</h3>
                   <ol className="cand">{d.summary.candidates.map((c) => (
-                    <li key={c.name}><b>{c.name}</b> <span className="muted">확정 {c.ratio}% · {c.frequency || '빈도 미상'}{c.savedPerCase ? ` · 건당 ${c.savedPerCase}분 절감` : ''}</span></li>
+                    <li key={c.name}><b>{c.name}</b> <span className="muted">확정 {c.ratio}% · 주 {c.perWeek}회({c.freqLabel}){c.savedPerCase ? ` · 건당 ${c.savedPerCase}분 절감` : ''}{c.linkBasis === 'estimated' ? ' · 추정 연결' : ''}</span></li>
                   ))}</ol>
                 </div>
               )}
@@ -157,6 +193,10 @@ function StaffDrawer({ name, live, now, onClose }) {
                     {w.why && <div className="kv">이유: {w.why}</div>}
                     {w.trigger && <div className="kv">시작: {w.trigger}</div>}
                     {w.frequency && <div className="kv">빈도: {w.frequency}</div>}
+                    {w.observed && <div className="kv">근거 확인 {w.observed.days}일 / 관찰 {w.observed.weeks}주 <span className="muted">(표본 수집이라 최소치)</span></div>}
+                    {w.freq && <div className="kv" title={w.freq.assumptions?.length ? '가정: ' + w.freq.assumptions.join(' / ') : ''}>주 {w.freq.perWeek}회 <span className="muted">(추정 근거: {w.freq.label}{w.freq.assumptions?.length ? ' · 가정 보기' : ''})</span></div>}
+                    {w.link && <div className="kv">개선안: {w.link.title}{w.link.basis === 'estimated' ? <span className="pill est">추정 연결</span> : null}</div>}
+                    <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />
                     {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
                     {w.steps.length > 0 && (
                       <button type="button" className="lnk" onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</button>
@@ -240,6 +280,12 @@ function StaffDrawer({ name, live, now, onClose }) {
         .basis { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #e3e7f0; color: #1f2430; }
         .b-erp-verified { background: #b9f5cf; color: #0b3d1f; } .b-confirmed { background: #cfe0ff; color: #0c2a63; } .b-estimated { background: #ffe7a3; color: #4a3200; }
         .cand { margin: 0; padding-left: 20px; }
+        .pill.est { background: #ffe7a3; color: #4a3200; margin-left: 6px; }
+        .dry { margin-top: 8px; }
+        .drybtn { background: #2f6fe0; color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; min-height: 36px; }
+        .drybtn:disabled { background: #8a93a8; cursor: default; }
+        .dryres { margin-top: 6px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+        .dryres.ok { background: #e3f8eb; color: #0b3d1f; } .dryres.bad { background: #ffe9e5; color: #5c0d05; }
         .chip { display: inline-block; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; }
         .chip-working { background: #b9f5cf; color: #0b3d1f; } .chip-idle { background: #ffe7a3; color: #4a3200; } .chip-off { background: #d7dbe3; color: #1f2430; } .chip-error { background: #ffc9c2; color: #5c0d05; }
         @media (max-width: 640px) { .drawer { width: 100%; } .sum b { font-size: 16px; } }
