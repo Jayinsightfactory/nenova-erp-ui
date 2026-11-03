@@ -1916,3 +1916,5 @@
 
 2026-11-03 주차별 평균원가 공식환율 메타 보완: 운영 smoke41597970882에서 18차 웹/엑셀 금액은 일치했으나 rateEstimated 누락으로 실패. 공식환율 적용 행의 rateEstimated/rateDetail(연도·차수·승인 일정·고시기간·실제신고일미인증)과 canonical 감사 issue를 메타만 복원한다. 파생 v1 재입력도 숫자 재계산 없이 복구, 기존 rateDetail 보존, 실제/수기/명시0 및 교차연도 보호. 표적22 PASS, 실제43보고서9행 메타수정·calc/totals 변경0·SQL호출0/쓰기0. 기존 production smoke assertion 완화 없음. manifest186/쓰기guard/dnSpy PASS, webpack build EXIT0(.verify/average-rate-metadata-build.log), 독립리뷰 P1없음. 운영 재배포·18차 재스모크는 아직 미검증.
 검색어: average-rate-evidence 18차 rateEstimated rateDetail APPROVED_CUSTOMS_TIMING_ESTIMATE metadata-only
+2026-11-03 데스크톱 앱 1.3.11 작업: 1.3.2 사용자 화면에서 로그아웃·오늘의 내 업무가 보이지 않는 문제 확인. 네이티브 홈에 로그아웃/계정 변경, 서버 세션 해제 후 탭·저장 구성 정리·로그인 진입 추가. 오늘 업무 '보관'을 복구 가능한 '삭제'로 표시하고 수정·삭제·보관함·계정 전환 Electron smoke 보강. 탭 닫기 기본 선택은 최신 코드에서 이미 닫기이며 smoke 확인. 데스크톱 AI 도구/버튼별 사람용 작업 원장 설계 docs/plans/desktop-ai-action-ledger-2026-11-03.md 작성; 신규 API는 미구현. desktop 단위28·smoke·restore·updater PASS, 전체 ERP 계약/웹빌드·PR/릴리스·운영 설치 스모크 진행 중으로 미검증.
+검색어: desktop 1.3.11 로그아웃 계정변경 오늘업무 수정 삭제 탭닫기 기본 닫기 AI MCP 작업원장 actionId operationId

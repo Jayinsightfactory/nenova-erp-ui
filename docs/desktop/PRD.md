@@ -53,7 +53,7 @@ Electron 44.6.0을 고정한 별도 데스크톱 패키지를 사용한다. 배�
 
 `탭 구성 저장`과 `ERP 저장`은 별개의 상태다. 로컬 설정 저장 성공으로 주문/출고 저장 완료를 표시하지 않는다. 닫은 탭 다시 열기는 URL을 새로 여는 것이며 미저장 양식을 복원하지 않는다. 복원 파일에는 POST body, DOM, 입력값, 수량, 가격, 고객 정보, 토큰을 넣지 않는다.
 
-현재 일부 페이지만 `beforeunload`를 구현한다. 따라서 초기 버전은 페이지의 정확한 dirty 상태를 안다고 표시하지 않고, 손실 가능한 닫기·재로드·전체 종료에 명시적 취소 가능한 경고를 제공한다. 개별 탭 닫기는 `webContents.close({ waitForBeforeUnload: true })`를 사용하며, 페이지가 등록한 `beforeunload` 차단도 확인한다. 새로고침·탐색의 unload 차단도 `will-prevent-unload` 확인으로 처리한다. 취소가 기본이며 사용자가 폐기를 선택했을 때만 진행한다. [Electron webContents API](https://www.electronjs.org/docs/latest/api/web-contents)
+현재 일부 페이지만 `beforeunload`를 구현한다. 따라서 초기 버전은 페이지의 정확한 dirty 상태를 안다고 표시하지 않고, 손실 가능한 닫기·재로드·전체 종료에 명시적 취소 가능한 경고를 제공한다. 개별 탭 닫기는 `webContents.close({ waitForBeforeUnload: true })`를 사용하며, 페이지가 등록한 `beforeunload` 차단도 확인한다. 새로고침·탐색의 unload 차단도 `will-prevent-unload` 확인으로 처리한다. 2026-11-03 사용자 요청에 따라 탭 닫기 확인창의 기본 선택은 닫기이고 Esc는 취소한다. 웹 페이지 자체의 미저장 입력 경고는 별도로 유지한다. [Electron webContents API](https://www.electronjs.org/docs/latest/api/web-contents)
 
 창 전체 닫기는 **이 창의 모든 탭**, 앱 종료는 **모든 창의 모든 탭**의 미저장 입력을 버린다는 문구로 한 번 확인한다. 사용자가 진행을 선택하면 해당 범위를 일괄 폐기하며 페이지별 `beforeunload` 대화상자를 다시 반복하지 않는다. 이 전역 확인은 자동 저장이나 미저장 상태 탐지를 의미하지 않는다. 계속 작업을 선택하면 전체 종료를 취소한다.
 

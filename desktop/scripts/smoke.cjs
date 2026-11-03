@@ -148,6 +148,11 @@ function installFixtureProtocol() {
       return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
     }
     if (url.pathname === HOME_ROUTE) return homeFixture(request, url);
+    if (url.pathname === '/api/auth/logout') {
+      assert.equal(request.method, 'POST');
+      assert.equal(request.headers.get('origin'), ORIGIN);
+      return Response.json({ success: true }, { headers: { 'set-cookie': 'nenovaToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict' } });
+    }
     if (url.pathname === '/api/auth/me') {
       if (accountActor === 'desktop-test-b' && holdAccountBAuth) {
         accountBAuthStarted = true;
@@ -278,6 +283,22 @@ async function verifyHomeUi(contents, window) {
   assert.equal(homeRequests.every(request => request.expectedOwnerId === request.owner), true);
   assert.equal(fixtureRequests.filter(request => request.method === 'POST' && ![HOME_ROUTE, ACTIVITY_ROUTE].includes(request.pathname)).length, 0, 'home controls never POST to ERP endpoints');
   assert.ok(activityEvents.some(event => event.label === '내 업무 추가'), 'native shell task action is acknowledged in activity fixture');
+  await waitFor(() => contents.executeJavaScript(`document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"] button')?.disabled === false`), 'today task actions reenable after completion');
+  await contents.executeJavaScript(`document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"] button').click()`);
+  await waitFor(() => contents.executeJavaScript('Boolean(document.querySelector(".hw-edit input[name=title]"))'), 'today task edit form opens').catch(async error => {
+    console.error('Edit diagnostic', await contents.executeJavaScript(`({row:document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"]')?.outerHTML, error:document.querySelector('.hw-error')?.textContent, status:document.querySelector('.hw-status')?.textContent})`)); throw error;
+  });
+  await contents.executeJavaScript(`(() => { const input = document.querySelector('.hw-edit input[name=title]'); input.value = '수정된 오늘 업무'; input.dispatchEvent(new Event('input',{bubbles:true})); document.querySelector('.hw-edit button[type=submit]').click(); })()`);
+  await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).title === '수정된 오늘 업무', 'today task edit persists').catch(async error => {
+    console.error('Edit save diagnostic', await contents.executeJavaScript(`({row:document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"]')?.outerHTML, error:document.querySelector('.hw-error')?.textContent, status:document.querySelector('.hw-status')?.textContent})`), homeRequests.slice(-4)); throw error;
+  });
+  await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("수정된 오늘 업무")'), 'edited task is visible');
+  await contents.executeJavaScript(`(() => { const row = document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"]'); [...row.querySelectorAll('button')].find(button => button.textContent === '삭제').click(); })()`);
+  await waitFor(() => contents.executeJavaScript('Boolean(document.querySelector(".hw-confirm button"))'), 'archive confirmation opens');
+  await contents.executeJavaScript('document.querySelector(".hw-confirm button").click()');
+  await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).archived, 'today task archive persists');
+  await contents.executeJavaScript('document.querySelector(".hw-heading select").value = "archived"; document.querySelector(".hw-heading select").dispatchEvent(new Event("change"))');
+  await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("수정된 오늘 업무")'), 'archived task remains recoverable');
   main.command(window, 'activate', { id: previousActive });
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
   await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
@@ -551,11 +572,11 @@ async function run() {
     const updateLayout = await shellContents.executeJavaScript(`(() => {
       const heading = document.querySelector('.home-heading');
       const rect = el => { const r = el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; };
-      return { children: [...heading.children].map(rect), ids: ['appUpdateButton','cancelUpdateButton','appUpdateStatus'].map(id => document.querySelectorAll('#'+id).length),
+      return { children: [...heading.children].map(rect), ids: ['logoutButton','appUpdateButton','cancelUpdateButton','appUpdateStatus'].map(id => document.querySelectorAll('#'+id).length),
         notes: [...document.querySelectorAll('#appUpdateNotes li')].map(el => el.textContent), html: !!document.querySelector('#appUpdateNotes img'), executed: !!window.__notesExecuted,
         width: document.documentElement.scrollWidth, viewport: innerWidth, notice: rect(document.querySelector('#appUpdateNotice')), tabs: rect(document.querySelector('#tabs')) };
     })()`);
-    assert.deepEqual(updateLayout.ids, [1,1,1], 'update controls remain unique');
+    assert.deepEqual(updateLayout.ids, [1,1,1,1], 'account and update controls remain unique');
     assert.deepEqual(updateLayout.notes, notes.slice(0,3), 'only three plain-text notes render');
     assert.equal(updateLayout.html, false); assert.equal(updateLayout.executed, false, 'release note HTML is inert text');
     assert.ok(updateLayout.width <= updateLayout.viewport, 'long release notes do not overflow');
@@ -736,7 +757,15 @@ async function run() {
   await waitForTab(accountBTab, async tab => !tab.loading && await tab.view.webContents.executeJavaScript('Boolean(document.querySelector("#smoke-input"))'), 'account B fixture content');
   assert.equal(await accountBTab.view.webContents.executeJavaScript(`localStorage.getItem('account-specific-value')`), null, 'account A localStorage is cleared before account B content loads');
 
-  console.log('Electron smoke passed: personal home native IPC/UI/failure retry/account races, tab lifecycle, isolated zoom and web globals, same-origin popup opener, account transition lock/storage clear, viewport overflow, and unload/close confirmation.');
+  assert.equal(await shellContents.executeJavaScript('document.getElementById("logoutButton").disabled'), false, 'account switch control is available while logged in');
+  await main.command(sourceWindow, 'logout');
+  assert.equal(main.snapshot().actor, '', 'logout clears the account and persisted workspace owner');
+  assert.equal(main.command(sourceWindow, 'state', {}).online, false, 'logout locks business views');
+  assert.equal(main.tabs.has(accountBTab.id), false, 'logout destroys the previous account tab');
+  assert.ok([...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/login'), 'logout opens login for account switching');
+  assert.equal(fixtureRequests.filter(request => request.pathname === '/api/auth/logout' && request.method === 'POST').length, 1, 'logout revokes the server session once');
+
+  console.log('Electron smoke passed: personal home native IPC/UI/failure retry/account races, logout, tab lifecycle, isolated zoom and web globals, same-origin popup opener, account transition lock/storage clear, viewport overflow, and unload/close confirmation.');
   console.log(`Screenshots: ${OUTPUT}`);
 }
 
