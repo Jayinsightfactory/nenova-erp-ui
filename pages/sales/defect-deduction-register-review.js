@@ -62,6 +62,11 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const duplicateGroups = useMemo(() => resolutionDuplicateGroups(rows, excludedKeys), [rows, excludedKeys]);
   const duplicateKeys = new Set(duplicateGroups.flat().map(row => Number(row.deductionKey)));
   const readyRows = resolutionReadyRows(rows, excludedKeys);
+  const displayRows = resolveMode ? [...rows].sort((a, b) => {
+    const order = { cost: 0, match: 1, existing: 2, source: 3, unit: 4, other: 5, defer: 6, omitted: 7, ready: 8 };
+    return (order[defectResolution(a).kind] ?? 5) - (order[defectResolution(b).kind] ?? 5)
+      || Number(b.sourceOrderWeek || b.orderWeek || 0) - Number(a.sourceOrderWeek || a.orderWeek || 0);
+  }) : rows;
   const unresolvedCount = rows.filter(row => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || duplicateKeys.has(Number(row.deductionKey)))).length;
   useEffect(() => { apiGet('/api/auth/me').then(data => setAdmin(isDefectAdmin(data.user || data))).catch(() => setAdmin(false)); }, []);
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
@@ -315,7 +320,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             <button type="button" disabled={loading || applying || editorBusy} onClick={() => setExcludedKeys(current => new Set([...current, ...group.map(r => Number(r.deductionKey))]))}>판단 보류 — 이 묶음은 이번에 등록 안 함</button>
             <p>서로 다른 신고라면 합치거나 수량을 임의로 바꾸지 말고 원문을 대조하세요. 다른 수량은 이 중복 묶음에 포함하지 않습니다.</p>
           </section>)}
-          {rows.map((row, index) => {
+          {displayRows.map((row, index) => {
             const after = adjustedAfter(row);
             const excluded = excludedKeys.has(Number(row.deductionKey));
             if (resolveMode && !verified && !showNormal && !row.error && row.after && !excluded && !duplicateKeys.has(Number(row.deductionKey))) return null;
