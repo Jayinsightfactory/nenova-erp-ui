@@ -1819,3 +1819,17 @@
 검색어: NL quarantine FOB sample stems cheapest landed tariff 43-02 Holex 7814 Aside audit Excel 2268c3e1
 2026-11-02 활동기록 33건 보류 원인: 운영PM2 `MODULE_NOT_FOUND` 4259건, 원본 lib/worker 존재·Next번들 위치 worker 부재. worker 경로를 process.cwd()/lib 기준으로 수정하고 번들경로 재현 테스트 추가. 로컬 활동 테스트 PASS; CI·배포·33건 재전송은 미검증. docs/work-sessions/2026-11-02_activity-retry-recovery.md
 검색어: activity pending MODULE_NOT_FOUND worker bundle path retry
+
+## 2026-11-03 공식 관세·중국27 운임·26~31 검산 (진행 중)
+- DB 쓰기0. 공식2026 HS4종의중국89 exact품목+동일보존형태3210추정1개를90조건부로연결. 특혜자격/실제납부확정아님,다른국가공식율미검증.
+- 27-02실운임4269.5CNY 대비legacy4580.2183 배분불일치수정은관세전용.입고원가출력보존.27원본J10빈칸은SQL행없는역사fallback만null복원,실제0/수기보존.
+- 26~31입고25반차수중완전14,숫자원본12중11이±1만원/29-01중국+56289원.미완전11·빈칸2는정확도판정제외.27H+621939.946원,F/28E+102092.029원.엑셀/SQL운임655CNY차이는별도미해결.
+- 표적18·진단parity31·freightCalc238/pivot PASS. 전체verify두번째실행중·PR/배포미실행.사용자Aside요청은오른쪽열기queued,Work browserdisabled로실브라우저미검증.
+- 정본 docs/work-sessions/2026-11-03_official-duty-freight.md.후속완료증거는추가기록할것.
+검색어: official-duty-freight 관세90조건부 27-02 40cm J10빈칸 655CNY 621939.946 Aside disabled
+
+2026-11-03 공식관세후속: 초기90/11of12는중간결과.3212PreservedPink가3210Blue와동일보존형태여서조건부8%로일관화,최신91/표적19PASS.숫자원본12개±1만원이나미완전11·빈칸2·27/29운임655/917CNY차이·오차상쇄위험잔존.29실제관세739050원보존,DB쓰기0.전체verify3차진행중(manifest필수명령누락수정180PASS),PR/배포미실행/실브라우저disabled.정본추가기록참조.
+검색어: 관세91 PreservedPink3212 sameform 12of12 917CNY 오차상쇄 verify3차
+
+2026-11-03 공식관세 로컬최종gate: 최신91정책포함verify:erp-change3차exit0,ERP계약/posttest19·dnSpy·manifest180·SQL쓰기guard·webpack58초컴파일/전체페이지build PASS. PR미생성·CI/배포/운영smoke대기,브라우저disabled·DB쓰기0. `.verify` 및generated history두JSON커밋제외.
+검색어: 공식관세91 verify exit0 manifest180 webpack58s 로컬gate완료 PR대기

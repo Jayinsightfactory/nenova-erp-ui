@@ -6,7 +6,11 @@ const assert=require('node:assert/strict');
  const row=(category='에콰도르')=>({category,currency:'USD',auto:{H:0},manual:{},source:{H:'actual',R:'manual_input'},customsComponents:{Customs1:0,Customs2:0},calc:{C:2000,E:120,F:240,G:1200,H:0,I:1080,J:920,K:.46,R:10,AJ:0,P:1000,T:200,Q:100,S:20},inventoryValuation:{begin:basis('42',10),end:basis('43',20)}});
  const line=(extra={})=>({prodKey:1,name:'품목 A',country:'에콰도르',category:'에콰도르',orderYear:'2026',orderWeek:'43-01',goodsForeign:100,freightForeign:20,currency:'USD',warehouseDetailKey:10,...extra});
  const ctx=()=>({year:'2026',major:'43',policy:{products:[{prodKey:1,name:'품목 A',country:'에콰도르',rate:.25,ruleIds:['source!K14']}]},lines:[line(),line({orderWeek:'42-01',warehouseDetailKey:9})],customsByWeek:{},previousPayload:{rows:[row()]}});
- const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,clean(child)])):value;
+ // This unchanged-policy matrix keeps every amount/verdict/output field intact.
+ // Only the explicit release-version bump and pre-existing additive diagnostics
+ // are normalized. Official mappings/historical blank changes have separate tests.
+ assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v2');
+ const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,key==='version'&&child===current.TEMPLATE_DUTY_VERSION?baseline.TEMPLATE_DUTY_VERSION:clean(child)])):value;
  const scenarios=[
   ()=>{},
   (p,c)=>{p.confirmed={key:7};p.confirmedTotals={C:2000,J:920};},

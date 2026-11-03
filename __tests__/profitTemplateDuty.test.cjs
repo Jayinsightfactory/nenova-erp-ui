@@ -18,3 +18,122 @@ test('source failure and foreign-currency gaps held',async()=>{const m=await api
 test('CO original preserved; cross-year payload unchanged',async()=>{const m=await api,r={...row(),category:'콜롬비아 장미'};assert.equal(m.applyTemplateDutyView({rows:[r]},ctx()).rows[0].calc.H,0);const p={rows:[row()]};assert.strictEqual(m.applyTemplateDutyView(p,ctx({year:'2025'})),p);});
 test('AWB native allocation conserves invoice even modelled stem count differs',async()=>{const {allocateDutyFreightByAwb:f}=await allocation;for(const unit of ['단','박스']){const c={header:{freightTotalUSD:540},categories:[{allocationKey:'rose',allocationQuantity:120,allocationUnit:unit,freightUSD:540}],rows:[{warehouseDetailKey:1,freightBucketKey:'rose',freightAllocationQuantity:40,totalPriceUSD:100},{warehouseDetailKey:2,freightBucketKey:'rose',freightAllocationQuantity:80,totalPriceUSD:200}]};const a=f(c);assert.equal(a.allocations.get(1),180);assert.equal(a.allocations.get(2),360);assert.ok(a.evidence.conserved);c.rows[1].freightAllocationQuantity=0;assert.equal(f(c).allocations.get(1),null);}});
 test('canonical hook and SELECT-only new loader',()=>{const s=fs.readFileSync('lib/profitTemplateDutyData.js','utf8'),a=fs.readFileSync('pages/api/sales/profit-report.js','utf8');assert.match(s,/WHERE OrderYear=@year/);assert.doesNotMatch(s,/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE TABLE)\b/);assert.match(a,/return applyTemplateDutyToReport\(/);});
+
+test('China 40cm duty freight uses exact row metrics without changing legacy arrival outputs',async()=>{
+ const {computeFreightCost}=await import('../lib/freightCalc.js'),{allocateDutyFreightByAwb:f}=await allocation;
+ for(const cw of [371,400]){
+  const details=[
+   {warehouseDetailKey:1,prodKey:1,prodName:'ROSE CHINA / Avalanche 40cm',bunchQty:90,flowerName:'장미',totalPriceUSD:675},
+   {warehouseDetailKey:2,prodKey:2,prodName:'ROSE CHINA / Proud 75cm',bunchQty:210,flowerName:'장미',totalPriceUSD:5570},
+   {warehouseDetailKey:3,prodKey:3,prodName:'CHINA / Gypsophila white',bunchQty:130,flowerName:'안개꽃',totalPriceUSD:2210},
+   {warehouseDetailKey:4,prodKey:4,prodName:'Greens CHINA / Asparagus grass',bunchQty:70,flowerName:'기타',totalPriceUSD:1090},
+  ].map(r=>({...r,counName:'중국',steamQty:r.bunchQty*10,recordedSteamQty:r.bunchQty*10,stemsPerBunch:10,outUnit:'단'}));
+  const c=computeFreightCost({master:{gw:371,cw,actualFreightUSD:4269.5,exchangeRate:226.66},details});
+  assert.equal(c.header.dutyFreightMetricCorrection.method,'china_40cm_exact_residual');
+  const before=JSON.stringify(c),a=f(c),basis=cw===371?'GW':'CBM';
+  assert.equal(JSON.stringify(c),before,'allocator does not mutate legacy output');
+  assert.ok(a.evidence.conserved);assert.equal(a.evidence.correction.basis,basis);
+  assert.ok(Math.abs([...a.allocations.values()].reduce((s,n)=>s+n,0)-4269.5)<1e-9);
+  assert.ok(Math.abs(a.allocations.get(1)-4269.5*90*(basis==='GW'?.45:.6)/cw)<1e-9);
+  assert.ok(a.evidence.nativeTotal>4269.5,'legacy over-allocation stays explicitly recorded');
+  for(const mutate of [x=>x.rows[0].dutyFreightMetricQuantity=null,x=>x.rows[0].dutyFreightMetricQuantity=-1,
+   x=>x.header.dutyFreightMetricCorrection.denominator+=1,x=>x.rows[0].warehouseDetailKey=x.rows[1].warehouseDetailKey,
+   x=>x.header.dutyFreightMetricCorrection.basis='VALUE',x=>x.header.gw=0,
+   x=>x.header.gw=x.header.cw+1,x=>x.header.cw=NaN]){
+   const bad=structuredClone(c);mutate(bad);const failed=f(bad);
+   assert.equal(failed.evidence.conserved,false);assert.ok([...failed.allocations.values()].every(v=>v===null));
+  }
+ }
+});
+
+test('non-China and no exact residual never opt into China duty correction',async()=>{
+ const {computeFreightCost}=await import('../lib/freightCalc.js');
+ for(const country of ['에콰도르','콜롬비아','중국']){
+  const c=computeFreightCost({master:{gw:100,cw:100,actualFreightUSD:100},details:[{
+   warehouseDetailKey:1,prodKey:1,prodName:country==='중국'?'ROSE CHINA / Rose 40cm':'Rose 40cm',
+   counName:country,flowerName:'장미',boxQty:1,rawBoxQty:1,bunchQty:10,steamQty:100,totalPriceUSD:100}]});
+  assert.equal(c.header.dutyFreightMetricCorrection,null);
+ }
+});
+
+test('all legacy freight outputs match independent pre-change HEAD fixtures',async()=>{
+ const {computeFreightCost}=await import('../lib/freightCalc.js');
+ const fixture=JSON.parse(fs.readFileSync('__tests__/fixtures/profit-duty-legacy-freight.json','utf8'));
+ assert.equal(fixture.baseline,'c0bbc84be');
+ for(const {input,expected} of fixture.cases){
+  const current=computeFreightCost(input);
+  delete current.header.dutyFreightMetricCorrection;
+  current.rows.forEach(r=>delete r.dutyFreightMetricQuantity);
+  assert.deepEqual(JSON.parse(JSON.stringify(current)),expected);
+ }
+});
+
+test('official China mapping is exact, dated and conditional, never broad Greens classification',async()=>{
+ const m=await api,official=JSON.parse(fs.readFileSync('data/profit-official-duty-2026.json','utf8'));
+ // Independently transcribed from KCS 2026 sheets 1.1 / 2.12, rows
+ // 804/806 (A) and 21454/21462 (E1); not read back from policy values.
+ const officialRates={'0603110000:E1':.214,'0603199000:E1':.214,'0604209000:A':.08,'0604909000:A':.08};
+ assert.equal(official.sourceSha256,'BE4450BAB5DAD09A6B8278371F3C078E54AC899AA098212BD09124BFD46407C4');
+ assert.equal(official.sourceUrl,'https://www.data.go.kr/data/15051179/fileData.do');
+ assert.equal(official.orderYear,'2026');
+ assert.equal(new Set(official.products.map(p=>p.prodKey)).size,official.products.length);
+ const p={products:[],official};
+ for(const product of official.products){
+  assert.equal(product.country,'중국');
+  assert.equal(product.effectiveFrom,'2026-01-01');assert.equal(product.effectiveTo,'2026-12-31');
+  assert.ok(Object.hasOwn(officialRates,`${product.hs}:${product.rateType}`));
+  assert.equal(product.rate,officialRates[`${product.hs}:${product.rateType}`]);
+  const l=line({prodKey:product.prodKey,name:product.exactName,country:'중국'}),rule=m.resolveTemplateDutyRule(l,p,'2026');
+  assert.equal(rule.rate,product.rate);assert.equal(rule.officialEvidence.actualDeclarationVerified,false);
+  assert.equal(rule.officialEvidence.shipmentQuantityMatchVerified,false);
+  for(const change of [{country:'에콰도르'},{name:'Greens arbitrary'},{orderYear:'2025'}])assert.equal(m.resolveTemplateDutyRule({...l,...change},p,'2026'),null);
+  assert.equal(m.resolveTemplateDutyRule(l,p,'2027'),null);
+ }
+ assert.equal(m.resolveTemplateDutyRule(line({prodKey:3207,name:'Petal Use',country:'중국'}),p,'2026'),null);
+ assert.equal(official.products.find(x=>x.prodKey===3120).rate,.08);
+ assert.equal(official.products.find(x=>x.prodKey===3210).rate,.08);
+ const pink=official.products.find(x=>x.prodKey===3212);
+ assert.equal(pink.rate,.08);assert.equal(pink.matchLevel,'SAME_PRODUCT_FORM_INFERENCE');
+ assert.equal(pink.observedAwbs,undefined);assert.equal(pink.declarationVerifiedForWeek29,false);
+ const china=row();china.category='중국';china.currency='CNY';china.calc.R=224.22;
+ const l=line({prodKey:3212,name:pink.exactName,country:'중국',category:'중국',currency:'CNY',orderWeek:'29-01',goodsForeign:1200,freightForeign:487.6155345211585});
+ const retained=m.calculateTemplateDuty({year:'2026',major:'29',category:'중국',row:china,lines:[l],policy:p,customsRow:{Customs1:739050,Customs2:420110}});
+ assert.equal(retained.total,1159160);assert.equal(retained.status,'actual_preserved');
+ assert.ok(official.products.some(x=>/PHYLICA/i.test(x.exactName)&&x.rate===.214));
+});
+
+test('only verified historical 27 China blank is restored; actual SQL zeros still dominate',async()=>{
+ const m=await api,h={Customs1:1092570,Customs2:0};
+ const restored=m.restoreHistoricalDutyBlank(h,'2026','27','중국');
+ assert.equal(restored.Customs2,null);assert.equal(h.Customs2,0);
+ assert.equal(restored.historicalDutyBlank.cell,'J10');
+ const laterCorrected={...h,Customs2:100};assert.strictEqual(m.restoreHistoricalDutyBlank(laterCorrected,'2026','27','중국'),laterCorrected);
+ for(const args of [['2025','27','중국'],['2026','26','중국'],['2026','27','태국']])assert.strictEqual(m.restoreHistoricalDutyBlank(h,...args),h);
+ const s=fs.readFileSync('lib/profitTemplateDutyData.js','utf8');
+ assert.match(s,/row\?hydrateCountrySplitColumns\(row\):restoreHistoricalDutyBlank/);
+ const r=row();r.category='중국';r.currency='CNY';
+ const lines=[line({country:'중국',category:'중국',currency:'CNY',orderWeek:'27-02'})];
+ const p={products:[{...policy.products[0],country:'중국'}]};
+ const d=m.calculateTemplateDuty({year:'2026',major:'27',category:'중국',row:r,lines,policy:p,customsRow:h});
+ assert.equal(d.total,1092570);assert.equal(d.status,'actual_preserved');
+ const estimated=m.calculateTemplateDuty({year:'2026',major:'27',category:'중국',row:r,lines,policy:p,customsRow:restored});
+ assert.equal(estimated.total,1092870);assert.match(estimated.explanation.join(' '),/J10은 빈칸/);
+});
+
+test('older derived payload cannot double-add duty; all save paths compute raw data',async()=>{
+ const m=await api,legacy=await import('./fixtures/profitTemplateDutyBaseline-a6360410e.mjs');
+ const raw={rows:[row()]},old=legacy.applyTemplateDutyView(raw,ctx()),before=JSON.stringify(old);
+ assert.notEqual(old.rows[0].calc.H,raw.rows[0].calc.H);
+ assert.throws(()=>m.applyTemplateDutyView(old,ctx()),e=>e.code==='DUTY_DERIVED_VERSION_MISMATCH');
+ assert.equal(JSON.stringify(old),before);
+ const current=m.applyTemplateDutyView(raw,ctx());assert.strictEqual(m.applyTemplateDutyView(current,ctx()),current);
+ const orphan=structuredClone(old);delete orphan.templateDuty;
+ assert.throws(()=>m.applyTemplateDutyView(orphan,ctx()),e=>e.code==='DUTY_DERIVED_VERSION_MISMATCH');
+ const report=fs.readFileSync('pages/api/sales/profit-report.js','utf8');
+ assert.match(report,/saveProfitCache\(options,loadReportData\)/);
+ const confirm=fs.readFileSync('pages/api/sales/profit-report-confirm.js','utf8');
+ assert.match(confirm,/await loadReportData\(major, orderYear\)/);
+ assert.doesNotMatch(confirm,/loadWeeklyReportPayload|applyTemplateDuty/);
+ const data=fs.readFileSync('lib/profitTemplateDutyData.js','utf8');
+ assert.match(data,/if\(error\?\.code==='DUTY_DERIVED_VERSION_MISMATCH'\)throw error/);
+});

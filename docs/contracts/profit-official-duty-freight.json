@@ -1,0 +1,22 @@
+{
+  "id": "profit-official-duty-freight",
+  "title": "공식 관세 근거와 중국 40cm 운임 총액 보존",
+  "scope": ["lib/freightCalc.js", "lib/profitDutyFreightAllocation.mjs", "lib/profitTemplateDuty.mjs", "lib/profitTemplateDutyData.js", "data/profit-official-duty-2026.json", "pages/sales/profit-report.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{
+    "name": "READ_OFFICIAL_DUTY_FREIGHT",
+    "orderDetail": "preserve",
+    "shipmentDetail": "preserve",
+    "sideEffect": "SELECT-only; China 40cm exact residual row metric allocation for report duty only. Preserve original arrival-cost output, actual/explicit-zero/manual duty and saved/confirmed DB payload. Reject missing/duplicate keys, incomplete metrics, missing/inverted GW/CW and total nonconservation. Only historical fallback 2026/27 China Customs2 restores verified original J10 blank to null; SQL zero and all other historical fields stay intact. No ERP ledger, schema, snapshot or report writes. Official tariff metadata does not certify origin eligibility or actual declared duty. H tooltip discloses conditional rates, historical blank and legacy/corrected freight difference."
+  }],
+  "crossYearFixture": {"required": true, "description": "2025 and 2027 same product/week cannot apply the approved2026 report duty; country/name fingerprint mismatch rejected."},
+  "requiredTestFiles": ["__tests__/profitTemplateDuty.test.cjs"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/profit-official-duty-freight-2026-11-03.md",
+    "source": "Actual dnSpy.Console.exe FormWarehouseView and SELECT-only 2026/27 receipt probe",
+    "methods": ["FormWarehouseView.GetData"],
+    "tables": ["WarehouseMaster", "WarehouseDetail", "Product", "Flower", "FreightCost", "FreightCostDetail", "WebCustomsWeekly", "WebProfitReport", "WebProfitReportSnapshot"]
+  },
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run verify:erp-change", "npm run test:pivot-freight", "npm run build"]
+}

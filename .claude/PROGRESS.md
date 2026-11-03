@@ -1,5 +1,21 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-11-03 후속] 로컬 전체 배포 게이트 통과
+- 최신91정책 포함verify:erp-change3차exit0.ERP계약/posttest19·dnSpy·manifest180·SQLwriteguard·webpack58초컴파일/전체페이지buildPASS.
+- PR미생성,CI/병합/Cafe24/운영smoke미완.브라우저disabled,DB쓰기0유지. `.verify` 및data/generated history두JSON커밋제외.
+
+## [2026-11-03 후속] 동일 보존형태3212·최신91정책
+- 초기90/숫자11of12는중간기록.3212PreservedPink를3210Blue와동일형태조건부8%로일관화(숫자맞춤아님),최신91/표적19PASS.
+- 숫자원본12개모두±1만원,29예측차이−8039원.미완전11/빈칸2 및27운임655·29운임917CNY차이별도.오차상쇄가능성/실제납부미확정유지.29실제739050원보존.
+- 전체verify3차진행중,manifest필수명령누락수정후180PASS. PR/배포미실행·브라우저disabled.
+
+## [2026-11-03] 공식 관세·27차 중국 운임 — 전체검증 진행 중
+- nw-official-duty-freight/base c0bbc84be. SQL SELECT-only·DB쓰기0, 공식율90개 조건부 지문과27-02운임4269.5CNY 보존 보완.
+- 원본27J10빈칸을 역사fallback에서만복원.27관세621939.946원/기말102092.029원증가가28기초에연결; DB변경아님.
+- 26~31입고25반차수, 숫자원본+완전예측12중11이±1만원/29-01중국+56289원,미완전11·빈칸2별도. 다른국가공식율인증아님.
+- 표적18/진단parity31/freightCalc238/pivot PASS. 전체verify두번째실행중, PR·배포미실행. Asidequeued/browserdisabled로실브라우저미검증.
+- 정본 docs/work-sessions/2026-11-03_official-duty-freight.md. 검색어: official-duty-freight 40cm Customs2 J10 90조건부
+
 ## [2026-10-29] 양식 관세 승인추정 — 독립 SQL 검증 완료, 배포 확인 대기
 - nw-profit-template-duty/base c1f5b7045. DB 원장·관세설정·확정/저장본 불변, 파생 표시만 적용.
 - 1~41차164행,11SELECT1.610초/전체3.155초/쓰기0, 산술·불변·멱등 위반0. 기존 AWB 운임절대액 보존 및 원행 송이환산 확인.

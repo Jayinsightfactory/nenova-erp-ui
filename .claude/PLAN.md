@@ -1,5 +1,13 @@
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
+## 2026-11-03 — 공식 관세·중국27 운임 (DB 불변)
+- [x] 공식2026 HS4종·최신91 exact 조건부품목,39신고품명·SQL 지문·26~31 Excel 대사
+- [x] 관세전용40cm 운임총액 보존,27역사J10빈칸 복원,실제0/수기/legacy원가 보존·표적19검사
+- [x] 전체 ERP verify 세 번째 exit0,ERP/posttest19·dnSpy·manifest180·writeguard·webpack전체build PASS
+- [ ] PR/CI·병합·Cafe24·운영 API/실브라우저
+- Aside 열기queued, Work browser disabled로 실브라우저 미검증. DB원장/저장·확정본 쓰기금지.
+- 정본: docs/work-sessions/2026-11-03_official-duty-freight.md
+
 ## 2026-10-29 — 주차별 수익률 원천 검증 표시
 - [x] fresh worktree 및 dnSpy/SELECT-only 38·39차 입고·운임·재고조정 대사
 - [x] 원장 불변 기준/부작용 고정: plans/profit-validation-gate-2026-10-29.md
