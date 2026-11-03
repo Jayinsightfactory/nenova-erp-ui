@@ -1,0 +1,1022 @@
+{
+ "version": 1,
+ "generatedBy": "scripts/pm-themes/gen_assets.py",
+ "license": "자체 제작(네노바 내부 사용) · 이모지 글리프는 OS 시스템 폰트로 렌더",
+ "source": "code-generated SVG (Higgsfield MCP 생성 도구 미노출로 대체)",
+ "states": [
+  "idle",
+  "working",
+  "off",
+  "error",
+  "handoff"
+ ],
+ "themes": [
+  {
+   "id": "office",
+   "name": "사무실(기본)",
+   "emoji": "🏢",
+   "default": true,
+   "rarity": "basic",
+   "price": 0
+  },
+  {
+   "id": "greenhouse",
+   "name": "꽃 온실",
+   "emoji": "🌷",
+   "bg": "#eef3e6",
+   "surface": "#fffdf6",
+   "ink": "#1f2a1c",
+   "muted": "#4b5a46",
+   "accent": "#2f6b3d",
+   "line": "#b9c9ad",
+   "plate": "#2f6b3d",
+   "plateInk": "#ffffff",
+   "token": "🌸",
+   "hall": "온실 통로",
+   "light": true,
+   "rarity": "common",
+   "price": 30,
+   "background": "/pm-themes/greenhouse/bg.svg",
+   "stageIcons": [
+    "/pm-themes/greenhouse/stage-1.svg",
+    "/pm-themes/greenhouse/stage-2.svg",
+    "/pm-themes/greenhouse/stage-3.svg",
+    "/pm-themes/greenhouse/stage-4.svg",
+    "/pm-themes/greenhouse/stage-5.svg",
+    "/pm-themes/greenhouse/stage-6.svg",
+    "/pm-themes/greenhouse/stage-7.svg",
+    "/pm-themes/greenhouse/stage-8.svg",
+    "/pm-themes/greenhouse/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/greenhouse/dept-1.svg",
+     "label": "장미 화단"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/greenhouse/dept-2.svg",
+     "label": "튤립 화단"
+    },
+    "영업부": {
+     "floor": "/pm-themes/greenhouse/dept-3.svg",
+     "label": "수국 화단"
+    },
+    "수입부": {
+     "floor": "/pm-themes/greenhouse/dept-4.svg",
+     "label": "카네이션 화단"
+    }
+   },
+   "prompt": "꽃 온실 콘셉트 — 9단계 온실 통로, 부서=장미 화단,튤립 화단,수국 화단,카네이션 화단, 흐름 토큰 🌸"
+  },
+  {
+   "id": "harbor",
+   "name": "물류 항구",
+   "emoji": "🚢",
+   "bg": "#0f2236",
+   "surface": "#17324f",
+   "ink": "#eef4fb",
+   "muted": "#a9bdd3",
+   "accent": "#ff9f2e",
+   "line": "#2f5272",
+   "plate": "#ff9f2e",
+   "plateInk": "#1b1206",
+   "token": "📦",
+   "hall": "부두 컨베이어",
+   "light": false,
+   "rarity": "rare",
+   "price": 90,
+   "background": "/pm-themes/harbor/bg.svg",
+   "stageIcons": [
+    "/pm-themes/harbor/stage-1.svg",
+    "/pm-themes/harbor/stage-2.svg",
+    "/pm-themes/harbor/stage-3.svg",
+    "/pm-themes/harbor/stage-4.svg",
+    "/pm-themes/harbor/stage-5.svg",
+    "/pm-themes/harbor/stage-6.svg",
+    "/pm-themes/harbor/stage-7.svg",
+    "/pm-themes/harbor/stage-8.svg",
+    "/pm-themes/harbor/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/harbor/dept-1.svg",
+     "label": "파랑 컨테이너"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/harbor/dept-2.svg",
+     "label": "빨강 컨테이너"
+    },
+    "영업부": {
+     "floor": "/pm-themes/harbor/dept-3.svg",
+     "label": "초록 컨테이너"
+    },
+    "수입부": {
+     "floor": "/pm-themes/harbor/dept-4.svg",
+     "label": "노랑 컨테이너"
+    }
+   },
+   "prompt": "물류 항구 콘셉트 — 9단계 부두 컨베이어, 부서=파랑 컨테이너,빨강 컨테이너,초록 컨테이너,노랑 컨테이너, 흐름 토큰 📦"
+  },
+  {
+   "id": "airport",
+   "name": "항공화물",
+   "emoji": "✈️",
+   "bg": "#e8f0fa",
+   "surface": "#ffffff",
+   "ink": "#10213a",
+   "muted": "#43577a",
+   "accent": "#1d5fbf",
+   "line": "#bfd0e8",
+   "plate": "#1d5fbf",
+   "plateInk": "#ffffff",
+   "token": "✈️",
+   "hall": "게이트",
+   "light": true,
+   "rarity": "common",
+   "price": 30,
+   "background": "/pm-themes/airport/bg.svg",
+   "stageIcons": [
+    "/pm-themes/airport/stage-1.svg",
+    "/pm-themes/airport/stage-2.svg",
+    "/pm-themes/airport/stage-3.svg",
+    "/pm-themes/airport/stage-4.svg",
+    "/pm-themes/airport/stage-5.svg",
+    "/pm-themes/airport/stage-6.svg",
+    "/pm-themes/airport/stage-7.svg",
+    "/pm-themes/airport/stage-8.svg",
+    "/pm-themes/airport/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/airport/dept-1.svg",
+     "label": "터미널 A"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/airport/dept-2.svg",
+     "label": "터미널 B"
+    },
+    "영업부": {
+     "floor": "/pm-themes/airport/dept-3.svg",
+     "label": "터미널 C"
+    },
+    "수입부": {
+     "floor": "/pm-themes/airport/dept-4.svg",
+     "label": "화물 터미널"
+    }
+   },
+   "prompt": "항공화물 콘셉트 — 9단계 게이트, 부서=터미널 A,터미널 B,터미널 C,화물 터미널, 흐름 토큰 ✈️"
+  },
+  {
+   "id": "subway",
+   "name": "지하철 노선도",
+   "emoji": "🚇",
+   "bg": "#ffffff",
+   "surface": "#f4f6f8",
+   "ink": "#111111",
+   "muted": "#4a4f57",
+   "accent": "#00843d",
+   "line": "#cfd5dc",
+   "plate": "#111111",
+   "plateInk": "#ffffff",
+   "token": "🚃",
+   "hall": "노선",
+   "light": true,
+   "rarity": "common",
+   "price": 30,
+   "background": "/pm-themes/subway/bg.svg",
+   "stageIcons": [
+    "/pm-themes/subway/stage-1.svg",
+    "/pm-themes/subway/stage-2.svg",
+    "/pm-themes/subway/stage-3.svg",
+    "/pm-themes/subway/stage-4.svg",
+    "/pm-themes/subway/stage-5.svg",
+    "/pm-themes/subway/stage-6.svg",
+    "/pm-themes/subway/stage-7.svg",
+    "/pm-themes/subway/stage-8.svg",
+    "/pm-themes/subway/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/subway/dept-1.svg",
+     "label": "1호선 구역"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/subway/dept-2.svg",
+     "label": "3호선 구역"
+    },
+    "영업부": {
+     "floor": "/pm-themes/subway/dept-3.svg",
+     "label": "5호선 구역"
+    },
+    "수입부": {
+     "floor": "/pm-themes/subway/dept-4.svg",
+     "label": "2호선 구역"
+    }
+   },
+   "prompt": "지하철 노선도 콘셉트 — 9단계 노선, 부서=1호선 구역,3호선 구역,5호선 구역,2호선 구역, 흐름 토큰 🚃"
+  },
+  {
+   "id": "market",
+   "name": "꽃시장 디오라마",
+   "emoji": "🛒",
+   "bg": "#efe6d8",
+   "surface": "#fbf4e8",
+   "ink": "#2a1d12",
+   "muted": "#5e4a38",
+   "accent": "#9c4423",
+   "line": "#d8c6ac",
+   "plate": "#9c4423",
+   "plateInk": "#ffffff",
+   "token": "🛒",
+   "hall": "시장 골목",
+   "light": true,
+   "rarity": "common",
+   "price": 30,
+   "background": "/pm-themes/market/bg.svg",
+   "stageIcons": [
+    "/pm-themes/market/stage-1.svg",
+    "/pm-themes/market/stage-2.svg",
+    "/pm-themes/market/stage-3.svg",
+    "/pm-themes/market/stage-4.svg",
+    "/pm-themes/market/stage-5.svg",
+    "/pm-themes/market/stage-6.svg",
+    "/pm-themes/market/stage-7.svg",
+    "/pm-themes/market/stage-8.svg",
+    "/pm-themes/market/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/market/dept-1.svg",
+     "label": "가동"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/market/dept-2.svg",
+     "label": "나동"
+    },
+    "영업부": {
+     "floor": "/pm-themes/market/dept-3.svg",
+     "label": "다동"
+    },
+    "수입부": {
+     "floor": "/pm-themes/market/dept-4.svg",
+     "label": "수입동"
+    }
+   },
+   "prompt": "꽃시장 디오라마 콘셉트 — 9단계 시장 골목, 부서=가동,나동,다동,수입동, 흐름 토큰 🛒"
+  },
+  {
+   "id": "rpg",
+   "name": "픽셀 마을",
+   "emoji": "🗡️",
+   "bg": "#2d4a27",
+   "surface": "#3a5f33",
+   "ink": "#fffbe8",
+   "muted": "#d9e4c4",
+   "accent": "#ffd23f",
+   "line": "#557a4c",
+   "plate": "#ffd23f",
+   "plateInk": "#2a1e00",
+   "token": "🪙",
+   "hall": "마을 길",
+   "light": false,
+   "rarity": "rare",
+   "price": 90,
+   "background": "/pm-themes/rpg/bg.svg",
+   "stageIcons": [
+    "/pm-themes/rpg/stage-1.svg",
+    "/pm-themes/rpg/stage-2.svg",
+    "/pm-themes/rpg/stage-3.svg",
+    "/pm-themes/rpg/stage-4.svg",
+    "/pm-themes/rpg/stage-5.svg",
+    "/pm-themes/rpg/stage-6.svg",
+    "/pm-themes/rpg/stage-7.svg",
+    "/pm-themes/rpg/stage-8.svg",
+    "/pm-themes/rpg/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/rpg/dept-1.svg",
+     "label": "은행 길드"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/rpg/dept-2.svg",
+     "label": "상인 길드"
+    },
+    "영업부": {
+     "floor": "/pm-themes/rpg/dept-3.svg",
+     "label": "모험가 길드"
+    },
+    "수입부": {
+     "floor": "/pm-themes/rpg/dept-4.svg",
+     "label": "항해 길드"
+    }
+   },
+   "prompt": "픽셀 마을 콘셉트 — 9단계 마을 길, 부서=은행 길드,상인 길드,모험가 길드,항해 길드, 흐름 토큰 🪙"
+  },
+  {
+   "id": "space",
+   "name": "우주정거장",
+   "emoji": "🚀",
+   "bg": "#0b0d1f",
+   "surface": "#171a36",
+   "ink": "#eef0ff",
+   "muted": "#aab0d8",
+   "accent": "#7cf3ff",
+   "line": "#2b3060",
+   "plate": "#7cf3ff",
+   "plateInk": "#06121a",
+   "token": "🛰️",
+   "hall": "도킹 링",
+   "light": false,
+   "rarity": "legendary",
+   "price": 240,
+   "background": "/pm-themes/space/bg.svg",
+   "stageIcons": [
+    "/pm-themes/space/stage-1.svg",
+    "/pm-themes/space/stage-2.svg",
+    "/pm-themes/space/stage-3.svg",
+    "/pm-themes/space/stage-4.svg",
+    "/pm-themes/space/stage-5.svg",
+    "/pm-themes/space/stage-6.svg",
+    "/pm-themes/space/stage-7.svg",
+    "/pm-themes/space/stage-8.svg",
+    "/pm-themes/space/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/space/dept-1.svg",
+     "label": "관제 모듈"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/space/dept-2.svg",
+     "label": "보급 모듈"
+    },
+    "영업부": {
+     "floor": "/pm-themes/space/dept-3.svg",
+     "label": "탐사 모듈"
+    },
+    "수입부": {
+     "floor": "/pm-themes/space/dept-4.svg",
+     "label": "도킹 모듈"
+    }
+   },
+   "prompt": "우주정거장 콘셉트 — 9단계 도킹 링, 부서=관제 모듈,보급 모듈,탐사 모듈,도킹 모듈, 흐름 토큰 🛰️"
+  },
+  {
+   "id": "cyber",
+   "name": "사이버펑크 관제",
+   "emoji": "🌃",
+   "bg": "#0a0a12",
+   "surface": "#151528",
+   "ink": "#f2f2ff",
+   "muted": "#b3b3d6",
+   "accent": "#f9f871",
+   "line": "#2c2c55",
+   "plate": "#ff3fa4",
+   "plateInk": "#1a0010",
+   "token": "◆",
+   "hall": "네온 버스",
+   "light": false,
+   "rarity": "legendary",
+   "price": 240,
+   "background": "/pm-themes/cyber/bg.svg",
+   "stageIcons": [
+    "/pm-themes/cyber/stage-1.svg",
+    "/pm-themes/cyber/stage-2.svg",
+    "/pm-themes/cyber/stage-3.svg",
+    "/pm-themes/cyber/stage-4.svg",
+    "/pm-themes/cyber/stage-5.svg",
+    "/pm-themes/cyber/stage-6.svg",
+    "/pm-themes/cyber/stage-7.svg",
+    "/pm-themes/cyber/stage-8.svg",
+    "/pm-themes/cyber/stage-9.svg"
+   ],
+   "stageNames": [
+    "발주",
+    "입고",
+    "분배",
+    "현장출고",
+    "견적",
+    "거래처전달",
+    "입금",
+    "해외송금",
+    "이익"
+   ],
+   "depts": {
+    "경영지원": {
+     "floor": "/pm-themes/cyber/dept-1.svg",
+     "label": "랙 A"
+    },
+    "영업지원": {
+     "floor": "/pm-themes/cyber/dept-2.svg",
+     "label": "랙 B"
+    },
+    "영업부": {
+     "floor": "/pm-themes/cyber/dept-3.svg",
+     "label": "랙 C"
+    },
+    "수입부": {
+     "floor": "/pm-themes/cyber/dept-4.svg",
+     "label": "랙 D"
+    }
+   },
+   "prompt": "사이버펑크 관제 콘셉트 — 9단계 네온 버스, 부서=랙 A,랙 B,랙 C,랙 D, 흐름 토큰 ◆"
+  }
+ ],
+ "characters": [
+  {
+   "id": "human",
+   "name": "사람",
+   "src": "/pm-themes/characters/human.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "basic",
+   "price": 0
+  },
+  {
+   "id": "cat",
+   "name": "고양이",
+   "src": "/pm-themes/characters/cat.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "common",
+   "price": 30
+  },
+  {
+   "id": "dog",
+   "name": "강아지",
+   "src": "/pm-themes/characters/dog.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "common",
+   "price": 30
+  },
+  {
+   "id": "bunny",
+   "name": "토끼",
+   "src": "/pm-themes/characters/bunny.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "common",
+   "price": 30
+  },
+  {
+   "id": "bear",
+   "name": "곰",
+   "src": "/pm-themes/characters/bear.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "common",
+   "price": 30
+  },
+  {
+   "id": "fox",
+   "name": "여우",
+   "src": "/pm-themes/characters/fox.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "rare",
+   "price": 90
+  },
+  {
+   "id": "penguin",
+   "name": "펭귄",
+   "src": "/pm-themes/characters/penguin.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "rare",
+   "price": 90
+  },
+  {
+   "id": "fairy",
+   "name": "꽃 요정",
+   "src": "/pm-themes/characters/fairy.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "legendary",
+   "price": 240
+  },
+  {
+   "id": "robot",
+   "name": "로봇",
+   "src": "/pm-themes/characters/robot.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "legendary",
+   "price": 240
+  },
+  {
+   "id": "cactus",
+   "name": "선인장",
+   "src": "/pm-themes/characters/cactus.svg",
+   "animations": {
+    "idle": "css:pmc-idle",
+    "working": "css:pmc-working",
+    "off": "css:pmc-off",
+    "error": "css:pmc-error",
+    "handoff": "css:pmc-handoff"
+   },
+   "rarity": "rare",
+   "price": 90
+  }
+ ],
+ "items": [
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "hat.straw",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "밀짚모자",
+   "src": "/pm-themes/items/hat/straw.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "hat.crown",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "왕관",
+   "src": "/pm-themes/items/hat/crown.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "hat.cap",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "야구모자",
+   "src": "/pm-themes/items/hat/cap.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "hat.flowercrown",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "꽃관",
+   "src": "/pm-themes/items/hat/flowercrown.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "hat.beanie",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "비니",
+   "src": "/pm-themes/items/hat/beanie.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "hat.helmet",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "안전모",
+   "src": "/pm-themes/items/hat/helmet.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "hat.chef",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "요리사 모자",
+   "src": "/pm-themes/items/hat/chef.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "hat.pilot",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "기장 모자",
+   "src": "/pm-themes/items/hat/pilot.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "glasses.round",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "동그란 안경",
+   "src": "/pm-themes/items/glasses/round.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "glasses.sun",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "선글라스",
+   "src": "/pm-themes/items/glasses/sun.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "glasses.heart",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "하트 안경",
+   "src": "/pm-themes/items/glasses/heart.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "glasses.visor",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "사이버 바이저",
+   "src": "/pm-themes/items/glasses/visor.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "glasses.monocle",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "외눈 안경",
+   "src": "/pm-themes/items/glasses/monocle.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "glasses.goggle",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "물안경",
+   "src": "/pm-themes/items/glasses/goggle.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "outfit.apron",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "꽃집 앞치마",
+   "src": "/pm-themes/items/outfit/apron.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "outfit.suit",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "정장",
+   "src": "/pm-themes/items/outfit/suit.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "outfit.hoodie",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "후드티",
+   "src": "/pm-themes/items/outfit/hoodie.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "outfit.vest",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "형광 조끼",
+   "src": "/pm-themes/items/outfit/vest.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "outfit.hanbok",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "한복",
+   "src": "/pm-themes/items/outfit/hanbok.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "outfit.spacesuit",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "우주복",
+   "src": "/pm-themes/items/outfit/spacesuit.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "outfit.overall",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "작업복",
+   "src": "/pm-themes/items/outfit/overall.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "desk.vase",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "꽃병",
+   "src": "/pm-themes/items/desk/vase.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "desk.coffee",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "커피잔",
+   "src": "/pm-themes/items/desk/coffee.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "desk.plant",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "다육이",
+   "src": "/pm-themes/items/desk/plant.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "desk.calc",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "계산기",
+   "src": "/pm-themes/items/desk/calc.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "desk.globe",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "지구본",
+   "src": "/pm-themes/items/desk/globe.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "desk.box",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "택배상자",
+   "src": "/pm-themes/items/desk/box.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "desk.trophy",
+   "category": "desk",
+   "categoryLabel": "책상 소품",
+   "name": "트로피",
+   "src": "/pm-themes/items/desk/trophy.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "pet.kitten",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 고양이",
+   "src": "/pm-themes/items/pet/kitten.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "pet.puppy",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 강아지",
+   "src": "/pm-themes/items/pet/puppy.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "pet.bee",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "꿀벌",
+   "src": "/pm-themes/items/pet/bee.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "pet.butterfly",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "나비",
+   "src": "/pm-themes/items/pet/butterfly.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "pet.chick",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "병아리",
+   "src": "/pm-themes/items/pet/chick.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "pet.fish",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "어항 물고기",
+   "src": "/pm-themes/items/pet/fish.svg"
+  },
+  {
+   "rarity": "rare",
+   "price": 90,
+   "id": "badge.star",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "별 배지",
+   "src": "/pm-themes/items/badge/star.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "badge.rose",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "장미 배지",
+   "src": "/pm-themes/items/badge/rose.svg"
+  },
+  {
+   "rarity": "legendary",
+   "price": 240,
+   "id": "badge.mvp",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "MVP 배지",
+   "src": "/pm-themes/items/badge/mvp.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "badge.heart",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "하트 배지",
+   "src": "/pm-themes/items/badge/heart.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "badge.flagco",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "콜롬비아",
+   "src": "/pm-themes/items/badge/flagco.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "badge.flagnl",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "네덜란드",
+   "src": "/pm-themes/items/badge/flagnl.svg"
+  },
+  {
+   "rarity": "common",
+   "price": 30,
+   "id": "badge.flagcn",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "중국",
+   "src": "/pm-themes/items/badge/flagcn.svg"
+  }
+ ],
+ "rarityPrice": {
+  "basic": 0,
+  "common": 30,
+  "rare": 90,
+  "legendary": 240
+ }
+}

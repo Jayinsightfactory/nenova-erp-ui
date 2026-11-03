@@ -3,6 +3,7 @@
 // 데이터: GET /api/pm/office (사장님 PC 가 ~1분마다 name=pm-office 로 올리는 runtime JSON). 읽기 전용.
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Avatar, CustomizePanel, PmThemeCtx, ThemePicker, usePmTheme, usePmThemeState } from '../components/pm/PmTheme';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
@@ -51,15 +52,17 @@ function ago(iso, now) {
 function fmtAge(sec) { if (sec == null) return '없음'; if (sec < 60) return `${sec}초`; if (sec < 3600) return `${Math.floor(sec / 60)}분`; return `${Math.floor(sec / 3600)}시간`; }
 const arr = (x) => (Array.isArray(x) ? x : []);
 
-function Sprite({ status, color, robot }) {
+function Sprite({ status, color, robot, avatar }) {
   const st = STATUS_LABEL[status] ? status : 'off';
   return (
     <div className={`sprite st-${st}`} aria-hidden>
-      <div className="head" style={{ background: robot ? '#b8c4d6' : '#f2c9a0' }}>
-        {robot ? <div className="antenna" /> : <div className="hair" />}
-        <div className="eyes" />
-      </div>
-      <div className="body" style={{ background: color }} />
+      {avatar ? <Avatar cfg={avatar} state={st} size={40} className="sav" /> : <>
+        <div className="head" style={{ background: robot ? '#b8c4d6' : '#f2c9a0' }}>
+          {robot ? <div className="antenna" /> : <div className="hair" />}
+          <div className="eyes" />
+        </div>
+        <div className="body" style={{ background: color }} />
+      </>}
       <div className="desk"><div className="monitor"><div className="screen" /></div><div className="kb"><i className="hand l" /><i className="hand r" /></div></div>
       {st === 'idle' && <div className="zzz">z<span>z</span><b>z</b></div>}
       {st === 'error' && <div className="bang">!</div>}
@@ -68,6 +71,7 @@ function Sprite({ status, color, robot }) {
 }
 
 function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty, onOpen, deskId }) {
+  const { avatars } = usePmTheme();
   const st = empty ? 'off' : (STATUS_LABEL[status] ? status : 'off');
   const tip = [name, STATUS_LABEL[st], sub, activity, ago(lastAt, now), extra].filter(Boolean).join(' · ');
   const showBubble = activity && st !== 'off';
@@ -76,7 +80,7 @@ function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty, o
       {...(onOpen ? { role: 'button', tabIndex: 0, onClick: onOpen, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } } } : {})}>
       <div className={`bubble ${showBubble ? '' : 'none'}`}>{showBubble ? activity : ''}</div>
       {empty ? <div className="sprite st-off"><div className="desk"><div className="monitor"><div className="screen" /></div></div></div>
-        : <Sprite status={st} color={hashColor(name)} robot={robot} />}
+        : <Sprite status={st} color={hashColor(name)} robot={robot} avatar={robot ? null : avatars[name]} />}
       <div className="nm">{name || '?'}</div>
       <div className={`chip chip-${empty ? 'empty' : st}`}>{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
     </div>
@@ -197,14 +201,15 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
           <button type="button" className="x" onClick={onClose} aria-label="닫기">×</button>
         </div>
         <div className="tabs" role="tablist">
-          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그']].map(([k, l]) => (
+          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기']].map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
-          {!d && !err && <p className="muted">불러오는 중…</p>}
-          {noData && tab !== 'now' && tab !== 'time' && <p className="muted">관찰 데이터 없음</p>}
+          {tab === 'look' && <CustomizePanel name={name} />}
+          {!d && !err && tab !== 'look' && <p className="muted">불러오는 중…</p>}
+          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && <p className="muted">관찰 데이터 없음</p>}
           {d && !noData && tab === 'auto' && (
             <div>
               <div className="sum">
@@ -551,6 +556,7 @@ function WorkLogPanel({ workLog, onOpenPerson }) {
 
 // 사슬 노드 사이 연결선: 복도 연결선과 같은 선·흐르는 점(reduced-motion 시 점 없음). 굵기=lineWidth(넘김 수).
 function ChainLink({ link, toStage, maxN, reduced }) {
+  const { theme } = usePmTheme();
   const n = link.items.length;
   const c = link.external ? '#9aa3b8' : STAGE_COLOR[toStage];
   const tip = link.external ? '현장팀은 PC 데이터 없음 — 넘김 확인 불가'
@@ -561,14 +567,16 @@ function ChainLink({ link, toStage, maxN, reduced }) {
       <svg height="14" viewBox="0 0 40 14" preserveAspectRatio="none" aria-hidden>
         <path d="M1,7 L33,7" fill="none" stroke={c} strokeWidth={n ? lineWidth(n, maxN) : 2} strokeOpacity={n ? 0.95 : 0.35} strokeDasharray={link.external ? '3 3' : undefined} strokeLinecap="round" />
         <path d="M32,2 L39,7 L32,12" fill="none" stroke={c} strokeWidth="2" strokeOpacity={n ? 0.95 : 0.5} />
-        {n > 0 && !reduced && <circle r="2.6" fill={c} stroke="#0e1018" strokeWidth="1"><animateMotion dur="2.4s" repeatCount="indefinite" path="M1,7 L33,7" /></circle>}
+        {n > 0 && !reduced && !theme && <circle r="2.6" fill={c} stroke="#0e1018" strokeWidth="1"><animateMotion dur="2.4s" repeatCount="indefinite" path="M1,7 L33,7" /></circle>}
       </svg>
+      {n > 0 && theme && <span className={`ftok ${reduced ? 'still' : ''}`} aria-hidden>{theme.token}</span>}
       {n > 0 && <span className="cn" style={{ '--sc': c }}><i>넘김 </i>{n}</span>}
     </div>
   );
 }
 
 function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
+  const { avatars } = usePmTheme();
   const chains = chainView(workLog, handoffs);
   const maxN = Math.max(1, ...chains.flatMap((c) => c.links.map((l) => l.items.length)));
   return (
@@ -597,6 +605,7 @@ function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
         <ul className="hlist">{handoffs.slice(0, 6).map((h, i) => (
           <li key={i} title={h.basis}>
             <span className="est">추정</span>
+            {avatars[h.a.name] && <Avatar cfg={avatars[h.a.name]} state={reduced ? 'idle' : 'handoff'} size={22} />}
             <button type="button" className="pp" onClick={() => onOpenPerson(h.a.name)}>{h.a.name} {h.country} {h.a.stage} {kstHM(h.a.at)}</button>
             <span aria-hidden>→</span>
             <button type="button" className="pp" onClick={() => onOpenPerson(h.b.name)}>{h.b.name} {h.country} {h.b.stage} {kstHM(h.b.at)}</button>
@@ -619,6 +628,7 @@ export default function PmOffice() {
   const [tip, setTip] = useState(null);
   const onTip = useCallback((l, toggle) => setTip((cur) => (toggle && cur && cur.name === l.name && cur.stage === l.stage ? null : l)), []);
   const [reduced, setReduced] = useState(false);
+  const pmTheme = usePmThemeState();
   const floorRef = useRef(null);
   useEffect(() => { const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)'); if (!mq) return undefined; const f = () => setReduced(mq.matches); f(); mq.addEventListener?.('change', f); return () => mq.removeEventListener?.('change', f); }, []);
   const openPerson = useCallback((n, tab = 'auto') => { setSelTab(tab); setSel(n); }, []);
@@ -685,13 +695,16 @@ export default function PmOffice() {
   const working = agents.filter((a) => a.status === 'working').length + staff.filter((s) => s.status === 'working').length;
 
   return (
-    <div className="pm">
+    <PmThemeCtx.Provider value={pmTheme.ctx}>
+    <div className="pm" data-theme={pmTheme.themeId}>
+      {pmTheme.css && <style>{pmTheme.css}</style>}
       <header className="top">
         <MenuBackButton />
         <h1>PM 사무실</h1>
         <span className={`badge ${mode}`}>{mode === 'live' ? '실행' : '그림자'}</span>
         <span className={`badge age ${stale ? 'warn' : ''}`}>데이터 {fmtAge(ageSec)} 전{stale ? ' · 갱신 끊김?' : ''}</span>
         <span className="badge plain">작업중 {working}</span>
+        <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
       {ts?.data && (
@@ -736,8 +749,8 @@ export default function PmOffice() {
           </div>
           <div className="wing">
             {visibleRooms.map((r) => (
-              <section key={r.dept} className="room dept" style={{ background: ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
-                <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small></div>
+              <section key={r.dept} className="room dept" data-dept={r.dept} style={{ background: ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
+                <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small>{pmTheme.ctx.theme?.depts?.[r.dept]?.label ? <small className="tlabel"> · {pmTheme.ctx.theme.depts[r.dept].label}</small> : null}</div>
                 <Table seats={r.seats} render={(x, i) => (
                   <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status} deskId={x.empty ? undefined : x.name} onOpen={x.empty ? undefined : () => openPerson(x.name)}
                     activity={x.workLabel || arr(x.recent).find((r) => r?.label)?.label || (x.app ? `${x.app} 사용 중` : '')} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
@@ -967,7 +980,26 @@ export default function PmOffice() {
         @keyframes pmz { 0% { opacity: 0; transform: translateY(4px); } 50% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
         @keyframes pmbang { 50% { opacity: .3; } }
         @media (prefers-reduced-motion: reduce) { .sprite * { animation: none !important; } }
+        .pm .tpick { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; }
+        .pm .tpick select { min-height: 32px; max-width: 168px; border-radius: 8px; border: 1px solid #8d93a6; background: #fff; color: #1b1f2a; font: inherit; padding: 0 6px; }
+        .pav { position: relative; display: inline-block; flex: none; vertical-align: middle; }
+        .pav img, .pav .pbody { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .sprite .sav { position: absolute; left: 12px; top: -1px; }
+        .pav.pmc-working .pbody { animation: pmcw .5s steps(2) infinite; }
+        .pav.pmc-idle .pbody { transform-origin: 50% 100%; animation: pmci 3s ease-in-out infinite; }
+        .pav.pmc-off { filter: grayscale(1) brightness(.7); }
+        .pav.pmc-error .pbody { animation: pmce .25s linear infinite; }
+        .pav.pmc-handoff .pbody { animation: pmch .6s steps(2) infinite; }
+        .pm .clink .ftok { position: absolute; top: -5px; left: 0; font-size: 11px; line-height: 1; z-index: 8; animation: pmft 2.4s linear infinite; }
+        .pm .clink .ftok.still { animation: none; left: 30%; }
+        @keyframes pmcw { 50% { transform: translateY(-1.5px); } }
+        @keyframes pmci { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+        @keyframes pmce { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+        @keyframes pmch { 0% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-2px) rotate(4deg); } }
+        @keyframes pmft { from { left: 0; } to { left: calc(100% - 12px); } }
+        @media (prefers-reduced-motion: reduce) { .pav, .pav *, .pm .clink .ftok { animation: none !important; } }
       `}</style>
     </div>
+    </PmThemeCtx.Provider>
   );
 }
