@@ -1,3 +1,4 @@
+- [2026-11-03 공식 관세·27차 중국 운임·26~31 검산](2026-11-03_official-duty-freight.md) — DB 쓰기0,91조건부·숫자12개±1만원(미완전11/빈칸2/운임655·917차이별도),로컬전체gate/build PASS·PR/배포대기,브라우저disabled.
 - [2026-11-02 원가 레퍼런스 판매가·손익 자동 계산](2026-11-02_cost-sales-defaults.md)
 - [2026-11-02 이카운트 반복 조회 감소](2026-11-02_ecount-read-reduction.md)
 - [2026-11-02 분배 업로드 12분 결과 미확인 복구](2026-11-02_import-timeout-recovery.md)
