@@ -94,12 +94,15 @@
   function mutate(action, fields, done) {
     if (busy || !owner || !snapshot) return;
     if (pending) { setError('이전 저장 결과를 먼저 다시 시도해 확인해 주세요. 입력은 유지됩니다.'); return; }
-    pending = { command: { action, expectedRevision: snapshot.revision, requestId: crypto.randomUUID(), date: selectedDate, ...fields }, done };
+    const target = fields.taskId && snapshot.tasks.find(task => rowKey(task) === String(fields.taskId) + '|' + fields.date);
+    pending = { command: { action, expectedRevision: snapshot.revision, requestId: crypto.randomUUID(), date: selectedDate, ...fields }, done,
+      baseline: target ? taskFingerprint(target) : null, retries: 0 };
     draftSignal();
     void sendPending();
   }
   async function sendPending() {
     if (!pending || busy || !owner) return;
+    let retryUnchanged = false;
     const request = pending, ticket = epoch; readGeneration++; querying = false; busy = true; lock(); renderTasks(); setError('');
     try { const data = await invoke({ method: 'POST', command: request.command });
       if (ticket !== epoch) return;
@@ -109,11 +112,21 @@
       // Mutations of carried occurrences may return that original date: reload the selected view.
       busy = false; querying = false; await load();
     } catch (e) { if (ticket !== epoch) return; setError((e.conflict ? '다른 창에서 변경했습니다. 최신 자료를 읽고 입력은 유지합니다. ' : '') + (e.message || '저장 실패') + ' 다시 시도해 주세요.');
-      if (e.conflict) { busy = false; await load(); if (pending === request && snapshot) request.command = { ...request.command, expectedRevision: snapshot.revision, requestId: crypto.randomUUID() }; }
-    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing) focusTask(request.command.taskId); draftSignal(); schedule(); } }
+      if (e.conflict) {
+        busy = false; await load();
+        if (pending === request && snapshot) {
+          const current = request.command.taskId && snapshot.tasks.find(task => rowKey(task) === String(request.command.taskId) + '|' + request.command.date);
+          const unchanged = request.command.taskId ? current && taskFingerprint(current) === request.baseline : true;
+          if (unchanged && request.retries < 1 && snapshot.revision !== request.command.expectedRevision) {
+            request.retries++; request.command = { ...request.command, expectedRevision: snapshot.revision, requestId: crypto.randomUUID() }; retryUnchanged = true;
+          }
+        }
+      }
+    } finally { if (ticket === epoch) { busy = false; lock(); renderTasks(); if (!pending && request.command.taskId && !editing) focusTask(request.command.taskId); draftSignal(); schedule(); if (retryUnchanged) queueMicrotask(() => void sendPending()); } }
   }
   function renderData() { status.textContent = '마지막 갱신 ' + stamp(snapshot.syncedAt) + ' · 홈 표시 중 30초마다 확인'; renderTasks(); renderFeeds(); lock(); }
   function rowKey(task) { return String(task.id) + '|' + (task.occurrenceDate || selectedDate); }
+  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.occurrenceDate, !!task.done, !!task.archived, !!task.stopped]); }
   function focusTask(id) { [...rows.querySelectorAll('.hw-task')].find(r => r.dataset.task.startsWith(String(id) + '|'))?.querySelector('button:not(:disabled),input:not(:disabled)')?.focus(); }
   function taskFields(task) { return { taskId: task.id, date: task.occurrenceDate || selectedDate }; }
   function renderTasks() {
