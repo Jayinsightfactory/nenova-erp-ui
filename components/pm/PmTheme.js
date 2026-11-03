@@ -1,6 +1,7 @@
 // components/pm/PmTheme.js
 // /pm 테마 선택기 · 캐릭터 아바타 · 꾸미기 패널. 에셋/목록은 public/pm-themes/manifest.json.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Button, SelectCard, ToggleChip } from './ui';
 import { PM_DEFAULT_THEME, readStoredTheme, storeTheme, themeCss } from '../../lib/pmThemes';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null });
@@ -89,15 +90,15 @@ export function CustomizePanel({ name }) {
       <div className="czprev">
         <Avatar cfg={cfg} state={st} size={112} />
         <div className="czst" role="group" aria-label="미리보기 상태">
-          {manifest.states.map((s) => <button key={s} type="button" className={st === s ? 'on' : ''} onClick={() => setSt(s)}>{({ idle: '대기', working: '작업중', off: '꺼짐', error: '오류', handoff: '넘김' })[s] || s}</button>)}
+          {manifest.states.map((s) => <ToggleChip key={s} on={st === s} onClick={() => setSt(s)}>{({ idle: '대기', working: '작업중', off: '꺼짐', error: '오류', handoff: '넘김' })[s] || s}</ToggleChip>)}
         </div>
       </div>
       <h3>캐릭터 <small>{manifest.characters.length}종</small></h3>
       <div className="czgrid">
         {manifest.characters.map((c) => (
-          <button key={c.id} type="button" className={`czopt ${cfg.char === c.id ? 'on' : ''}`} aria-pressed={cfg.char === c.id} onClick={() => setCfg((x) => ({ ...x, char: c.id }))}>
+          <SelectCard key={c.id} className="czopt" on={cfg.char === c.id} pressed={cfg.char === c.id} onClick={() => setCfg((x) => ({ ...x, char: c.id }))}>
             <img src={c.src} alt="" loading="lazy" /><span>{c.name}</span><Price x={c} />
-          </button>
+          </SelectCard>
         ))}
       </div>
       {SLOTS.map(([slot, label]) => {
@@ -107,31 +108,28 @@ export function CustomizePanel({ name }) {
             <h3>{label} <small>{list.length}</small></h3>
             <div className="czgrid">
               {list.map((x) => (
-                <button key={x.id} type="button" className={`czopt ${cfg.items[slot] === x.id ? 'on' : ''}`} aria-pressed={cfg.items[slot] === x.id} onClick={() => setItem(slot, x.id)}>
+                <SelectCard key={x.id} className="czopt" on={cfg.items[slot] === x.id} pressed={cfg.items[slot] === x.id} onClick={() => setItem(slot, x.id)}>
                   <img src={x.src} alt="" loading="lazy" /><span>{x.name}</span><Price x={x} />
-                </button>
+                </SelectCard>
               ))}
             </div>
           </div>
         );
       })}
       <div className="czact">
-        <button type="button" className="czsave" disabled={busy} onClick={() => doSave({ char: cfg.char, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '저장'}</button>
-        <button type="button" className="czreset" disabled={busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</button>
+        <Button variant="primary" loading={busy} onClick={() => doSave({ char: cfg.char, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '저장'}</Button>
+        <Button disabled={busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</Button>
         {msg && <span className="czmsg" role="status">{msg}</span>}
       </div>
       <style jsx global>{`
         .drawer .cz h3 { color: #1b1f2a; margin: 12px 0 6px; font-size: 13px; } .drawer .cz small { color: #4a5263; font-weight: normal; }
         .cz .czprev { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #fff; border: 1px solid #d6dae3; border-radius: 8px; padding: 10px; }
         .cz .czst { display: flex; flex-wrap: wrap; gap: 4px; }
-        .cz .czst button, .cz .czreset { min-height: 32px; padding: 0 10px; border: 1px solid #c4cad6; background: #fff; color: #1b1f2a; border-radius: 8px; font: inherit; cursor: pointer; }
-        .cz .czst button.on { background: #1b1f2a; color: #fff; }
         .cz .czgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
         .cz .czopt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; min-height: 72px; background: #fff; color: #1b1f2a; border: 2px solid #d6dae3; border-radius: 8px; font: inherit; font-size: 11px; cursor: pointer; }
         .cz .czopt img { width: 40px; height: 40px; }
         .cz .czopt.on { border-color: #1d5fbf; background: #eaf2ff; }
         .cz .czact { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 0; background: #f6f7fa; }
-        .cz .czsave { min-height: 36px; padding: 0 18px; background: #1d5fbf; color: #fff; border: 0; border-radius: 8px; font: inherit; font-weight: bold; cursor: pointer; }
         .cz .czr { font-size: 10px; border-radius: 6px; padding: 0 4px; background: #e6e9ef; color: #1b1f2a; }
         .cz .czr.r-rare { background: #dbe8ff; color: #0f3a80; } .cz .czr.r-legendary { background: #fff0c2; color: #5c3d00; }
         .cz .czmsg { font-size: 12px; color: #1b1f2a; }
