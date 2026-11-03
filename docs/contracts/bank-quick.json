@@ -6,6 +6,7 @@
     "lib/bankQuick/schema.js",
     "lib/bankQuick/loader.js",
     "lib/bankQuick/credentials.js",
+    "lib/bankQuick/xlsx.js",
     "scripts/bank-quick/probe-nh.mjs",
     "scripts/bank-quick/collect.mjs",
     "scripts/bank-quick/register-account.ps1",

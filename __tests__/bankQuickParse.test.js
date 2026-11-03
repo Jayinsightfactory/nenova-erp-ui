@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { maskAccountNo, parseAmount, parseDateTime, parseTxnTable, withHashes, computeRowHash, isDate } from '../lib/bankQuick/core.js';
+import XLSX from 'xlsx';
+import { parseBankXlsx } from '../lib/bankQuick/xlsx.js';
+import { monthChunks, maskAccountNo, parseAmount, parseDateTime, parseTxnTable, withHashes, computeRowHash, isDate } from '../lib/bankQuick/core.js';
 
 // 마스킹: 앞3·뒤4 만 노출
 const m = maskAccountNo('3021234567891');
@@ -45,6 +47,27 @@ const th = parseTxnTable(H, [
 assert.deepEqual(th.txns.map((x) => [x.type, x.amount, x.balance]), [['deposit', 1000000, 5000000], ['withdrawal', 300000, 4700000]]);
 assert.equal(th.txns[0].counterparty, '샘플화훼');
 assert.equal(th.txns[0].raw['거래일련번호'], '1');
+
+// 월 분할 + 하나은행 엑셀 → bank.Txn 매핑
+assert.deepEqual(monthChunks('2024-01-15', '2024-03-10'), [['2024-01-15', '2024-01-31'], ['2024-02-01', '2024-02-29'], ['2024-03-01', '2024-03-10']]);
+assert.deepEqual(monthChunks('2026-11-03', '2026-11-03'), [['2026-11-03', '2026-11-03']]);
+const XH = ['거래일시', '적요', '메모', '의뢰인/수취인', '입금', '출금', '거래후잔액', '구분', '거래점', '거래일련번호', '상세일련번호', '거래일자', '거래시각', '거래금액'];
+const aoa = [['거래내역조회'], ['조회기간 : 2024-01-01 ~ 2024-01-31'], XH,
+  ['2024-01-02 09:10', '전자금융', '', '샘플화훼', '1,000,000', '', '5,000,000', '입금', '본점', 'S1', 'D1', '20240102', '0910', '1000000'],
+  ['2024-01-03 11:00', 'CD', '', '', '', '250,000', '4,750,000', '출금', '지점', 'S2', 'D1', '20240103', '1100', '250000'],
+  ['', '', '', '', '', '', '', '', '', '', '', '', '', '']];
+const xb = XLSX.write((() => { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Sheet1'); return wb; })(), { type: 'buffer', bookType: 'xlsx' });
+const px = parseBankXlsx(xb);
+assert.deepEqual(px.headers, XH);
+assert.equal(px.rows.length, 2);
+const tx = parseTxnTable(px.headers, px.rows);
+assert.deepEqual(tx.txns.map((x) => [x.txnDate, x.txnTime, x.type, x.amount, x.balance]), [['2024-01-02', '09:10:00', 'deposit', 1000000, 5000000], ['2024-01-03', '11:00:00', 'withdrawal', 250000, 4750000]]);
+assert.equal(tx.txns[0].raw['거래일련번호'], 'S1');
+assert.ok(/^384\*+4104$/.test(maskAccountNo('384-890024-54104')) && !maskAccountNo('384-890024-54104').includes('890024'));
+// 화면 그리드(DOM 폴백) 12열 헤더
+const g = parseTxnTable(['', 'No', '', '거래일시', '적요', '의뢰인/수취인', '통화', '입금', '출금', '잔액', '구분', '거래점'], [['', '1', '', '2024-01-02 09:10', '전자금융', '샘플화훼', 'KRW', '1,000,000', '0', '5,000,000', '입금', '본점']]);
+assert.equal(g.txns.length, 1);
+assert.equal(g.txns[0].type, 'deposit');
 
 // 해시: 결정적·계좌별 상이·동일행 순번 구분
 const a = withHashes(1, [t1.txns[0], t1.txns[0], t1.txns[1]]);

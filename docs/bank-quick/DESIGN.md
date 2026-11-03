@@ -23,6 +23,12 @@
 - 로그인 후 조회 버튼·IBSheet 읽기 부분은 실화면 미검증(첫 실행은 --dry-run). 농협 probe 는 중단(참고용).
 - register-account.ps1/DPAPI 는 하나은행엔 불필요하며 빠른조회 은행(농협·국민 등)용 선택 사항이다.
 
+### 하나은행 실측 확정(2026-11-03, 로그인 세션)
+- 폼 form[name=wcdep700r16iForm], 날짜 input sInqStrDt/sInqEndDt 는 YYYY-MM-DD, 건수 라디오 sRqstNcnt=100, 조회 버튼은 폼 컨테이너 범위의 button.btn.action-level1(GNB '조회' 와 혼동 금지). 완료 판정=화면의 '조회기간 : A ~ B 조회일시' 텍스트 변경.
+- 과거 기간 제한 없음(2024-01 직접입력 조회 성공) → 월 단위 루프(monthChunks).
+- 수집 1순위=전체엑셀다운로드(헤더 그대로 RawJson 보존), 2순위=그리드 DOM 페이지네이션(12열, 100건/페이지, 다음=a.grid_btn.layer).
+- 계좌는 --account 전체번호로 드롭다운 항목 클릭(번호 미저장·로그는 마스킹). 세션은 5분마다 '연장' 클릭로 유지, 로그인 페이지로 튕기면 사람 로그인 대기. 기본 channel=chrome.
+
 ## 보안 원칙
 - 자격증명은 `%USERPROFILE%\.nenova\bank-credentials.dpapi`(DPAPI CurrentUser)에만. 등록은 `register-account.ps1`(Read-Host -AsSecureString, 값 미출력). 코드·로그·커밋·DB에 계좌번호/비밀번호/사업자번호 원문 금지.
 - DB에는 마스킹(앞3·뒤4)과 RowHash(sha256)만. 캡차·보안키패드 우회 금지: 키패드가 자동 입력을 막으면 '불가'로 보고한다.
