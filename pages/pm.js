@@ -979,6 +979,14 @@ export default function PmOffice() {
         .pm .tpick select { min-height: 32px; max-width: 168px; border-radius: 8px; border: 1px solid #8d93a6; background: #fff; color: #1b1f2a; font: inherit; padding: 0 6px; }
         .pav { position: relative; display: inline-block; flex: none; vertical-align: middle; }
         .pav img, .pav .pbody { position: absolute; inset: 0; width: 100%; height: 100%; }
+        /* 아이템은 단독 아이콘(Higgsfield 생성)이라 캐릭터 위 자리를 부위별로 잡는다 */
+        .pav .pbody { z-index: 1; } .pav img.it { inset: auto; object-fit: contain; }
+        .pav img.it-hat { width: 56%; height: 56%; left: 22%; top: -16%; }
+        .pav img.it-glasses { width: 44%; height: 44%; left: 28%; top: 14%; }
+        .pav img.it-outfit { width: 52%; height: 52%; left: 24%; top: 50%; }
+        .pav img.it-badge { width: 18%; height: 18%; left: 52%; top: 62%; }
+        .pav img.it-desk { width: 34%; height: 34%; right: -10%; bottom: -2%; z-index: 2; }
+        .pav img.it-pet { width: 34%; height: 34%; left: -12%; bottom: -2%; z-index: 2; }
         .sprite .sav { position: absolute; left: 12px; top: -1px; }
         .pav.pmc-working .pbody { animation: pmcw .5s steps(2) infinite; }
         .pav.pmc-idle .pbody { transform-origin: 50% 100%; animation: pmci 3s ease-in-out infinite; }
