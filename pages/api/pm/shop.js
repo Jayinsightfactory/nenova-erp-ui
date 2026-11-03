@@ -1,0 +1,29 @@
+// pages/api/pm/shop.js — /pm 토큰 지갑·상점. 게이트는 /api/pm/office 와 동일(아니면 404).
+//   GET            → { balances: {직원: 잔액}, themes: 팀 해금 상태, team }
+//   GET ?name=     → 그 직원 지갑(적립·잔액·적립 내역·구매 내역·보유)
+//   POST {name,id} → 구매(잔액 검증 후 기록). 지금은 로그인↔직원 매핑이 없어 관리자(사장님) 대리 구매만 — by 에 기록.
+// 적립은 lib/pmGrow(서버 계산) 그대로, 가격은 서버 manifest. 파일 전용(MSSQL 무관).
+import { verifyReqUser } from '../../../lib/auth';
+import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
+import { readGrowState } from '../../../lib/pmGrowStore';
+import { buy, readManifest, readShop, teamEarned, themeUnlocks, walletOf } from '../../../lib/pmWallet';
+
+export default async function handler(req, res) {
+  const user = await verifyReqUser(req, res);
+  if (!isOrbitReportViewer(user)) return res.status(404).json({ success: false, error: 'Not found' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  const grow = readGrowState();
+  const manifest = readManifest();
+  if (req.method === 'GET') {
+    const shop = readShop();
+    const name = String(req.query.name || '').trim().slice(0, 40);
+    if (name) return res.status(200).json({ success: true, wallet: walletOf(name, grow, shop) });
+    const balances = {};
+    for (const n of Object.keys(grow?.people || {})) balances[n] = walletOf(n, grow, shop).balance;
+    return res.status(200).json({ success: true, balances, team: teamEarned(grow), themes: themeUnlocks(manifest, grow) });
+  }
+  if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ success: false, error: 'Method not allowed' }); }
+  const r = buy({ ...(req.body || {}), by: user.userId || user.UserID || '' }, { growState: grow, manifest });
+  if (!r.ok) return res.status(r.status).json({ success: false, error: r.error });
+  return res.status(200).json({ success: true, duplicate: !!r.duplicate, wallet: r.wallet });
+}

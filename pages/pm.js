@@ -4,7 +4,7 @@
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, IconButton, LinkButton, PersonChip, PmUiStyles, SelectCard, Tabs, ToggleChip } from '../components/pm/ui';
-import { Avatar, CustomizePanel, PmThemeCtx, ThemePicker, usePmTheme, usePmThemeState } from '../components/pm/PmTheme';
+import { Avatar, CustomizePanel, PmThemeCtx, ThemePicker, TokenBadge, WalletPanel, usePmTheme, usePmThemeState } from '../components/pm/PmTheme';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
@@ -84,7 +84,7 @@ function Seat({ name, sub, status, activity, lastAt, now, robot, extra, empty, o
       {empty ? <div className="sprite st-off"><div className="desk"><div className="monitor"><div className="screen" /></div></div></div>
         : <Sprite status={st} color={hashColor(name)} robot={robot} avatar={robot ? null : avatars[name]} />}
       {!empty && !robot && <DeskPot name={name} />}
-      <div className="nm">{name || '?'}</div>
+      <div className="nm">{name || '?'}{!robot && !empty && <TokenBadge name={name} />}</div>
       <div className={`chip chip-${empty ? 'empty' : st}`}>{empty ? '빈 자리' : STATUS_LABEL[st]}{!empty && lastAt ? ` · ${ago(lastAt, now)}` : ''}</div>
     </div>
   );
@@ -204,13 +204,14 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
           <IconButton className="x" label="닫기" onClick={onClose} />
         </div>
         <Tabs className="tabs" label="직원 상세 탭" value={tab} onChange={setTab}
-          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기'], ['grow', '키우기']]} />
+          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기'], ['wallet', '상점·지갑'], ['grow', '키우기']]} />
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
           {tab === 'look' && <CustomizePanel name={name} />}
           {tab === 'grow' && <GrowTab name={name} />}
-          {!d && !err && tab !== 'look' && tab !== 'grow' && <p className="muted">불러오는 중…</p>}
-          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && tab !== 'grow' && <p className="muted">관찰 데이터 없음</p>}
+          {tab === 'wallet' && <WalletPanel name={name} />}
+          {!d && !err && tab !== 'look' && tab !== 'grow' && tab !== 'wallet' && <p className="muted">불러오는 중…</p>}
+          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && tab !== 'grow' && tab !== 'wallet' && <p className="muted">관찰 데이터 없음</p>}
           {d && !noData && tab === 'auto' && (
             <div>
               <div className="sum">
@@ -977,6 +978,7 @@ export default function PmOffice() {
         @media (prefers-reduced-motion: reduce) { .sprite * { animation: none !important; } }
         .pm .tpick { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; }
         .pm .tpick select { min-height: 32px; max-width: 168px; border-radius: 8px; border: 1px solid #8d93a6; background: #fff; color: #1b1f2a; font: inherit; padding: 0 6px; }
+        .pm .nm .tokb { margin-left: 4px; padding: 0 5px; font-size: 10px; font-weight: normal; vertical-align: 1px; background: #ffe7a3; color: #4a3200; }
         .pav { position: relative; display: inline-block; flex: none; vertical-align: middle; }
         .pav img, .pav .pbody { position: absolute; inset: 0; width: 100%; height: 100%; }
         /* 아이템은 단독 아이콘(Higgsfield 생성)이라 캐릭터 위 자리를 부위별로 잡는다 */
