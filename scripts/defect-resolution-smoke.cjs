@@ -37,7 +37,11 @@ const fs=require('node:fs'); const os=require('node:os'); const path=require('no
  await page.type('input[aria-label="검증업체2 단가"]','12500');await click('단가 저장하고 재검사');
  await page.waitForFunction(()=>document.body.innerText.includes('정상 1건 등록하기'));assert.equal(savedCost,true);
  await click('업체·품목 매칭 / 수량 수정');
- await page.waitForSelector('input[aria-label="업체 품목 검색"]');await page.type('input[aria-label="업체 품목 검색"]','매칭완료');await click('검색');
+ await page.waitForSelector('input[aria-label="업체 품목 검색"]');
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='업체 품목 검색');
+ await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'업체 품목 검색');
+ await page.keyboard.press('Escape');await page.waitForSelector('input[aria-label="업체 품목 검색"]',{hidden:true});assert.match(await page.evaluate(()=>document.activeElement.textContent),/업체·품목 매칭/);
+ await page.keyboard.press('Enter');await page.waitForSelector('input[aria-label="업체 품목 검색"]');await page.type('input[aria-label="업체 품목 검색"]','매칭완료');await click('검색');
  await page.waitForFunction(()=>document.body.innerText.includes('매칭완료품목'));await click('매칭완료품목');await click('수정 저장하고 재검사');
  await page.waitForFunction(()=>document.body.innerText.includes('정상 2건 등록하기'));assert.equal(savedMatch,true);
  await click('같은 신고입니다');await page.waitForFunction(()=>document.body.innerText.includes('정상 3건 등록하기'));
