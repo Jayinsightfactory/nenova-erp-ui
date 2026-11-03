@@ -13,6 +13,53 @@ const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'),
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
 
+test('farm lookup surfaces failures, rejects malformed responses, and ignores aborted results', async () => {
+  const start = source.lastIndexOf('  useEffect(() => {', source.indexOf('lookup=farms'));
+  const end = source.indexOf('\n\n', source.indexOf('}, [farmQuery, farmSearchAttempt]);', start));
+  const effect = source.slice(start, end);
+  for (const mode of ['success', 'failure', 'malformed', 'aborted']) {
+    let timer, cleanup, options, error = '', busy;
+    new Function('useEffect', 'AbortController', 'setTimeout', 'clearTimeout', 'fetch', 'readJson',
+      'farmQuery', 'farmSearchAttempt', 'setFarmBusy', 'setFarmError', 'setFarmOptions', effect)(
+      fn => { cleanup = fn(); }, AbortController, fn => { timer = fn; return 1; }, () => {},
+      async url => { assert.match(url, /q=Premium/); if (mode === 'failure') throw Error('검색 서버 연결 실패'); return {}; },
+      async () => mode === 'malformed' ? {} : { farms: [{ FarmKey: 12, FarmName: 'Premium Greens' }] },
+      'Premium', 0, value => { busy = value; }, value => { error = value; }, value => { options = value; });
+    if (mode === 'aborted') cleanup();
+    await timer();
+    if (mode === 'success') assert.equal(options[0].FarmKey, 12);
+    if (mode === 'failure') assert.equal(error, '검색 서버 연결 실패');
+    if (mode === 'malformed') assert.match(error, /응답/);
+    if (mode === 'aborted') { assert.deepEqual(options, []); assert.equal(error, ''); }
+    else assert.equal(busy, false);
+  }
+});
+
+test('verified receipt advances to cost without another receipt request; failed or stale readback does not', async () => {
+  const body = source.slice(source.indexOf('  async function acceptCommitResult('), source.indexOf('  function handleCommitFailure('));
+  for (const scenario of ['success', 'wrong-operation', 'wrong-warehouse', 'read-failure', 'stale']) {
+    const events = [];
+    const fresh = { documentId: 'doc', revision: 2 };
+    const accept = new Function('records', 'readDocument', 'verifyReceiptDocument', 'setRecords',
+      'installSavedDocument', 'clearPendingCommit', 'setOperationResult', 'setWorkspaceMode', 'setNotice','openVerifiedReceipt',
+      `${body}; return acceptCommitResult;`)([], async () => {
+        events.push('read');
+        if (scenario === 'read-failure') throw new Error('read failed');
+        return fresh;
+      }, () => ({ operation: { operationId: scenario === 'wrong-operation' ? 'other' : 'op' },
+        warehouseKey: scenario === 'wrong-warehouse' ? 99 : 42 }), () => {},
+      doc => { assert.equal(doc, fresh); events.push('install'); }, () => events.push('clear'),
+      () => events.push('result'), mode => events.push(mode), () => {},()=>{});
+    const run = () => accept({ documentId: 'doc', operationId: 'op' }, { warehouseKey: 42 }, 'verified',
+      () => scenario !== 'stale', fresh);
+    if (['wrong-operation', 'wrong-warehouse', 'read-failure'].includes(scenario)) await assert.rejects(run);
+    else await run();
+    assert.deepEqual(events, scenario === 'success' ? ['read', 'install', 'clear', 'result', 'cost'] : ['read']);
+  }
+  assert.match(source, /!currentRevisionCommitted && costSource==='existing'/);
+  assert.match(source, /입고 등록 · 도착원가 생성/);
+});
+
 test('local scope validation errors are not replaced by response scope checks', () => {
   assert.match(source, /if \(revisionAdvanced \|\| \(sameRevision && result\.preview\)\) \{[\s\S]*?assertReceiptScope\(returned, target\.document, returned\.revision\)/);
   const flow = source.slice(source.indexOf('const returned = result.document;'), source.indexOf("if (result.stage === 'draft'"));
@@ -124,7 +171,7 @@ test('workbench exposes editable raw quantities, explicit metadata, saved histor
   for (const label of ['입고 연도', '세부차수', '농장 선택', '인보이스 연도', '입고일', 'GW', 'CW', '운임 통화']) {
     assert.ok(source.includes(label), `missing ${label}`);
   }
-  assert.match(source, /\/api\/arrival-cost\?lookup=farms/);
+  assert.match(source, /\/api\/import\/receipts\/auto-fill\?lookup=farms/);
   assert.match(source, /같은 연도·세부차수 저장 문서/);
   assert.match(source, /documentValue\.history/);
   assert.match(source, /navigator\.clipboard\.writeText/);

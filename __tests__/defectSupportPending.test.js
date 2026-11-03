@@ -5,3 +5,5 @@ for(const row of [{status:'DRAFT'},{status:'CARRYOVER',isCarryoverLedger:true,re
 console.log('support pending: hide completed, retain partial/review/different quantity passed');
 
 assert.equal(isSupportPendingRow({status:'CARRYOVER',isCarryoverLedger:true,remainingQuantity:5,estimateKey:10,registrationEligibilityCode:'ALREADY_REGISTERED'}),false);
+
+assert.equal(isSupportPendingRow({isCarryoverLedger:true,remainingQuantity:2,processingStatus:'COMPLETED_EXISTING',exactExistingEstimate:true,exactExistingEstimateKey:10916}),false);

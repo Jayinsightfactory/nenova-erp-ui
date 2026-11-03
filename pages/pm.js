@@ -3,7 +3,8 @@
 // 데이터: GET /api/pm/office (사장님 PC 가 ~1분마다 name=pm-office 로 올리는 runtime JSON). 읽기 전용.
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { STAGES, stageLabel, staffLinks, lineWidth } from '../lib/pmStages';
+import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
+import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
@@ -155,7 +156,7 @@ function TimeTab({ t }) {
   );
 }
 
-function StaffDrawer({ name, live, now, onClose, initialTab = 'auto' }) {
+function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = [] }) {
   const [tab, setTab] = useState(initialTab);
   const [res, setRes] = useState(null);
   const [err, setErr] = useState('');
@@ -195,7 +196,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto' }) {
           <button type="button" className="x" onClick={onClose} aria-label="닫기">×</button>
         </div>
         <div className="tabs" role="tablist">
-          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금']].map(([k, l]) => (
+          {[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그']].map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
@@ -279,10 +280,12 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto' }) {
             ) : <p className="muted">역할 요약 없음</p>
           )}
           {d && tab === 'time' && (d.timesave ? <TimeTab t={d.timesave} /> : <p className="muted">시간 측정 데이터 없음</p>)}
+          {tab === 'log' && <WorkLogList rows={filterLog(workLog, { name })} light empty="이 직원의 작업 로그 없음(라벨이 바뀔 때만 한 줄 쌓임)" />}
           {tab === 'now' && (
             live ? (
               <div className="card">
                 <div className="kv">상태: <span className={`chip chip-${STATUS_LABEL[live.status] ? live.status : 'off'}`}>{STATUS_LABEL[live.status] || '꺼짐'}</span></div>
+                {live.workLabel && <div className="kv">작업: <b>{live.workLabel}</b></div>}
                 {live.app && <div className="kv">사용 앱: {live.app}</div>}
                 <div className="kv">마지막: {ago(live.lastAt, now) || '–'}</div>
                 {live.events15m != null && <div className="kv">최근 15분 이벤트: {live.events15m}건</div>}
@@ -350,20 +353,41 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto' }) {
 const STAGE_COLOR = { 1: '#6fa8ff', 2: '#4fd1c5', 3: '#7ee2a2', 4: '#c3e66e', 5: '#ffd166', 6: '#ffa36b', 7: '#ff8fa3', 8: '#d6a2ff', 9: '#f2f2f2' };
 const CIRCLED = ['', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
 
-function Corridor({ corridor, liveByStage, selStage, onPick }) {
+const CHIP_MAX = 6;
+function Corridor({ corridor, links, selStage, onPick, onTip }) {
   const stages = corridor?.stages || STAGES.map((x) => ({ ...x, h: null, people: [] }));
   return (
     <div className="corridor" aria-label="업무 파이프라인 9단계 복도">
       {stages.map((st) => {
-        const live = liveByStage[st.no] || 0;
+        const nowR = stageNowRows(links, st.no, 3);
+        const mine = links.filter((l) => l.stage === st.no);
         return (
-          <button key={st.no} type="button" data-stage={st.no} className={`cell ${selStage === st.no ? 'on' : ''}`}
-            style={{ '--sc': STAGE_COLOR[st.no] }} onClick={() => onPick(selStage === st.no ? null : st.no)}
-            aria-label={`${st.no}단계 ${st.label} 이번 주 ${st.h ?? '?'}시간, 지금 ${live}명`}>
-            <span className="ch">{st.h == null ? '–' : `${st.h}h`}</span>
-            <span className="cl">{CIRCLED[st.no]} {st.label}</span>
-            {live > 0 && <span className="cn">지금 {live}</span>}
-          </button>
+          <div key={st.no} className="ccol">
+            <button type="button" data-stage={st.no} className={`cell ${selStage === st.no ? 'on' : ''}`}
+              style={{ '--sc': STAGE_COLOR[st.no] }} onClick={() => onPick(selStage === st.no ? null : st.no)}
+              aria-label={`${st.no}단계 ${st.label} 이번 주 ${st.h ?? '?'}시간, 지금 ${nowR.rows.length + nowR.more}명`}>
+              <span className="ch">{st.h == null ? '–' : `${st.h}h`}</span>
+              <span className="cl">{CIRCLED[st.no]} {st.label}</span>
+              {nowR.rows.length > 0 && (
+                <span className="cnow">
+                  {nowR.rows.map((r) => <span key={r.name} className={`cn ${r.kind === 'current' ? '' : 'dim'}`}>{r.name}{r.country ? <><br />{r.country}</> : ''}</span>)}
+                  {nowR.more > 0 && <span className="cn dim">+{nowR.more}</span>}
+                </span>
+              )}
+            </button>
+            {mine.length > 0 && (
+              <div className="lchips" style={{ '--sc': STAGE_COLOR[st.no] }}>
+                {mine.slice(0, CHIP_MAX).map((l) => (
+                  <span key={l.name + l.kind} role="button" tabIndex={0} data-chip={`${l.name}:${l.stage}`} className={`lchip ${l.kind === 'current' ? 'cur' : 'rec'}`}
+                    title={linkTipText(l.name, l)} onMouseEnter={() => onTip(l)} onClick={() => onTip(l, true)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTip(l, true); } }}>
+                    <b>{l.name}</b>{' '}<span>{linkTaskText(l)}{l.kind !== 'current' && l.hm ? ` ${l.hm}` : ''}</span>
+                  </span>
+                ))}
+                {mine.length > CHIP_MAX && <span className="lchip rec">+{mine.length - CHIP_MAX}</span>}
+              </div>
+            )}
+          </div>
         );
       })}
       <div className="cell unk" title="업무 이름이 단계 규칙에 안 걸린 시간">
@@ -390,9 +414,9 @@ function StagePanel({ no, corridor, liveRows, onClose, onOpenPerson }) {
 }
 
 // 책상→단계 곡선 + 흐르는 점. 좌표는 실제 DOM(data-desk / data-stage) 위치에서 계산. 데이터 없으면 안 그림.
-function FlowLines({ hostRef, links, onPick, reduced }) {
+function FlowLines({ hostRef, links, onPick, onTip, reduced }) {
   const [geo, setGeo] = useState({ w: 0, h: 0, paths: [] });
-  const key = links.map((l) => `${l.name}:${l.stage}:${l.kind}:${l.dir}:${l.width}`).join('|');
+  const key = links.map((l) => `${l.name}:${l.stage}:${l.kind}:${l.dir}:${l.width}:${l.hm || ''}`).join('|');
   useLayoutEffect(() => {
     const host = hostRef.current; if (!host) return undefined;
     const calc = () => {
@@ -400,7 +424,7 @@ function FlowLines({ hostRef, links, onPick, reduced }) {
       const paths = [];
       for (const l of links) {
         const desk = host.querySelector(`[data-desk="${CSS.escape(l.name)}"]`);
-        const cell = host.querySelector(`[data-stage="${l.stage}"]`);
+        const cell = host.querySelector(`[data-chip="${CSS.escape(`${l.name}:${l.stage}`)}"]`) || host.querySelector(`[data-stage="${l.stage}"]`);
         if (!desk || !cell) continue;
         const a = desk.getBoundingClientRect(); const b = cell.getBoundingClientRect();
         const ax = a.left + a.width / 2 - hb.left; const bx = b.left + b.width / 2 - hb.left;
@@ -425,9 +449,9 @@ function FlowLines({ hostRef, links, onPick, reduced }) {
         const kp = p.dir === 'toDesk' ? '1;0' : '0;1';
         const dur = p.dir === 'none' ? '7s' : '2.4s';
         return (
-          <g key={id + p.name} className={`fl ${cur ? 'cur' : 'rec'}`} data-flow={`${p.name}:${p.stage}:${p.kind}:${p.dir}`} onClick={() => onPick(p.name)}>
-            <title>{`${p.name} → ${CIRCLED[p.stage]} ${stageLabel(p.stage)}${p.text ? ` (${p.text})` : ''}${cur ? ' · 지금' : ' · 최근 1시간'} — 클릭: 시간 탭`}</title>
-            <path id={id} d={p.d} fill="none" stroke={STAGE_COLOR[p.stage]} strokeWidth={p.width} strokeOpacity={cur ? 0.95 : 0.35} strokeLinecap="round" />
+          <g key={id + p.name} className={`fl ${cur ? 'cur' : 'rec'}`} data-flow={`${p.name}:${p.stage}:${p.kind}:${p.dir}`} onClick={() => onPick(p.name)} onMouseEnter={() => onTip && onTip(p)}>
+            <title>{`${linkTipText(p.name, p)} → ${CIRCLED[p.stage]} ${stageLabel(p.stage)} — 클릭: 시간 탭`}</title>
+            <path id={id} d={p.d} fill="none" stroke={STAGE_COLOR[p.stage]} strokeWidth={p.width} strokeOpacity={cur ? 0.95 : p.kind === 'today' ? 0.22 : 0.35} strokeDasharray={p.kind === 'today' ? '4 4' : undefined} strokeLinecap="round" />
             <path d={p.d} fill="none" stroke="transparent" strokeWidth={14} className="hit" />
             {!reduced && (
               <circle r={cur ? 4 : 3} fill={STAGE_COLOR[p.stage]} stroke="#0e1018" strokeWidth="1" opacity={cur ? 1 : 0.6}>
@@ -441,6 +465,119 @@ function FlowLines({ hostRef, links, onPick, reduced }) {
   );
 }
 
+// ── 작업 로그 · 부서간 넘김 사슬 ─────────────────────────────
+// 색은 새로 만들지 않는다: 단계=STAGE_COLOR(복도와 같은 번호·색), 부서=ROOM_FLOOR(사무실 방 바닥색), 외부=복도 미확인 칸(unk)·chip-off 회색.
+const wlStageNo = (st) => STAGES.find((x) => x.label === st || (st === '견적서' && x.no === 5))?.no || 0;
+function DeptSw({ dept }) { return <i className="dsw" style={{ background: ROOM_FLOOR[dept] || ROOM_FLOOR['미배치'] }} title={dept || ''} aria-hidden />; }
+
+function WorkLogList({ rows, onOpenPerson, light, empty, max = 300 }) {
+  if (!rows.length) return <p className="muted">{empty || '작업 로그 없음'}</p>;
+  let day = '';
+  return (
+    <ol className={`wlog ${light ? 'light' : ''}`}>
+      {rows.slice(0, max).map((r, i) => {
+        const d = kstDay(r.at); const head = d !== day; day = d; const no = wlStageNo(r.stage);
+        return (
+          <li key={r.at + r.name + i} title={r.screen || ''}>
+            {head && <div className="wday">{d}</div>}
+            <div className="wrow">
+              <span className="wt">{kstHM(r.at)}</span>
+              <DeptSw dept={r.dept} />
+              {onOpenPerson ? <button type="button" className="wn" onClick={() => onOpenPerson(r.name)}>{r.name}</button> : <b className="wn">{r.name}</b>}
+              <span className="wl">{no ? <b style={light ? undefined : { color: STAGE_COLOR[no] }}>{CIRCLED[no]} </b> : null}{r.label || r.stage || '–'}</span>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function FilterChips({ label, items, value, onChange }) {
+  if (!items.length) return null;
+  return (
+    <div className="fchips" role="group" aria-label={`${label} 필터`}>
+      <span className="muted">{label}</span>
+      <button type="button" className={!value ? 'on' : ''} aria-pressed={!value} onClick={() => onChange('')}>전체</button>
+      {items.map((x) => <button key={x} type="button" className={value === x ? 'on' : ''} aria-pressed={value === x} onClick={() => onChange(value === x ? '' : x)}>{x}</button>)}
+    </div>
+  );
+}
+
+function WorkLogPanel({ workLog, onOpenPerson }) {
+  const [f, setF] = useState({ dept: '', country: '', stage: '' });
+  const facets = logFacets(workLog);
+  const rows = filterLog(workLog, f);
+  return (
+    <details className="panel wlpanel" open>
+      <summary><h2>작업 로그 <small>{rows.length}/{workLog.length} · 라벨 바뀔 때만 한 줄 · KST</small></h2></summary>
+      <FilterChips label="부서" items={facets.dept} value={f.dept} onChange={(v) => setF({ ...f, dept: v })} />
+      <FilterChips label="국가" items={facets.country} value={f.country} onChange={(v) => setF({ ...f, country: v })} />
+      <FilterChips label="단계" items={facets.stage} value={f.stage} onChange={(v) => setF({ ...f, stage: v })} />
+      <div className="wlscroll"><WorkLogList rows={rows} onOpenPerson={onOpenPerson} empty={workLog.length ? '조건에 맞는 로그 없음' : '아직 작업 로그 없음'} /></div>
+    </details>
+  );
+}
+
+// 사슬 노드 사이 연결선: 복도 연결선과 같은 선·흐르는 점(reduced-motion 시 점 없음). 굵기=lineWidth(넘김 수).
+function ChainLink({ link, toStage, maxN, reduced }) {
+  const n = link.items.length;
+  const c = link.external ? '#9aa3b8' : STAGE_COLOR[toStage];
+  const tip = link.external ? '현장팀은 PC 데이터 없음 — 넘김 확인 불가'
+    : n ? `넘김 ${n}건 (추정 · 같은 국가 · ${DEFAULT_WINDOW_H}시간 이내 · 확정 아님)\n` + link.items.slice(0, 6).map((h) => `${h.a.name} ${kstHM(h.a.at)} → ${h.b.name} ${kstHM(h.b.at)} (${h.country}, ${fmtGap(h.gapMin)})`).join('\n')
+      : `넘김 없음 (같은 국가 ${DEFAULT_WINDOW_H}시간 이내 짝 없음)`;
+  return (
+    <div className={`clink ${n ? 'has' : ''} ${link.external ? 'ext' : ''}`} title={tip} data-link={`${link.from}>${link.to}`}>
+      <svg height="14" viewBox="0 0 40 14" preserveAspectRatio="none" aria-hidden>
+        <path d="M1,7 L33,7" fill="none" stroke={c} strokeWidth={n ? lineWidth(n, maxN) : 2} strokeOpacity={n ? 0.95 : 0.35} strokeDasharray={link.external ? '3 3' : undefined} strokeLinecap="round" />
+        <path d="M32,2 L39,7 L32,12" fill="none" stroke={c} strokeWidth="2" strokeOpacity={n ? 0.95 : 0.5} />
+        {n > 0 && !reduced && <circle r="2.6" fill={c} stroke="#0e1018" strokeWidth="1"><animateMotion dur="2.4s" repeatCount="indefinite" path="M1,7 L33,7" /></circle>}
+      </svg>
+      {n > 0 && <span className="cn" style={{ '--sc': c }}><i>넘김 </i>{n}</span>}
+    </div>
+  );
+}
+
+function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
+  const chains = chainView(workLog, handoffs);
+  const maxN = Math.max(1, ...chains.flatMap((c) => c.links.map((l) => l.items.length)));
+  return (
+    <div className="chains" aria-label="부서간 넘김 사슬">
+      <div className="hall-t">부서간 넘김 사슬 <small>같은 국가 · 앞 부서 뒤 {DEFAULT_WINDOW_H}시간 이내 = 넘김(추정, 확정 아님) · 번호·색 = 위 복도 단계 · 윗줄 색 = 부서 방</small></div>
+      {chains.map((ch) => (
+        <div key={ch.key} className="chain">
+          <div className="chl">{ch.label}</div>
+          <div className="chrow">
+            {ch.nodes.map((nd, i) => (
+              <div key={nd.key} className="chseg">
+                <div className={`cell cnode ${nd.external ? 'unk ext' : ''}`} style={nd.external ? undefined : { '--sc': STAGE_COLOR[nd.stageNo] }} data-chain-node={nd.key}
+                  title={nd.external ? `${nd.title} · ${nd.desc} · PC 데이터 없음` : `${nd.title} · ${nd.desc} · 작업 로그 ${nd.count}줄 (${nd.stages.join('/')})`}>
+                  {!nd.external && <span className="dstrip" style={{ background: ROOM_FLOOR[nd.dept] || ROOM_FLOOR['미배치'] }} aria-hidden />}
+                  <span className="cl">{nd.external ? '' : `${CIRCLED[nd.stageNo]} `}{nd.title}</span>
+                  <span className="cd">{nd.desc}</span>
+                  {nd.external ? <span className="chip chip-off">데이터 없음</span> : <span className="cd2">로그 {nd.count}</span>}
+                </div>
+                {i < ch.links.length && <ChainLink link={ch.links[i]} toStage={ch.nodes[i + 1].stageNo} maxN={maxN} reduced={reduced} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {handoffs.length > 0 ? (
+        <ul className="hlist">{handoffs.slice(0, 6).map((h, i) => (
+          <li key={i} title={h.basis}>
+            <span className="est">추정</span>
+            <button type="button" className="pp" onClick={() => onOpenPerson(h.a.name)}>{h.a.name} {h.country} {h.a.stage} {kstHM(h.a.at)}</button>
+            <span aria-hidden>→</span>
+            <button type="button" className="pp" onClick={() => onOpenPerson(h.b.name)}>{h.b.name} {h.country} {h.b.stage} {kstHM(h.b.at)}</button>
+            <span className="muted">{fmtGap(h.gapMin)} 뒤</span>
+          </li>
+        ))}</ul>
+      ) : <p className="hnone">아직 묶인 넘김 없음 (같은 국가로 {DEFAULT_WINDOW_H}시간 안에 다음 부서 작업이 나오면 표시)</p>}
+    </div>
+  );
+}
+
 export default function PmOffice() {
   const [resp, setResp] = useState(null);
   const [err, setErr] = useState('');
@@ -449,6 +586,8 @@ export default function PmOffice() {
   const [ts, setTs] = useState(null);
   const [selTab, setSelTab] = useState('auto');
   const [selStage, setSelStage] = useState(null);
+  const [tip, setTip] = useState(null);
+  const onTip = useCallback((l, toggle) => setTip((cur) => (toggle && cur && cur.name === l.name && cur.stage === l.stage ? null : l)), []);
   const [reduced, setReduced] = useState(false);
   const floorRef = useRef(null);
   useEffect(() => { const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)'); if (!mq) return undefined; const f = () => setReduced(mq.matches); f(); mq.addEventListener?.('change', f); return () => mq.removeEventListener?.('change', f); }, []);
@@ -500,18 +639,19 @@ export default function PmOffice() {
   const other = [];
   for (const t of tasks) { const s = `${t.state || ''}`; const g = grouped.find((x) => x.match(s, t)); (g ? g.items : other).push(t); }
   const corridor = ts?.data?.corridor || null;
-  const links = []; const liveByStage = {}; const liveRowsByStage = {};
+  const links = []; const liveRowsByStage = {};
   const maxPersonH = Math.max(0, ...Object.values(corridor?.perPerson || {}).flatMap((o) => Object.values(o)));
   for (const x of staff) {
     const L = staffLinks(x, now || Date.now());
     const hOf = (st) => corridor?.perPerson?.[x.name]?.[st] || 0;
     if (L.current) {
-      liveByStage[L.current.stage] = (liveByStage[L.current.stage] || 0) + 1;
       (liveRowsByStage[L.current.stage] = liveRowsByStage[L.current.stage] || []).push({ name: x.name, text: L.current.text });
-      links.push({ name: x.name, kind: 'current', stage: L.current.stage, dir: L.current.dir, text: L.current.text, width: lineWidth(hOf(L.current.stage), maxPersonH) });
+      links.push({ ...L.current, name: x.name, kind: 'current', screen: L.current.screen || '', width: lineWidth(hOf(L.current.stage), maxPersonH) });
     }
-    for (const r of L.recent) links.push({ name: x.name, kind: 'recent', stage: r.stage, dir: r.dir, text: r.text, width: Math.max(1.5, lineWidth(hOf(r.stage), maxPersonH) * 0.6) });
+    for (const r of L.recent) links.push({ ...r, name: x.name, kind: r.kind || 'recent', width: Math.max(1.5, lineWidth(hOf(r.stage), maxPersonH) * (r.kind === 'today' ? 0.45 : 0.6)) });
   }
+  const workLog = arr(d.workLog);
+  const handoffs = buildHandoffs(workLog, { windowH: DEFAULT_WINDOW_H });
   const working = agents.filter((a) => a.status === 'working').length + staff.filter((s) => s.status === 'working').length;
 
   return (
@@ -559,8 +699,10 @@ export default function PmOffice() {
           </div>
           <div className="hallwrap">
             <div className="hall-t">복도 · 업무 파이프라인 <small>이번 주 사람시간(h) · 칸 클릭=담당자 · 선 클릭=직원 시간</small></div>
-            <Corridor corridor={corridor} liveByStage={liveByStage} selStage={selStage} onPick={setSelStage} />
+            <Corridor corridor={corridor} links={links} selStage={selStage} onPick={setSelStage} onTip={onTip} />
+            {tip && <div className="spanel ltip" role="status">{linkTipText(tip.name, tip)} <button type="button" className="spx" onClick={() => setTip(null)} aria-label="닫기">×</button></div>}
             {selStage && <StagePanel no={selStage} corridor={corridor} liveRows={liveRowsByStage[selStage] || []} onClose={() => setSelStage(null)} onOpenPerson={(n) => openPerson(n, 'time')} />}
+            <HandoffChains workLog={workLog} handoffs={handoffs} reduced={reduced} onOpenPerson={(n) => openPerson(n, 'log')} />
           </div>
           <div className="wing">
             {visibleRooms.map((r) => (
@@ -568,12 +710,12 @@ export default function PmOffice() {
                 <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small></div>
                 <Table seats={r.seats} render={(x, i) => (
                   <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status} deskId={x.empty ? undefined : x.name} onOpen={x.empty ? undefined : () => openPerson(x.name)}
-                    activity={x.app ? `${x.app} 사용 중` : ''} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
+                    activity={x.workLabel || arr(x.recent).find((r) => r?.label)?.label || (x.app ? `${x.app} 사용 중` : '')} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
                 )} />
               </section>
             ))}
           </div>
-          <FlowLines hostRef={floorRef} links={links} reduced={reduced} onPick={(n) => openPerson(n, 'time')} />
+          <FlowLines hostRef={floorRef} links={links} reduced={reduced} onTip={onTip} onPick={(n) => openPerson(n, 'time')} />
         </main>
         <aside className="side">
           {ts?.data && (
@@ -595,6 +737,7 @@ export default function PmOffice() {
               </>}
             </details>
           )}
+          <WorkLogPanel workLog={workLog} onOpenPerson={(n) => openPerson(n, 'log')} />
           <section className="panel">
             <h2>PM 업무 대장 <small>{tasks.length}</small></h2>
             {[...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length).map((g) => (
@@ -626,7 +769,7 @@ export default function PmOffice() {
           </section>
         </aside>
       </div>
-      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} />}
+      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} />}
       <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
       <style jsx global>{`
         .pm { min-height: 100vh; background: #1e2230; color: #e8ebf2; padding: 12px 16px 24px; font-size: 13px; }
@@ -705,6 +848,14 @@ export default function PmOffice() {
         .pm .cell .ch { font-size: 15px; font-weight: bold; color: var(--sc, #f0f2f7); }
         .pm .cell .cl { font-size: 12px; color: #f0f2f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .pm .cell .cn { white-space: nowrap; font-size: 10px; background: var(--sc); color: #10131c; border-radius: 6px; padding: 0 5px; font-weight: bold; }
+        .pm .ccol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .pm .cell .cnow { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
+        .pm .cell .cnow .cn { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 12px; padding: 1px 4px; }
+        .pm .cell .cn.dim, .pm .lchip.rec { opacity: 0.62; }
+        .pm .lchips { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 6; }
+        .pm .lchip { font-size: 10px; line-height: 14px; padding: 1px 5px; border-radius: 6px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; background: #1e2230; color: #f0f2f7; border: 1px solid var(--sc); }
+        .pm .lchip.cur { background: var(--sc); color: #10131c; font-weight: bold; } .pm .lchip b { display: block; }
+        .pm .ltip { font-size: 12px; }
         .pm .cell.unk { --sc: #9aa3b8; cursor: default; border-style: dashed; } .pm .cell.unk .ch { color: #c4cad6; }
         .pm .spanel { margin-top: 8px; background: #1e2230; border: 2px solid #3a4158; border-radius: 4px; padding: 8px 10px; color: #e8ebf2; }
         .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; background: none; border: 0; color: #fff; font-size: 20px; min-width: 36px; min-height: 36px; cursor: pointer; }
@@ -715,6 +866,37 @@ export default function PmOffice() {
         .pm .corridor .cell, .pm .seat, .pm .plate, .pm .hall-t, .pm .spanel { position: relative; z-index: 6; }
         .pm .plate { position: absolute; }
         .pm .flows .fl, .pm .flows .hit { pointer-events: stroke; cursor: pointer; }
+        .pm .chains { margin-top: 10px; padding-top: 8px; border-top: 2px dashed #6b7186; }
+        .pm .chain { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 8px; }
+        .pm .chl { color: #f0f2f7; font-weight: bold; font-size: 12px; }
+        .pm .chrow { display: flex; align-items: stretch; min-width: 0; }
+        .pm .chseg { display: flex; align-items: center; flex: 1 1 0; min-width: 0; }
+        .pm .cnode { flex: 1 1 0; min-width: 0; cursor: default; overflow: hidden; padding-top: 10px; }
+        .pm .cnode .dstrip { position: absolute; left: 0; right: 0; top: 0; height: 6px; border-bottom: 1px solid #151823; }
+        .pm .cnode .cd, .pm .cnode .cd2 { font-size: 10px; color: #e3e7ef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .pm .cnode.ext .cl { color: #f0f2f7; }
+        .pm .clink { position: relative; flex: 0 0 34px; display: flex; flex-direction: column; align-items: center; }
+        .pm .clink svg { display: block; width: 34px; }
+        .pm .clink .cn i { font-style: normal; } .pm .clink .cn { position: relative; z-index: 7; white-space: nowrap; font-size: 10px; background: var(--sc); color: #10131c; border-radius: 6px; padding: 0 4px; font-weight: bold; }
+        .pm .hlist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+        .pm .hlist li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: #f0f2f7; font-size: 12px; }
+        .pm .hlist .muted { color: #e3e7ef; }
+        .pm .est { background: #ffe7a3; color: #4a3200; border-radius: 8px; padding: 0 7px; font-size: 11px; font-weight: bold; }
+        .pm .hnone { margin: 4px 0 0; font-size: 12px; color: #e3e7ef; }
+        .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border: 1px solid #8d93a6; }
+        .pm .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 4px 0; }
+        .pm .fchips button { background: #3a4158; color: #f0f2f7; border: 0; border-radius: 8px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; min-height: 24px; }
+        .pm .fchips button.on { background: #ffd76a; color: #2b2214; font-weight: bold; }
+        .pm .wlscroll { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
+        .pm .wlog { list-style: none; margin: 0; padding: 0; }
+        .pm .wday { font-size: 11px; color: #c7cde0; margin: 6px 0 2px; border-bottom: 1px solid #3a4158; }
+        .pm .wrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; min-width: 0; font-size: 12px; }
+        .pm .wt { font-variant-numeric: tabular-nums; color: #c7cde0; flex: 0 0 auto; }
+        .pm .wn { flex: 0 0 auto; background: none; border: 0; padding: 0; color: #fff; font: inherit; font-weight: bold; cursor: pointer; }
+        .pm button.wn:hover, .pm button.wn:focus-visible { text-decoration: underline; }
+        .pm .wl { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .drawer-back .wlog.light .wt { color: #4a5164; } .pm .drawer-back .wlog.light .wn { color: #1b1f2a; } .pm .drawer-back .wlog.light .wday { color: #4a5164; border-color: #d0d4de; }
+        @media (max-width: 640px) { .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } }
         @media (max-width: 640px) { .pm .corridor { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); } .pm .room::before { transform: none; } .pm { padding: 10px 8px 20px; } .pm .seat { width: 104px; flex-basis: 104px; } }
         @media (prefers-reduced-motion: reduce) { .pm .flows circle { display: none; } }
         @media (max-width: 860px) { .pm .wrap { grid-template-columns: 1fr; } .pm .wing { grid-template-columns: 1fr; } .pm .mgr, .pm .lab { flex: 1 1 100%; } .pm .feed { max-height: none; } }

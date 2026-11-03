@@ -325,7 +325,8 @@ assert.ok(pageSource.includes('overflow-x: hidden'), '품목 검색 결과는 �
 assert.ok(pageSource.includes('defect-product-match'), '전산 매칭 전체 품명 표시 영역이 있어야 한다.');
 assert.ok(pageSource.includes('white-space: normal; overflow: visible; text-overflow: clip;'), '전산 매칭 품명은 말줄임 없이 전체가 보여야 한다.');
 assert.ok(pageSource.includes('partitionRegistrationPreflight'), '견적서 등록은 유효행과 오류행을 분리해 처리해야 한다.');
-assert.ok(deductionSource.includes('sm.OrderYear < @scopeYear'), '이전 차수 단가가 없으면 과거 연도까지 최신 유효 단가를 찾아야 한다.');
+assert.ok(deductionSource.includes('BETWEEN @minWeek AND @scopeWeek'), '최근 5차수만 조회한다.');
+assert.ok(deductionSource.includes('sm.OrderYear=@scopeYear'), '전년도 단가는 제외한다.');
 assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.ok(deductionSource.includes('enrichSupportDistributionCosts'), '영업지원 전체 조회도 견적 등록과 같은 분배단가 컨텍스트를 사용해야 한다.');
 assert.ok(deductionSource.includes('loadExistingEstimateDeductions'), '영업지원 조회는 업체의 기존 음수 Estimate를 자동으로 불러와야 한다.');
@@ -677,7 +678,7 @@ assert.equal(supportCarryoverFromLabel({ orderYear: 2026, orderWeek: '33-01' }, 
 assert.equal(supportStatusDetail({
   orderYear: 2026, orderWeek: '32', registrationEligible: false, registrationEligibilityCode: 'CUSTOMER_SALE_MISSING',
   registrationError: '선택 차수에 이 업체의 출고가 없습니다.',
-}, 2026, 33), '2026년 32차부터 이월', '출고 없음 문구가 이월 원차수를 가리면 안 된다.');
+}, 2026, 33), '2026년 32차부터 이월 · 선택 차수에 이 업체의 출고가 없습니다.', '보류 사유와 원차수를 함께 표시한다.');
 const crossYearOrMismatch = deriveSupportProcessingStatus({ status: 'DRAFT', exactExistingEstimate: false });
 assert.equal(crossYearOrMismatch.processingStatus, 'UNREGISTERED', '다른 연도·수량·단위 불일치 후보는 처리완료로 표시하면 안 된다.');
 assert.equal(isSupportManualCompleteSelectable({ deductionKey: 88, status: 'DRAFT', registrationEligible: false }), true, '등록 불가 행도 수기 처리완료 체크 대상이어야 한다.');

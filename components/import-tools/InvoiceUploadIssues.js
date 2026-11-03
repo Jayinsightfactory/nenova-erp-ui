@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {apiGet,apiPost} from '../../lib/useApi';
-import {uploadIssueLabels as labels} from '../../lib/invoiceUploadIssue';
+import {uploadIssueLabels as labels,uploadFailureDetail} from '../../lib/invoiceUploadIssue';
 export default function InvoiceUploadIssues({userId,fileName,error,unmatched,mismatches,processing,onChooseFile,blockedEvent}){
  const [rows,setRows]=useState([]),[pending,setPending]=useState([]),[warning,setWarning]=useState(''),[busy,setBusy]=useState(false),[open,setOpen]=useState(false);
  const last=useRef(''),ready=useRef(false),queue=useRef([]),flight=useRef(false);
@@ -11,7 +11,7 @@ export default function InvoiceUploadIssues({userId,fileName,error,unmatched,mis
  useEffect(()=>{try{const value=JSON.parse(sessionStorage.getItem(key)||'[]');queue.current=Array.isArray(value)?value:[];setPending([...queue.current]);}catch{setWarning('이전 대기 로그를 읽지 못했습니다.');}ready.current=true;},[key]);
  useEffect(()=>{
   if(!ready.current||!userId||!fileName||processing)return;
-  const events=[...(error?[{code:'UPLOAD_FAILED',count:1}]:[]),...(unmatched?[{code:'MATCH_REQUIRED',count:unmatched}]:[]),...(mismatches?[{code:'TOTAL_MISMATCH',count:mismatches}]:[])];
+  const events=[...(error?[{code:'UPLOAD_FAILED',count:1,detail:uploadFailureDetail(error)}]:[]),...(unmatched?[{code:'MATCH_REQUIRED',count:unmatched}]:[]),...(mismatches?[{code:'TOTAL_MISMATCH',count:mismatches}]:[])];
   const signature=JSON.stringify({fileName,error:Boolean(error),events});if(last.current===signature)return;last.current=signature;
   if(!events.length)return;
   queue.current.push(...events.map(e=>({...e,fileName,eventId:crypto.randomUUID()})));persist();void flush();

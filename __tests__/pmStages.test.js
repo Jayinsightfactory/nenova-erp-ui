@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pms-'));
 const src = fs.readFileSync(path.join(process.cwd(), 'lib', 'pmStages.js'), 'utf8').replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, stageOf, stageLabel, personStageHours, buildCorridor, flowDirection, staffLinks, lineWidth };';
+  + '\nmodule.exports = { STAGES, stageOf, stageLabel, personStageHours, buildCorridor, flowDirection, staffLinks, lineWidth, parseWorkLabel, linkChipText, linkTipText, stageNowRows, kstDayStart };';
 fs.writeFileSync(path.join(dir, 'pmStages.cjs'), src);
 const m = require(path.join(dir, 'pmStages.cjs'));
 
@@ -60,4 +60,28 @@ assert.strictEqual(m.lineWidth(0, 5), 2);
 assert.strictEqual(m.lineWidth(5, 5), 6);
 assert.strictEqual(m.lineWidth(10, 5), 6);
 assert.strictEqual(m.lineWidth(2.5, 5), 3.8);
+
+// 선 내용 칩 · workLabel · 오늘(KST) 흐린 선
+const n2 = Date.parse('2026-11-03T06:00:00Z'); // KST 15:00
+const w = m.parseWorkLabel('콜롬비아 입고작업 중 (14:40)', n2);
+assert.deepStrictEqual([w.country, w.stage, w.hm, w.text], ['콜롬비아', 2, '14:40', '콜롬비아 입고작업 중']);
+assert.strictEqual(w.at, Date.parse('2026-11-03T05:40:00Z'));
+assert.strictEqual(m.parseWorkLabel('발주작업 중 (14:38)', n2).country, '');
+assert.strictEqual(m.parseWorkLabel('', n2), null);
+assert.strictEqual(m.kstDayStart(n2), Date.parse('2026-11-02T15:00:00Z'));
+const A = m.staffLinks({ status: 'working', app: '엑셀', workLabel: '콜롬비아 입고작업 중 (14:40)', recent: [
+  { at: '2026-11-03T05:30:00Z', stage: '견적서', country: '', label: '견적서작업 중', screen: '견적서 관리' },
+  { at: '2026-11-03T01:00:00Z', stage: '현장출고', country: '중국', label: '중국 현장출고작업 중', screen: '카톡' },
+  { at: '2026-11-02T10:00:00Z', stage: '입금', label: '어제' },
+] }, n2);
+assert.strictEqual(A.current.stage, 2); assert.strictEqual(A.current.country, '콜롬비아');
+assert.deepStrictEqual(A.recent.map((r) => [r.stage, r.kind, r.hm]), [[5, 'recent', '14:30'], [4, 'today', '10:00']]);
+assert.strictEqual(m.linkChipText('김원빈', A.current), '김원빈 · 콜롬비아 입고');
+assert.strictEqual(m.linkChipText('김원빈', A.recent[0]), '김원빈 · 견적');
+assert.ok(m.linkTipText('김원빈', A.recent[1]).includes('화면: 카톡'));
+// workLabel 이 1시간 넘었지만 오늘 → today 흐린 선
+const B = m.staffLinks({ status: 'working', workLabel: '콜롬비아 입고작업 중 (11:31)' }, n2);
+assert.strictEqual(B.current, null); assert.deepStrictEqual(B.recent.map((r) => [r.stage, r.kind, r.hm, r.country]), [[2, 'today', '11:31', '콜롬비아']]);
+const rows = m.stageNowRows([{ name: 'a', stage: 2, kind: 'recent' }, { name: 'b', stage: 2, kind: 'current', country: '중국' }, { name: 'c', stage: 2, kind: 'today' }, { name: 'd', stage: 2, kind: 'recent' }, { name: 'e', stage: 2, kind: 'recent' }, { name: 'f', stage: 2, kind: 'recent' }], 2, 3);
+assert.deepStrictEqual(rows.rows.map((r) => r.name), ['b', 'a', 'd']); assert.strictEqual(rows.more, 2);
 console.log('pmStages tests passed');

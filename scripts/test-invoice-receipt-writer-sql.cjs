@@ -124,7 +124,7 @@ function usage() {
 }
 
 function inspectApprovedContainer() {
-  const result = spawnSync('docker', ['inspect', CONTAINER], { encoding: 'utf8', windowsHide: true });
+  const result = spawnSync('docker', ['inspect', CONTAINER], { encoding: 'utf8', windowsHide: true, timeout: 15000 });
   if (result.status !== 0) fail('approved SQL fixture container is not inspectable');
   let info;
   try { info = JSON.parse(result.stdout)[0]; } catch { fail('container inspect response is invalid'); }
@@ -301,7 +301,7 @@ async function seedSentinelsAndRows(pool) {
   stage('seed supporting master, stock and warehouse rows');
   await query(pool, `INSERT dbo.UserInfo(UserID,UserName) VALUES(N'invoice-fixture',N'Invoice Fixture');
     INSERT dbo.Country(CounName,isUseOrderCode) VALUES(N'중국',0);
-    INSERT dbo.Customer(CustKey,CustName,CustArea,Manager,Descr) VALUES(7001,N'Fixture Customer',N'LOCAL',N'invoice-fixture',N'fixture');
+    INSERT dbo.Customer(CustKey,CustName,CustArea,Manager,Descr,OrderCode) VALUES(7001,N'Fixture Customer',N'LOCAL',N'invoice-fixture',N'fixture',N'CL2');
     INSERT dbo.Farm(FarmKey,FarmName,CounKey,isDeleted) VALUES(7101,N'Fixture Farm',1,0);
     INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,Stock,isDeleted)
       VALUES(7201,N'Invoice Same Product',N'ORCHID',N'중국',N'ORCHID',N'단',N'단',20,0),
@@ -405,6 +405,32 @@ function writerContext(pool, writer) {
 async function commitArgs(ctx, documentId, operationId, receiptPartId, baselineDigest, revision = 1) {
   return ctx.create({ documentId, revision, operationId, receiptPartId, baselineDigest,
     reason: 'isolated SQL writer fixture', allowPendingCost: true, actor: 'invoice-fixture' });
+}
+
+async function testHistoricalFarmSource(pool,writer,documents) {
+  const id=crypto.randomUUID(),ctx=writerContext(pool,writer);
+  await query(pool,`INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,InputDate,isDeleted)
+    VALUES(99111,N'2025',N'41-01',N'HUBFRESH',N'HISTORICAL-SOURCE','2025-10-01',0);`);
+  await insertDocument(pool,id,'HISTORICAL-FARM-TEST');
+  await query(pool,`UPDATE dbo.WebInvoiceDocument SET FarmKey=NULL,
+    RawMetadataJson=N'{"supplier":"KUN MING HUBFRESH SUPPLY CHAIN MANAGEMENT CO.,LTD","invoiceTotal":800,"currency":"USD","freight":0}',
+    ReviewedMetadataJson=N'{"country":"CN","farmName":"HUBFRESH","farmSourceWarehouseKey":99111,"inputDate":"2026-10-08","transportMode":"SEA"}' WHERE DocumentId=@id`,{id:{type:sql.UniqueIdentifier,value:id}});
+  const {invoiceAmountReview}=await import('../lib/invoiceAmountReview.js');
+  const doc=await documents.getInvoiceDocument({queryFn:ctx.queryFn,types:sql,documentId:id});
+  const meta={...doc.reviewedMetadata,amountConfirmation:{basis:invoiceAmountReview(doc).basis,sourceSeen:true}};
+  await query(pool,'UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=@meta WHERE DocumentId=@id',{
+    id:{type:sql.UniqueIdentifier,value:id},meta:{type:sql.NVarChar,value:JSON.stringify(meta)}});
+  const good=await ctx.preview(id,1);ensure(good.canCommit,JSON.stringify(good.issues));
+  await query(pool,'UPDATE dbo.WarehouseMaster SET isDeleted=1 WHERE WarehouseKey=99111');
+  const stale=await ctx.preview(id,1);ensure(!stale.canCommit&&stale.issues.some(x=>x.code==='FARM_REQUIRED'),'deleted historical source must block');
+  await query(pool,'UPDATE dbo.WarehouseMaster SET isDeleted=0 WHERE WarehouseKey=99111');
+  const fresh=await ctx.preview(id,1);
+  const result=await commitArgs(ctx,id,crypto.randomUUID(),crypto.randomUUID(),fresh.baselineDigest);
+  const header=(await query(pool,'SELECT FarmName FROM dbo.WarehouseMaster WHERE WarehouseKey=@key',{key:{type:sql.Int,value:result.warehouseKey}})).recordset[0];
+  ensure(header?.FarmName==='HUBFRESH','historical farm name must persist');
+  const count=(await query(pool,"SELECT COUNT(*) n FROM dbo.Farm WHERE FarmName=N'HUBFRESH'")).recordset[0];
+  ensure(count.n===0,'must not create a Farm master');
+  console.log('ok - historical farm without FarmKey, cross-year source, deleted-source refusal, amount confirmation and actual receipt');
 }
 
 async function testWriterSuccessReplayAndCrossYear(pool, writer, documents, initialProtected) {
@@ -931,6 +957,10 @@ async function testExistingCostLink(pool, costs, thai = false) {
           (@prior,N'2025',N'41-01',N'Fixture Farm',@invoice,'2025-10-08',0);
     INSERT dbo.WarehouseDetail(WarehouseKey,ProdKey,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice)
     VALUES(@wk,7201,10,10,10,2,20);`,seed);
+  if (!thai) await query(pool,`INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,Stock,isDeleted)
+    VALUES(7310,N'NL fixture product',N'NL TEST',N'네덜란드',N'TEST',N'송이',N'송이',0,0);
+    UPDATE dbo.WebInvoiceLine SET ProdKey=7310 WHERE DocumentId=@id;
+    UPDATE dbo.WarehouseDetail SET ProdKey=7310 WHERE WarehouseKey=@wk;`,seed);
   if (thai) await query(pool,`UPDATE dbo.WebInvoiceDocument SET ReviewedMetadataJson=N'{"country":"TH","transportMode":"AIR","inputDate":"2026-10-08"}' WHERE DocumentId=@id;
     UPDATE dbo.WebInvoiceLine SET Currency=N'USD',BunchQuantity=StemQuantity/5 WHERE DocumentId=@id;
     UPDATE dbo.WarehouseDetail SET BoxQuantity=0,BunchQuantity=2,OutQuantity=2,EstQuantity=2 WHERE WarehouseKey=@wk;`,seed);
@@ -952,7 +982,9 @@ async function testExistingCostLink(pool, costs, thai = false) {
   assert.equal(saved.currentActual.liveReceiptStatus,'MATCH');assert.equal(saved.currentActual.lines.length,2);
   const output=await exporter.exportCurrentInvoiceCost({...args,warehouseKey:String(wk),costRevisionId:saved.currentActual.costRevisionId});
   const book=require('xlsx').read(output.buffer);
-  assert.deepEqual(book.SheetNames,['2026 41-01','원본수식 비교']);
+  assert.deepEqual(book.SheetNames,thai
+    ? ['2026 41-01','원본수식 비교','원본 양식 계산']
+    : ['2026 41-01','원본수식 비교','원본 양식 계산','주광·기타 비교']);
   // TEST_ONLY takes precedence over the estimated-expense label in the exporter.
   assert.equal(book.Sheets['2026 41-01'].B1.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
   assert.equal(book.Sheets['원본수식 비교'].A9.v,'TEST_ONLY · 시험값 포함 · 실제 원가 아님');
@@ -1287,6 +1319,10 @@ async function main() {
       ensure(Number(count.recordset?.[0]?.RowCount)===0,`fresh ${table} must be empty before fixture seeding`);
     }
     await seedSentinelsAndRows(pool);
+    if(process.env.NENOVA_CN45_SOURCE){
+      await require('./test-china45-native-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
+      return;
+    }
     if(process.env.NENOVA_44_AUTO_TEST==='1'){
       await require('./test-invoice-44-auto-local.cjs')({pool,sql,query,writer,documents,costs,ctx:writerContext(pool,writer),protectedSnapshot});
       return;
@@ -1329,6 +1365,7 @@ async function main() {
     await testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costs,documents);
     await testExistingCostLink(pool,costs);
     await testExistingCostLink(pool,costs,true);
+    await testHistoricalFarmSource(pool,writer,documents);
     stage('fixture scenarios passed');
     console.log('PASS: isolated invoice receipt writer SQL fixture scenarios completed.');
   }finally{

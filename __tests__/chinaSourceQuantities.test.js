@@ -36,4 +36,8 @@ test('China extraction explicitly distinguishes printed PCS from legacy box fiel
   assert.match(prompt,/null, NOT 0 or 1/);
   assert.doesNotMatch(prompt,/total_bunch = quantity ordered/);
   assert.doesNotMatch(buildPrompt('CO'),/Order -> pcs \(boxes\)/);
+  assert.match(prompt,/KUN MING HUBFRESH SUPPLY CHAIN MANAGEMENT/);
+  assert.match(prompt,/Never substitute Cloudland or Melody for a HUBFRESH header/);
+  assert.match(prompt,/metadata_evidence\.supplier/);
+  assert.match(prompt,/Do not invent MDY or DMY/);
 });

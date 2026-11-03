@@ -1834,6 +1834,23 @@
 2026-11-03 공식관세 로컬최종gate: 최신91정책포함verify:erp-change3차exit0,ERP계약/posttest19·dnSpy·manifest180·SQL쓰기guard·webpack58초컴파일/전체페이지build PASS. PR미생성·CI/배포/운영smoke대기,브라우저disabled·DB쓰기0. `.verify` 및generated history두JSON커밋제외.
 검색어: 공식관세91 verify exit0 manifest180 webpack58s 로컬gate완료 PR대기
 
+2026-11-03 신규 인보이스 정상경로 1차 수정: nw-invoice-full-route-1103에서 등록 후 같은operation/WarehouseKey readback 성공에만 cost 자동이동, 등록 문서는 원가계산기 직접 표시. 기존원가 조회는 E2E 대체증거 아님. 실행형 성공/조회실패/키불일치/선택변경 회귀PASS, 워크벤치17PASS. dnSpy 실제설치 EXE/7863 SELECT-only 재확인. Docker engine 미연결로 격리SQL/Aside 업로드→입고→다운로드 미검증, 전체gate/배포 미완료. 운영DB쓰기0. 계획 docs/plans/invoice-full-route-2026-11-03.md.
+검색어: invoice-full-route 등록후자동원가 readback Aside 격리Docker 미검증
+
+2026-11-03 Aside 재연결 확인: Aside REPL로 실제 nenovaweb.com/import/tools 탭 연결 및 작업 선택 화면 조회 성공. 로컬 격리DB를 위해 Docker Desktop 재시작했으나 backend 로그에서 initializing Inference manager/dockerInference 파일 접근 오류로 시작 실패 확인. Docker 초기화/파일삭제/운영DB 대체쓰기 미실행. 실제 신규 업로드→입고→도착원가 다운로드는 여전히 미검증, 배포하지 않음. 운영DB쓰기0.
+검색어: Aside 연결정상 Docker dockerInference 파일접근오류 격리E2E 미검증
+
+2026-11-03 농장 검색 장애 1차 보완: InvoiceReceiptWorkbench 농장 조회 실패를 빈 결과로 숨기던 catch 수정, 응답 배열 검증·abort 뒤 늦은 결과 무시·재검색·후보 직접선택·선택 FarmKey 상태 표시 추가. 기존 자동매칭/워크벤치 실행형 회귀 28 PASS. Aside 운영 탭 연결/입고 작업 탭 진입 확인, 저장 문서 조회 버튼은 element-ready timeout 후 해당 작업대가 snapshot에서 사라져 실제 농장 검색 재현 미완료. 운영 화면 작업기록 저장 경고 존재(원인 미확정). 사용자에게 실패 파일명/국가 요청. 운영DB쓰기0, 로컬수정만/배포미완료. 총금액 원문캡처 확인과 등록건 새창 연결은 아직 미구현.
+검색어: 농장검색 farmError 후보직접선택 Aside timeout 28PASS 총금액확인 미구현
+
+2026-11-03 45-1 중국 로그 SELECT-only 진단: SystemActionLog에 45-1 중국 CI-2026-NN009_변환_NN007.pdf UPLOAD_FAILED 3건(11:20,11:50,13:17), detail NULL. WebInvoiceDocument 2026/45-01 및 NN009/NN007 파일명 조회0. Farm 전체97 활성87 중 HUB/KUN 이름0. 반면 WarehouseMaster HUBFRESH 입고 존재(7771/7770/7769,2026/43-01,XJ-2026-NN007). 현재 자동입력/검색은 Farm만 조회하므로 기존 입고 FarmName HUBFRESH를 선택할 수 없음. dnSpy golden은 WarehouseMaster.FarmName=C2 문자 입력. 농장ID 필수 웹 계약과 native 이름 저장의 차이 수정 필요; 임의 Farm 행 생성/가짜ID 금지. 실패 원문 supplier는 저장초안 없어 미확인. 로그 상세누락은 InvoiceUploadIssues가 error를 Boolean으로만 이벤트화하고 detail을 안보내는 코드 확인. 운영DB쓰기0.
+검색어: 45-1 중국 NN009 NN007 HUBFRESH Farm없음 WarehouseMaster FarmName 로그 detail NULL
+
+2026-11-03 기존입고 농장 연결 로컬 구현: invoiceFarmSource 후보 Farm+활성 WarehouseMaster 이름/PK, auto-fill GET/POST와 UI 연결. historical FarmKey=null 유지, writer preview/locked 재검증으로 실제 PK·농장명 대조, 기존 중복입고 검사 유지. null FarmKey 문서의 공급자 이름 business hash/기등록 이름변경 방지 추가. UPLOAD_FAILED에 bounded/redacted detail 기록. dnSpy 실제 EXE FarmName=excelTable.Rows[1][2] 재확인. 핵심49 PASS, 최종 Farm/로그/워크벤치24 PASS. Docker inspect 무응답으로 해당 테스트 docker PID만 종료; 격리SQL/Aside 실제45-1 입고/전체gate/배포 미완료. 총금액 원문캡처 확인 및 등록건 새창 연결 미구현. 운영DB쓰기0. 로컬 코드 아직 배포 금지.
+검색어: historical farm invoiceFarmSource FarmKey null HUBFRESH 45-1 error detail SQL Aside 미검증
+
+2026-11-03 45-1 중국 실파일 후속검증: Docker socket 디렉터리 이름변경 백업 후 복구(초기화/데이터삭제 없음). 운영 GET/SELECT로 원본·캐시·품목만 복사, loopback14339 격리DB로 Aside 실제 업로드/미매칭1건 선택/총액확인/입고등록/새창조회 2회 성공. 54행 180박스 1905단 21900송이, 상품39720+부대비37375=총액77095CNY. 부대비 상품중복등록 없음. 최신 실행은 원본 같은 송장 HUBFRESH 헤더로 Cloudland 오인식 정정 및 기존입고 농장 자동선택 확인. 입고날짜와 GW1684.8은 원문보고 수동입력, CW 공란이며 자동입력 성공으로 간주하지 않음. PDF2페이지 총액 표시·확인버튼·로그·WarehouseKey91001 새창 상세합계39720 확인. 격리 주문/출고 sentinel 보존. SQL 전체fixture PASS, dnSpy/manifest182/writeguard/build PASS. 최종 ERP 전체gate 진행중, 배포 아직 안함. 운영DB쓰기0·추가유료AI0. 계획 docs/plans/invoice-full-route-2026-11-03.md.
+검색어: CN45 Aside E2E HUBFRESH 77095 39720 37375 180박스 FarmName 총액확인 새창 원본2페이지 Docker복구
 2026-11-03 후속 상태 정정: 직전 공식관세 작업은 PR1426/merge d0651146b47ce22d28a031b4248e3e31901bfe4f, CI41559970111 및 Cafe24배포41560482584 성공. ping200/dbConnected=true, 운영읽기전용smoke41561388031·41561410862 성공(부모세션증거). DB migration false, SQL repair/recalculation 없음. 위 PR대기는 당시 중간 기록이다.
 검색어: 공식관세1426 d0651146 배포41560482584 smoke완료 DB쓰기0
 
@@ -1878,3 +1895,8 @@
 
 2026-11-03 평균보완 코드동결 독립검토: 현재발견P1없음,전체gate·운영스모크조건부승인. 평균상세UI페이지연결/80품목성분환산기간/실납부미인증/원본메타분리확인. 최종재생F→E재사용75쌍불일치0,보완행양수매출100%초과또는−50%미만0. 이전prototype극단값은최종값아님. 원천불변fingerprint재사용629ms는주담당측정이며운영성능인증아님. 전체gate·배포대기유지.
 검색어: 독립P1없음 조건부승인 E/F75쌍 극단값해소 상세UI80 gate배포대기
+2026-11-03 불량차감 후속 진행: nw-defect-support-1103. 사용자 최종정책: 같은연도 직전5차수 업체단가우선/없으면타업체최신동일품목단가, 전년도제외. 적용차수 업체분배없음 보류/후속차수대기 유지. ClassEstimate dnSpy CLI와 FormEstimateAdd ShipmentKey/ProdKey 독립저장 확인. 오류로그16519 견적10930중복; 현재10930 실제연결조회0건으로 업체확정미완. UI13px/핵심열/오류업체품목표시 수정중. 기본불량/원문보존 회귀PASS, 전체가드진행중, 배포미완. 검색어: 최근5차수 타업체단가 등록보류 10930
+
+2026-11-03 후속검증: 독립 npm ci 후 verify:erp-change exit0, dnSpy/manifest/write guard PASS. 실제SQL CTE 업체5차수우선/타업체최신/6차수·전년도·현재차수제외 PASS. PR1433 CI41586734943 success, master25fc0530, Cafe24배포41587424121 success. 운영버전25fc0530 확인, UI최종검증진행. 검색어: 최근5차수 타업체단가 PR1433 25fc0530
+
+2026-11-03 15:34등록중단: 수경원예1073(44차)/1080(43차)동일품목10단이 같은트랜잭션에서 모두사전검사통과후앞행견적10936생성→뒤행중복throw→전체rollback. 현재10936없음SELECT확인. typed duplicate만 쓰기전skip,기타오류rollback유지,preview전체선택묶음중복경고. 실제registerDeductions 모의3행 정상2/중복1/다른수량허용/중복행쓰기0 PASS. 검색어: sameTransactionDuplicates 1073 1080 10936

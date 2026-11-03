@@ -1,0 +1,11 @@
+{
+  "id":"invoice-historical-farm",
+  "title":"기존 입고 농장명 근거 연결",
+  "scope":["lib/invoiceSupplierEvidence.js","lib/importPackingExtractClient.js","lib/importPackingPrompt.js","lib/importPackingReceiptAdapter.js","components/import-tools/PackingListTool.js","lib/invoiceFarmSource.js","lib/invoiceAmountReview.js","components/import-tools/InvoiceTotalEvidence.js","pages/incoming.js","lib/invoiceReceiptAutoFill.js","lib/invoiceReceiptValidation.js","lib/invoiceReceiptWriter.js","lib/invoiceReceiptDocuments.js","pages/api/import/receipts/auto-fill.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/InvoiceUploadIssues.js","lib/invoiceUploadIssue.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"RESOLVE_HISTORICAL_FARM","orderDetail":"preserve","shipmentDetail":"preserve","notes":"Farm 마스터 쓰기 없음. 활성 WarehouseMaster PK와 정확한 FarmName을 조회/저장직전 재검증. 가짜 FarmKey 금지. 기존 writer 입고/재고 계약만 유지. Estimate/ShipmentDate/WebProfitReport 변경 없음."}],
+  "crossYearFixture":{"required":true,"description":"농장 근거는 차수가 아닌 WarehouseKey PK로 조회. 신규 입고 연도/차수 검증은 기존 계약 유지."},
+  "requiredTestFiles":["__tests__/invoiceSupplierEvidence.test.js","__tests__/invoiceAmountReview.test.js","__tests__/invoiceFarmSource.test.js","__tests__/invoiceReceiptValidation.test.js","__tests__/invoiceReceiptDocuments.test.js","__tests__/invoiceReceiptWorkbench.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"ExcelLoadingPackingList.MakeTempTable FarmName=C2. 2026-11-03 SELECT-only Farm HUBFRESH 없음, WarehouseMaster7771 존재 확인.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["Farm","WarehouseMaster"]},
+  "requiredCommands":["node scripts/test-invoice-receipt-writer-sql.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
