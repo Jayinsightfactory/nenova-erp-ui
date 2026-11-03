@@ -19,6 +19,31 @@ test('CO original preserved; cross-year payload unchanged',async()=>{const m=awa
 test('AWB native allocation conserves invoice even modelled stem count differs',async()=>{const {allocateDutyFreightByAwb:f}=await allocation;for(const unit of ['단','박스']){const c={header:{freightTotalUSD:540},categories:[{allocationKey:'rose',allocationQuantity:120,allocationUnit:unit,freightUSD:540}],rows:[{warehouseDetailKey:1,freightBucketKey:'rose',freightAllocationQuantity:40,totalPriceUSD:100},{warehouseDetailKey:2,freightBucketKey:'rose',freightAllocationQuantity:80,totalPriceUSD:200}]};const a=f(c);assert.equal(a.allocations.get(1),180);assert.equal(a.allocations.get(2),360);assert.ok(a.evidence.conserved);c.rows[1].freightAllocationQuantity=0;assert.equal(f(c).allocations.get(1),null);}});
 test('canonical hook and SELECT-only new loader',()=>{const s=fs.readFileSync('lib/profitTemplateDutyData.js','utf8'),a=fs.readFileSync('pages/api/sales/profit-report.js','utf8');assert.match(s,/WHERE OrderYear=@year/);assert.doesNotMatch(s,/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE TABLE)\b/);assert.match(a,/return applyTemplateDutyToReport\(/);});
 
+test('numeric later subweeks preserve actual first/second duty and count each receipt once',async()=>{
+ const m=await api,r=row(),lines=[line(),line({orderWeek:'02-02',warehouseDetailKey:11}),line({orderWeek:'02-03',warehouseDetailKey:12}),line({orderWeek:'02-10',warehouseDetailKey:13,actualDuty:25}),line({orderYear:'2025',orderWeek:'02-03',warehouseDetailKey:14})];
+ const input={...ctx({lines}),category:r.category,row:r,customsRow:{Customs1:0,Customs2:0,Customs3:9999}};
+ const before=JSON.stringify(input),d=m.calculateTemplateDuty(input);
+ assert.equal(d.H,325);assert.equal(d.total,325);assert.equal(d.details.length,4);
+ assert.deepEqual(d.details.map(x=>x.half),[1,2,3,10]);assert.equal(d.details[0].amount,0);
+ assert.equal(JSON.stringify(input),before);assert.equal(m.calculateTemplateDuty({...input,year:'2025'}).applies,false);
+ const aggregate=m.calculateTemplateDuty({...input,customsRow:{Customs1:0,Customs2:77}});
+ assert.equal(aggregate.H,null);assert.ok(aggregate.missing.some(x=>x.diagnostic.failed.includes('LATER_SUBWEEK_DUTY_SCOPE_UNCONFIRMED')));
+ const alreadyIncluded=row();alreadyIncluded.calc.H=125;alreadyIncluded.actualCostEvidence={components:{customs:25}};
+ const included=m.calculateTemplateDuty({...input,row:alreadyIncluded,customsRow:{Customs1:0,Customs2:0},lines:[line({orderWeek:'02-03',actualDuty:25})]});
+ assert.equal(included.H,125);assert.equal(included.deltaH,0);
+ for(const bad of ['02-03A','02-01B','02-00','02-100']){const v=m.calculateTemplateDuty({...input,lines:[line({orderWeek:bad})]});assert.equal(v.H,null);assert.ok(v.missing.some(x=>x.diagnostic.failed.includes('UNSUPPORTED_SUBWEEK')));}
+ const gap=m.calculateTemplateDuty({...input,lines:[line({orderWeek:'02-03',prodKey:999})]});assert.equal(gap.H,null);
+});
+
+test('currency inference and freight denominator diagnostics never invent missing values',async()=>{
+ const m=await api,ui=await import('../lib/profitReportStatusPresentation.mjs');
+ const l=line({currency:'CNY',sourceCountry:'콜롬비아',awb:'AWB-test',freightForeign:null,freightAllocationEvidence:{invoiceTotal:50,nativeTotal:50,conserved:false,buckets:[{key:'장미',amount:0,quantity:0,expectedQuantity:0,unit:'박스',complete:false,positiveGoodsWithoutQuantity:2}]}});
+ const d=m.calculateTemplateDuty({...ctx({lines:[l]}),category:'에콰도르',row:row()});assert.equal(d.H,null);
+ const evidence=d.missing[0],text=ui.profitDutyEvidenceDetails(evidence).join(' ');
+ assert.equal(evidence.diagnostic.sourceRef.productCountry,'콜롬비아');assert.match(text,/국가 기준 추정 CNY/);assert.match(text,/총액은 일치/);assert.match(text,/배분수량이 없는 행 2개/);
+ assert.doesNotMatch(text,/SQL 통화 입력이 없습니다/);
+});
+
 test('China 40cm duty freight uses exact row metrics without changing legacy arrival outputs',async()=>{
  const {computeFreightCost}=await import('../lib/freightCalc.js'),{allocateDutyFreightByAwb:f}=await allocation;
  for(const cw of [371,400]){

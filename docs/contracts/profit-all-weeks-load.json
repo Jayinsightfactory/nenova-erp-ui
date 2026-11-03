@@ -1,0 +1,11 @@
+{
+  "id": "profit-all-weeks-load",
+  "title": "전체 차수 관세 읽기 연결과 정확한 누락 진단",
+  "scope": ["lib/profitTemplateDuty.mjs", "lib/profitTemplateDutyData.js", "lib/profitDutyFreightAllocation.mjs", "lib/profitReportStatusPresentation.mjs", "components/ProfitReportValidationGate.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"READ_ALL_WEEKS_DUTY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT-only. Exact numeric subweeks 03..99 join existing per-line tariff calculation, actual 01/02 and explicit zero/manual H dominate. Positive Customs1/2 with later receipts remains held because aggregate scope has no AWB linkage and may already include later duty. Unknown suffix/rate/currency/freight remains held. Diagnostic metadata preserves original product country and inferred currency source. No ERP ledger, schema, snapshot, confirmation or report writes."}],
+  "crossYearFixture":{"required":true,"description":"Same numeric subweek in 2025/2027 cannot enter 2026 tariff amounts; malformed suffix cannot alias 01/02."},
+  "requiredTestFiles":["__tests__/profitTemplateDuty.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-all-weeks-load-2026-11-03.md","source":"Actual dnSpy.Console.exe FormWarehouseView and SELECT-only 2026 full-week probe","methods":["FormWarehouseView.GetData"],"tables":["WarehouseMaster","WarehouseDetail","Product","FreightCost","FreightCostDetail","WebCustomsWeekly","WebProfitReport","WebProfitReportSnapshot"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run verify:erp-change","npm run build"]
+}

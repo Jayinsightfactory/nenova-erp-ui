@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
  // This unchanged-policy matrix keeps every amount/verdict/output field intact.
  // Only the explicit release-version bump and pre-existing additive diagnostics
  // are normalized. Official mappings/historical blank changes have separate tests.
- assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v2');
+ assert.equal(current.TEMPLATE_DUTY_VERSION,'2026-11-03-v3');
  const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['diagnostic','dutyDiagnostic'].includes(key)).map(([key,child])=>[key,key==='version'&&child===current.TEMPLATE_DUTY_VERSION?baseline.TEMPLATE_DUTY_VERSION:clean(child)])):value;
  const scenarios=[
   ()=>{},
@@ -30,7 +30,8 @@ const assert=require('node:assert/strict');
   (p,c)=>{c.lines[0].freightForeign=null;},
   (p,c)=>{c.lines[0].goodsForeign=null;c.lines[0].currency='CNY';p.rows[0].source.R='currency_master';},
   (p,c)=>{p.rows[0].calc.R=null;},
-  (p,c)=>{c.lines.push(line({orderWeek:'43-03'}));},
+  // Numeric 03+ is an intentional policy extension, covered by the dedicated
+  // per-subweek tests rather than normalized away in this parity matrix.
   (p,c)=>{delete p.rows[0].customsComponents;},
   (p,c)=>{c.sourceFailure='원천 읽기 실패';},
   (p,c)=>{p.rows[0].inventoryValuation.begin.method='product_cost';},
