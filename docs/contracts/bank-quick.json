@@ -9,6 +9,8 @@
     "lib/bankQuick/xlsx.js",
     "scripts/bank-quick/probe-nh.mjs",
     "scripts/bank-quick/collect.mjs",
+    "scripts/bank-quick/collect-quick.mjs",
+    "lib/bankQuick/quick.js",
     "scripts/bank-quick/register-account.ps1",
     "docs/migrations/2026-11-03_bank_schema.sql",
     "docs/bank-quick/DESIGN.md"
@@ -74,7 +76,8 @@
   },
   "requiredTestFiles": [
     "__tests__/bankQuickParse.test.js",
-    "__tests__/bankQuickSchema.test.js"
+    "__tests__/bankQuickSchema.test.js",
+    "__tests__/bankQuickQuick.test.js"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
