@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {profitValidationDisplayKey,acceptsProfitValidationResponse} from '../lib/profitReportValidationGate.mjs';
-import {buildProfitStatusPresentation,PROFIT_STATUS_LABELS,profitIssueImpact,profitMissingCell,profitDiagnosticText} from '../lib/profitReportStatusPresentation.mjs';
+import {buildProfitStatusPresentation,PROFIT_STATUS_LABELS,profitIssueImpact,profitMissingCell,profitDiagnosticText,profitDutyEvidenceDetails} from '../lib/profitReportStatusPresentation.mjs';
 import ui from '../styles/ProfitReportToolbar.module.css';
 
 export function useProfitValidationGate({year,major,rows,totals,dirty,audit}) {
@@ -84,6 +84,7 @@ export default function ProfitReportValidationGate({validation}) {
         {item.missingEvidence.length>0&&<details><summary>관세 연결 확인 {item.missingEvidence.length}건 · 품목별 원인</summary>
           <ul>{item.missingEvidence.map((evidence,index)=><li key={index}>{evidence.name || '공통 근거'}{evidence.prodKey?` (#${evidence.prodKey})`:''}: {evidence.diagnostic?.failed?.length?evidence.diagnostic.failed.map(profitDiagnosticText).join(' · '):evidence.reason}
             {evidence.diagnostic?.sourceRef&&<span className={ui.secondary}>{evidence.diagnostic.sourceRef.orderYear}년 {evidence.diagnostic.sourceRef.orderWeek} · 입고 상세 #{evidence.diagnostic.sourceRef.warehouseDetailKey} · 원문: {evidence.reason}</span>}
+            {profitDutyEvidenceDetails(evidence).map((detail,i)=><span key={i} className={ui.secondary}>{detail}</span>)}
             {evidence.diagnostic?.actualDutyInput==='not_available_in_calculation'&&<span className={ui.secondary}>현재 계산에 사용할 실제 관세 입력·도착원가 관세 근거도 미확인입니다. SQL 원문 행 자체가 없다는 판정은 아닙니다.</span>}
           </li>)}</ul>
         </details>}
