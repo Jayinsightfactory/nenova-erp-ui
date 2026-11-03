@@ -1121,6 +1121,10 @@ export default function SalesDefectDeductionsPage() {
       }
       const { valid, invalid } = partitionRegistrationPreflight(checkedRows);
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 완료 · 등록 가능 ${valid.length}건 · 오류 제외 ${invalid.length}건` }]);
+      for (const rejected of invalid) {
+        const source = selectedRows[rejected.index] || {};
+        setSupportProcessLogs(current => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `${source.customerName || '업체 미확인'} / ${source.productName || '품목 미확인'} / ${source.quantity ?? ''}${source.sourceUnit || ''}: ${rejected.error || '등록 제외'}` }]);
+      }
       if (!valid.length) {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
@@ -1871,7 +1875,7 @@ export default function SalesDefectDeductionsPage() {
           })}
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
-          <table className="data-table defect-grid support-grid">
+          <table className={`data-table defect-grid support-grid ${activeTab === 'support' ? 'support-compact' : ''}`}>
             <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={managementMode || managementBusy || supportLoading || !supportSelectableKeys.length} onChange={toggleAllSupport} /></label></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
@@ -2214,7 +2218,10 @@ export default function SalesDefectDeductionsPage() {
         .support-live-log-head { position: sticky; top: 0; display: flex; justify-content: space-between; padding-bottom: 4px; background: #eff6ff; } .support-live-log-head span { color: #0369a1; font-weight: 800; }
         .support-live-log > div:not(.support-live-log-head):not(.support-live-log-empty) { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 7px; padding: 2px 0; border-top: 1px solid #bfdbfe; } .support-live-log time { color: #64748b; font-variant-numeric: tabular-nums; } .support-live-log-empty { color: #64748b; }
         .support-grid-scroll { max-height: calc(100vh - 260px); }
-        .support-grid { min-width: 1450px; table-layout: fixed; font-size: 16px; }
+        .support-compact th:nth-child(3), .support-compact td:nth-child(3), .support-compact th:nth-child(5), .support-compact td:nth-child(5), .support-compact th:nth-child(9), .support-compact td:nth-child(9), .support-compact th:nth-child(10), .support-compact td:nth-child(10) { display: none; }
+        .support-grid.support-compact { min-width: 950px; }
+        .support-compact .support-estimate-open, .support-compact .support-existing-estimates { display: none; }
+        .support-grid { min-width: 1450px; table-layout: fixed; font-size: 13px; }
         .support-grid th, .support-grid .defect-row td { padding: 3px; line-height: 1.2; vertical-align: middle; }
         .support-grid th:nth-child(1) { width: 4%; }
         .support-grid th:nth-child(2) { width: 8%; }

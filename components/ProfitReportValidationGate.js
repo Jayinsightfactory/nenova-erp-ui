@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {profitValidationDisplayKey,acceptsProfitValidationResponse} from '../lib/profitReportValidationGate.mjs';
-import {buildProfitStatusPresentation,PROFIT_STATUS_LABELS,profitIssueImpact,profitMissingCell,profitDiagnosticText} from '../lib/profitReportStatusPresentation.mjs';
+import {buildProfitStatusPresentation,PROFIT_STATUS_LABELS,profitIssueImpact,profitMissingCell,profitDiagnosticText,profitDutyEvidenceDetails} from '../lib/profitReportStatusPresentation.mjs';
 import ui from '../styles/ProfitReportToolbar.module.css';
 
 export function useProfitValidationGate({year,major,rows,totals,dirty,audit}) {
@@ -54,8 +54,10 @@ export function ProfitValidationRateLabel({validation,category}) {
   const secondary=model.common ? validation.dirty?'변경 후 재대조 필요(위 안내)':validation.error?'원천 대조 실패(위 안내)':validation.busy?'원천 대조 중'
     : !model.result?`원천 대조 전${model.globalIssues.length?'(공통 안내)':''}`:'공통 대조 미완료(위 안내)' : item.secondary;
   return <small className={ui.rateLabel} title={[item.label,secondary].filter(Boolean).join(' · ')} data-profit-status={item.state}>
-    {!duplicateMissingLabel&&<StatusBadge item={item} />}
-    {item.estimated&&item.state!=='estimated'&&<span className={ui.secondary}>추정 근거 포함</span>}
+    {!duplicateMissingLabel&&(item.state==='estimated'
+      ? <a href="#profit-calculation-details" onClick={()=>{const details=document.getElementById('profit-calculation-details');if(details)details.open=true;}}><StatusBadge item={item} /></a>
+      : <StatusBadge item={item} />)}
+    {item.estimated&&item.state!=='estimated'&&<span className={ui.secondary}>적용기준 상세 확인</span>}
     {secondary&&<span className={ui.secondary}>{secondary}</span>}
   </small>;
 }
@@ -67,23 +69,24 @@ export default function ProfitReportValidationGate({validation}) {
       <span className={ui.secondary}>{result?.checkedAt?`대조 시각 ${new Date(result.checkedAt).toLocaleString('ko-KR')}`:model.common}</span>
     </div>
     <div className={ui.counts}>{Object.entries(model.counts).filter(([,count])=>count>0).map(([state,count])=><span key={state} className={`${ui.badge} ${ui[state]||''}`}>{PROFIT_STATUS_LABELS[state]} {count}</span>)}</div>
-    <div>원천 대조 전은 오류라는 뜻이 아닙니다. 추정 포함은 실제 비용 확정이 아니며, 저장·확정은 원가 정확성 인증과 다릅니다. 숫자와 저장본은 변경하지 않습니다.</div>
+    <div>원천 대조 전은 오류라는 뜻이 아닙니다. 적용기준은 아래 상세에서 확인할 수 있으며 실제 비용 확정과는 다릅니다. 저장·확정은 원가 정확성 인증이 아닙니다. 숫자와 저장본은 변경하지 않습니다.</div>
     {validation.error&&<div role="alert">{model.common}</div>}
     {validation.dirty&&<div>{model.common}</div>}
     {model.globalIssues.length>0&&<details><summary>공통 확인사항 {model.globalIssues.length}건 — 전체 보고서 검증 제약</summary>
       <ul>{model.globalIssues.map((issue,index)=><li key={index}>{issue.message}</li>)}</ul>
       <div>공통 검증 미완료를 각 품종의 금액 오류로 단정하지 않습니다. 원천 대조가 완료되기 전에는 사용 가능으로 인증하지 않습니다.</div>
     </details>}
-    <details><summary>품종별 사유·영향 자세히 보기 ({model.items.length}개)</summary>
+    <details id="profit-calculation-details"><summary>품종별 사유·계산 기준·영향 자세히 보기 ({model.items.length}개)</summary>
       {result&&<div>{result.boundary} {result.sourceBoundary}</div>}
       {model.items.map(item=><div key={item.category} className={ui.statusRow}>
-        <strong>{item.category}</strong>{' '}<StatusBadge item={item} />{item.estimated&&item.state!=='estimated'?' · 추정 근거 포함':''}
+        <strong>{item.category}</strong>{' '}<StatusBadge item={item} />{item.estimated&&item.state!=='estimated'?' · 적용기준 상세 확인':''}
         <span className={ui.secondary}>{item.secondary}</span>
         {item.reasons.length>0?<ul>{item.reasons.map((reason,index)=><li key={index}>{reason}</li>)}</ul>:<p>개별 오류는 확인되지 않았습니다. 표시 상태와 공통 검증 제약을 함께 확인하세요.</p>}
         {item.issues.map((issue,index)=><div key={index} className={ui.secondary}>{profitIssueImpact(issue)}</div>)}
         {item.missingEvidence.length>0&&<details><summary>관세 연결 확인 {item.missingEvidence.length}건 · 품목별 원인</summary>
           <ul>{item.missingEvidence.map((evidence,index)=><li key={index}>{evidence.name || '공통 근거'}{evidence.prodKey?` (#${evidence.prodKey})`:''}: {evidence.diagnostic?.failed?.length?evidence.diagnostic.failed.map(profitDiagnosticText).join(' · '):evidence.reason}
             {evidence.diagnostic?.sourceRef&&<span className={ui.secondary}>{evidence.diagnostic.sourceRef.orderYear}년 {evidence.diagnostic.sourceRef.orderWeek} · 입고 상세 #{evidence.diagnostic.sourceRef.warehouseDetailKey} · 원문: {evidence.reason}</span>}
+            {profitDutyEvidenceDetails(evidence).map((detail,i)=><span key={i} className={ui.secondary}>{detail}</span>)}
             {evidence.diagnostic?.actualDutyInput==='not_available_in_calculation'&&<span className={ui.secondary}>현재 계산에 사용할 실제 관세 입력·도착원가 관세 근거도 미확인입니다. SQL 원문 행 자체가 없다는 판정은 아닙니다.</span>}
           </li>)}</ul>
         </details>}

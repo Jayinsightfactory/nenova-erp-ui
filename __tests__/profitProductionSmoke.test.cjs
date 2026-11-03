@@ -12,4 +12,37 @@ assert.ok(request('https://nenovaweb.com/api/sales/profit-report-output?year=202
 assert.doesNotMatch(text,/setExtraHTTPHeaders|console\.log\(token|screenshot\(/);
 const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/profit-download-smoke.yml'),'utf8');
 assert.match(workflow,/workflow_dispatch:/);assert.doesNotMatch(workflow,/upload-artifact|pull_request:|push:/);
+assert.match(workflow,/source_completion_checks:[\s\S]*?type: boolean[\s\S]*?default: false/);
+assert.match(workflow,/PROBE_SOURCE_COMPLETION_CHECKS: \$\{\{ inputs.source_completion_checks \}\}/);
 console.log('PASS production download guard: same-origin credentials, GET-only, selected year/week, no business artifact publishing');
+(async()=>{
+ const block=text.slice(text.indexOf('// BEGIN SOURCE_COMPLETION_CHECKS'),text.indexOf('// END SOURCE_COMPLETION_CHECKS'));
+ const runPresentation=new (Object.getPrototypeOf(async function(){}).constructor)('page','wb','week','year','assert','process','console',block);
+ let clicked=0,opened=false,checks=0,logged=[];
+ const page={evaluate:async fn=>{checks++;return String(fn).includes('obsoleteLabel')?{obsoleteLabel:false,detailsPresent:true,links:1}:undefined;},click:async()=>{clicked++;opened=true;},$eval:async()=>opened};
+ const wb={Sheets:{'38차':{A1:{t:'s',v:'2026년 38차 매출이익 보고서'},A2:{t:'s',v:'실제 납부 확정액 아님'},A5:{t:'n',v:0}}}};
+ await runPresentation(page,wb,'38','2026',assert,{env:{}},{log:x=>logged.push(x)});assert.equal(checks,0);assert.equal(clicked,0);
+ await runPresentation(page,wb,'38','2026',assert,{env:{PROBE_SOURCE_COMPLETION_CHECKS:'true'}},{log:x=>logged.push(x)});assert.equal(clicked,1);assert.equal(JSON.parse(logged[0]).actualBusinessWrites,0);
+ await assert.rejects(runPresentation({...page,evaluate:async()=>({obsoleteLabel:true,detailsPresent:true,links:0})},wb,'38','2026',assert,{env:{PROBE_SOURCE_COMPLETION_CHECKS:'true'}},console),/obsolete/);
+ await assert.rejects(runPresentation({...page,$eval:async()=>false},wb,'38','2026',assert,{env:{PROBE_SOURCE_COMPLETION_CHECKS:'true'}},console),/open details/);
+ const wrong=structuredClone(wb);wrong.Sheets['38차'].A1.v+=' · 추정 포함';
+ await assert.rejects(runPresentation(page,wrong,'38','2026',assert,{env:{PROBE_SOURCE_COMPLETION_CHECKS:'true'}},console));
+ const {compareProfitSmokeOutput:compare}=await import('../scripts/profit-smoke-comparison.mjs');
+ const calc={C:100,E:55,F:10,G:20,H:5,I:70,J:30,K:.3};
+ const row={category:'콜롬비아 수국',calc,auto:{N:100,L:0,O:0,Q:2,E:999,F:10,H:5,S:0,R:10},manual:{},
+  inventoryValuation:{begin:{year:'2026',major:'45',week:'45-03',value:55,quantity:2,method:'category_average',sources:['PRIVATE SOURCE'],average:{unitCost:27.5,totalCost:550,purchaseQty:20,private:'PRIVATE'}},end:null},secret:'TOKEN'};
+ const payload={orderYear:'2026',major:'46',templateDuty:{version:'fixture'},effectiveViewTotals:{},rows:[row],token:'SECRET'};
+ const output=[['콜롬비아 수국',100,55,10,20,5,70,30,.3]];
+ assert.equal(compare(payload,output).differences.length,0,'derived projection wins over stale auto.E');
+ assert.equal(compare({...payload,templateDuty:null,confirmed:true,confirmedTotals:{}},output).differences.length,0);
+ assert.equal(compare({...payload,templateDuty:null},output).differences.find(d=>d.column==='E').screenValue,999,'ordinary live uses the same current calculator as the web');
+ const mismatch=structuredClone(output);mismatch[0][2]=56;
+ const diff=compare(payload,mismatch);assert.equal(diff.differences[0].absoluteDelta,1);assert.equal(diff.differences[0].screenValue,55);
+ assert.deepEqual(diff.differences[0].roundedWon,{screen:55,output:56});assert.equal(diff.evidence[0].begin.major,'45');
+ assert.doesNotMatch(JSON.stringify(diff.evidence),/PRIVATE|TOKEN|SECRET|sources/);
+ const precision=structuredClone(output);precision[0][2]=55+2e-8;assert.equal(compare(payload,precision).differences.length,1,'diagnostics must not loosen tolerance');
+ const foreign=structuredClone(payload);foreign.orderYear='2025';foreign.rows[0].calc.E=7;
+ assert.equal(compare(foreign,output).differences[0].screenValue,7,'no cross-year cached row reuse');
+ assert.match(text,/compareProfitSmokeOutput\(mainData,financialRows\)/);assert.doesNotMatch(text,/computeProfitRow/);
+ console.log('PASS production comparison: shared frozen/confirmed projection, strict real differences, precise diagnostics, privacy, year isolation');
+})().catch(error=>{console.error(error);process.exitCode=1;});

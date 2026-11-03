@@ -1851,3 +1851,30 @@
 
 2026-11-03 45-1 중국 실파일 후속검증: Docker socket 디렉터리 이름변경 백업 후 복구(초기화/데이터삭제 없음). 운영 GET/SELECT로 원본·캐시·품목만 복사, loopback14339 격리DB로 Aside 실제 업로드/미매칭1건 선택/총액확인/입고등록/새창조회 2회 성공. 54행 180박스 1905단 21900송이, 상품39720+부대비37375=총액77095CNY. 부대비 상품중복등록 없음. 최신 실행은 원본 같은 송장 HUBFRESH 헤더로 Cloudland 오인식 정정 및 기존입고 농장 자동선택 확인. 입고날짜와 GW1684.8은 원문보고 수동입력, CW 공란이며 자동입력 성공으로 간주하지 않음. PDF2페이지 총액 표시·확인버튼·로그·WarehouseKey91001 새창 상세합계39720 확인. 격리 주문/출고 sentinel 보존. SQL 전체fixture PASS, dnSpy/manifest182/writeguard/build PASS. 최종 ERP 전체gate 진행중, 배포 아직 안함. 운영DB쓰기0·추가유료AI0. 계획 docs/plans/invoice-full-route-2026-11-03.md.
 검색어: CN45 Aside E2E HUBFRESH 77095 39720 37375 180박스 FarmName 총액확인 새창 원본2페이지 Docker복구
+2026-11-03 후속 상태 정정: 직전 공식관세 작업은 PR1426/merge d0651146b47ce22d28a031b4248e3e31901bfe4f, CI41559970111 및 Cafe24배포41560482584 성공. ping200/dbConnected=true, 운영읽기전용smoke41561388031·41561410862 성공(부모세션증거). DB migration false, SQL repair/recalculation 없음. 위 PR대기는 당시 중간 기록이다.
+검색어: 공식관세1426 d0651146 배포41560482584 smoke완료 DB쓰기0
+
+2026-11-03 전체차수 조회 후속 진행: nw-profit-all-weeks-load/codex/profit-all-weeks-load, DB절대쓰기금지. SQL등록01~50/저장01~43/활성보고서확정키0. 저장감사12SELECT, live재실행5233SELECT 모두쓰기0(최초4748는환율읽기분기차단으로불완전). 44진행/45~50미래분리. K공란328중무활동180제외. 재고보류122측면=평균식H의존42+비지원80, 후자원본재고값없음28. 원문국가혼재와웹CHINA재분류로통화충돌,운임총액일치여도품목분모불완전보류. 관세정책누락702행/고유216품목. 숫자03지원·진단보완diff독립검토중이며 수기1/2합계와03중복위험가드검토필요. 변경후1차 E/F/G/H/R/I/J/K변동0. 실제근거부족을0으로채우지않음. 정본 docs/work-sessions/2026-11-03_profit-all-weeks-load.md 및 work-reports 변경전1426진단행CSV. 이번전체gate/PR/배포미완료.
+검색어: profit-all-weeks-load 전체50차 5233SELECT 미확정1426진단행 no_inbound CURRENCY_MISMATCH 03중복관세
+
+2026-11-03 전체차수 로컬gate후속: verify:erp-change exit0, Next134페이지/50초compile,별도dnSpy/origin-master쓰기guard PASS(부모증거).03양수합계범위중복가드반영core독립승인.최종저장본목록1302진단행/재고155품목행(31EC정상분모0제외),관세미연결705행/217품목.숫자변동0,DB쓰기0.44최종조회수신및PR/배포/운영스모크대기.정본과final.md/CSV참조.
+검색어: profit-all-weeks-load gatePASS 134페이지 1302 217품목 localverified 배포대기
+
+2026-11-03 44차최종검증: v3 raw포함SELECT1291/쓰기0,전후C/E/F/G/H/I/J/K변동0.중국33입고행/32고유품목관세미연결·legacy비용분리부족등59진단행CSV별도생성.산출완료후상주핸들로자연exit0아님/해당probePID만종료.45~50는수정전조회성공,배포후브라우저검증대기.로컬gate/core독립승인완료,커밋/PR/배포는아직미완료.
+검색어: 44최종 v3 1291SELECT 59진단 중국33행32품목 금액변동0
+
+2026-11-03 운영출력대사후속: PR1429/CI41566371024성공,merge4ffcdccf410d56dabdbe63c36bab9ae6cb76bc6a,Cafe24배포41567162600성공/ping200·DB연결/CODE_ONLY_DEPLOY·DBmigrationfalse.운영41567880503(26~31)/41567888169(38~43)/41567904134(01/09/18/50)성공.41567895590은44/45성공후46수국E대사실패,47~49해당run미실행(별도진행).새nw-profit-live-output-consistency에서smoke의confirmed전용재계산분기를실제웹profitDisplayCalculation과통일,1e-8/assert유지·금액차이/원천basis/응답시각진단추가.금융API·웹계산변경0/DB쓰기0.표적·manifest·쓰기guard·dnSpy PASS전달및독립승인.46직접원인미확정,새진단운영run대기.정본 docs/work-sessions/2026-11-03_profit-live-output-consistency.md.
+검색어: profit-live-output-consistency 46수국E smoke공통표시 epsilon1e-8 PR1429 배포성공 직접원인미확정
+
+2026-11-03 추가운영검증: 별도run41568834599는47·48PASS후49콜롬비아루스커스E불일치로실패.46과49의실제차이금액은아직없어새진단로그필요.전체운영완료아님.
+검색어: 49루스커스E 41568834599 47·48PASS 진단금액대기
+
+2026-11-03 원천연결보완: 중국exact71추가(동일형태32+공식장미문언39), 총162정책. 실제0/수기/실납부우선·E1조건보존·신규AWB직접증거복제금지.01~43메모리재검산추가SQL0:미연결705→443입고행/217→146품목;38중국H3705660.52/F3945448.56,39중국E3945448.56만복구.수익률전체해결아님.18공식환율조회가능하나legacyFIFO원천FX/평균불가/19연쇄미확인으로제외.표시는중립계산기준/제목보고서,상세미확정유지.독립diff검토blocker없음(계약표현정정요청),전체gate진행중/PR배포미완.정본docs/work-sessions/2026-11-03_profit-source-completion.md 및work-reports동명final/remaining.csv1092진단행.
+검색어: profit-source-completion exact71 162정책 146품목 38중국 39중국 3셀복구 18환율FIFO 계산기준 DB쓰기0 gate대기
+
+2026-11-03 원천연결최종로컬gate: verify:erp-change session30084 exit0,webpack60초/134페이지.별도dnSpy exit0,origin/master manifest183PASS·쓰기guard exit0(변경API0),운영smoke nodecheck/mock PASS. 독립정책/표시/옵트인DOM검증 승인.정책연결파생3셀복구와표시금액불변을계약/계획/최종보고서에분리정정.운영옵트인클릭검증은basisLinks>0/detailsOpenedtrue로그필요.커밋/PR/배포/운영스모크아직대기.
+검색어: profit-source-completion gatePASS 183manifest 134pages source_completion_checks 배포대기
+
+2026-11-03 불량차감 후속 진행: nw-defect-support-1103. 사용자 최종정책: 같은연도 직전5차수 업체단가우선/없으면타업체최신동일품목단가, 전년도제외. 적용차수 업체분배없음 보류/후속차수대기 유지. ClassEstimate dnSpy CLI와 FormEstimateAdd ShipmentKey/ProdKey 독립저장 확인. 오류로그16519 견적10930중복; 현재10930 실제연결조회0건으로 업체확정미완. UI13px/핵심열/오류업체품목표시 수정중. 기본불량/원문보존 회귀PASS, 전체가드진행중, 배포미완. 검색어: 최근5차수 타업체단가 등록보류 10930
+
+2026-11-03 후속검증: 독립 npm ci 후 verify:erp-change exit0, dnSpy/manifest/write guard PASS. 실제SQL CTE 업체5차수우선/타업체최신/6차수·전년도·현재차수제외 PASS. PR1433 CI41586734943 success, master25fc0530, Cafe24배포41587424121 success. 운영버전25fc0530 확인, UI최종검증진행. 검색어: 최근5차수 타업체단가 PR1433 25fc0530

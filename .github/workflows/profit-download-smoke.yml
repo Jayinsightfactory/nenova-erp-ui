@@ -14,6 +14,10 @@ on:
         description: Assert Thai approved-cost carry / missing-source blocking (2026 weeks 34-41)
         type: boolean
         default: false
+      source_completion_checks:
+        description: Check neutral cost-basis labels, detail link and plain XLSX title
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -33,5 +37,6 @@ jobs:
           PROBE_YEAR: ${{ inputs.year }}
           PROBE_WEEK: ${{ inputs.week }}
           PROBE_THAI_CARRY: ${{ inputs.thai_carry }}
+          PROBE_SOURCE_COMPLETION_CHECKS: ${{ inputs.source_completion_checks }}
           CHROME_PATH: /usr/bin/google-chrome
         run: node scripts/profit-production-download-smoke.cjs

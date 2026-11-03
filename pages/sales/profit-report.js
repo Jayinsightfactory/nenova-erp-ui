@@ -251,7 +251,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     H: row.templateDuty
       ? `저장 입력 H ${row.templateDuty.originalCalc?.H?.toLocaleString()??'미확인'}원 → 관세 보완 H ${row.calc?.H?.toLocaleString()??'미확인'}원. 관세 ${row.templateDuty.total?.toLocaleString()??'미확인'}원(기존분 제거 후 1회 적용). ${row.templateDuty.status==='approved_estimate'?'승인 양식 품목별 추정이며 실제 납부 확정액이 아닙니다.':'실제·명시 0·수기 입력 우선.'} DB 저장값은 바꾸지 않습니다. ${(row.templateDuty.explanation||[]).join(' ')}`
       : row.source?.H === 'approved_estimate'
-      ? '승인 비용 추정 포함: 백상460원/kg + 실제 관세(미입력은 태국5%) + 선율(32차 이후 공급가 가정·누락63,000원) + 합산 GW 차량비/1.1 + 방역/1.1. 수기 확정액 우선. 실제 청구 확정액은 아닙니다.'
+      ? '승인 비용 계산기준: 백상460원/kg + 실제 관세(미입력은 태국5%) + 선율(32차 이후 공급가 가정·누락63,000원) + 합산 GW 차량비/1.1 + 방역/1.1. 수기 확정액 우선. 실제 청구 확정액은 아닙니다.'
       : '백상460원/kg + 입력된 관세·선율·국내운송·방역. 합산 입고중량별 차량비를 계산하며 명시 실제금액은 우선합니다. 콜롬비아는 박스당무게×박스수량 비율 배분. 근거 있는 수기값 우선.',
     AC: '매출조정 — 다른 차수 귀속 매출(견적 누락분·차수 이동분)을 이 차수 매출에 가감합니다. 매출액(C)과 매출이익(J)에 함께 반영되며, 저장 시 근거(원본 보고서·사유)가 필요합니다.',
     AJ: '이익조정 — 매출은 그대로 두고 매출이익(J)만 가감합니다(원본 엑셀의 J셀 수동 수정과 동일). 저장 시 근거가 필요합니다.',
