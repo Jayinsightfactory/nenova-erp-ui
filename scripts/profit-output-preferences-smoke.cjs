@@ -41,6 +41,7 @@ const XLSX = require('xlsx-js-style');
       return req.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});
     });
     await page.evaluateOnNewDocument(() => {
+      window.print = () => { window.top.__fixturePrintCalls = (window.top.__fixturePrintCalls || 0) + 1; };
       if(!sessionStorage.getItem('fixture-seeded')) {
         localStorage.setItem('nenova_profitReport_visibleCols_v4',JSON.stringify(['category','C','J']));
         localStorage.setItem('nenova_profitReport_outputCols_v1',JSON.stringify(['category','E','J']));
@@ -67,6 +68,7 @@ const XLSX = require('xlsx-js-style');
     await click('summary','엑셀·인쇄 차수 선택 (1개)');
     await click('button','인쇄 (1개 차수 · 1장)');
     await page.waitForSelector('[data-testid="profit-print-frame"]');
+    await page.waitForFunction(()=>window.__fixturePrintCalls===1);
     assert.deepEqual(calls,[{year:'2026',major:'41',cols:'C,J',category:'1'}]);
     const frame=page.frames().find(f=>f.parentFrame());
     const html=await frame.content();
@@ -123,10 +125,17 @@ const XLSX = require('xlsx-js-style');
     await page.screenshot({path:'.verify/profit-output-preferences-desktop.png',fullPage:true});
     // A keyboard Escape returns focus to the corresponding summary.
     await page.focus('details summary'); await page.keyboard.press('Enter'); await page.keyboard.press('Escape');
-    await page.setViewport({width:640,height:900});
+    await page.setViewport({width:390,height:900});
     await click('summary','엑셀·인쇄 항목 (3/22)');
     const bounds=await page.$eval('details fieldset',e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth};});
     assert.ok(bounds.left>=0 && bounds.right<=bounds.width+1);
+    await page.click('[data-testid="profit-columns-button"]');
+    const picker=await page.$eval('[data-testid="profit-columns-panel"]',e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight};});
+    assert.ok(picker.left>=0 && picker.right<=picker.width && picker.top>=0 && picker.bottom<=picker.height);
+    await page.keyboard.press('End');
+    assert.equal(await page.$eval('[data-testid="profit-columns-panel"]',e=>document.activeElement===[...e.querySelectorAll('input[type="checkbox"]')].at(-1)),true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('[data-testid="profit-columns-button"]',e=>document.activeElement===e),true);
     assert.deepEqual(errors,[]); assert.deepEqual(writes,[]);
     for(const [name,sheets] of [['41',['41차']],['01-41',Array.from({length:41},(_,i)=>String(i+1).padStart(2,'0')+'차')],['27,31',['27차','31차']]]) {
       const file=path.join(downloadPath,`매출이익_2026_${name}차.xlsx`);

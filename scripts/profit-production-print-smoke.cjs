@@ -92,12 +92,15 @@ const puppeteer = require('puppeteer-core');
     const sections = await frame.evaluate(() => [...document.querySelectorAll('.profit-print-page')].map(section => {
       const outer = section.getBoundingClientRect();
       const cells = [...section.querySelectorAll('th,td')];
+      const withoutNotes = section.cloneNode(true);
+      withoutNotes.querySelectorAll('.note').forEach(note => note.remove());
       return { headers: [...section.querySelectorAll('th')].map(c => c.textContent),
+        hasAutomaticStatus: /검증 보류|입력 안 됨|저장 참고값|수익률 원천 검증 전/.test(withoutNotes.textContent),
         numbers: cells.map(c => c.textContent.trim()).filter(v => /^-?[\d,]+(?:\.\d+)?%?$/.test(v)),
         fits: cells.every(c => { const r = c.getBoundingClientRect(); return r.left >= outer.left - 1 && r.right <= outer.right + 1 && r.bottom <= outer.bottom + 1; }) };
     }));
     assert.equal(sections.length, weeks.length);
-    for (const section of sections) { assert.equal(section.headers.length, 22); assert.ok(section.fits, 'All table cells must fit their printed page'); }
+    for (const section of sections) { assert.equal(section.headers.length, 22); assert.equal(section.hasAutomaticStatus, false); assert.ok(section.fits, 'All table cells must fit their printed page'); }
     const printHtml = await frame.content();
     const pdfPage = await context.newPage();
     await pdfPage.setContent(printHtml, { waitUntil: 'load' });

@@ -5,7 +5,7 @@
 | 작업트리 | C:/Users/USER/nw-profit-print-layout |
 | 브랜치 | codex/profit-print-layout |
 | 원장 부작용 | 출력 전용, DB/API 쓰기 금지 |
-| 현재 상태 | PDF QA 통과, 앱 UI/전체 gate/운영 배포 진행 중 |
+| 현재 상태 | PDF·production-build 모의 앱 UI 통과, 전체 gate/PR1447 CI 진행·운영 배포 미완 |
 | 정본 | [독립 QA](../work-reports/2026-11-03_profit-print-layout-qa.md) |
 
 ## 이어받을 때 고정된 결정
@@ -33,3 +33,11 @@
 ## 새 문맥 이어받기
 
 이 문서와 독립 QA 보고서에서 미완 검증만 이어간다. 앱 코드는 구현 담당, 문서/QA는 독립 담당 소유. DB 쓰기·금융 계산 변경·비고 상태문구 일괄 삭제 금지.
+
+### 2. Production-build 모의 UI 검증 완료
+
+**Q.** 실제 화면에서도 선택 차수·컬럼·직접 인쇄와 좁은 메뉴가 정상인지 확인.
+
+**A.** 별도 production build EXIT0, 실제 Chromium 합성 API UI 검사 EXIT0. 직접 print1회/현재41 한 차수/전체41시트/비연속27·31/18차502 재시도/2025 격리/화면v4·출력v1 지속/빈선택·복사/390px fieldset·popover 경계/End·Escape 초점 복귀/API 쓰기0을 확인했다.
+
+**결과.** 앱 통합 항목 완료. 전체 verify14986 및 PR1447 CI41604410811은 진행 중, 운영 배포·스모크는 미완. 위의 초기 미완 목록 중 모의 앱 UI 검증만 이 기록으로 완료 처리한다.

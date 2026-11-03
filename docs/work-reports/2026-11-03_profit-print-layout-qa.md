@@ -2,7 +2,7 @@
 
 ## 현재 상태
 
-2026-11-03 로컬 실제 Chromium PDF 검증 통과. 앱 통합 메뉴·운영 인쇄 스모크 및 전체 gate/배포는 아직 진행 중이다.
+2026-11-03 로컬 실제 Chromium PDF 및 production-build 모의 API 앱 통합 검증 통과. 전체 gate와 PR1447 CI41604410811은 진행 중이며 운영 배포·인쇄 스모크는 미완이다.
 
 ## 고정 기준
 
@@ -53,3 +53,22 @@ PDF를 `pdftoppm`으로 렌더한 `one-pdf.png`, `long-note-pdf.png`를 직접 �
 ## 운영 검사 준비
 
 `scripts/profit-production-print-smoke.cjs` 및 `.github/workflows/profit-print-smoke.yml`은 수동 실행 전용이다. GET/HEAD 외 요청 차단, 새 브라우저의 22열 기본값, 1920/390px 메뉴 경계·방향키·Escape/초점 복귀, 선택 세 차수와 print 호출 1회, PDF 각 페이지의 22개 헤더·숫자 텍스트·셀 경계·A4 크기를 검사한다. 운영 PDF와 원문, 인증정보는 로그/아티팩트로 업로드하지 않고 결과 메타만 출력한다. 현재 구문 검사 통과, 운영 실행 전이다.
+
+## 독립 코드 회귀
+
+- `node __tests__/profitRangeOutput.test.cjs`: PASS. 연도/선택범위, 확정값·0·스타일, 실패·취소, 비고/상태 분리.
+- `node __tests__/profitReportToolbar.test.cjs`: PASS. 기존 50개 action/disabled 쌍, 실제 callback 실행, 출력 불변, 키보드/JSX.
+- `node --check scripts/profit-production-print-smoke.cjs`, `git diff --check`: PASS.
+- 금융값 변경·원장 쓰기·사용자 비고 삭제에 관한 현재 독립 검토 차단사항 없음. 전체 gate 및 실제 앱/운영 검증은 별도 완료가 필요하다.
+
+## Production-build 앱 통합 결과
+
+구현 담당이 별도 `.next-print-production` 빌드 EXIT0 후 `scripts/profit-output-preferences-smoke.cjs http://localhost:3217`을 실제 Chromium으로 실행하여 EXIT0을 확인했다. 합성 API만 사용했고 API 쓰기는 0이다.
+
+- 직접 인쇄 호출 1회, 현재 41차 한 차수 선택, 전체 41시트, 비연속 27·31 선택.
+- 18차 HTTP502 재시도와 2025 연도 격리.
+- 화면 v4·출력 v1 선택 지속, 빈 선택 및 화면 컬럼 복사.
+- 390px 출력 항목 fieldset·화면 컬럼 popover 경계, End/Escape와 초점 복귀.
+- 산출물 `.verify/profit-output-preferences.png`, `.verify/profit-output-preferences-desktop.png`; 별도 빌드 로그 `.verify-print-production-build.log`.
+
+위 결과는 로컬 production-build/합성 자료 검증이며 운영 SQL·물리 프린터 검증으로 확대하지 않는다. 전체 verify session14986 및 PR1447 CI41604410811 진행 중, 배포/운영 결과는 후속 기록한다.

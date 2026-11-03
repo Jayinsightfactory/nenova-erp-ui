@@ -1919,5 +1919,8 @@
 
 2026-11-03 주차별 매출 인쇄: 사용자 비고 보존·자동 상태문구 인쇄 제외·22열 기본·선택 한 차수 A4 가로 한 장·바로 인쇄 요청·컬럼 메뉴 viewport/키보드 보완. 독립 실제 Chromium PDF 1주1장/3주3장/긴 비고50줄1장 PASS, PDF 렌더 시각확인. 긴비고 fragmentation 결함 수정, 숫자/빈칸/0/음수/마지막 비고 보존. 금융 계산/API/DB 쓰기0. 브라우저 연결 비활성으로 headless 사용, 물리 프린터 미검증. 앱통합/전체gate/운영배포는 진행 중. 정본 docs/work-sessions/2026-11-03_profit-print-layout.md 및 docs/work-reports/2026-11-03_profit-print-layout-qa.md.
 검색어: profit-print-layout A4 22열 비고 fragmentation 직접인쇄 viewport
+
+2026-11-03 인쇄 후속 검증: .next-print-production 빌드 EXIT0, 실제 Chromium 모의 UI EXIT0. 직접 print1회/41차 한 차수/전체41시트/비연속27·31/18차502 재시도/2025격리/화면v4·출력v1 선택지속/빈선택·복사/390px fieldset·컬럼popup 경계/End·Escape 초점복귀 PASS, API쓰기0. 전체 verify14986 및 PR1447 CI41604410811 진행 중, 배포·운영 인쇄 미완. QA/세션 정본 최신화.
+검색어: profit-print-layout production-build mockUI 390px PR1447 41604410811
 2026-11-03 데스크톱 앱 1.3.11 작업: 1.3.2 사용자 화면에서 로그아웃·오늘의 내 업무가 보이지 않는 문제 확인. 네이티브 홈에 로그아웃/계정 변경, 서버 세션 해제 후 탭·저장 구성 정리·로그인 진입 추가. 오늘 업무 '보관'을 복구 가능한 '삭제'로 표시하고 수정·삭제·보관함·계정 전환 Electron smoke 보강. 탭 닫기 기본 선택은 최신 코드에서 이미 닫기이며 smoke 확인. 데스크톱 AI 도구/버튼별 사람용 작업 원장 설계 docs/plans/desktop-ai-action-ledger-2026-11-03.md 작성; 신규 API는 미구현. desktop 단위28·smoke·restore·updater PASS, 전체 ERP 계약/웹빌드·PR/릴리스·운영 설치 스모크 진행 중으로 미검증.
 검색어: desktop 1.3.11 로그아웃 계정변경 오늘업무 수정 삭제 탭닫기 기본 닫기 AI MCP 작업원장 actionId operationId
