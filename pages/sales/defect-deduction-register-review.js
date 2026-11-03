@@ -1,3 +1,4 @@
+import { defectBatchDuplicates } from '../../lib/defectBatchDuplicates.js';
 // 영업수입불량차감 — 견적서 등록 전후 검토/수정/재조회 검증 창
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,6 +52,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
+  const batchDuplicates = useMemo(() => defectBatchDuplicates(rows, excludedKeys), [rows, excludedKeys]);
   const waitingForApply = !loading && !applying && !verified && rows.length > 0;
   const appendLog = (label) => {
     const at = new Date().toLocaleTimeString('ko-KR');
@@ -271,6 +273,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             const excluded = excludedKeys.has(Number(row.deductionKey));
             return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
               <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying}>{excluded ? '제외 해제' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
+              {batchDuplicates.has(Number(row.deductionKey)) && <div className="row-error" role="status">{batchDuplicates.get(Number(row.deductionKey))}</div>}
               {row.error && <div className="row-error">{row.error}</div>}
               <div className="compare-grid">
                 <section className="compare-pane before"><h3>기존 견적서 내용</h3>{row.before ? <>

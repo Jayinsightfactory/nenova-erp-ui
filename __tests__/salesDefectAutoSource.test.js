@@ -297,3 +297,21 @@ console.log('salesDefectAutoSource tests passed');
 await import('./defectPermanentOmission.test.js');
 
 await import('./defectSupportPending.test.js');
+
+// Two source weeks selected into one target: the second identical claim must not roll back the first.
+for (const key of [201,202,203]) registerRows.set(key,{...manualDbRow,DeductionKey:key,OrderWeek:key===202?'40':'41',Quantity:key===203?4:3,RemainingQuantity:key===203?4:3,EstimateKey:null,Status:'DRAFT'});
+const created=[]; const skippedWrites=[];
+const duplicateBatchQuery=async(statement,params={})=>{
+ const source=String(statement);
+ if(/(?:UPDATE|INSERT INTO) WebSalesDefectDeduction/.test(source)) skippedWrites.push(value(params,'key'));
+ if(/SELECT e\.EstimateKey/.test(source))return {recordset:created};
+ if(/INSERT INTO Estimate/.test(source))created.push({EstimateKey:9101+created.length,ProdKey:value(params,'pk'),Quantity:value(params,'qty'),Unit:value(params,'unit'),CustKey:manualDbRow.CustKey,OrderYear:2026,OrderWeek:'41',ProdName:'Hermes Orange'});
+ return fakeRegisterQuery(statement,params);
+};
+const sameBatchResult=await registerDeductions({year:2026,week:'41',ids:[201,202,203],overrides:{202:{quantity:3,note:'must not persist'}},user:{userId:'test'}},{ensureTables:async()=>{},withTransaction:async cb=>cb(duplicateBatchQuery,{attempt:0})});
+assert.deepEqual(sameBatchResult.registered.map(r=>r.deductionKey),[201,203]);
+assert.equal(sameBatchResult.skipped[0].deductionKey,202);
+assert.equal(sameBatchResult.skipped[0].errorCode,'EXISTING_ESTIMATE');
+assert.ok(!skippedWrites.includes(202),'duplicate has no override, ledger or history writes');
+assert.equal(created.length,2,'different quantity remains registerable');
+console.log('same-transaction duplicate: normal rows commit, duplicate skipped without writes, different quantity registers');

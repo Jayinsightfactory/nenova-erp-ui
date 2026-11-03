@@ -78,7 +78,8 @@
     "lib/defectPermanentOmission.js",
     "__tests__/defectPermanentOmission.test.js",
     "__tests__/defectSupportPending.test.js",
-    "__tests__/defectRecentCost.test.js"
+    "__tests__/defectRecentCost.test.js",
+    "lib/defectBatchDuplicates.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -463,5 +464,6 @@
     "__tests__/defectProductDisplay.test.js"
   ],
   "maintenanceGuide": "docs/DEFECT_DEDUCTION_MAINTENANCE.md",
-  "recentCostPolicy": "2026-11-03 user policy: previous five parent weeks only within selected year, own customer first, otherwise latest other customer price for identical ProdKey. No previous-year fallback. Target ShipmentKey still requires actual current year/week customer distribution; absent target remains pending for later weeks."
+  "recentCostPolicy": "2026-11-03 user policy: previous five parent weeks only within selected year, own customer first, otherwise latest other customer price for identical ProdKey. No previous-year fallback. Target ShipmentKey still requires actual current year/week customer distribution; absent target remains pending for later weeks.",
+  "sameTransactionDuplicates": "Known exact duplicates discovered after earlier rows INSERT are skipped before override/ledger/history writes. Other errors still roll back. Different quantities remain allowed. Preview shows selected-batch duplicate candidates across preview chunks."
 }
