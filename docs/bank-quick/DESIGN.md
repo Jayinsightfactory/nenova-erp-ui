@@ -44,3 +44,11 @@
 
 ## 현재 상태
 - 1차 대상 HANA 로 전환. collect.mjs 는 세션 재사용·기간 입력·IBSheet 읽기 구현(실화면 미검증). 농협 probe 결과(키패드 있음·사전등록 계좌만·생년월일 입력)는 위 표 참고용.
+
+## 빠른조회 경로 (HANA, 2026-11-03 실측 — 로그인 경로 폐기)
+- 폐기 사유: biz.kebhana.com 기업뱅킹 로그인은 자동화 브라우저에서 보안모듈 '미설치' 판정으로 차단됨(`collect.mjs` 로그인 경로 사용 불가).
+- 대체: 로그인·보안모듈 검사가 없는 빠른조회서비스 `https://www.kebhana.com/flex/quick/quickService.do?subMenu=1` (간편조회 팝업 `/cont/adm/redirect/quick_service.jsp`).
+- 폼(동일 문서, 프레임 아님): `#acctNo`(14자리, 하이픈 없음) · `#acctPw`(4) · `#bkfgResRegNo`(사업자번호 뒤 5자리) · `#inqStrDt/#inqEndDt`(YYYYMMDD) · `select#rvSeqInqYn` · `select#rcvWdrwDvCd`(전체/입금/출금) · `select#listSize`(15/30/45/60) · `#srchStrnCtt`(적요) · '조회' 버튼.
+- 제약: 빠른조회 등록 계좌만, 조회 최대 24개월, 페이지당 최대 60건. TouchEn nxKey·transkey 가상키패드 스크립트가 로드되어 비밀번호 칸 입력이 막힐 수 있음 → 막히면 `KEYPAD_BLOCKED` 로 중단(우회·캡차 처리 금지).
+- 자격(.env.local, 값은 로그·커밋 금지): `HANA_QUICK_ACCT_<alias>`(14자리) · `HANA_QUICK_PW_<alias>`(4자리) · `HANA_BIZ_NO5`(5자리).
+- 실행: `node scripts/bank-quick/collect-quick.mjs <alias> --from --to [--dry-run] [--probe] [--resume]`. 월 단위 루프, 24개월 밖 달은 경고 후 건너뜀, LoadBatch.Source='quick'. 순수 함수=`lib/bankQuick/quick.js`.
