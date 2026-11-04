@@ -8,6 +8,9 @@ test('main bridge fixes origin, binds owner and strips arbitrary renderer fields
   assert.equal(r.url, 'https://nenovaweb.com/api/desktop/home-workspace');
   assert.equal(r.options.redirect, 'error');
   assert.deepEqual(JSON.parse(r.options.body), { action: 'create', expectedRevision: 0, requestId: 'fixture-1234', expectedOwnerId: 'verified', date: '2026-10-09', title: '업무', weekdays: [5] });
+  const monthly = requestOptions({method:'POST',command:{action:'create',expectedRevision:0,requestId:'fixture-monthly',date:'2026-01-31',title:'월말',frequency:'monthly',weekdays:[]}},'verified');
+  assert.equal(JSON.parse(monthly.options.body).frequency,'monthly');
+  assert.throws(()=>requestOptions({method:'POST',command:{action:'create',expectedRevision:0,requestId:'fixture-invalid',date:'2026-01-31',title:'오류',frequency:'yearly'}},'verified'));
   for (const date of ['2025-10-09', '2026-10-09']) assert.equal(new URL(requestOptions({ method: 'GET', date, offset: 200 }, 'verified').url).searchParams.get('date'), date);
   assert.throws(() => requestOptions({ method: 'GET', date: '2026-02-30' }, 'verified'));
   assert.throws(() => requestOptions({ method: 'DELETE' }, 'verified'));

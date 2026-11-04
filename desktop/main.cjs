@@ -1,24 +1,27 @@
 'use strict';
-const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net, Notification, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
+const NOTES = 'nenova-app://shell/notes.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
 let webSession, updater, updateScheduler, updateTimer, logoutInProgress = false;
 let activity, activityTimer, activityWarning = '';
+let notesWindow = null, notesTimer = null;
 const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
 app.setAppUserModelId('com.nenova.workspace');
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on('second-instance', () => { const w = [...windows.values()][0]?.win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
+app.on('second-instance', (_event, argv) => { if (argv.some(arg => /^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) { openNotesWindow(); return; } const w = [...windows.values()][0]?.win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
 
 function menuFavoriteEntry(item) { return safeSnapshot({ favorites: [{ url: item.href, title: item.labelKey }] }).favorites[0]; }
 function state(w) {
@@ -117,6 +120,49 @@ function createWindow(config = {}) {
   win.loadURL(SHELL);
   win.once('ready-to-show', () => { if (config.maximized) win.maximize(); win.show(); });
   broadcast(); return w;
+}
+function notesPrefsPath() { return path.join(app.getPath('userData'), 'notes-'+createHash('sha256').update(actor).digest('hex')+'.json'); }
+function readNotesPrefs() {
+  if (!actor || locked) return { pinned: true, reminder: '' };
+  try { const value=JSON.parse(fs.readFileSync(notesPrefsPath(),'utf8')); return { pinned:value.pinned!==false, reminder:/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value.reminder)?value.reminder:'', lastNotified:/^20\d{2}-\d{2}-\d{2}$/.test(value.lastNotified)?value.lastNotified:'' }; }
+  catch { return { pinned:true, reminder:'', lastNotified:'' }; }
+}
+function saveNotesPrefs(value) {
+  const file=notesPrefsPath();fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file+'.tmp',JSON.stringify(value),{mode:0o600});fs.renameSync(file+'.tmp',file);
+}
+function notesState() { const prefs=readNotesPrefs();return { online:!locked&&!!actor, pinned:prefs.pinned, reminder:prefs.reminder, ownerId:locked?'':actor }; }
+function openNotesWindow() {
+  if (locked || !actor) throw new Error('먼저 로그인해 주세요.');
+  if (notesWindow && !notesWindow.isDestroyed()) { if(notesWindow.isMinimized())notesWindow.restore();notesWindow.show();notesWindow.focus();return notesState(); }
+  const work=screen.getPrimaryDisplay().workArea;
+  const win=new BrowserWindow({width:380,height:700,minWidth:320,minHeight:420,x:Math.max(work.x,work.x+work.width-400),y:work.y+35,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#fffdf5',alwaysOnTop:readNotesPrefs().pinned,show:false,
+    webPreferences:{preload:path.join(__dirname,'notes-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
+  notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
+  win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
+  win.on('closed',()=>{auxiliary.delete(win);if(notesWindow===win)notesWindow=null;});
+  win.loadURL(NOTES);win.once('ready-to-show',()=>win.show());activity?.record('notesOpen','/desktop/notes');return notesState();
+}
+function saveNotesShortcut(w) {
+  if (locked || !actor) throw new Error('먼저 로그인해 주세요.');
+  if (process.platform!=='win32' || !app.isPackaged || !app.setAsDefaultProtocolClient('nenova-notes')) throw new Error('설치된 Windows 앱에서 바로가기를 만들 수 있습니다.');
+  const target=dialog.showSaveDialogSync(w.win,{title:'업무 메모장 바로가기 다운로드',defaultPath:path.join(app.getPath('downloads'),'네노바-업무-메모장.url'),filters:[{name:'Windows 바로가기',extensions:['url']}],properties:['createDirectory']});
+  if (!target) return {saved:false};
+  const file=target.toLowerCase().endsWith('.url')?target:target+'.url';
+  fs.writeFileSync(file,'[InternetShortcut]\r\nURL=nenova-notes://open\r\n',{flag:'w'});
+  activity?.record('notesShortcut','/desktop/notes');return {saved:true};
+}
+async function checkNotesReminder() {
+  if (locked || !actor || quitting || !Notification.isSupported()) return;
+  const prefs=readNotesPrefs(),date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
+  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+  if (!prefs.reminder || prefs.lastNotified===date || time<prefs.reminder) return;
+  const owner=actor,generation=authGeneration;
+  try {
+    const data=await homeWorkspaceRequest({payload:{method:'GET',date,limit:500},owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{}});
+    if (!data.success || locked || actor!==owner) return;
+    prefs.lastNotified=date;saveNotesPrefs(prefs);
+    if (data.tasks.some(task=>!task.done&&!task.archived)) {new Notification({title:'오늘의 내 업무',body:'아직 완료하지 않은 업무가 있습니다. 네노바 업무 메모장을 확인하세요.'}).show();activity?.record('notesReminder','/desktop/notes');}
+  } catch { /* Network or account failures retry at the next interval. */ }
 }
 function confirm(w, message, actionLabel = '닫기') {
   const accepted = dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: actionLabel === '닫기' ? 0 : 1, cancelId: 1, noLink: true }) === 0;
@@ -275,6 +321,8 @@ function command(w, action, p = {}) {
         isCurrent: () => !locked && actor === owner && authGeneration === generation,
         onUnauthorized: () => { lockAccount(); ++authGeneration; verifyAccount().catch(() => {}); } });
     }
+    case 'notesOpen': return openNotesWindow();
+    case 'notesShortcut': return saveNotesShortcut(w);
     case 'logout': return logout(w);
     case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
@@ -333,6 +381,7 @@ function lockAccount() {
   clearTimeout(saveTimer);
   for (const t of tabs.values()) if (new URL(t.url).pathname !== '/login') { t.view.webContents.stop(); t.view.setVisible(false); }
   for (const w of auxiliary) w.destroy();
+  notesWindow = null;
   broadcast();
 }
 async function logout(w) {
@@ -459,7 +508,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
@@ -497,17 +546,31 @@ app.whenReady().then(async () => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('잘못된 요청');
     return command(w, action, payload);
   });
+  ipcMain.handle('notes:command', (event, action, payload) => {
+    if (!notesWindow || notesWindow.isDestroyed() || event.sender!==notesWindow.webContents || event.senderFrame!==event.sender.mainFrame || event.senderFrame.url!==NOTES) throw new Error('신뢰할 수 없는 메모장 요청');
+    if (!payload || typeof payload!=='object' || Array.isArray(payload)) throw new Error('잘못된 요청');
+    if (action==='state') return notesState();
+    if (locked || !actor) throw new Error('로그인을 다시 확인하세요.');
+    if (action==='workspace') { const owner=actor,generation=authGeneration;return homeWorkspaceRequest({payload,owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;verifyAccount().catch(()=>{});}}); }
+    if (action==='copy') {const owner=actor,generation=authGeneration;return homeWorkspaceRequest({payload:{method:'GET',date:payload.date,limit:500},owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{}}).then(data=>{if(!data.success)throw new Error('업무를 다시 확인해 주세요.');const active=data.tasks.filter(task=>!task.archived);clipboard.writeText([payload.date+' 오늘의 내 업무',...active.map(task=>`${task.done?'[완료]':'[ ]'} ${task.title}`)].join('\n'));activity?.record('notesCopy','/desktop/notes');return {copied:active.length,partial:data.nextOffset!=null};});}
+    if (action==='pin') {const prefs=readNotesPrefs();prefs.pinned=payload.pinned===true;saveNotesPrefs(prefs);notesWindow.setAlwaysOnTop(prefs.pinned);activity?.record('notesPin','/desktop/notes');return notesState();}
+    if (action==='reminder') {const prefs=readNotesPrefs();if (payload.time!==''&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(payload.time))throw new Error('알림 시간을 확인하세요.');prefs.reminder=payload.time;saveNotesPrefs(prefs);activity?.record('notesReminderSetting','/desktop/notes');void checkNotesReminder();return notesState();}
+    throw new Error('지원하지 않는 메모장 동작');
+  });
   Menu.setApplicationMenu(null);
   saved = readSaved(); createWindow();
+  if (process.platform==='win32' && app.isPackaged) app.setAsDefaultProtocolClient('nenova-notes');
   webSession.cookies.on('changed', (_event, cookie, _cause, removed) => {
     if (logoutInProgress || (removed && locked && !actor)) return;
     if (cookie.name !== 'nenovaToken' || !['nenovaweb.com', '.nenovaweb.com'].includes(cookie.domain)) return;
     lockAccount(); ++authGeneration; clearTimeout(authTimer); authTimer = setTimeout(() => verifyAccount(), 150);
   });
   await verifyAccount(true);
+  if (process.argv.some(arg=>/^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) openNotesWindow();
+  notesTimer=setInterval(()=>void checkNotesReminder(),60*1000);notesTimer.unref();void checkNotesReminder();
 });
 app.on('before-quit', e => { if (!quitting && windows.size) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); });
+app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };
