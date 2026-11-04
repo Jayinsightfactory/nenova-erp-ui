@@ -110,9 +110,13 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       } else {
         for (let x = -hx + 1; x < hx; x += 2) { put('sea', x, -hz - 1); put('sea', x, -hz - 3); }
         for (let x = -hx + 1; x < hx; x += 2) put('boardwalk', x, 0, Math.PI / 2);
-        [[-hx + 0.8, -hz + 1], [hx - 0.8, -hz + 1.4], [-hx + 0.9, hz - 1], [hx - 1, hz - 1.2], [0, -hz + 0.9]].forEach(([x, z], i) => put('palm', x, z, i));
-        put('hut', -hx + 1.6, -2.4); put('hut', hx - 1.6, 2.4); put('rock', -hx + 2, -hz + 1.5); put('rock', hx - 3, hz - 0.8);
-        for (const p of plates) { put('parasol', p.x, p.z, 0, 1.1); put('surfboard', p.x + 2.6, p.z, 0.3); }
+        // 소품 밀도 업(결정적 의사난수): 야자수 둘레 + 조개·불가사리·바위 흩뿌림
+        const rnd = (n) => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
+        for (let k = 0; k < 7; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 6, -hz + 0.8 + rnd(k) * 0.8, rnd(k + 9) * 6, 0.85 + rnd(k + 3) * 0.4);
+        for (let k = 0; k < 4; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 3, hz - 0.8 - rnd(k + 20) * 0.6, rnd(k + 29) * 6, 0.9 + rnd(k + 23) * 0.3);
+        for (let k = 0; k < 10; k++) { const m = ['shell', 'starfish', 'rock'][k % 3]; put(m, -hx + 1 + rnd(k + 40) * (2 * hx - 2), (rnd(k + 50) * 2 - 1) * (hz - 1.4), rnd(k + 60) * 6, m === 'rock' ? 0.5 + rnd(k) * 0.5 : 0.9); }
+        put('hut', -hx + 2, -hz + 2.6, 0.4); put('hut', hx - 2, hz - 2.4, -0.3);
+        for (const p of plates) { put('parasol', p.x, p.z, 0, 1.1); put('surfboard', p.x + 2.6, p.z, 0.3); put('parasol', p.x - 3.1, p.z + 0.6, 0.4, 0.95); }
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
