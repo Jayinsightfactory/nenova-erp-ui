@@ -2056,3 +2056,11 @@
 - 7단계: 발사체 기본 9종 `fx.glb`+스프라이트 `build_fx.py`(소비자 연출은 후속).
 - 미완: 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것별 전용 탑승 클립(현재 idle/sit_type 대용), 목표달성 트리거 주행(3D에 이벤트 데이터 없음 — danceEvents 연결 필요).
 - 재현 도구: pages/pm3d-preview.js(임시, 커밋 금지) + puppeteer-core 캡처. kit 재생성 시 build_assets.py 가 char.glb 안 덮음(--legacy-char 게이트).
+
+## 2026-11-04 /pm 3D 좌석-책상 분리 회귀 수정 (PR #1527 머지)
+검색어: pm3d 책상 의자 분리 피벗 Kenney desk_k1 공중부양 노트북 mapScale
+- 증상: 캐릭터+의자가 책상에서 떨어져 보이고 책상 빈 채 흩어짐(사장님 스크린샷)
+- 원인: mapScale 아님. #1515 Kenney 가구의 desk_k1/의자 피벗이 모서리 → 책상 메시 대각선 ~0.6m 밀림 + 노트북 고정 DESK_H(1.04m)가 낮은 Kenney 책상(0.56m) 위 공중부양. #1520 squash 머지로 노출
+- 수정: Scene3D.js 책상·의자 bbox 재중심(x/z, 바닥 y=0), 노트북·소품 실측 상판 높이. 테스트: 좌석-책상 ≤1m 불변식+mapScale 1.5 포함+소스 가드(pm3dLayout.test.js)
+- 기각된 가설: mapScale 이중스케일/좌석 미스케일(mapScale은 floorBounds 바닥만 키움, 책상·좌석 좌표 불변 — 테스트로 고정)
+- 로컬 재현: pages/pm3d-preview.js(미커밋) + next dev, 커밋별 파일 스왑 bisect로 12de2f63 특정
