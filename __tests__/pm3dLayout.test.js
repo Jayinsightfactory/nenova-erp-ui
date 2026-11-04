@@ -20,9 +20,29 @@ const { pathToFileURL } = require('url');
   for (const d of desks) assert.ok(L.facingDot(d.yaw) > 0.3, `좌석이 카메라 반대쪽: ${d.name} dot=${L.facingDot(d.yaw).toFixed(2)}`);
   for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.99, '일자 라인: 전원 카메라 정면');
   // 일자 라인: z 값은 줄(±3.2, ±5.5) 위에만
-  for (const d of desks) assert.ok([3.2, 5.5].includes(Math.abs(+d.z.toFixed(1))), `책상이 줄 밖: ${d.name} z=${d.z}`);
+  for (const d of desks) assert.ok([4, 6.6].includes(Math.abs(+d.z.toFixed(1))), `책상이 줄 밖: ${d.name} z=${d.z}`);
   const st1 = L.deskStyle('영업지원', '', ['#a', '#b']); assert.ok(L.DESK_MODELS.includes(st1.model) && st1.color);
   assert.strictEqual(L.deskStyle('x', '#own', ['#a']).color, '#own');
+  // 연결선 아치-캐릭터 바운딩 교차 0: 모든 좌석→모든 스테이션 아치를 샘플링,
+  // 다른 좌석 반경 0.45m 안에서는 높이가 머리(2.2m)보다 위여야 한다.
+  {
+    const seats = desks.map((d) => L.seatWorld(d));
+    for (const d of desks) {
+      const s0 = L.seatWorld(d);
+      for (let st2 = 1; st2 <= 9; st2++) {
+        const sp = L.stationPos(st2);
+        for (let k = 0; k <= 40; k++) {
+          const t = k / 40;
+          const x = s0.x + (sp.x - s0.x) * t; const z = s0.z + (sp.z - s0.z) * t; const y = L.arcY(t);
+          for (const o of seats) {
+            if (o === s0 && t < 0.02) continue;
+            const dd = Math.hypot(x - o.x, z - o.z);
+            if (dd < 0.45) assert.ok(y > L.CHAR_TOP, `연결선이 캐릭터 관통: t=${t} y=${y.toFixed(2)}`);
+          }
+        }
+      }
+    }
+  }
   // 비율: 1440x720 화면 100% 기본 배율에서 캐릭터 90~110px, 9 스테이션 전부 보임
   const { hx, hz } = L.floorBounds(desks);
   const fit = L.sceneFit(hx, hz);

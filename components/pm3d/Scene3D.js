@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
@@ -120,7 +120,8 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       });
       // 연구실 로봇(AI 에이전트) — 뒤쪽 줄
       (dataRef.current.agents || []).slice(0, 8).forEach((a, i) => {
-        const o = put('robot', -hx + 2 + i * 1.6, hz - 1.6, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        const o = put('robot', -hx + 2 + i * 1.8, hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; } });
         st.robots.push(o);
       });
       // 직원 자리
@@ -180,15 +181,22 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) P.walk = { t: 0, to: stg };
         P.stage = stg;
         if (stg) {
-          const sp = stationPos(stg); const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = 0.9;
-          const b = new THREE.Vector3(sp.x, 1.0, sp.z); const mid = a.clone().lerp(b, 0.5); mid.y = 3;
+          // 머리 위 아치(캐릭터 관통 방지, lib/pm3dLayout ARC_Y — 테스트 있음)
+          const sp = stationPos(stg); const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = ARC_Y.start;
+          const b = new THREE.Vector3(sp.x, ARC_Y.end, sp.z); const mid = a.clone().lerp(b, 0.5); mid.y = ARC_Y.mid;
           const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-          const geo = new THREE.TubeGeometry(curve, 24, 0.035, 5, false);
-          const obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: STAGE_HEX[stg - 1], transparent: true, opacity: 0.85 }));
+          const geo = new THREE.TubeGeometry(curve, 24, 0.028, 5, false);
+          const obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: STAGE_HEX[stg - 1], transparent: true, opacity: 0.55 }));
           const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshBasicMaterial({ color: U.dot }));
           obj.add(dot); scene.add(obj); st.lines.push({ obj, curve, dot, ph: Math.random() });
         }
         playClip(P, P.walk ? 'walk' : P.clip, P.walk ? 1 : P.speed);
+      }
+      // 로봇(AI 에이전트): 작업중=선명, 대기=흐림
+      const ags = dataRef.current.agents || [];
+      for (const r of st.robots) {
+        const a2 = ags[r.userData.i]; const on = a2?.status === 'working';
+        r.traverse((m) => { if (m.isMesh) m.material.opacity = on ? 1 : 0.45; });
       }
       const labels = labelsRef.current; if (labels) labels.dataset.n = String(st.people.size);
     };
@@ -356,11 +364,14 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
             {s.no}. {s.label}
           </button>
         ))}
-        {(agents || []).slice(0, 8).map((a, i) => (
-          <span key={a.id || a.name || i} data-k={'rb' + i} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 6px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap' }}>
-            🤖 {a.name || a.id}
-          </span>
-        ))}
+        {(agents || []).slice(0, 8).map((a, i) => {
+          const on = a.status === 'working';
+          return (
+            <span key={a.id || a.name || i} data-k={'rb' + i} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 6px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.5 }}>
+              🤖 {a.name || a.id}{on && a.activity ? ` · ${String(a.activity).slice(0, 16)}` : ''}
+            </span>
+          );
+        })}
       </div>
       <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 6 }}>
         <ZoomSlider pct={zoom * 100} min={ZOOM_PCT_MIN} max={ZOOM_PCT_MAX} onChange={(pct) => setZoom(pctToZoom(pct))} />
