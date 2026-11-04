@@ -113,14 +113,14 @@ export function GrowTab({ name }) {
       {garden && <><h3>{garden.dept} 정원</h3><p className="muted">부서원 {garden.members}명 평균으로 {garden.stage}단계 {garden.stageName}</p></>}
       <p className="note">업무시간으로 자라며 오래 쉬어도 시들거나 단계가 내려가지 않아요. 급여·평가와 무관합니다.</p>
       <style jsx>{`
-        .hero { display: flex; gap: 14px; align-items: center; background: #fff; border: 1px solid #d0d4de; border-radius: 8px; padding: 10px; }
+        .hero { display: flex; gap: 14px; align-items: center; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 8px; padding: 10px; }
         .hero > div { flex: 1; } .nm { font-size: 16px; }
-        .bar { height: 8px; background: #e3e7f0; border-radius: 4px; overflow: hidden; margin: 6px 0 2px; } .bar i { display: block; height: 100%; background: #1f9d55; }
+        .bar { height: 8px; background: var(--pm-surface2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; } .bar i { display: block; height: 100%; background: var(--pm-ok); }
         .stages { display: flex; justify-content: space-between; margin: 10px 0; }
         .stages span { display: flex; flex-direction: column; align-items: center; } .stages .lock { opacity: .35; filter: grayscale(1); }
-        .stages small { font-size: 11px; color: #4a5164; }
+        .stages small { font-size: 11px; color: var(--pm-muted); }
         .why { margin: 0 0 0 18px; padding: 0; }
-        .note { font-size: 11px; color: #5a6276; margin-top: 14px; }
+        .note { font-size: 11px; color: var(--pm-muted); margin-top: 14px; }
       `}</style>
     </div>
   );

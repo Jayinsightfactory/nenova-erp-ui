@@ -4,7 +4,9 @@
 // 디자인 영감: pablodelucca/pixel-agents (픽셀 사무실 캐릭터). 에셋·코드는 가져오지 않고 CSS 박스 스프라이트로 직접 그렸다.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, IconButton, LinkButton, PersonChip, PmUiStyles, SelectCard, Tabs, ToggleChip } from '../components/pm/ui';
-import { Avatar, CustomizePanel, PmThemeCtx, ThemePicker, TokenBadge, WalletPanel, usePmTheme, usePmThemeState } from '../components/pm/PmTheme';
+import { Avatar, PmThemeCtx, ShopPanel, ThemePicker, TokenBadge, usePmTheme, usePmThemeState, useWallet } from '../components/pm/PmTheme';
+import { CHART_COLORS, SHIRTS, STAGE_COLOR } from '../lib/pmThemes';
+import { LEVELS, levelOf } from '../lib/pmBonus';
 import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, stageNowRows } from '../lib/pmStages';
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
@@ -33,14 +35,7 @@ const TASK_GROUPS = [
 ];
 const DEFAULT_DEPT_ORDER = ['경영지원', '영업지원', '영업부', '수입부', '미배치'];
 const ROSTER = PM_ROSTER;
-const ROOM_FLOOR = {
-  '경영지원': 'repeating-linear-gradient(90deg,#5a4634 0 14px,#523f2f 14px 28px)',
-  '영업지원': 'repeating-conic-gradient(#33415c 0 25%,#2e3a52 0 50%) 0 0/20px 20px',
-  '영업부': 'radial-gradient(#4a3550 1px,#3e2c44 1px) 0 0/6px 6px',
-  '수입부': 'repeating-conic-gradient(#2f4a3e 0 25%,#2a4237 0 50%) 0 0/24px 24px',
-  '미배치': '#2b2f3a',
-};
-const SHIRTS = ['#4f8cff', '#ff8a4f', '#3fbf7f', '#c26bff', '#ffcc3f', '#ff5f8f', '#3fc8d8', '#9a7b4f'];
+const ROOM_FLOOR = { '경영지원': 'var(--pm-dept-1)', '영업지원': 'var(--pm-dept-2)', '영업부': 'var(--pm-dept-3)', '수입부': 'var(--pm-dept-4)', '미배치': 'var(--pm-off-bg)' };
 
 function hashColor(s) { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return SHIRTS[h % SHIRTS.length]; }
 function ago(iso, now) {
@@ -56,7 +51,7 @@ function Sprite({ status, color, robot, avatar }) {
   return (
     <div className={`sprite st-${st}`} aria-hidden>
       {avatar ? <Avatar cfg={avatar} state={st} size={40} className="sav" /> : <>
-        <div className="head" style={{ background: robot ? '#b8c4d6' : '#f2c9a0' }}>
+        <div className="head" style={{ background: robot ? 'var(--pm-robot)' : 'var(--pm-skin)' }}>
           {robot ? <div className="antenna" /> : <div className="hair" />}
           <div className="eyes" />
         </div>
@@ -125,7 +120,7 @@ function DryRunButton({ req, busy, onMake }) {
   );
 }
 
-const TCOLORS = ['#2f6fe0', '#1f9d55', '#c26b00', '#8e44ad', '#d6336c', '#0b8a8a', '#6b7a1f', '#9a5b2e', '#5a6276'];
+const TCOLORS = CHART_COLORS;
 function HBars({ rows, unit = 'h' }) {
   const max = Math.max(1, ...rows.map((r) => r.h));
   return (
@@ -148,10 +143,10 @@ function TimeTab({ t }) {
       <p className="muted" title={t.method}>추정치 · {t.workDays != null ? `근무 ${t.workDays}일 관찰 · ` : ''}방법 보기(마우스)</p>
       <h3>시간 구성(주)</h3>
       <div className="stack" aria-label="업무별 시간 구성">{segs.map((x, i) => (
-        <i key={x.name} title={`${x.name} ${x.h}h`} style={{ width: `${(x.h / total) * 100}%`, background: x.kind === 'wf' ? TCOLORS[i % 8] : '#b8bfcc' }} />
+        <i key={x.name} title={`${x.name} ${x.h}h`} style={{ width: `${(x.h / total) * 100}%`, background: x.kind === 'wf' ? TCOLORS[i % 8] : 'var(--pm-off-bg)' }} />
       ))}</div>
       <ul className="legend">{segs.map((x, i) => (
-        <li key={x.name}><span className="sw" style={{ background: x.kind === 'wf' ? TCOLORS[i % 8] : '#b8bfcc' }} />{x.name} <b>{x.h}h</b></li>
+        <li key={x.name}><span className="sw" style={{ background: x.kind === 'wf' ? TCOLORS[i % 8] : 'var(--pm-off-bg)' }} />{x.name} <b>{x.h}h</b></li>
       ))}</ul>
       {t.workflows.length > 0 && <><h3>업무별 실측·절감</h3><HBars rows={t.workflows.map((w) => ({ name: `${w.name}${w.saveHoursPerWeek ? ` (−${w.saveHoursPerWeek}h)` : ''}`, h: w.measuredHoursPerWeek }))} /></>}
       {t.kakaoRooms.length > 0 && <><h3>카톡 시간 · 방별</h3><HBars rows={t.kakaoRooms} /></>}
@@ -161,19 +156,84 @@ function TimeTab({ t }) {
   );
 }
 
-function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = [], isAdmin = false, myStaff = null }) {
+// 직원 상세(시안 page-staff-detail): 왼쪽 아바타 카드(레벨·토큰) / 위 탭 / 9단계 타임라인 / 탭 내용 / 오른쪽 효율 보너스·상점·꾸미기 큰 버튼.
+//   상점·꾸미기는 같은 화면 안에서 ShopPanel 로 바뀐다(본인 또는 관리자 대리만 구매·저장).
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+const HM_HOURS = Array.from({ length: 13 }, (_, i) => i + 7); // 07~19시
+function heatOf(rows) {
+  const m = WEEKDAYS.map(() => HM_HOURS.map(() => 0));
+  for (const r of rows) {
+    const t = Date.parse(r.at || ''); if (!Number.isFinite(t)) continue;
+    const k = new Date(t + 9 * 3600e3); const wd = (k.getUTCDay() + 6) % 7; const hi = HM_HOURS.indexOf(k.getUTCHours());
+    if (hi >= 0) m[wd][hi] += 1;
+  }
+  return m;
+}
+function Heatmap({ rows }) {
+  const m = heatOf(rows);
+  const max = Math.max(1, ...m.flat());
+  const days = WEEKDAYS.map((d, i) => [d, i]).filter(([, i]) => i < 5 || m[i].some(Boolean));
+  return (
+    <div className="heat" role="table" aria-label="요일×시간 작업 로그 히트맵">
+      <div className="hrow hhead" role="row"><span />{HM_HOURS.map((h) => <span key={h} role="columnheader">{h % 3 === 1 ? h : ''}</span>)}</div>
+      {days.map(([d, i]) => (
+        <div key={d} className="hrow" role="row"><span className="hd" role="rowheader">{d}요일</span>
+          {m[i].map((v, j) => <i key={j} role="cell" title={`${d} ${HM_HOURS[j]}시 · ${v}줄`} style={{ '--hv': v ? 0.18 + 0.82 * (v / max) : 0 }} />)}
+        </div>
+      ))}
+      <p className="muted">작업 로그 줄 수 기준(라벨 바뀔 때 1줄) · 진할수록 많음</p>
+    </div>
+  );
+}
+
+function StageTimeline({ rows, currentStage }) {
+  const cnt = {}; for (const r of rows) { const n = wlStageNo(r.stage); if (n) cnt[n] = (cnt[n] || 0) + 1; }
+  return (
+    <ol className="tline" aria-label="업무 9단계 진행">
+      {STAGES.map((s) => (
+        <li key={s.no} className={`${cnt[s.no] ? 'has' : ''} ${currentStage === s.no ? 'cur' : ''}`} style={{ '--sc': STAGE_COLOR[s.no] }} title={`${s.label} · 로그 ${cnt[s.no] || 0}줄${currentStage === s.no ? ' · 지금' : ''}`}>
+          <span className="dotn">{s.no}</span><span className="tl">{s.label}</span>{cnt[s.no] ? <small>{cnt[s.no]}</small> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function BonusCard({ name }) {
+  const [b, setB] = useState(null);
+  useEffect(() => { let alive = true; fetch('/api/pm/bonus', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (alive && j.success) setB(j.data); }).catch(() => {}); return () => { alive = false; }; }, []);
+  const p = b?.people?.find((x) => x.name === name);
+  const fast = p?.verdicts?.['빠름'] || 0;
+  return (
+    <section className="pcard bonus">
+      <h3>효율 보너스 {b && <small>{b.mode === 'live' ? '지급 중' : '기록만'}</small>}</h3>
+      {!b ? <p className="muted">불러오는 중…</p> : <>
+        <div className="bitem"><span className="bic" aria-hidden>⚡</span><div><b>{p ? `+${p.points}` : '0'}</b> 효율 점수<div className="muted">{p ? `판정 ${p.cases}건 · 빠름 ${fast}` : '판정할 기록 없음'}</div></div></div>
+        <div className="bitem"><span className="bic" aria-hidden>🔥</span><div><b>팀 퀘스트 {b.teamQuest.done}/{b.teamQuest.goal}</b><div className="muted">{b.teamQuest.complete ? '오늘 달성' : '같은 국가 넘김 이어가기'}</div></div></div>
+      </>}
+    </section>
+  );
+}
+
+function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [], isAdmin = false, myStaff = null }) {
   const canEdit = isAdmin || (!!myStaff && myStaff === name);
   const editNote = canEdit ? '' : (myStaff ? '본인 캐릭터에서만 사고 꾸밀 수 있습니다' : '계정 연결 필요 — 관리자에게 PM 계정 연결을 요청하세요');
-  const [tab, setTab] = useState(initialTab);
+  const startShop = initialTab === 'look' || initialTab === 'wallet';
+  const [tab, setTab] = useState(startShop ? 'now' : (initialTab === 'auto' ? 'now' : initialTab === 'time' ? 'rhythm' : initialTab));
+  const [view, setView] = useState(startShop ? 'shop' : 'detail');
   const [res, setRes] = useState(null);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState({});
   const [reqs, setReqs] = useState([]);
   const [busy, setBusy] = useState({});
+  const { avatars } = usePmTheme();
+  const [wallet] = useWallet(name);
   const loadReqs = useCallback(() => {
+    // PM 요청(시험 실행) 목록은 관리자 기능 — 관리자만 조회
+    if (!isAdmin) return;
     fetch('/api/pm/request?person=' + encodeURIComponent(name), { cache: 'no-store' })
       .then((r) => r.json()).then((j) => { if (j.success) setReqs(j.requests || []); }).catch(() => {});
-  }, [name]);
+  }, [name, isAdmin]);
   useEffect(() => { loadReqs(); const t = setInterval(loadReqs, POLL_MS); return () => clearInterval(t); }, [loadReqs]);
   const makeDryRun = async (wf) => {
     setBusy((b) => ({ ...b, [wf]: true }));
@@ -184,7 +244,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
   };
   const lastReq = (wf) => reqs.filter((r) => r.workflow === wf).slice(-1)[0] || null;
   useEffect(() => {
-    let alive = true; setRes(null); setErr(''); setTab(initialTab); setOpen({});
+    let alive = true; setRes(null); setErr(''); setOpen({});
     fetch('/api/pm/staff?name=' + encodeURIComponent(name), { cache: 'no-store' })
       .then((r) => r.json().then((j) => ({ r, j })))
       .then(({ r, j }) => { if (!alive) return; if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`); setRes(j.data); })
@@ -192,167 +252,159 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
     const esc = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', esc);
     return () => { alive = false; window.removeEventListener('keydown', esc); };
-  }, [name, onClose, initialTab]);
+  }, [name, onClose]);
   const d = res;
   const noData = d && !d.hasData;
+  const mine = filterLog(workLog, { name });
+  const cur = live ? staffLinks(live, now || Date.now()).current : null;
+  const lv = wallet ? levelOf(wallet.earned) : null;
+  const lvFrom = lv ? (LEVELS[lv.level - 1] || 0) : 0;
+  const lvPct = lv ? (lv.next == null ? 100 : Math.round(((wallet.earned - lvFrom) / Math.max(1, lv.next - lvFrom)) * 100)) : 0;
+  const st = STATUS_LABEL[live?.status] ? live.status : 'off';
   return (
     <div className="drawer-back" onClick={onClose}>
-      <aside className="drawer" role="dialog" aria-label={`${name} 직원 상세`} onClick={(e) => e.stopPropagation()}>
-        <div className="dh">
-          <h2>직원 상세 · {name}{d?.dataName && d.dataName !== name ? <small> ({d.dataName})</small> : null}</h2>
+      <div className="sdpage" role="dialog" aria-label={`${name} 직원 상세`} onClick={(e) => e.stopPropagation()}>
+        <div className="sdh">
+          <h2>{view === 'shop' ? '상점 · 꾸미기' : '직원 상세'}</h2>
+          {view === 'detail' && <Tabs className="sdtabs" label="직원 상세 탭" value={tab} onChange={setTab}
+            items={[['now', '지금'], ['flow', '업무흐름'], ['log', '작업로그'], ['rhythm', '주간리듬'], ['role', '역할'], ['grow', '키우기']]} />}
           <IconButton className="x" label="닫기" onClick={onClose} />
         </div>
-        <Tabs className="tabs" label="직원 상세 탭" value={tab} onChange={setTab}
-          items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기'], ['wallet', '상점·지갑'], ['grow', '키우기']]} />
-        <div className="db">
-          {err && <p className="warn">불러오기 실패: {err}</p>}
-          {tab === 'look' && <CustomizePanel name={name} canEdit={canEdit} editNote={editNote} />}
-          {tab === 'grow' && <GrowTab name={name} />}
-          {tab === 'wallet' && <WalletPanel name={name} />}
-          {!d && !err && tab !== 'look' && tab !== 'grow' && tab !== 'wallet' && <p className="muted">불러오는 중…</p>}
-          {noData && tab !== 'now' && tab !== 'time' && tab !== 'look' && tab !== 'grow' && tab !== 'wallet' && <p className="muted">관찰 데이터 없음</p>}
-          {d && !noData && tab === 'auto' && (
-            <div>
-              <div className="sum">
-                <div><b>{d.summary.workflowCount}</b><span>반복 업무</span></div>
-                <div><b>{d.summary.confirmedRatio}%</b><span>확정 단계 ({d.summary.confSteps}/{d.summary.totalSteps})</span></div>
-                <div><b>{d.summary.savedPerWeekMin != null ? `${d.summary.savedPerWeekMin}분` : '–'}</b><span>예상 절감/주</span></div>
-              </div>
-              {d.summary.candidates.length > 0 && (
-                <div className="card">
-                  <h3>자동화 후보 TOP {d.summary.candidates.length}</h3>
-                  <ol className="cand">{d.summary.candidates.map((c) => (
-                    <li key={c.name}><b>{c.name}</b> <span className="muted">확정 {c.ratio}% · 주 {c.perWeek}회({c.freqLabel}){c.savedPerCase ? ` · 건당 ${c.savedPerCase}분 절감` : ''}{c.linkBasis === 'estimated' ? ' · 추정 연결' : ''}</span></li>
-                  ))}</ol>
-                </div>
-              )}
-              <h3>반복 업무</h3>
-              {d.workflows.map((w, wi) => {
-                const r = w.readiness; const pi = PIPE.indexOf(w.pipelineStage);
-                return (
-                  <div key={wi} className="card">
-                    <div className="wt"><b>{w.name}</b>{w.confidence && <span className="pill">{w.confidence}</span>}</div>
-                    <div className="pipe">{PIPE.map((p, i) => <span key={p} className={i <= pi ? 'done' : ''}>{p}</span>)}</div>
-                    <div className="bar" aria-label={`준비도 ${r.score}%`}><i style={{ width: `${r.score}%` }} /></div>
-                    <div className="kv">단계 {r.total} · 확정 {r.confirmed} · 전산확인 {r.erpVerified} · 실행대상(전산/네노바웹) {r.executable} · 추정 {r.estimated}</div>
-                    {w.anchorCoverage && <div className="kv"><b>실행 앵커 {w.anchorCoverage.anchored}/{w.anchorCoverage.eligible}단계</b>{w.anchorCoverage.erpSteps ? <span className="muted"> (전산 {w.anchorCoverage.erpSteps}단계는 화면 판독 불가)</span> : null} · 준비도 {r.score}%</div>}
-                    {(w.stage?.length ? <div className="kv">단계: {[].concat(w.stage).join(' / ')}</div> : null)}
-                    {w.why && <div className="kv">이유: {w.why}</div>}
-                    {w.trigger && <div className="kv">시작: {w.trigger}</div>}
-                    {w.frequency && <div className="kv">빈도: {w.frequency}</div>}
-                    {w.observed && <div className="kv">근거 확인 {w.observed.days}일 / 관찰 {w.observed.weeks}주 <span className="muted">(표본 수집이라 최소치)</span></div>}
-                    {w.freq && <div className="kv" title={w.freq.assumptions?.length ? '가정: ' + w.freq.assumptions.join(' / ') : ''}>주 {w.freq.perWeek}회 <span className="muted">(추정 근거: {w.freq.label}{w.freq.assumptions?.length ? ' · 가정 보기' : ''})</span></div>}
-                    {(() => { const tw = d.timesave?.workflows?.find((x) => x.name === w.name); return tw ? <div className="kv"><b>실측 {tw.measuredHoursPerWeek}h/주</b> · 절감 {tw.saveHoursPerWeek}h/주 <span className="muted">(추정치)</span></div> : null; })()}
-                    {w.link && <div className="kv">개선안: {w.link.title}{w.link.basis === 'estimated' ? <span className="pill est">추정 연결</span> : null}</div>}
-                    {isAdmin && <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />}
-                    {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
-                    {w.steps.length > 0 && (
-                      <LinkButton onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</LinkButton>
-                    )}
-                    {open[wi] && (
-                      <ol className="steps">{w.steps.map((st, si) => (
-                        <li key={si}>
-                          <div>{st.no != null ? `${st.no}. ` : ''}{st.text} <span className={`basis b-${st.basis}`}>{BASIS_LABEL[st.basis] || st.basis || '–'}</span> <span className={`basis a-${st.anchorState}`}>{ANCHOR_LABEL[st.anchorState]}</span></div>
-                          <div className="muted">{[st.source?.app, st.source?.screen, st.source?.field].filter(Boolean).join(' › ') || '?'}{st.destination ? ` → ${[st.destination.app, st.destination.screen, st.destination.field].filter(Boolean).join(' › ')}` : ''}{st.action ? ` · ${st.action}` : ''}</div>
-                          {st.example && <div className="ex">예: {st.example}</div>}
-                        </li>
-                      ))}</ol>
-                    )}
-                    {w.pitfalls.length > 0 && <div className="kv"><b>함정</b><ul>{w.pitfalls.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
-                    {w.decisions.length > 0 && <div className="kv"><b>판단</b><ul>{w.decisions.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+        {view === 'shop' ? (
+          <div className="sdbody"><ShopPanel name={name} canEdit={canEdit} editNote={editNote} isAdmin={isAdmin} myStaff={myStaff} onBack={() => setView('detail')} /></div>
+        ) : (
+          <div className="sdbody sdgrid">
+            <aside className="pcard who">
+              <div className="avbox">{avatars[name] ? <Avatar cfg={avatars[name]} state={st} size={150} /> : <span className="avph" aria-hidden>{(name || '?').slice(0, 1)}</span>}</div>
+              <div className="wname">{name}</div>
+              <div className="muted">{d?.role?.dept || live?.dept || ''}{d?.dataName && d.dataName !== name ? ` · ${d.dataName}` : ''}</div>
+              <div className="lv"><b>Lv. {lv ? lv.level : '–'}</b><span className="gauge" aria-label={`다음 레벨까지 ${lvPct}%`}><i style={{ width: `${lvPct}%` }} /><em>{lvPct}%</em></span></div>
+              <div className="tok">🪙 <b>{wallet ? wallet.balance.toLocaleString() : '–'}</b> TOKENS</div>
+              <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{live?.lastAt ? ` · ${ago(live.lastAt, now)}` : ''}</span>
+            </aside>
+            <div className="sdmain">
+              <section className="pcard"><h3>업무 9단계 진행 타임라인 <small>작업 로그 기준</small></h3><StageTimeline rows={mine} currentStage={cur?.stage} /></section>
+              <section className="pcard sdtab">
+                {err && <p className="warn">불러오기 실패: {err}</p>}
+                {tab === 'now' && (
+                  <div className="nowgrid">
+                    <div>
+                      <h3>지금</h3>
+                      {live ? (<>
+                        {live.workLabel && <div className="kv">작업: <b>{live.workLabel}</b></div>}
+                        {live.app && <div className="kv">사용 앱: {live.app}</div>}
+                        <div className="kv">마지막: {ago(live.lastAt, now) || '–'}</div>
+                        {live.events15m != null && <div className="kv">최근 15분 이벤트: {live.events15m}건</div>}
+                      </>) : <p className="muted">실시간 데이터 없음</p>}
+                      <h3>작업로그</h3>
+                      <WorkLogList rows={mine} light max={6} empty="이 직원의 작업 로그 없음" />
+                    </div>
+                    <div><h3>주간 시간대 히트맵</h3><Heatmap rows={mine} /></div>
                   </div>
-                );
-              })}
-              {d.simulations.length > 0 && <h3>개선안</h3>}
-              {d.simulations.map((sm, i) => (
-                <div key={i} className="card sim">
-                  <div className="wt"><b>{sm.title}</b>{sm.savedPerCase > 0 && <span className="save">건당 −{sm.savedPerCase}분</span>}</div>
-                  {sm.menu && <div className="kv">메뉴: {sm.menu}</div>}
-                  {sm.observed && <div className="kv">관찰: {sm.observed}</div>}
-                  {sm.proposal && <div className="kv">제안: {sm.proposal}</div>}
-                  <div className="kv">지금 {sm.beforeMin}분 → 개선 후 {sm.afterMin}분{sm.savingPerWeekMin ? ` · 주 ${sm.savingPerWeekMin}분 절감` : ''}</div>
-                </div>
-              ))}
+                )}
+                {tab === 'log' && <WorkLogList rows={mine} light empty="이 직원의 작업 로그 없음(라벨이 바뀔 때만 한 줄 쌓임)" />}
+                {tab === 'grow' && <GrowTab name={name} />}
+                {tab === 'rhythm' && (<>
+                  <h3>주간 시간대 히트맵</h3><Heatmap rows={mine} />
+                  {d?.role?.weekRhythm && <div className="card"><h3>주간 리듬</h3>{typeof d.role.weekRhythm === 'string' ? d.role.weekRhythm : <ul>{Object.entries(d.role.weekRhythm).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
+                  {d?.timesave ? <TimeTab t={d.timesave} /> : d && <p className="muted">시간 측정 데이터 없음</p>}
+                </>)}
+                {!d && !err && (tab === 'flow' || tab === 'role') && <p className="muted">불러오는 중…</p>}
+                {noData && (tab === 'flow' || tab === 'role') && <p className="muted">관찰 데이터 없음</p>}
+                {d && !noData && tab === 'flow' && <FlowTab d={d} isAdmin={isAdmin} open={open} setOpen={setOpen} lastReq={lastReq} busy={busy} makeDryRun={makeDryRun} />}
+                {d && !noData && tab === 'role' && (
+                  d.role ? (
+                    <div>
+                      {d.role.dept && <div className="kv">부서: {d.role.dept}</div>}
+                      {d.role.roleSummary && <div className="card">{d.role.roleSummary}</div>}
+                      {d.role.unknowns?.length > 0 && <div className="card"><h3>아직 모르는 것</h3><ul>{d.role.unknowns.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+                      {d.role.dataStrength && <div className="card"><h3>데이터 강도</h3>{typeof d.role.dataStrength === 'string' ? d.role.dataStrength : <ul>{Object.entries(d.role.dataStrength).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
+                    </div>
+                  ) : <p className="muted">역할 요약 없음</p>
+                )}
+              </section>
             </div>
-          )}
-          {d && !noData && tab === 'role' && (
-            d.role ? (
-              <div>
-                {d.role.dept && <div className="kv">부서: {d.role.dept}</div>}
-                {d.role.roleSummary && <div className="card">{d.role.roleSummary}</div>}
-                {d.role.weekRhythm && <div className="card"><h3>주간 리듬</h3>{typeof d.role.weekRhythm === 'string' ? d.role.weekRhythm : <ul>{Object.entries(d.role.weekRhythm).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
-                {d.role.unknowns?.length > 0 && <div className="card"><h3>아직 모르는 것</h3><ul>{d.role.unknowns.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
-                {d.role.dataStrength && <div className="card"><h3>데이터 강도</h3>{typeof d.role.dataStrength === 'string' ? d.role.dataStrength : <ul>{Object.entries(d.role.dataStrength).map(([k, v]) => <li key={k}><b>{k}</b> {typeof v === 'string' ? v : JSON.stringify(v)}</li>)}</ul>}</div>}
-              </div>
-            ) : <p className="muted">역할 요약 없음</p>
-          )}
-          {d && tab === 'time' && (d.timesave ? <TimeTab t={d.timesave} /> : <p className="muted">시간 측정 데이터 없음</p>)}
-          {tab === 'log' && <WorkLogList rows={filterLog(workLog, { name })} light empty="이 직원의 작업 로그 없음(라벨이 바뀔 때만 한 줄 쌓임)" />}
-          {tab === 'now' && (
-            live ? (
-              <div className="card">
-                <div className="kv">상태: <span className={`chip chip-${STATUS_LABEL[live.status] ? live.status : 'off'}`}>{STATUS_LABEL[live.status] || '꺼짐'}</span></div>
-                {live.workLabel && <div className="kv">작업: <b>{live.workLabel}</b></div>}
-                {live.app && <div className="kv">사용 앱: {live.app}</div>}
-                <div className="kv">마지막: {ago(live.lastAt, now) || '–'}</div>
-                {live.events15m != null && <div className="kv">최근 15분 이벤트: {live.events15m}건</div>}
-              </div>
-            ) : <p className="muted">실시간 데이터 없음</p>
-          )}
+            <aside className="sdside">
+              <BonusCard name={name} />
+              <Button className="bigbtn shopb" onClick={() => setView('shop')}><span aria-hidden>🎁</span> 상점</Button>
+              <Button className="bigbtn lookb" onClick={() => setView('shop')}><span aria-hidden>👕</span> 꾸미기</Button>
+              {!canEdit && <p className="muted small">{editNote}</p>}
+            </aside>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FlowTab({ d, isAdmin, open, setOpen, lastReq, busy, makeDryRun }) {
+  return (
+    <div>
+      <div className="sum">
+        <div><b>{d.summary.workflowCount}</b><span>반복 업무</span></div>
+        <div><b>{d.summary.confirmedRatio}%</b><span>확정 단계 ({d.summary.confSteps}/{d.summary.totalSteps})</span></div>
+        <div><b>{d.summary.savedPerWeekMin != null ? `${d.summary.savedPerWeekMin}분` : '–'}</b><span>예상 절감/주</span></div>
+      </div>
+      {d.summary.candidates.length > 0 && (
+        <div className="card">
+          <h3>자동화 후보 TOP {d.summary.candidates.length}</h3>
+          <ol className="cand">{d.summary.candidates.map((c) => (
+            <li key={c.name}><b>{c.name}</b> <span className="muted">확정 {c.ratio}% · 주 {c.perWeek}회({c.freqLabel}){c.savedPerCase ? ` · 건당 ${c.savedPerCase}분 절감` : ''}{c.linkBasis === 'estimated' ? ' · 추정 연결' : ''}</span></li>
+          ))}</ol>
         </div>
-      </aside>
-      <style jsx global>{`
-        .drawer-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; justify-content: flex-end; }
-        .pm .drawer-back .drawer { width: min(560px, 100%); height: 100%; background: #f6f7fa; color: #1b1f2a; display: flex; flex-direction: column; box-shadow: -6px 0 18px rgba(0,0,0,.35); }
-        .pm .drawer-back .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #262b3c; color: #fff; }
-        .pm .drawer-back .dh h2 { margin: 0; font-size: 16px; } .pm .drawer-back .dh small { color: #c7cde0; font-weight: normal; }
-        .pm .drawer-back .x { color: #fff; font-size: 24px; min-width: 44px; min-height: 44px; }
-        .pm .drawer-back .tabs { display: flex; border-bottom: 1px solid #d0d4de; background: #fff; }
-        .pm .drawer-back .db { flex: 1; overflow-y: auto; padding: 12px 16px 24px; font-size: 13px; line-height: 1.5; }
-        .pm .drawer-back h3 { font-size: 13px; margin: 12px 0 6px; color: #1b1f2a; }
-        .pm .drawer-back .muted { color: #5a6276; } .pm .drawer-back .warn { color: #a3260f; }
-        .pm .drawer-back .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .pm .drawer-back .sum div { background: #fff; border: 1px solid #d0d4de; border-radius: 6px; padding: 8px; text-align: center; }
-        .pm .drawer-back .sum b { display: block; font-size: 20px; } .pm .drawer-back .sum span { font-size: 11px; color: #4a5164; }
-        .pm .drawer-back .card { background: #fff; border: 1px solid #d0d4de; border-radius: 6px; padding: 10px; margin-top: 8px; }
-        .pm .drawer-back .wt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .pm .drawer-back .pill { font-size: 11px; background: #e3e7f0; border-radius: 8px; padding: 0 6px; }
-        .pm .drawer-back .save { font-size: 12px; font-weight: bold; background: #b9f5cf; color: #0b3d1f; border-radius: 8px; padding: 0 7px; }
-        .pm .drawer-back .pipe { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; }
-        .pm .drawer-back .pipe span { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #e3e7f0; color: #5a6276; }
-        .pm .drawer-back .pipe span.done { background: #2f6fe0; color: #fff; }
-        .pm .drawer-back .bar { height: 8px; background: #e3e7f0; border-radius: 4px; overflow: hidden; } .pm .drawer-back .bar i { display: block; height: 100%; background: #1f9d55; }
-        .pm .drawer-back .kv { margin-top: 4px; } .pm .drawer-back .kv ul { margin: 2px 0 0 18px; padding: 0; }
-        .pm .drawer-back .steps { margin: 6px 0 0 0; padding-left: 0; list-style: none; } .pm .drawer-back .steps li { border-top: 1px solid #eceef3; padding: 6px 0; }
-        .pm .drawer-back .ex { font-size: 12px; color: #3a4152; background: #f1f3f8; padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
-        .pm .drawer-back .basis { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #e3e7f0; color: #1f2430; }
-        .pm .drawer-back .a-anchored { background: #b9f5cf; color: #0b3d1f; } .a-none { background: #e3e7f0; color: #1f2430; } .a-erp { background: #ffd8b0; color: #4a2300; }
-        .b-erp-verified { background: #b9f5cf; color: #0b3d1f; } .pm .drawer-back .b-confirmed { background: #cfe0ff; color: #0c2a63; } .pm .drawer-back .b-estimated { background: #ffe7a3; color: #4a3200; }
-        .pm .drawer-back .cand { margin: 0; padding-left: 20px; }
-        .pm .drawer-back .stack { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: #e3e7f0; }
-        .pm .drawer-back .stack i { display: block; height: 100%; min-width: 2px; }
-        .pm .drawer-back .legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
-        .pm .drawer-back .sw { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; }
-        .pm .drawer-back .hbars { display: grid; gap: 4px; }
-        .pm .drawer-back .hb { display: grid; grid-template-columns: minmax(0, 40%) 1fr 48px; gap: 6px; align-items: center; font-size: 12px; }
-        .pm .drawer-back .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .drawer-back .hbt { height: 10px; background: #e3e7f0; border-radius: 3px; overflow: hidden; } .pm .drawer-back .hbt i { display: block; height: 100%; background: #2f6fe0; }
-        .pm .drawer-back .hbv { text-align: right; font-weight: bold; }
-        .pm .drawer-back .pill.est { background: #ffe7a3; color: #4a3200; margin-left: 6px; }
-        .pm .drawer-back .dry { margin-top: 8px; }
-        .pm .drawer-back .dryres { margin-top: 6px; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
-        .pm .drawer-back .dryres.ok { background: #e3f8eb; color: #0b3d1f; } .pm .drawer-back .dryres.bad { background: #ffe9e5; color: #5c0d05; }
-        .pm .drawer-back .chip { display: inline-block; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; }
-        .pm .drawer-back .chip-working { background: #b9f5cf; color: #0b3d1f; } .pm .drawer-back .chip-idle { background: #ffe7a3; color: #4a3200; } .pm .drawer-back .chip-off { background: #d7dbe3; color: #1f2430; } .pm .drawer-back .chip-error { background: #ffc9c2; color: #5c0d05; }
-        @media (max-width: 640px) { .pm .drawer-back .drawer { width: 100%; } .pm .drawer-back .sum b { font-size: 16px; } }
-      `}</style>
+      )}
+      <h3>반복 업무</h3>
+      {d.workflows.map((w, wi) => {
+        const r = w.readiness; const pi = PIPE.indexOf(w.pipelineStage);
+        return (
+          <div key={wi} className="card">
+            <div className="wt"><b>{w.name}</b>{w.confidence && <span className="pill">{w.confidence}</span>}</div>
+            <div className="pipe">{PIPE.map((p, i) => <span key={p} className={i <= pi ? 'done' : ''}>{p}</span>)}</div>
+            <div className="bar" aria-label={`준비도 ${r.score}%`}><i style={{ width: `${r.score}%` }} /></div>
+            <div className="kv">단계 {r.total} · 확정 {r.confirmed} · 전산확인 {r.erpVerified} · 실행대상(전산/네노바웹) {r.executable} · 추정 {r.estimated}</div>
+            {w.anchorCoverage && <div className="kv"><b>실행 앵커 {w.anchorCoverage.anchored}/{w.anchorCoverage.eligible}단계</b>{w.anchorCoverage.erpSteps ? <span className="muted"> (전산 {w.anchorCoverage.erpSteps}단계는 화면 판독 불가)</span> : null} · 준비도 {r.score}%</div>}
+            {(w.stage?.length ? <div className="kv">단계: {[].concat(w.stage).join(' / ')}</div> : null)}
+            {w.why && <div className="kv">이유: {w.why}</div>}
+            {w.trigger && <div className="kv">시작: {w.trigger}</div>}
+            {w.frequency && <div className="kv">빈도: {w.frequency}</div>}
+            {w.observed && <div className="kv">근거 확인 {w.observed.days}일 / 관찰 {w.observed.weeks}주 <span className="muted">(표본 수집이라 최소치)</span></div>}
+            {w.freq && <div className="kv" title={w.freq.assumptions?.length ? '가정: ' + w.freq.assumptions.join(' / ') : ''}>주 {w.freq.perWeek}회 <span className="muted">(추정 근거: {w.freq.label}{w.freq.assumptions?.length ? ' · 가정 보기' : ''})</span></div>}
+            {(() => { const tw = d.timesave?.workflows?.find((x) => x.name === w.name); return tw ? <div className="kv"><b>실측 {tw.measuredHoursPerWeek}h/주</b> · 절감 {tw.saveHoursPerWeek}h/주 <span className="muted">(추정치)</span></div> : null; })()}
+            {w.link && <div className="kv">개선안: {w.link.title}{w.link.basis === 'estimated' ? <span className="pill est">추정 연결</span> : null}</div>}
+            {isAdmin && <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />}
+            {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
+            {w.steps.length > 0 && (
+              <LinkButton onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</LinkButton>
+            )}
+            {open[wi] && (
+              <ol className="steps">{w.steps.map((st, si) => (
+                <li key={si}>
+                  <div>{st.no != null ? `${st.no}. ` : ''}{st.text} <span className={`basis b-${st.basis}`}>{BASIS_LABEL[st.basis] || st.basis || '–'}</span> <span className={`basis a-${st.anchorState}`}>{ANCHOR_LABEL[st.anchorState]}</span></div>
+                  <div className="muted">{[st.source?.app, st.source?.screen, st.source?.field].filter(Boolean).join(' › ') || '?'}{st.destination ? ` → ${[st.destination.app, st.destination.screen, st.destination.field].filter(Boolean).join(' › ')}` : ''}{st.action ? ` · ${st.action}` : ''}</div>
+                  {st.example && <div className="ex">예: {st.example}</div>}
+                </li>
+              ))}</ol>
+            )}
+            {w.pitfalls.length > 0 && <div className="kv"><b>함정</b><ul>{w.pitfalls.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+            {w.decisions.length > 0 && <div className="kv"><b>판단</b><ul>{w.decisions.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul></div>}
+          </div>
+        );
+      })}
+      {d.simulations.length > 0 && <h3>개선안</h3>}
+      {d.simulations.map((sm, i) => (
+        <div key={i} className="card sim">
+          <div className="wt"><b>{sm.title}</b>{sm.savedPerCase > 0 && <span className="save">건당 −{sm.savedPerCase}분</span>}</div>
+          {sm.menu && <div className="kv">메뉴: {sm.menu}</div>}
+          {sm.observed && <div className="kv">관찰: {sm.observed}</div>}
+          {sm.proposal && <div className="kv">제안: {sm.proposal}</div>}
+          <div className="kv">지금 {sm.beforeMin}분 → 개선 후 {sm.afterMin}분{sm.savingPerWeekMin ? ` · 주 ${sm.savingPerWeekMin}분 절감` : ''}</div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ── 복도 = 업무 파이프라인 9단계 ──────────────────────────────
-// 단계 색(어두운 칸 #1e2230 위 대비 4.5 이상)
-const STAGE_COLOR = { 1: '#6fa8ff', 2: '#4fd1c5', 3: '#7ee2a2', 4: '#c3e66e', 5: '#ffd166', 6: '#ffa36b', 7: '#ff8fa3', 8: '#d6a2ff', 9: '#f2f2f2' };
 const CIRCLED = ['', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
 
 const CHIP_MAX = 6;
@@ -456,7 +508,7 @@ function FlowLines({ hostRef, links, onPick, onTip, reduced }) {
             <path id={id} d={p.d} fill="none" stroke={STAGE_COLOR[p.stage]} strokeWidth={p.width} strokeOpacity={cur ? 0.95 : p.kind === 'today' ? 0.22 : 0.35} strokeDasharray={p.kind === 'today' ? '4 4' : undefined} strokeLinecap="round" />
             <path d={p.d} fill="none" stroke="transparent" strokeWidth={14} className="hit" />
             {!reduced && (
-              <circle r={cur ? 4 : 3} fill={STAGE_COLOR[p.stage]} stroke="#0e1018" strokeWidth="1" opacity={cur ? 1 : 0.6}>
+              <circle r={cur ? 4 : 3} fill={STAGE_COLOR[p.stage]} style={{ stroke: 'var(--pm-surface)' }} strokeWidth="1" opacity={cur ? 1 : 0.6}>
                 <animateMotion dur={dur} repeatCount="indefinite" keyPoints={kp} keyTimes="0;1" calcMode="linear"><mpath href={`#${id}`} /></animateMotion>
               </circle>
             )}
@@ -552,9 +604,8 @@ function WorkLogPanel({ workLog, onOpenPerson }) {
 
 // 사슬 노드 사이 연결선: 복도 연결선과 같은 선·흐르는 점(reduced-motion 시 점 없음). 굵기=lineWidth(넘김 수).
 function ChainLink({ link, toStage, maxN, reduced }) {
-  const { theme } = usePmTheme();
   const n = link.items.length;
-  const c = link.external ? '#9aa3b8' : STAGE_COLOR[toStage];
+  const c = link.external ? 'var(--pm-muted)' : STAGE_COLOR[toStage];
   const tip = link.external ? '현장팀은 PC 데이터 없음 — 넘김 확인 불가'
     : n ? `넘김 ${n}건 (추정 · 같은 국가 · ${DEFAULT_WINDOW_H}시간 이내 · 확정 아님)\n` + link.items.slice(0, 6).map((h) => `${h.a.name} ${kstHM(h.a.at)} → ${h.b.name} ${kstHM(h.b.at)} (${h.country}, ${fmtGap(h.gapMin)})`).join('\n')
       : `넘김 없음 (같은 국가 ${DEFAULT_WINDOW_H}시간 이내 짝 없음)`;
@@ -563,9 +614,8 @@ function ChainLink({ link, toStage, maxN, reduced }) {
       <svg height="14" viewBox="0 0 40 14" preserveAspectRatio="none" aria-hidden>
         <path d="M1,7 L33,7" fill="none" stroke={c} strokeWidth={n ? lineWidth(n, maxN) : 2} strokeOpacity={n ? 0.95 : 0.35} strokeDasharray={link.external ? '3 3' : undefined} strokeLinecap="round" />
         <path d="M32,2 L39,7 L32,12" fill="none" stroke={c} strokeWidth="2" strokeOpacity={n ? 0.95 : 0.5} />
-        {n > 0 && !reduced && !theme && <circle r="2.6" fill={c} stroke="#0e1018" strokeWidth="1"><animateMotion dur="2.4s" repeatCount="indefinite" path="M1,7 L33,7" /></circle>}
+        {n > 0 && !reduced && <circle r="2.6" fill={c} style={{ stroke: 'var(--pm-surface)' }} strokeWidth="1"><animateMotion dur="2.4s" repeatCount="indefinite" path="M1,7 L33,7" /></circle>}
       </svg>
-      {n > 0 && theme && <span className={`ftok ${reduced ? 'still' : ''}`} aria-hidden>{theme.token}</span>}
       {n > 0 && <span className="cn" style={{ '--sc': c }}><i>넘김 </i>{n}</span>}
     </div>
   );
@@ -624,7 +674,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const [tip, setTip] = useState(null);
   const onTip = useCallback((l, toggle) => setTip((cur) => (toggle && cur && cur.name === l.name && cur.stage === l.stage ? null : l)), []);
   const [reduced, setReduced] = useState(false);
-  const pmTheme = usePmThemeState();
+  const pmTheme = usePmThemeState(myStaff || '');
   const floorRef = useRef(null);
   useEffect(() => { const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)'); if (!mq) return undefined; const f = () => setReduced(mq.matches); f(); mq.addEventListener?.('change', f); return () => mq.removeEventListener?.('change', f); }, []);
   const openPerson = useCallback((n, tab = 'auto') => { setSelTab(tab); setSel(n); }, []);
@@ -695,7 +745,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
     <GrowProvider>
     <div className="pm" data-theme={pmTheme.themeId}>
       <PmUiStyles />
-      {pmTheme.css && <style>{pmTheme.css}</style>}
+      <style dangerouslySetInnerHTML={{ __html: pmTheme.css }} />
       <header className="top">
         <MenuBackButton />
         <h1>PM 사무실</h1>
@@ -748,8 +798,8 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
           </div>
           <div className="wing">
             {visibleRooms.map((r) => (
-              <section key={r.dept} className="room dept" data-dept={r.dept} style={{ background: ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
-                <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small>{pmTheme.ctx.theme?.depts?.[r.dept]?.label ? <small className="tlabel"> · {pmTheme.ctx.theme.depts[r.dept].label}</small> : null}</div>
+              <section key={r.dept} className="room dept" data-dept={r.dept} style={{ '--dc': ROOM_FLOOR[r.dept] || ROOM_FLOOR['미배치'] }}>
+                <div className="plate">{r.dept} <small>{r.seats.filter((x) => !x.empty).length}</small></div>
                 <Table seats={r.seats} render={(x, i) => (
                   <Seat key={(x.name || '') + i} empty={x.empty} name={x.name} sub={x.app} status={x.status} deskId={x.empty ? undefined : x.name} onOpen={x.empty ? undefined : () => openPerson(x.name)}
                     activity={x.workLabel || arr(x.recent).find((r) => r?.label)?.label || (x.app ? `${x.app} 사용 중` : '')} lastAt={x.lastAt} now={now} extra={x.events15m != null ? `15분 ${x.events15m}건` : ''} />
@@ -815,169 +865,253 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
       {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
       <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
       <style jsx global>{`
-        .pm { min-height: 100vh; background: #1e2230; color: #e8ebf2; padding: 12px 16px 24px; font-size: 13px; }
-        .pm .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .pm h1 { font-size: 18px; margin: 0 6px 0 0; }
-        .pm .badge { padding: 3px 9px; border-radius: 10px; font-size: 12px; background: #2f3548; }
-        .pm .badge.shadow { background: #4b4f63; } .pm .badge.live { background: #1f8f4f; }
-        .pm .badge.warn { background: #b8452f; }
-        .pm .muted { color: #9aa3b8; }
+        /* 모든 색·모서리·그림자·폰트 = lib/pmThemes.js 토큰(var(--pm-*)). 여기에 hex 를 쓰지 않는다(__tests__/pmNoHexColor.test.js). */
+        .pm { position: relative; min-height: 100vh; background: var(--pm-bg); color: var(--pm-ink); font-family: var(--pm-font); padding: 0 16px 24px; font-size: 13px; isolation: isolate; }
+        .pm::before { content: ''; position: fixed; inset: 0; z-index: -2; background: var(--pm-tex) center / cover no-repeat; opacity: .28; pointer-events: none; }
+        .pm::after { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--pm-deco); pointer-events: none; }
+        .pm .top { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 -16px 12px; padding: 10px 16px; background: var(--pm-header); color: var(--pm-header-ink); box-shadow: var(--pm-shadow); border-bottom: 1px solid var(--pm-line); }
+        .pm .top h1 { font-size: 20px; margin: 0 6px 0 0; color: var(--pm-header-ink); }
+        .pm .badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); }
+        .pm .badge.live { background: var(--pm-ok); color: var(--pm-accent-ink); } .pm .badge.warn { background: var(--pm-err); color: var(--pm-accent-ink); }
+        .pm .muted { color: var(--pm-muted); }
+        .pm h2 { font-size: 15px; margin: 0 0 8px; } .pm h3 { font-size: 13px; margin: 8px 0 6px; color: var(--pm-ink); }
+        .pm small { color: var(--pm-muted); font-weight: normal; }
         .pm .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; }
-        .pm .floor { background: repeating-conic-gradient(#2a3042 0 25%, #262b3c 0 50%) 0 0 / 32px 32px; border: 4px solid #3a4158; border-radius: 6px; padding: 12px; }
-        .pm .zone + .zone { margin-top: 16px; border-top: 4px dashed #3a4158; padding-top: 12px; }
-        .pm h2 { font-size: 14px; margin: 0 0 8px; } .pm h3 { font-size: 12px; margin: 8px 0 6px; color: #c7cde0; }
-        .pm small { color: #9aa3b8; font-weight: normal; }
-        .pm .floor { background: #3a3f4f !important; padding: 10px !important; }
-        .pm .topwing { display: flex; gap: 10px; flex-wrap: wrap; }
-        .pm .room { position: relative; border: 6px solid #8d93a6; border-radius: 2px; padding: 26px 10px 10px; box-shadow: inset 0 0 0 2px #23273a; }
-        .pm .plate { position: absolute; top: -6px; left: 14px; background: #d9c08a; color: #2b2214; font-weight: bold; font-size: 12px; padding: 2px 10px; border: 2px solid #6b5a33; }
-        .pm .lab { flex: 1 1 520px; background: repeating-linear-gradient(0deg,#1d2b36 0 1px,transparent 1px 16px), repeating-linear-gradient(90deg,#1d2b36 0 1px,#22323f 1px 16px); border-color: #9fd8ff; border-style: double; box-shadow: 0 0 12px rgba(120,200,255,.35) inset; }
-        .pm .mgr { flex: 0 0 150px; background: repeating-linear-gradient(45deg,#6b4a2e 0 6px,#5f4128 6px 12px); }
-        .pm .rows { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; justify-content: start; }
-        .pm .hall { margin: 10px 0; height: 26px; line-height: 26px; text-align: center; color: #8d93a6; letter-spacing: 8px; font-size: 11px; background: repeating-linear-gradient(90deg,#4a5064 0 30px,#454b5e 30px 60px); border-top: 2px dashed #6b7186; border-bottom: 2px dashed #6b7186; }
-        .pm .wing { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
-        .pm .table { display: inline-flex; flex-direction: column; max-width: 100%; overflow-x: auto; background: rgba(0,0,0,.18); padding: 6px; border-radius: 3px; }
-        .pm .row { display: flex; gap: 6px; }
-        .pm .divider { height: 4px; margin: 3px 0; background: #c9ced9; box-shadow: 0 1px 0 #6b7186; }
-        .pm .seat { width: 120px; height: 148px; flex: 0 0 120px; box-sizing: border-box; background: rgba(15,18,28,.55); border: 2px solid #3a4158; border-radius: 3px; padding: 4px; text-align: center; overflow: hidden; }
-        .pm .seat.d-off .sprite { filter: grayscale(.85) brightness(.55); } .pm .seat.d-off { background: rgba(10,12,18,.7); }
-        .pm .seat.clickable { cursor: pointer; } .pm .seat.clickable:hover, .pm .seat.clickable:focus-visible { outline: 2px solid #ffd76a; outline-offset: 1px; }
-        .pm .seat.d-error { border-color: #e0483a; } .pm .seat.d-working { border-color: #3fbf7f; }
-        .pm .empty-seat { border-style: dashed; }
-        .pm .chip { display: inline-block; max-width: 100%; font-size: 11px; font-weight: bold; border-radius: 8px; padding: 1px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .deskcard { background: rgba(20, 23, 34, .75); border: 2px solid #3a4158; border-radius: 4px; padding: 6px; text-align: center; position: relative; }
-        .pm .deskcard.d-off { opacity: .45; filter: grayscale(.8); }
-        .pm .deskcard.d-error { border-color: #e0483a; }
-        .pm .deskcard.d-working { border-color: #3fbf7f; }
-        .pm .bubble { background: #fff; color: #111; max-height: 28px; overflow: hidden; overflow-wrap: anywhere; white-space: normal; border-radius: 6px; padding: 2px 5px; font-size: 10px; height: 28px; box-sizing: border-box; word-break: break-all; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; position: relative; margin-bottom: 6px; line-height: 12px; }
-        .pm .bubble:after { content: ''; position: absolute; left: 50%; bottom: -5px; border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
-        .pm .bubble.none { visibility: hidden; }
-        .pm .chip-working { background: #b9f5cf; color: #0b3d1f; } .pm .chip-idle { background: #ffe7a3; color: #4a3200; } .pm .chip-off { background: #d7dbe3; color: #1f2430; } .pm .chip-error { background: #ffc9c2; color: #5c0d05; } .pm .chip-empty { background: #3a4158; color: #f0f2f7; }
-        .pm .nm { color: #fff; font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .meta { font-size: 11px; color: #d5dae6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .dot { display: inline-block; width: 7px; height: 7px; margin-right: 4px; background: #666; }
-        .pm .dot-working { background: #3fbf7f; } .pm .dot-idle { background: #ffcc3f; } .pm .dot-error { background: #e0483a; }
         .pm .wrap > *, .pm .floor, .pm .room, .pm .topwing > * { min-width: 0; }
-        .pm .tstrip { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: #262b3c; border: 2px solid #3a4158; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; color: #e8ebf2; }
-        .pm .tstrip b.g { color: #7ee2a2; }
-        .pm .tstrip .est { background: #ffe7a3; color: #4a3200; border-radius: 8px; padding: 0 7px; font-size: 11px; font-weight: bold; }
+        .pm .floor { position: relative; background: color-mix(in srgb, var(--pm-surface) 55%, transparent); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); backdrop-filter: blur(2px); }
+        .pm .topwing { display: flex; gap: 10px; flex-wrap: wrap; }
+        .pm .room { position: relative; background: var(--pm-floor); border: 3px solid var(--pm-line); border-radius: var(--pm-radius); padding: 28px 10px 10px; box-shadow: var(--pm-shadow); }
+        .pm .room::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: var(--pm-radius) var(--pm-radius) 0 0; background: var(--dc, var(--pm-accent)); }
+        .pm .plate { position: absolute; top: -10px; left: 14px; z-index: 6; background: var(--pm-plate); color: var(--pm-plate-ink); font-weight: bold; font-size: 12px; padding: 3px 12px; border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
+        .pm .plate small { color: inherit; opacity: .8; }
+        .pm .lab { flex: 1 1 520px; } .pm .mgr { flex: 0 0 150px; }
+        .pm .rows { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 8px; justify-content: start; }
+        .pm .wing { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+        .pm .table { display: inline-flex; flex-direction: column; max-width: 100%; overflow-x: auto; background: color-mix(in srgb, var(--pm-ink) 6%, transparent); padding: 6px; border-radius: var(--pm-radius); }
+        .pm .row { display: flex; gap: 6px; }
+        .pm .divider { height: 4px; margin: 3px 0; background: var(--pm-line); border-radius: 2px; }
+        .pm .seat { position: relative; z-index: 6; width: 120px; height: 150px; flex: 0 0 120px; box-sizing: border-box; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px; text-align: center; overflow: hidden; box-shadow: var(--pm-shadow); }
+        .pm .seat.d-off { opacity: .78; } .pm .seat.d-off .sprite { filter: grayscale(.85) brightness(.75); }
+        .pm .seat.clickable { cursor: pointer; } .pm .seat.clickable:hover, .pm .seat.clickable:focus-visible { outline: 3px solid var(--pm-accent2); outline-offset: 1px; transform: translateY(-2px); }
+        .pm .seat.d-error { border-color: var(--pm-err); } .pm .seat.d-working { border-color: var(--pm-ok); }
+        .pm .empty-seat { border-style: dashed; }
+        .pm .chip { display: inline-block; max-width: 100%; font-size: 11px; font-weight: bold; border-radius: 999px; padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .chip-working { background: var(--pm-ok-bg); color: var(--pm-ok-ink); } .pm .chip-idle { background: var(--pm-idle-bg); color: var(--pm-idle-ink); } .pm .chip-off { background: var(--pm-off-bg); color: var(--pm-off-ink); } .pm .chip-error { background: var(--pm-err-bg); color: var(--pm-err-ink); } .pm .chip-empty { background: var(--pm-surface2); color: var(--pm-muted); }
+        .pm .bubble { position: relative; background: var(--pm-bubble); color: var(--pm-bubble-ink); border: 1px solid var(--pm-line); height: 28px; box-sizing: border-box; border-radius: 10px; padding: 2px 5px; font-size: 10px; line-height: 12px; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-align: left; margin-bottom: 6px; }
+        .pm .bubble.none { visibility: hidden; }
+        .pm .nm { color: var(--pm-ink); font-weight: bold; margin-top: 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pm .tstrip { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 12px; margin-bottom: 12px; color: var(--pm-ink); box-shadow: var(--pm-shadow); }
+        .pm .tstrip b.g, .pm .fh { color: var(--pm-ok); }
+        .pm .est { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: bold; }
+        .pm .panel { background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; margin-bottom: 12px; box-shadow: var(--pm-shadow); }
         .pm details.panel > summary { cursor: pointer; list-style: none; } .pm details.panel > summary h2 { display: inline; }
         .pm .feat { margin: 8px 0 0; padding-left: 20px; } .pm .feat li { margin-bottom: 8px; }
-        .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { color: #7ee2a2; font-weight: bold; white-space: nowrap; }
-        .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; } .pm .pchips span { background: #3a4158; color: #f0f2f7; border-radius: 8px; padding: 0 6px; font-size: 11px; }
+        .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { font-weight: bold; white-space: nowrap; }
+        .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; } .pm .pchips span, .pm .mt { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; font-size: 11px; }
         .pm .unp { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
-        .pm .panel { background: #262b3c; border: 2px solid #3a4158; border-radius: 4px; padding: 10px; margin-bottom: 12px; }
-        .pm .tg h3 { border-left: 4px solid #666; padding-left: 6px; }
-        .pm .tg-approval { border-color: #e0483a !important; } .pm .tg-day3 { border-color: #ff8a4f !important; } .pm .tg-investigate { border-color: #4f8cff !important; } .pm .tg-verify { border-color: #3fbf7f !important; }
-        .pm .task { background: #1e2230; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; line-height: 1.4; }
-        .pm .tk { font-weight: bold; word-break: break-all; } .pm .days { margin-left: 6px; background: #b8452f; padding: 0 5px; border-radius: 6px; font-size: 11px; }
-        .pm .dec { color: #ffcc3f; }
-        .pm .pbsum { font-size: 12px; color: #c7cde0; margin-bottom: 8px; line-height: 1.5; }
-        .pm .pbcard { display: block; width: 100%; text-align: left; color: inherit; font: inherit; border: 0; cursor: pointer; }
-        .pm .pblearn { margin: 2px 0; }
-        .pm .pbcard.on { outline: 2px solid #3a4158; }
-        .pm .pbh { display: flex; justify-content: space-between; gap: 6px; } .pm .pbh .chip { flex: none; }
+        .pm .tg h3 { border-left: 4px solid var(--pm-line); padding-left: 6px; }
+        .pm .tg-approval { border-color: var(--pm-err) !important; } .pm .tg-day3 { border-color: var(--pm-idle) !important; } .pm .tg-investigate { border-color: var(--pm-accent) !important; } .pm .tg-verify { border-color: var(--pm-ok) !important; }
+        .pm .task, .pm .msg { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 6px 9px; margin-bottom: 6px; font-size: 12px; line-height: 1.4; }
+        .pm .tk { font-weight: bold; word-break: break-all; } .pm .days { margin-left: 6px; background: var(--pm-err); color: var(--pm-accent-ink); padding: 0 6px; border-radius: 999px; font-size: 11px; }
+        .pm .dec { color: var(--pm-accent); font-weight: bold; }
+        .pm .pbsum { font-size: 12px; color: var(--pm-muted); margin-bottom: 8px; line-height: 1.5; }
+        .pm .pbcard { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer; }
+        .pm .pbcard.on { outline: 2px solid var(--pm-accent); }
+        .pm .pblearn { margin: 2px 0; } .pm .pbh { display: flex; justify-content: space-between; gap: 6px; } .pm .pbh .chip { flex: none; }
         .pm .pbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .pbk { word-break: break-all; }
         .pm .feed { max-height: 60vh; overflow-y: auto; }
-        .pm .msg { background: #1e2230; border-radius: 10px 10px 10px 2px; padding: 6px 9px; margin-bottom: 6px; }
-        .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; background: #3a4158; padding: 0 5px; border-radius: 6px; }
-        .pm .mb { margin-top: 2px; line-height: 1.4; word-break: break-word; }
-        .pm .credit { margin-top: 12px; font-size: 11px; color: #6f7890; }
-        /* 2.5D: 방 바닥판만 살짝 눕히고(rotateX) 두께를 그림. 글씨·선·점은 평면 레이어라 또렷함 */
-        .pm .floor { position: relative; }
-        .pm .room > .table, .pm .room > .rows { position: relative; }
-        .pm .room { box-shadow: inset 0 0 0 2px #23273a, 0 8px 0 #23273a, 0 10px 14px rgba(0,0,0,.45) !important; }
-        .pm .room::before { content: ''; position: absolute; inset: 0; background: inherit; transform: perspective(900px) rotateX(14deg); transform-origin: 50% 100%; filter: brightness(.9); pointer-events: none; }
-        .pm .seat { box-shadow: 0 5px 0 #151823, 4px 5px 0 #151823; }
-        .pm .hallwrap { margin: 14px 0; padding: 8px; background: linear-gradient(180deg,#4a5064,#3f4558); border-top: 2px dashed #6b7186; border-bottom: 2px dashed #6b7186; box-shadow: 0 6px 0 #2a2e3d; }
-        .pm .hall-t { color: #f0f2f7; font-weight: bold; font-size: 12px; margin-bottom: 6px; } .pm .hall-t small { color: #e3e7ef; }
-        .pm .corridor { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 6px; }
-        .pm .cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; padding: 6px 2px; background: #1e2230; color: #f0f2f7; border: 2px solid var(--sc, #6b7186); border-radius: 4px; cursor: pointer; font: inherit; box-shadow: 0 5px 0 #151823; }
-        .pm .cell:hover, .pm .cell:focus-visible, .pm .cell.on { outline: 2px solid #ffd76a; outline-offset: 1px; }
-        .pm .cell .ch { font-size: 15px; font-weight: bold; color: var(--sc, #f0f2f7); }
-        .pm .cell .cl { font-size: 12px; color: #f0f2f7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .pm .cell .cn { white-space: nowrap; font-size: 10px; background: var(--sc); color: #10131c; border-radius: 6px; padding: 0 5px; font-weight: bold; }
+        .pm .mh { font-size: 11px; } .pm .mt { margin-left: 6px; } .pm .mb { margin-top: 2px; line-height: 1.4; word-break: break-word; }
+        .pm .credit { margin-top: 12px; font-size: 11px; color: var(--pm-muted); }
+        /* 복도 = 2.5D 길(살짝 눕힌 바닥판 + 두께) */
+        .pm .hallwrap { position: relative; margin: 18px 0; padding: 12px; background: var(--pm-hall); color: var(--pm-hall-ink); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 4px); box-shadow: 0 8px 0 color-mix(in srgb, var(--pm-hall) 60%, var(--pm-ink)), var(--pm-shadow); }
+        .pm .hall-t { position: relative; z-index: 6; color: var(--pm-hall-ink); font-weight: bold; font-size: 13px; margin-bottom: 8px; } .pm .hall-t small { color: var(--pm-hall-ink); opacity: .8; }
+        .pm .corridor { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; }
         .pm .ccol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .pm .cell { position: relative; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 7px 3px; background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--sc, var(--pm-line)); border-radius: var(--pm-radius); cursor: pointer; font: inherit; box-shadow: 0 5px 0 color-mix(in srgb, var(--sc, var(--pm-line)) 55%, transparent); }
+        .pm .cell:hover, .pm .cell:focus-visible, .pm .cell.on { outline: 3px solid var(--pm-accent2); outline-offset: 1px; }
+        .pm .cell .ch { font-size: 16px; font-weight: bold; color: var(--sc, var(--pm-ink)); }
+        .pm .cell .cl { font-size: 12px; color: var(--pm-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .pm .cell .cn, .pm .clink .cn { white-space: nowrap; font-size: 10px; background: var(--sc); color: var(--pm-surface); border-radius: 999px; padding: 0 5px; font-weight: bold; }
         .pm .cell .cnow { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
         .pm .cell .cnow .cn { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 12px; padding: 1px 4px; }
         .pm .cell .cn.dim, .pm .lchip.rec { opacity: 0.62; }
         .pm .lchips { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 6; }
-        .pm .lchip { font-size: 10px; line-height: 14px; padding: 1px 5px; border-radius: 6px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; background: #1e2230; color: #f0f2f7; border: 1px solid var(--sc); }
-        .pm .lchip.cur { background: var(--sc); color: #10131c; font-weight: bold; } .pm .lchip b { display: block; }
+        .pm .lchip { font-size: 10px; line-height: 14px; padding: 1px 6px; border-radius: var(--pm-radius); white-space: normal; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--sc); }
+        .pm .lchip.cur { background: var(--sc); color: var(--pm-surface); font-weight: bold; } .pm .lchip b { display: block; }
+        .pm .cell.unk { --sc: var(--pm-muted); cursor: default; border-style: dashed; }
+        .pm .spanel { position: relative; z-index: 6; margin-top: 8px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px 10px; color: var(--pm-ink); }
         .pm .ltip { font-size: 12px; }
-        .pm .cell.unk { --sc: #9aa3b8; cursor: default; border-style: dashed; } .pm .cell.unk .ch { color: #c4cad6; }
-        .pm .spanel { margin-top: 8px; background: #1e2230; border: 2px solid #3a4158; border-radius: 4px; padding: 8px 10px; color: #e8ebf2; }
-        .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; color: #fff; }
+        .pm .sph { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .pm .spx { margin-left: auto; color: var(--pm-ink); }
         .pm .spu { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; } .pm .spl { margin-top: 4px; }
-        .pm .flows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; }
-        /* 칸·책상은 선 위에 올려 글씨를 가리지 않게(선은 사이 공간에서 보임) */
-        .pm .corridor .cell, .pm .seat, .pm .plate, .pm .hall-t, .pm .spanel { position: relative; z-index: 6; }
-        .pm .plate { position: absolute; }
+        .pm .flows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--pm-accent2) 50%, transparent)); }
         .pm .flows .fl, .pm .flows .hit { pointer-events: stroke; cursor: pointer; }
-        .pm .chains { margin-top: 10px; padding-top: 8px; border-top: 2px dashed #6b7186; }
+        .pm .chains { margin-top: 12px; padding-top: 10px; border-top: 2px dashed var(--pm-line); }
         .pm .chain { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px; align-items: center; margin-bottom: 8px; }
-        .pm .chl { color: #f0f2f7; font-weight: bold; font-size: 12px; }
+        .pm .chl { color: var(--pm-hall-ink); font-weight: bold; font-size: 12px; }
         .pm .chrow { display: flex; align-items: stretch; min-width: 0; }
         .pm .chseg { display: flex; align-items: center; flex: 1 1 0; min-width: 0; }
         .pm .cnode { flex: 1 1 0; min-width: 0; cursor: default; overflow: hidden; padding-top: 10px; }
-        .pm .cnode .dstrip { position: absolute; left: 0; right: 0; top: 0; height: 6px; border-bottom: 1px solid #151823; }
-        .pm .cnode .cd, .pm .cnode .cd2 { font-size: 10px; color: #e3e7ef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .pm .cnode.ext .cl { color: #f0f2f7; }
+        .pm .cnode .dstrip { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
+        .pm .cnode .cd, .pm .cnode .cd2 { font-size: 10px; color: var(--pm-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
         .pm .clink { position: relative; flex: 0 0 34px; display: flex; flex-direction: column; align-items: center; }
-        .pm .clink svg { display: block; width: 34px; }
-        .pm .clink .cn i { font-style: normal; } .pm .clink .cn { position: relative; z-index: 7; white-space: nowrap; font-size: 10px; background: var(--sc); color: #10131c; border-radius: 6px; padding: 0 4px; font-weight: bold; }
+        .pm .clink svg { display: block; width: 34px; } .pm .clink .cn { position: relative; z-index: 7; padding: 0 4px; } .pm .clink .cn i { font-style: normal; }
         .pm .hlist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
-        .pm .hlist li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: #f0f2f7; font-size: 12px; }
-        .pm .hlist .muted { color: #e3e7ef; }
-        .pm .est { background: #ffe7a3; color: #4a3200; border-radius: 8px; padding: 0 7px; font-size: 11px; font-weight: bold; }
-        .pm .hnone { margin: 4px 0 0; font-size: 12px; color: #e3e7ef; }
-        .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border: 1px solid #8d93a6; }
+        .pm .hlist li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; color: var(--pm-hall-ink); font-size: 12px; }
+        .pm .hlist .muted, .pm .hnone { color: var(--pm-hall-ink); opacity: .85; } .pm .hnone { margin: 4px 0 0; font-size: 12px; }
+        .pm .dsw { display: inline-block; width: 10px; height: 10px; flex: 0 0 10px; border-radius: 3px; border: 1px solid var(--pm-line); }
         .pm .fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 4px 0; }
         .pm .wlscroll { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
         .pm .wlog { list-style: none; margin: 0; padding: 0; }
-        .pm .wday { font-size: 11px; color: #c7cde0; margin: 6px 0 2px; border-bottom: 1px solid #3a4158; }
+        .pm .wday { font-size: 11px; color: var(--pm-muted); margin: 6px 0 2px; border-bottom: 1px solid var(--pm-line); }
         .pm .wrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; min-width: 0; font-size: 12px; }
-        .pm .wt { font-variant-numeric: tabular-nums; color: #c7cde0; flex: 0 0 auto; }
-        .pm .wn { flex: 0 0 auto; color: #fff; font-weight: bold; }
+        .pm .wt { font-variant-numeric: tabular-nums; color: var(--pm-muted); flex: 0 0 auto; }
+        .pm .wn { flex: 0 0 auto; color: var(--pm-ink); font-weight: bold; }
         .pm .wl { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pm .drawer-back .wlog.light .wt { color: #4a5164; } .pm .drawer-back .wlog.light .wn { color: #1b1f2a; } .pm .drawer-back .wlog.light .wday { color: #4a5164; border-color: #d0d4de; }
-        @media (max-width: 640px) { .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } }
-        @media (max-width: 640px) { .pm .corridor { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); } .pm .room::before { transform: none; } .pm { padding: 10px 8px 20px; } .pm .seat { width: 104px; flex-basis: 104px; } }
+        /* 테마 선택기 */
+        .pm .tpick { position: relative; margin-left: auto; }
+        .pm .tgrid { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(560px, 92vw); display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 10px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); }
+        .pm .tthumb { display: flex; flex-direction: column; gap: 4px; padding: 4px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; color: var(--pm-ink); }
+        .pm .tthumb img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: calc(var(--pm-radius) / 2); display: block; }
+        .pm .tthumb.on { border-color: var(--pm-accent); outline: 2px solid var(--pm-accent); }
+        .pm .nm .tokb { margin-left: 4px; padding: 0 5px; font-size: 10px; font-weight: normal; vertical-align: 1px; background: var(--pm-est-bg); color: var(--pm-est-ink); border: 0; }
+        /* 직원 상세(시안 page-staff-detail) */
+        .drawer-back { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--pm-ink) 45%, transparent); }
+        .pm .sdpage { width: min(1180px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: color-mix(in srgb, var(--pm-bg) 85%, var(--pm-surface)); color: var(--pm-ink); border: 3px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 8px); box-shadow: var(--pm-shadow); overflow: hidden; }
+        .pm .sdh { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+        .pm .sdh h2 { margin: 0; font-size: 22px; }
+        .pm .sdtabs { flex: 1; gap: 8px; justify-content: center; }
+        .pm .sdtabs .pmk-tab { flex: 0 0 auto; min-height: 38px; padding: 0 18px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; color: var(--pm-ink); box-shadow: var(--pm-shadow); }
+        .pm .sdtabs .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
+        .pm .sdh .x { margin-left: auto; color: var(--pm-ink); font-size: 24px; min-width: 44px; min-height: 44px; }
+        .pm .sdbody { flex: 1; overflow-y: auto; padding: 4px 16px 18px; line-height: 1.5; }
+        .pm .sdgrid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
+        .pm .pcard { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 4px); padding: 12px; box-shadow: var(--pm-shadow); }
+        .pm .pcard h3 { margin-top: 0; font-size: 15px; }
+        .pm .who { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+        .pm .avbox { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); border: 2px solid var(--pm-line); }
+        .pm .avph { width: 110px; height: 110px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-accent); color: var(--pm-accent-ink); font-size: 48px; font-weight: bold; }
+        .pm .wname { font-size: 22px; font-weight: bold; }
+        .pm .lv { width: 100%; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .pm .gauge { position: relative; flex: 1; height: 16px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
+        .pm .gauge i { position: absolute; inset: 0 auto 0 0; background: var(--pm-accent); border-radius: 999px; }
+        .pm .gauge em { position: relative; display: block; text-align: center; font-size: 11px; font-style: normal; font-weight: bold; line-height: 16px; }
+        .pm .tok { font-size: 15px; }
+        .pm .sdmain { display: grid; gap: 14px; min-width: 0; }
+        .pm .tline { list-style: none; margin: 0; padding: 4px 0 0; display: grid; grid-template-columns: repeat(9, 1fr); position: relative; }
+        .pm .tline::before { content: ''; position: absolute; left: 5%; right: 5%; top: 19px; height: 4px; background: var(--pm-line); border-radius: 2px; }
+        .pm .tline li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--pm-muted); }
+        .pm .tline .dotn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--pm-surface2); border: 2px solid var(--pm-line); color: var(--pm-muted); font-weight: bold; font-size: 14px; }
+        .pm .tline li.has .dotn { background: color-mix(in srgb, var(--sc) 30%, var(--pm-surface)); border-color: var(--sc); color: var(--pm-ink); }
+        .pm .tline li.has .tl { color: var(--pm-ink); }
+        .pm .tline li.cur .dotn { background: var(--sc); color: var(--pm-surface); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sc) 35%, transparent); }
+        .pm .nowgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .pm .nowgrid > div + div { border-left: 2px solid var(--pm-line); padding-left: 16px; }
+        .pm .heat { display: grid; gap: 3px; }
+        .pm .hrow { display: grid; grid-template-columns: 44px repeat(13, 1fr); gap: 3px; align-items: center; font-size: 11px; }
+        .pm .hrow i { position: relative; display: block; aspect-ratio: 1; border-radius: calc(var(--pm-radius) / 3); background: var(--pm-surface2); border: 1px solid var(--pm-line); }
+        .pm .hrow i::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--pm-accent); opacity: var(--hv, 0); }
+        .pm .hhead span { text-align: center; color: var(--pm-muted); }
+        .pm .sdside { display: grid; gap: 14px; }
+        .pm .bonus .bitem { display: flex; gap: 8px; align-items: center; padding: 6px; margin-top: 6px; background: var(--pm-surface2); border-radius: var(--pm-radius); }
+        .pm .bonus .bic { font-size: 24px; }
+        .pm .pmk-btn.bigbtn { min-height: 76px; font-size: 22px; font-weight: bold; border-radius: calc(var(--pm-radius) + 10px); border: 2px solid var(--pm-line); box-shadow: var(--pm-shadow); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .pm .pmk-btn.shopb { background: color-mix(in srgb, var(--pm-accent2) 45%, var(--pm-surface)); color: var(--pm-ink); }
+        .pm .pmk-btn.lookb { background: color-mix(in srgb, var(--pm-accent) 40%, var(--pm-surface)); color: var(--pm-ink); }
+        .pm .pmk-btn.bigbtn span { font-size: 30px; }
+        .pm .small { font-size: 11px; }
+        .pm .sdpage .sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .pm .sdpage .sum div { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px; text-align: center; }
+        .pm .sdpage .sum b { display: block; font-size: 20px; } .pm .sdpage .sum span { font-size: 11px; color: var(--pm-muted); }
+        .pm .sdpage .card { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 10px; margin-top: 8px; }
+        .pm .sdpage .wt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .pm .sdpage .pill, .pm .sdpage .basis, .pm .sdpage .pipe span { font-size: 11px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; color: var(--pm-ink); }
+        .pm .sdpage .pipe { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; } .pm .sdpage .pipe span.done { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
+        .pm .sdpage .save, .pm .sdpage .a-anchored, .pm .sdpage .b-erp-verified { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
+        .pm .sdpage .b-estimated, .pm .sdpage .pill.est, .pm .sdpage .a-erp { background: var(--pm-est-bg); color: var(--pm-est-ink); }
+        .pm .sdpage .save { font-size: 12px; font-weight: bold; border-radius: 999px; padding: 0 7px; }
+        .pm .sdpage .bar, .pm .sdpage .hbt, .pm .sdpage .stack { height: 10px; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
+        .pm .sdpage .bar i, .pm .sdpage .hbt i { display: block; height: 100%; background: var(--pm-accent); }
+        .pm .sdpage .stack { display: flex; height: 18px; } .pm .sdpage .stack i { display: block; height: 100%; min-width: 2px; }
+        .pm .sdpage .kv { margin-top: 4px; } .pm .sdpage .kv ul { margin: 2px 0 0 18px; padding: 0; }
+        .pm .sdpage .steps { margin: 6px 0 0; padding: 0; list-style: none; } .pm .sdpage .steps li { border-top: 1px solid var(--pm-line); padding: 6px 0; }
+        .pm .sdpage .ex { font-size: 12px; background: var(--pm-surface); padding: 2px 6px; border-radius: 4px; margin-top: 2px; word-break: break-word; }
+        .pm .sdpage .cand { margin: 0; padding-left: 20px; }
+        .pm .sdpage .legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+        .pm .sdpage .sw { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; }
+        .pm .sdpage .hbars { display: grid; gap: 4px; }
+        .pm .sdpage .hb { display: grid; grid-template-columns: minmax(0, 40%) 1fr 48px; gap: 6px; align-items: center; font-size: 12px; }
+        .pm .sdpage .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .sdpage .hbv { text-align: right; font-weight: bold; }
+        .pm .sdpage .dry { margin-top: 8px; } .pm .sdpage .dryres { margin-top: 6px; padding: 6px 8px; border-radius: var(--pm-radius); font-size: 12px; }
+        .pm .sdpage .dryres.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); } .pm .sdpage .dryres.bad, .pm .sdpage .warn { background: var(--pm-err-bg); color: var(--pm-err-ink); }
+        /* 상점·꾸미기(시안 page-shop-avatar) */
+        .pm .shop .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .pm .shop .shead h2 { margin: 0; font-size: 18px; padding: 6px 14px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
+        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
+        .pm .sgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
+        .pm .sstage, .pm .sitems, .pm .sside { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); }
+        .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
+        .pm .stagebox .pav { z-index: 1; }
+        .pm .pedestal { position: absolute; bottom: 22px; left: 50%; width: 170px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 30%, var(--pm-surface2)); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-accent) 50%, var(--pm-line)); }
+        .pm .czst { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; justify-content: center; }
+        .pm .slots { gap: 4px; }
+        .pm .slots .pmk-tab { flex: 1 0 30%; min-height: 40px; font-size: 12px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); }
+        .pm .slots .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
+        .pm .sitems { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 112px; background: var(--pm-surface2); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; }
+        .pm .sitem img { width: 52px; height: 52px; object-fit: contain; }
+        .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-ink) 70%, var(--pm-surface)); color: var(--pm-surface); }
+        .pm .sitem.lock.poor img { filter: grayscale(1) brightness(.6); }
+        .pm .sitem.on { border-color: var(--pm-accent); outline: 2px solid var(--pm-accent); }
+        .pm .sitem .eq { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--pm-ok); color: var(--pm-accent-ink); font-size: 12px; display: grid; place-items: center; }
+        .pm .iname { font-weight: bold; text-align: center; }
+        .pm .czr { font-size: 10px; border-radius: 999px; padding: 0 6px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); }
+        .pm .czr.r-rare { background: color-mix(in srgb, var(--pm-accent) 25%, var(--pm-surface)); } .pm .czr.r-legendary { background: var(--pm-est-bg); color: var(--pm-est-ink); }
+        .pm .sside { display: flex; flex-direction: column; gap: 8px; }
+        .pm .sdetail { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+        .pm .sdetail .dimg { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); }
+        .pm .sdetail img { width: 70%; height: 70%; object-fit: contain; }
+        .pm .pmk-btn.big { min-height: 48px; font-size: 15px; border-radius: 999px; }
+        .pm .pmk-btn.buy { background: var(--pm-accent2); color: var(--pm-ink); border-color: var(--pm-accent2); }
+        .pm .srow { display: flex; gap: 6px; } .pm .srow .pmk-btn { flex: 1; border-radius: 999px; }
+        .pm .czmsg { font-size: 12px; margin: 0; }
+        .pm .shist { margin-top: 10px; }
+        .pm .wal .sum { display: flex; gap: 10px; } .pm .wal .sum div { flex: 1; background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 8px; text-align: center; }
+        .pm .wal .sum b { display: block; font-size: 18px; } .pm .wal .sum span { font-size: 11px; color: var(--pm-muted); }
+        .pm .walh { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 12px; } .pm .walh li { background: var(--pm-surface); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 4px 8px; }
+        @media (max-width: 1000px) { .pm .sdgrid, .pm .sgrid { grid-template-columns: 1fr; } .pm .nowgrid { grid-template-columns: 1fr; } .pm .nowgrid > div + div { border-left: 0; padding-left: 0; } }
+        @media (max-width: 640px) { .pm .chain { grid-template-columns: 1fr; gap: 2px; } .pm .clink { flex-basis: 22px; } .pm .clink svg { width: 22px; } .pm .cnode .cd { display: none; } .pm .chrow { flex-wrap: wrap; row-gap: 6px; } .pm .chseg { flex: 0 0 50%; } .pm .clink .cn i { display: none; } .pm .tline .tl { display: none; } .pm .drawer-back { padding: 0; } .pm .sdpage { max-height: 100vh; border-radius: 0; } }
+        @media (max-width: 640px) { .pm .corridor { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); } .pm { padding: 0 8px 20px; } .pm .top { margin: 0 -8px 10px; } .pm .seat { width: 104px; flex-basis: 104px; } }
         @media (prefers-reduced-motion: reduce) { .pm .flows circle { display: none; } }
         @media (max-width: 860px) { .pm .wrap { grid-template-columns: 1fr; } .pm .wing { grid-template-columns: 1fr; } .pm .mgr, .pm .lab { flex: 1 1 100%; } .pm .feed { max-height: none; } }
       `}</style>
       <style jsx global>{`
         .sprite { position: relative; width: 64px; height: 64px; margin: 0 auto; image-rendering: pixelated; }
         .sprite .head { position: absolute; left: 22px; top: 4px; width: 20px; height: 18px; }
-        .sprite .hair { position: absolute; left: 0; top: -2px; width: 20px; height: 6px; background: #3b2a20; }
-        .sprite .antenna { position: absolute; left: 9px; top: -6px; width: 2px; height: 6px; background: #8894aa; }
-        .sprite .antenna:after { content: ''; position: absolute; left: -2px; top: -4px; width: 6px; height: 4px; background: #ff5f5f; }
-        .sprite .eyes { position: absolute; left: 4px; top: 8px; width: 3px; height: 3px; background: #222; box-shadow: 9px 0 0 #222; }
+        .sprite .hair { position: absolute; left: 0; top: -2px; width: 20px; height: 6px; background: var(--pm-hair); }
+        .sprite .antenna { position: absolute; left: 9px; top: -6px; width: 2px; height: 6px; background: var(--pm-muted); }
+        .sprite .antenna:after { content: ''; position: absolute; left: -2px; top: -4px; width: 6px; height: 4px; background: var(--pm-err); }
+        .sprite .eyes { position: absolute; left: 4px; top: 8px; width: 3px; height: 3px; background: var(--pm-ink); box-shadow: 9px 0 0 var(--pm-ink); }
         .sprite .body { position: absolute; left: 18px; top: 22px; width: 28px; height: 18px; }
-        .sprite .desk { position: absolute; left: 0; top: 38px; width: 64px; height: 26px; background: #8a5a34; border-top: 4px solid #a8724a; }
-        .sprite .monitor { position: absolute; left: 4px; top: -22px; width: 18px; height: 14px; background: #2b2f3a; padding: 2px; }
-        .sprite .screen { width: 100%; height: 100%; background: #1c2a3a; }
-        .sprite .kb { position: absolute; left: 24px; top: 2px; width: 20px; height: 4px; background: #d6d9e0; }
-        .sprite .hand { position: absolute; top: -3px; width: 5px; height: 4px; background: #f2c9a0; }
+        .sprite .desk { position: absolute; left: 0; top: 38px; width: 64px; height: 26px; background: var(--pm-desk-wood); border-top: 4px solid var(--pm-desk-top); }
+        .sprite .monitor { position: absolute; left: 4px; top: -22px; width: 18px; height: 14px; background: var(--pm-monitor); padding: 2px; }
+        .sprite .screen { width: 100%; height: 100%; background: var(--pm-screen); }
+        .sprite .kb { position: absolute; left: 24px; top: 2px; width: 20px; height: 4px; background: var(--pm-surface2); }
+        .sprite .hand { position: absolute; top: -3px; width: 5px; height: 4px; background: var(--pm-skin); }
         .sprite .hand.l { left: 2px; } .sprite .hand.r { left: 13px; }
-        .sprite.st-working .screen { background: #3fbf7f; animation: pmscr 1.2s steps(2) infinite; }
+        .sprite.st-working .screen { background: var(--pm-screen-on); animation: pmscr 1.2s steps(2) infinite; }
         .sprite.st-working .hand.l { animation: pmtype .3s steps(2) infinite; }
         .sprite.st-working .hand.r { animation: pmtype .3s steps(2) infinite .15s; }
         .sprite.st-idle .head { top: 8px; } .sprite.st-idle .eyes { height: 1px; }
         .sprite.st-off .head, .sprite.st-off .body, .sprite.st-off .hand { visibility: hidden; }
-        .sprite.st-off .screen { background: #111; }
-        .sprite.st-error .screen { background: #e0483a; animation: pmscr .6s steps(2) infinite; }
-        .sprite .zzz { position: absolute; right: 2px; top: -4px; color: #9fc2ff; font: bold 10px monospace; animation: pmz 2s ease-in-out infinite; }
+        .sprite.st-off .screen { background: var(--pm-monitor); }
+        .sprite.st-error .screen { background: var(--pm-err); animation: pmscr .6s steps(2) infinite; }
+        .sprite .zzz { position: absolute; right: 2px; top: -4px; color: var(--pm-accent); font: bold 10px monospace; animation: pmz 2s ease-in-out infinite; }
         .sprite .zzz span { font-size: 12px; } .sprite .zzz b { font-size: 14px; }
-        .sprite .bang { position: absolute; right: 4px; top: -6px; width: 14px; height: 18px; background: #e0483a; color: #fff; font: bold 14px monospace; line-height: 18px; animation: pmbang .8s steps(2) infinite; }
+        .sprite .bang { position: absolute; right: 4px; top: -6px; width: 14px; height: 18px; background: var(--pm-err); color: var(--pm-accent-ink); font: bold 14px monospace; line-height: 18px; animation: pmbang .8s steps(2) infinite; }
         @keyframes pmtype { 50% { transform: translateY(-2px); } }
         @keyframes pmscr { 50% { filter: brightness(1.4); } }
         @keyframes pmz { 0% { opacity: 0; transform: translateY(4px); } 50% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
         @keyframes pmbang { 50% { opacity: .3; } }
         @media (prefers-reduced-motion: reduce) { .sprite * { animation: none !important; } }
-        .pm .tpick { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12px; }
-        .pm .tpick select { min-height: 32px; max-width: 168px; border-radius: 8px; border: 1px solid #8d93a6; background: #fff; color: #1b1f2a; font: inherit; padding: 0 6px; }
-        .pm .nm .tokb { margin-left: 4px; padding: 0 5px; font-size: 10px; font-weight: normal; vertical-align: 1px; background: #ffe7a3; color: #4a3200; }
         .pav { position: relative; display: inline-block; flex: none; vertical-align: middle; }
         .pav img, .pav .pbody { position: absolute; inset: 0; width: 100%; height: 100%; }
         /* 아이템은 단독 아이콘(Higgsfield 생성)이라 캐릭터 위 자리를 부위별로 잡는다 */
@@ -994,14 +1128,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pav.pmc-off { filter: grayscale(1) brightness(.7); }
         .pav.pmc-error .pbody { animation: pmce .25s linear infinite; }
         .pav.pmc-handoff .pbody { animation: pmch .6s steps(2) infinite; }
-        .pm .clink .ftok { position: absolute; top: -5px; left: 0; font-size: 11px; line-height: 1; z-index: 8; animation: pmft 2.4s linear infinite; }
-        .pm .clink .ftok.still { animation: none; left: 30%; }
         @keyframes pmcw { 50% { transform: translateY(-1.5px); } }
         @keyframes pmci { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
         @keyframes pmce { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
         @keyframes pmch { 0% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-2px) rotate(4deg); } }
-        @keyframes pmft { from { left: 0; } to { left: calc(100% - 12px); } }
-        @media (prefers-reduced-motion: reduce) { .pav, .pav *, .pm .clink .ftok { animation: none !important; } }
+        @media (prefers-reduced-motion: reduce) { .pav, .pav * { animation: none !important; } }
       `}</style>
     </div>
     </GrowProvider>
