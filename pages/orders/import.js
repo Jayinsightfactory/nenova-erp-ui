@@ -11,6 +11,16 @@ import { getDisplayName } from '../../lib/displayName';
 import { clearImportProductMatchForName } from '../../lib/orderImportMatch';
 import { scoreProductSearchOptions } from '../../lib/productSearchRanking';
 import {
+  IMPORT_MATCH_MESSAGE,
+  IMPORT_MATCH_POPUP_FEATURES,
+  IMPORT_MATCH_POPUP_NAME,
+  buildImportMatchInit,
+  buildImportMatchPopupUrl,
+  createImportMatchToken,
+  readSelectedProduct,
+  readTrustedPopupMessage,
+} from '../../lib/orderImportMatchPopup';
+import {
   mergeRegisterItems,
   setImportItemsSkip,
   importSkipCounts,
@@ -139,6 +149,7 @@ function ExcelSheetPreview({
   onPickProduct,
   onClearProduct,
   onPersistMapping,
+  onRequestMatchPopup,
   subWeeks,
   selectedSubWeeks,
 }) {
@@ -262,6 +273,7 @@ function ExcelSheetPreview({
                                   onPick={(product) => onPickProduct(entry.itemIndex, product, item)}
                                   onClear={() => onClearProduct(entry.itemIndex)}
                                   onPersistMapping={onPersistMapping}
+                                  onRequestPopup={onRequestMatchPopup}
                                   compact
                                 />
                               ) : (
@@ -492,7 +504,14 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
   );
 }
 
-function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = false }) {
+function ProductPicker({ row, allProducts, onPick, onPersistMapping, onRequestPopup, inline = false, compact = false }) {
+  // 팝업 선택이 기본. 팝업이 차단되거나 inline(폴백)일 때만 기존 인라인 검색을 쓴다.
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const inlineMode = !onRequestPopup || inline || popupBlocked;
+  const requestPopup = () => {
+    if (inlineMode) return;
+    if (onRequestPopup() === false) { setPopupBlocked(true); setOpen(true); }
+  };
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -579,7 +598,7 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
 
   return (
     <div ref={wrapRef} style={compact ? { flex: 1, minWidth: 0 } : undefined}>
-      {!compact && defaultSuggestions.length > 0 && (
+      {!compact && inlineMode && defaultSuggestions.length > 0 && (
         <div style={st.suggestRow}>
           {defaultSuggestions.map(s => (
             <button
@@ -605,16 +624,25 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
       <div style={{ marginTop: compact ? 0 : 6, position: 'relative' }}>
         <input
           style={{ ...st.input, width: '100%', height: compact ? 24 : undefined, padding: compact ? '2px 5px' : st.input.padding, boxSizing: 'border-box' }}
-          placeholder={compact ? '품목 검색…' : '품목 검색 (한글·영문)…'}
+          placeholder={inlineMode ? (compact ? '품목 검색…' : '품목 검색 (한글·영문)…') : '품목 검색… (클릭하면 새 창)'}
           value={search}
+          readOnly={!inlineMode}
+          aria-haspopup={inlineMode ? undefined : 'dialog'}
+          onClick={requestPopup}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={open && searchHits.length > 0}
           aria-controls={listId}
           aria-activedescendant={open && searchHits.length > 0 ? `${listId}-${Math.min(activeIndex, searchHits.length - 1)}` : undefined}
           onChange={(e) => { setSearch(e.target.value); setActiveIndex(0); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleSearchKeyDown}
+          onFocus={() => { if (inlineMode) setOpen(true); }}
+          onKeyDown={(event) => {
+            if (!inlineMode) {
+              if (event.key === 'Enter' || event.key === 'ArrowDown') { event.preventDefault(); requestPopup(); }
+              return;
+            }
+            handleSearchKeyDown(event);
+          }}
           disabled={saving}
         />
         {(saving || saveError) && (
@@ -636,14 +664,20 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
   );
 }
 
-function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear, onPersistMapping, compact = false }) {
+function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear, onPersistMapping, onRequestPopup, compact = false }) {
   const hasMatch = !!row.prodKey;
+  // 「변경」은 새 창을 연다. 팝업이 차단되면(false) 기존 인라인 검색으로 폴백한다.
+  const openChange = () => {
+    if (onRequestPopup && onRequestPopup(idx, row) !== false) return;
+    onToggleEdit();
+  };
+  const pickerPopup = onRequestPopup ? () => onRequestPopup(idx, row) : undefined;
 
   if (compact) {
     if (!hasMatch || editing) {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', minWidth: 0, whiteSpace: 'nowrap' }}>
-          <ProductPicker row={row} allProducts={allProducts} onPick={onPick} onPersistMapping={onPersistMapping} compact />
+          <ProductPicker row={row} allProducts={allProducts} onPick={onPick} onPersistMapping={onPersistMapping} onRequestPopup={pickerPopup} inline={hasMatch} compact />
           {hasMatch && <button type="button" style={st.editBtn} onClick={onToggleEdit}>닫기</button>}
           {hasMatch && <button type="button" style={st.clearBtn} onClick={onClear}>해제</button>}
         </div>
@@ -659,7 +693,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
             업체이력 {row.customerUsageCount}
           </span>
         )}
-        <button type="button" style={st.editBtn} onClick={onToggleEdit}>변경</button>
+        <button type="button" style={st.editBtn} aria-haspopup="dialog" onClick={openChange}>변경</button>
       </div>
     );
   }
@@ -671,7 +705,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
           <div style={{ fontWeight: 600, color: '#1e40af' }}>{row.displayName || row.prodName}</div>
           <div style={{ fontSize: 10, color: '#64748b' }}>{row.counName} · {row.flowerName}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            <button type="button" style={st.editBtn} onClick={onToggleEdit}>
+            <button type="button" style={st.editBtn} aria-haspopup="dialog" onClick={editing ? onToggleEdit : openChange}>
               {editing ? '닫기' : '✎ 품목 변경'}
             </button>
             {editing && (
@@ -686,6 +720,8 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
           allProducts={allProducts}
           onPick={onPick}
           onPersistMapping={onPersistMapping}
+          onRequestPopup={pickerPopup}
+          inline={hasMatch}
           compact={hasMatch}
         />
       )}
@@ -1155,6 +1191,50 @@ export default function OrderImportPage() {
     });
     setEditProdIdx(null);
   };
+
+  // ── 품목 매칭 새 창: 팝업은 선택 결과만 돌려주고, 확정은 기존 pickProduct/handlePersistMapping 이 한다.
+  const matchPopupPendingRef = useRef(null);
+  const matchPopupHandlerRef = useRef(null);
+  const openMatchPopup = (idx, row) => {
+    if (typeof window === 'undefined') return false;
+    const token = createImportMatchToken();
+    const popup = window.open(buildImportMatchPopupUrl(token), IMPORT_MATCH_POPUP_NAME, IMPORT_MATCH_POPUP_FEATURES);
+    if (!popup) return false;
+    matchPopupPendingRef.current = { token, popup, idx, row };
+    popup.focus?.();
+    return true;
+  };
+  matchPopupHandlerRef.current = async (data) => {
+    const pending = matchPopupPendingRef.current;
+    if (!pending) return;
+    if (data.type === IMPORT_MATCH_MESSAGE.ready) {
+      pending.popup.postMessage(buildImportMatchInit(pending.row, custRef.current?.CustName, pending.token), window.location.origin);
+      return;
+    }
+    matchPopupPendingRef.current = null;
+    if (data.type === IMPORT_MATCH_MESSAGE.cancel) return;
+    if (itemsRef.current[pending.idx] !== pending.row) {
+      setResultMsg('품목 매칭 창을 여는 사이 업로드 표가 바뀌어 선택을 적용하지 않았습니다. 다시 「변경」을 눌러 주세요.');
+      return;
+    }
+    if (data.type === IMPORT_MATCH_MESSAGE.cleared) { clearProduct(pending.idx); return; }
+    const prod = readSelectedProduct(data);
+    if (!prod) return;
+    try {
+      await handlePersistMapping(pending.row, prod);
+      pickProduct(pending.idx, prod, pending.row);
+    } catch (error) {
+      setResultMsg(`품목 매칭 저장에 실패했습니다: ${error?.message || error}. 다시 선택해 주세요.`);
+    }
+  };
+  useEffect(() => {
+    const onMessage = (event) => {
+      const data = readTrustedPopupMessage(event, matchPopupPendingRef.current, window.location.origin);
+      if (data) void matchPopupHandlerRef.current?.(data);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   const clearProduct = (idx) => {
     updateItem(idx, {
@@ -2014,6 +2094,7 @@ export default function OrderImportPage() {
               onPickProduct={pickProduct}
               onClearProduct={clearProduct}
               onPersistMapping={handlePersistMapping}
+              onRequestMatchPopup={openMatchPopup}
               subWeeks={priceTargets.subWeeks}
               selectedSubWeeks={selectedSubWeeks}
             />
@@ -2165,6 +2246,7 @@ export default function OrderImportPage() {
                           onPick={(p) => pickProduct(idx, p, row)}
                           onClear={() => clearProduct(idx)}
                           onPersistMapping={handlePersistMapping}
+                          onRequestPopup={openMatchPopup}
                           compact
                         />
                       </td>

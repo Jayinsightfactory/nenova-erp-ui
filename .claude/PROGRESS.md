@@ -1,3 +1,16 @@
+## [2026-11-04] 세션 — 업로드 주문등록 품목 매칭 새 창(팝업) 선택
+
+### 작업 내용
+- 「변경」/「✎ 품목 변경」/미매칭 「품목 검색…」 클릭 시 새 창(pages/orders/product-match.js)에서 후보 선택. 서버 후보+전체 검색 최대 50개, ↑↓/Enter/Esc/더블클릭, 「매칭 해제」.
+- opener 는 token+창 참조를 pending 으로 보관, 같은 출처·같은 창 메시지만 수용 → 기존 handlePersistMapping + pickProduct(행 동일성 검사). 취소는 무변화. 팝업 차단 시 기존 인라인 검색 폴백.
+- 파서·주문저장·단가 API·서버 자동매칭 미변경.
+
+### 변경된 파일
+- pages/orders/import.js, pages/orders/product-match.js(신규), lib/orderImportMatchPopup.js(신규), __tests__/orderImportMatchPopup.test.js(신규), docs/contracts/order-import-shipment-list.json
+
+### 미결 이슈
+- 「주문등록」/「단가 적용」은 검증에서 누르지 않음
+
 ## [2026-11-04 18:30] 세션 — 국가별 발주서 엑셀 다운로드 복구 (PR #1511)
 
 ### 작업 내용
