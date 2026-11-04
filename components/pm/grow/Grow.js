@@ -126,18 +126,34 @@ export function GrowTab({ name }) {
   );
 }
 
-// 부서 정원 줄(사무실 상단 등)
+// 부서 정원 줄(사무실 상단 등) — 다음 단계까지 진행 막대 + 남은 점수, 호버/포커스 시 규칙 설명
+export const GARDEN_HELP = '부서원 평균 성장치로 자랍니다. 업무 특정 1시간=10점 · 활성만 1시간=3점 · 하루 60점 상한 · 줄지 않음 · 급여/평가와 무관.';
+export function gardenNextText(g) {
+  if (!g?.next) return '최고 단계';
+  const avg = (g.points || 0) / Math.max(1, g.members || 1);
+  return `${g.next.name}까지 ${Math.max(0, Math.ceil(g.next.at - avg))}점`;
+}
 export function GardenStrip() {
   const { view } = useGrow();
   if (!view?.gardens?.length) return null;
   return (
     <div className="garden" aria-label="부서 정원">
       {view.gardens.map((g) => (
-        <span key={g.dept} className="g"><GrowSprite stage={g.stage} mood="idle" size={36} /><small>{g.dept} 정원 · {g.stageName}</small></span>
+        <span key={g.dept} className="g" tabIndex={0} aria-describedby="garden-help" title={GARDEN_HELP}>
+          <GrowSprite stage={g.stage} mood="idle" size={36} />
+          <span className="gt"><small>{g.dept} 정원 · {g.stageName}</small>
+            <span className="gb" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((g.progress || 0) * 100)} aria-label={`${g.dept} 다음 단계 진행`}><i style={{ width: `${Math.round((g.progress || 0) * 100)}%` }} /></span>
+            <small className="gn">{gardenNextText(g)}</small>
+          </span>
+        </span>
       ))}
+      <span id="garden-help" className="ghelp">{GARDEN_HELP}</span>
       <style jsx>{`
         .garden { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding: 6px 0; }
-        .g { display: flex; align-items: center; gap: 4px; } .g small { font-size: 12px; opacity: .85; }
+        .g { position: relative; display: flex; align-items: center; gap: 4px; outline: none; } .g small { font-size: 12px; opacity: .85; white-space: nowrap; }
+        .gt { display: grid; gap: 2px; } .gn { font-size: 11px !important; }
+        .gb { display: block; width: 96px; height: 6px; border-radius: 3px; background: var(--pm-surface2); border: 1px solid var(--pm-line); overflow: hidden; } .gb i { display: block; height: 100%; background: var(--pm-ok); }
+        .ghelp { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
       `}</style>
     </div>
   );
