@@ -46,3 +46,15 @@
 
 2026-11-04 배포 전: 후속 농장후보 공통scope·원가연결farm-only·0주문/숨은주문 차단·보존행 날짜/혼합단가·미확정예약수량·재고미리보기 보완. 최종 정책+SQL12 PASS, 전체ERP exit0, webpack build-release exit0, 승인UI 재시험PASS. 신규API1 쓰기guard/manifest192/dnSpy PASS. PR/배포는 이어서 진행.
 
+
+## 최종 배포 검증 — 2026-11-04
+
+- PR #1504 squash 병합: 5191ee2b2117b2b36c800db885be8b8060262e4a.
+- PR CI 41794394770 SUCCESS: 전체 ERP 계약/dnSpy/manifest/쓰기 guard/Linux build 및 CI smoke.
+- Cafe24 배포 41795148886 SUCCESS: 배포 전 ERP 검사·운영 빌드·서버 반영 완료.
+- 운영 Chrome 읽기 smoke PASS: /api/warehouse/approval HTTP200, 수정요청/매칭·확정/처리이력, /incoming의 수정요청·업무 진입 버튼, 1920/390 화면 확인. 화면 배포배지 5191ee2b 확인.
+- 브라우저 non-GET/HEAD/OPTIONS 차단(1건), 운영 업무 원장 쓰기0. 전체 승인 실행은 격리 SQL 및 모의 UI에서 검증했으며 운영 실데이터 확정 실행은 하지 않음.
+- 기존 입고 업무 화면 회귀 PASS. 원가 연결 수량 변경/확정손익 revision/기존 농장배정 수량변경 지원 제한은 유지.
+- 최종 배포 기록은 병합 후 기능 브랜치에 별도 보존하며 PR 본문에도 결과 링크 기록.
+
+검색어: PR1504 5191ee2b 41795148886 incomingApproval 운영배포 승인흐름

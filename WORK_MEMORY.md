@@ -2027,3 +2027,6 @@
 
 웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
 검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm
+
+2026-11-04 입고 승인 최종 배포: PR1504/5191ee2b 병합, CI41794394770 및 Cafe24 41795148886 SUCCESS. 운영 Chrome 요청목록200/3탭/두진입/PC모바일 PASS, 운영업무쓰기0. 실제 확정은 격리SQL 검증; 원가연결·확정손익revision·농장배정수량 변경은 차단 범위로 유지. 상세 docs/work-sessions/2026-11-04_incoming-approval-flow.md.
+검색어: PR1504 5191ee2b 입고정정 승인배포 incomingApproval
