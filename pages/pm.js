@@ -16,8 +16,8 @@ import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 export async function getServerSideProps({ req, res, resolvedUrl }) {
   const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/login?next=' + encodeURIComponent(resolvedUrl || '/pm'), permanent: false } };
-  if (!isOrbitReportViewer(user)) return { notFound: true };
-  return { props: { userId: user.userId || '' } };
+  // 보기는 로그인 직원 전체 허용. 쓰기 동작은 API 가 관리자만 허용(isAdmin=UI 힌트).
+  return { props: { userId: user.userId || '', isAdmin: isOrbitReportViewer(user) } };
 }
 
 const POLL_MS = 20000;
