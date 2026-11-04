@@ -4,7 +4,7 @@
 //   POST {name,id} → 구매(잔액 검증 후 기록). 지금은 로그인↔직원 매핑이 없어 관리자(사장님) 대리 구매만 — by 에 기록.
 // 적립은 lib/pmGrow(서버 계산) 그대로, 가격은 서버 manifest. 파일 전용(MSSQL 무관).
 import { verifyReqUser } from '../../../lib/auth';
-import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
+import { canActFor } from '../../../lib/pmAccount';
 import { readGrowState } from '../../../lib/pmGrowStore';
 import { buy, readManifest, readShop, teamEarned, themeUnlocks, walletOf } from '../../../lib/pmWallet';
 
@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
   if (!user) return res.status(401).json({ success: false, error: '로그인 필요' });
   // 보기(GET)=로그인 직원 전체, 쓰기(POST 등)=관리자만 유지
-  if (req.method !== 'GET' && !isOrbitReportViewer(user)) return res.status(403).json({ success: false, error: '관리자 전용' });
   res.setHeader('Cache-Control', 'private, no-store');
   const grow = readGrowState();
   const manifest = readManifest();
@@ -25,6 +24,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, balances, team: teamEarned(grow), themes: themeUnlocks(manifest, grow) });
   }
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).json({ success: false, error: 'Method not allowed' }); }
+  // 직원=본인 지갑으로 본인 몫만, 다른 직원 대리구매=관리자만
+  if (!canActFor(user, String(req.body?.name || '').trim())) return res.status(403).json({ success: false, error: '본인 캐릭터만 구매할 수 있습니다' });
   const r = buy({ ...(req.body || {}), by: user.userId || user.UserID || '' }, { growState: grow, manifest });
   if (!r.ok) return res.status(r.status).json({ success: false, error: r.error });
   return res.status(200).json({ success: true, duplicate: !!r.duplicate, wallet: r.wallet });

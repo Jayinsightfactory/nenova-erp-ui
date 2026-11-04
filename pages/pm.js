@@ -12,12 +12,14 @@ import MenuBackButton from '../components/MenuBackButton';
 import { GrowProvider, DeskPot, GrowTab, GardenStrip } from '../components/pm/grow/Grow';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
+import { staffOfUser } from '../lib/pmAccount';
+import { PM_ROSTER } from '../lib/pmRoster';
 
 export async function getServerSideProps({ req, res, resolvedUrl }) {
   const user = await verifyReqUser(req, res);
   if (!user) return { redirect: { destination: '/login?next=' + encodeURIComponent(resolvedUrl || '/pm'), permanent: false } };
   // 보기는 로그인 직원 전체 허용. 쓰기 동작은 API 가 관리자만 허용(isAdmin=UI 힌트).
-  return { props: { userId: user.userId || '', isAdmin: isOrbitReportViewer(user) } };
+  return { props: { userId: user.userId || '', isAdmin: isOrbitReportViewer(user), myStaff: staffOfUser(user) } };
 }
 
 const POLL_MS = 20000;
@@ -30,12 +32,7 @@ const TASK_GROUPS = [
   { key: 'verify', label: '검증중', match: (s) => /검증|verif|check/i.test(s) },
 ];
 const DEFAULT_DEPT_ORDER = ['경영지원', '영업지원', '영업부', '수입부', '미배치'];
-const ROSTER = {
-  '경영지원': ['강명훈', '설연주'],
-  '영업지원': ['임재용', '강현우', '김도준'],
-  '영업부': ['김원영', '박성수', '정재훈', '조현욱', '송준호'],
-  '수입부': ['김원빈', '김지니'],
-};
+const ROSTER = PM_ROSTER;
 const ROOM_FLOOR = {
   '경영지원': 'repeating-linear-gradient(90deg,#5a4634 0 14px,#523f2f 14px 28px)',
   '영업지원': 'repeating-conic-gradient(#33415c 0 25%,#2e3a52 0 50%) 0 0/20px 20px',
@@ -164,7 +161,9 @@ function TimeTab({ t }) {
   );
 }
 
-function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = [] }) {
+function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = [], isAdmin = false, myStaff = null }) {
+  const canEdit = isAdmin || (!!myStaff && myStaff === name);
+  const editNote = canEdit ? '' : (myStaff ? '본인 캐릭터에서만 사고 꾸밀 수 있습니다' : '계정 연결 필요 — 관리자에게 PM 계정 연결을 요청하세요');
   const [tab, setTab] = useState(initialTab);
   const [res, setRes] = useState(null);
   const [err, setErr] = useState('');
@@ -207,7 +206,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
           items={[['auto', '자동화'], ['time', '시간'], ['role', '역할'], ['now', '지금'], ['log', '작업 로그'], ['look', '꾸미기'], ['wallet', '상점·지갑'], ['grow', '키우기']]} />
         <div className="db">
           {err && <p className="warn">불러오기 실패: {err}</p>}
-          {tab === 'look' && <CustomizePanel name={name} />}
+          {tab === 'look' && <CustomizePanel name={name} canEdit={canEdit} editNote={editNote} />}
           {tab === 'grow' && <GrowTab name={name} />}
           {tab === 'wallet' && <WalletPanel name={name} />}
           {!d && !err && tab !== 'look' && tab !== 'grow' && tab !== 'wallet' && <p className="muted">불러오는 중…</p>}
@@ -245,7 +244,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'auto', workLog = 
                     {w.freq && <div className="kv" title={w.freq.assumptions?.length ? '가정: ' + w.freq.assumptions.join(' / ') : ''}>주 {w.freq.perWeek}회 <span className="muted">(추정 근거: {w.freq.label}{w.freq.assumptions?.length ? ' · 가정 보기' : ''})</span></div>}
                     {(() => { const tw = d.timesave?.workflows?.find((x) => x.name === w.name); return tw ? <div className="kv"><b>실측 {tw.measuredHoursPerWeek}h/주</b> · 절감 {tw.saveHoursPerWeek}h/주 <span className="muted">(추정치)</span></div> : null; })()}
                     {w.link && <div className="kv">개선안: {w.link.title}{w.link.basis === 'estimated' ? <span className="pill est">추정 연결</span> : null}</div>}
-                    <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />
+                    {isAdmin && <DryRunButton req={lastReq(w.name)} busy={!!busy[w.name]} onMake={() => makeDryRun(w.name)} />}
                     {w.tools?.length ? <div className="kv">도구: {[].concat(w.tools).join(', ')}</div> : null}
                     {w.steps.length > 0 && (
                       <LinkButton onClick={() => setOpen((o) => ({ ...o, [wi]: !o[wi] }))}>{open[wi] ? '단계 접기' : `단계 ${w.steps.length}개 보기`}</LinkButton>
@@ -614,7 +613,7 @@ function HandoffChains({ workLog, handoffs, reduced, onOpenPerson }) {
   );
 }
 
-export default function PmOffice() {
+export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const [resp, setResp] = useState(null);
   const [err, setErr] = useState('');
   const [now, setNow] = useState(0);
@@ -813,7 +812,7 @@ export default function PmOffice() {
           </section>
         </aside>
       </div>
-      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} />}
+      {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
       <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
       <style jsx global>{`
         .pm { min-height: 100vh; background: #1e2230; color: #e8ebf2; padding: 12px 16px 24px; font-size: 13px; }

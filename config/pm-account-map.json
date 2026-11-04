@@ -1,0 +1,4 @@
+{
+  "_note": "PM 사무실 계정 연결 보정표. UserInfo.UserName 이 직원 이름과 다를 때만 userId → 직원 이름을 적는다.",
+  "byUserId": {}
+}
