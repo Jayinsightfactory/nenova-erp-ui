@@ -93,12 +93,44 @@ for s, sx in (('l', 1), ('r', -1)):
     sphere((sx * 0.171, -0.1, 0.08), 0.115, 'shoe', SHOE, f'foot.{s}', scale=(1, 1.5, 0.65), seg=12, ring=8)
     # 얼굴 좌우(귀·눈·볼) — head 본
     sphere((sx * 0.46, 0.02, 1.52), 0.1, 'skin', SK, 'head', scale=(0.5, 0.7, 1), seg=10, ring=6)
-    sphere((sx * 0.15, -0.415, 1.5), 0.05, 'eye', EYE, 'head', scale=(1, 0.5, 1.3), seg=10, ring=6)
     sphere((sx * 0.26, -0.385, 1.41), 0.055, 'cheek', '#ff9fb0', 'head', scale=(1.3, 0.3, 0.8), seg=10, ring=6)
 # 머리(카와이 큰 머리)·머리카락(이마가 보이게 뒤·위로)
 sphere((0, 0.02, 1.5), 0.44, 'skin', SK, 'head', scale=(1.06, 0.96, 0.94), seg=20, ring=12)
 sphere((0, 0.1, 1.66), 0.44, 'hair', HAIR, 'head', scale=(1.06, 0.98, 0.7), seg=20, ring=12)
 sphere((0, -0.3, 1.8), 0.2, 'hair', HAIR, 'head', scale=(1.5, 0.45, 0.4), seg=12, ring=8)
+
+# 표정 데칼(머리 구면에 밀착한 셸, 재질 'face' = 텍스처 스왑 대상 — scripts/pm3d/build_faces.py)
+import bmesh
+FACE_W, FACE_H, HEAD_C, HEAD_R = 0.78, 0.48, Vector((0, 0.02, 1.5)), 0.47
+bpy.ops.mesh.primitive_grid_add(x_subdivisions=10, y_subdivisions=8, size=1)
+fp = bpy.context.object; fp.name = 'face_decal'
+bm = bmesh.new(); bm.from_mesh(fp.data)
+uvl = bm.loops.layers.uv.new('UVMap')
+bm.verts.ensure_lookup_table()
+grid_uv = {v.index: (v.co.x + 0.5, v.co.y + 0.5) for v in bm.verts}
+RX, RY, RZ = 0.44 * 1.06 + 0.015, 0.44 * 0.96 + 0.015, 0.44 * 0.94 + 0.015  # 머리 타원 + 1.5cm 마진
+for v in bm.verts:
+    # 격자(x,y∈[-0.5,0.5]) → 얼굴 평면 → 머리 중심 기준 방향으로 타원면에 투영
+    p = Vector((v.co.x * FACE_W, -1.0, (1.5 - 0.02) + v.co.y * FACE_H))
+    d = p - HEAD_C
+    t = 1.0 / math.sqrt((d.x / RX) ** 2 + (d.y / RY) ** 2 + (d.z / RZ) ** 2)
+    v.co = HEAD_C + d * t
+for f in bm.faces:
+    for l in f.loops:
+        g = grid_uv[l.vert.index]
+        l[uvl].uv = (g[0], g[1])
+bm.to_mesh(fp.data); bm.free()
+fm = bpy.data.materials.new('face'); fm.use_nodes = True; fm.blend_method = 'BLEND'
+nt = fm.node_tree; bsdf = nt.nodes['Principled BSDF']
+bsdf.inputs['Roughness'].default_value = 0.9; bsdf.inputs['Metallic'].default_value = 0.0
+img = bpy.data.images.load(os.path.abspath(os.path.join(OUT, 'face', 'smile.webp')))
+tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img
+nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+nt.links.new(tex.outputs['Alpha'], bsdf.inputs['Alpha'])
+fp.data.materials.clear(); fp.data.materials.append(fm)
+for pg in fp.data.polygons: pg.use_smooth = True
+vg = fp.vertex_groups.new(name='head'); vg.add(list(range(len(fp.data.vertices))), 1.0, 'REPLACE')
+PARTS.append(fp)
 
 bpy.ops.object.select_all(action='DESELECT')
 for o in PARTS: o.select_set(True)

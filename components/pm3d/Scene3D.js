@@ -12,6 +12,7 @@ import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, d
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
+import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { ZoomSlider } from '../pm/ui';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
@@ -46,6 +47,17 @@ function laptop() {
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.17), scr); face.position.set(0, 0.1, -0.009); face.rotation.y = Math.PI; lid.add(face);
   return g;
 }
+// 표정 텍스처(public/pm3d/face/<id>.webp — scripts/pm3d/build_faces.py). 캐시 공유, 로드 전엔 기존 얼굴 유지.
+const faceTexCache = new Map();
+function faceTexture(id, onReady) {
+  if (!isFaceId(id)) id = 'smile';
+  if (faceTexCache.has(id)) return faceTexCache.get(id);
+  const tex = new THREE.TextureLoader().load(`/pm3d/face/${id}.webp`, () => onReady?.());
+  tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+  faceTexCache.set(id, tex); return tex;
+}
+// 상태 → 작업 분위기(lib/pmMood 간이판: 3D 는 status 만 안다)
+const STATUS_VIBE = { working: 'work', off: 'doze', idle: 'break' };
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
@@ -172,6 +184,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (n === 'top') m.material.color.set(L.top); else if (n === 'bottom') m.material.color.set(L.bottom);
           else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') m.material.color.set(L.hair);
           if (/^hat_/.test(m.name)) m.visible = m.name === L.hat;
+        });
+        // 표정: 춤 > 작업 분위기(status) > 직원 기본 표정 > smile (lib/pmFaces.faceOf)
+        const faceId = faceOf({ vibe: STATUS_VIBE[p.status] || '', defaultFace: L.face }) || (isFaceId(L.face) ? L.face : 'smile');
+        P.ch.traverse((m) => {
+          if ((m.isMesh || m.isSkinnedMesh) && m.material?.name === 'face' && P.faceId !== faceId) {
+            m.material.map = faceTexture(faceId, () => { st.poke?.(); m.material.needsUpdate = true; });
+            m.material.needsUpdate = true; P.faceId = faceId;
+          }
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
