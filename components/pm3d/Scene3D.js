@@ -15,6 +15,7 @@ import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { mountById, mountPose } from '../../lib/pmMounts';
 import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT } from '../../lib/pm3dRide';
+import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
@@ -147,6 +148,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z);
         o.userData = { kind: 'stage', no: s.no, label: s.label }; st.stations.push(o); st.clickables.push(o);
       });
+      // 중앙 허브 "회사 심장" — 받침대 위 떠 있는 수정구(파스텔 자체발광 · 느린 회전+부유). lib/pm3dHub 위치(주행로·좌석·스테이션 교차 0, 테스트 보증)
+      {
+        const HC = PM3D.HUB;
+        const grp = new THREE.Group(); grp.position.set(HUB_POS.x, 0, HUB_POS.z); scene.add(grp);
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.85 }));
+        ped.position.y = HUB_PEDESTAL_H / 2; ped.castShadow = true; ped.receiveShadow = true; grp.add(ped);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.82, HUB_R * 0.72, 0.08, 14), new THREE.MeshStandardMaterial({ color: HC.pedestalTop, roughness: 0.7 }));
+        top.position.y = HUB_PEDESTAL_H + 0.04; top.castShadow = true; grp.add(top);
+        const orbMat = new THREE.MeshStandardMaterial({ color: HC.crystal, emissive: HC.glow, emissiveIntensity: 0.55, roughness: 0.25, transparent: true, opacity: 0.95 });
+        const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(HUB_ORB_R, 2), orbMat); orb.position.y = HUB_ORB_Y; orb.castShadow = true; grp.add(orb);
+        st.hub = { grp, orb, orbMat, arrivals: [], particles: [], rings: [], pulseAt: -1e9, bobPh: 0 };
+      }
       // 연구실 로봇(AI 에이전트) — 뒤쪽 줄
       (dataRef.current.agents || []).slice(0, 8).forEach((a, i) => {
         const o = put('robot', -hx + 2 + i * 1.8, hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
@@ -192,7 +205,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       if (!st.built) return;
       const { rooms: rs, links: ls, avatars: av } = dataRef.current;
       const byName = new Map(); for (const r of rs || []) for (const p of r.seats || []) if (!p.empty) byName.set(p.name, p);
-      const cur = new Map(); for (const l of ls || []) if (l.kind === 'current' && l.stage) cur.set(l.name, l.stage);
+      const cur = new Map(); const curSig = new Map();
+      for (const l of ls || []) if (l.kind === 'current' && l.stage) { cur.set(l.name, l.stage); curSig.set(l.name, `${l.stage}|${l.text || ''}`); }
       for (const ln of st.lines) scene.remove(ln.obj); st.lines = [];
       for (const [name, P] of st.people) {
         const p = byName.get(name) || { status: 'off' };
@@ -246,9 +260,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           }
           P.mountId = mdef?.id || '';
         }
-        if (P.mountObj && !P.riding) { // park: 책상 왼쪽 바닥
+        if (P.mountObj && !P.riding) { // park: 책상 왼쪽 바닥(종류별 자세 — lib/pm3dHub.parkPose)
           P.mountObj.visible = mpose !== 'hidden';
-          P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+          applyPark(P);
         }
         const stg = cur.get(name) || null;
         if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) {
@@ -259,6 +273,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           } else P.walk = { t: 0, to: stg };
         }
         P.stage = stg;
+        // 업무 라인 흐름: 작업 이벤트(현재 작업 텍스트/단계 변화) 처리 시 자리→허브로 빛 알갱이 2~3개(아치 경로, 상한 12)
+        const sig = curSig.get(name) || '';
+        if (st.hub && sig && P.flowSig !== undefined && sig !== P.flowSig && p.status === 'working' && !dataRef.current.reduced) spawnFlow(P);
+        P.flowSig = sig;
         // 출근 직후(off→working) 짧은 둘레 주행 · 휴식자 가끔 크루징 — 동시 3명 상한, reduced 땐 없음
         if (P.mountObj && !dataRef.current.reduced && st.bounds) {
           const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
@@ -301,6 +319,31 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const prev = P.acts[P.cur]; a.reset().play(); if (prev) a.crossFadeFrom(prev, 0.3, false);
       P.cur = name;
     };
+    // 자리→허브 빛 알갱이(머리 위 아치 — 기존 연결선과 같은 ARC_Y 높이, 캐릭터 관통 없음)
+    const spawnFlow = (P) => {
+      const H = st.hub; if (!H) return;
+      const n = flowSpawnCount(H.particles.length, (performance.now() / 16) | 0);
+      if (n <= 0) return;
+      const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = ARC_Y.start;
+      const b = new THREE.Vector3(HUB_POS.x, HUB_ORB_Y, HUB_POS.z);
+      const mid = a.clone().lerp(b, 0.5); mid.y = ARC_Y.mid;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: PM3D.HUB.particle, transparent: true, opacity: 0.9 }));
+        m.position.copy(a); scene.add(m);
+        H.particles.push({ m, curve, t: -i * 0.12 }); // 같은 이벤트 알갱이는 줄지어 따라감
+      }
+      st.poke?.();
+    };
+    // 탈것 주차(책상 옆): 보드류=기대 세움 · 동물류=엎드림 · 비행류=부유(lib/pm3dHub.parkPose)
+    const applyPark = (P) => {
+      const o = P.mountObj; if (!o) return;
+      const pp = parkPose(mountById(P.mountId)) || { x: -1.15, y: 0, z: 0.35, rotY: 0.5, rotZ: 0, sy: 1, hover: 0 };
+      o.position.set(pp.x, pp.y, pp.z); o.rotation.set(0, pp.rotY, pp.rotZ);
+      o.scale.set(CHAR_SCALE, CHAR_SCALE * pp.sy, CHAR_SCALE);
+      P.parkHover = pp.hover; P.parkY = pp.y;
+    };
+    const unparkMount = (P) => { const o = P.mountObj; if (o) { o.rotation.set(0, 0, 0); o.scale.setScalar(CHAR_SCALE); } };
 
     // 라벨칩(HTML 오버레이)
     const v = new THREE.Vector3();
@@ -344,7 +387,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         return;
       }
       const measuring = st.built && !st.checked;
-      const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk || P.cruise);
+      const busy = measuring || now - lastAct < IDLE_AFTER_MS || (st.hub && (st.hub.particles.length > 0 || st.hub.rings.length > 0 || now - st.hub.pulseAt < PULSE_MS)) || [...st.people.values()].some((P) => P.walk || P.cruise);
       if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
       lastDraw = now;
       const dt = Math.min(0.2, st.clock.getDelta());
@@ -360,13 +403,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             const pt = pathPoint(R0.path, Math.min(1, k) * R0.len);
             const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
             const yawL = (P.walk.t < 0.5 ? pt.yaw : pt.yaw + Math.PI) - P.g.rotation.y;
+            unparkMount(P);
             P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
             P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
             playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
             if (P.walk.t >= 1) {
               P.walk = null; P.riding = false;
               P.ch.position.copy(P.home); P.ch.rotation.y = 0;
-              P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+              applyPark(P);
               playClip(P, P.clip, P.speed);
             }
           } else if (P.walk) {
@@ -385,10 +429,11 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             if (prog >= 1 || dataRef.current.reduced) {
               P.cruise = null; P.riding = false;
               P.ch.position.copy(P.home); P.ch.rotation.y = 0;
-              P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+              applyPark(P);
               playClip(P, P.clip, P.speed);
             } else {
               P.riding = true;
+              unparkMount(P);
               const ringL = ringLength(st.bounds.hx, st.bounds.hz);
               const speed = 2.2 * 1.3; const tt = C.from + (el2 / 1000) * speed / ringL;
               const pt = ringPoint(st.bounds.hx, st.bounds.hz, tt);
@@ -405,6 +450,40 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           const t = st.clock.elapsedTime;
           for (const r of st.robots) r.position.y = 0.05 + Math.sin(t * 2 + r.userData.i) * 0.05;
           for (const ln of st.lines) ln.dot.position.copy(ln.curve.getPoint((t * 0.4 + ln.ph) % 1));
+          // 주차된 비행류 탈것: 살짝 부유
+          for (const P of st.people.values()) if (P.mountObj && !P.riding && P.parkHover) P.mountObj.position.y = (P.parkY || 0) + Math.sin(t * 1.6) * P.parkHover;
+          // 중앙 허브: 느린 회전+부유(최근 1분 도착 빈도만큼 살짝 빨라짐) · 도착 맥박 · 파문 링
+          const H = st.hub;
+          if (H) {
+            H.arrivals = pruneArrivals(H.arrivals);
+            const hb = heartbeat(H.arrivals);
+            H.bobPh += dt * hb.bob;
+            H.orb.rotation.y += dt * 0.35 * hb.bob;
+            const base = HUB_ORB_Y + Math.sin(H.bobPh * 1.3) * 0.08;
+            H.orb.position.y = base;
+            const nowMs = performance.now();
+            H.orb.scale.setScalar(pulseScale(nowMs - H.pulseAt));
+            H.orbMat.emissiveIntensity = hb.glow + (nowMs - H.pulseAt < PULSE_MS ? 0.35 : 0);
+            for (let i = H.particles.length - 1; i >= 0; i--) {
+              const q = H.particles[i];
+              q.t += dt * FLOW_SPEED;
+              if (q.t < 0) { q.m.visible = false; continue; }
+              q.m.visible = true; q.m.position.copy(q.curve.getPoint(Math.min(1, q.t)));
+              if (q.t >= 1) { // 도착: 알갱이 제거 + 맥박 + 파문 링 1개
+                scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); H.particles.splice(i, 1);
+                H.arrivals.push(Date.now()); H.pulseAt = nowMs;
+                const rg = new THREE.Mesh(new THREE.RingGeometry(RING_R0, RING_R0 + 0.06, 28), new THREE.MeshBasicMaterial({ color: PM3D.HUB.ring, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+                rg.rotation.x = -Math.PI / 2; rg.position.set(HUB_POS.x, base, HUB_POS.z); scene.add(rg);
+                H.rings.push({ m: rg, t0: nowMs });
+              }
+            }
+            for (let i = H.rings.length - 1; i >= 0; i--) {
+              const R = H.rings[i]; const k = (nowMs - R.t0) / RING_MS;
+              if (k >= 1) { scene.remove(R.m); R.m.geometry.dispose(); R.m.material.dispose(); H.rings.splice(i, 1); continue; }
+              const s = (RING_R0 + (RING_R1 - RING_R0) * k) / RING_R0;
+              R.m.scale.setScalar(s); R.m.material.opacity = 0.8 * (1 - k);
+            }
+          }
         }
         updateLabels();
       }

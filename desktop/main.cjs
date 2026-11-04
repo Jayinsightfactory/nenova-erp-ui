@@ -16,6 +16,7 @@ let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, res
 let webSession, updater, updateScheduler, updateTimer, logoutInProgress = false;
 let activity, activityTimer, activityWarning = '';
 let notesWindow = null, notesTimer = null;
+let aiBridge = null;
 const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
@@ -229,7 +230,7 @@ function secureContents(wc, owner) {
     if (!locked && tabs.size < 50 && (url || details.url === 'about:blank' || details.url === '')) {
       return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, preload: undefined, devTools: !app.isPackaged } },
         createWindow: options => {
-          const t = openTab(w, { url: details.url || 'about:blank', title: details.frameName || '새 업무' }, options);
+          const t = openTab(w, { url: details.url || 'about:blank', popup: true }, options);
           if (!options.webContents) t.view.webContents.loadURL(details.url || 'about:blank').catch(() => {});
           return t.view.webContents;
         }
@@ -255,7 +256,7 @@ function openTab(w, data = {}, adoption = null) {
   if (tabs.size >= 50) { reportFailure(w, '열린 탭이 50개입니다. 사용하지 않는 탭을 닫아 주세요.'); broadcast(); return null; }
   const id = String(nextId++);
   const view = new WebContentsView({ ...(adoption?.webContents ? { webContents: adoption.webContents } : {}), webPreferences: { session: webSession, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: !app.isPackaged } });
-  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
+  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), popup: Boolean(data.popup), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
   tabs.set(id, t); w.ids.push(id); w.win.contentView.addChildView(view);
   const wc = view.webContents;
   wc.setZoomMode('isolated');
@@ -267,7 +268,9 @@ function openTab(w, data = {}, adoption = null) {
   wc.on('page-title-updated', (_e, title) => { if (!t.customTitle) t.title = text(title) || t.title; broadcast(); });
   wc.on('did-fail-load', (_e, code, description, _url, mainFrame) => { if (mainFrame && code !== -3) { t.error = '화면을 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요.'; t.loading = false; reportFailure(windows.get(t.windowId), t.error); broadcast(); } });
   wc.on('render-process-gone', () => { t.error = '화면이 중단되었습니다. 새로고침해 주세요. 저장 여부를 먼저 확인해 주세요.'; reportFailure(windows.get(t.windowId), t.error); broadcast(); });
-  wc.on('close', e => { if (!t.destroying && !t.closing) { e.preventDefault(); closeTab(t); } });
+  // window.close() from the page itself: a popup tab (window.open from a work page, e.g. product match / ERP match picker)
+  // closes without the tab-close prompt. beforeunload (will-prevent-unload) still guards unsaved input.
+  wc.on('close', e => { if (!t.destroying && !t.closing) { e.preventDefault(); closeTab(t, !t.popup); } });
   wc.on('destroyed', () => { if (tabs.has(t.id)) { destroyTab(t); broadcast(); } });
   wc.on('did-finish-load', () => { wc.setZoomFactor(t.zoom); syncRemoteTools(t); });
   if (!adoption) wc.loadURL(url).catch(() => {}); activate(w, id); return t;
@@ -494,6 +497,104 @@ async function verifyAccount(initial = false) {
   broadcast();
   void updateScheduler?.tick();
 }
+// --- AI 브리지(로컬 전용 제어 통로) ---------------------------------------
+// 기본 꺼짐. --ai-bridge 플래그 또는 NENOVA_AI_BRIDGE=1일 때만 127.0.0.1 HTTP 서버를 연다.
+// 원격 페이지에 preload를 추가하지 않으며, 허용/차단 판정과 감사 로그는 ai-bridge.cjs가 담당한다.
+const bridgeConsole = new Map();
+function hookBridgeConsole(t) {
+  if (!t || t.bridgeConsoleHooked) return;
+  t.bridgeConsoleHooked = true;
+  const wc = t.view.webContents;
+  wc.on('console-message', (e, level, message) => {
+    const rows = bridgeConsole.get(t.id) || [];
+    rows.push({ ts: Date.now(), level: e?.level ?? level, message: String(e?.message ?? message ?? '').slice(0, 1000) });
+    if (rows.length > 200) rows.shift();
+    bridgeConsole.set(t.id, rows);
+  });
+  wc.on('destroyed', () => bridgeConsole.delete(t.id));
+}
+function bridgeTab(tabId) {
+  if (typeof tabId === 'string' && tabId) return tabs.get(tabId) || null;
+  const w = [...windows.values()].find(v => v.win.isFocused()) || [...windows.values()][0];
+  return (w && tabs.get(w.activeId)) || [...tabs.values()][0] || null;
+}
+function bridgeTarget(tabId) {
+  const t = bridgeTab(tabId);
+  if (!t || t.view.webContents.isDestroyed()) throw new Error('대상 탭을 찾지 못했습니다.');
+  hookBridgeConsole(t);
+  return t;
+}
+function bridgeEval(t, code) { return t.view.webContents.executeJavaScript(code, true); }
+async function startAiBridge() {
+  if (!process.argv.includes('--ai-bridge') && process.env.NENOVA_AI_BRIDGE !== '1') return;
+  const { createAiBridge } = require('./ai-bridge.cjs');
+  aiBridge = createAiBridge({
+    dir: app.getPath('userData'), trustedUrl, getMenus: () => (locked ? [] : menus),
+    tools: {
+      tabsList: () => {
+        for (const t of tabs.values()) hookBridgeConsole(t);
+        return { locked, tabs: [...tabs.values()].map(t => ({ id: t.id, windowId: t.windowId, url: locked ? '' : t.url, title: locked ? '로그인 대기' : t.title, active: windows.get(t.windowId)?.activeId === t.id, loading: t.loading, error: t.error })) };
+      },
+      tabsOpen: url => {
+        if (locked) throw new Error('로그인이 필요합니다. 업무 화면에서 먼저 로그인하세요.');
+        const w = [...windows.values()][0] || createWindow();
+        const t = openTab(w, { url });
+        if (!t) throw new Error('탭을 열지 못했습니다.');
+        hookBridgeConsole(t);
+        activity?.record('aiBridgeOpen', t.url);
+        return { id: t.id, url: t.url, title: t.title };
+      },
+      resolveTabUrl: async tabId => bridgeTab(tabId)?.url || '',
+      pageText: async tabId => {
+        const t = bridgeTarget(tabId);
+        const value = await bridgeEval(t, 'document.body ? document.body.innerText : ""');
+        return { tabId: t.id, url: locked ? '' : t.url, text: String(value || '').slice(0, 200000) };
+      },
+      pageQuery: async ({ tabId, selector, attribute, all }) => {
+        const t = bridgeTarget(tabId);
+        const code = `(() => { const sel = ${JSON.stringify(selector)}, attr = ${JSON.stringify(attribute || '')};
+          const list = ${all ? '[...document.querySelectorAll(sel)].slice(0, 50)' : '[document.querySelector(sel)].filter(Boolean)'};
+          return list.map(el => attr ? String(el.getAttribute(attr) ?? '') : String(el.innerText ?? el.value ?? '').slice(0, 2000)); })()`;
+        return { tabId: t.id, matches: await bridgeEval(t, code) };
+      },
+      pageClick: async ({ tabId, selector }) => {
+        if (locked) throw new Error('로그인이 필요합니다.');
+        const t = bridgeTarget(tabId);
+        activity?.record('aiBridgeClick', t.url);
+        return { tabId: t.id, ...(await bridgeEval(t, `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { clicked: false, error: '요소를 찾지 못했습니다.' }; el.scrollIntoView({ block: 'center' }); el.click(); return { clicked: true }; })()`)) };
+      },
+      pageFill: async ({ tabId, selector, value }) => {
+        if (locked) throw new Error('로그인이 필요합니다.');
+        const t = bridgeTarget(tabId);
+        activity?.record('aiBridgeFill', t.url);
+        const code = `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { filled: false, error: '요소를 찾지 못했습니다.' };
+          const value = ${JSON.stringify(String(value ?? ''))};
+          const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : el instanceof HTMLInputElement ? HTMLInputElement.prototype : null;
+          const setter = proto && Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+          if (setter) setter.call(el, value); else if ('value' in el) el.value = value; else el.textContent = value;
+          el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
+          return { filled: true }; })()`;
+        return { tabId: t.id, ...(await bridgeEval(t, code)) };
+      },
+      pageScreenshot: async tabId => {
+        const t = bridgeTarget(tabId);
+        const image = await t.view.webContents.capturePage();
+        const shotsDir = path.join(app.getPath('userData'), 'ai-bridge-shots');
+        fs.mkdirSync(shotsDir, { recursive: true });
+        const file = path.join(shotsDir, `${Date.now()}-tab${t.id}.png`);
+        fs.writeFileSync(file, image.toPNG());
+        return { tabId: t.id, url: locked ? '' : t.url, path: file };
+      },
+      consoleLogs: async ({ tabId, limit }) => {
+        const t = bridgeTarget(tabId);
+        return { tabId: t.id, logs: (bridgeConsole.get(t.id) || []).slice(-limit) };
+      },
+    },
+  });
+  const { port } = await aiBridge.start();
+  console.log(`[ai-bridge] 127.0.0.1:${port} (token: ${path.basename(aiBridge.tokenFile)})`);
+}
+// ---------------------------------------------------------------------------
 app.whenReady().then(async () => {
   const enabled = app.isPackaged && process.platform === 'win32';
   const engine = enabled ? require('electron-updater').autoUpdater : null;
@@ -565,12 +666,13 @@ app.whenReady().then(async () => {
     if (cookie.name !== 'nenovaToken' || !['nenovaweb.com', '.nenovaweb.com'].includes(cookie.domain)) return;
     lockAccount(); ++authGeneration; clearTimeout(authTimer); authTimer = setTimeout(() => verifyAccount(), 150);
   });
+  await startAiBridge().catch(error => console.error('[ai-bridge] 시작 실패:', error?.message || error));
   await verifyAccount(true);
   if (process.argv.some(arg=>/^nenova-notes:\/\/open\/?$/i.test(arg)) && !locked) openNotesWindow();
   notesTimer=setInterval(()=>void checkNotesReminder(),60*1000);notesTimer.unref();void checkNotesReminder();
 });
 app.on('before-quit', e => { if (!quitting && windows.size) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); });
+app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); clearInterval(notesTimer); aiBridge?.stop(); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };
