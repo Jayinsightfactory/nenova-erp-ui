@@ -6,6 +6,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  loadDefectCostCandidates,
   listOmissionHistory, cancelPermanentOmission,
   permanentlyOmitDeductions,
   correctDraftPeriod,
@@ -43,6 +44,11 @@ function defaultYear() { return new Date().getFullYear(); }
 async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (req.query.view === 'cost-candidates') {
+        if (!canUseDefectSupport(req.user)) return res.status(403).json({ success: false, error: '영업지원 권한이 필요합니다.' });
+        const data = await loadDefectCostCandidates({ year: req.query.year, week: req.query.week, custKey: req.query.custKey, prodKey: req.query.prodKey, search: req.query.q });
+        return res.status(200).json({ success: true, ...data });
+      }
       if(req.query.view==='omission-history')return res.status(200).json({success:true,rows:await listOmissionHistory({year:req.query.year,user:req.user})});
       if (req.query.view === 'lookups') {
         const data = await loadLookupData({ q: req.query.q || '', kind: req.query.kind || 'farm' });

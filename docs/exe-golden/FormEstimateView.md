@@ -574,3 +574,6 @@ FormEstimateView.GetPrintDetail 최종정렬 Sort/EstimateType/OrderNo/CounName/
 
 실제 설치 Nenova.exe를 dnSpy.Console.exe --no-color -t ClassShipmentDetail로 다시 확인했다. GetData/Insert/Update는 수량과 금액을 별도 필드로 취급한다. 금액 정렬 보조함수는 수량을 재작성할 권한이 없으므로 기본 UPDATE에서 EstQuantity를 제외한다. 혼합단가이면 Cost도 SET하지 않는다. 명시 boolean true만 수량 정렬 옵션으로 인정한다.
 운영 SELECT: 2026/41-01 상세1094건 중 EstQuantity NULL0건, sys.columns상 EstQuantity nullable1. 이는 현재 NULL 사고 발생 증명이 아닌 스키마와 잠재 회귀 확인이다. fake transaction에서 NULL 수량→0 쓰기를 재현했다. 원장 쓰기/DDL/재계산은 실행하지 않았다.
+
+## 2026-11-04 단가 후보 및 이전 연결견적 확인
+설치 EXE ClassEstimate를 dnSpy.Console.exe --no-color -t ClassEstimate로 재검증했다. Insert는 ProdKey/Unit/Quantity/Cost/Amount/Vat/ShipmentKey 독립값이며 UPDATE는 EstimateKey 기준이다. 이번 조회/UI 변경은 native 수식과 ERP 쓰기 경로를 변경하지 않는다. 실제 SELECT에서 태림565/라움680/태림A689의44차 적용출고가 존재했다. 태림3389/2473 최근단가0,3397=6200(41-01)/2085=6500(43-01). 라움181=9790(43-02),653=20900(42-01)이나 기존Estimate10499/10707 없음. 사용자 지시대로 보류 분리하며 원장/견적/출고/매출 보정0. 실SQL CTE: 해당업체우선/타업체fallback/전년도격리/현재·6차수전·양수분배없는행제외 PASS.

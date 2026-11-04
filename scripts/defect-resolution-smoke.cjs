@@ -45,6 +45,7 @@ const fs=require('node:fs'); const os=require('node:os'); const path=require('no
  await page.waitForFunction(()=>document.body.innerText.includes('매칭완료품목'));await click('매칭완료품목');await click('수정 저장하고 재검사');
  await page.waitForFunction(()=>document.body.innerText.includes('정상 2건 등록하기'));assert.equal(savedMatch,true);
  await click('같은 신고입니다');await page.waitForFunction(()=>document.body.innerText.includes('정상 3건 등록하기'));
+ await click('보류 ');
  await page.locator('summary').click();
  const fixture=path.join(os.tmpdir(),'nenova-defect-source-ui-fixture.txt');
  fs.writeFileSync(fixture,'네노바 수입(불량 공유방) 님과 카카오톡 대화\n--------------- 2026년 10월 30일 금요일 ---------------\n[검증] [오후 1:00] 43-1 검증업체5 검증품목5 10단\n');

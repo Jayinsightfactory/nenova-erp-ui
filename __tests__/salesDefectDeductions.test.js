@@ -325,9 +325,10 @@ assert.ok(pageSource.includes('overflow-x: hidden'), '품목 검색 결과는 �
 assert.ok(pageSource.includes('defect-product-match'), '전산 매칭 전체 품명 표시 영역이 있어야 한다.');
 assert.ok(pageSource.includes('white-space: normal; overflow: visible; text-overflow: clip;'), '전산 매칭 품명은 말줄임 없이 전체가 보여야 한다.');
 assert.ok(pageSource.includes('partitionRegistrationPreflight'), '견적서 등록은 유효행과 오류행을 분리해 처리해야 한다.');
-assert.ok(deductionSource.includes('BETWEEN @minWeek AND @scopeWeek'), '최근 5차수만 조회한다.');
-assert.ok(deductionSource.includes('sm.OrderYear=@scopeYear'), '전년도 단가는 제외한다.');
-assert.ok(deductionSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
+const costCandidateSource = fs.readFileSync(new URL('../lib/defectCostCandidates.js', import.meta.url), 'utf8');
+assert.ok(costCandidateSource.includes('BETWEEN @minWeek AND @scopeWeek'), '최근 5차수만 조회한다.');
+assert.ok(costCandidateSource.includes('sm.OrderYear=@scopeYear'), '전년도 단가는 제외한다.');
+assert.ok(costCandidateSource.includes('COALESCE(NULLIF(sdd.Cost,0), NULLIF(sd.Cost,0), 0) > 0'), '0원 단가는 대체 단가 후보에서 제외해야 한다.');
 assert.ok(deductionSource.includes('enrichSupportDistributionCosts'), '영업지원 전체 조회도 견적 등록과 같은 분배단가 컨텍스트를 사용해야 한다.');
 assert.ok(deductionSource.includes('loadExistingEstimateDeductions'), '영업지원 조회는 업체의 기존 음수 Estimate를 자동으로 불러와야 한다.');
 assert.ok(deductionSource.includes('sm.OrderYear=@year'), '기존 차감 조회는 선택 연도를 반드시 제한해야 한다.');

@@ -9,7 +9,7 @@ for (const [patch, kind] of [
   [{registrationEligibilityCode:'CUSTOMER_SALE_MISSING',registrationEligible:false},'defer'],
   [{registrationEligibilityCode:'AUTO_SOURCE_ESTIMATE_CONFLICT',registrationEligible:false},'existing'],
   [{prodKey:null},'match'],[{custKey:null},'match'],[{sourceFactReview:true},'source'],
-  [{missingLinkedEstimate:true},'source'],[{rejectedAutoSource:true},'source'],[{incompleteAutoSource:true},'source'],
+  [{missingLinkedEstimate:true},'held'],[{rejectedAutoSource:true},'source'],[{incompleteAutoSource:true},'source'],
   [{permanentOmitted:true},'omitted'],[{sourceUnitReview:true},'unit'],
 ]) assert.equal(defectResolution({...base,...patch}).kind,kind);
 const row = (key,patch={}) => ({...base,deductionKey:key,editQuantity:10,after:{ShipmentKey:70,ProdKey:20,AppliedOrderYear:2026,AppliedOrderWeek:'44',Unit:'단'},...patch});
