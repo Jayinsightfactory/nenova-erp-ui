@@ -27,6 +27,10 @@
 ## 검증
 - 사용자 활동 서버/클라이언트/PC 앱 테스트 PASS. async 연결/계정 전환/서버 증거 위조 배제/0건 보존/교차연도 테스트 포함.
 - manifest 191, ERP 쓰기 가드, dnSpy 근거 가드 PASS.
-- 전체 ERP/빌드/브라우저/PR/배포 진행 중.
+- 전체 ERP exit0, Windows webpack build PASS. Chrome 1920/800px 조회·필터·순서·키보드·권한 smoke PASS. PR1499/배포 진행 중.
+
+### 3. 운영 이력 조회 오류 추가 발견
+운영 /admin/activity에서 Ambiguous column name Descr 확인. StockHistory의 비고를 sh.Descr로 명시하고 모든 기간/사용자 조건에 history alias 적용. 실제 운영 SELECT probe에서 ShipmentHistory.ColumName 컬럼 부재도 확인. 실제 dnSpy FormShipmentDistribution 이력 SQL은 CONVERT(sh.ShipmentDtm,23)을 ColumName으로 표시하고 sm.CustKey로 거래처를 연결한다. 동일 조회 방식으로 수정; 날짜/거래처 원장 보정 없음.
+2026-11-04 당일 실제 API handler의 SELECT-only probe: stock200(기존 TOP200 제한), order160, shipment157 모두 HTTP200. 이전/이후연도 synthetic API 실행 및 별칭/PK/native날짜 projection 회귀 PASS. 기존 TOP200 제한을 전체 이력 완전성으로 오인하지 않는다.
 
 검색어: workflowId requestId sequence userActivity EXE dnSpy 작업파이프라인 로그

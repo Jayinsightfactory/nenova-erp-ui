@@ -29,3 +29,6 @@
 
 ## 부작용 표
 이번 조사 및 웹 활동 로그 보강: 모든 ERP 테이블 보존, EXE 보존, 웹 전용 활동 저널만 기록. 현재 날짜 불일치 사건의 원인/행위자는 이 조사만으로 확정하지 않으며 과거 없는 로그를 생성하지 않는다.
+
+## 실제 이력 조회 복구 근거
+운영 StockHistory+Product JOIN의 무별칭 Descr 충돌 확인. ShipmentHistory 실제 컬럼은 ShipHistoryKey,ChangeDtm,ChangeID,ChangeType,ShipmentDtm,BeforeValue,AfterValue,Descr,SdetailKey이며 ColumName은 없다. dnSpy FormShipmentDistribution 이력 조회는 `CONVERT(NVARCHAR, sh.ShipmentDtm, 23) ColumName` 및 `sm.CustKey=c.CustKey`를 사용한다. 웹 관리자 조회를 동일하게 수정하고 2026-11-04 SELECT-only 실제 handler로 재고200/주문160/출고157 정상 확인. 수량/날짜/금액/isFix/견적/손익/Stock 및 모든 write 경로 보존. PK JOIN으로 연도별 master를 유지하며 차수만으로 JOIN하지 않는다.

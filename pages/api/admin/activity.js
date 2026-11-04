@@ -17,6 +17,7 @@ export default withAuth(async function handler(req, res) {
 
   const userWhere = userId ? ` AND ChangeID = @uid` : '';
   const userParam = userId ? { uid: { type: sql.NVarChar, value: userId } } : {};
+  const historyWhere = alias => `${dateWhere} ${userWhere}`.replace(/\b(ChangeDtm|ChangeID)\b/g, `${alias}.$1`);
 
   try {
     const results = [];
@@ -25,21 +26,21 @@ export default withAuth(async function handler(req, res) {
     if (!category || category === 'stock') {
       const r = await query(
         `SELECT TOP 200
-          CONVERT(NVARCHAR(19), ChangeDtm, 120) AS 변경일시,
-          ChangeID AS 사용자,
+          CONVERT(NVARCHAR(19), sh.ChangeDtm, 120) AS 변경일시,
+          sh.ChangeID AS 사용자,
           '재고' AS 카테고리,
-          ChangeType AS 변경유형,
-          OrderWeek AS 차수,
-          ColumName AS 변경항목,
-          BeforeValue AS 이전값,
-          AfterValue AS 변경값,
-          Descr AS 비고,
+          sh.ChangeType AS 변경유형,
+          sh.OrderWeek AS 차수,
+          sh.ColumName AS 변경항목,
+          sh.BeforeValue AS 이전값,
+          sh.AfterValue AS 변경값,
+          sh.Descr AS 비고,
           ISNULL(p.ProdName, '') AS 품목명,
           '' AS 거래처명
          FROM StockHistory sh
          LEFT JOIN Product p ON sh.ProdKey = p.ProdKey
-         WHERE 1=1 ${dateWhere} ${userWhere}
-         ORDER BY ChangeDtm DESC`,
+         WHERE 1=1 ${historyWhere('sh')}
+         ORDER BY sh.ChangeDtm DESC`,
         { ...dateParams, ...userParam }
       );
       results.push(...r.recordset);
@@ -65,7 +66,7 @@ export default withAuth(async function handler(req, res) {
          LEFT JOIN OrderMaster om ON od.OrderMasterKey = om.OrderMasterKey
          LEFT JOIN Product p  ON od.ProdKey = p.ProdKey
          LEFT JOIN Customer c ON om.CustKey = c.CustKey
-         WHERE 1=1 ${dateWhere} ${userWhere}
+         WHERE 1=1 ${historyWhere('oh')}
          ORDER BY oh.ChangeDtm DESC`,
         { ...dateParams, ...userParam }
       );
@@ -81,7 +82,7 @@ export default withAuth(async function handler(req, res) {
           '출고' AS 카테고리,
           sh.ChangeType AS 변경유형,
           sm.OrderWeek AS 차수,
-          sh.ColumName AS 변경항목,
+          CONVERT(NVARCHAR(10), sh.ShipmentDtm, 23) AS 변경항목,
           sh.BeforeValue AS 이전값,
           sh.AfterValue AS 변경값,
           sh.Descr AS 비고,
@@ -91,8 +92,8 @@ export default withAuth(async function handler(req, res) {
          LEFT JOIN ShipmentDetail sd ON sh.SdetailKey = sd.SdetailKey
          LEFT JOIN ShipmentMaster sm ON sd.ShipmentKey = sm.ShipmentKey
          LEFT JOIN Product p  ON sd.ProdKey = p.ProdKey
-         LEFT JOIN Customer c ON sd.CustKey = c.CustKey
-         WHERE 1=1 ${dateWhere} ${userWhere}
+         LEFT JOIN Customer c ON sm.CustKey = c.CustKey
+         WHERE 1=1 ${historyWhere('sh')}
          ORDER BY sh.ChangeDtm DESC`,
         { ...dateParams, ...userParam }
       );

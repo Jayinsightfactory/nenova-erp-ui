@@ -6,6 +6,7 @@
     "components/UserActivityLogPanel.js",
     "pages/_app.js",
     "pages/admin/activity.js",
+    "pages/api/admin/activity.js",
     "pages/api/work/activity.js",
     "lib/auth.js",
     "lib/userActivityStore.cjs",
@@ -37,6 +38,7 @@
   },
   "requiredTestFiles": [
     "scripts/test-user-activity-server.cjs",
+    "__tests__/adminActivityRead.test.cjs",
     "__tests__/userActivityClient.test.js",
     "desktop/tests/activity.test.cjs",
     "scripts/user-activity-ui-smoke.cjs"

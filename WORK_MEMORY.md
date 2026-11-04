@@ -2015,3 +2015,6 @@
 
 2026-11-04 웹 작업흐름 로그: 기존 전역 activity 보강. workflowId/requestId/순번·요청시도/응답·단절 미확인·허용 집계/감사키만 기록, 계정분리/위조배제 회귀 PASS. 실제 dnSpy 로그인/DBMSSQL/분배 저장 조사, 운영 EXE/원장 보존. EXE 별도 계측본+로컬저널 권장, 패치/격리 호환성 미검증. 전체 ERP/빌드/배포 진행중; 정본 docs/work-sessions/2026-11-04_web-audit-coverage.md.
 검색어: workflowId requestId userActivity EXE 작업파이프라인 dnSpy 계측
+
+웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
+검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm
