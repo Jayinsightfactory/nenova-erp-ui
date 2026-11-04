@@ -1,3 +1,19 @@
+## [2026-11-04 19:30] 세션 — 국가별 발주서 품목관리 반영 확인창 (PR #1519)
+
+### 작업 내용
+- PR #1519 머지(c50c79cf), 배포 run 41812469307 성공, buildId build-1793787464058 반영 확인
+- 송이수량 0 품목에 수량 입력 → [미리보기 생성] → "품목관리에 변경하시겠습니까?" 창(1단송이/1박스단수/1박스송이, 빈 계수만 제안) → 기존 /api/master/products-bulk 로 저장
+- 운영 재현: 네덜란드 44-02 Tulip(ProdKey 1937) 창에 10/1/제안 10 표시 확인. [저장 없이 생성] 경로 정상(73품목, 엑셀 다운로드)
+- [품목관리에 저장 후 생성] 실제 클릭은 자동 권한 분류기(공유 ERP 수정)에 막혀 미실행 → 사용자 직접 클릭 필요
+
+### 변경된 파일
+- lib/countryOrderSource.js(buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors), lib/countryOrderSourceApi.js(BoxWeight/BoxCBM/TariffRate SELECT)
+- components/import-tools/PedidosTool.js(dialog), 테스트 2개, docs/contracts/country-orders.json(delegatedWrites), docs/exe-golden/CountryOrders.md
+
+### 미결 이슈
+- ProdKey 1937 SteamOf1Box 저장(제안 10)은 사용자가 창에서 저장 버튼으로 실행
+- 이번 차수 전산 원주문 송이수량(CustKey 533) 전산 수정 필요
+
 ## [2026-11-04 18:30] 세션 — 국가별 발주서 엑셀 다운로드 복구 (PR #1511)
 
 ### 작업 내용
