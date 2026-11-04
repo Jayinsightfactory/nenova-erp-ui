@@ -35,8 +35,8 @@ await assert.rejects(resolveEstimateContext({year:2026,week:44,custKey:565,prodK
  if(text.includes('AS CostSource'))throw Error('timeout');return {recordset:[]};
 }),e=>e.code==='COST_LOOKUP_FAILED');
 assert.equal(evaluateDefectRegistrationEligibility({context:{lookupError:'COST_LOOKUP_FAILED'}}).code,'COST_LOOKUP_FAILED');
-for(const r of [{missingLinkedEstimate:true,estimateKey:10499},{sourceFactReview:true},{registrationEligibilityCode:'CUSTOMER_SALE_MISSING'}])assert.equal(isDefectRegistrationHeld(r),true);
-for(const r of [{registrationEligibilityCode:'COST_MISSING'},{prodKey:null},{registrationEligible:true}])assert.equal(isDefectRegistrationHeld(r),false);
+for(const r of [{missingLinkedEstimate:true,estimateKey:10499},{sourceFactReview:true},{custKey:565,prodKey:3389,registrationEligibilityCode:'CUSTOMER_SALE_MISSING'}])assert.equal(isDefectRegistrationHeld(r),true);
+for(const r of [{registrationEligibilityCode:'COST_MISSING'},{custKey:565,prodKey:null,registrationEligibilityCode:'CUSTOMER_SALE_MISSING'},{registrationEligible:true}])assert.equal(isDefectRegistrationHeld(r),false);
 const held={missingLinkedEstimate:true,estimateKey:10499};
 assert.equal(defectResolution(held).kind,'match'); // invalid identity remains identifiable, but still held
 assert.match(supportRegistrationDecisionLabel(held),/보류.*이전 차감 견적/);

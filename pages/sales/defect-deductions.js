@@ -2415,7 +2415,7 @@ export default function SalesDefectDeductionsPage() {
         <div className="support-manual-cost-modal" role="presentation" onMouseDown={() => { if (!manualCostSaving) { setManualCostModal(null); setManualCostValue(''); } }}>
           <section className="support-manual-cost-card" role="dialog" aria-modal="true" aria-labelledby="support-manual-cost-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="support-manual-cost-head">
-              <div><strong id="support-manual-cost-title">불량차감 단가 직접입력</strong><span>{manualCostModal.year}년 {manualCostModal.week}차 · 웹 수동단가만 저장</span></div>
+              <div><strong id="support-manual-cost-title">불량차감 단가 확인·입력</strong><span>{manualCostModal.year}년 {manualCostModal.week}차 · 웹 수동단가만 저장</span></div>
               <button type="button" className="btn btn-xs" onClick={() => { setManualCostModal(null); setManualCostValue(''); }} disabled={manualCostSaving}>닫기</button>
             </div>
             <div className="support-manual-cost-body">
