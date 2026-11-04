@@ -106,6 +106,7 @@ function makeReplayArm(kind,data,budget,{root=process.cwd(),sources=global.__aud
     if(relative==='lib/parseMappings.js')return {loadMappings:async()=>structuredClone(mappings.product||{})};
     if(relative==='lib/customerMappings.js')return {loadCustomerMappings:async()=>structuredClone(mappings.customer||{})};
     let code=kind==='baseline'?cp.execFileSync('git',['show',`${BASELINE}:${relative}`],{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024,stdio:['ignore','pipe','pipe']}):(sources[relative]||fs.readFileSync(file,'utf8'));
+    if(relative==='pages/api/orders/parse-paste.js')code+='\nexport {sanitizePasteText,parseNaturalSectionOrders,parseCompactStockOrders};';
     code=swc.transformSync(code,{filename:file,jsc:{parser:{syntax:'ecmascript'},target:'es2022'},module:{type:'commonjs'}}).code;
     const module={exports:{}};cache.set(file,module);
     const localRequire=name=>{
@@ -121,14 +122,16 @@ function makeReplayArm(kind,data,budget,{root=process.cwd(),sources=global.__aud
     }
     return module.exports;
   }
-  const handler=load(path.join(root,'pages/api/orders/parse-paste.js')).parsePasteHandler;
-  return {async run(c){const before={...stats},start=performance.now();let status=200,result;try{await handler({method:'POST',body:{text:c.text,selectedOrderYear:c.year,mixedQuantitySupport:true},user:{userId:'read-only-audit'}},{status(n){status=n;return this;},json(r){result=r;}});}finally{for(const t of timers)clearTimeout(t);timers.clear();}return {status,result,performance:{elapsedMs:performance.now()-start,...Object.fromEntries(Object.keys(stats).map(k=>[k,stats[k]-before[k]]))}};}};
+  const route=load(path.join(root,'pages/api/orders/parse-paste.js')),handler=route.parsePasteHandler;
+  return {diagnose(c){const text=route.sanitizePasteText(c.text),parsed=route.parseNaturalSectionOrders(text),compact=route.parseCompactStockOrders(text),decision=load(path.join(root,'lib/pasteLocalAnalysis.js')).inspectLocalPasteParse(text,parsed,data.masters[0],mappings.customer||{});const line=text.split(/\r?\n/)[decision.lineNumber-1]||'';const shape=line.replace(/[0-9]/g,'#').replace(/[가-힣A-Za-z]+/g,w=>/^(?:카네이션|수국|장미|알스트로|변경사항|추가|취소|차|콜|중국|콜롬비아|박스|단|송이)$/.test(w)?w:'문자');return {...decision,blockedShape:shape,hasWeek:/^\d{1,2}\s*(?:-\s*\d|차)/.test(line),hasFlower:/카네이션|수국|장미|알스트로/.test(line),hasChange:/변경사항/.test(line),compactRows:compact.orders.reduce((n,o)=>n+o.items.length,0),parsedRows:parsed.orders.reduce((n,o)=>n+o.items.length,0)};},async run(c){const before={...stats},start=performance.now();let status=200,result;try{await handler({method:'POST',body:{text:c.text,selectedOrderYear:c.year,mixedQuantitySupport:true},user:{userId:'read-only-audit'}},{status(n){status=n;return this;},json(r){result=r;}});}finally{for(const t of timers)clearTimeout(t);timers.clear();}return {status,result,performance:{elapsedMs:performance.now()-start,...Object.fromEntries(Object.keys(stats).map(k=>[k,stats[k]-before[k]]))}};}};
 }
 function summarizePerformance(rows){const values=rows.map(r=>r.elapsedMs).sort((a,b)=>a-b),sum=k=>rows.reduce((n,r)=>n+Number(r[k]||0),0);return {calls:sum('calls'),usageResponses:sum('usageResponses'),failedCalls:sum('failedCalls'),inputTokens:sum('inputTokens'),outputTokens:sum('outputTokens'),cacheReadTokens:sum('cacheReadTokens'),cacheCreationTokens:sum('cacheCreationTokens'),medianMs:values.length?Math.round(values[Math.floor(values.length/2)]):null,p95Ms:values.length?Math.round(values[Math.ceil(values.length*.95)-1]):null,totalMs:Math.round(sum('elapsedMs'))};}
 async function runAudit(options={}){
   const data=await loadConfirmedCorpus(options),historical=[],excludedTruth={unconvertible:0},valid=[];
   for(const c of data.corpus){try{historical.push(compareConfirmed(c.entries,c.saved.orders,data.masters[1]));valid.push(c);}catch{excludedTruth.unconvertible++;}}
   const report={mode:options.runModels?'paired-model-replay':'inspect-only',readOnly:true,baselineCommit:BASELINE,candidateCommit:global.__auditCandidateSha||'working-tree',summary:data.summary,historicalSavedPredictions:aggregateScores(historical),excludedTruth};
+  const diagnostic=makeReplayArm('improved',data,{calls:0,inputTokens:0,characters:0},{...options,sdkClient:{messages:{create:()=>{throw Error('DIAGNOSTIC_MODEL_FORBIDDEN');}}}});
+  report.localCoverage=valid.map(c=>({id:c.id,...diagnostic.diagnose(c)}));
   if(!options.runModels)return {...report,modelCalls:0};
   const budget={calls:0,inputTokens:0,characters:0,stopped:false},baseline=makeReplayArm('baseline',data,budget,options),improved=makeReplayArm('improved',data,budget,options),oldScores=[],newScores=[],oldPerf=[],newPerf=[],cases=[];
   // Fixed newest-first sample, selected before inspecting model correctness.
