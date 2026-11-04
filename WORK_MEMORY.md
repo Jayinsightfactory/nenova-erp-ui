@@ -1951,3 +1951,6 @@
 
 2026-11-04 검증 갱신: 운영용 빌드 성공. API격리 UI에서 보류목록 분리, 업체/차수/단가 표시, 명시 매칭 preview/save만 전송, 수량80 및 유령견적10499 보존 PASS. 기존 문제해결창 단가·매칭·원문·중복선택·재조회실패잠금 회귀PASS. 실제SQL 후보조회는 그로우3397/오션송2085만 관련 후보로 노출(무관한 인기품목 제외). PR1463 전체검사/배포 진행중.
 검색어: defect-cost-held-smoke defect-resolution-smoke PR1463 운영쓰기0
+
+2026-11-04 보류 원차수 표시: nw-defect-held-week-1104 기준2f191418. 보류 첫 열을 불량 차수로 변경, 원장 orderYear/orderWeek 굵은 배지 및 보조번호. 원차수42/적용44·전년도·하위차수·누락값 단위검사PASS. 표시만 변경/DB쓰기0. 전체gate/빌드/UI/배포 진행중.
+검색어: defectSourcePeriodLabel 보류 불량차수 원차수 42차

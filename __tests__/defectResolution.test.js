@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../lib/defectResolution.js';
+import { defectSourcePeriodLabel, defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../lib/defectResolution.js';
 import { canEditManualCost, saveManualCost } from '../lib/salesDefectManualCost.js';
 
 const base = { deductionKey:1,custKey:10,prodKey:20,quantity:10,sourceUnit:'단',orderYear:2026,orderWeek:'43',registrationEligible:true };
@@ -42,3 +42,9 @@ for(const patch of [{year:2025},{week:42},{expectedRowVersionNo:2},{custKey:11},
   assert.equal(writes.length,before);
 }
 console.log('resolution: actionable issues, whole duplicate group hold, different quantity/year/unit, audited auto-source price and stale/scope no-write guards PASS');
+
+// Original identity survives target-week, price-week and cross-year differences.
+assert.equal(defectSourcePeriodLabel({orderYear:2026,orderWeek:'42',appliedOrderWeek:'44',distributionCostOrderWeek:'43-01'}),'2026년 42차 불량');
+assert.equal(defectSourcePeriodLabel({orderYear:2025,orderWeek:'42'}),'2025년 42차 불량');
+assert.equal(defectSourcePeriodLabel({orderYear:2026,orderWeek:'42-02'}),'2026년 42-02차 불량');
+for (const row of [{}, {orderYear:2026}, {orderWeek:'42'}, {orderYear:2026,orderWeek:0}, {orderYear:2026,orderWeek:'bad'}]) assert.equal(defectSourcePeriodLabel(row),'원불량 차수 미확인');
