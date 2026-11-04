@@ -11,6 +11,7 @@ import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
+import { stepZoom } from '../../lib/pmZoom';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
 export const PM3D_THEMES = Object.keys(THEMES);
@@ -313,8 +314,8 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         ))}
       </div>
       <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 6 }}>
-        <button type="button" aria-label="확대" onClick={() => setZoom((z) => Math.min(3, +(z + 0.5).toFixed(1)))} style={zbtn}>+</button>
-        <button type="button" aria-label="축소" onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))} style={zbtn}>−</button>
+        <button type="button" aria-label="확대" onClick={() => setZoom((z) => stepZoom(z, 1))} style={zbtn}>+</button>
+        <button type="button" aria-label="축소" onClick={() => setZoom((z) => stepZoom(z, -1))} style={zbtn}>−</button>
         <button type="button" aria-label="화면 맞춤" onClick={() => setZoom(1)} style={{ ...zbtn, width: 'auto', padding: '0 10px' }}>맞춤</button>
       </div>
       <small style={{ position: 'absolute', left: 10, bottom: 8, color: U.note, background: U.chipDim, padding: '1px 6px', borderRadius: 6 }}>3D 베타 {stat}</small>

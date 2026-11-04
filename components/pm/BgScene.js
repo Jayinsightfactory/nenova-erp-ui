@@ -12,7 +12,8 @@ import { Button } from './ui';
 import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
-import { DEPTS, SW, frontMaskClip, frontMaskRect, hipOf, layoutScene } from '../../lib/pmSceneLayout';
+import { DEPTS, SW, frontMaskClip, frontMaskRect, frontDir, hipOf, layoutScene } from '../../lib/pmSceneLayout';
+import { ZOOM_MIN, ZOOM_MAX, clampView, zoomViewAt, shouldCloseOnUp } from '../../lib/pmZoom';
 import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
 import { DeskDecor, SeatedCharacter, usePmLayers } from './Character';
 import { PM_DESK_ISO_SCALE, isoDeskTop } from '../../lib/pmDeskSlots';
@@ -55,7 +56,7 @@ function useSceneDances(growV) {
   }, [growV, reqs]);
   return dances;
 }
-const ZMIN = 1; const ZMAX = 3;
+const ZMIN = ZOOM_MIN; const ZMAX = ZOOM_MAX;
 
 export default function BgScene({ themeId, agents, rooms, links, corridor, now, selStage, onPickStage, onOpenPerson, reduced, isAdmin, myStaff, fallback = null }) {
   const { avatars, manifest } = usePmTheme();
@@ -95,8 +96,8 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
   }, [pop]);
 
   const hostH = hostW / map.aspect;
-  const clampV = (v) => { const z = Math.min(ZMAX, Math.max(ZMIN, v.z)); return { z, x: Math.min(0, Math.max(hostW - hostW * z, v.x)), y: Math.min(0, Math.max(hostH - hostH * z, v.y)) }; };
-  const zoomAt = (factor, cx = hostW / 2, cy = hostH / 2) => setZv((v) => { const z = Math.min(ZMAX, Math.max(ZMIN, v.z * factor)); const r = z / v.z; return clampV({ z, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r }); });
+  const clampV = (v) => clampView(v, hostW, hostH);
+  const zoomAt = (factor, cx = hostW / 2, cy = hostH / 2) => setZv((v) => zoomViewAt(v, factor, hostW, hostH, cx, cy));
   const fit = () => setZv({ z: 1, x: 0, y: 0 });
     // 휠은 페이지 스크롤 그대로(장면 배율 불변). 배율은 +/−/맞춤 버튼·키보드(장면 포커스 시)로만.
   const ptrs = useRef(new Map()); const drag = useRef(null);
@@ -114,7 +115,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
   };
   const onPointerUp = (e) => {
     ptrs.current.delete(e.pointerId);
-    if (!ptrs.current.size) { const moved = drag.current?.moved; drag.current = null; if (!moved) setPop((cur) => (cur?.pinned ? null : cur)); }
+    if (!ptrs.current.size) { const d0 = drag.current; drag.current = null; if (shouldCloseOnUp(d0)) setPop((cur) => (cur?.pinned ? null : cur)); }
   };
   const onKey = (e) => {
     if (e.target !== e.currentTarget) return;
@@ -221,7 +222,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
             const [m0, m1, m2, m3] = frontMaskRect(map, p).map((v, i) => (v / 100) * (i % 2 ? hostH : hostW));
             const st = STATUS_LABEL[x.status] ? x.status : 'off';
             const z = 20 + Math.round(p[1] * 4);
-            const seat = { x: hx, y: hy, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
+            const seat = { x: hx, y: hy, dir: frontDir(map.dir), scale: sc, z };
             const cfg = sceneAvatar(avatars[x.name], x.name, kit, tOutfits);
             const g = growPeople[x.name]; const v = vibes[x.name] || {};
             const ownDesk = (avatars[x.name]?.view || avatars[x.name])?.items?.desk || '';
