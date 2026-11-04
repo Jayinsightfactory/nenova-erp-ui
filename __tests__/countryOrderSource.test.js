@@ -92,3 +92,23 @@ test('missing raw source totals remain unknown and block; conflict basis fails r
   assert.equal(matrix.rows[0].total, 20); assert.ok(matrix.blockers.length > 0); assert.match(formatCountryOrderStoredQuantities(matrix.rows[0].storedQuantities), /송이 미등록/);
   assert.throws(() => buildCountryOrderMatrix(response([native, { ...native, SteamOf1Bunch: 5 }]), '42-01'), /환산기준이 서로 다릅니다/);
 });
+
+test('blocked products are flagged per row and can be excluded for a partial export without conversion', async () => {
+  const { excludeBlockedCountryOrderRows } = await import('../lib/countryOrderSource.js');
+  const { generatePedidosFromMatrix } = await import('../lib/importPedidos.js');
+  const matrix = buildCountryOrderMatrix(response([row, { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01');
+  assert.equal(matrix.blockers.length, 1);
+  assert.equal(matrix.rows.find(r => r.prodKey === 1983).blocked, false);
+  assert.equal(matrix.rows.find(r => r.prodKey === 2990).blocked, true);
+  assert.deepEqual(matrix.rows.find(r => r.prodKey === 2990).blockers, matrix.blockers);
+  const partial = excludeBlockedCountryOrderRows(matrix);
+  assert.deepEqual(partial.blockers, []); assert.equal(partial.rows.length, 1); assert.equal(partial.rows[0].prodKey, 1983); assert.equal(partial.rows[0].total, 200);
+  assert.equal(partial.excludedRows.length, 1); assert.equal(partial.excludedRows[0].prodKey, 2990);
+  assert.match(partial.warnings.at(-1), /^EXCLUDED_BLOCKED_ROWS: missing \[ProdKey:2990\]/);
+  assert.equal(matrix.rows.length, 2, 'original matrix untouched');
+  const outputs = generatePedidosFromMatrix(partial);
+  assert.equal(outputs.length, 1); assert.equal(outputs[0].itemCount, 1); assert.equal(outputs[0].totalQuantity, 200);
+  assert.ok(outputs[0].warnings.some(w => w.startsWith('EXCLUDED_BLOCKED_ROWS')));
+  assert.throws(() => excludeBlockedCountryOrderRows(buildCountryOrderMatrix(response([{ ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01')), /남는 품목이 없습니다/);
+  assert.throws(() => generatePedidosFromMatrix(matrix), /발주서 생성 차단/);
+});
