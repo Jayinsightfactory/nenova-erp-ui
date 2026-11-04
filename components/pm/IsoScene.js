@@ -17,10 +17,10 @@ const N = 20; // 바닥 20×20 타일
 const P = (x, y, z = 0) => [OX + (x - y) * HW, OY + (x + y) * HH - z * ZU];
 const pts = (...ps) => ps.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
 const CIRCLED = ['', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
-const STATUS_LABEL = { working: '작업중', idle: '대기', off: '꺼짐', error: '오류' };
+export const STATUS_LABEL = { working: '작업중', idle: '대기', off: '꺼짐', error: '오류' };
 const arr = (x) => (Array.isArray(x) ? x : []);
 function hashColor(s) { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return SHIRTS[h % SHIRTS.length]; }
-function ago(iso, now) {
+export function ago(iso, now) {
   const t = Date.parse(iso || ''); if (!Number.isFinite(t)) return '';
   const s = Math.max(0, Math.round((now - t) / 1000));
   if (s < 60) return `${s}초 전`; if (s < 3600) return `${Math.floor(s / 60)}분 전`; if (s < 86400) return `${Math.floor(s / 3600)}시간 전`; return `${Math.floor(s / 86400)}일 전`;
@@ -279,7 +279,7 @@ function Desk({ x, y, status, robot, kind, empty }) {
   );
 }
 
-function Chibi({ name, robot, status, avatar, size = 46 }) {
+export function Chibi({ name, robot, status, avatar, size = 46 }) {
   const st = STATUS_LABEL[status] ? status : 'off';
   if (avatar && !robot) return <Avatar cfg={avatar} state={st} size={size} className="iso-av" />;
   if (robot) return (
@@ -302,12 +302,12 @@ function Chibi({ name, robot, status, avatar, size = 46 }) {
 }
 
 // 장면 위 누름 요소(위치 지정 span) — 키보드 Enter/Space 지원
-function Hot({ onClick, children, ...rest }) {
+export function Hot({ onClick, children, ...rest }) {
   return <span role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(e); } }} {...rest}>{children}</span>;
 }
 
 // 칩 겹침 피하기: 앞서 놓인 칩과 겹치면 아래로 밀기
-function placeChips(items, obstacles = []) {
+export function placeChips(items, obstacles = []) {
   const placed = obstacles.map((o) => ({ ...o }));
   return items.map((it) => {
     const w = Math.min(170, 28 + it.text.length * 10); const h = 20;
@@ -326,6 +326,41 @@ export function chipLabel(l) {
   if (l.label && l.text) return l.hm ? `${l.text} · ${l.hm}` : l.text;
   const t = `${linkTaskText(l)}작업 중`;
   return l.hm ? `${t} · ${l.hm}` : t;
+}
+
+export function ScenePopBody({ pop, close, stageInfo, now, selStage, onPickStage, onOpenPerson, isAdmin, myStaff }) {
+  if (!pop) return null;
+  if (pop.kind === 'station') {
+    const s = STAGES[pop.no - 1]; const i = stageInfo(pop.no);
+    return (<>
+      <b style={{ color: STAGE_COLOR[pop.no] }}>{CIRCLED[pop.no]} {s.label}</b>
+      <div className="muted">이번 주 {i.h == null ? '–' : `${i.h}h`} (추정)</div>
+      <div>{i.nowNames.length ? `지금: ${i.nowNames.join(', ')}` : '지금 작업자 없음'}</div>
+      <Button size="sm" onClick={() => { onPickStage(selStage === pop.no ? null : pop.no); close(); }}>담당자 보기</Button>
+    </>);
+  }
+  if (pop.kind === 'agent') {
+    const a = pop.a; const st = STATUS_LABEL[a.status] ? a.status : 'off';
+    return (<>
+      <b>{a.name || a.id}</b>{a.role && <div className="muted">{a.role}</div>}
+      <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{a.lastAt ? ` · ${ago(a.lastAt, now)}` : ''}</span>
+      {a.activity && <div className="iso-clamp">{a.activity}</div>}
+      {a.today?.done != null && <div className="muted">오늘 {a.today.done}건</div>}
+    </>);
+  }
+  const x = pop.x0; const st = STATUS_LABEL[x.status] ? x.status : 'off';
+  const act = x.workLabel || arr(x.recent).find((r) => r?.label)?.label || (x.app ? `${x.app} 사용 중` : '');
+  const mine = myStaff && myStaff === x.name;
+  return (<>
+    <b>{x.name}</b> <TokenBadge name={x.name} />
+    <div className="muted">{x.dept || ''}{x.app ? ` · ${x.app}` : ''}</div>
+    <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{x.lastAt ? ` · ${ago(x.lastAt, now)}` : ''}</span>
+    {act && <div className="iso-clamp">{act}</div>}
+    <div className="iso-pbtn">
+      <Button size="sm" variant="primary" onClick={() => { close(); onOpenPerson(x.name); }}>상세</Button>
+      {(mine || isAdmin) && <Button size="sm" onClick={() => { close(); onOpenPerson(x.name, 'look'); }}>꾸미기</Button>}
+    </div>
+  </>);
 }
 
 export default function IsoScene({ theme, agents, rooms, links, corridor, now, selStage, onPickStage, onOpenPerson, reduced, isAdmin, myStaff }) {
@@ -393,40 +428,7 @@ export default function IsoScene({ theme, agents, rooms, links, corridor, now, s
   const leave = () => setPop((cur) => (cur?.pinned ? cur : null));
   const pin = (p) => setPop((cur) => (cur?.pinned && cur.key === p.key ? null : { ...p, pinned: true }));
 
-  const popBody = () => {
-    if (!pop) return null;
-    if (pop.kind === 'station') {
-      const s = STAGES[pop.no - 1]; const i = stageInfo(pop.no);
-      return (<>
-        <b style={{ color: STAGE_COLOR[pop.no] }}>{CIRCLED[pop.no]} {s.label}</b>
-        <div className="muted">이번 주 {i.h == null ? '–' : `${i.h}h`} (추정)</div>
-        <div>{i.nowNames.length ? `지금: ${i.nowNames.join(', ')}` : '지금 작업자 없음'}</div>
-        <Button size="sm" onClick={() => { onPickStage(selStage === pop.no ? null : pop.no); setPop(null); }}>담당자 보기</Button>
-      </>);
-    }
-    if (pop.kind === 'agent') {
-      const a = pop.a; const st = STATUS_LABEL[a.status] ? a.status : 'off';
-      return (<>
-        <b>{a.name || a.id}</b>{a.role && <div className="muted">{a.role}</div>}
-        <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{a.lastAt ? ` · ${ago(a.lastAt, now)}` : ''}</span>
-        {a.activity && <div className="iso-clamp">{a.activity}</div>}
-        {a.today?.done != null && <div className="muted">오늘 {a.today.done}건</div>}
-      </>);
-    }
-    const x = pop.x0; const st = STATUS_LABEL[x.status] ? x.status : 'off';
-    const act = x.workLabel || arr(x.recent).find((r) => r?.label)?.label || (x.app ? `${x.app} 사용 중` : '');
-    const mine = myStaff && myStaff === x.name;
-    return (<>
-      <b>{x.name}</b> <TokenBadge name={x.name} />
-      <div className="muted">{x.dept || ''}{x.app ? ` · ${x.app}` : ''}</div>
-      <span className={`chip chip-${st}`}>{STATUS_LABEL[st]}{x.lastAt ? ` · ${ago(x.lastAt, now)}` : ''}</span>
-      {act && <div className="iso-clamp">{act}</div>}
-      <div className="iso-pbtn">
-        <Button size="sm" variant="primary" onClick={() => { setPop(null); onOpenPerson(x.name); }}>상세</Button>
-        {(mine || isAdmin) && <Button size="sm" onClick={() => { setPop(null); onOpenPerson(x.name, 'look'); }}>꾸미기</Button>}
-      </div>
-    </>);
-  };
+  const popBody = () => <ScenePopBody pop={pop} close={() => setPop(null)} stageInfo={stageInfo} now={now} selStage={selStage} onPickStage={onPickStage} onOpenPerson={onOpenPerson} isAdmin={isAdmin} myStaff={myStaff} />;
 
   return (
     <div className="iso-host" ref={hostRef} data-scene={kind} style={{ height: ISO_H * scale }} onClick={(e) => { if (e.target === e.currentTarget) setPop(null); }}>
