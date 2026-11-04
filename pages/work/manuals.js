@@ -3,6 +3,7 @@
 // 열람: 사장님(nenovaSS3) 전체 / 직원 본인 매뉴얼만 (API에서 거름). 저장소는 웹 전용 JSON(lib/workManuals.js).
 import { useEffect, useMemo, useState } from 'react';
 import RoutineManual from '../../components/manuals/RoutineManual';
+import LivePipelineManual from '../../components/manuals/LivePipelineManual';
 
 const TINTS = ['#2F6FEB', '#1E8E5A', '#C2410C', '#7C3AED', '#0E7490', '#B45309'];
 const STATUS = {
@@ -159,7 +160,7 @@ export default function WorkManualsPage() {
   const [deptId, setDeptId] = useState(null);
   const [open, setOpen] = useState(null);
   const [layout, setLayout] = useState({});
-  const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안
+  const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
 
   useEffect(() => {
     api().then((j) => { setData(j); setLayout(j.layout || {}); }).catch((e) => setErr(e.message));
@@ -189,7 +190,8 @@ export default function WorkManualsPage() {
       });
     } catch (e) { setErr(e.message); }
   };
-  if (view === 'routine' && data.routines) return <RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} />;
+  if (view === 'live') return <LivePipelineManual me={data.me} onBack={() => setView('routine')} />;
+  if (view === 'routine' && data.routines) return <RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} />;
 
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);

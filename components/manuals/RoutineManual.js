@@ -250,7 +250,7 @@ const FIRST_WEEK = [
   ['handoff', '5일차: 부서간 넘김 + 월초·월말 업무'],
 ];
 
-export default function RoutineManual({ routines, me, onConfirm, onSwitch }) {
+export default function RoutineManual({ routines, me, onConfirm, onSwitch, onLive }) {
   const [theme, setTheme] = useState('B');
   const depts = routines?.departments || [];
   // 내 부서를 먼저(없으면 첫 부서 — 신입은 이름이 아직 없으니 탭으로 고른다)
@@ -275,6 +275,7 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch }) {
         <p className="muted">
           실제 관찰 기록으로 만든 루틴입니다(관측 {routines?.period?.from}~{routines?.period?.to}, 갱신 {String(routines?.generatedAt || '').slice(0, 10)}). 숫자는 스크립트가 센 값이고, 근거가 없으면 &apos;추정&apos;으로 표시합니다.
         </p>
+        {onLive && <Button size="sm" variant="primary" onClick={onLive}>라이브 매뉴얼(단계 재생)</Button>}
         <Button size="sm" variant="ghost" onClick={onSwitch}>직원별 절차 초안 보기</Button>
       </header>
       <Tabs label="부서" items={depts.map((d) => [d.id, d.name])} value={deptId} onChange={setDeptId} />

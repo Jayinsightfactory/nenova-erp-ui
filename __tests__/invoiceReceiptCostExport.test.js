@@ -125,7 +125,7 @@ test('China sea CBM formula exposes unequal volume allocations instead of copyin
   assert.equal(missing.G10.v, '입력 필요');
 });
 
-function assertFormatOnlyStyleClones(actual, original) {
+function assertFormatOnlyStyleClones(actual, original, allowPackingRatio = false) {
   // The only non-cellXfs addition is the reviewed missing-selling-input cue.
   original = appendCostInputDifferentialStyle(original).styles;
   const pattern = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/;
@@ -134,8 +134,10 @@ function assertFormatOnlyStyleClones(actual, original) {
   const oldXfs = [...old[1].matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].map(m => m[0]);
   const normalize = xf => xf.replace(/\s+(?:numFmtId|applyNumberFormat)="[^"]*"/g, '');
   for (const match of next[1].slice(old[1].length).matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)) {
-    assert.match(match[0], /numFmtId="(?:4|3|0)"/);
-    assert.ok(oldXfs.some(xf => normalize(xf) === normalize(match[0])), 'clone may change only numeric formatting');
+    assert.match(match[0], allowPackingRatio ? /numFmtId="(?:4|3|0|9)"/ : /numFmtId="(?:4|3|0)"/);
+    const numericOnly=oldXfs.some(xf => normalize(xf) === normalize(match[0]));
+    const thaiWrapOnly=allowPackingRatio&&/wrapText="1"/.test(match[0])&&oldXfs.some(xf=>xf===match[0].replace(/ wrapText="1"/,''));
+    assert.ok(numericOnly||thaiWrapOnly, 'clone may change only numeric formatting or Thai header wrapping');
   }
   assert.equal(actual.replace(next[0], old[0]), original, 'fonts/colors/width-independent style parts stay exact');
 }
@@ -561,7 +563,7 @@ for (const [id, assetName, filename] of [
     const p = INVOICE_COST_EXPORT_PROFILES[id], th = id === 'TH_ORIGINAL_V1', f = invoiceCostExportFixture(28, p.formulaId);
     const asset = require(`../lib/invoiceCostTemplates/${assetName}-v1.json`);
     const buffer = await createInvoiceCostWorkbook(f), zip = await JSZip.loadAsync(buffer);
-    assertFormatOnlyStyleClones(await zip.file('xl/styles.xml').async('string'), asset.styles);
+    assertFormatOnlyStyleClones(await zip.file('xl/styles.xml').async('string'), asset.styles, th);
     assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
     for (const part of [asset.cols, asset.sheetViews.replace(/tabSelected="1"/g,'tabSelected="0"'), asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));

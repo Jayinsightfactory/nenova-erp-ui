@@ -129,6 +129,11 @@ test('NL native workbook retains template customs components and estimated warni
  const original=book.Sheets['원본 양식 계산'];
  assert.equal(original.C9.v,2);assert.equal(original.Q8.v,20000);assert.equal(original.S6.v,1500);
  assert.equal(original.AC15.v,1500);assert.equal(original.AC16.v,0);
+ assert.equal(original.AC15.f,'10*0.1*$C$7');
+ assert.equal(original.AA17.v,'Gerbera');
+ assert.match(original.AB17.v,/10송이.*미입고/);
+ assert.equal(original.AC17.v,'-');
+ assert.ok(Number(original['!ref'].match(/\d+$/)[0])>=61,'complete quarantine reference table is inside worksheet bounds');
  assert.match(original.AB15.v,/FOB 0\.10 EUR/);
  assert.ok(original['!cols'][26].width>=19); // AA: kind name
  assert.ok(original['!cols'][27].width>=96); // AB: full audit description
