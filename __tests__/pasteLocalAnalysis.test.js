@@ -68,3 +68,10 @@ const start=performance.now();for(let i=0;i<100;i++){const f=fixture();const r=a
 console.log(JSON.stringify({pass:'local full-handler extraction/matching, model fallback, exact/manual safeguards, dedup, immutable quantities/year, failure',baselineModelCalls:baseline.calls.length,fixtureRuns:100,modelCalls:0,fixtureElapsedMs:Math.round(performance.now()-start)}));
 
 assert.equal(localProductReviewKey({inputName:'장미 품종',prodKey:20},[{...roses[0],ProdName:'Rose 50cm'}],{'장미 품종':{prodKey:20,manual:true}}),null,'lengthless rose alias keeps candidate review');
+
+const roseSizes=[50,60].map(cm=>({ProdKey:cm,ProdName:`ROSE SAME ${cm}cm`,DisplayName:`장미 품종 ${cm}cm`,FlowerName:'장미',CounName:'콜롬비아'}));
+const missingSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종',prodKey:50,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:50,confidence:1}))})});
+assert.equal(missingSize[0].items[0].prodKey,null,'multiple actual rose lengths cannot be guessed from a lengthless alias or AI default');
+assert.match(missingSize[0].items[0].matchReason,/cm/);
+const explicitSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종 60cm',prodKey:60,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:60,confidence:1}))})});
+assert.equal(explicitSize[0].items[0].prodKey,60);
