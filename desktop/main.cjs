@@ -229,7 +229,7 @@ function secureContents(wc, owner) {
     if (!locked && tabs.size < 50 && (url || details.url === 'about:blank' || details.url === '')) {
       return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, preload: undefined, devTools: !app.isPackaged } },
         createWindow: options => {
-          const t = openTab(w, { url: details.url || 'about:blank', title: details.frameName || '새 업무' }, options);
+          const t = openTab(w, { url: details.url || 'about:blank', popup: true }, options);
           if (!options.webContents) t.view.webContents.loadURL(details.url || 'about:blank').catch(() => {});
           return t.view.webContents;
         }
@@ -255,7 +255,7 @@ function openTab(w, data = {}, adoption = null) {
   if (tabs.size >= 50) { reportFailure(w, '열린 탭이 50개입니다. 사용하지 않는 탭을 닫아 주세요.'); broadcast(); return null; }
   const id = String(nextId++);
   const view = new WebContentsView({ ...(adoption?.webContents ? { webContents: adoption.webContents } : {}), webPreferences: { session: webSession, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: !app.isPackaged } });
-  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
+  const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), popup: Boolean(data.popup), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
   tabs.set(id, t); w.ids.push(id); w.win.contentView.addChildView(view);
   const wc = view.webContents;
   wc.setZoomMode('isolated');
@@ -267,7 +267,9 @@ function openTab(w, data = {}, adoption = null) {
   wc.on('page-title-updated', (_e, title) => { if (!t.customTitle) t.title = text(title) || t.title; broadcast(); });
   wc.on('did-fail-load', (_e, code, description, _url, mainFrame) => { if (mainFrame && code !== -3) { t.error = '화면을 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요.'; t.loading = false; reportFailure(windows.get(t.windowId), t.error); broadcast(); } });
   wc.on('render-process-gone', () => { t.error = '화면이 중단되었습니다. 새로고침해 주세요. 저장 여부를 먼저 확인해 주세요.'; reportFailure(windows.get(t.windowId), t.error); broadcast(); });
-  wc.on('close', e => { if (!t.destroying && !t.closing) { e.preventDefault(); closeTab(t); } });
+  // window.close() from the page itself: a popup tab (window.open from a work page, e.g. product match / ERP match picker)
+  // closes without the tab-close prompt. beforeunload (will-prevent-unload) still guards unsaved input.
+  wc.on('close', e => { if (!t.destroying && !t.closing) { e.preventDefault(); closeTab(t, !t.popup); } });
   wc.on('destroyed', () => { if (tabs.has(t.id)) { destroyTab(t); broadcast(); } });
   wc.on('did-finish-load', () => { wc.setZoomFactor(t.zoom); syncRemoteTools(t); });
   if (!adoption) wc.loadURL(url).catch(() => {}); activate(w, id); return t;
