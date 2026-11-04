@@ -109,7 +109,7 @@ export function WalletPanel({ name }) {
   );
 }
 
-export function CustomizePanel({ name }) {
+export function CustomizePanel({ name, canEdit = true, editNote = '' }) {
   const { manifest, avatars, save, reloadShop } = usePmTheme();
   const [wallet, reloadWallet] = useWallet(name);
   const saved = avatars[name];
@@ -174,13 +174,14 @@ export function CustomizePanel({ name }) {
         );
       })}
       <div className="czact">
-        {needBuy.map((x) => (
+        {!canEdit && <span className="czmsg" role="note">{editNote || '편집 권한 없음'}</span>}
+        {canEdit && needBuy.map((x) => (
           <Button key={x.key} variant="primary" size="sm" disabled={busy || !wallet || wallet.balance < x.price} onClick={() => doBuy(x)}>
             {x.name} {x.price}토큰으로 사기{wallet && wallet.balance < x.price ? ' (부족)' : ''}
           </Button>
         ))}
-        <Button variant="primary" loading={busy} disabled={needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''} onClick={() => doSave({ char: cfg.char, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '저장'}</Button>
-        <Button disabled={busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</Button>
+        <Button variant="primary" loading={busy} disabled={!canEdit || needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''} onClick={() => doSave({ char: cfg.char, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '저장'}</Button>
+        <Button disabled={!canEdit || busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</Button>
         {msg && <span className="czmsg" role="status">{msg}</span>}
       </div>
       <style jsx global>{`
