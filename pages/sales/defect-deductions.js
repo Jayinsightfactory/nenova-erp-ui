@@ -1,5 +1,5 @@
 import DefectCostLookup from '../../components/DefectCostLookup';
-import { isDefectRegistrationHeld } from '../../lib/defectResolution.js';
+import { defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1894,7 +1894,7 @@ export default function SalesDefectDeductionsPage() {
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className={`data-table defect-grid support-grid ${activeTab === 'support' ? 'support-compact' : ''}`}>
-            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={managementMode || managementBusy || supportLoading || !supportSelectableKeys.length} onChange={toggleAllSupport} /></label></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
+            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={managementMode || managementBusy || supportLoading || !supportSelectableKeys.length} onChange={toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{visibleSupportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const checkable = !managementMode && !managementBusy && isSupportRegistrationSelectable(row, activeTab);
@@ -1906,7 +1906,7 @@ export default function SalesDefectDeductionsPage() {
               const registeredEstimate = getSupportLinkedEstimate(row);
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit" {...selectionZoneProps('support-register', key, supportSelected, setSupportSelected)}><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
-                <td><div className="support-row-number"><span>{index + 1}</span>{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</div></td>
+                <td>{activeTab === 'support' && supportListMode === 'held' && <strong className="support-source-period">{defectSourcePeriodLabel(row)}</strong>}<div className="support-row-number"><span>{activeTab === 'support' && supportListMode === 'held' ? `No. ${index + 1}` : index + 1}</span>{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</div></td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}<DefectInputSource row={row} /></td>
                 <td title={productDisplay.fullName}>{productDisplay.category || '-'}</td>
@@ -2256,6 +2256,8 @@ export default function SalesDefectDeductionsPage() {
         .support-grid th:nth-child(12) { width: 7%; }
         .support-row-number, .support-status-actions { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
         .support-row-number { flex-wrap: nowrap; }
+        .support-source-period { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; white-space: normal; margin: 0 0 4px; padding: 5px 8px; border: 1px solid #93b4f3; border-radius: 5px; background: #eaf2ff; color: #174394; font-size: 13px; font-weight: 800; line-height: 1.35; }
+        .support-source-period + .support-row-number > span { color: #64748b; font-size: 11px; }
         .support-row-number .management-select-hit { display: inline-flex; margin: 0; }
         .support-row-number .management-select-hit + button { display: inline-flex; align-items: center; margin: 0; min-width: 0; min-height: 32px; }
         .support-grid .defect-row td:nth-child(5) { white-space: normal; overflow-wrap: anywhere; }
