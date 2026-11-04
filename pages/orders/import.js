@@ -25,6 +25,7 @@ import {
 } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
+import { sortWeeksAsc } from '../../lib/fixCycleClient';
 import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/orderImportFailure';
 import { withOrderImportDeadline } from '../../lib/orderImportDeadline';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
@@ -663,6 +664,15 @@ export default function OrderImportPage() {
   const [rematchBusy, setRematchBusy] = useState(false);
   const [rematchMessage, setRematchMessage] = useState('');
   const fileRef = useRef(null);
+  const lastFileRef = useRef(null);
+  const [sheets, setSheets] = useState([]);
+  const [sheetName, setSheetName] = useState('');
+  // 'order' = 업로드 주문등록만 · 'orderPrice' = 주문등록 + 선택 세부차수 분배단가 적용
+  const [registerMode, setRegisterMode] = useState('order');
+  const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
+  const [selectedSubWeeks, setSelectedSubWeeks] = useState([]);
+  const [priceApplying, setPriceApplying] = useState(false);
+  const [priceLog, setPriceLog] = useState([]);
   const rematchRequestRef = useRef(0);
   const itemsRef = useRef(items);
   const custRef = useRef(cust);
@@ -688,6 +698,8 @@ export default function OrderImportPage() {
     setLogs(draft.logs || []);
     setFileName(draft.fileName || '');
     setSourceType(draft.sourceType || '');
+    setSheets(draft.sheets || []);
+    setSheetName(draft.sheetName || '');
     if (draft.week) { weekChosenRef.current = true; setWeek(draft.week); }
     if (draft.cust?.CustKey) { draftHasCustomerRef.current = true; setCust(draft.cust); }
     setRematchRevision(revision => revision + 1);
@@ -740,10 +752,12 @@ export default function OrderImportPage() {
         sourceType,
         week,
         cust,
+        sheets,
+        sheetName,
       });
     }, 350);
     return () => clearTimeout(timer);
-  }, [items, summary, logs, fileName, sourceType, week, cust]);
+  }, [items, summary, logs, fileName, sourceType, week, cust, sheets, sheetName]);
 
   useEffect(() => {
     apiGet('/api/orders/weeks').then((d) => {
@@ -893,8 +907,10 @@ export default function OrderImportPage() {
 
   const isDefaultCust = !!cust?.CustName && /라움/i.test(cust.CustName);
 
-  const uploadFile = useCallback(async (file) => {
+  const uploadFile = useCallback(async (file, wantedSheet = '') => {
     if (!file) return;
+    lastFileRef.current = file;
+    setPriceLog([]);
     ++rematchRequestRef.current;
     setRematchBusy(false);
     setRematchMessage('');
@@ -905,6 +921,7 @@ export default function OrderImportPage() {
     setRegisterLogs([]);
     const fd = new FormData();
     fd.append('file', file);
+    if (wantedSheet) fd.append('sheetName', wantedSheet);
     if (cust?.CustKey) fd.append('custKey', String(cust.CustKey));
     if (cust?.CustName) fd.append('custName', cust.CustName);
     const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1];
@@ -929,6 +946,10 @@ export default function OrderImportPage() {
       setSheetPreview(d.sheetPreview || null);
       setFileName(d.fileName || file.name);
       setSourceType(d.sourceType || '');
+      setSheets(d.sheets || []);
+      setSheetName(d.sheetName || '');
+      // 표에 단가가 있으면 기본값을 「주문등록 + 분배단가 적용」으로
+      if ((d.pricedCount || 0) > 0) setRegisterMode('orderPrice');
       const meta = d.metadata || {};
       if (meta.majorWeek) {
         const year = new Date().getFullYear();
@@ -1104,14 +1125,162 @@ export default function OrderImportPage() {
     }
   };
 
+  // ── 분배단가 적용 대상(세부차수별 ShipmentDetail) 조회 ─────────────
+  const weekYear = String(week || '').match(/^(\d{4})-/)?.[1] || '';
+  const parentWeek = parentWeekFromFullWeek(week);
+  const shortWeek = String(week || '').match(/^\d{4}-(\d{2}-\d{2})$/)?.[1] || '';
+  const priceTargetKey = cust?.CustKey && weekYear && parentWeek ? `${cust.CustKey}|${weekYear}|${parentWeek}` : '';
+
+  const loadPriceTargets = useCallback(async (force = false) => {
+    if (!priceTargetKey) {
+      setPriceTargets({ loading: false, subWeeks: [], error: '', key: '' });
+      return;
+    }
+    if (!force && priceTargets.key === priceTargetKey) return;
+    setPriceTargets(prev => ({ ...prev, loading: true, error: '' }));
+    try {
+      const d = await apiGet('/api/orders/import-price-targets', {
+        custKey: cust.CustKey,
+        orderYear: weekYear,
+        parentWeek,
+      });
+      if (!d.success) throw new Error(d.error || '조회 실패');
+      const subWeeks = d.subWeeks || [];
+      setPriceTargets({ loading: false, subWeeks, error: '', key: priceTargetKey });
+      // 기본 선택: 화면 차수와 같은 세부차수. 없으면 세부차수가 1개일 때만 자동 선택.
+      const exact = subWeeks.find(sw => sw.orderWeek === shortWeek);
+      if (exact) setSelectedSubWeeks([exact.orderWeek]);
+      else if (subWeeks.length === 1) setSelectedSubWeeks([subWeeks[0].orderWeek]);
+      else setSelectedSubWeeks([]);
+    } catch (e) {
+      setPriceTargets({ loading: false, subWeeks: [], error: e.message, key: priceTargetKey });
+      setSelectedSubWeeks([]);
+    }
+  }, [priceTargetKey, priceTargets.key, cust, weekYear, parentWeek, shortWeek]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    loadPriceTargets();
+  }, [items.length, loadPriceTargets]);
+
+  // 업로드 표 단가: 품목(prodKey)별 1개. 같은 품목에 다른 단가가 여러 행이면 conflict.
+  const priceByProd = useMemo(() => {
+    const map = new Map();
+    for (const it of items) {
+      if (it.skip || !it.prodKey) continue;
+      const p = Number(it.unitPrice);
+      if (!(p > 0)) continue;
+      const k = Number(it.prodKey);
+      const prev = map.get(k);
+      if (!prev) map.set(k, { price: p, name: it.displayName || it.prodName, inputName: it.inputName, conflict: false });
+      else if (prev.price !== p) prev.conflict = true;
+    }
+    return map;
+  }, [items]);
+
+  const pricePlan = useMemo(() => {
+    const subWeeks = priceTargets.subWeeks || [];
+    const changes = [];
+    const same = [];
+    const matchedProd = new Set();
+    for (const sw of subWeeks) {
+      if (!selectedSubWeeks.includes(sw.orderWeek)) continue;
+      for (const d of sw.details || []) {
+        const p = priceByProd.get(Number(d.prodKey));
+        if (!p) continue;
+        matchedProd.add(Number(d.prodKey));
+        const row = { ...d, orderWeek: sw.orderWeek, newCost: p.price, name: d.displayName || d.prodName, conflict: p.conflict };
+        if (Math.abs(Number(d.cost) - p.price) < 0.5) same.push(row);
+        else changes.push(row);
+      }
+    }
+    const noTarget = [...priceByProd.entries()]
+      .filter(([k]) => !matchedProd.has(k))
+      .map(([k, v]) => ({ prodKey: k, ...v }));
+
+    // 확정된 세부차수: update-cost 금액 전용 경로가 isFix 를 보존한 채 Cost/Amount/Vat 만 갱신하므로
+    // (docs/contracts/estimate-cost-update.json PRICE_ONLY_PRESERVE_CONFIRMATION) 확정해제/재확정은 하지 않는다.
+    const fixedWeeks = sortWeeksAsc(subWeeks
+      .filter(sw => selectedSubWeeks.includes(sw.orderWeek) && (sw.hasFixedDetail || sw.masterFixed))
+      .map(sw => sw.orderWeek));
+    const conflicts = [...priceByProd.values()].filter(v => v.conflict);
+    return { changes, same, noTarget, fixedWeeks, conflicts };
+  }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd]);
+
+  const toggleSubWeek = (wk) => {
+    setSelectedSubWeeks(prev => (prev.includes(wk) ? prev.filter(x => x !== wk) : sortWeeksAsc([...prev, wk])));
+  };
+
+  const applyPrices = async ({ skipConfirm = false } = {}) => {
+    if (!cust?.CustKey) { alert('거래처를 선택하세요.'); return null; }
+    if (!weekYear) { alert('차수를 2026-44-01 형식으로 선택하세요.'); return null; }
+    if (!selectedSubWeeks.length) { alert('분배단가를 적용할 세부차수를 선택하세요.'); return null; }
+    const { changes, fixedWeeks, conflicts } = pricePlan;
+    if (conflicts.length) {
+      alert(`같은 품목에 단가가 여러 개입니다. 표에서 단가를 하나로 맞춰 주세요:\n${conflicts.map(c => c.name).join(', ')}`);
+      return null;
+    }
+    if (!changes.length) {
+      setPriceLog(['변경할 분배단가가 없습니다 (이미 같은 단가이거나, 선택 세부차수에 해당 품목 분배가 없음)']);
+      return { success: true, changedCount: 0 };
+    }
+    if (!skipConfirm) {
+      const msg = `${cust.CustName} / ${selectedSubWeeks.join(', ')}\n분배단가 ${changes.length}건 변경`
+        + (fixedWeeks.length ? `\n\n🔒 확정차수 포함: ${fixedWeeks.join(', ')} — 확정 상태는 그대로 두고 단가·금액만 수정합니다.` : '')
+        + '\n\n진행할까요?';
+      if (!confirm(msg)) return null;
+    }
+
+    setPriceApplying(true);
+    setPriceLog([`시작 — ${changes.length}건 / 세부차수 ${selectedSubWeeks.join(', ')}`]);
+    const log = (m) => setPriceLog(prev => [...prev, m]);
+    const body = {
+      items: changes.map(c => ({
+        shipmentKey: c.shipmentKey,
+        sdetailKey: c.sdetailKey,
+        cost: c.newCost,
+        expectedOldCost: c.cost,
+      })),
+      mode: 'once',
+      orderYear: weekYear,
+      custKey: cust.CustKey,
+    };
+    try {
+      const d = await apiPost('/api/estimate/update-cost', body);
+      if (!d?.success) throw new Error(d?.error || '단가 저장 실패');
+      log(`✅ ${d.message || `${d.changedCount}건 반영`}`);
+      await loadPriceTargets(true);
+      return d;
+    } catch (e) {
+      log(`❌ ${e.message}`);
+      throw e;
+    } finally {
+      setPriceApplying(false);
+    }
+  };
+
   const handleRegister = async () => {
     if (!cust?.CustKey) { alert('거래처를 선택하세요.'); return; }
     if (!week) { alert('차수를 입력하세요.'); return; }
     const registerItems = mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0));
     if (!registerItems.length) { alert('등록할 매칭 품목이 없습니다. (수량 0·미매칭·제외 행 확인)'); return; }
 
+    const withPrice = registerMode === 'orderPrice';
+    if (withPrice && !selectedSubWeeks.length) {
+      alert('분배단가를 적용할 세부차수를 선택하세요. (주문등록만 하려면 「주문등록만」 선택)');
+      return;
+    }
+    if (withPrice && pricePlan.conflicts.length) {
+      alert(`같은 품목에 단가가 여러 개입니다. 표에서 단가를 하나로 맞춰 주세요:\n${pricePlan.conflicts.map(c => c.name).join(', ')}`);
+      return;
+    }
+    const priceLine = withPrice
+      ? `\n\n+ 분배단가 ${pricePlan.changes.length}건 변경 → 세부차수 ${selectedSubWeeks.join(', ')}`
+        + (pricePlan.fixedWeeks.length ? `\n  🔒 확정차수 ${pricePlan.fixedWeeks.join(', ')} 포함 — 확정 상태 유지, 단가·금액만 수정` : '')
+      : '';
+
     const weekQuery = resolveOrderWeekQuery(week);
-    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(week)}\n업로드 ${registerItems.length}개 품목을 이 차수의 최종 주문수량으로 적용하시겠습니까?\n\n파일 안의 같은 품목 행은 합산해 최종수량이 됩니다. 파일에 없는 기존 주문 품목은 삭제 대상이며, 이미 출고분배가 있으면 전체 적용이 중단됩니다.`)) return;
+    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(week)}\n업로드 ${registerItems.length}개 품목을 이 차수의 최종 주문수량으로 적용하시겠습니까?\n\n파일 안의 같은 품목 행은 합산해 최종수량이 됩니다. 파일에 없는 기존 주문 품목은 삭제 대상이며, 이미 출고분배가 있으면 전체 적용이 중단됩니다.${priceLine}`)) return;
 
     setRegistering(true);
     setResultMsg('');
@@ -1170,6 +1339,15 @@ export default function OrderImportPage() {
         }
       } catch (readError) {
         appendRegisterLog(`저장은 완료됐지만 DB 재조회에 실패했습니다 — ${readError.message || '조회 오류'}`, 'error');
+      }
+      if (withPrice) {
+        try {
+          appendRegisterLog(`분배단가 적용 시작 — 세부차수 ${selectedSubWeeks.join(', ')} · ${pricePlan.changes.length}건`);
+          const pr = await applyPrices({ skipConfirm: true });
+          appendRegisterLog(`분배단가 ${pr?.changedCount ?? 0}건 반영 완료 (${selectedSubWeeks.join(', ')})`, 'success');
+        } catch (priceError) {
+          appendRegisterLog(`분배단가 적용 실패 — ${priceError.message} (주문등록은 완료됨. 「분배단가만 적용」으로 재시도)`, 'error');
+        }
       }
       clearImportDraft();
     } catch (e) {
@@ -1560,6 +1738,197 @@ export default function OrderImportPage() {
         </div>
 
         {items.length > 0 && (
+          <div style={st.card}>
+            {sheets.filter(sh => sh.rowCount > 0).length > 1 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...st.label, marginBottom: 4 }}>
+                  시트 선택
+                  <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                    한 파일에 여러 시트 — 등록할 시트를 고르세요 (단가 열이 있는 시트가 기본)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {sheets.filter(sh => sh.rowCount > 0).map(sh => (
+                    <button
+                      key={sh.name}
+                      type="button"
+                      disabled={loading || !lastFileRef.current}
+                      onClick={() => uploadFile(lastFileRef.current, sh.name)}
+                      title={sh.title || sh.name}
+                      style={{
+                        padding: '5px 12px', borderRadius: 16, fontSize: 12, cursor: 'pointer',
+                        border: sheetName === sh.name ? '2px solid #1565c0' : '1px solid #cbd5e1',
+                        background: sheetName === sh.name ? '#1565c0' : '#fff',
+                        color: sheetName === sh.name ? '#fff' : '#334155',
+                        fontWeight: sheetName === sh.name ? 700 : 500,
+                      }}
+                    >
+                      {sh.name} · {sh.rowCount}건{sh.pricedCount ? ` · 단가 ${sh.pricedCount}` : ''}
+                    </button>
+                  ))}
+                </div>
+                {!lastFileRef.current && (
+                  <div style={{ fontSize: 11, color: '#b45309', marginTop: 4 }}>
+                    시트를 바꾸려면 파일을 다시 업로드하세요 (복원된 초안은 파일이 없음)
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: 14 }}>등록 방식</strong>
+              <span style={{ fontSize: 11, color: '#64748b' }}>
+                표의 단가 {priceByProd.size}품목 · 분배단가는 <b>ShipmentDetail 단가(Cost)</b>를 선택한 세부차수에만 반영
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              {[
+                { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음' },
+                { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정' },
+              ].map(opt => (
+                <label
+                  key={opt.v}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+                    border: registerMode === opt.v ? '2px solid #1565c0' : '1px solid #cbd5e1',
+                    background: registerMode === opt.v ? '#eff6ff' : '#fff',
+                  }}
+                >
+                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} onChange={() => setRegisterMode(opt.v)} />
+                  <span>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>{opt.hint}</div>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {registerMode === 'orderPrice' && (
+              <div style={{ border: '1px solid #c7d2fe', background: '#f5f7ff', borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span style={st.label}>세부차수</span>
+                  {priceTargets.loading && <span style={{ fontSize: 12, color: '#1565c0' }}>조회 중…</span>}
+                  {!priceTargets.loading && !priceTargetKey && (
+                    <span style={{ fontSize: 12, color: '#b45309' }}>거래처와 차수(2026-44-01 형식)를 먼저 선택하세요</span>
+                  )}
+                  {!priceTargets.loading && priceTargetKey && priceTargets.error && (
+                    <span style={{ fontSize: 12, color: '#b91c1c' }}>조회 실패: {priceTargets.error}</span>
+                  )}
+                  {!priceTargets.loading && priceTargetKey && !priceTargets.error && priceTargets.subWeeks.length === 0 && (
+                    <span style={{ fontSize: 12, color: '#b45309' }}>
+                      {cust?.CustName} {weekYear}년 {parentWeek}차 분배(출고) 레코드 없음 — 분배 후 다시 적용하세요
+                    </span>
+                  )}
+                  {priceTargets.subWeeks.map(sw => {
+                    const on = selectedSubWeeks.includes(sw.orderWeek);
+                    return (
+                      <button
+                        key={sw.orderWeek}
+                        type="button"
+                        onClick={() => toggleSubWeek(sw.orderWeek)}
+                        style={{
+                          padding: '6px 14px', borderRadius: 18, fontSize: 13, cursor: 'pointer',
+                          border: on ? '2px solid #1a237e' : '1px solid #c5cae9',
+                          background: on ? '#1a237e' : '#fff', color: on ? '#fff' : '#1a237e', fontWeight: on ? 700 : 500,
+                        }}
+                        title={`출고일 ${sw.shipmentDates.join(', ') || '-'} · 분배 ${sw.detailCount}건`}
+                      >
+                        {on ? '☑' : '☐'} {sw.orderWeek} · 분배 {sw.detailCount}건
+                        {sw.hasFixedDetail ? ' · 🔒확정' : sw.masterFixed ? ' · 🔒(마스터)' : ''}
+                      </button>
+                    );
+                  })}
+                  {priceTargetKey && (
+                    <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '4px 10px' }} onClick={() => loadPriceTargets(true)} disabled={priceTargets.loading}>
+                      ↻ 재조회
+                    </button>
+                  )}
+                </div>
+                {priceTargets.subWeeks.length > 1 && (
+                  <div style={{ fontSize: 11, color: '#475569', marginBottom: 8 }}>
+                    세부차수별 단가가 다를 수 있어 선택한 세부차수에만 적용됩니다. 여러 개를 함께 선택할 수 있습니다.
+                  </div>
+                )}
+
+                {selectedSubWeeks.length > 0 && (
+                  <>
+                    <div style={{ ...st.kpi, marginBottom: 6 }}>
+                      <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{pricePlan.changes.length}</b></div>
+                      <div style={st.kpiBox}>동일 <b>{pricePlan.same.length}</b></div>
+                      <div style={st.kpiBox}>분배없음 <b style={{ color: pricePlan.noTarget.length ? '#c2410c' : '#166534' }}>{pricePlan.noTarget.length}</b></div>
+                      {pricePlan.fixedWeeks.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fff7ed', borderColor: '#fdba74' }} title="확정 플래그(isFix)는 보존하고 Cost/Amount/Vat 만 갱신 (재고 재계산 없음)">
+                          🔒 확정차수 포함: {pricePlan.fixedWeeks.join(', ')} (확정 유지)
+                        </div>
+                      )}
+                      {pricePlan.conflicts.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fef2f2', borderColor: '#fca5a5', color: '#b91c1c' }}>
+                          단가 충돌: {pricePlan.conflicts.map(c => c.name).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    {pricePlan.changes.length > 0 && (
+                      <div style={{ overflowX: 'auto', marginBottom: 6 }}>
+                        <table style={st.table}>
+                          <thead>
+                            <tr>
+                              <th style={st.th}>세부차수</th>
+                              <th style={st.th}>품목</th>
+                              <th style={st.th}>출고수량</th>
+                              <th style={st.th}>현재 분배단가</th>
+                              <th style={st.th}>표 단가</th>
+                              <th style={st.th}>차이</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pricePlan.changes.map(c => (
+                              <tr key={c.sdetailKey}>
+                                <td style={st.td}>{c.orderWeek}{c.isFix ? ' 🔒' : ''}</td>
+                                <td style={st.td}><b>{c.name}</b> <span style={{ color: '#94a3b8', fontSize: 10 }}>#{c.sdetailKey}</span></td>
+                                <td style={st.td}>{c.outQty} {c.outUnit || ''}</td>
+                                <td style={st.td}>{Number(c.cost).toLocaleString()}</td>
+                                <td style={{ ...st.td, fontWeight: 700, color: '#1d4ed8' }}>{Number(c.newCost).toLocaleString()}</td>
+                                <td style={{ ...st.td, color: c.newCost - c.cost >= 0 ? '#166534' : '#b91c1c' }}>
+                                  {c.newCost - c.cost >= 0 ? '+' : ''}{(c.newCost - c.cost).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {pricePlan.noTarget.length > 0 && (
+                      <details style={{ fontSize: 11, color: '#9a3412', marginBottom: 6 }}>
+                        <summary>선택 세부차수에 분배가 없는 품목 {pricePlan.noTarget.length} (단가 미적용 — 분배 후 「분배단가만 적용」)</summary>
+                        <div style={{ marginTop: 4 }}>{pricePlan.noTarget.map(n => `${n.name} (${n.price.toLocaleString()})`).join(' · ')}</div>
+                      </details>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        style={{ ...st.btn, ...st.btnSecondary, opacity: priceApplying || !pricePlan.changes.length ? 0.6 : 1 }}
+                        disabled={priceApplying || !pricePlan.changes.length}
+                        onClick={() => applyPrices().catch(() => {})}
+                        title="주문등록 없이 선택 세부차수의 분배단가만 표 단가로 수정"
+                      >
+                        {priceApplying ? '적용 중…' : `분배단가만 적용 (${pricePlan.changes.length}건)`}
+                      </button>
+                      <span style={{ fontSize: 11, color: '#64748b' }}>
+                        「주문등록 시작」 버튼은 주문등록 후 이 단가 변경까지 함께 실행합니다.
+                      </span>
+                    </div>
+                  </>
+                )}
+                {priceLog.length > 0 && (
+                  <div style={{ marginTop: 8, padding: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, color: '#334155' }}>
+                    {priceLog.map((l, i) => <div key={i}>{l}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {items.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.65fr) minmax(420px, 0.75fr)', gap: 12, alignItems: 'start' }}>
             <ExcelSheetPreview
               preview={sheetPreview}
@@ -1601,7 +1970,11 @@ export default function OrderImportPage() {
                   onClick={handleRegister}
                   title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하거나 제외하세요' : (mixedUnitProducts.length ? '같은 품목에 서로 다른 단위가 매칭되었습니다' : (!liveSummary.registerable ? '등록할 품목이 없습니다' : ''))}
                 >
-                  {registering ? '주문등록 처리 중…' : `주문등록 시작 (${matchAggregates.length}품목)`}
+                  {registering
+                    ? '주문등록 처리 중…'
+                    : registerMode === 'orderPrice'
+                      ? `주문등록 + 분배단가 적용 (${matchAggregates.length}품목 / 단가 ${pricePlan.changes.length}건)`
+                      : `주문등록 시작 (${matchAggregates.length}품목)`}
                 </button>
               </div>
             </div>
@@ -1625,6 +1998,7 @@ export default function OrderImportPage() {
                     <th style={st.th}>입력 품목 / 품종·세부정보</th>
                     <th style={st.th}>수량</th>
                     <th style={st.th}>단위</th>
+                    <th style={st.th}>단가</th>
                     <th style={st.th}>매칭 품목</th>
                     <th style={st.th}>상태</th>
                     <th style={st.th}>
@@ -1690,6 +2064,21 @@ export default function OrderImportPage() {
                           {['박스', '단', '송이'].map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                         {row.unitSource && <span title={`${unitSourceLabel(row.unitSource)}${row.unitMatchType === 'fuzzy' ? ' (유사)' : ''}${row.rawUnit && row.rawUnit !== row.unit ? ` · 원본 ${row.rawUnit}` : ''}`} style={{ marginLeft: 3, fontSize: 9, color: '#0369a1' }}>ⓘ</span>}
+                      </td>
+                      <td style={{ ...st.td, padding: '2px 4px' }}>
+                        <input
+                          type="number"
+                          min={0}
+                          step={100}
+                          style={{ ...st.input, width: 84, height: 24, padding: '2px 5px', background: row.unitPrice > 0 ? '#fff' : '#f8fafc' }}
+                          value={row.unitPrice > 0 ? row.unitPrice : ''}
+                          placeholder="없음"
+                          title="표의 단가 (분배단가 적용에 사용, 수정 가능)"
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateItem(idx, { unitPrice: v === '' ? 0 : Math.max(0, Number(v) || 0) });
+                          }}
+                        />
                       </td>
                       <td style={{ ...st.td, padding: '2px 4px' }}>
                         <ProductMatchCell

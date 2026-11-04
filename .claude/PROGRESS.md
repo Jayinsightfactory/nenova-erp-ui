@@ -192,6 +192,27 @@
 
 ---
 
+## [2026-11-04] 세션 — 업로드 주문등록: 세부차수 선택 분배단가 적용 + 시트 선택
+
+### 작업 내용
+- `pages/api/orders/import-price-targets.js` (신규, 읽기 전용): 거래처+연도+대차수 → 세부차수별 ShipmentMaster/ShipmentDetail(SdetailKey, ProdKey, Cost, OutQuantity, isFix, ShipmentDtm).
+- `pages/orders/import.js`: 등록 방식 라디오(「주문등록만」/「주문등록 + 분배단가 적용」, 표에 단가 있으면 후자 기본), 세부차수 다중 선택(화면 차수와 같은 세부차수 기본 선택), 쓰기 전 전후 비교표(변경/동일/분배없음/단가충돌), 「분배단가만 적용」, 상세표 단가 열(수정 가능), 시트 선택 칩. 적용은 `/api/estimate/update-cost`(mode once, 금액 전용 경로: isFix 보존·Cost/Amount/Vat 만 갱신, 재고 SP 미호출 — `docs/contracts/estimate-cost-update.json` PRICE_ONLY_PRESERVE_CONFIRMATION) 경유. 확정해제/재확정 사이클 없음. 계약 manifest `docs/contracts/order-import-shipment-list.json` 에 scope/actions 등록.
+- `lib/orderImportParse.js`: 시트 지정(`sheetName`)·시트 목록(`sheets`, 단가 있는 시트 우선 선택), 수연형 블록 헤더(`카네이션 | 색상 | 총 수량 / 단`) 반복 인식(블록별 수량/단가 열·단위), `단가 / 단` 헤더 변형, `합 계`(띄어쓰기) 행 제외.
+- `lib/orderImportMatch.js`: 매칭 결과에 `unitPrice` 통과. `import-parse.js`: `sheetName` 수용, `sheets`/`pricedCount` 응답.
+- OrderDetail.UnitPrice 는 건드리지 않음. 단가 적용 대상은 ShipmentDetail.Cost 만.
+
+### 검증
+- `node __tests__/orderImportParse.test.js` 43/43 ✅ (출고내역서 단가/합계·수연형 블록 케이스 추가)
+- 카톡 파일 4개: 은성 29건/단가 29, 친구플라워 57건/단가 56, 서부꽃집 Sheet1 25건/단가 25(과거 물량표 시트 대신 자동 선택), 수연 다중시트 9개 파싱 → 화면에서 시트 선택
+- 이전 브랜치(agent/defect-cancel-preview) 기준 로컬 dev 서버에서 세부차수 조회(은성 44-01 ShipmentKey 7074 분배 30건 전부 확정)·비교표(11,500→12,000 변경 1건) 확인. master 포팅본은 빌드·CI 로 재검증. **DB 쓰기는 실행하지 않음**
+- `erpWriteScopeGuard` / `erpContractManifest`(225 pass) / `erpEditFixScopeAudit` ✅
+
+### 미결 이슈
+- 미매칭 품목(스프레이 카네이션, 중국 프라우드/안네슬리/로맨틱비치, 이구아나 등)은 화면에서 수동 매칭
+- 선택 세부차수에 분배가 없는 품목은 단가 미적용(분배 후 「분배단가만 적용」 재실행)
+
+---
+
 ## [2026-08-26] 후속 — 견적 수량 증가만 부족 검사·확정 유지 저장
 
 - 기존 출고일별 수량 수정에서 전체 확정취소를 제거하고 서버 잠금 기준으로 방향을 판정한다.

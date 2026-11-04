@@ -169,6 +169,7 @@ async function handler(req, res) {
   const file = Array.isArray(files.file) ? files.file[0] : files.file;
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
 
+  const wantedSheet = String(fieldVal(fields, 'sheetName') || '').trim();
   const rawOverrides = fieldVal(fields, 'productOverrides');
   const requestedCustKey = Number(fieldVal(fields, 'custKey') || 0);
   const requestedCustName = String(fieldVal(fields, 'custName') || '').trim();
@@ -182,6 +183,7 @@ async function handler(req, res) {
   let parsedMetadata = null;
   let parsedSheetName = null;
   let sheetPreview = null;
+  let sheets = [];
   let sourceType = 'excel';
 
   try {
@@ -200,8 +202,10 @@ async function handler(req, res) {
       });
       const parsed = parseOrderImportWorkbook(XLSX, workbook, {
         sourceName: file.originalFilename || 'upload.xlsx',
+        sheetName: wantedSheet || undefined,
       });
       parsedRows = parsed.rows;
+      sheets = parsed.sheets || [];
       parsedMetadata = parsed.metadata || null;
       parsedSheetName = parsed.sheetName || null;
       sheetPreview = parsed.sheetPreview || null;
@@ -215,6 +219,7 @@ async function handler(req, res) {
         success: false,
         error: logs.find(l => l.includes('헤더')) || '파싱된 품목이 없습니다. 품명·수량 열이 있는 시트인지 확인하세요.',
         logs,
+        sheets,
       });
     }
 
@@ -293,6 +298,8 @@ async function handler(req, res) {
       metadata: parsedMetadata,
       matchedCustomer,
       sheetPreview: sourceType === 'excel' ? sheetPreview : null,
+      sheets: sourceType === 'excel' ? sheets : [],
+      pricedCount: items.filter(it => Number(it.unitPrice) > 0).length,
       items,
       summary,
       logs,
