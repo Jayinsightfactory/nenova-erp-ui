@@ -98,7 +98,11 @@ import { SeatedCharacter, DeskDecor } from 'components/pm/Character';
 - 장면 사용: `<DeskDecor view="iso" cfg anchor={{x,y}} scale dir z />` (anchor = 상판 중심 px). 상판 중심은 장면 `frontMasks` 사각형 중심(`isoDeskTop`), 배율은 `PM_DESK_ISO_SCALE[테마] × 장면폭/1600`.
 - 재생성: `blender -b -P scripts/pm-char/build.py -- <raw-iso> "" iso` → `python scripts/pm-char/post_iso.py <raw-iso> <shots>` → `fit-report-iso.json` 복사.
 
-## 표정(lib/pmFaces, 렌더는 다음 Blender 일괄 작업)
+## 표정(lib/pmFaces)
+- 3D(2026-11-04 구현): `public/pm3d/face/<id>.webp` 12종(`scripts/pm3d/build_faces.py`) → char.glb 얼굴 데칼(재질 `face`) 텍스처 스왑. Scene3D 가 status→vibe→faceOf 로 연동.
+- 2D 레이어(public/pm-char/face/*)는 아직 pm-char Blender 일괄 렌더 대기.
+
+### (원래 계획 메모)
 - 12종: 기본 미소·활짝·집중·놀람·윙크·졸림·열정·뿌듯·수줍·울상·노래·생각. 눈·입만 바뀌고 머리 기준 공통 → 체형·피부·모자 정합 유지(post.py 얼굴 상자 검사).
 - 연동(우선순위): 춤=활짝 > 이모트(EMOTE_FACE) > 작업 분위기(몰입=열정, 집중/바쁨=집중, 휴식=미소, 꿀잠=졸림) > 직원이 고른 기본 표정 > 미소. 울상은 자동 연동에 쓰지 않는다.
 - 꾸미기 "몸·헤어·성격" 탭에서 기본 표정 선택(avatar.face, 무료). 레이어 없으면 smile 폴백이라 렌더 전에도 안전.

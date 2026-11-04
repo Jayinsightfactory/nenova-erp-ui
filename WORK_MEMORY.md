@@ -2046,3 +2046,13 @@
 
 2026-11-04 기술레이더 1호 채택(docling 전처리): 비-NL 패킹 PDF Claude 판독(parse-pdf)에 docling 후보표 주입. 서버(Cafe24)는 python 불가 → 파일 큐 브리지(data/runtime/import-team/docling) + owner PC 워커(radar-pilot venv, scripts/docling-bridge-worker.py) 폴링. 인증=ORBIT_DRIVE_INGEST_TOKEN 재사용, 새 DB 테이블 없음. PDF는 bbox/quote 증거 계약 때문에 유지하고 후보표를 시스템 프롬프트에 추가(산술 실패행만 재확인 지시). 산술검증은 유럽 소수점콤마(1,41)·표 과반 통과시만 플래그. 플래그 DOCLING_PREPROCESS=off 한 줄 차단, 캐시키 분리([docling-preprocess-v1]). 2주 비교 로그 metrics.jsonl + scripts/docling-metrics-report.mjs. 골든: 파일럿 6건 docling 출력으로 플래그율 Holex 1~3%·스캔 0 확인.
 검색어: docling 전처리 후보표 parse-pdf docling-bridge ORBIT_DRIVE_INGEST_TOKEN DOCLING_PREPROCESS metrics.jsonl bridge_worker
+
+## 2026-11-04 심야 — /pm 3D(베타) 밤샘 작업 3~7단계 (PR #1520)
+검색어: pm3d KayKit 리그 캐릭터 교체, 표정 데칼 face webp, 탈것 mounts.glb 주행 ridePath, 로봇 칩 겹침 declutter, 맵 1.5배 둘레 보드워크, 스킬 발사체 fx.glb
+- 3단계: 캐릭터를 KayKit Rig_Medium(CC0)로 교체 — `scripts/pm3d/build_char_kaykit.py`. 클레이 바디 리지드 바인딩, 재질 top/bottom/skin/hair·모자 hat_* 유지. 클립 idle/sit_type(타이핑 팔 베이크)/walk/doze/cheer/wave + Kevin Iglesias 춤 3종 리타게팅(dance·dance2·dance3, 원본 FBX 미커밋=재배포 금지). 함정: KayKit sit 클립은 180° 안 돌아 있음(돌리면 뒤통수). 얼굴이 "뒤돌아 보임"의 실제 원인=눈이 커진 머리 반지름 안에 묻힘.
+- 4단계: 표정 12종 `public/pm3d/face/<id>.webp`(`build_faces.py`, PIL) + char.glb 얼굴 데칼(재질 'face', 타원면 투영) + Scene3D faceOf 연동. 2D 레이어 렌더는 미착수.
+- 5단계: 칩 겹침 버그 = declutter 고정 추정폭(로봇 70px, 실제 170px). 실측 offsetWidth 로 교체, 회귀 테스트 추가.
+- 6단계: PM3D.THEMES.layout 데이터화(I=mapScale 1.5·ring), `lib/pm3dRide.js` 주행 경로(책상 틈→복도→스테이션, 81경로 충돌 0 테스트), Scene3D ride/park/크루징(출근 직후·휴식 추첨)·동시 3명·reduced 정지. 탈것 15종 glb+스프라이트+썸네일 `build_mounts.py`. 2D .bg-mount 이모지→스프라이트.
+- 7단계: 발사체 기본 9종 `fx.glb`+스프라이트 `build_fx.py`(소비자 연출은 후속).
+- 미완: 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것별 전용 탑승 클립(현재 idle/sit_type 대용), 목표달성 트리거 주행(3D에 이벤트 데이터 없음 — danceEvents 연결 필요).
+- 재현 도구: pages/pm3d-preview.js(임시, 커밋 금지) + puppeteer-core 캡처. kit 재생성 시 build_assets.py 가 char.glb 안 덮음(--legacy-char 게이트).

@@ -59,7 +59,9 @@
 
 자세(`mountPose`)
 - 3D: 자리→스테이션으로 이동할 때 걷기 대신 `ride`, 작업·대기 중에는 옆에 세워 두는 `park`, PC가 꺼져 있으면 `hidden`
-- 2D: 캐릭터 엉덩이 오른쪽 아래에 이모지 아이콘(`.bg-mount`)으로 표시합니다. 렌더 에셋이 오면 교체합니다.
+- 2D: 캐릭터 엉덩이 오른쪽 아래에 스프라이트(`public/pm/mounts/<id>.png`, 실패 시 이모지 폴백)로 표시합니다.
+- 3D 에셋(2026-11-04): `public/pm3d/mounts.glb`(모듈 `mount_<id>`, extras `seatZ`·`pose`) — `scripts/pm3d/build_mounts.py`. 썸네일 `public/pm/mounts/thumb/<id>.webp`(256px).
+- 3D 주행 경로: `lib/pm3dRide.js`(자리↔스테이션 폴리라인·둘레 링), 충돌 0 테스트 `__tests__/pm3dRide.test.js`. 동시 3명 상한·`prefers-reduced-motion` 정지.
 
 ## 3. 경제 (기존 규칙 재사용)
 
