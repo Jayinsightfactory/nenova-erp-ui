@@ -8,13 +8,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
 export const PM3D_THEMES = Object.keys(THEMES);
 const STAGE_HEX = PM3D.STAGE;
+const SEAT_Z = 0.62; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
 const CHAR_SCALE = 0.62; const SEAT_Y = 0.42 - 0.42 * CHAR_SCALE + 0.04; // 앉은 엉덩이(리그 0.42)를 의자 좌판(0.46)에 맞춤
 
 function webglOk() {
@@ -29,6 +30,16 @@ function loadAssets() {
   kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb')]).then(([kit, ch]) => ({ kit, ch, loadMs: Math.round(performance.now() - t0) }));
   kitP.catch(() => { kitP = null; });
   return kitP;
+}
+function laptop() {
+  const g = new THREE.Group();
+  const body = new THREE.MeshStandardMaterial({ color: U.laptop, roughness: 0.9 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), body); base.position.y = 0.01; base.castShadow = true; g.add(base);
+  const lid = new THREE.Group(); lid.position.set(0, 0.02, 0.12); lid.rotation.x = 0.35; // 화면 윗부분이 카메라 쪽으로 젖혀짐 g.add(lid);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.015), body); back.position.y = 0.1; back.castShadow = true; lid.add(back);
+  const scr = new THREE.MeshStandardMaterial({ color: U.screenOn, emissive: U.screenOn, emissiveIntensity: 0.6, roughness: 1 }); scr.name = 'screen';
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.17), scr); face.position.set(0, 0.1, -0.009); face.rotation.y = Math.PI; lid.add(face);
+  return g;
 }
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
@@ -54,7 +65,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     let dead = false; let raf = 0;
     const mountAt = performance.now();
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
@@ -70,7 +81,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       const w = el.clientWidth || 800; const h = el.clientHeight || 500; const a = w / h;
       const half = st.fit / st.zoom;
       cam.left = -half * a; cam.right = half * a; cam.top = half; cam.bottom = -half; cam.updateProjectionMatrix();
-      cam.position.set(30 + pan.x, 30, 30 + pan.z); cam.lookAt(pan.x, 0, pan.z);
+      cam.position.set(42.4 * CAM_DIR.x + pan.x, 30, 42.4 * CAM_DIR.z + pan.z); cam.lookAt(pan.x, 0, pan.z);
       renderer.setSize(w, h, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
     };
     const ro = new ResizeObserver(placeCam); ro.observe(el);
@@ -109,18 +120,19 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       });
       // 직원 자리
       for (const d of desks) {
-        const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.face > 0 ? 0 : Math.PI; scene.add(g);
+        const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
         const desk = mod('desk'); g.add(desk);
-        const mon = mod('monitor'); mon.position.set(0, 0.76, -0.12); g.add(mon);
-        const chair = mod('chair'); chair.position.set(0, 0, 0.62); chair.rotation.y = Math.PI; g.add(chair);
+        // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
+        const mon = laptop(); mon.position.set(0, 0.76, -0.05); g.add(mon);
+        const chair = mod('chair'); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
         if (!d.person) continue;
-        const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, 0.64); ch2.rotation.y = Math.PI;
+        const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
         ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
         g.add(ch2);
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
-        const emo = emojiSprite(' '); emo.position.set(0, 1.85, 0.64); emo.visible = false; g.add(emo);
-        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, 0.64), walk: null, stage: null, decor: [], d };
+        const emo = emojiSprite(' '); emo.position.set(0, 1.85, -SEAT_Z); emo.visible = false; g.add(emo);
+        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), walk: null, stage: null, decor: [], d };
         ch2.userData = { kind: 'person', name: d.person.name };
         st.clickables.push(ch2, desk);
         desk.userData = { kind: 'person', name: d.person.name };
@@ -150,13 +162,13 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
-        L.props.forEach((k, i) => { const o = kitMod(k); o.position.set(-0.42 + i * 0.84, 0.76, 0.05); o.scale.setScalar(k === 'plant' ? 0.35 : 1); P.g.add(o); P.decor.push(o); });
-        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.set(0.7, 0.14, 0.7); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
+        L.props.forEach((k, i) => { const o = kitMod(k); o.position.set(-0.42 + i * 0.84, 0.76, 0.12); o.scale.setScalar(k === 'plant' ? 0.35 : 1); P.g.add(o); P.decor.push(o); });
+        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.set(0.75, 0.14, 0.45); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
-        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, 1.85, 0.64); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, 1.85, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
         const stg = cur.get(name) || null;
         if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) P.walk = { t: 0, to: stg };
         P.stage = stg;
@@ -200,21 +212,33 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       }
     };
 
+    // 프레임 상한 24fps(활동 시)·8fps(변화 없음) · 탭 숨김/화면 밖이면 정지 · 폴백 측정 = 로드 후 3초 제외, 5초 평균
+    let visible = true; let lastAct = performance.now(); let lastDraw = 0;
+    const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { visible = !!e?.isIntersecting; }) : null;
+    io?.observe(el);
+    st.poke = () => { lastAct = performance.now(); };
     const tick = () => {
       if (dead) return;
       raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.1, st.clock.getDelta());
+      const now = performance.now();
+      if (!visible || document.hidden) { st.clock.getDelta(); return; }
+      const measuring = st.built && !st.checked;
+      const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk);
+      if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
+      lastDraw = now;
+      const dt = Math.min(0.2, st.clock.getDelta());
       const red = dataRef.current.reduced;
       if (st.built) {
         for (const P of st.people.values()) {
           if (P.walk) {
             P.walk.t += dt / 4;
-            const sp = stationPos(P.walk.to); const tgt = new THREE.Vector3(sp.x, 0.02, sp.z + 1.0); P.g.worldToLocal(tgt);
+            const sp = stationPos(P.walk.to); const tgt = new THREE.Vector3(sp.x + CAM_DIR.x * 1.1, 0.02, sp.z + CAM_DIR.z * 1.1); P.g.worldToLocal(tgt);
             const k = P.walk.t < 0.5 ? P.walk.t * 2 : (1 - P.walk.t) * 2;
             P.ch.position.lerpVectors(P.home, tgt, Math.min(1, k));
             const dir = P.walk.t < 0.5 ? tgt.clone().sub(P.home) : P.home.clone().sub(tgt);
-            P.ch.rotation.y = Math.atan2(dir.x, dir.z);
-            if (P.walk.t >= 1) { P.walk = null; P.ch.position.copy(P.home); P.ch.rotation.y = Math.PI; playClip(P, P.clip, P.speed); }
+            // 이동 중엔 진행 방향, 스테이션 도착 구간(k>0.85)엔 카메라 쪽으로 돌아섬
+            P.ch.rotation.y = k > 0.85 ? CAM_YAW - P.g.rotation.y : Math.atan2(dir.x, dir.z);
+            if (P.walk.t >= 1) { P.walk = null; P.ch.position.copy(P.home); P.ch.rotation.y = 0; playClip(P, P.clip, P.speed); }
           }
           if (!red) P.mixer.update(dt); else if (!P.frozen) { P.mixer.update(0.4); P.frozen = true; }
         }
@@ -227,14 +251,13 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       }
       renderer.render(scene, cam);
       // 저사양 판정
-      const now = performance.now();
-      if (st.built && st.firstFrame == null) { st.firstFrame = now - mountAt; st.fpsT0 = now; st.frames = 0; }
-      else if (st.built && !st.checked) {
+      if (st.built && st.firstFrame == null) { st.firstFrame = now - mountAt; st.fpsT0 = now + FPS_WARMUP_MS; st.frames = 0; }
+      else if (measuring && now >= st.fpsT0) {
         st.frames++;
-        if (now - st.fpsT0 > 3000) {
+        if (now - st.fpsT0 > FPS_WINDOW_MS) {
           st.checked = true; const fps = Math.round(st.frames * 1000 / (now - st.fpsT0));
           const why = shouldFallback({ firstFrameMs: st.firstFrame - st.loadMs, fps: red ? null : fps });
-          setStat((s) => `${s} · 첫 프레임 ${Math.round(st.firstFrame)}ms · ${fps}fps`);
+          setStat((x) => `${x} · 첫 프레임 ${Math.round(st.firstFrame)}ms · ${fps}fps`);
           if (typeof window !== 'undefined') window.__pm3dStat = { firstFrameMs: Math.round(st.firstFrame), loadMs: st.loadMs, fps };
           if (why) onFallback?.(why);
         }
@@ -244,7 +267,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     // 클릭(레이캐스트) · 드래그 이동(확대 시에만)
     const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
     let drag = null;
-    const onDown = (e) => { drag = { x: e.clientX, y: e.clientY, px: pan.x, pz: pan.z, moved: false }; };
+    const onDown = (e) => { st.poke?.(); drag = { x: e.clientX, y: e.clientY, px: pan.x, pz: pan.z, moved: false }; };
     const onMove = (e) => {
       if (!drag || st.zoom <= 1) return;
       const dx = e.clientX - drag.x; const dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
@@ -270,11 +293,11 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     loadAssets().then((a) => { if (dead) return; st.loadMs = a.loadMs; kitScene = a.kit.scene; build(a); }).catch(() => { if (!dead) onFallback?.('load-failed'); });
     placeCam(); tick();
     api.current = {
-      apply,
-      setZoom: (z) => { st.zoom = z; if (z <= 1) pan.set(0, 0, 0); placeCam(); },
+      apply: () => { st.poke?.(); apply(); },
+      setZoom: (z) => { st.poke?.(); st.zoom = z; if (z <= 1) pan.set(0, 0, 0); placeCam(); },
     };
     return () => {
-      dead = true; cancelAnimationFrame(raf); ro.disconnect();
+      dead = true; cancelAnimationFrame(raf); ro.disconnect(); io?.disconnect();
       cvs.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); cvs.removeEventListener('pointerup', onUp);
       scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       renderer.dispose(); cvs.remove(); api.current = null;

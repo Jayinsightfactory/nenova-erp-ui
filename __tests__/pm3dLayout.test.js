@@ -16,6 +16,9 @@ const { pathToFileURL } = require('url');
     assert.ok(Math.abs(a.x - b.x) >= 1.3 || Math.abs(a.z - b.z) >= 1.3, `책상 겹침 ${a.name}/${b.name}`);
   }
   for (const d of desks) assert.ok(Math.abs(d.z) >= 3, '책상이 스테이션 복도를 침범');
+  // 뒤통수 금지: 모든 좌석 방향 · 카메라 방향 내적 > 0.3
+  for (const d of desks) assert.ok(L.facingDot(d.yaw) > 0.3, `좌석이 카메라 반대쪽: ${d.name} dot=${L.facingDot(d.yaw).toFixed(2)}`);
+  for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.3);
   const xs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => L.stationPos(n).x);
   assert.ok(xs.every((x, i) => i === 0 || x > xs[i - 1]));
   const lk = L.look3d({ items: { outfit: 'outfit.aloha', hat: 'hat.straw', deskL: 'desk.mug', pet: 'pet.cat' }, skin: 1, hairColor: 2 }, '홍길동');
@@ -24,7 +27,9 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(L.animOf({ status: 'off' }).clip, 'doze');
   assert.strictEqual(L.animOf({ status: 'working' }).clip, 'sit_type');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 3500, fps: 60 }), 'slow-first-frame');
-  assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 12 }), 'low-fps');
+  assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 9 }), 'low-fps');
+  assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 12 }), '');
+  assert.deepStrictEqual([L.MIN_FPS, L.FPS_WARMUP_MS, L.FPS_WINDOW_MS, L.FPS_CAP, L.FPS_IDLE, L.MAX_DPR], [10, 3000, 5000, 24, 8, 1.5]);
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 55 }), '');
   const out = L.declutter([{ key: 'a', x: 100, y: 50, w: 60, h: 18 }, { key: 'b', x: 110, y: 55, w: 60, h: 18 }, { key: 'c', x: 400, y: 52, w: 60, h: 18 }]);
   const a = out.find((o) => o.key === 'a'); const b = out.find((o) => o.key === 'b');
@@ -43,5 +48,7 @@ const { pathToFileURL } = require('url');
   // 휠 확대 금지(사장님 지시)
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(!/['"]wheel['"]/.test(src), '3D 장면에 휠 핸들러 금지');
+  assert.ok(/MAX_DPR/.test(src) && /FPS_CAP/.test(src) && /IntersectionObserver/.test(src), '3D 프레임 상한·화면밖 정지');
+  assert.ok(!/d\.face/.test(src), '옛 좌석 방향(face) 사용 금지');
   console.log(`pm3dLayout OK (assets ${(total / 1024).toFixed(0)}KB)`);
 })().catch((e) => { console.error(e); process.exit(1); });
