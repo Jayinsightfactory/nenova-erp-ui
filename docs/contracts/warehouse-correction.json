@@ -10,6 +10,7 @@
     "pages/import/tools.js",
     "lib/incomingWorkspaceNavigation.js",
     "__tests__/incomingWorkspaceNavigation.test.mjs",
+    "__tests__/incomingQueryDateRange.test.js",
     "scripts/incoming-workspace-smoke.cjs",
     "__tests__/warehouseCorrection.test.mjs",
     "__tests__/warehouseCorrectionSql.test.mjs",

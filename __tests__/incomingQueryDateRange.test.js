@@ -38,16 +38,18 @@ const begin = page.indexOf(marker) + marker.length;
 const end = page.indexOf('  }, []);', begin);
 assert.ok(begin >= marker.length && end > begin, 'Find initial mount effect');
 const effect = page.slice(begin, end);
-const initialize = new Function('Date', 'window', 'localStorage', 'incomingQueryDateRange', 'setStartDate', 'setEndDate', 'setUploadMeta', 'setFarmFilter', 'setWeekFilter', 'setMasterSearch', 'setRecentFarms', 'urlApplied', effect);
+const initialize = new Function('Date', 'window', 'localStorage', 'incomingQueryDateRange', 'setStartDate', 'setEndDate', 'setUploadMeta', 'setFarmFilter', 'setWeekFilter', 'setMasterSearch', 'setRecentFarms', 'urlApplied', 'setPopup', 'linkedWarehouse', effect);
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
-for (const search of ['', '?from=2025-12-01&to=2026-01-31&farm=EXCEL&week=39-01&q=test', '?from=2025-01-01', '?to=2026-10-25']) {
-  const state = {}, applied = { current: false };
+for (const search of ['', '?from=2025-12-01&to=2026-01-31&farm=EXCEL&week=39-01&q=test', '?from=2025-01-01', '?to=2026-10-25', '?tab=incoming&popup=1&warehouseKey=7970&from=2025-10-01&to=2025-11-30']) {
+  const state = {}, applied = { current: false }, linked = {current:null};
   initialize(FixedDate, { location: { search } }, { getItem: () => '[]' }, incomingQueryDateRange,
     v => { state.startDate = v; }, v => { state.endDate = v; }, fn => { state.upload = fn({ farmName: 'KEEP' }); },
-    v => { state.farm = v; }, v => { state.week = v; }, v => { state.search = v; }, v => { state.recent = v; }, applied);
+    v => { state.farm = v; }, v => { state.week = v; }, v => { state.search = v; }, v => { state.recent = v; }, applied, v => {state.popup=v;}, linked);
   assert.deepEqual({ startDate: state.startDate, endDate: state.endDate }, range(now, search));
   assert.deepEqual(state.upload, { farmName: 'KEEP', inputDate: '2026-10-26' }, 'Preserve existing UTC upload default independently of KST query date');
   assert.equal(applied.current, true);
+  assert.equal(state.popup,new URLSearchParams(search).get('popup')==='1');
+  assert.equal(linked.current,search.includes('warehouseKey=7970')?7970:null);
   if (search.includes('farm=')) assert.deepEqual([state.farm, state.week, state.search], ['EXCEL', '39-01', 'test']);
 }
 assert.match(page, /apiGetExe\('\/api\/warehouse', \{ startDate, endDate \}\)/);
