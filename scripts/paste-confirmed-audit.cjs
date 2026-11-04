@@ -132,6 +132,11 @@ async function runAudit(options={}){
   const report={mode:options.runModels?'paired-model-replay':'inspect-only',readOnly:true,baselineCommit:BASELINE,candidateCommit:global.__auditCandidateSha||'working-tree',summary:data.summary,historicalSavedPredictions:aggregateScores(historical),excludedTruth};
   const diagnostic=makeReplayArm('improved',data,{calls:0,inputTokens:0,characters:0},{...options,sdkClient:{messages:{create:()=>{throw Error('DIAGNOSTIC_MODEL_FORBIDDEN');}}}});
   report.localCoverage=valid.map(c=>({id:c.id,...diagnostic.diagnose(c)}));
+  const dry=makeReplayArm('improved',data,{calls:0,inputTokens:0,characters:0},{...options,sdkClient:{messages:{create:async()=>({content:[{type:'text',text:'{"decisions":[]}'}],usage:{}})}}});
+  const eligibleIds=new Set(report.localCoverage.filter(c=>c.eligible&&c.compactRows===0).map(c=>c.id)),localScores=[];
+  for(const c of valid.filter(c=>eligibleIds.has(c.id))){const r=await dry.run(c);if(r.status===200&&r.result?.success)localScores.push(compareConfirmed(c.entries,r.result.orders,data.masters[1]));}
+  const local=aggregateScores(localScores),selectedGroups=localScores.reduce((n,s)=>n+s.predictedGroups-s.unresolved,0);
+  report.localOnlyShadow={externalModelCalls:0,eligibleSources:eligibleIds.size,scoredSources:localScores.length,selectedGroups,keyPrecision:selectedGroups?localScores.reduce((n,s)=>n+s.keyCorrect,0)/selectedGroups:null,fullyResolvedCases:localScores.filter(s=>s.unresolved===0).length,fullyCorrectCases:local.fullyCorrectCases,wrongKeyGroups:local.wrongKeyGroups};
   if(!options.runModels)return {...report,modelCalls:0};
   const budget={calls:0,inputTokens:0,characters:0,stopped:false},baseline=makeReplayArm('baseline',data,budget,options),improved=makeReplayArm('improved',data,budget,options),oldScores=[],newScores=[],oldPerf=[],newPerf=[],cases=[];
   // Fixed newest-first sample, selected before inspecting model correctness.
