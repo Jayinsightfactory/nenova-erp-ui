@@ -2039,3 +2039,10 @@
 
 웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
 검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm
+
+
+2026-11-04 기술레이더 1호 시험(docling vs 현재): 실서류 6건 로컬 비교 — Holex 3건은 기존 로컬파서 100%·9ms 우위 유지, docling은 행 96.7~100%·숫자 오독 0·스캔 OCR 23/24·한글 통관청구서 필드 9/9·$0·페이지당 ~15초(CPU). 결론=비-NL 서류 Claude 판독의 "전처리+산술 교차검증"으로 채택 제안(코드 적용은 승인 대기). MinerU는 CPU-only라 생략. 산출물 C:\Users\USER\nenova-pm\radar-pilot\REPORT.md, 레이더 pilotResult 업로드 200 ok(/pm/radar UI는 아직 pilotResult 미표기 — 표기 추가는 후속).
+검색어: docling MinerU radar-pilot pilotResult 인보이스 패킹리스트 OCR importInvoiceLocal
+
+2026-11-04 기술레이더 1호 채택(docling 전처리): 비-NL 패킹 PDF Claude 판독(parse-pdf)에 docling 후보표 주입. 서버(Cafe24)는 python 불가 → 파일 큐 브리지(data/runtime/import-team/docling) + owner PC 워커(radar-pilot venv, scripts/docling-bridge-worker.py) 폴링. 인증=ORBIT_DRIVE_INGEST_TOKEN 재사용, 새 DB 테이블 없음. PDF는 bbox/quote 증거 계약 때문에 유지하고 후보표를 시스템 프롬프트에 추가(산술 실패행만 재확인 지시). 산술검증은 유럽 소수점콤마(1,41)·표 과반 통과시만 플래그. 플래그 DOCLING_PREPROCESS=off 한 줄 차단, 캐시키 분리([docling-preprocess-v1]). 2주 비교 로그 metrics.jsonl + scripts/docling-metrics-report.mjs. 골든: 파일럿 6건 docling 출력으로 플래그율 Holex 1~3%·스캔 0 확인.
+검색어: docling 전처리 후보표 parse-pdf docling-bridge ORBIT_DRIVE_INGEST_TOKEN DOCLING_PREPROCESS metrics.jsonl bridge_worker
