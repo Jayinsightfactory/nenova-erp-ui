@@ -2,7 +2,7 @@
   "mode": "paired-model-replay",
   "readOnly": true,
   "baselineCommit": "2f191418",
-  "candidateCommit": "d234ad0d203c5712245239b23dc3448d7a266025",
+  "candidateCommit": "ec7e1fbce0e31ace9dd2f5e3c14bdb16c880bff9",
   "summary": {
     "logsScanned": 162,
     "fullyVerifiedCandidates": 71,
@@ -1289,30 +1289,30 @@
   "modelsLimitedTo": 8,
   "budgetStopped": false,
   "modelCalls": 30,
-  "allKnownInputTokens": 361224,
+  "allKnownInputTokens": 359970,
   "baseline": {
     "score": {
       "cases": 8,
       "expectedGroups": 30,
       "predictedGroups": 30,
-      "keyRecall": 1,
-      "quantityRecall": 1,
-      "precision": 1,
-      "fullyCorrectCases": 8,
-      "unresolvedRows": 0,
+      "keyRecall": 0.9,
+      "quantityRecall": 0.9,
+      "precision": 0.9,
+      "fullyCorrectCases": 6,
+      "unresolvedRows": 3,
       "wrongKeyGroups": 0
     },
     "performance": {
       "calls": 16,
       "usageResponses": 16,
       "failedCalls": 0,
-      "inputTokens": 192994,
-      "outputTokens": 5710,
+      "inputTokens": 193033,
+      "outputTokens": 5715,
       "cacheReadTokens": 0,
       "cacheCreationTokens": 0,
-      "medianMs": 10281,
-      "p95Ms": 20516,
-      "totalMs": 86470
+      "medianMs": 10176,
+      "p95Ms": 19178,
+      "totalMs": 86078
     }
   },
   "improved": {
@@ -1331,13 +1331,13 @@
       "calls": 14,
       "usageResponses": 14,
       "failedCalls": 0,
-      "inputTokens": 168230,
-      "outputTokens": 5008,
+      "inputTokens": 166937,
+      "outputTokens": 4913,
       "cacheReadTokens": 0,
       "cacheCreationTokens": 0,
-      "medianMs": 8568,
-      "p95Ms": 16936,
-      "totalMs": 73619
+      "medianMs": 9579,
+      "p95Ms": 17921,
+      "totalMs": 74342
     }
   },
   "cases": [
@@ -1373,11 +1373,11 @@
       "baseline": {
         "expectedGroups": 3,
         "predictedGroups": 3,
-        "keyCorrect": 3,
-        "quantityCorrect": 3,
-        "unresolved": 0,
+        "keyCorrect": 2,
+        "quantityCorrect": 2,
+        "unresolved": 1,
         "wrongKeyGroups": 0,
-        "complete": true
+        "complete": false
       },
       "improved": {
         "expectedGroups": 3,
@@ -1391,7 +1391,7 @@
       "baselineStatus": 200,
       "improvedStatus": 200,
       "localParse": true,
-      "regression": true
+      "regression": false
     },
     {
       "id": "16bc52360d60",
@@ -1503,11 +1503,11 @@
       "baseline": {
         "expectedGroups": 2,
         "predictedGroups": 2,
-        "keyCorrect": 2,
-        "quantityCorrect": 2,
-        "unresolved": 0,
+        "keyCorrect": 0,
+        "quantityCorrect": 0,
+        "unresolved": 2,
         "wrongKeyGroups": 0,
-        "complete": true
+        "complete": false
       },
       "improved": {
         "expectedGroups": 2,
