@@ -51,7 +51,7 @@ test('CL prefixes recognized and numeric subweek suffix exact ordering', () => {
 });
 test('registered basis describes stems bunches boxes, zero and missing factors without guessing', () => {
   const basis = buildCountryOrderUnitBasis({ OutUnit: '단', SteamOf1Bunch: '10', BunchOf1Box: 20, SteamOf1Box: 200 });
-  assert.deepEqual(basis, { outUnit: '단', unit: 'bunches', steamOf1Bunch: 10, bunchOf1Box: 20, steamOf1Box: 200 });
+  assert.deepEqual(basis, { outUnit: '단', unit: 'bunches', steamOf1Bunch: 10, bunchOf1Box: 20, steamOf1Box: 200, boxWeight: null, boxCBM: null, tariffRate: null });
   assert.equal(formatCountryOrderUnitBasis(basis), '1단 = 10송이');
   assert.equal(formatCountryOrderUnitBasis({ ...basis, unit: 'boxes' }), '1박스 기준 · 20단 · 200송이');
   for (const factor of [0, null]) {
@@ -142,4 +142,14 @@ test('manual entry is required only for customers whose stored export quantity i
   const fixed = applyCountryOrderManualQuantities(matrix, { [key]: { 1: '100' } });
   assert.equal(fixed.rows[0].quantities['1'], 100); assert.equal(fixed.rows[0].quantities['2'], 50); assert.equal(fixed.rows[0].total, 150);
   assert.match(fixed.warnings.at(-1), /CustKey:1 100\b/); assert.doesNotMatch(fixed.warnings.at(-1), /CustKey:2/);
+});
+
+test('product snapshot and factor suggestion derive only missing factors from entered stems and stored bunches/boxes', async () => {
+  const { buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } = await import('../lib/countryOrderSource.js');
+  const blockedRow = { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BoxQuantity: 2, BunchQuantity: 10, SteamQuantity: 0, SteamOf1Bunch: 0, BunchOf1Box: 5, SteamOf1Box: null, BoxWeight: 12.5, BoxCBM: null, TariffRate: 0.08 };
+  const matrix = buildCountryOrderMatrix(response([blockedRow]), '42-01'), target = matrix.rows[0];
+  assert.deepEqual(buildCountryOrderProductSnapshot(target.unitBasis), { BunchOf1Box: 5, SteamOf1Bunch: 0, BoxWeight: 12.5, BoxCBM: null, TariffRate: 0.08, SteamOf1Box: null });
+  assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '100' }), { SteamOf1Bunch: 10, SteamOf1Box: 50 });
+  assert.deepEqual(suggestCountryOrderProductFactors(target, {}), {});
+  assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '0' }), {});
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
-import { buildCountryOrderMatrix, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../../lib/countryOrderSource';
+import { buildCountryOrderMatrix, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities, buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } from '../../lib/countryOrderSource';
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
@@ -25,6 +25,9 @@ export default function PedidosTool({ active = true }) {
   const [error, setError] = useState('');
   const [downloaded, setDownloaded] = useState('');
   const [manual, setManual] = useState({}); // { rowKey: { custKey: '150' } } — web-only quantities for blocked products
+  // "품목관리에 변경하시겠습니까?" dialog: per blocked row, editable Product factors (1단송이 / 1박스단수 / 1박스송이) saved via /api/master/products-bulk.
+  const [productDialog, setProductDialog] = useState(null); // { items: [{ row, snapshot, suggestion, drafts }], saving, error }
+  const [productSaved, setProductSaved] = useState('');
 
   function clearResults() {
     contextGeneration.current += 1;
@@ -53,7 +56,7 @@ export default function PedidosTool({ active = true }) {
   }
 
   useEffect(() => {
-    clearResults(); setResponse(null); setOrderWeek(''); setManual({});
+    clearResults(); setResponse(null); setOrderWeek(''); setManual({}); setProductDialog(null); setProductSaved('');
     if (!active || sourceMode !== 'erp') { requestGuard.current.invalidate(); setLoading(false); return; }
     const selected = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
     const scopeKey = country && selected ? `${country}/${selected.key}` : null;
@@ -101,6 +104,54 @@ export default function PedidosTool({ active = true }) {
   const canGenerate = canExport && (matrix.blockers.length === 0 || Boolean(manualState.matrix));
   // Blocked products never get a converted quantity; the rest of the order can still be downloaded without them.
   const canGeneratePartial = canExport && matrix.blockers.length > 0 && blockedRowCount > 0 && blockedRowCount < matrix.rows.length;
+
+  const PRODUCT_FACTOR_FIELDS = [['SteamOf1Bunch', '1단송이', 'steamOf1Bunch'], ['BunchOf1Box', '1박스단수', 'bunchOf1Box'], ['SteamOf1Box', '1박스송이', 'steamOf1Box']];
+  function requestGenerate() {
+    if (!canGenerate) return;
+    if (matrix.blockers.length === 0) { convertMatrix(false); return; }
+    // Entered quantities exist: ask whether to store the product's conversion factors so the next order is not blocked again.
+    const items = matrix.rows.filter(row => row.blocked).map(row => {
+      const suggestion = suggestCountryOrderProductFactors(row, manual[row.key] ?? {});
+      const drafts = Object.fromEntries(PRODUCT_FACTOR_FIELDS.map(([key, , basisKey]) => [key, suggestion[key] != null ? String(suggestion[key]) : row.unitBasis?.[basisKey] != null ? String(row.unitBasis[basisKey]) : '']));
+      return { row, snapshot: buildCountryOrderProductSnapshot(row.unitBasis), suggestion, drafts };
+    });
+    setProductDialog({ items, saving: false, error: '' });
+  }
+  function productChanges(dialog) {
+    const changes = [];
+    for (const item of dialog.items) {
+      const values = {};
+      for (const [key, label] of PRODUCT_FACTOR_FIELDS) {
+        const text = String(item.drafts[key] ?? '').trim();
+        if (text === '') continue;
+        if (!/^\d+(\.\d{1,3})?$/.test(text)) throw new Error(`${item.row.label ?? item.row.name}: ${label}은 0 이상 숫자(소수 3자리까지)로 입력하세요.`);
+        const value = Number(text);
+        if (value !== (item.snapshot[key] ?? null)) values[key] = value;
+      }
+      if (Object.keys(values).length) changes.push({ prodKey: item.row.prodKey, expected: item.snapshot, values });
+    }
+    return changes;
+  }
+  async function saveProductFactorsAndGenerate() {
+    if (!productDialog || productDialog.saving) return;
+    let changes;
+    try { changes = productChanges(productDialog); } catch (err) { setProductDialog({ ...productDialog, error: err.message }); return; }
+    if (!changes.length) { setProductDialog({ ...productDialog, error: '변경된 환산 기준이 없습니다. 값을 입력하거나 [저장 없이 생성]을 누르세요.' }); return; }
+    setProductDialog({ ...productDialog, saving: true, error: '' });
+    try {
+      const result = await fetch('/api/master/products-bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ changes }) });
+      const body = await result.json();
+      if (!result.ok || !body.success) throw new Error(body.error || '품목관리 저장에 실패했습니다.');
+      const labelOf = key => PRODUCT_FACTOR_FIELDS.find(field => field[0] === key)?.[1] ?? key;
+      const summary = (body.saved ?? []).map(item => {
+        const changed = changes.find(change => change.prodKey === item.prodKey)?.values ?? {};
+        return `${item.prodName} [ProdKey:${item.prodKey}] ${Object.keys(changed).map(key => `${labelOf(key)} ${item.before?.[key] ?? '미등록'}→${item.after?.[key]}`).join(', ')}`;
+      }).join(' / ');
+      setProductSaved(`품목관리 저장 완료 · ${summary}. 다음 주문 입력·조회부터 반영됩니다. 이번 차수의 전산 원주문 수량은 바뀌지 않았으니 전산에서 수정하세요.`);
+      setProductDialog(null);
+      convertMatrix(false);
+    } catch (err) { setProductDialog({ ...productDialog, saving: false, error: `${err.message} 품목관리는 저장되지 않았습니다.` }); }
+  }
 
   function convertMatrix(excludeBlocked = false) {
     clearResults();
@@ -159,7 +210,7 @@ export default function PedidosTool({ active = true }) {
       <label className="pedidos-country">국가<select value={country} disabled={!cycles.length} onChange={event => changeCountry(event.target.value)}><option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{importCountryLabel(value)}</option>)}</select></label>
       <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div>
       <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{response?.subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => { setManual({}); invalidate(setOrderWeek, subweek.orderWeek); }}>{subweek.orderWeek}차</button>)}</div>
-      <div className="pedidos-auto-actions"><button type="button" disabled={!canGenerate} onClick={() => convertMatrix(false)}>미리보기 생성</button>{matrix && matrix.blockers.length > 0 && <button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button>}<button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button><span>{loading ? '전산 원주문 조회 중…' : response && !response.subweeks.length ? '선택 범위에 주문 없음' : !country ? '국가를 선택하면 자동으로 조회합니다.' : '세부차수의 원수량을 확인한 뒤 생성하세요.'}</span></div>
+      <div className="pedidos-auto-actions"><button type="button" disabled={!canGenerate} onClick={requestGenerate}>미리보기 생성</button>{matrix && matrix.blockers.length > 0 && <button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button>}<button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button><span>{loading ? '전산 원주문 조회 중…' : response && !response.subweeks.length ? '선택 범위에 주문 없음' : !country ? '국가를 선택하면 자동으로 조회합니다.' : '세부차수의 원수량을 확인한 뒤 생성하세요.'}</span></div>
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 수량을 환산하지 않은 원주문입니다.</p>
@@ -199,6 +250,23 @@ export default function PedidosTool({ active = true }) {
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{error}</p>}
     {downloaded && <p role="status">{downloaded}</p>}
+    {productSaved && <p role="status" className="pedidos-product-saved">{productSaved}</p>}
+    {productDialog && <div className="pedidos-backdrop"><section role="dialog" aria-modal="true" aria-label="품목관리에 변경하시겠습니까?" className="pedidos-dialog">
+      <h3>품목관리에 변경하시겠습니까?</h3>
+      <p>입력한 수량으로 계산한 환산 기준입니다. 저장하면 전산·웹 품목관리(Product)에 반영되어 다음 주문부터 송이 수량이 자동 계산됩니다. 이미 저장된 이번 주문 수량은 바뀌지 않습니다.</p>
+      {productDialog.items.map(item => <div key={item.row.key} className="pedidos-dialog-item">
+        <strong>{item.row.label ?? item.row.name} <small>[ProdKey:{item.row.prodKey}] · 현재 {formatCountryOrderUnitBasis(item.row.unitBasis)}</small></strong>
+        <div className="pedidos-dialog-fields">{PRODUCT_FACTOR_FIELDS.map(([key, label]) => <label key={key}>{label}{item.suggestion[key] != null && <em> 제안 {item.suggestion[key]}</em>}
+          <input type="number" min="0" step="0.001" value={item.drafts[key]} disabled={productDialog.saving} onChange={event => setProductDialog(current => ({ ...current, error: '', items: current.items.map(entry => entry === item ? { ...entry, drafts: { ...entry.drafts, [key]: event.target.value } } : entry) }))} />
+        </label>)}</div>
+      </div>)}
+      {productDialog.error && <p role="alert" className="pedidos-error">{productDialog.error}</p>}
+      <div className="pedidos-dialog-actions">
+        <button type="button" disabled={productDialog.saving} onClick={saveProductFactorsAndGenerate}>{productDialog.saving ? '저장 중…' : '품목관리에 저장 후 생성'}</button>
+        <button type="button" className="pedidos-secondary" disabled={productDialog.saving} onClick={() => { setProductDialog(null); convertMatrix(false); }}>저장 없이 생성</button>
+        <button type="button" className="pedidos-secondary" disabled={productDialog.saving} onClick={() => setProductDialog(null)}>취소</button>
+      </div>
+    </section></div>}
     {results !== null && <div aria-live="polite">
       <h3>2. 변환 결과 · 파일 {results.length}개</h3>
       <p>{importCountryLabel(context.country)} · {context.year}년 · {context.week}차 · {context.sourceName}</p>
@@ -235,6 +303,16 @@ export default function PedidosTool({ active = true }) {
       .pedidos-matrix td { text-align:right; }
       .pedidos-matrix .pedidos-unit-basis, .pedidos-matrix .pedidos-stored-quantities { min-width:180px; max-width:280px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
       .pedidos-partial { background:#b45309; }
+      .pedidos-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
+      .pedidos-dialog { background:white; border-radius:12px; padding:20px 22px; width:min(720px, 100%); max-height:calc(100vh - 40px); overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+      .pedidos-dialog h3 { margin:0 0 8px; font-size:18px; } .pedidos-dialog > p { color:#54657d; margin:0 0 12px; }
+      .pedidos-dialog-item { border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+      .pedidos-dialog-item small { font-weight:400; color:#54657d; }
+      .pedidos-dialog-fields { display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
+      .pedidos-dialog-fields label { display:flex; flex-direction:column; gap:4px; font-size:13px; } .pedidos-dialog-fields em { color:#b45309; font-style:normal; font-size:12px; }
+      .pedidos-dialog-fields input { width:120px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font:inherit; }
+      .pedidos-dialog-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+      .pedidos-product-saved { background:#ecfdf3; border:1px solid #86efac; border-radius:8px; padding:10px 12px; }
       .pedidos-manual-input { width:96px; padding:6px 8px; border:2px solid #b45309; border-radius:6px; font:inherit; text-align:right; background:white; }
       .pedidos-manual-state { margin:6px 0 0; font-weight:600; }
       .pedidos-row-blocked th, .pedidos-row-blocked td { background:#fff4e5; }
