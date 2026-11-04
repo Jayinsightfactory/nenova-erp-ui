@@ -1,5 +1,11 @@
 # 작업 기록
 
+## 2026-11-04 PM 자동업무: 기술 레이더 "바로 시험" 자동 파일럿(+시험함 배지)
+- owner PC nenova-pm/pm-radar-pilot.js 신설(pm.js 루프에서 호출, 백업 pm.js.bak-1104c): 최신 회차 action='바로 시험'&pilotResult 없음 → 대장(ledger) 등록 → 조사관(claude -p)이 radar-pilot/<slug>/ 전용 폴더에서 로컬 설치·실데이터 시험 → REPORT.md+PILOT_RESULT JSON → tech-radar.json pilotResult{score,summary,reportPath,testedAt} 반영 → radar.js --upload-only 재업로드. 채택은 자동 아님: 대장 needs-approval 승인 대기.
+- 코드 관문: 전용 폴더·디스크 10GB·회차당 2건·시도 5회·동시 1개(pm/staff 조사관 포함)·quota-hold/pm-mode·공격성 저장소 차단·external 표시(수동 파일럿 MinerU/docling) 건너뜀. 감시: watchdog.js radar-pilot-stale(7일+ 미완). 드라이런 검증: 후보 9건 선발·대장 등록·프롬프트 생성 OK(pm.log 기록).
+- 이 PR(#1514): /pm/radar 카드에 pilotResult 있으면 🧪 시험함 배지+상세 수치(var(--pm-ok-*) 토큰만, 데이터 없으면 렌더 변화 0).
+- 검색어: radar-pilot pilotResult 시험함 바로시험 파일럿 needs-approval radar-pilot-stale pm-radar-pilot
+
 ## 2026-11-04 /pm SOFT CLAY 디자인 시스템 토큰 반영(+기준 문서)
 - PR #1503: radar 칩 한 덩어리 분리(이모지 아이콘·이름·★·점수 N/10 별 요소), 배지 전부 UI 키트 Badge(.radar 스코프 재정의, 전역 .badge 불변). PR #1506: design-system.png 실측 → 테마 B 토큰 교체(민트 A0E0C5·크림 FFFDF5/FFF8E7·코랄 FF9E8B·노랑 FFE085·라벤더 D5C2F1·비활성 E0E0E5), 키트 버튼 호버/눌림/비활성 상태(accentHover/Down·errHover/Down·disBg/Ink, 타테마 color-mix 파생), radar 링크 클레이 밑줄(호버 코랄).
 - 기준 고정: docs/pm-design-standard.md(유일 기준·생성이미지 금지·/pm 전용 범위) + public/pm/design/ 축소 사본 2장. 범위 검증=globals.css 무변경+선택자 전부 .pm/.radar 접두+pm* 테스트 20종 통과.
