@@ -48,6 +48,8 @@ try {
   const api = (await store.listEvents({ kind: 'api' })).items;
   assert.equal(api.length, 3); assert.equal(api.filter(r => r.outcome === 'failure').length, 2);
   assert.ok(api.every(r => r.recordedBy === 'server' && r.path === '/api/test'));
+  assert.equal(api.filter(r => r.stage === 'disconnected').length, 1);
+  assert.ok(api.every(r => r.startedAt && r.requestId));
   const first = await store.listEvents({ limit: 2 }); const second = await store.listEvents({ limit: 2, cursor: first.nextCursor });
   assert.equal(new Set([...first.items, ...second.items].map(r => r.id)).size, 4);
   const res = new EventEmitter(); res.statusCode = 200;
@@ -64,6 +66,14 @@ try {
   assert.equal((await store.listEvents({ hour: (new Date().getUTCHours() + 9) % 24 })).items.length, 5);
   await assert.rejects(() => store.listEvents({ hour: '24' }), /INVALID_HOUR/);
   const midnightId = randomUUID();
+  const workflowId = randomUUID(), requestId = randomUUID();
+  store.appendEvents(user, [{id: randomUUID(), kind: 'request', path: '/api/test', workflowId, requestId, sequence: 2, evidence: {committedCount: 999}, stage: 'response'}], 'web', {now: new Date('2025-12-30T00:00:00Z')});
+  store.appendEvents(user, [{id: randomUUID(), kind: 'api', path: '/api/test', workflowId, requestId, sequence: 2, evidence: {committedCount: 0, verifiedCount: 0, auditBatchKey: 42, password: 'SECRET', error: 'SECRET'}}], 'web', {recordedBy: 'server', now: new Date('2025-12-30T00:00:01Z')});
+  const pipeline = (await store.listEvents({date:'2025-12-30', workflowId, requestId})).items;
+  assert.equal(pipeline.length, 2);
+  assert.deepEqual(pipeline[0].evidence, {auditBatchKey:42,committedCount:0,verifiedCount:0});
+  assert.equal(pipeline[1].evidence, undefined); assert.equal(pipeline[1].stage, undefined);
+  assert.equal((await store.listEvents({date:'2025-12-30', workflowId:randomUUID()})).items.length, 0);
   store.appendEvents(user, [{ id: midnightId, kind: 'click', path: '/midnight' }], 'web', { now: new Date('2026-10-13T14:59:00Z') });
   assert.equal(store.appendEvents(user, [{ id: midnightId, kind: 'click', path: '/midnight' }], 'web', { now: new Date('2026-10-14T15:01:00Z') }).written, 0);
   assert.equal((await store.listEvents({ date: '2026-10-13', hour: 23, path: '/midnight' })).items.length, 1);
