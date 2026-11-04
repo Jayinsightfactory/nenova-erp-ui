@@ -18,6 +18,7 @@ import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 import { staffOfUser } from '../lib/pmAccount';
 import { PM_ROSTER } from '../lib/pmRoster';
+import StaffRequests, { StaffRequestsButton } from '../components/pm/StaffRequests';
 
 export async function getServerSideProps({ req, res, resolvedUrl }) {
   const user = await verifyReqUser(req, res);
@@ -677,6 +678,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const onTip = useCallback((l, toggle) => setTip((cur) => (toggle && cur && cur.name === l.name && cur.stage === l.stage ? null : l)), []);
   const [reduced, setReduced] = useState(false);
   const pmTheme = usePmThemeState(myStaff || '');
+  const [reqOpen, setReqOpen] = useState(false);
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
   const [view, setView] = useState('scene');
@@ -758,9 +760,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         <span className={`badge ${mode}`}>{mode === 'live' ? '실행' : '그림자'}</span>
         <span className={`badge age ${stale ? 'warn' : ''}`}>데이터 {fmtAge(ageSec)} 전{stale ? ' · 갱신 끊김?' : ''}</span>
         <span className="badge plain">작업중 {working}</span>
+        <StaffRequestsButton onClick={() => setReqOpen(true)} />
         <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
+      <StaffRequests open={reqOpen} onClose={() => setReqOpen(false)} />
       <GardenStrip />
       {ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
