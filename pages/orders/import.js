@@ -26,6 +26,7 @@ import {
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { sortWeeksAsc } from '../../lib/fixCycleClient';
+import { collapseEmptySheetRows, lookupCurrentCost, isPriceChanged } from '../../lib/orderImportSheetView';
 import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/orderImportFailure';
 import { withOrderImportDeadline } from '../../lib/orderImportDeadline';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
@@ -138,7 +139,10 @@ function ExcelSheetPreview({
   onPickProduct,
   onClearProduct,
   onPersistMapping,
+  subWeeks,
+  selectedSubWeeks,
 }) {
+  const [openGaps, setOpenGaps] = useState(() => new Set());
   if (!preview?.rows?.length) {
     return (
       <div style={{ ...st.card, marginBottom: 0, minHeight: 220 }}>
@@ -150,11 +154,22 @@ function ExcelSheetPreview({
     );
   }
   const inlineByRow = new Map((inlineRows || []).map(row => [Number(row.rowNo), row.matches || []]));
+  const subWeekLabel = (selectedSubWeeks || []).join(', ');
+  const segments = collapseEmptySheetRows(
+    preview.rows,
+    [preview.headerRow, ...inlineByRow.keys()],
+  );
+  const hiddenEmptyCount = segments.reduce((n, seg) => n + (seg.type === 'gap' ? seg.rowNos.length : 0), 0);
+  const toggleGap = (firstRowNo) => setOpenGaps(prev => {
+    const next = new Set(prev);
+    if (next.has(firstRowNo)) next.delete(firstRowNo); else next.add(firstRowNo);
+    return next;
+  });
   const matchInsertIndex = findOrderImportMatchInsertIndex(preview);
   const matchCell = {
     minWidth: 150,
     maxWidth: 260,
-    padding: '2px 4px',
+    padding: '1px 4px',
     borderRight: '1px solid #bfdbfe',
     borderBottom: '1px solid #cbd5e1',
     background: '#f8fbff',
@@ -181,13 +196,24 @@ function ExcelSheetPreview({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <strong>원본 Excel 시트 + 행별 ERP 매칭</strong>
         <span style={{ fontSize: 11, color: '#64748b' }}>
-          {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열
+          {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열{hiddenEmptyCount > 0 ? ` · 빈 행 ${hiddenEmptyCount}개 접음` : ''}
         </span>
       </div>
       <div style={{ overflowX: 'auto', overflowY: 'visible', border: '1px solid #cbd5e1', borderRadius: 6 }}>
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', fontSize: 11 }}>
           <tbody>
-            {preview.rows.map((row) => {
+            {segments.flatMap((seg) => seg.type === 'gap' ? (
+              openGaps.has(seg.rowNos[0])
+                ? [<tr key={`gap-${seg.rowNos[0]}`}><td colSpan={(preview.columnCount || 0) + 8} style={{ padding: '1px 8px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', fontSize: 10 }}>
+                    <button type="button" onClick={() => toggleGap(seg.rowNos[0])} style={{ ...st.clearBtn }}>▲ 빈 행 {seg.rowNos.length}개 접기 ({seg.rowNos[0]}~{seg.rowNos[seg.rowNos.length - 1]}행)</button>
+                  </td></tr>,
+                  ...preview.rows.filter(r => seg.rowNos.includes(r.rowNo)).map(r => <tr key={`empty-${r.rowNo}`}><th style={{ position: 'sticky', left: 0, minWidth: 36, padding: '0 4px', background: '#f8fafc', color: '#94a3b8', textAlign: 'right', fontSize: 10, borderBottom: '1px solid #f1f5f9' }}>{r.rowNo}</th><td colSpan={(preview.columnCount || 0) + 7} style={{ height: 14, borderBottom: '1px solid #f1f5f9' }} /></tr>)]
+                : [<tr key={`gap-${seg.rowNos[0]}`}><td colSpan={(preview.columnCount || 0) + 8} style={{ padding: 0, background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    <button type="button" onClick={() => toggleGap(seg.rowNos[0])} title="클릭하면 빈 행을 펼칩니다" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '1px 8px', border: 'none', background: 'transparent', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>
+                      … 빈 행 {seg.rowNos.length}개 숨김 ({seg.rowNos[0]}{seg.rowNos.length > 1 ? `~${seg.rowNos[seg.rowNos.length - 1]}` : ''}행) · 클릭하면 펼침
+                    </button>
+                  </td></tr>]
+            ) : [seg.row].map((row) => {
               const isHeader = Number(row.rowNo) === Number(preview.headerRow);
               const rowMatches = inlineByRow.get(Number(row.rowNo)) || [];
               const isMatched = rowMatches.some(entry => !entry.item.skip && entry.item.prodKey);
@@ -215,6 +241,8 @@ function ExcelSheetPreview({
                       <th style={{ ...matchHead, borderLeft: '3px solid #2563eb', minWidth: 330, width: 330 }}>ERP 매칭 품목</th>
                       <th style={{ ...matchHead, minWidth: 126 }}>최종수량</th>
                       <th style={{ ...matchHead, minWidth: 82 }}>단위</th>
+                      <th style={{ ...matchHead, minWidth: 96 }} title="선택한 세부차수의 현재 분배단가(ShipmentDetail Cost)">현재 분배단가{subWeekLabel ? ` (${subWeekLabel})` : ''}</th>
+                      <th style={{ ...matchHead, minWidth: 96 }} title="업로드 표의 단가. 아래 상세 편집표의 단가와 같은 값입니다">수정 단가</th>
                       <th style={{ ...matchHead, minWidth: 112 }}>상태 · 수정</th>
                     </>
                   ) : (
@@ -269,6 +297,36 @@ function ExcelSheetPreview({
                           </select>
                         ) : <div key={entry.itemIndex}>{entry.item.unit}</div>)}
                       </td>
+                      <td style={{ ...matchCell, minWidth: 96, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {rowMatches.map((entry) => {
+                          if (!entry.isPrimary) return <div key={entry.itemIndex} />;
+                          const cur = lookupCurrentCost(subWeeks, selectedSubWeeks, entry.item.prodKey);
+                          if (cur.status === 'none') return <div key={entry.itemIndex} style={{ color: '#94a3b8' }}>-</div>;
+                          return (
+                            <div key={entry.itemIndex} style={{ fontWeight: 700, color: '#334155' }} title={cur.status === 'multi' ? `분배상세 ${cur.count}건 — 첫 값(${cur.orderWeek})을 표시합니다` : cur.orderWeek}>
+                              {cur.cost.toLocaleString()}{cur.status === 'multi' && <span style={{ color: '#b45309', marginLeft: 3 }}>⚠</span>}
+                            </div>
+                          );
+                        })}
+                      </td>
+                      <td style={{ ...matchCell, minWidth: 96 }}>
+                        {rowMatches.map((entry) => {
+                          if (!entry.isPrimary) return <div key={entry.itemIndex} />;
+                          const cur = lookupCurrentCost(subWeeks, selectedSubWeeks, entry.item.prodKey);
+                          const changed = isPriceChanged(cur, entry.item.unitPrice);
+                          return (
+                            <input
+                              key={entry.itemIndex}
+                              type="number"
+                              min={0}
+                              placeholder="없음"
+                              value={Number(entry.item.unitPrice) > 0 ? entry.item.unitPrice : ''}
+                              onChange={(e) => onUpdateItem(entry.itemIndex, { unitPrice: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0) })}
+                              style={{ ...st.input, width: 84, padding: '2px 4px', height: 22, background: changed ? '#fef08a' : '#fff' }}
+                            />
+                          );
+                        })}
+                      </td>
                       <td style={{ ...matchCell, minWidth: 112 }}>
                         {rowMatches.map((entry) => (
                           <div key={entry.itemIndex} style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
@@ -293,7 +351,7 @@ function ExcelSheetPreview({
                   })}
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
@@ -1956,6 +2014,8 @@ export default function OrderImportPage() {
               onPickProduct={pickProduct}
               onClearProduct={clearProduct}
               onPersistMapping={handlePersistMapping}
+              subWeeks={priceTargets.subWeeks}
+              selectedSubWeeks={selectedSubWeeks}
             />
           <div style={{ ...st.card, marginBottom: 0, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
