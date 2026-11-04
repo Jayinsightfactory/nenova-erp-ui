@@ -51,8 +51,19 @@ def http(method, url, body=None, timeout=120):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
+LOG_FILE = os.environ.get("DOCLING_WORKER_LOG") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "bridge_worker.log")
+
 def log(*parts):
-    print(time.strftime("%Y-%m-%d %H:%M:%S"), *parts, flush=True)
+    line = " ".join([time.strftime("%Y-%m-%d %H:%M:%S")] + [str(p) for p in parts])
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass  # pythonw(창 없음)에서는 stdout 이 없을 수 있음
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
 
 def process(job):
     sha = job["sha"]
@@ -79,7 +90,7 @@ def process(job):
         log("done", sha[:12], f"{sec}s", f"{len(tables)} tables", f"{len(markdown)} chars")
     except Exception as e:
         log("fail", sha[:12], repr(e))
-        traceback.print_exc()
+        log(traceback.format_exc())
         try:
             http("POST", URL, {"sha": sha, "ok": False, "error": str(e)[:400], "worker": WORKER}, timeout=60)
         except Exception:
@@ -98,7 +109,7 @@ def main():
             TOKEN = fetch_ingest_token()
             log("ingest token: Orbit 에서 취득")
         except Exception as e:
-            print("토큰 없음(env ORBIT_DRIVE_INGEST_TOKEN 도, Orbit ingest-config 도 실패): " + repr(e), file=sys.stderr)
+            log("토큰 없음(env ORBIT_DRIVE_INGEST_TOKEN 도, Orbit ingest-config 도 실패):", repr(e))
             sys.exit(1)
     log("docling bridge worker start", URL, "poll", POLL_SEC, "s")
     while True:
