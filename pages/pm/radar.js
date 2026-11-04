@@ -2,7 +2,7 @@
 // PM 이 월·목 07:30 GitHub 인기·급상승 저장소를 모아 Claude 로 평가(우리 회사 쓸모·난이도·점수)한 결과 중 6점 이상만 보여준다.
 // 데이터: GET /api/pm/radar (사장님 PC nenova-pm/github-radar/radar.js → feature-data-ingest name=tech-radar). 읽기 전용.
 // 색은 lib/pmThemes.js 토큰(var(--pm-*))만 쓴다(하드코딩 hex 금지) — 테마 B(파스텔 클레이) 고정.
-// 버튼·칩·배지는 /pm UI 키트(components/pm/ui)만 쓴다(생 <button>/<span> 배지 금지) — 사장님 피드백 2026-11-04:
+// 버튼·칩·배지는 /pm UI 키트(components/pm/ui)만 쓴다(생 button/span 배지 금지) — 사장님 피드백 2026-11-04:
 //   분류 아이콘·저장소명·★별수·점수 배지는 각각 별 요소로 분리(한 덩어리 금지), 점수는 "N/10" 둥근 클레이 배지.
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, SelectCard, ToggleChip, PmUiStyles, Tabs } from '../../components/pm/ui';
@@ -266,7 +266,10 @@ export default function TechRadar() {
         .detail { border-top: 1px dashed var(--pm-line); padding-top: 8px; line-height: 1.55; }
         .detail p { margin: 4px 0; }
         .detail b { color: var(--pm-link); margin-right: 4px; font-size: 12px; }
-        .detail a { color: var(--pm-link); font-weight: bold; }
+        /* 링크 텍스트 — 시안: 기본 파란 밑줄 대신 클레이 톤(민트) 밑줄, 호버 시 코랄 */
+        .detail a { color: var(--pm-link); font-weight: bold; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--pm-accent) 60%, transparent); }
+        .detail a:hover { color: var(--pm-accent2); text-decoration-color: color-mix(in srgb, var(--pm-accent2) 60%, transparent); }
+        .bc .ttl a:hover, .sc .ttl b:hover { color: var(--pm-link); }
         .tp { color: var(--pm-muted); font-size: 11px; }
 
         /* 가운데 작은 카드 그리드 — 아이콘·이름·별·점수 배지를 각각 별 요소로 */

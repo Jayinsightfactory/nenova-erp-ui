@@ -77,12 +77,20 @@ export function PmUiStyles() {
       .pm .pmk:disabled { cursor: not-allowed; opacity: .55; }
       .pm .pmk-btn { height: auto; min-height: var(--pmk-h); padding: 0 14px; border-radius: var(--pmk-radius); font-size: 13px; justify-content: center; }
       .pm .pmk-btn.pmk-sm { min-height: var(--pmk-h-sm); padding: 0 10px; font-size: 12px; }
+      /* 상태 3종(기본·호버·눌림) — SOFT CLAY 시안: 호버=살짝 들림+그림자, 눌림=어두운 색+내려앉음. 색은 전부 토큰. */
+      .pm .pmk-btn.pmk-secondary, .pm .pmk-btn.pmk-primary, .pm .pmk-btn.pmk-danger { box-shadow: var(--pmk-shadow, none); transition: transform .12s, box-shadow .12s, background .12s; }
+      .pm .pmk-btn.pmk-secondary:hover:not(:disabled), .pm .pmk-btn.pmk-primary:hover:not(:disabled), .pm .pmk-btn.pmk-danger:hover:not(:disabled) { transform: translateY(-1px); }
+      .pm .pmk-btn.pmk-secondary:active:not(:disabled), .pm .pmk-btn.pmk-primary:active:not(:disabled), .pm .pmk-btn.pmk-danger:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
       .pm .pmk-btn.pmk-secondary { background: var(--pmk-sec-bg); color: var(--pmk-sec-ink); border-color: var(--pmk-sec-border); }
       .pm .pmk-btn.pmk-secondary:hover:not(:disabled) { background: var(--pmk-sec-hover); }
-      .pm .pmk-btn.pmk-primary { background: var(--pmk-primary); color: var(--pmk-primary-ink); border-color: var(--pmk-primary-hover); font-weight: bold; }
-      .pm .pmk-btn.pmk-primary:hover:not(:disabled) { background: var(--pmk-primary-hover); }
-      .pm .pmk-btn.pmk-danger { background: var(--pmk-danger); color: var(--pmk-primary-ink); border-color: var(--pmk-danger-hover); }
-      .pm .pmk-btn.pmk-danger:hover:not(:disabled) { background: var(--pmk-danger-hover); }
+      .pm .pmk-btn.pmk-primary { background: var(--pmk-primary); color: var(--pmk-primary-ink); border-color: var(--pmk-primary); font-weight: bold; }
+      .pm .pmk-btn.pmk-primary:hover:not(:disabled) { background: var(--pmk-primary-hover); border-color: var(--pmk-primary-hover); }
+      .pm .pmk-btn.pmk-primary:active:not(:disabled) { background: var(--pmk-primary-down, var(--pmk-primary)); border-color: var(--pmk-primary-down, var(--pmk-primary)); }
+      .pm .pmk-btn.pmk-danger { background: var(--pmk-danger); color: var(--pmk-primary-ink); border-color: var(--pmk-danger); }
+      .pm .pmk-btn.pmk-danger:hover:not(:disabled) { background: var(--pmk-danger-hover); border-color: var(--pmk-danger-hover); }
+      .pm .pmk-btn.pmk-danger:active:not(:disabled) { background: var(--pmk-danger-down, var(--pmk-danger)); border-color: var(--pmk-danger-down, var(--pmk-danger)); }
+      /* 비활성 — 시안: 회색 클레이(dis 토큰), 그림자 없음 */
+      .pm .pmk-btn.pmk-secondary:disabled, .pm .pmk-btn.pmk-primary:disabled, .pm .pmk-btn.pmk-danger:disabled { background: var(--pmk-dis-bg, var(--pmk-sec-bg)); color: var(--pmk-dis-ink, var(--pmk-sec-ink)); border-color: var(--pmk-dis-bg, var(--pmk-sec-border)); box-shadow: none; opacity: 1; }
       .pm .pmk-btn.pmk-ghost { display: inline-flex; align-items: center; background: transparent; color: var(--pmk-ink); border: 1px solid transparent; }
       .pm .pmk-btn.pmk-ghost:hover:not(:disabled) { border-color: currentColor; }
       .pm .pmk-btn[aria-busy] { cursor: progress; }
