@@ -1,5 +1,14 @@
 # 작업 기록
 
+## 2026-11-04 /pm 상점 그림 3D 렌더 전면 교체 + 종족 복원 + 탈것 경로 고정 (PR #1528)
+- 사장님 피드백 3건: 손그림 상점 그림 → 3D 장면 glb(char/kit/mounts) 블렌더 렌더로 교체(상점 모습=사무실 모습), 탈것 적용 점검, PR 1520 KayKit 교체로 유실된 종족 디자인 복원.
+- 파이프라인: node scripts/pm3d/dump_shop_spec.mjs(lib look3d/PM3D.RACES 를 JSON 으로) → blender -b -P scripts/pm3d/render_shop.py(Blender 5.2, 소프트클레이 조명·3/4·투명 webp 512) → public/pm/shop/ 80장 0.43MB → node scripts/pm3d/apply_shop_renders.mjs(manifest src 77종 교체). 몸이 메시 1개+재질 7슬롯이라 보이기/색은 재질 단위(알파 토글), 렌더 출력경로는 반드시 절대경로(상대경로면 조용히 미출력).
+- 종족 복원: lib/pmThemes PM3D.RACES 한 표(색+부속 귀/더듬이/부리/화관, 전용모델 없음=temp 임시) — look3d 가 char 반영, Scene3D 가 head 본에 부속 부착(hex 금지라 색표는 pmThemes 에만). ★버그: look3d hair 해시 (h>>3) 부호 쉬프트 → 음수 인덱스 → 머리색 undefined — >>> 로 수정.
+- 탈것: 구매→items.mount→look3d→Scene3D 노드 경로는 15종 전부 정상(노드명 공식 'mount_'+id.replace(-,_) = glb 루트와 일치). 끊긴 곳은 상점 표시(이모지뿐)여서 mounts.glb 썸네일 연결 + 왼쪽 미리보기에 탈것 표시. __tests__/pmMounts3d.test.js 가 노드 매핑 표·extras(seatZ/pose)·경유·썸네일을 고정.
+- 왼쪽 미리보기: 같은 카메라 고정 렌더의 베이스+옷 레이어+모자 레이어 겹침(Render3DPreview, PIL 합성으로 정합 검증). 기존그림 유지 43종=모자16·안경6·손10·배지7·책장4(3D 모델 없음).
+- 함정: 주석의 #1520 도 pmNoHexColor 가 hex 로 오탐(PR 1520 으로 표기). 워크트리 node_modules junction 은 Turbopack/webpack 둘 다 깨짐(실설치 필요). next dev 는 instrumentation→mssql 번들 오류 — 로컬 확인은 build+start.
+- 검색어: render_shop shop_spec PM3D.RACES look3d hair >>> 탈것 노드매핑 pmMounts3d pmShopArt 상점 렌더 임시 종족
+
 ## 2026-11-04 판매 예정(/pm) 코드 ↔ 사내 전산 경계 자동 검사기(CI)
 - PR #1525 머지. /pm(PM 사무실)은 나중에 nowlink 판매 저장소로 이식 예정 → 사내 모듈 직접 import 가 늘지 않게 CI에서 새 위반만 차단(선례 mgmtBoundary 구조 재사용).
 - 구성: lib/pmSaleBoundary.js(PM 소유=pages/pm*, pages/api/pm/, components/pm·pm3d/, lib/pm* / 허용=같은 판매군+MenuBackButton·styles+npm 패키지 / 금지=lib/db·lib/auth 등 사내 lib·사내 API 핸들러 직접 import, 서버 데이터는 fetch 경유), config/pm-boundary-allowlist.json(기존 위반 31건 동결 — 대부분 pages/api/pm/* → lib/auth·orbitReportAccess·workFeatureData), __tests__/pmBoundary.test.js(단위+전수 스캔), npm run test:pm-boundary(test:pm 체인 맨 앞), erp-contract.yml verify 단계 추가.

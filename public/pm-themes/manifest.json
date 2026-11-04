@@ -76,7 +76,7 @@
   {
    "id": "human",
    "name": "사람",
-   "src": "/pm-char/thumb/char.human.webp",
+   "src": "/pm/shop/char.human.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -90,7 +90,7 @@
   {
    "id": "cat",
    "name": "고양이",
-   "src": "/pm-char/thumb/char.cat.webp",
+   "src": "/pm/shop/char.cat.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -104,7 +104,7 @@
   {
    "id": "dog",
    "name": "강아지",
-   "src": "/pm-char/thumb/char.dog.webp",
+   "src": "/pm/shop/char.dog.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -118,7 +118,7 @@
   {
    "id": "bunny",
    "name": "토끼",
-   "src": "/pm-char/thumb/char.bunny.webp",
+   "src": "/pm/shop/char.bunny.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -132,7 +132,7 @@
   {
    "id": "bear",
    "name": "곰",
-   "src": "/pm-char/thumb/char.bear.webp",
+   "src": "/pm/shop/char.bear.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -146,7 +146,7 @@
   {
    "id": "fox",
    "name": "여우",
-   "src": "/pm-char/thumb/char.fox.webp",
+   "src": "/pm/shop/char.fox.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -160,7 +160,7 @@
   {
    "id": "penguin",
    "name": "펭귄",
-   "src": "/pm-char/thumb/char.penguin.webp",
+   "src": "/pm/shop/char.penguin.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -174,7 +174,7 @@
   {
    "id": "fairy",
    "name": "꽃 요정",
-   "src": "/pm-char/thumb/char.fairy.webp",
+   "src": "/pm/shop/char.fairy.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -188,7 +188,7 @@
   {
    "id": "robot",
    "name": "로봇",
-   "src": "/pm-char/thumb/char.robot.webp",
+   "src": "/pm/shop/char.robot.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -202,7 +202,7 @@
   {
    "id": "cactus",
    "name": "선인장",
-   "src": "/pm-char/thumb/char.cactus.webp",
+   "src": "/pm/shop/char.cactus.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -223,7 +223,7 @@
    "theme": "A",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.knit.webp",
+   "src": "/pm/shop/layer.outfit.knit.webp",
    "v": 2
   },
   {
@@ -234,7 +234,7 @@
    "theme": "B",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/outfit.hoodie.webp",
+   "src": "/pm/shop/layer.outfit.hoodie.webp",
    "v": 2
   },
   {
@@ -245,7 +245,7 @@
    "theme": "C",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.neon.webp",
+   "src": "/pm/shop/layer.outfit.neon.webp",
    "v": 2
   },
   {
@@ -256,7 +256,7 @@
    "theme": "D",
    "rarity": "legendary",
    "price": 240,
-   "src": "/pm-char/thumb/outfit.hanbok.webp",
+   "src": "/pm/shop/layer.outfit.hanbok.webp",
    "v": 2
   },
   {
@@ -267,7 +267,7 @@
    "theme": "E",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/outfit.apron.webp",
+   "src": "/pm/shop/layer.outfit.apron.webp",
    "v": 2
   },
   {
@@ -278,7 +278,7 @@
    "theme": "F",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.pixel.webp",
+   "src": "/pm/shop/layer.outfit.pixel.webp",
    "v": 2
   },
   {
@@ -289,7 +289,7 @@
    "theme": "G",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.smock.webp",
+   "src": "/pm/shop/layer.outfit.smock.webp",
    "v": 2
   },
   {
@@ -300,7 +300,7 @@
    "theme": "H",
    "rarity": "legendary",
    "price": 240,
-   "src": "/pm-char/thumb/outfit.spacesuit.webp",
+   "src": "/pm/shop/layer.outfit.spacesuit.webp",
    "v": 2
   },
   {
@@ -311,7 +311,7 @@
    "theme": "I",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.aloha.webp",
+   "src": "/pm/shop/layer.outfit.aloha.webp",
    "v": 2
   },
   {
@@ -322,7 +322,7 @@
    "theme": "J",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.puffer.webp",
+   "src": "/pm/shop/layer.outfit.puffer.webp",
    "v": 2
   },
   {
@@ -333,7 +333,7 @@
    "theme": "A",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/outfit.suit.webp",
+   "src": "/pm/shop/layer.outfit.suit.webp",
    "v": 2
   },
   {
@@ -344,7 +344,7 @@
    "theme": "E",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/outfit.vest.webp",
+   "src": "/pm/shop/layer.outfit.vest.webp",
    "v": 2
   },
   {
@@ -355,7 +355,7 @@
    "theme": "E",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/outfit.overall.webp",
+   "src": "/pm/shop/layer.outfit.overall.webp",
    "v": 2
   },
   {
@@ -795,7 +795,7 @@
    "theme": "A",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/desk.wood.webp",
+   "src": "/pm/shop/desk.wood.webp",
    "v": 2
   },
   {
@@ -806,7 +806,7 @@
    "theme": "B",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/desk.pastel.webp",
+   "src": "/pm/shop/desk.pastel.webp",
    "v": 2
   },
   {
@@ -817,7 +817,7 @@
    "theme": "C",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.neon.webp",
+   "src": "/pm/shop/desk.neon.webp",
    "v": 2
   },
   {
@@ -828,7 +828,7 @@
    "theme": "D",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.soban.webp",
+   "src": "/pm/shop/desk.soban.webp",
    "v": 2
   },
   {
@@ -839,7 +839,7 @@
    "theme": "E",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.greenhouse.webp",
+   "src": "/pm/shop/desk.greenhouse.webp",
    "v": 2
   },
   {
@@ -850,7 +850,7 @@
    "theme": "F",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.arcade.webp",
+   "src": "/pm/shop/desk.arcade.webp",
    "v": 2
   },
   {
@@ -861,7 +861,7 @@
    "theme": "G",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.easel.webp",
+   "src": "/pm/shop/desk.easel.webp",
    "v": 2
   },
   {
@@ -872,7 +872,7 @@
    "theme": "H",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.console.webp",
+   "src": "/pm/shop/desk.console.webp",
    "v": 2
   },
   {
@@ -883,7 +883,7 @@
    "theme": "I",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.bamboo.webp",
+   "src": "/pm/shop/desk.bamboo.webp",
    "v": 2
   },
   {
@@ -894,7 +894,7 @@
    "theme": "J",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/desk.snow.webp",
+   "src": "/pm/shop/desk.snow.webp",
    "v": 2
   },
   {
@@ -905,7 +905,7 @@
    "theme": "E",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.plant.webp",
+   "src": "/pm/shop/top.plant.webp",
    "v": 2
   },
   {
@@ -916,7 +916,7 @@
    "theme": "A",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.mug.webp",
+   "src": "/pm/shop/top.mug.webp",
    "v": 2
   },
   {
@@ -927,7 +927,7 @@
    "theme": "C",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.lamp.webp",
+   "src": "/pm/shop/top.lamp.webp",
    "v": 2
   },
   {
@@ -938,7 +938,7 @@
    "theme": "G",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.frame.webp",
+   "src": "/pm/shop/top.frame.webp",
    "v": 2
   },
   {
@@ -949,7 +949,7 @@
    "theme": "F",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.keyboard.webp",
+   "src": "/pm/shop/top.keyboard.webp",
    "v": 2
   },
   {
@@ -960,7 +960,7 @@
    "theme": "J",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.snowglobe.webp",
+   "src": "/pm/shop/top.snowglobe.webp",
    "v": 2
   },
   {
@@ -971,9 +971,9 @@
    "theme": "B",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.vase.webp",
+   "src": "/pm/shop/top.vase.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/vase.webp",
+   "icon": "/pm/shop/top.vase.webp",
    "aliasOf": "desk.vase"
   },
   {
@@ -984,9 +984,9 @@
    "theme": "A",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.coffee.webp",
+   "src": "/pm/shop/top.coffee.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/coffee.webp",
+   "icon": "/pm/shop/top.coffee.webp",
    "aliasOf": "desk.coffee"
   },
   {
@@ -997,9 +997,9 @@
    "theme": "E",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.cactus.webp",
+   "src": "/pm/shop/top.cactus.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/plant.webp",
+   "icon": "/pm/shop/top.cactus.webp",
    "aliasOf": "desk.plant"
   },
   {
@@ -1010,9 +1010,9 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.calc.webp",
+   "src": "/pm/shop/top.calc.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/calc.webp",
+   "icon": "/pm/shop/top.calc.webp",
    "aliasOf": "desk.calc"
   },
   {
@@ -1023,9 +1023,9 @@
    "theme": "",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/top.globe.webp",
+   "src": "/pm/shop/top.globe.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/globe.webp",
+   "icon": "/pm/shop/top.globe.webp",
    "aliasOf": "desk.globe"
   },
   {
@@ -1036,9 +1036,9 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.box.webp",
+   "src": "/pm/shop/top.box.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/box.webp",
+   "icon": "/pm/shop/top.box.webp",
    "aliasOf": "desk.box"
   },
   {
@@ -1049,9 +1049,9 @@
    "theme": "",
    "rarity": "legendary",
    "price": 240,
-   "src": "/pm-char/thumb/top.trophy.webp",
+   "src": "/pm/shop/top.trophy.webp",
    "v": 2,
-   "icon": "/pm-themes/items/desk/trophy.webp",
+   "icon": "/pm/shop/top.trophy.webp",
    "aliasOf": "desk.trophy"
   },
   {
@@ -1062,7 +1062,7 @@
    "theme": "H",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.monitor.webp",
+   "src": "/pm/shop/top.monitor.webp",
    "v": 2
   },
   {
@@ -1073,7 +1073,7 @@
    "theme": "I",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.shell.webp",
+   "src": "/pm/shop/top.shell.webp",
    "v": 2
   },
   {
@@ -1084,7 +1084,7 @@
    "theme": "D",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/top.inkstone.webp",
+   "src": "/pm/shop/top.inkstone.webp",
    "v": 2
   },
   {
@@ -1095,7 +1095,7 @@
    "theme": "A",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.wood.webp",
+   "src": "/pm/shop/rug.wood.webp",
    "v": 2
   },
   {
@@ -1106,7 +1106,7 @@
    "theme": "B",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.pastel.webp",
+   "src": "/pm/shop/rug.pastel.webp",
    "v": 2
   },
   {
@@ -1117,7 +1117,7 @@
    "theme": "C",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.neon.webp",
+   "src": "/pm/shop/rug.neon.webp",
    "v": 2
   },
   {
@@ -1128,7 +1128,7 @@
    "theme": "D",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.hwamunseok.webp",
+   "src": "/pm/shop/rug.hwamunseok.webp",
    "v": 2
   },
   {
@@ -1139,7 +1139,7 @@
    "theme": "I",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.beach.webp",
+   "src": "/pm/shop/rug.beach.webp",
    "v": 2
   },
   {
@@ -1150,7 +1150,7 @@
    "theme": "J",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/rug.snow.webp",
+   "src": "/pm/shop/rug.snow.webp",
    "v": 2
   },
   {
@@ -1161,7 +1161,7 @@
    "theme": "A",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/chair.wood.webp",
+   "src": "/pm/shop/chair.wood.webp",
    "v": 2
   },
   {
@@ -1172,7 +1172,7 @@
    "theme": "C",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/chair.gaming.webp",
+   "src": "/pm/shop/chair.gaming.webp",
    "v": 2
   },
   {
@@ -1183,7 +1183,7 @@
    "theme": "B",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/chair.pastel.webp",
+   "src": "/pm/shop/chair.pastel.webp",
    "v": 2
   },
   {
@@ -1194,7 +1194,7 @@
    "theme": "D",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/chair.cushion.webp",
+   "src": "/pm/shop/chair.cushion.webp",
    "v": 2
   },
   {
@@ -1205,7 +1205,7 @@
    "theme": "I",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/chair.beach.webp",
+   "src": "/pm/shop/chair.beach.webp",
    "v": 2
   },
   {
@@ -1260,7 +1260,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.puppy.webp",
+   "src": "/pm/shop/pet.puppy.webp",
    "v": 2,
    "frames": 2
   },
@@ -1272,7 +1272,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.kitten.webp",
+   "src": "/pm/shop/pet.kitten.webp",
    "v": 2,
    "frames": 2
   },
@@ -1284,7 +1284,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.bunny.webp",
+   "src": "/pm/shop/pet.bunny.webp",
    "v": 2,
    "frames": 2
   },
@@ -1296,7 +1296,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.chick.webp",
+   "src": "/pm/shop/pet.chick.webp",
    "v": 2,
    "frames": 2
   },
@@ -1308,7 +1308,7 @@
    "theme": "",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/pet.bee.webp",
+   "src": "/pm/shop/pet.bee.webp",
    "v": 2,
    "frames": 2
   },
@@ -1320,7 +1320,7 @@
    "theme": "",
    "rarity": "legendary",
    "price": 240,
-   "src": "/pm-char/thumb/pet.butterfly.webp",
+   "src": "/pm/shop/pet.butterfly.webp",
    "v": 2,
    "frames": 2
   },
@@ -1332,7 +1332,7 @@
    "theme": "",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/pet.fish.webp",
+   "src": "/pm/shop/pet.fish.webp",
    "v": 2,
    "frames": 2
   },
@@ -1344,7 +1344,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.hamster.webp",
+   "src": "/pm/shop/pet.hamster.webp",
    "v": 2,
    "frames": 2
   },
@@ -1356,7 +1356,7 @@
    "theme": "",
    "rarity": "rare",
    "price": 90,
-   "src": "/pm-char/thumb/pet.penguin.webp",
+   "src": "/pm/shop/pet.penguin.webp",
    "v": 2,
    "frames": 2
   },
@@ -1368,7 +1368,7 @@
    "theme": "",
    "rarity": "common",
    "price": 30,
-   "src": "/pm-char/thumb/pet.turtle.webp",
+   "src": "/pm/shop/pet.turtle.webp",
    "v": 2,
    "frames": 2
   },
@@ -1379,7 +1379,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "꽃병",
-   "src": "/pm-themes/items/desk/vase.webp",
+   "src": "/pm/shop/desk.vase.webp",
    "hidden": true
   },
   {
@@ -1389,7 +1389,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "커피잔",
-   "src": "/pm-themes/items/desk/coffee.webp",
+   "src": "/pm/shop/desk.coffee.webp",
    "hidden": true
   },
   {
@@ -1399,7 +1399,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "다육이",
-   "src": "/pm-themes/items/desk/plant.webp",
+   "src": "/pm/shop/desk.plant.webp",
    "hidden": true
   },
   {
@@ -1409,7 +1409,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "계산기",
-   "src": "/pm-themes/items/desk/calc.webp",
+   "src": "/pm/shop/desk.calc.webp",
    "hidden": true
   },
   {
@@ -1419,7 +1419,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "지구본",
-   "src": "/pm-themes/items/desk/globe.webp",
+   "src": "/pm/shop/desk.globe.webp",
    "hidden": true
   },
   {
@@ -1429,7 +1429,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "택배상자",
-   "src": "/pm-themes/items/desk/box.webp",
+   "src": "/pm/shop/desk.box.webp",
    "hidden": true
   },
   {
@@ -1439,7 +1439,7 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "트로피",
-   "src": "/pm-themes/items/desk/trophy.webp",
+   "src": "/pm/shop/desk.trophy.webp",
    "hidden": true
   }
  ],

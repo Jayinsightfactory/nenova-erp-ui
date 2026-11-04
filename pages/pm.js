@@ -1203,6 +1203,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .sstage, .pm .sitems, .pm .sside { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); }
         .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
         .pm .stagebox .pav { z-index: 1; }
+        /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
+        .pm .r3d { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 42%, var(--pm-surface), var(--pm-surface2) 72%); border: 2px solid var(--pm-line); overflow: hidden; }
+        .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
+        .pm .r3dstack img.r3dm { inset: auto 4px 4px auto; width: 56px; height: 56px; }
         .pm .pedestal { position: absolute; bottom: 22px; left: 50%; width: 170px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 30%, var(--pm-surface2)); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-accent) 50%, var(--pm-line)); }
         .pm .czst { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; justify-content: center; }
         .pm .slots { gap: 4px; }
