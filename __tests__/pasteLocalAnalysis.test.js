@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {canUseLocalPasteParse,createPasteAnalysisMetrics} from '../lib/pasteLocalAnalysis.js';
-import {localProductReviewKey,reviewPasteMatches,PASTE_REVIEW_SYSTEM} from '../lib/pasteAiMatchReview.js';
+import {hasUnspecifiedRoseLength,localProductReviewKey,reviewPasteMatches,PASTE_REVIEW_SYSTEM} from '../lib/pasteAiMatchReview.js';
 import * as natural from '../lib/pasteNaturalInlineOrder.js';
 import * as sales from '../lib/salesPasteOrder.js';
 import * as units from '../lib/pasteOrderUnit.js';
@@ -75,3 +75,11 @@ assert.equal(missingSize[0].items[0].prodKey,null,'multiple actual rose lengths 
 assert.match(missingSize[0].items[0].matchReason,/cm/);
 const explicitSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종 60cm',prodKey:60,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:60,confidence:1}))})});
 assert.equal(explicitSize[0].items[0].prodKey,60);
+
+const sizeItem={inputName:'장미 품종',prodKey:50};
+assert.equal(hasUnspecifiedRoseLength(sizeItem,roseSizes),true);
+assert.equal(hasUnspecifiedRoseLength({...sizeItem,inputName:'장미 품종 60cm'},roseSizes),false);
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0]]),false,'single actual length preserves matching');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],isDeleted:1}]),false,'deleted variant does not create ambiguity');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],CounName:'중국'}]),false,'different country is not a length variant');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],ProdName:'ROSE OTHER 60cm'}]),false,'different cultivar is not a length variant');

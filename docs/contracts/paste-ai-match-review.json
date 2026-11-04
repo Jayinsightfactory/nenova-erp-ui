@@ -103,5 +103,8 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build"
-  ]
+  ],
+  "criteria": {
+    "roseLength": "When the same active rose cultivar/country has multiple cm lengths, missing source cm must require user selection, not a default or learned alias/AI guess; explicit cm remains eligible."
+  }
 }
