@@ -1,3 +1,20 @@
+## [2026-11-04 18:30] 세션 — 국가별 발주서 엑셀 다운로드 복구 (PR #1511)
+
+### 작업 내용
+- 98d88567 / b2f8963a / ca73796f (PR #1511, 머지 c8547ceb) — 수입부 업무도구 > 국가별 발주서
+- 원인: 저장 송이수량 0 품목 1개(네덜란드 44-02 Tulip ProdKey 1937, CustKey 533)가 차수 전체 [미리보기 생성]을 비활성 → 엑셀 다운로드 단계까지 못 감
+- 수정: 오류 품목 주황 행 + "⚠ 수량 오류 N건" 배너, 0인 업체 칸에 송이 입력창(파일에만 반영·MANUAL_QUANTITY 경고, 전산 미변경), [확인 필요 품목 제외하고 생성] 대안 버튼
+- 운영 반영: 배포 run 41806323516 성공, buildId build-1793784227673 PedidosTool 청크에 입력창·버튼 확인
+
+### 변경된 파일
+- lib/countryOrderSource.js: row.blocked/blockers, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities
+- components/import-tools/PedidosTool.js: 입력창·제외 버튼·배너, 다운로드 가드 canExport
+- __tests__/countryOrderSource.test.js, __tests__/pedidosToolCountryOrders.test.js
+
+### 미결 이슈
+- 튤립(ProdKey 1937) CustKey 533 송이수량 0은 전산 원주문에서 수정 필요(웹은 미변경)
+- 로컬 node_modules에 rrweb 없었음 → npm install 로 해결(로컬 전용)
+
 # PROGRESS.md — 작업 세션 로그
 
 ## [2026-11-04] 세션 — 업로드 주문등록 「직접 수정」 탭 (분배단가 피벗)
