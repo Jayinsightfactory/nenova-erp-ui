@@ -6,7 +6,7 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 (async () => {
   const load = async (rel) => { const f = path.join(os.tmpdir(), `t-${process.pid}-${path.basename(rel)}.mjs`); fs.writeFileSync(f, fs.readFileSync(path.join(process.cwd(), rel), 'utf8')); const m = await import(pathToFileURL(f).href); fs.unlinkSync(f); return m; };
-  const { themeKit, withThemeKit } = await load('lib/pmThemeKit.js');
+  const { themeKit, withThemeKit, sceneAvatar, hashLook } = await load('lib/pmThemeKit.js');
   const { deskPlacement, PM_DESK_SLOTS } = await load('lib/pmDeskSlots.js');
   const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'pm-themes', 'manifest.json'), 'utf8'));
   const layers = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'pm-char', 'layers.json'), 'utf8'));
@@ -38,6 +38,16 @@ const { pathToFileURL } = require('url');
   const g2 = { people: [{ name: '설연주', stage: 1, today: { points: 60, cap: 60 } }, { name: '강명훈', stage: 3, today: { points: 10, cap: 60 } }] };
   const b = danceEvents(a.next, g2, [{ id: 'x', status: 'deployed', byName: '강현우' }]);
   assert.deepStrictEqual(b.out, { 설연주: 'jump', 강명훈: 'cheer', 강현우: 'spin' }, '목표 달성·승급·배포됨 춤');
-  assert.ok(/SeatedCharacter/.test(src) && /DeskDecor/.test(src), '장면이 SeatedCharacter·DeskDecor 사용');
+  assert.ok(/SeatedCharacter/.test(src) && /bg-mask/.test(src), '장면이 SeatedCharacter + 책상 앞판 마스크 사용');
+  assert.ok(!/<DeskDecor/.test(src), '장면에서 정면 책상 스킨·러그(DeskDecor) 숨김');
+  // 기본 외형 다양화: 12명 이름 → 서로 다른 조합 다수, 같은 이름은 늘 같음
+  const names = ['강명훈', '설연주', '임재용', '강현우', '김도준', '김원영', '박성수', '정재훈', '조현욱', '송준호', '김원빈', '김지니'];
+  const looks = names.map((n) => JSON.stringify(hashLook(n, ['outfit.aloha'])));
+  assert.ok(new Set(looks).size === names.length, '직원마다 다른 외형');
+  assert.deepStrictEqual(hashLook('설연주', ['outfit.aloha']), hashLook('설연주', ['outfit.aloha']), '같은 사람은 같은 외형');
+  const sv = sceneAvatar(null, '설연주', themeKit(manifest, 'I'), ['outfit.aloha']);
+  assert.ok(!sv.items.desk && !sv.items.rug && !sv.items.chair, '장면 아바타에 책상 스킨·러그·의자 없음');
+  const own = sceneAvatar({ hair: 'bob', items: { outfit: 'outfit.suit', desk: 'desk.neon' } }, '설연주', themeKit(manifest, 'I'), []);
+  assert.ok(own.items.outfit === 'outfit.suit' && !own.items.desk, '꾸미기 저장한 직원은 본인 의상, 책상 스킨은 장면에서 숨김');
   console.log('pmSceneSeated ok (테마 기본 세트 10종 · 장착 우선 · 정렬 오차 0 · 춤 이벤트 3종)');
 })().catch((e) => { console.error(e.message); process.exit(1); });
