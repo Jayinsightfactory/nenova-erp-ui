@@ -1,5 +1,15 @@
 # 작업 기록
 
+## 2026-11-05 /pm 상점 잔여 에셋 전량 3D 제작 — 소품 43종 + 종족 9종 전용 모델 (PR #1532)
+- #1528 잔여 손그림 43종(모자16·안경6·손10·배지7·책장4)과 임시 종족 9종을 전부 블렌더 자체 모델링으로 교체. 남은 임시(temp) 0.
+- 신규 scripts/pm3d/build_wearables.py: 기존 char.glb 를 import 해 착용 48메시(hat_*/gls_*/hnd_*/bdg_*/race_*)를 head/chest/hand.r 본 리지드 스키닝으로 추가 후 재-export — KayKit 베이크·춤 리타게팅 재실행 없이 안전(클립 9종 유지, pmProps3d 가 회귀 검사). 신규 build_shelves.py: kit.glb 에 shelf_* 4종 append(import→추가→재-export = import_furniture.py 선례).
+- lib: pm3dLayout.wearMesh('hat.beret'→'hat_beret')/shelfModel, look3d 에 glasses/hand/badge/shelf/raceMesh. pmThemes RACES = 프리미티브 attach 삭제→전용 메시(mesh:'race_*'), 전원 temp:false. Scene3D 는 attach 블록 삭제+이름 토글+책장 배치만(허브/라인/주행 무변경).
+- ★함정1(render_shop): 착용 메시 재질명 w_* 가 몸 재질 알파 토글에 휘말려 전부 alpha 0 → 빈 렌더(620B webp). w_* 는 토글 제외.
+- ★함정2(Scene3D): 다중 재질 메시는 GLTFLoader 가 그룹(이름 유지)+자식 메시(데이터명)로 분해 → 메시 단위 이름 검사로는 영영 안 숨겨져 "모든 착용물이 머리에 블롭"으로 겹침. 그룹 수준(isMesh 불문 o.name) 토글이 정답. 옛 모자 3종은 단일 재질이라 이 버그가 없었던 것.
+- 상점 렌더 160장 0.79MB(상한 6MB), glb 총 2.80MB(상한 8MB). 착용 카드=소품만 evaluated bbox 확대, 레이어=종족 베이스와 같은 카메라(미리보기 겹침에 안경·손·배지 추가, PmTheme).
+- 검증: test:pm 전체(+신규 __tests__/pmProps3d.test.js: glb 노드 실재·look3d 경유·temp 0·클립 유지·용량 상한, pmShopArt 전수 확장) + 로컬 dev 실측(시드 pm-avatars.json·work-feature-pm-office.json 은 미커밋 dev 전용) — 3D에서 왕관·선글라스·풍선·책장·펭귄 부리 실표시 확인. 시트·스크린샷 C:\Users\USER\nenova-pm\pm-shots\props-*-2026-11-05.jpg, 3d-장착확인-2026-11-05.jpg, 상점-모자탭-2026-11-05.jpg.
+- 검색어: build_wearables build_shelves wearMesh shelfModel race_ 메시 토글 그룹 분해 w_ 알파 상점 소품 43종 임시 0 pmProps3d
+
 ## 2026-11-04 /pm 상점 그림 3D 렌더 전면 교체 + 종족 복원 + 탈것 경로 고정 (PR #1528)
 - 사장님 피드백 3건: 손그림 상점 그림 → 3D 장면 glb(char/kit/mounts) 블렌더 렌더로 교체(상점 모습=사무실 모습), 탈것 적용 점검, PR 1520 KayKit 교체로 유실된 종족 디자인 복원.
 - 파이프라인: node scripts/pm3d/dump_shop_spec.mjs(lib look3d/PM3D.RACES 를 JSON 으로) → blender -b -P scripts/pm3d/render_shop.py(Blender 5.2, 소프트클레이 조명·3/4·투명 webp 512) → public/pm/shop/ 80장 0.43MB → node scripts/pm3d/apply_shop_renders.mjs(manifest src 77종 교체). 몸이 메시 1개+재질 7슬롯이라 보이기/색은 재질 단위(알파 토글), 렌더 출력경로는 반드시 절대경로(상대경로면 조용히 미출력).
