@@ -2007,3 +2007,8 @@
 
 2026-11-04 입고 정정 메뉴 연결: 승인업무3탭(수정요청/매칭·확정/처리이력) 기획. /incoming 입고정정업무 버튼→/import/tools?tab=incoming, 업무도구에 동일버튼·입고조회수정탭 추가. 기존 Incoming/correction 재사용, 선택번호·기간·필터·팝업 전달·탭선택 보존. 새승인엔진 미구현 사실 표시, API/SQL/원장쓰기 변경없음. 신규 URL 정책검사 PASS, 전체ERP/build/UI/배포 진행중. 정본 docs/work-sessions/2026-11-04_incoming-tabs.md.
 검색어: 입고정정업무 incomingWorkspaceNavigation tab=incoming 수입부업무도구 승인3탭
+
+2026-11-04 중국 자동물량표 단가 입력: inline 단가→CellsJson 작업저장/복원→preview/apply 공유 writer 연결. 중국 price 거부조건 제거, 단가 공란보존/0유효·공통정규화·인보이스 재적용보존. dnSpy 실제 FormShipmentDistribution/ClassShipmentDate, 운영 SELECT-only, 중국/네덜란드 격리SQL 저장재조회·rollback, 브라우저 Enter/저장재조회 PASS. 전체ERP/최종빌드·PR/운영배포 진행중. EXE GUI는 미검증, 운영시험쓰기 없음. 정본 docs/work-sessions/2026-11-04_china-price-input.md.
+검색어: 중국물량표 단가입력 unitPrice normalizeVolumeUnitPrice 격리SQL 분배단가
+
+중국 단가 후속 검증: 전체 test:erp-contract exit0, dnSpy/manifest/write/UI-layout PASS, worker1 webpack build PASS. 최신 master 입고정정 변경 FF 통합(업무파일 충돌없음). 운영 CUA 브라우저 연결은 Work 설정 disabled라 로그인 UI 직접확인 제한; PR/Cafe24 진행중.

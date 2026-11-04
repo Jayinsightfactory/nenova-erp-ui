@@ -2,6 +2,9 @@
   "id": "china-volume-distribution",
   "title": "중국 물량표 명시 셀 등록분배·기존 주문 불변",
   "scope": [
+    "lib/volumeUnitPrice.js",
+    "scripts/china-price-browser-smoke.cjs",
+    "scripts/probe-china-price-read.cjs",
     "pages/stats/china-volume-board.js",
     "components/ChinaVolumeEditor.js",
     "lib/chinaVolumeEditing.js",
@@ -51,7 +54,8 @@
       "policy": "new order uses unrounded FormOrderAdd unit columns and EstUnit, with transaction readback; deleted current-year shipment headers block preview and apply through the shared snapshot reader"
     }
   ],
-  "criteriaLedger": "docs/work-plans/2026-10-23-china-volume-edit.md",
+  "criteriaLedger": "docs/work-plans/2026-11-04-china-price-input.md",
+  "unitPrice": "Explicit per-cell KRW price uses shared normalizeVolumeUnitPrice: omitted/blank preserves existing, explicit zero valid, finite 0..1e9 only. CellsJson persists price; invoice reapply preserves same-pair price. Preview displays current/target price; edits invalidate plan. Existing shared writer atomically writes ShipmentDetail and ShipmentDate Cost/Amount/Vat with native EstUnit rounding and readback. No box-number conversion, bulk propagation, confirmation/stock/Estimate/WebProfitReport mutation. Existing order preservation and EXPLICIT_PAIRS scope remain unchanged.",
   "crossYearFixture": {
     "required": true,
     "description": "2025 same week order/shipment preserved while 2026 existing order remains unchanged for increase/decrease/zero and new 2026 pair creates positive order only"

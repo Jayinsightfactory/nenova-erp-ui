@@ -24,8 +24,8 @@ export async function previewDutchVolume(body, user, deps = {}) {
   const transact = deps.withTransaction || withTransaction;
   const input = normalizeDutchEntries(body);
   const china = deps.country === '중국';
-  if (china && input.entries.some(entry => !entry.custKey || !entry.prodKey || !entry.unit || entry.unitPrice != null)) {
-    throw dutchError('CHINA_EXPLICIT_MATCH_REQUIRED', '중국 물량표는 DB 업체·품목·단위를 선택해야 합니다. 단가는 변경하지 않습니다.');
+  if (china && input.entries.some(entry => !entry.custKey || !entry.prodKey || !entry.unit)) {
+    throw dutchError('CHINA_EXPLICIT_MATCH_REQUIRED', '중국 물량표는 DB 업체·품목·단위를 선택해야 합니다.');
   }
   const pairKeys = new Set(input.entries.map(entry => `${entry.custKey}|${entry.prodKey}`));
   const restrict = result => !china ? result : {
