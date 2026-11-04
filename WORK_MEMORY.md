@@ -1918,3 +1918,39 @@
 검색어: average-rate-evidence 18차 rateEstimated rateDetail APPROVED_CUSTOMS_TIMING_ESTIMATE metadata-only
 2026-11-03 데스크톱 앱 1.3.11 작업: 1.3.2 사용자 화면에서 로그아웃·오늘의 내 업무가 보이지 않는 문제 확인. 네이티브 홈에 로그아웃/계정 변경, 서버 세션 해제 후 탭·저장 구성 정리·로그인 진입 추가. 오늘 업무 '보관'을 복구 가능한 '삭제'로 표시하고 수정·삭제·보관함·계정 전환 Electron smoke 보강. 탭 닫기 기본 선택은 최신 코드에서 이미 닫기이며 smoke 확인. 데스크톱 AI 도구/버튼별 사람용 작업 원장 설계 docs/plans/desktop-ai-action-ledger-2026-11-03.md 작성; 신규 API는 미구현. desktop 단위28·smoke·restore·updater PASS, 전체 ERP 계약/웹빌드·PR/릴리스·운영 설치 스모크 진행 중으로 미검증.
 검색어: desktop 1.3.11 로그아웃 계정변경 오늘업무 수정 삭제 탭닫기 기본 닫기 AI MCP 작업원장 actionId operationId
+
+2026-11-03 공동 AWB 원가 작업: nw-shared-awb-1103/base84f37724. 43-1/44-1 레퍼런스상 공동 전체 운임을 품종중량/부피·송이수 배분하므로 농장별 CW 미기재로 차단한 판단 정정. 13농장 버전/연도/AWB/통화/실입고 검증 코어·읽기전용 API·미승인 엑셀/UI 구현. 그룹75/API3/원가34 및 기존export35 PASS, webpack PASS 후 후속 서버검증 추가. Aside 실제13농장 입고→최종다운로드/다른국가/최종전체gate/배포는 진행 중 미검증. 운영DB쓰기0. 정본 docs/work-sessions/2026-11-03_shared-awb-cost.md.
+검색어: 공동AWB 콜롬비아45-1 13농장 3483 4307 12777.65 FB환산 미승인계산본
+
+2026-11-03 공동AWB 실제 Aside 후속: 13농장 격리입고91001~91013, 37행663박스20010송이/상품13452.20USD. BOX입고/STEM단가·단수null 환산차단 수정(입고불변). 원가운임12777.65USD, 시험FX1400/통관1000=총36722790원. 실제엑셀다운로드3시트1050수식/37행차이1전미만, 오류셀0. 전체ERP계약EXIT0·신규8PASS, 격리종료보호주문출고불변. 최종build진행/다른국가전체E2E·배포미완. 상세 docs/work-sessions/2026-11-03_shared-awb-cost.md.
+검색어: shared-awb Aside 13농장 37행 BOX STEM 663 20010 36722790 운영DB변경없음
+2026-11-03 공동AWB 최종 webpack EXIT0, manifest187/쓰기guard1/diff-check PASS. 다운로드 최종 (1).xlsx 13농장37행 수량/원가/수식대조 assertion PASS. 다른 국가 전체/배포는 아직 미완.
+검색어: shared-awb final build PASS 다운로드 16017338005
+
+2026-11-04 국가별 부속표 후속: 원본11개 hash 재확인. 일부 국가 통관 상세를 합계/내역미보유로 바꾸는 exporter 확인. NL 전체 검역종류 표/FOB×환율 수식 연결·짧은시트 범위 확장. 사용자 확인: Ornithogalum/Cordyline 각10송이는 Nerine/Leucothoe와 별도 종류로 추가. 관련검사 실패0. Aside 격리19431 자동 GW/CW/환율 연결, 다운로드 재시도중. 전체국가/Excel 실제재계산/배포 미검증. 운영DB쓰기0. 정본 docs/plans/cost-auxiliary-tables-2026-11-04.md.
+검색어: cost-auxiliary 1104 Ornithogalum Cordyline 별도종류 검역차감 FOB 환율 부속표 배포미완
+
+2026-11-04 후속: Aside NL43-02 71품목 실제 다운로드 완료, 검역수식21행/통관표/판매총액29836746.07·총이익4565022.15 캐시 확인. 실제Excel재계산/글씨겹침 미검증, 고객비교는합성fixture로실제검증아님. 6프로필 통관 원본 기준표 복원(기존적용합계보존/차이표시),56PASS9SKIP. 중국해상·태국 부속표 및 국가별Aside/배포미완. 운영DB쓰기0.
+검색어: cost-auxiliary NL Aside 다운로드 customsReferenceCells 6프로필 판매합계 미배포
+
+2026-11-04 태국 원본 후속: 사용자 요청으로 기존 TH40 및 36~39/23/27~29 시트 역추적. 검역 P6=샘플송이×수동원화단가 합, N10=기본비+P6+P7(차감 아님). 40차 285500+44678.8868042371=330178.8868042371. 단가는 수식없는 과거값/상수나눗셈이고 최저FOB 자동선정 근거 없음. TH 부속표는 과거 참고단가 명시, AB5실제적용값 보존. CN SEA11개 통관항목/합계 복원. 관련129개111PASS18SKIP, manifest187/쓰기guardPASS/diffPASS. artifact 재계산 입력변경 TH/CNSEA/NL 정상, 오류검색0; TH 캡션 클리핑 병합 보완 후 시각확인. Aside NL43-02 실제 다운로드 `(1).xlsx` TEST_ONLY 확인용(합성CL2), 통관823157.95→시험수수료변경791157.95 재계산; 운영DB쓰기0. 전 국가Aside/Excel네이티브재계산/최종build/배포는 미완. 현재격리서버55172/38004, Aside64694는 이 세션 소유.
+검색어: TH 원본 검역 가산 P6 N10 44678.8868042371 과거수동단가 CNSEA 6510302 Aside NL TEST_ONLY 미배포
+
+2026-11-04 미완료 작업 재개: origin/master dda84a65 fetch, 원가 주요4파일과 현재base간 원격겹침 없음. 전체 ERP 계약 재실행 session88928/outputs/aux-final-contract.log, packing-team 구간까지 실패보고 없음이나 아직 종료미확인. Computer Use로 기존 원가 Excel창75574598 확인했으나 응답없음 지속(사용자 업무문서도열림), 강제종료/저장/수정하지 않음. 실제 Excel 재계산·남은국가 Aside·최종빌드·배포 미완. 운영 DB쓰기0.
+검색어: 미완료 1104 Excel 응답없음 75574598 aux-final-contract 88928 dda84a65 배포대기
+
+2026-11-04 재개 후: 앞선 전체ERP 7실패는 복원 전 통관합계/내역미보유를 기대한 구 assertion이었다. 실제 원본 중량요율/검역비/적용AB5불변 검사로 정정. 실제 Excel에서 TH L9 박스비율이 원화로 보이는 추가결함 발견, 원본스타일 불변+퍼센트 복제서식 적용. 표적64중55PASS/9선택SKIP/0FAIL, 11프로필 시험파일 재생성44중35PASS/9SKIP. Excel에서 TH L7:L9=4%/1%/95%, 참고검역44678.89/참고합계209438.89 표시 확인(합성시험자료, 실제 원가 인증 아님). 판매가 R14 제목 잘림은 추가 미완. Aside19431 NL43-02 실제 버튼 다운로드 Downloads/도착원가_계산본_2026_43-02_7814 (2).xlsx 성공(TEST_ONLY/합성CL2). manifest187/writeguard1/dnSpy PASS. 전체ERP 재실행70364 outputs/aux-contract-retry.log 아직 진행, 최종빌드/전국가Aside/배포 미완. 운영DB쓰기0.
+검색어: TH L9 95퍼센트 numberFormat9 Excel 실화면 aux-percent-regression Aside NL 다운로드2 판매헤더잘림 미배포
+
+2026-11-04 검증 요청 결과: 전체ERP aux-contract-retry session70364 EXIT0 확인. 11프로필 파일 artifact 재계산/오류검색0/원파일SHA불변. 10프로필 판매·이익·총액 행합계 일치, CNSEA는 시험자료CBM누락으로 입력필요 유지(정상완료아님). VN은 headerRow12를 사용해 합계11행 검사, 첫 진단스크립트의17행 조회오류 정정(제품코드문제아님). Aside19431 실제 NL 다운로드(3).xlsx/71행 총판매29825523.632578906 총이익4563305.115784571 행합계 일치. TH/CNSEA/NL 부속표 입력변경 재계산PASS, 결과xlsx 저장안함. TH R14 XML에 wrapText없음 확인: artifact렌더는 정상이나 실제Excel잘림 기존증거 유효, 아직 미수정. 전체국가Aside/Excel네이티브완료·최종build·배포미완. 운영DB쓰기0. 검증용 스크립트만 outputs에 추가, 업무코드변경 없음.
+검색어: 검증1104 전체ERP EXIT0 11프로필 10합계일치 CNSEA CBM누락 TH R14 wrapText없음 NL다운로드3 71행 운영DB0
+# 2026-11-04 CBM·태국 제목 후속 (진행 중)
+- 원본 중국해상 41-1 SHA 검증 후 품목→박스규격/CBM 96개 추출. 동일 이름+박스당 단수만 파일 계산 기본값, 직접입력/승인값/운영DB 보존. 근거 AD열 표시.
+- 태국 R14/S14 wrapText 누락 수정; 실제 Excel 두 줄 정상 확인. 글씨체/색/너비 보존.
+- 관련61검사52 PASS/9 SKIP/0 FAIL. 11개 시험양식 재계산 오류0, 총판매/총이익 행합계 일치, 파일 SHA 불변. outputs/cost-cbm-wrap-1104. 테스트 자료이며 실제 국가별 E2E와 구분.
+- manifest187/dnSpy/write guard PASS. 전체계약 session63002, webpack 별도 dist session42130 진행중. 나머지국가 Aside 실다운로드·CI·배포 미완.
+- 검색어: 중국해상 CBM 96품목 원본포장 일치 TH wrapText R14 S14 cost-cbm-wrap-1104
+- 후속: webpack .next-cbm-verify EXIT0; 원본CBM/통관10검사 PASS. Aside NL 실제 다운로드 (4).xlsx 확인. 전체ERP63002 진행중, 다른국가 Aside/CI/배포 미완 유지.
+
+2026-11-04 국가별 Aside 다운로드 완료: 격리19441 실제 웹의 승인 원가 다운로드 버튼으로 11프로필 각각 다운로드. CO구형/42-1, TH, US, VN, AU, NZ, EC, CN항공/해상, NL. 3행 합성 TEST_ONLY 승인 스냅샷이며 실제 인보이스 전구간 정확도 검증 아님. 모든 API 비GET 차단/운영DB연결 없음. Downloads/*_ASIDE_TEST_ONLY.xlsx를 그대로 복사하여 artifact 재계산: 11개 오류0·판매/이익 행합계 일치·원파일SHA불변. 판매영역 렌더11개 글씨겹침 없음, TH native Excel 두줄 검증은 앞선 결과. 전체ERP63002 EXIT0 확인. CI/배포는 후속 진행중.
+검색어: Aside 11프로필 실제다운로드 TEST_ONLY aside-download-1104 재계산 오류0 운영DB0

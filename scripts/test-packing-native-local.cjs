@@ -54,6 +54,13 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    }
    else if(route==='/api/import/tools/state'){const key=u.searchParams.get('key')||body.key||'';if(method==='POST')shared.set(key,body.value);d={success:true,value:shared.get(key)||null,revision:0,history:[]};}
    else if(route==='/api/import/tools/upload-history')d={success:true,record:{id:'isolated-only'},rows:[]};
+   else if(route==='/api/import/receipts/shared-awb-cost'){
+    const {createSharedAwbHandler}=await import('../lib/invoiceSharedAwbApi.js');
+    const handler=createSharedAwbHandler({queryFn:ctx.queryFn,types:sql,authorize:()=>true});
+    const adapter={setHeader:(k,v)=>res.setHeader(k,v),status(code){res.statusCode=code;return this;},json(value){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));},send(value){res.end(value);}};
+    await handler({method,body,user:{userId:'invoice-fixture'}},adapter);events.push({route,method,status:res.statusCode});return;
+   }
+   else if(route==='/api/import/receipts/drafts'&&method==='GET')d={success:true,documents:await documents.listInvoiceDocuments({queryFn:ctx.queryFn,types:sql,orderYear:u.searchParams.get('orderYear'),orderWeek:u.searchParams.get('orderWeek')})};
    else if(route==='/api/import/receipts/drafts'&&method==='POST')d={success:true,document:await documents.saveInvoiceDraft({withTransactionFn:ctx.withTransactionFn,types:sql,input:body,actor:'invoice-fixture'})};
    else if(route==='/api/import/receipts/eligibility')d={success:true,eligibility:await readInvoiceReceiptEligibility({queryFn:ctx.queryFn,types:sql,...body})};
    else if(route.startsWith('/api/import/receipts/')&&route.endsWith('/preview'))d={success:true,preview:await writer.previewInvoiceReceipt({queryFn:ctx.queryFn,types:sql,documentId:id,revision:body.revision})};

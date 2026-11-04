@@ -39,13 +39,35 @@ for(const[id,p]of Object.entries(RESTORED_COST_LAYOUTS))test(`${id} original cal
  if(id==='TH_ORIGINAL_V1'){
   assert.equal(s.J10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.boxQuantity,0));
   assert.equal(s.K10.v,f.snapshot.input.costGroups.reduce((n,g)=>n+g.quantity,0));
+  for(const [i,group] of f.snapshot.input.costGroups.entries()){
+   const cell=s[`L${7+i}`];
+   assert.equal(cell.z,'0%','every packing group ratio is a percentage, never inherited currency');
+   assert.equal(cell.v,group.boxQuantity/s.J10.v);
+  }
  }
  if(id==='CO_ORIGINAL_V1')assert.match(s.K7.f,/SUMPRODUCT/);
  if(id!=='NL_ORIGINAL_V1'){
   const compact=profile.priceBasis&&id!=='EC_ORIGINAL_V1',us=id==='US_ORIGINAL_V1',th=id==='TH_ORIGINAL_V1';
   const valueCol=compact?(us?'M':'N'):th?'N':'P',firstFee=compact?5:6;
-  assert.equal(s[`${valueCol}${firstFee}`].f,'$AB$5');
-  assert.equal(s[`${valueCol}${firstFee+2}`].v,'내역 미보유');
+  if(id==='CN_SEA_ORIGINAL_V1'){
+   assert.equal(s[`${valueCol}${firstFee}`].f,'$AB$5');
+   assert.equal(s[`${valueCol}${firstFee+2}`].v,'내역 미보유');
+   assert.equal(s.E28.f,'SUM(C20:C27,E20:E27)');
+  }else{
+   // Verified originals use current weight and count, not the old aggregate placeholder.
+   const rate=id==='NZ_ORIGINAL_V1'?375:id==='CO_ORIGINAL_V1'?370:460;
+   const weightRef=compact?`${p.fx[0]}7`:'C8';
+   assert.equal(s[`${valueCol}${firstFee}`].f,`${weightRef}*${rate}`);
+   assert.equal(s[`${valueCol}${firstFee}`].v,s[weightRef].v*rate);
+   assert.equal(s[`${valueCol}${firstFee+2}`].v,id==='EC_ORIGINAL_V1'?36000:7*10000);
+   assert.match(s.AB11.f,/\$AB\$5-/,'reference difference stays explicit');
+   if(th){
+    assert.match(s.R4.v,/40차.*현재 단가 아님/);
+    assert.equal(s.P6.f,'SUMPRODUCT(S6:S10,T6:T10)+SUMPRODUCT(V6:V7,W6:W7)');
+    assert.equal(s.T8.v,'원본 미기재');
+   }
+  }
+  assert.equal(s.AB5.v,f.revision.lines.reduce((sum,line)=>sum+(line.componentAmounts.customsKRW??0),0),'applied customs never overwritten by reference defaults');
   assert.ok(s[`${valueCol}${firstFee+4}`].f);
   if(!compact)assert.ok(s[`${th?'I':id==='CN_SEA_ORIGINAL_V1'?'I':'H'}${p.first}`].f,'CNF intermediate formula');
  }

@@ -1,0 +1,680 @@
+{
+  "schemaVersion": 1,
+  "sourceHash": "5e9241ac85d3152b976419422d2cce6498c02346563e2dc1a637e7eace9187a7",
+  "sourceSheet": "41-1 해상 (95% 기준)",
+  "records": [
+    {
+      "name": "Ammi CHINA 아미초",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H44 → M7/N7"
+    },
+    {
+      "name": "Carnation CHINA / 돈셀 (Doncel)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H45 → M30/N30"
+    },
+    {
+      "name": "Carnation CHINA / 마리포사 (Mariposa)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H46 → M30/N30"
+    },
+    {
+      "name": "Carnation CHINA / 모치 (Mochi)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H47 → M30/N30"
+    },
+    {
+      "name": "Carnation CHINA / 옐로우 헤르메스 (Yellow Hermes)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H48 → M30/N30"
+    },
+    {
+      "name": "Carnation CHINA / 퍼플 미스트 페어리 (Purple Mist Fairy)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H49 → M30/N30"
+    },
+    {
+      "name": "CHINA / 디디스커스 블루 (Didiscus blue)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H50 → M8/N8"
+    },
+    {
+      "name": "CHINA / 디디스커스 퍼플 (Didiscus caeruleus-light purple)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H51 → M8/N8"
+    },
+    {
+      "name": "CHINA / 디디스커스 화이트 (Didiscus caeruleus-white)",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H52 → M8/N8"
+    },
+    {
+      "name": "CHINA / 리모늄 미스티 블루(Limonium Misty blue) 500g",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H53 → M9/N9"
+    },
+    {
+      "name": "CHINA / 리모늄 스타티스 연보라 (Statice light purple)",
+      "boxCbm": 0.09600000000000002,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*24",
+      "sourceCell": "H54 → M10/N10"
+    },
+    {
+      "name": "CHINA / 리모늄 스타티스 연핑크 (Statice light pink)",
+      "boxCbm": 0.09600000000000002,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*24",
+      "sourceCell": "H55 → M10/N10"
+    },
+    {
+      "name": "CHINA / 리모늄 스타티스 진보라 (Statice dark purple)",
+      "boxCbm": 0.09600000000000002,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*24",
+      "sourceCell": "H56 → M10/N10"
+    },
+    {
+      "name": "CHINA / 리모늄 스타티스 화이트 (Statice white)",
+      "boxCbm": 0.09600000000000002,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*24",
+      "sourceCell": "H57 → M10/N10"
+    },
+    {
+      "name": "CHINA / 리모늄 시네신스 화이트 (Sinensis white) 500g",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H58 → M11/N11"
+    },
+    {
+      "name": "CHINA / 보리사초 (Chasmanthium latifolium) (1단/50송의)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H59 → M14/N14"
+    },
+    {
+      "name": "CHINA / 안개꽃 (Gypsophila white)",
+      "boxCbm": 0.09600000000000002,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*40*24",
+      "sourceCell": "H60 → M13/N13"
+    },
+    {
+      "name": "CHINA / 왁스 노랑 (Wax Yellow)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H61 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 레드 (Wax red)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H62 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 보라 (Wax Purple)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H63 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 블루 (Wax Blue)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H64 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 오렌지 (Wax Orange)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H65 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 핑크 (Wax pink)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H66 → M14/N14"
+    },
+    {
+      "name": "CHINA / 왁스 화이트 (Wax White)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H67 → M14/N14"
+    },
+    {
+      "name": "DAHLIA CHINA / 달리아 라운드 브라이트 오렌지 (Round bright orange)",
+      "boxCbm": 0.07056,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "90*28*28",
+      "sourceCell": "H68 → M15/N15"
+    },
+    {
+      "name": "DAHLIA CHINA / 달리아 라운드 크림 피치 (Round cream peach)",
+      "boxCbm": 0.07056,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "90*28*28",
+      "sourceCell": "H69 → M15/N15"
+    },
+    {
+      "name": "DAHLIA CHINA / 달리아 투톤 연핑크 (Chen Yingjun)",
+      "boxCbm": 0.07056,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "90*28*28",
+      "sourceCell": "H70 → M15/N15"
+    },
+    {
+      "name": "DAHLIA CHINA / 달리아 투톤 연핑크 2 (Chen baby girl)",
+      "boxCbm": 0.07056,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "90*28*28",
+      "sourceCell": "H71 → M15/N15"
+    },
+    {
+      "name": "Delphinium CHINA / 연보라 Light Purple",
+      "boxCbm": 0.08360000000000001,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "110*38*20",
+      "sourceCell": "H72 → M16/N16"
+    },
+    {
+      "name": "Delphinium CHINA / 연블루 Light Blue",
+      "boxCbm": 0.08360000000000001,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "110*38*20",
+      "sourceCell": "H73 → M16/N16"
+    },
+    {
+      "name": "Eucalyptus CHINA / 블랙잭 (Baby Blue small) (소)",
+      "boxCbm": 0.13923,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "119*39*30",
+      "sourceCell": "H74 → M18/N18"
+    },
+    {
+      "name": "Eucalyptus CHINA / 블랙잭 (베이비 블루) (대) 1Kg",
+      "boxCbm": 0.13923,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "119*39*30",
+      "sourceCell": "H75 → M17/N17"
+    },
+    {
+      "name": "Eucalyptus CHINA / 유칼리튭스_시네리아 (Eucalyptus - Cinerea)",
+      "boxCbm": 0.13923,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "119*39*30",
+      "sourceCell": "H76 → M17/N17"
+    },
+    {
+      "name": "Eucalyptus CHINA / 포퓰러스 그레인, 열매 (populus grain) 600g",
+      "boxCbm": 0.1386,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "110*42*30",
+      "sourceCell": "H77 → M21/N21"
+    },
+    {
+      "name": "Greens CHINA / 패니쿰 (Panicum) 200g",
+      "boxCbm": 0.028499999999999998,
+      "bunchesPerBox": 30,
+      "dimensionsCm": "95*25*12",
+      "sourceCell": "H78 → M22/N22"
+    },
+    {
+      "name": "Marguerite CHINA / 마가렛 400g",
+      "boxCbm": 0.04704,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "98*30*16",
+      "sourceCell": "H79 → M24/N24"
+    },
+    {
+      "name": "Matricaria CHINA / Chamomilla",
+      "boxCbm": 0.07056,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "90*28*28",
+      "sourceCell": "H80 → M25/N25"
+    },
+    {
+      "name": "Ping Pong CHINA / 퐁퐁 핑크 (Pink)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H81 → M26/N26"
+    },
+    {
+      "name": "Ping Pong CHINA / 퐁퐁 화이트 (White)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H82 → M26/N26"
+    },
+    {
+      "name": "ROSE CHINA / Momentum",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H83 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 갓챠(Gotcha) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H84 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 골렘 (Golestem)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H85 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 그로우 (Water Sprite) 75-80cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H86 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 나이팅게일(Nightingale, Purple Fairy)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H87 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 다이아나(Diana) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H88 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 다이아나(Diana) 65-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H89 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 레드니스(Redness) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H90 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 로맨틱 비치(Romantic Beach) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H91 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 로맨틱 비치(Romantic Beach) 70cm-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H92 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 만달라(Mandala) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H93 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 만달라(Mandala) 65-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H94 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 버터컵(Butter cup) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H95 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 버터컵(Butter cup) 65-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H96 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 아쿠아/소울메이트 (Aqua/soulmate/ revival).",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H97 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 안슬레이(Annesley/Katherin)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H98 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 안슬레이(Annesley/Katherin) A-grade 65-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H99 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 오션송(Ocean song) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H100 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 주밀리아(Jumilia) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H101 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 주밀리아(Jumilia) 70cm-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H102 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 줄리엣 (Juliet )",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H103 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 카푸치노 (Capuchino) 70cm-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H104 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 퀵샌드 (Quick Sand)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H105 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 킴벌리(Kimberly) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H106 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 킹스데이(Kings day) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H107 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 킹스데이(Kings day) 70cm-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H108 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 티나 (Tina)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H109 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 티나 (Tina) 70cm-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H110 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 프라우드(White proud) [red box]",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H111 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 프라우드(White proud) [red box] 75-80cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H112 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 프라우드(White proud) 65-75cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H113 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 프루테토, 큐피트　(Frutteto, Cupid)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H114 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 플라터 레드 (Plateau Red)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H115 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 플라터 레드 (Plateau Red) 75-80cm",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H116 → M29/N29"
+    },
+    {
+      "name": "ROSE CHINA / 피치 아바란체 (Peach avalanche)샴페인",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H117 → M29/N29"
+    },
+    {
+      "name": "Scabiosa CHINA / 스카비오사 Mix Box",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H118 → M27/N27"
+    },
+    {
+      "name": "Scabiosa CHINA / 스카비오사 연핑크 (Scabiosa light pink)",
+      "boxCbm": 0.08,
+      "bunchesPerBox": 20,
+      "dimensionsCm": "100*40*20",
+      "sourceCell": "H119 → M27/N27"
+    },
+    {
+      "name": "Spray Carnation CHINA / 라이트핑크 테시노 (Light Pink Tessino)",
+      "boxCbm": 0.059584,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*38*16",
+      "sourceCell": "H120 → M31/N31"
+    },
+    {
+      "name": "Spray Carnation CHINA / 로얄 테시노 (Royal Tessino)",
+      "boxCbm": 0.059584,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*38*16",
+      "sourceCell": "H121 → M31/N31"
+    },
+    {
+      "name": "Spray Carnation CHINA / 로잔느 (Roxanne)",
+      "boxCbm": 0.059584,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*38*16",
+      "sourceCell": "H122 → M31/N31"
+    },
+    {
+      "name": "Spray Carnation CHINA / 체리 테시노 (SP Carnation-Cherry Tessino)",
+      "boxCbm": 0.059584,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*38*16",
+      "sourceCell": "H123 → M31/N31"
+    },
+    {
+      "name": "Spray Carnation CHINA / 트렌디 테시노 (Trendy Tessino)",
+      "boxCbm": 0.059584,
+      "bunchesPerBox": 15,
+      "dimensionsCm": "98*38*16",
+      "sourceCell": "H124 → M31/N31"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / Draft Win",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H125 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / Fairy Kiss",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H126 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / Fairy Lola",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H127 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / Star blush",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H128 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 라일라 (Laila)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H129 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 레파인젠시 (Refingency)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H130 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 발코니 (Balcony)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H131 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 베이비 카멜레온 (Spray-Rose baby Chameleon)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H132 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 블랙뷰티 (Spray-Rose Black Beauty) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H133 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 소피아 베베 (Spray-Rose Sofia babe) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H134 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 스칼렛 벨벳 (Spray-Rose Scarlet Velvet) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H135 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 아프리콧 테라짜 (Spray-rose Apricot Terrazza)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H136 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 유키히메 (Yukihime)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H137 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 줄리에타 (Spray-Rose Julieta) ",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H138 → M29/N29"
+    },
+    {
+      "name": "SPRAY ROSE CHINA / 핑크 스프레이 (Pink Spray)",
+      "boxCbm": 0.06,
+      "bunchesPerBox": 10,
+      "dimensionsCm": "100*30*20",
+      "sourceCell": "H139 → M29/N29"
+    }
+  ],
+  "assetHash": "1ebffebafcb0f60b4d913b720bec63f02edba02ca51c4ce3d3cf315ba54b34f1"
+}

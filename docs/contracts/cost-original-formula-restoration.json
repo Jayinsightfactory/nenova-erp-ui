@@ -1,11 +1,11 @@
 {
  "id":"cost-original-formula-restoration",
  "title":"국가별 원본 원가 계산·판매·이익 엑셀 복원",
- "scope":["lib/invoiceCostOriginalRestoration.js","lib/invoiceReceiptCostExport.js","lib/invoiceCostSalesDefaults.js","lib/invoiceCostTemplates/sales-reference-v1.json","scripts/build-cost-sales-reference.mjs"],
+ "scope":["lib/invoiceCostOriginalRestoration.js","lib/invoiceCostCustomsReference.js","lib/invoiceReceiptCostExport.js","lib/invoiceCostSalesDefaults.js","lib/invoiceCostFormulaComparison.js","lib/chinaSeaCbmReference.js","lib/invoiceCostTemplates/china-sea-cbm-reference-v1.json","scripts/build-china-sea-cbm-reference.mjs","lib/invoiceCostTemplates/sales-reference-v1.json","scripts/build-cost-sales-reference.mjs"],
  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
  "actions":[{"name":"DOWNLOAD_CALCULATION_WORKBOOK","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Only XLSX output. Approved snapshots, source identity, revalidation and stored totals unchanged. 2026-11-02 user authorizes automatic reference sales: hash-bound exact name+factor reference, otherwise source-bound current cost recommendation (SEA /0.85*1.1; others /0.77). AE:AF show reference type/sheet/cell. Never actual sales or ledger writes."}],
  "crossYearFixture":{"required":true,"description":"2025 and2026 same week retain distinct receipt identity. Reference prices are explicitly labeled file-only defaults, never prior-year transactions or quantities."},
- "requiredTestFiles":["__tests__/invoiceReceiptCostExport.test.js","__tests__/invoiceCostOriginalRestoration.test.js","__tests__/invoiceCostSalesDefaults.test.js"],
+ "requiredTestFiles":["__tests__/invoiceReceiptCostExport.test.js","__tests__/invoiceCostOriginalRestoration.test.js","__tests__/invoiceCostSalesDefaults.test.js","__tests__/invoiceCostCustomsReference.test.js","__tests__/chinaSeaCbmReference.test.js"],
  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"Existing ExcelLoadingPackingList field and unit contract retained. This change only adds formulas in XLSX; no InsertMaster, SQL writes, original receipt conversion, price or stock mutation.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","Product"]},
  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
 }

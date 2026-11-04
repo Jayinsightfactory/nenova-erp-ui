@@ -31,6 +31,18 @@ test('missing freight is not silently treated as zero',()=>{
   assert.equal(nlQuarantineDeduction(lines,{freight:null,exchangeRate:1000,customsBeforeDeduction:100000}).ready,false);
 });
 
+test('additional reference kinds are independent, not replacements or double deductions',()=>{
+ const names=['Nerine','Ornithogalum White','Ornithogalum Yellow','Leucothoe','Cordyline'];
+ const lines=names.map((originalName,i)=>({lineId:String(i),originalName,stemQuantity:100,
+   lineAmount:100+i*10,unitPrice:1+i*.1,effectiveTariffRate:0}));
+ const r=nlQuarantineDeduction(lines,{freight:0,exchangeRate:1000,customsBeforeDeduction:200000});
+ assert.equal(r.ready,true);assert.equal(r.kindCount,4);
+ assert.deepEqual(r.selected.map(x=>x.kind),['Nerine','Ornithogalum','Leucothoe','Cordyline']);
+ assert.ok(r.selected.every(x=>x.stems===10));
+ assert.equal(r.selected.find(x=>x.kind==='Ornithogalum').lineId,'1');
+ assert.equal(r.deduction,48000);
+});
+
 test('43-02 unmatched kinds remain distinct and sample deduction never assumes ten stems',()=>{
   const lines=[
     ['a','Amerine/ Anastasia','기타'],['o','Onisogallium / Arabicum','오니소겔륨'],
