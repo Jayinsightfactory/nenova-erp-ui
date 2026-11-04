@@ -2,7 +2,9 @@
 # owner PC 상주 docling 워커(기술레이더 1호 채택, 2026-11-04).
 # 네노바웹 /api/import/tools/docling-bridge 를 폴링해 PDF를 받아 docling으로 표를 뽑아 되돌린다.
 # 실행(owner PC): C:\Users\USER\nenova-pm\radar-pilot\venv\Scripts\python.exe 이 파일 경로
-# 환경변수: ORBIT_DRIVE_INGEST_TOKEN(필수), NENOVAWEB_BASE(기본 https://nenovaweb.com), DOCLING_POLL_SEC(기본 15)
+# 토큰: env ORBIT_DRIVE_INGEST_TOKEN 이 있으면 그것, 없으면 기존 패턴대로 Orbit
+#       /api/daemon/nenova-ingest-config 에서 ~/.orbit-config.json 토큰으로 받아온다(값 출력 안 함).
+# 환경변수(선택): ORBIT_DRIVE_INGEST_TOKEN, NENOVAWEB_BASE(기본 https://nenovaweb.com), DOCLING_POLL_SEC(기본 15)
 # 서류는 네노바웹 서버와 이 PC 사이에서만 오가며 외부 서비스로 전송되지 않는다.
 import base64
 import json
@@ -16,6 +18,20 @@ import urllib.request
 
 BASE = os.environ.get("NENOVAWEB_BASE", "https://nenovaweb.com").rstrip("/")
 TOKEN = os.environ.get("ORBIT_DRIVE_INGEST_TOKEN", "").strip()
+
+def fetch_ingest_token():
+    """nenova-work-features/upload-features.js 와 같은 경로로 ingest 토큰 취득."""
+    cfg_path = os.path.expanduser("~/.orbit-config.json")
+    raw = open(cfg_path, "r", encoding="utf-8-sig").read()
+    orbit_token = json.loads(raw)["token"]
+    req = urllib.request.Request(
+        "https://mindmap-viewer-production-adb2.up.railway.app/api/daemon/nenova-ingest-config",
+        headers={"Authorization": "Bearer " + orbit_token})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        cfg = json.loads(r.read().decode("utf-8"))
+    if not (cfg.get("enabled") and cfg.get("token")):
+        raise RuntimeError("ingest-config 비활성: " + str(cfg.get("reason") or ""))
+    return cfg["token"]
 POLL_SEC = max(5, int(os.environ.get("DOCLING_POLL_SEC", "15") or 15))
 URL = BASE + "/api/import/tools/docling-bridge"
 WORKER = "docling-bridge/" + socket.gethostname()
@@ -70,9 +86,14 @@ def process(job):
                 pass
 
 def main():
+    global TOKEN
     if not TOKEN:
-        print("ORBIT_DRIVE_INGEST_TOKEN 환경변수가 없습니다.", file=sys.stderr)
-        sys.exit(1)
+        try:
+            TOKEN = fetch_ingest_token()
+            log("ingest token: Orbit 에서 취득")
+        except Exception as e:
+            print("토큰 없음(env ORBIT_DRIVE_INGEST_TOKEN 도, Orbit ingest-config 도 실패): " + repr(e), file=sys.stderr)
+            sys.exit(1)
     log("docling bridge worker start", URL, "poll", POLL_SEC, "s")
     while True:
         try:
