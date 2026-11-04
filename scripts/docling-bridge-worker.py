@@ -112,9 +112,14 @@ def main():
             log("토큰 없음(env ORBIT_DRIVE_INGEST_TOKEN 도, Orbit ingest-config 도 실패):", repr(e))
             sys.exit(1)
     log("docling bridge worker start", URL, "poll", POLL_SEC, "s")
+    ok_count = 0
     while True:
         try:
             r = http("GET", URL + "?action=claim", timeout=120)
+            # 성공 하트비트: 첫 성공 즉시, 이후 1시간마다 1줄(에러만 찍으면 "조용함=죽음?"을 구분 못함)
+            if ok_count == 0 or ok_count % max(1, 3600 // POLL_SEC) == 0:
+                log("poll ok", "job" if r.get("job") else "queue empty")
+            ok_count += 1
             job = r.get("job")
             if job:
                 process(job)
