@@ -1,5 +1,5 @@
 {
- "_doc": "배경 일러스트 장면 좌표 지도. 좌표=배경 이미지 기준 %(x 왼→오, y 위→아래). stations=업무 9단계(발주→이익) 명판 자리, seats=부서별 캐릭터 발 위치(앞에서부터 채움), lab=AI 연구실 영역, robots=로봇 자리. 새 테마: public/pm/scene-bg/{id}.webp(+{id}-lq.webp) 넣고 여기 항목 추가. 책상 앵커: deskAnchor(map, 부서, i) → { floor: 캐릭터 발 기준점(seats 좌표), desk: 책상 상판 기준점(floor+deskOffset), facing: 바라보는 방향 } (lib/pmSceneLayout.js). 소품·펫은 desk 기준 상대좌표(%)로 얹는다. seatAnchor: deskAnchor() 가 { x, y, dir, scale, z } 도 돌려준다(x,y=의자 앉는 점 %, dir=facing, scale=map.charScale, z=깊이=y). textInArt=배경 그림 안 글자 유무(클레이판 10종 모두 없음). 배정 규칙: 부서별 seats 앞에서부터 명단(lib/pmRoster) 순서로 채우고, 사람이 더 많으면 기존 자리 옆(+4%,+2.5%)에 비켜 앉히며, 남는 자리는 빈 책상으로 둔다. 미배치·모르는 부서는 현장팀 구역.",
+ "_doc": "배경 일러스트 장면 좌표 지도. 좌표=배경 이미지 기준 %(x 왼→오, y 위→아래). stations=업무 9단계(발주→이익) 명판 자리, seats=부서별 캐릭터 발 위치(앞에서부터 채움), lab=AI 연구실 영역, robots=로봇 자리. 새 테마: public/pm/scene-bg/{id}.webp(+{id}-lq.webp) 넣고 여기 항목 추가. 책상 앵커: deskAnchor(map, 부서, i) → { floor: 캐릭터 발 기준점(seats 좌표), desk: 책상 상판 기준점(floor+deskOffset), facing: 바라보는 방향 } (lib/pmSceneLayout.js). 소품·펫은 desk 기준 상대좌표(%)로 얹는다. seatAnchor: deskAnchor() 가 { x, y, dir, scale, z } 도 돌려준다(x,y=의자 앉는 점 %, dir=facing, scale=map.charScale, z=깊이=y). textInArt=배경 그림 안 글자 유무(클레이판 10종 모두 없음). 배정 규칙: 부서별 seats 앞에서부터 명단(lib/pmRoster) 순서로 채우고, 사람이 더 많으면 기존 자리 옆(+4%,+2.5%)에 비켜 앉히며, 남는 자리는 빈 책상으로 둔다. 미배치·모르는 부서는 현장팀 구역. deskScale=자리 세트 배율(장면 1600px 기준 px / 384 캔버스 px), dir=앉은 포즈 방향(left|right). seats 좌표 = 책상 앵커(책상 앞면 가운데 바닥) — 캐릭터는 엉덩이가 앵커 위 68.3×scale 에 앉고, 장면이 덮어 그리는 책상이 하반신을 가린다.",
  "A": {
   "src": "A",
   "aspect": 1.7917,
@@ -159,7 +159,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "B": {
   "src": "B",
@@ -320,7 +322,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "C": {
   "src": "C",
@@ -481,39 +485,25 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "D": {
   "src": "D",
   "aspect": 1.7917,
   "stations": [
    [
-    17.5,
-    72
-   ],
-   [
     39,
     83
-   ],
-   [
-    29,
-    60
    ],
    [
     50.5,
     69
    ],
    [
-    40,
-    50
-   ],
-   [
     61,
     57
-   ],
-   [
-    50.5,
-    39
    ],
    [
     71,
@@ -522,6 +512,22 @@
    [
     81,
     32
+   ],
+   [
+    61,
+    27
+   ],
+   [
+    50.5,
+    39
+   ],
+   [
+    40,
+    50
+   ],
+   [
+    29,
+    60
    ]
   ],
   "seats": {
@@ -634,7 +640,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "E": {
   "src": "E",
@@ -783,7 +791,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "F": {
   "src": "F",
@@ -932,7 +942,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "G": {
   "src": "G",
@@ -1089,7 +1101,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "H": {
   "src": "H",
@@ -1246,7 +1260,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "I": {
   "src": "I",
@@ -1399,7 +1415,9 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  },
  "J": {
   "src": "J",
@@ -1556,6 +1574,8 @@
   ],
   "facing": "ne",
   "textInArt": false,
-  "charScale": 1
+  "charScale": 1,
+  "deskScale": 0.55,
+  "dir": "left"
  }
 }

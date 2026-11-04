@@ -13,12 +13,56 @@ import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
 import { DEPTS, SW, layoutScene } from '../../lib/pmSceneLayout';
+import { themeKit, withThemeKit } from '../../lib/pmThemeKit';
+import { DeskDecor, SeatedCharacter } from './Character';
+import { useGrow } from './grow/Grow';
 
 const arr = (x) => (Array.isArray(x) ? x : []);
+
+// 춤 자동 재생 이벤트: 정원(개인 성장) 단계 승급 · 직원 요청 '배포됨' · 오늘 목표(하루 상한) 달성. 첫 로드는 기준만 잡고 춤추지 않음.
+export function danceEvents(prev, growV, requests) {
+  const out = {}; const next = { stage: {}, cap: {}, req: {} };
+  for (const g of arr(growV?.people)) {
+    next.stage[g.name] = g.stage; const capHit = (g.today?.points || 0) >= (g.today?.cap || 60); next.cap[g.name] = capHit;
+    if (prev && prev.stage[g.name] != null && g.stage > prev.stage[g.name]) out[g.name] = 'cheer';
+    else if (prev && capHit && prev.cap[g.name] === false) out[g.name] = 'jump';
+  }
+  for (const r of arr(requests)) {
+    next.req[r.id] = r.status;
+    if (prev && prev.req[r.id] && prev.req[r.id] !== 'deployed' && r.status === 'deployed' && r.byName) out[r.byName] = 'spin';
+  }
+  return { out, next };
+}
+function useSceneDances(growV) {
+  const [dances, setDances] = useState({});
+  const [reqs, setReqs] = useState(null);
+  const prev = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch('/api/pm/staff-requests', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (alive && j.success) setReqs(j.requests || []); }).catch(() => {});
+    load(); const t = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  useEffect(() => {
+    if (!growV) return undefined;
+    const { out, next } = danceEvents(prev.current, growV, reqs);
+    prev.current = next;
+    if (!Object.keys(out).length) return undefined;
+    setDances(out);
+    const t = setTimeout(() => setDances({}), 2800);
+    return () => clearTimeout(t);
+  }, [growV, reqs]);
+  return dances;
+}
 const ZMIN = 1; const ZMAX = 3;
 
 export default function BgScene({ themeId, agents, rooms, links, corridor, now, selStage, onPickStage, onOpenPerson, reduced, isAdmin, myStaff, fallback = null }) {
-  const { avatars } = usePmTheme();
+  const { avatars, manifest } = usePmTheme();
+  const kit = useMemo(() => themeKit(manifest, themeId), [manifest, themeId]);
+  const { view: growV } = useGrow() || {};
+  const growPeople = useMemo(() => Object.fromEntries(arr(growV?.people).map((g) => [g.name, g])), [growV]);
+  const vibes = growV?.vibes || {};
+  const dances = useSceneDances(growV);
   const map = sceneMapFor(themeId);
   const hostRef = useRef(null);
   const imgRef = useRef(null);
@@ -185,16 +229,29 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
               </Hot>
             );
           })}
+          {/* 앉은 캐릭터 + 자리 꾸밈(캐릭터 v2). z: 러그·의자 < 캐릭터(하반신 숨김) < 책상 스킨·상판 < 펫. 앞쪽(y 큰) 자리가 위 */}
+          {L.seats.map(({ p, person: x }) => {
+            const ax = (p[0] / 100) * hostW; const ay = (p[1] / 100) * hostH; const sc = (L.ds * hostW) / SW;
+            const st = STATUS_LABEL[x.status] ? x.status : 'off';
+            const z = 20 + Math.round(p[1] * 4);
+            const seat = { x: ax, y: ay - 68.3 * sc, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
+            const cfg = withThemeKit(avatars[x.name], kit);
+            const g = growPeople[x.name]; const v = vibes[x.name] || {};
+            return (
+              <div key={`s:${x.name}`} className={`bg-seat st-${st}`} data-seat={x.name} aria-hidden>
+                {!cfg.items.rug && <i className="bg-rugband" style={{ left: ax, top: ay - 8 * sc, width: 230 * sc, height: 70 * sc, zIndex: z }} />}
+                <DeskDecor cfg={cfg} seat={seat} />
+                <SeatedCharacter cfg={cfg} seat={seat} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
+              </div>
+            );
+          })}
           {L.seats.map(({ p, person: x }) => {
             const [cx, cy] = at(p); const st = STATUS_LABEL[x.status] ? x.status : 'off'; const key = `p:${x.name}`;
-            const pp = { kind: 'staff', key, x0: x, x: cx, y: cy - 70 * k };
+            const pp = { kind: 'staff', key, x0: x, x: cx, y: cy - 180 * L.ds };
+            const hb = { left: `${(cx / SW) * 100}%`, top: `${((cy - 113.3 * L.ds) / SH) * 100}%`, width: `${(120 * L.ds / SW) * 100}%`, height: `${(130 * L.ds / SH) * 100}%` };
             return (
-              <Hot key={key} className={`bg-ch st-${st}`} data-desk={x.name} style={pct(cx, cy)} aria-label={`${x.name} ${STATUS_LABEL[st]} 자세히`}
-                onMouseEnter={() => hover(pp)} onMouseLeave={leave} onFocus={() => hover(pp)} onClick={(e) => { e.stopPropagation(); pin(pp); }}>
-                <Chibi name={x.name} status={st} avatar={avatars[x.name]} size={46} />
-                {st === 'idle' && <span className="iso-z" aria-hidden>z</span>}
-                {st === 'error' && <span className="iso-bang" aria-hidden>!</span>}
-              </Hot>
+              <Hot key={key} className={`bg-hit st-${st}`} data-desk={x.name} style={hb} aria-label={`${x.name} ${STATUS_LABEL[st]} 자세히`}
+                onMouseEnter={() => hover(pp)} onMouseLeave={leave} onFocus={() => hover(pp)} onClick={(e) => { e.stopPropagation(); pin(pp); }} />
             );
           })}
 
@@ -258,6 +315,15 @@ export const BG_CSS = `
 .pm .bg-legend .w { background: var(--pm-ok); } .pm .bg-legend .d { background: var(--pm-idle); } .pm .bg-legend .o { background: var(--pm-off-ink); }
 .pm .bg-ch.st-working > svg, .pm .bg-ch.st-working > .iso-av { animation: isoBob 1.6s ease-in-out infinite; }
 .pm .bg-host .iso-pop { z-index: 12; transform: translate(-50%, -100%) scale(var(--iz, 1)); transform-origin: 50% 100%; }
+.pm .bg-seat { position: absolute; inset: 0; pointer-events: none; }
+.pm .bg-seat img { pointer-events: none; user-select: none; }
+.pm .bg-rugband { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--pm-accent) 30%, transparent), transparent); pointer-events: none; }
+.pm .bg-seat.st-off { filter: saturate(.55); }
+.pm .bg-hit { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer; z-index: 900; outline: none; }
+.pm .bg-hit:focus-visible { outline: 3px solid var(--pm-accent2); }
+.pm .bg-host .bg-nm { z-index: 700; } .pm .bg-host .bg-chip { z-index: 750; } .pm .bg-host .bg-sl { z-index: 800; } .pm .bg-host .bg-zl { z-index: 650; }
+.pm .bg-host .bg-ch.bot { z-index: 600; }
+.pm .bg-host .iso-pop { z-index: 1000 !important; }
 @keyframes bgFlow { to { stroke-dashoffset: -36; } }
 @media (prefers-reduced-motion: reduce) { .pm .bg-cur, .pm .bg-ch > svg, .pm .bg-ch > .iso-av { animation: none !important; } .pm .bg-img { transition: none; } }
 `;
