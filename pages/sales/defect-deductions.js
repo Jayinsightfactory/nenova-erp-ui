@@ -2256,7 +2256,7 @@ export default function SalesDefectDeductionsPage() {
         .support-grid th:nth-child(12) { width: 7%; }
         .support-row-number, .support-status-actions { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
         .support-row-number { flex-wrap: nowrap; }
-        .support-source-period { display: block; width: max-content; max-width: 150px; margin: 0 0 4px; padding: 5px 8px; border: 1px solid #93b4f3; border-radius: 5px; background: #eaf2ff; color: #174394; font-size: 13px; font-weight: 800; line-height: 1.35; }
+        .support-source-period { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; white-space: normal; margin: 0 0 4px; padding: 5px 8px; border: 1px solid #93b4f3; border-radius: 5px; background: #eaf2ff; color: #174394; font-size: 13px; font-weight: 800; line-height: 1.35; }
         .support-source-period + .support-row-number > span { color: #64748b; font-size: 11px; }
         .support-row-number .management-select-hit { display: inline-flex; margin: 0; }
         .support-row-number .management-select-hit + button { display: inline-flex; align-items: center; margin: 0; min-width: 0; min-height: 32px; }
