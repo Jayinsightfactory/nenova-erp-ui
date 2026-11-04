@@ -56,6 +56,20 @@ export function Tabs({ items, value, onChange, label, className }) {
   );
 }
 
+// 장면 배율 바 — 1% 단위, 드래그 놓은 값 유지. 숫자 직접 입력은 Enter/blur 로 확정(범위 밖은 경계로).
+export function ZoomSlider({ pct, min = 40, max = 300, onChange, label = '장면 배율(%)' }) {
+  const v = Math.round(pct);
+  const commit = (raw) => { const n = Math.round(+raw); if (raw !== '' && Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n))); };
+  return (
+    <span className="pmk-zoom" role="group" aria-label={label}>
+      <input type="range" className="pmk pmk-zrange" min={min} max={max} step={1} value={v} aria-label={label} onChange={(e) => commit(e.target.value)} />
+      <input type="number" className="pmk pmk-znum" min={min} max={max} step={1} key={v} defaultValue={v} aria-label={`${label} 직접 입력`}
+        onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') commit(e.currentTarget.value); }} />
+      <small aria-hidden>%</small>
+    </span>
+  );
+}
+
 export function Panel({ className, children, ...rest }) {
   return <section {...rest} className={cx('panel', className)}>{children}</section>;
 }
@@ -95,6 +109,13 @@ export function PmUiStyles() {
       .pm .pmk-name { flex: 0 0 auto; background: none; border: 0; padding: 0; color: var(--pmk-ink); font-weight: bold; }
       .pm .pmk-name:hover { text-decoration: underline; }
       .pm .pmk-card { color: inherit; text-align: inherit; }
+      .pm .pmk-zoom { display: inline-flex; align-items: center; gap: 6px; color: var(--pmk-ink); }
+      .pm .pmk-zrange { width: 120px; height: 20px; padding: 0; appearance: none; -webkit-appearance: none; background: transparent; accent-color: var(--pmk-primary); cursor: pointer; }
+      .pm .pmk-zrange::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--pmk-sec-border); }
+      .pm .pmk-zrange::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
+      .pm .pmk-zrange::-moz-range-track { height: 4px; border-radius: 999px; background: var(--pmk-sec-border); }
+      .pm .pmk-zrange::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--pmk-primary); border: 1px solid var(--pmk-primary-hover); }
+      .pm .pmk-znum { width: 56px; min-height: var(--pmk-h-sm); padding: 0 6px; border: 1px solid var(--pmk-sec-border); border-radius: var(--pmk-radius); background: var(--pmk-sec-bg); color: var(--pmk-ink); font: inherit; font-size: 12px; text-align: right; }
       .pm .pmk-tabs { display: flex; flex-wrap: wrap; }
       .pm .pmk-tab { flex: 1; min-height: 40px; padding: 0 10px; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--pmk-tab-ink); font-size: 14px; }
       .pm .pmk-tab:hover { color: var(--pmk-ink); }

@@ -1,6 +1,6 @@
 // components/pm3d/Scene3D.js — /pm 사무실 3D(베타). three.js 직교 아이소메트릭 카메라.
 // 에셋: public/pm3d/kit.glb(모듈) · char.glb(리그+클립 idle/sit_type/walk/doze/dance) — scripts/pm3d/build_assets.py 로 생성.
-// 확대·축소 = +/−/맞춤 버튼만(휠 확대 없음). 확대했을 때만 드래그 이동.
+// 확대·축소 = 배율 바(1% 단위)·맞춤 버튼만(휠 확대 없음). 확대했을 때만 드래그 이동.
 // WebGL 없음·로드 실패·저사양(첫 프레임 3초 초과 / FPS<20)이면 onFallback(reason) → 부모가 2D 장면을 보여 준다.
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -11,7 +11,8 @@ import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
-import { stepZoom } from '../../lib/pmZoom';
+import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
+import { ZoomSlider } from '../pm/ui';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
 export const PM3D_THEMES = Object.keys(THEMES);
@@ -362,8 +363,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         ))}
       </div>
       <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 6 }}>
-        <button type="button" aria-label="확대" onClick={() => setZoom((z) => stepZoom(z, 1))} style={zbtn}>+</button>
-        <button type="button" aria-label="축소" onClick={() => setZoom((z) => stepZoom(z, -1))} style={zbtn}>−</button>
+        <ZoomSlider pct={zoom * 100} min={ZOOM_PCT_MIN} max={ZOOM_PCT_MAX} onChange={(pct) => setZoom(pctToZoom(pct))} />
         <button type="button" aria-label="화면 맞춤" onClick={() => setZoom(1)} style={{ ...zbtn, width: 'auto', padding: '0 10px' }}>맞춤</button>
       </div>
       <small style={{ position: 'absolute', left: 10, bottom: 8, color: U.note, background: U.chipDim, padding: '1px 6px', borderRadius: 6 }}>3D 베타 {stat}</small>

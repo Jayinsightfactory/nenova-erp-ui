@@ -8,12 +8,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePmTheme } from './PmTheme';
 import { Chibi, Hot, STATUS_LABEL, ScenePopBody, chipLabel } from './IsoScene';
-import { Button } from './ui';
+import { Button, ZoomSlider } from './ui';
 import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
 import { DEPTS, SW, frontMaskClip, frontMaskRect, frontDir, hipOf, layoutScene } from '../../lib/pmSceneLayout';
-import { ZOOM_MIN, ZOOM_MAX, clampView, zoomViewAt, shouldCloseOnUp } from '../../lib/pmZoom';
+import { ZOOM_MIN, ZOOM_MAX, clampView, zoomViewAt, shouldCloseOnUp, zoomViewTo, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
 import { DeskDecor, SeatedCharacter, usePmLayers } from './Character';
 import { PM_DESK_ISO_SCALE, isoDeskTop } from '../../lib/pmDeskSlots';
@@ -261,10 +261,8 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
       </div>
       <div className="bg-legend" aria-label="상태 범례"><span><i className="w" />작업중</span><span><i className="d" />대기(z)</span><span><i className="o" />PC 꺼짐(흐린 색)</span></div>
       <div className="bg-zbar" role="group" aria-label="장면 확대·축소">
-        <Button size="sm" aria-label="확대" onClick={() => zoomAt(1.25)} disabled={zv.z >= ZMAX}>+</Button>
-        <Button size="sm" aria-label="축소" onClick={() => zoomAt(0.8)} disabled={zv.z <= ZMIN}>−</Button>
+        <ZoomSlider pct={zv.z * 100} min={ZOOM_PCT_MIN} max={ZOOM_PCT_MAX} onChange={(pct) => setZv((v) => zoomViewTo(v, pct, hostW, hostH))} />
         <Button size="sm" onClick={fit} disabled={zv.z === 1}>맞춤</Button>
-        <small aria-live="polite">{Math.round(zv.z * 100)}%</small>
       </div>
     </div>
   );
