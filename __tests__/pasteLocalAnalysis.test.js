@@ -66,3 +66,5 @@ assert.equal(reviewCalls,1);assert.equal(metrics.uniqueModelTasks,1);assert.equa
 const failed=await reviewPasteMatches({orders,customers,products,mappings:{},callModel:async()=>{throw Error('timeout');}});assert(failed.every(o=>o.items[0].prodKey===null));
 const start=performance.now();for(let i=0;i<100;i++){const f=fixture();const r=await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가');assert.equal(f.calls.length,0);assert.equal(r.status,200);}
 console.log(JSON.stringify({pass:'local full-handler extraction/matching, model fallback, exact/manual safeguards, dedup, immutable quantities/year, failure',baselineModelCalls:baseline.calls.length,fixtureRuns:100,modelCalls:0,fixtureElapsedMs:Math.round(performance.now()-start)}));
+
+assert.equal(localProductReviewKey({inputName:'장미 품종',prodKey:20},[{...roses[0],ProdName:'Rose 50cm'}],{'장미 품종':{prodKey:20,manual:true}}),null,'lengthless rose alias keeps candidate review');
