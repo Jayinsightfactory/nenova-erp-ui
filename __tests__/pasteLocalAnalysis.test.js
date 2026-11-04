@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {canUseLocalPasteParse,createPasteAnalysisMetrics} from '../lib/pasteLocalAnalysis.js';
-import {localProductReviewKey,reviewPasteMatches,PASTE_REVIEW_SYSTEM} from '../lib/pasteAiMatchReview.js';
+import {hasUnspecifiedRoseLength,localProductReviewKey,reviewPasteMatches,PASTE_REVIEW_SYSTEM} from '../lib/pasteAiMatchReview.js';
 import * as natural from '../lib/pasteNaturalInlineOrder.js';
 import * as sales from '../lib/salesPasteOrder.js';
 import * as units from '../lib/pasteOrderUnit.js';
@@ -36,6 +36,10 @@ for(const year of ['2025','2026']){
 }
 const omitted=fixture();const omittedResult=await omitted.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1추가');assert.equal(omitted.calls.length,0);assert.equal(omittedResult.data.orders[0].items[0].unit,'박스');
 const noHeader=fixture();await noHeader.run('검증업체\n문라이트 1추가');assert(noHeader.calls.length>0);
+for(const note of ['-> 오늘 출고입니다','오늘 출고 입니다.','나머지는 검역 표기','수요일 출고 물건입니다.','금요일 출고분 입니다.']){const f=fixture();const r=await f.run('44-1차 카네이션 변경사항\n검증업체\n문라이트 1추가\n'+note);assert.equal(f.calls.length,0,note);assert.equal(r.data.orders[0].items[0].qty,1);}
+for(const note of ['-> 문라이트 2박스로 변경','-> 핑크로 바꿔 출고','오늘 2박스 출고','나머지는 제외','-> 출고 색상 변경']){const f=fixture();await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가\n'+note);assert(f.calls.length>0,note);}
+for(const memo of ['(농장표기)','(검역분)','(총 50단)']){const f=fixture();const r=await f.run('44-1차 카네이션 변경사항\n검증업체\n문라이트 1박스 추가 '+memo);assert.equal(f.calls.length,0,memo);assert.equal(r.data.orders[0].items[0].qty,1);}
+const conflicting=fixture();await conflicting.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가 (사실 취소)');assert(conflicting.calls.length>0);
 const odd=fixture();await odd.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가\n내일 상태 보고 변경');assert(odd.calls.length>0,'unknown line must retain model fallback');
 const duplicate=fixture();await duplicate.run('검증업체\n문라이트 1박스 추가\n문라이트 1박스 추가');assert.equal(duplicate.calls.length,0); // exact display-name path
 for(const text of ['검증업체\n문라이트 -1박스','검증업체\n문라이트 0박스','검증업체\n문라이트 1박스 (냉해 취소)','검증업체\n문라이트 1','검증업체\n문라이트 1박스+2단','이름모름\n문라이트 1박스']){
@@ -62,3 +66,22 @@ assert.equal(reviewCalls,1);assert.equal(metrics.uniqueModelTasks,1);assert.equa
 const failed=await reviewPasteMatches({orders,customers,products,mappings:{},callModel:async()=>{throw Error('timeout');}});assert(failed.every(o=>o.items[0].prodKey===null));
 const start=performance.now();for(let i=0;i<100;i++){const f=fixture();const r=await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가');assert.equal(f.calls.length,0);assert.equal(r.status,200);}
 console.log(JSON.stringify({pass:'local full-handler extraction/matching, model fallback, exact/manual safeguards, dedup, immutable quantities/year, failure',baselineModelCalls:baseline.calls.length,fixtureRuns:100,modelCalls:0,fixtureElapsedMs:Math.round(performance.now()-start)}));
+
+assert.equal(localProductReviewKey({inputName:'장미 품종',prodKey:20},[{...roses[0],ProdName:'Rose 50cm'}],{'장미 품종':{prodKey:20,manual:true}}),null,'lengthless rose alias keeps candidate review');
+
+const roseSizes=[50,60].map(cm=>({ProdKey:cm,ProdName:`ROSE SAME ${cm}cm`,DisplayName:`장미 품종 ${cm}cm`,FlowerName:'장미',CounName:'콜롬비아'}));
+let sizeReviewCalls=0;
+const missingSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종',prodKey:50,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async()=>{sizeReviewCalls++;return {decisions:[]};}});
+assert.equal(missingSize[0].items[0].prodKey,null,'multiple actual rose lengths cannot be guessed from a lengthless alias or AI default');
+assert.match(missingSize[0].items[0].matchReason,/cm/);
+assert.equal(sizeReviewCalls,0,'manual size confirmation must never invoke the provider');
+const explicitSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종 60cm',prodKey:60,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:60,confidence:1}))})});
+assert.equal(explicitSize[0].items[0].prodKey,60);
+
+const sizeItem={inputName:'장미 품종',prodKey:50};
+assert.equal(hasUnspecifiedRoseLength(sizeItem,roseSizes),true);
+assert.equal(hasUnspecifiedRoseLength({...sizeItem,inputName:'장미 품종 60cm'},roseSizes),false);
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0]]),false,'single actual length preserves matching');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],isDeleted:1}]),false,'deleted variant does not create ambiguity');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],CounName:'중국'}]),false,'different country is not a length variant');
+assert.equal(hasUnspecifiedRoseLength(sizeItem,[roseSizes[0],{...roseSizes[1],ProdName:'ROSE OTHER 60cm'}]),false,'different cultivar is not a length variant');

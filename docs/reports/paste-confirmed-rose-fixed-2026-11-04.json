@@ -1,0 +1,126 @@
+{
+  "mode": "paired-model-replay",
+  "readOnly": true,
+  "baselineCommit": "2f191418",
+  "candidateCommit": "6197bdea73d4cd7c88f538f0cf16ee5ed7aade8c",
+  "summary": {
+    "logsScanned": 162,
+    "fullyVerifiedCandidates": 71,
+    "repeatedSourceExcluded": 6,
+    "safeUniqueOperations": 55,
+    "feedPages": 11,
+    "feedErrors": 0,
+    "sourceCount": 55,
+    "cachedAnalysesScanned": 572,
+    "invalidAnalyses": 0,
+    "sourceMissing": 0,
+    "analysisMissing": 0,
+    "partialCoverage": 2,
+    "sourceTooLong": 0,
+    "pairedSources": 53,
+    "confirmedRows": 110,
+    "historicalPerformanceRecords": 0,
+    "modelConfigured": true,
+    "salesReadConfigured": true
+  },
+  "historicalSavedPredictions": {
+    "cases": 53,
+    "expectedGroups": 110,
+    "predictedGroups": 110,
+    "keyRecall": 0.8545454545454545,
+    "quantityRecall": 0.8545454545454545,
+    "precision": 0.8545454545454545,
+    "fullyCorrectCases": 39,
+    "unresolvedRows": 13,
+    "wrongKeyGroups": 3
+  },
+  "excludedTruth": {
+    "unconvertible": 0
+  },
+  "measuredNow": true,
+  "sameMasterAndAliasSnapshot": true,
+  "dbReadTimeExcluded": true,
+  "retrospectiveCurrentMappings": true,
+  "modelsLimitedTo": 8,
+  "budgetStopped": false,
+  "modelCalls": 2,
+  "allKnownInputTokens": 25068,
+  "baseline": {
+    "score": {
+      "cases": 1,
+      "expectedGroups": 1,
+      "predictedGroups": 1,
+      "keyRecall": 0,
+      "quantityRecall": 0,
+      "precision": 0,
+      "fullyCorrectCases": 0,
+      "unresolvedRows": 1,
+      "wrongKeyGroups": 0
+    },
+    "performance": {
+      "calls": 2,
+      "usageResponses": 2,
+      "failedCalls": 0,
+      "inputTokens": 25068,
+      "outputTokens": 278,
+      "cacheReadTokens": 0,
+      "cacheCreationTokens": 0,
+      "medianMs": 6917,
+      "p95Ms": 6917,
+      "totalMs": 6917
+    }
+  },
+  "improved": {
+    "score": {
+      "cases": 1,
+      "expectedGroups": 1,
+      "predictedGroups": 1,
+      "keyRecall": 0,
+      "quantityRecall": 0,
+      "precision": 0,
+      "fullyCorrectCases": 0,
+      "unresolvedRows": 1,
+      "wrongKeyGroups": 0
+    },
+    "performance": {
+      "calls": 0,
+      "usageResponses": 0,
+      "failedCalls": 0,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheCreationTokens": 0,
+      "medianMs": 330,
+      "p95Ms": 330,
+      "totalMs": 330
+    }
+  },
+  "cases": [
+    {
+      "id": "91f43bbe86e7",
+      "rows": 1,
+      "baseline": {
+        "expectedGroups": 1,
+        "predictedGroups": 1,
+        "keyCorrect": 0,
+        "quantityCorrect": 0,
+        "unresolved": 1,
+        "wrongKeyGroups": 0,
+        "complete": false
+      },
+      "improved": {
+        "expectedGroups": 1,
+        "predictedGroups": 1,
+        "keyCorrect": 0,
+        "quantityCorrect": 0,
+        "unresolved": 1,
+        "wrongKeyGroups": 0,
+        "complete": false
+      },
+      "baselineStatus": 200,
+      "improvedStatus": 200,
+      "localParse": true,
+      "regression": false
+    }
+  ]
+}

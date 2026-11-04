@@ -1999,3 +1999,8 @@
 검색어: PR1469 defect-manual-hold-smoke UI PASS
 2026-11-04 메모장 새 디자인: GPT 이미지생성 시안 `docs/design/desktop-task-notes-v2-2026-11-04.png` 기준 상단 브랜드·원형 진행률·카드형 업무·파란 빠른추가·알림 카드로 380px 창 재구성. 날짜·업무·반복·알림 데이터 경로 유지, 아이콘 버튼 접근성 이름 추가, 숨김 요일 필드 CSS 보정. Desktop 1.3.13 단위28·Electron smoke PASS, 시안 대비 380px screenshot 확인. Windows installer CI/PR/병합/배포/실설치는 진행 중.
 검색어: desktop-notes-design-v2 1.3.13 GPT이미지 시안 원형진행률 카드형업무 380px
+
+2026-11-04 실제 확정 주문 분석비교: PR1479, read-only53원문110그룹, 동일8건30그룹 A/B 최종 기존30/30 개선28/30+장미규격확인2/오선택0. 호출16→14, input192994→168230, 총86.470→73.619초. 자동률하락6.67%p 명시, 별도50/60cm오선택을확인필요전환. 헤더차/출고메모보완, readonly진단workflow. 전체ERP/dnSpy/manifest/쓰기guard/build/Chrome복원PASS, CI·운영배포계속진행. 상세 docs/reports/paste-confirmed-comparison-2026-11-04.md.
+검색어: paste-confirmed-audit PR1479 28/30 장미규격확인 Claude14회
+
+최종 API제외 보완 실측: 기존27/30 개선28/30+규격확인2/오선택0, 호출16→14, input193033→166937, 총86.078→74.342초, 중앙10.176→9.579초. 기존반복27~30변동 및 보호단계30→28 자동률하락도 보고서보존, 최종한번만골라 일반성능향상주장하지않음. 별도장미최종2→0호출/330ms/확인필요. 원장쓰기0.
