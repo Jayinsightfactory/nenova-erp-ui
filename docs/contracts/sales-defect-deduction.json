@@ -4,6 +4,8 @@
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "displaySorting": "Sales input and saved-summary default to customer then manager; manager then customer is selectable. Incoming confirmation supports both and retains country/product grouping. Display projections preserve row references and sourceIndex; selection, edit, deletion and save identity and ERP write behavior remain unchanged across years.",
   "scope": [
+    "lib/defectManualHold.js",
+    "scripts/defect-manual-hold-smoke.cjs",
     "pages/sales/defect-deductions.js",
     "scripts/defect-incoming-group-smoke.cjs",
     "pages/sales/defect-deduction-register-review.js",
@@ -83,6 +85,7 @@
     "lib/defectResolution.js",
     "components/DefectResolutionEditor.js",
     "__tests__/defectResolution.test.js",
+    "__tests__/defectManualHold.test.js",
     "scripts/defect-resolution-smoke.cjs",
     "lib/defectCompanyFilter.js",
     "components/DefectCompanyFilter.js",
@@ -486,6 +489,7 @@
   "resolutionWindow": "Explicit whole pending queue entry opens issues-first review: missing cost input, versioned customer/product/quantity matching, existing estimate comparison and actual source file/message review using unchanged administrator release permission. Eligible rows collapsed; unresolved duplicate group all withheld until explicit one-row choice. Different quantities/year/unit not deduplicated. Unresolved rows never sent to register. Reload failure blocks apply. Existing registration transaction and exact readback preserved. Normal automatic sources may enter audited manual cost; source review flags still block.",
   "companyFilter": "Read-only current-result customer buttons in sales/support. CustKey identity, unmapped normalized-name fallback, original sourceIndex preserved. Source label follows canonical automatic/manual evidence before file upload. Filter changes clear selections; select-all/manage-all/resolve-all limited to visible customer. No SQL, permission, eligibility or ledger mutation changes.",
   "heldSourcePeriod": "Held rows show original orderYear/orderWeek as the leading defect-period badge, preserving prior years and child weeks. Never substitute selected/applied/cost week; missing identity shows unknown. Read-only presentation, no payload/eligibility changes.",
+  "manualHold": "Row-specific SUPPORT_HOLD/SUPPORT_RESUME history only, row lock shared with registration, source year/week and row-version plus latest hold event CAS. No ERP/ledger field changes. Shared source projection guards list/preflight/preview/write. Resume restores existing eligibility checks, never grants eligibility or creates a permanent upload exclusion.",
   "costCandidateReview": {
     "scope": "same-year previous five parent weeks; exact product; customer-first then others; positive distribution",
     "identity": "different product/spec references never substitute cost automatically; explicit existing manage-edit preview/save and fresh eligibility",

@@ -1,3 +1,4 @@
+import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
 import { defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
@@ -1065,11 +1066,12 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  const isSupportCheckable = row => activeTab === 'support' ? canSelectSupportDisposition(row, supportListMode === 'held') : isSupportRegistrationSelectable(row, activeTab);
   const toggleSupport = (deductionKey) => setSupportSelected((current) => {
     const next = new Set(current);
     const key = Number(deductionKey);
     const row = supportRows.find((item) => Number(item.deductionKey) === key);
-    if (!isSupportRegistrationSelectable(row, activeTab)) {
+    if (!isSupportCheckable(row)) {
       next.delete(key);
       return next;
     }
@@ -1082,6 +1084,27 @@ export default function SalesDefectDeductionsPage() {
     const allSelected = keys.length > 0 && keys.every((key) => current.has(key));
     return allSelected ? new Set() : new Set(keys);
   });
+
+  const toggleSupportVisible = () => setSupportSelected(current => {
+    const keys=visibleSupportRows.filter(isSupportCheckable).map(row=>Number(row.deductionKey));
+    return keys.length && keys.every(key=>current.has(key)) ? new Set() : new Set(keys);
+  });
+  const changeSupportHold = async hold => {
+    const selectedRows=visibleSupportRows.filter(row=>supportSelected.has(Number(row.deductionKey)) && isSupportCheckable(row));
+    if (!selectedRows.length || supportLoading || supportRegistering) return;
+    setSupportRegistering(true); setError(''); setMessage('보류 상태를 저장하고 다시 확인하고 있습니다…');
+    try {
+      await apiPost('/api/sales/defect-deductions',{action:'support-hold',year,week,hold,rows:selectedRows.map(manualHoldDescriptor)});
+      const data=await loadSupport();
+      if(!data || !Array.isArray(data.rows)) throw Error('저장 후 목록 재조회에 실패했습니다. 조회 버튼으로 다시 확인하세요.');
+      for(const selected of selectedRows) {
+        const fresh=data.rows.find(row=>Number(row.deductionKey)===Number(selected.deductionKey));
+        if((hold && !fresh) || (fresh && Boolean(fresh.manualHeld)!==hold)) throw Error('보류 상태가 다시 변경됐습니다. 조회 후 확인하세요.');
+      }
+      setMessage(hold ? `${selectedRows.length}건을 보류 목록으로 이동했습니다. 원장과 견적은 그대로 보존됩니다.` : `${selectedRows.length}건의 담당자 보류를 해제했습니다. 다른 보류 사유가 남은 건은 계속 보류 목록에 표시됩니다.`);
+    } catch(e) { setSupportRows([]); setSupportSelected(new Set()); setMessage(''); setError(e.message); }
+    finally { setSupportRegistering(false); }
+  };
 
   const toggleCarryoverCustomer = (custKey) => setSupportSelected((current) => {
     const keys = supportRows.filter((row) => Number(row.custKey) === Number(custKey) && isSupportRegistrationSelectable(row, activeTab)).map((row) => Number(row.deductionKey)).filter(Boolean);
@@ -1615,6 +1638,10 @@ export default function SalesDefectDeductionsPage() {
     .filter((row) => isSupportRegistrationSelectable(row, activeTab))
     .map((row) => Number(row.deductionKey))
     .filter((key) => key > 0);
+  const supportCheckedRows = visibleSupportRows.filter(row=>supportSelected.has(Number(row.deductionKey)));
+  const supportSelectionBlocked = supportCheckedRows.some(row=>!isSupportRegistrationSelectable(row, activeTab));
+  const supportVisibleSelectable = visibleSupportRows.filter(isSupportCheckable);
+  const supportVisibleAllSelected = supportVisibleSelectable.length>0 && supportVisibleSelectable.every(row=>supportSelected.has(Number(row.deductionKey)));
   const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
 
   const displayedIncomingRows = useMemo(
@@ -1734,7 +1761,8 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'support' && <>
             <button type="button" className="btn btn-primary" onClick={() => registerSupport(true)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !visibleSupportRows.length}>{companyFilters.support ? '선택 업체 불량 확인·등록 (문제 해결 창)' : (supportListMode === 'held' ? '보류 사유 확인 (문제 해결 창)' : '전체 불량 확인·등록 (문제 해결 창)')}</button>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size || supportSelectionBlocked}>견적서관리에 불량차감 등록</button>
+            <button type="button" className="btn" onClick={() => changeSupportHold(supportListMode !== 'held')} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportCheckedRows.length}>{supportListMode === 'held' ? '선택 보류 해제' : '선택 항목 보류로 이동'}</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
             <button type="button" className="btn" onClick={loadOmissionHistory} disabled={omissionBusy}>누락 처리 내역·취소</button>
             {omissionRows!==null&&<div role="dialog" aria-label="누락 처리 내역" style={{position:'fixed',inset:'10%',zIndex:10000,background:'white',padding:20,overflow:'auto',border:'1px solid #999'}}><h3>{year}년 누락 처리 내역</h3><button type="button" onClick={()=>setOmissionRows(null)}>닫기</button><table><thead><tr><th>원차수</th><th>업체</th><th>품목</th><th>수량</th><th>처리일</th><th>상태</th><th>취소</th></tr></thead><tbody>{omissionRows.map(r=><tr key={r.historyKey}><td>{r.orderWeek}</td><td>{r.customerName}</td><td>{r.productName}</td><td>{r.quantity}{r.sourceUnit}</td><td>{String(r.changedAt).slice(0,10)}</td><td>{r.cancelled?'취소됨':'고정 제외'}</td><td><button type="button" disabled={omissionBusy||r.cancelled} onClick={()=>undoOmission(r)}>누락 취소</button></td></tr>)}</tbody></table>{!omissionRows.length&&<p>누락 처리 내역이 없습니다.</p>}</div>}
@@ -1768,7 +1796,9 @@ export default function SalesDefectDeductionsPage() {
         </div>
         {activeTab === 'support' && <div role="group" aria-label="등록 대상과 보류 목록" style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
           {[['active', '등록 대상'], ['held', '보류']].map(([mode, label]) => <button type="button" className={`btn ${supportListMode === mode ? 'btn-primary' : ''}`} key={mode} aria-pressed={supportListMode === mode} disabled={supportLoading || supportRegistering || managementBusy} onClick={() => { setSupportListMode(mode); setSupportSelected(new Set()); setManagementSelected(new Set()); setCompanyFilters(current => ({ ...current, support: '' })); }}>{label} ({supportRows.filter(row => isDefectRegistrationHeld(row) === (mode === 'held')).length}건)</button>)}
-          {supportListMode === 'held' && <span>이전 견적·원문 확인 또는 이번 차수 분배가 필요한 자료입니다. 원장은 보존하며, 조건이 해결되면 재조회 시 등록 대상으로 돌아옵니다.</span>}
+          {supportListMode === 'active' && <span>등록 가능은 이 불량 건의 등록 조건을 통과했다는 뜻입니다. 체크한 항목은 보류로 이동할 수 있습니다.</span>}
+          {supportSelectionBlocked && supportCheckedRows.length > 0 && <span role="status">선택 항목에 등록 불가 건이 있습니다. 보류로 이동하거나 문제를 해결한 뒤 등록하세요.</span>}
+          {supportListMode === 'held' && <span>이전 견적·원문 확인 또는 이번 차수 분배가 필요한 자료입니다. 담당자 보류는 체크 후 보류 해제할 수 있습니다. 원장은 보존하며, 다른 보류 사유가 해결되면 재조회 시 등록 대상으로 돌아옵니다.</span>}
         </div>}
         {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportModeRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={value => { endSelectionDrag(); setCompanyFilters(current => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
         {activeTab === 'sales' && companyFilters.sales && <p style={{ fontSize: 12 }}>저장 버튼은 업체 필터와 관계없이 전체 입력 초안을 저장합니다.</p>}
@@ -1894,10 +1924,10 @@ export default function SalesDefectDeductionsPage() {
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className={`data-table defect-grid support-grid ${activeTab === 'support' ? 'support-compact' : ''}`}>
-            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={managementMode || managementBusy || supportLoading || !supportSelectableKeys.length} onChange={toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
+            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label={activeTab === 'support' ? '보류 이동·해제 항목 전체 선택' : '등록 가능 항목 전체 선택'} checked={activeTab === 'support' ? supportVisibleAllSelected : supportAllSelected} disabled={managementMode || managementBusy || supportLoading || supportRegistering || (activeTab === 'support' ? !supportVisibleSelectable.length : !supportSelectableKeys.length)} onChange={activeTab === 'support' ? toggleSupportVisible : toggleAllSupport} /></label></th><th>{activeTab === 'support' && supportListMode === 'held' ? '불량 차수' : 'No'}</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{visibleSupportRows.map((row, index) => {
               const key = Number(row.deductionKey);
-              const checkable = !managementMode && !managementBusy && isSupportRegistrationSelectable(row, activeTab);
+              const checkable = !managementMode && !managementBusy && !supportLoading && !supportRegistering && isSupportCheckable(row);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
@@ -1929,6 +1959,7 @@ export default function SalesDefectDeductionsPage() {
                 <td>
                   <div className="support-status-actions">
                     <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
+                    {row.registrationEligibilityCode === 'AUTO_SOURCE_ESTIMATE_CONFLICT' && <button type="button" className="btn btn-xs" onClick={() => openEstimatePreview(row, estimateCapture)}>겹친 견적 #{row.exactExistingEstimateKey} 확인</button>}
                     {registeredEstimate && <button type="button" className="btn btn-xs support-estimate-registered" onClick={() => openCustomerEstimate(row, registeredEstimate)} title={`${registeredEstimate.year}년 ${registeredEstimate.week}차 실제 등록 견적 #${registeredEstimate.estimateKey}`}>등록 견적</button>}
                     {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{week}차 견적</button>}
                     {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}

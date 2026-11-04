@@ -1954,3 +1954,6 @@
 
 2026-11-04 보류 원차수 표시: nw-defect-held-week-1104 기준2f191418. 보류 첫 열을 불량 차수로 변경, 원장 orderYear/orderWeek 굵은 배지 및 보조번호. 원차수42/적용44·전년도·하위차수·누락값 단위검사PASS. 표시만 변경/DB쓰기0. 전체gate/빌드/UI/배포 진행중.
 검색어: defectSourcePeriodLabel 보류 불량차수 원차수 42차
+
+2026-11-04 선택보류: nw-defect-manual-hold-1104 기준068465f1. SUPPORT_HOLD/RESUME 웹이력만, 원장잠금+원연도차수/rowversion/최신보류키 CAS, sourceReview공통 등록차단. 단가/충돌 체크·혼합선택등록차단·수동보류해제·중복견적번호표시 구현. 단위/기존불량/실SQL CTE/실원장SELECT PASS, 운영쓰기0. UI/전체CI/배포 진행중.
+검색어: SUPPORT_HOLD SUPPORT_RESUME manualHeld 선택보류 견적충돌
