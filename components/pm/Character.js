@@ -5,6 +5,7 @@
 //   움직임은 합성된 캐릭터 통째로 CSS 변형 → 옷·소품이 항상 같이 움직인다(레이어 어긋남 없음). reduced-motion = 정지.
 //   연출은 긍정·중립만, 급여·평가 무관.
 import { useEffect, useMemo, useState } from 'react';
+import { faceOf, isFaceId } from '../../lib/pmFaces';
 
 export const PERSONALITIES = [['calm', '차분'], ['lively', '활발'], ['playful', '장난꾸러기'], ['meticulous', '꼼꼼'], ['easygoing', '느긋'], ['shy', '수줍음']];
 export const EMOTES = { joy: '😊', wow: '😮', heart: '💖', sweat: '💦', sparkle: '✨', think: '💭', fighting: '💪', star: '⭐', music: '🎵', idea: '💡', coffee: '☕', zzz: '💤', flower: '🌸', party: '🎉' };
@@ -31,12 +32,13 @@ export function normalizeAvatar(cfg) {
   const c = (cfg && cfg.view) || cfg || {};
   const items = { ...(c.items || {}) };
   if (items.desk && OLD_DESKTOP[items.desk]) { if (!items.deskM) items.deskM = OLD_DESKTOP[items.desk]; delete items.desk; }
-  return { char: c.char || 'human', body: c.body || 'std', skin: Number.isInteger(c.skin) ? c.skin : 0, hair: c.hair || 'short', hairColor: Number.isInteger(c.hairColor) ? c.hairColor : 1, personality: c.personality || 'calm', items };
+  return { char: c.char || 'human', face: isFaceId(c.face) ? c.face : '', body: c.body || 'std', skin: Number.isInteger(c.skin) ? c.skin : 0, hair: c.hair || 'short', hairColor: Number.isInteger(c.hairColor) ? c.hairColor : 1, personality: c.personality || 'calm', items };
 }
 
 // 레이어 스택(아래→위). 테스트·검증에서도 같은 순서를 쓴다.
 //   pose: 'stand'(정면 서기) | 'sit'(앉아 타이핑, 3/4 시점). sit 은 L.sit 의 같은 구조를 쓴다.
-export function layerStack(cfg, Lall, pose = 'stand') {
+//   expr: 표정 id(lib/pmFaces). 레이어가 아직 없으면 기본 얼굴(smile)로 폴백.
+export function layerStack(cfg, Lall, pose = 'stand', expr = '') {
   if (!Lall) return [];
   const a = normalizeAvatar(cfg);
   const P = pose === 'sit' && Lall.sit ? Lall.sit : null;
@@ -58,7 +60,8 @@ export function layerStack(cfg, Lall, pose = 'stand') {
   const o = it(a.items.outfit);
   push('bottom', pick(o, 'bottom')); push('top', pick(o, 'top'));
   push('badge', pick(it(a.items.badge), 'badge'));
-  push('face', L.face);
+  const faces = (P ? P.faces : Lall.faces) || null;
+  push('face', (faces && faces[expr || a.face]) || L.face);
   push('hairFront', hair.front && hair.front[a.hairColor]);
   push('kindFront', kind.front);
   push('glasses', pick(it(a.items.glasses), 'glasses'));
@@ -140,7 +143,8 @@ export function CharacterAvatar({ cfg, state = 'idle', size = 40, stage = 1, vib
   const L = usePmLayers();
   const reduced = useReduced();
   const a = normalizeAvatar(cfg);
-  const stack = useMemo(() => layerStack(cfg, L, pose), [cfg, L, pose]);
+  const expr = faceOf({ dance, emote, vibe, defaultFace: normalizeAvatar(cfg).face });
+  const stack = useMemo(() => layerStack(cfg, L, pose, expr), [cfg, L, pose, expr]);
   const hipPct = L && L.sit ? (L.sit.anchors.hip[1] / L.canvas) * 100 : 70;
   const rigStyle = { ...(pose === 'sit' && dir === 'right' ? { transform: 'scaleX(-1)' } : null), ...(hideBelowHip ? { clipPath: `inset(0 0 ${100 - hipPct + 1}% 0)` } : null) };
   const anim = dance && !reduced ? '' : vibe === 'doze' ? 'doze' : vibe === 'busy' ? 'busy' : vibe === 'focus' || vibe === 'blaze' ? 'focus' : STATE_ANIM[state] || 'idle';
