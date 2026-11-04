@@ -102,13 +102,16 @@ for n, (dx, dz, yaw, j) in enumerate(desks):
         top.parent = g; top.location = (0, 0.62 * SET_S, 0.46 * SET_S - 0.42 * CHAR_S + 0.02); top.rotation_euler = (0, 0, 0); top.scale = (CHAR_S, CHAR_S, CHAR_S)
     L = LOOKS[n % len(LOOKS)]
     clip = 'doze' if n % 4 == 3 else 'sit_type'
+    # KayKit 리그(build_char_kaykit.py): 수동 포즈 대신 베이크된 액션을 그대로 적용
     if rig.animation_data:
-        for t in list(rig.animation_data.nla_tracks): rig.animation_data.nla_tracks.remove(t)
-        rig.animation_data.action = None
-    POSE = {'thigh.L': (90, 0, 0), 'thigh.R': (90, 0, 0), 'shin.L': (-90, 0, 0), 'shin.R': (-90, 0, 0)}
-    POSE.update({'arm.L': (20, 0, -8), 'arm.R': (20, 0, 8), 'spine': (8, 0, 0), 'head': (10, 0, 8)} if clip == 'doze' else {'arm.L': (62, 0, -12), 'arm.R': (66, 0, 12), 'head': (8, 0, 0)})
-    for bn, rr in POSE.items():
-        pb = rig.pose.bones[bn]; pb.rotation_mode = 'XYZ'; pb.rotation_euler = tuple(R(a) for a in rr)
+        for t in list(rig.animation_data.nla_tracks):
+            if t.strips and t.strips[0].action and t.strips[0].action.name.split('.')[0] == clip:
+                act = t.strips[0].action
+                rig.animation_data.action = act
+                try: rig.animation_data.action_slot = act.slots[0]
+                except Exception: pass
+            else:
+                rig.animation_data.nla_tracks.remove(t)
     for o in objs:
         if o.type != 'MESH': continue
         if o.name.startswith('hat_'): o.hide_render = not (L[3] and o.name.startswith(L[3])); continue

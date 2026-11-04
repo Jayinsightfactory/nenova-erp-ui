@@ -21,7 +21,7 @@ const STAGE_HEX = PM3D.STAGE;
 const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
 const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
 const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const SEAT_Y = 0.46 * SET_SCALE - 0.42 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.95 * CHAR_SCALE + 0.35; // 앉은 엉덩이(리그 0.42)를 의자 좌판(0.46)에 맞춤
+const SEAT_Y = 0.46 * SET_SCALE - 0.48 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.95 * CHAR_SCALE + 0.35; // 앉은 엉덩이(KayKit sit 클립 힙 높이 0.48)를 의자 좌판(0.46)에 맞춤
 
 function webglOk() {
   try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch { return false; }

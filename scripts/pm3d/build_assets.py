@@ -238,5 +238,7 @@ def build_char():
                               export_animations=True, export_animation_mode='NLA_TRACKS', export_skins=True)
 
 build_kit()
-build_char()
+# 캐릭터는 KayKit 리그 버전(scripts/pm3d/build_char_kaykit.py)이 기본. 옛 9본 캐릭터가 필요할 때만 --legacy-char.
+if 'legacy-char' in ' '.join(argv):
+    build_char()
 print('PM3D_DONE', OUT)
