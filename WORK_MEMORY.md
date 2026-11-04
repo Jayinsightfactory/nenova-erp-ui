@@ -1,5 +1,15 @@
 # 작업 기록
 
+## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
+- 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
+- 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
+- 추가지시 배경밀도: 신규 lib/pm3dDecor.js beachDecor — 오두막3~4·야자군락·산포물, 둘레 링+복도(z=±2)+좌석+책상+스테이션+허브 이격 보증(__tests__/pm3dDecor.test.js, 링 실경로 샘플링). ★함정: 복도 교차는 ringDistance 만으론 못 잡음 — corrX(책상·스테이션 x범위) 세그먼트 거리 별도 검사.
+- 지시3: ai-bridge page/scroll(selector→scrollIntoView / y, 읽기성·차단 없음) + MCP page_scroll + 테스트 + AI_BRIDGE.md.
+- ★함정(rebase): rebase 중 'git checkout --theirs'는 내 커밋 쪽(= merge 와 반대). glb 바이너리는 origin/master 로 명시 복원 후 재빌드가 정답. 또 블렌더 체인 실행 중 git checkout 으로 glb 를 건드리면 레이스로 산출물이 덮임 — 체인 한 커맨드로 직렬 실행.
+- 검증: 로컬 next dev(터보팩, webpack dev 는 instrumentation→mssql 번들 오류)+dev JWT 쿠키로 /pm 3D 실렌더. 전/후 nenova-pm/pm3d/shots/web-I-v12-quality-{before,after}.jpg, 체형 web-I-v12-char-before-after.jpg. fps 는 브라우저 패널 백그라운드 스로틀(1Hz)로 로컬 실측 불가 — 그림자 패스 제거로 라이브 20fps 보다 가벼움, 배포 후 스탯 라인 확인.
+- 지시1 설계변경(선택형 체형): 한 char.glb(늘씬 1:4 베이크)로 런타임 본 스케일 3프리셋 — BODY_TYPES(cute 1:2.7·balance 1:3.4 기본·slim 1:4) = head 본 스케일+전체 스케일. 모자·안경·종족은 head 본 스키닝이라 소켓 자동 추종, 좌석은 bodyMetrics.seatY, 블롭도 s 추종. ★함정: glTF 익스포트가 상수 scale 채널을 깔아 믹서가 본 스케일을 되돌림 → 로드 시 .scale 트랙 제거 필수. 저장=pmAvatars PM_BASE.bodyType(무료), 꾸미기 UI 3D 체형 행, 상점 미리보기는 render_shop 체형별 레이어 세트(.cute/.slim 접미사). 검증 __tests__/pm3dBody.test.js(비율·좌석 0오차·소켓·scale 채널).
+- 검색어: HEAD_K 머리 축소 비율 교정 bake_kit_ao AO 베이크 아틀라스 toon 램프 블롭 그림자 RoomEnvironment beachDecor 배경 밀도 오두막 page_scroll rebase theirs glb
+
 ## 2026-11-05 /pm 상점 잔여 에셋 전량 3D 제작 — 소품 43종 + 종족 9종 전용 모델 (PR #1532)
 - #1528 잔여 손그림 43종(모자16·안경6·손10·배지7·책장4)과 임시 종족 9종을 전부 블렌더 자체 모델링으로 교체. 남은 임시(temp) 0.
 - 신규 scripts/pm3d/build_wearables.py: 기존 char.glb 를 import 해 착용 48메시(hat_*/gls_*/hnd_*/bdg_*/race_*)를 head/chest/hand.r 본 리지드 스키닝으로 추가 후 재-export — KayKit 베이크·춤 리타게팅 재실행 없이 안전(클립 9종 유지, pmProps3d 가 회귀 검사). 신규 build_shelves.py: kit.glb 에 shelf_* 4종 append(import→추가→재-export = import_furniture.py 선례).

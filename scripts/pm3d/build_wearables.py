@@ -329,6 +329,28 @@ EXPECT = 16 + 6 + 10 + 7 + 9
 assert len(W) == EXPECT, (len(W), sorted(W))
 for n in sorted(W): item(n, W[n])
 
+# ── 비율 교정(build_char_kaykit.py HEAD_K/BODY_K 와 동일): 착용물 좌표는 "원본 큰 머리" 기준으로 적혀 있으므로 —
+#   head 본 정점: 머리 이동량(SHIFT)을 반영한 피벗으로 축소(= 축소된 새 머리에 그대로 밀착)
+#   chest 본 정점(요정 날개·배지): 가슴 상승분만큼 위로 이동. hand.r 소품은 새 리그 B 좌표로 모델링돼 무수정.
+HEAD_K = 0.55
+NECK_Z, BODY_K = 1.17, 1.1
+SHIFT = NECK_Z * (BODY_K - 1)              # 머리(목 위) 평행이동량
+HEAD_PIVOT = Vector(B['head'][0])          # 새 리그(이미 스트레치됨)의 head 본 피벗
+HEAD_PIVOT_OLD = HEAD_PIVOT - Vector((0, 0, SHIFT))
+CHEST_SHIFT = B['chest'][0].z - B['chest'][0].z / BODY_K  # 가슴 본 상승분(새 z 기준 역산)
+for name in NEW:
+    o = bpy.data.objects[name]
+    bpy.ops.object.select_all(action='DESELECT')
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    gi = o.vertex_groups.find('head')
+    gc = o.vertex_groups.find('chest')
+    for v in o.data.vertices:
+        if gi >= 0 and any(g.group == gi and g.weight > 0 for g in v.groups):
+            v.co = HEAD_PIVOT + (v.co - HEAD_PIVOT_OLD) * HEAD_K
+        elif gc >= 0 and any(g.group == gc and g.weight > 0 for g in v.groups):
+            v.co.z += CHEST_SHIFT
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, 'char.glb'), export_format='GLB', export_apply=False, export_yup=True,
                           export_animations=True, export_animation_mode='NLA_TRACKS', export_skins=True)

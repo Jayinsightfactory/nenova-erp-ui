@@ -82,6 +82,12 @@ function createAiBridge({ dir, trustedUrl, getMenus, tools, now = () => new Date
         if (blocked) throw new Error(`쓰기성 조작 차단 경로입니다: ${pathname}`);
         return method === 'page/click' ? tools.pageClick({ tabId: p.tabId, selector }) : tools.pageFill({ tabId: p.tabId, selector, value: typeof p.value === 'string' ? p.value.slice(0, 4000) : '' });
       }
+      case 'page/scroll': {
+        // 읽기성 네비게이션(검증용): selector = 해당 요소로 scrollIntoView, y = 절대 스크롤 위치(px). 경로 차단 없음.
+        const y = Number.isFinite(p.y) ? Math.max(0, Math.min(1000000, p.y)) : null;
+        if (!selector && y === null) throw new Error('selector 또는 y가 필요합니다.');
+        return tools.pageScroll({ tabId: p.tabId, selector, y });
+      }
       case 'page/screenshot': return tools.pageScreenshot(p.tabId);
       case 'console/logs': return tools.consoleLogs({ tabId: p.tabId, limit: Number.isFinite(p.limit) ? Math.min(200, Math.max(1, p.limit)) : 50 });
       default: throw new Error('지원하지 않는 method');

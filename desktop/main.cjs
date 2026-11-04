@@ -576,6 +576,13 @@ async function startAiBridge() {
           return { filled: true }; })()`;
         return { tabId: t.id, ...(await bridgeEval(t, code)) };
       },
+      pageScroll: async ({ tabId, selector, y }) => {
+        const t = bridgeTarget(tabId);
+        const code = selector
+          ? `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { scrolled: false, error: '요소를 찾지 못했습니다.' }; el.scrollIntoView({ block: 'center', behavior: 'instant' }); return { scrolled: true, y: Math.round(window.scrollY) }; })()`
+          : `(() => { window.scrollTo({ top: ${JSON.stringify(y)}, behavior: 'instant' }); return { scrolled: true, y: Math.round(window.scrollY) }; })()`;
+        return { tabId: t.id, ...(await bridgeEval(t, code)) };
+      },
       pageScreenshot: async tabId => {
         const t = bridgeTarget(tabId);
         const image = await t.view.webContents.capturePage();

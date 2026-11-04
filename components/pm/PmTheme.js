@@ -145,6 +145,7 @@ function BasePicker({ cfg, setCfg }) {
   return (
     <div className="basep">
       {row('체형', 'body', [['slim', '날씬'], ['std', '보통'], ['round', '통통']])}
+      <div className="czst" role="group" aria-label="3D 체형"><b>3D 체형(사무실 3D)</b>{[['cute', '귀염'], ['balance', '밸런스'], ['slim', '늘씬']].map(([v, l]) => <ToggleChip key={v} on={(cfg.bodyType || 'balance') === v} onClick={() => set('bodyType', v)}>{l}</ToggleChip>)}</div>
       {row('피부', 'skin', [0, 1, 2, 3].map((i) => [i, `톤 ${i + 1}`]))}
       {row('헤어', 'hair', [['short', '짧은'], ['bob', '단발'], ['long', '긴'], ['bun', '똥머리']])}
       {row('헤어색', 'hairColor', HAIR_NAMES.map((l, i) => [i, l]))}
@@ -298,13 +299,15 @@ function Render3DPreview({ cfg }) {
   const n = normalizeAvatar(cfg);
   const hat = hatMesh(n.items.hat || '');
   const mount = n.items.mount ? String(n.items.mount).replace(/^mount\./, '') : '';
+  // 체형(bodyType) 반영: render_shop.py 가 체형별 레이어 세트를 같은 카메라로 렌더(기본 밸런스 = 접미사 없음)
+  const bsfx = n.bodyType && n.bodyType !== 'balance' ? `.${n.bodyType}` : '';
   const layers = [
-    `/pm/shop/char.${n.char}.webp`,
-    n.items.outfit ? `/pm/shop/layer.${n.items.outfit}.webp` : '',
-    n.items.hat ? `/pm/shop/layer.${hat}.webp` : '',
-    n.items.glasses ? `/pm/shop/layer.${wearMesh('glasses', n.items.glasses)}.webp` : '',
-    n.items.hand ? `/pm/shop/layer.${wearMesh('hand', n.items.hand)}.webp` : '',
-    n.items.badge ? `/pm/shop/layer.${wearMesh('badge', n.items.badge)}.webp` : '',
+    `/pm/shop/char.${n.char}${bsfx}.webp`,
+    n.items.outfit ? `/pm/shop/layer.${n.items.outfit}${bsfx}.webp` : '',
+    n.items.hat ? `/pm/shop/layer.${hat}${bsfx}.webp` : '',
+    n.items.glasses ? `/pm/shop/layer.${wearMesh('glasses', n.items.glasses)}${bsfx}.webp` : '',
+    n.items.hand ? `/pm/shop/layer.${wearMesh('hand', n.items.hand)}${bsfx}.webp` : '',
+    n.items.badge ? `/pm/shop/layer.${wearMesh('badge', n.items.badge)}${bsfx}.webp` : '',
   ].filter(Boolean);
   const hide = (e) => { e.currentTarget.style.visibility = 'hidden'; };
   const show = (e) => { e.currentTarget.style.visibility = 'visible'; };

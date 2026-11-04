@@ -119,6 +119,26 @@ test('page/click works on non-blocked paths and read tools need no path check', 
   } finally { bridge.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('page/scroll is a read tool: works even on ERP write paths, needs selector or y', async () => {
+  const scrolls = [];
+  const { bridge, dir } = startBridge({
+    resolveTabUrl: async () => 'https://nenovaweb.com/orders', // 쓰기 차단 경로여도 스크롤(읽기성)은 허용
+    pageScroll: async p => { scrolls.push(p); return { scrolled: true, y: p.y ?? 120 }; },
+  });
+  const { port, token } = await bridge.start();
+  try {
+    const bySel = await rpc(port, token, 'page/scroll', { selector: '#row-30' });
+    assert.equal(bySel.status, 200);
+    assert.equal(bySel.body.result.scrolled, true);
+    const byY = await rpc(port, token, 'page/scroll', { y: 480 });
+    assert.equal(byY.status, 200);
+    assert.deepEqual(scrolls.map(s => [s.selector, s.y]), [['#row-30', null], ['', 480]]);
+    const bad = await rpc(port, token, 'page/scroll', {});
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.error, /selector 또는 y/);
+  } finally { bridge.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('bridge.stop removes the token file', async () => {
   const { bridge, dir } = startBridge();
   await bridge.start();
