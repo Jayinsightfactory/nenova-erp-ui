@@ -64,6 +64,14 @@ def build_kit():
     module('partition'); box((0, 0, 0.45), (1.3, 0.08, 0.9), 'partition', '#bfe3d6', bev=0.04)
     module('desk'); box((0, 0, 0.72), (1.2, 0.7, 0.07), 'desk_top', WOOD, bev=0.03)
     for sx in (-1, 1): box((sx * 0.52, 0, 0.36), (0.1, 0.62, 0.7), 'desk_leg', WOOD2, bev=0.03)
+    module('desk_b')  # 두꺼운 라운드 상판 + 통다리
+    box((0, 0, 0.7), (1.2, 0.72, 0.1), 'desk_b_top', '#f4c6d0', bev=0.05)
+    for sx in (-1, 1): box((sx * 0.5, 0, 0.33), (0.14, 0.56, 0.66), 'desk_b_leg', '#fff0f4', bev=0.05)
+    module('desk_c')  # 사이드패널 + 서랍
+    box((0, 0, 0.72), (1.2, 0.7, 0.07), 'desk_c_top', '#bfe3d6', bev=0.03)
+    for sx in (-1, 1): box((sx * 0.54, 0, 0.36), (0.08, 0.66, 0.72), 'desk_c_leg', '#8fc7b5', bev=0.03)
+    box((0.36, -0.05, 0.5), (0.32, 0.55, 0.36), 'desk_c_drawer', '#d9f0e8', bev=0.04)
+    for z in (0.42, 0.56): box((0.36, -0.33, z), (0.2, 0.02, 0.03), 'desk_c_handle', '#7aa99a', bev=0.01)
     module('chair'); box((0, 0, 0.42), (0.48, 0.46, 0.08), 'chair', '#9fd3c7', bev=0.04); box((0, 0.22, 0.72), (0.46, 0.08, 0.5), 'chair', '#9fd3c7', bev=0.04)
     cyl((0, 0, 0.2), 0.04, 0.4, 'chair_leg', '#7a6a66'); cyl((0, 0, 0.03), 0.22, 0.05, 'chair_leg', '#7a6a66')
     module('monitor'); box((0, 0, 0.28), (0.5, 0.06, 0.34), 'monitor', '#eae4dc', bev=0.04); box((0, -0.033, 0.28), (0.42, 0.01, 0.26), 'screen', '#8fd2ff', bev=0, emit=0.6)

@@ -18,7 +18,11 @@ const { pathToFileURL } = require('url');
   for (const d of desks) assert.ok(Math.abs(d.z) >= 3, '책상이 스테이션 복도를 침범');
   // 뒤통수 금지: 모든 좌석 방향 · 카메라 방향 내적 > 0.3
   for (const d of desks) assert.ok(L.facingDot(d.yaw) > 0.3, `좌석이 카메라 반대쪽: ${d.name} dot=${L.facingDot(d.yaw).toFixed(2)}`);
-  for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.3);
+  for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.99, '일자 라인: 전원 카메라 정면');
+  // 일자 라인: z 값은 줄(±3.2, ±5.5) 위에만
+  for (const d of desks) assert.ok([3.2, 5.5].includes(Math.abs(+d.z.toFixed(1))), `책상이 줄 밖: ${d.name} z=${d.z}`);
+  const st1 = L.deskStyle('영업지원', '', ['#a', '#b']); assert.ok(L.DESK_MODELS.includes(st1.model) && st1.color);
+  assert.strictEqual(L.deskStyle('x', '#own', ['#a']).color, '#own');
   // 비율: 1440x720 화면 100% 기본 배율에서 캐릭터 90~110px, 9 스테이션 전부 보임
   const { hx, hz } = L.floorBounds(desks);
   const fit = L.sceneFit(hx, hz);
@@ -47,13 +51,14 @@ const { pathToFileURL } = require('url');
   assert.ok(total < 8 * 1024 * 1024, `3D 첫 로드 ${total}B > 8MB`);
   const gl = (n) => { const b = fs.readFileSync(path.join(dir, n)); return JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString()); };
   const kit = gl('kit.glb'); const names = new Set(kit.nodes.map((n) => n.name));
-  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'chair', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
+  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
   const ch = gl('char.glb'); const clips = ch.animations.map((x) => x.name);
   for (const c of ['idle', 'sit_type', 'walk', 'doze', 'dance']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
   for (const h of ['hat_cap', 'hat_straw', 'hat_party']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`);
   // 휠 확대 금지(사장님 지시)
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(!/['"]wheel['"]/.test(src), '3D 장면에 휠 핸들러 금지');
+  assert.ok(/data-k=\{'w:' \+ p\.name\}/.test(src) && !/\{p\.name\}\{l\?\.text/.test(src), '이름·작업 칩 분리');
   assert.ok(/MAX_DPR/.test(src) && /FPS_CAP/.test(src) && /IntersectionObserver/.test(src), '3D 프레임 상한·화면밖 정지');
   assert.ok(!/d\.face/.test(src), '옛 좌석 방향(face) 사용 금지');
   console.log(`pm3dLayout OK (assets ${(total / 1024).toFixed(0)}KB)`);
