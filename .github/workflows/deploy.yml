@@ -3,6 +3,10 @@ name: Deploy to Cafe24
 on:
   workflow_dispatch:
     inputs:
+      diagnose_paste_only:
+        description: '읽기 전용: 실제 확정 주문·원문 연결 및 분석 비교(원장 쓰기 없음)'
+        type: boolean
+        default: false
       diagnose_checkout_only:
         description: '읽기 전용: 서버 Git 변경 파일명/통계만 확인, 배포·DB·서비스 변경 없음'
         type: boolean
@@ -76,8 +80,35 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: ${{ steps.perf-script.outputs.script }}
+  diagnose-paste:
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose_paste_only == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package aggregate read-only audit
+        id: audit-script
+        shell: bash
+        run: |
+          {
+            echo 'script<<PASTE_AUDIT_EOF'
+            printf "cd /var/www/nenova-erp || exit 1\nnode <<'PASTE_AUDIT_NODE'\n"
+            cat scripts/paste-confirmed-audit.cjs
+            printf "\nmodule.exports.runAudit().then(r=>console.log('AUDIT_REPORT '+JSON.stringify(r))).catch(e=>{console.log('AUDIT_ERROR '+String(e.code||'AUDIT_FAILED'));process.exitCode=1;});\nPASTE_AUDIT_NODE\n"
+            echo 'PASTE_AUDIT_EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Read-only confirmed source audit
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 15m
+          script: ${{ steps.audit-script.outputs.script }}
   deploy:
-    if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true)
+    if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true && inputs.diagnose_paste_only != true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)

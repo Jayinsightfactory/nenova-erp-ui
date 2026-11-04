@@ -1,0 +1,50 @@
+{
+  "id": "paste-confirmed-audit",
+  "title": "실제 확정 붙여넣기 분석 비교(읽기 전용)",
+  "scope": [
+    "scripts/paste-confirmed-audit.cjs",
+    "__tests__/pasteConfirmedAudit.test.cjs",
+    ".github/workflows/deploy.yml",
+    "__tests__/codeOnlyDeployment.test.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "AUDIT_CONFIRMED_PASTE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "only bounded provider comparison if explicitly enabled; aggregate output, no ledger/cache writes"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same raw cache never cross-join; truth full week/year required"
+  },
+  "requiredTestFiles": [
+    "__tests__/pasteConfirmedAudit.test.cjs",
+    "__tests__/codeOnlyDeployment.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ProductMatching.md",
+    "source": "FormOrderAdd",
+    "methods": [
+      "GetDataProduct",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "Customer",
+      "Product"
+    ]
+  },
+  "criteria": {
+    "truth": "SUCCESS + verified + fully committed complete single exact source scope, exclude repeated/undo/partial/unknown source. Preserve excluded denominators. Cache is prediction not label.",
+    "output": "aggregate only, no raw texts/actors/credentials",
+    "execution": "explicit workflow diagnose_paste_only, excludes deploy; inspect first model0; budgeted model audit later"
+  }
+}
