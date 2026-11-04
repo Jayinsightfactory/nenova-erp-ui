@@ -34,6 +34,8 @@ for(const year of ['2025','2026']){
   assert.equal(r.data.parseSource,'rules-local');assert.equal(r.data.orders[0].items[0].prodKey,10);assert.equal(r.data.orders[0].items[0].qty,1);
   const cancel=await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 2박스 취소',year);assert.equal(cancel.data.orders[0].items[0].action,'취소');assert.equal(f.calls.length,0);
 }
+const omitted=fixture();const omittedResult=await omitted.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1추가');assert.equal(omitted.calls.length,0);assert.equal(omittedResult.data.orders[0].items[0].unit,'박스');
+const noHeader=fixture();await noHeader.run('검증업체\n문라이트 1추가');assert(noHeader.calls.length>0);
 const odd=fixture();await odd.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가\n내일 상태 보고 변경');assert(odd.calls.length>0,'unknown line must retain model fallback');
 const duplicate=fixture();await duplicate.run('검증업체\n문라이트 1박스 추가\n문라이트 1박스 추가');assert.equal(duplicate.calls.length,0); // exact display-name path
 for(const text of ['검증업체\n문라이트 -1박스','검증업체\n문라이트 0박스','검증업체\n문라이트 1박스 (냉해 취소)','검증업체\n문라이트 1','검증업체\n문라이트 1박스+2단','이름모름\n문라이트 1박스']){
