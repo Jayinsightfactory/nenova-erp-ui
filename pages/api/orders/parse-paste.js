@@ -24,6 +24,8 @@ import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit, resolvePasteMixedQuantity } from '../../../lib/pasteOrderUnit.js';
 import { buildSalesPasteMatchName, chooseSalesPasteParsedOrders, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
 
+import {canUseLocalPasteParse,createPasteAnalysisMetrics} from '../../../lib/pasteLocalAnalysis.js';
+
 const ORDER_PASTE_LLM_MODEL = process.env.ORDER_PASTE_LLM_MODEL || 'claude-sonnet-4-5';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
@@ -555,6 +557,7 @@ export async function parsePasteHandler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text, sourceText, selectedCustKey, selectedOrderYear } = req.body;
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
+  const analysis=createPasteAnalysisMetrics();
   const cleanText = sanitizePasteText(text);
   const cleanSourceText = sanitizePasteText(sourceText || '');
 
@@ -632,8 +635,12 @@ export async function parsePasteHandler(req, res) {
     const custList = customers.map(c => `${c.CustKey}|${c.CustName}|${c.CustArea || ''}`).join('\n');
     const prodList = prodForClaude.map(p => `${p.ProdKey}|${p.ProdName}|${p.DisplayName}|${p.FlowerName}|${p.CounName}`).join('\n');
 
+    const compactParsed = parseCompactStockOrders(cleanText);
+    const naturalParsed = parseNaturalSectionOrders(cleanText);
+    const localParse=compactParsed.orders.length===0&&canUseLocalPasteParse(cleanText,naturalParsed,customers,savedCustomerMappings);
+    analysis.metrics.localParse=localParse;
     const client = getClient();
-    if (!client) return res.status(500).json({ success: false, error: 'ANTHROPIC_API_KEY 없음' });
+    if (!localParse&&!client) return res.status(500).json({ success: false, error: 'ANTHROPIC_API_KEY 없음' });
 
     const systemPrompt = `너는 꽃 도매 ERP 주문 파싱 전문가다. 다양한 형식의 텍스트에서 거래처와 품목을 추출한다.
 
@@ -745,31 +752,31 @@ Caroline | 2
 
     const userMsg = `거래처 목록:\n${custList}\n\n품목 목록:\n${prodList}\n\n파싱할 텍스트:\n${cleanText}`;
 
-    const resp = await Promise.race([
-      client.messages.create({
+    let parsed=naturalParsed;
+    if(!localParse){
+      analysis.record();
+      const resp = await client.messages.create({
+          model: ORDER_PASTE_LLM_MODEL,
+          max_tokens: 4000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMsg }],
+        }, {timeout:30000,maxRetries:0});
+  
+      analysis.recordUsage(resp?.usage);
+      trackLLMCall({
+        userId: req.user?.userId || null,
         model: ORDER_PASTE_LLM_MODEL,
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMsg }],
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Claude API 응답 시간 초과 (30초)')), 30000)),
-    ]);
-
-    trackLLMCall({
-      userId: req.user?.userId || null,
-      model: ORDER_PASTE_LLM_MODEL,
-      inputTokens:  resp?.usage?.input_tokens  || 0,
-      outputTokens: resp?.usage?.output_tokens || 0,
-      purpose: 'parse-paste',
-    });
-
-    const raw = (resp.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const jsonText = (raw.match(/\{[\s\S]*\}/) || [null])[0];
-    if (!jsonText) return res.status(500).json({ success: false, error: 'LLM 응답 파싱 실패' });
-
-    const parsed = JSON.parse(jsonText);
-    const compactParsed = parseCompactStockOrders(cleanText);
-    const naturalParsed = parseNaturalSectionOrders(cleanText);
+        inputTokens:  resp?.usage?.input_tokens  || 0,
+        outputTokens: resp?.usage?.output_tokens || 0,
+        purpose: 'parse-paste',
+      });
+  
+      const raw = (resp.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+      const jsonText = (raw.match(/\{[\s\S]*\}/) || [null])[0];
+      if (!jsonText) return res.status(500).json({ success: false, error: 'LLM 응답 파싱 실패' });
+  
+      parsed = JSON.parse(jsonText);
+    }
     // 화면이 선택 차수·업체를 분석 문맥으로 앞에 붙이므로, 원문을 별도로 파싱하지
     // 않으면 기존 선택 차수가 사용자가 입력한 "37차"보다 먼저 감지된다.
     const sourceNaturalParsed = cleanSourceText
@@ -876,11 +883,15 @@ Caroline | 2
 
     const orders = await reviewPasteMatches({
       orders: preliminaryOrders, customers, products: allProducts, mappings: savedCustomerMappings,
+      productMappings:savedProductMappings,metrics:analysis.metrics,
       callModel: async (tasks) => {
+        if(!client)throw Error('AI 검증 연결이 없어 수동 확인이 필요합니다.');
+        analysis.record();
         const response = await client.messages.create({
           model: ORDER_PASTE_LLM_MODEL, max_tokens: 4000, system: PASTE_REVIEW_SYSTEM,
           messages: [{ role: 'user', content: JSON.stringify({ sourceText: cleanText, tasks }) }],
         }, { timeout: 30000, maxRetries: 0 });
+        analysis.recordUsage(response?.usage);
         trackLLMCall({ userId: req.user?.userId || null, model: ORDER_PASTE_LLM_MODEL,
           inputTokens: response?.usage?.input_tokens || 0, outputTokens: response?.usage?.output_tokens || 0,
           purpose: 'paste-match-review' });
@@ -903,10 +914,11 @@ Caroline | 2
       orders: orders.map(order=>({...order,items:order.items.map(item=>resolvePasteMixedQuantity(item,productByKey.get(Number(item.prodKey))))})),
       prodUnitMap,
       detectedWeek,
-      parseSource: selectedParse.source,
+      parseSource: localParse?'rules-local':selectedParse.source,
       parsedItemCount: selectedParse.itemCount,
       expectedItemCount: selectedParse.expectedCount,
-      analysisModel: ORDER_PASTE_LLM_MODEL,
+      analysisModel: analysis.metrics.modelCalls?ORDER_PASTE_LLM_MODEL:'local-rules',
+      analysisPerformance:analysis.finish(),
     });
   } catch (err) {
     console.error('[parse-paste]', err.message);

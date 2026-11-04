@@ -66,6 +66,6 @@ assert.match(parser, /parsedExplicitUnit[\s\S]{0,220}unitExplicit:\s*Boolean\(it
 assert.match(parser, /sourceNaturalParsed\.detectedWeek[\s\S]{0,100}sourceCompactParsed\.detectedWeek[\s\S]{0,100}naturalParsed\.detectedWeek/, '붙여넣은 원문 차수를 문맥 헤더와 LLM 감지값보다 우선해야 합니다.');
 assert.match(parser, /ORDER_PASTE_LLM_MODEL[\s\S]{0,100}claude-sonnet-4-5/, '비용보다 정확도를 우선하는 Sonnet 분석을 기본값으로 사용해야 합니다.');
 assert.match(parser, /chooseSalesPasteParsedOrders\(/, 'LLM 결과를 규칙 결과가 무조건 덮어쓰지 말고 수량행 완전성으로 선택해야 합니다.');
-assert.match(parser, /parseSource:\s*selectedParse\.source/, '분석 출처를 응답에 남겨 진단 가능해야 합니다.');
-assert.match(parser, /analysisModel:\s*ORDER_PASTE_LLM_MODEL/, '분석 모델을 응답에 남겨 진단 가능해야 합니다.');
+assert.match(parser, /parseSource:\s*localParse\?'rules-local':selectedParse\.source/, '분석 출처를 응답에 남겨 진단 가능해야 합니다.');
+assert.match(parser, /analysisModel:\s*analysis\.metrics\.modelCalls\?ORDER_PASTE_LLM_MODEL:'local-rules'/, '분석 모델을 응답에 남겨 진단 가능해야 합니다.');
 console.log('sales paste order UI/API tests passed');
