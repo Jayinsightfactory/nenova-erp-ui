@@ -1,5 +1,11 @@
 # 작업 기록
 
+## 2026-11-04 판매 예정(/pm) 코드 ↔ 사내 전산 경계 자동 검사기(CI)
+- PR #1525 머지. /pm(PM 사무실)은 나중에 nowlink 판매 저장소로 이식 예정 → 사내 모듈 직접 import 가 늘지 않게 CI에서 새 위반만 차단(선례 mgmtBoundary 구조 재사용).
+- 구성: lib/pmSaleBoundary.js(PM 소유=pages/pm*, pages/api/pm/, components/pm·pm3d/, lib/pm* / 허용=같은 판매군+MenuBackButton·styles+npm 패키지 / 금지=lib/db·lib/auth 등 사내 lib·사내 API 핸들러 직접 import, 서버 데이터는 fetch 경유), config/pm-boundary-allowlist.json(기존 위반 31건 동결 — 대부분 pages/api/pm/* → lib/auth·orbitReportAccess·workFeatureData), __tests__/pmBoundary.test.js(단위+전수 스캔), npm run test:pm-boundary(test:pm 체인 맨 앞), erp-contract.yml verify 단계 추가.
+- 함정: lib/pm* 패턴은 preShipment* 와 충돌 없음(/^lib\/pm[A-Z0-9]/). 동결 목록에서 사라진 항목은 실패 아닌 안내만.
+- 검색어: pmSaleBoundary pm-boundary-allowlist test:pm-boundary 판매예정 경계 nowlink 이식 동결 31건
+
 ## 2026-11-04 PM 자동업무: 기술 레이더 "바로 시험" 자동 파일럿(+시험함 배지)
 - owner PC nenova-pm/pm-radar-pilot.js 신설(pm.js 루프에서 호출, 백업 pm.js.bak-1104c): 최신 회차 action='바로 시험'&pilotResult 없음 → 대장(ledger) 등록 → 조사관(claude -p)이 radar-pilot/<slug>/ 전용 폴더에서 로컬 설치·실데이터 시험 → REPORT.md+PILOT_RESULT JSON → tech-radar.json pilotResult{score,summary,reportPath,testedAt} 반영 → radar.js --upload-only 재업로드. 채택은 자동 아님: 대장 needs-approval 승인 대기.
 - 코드 관문: 전용 폴더·디스크 10GB·회차당 2건·시도 5회·동시 1개(pm/staff 조사관 포함)·quota-hold/pm-mode·공격성 저장소 차단·external 표시(수동 파일럿 MinerU/docling) 건너뜀. 감시: watchdog.js radar-pilot-stale(7일+ 미완). 드라이런 검증: 후보 9건 선발·대장 등록·프롬프트 생성 OK(pm.log 기록).
