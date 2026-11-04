@@ -1945,3 +1945,6 @@
 
 2026-11-03 입고 수정 구현: /incoming 선택 원장의 FARM/REPLACE 미리보기·명시확인·UUID재시도·초안·감사 추가. 공용 staging 없이 차액 Product.Stock/입고이력/native V2 재고·후속음수 검증과 원장 사후대조 원자 저장. 원가/정산/확정/농장분배/미매칭 원장 차단. Unit10·격리SQL1·모의UI1920/390·기존입고3·UI-layout·manifest187·dnSpy·쓰기guard PASS. 운영7970 읽기전용 preflight 성공/확정 차단, 운영쓰기0. 전체ERP/최종build·PR/배포 진행중. 정본 docs/work-sessions/2026-11-03_incoming-correction.md.
 검색어: warehouseCorrection 입고수정 파일교체 FARM REPLACE nativeGate UUID SystemActionLog
+
+2026-11-04 불량단가·보류: nw-defect-cost-quote-1104, 기준b6e77b84. 태림983/986 품목3389/2473에최근단가없음,실분배후보3397=6200(41-01),2085=6500(43-01). 라움926/1007 기존견적10499/10707 실체없음. 사용자답변은 보류분별도분리,재등록아님. 단가후보/명시매칭정정/보류분리 구현,실SQL SELECT 및 CTE PASS/운영쓰기0. 전체검증·UI·배포 진행중.
+검색어: defectCostCandidates COST_LOOKUP_FAILED 보류 이전차감견적 태림그로우 오션송 라움

@@ -1,3 +1,5 @@
+import DefectCostLookup from '../../components/DefectCostLookup';
+import { isDefectRegistrationHeld } from '../../lib/defectResolution.js';
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -179,7 +181,9 @@ export default function SalesDefectDeductionsPage() {
   const [salesSortMode, setSalesSortMode] = useState('customer');
   const [supportRows, setSupportRows] = useState([]);
   const [companyFilters, setCompanyFilters] = useState({ sales: '', support: '' });
-  const visibleSupportRows = useMemo(() => activeTab === 'support' ? supportRows.filter(row => matchesDefectCompany(row, companyFilters.support)) : supportRows, [supportRows, activeTab, companyFilters.support]);
+  const [supportListMode, setSupportListMode] = useState('active');
+  const supportModeRows = useMemo(() => supportRows.filter(row => isDefectRegistrationHeld(row) === (supportListMode === 'held')), [supportRows, supportListMode]);
+  const visibleSupportRows = useMemo(() => activeTab === 'support' ? supportModeRows.filter(row => matchesDefectCompany(row, companyFilters.support)) : supportRows, [supportRows, supportModeRows, activeTab, companyFilters.support]);
   useEffect(() => { setCompanyFilters({ sales: '', support: '' }); }, [year, week, manager]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
@@ -1136,7 +1140,7 @@ export default function SalesDefectDeductionsPage() {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
       const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
-      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1${resolveAll ? '&resolve=1&popup=1' : ''}`;
+      const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1${resolveAll ? '&resolve=1&popup=1' : ''}${resolveAll && supportListMode === 'held' ? '&held=1' : ''}`;
       reviewWindow.location.href = reviewUrl;
       handedOffToReview = true;
       supportReviewWindowRef.current = reviewWindow;
@@ -1728,7 +1732,7 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
-            <button type="button" className="btn btn-primary" onClick={() => registerSupport(true)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !visibleSupportRows.length}>{companyFilters.support ? '선택 업체 불량 확인·등록 (문제 해결 창)' : '전체 불량 확인·등록 (문제 해결 창)'}</button>
+            <button type="button" className="btn btn-primary" onClick={() => registerSupport(true)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !visibleSupportRows.length}>{companyFilters.support ? '선택 업체 불량 확인·등록 (문제 해결 창)' : (supportListMode === 'held' ? '보류 사유 확인 (문제 해결 창)' : '전체 불량 확인·등록 (문제 해결 창)')}</button>
             <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={() => registerSupport(false)} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
             <button type="button" className="btn" onClick={markSupportOmitted} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>선택 누락 처리</button>
@@ -1762,7 +1766,11 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={() => setPeriodForm({ target: '', reason: '' })} disabled={saving || !selected.size}>선택 차수 정정</button>}
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
-        {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={value => { endSelectionDrag(); setCompanyFilters(current => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
+        {activeTab === 'support' && <div role="group" aria-label="등록 대상과 보류 목록" style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
+          {[['active', '등록 대상'], ['held', '보류']].map(([mode, label]) => <button type="button" className={`btn ${supportListMode === mode ? 'btn-primary' : ''}`} key={mode} aria-pressed={supportListMode === mode} disabled={supportLoading || supportRegistering || managementBusy} onClick={() => { setSupportListMode(mode); setSupportSelected(new Set()); setManagementSelected(new Set()); setCompanyFilters(current => ({ ...current, support: '' })); }}>{label} ({supportRows.filter(row => isDefectRegistrationHeld(row) === (mode === 'held')).length}건)</button>)}
+          {supportListMode === 'held' && <span>이전 견적·원문 확인 또는 이번 차수 분배가 필요한 자료입니다. 원장은 보존하며, 조건이 해결되면 재조회 시 등록 대상으로 돌아옵니다.</span>}
+        </div>}
+        {['sales', 'support'].includes(activeTab) && <DefectCompanyFilter key={activeTab} rows={activeTab === 'sales' ? rows : supportModeRows} value={companyFilters[activeTab]} disabled={loading || saving || supportLoading || supportRegistering || managementBusy} onChange={value => { endSelectionDrag(); setCompanyFilters(current => ({ ...current, [activeTab]: value })); setSelected(new Set()); setSupportSelected(new Set()); setManagementSelected(new Set()); setActiveSearch(null); }} />}
         {activeTab === 'sales' && companyFilters.sales && <p style={{ fontSize: 12 }}>저장 버튼은 업체 필터와 관계없이 전체 입력 초안을 저장합니다.</p>}
         {periodForm && activeTab === 'sales' && <section aria-label="차수 정정" style={{ padding: 12, border: '1px solid #cbd5e1', marginTop: 8 }}>
           <p>선택 {selected.size}건 · 현재 {year}년 {week}차. 저장번호·업체·품목·수량·담당자는 유지됩니다.</p>
@@ -2417,6 +2425,7 @@ export default function SalesDefectDeductionsPage() {
                 <div><dt>수량 / 단위</dt><dd>{printQuantity(manualCostModal.row) || '-'} / {manualCostModal.row.sourceUnit || manualCostModal.row.unit || '-'}</dd></div>
                 <div><dt>단가 기준</dt><dd>전산 견적 단위 {manualCostModal.row.distributionCostUnit || '-'}당 금액</dd></div>
               </dl>
+              <DefectCostLookup row={manualCostModal.row} year={manualCostModal.year} week={manualCostModal.week} disabled={manualCostSaving} onBusy={setManualCostSaving} onSaved={async () => { await loadSupport(); setManualCostModal(null); setManualCostValue(''); }} />
               <label className="support-manual-cost-label" htmlFor="support-manual-cost-input">불량차감 단가(부가세 포함, 원)</label>
               <input ref={manualCostInputRef} id="support-manual-cost-input" className="input" inputMode="decimal" type="text" value={manualCostValue} onChange={(event) => setManualCostValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveManualCost(false); } }} placeholder="예: 12000 또는 12000.5000" disabled={manualCostSaving} aria-describedby="support-manual-cost-help" />
               <div id="support-manual-cost-help" className="support-manual-cost-help">0보다 큰 숫자, 소수점 이하 최대 4자리</div>
