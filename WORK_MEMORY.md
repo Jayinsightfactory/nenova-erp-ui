@@ -1962,3 +1962,5 @@
 
 2026-11-04 선택보류 UI검증: 로컬 운영빌드 성공(메모리 절약 worker1), API격리 실Chrome에서 이슈체크/혼합등록차단/보류이동/새로고침유지/수동해제/CAS descriptor·수량·기존견적보존 PASS. 초기 dev instrumentation crypto 오류로 운영빌드로 전환. PR1469의 WORK_MEMORY 병합충돌은 양쪽 기록 모두 보존해 해소. 전체CI/운영배포 대기.
 검색어: PR1469 defect-manual-hold-smoke UI PASS
+2026-11-04 메모장 새 디자인: GPT 이미지생성 시안 `docs/design/desktop-task-notes-v2-2026-11-04.png` 기준 상단 브랜드·원형 진행률·카드형 업무·파란 빠른추가·알림 카드로 380px 창 재구성. 날짜·업무·반복·알림 데이터 경로 유지, 아이콘 버튼 접근성 이름 추가, 숨김 요일 필드 CSS 보정. Desktop 1.3.13 단위28·Electron smoke PASS, 시안 대비 380px screenshot 확인. Windows installer CI/PR/병합/배포/실설치는 진행 중.
+검색어: desktop-notes-design-v2 1.3.13 GPT이미지 시안 원형진행률 카드형업무 380px
