@@ -25,7 +25,7 @@ export const MENU_ITEMS = [
   {
     group: 'PM',
     items: [
-      { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false, userIds: ['nenovaSS3'] },
+      { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false },
     ]
   },
   {
