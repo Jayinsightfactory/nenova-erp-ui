@@ -71,7 +71,7 @@ const { pathToFileURL } = require('url');
   assert.ok(total < 8 * 1024 * 1024, `3D 첫 로드 ${total}B > 8MB`);
   const gl = (n) => { const b = fs.readFileSync(path.join(dir, n)); return JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString()); };
   const kit = gl('kit.glb'); const names = new Set(kit.nodes.map((n) => n.name));
-  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'desk_k1', 'desk_k2', 'desk_k3', 'chair_k1', 'chair_k2', 'plant_k1', 'plant_k2', 'lamp_k', 'rug_k', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
+  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'desk_k1', 'desk_k2', 'desk_k3', 'chair_k1', 'chair_k2', 'plant_k1', 'plant_k2', 'lamp_k', 'rug_k', 'shell', 'starfish', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
   const ch = gl('char.glb'); const clips = ch.animations.map((x) => x.name);
   for (const c of ['idle', 'sit_type', 'walk', 'doze', 'dance']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
   for (const h of ['hat_cap', 'hat_straw', 'hat_party']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`);
