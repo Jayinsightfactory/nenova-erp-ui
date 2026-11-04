@@ -3,12 +3,17 @@
 //   테마 토큰은 lib/pmThemes.js 한 곳. 캐릭터·아이템 목록·가격은 public/pm-themes/manifest.json(서버 가격 기준).
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Badge, Button, SelectCard, Tabs, ToggleChip } from './ui';
+import { CharacterAvatar, DANCES, DeskSet, EMOTES, EMOTE_LABEL, PERSONALITIES, normalizeAvatar, usePmLayers } from './Character';
+import { useGrow } from './grow/Grow';
 import { PM_DEFAULT_THEME, PM_THEMES, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb } from '../../lib/pmThemes';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null, shop: null, reloadShop: null });
 export const usePmTheme = () => useContext(PmThemeCtx);
 
-export const SLOTS = [['hat', '모자'], ['glasses', '안경'], ['outfit', '옷'], ['desk', '책상 소품'], ['pet', '펫'], ['badge', '배지']];
+// 캐릭터 v2 슬롯(옷·소품은 캐릭터 레이어, 나머지는 자리 세트). deskL/M/R 는 상판 소품(category deskTop) 공용.
+export const SLOTS = [['outfit', '옷'], ['hat', '모자'], ['glasses', '안경'], ['hand', '손 소품'], ['badge', '배지'], ['desk', '책상'], ['deskL', '상판 왼쪽'], ['deskM', '상판 가운데'], ['deskR', '상판 오른쪽'], ['chair', '의자'], ['rug', '러그'], ['shelf', '책장·큰 소품'], ['pet', '펫']];
+const SLOT_CAT = { deskL: 'deskTop', deskM: 'deskTop', deskR: 'deskTop' };
+const SLOT_UNLOCK = { rug: 2, shelf: 3 };
 const STATE_LABEL = { idle: '대기', working: '작업중', off: '꺼짐', error: '오류', handoff: '넘김' };
 
 export function usePmThemeState(who = '') {
@@ -69,23 +74,20 @@ export function ThemePicker({ value, onChange }) {
   );
 }
 
-// 아바타 = 캐릭터 그림 + 장착 아이템 겹치기. 상태 애니메이션은 클래스(pmc-상태)로.
-export function Avatar({ cfg, state = 'idle', size = 40, className = '' }) {
-  const { manifest } = usePmTheme();
-  if (!manifest || !cfg) return null;
-  const ch = manifest.characters.find((c) => c.id === cfg.char) || manifest.characters[0];
-  const items = SLOTS.map(([s]) => cfg.items?.[s]).filter(Boolean).map((id) => manifest.items.find((x) => x.id === id)).filter(Boolean);
-  const under = items.filter((x) => x.category === 'pet' || x.category === 'desk');
-  const over = items.filter((x) => !(x.category === 'pet' || x.category === 'desk'));
-  return (
-    <span className={`pav pmc-${state} ${className}`} style={{ width: size, height: size }} aria-hidden>
-      {under.map((x) => <img key={x.id} className={`it it-${x.category}`} src={x.src} alt="" loading="lazy" decoding="async" />)}
-      <span className="pbody">
-        <img className="ch" src={ch.src} alt="" loading="lazy" decoding="async" />
-        {over.map((x) => <img key={x.id} className={`it it-${x.category}`} src={x.src} alt="" loading="lazy" decoding="async" />)}
-      </span>
-    </span>
-  );
+// 아바타 = 캐릭터 v2 레이어 합성(components/pm/Character). 예전 호출(cfg·state·size) 그대로 호환.
+//   name 을 주면 성장 단계(후광 등)·작업 분위기(집중·바쁨…)를 /api/pm/grow 에서 붙인다.
+export function Avatar({ cfg, state = 'idle', size = 40, className = '', name = '', ...rest }) {
+  const { view } = useGrow() || {};
+  if (!cfg) return null;
+  const me = name && view ? view.people?.find((p) => p.name === name) : null;
+  const vibe = name && view?.vibes?.[name] ? view.vibes[name] : null;
+  return <CharacterAvatar cfg={cfg} state={state} size={size} className={`pav ${className}`} stage={me?.stage || 1} vibe={vibe?.vibe || ''} emote={vibe?.emote || ''} {...rest} />;
+}
+
+// 자유이용권 남은 일수 배지
+export function PassBadge({ pass }) {
+  if (!pass || !pass.active) return null;
+  return <Badge tone="plain" className="passb" title={`${pass.start} 부터 ${pass.days}일 · ${pass.end} 까지`}>🎟️ 자유이용권 D-{pass.daysLeft}</Badge>;
 }
 
 const RARITY = { basic: '기본', common: '일반', rare: '희귀', legendary: '전설' };
@@ -123,29 +125,60 @@ export function WalletPanel({ name, wallet }) {
   );
 }
 
+// 몸·헤어·성격 고르기(무료)
+const HAIR_NAMES = ['흑갈', '갈색', '카라멜', '금발', '라벤더'];
+function BasePicker({ cfg, setCfg }) {
+  const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
+  const row = (label, k, opts) => (
+    <div className="czst" role="group" aria-label={label}><b>{label}</b>{opts.map(([v, l]) => <ToggleChip key={String(v)} on={cfg[k] === v} onClick={() => set(k, v)}>{l}</ToggleChip>)}</div>
+  );
+  return (
+    <div className="basep">
+      {row('체형', 'body', [['slim', '날씬'], ['std', '보통'], ['round', '통통']])}
+      {row('피부', 'skin', [0, 1, 2, 3].map((i) => [i, `톤 ${i + 1}`]))}
+      {row('헤어', 'hair', [['short', '짧은'], ['bob', '단발'], ['long', '긴'], ['bun', '똥머리']])}
+      {row('헤어색', 'hairColor', HAIR_NAMES.map((l, i) => [i, l]))}
+      {row('성격(대기 동작)', 'personality', PERSONALITIES)}
+    </div>
+  );
+}
+
 // 상점 + 꾸미기(시안 page-shop-avatar): 왼쪽 미리보기 무대·슬롯 탭 / 가운데 아이템 그리드 / 오른쪽 상세·구매·장착 저장. 위 지갑.
 //   canEdit=false 면 보기만(본인 또는 관리자 대리만 구매·저장 — 서버 API 도 같은 규칙).
 export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false, myStaff = null, onBack }) {
   const { manifest, avatars, save, reloadShop } = usePmTheme();
   const [wallet, reloadWallet] = useWallet(name);
   const saved = avatars[name];
-  const [cfg, setCfg] = useState(() => ({ char: saved?.char || 'human', items: { ...(saved?.items || {}) } }));
+  const base = (sv) => { const n = normalizeAvatar(sv ? { ...sv, view: null } : null); return { char: n.char, body: n.body, skin: n.skin, hair: n.hair, hairColor: n.hairColor, personality: n.personality, items: n.items }; };
+  const [cfg, setCfg] = useState(() => base(saved));
+  const [dance, setDance] = useState('');
+  const [emote, setEmote] = useState('');
+  const { view: growV } = useGrow() || {};
+  const myStage = growV?.people?.find((p) => p.name === name)?.stage || 1;
+  const pass = saved?.pass || null;
+  usePmLayers();
   const [st, setSt] = useState('working');
   const [slot, setSlot] = useState('char');
   const [focus, setFocus] = useState(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(false);
-  useEffect(() => { setCfg({ char: saved?.char || 'human', items: { ...(saved?.items || {}) } }); }, [name, saved]);
+  useEffect(() => { setCfg(base(saved)); }, [name, saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!dance) return undefined; const t = setTimeout(() => setDance(''), 2600); return () => clearTimeout(t); }, [dance]);
   useEffect(() => { setMsg(''); setFocus(null); }, [name]);
   if (!manifest) return <p className="muted">상점 불러오는 중…</p>;
   const ownedSet = new Set(wallet?.owned || []);
+  const freeOn = !!pass?.active;
   const isOwned = (key, price) => !price || ownedSet.has(key);
+  const usable = (key, price) => freeOn || isOwned(key, price);
   const list = slot === 'char'
     ? manifest.characters.map((c) => ({ key: `char.${c.id}`, id: c.id, name: c.name, price: c.price, rarity: c.rarity, src: c.src, on: cfg.char === c.id }))
-    : manifest.items.filter((x) => x.category === slot).map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, src: x.src, on: cfg.items[slot] === x.id }));
+    : slot === 'base' ? []
+    : manifest.items.filter((x) => !x.hidden && x.category === (SLOT_CAT[slot] || slot)).map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, src: x.icon || x.src, theme: x.theme, on: cfg.items[slot] === x.id }));
+  const slotShut = SLOT_UNLOCK[slot] && myStage < SLOT_UNLOCK[slot] && !freeOn;
   const choose = (x) => {
     setFocus(x);
+    if (slotShut) return;
     if (slot === 'char') setCfg((c) => ({ ...c, char: x.id }));
     else setCfg((c) => ({ ...c, items: { ...c.items, [slot]: c.items[slot] === x.id ? undefined : x.id } }));
   };
@@ -153,7 +186,8 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
     ...manifest.characters.filter((c) => c.id === cfg.char).map((c) => ({ key: `char.${c.id}`, name: c.name, price: c.price })),
     ...manifest.items.filter((x) => Object.values(cfg.items).includes(x.id)).map((x) => ({ key: x.id, name: x.name, price: x.price })),
   ];
-  const needBuy = chosen.filter((x) => !isOwned(x.key, x.price));
+  const needBuy = chosen.filter((x) => !usable(x.key, x.price));
+  const notBought = chosen.filter((x) => !isOwned(x.key, x.price));
   const doBuy = async (x) => {
     setBusy(true); setMsg('');
     try {
@@ -179,13 +213,23 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
       </div>
       <div className="sgrid">
         <section className="sstage">
-          <div className="stagebox"><Avatar cfg={cfg} state={st} size={150} /><i className="pedestal" aria-hidden /></div>
+          <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.74} state={st} stage={myStage} dance={dance} emote={emote} /></div>
+          <PassBadge pass={pass} />
+          {pass && pass.expired && <p className="czmsg" role="note">자유이용권이 끝났어요. 산 적 없는 품목은 기본 복장으로 돌아갔어요(꾸미기 기록은 보관) — 구매하면 계속 사용할 수 있어요.</p>}
+          <div className="czst" role="group" aria-label="춤 미리보기">
+            {DANCES.map(([k, l]) => <ToggleChip key={k} on={dance === k} onClick={() => setDance(k)}>💃 {l}</ToggleChip>)}
+          </div>
+          <div className="czst" role="group" aria-label="이모트">
+            {Object.keys(EMOTES).map((k) => <ToggleChip key={k} on={emote === k} onClick={() => setEmote(emote === k ? '' : k)} title={EMOTE_LABEL[k]}>{EMOTES[k]}</ToggleChip>)}
+          </div>
           <div className="czst" role="group" aria-label="미리보기 상태">
             {manifest.states.map((s) => <ToggleChip key={s} on={st === s} onClick={() => setSt(s)}>{STATE_LABEL[s] || s}</ToggleChip>)}
           </div>
-          <Tabs className="slots" label="꾸미기 슬롯" value={slot} onChange={(k) => { setSlot(k); setFocus(null); }} items={[['char', '캐릭터'], ...SLOTS]} />
+          <Tabs className="slots" label="꾸미기 슬롯" value={slot} onChange={(k) => { setSlot(k); setFocus(null); }} items={[['base', '몸·헤어·성격'], ['char', '캐릭터'], ...SLOTS]} />
         </section>
         <section className="sitems" aria-label="아이템 목록">
+          {slot === 'base' && <BasePicker cfg={cfg} setCfg={setCfg} />}
+          {slotShut && <p className="czmsg" role="note">🌱 성장 {SLOT_UNLOCK[slot]}단계에서 열리는 자리예요(지금 {myStage}단계).</p>}
           {list.map((x) => {
             const own = isOwned(x.key, x.price);
             const poor = !own && wallet && wallet.balance < x.price;
@@ -194,7 +238,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
                 <img src={x.src} alt="" loading="lazy" />
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
-                <small className={`czr r-${x.rarity || 'basic'}`}>{!x.price ? '무료' : own ? '보유중' : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
+                <small className={`czr r-${x.rarity || 'basic'}`}>{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
               </SelectCard>
             );
           })}
@@ -209,15 +253,15 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             </div>
           )}
           {!canEdit && <p className="czmsg" role="note">{editNote || '편집 권한 없음'}</p>}
-          {canEdit && needBuy.map((x) => (
+          {canEdit && (freeOn ? notBought : needBuy).map((x) => (
             <Button key={x.key} variant="primary" className="big buy" disabled={busy || !wallet || wallet.balance < x.price} onClick={() => doBuy(x)}>
               {x.name} 구매하기 · {x.price}🪙{wallet && wallet.balance < x.price ? ' (부족)' : ''}
             </Button>
           ))}
           <Button variant="primary" className="big equip" loading={busy} disabled={!canEdit || needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''}
-            onClick={() => doSave({ char: cfg.char, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '장착 저장'}</Button>
+            onClick={() => doSave({ char: cfg.char, body: cfg.body, skin: cfg.skin, hair: cfg.hair, hairColor: cfg.hairColor, personality: cfg.personality, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '장착 저장'}</Button>
           <div className="srow">
-            <Button size="sm" disabled={!canEdit || busy} onClick={() => setCfg({ char: 'human', items: {} })}>모두 벗기</Button>
+            <Button size="sm" disabled={!canEdit || busy} onClick={() => setCfg((c) => ({ ...c, char: 'human', items: {} }))}>모두 벗기</Button>
             <Button size="sm" disabled={!canEdit || busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</Button>
           </div>
           {msg && <p className="czmsg" role="status">{msg}</p>}

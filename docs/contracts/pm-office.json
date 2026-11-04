@@ -27,7 +27,12 @@
     "pages/api/pm/shop.js",
     "lib/pmWallet.js",
     "pages/api/pm/bonus.js",
-    "lib/pmBonus.js"
+    "lib/pmBonus.js",
+    "pages/api/pm/freepass.js",
+    "lib/pmFreePass.js",
+    "lib/pmMood.js",
+    "lib/pmDeskSlots.js",
+    "components/pm/Character.js"
   ],
   "businessIdentity": [
     "OrderYear",

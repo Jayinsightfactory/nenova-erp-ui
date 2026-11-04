@@ -1,0 +1,1602 @@
+{
+ "canvas": 256,
+ "anchors": {
+  "feet": [
+   128.0,
+   238
+  ],
+  "head": [
+   128.0,
+   90.9
+  ],
+  "chest": [
+   128.0,
+   161.1
+  ],
+  "hand": [
+   174.5,
+   186.0
+  ]
+ },
+ "order": [
+  "kindBack",
+  "hairBack",
+  "body",
+  "bottom",
+  "top",
+  "badge",
+  "face",
+  "hairFront",
+  "kindFront",
+  "glasses",
+  "hat",
+  "hand"
+ ],
+ "bodies": {
+  "slim": [
+   "/pm-char/body/slim-0.webp",
+   "/pm-char/body/slim-1.webp",
+   "/pm-char/body/slim-2.webp",
+   "/pm-char/body/slim-3.webp"
+  ],
+  "std": [
+   "/pm-char/body/std-0.webp",
+   "/pm-char/body/std-1.webp",
+   "/pm-char/body/std-2.webp",
+   "/pm-char/body/std-3.webp"
+  ],
+  "round": [
+   "/pm-char/body/round-0.webp",
+   "/pm-char/body/round-1.webp",
+   "/pm-char/body/round-2.webp",
+   "/pm-char/body/round-3.webp"
+  ]
+ },
+ "skins": [
+  "#ffe0c7",
+  "#f3c7a0",
+  "#d9a074",
+  "#9c6b48"
+ ],
+ "hairColors": [
+  "#2b2220",
+  "#6b4630",
+  "#c98f4a",
+  "#e6c87a",
+  "#9a7bd1"
+ ],
+ "hairs": {
+  "short": {
+   "front": [
+    "/pm-char/hair/short-front-0.webp",
+    "/pm-char/hair/short-front-1.webp",
+    "/pm-char/hair/short-front-2.webp",
+    "/pm-char/hair/short-front-3.webp",
+    "/pm-char/hair/short-front-4.webp"
+   ]
+  },
+  "bob": {
+   "front": [
+    "/pm-char/hair/bob-front-0.webp",
+    "/pm-char/hair/bob-front-1.webp",
+    "/pm-char/hair/bob-front-2.webp",
+    "/pm-char/hair/bob-front-3.webp",
+    "/pm-char/hair/bob-front-4.webp"
+   ],
+   "back": [
+    "/pm-char/hair/bob-back-0.webp",
+    "/pm-char/hair/bob-back-1.webp",
+    "/pm-char/hair/bob-back-2.webp",
+    "/pm-char/hair/bob-back-3.webp",
+    "/pm-char/hair/bob-back-4.webp"
+   ]
+  },
+  "long": {
+   "front": [
+    "/pm-char/hair/long-front-0.webp",
+    "/pm-char/hair/long-front-1.webp",
+    "/pm-char/hair/long-front-2.webp",
+    "/pm-char/hair/long-front-3.webp",
+    "/pm-char/hair/long-front-4.webp"
+   ],
+   "back": [
+    "/pm-char/hair/long-back-0.webp",
+    "/pm-char/hair/long-back-1.webp",
+    "/pm-char/hair/long-back-2.webp",
+    "/pm-char/hair/long-back-3.webp",
+    "/pm-char/hair/long-back-4.webp"
+   ]
+  },
+  "bun": {
+   "front": [
+    "/pm-char/hair/bun-front-0.webp",
+    "/pm-char/hair/bun-front-1.webp",
+    "/pm-char/hair/bun-front-2.webp",
+    "/pm-char/hair/bun-front-3.webp",
+    "/pm-char/hair/bun-front-4.webp"
+   ]
+  }
+ },
+ "kinds": {
+  "human": {},
+  "cat": {
+   "front": "/pm-char/kind/cat-front.webp"
+  },
+  "dog": {
+   "front": "/pm-char/kind/dog-front.webp"
+  },
+  "bunny": {
+   "front": "/pm-char/kind/bunny-front.webp"
+  },
+  "bear": {
+   "front": "/pm-char/kind/bear-front.webp"
+  },
+  "fox": {
+   "front": "/pm-char/kind/fox-front.webp",
+   "back": "/pm-char/kind/fox-back.webp"
+  },
+  "penguin": {
+   "front": "/pm-char/kind/penguin-front.webp"
+  },
+  "fairy": {
+   "front": "/pm-char/kind/fairy-front.webp",
+   "back": "/pm-char/kind/fairy-back.webp"
+  },
+  "robot": {
+   "front": "/pm-char/kind/robot-front.webp"
+  },
+  "cactus": {
+   "front": "/pm-char/kind/cactus-front.webp"
+  }
+ },
+ "items": {
+  "outfit.knit": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.knit/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.knit/std.bottom.webp",
+     "round": "/pm-char/items/outfit.knit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.knit/slim.top.webp",
+     "std": "/pm-char/items/outfit.knit/std.top.webp",
+     "round": "/pm-char/items/outfit.knit/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.knit.webp"
+  },
+  "outfit.hoodie": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.hoodie/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.hoodie/std.bottom.webp",
+     "round": "/pm-char/items/outfit.hoodie/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.hoodie/slim.top.webp",
+     "std": "/pm-char/items/outfit.hoodie/std.top.webp",
+     "round": "/pm-char/items/outfit.hoodie/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.hoodie.webp"
+  },
+  "outfit.neon": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.neon/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.neon/std.bottom.webp",
+     "round": "/pm-char/items/outfit.neon/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.neon/slim.top.webp",
+     "std": "/pm-char/items/outfit.neon/std.top.webp",
+     "round": "/pm-char/items/outfit.neon/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.neon.webp"
+  },
+  "outfit.hanbok": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.hanbok/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.hanbok/std.bottom.webp",
+     "round": "/pm-char/items/outfit.hanbok/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.hanbok/slim.top.webp",
+     "std": "/pm-char/items/outfit.hanbok/std.top.webp",
+     "round": "/pm-char/items/outfit.hanbok/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.hanbok.webp"
+  },
+  "outfit.apron": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.apron/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.apron/std.bottom.webp",
+     "round": "/pm-char/items/outfit.apron/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.apron/slim.top.webp",
+     "std": "/pm-char/items/outfit.apron/std.top.webp",
+     "round": "/pm-char/items/outfit.apron/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.apron.webp"
+  },
+  "outfit.pixel": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.pixel/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.pixel/std.bottom.webp",
+     "round": "/pm-char/items/outfit.pixel/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.pixel/slim.top.webp",
+     "std": "/pm-char/items/outfit.pixel/std.top.webp",
+     "round": "/pm-char/items/outfit.pixel/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.pixel.webp"
+  },
+  "outfit.smock": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.smock/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.smock/std.bottom.webp",
+     "round": "/pm-char/items/outfit.smock/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.smock/slim.top.webp",
+     "std": "/pm-char/items/outfit.smock/std.top.webp",
+     "round": "/pm-char/items/outfit.smock/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.smock.webp"
+  },
+  "outfit.spacesuit": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.spacesuit/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.spacesuit/std.bottom.webp",
+     "round": "/pm-char/items/outfit.spacesuit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.spacesuit/slim.top.webp",
+     "std": "/pm-char/items/outfit.spacesuit/std.top.webp",
+     "round": "/pm-char/items/outfit.spacesuit/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.spacesuit.webp"
+  },
+  "outfit.aloha": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.aloha/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.aloha/std.bottom.webp",
+     "round": "/pm-char/items/outfit.aloha/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.aloha/slim.top.webp",
+     "std": "/pm-char/items/outfit.aloha/std.top.webp",
+     "round": "/pm-char/items/outfit.aloha/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.aloha.webp"
+  },
+  "outfit.puffer": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.puffer/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.puffer/std.bottom.webp",
+     "round": "/pm-char/items/outfit.puffer/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.puffer/slim.top.webp",
+     "std": "/pm-char/items/outfit.puffer/std.top.webp",
+     "round": "/pm-char/items/outfit.puffer/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.puffer.webp"
+  },
+  "outfit.suit": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.suit/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.suit/std.bottom.webp",
+     "round": "/pm-char/items/outfit.suit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.suit/slim.top.webp",
+     "std": "/pm-char/items/outfit.suit/std.top.webp",
+     "round": "/pm-char/items/outfit.suit/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.suit.webp"
+  },
+  "outfit.vest": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.vest/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.vest/std.bottom.webp",
+     "round": "/pm-char/items/outfit.vest/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.vest/slim.top.webp",
+     "std": "/pm-char/items/outfit.vest/std.top.webp",
+     "round": "/pm-char/items/outfit.vest/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.vest.webp"
+  },
+  "outfit.overall": {
+   "slot": "outfit",
+   "layers": {
+    "bottom": {
+     "slim": "/pm-char/items/outfit.overall/slim.bottom.webp",
+     "std": "/pm-char/items/outfit.overall/std.bottom.webp",
+     "round": "/pm-char/items/outfit.overall/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/items/outfit.overall/slim.top.webp",
+     "std": "/pm-char/items/outfit.overall/std.top.webp",
+     "round": "/pm-char/items/outfit.overall/round.top.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/outfit.overall.webp"
+  },
+  "hand.mug": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.mug/slim.webp",
+     "std": "/pm-char/items/hand.mug/std.webp",
+     "round": "/pm-char/items/hand.mug/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.mug.webp"
+  },
+  "hand.balloon": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.balloon/slim.webp",
+     "std": "/pm-char/items/hand.balloon/std.webp",
+     "round": "/pm-char/items/hand.balloon/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.balloon.webp"
+  },
+  "hand.glowstick": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.glowstick/slim.webp",
+     "std": "/pm-char/items/hand.glowstick/std.webp",
+     "round": "/pm-char/items/hand.glowstick/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.glowstick.webp"
+  },
+  "hand.fan": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.fan/slim.webp",
+     "std": "/pm-char/items/hand.fan/std.webp",
+     "round": "/pm-char/items/hand.fan/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.fan.webp"
+  },
+  "hand.wateringcan": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.wateringcan/slim.webp",
+     "std": "/pm-char/items/hand.wateringcan/std.webp",
+     "round": "/pm-char/items/hand.wateringcan/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.wateringcan.webp"
+  },
+  "hand.joystick": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.joystick/slim.webp",
+     "std": "/pm-char/items/hand.joystick/std.webp",
+     "round": "/pm-char/items/hand.joystick/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.joystick.webp"
+  },
+  "hand.brush": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.brush/slim.webp",
+     "std": "/pm-char/items/hand.brush/std.webp",
+     "round": "/pm-char/items/hand.brush/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.brush.webp"
+  },
+  "hand.flag": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.flag/slim.webp",
+     "std": "/pm-char/items/hand.flag/std.webp",
+     "round": "/pm-char/items/hand.flag/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.flag.webp"
+  },
+  "hand.icecream": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.icecream/slim.webp",
+     "std": "/pm-char/items/hand.icecream/std.webp",
+     "round": "/pm-char/items/hand.icecream/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.icecream.webp"
+  },
+  "hand.cocoa": {
+   "slot": "hand",
+   "layers": {
+    "hand": {
+     "slim": "/pm-char/items/hand.cocoa/slim.webp",
+     "std": "/pm-char/items/hand.cocoa/std.webp",
+     "round": "/pm-char/items/hand.cocoa/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hand.cocoa.webp"
+  },
+  "badge.star": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.star/slim.webp",
+     "std": "/pm-char/items/badge.star/std.webp",
+     "round": "/pm-char/items/badge.star/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.star.webp"
+  },
+  "badge.rose": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.rose/slim.webp",
+     "std": "/pm-char/items/badge.rose/std.webp",
+     "round": "/pm-char/items/badge.rose/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.rose.webp"
+  },
+  "badge.mvp": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.mvp/slim.webp",
+     "std": "/pm-char/items/badge.mvp/std.webp",
+     "round": "/pm-char/items/badge.mvp/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.mvp.webp"
+  },
+  "badge.heart": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.heart/slim.webp",
+     "std": "/pm-char/items/badge.heart/std.webp",
+     "round": "/pm-char/items/badge.heart/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.heart.webp"
+  },
+  "badge.flagco": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.flagco/slim.webp",
+     "std": "/pm-char/items/badge.flagco/std.webp",
+     "round": "/pm-char/items/badge.flagco/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.flagco.webp"
+  },
+  "badge.flagnl": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.flagnl/slim.webp",
+     "std": "/pm-char/items/badge.flagnl/std.webp",
+     "round": "/pm-char/items/badge.flagnl/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.flagnl.webp"
+  },
+  "badge.flagcn": {
+   "slot": "badge",
+   "layers": {
+    "badge": {
+     "slim": "/pm-char/items/badge.flagcn/slim.webp",
+     "std": "/pm-char/items/badge.flagcn/std.webp",
+     "round": "/pm-char/items/badge.flagcn/round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/badge.flagcn.webp"
+  },
+  "hat.beret": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.beret.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.beret.webp"
+  },
+  "hat.ribbon": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.ribbon.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.ribbon.webp"
+  },
+  "hat.visorneon": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.visorneon.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.visorneon.webp"
+  },
+  "hat.gat": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.gat.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.gat.webp"
+  },
+  "hat.straw": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.straw.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.straw.webp"
+  },
+  "hat.pixelcrown": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.pixelcrown.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.pixelcrown.webp"
+  },
+  "hat.painter": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.painter.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.painter.webp"
+  },
+  "hat.spacehelmet": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.spacehelmet.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.spacehelmet.webp"
+  },
+  "hat.sunvisor": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.sunvisor.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.sunvisor.webp"
+  },
+  "hat.beanie": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.beanie.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.beanie.webp"
+  },
+  "hat.crown": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.crown.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.crown.webp"
+  },
+  "hat.cap": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.cap.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.cap.webp"
+  },
+  "hat.flowercrown": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.flowercrown.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.flowercrown.webp"
+  },
+  "hat.helmet": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.helmet.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.helmet.webp"
+  },
+  "hat.chef": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.chef.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.chef.webp"
+  },
+  "hat.pilot": {
+   "slot": "hat",
+   "layers": {
+    "hat": {
+     "*": "/pm-char/items/hat.pilot.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/hat.pilot.webp"
+  },
+  "glasses.round": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.round.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.round.webp"
+  },
+  "glasses.sun": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.sun.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.sun.webp"
+  },
+  "glasses.heart": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.heart.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.heart.webp"
+  },
+  "glasses.visor": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.visor.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.visor.webp"
+  },
+  "glasses.monocle": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.monocle.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.monocle.webp"
+  },
+  "glasses.goggle": {
+   "slot": "glasses",
+   "layers": {
+    "glasses": {
+     "*": "/pm-char/items/glasses.goggle.webp"
+    }
+   },
+   "thumb": "/pm-char/thumb/glasses.goggle.webp"
+  }
+ },
+ "desk": {
+  "canvas": 384,
+  "anchor": [
+   192.0,
+   294.6
+  ],
+  "slots": {
+   "rug": {
+    "z": 0,
+    "at": [
+     0.0,
+     -13.8
+    ]
+   },
+   "shelf": {
+    "z": 1,
+    "at": [
+     -147.0,
+     -31.5
+    ]
+   },
+   "chair": {
+    "z": 2,
+    "at": [
+     0.0,
+     -30.6
+    ]
+   },
+   "seat": {
+    "z": 3,
+    "at": [
+     0.0,
+     -68.3
+    ]
+   },
+   "desk": {
+    "z": 4,
+    "at": [
+     0,
+     0
+    ]
+   },
+   "deskL": {
+    "z": 5,
+    "at": [
+     -61.6,
+     -76.5
+    ],
+    "dx": -61.6
+   },
+   "deskM": {
+    "z": 5,
+    "at": [
+     0.0,
+     -76.5
+    ],
+    "dx": 0
+   },
+   "deskR": {
+    "z": 5,
+    "at": [
+     61.6,
+     -76.5
+    ],
+    "dx": 61.6
+   },
+   "pet": {
+    "z": 6,
+    "at": [
+     128.0,
+     4.9
+    ]
+   }
+  },
+  "items": {
+   "desk.wood": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.wood.webp",
+    "thumb": "/pm-char/thumb/desk.wood.webp"
+   },
+   "desk.pastel": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.pastel.webp",
+    "thumb": "/pm-char/thumb/desk.pastel.webp"
+   },
+   "desk.neon": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.neon.webp",
+    "thumb": "/pm-char/thumb/desk.neon.webp"
+   },
+   "desk.soban": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.soban.webp",
+    "thumb": "/pm-char/thumb/desk.soban.webp"
+   },
+   "desk.greenhouse": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.greenhouse.webp",
+    "thumb": "/pm-char/thumb/desk.greenhouse.webp"
+   },
+   "desk.arcade": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.arcade.webp",
+    "thumb": "/pm-char/thumb/desk.arcade.webp"
+   },
+   "desk.easel": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.easel.webp",
+    "thumb": "/pm-char/thumb/desk.easel.webp"
+   },
+   "desk.console": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.console.webp",
+    "thumb": "/pm-char/thumb/desk.console.webp"
+   },
+   "desk.bamboo": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.bamboo.webp",
+    "thumb": "/pm-char/thumb/desk.bamboo.webp"
+   },
+   "desk.snow": {
+    "slot": "desk",
+    "src": "/pm-char/desk/desk.snow.webp",
+    "thumb": "/pm-char/thumb/desk.snow.webp"
+   },
+   "top.plant": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.plant.webp",
+    "thumb": "/pm-char/thumb/top.plant.webp"
+   },
+   "top.mug": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.mug.webp",
+    "thumb": "/pm-char/thumb/top.mug.webp"
+   },
+   "top.lamp": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.lamp.webp",
+    "thumb": "/pm-char/thumb/top.lamp.webp"
+   },
+   "top.frame": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.frame.webp",
+    "thumb": "/pm-char/thumb/top.frame.webp"
+   },
+   "top.keyboard": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.keyboard.webp",
+    "thumb": "/pm-char/thumb/top.keyboard.webp"
+   },
+   "top.snowglobe": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.snowglobe.webp",
+    "thumb": "/pm-char/thumb/top.snowglobe.webp"
+   },
+   "top.vase": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.vase.webp",
+    "thumb": "/pm-char/thumb/top.vase.webp"
+   },
+   "top.coffee": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.coffee.webp",
+    "thumb": "/pm-char/thumb/top.coffee.webp"
+   },
+   "top.cactus": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.cactus.webp",
+    "thumb": "/pm-char/thumb/top.cactus.webp"
+   },
+   "top.calc": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.calc.webp",
+    "thumb": "/pm-char/thumb/top.calc.webp"
+   },
+   "top.globe": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.globe.webp",
+    "thumb": "/pm-char/thumb/top.globe.webp"
+   },
+   "top.box": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.box.webp",
+    "thumb": "/pm-char/thumb/top.box.webp"
+   },
+   "top.trophy": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.trophy.webp",
+    "thumb": "/pm-char/thumb/top.trophy.webp"
+   },
+   "top.monitor": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.monitor.webp",
+    "thumb": "/pm-char/thumb/top.monitor.webp"
+   },
+   "top.shell": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.shell.webp",
+    "thumb": "/pm-char/thumb/top.shell.webp"
+   },
+   "top.inkstone": {
+    "slot": "deskTop",
+    "src": "/pm-char/desk/top.inkstone.webp",
+    "thumb": "/pm-char/thumb/top.inkstone.webp"
+   },
+   "rug.wood": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.wood.webp",
+    "thumb": "/pm-char/thumb/rug.wood.webp"
+   },
+   "rug.pastel": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.pastel.webp",
+    "thumb": "/pm-char/thumb/rug.pastel.webp"
+   },
+   "rug.neon": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.neon.webp",
+    "thumb": "/pm-char/thumb/rug.neon.webp"
+   },
+   "rug.hwamunseok": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.hwamunseok.webp",
+    "thumb": "/pm-char/thumb/rug.hwamunseok.webp"
+   },
+   "rug.beach": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.beach.webp",
+    "thumb": "/pm-char/thumb/rug.beach.webp"
+   },
+   "rug.snow": {
+    "slot": "rug",
+    "src": "/pm-char/desk/rug.snow.webp",
+    "thumb": "/pm-char/thumb/rug.snow.webp"
+   },
+   "chair.wood": {
+    "slot": "chair",
+    "src": "/pm-char/desk/chair.wood.webp",
+    "thumb": "/pm-char/thumb/chair.wood.webp"
+   },
+   "chair.gaming": {
+    "slot": "chair",
+    "src": "/pm-char/desk/chair.gaming.webp",
+    "thumb": "/pm-char/thumb/chair.gaming.webp"
+   },
+   "chair.pastel": {
+    "slot": "chair",
+    "src": "/pm-char/desk/chair.pastel.webp",
+    "thumb": "/pm-char/thumb/chair.pastel.webp"
+   },
+   "chair.cushion": {
+    "slot": "chair",
+    "src": "/pm-char/desk/chair.cushion.webp",
+    "thumb": "/pm-char/thumb/chair.cushion.webp"
+   },
+   "chair.beach": {
+    "slot": "chair",
+    "src": "/pm-char/desk/chair.beach.webp",
+    "thumb": "/pm-char/thumb/chair.beach.webp"
+   },
+   "shelf.book": {
+    "slot": "shelf",
+    "src": "/pm-char/desk/shelf.book.webp",
+    "thumb": "/pm-char/thumb/shelf.book.webp"
+   },
+   "shelf.plant": {
+    "slot": "shelf",
+    "src": "/pm-char/desk/shelf.plant.webp",
+    "thumb": "/pm-char/thumb/shelf.plant.webp"
+   },
+   "shelf.arcade": {
+    "slot": "shelf",
+    "src": "/pm-char/desk/shelf.arcade.webp",
+    "thumb": "/pm-char/thumb/shelf.arcade.webp"
+   },
+   "shelf.potplant": {
+    "slot": "shelf",
+    "src": "/pm-char/desk/shelf.potplant.webp",
+    "thumb": "/pm-char/thumb/shelf.potplant.webp"
+   },
+   "pet.puppy": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.puppy.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.puppy.webp"
+   },
+   "pet.kitten": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.kitten.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.kitten.webp"
+   },
+   "pet.bunny": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.bunny.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.bunny.webp"
+   },
+   "pet.chick": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.chick.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.chick.webp"
+   },
+   "pet.bee": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.bee.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.bee.webp"
+   },
+   "pet.butterfly": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.butterfly.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.butterfly.webp"
+   },
+   "pet.fish": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.fish.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.fish.webp"
+   },
+   "pet.hamster": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.hamster.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.hamster.webp"
+   },
+   "pet.penguin": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.penguin.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.penguin.webp"
+   },
+   "pet.turtle": {
+    "slot": "pet",
+    "src": "/pm-char/desk/pet.turtle.webp",
+    "frames": 2,
+    "thumb": "/pm-char/thumb/pet.turtle.webp"
+   }
+  }
+ },
+ "face": "/pm-char/face.webp",
+ "sit": {
+  "anchors": {
+   "hip": [
+    128.0,
+    195.7
+   ]
+  },
+  "bodies": {
+   "slim": [
+    "/pm-char/sit/body/slim-0.webp",
+    "/pm-char/sit/body/slim-1.webp",
+    "/pm-char/sit/body/slim-2.webp",
+    "/pm-char/sit/body/slim-3.webp"
+   ],
+   "std": [
+    "/pm-char/sit/body/std-0.webp",
+    "/pm-char/sit/body/std-1.webp",
+    "/pm-char/sit/body/std-2.webp",
+    "/pm-char/sit/body/std-3.webp"
+   ],
+   "round": [
+    "/pm-char/sit/body/round-0.webp",
+    "/pm-char/sit/body/round-1.webp",
+    "/pm-char/sit/body/round-2.webp",
+    "/pm-char/sit/body/round-3.webp"
+   ]
+  },
+  "hairs": {
+   "short": {
+    "front": [
+     "/pm-char/sit/hair/short-front-0.webp",
+     "/pm-char/sit/hair/short-front-1.webp",
+     "/pm-char/sit/hair/short-front-2.webp",
+     "/pm-char/sit/hair/short-front-3.webp",
+     "/pm-char/sit/hair/short-front-4.webp"
+    ]
+   },
+   "bob": {
+    "front": [
+     "/pm-char/sit/hair/bob-front-0.webp",
+     "/pm-char/sit/hair/bob-front-1.webp",
+     "/pm-char/sit/hair/bob-front-2.webp",
+     "/pm-char/sit/hair/bob-front-3.webp",
+     "/pm-char/sit/hair/bob-front-4.webp"
+    ],
+    "back": [
+     "/pm-char/sit/hair/bob-back-0.webp",
+     "/pm-char/sit/hair/bob-back-1.webp",
+     "/pm-char/sit/hair/bob-back-2.webp",
+     "/pm-char/sit/hair/bob-back-3.webp",
+     "/pm-char/sit/hair/bob-back-4.webp"
+    ]
+   },
+   "long": {
+    "front": [
+     "/pm-char/sit/hair/long-front-0.webp",
+     "/pm-char/sit/hair/long-front-1.webp",
+     "/pm-char/sit/hair/long-front-2.webp",
+     "/pm-char/sit/hair/long-front-3.webp",
+     "/pm-char/sit/hair/long-front-4.webp"
+    ],
+    "back": [
+     "/pm-char/sit/hair/long-back-0.webp",
+     "/pm-char/sit/hair/long-back-1.webp",
+     "/pm-char/sit/hair/long-back-2.webp",
+     "/pm-char/sit/hair/long-back-3.webp",
+     "/pm-char/sit/hair/long-back-4.webp"
+    ]
+   },
+   "bun": {
+    "front": [
+     "/pm-char/sit/hair/bun-front-0.webp",
+     "/pm-char/sit/hair/bun-front-1.webp",
+     "/pm-char/sit/hair/bun-front-2.webp",
+     "/pm-char/sit/hair/bun-front-3.webp",
+     "/pm-char/sit/hair/bun-front-4.webp"
+    ]
+   }
+  },
+  "kinds": {
+   "human": {},
+   "cat": {
+    "front": "/pm-char/sit/kind/cat-front.webp"
+   },
+   "dog": {
+    "front": "/pm-char/sit/kind/dog-front.webp"
+   },
+   "bunny": {
+    "front": "/pm-char/sit/kind/bunny-front.webp"
+   },
+   "bear": {
+    "front": "/pm-char/sit/kind/bear-front.webp"
+   },
+   "fox": {
+    "front": "/pm-char/sit/kind/fox-front.webp",
+    "back": "/pm-char/sit/kind/fox-back.webp"
+   },
+   "penguin": {
+    "front": "/pm-char/sit/kind/penguin-front.webp"
+   },
+   "fairy": {
+    "front": "/pm-char/sit/kind/fairy-front.webp",
+    "back": "/pm-char/sit/kind/fairy-back.webp"
+   },
+   "robot": {
+    "front": "/pm-char/sit/kind/robot-front.webp"
+   },
+   "cactus": {
+    "front": "/pm-char/sit/kind/cactus-front.webp"
+   }
+  },
+  "items": {
+   "outfit.knit": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.knit/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.knit/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.knit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.knit/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.knit/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.knit/round.top.webp"
+    }
+   },
+   "outfit.hoodie": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.hoodie/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.hoodie/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.hoodie/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.hoodie/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.hoodie/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.hoodie/round.top.webp"
+    }
+   },
+   "outfit.neon": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.neon/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.neon/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.neon/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.neon/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.neon/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.neon/round.top.webp"
+    }
+   },
+   "outfit.hanbok": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.hanbok/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.hanbok/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.hanbok/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.hanbok/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.hanbok/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.hanbok/round.top.webp"
+    }
+   },
+   "outfit.apron": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.apron/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.apron/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.apron/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.apron/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.apron/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.apron/round.top.webp"
+    }
+   },
+   "outfit.pixel": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.pixel/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.pixel/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.pixel/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.pixel/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.pixel/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.pixel/round.top.webp"
+    }
+   },
+   "outfit.smock": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.smock/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.smock/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.smock/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.smock/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.smock/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.smock/round.top.webp"
+    }
+   },
+   "outfit.spacesuit": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.spacesuit/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.spacesuit/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.spacesuit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.spacesuit/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.spacesuit/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.spacesuit/round.top.webp"
+    }
+   },
+   "outfit.aloha": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.aloha/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.aloha/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.aloha/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.aloha/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.aloha/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.aloha/round.top.webp"
+    }
+   },
+   "outfit.puffer": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.puffer/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.puffer/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.puffer/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.puffer/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.puffer/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.puffer/round.top.webp"
+    }
+   },
+   "outfit.suit": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.suit/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.suit/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.suit/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.suit/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.suit/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.suit/round.top.webp"
+    }
+   },
+   "outfit.vest": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.vest/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.vest/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.vest/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.vest/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.vest/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.vest/round.top.webp"
+    }
+   },
+   "outfit.overall": {
+    "bottom": {
+     "slim": "/pm-char/sit/items/outfit.overall/slim.bottom.webp",
+     "std": "/pm-char/sit/items/outfit.overall/std.bottom.webp",
+     "round": "/pm-char/sit/items/outfit.overall/round.bottom.webp"
+    },
+    "top": {
+     "slim": "/pm-char/sit/items/outfit.overall/slim.top.webp",
+     "std": "/pm-char/sit/items/outfit.overall/std.top.webp",
+     "round": "/pm-char/sit/items/outfit.overall/round.top.webp"
+    }
+   },
+   "hand.mug": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.mug/slim.webp",
+     "std": "/pm-char/sit/items/hand.mug/std.webp",
+     "round": "/pm-char/sit/items/hand.mug/round.webp"
+    }
+   },
+   "hand.balloon": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.balloon/slim.webp",
+     "std": "/pm-char/sit/items/hand.balloon/std.webp",
+     "round": "/pm-char/sit/items/hand.balloon/round.webp"
+    }
+   },
+   "hand.glowstick": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.glowstick/slim.webp",
+     "std": "/pm-char/sit/items/hand.glowstick/std.webp",
+     "round": "/pm-char/sit/items/hand.glowstick/round.webp"
+    }
+   },
+   "hand.fan": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.fan/slim.webp",
+     "std": "/pm-char/sit/items/hand.fan/std.webp",
+     "round": "/pm-char/sit/items/hand.fan/round.webp"
+    }
+   },
+   "hand.wateringcan": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.wateringcan/slim.webp",
+     "std": "/pm-char/sit/items/hand.wateringcan/std.webp",
+     "round": "/pm-char/sit/items/hand.wateringcan/round.webp"
+    }
+   },
+   "hand.joystick": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.joystick/slim.webp",
+     "std": "/pm-char/sit/items/hand.joystick/std.webp",
+     "round": "/pm-char/sit/items/hand.joystick/round.webp"
+    }
+   },
+   "hand.brush": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.brush/slim.webp",
+     "std": "/pm-char/sit/items/hand.brush/std.webp",
+     "round": "/pm-char/sit/items/hand.brush/round.webp"
+    }
+   },
+   "hand.flag": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.flag/slim.webp",
+     "std": "/pm-char/sit/items/hand.flag/std.webp",
+     "round": "/pm-char/sit/items/hand.flag/round.webp"
+    }
+   },
+   "hand.icecream": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.icecream/slim.webp",
+     "std": "/pm-char/sit/items/hand.icecream/std.webp",
+     "round": "/pm-char/sit/items/hand.icecream/round.webp"
+    }
+   },
+   "hand.cocoa": {
+    "hand": {
+     "slim": "/pm-char/sit/items/hand.cocoa/slim.webp",
+     "std": "/pm-char/sit/items/hand.cocoa/std.webp",
+     "round": "/pm-char/sit/items/hand.cocoa/round.webp"
+    }
+   },
+   "badge.star": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.star/slim.webp",
+     "std": "/pm-char/sit/items/badge.star/std.webp",
+     "round": "/pm-char/sit/items/badge.star/round.webp"
+    }
+   },
+   "badge.rose": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.rose/slim.webp",
+     "std": "/pm-char/sit/items/badge.rose/std.webp",
+     "round": "/pm-char/sit/items/badge.rose/round.webp"
+    }
+   },
+   "badge.mvp": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.mvp/slim.webp",
+     "std": "/pm-char/sit/items/badge.mvp/std.webp",
+     "round": "/pm-char/sit/items/badge.mvp/round.webp"
+    }
+   },
+   "badge.heart": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.heart/slim.webp",
+     "std": "/pm-char/sit/items/badge.heart/std.webp",
+     "round": "/pm-char/sit/items/badge.heart/round.webp"
+    }
+   },
+   "badge.flagco": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.flagco/slim.webp",
+     "std": "/pm-char/sit/items/badge.flagco/std.webp",
+     "round": "/pm-char/sit/items/badge.flagco/round.webp"
+    }
+   },
+   "badge.flagnl": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.flagnl/slim.webp",
+     "std": "/pm-char/sit/items/badge.flagnl/std.webp",
+     "round": "/pm-char/sit/items/badge.flagnl/round.webp"
+    }
+   },
+   "badge.flagcn": {
+    "badge": {
+     "slim": "/pm-char/sit/items/badge.flagcn/slim.webp",
+     "std": "/pm-char/sit/items/badge.flagcn/std.webp",
+     "round": "/pm-char/sit/items/badge.flagcn/round.webp"
+    }
+   },
+   "hat.beret": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.beret.webp"
+    }
+   },
+   "hat.ribbon": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.ribbon.webp"
+    }
+   },
+   "hat.visorneon": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.visorneon.webp"
+    }
+   },
+   "hat.gat": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.gat.webp"
+    }
+   },
+   "hat.straw": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.straw.webp"
+    }
+   },
+   "hat.pixelcrown": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.pixelcrown.webp"
+    }
+   },
+   "hat.painter": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.painter.webp"
+    }
+   },
+   "hat.spacehelmet": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.spacehelmet.webp"
+    }
+   },
+   "hat.sunvisor": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.sunvisor.webp"
+    }
+   },
+   "hat.beanie": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.beanie.webp"
+    }
+   },
+   "hat.crown": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.crown.webp"
+    }
+   },
+   "hat.cap": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.cap.webp"
+    }
+   },
+   "hat.flowercrown": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.flowercrown.webp"
+    }
+   },
+   "hat.helmet": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.helmet.webp"
+    }
+   },
+   "hat.chef": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.chef.webp"
+    }
+   },
+   "hat.pilot": {
+    "hat": {
+     "*": "/pm-char/sit/items/hat.pilot.webp"
+    }
+   },
+   "glasses.round": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.round.webp"
+    }
+   },
+   "glasses.sun": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.sun.webp"
+    }
+   },
+   "glasses.heart": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.heart.webp"
+    }
+   },
+   "glasses.visor": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.visor.webp"
+    }
+   },
+   "glasses.monocle": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.monocle.webp"
+    }
+   },
+   "glasses.goggle": {
+    "glasses": {
+     "*": "/pm-char/sit/items/glasses.goggle.webp"
+    }
+   }
+  },
+  "face": "/pm-char/sit/face.webp"
+ },
+ "kindThumbs": {
+  "human": "/pm-char/thumb/char.human.webp",
+  "cat": "/pm-char/thumb/char.cat.webp",
+  "dog": "/pm-char/thumb/char.dog.webp",
+  "bunny": "/pm-char/thumb/char.bunny.webp",
+  "bear": "/pm-char/thumb/char.bear.webp",
+  "fox": "/pm-char/thumb/char.fox.webp",
+  "penguin": "/pm-char/thumb/char.penguin.webp",
+  "fairy": "/pm-char/thumb/char.fairy.webp",
+  "robot": "/pm-char/thumb/char.robot.webp",
+  "cactus": "/pm-char/thumb/char.cactus.webp"
+ }
+}
