@@ -27,7 +27,13 @@
     "pages/api/pm/shop.js",
     "lib/pmWallet.js",
     "pages/api/pm/bonus.js",
-    "lib/pmBonus.js"
+    "lib/pmBonus.js",
+    "pages/api/pm/staff-requests/index.js",
+    "pages/api/pm/staff-requests/[id].js",
+    "pages/api/pm/staff-requests/shot.js",
+    "lib/pmStaffRequests.js",
+    "lib/pmStaffReqLabels.js",
+    "components/pm/StaffRequests.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -107,11 +113,35 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "writeAllowlist": []
+    },
+    {
+      "name": "PM_STAFF_REQUEST_POST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_STAFF_REQUEST_EDIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_STAFF_REQUEST_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_STAFF_REQUEST_PM_UPDATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 ~1분마다 올리는 data/runtime/work-feature-pm-office.json(파일 전용, git 미추적, 2MB 상한) 을 isOrbitReportViewer(nenovaSS3) 에게만 보여준다. OrderYear/OrderWeek 와 무관하고 MSSQL 에 접근하지 않는다. 시험 실행 요청 큐는 data/runtime/pm-requests.json(파일 전용) 에만 쓰며, 실제 전산 실행은 하지 않는다(dry-run 대본 생성 요청만). 캐릭터 꾸미기는 data/runtime/pm-avatars.json(파일 전용)에만 쓴다. 키우기 미니게임 성장 상태는 pm-office 수신 시 서버가 data/runtime/pm-grow-state.json(파일 전용)에만 쓴다. 토큰 구매 기록은 data/runtime/pm-shop.json(파일 전용)에만 쓴다."
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 ~1분마다 올리는 data/runtime/work-feature-pm-office.json(파일 전용, git 미추적, 2MB 상한) 을 isOrbitReportViewer(nenovaSS3) 에게만 보여준다. OrderYear/OrderWeek 와 무관하고 MSSQL 에 접근하지 않는다. 시험 실행 요청 큐는 data/runtime/pm-requests.json(파일 전용) 에만 쓰며, 실제 전산 실행은 하지 않는다(dry-run 대본 생성 요청만). 캐릭터 꾸미기는 data/runtime/pm-avatars.json(파일 전용)에만 쓴다. 키우기 미니게임 성장 상태는 pm-office 수신 시 서버가 data/runtime/pm-grow-state.json(파일 전용)에만 쓴다. 토큰 구매 기록은 data/runtime/pm-shop.json(파일 전용)에만 쓴다. 직원 요청 게시판은 data/runtime/pm-staff-requests.json·pm-staff-shots/(파일 전용)에만 쓰며, PM 루프의 상태 갱신은 ORBIT_DRIVE_INGEST_TOKEN 으로만 받는다."
   },
   "requiredTestFiles": [
     "__tests__/workFeatureData.test.js",
@@ -123,7 +153,8 @@
     "__tests__/pmUiKit.test.js",
     "__tests__/pmGrow.test.js",
     "__tests__/pmWallet.test.js",
-    "__tests__/pmBonus.test.js"
+    "__tests__/pmBonus.test.js",
+    "__tests__/pmStaffRequests.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -151,6 +182,7 @@
     "npm run test:pm",
     "node __tests__/pmGrow.test.js",
     "node __tests__/pmWallet.test.js",
-    "node __tests__/pmBonus.test.js"
+    "node __tests__/pmBonus.test.js",
+    "node __tests__/pmStaffRequests.test.js"
   ]
 }
