@@ -85,35 +85,48 @@ function Timeline({ person, onConfirm }) {
 }
 
 function WeekGrid({ dept, onConfirm }) {
-  const cells = useMemo(() => {
+  const { cells, all } = useMemo(() => {
     const m = Object.fromEntries(WEEK_ORDER.map((w) => [w, []]));
-    for (const f of dept.fixedWeekly || []) m[f.weekday].push({ fixed: true, ...f });
-    for (const p of dept.people || []) for (const w of p.weekly || []) m[w.weekday].push({ ...w, who: p.name });
-    return m;
+    const list = [];
+    for (const p of dept.people || []) for (const w of p.weekly || []) list.push({ ...w, who: p.name });
+    list.sort((a, b) => b.evidence.days - a.evidence.days || b.lift - a.lift);
+    for (const w of list) m[w.weekday].push(w);
+    return { cells: m, all: list };
   }, [dept]);
+  const fixed = (w) => (dept.fixedWeekly || []).filter((f) => f.weekday === w);
   return (
-    <div className="week">
-      {WEEK_ORDER.map((w) => (
-        <div key={w} className="day">
-          <h4>{WD[w]}</h4>
-          {cells[w].length === 0 && <p className="empty">특이 업무 없음</p>}
-          {cells[w].map((x, i) => (
-            <div key={x.id || i} className={`wk${x.fixed ? ' fixed' : ''}`}>
-              {x.fixed ? (
-                <><b>{x.time} {x.what}</b><Badge tone="plain">{x.basis}</Badge></>
-              ) : (
-                <>
-                  <b>{x.who}</b> {String(x.peakHour).padStart(2, '0')}시경 {what(x)}
-                  <small className="lift">평소의 {x.lift}배</small>
-                  <Evidence it={x} />
-                  <Confirm it={x} onConfirm={onConfirm} />
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="week">
+        {WEEK_ORDER.map((w) => (
+          <div key={w} className="day">
+            <h4>{WD[w]}</h4>
+            {fixed(w).map((f, i) => <div key={i} className="wk fixed"><b>{f.time} {f.what}</b></div>)}
+            {cells[w].length === 0 && !fixed(w).length && <p className="empty">특이 업무 없음</p>}
+            {cells[w].slice(0, 4).map((x) => (
+              <div key={x.id} className="wk" title={`${x.who} ${what(x)} · 평소의 ${x.lift}배`}>
+                <b>{x.who}</b> {String(x.peakHour).padStart(2, '0')}시 {x.stage || x.app}
+                <small className="muted"> {x.evidence.days}/{x.evidence.of}주</small>
+              </div>
+            ))}
+            {cells[w].length > 4 && <small className="muted">+{cells[w].length - 4}건 (아래 목록)</small>}
+          </div>
+        ))}
+      </div>
+      {all.length > 0 && (
+        <details className="wkd">
+          <summary>요일별 특이 업무 전체 {all.length}건 · 확인하기</summary>
+          <ul className="month">
+            {all.map((x) => (
+              <li key={x.id}>
+                <Badge tone="plain">{x.weekdayName}</Badge> <b>{x.who}</b> {String(x.peakHour).padStart(2, '0')}시경 {what(x)} <small className="muted">평소의 {x.lift}배</small>
+                <Evidence it={x} />
+                <Confirm it={x} onConfirm={onConfirm} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
   );
 }
 
@@ -240,14 +253,11 @@ const FIRST_WEEK = [
 export default function RoutineManual({ routines, me, onConfirm, onSwitch }) {
   const [theme, setTheme] = useState('B');
   const depts = routines?.departments || [];
-  const [deptId, setDeptId] = useState(depts[0]?.id || 'management');
+  // 내 부서를 먼저(없으면 첫 부서 — 신입은 이름이 아직 없으니 탭으로 고른다)
+  const [deptId, setDeptId] = useState(() => (depts.find((d) => (d.people || []).some((p) => p.name === me)) || depts[0] || {}).id || 'management');
   const [person, setPerson] = useState(null);
   const [checks, setChecks] = useState({});
   useEffect(() => { setTheme(readStoredTheme(me)); }, [me]);
-  useEffect(() => { // 내 부서를 먼저
-    const mine = depts.find((d) => (d.people || []).some((p) => p.name === me));
-    if (mine) setDeptId(mine.id);
-  }, [routines, me]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setChecks(readChecks(deptId)); setPerson(null); }, [deptId]);
   const css = useMemo(() => allThemesCss(), []);
   const dept = depts.find((d) => d.id === deptId);
@@ -336,6 +346,7 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch }) {
         .wmr .day h4 { margin: 0 0 4px; font-size: 13px; text-align: center; }
         .wmr .wk { padding: 4px 0; border-top: 1px dashed var(--pm-line); }
         .wmr .wk.fixed { color: var(--pm-link); }
+        .wmr .wkd { margin-top: 8px; font-size: 13px; } .wmr .wkd summary { cursor: pointer; color: var(--pm-link); }
         .wmr .month, .wmr .hand { padding-left: 18px; font-size: 13px; }
         .wmr .month li, .wmr .hand li { margin: 4px 0; }
         .wmr .tblwrap { overflow-x: auto; }
