@@ -22,7 +22,8 @@
     "__tests__/useRankedProductSearch.test.js",
     "lib/pasteLocalAnalysis.js",
     "__tests__/pasteLocalAnalysis.test.js",
-    "components/orders/DistributionMessagePreanalysis.js"
+    "components/orders/DistributionMessagePreanalysis.js",
+    "scripts/paste-preanalysis-reentry-smoke.cjs"
   ],
   "manualAliasOverride": "2026-10-02: after a fresh successful server GET only, an exact normalized alias marked manual=true and not auto may correct a persisted reviewed result. Require an existing active Product key and country/family/cm/mix/freight validation. Never use browser/session aliases for this override. Preserve action/year/week; existing unit and mixed-quantity conversion still applies to the corrected product. Automatic post-verified-save learning cannot replace a conflicting manual server alias. Mapping retries never repeat ERP writes. Server-success GET replaces stale browser mappings including deleted aliases.",
   "businessIdentity": [
