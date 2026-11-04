@@ -1916,6 +1916,12 @@
 
 2026-11-03 주차별 평균원가 공식환율 메타 보완: 운영 smoke41597970882에서 18차 웹/엑셀 금액은 일치했으나 rateEstimated 누락으로 실패. 공식환율 적용 행의 rateEstimated/rateDetail(연도·차수·승인 일정·고시기간·실제신고일미인증)과 canonical 감사 issue를 메타만 복원한다. 파생 v1 재입력도 숫자 재계산 없이 복구, 기존 rateDetail 보존, 실제/수기/명시0 및 교차연도 보호. 표적22 PASS, 실제43보고서9행 메타수정·calc/totals 변경0·SQL호출0/쓰기0. 기존 production smoke assertion 완화 없음. manifest186/쓰기guard/dnSpy PASS, webpack build EXIT0(.verify/average-rate-metadata-build.log), 독립리뷰 P1없음. 운영 재배포·18차 재스모크는 아직 미검증.
 검색어: average-rate-evidence 18차 rateEstimated rateDetail APPROVED_CUSTOMS_TIMING_ESTIMATE metadata-only
+
+2026-11-03 주차별 매출 인쇄: 사용자 비고 보존·자동 상태문구 인쇄 제외·22열 기본·선택 한 차수 A4 가로 한 장·바로 인쇄 요청·컬럼 메뉴 viewport/키보드 보완. 독립 실제 Chromium PDF 1주1장/3주3장/긴 비고50줄1장 PASS, PDF 렌더 시각확인. 긴비고 fragmentation 결함 수정, 숫자/빈칸/0/음수/마지막 비고 보존. 금융 계산/API/DB 쓰기0. 브라우저 연결 비활성으로 headless 사용, 물리 프린터 미검증. 앱통합/전체gate/운영배포는 진행 중. 정본 docs/work-sessions/2026-11-03_profit-print-layout.md 및 docs/work-reports/2026-11-03_profit-print-layout-qa.md.
+검색어: profit-print-layout A4 22열 비고 fragmentation 직접인쇄 viewport
+
+2026-11-03 인쇄 후속 검증: .next-print-production 빌드 EXIT0, 실제 Chromium 모의 UI EXIT0. 직접 print1회/41차 한 차수/전체41시트/비연속27·31/18차502 재시도/2025격리/화면v4·출력v1 선택지속/빈선택·복사/390px fieldset·컬럼popup 경계/End·Escape 초점복귀 PASS, API쓰기0. 전체 verify14986 및 PR1447 CI41604410811 진행 중, 배포·운영 인쇄 미완. QA/세션 정본 최신화.
+검색어: profit-print-layout production-build mockUI 390px PR1447 41604410811
 2026-11-03 데스크톱 앱 1.3.11 작업: 1.3.2 사용자 화면에서 로그아웃·오늘의 내 업무가 보이지 않는 문제 확인. 네이티브 홈에 로그아웃/계정 변경, 서버 세션 해제 후 탭·저장 구성 정리·로그인 진입 추가. 오늘 업무 '보관'을 복구 가능한 '삭제'로 표시하고 수정·삭제·보관함·계정 전환 Electron smoke 보강. 탭 닫기 기본 선택은 최신 코드에서 이미 닫기이며 smoke 확인. 데스크톱 AI 도구/버튼별 사람용 작업 원장 설계 docs/plans/desktop-ai-action-ledger-2026-11-03.md 작성; 신규 API는 미구현. desktop 단위28·smoke·restore·updater PASS, 전체 ERP 계약/웹빌드·PR/릴리스·운영 설치 스모크 진행 중으로 미검증.
 검색어: desktop 1.3.11 로그아웃 계정변경 오늘업무 수정 삭제 탭닫기 기본 닫기 AI MCP 작업원장 actionId operationId
 
@@ -1954,3 +1960,42 @@
 
 2026-11-04 국가별 Aside 다운로드 완료: 격리19441 실제 웹의 승인 원가 다운로드 버튼으로 11프로필 각각 다운로드. CO구형/42-1, TH, US, VN, AU, NZ, EC, CN항공/해상, NL. 3행 합성 TEST_ONLY 승인 스냅샷이며 실제 인보이스 전구간 정확도 검증 아님. 모든 API 비GET 차단/운영DB연결 없음. Downloads/*_ASIDE_TEST_ONLY.xlsx를 그대로 복사하여 artifact 재계산: 11개 오류0·판매/이익 행합계 일치·원파일SHA불변. 판매영역 렌더11개 글씨겹침 없음, TH native Excel 두줄 검증은 앞선 결과. 전체ERP63002 EXIT0 확인. CI/배포는 후속 진행중.
 검색어: Aside 11프로필 실제다운로드 TEST_ONLY aside-download-1104 재계산 오류0 운영DB0
+2026-11-03 업체별 불량목록: 영업 입력/영업지원 검색·업체버튼·행별 입력출처 표시. 선택업체 전체선택/문제해결 범위 일치, 원sourceIndex 보존. SQL/권한/원장쓰기 변경없음. 계획 docs/plans/defect-company-filter-2026-11-03.md. 단위회귀통과, 전체검증/배포 진행중.
+검색어: defectCompanyFilter 업체버튼 입력출처 직접입력 자동수집
+2026-11-03 AI 작업 원장 1단계: 개인 업무 조회/추가/수정/삭제/복구 5개 capability, 미리보기→명시확인→기존 개인업무 저장→재조회 검증 API와 계정별 작업 상태 원장 구현. /work/operations에 처리/확인 결과와 본인 버튼·API 활동 기록 표시. 기존 개인업무 revision/requestId 및 결정적 taskId로 중복 재시도 보호. 표적·기존 개인업무·활동 테스트 PASS, 웹 build PASS, ERP 가드 진행 중, PR/배포/운영스모크 미검증. ERP 원장 쓰기 도구 미등록.
+검색어: AI 작업원장 operationId capabilities preview confirm personal-home 버튼로그 내작업기록 재조회검증
+
+2026-11-03 차수별 출력·가로 비고: 완료된 연도/from/to 범위에 출력 연결, 부분실패·stale·dirty·입력범위변경 출력차단 독립검토 P1없음. 인쇄 userNote만 줄trim/가운데점 연결, 원문/Excel/금융값보존. 실제Chromium PDF1주1장/3주3장/22열/문라이트1~50가로흐름·마지막50·workbook불변 PASS, 실제PDF PNG확인. 운영weeks_view옵트인추가(연속1/3주,기본false), 모든변경요청abort. 앱통합/전체gate/배포운영은 진행 중. 정본 docs/work-sessions/2026-11-03_profit-weeks-output.md.
+검색어: profit-weeks-output 차수별출력 가로비고 문라이트 범위완료 stale dirty
+
+2026-11-03 차수별 출력 후속: production build EXIT0, 실제Chrome mockUI PASS(27~29기본3→27/29선택2,2025격리,28부분실패차단,늦은응답·범위변경차단,미저장비고차단,직접print총3,가로비고,390pxbounds,API쓰기0/pageerror0). 첫시험입력실패는tripleclick→Ctrl+A테스트만정정. 실제FormStockView dnSpy재확인EXIT0,앱freeze,PR1453 CI/전체verify28427 진행·운영미완. QA/세션정본갱신.
+검색어: weeks-output mockUI PR1453 partial stale dirty 390px
+
+2026-11-03 차수별 제목 후속완료: production build34802/ChromeUI61340 EXIT0. 2026 27~29→미조회→2025 27~29→부분실패미조회→2025 27~30·category원제목복귀 exactPASS. 기존3/2주선택·dirty·late·부분실패·print·가로비고·390px·API쓰기0 재검증PASS. PR1453head4be68df3e CI41610146868 및전체verify28427 진행,배포운영대기. 문서최종로컬append만,커밋없음.
+검색어: weeks-title header 2025 27~30 61340 41610146868
+2026-11-03 불량 업체필터 검증: verify:erp-change exit0, manifest186/dnSpy PASS, 모의UI 두탭 필터·출처·선택·원인덱스·검토창ids·키보드 PASS. 기능PR1449=90820b27, CI41608005201 성공. UI모의 빈창/location 이동 및 preflight 조회POST 구분 수정.
+검색어: defect-company-filter-smoke 업체필터 UI검증 90820b27
+2026-11-03 입고 재업로드 수정 조사: 최신 origin/master 6428f624e 및 실제 dnSpy 3타입, 운영 SP/View SELECT 확인. 현재 웹/EXE 업로드는 신규 추가이며 교체 불가. EXE A→B 수정 원래 품목 재계산 누락, 웹 삭제 Product.Stock 차감 부재 확인. 선택 WarehouseKey 기준 원자적 교체·양쪽품목 재고·원가연결 검증 필요. 구현/운영쓰기/배포 없음, 실제 수정 및 downstream 전후 미검증. 정본 docs/work-reports/2026-11-03-incoming-reupload-review.md.
+검색어: 입고 재업로드 농장 품목 수정 WarehouseKey FormWarehouseAdd Product.Stock 교체업로드
+
+2026-11-03 입고 수정 구현: /incoming 선택 원장의 FARM/REPLACE 미리보기·명시확인·UUID재시도·초안·감사 추가. 공용 staging 없이 차액 Product.Stock/입고이력/native V2 재고·후속음수 검증과 원장 사후대조 원자 저장. 원가/정산/확정/농장분배/미매칭 원장 차단. Unit10·격리SQL1·모의UI1920/390·기존입고3·UI-layout·manifest187·dnSpy·쓰기guard PASS. 운영7970 읽기전용 preflight 성공/확정 차단, 운영쓰기0. 전체ERP/최종build·PR/배포 진행중. 정본 docs/work-sessions/2026-11-03_incoming-correction.md.
+검색어: warehouseCorrection 입고수정 파일교체 FARM REPLACE nativeGate UUID SystemActionLog
+
+2026-11-04 불량단가·보류: nw-defect-cost-quote-1104, 기준b6e77b84. 태림983/986 품목3389/2473에최근단가없음,실분배후보3397=6200(41-01),2085=6500(43-01). 라움926/1007 기존견적10499/10707 실체없음. 사용자답변은 보류분별도분리,재등록아님. 단가후보/명시매칭정정/보류분리 구현,실SQL SELECT 및 CTE PASS/운영쓰기0. 전체검증·UI·배포 진행중.
+검색어: defectCostCandidates COST_LOOKUP_FAILED 보류 이전차감견적 태림그로우 오션송 라움
+
+2026-11-04 검증 갱신: 운영용 빌드 성공. API격리 UI에서 보류목록 분리, 업체/차수/단가 표시, 명시 매칭 preview/save만 전송, 수량80 및 유령견적10499 보존 PASS. 기존 문제해결창 단가·매칭·원문·중복선택·재조회실패잠금 회귀PASS. 실제SQL 후보조회는 그로우3397/오션송2085만 관련 후보로 노출(무관한 인기품목 제외). PR1463 전체검사/배포 진행중.
+검색어: defect-cost-held-smoke defect-resolution-smoke PR1463 운영쓰기0
+
+2026-11-04 보류 원차수 표시: nw-defect-held-week-1104 기준2f191418. 보류 첫 열을 불량 차수로 변경, 원장 orderYear/orderWeek 굵은 배지 및 보조번호. 원차수42/적용44·전년도·하위차수·누락값 단위검사PASS. 표시만 변경/DB쓰기0. 전체gate/빌드/UI/배포 진행중.
+검색어: defectSourcePeriodLabel 보류 불량차수 원차수 42차
+
+2026-11-04 선택보류: nw-defect-manual-hold-1104 기준068465f1. SUPPORT_HOLD/RESUME 웹이력만, 원장잠금+원연도차수/rowversion/최신보류키 CAS, sourceReview공통 등록차단. 단가/충돌 체크·혼합선택등록차단·수동보류해제·중복견적번호표시 구현. 단위/기존불량/실SQL CTE/실원장SELECT PASS, 운영쓰기0. UI/전체CI/배포 진행중.
+검색어: SUPPORT_HOLD SUPPORT_RESUME manualHeld 선택보류 견적충돌
+2026-11-04 개인 업무 반복·데스크톱 메모장: GPT 생성 시안 `docs/design/desktop-task-notes-2026-11-04.png` 기준 세로형 고정 창 구현. 없음/매일/매주/매월 및 월말·윤년 보정, 홈 수정·메모장 추가/제목수정/완료/보관/클립보드 복사/계정별 알림·고정/Windows 실행 바로가기. 네트워크 직접 접근 없는 IPC, 계정 잠금 시 창 종료. 개인 JSON만 변경, ERP 원장 쓰기 없음. 월말·계정/IPC Electron smoke·패키지 포함·계약/manifest/dnSpy/쓰기 가드 PASS. 전체 ERP·웹 빌드/PR/배포/실설치 검증은 진행 중.
+검색어: desktop notes 1.3.12 월말반복 메모장 맨위고정 알림 바로가기 GPT시안
+
+2026-11-04 선택보류 UI검증: 로컬 운영빌드 성공(메모리 절약 worker1), API격리 실Chrome에서 이슈체크/혼합등록차단/보류이동/새로고침유지/수동해제/CAS descriptor·수량·기존견적보존 PASS. 초기 dev instrumentation crypto 오류로 운영빌드로 전환. PR1469의 WORK_MEMORY 병합충돌은 양쪽 기록 모두 보존해 해소. 전체CI/운영배포 대기.
+검색어: PR1469 defect-manual-hold-smoke UI PASS
+2026-11-04 메모장 새 디자인: GPT 이미지생성 시안 `docs/design/desktop-task-notes-v2-2026-11-04.png` 기준 상단 브랜드·원형 진행률·카드형 업무·파란 빠른추가·알림 카드로 380px 창 재구성. 날짜·업무·반복·알림 데이터 경로 유지, 아이콘 버튼 접근성 이름 추가, 숨김 요일 필드 CSS 보정. Desktop 1.3.13 단위28·Electron smoke PASS, 시안 대비 380px screenshot 확인. Windows installer CI/PR/병합/배포/실설치는 진행 중.
+검색어: desktop-notes-design-v2 1.3.13 GPT이미지 시안 원형진행률 카드형업무 380px

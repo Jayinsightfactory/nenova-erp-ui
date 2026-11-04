@@ -9,7 +9,7 @@ const swc=require('next/dist/build/swc');
  const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,defaultViewport:{width:1920,height:1080,deviceScaleFactor:1}});
  try{
   const page=await browser.newPage(),errors=[],calls=[];page.on('pageerror',e=>errors.push(e.message));
-  const stored={success:true,orders:[{custName:'원문업체',custMatch:{CustKey:1,CustName:'저장업체'},items:[{inputName:'원문품목',prodName:'저장품목',prodKey:2,qty:3,unit:'단',action:'추가'}]}],analysisStorage:{savedAt:Date.now()-5000,cacheHit:true}};
+  const stored={success:true,analysisPerformance:{modelCalls:0,localMatchTasks:2,elapsedMs:42},orders:[{custName:'원문업체',custMatch:{CustKey:1,CustName:'저장업체'},items:[{inputName:'원문품목',prodName:'저장품목',prodKey:2,qty:3,unit:'단',action:'추가'}]}],analysisStorage:{savedAt:Date.now()-5000,cacheHit:true}};
   let release;const gate=new Promise(resolve=>release=resolve);
   await page.exposeFunction('fixtureFetch',async(text,week,options)=>{
    calls.push({text,week,...options});
@@ -32,6 +32,7 @@ const swc=require('next/dist/build/swc');
   });
   await page.waitForFunction(()=>document.querySelector('#saved button')?.textContent==='등록분배하기',{timeout:10000});
   await page.waitForFunction(()=>document.querySelector('#slow button')?.textContent==='분석 중'&&document.querySelector('#queued button')?.textContent==='분석 대기');
+  assert((await page.$eval('#saved [aria-label="분석 처리 정보"]',el=>el.textContent)).includes('저장본 재사용 · 최초 분석: AI 0회'));
   assert.equal(calls.filter(c=>!c.lookupOnly).length,1,'offscreen misses do not start model work');
   assert(calls.some(c=>c.text==='saved'&&c.lookupOnly),'offscreen saved work restores without viewport eligibility');
   await page.$eval('#saved',el=>el.scrollIntoView());

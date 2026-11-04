@@ -1086,3 +1086,8 @@ Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 �
 ## 2026-11-02 분배 업로드 응답 단절 복구
 작업번호를 서버 private runtime 저널에 소유자 해시/연도/차수/감사키/집계만 저장한다. 원본 파일·인증토큰·업체명·행값은 기록하지 않는다. 메모리의 상세 진행을 유지하되 활성 작업은 TTL로 버리지 않는다. 접수 또는 감사키 바인딩 실패는 원장 쓰기 전에 차단한다. 재시작 후 보관된 완료 결과가 없으면 소유자+연도+세부차수+감사키 SELECT만 수행한다. 커밋 이력만 확인된 작업은 최종 결과 미확인으로 표시하며 자동 재실행하지 않는다. 오류 처리로 SUCCESS 감사 이력을 FAILED로 덮어쓰지 않는다.
 브라우저는 사용자별 해시 키로 작업번호만 보관해 새로고침 시 동일 GET 조회를 재개한다. 결과불명 상태에서 새 POST를 차단하고, 서버가 살아 있는 진행 중 상태에서는 확인 해제도 차단한다. 기존 전체교체 서명/품종 범위/트랜잭션/배포 lease 보존. 회귀: importProgressJournal.test.cjs, shipmentImportProgressRecovery.test.cjs. 기준: plans/import-timeout-recovery-2026-11-02.md.
+
+## 2026-11-04 불량 단가없음과 출고 품목 매칭 오류
+태림 그로우3389/오션송2473은 실제 최근 출고품목3397/2085와 달라 단가가 없었다. 동일이름만으로 자동단가/품목을 치환하지 않으며 실제후보·업체·차수·단위 표시와 기존 manage-edit CAS 재검사를 사용한다. DB조회 실패를 단가0으로 삼키지 않는다. 라움 이전 차감 견적10499/10707 실체없음은 고객출고없음이 아니라 보류이며 사용자 지시로 재등록하지 않는다. 회귀 defectCostCandidates.test.js 및 defect-cost-held-smoke.cjs.
+
+2026-11-04 선택 보류 가드: WebSalesDefectDeductionHistory의 SUPPORT_HOLD/RESUME만 쓰고 원장/Estimate 보존. 해당 원장 UPDLOCK과 최신이력 CAS 필수. 등록 판정에서 manualHeld를 누락하거나 보류 해제로 원문·단가·중복 검사를 해제하지 않는다. 기준 DEFECT_DEDUCTION_MAINTENANCE.md, 회귀 defectManualHold.test.js.

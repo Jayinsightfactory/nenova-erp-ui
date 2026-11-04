@@ -2,6 +2,7 @@
 // 부서별 업무 매뉴얼 — 부서=폴더, 업무=아이콘. 홈 화면처럼 빈칸 없이 붙고 끌어서 순서를 바꾼다.
 // 열람: 사장님(nenovaSS3) 전체 / 직원 본인 매뉴얼만 (API에서 거름). 저장소는 웹 전용 JSON(lib/workManuals.js).
 import { useEffect, useMemo, useState } from 'react';
+import RoutineManual from '../../components/manuals/RoutineManual';
 
 const TINTS = ['#2F6FEB', '#1E8E5A', '#C2410C', '#7C3AED', '#0E7490', '#B45309'];
 const STATUS = {
@@ -158,6 +159,7 @@ export default function WorkManualsPage() {
   const [deptId, setDeptId] = useState(null);
   const [open, setOpen] = useState(null);
   const [layout, setLayout] = useState({});
+  const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안
 
   useEffect(() => {
     api().then((j) => { setData(j); setLayout(j.layout || {}); }).catch((e) => setErr(e.message));
@@ -177,6 +179,18 @@ export default function WorkManualsPage() {
   if (err) return <div className="wm"><p className="err">{err}</p><style jsx>{css}</style></div>;
   if (!data) return <div className="wm"><p className="muted">불러오는 중…</p><style jsx>{css}</style></div>;
 
+  const confirmRoutine = async (id, status) => {
+    try {
+      const j = await api({ action: 'routineConfirm', id, status });
+      setData((d) => {
+        const r = JSON.parse(JSON.stringify(d.routines));
+        for (const dp of r.departments || []) for (const p of dp.people || []) for (const k of ['daily', 'weekly', 'monthly', 'mail']) for (const it of p[k] || []) if (it.id === id) { if (j.confirm) it.confirm = j.confirm; else delete it.confirm; }
+        return { ...d, routines: r };
+      });
+    } catch (e) { setErr(e.message); }
+  };
+  if (view === 'routine' && data.routines) return <RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} />;
+
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);
   const tasks = dept ? ordered(byDept[dept.id] || [], layout[dept.id], (m) => m.id) : [];
@@ -191,6 +205,7 @@ export default function WorkManualsPage() {
             <span>›</span><b>{dept.name}</b>
           </nav>
         ) : <h1 data-desktop-chrome>업무 매뉴얼</h1>}
+        {data.routines && <button type="button" className="back-routine" onClick={() => setView('routine')}>← 부서별 신입 루틴</button>}
         <p className="muted">
           {data.isAdmin ? '전 부서 매뉴얼을 볼 수 있습니다.' : '내 매뉴얼만 보입니다.'} 아이콘은 끌어서 순서를 바꿀 수 있습니다.
         </p>

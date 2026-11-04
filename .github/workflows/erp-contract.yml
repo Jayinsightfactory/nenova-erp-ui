@@ -36,6 +36,8 @@ jobs:
           node __tests__/distributionDeliveryStatus.test.js
           node __tests__/distributionDeliveryClient.test.js
           node __tests__/distributionSalesInbox.test.js
+      - name: PM office tests (UI kit raw-button guard)
+        run: npm run test:pm
       - name: MOYI Drive integration contract
         run: npm run verify:moyi-drive-integration
       - name: Changed ERP write scope

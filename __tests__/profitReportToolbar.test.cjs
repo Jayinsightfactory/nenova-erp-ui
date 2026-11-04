@@ -39,8 +39,15 @@ assert.equal(readExpression(outputAttrs.beforeOutput),'async () => !dirty || awa
 for(const label of ['조회 조건','주요 작업','보조 분석','더 보기 · 전송·확정·이력'])assert.ok(source.includes(label));
 const css=fs.readFileSync('styles/ProfitReportToolbar.module.css','utf8');assert.match(css,/--blue/);assert.match(css,/:focus-visible/);assert.match(css,/@media\(max-width:640px\)/);assert.match(css,/white-space:normal/);assert.doesNotMatch(css,/position:fixed/);
 const range=fs.readFileSync('components/ProfitRangeOutput.js','utf8');
-const run=range.slice(range.indexOf('  async function run(kind)'),range.indexOf('  const buttonStyle')).replace(/\s+/g,' ').trim();
-assert.equal(crypto.createHash('sha256').update(run).digest('hex'),'5c0a84e8228403ba87b34d40f9fc913bb8b4bf0999fa0f16254f2973caf94b06','download/print/cancel/save-before-output code unchanged');
+// Latest print UX may change preparation-only state/text. Everything else in run,
+// including beforeOutput/save, request scope, cancellation and download stays byte-equivalent.
+const run=range.slice(range.indexOf('  async function run(kind)'),range.indexOf('  const buttonStyle'))
+ .replace('    printRequest.current += 1;\n','').replace('    printRequest.current += 1;\r\n','')
+ .replace("setBusy(true); setError(''); setPreview('');", "setBusy(true); setError(''); setPreview(''); setReady(false);")
+ .replace('`${items.length}개 차수 · ${items.length}장 인쇄 준비 중…`','`${items.length}개 차수 인쇄 미리보기 준비 완료`')
+ .replace(' || !selectionAllowed','') // Added bounded-week eligibility; exercised in range regression.
+ .replace(/\s+/g,' ').trim();
+assert.equal(crypto.createHash('sha256').update(run).digest('hex'),'5c0a84e8228403ba87b34d40f9fc913bb8b4bf0999fa0f16254f2973caf94b06','download/cancel/save-before-output unchanged; only approved print preparation state/text normalized');
 assert.match(range,/buttonClassName \? undefined :/,'other consumers retain their original styling');
 assert.match(range,/style=\{toolbarClassName \? \{ padding: 0 \} : \{ flexBasis: '100%', padding: '8px 0' \}\}/,'only report toolbar opts into compact output layout');
 assert.match(css,/\.query \{ flex:1 1 auto;/,'query controls may share a desktop row with view tabs');

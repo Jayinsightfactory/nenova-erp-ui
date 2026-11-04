@@ -1,0 +1,71 @@
+{
+  "id": "ai-personal-operations",
+  "title": "Authenticated personal-work AI tools and owner-scoped operation ledger",
+  "scope": [
+    "lib/operationLedger.js",
+    "lib/personalHomeStore.js",
+    "pages/api/operations/capabilities.js",
+    "pages/api/operations/preview.js",
+    "pages/api/operations/index.js",
+    "pages/api/operations/activity.js",
+    "pages/api/operations/[id]/index.js",
+    "pages/api/operations/[id]/confirm.js",
+    "pages/work/operations.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PERSONAL_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PERSONAL_CREATE_UPDATE_ARCHIVE_RESTORE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "SELF_ACTIVITY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 and 2026 personal task dates remain distinct; operation input uses full YYYY-MM-DD and never derives ERP OrderWeek. ERP tables are untouched."
+  },
+  "requiredTestFiles": [
+    "__tests__/operationLedger.test.js",
+    "__tests__/desktopHomeWorkspace.test.cjs"
+  ],
+  "requiredCommands": [
+    "node --test __tests__/operationLedger.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "These tools mutate owner-scoped personal JSON only; no nenova.exe form, SQL, ERP ledger, or shared business key is invoked.",
+    "methods": [
+      "mutatePersonalHome (web personal file only)"
+    ],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "Estimate (preserve)",
+      "WebProfitReport (preserve)"
+    ]
+  },
+  "personalRecurrence": "AI personal create/update accepts frequency once|daily|weekly|monthly; update without recurrence fields preserves the existing schedule. Month-end recurrence follows desktop-home-workspace contract."
+}

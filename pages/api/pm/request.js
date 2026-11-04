@@ -9,7 +9,9 @@ import { addRequest, listRequests } from '../../../lib/pmRequests';
 
 export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
-  if (!isOrbitReportViewer(user)) return res.status(404).json({ success: false, error: 'Not found' });
+  if (!user) return res.status(401).json({ success: false, error: '로그인 필요' });
+  // 보기(GET)=로그인 직원 전체, 쓰기(POST 등)=관리자만 유지
+  if (req.method !== 'GET' && !isOrbitReportViewer(user)) return res.status(403).json({ success: false, error: '관리자 전용' });
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method === 'GET') {
     const person = String(req.query.person || '').trim().slice(0, 40);

@@ -2,8 +2,39 @@
   "id": "sales-paste-order",
   "mixedQuantitySafety": "parse-paste only returns mixed-unit quantities to a client advertising mixedQuantitySupport=true (the orders/paste screen, which recalculates after product rematching and shows the source expression). Other consumers receive an explicit 400 rather than a silently truncated scalar. 6 boxes + 17 stems must not be treated as 17 stems; this does not change sales-paste order-only writes.",
   "title": "영업부 붙여넣기 주문전용 등록 계약",
-  "scope": ["components/Layout.js", "pages/orders/sales-paste.js", "pages/api/orders/index.js", "pages/api/orders/parse-paste.js", "pages/api/orders/my-customers.js", "pages/api/raum/pnl-image-import.js", "pages/api/sales/hotel-miu-parse.js", "lib/salesPasteOrder.js", "lib/orderImportMatch.js", "lib/orderImportParse.js", "lib/orderImportUnits.js", "lib/orderUtils.js", "lib/pasteNaturalInlineOrder.js", "lib/pasteOrderUnit.js", "lib/parseMappings.js", "lib/pasteLocalMapping.js", "lib/displayName.js", "lib/myCustomerOrderWritePolicy.js", "data/order-mappings.json", "__tests__/orderImportParse.test.js", "__tests__/salesPasteOrder.test.js", "__tests__/salesPasteOrderUi.test.js", "__tests__/pasteOrderUnit.test.js", "docs/contracts/sales-paste-order.json", "docs/exe-golden/FormOrderAdd.md"],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "scope": [
+    "components/Layout.js",
+    "pages/orders/sales-paste.js",
+    "pages/api/orders/index.js",
+    "pages/api/orders/parse-paste.js",
+    "pages/api/orders/my-customers.js",
+    "pages/api/raum/pnl-image-import.js",
+    "pages/api/sales/hotel-miu-parse.js",
+    "lib/salesPasteOrder.js",
+    "lib/orderImportMatch.js",
+    "lib/orderImportParse.js",
+    "lib/orderImportUnits.js",
+    "lib/orderUtils.js",
+    "lib/pasteNaturalInlineOrder.js",
+    "lib/pasteOrderUnit.js",
+    "lib/parseMappings.js",
+    "lib/pasteLocalMapping.js",
+    "lib/displayName.js",
+    "lib/myCustomerOrderWritePolicy.js",
+    "data/order-mappings.json",
+    "__tests__/orderImportParse.test.js",
+    "__tests__/salesPasteOrder.test.js",
+    "__tests__/salesPasteOrderUi.test.js",
+    "__tests__/pasteOrderUnit.test.js",
+    "docs/contracts/sales-paste-order.json",
+    "docs/exe-golden/FormOrderAdd.md"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "criteriaLedger": {
     "week": "sales base is calendar major +1 (2026-08-31 => 36), then base+1/+2/+3; each exposes subweek 01/02/03. Explicit pasted forms such as 21차, 21-1, 21-2차, 21-3차, the common typo 20-1치, and flight-marked 20-1A/20-1B are recognized; A/B remains a logistics flight suffix and both preserve numeric OrderWeek 20-01 rather than reinterpreting B as subweek 02. A detected week takes precedence only within the available base~+3 choices, and year-qualified input must match the same OrderYear.",
     "manager": "defaults to authenticated userName when that manager exists; selected display name is resolved to active UserInfo.UserID before OrderMaster write",
@@ -13,16 +44,87 @@
     "currentOrder": "exact OrderYear + OrderWeek + CustKey product quantities load before analysis and reload after verified commit; changed products appear first in the current-order panel with red before-to-after quantity and delta highlighting, and the last verified change remains visible after commit",
     "write": "source=sales-paste uses my-customer optimistic-lock ADD policy and post-write ViewOrder verification; the visible live operation log records start, DB request, per-row server results, reload, completion, and failure while the button operation is running",
     "stock": "ADD retains the existing FormOrderAdd-compatible stock calculation/warning path; it must not perform a direct manual stock adjustment",
-    "forbidden": "never call shipment adjust/distribute APIs and never create or update ShipmentMaster, ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate or profit ledgers"
+    "forbidden": "never call shipment adjust/distribute APIs and never create or update ShipmentMaster, ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate or profit ledgers",
+    "localAnalysis": "2026-11-04: before full model parse, strict complete explicit-unit rules may return rules-local. Existing common ranker, full review fallback, unit safeguards, immutable source fields and ledger writes unchanged. analysisModel=local-rules only if no provider call; analysisPerformance contains attempts/tokens/elapsed. See paste-ai-match-review contract."
   },
   "actions": [
-    {"name":"LOAD_SALES_SCOPE","orderMaster":"read","orderDetail":"preserve","shipmentMaster":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve"},
-    {"name":"PARSE_SELECTED_CUSTOMER_TEXT","orderMaster":"preserve","orderDetail":"preserve","shipmentMaster":"preserve","shipmentDetail":"preserve","stock":"preserve","estimate":"preserve"},
-    {"name":"ADD_SALES_ORDER_ONLY","orderMaster":"create-or-reuse-current-year-week-customer","orderDetail":"create-positive","orderHistory":"create","stock":"existing native order-add recalculation only","shipmentMaster":"preserve","shipmentDetail":"preserve","shipmentDate":"preserve","shipmentFarm":"preserve","estimate":"preserve","webProfitReport":"preserve"}
+    {
+      "name": "LOAD_SALES_SCOPE",
+      "orderMaster": "read",
+      "orderDetail": "preserve",
+      "shipmentMaster": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve"
+    },
+    {
+      "name": "PARSE_SELECTED_CUSTOMER_TEXT",
+      "orderMaster": "preserve",
+      "orderDetail": "preserve",
+      "shipmentMaster": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve"
+    },
+    {
+      "name": "ADD_SALES_ORDER_ONLY",
+      "orderMaster": "create-or-reuse-current-year-week-customer",
+      "orderDetail": "create-positive",
+      "orderHistory": "create",
+      "stock": "existing native order-add recalculation only",
+      "shipmentMaster": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    }
   ],
-  "crossYearFixture": {"required":true,"description":"2025와 2026 동일 차수·업체·품목이 있어도 선택한 2026 OrderMaster/Detail만 잠금·가산하고 2025 원장은 보존한다."},
-  "requiredTestFiles": ["__tests__/orderImportParse.test.js", "__tests__/pasteOrderUnit.test.js", "__tests__/salesPasteOrder.test.js", "__tests__/salesPasteOrderUi.test.js", "__tests__/myCustomerOrderWritePolicy.test.js", "__tests__/erpContractManifest.test.js"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormOrderAdd.md","source":"FormOrderAdd.btnSave_Click + UnitQuantity","methods":["btnSave_Click","UnitQuantity"],"tables":["UserInfo","Customer","OrderMaster","OrderDetail","OrderHistory"]},
-  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
-  "preserves": ["ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","WarehouseMaster","WarehouseDetail","ProductStock","StockHistory","Estimate","WebProfitReport"]
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025와 2026 동일 차수·업체·품목이 있어도 선택한 2026 OrderMaster/Detail만 잠금·가산하고 2025 원장은 보존한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/orderImportParse.test.js",
+    "__tests__/pasteOrderUnit.test.js",
+    "__tests__/salesPasteOrder.test.js",
+    "__tests__/salesPasteOrderUi.test.js",
+    "__tests__/myCustomerOrderWritePolicy.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "FormOrderAdd.btnSave_Click + UnitQuantity",
+    "methods": [
+      "btnSave_Click",
+      "UnitQuantity"
+    ],
+    "tables": [
+      "UserInfo",
+      "Customer",
+      "OrderMaster",
+      "OrderDetail",
+      "OrderHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "preserves": [
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "WarehouseMaster",
+    "WarehouseDetail",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ]
 }

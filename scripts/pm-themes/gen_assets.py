@@ -195,11 +195,20 @@ def bg_svg(t):
             f'<text x="44" y="56" font-size="10" opacity=".07" font-family="Segoe UI Emoji,Apple Color Emoji,Noto Color Emoji,sans-serif">{t["token"]}</text></svg>')
 
 
+HF_USED = []
+HF_SOURCE = {'tool': 'Higgsfield 웹(사장님 계정) · Nano Banana 2 1K · 2026-11-03', 'prompts': 'docs/pm-theme-brainstorm.md Higgsfield 생성 절', 'postprocess': '배경 제거·자르기 = ~/nenova-pm/hf-raw/slice.py'}
+
+
 def write(rel, text):
     p = os.path.join(ROOT, rel)
     os.makedirs(os.path.dirname(p), exist_ok=True)
     with open(p, 'w', encoding='utf-8', newline='\n') as f:
         f.write(text)
+    # Higgsfield 생성본(webp, scripts/pm-themes/README 참고)이 같은 이름으로 있으면 그것을 쓴다. SVG 는 폴백으로 남긴다.
+    webp = os.path.splitext(rel)[0] + '.webp'
+    if os.path.exists(os.path.join(ROOT, webp)):
+        HF_USED.append(webp)
+        rel = webp
     return '/pm-themes/' + rel.replace(os.sep, '/')
 
 
@@ -228,6 +237,8 @@ def main():
             rar = 'legendary' if rid in LEGENDARY_ITEMS else 'rare' if rid in RARE_ITEMS else 'common'
             manifest['items'].append({'rarity': rar, 'price': RARITY_PRICE[rar], 'id': f'{cat}.{iid}', 'category': cat, 'categoryLabel': CATEGORY_LABEL[cat], 'name': name,
                                       'src': write(f'items/{cat}/{iid}.svg', f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">{body}</svg>')})
+    manifest['higgsfield'] = {**HF_SOURCE, 'files': len(HF_USED)}
+    manifest['source'] = f'Higgsfield 생성 webp {len(HF_USED)}개 + 나머지 code-generated SVG'
     write('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=1) + '\n')
     print(len(manifest['themes']), 'themes', len(manifest['characters']), 'chars', len(manifest['items']), 'items')
 

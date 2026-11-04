@@ -25,7 +25,8 @@ export const MENU_ITEMS = [
   {
     group: 'PM',
     items: [
-      { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false, userIds: ['nenovaSS3'] },
+      { href: '/pm', labelKey: 'PM 사무실(AI 팀·직원 실시간)', popup: false },
+      { href: '/pm/radar', labelKey: '기술 레이더(GitHub 추천)', popup: false },
     ]
   },
   {
@@ -44,6 +45,7 @@ export const MENU_ITEMS = [
       { href: '/work/manuals', labelKey: '부서별 업무 매뉴얼', popup: false },
       { href: '/operations-knowledge', labelKey: '주의·이슈 및 업무처리 지침', popup: false },
       { href: '/work/drive', labelKey: '업무 드라이브', popup: false },
+      { href: '/work/operations', labelKey: '내 작업 기록', popup: false },
     ]
   },
   {

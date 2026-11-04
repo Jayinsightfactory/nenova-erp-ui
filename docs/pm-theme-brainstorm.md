@@ -64,3 +64,30 @@ Higgsfield 생성 도구가 붙으면 같은 파일명으로 PNG/WebP 를 교체
 | PR② | 지갑·적립 API + 웹 전용 테이블(PmTokenLedger·PmPurchase, 마이그레이션 SQL → SSMS 수동 실행) · 적립=업무 특정 1h=10토큰, 활성만 1h=3토큰, 하루 상한 60 · 구매는 트랜잭션에서 잔액 검증 후 원자 처리 · 본인 계정(로그인↔직원 매핑)만 구매, 매핑 없으면 관리자 대행 | 다음 |
 | PR③ | 상점 UI: 잠긴 항목 자물쇠+가격(미리보기 가능), 책상 잔액 배지, 서랍 '상점·지갑' 탭(잔액·적립·구매 내역), 테마도 구매 해금 | 다음 |
 | PR④ | 효율 보상(기본 OFF 플래그): 업무 1건 단위 4주 중앙값 기준선·규모 정규화, 포인트=(기준−실제)×품질계수×난이도, 품질 0=재수정·무결성 오류·반려, 확정=다음 단계 넘김+하루 무사고 후, 처음 2주 기록만 · 레벨·숙련 배지(무오류 10건)·연속 5일·신기록·**팀 퀘스트**(차수 발주→견적 지연 없이=부서 전원)·자동화 기여 칭호 · 편법 방지(절차 화면 생략 0, 기준선 월간 롤링, 일/주 상한, 측정불가='판정 불가' 감점 없음) | 플래그 OFF 로 머지까지 |
+
+## 참고 디자인 리서치 → Higgsfield 프롬프트 (11/03)
+
+| 참고 | 링크 | 가져온 것 | 적용 |
+|---|---|---|---|
+| Animal Crossing: New Horizons 아이템 아이콘 | https://www.nintendo.com/us/store/products/animal-crossing-new-horizons-switch/ | 둥근 클레이 질감·파스텔·두꺼운 실루엣(작은 크기에서도 판독) | 꽃 온실·항구·항공·꽃시장·우주 아이콘, 캐릭터·꾸미기 공통 스타일 |
+| Stardew Valley 아이템/타일 | https://www.stardewvalley.net/ | 32px 픽셀 아이템, 타일 바닥 | 픽셀 마을(rpg) 아이콘·바닥 |
+| Mini Metro (노선도 게임) | https://dinopoloclub.com/games/mini-metro/ | 평면 노선색·역 점 | 지하철 테마 아이콘(평면 벡터) |
+| Gather Town 가상 오피스 | https://www.gather.town/ | 책상 단위 아바타 + 상태 표시 | 기존 사무실 구조 유지, 아바타만 교체 |
+| Kairosoft 경영 게임(Game Dev Story 등) | https://kairopark.jp/ | 직원 머리 위 작업 말풍선·성장/꾸미기 | 책상 말풍선(기존)·꾸미기 상점(다음 PR) |
+
+비교 캡처: 생성 결과 접촉시트 `C:\Users\USER\nenova-pm\hf-raw\contact-icons.jpg`, `contact-2.jpg`, `contact-sliced.jpg`. 외부 게임 화면 캡처는 저작권 때문에 저장소에 넣지 않았습니다(링크만).
+
+### Higgsfield 생성 결과
+- 모델 Nano Banana 2 1K(1.5크레딧/장). Nano Banana Pro 는 연속 실패(환불)로 제외.
+- 3×3/2×4 **시트 한 장에 여러 개**를 받아 `hf-raw/slice.py` 로 배경 제거·자르기 → webp. 장당 1.5크레딧으로 9~12개.
+- 생성 26장 → webp 151개: 단계 아이콘 8테마×9=72, 부서 바닥 7테마×4=28(사이버 바닥은 미생성 → SVG 유지), 캐릭터 10, 꾸미기 41.
+- 공통 프롬프트 꼬리: `soft clay 3D render, kawaii isometric game item style, consistent soft lighting, chunky readable silhouettes, plain pure white background, no text, no letters, each object fully separated with generous white space` (rpg=32-bit pixel art, subway=flat vector).
+- 애니메이션: AutoSprite(스프라이트 시트) 모델은 Higgsfield MCP 전용이라 웹에서 못 씀(이 세션 MCP 에 생성 도구 없음) → 새 캐릭터 그림에 기존 CSS 상태 애니메이션(대기·작업중·꺼짐·오류·넘김) 적용. 영상 크레딧 0.
+
+## PR④ 효율 보상(기본 OFF) — 구현 상태 11/03
+- `lib/pmBonus.js` + `GET /api/pm/bonus`(사장님만, 읽기 전용). `PM_BONUS_ENABLED=1` 이 아니면 **기록만**(보상 0).
+- 처리시간 = 작업 로그에서 같은 사람의 다음 줄까지 시간(3시간 초과는 측정 불가). 업무 키 = 단계+국가. 기준선 = 4주 중앙값, 표본 5건 미만·첫 2주 = 판정 불가/기록만.
+- 보상 = (기준 − 실제)/10 × 난이도(분배·해외송금·정산 1.5, 이익 1.3, 견적 1.2), 하루 30 상한. 느려도 감점 없음.
+- 품질계수(재수정·무결성 오류·다음 부서 반려)는 **아직 신호 미연결** → 모든 건 '판정 불가'. 켜기 전에 scan:integrity·재수정 감지 연결 필요.
+- 레벨 1~6(누적 0/100/300/700/1500/3000), 레벨3=희귀·레벨5=전설 해금(상점 연동은 켤 때). 숙련 배지(빠르고 무오류 10건)·연속 5일은 상수만 정의.
+- 팀 퀘스트: 같은 국가 넘김이 6시간 안에 이어진 건(추정) 하루 3건 = 관련 부서 공동 달성. 개인 랭킹 없음.

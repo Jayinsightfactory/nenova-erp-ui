@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { app, session, dialog } = require('electron');
+const { app, session, dialog, BrowserWindow, clipboard } = require('electron');
 process.on('uncaughtException', error => { console.error('Uncaught smoke error:', error.stack); app.exit(1); });
 process.on('unhandledRejection', error => { console.error('Unhandled smoke error:', error?.stack || error); app.exit(1); });
 
@@ -77,7 +77,7 @@ async function homeFixture(request, url) {
     if (body.expectedRevision !== store.revision) return Response.json({ success: false, code: 'REVISION_CONFLICT', error: '다시 조회하세요.' }, { status: 409 });
     assert.match(body.requestId, /^[\w-]{8,100}$/);
     if (body.action === 'create') store.tasks.push({ id: `${owner}-created-${store.revision}`, title: body.title,
-      startDate: body.startDate || date, weekdays: body.weekdays || [], occurrenceDate: date,
+      startDate: body.startDate || date, weekdays: body.weekdays || [], frequency: body.frequency || 'once', occurrenceDate: date,
       done: false, carried: false, archived: false, stopped: false });
     else if (body.action === 'read') {
       const feed = [...store.guidance, ...store.feedback].find(item => item.sourceKey === body.sourceKey);
@@ -86,7 +86,7 @@ async function homeFixture(request, url) {
       const task = store.tasks.find(item => item.id === body.taskId);
       assert.ok(task, 'mutation uses an account-owned task');
       if (body.action === 'complete') task.done = body.done;
-      else if (body.action === 'update') Object.assign(task, Object.fromEntries(['title', 'weekdays', 'startDate'].filter(key => body[key] !== undefined).map(key => [key, body[key]])));
+      else if (body.action === 'update') Object.assign(task, Object.fromEntries(['title', 'weekdays', 'startDate', 'frequency'].filter(key => body[key] !== undefined).map(key => [key, body[key]])));
       else if (body.action === 'archive') task.archived = true;
       else if (body.action === 'restore') task.archived = false;
       else if (body.action === 'stop') task.stopped = true;
@@ -303,6 +303,35 @@ async function verifyHomeUi(contents, window) {
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
   await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   console.log('Smoke: native home CSP, keyboard create/complete, failure/retry, safe feeds and source read');
+}
+
+async function verifyNotesUi(sourceWindow) {
+  const before=new Set(BrowserWindow.getAllWindows());
+  main.command(sourceWindow,'notesOpen');
+  await waitFor(()=>BrowserWindow.getAllWindows().some(win=>!before.has(win)), 'memo window opens');
+  const note=BrowserWindow.getAllWindows().find(win=>!before.has(win));
+  const contents=note.webContents;
+  await waitFor(()=>contents.executeJavaScript('Boolean(document.querySelector("#tasks .task"))'), 'memo loads personal tasks');
+  const boundary=await contents.executeJavaScript('({url:location.href,requireType:typeof require,notesType:typeof window.notes,csp:document.querySelector("meta[http-equiv=Content-Security-Policy]").content})');
+  assert.equal(boundary.url,'nenova-app://shell/notes.html');assert.equal(boundary.requireType,'undefined');assert.equal(boundary.notesType,'object');assert.match(boundary.csp,/connect-src 'none'/);
+  await waitFor(()=>note.isVisible(),'memo window visible');
+  assert.equal((await contents.executeJavaScript('window.notes.invoke("pin",{pinned:true})')).pinned,true);
+  await contents.executeJavaScript('document.querySelector("#pin").click()');
+  await waitFor(()=>contents.executeJavaScript('window.notes.invoke("state").then(state=>state.pinned===false&&document.querySelector("#pin").getAttribute("aria-pressed")==="false")'),'memo pin toggles');
+  await contents.executeJavaScript(`(() => { document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
+  await waitFor(()=>homeStore(accountActor).tasks.some(task=>task.title==='메모장 월말 확인'),'memo creates task');
+  assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.frequency,'monthly');
+  await waitFor(()=>contents.executeJavaScript('document.querySelector("#tasks").textContent.includes("메모장 월말 확인")'),'memo reflects saved task');
+  await capture(note,'notes-ui.png');
+  await contents.executeJavaScript('document.querySelector("#copy").click()');
+  await waitFor(async()=>(await clipboard.readText()).includes('메모장 월말 확인'),'memo copies saved list').catch(async error=>{console.error('Memo copy diagnostic',await contents.executeJavaScript('({status:document.querySelector("#status").textContent,error:document.querySelector("#error").textContent,disabled:document.querySelector("#copy").disabled,date:document.querySelector("#date").value})'),await clipboard.readText(),homeRequests.slice(-2));throw error;});
+  await contents.executeJavaScript('document.querySelector("#reminder").value="23:59"; document.querySelector("#saveReminder").click()');
+  await waitFor(()=>contents.executeJavaScript('document.querySelector("#status").textContent.includes("알림 시간을 저장")'),'memo reminder setting saved');
+  assert.equal((await contents.executeJavaScript('window.notes.invoke("state")')).reminder,'23:59');
+  await contents.executeJavaScript('document.querySelector("#clearReminder").click()');
+  await waitFor(()=>contents.executeJavaScript('document.querySelector("#reminder").value===""'),'memo reminder clears');
+  await assert.rejects(contents.executeJavaScript('window.notes.invoke("sql")'));
+  return note;
 }
 
 async function run() {
@@ -703,6 +732,7 @@ async function run() {
   // locked immediately, writes are blocked, then its views and origin storage
   // are cleared before the new account becomes active. Keep an A bootstrap
   // response pending across that transition to prove it cannot overwrite B.
+  const notesWindow = await verifyNotesUi(sourceWindow);
   const heldHomeUi = holdHome(request => request.method === 'GET' && request.date === HOME_DATE);
   await shellContents.executeJavaScript(`document.querySelector('.hw-add>input').value = '계정 A의 남은 입력'; document.querySelector('.hw-add>input').dispatchEvent(new Event('input',{bubbles:true}))`);
   main.command(sourceWindow, 'menu', { open: true });
@@ -750,6 +780,7 @@ async function run() {
   assert.equal(main.snapshot().actor, 'desktop-test-b', 'stale account A response cannot switch the active actor back');
   assert.equal(main.command(sourceWindow, 'state', {}).menuVersion, 'd'.repeat(64), 'stale account A response cannot overwrite account B menu');
   assert.equal(main.tabs.has(first.id), false, 'account switch removes old WebContents tabs');
+  assert.equal(notesWindow.isDestroyed(),true,'account switch closes the previous account memo');
   assert.ok(firstContents.isDestroyed(), 'old account WebContents is destroyed');
   main.command(sourceWindow, 'open', { url: '/test/second', title: '계정 B 저장소 확인' });
   const accountBTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/test/second');

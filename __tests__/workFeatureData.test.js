@@ -20,7 +20,7 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
-assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave']);
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger', 'self-tune-report', 'pm-office', 'timesave', 'tech-radar', 'manual-routines']);
 // pm-office: 2MB 상한·generatedAt 필수·runtime 저장
 assert.strictEqual(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: 'x', pad: 'a'.repeat(2 * 1024 * 1024) }))).status, 413);
 assert.ok(w.saveFeatureFile('pm-office', Buffer.from(JSON.stringify({ generatedAt: '2026-11-02T00:00:00Z', agents: [] }))).ok);

@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {setSupportManualHold} from '../lib/salesDefectDeductions.js';
+import {manualHoldProjection,manualHoldDescriptor,canSelectSupportDisposition} from '../lib/defectManualHold.js';
+import {defectSourceReview,assertDefectSourceReviewed,buildDefectAutoSourceSql} from '../lib/salesDefectAutoSource.js';
+import {isDefectRegistrationHeld} from '../lib/defectResolution.js';
+import {evaluateDefectRegistrationEligibility} from '../lib/defectEstimateTargetScope.js';
+import {supportRegistrationDecisionLabel,supportStatusDetail,isSupportPendingRow} from '../lib/salesDefectSupportStatus.js';
+const base={DeductionKey:1,OrderYear:2026,OrderWeek:'42',CustKey:2,ProdKey:3,Quantity:10,SourceUnit:'단',RowVersionNo:2,Status:'DRAFT',ManualHeld:false,ManualHoldHistoryKey:0};
+let stored={...base},writes=[];
+const q=async(sql,params)=>{
+ if(sql.startsWith('SELECT d.*')){assert.match(sql,/UPDLOCK,HOLDLOCK/);assert.match(sql,/ManualHeld/);return {recordset:[{...stored,DeductionKey:params.key.value}]};}
+ if(sql.includes('INSERT INTO WebSalesDefectDeductionHistory')){writes.push(params);stored.ManualHeld=params.action.value==='SUPPORT_HOLD';stored.ManualHoldHistoryKey++;assert.equal(JSON.parse(params.after.value).quantity,10);return {rowsAffected:[1]};}
+ throw Error('Unexpected ERP write/query: '+sql);
+};
+const selection=()=>({deductionKey:1,sourceYear:2026,sourceWeek:'42',expectedRowVersionNo:2,expectedHoldHistoryKey:stored.ManualHoldHistoryKey});
+const input=()=>({year:2026,week:44,rows:[selection()],hold:true,user:{authority:0,userId:'fixture'}});
+const deps={transaction:fn=>fn(q)};
+await setSupportManualHold({...input(),preview:true},deps);assert.equal(writes.length,0);
+await setSupportManualHold(input(),deps);assert.equal(writes.length,1);assert.equal(stored.ManualHeld,true);
+assert.equal(defectSourceReview(stored).code,'MANUAL_HOLD');assert.throws(()=>assertDefectSourceReviewed(stored),/담당자가 보류/);
+assert.equal(evaluateDefectRegistrationEligibility({row:{manualHeld:true},context:{shipmentKey:99,cost:100}}).eligible,false);
+assert.equal(isDefectRegistrationHeld({manualHeld:true}),true);assert.equal(isSupportPendingRow({manualHeld:true}),true);
+assert.equal(supportRegistrationDecisionLabel({manualHeld:true}),'담당자 보류');
+await setSupportManualHold(input(),deps);assert.equal(writes.length,1,'same state is idempotent with fresh descriptor');
+await assert.rejects(setSupportManualHold({...input(),rows:[{...selection(),expectedHoldHistoryKey:0}]},deps),/변경/);
+for(const patch of [{sourceYear:2025},{sourceWeek:'43'},{expectedRowVersionNo:1},{expectedHoldHistoryKey:undefined}]) await assert.rejects(setSupportManualHold({...input(),rows:[{...selection(),...patch}]},deps));
+await assert.rejects(setSupportManualHold({...input(),year:2025},deps),/이후/);
+await assert.rejects(setSupportManualHold({...input(),user:{}},deps),/권한/);
+await assert.rejects(setSupportManualHold({...input(),hold:'false'},deps));
+await setSupportManualHold({...input(),hold:false,week:45},deps);assert.equal(writes.length,2);assert.equal(stored.ManualHeld,false);
+assert.equal(defectSourceReview({...stored,SourceFactReview:true}).code,'SOURCE_FACT_REVIEW_REQUIRED','resume never clears system guard');
+assert.equal(isDefectRegistrationHeld({manualHeld:false,registrationEligible:true}),false);
+const n=writes.length;
+await assert.rejects(setSupportManualHold({...input(),rows:[selection(),{...selection(),deductionKey:2,sourceWeek:'43'}]},deps));assert.equal(writes.length,n,'batch validates all rows before audit inserts');
+stored={...base,Status:'REGISTERED',EstimateKey:12};await assert.rejects(setSupportManualHold(input(),deps),/이미 처리/);
+stored={...base,OrderYear:2025};await setSupportManualHold({...input(),rows:[{...selection(),sourceYear:2025}]},deps);assert.equal(stored.ManualHeld,true,'exact source year permits old pending row only');
+assert.equal(canSelectSupportDisposition({deductionKey:2,registrationEligible:false}),true);
+assert.equal(canSelectSupportDisposition({deductionKey:2,manualHeld:true},true),true);
+assert.equal(canSelectSupportDisposition({deductionKey:2,missingLinkedEstimate:true},true),false);
+assert.deepEqual(manualHoldDescriptor({deductionKey:1,orderYear:2026,orderWeek:'42',rowVersionNo:2}),{deductionKey:1,sourceYear:2026,sourceWeek:'42',expectedRowVersionNo:2,expectedHoldHistoryKey:0});
+assert.throws(()=>manualHoldProjection('d;DELETE'));assert.match(buildDefectAutoSourceSql('d').projection,/SUPPORT_HOLD/);
+assert.equal(defectSourceReview({...base,DeductionKey:3,Quantity:11}),null,'new quantity record has no inherited hold');
+const conflict={customerName:'수경원예',registrationEligibilityCode:'AUTO_SOURCE_ESTIMATE_CONFLICT',exactExistingEstimateKey:10936,existingEstimateRecords:[{estimateKey:10936,productName:'Hermes Orange',orderYear:2026,orderWeek:'44',quantity:-10,unit:'단'}]};
+assert.equal(supportRegistrationDecisionLabel(conflict),'기존 차감과 중복');assert.match(supportStatusDetail(conflict,2026,44),/수경원예.*Hermes Orange.*2026년 44차 견적 #10936.*10단/);
+console.log('manual hold: history-only, CAS, no-op, scope/year, batch validation, source guards, new-row isolation and conflict details PASS');

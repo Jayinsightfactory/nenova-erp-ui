@@ -1,5 +1,5 @@
 import { defectBatchDuplicates } from '../../lib/defectBatchDuplicates.js';
-import { defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../../lib/defectResolution.js';
+import { isDefectRegistrationHeld, defectResolution, resolutionDuplicateGroups, resolutionReadyRows } from '../../lib/defectResolution.js';
 import DefectResolutionEditor from '../../components/DefectResolutionEditor';
 import { isDefectAdmin } from '../../lib/salesDefectDeductionCore.js';
 // 영업수입불량차감 — 견적서 등록 전후 검토/수정/재조회 검증 창
@@ -47,6 +47,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const [logs, setLogs] = useState([]);
   const [editorBusy, setEditorBusy] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [showHeld, setShowHeld] = useState(false);
   const [showNormal, setShowNormal] = useState(false);
   const [loadComplete, setLoadComplete] = useState(false);
 
@@ -59,6 +60,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
   const resolveMode = String(router.query.resolve || '') === '1';
+  useEffect(() => { if (router.query.held === '1') setShowHeld(true); }, [router.query.held]);
   const duplicateGroups = useMemo(() => resolutionDuplicateGroups(rows, excludedKeys), [rows, excludedKeys]);
   const duplicateKeys = new Set(duplicateGroups.flat().map(row => Number(row.deductionKey)));
   const readyRows = resolutionReadyRows(rows, excludedKeys);
@@ -307,6 +309,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           {resolveMode && <section className="resolution-summary" aria-live="polite">
             <strong>{loading ? '출고·단가·기존 견적을 확인 중입니다…' : verified ? '등록 결과를 재조회했습니다.' : `등록 준비 ${readyRows.length}건 · 입력/대조 필요 ${unresolvedCount}건 · 이번 보류 ${excludedKeys.size}건`}</strong>
             <p>아래 문제만 해결하세요. 저장 후 서버가 다시 검사합니다. 해결하지 못한 항목은 보류하고 정상 건만 등록할 수 있습니다.</p>
+            <button type="button" onClick={() => setShowHeld(!showHeld)}>{showHeld ? '보류 목록 접기' : `보류 ${rows.filter(row => isDefectRegistrationHeld(row) || excludedKeys.has(Number(row.deductionKey))).length}건 확인`}</button>
             <button type="button" onClick={() => setShowNormal(!showNormal)}>{showNormal ? '정상 품목 접기' : `등록 예정 품목 ${readyRows.length}건 펼치기`}</button>
           </section>}
           {resolveMode && duplicateGroups.map(group => <section className="resolution-duplicate" key={group[0].deductionKey}>
@@ -323,6 +326,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           {displayRows.map((row, index) => {
             const after = adjustedAfter(row);
             const excluded = excludedKeys.has(Number(row.deductionKey));
+            if (resolveMode && !verified && !showHeld && (excluded || isDefectRegistrationHeld(row))) return null;
             if (resolveMode && !verified && !showNormal && !row.error && row.after && !excluded && !duplicateKeys.has(Number(row.deductionKey))) return null;
             return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
               <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying || editorBusy}>{excluded ? '보류 취소' : resolveMode ? '이번 등록 보류' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>

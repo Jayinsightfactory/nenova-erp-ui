@@ -40,6 +40,10 @@ function requestOptions(payload, owner) {
       if (!Array.isArray(command.weekdays) || command.weekdays.length > 7 || command.weekdays.some(n => !Number.isInteger(n) || n < 0 || n > 6)) return fail('반복 요일을 확인하세요.');
       body.weekdays = [...new Set(command.weekdays)];
     }
+    if (command.frequency !== undefined) {
+      if (!['once', 'daily', 'weekly', 'monthly'].includes(command.frequency)) return fail('반복 기준을 확인하세요.');
+      body.frequency = command.frequency;
+    }
     if (command.done !== undefined) { if (typeof command.done !== 'boolean') return fail('완료 상태를 확인하세요.'); body.done = command.done; }
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);

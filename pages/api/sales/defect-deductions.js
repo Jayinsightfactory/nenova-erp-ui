@@ -6,6 +6,8 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  setSupportManualHold,
+  loadDefectCostCandidates,
   listOmissionHistory, cancelPermanentOmission,
   permanentlyOmitDeductions,
   correctDraftPeriod,
@@ -43,6 +45,11 @@ function defaultYear() { return new Date().getFullYear(); }
 async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (req.query.view === 'cost-candidates') {
+        if (!canUseDefectSupport(req.user)) return res.status(403).json({ success: false, error: '영업지원 권한이 필요합니다.' });
+        const data = await loadDefectCostCandidates({ year: req.query.year, week: req.query.week, custKey: req.query.custKey, prodKey: req.query.prodKey, search: req.query.q });
+        return res.status(200).json({ success: true, ...data });
+      }
       if(req.query.view==='omission-history')return res.status(200).json({success:true,rows:await listOmissionHistory({year:req.query.year,user:req.user})});
       if (req.query.view === 'lookups') {
         const data = await loadLookupData({ q: req.query.q || '', kind: req.query.kind || 'farm' });
@@ -91,7 +98,7 @@ async function handler(req, res) {
     }
 
     // Management previews and writes use the installed schema; never run DDL.
-    if (!['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
+    if (!['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel', 'support-hold'].includes(String(req.body?.action || ''))) await ensureSalesDefectTables();
 
     if (req.method === 'POST') {
       const action = String(req.body?.action || 'save');
@@ -111,6 +118,8 @@ async function handler(req, res) {
       const year = normalizeYear(req.body?.year);
       const week = normalizeParentWeek(req.body?.week);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
+
+      if (action === 'support-hold') return res.status(200).json({success:true,...await setSupportManualHold({year,week,rows:req.body.rows,hold:req.body.hold,user:req.user,preview:req.body.preview})});
 
       if (action === 'review-source') {
         if (!isDefectAdmin(req.user)) return res.status(403).json({ success: false, error: '관리자 원문 재검토 권한이 필요합니다.' });
@@ -265,5 +274,5 @@ const loggedHandler = withActionLog(handler, {
 // Read-only management previews must also bypass the action logger's DDL/INSERT.
 // Authentication and policy errors still run normally; actual mutations retain audit logging.
 export default withAuth((req, res) => req.method === 'POST'
-  && ['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel'].includes(String(req.body?.action || ''))
+  && ['manage-edit', 'manage-archive', 'review-source', 'permanent-omit', 'permanent-omit-cancel', 'support-hold'].includes(String(req.body?.action || ''))
   && req.body?.preview === true ? handler(req, res) : loggedHandler(req, res));

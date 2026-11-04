@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.11",
+  "version": "1.3.13",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -31,6 +31,7 @@
       "main.cjs",
       "policy.cjs",
       "preload.cjs",
+      "notes-preload.cjs",
       "bootstrap.cjs",
       "home-workspace.cjs",
       "shell/**/*",
@@ -68,7 +69,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "업무 메뉴에 로그아웃·계정 변경 버튼을 추가했습니다.\n탭 닫기 확인창은 닫기가 기본 선택이며 Esc로 취소합니다.\n오늘의 내 업무 수정·보관 기능을 사용하려면 앱 1.3.11 설치 후 다시 로그인하세요."
+      "releaseNotes": "오늘의 내 업무 메모장 창을 GPT 디자인 시안에 맞춰 새로 구성했습니다.\n진행률 원형 카드, 업무 카드, 빠른 추가, 알림 설정을 좁은 창에서 읽기 쉽게 표시합니다."
     }
   },
   "dependencies": {

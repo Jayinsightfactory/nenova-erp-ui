@@ -1,0 +1,42 @@
+name: Read-only production profit print
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: Report year
+        default: '2026'
+        required: true
+      weeks:
+        description: Selected weeks (1 or 3 weeks)
+        default: '18,38,39'
+        required: true
+      weeks_view:
+        description: Test weeks-view output (use one week or three consecutive weeks)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  print:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install Korean print fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          fc-cache -f
+      - name: Verify selected print pages without business writes
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          PROBE_YEAR: ${{ inputs.year }}
+          PROBE_WEEKS: ${{ inputs.weeks }}
+          PROBE_WEEKS_VIEW: ${{ inputs.weeks_view }}
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/profit-production-print-smoke.cjs

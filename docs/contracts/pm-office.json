@@ -18,7 +18,16 @@
     "pages/api/pm/avatars.js",
     "lib/pmAvatars.js",
     "lib/pmThemes.js",
-    "components/pm/PmTheme.js"
+    "components/pm/PmTheme.js",
+    "components/pm/ui.js",
+    "pages/api/pm/grow.js",
+    "lib/pmGrow.js",
+    "lib/pmGrowStore.js",
+    "components/pm/grow/Grow.js",
+    "pages/api/pm/shop.js",
+    "lib/pmWallet.js",
+    "pages/api/pm/bonus.js",
+    "lib/pmBonus.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -74,11 +83,35 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "writeAllowlist": []
+    },
+    {
+      "name": "PM_GROW_TICK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_GROW_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_SHOP_BUY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PM_BONUS_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 ~1분마다 올리는 data/runtime/work-feature-pm-office.json(파일 전용, git 미추적, 2MB 상한) 을 isOrbitReportViewer(nenovaSS3) 에게만 보여준다. OrderYear/OrderWeek 와 무관하고 MSSQL 에 접근하지 않는다. 시험 실행 요청 큐는 data/runtime/pm-requests.json(파일 전용) 에만 쓰며, 실제 전산 실행은 하지 않는다(dry-run 대본 생성 요청만). 캐릭터 꾸미기는 data/runtime/pm-avatars.json(파일 전용)에만 쓴다."
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 ~1분마다 올리는 data/runtime/work-feature-pm-office.json(파일 전용, git 미추적, 2MB 상한) 을 isOrbitReportViewer(nenovaSS3) 에게만 보여준다. OrderYear/OrderWeek 와 무관하고 MSSQL 에 접근하지 않는다. 시험 실행 요청 큐는 data/runtime/pm-requests.json(파일 전용) 에만 쓰며, 실제 전산 실행은 하지 않는다(dry-run 대본 생성 요청만). 캐릭터 꾸미기는 data/runtime/pm-avatars.json(파일 전용)에만 쓴다. 키우기 미니게임 성장 상태는 pm-office 수신 시 서버가 data/runtime/pm-grow-state.json(파일 전용)에만 쓴다. 토큰 구매 기록은 data/runtime/pm-shop.json(파일 전용)에만 쓴다."
   },
   "requiredTestFiles": [
     "__tests__/workFeatureData.test.js",
@@ -86,7 +119,11 @@
     "__tests__/pmStaff.test.js",
     "__tests__/pmRequests.test.js",
     "__tests__/pmTimesave.test.js",
-    "__tests__/pmAvatars.test.js"
+    "__tests__/pmAvatars.test.js",
+    "__tests__/pmUiKit.test.js",
+    "__tests__/pmGrow.test.js",
+    "__tests__/pmWallet.test.js",
+    "__tests__/pmBonus.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -110,6 +147,10 @@
     "node __tests__/pmStaff.test.js",
     "node __tests__/pmRequests.test.js",
     "node __tests__/pmTimesave.test.js",
-    "node __tests__/pmAvatars.test.js"
+    "node __tests__/pmAvatars.test.js",
+    "npm run test:pm",
+    "node __tests__/pmGrow.test.js",
+    "node __tests__/pmWallet.test.js",
+    "node __tests__/pmBonus.test.js"
   ]
 }

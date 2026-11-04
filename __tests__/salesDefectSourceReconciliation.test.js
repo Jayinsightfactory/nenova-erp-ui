@@ -3,7 +3,7 @@ import { defectSourceReview } from '../lib/salesDefectAutoSource.js';
 import { evaluateDefectRegistrationEligibility } from '../lib/defectEstimateTargetScope.js';
 import { deriveSupportProcessingStatus, isSupportProcessingComplete, isSupportManualCompleteSelectable, supportRegistrationDecisionLabel } from '../lib/salesDefectSupportStatus.js';
 import { preflightRegistration, registrationPreview, registerDeductions } from '../lib/salesDefectDeductions.js';
-for (const [key, flag, code] of [[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[740,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[859,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[868,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[877,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[1054,'IncompleteAutoSource','SOURCE_EVIDENCE_INCOMPLETE'],[1527,'SourceUnitReview','SOURCE_UNIT_CONVERSION_REQUIRED'],[1066,'SourceFactReview','SOURCE_FACT_REVIEW_REQUIRED'],[1069,'PermanentOmitted','PERMANENT_OMITTED']]) {
+for (const [key, flag, code] of [[2001,'ManualHeld','MANUAL_HOLD'],[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[740,'RejectedAutoSource','REJECTED_AUTO_SOURCE'],[859,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[868,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[877,'MissingLinkedEstimate','LINKED_ESTIMATE_MISSING'],[1054,'IncompleteAutoSource','SOURCE_EVIDENCE_INCOMPLETE'],[1527,'SourceUnitReview','SOURCE_UNIT_CONVERSION_REQUIRED'],[1066,'SourceFactReview','SOURCE_FACT_REVIEW_REQUIRED'],[1069,'PermanentOmitted','PERMANENT_OMITTED']]) {
   const row={DeductionKey:key,OrderYear:2026,OrderWeek:'40',CustKey:533,ProdKey:889,Quantity:1,SourceUnit:'송이',Status:'REGISTERED',EstimateKey:10802,[flag]:true};
   const ui={...row,deductionKey:key,status:'REGISTERED',estimateKey:10802,processingStatus:'REGISTERED',rejectedAutoSource:flag==='RejectedAutoSource',missingLinkedEstimate:flag==='MissingLinkedEstimate'};
   assert.equal(defectSourceReview(row).code,code);
@@ -11,7 +11,7 @@ for (const [key, flag, code] of [[722,'RejectedAutoSource','REJECTED_AUTO_SOURCE
   assert.equal(deriveSupportProcessingStatus(ui).processingStatus,'SOURCE_REVIEW');
   assert.equal(isSupportProcessingComplete(ui),false);
   assert.equal(isSupportManualCompleteSelectable(ui),false);
-  assert.equal(supportRegistrationDecisionLabel(ui),'원문·견적 확인 대기');
+  assert.equal(supportRegistrationDecisionLabel(ui),code === 'MANUAL_HOLD' ? '담당자 보류' : code === 'LINKED_ESTIMATE_MISSING' ? '보류 · 이전 차감 견적 없음' : '원문·견적 확인 대기');
   let writes=0;
   const query=async(sql)=>{
     if (/\b(INSERT|UPDATE|DELETE)\s+(INTO|Estimate|WebSales)/i.test(sql)) writes++;

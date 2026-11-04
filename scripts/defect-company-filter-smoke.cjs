@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),puppeteer=require('puppeteer-core');
+(async()=>{const browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
+ const page=await browser.newPage(),errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewport({width:1920,height:1080});await page.setRequestInterception(true);
+ const rows=[{deductionKey:1,custKey:10,customerName:'태림',sourceFileName:''},{deductionKey:2,custKey:20,customerName:'주광',sourceFileName:'kakao-defect:fixture',autoSourceExcluded:true},{deductionKey:3,custKey:10,customerName:'태림',sourceFileName:'입력.xlsx'}].map(r=>({...r,prodKey:447,productName:'장미',matchedProductDbName:'ROSE / White',quantity:10,sourceUnit:'단',orderYear:2026,orderWeek:'44',rowVersionNo:1,status:'DRAFT',registrationEligible:true,distributionCost:10000,managerName:'검증담당',managerId:'fixture'}));
+ page.on('request',req=>{if(!req.url().includes('/api/'))return req.continue();if(req.method()!=='GET'){const body=JSON.parse(req.postData()||'{}');if(body.action==='preflight')return req.respond({status:200,contentType:'application/json',body:JSON.stringify({success:true,rows:(body.rows||[]).map((r,index)=>({...r,index,valid:true}))})});writes.push({url:req.url(),action:body.action});return req.respond({status:403,body:'{}'});}const u=new URL(req.url());let data={success:true};if(u.pathname==='/api/auth/me')data.user={userId:'fixture',userName:'관리자',authority:1};if(u.pathname==='/api/sales/defect-deductions')data={success:true,rows,history:[],managerOptions:[]};return req.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});});
+ await page.goto(`${process.env.SMOKE_BASE_URL||'http://localhost:3095'}/sales/defect-deductions?year=2026&week=44`,{waitUntil:'networkidle0',timeout:120000});
+ const click=async text=>{const buttons=await page.$$('button');for(const button of buttons){if((await button.evaluate(e=>e.textContent.trim()))===text){await button.click();return;}}throw Error('missing '+text);};
+ await page.waitForSelector('[data-company-button]');
+ await click('태림 (2건)');
+ assert.equal(await page.$$eval('.defect-grid tbody .defect-row',rs=>rs.length),2);
+ assert.deepEqual(await page.$$eval('[data-defect-field^="customer-"]',els=>els.map(e=>e.dataset.defectField)),['customer-0','customer-2']);
+ await page.click('[aria-label="영업 입력 전체 선택"]');assert.equal(await page.$$eval('[data-selection-group="sales-select"] input',es=>es.filter(e=>e.checked).length),2);
+ await click('주광 (1건)');assert.equal(await page.$$eval('[data-selection-group="sales-select"] input',es=>es.filter(e=>e.checked).length),0);
+ assert((await page.$eval('.defect-grid tbody',e=>e.textContent)).includes('입력: 자동수집'));
+ await page.focus('[aria-label="목록 업체 검색"]');await page.keyboard.press('Escape');assert.equal(await page.$$eval('.defect-grid tbody .defect-row',rs=>rs.length),3);
+ await click('영업지원 전산등록');await page.waitForSelector('.support-product-name');await click('태림 (2건)');
+ assert.equal(await page.$$eval('.support-grid tbody .defect-row',rs=>rs.length),2);
+ const sourceText=await page.$eval('.support-grid tbody',e=>e.textContent);assert(sourceText.includes('직접입력')&&sourceText.includes('파일 업로드')&&!sourceText.includes('자동수집'));
+ await click('등록 가능 전체 선택');assert.equal(await page.$$eval('[data-selection-group="support-register"] input',es=>es.filter(e=>e.checked).length),2);
+ await page.evaluate(()=>{window.__opened=[];window.open=()=>({document:{body:{style:{}}},location:{set href(url){window.__opened.push(url);}},closed:true,close(){}});});await click('선택 업체 불량 확인·등록 (문제 해결 창)');
+ await page.waitForFunction(()=>window.__opened.length>0);const target=await page.evaluate(()=>window.__opened[0]);assert.equal(new URL(target,'http://fixture').searchParams.get('ids'),'1,3');await page.waitForFunction(()=>!document.querySelector('[aria-label="목록 업체 검색"]').disabled);
+ await page.focus('[aria-label="목록 업체 검색"]');await page.keyboard.type('주광');await page.keyboard.press('Enter');assert.equal(await page.$$eval('.support-grid tbody .defect-row',rs=>rs.length),1);assert((await page.$eval('.support-grid tbody',e=>e.textContent)).includes('자동수집'));
+ await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.dataset.companyButton!==undefined),true);await page.keyboard.press('Escape');assert.equal(await page.$$eval('.support-grid tbody .defect-row',rs=>rs.length),3);
+ assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);await page.screenshot({path:'C:/Users/USER/defect-company-local-smoke.png'});console.log('PASS sales/support customer filter, original row indices, source labels, selections, scoped resolve IDs, keyboard, zero writes');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

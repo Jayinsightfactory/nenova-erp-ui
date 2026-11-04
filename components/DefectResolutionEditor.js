@@ -1,3 +1,4 @@
+import DefectCostLookup from './DefectCostLookup';
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { defectResolution, resolutionDescriptor } from '../lib/defectResolution.js';
@@ -82,6 +83,7 @@ export default function DefectResolutionEditor({ row, year, week, admin, disable
     <strong>{issue.title}</strong><p>{issue.action}</p>
     {row.registrationError && <p className="reason">사유: {row.registrationError}</p>}
     {error && <p role="alert" className="error">{error}</p>}
+    {issue.kind === 'cost' && <DefectCostLookup row={row} year={year} week={week} disabled={locked} onBusy={onBusy} onSaved={onSaved} />}
     {issue.kind === 'cost' && (row.manualCostEditable ? <div className="actions">
       <label>단가 (원/{row.distributionCostUnit || row.sourceUnit}) <input aria-label={`${row.customerName} 단가`} inputMode="decimal" value={cost} disabled={locked} onChange={e => setCost(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveCost(); } }} /></label>
       <button type="button" disabled={locked || !cost.trim()} onClick={saveCost}>단가 저장하고 재검사</button>
