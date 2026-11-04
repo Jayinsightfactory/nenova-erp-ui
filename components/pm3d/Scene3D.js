@@ -103,7 +103,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       if (T.props === 'office') {
         for (let x = -hx + 1; x < hx; x += 2) put('wall', x, -hz);
         for (let z = -hz + 1; z < hz; z += 2) put('wall', -hx, z, Math.PI / 2);
-        [[-hx + 1, -hz + 1.2], [hx - 1, -hz + 1.2], [hx - 1, hz - 1], [-hx + 1.2, hz - 1]].forEach(([x, z]) => put('plant', x, z));
+        [[-hx + 1, -hz + 1.2], [hx - 1, -hz + 1.2], [hx - 1, hz - 1], [-hx + 1.2, hz - 1]].forEach(([x, z]) => put('plant_k1', x, z));
+        put('lamp_k', -hx + 2.2, -hz + 1.1); put('lamp_k', hx - 2.3, hz - 1.3);
         put('parcel', hx - 2.4, -hz + 1.3); put('parcel', hx - 2.9, -hz + 1.6, 0.5, 0.8);
         for (const p of plates) put('partition', p.x, p.z - Math.sign(p.z) * 0.1);
       } else {
@@ -129,10 +130,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
         const dstyle = deskStyle(d.dept, '', PM3D.DESK_SKINS);
         const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE); g.add(desk);
-        if (dstyle.color) desk.traverse((m) => { if (m.isMesh && /^desk/.test(m.material?.name || '')) { m.material = m.material.clone(); m.material.color.set(dstyle.color); } });
+        if (dstyle.color) desk.traverse((m) => { if (m.isMesh && m.material) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.4); } }); // 부서색 틴트
         // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
         const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, DESK_H + 0.01, -0.07); g.add(mon);
-        const chair = mod('chair'); chair.scale.setScalar(SET_SCALE); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
+        const chair = mod(dstyle.chair || 'chair_k1'); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
         ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
@@ -170,7 +171,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
-        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.scale.setScalar(PROP_SCALE * (k === 'plant' ? 0.5 : 1)); P.g.add(o); P.decor.push(o); });
+        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
         if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
