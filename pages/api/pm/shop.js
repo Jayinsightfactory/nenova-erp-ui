@@ -7,6 +7,7 @@ import { verifyReqUser } from '../../../lib/auth';
 import { canActFor } from '../../../lib/pmAccount';
 import { readGrowState } from '../../../lib/pmGrowStore';
 import { buy, readManifest, readShop, teamEarned, themeUnlocks, walletOf } from '../../../lib/pmWallet';
+import { withFx } from '../../../lib/pmFxShop';
 
 export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
   // 보기(GET)=로그인 직원 전체, 쓰기(POST 등)=관리자만 유지
   res.setHeader('Cache-Control', 'private, no-store');
   const grow = readGrowState();
-  const manifest = readManifest();
+  const manifest = withFx(readManifest());
   if (req.method === 'GET') {
     const shop = readShop();
     const name = String(req.query.name || '').trim().slice(0, 40);

@@ -8,6 +8,7 @@ import { verifyReqUser } from '../../../lib/auth';
 import { canActFor } from '../../../lib/pmAccount';
 import { readAvatars, saveAvatar } from '../../../lib/pmAvatars';
 import { lockedOf, readManifest, readShop } from '../../../lib/pmWallet';
+import { fxStageLocked, withFx } from '../../../lib/pmFxShop';
 import { effectiveCfg, passOf, readPasses } from '../../../lib/pmFreePass';
 import { readGrowState } from '../../../lib/pmGrowStore';
 import { stageOf } from '../../../lib/pmGrow';
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
   const passes = readPasses();
   if (req.method === 'GET') {
     // 화면용 view = 이용권 만료 시 산 적 없는 유료 품목만 뺀 모습(저장 데이터는 그대로). pass = 남은 일수 배지용
-    const manifest = readManifest(); const shop = readShop(); const all = readAvatars();
+    const manifest = withFx(readManifest()); const shop = readShop(); const all = readAvatars();
     const out = {};
     for (const [n, a] of Object.entries(all)) {
       const pass = passOf(n, passes, now);
@@ -39,10 +40,12 @@ export default async function handler(req, res) {
   // 장착은 무료 또는 토큰으로 산 것만(서버 검증)
   const nm = String(b.name || '').trim();
   const pass = passOf(nm, passes, now);
-  const locked = pass.active ? [] : lockedOf(nm, b, readManifest(), readShop());
+  const locked = pass.active ? [] : lockedOf(nm, b, withFx(readManifest()), readShop());
   if (locked.length) return res.status(409).json({ success: false, error: `아직 사지 않은 품목: ${locked.join(', ')}`, locked });
   const stage = stageOf(readGrowState()?.people?.[nm]?.points || 0).stage;
   const shut = Object.entries(SLOT_UNLOCK_STAGE).filter(([sl, st]) => b.items?.[sl] && stage < st && !pass.active).map(([sl, st]) => `${sl}(${st}단계)`);
+  const fxShut = fxStageLocked(b.items, stage, pass.active);
+  if (fxShut.length) return res.status(409).json({ success: false, error: `성장 단계가 부족한 스킬·탈것: ${fxShut.join(', ')}` });
   if (shut.length) return res.status(409).json({ success: false, error: `아직 열리지 않은 자리: ${shut.join(', ')}` });
   const r = saveAvatar(b.name, b, user.userId || user.UserID || '');
   if (!r.ok) return res.status(r.status).json({ success: false, error: r.error });
