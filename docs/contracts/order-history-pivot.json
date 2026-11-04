@@ -1,0 +1,57 @@
+{
+  "id": "order-history-pivot",
+  "title": "발주관리 — nenova.exe FormOrderHistory 주문 변경 이력 피벗(읽기 전용)",
+  "scope": [
+    "lib/orderHistoryPivotSql.js",
+    "lib/orderHistoryPivotFields.js",
+    "pages/api/warehouse/order-history-pivot.js",
+    "components/OrderHistoryPivotPanel.js",
+    "pages/warehouse.js",
+    "lib/exeParity/registry.js",
+    "components/ExePivotFieldArea.js",
+    "components/ExePivotTheme.module.css",
+    "docs/PIVOT_EXE_DEVEXPRESS_LAYOUT_SPEC.md"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "source": {
+    "sql": "ViewOrder o JOIN OrderHistory oh ON o.OrderDetailKey=oh.OrderDetailKey JOIN Customer c JOIN Product p JOIN UserInfo u; value (oh.AfterValue - ISNULL(oh.BeforeValue,0))",
+    "filters": "optional @week (o.OrderWeek) and @countryFlower (p.CountryFlower) bound parameters; no string concatenation",
+    "lookups": "StockMaster OrderYear/OrderWeek DESC; blank UNION ALL ViewCountry CountryFlower",
+    "layout": "rows CounName/FlowerName/ProdName/OrderCode, column ChangeDtm, data AfterValue, filter OrderWeek/CustName/OutUnit (FormOrderHistory.Designer)",
+    "legacy": "previous WarehouseDetail incoming pivot preserved behind '기존 웹 피벗' toggle (localStorage warehousePivotMode)",
+    "preserves": "all ERP ledgers; GET only; MAX_ROWS guard"
+  },
+  "actions": [
+    {
+      "name": "READ_ONLY_ORDER_HISTORY_PIVOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "description": "exe FormOrderHistory.GetData SQL을 그대로 바인딩 조회하고 DevExpress 동일 배치(행 국가·꽃·품목명(색상)·C.N / 열 입력일자 / 값 변경수량 / 필터 주문주차·거래처명·단위)로 집계·정렬·필터·엑셀. 셀 더블클릭은 원본 이력 행 표시. 주문/분배/입고/재고 원장 쓰기 없음."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 OrderWeek 라벨이라도 ViewOrder.OrderYear 가 다르면 별도 행으로 유지되며, 룩업은 OrderYear/OrderWeek 쌍으로 구분한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/exeParitySql.test.js",
+    "__tests__/pivotExeFieldRegistry.test.js",
+    "__tests__/orderHistoryPivotPanel.test.js",
+    "__tests__/pivotExeInteraction.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderHistory.md",
+    "source": "dnSpy export FormOrderHistory.cs / FormOrderHistory.Designer.cs (C:/Users/USER/nenova-decompiled/Nenova)",
+    "methods": ["FormOrderHistory.SetComobo", "FormOrderHistory.GetData", "FormOrderHistory.btnExcel_Click"],
+    "tables": ["ViewOrder", "OrderHistory", "Customer", "Product", "UserInfo", "StockMaster", "ViewCountry"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run test:pivot-exe",
+    "npm run build"
+  ],
+  "preserves": ["OrderMaster", "OrderDetail", "OrderHistory", "ShipmentMaster", "ShipmentDetail", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockHistory"]
+}
