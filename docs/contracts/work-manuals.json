@@ -18,7 +18,10 @@
     "pages/api/my-work/feature.js",
     "lib/workManualRoutines.js",
     "components/manuals/RoutineManual.js",
-    "data/work-feature-manual-routines.json"
+    "data/work-feature-manual-routines.json",
+    "lib/workLivePipelines.js",
+    "pages/api/work/live-pipelines.js",
+    "components/manuals/LivePipelineManual.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -66,6 +69,16 @@
       "name": "MANUAL_ROUTINE_CONFIRM_FILE_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_LIVE_PIPELINE_VIEW_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_LIVE_PIPELINE_CONFIRM_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -79,7 +92,8 @@
     "__tests__/workReplay.test.js",
     "__tests__/workFeatureData.test.js",
     "__tests__/orbitThumbs.test.js",
-    "__tests__/workManualRoutines.test.js"
+    "__tests__/workManualRoutines.test.js",
+    "__tests__/workLivePipelines.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
