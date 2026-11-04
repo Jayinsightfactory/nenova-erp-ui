@@ -5,7 +5,8 @@
     "scripts/paste-confirmed-audit.cjs",
     "__tests__/pasteConfirmedAudit.test.cjs",
     ".github/workflows/deploy.yml",
-    "__tests__/codeOnlyDeployment.test.cjs"
+    "__tests__/codeOnlyDeployment.test.cjs",
+    "__tests__/pasteConfirmedReplay.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -27,7 +28,8 @@
   },
   "requiredTestFiles": [
     "__tests__/pasteConfirmedAudit.test.cjs",
-    "__tests__/codeOnlyDeployment.test.cjs"
+    "__tests__/codeOnlyDeployment.test.cjs",
+    "__tests__/pasteConfirmedReplay.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -45,6 +47,7 @@
   "criteria": {
     "truth": "SUCCESS + verified + fully committed complete single exact source scope, exclude repeated/undo/partial/unknown source. Preserve excluded denominators. Cache is prediction not label.",
     "output": "aggregate only, no raw texts/actors/credentials",
-    "execution": "explicit workflow diagnose_paste_only, excludes deploy; inspect first model0; budgeted model audit later"
+    "execution": "explicit workflow diagnose_paste_only, excludes deploy; inspect first model0; budgeted model audit later",
+    "paired": "Frozen active masters/current mappings and unit snapshot; baseline full source at2f191418 vs branch candidate overrides. SDK real usage/timing, no retries,8sources/32calls/400kinput token bound; original cache metrics separately. Qty compared in Product.OutUnit, key and qty recall/precision/full cases, fail/unknown rows counted."
   }
 }
