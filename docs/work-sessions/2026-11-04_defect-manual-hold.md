@@ -4,3 +4,5 @@ A. 체크된 미등록 원장만 보류 저장/해제. 충돌은 같은 대상�
 수기/ERP 원장 보존, 이전차수 신규수량 전파 없음. 계획/보존표 docs/plans/defect-manual-hold-2026-11-04.md.
 실SQL CTE와 원장SELECT PASS, unit/기존불량 회귀PASS. UI/CI/배포 진행중. 운영쓰기0.
 검색어: 선택보류 manualHeld SUPPORT_HOLD 충돌 견적번호
+
+로컬 운영빌드/실Chrome API격리 보류이동·새로고침·해제·기존검토보존 PASS. 스크린샷 C:/Users/USER/defect-manual-hold-local-1104.png. PR1469 master 동시 문서변경 병합완료, CI/배포 대기.

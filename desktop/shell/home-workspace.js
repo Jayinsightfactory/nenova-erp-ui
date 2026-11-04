@@ -27,10 +27,12 @@
   const weekday = node('span', 'hw-muted');
   const count = node('span', 'hw-count'); count.setAttribute('aria-live', 'polite');
   const refresh = button('다시 조회', () => { failures = 0; void load(); });
+  const openNotes = button('업무 메모장 열기', () => window.desktop.invoke('notesOpen').catch(e => setError(e.message)));
+  const downloadNotes = button('업무 메모장 바로가기 다운로드', () => window.desktop.invoke('notesShortcut').then(result => { if (result?.saved) status.textContent = '업무 메모장 바로가기를 저장했습니다.'; }).catch(e => setError(e.message)));
   const current = button('오늘', () => changeDate(today(), true));
   const filter = node('select'); filter.setAttribute('aria-label', '업무 보기');
   for (const [value, label] of [['active', '전체 업무'], ['pending', '미완료'], ['done', '완료'], ['repeat', '반복 업무'], ['archived', '삭제한 업무']]) filter.add(new Option(label, value));
-  heading.append(title, date, weekday, current, filter, count, refresh);
+  heading.append(title, date, weekday, current, filter, count, refresh, openNotes, downloadNotes);
   const status = node('p', 'hw-status'); status.setAttribute('role', 'status');
   const error = node('div', 'hw-error'); error.setAttribute('role', 'alert'); error.hidden = true;
   const errorText = node('span'); const retry = button('다시 시도', () => pending ? void sendPending() : void load()); error.append(errorText, retry);
@@ -42,18 +44,19 @@
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;
   panel.append(heading, status, error, form, rows, more); root.append(feeds, feedDetail, panel);
 
-  function makeRepeat(values) {
-    const wrap = node('div', 'hw-repeat'); const select = node('select'); select.setAttribute('aria-label', '반복 요일');
-    for (const [v, t] of [['none', '반복 없음'], ['daily', '매일'], ['weekdays', '평일'], ['custom', '요일 선택']]) select.add(new Option(t, v));
+  function makeRepeat(values, frequency) {
+    const wrap = node('div', 'hw-repeat'); const select = node('select'); select.setAttribute('aria-label', '반복 기준');
+    for (const [v, t] of [['once', '반복 없음'], ['daily', '매일'], ['weekly', '매주 · 요일 선택'], ['monthly', '매월 · 같은 날짜']]) select.add(new Option(t, v));
     const choices = node('div', 'hw-days'); choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', '반복할 요일');
     const checks = dayNames.map((name, index) => { const label = node('label'); const check = node('input'); check.type = 'checkbox'; check.checked = values.includes(index); label.append(check, document.createTextNode(name)); choices.append(label); return check; });
-    select.value = !values.length ? 'none' : values.length === 7 ? 'daily' : 'custom';
-    const paint = () => { choices.hidden = select.value !== 'custom'; };
-    select.addEventListener('change', () => { select.setCustomValidity(''); paint(); }); checks.forEach(c => c.addEventListener('change', () => select.setCustomValidity(''))); paint(); wrap.append(select, choices);
-    return { root: wrap, valid: () => { const ok = select.value !== 'custom' || checks.some(c => c.checked); select.setCustomValidity(ok ? '' : '반복할 요일을 하나 이상 선택해 주세요.'); if (!ok) select.reportValidity(); return ok; }, get: () => select.value === 'none' ? [] : select.value === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : select.value === 'weekdays' ? [1, 2, 3, 4, 5] : checks.flatMap((c, i) => c.checked ? [i] : []), reset: () => { select.value = 'none'; checks.forEach(c => c.checked = false); select.setCustomValidity(''); paint(); } };
+    select.value = frequency || (!values.length ? 'once' : values.length === 7 ? 'daily' : 'weekly');
+    const monthlyHint = node('small', 'hw-muted', '29~31일에 시작하면 날짜가 없는 달에는 그달 말일에 표시됩니다.');
+    const paint = () => { choices.hidden = select.value !== 'weekly'; monthlyHint.hidden = select.value !== 'monthly'; };
+    select.addEventListener('change', () => { select.setCustomValidity(''); paint(); }); checks.forEach(c => c.addEventListener('change', () => select.setCustomValidity(''))); paint(); wrap.append(select, choices, monthlyHint);
+    return { root: wrap, valid: () => { const ok = select.value !== 'weekly' || checks.some(c => c.checked); select.setCustomValidity(ok ? '' : '반복할 요일을 하나 이상 선택해 주세요.'); if (!ok) select.reportValidity(); return ok; }, get: () => select.value === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : select.value === 'weekly' ? checks.flatMap((c, i) => c.checked ? [i] : []) : [], frequency: () => select.value, reset: () => { select.value = 'once'; checks.forEach(c => c.checked = false); select.setCustomValidity(''); paint(); } };
   }
   function setError(text) { errorText.textContent = text; error.hidden = !text; }
-  function lock() { form.querySelectorAll('input,select,button').forEach(e => e.disabled = !owner || busy || !snapshot); date.disabled = busy || !owner; filter.disabled = busy || !owner; retry.disabled = busy; }
+  function lock() { form.querySelectorAll('input,select,button').forEach(e => e.disabled = !owner || busy || !snapshot); date.disabled = busy || !owner; filter.disabled = busy || !owner; openNotes.disabled = !owner; downloadNotes.disabled = !owner; retry.disabled = busy; }
   function stamp(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
   function changeDate(value, auto = false) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || busy) return;
@@ -65,7 +68,7 @@
   input.addEventListener('input', draftSignal);
   form.addEventListener('submit', event => { event.preventDefault(); const title = input.value.trim(); if (!title || !snapshot || busy) return;
     if (!repeat.valid()) return; const entered = input.value;
-    mutate('create', { title, startDate: selectedDate, weekdays: repeat.get(), date: selectedDate }, () => { if (input.value === entered) { input.value = ''; repeat.reset(); } input.focus(); });
+    mutate('create', { title, startDate: selectedDate, weekdays: repeat.get(), frequency: repeat.frequency(), date: selectedDate }, () => { if (input.value === entered) { input.value = ''; repeat.reset(); } input.focus(); });
   });
   function schedule() { clearTimeout(timer); if (owner && visible && online && !document.hidden) timer = setTimeout(() => void load(), Math.min(300000, 30000 * 2 ** failures)); }
   async function load() {
@@ -126,7 +129,7 @@
   }
   function renderData() { status.textContent = '마지막 갱신 ' + stamp(snapshot.syncedAt) + ' · 홈 표시 중 30초마다 확인'; renderTasks(); renderFeeds(); lock(); }
   function rowKey(task) { return String(task.id) + '|' + (task.occurrenceDate || selectedDate); }
-  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.occurrenceDate, !!task.done, !!task.archived, !!task.stopped]); }
+  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.frequency, task.monthDay, task.occurrenceDate, !!task.done, !!task.archived, !!task.stopped]); }
   function focusTask(id) { [...rows.querySelectorAll('.hw-task')].find(r => r.dataset.task.startsWith(String(id) + '|'))?.querySelector('button:not(:disabled),input:not(:disabled)')?.focus(); }
   function taskFields(task) { return { taskId: task.id, date: task.occurrenceDate || selectedDate }; }
   function renderTasks() {
@@ -135,7 +138,7 @@
     rows.replaceChildren(); weekday.textContent = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long' }).format(new Date(selectedDate + 'T12:00:00+09:00'));
     const all = snapshot?.tasks || []; const active = all.filter(t => !t.archived);
     count.textContent = snapshot ? (snapshot.nextOffset != null ? '불러온 업무 ' : '') + active.filter(t => t.done).length + ' / ' + active.length + ' 완료' + (snapshot.nextOffset != null ? ' · 전체 ' + snapshot.totalTasks + '건' : '') : '';
-    const items = all.filter(t => filter.value === 'archived' ? t.archived : !t.archived && (filter.value === 'pending' ? !t.done : filter.value === 'done' ? t.done : filter.value === 'repeat' ? t.weekdays?.length : true));
+    const items = all.filter(t => filter.value === 'archived' ? t.archived : !t.archived && (filter.value === 'pending' ? !t.done : filter.value === 'done' ? t.done : filter.value === 'repeat' ? (t.frequency||((t.weekdays||[]).length?'weekly':'once')) !== 'once' : true));
     if (!owner) { rows.append(node('p', 'hw-empty', '로그인하면 개인 업무와 소식을 확인할 수 있습니다.')); }
     else if (snapshot && !items.length) rows.append(node('p', 'hw-empty', '선택한 날짜와 보기에 해당하는 업무가 없습니다.'));
     for (const task of (expanded ? items : items.slice(0, 6))) {
@@ -144,13 +147,15 @@
       const label = node('label', 'hw-task-label'), check = node('input'); check.type = 'checkbox'; check.checked = !!task.done; check.disabled = busy || task.archived; check.setAttribute('aria-label', task.title + ' 완료');
       check.addEventListener('change', () => { const done = check.checked; check.checked = !!task.done; mutate('complete', { ...taskFields(task), done }); });
       label.append(check, node('span', '', task.title));
-      const meta = node('span', 'hw-task-meta', (task.carried ? '이월 ' + task.occurrenceDate + ' · ' : '') + (task.stopped ? '반복 종료' : task.weekdays?.length ? task.weekdays.map(d => dayNames[d]).join('·') + ' 반복' : '일회'));
+      const recurrence=task.frequency||(task.weekdays?.length?'weekly':'once');
+      const repeatLabel = recurrence === 'monthly' ? `매월 ${task.monthDay || Number(task.startDate.slice(8))}일` : recurrence === 'daily' ? '매일' : recurrence === 'weekly' ? `매주 ${task.weekdays.map(d => dayNames[d]).join('·')}` : '일회';
+      const meta = node('span', 'hw-task-meta', (task.carried ? '이월 ' + task.occurrenceDate + ' · ' : '') + (task.stopped ? '반복 종료' : repeatLabel));
       row.append(label, meta);
       const action = (text, fn) => { const b = button(text, fn); b.disabled = busy; row.append(b); return b; };
       if (task.archived) action('복구', () => mutate('restore', taskFields(task)));
-      else { action('수정', () => { editing = rowKey(task); editDraft = { title: task.title, startDate: task.startDate || selectedDate, weekdays: task.weekdays || [] }; renderTasks(); rows.querySelector('.hw-edit input')?.focus(); });
+      else { action('수정', () => { editing = rowKey(task); editDraft = { title: task.title, startDate: task.startDate || selectedDate, weekdays: task.weekdays || [], frequency: recurrence }; renderTasks(); rows.querySelector('.hw-edit input')?.focus(); });
         action('삭제', () => { confirmation = { key: rowKey(task), action: 'archive' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); });
-        if (task.weekdays?.length && !task.stopped) action('반복 종료', () => { confirmation = { key: rowKey(task), action: 'stop' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); }); }
+        if (recurrence !== 'once' && !task.stopped) action('반복 종료', () => { confirmation = { key: rowKey(task), action: 'stop' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); }); }
       if (confirmation?.key === rowKey(task)) { const confirm = node('div', 'hw-confirm'); confirm.append(node('span', '', confirmation.action === 'stop' ? '오늘(또는 선택한 미래 날짜) 이후 반복을 종료합니다. 과거·미완료 기록은 유지됩니다.' : '이 날짜의 업무를 삭제합니다. 삭제한 업무에서 복구할 수 있습니다.'));
         const cancel = () => { confirmation = null; renderTasks(); focusTask(task.id); };
         const yes = button('확인', () => mutate(confirmation.action, taskFields(task))); yes.disabled = busy; confirm.append(yes, button('취소', cancel)); confirm.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancel(); } }); row.append(confirm); }
@@ -161,9 +166,9 @@
     draftSignal();
   }
   let editRepeat;
-  function captureEdit() { const f = rows.querySelector('.hw-edit'); if (f) editDraft = { title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get() }; }
+  function captureEdit() { const f = rows.querySelector('.hw-edit'); if (f) editDraft = { title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get(), frequency: editRepeat.frequency() }; }
   function renderEdit(row, task) {
-    const f = node('form', 'hw-edit'), text = node('input'), start = node('input'); text.name = 'title'; text.value = editDraft.title; text.required = true; text.maxLength = 300; text.setAttribute('aria-label', '업무 제목 수정'); start.type = 'date'; start.name = 'startDate'; start.value = editDraft.startDate; start.required = true; start.setAttribute('aria-label', '반복 시작일'); editRepeat = makeRepeat(editDraft.weekdays);
+    const f = node('form', 'hw-edit'), text = node('input'), start = node('input'); text.name = 'title'; text.value = editDraft.title; text.required = true; text.maxLength = 300; text.setAttribute('aria-label', '업무 제목 수정'); start.type = 'date'; start.name = 'startDate'; start.value = editDraft.startDate; start.required = true; start.setAttribute('aria-label', '반복 시작일'); editRepeat = makeRepeat(editDraft.weekdays,editDraft.frequency);
     const cancelEdit = () => { editing = null; editDraft = null; renderTasks(); rows.querySelector('[data-task="' + CSS.escape(rowKey(task)) + '"]>button')?.focus(); };
     const save = node('button', 'hw-primary', '저장'); save.type = 'submit'; const cancel = button('취소', cancelEdit); f.append(text, start, editRepeat.root, save, cancel);
     f.querySelectorAll('input,select,button').forEach(e => e.disabled = busy);
