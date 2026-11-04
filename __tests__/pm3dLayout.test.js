@@ -13,12 +13,18 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(desks.length, 14);
   for (let i = 0; i < desks.length; i++) for (let j = i + 1; j < desks.length; j++) {
     const a = desks[i]; const b = desks[j];
-    assert.ok(Math.abs(a.x - b.x) >= 1.3 || Math.abs(a.z - b.z) >= 1.3, `책상 겹침 ${a.name}/${b.name}`);
+    assert.ok(Math.abs(a.x - b.x) >= 1.9 || Math.abs(a.z - b.z) >= 1.9, `책상 겹침 ${a.name}/${b.name}`);
   }
   for (const d of desks) assert.ok(Math.abs(d.z) >= 3, '책상이 스테이션 복도를 침범');
   // 뒤통수 금지: 모든 좌석 방향 · 카메라 방향 내적 > 0.3
   for (const d of desks) assert.ok(L.facingDot(d.yaw) > 0.3, `좌석이 카메라 반대쪽: ${d.name} dot=${L.facingDot(d.yaw).toFixed(2)}`);
   for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.3);
+  // 비율: 1440x720 화면 100% 기본 배율에서 캐릭터 90~110px, 9 스테이션 전부 보임
+  const { hx, hz } = L.floorBounds(desks);
+  const fit = L.sceneFit(hx, hz);
+  const px = L.charPixelHeight(720, fit);
+  assert.ok(px >= 90 && px <= 110, `캐릭터 화면 높이 ${px.toFixed(0)}px (목표 90~110)`);
+  assert.ok((fit / L.DEFAULT_ZOOM) * 2 >= L.stationPos(9).x + 0.4, '기본 배율에서 9 스테이션 전부 보임(1440 화면)');
   const xs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => L.stationPos(n).x);
   assert.ok(xs.every((x, i) => i === 0 || x > xs[i - 1]));
   const lk = L.look3d({ items: { outfit: 'outfit.aloha', hat: 'hat.straw', deskL: 'desk.mug', pet: 'pet.cat' }, skin: 1, hairColor: 2 }, '홍길동');

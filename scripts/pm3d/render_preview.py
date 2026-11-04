@@ -38,7 +38,8 @@ def put(name, x, z, ry=0.0, s=1.0, parent=None):
     return root
 
 # ── 배치(lib/pm3dLayout.js 와 같은 규칙) ──
-STATION_GAP, DESK_DX, DESK_DZ, DEPT_GAP = 2.6, 1.6, 2.2, 1.4
+STATION_GAP, DESK_DX, DESK_DZ, DEPT_GAP = 2.2, 2.0, 2.3, 1.4
+CHAR_S, SET_S = 0.95, 1.45  # lib/pm3dLayout.js CHAR_SCALE/SET_SCALE 와 같음
 ROOMS = [('영업지원', 3), ('수입부', 2), ('영업부', 3), ('경영지원', 1)]
 # 좌석 방향 = lib/pm3dLayout.js seatYaw 와 같음(모두 카메라 쪽, 뒤통수 금지)
 CAM_YAW, SEAT_TURN = math.pi / 4, 0.35
@@ -54,8 +55,8 @@ for side, rs in enumerate(sides):
         cols = max(1, math.ceil(n / 2))
         for j in range(n):
             col, row = j % cols, j // cols
-            desks.append((x0 + DESK_DX / 2 + col * DESK_DX, sign * (3.6 + row * DESK_DZ), seat_yaw(len(desks)), j))
-        plates.append((x0 + widths[k] / 2, sign * (3.6 + DESK_DZ * 1.5 + 0.6)))
+            desks.append((x0 + DESK_DX / 2 + col * DESK_DX, sign * (3.2 + row * DESK_DZ), seat_yaw(len(desks)), j))
+        plates.append((x0 + widths[k] / 2, sign * (3.2 + DESK_DZ * 1.5 + 0.6)))
         x0 += widths[k] + DEPT_GAP
 hx = math.ceil(max(STATION_GAP * 5, *[abs(d[0]) + 2 for d in desks]) / 2) * 2
 hz = math.ceil(max(6, *[abs(d[1]) + 2.5 for d in desks]) / 2) * 2
@@ -91,14 +92,14 @@ random.seed(3)
 for n, (dx, dz, yaw, j) in enumerate(desks):
     ry = yaw
     g = bpy.data.objects.new('seat', None); sc.collection.objects.link(g); g.location = (dx, -dz, 0); g.rotation_euler = (0, 0, ry)
-    put('desk', 0, 0, parent=g); m = put('monitor', 0, 0.05, R(180), 0.55, parent=g); m.location.z = 0.76
-    put('chair', 0, -0.62, parent=g)
-    if TH == 'B' and n % 2 == 0: p = put('mug', -0.42, 0.05, parent=g); p.location.z = 0.76
-    if n % 3 == 1: p = put('plant', 0.42, 0.05, 0, 0.35, parent=g); p.location.z = 0.76
+    put('desk', 0, 0, 0, SET_S, parent=g); m = put('monitor', 0, 0.07, R(180), 0.55 * SET_S, parent=g); m.location.z = 0.72 * SET_S
+    put('chair', 0, -0.62 * SET_S, 0, SET_S, parent=g)
+    if TH == 'B' and n % 2 == 0: p = put('mug', -0.61, -0.22, 0, 2.0, parent=g); p.location.z = 0.72 * SET_S
+    if n % 3 == 1: p = put('plant', 0.61, -0.22, 0, 1.0, parent=g); p.location.z = 0.72 * SET_S
     objs = imp('char.glb')
     rig = next(o for o in objs if o.type == 'ARMATURE')
     for top in [o for o in objs if o.parent is None]:
-        top.parent = g; top.location = (0, 0.62, 0.42 - 0.42 * 0.62 + 0.04); top.rotation_euler = (0, 0, 0); top.scale = (0.62, 0.62, 0.62)
+        top.parent = g; top.location = (0, 0.62 * SET_S, 0.46 * SET_S - 0.42 * CHAR_S + 0.02); top.rotation_euler = (0, 0, 0); top.scale = (CHAR_S, CHAR_S, CHAR_S)
     L = LOOKS[n % len(LOOKS)]
     clip = 'doze' if n % 4 == 3 else 'sit_type'
     if rig.animation_data:
@@ -124,7 +125,7 @@ sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 2.6; sun.angle = R(12)
 so = bpy.data.objects.new('sun', sun); sc.collection.objects.link(so); so.rotation_euler = (R(50), R(10), R(-35))
 fill = bpy.data.lights.new('fill', 'SUN'); fill.energy = 0.8; fill.angle = R(30)
 fo = bpy.data.objects.new('fill', fill); sc.collection.objects.link(fo); fo.rotation_euler = (R(60), 0, R(140))
-cd = bpy.data.cameras.new('cam'); cd.type = 'ORTHO'; cd.ortho_scale = max(hx * 1.55, hz * 2.0); cd.clip_end = 300
+cd = bpy.data.cameras.new('cam'); cd.type = 'ORTHO'; cd.ortho_scale = max(hx * 0.48, hz * 0.62) * 2 / 1.2  # sceneFit x2 / 기본배율1.2; cd.clip_end = 300
 cam = bpy.data.objects.new('cam', cd); sc.collection.objects.link(cam); sc.camera = cam
 import mathutils
 cam.rotation_euler = (R(90 - 35.264), 0, R(45))  # 카메라 위치 = 블렌더(+x,-y) = 웹(+x,+z)
