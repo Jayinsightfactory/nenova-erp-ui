@@ -1,5 +1,11 @@
 # 작업 기록
 
+## 2026-11-04 /pm SOFT CLAY 디자인 시스템 토큰 반영(+기준 문서)
+- PR #1503: radar 칩 한 덩어리 분리(이모지 아이콘·이름·★·점수 N/10 별 요소), 배지 전부 UI 키트 Badge(.radar 스코프 재정의, 전역 .badge 불변). PR #1506: design-system.png 실측 → 테마 B 토큰 교체(민트 A0E0C5·크림 FFFDF5/FFF8E7·코랄 FF9E8B·노랑 FFE085·라벤더 D5C2F1·비활성 E0E0E5), 키트 버튼 호버/눌림/비활성 상태(accentHover/Down·errHover/Down·disBg/Ink, 타테마 color-mix 파생), radar 링크 클레이 밑줄(호버 코랄).
+- 기준 고정: docs/pm-design-standard.md(유일 기준·생성이미지 금지·/pm 전용 범위) + public/pm/design/ 축소 사본 2장. 범위 검증=globals.css 무변경+선택자 전부 .pm/.radar 접두+pm* 테스트 20종 통과.
+- 함정: 주석에 쓴 <button·#hex 도 pmTechRadar/pmNoHexColor 가 잡음. 배포런 STALE_RELEASE 는 뒤 머지에 추월된 것(실패 아님).
+- 검색어: SOFT CLAY design-system pm-design-standard 테마B A0E0C5 FF9E8B accentDown disBg pmk-primary-down 링크밑줄
+
 ## 2026-11-04 /pm/radar 기술 레이더 클레이 파스텔 재구성
 - PR #1498: Gemini 시안(nenova-pm/github-radar/design/radar-ui-A.png)대로 재구성 — 헤더(회차 배지·우리관심/전체트렌드 탭·주제/추천/점수 필터칩), 왼쪽 "바로 시험" 큰 카드 3장(이게 뭐예요/빗대면/용어풀이/자세히 보기), 가운데 작은 카드 그리드(클릭 펼침, 12건 "더 보기" — 수집량 20~40건 대비), 오른쪽 사이드바(점수분포 막대 최상/상/중/하·주제별 개수 파스텔 칩·지난 회차). 집계는 전부 클라이언트, API 불변.
 - 색은 lib/pmThemes.js 테마 B 토큰 var(--pm-*)만(hex 0), themeCss(themeById('B')) 주입 + data-theme="B". 버튼류는 components/pm/ui 키트만(SelectCard 는 styled-jsx 밖 컴포넌트라 :global(.hit) 필요).
