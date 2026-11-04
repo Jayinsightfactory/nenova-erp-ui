@@ -94,5 +94,20 @@ const { pathToFileURL } = require('url');
   assert.ok((ch.materials || []).some((m) => m.name === 'face'), '표정 데칼(face 재질) 없음');
   const faceDir = path.join(dir, 'face');
   for (const f of ['smile', 'grin', 'focus', 'wow', 'wink', 'sleepy', 'fire', 'proud', 'shy', 'teary', 'sing', 'thinking']) assert.ok(fs.existsSync(path.join(faceDir, f + '.webp')), `표정 없음: ${f}`);
+  // 회귀(2026-11-04 사장님 스크린샷): 의자+캐릭터가 책상에서 분리 — 좌석은 자기 책상에서 일정 거리 이내여야 한다.
+  for (const d of desks) {
+    const s = L.seatWorld(d);
+    const dist = Math.hypot(s.x - d.x, s.z - d.z);
+    assert.ok(Math.abs(dist - L.SEAT_OFF) < 1e-9 && dist <= 1.0, `좌석-책상 거리 이탈: ${d.name} ${dist.toFixed(2)}m`);
+  }
+  // mapScale(1.5)은 바닥만 키운다 — 책상·좌석은 항상 확장된 바닥 안
+  {
+    const { hx, hz } = L.floorBounds(desks, 1.5);
+    for (const d of desks) { const s = L.seatWorld(d); assert.ok(Math.abs(d.x) < hx && Math.abs(d.z) < hz && Math.abs(s.x) < hx && Math.abs(s.z) < hz, `mapScale 바닥 밖: ${d.name}`); }
+  }
+  // Kenney 가구 피벗 보정: 책상·의자는 bbox 로 재중심(모서리 피벗 그대로 두면 책상이 대각선으로 밀림), 노트북은 실측 상판 높이
+  assert.ok(/setFromObject\(desk\)/.test(src) && /-dbb\.min\.y/.test(src), '책상 피벗 재중심 없음');
+  assert.ok(/setFromObject\(chair\)/.test(src) && /-SEAT_Z - cc\.z/.test(src), '의자 피벗 재중심 없음');
+  assert.ok(/deskTopY \+ 0\.01/.test(src) && !/DESK_H \+ 0\.01/.test(src), '노트북이 고정 DESK_H 공중부양');
   console.log(`pm3dLayout OK (assets ${(total / 1024).toFixed(0)}KB)`);
 })().catch((e) => { console.error(e); process.exit(1); });
