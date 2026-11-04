@@ -11,6 +11,8 @@ import { STAGES, stageLabel, staffLinks, lineWidth, linkTaskText, linkTipText, s
 import { normalizePlaybooks, playbookSummary, sortPlaybookCards, kstDateTime } from '../lib/pmPlaybooks';
 import { buildHandoffs, chainView, filterLog, logFacets, kstHM, kstDay, fmtGap, DEFAULT_WINDOW_H } from '../lib/pmWorkLog';
 import MenuBackButton from '../components/MenuBackButton';
+import IsoScene, { ISO_CSS } from '../components/pm/IsoScene';
+import { themeById } from '../lib/pmThemes';
 import { GrowProvider, DeskPot, GrowTab, GardenStrip } from '../components/pm/grow/Grow';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
@@ -676,6 +678,10 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const [reduced, setReduced] = useState(false);
   const pmTheme = usePmThemeState(myStaff || '');
   const floorRef = useRef(null);
+  // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
+  const [view, setView] = useState('scene');
+  useEffect(() => { try { const v = window.localStorage.getItem('pm.view'); if (v === 'list' || v === 'scene') setView(v); } catch { /* 무시 */ } }, []);
+  const pickView = (v) => { setView(v); try { window.localStorage.setItem('pm.view', v); } catch { /* 무시 */ } };
   useEffect(() => { const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)'); if (!mq) return undefined; const f = () => setReduced(mq.matches); f(); mq.addEventListener?.('change', f); return () => mq.removeEventListener?.('change', f); }, []);
   const openPerson = useCallback((n, tab = 'auto') => { setSelTab(tab); setSel(n); }, []);
   const closeSel = useCallback(() => setSel(null), []);
@@ -769,7 +775,22 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
       {!resp && !err && <p className="muted">불러오는 중…</p>}
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
       <div className="wrap">
+        {view === 'scene' ? (
+        <main className="floor scene">
+          <div className="scene-h">
+            <b>사무실 장면</b><small>스테이션·캐릭터에 마우스 = 자세히 · 클릭 = 고정 · 라벨칩 클릭 = 직원 시간</small>
+            <Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['list', '목록 보기']]} />
+          </div>
+          <IsoScene theme={themeById(pmTheme.themeId)} agents={agents} rooms={visibleRooms} links={links} corridor={corridor} now={now}
+            selStage={selStage} onPickStage={setSelStage} onOpenPerson={openPerson} reduced={reduced} isAdmin={isAdmin} myStaff={myStaff} />
+          {selStage && <StagePanel no={selStage} corridor={corridor} liveRows={liveRowsByStage[selStage] || []} onClose={() => setSelStage(null)} onOpenPerson={(n) => openPerson(n, 'time')} />}
+          <details className="chainbox"><summary>부서간 넘김 사슬 보기</summary>
+            <HandoffChains workLog={workLog} handoffs={handoffs} reduced={reduced} onOpenPerson={(n) => openPerson(n, 'log')} />
+          </details>
+        </main>
+        ) : (
         <main className="floor" ref={floorRef}>
+          <div className="scene-h"><b>목록 보기</b><Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['list', '목록 보기']]} /></div>
           <div className="topwing">
             <section className="room lab">
               <div className="plate">AI 연구실 · 서버실 <small>{labAgents.length}</small></div>
@@ -809,6 +830,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
           </div>
           <FlowLines hostRef={floorRef} links={links} reduced={reduced} onTip={onTip} onPick={(n) => openPerson(n, 'time')} />
         </main>
+        )}
         <aside className="side">
           {ts?.data && (
             <details className="panel" open>
@@ -864,6 +886,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
       </div>
       {sel && <StaffDrawer key={sel + selTab} initialTab={selTab} name={sel} workLog={workLog} live={staff.find((x) => x.name === sel) || null} now={now} onClose={closeSel} isAdmin={isAdmin} myStaff={myStaff} />}
       <p className="credit">픽셀 사무실 아이디어: pablodelucca/pixel-agents (그림은 직접 제작)</p>
+      <style dangerouslySetInnerHTML={{ __html: ISO_CSS }} />
       <style jsx global>{`
         /* 모든 색·모서리·그림자·폰트 = lib/pmThemes.js 토큰(var(--pm-*)). 여기에 hex 를 쓰지 않는다(__tests__/pmNoHexColor.test.js). */
         .pm { position: relative; min-height: 100vh; background: var(--pm-bg); color: var(--pm-ink); font-family: var(--pm-font); padding: 0 16px 24px; font-size: 13px; isolation: isolate; }
@@ -876,9 +899,12 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .muted { color: var(--pm-muted); }
         .pm h2 { font-size: 15px; margin: 0 0 8px; } .pm h3 { font-size: 13px; margin: 8px 0 6px; color: var(--pm-ink); }
         .pm small { color: var(--pm-muted); font-weight: normal; }
-        .pm .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; }
+        .pm .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
         .pm .wrap > *, .pm .floor, .pm .room, .pm .topwing > * { min-width: 0; }
         .pm .floor { position: relative; background: color-mix(in srgb, var(--pm-surface) 55%, transparent); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); backdrop-filter: blur(2px); }
+        .pm .scene-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; } .pm .scene-h b { font-size: 14px; } .pm .scene-h .vtab { margin-left: auto; }
+        .pm .floor.scene { padding: 10px; } .pm .chainbox { margin-top: 10px; } .pm .chainbox > summary { cursor: pointer; font-weight: bold; padding: 4px 0; color: var(--pm-ink); }
+        .pm .side .panel { padding: 10px 12px; } .pm .side .panel h2 { display: flex; align-items: baseline; gap: 6px; }
         .pm .topwing { display: flex; gap: 10px; flex-wrap: wrap; }
         .pm .room { position: relative; background: var(--pm-floor); border: 3px solid var(--pm-line); border-radius: var(--pm-radius); padding: 28px 10px 10px; box-shadow: var(--pm-shadow); }
         .pm .room::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: var(--pm-radius) var(--pm-radius) 0 0; background: var(--dc, var(--pm-accent)); }
