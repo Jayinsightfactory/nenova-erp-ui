@@ -10,7 +10,7 @@ import { FxCast } from './SkillFx';
 import { BASE_SKILLS, FX_RULES, castSpec, skillById, skillShopItems } from '../../lib/pmSkills';
 import { mountShopItems } from '../../lib/pmMounts';
 import { PM_DEFAULT_THEME, PM_THEMES, PM_THEMES_VISIBLE, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb, visibleThemeId } from '../../lib/pmThemes';
-import { hatMesh } from '../../lib/pm3dLayout';
+import { hatMesh, wearMesh } from '../../lib/pm3dLayout';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null, shop: null, reloadShop: null });
 export const usePmTheme = () => useContext(PmThemeCtx);
@@ -302,6 +302,9 @@ function Render3DPreview({ cfg }) {
     `/pm/shop/char.${n.char}.webp`,
     n.items.outfit ? `/pm/shop/layer.${n.items.outfit}.webp` : '',
     n.items.hat ? `/pm/shop/layer.${hat}.webp` : '',
+    n.items.glasses ? `/pm/shop/layer.${wearMesh('glasses', n.items.glasses)}.webp` : '',
+    n.items.hand ? `/pm/shop/layer.${wearMesh('hand', n.items.hand)}.webp` : '',
+    n.items.badge ? `/pm/shop/layer.${wearMesh('badge', n.items.badge)}.webp` : '',
   ].filter(Boolean);
   const hide = (e) => { e.currentTarget.style.visibility = 'hidden'; };
   const show = (e) => { e.currentTarget.style.visibility = 'visible'; };

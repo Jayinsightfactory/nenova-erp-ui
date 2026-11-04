@@ -212,39 +212,19 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const p = byName.get(name) || { status: 'off' };
         const L = look3d(av?.[name], name);
         P.ch.traverse((m) => {
+          // 착용 소품·종족 부속 = char.glb 전용 모델(본 스키닝, scripts/pm3d/build_wearables.py) — 이름 일치만 보이기.
+          //   다중 재질 모델은 로더가 그룹(이름 유지) + 자식 메시(데이터명)로 쪼개므로, 메시가 아니어도 이름으로 토글한다.
+          const nm = m.name || '';
+          if (/^hat_/.test(nm)) { m.visible = nm === L.hat; return; }
+          if (/^gls_/.test(nm)) { m.visible = nm === L.glasses; return; }
+          if (/^hnd_/.test(nm)) { m.visible = nm === L.hand; return; }
+          if (/^bdg_/.test(nm)) { m.visible = nm === L.badge; return; }
+          if (/^race_/.test(nm)) { m.visible = nm === L.raceMesh; return; }
           if (!m.isMesh && !m.isSkinnedMesh) return;
           const n = m.material?.name || '';
           if (n === 'top') m.material.color.set(L.top); else if (n === 'bottom') m.material.color.set(L.bottom);
           else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') { m.material.color.set(L.hair); m.visible = !L.hideHair; }
-          if (/^hat_/.test(m.name)) m.visible = m.name === L.hat;
         });
-        // 종족 부속(귀·더듬이 등, PM3D.RACES) — head 본에 부착해 앉기/걷기 포즈를 따라간다. 상점 렌더(render_shop.py)와 같은 표.
-        if ((L.char || 'human') !== P.raceId) {
-          if (P.raceObj) { P.raceObj.parent?.remove(P.raceObj); P.raceObj = null; }
-          const bone = P.ch.getObjectByName('head');
-          if (bone && L.attach?.length) {
-            const grp = new THREE.Group();
-            P.ch.updateWorldMatrix(true, true);
-            for (const a of L.attach) {
-              const col = a.c === 'hair' ? L.hair : a.c === 'skin' ? L.skin : a.c;
-              const mt = new THREE.MeshStandardMaterial({ color: col, roughness: 0.9 });
-              const geo = a.shape === 'cone' ? new THREE.ConeGeometry(a.r, a.h, 12)
-                : a.shape === 'cyl' ? new THREE.CylinderGeometry(a.r, a.r, a.h, 10)
-                : a.shape === 'torus' ? new THREE.TorusGeometry(a.R, a.r, 8, 18)
-                : new THREE.SphereGeometry(a.r, 12, 8);
-              const mesh = new THREE.Mesh(geo, mt);
-              if (a.s) mesh.scale.set(a.s[0], a.s[1], a.s[2]);
-              if (a.rot) mesh.rotation.set(a.rot[0], a.rot[1], a.rot[2]);
-              else if (a.shape === 'torus') mesh.rotation.x = Math.PI / 2;
-              // 캐릭터 로컬 좌표 → head 본 로컬(본이 움직여도 상대 위치 유지)
-              const v = new THREE.Vector3(a.p[0], a.p[1], a.p[2]);
-              P.ch.localToWorld(v); bone.worldToLocal(v); mesh.position.copy(v);
-              mesh.castShadow = true; grp.add(mesh);
-            }
-            bone.add(grp); P.raceObj = grp;
-          }
-          P.raceId = L.char || 'human';
-        }
         // 표정: 춤 > 작업 분위기(status) > 직원 기본 표정 > smile (lib/pmFaces.faceOf)
         const faceId = faceOf({ vibe: STATUS_VIBE[p.status] || '', defaultFace: L.face }) || (isFaceId(L.face) ? L.face : 'smile');
         P.ch.traverse((m) => {
@@ -256,6 +236,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
         L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.position.y = (P.deskTop ?? DESK_H) + 0.005; o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
+        // 책장·큰 소품(구매 shelf) — 책상 오른쪽 뒤 바닥(kit.glb shelf_* 모듈)
+        if (L.shelf) { const o = kitMod(L.shelf); o.position.set(1.45, 0, -SEAT_Z - 0.15); o.rotation.y = -0.35; o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); P.g.add(o); P.decor.push(o); }
         if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';

@@ -106,62 +106,58 @@ def face_show(show):
         for l in list(b.inputs['Alpha'].links): m.node_tree.links.remove(l)
         b.inputs['Alpha'].default_value = 1.0 if (show and FACE_TEX is None) else 0.0
 
-ATTACH = []
-def clear_attach():
-    global ATTACH
-    for o in ATTACH: bpy.data.objects.remove(o, do_unlink=True)
-    ATTACH = []
-
-def add_attach(spec, skin, hair):
-    # 좌표: three/glTF Y-up [x,y,z] → 블렌더 (x, -z, y). 모양 기본 축은 양쪽 다 '위'라 rot 값 그대로 쓴다.
-    for a in spec or []:
-        p = (a['p'][0], -a['p'][2], a['p'][1])
-        if a['shape'] == 'cone': bpy.ops.mesh.primitive_cone_add(radius1=a['r'], radius2=0, depth=a['h'], location=p, vertices=16)
-        elif a['shape'] == 'cyl': bpy.ops.mesh.primitive_cylinder_add(radius=a['r'], depth=a['h'], location=p, vertices=12)
-        elif a['shape'] == 'torus': bpy.ops.mesh.primitive_torus_add(major_radius=a['R'], minor_radius=a['r'], location=p, major_segments=18, minor_segments=8)
-        else: bpy.ops.mesh.primitive_uv_sphere_add(radius=a['r'], location=p, segments=16, ring_count=10)
-        o = bpy.context.object
-        if a.get('s'): o.scale = (a['s'][0], a['s'][2], a['s'][1])  # three [sx,sy,sz] → 블렌더 (sx, sz, sy)
-        if a.get('rot'): o.rotation_euler = (a['rot'][0], a['rot'][2], a['rot'][1])
-        col = hair if a.get('c') == 'hair' else skin if a.get('c') == 'skin' else a.get('c')
-        m = bpy.data.materials.new('att'); m.use_nodes = True
-        bsdf = m.node_tree.nodes['Principled BSDF']
-        bsdf.inputs['Base Color'].default_value = lin(col); bsdf.inputs['Roughness'].default_value = 0.9
-        o.data.materials.append(m)
-        for pg in o.data.polygons: pg.use_smooth = (a['shape'] != 'cone')
-        ATTACH.append(o)
-
-def char_vis(show_groups, hat=''):
-    # show_groups: 재질 베이스명 집합(알파 0/1로 토글 — 몸이 메시 1개라 재질 단위). hat = 보일 hat_* 메시('' = 전부 숨김)
+WEAR_PFX = ('hat_', 'gls_', 'hnd_', 'bdg_', 'race_')
+def char_vis(show_groups, wear=()):
+    # show_groups: 재질 베이스명 집합(알파 0/1로 토글 — 몸이 메시 1개라 재질 단위).
+    # wear = 보일 착용·종족 메시 이름들(build_wearables.py 전용 모델, 그 외 hat_/gls_/hnd_/bdg_/race_ 는 전부 숨김)
     for o in meshes:
-        if o.name.startswith('hat_'): set_hide(o, not (hat and o.name.startswith(hat)))
+        base = o.name.split('.')[0]
+        if base.startswith(WEAR_PFX): set_hide(o, base not in wear)
     for bn, m in MATS.items():
-        if bn.startswith('hat_') or bn == 'face': continue
+        if bn.startswith(WEAR_PFX) or bn.startswith('w_') or bn == 'face': continue  # 착용 메시 재질(w_*)은 몸 토글 대상 아님
         bsdf(m).inputs['Alpha'].default_value = 1.0 if bn in show_groups else 0.0
     face_show('face' in show_groups)
 
+def wear_bbox(name):
+    # 아마추어 포즈(idle 1프레임)가 반영된 착용 메시의 월드 바운딩
+    dg = bpy.context.evaluated_depsgraph_get()
+    lo = Vector((1e9,) * 3); hi = Vector((-1e9,) * 3)
+    for o in meshes:
+        if o.name.split('.')[0] != name: continue
+        ov = o.evaluated_get(dg)
+        for v in ov.bound_box:
+            p = ov.matrix_world @ Vector(v)
+            lo = Vector(map(min, lo, p)); hi = Vector(map(max, hi, p))
+    return (lo, hi) if hi.x > -1e8 else None
+
 CHAR_GROUPS = {'top', 'bottom', 'skin', 'hair', 'shoe', 'cheek', 'face'}
-aim((0, 0, 1.05), 2.6)  # 전신 + 귀 여유, 모든 캐릭터/레이어 렌더 공통(레이어 겹침 전제)
+CHAR_AIM = ((0, 0, 1.05), 2.6)  # 전신 + 귀 여유, 모든 캐릭터/레이어 렌더 공통(레이어 겹침 전제)
+aim(*CHAR_AIM)
 for c in SPEC['characters']:
-    clear_attach()
     show = set(CHAR_GROUPS)
     if c.get('hideHair'): show.discard('hair')
-    char_vis(show)
+    char_vis(show, wear=(c['raceMesh'],) if c.get('raceMesh') else ())
     tint({'top': c['top'], 'bottom': c['bottom'], 'skin': c['skin'], 'hair': c['hair']})
-    add_attach(c.get('attach'), c['skin'], c['hair'])
     render(c['key'])
-clear_attach()
 # 옷 레이어(몸 메시만) — 베이스와 같은 카메라
 for it in [x for x in SPEC['items'] if x['kind'] == 'outfit']:
     char_vis({'top', 'bottom'})
     tint({'top': it['top'], 'bottom': it['bottom']})
     render('layer.' + it['key'])
-# 모자 레이어 3종(같은 카메라) — hat.* 카드와 미리보기 겹침이 같은 그림을 쓴다
+# 착용 소품(모자·안경·손·배지): 카드 = 소품만 확대 렌더, 레이어 = 종족 베이스와 같은 카메라(미리보기 겹침)
 for mesh in SPEC['hatLayers']:
-    char_vis(set(), hat=mesh)
+    char_vis(set(), wear=(mesh,))
+    aim(*CHAR_AIM)
     render('layer.' + mesh)
+for it in [x for x in SPEC['items'] if x['kind'] == 'wear']:
+    bb = wear_bbox(it['mesh'])
+    if not bb: print('SHOP_SKIP', it['key'], it['mesh']); continue
+    char_vis(set(), wear=(it['mesh'],))
+    lo, hi = bb; center = (lo + hi) / 2
+    aim(tuple(center), max((hi - lo).length * 1.25, 0.42))
+    render(it['key'])
+aim(*CHAR_AIM)
 for o in chobjs: set_hide(o, True)
-clear_attach()
 
 # ── 2) 아이템(kit.glb + 펫 구체) — 카드별 3/4 구도, 바운딩 자동 맞춤 ──
 kit = imp('kit.glb'); KIT = {o.name: o for o in kit if o.parent is None}

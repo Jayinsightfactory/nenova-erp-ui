@@ -31,12 +31,23 @@ const { pathToFileURL } = require('url');
     assert.ok(fs.existsSync(path.join(root, 'public/pm/shop', `char.${c.id}.webp`)), `종족 렌더 없음: char.${c.id}.webp`);
     if (c.id === 'human') continue;
     const k = L.look3d({ char: c.id, items: {} }, 'x');
-    const distinct = k.skin !== base.skin || k.hair !== base.hair || k.hideHair !== base.hideHair || (k.attach || []).length > 0;
+    const distinct = k.skin !== base.skin || k.hair !== base.hair || k.hideHair !== base.hideHair || !!k.raceMesh;
     assert.ok(distinct, `종족 ${c.id} 가 기본 모습과 시각적으로 구분되지 않음(PM3D.RACES 확인)`);
+    assert.ok(k.raceMesh && /^race_/.test(k.raceMesh), `종족 ${c.id} 전용 부속 메시 없음(PM3D.RACES.mesh)`);
     assert.strictEqual(k.char, c.id, `look3d 가 종족 ${c.id} 를 전달하지 않음`);
   }
-  // 미리보기 레이어(같은 카메라 겹침)
-  for (const f of ['layer.hat_cap', 'layer.hat_straw', 'layer.hat_party', 'layer.outfit.knit']) {
+  // 미리보기 레이어(같은 카메라 겹침): 옷 + 착용 소품(모자·안경·손·배지) 전용 메시 레이어 전부 실재
+  const layerFiles = ['layer.outfit.knit'];
+  for (const it of manifest.items) {
+    if (['hat', 'glasses', 'hand', 'badge'].includes(it.category)) {
+      const mesh = L.wearMesh(it.category, it.id);
+      assert.ok(mesh, `wearMesh 매핑 없음: ${it.id}`);
+      layerFiles.push(`layer.${mesh}`);
+      assert.ok(fs.existsSync(path.join(root, 'public/pm/shop', `${it.id}.webp`)), `착용 소품 카드 렌더 없음: ${it.id}.webp`);
+    }
+    if (it.category === 'shelf') assert.ok(fs.existsSync(path.join(root, 'public/pm/shop', `${it.id}.webp`)), `책장 카드 렌더 없음: ${it.id}.webp`);
+  }
+  for (const f of layerFiles) {
     assert.ok(fs.existsSync(path.join(root, 'public/pm/shop', `${f}.webp`)), `미리보기 레이어 없음: ${f}.webp`);
   }
   // 총용량 상한

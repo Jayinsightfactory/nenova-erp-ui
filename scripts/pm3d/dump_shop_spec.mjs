@@ -23,15 +23,17 @@ const hash = (s) => { let h = 0; for (const c of String(s || '')) h = (h * 31 + 
 
 const characters = manifest.characters.map((c) => {
   const k = L.look3d({ char: c.id, items: {} }, 'preview'); // 'preview' 고정 — 종족 간 옷색 동일
-  return { key: `char.${c.id}`, id: c.id, skin: k.skin, hair: k.hair, top: k.top, bottom: k.bottom, hideHair: k.hideHair, attach: k.attach, temp: k.raceTemp };
+  return { key: `char.${c.id}`, id: c.id, skin: k.skin, hair: k.hair, top: k.top, bottom: k.bottom, hideHair: k.hideHair, raceMesh: k.raceMesh, temp: k.raceTemp };
 });
 const items = [];
 for (const it of manifest.items) {
   if (it.category === 'outfit') {
     const oc = OUTFIT_COLORS[it.id];
     if (oc) items.push({ key: it.id, kind: 'outfit', top: oc[0], bottom: oc[1], temp: false });
-  } else if (it.category === 'hat') {
-    items.push({ key: it.id, kind: 'hat', mesh: L.hatMesh(it.id), temp: true }); // 16종 → 리그 모자 3종 매핑(임시)
+  } else if (['hat', 'glasses', 'hand', 'badge'].includes(it.category)) {
+    items.push({ key: it.id, kind: 'wear', mesh: L.wearMesh(it.category, it.id), temp: false }); // 종별 전용 메시(build_wearables.py)
+  } else if (it.category === 'shelf') {
+    items.push({ key: it.id, kind: 'kit', model: L.shelfModel(it.id), temp: false }); // kit.glb shelf_* (build_shelves.py)
   } else if (it.category === 'desk') {
     items.push({ key: it.id, kind: 'kit', model: 'desk_k1', tint: DESK_SKINS[hash(it.id) % DESK_SKINS.length], temp: false }); // look3d 와 같은 틴트
   } else if (it.category === 'chair') {
@@ -43,10 +45,9 @@ for (const it of manifest.items) {
   } else if (it.category === 'pet') {
     items.push({ key: it.id, kind: 'pet', tint: ui.pet, temp: true }); // 3D 펫은 공용 구체
   }
-  // glasses / hand / badge / shelf: 3D 모델 없음 → 기존 그림 유지(보고 목록)
 }
-// 모자 레이어(미리보기 겹침용 — 종족 베이스와 같은 카메라)
-const hatLayers = [...new Set(items.filter((x) => x.kind === 'hat').map((x) => x.mesh))];
+// 착용 레이어(미리보기 겹침용 — 종족 베이스와 같은 카메라). 모자 16 + 안경 6 + 손 10 + 배지 7 전용 메시
+const hatLayers = [...new Set(items.filter((x) => x.kind === 'wear').map((x) => x.mesh))];
 const out = { generated: new Date().toISOString().slice(0, 10), characters, items, hatLayers, mounts: M.MOUNTS.map((m) => m.id) };
 fs.writeFileSync(path.join(root, 'scripts/pm3d/shop_spec.json'), JSON.stringify(out, null, 1));
 console.log('shop_spec.json: chars', characters.length, 'items', items.length, 'hatLayers', hatLayers.length);
