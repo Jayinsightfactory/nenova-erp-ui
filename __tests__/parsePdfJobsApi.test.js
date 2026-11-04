@@ -29,9 +29,12 @@ async function setup(fn) {
     let startImpl=(uid,key,opts)=>startPackingPdfJob(uid,key,{root,...opts});
     let finishImpl=(uid,id,token,value)=>finishPackingPdfJob(uid,id,token,value,{root});
     let cache=null;
-    const handler=new Function('withAuth','validatePackingPdf','buildPrompt','trackLLMCall','reservePackingPdfRequest','packingPdfCacheKey','readPackingPdfCache','writePackingPdfCache','PDF_ANALYSIS_MODEL','PDF_JOB_TIMEOUT_MS','getPackingPdfJob','findPackingPdfJobByKey','startPackingPdfJob','markPackingPdfAttempt','finishPackingPdfJob','markPackingPdfCacheSaved','fetch','AbortSignal',code)(
+    // docling 전처리 스텁: 기본은 미적용(기존 계약 그대로). setDocling 으로 주입 경로 검증 가능.
+    let doclingImpl={applies:()=>false,record:null};
+    const handler=new Function('withAuth','validatePackingPdf','buildPrompt','trackLLMCall','reservePackingPdfRequest','packingPdfCacheKey','readPackingPdfCache','writePackingPdfCache','PDF_ANALYSIS_MODEL','PDF_JOB_TIMEOUT_MS','getPackingPdfJob','findPackingPdfJobByKey','startPackingPdfJob','markPackingPdfAttempt','finishPackingPdfJob','markPackingPdfCacheSaved','doclingApplies','doclingWaitMs','doclingPdfSha','readDoclingResult','enqueueDoclingJob','waitForDoclingResult','buildDoclingPromptBlock','checkTablesArithmetic','appendDoclingMetrics','fetch','AbortSignal',code)(
       fn=>fn,validatePackingPdf,()=> 'fixed prompt',()=>{trackCalls++;},async()=>{quotaCalls++;await quotaImpl();},packingPdfCacheKey,async()=>cache,async()=>{cacheWrites++;return true;},PDF_ANALYSIS_MODEL,PDF_JOB_TIMEOUT_MS,
       (uid,id)=>getPackingPdfJob(uid,id,{root}),(uid,key)=>findPackingPdfJobByKey(uid,key,{root}),(uid,key,opts)=>startImpl(uid,key,opts),async(uid,id,token)=>{try{return await markPackingPdfAttempt(uid,id,token,{root});}catch(error){markErrors.push(error.code||error.name);throw error;}},async(uid,id,token,value)=>{try{const result=await finishImpl(uid,id,token,value);if(result?.status==='SUCCEEDED'||result?.status==='FAILED')finishedJobs.add(id);return result;}catch(error){finishErrors.push(error.stack||String(error));throw error;}},(uid,id,token)=>markPackingPdfCacheSaved(uid,id,token,{root}),
+      country=>doclingImpl.applies(country),()=>50,()=>'a'.repeat(64),async()=>doclingImpl.record,async()=>({enqueued:true}),async()=>doclingImpl.record,record=>record&&record.markdown?'\nCANDIDATE BLOCK\n'+record.markdown:'',()=>({checked:0,flagged:[]}),async()=>{},
       (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal
     );
     const request=async(method,user='alice',value=body,query={})=>{
@@ -59,7 +62,7 @@ async function setup(fn) {
       }
       throw Error(`expected ${count} mock provider dispatches; observed ${fetchCalls}`);
     };
-    return await fn({request,waitJob,waitFetchCalls,root,get fetchCalls(){return fetchCalls;},get quotaCalls(){return quotaCalls;},get trackCalls(){return trackCalls;},get cacheWrites(){return cacheWrites;},get markErrors(){return markErrors;},setFetch(value){fetchImpl=value;},setQuota(value){quotaImpl=value;},setCache(value){cache=value;},setStart(value){startImpl=value;},setFinish(value){finishImpl=value;}});
+    return await fn({request,waitJob,waitFetchCalls,root,get fetchCalls(){return fetchCalls;},get quotaCalls(){return quotaCalls;},get trackCalls(){return trackCalls;},get cacheWrites(){return cacheWrites;},get markErrors(){return markErrors;},setFetch(value){fetchImpl=value;},setQuota(value){quotaImpl=value;},setCache(value){cache=value;},setStart(value){startImpl=value;},setFinish(value){finishImpl=value;},setDocling(value){doclingImpl=value;}});
   }finally{
     if(oldKey===undefined)delete process.env.ANTHROPIC_API_KEY;else process.env.ANTHROPIC_API_KEY=oldKey;
     // SUCCEEDED is persisted before the detached runner finishes its cache marker.
@@ -190,4 +193,25 @@ test('retry identity is checked before cached replay and sync known failure omit
   h.setStart(async()=>({kind:'TERMINAL',job:{jobId:'00000000-0000-4000-8000-000000000001',status:'FAILED',error:{message:'known no-attempt failure'}}}));
   const known=await h.request('POST','alice',{...body,async:false});
   assert.equal(known.code,502);assert.equal(known.body.retryJobId,undefined);
+}));
+
+test('docling 전처리: 적용 시 시스템 프롬프트에 후보표 블록 추가, 미적용/결과없음 시 기존 프롬프트 그대로',()=>setup(async h=>{
+  let lastBody;
+  h.setFetch(async(url,options)=>{lastBody=JSON.parse(options.body);return {ok:true,json:async()=>data};});
+  h.setDocling({applies:()=>true,record:{ok:true,markdown:'| 4 | 100 | 400 |',tables:[]}});
+  const first=await h.request('POST');
+  await h.waitJob('alice',first.body.jobId);
+  assert.match(lastBody.system,/^fixed prompt/);
+  assert.match(lastBody.system,/CANDIDATE BLOCK/);
+  assert.equal(lastBody.messages[0].content[0].type,'document'); // PDF 는 계속 첨부(증거 계약)
+  // 결과 없음(워커 지연) → 블록 없이 기존 그대로
+  h.setDocling({applies:()=>true,record:null});
+  const second=await h.request('POST','alice',{...body,pdfBase64:Buffer.from('%PDF-second').toString('base64')});
+  await h.waitJob('alice',second.body.jobId);
+  assert.equal(lastBody.system,'fixed prompt');
+  // 미적용(off/NL) → 기존 그대로
+  h.setDocling({applies:()=>false,record:{ok:true,markdown:'x',tables:[]}});
+  const third=await h.request('POST','alice',{...body,pdfBase64:Buffer.from('%PDF-third').toString('base64')});
+  await h.waitJob('alice',third.body.jobId);
+  assert.equal(lastBody.system,'fixed prompt');
 }));
