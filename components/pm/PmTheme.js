@@ -25,7 +25,16 @@ export function usePmThemeState(who = '') {
     fetch('/api/pm/avatars', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (alive && j.success) setAvatars(j.avatars || {}); }).catch(() => {});
     return () => { alive = false; };
   }, []);
-  const pick = useCallback((id) => { setThemeId(id); storeTheme(id, who); }, [who]);
+  // 서버(직원별 꾸미기 저장소 data/runtime/pm-avatars.json)에 저장된 테마가 있으면 우선 — PC 를 바꿔도 유지
+  const serverTheme = who ? avatars[who]?.theme : '';
+  useEffect(() => { if (serverTheme && PM_THEMES.some((x) => x.id === serverTheme)) { setThemeId(serverTheme); storeTheme(serverTheme, who); } }, [serverTheme, who]);
+  const pick = useCallback((id) => {
+    setThemeId(id); storeTheme(id, who);
+    if (who) {
+      fetch('/api/pm/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: who, themeOnly: true, theme: id }) })
+        .then((r) => r.json()).then((j) => { if (j.success) setAvatars((a) => { const n = { ...a }; if (j.avatar) n[who] = j.avatar; return n; }); }).catch(() => {});
+    }
+  }, [who]);
   const save = useCallback(async (name, cfg) => {
     const r = await fetch('/api/pm/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, ...cfg }) });
     const j = await r.json().catch(() => ({}));

@@ -22,4 +22,10 @@ assert.strictEqual(cleanAvatar({ char: '<script>' }), null, '이상한 id 거부
 assert.strictEqual(saveAvatar('', { char: 'cat' }, '', { file }).status, 400);
 r = saveAvatar('강현우', { char: '', items: {} }, 'x', { file });
 assert.ok(r.ok && !readAvatars(file)['강현우'], '빈 값=삭제');
+// 테마 = 직원별 서버 저장(꾸미기와 독립)
+r = saveAvatar('설연주', { themeOnly: true, theme: 'C' }, 'x', { file });
+assert.ok(r.ok && readAvatars(file)['설연주'].theme === 'C', '테마만 저장');
+r = saveAvatar('설연주', { char: 'cat', items: {} }, 'x', { file });
+assert.strictEqual(readAvatars(file)['설연주'].theme, 'C', '꾸미기 저장해도 테마 유지');
+assert.strictEqual(saveAvatar('설연주', { themeOnly: true, theme: 'zz' }, 'x', { file }).status, 400, '이상한 테마 거부');
 console.log('pmAvatars ok');
