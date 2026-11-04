@@ -846,7 +846,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
       </header>
       <StaffRequests open={reqOpen} onClose={() => setReqOpen(false)} />
       {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
-        onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />
+        onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />}
       <GardenStrip />
       {ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
