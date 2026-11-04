@@ -1,5 +1,7 @@
 // components/pm3d/Scene3D.js — /pm 사무실 3D(베타). three.js 직교 아이소메트릭 카메라.
-// 에셋: public/pm3d/kit.glb(모듈) · char.glb(리그+클립 idle/sit_type/walk/doze/dance) — scripts/pm3d/build_assets.py 로 생성.
+// 에셋: public/pm3d/kit.glb(모듈, AO 베이크=scripts/pm3d/bake_kit_ao.py) · char.glb(리그+클립 idle/sit_type/walk/doze/dance).
+// 렌더 품질: nenova-pm/pm3d/QUALITY_RECIPE.md — 실시간 그림자 0(접지 블롭 평면) · AO 베이크(channel 1) ·
+//   MeshToonMaterial 5단 파스텔 램프(캐릭터) · RoomEnvironment 1회 · ACESFilmic 노출 1.2 · 배경 그라데이션+안개.
 // 확대·축소 = 배율 바(1% 단위)·맞춤 버튼만(휠 확대 없음). 확대했을 때만 드래그 이동.
 // WebGL 없음·로드 실패·저사양(첫 프레임 3초 초과 / FPS<20)이면 onFallback(reason) → 부모가 2D 장면을 보여 준다.
 import { useEffect, useRef, useState } from 'react';
@@ -7,6 +9,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { beachDecor } from '../../lib/pm3dDecor';
 import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
@@ -25,7 +29,8 @@ const STAGE_HEX = PM3D.STAGE;
 const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
 const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
 const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const SEAT_Y = 0.46 * SET_SCALE - 0.48 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.95 * CHAR_SCALE + 0.35; // 앉은 엉덩이(KayKit sit 클립 힙 높이 0.48)를 의자 좌판(0.46)에 맞춤
+const SEAT_Y = 0.46 * SET_SCALE - 0.48 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.68 * CHAR_SCALE + 0.35; // 앉은 엉덩이(KayKit sit 클립 힙 높이 0.48)를 의자 좌판(0.46)에 맞춤. 1.68=비율 교정 후 머리끝
+const RQ = PM3D.RENDER; // 렌더 품질 토큰(nenova-pm/pm3d/QUALITY_RECIPE.md 기준)
 
 function webglOk() {
   try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch { return false; }
@@ -43,10 +48,10 @@ function loadAssets() {
 }
 function laptop() {
   const g = new THREE.Group();
-  const body = new THREE.MeshStandardMaterial({ color: U.laptop, roughness: 0.9 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), body); base.position.y = 0.01; base.castShadow = true; g.add(base);
+  const body = new THREE.MeshStandardMaterial({ color: U.laptop, roughness: 0.75 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), body); base.position.y = 0.01; g.add(base);
   const lid = new THREE.Group(); lid.position.set(0, 0.02, 0.12); lid.rotation.x = 0.35; // 화면 윗부분이 카메라 쪽으로 젖혀짐 g.add(lid);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.015), body); back.position.y = 0.1; back.castShadow = true; lid.add(back);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.015), body); back.position.y = 0.1; lid.add(back);
   const scr = new THREE.MeshStandardMaterial({ color: U.screenOn, emissive: U.screenOn, emissiveIntensity: 0.6, roughness: 1 }); scr.name = 'screen';
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.17), scr); face.position.set(0, 0.1, -0.009); face.rotation.y = Math.PI; lid.add(face);
   return g;
@@ -87,14 +92,68 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const mountAt = performance.now();
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // QUALITY_RECIPE: 전역 shadowMap 금지(그림자 = 접지 블롭 평면) + ACESFilmic 톤매핑
+    renderer.shadowMap.enabled = false;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = RQ.exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(T.bg);
-    scene.add(new THREE.HemisphereLight(U.hemiSky, U.hemiGround, 1.6));
-    const sun = new THREE.DirectionalLight(T.light, 2.0); sun.position.set(-12, 22, 14); sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024); sun.shadow.radius = 4; sun.shadow.bias = -0.0008;
+    const scene = new THREE.Scene();
+    // 배경: 세로 그라데이션(bgTop→bg) + 같은 톤 안개로 깊이감
+    {
+      const c = document.createElement('canvas'); c.width = 2; c.height = 256; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, T.bgTop || T.bg); gr.addColorStop(1, T.bg);
+      g.fillStyle = gr; g.fillRect(0, 0, 2, 256);
+      const bgTex = new THREE.CanvasTexture(c); bgTex.colorSpace = THREE.SRGBColorSpace;
+      scene.background = bgTex;
+    }
+    scene.fog = new THREE.Fog(new THREE.Color(T.bg), RQ.fogNear, RQ.fogFar);
+    // 환경광: RoomEnvironment 1회 생성 → PMREM 1개 → 즉시 dispose(QUALITY_RECIPE ②-4, 매 프레임 재생성 금지)
+    {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment()).texture;
+      scene.environmentIntensity = RQ.env;
+      pmrem.dispose();
+    }
+    scene.add(new THREE.HemisphereLight(U.hemiSky, U.hemiGround, RQ.hemi));
+    const sun = new THREE.DirectionalLight(T.light, RQ.sun); sun.position.set(-12, 22, 14); // 그림자 없는 약한 키 라이트(방향감만)
     scene.add(sun); scene.add(sun.target);
+    // 접지 블롭 그림자(평면+방사형 그라데이션) — 공짜 contact shadow
+    const blobTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.65, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    })();
+    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, color: RQ.blob.color, transparent: true, opacity: RQ.blob.opacity, alphaMap: blobTex, depthWrite: false });
+    const blobGeo = new THREE.PlaneGeometry(1, 1);
+    const blob = (parent, x, z, rx, rz, y = 0.015) => {
+      const m = new THREE.Mesh(blobGeo, blobMat);
+      m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(rx * 2, rz * 2, 1); m.renderOrder = 1;
+      parent.add(m); return m;
+    };
+    // 캐릭터 톤 셰이딩: 5단 파스텔 램프(NearestFilter 필수) — 말랑 클레이 음영
+    const toonRamp = (() => {
+      const steps = new Uint8Array(RQ.toonRamp);
+      const t = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
+      t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
+    })();
+    const toonify = (root) => root.traverse((m) => {
+      if (!(m.isMesh || m.isSkinnedMesh) || !m.material) return;
+      const s = m.material;
+      const tm = new THREE.MeshToonMaterial({ color: s.color?.clone?.() || new THREE.Color('#ffffff'), gradientMap: toonRamp, map: s.map || null, transparent: s.transparent, opacity: s.opacity, side: s.side });
+      tm.name = s.name; m.material = tm;
+    });
+    // 정적 모듈(kit) 클레이 질감: roughness 0.6~0.8 클램프 + AO 베이크(kit_ao.jpg, TEXCOORD_1) 주입
+    const kitAo = new THREE.TextureLoader().load('/pm3d/kit_ao.jpg', () => st.poke?.(), undefined, () => {});
+    kitAo.flipY = false; kitAo.channel = 1;
+    const clay = (mesh) => {
+      const m = mesh?.material ?? mesh; // 메시 또는 재질 모두 허용
+      if (!m || m.roughness === undefined) return;
+      m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0;
+      // AO 베이크(TEXCOORD_1)가 있는 kit 메시에만 주입 — uv1 없는 메시(mounts 등)에 붙이면 셰이더 경고
+      if (!m.aoMap && mesh?.geometry?.attributes?.uv1) { m.aoMap = kitAo; m.aoMapIntensity = RQ.aoIntensity; }
+    };
     const cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
     const pan = new THREE.Vector3();
     const st = { fit: 10, zoom: 1, people: new Map(), stations: [], robots: [], lines: [], clickables: [], built: false, clock: new THREE.Clock(), frames: 0, fpsT0: 0, firstFrame: null, checked: false };
@@ -108,7 +167,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const ro = new ResizeObserver(placeCam); ro.observe(el);
 
     const build = ({ kit, ch, mounts, loadMs }) => {
-      const mod = (n) => { const o = kit.scene.getObjectByName(n); if (!o) return new THREE.Group(); const c = o.clone(true); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return c; };
+      const mod = (n) => { const o = kit.scene.getObjectByName(n); if (!o) return new THREE.Group(); const c = o.clone(true); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) clay(m); }); return c; };
       const put = (n, x, z, ry = 0, s = 1) => { const o = mod(n); o.position.set(x, 0, z); o.rotation.y = ry; o.scale.setScalar(s); scene.add(o); return o; };
       st.mounts = mounts ? mounts.scene : null;
       const lay = T.layout || {};
@@ -116,8 +175,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const { hx, hz } = floorBounds(desks, lay.mapScale || 1);
       st.bounds = { hx, hz };
       st.fit = sceneFit(hx, hz); placeCam();
-      sun.shadow.camera.left = -hx - 4; sun.shadow.camera.right = hx + 4; sun.shadow.camera.top = hz + 4; sun.shadow.camera.bottom = -hz - 4; sun.shadow.camera.far = 80; sun.shadow.camera.updateProjectionMatrix();
-      for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) { const f = put(T.floor, x, z); f.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
+      for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) put(T.floor, x, z);
       // 테마 장식
       if (T.props === 'office') {
         for (let x = -hx + 1; x < hx; x += 2) put('wall', x, -hz);
@@ -127,14 +185,25 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         put('parcel', hx - 2.4, -hz + 1.3); put('parcel', hx - 2.9, -hz + 1.6, 0.5, 0.8);
         for (const p of plates) put('partition', p.x, p.z - Math.sign(p.z) * 0.1);
       } else {
-        for (let x = -hx + 1; x < hx; x += 2) { put('sea', x, -hz - 1); put('sea', x, -hz - 3); }
+        // 바다: 4줄 + 모래-바다 사이 물결(포말) 띠(평면+그라데이션) — 바닥 밖이라 주행로·좌석과 교차 없음
+        for (let x = -hx + 1; x < hx + 6; x += 2) for (let r = 1; r <= 4; r++) put('sea', x, -hz - 2 * r + 1);
+        {
+          const c = document.createElement('canvas'); c.width = 2; c.height = 64; const g = c.getContext('2d');
+          const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, T.foam || '#ffffff'); gr.addColorStop(0.45, T.foam || '#ffffff'); gr.addColorStop(1, T.sea || T.bg);
+          g.fillStyle = gr; g.fillRect(0, 0, 2, 64);
+          const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+          const foam = new THREE.Mesh(new THREE.PlaneGeometry(2 * hx + 12, 1.6), new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.85, depthWrite: false }));
+          foam.rotation.x = -Math.PI / 2; foam.position.set(0, -0.045, -hz - 0.3); foam.renderOrder = 1; scene.add(foam);
+        }
         for (let x = -hx + 1; x < hx; x += 2) put('boardwalk', x, 0, Math.PI / 2);
-        // 소품 밀도 업(결정적 의사난수): 야자수 둘레 + 조개·불가사리·바위 흩뿌림
         const rnd = (n) => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
-        for (let k = 0; k < 7; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 6, -hz + 0.8 + rnd(k) * 0.8, rnd(k + 9) * 6, 0.85 + rnd(k + 3) * 0.4);
-        for (let k = 0; k < 4; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 3, hz - 0.8 - rnd(k + 20) * 0.6, rnd(k + 29) * 6, 0.9 + rnd(k + 23) * 0.3);
-        for (let k = 0; k < 10; k++) { const m = ['shell', 'starfish', 'rock'][k % 3]; put(m, -hx + 1 + rnd(k + 40) * (2 * hx - 2), (rnd(k + 50) * 2 - 1) * (hz - 1.4), rnd(k + 60) * 6, m === 'rock' ? 0.5 + rnd(k) * 0.5 : 0.9); }
-        put('hut', -hx + 2, -hz + 2.6, 0.4); put('hut', hx - 2, hz - 2.4, -0.3);
+        // 배경 밀도(2D 클레이 시안 기준) — 오두막·야자수 군락·산포물: lib/pm3dDecor(주행로·좌석·허브 교차 0 테스트 보증)
+        const D = beachDecor({ hx, hz, desks });
+        for (const h of D.huts) { const o = put('hut', h.x, h.z, h.ry, h.s); blob(o, 0, 0, 1.6 * h.s, 1.4 * h.s); }
+        for (const p of D.palms) { const o = put('palm', p.x, p.z, p.ry, p.s); blob(o, 0, 0, 0.75 * p.s, 0.75 * p.s); }
+        for (const q of D.scatter) put(q.m, q.x, q.z, q.ry, q.s);
+        // 링 밖 가장자리(모래 끝단) 야자수 — 기존 연출 유지(주행로 밖)
+        for (let k = 0; k < 5; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 4, hz - 0.35, rnd(k + 29) * 6, 0.9 + rnd(k + 23) * 0.3);
         // 둘레 순환 보드워크(주행로) — lib/pmThemes layout.ring + lib/pm3dRide ringRect(인셋 1m)
         if (lay.ring) {
           const rm = lay.ringModel || 'boardwalk';
@@ -147,23 +216,26 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       STAGES.forEach((s) => {
         const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z);
         o.userData = { kind: 'stage', no: s.no, label: s.label }; st.stations.push(o); st.clickables.push(o);
+        blob(o, 0, 0, 1.0, 0.95);
       });
       // 중앙 허브 "회사 심장" — 받침대 위 떠 있는 수정구(파스텔 자체발광 · 느린 회전+부유). lib/pm3dHub 위치(주행로·좌석·스테이션 교차 0, 테스트 보증)
       {
         const HC = PM3D.HUB;
         const grp = new THREE.Group(); grp.position.set(HUB_POS.x, 0, HUB_POS.z); scene.add(grp);
-        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.85 }));
-        ped.position.y = HUB_PEDESTAL_H / 2; ped.castShadow = true; ped.receiveShadow = true; grp.add(ped);
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.8 }));
+        ped.position.y = HUB_PEDESTAL_H / 2; grp.add(ped);
         const top = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.82, HUB_R * 0.72, 0.08, 14), new THREE.MeshStandardMaterial({ color: HC.pedestalTop, roughness: 0.7 }));
-        top.position.y = HUB_PEDESTAL_H + 0.04; top.castShadow = true; grp.add(top);
+        top.position.y = HUB_PEDESTAL_H + 0.04; grp.add(top);
         const orbMat = new THREE.MeshStandardMaterial({ color: HC.crystal, emissive: HC.glow, emissiveIntensity: 0.55, roughness: 0.25, transparent: true, opacity: 0.95 });
-        const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(HUB_ORB_R, 2), orbMat); orb.position.y = HUB_ORB_Y; orb.castShadow = true; grp.add(orb);
+        const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(HUB_ORB_R, 2), orbMat); orb.position.y = HUB_ORB_Y; grp.add(orb);
+        blob(grp, 0, 0, HUB_R * 1.15, HUB_R * 1.1);
         st.hub = { grp, orb, orbMat, arrivals: [], particles: [], rings: [], pulseAt: -1e9, bobPh: 0 };
       }
       // 연구실 로봇(AI 에이전트) — 뒤쪽 줄
       (dataRef.current.agents || []).slice(0, 8).forEach((a, i) => {
         const o = put('robot', -hx + 2 + i * 1.8, hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
         o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; } });
+        blob(o, 0, 0, 0.55, 0.5);
         st.robots.push(o);
       });
       // 직원 자리
@@ -175,6 +247,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         // 이게 빠지면 책상이 자리에서 대각선으로 밀려 "의자+캐릭터 따로, 책상 따로" 로 보인다(사장님 스크린샷 회귀).
         const dbb = new THREE.Box3().setFromObject(desk); const dc = dbb.getCenter(new THREE.Vector3());
         desk.position.set(-dc.x, -dbb.min.y, -dc.z); g.add(desk);
+        blob(g, 0, 0.05, 1.05, 0.75); // 책상 접지 그림자
+        blob(g, 0, -SEAT_Z, 0.52, 0.48, 0.02); // 의자·캐릭터 접지 그림자
         if (dstyle.color) desk.traverse((m) => { if (m.isMesh && m.material) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.4); } }); // 부서색 틴트
         // 낮은 노트북(화면 높이 0.2m) — 실측 책상 상판 높이 위에 얹음(고정 DESK_H는 Kenney 책상보다 높아 공중부양). 화면은 캐릭터 쪽(-Z).
         const deskTopY = dbb.max.y - dbb.min.y;
@@ -184,7 +258,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         chair.position.set(-cc.x, -cbb.min.y, -SEAT_Z - cc.z); g.add(chair);
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
-        ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
+        ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
+        toonify(ch2); // 5단 파스텔 toon 램프(QUALITY_RECIPE ②-3) — 색 갈아입히기는 재질 이름으로 그대로 동작
         g.add(ch2);
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
@@ -236,9 +311,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
         L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.position.y = (P.deskTop ?? DESK_H) + 0.005; o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
-        // 책장·큰 소품(구매 shelf) — 책상 오른쪽 뒤 바닥(kit.glb shelf_* 모듈)
-        if (L.shelf) { const o = kitMod(L.shelf); o.position.set(1.45, 0, -SEAT_Z - 0.15); o.rotation.y = -0.35; o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); P.g.add(o); P.decor.push(o); }
-        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
+        // 책장·큰 소품(구매 shelf) — 책상 오른쪽 뒤 바닥(kit.glb shelf_* 모듈). 그림자=블롭 방식이라 cast/receive 불필요
+        if (L.shelf) { const o = kitMod(L.shelf); o.position.set(1.45, 0, -SEAT_Z - 0.15); o.rotation.y = -0.35; P.g.add(o); P.decor.push(o); }
+        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 0.8 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
@@ -253,7 +328,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             const src = st.mounts.getObjectByName('mount_' + mdef.id.replace(/-/g, '_'));
             if (src) {
               const o = src.clone(true);
-              o.traverse((m) => { if (m.isMesh) { m.castShadow = true; if (m.material) m.material = m.material.clone(); } });
+              o.traverse((m) => { if (m.isMesh) { if (m.material) { m.material = m.material.clone(); clay(m); } } });
               o.scale.setScalar(CHAR_SCALE); P.g.add(o); P.mountObj = o;
               P.mountSeat = (src.userData?.seatZ ?? 0.3) * CHAR_SCALE; P.mountRide = src.userData?.pose || mdef.ride;
             }
@@ -311,7 +386,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const labels = labelsRef.current; if (labels) labels.dataset.n = String(st.people.size);
     };
     let kitScene = null;
-    const kitMod = (n) => { const o = kitScene?.getObjectByName(n); const c = o ? o.clone(true) : new THREE.Group(); c.position.set(0, 0, 0); return c; };
+    const kitMod = (n) => { const o = kitScene?.getObjectByName(n); const c = o ? o.clone(true) : new THREE.Group(); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) clay(m); }); return c; };
     const playClip = (P, name, speed) => {
       const a = P.acts[name]; if (!a) return;
       a.timeScale = speed;
@@ -358,7 +433,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const items = [];
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
-        P.ch.getWorldPosition(v); v.y += 1.45; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
+        P.ch.getWorldPosition(v); v.y += 1.3; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
         if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, ...sizeOf('w:' + name, 150, 30) }); }
       }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }

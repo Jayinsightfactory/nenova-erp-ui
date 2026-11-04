@@ -77,20 +77,25 @@ def tube(p1, p2, r, mname, hexc, bone, r2=None, v=12):
 
 SK, TOP, BOT, HAIR, SHOE, EYE = '#ffe0cc', '#f7b6cf', '#a8e2d0', '#5b4036', '#ffffff', '#3a2a26'
 B = {b.name: (Vector(b.head_local), Vector(b.tail_local)) for b in ARM.data.bones}
-# 몸통·골반
-sphere((0, 0, 0.48), 0.27, 'bottom', BOT, 'hips', scale=(1.05, 0.85, 0.62))
-sphere((0, 0, 0.82), 0.31, 'top', TOP, 'spine', scale=(1, 0.8, 1.05))
-sphere((0, 0, 1.1), 0.27, 'top', TOP, 'chest', scale=(1.02, 0.78, 0.8))
+# ── 비율 교정 상수(사장님 지시: 가분수 → 귀여운-정상 중간, 머리:전신 ≈ 1:3.4) ──
+#   머리에 묶인(head 본) 메시 전부를 head 본 피벗 기준으로 HEAD_K 배 축소한다(바인딩 전 정점 변형이라 클립 무손상).
+#   lib/pmThemes.PM3D.HEAD(pivotY/shrink)와 같은 값 — 웹의 종족 부속 좌표 재매핑이 이 상수를 그대로 쓴다.
+HEAD_K = 0.55
+HEAD_PIVOT = Vector(B['head'][0])
+# 몸통·골반(몸통/다리 비율 상향: 머리 축소에 맞춰 살짝 두껍게)
+sphere((0, 0, 0.48), 0.285, 'bottom', BOT, 'hips', scale=(1.05, 0.85, 0.62))
+sphere((0, 0, 0.82), 0.32, 'top', TOP, 'spine', scale=(1, 0.8, 1.05))
+sphere((0, 0, 1.1), 0.28, 'top', TOP, 'chest', scale=(1.02, 0.78, 0.8))
 for s, sx in (('l', 1), ('r', -1)):
     # 팔(T포즈: X축 방향) — 어깨 윗팔=옷, 아랫팔·손=피부
-    tube(B[f'upperarm.{s}'][0], B[f'upperarm.{s}'][1], 0.085, 'top', TOP, f'upperarm.{s}')
-    sphere(tuple(B[f'upperarm.{s}'][0]), 0.1, 'top', TOP, f'upperarm.{s}', seg=12, ring=8)
-    tube(B[f'lowerarm.{s}'][0], B[f'lowerarm.{s}'][1], 0.07, 'skin', SK, f'lowerarm.{s}')
-    sphere((sx * 0.8, 0, 1.107), 0.095, 'skin', SK, f'hand.{s}', seg=12, ring=8)
+    tube(B[f'upperarm.{s}'][0], B[f'upperarm.{s}'][1], 0.095, 'top', TOP, f'upperarm.{s}')
+    sphere(tuple(B[f'upperarm.{s}'][0]), 0.105, 'top', TOP, f'upperarm.{s}', seg=12, ring=8)
+    tube(B[f'lowerarm.{s}'][0], B[f'lowerarm.{s}'][1], 0.078, 'skin', SK, f'lowerarm.{s}')
+    sphere((sx * 0.8, 0, 1.107), 0.1, 'skin', SK, f'hand.{s}', seg=12, ring=8)
     # 다리(무릎 분절) — 허벅지=바지, 정강이=피부, 신발
-    tube(B[f'upperleg.{s}'][0], B[f'upperleg.{s}'][1], 0.115, 'bottom', BOT, f'upperleg.{s}')
-    tube(B[f'lowerleg.{s}'][0], B[f'lowerleg.{s}'][1], 0.09, 'skin', SK, f'lowerleg.{s}')
-    sphere((sx * 0.171, -0.1, 0.08), 0.115, 'shoe', SHOE, f'foot.{s}', scale=(1, 1.5, 0.65), seg=12, ring=8)
+    tube(B[f'upperleg.{s}'][0], B[f'upperleg.{s}'][1], 0.13, 'bottom', BOT, f'upperleg.{s}')
+    tube(B[f'lowerleg.{s}'][0], B[f'lowerleg.{s}'][1], 0.105, 'skin', SK, f'lowerleg.{s}')
+    sphere((sx * 0.171, -0.1, 0.08), 0.12, 'shoe', SHOE, f'foot.{s}', scale=(1, 1.5, 0.65), seg=12, ring=8)
     # 얼굴 좌우(귀·눈·볼) — head 본
     sphere((sx * 0.46, 0.02, 1.52), 0.1, 'skin', SK, 'head', scale=(0.5, 0.7, 1), seg=10, ring=6)
     sphere((sx * 0.26, -0.385, 1.41), 0.055, 'cheek', '#ff9fb0', 'head', scale=(1.3, 0.3, 0.8), seg=10, ring=6)
@@ -172,6 +177,19 @@ hat_join('hat_cap', [lambda: raw_sphere((0, 0, 1.86), 0.5, 'hat_cap', '#7ec8e3',
 hat_join('hat_straw', [lambda: raw_cyl((0, 0, 1.82), 0.85, 0.05, 'hat_straw', '#f2d58a', v=20),
                        lambda: raw_cyl((0, 0, 1.94), 0.42, 0.28, 'hat_straw', '#f2d58a', v=20, r2=0.36)])
 hat_join('hat_party', [lambda: raw_cyl((0, 0, 2.06), 0.3, 0.6, 'hat_party', '#ffb4e6', v=14, r2=0.02)])
+
+# ── 비율 교정: head 본에 묶인 정점(머리·머리카락·귀·볼·표정 데칼·모자) 전부 HEAD_K 배 축소 ──
+#   transform_apply 로 오브젝트 변환을 정점에 구운 뒤 head 피벗 기준으로 줄인다.
+#   머리에 붙는 모든 지오메트리가 같은 피벗·배율로 줄어 상대 맞춤(모자 눌러쓰기, 표정 밀착)이 그대로 유지된다.
+for o in [body] + hats:
+    bpy.ops.object.select_all(action='DESELECT')
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    gi = o.vertex_groups.find('head')
+    if gi < 0: continue
+    for v in o.data.vertices:
+        if any(g.group == gi and g.weight > 0 for g in v.groups):
+            v.co = HEAD_PIVOT + (v.co - HEAD_PIVOT) * HEAD_K
 
 for m in [body] + hats:
     m.parent = ARM

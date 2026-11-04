@@ -25,6 +25,7 @@ $env:NENOVA_AI_BRIDGE = '1'; npx electron .
 | `page/query` | `page_query` | CSS 셀렉터로 텍스트/속성 읽기 (`page/eval` 대체, 임의 JS 없음) | 읽기 |
 | `page/click` | `page_click` | 셀렉터 클릭 | **차단 목록 + 감사 로그** |
 | `page/fill` | `page_fill` | input/textarea 값 입력(+input/change 이벤트) | **차단 목록 + 감사 로그** |
+| `page/scroll` | `page_scroll` | 탭 스크롤(검증용): `selector` → 요소로 scrollIntoView, `y` → 절대 위치(px). 둘 중 하나 필수 | 읽기 |
 | `page/screenshot` | `page_screenshot` | 탭 PNG 캡처 → 파일 경로 반환 (`%APPDATA%\Nenova Desktop\ai-bridge-shots\`) | 읽기 |
 | `console/logs` | `console_logs` | 탭 최근 콘솔 로그(최대 200건 링버퍼) | 읽기 |
 

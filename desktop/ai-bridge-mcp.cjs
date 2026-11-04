@@ -29,6 +29,7 @@ const TOOLS = [
   { name: 'page_query', method: 'page/query', description: 'CSS 셀렉터로 요소의 텍스트 또는 속성을 읽는다(실행 아님, 읽기 전용).', schema: { tabId: { type: 'string' }, selector: { type: 'string' }, attribute: { type: 'string' }, all: { type: 'boolean' } }, required: ['selector'] },
   { name: 'page_click', method: 'page/click', description: '셀렉터 요소를 클릭한다. ERP 쓰기성 경로(주문/분배/재고/견적 등)는 기본 차단되고 감사 로그에 남는다.', schema: { tabId: { type: 'string' }, selector: { type: 'string' } }, required: ['selector'] },
   { name: 'page_fill', method: 'page/fill', description: '셀렉터 input/textarea에 값을 입력한다. ERP 쓰기성 경로는 기본 차단된다.', schema: { tabId: { type: 'string' }, selector: { type: 'string' }, value: { type: 'string' } }, required: ['selector', 'value'] },
+  { name: 'page_scroll', method: 'page/scroll', description: '탭을 스크롤한다(검증용, 읽기성). selector를 주면 그 요소로 scrollIntoView, y를 주면 절대 위치(px)로 이동한다.', schema: { tabId: { type: 'string' }, selector: { type: 'string' }, y: { type: 'number' } } },
   { name: 'page_screenshot', method: 'page/screenshot', description: '탭 화면을 PNG로 캡처하고 저장된 파일 경로를 반환한다(검증용).', schema: { tabId: { type: 'string' } } },
   { name: 'console_logs', method: 'console/logs', description: '탭의 최근 콘솔 로그를 반환한다.', schema: { tabId: { type: 'string' }, limit: { type: 'number' } } },
 ];
