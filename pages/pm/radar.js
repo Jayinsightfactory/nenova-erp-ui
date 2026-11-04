@@ -1,5 +1,6 @@
 // pages/pm/radar.js — 기술 레이더(GitHub 추천) · 소프트 클레이 파스텔 재구성(Gemini 시안 radar-ui-A)
 // PM 이 월·목 07:30 GitHub 인기·급상승 저장소를 모아 Claude 로 평가(우리 회사 쓸모·난이도·점수)한 결과 중 6점 이상만 보여준다.
+// pilotResult(PM 자동 파일럿 결과, nenova-pm/pm-radar-pilot.js) 있으면 "시험함" 배지 + 상세에 수치 요약.
 // 데이터: GET /api/pm/radar (사장님 PC nenova-pm/github-radar/radar.js → feature-data-ingest name=tech-radar). 읽기 전용.
 // 색은 lib/pmThemes.js 토큰(var(--pm-*))만 쓴다(하드코딩 hex 금지) — 테마 B(파스텔 클레이) 고정.
 // 버튼·칩·배지는 /pm UI 키트(components/pm/ui)만 쓴다(생 button/span 배지 금지) — 사장님 피드백 2026-11-04:
@@ -44,6 +45,7 @@ function BigCard({ x, i }) {
           <span className="meta">★ {fmtStars(x.stars)}{x.starsPerDay ? ` · 하루 +${fmtStars(x.starsPerDay)}` : ''}</span>
         </div>
         <Badge className="pts">관심도 {x.score}점</Badge>
+        {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함 {x.pilotResult.score}점</Badge>}
       </header>
       {x.easy && <p className="easy"><b>🤔 이게 뭐예요?</b> {x.easy}</p>}
       {x.analogy && <p className="easy"><b>💡 우리 회사에 빗대면</b> {x.analogy}</p>}
@@ -54,6 +56,7 @@ function BigCard({ x, i }) {
       {open && (
         <div className="detail">
           {x.why && <p><b>왜 인기인가요?</b> {x.why}</p>}
+          {x.pilotResult && <p><b>시험 결과</b> {x.pilotResult.score}점 · {x.pilotResult.summary}{x.pilotResult.testedAt ? ` (${kst(x.pilotResult.testedAt)})` : ''}</p>}
           <p><b>기술 정보</b> {x.desc || '-'}</p>
           <p><b>우리 쓸모</b> {x.use}</p>
           {x.difficulty && <p><b>난이도</b> {x.difficulty}{x.language ? ` · ${x.language}` : ''}</p>}
@@ -82,6 +85,7 @@ function SmallCard({ x, i }) {
           <span className="meta">★ {fmtStars(x.stars)}</span>
         </span>
         <Badge className={'score ' + scoreTone(x.score)}>{x.score}<small>/10</small></Badge>
+        {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함</Badge>}
       </SelectCard>
       <p className="sum">{x.summary}</p>
       {open && (
@@ -89,6 +93,7 @@ function SmallCard({ x, i }) {
           {x.easy && <p><b>이게 뭐예요?</b> {x.easy}</p>}
           {x.analogy && <p><b>우리 회사에 빗대면</b> {x.analogy}</p>}
           {x.why && <p><b>왜 인기인가요?</b> {x.why}</p>}
+          {x.pilotResult && <p><b>시험 결과</b> {x.pilotResult.score}점 · {x.pilotResult.summary}</p>}
           <p><b>{x.track === 'trend' ? '알아둘 이유' : '우리 쓸모'}</b> {x.use}</p>
           {x.desc && <p><b>기술 정보</b> {x.desc}</p>}
           <p className="tags">
@@ -262,6 +267,8 @@ export default function TechRadar() {
         .bc :global(.term b) { color: var(--pm-link); margin-right: 3px; }
         .bc footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
         .radar :global(.sys) { background: var(--pm-surface); color: var(--pm-muted); }
+        /* PM 파일럿 "시험함" 배지 — pm-radar-pilot 이 pilotResult{score,summary,reportPath,testedAt} 를 넣으면 표시 */
+        .radar :global(.pilot) { background: var(--pm-ok-bg); color: var(--pm-ok-ink); font-weight: bold; white-space: nowrap; }
         .sp { flex: 1; }
         .detail { border-top: 1px dashed var(--pm-line); padding-top: 8px; line-height: 1.55; }
         .detail p { margin: 4px 0; }
