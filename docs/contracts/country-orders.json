@@ -83,7 +83,7 @@
     "codeRecognition": "trimmed case-insensitive ^[A-Z]*CL[A-Z0-9_-]*$ recognizes CL, BCL, HCL, KCL, MCL, YCL and suffix variants; unknown non-empty codes retained with warning",
     "staleRequests": "AbortController plus request generation and exact response scopeKey; stale/cancelled/partial responses cannot mutate current state or enable download",
     "converterBoundary": "CountryOrderMatrix and generatePedidosFromMatrix are ERP-only additions; do not rewrite generatePedidos(workbook, ...) or unrelated country upload parsers",
-    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write",
+    "sideEffects": "authenticated GET SELECT plus browser-local parse/export only; no ERP or web-table write. Exception (2026-11-04): when a blocked product had a web-entered quantity, PedidosTool asks \"품목관리에 변경하시겠습니까?\" and, only on explicit confirm, POSTs Product conversion factors (SteamOf1Bunch/BunchOf1Box/SteamOf1Box) to the existing audited /api/master/products-bulk under the product-save-compat contract; country-orders itself stays GET-only and never touches order quantities",
     "exportProductOrder": "Each generated workbook sorts product names A-Z case-insensitively before writing rows/formulas, for ERP and uploaded input. Country/category/unit file splits remain unchanged. Ecuador retains adjacent half-box pairing after name sorting."
   },
   "erpMatrixSchema": {
@@ -218,6 +218,7 @@
     ]
   },
   "readPolicy": "GET performs SELECT only. Calendar, preview, generated workbook and browser upload never call order, shipment, warehouse, stock, estimate or profit writers.",
+  "delegatedWrites": [{"target":"/api/master/products-bulk","contract":"product-save-compat","trigger":"user confirms dialog after entering a missing export quantity","fields":["SteamOf1Bunch","BunchOf1Box","SteamOf1Box"],"orderDetail":"preserve","shipmentDetail":"preserve"}],
   "writes": [],
   "preserves": [
     "OrderMaster",
