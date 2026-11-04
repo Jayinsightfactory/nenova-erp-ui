@@ -1,3 +1,23 @@
+## [2026-11-04 21:40] 세션 — Pivot 통계·발주관리 nenova.exe(DevExpress PivotGrid) 동일 디자인·조작법
+
+### 작업 내용
+- 규격: docs/PIVOT_EXE_DEVEXPRESS_LAYOUT_SPEC.md (dnSpy FormQuantityPivot/FormOrderHistory 필드·영역·SQL 근거)
+- /stats/pivot 전산 피벗: 별도 필드 배치판 제거 → 필드 버튼이 표 머리글 안(필터 위 / 값 왼쪽 위 / 열 위쪽 / 행 왼쪽)에 위치. 행·열 버튼 클릭=정렬, 깔때기=값 필터, 우클릭·⋯=필드 메뉴, 드래그 이동. 소계 "{값} Total" 연녹색, 하위 값 1개 그룹 소계 숨김(DevExpress ShowTotalsForSingleValues=false), null 머리글 빈칸. 웹 추가 기능은 "▸ 웹 추가 기능" 접이식 띠로 전부 유지.
+- /warehouse 발주관리: exe FormOrderHistory(OrderHistory 변경 이력) 원천의 새 API /api/warehouse/order-history-pivot(SELECT only) + OrderHistoryPivotPanel(차수/품목 룩업, 새로고침·엑셀·닫기, 더블클릭 원본 이력 창). 기존 WarehouseDetail 입고 피벗은 "기존 웹 피벗" 토글로 유지.
+- lib 피벗 엔진 필드 레지스트리 범용화(fields 옵션, 기본 EXE 동작 불변) — 하위 에이전트 sonnet / UI 재구성·발주관리 페이지 — opus
+- 브라우저 확인(localhost, 2026 44-01 2,486행 / 39-02 발주 이력 2,523행): 정렬, 메뉴 이동, 값 필터, 기본 배치 복원, 1366/1920 폭, 더블클릭 drill-down, popup=1 사이드바 0
+
+### 변경된 파일
+- components/PivotExeGrid.js, PivotExeGrid.module.css, PivotExePanel.js, ExePivotFieldArea.js(신규), ExePivotTheme.module.css(신규), OrderHistoryPivotPanel.js(신규)
+- lib/pivotExeModel.js, pivotExePresentation.js, pivotExeExport.js, pivotExeViewState.js, orderHistoryPivotFields.js(신규), orderHistoryPivotSql.js(신규), exeParity/registry.js
+- pages/warehouse.js, pages/api/warehouse/order-history-pivot.js(신규)
+- __tests__/pivotExeFieldRegistry.test.js, orderHistoryPivotPanel.test.js(신규), pivotExeInteraction.test.js, exeParitySql.test.js, scripts/pivot-exe-ui-smoke.cjs, package.json
+
+### 미결 이슈 / 미검증
+- HTML5 드래그 자체는 자동화로 재현 못 함(메뉴 이동으로 대체 확인) — 운영 배포 후 실브라우저 드래그 확인 필요
+- scripts/pivot-exe-ui-smoke.cjs 는 새 조작법으로 갱신했으나 실행 미검증
+- 운영 배포·push 미실행(사용자 지시 대기)
+
 ## [2026-11-04 19:30] 세션 — 국가별 발주서 품목관리 반영 확인창 (PR #1519)
 
 ### 작업 내용

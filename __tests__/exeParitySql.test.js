@@ -53,6 +53,14 @@ async function main() {
   console.log('\n=== FormQuantityPivot ===');
   assert('UNION 전재고', sqlQuantityPivotGetData().includes('01. 전재고'));
 
+  console.log('\n=== FormOrderHistory ===');
+  const { sqlOrderHistoryPivotGetData } = await import('../lib/orderHistoryPivotSql.js');
+  assert('OrderHistory join', sqlOrderHistoryPivotGetData().includes('JOIN OrderHistory oh ON o.OrderDetailKey = oh.OrderDetailKey'));
+  assert('AfterValue - BeforeValue', sqlOrderHistoryPivotGetData().includes('(oh.AfterValue - ISNULL(oh.BeforeValue,0)) AfterValue'));
+  assert('week bound param', sqlOrderHistoryPivotGetData({ week: '44-01' }).includes('o.OrderWeek = @week') && !sqlOrderHistoryPivotGetData({ week: '44-01' }).includes("'44-01'"));
+  assert('countryFlower bound param', sqlOrderHistoryPivotGetData({ countryFlower: '콜롬비아 장미' }).includes('p.CountryFlower = @countryFlower'));
+  assert('no filter without args', !sqlOrderHistoryPivotGetData({}).includes('@week'));
+
   console.log('\n=== FormOrderAdd ===');
   assert('OrderDetail', sqlOrderAddGetDataProduct().includes('OrderDetail'));
   assert('GetDataCountry', sqlOrderAddGetDataCountry().includes('CountryFlower'));
