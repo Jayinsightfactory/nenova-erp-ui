@@ -236,7 +236,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
               <div key={`s:${x.name}`} className={`bg-seat st-${st}`} data-seat={x.name} aria-hidden>
                 <SeatedCharacter cfg={cfg} seat={seat} hideBelowHip={false} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
                 {loaded && !isoCfg.items.desk && <i className="bg-mask" style={{ left: m0, top: m1, width: m2 - m0, height: m3 - m1, zIndex: z + 2, backgroundImage: `url(/pm/scene-bg/${map.src}.webp)`, backgroundSize: `${hostW}px ${hostH}px`, backgroundPosition: `${-m0}px ${-m1}px`, clipPath: maskClip }} />}
-                {(() => { const m = st !== 'off' && mountById((avatars[x.name]?.view || avatars[x.name])?.items?.mount); return m ? <i className="bg-mount" title={m.name} style={{ left: hx + 34 * sc, top: hy + 10 * sc, zIndex: z + 3 }}>{m.emoji}</i> : null; })()}
+                {(() => { const m = st !== 'off' && mountById((avatars[x.name]?.view || avatars[x.name])?.items?.mount); return m ? <i className="bg-mount" title={m.name} style={{ left: hx + 34 * sc, top: hy + 10 * sc, zIndex: z + 3 }}><img src={`/pm/mounts/${m.id}.png`} alt={m.emoji} width={26} height={26} style={{ display: 'block' }} onError={(e) => { e.currentTarget.replaceWith(document.createTextNode(m.emoji)); }} /></i> : null; })()}
                 {isoOn && dt && <DeskDecor view="iso" cfg={isoCfg} anchor={{ x: dt[0], y: dt[1] }} scale={isoSc} dir={map.deskDir === 'right' ? 'right' : 'left'} z={z} showDesk={!!isoCfg.items.desk} />}
               </div>
             );

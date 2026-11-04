@@ -134,6 +134,12 @@ def build_kit():
     module('hut'); box((0, 0, 0.6), (1.6, 1.4, 1.2), 'hutwall', '#c99567', bev=0.05); cyl((0, 0, 1.55), 1.25, 0.9, 'thatch', '#e8c77d', r2=0.08, v=12)
     box((0, -0.72, 0.5), (0.7, 0.05, 0.8), 'hutdoor', '#8a5a3c', bev=0.02); box((0, -0.85, 1.25), (0.9, 0.06, 0.25), 'sign', CREAM, bev=0.06)
     module('surfboard'); sphere((0, 0, 0.75), 0.25, 'surf', '#9be3de', scale=(1, 0.12, 3)); box((0, -0.03, 0.75), (0.05, 0.01, 1.4), 'surfline', '#ffd166', bev=0)
+    module('shell'); sphere((0, 0, 0.08), 0.16, 'shell', '#ffd6e0', scale=(1, 0.8, 0.5)); cyl((0, 0.12, 0.05), 0.05, 0.1, 'shell2', '#fff0f4', r2=0.01, rot=(R(80), 0, 0))
+    module('starfish')
+    for a in range(5):
+        import math as _m; ang = a * 2 * _m.pi / 5
+        sphere((0.13 * _m.cos(ang), 0.13 * _m.sin(ang), 0.04), 0.07, 'star', '#ffc98a', scale=(1.6, 0.6, 0.5)).rotation_euler = (0, 0, ang)
+    sphere((0, 0, 0.05), 0.09, 'star', '#ffc98a', scale=(1, 1, 0.6))
     module('sea'); box((0, 0, -0.08), (2, 2, 0.04), 'sea', '#7fd8d6', bev=0)
     module('rock'); sphere((0, 0, 0.12), 0.3, 'rock', '#b7aaa0', scale=(1, 0.8, 0.5), seg=8, ring=6)
     PAR[0] = None
@@ -232,5 +238,7 @@ def build_char():
                               export_animations=True, export_animation_mode='NLA_TRACKS', export_skins=True)
 
 build_kit()
-build_char()
+# 캐릭터는 KayKit 리그 버전(scripts/pm3d/build_char_kaykit.py)이 기본. 옛 9본 캐릭터가 필요할 때만 --legacy-char.
+if 'legacy-char' in ' '.join(argv):
+    build_char()
 print('PM3D_DONE', OUT)

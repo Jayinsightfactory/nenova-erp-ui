@@ -9,12 +9,17 @@
   ],
   "scope": [
     "pages/orders/import.js",
+    "pages/orders/product-match.js",
+    "lib/orderImportMatchPopup.js",
+    "__tests__/orderImportMatchPopup.test.js",
     "pages/api/orders/index.js",
     "pages/api/orders/import-parse.js",
     "pages/api/orders/import-price-targets.js",
     "pages/api/orders/import-price-pivot.js",
     "components/orders/DirectPricePivot.js",
     "lib/orderImportPricePivot.js",
+    "lib/orderImportSheetView.js",
+    "__tests__/orderImportSheetView.test.js",
     "__tests__/orderImportPricePivot.test.js",
     "pages/api/orders/mappings.js",
     "pages/api/orders/shipment-list-source.js",
@@ -41,6 +46,12 @@
     "lib/orderImportDeadline.js"
   ],
   "actions": [
+    {
+      "name": "PICK_PRODUCT_MATCH_IN_POPUP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "품목 매칭 팝업 선택(읽기 전용, 선택 결과만 클라이언트 상태·업체 매핑 저장); 팝업만 열고 취소하면 변화 없음, 자동 매칭 결과는 사용자가 바꾸지 않는 한 불변"
+    },
     {
       "name": "PARSE_UPLOAD_METADATA_AND_AGGREGATE_PRODUCT_ROWS",
       "orderDetail": "preserve",

@@ -71,7 +71,7 @@ const { pathToFileURL } = require('url');
   assert.ok(total < 8 * 1024 * 1024, `3D 첫 로드 ${total}B > 8MB`);
   const gl = (n) => { const b = fs.readFileSync(path.join(dir, n)); return JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString()); };
   const kit = gl('kit.glb'); const names = new Set(kit.nodes.map((n) => n.name));
-  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
+  for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'desk_k1', 'desk_k2', 'desk_k3', 'chair_k1', 'chair_k2', 'plant_k1', 'plant_k2', 'lamp_k', 'rug_k', 'shell', 'starfish', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
   const ch = gl('char.glb'); const clips = ch.animations.map((x) => x.name);
   for (const c of ['idle', 'sit_type', 'walk', 'doze', 'dance']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
   for (const h of ['hat_cap', 'hat_straw', 'hat_party']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`);
@@ -81,5 +81,18 @@ const { pathToFileURL } = require('url');
   assert.ok(/data-k=\{'w:' \+ p\.name\}/.test(src) && !/\{p\.name\}\{l\?\.text/.test(src), '이름·작업 칩 분리');
   assert.ok(/MAX_DPR/.test(src) && /FPS_CAP/.test(src) && /IntersectionObserver/.test(src), '3D 프레임 상한·화면밖 정지');
   assert.ok(!/d\.face/.test(src), '옛 좌석 방향(face) 사용 금지');
+  // 회귀: 로봇 칩(실측 170px) ↔ 작업 칩 겹침 — 실제 DOM 크기 기반 declutter (2026-11-04 사장님 스크린샷 버그)
+  const over = L.declutter([
+    { key: 'w:설연주', x: 300, y: 100, w: 150, h: 30 },
+    { key: 'rb0', x: 360, y: 110, w: 170, h: 18 },
+  ]);
+  const [wa, rb] = [over.find((o) => o.key === 'w:설연주'), over.find((o) => o.key === 'rb0')];
+  assert.ok(rb.y >= wa.y + wa.h, '로봇 칩이 작업 칩 위에 겹침');
+  assert.ok(/offsetWidth/.test(src) && /sizeOf/.test(src), '라벨 declutter 는 실측 크기 사용');
+  // 새 리그 클립(응원·손흔들기·여분 춤)과 표정 데칼
+  for (const c of ['cheer', 'wave']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
+  assert.ok((ch.materials || []).some((m) => m.name === 'face'), '표정 데칼(face 재질) 없음');
+  const faceDir = path.join(dir, 'face');
+  for (const f of ['smile', 'grin', 'focus', 'wow', 'wink', 'sleepy', 'fire', 'proud', 'shy', 'teary', 'sing', 'thinking']) assert.ok(fs.existsSync(path.join(faceDir, f + '.webp')), `표정 없음: ${f}`);
   console.log(`pm3dLayout OK (assets ${(total / 1024).toFixed(0)}KB)`);
 })().catch((e) => { console.error(e); process.exit(1); });
