@@ -12,6 +12,10 @@
     "pages/api/orders/index.js",
     "pages/api/orders/import-parse.js",
     "pages/api/orders/import-price-targets.js",
+    "pages/api/orders/import-price-pivot.js",
+    "components/orders/DirectPricePivot.js",
+    "lib/orderImportPricePivot.js",
+    "__tests__/orderImportPricePivot.test.js",
     "pages/api/orders/mappings.js",
     "pages/api/orders/shipment-list-source.js",
     "lib/orderImportParse.js",
@@ -157,6 +161,19 @@
       "shipmentDetail": "preserve",
       "shipmentDetailMoney": "Cost/Amount/Vat via the existing /api/estimate/update-cost price-only contract (docs/contracts/estimate-cost-update.json PRICE_ONLY_PRESERVE_CONFIRMATION); isFix, quantities, dates preserved; no fix/unfix SP, no stock SP",
       "note": "operator chooses 주문등록만 or 주문등록 + 분배단가 적용; the price write targets only explicitly selected sub-weeks of the same CustKey + OrderYear, matched by ProdKey, after a before/after preview (changed / same / no-distribution / conflicting prices); it never creates ShipmentDetail and never touches OrderDetail.UnitPrice; the FINAL_SNAPSHOT order write runs first and a price failure leaves the order write intact and is reported for manual retry"
+    },
+    {
+      "name": "LOAD_DISTRIBUTION_PRICE_PIVOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "pages/api/orders/import-price-pivot.js is read-only (SELECT only): OrderYear + OrderWeek(NN-NN) + Product.CounName + Customer.Manager → customer x product pivot cells with ShipmentDetail SdetailKey/ShipmentKey/Cost/OutQuantity/isFix; ShipmentDetail has no isDeleted column, deletion filter is on ShipmentMaster only"
+    },
+    {
+      "name": "APPLY_DIRECT_EDIT_PIVOT_UNIT_PRICE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDetailMoney": "Cost/Amount/Vat via the existing /api/estimate/update-cost price-only contract (mode once, per customer, expectedOldCost = value at query time); isFix, quantities, ship dates preserved; no fix/unfix SP, no stock SP; STALE_DATA / FIXED_WEEK are shown per customer and only that customer fails",
+      "note": "the 직접 수정 tab of pages/orders/import.js edits cells client-side (area drag selection, bulk fill, revert) and writes only after an explicit confirm; a cell represents every ShipmentDetail of the same customer+product in the sub-week; never creates/deletes ShipmentDetail, never touches OrderDetail.UnitPrice"
     },
     {
       "name": "BOUND_BROWSER_RESPONSE_WAIT",

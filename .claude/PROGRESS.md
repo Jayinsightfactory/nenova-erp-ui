@@ -1,5 +1,18 @@
 # PROGRESS.md — 작업 세션 로그
 
+## [2026-11-04] 세션 — 업로드 주문등록 「직접 수정」 탭 (분배단가 피벗)
+
+### 작업 내용
+- pages/orders/import.js 상단에 [파일 업로드](기본)/[직접 수정] 탭. 직접 수정 = 업체×품목 분배단가 피벗, 영역 선택 일괄 입력, 변경 되돌리기, 업체별 update-cost(price-only, isFix 보존) 적용, 화면 작업 로그.
+- 신규: pages/api/orders/import-price-pivot.js(읽기 전용), components/orders/DirectPricePivot.js, lib/orderImportPricePivot.js, __tests__/orderImportPricePivot.test.js
+- 계약: docs/contracts/order-import-shipment-list.json scope/actions 등록. update-cost 는 body 의 source 필드를 무시함(확인) → 화면 로그만 사용.
+
+### 다음 작업 예정
+- 운영 배포 후 실제 단가 적용 1건 육안 확인(이번 세션은 DB 쓰기 미실행)
+
+### 미결 이슈 / 블로킹
+- 「단가 수정 적용」 최종 실행은 미검증(운영 DB 쓰기 금지)
+
 ## [2026-11-03 후속] 로컬 전체 배포 게이트 통과
 - 최신91정책 포함verify:erp-change3차exit0.ERP계약/posttest19·dnSpy·manifest180·SQLwriteguard·webpack58초컴파일/전체페이지buildPASS.
 - PR미생성,CI/병합/Cafe24/운영smoke미완.브라우저disabled,DB쓰기0유지. `.verify` 및data/generated history두JSON커밋제외.
