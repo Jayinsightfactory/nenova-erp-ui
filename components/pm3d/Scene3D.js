@@ -157,11 +157,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       for (const d of desks) {
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
         const dstyle = deskStyle(d.dept, '', PM3D.DESK_SKINS);
-        const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE); g.add(desk);
+        const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE);
+        // Kenney desk_k1 은 피벗이 모서리에 있음 → 바닥 중심(그룹 원점)으로 재중심(x/z), 바닥 y=0 맞춤.
+        // 이게 빠지면 책상이 자리에서 대각선으로 밀려 "의자+캐릭터 따로, 책상 따로" 로 보인다(사장님 스크린샷 회귀).
+        const dbb = new THREE.Box3().setFromObject(desk); const dc = dbb.getCenter(new THREE.Vector3());
+        desk.position.set(-dc.x, -dbb.min.y, -dc.z); g.add(desk);
         if (dstyle.color) desk.traverse((m) => { if (m.isMesh && m.material) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.4); } }); // 부서색 틴트
-        // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
-        const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, DESK_H + 0.01, -0.07); g.add(mon);
-        const chair = mod(dstyle.chair || 'chair_k1'); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
+        // 낮은 노트북(화면 높이 0.2m) — 실측 책상 상판 높이 위에 얹음(고정 DESK_H는 Kenney 책상보다 높아 공중부양). 화면은 캐릭터 쪽(-Z).
+        const deskTopY = dbb.max.y - dbb.min.y;
+        const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, deskTopY + 0.01, -0.07); g.add(mon);
+        const chair = mod(dstyle.chair || 'chair_k1'); // Kenney 의자도 피벗 보정 후 좌석(0,0,-SEAT_Z)에 중심 배치
+        const cbb = new THREE.Box3().setFromObject(chair); const cc = cbb.getCenter(new THREE.Vector3());
+        chair.position.set(-cc.x, -cbb.min.y, -SEAT_Z - cc.z); g.add(chair);
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
         ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
@@ -169,7 +176,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
         const emo = emojiSprite(' '); emo.position.set(0, HEAD_Y, -SEAT_Z); emo.visible = false; g.add(emo);
-        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), walk: null, stage: null, decor: [], d };
+        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), deskTop: deskTopY, walk: null, stage: null, decor: [], d };
         ch2.userData = { kind: 'person', name: d.person.name };
         st.clickables.push(ch2, desk);
         desk.userData = { kind: 'person', name: d.person.name };
@@ -207,7 +214,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
-        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
+        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.position.y = (P.deskTop ?? DESK_H) + 0.005; o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
         if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
