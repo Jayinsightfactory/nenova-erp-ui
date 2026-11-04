@@ -1,5 +1,11 @@
 # 작업 기록
 
+## 2026-11-04 /pm/radar 기술 레이더 클레이 파스텔 재구성
+- PR #1498: Gemini 시안(nenova-pm/github-radar/design/radar-ui-A.png)대로 재구성 — 헤더(회차 배지·우리관심/전체트렌드 탭·주제/추천/점수 필터칩), 왼쪽 "바로 시험" 큰 카드 3장(이게 뭐예요/빗대면/용어풀이/자세히 보기), 가운데 작은 카드 그리드(클릭 펼침, 12건 "더 보기" — 수집량 20~40건 대비), 오른쪽 사이드바(점수분포 막대 최상/상/중/하·주제별 개수 파스텔 칩·지난 회차). 집계는 전부 클라이언트, API 불변.
+- 색은 lib/pmThemes.js 테마 B 토큰 var(--pm-*)만(hex 0), themeCss(themeById('B')) 주입 + data-theme="B". 버튼류는 components/pm/ui 키트만(SelectCard 는 styled-jsx 밖 컴포넌트라 :global(.hit) 필요).
+- 배포: 내 커밋 배포런은 STALE_RELEASE(직후 머지 #1499~#1501에 추월) 2회 중단 후 #1501 배포런에 포함되어 성공. /pm/radar 307→login 확인.
+- 검색어: 기술레이더 radar 클레이 파스텔 radar-ui-A 점수분포 BigCard SmallCard STALE_RELEASE themeCss
+
 ## 2026-10-22 ECOUNT 검증 2~3차(자동 갱신·원본 대조·수집 추가)
 - PR #1241: 수집 직후 웹 작업본 자동 갱신(RED 건너뜀, 기준시각·검사상태 표시) + 채무 RED 오판(원 단위 반올림 2원 차, 허용폭 1원) 수정 → 허용폭 max(1,0.5×행수). 배포 후 채무 911 GREEN·작업본 자동 갱신 확인.
 - PR #1242: 원본 화면 직접 읽기(부모 세션 브라우저) — 채권·채무·계좌 웹=최신 스냅샷=원본 합계 → 검증 0→8. 원본 0건 7화면, 회계거래조회 10/20 원본 12 vs 웹 업로드 9(시차).
@@ -2016,3 +2022,8 @@
 2026-11-04 입고 정정 승인 구현: nw-incoming-approval-flow-1104, web_mgmt 전용 TargetKind 요청/매칭/최종확정 단일트랜잭션. 농장-only 보존, 감소/이동/독립추가, 양수 대체주문 명시연결, native 후속연도/견적매출 readback. Unit11 및 격리SQL 실제writer/권한CAS/2025보존2027cascade/native감사실패음수롤백 PASS. 모의Chrome1920/390 PASS, 전체ERP 및 첫build exit0. 원가연결/확정손익/농장배정 수량변경 지원제한, 최종build/CI/배포 미완. 운영쓰기0. 정본 docs/work-sessions/2026-11-04_incoming-approval-flow.md.
 검색어: incomingApproval WAREHOUSE_CORRECTION_V1 수입부수정요청 영업지원매칭확정 원자반영
 
+2026-11-04 웹 작업흐름 로그: 기존 전역 activity 보강. workflowId/requestId/순번·요청시도/응답·단절 미확인·허용 집계/감사키만 기록, 계정분리/위조배제 회귀 PASS. 실제 dnSpy 로그인/DBMSSQL/분배 저장 조사, 운영 EXE/원장 보존. EXE 별도 계측본+로컬저널 권장, 패치/격리 호환성 미검증. 전체 ERP/빌드/배포 진행중; 정본 docs/work-sessions/2026-11-04_web-audit-coverage.md.
+검색어: workflowId requestId userActivity EXE 작업파이프라인 dnSpy 계측
+
+웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
+검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm

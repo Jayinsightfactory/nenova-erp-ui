@@ -6,10 +6,12 @@
     "components/UserActivityLogPanel.js",
     "pages/_app.js",
     "pages/admin/activity.js",
+    "pages/api/admin/activity.js",
     "pages/api/work/activity.js",
     "lib/auth.js",
     "lib/userActivityStore.cjs",
     "lib/userActivityHttp.cjs",
+    "lib/userActivityEvidence.cjs",
     "lib/userActivityClient.js",
     "desktop/activity.cjs",
     "desktop/main.cjs",
@@ -36,6 +38,7 @@
   },
   "requiredTestFiles": [
     "scripts/test-user-activity-server.cjs",
+    "__tests__/adminActivityRead.test.cjs",
     "__tests__/userActivityClient.test.js",
     "desktop/tests/activity.test.cjs",
     "scripts/user-activity-ui-smoke.cjs"
@@ -67,7 +70,7 @@
       "WebProfitReport (preserve)"
     ]
   },
-  "privacy": "No input values, raw DOM, secrets, URL query/hash, request or response body. Server derives actor from authentication. Source based on UA is display metadata only.",
+  "privacy": "No input values, raw DOM, secrets, URL query/hash, raw request or response body. Server may retain bounded numeric auditBatchKey/committedCount/verifiedCount/savedCount/updatedCount/failedCount and UUID jobId/operationId only. Client cannot forge server evidence. Server derives actor from authentication. Source based on UA is display metadata only.",
   "access": "All authenticated users record; existing isOrbitReportViewer decides read access. Client visibility is not authorization.",
   "readApi": {
     "path": "/api/work/activity",
@@ -81,6 +84,7 @@
       "path",
       "cursor",
       "hour"
+      ,"workflowId", "requestId", "sessionId"
     ],
     "response": [
       "items",
@@ -94,7 +98,7 @@
   "retention": "No automatic deletion. Actor+event ID deduplication, Linux file/index fsync before acknowledgement. Browser localStorage uses per-account/per-event keys to recover after tab/browser close; blocked/full storage reports errors and retains bounded memory queue. Electron queue encrypted on disk. Server failed HTTP records retry from process-global bounded 1000-event queue every 5 seconds; pending/dropped health remains warning and is exposed by me. Process exit during storage failure can lose this server retry queue; browser storage clearing and disk failure can lose records. Disk/inode health monitored. No lossless claim.",
   "presentation": "1920x1080 CSS pixels at 100%; page vertical scroll, table-only horizontal scroll, full label wrapping, native keyboard controls, focus returns to results heading after query; existing ERP history remains intact.",
   "sideEffects": "OrderDetail, ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate, StockHistory, WebProfitReport and all ERP ledgers preserved. New storage is web audit only.",
-  "coverage": "Authenticated web interaction and API logs plus Electron allowed shell commands; generic action correlation covers synchronous event requests, not awaited/delayed handlers. recordedBy identifies server records versus untrusted client metadata. All ERP ledgers preserve; native dnSpy changes not applicable.",
+  "coverage": "Authenticated web interaction and API logs plus Electron allowed shell commands. Recorder workflowId groups an account/window journey across asynchronous requests without claiming causality; requestId joins queued request attempts to server responses; sequence is untrusted device order. Identity changes/reload rotate workflowId. Direct action correlation remains synchronous only. Disconnection is not proof of rollback; response counts are server reports, not independent commit verification. EXE, ECOUNT exclusions, missing historic data and journal failure remain outside completeness claims. All ERP ledgers preserved.",
   "auditIdentity": [
     "server authenticated userId",
     "event id",

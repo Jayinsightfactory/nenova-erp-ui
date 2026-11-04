@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { stepZoom } from '../../lib/pmZoom';
@@ -125,7 +125,9 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       // 직원 자리
       for (const d of desks) {
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
-        const desk = mod('desk'); desk.scale.setScalar(SET_SCALE); g.add(desk);
+        const dstyle = deskStyle(d.dept, '', PM3D.DESK_SKINS);
+        const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE); g.add(desk);
+        if (dstyle.color) desk.traverse((m) => { if (m.isMesh && /^desk/.test(m.material?.name || '')) { m.material = m.material.clone(); m.material.color.set(dstyle.color); } });
         // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
         const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, DESK_H + 0.01, -0.07); g.add(mon);
         const chair = mod('chair'); chair.scale.setScalar(SET_SCALE); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
@@ -205,7 +207,11 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       const box = labelsRef.current; if (!box) return;
       const w = el.clientWidth; const h = el.clientHeight;
       const items = [];
-      for (const [name, P] of st.people) { P.ch.getWorldPosition(v); v.y += 1.35; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 22, w: 64, h: 18 }); }
+      const wv = new THREE.Vector3();
+      for (const [name, P] of st.people) {
+        P.ch.getWorldPosition(v); v.y += 1.45; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, w: 56, h: 16 });
+        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, w: 150, h: 30 }); }
+      }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
       for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
       const placed = declutter(items);
@@ -225,7 +231,12 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       if (dead) return;
       raf = requestAnimationFrame(tick);
       const now = performance.now();
-      if (!visible || document.hidden) { st.clock.getDelta(); return; }
+      if (!visible || document.hidden) {
+        st.clock.getDelta();
+        // 가려진 동안은 FPS 측정 일시정지(배경 탭 스로틀로 저사양 오판 방지)
+        if (st.built && !st.checked) { st.fpsT0 = now + 500; st.frames = 0; }
+        return;
+      }
       const measuring = st.built && !st.checked;
       const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk);
       if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
@@ -257,10 +268,14 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       // 저사양 판정
       if (st.built && st.firstFrame == null) { st.firstFrame = now - mountAt; st.fpsT0 = now + FPS_WARMUP_MS; st.frames = 0; }
       else if (measuring && now >= st.fpsT0) {
-        st.frames++;
+        st.frames++; if (st.lastT) st.maxGap = Math.max(st.maxGap || 0, now - st.lastT); st.lastT = now;
         if (now - st.fpsT0 > FPS_WINDOW_MS) {
+          // 500ms+ 프레임 공백 = 브라우저 백그라운드 스로틀 → 저사양 오판 방지, 최대 3회 재측정
+          const throttled = (st.maxGap || 0) > 500;
+          if (throttled && (st.retry || 0) < 3) { st.retry = (st.retry || 0) + 1; st.fpsT0 = now + 500; st.frames = 0; st.maxGap = 0; st.lastT = 0; return; }
           st.checked = true; const fps = Math.round(st.frames * 1000 / (now - st.fpsT0));
-          const why = shouldFallback({ firstFrameMs: st.firstFrame - st.loadMs, fps: red ? null : fps });
+          // 재측정까지 전부 스로틀이면 측정 불가로 보고 폴백하지 않음(가려진 창 오판 방지)
+          const why = throttled ? '' : shouldFallback({ firstFrameMs: st.firstFrame - st.loadMs, fps: red ? null : fps });
           setStat((x) => `${x} · 첫 프레임 ${Math.round(st.firstFrame)}ms · ${fps}fps`);
           if (typeof window !== 'undefined') window.__pm3dStat = { firstFrameMs: Math.round(st.firstFrame), loadMs: st.loadMs, fps };
           if (why) onFallback?.(why);
@@ -318,12 +333,19 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     <div className="pm3d" style={{ position: 'relative', width: '100%', height: 'min(72vh, 760px)', minHeight: 420, borderRadius: 16, overflow: 'hidden', touchAction: zoom > 1 ? 'none' : 'auto', cursor: zoom > 1 ? 'grab' : 'default' }}>
       <div ref={host} style={{ position: 'absolute', inset: 0 }} />
       <div ref={labelsRef} aria-hidden={false} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        {people.map((p) => (
+          <button key={p.name} type="button" data-k={p.name} onClick={() => onOpenPerson?.(p.name)} title={p.name}
+            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '1px 7px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.15)', cursor: 'pointer' }}>
+            {p.name}
+          </button>
+        ))}
         {people.map((p) => {
           const l = cur.get(p.name);
+          if (!l?.text || !l.stage) return null;
           return (
-            <button key={p.name} type="button" data-k={p.name} onClick={() => onOpenPerson?.(p.name)} title={l ? `${p.name} · ${l.text || ''}` : p.name}
-              style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '2px 7px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.15)', cursor: 'pointer' }}>
-              {p.name}{l?.text ? ` · ${String(l.text).slice(0, 10)}` : ''}
+            <button key={'w:' + p.name} type="button" data-k={'w:' + p.name} onClick={() => onOpenPerson?.(p.name, 'time')} title={`${p.name} · ${l.text}`}
+              style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '500 10.5px/1.25 inherit', padding: '3px 8px', borderRadius: 8, border: 0, maxWidth: 150, background: U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.12)', cursor: 'pointer', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textAlign: 'left', borderLeft: `3px solid ${STAGE_HEX[l.stage - 1]}` }}>
+              {String(l.text).slice(0, 36)}
             </button>
           );
         })}

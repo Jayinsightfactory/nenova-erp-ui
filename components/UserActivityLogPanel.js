@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiGet } from '../lib/useApi';
 
-const kindNames = { click: '클릭', change: '입력·선택 변경', submit: '제출 시도', navigation: '화면 이동', api: '서버 응답', desktop: 'PC 앱 조작' };
+const kindNames = { click: '클릭', change: '입력·선택 변경', submit: '제출 시도', navigation: '화면 이동', request: '요청 시도', api: '서버 응답', desktop: 'PC 앱 조작' };
 const outcomes = { success: '성공', failure: '실패', unknown: '결과 미확인' };
 const koreanDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 function time(value) { if (!value || !Number.isFinite(Date.parse(value))) return '—'; return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'medium', hour12: false }).format(new Date(value)); }
 
 export default function UserActivityLogPanel() {
   const [allowed, setAllowed] = useState(false);
-  const [filters, setFilters] = useState({ from: koreanDay(), to: koreanDay(), userId: '', source: '', kind: '', outcome: '', path: '', hour: '' });
+  const [filters, setFilters] = useState({ from: koreanDay(), to: koreanDay(), userId: '', source: '', kind: '', outcome: '', path: '', hour: '', workflowId: '', requestId: '' });
+  const [timeline, setTimeline] = useState(false);
   const [rows, setRows] = useState([]), [cursor, setCursor] = useState(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [loaded, setLoaded] = useState(false);
   const applied = useRef(null), sequence = useRef(0), heading = useRef(null);
@@ -40,14 +41,18 @@ export default function UserActivityLogPanel() {
       <label>동작<select value={filters.kind} onChange={e => field('kind', e.target.value)}><option value="">전체</option>{Object.entries(kindNames).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>결과<select value={filters.outcome} onChange={e => field('outcome', e.target.value)}><option value="">전체</option>{Object.entries(outcomes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>화면·API 경로<input placeholder="예: /estimate/weekday" value={filters.path} onChange={e => field('path', e.target.value)} /></label>
+      <label>작업 흐름 ID<input value={filters.workflowId} onChange={e => field('workflowId', e.target.value)} /></label>
+      <label>요청 ID<input value={filters.requestId} onChange={e => field('requestId', e.target.value)} /></label>
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '조회 중…' : '로그 조회'}</button>
     </form>
+    <button type="button" aria-pressed={timeline} onClick={() => setTimeline(value => !value)}>{timeline ? '최신 기록순으로 보기' : '이번 페이지를 작업 순서로 보기'}</button>
+    <p className="hint">작업 흐름은 같은 로그인 창의 조작·비동기 요청을 묶습니다. 같은 흐름이 같은 저장 작업을 뜻하지는 않습니다. 요청 ID로 요청과 응답을 대조하세요. 기록 순번은 기기 기준이며, 조회 범위·페이지 밖 기록과 과거 누락 기록은 포함되지 않습니다. 연결 단절은 저장 실패가 아니라 저장 여부 확인 대상입니다.</p>
     <p className="hint">조회 기간은 최대 31일입니다. 조회 날짜·시간과 표시 시각은 모두 한국시간입니다. 이 작업 로그에는 입력값·비밀번호·요청/응답 본문을 저장하지 않습니다. HTTP 응답 성공만으로 업무 저장 완료를 뜻하지 않습니다.</p>
     {error && <p role="alert" className="failure">{error}</p>}
-    <p role="status" aria-live="polite">{busy ? '기록을 불러오고 있습니다.' : loaded ? `이번 페이지 ${rows.length}건 · 최신 기록순` : '기간과 조건을 선택한 뒤 로그 조회를 눌러 주세요.'}</p>
+    <p role="status" aria-live="polite">{busy ? '기록을 불러오고 있습니다.' : loaded ? `이번 페이지 ${rows.length}건 · ${timeline ? '오래된 기록부터 (부분 흐름)' : '최신 기록순'}` : '기간과 조건을 선택한 뒤 로그 조회를 눌러 주세요.'}</p>
     {loaded && <div className="audit-table" role="region" aria-label="사용자 작업 기록 표, 가로 스크롤 가능" tabIndex={0}><table><thead><tr>{['서버 기록 시각 (한국시간)', '사용자', '사용 환경', '화면·API', '동작 · 버튼', '결과', '동작 연결 ID'].map(title => <th key={title} scope="col">{title}</th>)}</tr></thead><tbody>
       {!rows.length && <tr><td colSpan={7}>조건에 맞는 기록이 없습니다. 수집 적용 이전 작업은 소급 기록되지 않습니다.</td></tr>}
-      {rows.map(row => <tr key={`${row.userId}:${row.id}`}><td>{time(row.receivedAt)}{row.clientAt && <small>기기 시각: {time(row.clientAt)}</small>}</td><td>{row.userName || row.userId}<small>{row.userName ? row.userId : ''}</small></td><td>{row.source === 'desktop' ? 'PC 웹앱' : '네노바웹'}</td><td>{row.path || '—'}{row.pagePath && <small>화면: {row.pagePath}</small>}</td><td><strong>{kindNames[row.kind] || row.kind}</strong><small>{row.recordedBy === 'server' ? '서버 기록' : '기기에서 전달한 조작'}</small><small>{row.label || row.control || '—'}</small>{row.method && <small>{row.method}</small>}</td><td><span className={row.outcome === 'failure' ? 'failure' : ''}>{row.kind === 'api' && row.outcome === 'success' ? '응답 성공' : outcomes[row.outcome] || '결과 미확인'}</span>{row.status != null && <small>HTTP {row.status}</small>}{row.duration != null && <small>{row.duration}ms</small>}</td><td>{row.actionId || '연결 정보 없음'}</td></tr>)}
+      {(timeline ? [...rows].sort((a, b) => a.workflowId && a.workflowId === b.workflowId && a.sequence && b.sequence ? a.sequence - b.sequence || (a.kind === 'request' ? -1 : b.kind === 'request' ? 1 : 0) : String(a.clientAt || a.startedAt || a.receivedAt).localeCompare(String(b.clientAt || b.startedAt || b.receivedAt))) : rows).map(row => <tr key={`${row.userId}:${row.id}`}><td>{time(row.receivedAt)}{row.clientAt && <small>기기 시각: {time(row.clientAt)}</small>}{row.startedAt && <small>서버 시작: {time(row.startedAt)}</small>}</td><td>{row.userName || row.userId}<small>{row.userName ? row.userId : ''}</small></td><td>{row.source === 'desktop' ? 'PC 웹앱' : '네노바웹'}</td><td>{row.path || '—'}{row.pagePath && <small>화면: {row.pagePath}</small>}</td><td><strong>{kindNames[row.kind] || row.kind}</strong><small>{row.recordedBy === 'server' ? '서버 기록' : '기기에서 전달한 조작'}</small><small>{row.label || row.control || '—'}</small>{row.method && <small>{row.method}</small>}</td><td><span className={row.outcome === 'failure' ? 'failure' : ''}>{row.stage === 'disconnected' ? '연결 단절 · 저장 여부 미확인' : row.kind === 'api' && row.outcome === 'success' ? '응답 성공' : outcomes[row.outcome] || '결과 미확인'}</span>{row.status != null && <small>HTTP {row.status}</small>}{row.duration != null && <small>{row.duration}ms</small>}{row.recordedBy === 'server' && Object.entries(row.evidence || {}).map(([key, value]) => <small key={key}>서버 보고 {key}: {value}</small>)}</td><td>{row.workflowId && <small>흐름: {row.workflowId} · 순번 {row.sequence || '—'}</small>}{row.requestId && <small>요청: {row.requestId}</small>}<small>직접 조작: {row.actionId || '연결 정보 없음'}</small></td></tr>)}
     </tbody></table></div>}
     {loaded && <div className="paging"><button type="button" className="btn" disabled={busy} onClick={() => load()}>최신 기록부터 조회</button><button type="button" className="btn" disabled={busy || !cursor} onClick={() => load(true)}>다음 페이지</button></div>}
     <style jsx>{`
