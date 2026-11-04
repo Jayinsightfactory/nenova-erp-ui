@@ -11,6 +11,7 @@
     "pages/orders/import.js",
     "pages/api/orders/index.js",
     "pages/api/orders/import-parse.js",
+    "pages/api/orders/import-price-targets.js",
     "pages/api/orders/mappings.js",
     "pages/api/orders/shipment-list-source.js",
     "lib/orderImportParse.js",
@@ -137,6 +138,25 @@
       "estimate": "preserve",
       "webProfitReport": "preserve",
       "notes": "Fresh shared runtime lookup by CustKey and contextual matchName. Exact/compact reviewed aliases may correct restored drafts without changing quantity/unit/skip. Unverified guesses and other customer records are never promoted. User saves require response/readback, and retain prior customer values with actor/time. Parsing existing saved mappings is read-only; full-year order registration scope unchanged."
+    },
+    {
+      "name": "SELECT_UPLOAD_SHEET_AND_PARSE_UNIT_PRICE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "multi-sheet workbooks list parseable sheets (priced sheet preferred) and the operator may re-parse a chosen sheet; 단가 column, repeated block headers (category | 색상 | 수량 / 단가) and 합계 rows are parsed read-only into unitPrice; no ERP writes"
+    },
+    {
+      "name": "LOAD_DISTRIBUTION_PRICE_TARGETS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "pages/api/orders/import-price-targets.js is read-only: CustKey + OrderYear + parent week → sub-weeks (NN-NN) with ShipmentMaster isFix and ShipmentDetail SdetailKey/ProdKey/Cost/OutQuantity/isFix/ShipmentDtm; used only to build the preview"
+    },
+    {
+      "name": "APPLY_UPLOAD_UNIT_PRICE_TO_SELECTED_SUBWEEK_DISTRIBUTION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDetailMoney": "Cost/Amount/Vat via the existing /api/estimate/update-cost price-only contract (docs/contracts/estimate-cost-update.json PRICE_ONLY_PRESERVE_CONFIRMATION); isFix, quantities, dates preserved; no fix/unfix SP, no stock SP",
+      "note": "operator chooses 주문등록만 or 주문등록 + 분배단가 적용; the price write targets only explicitly selected sub-weeks of the same CustKey + OrderYear, matched by ProdKey, after a before/after preview (changed / same / no-distribution / conflicting prices); it never creates ShipmentDetail and never touches OrderDetail.UnitPrice; the FINAL_SNAPSHOT order write runs first and a price failure leaves the order write intact and is reported for manual retry"
     },
     {
       "name": "BOUND_BROWSER_RESPONSE_WAIT",

@@ -136,6 +136,38 @@ async function main() {
   const resolvedImage = resolveImportUnit(null, '호접 화이트', { sourceUnit: '', unitCatalog: catalog });
   assert(resolvedImage.unit === '박스', '호접 from catalog or infer');
 
+  // 출고내역서형 단가/합계 + 수연형 블록 헤더 [카네이션 | 색상 | 총 수량 / 단] (품명 헤더 없음, 블록 반복)
+  const STATEMENT_ROWS = [
+    [' 친구플라워 44차 출고리스트(10월31일 토요일 출고)'],
+    [],
+    ['품명', '컬러', '발주수량', '출고수량', '단가', '비고'],
+    ['중국 장미', '프라우드', 40, 40, 10000, '10/31 토요일 출고'],
+    ['', '주밀리아', 20, 20, '9,500'],
+    ['', '합계(단)', 60, 60, '단 단가'],
+    ['카네이션', '문라이트', 3, 3, 11500],
+    ['', '합 계(박스)', 3, 3, '단 단가'],
+  ];
+  const stmt = parseOrderImportSheetRows(STATEMENT_ROWS, { sourceName: 'stmt' });
+  assert(stmt.rows.length === 3, `statement expected 3 rows, got ${stmt.rows.length}: ${stmt.rows.map(r => r.inputName).join('|')}`);
+  assert(stmt.rows[0].unitPrice === 10000 && stmt.rows[1].unitPrice === 9500, `statement unitPrice: ${stmt.rows[0]?.unitPrice}/${stmt.rows[1]?.unitPrice}`);
+  assert(stmt.rows[0].unit === '단' && stmt.rows[2].unit === '박스', `statement unit from 합계: ${stmt.rows[0]?.unit}/${stmt.rows[2]?.unit}`);
+
+  const SUYEON_ROWS = [
+    ['수연 출고일자 11월 3일 화요일'],
+    ['카네이션', '색상 ', '총 수량 / 박스'],
+    ['', '돈셀', 3],
+    ['', '문라이트', 3],
+    ['', '합 계', 6],
+    [],
+    ['중국', '색상 ', '수량 / 단', '단가 / 단'],
+    ['', '프라우드', 10, 8900],
+    ['', '주밀리아', 10, 8700],
+  ];
+  const sy = parseOrderImportSheetRows(SUYEON_ROWS, { sourceName: 'suyeon' });
+  assert(sy.rows.length === 4, `suyeon expected 4 rows, got ${sy.rows.length}: ${sy.rows.map(r => r.inputName).join('|')}`);
+  assert(sy.rows[0].matchName === '카네이션 돈셀' && sy.rows[0].unit === '박스', `suyeon block1: ${sy.rows[0]?.matchName}/${sy.rows[0]?.unit}`);
+  assert(sy.rows[2].matchName === '중국 프라우드' && sy.rows[2].unit === '단' && sy.rows[2].unitPrice === 8900, `suyeon block2: ${sy.rows[2]?.matchName}/${sy.rows[2]?.unit}/${sy.rows[2]?.unitPrice}`);
+
   console.log(`orderImportParse.test: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
