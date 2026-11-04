@@ -165,6 +165,45 @@ async function runScenarios(app) {
   const entry=(id,ck,pk,qty,unit='송이')=>makeEntry(id,ck===533?'Dutch existing-order':'Dutch new-order',ck,pk===2231?'Dutch Test Rose Red':'Dutch Test Rose White',pk,qty,unit);
   const before=await snapshot(app.pool);
   const baselineOrder=before.OrderDetail.find(r=>r.OrderDetailKey===44001);
+  // Exercise the real browser payload -> preview -> writer -> independent SELECT.
+  const { chinaDistributionEntries } = await import('../lib/chinaVolumeEditing.js');
+  const priceBody=(price,qty=77)=>makeBody(chinaDistributionEntries(
+    {'533:2231':{quantity:qty,unitPrice:price,boxNumbers:[11,12,13]}},
+    [{prodKey:2231,prodName:'Dutch Test Rose Red',unit:'송이'}],
+    [{custKey:533,custName:'Dutch existing-order'}]));
+  for(const price of [1500,0,1200]) {
+    const plan=await preview(app,priceBody(price));
+    assert.equal(plan.rows[0].targetCost,price);
+    assert.equal((await apply(app,plan)).success,true);
+    const read=await snapshot(app.pool);
+    const detail=read.ShipmentDetail.find(r=>r.ShipmentKey===54001&&r.ProdKey===2231);
+    assert.equal(Number(detail.Cost),price);
+    assert.equal(Number(detail.OutQuantity),77);
+    const checkMoney=r=>{
+      const gross=price*Math.round(Number(r.EstQuantity));
+      assert.equal(Number(r.Amount),Math.round(gross/1.1));
+      assert.equal(Number(r.Vat),gross-Math.round(gross/1.1));
+    };
+    checkMoney(detail);
+    const dates=read.ShipmentDate.filter(r=>r.SdetailKey===detail.SdetailKey);
+    assert.ok(dates.length);
+    dates.forEach(r=>{assert.equal(Number(r.Cost),price);checkMoney(r);});
+    assert.deepEqual(read.OrderDetail,before.OrderDetail);
+    for(const table of ['Estimate','WebProfitReport','Product','CustomerProdCost','ProductStock','StockHistory','WarehouseMaster','WarehouseDetail']) assert.deepEqual(read[table],before[table],table+' price preservation');
+    assert.deepEqual(read.ShipmentDetail.find(r=>r.SdetailKey===64002),before.ShipmentDetail.find(r=>r.SdetailKey===64002),'prior-year price preserved');
+  }
+  for(const blank of ['',undefined]) {
+    const plan=await preview(app,priceBody(blank,76));
+    if(plan.planToken) await apply(app,plan);
+    assert.equal(Number((await snapshot(app.pool)).ShipmentDetail.find(r=>r.ShipmentKey===54001&&r.ProdKey===2231).Cost),1200,'blank price preserves');
+  }
+  const corruptPrice=await preview(app,priceBody(1600,75));
+  const beforePriceCorrupt=businessLedgers(await snapshot(app.pool));
+  await query(app.pool,`CREATE TRIGGER TR_ChinaCorruptPrice ON ShipmentDate AFTER INSERT,UPDATE AS UPDATE d SET Cost=7 FROM ShipmentDate d JOIN inserted i ON i.SdateKey=d.SdateKey;`);
+  await assert.rejects(()=>apply(app,corruptPrice),/단가|금액|readback|검증/i);
+  await query(app.pool,`DROP TRIGGER TR_ChinaCorruptPrice`);
+  assert.deepEqual(businessLedgers(await snapshot(app.pool)),beforePriceCorrupt,'bad date price rolls back quantity and money');
+  console.log('PASS China actual price save/readback, zero, blank, native money, year/downstream preservation and price corruption rollback');
   const verifyPreserved=async()=>{
     const after=await snapshot(app.pool);
     assert.deepEqual(after.OrderDetail.find(r=>r.OrderDetailKey===44001),baselineOrder,'all original order columns unchanged');
@@ -183,12 +222,13 @@ async function runScenarios(app) {
     assert.equal(Number(after.ShipmentDetail.find(r=>r.ShipmentKey===54001&&r.ProdKey===2231)?.OutQuantity||0),qty);
     console.log('PASS existing order unchanged at shipment SET '+qty);
   }
-  const fresh=await preview(app,makeBody([entry('new',534,2232,5,'단')]));
+  const fresh=await preview(app,makeBody([{...entry('new',534,2232,5,'단'),unitPrice:1100}]));
   assert.equal((await apply(app,fresh)).success,true);
   let after=await verifyPreserved();
   const added=after.OrderDetail.find(r=>r.OrderMasterKey===44003&&r.ProdKey===2232);
   assert.equal(Number(added.OutQuantity),5);
   assert.equal(Number(after.ShipmentDetail.find(r=>r.ShipmentKey===54003&&r.ProdKey===2232).EstQuantity),50);
+  assert.equal(Number(after.ShipmentDetail.find(r=>r.ShipmentKey===54003&&r.ProdKey===2232).Cost),1100);
   const zero=await preview(app,makeBody([entry('zero-new-existing',534,2232,0,'단')]));
   assert.equal((await apply(app,zero)).success,true);
   after=await verifyPreserved();

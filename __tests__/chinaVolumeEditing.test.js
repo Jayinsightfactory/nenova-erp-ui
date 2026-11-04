@@ -37,3 +37,17 @@ assert.deepEqual(chinaSearchCandidates(catalog,'없는품목'),[]);
 assert.deepEqual(chinaSearchCandidates(catalog,' '),catalog);
 assert.equal(catalog.length,4,'candidate lookup never mutates DB catalog');
 console.log('PASS China live search: whitespace, multiple words, CL/case/fullwidth, no match and immutable catalog');
+
+for (const [unitPrice, expected] of [[undefined,null],['',null],[' ',null],[null,null],[0,0],['1500',1500]]) {
+ const saved=JSON.parse(JSON.stringify({'1:11':{quantity:3,unitPrice,boxNumbers:[11,12]}}));
+ const result=chinaDistributionEntries(saved,products,customers)[0];
+ assert.equal(result.unitPrice,expected);
+ assert.equal(result.quantity,3);
+ assert.equal(result.boxNumbers,undefined,'box numbers remain web-only');
+ const reapplied=applyChinaInvoiceCells(saved,invoice,{rows:products,customers});
+ assert.equal(reapplied['1:11'].unitPrice,saved['1:11'].unitPrice,'invoice reapply preserves same-key price');
+}
+for(const unitPrice of [false,true,-1,NaN,Infinity,'abc',1000000001,{}]) {
+ assert.throws(()=>chinaDistributionEntries({'1:11':{quantity:3,unitPrice}},products,customers),/단가/);
+}
+console.log('PASS China prices blank/zero/positive/legacy/save-restore/invoice preservation and invalid input guards');

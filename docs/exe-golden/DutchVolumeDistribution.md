@@ -1,5 +1,11 @@
 # Dutch volume distribution — native evidence, 2026-10-05
 
+## 2026-11-04 중국 분배단가 입력 재검증
+- 설치 EXE의 FormShipmentDistribution / ClassShipmentDate를 실제 dnSpy CLI로 다시 확인했다. 기존 Cost 및 EstQuantity 기준 Amount/Vat 식·저장 순서는 변경하지 않는다.
+- 중국 입력에서 단가를 거부하던 preview 조건을 제거하고 기존 공유 단가 writer/readback을 사용한다. 기존 명시 DB 키·단위·확정·stale·연도·기존 주문 보존 가드는 유지한다.
+- SELECT-only 2026/45-02/Cust533/Prod3384: detail101048, Out25/Est25/Cost10500, Amount238636/Vat23864, fixed1, ViewOrder1, DateQty25, Farm0, native 견적 조인 InGetDetail1. 운영 시험 쓰기 없음.
+- 격리 MSSQL 실제 preview/apply 후 SELECT: 양수·0·공란 단가, 기존 주문/전년도/견적·손익·재고 보존, 날짜 금액 변조 시 전체 rollback 통과. 기준표: work-plans/2026-11-04-china-price-input.md.
+
 ## 2026-10-23 중국 신규 주문 재감사
 - 실제 EXE FormOrderAdd/FormShipmentDistribution CLI를 재실행했다. FormOrderAdd의 CellValueChanged는 박스/단/송이 환산열을 갱신하고 UnitQuantity(false)는 EstUnit의 열을 그대로 저장한다. 출고용 Est 정수 반올림을 주문에 적용하지 않는다.
 - 중국 신규 주문만 chinaOrderUnits를 미리보기/쓰기/커밋전 readback에서 공유한다. 기존 주문 모든 열은 보존한다. 8단/80송이 품목의 신규 주문 Est8 복제 반례를 수정했고, 기존 주문100→분배80/날짜80 및 새 업체 주문8/분배8/Est80을 실제 격리 SQL로 검증했다.

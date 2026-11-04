@@ -39,7 +39,14 @@ assert.equal(fixedPlan.fixBlockedRows.length,1);
 await assert.rejects(()=>applyChinaVolume({planToken:plan.planToken,jobId:'china_fixture_job_789012'},user),/이미/);
 await assert.rejects(()=>previewChinaVolume({...body,year:undefined},user,deps),/연도|year/i);
 await assert.rejects(()=>previewChinaVolume({...body,entries:[{...body.entries[0],custKey:null}]},user,deps),/DB/);
-await assert.rejects(()=>previewChinaVolume({...body,entries:[{...body.entries[0],unitPrice:1}]},user,deps),/단가/);
+for (const unitPrice of [undefined, '', 0, 1500]) {
+ const priced=await previewChinaVolume({...body,entries:[{...body.entries[0],unitPrice}]},user,deps);
+ assert.equal(priced.rows[0].targetCost, unitPrice === undefined || unitPrice === '' ? 100 : unitPrice);
+ assert.ok(priced.planToken);
+}
+for (const unitPrice of [-1, false, 'bad', Infinity, 1000000001]) {
+ await assert.rejects(()=>previewChinaVolume({...body,entries:[{...body.entries[0],unitPrice}]},user,deps),/단가/);
+}
 console.log('PASS China explicit pair scope, no category omission writes, year required, existing order preservation, single-use owner/country plan');
 
 process.exit(0);
