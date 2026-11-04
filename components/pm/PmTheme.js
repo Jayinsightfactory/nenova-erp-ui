@@ -4,6 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Badge, Button, SelectCard, Tabs, ToggleChip } from './ui';
 import { CharacterAvatar, DANCES, DeskSet, EMOTES, EMOTE_LABEL, PERSONALITIES, normalizeAvatar, usePmLayers } from './Character';
+import { PM_FACES } from '../../lib/pmFaces';
 import { useGrow } from './grow/Grow';
 import { FxCast } from './SkillFx';
 import { BASE_SKILLS, FX_RULES, castSpec, skillById, skillShopItems } from '../../lib/pmSkills';
@@ -146,6 +147,7 @@ function BasePicker({ cfg, setCfg }) {
       {row('헤어', 'hair', [['short', '짧은'], ['bob', '단발'], ['long', '긴'], ['bun', '똥머리']])}
       {row('헤어색', 'hairColor', HAIR_NAMES.map((l, i) => [i, l]))}
       {row('성격(대기 동작)', 'personality', PERSONALITIES)}
+      {row('기본 표정(상태·이모트가 없을 때)', 'face', [['', '자동(미소)'], ...PM_FACES.map(([v, l]) => [v, l])])}
     </div>
   );
 }
@@ -156,7 +158,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const { manifest, avatars, save, reloadShop } = usePmTheme();
   const [wallet, reloadWallet] = useWallet(name);
   const saved = avatars[name];
-  const base = (sv) => { const n = normalizeAvatar(sv ? { ...sv, view: null } : null); return { char: n.char, body: n.body, skin: n.skin, hair: n.hair, hairColor: n.hairColor, personality: n.personality, items: n.items }; };
+  const base = (sv) => { const n = normalizeAvatar(sv ? { ...sv, view: null } : null); return { char: n.char, face: n.face, body: n.body, skin: n.skin, hair: n.hair, hairColor: n.hairColor, personality: n.personality, items: n.items }; };
   const [cfg, setCfg] = useState(() => base(saved));
   const [dance, setDance] = useState('');
   const [emote, setEmote] = useState('');
@@ -270,7 +272,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             </Button>
           ))}
           <Button variant="primary" className="big equip" loading={busy} disabled={!canEdit || needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''}
-            onClick={() => doSave({ char: cfg.char, body: cfg.body, skin: cfg.skin, hair: cfg.hair, hairColor: cfg.hairColor, personality: cfg.personality, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '장착 저장'}</Button>
+            onClick={() => doSave({ char: cfg.char, face: cfg.face, body: cfg.body, skin: cfg.skin, hair: cfg.hair, hairColor: cfg.hairColor, personality: cfg.personality, items: Object.fromEntries(Object.entries(cfg.items).filter(([, v]) => v)) })}>{busy ? '저장 중…' : '장착 저장'}</Button>
           <div className="srow">
             <Button size="sm" disabled={!canEdit || busy} onClick={() => setCfg((c) => ({ ...c, char: 'human', items: {} }))}>모두 벗기</Button>
             <Button size="sm" disabled={!canEdit || busy} onClick={() => doSave({ char: '', items: {} })}>기본 모습</Button>

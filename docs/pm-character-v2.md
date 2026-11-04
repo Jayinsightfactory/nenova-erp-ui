@@ -97,3 +97,9 @@ import { SeatedCharacter, DeskDecor } from 'components/pm/Character';
 - 앵커(384 캔버스): top=상판 중심, floor=책상 앞(사람 쪽) 바닥, deskL/M/R=상판 칸, pet — `lib/pmDeskSlots.PM_DESK_ISO`.
 - 장면 사용: `<DeskDecor view="iso" cfg anchor={{x,y}} scale dir z />` (anchor = 상판 중심 px). 상판 중심은 장면 `frontMasks` 사각형 중심(`isoDeskTop`), 배율은 `PM_DESK_ISO_SCALE[테마] × 장면폭/1600`.
 - 재생성: `blender -b -P scripts/pm-char/build.py -- <raw-iso> "" iso` → `python scripts/pm-char/post_iso.py <raw-iso> <shots>` → `fit-report-iso.json` 복사.
+
+## 표정(lib/pmFaces, 렌더는 다음 Blender 일괄 작업)
+- 12종: 기본 미소·활짝·집중·놀람·윙크·졸림·열정·뿌듯·수줍·울상·노래·생각. 눈·입만 바뀌고 머리 기준 공통 → 체형·피부·모자 정합 유지(post.py 얼굴 상자 검사).
+- 연동(우선순위): 춤=활짝 > 이모트(EMOTE_FACE) > 작업 분위기(몰입=열정, 집중/바쁨=집중, 휴식=미소, 꿀잠=졸림) > 직원이 고른 기본 표정 > 미소. 울상은 자동 연동에 쓰지 않는다.
+- 꾸미기 "몸·헤어·성격" 탭에서 기본 표정 선택(avatar.face, 무료). 레이어 없으면 smile 폴백이라 렌더 전에도 안전.
+- 렌더: build.py FACES(서기+앉기 2포즈 × 11추가 표정 = 22장)가 다음 일괄 렌더에 포함 → post.py 가 layers.faces / sit.faces 로 내보냄.

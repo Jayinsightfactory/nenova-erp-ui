@@ -71,6 +71,13 @@ for b in BODIES:
 _fb = raw_cache['body@std'].split()[3].point(lambda v: 255 if v > 128 else 0).getbbox()
 ANCHORS['feet'] = ((_fb[0] + _fb[2]) / 2, _fb[3]); layers['anchors']['feet'] = [round(ANCHORS['feet'][0], 1), ANCHORS['feet'][1]]
 face = keep('face', CH); layers['face'] = save(face, 'face.webp')
+# 표정 레이어(lib/pmFaces PM_FACES). smile = 기본 face. 렌더 전인 표정은 목록에서 빠지고 프런트가 smile 로 폴백.
+FACE_IDS = ['smile', 'grin', 'focus', 'wow', 'wink', 'sleepy', 'fire', 'proud', 'shy', 'teary', 'sing', 'thinking']
+layers['faces'] = {'smile': layers['face']}
+for fe in FACE_IDS:
+    if fe == 'smile': continue
+    im = keep(f'face.{fe}', CH)
+    if im is not None: layers['faces'][fe] = save(im, f'face/{fe}.webp')
 for s in HAIRS:
     d = {}
     for part in ('front', 'back'):
@@ -102,6 +109,11 @@ sit = {'anchors': {'hip': [round(proj_ch(0, 0, 0.42)[0], 1), round(proj_ch(0, 0,
 for b in BODIES:
     im = keep(f'body@{b}{SIT}', CH); sit['bodies'][b] = [save(tint(im, c), f'sit/body/{b}-{i}.webp') for i, c in enumerate(SKINS)]
 sit['face'] = save(keep('face' + SIT, CH), 'sit/face.webp')
+sit['faces'] = {'smile': sit['face']}
+for fe in FACE_IDS:
+    if fe == 'smile': continue
+    im = keep(f'face.{fe}' + SIT, CH)
+    if im is not None: sit['faces'][fe] = save(im, f'sit/face/{fe}.webp')
 for st_ in HAIRS:
     d = {}
     for part in ('front', 'back'):
@@ -281,6 +293,15 @@ for name, im in raw_cache.items():
             for y in range(int(ey) - 4, int(ey) + 5):
                 if a.getpixel((x, y)) > 24: n += 1
     if n: report['orderViolations'] += 1; report['issues'].append(f'sit face-cover {name} {n}px')
+# 표정 정합: 얼굴 상자(기본 face bbox + 여유 14px) 안에만 그려져야 함 — 머리 공통이라 체형·피부 전 조합 정합
+fb = raw_cache['face'].split()[3].point(lambda v: 255 if v > 24 else 0).getbbox()
+for fe in FACE_IDS:
+    im = raw_cache.get(f'face.{fe}')
+    if im is None: continue
+    report['checked'] += 1
+    bb = im.split()[3].point(lambda v: 255 if v > 24 else 0).getbbox()
+    if not bb or bb[0] < fb[0] - 14 or bb[1] < fb[1] - 14 or bb[2] > fb[2] + 14 or bb[3] > fb[3] + 14:
+        report['outOfSlot'] += 1; report['issues'].append(f'face.{fe} bbox {bb} vs {fb}')
 ORDER = layers['order']
 must = [('body', 'bottom'), ('bottom', 'top'), ('top', 'badge'), ('face', 'hairFront'), ('hairFront', 'hat'), ('hairBack', 'body'), ('kindBack', 'body'), ('top', 'hand')]
 for a_, b_ in must:

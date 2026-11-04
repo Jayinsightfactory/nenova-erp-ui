@@ -122,3 +122,26 @@ assert.ok(ip.flip && ip.size === 192 && ip.left === 1000 - (384 - L.iso.anchors.
 assert.deepStrictEqual(ds2.isoDeskTop([20, 18, 28, 24]), [24, 21]);
 assert.strictEqual(Object.keys(ds2.PM_DESK_ISO_SCALE).join(''), 'ABCDEFGHIJ');
 console.log('pmCharacter ok', files.length, 'layer files');
+
+// 7) 표정(lib/pmFaces): 목록 12+, 연동 규칙(춤>이모트>vibe>기본), teary 자동 미사용, 저장 검증, 레이어 폴백
+const pf = load('pmFaces.js', 'PM_FACES, PM_FACE_IDS, VIBE_FACE, EMOTE_FACE, faceOf, isFaceId');
+assert.ok(pf.PM_FACES.length >= 12 && pf.PM_FACE_IDS.includes('smile'));
+assert.strictEqual(pf.faceOf({ dance: 'jump', emote: 'zzz', vibe: 'blaze', defaultFace: 'shy' }), 'grin', '춤 우선');
+assert.strictEqual(pf.faceOf({ emote: 'music', vibe: 'blaze' }), 'sing', '이모트 > vibe');
+assert.strictEqual(pf.faceOf({ vibe: 'blaze' }), 'fire', '몰입=열정');
+assert.strictEqual(pf.faceOf({ vibe: 'doze' }), 'sleepy', '꿀잠=졸림');
+assert.strictEqual(pf.faceOf({ vibe: 'break' }), 'smile', '휴식=미소');
+assert.strictEqual(pf.faceOf({ vibe: 'idle', defaultFace: 'wink' }), 'wink', '대기=기본 표정');
+assert.strictEqual(pf.faceOf({}), '', '모두 비면 빈값(렌더러 smile 폴백)');
+assert.ok(!Object.values(pf.VIBE_FACE).includes('teary') && !Object.values(pf.EMOTE_FACE).includes('teary'), '울상은 자동 연동 안 함');
+for (const v of Object.keys(pf.VIBE_FACE)) if (pf.VIBE_FACE[v]) assert.ok(pf.isFaceId(pf.VIBE_FACE[v]), v);
+for (const e of Object.keys(pf.EMOTE_FACE)) assert.ok(pf.isFaceId(pf.EMOTE_FACE[e]), e);
+// 저장 검증(pmAvatars PM_BASE.face) + 모든 표정 id 일치
+const av = fs.readFileSync(path.join(root, 'lib', 'pmAvatars.js'), 'utf8');
+for (const id of pf.PM_FACE_IDS) assert.ok(av.includes(`'${id}'`), `PM_BASE.face ${id}`);
+// 빌드 스크립트의 FACES = 같은 목록(내일 렌더 대상)
+const bp = fs.readFileSync(path.join(root, 'scripts', 'pm-char', 'build.py'), 'utf8');
+for (const id of pf.PM_FACE_IDS) assert.ok(new RegExp(`FACES = .*'${id}'`).test(bp), `build.py FACES ${id}`);
+// 레이어 폴백: faces 가 아직 없으면 기본 face 사용(렌더 전 상태에서 깨지지 않음)
+assert.ok(!L.faces || L.faces.smile, 'faces 생기면 smile 포함');
+console.log('pmFaces ok');

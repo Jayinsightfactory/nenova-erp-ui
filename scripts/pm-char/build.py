@@ -133,12 +133,49 @@ def body(w):
     sphere(H, HR, sk, scale=(1.06, 0.96, 0.94))
     for sx in (-1, 1): sphere((sx * 0.57, 0, 1.52), 0.1, sk, scale=(0.5, 0.7, 1))   # 귀
 
-def face_human():
-    for sx in (-1, 1):
-        sphere((sx * 0.19, -0.5, 1.5), 0.075, '#2a1f1d', scale=(0.9, 0.45, 1.15), rough=0.3)
-        sphere((sx * 0.19 - 0.02, -0.535, 1.53), 0.024, '#ffffff', rough=0.3)
-        sphere((sx * 0.31, -0.45, 1.39), 0.07, '#ff9fb0', scale=(1.3, 0.3, 0.75))
-    torus((0, -0.52, 1.38), 0.045, 0.012, '#7a3a34', rot=(math.radians(80), 0, 0), scale=(1, 1, 0.55))
+# 표정 12종(lib/pmFaces.js PM_FACES 와 같은 id). 눈·입만 바꾸고 볼터치·위치는 공통 → 체형·피부·모자와 정합 유지.
+FACES = ['smile', 'grin', 'focus', 'wow', 'wink', 'sleepy', 'fire', 'proud', 'shy', 'teary', 'sing', 'thinking']
+def face_human(expr='smile'):
+    dark = '#2a1f1d'
+    def eye(sx, kind):
+        x, y, z = sx * 0.19, -0.5, 1.5
+        if kind == 'open':
+            sphere((x, y, z), 0.075, dark, scale=(0.9, 0.45, 1.15), rough=0.3)
+            sphere((x - 0.02, y - 0.035, z + 0.03), 0.024, '#ffffff', rough=0.3)
+        elif kind == 'closed':   # ∪ 감은 눈
+            torus((x, y, z), 0.055, 0.013, dark, rot=(math.radians(80), 0, 0), scale=(1, 1, 0.6))
+            bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z + 0.05)); c = bpy.context.object; c.scale = (0.2, 0.2, 0.1); c['grp'] = '__cutter'; c.display_type = 'WIRE'
+        elif kind == 'half':     # 반쯤 감김(졸림)
+            o = sphere((x, y, z), 0.075, dark, scale=(0.9, 0.45, 1.15), rough=0.3)
+            cut(o, (x, y, z + 0.07), (0.3, 0.3, 0.09))
+        elif kind == 'star':     # 불타는 눈(열정): 눈동자 + 불꽃색 하이라이트
+            sphere((x, y, z), 0.075, dark, scale=(0.9, 0.45, 1.15), rough=0.3)
+            sphere((x, y - 0.04, z + 0.015), 0.03, '#ff8a2a', rough=0.3, emit=0.8)
+        elif kind == 'up':       # 올려다봄(생각)
+            sphere((x, y, z + 0.02), 0.075, dark, scale=(0.9, 0.45, 1.05), rough=0.3)
+            sphere((x - 0.015, y - 0.035, z + 0.055), 0.024, '#ffffff', rough=0.3)
+    def mouth(kind):
+        y, z = -0.52, 1.38
+        if kind == 'o':   torus((0, y, z), 0.045, 0.012, '#7a3a34', rot=(math.radians(80), 0, 0), scale=(1, 1, 0.55))
+        elif kind == 'smileline':
+            t = torus((0, y, z + 0.015), 0.05, 0.012, '#7a3a34', rot=(math.radians(80), 0, 0)); cut(t, (0, y, z + 0.06), (0.25, 0.2, 0.09))
+        elif kind == 'grin':  # 활짝(아랫입 큰 호)
+            o = sphere((0, y, z), 0.055, '#7a3a34', scale=(1.2, 0.4, 0.8)); cut(o, (0, y, z + 0.045), (0.3, 0.3, 0.09)); sphere((0, y - 0.005, z - 0.02), 0.028, '#ff9fb0', scale=(1.1, 0.3, 0.6))
+        elif kind == 'flat':  box((0, y, z), (0.07, 0.015, 0.016), '#7a3a34', b=0.005)
+        elif kind == 'wavy':  # 울상 ~ 입
+            for i, dx in enumerate((-0.03, 0, 0.03)): sphere((dx, y, z + (0.008 if i == 1 else -0.004)), 0.016, '#7a3a34', scale=(1, 0.5, 0.7))
+        elif kind == 'note':  # 노래: o 입 + 음표는 UI 이모트가 담당
+            torus((0, y, z), 0.035, 0.012, '#7a3a34', rot=(math.radians(80), 0, 0))
+    E = {'smile': ('open', 'open', 'smileline'), 'grin': ('closed', 'closed', 'grin'), 'focus': ('open', 'open', 'flat'),
+         'wow': ('open', 'open', 'o'), 'wink': ('open', 'closed', 'smileline'), 'sleepy': ('half', 'half', 'o'),
+         'fire': ('star', 'star', 'grin'), 'proud': ('closed', 'closed', 'smileline'), 'shy': ('closed', 'closed', 'smileline'),
+         'teary': ('closed', 'closed', 'wavy'), 'sing': ('closed', 'closed', 'note'), 'thinking': ('up', 'up', 'flat')}
+    l, r, m = E.get(expr, E['smile'])
+    eye(-1, l); eye(1, r); mouth(m)
+    for sx in (-1, 1):   # 볼터치 공통(수줍은 크게)
+        sphere((sx * 0.31, -0.45, 1.39), 0.09 if expr == 'shy' else 0.07, '#ff9fb0', scale=(1.3, 0.3, 0.75))
+    if expr == 'teary': sphere((0.27, -0.48, 1.44), 0.022, '#9ad0f0', rough=0.2)
+    if expr == 'shy': sphere((-0.27, -0.46, 1.33), 0.05, '#ff9fb0', scale=(1.2, 0.3, 0.6))
 
 # ── 헤어(색은 후처리 틴트용 회색) ──
 HAIRC = '#d8d8d8'
@@ -468,6 +505,8 @@ for bname, w in BODIES.items():
     for h in HANDS: build.append((f'{h[0]}@{bname}', lambda h=h, w=w: hand_prop(h, w)))
     for b in BADGES: build.append((f'{b[0]}@{bname}', lambda b=b, w=w: badge(b, w)))
 build.append(('face', face_human))
+for _e in FACES:
+    if _e != 'smile': build.append((f'face.{_e}', lambda e=_e: face_human(e)))   # smile = 기존 face(기본)
 for s in HAIRS:
     for part in ('front', 'back'): build.append((f'hair.{s}.{part}', lambda s=s, part=part: hair(s, part)))
 for k in KINDS:
@@ -541,6 +580,8 @@ for bname in BODIES:
     for b in BADGES: render({f'{b[0]}@{bname}'}, set(), 'ch', f'{b[0]}@{bname}')
 HEAD = {'body@std'}   # 머리는 전 체형 공통 → std 의 머리로 holdout
 render({'face'}, set(), 'ch', 'face')
+for _e in FACES:
+    if _e != 'smile': render({f'face.{_e}'}, HEAD, 'ch', f'face.{_e}')
 for s in HAIRS:
     render({f'hair.{s}.back'}, HEAD, 'ch', f'hair.{s}.back')
     render({f'hair.{s}.front'}, HEAD, 'ch', f'hair.{s}.front')
@@ -560,6 +601,8 @@ for sfx in ('~sit',):
         for b in BADGES: render({f'{b[0]}@{bname}' + sfx}, set(), 'ch', f'{b[0]}@{bname}' + sfx)
     HS = {'body@std' + sfx}
     render({'face' + sfx}, set(), 'ch', 'face' + sfx)
+    for _e in FACES:
+        if _e != 'smile': render({f'face.{_e}' + sfx}, HS, 'ch', f'face.{_e}' + sfx)
     for st_ in HAIRS:
         render({f'hair.{st_}.back' + sfx}, HS, 'ch', f'hair.{st_}.back' + sfx)
         render({f'hair.{st_}.front' + sfx}, HS, 'ch', f'hair.{st_}.front' + sfx)
