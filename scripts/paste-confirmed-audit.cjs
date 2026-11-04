@@ -105,7 +105,7 @@ function makeReplayArm(kind,data,budget,{root=process.cwd(),sources=global.__aud
     if(relative==='lib/chat/costTracker.js')return {trackLLMCall:()=>{}};
     if(relative==='lib/parseMappings.js')return {loadMappings:async()=>structuredClone(mappings.product||{})};
     if(relative==='lib/customerMappings.js')return {loadCustomerMappings:async()=>structuredClone(mappings.customer||{})};
-    let code=kind==='baseline'?cp.execFileSync('git',['show',`${BASELINE}:${relative}`],{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024,stdio:['ignore','pipe','pipe']}):(sources[relative]||fs.readFileSync(file,'utf8'));
+    let code=kind==='baseline'?cp.execFileSync('git',['show',`${BASELINE}:${relative}`],{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024,stdio:['ignore','pipe','pipe']}):(sources[relative]||cp.execFileSync('git',['show',`${data.candidateBaseCommit||(data.candidateBaseCommit=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim())}:${relative}`],{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024,stdio:['ignore','pipe','pipe']}));
     if(relative==='pages/api/orders/parse-paste.js')code+='\nexport {sanitizePasteText,parseNaturalSectionOrders,parseCompactStockOrders};';
     code=swc.transformSync(code,{filename:file,jsc:{parser:{syntax:'ecmascript'},target:'es2022'},module:{type:'commonjs'}}).code;
     const module={exports:{}};cache.set(file,module);
