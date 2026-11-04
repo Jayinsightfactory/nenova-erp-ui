@@ -104,3 +104,25 @@ test('logout suspends immediately and only acknowledged batch is removed', async
   const latest = f.calls.filter(c => c.init?.method === 'POST' && c.input === '/api/work/activity').at(-1);
   assert.equal(JSON.parse(latest.init.body).expectedUserId, 'bob'); recorder.stop();
 });
+
+test('async requests share workflow but not stale clicks; requests correlate and identity rotates', async () => {
+  const f = fixture(), r = startActivityRecorder(f.win, () => {}); await turn();
+  const event = { type: 'click', eventPhase: 3, target: element('BUTTON', {}, '검토') };
+  f.handlers.get('click')(event); event.eventPhase = 0;
+  await f.win.fetch('/api/preview?secret=SECRET');
+  const first = f.calls.at(-1).init.headers;
+  await f.win.fetch('/api/save', { method: 'POST' });
+  const second = f.calls.at(-1).init.headers;
+  assert.equal(first.get('x-nenova-workflow-id'), second.get('x-nenova-workflow-id'));
+  assert.equal(second.get('x-nenova-action-id'), null);
+  assert.notEqual(first.get('x-nenova-request-id'), second.get('x-nenova-request-id'));
+  r.retry(); await turn();
+  const batch = JSON.parse(f.calls.find(c => c.input === '/api/work/activity' && c.init?.body).init.body).events;
+  assert.equal(batch.find(e => e.requestId === second.get('x-nenova-request-id')).method, 'POST');
+  assert.equal(batch.find(e => e.requestId === first.get('x-nenova-request-id')).path, '/api/preview');
+  assert.ok(batch.every((e, i) => e.sequence === i + 1));
+  f.setMe('bob'); await f.win.fetch('/api/auth/logout', { method: 'POST' }); await turn();
+  await f.win.fetch('/api/save', { method: 'POST' });
+  assert.notEqual(f.calls.at(-1).init.headers.get('x-nenova-workflow-id'), second.get('x-nenova-workflow-id'));
+  r.stop();
+});

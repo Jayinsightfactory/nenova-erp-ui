@@ -115,7 +115,7 @@
     "test:my-customer-orders": "node __tests__/myCustomerOrderEntry.test.js && node __tests__/myCustomerOrderWritePolicy.test.js && node __tests__/myCustomerOrderApi.test.js && node __tests__/salesPasteOrder.test.js && node __tests__/salesPasteOrderUi.test.js && node __tests__/orderImportMappingReuse.test.js && node __tests__/orderImportRematch.test.js",
     "test:weekday-early-shipment": "node --test __tests__/weekdayEarlyShipment.test.js && node __tests__/weekdayEarlyShipmentPresentation.test.js",
     "test:stock-gate-atomic": "node scripts/native-stock-gate-atomic.test.cjs && node scripts/native-stock-gate-atomic-installer.test.cjs",
-    "test:user-activity": "node scripts/test-user-activity-server.cjs && node --test __tests__/userActivityClient.test.js __tests__/userActivityWorkerResolution.test.cjs && node --test desktop/tests/activity.test.cjs",
+    "test:user-activity": "node scripts/test-user-activity-server.cjs && node --test __tests__/userActivityClient.test.js __tests__/userActivityWorkerResolution.test.cjs __tests__/adminActivityRead.test.cjs && node --test desktop/tests/activity.test.cjs",
     "test:pending-stock-recovery": "node --test __tests__/pendingStockRecovery.test.cjs __tests__/pendingStockRecoveryWorker.test.cjs __tests__/pendingStockRecoveryService.test.cjs",
     "test:stock-adjustment-matrix": "node --test __tests__/stockAdjustmentMatrix.test.js __tests__/stockAdjustmentMatrixWorkbook.test.js __tests__/stockAdjustmentMatrixApi.test.js __tests__/stockAdjustmentMatrixUi.test.cjs",
     "test:kakao-stock": "node __tests__/kakaoStockLedger.test.js && node __tests__/kakaoStockInbox.test.js && node __tests__/kakaoStockPages.test.js && node __tests__/kakaoStockSections.test.js && node __tests__/kakaoStockCustomers.test.js",
