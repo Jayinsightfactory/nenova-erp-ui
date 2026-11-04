@@ -15,7 +15,10 @@
     "lib/workFeatureData.js",
     "pages/api/work/feature-data-ingest.js",
     "pages/api/work/orbit-thumbs.js",
-    "pages/api/my-work/feature.js"
+    "pages/api/my-work/feature.js",
+    "lib/workManualRoutines.js",
+    "components/manuals/RoutineManual.js",
+    "data/work-feature-manual-routines.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -53,6 +56,16 @@
       "name": "REPLAY_VIEW_ADMIN_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_ROUTINE_VIEW_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_ROUTINE_CONFIRM_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -65,7 +78,8 @@
     "__tests__/erpContractManifest.test.js",
     "__tests__/workReplay.test.js",
     "__tests__/workFeatureData.test.js",
-    "__tests__/orbitThumbs.test.js"
+    "__tests__/orbitThumbs.test.js",
+    "__tests__/workManualRoutines.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
