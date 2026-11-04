@@ -1,0 +1,86 @@
+{
+  "id": "incoming-approval",
+  "title": "수입부 입고 정정 요청과 영업지원 원자 확정",
+  "scope": [
+    "lib/incomingApprovalPolicy.js",
+    "lib/incomingApprovalStore.js",
+    "lib/incomingApproval.js",
+    "pages/api/warehouse/approval.js",
+    "components/IncomingApproval.js",
+    "pages/incoming.js",
+    "pages/import/tools.js",
+    "lib/mgmt/approval.js",
+    "__tests__/incomingApproval.test.mjs",
+    "__tests__/incomingApprovalSql.test.mjs",
+    "scripts/incoming-approval-smoke.cjs",
+    "components/WarehouseCorrection.js",
+    "lib/warehouseCorrection.js",
+    "__tests__/fixtures/incomingApproval.sql",
+    "package.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "DRAFT_REQUEST_REVIEW_REJECT_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "preserve",
+      "stock": "preserve",
+      "request": "revision CAS and append audit"
+    },
+    {
+      "name": "APPROVE_FARM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "FarmName",
+      "stock": "preserve"
+    },
+    {
+      "name": "APPROVE_REPLACE",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "warehouse": "approved final receipt",
+      "stock": "receipt and fixed shipment signed delta, native future-year cascade",
+      "estimate": "positive estimate from native View joins and date amounts; preserve independent deductions",
+      "sales": "detail money equals dates, verify native visibility"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 same week preserved, 2026 correction cascades into 2027 stock; selected shipment scope explicit year/week/customer/product"
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/IncomingApproval.md",
+    "source": "actual local dnSpy FormShipmentDistribution and read-only operating probe 2026-11-04",
+    "methods": [
+      "FormShipmentDistribution.btnSave_Click",
+      "FormEstimateView.GetDetail"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ShipmentFarm",
+      "OrderDetail",
+      "ProductStock"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/incomingApproval.test.mjs",
+    "__tests__/incomingApprovalSql.test.mjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

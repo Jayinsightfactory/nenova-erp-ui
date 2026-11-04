@@ -15,7 +15,7 @@ async function main(){
   await page.setRequestInterception(true);page.on('request',r=>{
    const u=new URL(r.url());if(u.origin!==base)return r.abort();if(!u.pathname.startsWith('/api/'))return r.continue();
    if(!['GET','HEAD'].includes(r.method())&&u.pathname.startsWith('/api/warehouse'))writes.push(u.pathname);
-   let d={success:true,items:[],rows:[],data:[],products:[],countries:[],records:[],history:[],references:[],options:[],value:null,revision:0};
+   let d={success:true,items:[],rows:[],data:[],products:[],countries:[],records:[],history:[],references:[],options:[],requests:[],permissions:{request:true,review:true},value:null,revision:0};
    if(u.pathname==='/api/auth/me')d.user=user;
    if(u.pathname==='/api/warehouse')d.masters=[master];
    if(u.pathname==='/api/warehouse/correction')d={success:true,draftOwner:'fixture',header:master,details:[{WdetailKey:1,ProdKey:1,OutQuantity:2}],farms:[{FarmName:'Fixture Farm'}],history:[]};
