@@ -2007,3 +2007,6 @@
 
 2026-11-04 입고 정정 메뉴 연결: 승인업무3탭(수정요청/매칭·확정/처리이력) 기획. /incoming 입고정정업무 버튼→/import/tools?tab=incoming, 업무도구에 동일버튼·입고조회수정탭 추가. 기존 Incoming/correction 재사용, 선택번호·기간·필터·팝업 전달·탭선택 보존. 새승인엔진 미구현 사실 표시, API/SQL/원장쓰기 변경없음. 신규 URL 정책검사 PASS, 전체ERP/build/UI/배포 진행중. 정본 docs/work-sessions/2026-11-04_incoming-tabs.md.
 검색어: 입고정정업무 incomingWorkspaceNavigation tab=incoming 수입부업무도구 승인3탭
+
+2026-11-04 입고 탭 연결 완료: 기존effect fixture 의존성(setPopup/linkedWarehouse) 보완 후 전체ERP exit0, webpack·UI·dnSpy·manifest191/write0 PASS. PR1486 CI41776478438 SUCCESS→0790ef86 병합, Cafe2441777260006 SUCCESS. 운영badge0790ef86/ping200, 실Chrome 양쪽버튼·새탭·선택7970전달/탭복귀·일반/팝업·모바일·수정창GET200×2/pageerror0/ERP쓰기0. 승인3탭은 기획이며 새 승인엔진은 미구현으로 화면에 명시. 정본 docs/work-sessions/2026-11-04_incoming-tabs.md.
+검색어: 입고정정업무 PR1486 0790ef86 41777260006 incomingWorkspaceNavigation 운영스모크
