@@ -795,7 +795,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
           </div>
           {view === '3d' && fb3d && <p className="muted">3D 장면을 쓸 수 없어 2D 장면으로 보여 줍니다({fb3d}).</p>}
           {view === '3d' && !fb3d ? (
-            <Scene3D themeId={pmTheme.themeId === 'I' ? 'I' : 'B'} agents={agents} rooms={visibleRooms} links={links} reduced={reduced}
+            <Scene3D themeId={pmTheme.themeId === 'B' ? 'B' : 'I'} agents={agents} rooms={visibleRooms} links={links} reduced={reduced}
               onOpenPerson={openPerson} onPickStage={setSelStage} onFallback={setFb3d} />
           ) : (() => {
             const iso = <IsoScene theme={themeById(pmTheme.themeId)} agents={agents} rooms={visibleRooms} links={links} corridor={corridor} now={now}

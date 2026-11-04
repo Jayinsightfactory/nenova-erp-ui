@@ -53,7 +53,7 @@ function emojiSprite(txt) {
   s.scale.set(0.8, 0.8, 1); s.renderOrder = 10; return s;
 }
 
-export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
+export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
   const { avatars } = usePmTheme();
   const host = useRef(null); const labelsRef = useRef(null);
   const api = useRef(null);
@@ -61,7 +61,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
   const [stat, setStat] = useState('');
   const dataRef = useRef({ rooms, agents, links, avatars, reduced });
   dataRef.current = { rooms, agents, links, avatars, reduced };
-  const T = THEMES[themeId] || THEMES.B;
+  const T = THEMES[themeId] || THEMES.I;
 
   // 장면 생성(테마 바뀌면 다시)
   useEffect(() => {
