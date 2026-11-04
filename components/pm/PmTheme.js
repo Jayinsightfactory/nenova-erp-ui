@@ -9,7 +9,7 @@ import { useGrow } from './grow/Grow';
 import { FxCast } from './SkillFx';
 import { BASE_SKILLS, FX_RULES, castSpec, skillById, skillShopItems } from '../../lib/pmSkills';
 import { mountShopItems } from '../../lib/pmMounts';
-import { PM_DEFAULT_THEME, PM_THEMES, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb } from '../../lib/pmThemes';
+import { PM_DEFAULT_THEME, PM_THEMES, PM_THEMES_VISIBLE, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb, visibleThemeId } from '../../lib/pmThemes';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null, shop: null, reloadShop: null });
 export const usePmTheme = () => useContext(PmThemeCtx);
@@ -54,23 +54,24 @@ export function usePmThemeState(who = '') {
     if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
     setAvatars((a) => { const n = { ...a }; if (j.avatar) n[name] = j.avatar; else delete n[name]; return n; });
   }, []);
-  const theme = themeById(themeId);
+  const theme = themeById(visibleThemeId(themeId)); // 숨긴 테마 저장값은 보존, 화면 표시만 기본(I)
   const css = useMemo(() => allThemesCss(), []);
   const ctx = useMemo(() => ({ manifest, theme, avatars, save, shop, reloadShop }), [manifest, theme, avatars, save, shop, reloadShop]);
   return { themeId: theme.id, pick, css, ctx };
 }
 
-// 상단 테마 선택: 시안 축소본 썸네일 10개. 접힌 상태에선 지금 테마 이름만.
+// 상단 테마 선택: 노출 테마(PM_THEMES_VISIBLE)만 썸네일로. 접힌 상태에선 지금 테마 이름만.
+//   숨긴 테마를 저장해 둔 직원은 화면만 기본(I)으로 보이고 저장값은 보존된다(visibleThemeId).
 export function ThemePicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const cur = themeById(value);
+  const cur = themeById(visibleThemeId(value));
   return (
     <div className="tpick">
       <Button size="sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{cur.emoji} 테마 · {cur.name} {open ? '▴' : '▾'}</Button>
       {open && (
         <div className="tgrid" role="listbox" aria-label="화면 테마 선택">
-          {PM_THEMES.map((t) => (
-            <SelectCard key={t.id} className="tthumb" on={t.id === value} pressed={t.id === value} title={t.desc}
+          {PM_THEMES.filter((t) => PM_THEMES_VISIBLE.includes(t.id)).map((t) => (
+            <SelectCard key={t.id} className="tthumb" on={t.id === visibleThemeId(value)} pressed={t.id === visibleThemeId(value)} title={t.desc}
               onClick={() => { onChange(t.id); setOpen(false); }}>
               <img src={themeThumb(t.id)} alt="" loading="lazy" decoding="async" />
               <span><b>{t.id}</b> {t.name}</span>
