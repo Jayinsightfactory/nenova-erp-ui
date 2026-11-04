@@ -106,7 +106,7 @@ for n, (dx, dz, yaw, j) in enumerate(desks):
         for t in list(rig.animation_data.nla_tracks): rig.animation_data.nla_tracks.remove(t)
         rig.animation_data.action = None
     POSE = {'thigh.L': (90, 0, 0), 'thigh.R': (90, 0, 0), 'shin.L': (-90, 0, 0), 'shin.R': (-90, 0, 0)}
-    POSE.update({'arm.L': (20, 0, -8), 'arm.R': (20, 0, 8), 'spine': (16, 0, 0), 'head': (25, 0, 7)} if clip == 'doze' else {'arm.L': (62, 0, -12), 'arm.R': (66, 0, 12), 'head': (8, 0, 0)})
+    POSE.update({'arm.L': (20, 0, -8), 'arm.R': (20, 0, 8), 'spine': (8, 0, 0), 'head': (10, 0, 8)} if clip == 'doze' else {'arm.L': (62, 0, -12), 'arm.R': (66, 0, 12), 'head': (8, 0, 0)})
     for bn, rr in POSE.items():
         pb = rig.pose.bones[bn]; pb.rotation_mode = 'XYZ'; pb.rotation_euler = tuple(R(a) for a in rr)
     for o in objs:
@@ -125,7 +125,7 @@ sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 2.6; sun.angle = R(12)
 so = bpy.data.objects.new('sun', sun); sc.collection.objects.link(so); so.rotation_euler = (R(50), R(10), R(-35))
 fill = bpy.data.lights.new('fill', 'SUN'); fill.energy = 0.8; fill.angle = R(30)
 fo = bpy.data.objects.new('fill', fill); sc.collection.objects.link(fo); fo.rotation_euler = (R(60), 0, R(140))
-cd = bpy.data.cameras.new('cam'); cd.type = 'ORTHO'; cd.ortho_scale = max(hx * 0.48, hz * 0.62) * 2 / 1.2  # sceneFit x2 / 기본배율1.2; cd.clip_end = 300
+cd = bpy.data.cameras.new('cam'); cd.type = 'ORTHO'; cd.ortho_scale = max(hx * 0.48, hz * 0.62) / 1.2 * 2 * (1920 / 1080)  # 웹 기본배율 1.2 시야폭; cd.clip_end = 300
 cam = bpy.data.objects.new('cam', cd); sc.collection.objects.link(cam); sc.camera = cam
 import mathutils
 cam.rotation_euler = (R(90 - 35.264), 0, R(45))  # 카메라 위치 = 블렌더(+x,-y) = 웹(+x,+z)
