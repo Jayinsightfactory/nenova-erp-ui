@@ -28,7 +28,16 @@ const puppeteer = require('puppeteer-core');
  assert.equal(await page.$eval('tbody',e=>e.innerText.includes('라움')),false);
  await click('보류 (1건)');await page.waitForFunction(()=>document.querySelector('tbody')?.innerText.includes('라움'));
  assert.equal(await page.$eval('tbody',e=>e.innerText.includes('태림원예')),false);
+ assert.equal(await page.$eval('thead th:nth-child(2)',e=>e.textContent),'불량 차수');
+ assert.equal(await page.$eval('.support-source-period',e=>e.textContent),'2026년 42차 불량');
+ assert.equal(await page.$eval('.support-source-period',e=>getComputedStyle(e).display !== 'none' && Number(getComputedStyle(e).fontWeight)>=700),true);
  assert.match(await page.$eval('tbody',e=>e.innerText),/보류.*이전 차감 견적 없음/);
+ for(const width of [1920,1000]) {
+  await page.setViewport({width,height:1080});
+  assert.equal(await page.$eval('.support-source-period',e=>e.getBoundingClientRect().right<=e.closest('td').getBoundingClientRect().right),true);
+ }
+ await page.setViewport({width:1920,height:1080});
+ await page.screenshot({path:'C:/Users/USER/defect-held-week-local-1104.png',fullPage:true});
  await click('등록 대상');await page.waitForFunction(()=>document.querySelector('tbody')?.innerText.includes('태림원예'));
  await click('단가 직접입력');await page.waitForFunction(()=>document.body.innerText.includes('그로우 75-80cm'));
  const text=await page.$eval('[aria-label="최근 출고단가 후보"]',e=>e.innerText);
