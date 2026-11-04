@@ -280,7 +280,7 @@ function StaffDrawer({ name, live, now, onClose, initialTab = 'now', workLog = [
         ) : (
           <div className="sdbody sdgrid">
             <aside className="pcard who">
-              <div className="avbox">{avatars[name] ? <Avatar cfg={avatars[name]} state={st} size={150} /> : <span className="avph" aria-hidden>{(name || '?').slice(0, 1)}</span>}</div>
+              <div className="avbox">{avatars[name] ? <Avatar cfg={avatars[name]} state={st} size={150} name={name} /> : <span className="avph" aria-hidden>{(name || '?').slice(0, 1)}</span>}</div>
               <div className="wname">{name}</div>
               <div className="muted">{d?.role?.dept || live?.dept || ''}{d?.dataName && d.dataName !== name ? ` · ${d.dataName}` : ''}</div>
               <div className="lv"><b>Lv. {lv ? lv.level : '–'}</b><span className="gauge" aria-label={`다음 레벨까지 ${lvPct}%`}><i style={{ width: `${lvPct}%` }} /><em>{lvPct}%</em></span></div>

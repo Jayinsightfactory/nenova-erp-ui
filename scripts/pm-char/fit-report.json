@@ -1,0 +1,12 @@
+{
+ "checked": 351,
+ "anchorMaxErr": 0.0,
+ "outOfSlot": 0,
+ "orderViolations": 0,
+ "issues": [],
+ "feetMeasured": [
+  128.0,
+  238
+ ],
+ "combos": 1256640
+}

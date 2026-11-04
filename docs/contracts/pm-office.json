@@ -33,7 +33,12 @@
     "pages/api/pm/staff-requests/shot.js",
     "lib/pmStaffRequests.js",
     "lib/pmStaffReqLabels.js",
-    "components/pm/StaffRequests.js"
+    "components/pm/StaffRequests.js",
+    "pages/api/pm/freepass.js",
+    "lib/pmFreePass.js",
+    "lib/pmMood.js",
+    "lib/pmDeskSlots.js",
+    "components/pm/Character.js"
   ],
   "businessIdentity": [
     "OrderYear",

@@ -2,7 +2,7 @@
  "version": 1,
  "generatedBy": "scripts/pm-themes/gen_assets.py",
  "license": "자체 제작(네노바 내부 사용) · 이모지 글리프는 OS 시스템 폰트로 렌더",
- "source": "Higgsfield 생성 webp 151개 + 나머지 code-generated SVG",
+ "source": "Blender 5.2 프리미티브 리그 렌더(scripts/pm-char/build.py, 같은 카메라·조명) + 기존 Higgsfield 클레이 책상 소품 아이콘 재사용",
  "states": [
   "idle",
   "working",
@@ -76,7 +76,7 @@
   {
    "id": "human",
    "name": "사람",
-   "src": "/pm-themes/characters/human.webp",
+   "src": "/pm-char/thumb/char.human.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -90,7 +90,7 @@
   {
    "id": "cat",
    "name": "고양이",
-   "src": "/pm-themes/characters/cat.webp",
+   "src": "/pm-char/thumb/char.cat.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -104,7 +104,7 @@
   {
    "id": "dog",
    "name": "강아지",
-   "src": "/pm-themes/characters/dog.webp",
+   "src": "/pm-char/thumb/char.dog.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -118,7 +118,7 @@
   {
    "id": "bunny",
    "name": "토끼",
-   "src": "/pm-themes/characters/bunny.webp",
+   "src": "/pm-char/thumb/char.bunny.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -132,7 +132,7 @@
   {
    "id": "bear",
    "name": "곰",
-   "src": "/pm-themes/characters/bear.webp",
+   "src": "/pm-char/thumb/char.bear.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -146,7 +146,7 @@
   {
    "id": "fox",
    "name": "여우",
-   "src": "/pm-themes/characters/fox.webp",
+   "src": "/pm-char/thumb/char.fox.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -160,7 +160,7 @@
   {
    "id": "penguin",
    "name": "펭귄",
-   "src": "/pm-themes/characters/penguin.webp",
+   "src": "/pm-char/thumb/char.penguin.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -174,7 +174,7 @@
   {
    "id": "fairy",
    "name": "꽃 요정",
-   "src": "/pm-themes/characters/fairy.webp",
+   "src": "/pm-char/thumb/char.fairy.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -188,7 +188,7 @@
   {
    "id": "robot",
    "name": "로봇",
-   "src": "/pm-themes/characters/robot.webp",
+   "src": "/pm-char/thumb/char.robot.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -202,7 +202,7 @@
   {
    "id": "cactus",
    "name": "선인장",
-   "src": "/pm-themes/characters/cactus.webp",
+   "src": "/pm-char/thumb/char.cactus.webp",
    "animations": {
     "idle": "css:pmc-idle",
     "working": "css:pmc-working",
@@ -216,193 +216,1161 @@
  ],
  "items": [
   {
-   "rarity": "common",
-   "price": 30,
-   "id": "hat.straw",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "밀짚모자",
-   "src": "/pm-themes/items/hat/straw.webp"
-  },
-  {
-   "rarity": "legendary",
-   "price": 240,
-   "id": "hat.crown",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "왕관",
-   "src": "/pm-themes/items/hat/crown.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "hat.cap",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "야구모자",
-   "src": "/pm-themes/items/hat/cap.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "hat.flowercrown",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "꽃관",
-   "src": "/pm-themes/items/hat/flowercrown.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "hat.beanie",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "비니",
-   "src": "/pm-themes/items/hat/beanie.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "hat.helmet",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "안전모",
-   "src": "/pm-themes/items/hat/helmet.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "hat.chef",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "요리사 모자",
-   "src": "/pm-themes/items/hat/chef.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "hat.pilot",
-   "category": "hat",
-   "categoryLabel": "모자",
-   "name": "기장 모자",
-   "src": "/pm-themes/items/hat/pilot.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "glasses.round",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "동그란 안경",
-   "src": "/pm-themes/items/glasses/round.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "glasses.sun",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "선글라스",
-   "src": "/pm-themes/items/glasses/sun.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "glasses.heart",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "하트 안경",
-   "src": "/pm-themes/items/glasses/heart.webp"
-  },
-  {
-   "rarity": "legendary",
-   "price": 240,
-   "id": "glasses.visor",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "사이버 바이저",
-   "src": "/pm-themes/items/glasses/visor.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "glasses.monocle",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "외눈 안경",
-   "src": "/pm-themes/items/glasses/monocle.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "glasses.goggle",
-   "category": "glasses",
-   "categoryLabel": "안경",
-   "name": "물안경",
-   "src": "/pm-themes/items/glasses/goggle.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "outfit.apron",
+   "id": "outfit.knit",
    "category": "outfit",
    "categoryLabel": "옷",
-   "name": "꽃집 앞치마",
-   "src": "/pm-themes/items/outfit/apron.webp"
-  },
-  {
+   "name": "원목 니트",
+   "theme": "A",
    "rarity": "rare",
    "price": 90,
-   "id": "outfit.suit",
-   "category": "outfit",
-   "categoryLabel": "옷",
-   "name": "정장",
-   "src": "/pm-themes/items/outfit/suit.webp"
+   "src": "/pm-char/thumb/outfit.knit.webp",
+   "v": 2
   },
   {
-   "rarity": "common",
-   "price": 30,
    "id": "outfit.hoodie",
    "category": "outfit",
    "categoryLabel": "옷",
-   "name": "후드티",
-   "src": "/pm-themes/items/outfit/hoodie.webp"
-  },
-  {
+   "name": "파스텔 후드",
+   "theme": "B",
    "rarity": "common",
    "price": 30,
-   "id": "outfit.vest",
-   "category": "outfit",
-   "categoryLabel": "옷",
-   "name": "형광 조끼",
-   "src": "/pm-themes/items/outfit/vest.webp"
+   "src": "/pm-char/thumb/outfit.hoodie.webp",
+   "v": 2
   },
   {
-   "rarity": "legendary",
-   "price": 240,
+   "id": "outfit.neon",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "네온 재킷",
+   "theme": "C",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.neon.webp",
+   "v": 2
+  },
+  {
    "id": "outfit.hanbok",
    "category": "outfit",
    "categoryLabel": "옷",
    "name": "한복",
-   "src": "/pm-themes/items/outfit/hanbok.webp"
-  },
-  {
+   "theme": "D",
    "rarity": "legendary",
    "price": 240,
+   "src": "/pm-char/thumb/outfit.hanbok.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.apron",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "꽃집 앞치마",
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/outfit.apron.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.pixel",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "8비트 티",
+   "theme": "F",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.pixel.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.smock",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "화가 스목",
+   "theme": "G",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.smock.webp",
+   "v": 2
+  },
+  {
    "id": "outfit.spacesuit",
    "category": "outfit",
    "categoryLabel": "옷",
    "name": "우주복",
-   "src": "/pm-themes/items/outfit/spacesuit.webp"
+   "theme": "H",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/outfit.spacesuit.webp",
+   "v": 2
   },
   {
+   "id": "outfit.aloha",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "알로하 셔츠",
+   "theme": "I",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.aloha.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.puffer",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "패딩",
+   "theme": "J",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.puffer.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.suit",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "정장",
+   "theme": "A",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/outfit.suit.webp",
+   "v": 2
+  },
+  {
+   "id": "outfit.vest",
+   "category": "outfit",
+   "categoryLabel": "옷",
+   "name": "형광 조끼",
+   "theme": "E",
    "rarity": "common",
    "price": 30,
+   "src": "/pm-char/thumb/outfit.vest.webp",
+   "v": 2
+  },
+  {
    "id": "outfit.overall",
    "category": "outfit",
    "categoryLabel": "옷",
    "name": "작업복",
-   "src": "/pm-themes/items/outfit/overall.webp"
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/outfit.overall.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.beret",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "베레모",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.beret.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.ribbon",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "리본 머리띠",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.ribbon.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.visorneon",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "네온 바이저",
+   "theme": "C",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.visorneon.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.gat",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "갓",
+   "theme": "D",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.gat.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.straw",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "밀짚모자",
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.straw.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.pixelcrown",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "픽셀 왕관",
+   "theme": "F",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.pixelcrown.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.painter",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "화가 모자",
+   "theme": "G",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.painter.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.spacehelmet",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "우주 헬멧",
+   "theme": "H",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.spacehelmet.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.sunvisor",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "썬캡",
+   "theme": "I",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.sunvisor.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.beanie",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "비니",
+   "theme": "J",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.beanie.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.crown",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "왕관",
+   "theme": "",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/hat.crown.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.cap",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "야구모자",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.cap.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.flowercrown",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "꽃관",
+   "theme": "E",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/hat.flowercrown.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.helmet",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "안전모",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.helmet.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.chef",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "요리사 모자",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hat.chef.webp",
+   "v": 2
+  },
+  {
+   "id": "hat.pilot",
+   "category": "hat",
+   "categoryLabel": "모자",
+   "name": "기장 모자",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/hat.pilot.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.round",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "동그란 안경",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/glasses.round.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.sun",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "선글라스",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/glasses.sun.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.heart",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "하트 안경",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/glasses.heart.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.visor",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "사이버 바이저",
+   "theme": "",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/glasses.visor.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.monocle",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "외눈 안경",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/glasses.monocle.webp",
+   "v": 2
+  },
+  {
+   "id": "glasses.goggle",
+   "category": "glasses",
+   "categoryLabel": "안경",
+   "name": "물안경",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/glasses.goggle.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.mug",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "원목 머그",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.mug.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.balloon",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "파스텔 풍선",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.balloon.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.glowstick",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "야광봉",
+   "theme": "C",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.glowstick.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.fan",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "태극 부채",
+   "theme": "D",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.fan.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.wateringcan",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "물뿌리개",
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.wateringcan.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.joystick",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "조이스틱",
+   "theme": "F",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.joystick.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.brush",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "붓",
+   "theme": "G",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.brush.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.flag",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "우주 깃발",
+   "theme": "H",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.flag.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.icecream",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "아이스크림",
+   "theme": "I",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.icecream.webp",
+   "v": 2
+  },
+  {
+   "id": "hand.cocoa",
+   "category": "hand",
+   "categoryLabel": "손 소품",
+   "name": "코코아",
+   "theme": "J",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/hand.cocoa.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.star",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "별 배지",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/badge.star.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.rose",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "장미 배지",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/badge.rose.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.mvp",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "MVP 배지",
+   "theme": "",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/badge.mvp.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.heart",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "하트 배지",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/badge.heart.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.flagco",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "콜롬비아",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/badge.flagco.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.flagnl",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "네덜란드",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/badge.flagnl.webp",
+   "v": 2
+  },
+  {
+   "id": "badge.flagcn",
+   "category": "badge",
+   "categoryLabel": "배지",
+   "name": "중국",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/badge.flagcn.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.wood",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "원목 책상",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/desk.wood.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.pastel",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "파스텔 책상",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/desk.pastel.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.neon",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "네온 책상",
+   "theme": "C",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.neon.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.soban",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "소반 책상",
+   "theme": "D",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.soban.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.greenhouse",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "온실 작업대",
+   "theme": "E",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.greenhouse.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.arcade",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "오락실 책상",
+   "theme": "F",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.arcade.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.easel",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "화실 책상",
+   "theme": "G",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.easel.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.console",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "우주 콘솔",
+   "theme": "H",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.console.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.bamboo",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "대나무 책상",
+   "theme": "I",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.bamboo.webp",
+   "v": 2
+  },
+  {
+   "id": "desk.snow",
+   "category": "desk",
+   "categoryLabel": "책상",
+   "name": "눈마을 책상",
+   "theme": "J",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/desk.snow.webp",
+   "v": 2
+  },
+  {
+   "id": "top.plant",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "화분",
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.plant.webp",
+   "v": 2
+  },
+  {
+   "id": "top.mug",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "머그컵",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.mug.webp",
+   "v": 2
+  },
+  {
+   "id": "top.lamp",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "스탠드",
+   "theme": "C",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.lamp.webp",
+   "v": 2
+  },
+  {
+   "id": "top.frame",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "액자",
+   "theme": "G",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.frame.webp",
+   "v": 2
+  },
+  {
+   "id": "top.keyboard",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "키보드",
+   "theme": "F",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.keyboard.webp",
+   "v": 2
+  },
+  {
+   "id": "top.snowglobe",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "스노볼",
+   "theme": "J",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.snowglobe.webp",
+   "v": 2
+  },
+  {
+   "id": "top.vase",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "꽃병",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.vase.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/vase.webp",
+   "aliasOf": "desk.vase"
+  },
+  {
+   "id": "top.coffee",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "커피잔",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.coffee.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/coffee.webp",
+   "aliasOf": "desk.coffee"
+  },
+  {
+   "id": "top.cactus",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "다육이",
+   "theme": "E",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.cactus.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/plant.webp",
+   "aliasOf": "desk.plant"
+  },
+  {
+   "id": "top.calc",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "계산기",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.calc.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/calc.webp",
+   "aliasOf": "desk.calc"
+  },
+  {
+   "id": "top.globe",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "지구본",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/top.globe.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/globe.webp",
+   "aliasOf": "desk.globe"
+  },
+  {
+   "id": "top.box",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "택배상자",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.box.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/box.webp",
+   "aliasOf": "desk.box"
+  },
+  {
+   "id": "top.trophy",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "트로피",
+   "theme": "",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/top.trophy.webp",
+   "v": 2,
+   "icon": "/pm-themes/items/desk/trophy.webp",
+   "aliasOf": "desk.trophy"
+  },
+  {
+   "id": "top.monitor",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "모니터",
+   "theme": "H",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.monitor.webp",
+   "v": 2
+  },
+  {
+   "id": "top.shell",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "조개 장식",
+   "theme": "I",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.shell.webp",
+   "v": 2
+  },
+  {
+   "id": "top.inkstone",
+   "category": "deskTop",
+   "categoryLabel": "책상 소품",
+   "name": "벼루",
+   "theme": "D",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/top.inkstone.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.wood",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "체크 러그",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.wood.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.pastel",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "구름 러그",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.pastel.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.neon",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "네온 러그",
+   "theme": "C",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.neon.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.hwamunseok",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "화문석",
+   "theme": "D",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.hwamunseok.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.beach",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "비치 타월",
+   "theme": "I",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.beach.webp",
+   "v": 2
+  },
+  {
+   "id": "rug.snow",
+   "category": "rug",
+   "categoryLabel": "러그",
+   "name": "털 러그",
+   "theme": "J",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/rug.snow.webp",
+   "v": 2
+  },
+  {
+   "id": "chair.wood",
+   "category": "chair",
+   "categoryLabel": "의자",
+   "name": "원목 의자",
+   "theme": "A",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/chair.wood.webp",
+   "v": 2
+  },
+  {
+   "id": "chair.gaming",
+   "category": "chair",
+   "categoryLabel": "의자",
+   "name": "게이밍 의자",
+   "theme": "C",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/chair.gaming.webp",
+   "v": 2
+  },
+  {
+   "id": "chair.pastel",
+   "category": "chair",
+   "categoryLabel": "의자",
+   "name": "푸딩 의자",
+   "theme": "B",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/chair.pastel.webp",
+   "v": 2
+  },
+  {
+   "id": "chair.cushion",
+   "category": "chair",
+   "categoryLabel": "의자",
+   "name": "방석",
+   "theme": "D",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/chair.cushion.webp",
+   "v": 2
+  },
+  {
+   "id": "chair.beach",
+   "category": "chair",
+   "categoryLabel": "의자",
+   "name": "비치 의자",
+   "theme": "I",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/chair.beach.webp",
+   "v": 2
+  },
+  {
+   "id": "shelf.book",
+   "category": "shelf",
+   "categoryLabel": "책장·큰 소품",
+   "name": "책장",
+   "theme": "A",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/shelf.book.webp",
+   "v": 2
+  },
+  {
+   "id": "shelf.plant",
+   "category": "shelf",
+   "categoryLabel": "책장·큰 소품",
+   "name": "화분 선반",
+   "theme": "E",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/shelf.plant.webp",
+   "v": 2
+  },
+  {
+   "id": "shelf.arcade",
+   "category": "shelf",
+   "categoryLabel": "책장·큰 소품",
+   "name": "오락기",
+   "theme": "F",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/shelf.arcade.webp",
+   "v": 2
+  },
+  {
+   "id": "shelf.potplant",
+   "category": "shelf",
+   "categoryLabel": "책장·큰 소품",
+   "name": "큰 화분",
+   "theme": "E",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/shelf.potplant.webp",
+   "v": 2
+  },
+  {
+   "id": "pet.puppy",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 강아지",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.puppy.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.kitten",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 고양이",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.kitten.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.bunny",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 토끼",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.bunny.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.chick",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "병아리",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.chick.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.bee",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "꿀벌",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/pet.bee.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.butterfly",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "나비",
+   "theme": "",
+   "rarity": "legendary",
+   "price": 240,
+   "src": "/pm-char/thumb/pet.butterfly.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.fish",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "어항 물고기",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/pet.fish.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.hamster",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "햄스터",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.hamster.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.penguin",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "아기 펭귄",
+   "theme": "",
+   "rarity": "rare",
+   "price": 90,
+   "src": "/pm-char/thumb/pet.penguin.webp",
+   "v": 2,
+   "frames": 2
+  },
+  {
+   "id": "pet.turtle",
+   "category": "pet",
+   "categoryLabel": "펫",
+   "name": "거북이",
+   "theme": "",
+   "rarity": "common",
+   "price": 30,
+   "src": "/pm-char/thumb/pet.turtle.webp",
+   "v": 2,
+   "frames": 2
   },
   {
    "rarity": "common",
@@ -411,7 +1379,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "꽃병",
-   "src": "/pm-themes/items/desk/vase.webp"
+   "src": "/pm-themes/items/desk/vase.webp",
+   "hidden": true
   },
   {
    "rarity": "common",
@@ -420,7 +1389,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "커피잔",
-   "src": "/pm-themes/items/desk/coffee.webp"
+   "src": "/pm-themes/items/desk/coffee.webp",
+   "hidden": true
   },
   {
    "rarity": "common",
@@ -429,7 +1399,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "다육이",
-   "src": "/pm-themes/items/desk/plant.webp"
+   "src": "/pm-themes/items/desk/plant.webp",
+   "hidden": true
   },
   {
    "rarity": "common",
@@ -438,7 +1409,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "계산기",
-   "src": "/pm-themes/items/desk/calc.webp"
+   "src": "/pm-themes/items/desk/calc.webp",
+   "hidden": true
   },
   {
    "rarity": "rare",
@@ -447,7 +1419,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "지구본",
-   "src": "/pm-themes/items/desk/globe.webp"
+   "src": "/pm-themes/items/desk/globe.webp",
+   "hidden": true
   },
   {
    "rarity": "common",
@@ -456,7 +1429,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "택배상자",
-   "src": "/pm-themes/items/desk/box.webp"
+   "src": "/pm-themes/items/desk/box.webp",
+   "hidden": true
   },
   {
    "rarity": "legendary",
@@ -465,124 +1439,8 @@
    "category": "desk",
    "categoryLabel": "책상 소품",
    "name": "트로피",
-   "src": "/pm-themes/items/desk/trophy.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "pet.kitten",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "아기 고양이",
-   "src": "/pm-themes/items/pet/kitten.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "pet.puppy",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "아기 강아지",
-   "src": "/pm-themes/items/pet/puppy.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "pet.bee",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "꿀벌",
-   "src": "/pm-themes/items/pet/bee.webp"
-  },
-  {
-   "rarity": "legendary",
-   "price": 240,
-   "id": "pet.butterfly",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "나비",
-   "src": "/pm-themes/items/pet/butterfly.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "pet.chick",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "병아리",
-   "src": "/pm-themes/items/pet/chick.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "pet.fish",
-   "category": "pet",
-   "categoryLabel": "펫",
-   "name": "어항 물고기",
-   "src": "/pm-themes/items/pet/fish.webp"
-  },
-  {
-   "rarity": "rare",
-   "price": 90,
-   "id": "badge.star",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "별 배지",
-   "src": "/pm-themes/items/badge/star.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "badge.rose",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "장미 배지",
-   "src": "/pm-themes/items/badge/rose.webp"
-  },
-  {
-   "rarity": "legendary",
-   "price": 240,
-   "id": "badge.mvp",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "MVP 배지",
-   "src": "/pm-themes/items/badge/mvp.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "badge.heart",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "하트 배지",
-   "src": "/pm-themes/items/badge/heart.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "badge.flagco",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "콜롬비아",
-   "src": "/pm-themes/items/badge/flagco.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "badge.flagnl",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "네덜란드",
-   "src": "/pm-themes/items/badge/flagnl.webp"
-  },
-  {
-   "rarity": "common",
-   "price": 30,
-   "id": "badge.flagcn",
-   "category": "badge",
-   "categoryLabel": "배지",
-   "name": "중국",
-   "src": "/pm-themes/items/badge/flagcn.webp"
+   "src": "/pm-themes/items/desk/trophy.webp",
+   "hidden": true
   }
  ],
  "rarityPrice": {
@@ -596,5 +1454,6 @@
   "prompts": "docs/pm-theme-brainstorm.md Higgsfield 생성 절",
   "postprocess": "배경 제거·자르기 = ~/nenova-pm/hf-raw/slice.py",
   "files": 151
- }
+ },
+ "layers": "/pm-char/layers.json"
 }
