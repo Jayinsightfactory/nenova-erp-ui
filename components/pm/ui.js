@@ -64,21 +64,13 @@ export function Badge({ tone = 'plain', className, children, ...rest }) {
   return <span {...rest} className={cx('badge', tone, className)}>{children}</span>;
 }
 
-// 페이지에 한 번 렌더. 토큰 기본값 = 기존 /pm 다크 디자인 색(테마 기본 = 지금 그대로).
+// 페이지에 한 번 렌더. 색 토큰은 테마(lib/pmThemes.js)가 정한다.
 export function PmUiStyles() {
   return (
     <style jsx global>{`
       .pm {
-        --pmk-primary: #1166bb; --pmk-primary-hover: #0055aa; --pmk-primary-ink: #ffffff;
-        --pmk-danger: #cc2200; --pmk-danger-hover: #aa1100;
-        --pmk-sec-bg: #e0e0e0; --pmk-sec-hover: #c8c8c8; --pmk-sec-ink: #000000; --pmk-sec-border: #aaaaaa;
-        --pmk-chip-bg: #3a4158; --pmk-chip-ink: #f0f2f7; --pmk-on-bg: #ffd76a; --pmk-on-ink: #2b2214;
-        --pmk-ink: #f0f2f7; --pmk-link: #8fb8ff; --pmk-tab-ink: #c7cde0; --pmk-tab-on: #ffd76a;
-        --pmk-focus: #ffd76a; --pmk-radius: 6px; --pmk-h: 32px; --pmk-h-sm: 28px;
-      }
-      .pm .drawer-back .drawer {
-        --pmk-chip-bg: #e6e9ef; --pmk-chip-ink: #1b1f2a; --pmk-on-bg: #1b1f2a; --pmk-on-ink: #ffffff;
-        --pmk-ink: #1b1f2a; --pmk-link: #1d5fbf; --pmk-tab-ink: #4a5164; --pmk-tab-on: #1d5fbf; --pmk-focus: #1d5fbf;
+        /* 값은 lib/pmThemes.js themeCss() 가 테마별로 --pm-* 토큰에 묶는다(여기엔 hex 금지). */
+        --pmk-radius: var(--pm-radius, 8px); --pmk-h: 32px; --pmk-h-sm: 28px;
       }
       .pm .pmk { font: inherit; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       .pm .pmk:focus-visible { outline: 2px solid var(--pmk-focus); outline-offset: 2px; }
@@ -89,7 +81,7 @@ export function PmUiStyles() {
       .pm .pmk-btn.pmk-secondary:hover:not(:disabled) { background: var(--pmk-sec-hover); }
       .pm .pmk-btn.pmk-primary { background: var(--pmk-primary); color: var(--pmk-primary-ink); border-color: var(--pmk-primary-hover); font-weight: bold; }
       .pm .pmk-btn.pmk-primary:hover:not(:disabled) { background: var(--pmk-primary-hover); }
-      .pm .pmk-btn.pmk-danger { background: var(--pmk-danger); color: #fff; border-color: var(--pmk-danger-hover); }
+      .pm .pmk-btn.pmk-danger { background: var(--pmk-danger); color: var(--pmk-primary-ink); border-color: var(--pmk-danger-hover); }
       .pm .pmk-btn.pmk-danger:hover:not(:disabled) { background: var(--pmk-danger-hover); }
       .pm .pmk-btn.pmk-ghost { display: inline-flex; align-items: center; background: transparent; color: var(--pmk-ink); border: 1px solid transparent; }
       .pm .pmk-btn.pmk-ghost:hover:not(:disabled) { border-color: currentColor; }

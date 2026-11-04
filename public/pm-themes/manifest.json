@@ -12,492 +12,64 @@
  ],
  "themes": [
   {
-   "id": "office",
-   "name": "사무실(기본)",
-   "emoji": "🏢",
-   "default": true,
-   "rarity": "basic",
-   "price": 0
+   "id": "A",
+   "name": "아늑한 원목",
+   "price": 0,
+   "rarity": "basic"
   },
   {
-   "id": "greenhouse",
+   "id": "B",
+   "name": "파스텔 클레이",
+   "price": 0,
+   "rarity": "basic"
+  },
+  {
+   "id": "C",
+   "name": "야간 네온",
+   "price": 0,
+   "rarity": "basic"
+  },
+  {
+   "id": "D",
+   "name": "한옥",
+   "price": 0,
+   "rarity": "basic"
+  },
+  {
+   "id": "E",
    "name": "꽃 온실",
-   "emoji": "🌷",
-   "bg": "#eef3e6",
-   "surface": "#fffdf6",
-   "ink": "#1f2a1c",
-   "muted": "#4b5a46",
-   "accent": "#2f6b3d",
-   "line": "#b9c9ad",
-   "plate": "#2f6b3d",
-   "plateInk": "#ffffff",
-   "token": "🌸",
-   "hall": "온실 통로",
-   "light": true,
-   "rarity": "common",
-   "price": 30,
-   "background": "/pm-themes/greenhouse/bg.svg",
-   "stageIcons": [
-    "/pm-themes/greenhouse/stage-1.webp",
-    "/pm-themes/greenhouse/stage-2.webp",
-    "/pm-themes/greenhouse/stage-3.webp",
-    "/pm-themes/greenhouse/stage-4.webp",
-    "/pm-themes/greenhouse/stage-5.webp",
-    "/pm-themes/greenhouse/stage-6.webp",
-    "/pm-themes/greenhouse/stage-7.webp",
-    "/pm-themes/greenhouse/stage-8.webp",
-    "/pm-themes/greenhouse/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/greenhouse/dept-1.webp",
-     "label": "장미 화단"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/greenhouse/dept-2.webp",
-     "label": "튤립 화단"
-    },
-    "영업부": {
-     "floor": "/pm-themes/greenhouse/dept-3.webp",
-     "label": "수국 화단"
-    },
-    "수입부": {
-     "floor": "/pm-themes/greenhouse/dept-4.webp",
-     "label": "카네이션 화단"
-    }
-   },
-   "prompt": "꽃 온실 콘셉트 — 9단계 온실 통로, 부서=장미 화단,튤립 화단,수국 화단,카네이션 화단, 흐름 토큰 🌸"
+   "price": 0,
+   "rarity": "basic"
   },
   {
-   "id": "harbor",
-   "name": "물류 항구",
-   "emoji": "🚢",
-   "bg": "#0f2236",
-   "surface": "#17324f",
-   "ink": "#eef4fb",
-   "muted": "#a9bdd3",
-   "accent": "#ff9f2e",
-   "line": "#2f5272",
-   "plate": "#ff9f2e",
-   "plateInk": "#1b1206",
-   "token": "📦",
-   "hall": "부두 컨베이어",
-   "light": false,
-   "rarity": "rare",
-   "price": 90,
-   "background": "/pm-themes/harbor/bg.svg",
-   "stageIcons": [
-    "/pm-themes/harbor/stage-1.webp",
-    "/pm-themes/harbor/stage-2.webp",
-    "/pm-themes/harbor/stage-3.webp",
-    "/pm-themes/harbor/stage-4.webp",
-    "/pm-themes/harbor/stage-5.webp",
-    "/pm-themes/harbor/stage-6.webp",
-    "/pm-themes/harbor/stage-7.webp",
-    "/pm-themes/harbor/stage-8.webp",
-    "/pm-themes/harbor/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/harbor/dept-1.webp",
-     "label": "파랑 컨테이너"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/harbor/dept-2.webp",
-     "label": "빨강 컨테이너"
-    },
-    "영업부": {
-     "floor": "/pm-themes/harbor/dept-3.webp",
-     "label": "초록 컨테이너"
-    },
-    "수입부": {
-     "floor": "/pm-themes/harbor/dept-4.webp",
-     "label": "노랑 컨테이너"
-    }
-   },
-   "prompt": "물류 항구 콘셉트 — 9단계 부두 컨베이어, 부서=파랑 컨테이너,빨강 컨테이너,초록 컨테이너,노랑 컨테이너, 흐름 토큰 📦"
+   "id": "F",
+   "name": "8비트 오락실",
+   "price": 0,
+   "rarity": "basic"
   },
   {
-   "id": "airport",
-   "name": "항공화물",
-   "emoji": "✈️",
-   "bg": "#e8f0fa",
-   "surface": "#ffffff",
-   "ink": "#10213a",
-   "muted": "#43577a",
-   "accent": "#1d5fbf",
-   "line": "#bfd0e8",
-   "plate": "#1d5fbf",
-   "plateInk": "#ffffff",
-   "token": "✈️",
-   "hall": "게이트",
-   "light": true,
-   "rarity": "common",
-   "price": 30,
-   "background": "/pm-themes/airport/bg.svg",
-   "stageIcons": [
-    "/pm-themes/airport/stage-1.webp",
-    "/pm-themes/airport/stage-2.webp",
-    "/pm-themes/airport/stage-3.webp",
-    "/pm-themes/airport/stage-4.webp",
-    "/pm-themes/airport/stage-5.webp",
-    "/pm-themes/airport/stage-6.webp",
-    "/pm-themes/airport/stage-7.webp",
-    "/pm-themes/airport/stage-8.webp",
-    "/pm-themes/airport/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/airport/dept-1.webp",
-     "label": "터미널 A"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/airport/dept-2.webp",
-     "label": "터미널 B"
-    },
-    "영업부": {
-     "floor": "/pm-themes/airport/dept-3.webp",
-     "label": "터미널 C"
-    },
-    "수입부": {
-     "floor": "/pm-themes/airport/dept-4.webp",
-     "label": "화물 터미널"
-    }
-   },
-   "prompt": "항공화물 콘셉트 — 9단계 게이트, 부서=터미널 A,터미널 B,터미널 C,화물 터미널, 흐름 토큰 ✈️"
+   "id": "G",
+   "name": "수채화 마을",
+   "price": 0,
+   "rarity": "basic"
   },
   {
-   "id": "subway",
-   "name": "지하철 노선도",
-   "emoji": "🚇",
-   "bg": "#ffffff",
-   "surface": "#f4f6f8",
-   "ink": "#111111",
-   "muted": "#4a4f57",
-   "accent": "#00843d",
-   "line": "#cfd5dc",
-   "plate": "#111111",
-   "plateInk": "#ffffff",
-   "token": "🚃",
-   "hall": "노선",
-   "light": true,
-   "rarity": "common",
-   "price": 30,
-   "background": "/pm-themes/subway/bg.svg",
-   "stageIcons": [
-    "/pm-themes/subway/stage-1.webp",
-    "/pm-themes/subway/stage-2.webp",
-    "/pm-themes/subway/stage-3.webp",
-    "/pm-themes/subway/stage-4.webp",
-    "/pm-themes/subway/stage-5.webp",
-    "/pm-themes/subway/stage-6.webp",
-    "/pm-themes/subway/stage-7.webp",
-    "/pm-themes/subway/stage-8.webp",
-    "/pm-themes/subway/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/subway/dept-1.webp",
-     "label": "1호선 구역"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/subway/dept-2.webp",
-     "label": "3호선 구역"
-    },
-    "영업부": {
-     "floor": "/pm-themes/subway/dept-3.webp",
-     "label": "5호선 구역"
-    },
-    "수입부": {
-     "floor": "/pm-themes/subway/dept-4.webp",
-     "label": "2호선 구역"
-    }
-   },
-   "prompt": "지하철 노선도 콘셉트 — 9단계 노선, 부서=1호선 구역,3호선 구역,5호선 구역,2호선 구역, 흐름 토큰 🚃"
-  },
-  {
-   "id": "market",
-   "name": "꽃시장 디오라마",
-   "emoji": "🛒",
-   "bg": "#efe6d8",
-   "surface": "#fbf4e8",
-   "ink": "#2a1d12",
-   "muted": "#5e4a38",
-   "accent": "#9c4423",
-   "line": "#d8c6ac",
-   "plate": "#9c4423",
-   "plateInk": "#ffffff",
-   "token": "🛒",
-   "hall": "시장 골목",
-   "light": true,
-   "rarity": "common",
-   "price": 30,
-   "background": "/pm-themes/market/bg.svg",
-   "stageIcons": [
-    "/pm-themes/market/stage-1.webp",
-    "/pm-themes/market/stage-2.webp",
-    "/pm-themes/market/stage-3.webp",
-    "/pm-themes/market/stage-4.webp",
-    "/pm-themes/market/stage-5.webp",
-    "/pm-themes/market/stage-6.webp",
-    "/pm-themes/market/stage-7.webp",
-    "/pm-themes/market/stage-8.webp",
-    "/pm-themes/market/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/market/dept-1.webp",
-     "label": "가동"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/market/dept-2.webp",
-     "label": "나동"
-    },
-    "영업부": {
-     "floor": "/pm-themes/market/dept-3.webp",
-     "label": "다동"
-    },
-    "수입부": {
-     "floor": "/pm-themes/market/dept-4.webp",
-     "label": "수입동"
-    }
-   },
-   "prompt": "꽃시장 디오라마 콘셉트 — 9단계 시장 골목, 부서=가동,나동,다동,수입동, 흐름 토큰 🛒"
-  },
-  {
-   "id": "rpg",
-   "name": "픽셀 마을",
-   "emoji": "🗡️",
-   "bg": "#2d4a27",
-   "surface": "#3a5f33",
-   "ink": "#fffbe8",
-   "muted": "#d9e4c4",
-   "accent": "#ffd23f",
-   "line": "#557a4c",
-   "plate": "#ffd23f",
-   "plateInk": "#2a1e00",
-   "token": "🪙",
-   "hall": "마을 길",
-   "light": false,
-   "rarity": "rare",
-   "price": 90,
-   "background": "/pm-themes/rpg/bg.svg",
-   "stageIcons": [
-    "/pm-themes/rpg/stage-1.webp",
-    "/pm-themes/rpg/stage-2.webp",
-    "/pm-themes/rpg/stage-3.webp",
-    "/pm-themes/rpg/stage-4.webp",
-    "/pm-themes/rpg/stage-5.webp",
-    "/pm-themes/rpg/stage-6.webp",
-    "/pm-themes/rpg/stage-7.webp",
-    "/pm-themes/rpg/stage-8.webp",
-    "/pm-themes/rpg/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/rpg/dept-1.webp",
-     "label": "은행 길드"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/rpg/dept-2.webp",
-     "label": "상인 길드"
-    },
-    "영업부": {
-     "floor": "/pm-themes/rpg/dept-3.webp",
-     "label": "모험가 길드"
-    },
-    "수입부": {
-     "floor": "/pm-themes/rpg/dept-4.webp",
-     "label": "항해 길드"
-    }
-   },
-   "prompt": "픽셀 마을 콘셉트 — 9단계 마을 길, 부서=은행 길드,상인 길드,모험가 길드,항해 길드, 흐름 토큰 🪙"
-  },
-  {
-   "id": "space",
+   "id": "H",
    "name": "우주정거장",
-   "emoji": "🚀",
-   "bg": "#0b0d1f",
-   "surface": "#171a36",
-   "ink": "#eef0ff",
-   "muted": "#aab0d8",
-   "accent": "#7cf3ff",
-   "line": "#2b3060",
-   "plate": "#7cf3ff",
-   "plateInk": "#06121a",
-   "token": "🛰️",
-   "hall": "도킹 링",
-   "light": false,
-   "rarity": "legendary",
-   "price": 240,
-   "background": "/pm-themes/space/bg.svg",
-   "stageIcons": [
-    "/pm-themes/space/stage-1.webp",
-    "/pm-themes/space/stage-2.webp",
-    "/pm-themes/space/stage-3.webp",
-    "/pm-themes/space/stage-4.webp",
-    "/pm-themes/space/stage-5.webp",
-    "/pm-themes/space/stage-6.webp",
-    "/pm-themes/space/stage-7.webp",
-    "/pm-themes/space/stage-8.webp",
-    "/pm-themes/space/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/space/dept-1.webp",
-     "label": "관제 모듈"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/space/dept-2.webp",
-     "label": "보급 모듈"
-    },
-    "영업부": {
-     "floor": "/pm-themes/space/dept-3.webp",
-     "label": "탐사 모듈"
-    },
-    "수입부": {
-     "floor": "/pm-themes/space/dept-4.webp",
-     "label": "도킹 모듈"
-    }
-   },
-   "prompt": "우주정거장 콘셉트 — 9단계 도킹 링, 부서=관제 모듈,보급 모듈,탐사 모듈,도킹 모듈, 흐름 토큰 🛰️"
+   "price": 0,
+   "rarity": "basic"
   },
   {
-   "id": "cyber",
-   "name": "사이버펑크 관제",
-   "emoji": "🌃",
-   "bg": "#0a0a12",
-   "surface": "#151528",
-   "ink": "#f2f2ff",
-   "muted": "#b3b3d6",
-   "accent": "#f9f871",
-   "line": "#2c2c55",
-   "plate": "#ff3fa4",
-   "plateInk": "#1a0010",
-   "token": "◆",
-   "hall": "네온 버스",
-   "light": false,
-   "rarity": "legendary",
-   "price": 240,
-   "background": "/pm-themes/cyber/bg.svg",
-   "stageIcons": [
-    "/pm-themes/cyber/stage-1.webp",
-    "/pm-themes/cyber/stage-2.webp",
-    "/pm-themes/cyber/stage-3.webp",
-    "/pm-themes/cyber/stage-4.webp",
-    "/pm-themes/cyber/stage-5.webp",
-    "/pm-themes/cyber/stage-6.webp",
-    "/pm-themes/cyber/stage-7.webp",
-    "/pm-themes/cyber/stage-8.webp",
-    "/pm-themes/cyber/stage-9.webp"
-   ],
-   "stageNames": [
-    "발주",
-    "입고",
-    "분배",
-    "현장출고",
-    "견적",
-    "거래처전달",
-    "입금",
-    "해외송금",
-    "이익"
-   ],
-   "depts": {
-    "경영지원": {
-     "floor": "/pm-themes/cyber/dept-1.svg",
-     "label": "랙 A"
-    },
-    "영업지원": {
-     "floor": "/pm-themes/cyber/dept-2.svg",
-     "label": "랙 B"
-    },
-    "영업부": {
-     "floor": "/pm-themes/cyber/dept-3.svg",
-     "label": "랙 C"
-    },
-    "수입부": {
-     "floor": "/pm-themes/cyber/dept-4.svg",
-     "label": "랙 D"
-    }
-   },
-   "prompt": "사이버펑크 관제 콘셉트 — 9단계 네온 버스, 부서=랙 A,랙 B,랙 C,랙 D, 흐름 토큰 ◆"
+   "id": "I",
+   "name": "해변 리조트",
+   "price": 0,
+   "rarity": "basic"
+  },
+  {
+   "id": "J",
+   "name": "겨울 눈마을",
+   "price": 0,
+   "rarity": "basic"
   }
  ],
  "characters": [
