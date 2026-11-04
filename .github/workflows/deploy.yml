@@ -3,6 +3,10 @@ name: Deploy to Cafe24
 on:
   workflow_dispatch:
     inputs:
+      diagnose_paste_cases:
+        description: '선택 표본 익명hash(선택, 최대8개 comma구분, 원문/업체명 금지)'
+        type: string
+        default: ''
       diagnose_paste_models:
         description: '확정된 표본 최대8건 기존/개선 Claude 재실행(호출32회 제한)'
         type: boolean
@@ -93,6 +97,8 @@ jobs:
           fetch-depth: 0
       - name: Package aggregate read-only audit
         id: audit-script
+        env:
+          AUDIT_CASES: ${{ inputs.diagnose_paste_cases }}
         shell: bash
         run: |
           {
@@ -100,6 +106,7 @@ jobs:
             printf "cd /var/www/nenova-erp || exit 1\nnode <<'PASTE_AUDIT_NODE'\n"
             python3 -c 'import json,pathlib; files=["pages/api/orders/parse-paste.js","lib/pasteAiMatchReview.js","lib/pasteLocalAnalysis.js","lib/pasteMappingMatch.js"]; print("global.__auditCandidateSources="+json.dumps({p:pathlib.Path(p).read_text() for p in files})+";")'
             printf "global.__auditCandidateSha='%s';\n" "$GITHUB_SHA"
+            python3 -c 'import json,os,re; ids=[s for s in os.environ.get("AUDIT_CASES","").split(",") if s]; assert len(ids)<=8 and all(re.fullmatch("[a-f0-9]{12}",s) for s in ids); print("global.__auditCaseIds="+json.dumps(ids)+";")'
             cat scripts/paste-confirmed-audit.cjs
             printf "\nmodule.exports.runAudit({runModels:${{ inputs.diagnose_paste_models == true && 'true' || 'false' }}}).then(r=>console.log('AUDIT_REPORT '+JSON.stringify(r))).catch(e=>{console.log('AUDIT_ERROR '+String(e.code||'AUDIT_FAILED'));process.exitCode=1;});\nPASTE_AUDIT_NODE\n"
             echo 'PASTE_AUDIT_EOF'

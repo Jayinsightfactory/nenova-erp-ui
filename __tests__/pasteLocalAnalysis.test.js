@@ -36,6 +36,8 @@ for(const year of ['2025','2026']){
 }
 const omitted=fixture();const omittedResult=await omitted.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1추가');assert.equal(omitted.calls.length,0);assert.equal(omittedResult.data.orders[0].items[0].unit,'박스');
 const noHeader=fixture();await noHeader.run('검증업체\n문라이트 1추가');assert(noHeader.calls.length>0);
+for(const note of ['-> 오늘 출고입니다','오늘 출고 입니다.','나머지는 검역 표기']){const f=fixture();const r=await f.run('44-1차 카네이션 변경사항\n검증업체\n문라이트 1추가\n'+note);assert.equal(f.calls.length,0,note);assert.equal(r.data.orders[0].items[0].qty,1);}
+for(const note of ['-> 문라이트 2박스로 변경','-> 핑크로 바꿔 출고','오늘 2박스 출고','나머지는 제외','-> 출고 색상 변경']){const f=fixture();await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가\n'+note);assert(f.calls.length>0,note);}
 const odd=fixture();await odd.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가\n내일 상태 보고 변경');assert(odd.calls.length>0,'unknown line must retain model fallback');
 const duplicate=fixture();await duplicate.run('검증업체\n문라이트 1박스 추가\n문라이트 1박스 추가');assert.equal(duplicate.calls.length,0); // exact display-name path
 for(const text of ['검증업체\n문라이트 -1박스','검증업체\n문라이트 0박스','검증업체\n문라이트 1박스 (냉해 취소)','검증업체\n문라이트 1','검증업체\n문라이트 1박스+2단','이름모름\n문라이트 1박스']){
