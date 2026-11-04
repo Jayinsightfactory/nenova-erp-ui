@@ -1,0 +1,39 @@
+{
+  "id": "pm-tech-radar",
+  "title": "기술 레이더(/pm/radar, 웹 전용 파일) 계약",
+  "scope": [
+    "pages/pm/radar.js",
+    "pages/api/pm/radar.js",
+    "pages/api/work/feature-data-ingest.js",
+    "lib/workFeatureData.js",
+    "components/Layout.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "TECH_RADAR_INGEST", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "TECH_RADAR_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 월·목 올리는 data/runtime/work-feature-tech-radar.json(GitHub 저장소 평가, 파일 전용) 을 로그인 직원에게 보여준다. OrderYear/OrderWeek 무관, MSSQL 미접근."
+  },
+  "requiredTestFiles": [
+    "__tests__/pmTechRadar.test.js",
+    "__tests__/workFeatureData.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "기술 레이더는 nenova.exe 기능이 아닌 웹 전용 파일 조회 기능이며 ERP 테이블 side effect는 모두 preserve다. 수신은 ORBIT_DRIVE_INGEST_TOKEN(서버 전용 토큰), 열람은 verifyReqUser 로그인.",
+    "methods": ["NenovaWeb JWT verifyReqUser (lib/auth)"],
+    "tables": ["UserInfo (login source only; no write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "node __tests__/pmTechRadar.test.js",
+    "npm run build"
+  ]
+}
