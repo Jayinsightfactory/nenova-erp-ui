@@ -40,6 +40,9 @@ def put(name, x, z, ry=0.0, s=1.0, parent=None):
 # ── 배치(lib/pm3dLayout.js 와 같은 규칙) ──
 STATION_GAP, DESK_DX, DESK_DZ, DEPT_GAP = 2.6, 1.6, 2.2, 1.4
 ROOMS = [('영업지원', 3), ('수입부', 2), ('영업부', 3), ('경영지원', 1)]
+# 좌석 방향 = lib/pm3dLayout.js seatYaw 와 같음(모두 카메라 쪽, 뒤통수 금지)
+CAM_YAW, SEAT_TURN = math.pi / 4, 0.35
+def seat_yaw(i): return CAM_YAW + (0 if i % 3 == 0 else (-SEAT_TURN if i % 3 == 1 else SEAT_TURN))
 desks, plates = [], []
 sides = [[], []]
 for i, r in enumerate(ROOMS): sides[i % 2].append(r)
@@ -51,7 +54,7 @@ for side, rs in enumerate(sides):
         cols = max(1, math.ceil(n / 2))
         for j in range(n):
             col, row = j % cols, j // cols
-            desks.append((x0 + DESK_DX / 2 + col * DESK_DX, sign * (3.6 + row * DESK_DZ), -sign if row == 0 else sign, j))
+            desks.append((x0 + DESK_DX / 2 + col * DESK_DX, sign * (3.6 + row * DESK_DZ), seat_yaw(len(desks)), j))
         plates.append((x0 + widths[k] / 2, sign * (3.6 + DESK_DZ * 1.5 + 0.6)))
         x0 += widths[k] + DEPT_GAP
 hx = math.ceil(max(STATION_GAP * 5, *[abs(d[0]) + 2 for d in desks]) / 2) * 2
@@ -85,17 +88,17 @@ LOOKS = [('#f7b6cf', '#a8e2d0', '#2b2220', 'hat_cap'), ('#ff9a3c', '#3ab0c8', '#
          ('#3c7fd8', '#33415c', '#2b2220', ''), ('#b5733f', '#e8d6b8', '#9a7bd1', 'hat_party'), ('#caffbf', '#bdb2ff', '#6b4630', '')]
 def lin(h): h = h.lstrip('#'); return tuple(((int(h[i:i + 2], 16) / 255) ** 2.2) for i in (0, 2, 4)) + (1,)
 random.seed(3)
-for n, (dx, dz, face, j) in enumerate(desks):
-    ry = 0 if face > 0 else R(180)
+for n, (dx, dz, yaw, j) in enumerate(desks):
+    ry = yaw
     g = bpy.data.objects.new('seat', None); sc.collection.objects.link(g); g.location = (dx, -dz, 0); g.rotation_euler = (0, 0, ry)
-    put('desk', 0, 0, parent=g); m = put('monitor', 0, -0.12, parent=g); m.location.z = 0.76
-    put('chair', 0, 0.62, R(180), parent=g)
+    put('desk', 0, 0, parent=g); m = put('monitor', 0, 0.05, R(180), 0.55, parent=g); m.location.z = 0.76
+    put('chair', 0, -0.62, parent=g)
     if TH == 'B' and n % 2 == 0: p = put('mug', -0.42, 0.05, parent=g); p.location.z = 0.76
     if n % 3 == 1: p = put('plant', 0.42, 0.05, 0, 0.35, parent=g); p.location.z = 0.76
     objs = imp('char.glb')
     rig = next(o for o in objs if o.type == 'ARMATURE')
     for top in [o for o in objs if o.parent is None]:
-        top.parent = g; top.location = (0, -0.64, 0.42 - 0.42 * 0.62 + 0.04); top.rotation_euler = (0, 0, R(180)); top.scale = (0.62, 0.62, 0.62)
+        top.parent = g; top.location = (0, 0.62, 0.42 - 0.42 * 0.62 + 0.04); top.rotation_euler = (0, 0, 0); top.scale = (0.62, 0.62, 0.62)
     L = LOOKS[n % len(LOOKS)]
     clip = 'doze' if n % 4 == 3 else 'sit_type'
     if rig.animation_data:
@@ -124,7 +127,7 @@ fo = bpy.data.objects.new('fill', fill); sc.collection.objects.link(fo); fo.rota
 cd = bpy.data.cameras.new('cam'); cd.type = 'ORTHO'; cd.ortho_scale = max(hx * 1.55, hz * 2.0); cd.clip_end = 300
 cam = bpy.data.objects.new('cam', cd); sc.collection.objects.link(cam); sc.camera = cam
 import mathutils
-cam.rotation_euler = (R(90 - 35.264), 0, R(45))
+cam.rotation_euler = (R(90 - 35.264), 0, R(45))  # 카메라 위치 = 블렌더(+x,-y) = 웹(+x,+z)
 fwd = cam.rotation_euler.to_matrix() @ mathutils.Vector((0, 0, -1))
 cam.location = mathutils.Vector((0, 0, 0)) - fwd * 60
 sc.render.filepath = OUT
