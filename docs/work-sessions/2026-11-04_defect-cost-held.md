@@ -5,3 +5,6 @@ Q. 보류분은 따로 빼놓아라.
 A. 재등록하지 않고 영업지원 등록대상/보류 목록 분리. 보류사유 확인 및 재조회 후 조건해결시에만 등록대상 복귀.
 계획/부작용: docs/plans/defect-cost-quote-2026-11-04.md. 실제DB SELECT/SQL CTE/단위검사 PASS. 전체gate/UI/배포 진행중. 운영쓰기0.
 검색어: 태림 그로우 오션송 라움 보류 defectCostCandidates
+
+2026-11-04 검증 갱신: 운영용 빌드 성공. API격리 UI에서 보류목록 분리, 업체/차수/단가 표시, 명시 매칭 preview/save만 전송, 수량80 및 유령견적10499 보존 PASS. 기존 문제해결창 단가·매칭·원문·중복선택·재조회실패잠금 회귀PASS. 실제SQL 후보조회는 그로우3397/오션송2085만 관련 후보로 노출(무관한 인기품목 제외). PR1463 전체검사/배포 진행중.
+검색어: defect-cost-held-smoke defect-resolution-smoke PR1463 운영쓰기0

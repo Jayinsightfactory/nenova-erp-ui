@@ -24,7 +24,12 @@ export default function DefectCostLookup({ row, year, week, disabled, onBusy, on
       await onSaved();
     } catch (e) { setError(e.message); } finally { setBusy(false); onBusy?.(false); }
   };
-  return <section className="cost-lookup" aria-label="최근 출고단가 후보">
+  return <section className="cost-lookup" aria-label="최근 출고단가 후보" onKeyDown={event => {
+    if (!['ArrowDown', 'ArrowUp'].includes(event.key) || event.target.tagName !== 'BUTTON') return;
+    const buttons = [...event.currentTarget.querySelectorAll('button:not(:disabled)')];
+    const index = buttons.indexOf(event.target);
+    if (index >= 0 && buttons.length) { event.preventDefault(); buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus(); }
+  }}>
     <strong>최근 출고단가 · 같은 연도 직전 5차수</strong>
     <p>현재 연결된 품목번호의 단가를 자동 조회합니다. 같은 업체를 우선하고 없으면 다른 업체의 동일 품목 단가를 사용합니다.</p>
     <div className="search"><label>출고 품목 검색 <input aria-label="출고단가 품목 검색" value={search} disabled={disabled || busy} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if(e.key === 'Enter') { e.preventDefault(); read(search); } }} /></label><button type="button" disabled={disabled || busy} onClick={() => read(search)}>출고단가 조회</button></div>

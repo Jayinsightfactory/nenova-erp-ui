@@ -35,6 +35,7 @@ const puppeteer = require('puppeteer-core');
  assert.match(text,/6,200원\/단/);assert.match(text,/꽃길.*2026년 42-01차.*4,000원/);
  await page.focus('input[aria-label="출고단가 품목 검색"]');await page.keyboard.press('Tab');await page.keyboard.press('Enter');
  await page.waitForFunction(()=>document.body.innerText.includes('그로우 75-80cm'));
+ await page.focus('[aria-label="최근 출고단가 후보"] button');await page.keyboard.press('ArrowDown');assert.match(await page.evaluate(()=>document.activeElement.textContent),/이 출고 품목으로 매칭/);await page.keyboard.press('ArrowUp');assert.match(await page.evaluate(()=>document.activeElement.textContent),/출고단가 조회/);
  await page.screenshot({path:'C:/Users/USER/defect-cost-held-local-1104.png',fullPage:true});
  await click('이 출고 품목으로 매칭하고 재검사');await page.waitForSelector('[role="dialog"]',{hidden:true});
  assert.equal(writes.length,2);assert.equal(writes[0].preview,true);assert.equal(writes[1].preview,false);
