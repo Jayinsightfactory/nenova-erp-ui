@@ -59,6 +59,14 @@ const { pathToFileURL } = require('url');
     assert.ok(fs.existsSync(path.join(dir, 'pm/mounts', id + '.png')), `2D 스프라이트 없음: ${id}`);
     assert.ok(fs.existsSync(path.join(dir, 'pm/mounts/thumb', id + '.webp')), `썸네일 없음: ${id}`);
   }
+  // 스킬 발사체 기본 9종(fx.glb + 2D 스프라이트)
+  const fb = fs.readFileSync(path.join(dir, 'pm3d/fx.glb'));
+  const fj = JSON.parse(fb.slice(20, 20 + fb.readUInt32LE(12)).toString());
+  const fnames = new Set(fj.nodes.map((n) => n.name));
+  for (const sh of ['paperPlane', 'box', 'petal', 'truck', 'bolt', 'envelope', 'coin', 'globe', 'arrowUp']) {
+    assert.ok(fnames.has('fx_' + sh), `fx 모듈 없음: ${sh}`);
+    assert.ok(fs.existsSync(path.join(dir, 'pm/fx', sh + '.png')), `fx 스프라이트 없음: ${sh}`);
+  }
   // Scene3D 연동: reduced 정지·동시 상한·park
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(/RIDE_MAX_CONCURRENT/.test(src) && /mountPose/.test(src) && /ridePath/.test(src), 'Scene3D 탈것 연동 누락');
