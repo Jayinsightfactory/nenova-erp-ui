@@ -15,6 +15,7 @@ const PedidosTool=dynamic(()=>import('../../components/import-tools/PedidosTool'
 const ChecklistTool=dynamic(()=>import('../../components/import-tools/ChecklistTool'),{ssr:false,loading});
 const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'),{ssr:false,loading});
 const Products=dynamic(()=>import('../master/products'),{ssr:false,loading});
+const Incoming=dynamic(()=>import('../incoming'),{ssr:false,loading});
 const EMPTY_RECEIPT_SOURCE=Object.freeze({excels:Object.freeze([]),invoices:Object.freeze([]),country:'',file:null,products:Object.freeze([]),reviewConfirmed:false,truncated:false});
 const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','일일 업무','요일 업무 · 미결 · 결제'],['flights','항공 일정','추가 · 수정 · 도착/반입'],['vacations','휴가 관리','잔여 일수 · 계정 이력'],['planting','재배 계획','배정 추가 · 수정 · 삭제'],['feedback','불량 피드백','기존 피드백 · 처리 이력'],['handoff','인수인계·특이사항','이슈 · 처리 · 주의 · 체크'],['history','변경 이력','공동 자료 수정 기록'],['products','품목관리','단수 · 송이 · 무게 · 관세 일괄 입력']];
 const checklistTabs={checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'};
@@ -43,12 +44,13 @@ function History({onRestore}){
   </table>{!busy&&!rows.length&&<div className={styles.empty}>아직 공동 자료 변경 이력이 없습니다.<small>카탈로그나 체크리스트를 저장하면 이곳에 기록됩니다.</small></div>}{busy&&<p role="status" className={styles.loading}>변경 이력을 불러오는 중입니다…</p>}</div>
  </section>;
 }
-export default function ImportTools({userId=''}){
+export default function ImportTools({userId='',initialTab='packing'}){
  const [packingWorkMode,setPackingWorkMode]=useState('upload');
  const [costVisited,setCostVisited]=useState(false);
  const [sharedRestore,setSharedRestore]=useState(null);
  const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');setPackingWorkMode('upload');},[]);
- const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
+ const [tab,setTab]=useState(initialTab),[saveError,setSaveError]=useState('');
+ const [incomingVisited,setIncomingVisited]=useState(initialTab==='incoming');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [receiptMatchState,setReceiptMatchState]=useState(null);
  const receiptSourceRef=useRef(receiptSource);
@@ -65,13 +67,21 @@ export default function ImportTools({userId=''}){
  const [feedbackVisited,setFeedbackVisited]=useState(false);
  const [flightCount,setFlightCount]=useState(null);
  const [productsVisited,setProductsVisited]=useState(false),[productsDirty,setProductsDirty]=useState(false);
- function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);if(id==='products')setProductsVisited(true);}
+ function selectTab(id){setTab(id);if(id==='incoming')setIncomingVisited(true);if(id==='feedback')setFeedbackVisited(true);if(id==='products')setProductsVisited(true);
+  const params=new URLSearchParams(window.location.search);if(id==='incoming')params.set('tab',id);else params.delete('tab');window.history.replaceState(null,'',`${window.location.pathname}?${params}`);
+ }
+ function moveTabFocus(event){const keys=['ArrowLeft','ArrowRight','Home','End'];if(!keys.includes(event.key))return;const buttons=[...event.currentTarget.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(index<0)return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].focus();}
  const storage=useMemo(()=>createImportTeamStorage(setSaveError),[]);
  return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={`${styles.workspace} ${tab==='packing'?styles.packingWorkspace:''} ${desktopUi.page}`}>
   <header className={styles.header}><div><span data-desktop-chrome className={styles.eyebrow}>수입 업무</span><h1 data-desktop-chrome>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
-  <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
+  <div className={styles.costEntry}><button type="button" onClick={()=>selectTab('incoming')} aria-controls="import-panel-incoming">입고 정정 업무</button><span>기존 입고 조회 · 농장·품목 수정 · 파일 교체 · 수정 이력</span></div>
+  <nav aria-label="수입부 업무도구" className={styles.tabs} onKeyDown={moveTabFocus}>{[...tabs.slice(0,1),['incoming','입고 조회·수정','기존 입고 · 농장·품목 수정 · 수정 이력'],...tabs.slice(1)].map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
+   <section id="import-panel-incoming" hidden={tab!=='incoming'} aria-label="입고 조회·수정">
+    <div className={styles.sectionHeading}><div><h2>입고 조회·수정</h2><p>입고를 선택한 뒤 ‘농장·품목 수정 / 파일 교체’를 누르세요. 수정창에서 변경 전후와 최근 수정 이력을 확인할 수 있습니다.</p><p>현재는 기존 입고 수정 기능을 사용합니다. 수입부 수정 요청 → 영업지원 매칭·확정 절차는 아직 제공되지 않습니다.</p></div><a href="/incoming">입고관리에서 열기 ↗</a></div>
+    {incomingVisited&&<Incoming embedded active={tab==='incoming'} onClose={()=>selectTab('packing')}/>}
+   </section>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
    <div id="import-panel-packing" hidden={tab!=='packing'}>
     <nav className={styles.packingWorkModes} aria-label="인보이스 작업 선택">
@@ -96,4 +106,4 @@ export default function ImportTools({userId=''}){
   </div>
  </main></>;
 }
-export async function getServerSideProps({req,res}){const user=await verifyReqUser(req,res);if(!user)return {redirect:{destination:'/login',permanent:false}};return {props:{userId:String(user.userId)}};}
+export async function getServerSideProps({req,res,query={}}){const user=await verifyReqUser(req,res);if(!user)return {redirect:{destination:'/login',permanent:false}};const initialTab=query.tab==='incoming'?'incoming':'packing';return {props:{userId:String(user.userId),initialTab}};}

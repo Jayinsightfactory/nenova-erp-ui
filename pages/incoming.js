@@ -12,16 +12,18 @@ import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
 import LatestArrivalReference from '../components/LatestArrivalReference.js';
 import WarehouseCorrection from '../components/WarehouseCorrection.js';
+import { incomingWorkspaceHref } from '../lib/incomingWorkspaceNavigation.js';
 import { useLatestArrivalReferences } from '../lib/useLatestArrivalReferences.js';
 const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
 
 
-export default function Warehouse() {
+export default function Warehouse({ embedded = false, active = true, onClose } = {}) {
   const { t } = useLang();
   const [masters, setMasters] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
+  const [popup, setPopup] = useState(false);
   const [details, setDetails] = useState([]);
   const [invoiceCosts, setInvoiceCosts] = useState(null);
   const [costError, setCostError] = useState('');
@@ -67,6 +69,7 @@ export default function Warehouse() {
     const d = new Date();
     const today = d.toISOString().slice(0, 10);
     const q = new URLSearchParams(window.location.search);
+    setPopup(q.get('popup') === '1');
     const linked=Number(q.get('warehouseKey'));
     if(Number.isSafeInteger(linked)&&linked>0)linkedWarehouse.current=linked;
     const queryRange = incomingQueryDateRange(window.location.search, d);
@@ -82,8 +85,9 @@ export default function Warehouse() {
 
   // 필터 상태를 URL에 유지 (새로고침·공유·뒤로가기 후에도 같은 화면)
   useEffect(() => {
-    if (!urlApplied.current || !startDate || !endDate) return;
+    if (!urlApplied.current || !startDate || !endDate || !active) return;
     const q = new URLSearchParams();
+    if(embedded)q.set('tab','incoming');
     if(linkedWarehouse.current)q.set('warehouseKey',String(linkedWarehouse.current));
     if(new URLSearchParams(window.location.search).get('popup')==='1')q.set('popup','1');
     q.set('from', startDate); q.set('to', endDate);
@@ -92,7 +96,7 @@ export default function Warehouse() {
     if (masterSearch) q.set('q', masterSearch);
     const next = `${window.location.pathname}?${q.toString()}`;
     if (next !== window.location.pathname + window.location.search) window.history.replaceState(null, '', next);
-  }, [startDate, endDate, farmFilter, weekFilter, masterSearch]);
+  }, [startDate, endDate, farmFilter, weekFilter, masterSearch, embedded, active]);
 
   useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
 
@@ -271,12 +275,13 @@ export default function Warehouse() {
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected})}>농장·품목 수정 / 파일 교체</Button>
+        {!embedded && <Button size="small" href={incomingWorkspaceHref({warehouseKey:selectedKey,from:startDate,to:endDate,farm:farmFilter,week:weekFilter,q:masterSearch,popup})}>입고 정정 업무</Button>}
         <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
         <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>
         <Button size="small" href="/incoming/boxes">차수별 박스 입고 현황</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!filteredMasters.length} onClick={handleMasterExcel}>원장 목록 엑셀</Button>
         <Button size="small" icon={<DownloadOutlined />} disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>선택 상세 엑셀</Button>
-        <Button size="small" onClick={() => window.opener ? window.close() : history.back()}>닫기 / Cerrar</Button>
+        <Button size="small" onClick={() => embedded ? onClose?.() : window.opener ? window.close() : history.back()}>{embedded ? '업무도구로 돌아가기' : '닫기 / Cerrar'}</Button>
       </Space>
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 6 }} closable onClose={() => setErr('')} />}

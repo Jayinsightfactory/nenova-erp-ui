@@ -2004,3 +2004,6 @@
 검색어: paste-confirmed-audit PR1479 28/30 장미규격확인 Claude14회
 
 최종 API제외 보완 실측: 기존27/30 개선28/30+규격확인2/오선택0, 호출16→14, input193033→166937, 총86.078→74.342초, 중앙10.176→9.579초. 기존반복27~30변동 및 보호단계30→28 자동률하락도 보고서보존, 최종한번만골라 일반성능향상주장하지않음. 별도장미최종2→0호출/330ms/확인필요. 원장쓰기0.
+
+2026-11-04 입고 정정 메뉴 연결: 승인업무3탭(수정요청/매칭·확정/처리이력) 기획. /incoming 입고정정업무 버튼→/import/tools?tab=incoming, 업무도구에 동일버튼·입고조회수정탭 추가. 기존 Incoming/correction 재사용, 선택번호·기간·필터·팝업 전달·탭선택 보존. 새승인엔진 미구현 사실 표시, API/SQL/원장쓰기 변경없음. 신규 URL 정책검사 PASS, 전체ERP/build/UI/배포 진행중. 정본 docs/work-sessions/2026-11-04_incoming-tabs.md.
+검색어: 입고정정업무 incomingWorkspaceNavigation tab=incoming 수입부업무도구 승인3탭
