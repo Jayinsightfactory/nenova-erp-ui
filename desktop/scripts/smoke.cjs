@@ -314,9 +314,10 @@ async function verifyNotesUi(sourceWindow) {
   await waitFor(()=>contents.executeJavaScript('Boolean(document.querySelector("#tasks .task"))'), 'memo loads personal tasks');
   const boundary=await contents.executeJavaScript('({url:location.href,requireType:typeof require,notesType:typeof window.notes,csp:document.querySelector("meta[http-equiv=Content-Security-Policy]").content})');
   assert.equal(boundary.url,'nenova-app://shell/notes.html');assert.equal(boundary.requireType,'undefined');assert.equal(boundary.notesType,'object');assert.match(boundary.csp,/connect-src 'none'/);
-  assert.equal(note.isAlwaysOnTop(),true);
+  await waitFor(()=>note.isVisible(),'memo window visible');
+  assert.equal((await contents.executeJavaScript('window.notes.invoke("pin",{pinned:true})')).pinned,true);
   await contents.executeJavaScript('document.querySelector("#pin").click()');
-  await waitFor(()=>!note.isAlwaysOnTop(),'memo pin toggles');
+  await waitFor(()=>contents.executeJavaScript('window.notes.invoke("state").then(state=>state.pinned===false&&document.querySelector("#pin").getAttribute("aria-pressed")==="false")'),'memo pin toggles');
   await contents.executeJavaScript(`(() => { document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
   await waitFor(()=>homeStore(accountActor).tasks.some(task=>task.title==='메모장 월말 확인'),'memo creates task');
   assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.frequency,'monthly');
