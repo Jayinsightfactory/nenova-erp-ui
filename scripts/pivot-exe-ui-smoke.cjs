@@ -370,7 +370,9 @@ async function runDelayedAuthLayoutRegression(browser) {
     }
 
     // Exercise the actual visible filter controls, not just optional test manifests.
-    await click(page, 'pivot-exe-field-CounName', 'country menu');
+    // 2026-11-04 DevExpress 조작법: 필드 버튼 클릭=정렬, 메뉴는 hover 시 ⋯(pivot-exe-menu-*) 또는 우클릭.
+    await page.hover('[data-testid="pivot-exe-field-CounName"]');
+    await click(page, 'pivot-exe-menu-CounName', 'country menu');
     await click(page, null, 'value filter', '값 필터…');
     await click(page, null, 'clear values', '전체 해제');
     await click(page, null, 'apply empty selection', '선택·순서 적용');
@@ -389,15 +391,14 @@ async function runDelayedAuthLayoutRegression(browser) {
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) < expandedRows, 'collapse did not reduce visible rows');
     await click(page, testids.expandAll, 'expand all', '모두 펼침');
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) === expandedRows, 'expand did not restore rows');
-    await click(page, 'pivot-exe-field-CounName', 'open sort field');
-    await click(page, null, 'sort ascending', '오름차순');
+    await click(page, 'pivot-exe-field-CounName', 'sort ascending by header click');
     assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('에콰도르'), 'ascending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▲'), 'ascending indicator missing');
-    await click(page, 'pivot-exe-field-CounName', 'open descending sort');
-    await click(page, null, 'sort descending', '내림차순');
+    await click(page, 'pivot-exe-field-CounName', 'sort descending by second header click');
     assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('콜롬비아'), 'descending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▼'), 'descending indicator missing');
-    await click(page, 'pivot-exe-field-CounName', 'open clear sort');
+    await page.hover('[data-testid="pivot-exe-field-CounName"]');
+    await click(page, 'pivot-exe-menu-CounName', 'open clear sort');
     await click(page, null, 'clear sort', '정렬 해제');
 
     // Grouped headers, true cell grid and display-only precision.
@@ -507,6 +508,7 @@ async function runDelayedAuthLayoutRegression(browser) {
 
     for (const width of [1920,1366]) {
       await page.setViewport({width,height:width===1920?1080:768,deviceScaleFactor:1});
+      await page.hover('[data-testid="pivot-exe-field-ListType"]');
       await click(page,'pivot-exe-filter-ListType','anchored type filter');
       const bounds = await page.evaluate(() => {
         const anchor=document.querySelector('[data-testid="pivot-exe-filter-ListType"]').getBoundingClientRect();
@@ -520,12 +522,13 @@ async function runDelayedAuthLayoutRegression(browser) {
       assert(!(await page.$('[data-testid="pivot-exe-value-filter"]')), 'Escape did not close filter');
     }
     await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+    // DevExpress 배치: 필터 영역이 맨 위, 값 영역은 행 영역 위·열 영역 왼쪽, 행 영역은 표 본문 바로 위 왼쪽.
     const wideLayout = await page.evaluate(() => {
-      const deck = document.querySelector('[data-testid="pivot-exe-field-deck"]')?.getBoundingClientRect();
-      const tools = document.querySelector('[data-testid="pivot-exe-view-tools"]')?.getBoundingClientRect();
-      return deck && tools ? { deckRight: deck.right, toolsLeft: tools.left, toolsTop: tools.top, deckTop: deck.top } : null;
+      const rect = (zone) => document.querySelector(`[data-testid="pivot-exe-zone-${zone}"]`)?.getBoundingClientRect();
+      const f = rect('filters'), v = rect('values'), c = rect('cols'), r = rect('rows');
+      return f && v && c && r ? { f, v, c, r } : null;
     });
-    assert(wideLayout && wideLayout.toolsLeft >= wideLayout.deckRight && Math.abs(wideLayout.toolsTop - wideLayout.deckTop) <= 2, '1920px layout must place view tools to the right of the field deck');
+    assert(wideLayout && wideLayout.f.top <= wideLayout.v.top && wideLayout.v.right <= wideLayout.c.left + 2 && wideLayout.r.top >= wideLayout.v.top && wideLayout.r.left <= wideLayout.v.left + 2, '1920px layout must place filters on top, values left of columns, rows bottom-left (DevExpress)');
     await setControl('pivot-exe-data-width', '400');
     await waitFor(() => page.$eval('[data-testid="pivot-exe-top-scroll"]', node => node.scrollWidth > node.clientWidth), 'top scrollbar overflow track');
     await page.$eval('[data-testid="pivot-exe-top-scroll"]', node => { node.scrollLeft = Math.min(240, node.scrollWidth - node.clientWidth); node.dispatchEvent(new Event('scroll')); });
