@@ -157,8 +157,7 @@ export default function PedidosTool({ active = true }) {
         <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table>
           <thead><tr><th scope="col">품목</th><th scope="col">품목관리 기준</th><th scope="col">발주서 단위</th><th scope="col">저장 주문수량</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
           <tbody>{matrix.rows.map(row => <tr key={row.key} className={row.blocked ? 'pedidos-row-blocked' : undefined}>
-            <th scope="row">{row.label ?? row.name}{row.blocked && <span className="pedidos-blocked-tag" title={row.blockers.join('
-')}>확인 필요</span>}</th>
+            <th scope="row">{row.label ?? row.name}{row.blocked && <span className="pedidos-blocked-tag" title={row.blockers.join(' / ')}>확인 필요</span>}</th>
             <td className="pedidos-unit-basis">{formatCountryOrderUnitBasis(row.unitBasis)}</td>
             <td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>
             <td className="pedidos-stored-quantities"><span>{formatCountryOrderStoredQuantities(row.storedQuantities)}</span><details><summary>업체별 저장수량</summary><ul>{matrix.customers.map(customer => <li key={customer.key}><strong>{customer.label}</strong>: {Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) ? formatCountryOrderStoredQuantities(row.storedQuantitiesByCustomer?.[customer.key]) : '주문 없음'}</li>)}</ul></details></td>
