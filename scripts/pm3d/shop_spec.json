@@ -9,7 +9,7 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [],
+   "raceMesh": "",
    "temp": false
   },
   {
@@ -20,31 +20,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "cone",
-     "p": [
-      0.24,
-      1.93,
-      0
-     ],
-     "r": 0.13,
-     "h": 0.26,
-     "c": "hair"
-    },
-    {
-     "shape": "cone",
-     "p": [
-      -0.24,
-      1.93,
-      0
-     ],
-     "r": 0.13,
-     "h": 0.26,
-     "c": "hair"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_cat",
+   "temp": false
   },
   {
    "key": "char.dog",
@@ -54,39 +31,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "ball",
-     "p": [
-      0.45,
-      1.58,
-      0
-     ],
-     "r": 0.13,
-     "s": [
-      0.55,
-      1.5,
-      0.9
-     ],
-     "c": "hair"
-    },
-    {
-     "shape": "ball",
-     "p": [
-      -0.45,
-      1.58,
-      0
-     ],
-     "r": 0.13,
-     "s": [
-      0.55,
-      1.5,
-      0.9
-     ],
-     "c": "hair"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_dog",
+   "temp": false
   },
   {
    "key": "char.bunny",
@@ -96,39 +42,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "ball",
-     "p": [
-      0.16,
-      2.1,
-      -0.04
-     ],
-     "r": 0.1,
-     "s": [
-      0.8,
-      2.6,
-      0.6
-     ],
-     "c": "hair"
-    },
-    {
-     "shape": "ball",
-     "p": [
-      -0.16,
-      2.1,
-      -0.04
-     ],
-     "r": 0.1,
-     "s": [
-      0.8,
-      2.6,
-      0.6
-     ],
-     "c": "hair"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_bunny",
+   "temp": false
   },
   {
    "key": "char.bear",
@@ -138,29 +53,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "ball",
-     "p": [
-      0.3,
-      1.9,
-      0
-     ],
-     "r": 0.13,
-     "c": "hair"
-    },
-    {
-     "shape": "ball",
-     "p": [
-      -0.3,
-      1.9,
-      0
-     ],
-     "r": 0.13,
-     "c": "hair"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_bear",
+   "temp": false
   },
   {
    "key": "char.fox",
@@ -170,31 +64,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "cone",
-     "p": [
-      0.27,
-      1.95,
-      0
-     ],
-     "r": 0.14,
-     "h": 0.3,
-     "c": "hair"
-    },
-    {
-     "shape": "cone",
-     "p": [
-      -0.27,
-      1.95,
-      0
-     ],
-     "r": 0.14,
-     "h": 0.3,
-     "c": "hair"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_fox",
+   "temp": false
   },
   {
    "key": "char.penguin",
@@ -204,25 +75,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "cone",
-     "p": [
-      0,
-      1.46,
-      0.52
-     ],
-     "r": 0.07,
-     "h": 0.18,
-     "rot": [
-      1.5708,
-      0,
-      0
-     ],
-     "c": "#ff9a3c"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_penguin",
+   "temp": false
   },
   {
    "key": "char.fairy",
@@ -232,20 +86,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": false,
-   "attach": [
-    {
-     "shape": "torus",
-     "p": [
-      0,
-      1.95,
-      0
-     ],
-     "R": 0.32,
-     "r": 0.06,
-     "c": "#ff9cf0"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_fairy",
+   "temp": false
   },
   {
    "key": "char.robot",
@@ -255,30 +97,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": true,
-   "attach": [
-    {
-     "shape": "cyl",
-     "p": [
-      0,
-      2,
-      0
-     ],
-     "r": 0.025,
-     "h": 0.24,
-     "c": "skin"
-    },
-    {
-     "shape": "ball",
-     "p": [
-      0,
-      2.14,
-      0
-     ],
-     "r": 0.06,
-     "c": "#ffd166"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_robot",
+   "temp": false
   },
   {
    "key": "char.cactus",
@@ -288,34 +108,8 @@
    "top": "#caffbf",
    "bottom": "#bdb2ff",
    "hideHair": true,
-   "attach": [
-    {
-     "shape": "ball",
-     "p": [
-      0,
-      1.96,
-      0
-     ],
-     "r": 0.1,
-     "s": [
-      1.2,
-      0.8,
-      1.2
-     ],
-     "c": "#ff9cf0"
-    },
-    {
-     "shape": "ball",
-     "p": [
-      0,
-      2.03,
-      0
-     ],
-     "r": 0.05,
-     "c": "#ffd166"
-    }
-   ],
-   "temp": true
+   "raceMesh": "race_cactus",
+   "temp": false
   }
  ],
  "items": [
@@ -412,99 +206,237 @@
   },
   {
    "key": "hat.beret",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_beret",
+   "temp": false
   },
   {
    "key": "hat.ribbon",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_ribbon",
+   "temp": false
   },
   {
    "key": "hat.visorneon",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_visorneon",
+   "temp": false
   },
   {
    "key": "hat.gat",
-   "kind": "hat",
-   "mesh": "hat_party",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_gat",
+   "temp": false
   },
   {
    "key": "hat.straw",
-   "kind": "hat",
+   "kind": "wear",
    "mesh": "hat_straw",
-   "temp": true
+   "temp": false
   },
   {
    "key": "hat.pixelcrown",
-   "kind": "hat",
-   "mesh": "hat_party",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_pixelcrown",
+   "temp": false
   },
   {
    "key": "hat.painter",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_painter",
+   "temp": false
   },
   {
    "key": "hat.spacehelmet",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_spacehelmet",
+   "temp": false
   },
   {
    "key": "hat.sunvisor",
-   "kind": "hat",
-   "mesh": "hat_straw",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_sunvisor",
+   "temp": false
   },
   {
    "key": "hat.beanie",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_beanie",
+   "temp": false
   },
   {
    "key": "hat.crown",
-   "kind": "hat",
-   "mesh": "hat_party",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_crown",
+   "temp": false
   },
   {
    "key": "hat.cap",
-   "kind": "hat",
+   "kind": "wear",
    "mesh": "hat_cap",
-   "temp": true
+   "temp": false
   },
   {
    "key": "hat.flowercrown",
-   "kind": "hat",
-   "mesh": "hat_straw",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_flowercrown",
+   "temp": false
   },
   {
    "key": "hat.helmet",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_helmet",
+   "temp": false
   },
   {
    "key": "hat.chef",
-   "kind": "hat",
-   "mesh": "hat_party",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_chef",
+   "temp": false
   },
   {
    "key": "hat.pilot",
-   "kind": "hat",
-   "mesh": "hat_cap",
-   "temp": true
+   "kind": "wear",
+   "mesh": "hat_pilot",
+   "temp": false
+  },
+  {
+   "key": "glasses.round",
+   "kind": "wear",
+   "mesh": "gls_round",
+   "temp": false
+  },
+  {
+   "key": "glasses.sun",
+   "kind": "wear",
+   "mesh": "gls_sun",
+   "temp": false
+  },
+  {
+   "key": "glasses.heart",
+   "kind": "wear",
+   "mesh": "gls_heart",
+   "temp": false
+  },
+  {
+   "key": "glasses.visor",
+   "kind": "wear",
+   "mesh": "gls_visor",
+   "temp": false
+  },
+  {
+   "key": "glasses.monocle",
+   "kind": "wear",
+   "mesh": "gls_monocle",
+   "temp": false
+  },
+  {
+   "key": "glasses.goggle",
+   "kind": "wear",
+   "mesh": "gls_goggle",
+   "temp": false
+  },
+  {
+   "key": "hand.mug",
+   "kind": "wear",
+   "mesh": "hnd_mug",
+   "temp": false
+  },
+  {
+   "key": "hand.balloon",
+   "kind": "wear",
+   "mesh": "hnd_balloon",
+   "temp": false
+  },
+  {
+   "key": "hand.glowstick",
+   "kind": "wear",
+   "mesh": "hnd_glowstick",
+   "temp": false
+  },
+  {
+   "key": "hand.fan",
+   "kind": "wear",
+   "mesh": "hnd_fan",
+   "temp": false
+  },
+  {
+   "key": "hand.wateringcan",
+   "kind": "wear",
+   "mesh": "hnd_wateringcan",
+   "temp": false
+  },
+  {
+   "key": "hand.joystick",
+   "kind": "wear",
+   "mesh": "hnd_joystick",
+   "temp": false
+  },
+  {
+   "key": "hand.brush",
+   "kind": "wear",
+   "mesh": "hnd_brush",
+   "temp": false
+  },
+  {
+   "key": "hand.flag",
+   "kind": "wear",
+   "mesh": "hnd_flag",
+   "temp": false
+  },
+  {
+   "key": "hand.icecream",
+   "kind": "wear",
+   "mesh": "hnd_icecream",
+   "temp": false
+  },
+  {
+   "key": "hand.cocoa",
+   "kind": "wear",
+   "mesh": "hnd_cocoa",
+   "temp": false
+  },
+  {
+   "key": "badge.star",
+   "kind": "wear",
+   "mesh": "bdg_star",
+   "temp": false
+  },
+  {
+   "key": "badge.rose",
+   "kind": "wear",
+   "mesh": "bdg_rose",
+   "temp": false
+  },
+  {
+   "key": "badge.mvp",
+   "kind": "wear",
+   "mesh": "bdg_mvp",
+   "temp": false
+  },
+  {
+   "key": "badge.heart",
+   "kind": "wear",
+   "mesh": "bdg_heart",
+   "temp": false
+  },
+  {
+   "key": "badge.flagco",
+   "kind": "wear",
+   "mesh": "bdg_flagco",
+   "temp": false
+  },
+  {
+   "key": "badge.flagnl",
+   "kind": "wear",
+   "mesh": "bdg_flagnl",
+   "temp": false
+  },
+  {
+   "key": "badge.flagcn",
+   "kind": "wear",
+   "mesh": "bdg_flagcn",
+   "temp": false
   },
   {
    "key": "desk.wood",
@@ -750,6 +682,30 @@
    "temp": true
   },
   {
+   "key": "shelf.book",
+   "kind": "kit",
+   "model": "shelf_book",
+   "temp": false
+  },
+  {
+   "key": "shelf.plant",
+   "kind": "kit",
+   "model": "shelf_plant",
+   "temp": false
+  },
+  {
+   "key": "shelf.arcade",
+   "kind": "kit",
+   "model": "shelf_arcade",
+   "temp": false
+  },
+  {
+   "key": "shelf.potplant",
+   "kind": "kit",
+   "model": "shelf_potplant",
+   "temp": false
+  },
+  {
    "key": "pet.puppy",
    "kind": "pet",
    "tint": "#ffe8a3",
@@ -860,9 +816,45 @@
   }
  ],
  "hatLayers": [
+  "hat_beret",
+  "hat_ribbon",
+  "hat_visorneon",
+  "hat_gat",
+  "hat_straw",
+  "hat_pixelcrown",
+  "hat_painter",
+  "hat_spacehelmet",
+  "hat_sunvisor",
+  "hat_beanie",
+  "hat_crown",
   "hat_cap",
-  "hat_party",
-  "hat_straw"
+  "hat_flowercrown",
+  "hat_helmet",
+  "hat_chef",
+  "hat_pilot",
+  "gls_round",
+  "gls_sun",
+  "gls_heart",
+  "gls_visor",
+  "gls_monocle",
+  "gls_goggle",
+  "hnd_mug",
+  "hnd_balloon",
+  "hnd_glowstick",
+  "hnd_fan",
+  "hnd_wateringcan",
+  "hnd_joystick",
+  "hnd_brush",
+  "hnd_flag",
+  "hnd_icecream",
+  "hnd_cocoa",
+  "bdg_star",
+  "bdg_rose",
+  "bdg_mvp",
+  "bdg_heart",
+  "bdg_flagco",
+  "bdg_flagnl",
+  "bdg_flagcn"
  ],
  "mounts": [
   "kickboard",

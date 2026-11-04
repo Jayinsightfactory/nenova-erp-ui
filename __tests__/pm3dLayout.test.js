@@ -74,7 +74,7 @@ const { pathToFileURL } = require('url');
   for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'desk_k1', 'desk_k2', 'desk_k3', 'chair_k1', 'chair_k2', 'plant_k1', 'plant_k2', 'lamp_k', 'rug_k', 'shell', 'starfish', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
   const ch = gl('char.glb'); const clips = ch.animations.map((x) => x.name);
   for (const c of ['idle', 'sit_type', 'walk', 'doze', 'dance']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
-  for (const h of ['hat_cap', 'hat_straw', 'hat_party']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`);
+  for (const h of ['hat_cap', 'hat_straw', 'hat_crown']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`); // 모자 16종 전용 메시(build_wearables.py), 전수는 pmProps3d.test.js
   // 휠 확대 금지(사장님 지시)
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(!/['"]wheel['"]/.test(src), '3D 장면에 휠 핸들러 금지');
