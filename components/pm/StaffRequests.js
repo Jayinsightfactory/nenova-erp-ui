@@ -143,7 +143,7 @@ export default function StaffRequests({ open, onClose }) {
         </div>
         {writing && <Composer onDone={(n) => { setWriting(false); if (n) upd(n); }} />}
         {err && <p className="srq-err">{err}</p>}
-        {!list ? <p className="srq-muted">불러오는 중…</p> : !shown.length ? <p className="srq-muted">글이 없습니다.</p> : (
+        {!list ? <p className="srq-muted">불러오는 중…</p> : !shown.length ? <p className="srq-muted">아직 올라온 글이 없습니다. 오른쪽 위 + 글쓰기로 남겨 주세요.</p> : (
           <ul className="srq-list">{shown.map((r) => <Post key={r.id} r={r} isAdmin={isAdmin} onChange={upd} />)}</ul>
         )}
       </aside>
