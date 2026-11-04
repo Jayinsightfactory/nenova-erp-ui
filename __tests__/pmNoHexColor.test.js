@@ -21,7 +21,8 @@ assert.deepStrictEqual(bad, [], `하드코딩 색(#hex) 금지 — lib/pmThemes.
 const src = fs.readFileSync(path.join(root, ALLOW), 'utf8');
 const ids = [...src.matchAll(/\{ id: '([A-Z])', name: '/g)].map((m) => m[1]);
 assert.deepStrictEqual(ids, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'], '테마 10종 A~J');
-assert.ok(/PM_DEFAULT_THEME = 'B'/.test(src), '기본 테마 = B');
+assert.ok(/PM_DEFAULT_THEME = 'I'/.test(src), '기본 테마 = I(해변) — 2026-11-04 사장님 확정');
+assert.ok(/PM_THEMES_VISIBLE = \['I'\]/.test(src), '노출 테마 = I 하나(나머지 보존·숨김)');
 const NEED = ['bg', 'surface', 'surface2', 'ink', 'muted', 'accent', 'accentInk', 'accent2', 'line', 'header', 'headerInk', 'hall', 'hallInk', 'plate', 'plateInk', 'link', 'radius', 'shadow', 'font'];
 for (const block of src.split(/\n  \{ id: '/).slice(1)) {
   const id = block[0];
