@@ -12,7 +12,7 @@ const products=[{ProdKey:10,ProdName:'CARNATION Moon Light',DisplayName:'문라�
 const productMappings={'카네이션 문라이트':{prodKey:10,manual:true}};
 const source=fs.readFileSync('pages/api/orders/parse-paste.js','utf8');
 // Execute the real handler with isolated read-only master/model adapters; never DB/API credentials.
-function fixture({modelFail=false,mappings=productMappings}={}){
+function fixture({modelFail=false,mappings=productMappings,legacy=false}={}){
   const calls=[];
   const deps={...natural,...sales,...units,resolveImportCustomer,canUseLocalPasteParse,createPasteAnalysisMetrics,reviewPasteMatches,PASTE_REVIEW_SYSTEM,
     process:{env:{ANTHROPIC_API_KEY:'fixture'}},sql:{Int:'int'},withAuth:x=>x,trackLLMCall:()=>{},
@@ -21,11 +21,13 @@ function fixture({modelFail=false,mappings=productMappings}={}){
     loadMappings:async()=>mappings,loadCustomerMappings:async()=>({}),loadImportUnits:()=>({}),
     matchImportRows:rows=>rows.map(()=>({prodKey:10,prodName:products[0].ProdName,unit:'박스',confidence:1})),
   };
-  const body=source.replace(/^import .*;\r?\n/gm,'').replace(/export const config/,'const config').replace('export async function parsePasteHandler','async function parsePasteHandler').replace('export default withAuth(parsePasteHandler);','');
+  const parserSource=legacy?source.replace(/const localParse=.*?;/,'const localParse=false;').replace('productMappings:savedProductMappings,metrics:analysis.metrics,','metrics:analysis.metrics,'):source;
+  const body=parserSource.replace(/^import .*;\r?\n/gm,'').replace(/export const config/,'const config').replace('export async function parsePasteHandler','async function parsePasteHandler').replace('export default withAuth(parsePasteHandler);','');
   const handler=new Function(...Object.keys(deps),body+'\nreturn parsePasteHandler;')(...Object.values(deps));
   return {calls,async run(text,year='2026'){let status=200,data;await handler({method:'POST',body:{text,selectedOrderYear:year},user:{userId:'fixture'}},{status(n){status=n;return this;},json(d){data=d;}});return {status,data};}};
 }
 
+const baseline=fixture({legacy:true});await baseline.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가');assert.equal(baseline.calls.length,2,'baseline full parse plus model review');
 for(const year of ['2025','2026']){
   const f=fixture(),r=await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가',year);
   assert.equal(r.status,200);assert.equal(f.calls.length,0);assert.equal(r.data.analysisPerformance.modelCalls,0);
@@ -39,6 +41,10 @@ for(const text of ['검증업체\n문라이트 -1박스','검증업체\n문라�
 }
 const item={inputName:'카네이션 문라이트',matchName:'카네이션 문라이트',prodKey:10};
 assert.equal(localProductReviewKey(item,products,productMappings),10);
+assert.equal(localProductReviewKey({...item,prodKey:99},products,productMappings),null,'common ranker disagreement must remain review');
+assert.equal(localProductReviewKey({...item,ambiguousCountry:true},products,productMappings),null);
+const wrongUnit={orders:[{custName:'검증업체',items:[{inputName:'문라이트',qty:1,unit:'단',action:'추가'}]}]};assert.equal(canUseLocalPasteParse('검증업체\n문라이트 1박스 추가',wrongUnit,customers),false);
+const wrongName={orders:[{custName:'검증업체',items:[{inputName:'노비아',qty:1,unit:'박스',action:'추가'}]}]};assert.equal(canUseLocalPasteParse('검증업체\n문라이트 1박스 추가',wrongName,customers),false);
 assert.equal(localProductReviewKey(item,products,{'카네이션 문라이트':{prodKey:10,auto:true}}),null);
 assert.equal(localProductReviewKey(item,products,{'카네이션 문라이트':{prodKey:99,manual:true}}),null);
 assert.equal(localProductReviewKey({...item,matchName:'중국 카네이션 문라이트'},products,productMappings),null);
@@ -53,4 +59,4 @@ const reviewed=await reviewPasteMatches({orders,customers,products,mappings:{},m
 assert.equal(reviewCalls,1);assert.equal(metrics.uniqueModelTasks,1);assert.equal(reviewed.length,30);assert(reviewed.every(o=>o.items[0].qty===2&&o.items[0].action==='취소'&&o.items[0].prodKey===10));
 const failed=await reviewPasteMatches({orders,customers,products,mappings:{},callModel:async()=>{throw Error('timeout');}});assert(failed.every(o=>o.items[0].prodKey===null));
 const start=performance.now();for(let i=0;i<100;i++){const f=fixture();const r=await f.run('44-1 카네이션 변경사항\n검증업체\n문라이트 1박스 추가');assert.equal(f.calls.length,0);assert.equal(r.status,200);}
-console.log(JSON.stringify({pass:'local full-handler extraction/matching, model fallback, exact/manual safeguards, dedup, immutable quantities/year, failure',fixtureRuns:100,modelCalls:0,fixtureElapsedMs:Math.round(performance.now()-start)}));
+console.log(JSON.stringify({pass:'local full-handler extraction/matching, model fallback, exact/manual safeguards, dedup, immutable quantities/year, failure',baselineModelCalls:baseline.calls.length,fixtureRuns:100,modelCalls:0,fixtureElapsedMs:Math.round(performance.now()-start)}));
