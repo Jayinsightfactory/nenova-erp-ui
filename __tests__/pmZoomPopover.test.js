@@ -7,7 +7,7 @@ const path = require('path');
 const root = process.cwd();
 const src = fs.readFileSync(path.join(root, 'lib', 'pmZoom.js'), 'utf8').replace(/^export (const|function) /gm, '$1 ');
 const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pmzoom-')), 'pmZoom.cjs');
-fs.writeFileSync(tmp, src + '\nmodule.exports = { ZOOM_MIN, ZOOM_MAX, clampZoom, clampView, zoomViewAt, stepZoom, shouldCloseOnUp };');
+fs.writeFileSync(tmp, src + '\nmodule.exports = { ZOOM_MIN, ZOOM_MAX, ZOOM_PCT_MIN, ZOOM_PCT_MAX, clampZoom, clampPct, zoomToPct, pctToZoom, clampView, zoomViewAt, zoomViewTo, shouldCloseOnUp };');
 const Z = require(tmp);
 
 // 1) 축소 하한: 맞춤(1) 아래로 내려가고 ZOOM_MIN(0.4)에서 멈춤
@@ -21,8 +21,8 @@ for (let i = 0; i < 20; i += 1) v = Z.zoomViewAt(v, 1.25, 1000, 600);
 assert.strictEqual(v.z, Z.ZOOM_MAX, '상한');
 const fitted = Z.clampView({ z: 1, x: 0, y: 0 }, 1000, 600); assert.deepStrictEqual(fitted, { z: 1, x: 0, y: 0 });
 // 3D 단계형
-assert.strictEqual(Z.stepZoom(1, -1), 0.8); assert.strictEqual(Z.stepZoom(0.4, -1), 0.4);
-assert.strictEqual(Z.stepZoom(0.8, 1), 1); assert.strictEqual(Z.stepZoom(1, 1), 1.5); assert.strictEqual(Z.stepZoom(1.5, -1), 1);
+// 3D 도 동일 clamp 규칙(배율 바 공용)
+assert.strictEqual(Z.clampZoom(0.2), Z.ZOOM_MIN); assert.strictEqual(Z.clampZoom(5), Z.ZOOM_MAX);
 
 // 2) 팝오버 버튼에서 시작된 누름(drag 미기록) → pointerup 이 팝오버를 닫으면 안 됨(닫으면 click 전 언마운트 = 상세·꾸미기 먹통)
 assert.strictEqual(Z.shouldCloseOnUp(null), false, '버튼/팝오버 누름은 닫지 않음');
@@ -36,10 +36,10 @@ assert.ok(/shouldCloseOnUp\(d0\)/.test(bg), 'onPointerUp 은 shouldCloseOnUp 사
 assert.ok(/closest\('\[role="button"\],button,\.iso-pop'\)\) return;/.test(bg), '팝오버·버튼 누름은 드래그 미시작');
 const down = bg.slice(bg.indexOf('const onPointerDown'), bg.indexOf('const onKey'));
 assert.ok(!/preventDefault|stopPropagation/.test(down), '포인터 핸들러가 click 을 막지 않음');
-assert.ok(/disabled=\{zv\.z <= ZMIN\}/.test(bg) && /ZMIN = ZOOM_MIN/.test(bg), '− 버튼은 ZOOM_MIN 에서만 비활성');
+assert.ok(/<ZoomSlider pct=\{zv\.z \* 100\}/.test(bg) && /ZMIN = ZOOM_MIN/.test(bg), '2D 배율 바 연결');
 assert.ok(!/onWheel|'wheel'/.test(bg), '휠 확대 금지 유지');
 const s3 = fs.readFileSync(path.join(root, 'components', 'pm3d', 'Scene3D.js'), 'utf8');
-assert.ok(/stepZoom\(z, -1\)/.test(s3) && !/Math\.max\(1, \+\(z - 0\.5\)/.test(s3), '3D − 버튼 축소 가능');
+assert.ok(/<ZoomSlider pct=\{zoom \* 100\}/.test(s3) && /setZoom\(pctToZoom\(pct\)\)/.test(s3) && !/Math\.max\(1, \+\(z - 0\.5\)/.test(s3), '3D 배율 바 연결');
 assert.ok(!/'wheel'|onWheel/.test(s3), '3D 휠 확대 금지 유지');
 // 팝오버 버튼 핸들러가 onOpenPerson 을 호출
 const iso = fs.readFileSync(path.join(root, 'components', 'pm', 'IsoScene.js'), 'utf8');
@@ -61,3 +61,19 @@ const maps = JSON.parse(fs.readFileSync(path.join(root, 'lib', 'pmSceneMaps.json
 const dirs = JSON.stringify(maps).match(/"dir":"[a-z]*"/g) || [];
 dirs.forEach((d) => assert.ok(['left', 'right'].includes(frontDir(d.split('"')[3])), d));
 console.log('pmZoomPopover back-view OK');
+
+// 5) 배율 바: 1% 단위·40~300%·놓은 값 고정 유지
+assert.strictEqual(Z.ZOOM_PCT_MIN, 40); assert.strictEqual(Z.ZOOM_PCT_MAX, 300);
+assert.strictEqual(Z.clampPct(101.4), 101, '1% 단위 반올림');
+assert.strictEqual(Z.clampPct(1), 40); assert.strictEqual(Z.clampPct(9999), 300);
+assert.strictEqual(Z.pctToZoom(137), 1.37); assert.strictEqual(Z.zoomToPct(0.4), 40); assert.strictEqual(Z.zoomToPct(3), 300);
+let w = Z.zoomViewTo({ z: 1, x: 0, y: 0 }, 73, 1000, 600);
+assert.strictEqual(w.z, 0.73, '지정한 %에 그대로 고정');
+w = Z.zoomViewTo(w, 73, 1000, 600); assert.strictEqual(w.z, 0.73, '같은 값 재지정에도 흔들림 없음');
+w = Z.zoomViewTo(w, 259, 1000, 600); assert.strictEqual(w.z, 2.59);
+assert.strictEqual(Z.zoomViewTo(w, 20, 1000, 600).z, 0.4, '하한'); assert.strictEqual(Z.zoomViewTo(w, 400, 1000, 600).z, 3, '상한');
+// UI 키트 슬라이더: 생 input 금지(키트 ZoomSlider 만), 토큰 색만
+const ui = fs.readFileSync(path.join(root, 'components', 'pm', 'ui.js'), 'utf8');
+assert.ok(/export function ZoomSlider/.test(ui) && /pmk-zrange/.test(ui) && /type="range"/.test(ui) && /type="number"/.test(ui), '키트에 배율 바(숫자 입력 포함)');
+assert.ok(!/type="range"/.test(bg) && !/type="range"/.test(s3), '장면은 키트 ZoomSlider 만 사용');
+console.log('pmZoomPopover slider OK');

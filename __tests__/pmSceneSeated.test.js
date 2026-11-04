@@ -43,7 +43,7 @@ const { pathToFileURL } = require('url');
   // 휠 이벤트로 배율 불변: 장면에 wheel 핸들러·핀치 처리 없음(배율은 버튼·포커스 키보드만)
   assert.ok(!/['"]wheel['"]|onWheel/.test(src), '장면에 휠 확대 핸들러 없음');
   assert.ok(!/Math\.hypot\(p1/.test(src), '핀치 줌 없음');
-  assert.ok(/aria-label="확대"/.test(src) && /맞춤/.test(src), '+/−/맞춤 버튼 있음');
+  assert.ok(/<ZoomSlider /.test(src) && /맞춤/.test(src), '배율 바·맞춤 버튼 있음');
   // 기본 외형 다양화: 12명 이름 → 서로 다른 조합 다수, 같은 이름은 늘 같음
   const names = ['강명훈', '설연주', '임재용', '강현우', '김도준', '김원영', '박성수', '정재훈', '조현욱', '송준호', '김원빈', '김지니'];
   const looks = names.map((n) => JSON.stringify(hashLook(n, ['outfit.aloha'])));
