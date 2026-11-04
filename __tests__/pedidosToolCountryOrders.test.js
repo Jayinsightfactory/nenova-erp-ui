@@ -102,7 +102,8 @@ test('quantity-zero cells and totals display blank while diagnostic zero and pro
 test('UI keeps full export blocked but offers a partial export that excludes blocked products and still downloads', () => {
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
   assert.match(ui, /excludeBlockedCountryOrderRows/);
-  assert.match(ui, /const canGenerate = canExport && matrix.blockers.length === 0/);
+  assert.match(ui, /const canGenerate = canExport && \(matrix.blockers.length === 0 \|\| Boolean\(manualState.matrix\)\)/);
+  assert.match(ui, /applyCountryOrderManualQuantities\(matrix, manual\)/); assert.match(ui, /pedidos-manual-input/); assert.match(ui, /setManual\(\{\}\); invalidate\(setOrderWeek/);
   assert.match(ui, /blockedRowCount < matrix.rows.length/);
   assert.match(ui, /확인 필요 품목 \{blockedRowCount\}개 제외하고 생성/);
   assert.match(ui, /sourceMode === 'erp' && !canExport/);

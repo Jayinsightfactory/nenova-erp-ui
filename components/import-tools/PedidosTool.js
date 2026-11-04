@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, generatePedidosFromMatrix, formatPedidosQuantity, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
-import { buildCountryOrderMatrix, excludeBlockedCountryOrderRows, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../../lib/countryOrderSource';
+import { buildCountryOrderMatrix, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities, formatCountryOrderUnitBasis, formatCountryOrderStoredQuantities } from '../../lib/countryOrderSource';
 import { createCountryOrderRequestGuard } from '../../lib/countryOrderPedidosAdapter';
 import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
@@ -24,10 +24,15 @@ export default function PedidosTool({ active = true }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [downloaded, setDownloaded] = useState('');
+  const [manual, setManual] = useState({}); // { rowKey: { custKey: '150' } } — web-only quantities for blocked products
 
   function clearResults() {
     contextGeneration.current += 1;
     setResults(null); setContext(null); setError(''); setDownloaded(''); setBusy(false);
+  }
+  function setManualQuantity(rowKey, custKey, value) {
+    setResults(null); setContext(null); setDownloaded('');
+    setManual(current => ({ ...current, [rowKey]: { ...(current[rowKey] ?? {}), [custKey]: value } }));
   }
   function invalidate(setter, value) {
     clearResults(); setter(value);
@@ -48,7 +53,7 @@ export default function PedidosTool({ active = true }) {
   }
 
   useEffect(() => {
-    clearResults(); setResponse(null); setOrderWeek('');
+    clearResults(); setResponse(null); setOrderWeek(''); setManual({});
     if (!active || sourceMode !== 'erp') { requestGuard.current.invalidate(); setLoading(false); return; }
     const selected = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
     const scopeKey = country && selected ? `${country}/${selected.key}` : null;
@@ -85,8 +90,15 @@ export default function PedidosTool({ active = true }) {
   const selectedCycle = cycles.find(cycle => cycle.key === cycleKey) ?? cycles[0];
   const matchesScope = Boolean(matrix && response?.scope?.scopeKey === `${country}/${selectedCycle?.key}` && matrix.scope.country === country && matrix.scope.year === selectedCycle?.year && matrix.scope.orderWeek === orderWeek);
   const canExport = active && !loading && !busy && matchesScope;
-  const canGenerate = canExport && matrix.blockers.length === 0;
   const blockedRowCount = matrix ? matrix.rows.filter(row => row.blocked).length : 0;
+  // Blocked products can be completed by typing the missing quantity in the web; it goes to the file only, never to ERP.
+  const manualState = useMemo(() => {
+    if (!matrix || matrix.blockers.length === 0) return { matrix, error: '' };
+    try { return { matrix: applyCountryOrderManualQuantities(matrix, manual), error: '' }; }
+    catch (err) { return { matrix: null, error: err.message || '수량 입력을 확인하세요.' }; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matrix, manual]);
+  const canGenerate = canExport && (matrix.blockers.length === 0 || Boolean(manualState.matrix));
   // Blocked products never get a converted quantity; the rest of the order can still be downloaded without them.
   const canGeneratePartial = canExport && matrix.blockers.length > 0 && blockedRowCount > 0 && blockedRowCount < matrix.rows.length;
 
@@ -94,7 +106,7 @@ export default function PedidosTool({ active = true }) {
     clearResults();
     if (excludeBlocked ? !canGeneratePartial : !canGenerate) return;
     try {
-      const source = excludeBlocked ? excludeBlockedCountryOrderRows(matrix) : matrix;
+      const source = excludeBlocked ? excludeBlockedCountryOrderRows(matrix) : (matrix.blockers.length ? manualState.matrix : matrix);
       const outputs = generatePedidosFromMatrix(source);
       const excludedNames = (source.excludedRows ?? []).map(row => row.name);
       setContext({ country, year: matrix.scope.year, week: orderWeek, sourceName: excludedNames.length ? `전산 원주문 (읽기 전용) · 확인 필요 품목 ${excludedNames.length}개 제외: ${excludedNames.join(', ')}` : '전산 원주문 (읽기 전용)' }); setResults(outputs);
@@ -146,13 +158,13 @@ export default function PedidosTool({ active = true }) {
     {sourceMode === 'erp' ? <div className="pedidos-auto">
       <label className="pedidos-country">국가<select value={country} disabled={!cycles.length} onChange={event => changeCountry(event.target.value)}><option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{importCountryLabel(value)}</option>)}</select></label>
       <div className="pedidos-cycles" role="group" aria-label="오늘부터 다음 5개 대차수">{cycles.map(cycle => <button type="button" key={cycle.key} aria-pressed={selectedCycle?.key === cycle.key} onClick={() => changeCycle(cycle.key)}>{cycle.year} {cycle.majorWeek}차 <small>{cycle.startDate.slice(5).replace('-', '/')}–{cycle.endDate.slice(5).replace('-', '/')}</small></button>)}</div>
-      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{response?.subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => invalidate(setOrderWeek, subweek.orderWeek)}>{subweek.orderWeek}차</button>)}</div>
+      <div className="pedidos-subweeks" role="group" aria-label="실제 주문 세부차수">{response?.subweeks.map(subweek => <button type="button" key={subweek.key} aria-pressed={orderWeek === subweek.orderWeek} onClick={() => { setManual({}); invalidate(setOrderWeek, subweek.orderWeek); }}>{subweek.orderWeek}차</button>)}</div>
       <div className="pedidos-auto-actions"><button type="button" disabled={!canGenerate} onClick={() => convertMatrix(false)}>미리보기 생성</button>{matrix && matrix.blockers.length > 0 && <button type="button" className="pedidos-partial" disabled={!canGeneratePartial} onClick={() => convertMatrix(true)}>확인 필요 품목 {blockedRowCount}개 제외하고 생성</button>}<button type="button" className="pedidos-secondary" disabled={loading} onClick={() => { requestGuard.current.invalidate(); clearResults(); setResponse(null); setReload(value => value + 1); }}>다시 조회</button><span>{loading ? '전산 원주문 조회 중…' : response && !response.subweeks.length ? '선택 범위에 주문 없음' : !country ? '국가를 선택하면 자동으로 조회합니다.' : '세부차수의 원수량을 확인한 뒤 생성하세요.'}</span></div>
       {matrixState.error && <p role="alert" className="pedidos-error">{matrixState.error}</p>}
       {matrix && <>
         <p className="pedidos-note">{matrix.scope.year}년 {matrix.scope.orderWeek}차 · 품목 {matrix.rows.length}개 · 업체 {matrix.customers.length}개 · 수량을 환산하지 않은 원주문입니다.</p>
         <p className="pedidos-note">품목관리 기준은 현재 품목 설정이며 참고용입니다. 저장 주문수량은 선택 연도·차수의 원본 값입니다. 기준을 표시해도 발주서 수량을 다시 환산하지 않습니다.</p>
-        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>수량 확인 필요 · 해당 품목은 파일 생성 차단</strong><p>차단된 품목을 뺀 나머지 품목은 [확인 필요 품목 제외하고 생성] 버튼으로 미리보기·엑셀 다운로드할 수 있습니다. 제외 품목은 전산 원주문에서 수량을 수정한 뒤 다시 조회하세요.</p>{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        {matrix.blockers.length > 0 && <div role="alert" className="pedidos-error"><strong>⚠ 수량 오류 {blockedRowCount}건 · 입력 전까지 발주서 생성 불가</strong><p>아래 표의 주황색 행에 {country === 'Netherlands' ? '송이' : '발주서 단위'} 수량을 직접 입력하면 [미리보기 생성]이 열립니다. 입력값은 발주서 파일에만 쓰이고 전산 원주문은 바뀌지 않으므로 전산에서도 수정하세요. 입력 없이 진행하려면 [확인 필요 품목 제외하고 생성]을 누르세요.</p>{manualState.error && <p className="pedidos-manual-state">{manualState.error}</p>}{country === 'Netherlands' && <p>저장 단 수량이 있어도 저장 송이 수량이 0이면 송이 수량을 확인해야 합니다. 표시된 0을 단 수량이나 품목관리 기준으로 자동 보정하지 않습니다.</p>}<ul>{matrix.blockers.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
         {matrix.warnings.length > 0 && <div className="pedidos-warning"><strong>확인 필요</strong><ul>{matrix.warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
         <div className="pedidos-preview pedidos-matrix" tabIndex={0} role="region" aria-label="전산 품목별 업체 원수량 행렬"><table>
           <thead><tr><th scope="col">품목</th><th scope="col">품목관리 기준</th><th scope="col">발주서 단위</th><th scope="col">저장 주문수량</th>{matrix.customers.map(customer => <th scope="col" key={customer.key} title={`${customer.name} · ${customer.key}`}>{customer.label}</th>)}<th scope="col">합계</th></tr></thead>
@@ -161,8 +173,10 @@ export default function PedidosTool({ active = true }) {
             <td className="pedidos-unit-basis">{formatCountryOrderUnitBasis(row.unitBasis)}</td>
             <td>{country === 'Netherlands' ? '스팀(송이)' : importUnitLabel(row.unit)}</td>
             <td className="pedidos-stored-quantities"><span>{formatCountryOrderStoredQuantities(row.storedQuantities)}</span><details><summary>업체별 저장수량</summary><ul>{matrix.customers.map(customer => <li key={customer.key}><strong>{customer.label}</strong>: {Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) ? formatCountryOrderStoredQuantities(row.storedQuantitiesByCustomer?.[customer.key]) : '주문 없음'}</li>)}</ul></details></td>
-            {matrix.customers.map(customer => <td key={customer.key}>{formatPedidosQuantity(row.quantities[customer.key] ?? 0)}</td>)}
-            <td><strong>{formatPedidosQuantity(row.total)}</strong></td>
+            {matrix.customers.map(customer => <td key={customer.key}>{row.blocked && Object.hasOwn(row.storedQuantitiesByCustomer ?? {}, customer.key) && !((row.quantities[customer.key] ?? 0) > 0)
+              ? <input type="number" min="1" step="any" className="pedidos-manual-input" aria-label={`${row.label ?? row.name} ${customer.label} ${country === 'Netherlands' ? '송이' : importUnitLabel(row.unit)} 수량 입력`} placeholder={country === 'Netherlands' ? '송이 입력' : '수량 입력'} value={manual[row.key]?.[customer.key] ?? ''} onChange={event => setManualQuantity(row.key, customer.key, event.target.value)} />
+              : formatPedidosQuantity(row.quantities[customer.key] ?? 0)}</td>)}
+            <td><strong>{row.blocked && manualState.matrix ? formatPedidosQuantity(manualState.matrix.rows.find(item => item.key === row.key).total) : formatPedidosQuantity(row.total)}</strong></td>
           </tr>)}</tbody>
         </table></div>
       </>}
@@ -221,6 +235,8 @@ export default function PedidosTool({ active = true }) {
       .pedidos-matrix td { text-align:right; }
       .pedidos-matrix .pedidos-unit-basis, .pedidos-matrix .pedidos-stored-quantities { min-width:180px; max-width:280px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
       .pedidos-partial { background:#b45309; }
+      .pedidos-manual-input { width:96px; padding:6px 8px; border:2px solid #b45309; border-radius:6px; font:inherit; text-align:right; background:white; }
+      .pedidos-manual-state { margin:6px 0 0; font-weight:600; }
       .pedidos-row-blocked th, .pedidos-row-blocked td { background:#fff4e5; }
       .pedidos-blocked-tag { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:#b45309; color:white; font-size:11px; font-weight:700; }
       .pedidos-stored-quantities details { margin-top:4px; }
