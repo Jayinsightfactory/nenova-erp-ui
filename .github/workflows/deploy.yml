@@ -121,7 +121,8 @@ jobs:
           command_timeout: 15m
           script: ${{ steps.audit-script.outputs.script }}
   deploy:
-    if: github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true && inputs.diagnose_paste_only != true && inputs.diagnose_paste_models != true)
+    # 운영 배포는 master 만(11/04 사장님 지시): 다른 브랜치 workflow_dispatch 가 master 배포를 덮어쓰던 사고 차단. 진단 job 은 브랜치 무관
+    if: github.ref == 'refs/heads/master' && (github.event_name != 'workflow_dispatch' || (inputs.diagnose_checkout_only != true && inputs.diagnose_performance_only != true && inputs.diagnose_paste_only != true && inputs.diagnose_paste_models != true))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (hydration 스모크 스크립트용)
