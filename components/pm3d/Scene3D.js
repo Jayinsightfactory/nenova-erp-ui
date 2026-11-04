@@ -13,6 +13,8 @@ import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
+import { mountById, mountPose } from '../../lib/pmMounts';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT } from '../../lib/pm3dRide';
 import { ZoomSlider } from '../pm/ui';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
@@ -33,7 +35,8 @@ function loadAssets() {
   const draco = new DRACOLoader(); draco.setDecoderPath('/pm3d/draco/'); draco.setDecoderConfig({ type: 'wasm' });
   const l = new GLTFLoader(); l.setDRACOLoader(draco);
   const t0 = performance.now();
-  kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb')]).then(([kit, ch]) => ({ kit, ch, loadMs: Math.round(performance.now() - t0) }));
+  kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb'), l.loadAsync('/pm3d/mounts.glb').catch(() => null)])
+    .then(([kit, ch, mounts]) => ({ kit, ch, mounts, loadMs: Math.round(performance.now() - t0) }));
   kitP.catch(() => { kitP = null; });
   return kitP;
 }
@@ -103,11 +106,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     };
     const ro = new ResizeObserver(placeCam); ro.observe(el);
 
-    const build = ({ kit, ch, loadMs }) => {
+    const build = ({ kit, ch, mounts, loadMs }) => {
       const mod = (n) => { const o = kit.scene.getObjectByName(n); if (!o) return new THREE.Group(); const c = o.clone(true); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return c; };
       const put = (n, x, z, ry = 0, s = 1) => { const o = mod(n); o.position.set(x, 0, z); o.rotation.y = ry; o.scale.setScalar(s); scene.add(o); return o; };
+      st.mounts = mounts ? mounts.scene : null;
+      const lay = T.layout || {};
       const { desks, plates } = layoutDesks(dataRef.current.rooms);
-      const { hx, hz } = floorBounds(desks);
+      const { hx, hz } = floorBounds(desks, lay.mapScale || 1);
+      st.bounds = { hx, hz };
       st.fit = sceneFit(hx, hz); placeCam();
       sun.shadow.camera.left = -hx - 4; sun.shadow.camera.right = hx + 4; sun.shadow.camera.top = hz + 4; sun.shadow.camera.bottom = -hz - 4; sun.shadow.camera.far = 80; sun.shadow.camera.updateProjectionMatrix();
       for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) { const f = put(T.floor, x, z); f.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
@@ -128,6 +134,12 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         for (let k = 0; k < 4; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 3, hz - 0.8 - rnd(k + 20) * 0.6, rnd(k + 29) * 6, 0.9 + rnd(k + 23) * 0.3);
         for (let k = 0; k < 10; k++) { const m = ['shell', 'starfish', 'rock'][k % 3]; put(m, -hx + 1 + rnd(k + 40) * (2 * hx - 2), (rnd(k + 50) * 2 - 1) * (hz - 1.4), rnd(k + 60) * 6, m === 'rock' ? 0.5 + rnd(k) * 0.5 : 0.9); }
         put('hut', -hx + 2, -hz + 2.6, 0.4); put('hut', hx - 2, hz - 2.4, -0.3);
+        // 둘레 순환 보드워크(주행로) — lib/pmThemes layout.ring + lib/pm3dRide ringRect(인셋 1m)
+        if (lay.ring) {
+          const rm = lay.ringModel || 'boardwalk';
+          for (let x = -hx + 1; x < hx; x += 2) { put(rm, x, -hz + 1, Math.PI / 2); put(rm, x, hz - 1, Math.PI / 2); }
+          for (let z = -hz + 3; z < hz - 2; z += 2) { put(rm, -hx + 1, z); put(rm, hx - 1, z); }
+        }
         for (const p of plates) { put('parasol', p.x, p.z, 0, 1.1); put('surfboard', p.x + 2.6, p.z, 0.3); put('parasol', p.x - 3.1, p.z + 0.6, 0.4, 0.95); }
       }
       // 스테이션 1~9
@@ -202,9 +214,48 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
         if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        // 탈것(슬롯 mount): 평소 책상 옆 park, 이동은 ride, PC 꺼짐 hidden (lib/pmMounts.mountPose)
+        const mdef = mountById(L.mount);
+        const mpose = mdef ? mountPose(p.status, !!(P.walk || P.cruise)) : 'hidden';
+        if ((mdef?.id || '') !== P.mountId) {
+          if (P.mountObj) { P.g.remove(P.mountObj); P.mountObj = null; }
+          if (mdef && st.mounts) {
+            const src = st.mounts.getObjectByName('mount_' + mdef.id.replace(/-/g, '_'));
+            if (src) {
+              const o = src.clone(true);
+              o.traverse((m) => { if (m.isMesh) { m.castShadow = true; if (m.material) m.material = m.material.clone(); } });
+              o.scale.setScalar(CHAR_SCALE); P.g.add(o); P.mountObj = o;
+              P.mountSeat = (src.userData?.seatZ ?? 0.3) * CHAR_SCALE; P.mountRide = src.userData?.pose || mdef.ride;
+            }
+          }
+          P.mountId = mdef?.id || '';
+        }
+        if (P.mountObj && !P.riding) { // park: 책상 왼쪽 바닥
+          P.mountObj.visible = mpose !== 'hidden';
+          P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+        }
         const stg = cur.get(name) || null;
-        if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) P.walk = { t: 0, to: stg };
+        if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) {
+          const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
+          if (P.mountObj && mpose !== 'hidden' && rides < RIDE_MAX_CONCURRENT) {
+            const path = ridePath(P.d, stg, st.bounds || {});
+            P.walk = { t: 0, to: stg, ride: { path, len: pathLength(path), speed: mdef.speed || 1.2 } };
+          } else P.walk = { t: 0, to: stg };
+        }
         P.stage = stg;
+        // 출근 직후(off→working) 짧은 둘레 주행 · 휴식자 가끔 크루징 — 동시 3명 상한, reduced 땐 없음
+        if (P.mountObj && !dataRef.current.reduced && st.bounds) {
+          const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
+          const now = Date.now();
+          if (P.prevStatus === 'off' && p.status === 'working' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+            P.cruise = { t0: now, dur: 6000, from: Math.random() };               // 출근 한 바퀴 살짝
+          } else if (p.status === 'idle' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+            const slot = Math.floor(now / 180000);                                 // 3분 창마다 해시 추첨
+            let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+            if ((h + slot) % 7 === 0 && P.cruiseSlot !== slot) { P.cruiseSlot = slot; P.cruise = { t0: now, dur: 12000, from: (h % 100) / 100 }; }
+          }
+        }
+        P.prevStatus = p.status;
         if (stg) {
           // 머리 위 아치(캐릭터 관통 방지, lib/pm3dLayout ARC_Y — 테스트 있음)
           const sp = stationPos(stg); const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = ARC_Y.start;
@@ -277,14 +328,32 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         return;
       }
       const measuring = st.built && !st.checked;
-      const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk);
+      const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk || P.cruise);
       if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
       lastDraw = now;
       const dt = Math.min(0.2, st.clock.getDelta());
       const red = dataRef.current.reduced;
       if (st.built) {
         for (const P of st.people.values()) {
-          if (P.walk) {
+          if (P.walk && P.walk.ride && P.mountObj) {
+            // 탑승 주행: 자리→(책상 틈→복도)→스테이션 폴리라인 왕복 (lib/pm3dRide)
+            const R0 = P.walk.ride;
+            P.riding = true;
+            P.walk.t += dt * (2.2 * R0.speed) / Math.max(1, R0.len) / 2; // 왕복이라 절반 속도 진행
+            const k = P.walk.t < 0.5 ? P.walk.t * 2 : (1 - P.walk.t) * 2;
+            const pt = pathPoint(R0.path, Math.min(1, k) * R0.len);
+            const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
+            const yawL = (P.walk.t < 0.5 ? pt.yaw : pt.yaw + Math.PI) - P.g.rotation.y;
+            P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
+            P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
+            playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
+            if (P.walk.t >= 1) {
+              P.walk = null; P.riding = false;
+              P.ch.position.copy(P.home); P.ch.rotation.y = 0;
+              P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+              playClip(P, P.clip, P.speed);
+            }
+          } else if (P.walk) {
             P.walk.t += dt / 4;
             const sp = stationPos(P.walk.to); const tgt = new THREE.Vector3(sp.x + CAM_DIR.x * 1.1, 0.02, sp.z + CAM_DIR.z * 1.1); P.g.worldToLocal(tgt);
             const k = P.walk.t < 0.5 ? P.walk.t * 2 : (1 - P.walk.t) * 2;
@@ -293,6 +362,26 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             // 이동 중엔 진행 방향, 스테이션 도착 구간(k>0.85)엔 카메라 쪽으로 돌아섬
             P.ch.rotation.y = k > 0.85 ? CAM_YAW - P.g.rotation.y : Math.atan2(dir.x, dir.z);
             if (P.walk.t >= 1) { P.walk = null; P.ch.position.copy(P.home); P.ch.rotation.y = 0; playClip(P, P.clip, P.speed); }
+          } else if (P.cruise && P.mountObj && st.bounds) {
+            // 둘레 순환로 크루징(출근 직후·휴식) — 끝나면 자리·park 로 복귀
+            const C = P.cruise; const el2 = performance.now() - (C.el0 ?? (C.el0 = performance.now()));
+            const prog = el2 / C.dur;
+            if (prog >= 1 || dataRef.current.reduced) {
+              P.cruise = null; P.riding = false;
+              P.ch.position.copy(P.home); P.ch.rotation.y = 0;
+              P.mountObj.position.set(-1.15, 0, 0.35); P.mountObj.rotation.y = 0.5;
+              playClip(P, P.clip, P.speed);
+            } else {
+              P.riding = true;
+              const ringL = ringLength(st.bounds.hx, st.bounds.hz);
+              const speed = 2.2 * 1.3; const tt = C.from + (el2 / 1000) * speed / ringL;
+              const pt = ringPoint(st.bounds.hx, st.bounds.hz, tt);
+              const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
+              const yawL = pt.yaw - P.g.rotation.y;
+              P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
+              P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
+              playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
+            }
           }
           if (!red) P.mixer.update(dt); else if (!P.frozen) { P.mixer.update(0.4); P.frozen = true; }
         }
