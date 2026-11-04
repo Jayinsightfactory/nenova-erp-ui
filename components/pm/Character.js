@@ -32,7 +32,7 @@ export function normalizeAvatar(cfg) {
   const c = (cfg && cfg.view) || cfg || {};
   const items = { ...(c.items || {}) };
   if (items.desk && OLD_DESKTOP[items.desk]) { if (!items.deskM) items.deskM = OLD_DESKTOP[items.desk]; delete items.desk; }
-  return { char: c.char || 'human', face: isFaceId(c.face) ? c.face : '', body: c.body || 'std', skin: Number.isInteger(c.skin) ? c.skin : 0, hair: c.hair || 'short', hairColor: Number.isInteger(c.hairColor) ? c.hairColor : 1, personality: c.personality || 'calm', items };
+  return { char: c.char || 'human', face: isFaceId(c.face) ? c.face : '', body: c.body || 'std', bodyType: ['cute', 'balance', 'slim'].includes(c.bodyType) ? c.bodyType : 'balance', skin: Number.isInteger(c.skin) ? c.skin : 0, hair: c.hair || 'short', hairColor: Number.isInteger(c.hairColor) ? c.hairColor : 1, personality: c.personality || 'calm', items };
 }
 
 // 레이어 스택(아래→위). 테스트·검증에서도 같은 순서를 쓴다.

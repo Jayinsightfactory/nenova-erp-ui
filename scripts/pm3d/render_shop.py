@@ -132,23 +132,35 @@ def wear_bbox(name):
 
 CHAR_GROUPS = {'top', 'bottom', 'skin', 'hair', 'shoe', 'cheek', 'face'}
 CHAR_AIM = ((0, 0, 1.05), 2.6)  # 전신 + 귀 여유, 모든 캐릭터/레이어 렌더 공통(레이어 겹침 전제)
+# 체형 프리셋(lib/pm3dLayout.BODY_TYPES 와 동일 값): head 본 스케일 + 리그 전체 스케일 — 3D 장면의 런타임 적용과 같은 변형.
+#   기본(밸런스)은 접미사 없음(기존 파일명 호환), 나머지는 .cute/.slim 접미사 세트로 같은 카메라 렌더(레이어 겹침 유지).
+BODY_TYPES = {'balance': (1.2, 0.96), 'cute': (1.7, 0.88), 'slim': (1.0, 1.0)}
+def set_body(bt):
+    h, s = BODY_TYPES[bt]
+    rig.pose.bones['head'].scale = (h, h, h)
+    rig.scale = (s, s, s)
+    bpy.context.view_layer.update()
+def bsfx(bt): return '' if bt == 'balance' else '.' + bt
 aim(*CHAR_AIM)
-for c in SPEC['characters']:
-    show = set(CHAR_GROUPS)
-    if c.get('hideHair'): show.discard('hair')
-    char_vis(show, wear=(c['raceMesh'],) if c.get('raceMesh') else ())
-    tint({'top': c['top'], 'bottom': c['bottom'], 'skin': c['skin'], 'hair': c['hair']})
-    render(c['key'])
-# 옷 레이어(몸 메시만) — 베이스와 같은 카메라
-for it in [x for x in SPEC['items'] if x['kind'] == 'outfit']:
-    char_vis({'top', 'bottom'})
-    tint({'top': it['top'], 'bottom': it['bottom']})
-    render('layer.' + it['key'])
-# 착용 소품(모자·안경·손·배지): 카드 = 소품만 확대 렌더, 레이어 = 종족 베이스와 같은 카메라(미리보기 겹침)
-for mesh in SPEC['hatLayers']:
-    char_vis(set(), wear=(mesh,))
-    aim(*CHAR_AIM)
-    render('layer.' + mesh)
+for bt in BODY_TYPES:
+    set_body(bt)
+    for c in SPEC['characters']:
+        show = set(CHAR_GROUPS)
+        if c.get('hideHair'): show.discard('hair')
+        char_vis(show, wear=(c['raceMesh'],) if c.get('raceMesh') else ())
+        tint({'top': c['top'], 'bottom': c['bottom'], 'skin': c['skin'], 'hair': c['hair']})
+        render(c['key'] + bsfx(bt))
+    # 옷 레이어(몸 메시만) — 베이스와 같은 카메라
+    for it in [x for x in SPEC['items'] if x['kind'] == 'outfit']:
+        char_vis({'top', 'bottom'})
+        tint({'top': it['top'], 'bottom': it['bottom']})
+        render('layer.' + it['key'] + bsfx(bt))
+    # 착용 레이어(모자·안경·손·배지) — 종족 베이스와 같은 카메라(미리보기 겹침)
+    for mesh in SPEC['hatLayers']:
+        char_vis(set(), wear=(mesh,))
+        render('layer.' + mesh + bsfx(bt))
+set_body('balance')
+# 착용 소품 카드 = 소품만 확대 렌더(체형 무관, 밸런스 기준)
 for it in [x for x in SPEC['items'] if x['kind'] == 'wear']:
     bb = wear_bbox(it['mesh'])
     if not bb: print('SHOP_SKIP', it['key'], it['mesh']); continue

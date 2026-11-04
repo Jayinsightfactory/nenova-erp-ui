@@ -1,3 +1,24 @@
+## [2026-11-05 01:40] 세션 — /pm 3D(베타) 품질 총개선 (PR #1534)
+
+### 작업 내용
+- 체형 교정(HEAD_K=0.55 + BODY_K=1.1 스트레치, 머리:전신 1:2.2→≈1:4) + build_wearables 동일 축소 패스, CHAR_SCALE 1.1
+- QUALITY_RECIPE 렌더: shadowMap OFF+블롭 그림자, kit AO 베이크(bake_kit_ao.py), Toon 5단 램프, RoomEnvironment 1회, ACES 1.05, fog/그라데이션/포말
+- 배경 밀도 lib/pm3dDecor.js(오두막·야자군락·산포, 주행로/좌석/허브 교차 0 테스트)
+- AI 브리지 page/scroll + MCP page_scroll + 테스트 + AI_BRIDGE.md
+- #1532 머지 후 rebase·에셋 재빌드(char→wearables→kit AO→render_shop)
+
+### 변경된 파일
+- components/pm3d/Scene3D.js, lib/pm3dDecor.js(신규), lib/pm3dLayout.js, lib/pmThemes.js
+- scripts/pm3d/build_char_kaykit.py, build_wearables.py, bake_kit_ao.py(신규), public/pm3d/*.glb·kit_ao.jpg, public/pm/shop/*
+- desktop/ai-bridge*.cjs, main.cjs, tests/ai-bridge.test.cjs, docs/desktop/AI_BRIDGE.md
+
+### 다음 작업 예정
+- 배포 후 라이브 3D 스탯 라인(fps) 브리지 캡처로 확인
+
+### 미결 이슈 / 블로킹
+- desktop/tests/updater.test.cjs 1건은 master 에서도 실패(기존 건)
+- fps 로컬 실측 불가(패널 백그라운드 1Hz 스로틀)
+
 ## [2026-11-04 21:40] 세션 — Pivot 통계·발주관리 nenova.exe(DevExpress PivotGrid) 동일 디자인·조작법
 
 ### 작업 내용

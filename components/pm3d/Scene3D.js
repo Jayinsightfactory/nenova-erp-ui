@@ -12,7 +12,7 @@ import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { beachDecor } from '../../lib/pm3dDecor';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
@@ -29,7 +29,7 @@ const STAGE_HEX = PM3D.STAGE;
 const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
 const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
 const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const SEAT_Y = 0.46 * SET_SCALE - 0.48 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.68 * CHAR_SCALE + 0.35; // 앉은 엉덩이(KayKit sit 클립 힙 높이 0.48)를 의자 좌판(0.46)에 맞춤. 1.68=비율 교정 후 머리끝
+const SEAT_Y = 0.46 * SET_SCALE - 0.52 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.78 * CHAR_SCALE + 0.35; // 앉은 엉덩이(비율 교정 후 sit 힙 ≈0.52 = 0.406×BODY_K+클립 오프셋)를 의자 좌판(0.46)에 맞춤. 1.78=교정 후 머리끝
 const RQ = PM3D.RENDER; // 렌더 품질 토큰(nenova-pm/pm3d/QUALITY_RECIPE.md 기준)
 
 function webglOk() {
@@ -42,7 +42,11 @@ function loadAssets() {
   const l = new GLTFLoader(); l.setDRACOLoader(draco);
   const t0 = performance.now();
   kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb'), l.loadAsync('/pm3d/mounts.glb').catch(() => null)])
-    .then(([kit, ch, mounts]) => ({ kit, ch, mounts, loadMs: Math.round(performance.now() - t0) }));
+    .then(([kit, ch, mounts]) => {
+      // 클립의 상수 scale 채널 제거(베이크는 전부 1) — 체형(BODY_TYPES)의 런타임 head 본 스케일을 믹서가 되돌리지 않게
+      for (const c of ch.animations || []) c.tracks = c.tracks.filter((t) => !t.name.endsWith('.scale'));
+      return { kit, ch, mounts, loadMs: Math.round(performance.now() - t0) };
+    });
   kitP.catch(() => { kitP = null; });
   return kitP;
 }
@@ -248,7 +252,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const dbb = new THREE.Box3().setFromObject(desk); const dc = dbb.getCenter(new THREE.Vector3());
         desk.position.set(-dc.x, -dbb.min.y, -dc.z); g.add(desk);
         blob(g, 0, 0.05, 1.05, 0.75); // 책상 접지 그림자
-        blob(g, 0, -SEAT_Z, 0.52, 0.48, 0.02); // 의자·캐릭터 접지 그림자
+        const chairBlob = blob(g, 0, -SEAT_Z, 0.52, 0.48, 0.02); // 의자·캐릭터 접지 그림자(체형 s 를 따라감)
         if (dstyle.color) desk.traverse((m) => { if (m.isMesh && m.material) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.4); } }); // 부서색 틴트
         // 낮은 노트북(화면 높이 0.2m) — 실측 책상 상판 높이 위에 얹음(고정 DESK_H는 Kenney 책상보다 높아 공중부양). 화면은 캐릭터 쪽(-Z).
         const deskTopY = dbb.max.y - dbb.min.y;
@@ -264,7 +268,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
         const emo = emojiSprite(' '); emo.position.set(0, HEAD_Y, -SEAT_Z); emo.visible = false; g.add(emo);
-        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), deskTop: deskTopY, walk: null, stage: null, decor: [], d };
+        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), deskTop: deskTopY, walk: null, stage: null, decor: [], d, blobChar: chairBlob };
         ch2.userData = { kind: 'person', name: d.person.name };
         st.clickables.push(ch2, desk);
         desk.userData = { kind: 'person', name: d.person.name };
@@ -300,6 +304,20 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (n === 'top') m.material.color.set(L.top); else if (n === 'bottom') m.material.color.set(L.bottom);
           else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') { m.material.color.set(L.hair); m.visible = !L.hideHair; }
         });
+        // 체형(선택형 3종, lib/pm3dLayout.BODY_TYPES): head 본 스케일 + 전체 스케일 — glb 1개로 귀염/밸런스/늘씬.
+        //   모자·안경·종족 부속은 head 본 스키닝이라 소켓이 자동 추종, 좌석 y·블롭 그림자도 체형을 따른다.
+        const BM = bodyMetrics(L.bodyType);
+        if (P.bodyId !== BM.id) {
+          P.bodyId = BM.id;
+          P.ch.scale.setScalar(CHAR_SCALE * BM.s);
+          const hb = P.ch.getObjectByName('head'); if (hb) hb.scale.setScalar(BM.head);
+          P.home.y = BM.seatY;
+          if (!P.walk && !P.riding && !P.cruise) P.ch.position.y = BM.seatY;
+          P.emoY = BM.headTop * CHAR_SCALE + 0.3;
+          P.emo.position.y = P.emoY;
+          if (P.blobChar) P.blobChar.scale.set(1.04 * BM.s, 0.96 * BM.s, 1);
+          st.poke?.();
+        }
         // 표정: 춤 > 작업 분위기(status) > 직원 기본 표정 > smile (lib/pmFaces.faceOf)
         const faceId = faceOf({ vibe: STATUS_VIBE[p.status] || '', defaultFace: L.face }) || (isFaceId(L.face) ? L.face : 'smile');
         P.ch.traverse((m) => {
@@ -318,7 +336,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
-        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, P.emoY ?? HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
         // 탈것(슬롯 mount): 평소 책상 옆 park, 이동은 ride, PC 꺼짐 hidden (lib/pmMounts.mountPose)
         const mdef = mountById(L.mount);
         const mpose = mdef ? mountPose(p.status, !!(P.walk || P.cruise)) : 'hidden';
