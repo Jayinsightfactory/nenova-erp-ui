@@ -1,3 +1,23 @@
+## [2026-11-04 심야] 세션 — /pm 3D(베타) 밤샘 3~7단계 (PR #1520)
+
+### 작업 내용
+- 9f20aa44→ KayKit Rig_Medium 리그 캐릭터 교체(클립 9종, KI 춤 리타게팅)
+- 표정 12종 데칼+faceOf 연동 / 칩 겹침 declutter 실측화+회귀테스트
+- 맵 1.5배·둘레 보드워크·탈것 15종 glb/스프라이트/썸네일·ride/park/크루징(경로 충돌0 테스트 81건)
+- 발사체 기본 9종 fx.glb+스프라이트
+
+### 변경된 파일
+- scripts/pm3d/build_char_kaykit.py·build_faces.py·build_mounts.py·build_fx.py (신설)
+- components/pm3d/Scene3D.js, lib/pm3dRide.js(신설), lib/pm3dLayout.js, lib/pmThemes.js, components/pm/BgScene.js
+- public/pm3d/{char,mounts,fx}.glb, public/pm3d/face/, public/pm/mounts/, public/pm/fx/
+- __tests__/pm3dRide.test.js(신설), pm3dLayout.test.js, package.json(test:pm)
+
+### 다음 작업 예정
+- 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것 전용 탑승 클립, 목표달성 주행 트리거(danceEvents 연결)
+
+### 미결 이슈 / 블로킹
+- GitHub push 간헐 500(재시도로 해소). Kevin Iglesias 팩 재배포 금지 → 원본 미커밋 유지 필수
+
 ## [2026-11-04] 세션 — 업로드 주문등록 품목 매칭 새 창(팝업) 선택
 
 ### 작업 내용
