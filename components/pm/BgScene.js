@@ -12,7 +12,7 @@ import { Button } from './ui';
 import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
-import { DEPTS, SW, frontMaskClip, frontMaskRect, hipOf, layoutScene } from '../../lib/pmSceneLayout';
+import { DEPTS, SW, frontMaskClip, frontMaskRect, frontDir, hipOf, layoutScene } from '../../lib/pmSceneLayout';
 import { ZOOM_MIN, ZOOM_MAX, clampView, zoomViewAt, shouldCloseOnUp } from '../../lib/pmZoom';
 import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
 import { DeskDecor, SeatedCharacter, usePmLayers } from './Character';
@@ -222,7 +222,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
             const [m0, m1, m2, m3] = frontMaskRect(map, p).map((v, i) => (v / 100) * (i % 2 ? hostH : hostW));
             const st = STATUS_LABEL[x.status] ? x.status : 'off';
             const z = 20 + Math.round(p[1] * 4);
-            const seat = { x: hx, y: hy, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
+            const seat = { x: hx, y: hy, dir: frontDir(map.dir), scale: sc, z };
             const cfg = sceneAvatar(avatars[x.name], x.name, kit, tOutfits);
             const g = growPeople[x.name]; const v = vibes[x.name] || {};
             const ownDesk = (avatars[x.name]?.view || avatars[x.name])?.items?.desk || '';

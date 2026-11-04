@@ -46,3 +46,18 @@ const iso = fs.readFileSync(path.join(root, 'components', 'pm', 'IsoScene.js'), 
 assert.ok(/onClick=\{\(\) => \{ close\(\); onOpenPerson\(x\.name\); \}\}>상세/.test(iso));
 assert.ok(/onOpenPerson\(x\.name, 'look'\); \}\}>꾸미기/.test(iso));
 console.log('pmZoomPopover OK');
+
+// 4) 뒷모습 금지: 장면 방향은 좌/우(정면 3/4)만, 뒤돌기 방향은 좌우로 접힘. 2D 스프라이트는 앉은 자세에 항상 얼굴 레이어.
+const lay = fs.readFileSync(path.join(root, 'lib', 'pmSceneLayout.js'), 'utf8');
+const fdSrc = lay.match(/export function frontDir[^\n]+/)[0].replace('export ', '');
+const frontDir = new Function(`${fdSrc}; return frontDir;`)();
+for (const d of ['nw', 'back', 'up', 'left', '', undefined, 'sw']) assert.strictEqual(frontDir(d), 'left', `frontDir(${d})`);
+for (const d of ['ne', 'right', 'se', 'NE']) assert.strictEqual(frontDir(d), 'right', `frontDir(${d})`);
+assert.ok(/dir: frontDir\(facing\)/.test(lay), 'seatAnchor dir 는 frontDir');
+assert.ok(/dir: frontDir\(map\.dir\)/.test(bg), 'BgScene 좌석 dir 는 frontDir');
+const ch = fs.readFileSync(path.join(root, 'components', 'pm', 'Character.js'), 'utf8');
+assert.ok(!/['"](back|rear|behind)View['"]|pose === 'back'/.test(ch), '뒷모습 스프라이트 경로 없음');
+const maps = JSON.parse(fs.readFileSync(path.join(root, 'lib', 'pmSceneMaps.json'), 'utf8'));
+const dirs = JSON.stringify(maps).match(/"dir":"[a-z]*"/g) || [];
+dirs.forEach((d) => assert.ok(['left', 'right'].includes(frontDir(d.split('"')[3])), d));
+console.log('pmZoomPopover back-view OK');
