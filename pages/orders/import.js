@@ -30,6 +30,7 @@ import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/
 import { withOrderImportDeadline } from '../../lib/orderImportDeadline';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
 import * as XLSX from 'xlsx';
+import DirectPricePivot from '../../components/orders/DirectPricePivot';
 import { initializeShipDateAllocations, moveShipmentQuantity, allocationTotal, buildShipmentListRows } from '../../lib/orderShipmentList';
 import { sanitizeExcelSheetName } from '../../lib/estimatePrintPrepare';
 import {
@@ -668,6 +669,7 @@ export default function OrderImportPage() {
   const [sheets, setSheets] = useState([]);
   const [sheetName, setSheetName] = useState('');
   // 'order' = 업로드 주문등록만 · 'orderPrice' = 주문등록 + 선택 세부차수 분배단가 적용
+  const [pageTab, setPageTab] = useState('upload');
   const [registerMode, setRegisterMode] = useState('order');
   const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
   const [selectedSubWeeks, setSelectedSubWeeks] = useState([]);
@@ -1393,7 +1395,20 @@ export default function OrderImportPage() {
   return (
     <>
       <p><Link href="/orders/weekday-upload">주광 엑셀 요일별 수량 업로드 — 기존 주문 보존</Link></p>
-      <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
+      <div role="tablist" aria-label="업로드 주문등록 탭" style={{ display: 'flex', gap: 6, margin: '0 0 10px', padding: '0 4px' }}>
+        {[['upload', '파일 업로드'], ['direct', '직접 수정']].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={pageTab === id} onClick={() => setPageTab(id)}
+            style={{ padding: '8px 20px', borderRadius: 8, border: pageTab === id ? '2px solid #1a237e' : '1px solid #c5cae9', background: pageTab === id ? '#1a237e' : '#f3f4ff', color: pageTab === id ? '#fff' : '#1a237e', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {pageTab === 'direct' && (
+        <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
+          <DirectPricePivot />
+        </div>
+      )}
+      <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={{ ...st.page, ...(pageTab === 'direct' ? { display: 'none' } : {}) }}>
         <div style={st.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
             <div data-desktop-chrome style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
