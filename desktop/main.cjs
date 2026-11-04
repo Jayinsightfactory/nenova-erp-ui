@@ -135,7 +135,7 @@ function openNotesWindow() {
   if (locked || !actor) throw new Error('먼저 로그인해 주세요.');
   if (notesWindow && !notesWindow.isDestroyed()) { if(notesWindow.isMinimized())notesWindow.restore();notesWindow.show();notesWindow.focus();return notesState(); }
   const work=screen.getPrimaryDisplay().workArea;
-  const win=new BrowserWindow({width:380,height:700,minWidth:320,minHeight:420,x:Math.max(work.x,work.x+work.width-400),y:work.y+35,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#fffdf5',alwaysOnTop:readNotesPrefs().pinned,show:false,
+  const win=new BrowserWindow({width:410,height:780,minWidth:340,minHeight:480,x:Math.max(work.x,work.x+work.width-430),y:work.y+25,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#fffdf5',alwaysOnTop:readNotesPrefs().pinned,show:false,
     webPreferences:{preload:path.join(__dirname,'notes-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
   notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
