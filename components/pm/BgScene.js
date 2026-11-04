@@ -3,7 +3,7 @@
 //   그 위에 실시간 요소만 HTML/SVG 로 겹친다: 9단계 스테이션 칩 · 직원 캐릭터 · 이름표 · 직원→작업 스테이션 곡선 + 라벨칩 · 연구실 로봇.
 //   좌표는 lib/pmSceneMaps.json(배경 기준 %), 배치·충돌회피는 lib/pmSceneLayout.js. 배경 없는 테마/로드 실패는 IsoScene(SVG) 폴백.
 //   클릭: 이름표·라벨칩은 pointer-events:none, 캐릭터(넉넉한 원형 히트영역)가 최상위에서 받는다.
-//   확대·축소: 휠(축소 상태에선 Ctrl/⌘+휠 또는 위로 휠)·핀치·+/−/맞춤 버튼·드래그 이동·키보드(+ − 0 화살표). 글자는 배율 역보정.
+//   확대·축소: +/−/맞춤 버튼만(휠·핀치 없음 — 휠은 페이지 스크롤), 확대 상태에서 드래그 이동, 장면 포커스 시 키보드(+ − 0 화살표). 글자는 배율 역보정.
 //   캐릭터 그림은 Chibi/Avatar(props 인터페이스)만 사용 — 내부는 캐릭터 담당 브랜치 소관.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePmTheme } from './PmTheme';
@@ -12,9 +12,10 @@ import { Button } from './ui';
 import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
-import { DEPTS, SW, frontMaskRect, hipOf, layoutScene } from '../../lib/pmSceneLayout';
+import { DEPTS, SW, frontMaskClip, frontMaskRect, hipOf, layoutScene } from '../../lib/pmSceneLayout';
 import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
-import { SeatedCharacter, usePmLayers } from './Character';
+import { DeskDecor, SeatedCharacter, usePmLayers } from './Character';
+import { PM_DESK_ISO_SCALE, isoDeskTop } from '../../lib/pmDeskSlots';
 import { useGrow } from './grow/Grow';
 
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -97,36 +98,16 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
   const clampV = (v) => { const z = Math.min(ZMAX, Math.max(ZMIN, v.z)); return { z, x: Math.min(0, Math.max(hostW - hostW * z, v.x)), y: Math.min(0, Math.max(hostH - hostH * z, v.y)) }; };
   const zoomAt = (factor, cx = hostW / 2, cy = hostH / 2) => setZv((v) => { const z = Math.min(ZMAX, Math.max(ZMIN, v.z * factor)); const r = z / v.z; return clampV({ z, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r }); });
   const fit = () => setZv({ z: 1, x: 0, y: 0 });
-  const zRef = useRef(1); zRef.current = zv.z;
-  const zoomRef = useRef(zoomAt); zoomRef.current = zoomAt;
-  useEffect(() => {
-    const el = hostRef.current; if (!el) return undefined;
-    const wheel = (e) => {
-      if (zRef.current <= 1 && e.deltaY > 0 && !e.ctrlKey) return; // 맞춤 상태 아래로 휠 = 페이지 스크롤
-      if (zRef.current <= 1 && !e.ctrlKey && !e.metaKey && e.deltaY < 0 && Math.abs(e.deltaY) < 1) return;
-      e.preventDefault();
-      const r = el.getBoundingClientRect();
-      zoomRef.current(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
-    };
-    el.addEventListener('wheel', wheel, { passive: false });
-    return () => el.removeEventListener('wheel', wheel);
-  }, []);
+    // 휠은 페이지 스크롤 그대로(장면 배율 불변). 배율은 +/−/맞춤 버튼·키보드(장면 포커스 시)로만.
   const ptrs = useRef(new Map()); const drag = useRef(null);
   const onPointerDown = (e) => {
     if (e.target.closest && e.target.closest('[role="button"],button,.iso-pop')) return;
     ptrs.current.set(e.pointerId, [e.clientX, e.clientY]);
     drag.current = { x: e.clientX, y: e.clientY, v: zv, d0: null, moved: false };
-    if (ptrs.current.size === 2) { const [p1, p2] = [...ptrs.current.values()]; drag.current.d0 = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); }
   };
   const onPointerMove = (e) => {
     const D = drag.current; if (!D || !ptrs.current.has(e.pointerId)) return;
     ptrs.current.set(e.pointerId, [e.clientX, e.clientY]);
-    if (ptrs.current.size === 2 && D.d0) {
-      const [p1, p2] = [...ptrs.current.values()]; const d = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
-      const r = hostRef.current.getBoundingClientRect(); const cx = (p1[0] + p2[0]) / 2 - r.left; const cy = (p1[1] + p2[1]) / 2 - r.top;
-      const z = Math.min(ZMAX, Math.max(ZMIN, D.v.z * (d / D.d0))); const q = z / D.v.z;
-      setZv(clampV({ z, x: cx - (cx - D.v.x) * q, y: cy - (cy - D.v.y) * q })); D.moved = true; return;
-    }
     const dx = e.clientX - D.x; const dy = e.clientY - D.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) D.moved = true;
     if (D.v.z > 1 && D.moved) setZv(clampV({ ...D.v, x: D.v.x + dx, y: D.v.y + dy }));
@@ -149,6 +130,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
   // 글자는 배율 역보정 → 충돌 계산은 "화면 폭 × 배율" 기준
   const L = useMemo(() => layoutScene({ map, rooms, agents, links, hostW: hostW * zv.z, labelOf: chipLabel }), [map, rooms, agents, links, hostW, zv.z]);
   const { SH, k } = L;
+  const maskClip = frontMaskClip(map);
 
   const stageInfo = (no) => {
     const st = corridor?.stages?.find((x) => x.no === no);
@@ -242,14 +224,15 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
             const seat = { x: hx, y: hy, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
             const cfg = sceneAvatar(avatars[x.name], x.name, kit, tOutfits);
             const g = growPeople[x.name]; const v = vibes[x.name] || {};
-            const top = cfg.items.deskM && avatars[x.name] && L2?.desk?.items?.[cfg.items.deskM]?.thumb; const pet = cfg.items.pet && L2?.desk?.items?.[cfg.items.pet]?.thumb;
-            const ic = Math.max(14, 34 * sc);
+            const ownDesk = (avatars[x.name]?.view || avatars[x.name])?.items?.desk || '';
+            const isoOn = L2?.iso && (ownDesk || (avatars[x.name] && (cfg.items.deskM || cfg.items.deskL || cfg.items.deskR || cfg.items.pet)));
+            const dt = isoDeskTop([m0, m1, m2, m3]); const isoSc = ((PM_DESK_ISO_SCALE[themeId] || 0.8) * hostW) / SW;
+            const isoCfg = { ...cfg, items: { ...cfg.items, desk: ownDesk && L2?.iso?.items?.[ownDesk] ? ownDesk : '' } };
             return (
               <div key={`s:${x.name}`} className={`bg-seat st-${st}`} data-seat={x.name} aria-hidden>
                 <SeatedCharacter cfg={cfg} seat={seat} hideBelowHip={false} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
-                {loaded && <i className="bg-mask" style={{ left: m0, top: m1, width: m2 - m0, height: m3 - m1, zIndex: z + 2, backgroundImage: `url(/pm/scene-bg/${map.src}.webp)`, backgroundSize: `${hostW}px ${hostH}px`, backgroundPosition: `${-m0}px ${-m1}px` }} />}
-                {top && <img className="bg-ico" src={top} alt="" style={{ left: hx + 30 * sc, top: m1 - ic * 0.8, width: ic, height: ic, zIndex: z + 3 }} />}
-                {pet && <img className="bg-ico pet" src={pet} alt="" style={{ left: m2 + 2, top: m3 - ic, width: ic, height: ic, zIndex: z + 3 }} />}
+                {loaded && !isoCfg.items.desk && <i className="bg-mask" style={{ left: m0, top: m1, width: m2 - m0, height: m3 - m1, zIndex: z + 2, backgroundImage: `url(/pm/scene-bg/${map.src}.webp)`, backgroundSize: `${hostW}px ${hostH}px`, backgroundPosition: `${-m0}px ${-m1}px`, clipPath: maskClip }} />}
+                {isoOn && dt && <DeskDecor view="iso" cfg={isoCfg} anchor={{ x: dt[0], y: dt[1] }} scale={isoSc} dir={map.deskDir === 'right' ? 'right' : 'left'} z={z} showDesk={!!isoCfg.items.desk} />}
               </div>
             );
           })}

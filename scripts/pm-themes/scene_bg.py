@@ -50,17 +50,12 @@ for tid in ids:
         for k, pts in m['seats'].items():
             for j, (x, y) in enumerate(pts):
                 X, Y = W * x / 100, H * y / 100; d.rectangle([X - 8, Y - 8, X + 8, Y + 8], fill=DEPT_COL[k]); d.text((X + 9, Y - 10), k[:2] + str(j), fill=DEPT_COL[k], font=f)
-                ox, oy = m.get('deskOffset', [2.5, -6]); d.line([(X, Y), (W * (x + ox) / 100, H * (y + oy) / 100)], fill=DEPT_COL[k], width=2)
-        # 책상 앞판 마스크(%): 엉덩이(자리점+sitOffset) 아래 사각형 — 장면은 이 자리 배경을 다시 잘라 덮어 하반신을 숨긴다
-        off = m.get('deskOffset', [2.5, -6]); so = m.get('sitOffset', [off[0], off[1] - 0.8]); fm = m.get('frontMask', {'w': 8, 'h': 6, 'dy': 0.3})
-        m['frontMasks'] = {}
+        # 앉는 점(seats = 엉덩이) + 책상 앞판 윤곽 폴리곤(maskPoly, 엉덩이 기준 상대 %)
+        poly = m.get('maskPoly') or [[-4, 0.3], [4, 0.3], [4, 6.3], [-4, 6.3]]
         for k2, pts in m['seats'].items():
-            rects = []
             for (x, y) in pts:
-                hx, hy = x + so[0], y + so[1]
-                r = [round(hx - fm['w'] / 2, 2), round(hy + fm['dy'], 2), round(hx + fm['w'] / 2, 2), round(hy + fm['dy'] + fm['h'], 2)]
-                rects.append(r); d.rectangle([W * r[0] / 100, H * r[1] / 100, W * r[2] / 100, H * r[3] / 100], outline=DEPT_COL[k2], width=2)
-            m['frontMasks'][k2] = rects
+                d.polygon([(W * (x + q[0]) / 100, H * (y + q[1]) / 100) for q in poly], outline=DEPT_COL[k2], width=3)
+                d.ellipse([W * x / 100 - 5, H * y / 100 - 5, W * x / 100 + 5, H * y / 100 + 5], fill=(255, 255, 0), outline=(0, 0, 0))
         l = m['lab']; d.rectangle([W * l[0] / 100, H * l[1] / 100, W * l[2] / 100, H * l[3] / 100], outline=(0, 200, 255), width=3)
         for x, y in m['robots']: d.ellipse([W * x / 100 - 6, H * y / 100 - 6, W * x / 100 + 6, H * y / 100 + 6], fill=(0, 200, 255))
         c.save(os.path.join(out_dir, f'check-{tid}.png'))
