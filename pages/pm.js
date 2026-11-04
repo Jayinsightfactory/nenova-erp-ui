@@ -21,6 +21,8 @@ import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 import { staffOfUser } from '../lib/pmAccount';
 import { PM_ROSTER } from '../lib/pmRoster';
 import StaffRequests, { StaffRequestsButton } from '../components/pm/StaffRequests';
+import dynamic from 'next/dynamic';
+const Scene3D = dynamic(() => import('../components/pm3d/Scene3D'), { ssr: false, loading: () => <p className="muted">3D 장면 불러오는 중…</p> });
 
 export async function getServerSideProps({ req, res, resolvedUrl }) {
   const user = await verifyReqUser(req, res);
@@ -684,8 +686,9 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
   const [view, setView] = useState('scene');
-  useEffect(() => { try { const v = window.localStorage.getItem('pm.view'); if (v === 'list' || v === 'scene') setView(v); } catch { /* 무시 */ } }, []);
+  useEffect(() => { try { const v = window.localStorage.getItem('pm.view'); if (v === 'list' || v === 'scene' || v === '3d') setView(v); } catch { /* 무시 */ } }, []);
   const [sideOpen, setSideOpen] = useState(false);
+  const [fb3d, setFb3d] = useState('');
   useEffect(() => { try { if (window.localStorage.getItem('pm.side') === '1') setSideOpen(true); } catch { /* 무시 */ } }, []);
   const toggleSide = () => setSideOpen((v) => { try { window.localStorage.setItem('pm.side', v ? '0' : '1'); } catch { /* 무시 */ } return !v; });
   const pickView = (v) => { setView(v); try { window.localStorage.setItem('pm.view', v); } catch { /* 무시 */ } };
@@ -784,13 +787,17 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
       {!resp && !err && <p className="muted">불러오는 중…</p>}
       {resp && !resp.data && <p className="muted">아직 올라온 pm-office 데이터가 없습니다.</p>}
       <div className={`wrap ${sideOpen ? 'open' : 'wide'}`}>
-        {view === 'scene' ? (
+        {view === 'scene' || view === '3d' ? (
         <main className="floor scene">
           <div className="scene-h">
             <b>사무실 장면</b><small>스테이션·캐릭터에 마우스 = 자세히 · 클릭 = 고정 · 라벨칩 클릭 = 직원 시간</small>
-            <Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['list', '목록 보기']]} />
+            <Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['3d', '3D(베타)'], ['list', '목록 보기']]} />
           </div>
-          {(() => {
+          {view === '3d' && fb3d && <p className="muted">3D 장면을 쓸 수 없어 2D 장면으로 보여 줍니다({fb3d}).</p>}
+          {view === '3d' && !fb3d ? (
+            <Scene3D themeId={pmTheme.themeId === 'I' ? 'I' : 'B'} agents={agents} rooms={visibleRooms} links={links} reduced={reduced}
+              onOpenPerson={openPerson} onPickStage={setSelStage} onFallback={setFb3d} />
+          ) : (() => {
             const iso = <IsoScene theme={themeById(pmTheme.themeId)} agents={agents} rooms={visibleRooms} links={links} corridor={corridor} now={now}
             selStage={selStage} onPickStage={setSelStage} onOpenPerson={openPerson} reduced={reduced} isAdmin={isAdmin} myStaff={myStaff} />;
             return hasSceneMap(pmTheme.themeId) ? (
@@ -805,7 +812,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         </main>
         ) : (
         <main className="floor" ref={floorRef}>
-          <div className="scene-h"><b>목록 보기</b><Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['list', '목록 보기']]} /></div>
+          <div className="scene-h"><b>목록 보기</b><Tabs className="vtab" label="보기 방식" value={view} onChange={pickView} items={[['scene', '장면'], ['3d', '3D(베타)'], ['list', '목록 보기']]} /></div>
           <div className="topwing">
             <section className="room lab">
               <div className="plate">AI 연구실 · 서버실 <small>{labAgents.length}</small></div>
