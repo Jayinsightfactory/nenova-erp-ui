@@ -49,5 +49,12 @@
     "output": "aggregate only, no raw texts/actors/credentials",
     "execution": "explicit workflow diagnose_paste_only, excludes deploy; inspect first model0; budgeted model audit later",
     "paired": "Frozen active masters/current mappings and unit snapshot; baseline full source at2f191418 vs branch candidate overrides. SDK real usage/timing, no retries,8sources/32calls/400kinput token bound; original cache metrics separately. Qty compared in Product.OutUnit, key and qty recall/precision/full cases, fail/unknown rows counted."
-  }
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
 }
