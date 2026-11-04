@@ -112,7 +112,7 @@ def build_kit():
     # B 파스텔 사무실 소품
     module('plant'); cyl((0, 0, 0.2), 0.2, 0.4, 'pot', '#f4a6a0', r2=0.15)
     for a in range(5): sphere((0.12 * math.cos(a * 1.26), 0.12 * math.sin(a * 1.26), 0.55 + (a % 2) * 0.1), 0.16, 'leaf', '#8fd19e', scale=(1, 1, 1.4))
-    module('mug'); cyl((0, 0, 0.06), 0.05, 0.12, 'mug', '#ffd6e0'); torus((0.06, 0, 0.06), 0.03, 0.01, 'mug', '#ffd6e0', rot=(R(90), 0, 0))
+    module('mug'); cyl((0, 0, 0.07), 0.065, 0.14, 'mug', '#ffd6e0'); torus((0.08, 0, 0.07), 0.035, 0.012, 'mug', '#ffd6e0', rot=(R(90), 0, 0)); cyl((0, 0, 0.145), 0.052, 0.012, 'coffee', '#8a5a3c', v=14)
     module('parcel'); box((0, 0, 0.18), (0.45, 0.35, 0.36), 'parcel', '#e3b888', bev=0.03); box((0, 0, 0.36), (0.46, 0.08, 0.01), 'tape', '#f6e3c5', bev=0)
     # I 해변 소품
     module('palm')
@@ -169,12 +169,13 @@ def build_char():
     bpy.context.view_layer.objects.active = parts[0]; bpy.ops.object.join(); body = bpy.context.object; body.name = 'body'
     # 모자(부착 본=head, 웹에서 이름으로 보이기/숨기기)
     hats = []
-    o = sphere((0, 0, 2.0), 0.5, 'hat_cap', '#7ec8e3', scale=(1.1, 1.1, 0.5)); o2 = box((0, -0.5, 1.92), (0.6, 0.4, 0.05), 'hat_cap', '#7ec8e3', bev=0.03)
+    # 모자 = 카와이 과장(꾸미기 가시성, 다음 재빌드에 반영)
+    o = sphere((0, 0, 2.02), 0.62, 'hat_cap', '#7ec8e3', scale=(1.12, 1.12, 0.55)); o2 = box((0, -0.62, 1.9), (0.75, 0.5, 0.06), 'hat_cap', '#7ec8e3', bev=0.03)
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); o2.select_set(True); bpy.context.view_layer.objects.active = o
     bpy.ops.object.convert(target='MESH'); bpy.ops.object.join(); o = bpy.context.object; o.name = 'hat_cap'; hats.append(o)
-    o = cyl((0, 0, 1.98), 0.85, 0.05, 'hat_straw', '#f2d58a', v=20); o2 = cyl((0, 0, 2.1), 0.42, 0.28, 'hat_straw', '#f2d58a', v=20, r2=0.36)
+    o = cyl((0, 0, 1.98), 1.05, 0.06, 'hat_straw', '#f2d58a', v=20); o2 = cyl((0, 0, 2.12), 0.52, 0.34, 'hat_straw', '#f2d58a', v=20, r2=0.44)
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); o2.select_set(True); bpy.context.view_layer.objects.active = o; bpy.ops.object.join(); o = bpy.context.object; o.name = 'hat_straw'; hats.append(o)
-    o = cyl((0, 0, 2.2), 0.3, 0.55, 'hat_party', '#ffb4e6', v=14, r2=0.02); o.name = 'hat_party'; hats.append(o)
+    o = cyl((0, 0, 2.28), 0.38, 0.72, 'hat_party', '#ffb4e6', v=14, r2=0.02); o.name = 'hat_party'; hats.append(o)
     for h in hats: bind(h, 'head')
     # 아마추어
     ad = bpy.data.armatures.new('rig'); arm = bpy.data.objects.new('rig', ad); bpy.context.scene.collection.objects.link(arm)

@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { stepZoom } from '../../lib/pmZoom';
@@ -16,8 +16,11 @@ import { stepZoom } from '../../lib/pmZoom';
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
 export const PM3D_THEMES = Object.keys(THEMES);
 const STAGE_HEX = PM3D.STAGE;
-const SEAT_Z = 0.62; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const CHAR_SCALE = 0.62; const SEAT_Y = 0.42 - 0.42 * CHAR_SCALE + 0.04; // 앉은 엉덩이(리그 0.42)를 의자 좌판(0.46)에 맞춤
+// 책상 위 소품 슬롯(좌/중/우, 자리 그룹 로컬 좌표)과 펫 자리(책상 옆 바닥) — 구매 소품·펫이 3D 에서도 보이게
+const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
+const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
+const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
+const SEAT_Y = 0.46 * SET_SCALE - 0.42 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.95 * CHAR_SCALE + 0.35; // 앉은 엉덩이(리그 0.42)를 의자 좌판(0.46)에 맞춤
 
 function webglOk() {
   try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch { return false; }
@@ -46,14 +49,14 @@ function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
-  s.scale.set(0.55, 0.55, 1); s.renderOrder = 10; return s;
+  s.scale.set(0.8, 0.8, 1); s.renderOrder = 10; return s;
 }
 
 export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
   const { avatars } = usePmTheme();
   const host = useRef(null); const labelsRef = useRef(null);
   const api = useRef(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [stat, setStat] = useState('');
   const dataRef = useRef({ rooms, agents, links, avatars, reduced });
   dataRef.current = { rooms, agents, links, avatars, reduced };
@@ -92,7 +95,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       const put = (n, x, z, ry = 0, s = 1) => { const o = mod(n); o.position.set(x, 0, z); o.rotation.y = ry; o.scale.setScalar(s); scene.add(o); return o; };
       const { desks, plates } = layoutDesks(dataRef.current.rooms);
       const { hx, hz } = floorBounds(desks);
-      st.fit = Math.max(hx * 0.62, hz * 1.0); placeCam();
+      st.fit = sceneFit(hx, hz); placeCam();
       sun.shadow.camera.left = -hx - 4; sun.shadow.camera.right = hx + 4; sun.shadow.camera.top = hz + 4; sun.shadow.camera.bottom = -hz - 4; sun.shadow.camera.far = 80; sun.shadow.camera.updateProjectionMatrix();
       for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) { const f = put(T.floor, x, z); f.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
       // 테마 장식
@@ -122,17 +125,17 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       // 직원 자리
       for (const d of desks) {
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
-        const desk = mod('desk'); g.add(desk);
+        const desk = mod('desk'); desk.scale.setScalar(SET_SCALE); g.add(desk);
         // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
-        const mon = laptop(); mon.position.set(0, 0.76, -0.05); g.add(mon);
-        const chair = mod('chair'); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
+        const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, DESK_H + 0.01, -0.07); g.add(mon);
+        const chair = mod('chair'); chair.scale.setScalar(SET_SCALE); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
         ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
         g.add(ch2);
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
-        const emo = emojiSprite(' '); emo.position.set(0, 1.85, -SEAT_Z); emo.visible = false; g.add(emo);
+        const emo = emojiSprite(' '); emo.position.set(0, HEAD_Y, -SEAT_Z); emo.visible = false; g.add(emo);
         const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), walk: null, stage: null, decor: [], d };
         ch2.userData = { kind: 'person', name: d.person.name };
         st.clickables.push(ch2, desk);
@@ -163,13 +166,13 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
-        L.props.forEach((k, i) => { const o = kitMod(k); o.position.set(-0.42 + i * 0.84, 0.76, 0.12); o.scale.setScalar(k === 'plant' ? 0.35 : 1); P.g.add(o); P.decor.push(o); });
-        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.set(0.75, 0.14, 0.45); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
+        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.scale.setScalar(PROP_SCALE * (k === 'plant' ? 0.5 : 1)); P.g.add(o); P.decor.push(o); });
+        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
-        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, 1.85, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
         const stg = cur.get(name) || null;
         if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) P.walk = { t: 0, to: stg };
         P.stage = stg;
