@@ -5,9 +5,16 @@ import {INVOICE_COST_EXPORT_PROFILES} from '../lib/invoiceCostExportProfiles.js'
 import {readNativeCostSource,calculateNativeCost} from '../lib/nativeReceiptCost.js';
 import {nlNativeCostDefaults} from '../lib/nlNativeCostDefaults.js';
 import sql from 'mssql';
-const out=new URL('../outputs/cost-restoration-1102-final/',import.meta.url);await fs.mkdir(out,{recursive:true});
+const out=new URL(process.env.COST_VERIFY_OUTPUT||'../outputs/cost-restoration-1102-final/',import.meta.url);await fs.mkdir(out,{recursive:true});
 for(const p of Object.values(INVOICE_COST_EXPORT_PROFILES)){
  const f=invoiceCostExportFixture(3,p.formulaId);f.snapshot.input.exchangeRateType='TEST_ONLY';
+ if(p.id==='CN_SEA_ORIGINAL_V1'&&process.env.COST_VERIFY_SOURCE_CBM==='1'){
+  // Positive reference replay, distinct from the missing-CBM negative fixture.
+  for(let i=0;i<f.document.lines.length;i++){
+   f.document.lines[i].originalName='Ammi CHINA 아미초';
+   f.snapshot.input.lineInputs[i].bunchesPerBox=10;
+  }
+ }
  const bytes=await createInvoiceCostWorkbook(f);await fs.writeFile(new URL(`${p.id}_TEST_ONLY.xlsx`,out),bytes);
 }
 // This is a private, previously SELECT-only snapshot; no connection to MSSQL.

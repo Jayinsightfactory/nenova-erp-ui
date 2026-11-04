@@ -3,6 +3,7 @@ import { receiptYearConflict } from '../../lib/invoiceReceiptYear.js';
 import { applyInvoiceHeader, fillMissingReceiptWeights } from '../../lib/invoiceReceiptAutoFill.js';
 import { resumeReceiptSource, readExistingReceiptSource, draftConflictMessage } from '../../lib/invoiceReceiptSourceResume.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import SharedAwbCostReview from './SharedAwbCostReview.js';
 import InvoiceTotalEvidence from './InvoiceTotalEvidence.js';
 import {invoiceAmountReview,invoiceAmountConfirmed} from '../../lib/invoiceAmountReview.js';
 import InvoiceDraftCost from './InvoiceDraftCost.js';
@@ -1442,6 +1443,8 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" onClick={() => setWorkspaceMode('receipt')} disabled={Boolean(busy)}>인보이스 입력값 확인·수정</button>
     </details>}
     </>}
+    {currentRevisionCommitted && documentValue.reviewedMetadata?.country === 'CO' && documentValue.reviewedMetadata?.awb &&
+      <SharedAwbCostReview key={`${documentValue.documentId}/${documentValue.revision}`} document={documentValue} />}
     {currentRevisionCommitted
       ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
         autoSaveRequested={false} autoProcess={workspaceMode === 'cost' && receiptReadbackPassed} onStageChange={onCostStageChange} />

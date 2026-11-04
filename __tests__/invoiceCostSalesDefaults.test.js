@@ -44,3 +44,26 @@ test('missing sea allocation does not invent a sales/profit total',async()=>{
  const f=invoiceCostExportFixture(2,'CN_SEA_ACTUAL_V1'),s=X.read(await createInvoiceCostWorkbook(f)).Sheets['원본 양식 계산'];
  assert.equal(s.R44.v,'');assert.equal(s.V42.v,'입력 필요');assert.equal(s.W42.v,'입력 필요');
 });
+
+test('Thai sales headings wrap in desktop Excel while original fonts and widths remain intact',async()=>{
+ const bytes=await createInvoiceCostWorkbook(invoiceCostExportFixture(3,INVOICE_COST_EXPORT_PROFILES.TH_ORIGINAL_V1.formulaId));
+ const z=await JSZip.loadAsync(bytes),sheet=await z.file('xl/worksheets/sheet3.xml').async('string'),styles=await z.file('xl/styles.xml').async('string');
+ const xfs=[...styles.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)[1].matchAll(/<xf\b[^>]*\/>|<xf\b[^>]*>[\s\S]*?<\/xf>/g)].map(m=>m[0]);
+ for(const ref of ['R14','S14']){
+  const cell=sheet.match(new RegExp(`<c\\b[^>]*r="${ref}"[^>]*>`))[0];
+  assert.match(xfs[Number(cell.match(/s="(\d+)"/)[1])],/<alignment\b[^>]*wrapText="1"/);
+ }
+ assert.match(sheet,/<row\b[^>]*r="14"[^>]*ht="64"/);
+});
+
+test('China sea source CBM completes file-only sales calculations without editing approved inputs',async()=>{
+ const f=invoiceCostExportFixture(1,'CN_SEA_ACTUAL_V1');
+ f.document.lines[0].originalName='Ammi CHINA 아미초';
+ f.snapshot.input.lineInputs[0].bunchesPerBox=10;
+ const before=JSON.stringify(f),b=X.read(await createInvoiceCostWorkbook(f),{cellFormula:true});
+ const s=b.Sheets['원본 양식 계산'];
+ assert.equal(typeof s.R44.v,'number');assert.equal(typeof s.V42.v,'number');
+ const comparison=Object.values(b.Sheets).find(s=>s.W12?.v==='박스 CBM 입력');
+ assert.equal(comparison.W13.v,.04704);assert.match(comparison.AD13.v,/참고 기본값/);
+ assert.equal(JSON.stringify(f),before);
+});
