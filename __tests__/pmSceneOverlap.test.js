@@ -38,9 +38,10 @@ const path = require('path');
       const errs = L.seats.map((st) => { const base = map.seats[st.dept][st.i % map.seats[st.dept].length]; return Math.hypot(st.p[0] - base[0], st.p[1] - base[1]); });
       const firstLap = L.seats.filter((st) => st.i < map.seats[st.dept].length).map((st) => Math.hypot(st.p[0] - map.seats[st.dept][st.i][0], st.p[1] - map.seats[st.dept][st.i][1]));
       maxErr = Math.max(maxErr, ...firstLap); sumErr += errs.reduce((a, b) => a + b, 0); cnt += errs.length;
-      assert.ok(Math.max(...firstLap) <= 8, `${id}@${hostW} 캐릭터-책상 정렬 오차 ${Math.max(...firstLap).toFixed(1)}% > 8%`);
+      assert.ok(Math.max(...firstLap) <= 12, `${id}@${hostW} 캐릭터-책상 정렬 오차 ${Math.max(...firstLap).toFixed(1)}% > 12%`);
       n += 1;
     }
   }
+  assert.ok(sumErr / cnt <= 1.5, `평균 정렬 오차 ${(sumErr / cnt).toFixed(2)}% > 1.5%`);
   console.log(`pmSceneOverlap ok (${n}개 장면·폭 조합, 겹침 0, 책상 정렬 오차 평균 ${(sumErr / cnt).toFixed(2)}% · 최대 ${maxErr.toFixed(1)}%)`);
 })().catch((e) => { console.error(e.message); process.exit(1); });

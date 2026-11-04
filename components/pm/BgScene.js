@@ -12,9 +12,9 @@ import { Button } from './ui';
 import { STAGE_COLOR } from '../../lib/pmThemes';
 import { STAGES } from '../../lib/pmStages';
 import { sceneMapFor } from '../../lib/pmSceneMap';
-import { DEPTS, SW, layoutScene } from '../../lib/pmSceneLayout';
-import { themeKit, withThemeKit } from '../../lib/pmThemeKit';
-import { DeskDecor, SeatedCharacter } from './Character';
+import { DEPTS, SW, frontMaskRect, hipOf, layoutScene } from '../../lib/pmSceneLayout';
+import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
+import { SeatedCharacter, usePmLayers } from './Character';
 import { useGrow } from './grow/Grow';
 
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -59,10 +59,12 @@ const ZMIN = 1; const ZMAX = 3;
 export default function BgScene({ themeId, agents, rooms, links, corridor, now, selStage, onPickStage, onOpenPerson, reduced, isAdmin, myStaff, fallback = null }) {
   const { avatars, manifest } = usePmTheme();
   const kit = useMemo(() => themeKit(manifest, themeId), [manifest, themeId]);
+  const tOutfits = useMemo(() => themeOutfits(manifest, themeId), [manifest, themeId]);
   const { view: growV } = useGrow() || {};
   const growPeople = useMemo(() => Object.fromEntries(arr(growV?.people).map((g) => [g.name, g])), [growV]);
   const vibes = growV?.vibes || {};
   const dances = useSceneDances(growV);
+  const L2 = usePmLayers();
   const map = sceneMapFor(themeId);
   const hostRef = useRef(null);
   const imgRef = useRef(null);
@@ -210,9 +212,9 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
             );
           })}
 
-          {L.seats.map(({ p, person: x }) => {
-            const [cx, cy] = at(p); const st = STATUS_LABEL[x.status] ? x.status : 'off';
-            return <div key={`t:${x.name}`} className={`iso-nm bg-nm st-${st}`} data-tag={x.name} style={pct(cx, cy)} aria-hidden><i />{x.name}</div>;
+          {L.seats.map(({ tag, person: x }) => {
+            const st = STATUS_LABEL[x.status] ? x.status : 'off';
+            return <div key={`t:${x.name}`} className={`iso-nm bg-nm st-${st}`} data-tag={x.name} style={pct(tag.x, tag.y)} aria-hidden><i />{x.name}</div>;
           })}
           {L.chips.map((c) => (
             <div key={c.key} className="iso-chip bg-chip" data-chip={c.key} style={{ ...pct(c.x, c.y), maxWidth: 180 }} aria-hidden>{c.text}</div>
@@ -230,25 +232,31 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
             );
           })}
           {/* 앉은 캐릭터 + 자리 꾸밈(캐릭터 v2). z: 러그·의자 < 캐릭터(하반신 숨김) < 책상 스킨·상판 < 펫. 앞쪽(y 큰) 자리가 위 */}
+          {/* 앉은 캐릭터(캐릭터 v2) + 책상 앞판 마스크(배경 그림을 같은 자리에서 다시 잘라 덮음 → 하반신이 배경 책상 뒤로).
+              책상 스킨·러그·의자는 3/4 스프라이트 준비 전까지 장면에서 숨김(상점·직원상세에만). 상판 소품·펫만 작은 아이콘. */}
           {L.seats.map(({ p, person: x }) => {
-            const ax = (p[0] / 100) * hostW; const ay = (p[1] / 100) * hostH; const sc = (L.ds * hostW) / SW;
+            const [hx, hy] = hipOf(map, p).map((v, i) => (v / 100) * (i ? hostH : hostW)); const sc = (L.ds * hostW) / SW;
+            const [m0, m1, m2, m3] = frontMaskRect(map, p).map((v, i) => (v / 100) * (i % 2 ? hostH : hostW));
             const st = STATUS_LABEL[x.status] ? x.status : 'off';
             const z = 20 + Math.round(p[1] * 4);
-            const seat = { x: ax, y: ay - 68.3 * sc, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
-            const cfg = withThemeKit(avatars[x.name], kit);
+            const seat = { x: hx, y: hy, dir: map.dir === 'right' ? 'right' : 'left', scale: sc, z };
+            const cfg = sceneAvatar(avatars[x.name], x.name, kit, tOutfits);
             const g = growPeople[x.name]; const v = vibes[x.name] || {};
+            const top = cfg.items.deskM && avatars[x.name] && L2?.desk?.items?.[cfg.items.deskM]?.thumb; const pet = cfg.items.pet && L2?.desk?.items?.[cfg.items.pet]?.thumb;
+            const ic = Math.max(14, 34 * sc);
             return (
               <div key={`s:${x.name}`} className={`bg-seat st-${st}`} data-seat={x.name} aria-hidden>
-                {!cfg.items.rug && <i className="bg-rugband" style={{ left: ax, top: ay - 8 * sc, width: 230 * sc, height: 70 * sc, zIndex: z }} />}
-                <DeskDecor cfg={cfg} seat={seat} />
-                <SeatedCharacter cfg={cfg} seat={seat} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
+                <SeatedCharacter cfg={cfg} seat={seat} hideBelowHip={false} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
+                {loaded && <i className="bg-mask" style={{ left: m0, top: m1, width: m2 - m0, height: m3 - m1, zIndex: z + 2, backgroundImage: `url(/pm/scene-bg/${map.src}.webp)`, backgroundSize: `${hostW}px ${hostH}px`, backgroundPosition: `${-m0}px ${-m1}px` }} />}
+                {top && <img className="bg-ico" src={top} alt="" style={{ left: hx + 30 * sc, top: m1 - ic * 0.8, width: ic, height: ic, zIndex: z + 3 }} />}
+                {pet && <img className="bg-ico pet" src={pet} alt="" style={{ left: m2 + 2, top: m3 - ic, width: ic, height: ic, zIndex: z + 3 }} />}
               </div>
             );
           })}
           {L.seats.map(({ p, person: x }) => {
             const [cx, cy] = at(p); const st = STATUS_LABEL[x.status] ? x.status : 'off'; const key = `p:${x.name}`;
-            const pp = { kind: 'staff', key, x0: x, x: cx, y: cy - 180 * L.ds };
-            const hb = { left: `${(cx / SW) * 100}%`, top: `${((cy - 113.3 * L.ds) / SH) * 100}%`, width: `${(120 * L.ds / SW) * 100}%`, height: `${(130 * L.ds / SH) * 100}%` };
+            const pp = { kind: 'staff', key, x0: x, x: at(hipOf(map, p))[0], y: at(hipOf(map, p))[1] - 125 * L.ds };
+            const hp = at(hipOf(map, p)); const hb = { left: `${(hp[0] / SW) * 100}%`, top: `${((hp[1] - 55 * L.ds) / SH) * 100}%`, width: `${(120 * L.ds / SW) * 100}%`, height: `${(130 * L.ds / SH) * 100}%` };
             return (
               <Hot key={key} className={`bg-hit st-${st}`} data-desk={x.name} style={hb} aria-label={`${x.name} ${STATUS_LABEL[st]} 자세히`}
                 onMouseEnter={() => hover(pp)} onMouseLeave={leave} onFocus={() => hover(pp)} onClick={(e) => { e.stopPropagation(); pin(pp); }} />
@@ -301,7 +309,7 @@ export const BG_CSS = `
 .pm .bg-sl.on, .pm .bg-sl:hover, .pm .bg-sl:focus-visible { background: var(--sc); color: var(--pm-accent-ink); outline: none; }
 .pm .bg-host .iso-nm, .pm .bg-host .iso-chip, .pm .bg-zl { box-shadow: 0 3px 8px color-mix(in srgb, var(--pm-ink) 14%, transparent), 0 1px 2px color-mix(in srgb, var(--pm-ink) 10%, transparent); border-width: 1px; }
 .pm .bg-host .iso-chip { background: color-mix(in srgb, var(--pm-link) 82%, var(--pm-surface)); }
-.pm .bg-nm { transform: translate(-50%, 3px) scale(var(--iz, 1)); transform-origin: 50% 0; z-index: 4; pointer-events: none; }
+.pm .bg-nm { transform: translate(-50%, -50%) scale(var(--iz, 1)); transform-origin: 50% 50%; z-index: 4; pointer-events: none; }
 .pm .bg-chip { transform: translate(-50%, -50%) scale(var(--iz, 1)); pointer-events: none; cursor: default; z-index: 5; }
 .pm .bg-ch { position: absolute; transform: translate(-50%, -100%); background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; z-index: 8; filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
 .pm .bg-ch::before { content: ''; position: absolute; left: 50%; top: 55%; width: 130%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; }
@@ -317,6 +325,8 @@ export const BG_CSS = `
 .pm .bg-host .iso-pop { z-index: 12; transform: translate(-50%, -100%) scale(var(--iz, 1)); transform-origin: 50% 100%; }
 .pm .bg-seat { position: absolute; inset: 0; pointer-events: none; }
 .pm .bg-seat img { pointer-events: none; user-select: none; }
+.pm .bg-mask { position: absolute; display: block; pointer-events: none; background-repeat: no-repeat; }
+.pm .bg-ico { position: absolute; transform: translateX(-50%); object-fit: contain; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--pm-ink) 25%, transparent)); }
 .pm .bg-rugband { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--pm-accent) 30%, transparent), transparent); pointer-events: none; }
 .pm .bg-seat.st-off { filter: saturate(.55); }
 .pm .bg-hit { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer; z-index: 900; outline: none; }

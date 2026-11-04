@@ -51,6 +51,16 @@ for tid in ids:
             for j, (x, y) in enumerate(pts):
                 X, Y = W * x / 100, H * y / 100; d.rectangle([X - 8, Y - 8, X + 8, Y + 8], fill=DEPT_COL[k]); d.text((X + 9, Y - 10), k[:2] + str(j), fill=DEPT_COL[k], font=f)
                 ox, oy = m.get('deskOffset', [2.5, -6]); d.line([(X, Y), (W * (x + ox) / 100, H * (y + oy) / 100)], fill=DEPT_COL[k], width=2)
+        # 책상 앞판 마스크(%): 엉덩이(자리점+sitOffset) 아래 사각형 — 장면은 이 자리 배경을 다시 잘라 덮어 하반신을 숨긴다
+        off = m.get('deskOffset', [2.5, -6]); so = m.get('sitOffset', [off[0], off[1] - 0.8]); fm = m.get('frontMask', {'w': 8, 'h': 6, 'dy': 0.3})
+        m['frontMasks'] = {}
+        for k2, pts in m['seats'].items():
+            rects = []
+            for (x, y) in pts:
+                hx, hy = x + so[0], y + so[1]
+                r = [round(hx - fm['w'] / 2, 2), round(hy + fm['dy'], 2), round(hx + fm['w'] / 2, 2), round(hy + fm['dy'] + fm['h'], 2)]
+                rects.append(r); d.rectangle([W * r[0] / 100, H * r[1] / 100, W * r[2] / 100, H * r[3] / 100], outline=DEPT_COL[k2], width=2)
+            m['frontMasks'][k2] = rects
         l = m['lab']; d.rectangle([W * l[0] / 100, H * l[1] / 100, W * l[2] / 100, H * l[3] / 100], outline=(0, 200, 255), width=3)
         for x, y in m['robots']: d.ellipse([W * x / 100 - 6, H * y / 100 - 6, W * x / 100 + 6, H * y / 100 + 6], fill=(0, 200, 255))
         c.save(os.path.join(out_dir, f'check-{tid}.png'))
