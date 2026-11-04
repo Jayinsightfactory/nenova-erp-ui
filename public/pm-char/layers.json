@@ -1598,5 +1598,195 @@
   "fairy": "/pm-char/thumb/char.fairy.webp",
   "robot": "/pm-char/thumb/char.robot.webp",
   "cactus": "/pm-char/thumb/char.cactus.webp"
+ },
+ "iso": {
+  "canvas": 384,
+  "camera": {
+   "elev": 30,
+   "az": 45
+  },
+  "anchors": {
+   "floor": [
+    171.9,
+    247.2
+   ],
+   "top": [
+    202.1,
+    170.5
+   ],
+   "deskL": [
+    151.8,
+    152.1
+   ],
+   "deskM": [
+    195.4,
+    173.9
+   ],
+   "deskR": [
+    238.9,
+    195.7
+   ],
+   "pet": [
+    245.6,
+    307.6
+   ]
+  },
+  "note": "상판 소품은 deskM 에 렌더 — deskL/deskR 는 (앵커 - deskM) 만큼 평행이동. 반대 방향 책상은 scaleX(-1)",
+  "items": {
+   "desk.wood": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.wood.webp"
+   },
+   "desk.pastel": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.pastel.webp"
+   },
+   "desk.neon": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.neon.webp"
+   },
+   "desk.soban": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.soban.webp"
+   },
+   "desk.greenhouse": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.greenhouse.webp"
+   },
+   "desk.arcade": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.arcade.webp"
+   },
+   "desk.easel": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.easel.webp"
+   },
+   "desk.console": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.console.webp"
+   },
+   "desk.bamboo": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.bamboo.webp"
+   },
+   "desk.snow": {
+    "slot": "desk",
+    "src": "/pm-char/iso/desk.snow.webp"
+   },
+   "top.plant": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.plant.webp"
+   },
+   "top.mug": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.mug.webp"
+   },
+   "top.lamp": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.lamp.webp"
+   },
+   "top.frame": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.frame.webp"
+   },
+   "top.keyboard": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.keyboard.webp"
+   },
+   "top.snowglobe": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.snowglobe.webp"
+   },
+   "top.vase": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.vase.webp"
+   },
+   "top.coffee": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.coffee.webp"
+   },
+   "top.cactus": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.cactus.webp"
+   },
+   "top.calc": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.calc.webp"
+   },
+   "top.globe": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.globe.webp"
+   },
+   "top.box": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.box.webp"
+   },
+   "top.trophy": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.trophy.webp"
+   },
+   "top.monitor": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.monitor.webp"
+   },
+   "top.shell": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.shell.webp"
+   },
+   "top.inkstone": {
+    "slot": "deskTop",
+    "src": "/pm-char/iso/top.inkstone.webp"
+   },
+   "pet.puppy": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.puppy.webp",
+    "frames": 2
+   },
+   "pet.kitten": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.kitten.webp",
+    "frames": 2
+   },
+   "pet.bunny": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.bunny.webp",
+    "frames": 2
+   },
+   "pet.chick": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.chick.webp",
+    "frames": 2
+   },
+   "pet.bee": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.bee.webp",
+    "frames": 2
+   },
+   "pet.butterfly": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.butterfly.webp",
+    "frames": 2
+   },
+   "pet.fish": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.fish.webp",
+    "frames": 2
+   },
+   "pet.hamster": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.hamster.webp",
+    "frames": 2
+   },
+   "pet.penguin": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.penguin.webp",
+    "frames": 2
+   },
+   "pet.turtle": {
+    "slot": "pet",
+    "src": "/pm-char/iso/pet.turtle.webp",
+    "frames": 2
+   }
+  }
  }
 }

@@ -105,4 +105,20 @@ g = fp.grantPass(g.passes, '*', { start: '2026-12-01', days: 7 });
 assert.ok(g.ok && Object.keys(g.passes.people).length === 0 && g.passes.default.start === '2026-12-01', '전체 재지급');
 assert.strictEqual(fp.grantPass(P, 'x', { start: '11/04', days: 7 }).status, 400);
 assert.strictEqual(fp.grantPass(P, 'x', { start: '2026-11-04', days: 99 }).status, 400);
+
+// 6) 장면용 아이소 세트: 책상10·상판16·펫10(2프레임), 앵커 = pmDeskSlots, 정합 보고서
+const ds2 = (() => { const p2 = path.join(dir, 'pmDeskSlotsIso.cjs'); fs.writeFileSync(p2, cjs('pmDeskSlots.js', 'PM_DESK_ISO, isoPlacement, isoDeskTop, PM_DESK_ISO_SCALE')); return require(p2); })();
+assert.ok(L.iso, 'layers.iso');
+assert.strictEqual(Object.values(L.iso.items).filter((x) => x.slot === 'desk').length, 10);
+assert.strictEqual(Object.values(L.iso.items).filter((x) => x.slot === 'deskTop').length, 16);
+assert.strictEqual(Object.values(L.iso.items).filter((x) => x.slot === 'pet' && x.frames === 2).length, 10);
+for (const it of Object.values(L.iso.items)) assert.ok(fs.existsSync(path.join(root, 'public', it.src)), it.src);
+assert.deepStrictEqual(ds2.PM_DESK_ISO.anchors, L.iso.anchors, '아이소 앵커 = layers.json');
+const RI = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'pm-char', 'fit-report-iso.json'), 'utf8'));
+assert.strictEqual(RI.outOfSlot, 0, '아이소 슬롯 밖 0');
+assert.strictEqual(RI.anchorOnPixel, 26, '책상 상판 앵커·소품 바닥 ±2px');
+const ip = ds2.isoPlacement([1000, 500], 0.5, { dir: 'right' });
+assert.ok(ip.flip && ip.size === 192 && ip.left === 1000 - (384 - L.iso.anchors.top[0]) * 0.5);
+assert.deepStrictEqual(ds2.isoDeskTop([20, 18, 28, 24]), [24, 21]);
+assert.strictEqual(Object.keys(ds2.PM_DESK_ISO_SCALE).join(''), 'ABCDEFGHIJ');
 console.log('pmCharacter ok', files.length, 'layer files');

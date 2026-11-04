@@ -204,7 +204,35 @@ export function SeatedCharacter({ cfg, seat, hideBelowHip = true, ...rest }) {
     </span>
   );
 }
-export function DeskDecor({ cfg, seat, showDesk = true }) {
+//   view='iso': 장면 배경과 같은 아이소메트릭 시점 스프라이트(public/pm-char/iso). anchor={x,y}=책상 상판 중심(장면 px, deskAnchor().desk),
+//   anchorKind='floor' 면 책상 앞 바닥점 기준. scale=장면 배율(map.deskScale×장면폭/1600), dir='right'=반대 방향 책상(좌우 반전), z=깊이.
+//   그리는 것: 책상 스킨(z+2) → 상판 소품 3칸(z+3) → 펫(z+4, 2프레임). 러그·의자·책장은 아이소 세트 없음(배경 그림 사용).
+export function DeskDecorIso({ cfg, anchor, anchorKind = 'top', scale = 1, dir = 'left', z = 0, showDesk = true }) {
+  useCss();
+  const L = usePmLayers();
+  if (!L || !L.iso || !anchor) return null;
+  const a = normalizeAvatar(cfg); const I = L.iso; const A = I.anchors; const N = I.canvas;
+  const flip = dir === 'right';
+  const ax = flip ? N - A[anchorKind][0] : A[anchorKind][0];
+  const left = anchor.x - ax * scale; const top = anchor.y - A[anchorKind][1] * scale; const size = N * scale;
+  const tf = flip ? { transform: 'scaleX(-1)' } : null;
+  const img = (id, zz, dx = 0, dy = 0, key = id) => (id && I.items[id] ? <img key={key} src={I.items[id].src} alt="" style={{ position: 'absolute', left: left + dx * scale, top: top + dy * scale, width: size, height: size, zIndex: z + zz, pointerEvents: 'none', ...tf }} /> : null);
+  const pet = a.items.pet && I.items[a.items.pet];
+  return (
+    <>
+      {showDesk && a.items.desk && img(a.items.desk, 2)}
+      {['deskL', 'deskM', 'deskR'].map((sl) => img(a.items[sl], 3, (A[sl][0] - A.deskM[0]) * (flip ? -1 : 1), A[sl][1] - A.deskM[1], sl))}
+      {pet && <span className="pc2-pet" style={{ position: 'absolute', left, top, width: size, height: size, inset: 'auto', zIndex: z + 4, ...tf }}><img src={pet.src} alt="" /></span>}
+    </>
+  );
+}
+
+export function DeskDecor({ cfg, seat, showDesk = true, view = 'front', ...iso }) {
+  if (view === 'iso') return <DeskDecorIso cfg={cfg} showDesk={showDesk} dir={seat?.dir === 'right' ? 'right' : 'left'} z={seat?.z || 0} scale={seat?.scale || 1} {...iso} />;
+  return <DeskDecorFront cfg={cfg} seat={seat} showDesk={showDesk} />;
+}
+
+function DeskDecorFront({ cfg, seat, showDesk = true }) {
   useCss();
   const L = usePmLayers();
   if (!L || !seat) return null;

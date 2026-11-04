@@ -91,3 +91,9 @@ import { SeatedCharacter, DeskDecor } from 'components/pm/Character';
 - 옛 품목 id는 전부 유지한다.
 - 책상 소품 `desk.<소품>`은 상판 `top.<소품>`으로 이동했다(`PM_ITEM_ALIASES`). 예전에 산 품목은 새 id로도 보유로 인정한다. 화면에서는 deskM 칸에 보인다.
 - 슬롯 `desk`는 이제 책상 스킨(테이블)을 뜻한다.
+
+## 장면용 아이소 세트(public/pm-char/iso/, layers.json `iso`)
+- 배경 클레이 일러스트와 같은 시점(직교, 고도 30°·방위 45°)에서 다시 렌더: 책상 스킨 10 · 상판 소품 16(1.7배, 장면에서 디테일 보이게) · 펫 10(앉음/대기 2프레임, 1.3배).
+- 앵커(384 캔버스): top=상판 중심, floor=책상 앞(사람 쪽) 바닥, deskL/M/R=상판 칸, pet — `lib/pmDeskSlots.PM_DESK_ISO`.
+- 장면 사용: `<DeskDecor view="iso" cfg anchor={{x,y}} scale dir z />` (anchor = 상판 중심 px). 상판 중심은 장면 `frontMasks` 사각형 중심(`isoDeskTop`), 배율은 `PM_DESK_ISO_SCALE[테마] × 장면폭/1600`.
+- 재생성: `blender -b -P scripts/pm-char/build.py -- <raw-iso> "" iso` → `python scripts/pm-char/post_iso.py <raw-iso> <shots>` → `fit-report-iso.json` 복사.

@@ -9,6 +9,11 @@ from spec import BODIES, HAIRS, KINDS, OUTFITS, HATS, GLASSES, HANDS, BADGES, DE
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if argv else os.path.join(os.getcwd(), 'pmchar-raw')
 FILT = argv[1] if len(argv) > 1 else ''
+# ISO 모드: 장면 배경(클레이 아이소메트릭, 고도 30°·방위 45°)과 같은 카메라로 책상 스킨·상판 소품·펫만 렌더 → <이름>@iso.png + iso-anchors.json
+ISO = len(argv) > 2 and argv[2] == 'iso'
+ISO_ELEV, ISO_AZ = math.radians(30), math.radians(45)
+ISO_SCALE, ISO_PX = 4.05, 768
+ISO_CENTER = (0.0, 0.3, 0.55)
 os.makedirs(OUT, exist_ok=True)
 ELEV = math.radians(12)
 CH_SCALE, CH_PX = 2.7, 512          # 캐릭터 캔버스: 2.7m → 512px(후처리에서 256)
@@ -34,6 +39,14 @@ light('key', (-3, -5, 6), 900, 6, (math.radians(45), 0, math.radians(-30)))
 light('fill', (4, -4, 3), 300, 6, (math.radians(60), 0, math.radians(45)))
 cam_d = bpy.data.cameras.new('cam'); cam_d.type = 'ORTHO'
 cam = bpy.data.objects.new('cam', cam_d); sc.collection.objects.link(cam); sc.camera = cam
+
+def set_cam_iso(center, scale, px):
+    import mathutils
+    cam.rotation_euler = (math.radians(90) - ISO_ELEV, 0, ISO_AZ)
+    fwd = cam.rotation_euler.to_matrix() @ mathutils.Vector((0, 0, -1))
+    cam.location = mathutils.Vector(center) - fwd * 20
+    cam_d.ortho_scale = scale; cam_d.clip_end = 100
+    sc.render.resolution_x = sc.render.resolution_y = px
 
 def set_cam(center, scale, px):
     cx, cy, cz = center; dist = 20
@@ -374,7 +387,7 @@ def desktop(spec):
     elif shp == 'calc': box((x, y, z + 0.02), (0.2, 0.26, 0.04), c, b=0.02, rot=(math.radians(-8), 0, 0)); box((x, y - 0.06, z + 0.05), (0.15, 0.06, 0.01), '#bfe8d8', b=0.0)
     elif shp == 'box': box((x, y, z + 0.1), (0.3, 0.24, 0.2), c, b=0.03); face((x, y - 0.125, z + 0.1), 0.9)
     elif shp == 'trophy': cyl((x, y, z + 0.03), 0.09, 0.06, '#8a5a3a'); cyl((x, y, z + 0.2), 0.11, 0.2, c, r2=0.04, rot=(math.radians(180), 0, 0), rough=0.35); face((x, y - 0.1, z + 0.22), 0.7)
-    elif shp == 'monitor': box((x, y + 0.05, z + 0.3), (0.55, 0.05, 0.36), c, b=0.03); box((x, y + 0.02, z + 0.3), (0.48, 0.01, 0.29), '#33f0ff', emit=1.0, b=0.0); cyl((x, y + 0.05, z + 0.06), 0.03, 0.12, c)
+    elif shp == 'monitor': box((x, y + 0.05, z + 0.3), (0.55, 0.05, 0.36), c, b=0.03); box((x, y + 0.02, z + 0.3), (0.48, 0.01, 0.29), '#33f0ff', emit=1.0, b=0.0); cyl((x, y + 0.05, z + 0.06), 0.03, 0.12, c); cyl((x, y, z + 0.01), 0.12, 0.02, c)
     elif shp == 'shell': sphere((x, y, z + 0.07), 0.13, c, scale=(1.2, 0.8, 0.6)); face((x, y - 0.1, z + 0.08), 0.7)
 
 def floor_item(spec):
@@ -408,6 +421,7 @@ def floor_item(spec):
         for (dx, dz, s) in ((0, 0.75, 1.2), (-0.15, 0.6, 1), (0.16, 0.62, 1)): sphere((x + dx, y, dz), 0.18 * s, c, scale=(1, 1, 1.5))
 
 PET_POS = (1.35, -0.25, 0.0)
+ISO_PET_POS = (1.45, -0.35, 0.0)   # 아이소: 책상 오른쪽 앞 바닥(사람 쪽 = -y)
 def pet(spec, frame):
     pid, name, c, shp = spec
     x, y, z = PET_POS
@@ -468,8 +482,19 @@ for p in PETS:
 import mathutils
 ROT = mathutils.Matrix.Rotation(SIT_YAW, 4, 'Z')
 CHAR_PREFIX = ('body@', 'outfit.', 'hand.', 'badge.', 'face', 'hair.', 'kind.', 'hat.', 'glasses.')
+if ISO:
+    build = [(g, fn) for g, fn in build if g.startswith(('desk.', 'top.', 'pet.'))]
+    PET_POS = ISO_PET_POS
+ISO_GROW = {'top.': (1.7, (0, 0.35, 0.75)), 'pet.': (1.3, (1.45, -0.35, 0.0))}   # 장면에서 작게 보여 디테일이 안 보이던 문제 → 아이소 세트만 키움
 for g, fn in build:
+    before_iso = set(sc.objects) if ISO else None
     GRP[0] = g; POSE[0] = 'stand'; fn()
+    if ISO:
+        for pre, (k, (px_, py_, pz_)) in ISO_GROW.items():
+            if g.startswith(pre):
+                bpy.context.view_layer.update()
+                for o in set(sc.objects) - before_iso:
+                    o.location = (px_ + (o.location.x - px_) * k, py_ + (o.location.y - py_) * k, pz_ + (o.location.z - pz_) * k); o.scale = tuple(v * k for v in o.scale)
     if g.startswith(CHAR_PREFIX):
         before = set(sc.objects)
         GRP[0] = g + '~sit'; POSE[0] = 'sit'; fn(); bpy.context.view_layer.update()
@@ -487,11 +512,25 @@ def render(target, holdout, cam_kind, name):
         if g == '__cutter': o.hide_render = True; continue
         o.hide_render = not (g in target or g in holdout)
         o.is_holdout = g in holdout
-    if cam_kind == 'ch': set_cam(CH_CENTER, CH_SCALE, CH_PX)
+    if cam_kind == 'iso': set_cam_iso(ISO_CENTER, ISO_SCALE, ISO_PX)
+    elif cam_kind == 'ch': set_cam(CH_CENTER, CH_SCALE, CH_PX)
     else: set_cam(DK_CENTER, DK_SCALE, DK_PX)
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
 
+if ISO:
+    from bpy_extras.object_utils import world_to_camera_view
+    import json, mathutils
+    set_cam_iso(ISO_CENTER, ISO_SCALE, ISO_PX); bpy.context.view_layer.update()
+    def px(p):
+        v = world_to_camera_view(sc, cam, mathutils.Vector(p)); return [round(v.x * ISO_PX / 2, 1), round((1 - v.y) * ISO_PX / 2, 1)]   # 출력 384 기준
+    A = {'canvas': 384, 'floor': px((0, 0, 0)), 'top': px((0, 0.45, TOP_Z)), 'deskL': px((-0.65, 0.35, TOP_Z)), 'deskM': px((0, 0.35, TOP_Z)), 'deskR': px((0.65, 0.35, TOP_Z)), 'pet': px(ISO_PET_POS), 'elev': 30, 'az': 45}
+    json.dump(A, open(os.path.join(OUT, 'iso-anchors.json'), 'w'), indent=1)
+    for d in DESKS: render({d[0]}, set(), 'iso', d[0] + '@iso')
+    for t in DESKTOP: render({t[0]}, set(), 'iso', t[0] + '@iso')
+    for p_ in PETS:
+        for fr in (0, 1): render({f'{p_[0]}#{fr}'}, set(), 'iso', f'{p_[0]}#{fr}@iso')
+    print('PMCHAR_DONE', OUT); sys.exit(0)
 for bname in BODIES:
     B = f'body@{bname}'
     render({B}, set(), 'ch', f'body@{bname}')
