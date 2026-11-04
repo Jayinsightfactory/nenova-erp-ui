@@ -70,7 +70,7 @@ console.log(JSON.stringify({pass:'local full-handler extraction/matching, model 
 assert.equal(localProductReviewKey({inputName:'장미 품종',prodKey:20},[{...roses[0],ProdName:'Rose 50cm'}],{'장미 품종':{prodKey:20,manual:true}}),null,'lengthless rose alias keeps candidate review');
 
 const roseSizes=[50,60].map(cm=>({ProdKey:cm,ProdName:`ROSE SAME ${cm}cm`,DisplayName:`장미 품종 ${cm}cm`,FlowerName:'장미',CounName:'콜롬비아'}));
-const missingSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종',prodKey:50,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:50,confidence:1}))})});
+const missingSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종',prodKey:50,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async()=>{throw Error('size confirmation must not spend a model call');}}});
 assert.equal(missingSize[0].items[0].prodKey,null,'multiple actual rose lengths cannot be guessed from a lengthless alias or AI default');
 assert.match(missingSize[0].items[0].matchReason,/cm/);
 const explicitSize=await reviewPasteMatches({orders:[{custName:'검증업체',items:[{inputName:'장미 품종 60cm',prodKey:60,qty:1,unit:'단',action:'추가'}]}],customers,products:roseSizes,mappings:{},callModel:async tasks=>({decisions:tasks.map(t=>({id:t.id,key:60,confidence:1}))})});
