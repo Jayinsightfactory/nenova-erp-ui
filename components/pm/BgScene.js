@@ -18,6 +18,8 @@ import { sceneAvatar, themeKit, themeOutfits } from '../../lib/pmThemeKit';
 import { DeskDecor, SeatedCharacter, usePmLayers } from './Character';
 import { PM_DESK_ISO_SCALE, isoDeskTop } from '../../lib/pmDeskSlots';
 import { useGrow } from './grow/Grow';
+import SkillFx, { FX_CSS } from './SkillFx';
+import { mountById } from '../../lib/pmMounts';
 
 const arr = (x) => (Array.isArray(x) ? x : []);
 
@@ -176,6 +178,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
                 </g>
               );
             })}
+            <SkillFx lines={L.lines} dances={dances} avatars={avatars} reduced={reduced} />
           </svg>
 
           <div className="bg-zl lab" style={{ left: `${(lab[0] + lab[2]) / 2}%`, top: `${lab[1] + 2}%` }}>AI 연구실 <small>{arr(agents).length}</small></div>
@@ -233,6 +236,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
               <div key={`s:${x.name}`} className={`bg-seat st-${st}`} data-seat={x.name} aria-hidden>
                 <SeatedCharacter cfg={cfg} seat={seat} hideBelowHip={false} state={st} stage={g?.stage || 1} vibe={st === 'off' ? 'doze' : (v.vibe || '')} emote={st === 'off' ? 'zzz' : (v.emote || '')} dance={dances[x.name] || ''} />
                 {loaded && !isoCfg.items.desk && <i className="bg-mask" style={{ left: m0, top: m1, width: m2 - m0, height: m3 - m1, zIndex: z + 2, backgroundImage: `url(/pm/scene-bg/${map.src}.webp)`, backgroundSize: `${hostW}px ${hostH}px`, backgroundPosition: `${-m0}px ${-m1}px`, clipPath: maskClip }} />}
+                {(() => { const m = st !== 'off' && mountById((avatars[x.name]?.view || avatars[x.name])?.items?.mount); return m ? <i className="bg-mount" title={m.name} style={{ left: hx + 34 * sc, top: hy + 10 * sc, zIndex: z + 3 }}>{m.emoji}</i> : null; })()}
                 {isoOn && dt && <DeskDecor view="iso" cfg={isoCfg} anchor={{ x: dt[0], y: dt[1] }} scale={isoSc} dir={map.deskDir === 'right' ? 'right' : 'left'} z={z} showDesk={!!isoCfg.items.desk} />}
               </div>
             );
@@ -267,7 +271,7 @@ export default function BgScene({ themeId, agents, rooms, links, corridor, now, 
 }
 
 // 배경 장면 CSS — 색은 전부 토큰. ISO_CSS(.iso-nm·.iso-chip·.iso-pop 등)와 함께 쓰인다.
-export const BG_CSS = `
+export const BG_CSS = `${FX_CSS}
 .pm .bg-wrap { position: relative; }
 .pm .bg-host { position: relative; width: 100%; overflow: hidden; border-radius: calc(var(--pm-radius) + 4px); container-type: inline-size; background: var(--pm-surface2); touch-action: pan-y; outline: none; }
 .pm .bg-host.zoomed { cursor: grab; touch-action: none; }

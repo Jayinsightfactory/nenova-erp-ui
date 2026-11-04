@@ -5,6 +5,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { Badge, Button, SelectCard, Tabs, ToggleChip } from './ui';
 import { CharacterAvatar, DANCES, DeskSet, EMOTES, EMOTE_LABEL, PERSONALITIES, normalizeAvatar, usePmLayers } from './Character';
 import { useGrow } from './grow/Grow';
+import { FxCast } from './SkillFx';
+import { BASE_SKILLS, FX_RULES, castSpec, skillById, skillShopItems } from '../../lib/pmSkills';
+import { mountShopItems } from '../../lib/pmMounts';
 import { PM_DEFAULT_THEME, PM_THEMES, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb } from '../../lib/pmThemes';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null, shop: null, reloadShop: null });
@@ -14,6 +17,10 @@ export const usePmTheme = () => useContext(PmThemeCtx);
 export const SLOTS = [['outfit', '옷'], ['hat', '모자'], ['glasses', '안경'], ['hand', '손 소품'], ['badge', '배지'], ['desk', '책상'], ['deskL', '상판 왼쪽'], ['deskM', '상판 가운데'], ['deskR', '상판 오른쪽'], ['chair', '의자'], ['rug', '러그'], ['shelf', '책장·큰 소품'], ['pet', '펫']];
 const SLOT_CAT = { deskL: 'deskTop', deskM: 'deskTop', deskR: 'deskTop' };
 const SLOT_UNLOCK = { rug: 2, shelf: 3 };
+// 스킬·탈것 탭(lib/pmSkills·pmMounts, 가격·해금은 서버가 같은 데이터로 검증). 기본 9종 이펙트는 무료·자동(단계별)
+export const FX_SLOTS = [['skillBasic', '스킬: 기본공격'], ['skillUlt', '스킬: 궁극기'], ['mount', '탈것']];
+const FX_ITEMS = { skillBasic: () => skillShopItems().filter((x) => x.tier === 'basic'), skillUlt: () => skillShopItems().filter((x) => x.tier !== 'basic'), mount: () => mountShopItems() };
+const ALL_FX = () => [...skillShopItems(), ...mountShopItems()];
 const STATE_LABEL = { idle: '대기', working: '작업중', off: '꺼짐', error: '오류', handoff: '넘김' };
 
 export function usePmThemeState(who = '') {
@@ -163,6 +170,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(false);
+  const [fxPlay, setFxPlay] = useState(0);
   useEffect(() => { setCfg(base(saved)); }, [name, saved]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!dance) return undefined; const t = setTimeout(() => setDance(''), 2600); return () => clearTimeout(t); }, [dance]);
   useEffect(() => { setMsg(''); setFocus(null); }, [name]);
@@ -174,17 +182,19 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const list = slot === 'char'
     ? manifest.characters.map((c) => ({ key: `char.${c.id}`, id: c.id, name: c.name, price: c.price, rarity: c.rarity, src: c.src, on: cfg.char === c.id }))
     : slot === 'base' ? []
+    : FX_ITEMS[slot] ? FX_ITEMS[slot]().map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, emoji: x.emoji, need: x.unlockStage, theme: x.theme, on: cfg.items[slot] === x.id }))
     : manifest.items.filter((x) => !x.hidden && x.category === (SLOT_CAT[slot] || slot)).map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, src: x.icon || x.src, theme: x.theme, on: cfg.items[slot] === x.id }));
   const slotShut = SLOT_UNLOCK[slot] && myStage < SLOT_UNLOCK[slot] && !freeOn;
   const choose = (x) => {
-    setFocus(x);
-    if (slotShut) return;
+    setFocus(x); setFxPlay((n) => n + 1);
+    if (slotShut || (x.need > myStage && !freeOn)) return;
     if (slot === 'char') setCfg((c) => ({ ...c, char: x.id }));
     else setCfg((c) => ({ ...c, items: { ...c.items, [slot]: c.items[slot] === x.id ? undefined : x.id } }));
   };
   const chosen = [
     ...manifest.characters.filter((c) => c.id === cfg.char).map((c) => ({ key: `char.${c.id}`, name: c.name, price: c.price })),
     ...manifest.items.filter((x) => Object.values(cfg.items).includes(x.id)).map((x) => ({ key: x.id, name: x.name, price: x.price })),
+    ...ALL_FX().filter((x) => Object.values(cfg.items).includes(x.id)).map((x) => ({ key: x.id, name: x.name, price: x.price })),
   ];
   const needBuy = chosen.filter((x) => !usable(x.key, x.price));
   const notBought = chosen.filter((x) => !isOwned(x.key, x.price));
@@ -225,7 +235,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
           <div className="czst" role="group" aria-label="미리보기 상태">
             {manifest.states.map((s) => <ToggleChip key={s} on={st === s} onClick={() => setSt(s)}>{STATE_LABEL[s] || s}</ToggleChip>)}
           </div>
-          <Tabs className="slots" label="꾸미기 슬롯" value={slot} onChange={(k) => { setSlot(k); setFocus(null); }} items={[['base', '몸·헤어·성격'], ['char', '캐릭터'], ...SLOTS]} />
+          <Tabs className="slots" label="꾸미기 슬롯" value={slot} onChange={(k) => { setSlot(k); setFocus(null); }} items={[['base', '몸·헤어·성격'], ['char', '캐릭터'], ...SLOTS, ...FX_SLOTS]} />
         </section>
         <section className="sitems" aria-label="아이템 목록">
           {slot === 'base' && <BasePicker cfg={cfg} setCfg={setCfg} />}
@@ -235,10 +245,10 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             const poor = !own && wallet && wallet.balance < x.price;
             return (
               <SelectCard key={x.key} className={`sitem ${own ? 'own' : 'lock'} ${poor ? 'poor' : ''}`} on={x.on} pressed={x.on} onClick={() => choose(x)} title={`${x.name} · ${RARITY[x.rarity] || ''}`}>
-                <img src={x.src} alt="" loading="lazy" />
+                {x.emoji ? <span className="fxi" aria-hidden>{x.emoji}</span> : <img src={x.src} alt="" loading="lazy" />}
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
-                <small className={`czr r-${x.rarity || 'basic'}`}>{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
+                <small className={`czr r-${x.rarity || 'basic'}`}>{x.need > myStage && !freeOn ? `🌱 ${x.need}단계 · ` : ''}{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
               </SelectCard>
             );
           })}
@@ -247,7 +257,8 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
         <section className="sside">
           {f && (
             <div className="sdetail">
-              <div className="dimg"><img src={f.src} alt="" /></div>
+              {f.emoji ? <FxPreview f={f} slot={slot} play={fxPlay} reduced={reducedMotion()} /> : <div className="dimg"><img src={f.src} alt="" /></div>}
+              {f.emoji && <Button size="sm" onClick={() => setFxPlay((n) => n + 1)}>▶ 이펙트 재생</Button>}
               <b>{f.name}</b>
               <small className={`czr r-${f.rarity || 'basic'}`}>{RARITY[f.rarity] || '기본'} · {!f.price ? '무료' : fOwned ? '보유중' : `${f.price}토큰`}</small>
             </div>
@@ -271,6 +282,22 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
         <Button size="sm" variant="ghost" aria-expanded={hist} onClick={() => setHist((h) => !h)}>{hist ? '지갑 내역 접기' : '지갑 내역(적립·구매) 보기'}</Button>
         {hist && <WalletPanel name={name} wallet={wallet} />}
       </div>
+    </div>
+  );
+}
+
+const reducedMotion = () => { try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+// 상점 미리보기: 스킬 = 같은 FxCast 로 캐릭터→스테이션 발사 재생, 탈것 = 아이콘 크게
+function FxPreview({ f, slot, play, reduced }) {
+  if (slot === 'mount') return <div className="dimg fxprev"><span className="fxi big" aria-hidden>{f.emoji}</span></div>;
+  const sk = skillById(f.id) || BASE_SKILLS[0];
+  const spec = castSpec(sk, { name: 'preview', stage: 3, tier: sk.tier === 'basic' ? 'basic' : 'ult', reason: 'preview' }, reduced);
+  return (
+    <div className="dimg fxprev">
+      <svg viewBox="0 0 220 120" role="img" aria-label={`${f.name} 이펙트 미리보기 · 쿨다운 ${FX_RULES.personGapMs / 1000}초`}>
+        <circle cx="200" cy="60" r="12" className="fx-st" />
+        <FxCast key={play} uid={`pv${play}`} spec={spec} a={[20, 90]} b={[200, 60]} d="M20,90 Q110,0 200,60" />
+      </svg>
     </div>
   );
 }
