@@ -240,14 +240,19 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const updateLabels = () => {
       const box = labelsRef.current; if (!box) return;
       const w = el.clientWidth; const h = el.clientHeight;
+      // 실제 렌더된 칩 크기로 겹침을 판정한다(고정 추정폭 → 로봇/작업 칩이 겹쳐 보이던 버그).
+      const sizeOf = (key, fw, fh) => {
+        const n = box.querySelector(`[data-k="${CSS.escape(key)}"]`);
+        return n && n.offsetWidth ? { w: n.offsetWidth, h: n.offsetHeight } : { w: fw, h: fh };
+      };
       const items = [];
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
-        P.ch.getWorldPosition(v); v.y += 1.45; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, w: 56, h: 16 });
-        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, w: 150, h: 30 }); }
+        P.ch.getWorldPosition(v); v.y += 1.45; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
+        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, ...sizeOf('w:' + name, 150, 30) }); }
       }
-      for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
-      for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
+      for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }
+      for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('rb' + o.userData.i, 170, 18) }); }
       const placed = declutter(items);
       for (const it of placed) {
         const n = box.querySelector(`[data-k="${CSS.escape(it.key)}"]`); if (!n) continue;
