@@ -16,6 +16,12 @@ import time
 import traceback
 import urllib.request
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 BASE = os.environ.get("NENOVAWEB_BASE", "https://nenovaweb.com").rstrip("/")
 TOKEN = os.environ.get("ORBIT_DRIVE_INGEST_TOKEN", "").strip()
 
