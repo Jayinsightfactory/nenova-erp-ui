@@ -16,6 +16,7 @@ const ChecklistTool=dynamic(()=>import('../../components/import-tools/ChecklistT
 const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'),{ssr:false,loading});
 const Products=dynamic(()=>import('../master/products'),{ssr:false,loading});
 const Incoming=dynamic(()=>import('../incoming'),{ssr:false,loading});
+const IncomingApproval=dynamic(()=>import('../../components/IncomingApproval'),{ssr:false,loading});
 const EMPTY_RECEIPT_SOURCE=Object.freeze({excels:Object.freeze([]),invoices:Object.freeze([]),country:'',file:null,products:Object.freeze([]),reviewConfirmed:false,truncated:false});
 const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','일일 업무','요일 업무 · 미결 · 결제'],['flights','항공 일정','추가 · 수정 · 도착/반입'],['vacations','휴가 관리','잔여 일수 · 계정 이력'],['planting','재배 계획','배정 추가 · 수정 · 삭제'],['feedback','불량 피드백','기존 피드백 · 처리 이력'],['handoff','인수인계·특이사항','이슈 · 처리 · 주의 · 체크'],['history','변경 이력','공동 자료 수정 기록'],['products','품목관리','단수 · 송이 · 무게 · 관세 일괄 입력']];
 const checklistTabs={checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'};
@@ -79,8 +80,8 @@ export default function ImportTools({userId='',initialTab='packing'}){
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    <section id="import-panel-incoming" hidden={tab!=='incoming'} aria-label="입고 조회·수정">
-    <div className={styles.sectionHeading}><div><h2>입고 조회·수정</h2><p>입고를 선택한 뒤 ‘농장·품목 수정 / 파일 교체’를 누르세요. 수정창에서 변경 전후와 최근 수정 이력을 확인할 수 있습니다.</p><p>현재는 기존 입고 수정 기능을 사용합니다. 수입부 수정 요청 → 영업지원 매칭·확정 절차는 아직 제공되지 않습니다.</p></div><a href="/incoming">입고관리에서 열기 ↗</a></div>
-    {incomingVisited&&<Incoming embedded active={tab==='incoming'} onClose={()=>selectTab('packing')}/>}
+    <div className={styles.sectionHeading}><div><h2>입고 조회·수정</h2><p>수입부 수정 요청 → 영업지원 매칭·확정 → 처리 이력</p></div><a href="/incoming">입고관리에서 열기 ↗</a></div>
+    {incomingVisited&&<IncomingApproval active={tab==='incoming'}><Incoming embedded active={tab==='incoming'} onClose={()=>selectTab('packing')}/></IncomingApproval>}
    </section>
    {productsDirty&&tab!=='products'&&<p role="status">품목관리의 저장 전 입력을 보관 중입니다. <button type="button" onClick={()=>selectTab('products')}>품목관리로 돌아가기</button></p>}
    <div id="import-panel-packing" hidden={tab!=='packing'}>

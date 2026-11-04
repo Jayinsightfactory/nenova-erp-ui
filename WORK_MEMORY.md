@@ -2019,6 +2019,9 @@
 
 중국 단가 후속 검증: 전체 test:erp-contract exit0, dnSpy/manifest/write/UI-layout PASS, worker1 webpack build PASS. 최신 master 입고정정 변경 FF 통합(업무파일 충돌없음). 운영 CUA 브라우저 연결은 Work 설정 disabled라 로그인 UI 직접확인 제한; PR/Cafe24 진행중.
 
+2026-11-04 입고 정정 승인 구현: nw-incoming-approval-flow-1104, web_mgmt 전용 TargetKind 요청/매칭/최종확정 단일트랜잭션. 농장-only 보존, 감소/이동/독립추가, 양수 대체주문 명시연결, native 후속연도/견적매출 readback. Unit11 및 격리SQL 실제writer/권한CAS/2025보존2027cascade/native감사실패음수롤백 PASS. 모의Chrome1920/390 PASS, 전체ERP 및 첫build exit0. 원가연결/확정손익/농장배정 수량변경 지원제한, 최종build/CI/배포 미완. 운영쓰기0. 정본 docs/work-sessions/2026-11-04_incoming-approval-flow.md.
+검색어: incomingApproval WAREHOUSE_CORRECTION_V1 수입부수정요청 영업지원매칭확정 원자반영
+
 2026-11-04 웹 작업흐름 로그: 기존 전역 activity 보강. workflowId/requestId/순번·요청시도/응답·단절 미확인·허용 집계/감사키만 기록, 계정분리/위조배제 회귀 PASS. 실제 dnSpy 로그인/DBMSSQL/분배 저장 조사, 운영 EXE/원장 보존. EXE 별도 계측본+로컬저널 권장, 패치/격리 호환성 미검증. 전체 ERP/빌드/배포 진행중; 정본 docs/work-sessions/2026-11-04_web-audit-coverage.md.
 검색어: workflowId requestId userActivity EXE 작업파이프라인 dnSpy 계측
 

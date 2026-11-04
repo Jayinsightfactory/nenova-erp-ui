@@ -275,6 +275,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected})}>농장·품목 수정 / 파일 교체</Button>
+        <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected,approval:true})}>수입부 수정 요청</Button>
         {!embedded && <Button size="small" href={incomingWorkspaceHref({warehouseKey:selectedKey,from:startDate,to:endDate,farm:farmFilter,week:weekFilter,q:masterSearch,popup})}>입고 정정 업무</Button>}
         <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
         <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>
@@ -348,7 +349,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         </Col>
       </Row>
 
-      {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(`입고 #${result.warehouseKey} 수정 완료`); setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
+      {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(result.approval?`수정 요청 #${result.requestId} 초안 저장 · 입고 정정 업무에서 영업지원에 요청하세요.`:`입고 #${result.warehouseKey} 수정 완료`); if(result.approval){window.dispatchEvent(new Event('incoming-approval-saved'));return;} setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>
