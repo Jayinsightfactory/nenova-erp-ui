@@ -1089,3 +1089,5 @@ Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 �
 
 ## 2026-11-04 불량 단가없음과 출고 품목 매칭 오류
 태림 그로우3389/오션송2473은 실제 최근 출고품목3397/2085와 달라 단가가 없었다. 동일이름만으로 자동단가/품목을 치환하지 않으며 실제후보·업체·차수·단위 표시와 기존 manage-edit CAS 재검사를 사용한다. DB조회 실패를 단가0으로 삼키지 않는다. 라움 이전 차감 견적10499/10707 실체없음은 고객출고없음이 아니라 보류이며 사용자 지시로 재등록하지 않는다. 회귀 defectCostCandidates.test.js 및 defect-cost-held-smoke.cjs.
+
+2026-11-04 선택 보류 가드: WebSalesDefectDeductionHistory의 SUPPORT_HOLD/RESUME만 쓰고 원장/Estimate 보존. 해당 원장 UPDLOCK과 최신이력 CAS 필수. 등록 판정에서 manualHeld를 누락하거나 보류 해제로 원문·단가·중복 검사를 해제하지 않는다. 기준 DEFECT_DEDUCTION_MAINTENANCE.md, 회귀 defectManualHold.test.js.

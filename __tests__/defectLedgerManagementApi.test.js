@@ -50,3 +50,12 @@ assert.equal(releasePreview.statusCode,200);
 assert.equal(logCalls,2,'source preview is authenticated but does not write an action log');
 assert.equal(ddlCalls,1,'source reconciliation never runs runtime schema setup');
 console.log('defect management HTTP route: read-only logger bypass, denied preview, raw year conflict and write audit passed');
+
+let holdInput;
+context.setSupportManualHold=async input=>{holdInput=input;return {held:input.hold,preview:input.preview};};
+const beforeHoldLogs=logCalls,beforeHoldDdl=ddlCalls;
+const holdPreview=await call({action:'support-hold',hold:true,preview:true});
+assert.equal(holdPreview.statusCode,200);assert.equal(holdInput.year,2026);assert.equal(holdInput.week,40);assert.equal(holdInput.preview,true);assert.equal(logCalls,beforeHoldLogs);assert.equal(ddlCalls,beforeHoldDdl);
+const holdSave=await call({action:'support-hold',hold:false,preview:false});
+assert.equal(holdSave.statusCode,200);assert.equal(holdInput.hold,false);assert.equal(logCalls,beforeHoldLogs+1);assert.equal(ddlCalls,beforeHoldDdl);
+console.log('manual hold HTTP route: normalized scope, preview/no-DDL, audited save PASS');
