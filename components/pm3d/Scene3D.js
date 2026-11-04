@@ -231,7 +231,12 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       if (dead) return;
       raf = requestAnimationFrame(tick);
       const now = performance.now();
-      if (!visible || document.hidden) { st.clock.getDelta(); return; }
+      if (!visible || document.hidden) {
+        st.clock.getDelta();
+        // 가려진 동안은 FPS 측정 일시정지(배경 탭 스로틀로 저사양 오판 방지)
+        if (st.built && !st.checked) { st.fpsT0 = now + 500; st.frames = 0; }
+        return;
+      }
       const measuring = st.built && !st.checked;
       const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk);
       if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
@@ -263,10 +268,14 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       // 저사양 판정
       if (st.built && st.firstFrame == null) { st.firstFrame = now - mountAt; st.fpsT0 = now + FPS_WARMUP_MS; st.frames = 0; }
       else if (measuring && now >= st.fpsT0) {
-        st.frames++;
+        st.frames++; if (st.lastT) st.maxGap = Math.max(st.maxGap || 0, now - st.lastT); st.lastT = now;
         if (now - st.fpsT0 > FPS_WINDOW_MS) {
+          // 500ms+ 프레임 공백 = 브라우저 백그라운드 스로틀 → 저사양 오판 방지, 최대 3회 재측정
+          const throttled = (st.maxGap || 0) > 500;
+          if (throttled && (st.retry || 0) < 3) { st.retry = (st.retry || 0) + 1; st.fpsT0 = now + 500; st.frames = 0; st.maxGap = 0; st.lastT = 0; return; }
           st.checked = true; const fps = Math.round(st.frames * 1000 / (now - st.fpsT0));
-          const why = shouldFallback({ firstFrameMs: st.firstFrame - st.loadMs, fps: red ? null : fps });
+          // 재측정까지 전부 스로틀이면 측정 불가로 보고 폴백하지 않음(가려진 창 오판 방지)
+          const why = throttled ? '' : shouldFallback({ firstFrameMs: st.firstFrame - st.loadMs, fps: red ? null : fps });
           setStat((x) => `${x} · 첫 프레임 ${Math.round(st.firstFrame)}ms · ${fps}fps`);
           if (typeof window !== 'undefined') window.__pm3dStat = { firstFrameMs: Math.round(st.firstFrame), loadMs: st.loadMs, fps };
           if (why) onFallback?.(why);
