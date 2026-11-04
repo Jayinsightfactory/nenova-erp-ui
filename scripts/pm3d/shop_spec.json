@@ -1,0 +1,884 @@
+{
+ "generated": "2026-11-04",
+ "characters": [
+  {
+   "key": "char.human",
+   "id": "human",
+   "skin": "#ffe0c7",
+   "hair": "#9a7bd1",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [],
+   "temp": false
+  },
+  {
+   "key": "char.cat",
+   "id": "cat",
+   "skin": "#f6cf9a",
+   "hair": "#e8a85c",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "cone",
+     "p": [
+      0.24,
+      1.93,
+      0
+     ],
+     "r": 0.13,
+     "h": 0.26,
+     "c": "hair"
+    },
+    {
+     "shape": "cone",
+     "p": [
+      -0.24,
+      1.93,
+      0
+     ],
+     "r": 0.13,
+     "h": 0.26,
+     "c": "hair"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.dog",
+   "id": "dog",
+   "skin": "#eccfa4",
+   "hair": "#b07a4e",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "ball",
+     "p": [
+      0.45,
+      1.58,
+      0
+     ],
+     "r": 0.13,
+     "s": [
+      0.55,
+      1.5,
+      0.9
+     ],
+     "c": "hair"
+    },
+    {
+     "shape": "ball",
+     "p": [
+      -0.45,
+      1.58,
+      0
+     ],
+     "r": 0.13,
+     "s": [
+      0.55,
+      1.5,
+      0.9
+     ],
+     "c": "hair"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.bunny",
+   "id": "bunny",
+   "skin": "#ffe9ef",
+   "hair": "#f7b6cf",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "ball",
+     "p": [
+      0.16,
+      2.1,
+      -0.04
+     ],
+     "r": 0.1,
+     "s": [
+      0.8,
+      2.6,
+      0.6
+     ],
+     "c": "hair"
+    },
+    {
+     "shape": "ball",
+     "p": [
+      -0.16,
+      2.1,
+      -0.04
+     ],
+     "r": 0.1,
+     "s": [
+      0.8,
+      2.6,
+      0.6
+     ],
+     "c": "hair"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.bear",
+   "id": "bear",
+   "skin": "#c89064",
+   "hair": "#8a5a36",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "ball",
+     "p": [
+      0.3,
+      1.9,
+      0
+     ],
+     "r": 0.13,
+     "c": "hair"
+    },
+    {
+     "shape": "ball",
+     "p": [
+      -0.3,
+      1.9,
+      0
+     ],
+     "r": 0.13,
+     "c": "hair"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.fox",
+   "id": "fox",
+   "skin": "#ffcf9e",
+   "hair": "#e07b39",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "cone",
+     "p": [
+      0.27,
+      1.95,
+      0
+     ],
+     "r": 0.14,
+     "h": 0.3,
+     "c": "hair"
+    },
+    {
+     "shape": "cone",
+     "p": [
+      -0.27,
+      1.95,
+      0
+     ],
+     "r": 0.14,
+     "h": 0.3,
+     "c": "hair"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.penguin",
+   "id": "penguin",
+   "skin": "#fffdf5",
+   "hair": "#2b3a4a",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "cone",
+     "p": [
+      0,
+      1.46,
+      0.52
+     ],
+     "r": 0.07,
+     "h": 0.18,
+     "rot": [
+      1.5708,
+      0,
+      0
+     ],
+     "c": "#ff9a3c"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.fairy",
+   "id": "fairy",
+   "skin": "#ffe0cc",
+   "hair": "#8fd7b7",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": false,
+   "attach": [
+    {
+     "shape": "torus",
+     "p": [
+      0,
+      1.95,
+      0
+     ],
+     "R": 0.32,
+     "r": 0.06,
+     "c": "#ff9cf0"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.robot",
+   "id": "robot",
+   "skin": "#cfd8e4",
+   "hair": "#9aa6b5",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": true,
+   "attach": [
+    {
+     "shape": "cyl",
+     "p": [
+      0,
+      2,
+      0
+     ],
+     "r": 0.025,
+     "h": 0.24,
+     "c": "skin"
+    },
+    {
+     "shape": "ball",
+     "p": [
+      0,
+      2.14,
+      0
+     ],
+     "r": 0.06,
+     "c": "#ffd166"
+    }
+   ],
+   "temp": true
+  },
+  {
+   "key": "char.cactus",
+   "id": "cactus",
+   "skin": "#8fce7f",
+   "hair": "#5e9e50",
+   "top": "#caffbf",
+   "bottom": "#bdb2ff",
+   "hideHair": true,
+   "attach": [
+    {
+     "shape": "ball",
+     "p": [
+      0,
+      1.96,
+      0
+     ],
+     "r": 0.1,
+     "s": [
+      1.2,
+      0.8,
+      1.2
+     ],
+     "c": "#ff9cf0"
+    },
+    {
+     "shape": "ball",
+     "p": [
+      0,
+      2.03,
+      0
+     ],
+     "r": 0.05,
+     "c": "#ffd166"
+    }
+   ],
+   "temp": true
+  }
+ ],
+ "items": [
+  {
+   "key": "outfit.knit",
+   "kind": "outfit",
+   "top": "#b5733f",
+   "bottom": "#e8d6b8",
+   "temp": false
+  },
+  {
+   "key": "outfit.hoodie",
+   "kind": "outfit",
+   "top": "#f7b6cf",
+   "bottom": "#a8e2d0",
+   "temp": false
+  },
+  {
+   "key": "outfit.neon",
+   "kind": "outfit",
+   "top": "#22233a",
+   "bottom": "#14141f",
+   "temp": false
+  },
+  {
+   "key": "outfit.hanbok",
+   "kind": "outfit",
+   "top": "#f2f0e6",
+   "bottom": "#3d5aa8",
+   "temp": false
+  },
+  {
+   "key": "outfit.apron",
+   "kind": "outfit",
+   "top": "#ffffff",
+   "bottom": "#7a5a3a",
+   "temp": false
+  },
+  {
+   "key": "outfit.pixel",
+   "kind": "outfit",
+   "top": "#e2413b",
+   "bottom": "#3a5bd6",
+   "temp": false
+  },
+  {
+   "key": "outfit.smock",
+   "kind": "outfit",
+   "top": "#bcd8ee",
+   "bottom": "#fbfbf7",
+   "temp": false
+  },
+  {
+   "key": "outfit.spacesuit",
+   "kind": "outfit",
+   "top": "#f1f3f6",
+   "bottom": "#e4e8ee",
+   "temp": false
+  },
+  {
+   "key": "outfit.aloha",
+   "kind": "outfit",
+   "top": "#ff9a3c",
+   "bottom": "#3ab0c8",
+   "temp": false
+  },
+  {
+   "key": "outfit.puffer",
+   "kind": "outfit",
+   "top": "#3c7fd8",
+   "bottom": "#33415c",
+   "temp": false
+  },
+  {
+   "key": "outfit.suit",
+   "kind": "outfit",
+   "top": "#2d3446",
+   "bottom": "#2d3446",
+   "temp": false
+  },
+  {
+   "key": "outfit.vest",
+   "kind": "outfit",
+   "top": "#9aa3ad",
+   "bottom": "#4a5260",
+   "temp": false
+  },
+  {
+   "key": "outfit.overall",
+   "kind": "outfit",
+   "top": "#f3efe4",
+   "bottom": "#4a78b8",
+   "temp": false
+  },
+  {
+   "key": "hat.beret",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.ribbon",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.visorneon",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.gat",
+   "kind": "hat",
+   "mesh": "hat_party",
+   "temp": true
+  },
+  {
+   "key": "hat.straw",
+   "kind": "hat",
+   "mesh": "hat_straw",
+   "temp": true
+  },
+  {
+   "key": "hat.pixelcrown",
+   "kind": "hat",
+   "mesh": "hat_party",
+   "temp": true
+  },
+  {
+   "key": "hat.painter",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.spacehelmet",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.sunvisor",
+   "kind": "hat",
+   "mesh": "hat_straw",
+   "temp": true
+  },
+  {
+   "key": "hat.beanie",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.crown",
+   "kind": "hat",
+   "mesh": "hat_party",
+   "temp": true
+  },
+  {
+   "key": "hat.cap",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.flowercrown",
+   "kind": "hat",
+   "mesh": "hat_straw",
+   "temp": true
+  },
+  {
+   "key": "hat.helmet",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "hat.chef",
+   "kind": "hat",
+   "mesh": "hat_party",
+   "temp": true
+  },
+  {
+   "key": "hat.pilot",
+   "kind": "hat",
+   "mesh": "hat_cap",
+   "temp": true
+  },
+  {
+   "key": "desk.wood",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  },
+  {
+   "key": "desk.pastel",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#bfe3d6",
+   "temp": false
+  },
+  {
+   "key": "desk.neon",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#bfe3d6",
+   "temp": false
+  },
+  {
+   "key": "desk.soban",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#ffe3a3",
+   "temp": false
+  },
+  {
+   "key": "desk.greenhouse",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#bfe3d6",
+   "temp": false
+  },
+  {
+   "key": "desk.arcade",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  },
+  {
+   "key": "desk.easel",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#e9c79a",
+   "temp": false
+  },
+  {
+   "key": "desk.console",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#e9c79a",
+   "temp": false
+  },
+  {
+   "key": "desk.bamboo",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#bfe3d6",
+   "temp": false
+  },
+  {
+   "key": "desk.snow",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#e9c79a",
+   "temp": false
+  },
+  {
+   "key": "top.plant",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.mug",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.lamp",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.frame",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.keyboard",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.snowglobe",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.vase",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.coffee",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.cactus",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.calc",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.globe",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.box",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "top.trophy",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.monitor",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.shell",
+   "kind": "kit",
+   "model": "mug",
+   "temp": false
+  },
+  {
+   "key": "top.inkstone",
+   "kind": "kit",
+   "model": "plant_k2",
+   "temp": false
+  },
+  {
+   "key": "rug.wood",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#f4c6d0",
+   "temp": true
+  },
+  {
+   "key": "rug.pastel",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#bfe3d6",
+   "temp": true
+  },
+  {
+   "key": "rug.neon",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#bfe3d6",
+   "temp": true
+  },
+  {
+   "key": "rug.hwamunseok",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#bfe3d6",
+   "temp": true
+  },
+  {
+   "key": "rug.beach",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#e9c79a",
+   "temp": true
+  },
+  {
+   "key": "rug.snow",
+   "kind": "kit",
+   "model": "rug_k",
+   "tint": "#e9c79a",
+   "temp": true
+  },
+  {
+   "key": "chair.wood",
+   "kind": "kit",
+   "model": "chair_k1",
+   "tint": "#f4c6d0",
+   "temp": true
+  },
+  {
+   "key": "chair.gaming",
+   "kind": "kit",
+   "model": "chair_k1",
+   "tint": "#f4c6d0",
+   "temp": true
+  },
+  {
+   "key": "chair.pastel",
+   "kind": "kit",
+   "model": "chair_k1",
+   "tint": "#d9cff5",
+   "temp": true
+  },
+  {
+   "key": "chair.cushion",
+   "kind": "kit",
+   "model": "chair_k1",
+   "tint": "#bfe3d6",
+   "temp": true
+  },
+  {
+   "key": "chair.beach",
+   "kind": "kit",
+   "model": "chair_k1",
+   "tint": "#d9cff5",
+   "temp": true
+  },
+  {
+   "key": "pet.puppy",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.kitten",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.bunny",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.chick",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.bee",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.butterfly",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.fish",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.hamster",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.penguin",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "pet.turtle",
+   "kind": "pet",
+   "tint": "#ffe8a3",
+   "temp": true
+  },
+  {
+   "key": "desk.vase",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  },
+  {
+   "key": "desk.coffee",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#ffe3a3",
+   "temp": false
+  },
+  {
+   "key": "desk.plant",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  },
+  {
+   "key": "desk.calc",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#d9cff5",
+   "temp": false
+  },
+  {
+   "key": "desk.globe",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#ffe3a3",
+   "temp": false
+  },
+  {
+   "key": "desk.box",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  },
+  {
+   "key": "desk.trophy",
+   "kind": "kit",
+   "model": "desk_k1",
+   "tint": "#f4c6d0",
+   "temp": false
+  }
+ ],
+ "hatLayers": [
+  "hat_cap",
+  "hat_party",
+  "hat_straw"
+ ],
+ "mounts": [
+  "kickboard",
+  "flower-cart",
+  "roller",
+  "bike",
+  "forklift",
+  "balloon",
+  "cloud",
+  "duck",
+  "turtle",
+  "magic-carpet",
+  "unicorn",
+  "gama",
+  "surfboard",
+  "hoverboard",
+  "sled"
+ ]
+}
