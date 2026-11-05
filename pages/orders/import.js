@@ -51,6 +51,9 @@ import {
 } from '../../lib/estimatePrintExcel';
 
 const DEFAULT_CUST_SEARCH = '라움';
+// 「분배단가만 수정」 표: 품목 옆에 단가가 바로 붙도록 촘촘하게, 행마다 구분선
+const poTh = { textAlign: 'left', padding: '4px 8px', border: '1px solid #cbd5e1', background: '#f1f5f9', fontWeight: 700, whiteSpace: 'nowrap' };
+const poTd = { padding: '2px 8px', border: '1px solid #cbd5e1', verticalAlign: 'middle' };
 const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
 
 async function persistItemMapping(item, prod, { force = true, custKey = null, custName = '' } = {}) {
@@ -2135,15 +2138,14 @@ export default function OrderImportPage() {
                       </button>
                     </div>
                     <div style={{ overflowX: 'auto', marginBottom: 6 }}>
-                      <table style={st.table}>
+                      <table style={{ ...st.table, width: 'auto' }}>
                         <thead>
                           <tr>
-                            <th style={st.th}>세부차수</th>
-                            <th style={st.th}>품목</th>
-                            <th style={st.th}>출고수량</th>
-                            <th style={st.th}>현재 분배단가</th>
-                            <th style={st.th}>수정 단가</th>
-                            <th style={st.th}>차이</th>
+                            <th style={poTh}>세부차수</th>
+                            <th style={poTh}>품목</th>
+                            <th style={{ ...poTh, textAlign: 'right' }}>현재 단가</th>
+                            <th style={poTh}>수정 단가</th>
+                            <th style={{ ...poTh, textAlign: 'right' }}>차이</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2152,31 +2154,30 @@ export default function OrderImportPage() {
                             const changed = !r.invalid && Math.abs(diff) >= 0.5;
                             return (
                               <tr key={r.sdetailKey} style={changed ? { background: '#eff6ff' } : undefined}>
-                                <td style={st.td}>{r.orderWeek}{r.isFix ? ' 🔒' : ''}</td>
-                                <td style={st.td}><b>{r.name}</b> <span style={{ color: '#94a3b8', fontSize: 10 }}>#{r.sdetailKey}</span></td>
-                                <td style={st.td}>{r.outQty} {r.outUnit || ''}</td>
-                                <td style={st.td}>{Number(r.cost).toLocaleString()}</td>
-                                <td style={st.td}>
+                                <td style={{ ...poTd, whiteSpace: 'nowrap' }}>{r.orderWeek}{r.isFix ? ' 🔒' : ''}</td>
+                                <td style={poTd}><b>{r.name}</b> <span style={{ color: '#94a3b8', fontSize: 10 }}>#{r.sdetailKey}</span></td>
+                                <td style={{ ...poTd, textAlign: 'right', whiteSpace: 'nowrap' }}>{Number(r.cost).toLocaleString()}</td>
+                                <td style={poTd}>
                                   <input
                                     type="number"
                                     min="0"
                                     step="1"
                                     data-testid={`price-only-input-${r.sdetailKey}`}
                                     data-ai-verify={`price-only-input-${r.sdetailKey}`}
-                                    style={{ ...st.input, width: 110, padding: '4px 8px', fontWeight: changed ? 700 : 400, color: changed ? '#1d4ed8' : '#0f172a', borderColor: r.invalid ? '#fca5a5' : (r.edited ? '#1d4ed8' : '#cbd5e1') }}
+                                    style={{ ...st.input, width: 90, padding: '2px 6px', textAlign: 'right', fontWeight: changed ? 700 : 400, color: changed ? '#1d4ed8' : '#0f172a', borderColor: r.invalid ? '#fca5a5' : (r.edited ? '#1d4ed8' : '#cbd5e1') }}
                                     value={priceEdits[String(r.sdetailKey)] ?? r.newCost}
                                     onChange={e => setPriceEdits(prev => ({ ...prev, [String(r.sdetailKey)]: e.target.value }))}
                                     title={r.fromUpload && !r.edited ? '업로드 표의 단가가 기본값으로 들어갔습니다' : '수정할 분배단가'}
                                   />
                                 </td>
-                                <td style={{ ...st.td, color: diff >= 0 ? '#166534' : '#b91c1c' }}>
+                                <td style={{ ...poTd, textAlign: 'right', whiteSpace: 'nowrap', color: diff >= 0 ? '#166534' : '#b91c1c' }}>
                                   {changed ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString()}` : '-'}
                                 </td>
                               </tr>
                             );
                           })}
                           {priceOnlyRows.length === 0 && (
-                            <tr><td style={st.td} colSpan={6}>선택한 세부차수에 분배행이 없습니다.</td></tr>
+                            <tr><td style={poTd} colSpan={5}>선택한 세부차수에 분배행이 없습니다.</td></tr>
                           )}
                         </tbody>
                       </table>
