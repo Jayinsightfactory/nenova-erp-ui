@@ -173,10 +173,15 @@ const puppeteer = require('puppeteer-core');
     const sections = await frame.evaluate(() => [...document.querySelectorAll('.profit-print-page')].map(section => {
       const outer = section.getBoundingClientRect();
       const cells = [...section.querySelectorAll('th,td')];
+      const note = section.querySelector('.note');
+      const noteRect = note?.getBoundingClientRect();
       const withoutNotes = section.cloneNode(true);
       withoutNotes.querySelectorAll('.note').forEach(note => note.remove());
       return { headers: [...section.querySelectorAll('th')].map(c => c.textContent),
         userNote: section.querySelector('.note > div')?.textContent || '',
+        noteGeometry: noteRect ? { top: noteRect.top - outer.top, bottom: noteRect.bottom - outer.top,
+          pageHeight: outer.height, fits: noteRect.left >= outer.left - 1 && noteRect.right <= outer.right + 1 && noteRect.bottom <= outer.bottom + 1,
+          scrollHeight: note.scrollHeight, clientHeight: note.clientHeight, scale: section.dataset.printScale || null } : null,
         hasAutomaticStatus: /검증 보류|입력 안 됨|저장 참고값|수익률 원천 검증 전/.test(withoutNotes.textContent),
         numbers: cells.map(c => c.textContent.trim()).filter(v => /^-?[\d,]+(?:\.\d+)?%?$/.test(v)),
         fits: cells.every(c => { const r = c.getBoundingClientRect(); return r.left >= outer.left - 1 && r.right <= outer.right + 1 && r.bottom <= outer.bottom + 1; }) };
@@ -201,7 +206,8 @@ const puppeteer = require('puppeteer-core');
       const pdfSheet = await document.getPage(i);
       const viewport = pdfSheet.getViewport({ scale: 1 });
       assert.ok(Math.abs(viewport.width - 841.89) < 2 && Math.abs(viewport.height - 595.28) < 2, 'A4 landscape required');
-      const text = (await pdfSheet.getTextContent()).items.map(item => item.str).join('');
+      const pdfTextContent = await pdfSheet.getTextContent();
+      const text = pdfTextContent.items.map(item => item.str).join('');
       const normalizedText = normalizePdfText(text);
       const expectedTitle = normalizePdfText(`${year}년 ${Number(weeks[i - 1])}차 매출이익 보고서`);
       const titleMatches = normalizedText.includes(expectedTitle);
@@ -211,7 +217,35 @@ const puppeteer = require('puppeteer-core');
       for (const number of sections[i - 1].numbers) assert.ok(normalizedText.includes(number), 'Printed numeric cell must survive PDF rendering');
       const userNote = sections[i - 1].userNote;
       assert.ok(!/[\r\n]/.test(userNote), 'Print note must use horizontal flow instead of source line breaks');
-      if (userNote) assert.ok(normalizedText.includes(normalizePdfText(userNote)), 'Entire author note including its last item must survive PDF rendering');
+      if (userNote) {
+        const expected = normalizePdfText(userNote);
+        const noteMatches = normalizedText.includes(expected);
+        if (!noteMatches) {
+          // Privacy-safe diagnosis only: never print source/PDF text, names or notes.
+          // Keep the exact assertion below unchanged; these measurements must not
+          // normalize away missing glyphs, shorten the expected note or pass a tail.
+          const anchorLength = [128,64,32,16,8].find(length => expected.length >= length && normalizedText.includes(expected.slice(0,length))) || 0;
+          const anchor = anchorLength ? normalizedText.indexOf(expected.slice(0,anchorLength)) : -1;
+          let prefixLength = 0;
+          if (anchor >= 0) while (prefixLength < expected.length && normalizedText[anchor+prefixLength] === expected[prefixLength]) prefixLength++;
+          const codePoint = value => value == null ? null : `U+${value.codePointAt(0).toString(16).toUpperCase().padStart(4,'0')}`;
+          let orderedCount = 0, cursor = Math.max(0,anchor);
+          for (const character of expected) {
+            const found = normalizedText.indexOf(character,cursor);
+            if (found < 0) break;
+            orderedCount++; cursor = found + character.length;
+          }
+          const positionSorted = [...pdfTextContent.items].sort((a,b) => Math.abs(a.transform[5]-b.transform[5]) < .5
+            ? a.transform[4]-b.transform[4] : b.transform[5]-a.transform[5]).map(item=>item.str).join('');
+          console.log(JSON.stringify({printNoteDiagnostic:'FAIL',page:i,week:weeks[i-1],expectedLength:expected.length,
+            pdfNormalizedLength:normalizedText.length,pdfTextItems:pdfTextContent.items.length,anchorLength,anchor,prefixLength,
+            suffixMatches:[128,64,32,16,8].map(length=>({length,matches:expected.length>=length&&normalizedText.includes(expected.slice(-length))})),
+            orderedCount,expectedCodePoints:[...expected].length,positionSortedContainsNote:normalizePdfText(positionSorted).includes(expected),
+            firstMismatch:anchor<0?null:{expected:codePoint(expected[prefixLength]),pdf:codePoint(normalizedText[anchor+prefixLength])},
+            noteGeometry:sections[i-1].noteGeometry}));
+        }
+        assert.ok(noteMatches, 'Entire author note including its last item must survive PDF rendering');
+      }
     }
     await document.destroy();
     assert.deepEqual([...new Set(requested)].sort(), weeks);
