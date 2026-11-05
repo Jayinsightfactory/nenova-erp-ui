@@ -3,6 +3,7 @@
 // [판매등록확정]은 현재 DB를 REG_CONFIRM 스냅샷으로 저장하고, 그 시점 이후 변경만 비교한다.
 // 기준금액은 적용 확인 → 최신 판매등록확정 → 화요일 최종분배 순. 타임라인 [✓ 적용 확인]으로 다른 스냅샷을 기준으로 바꿀 수 있음.
 import { useEffect, useMemo, useState } from 'react';
+import SalesHistoryReview from '../../components/sales/SalesHistoryReview';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { SALES_CONFIRM_TYPE, latestSalesConfirmByWeek } from '../../lib/salesSnapshotPolicy';
@@ -49,6 +50,11 @@ function Section({ title, badge, right, open, onToggle, children, accent }) {
 }
 
 export default function SalesRegistrationHistoryPage() {
+  const [archive, setArchive] = useState(false);
+  return <>{archive ? <><button onClick={() => setArchive(false)} style={{margin:16,padding:12}}>← 차이 있는 업체만 보기</button><SalesRegistrationHistoryArchive /></> : <SalesHistoryReview onOpenArchive={() => setArchive(true)} />}</>;
+}
+
+function SalesRegistrationHistoryArchive() {
   const weekInput = useWeekInput(getDefaultWeek());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
