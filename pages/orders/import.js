@@ -474,6 +474,7 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
         style={{ ...st.input, width: '100%', minWidth: 200, boxSizing: 'border-box' }}
         value={open ? query : (label || query)}
         placeholder={placeholder || '거래처 검색 (라움)'}
+        data-ai-verify="customer-search"
         onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(null); }}
         onFocus={() => setOpen(true)}
       />
@@ -483,21 +484,26 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
           {!loading && query.trim() && remote.length === 0 && (
             <div style={{ padding: 8, fontSize: 11, color: '#64748b' }}>검색 결과 없음</div>
           )}
-          {remote.map(c => (
+          {remote.map(c => {
+            const pick = () => {
+              onChange({ CustKey: c.CustKey, CustName: c.CustName });
+              setLabel(c.CustName);
+              setQuery('');
+              setOpen(false);
+            };
+            return (
             <button
               key={c.CustKey}
               type="button"
               style={st.pickRow}
-              onMouseDown={() => {
-                onChange({ CustKey: c.CustKey, CustName: c.CustName });
-                setLabel(c.CustName);
-                setQuery('');
-                setOpen(false);
-              }}
+              data-ai-verify={`customer-pick-${c.CustKey}`}
+              onMouseDown={pick}
+              onClick={pick}
             >
               {c.CustName}{c.OrderCode ? ` (${c.OrderCode})` : ''}
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1703,6 +1709,7 @@ export default function OrderImportPage() {
                 <button
                   key={w}
                   type="button"
+                  data-ai-verify={`week-${w}`}
                   onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                   style={{
                     padding: '5px 22px',
@@ -1734,6 +1741,7 @@ export default function OrderImportPage() {
                       <button
                         key={w}
                         type="button"
+                        data-ai-verify={`week-${w}`}
                         onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                         style={{
                           padding: '4px 11px',
@@ -1753,7 +1761,7 @@ export default function OrderImportPage() {
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" />
+              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" data-ai-verify="week-input" />
               {week && (
                 <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600 }}>
                   선택: {formatWeekDisplay(week)}
