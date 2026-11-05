@@ -27,11 +27,12 @@ assert.equal(distributePreviousStock({ prevStock: 999, inQty: 5 }), null); // Cu
 assert.equal(distributePreviousStockTotal([{ _exeParity: true, prevStock: 2 }, { _exeParity: true, prevStock: 0 }]), 2);
 assert.equal(distributePreviousStockTotal([{ _exeParity: true, prevStock: 2 }, { prevStock: 999 }]), null);
 const source = fs.readFileSync('pages/shipment/distribute.js', 'utf8');
-assert.match(source, /minmax\(360px, 34%\) minmax\(0, 1fr\)/);
+// 왼쪽 품목 목록은 품목명만 (세부 수치는 선택 시 오른쪽) → 폭 축소
+assert.match(source, /minmax\(280px, 26%\) minmax\(0, 1fr\)/);
 assert.match(source, /whiteSpace:'normal',overflowWrap:'anywhere'/);
 assert.match(source, /data-product-select/);
 assert.match(source, /ArrowDown/);
-assert.match(source, /distributePreviousStockTotal\(filteredProds\)/);
+assert.match(source, /\['전차수 재고',previousStock,/); // 전차수 재고는 상단 카드로
 assert.doesNotMatch(source, /\(p\.prevStock\|\|0\)-\(p\.inQty\|\|0\)/);
 assert.match(source, /const remain = \(inQty\|\|0\) - totalOutInput/); // Existing input calculation not changed.
 console.log('Distribution display: scoped prefix, original names, carryover source, zero/unknown/negative and separate-year fixtures passed');

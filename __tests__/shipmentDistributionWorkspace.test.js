@@ -92,3 +92,19 @@ test('fix-cycle scope: only confirmed product groups, blocked when group is blan
   assert.equal(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', note: '2026-41-02 재확정 중' }, new Date(2026, 10, 5, 9, 7, 3)),
     '09:07:03 2026-41-02 업체 A + B — 2026-41-02 재확정 중');
 });
+
+test('pair view 품종 buttons and 박스/단 input unit keep OutUnit storage', async () => {
+  const { distributionPairGroups, distributionPairGroupKey, distributionUnitFactor, toDisplayQty, toNativeQty } = await load();
+  const rose = { CounName: '콜롬비아', FlowerName: '장미', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 200 };
+  const hydrangea = { CounName: '콜롬비아', FlowerName: '수국', OutUnit: '박스', BunchOf1Box: 20, SteamOf1Box: 20 };
+  assert.deepEqual(distributionPairGroups([rose, hydrangea, rose]), ['콜롬비아 수국', '콜롬비아 장미']);
+  assert.equal(distributionPairGroupKey({}), '기타');
+  // 단 품목을 박스로 입력: 1.6박스 = 16단 저장
+  const f = distributionUnitFactor(rose, '박스');
+  assert.equal(toDisplayQty(16, f), 1.6);
+  assert.equal(toNativeQty('1.6', f), 16);
+  // 박스 품목을 단으로 입력: 40단 = 2박스 저장
+  assert.equal(toNativeQty('40', distributionUnitFactor(hydrangea, '단')), 2);
+  assert.equal(distributionUnitFactor(rose, ''), 1);
+  assert.equal(distributionUnitFactor({ OutUnit: '단', BunchOf1Box: 0 }, '박스'), null, 'missing factor → native input');
+});

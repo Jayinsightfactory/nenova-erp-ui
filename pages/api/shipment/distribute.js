@@ -505,7 +505,7 @@ async function getDistribute(req, res) {
 
       const result = await query(
         `SELECT
-          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit,
+          p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit, p.BunchOf1Box, p.SteamOf1Box,
           ISNULL(sd.Cost, ISNULL(cpc.Cost, p.Cost)) AS Cost,
           od.BoxQuantity, od.BunchQuantity, od.SteamQuantity,
           CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)

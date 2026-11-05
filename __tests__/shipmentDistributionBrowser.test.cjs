@@ -39,6 +39,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let expectPairSave = false;
   let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
   let orderPosts = 0;
+  const productGroupQueries = [];
   let fixedScopeNext = false; // 다음 저장의 확정 범위 조회에서 Alstroemeria 품목군을 확정 상태로
   const cycleCalls = [];
     let delayOldProducts = false;
@@ -137,9 +138,10 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           return reply(route, { success: true, scopes: url.searchParams.get('prodKeys').split(',').map(prodKey => ({
             prodKey: Number(prodKey), countryFlower: Number(prodKey) === 2429 ? '콜롬비아 알스트로' : '네덜란드 기타', fixed: fixedNow && Number(prodKey) === 2429 })) });
         }
-        if (type === 'groups') return reply(route, { success: true, groups: [] });
+        if (type === 'groups') return reply(route, { success: true, groups: [{ key: '콜롬비아::장미', label: '콜롬비아 장미', country: '콜롬비아', flower: '장미' }] });
         if (type === 'products') {
           const week = url.searchParams.get('week');
+          if (url.searchParams.get('prodGroup')) productGroupQueries.push(url.searchParams.get('prodGroup'));
           if (week === '2026-41-02' && holdNextQuery) {
             holdNextQuery = false;
             heldQueryStarted.resolve();
@@ -165,7 +167,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           { CustKey: 436, CustName: 'Zulu Florist', 주문수량: 0, 출고수량: 0,
             OutUnit: '단', ShipmentDescr: '', 비고: '', Cost: 300 }] });
         if (type === 'custItems') return reply(route, { success: true, items: [{
-          ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', 주문수량: 60,
+          ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, 주문수량: 60,
           출고수량: shipmentQty, ShipmentDescr: '기존 출고 비고', 비고: '주문 메모', Cost: 100,
         }, ...(custItemsExtra && url.searchParams.get('custKey') === '478'
           ? [{ ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', 주문수량: 20, 출고수량: 7, ShipmentDescr: '', Cost: 12 }] : [])] });
@@ -326,6 +328,15 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByTestId('distribution-pair-table').waitFor();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '51');
+    // 입력 단위 박스: 51단 → 5.1박스로 보이고, 6박스 입력 = 60단 저장값. 다시 기본으로.
+    await page.locator('[data-ai-verify="pair-unit-박스"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '5.1');
+    await page.locator('[data-ai-verify="qty-478-2429"]').fill('6');
+    await page.locator('[data-ai-verify="pair-unit-native"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '60');
+    await page.locator('[data-ai-verify="qty-478-2429"]').fill('51');
+    assert.equal(await page.locator('[data-ai-verify="pair-remain-2429"]').count(), 1, 'pair view shows stock remaining after change');
+    assert.equal(await page.locator('[data-ai-verify="pair-group-all"]').getAttribute('aria-pressed'), 'true');
     await page.locator('[data-ai-verify="move-to2-2429"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
@@ -421,6 +432,14 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       assert.ok(bounds.scrollWidth <= bounds.width + 2,
         `${viewport.width} viewport: workspace horizontal overflow ${bounds.scrollWidth} > ${bounds.width}`);
     }
+    // 품종 버튼(콜롬비아 장미 등) → 그 품종으로 품목 재조회
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const groupButtons = page.getByTestId('distribution-group-buttons');
+    assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
+    await groupButtons.getByRole('button', { name: '콜롬비아 장미' }).click();
+    await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
+    await pause(300);
+    assert.ok(productGroupQueries.some(key => key.endsWith('장미')), 'group button reloads products for that 품종');
     await context.close();
   } finally {
     await browser?.close().catch(() => {});
