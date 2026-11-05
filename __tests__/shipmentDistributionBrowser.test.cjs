@@ -39,6 +39,9 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let expectPairSave = false;
   let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
   let orderPosts = 0;
+  const productGroupQueries = [];
+  let fixedScopeNext = false; // 다음 저장의 확정 범위 조회에서 Alstroemeria 품목군을 확정 상태로
+  const cycleCalls = [];
     let delayOldProducts = false;
     let holdNextQuery = false;
     const heldQueryStarted = deferred();
@@ -75,6 +78,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       }
       if (url.pathname === '/api/orders' && request.method() === 'POST') {
         orderPosts += 1;
+        cycleCalls.push('order');
         const body = JSON.parse(request.postData() || '{}');
         // 주문 없던 업체 2(436)에 Zinnia 3 을 옮긴 뒤 Ctrl+S → 분배 저장 전에 기존 주문등록 API 로 주문 생성
         assert.deepEqual([body.custKey, body.week, body.year, body.source, body.items],
@@ -83,6 +87,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
         return reply(route, { success: true, verified: true, orderMasterKey: 1 }, 201);
       }
       if (url.pathname === '/api/shipment/ship-days') return reply(route, { success: true, configs: [] });
+      if (url.pathname === '/api/shipment/fix' && request.method() === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        // 자동 사이클: 화면 연도 명시, force=false, 바꾸는 품목의 품목군만
+        assert.deepEqual([body.week, body.orderYear, body.force, body.countryFlowers, body.cycleSource], ['2026-41-02', '2026', false, ['콜롬비아 알스트로'], 'distribute-save']);
+        cycleCalls.push(body.action);
+        return reply(route, { success: true, message: `${body.action} ok` });
+      }
       if (url.pathname === '/api/shipment/fix' && request.method() === 'GET')
         return reply(route, { success: true, issueCount: 1, week: '2026-41-02', negative: [] });
       if (url.pathname === '/api/shipment/history') return reply(route, { success: true, history: [] });
@@ -99,6 +110,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           assert.equal(body.week, '2026-41-02');
           if (expectPairSave) {
             expectPairSave = false;
+            cycleCalls.push('save');
             // 업체 1 + 업체 2 나란히 보기: → 이동 후 Ctrl+S 는 두 업체 행을 한 배치로 저장
             assert.equal(orderPosts, 1, 'pending order was registered first');
             assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]),
@@ -119,9 +131,17 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           shipmentQty = body.entries[0].outQty;
           return reply(route, { success: true, verified: true, results: [{ verified: true }] });
         }
-        if (type === 'groups') return reply(route, { success: true, groups: [] });
+        if (type === 'fixedScopes') {
+          const fixedNow = fixedScopeNext;
+          fixedScopeNext = false;
+          cycleCalls.push('scope');
+          return reply(route, { success: true, scopes: url.searchParams.get('prodKeys').split(',').map(prodKey => ({
+            prodKey: Number(prodKey), countryFlower: Number(prodKey) === 2429 ? '콜롬비아 알스트로' : '네덜란드 기타', fixed: fixedNow && Number(prodKey) === 2429 })) });
+        }
+        if (type === 'groups') return reply(route, { success: true, groups: [{ key: '콜롬비아::장미', label: '콜롬비아 장미', country: '콜롬비아', flower: '장미' }] });
         if (type === 'products') {
           const week = url.searchParams.get('week');
+          if (url.searchParams.get('prodGroup')) productGroupQueries.push(url.searchParams.get('prodGroup'));
           if (week === '2026-41-02' && holdNextQuery) {
             holdNextQuery = false;
             heldQueryStarted.resolve();
@@ -135,7 +155,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
             ? [{ ProdKey: 53, ProdName: 'Carnation', OutUnit: '단', inQty: 10, outQty: 0 }]
             : [
               { ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', inQty: 100, outQty: 0 },
-              { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', Cost: 33, inQty: 100, outQty: shipmentQty },
+              { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, Cost: 33, inQty: 100, outQty: shipmentQty },
             ];
           return reply(route, { success: true, products });
         }
@@ -147,7 +167,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           { CustKey: 436, CustName: 'Zulu Florist', 주문수량: 0, 출고수량: 0,
             OutUnit: '단', ShipmentDescr: '', 비고: '', Cost: 300 }] });
         if (type === 'custItems') return reply(route, { success: true, items: [{
-          ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', 주문수량: 60,
+          ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, 주문수량: 60,
           출고수량: shipmentQty, ShipmentDescr: '기존 출고 비고', 비고: '주문 메모', Cost: 100,
         }, ...(custItemsExtra && url.searchParams.get('custKey') === '478'
           ? [{ ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', 주문수량: 20, 출고수량: 7, ShipmentDescr: '', Cost: 12 }] : [])] });
@@ -189,6 +209,14 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-distribute-qty="true"]').first().waitFor();
     await page.keyboard.press('Control+Alt+4');
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-distribute-qty')), 'true');
+    await page.locator('[data-distribute-qty="true"]').first().fill('50');
+    await page.getByText('미저장 48 → 50단').waitFor();
+    // 품목 탭 Box·단·송이 칸: 50단 = 5박스 = 500송이, 박스 칸에 4.8 → 48단으로 되돌림
+    const boxCell = page.locator('[data-ai-verify$="-2429-박스"]').first();
+    assert.equal(await boxCell.inputValue(), '5');
+    assert.equal(await page.locator('[data-ai-verify$="-2429-송이"]').first().inputValue(), '500');
+    await boxCell.fill('4.8');
+    assert.equal(await page.locator('[data-distribute-qty="true"]').first().inputValue(), '48');
     await page.locator('[data-distribute-qty="true"]').first().fill('50');
     await page.getByText('미저장 48 → 50단').waitFor();
     const quantityInputs = page.locator('[data-distribute-qty="true"]');
@@ -308,6 +336,16 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByTestId('distribution-pair-table').waitFor();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '51');
+    // 박스·단·송이 세 칸 환산: 51단 = 5.1박스 = 510송이. 박스 칸에 6 → 단 60 · 송이 600 (저장값은 단).
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-박스"]').inputValue(), '5.1');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-송이"]').inputValue(), '510');
+    await page.locator('[data-ai-verify="qty-478-2429-박스"]').fill('6');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '60');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-송이"]').inputValue(), '600');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90-단"]').count(), 0, 'no Zinnia row on customer 2 yet');
+    await page.locator('[data-ai-verify="qty-478-2429"]').fill('51');
+    assert.equal(await page.locator('[data-ai-verify="pair-remain-2429"]').count(), 1, 'pair view shows stock remaining after change');
+    assert.equal(await page.locator('[data-ai-verify="pair-group-all"]').getAttribute('aria-pressed'), 'true');
     await page.locator('[data-ai-verify="move-to2-2429"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
@@ -331,12 +369,20 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByText(/① 기존 출고 비고 · 미저장 51 → 0단/).waitFor();
     await page.screenshot({ path: path.join(root, 'outputs', 'distribution-pair-1920.png'), fullPage: true });
     expectPairSave = true;
+    fixedScopeNext = true; // Alstroemeria 품목군 확정 상태 → 확인창 수락 → 확정해제 → 주문등록 → 분배 → 재확정
+    cycleCalls.length = 0;
+    page.once('dialog', dialog => {
+      assert.match(dialog.message(), /콜롬비아 알스트로 품목군이 확정되어 있습니다[\s\S]*확정해제 → 저장 → 재확정/);
+      dialog.accept();
+    });
     await page.keyboard.press('Control+s');
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(savePosts, 4, 'pair Ctrl+S posts both customers once');
     await page.getByRole('button', { name: '확인', exact: true }).click();
     await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 3건 · 총 109 · 주문등록 1건/).waitFor();
     assert.equal(orderPosts, 1, 'exactly one order registration (customer 2 Zinnia)');
+    assert.deepEqual(cycleCalls, ['scope', 'unfix', 'order', 'save', 'fix'], 'confirmed group: unfix before any write, refix after');
+    assert.match(await page.getByTestId('distribution-save-log').textContent(), /재확정 중/);
     await page.getByRole('button', { name: '업체 2 해제' }).click();
     await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
     console.log('browser: pair');
@@ -395,6 +441,14 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       assert.ok(bounds.scrollWidth <= bounds.width + 2,
         `${viewport.width} viewport: workspace horizontal overflow ${bounds.scrollWidth} > ${bounds.width}`);
     }
+    // 품종 버튼(콜롬비아 장미 등) → 그 품종으로 품목 재조회
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const groupButtons = page.getByTestId('distribution-group-buttons');
+    assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
+    await groupButtons.getByRole('button', { name: '콜롬비아 장미' }).click();
+    await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
+    await pause(300);
+    assert.ok(productGroupQueries.some(key => key.endsWith('장미')), 'group button reloads products for that 품종');
     await context.close();
   } finally {
     await browser?.close().catch(() => {});

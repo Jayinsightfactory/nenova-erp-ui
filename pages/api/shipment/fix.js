@@ -114,6 +114,12 @@ async function logFix(step, detail, isError = false) {
   }
 }
 
+// 자동 편집 사이클의 출처 표시(예: distribute-save). 이력 문자열 전용, 동작에는 영향 없음.
+function cycleSourceLabel(req) {
+  const src = String(req.body?.cycleSource || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
+  return src ? ` src=${src}` : '';
+}
+
 async function runLimited(items, limit, worker) {
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -839,7 +845,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   // 품목별 합산만 생략한다. 확정차수 편집 사이클이 수량 이상을 막은 뒤 중간 합산을
   // 건너뛸 때 클라이언트가 보낸다. 음수재고 보정 경로는 이 플래그를 쓰지 않는다.
   const skipStockCalc = req.body?.skipStockCalc === true;
-  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
+  await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}${cycleSourceLabel(req)}`);
 
   const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, req.estimateEditGroups ? allowedCountryFlowers : null);
   if (lowerUnfixedWeeks.length > 0) {
@@ -1157,7 +1163,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   // skipStockCalc: 확정해제 SP는 항상 실행하고, 곧바로 재확정될 사이클의
   // 중간 스냅샷 합산만 생략한다.
   const skipStockCalc = req.body?.skipStockCalc === true;
-  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
+  await logFix('unfix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}${cycleSourceLabel(req)}`);
 
   try {
     const laterGuard = await loadCheckFixCancel(orderYear, orderWeek, allowedCountryFlowers);

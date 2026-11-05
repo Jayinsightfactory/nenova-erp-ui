@@ -81,3 +81,30 @@ test('partial move plan, pending-order rows and order count in save log', async 
   assert.match(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', savedCount: 3, totalQty: 112, orderCount: 1 }, new Date(2026, 10, 5, 9, 7, 3)),
     /저장 완료 3건 · 총 112 · 주문등록 1건$/);
 });
+
+test('fix-cycle scope: only confirmed product groups, blocked when group is blank, save-log notes', async () => {
+  const { distributionFixCycleScope, distributionSaveLogLine } = await load();
+  assert.deepEqual(distributionFixCycleScope([{ prodKey: 1, countryFlower: 'A', fixed: false }]), { needed: false, countryFlowers: [], blocked: [] });
+  assert.deepEqual(distributionFixCycleScope([
+    { prodKey: 1, countryFlower: '콜롬비아 장미', fixed: true }, { prodKey: 2, countryFlower: '콜롬비아 장미', fixed: true },
+    { prodKey: 3, countryFlower: '네덜란드 기타', fixed: false }, { prodKey: 4, countryFlower: ' ', fixed: true },
+  ]), { needed: true, countryFlowers: ['콜롬비아 장미'], blocked: [4] });
+  assert.equal(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', note: '2026-41-02 재확정 중' }, new Date(2026, 10, 5, 9, 7, 3)),
+    '09:07:03 2026-41-02 업체 A + B — 2026-41-02 재확정 중');
+});
+
+test('pair view 품종 buttons and 박스/단 input unit keep OutUnit storage', async () => {
+  const { distributionPairGroups, distributionPairGroupKey, distributionUnitFactor, toDisplayQty, toNativeQty } = await load();
+  const rose = { CounName: '콜롬비아', FlowerName: '장미', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 200 };
+  const hydrangea = { CounName: '콜롬비아', FlowerName: '수국', OutUnit: '박스', BunchOf1Box: 20, SteamOf1Box: 20 };
+  assert.deepEqual(distributionPairGroups([rose, hydrangea, rose]), ['콜롬비아 수국', '콜롬비아 장미']);
+  assert.equal(distributionPairGroupKey({}), '기타');
+  // 단 품목을 박스로 입력: 1.6박스 = 16단 저장
+  const f = distributionUnitFactor(rose, '박스');
+  assert.equal(toDisplayQty(16, f), 1.6);
+  assert.equal(toNativeQty('1.6', f), 16);
+  // 박스 품목을 단으로 입력: 40단 = 2박스 저장
+  assert.equal(toNativeQty('40', distributionUnitFactor(hydrangea, '단')), 2);
+  assert.equal(distributionUnitFactor(rose, ''), 1);
+  assert.equal(distributionUnitFactor({ OutUnit: '단', BunchOf1Box: 0 }, '박스'), null, 'missing factor → native input');
+});

@@ -30,12 +30,13 @@ const Page = load(source, name=>{
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return load(fs.readFileSync('lib/shipmentDistributionWorkspace.js','utf8'),require);
+  if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;
 const html=renderToStaticMarkup(React.createElement(Page));
 assert.match(html,/data-product-select="true"[^>]*title="CARNATION Pastel Crimea"[^>]*>Pastel Crimea<\/button>/);
-assert.match(html,/전차수 잔량 2.00 박스/);
+assert.match(html,/data-testid="distribution-previous-stock"[^>]*><div[^>]*>전차수 재고 \(박스\)<\/div><div[^>]*>2\.00<\/div>/);
 assert.match(html,/Mix Box D \(Mariposa. Yukari cherry, Cherrio\)/);
 assert.match(html,/min-width:180px;max-width:240px;white-space:normal/);
 // nenova.exe식 버튼형 차수(±3 → 7개)·세부차수·품목 버튼 + 브리지 검증 표식, 저장 버튼에는 표식 없음

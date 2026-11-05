@@ -5,12 +5,15 @@
     "pages/shipment/distribute.js",
     "components/shipment/DistributionPicker.js",
     "lib/shipmentDistributionWorkspace.js",
+    "lib/fixCycleClient.js",
     "pages/api/shipment/distribute.js",
     "lib/shipmentDistributionAudit.js",
     "pages/api/orders/paste-history.js",
     "lib/pasteOperationHistory.js",
     "components/orders/PasteOperationHistory.js",
     "__tests__/shipmentDistributionWorkspace.test.js",
+    "__tests__/distributionFixCycleRollback.test.js",
+    "pages/api/shipment/fix.js",
     "__tests__/shipmentDistributionAudit.test.js",
     "scripts/test-shipment-distribution-audit-sql.cjs",
     "__tests__/shipmentDistributionBrowser.test.cjs",
@@ -30,6 +33,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Selection is local; favorites use authenticated UserFavorite.UserID and shipment-distribute-products namespace only."
+    },
+    {
+      "name": "CONFIRMED_SCOPE_SAVE_CYCLE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Before a product-tab or customer-tab save, GET type=fixedScopes (SELECT only, existing getProductScopeFixedRows per changed ProdKey) reports each product's CountryFlower and whether it is confirmed in this OrderYear+week. No confirmed group: save exactly as before. Confirmed group: after explicit user confirmation, the existing lib/fixCycleClient runEditWithFixCycle unfixes only those CountryFlowers (explicit screen orderYear, force=false, stockProdKeys = changed products), runs the same order registration and batch distribute save, then refixes even when the save fails. Unfix failure restores already-unfixed weeks and writes nothing. A confirmed product with blank CountryFlower stops before any write. CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST C-1/C-3/C-10 preserved; server isFix guards unchanged. History: each unfix/refix request carries cycleSource=distribute-save, appended (sanitized, string only) to the existing AppLog shipmentFix unfix_start/fix_start lines next to uid; native usp_ShipmentFix/usp_ShipmentFixCancel keep writing StockHistory and flipping sd.isFix/sm.isFix themselves inside the per-CountryFlower withTransaction (failure throws and rolls back); the distribute save keeps its SystemActionLog snapshot. No new table."
     },
     {
       "name": "EXE_STYLE_SELECTION_AND_PAIR_VIEW",
@@ -84,6 +93,7 @@
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionWorkspace.test.js",
+    "__tests__/distributionFixCycleRollback.test.js",
     "__tests__/shipmentDistributionAudit.test.js",
     "__tests__/pasteOperationHistory.test.js",
     "scripts/test-shipment-distribution-audit-sql.cjs",
