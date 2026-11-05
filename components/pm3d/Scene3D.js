@@ -320,6 +320,26 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         desk.userData = { kind: 'person', name: d.person.name };
         st.people.set(d.person.name, person);
       }
+      // [게임화 1차] 입장 연출: 자리·스테이션이 톡톡 튀어오르며 등장(easeOutBack, 0.9초 스태거). 모션 줄이기면 생략
+      if (!dataRef.current.reduced) {
+        const objs = [...st.seatFx.map((f) => f.g), ...st.stations];
+        st.intro = { t0: performance.now(), items: objs.map((o, i) => ({ o, base: o.scale.x || 1, delay: Math.min(900, i * 55) })) };
+        for (const it of st.intro.items) it.o.scale.setScalar(it.base * 0.001);
+      }
+      // [게임화 1차] 하늘 구름: 말랑 구름 스프라이트가 천천히 흘러감(섬 테마만, 스프라이트 4장 = 비용 미미)
+      if (island) {
+        const cc = document.createElement('canvas'); cc.width = 256; cc.height = 128; const cg = cc.getContext('2d');
+        cg.fillStyle = 'rgba(255,255,255,.96)';
+        for (const [bx, by, br] of [[70, 84, 38], [120, 66, 50], [176, 84, 40], [120, 92, 52]]) { cg.beginPath(); cg.arc(bx, by, br, 0, Math.PI * 2); cg.fill(); }
+        const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace;
+        st.clouds = [];
+        for (let i = 0; i < 4; i++) {
+          const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ct, transparent: true, opacity: 0.9, depthWrite: false, fog: false }));
+          const s = 6 + i * 1.8; sp.scale.set(s, s * 0.5, 1);
+          sp.position.set(-6 + i * 9, 7 + (i % 2) * 2, -12 - i * 2);
+          scene.add(sp); st.clouds.push(sp);
+        }
+      }
       st.built = true;
       setStat(`로드 ${loadMs}ms`);
       apply();
@@ -726,6 +746,24 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             }
           }
         }
+        // [게임화 1차] 입장 연출·구름 흐름·호버 통통 — 전부 스케일/위치만 건드림(드로우콜 변화 0)
+        if (st.intro) {
+          const tnow = performance.now(); let live = false;
+          const back = (t) => { const c1 = 1.70158; const c3 = c1 + 1; const u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; };
+          for (const it of st.intro.items) {
+            const k = Math.min(1, Math.max(0, (tnow - st.intro.t0 - it.delay) / 480));
+            it.o.scale.setScalar(it.base * (k >= 1 ? 1 : Math.max(0.001, back(k))));
+            if (k < 1) live = true;
+          }
+          if (!live) st.intro = null; else st.poke?.();
+        }
+        if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
+        if (st.hoverFx) {
+          const { o, base } = st.hoverFx; const want = st.hoverOn === o ? 1.07 : 1;
+          const cur = o.scale.x / base; const nk = cur + (want - cur) * Math.min(1, dt * 10);
+          o.scale.setScalar(base * nk);
+          if (Math.abs(nk - 1) < 0.002 && st.hoverOn !== o) st.hoverFx = null;
+        }
         updateLabels();
       }
       renderer.render(scene, cam);
@@ -753,6 +791,23 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const onDown = (e) => { st.poke?.(); drag = { x: e.clientX, y: e.clientY, px: pan.x, pz: pan.z, moved: false }; };
     const onMove = (e) => {
       if (!drag || st.zoom <= 1) return;
+      if (!drag) { // [게임화 1차] 호버 통통: 90ms 스로틀 레이캐스트 — 캐릭터·스테이션이 마우스에 반응
+        const tn = performance.now(); if (tn - (st.hoverAt || 0) < 90 || dataRef.current.reduced || st.intro) return;
+        st.hoverAt = tn;
+        const r0 = renderer.domElement.getBoundingClientRect();
+        if (e.clientX < r0.left || e.clientX > r0.right || e.clientY < r0.top || e.clientY > r0.bottom) { st.hoverOn = null; cvs.style.cursor = ''; return; }
+        ndc.set(((e.clientX - r0.left) / r0.width) * 2 - 1, -((e.clientY - r0.top) / r0.height) * 2 + 1);
+        ray.setFromCamera(ndc, cam);
+        const hv = ray.intersectObjects(st.clickables, true)[0];
+        let ho = hv && hv.object; while (ho && !ho.userData?.kind) ho = ho.parent;
+        const tgt = ho?.userData?.kind === 'person' ? (st.people.get(ho.userData.name)?.ch || null) : ho?.userData?.kind === 'stage' ? ho : null;
+        cvs.style.cursor = tgt ? 'pointer' : '';
+        if (tgt !== st.hoverOn) {
+          st.hoverOn = tgt;
+          if (tgt) { if (tgt.userData.baseScale == null) tgt.userData.baseScale = tgt.scale.x; st.hoverFx = { o: tgt, base: tgt.userData.baseScale }; st.poke?.(); }
+        }
+        return;
+      }
       const dx = e.clientX - drag.x; const dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
       const k = (2 * st.fit / st.zoom) / (el.clientHeight || 500);
       // 화면 x → 월드 (1,0,-1)/√2, 화면 y → 월드 (1,0,1)/√2·(1/sin 35°)
