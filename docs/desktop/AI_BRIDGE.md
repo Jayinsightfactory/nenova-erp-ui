@@ -36,6 +36,10 @@ $env:NENOVA_AI_BRIDGE = '1'; npx electron .
 - **쓰기성 차단 목록**: `page/click`·`page/fill`은 ERP 쓰기(erp-contract) 계열 경로에서 기본 차단 —
   `/orders /shipment /stock /warehouse /incoming /incoming-price /estimate /master /admin /purchase /sales /ecount /mgmt /finance /api` (`desktop/ai-bridge.cjs`의 `WRITE_BLOCKED_PREFIXES`).
   읽기 도구는 제한 없음. 차단을 풀려면 코드 수정 + 새 설치본이 필요하다(원격으로 못 바꿈).
+- **검증용 예외**: 차단 경로에서도 셀렉터가 정확히 `[data-ai-verify]` 또는 `[data-ai-verify="<id>"]` 하나뿐이면 click/fill을 허용한다
+  (`isVerifySelector`, 콤마·조합자·추가 셀렉터 금지). 웹 화면은 **검증해도 DB가 바뀌지 않는 조작(모드 라디오, 차수 버튼, 입력칸, 초기화)에만**
+  `data-ai-verify="<id>"` 를 달고, **저장·적용·등록·삭제 버튼에는 절대 달지 않는다**. 감사 로그에 `verify: true` 로 남는다.
+  현재 표식: `pages/orders/import.js` — `register-mode-<order|orderPrice|priceOnly>`, `subweek-<NN-NN>`, `price-only-input-<SdetailKey>`, `price-only-reset`.
 - **감사 로그**: open/click/fill의 허용·거부 전부 `%APPDATA%\Nenova Desktop\ai-bridge-audit.jsonl`에 JSONL로 기록.
 - **임의 JS 실행 없음**: `page/eval`은 제공하지 않는다. main이 고정된 쿼리/클릭/입력 스니펫만 만든다. 원격 페이지에는 preload를 넣지 않는다.
 - 토큰은 실행마다 새로 생성(32바이트 랜덤), 비교는 timingSafeEqual, 본문 256KB 제한.

@@ -1981,7 +1981,7 @@ export default function OrderImportPage() {
                     background: registerMode === opt.v ? '#eff6ff' : '#fff',
                   }}
                 >
-                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} disabled={off} onChange={() => setRegisterMode(opt.v)} />
+                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} disabled={off} onChange={() => setRegisterMode(opt.v)} data-ai-verify={`register-mode-${opt.v}`} />
                   <span>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{opt.hint}</div>
@@ -2013,6 +2013,7 @@ export default function OrderImportPage() {
                       <button
                         key={sw.orderWeek}
                         type="button"
+                        data-ai-verify={`subweek-${sw.orderWeek}`}
                         onClick={() => toggleSubWeek(sw.orderWeek)}
                         style={{
                           padding: '6px 14px', borderRadius: 18, fontSize: 13, cursor: 'pointer',
@@ -2052,7 +2053,7 @@ export default function OrderImportPage() {
                           🔒 확정차수 포함: {priceOnlyPlan.fixedWeeks.join(', ')} (확정 유지)
                         </div>
                       )}
-                      <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '4px 10px' }} onClick={() => setPriceEdits({})} disabled={!Object.keys(priceEdits).length}>
+                      <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '4px 10px' }} onClick={() => setPriceEdits({})} disabled={!Object.keys(priceEdits).length} data-ai-verify="price-only-reset">
                         입력 초기화
                       </button>
                     </div>
@@ -2084,6 +2085,7 @@ export default function OrderImportPage() {
                                     min="0"
                                     step="1"
                                     data-testid={`price-only-input-${r.sdetailKey}`}
+                                    data-ai-verify={`price-only-input-${r.sdetailKey}`}
                                     style={{ ...st.input, width: 110, padding: '4px 8px', fontWeight: changed ? 700 : 400, color: changed ? '#1d4ed8' : '#0f172a', borderColor: r.invalid ? '#fca5a5' : (r.edited ? '#1d4ed8' : '#cbd5e1') }}
                                     value={priceEdits[String(r.sdetailKey)] ?? r.newCost}
                                     onChange={e => setPriceEdits(prev => ({ ...prev, [String(r.sdetailKey)]: e.target.value }))}

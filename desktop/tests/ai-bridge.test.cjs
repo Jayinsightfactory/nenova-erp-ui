@@ -5,7 +5,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createAiBridge, allowedOpenUrl, isWriteBlockedPath } = require('../ai-bridge.cjs');
+const { createAiBridge, allowedOpenUrl, isWriteBlockedPath, isVerifySelector } = require('../ai-bridge.cjs');
 const { trustedUrl } = require('../policy.cjs');
 
 const MENUS = [{ group: '주문', items: [{ href: '/orders', labelKey: '주문 관리', popup: false }, { href: '/stats/weekly?tab=a', labelKey: '주간 통계', popup: false }] }];
@@ -15,6 +15,27 @@ test('isWriteBlockedPath blocks ERP write-family paths and allows read pages', (
   for (const p of ['/dashboard', '/stats/weekly', '/freight.js', '/login']) assert.equal(isWriteBlockedPath(p), false, p);
   assert.equal(isWriteBlockedPath(''), true);
   assert.equal(isWriteBlockedPath(undefined), true);
+});
+
+test('isVerifySelector accepts only a lone data-ai-verify attribute selector', () => {
+  for (const sel of ['[data-ai-verify]', '[data-ai-verify="register-mode-priceOnly"]', '[data-ai-verify="price-only-input-12345"]', '[data-ai-verify="subweek-44-01"]']) assert.equal(isVerifySelector(sel), true, sel);
+  for (const sel of ['#save', '[data-ai-verify], #save', '[data-ai-verify] button', '[data-ai-verify="x"]:not(.a)', 'button[data-ai-verify]', '[data-ai-verify="a b"]', '[data-ai-verify=\'x\']', '', undefined]) assert.equal(isVerifySelector(sel), false, String(sel));
+});
+
+test('page/click and page/fill on blocked paths allow only verify selectors', async () => {
+  const { bridge, dir, calls } = startBridge({ resolveTabUrl: async () => 'https://nenovaweb.com/orders/import' });
+  const { port, token } = await bridge.start();
+  try {
+    const click = await rpc(port, token, 'page/click', { selector: '[data-ai-verify="register-mode-priceOnly"]' });
+    assert.equal(click.status, 200);
+    const fill = await rpc(port, token, 'page/fill', { selector: '[data-ai-verify="price-only-input-7"]', value: '800' });
+    assert.equal(fill.status, 200);
+    const denied = await rpc(port, token, 'page/click', { selector: '[data-ai-verify="price-only-apply"], [data-testid="price-only-apply"]' });
+    assert.equal(denied.status, 403);
+    assert.deepEqual(calls, [['click', '[data-ai-verify="register-mode-priceOnly"]'], ['fill', '[data-ai-verify="price-only-input-7"]', '800']]);
+    const audit = fs.readFileSync(bridge.auditFile, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.deepEqual(audit.map(row => [row.allowed, row.verify]), [[true, true], [true, true], [false, false]]);
+  } finally { bridge.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('allowedOpenUrl accepts only bootstrap menu paths, dashboard, and login', () => {

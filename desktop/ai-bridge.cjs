@@ -15,6 +15,14 @@ function isWriteBlockedPath(pathname) {
   return WRITE_BLOCKED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p + '?'));
 }
 
+// 검증용 예외(차단 경로에서도 허용): 웹 화면이 data-ai-verify="<id>" 로 명시한 요소만, 그 속성 하나로만 고른 셀렉터.
+// 콤마(OR)·조합자·추가 셀렉터를 금지해 속성 없는 요소(저장/적용/등록 버튼 등)에는 절대 닿지 못한다.
+// 저장·적용 버튼은 웹 쪽에서 data-ai-verify 를 달지 않는 것이 규칙이다 (docs/desktop/AI_BRIDGE.md).
+const VERIFY_SELECTOR = /^\[data-ai-verify(?:="[A-Za-z0-9_.:-]{1,120}")?\]$/;
+function isVerifySelector(selector) {
+  return typeof selector === 'string' && VERIFY_SELECTOR.test(selector);
+}
+
 // tabs/open 허용 판정: 같은 origin(trustedUrl) + bootstrap 메뉴 allowlist(또는 /dashboard, /login) 경로만.
 function allowedOpenUrl(input, menus, trustedUrl) {
   if (typeof input !== 'string' || !input) return null;
@@ -77,9 +85,10 @@ function createAiBridge({ dir, trustedUrl, getMenus, tools, now = () => new Date
         const url = await tools.resolveTabUrl(p.tabId);
         if (!url) throw new Error('대상 탭을 찾지 못했습니다.');
         const pathname = new URL(url).pathname;
-        const blocked = isWriteBlockedPath(pathname);
-        audit({ method, url: url.slice(0, 500), selector, allowed: !blocked });
-        if (blocked) throw new Error(`쓰기성 조작 차단 경로입니다: ${pathname}`);
+        const verify = isVerifySelector(selector);
+        const blocked = isWriteBlockedPath(pathname) && !verify;
+        audit({ method, url: url.slice(0, 500), selector, allowed: !blocked, verify });
+        if (blocked) throw new Error(`쓰기성 조작 차단 경로입니다: ${pathname} (검증용 [data-ai-verify="…"] 셀렉터만 허용)`);
         return method === 'page/click' ? tools.pageClick({ tabId: p.tabId, selector }) : tools.pageFill({ tabId: p.tabId, selector, value: typeof p.value === 'string' ? p.value.slice(0, 4000) : '' });
       }
       case 'page/scroll': {
@@ -137,4 +146,4 @@ function createAiBridge({ dir, trustedUrl, getMenus, tools, now = () => new Date
   };
 }
 
-module.exports = { createAiBridge, allowedOpenUrl, isWriteBlockedPath, WRITE_BLOCKED_PREFIXES };
+module.exports = { createAiBridge, allowedOpenUrl, isWriteBlockedPath, isVerifySelector, WRITE_BLOCKED_PREFIXES };
