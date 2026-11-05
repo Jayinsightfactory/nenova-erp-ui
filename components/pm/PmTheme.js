@@ -228,8 +228,9 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
       </div>
       <div className="sgrid">
         <section className="sstage">
-          <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.74} state={st} stage={myStage} dance={dance} emote={emote} /></div>
-          <Render3DPreview cfg={cfg} />
+          {/* [2026-11-05 디자인 자문] 피팅룸 승격: 3D 실물 렌더가 주인공(크게·단상 위), 2D 무대는 동작 미리보기로 축소 */}
+          <Render3DPreview cfg={cfg} big />
+          <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.5} state={st} stage={myStage} dance={dance} emote={emote} /></div>
           <PassBadge pass={pass} />
           {pass && pass.expired && <p className="czmsg" role="note">자유이용권이 끝났어요. 산 적 없는 품목은 기본 복장으로 돌아갔어요(꾸미기 기록은 보관) — 구매하면 계속 사용할 수 있어요.</p>}
           <div className="czst" role="group" aria-label="춤 미리보기">
@@ -252,6 +253,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             return (
               <SelectCard key={x.key} className={`sitem ${own ? 'own' : 'lock'} ${poor ? 'poor' : ''}`} on={x.on} pressed={x.on} onClick={() => choose(x)} title={`${x.name} · ${RARITY[x.rarity] || ''}`}>
                 {x.src ? <img src={x.src} alt="" loading="lazy" /> : <span className="fxi" aria-hidden>{x.emoji}</span>}
+                {poor && <span className="padlock" aria-hidden>🔒</span>}
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
                 <small className={`czr r-${x.rarity || 'basic'}`}>{x.need > myStage && !freeOn ? `🌱 ${x.need}단계 · ` : ''}{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
@@ -272,7 +274,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
           {!canEdit && <p className="czmsg" role="note">{editNote || '편집 권한 없음'}</p>}
           {canEdit && (freeOn ? notBought : needBuy).map((x) => (
             <Button key={x.key} variant="primary" className="big buy" disabled={busy || !wallet || wallet.balance < x.price} onClick={() => doBuy(x)}>
-              {x.name} 구매하기 · {x.price}🪙{wallet && wallet.balance < x.price ? ' (부족)' : ''}
+              {x.name} 구매하기 · {x.price}🪙{wallet && wallet.balance < x.price ? ` · ${x.price - wallet.balance}🪙 모자라요 🏃` : ''}
             </Button>
           ))}
           <Button variant="primary" className="big equip" loading={busy} disabled={!canEdit || needBuy.length > 0} title={needBuy.length ? '잠긴 품목을 먼저 사야 저장됩니다' : ''}
@@ -295,7 +297,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
 // 3D 사무실에 실제로 쓰는 블렌더 모델 렌더 미리보기(scripts/pm3d/render_shop.py) — 같은 카메라 고정 렌더라
 // "종족 베이스 + 옷 레이어 + 모자 레이어" 겹침으로 장착 조합을 표현. 탈것은 mounts.glb 썸네일을 옆에 세움.
 // 레이어 파일이 아직 없으면(onError) 그 레이어만 조용히 숨긴다(기존 2D 무대가 위에 따로 있음).
-function Render3DPreview({ cfg }) {
+function Render3DPreview({ cfg, big = false }) {
   const n = normalizeAvatar(cfg);
   const hat = hatMesh(n.items.hat || '');
   const mount = n.items.mount ? String(n.items.mount).replace(/^mount\./, '') : '';
@@ -312,7 +314,7 @@ function Render3DPreview({ cfg }) {
   const hide = (e) => { e.currentTarget.style.visibility = 'hidden'; };
   const show = (e) => { e.currentTarget.style.visibility = 'visible'; };
   return (
-    <div className="r3d" role="img" aria-label="3D 사무실 속 모습 미리보기">
+    <div className={`r3d${big ? ' r3dbig' : ''}`} role="img" aria-label="3D 사무실 속 모습 미리보기">
       <div className="r3dstack">
         {layers.map((s) => <img key={s} src={s} alt="" loading="lazy" onError={hide} onLoad={show} />)}
         {mount && <img className="r3dm" src={`/pm/mounts/thumb/${mount}.webp`} alt="" loading="lazy" onError={hide} onLoad={show} />}
