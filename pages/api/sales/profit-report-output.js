@@ -2,6 +2,8 @@ import { withAuth } from '../../../lib/auth';
 import { loadWeeklyReportPayload } from './profit-report';
 import { buildProfitReportXlsx } from '../../../lib/profitReportExcel';
 import { outputScope } from '../../../lib/profitRangeOutput.mjs';
+import { loadProfitImpactNotes } from '../../../lib/profitImpactNotesData';
+import { profitDisplayCalculation } from '../../../lib/profitReportStoredCalculation';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ success: false, error: 'GET only' }); }
@@ -16,8 +18,10 @@ export default withAuth(async function handler(req, res) {
   }
   try {
     const data = await loadWeeklyReportPayload(scope.major, scope.year, { mode:'display' });
-    const workbook = buildProfitReportXlsx({ major: scope.major, rows: data.rows, note: data.note,
-      audit: data.audit, visibleCols, confirmedTotals: data.confirmed ? data.confirmedTotals : data.totals || null,
+    const display = profitDisplayCalculation(data);
+    const evidence = await loadProfitImpactNotes(data, s => loadWeeklyReportPayload(s.major, s.year, { currentPeriod: { orderYear: '9999', major: '53' } }));
+    const workbook = buildProfitReportXlsx({ major: scope.major, rows: display.rows, note: [data.note, evidence.text].filter(Boolean).join('\n'),
+      audit: data.audit, visibleCols, confirmedTotals: display.totals,
       displaySheetFirst: true, displayCategory, returnWorkbook: true });
     res.setHeader('Cache-Control', 'private, no-store');
     return res.status(200).json({ success: true, ...scope, workbook });

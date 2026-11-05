@@ -50,12 +50,12 @@ async function main() {
   for (const week of auditedWeeks) {
     const weekTotals = computeProfitTotals([row('감사대상', { C: week.C, F: week.F, J: week.J })]);
     assert.ok(
-      Math.abs(weekTotals.K - week.J / (week.C + week.F)) < 1e-9,
-      `${week.label} totals.K는 computeProfitTotals 내부에서도 항상 J/(C+F) 공식이어야 한다.`,
+      Math.abs(weekTotals.K - week.J / week.C) < 1e-9,
+      `${week.label} totals.K는 최신 표시 정책 J/C다. 원본 금융금액은 유지한다.`,
     );
     assert.ok(
-      Math.abs(weekTotals.K - week.expectedK) < 0.0001,
-      `${week.label} 합계 K는 감사에서 확정된 ${(week.expectedK * 100).toFixed(4)}%와 일치해야 한다. 실제=${(weekTotals.K * 100).toFixed(4)}%`,
+      Math.abs(weekTotals.K - week.generalMarginJoverC) < 0.0001,
+      `${week.label} 합계 K는 표시 J/C다.`,
     );
     // 일반 영업 이익률 J/C는 합계 K와 다른 값이며, 화면·엑셀 기본 이익률로 쓰지 않는다(설명용 별도 값).
     const generalMargin = week.J / week.C;
@@ -63,9 +63,9 @@ async function main() {
       Math.abs(generalMargin - week.generalMarginJoverC) < 0.0001,
       `${week.label} 일반 J/C는 ${(week.generalMarginJoverC * 100).toFixed(4)}%와 일치해야 한다. 실제=${(generalMargin * 100).toFixed(4)}%`,
     );
-    assert.notEqual(
+    assert.equal(
       Math.round(weekTotals.K * 1e6), Math.round(generalMargin * 1e6),
-      `${week.label} 합계 K(J/(C+F))는 일반 J/C와 서로 다른 값이어야 한다 — 합계 화면 기본 이익률은 K여야 한다.`,
+      `${week.label} 합계 K는 표시 J/C와 일치한다.`,
     );
   }
 

@@ -23,6 +23,8 @@ const assert = require('assert');
   assert.strictEqual(result.baseline.key, '2025-28');
   assert.strictEqual(result.comparison.key, '2026-28');
   assert.strictEqual(result.contributions.length, 6);
+  assert.strictEqual(result.baseline.margin,result.baseline.profit/result.baseline.revenue,'표시 J/C 정책을 분해 기준에도 적용');
+  assert.strictEqual(result.comparison.margin,result.comparison.profit/result.comparison.revenue);
   assert.ok(Math.abs(result.contributionSum - result.difference) < 1e-10, '여섯 기여도는 실제 이익률 차이와 조정');
   assert.ok(Math.abs(result.residual) < 1e-10, '잔차 없음');
   assert.ok(result.issues.some(issue => issue.code === 'ALLOCATION_UNIT_PRICE_UNVERIFIED'), '판매수량 없는 분배단가는 미검증 표시');

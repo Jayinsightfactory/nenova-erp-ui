@@ -120,8 +120,8 @@ async function main() {
   });
   check('noEnding 3개국은 기말재고를 빼지 않음(코드)', noEnd.I === 300);
   check('noEnding 예외를 매출원가 설명이 명시', /이스라엘·뉴질랜드·일본/.test(byKey.I.note));
-  check('noEnding 예외를 매출이익·이익률 설명이 명시',
-    /이스라엘·뉴질랜드·일본/.test(byKey.J.note) && /이스라엘·뉴질랜드·일본/.test(byKey.K.note));
+  check('noEnding 매출이익 예외는 보존하고 표시 이익률은 모든 행 J/C',
+    /이스라엘·뉴질랜드·일본/.test(byKey.J.note) && /모든 국가·품종과 합계/.test(byKey.K.note));
 
   // 매출비율(D)의 분모는 공제 포함, 상품구매비율(U)의 분모는 공제 제외
   const totals = computeProfitTotals([

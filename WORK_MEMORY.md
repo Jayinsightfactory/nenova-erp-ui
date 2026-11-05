@@ -2102,3 +2102,6 @@
 
 2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
 검색어: PR1550 incoming linked approval guide-player 41978488811
+
+2026-11-05 주차이익률·금융비고 구현: 표시K=J/C(C0/null공란), saved/confirmed금액·원본JSON불변. 콜롬비아 report-profile GW/CW배분·반대기준 운임 및재고유보 반영이익/%p 참고, 실제StockHistory 품목/물리단위증감과 근거평가액, 실제PeriodDay인접 저장본의 기말→기초 평가차이를 구분. 사용자비고·원장보존, DB쓰기0. 실제dnSpy/31-01중량1420/3342·저장3342/3342 SELECT확인. 대상검사PASS. 첫ERPgate는오래된 WorkbookParity 소스문자열assert1건중단→수정PASS; 잔여gate/공식build/브라우저 및 PR·배포진행중(미검증 단계 완료아님). 세션docs/work-sessions/2026-11-05_profit-margin-impact-notes.md.
+검색어: profit-margin-impact-notes J/C Colombia GW CW CBM StockHistory 평균원가 조정평가액

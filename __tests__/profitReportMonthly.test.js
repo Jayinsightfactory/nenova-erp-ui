@@ -19,7 +19,7 @@ const path = require('path');
   assert.strictEqual(summary.months[6].includedWeeks.length, 2, '7월에는 7월 종료 차수까지 들어간다');
   assert.strictEqual(summary.months[6].totals.C, 300, '6월 시작 경계 차수도 종료일이 속한 7월에 귀속된다');
   assert.strictEqual(summary.months[6].totals.J, 110, '7월에 귀속된 주차의 이익을 합산한다');
-  assert.strictEqual(summary.months[6].totals.K, 110 / 320, '이익률은 7월 귀속 주차 합계행의 분모를 유지한다');
+  assert.strictEqual(summary.months[6].totals.K, 110 / 300, '표시 이익률은 월별 표시 J/C다');
   assert.strictEqual(summary.months[6].totals.E, undefined, '기초재고는 월별로 합산하지 않는다');
   assert.strictEqual(summary.months[6].totals.F, undefined, '기말재고는 월별로 합산하지 않는다');
   assert.strictEqual(summary.months[6].boundaryWeeks.length, 1, '7월 경계 차수는 종료일 기준 7월에 귀속된다');

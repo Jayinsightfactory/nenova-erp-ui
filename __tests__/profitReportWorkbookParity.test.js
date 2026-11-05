@@ -157,7 +157,7 @@ async function main() {
   check('기타 미분류 품목은 웹 자동 비고에만 포함하고 엑셀에서는 제외',
     reportSource.includes('unclassifiedDetailsByCategory')
       && pageSource.includes('data.autoNote')
-      && reportApiSource.includes('major, rows: data.rows, note: data.note')
+      && reportApiSource.includes('major, rows: display.rows, note: [data.note, impactNotes.text]')
       && !reportApiSource.includes('note: composeProfitReportNote(data.note, data.autoNote)'));
   check('기본 화면은 22열 전체이며 이후 사용자 선택을 저장',
     pageSource.includes('const DEFAULT_VISIBLE_COL_KEYS = ALL_COL_KEYS;')
