@@ -208,8 +208,9 @@ export default function PivotExePanel() {
   const [sorts, setSorts] = useState({});
   const [valueOrders, setValueOrders] = useState({});
   const [exporting, setExporting] = useState(false);
-  const [webToolsOpen, setWebToolsOpen] = useState(false);
-  useEffect(() => { try { setWebToolsOpen(localStorage.getItem(WEB_TOOLS_OPEN_KEY) === '1'); } catch { /* storage unavailable: keep folded */ } }, []);
+  // 기본 펼침: 소수점·0 표시·소계 등 웹 전용 기능이 사라진 것으로 오해되지 않도록. 사용자가 접으면('0') 그 상태를 기억한다.
+  const [webToolsOpen, setWebToolsOpen] = useState(true);
+  useEffect(() => { try { setWebToolsOpen(localStorage.getItem(WEB_TOOLS_OPEN_KEY) !== '0'); } catch { /* storage unavailable: keep open */ } }, []);
   const toggleWebTools = (event) => {
     const open = event.currentTarget.open;
     setWebToolsOpen(open);
@@ -505,7 +506,7 @@ export default function PivotExePanel() {
       </div>
     </div>
     <details data-testid="pivot-exe-web-tools" open={webToolsOpen} onToggle={toggleWebTools} style={webToolsStyle}>
-      <summary style={{cursor:'pointer',fontSize:12,color:'#333',padding:'3px 6px',userSelect:'none'}}>웹 추가 기능 <small style={{color:'#777'}}>세부/메인차수 · 입고 보기 · 환율 · 표시 설정 · 즐겨찾기 · 필드 목록 · 필터 편집</small></summary>
+      <summary style={{cursor:'pointer',fontSize:12,color:'#333',padding:'3px 6px',userSelect:'none'}}>웹 추가 기능 <small style={{color:'#777'}}>소수점 숨기기 · 0 표시 · 행/열 소계 · 표시 설정 · 세부/메인차수 · 입고 보기 · 환율 · 즐겨찾기 · 필드 목록 · 필터 편집</small></summary>
       <div style={{padding:'4px 6px 6px'}}>
     <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',marginBottom:4}}><button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button>
       {successRange && <><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button></>}
