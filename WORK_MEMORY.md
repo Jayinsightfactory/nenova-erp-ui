@@ -2110,6 +2110,8 @@
 - 관련회귀/dnSpy/manifest통과,실제UI합성dryrun통과.필수전체검사·영상·CI·배포·정리미검증(진행중).
 - 검색어: 도착원가 시트검토 업로드 원본보존 Import53 Import54 134행 arrivalUploadReview
 
+2026-11-05 후속 단순화 착수: 이전PR1550/d0106f3f의CI41979093709·배포41979671264·운영두메뉴/영상재생PASS 확인완료. 새요청은기존농장입고내품목+수량/수량만/추가/취소 직접입력, 영업지원문제만조정후확정. nw-incoming-simple-1105에서Sol하위1개로진행, 기존원자writer재사용. 현재후속배포미완료.
+검색어: incoming-simple-workflow PR1550 문제중심검토 사용량절약 Sol
 ## 2026-11-05 도착원가 업로드 컨트롤 디자인
 - 부모 styled-jsx가 새 자식컴포넌트에 전달되지 않아 기본HTML버튼으로 보였음. CSS Module로입력/파일선택/분석·재검토·저장·닫기버튼을공통ERP규격에연결.32px높이·13px글자·간격8px·분석파랑/저장초록/보조버튼·비활성회색/파랑포커스 적용.표간격/행구분/가로스크롤·좁은폭줄바꿈정리.
 - 적용기준:MENU_DEVELOPMENT_DEFAULTS,globals.btn와hotelOrderButtons의공통컨트롤규격.업무정책/API/SQL/ERP쓰기변경없음.

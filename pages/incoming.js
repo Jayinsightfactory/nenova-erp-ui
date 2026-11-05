@@ -351,7 +351,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         </Col>
       </Row>
 
-      {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(result.approval?`수정 요청 #${result.requestId} 초안 저장 · 입고 정정 업무에서 영업지원에 요청하세요.`:`입고 #${result.warehouseKey} 수정 완료`); if(result.approval){window.dispatchEvent(new Event('incoming-approval-saved'));return;} setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
+      {correctionTarget && <WarehouseCorrection selected={correctionTarget} onClose={() => setCorrectionTarget(null)} onSaved={(result) => { setSuccessMsg(result.approval?`수정 요청 #${result.requestId} · 영업지원 검토 대기로 전달했습니다.`:`입고 #${result.warehouseKey} 수정 완료`); if(result.approval){window.dispatchEvent(new Event('incoming-approval-saved'));return;} setFarmFilter(''); load(); selectMaster(result.warehouseKey); }} />}
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>

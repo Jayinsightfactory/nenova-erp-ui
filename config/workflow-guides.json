@@ -3,7 +3,7 @@
   "workflows": [
     {
       "id": "incoming-approval",
-      "title": "입고 수정요청과 매칭·확정",
+      "title": "입고 수정 요청과 검토·확정",
       "entryPaths": [
         "/incoming",
         "/import/tools?tab=incoming"
@@ -13,7 +13,9 @@
         "components/IncomingApprovalLinkedReview.js",
         "components/WarehouseCorrection.js",
         "pages/incoming.js",
-        "pages/import/tools.js"
+        "pages/import/tools.js",
+        "components/IncomingCorrectionRequest.js",
+        "lib/incomingApprovalSimple.js"
       ],
       "requiredScenarios": [
         "farm",
@@ -33,17 +35,27 @@
             {
               "scenario": "farm",
               "title": "농장만 수정",
-              "seconds": 20.042
+              "seconds": 7.044
             },
             {
               "scenario": "product",
-              "title": "수량은 같고 품목만 수정",
-              "seconds": 66.726
+              "title": "품목·수량 함께 변경",
+              "seconds": 38.407
             },
             {
               "scenario": "quantity",
-              "title": "입고·분배 수량 감소",
-              "seconds": 115.498
+              "title": "수량만 변경·부족 문제 해결",
+              "seconds": 80.71
+            },
+            {
+              "scenario": "add",
+              "title": "기존 입고에 품목·수량 추가",
+              "seconds": 120.338
+            },
+            {
+              "scenario": "cancel",
+              "title": "기존 입고의 품목·수량 취소",
+              "seconds": 169.061
             }
           ]
         },
@@ -59,17 +71,17 @@
             {
               "scenario": "farm",
               "title": "농장만 수정",
-              "seconds": 21.573
+              "seconds": 8.616
             },
             {
               "scenario": "product",
-              "title": "수량은 같고 품목만 수정",
-              "seconds": 107.958
+              "title": "품목·수량 함께 변경",
+              "seconds": 36.524
             },
             {
               "scenario": "quantity",
-              "title": "입고·분배 수량 감소",
-              "seconds": 229.4
+              "title": "수량만 변경·부족 문제 해결",
+              "seconds": 76.122
             }
           ]
         }

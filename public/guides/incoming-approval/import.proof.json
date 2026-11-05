@@ -1,21 +1,23 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-05T05:57:53.264Z",
+  "recordedAt": "2026-11-05T09:16:26.790Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 164.1,
+  "duration": 213.7,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "286a97ba8739d85cab75a1950213b2836ca2f3b2b3ce281826aae5ce4817d2e3",
-  "captionsSha256": "af001006a54d11e0722583d8c646d50b66e232b68921f1d3273331bdb8bdad17",
+  "videoSha256": "5f3a53babc2394ea14a83fae03f9d660966711bd241b4e2e3ce4a13c3aaa0a65",
+  "captionsSha256": "e3923f6e0eea9a4b856051910da1dd02c75f0fbeb87a7f817f269b88809987d8",
   "sourceHashes": {
-    "components/IncomingApproval.js": "b28e75d7aceacb4e5e07ddddc872f82d3aae382c5582c8bb7ff85daf37958590",
-    "components/IncomingApprovalLinkedReview.js": "f5c961232531b1aa22a68b49be06feb9247a50df5ae539ef8f76f279dc0948f5",
-    "components/WarehouseCorrection.js": "e78e4e251e416bcfe9e0094d1856ff942091e85d11df139e495a212e821be4af",
-    "pages/incoming.js": "26d4238f99acf18c612e23827f55c87c0b4246fe3e3af894192ef7e1a92fd069",
-    "pages/import/tools.js": "a8bbe8830e1ea648f8d73a1cbdc8b68ecfd40b33d0bdba737f305ebb24b4f3f0"
+    "components/IncomingApproval.js": "5d906a9f1d6b241f4580be6236a74aa7aec7b83d2563590f7d363f0033f3da8a",
+    "components/IncomingApprovalLinkedReview.js": "4cb089cdf6f0ef7989e72f30732bcdc62227e00a40e5e434c259a6d9b664ced6",
+    "components/WarehouseCorrection.js": "22070ab7d52f2d10a6e9ded512cca8cc9e927629f430074c95f9aa5fad13837c",
+    "pages/incoming.js": "129d541c043d8552ec08c6beff6da8bc52c3f8c5da31b7db184ad930597acd31",
+    "pages/import/tools.js": "a8bbe8830e1ea648f8d73a1cbdc8b68ecfd40b33d0bdba737f305ebb24b4f3f0",
+    "components/IncomingCorrectionRequest.js": "ee1008777aec8842c31ab42976db092c9e474e5775e84f3607fbaa6b4cd0f629",
+    "lib/incomingApprovalSimple.js": "fb9b86dcd2d17bee83d8d8aeaf5662c020d9d0e7fcbc49b7d7e2cdb84e11098f"
   }
 }
