@@ -6,7 +6,7 @@ const os = require('os');
 const { pathToFileURL } = require('url');
 (async () => {
   const td = fs.mkdtempSync(path.join(os.tmpdir(), 'pm3d-'));
-  for (const n of ['pm3dLayout', 'pmThemes']) fs.writeFileSync(path.join(td, `${n}.mjs`), fs.readFileSync(path.join(process.cwd(), `lib/${n}.js`), 'utf8').replace("'./pmThemes.js'", "'./pmThemes.mjs'"));
+  for (const n of ['pm3dLayout', 'pm3dGrid', 'pmThemes']) fs.writeFileSync(path.join(td, `${n}.mjs`), fs.readFileSync(path.join(process.cwd(), `lib/${n}.js`), 'utf8').replace("'./pmThemes.js'", "'./pmThemes.mjs'").replace("'./pm3dGrid.js'", "'./pm3dGrid.mjs'"));
   const L = await import(pathToFileURL(path.join(td, 'pm3dLayout.mjs')).href); fs.rmSync(td, { recursive: true, force: true });
   const rooms = [['영업지원', 3], ['수입부', 2], ['영업부', 3], ['경영지원', 1], ['미배치', 5]].map(([dept, n]) => ({ dept, seats: Array.from({ length: n }, (_, i) => ({ name: `${dept}${i}`, status: i % 2 ? 'off' : 'working' })) }));
   const { desks } = L.layoutDesks(rooms);
@@ -19,8 +19,8 @@ const { pathToFileURL } = require('url');
   // 뒤통수 금지: 모든 좌석 방향 · 카메라 방향 내적 > 0.3
   for (const d of desks) assert.ok(L.facingDot(d.yaw) > 0.3, `좌석이 카메라 반대쪽: ${d.name} dot=${L.facingDot(d.yaw).toFixed(2)}`);
   for (let i = 0; i < 30; i++) assert.ok(L.facingDot(L.seatYaw(i)) > 0.99, '일자 라인: 전원 카메라 정면');
-  // 일자 라인: z 값은 줄(±3.2, ±5.5) 위에만
-  for (const d of desks) assert.ok([4, 6.6].includes(Math.abs(+d.z.toFixed(1))), `책상이 줄 밖: ${d.name} z=${d.z}`);
+  // 일자 라인: z 값은 격자 섬 자리 줄(lib/pm3dGrid HUB_BANDS → 광장 남/북 ±4.8, ±8.4, ±10.8) 위에만
+  for (const d of desks) assert.ok([4.8, 8.4, 10.8].includes(Math.abs(+d.z.toFixed(1))), `책상이 줄 밖: ${d.name} z=${d.z}`);
   const st1 = L.deskStyle('영업지원', '', ['#a', '#b']); assert.ok(L.DESK_MODELS.includes(st1.model) && st1.color);
   assert.strictEqual(L.deskStyle('x', '#own', ['#a']).color, '#own');
   // 연결선 아치-캐릭터 바운딩 교차 0: 모든 좌석→모든 스테이션 아치를 샘플링,

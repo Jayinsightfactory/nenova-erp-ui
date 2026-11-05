@@ -10,7 +10,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { beachDecor } from '../../lib/pm3dDecor';
+import { beachDecorGrid } from '../../lib/pm3dDecor';
+import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
@@ -175,13 +176,19 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const put = (n, x, z, ry = 0, s = 1) => { const o = mod(n); o.position.set(x, 0, z); o.rotation.y = ry; o.scale.setScalar(s); scene.add(o); return o; };
       st.mounts = mounts ? mounts.scene : null;
       const lay = T.layout || {};
-      const { desks, plates } = layoutDesks(dataRef.current.rooms);
+      const { desks, plates, world } = layoutDesks(dataRef.current.rooms);
       const { hx, hz } = floorBounds(desks, lay.mapScale || 1);
-      st.bounds = { hx, hz };
-      st.fit = sceneFit(hx, hz); placeCam();
-      for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) put(T.floor, x, z);
+      const island = T.props !== 'office'; // 해변 = 격자 섬 세계(lib/pm3dGrid), 사무실 테마 = 기존 사각 바닥
+      st.bounds = island ? { ...CRUISE_BOUNDS } : { hx, hz };
+      st.world = world;
+      const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
+      st.fit = sceneFit(fb.hx, fb.hz); placeCam();
+      // 연구실 로봇 자리(섬: 1호 섬 남쪽 해변 끝단 칸 점유 — 장식보다 먼저, 다리 착지 열 제외)
+      const robotSpots = [];
+      if (island) for (const X of [-11, -9, -7, -5, 3, 5, 7, 9]) { const c = [{ X, Z: 11 }]; if (canOccupy(world, c)) { occupy(world, c, `robot:${X}`); robotSpots.push(cellCenter(X, 11)); } }
+      if (!island) for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) put(T.floor, x, z);
       // 테마 장식
-      if (T.props === 'office') {
+      if (!island) {
         for (let x = -hx + 1; x < hx; x += 2) put('wall', x, -hz);
         for (let z = -hz + 1; z < hz; z += 2) put('wall', -hx, z, Math.PI / 2);
         [[-hx + 1, -hz + 1.2], [hx - 1, -hz + 1.2], [hx - 1, hz - 1], [-hx + 1.2, hz - 1]].forEach(([x, z]) => put('plant_k1', x, z));
@@ -189,32 +196,35 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         put('parcel', hx - 2.4, -hz + 1.3); put('parcel', hx - 2.9, -hz + 1.6, 0.5, 0.8);
         for (const p of plates) put('partition', p.x, p.z - Math.sign(p.z) * 0.1);
       } else {
-        // 바다: 4줄 + 모래-바다 사이 물결(포말) 띠(평면+그라데이션) — 바닥 밖이라 주행로·좌석과 교차 없음
-        for (let x = -hx + 1; x < hx + 6; x += 2) for (let r = 1; r <= 4; r++) put('sea', x, -hz - 2 * r + 1);
+        // 격자 섬 세계: 바다 평면 1장 + 칸 타일 종류별 InstancedMesh(드로콜 = 종류 수) · 시설 존은 예약 칸 연한 테두리만
+        const GC = PM3D.GRID;
+        const wb = worldBounds(world);
         {
-          const c = document.createElement('canvas'); c.width = 2; c.height = 64; const g = c.getContext('2d');
-          const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, T.foam || '#ffffff'); gr.addColorStop(0.45, T.foam || '#ffffff'); gr.addColorStop(1, T.sea || T.bg);
-          g.fillStyle = gr; g.fillRect(0, 0, 2, 64);
-          const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
-          const foam = new THREE.Mesh(new THREE.PlaneGeometry(2 * hx + 12, 1.6), new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.85, depthWrite: false }));
-          foam.rotation.x = -Math.PI / 2; foam.position.set(0, -0.045, -hz - 0.3); foam.renderOrder = 1; scene.add(foam);
+          const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60), new THREE.MeshStandardMaterial({ color: T.sea || GC.sea, roughness: 0.6 }));
+          sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
         }
-        for (let x = -hx + 1; x < hx; x += 2) put('boardwalk', x, 0, Math.PI / 2);
-        const rnd = (n) => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
-        // 배경 밀도(2D 클레이 시안 기준) — 오두막·야자수 군락·산포물: lib/pm3dDecor(주행로·좌석·허브 교차 0 테스트 보증)
-        const D = beachDecor({ hx, hz, desks });
-        for (const h of D.huts) { const o = put('hut', h.x, h.z, h.ry, h.s); blob(o, 0, 0, 1.6 * h.s, 1.4 * h.s); }
+        const tiles = tilesOf(world);
+        const tileH = { beach: 0.08, sand: 0.1, path: 0.11, plaza: 0.12, boardwalk: 0.13, bridge: 0.13 };
+        const tGeo = new THREE.BoxGeometry(1, 1, 1);
+        const m4 = new THREE.Matrix4(); const q0 = new THREE.Quaternion(); const v0 = new THREE.Vector3(); const s0 = new THREE.Vector3();
+        for (const [kind, h] of Object.entries(tileH)) {
+          const list = tiles[kind]; if (!list.length) continue;
+          const mat = new THREE.MeshStandardMaterial({ color: GC[kind], roughness: 0.8 });
+          const im = new THREE.InstancedMesh(tGeo, mat, list.length);
+          const gap = kind === 'boardwalk' || kind === 'bridge' ? 0.94 : 1;
+          list.forEach((t, i) => { m4.compose(v0.set(t.x, -h / 2, t.z), q0, s0.set(CELL * gap, h, CELL * gap)); im.setMatrixAt(i, m4); });
+          im.instanceMatrix.needsUpdate = true; scene.add(im);
+        }
+        // 시설 예약 부지(수영장·카트트랙·비행장) — 연한 테두리 선만(실물은 애셋 도착 후)
+        for (const r of facilityRects(world)) {
+          const g = new THREE.BufferGeometry().setFromPoints([[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x0, r.z0]].map(([x, z]) => new THREE.Vector3(x + (x === r.x0 ? 0.1 : -0.1), 0.02, z + (z === r.z0 ? 0.1 : -0.1))));
+          const ln = new THREE.Line(g, new THREE.LineBasicMaterial({ color: GC.reserved, transparent: true, opacity: 0.7 }));
+          ln.userData = { kind: 'reserved', zone: r.kind, label: r.label }; scene.add(ln);
+        }
+        // 배경 밀도 — 야자수·바위·조개·불가사리를 비점유 해변 끝단 칸에만(lib/pm3dDecor.beachDecorGrid, 칸 점유 기록)
+        const D = beachDecorGrid(world);
         for (const p of D.palms) { const o = put('palm', p.x, p.z, p.ry, p.s); blob(o, 0, 0, 0.75 * p.s, 0.75 * p.s); }
         for (const q of D.scatter) put(q.m, q.x, q.z, q.ry, q.s);
-        // 링 밖 가장자리(모래 끝단) 야자수 — 기존 연출 유지(주행로 밖)
-        for (let k = 0; k < 5; k++) put('palm', -hx + 0.9 + k * (2 * hx - 1.8) / 4, hz - 0.35, rnd(k + 29) * 6, 0.9 + rnd(k + 23) * 0.3);
-        // 둘레 순환 보드워크(주행로) — lib/pmThemes layout.ring + lib/pm3dRide ringRect(인셋 1m)
-        if (lay.ring) {
-          const rm = lay.ringModel || 'boardwalk';
-          for (let x = -hx + 1; x < hx; x += 2) { put(rm, x, -hz + 1, Math.PI / 2); put(rm, x, hz - 1, Math.PI / 2); }
-          for (let z = -hz + 3; z < hz - 2; z += 2) { put(rm, -hx + 1, z); put(rm, hx - 1, z); }
-        }
-        for (const p of plates) { put('parasol', p.x, p.z, 0, 1.1); put('surfboard', p.x + 2.6, p.z, 0.3); put('parasol', p.x - 3.1, p.z + 0.6, 0.4, 0.95); }
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
@@ -237,7 +247,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       }
       // 연구실 로봇(AI 에이전트) — 뒤쪽 줄
       (dataRef.current.agents || []).slice(0, 8).forEach((a, i) => {
-        const o = put('robot', -hx + 2 + i * 1.8, hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        const rp = island ? robotSpots[i] : null;
+        if (island && !rp) return;
+        const o = put('robot', rp ? rp.x : -hx + 2 + i * 1.8, rp ? rp.z : hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
         o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; } });
         blob(o, 0, 0, 0.55, 0.5);
         st.robots.push(o);
@@ -260,6 +272,11 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const chair = mod(dstyle.chair || 'chair_k1'); // Kenney 의자도 피벗 보정 후 좌석(0,0,-SEAT_Z)에 중심 배치
         const cbb = new THREE.Box3().setFromObject(chair); const cc = cbb.getCenter(new THREE.Vector3());
         chair.position.set(-cc.x, -cbb.min.y, -SEAT_Z - cc.z); g.add(chair);
+        // 격자 섬: 자리 = 파라솔+책상(파라솔 색 = 부서색). 자리 칸(2×2/3×3) 안쪽 뒤 모서리
+        if (island) {
+          const ps = mod('parasol'); const k = (d.size || 2) * CELL / 2 - 0.35; ps.position.set(k, 0, -k); ps.scale.setScalar(0.85); g.add(ps);
+          if (dstyle.color) ps.traverse((m) => { if (m.isMesh && m.material && !/pole|stick|wood/i.test(m.material.name || '')) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.55); } });
+        }
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
         ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
@@ -361,7 +378,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) {
           const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
           if (P.mountObj && mpose !== 'hidden' && rides < RIDE_MAX_CONCURRENT) {
-            const path = ridePath(P.d, stg, st.bounds || {});
+            const sp = stationPos(stg);
+            const path = (P.d.island > 0 && st.world && walkPath(st.world, P.d, { x: sp.x, z: P.d.z >= 0 ? 1.35 : -1.35 })) || ridePath(P.d, stg, st.bounds || {}); // 다른 섬 자리는 격자 경로(다리 경유)
             P.walk = { t: 0, to: stg, ride: { path, len: pathLength(path), speed: mdef.speed || 1.2 } };
           } else P.walk = { t: 0, to: stg };
         }
