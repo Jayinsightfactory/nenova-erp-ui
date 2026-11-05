@@ -1198,7 +1198,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         /* 상점·꾸미기(시안 page-shop-avatar) */
         .pm .shop .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
         .pm .shop .shead h2 { margin: 0; font-size: 18px; padding: 6px 14px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
-        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
+        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: color-mix(in srgb, var(--pm-accent2) 16%, var(--pm-surface)); border: 2px solid color-mix(in srgb, var(--pm-accent2) 45%, var(--pm-line)); border-radius: 999px; box-shadow: var(--pm-shadow); font-weight: 800; }
         .pm .sgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
         .pm .sstage, .pm .sitems, .pm .sside { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); }
         .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
@@ -1206,6 +1206,10 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
         .pm .r3d { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 42%, var(--pm-surface), var(--pm-surface2) 72%); border: 2px solid var(--pm-line); overflow: hidden; }
+        /* 피팅룸(디자인 자문): 3D 렌더가 주인공 — 좌측 폭을 꽉 채우고, 단상 그림자 타원으로 "서 있는" 공간감 */
+        .pm .r3dbig .r3dstack { width: 100%; max-width: 276px; height: auto; aspect-ratio: 1; background: radial-gradient(circle at 50% 40%, var(--pm-surface), color-mix(in srgb, var(--pm-est-bg) 45%, var(--pm-surface)) 78%); }
+        .pm .r3dbig .r3dstack::after { content: ''; position: absolute; left: 50%; bottom: 7%; width: 58%; height: 8%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pm-ink) 16%, transparent), transparent 70%); }
+        .pm .pc2stage { zoom: .9; opacity: .95; }
         .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
         .pm .r3dstack img.r3dm { inset: auto 4px 4px auto; width: 56px; height: 56px; }
         .pm .pedestal { position: absolute; bottom: 22px; left: 50%; width: 170px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 30%, var(--pm-surface2)); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-accent) 50%, var(--pm-line)); }
@@ -1214,12 +1218,15 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .slots .pmk-tab { flex: 1 0 30%; min-height: 40px; font-size: 12px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .slots .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
         .pm .sitems { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 112px; background: var(--pm-surface2); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; }
-        .pm .sitem img { width: 52px; height: 52px; object-fit: contain; }
-        .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-ink) 70%, var(--pm-surface)); color: var(--pm-surface); }
-        .pm .sitem.lock.poor img { filter: grayscale(1) brightness(.6); }
+        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 132px; background: var(--pm-surface2); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; }
+        .pm .sitem img { width: 72px; height: 72px; object-fit: contain; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--pm-est-bg) 75%, var(--pm-surface)) 0 46%, transparent 50%); border-radius: 50%; }
+        /* 잠긴 상품(디자인 자문): 시커먼 박스 → 밝은 반투명 덮개 + 중앙 자물쇠(오류가 아니라 '갖고 싶은 것'으로) */
+        .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-surface) 55%, var(--pm-surface2)); color: var(--pm-muted); }
+        .pm .sitem.lock.poor img { filter: grayscale(.45) opacity(.75); }
+        .pm .sitem .padlock { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--pm-ink) 30%, transparent)); }
         .pm .sitem.on { border-color: var(--pm-accent); outline: 2px solid var(--pm-accent); }
         .pm .sitem .eq { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--pm-ok); color: var(--pm-accent-ink); font-size: 12px; display: grid; place-items: center; }
+        .pm .sitem small.czr { background: color-mix(in srgb, var(--pm-accent) 14%, var(--pm-surface)); border-radius: 999px; padding: 1px 8px; font-weight: 700; }
         .pm .iname { font-weight: bold; text-align: center; }
         .pm .czr { font-size: 10px; border-radius: 999px; padding: 0 6px; background: var(--pm-surface); color: var(--pm-ink); border: 1px solid var(--pm-line); }
         .pm .czr.r-rare { background: color-mix(in srgb, var(--pm-accent) 25%, var(--pm-surface)); } .pm .czr.r-legendary { background: var(--pm-est-bg); color: var(--pm-est-ink); }
