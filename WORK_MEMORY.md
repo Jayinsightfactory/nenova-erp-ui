@@ -2105,3 +2105,7 @@
 
 2026-11-05 주차이익률·금융비고 구현: 표시K=J/C(C0/null공란), saved/confirmed금액·원본JSON불변. 콜롬비아 report-profile GW/CW배분·반대기준 운임 및재고유보 반영이익/%p 참고, 실제StockHistory 품목/물리단위증감과 근거평가액, 실제PeriodDay인접 저장본의 기말→기초 평가차이를 구분. 사용자비고·원장보존, DB쓰기0. 실제dnSpy/31-01중량1420/3342·저장3342/3342 SELECT확인. 대상검사PASS. 첫ERPgate는오래된 WorkbookParity 소스문자열assert1건중단→수정PASS; 잔여gate/공식build/브라우저 및 PR·배포진행중(미검증 단계 완료아님). 세션docs/work-sessions/2026-11-05_profit-margin-impact-notes.md.
 검색어: profit-margin-impact-notes J/C Colombia GW CW CBM StockHistory 평균원가 조정평가액
+## 2026-11-05 도착원가 시트 검토 업로드
+- 원본보존/검토/선택시트명시국가/차수/연도확인,재검토다이제스트/DB멱등/읽기검증구현.53/54分離134행은55통합1892행중해당134행과원본셀·수량·원가일치/수동변경0.
+- 관련회귀/dnSpy/manifest통과,실제UI합성dryrun통과.필수전체검사·영상·CI·배포·정리미검증(진행중).
+- 검색어: 도착원가 시트검토 업로드 원본보존 Import53 Import54 134행 arrivalUploadReview

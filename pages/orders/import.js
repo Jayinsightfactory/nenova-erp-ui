@@ -776,6 +776,7 @@ export default function OrderImportPage() {
   // 'priceOnly' = 주문등록 없이 선택 세부차수의 분배단가만 수정 (현재 단가 표시 → 수정값 입력 → 적용)
   const [registerMode, setRegisterMode] = useState('order');
   const [priceEdits, setPriceEdits] = useState({}); // priceOnly: sdetailKey → 입력 문자열
+  const [priceFlowers, setPriceFlowers] = useState([]); // priceOnly: 선택 품종(CountryFlower). 빈 배열 = 전체
   const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
   const [selectedSubWeeks, setSelectedSubWeeks] = useState([]);
   const [priceApplying, setPriceApplying] = useState(false);
@@ -1330,7 +1331,7 @@ export default function OrderImportPage() {
     if (!items.length && registerMode !== 'priceOnly') return;
     loadPriceTargets();
   }, [items.length, registerMode, loadPriceTargets]);
-  useEffect(() => { setPriceEdits({}); }, [priceTargets.key]);
+  useEffect(() => { setPriceEdits({}); setPriceFlowers([]); }, [priceTargets.key]);
 
   // 업로드 표 단가: 품목(prodKey)별 1개. 같은 품목에 다른 단가가 여러 행이면 conflict.
   const priceByProd = useMemo(() => {
@@ -1376,12 +1377,29 @@ export default function OrderImportPage() {
     return { changes, same, noTarget, fixedWeeks, conflicts };
   }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd]);
 
-  // 분배단가만 수정: 선택 세부차수의 모든 분배행. 수정 단가 기본값 = 표 단가(있으면) 또는 현재 단가.
+  // 분배단가만 수정: 선택 세부차수의 품종(CountryFlower)별 분배행 수 — 품종 버튼용
+  const priceFlowerOptions = useMemo(() => {
+    const m = new Map();
+    for (const sw of priceTargets.subWeeks || []) {
+      if (!selectedSubWeeks.includes(sw.orderWeek)) continue;
+      for (const d of sw.details || []) {
+        const f = d.countryFlower || '(품종없음)';
+        const cur = m.get(f) || { flower: f, count: 0, fixed: 0 };
+        cur.count += 1;
+        if (d.isFix) cur.fixed += 1;
+        m.set(f, cur);
+      }
+    }
+    return [...m.values()].sort((a, b) => a.flower.localeCompare(b.flower, 'ko'));
+  }, [priceTargets.subWeeks, selectedSubWeeks]);
+
+  // 분배단가만 수정: 선택 세부차수·품종의 분배행. 수정 단가 기본값 = 표 단가(있으면) 또는 현재 단가.
   const priceOnlyRows = useMemo(() => {
     const rows = [];
     for (const sw of priceTargets.subWeeks || []) {
       if (!selectedSubWeeks.includes(sw.orderWeek)) continue;
       for (const d of sw.details || []) {
+        if (priceFlowers.length && !priceFlowers.includes(d.countryFlower || '(품종없음)')) continue;
         const key = String(d.sdetailKey);
         const uploaded = priceByProd.get(Number(d.prodKey));
         const defaultNew = uploaded ? uploaded.price : Number(d.cost) || 0;
@@ -1391,7 +1409,7 @@ export default function OrderImportPage() {
       }
     }
     return rows;
-  }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd, priceEdits]);
+  }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd, priceEdits, priceFlowers]);
   const priceOnlyPlan = useMemo(() => {
     const changes = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) >= 0.5);
     const same = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) < 0.5);
@@ -2121,6 +2139,34 @@ export default function OrderImportPage() {
 
                 {registerMode === 'priceOnly' && selectedSubWeeks.length > 0 && (
                   <>
+                    {priceFlowerOptions.length > 0 && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginRight: 4 }}>품종</span>
+                        <button
+                          type="button"
+                          data-ai-verify="price-flower-all"
+                          onClick={() => setPriceFlowers([])}
+                          style={{ ...st.btn, fontSize: 11, padding: '3px 8px', background: priceFlowers.length ? '#fff' : '#1d4ed8', color: priceFlowers.length ? '#1e293b' : '#fff', border: '1px solid #cbd5e1' }}
+                        >
+                          전체 ({priceFlowerOptions.reduce((n, f) => n + f.count, 0)})
+                        </button>
+                        {priceFlowerOptions.map(f => {
+                          const on = priceFlowers.includes(f.flower);
+                          return (
+                            <button
+                              key={f.flower}
+                              type="button"
+                              data-ai-verify={`price-flower-${f.flower}`}
+                              onClick={() => setPriceFlowers(prev => (prev.includes(f.flower) ? prev.filter(x => x !== f.flower) : [...prev, f.flower]))}
+                              title={`분배행 ${f.count} · 확정행 ${f.fixed}`}
+                              style={{ ...st.btn, fontSize: 11, padding: '3px 8px', background: on ? '#1d4ed8' : '#fff', color: on ? '#fff' : '#1e293b', border: '1px solid #cbd5e1' }}
+                            >
+                              {f.flower} ({f.count}){f.fixed === f.count ? ' 🔒' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
                       <div style={st.kpiBox}>분배행 <b>{priceOnlyRows.length}</b></div>
                       <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{priceOnlyPlan.changes.length}</b></div>

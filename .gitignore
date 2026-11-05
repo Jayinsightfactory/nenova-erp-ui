@@ -123,3 +123,6 @@ scripts/ecount-scraper/.ledger-recovery-request.json
 scripts/bank-quick/_profile/
 scripts/bank-quick/_probe/
 /.next-final/
+
+/data/arrival-upload-review/
+/.probe.cjs

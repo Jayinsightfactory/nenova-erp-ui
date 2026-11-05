@@ -53,7 +53,7 @@ async function handler(req, res) {
     masterRows.forEach((m, i) => { skParams[`sk${i}`] = { type: sql.Int, value: m.ShipmentKey }; });
     const details = await query(
       `SELECT sd.SdetailKey, sd.ShipmentKey, sd.ProdKey,
-              p.ProdName, ISNULL(p.DisplayName, p.ProdName) AS DisplayName, p.OutUnit, p.EstUnit,
+              p.ProdName, ISNULL(p.DisplayName, p.ProdName) AS DisplayName, p.OutUnit, p.EstUnit, ISNULL(p.CountryFlower, '') AS CountryFlower,
               ISNULL(sd.OutQuantity, 0) AS OutQuantity,
               ISNULL(sd.EstQuantity, 0) AS EstQuantity,
               ISNULL(sd.Cost, 0) AS Cost,
@@ -98,6 +98,7 @@ async function handler(req, res) {
         displayName: d.DisplayName,
         outUnit: d.OutUnit,
         estUnit: d.EstUnit,
+        countryFlower: d.CountryFlower || '',
         outQty: Number(d.OutQuantity),
         estQty: Number(d.EstQuantity),
         cost: Number(d.Cost),
