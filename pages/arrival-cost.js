@@ -1,3 +1,4 @@
+import ArrivalUploadReview from '../components/ArrivalUploadReview';
 // 도착원가 — 차수별 원가자료 업로드·매칭·배분기준 관리
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -104,7 +105,6 @@ export default function ArrivalCostPage() {
   const [data, setData] = useState({ rows: [], imports: [], total: 0, page: 1, pageSize: 200, hasMore: false });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState({});
@@ -192,35 +192,6 @@ export default function ArrivalCostPage() {
       ...prev,
       [row.arrivalLineKey]: { ...prev[row.arrivalLineKey], farmInput: farmOptionLabel(farm), farmKey: farm.FarmKey },
     }));
-  };
-
-  const upload = async (event) => {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const file = formElement.elements.namedItem('file')?.files?.[0];
-    if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
-    setUploading(true); setError(''); setMessage('');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('orderYear', filters.orderYear);
-      if (filters.orderWeek) form.append('orderWeek', filters.orderWeek);
-      const res = await fetch('/api/arrival-cost/upload', { method: 'POST', body: form, credentials: 'same-origin' });
-      const json = await parseJsonResponse(res);
-      if (!res.ok || !json.success) throw new Error(json.error || '업로드 실패');
-      formElement.reset();
-      setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건${json.skippedSheets?.length ? ` · 예시 제외 ${json.skippedSheets.map(s => s.sheetName).join(', ')}` : ''}`);
-      if (json.viewScope) {
-        // The applied-filter effect owns fetching; do not race it with an old-scope load.
-        setFilters(json.viewScope);
-        setAppliedFilters(json.viewScope);
-        setPage(1);
-      } else await load(page, appliedFilters);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setUploading(false);
-    }
   };
 
   const save = async (row) => {
@@ -336,15 +307,7 @@ export default function ArrivalCostPage() {
         <ArrivalDriveAutoPanel />
         <section className="arrival-card">
           <div className="section-title">엑셀 업로드</div>
-          <form className="upload-row" onSubmit={upload}>
-            <label>연도 <input value={filters.orderYear} onChange={e => updateFilter('orderYear', e.target.value)} /></label>
-            <label>기본 차수 <input placeholder="파일에 차수가 있으면 비워두세요" value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} /></label>
-            {filters.orderWeek && (
-              <span className="muted">({formatOrderWeekDateRange(filters.orderYear, filters.orderWeek) || '차수 형식 확인 필요'})</span>
-            )}
-            <input name="file" type="file" accept=".xlsx,.xls" />
-            <button className="primary" disabled={uploading}>{uploading ? '업로드 중…' : '엑셀 업로드'}</button>
-          </form>
+          <ArrivalUploadReview orderYear={filters.orderYear} orderWeek={filters.orderWeek} onSaved={json=>{setMessage(json.message);if(json.viewScope){setFilters(json.viewScope);setAppliedFilters(json.viewScope);setPage(1);}else load(page,appliedFilters);}} />
           <div className="hint">같은 연도·차수·국가를 다시 올리면 새 revision이 현재본이 되고, 기존 revision은 이력으로 남습니다.</div>
         </section>
 

@@ -25,7 +25,12 @@
     "__tests__/arrivalVietnamWorkbook.test.js",
     "__tests__/arrivalProductCountryTie.test.js",
     "scripts/import-reviewed-vietnam-arrival-20261005.mjs",
-    "scripts/quarantine-arrival-nl52-year-20261029.mjs"
+    "scripts/quarantine-arrival-nl52-year-20261029.mjs",
+    "lib/arrivalUploadReview.js",
+    "lib/arrivalReviewCountries.js",
+    "components/ArrivalUploadReview.js",
+    "scripts/reconcile-arrival-nl-split-20261105.mjs",
+    "__tests__/arrivalUploadReview.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -116,6 +121,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "notes": "Without explicit source-year evidence, a sheet later than the filename week cannot inherit selected year. Common parser marks conflict; validateArrivalImportYear rejects before writes. After deployment, only reviewed Import23/2026/NL 47-1,48-1,49-1,50-1,50-2,51-1,51-2,52-2: exactly 382 current rows may be quarantined with exact digest, no manual edits, before/after audit and IsCurrent-only readback. Never relabel as 2025 without evidence. Other scopes and all ERP ledgers preserved."
+    },
+    {
+      "name": "ARRIVAL_REVIEWED_UPLOAD",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Retain immutable original sha and owner plus per-attempt errors. Per-sheet selected country/week and explicit unverified-year acknowledgement; source year/country/week conflicts block. Same parser/summary/digest at preview and commit; current masters reparsed. WebArrivalCost-only atomic revision with readback, REVIEW_UPLOAD idempotency. After deployment reconcile exactly134 duplicate split rows53/54 only after multiset original cells/quantity/cost proof against55 and no manual edits. IsCurrent-only with full audit; all ERP downstream preserved."
     }
   ],
   "crossYearFixture": {
@@ -138,7 +149,8 @@
     "__tests__/getReadOnlySchemaContract.test.js",
     "__tests__/arrivalYearEvidence.test.js",
     "__tests__/arrivalVietnamWorkbook.test.js",
-    "__tests__/arrivalProductCountryTie.test.js"
+    "__tests__/arrivalProductCountryTie.test.js",
+    "__tests__/arrivalUploadReview.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
