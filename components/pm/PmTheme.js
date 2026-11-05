@@ -157,6 +157,9 @@ function BasePicker({ cfg, setCfg }) {
 
 // 상점 + 꾸미기(시안 page-shop-avatar): 왼쪽 미리보기 무대·슬롯 탭 / 가운데 아이템 그리드 / 오른쪽 상세·구매·장착 저장. 위 지갑.
 //   canEdit=false 면 보기만(본인 또는 관리자 대리만 구매·저장 — 서버 API 도 같은 규칙).
+// 상점 격자 썸네일 경로: /pm/shop/X.webp → /pm/shop/close/X.webp (얼굴 근접 세트, scripts: nenova-pm/pm3d/shop-close)
+const thumbSrc = (src) => (typeof src === 'string' && src.startsWith('/pm/shop/') && !src.includes('/close/') ? src.replace('/pm/shop/', '/pm/shop/close/') : src);
+
 export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false, myStaff = null, onBack }) {
   const { manifest, avatars, save, reloadShop } = usePmTheme();
   const [wallet, reloadWallet] = useWallet(name);
@@ -252,7 +255,8 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             const poor = !own && wallet && wallet.balance < x.price;
             return (
               <SelectCard key={x.key} className={`sitem ${own ? 'own' : 'lock'} ${poor ? 'poor' : ''}`} on={x.on} pressed={x.on} onClick={() => choose(x)} title={`${x.name} · ${RARITY[x.rarity] || ''}`}>
-                {x.src ? <img src={x.src} alt="" loading="lazy" /> : <span className="fxi" aria-hidden>{x.emoji}</span>}
+                {/* 격자 썸네일 = 얼굴 근접 렌더(/pm/shop/close/, 없으면 원본 전신으로 폴백) — 피팅룸 큰 렌더는 전신 세트 그대로 */}
+                {x.src ? <img src={thumbSrc(x.src)} alt="" loading="lazy" onError={(e) => { if (e.currentTarget.src !== new URL(x.src, window.location.href).href) e.currentTarget.src = x.src; }} /> : <span className="fxi" aria-hidden>{x.emoji}</span>}
                 {poor && <span className="padlock" aria-hidden>🔒</span>}
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
