@@ -23,8 +23,8 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(L.look3d({ bodyType: 'cute' }, 'a').bodyType, 'cute');
   assert.strictEqual(L.look3d(null, 'a').bodyType, 'balance');
 
-  // 2) 머리:전신 비율 목표(귀염≈1:2.7 · 밸런스≈1:3.4 · 늘씬≈1:4)
-  const want = { cute: [2.5, 2.9], balance: [3.2, 3.6], slim: [3.8, 4.2] };
+  // 2) 머리:전신 비율 목표(2026-11-06 시안 재조정: 귀염≈1:2.5 · 밸런스≈1:2.9 · 늘씬≈1:3.5)
+  const want = { cute: [2.3, 2.7], balance: [2.7, 3.1], slim: [3.2, 3.7] };
   for (const [id, [lo, hi]] of Object.entries(want)) {
     const m = L.bodyMetrics(id);
     assert.ok(m.ratio >= lo && m.ratio <= hi, `${id} 비율 ${m.ratio.toFixed(2)} (목표 ${lo}~${hi})`);
