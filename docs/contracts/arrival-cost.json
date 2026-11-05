@@ -30,7 +30,8 @@
     "lib/arrivalReviewCountries.js",
     "components/ArrivalUploadReview.js",
     "scripts/reconcile-arrival-nl-split-20261105.mjs",
-    "__tests__/arrivalUploadReview.test.js"
+    "__tests__/arrivalUploadReview.test.js",
+    "styles/ArrivalUploadReview.module.css"
   ],
   "businessIdentity": [
     "OrderYear",

@@ -84,7 +84,8 @@
       "sourceFiles": [
         "pages/arrival-cost.js",
         "components/ArrivalUploadReview.js",
-        "lib/arrivalReviewCountries.js"
+        "lib/arrivalReviewCountries.js",
+        "styles/ArrivalUploadReview.module.css"
       ],
       "requiredScenarios": [
         "analyze",
@@ -109,12 +110,12 @@
             {
               "scenario": "review",
               "title": "국가·차수·연도와 제외 시트 검토",
-              "seconds": 10.719
+              "seconds": 10.246
             },
             {
               "scenario": "save",
               "title": "선택 시트 저장·결과 확인",
-              "seconds": 23.242
+              "seconds": 22.374
             }
           ]
         }
