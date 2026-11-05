@@ -16,7 +16,39 @@
     "components/WarehouseCorrection.js",
     "lib/warehouseCorrection.js",
     "__tests__/fixtures/incomingApproval.sql",
-    "package.json"
+    "package.json",
+    "lib/incomingApprovalLinkedPolicy.js",
+    "lib/incomingApprovalLinkedWriter.js",
+    "lib/incomingApprovalCosts.js",
+    "lib/incomingApprovalProfit.js",
+    "lib/erpReadContext.js",
+    "lib/db.js",
+    "lib/kcsTaxableRate.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/invoiceReceiptDocuments.js",
+    "components/IncomingApprovalLinkedReview.js",
+    "lib/profitAverageData.js",
+    "lib/profitReport.js",
+    "lib/profitReportSnapshot.js",
+    "lib/profitTemplateDutyData.js",
+    "lib/webSchemaContract.js",
+    "__tests__/fixtures/incomingApprovalLinked.sql",
+    "__tests__/fixtures/incomingApprovalCosts.sql",
+    "__tests__/fixtures/incomingApprovalProfit.sql",
+    "__tests__/fixtures/erpRealModuleLoader.mjs",
+    "__tests__/incomingApprovalLinkedPolicy.test.mjs",
+    "__tests__/incomingApprovalCosts.test.mjs",
+    "__tests__/incomingApprovalProfit.test.mjs",
+    "__tests__/incomingApprovalProfitSql.test.mjs",
+    "lib/arrivalInvoiceSource.js",
+    "lib/profitReportConfirm.js",
+    "pages/api/sales/profit-report.js",
+    "lib/profitReportCalcHash.cjs",
+    "pages/api/sales/profit-report-confirm.js",
+    "__tests__/profitReportStockLinkContract.test.js",
+    "lib/sourceWorkbookFx.js",
+    "lib/incomingApprovalStockAdjustment.js",
+    "__tests__/incomingApprovalStockAdjustment.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -38,7 +70,10 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouse": "FarmName",
-      "stock": "preserve"
+      "stock": "preserve",
+      "farm": "explicit final redistribution with sum equal to preserved ShipmentDetail.OutQuantity",
+      "shipmentDetailMetadata": "Descr may reflect reviewed FarmCode:quantity; preserve quantities, Cost, Amount, Vat, ShipmentDtm and isFix",
+      "financial": "preserve economics and profit confirmations; append invoice/freight lineage revision if connected"
     },
     {
       "name": "APPROVE_REPLACE",
@@ -48,6 +83,31 @@
       "stock": "receipt and fixed shipment signed delta, native future-year cascade",
       "estimate": "positive estimate from native View joins and date amounts; preserve independent deductions",
       "sales": "detail money equals dates, verify native visibility"
+    },
+    {
+      "name": "REHEARSAL_LINKED_APPROVAL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "same writer rollbackOnly; no committed ERP change",
+      "stock": "native calculation rolled back",
+      "financial": "exact cost/profit before-after; immutable external input capture"
+    },
+    {
+      "name": "APPROVE_LINKED_REVISION",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "warehouse": "physical line mapping UPDATE; referenced removed rows zeroed with audit",
+      "farm": "explicit final group allocations",
+      "cost": "append corrected invoice document/operation and cost revision; freight snapshot revision",
+      "profit": "same calculator in transaction; append corrected active confirmation and report snapshot; preserve manual inputs",
+      "estimate": "native positive quote visibility; preserve independent deductions"
+    },
+    {
+      "name": "APPROVE_EXPLICIT_SHORTAGE_ADJUSTMENT",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "stock": "native authoritative per-period physical and cumulative unfixed-reservation shortage, including unchanged reservations after receipt reduction and earlier sub-weeks within the same major; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
+      "financial": "recompute affected costs and profit after adjustment; preserve earlier unaffected periods; rollback all on any failure"
     }
   ],
   "crossYearFixture": {
@@ -60,7 +120,8 @@
     "source": "actual local dnSpy FormShipmentDistribution and read-only operating probe 2026-11-04",
     "methods": [
       "FormShipmentDistribution.btnSave_Click",
-      "FormEstimateView.GetDetail"
+      "FormEstimateView.GetDetail",
+      "FormStockAdd.btnSave_Click"
     ],
     "tables": [
       "WarehouseMaster",
@@ -74,7 +135,12 @@
   },
   "requiredTestFiles": [
     "__tests__/incomingApproval.test.mjs",
-    "__tests__/incomingApprovalSql.test.mjs"
+    "__tests__/incomingApprovalSql.test.mjs",
+    "__tests__/incomingApprovalLinkedPolicy.test.mjs",
+    "__tests__/incomingApprovalCosts.test.mjs",
+    "__tests__/incomingApprovalProfit.test.mjs",
+    "__tests__/incomingApprovalProfitSql.test.mjs",
+    "__tests__/incomingApprovalStockAdjustment.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

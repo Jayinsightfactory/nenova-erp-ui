@@ -3,6 +3,8 @@ const fs = require('node:fs');
 
 async function main() {
   const calc = await import('../lib/profitReportCalc.js');
+  const {withProfitInvoiceMemo}=await import('../lib/profitReport.js');
+  const invoiceCalls=[];
   const valuation = await import('../lib/profitReportValuation.mjs');
   const basis = await import('../lib/profitReportInventoryBasis.mjs');
   const actualCosts = await import('../lib/profitReportActualCosts.mjs');
@@ -27,6 +29,8 @@ async function main() {
     return periods.get(id);
   }
   const deps = {
+    withProfitInvoiceMemo,
+    profitInvoiceDependencies:async(year,major)=>{invoiceCalls.push([String(year),String(major)]);return [];},
     ...calc, ...valuation, ...basis, ...actualCosts,
     EXTRA_CATEGORY: classification.EXTRA_CATEGORY, CNF_CATEGORIES: classification.CNF_CATEGORIES,
     refreshProfitCategorySql: () => {},
@@ -83,6 +87,8 @@ async function main() {
   const load = new Function(...Object.keys(deps), `${source.slice(start, end).replace(/\bexport /g, '')}; return loadReportData;`)(...Object.values(deps));
   const row = (report, key) => report.rows.find(r => r.category === key);
   const first = await load('31', '2026');
+  assert.deepEqual(first.sourceDependencies,{invoiceCosts:[]});
+  assert.deepEqual(invoiceCalls,[['2026','31']], 'the real loader reads invoice dependencies in its requested scope');
   for (const country of countries) {
     const r = row(first, country);
     assert.equal(r.auto.F, 48, `${country}: (100+10)*2+20, /10 *2`);

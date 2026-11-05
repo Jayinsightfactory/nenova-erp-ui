@@ -19,7 +19,7 @@ async function buildLiveConfirmPayload(major, orderYear) {
     ...r,
     calc: { ...r.calc, D: calcRevenueRatio(r.calc, totals), U: calcPurchaseRatio(r.calc, totals) },
   }));
-  return { rows: rowsWithRatios, totals, stockWeeks: data.stockWeeks, audit: data.audit };
+  return { rows: rowsWithRatios, totals, stockWeeks: data.stockWeeks, sourceDependencies:data.sourceDependencies, audit: data.audit };
 }
 
 export default withAuth(async function handler(req, res) {
@@ -68,7 +68,7 @@ export default withAuth(async function handler(req, res) {
         const payload = await buildLiveConfirmPayload(major, orderYear);
         const result = await confirmSnapshot({
           orderYear, major,
-          rows: payload.rows, totals: payload.totals, stockWeeks: payload.stockWeeks, audit: payload.audit,
+          rows: payload.rows, totals: payload.totals, stockWeeks: payload.stockWeeks, sourceDependencies:payload.sourceDependencies, audit: payload.audit,
           actor, actorName,
           isAdmin: isAdminUser(req.user),
           force,

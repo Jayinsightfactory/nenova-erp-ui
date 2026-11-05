@@ -1,0 +1,14 @@
+.guide{margin:12px 0;border:1px solid #b8c9e5;border-radius:8px;background:#fff;color:#15345a;max-width:100%;min-width:0}
+.guide summary{padding:12px 15px;font-weight:700;cursor:pointer;line-height:1.5}
+.guide summary span{font-weight:400;color:#526783;margin-left:10px;font-size:.9em}
+.body{padding:0 16px 16px;min-width:0}
+.body h3{font-size:18px;margin:6px 0 12px}.body h4{font-size:16px;margin:12px 0 8px}
+.roles,.chapters,.downloads{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.roles button,.chapters button{font:inherit;color:inherit;border:1px solid #92a9cb;border-radius:6px;padding:8px 12px;background:#fff;cursor:pointer}
+.roles button[aria-pressed=true]{background:#174cb2;color:#fff;border-color:#174cb2}
+.note{font-size:14px;line-height:1.6;margin:8px 0 12px;color:#455b75}
+.video{display:block;width:100%;max-width:1280px;aspect-ratio:16/9;background:#102136;border-radius:6px}
+.chapters{margin-top:12px}.chapters time{font-variant-numeric:tabular-nums;font-weight:700}
+.downloads{margin:14px 0 0}.downloads a{color:#174cb2;text-decoration:underline;padding:4px}
+.guide :is(summary,button,a,video):focus-visible{outline:3px solid #ef9f00;outline-offset:3px}
+@media(max-width:600px){.guide summary span{display:block;margin-left:0}.body{padding:0 10px 12px}.chapters{align-items:stretch;flex-direction:column}.chapters button{text-align:left}}

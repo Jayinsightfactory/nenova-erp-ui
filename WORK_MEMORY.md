@@ -2075,6 +2075,8 @@
 웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
 검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm
 
+2026-11-05 입고 연결 정정 확장 진행: nw-incoming-linked-approval-guide-1104. 명시 입고 물리키/농장 최종배정, 인보이스·운송원가 새버전, 실제 손익 loader의 트랜잭션 계산/확정본 개정 구현. 격리SQL core+원가+농장80→70·검토롤백·후행감사실패 전체롤백 PASS, 손익 실제SQL41/44/2027·2025보존·확정본·캐시실패롤백 PASS. 운영쓰기0. 초기build PASS, 전체gate/영상/PR/배포 진행중(미완).
+검색어: incomingApprovalCosts incomingApprovalProfit linked approval workflow guide 1920x1080
 
 2026-11-04 기술레이더 1호 시험(docling vs 현재): 실서류 6건 로컬 비교 — Holex 3건은 기존 로컬파서 100%·9ms 우위 유지, docling은 행 96.7~100%·숫자 오독 0·스캔 OCR 23/24·한글 통관청구서 필드 9/9·$0·페이지당 ~15초(CPU). 결론=비-NL 서류 Claude 판독의 "전처리+산술 교차검증"으로 채택 제안(코드 적용은 승인 대기). MinerU는 CPU-only라 생략. 산출물 C:\Users\USER\nenova-pm\radar-pilot\REPORT.md, 레이더 pilotResult 업로드 200 ok(/pm/radar UI는 아직 pilotResult 미표기 — 표기 추가는 후속).
 검색어: docling MinerU radar-pilot pilotResult 인보이스 패킹리스트 OCR importInvoiceLocal
@@ -2091,3 +2093,12 @@
 - 7단계: 발사체 기본 9종 `fx.glb`+스프라이트 `build_fx.py`(소비자 연출은 후속).
 - 미완: 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것별 전용 탑승 클립(현재 idle/sit_type 대용), 목표달성 트리거 주행(3D에 이벤트 데이터 없음 — danceEvents 연결 필요).
 - 재현 도구: pages/pm3d-preview.js(임시, 커밋 금지) + puppeteer-core 캡처. kit 재생성 시 build_assets.py 가 char.glb 안 덮음(--legacy-char 게이트).
+
+2026-11-05 입고 연결 정정 추가검증: 실제 승인원가2000→2200/20단 재고액40000→44000 loader PASS, 기존평균기준보존·원가의존해시·요청별memo. farm-only총량보존재배분허용. 부족재고는native결과에따른발생기간별최소증분/명시fingerprint동의/같은tx재계산; 2027 01만5조정·2026보존·감사실패롤백 실SQL PASS. FormStockAdd dnSpy/CodeInfo SELECT-only 확인. 전체gate/영상/배포진행중.
+검색어: incomingApprovalStockAdjustment chronological 부족재고 명시동의 sourceDependencies
+
+2026-11-05 입고정정 최종검토: 기존 미확정분배 유지+입고감소 예약부족 누락 수정 및 실제SQL100→70/예약80/부족10 명시동의 PASS. 수입부164.1초·영업지원383.1초 실제1920×1080 한국어가이드 제작, 두 진입점 연결과 strict해시검사 PASS. 전체suite/공식빌드/배포 최종확인중, 운영쓰기0.
+검색어: incoming-approval guide-video 미확정예약 부족10 fullHD 수입부 영업지원
+
+2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
+검색어: PR1550 incoming linked approval guide-player 41978488811

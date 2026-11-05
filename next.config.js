@@ -20,6 +20,8 @@ const buildVersion = commitSha
   : `v${pkg.version}`;
 
 const nextConfig = {
+  // Optional local limit when SQL fixtures and screen recording share the workstation.
+  ...(process.env.NENOVA_BUILD_WORKERS ? { experimental: { cpus: Math.max(1, Math.min(8, Number(process.env.NENOVA_BUILD_WORKERS) || 1)) } } : {}),
   distDir: process.env.NEXT_DIST_DIR || '.next',
   serverExternalPackages: ['mssql'],
   generateBuildId: async () => `build-${Date.now()}`,
