@@ -27,23 +27,23 @@ function InvoiceLineFields({cost,onChange}){
   </details>;})}
  </>;
 }
-export default function IncomingApprovalLinkedReview({facts,request,matching,onChange,disabled}){
+export default function IncomingApprovalLinkedReview({facts,request,matching,onChange,disabled,problems={receipt:true,farm:true,cost:true}}){
   const financial=matching.financial??{costInputs:[],acknowledged:false,reason:''};
   const mappings=matching.receiptMappings??[];
   const farmGroups=matching.farmGroups??[];
   const patch=next=>onChange({...matching,...next});
   const costInputs=financial.costInputs??[];
-  const patchCost=(index,next)=>patch({financial:{...financial,acknowledged:false,costInputs:costInputs.map((c,i)=>i===index?next:c)}});
+  const patchCost=(index,next)=>patch({financial:{...financial,prepared:false,acknowledged:false,costInputs:costInputs.map((c,i)=>i===index?next:c)}});
   let groups=[];try{groups=buildApprovalDistributionPlan({matching,dates:facts.dates,details:facts.details,masters:facts.masters,products:facts.products,scope:request.correction,receiptPlan:facts.receiptPlan});}catch{}
   const product=pk=>facts.products.find(p=>p.ProdKey===pk);
   const farmTargets=new Map(groups.map(g=>[g.key,{shipmentKey:g.master.ShipmentKey,prodKey:g.product.ProdKey,quantity:g.outQuantity,detailKey:g.detail?.SdetailKey}]));
   for(const a of facts.farmAssignments){const d=facts.details.find(d=>d.SdetailKey===a.SdetailKey);if(d&&!farmTargets.has(`${d.ShipmentKey}:${d.ProdKey}`))farmTargets.set(`${d.ShipmentKey}:${d.ProdKey}`,{shipmentKey:d.ShipmentKey,prodKey:d.ProdKey,quantity:d.OutQuantity,detailKey:d.SdetailKey});}
   return <section aria-label="연결 원장 검토">
-    {facts.receiptPlan.detailsChanged&&<fieldset disabled={disabled}><legend>수정 파일과 기존 입고행 연결</legend><p>수량·품목이 바뀐 행은 기존 입고행을 연결하세요. 새 행만 ‘신규 입고행’을 선택합니다. 연결되지 않은 기존 행은 제거 대상으로 검토됩니다.</p>
+    {problems.receipt&&facts.receiptPlan.detailsChanged&&<fieldset disabled={disabled}><legend>수정 파일과 기존 입고행 연결</legend><p>수량·품목이 바뀐 행은 기존 입고행을 연결하세요. 새 행만 ‘신규 입고행’을 선택합니다. 연결되지 않은 기존 행은 제거 대상으로 검토됩니다.</p>
       <button type="button" onClick={()=>patch({receiptMappings:facts.receiptMappingSuggestions??[]})}>입고 연결 불러오기</button>
       <div className="scroll"><table><thead><tr><th>수정 파일 행</th><th>최종 품목·수량</th><th>기존 입고행</th></tr></thead><tbody>{facts.receiptPlan.after.map((row,i)=><tr key={i}><td>{i+1}</td><td>{product(row.ProdKey)?.ProdName} / {fmt(row.OutQuantity)}</td><td><select aria-label={`입고 연결 ${i+1}행`} value={mappings.find(m=>m.targetRowIndex===i)?.sourceWdetailKey??''} onChange={e=>patch({receiptMappings:[...mappings.filter(m=>m.targetRowIndex!==i),{sourceWdetailKey:e.target.value?Number(e.target.value):null,targetRowIndex:i}]})}><option value="">신규 입고행</option>{facts.receiptPlan.before.map(old=><option key={old.WdetailKey} value={old.WdetailKey}>#{old.WdetailKey} {product(old.ProdKey)?.ProdName} · {fmt(old.OutQuantity)}</option>)}</select></td></tr>)}</tbody></table></div>
     </fieldset>}
-    {!!farmTargets.size&&<fieldset disabled={disabled}><legend>농장별 최종 배정</legend><p>기존 농장배정이 있는 분배를 변경하면 원품목과 이동 대상의 최종 배정을 각각 확인하세요. 감소만 할 때도 합계는 수정 후 분배수량과 같아야 합니다.</p>
+    {problems.farm&&!!farmTargets.size&&<fieldset disabled={disabled}><legend>농장별 최종 배정</legend><p>기존 농장배정이 있는 분배를 변경하면 원품목과 이동 대상의 최종 배정을 각각 확인하세요. 감소만 할 때도 합계는 수정 후 분배수량과 같아야 합니다.</p>
       <button type="button" onClick={()=>patch({farms:[],farmGroups:[...farmTargets.values()].map(g=>({shipmentKey:g.shipmentKey,prodKey:g.prodKey,assignments:g.quantity===0?[]:facts.farmAssignments.filter(a=>a.SdetailKey===g.detailKey).map(a=>({farmKey:a.FarmKey,quantity:a.ShipmentQuantity}))}))})}>농장 배정표 검토</button>
       {farmGroups.map((g,index)=>{const key=`${g.shipmentKey}:${g.prodKey}`,target=farmTargets.get(key),master=facts.masters.find(m=>m.ShipmentKey===g.shipmentKey),candidates=facts.farmCandidates?.[g.prodKey]??[];
         const change=assignments=>patch({farmGroups:farmGroups.map((x,i)=>i===index?{...g,assignments}:x)});
@@ -52,8 +52,8 @@ export default function IncomingApprovalLinkedReview({facts,request,matching,onC
           <button type="button" disabled={!candidates.length||target?.quantity===0} onClick={()=>change([...g.assignments,{farmKey:candidates.find(f=>!g.assignments.some(a=>a.farmKey===f.FarmKey))?.FarmKey??candidates[0].FarmKey,quantity:''}])}>농장 배정 추가</button><span>배정 합계 {fmt(g.assignments.reduce((s,a)=>s+Number(a.quantity||0),0))}</span>
         </div>;})}
     </fieldset>}
-    {(facts.costFacts||facts.profitPeriods?.length>0)&&<fieldset disabled={disabled}><legend>연결 원가·확정 손익 정정</legend><p>기존 원가와 확정본은 이력으로 남습니다. 최종 검토에서 새 정정본의 금액을 확인한 뒤 함께 반영합니다.</p>
-      {facts.costFacts&&<button type="button" onClick={()=>patch({financial:{...financial,acknowledged:false,costInputs:structuredClone(facts.costInputSuggestions??[])}})}>연결 원가 검토</button>}
+    {problems.cost&&(facts.costFacts||facts.profitPeriods?.length>0)&&<fieldset disabled={disabled}><legend>연결 원가·확정 손익 정정</legend><p>기존 원가와 확정본은 이력으로 남습니다. 최종 검토에서 새 정정본의 금액을 확인한 뒤 함께 반영합니다.</p>
+      {facts.costFacts&&<button type="button" onClick={()=>patch({financial:{...financial,prepared:false,acknowledged:false,costInputs:structuredClone(facts.costInputSuggestions??[])}})}>연결 원가 검토</button>}
       {costInputs.map((cost,i)=><details key={`${cost.kind}:${cost.sourceKey}`} open><summary>{cost.kind==='INVOICE'?'인보이스 원가':'운송 원가'} · 기존 버전 {cost.expectedRevision}</summary>
         {!facts.receiptPlan.detailsChanged&&<p>농장만 변경하므로 기존 원가의 수량·단가·금액을 그대로 보존합니다.</p>}
         <fieldset disabled={!facts.receiptPlan.detailsChanged}><legend>{cost.inputSchema?.formulaLabel??'원가 검토값'}</legend>
@@ -65,7 +65,7 @@ export default function IncomingApprovalLinkedReview({facts,request,matching,onC
       </details>)}
       {!!facts.profitPeriods?.length&&<p>재검산할 손익: {facts.profitPeriods.map(p=>`${p.orderYear}/${p.major}${p.confirmed?' 확정본':' 계산본'}`).join(', ')}</p>}
       <label>원가·손익 정정 사유<input aria-label="원가·손익 정정 사유" maxLength={500} value={financial.reason??''} onChange={e=>patch({financial:{...financial,reason:e.target.value}})}/></label>
-      <label><input type="checkbox" checked={financial.acknowledged===true} onChange={e=>patch({financial:{...financial,acknowledged:e.target.checked}})}/>연결 원가와 손익 정정 내용을 확인했습니다</label>
+      <label><input type="checkbox" checked={financial.acknowledged===true} onChange={e=>patch({financial:{...financial,prepared:false,acknowledged:e.target.checked}})}/>연결 원가와 손익 정정 내용을 확인했습니다</label>
     </fieldset>}
   </section>;
 }

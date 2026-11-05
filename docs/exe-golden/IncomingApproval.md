@@ -30,3 +30,11 @@ FormEstimateView.GetDetail은 ViewShipment+ViewOrder를 OrderYearWeek2+CustKey+P
 2026-11-05 실제 dnSpy FormStockAdd.btnSave_Click (.verify/FormStockAdd.cs:104) 확인: 현재 Product.Stock 조회 → StockHistory BeforeValue/AfterValue 차액 기록 → Product.Stock 갱신 → native 재계산. 운영 CodeInfo StockType/재고조정 정확1행 SELECT 확인, 운영쓰기0. 승인 경로는 native 부족발생기간별 최소증분을 명시검토한 뒤 같은 트랜잭션으로 이력·재계산·원가손익·감사를 저장하며 실패시 전부롤백한다. 격리SQL 2027/01만5조정 및2026/2025보존 PASS.
 
 2026-11-05 예약 회귀 보완: 입고 100→70, 기존 미확정 분배 80 유지(매칭 수정 없음)도 가용재고 부족 10으로 제안한다. native가 산출한 영향 품목의 각 후속 StockMaster 차수에서 같은 연도·대차수의 01부터 해당 세부차수까지 DetailFix=0 분배를 누적하여 차감한다. 따라서 41-02 정정에서도 41-01 예약은 41-02 검증에 포함하고 과거 41-01 원장은 수정하지 않는다. 기존 예약의 StockMaster 기준 누락·중복은 보정 금지. 농장명만 정정하여 재고 변화가 없는 경우는 이 검증·조정 범위를 늘리지 않는다. __tests__/incomingApprovalSql.test.mjs 실제 SQL 회귀: 부족 10 미동의 차단 → 명시 동의 후 해당 차수 재고조정 10 → native 재고 80/기존 미확정 분배 80 보존 PASS. 전체 fixture는 rollbackOnly로 원상 보존하며 운영 쓰기 0.
+
+## 2026-11-05 수입부 직접행 수정·문제 중심 검토
+
+실제 로컬 EXE의 ClassWarehouseDetail/FormShipmentDistribution을 새 작업트리에서 다시 추출했다. WdetailKey 기준 입고행 보존, 출고 Detail→Farm→Date 저장 순서는 그대로다. 운영 연결 원가 SELECT-only7662/7671/7345/5560 리더 PASS(쓰기0). 기존 원자 writer 및 native 재계산을 재사용하며 UI의 내부 준비 절차를 자동화한다.
+
+직접 편집은 기존 농장/입고 범위와 SourceWdetailKey를 검증하고 조회 당시 sourceDigest를 preview/create/최종확정의 공통 readFacts에서 다시 비교한다. 농장변경 외 농장보존, 수량-only의 품목/단가/포장기준 보존 및 수량·총액 비례검증을 추가했다. 새로운 품목의 원가·중량은 추정하지 않고 영업지원 문제로 표시한다.
+
+financial.prepared는 기존 근거의 계산 준비이며 사람의 acknowledged를 자동 생성하지 않는다. 최종 ERP 반영은 기존 signed preview와 영업지원 confirmed를 요구한다. 부족재고 동의는 자동 준비하지 않는다. 실제 격리SQL에서 prepared/acknowledged=false의 명시확정 및 전체rollback/재시도, confirmed=false 원장불변, 다른행 변경 뒤 오래된 sourceDigest 차단을 검증했다. 기존 교차연도·견적/매출·원가/확정손익 검증도 PASS. 최종 빌드/가이드/배포는 이번 세션 기록을 따른다.

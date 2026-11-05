@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
+import IncomingCorrectionRequest from './IncomingCorrectionRequest.js';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
 
 const fmt=n=>Number(n??0).toLocaleString('ko-KR',{maximumFractionDigits:4});
@@ -7,7 +8,10 @@ async function api(url,body){
   const response=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);
   const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||'요청에 실패했습니다.');return data;
 }
-export default function WarehouseCorrection({selected,onClose,onSaved}){
+export default function WarehouseCorrection(props){
+  return props.selected.approval ? <IncomingCorrectionRequest {...props}/> : <LegacyWarehouseCorrection {...props}/>;
+}
+function LegacyWarehouseCorrection({selected,onClose,onSaved}){
   const approval=selected.approval===true;
   const dialog=useRef(null),busyRef=useRef(false),draftKey=useRef(null);
   const [data,setData]=useState(null),[mode,setMode]=useState('FARM'),[farmName,setFarmName]=useState('');

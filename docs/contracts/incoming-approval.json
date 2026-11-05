@@ -48,7 +48,12 @@
     "__tests__/profitReportStockLinkContract.test.js",
     "lib/sourceWorkbookFx.js",
     "lib/incomingApprovalStockAdjustment.js",
-    "__tests__/incomingApprovalStockAdjustment.test.mjs"
+    "__tests__/incomingApprovalStockAdjustment.test.mjs",
+    "components/IncomingCorrectionRequest.js",
+    "lib/incomingApprovalSimple.js",
+    "__tests__/incomingApprovalSimple.test.mjs",
+    "lib/warehouseCorrectionPolicy.js",
+    "__tests__/incomingApprovalSimpleDisplay.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -140,7 +145,9 @@
     "__tests__/incomingApprovalCosts.test.mjs",
     "__tests__/incomingApprovalProfit.test.mjs",
     "__tests__/incomingApprovalProfitSql.test.mjs",
-    "__tests__/incomingApprovalStockAdjustment.test.mjs"
+    "__tests__/incomingApprovalStockAdjustment.test.mjs",
+    "__tests__/incomingApprovalSimple.test.mjs",
+    "__tests__/incomingApprovalSimpleDisplay.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -148,5 +155,14 @@
     "npm run test:erp-manifest -- --changed-from HEAD^",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "simpleWorkflow": {
+    "scope": "Selected existing receipt only; FARM / PRODUCT with quantity / QUANTITY / ADD rows / CANCEL quantity to zero. Non-FARM preserves FarmName; every original source row remains uniquely identified.",
+    "automaticPreparation": "Exact receipt source identity; unchanged allocations/farms; same product one-to-one cost unit quantities only. financial.prepared is calculation preparation, never human acknowledgement.",
+    "finalConsent": "Signed preview and explicit final approve remain mandatory; precise StockHistory shortage consent is never automatic.",
+    "problems": "Show actual validation problems; no-problem requests go directly to summary and final confirm. No global allocation attribution to receipt/farm.",
+    "evidence": "2026-11-05 refreshed native ClassWarehouseDetail/FormShipmentDistribution and SELECT-only source probe; existing atomic writer preserved.",
+    "sourceConcurrency": "Direct-edit requests require a server receipt sourceDigest from the open form; missing/stale source digest blocks draft preview, request creation and final writer. Every original source row remains present, including zero-quantity cancellations.",
+    "importInputs": "PRODUCT preserves observed source packaging and purchase values as proposals, with proportional final quantity. ADD uses evidenced master packaging and only unambiguous same-receipt same-product purchase evidence; genuinely missing purchase values remain explicit exception inputs."
+  }
 }

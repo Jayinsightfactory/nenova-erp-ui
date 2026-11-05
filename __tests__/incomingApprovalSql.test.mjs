@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import sql from 'mssql';
 import { mutateIncomingApproval, readApproval } from '../lib/incomingApprovalStore.js';
-import { incomingApprovalBaseline, prepareIncomingApproval, commitIncomingApproval, previewIncomingApproval } from '../lib/incomingApproval.js';
+import { incomingApprovalBaseline, readIncomingApprovalFacts, prepareIncomingApproval, commitIncomingApproval, previewIncomingApproval } from '../lib/incomingApproval.js';
 import { saveInvoiceDraft } from '../lib/invoiceReceiptDocuments.js';
 import { INVOICE_COST_FORMULAS,saveInvoiceCostRevision,readInvoiceCosts } from '../lib/invoiceReceiptCost.js';
 
@@ -39,6 +39,17 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     const erp = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster ORDER BY WarehouseKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM ProductStock ORDER BY StockKey,ProdKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;SELECT * FROM OrderDetail ORDER BY OrderDetailKey;')).recordsets);
     const protectedRows = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster WHERE WarehouseKey=89;SELECT * FROM WarehouseDetail WHERE WarehouseKey=89;SELECT * FROM ShipmentDetail WHERE ShipmentKey=2;SELECT * FROM ShipmentDate WHERE SdetailKey=2;SELECT * FROM ProductStock WHERE StockKey=1 ORDER BY ProdKey;SELECT * FROM Estimate;SELECT * FROM WebProfitReport;SELECT * FROM OrderDetail WHERE OrderDetailKey IN(1,2) ORDER BY OrderDetailKey;')).recordsets);
     const originalProtected = await protectedRows(), originalErp = await erp();
+    // A long-open direct form cannot overwrite an independently changed source row.
+    await withTransactionFn(async tq=>{
+      const legacy={...replacement,items:[{...replacement.items[0],prodName:'Flower A',boxQty:11,bunchQty:110,steamQty:1100,totalPrice:12100}]};
+      const baseline=await incomingApprovalBaseline(tq,sql,legacy);
+      const direct={...legacy,editKind:'QUANTITY',sourceDigest:baseline.digest,items:[{...legacy.items[0],sourceWdetailKey:baseline.receipt.details[0].WdetailKey}]};
+      await readIncomingApprovalFacts(tq,sql,direct);
+      await assert.rejects(()=>readIncomingApprovalFacts(tq,sql,{...direct,sourceDigest:undefined}),{code:'APPROVAL_RECEIPT_STALE'});
+      await tq('UPDATE WarehouseDetail SET TPrice=TPrice+1 WHERE WarehouseKey=90');
+      await assert.rejects(()=>incomingApprovalBaseline(tq,sql,direct),{code:'APPROVAL_RECEIPT_STALE'});
+    },{rollbackOnly:true});
+    assert.equal(await erp(),originalErp);
     // Isolated regression: unchanged unfixed reservations still constrain a receipt reduction.
     await withTransactionFn(async tq=>{
       const sameTx=fn=>fn(tq);
@@ -166,14 +177,15 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
       SELECT 1,WdetailKey,2,N'Flower B',N'장미',N'Farm B',800,110,8,10,10,100,10,5000,0,1750,0 FROM WarehouseDetail WHERE WarehouseKey=90;`);
     const financialRows=async()=>JSON.stringify((await q('SELECT * FROM WebInvoiceDocument ORDER BY DocumentId;SELECT * FROM WebInvoiceLine ORDER BY Revision,LineId;SELECT * FROM WebInvoiceOperation ORDER BY DocumentRevision;SELECT * FROM WebInvoiceCostRevision ORDER BY DocumentRevision,Basis,RevisionNo;SELECT * FROM WebInvoiceCostLine ORDER BY DocumentRevision,LineId;SELECT * FROM WebInvoiceHistory ORDER BY HistoryId;SELECT * FROM FreightCost ORDER BY FreightKey;SELECT * FROM FreightCostDetail ORDER BY DetailKey;SELECT * FROM ShipmentFarm ORDER BY SfarmKey;')).recordsets);
     const beforeRequest=await erp(),beforeFinancialRequest=await financialRows();
-    let linkedRequest=await makeRequest({...reduceCorrection,items:[{...reduceCorrection.items[0],boxQty:7,bunchQty:70,steamQty:700,totalPrice:7700}]},[{sdateKey:firstDate,shipmentKey:1,prodKey:2,quantity:30,cost:110,date:'2026-10-08'}]);
-    const linkedMatching={rows:[{sdateKey:firstDate,shipmentKey:1,prodKey:2,quantity:30,cost:110,date:'2026-10-08'}],receiptMappings:[{sourceWdetailKey:sourceDetail.WdetailKey,targetRowIndex:0}],farmGroups:[{shipmentKey:1,prodKey:2,assignments:[{farmKey:2,quantity:70}]}],financial:{acknowledged:true,reason:'linked amount and farm quantity correction',costInputs:[{kind:'INVOICE',sourceKey:documentId,expectedRevision:1,input:costInput,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:70}]},{kind:'FREIGHT',sourceKey:1,expectedRevision:1,input:{}}]}};
+    let linkedRequest=await makeRequest({...reduceCorrection,sourceDigest:(await incomingApprovalBaseline(q,sql,{...reduceCorrection,items:[{...reduceCorrection.items[0],boxQty:7,bunchQty:70,steamQty:700,totalPrice:7700}]})).digest,editKind:'QUANTITY',items:[{...reduceCorrection.items[0],sourceWdetailKey:sourceDetail.WdetailKey,boxQty:7,bunchQty:70,steamQty:700,totalPrice:7700}]},[{sdateKey:firstDate,shipmentKey:1,prodKey:2,quantity:30,cost:110,date:'2026-10-08'}]);
+    const linkedMatching={rows:[{sdateKey:firstDate,shipmentKey:1,prodKey:2,quantity:30,cost:110,date:'2026-10-08'}],receiptMappings:[{sourceWdetailKey:sourceDetail.WdetailKey,targetRowIndex:0}],farmGroups:[{shipmentKey:1,prodKey:2,assignments:[{farmKey:2,quantity:70}]}],financial:{prepared:true,acknowledged:false,reason:'linked amount and farm quantity correction',costInputs:[{kind:'INVOICE',sourceKey:documentId,expectedRevision:1,input:costInput,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:70}]},{kind:'FREIGHT',sourceKey:1,expectedRevision:1,input:{}}]}};
     linkedRequest=await mutate({action:'saveMatching',requestId:linkedRequest.requestId,revision:linkedRequest.revision,matching:linkedMatching},support);
     assert.equal(await erp(),beforeRequest);assert.equal(await financialRows(),beforeFinancialRequest,'request and matching preserve every cost revision');
     const linkedErpBefore=await all(),linkedFinancialBefore=await financialRows();
     const linkedPreview=await previewIncomingApproval({withTransactionFn,types:sql,user:support,input:{requestId:linkedRequest.requestId,revision:linkedRequest.revision}});
     assert.equal(linkedPreview.preview.canCommit,true,JSON.stringify(linkedPreview.preview.issues));assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore,'actual linked rehearsal rolls back invoice, freight, farm and native stock');
     const linkedBody={requestId:linkedRequest.requestId,revision:linkedRequest.revision,operationId:randomUUID(),confirmed:true,digest:linkedPreview.preview.digest,financialHash:linkedPreview.preview.financialHash,externalEvidence:linkedPreview.externalEvidence};
+    await assert.rejects(()=>commit({...linkedBody,confirmed:false}),{code:'APPROVAL_CONFIRM_REQUIRED'});assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore,'prepared review is never final consent');
     await assert.rejects(()=>commit({...linkedBody,financialHash:undefined}),{code:'APPROVAL_FINANCIAL_REVIEW_REQUIRED'});assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore);
     await assert.rejects(()=>commit({...linkedBody,financialHash:'0'.repeat(64)}),{code:'APPROVAL_FINANCIAL_STALE'});assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore);
     await pool.request().batch("CREATE TRIGGER web_mgmt.FixtureFailApprovalAudit ON web_mgmt.ApprovalAudit AFTER INSERT AS THROW 51119,'fixture audit failure after all linked writes',1;");
