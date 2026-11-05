@@ -35,8 +35,10 @@ async function main() {
       const chapters = await page.$$(`nav[aria-label="${role} 영상 목차"] button`); assert.equal(chapters.length, 3);
       await chapters[1].focus(); await page.keyboard.press('Enter');
       assert(await page.$eval('video', video => video.currentTime > 1 && video.paused));
+      await page.waitForFunction(() => { const video = document.querySelector('video'); return !video.seeking && video.readyState >= 2; });
       await page.waitForFunction(() => document.querySelector('video track')?.readyState === 2, { timeout: 15000 });
       assert(await page.$eval('video', video => video.textTracks.length === 1 && video.textTracks[0].language === 'ko'));
+      await page.$eval('video', video => { video.textTracks[0].mode = 'disabled'; });
       assert(await page.$('a[download][href$=".mp4"]')); assert(await page.$('a[download][href$=".vtt"]'));
     }
     fs.mkdirSync('.verify', { recursive: true }); await page.screenshot({ path: '.verify/workflow-guide-player-desktop.png' });

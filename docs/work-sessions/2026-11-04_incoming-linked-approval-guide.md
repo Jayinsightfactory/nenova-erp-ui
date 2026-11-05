@@ -76,3 +76,9 @@ AGENTS의 명시 부족재고 조정 규칙을 승인 흐름에 연결한다. �
 실제 Chrome 합성 연습자료 녹화 완료: 수입부164.1초(4.10MB), 영업지원383.1초(9.99MB), 각1920×1080/20fps/100%. 농장·품목·수량 목차와 한국어 설명을 포함하고 영업지원은44차 부족5단 명시동의/재검토/확정까지 담았다. 두 진입점 /incoming 및 /import/tools?tab=incoming에 공통 플레이어를 연결한다. 파일은 public/guides/incoming-approval/이며 영상·자막·실제 UI 소스 해시 검증 PASS.
 
 검증 중 legacy VM harness가 새 DB 읽기 context import를 처리하지 못해 수정했고 관련16개 PASS. 영상 인코딩과 병행한 기존 packingMatchManager 브라우저 테스트는30초 시간초과로 실패했고 영상 종료 후 동일 테스트5개 단독재실행 PASS(3.6초). 전체suite·공식빌드·배포는 최종 실행 결과로 별도 기록한다. 실패 실행을 성공으로 기록하지 않는다.
+
+### 7. 2026-11-05 — 정식 검증 결과와 배포 PR
+
+PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1550. 최신 master104a6ac1 병합 후 로컬 공식 npm run build exit0(가이드 strict prebuild 포함). Linux CI41978488811의 전체 ERP behavior contracts, manifest, dnSpy, guide, write guard 및 PM/MOYI 경계 검사 PASS; 마지막 Linux webpack build 진행 중. 로컬 전체 suite 재실행은 master 병합 중 package 충돌 표식을 읽어 중단되었으며 로컬 전체PASS라고 기록하지 않는다. 최종 전체suite 증거는 병합 완료된 PR Linux CI를 따른다.
+
+실제 ready 빌드 플레이어 smoke PASS: 수입부/영업지원 영상재생, 역할전환, 목차seek완료, 한국어VTT, 다운로드, 키보드, 접을때정지, 데스크톱1920/모바일390. 최종영상 프레임의 원가/손익표·품목농장배정·44차5단부족 표와 한글자막 직접 확인. 배포 후 운영검증은 GET/HEAD만 허용하여 두 메뉴와 가이드 재생을 확인한다.

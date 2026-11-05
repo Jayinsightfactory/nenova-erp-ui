@@ -2099,3 +2099,6 @@
 
 2026-11-05 입고정정 최종검토: 기존 미확정분배 유지+입고감소 예약부족 누락 수정 및 실제SQL100→70/예약80/부족10 명시동의 PASS. 수입부164.1초·영업지원383.1초 실제1920×1080 한국어가이드 제작, 두 진입점 연결과 strict해시검사 PASS. 전체suite/공식빌드/배포 최종확인중, 운영쓰기0.
 검색어: incoming-approval guide-video 미확정예약 부족10 fullHD 수입부 영업지원
+
+2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
+검색어: PR1550 incoming linked approval guide-player 41978488811
