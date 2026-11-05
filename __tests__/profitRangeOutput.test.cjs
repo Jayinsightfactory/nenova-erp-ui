@@ -183,7 +183,8 @@ module.exports = (async () => {
   const content={style:{},scrollWidth:1200,scrollHeight:1600};
   const sheetPage={clientWidth:1062,clientHeight:729,dataset:{},style:{},querySelector:()=>content};
   fitProfitPrintDocument({querySelectorAll:()=>[sheetPage]});
-  assert.equal(content.style.transform,`scale(${729/1600})`);
+  assert.equal(content.style.transform,'none');
+  assert.equal(content.style.zoom,String(729/1600));
   for(const width of [320,640,1920]) for(const left of [-40,10,width-20]) {
     const pos=profitPopoverPosition({left,bottom:950},width,900);
     assert.ok(pos.left>=8 && pos.left+pos.width<=width-8);
