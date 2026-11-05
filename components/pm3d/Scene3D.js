@@ -200,7 +200,13 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
       st.fit = sceneFit(fb.hx, fb.hz); placeCam();
       // 첫 화면 배율 = 기획 기준(캐릭터 ≈100px) 자동 계산 — 인원이 늘어 fit 이 커져도 휑하지 않게. 최초 1회만(사용자 조작 보존).
-      if (!st.zoomInit) { st.zoomInit = true; const z0 = defaultZoom(st.fit, el.clientHeight || 720); if (z0 > DEFAULT_ZOOM + 0.01) setZoom(+z0.toFixed(2)); }
+      if (!st.zoomInit) {
+        st.zoomInit = true; const z0 = defaultZoom(st.fit, el.clientHeight || 720);
+        const z1 = island && z0 > 1 ? Math.max(1.05, +(z0 * 0.86).toFixed(2)) : +z0.toFixed(2); // 시안 프레이밍: 살짝 넓게 잡고
+        if (z1 > DEFAULT_ZOOM + 0.01) setZoom(z1);
+        // 첫 화면 시선을 북서쪽으로 당겨 해안·바다가 좌상단에 걸리게(섬 테마만, 사용자 조작 전 1회)
+        if (island && z1 > 1) { pan.set(-4.6, 0, -4.6); placeCam(); }
+      }
       // 연구실 로봇 자리(섬: 1호 섬 남쪽 해변 끝단 칸 점유 — 장식보다 먼저, 다리 착지 열 제외)
       const robotSpots = [];
       if (island) for (const X of [-11, -9, -7, -5, 3, 5, 7, 9]) { const c = [{ X, Z: 11 }]; if (canOccupy(world, c)) { occupy(world, c, `robot:${X}`); robotSpots.push(cellCenter(X, 11)); } }
