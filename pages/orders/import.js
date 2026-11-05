@@ -2001,6 +2001,16 @@ export default function OrderImportPage() {
 
             {(registerMode === 'orderPrice' || registerMode === 'priceOnly') && (
               <div style={{ border: '1px solid #c7d2fe', background: '#f5f7ff', borderRadius: 8, padding: 12 }}>
+                {/* 파일 없이 「분배단가만 수정」을 쓰면 위의 거래처 선택칸(매칭 결과 영역)이 없어 기본 거래처가 조용히 쓰인다 → 여기서 직접 고른다 */}
+                {registerMode === 'priceOnly' && !items.length && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <span style={st.label}>거래처</span>
+                    <CustomerSearchSelect value={cust?.CustKey || ''} onChange={changeCustomer} placeholder="거래처 검색" />
+                    {cust?.CustName
+                      ? <span style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>선택: {cust.CustName}</span>
+                      : <span style={{ fontSize: 12, color: '#b45309' }}>거래처를 검색해 선택하세요</span>}
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                   <span style={st.label}>세부차수</span>
                   {priceTargets.loading && <span style={{ fontSize: 12, color: '#1565c0' }}>조회 중…</span>}

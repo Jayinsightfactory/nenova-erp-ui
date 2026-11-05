@@ -2,6 +2,8 @@
 // 업로드 주문등록 → 분배단가 적용 대상 조회 (읽기 전용)
 // GET ?custKey=42&orderYear=2026&parentWeek=44
 //   → 해당 거래처의 44-01, 44-02 … 세부차수별 ShipmentMaster/ShipmentDetail(ProdKey, Cost, OutQuantity, isFix)
+//   분배 행(ShipmentDetail)이 있는 품목만 돌려주며 확정 여부(isFix)로 거르지 않는다. 주문만 있고 분배 전인 품목은 대상이 아니다.
+//   규칙 5: sm.CustKey 로 먼저 찾고, 상세행 sd.CustKey 가 해당 거래처인 마스터도 포함(fallback).
 // 규칙 1 준수: SELECT 만. 실제 단가 변경은 /api/estimate/update-cost (확정차수 가드 포함) 가 담당.
 
 import { query, sql } from '../../../lib/db';
@@ -27,9 +29,10 @@ async function handler(req, res) {
 
   try {
     const masters = await query(
-      `SELECT sm.ShipmentKey, sm.OrderWeek, ISNULL(sm.isFix, 0) AS isFix
+      `SELECT sm.ShipmentKey, sm.OrderWeek, ISNULL(sm.isFix, 0) AS isFix, sm.CustKey
          FROM ShipmentMaster sm
-        WHERE sm.CustKey = @ck
+        WHERE (sm.CustKey = @ck
+               OR EXISTS (SELECT 1 FROM ShipmentDetail sdx WHERE sdx.ShipmentKey = sm.ShipmentKey AND sdx.CustKey = @ck))
           AND sm.OrderYear = @yr
           AND sm.OrderWeek LIKE @pwLike
           AND ISNULL(sm.isDeleted, 0) = 0
@@ -46,7 +49,7 @@ async function handler(req, res) {
       return res.status(200).json({ success: true, custKey, orderYear, parentWeek: pw, subWeeks: [] });
     }
 
-    const skParams = {};
+    const skParams = { ck: { type: sql.Int, value: custKey } };
     masterRows.forEach((m, i) => { skParams[`sk${i}`] = { type: sql.Int, value: m.ShipmentKey }; });
     const details = await query(
       `SELECT sd.SdetailKey, sd.ShipmentKey, sd.ProdKey,
@@ -59,7 +62,9 @@ async function handler(req, res) {
               CONVERT(NVARCHAR(10), sd.ShipmentDtm, 23) AS ShipmentDate
          FROM ShipmentDetail sd
          JOIN Product p ON p.ProdKey = sd.ProdKey
+         JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
         WHERE sd.ShipmentKey IN (${masterRows.map((_, i) => `@sk${i}`).join(',')})
+          AND (sm.CustKey = @ck OR sd.CustKey = @ck)
         ORDER BY sd.ShipmentKey, p.ProdName, sd.SdetailKey`,
       skParams,
     );

@@ -20,9 +20,9 @@ const { pathToFileURL } = require('url');
 
   // 종족: 렌더 실재 + 기본과 구분(look3d 색/부속/머리 차이) — PM3D.RACES 한 표 기준
   const td = fs.mkdtempSync(path.join(os.tmpdir(), 'pmshopart-'));
-  for (const n of ['pmThemes', 'pm3dLayout']) {
+  for (const n of ['pmThemes', 'pm3dLayout', 'pm3dGrid']) {
     fs.writeFileSync(path.join(td, `${n}.mjs`), fs.readFileSync(path.join(root, `lib/${n}.js`), 'utf8')
-      .replace("'./pmThemes.js'", "'./pmThemes.mjs'"));
+      .replace("'./pmThemes.js'", "'./pmThemes.mjs'").replace("'./pm3dGrid.js'", "'./pm3dGrid.mjs'"));
   }
   const L = await import(pathToFileURL(path.join(td, 'pm3dLayout.mjs')).href);
   const base = L.look3d({ char: 'human', items: {} }, 'x');

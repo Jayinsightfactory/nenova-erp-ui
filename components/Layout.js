@@ -354,12 +354,16 @@ export default function Layout({ children, title }) {
     const isFavorite = favoriteHrefs.has(item.href);
     const navClassName = `nav-item ${router.pathname === item.href ? 'active' : ''}`;
     const navStyle = { flex: 1, minWidth: 0, borderBottom: 0, paddingRight: 6 };
+    // 새창/팝업형 메뉴도 실제 href 를 가진다 — React 핸들러가 붙기 전(hydration 이전) 첫 클릭이
+    // href="#" 으로 튕기지 않고 새 탭으로 열린다. hydration 뒤에는 onClick 이 preventDefault 하고 창 크기를 지정해 연다.
+    const inChild = isPopup || isChildWindow;
+    const popupHref = `${item.href}${item.href.includes('?') ? '&' : '?'}popup=1`;
     const link = item.fullscreen ? (
-      <a className={navClassName} style={navStyle} href="#"
-        onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
+      <a className={navClassName} style={navStyle} href={inChild ? popupHref : item.href} target={inChild ? undefined : '_blank'} rel="opener"
+        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
     ) : item.popup ? (
-      <a className={navClassName} style={navStyle} href="#"
-        onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
+      <a className={navClassName} style={navStyle} href={popupHref} target={inChild ? undefined : '_blank'} rel="opener"
+        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
     ) : (
       <Link href={item.href} className={navClassName} style={navStyle}
         onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{t(item.labelKey)}</Link>
