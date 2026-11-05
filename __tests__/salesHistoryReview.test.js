@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { diffRowSets, resolveSalesHistoryBaseline } from '../lib/salesSnapshotPolicy.js';
-import { buildSalesObservationEvents, compareEcountSales, salesHistoryKst, salesReviewItemMatchesEvent } from '../lib/salesHistoryReviewPolicy.js';
+import { buildSalesObservationEvents, compareEcountSales, salesReviewItemMatchesEvent } from '../lib/salesHistoryReviewPolicy.js';
 const row = { RowType:'SD', RefKey:1, CustKey:7, CustName:'fixture', ProdKey:9, ProdName:'ROSE', Cost:1100, OutQuantity:10, EstQuantity:10, Amount:10000, Vat:1000 };
 const current = [{...row, Cost:0, Amount:0, Vat:0},{...row,RefKey:2,ProdKey:10,Amount:20000,Vat:2000}];
 const base = [row,{...row,RefKey:2,ProdKey:10}];
@@ -24,7 +24,7 @@ const snapshots=[{SnapshotKey:10,OrderYear:'2026',OrderWeek:'44-01',SnapshotType
 let calls=[];
 const sql={NVarChar:'string',DateTime:'datetime',Int:'int'};
 const sandbox={readEcountSalesHistory:async()=>({...compareEcountSales({ecountRows:[{custName:'fixture',prodName:'ROSE',qty:10,unitPrice:1100,supplyAmt:10000,vat:1000},{custName:'fixture',prodName:'LILY',qty:10,unitPrice:1100,supplyAmt:10000,vat:1000}],currentRows:[current[0],{...current[1],ProdName:'LILY'}],customers:[{CustKey:7,CustName:'fixture'}]}),noEcount:false,baseline:[]}),module:{exports:{}},withAuth:x=>x,sql,resolveActiveOrderYear:()=> '2026',normalizeOrderWeek:x=>x,
- startSalesSnapshotScheduler:()=>{}, SALES_CONFIRM_TYPE:'REG_CONFIRM',resolveSalesHistoryBaseline,diffRowSets,buildSalesObservationEvents, salesHistoryKst,
+ startSalesSnapshotScheduler:()=>{}, SALES_CONFIRM_TYPE:'REG_CONFIRM',resolveSalesHistoryBaseline,diffRowSets,buildSalesObservationEvents,
  salesCaptureYearPredicateSql:()=>"sm.OrderYear = @yr",listSnapshots:async(w,y)=>snapshots.filter(s=>s.OrderWeek===w&&s.OrderYear===String(y)),
  getSnapshotRows:async k=>Number(k)===20?base:base,captureCurrentRows:async(w,y)=>{assert.equal(String(y),'2026');return current;},
  query:async(statement,params)=>{if(statement.includes('SELECT OrderWeek FROM ('))return {recordset:[{OrderWeek:'44-01'}]};calls.push({statement,params});if(statement.includes('FROM ShipmentHistory')){
@@ -54,7 +54,7 @@ assert.equal(ambiguous.byCust.length,2,'ambiguous customer names cannot silently
 assert.ok(ambiguous.byCust.some(g=>g.custKey===null));
 console.log('ECOUNT comparison: real baseline, quantity/price-only differences and ambiguous names PASS');
 
-assert.equal(salesHistoryKst('2026-11-05 01:00:00'),'2026-11-05 10:00:00');
+
 
 const {orderWeekToDateRange}=await import('../lib/orderWeekDate.js');
 let status='GREEN',present=true,wrongTotal=false,seenDate='';

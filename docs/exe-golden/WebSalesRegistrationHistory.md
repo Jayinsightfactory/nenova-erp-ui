@@ -89,3 +89,7 @@ ShipmentDtm/BeforeValue/AfterValue/Descr/SdetailKey. ColumName은 없음.
 원본 개인정보/업체명 로그 저장 없이 집계만 확인. 41개 SELECT, DDL/ERP/ECOUNT쓰기0.
 견적 downstream 실제 ViewShipment+ViewOrder+ShipmentDate+PeriodDay/DetailFix=1 조인44차1382행.
 현재 원장/확정매출/Estimate/WebProfitReport 수정 없음. 이는 읽기 결과의 확인이며 원장 보정이 아니다.
+
+시간 검증 정정: 실제 SELECT DATEDIFF(minute,GETUTCDATE(),GETDATE())=540.
+DB의 GETDATE/TakenAt/ChangeDtm은 이미 KST이다. DATEADD(+9) 금지, CONVERT(varchar(19),...,120) 원문 표시.
+기존 ecount/week-compare의 Date 객체 +9 변환을 이번 화면의 근거로 사용하지 않는다.
