@@ -15,7 +15,7 @@ import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy,
 import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
-import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale } from '../../lib/pm3dAssets';
+import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale, moundPick } from '../../lib/pm3dAssets';
 import { loadKit, bake, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
@@ -363,7 +363,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const groups = new Map(); const addT = (asset, x, z, yaw, y = y0) => { if (!groups.has(asset)) groups.set(asset, []); groups.get(asset).push(mat4(x, y, z, yaw, S)); };
         for (const c of world.cells.values()) {
           const x = (c.X + 0.5) * CELL; const z = (c.Z + 0.5) * CELL;
-          if (c.kind === 'sand') addT('tile_sand', x, z, 0);
+          if (c.kind === 'sand') { const lc = ((c.X % 28) + 28 + 12) % 28; const lr = ((c.Z % 28) + 28 + 12) % 28; const md = !world.occ.has(`${c.X},${c.Z}`) && moundPick(c.X, c.Z, lc, lr); addT(md || 'tile_sand', x, z, 0); } // [P2] 바깥 띠 일부 = 모래 둔덕(점유·보행 칸 제외)
           else if (c.kind === 'beach') { const sea = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => !land(c.X + dx, c.Z + dz)); const k = coastPick(sea); addT(k.asset, x, z, k.yaw); }
           else if (c.kind === 'boardwalk') { const bw = (dx, dz) => { const n = land(c.X + dx, c.Z + dz); return !!n && (n.kind === 'boardwalk' || n.kind === 'bridge'); }; const k = boardwalkPick({ n: bw(0, -1), s: bw(0, 1), e: bw(1, 0), w: bw(-1, 0) }); addT(k.asset, x, z, k.yaw); }
           else if (c.kind === 'bridge') addT('tile_bridge', x, z, c.axis === 'x' ? 0 : Math.PI / 2, -0.06 * S);
@@ -407,6 +407,23 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             if (A.prop_surfboard) { const n = staticClone(A.prop_surfboard, clayM); n.position.set(f.cn.x + f.cn.r * 0.55, 0, f.cn.z + f.cn.r * 0.4); n.rotation.y = Math.PI / 5 + sb; n.scale.setScalar(f.cn.scale * 0.5); scene.add(n); shade(n, 0.1); }
           }
         }
+        // 2.6) [P3] 깃발 체인: 같은 줄 이웃 파라솔 꼭대기 사이에 걸기(두 쌍 중 하나만 — 과밀 방지)
+        {
+          const cns = st.seatFx.filter((f) => f.cn).map((f) => f.cn);
+          let laid = 0;
+          for (let i = 0; i + 1 < cns.length; i++) {
+            const A1 = cns[i]; const B1 = cns[i + 1];
+            const d = Math.hypot(B1.x - A1.x, B1.z - A1.z);
+            if (d < 2.0 || d > 4.4 || Math.abs(B1.z - A1.z) > 1.2 || laid++ % 2) continue;
+            if (!A.prop_flag_chain) break;
+            const n = staticClone(A.prop_flag_chain, clayM);
+            const sc = (A1.y1 * 0.92) / 2.42; // 기둥(2.42)을 파라솔 꼭대기 높이에 근사
+            n.scale.set(d / (3.92 * sc) * sc, sc, sc);
+            n.position.set((A1.x + B1.x) / 2, 0, (A1.z + B1.z) / 2);
+            n.rotation.y = Math.atan2(B1.x - A1.x, B1.z - A1.z) + Math.PI / 2;
+            scene.add(n);
+          }
+        }
         // 3) 소품: 야자수·바위·덤불(해변 끝단 장식 교체)
         const one = (asset, x, z, ry, s, y = 0) => {
           if (!A[asset]) return null; const n = staticClone(A[asset], clayM); n.position.set(x, y, z); n.rotation.y = ry; n.scale.setScalar(s); scene.add(n);
@@ -428,6 +445,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             one('pool_ladder', cx + 2.6 * s, cz - 1.75 * s, Math.PI, s);
             [['float_flamingo', -1.6], ['float_duck', 0], ['float_ring', 1.6]].forEach(([n, ox], i) => one(n, cx + ox * s, cz + (i % 2 ? 0.25 : -0.25) * s, i * 1.3, s * 0.38, 0.32 * s));
             one('prop_sign', cx - 3.2 * s, cz + 2.6 * s, 0, s);
+            one('prop_table_set', cx - 4.6 * s, cz - 1.2 * s, 0.4, s * 0.9); one('prop_beach_set', cx - 4.2 * s, cz + 1.8 * s, 1.1, s); // [P3] 수영장 옆 테이블·비치타월
           } else if (r.kind === 'kart') {
             const s = fitScale(w, dd, 15, 7.2, 0.9); ok = !!one('track_straight', cx, cz, 0, s);
             one('track_corner', cx + 6 * s, cz, 0, s); one('track_corner', cx - 6 * s, cz, Math.PI, s);
@@ -438,8 +456,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             one('runway_threshold', cx + 6 * s, cz, 0, s); one('runway_threshold', cx - 6 * s, cz, Math.PI, s);
             one('prop_plane', cx - 1 * s, cz, 0, s); one('prop_windsock', cx + 5 * s, cz - 3.2 * s, 0, s);
             one('prop_barrel', cx - 5 * s, cz + 3 * s, 0, s); one('prop_barrel', cx - 3.8 * s, cz + 3.3 * s, 0.6, s);
+            one('prop_campfire', cx + 3.5 * s, cz - 3.0 * s, 0.8, s); one('prop_beach_set', cx + 5.2 * s, cz + 2.4 * s, 2.2, s); // [P3] 비행장 옆 모닥불·비치타월
           }
           if (ok) for (const ln of st.fb.reserved) if (ln.userData.zone === r.kind) ln.visible = false;
+        }
+        // [P3] 꼬마기차: 둘레 보드워크(레일 겸)를 상시 순환 — 구름과 같은 0비용 생동감
+        if (A.mini_train && st.bounds) {
+          const tr = staticClone(A.mini_train, clayM); tr.scale.setScalar(ASSET_SCALE);
+          scene.add(tr); st.train = { obj: tr, t: 0.37 };
         }
         st.assets = { ms, bytes, mountMs: Math.round(performance.now() - t0), failed, seats, parasols: st.seatFx.filter((f) => f.cn).length, seatTotal: st.seatFx.length };
         if (typeof window !== 'undefined') window.__pm3dAssets = st.assets;
@@ -768,6 +792,12 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (!live) st.intro = null; else st.poke?.();
         }
         if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
+        if (st.train && !red) { // 꼬마기차 상시 순환(속도 1.6m/s)
+          const ringL2 = ringLength(st.bounds.hx, st.bounds.hz);
+          st.train.t = (st.train.t + dt * 1.6 / ringL2) % 1;
+          const tp = ringPoint(st.bounds.hx, st.bounds.hz, st.train.t);
+          st.train.obj.position.set(tp.x, 0.02, tp.z); st.train.obj.rotation.y = tp.yaw;
+        }
         if (st.hoverFx) {
           const { o, base } = st.hoverFx; const want = st.hoverOn === o ? 1.07 : 1;
           const cur = o.scale.x / base; const nk = cur + (want - cur) * Math.min(1, dt * 10);
