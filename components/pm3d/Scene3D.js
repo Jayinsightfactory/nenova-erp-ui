@@ -134,12 +134,20 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
       return new THREE.CanvasTexture(c);
     })();
-    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, color: RQ.blob.color, transparent: true, opacity: RQ.blob.opacity, alphaMap: blobTex, depthWrite: false });
+    // [2026-11-05 디자인 자문] 그림자 2겹 = 속(진하고 좁게) + 퍼짐(연하고 넓게) — SSAO 흉내, 비용은 투명 평면 1장 추가
+    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, color: RQ.blob.color, transparent: true, opacity: RQ.blob.coreOpacity ?? RQ.blob.opacity, alphaMap: blobTex, depthWrite: false });
+    const blobMat2 = new THREE.MeshBasicMaterial({ map: blobTex, color: RQ.blob.spreadColor || RQ.blob.color, transparent: true, opacity: RQ.blob.spreadOpacity ?? 0, alphaMap: blobTex, depthWrite: false });
     const blobGeo = new THREE.PlaneGeometry(1, 1);
     const blob = (parent, x, z, rx, rz, y = 0.015) => {
       const m = new THREE.Mesh(blobGeo, blobMat);
-      m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(rx * 2, rz * 2, 1); m.renderOrder = 1;
-      parent.add(m); return m;
+      m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(rx * 2 * 0.72, rz * 2 * 0.72, 1); m.renderOrder = 2;
+      parent.add(m);
+      if (blobMat2.opacity > 0) {
+        const s = new THREE.Mesh(blobGeo, blobMat2);
+        s.rotation.x = -Math.PI / 2; s.position.set(x, y - 0.004, z); s.scale.set(rx * 2 * 1.35, rz * 2 * 1.35, 1); s.renderOrder = 1;
+        parent.add(s); m.userData.spread = s;
+      }
+      return m;
     };
     // 캐릭터 셰이딩: 기본 standard(RQ.charShade) / 'toon' 이면 5단 파스텔 램프(NearestFilter 필수)
     const toonRamp = (() => {
@@ -436,7 +444,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (!P.walk && !P.riding && !P.cruise) P.ch.position.y = BM.seatY;
           P.emoY = BM.headTop * CHAR_SCALE + 0.3;
           P.emo.position.y = P.emoY;
-          if (P.blobChar) P.blobChar.scale.set(1.04 * BM.s, 0.96 * BM.s, 1);
+          if (P.blobChar) { P.blobChar.scale.set(1.04 * BM.s * 0.72, 0.96 * BM.s * 0.72, 1); P.blobChar.userData.spread?.scale.set(1.04 * BM.s * 1.35, 0.96 * BM.s * 1.35, 1); }
           st.poke?.();
         }
         // 표정: 춤 > 작업 분위기(status) > 직원 기본 표정 > smile (lib/pmFaces.faceOf)
@@ -772,6 +780,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
   return (
     <div className="pm3d" style={{ position: 'relative', width: '100%', height: 'min(72vh, 760px)', minHeight: 420, borderRadius: 16, overflow: 'hidden', touchAction: zoom > 1 ? 'none' : 'auto', cursor: zoom > 1 ? 'grab' : 'default' }}>
       <div ref={host} style={{ position: 'absolute', inset: 0 }} />
+      {/* [2026-11-05 디자인 자문] 미니어처 디오라마 연출 — 비용 0: CSS 비네팅 + 상·하단 가짜 틸트시프트 블러 */}
+      <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 46%, transparent 62%, rgba(68,43,26,.16) 100%)' }} />
+      <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 64, pointerEvents: 'none', backdropFilter: 'blur(2.2px)', WebkitBackdropFilter: 'blur(2.2px)', maskImage: 'linear-gradient(to bottom, black, transparent)', WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)' }} />
+      <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 52, pointerEvents: 'none', backdropFilter: 'blur(2.2px)', WebkitBackdropFilter: 'blur(2.2px)', maskImage: 'linear-gradient(to top, black, transparent)', WebkitMaskImage: 'linear-gradient(to top, black, transparent)' }} />
       <div ref={labelsRef} aria-hidden={false} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {people.map((p) => (
           <button key={p.name} type="button" data-k={p.name} onClick={() => onOpenPerson?.(p.name)} title={p.name}
@@ -784,14 +796,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (!l?.text || !l.stage) return null;
           return (
             <button key={'w:' + p.name} type="button" data-k={'w:' + p.name} onClick={() => onOpenPerson?.(p.name, 'time')} title={`${p.name} · ${l.text}`}
-              style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '500 10.5px/1.25 inherit', padding: '3px 8px', borderRadius: 8, border: 0, maxWidth: 150, background: U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.12)', cursor: 'pointer', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textAlign: 'left', borderLeft: `3px solid ${STAGE_HEX[l.stage - 1]}` }}>
+              style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 10.5px/1.25 inherit', padding: '4px 10px', borderRadius: 14, border: 0, maxWidth: 150, background: U.chip, color: U.ink, boxShadow: '0 3px 8px rgba(0,0,0,.1)', cursor: 'pointer', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textAlign: 'left', borderLeft: `3px solid ${STAGE_HEX[l.stage - 1]}` }}>
               {String(l.text).slice(0, 36)}
             </button>
           );
         })}
         {STAGES.map((s) => (
           <button key={s.no} type="button" data-k={'st' + s.no} onClick={() => onPickStage?.(s.no)}
-            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '700 11px/1.2 inherit', padding: '2px 8px', borderRadius: 8, border: 0, background: STAGE_HEX[s.no - 1], color: U.stageInk, cursor: 'pointer' }}>
+            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '700 11px/1.2 inherit', padding: '3px 10px', borderRadius: 999, border: 0, background: '#ffffff', color: '#1e293b', boxShadow: `inset 0 0 0 2px ${STAGE_HEX[s.no - 1]}, 0 2px 6px rgba(0,0,0,.1)`, cursor: 'pointer' }}>
             {s.no}. {s.label}
           </button>
         ))}
