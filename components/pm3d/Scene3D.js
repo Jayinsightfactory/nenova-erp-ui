@@ -13,7 +13,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { beachDecorGrid } from '../../lib/pm3dDecor';
 import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale } from '../../lib/pm3dAssets';
 import { loadKit, bake, instanced, mat4, staticClone, splitUnit } from './assetKit';
@@ -187,6 +187,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       st.world = world;
       const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
       st.fit = sceneFit(fb.hx, fb.hz); placeCam();
+      // 첫 화면 배율 = 기획 기준(캐릭터 ≈100px) 자동 계산 — 인원이 늘어 fit 이 커져도 휑하지 않게. 최초 1회만(사용자 조작 보존).
+      if (!st.zoomInit) { st.zoomInit = true; const z0 = defaultZoom(st.fit, el.clientHeight || 720); if (z0 > DEFAULT_ZOOM + 0.01) setZoom(+z0.toFixed(2)); }
       // 연구실 로봇 자리(섬: 1호 섬 남쪽 해변 끝단 칸 점유 — 장식보다 먼저, 다리 착지 열 제외)
       const robotSpots = [];
       if (island) for (const X of [-11, -9, -7, -5, 3, 5, 7, 9]) { const c = [{ X, Z: 11 }]; if (canOccupy(world, c)) { occupy(world, c, `robot:${X}`); robotSpots.push(cellCenter(X, 11)); } }
