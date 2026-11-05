@@ -2103,6 +2103,8 @@
 2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
 검색어: PR1550 incoming linked approval guide-player 41978488811
 
+2026-11-05 주차이익률·금융비고 구현: 표시K=J/C(C0/null공란), saved/confirmed금액·원본JSON불변. 콜롬비아 report-profile GW/CW배분·반대기준 운임 및재고유보 반영이익/%p 참고, 실제StockHistory 품목/물리단위증감과 근거평가액, 실제PeriodDay인접 저장본의 기말→기초 평가차이를 구분. 사용자비고·원장보존, DB쓰기0. 실제dnSpy/31-01중량1420/3342·저장3342/3342 SELECT확인. 대상검사PASS. 첫ERPgate는오래된 WorkbookParity 소스문자열assert1건중단→수정PASS; 잔여gate/공식build/브라우저 및 PR·배포진행중(미검증 단계 완료아님). 세션docs/work-sessions/2026-11-05_profit-margin-impact-notes.md.
+검색어: profit-margin-impact-notes J/C Colombia GW CW CBM StockHistory 평균원가 조정평가액
 ## 2026-11-05 도착원가 시트 검토 업로드
 - 원본보존/검토/선택시트명시국가/차수/연도확인,재검토다이제스트/DB멱등/읽기검증구현.53/54分離134행은55통합1892행중해당134행과원본셀·수량·원가일치/수동변경0.
 - 관련회귀/dnSpy/manifest통과,실제UI합성dryrun통과.필수전체검사·영상·CI·배포·정리미검증(진행중).
@@ -2110,3 +2112,8 @@
 
 2026-11-05 후속 단순화 착수: 이전PR1550/d0106f3f의CI41979093709·배포41979671264·운영두메뉴/영상재생PASS 확인완료. 새요청은기존농장입고내품목+수량/수량만/추가/취소 직접입력, 영업지원문제만조정후확정. nw-incoming-simple-1105에서Sol하위1개로진행, 기존원자writer재사용. 현재후속배포미완료.
 검색어: incoming-simple-workflow PR1550 문제중심검토 사용량절약 Sol
+## 2026-11-05 도착원가 업로드 컨트롤 디자인
+- 부모 styled-jsx가 새 자식컴포넌트에 전달되지 않아 기본HTML버튼으로 보였음. CSS Module로입력/파일선택/분석·재검토·저장·닫기버튼을공통ERP규격에연결.32px높이·13px글자·간격8px·분석파랑/저장초록/보조버튼·비활성회색/파랑포커스 적용.표간격/행구분/가로스크롤·좁은폭줄바꿈정리.
+- 적용기준:MENU_DEVELOPMENT_DEFAULTS,globals.btn와hotelOrderButtons의공통컨트롤규격.업무정책/API/SQL/ERP쓰기변경없음.
+- 기존실행회귀통과.실제Chrome1920/1280에서버튼높이/페이지폭/Tab·ShiftTab검증통과.가이드재촬영·정식build/CI/배포/운영확인진행중(미검증).
+- 검색어: 도착원가 버튼 디자인 CSS Module ArrivalUploadReview 32px styled-jsx

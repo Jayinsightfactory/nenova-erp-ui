@@ -2001,7 +2001,7 @@ export default function ProfitReportPage() {
               {saving ? '저장 중…' : '비고 저장'}
             </button>
           </div>
-          {(data.readMode==='live'||showSourceChecks) && <ProfitStockAdjustmentNotes orderYear={data.orderYear} major={data.major} confirmed={Boolean(data.confirmed)} refreshToken={data} />}
+          <ProfitStockAdjustmentNotes orderYear={data.orderYear} major={data.major} confirmed={Boolean(data.confirmed)} refreshToken={data} />
         </div>
       )}
 

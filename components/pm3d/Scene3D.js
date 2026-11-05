@@ -13,7 +13,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { beachDecorGrid } from '../../lib/pm3dDecor';
 import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale } from '../../lib/pm3dAssets';
 import { loadKit, bake, instanced, mat4, staticClone, splitUnit } from './assetKit';
@@ -187,6 +187,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       st.world = world;
       const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
       st.fit = sceneFit(fb.hx, fb.hz); placeCam();
+      // 첫 화면 배율 = 기획 기준(캐릭터 ≈100px) 자동 계산 — 인원이 늘어 fit 이 커져도 휑하지 않게. 최초 1회만(사용자 조작 보존).
+      if (!st.zoomInit) { st.zoomInit = true; const z0 = defaultZoom(st.fit, el.clientHeight || 720); if (z0 > DEFAULT_ZOOM + 0.01) setZoom(+z0.toFixed(2)); }
       // 연구실 로봇 자리(섬: 1호 섬 남쪽 해변 끝단 칸 점유 — 장식보다 먼저, 다리 착지 열 제외)
       const robotSpots = [];
       if (island) for (const X of [-11, -9, -7, -5, 3, 5, 7, 9]) { const c = [{ X, Z: 11 }]; if (canOccupy(world, c)) { occupy(world, c, `robot:${X}`); robotSpots.push(cellCenter(X, 11)); } }
@@ -335,19 +337,31 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         hideFb('boardwalk', ['tile_boardwalk_straight', 'tile_boardwalk_corner', 'tile_boardwalk_cross'].every((a) => done.has(a) || !groups.has(a)));
         hideFb('bridge', done.has('tile_bridge'));
         // 2) 자리 유닛: 책상(작업) → 캐릭터 → 파라솔(맨 뒤). 유닛 책상 윗면 = 기존 책상 윗면(소품 슬롯 높이 유지)
+        // 구운 접지 그림자: 애셋 바닥 상자(Box3) 타원 블롭 — 실시간 그림자 0 유지(QUALITY_RECIPE), 비용 = 투명 평면 1장
+        const shade = (n, k = 0.25) => { // k = 물체 바닥 상자보다 번지는 여유(m)
+          if (!n) return n;
+          n.updateWorldMatrix(true, true);
+          const b = new THREE.Box3().setFromObject(n); if (!isFinite(b.min.x)) return n;
+          blob(scene, (b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2, Math.max(0.25, (b.max.x - b.min.x) / 2 + k), Math.max(0.25, (b.max.z - b.min.z) / 2 + k), 0.02);
+          return n;
+        };
         let seats = 0;
         for (const f of st.seatFx) {
           const U = A[f.unit]; if (!U) continue;
           const { desk: ud, parasol: up } = splitUnit(U, clayM);
           ud.scale.setScalar(f.deskTopY / 1.17); ud.rotation.y = Math.PI; // 유닛 책상 윗면 1.17(애셋) → 기존 책상 높이, 화면이 캐릭터(-Z) 쪽
           ud.userData = f.d.person ? { kind: 'person', name: f.d.person.name } : {};
-          f.g.add(ud); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
+          f.g.add(ud); shade(ud, 0.15); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
           f.ps.visible = false;
-          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
+          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); blob(scene, f.cn.x, f.cn.z, f.cn.r * 0.72, f.cn.r * 0.72, 0.018); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
           seats++;
         }
         // 3) 소품: 야자수·바위·덤불(해변 끝단 장식 교체)
-        const one = (asset, x, z, ry, s, y = 0) => { if (!A[asset]) return null; const n = staticClone(A[asset], clayM); n.position.set(x, y, z); n.rotation.y = ry; n.scale.setScalar(s); scene.add(n); return n; };
+        const one = (asset, x, z, ry, s, y = 0) => {
+          if (!A[asset]) return null; const n = staticClone(A[asset], clayM); n.position.set(x, y, z); n.rotation.y = ry; n.scale.setScalar(s); scene.add(n);
+          if (!/^(track_|runway_|tile_|pool_|float_)/.test(asset)) shade(n); // 바닥 깔림형·물 위 애셋은 그림자 제외
+          return n;
+        };
         for (const { o, p } of st.fb.palms) if (one('prop_palm', p.x, p.z, p.ry, DECOR_SCALE * p.s)) o.visible = false;
         for (const { o, q } of st.fb.scatter) {
           const n = q.m === 'rock' ? one('prop_rock', q.x, q.z, q.ry, DECOR_SCALE * Math.max(0.7, q.s)) : q.m === 'shell' ? one('prop_bush', q.x, q.z, q.ry, DECOR_SCALE * 0.8) : null;
@@ -555,7 +569,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const items = [];
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
-        P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.25; v.project(cam); // 이름표 = 머리 위 items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
+        // 이름표 = 머리 위 (#1548 때 push 가 주석에 삼켜져 전원 이름표가 좌상단에 쌓이던 버그 복구)
+        P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.25; v.project(cam);
+        items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
         if (P.stage) { const tip = P.g.userData?.parasolTip; if (tip) wv.set(tip.x, tip.y, tip.z); else wv.set(0, HEAD_Y + 0.9, -SEAT_Z); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h - 12, ...sizeOf('w:' + name, 150, 30) }); } // 작업 말풍선 = 파라솔 위(파라솔 없으면 머리 위)
       }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }

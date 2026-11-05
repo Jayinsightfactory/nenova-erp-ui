@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { auditReportAgainstStock } from '../lib/profitIndependentAudit.mjs';
 import { assertValidationResponse } from '../lib/profitValidationWindow.mjs';
-import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../lib/profitReportCalc';
+import { calcRevenueRatio, calcPurchaseRatio } from '../lib/profitReportCalc';
+import { profitDisplayCalculation, hasStoredRowCalculation } from '../lib/profitReportStoredCalculation';
 import { auditProfitFormulas } from '../lib/profitFormulaAudit.mjs';
 import { auditReportSqlLineage } from '../lib/profitSqlLineageAudit.mjs';
 import ProfitFormulaAudit from './ProfitFormulaAudit';
@@ -11,9 +12,8 @@ const labels = { MATCH: '식 일치', MISMATCH: '차이 발견', CARRIED: '앞 �
   UNVERIFIED: '단가·정책 추가 확인', HISTORICAL: '기준시점 다름', NOT_COMPARED: '비교값 없음' };
 const number = v => v == null || !Number.isFinite(Number(v)) ? '미확인' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 const compare = (report, week) => {
-  const rows = report.rows.map(row => ({ ...row, calc: report.confirmed ? row.calc : computeProfitRow(row) }));
-  const totals = report.confirmed ? report.confirmedTotals : computeProfitTotals(rows);
-  if (!report.confirmed) for (const row of rows) Object.assign(row.calc, { D: calcRevenueRatio(row.calc, totals), U: calcPurchaseRatio(row.calc, totals) });
+  const { rows, totals } = profitDisplayCalculation(report);
+  for (const row of rows) if (!hasStoredRowCalculation(row)) Object.assign(row.calc, { D: calcRevenueRatio(row.calc, totals), U: calcPurchaseRatio(row.calc, totals) });
   return { ...auditReportAgainstStock(report, week, rows), formulaAudit: auditProfitFormulas(report, rows, totals), sqlAudit: auditReportSqlLineage(report, week?.sqlLineage), reportInput: report };
 };
 
@@ -153,7 +153,7 @@ export default function ProfitIndependentAudit({ year, major, report }) {
                   {!!v.items.length&&<details><summary>{v.label} 품목별 단가 근거 {v.items.length}건</summary><ul>{v.items.map(item=><li key={item.prodKey}>{item.name}: {number(item.qty)} {item.unit} × 환산 {number(item.factor)} × 단가 {number(item.price)}원 = {number(item.value)}원 · {item.reason}</li>)}</ul></details>}
                 </div>)}
               </li>)}</ul>
-              <p className={s.notice}>{finance.totals ? `전체 이익률은 개별 이익률의 평균이 아닙니다. 합계 이익 ${number(finance.totals.J)} ÷ (합계 매출 ${number(finance.totals.C)} + 합계 기말 ${number(finance.totals.F)}) = ${finance.totals.K===null?'분모 0으로 계산 불가':`${number(finance.totals.K*100)}%`}입니다.`:'일부 행의 필수값이 없어 전체 독립 이익률을 확정하지 않았습니다.'}</p>
+              <p className={s.notice}>{finance.totals ? `전체 이익률은 개별 이익률의 평균이 아닙니다. 합계 이익 ${number(finance.totals.J)} ÷ 합계 매출 ${number(finance.totals.C)} = ${finance.totals.K===null?'분모 0으로 계산 불가':`${number(finance.totals.K*100)}%`}입니다.`:'일부 행의 필수값이 없어 전체 독립 이익률을 확정하지 않았습니다.'}</p>
             </>}
       </>}
       <details><summary>검산 범위와 아직 확인할 수 없는 부분</summary><ul>{data.limitations.map(text=><li key={text}>{text}</li>)}</ul><p>버전 {data.version} · 조회 원천 지문 {data.integrity.sourceHash}</p></details>

@@ -1,0 +1,29 @@
+name: Read-only profit margin all weeks
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        default: '2026'
+        required: true
+      last_week:
+        default: '44'
+        required: true
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Audit financial invariants and notes without writes
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          PROBE_YEAR: ${{ inputs.year }}
+          PROBE_LAST_WEEK: ${{ inputs.last_week }}
+        run: node scripts/profit-margin-all-weeks-production.mjs

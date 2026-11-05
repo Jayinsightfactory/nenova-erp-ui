@@ -1,19 +1,20 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-05T07:42:18.243Z",
+  "recordedAt": "2026-11-05T08:53:14.082Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 29.35,
+  "duration": 28.5,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "788f84ac0bde1dcc76678a479235e844875a31226f129a1ab58daf95fffa8b71",
-  "captionsSha256": "8586d787765eb1f981332e93682bbb104bc82caf5376c7cb71b42e71c49f12a8",
+  "videoSha256": "973610b08948ae647716af567dc4878b5152f0355c6a701a5e16980c25b7c485",
+  "captionsSha256": "a3b201a3c9ce3d975ce00bb572041ab20634435dafe57043bf71ebc64a3de653",
   "sourceHashes": {
     "pages/arrival-cost.js": "802e2a1328cbe47e41e8f8d53a3da1bbed30fc54fe99332237731963a5ff3a46",
-    "components/ArrivalUploadReview.js": "569d07a25ed37bed3b60bfef8373228c17d23fc7c1a563874bbf7f572ae1800d",
-    "lib/arrivalReviewCountries.js": "49a0df1fbd1ebc74624857d4d7bdfc859ca1e6a33a325df44a04fe7cd4564f55"
+    "components/ArrivalUploadReview.js": "aa07ad23ed7e768fa53d24acfff628d1ee36317ab81ab83d85c09e1f89b6d1d6",
+    "lib/arrivalReviewCountries.js": "49a0df1fbd1ebc74624857d4d7bdfc859ca1e6a33a325df44a04fe7cd4564f55",
+    "styles/ArrivalUploadReview.module.css": "b5be707c308d7c0170c7cb5c5ac3dfadbdd2cbb5b70fb06f8833fa3d52f7c815"
   }
 }

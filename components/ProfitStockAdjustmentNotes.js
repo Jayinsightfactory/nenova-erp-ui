@@ -18,7 +18,7 @@ export default function ProfitStockAdjustmentNotes({ orderYear, major, confirmed
     setResult({ scopeKey, status: 'loading', data: null, error: '' });
     const load = async () => {
       try {
-        const res = await fetch(`/api/sales/profit-stock-adjustment-notes?year=${encodeURIComponent(orderYear)}&week=${encodeURIComponent(major)}`, {
+        const res = await fetch(`/api/sales/profit-stock-adjustment-notes?year=${encodeURIComponent(orderYear)}&week=${encodeURIComponent(major)}&detail=1`, {
           credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
         });
         const data = await res.json();
@@ -56,6 +56,7 @@ export default function ProfitStockAdjustmentNotes({ orderYear, major, confirmed
         {confirmed ? ' 확정본의 저장 당시 근거 또는 금액을 변경하지 않습니다.' : ' 보고서 금액과 수기 비고를 변경하지 않습니다.'}
       </div>
       {visible.status === 'loading' && <div role="status">재고조정 이력 조회 중…</div>}
+      {visible.status === 'ready' && visible.data?.text && <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{visible.data.text}</div>}
       {visible.status === 'error' && <div role="alert" style={{ color: '#b91c1c' }}>
         조회 실패: {visible.error} <button type="button" onClick={() => setAttempt((n) => n + 1)}>다시 시도</button>
       </div>}
@@ -73,7 +74,7 @@ export default function ProfitStockAdjustmentNotes({ orderYear, major, confirmed
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 750 }}>
-            <thead><tr><th style={cell}>세부차수</th><th style={cell}>품목</th><th style={cell}>국가·품종</th><th style={cell}>유형</th><th style={cell}>순증감</th><th style={cell}>증가 / 감소</th><th style={cell}>건수</th><th style={cell}>사유</th></tr></thead>
+            <thead><tr><th style={cell}>세부차수</th><th style={cell}>품목</th><th style={cell}>국가·품종</th><th style={cell}>유형</th><th style={cell}>순증감</th><th style={cell}>증가 / 감소</th><th style={cell}>평가액 증감</th><th style={cell}>건수</th><th style={cell}>사유</th></tr></thead>
             <tbody>{visible.data.items.map((item) => <tr key={item.groupKey}>
               <td style={cell}>{item.weeks.join(', ')}</td>
               <td style={cell}>{item.productName} {item.prodKey != null && <small>(#{item.prodKey})</small>}</td>
@@ -81,6 +82,7 @@ export default function ProfitStockAdjustmentNotes({ orderYear, major, confirmed
               <td style={cell}>{item.changeTypes.join(' · ')}</td>
               <td style={cell}>{signed(item.net)} {item.unit}{item.net === 0 && (item.increase > 0 || item.decrease < 0) && <div>증감 상쇄</div>}</td>
               <td style={cell}>+{fmtQty(item.increase)} / {fmtQty(item.decrease)} {item.unit}{item.invalidCount > 0 && <div>수량 확인 필요 {item.invalidCount}건</div>}</td>
+              <td style={cell}>{signed(item.valuationAmount)}원{item.valuationAmount == null ? <div>동일 품목·차수 원가 근거 필요</div> : <div>{item.valuationSources?.join(' · ')}</div>}</td>
               <td style={cell}>{item.count}</td>
               <td style={{ ...cell, whiteSpace: 'pre-wrap' }}>{item.reasons.join(' · ')}</td>
             </tr>)}</tbody>
