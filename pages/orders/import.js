@@ -764,7 +764,9 @@ export default function OrderImportPage() {
   const [sheetName, setSheetName] = useState('');
   // 'order' = 업로드 주문등록만 · 'orderPrice' = 주문등록 + 선택 세부차수 분배단가 적용
   const [pageTab, setPageTab] = useState('upload');
+  // 'priceOnly' = 주문등록 없이 선택 세부차수의 분배단가만 수정 (현재 단가 표시 → 수정값 입력 → 적용)
   const [registerMode, setRegisterMode] = useState('order');
+  const [priceEdits, setPriceEdits] = useState({}); // priceOnly: sdetailKey → 입력 문자열
   const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
   const [selectedSubWeeks, setSelectedSubWeeks] = useState([]);
   const [priceApplying, setPriceApplying] = useState(false);
@@ -1299,9 +1301,10 @@ export default function OrderImportPage() {
   }, [priceTargetKey, priceTargets.key, cust, weekYear, parentWeek, shortWeek]);
 
   useEffect(() => {
-    if (!items.length) return;
+    if (!items.length && registerMode !== 'priceOnly') return;
     loadPriceTargets();
-  }, [items.length, loadPriceTargets]);
+  }, [items.length, registerMode, loadPriceTargets]);
+  useEffect(() => { setPriceEdits({}); }, [priceTargets.key]);
 
   // 업로드 표 단가: 품목(prodKey)별 1개. 같은 품목에 다른 단가가 여러 행이면 conflict.
   const priceByProd = useMemo(() => {
@@ -1347,6 +1350,32 @@ export default function OrderImportPage() {
     return { changes, same, noTarget, fixedWeeks, conflicts };
   }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd]);
 
+  // 분배단가만 수정: 선택 세부차수의 모든 분배행. 수정 단가 기본값 = 표 단가(있으면) 또는 현재 단가.
+  const priceOnlyRows = useMemo(() => {
+    const rows = [];
+    for (const sw of priceTargets.subWeeks || []) {
+      if (!selectedSubWeeks.includes(sw.orderWeek)) continue;
+      for (const d of sw.details || []) {
+        const key = String(d.sdetailKey);
+        const uploaded = priceByProd.get(Number(d.prodKey));
+        const defaultNew = uploaded ? uploaded.price : Number(d.cost) || 0;
+        const edited = priceEdits[key];
+        const newCost = edited === undefined || edited === '' ? defaultNew : Number(edited);
+        rows.push({ ...d, orderWeek: sw.orderWeek, name: d.displayName || d.prodName, newCost, edited: edited !== undefined && edited !== '', fromUpload: !!uploaded, invalid: !(newCost > 0) });
+      }
+    }
+    return rows;
+  }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd, priceEdits]);
+  const priceOnlyPlan = useMemo(() => {
+    const changes = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) >= 0.5);
+    const same = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) < 0.5);
+    const fixedWeeks = sortWeeksAsc((priceTargets.subWeeks || [])
+      .filter(sw => selectedSubWeeks.includes(sw.orderWeek) && (sw.hasFixedDetail || sw.masterFixed))
+      .map(sw => sw.orderWeek));
+    return { changes, same, noTarget: [], fixedWeeks, conflicts: [], invalid: priceOnlyRows.filter(r => r.invalid) };
+  }, [priceOnlyRows, priceTargets.subWeeks, selectedSubWeeks]);
+  const activePlan = registerMode === 'priceOnly' ? priceOnlyPlan : pricePlan;
+
   const toggleSubWeek = (wk) => {
     setSelectedSubWeeks(prev => (prev.includes(wk) ? prev.filter(x => x !== wk) : sortWeeksAsc([...prev, wk])));
   };
@@ -1355,7 +1384,7 @@ export default function OrderImportPage() {
     if (!cust?.CustKey) { alert('거래처를 선택하세요.'); return null; }
     if (!weekYear) { alert('차수를 2026-44-01 형식으로 선택하세요.'); return null; }
     if (!selectedSubWeeks.length) { alert('분배단가를 적용할 세부차수를 선택하세요.'); return null; }
-    const { changes, fixedWeeks, conflicts } = pricePlan;
+    const { changes, fixedWeeks, conflicts } = activePlan;
     if (conflicts.length) {
       alert(`같은 품목에 단가가 여러 개입니다. 표에서 단가를 하나로 맞춰 주세요:\n${conflicts.map(c => c.name).join(', ')}`);
       return null;
@@ -1389,6 +1418,7 @@ export default function OrderImportPage() {
       const d = await apiPost('/api/estimate/update-cost', body);
       if (!d?.success) throw new Error(d?.error || '단가 저장 실패');
       log(`✅ ${d.message || `${d.changedCount}건 반영`}`);
+      setPriceEdits({});
       await loadPriceTargets(true);
       return d;
     } catch (e) {
@@ -1405,6 +1435,7 @@ export default function OrderImportPage() {
     const registerItems = mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0));
     if (!registerItems.length) { alert('등록할 매칭 품목이 없습니다. (수량 0·미매칭·제외 행 확인)'); return; }
 
+    if (registerMode === 'priceOnly') { alert('「분배단가만 수정」 모드에서는 주문등록을 하지 않습니다. 「분배단가 수정 적용」 버튼을 사용하세요.'); return; }
     const withPrice = registerMode === 'orderPrice';
     if (withPrice && !selectedSubWeeks.length) {
       alert('분배단가를 적용할 세부차수를 선택하세요. (주문등록만 하려면 「주문등록만」 선택)');
@@ -1890,7 +1921,7 @@ export default function OrderImportPage() {
           </div>)}
         </div>
 
-        {items.length > 0 && (
+        {(items.length > 0 || registerMode === 'priceOnly' || priceTargetKey) && (
           <div style={st.card}>
             {sheets.filter(sh => sh.rowCount > 0).length > 1 && (
               <div style={{ marginBottom: 12 }}>
@@ -1935,27 +1966,32 @@ export default function OrderImportPage() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               {[
-                { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음' },
-                { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정' },
-              ].map(opt => (
+                { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음', needFile: true },
+                { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정', needFile: true },
+                { v: 'priceOnly', label: '분배단가만 수정', hint: '주문등록 없이 차수·업체의 현재 분배단가를 보고 수정값만 적용', needFile: false },
+              ].map(opt => {
+                const off = opt.needFile && !items.length;
+                return (
                 <label
                   key={opt.v}
+                  title={off ? '파일을 업로드해야 주문등록을 할 수 있습니다' : ''}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1,
                     border: registerMode === opt.v ? '2px solid #1565c0' : '1px solid #cbd5e1',
                     background: registerMode === opt.v ? '#eff6ff' : '#fff',
                   }}
                 >
-                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} onChange={() => setRegisterMode(opt.v)} />
+                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} disabled={off} onChange={() => setRegisterMode(opt.v)} />
                   <span>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{opt.hint}</div>
                   </span>
                 </label>
-              ))}
+                );
+              })}
             </div>
 
-            {registerMode === 'orderPrice' && (
+            {(registerMode === 'orderPrice' || registerMode === 'priceOnly') && (
               <div style={{ border: '1px solid #c7d2fe', background: '#f5f7ff', borderRadius: 8, padding: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                   <span style={st.label}>세부차수</span>
@@ -2002,7 +2038,89 @@ export default function OrderImportPage() {
                   </div>
                 )}
 
-                {selectedSubWeeks.length > 0 && (
+                {registerMode === 'priceOnly' && selectedSubWeeks.length > 0 && (
+                  <>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
+                      <div style={st.kpiBox}>분배행 <b>{priceOnlyRows.length}</b></div>
+                      <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{priceOnlyPlan.changes.length}</b></div>
+                      <div style={st.kpiBox}>동일 <b>{priceOnlyPlan.same.length}</b></div>
+                      {priceOnlyPlan.invalid.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fef2f2', borderColor: '#fca5a5', color: '#b91c1c' }}>단가 0/빈값 {priceOnlyPlan.invalid.length}건 — 적용 제외</div>
+                      )}
+                      {priceOnlyPlan.fixedWeeks.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fff7ed', borderColor: '#fdba74' }} title="확정 플래그(isFix)는 보존하고 Cost/Amount/Vat 만 갱신 (재고 재계산 없음)">
+                          🔒 확정차수 포함: {priceOnlyPlan.fixedWeeks.join(', ')} (확정 유지)
+                        </div>
+                      )}
+                      <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '4px 10px' }} onClick={() => setPriceEdits({})} disabled={!Object.keys(priceEdits).length}>
+                        입력 초기화
+                      </button>
+                    </div>
+                    <div style={{ overflowX: 'auto', marginBottom: 6 }}>
+                      <table style={st.table}>
+                        <thead>
+                          <tr>
+                            <th style={st.th}>세부차수</th>
+                            <th style={st.th}>품목</th>
+                            <th style={st.th}>출고수량</th>
+                            <th style={st.th}>현재 분배단가</th>
+                            <th style={st.th}>수정 단가</th>
+                            <th style={st.th}>차이</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {priceOnlyRows.map(r => {
+                            const diff = r.invalid ? 0 : r.newCost - Number(r.cost);
+                            const changed = !r.invalid && Math.abs(diff) >= 0.5;
+                            return (
+                              <tr key={r.sdetailKey} style={changed ? { background: '#eff6ff' } : undefined}>
+                                <td style={st.td}>{r.orderWeek}{r.isFix ? ' 🔒' : ''}</td>
+                                <td style={st.td}><b>{r.name}</b> <span style={{ color: '#94a3b8', fontSize: 10 }}>#{r.sdetailKey}</span></td>
+                                <td style={st.td}>{r.outQty} {r.outUnit || ''}</td>
+                                <td style={st.td}>{Number(r.cost).toLocaleString()}</td>
+                                <td style={st.td}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    data-testid={`price-only-input-${r.sdetailKey}`}
+                                    style={{ ...st.input, width: 110, padding: '4px 8px', fontWeight: changed ? 700 : 400, color: changed ? '#1d4ed8' : '#0f172a', borderColor: r.invalid ? '#fca5a5' : (r.edited ? '#1d4ed8' : '#cbd5e1') }}
+                                    value={priceEdits[String(r.sdetailKey)] ?? r.newCost}
+                                    onChange={e => setPriceEdits(prev => ({ ...prev, [String(r.sdetailKey)]: e.target.value }))}
+                                    title={r.fromUpload && !r.edited ? '업로드 표의 단가가 기본값으로 들어갔습니다' : '수정할 분배단가'}
+                                  />
+                                </td>
+                                <td style={{ ...st.td, color: diff >= 0 ? '#166534' : '#b91c1c' }}>
+                                  {changed ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString()}` : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {priceOnlyRows.length === 0 && (
+                            <tr><td style={st.td} colSpan={6}>선택한 세부차수에 분배행이 없습니다.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        data-testid="price-only-apply"
+                        style={{ ...st.btn, ...st.btnPrimary, opacity: priceApplying || !priceOnlyPlan.changes.length ? 0.6 : 1 }}
+                        disabled={priceApplying || !priceOnlyPlan.changes.length}
+                        onClick={() => applyPrices().catch(() => {})}
+                        title="주문등록 없이 선택 세부차수의 분배단가만 입력값으로 수정 (ShipmentDetail Cost/Amount/Vat, 확정 상태 유지)"
+                      >
+                        {priceApplying ? '적용 중…' : `분배단가 수정 적용 (${priceOnlyPlan.changes.length}건)`}
+                      </button>
+                      <span style={{ fontSize: 11, color: '#64748b' }}>
+                        주문수량은 건드리지 않습니다. 수정 단가 입력칸을 바꾼 행만 적용됩니다.
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {registerMode === 'orderPrice' && selectedSubWeeks.length > 0 && (
                   <>
                     <div style={{ ...st.kpi, marginBottom: 6 }}>
                       <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{pricePlan.changes.length}</b></div>
@@ -2119,7 +2237,7 @@ export default function OrderImportPage() {
                 >
                   전체 제외 해제
                 </button>
-                <button
+                {registerMode !== 'priceOnly' && <button
                   type="button"
                   style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || mixedUnitProducts.length || registering || !liveSummary.registerable ? 0.6 : 1 }}
                   disabled={!!liveSummary.unmatched || !!mixedUnitProducts.length || registering || !liveSummary.registerable}
@@ -2131,7 +2249,10 @@ export default function OrderImportPage() {
                     : registerMode === 'orderPrice'
                       ? `주문등록 + 분배단가 적용 (${matchAggregates.length}품목 / 단가 ${pricePlan.changes.length}건)`
                       : `주문등록 시작 (${matchAggregates.length}품목)`}
-                </button>
+                </button>}
+                {registerMode === 'priceOnly' && (
+                  <span style={{ fontSize: 12, color: '#475569' }}>「분배단가만 수정」 모드 — 위 「분배단가 수정 적용」 버튼으로 단가만 반영됩니다 (주문등록 없음)</span>
+                )}
               </div>
             </div>
 
