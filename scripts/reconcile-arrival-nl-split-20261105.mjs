@@ -1,0 +1,20 @@
+// Reviewed incident only. Default SELECT-only; apply only after corrected code deployment.
+import fs from 'node:fs';import crypto from 'node:crypto';import sql from 'mssql';
+for(const line of (fs.existsSync('.env.local')?fs.readFileSync('.env.local','utf8'):'').split(/\r?\n/)){const m=line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);if(m&&!process.env[m[1]])process.env[m[1]]=m[2].replace(/^['"]|['"]$/g,'');}
+const apply=process.argv.includes('--apply'),reviewed=process.argv.find(a=>a.startsWith('--review-sha='))?.slice(13);
+const pool=await sql.connect({server:process.env.DB_SERVER,port:Number(process.env.DB_PORT||1433),database:process.env.DB_NAME,user:process.env.DB_USER,password:process.env.DB_PASSWORD,options:{encrypt:false,trustServerCertificate:true}});let tx;
+try{
+ if(apply){if(!/^[a-f0-9]{64}$/.test(reviewed||''))throw Error('Exact review digest required');tx=new sql.Transaction(pool);await tx.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);await new sql.Request(tx).query(`DECLARE @r int;EXEC @r=sys.sp_getapplock @Resource=N'WebArrivalCostImport',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;IF @r<0 THROW 51000,N'Lock failed',1;`);}
+ const req=()=>new sql.Request(tx||pool);
+ const all=(await req().query(`SELECT * FROM dbo.WebArrivalCostLine ${apply?'WITH(UPDLOCK,HOLDLOCK)':''} WHERE ImportKey IN(53,54,55) ORDER BY ArrivalLineKey`)).recordset;
+ const edits=(await req().query(`SELECT h.HistoryKey FROM dbo.WebArrivalCostHistory h JOIN dbo.WebArrivalCostLine l ON l.ArrivalLineKey=h.ArrivalLineKey WHERE l.ImportKey IN(53,54,55) AND h.ActionType IN(N'MATCH',N'BASIS_CHANGE')`)).recordset;
+ if(edits.length)throw Error('Manual changes require new review');
+ const signature=r=>JSON.stringify([r.ProductNameRaw,r.FarmNameRaw,r.Unit,r.Quantity,r.SourceArrivalCostKRW,r.SelectedArrivalCostKRW,JSON.parse(r.RawJson).cells]);
+ const target=all.filter(r=>[53,54].includes(r.ImportKey));
+ if(target.length!==134||target.some(r=>!r.IsCurrent||r.OrderYear!=='2026'||r.CountryName!=='콜롬비아'||r.OrderWeek!==(r.ImportKey===53?'40-2':'41-2')))throw Error('Incident scope changed');
+ for(const id of [53,54]){const a=target.filter(r=>r.ImportKey===id),b=all.filter(r=>r.ImportKey===55&&r.OrderWeek===a[0].OrderWeek);if(b.length!==a.length||b.some(r=>!r.IsCurrent||r.OrderYear!=='2026'||r.CountryName!=='네덜란드'))throw Error('Integrated source changed');const counts=new Map();for(const r of b)counts.set(signature(r),(counts.get(signature(r))||0)+1);for(const r of a){const k=signature(r);if(!(counts.get(k)>0))throw Error('Source cell/quantity/cost mismatch');counts.set(k,counts.get(k)-1);}}
+ const sha=crypto.createHash('sha256').update(JSON.stringify(all)).digest('hex');console.log(JSON.stringify({mode:apply?'apply':'review',rows:target.length,integratedRows:all.filter(r=>r.ImportKey===55).length,manualEdits:edits.length,reviewSha:sha}));
+ if(apply){if(sha!==reviewed)throw Error('Review changed');for(const row of target){await req().input('key',sql.Int,row.ArrivalLineKey).input('import',sql.Int,row.ImportKey).input('before',sql.NVarChar(sql.MAX),JSON.stringify(row)).input('after',sql.NVarChar(sql.MAX),JSON.stringify({...row,IsCurrent:false,reason:'DUPLICATE_NL_SPLIT_COUNTRY',reviewSha:sha})).query(`INSERT dbo.WebArrivalCostHistory(ArrivalLineKey,ImportKey,ActionType,BeforeJson,AfterJson,ChangedBy,ChangedByName) VALUES(@key,@import,N'QUARANTINE',@before,@after,N'nenovaSS3',N'2026-11-05 reviewed split repair');UPDATE dbo.WebArrivalCostLine SET IsCurrent=0 WHERE ArrivalLineKey=@key AND IsCurrent=1;IF @@ROWCOUNT<>1 THROW 51000,N'Row changed',1;`);}
+ const after=(await req().query('SELECT * FROM dbo.WebArrivalCostLine WHERE ImportKey IN(53,54,55) ORDER BY ArrivalLineKey')).recordset;
+ if(JSON.stringify(after)!==JSON.stringify(all.map(r=>[53,54].includes(r.ImportKey)?{...r,IsCurrent:false}:r)))throw Error('Preservation failed');await tx.commit();tx=null;console.log('Committed: 134 duplicate rows inactive; all other fields and integrated source preserved');}
+}finally{if(tx)await tx.rollback();await pool.close();}

@@ -4,10 +4,7 @@ import assert from 'node:assert/strict';
 
 const source = fs.readFileSync(new URL('../pages/arrival-cost.js', import.meta.url), 'utf8');
 
-assert.match(source, /const formElement = event\.currentTarget;/);
-assert.match(source, /const file = formElement\.elements\.namedItem\('file'\)\?\.files\?\.\[0\];/);
-assert.match(source, /formElement\.reset\(\);/);
-assert.doesNotMatch(source, /event\.currentTarget\.reset\(\);/);
+assert.match(source, /<ArrivalUploadReview/);
 assert.doesNotMatch(source, /import Layout from/);
 assert.doesNotMatch(source, /<Layout title="도착원가">/);
 assert.match(source, /품종을 선택하거나 전체보기를 누르세요/);
@@ -35,6 +32,7 @@ assert.match(source, /농장별 원가/, '같은 차수·품목의 농장 원가
 assert.doesNotMatch(source, /원본 품목명/, '기본 표는 농장 행을 따로 나열하지 않는다.');
 
 const upload = fs.readFileSync(new URL('../pages/api/arrival-cost/upload.js', import.meta.url), 'utf8');
-assert.match(upload, /detectedTableCount/, '표는 있는데 도착원가 금액이 비면 다른 안내를 해야 한다.');
+assert.match(upload, /summarizeReview/);
+assert.match(upload, /originalBytes/);
 
 console.log('arrival cost upload form regression tests passed');
