@@ -32,7 +32,7 @@
       "name": "SELECT_AND_FAVORITE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Selection is local; favorites use authenticated UserFavorite.UserID and shipment-distribute-products namespace only."
+      "sideEffect": "Selection is local; favorites use authenticated UserFavorite.UserID and shipment-distribute-products namespace only. 품종(CounName::FlowerName) favorites use the same UserFavorite table under shipment-distribute-groups (FilterData {groupKey}); they are week independent, preselect the first favorite group present in the selected week until the user picks a group, and never write ERP ledgers."
     },
     {
       "name": "CONFIRMED_SCOPE_SAVE_CYCLE",
