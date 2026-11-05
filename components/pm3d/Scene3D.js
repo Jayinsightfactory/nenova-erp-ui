@@ -99,9 +99,11 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const mountAt = performance.now();
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
-    // QUALITY_RECIPE: 전역 shadowMap 금지(그림자 = 접지 블롭 평면) + ACESFilmic 톤매핑
+    // QUALITY_RECIPE: 전역 shadowMap 금지(그림자 = 접지 블롭 평면).
+    // 톤매핑: ACES 는 파스텔을 하얗게 바래게 만들어(2026-11-05 사장님 "색이 안 나온다") 색 보존형 Neutral 로.
     renderer.shadowMap.enabled = false;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = RQ.exposure;
+    renderer.toneMapping = RQ.toneMap === 'aces' ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping;
+    renderer.toneMappingExposure = RQ.exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
