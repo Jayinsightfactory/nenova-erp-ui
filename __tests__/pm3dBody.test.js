@@ -8,9 +8,9 @@ const { pathToFileURL } = require('url');
 
 (async () => {
   const td = fs.mkdtempSync(path.join(os.tmpdir(), 'pm3dbody-'));
-  for (const n of ['pm3dLayout', 'pmThemes']) {
+  for (const n of ['pm3dLayout', 'pm3dGrid', 'pmThemes']) {
     fs.writeFileSync(path.join(td, `${n}.mjs`), fs.readFileSync(path.join(process.cwd(), `lib/${n}.js`), 'utf8')
-      .replace("'./pmThemes.js'", "'./pmThemes.mjs'"));
+      .replace("'./pmThemes.js'", "'./pmThemes.mjs'").replace("'./pm3dGrid.js'", "'./pm3dGrid.mjs'"));
   }
   const L = await import(pathToFileURL(path.join(td, 'pm3dLayout.mjs')).href);
   fs.rmSync(td, { recursive: true, force: true });

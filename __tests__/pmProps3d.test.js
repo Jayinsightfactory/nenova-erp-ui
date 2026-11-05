@@ -22,9 +22,9 @@ function glbJson(file) {
 (async () => {
   const root = process.cwd();
   const td = fs.mkdtempSync(path.join(os.tmpdir(), 'pmprops3d-'));
-  for (const n of ['pmThemes', 'pm3dLayout']) {
+  for (const n of ['pmThemes', 'pm3dLayout', 'pm3dGrid']) {
     fs.writeFileSync(path.join(td, `${n}.mjs`), fs.readFileSync(path.join(root, `lib/${n}.js`), 'utf8')
-      .replace("'./pmThemes.js'", "'./pmThemes.mjs'"));
+      .replace("'./pmThemes.js'", "'./pmThemes.mjs'").replace("'./pm3dGrid.js'", "'./pm3dGrid.mjs'"));
   }
   const T = await import(pathToFileURL(path.join(td, 'pmThemes.mjs')).href);
   const L = await import(pathToFileURL(path.join(td, 'pm3dLayout.mjs')).href);
