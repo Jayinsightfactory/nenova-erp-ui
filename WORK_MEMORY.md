@@ -2117,3 +2117,6 @@
 - 적용기준:MENU_DEVELOPMENT_DEFAULTS,globals.btn와hotelOrderButtons의공통컨트롤규격.업무정책/API/SQL/ERP쓰기변경없음.
 - 기존실행회귀통과.실제Chrome1920/1280에서버튼높이/페이지폭/Tab·ShiftTab검증통과.가이드재촬영·정식build/CI/배포/운영확인진행중(미검증).
 - 검색어: 도착원가 버튼 디자인 CSS Module ArrivalUploadReview 32px styled-jsx
+
+2026-11-05 입고 정정 단순화 배포완료: PR1563/c4721318, CI42001957637·Cafe24배포42002864270·hydration PASS. 수입부5유형/영업지원문제만검토·확정, sourceDigest/명시최종동의/원자writer보존. 실제격리SQL·필수ERP·빌드·역할별1080p가이드·운영GET-only두진입메뉴/재생 PASS, 운영시험쓰기0. 주간계정현재32%(이작업단독률아님). 상세 docs/work-sessions/2026-11-05_incoming-simple-workflow.md.
+검색어: incoming-simple PR1563 c4721318 sourceDigest 가이드 사용량 Sol 배포완료

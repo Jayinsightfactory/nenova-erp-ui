@@ -3,7 +3,7 @@
 - 날짜: 2026-11-05
 - 작업트리: C:/Users/USER/nw-incoming-simple-1105
 - 기반: origin/master 7da5c5c5
-- 상태: 구현/대상 검증 진행 중, 아직 배포하지 않음
+- 상태: PR1563 병합·필수검증·배포·운영 조회 확인 완료
 - 모델: 구현 Sol medium 하위1개(원장 검증 경계 포함), 추가 위임 없음
 - 사용량: 시작 계정 주간 누적26%, 작업 단독 사용률 아님
 
@@ -42,3 +42,15 @@
 - 촬영용 동결 production build PASS. 수입부5장면/영업지원3장면 1920×1080 실제 화면 가이드 재촬영 완료. 최종 미디어 증명/재생 확인 및 배포 결과는 후속 기록한다.
 
 검색어: sourceDigest prepared confirmed simple-final-focused simple-prepared-writer
+
+## 배포 완료 — 2026-11-05
+
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1563, squash c472131878a0f6e47026620eb4999bcb3ad13bf4.
+- 전체 ERP 계약/교차연도/dnSpy/manifest/write guard/Linux build CI42001957637 PASS. 배포42002864270 PASS, hydration PASS.
+- 최신 master 병합 후 로컬 공식 build PASS. strict 가이드2workflows/3videos PASS. production player 실제재생·자막·목차·키보드·다운로드·접기정지·1920/390폭 PASS.
+- 운영 GET-only 브라우저: v1.0.2·c4721318, /incoming 및 /import/tools?tab=incoming, 승인목록200, 역할별실제영상·목차·자막 PASS. 운영시험쓰기0, 운영개인정보스크린샷저장0.
+- 가이드 수입부213.7초/5목차, 영업지원120.15초/3목차, 모두1920×1080. .verify/simple-production-smoke.log에 최소근거 기록.
+- 시작 계정 주간26%(reset1794459856), 종료32%(reset1794459857). reset 응답이1초달라 정책상 정식차감률을산정하지않음. 계정전체누적이며 병행채팅포함, 이작업단독사용률아님. 추가하위세션없이Sol1개, 대상검증분담, 전체회귀는CI사용.
+- 상태: 요청한 단순화·가이드·필수검증·배포·운영조회 확인 완료. 실제업무요청의운영확정은사용자업무에맡기며 테스트데이터를운영원장에작성하지않음.
+
+검색어: PR1563 c4721318 42001957637 42002864270 incoming-simple 배포완료 1080p
