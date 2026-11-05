@@ -1195,19 +1195,22 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .sdpage .hbn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pm .sdpage .hbv { text-align: right; font-weight: bold; }
         .pm .sdpage .dry { margin-top: 8px; } .pm .sdpage .dryres { margin-top: 6px; padding: 6px 8px; border-radius: var(--pm-radius); font-size: 12px; }
         .pm .sdpage .dryres.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); } .pm .sdpage .dryres.bad, .pm .sdpage .warn { background: var(--pm-err-bg); color: var(--pm-err-ink); }
-        /* 상점·꾸미기(시안 page-shop-avatar) */
+        /* 상점·꾸미기 — 게임급 리스킨(2026-11-05 사장님 "진짜 게임 수준으로"): 아라곤 배경 아트 + 유리판 패널 */
+        .pm .shop { background: url('/pm/shop/bg/stage-beach.webp') center / cover no-repeat, var(--pm-room); border-radius: 22px; padding: 14px; box-shadow: var(--pm-shadow); }
         .pm .shop .shead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        .pm .shop .shead h2 { margin: 0; font-size: 18px; padding: 6px 14px; background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: 999px; box-shadow: var(--pm-shadow); }
-        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: color-mix(in srgb, var(--pm-accent2) 16%, var(--pm-surface)); border: 2px solid color-mix(in srgb, var(--pm-accent2) 45%, var(--pm-line)); border-radius: 999px; box-shadow: var(--pm-shadow); font-weight: 800; }
+        .pm .shop .shead h2 { margin: 0; font-size: 19px; padding: 8px 18px; background: var(--pm-est-bg); color: var(--pm-est-ink); border: 2px solid color-mix(in srgb, var(--pm-est-ink) 35%, var(--pm-est-bg)); border-radius: 999px; box-shadow: 0 4px 0 color-mix(in srgb, var(--pm-est-ink) 40%, var(--pm-est-bg)), var(--pm-shadow); }
+        .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 80%, white), var(--pm-est-bg)); color: var(--pm-est-ink); border: 2px solid color-mix(in srgb, var(--pm-est-ink) 35%, var(--pm-est-bg)); border-radius: 999px; box-shadow: 0 3px 0 color-mix(in srgb, var(--pm-est-ink) 40%, var(--pm-est-bg)); font-weight: 800; }
         .pm .sgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
-        .pm .sstage, .pm .sitems, .pm .sside { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); }
+        .pm .sitems, .pm .sside { background: color-mix(in srgb, var(--pm-surface) 82%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 2px solid color-mix(in srgb, var(--pm-surface) 55%, transparent); border-radius: 18px; padding: 12px; box-shadow: var(--pm-shadow); }
+        .pm .sstage { background: color-mix(in srgb, var(--pm-surface) 30%, transparent); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border: 0; border-radius: 18px; padding: 12px; }
         .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
         .pm .stagebox .pav { z-index: 1; }
         /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
         .pm .r3d { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 42%, var(--pm-surface), var(--pm-surface2) 72%); border: 2px solid var(--pm-line); overflow: hidden; }
         /* 피팅룸(디자인 자문): 3D 렌더가 주인공 — 좌측 폭을 꽉 채우고, 단상 그림자 타원으로 "서 있는" 공간감 */
-        .pm .r3dbig .r3dstack { width: 100%; max-width: 276px; height: auto; aspect-ratio: 1; background: radial-gradient(circle at 50% 40%, var(--pm-surface), color-mix(in srgb, var(--pm-est-bg) 45%, var(--pm-surface)) 78%); }
+        /* 게임급: 피팅룸 캐릭터가 배경 아트의 무대·받침대 위에 바로 서게 — 프레임 없는 투명 스택 */
+        .pm .r3dbig .r3dstack { width: 100%; max-width: 276px; height: auto; aspect-ratio: 1; background: transparent; border: 0; overflow: visible; }
         .pm .r3dbig .r3dstack::after { content: ''; position: absolute; left: 50%; bottom: 7%; width: 58%; height: 8%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pm-ink) 16%, transparent), transparent 70%); }
         .pm .pc2stage { zoom: .9; opacity: .95; }
         .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
@@ -1218,7 +1221,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .slots .pmk-tab { flex: 1 0 30%; min-height: 40px; font-size: 12px; background: var(--pm-surface2); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); }
         .pm .slots .pmk-tab.on { background: var(--pm-accent); color: var(--pm-accent-ink); border-color: var(--pm-accent); }
         .pm .sitems { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 132px; background: var(--pm-surface2); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); font-size: 11px; }
+        .pm .sitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; min-height: 132px; background: color-mix(in srgb, var(--pm-surface) 94%, transparent); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: 16px; font-size: 11px; transition: transform .12s ease, box-shadow .12s ease; }
+        .pm .sitem:hover { transform: translateY(-3px); box-shadow: 0 8px 14px color-mix(in srgb, var(--pm-ink) 14%, transparent); }
+        /* 등급색 테두리(게임급): 희귀 = 라벤더 링, 전설 = 금테 + 은은한 금빛 바탕 */
+        .pm .sitem:has(.czr.r-rare) { border-color: var(--pm-dept3); box-shadow: 0 0 0 1px color-mix(in srgb, var(--pm-dept3) 55%, transparent); }
+        .pm .sitem:has(.czr.r-legendary) { border-color: color-mix(in srgb, var(--pm-est-ink) 45%, var(--pm-est-bg)); background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 35%, var(--pm-surface)), var(--pm-surface)); box-shadow: 0 0 10px color-mix(in srgb, var(--pm-est-bg) 70%, transparent); }
         .pm .sitem img { width: 72px; height: 72px; object-fit: contain; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--pm-est-bg) 75%, var(--pm-surface)) 0 46%, transparent 50%); border-radius: 50%; }
         /* 잠긴 상품(디자인 자문): 시커먼 박스 → 밝은 반투명 덮개 + 중앙 자물쇠(오류가 아니라 '갖고 싶은 것'으로) */
         .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-surface) 55%, var(--pm-surface2)); color: var(--pm-muted); }
@@ -1234,8 +1241,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .sdetail { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
         .pm .sdetail .dimg { width: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--pm-surface2); border-radius: var(--pm-radius); }
         .pm .sdetail img { width: 70%; height: 70%; object-fit: contain; }
-        .pm .pmk-btn.big { min-height: 48px; font-size: 15px; border-radius: 999px; }
-        .pm .pmk-btn.buy { background: var(--pm-accent2); color: var(--pm-ink); border-color: var(--pm-accent2); }
+        /* 젤리 버튼(게임급): 아래 두툼한 그림자 + 누르면 쑥 들어감 */
+        .pm .pmk-btn.big { min-height: 48px; font-size: 15px; border-radius: 999px; box-shadow: 0 5px 0 var(--pm-accent-down), var(--pm-shadow); }
+        .pm .pmk-btn.big:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--pm-accent-down); }
+        .pm .pmk-btn.buy { background: var(--pm-accent2); color: var(--pm-accent-ink); border-color: var(--pm-accent2); box-shadow: 0 5px 0 color-mix(in srgb, var(--pm-accent2) 60%, var(--pm-ink)), var(--pm-shadow); }
+        .pm .slots .pmk-tab { border-radius: 999px; background: color-mix(in srgb, var(--pm-surface) 88%, transparent); }
         .pm .srow { display: flex; gap: 6px; } .pm .srow .pmk-btn { flex: 1; border-radius: 999px; }
         .pm .czmsg { font-size: 12px; margin: 0; }
         .pm .shist { margin-top: 10px; }
