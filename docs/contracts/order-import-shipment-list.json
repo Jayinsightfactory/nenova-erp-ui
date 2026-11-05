@@ -9,9 +9,18 @@
   ],
   "scope": [
     "pages/orders/import.js",
+    "pages/orders/product-match.js",
+    "lib/orderImportMatchPopup.js",
+    "__tests__/orderImportMatchPopup.test.js",
     "pages/api/orders/index.js",
     "pages/api/orders/import-parse.js",
     "pages/api/orders/import-price-targets.js",
+    "pages/api/orders/import-price-pivot.js",
+    "components/orders/DirectPricePivot.js",
+    "lib/orderImportPricePivot.js",
+    "lib/orderImportSheetView.js",
+    "__tests__/orderImportSheetView.test.js",
+    "__tests__/orderImportPricePivot.test.js",
     "pages/api/orders/mappings.js",
     "pages/api/orders/shipment-list-source.js",
     "lib/orderImportParse.js",
@@ -37,6 +46,12 @@
     "lib/orderImportDeadline.js"
   ],
   "actions": [
+    {
+      "name": "PICK_PRODUCT_MATCH_IN_POPUP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "품목 매칭 팝업 선택(읽기 전용, 선택 결과만 클라이언트 상태·업체 매핑 저장); 팝업만 열고 취소하면 변화 없음, 자동 매칭 결과는 사용자가 바꾸지 않는 한 불변"
+    },
     {
       "name": "PARSE_UPLOAD_METADATA_AND_AGGREGATE_PRODUCT_ROWS",
       "orderDetail": "preserve",
@@ -156,7 +171,20 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "shipmentDetailMoney": "Cost/Amount/Vat via the existing /api/estimate/update-cost price-only contract (docs/contracts/estimate-cost-update.json PRICE_ONLY_PRESERVE_CONFIRMATION); isFix, quantities, dates preserved; no fix/unfix SP, no stock SP",
-      "note": "operator chooses 주문등록만 or 주문등록 + 분배단가 적용; the price write targets only explicitly selected sub-weeks of the same CustKey + OrderYear, matched by ProdKey, after a before/after preview (changed / same / no-distribution / conflicting prices); it never creates ShipmentDetail and never touches OrderDetail.UnitPrice; the FINAL_SNAPSHOT order write runs first and a price failure leaves the order write intact and is reported for manual retry"
+      "note": "operator chooses 주문등록만, 주문등록 + 분배단가 적용, or 분배단가만 수정 (price-only mode: no order write, operator picks sub-weeks, sees current ShipmentDetail Cost per row, types the new price per row and presses 분배단가 수정 적용; same update-cost contract); the price write targets only explicitly selected sub-weeks of the same CustKey + OrderYear, matched by ProdKey, after a before/after preview (changed / same / no-distribution / conflicting prices); it never creates ShipmentDetail and never touches OrderDetail.UnitPrice; the FINAL_SNAPSHOT order write runs first and a price failure leaves the order write intact and is reported for manual retry"
+    },
+    {
+      "name": "LOAD_DISTRIBUTION_PRICE_PIVOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "pages/api/orders/import-price-pivot.js is read-only (SELECT only): OrderYear + OrderWeek(NN-NN) + Product.CounName + Customer.Manager → customer x product pivot cells with ShipmentDetail SdetailKey/ShipmentKey/Cost/OutQuantity/isFix; ShipmentDetail has no isDeleted column, deletion filter is on ShipmentMaster only"
+    },
+    {
+      "name": "APPLY_DIRECT_EDIT_PIVOT_UNIT_PRICE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDetailMoney": "Cost/Amount/Vat via the existing /api/estimate/update-cost price-only contract (mode once, per customer, expectedOldCost = value at query time); isFix, quantities, ship dates preserved; no fix/unfix SP, no stock SP; STALE_DATA / FIXED_WEEK are shown per customer and only that customer fails",
+      "note": "the 직접 수정 tab of pages/orders/import.js edits cells client-side (area drag selection, bulk fill, revert) and writes only after an explicit confirm; a cell represents every ShipmentDetail of the same customer+product in the sub-week; never creates/deletes ShipmentDetail, never touches OrderDetail.UnitPrice"
     },
     {
       "name": "BOUND_BROWSER_RESPONSE_WAIT",

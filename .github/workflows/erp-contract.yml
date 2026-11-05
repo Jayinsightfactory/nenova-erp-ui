@@ -42,6 +42,8 @@ jobs:
           node __tests__/distributionDeliveryStatus.test.js
           node __tests__/distributionDeliveryClient.test.js
           node __tests__/distributionSalesInbox.test.js
+      - name: PM sale-boundary guard (판매 예정 코드 ↔ 사내 전산 경계)
+        run: npm run test:pm-boundary
       - name: PM office tests (UI kit raw-button guard)
         run: npm run test:pm
       - name: MOYI Drive integration contract

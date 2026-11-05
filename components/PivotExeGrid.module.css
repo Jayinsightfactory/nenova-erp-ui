@@ -1,18 +1,23 @@
 .gridShell { min-width: 0; }
 .stickyTools { position: sticky; top: 0; z-index: 40; }
-.pinnedHeader { position: absolute; top: 16px; left: 0; right: 0; overflow: hidden; border: 1px solid #aab8c8; background: #dce5f0; box-shadow: 0 2px 3px #17233322; }
+.pinnedHeader { position: absolute; top: 16px; left: 0; right: 0; overflow: hidden; border: 1px solid #9d9d9d; background: #f0f0f0; box-shadow: 0 2px 3px #17233322; }
 .topScroll { height: 16px; overflow-x: auto; overflow-y: hidden; border: 1px solid #aab8c8; border-bottom: 0; background: #eef3f8; scrollbar-color: #547ca8 #dbe4ee; }
 .topScrollTrack { height: 1px; }
 .topScroll::-webkit-scrollbar, .scroll::-webkit-scrollbar { height: 14px; }
 .topScroll::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb { border: 2px solid #e7edf4; border-radius: 8px; background: #547ca8; }
-.scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid #aab8c8; background: #fff; scrollbar-color: #547ca8 #dbe4ee; }
-.table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; line-height: 1.2; color: #172333; }
-.table th, .table td { box-sizing: border-box; height: var(--pivot-row-height); min-height: var(--pivot-row-height); border-right: 1px solid #aab8c8; border-bottom: 1px solid #aab8c8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.table thead th { position: sticky; background: #dce5f0; border-top: 0; text-align: left; font-weight: 700; }
+.scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid #9d9d9d; background: #fff; scrollbar-color: #547ca8 #dbe4ee; }
+.table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 12px; line-height: 1.2; color: #1e1e1e; }
+.table th, .table td { box-sizing: border-box; height: var(--pivot-row-height); min-height: var(--pivot-row-height); border-right: 1px solid #d4d4d4; border-bottom: 1px solid #d4d4d4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table thead th { position: sticky; background: #f3f3f3; border-top: 0; text-align: left; font-weight: 400; }
 .axisHead { z-index: 20; padding: 0 12px 0 6px; text-align: left !important; }
-.fieldHead { position: sticky; padding: 0 15px 0 5px; background: #cfdae8 !important; }
+.fieldHead { position: sticky; padding: 0 15px 0 5px; background: #f0f0f0 !important; }
+.areaHead { position: sticky; padding: 0 !important; background: #f0f0f0 !important; overflow: visible !important; vertical-align: middle; }
+.areaStick { position: sticky; box-sizing: border-box; max-width: 100%; min-width: 0; }
+.blankHead { position: sticky; background: #f0f0f0 !important; }
+.glyph { display: inline-block; width: 12px; margin-right: 2px; color: #555; text-align: center; }
+.totalHead { background: #e5f2dc !important; font-weight: 700 !important; }
 .rowHead { position: sticky; left: var(--pivot-sticky-left); z-index: var(--pivot-sticky-z-index); vertical-align: top; background: #fff; padding: 3px 6px 0; text-align: left; font-weight: 400; }
-.totalRow .rowHead, .totalRow .numberCell { background: #eef3f8; font-weight: 700; }
+.totalRow .rowHead, .totalRow .numberCell, .totalCol { background: #e5f2dc; font-weight: 700; }
 .numberCell { padding: 0 6px; text-align: right; font-variant-numeric: tabular-nums; }
 .columnSpacer { padding: 0 !important; border-color: transparent !important; background: transparent !important; }
 .verticalSpacer td { min-height: 0 !important; padding: 0 !important; border: 0 !important; }
@@ -22,6 +27,7 @@
 .tinyButton { width: 14px; height: 16px; padding: 0; border: 1px solid #91a4ba; border-radius: 2px; background: #f7fafc; color: #30455e; font-size: 10px; line-height: 12px; cursor: pointer; }
 .resizeHandle { position: absolute; top: 0; right: -3px; z-index: 9; width: 7px; height: 100%; cursor: col-resize; }
 .resizeHandle:hover { background: #5b83ad; }
+.areaHead .resizeHandle { width: 7px; z-index: 12; }
 .rowResizeHandle { position: absolute; right: 0; bottom: -3px; left: 0; z-index: 10; height: 7px; cursor: row-resize; }
 .rowResizeHandle:hover { background: #5b83ad; }
 .empty { padding: 24px; color: #62758a; text-align: center; }

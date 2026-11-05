@@ -85,12 +85,14 @@ assert.match(panelSource, /data-testid="pivot-exe-view-tools"/, 'display setting
 assert.match(panelSource, /@media \(max-width: 1450px\)/, 'the tool region stacks below the field deck on narrower screens');
 assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '세로 행 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '가로 열 영역을 화면에 명확히 표시한다');
-assert.match(panelSource, /gridTemplateAreas:'\"filters filters\" \"rows cols\" \"rows values\"'/, 'EXE처럼 필터는 위, 행은 왼쪽, 열은 위쪽, 값은 데이터 위치에 고정한다');
+// 2026-11-04 DevExpress 동일 배치: 필드 영역은 별도 배치판이 아니라 표 머리글 안(필터 위, 값 왼쪽 위, 열 위쪽, 행 왼쪽)에 산다.
+for (const zone of ['filters', 'values', 'cols', 'rows']) assert.match(gridSource, new RegExp(`renderArea\\('${zone}'`), `EXE처럼 ${zone} 영역을 표 머리글 안에 고정한다`);
 assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '행 드롭 위치의 결과 방향을 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '열 드롭 위치의 결과 방향을 표시한다');
 assert.match(panelSource, /zoneArea\('values','값','표 숫자'\)/, '값 드롭 위치가 숫자 영역임을 표시한다');
 assert.match(panelSource, /필드 버튼 전체를 마우스로 잡아/, 'EXE 방식의 직접 드래그 사용법을 표시한다');
-assert.match(panelSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 위치를 안내선으로 표시한다');
+const areaSource = fs.readFileSync(new URL('../components/ExePivotFieldArea.js', import.meta.url), 'utf8');
+assert.match(areaSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 위치를 안내선으로 표시한다');
 assert.doesNotMatch(panelSource, />⇄<\/button>/, '별도 이동 아이콘을 주 조작으로 노출하지 않는다');
 assert.match(panelSource, /오른쪽.*실제 값 필터/, '필드 오른쪽 화살표가 실제 값 목록을 연다는 안내를 표시한다');
 assert.match(panelSource, /체크한 값과 지정한 순서를 피벗 행·열 및 엑셀에 적용합니다/, '값 선택과 순서의 적용 범위를 명확히 안내한다');

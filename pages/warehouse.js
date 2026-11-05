@@ -3,7 +3,8 @@
 // 수정이력: 2026-03-30 — 사진과 동일한 구조로 완전 재구현
 //   기본 컬럼: 국가, 꽃, 품목명(색상), 거래처명, CN, 입력일자(열), 변경수량(=주문수량), 주문차수, 단위
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import OrderHistoryPivotPanel from '../components/OrderHistoryPivotPanel';
 import { apiGet } from '../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../lib/useWeekInput';
 import { t } from '../lib/i18n';
@@ -11,7 +12,7 @@ import { useLang } from '../lib/i18n';
 
 const fN = n => (!n||n===0) ? '' : Number(n).toFixed(2);
 
-export default function Warehouse() {
+function LegacyWarehousePivot() {
   const { t } = useLang();
   const weekInput = useWeekInput('');
   const [data, setData] = useState(null);
@@ -276,5 +277,30 @@ export default function Warehouse() {
         )}
       </div>
     </div>
+  );
+}
+
+// 기본은 nenova.exe FormOrderHistory 와 같은 전산 발주 목록. 기존 웹 피벗은 선택 시에만 마운트한다.
+export default function Warehouse() {
+  const [mode, setMode] = useState('exe');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('warehousePivotMode');
+      if (saved === 'legacy' || saved === 'exe') setMode(saved);
+    } catch {}
+  }, []);
+  const chooseMode = useCallback((next) => {
+    setMode(next);
+    try { localStorage.setItem('warehousePivotMode', next); } catch {}
+  }, []);
+  return (
+    <>
+      <div data-testid="warehouse-pivot-mode" style={{padding:'8px 12px 0', display:'flex', alignItems:'center', gap:4, background:'#f5f7fa', borderBottom:'1px solid #d8dee8'}}>
+        <span style={{fontSize:12, fontWeight:700, marginRight:4}}>발주 보기</span>
+        <button type="button" className={`btn btn-sm ${mode === 'exe' ? 'btn-primary' : ''}`} onClick={() => chooseMode('exe')}>전산 발주 목록</button>
+        <button type="button" className={`btn btn-sm ${mode === 'legacy' ? 'btn-primary' : ''}`} onClick={() => chooseMode('legacy')}>기존 웹 피벗</button>
+      </div>
+      {mode === 'exe' ? <OrderHistoryPivotPanel /> : <LegacyWarehousePivot />}
+    </>
   );
 }

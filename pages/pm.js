@@ -565,6 +565,76 @@ function FilterChips({ label, items, value, onChange }) {
   );
 }
 
+// PM 일지 팝오버: PM 로봇(목록 보기 자리 클릭 또는 상단 버튼) — 지금 하는 일·오늘 한 일·대기 큐·승인 대기.
+// 데이터: 피드 pmDetail { now, doneToday:[{at,text}], queueCount, approvals } (사장님 PC office-feed.js 가 pm-status·ledger 에서 만든다). 없으면 구버전 호환으로 탭 설명만.
+// 3D 장면 연결 인터페이스: docs/PM_AGENT_ACTIVITY_INTERFACE.md (3D 는 별도 작업 중 — 여기서는 데이터 필드·2D 만).
+function PmPopover({ pmAgent, detail, tasks, now, onClose, onOpenGoals }) {
+  const doneToday = arr(detail?.doneToday);
+  const open = tasks.filter((t) => t.state !== 'done');
+  const approvals = detail?.approvals ?? open.filter((t) => /승인|approval/i.test(`${t.state} ${t.decision || ''}`)).length;
+  return (
+    <div className="drawer-back" onClick={onClose}>
+      <div className="pmpop" role="dialog" aria-label="PM 일지" onClick={(e) => e.stopPropagation()}>
+        <div className="sdh"><h2>PM 일지</h2><IconButton className="x" label="닫기" onClick={onClose} /></div>
+        <div className="pmpop-b">
+          <div className="kv">지금: <b>{detail?.now || pmAgent?.activity || '대기'}</b>{pmAgent?.lastAt ? <span className="muted"> · {ago(pmAgent.lastAt, now)}</span> : null}</div>
+          <div className="kv">대기 큐 <b>{detail?.queueCount ?? open.length}</b>건 · 승인 대기 <b>{approvals}</b>건</div>
+          <Button size="sm" onClick={onOpenGoals}>제품 목표 보드 보기</Button>
+          <h3>오늘 PM이 한 일 <small>{doneToday.length}건</small></h3>
+          {doneToday.length ? (
+            <ol className="pmlog">{doneToday.slice(0, 30).map((x, i) => <li key={i}><span className="wt">{kstHM(x.at)}</span> {x.text}</li>)}</ol>
+          ) : <p className="muted">오늘 기록 없음</p>}
+          <h3>대기 중인 할 일</h3>
+          {open.length ? (
+            <ol className="pmlog">{open.slice(0, 20).map((t, i) => <li key={(t.key || '') + i}><b>{t.key}</b> <span className="muted">{t.state}</span>{t.decision ? ` — ${t.decision}` : ''}</li>)}</ol>
+          ) : <p className="muted">열린 업무 없음</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 제품 목표(판매 솔루션 비전 P0): 사장님 PC pm-vision.js 가 goals.json 을 pm-office 피드의 vision 으로 올린다. 없으면 숨김(구버전 호환).
+const GOAL_STATE = { done: ['완료', 'ok'], 'needs-approval': ['승인대기', 'warn'], stalled: ['정체', 'warn'], investigating: ['추진중', 'ok'], open: ['진행', ''] };
+function VisionPanel({ vision }) {
+  const goals = arr(vision?.goals);
+  if (!goals.length) return null;
+  const gate = vision?.gate || null;
+  const weekly = vision?.weekly || null;
+  return (
+    <details className="panel vispanel" open>
+      <summary><h2>제품 목표 <small>판매 솔루션 P0 · 분기 10개</small></h2></summary>
+      {gate && (
+        <div className="vgate" title={gate.measure || ''}>
+          <b>P0 관문</b> {gate.title || '직원 70% 주2회 자발 접속 · 4주'}
+          <div className="vgw">
+            {arr(gate.weeks).slice(-4).map((w) => (
+              <span key={w.week} className={`vwk ${w.pass ? 'ok' : ''}`} title={`${w.week} 주 · 접속률 ${w.rate}%`}>{w.week.slice(5)} {w.rate}%</span>
+            ))}
+            {!arr(gate.weeks).length && <span className="muted">{gate.status || '측정 장치 준비 중'}</span>}
+          </div>
+        </div>
+      )}
+      <ol className="vgoals">
+        {goals.map((g) => {
+          const [lab, tone] = GOAL_STATE[g.state] || GOAL_STATE.open;
+          const p = Math.max(0, Math.min(100, Math.round(+g.progress || 0)));
+          return (
+            <li key={g.id} title={[g.done ? `완료조건: ${g.done}` : '', g.note || ''].filter(Boolean).join(' · ')}>
+              <div className="vgt"><b>{g.title}</b><span className={`vst ${tone}`}>{lab}</span></div>
+              <div className="vbar" role="img" aria-label={`진행율 ${p}%`}><i style={{ width: `${p}%` }} /><em>{p}%</em></div>
+              <div className="muted vbs">{g.basis === 'measured' ? '실측' : '보고 기준'}{g.note ? ` · ${g.note}` : ''}</div>
+            </li>
+          );
+        })}
+      </ol>
+      {weekly && arr(weekly.items).length > 0 && (
+        <div className="vweek"><h3>이번 주 PM이 한 일</h3><ul>{arr(weekly.items).slice(0, 8).map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+      )}
+    </details>
+  );
+}
+
 // 재발 학습 카드: 피드 playbooks 없으면 패널 숨김(구버전 호환). 카드 클릭=전체 펼침.
 function PlaybookPanel({ playbooks }) {
   const [open, setOpen] = useState('');
@@ -683,6 +753,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
   const [reduced, setReduced] = useState(false);
   const pmTheme = usePmThemeState(myStaff || '');
   const [reqOpen, setReqOpen] = useState(false);
+  const [pmOpen, setPmOpen] = useState(false);
   const floorRef = useRef(null);
   // 장면(아이소메트릭) / 목록(예전 카드 격자) 보기 — 이 PC 편의 설정
   const [view, setView] = useState('scene');
@@ -769,10 +840,13 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         <span className={`badge age ${stale ? 'warn' : ''}`}>데이터 {fmtAge(ageSec)} 전{stale ? ' · 갱신 끊김?' : ''}</span>
         <span className="badge plain">작업중 {working}</span>
         <StaffRequestsButton onClick={() => setReqOpen(true)} />
+        <Button size="sm" onClick={() => setPmOpen(true)}>🤖 PM 일지</Button>
         <ThemePicker value={pmTheme.themeId} onChange={pmTheme.pick} />
         {err && <span className="badge warn">불러오기 실패: {err}</span>}
       </header>
       <StaffRequests open={reqOpen} onClose={() => setReqOpen(false)} />
+      {pmOpen && <PmPopover pmAgent={pmAgent} detail={d.pmDetail} tasks={tasks} now={now} onClose={() => setPmOpen(false)}
+        onOpenGoals={() => { setPmOpen(false); const el = document.querySelector('.vispanel'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }} />}
       <GardenStrip />
       {ts?.data && (
         <div className="tstrip" title={ts.data.method || ''}>
@@ -795,7 +869,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
           </div>
           {view === '3d' && fb3d && <p className="muted">3D 장면을 쓸 수 없어 2D 장면으로 보여 줍니다({fb3d}).</p>}
           {view === '3d' && !fb3d ? (
-            <Scene3D themeId={pmTheme.themeId === 'I' ? 'I' : 'B'} agents={agents} rooms={visibleRooms} links={links} reduced={reduced}
+            <Scene3D themeId={pmTheme.themeId === 'B' ? 'B' : 'I'} agents={agents} rooms={visibleRooms} links={links} reduced={reduced}
               onOpenPerson={openPerson} onPickStage={setSelStage} onFallback={setFb3d} />
           ) : (() => {
             const iso = <IsoScene theme={themeById(pmTheme.themeId)} agents={agents} rooms={visibleRooms} links={links} corridor={corridor} now={now}
@@ -828,7 +902,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
               <div className="plate">PM 실</div>
               <div className="rows">
                 {pmAgent ? <Seat robot name={pmAgent.name || 'PM'} sub={pmAgent.role} status={pmAgent.status} activity={pmAgent.activity} lastAt={pmAgent.lastAt} now={now}
-                  extra={pmAgent.today?.done != null ? `오늘 ${pmAgent.today.done}건` : ''} /> : <Seat empty name="PM" />}
+                  onOpen={() => setPmOpen(true)} extra={pmAgent.today?.done != null ? `오늘 ${pmAgent.today.done}건` : ''} /> : <Seat empty name="PM" />}
               </div>
             </section>
           </div>
@@ -875,6 +949,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
             </details>
           )}
           <WorkLogPanel workLog={workLog} onOpenPerson={(n) => openPerson(n, 'log')} />
+          <VisionPanel vision={d.vision} />
           <section className="panel">
             <h2>PM 업무 대장 <small>{tasks.length}</small></h2>
             {[...grouped, { key: 'other', label: '기타', items: other }].filter((g) => g.items.length).map((g) => (
@@ -958,6 +1033,31 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .est { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: bold; }
         .pm .panel { background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); padding: 12px; margin-bottom: 12px; box-shadow: var(--pm-shadow); }
         .pm details.panel > summary { cursor: pointer; list-style: none; } .pm details.panel > summary h2 { display: inline; }
+        /* 제품 목표(비전 P0) 패널 — 색은 전부 테마 토큰 */
+        .pm .vispanel .vgate { background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: var(--pm-radius); padding: 6px 8px; margin: 8px 0; font-size: 12px; }
+        .pm .vispanel .vgw { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .pm .vispanel .vwk { background: var(--pm-off-bg); color: var(--pm-off-ink); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: bold; }
+        .pm .vispanel .vwk.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
+        .pm .vispanel .vgoals { margin: 0; padding: 0 0 0 2px; list-style: none; counter-reset: vg; }
+        .pm .vispanel .vgoals > li { padding: 6px 0; border-top: 1px dashed var(--pm-line); counter-increment: vg; }
+        .pm .vispanel .vgoals > li:first-child { border-top: 0; }
+        .pm .vispanel .vgt { display: flex; align-items: baseline; gap: 6px; }
+        .pm .vispanel .vgt b::before { content: counter(vg) '. '; color: var(--pm-muted); font-weight: normal; }
+        .pm .vispanel .vst { margin-left: auto; font-size: 11px; font-weight: bold; border-radius: 999px; padding: 0 7px; background: var(--pm-surface2); color: var(--pm-muted); white-space: nowrap; }
+        .pm .vispanel .vst.ok { background: var(--pm-ok-bg); color: var(--pm-ok-ink); }
+        .pm .vispanel .vst.warn { background: var(--pm-est-bg); color: var(--pm-est-ink); }
+        .pm .vispanel .vbar { position: relative; height: 12px; margin-top: 4px; background: var(--pm-surface2); border: 1px solid var(--pm-line); border-radius: 999px; overflow: hidden; }
+        .pm .vispanel .vbar i { display: block; height: 100%; background: var(--pm-accent); }
+        .pm .vispanel .vbar em { position: absolute; right: 6px; top: -1px; font-style: normal; font-size: 10px; font-weight: bold; color: var(--pm-ink); }
+        .pm .vispanel .vbs { font-size: 11px; margin-top: 2px; }
+        .pm .vispanel .vweek ul { margin: 4px 0 0; padding-left: 16px; } .pm .vispanel .vweek li { margin: 2px 0; }
+        /* PM 일지 팝오버 — 직원 상세와 같은 drawer-back 재사용 */
+        .pm .pmpop { background: var(--pm-surface); color: var(--pm-ink); border: 2px solid var(--pm-line); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); width: min(560px, 94vw); max-height: 86vh; overflow: auto; padding: 12px 14px; }
+        .pm .pmpop .pmpop-b { display: grid; gap: 6px; }
+        .pm .pmpop .pmlog { margin: 0; padding-left: 4px; list-style: none; }
+        .pm .pmpop .pmlog li { padding: 3px 0; border-top: 1px dashed var(--pm-line); font-size: 12px; }
+        .pm .pmpop .pmlog li:first-child { border-top: 0; }
+        .pm .pmpop .pmlog .wt { color: var(--pm-muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
         .pm .feat { margin: 8px 0 0; padding-left: 20px; } .pm .feat li { margin-bottom: 8px; }
         .pm .ft { display: flex; justify-content: space-between; gap: 6px; } .pm .fh { font-weight: bold; white-space: nowrap; }
         .pm .pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; } .pm .pchips span, .pm .mt { background: var(--pm-surface2); color: var(--pm-ink); border: 1px solid var(--pm-line); border-radius: 999px; padding: 0 6px; font-size: 11px; }
@@ -1103,6 +1203,11 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .sstage, .pm .sitems, .pm .sside { background: var(--pm-surface); border: 2px solid var(--pm-line); border-radius: calc(var(--pm-radius) + 6px); padding: 12px; box-shadow: var(--pm-shadow); }
         .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
         .pm .stagebox .pav { z-index: 1; }
+        /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
+        .pm .r3d { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .pm .r3dstack { position: relative; width: 170px; height: 170px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 42%, var(--pm-surface), var(--pm-surface2) 72%); border: 2px solid var(--pm-line); overflow: hidden; }
+        .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
+        .pm .r3dstack img.r3dm { inset: auto 4px 4px auto; width: 56px; height: 56px; }
         .pm .pedestal { position: absolute; bottom: 22px; left: 50%; width: 170px; height: 34px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--pm-accent) 30%, var(--pm-surface2)); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-accent) 50%, var(--pm-line)); }
         .pm .czst { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; justify-content: center; }
         .pm .slots { gap: 4px; }

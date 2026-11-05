@@ -9,7 +9,8 @@ import { useGrow } from './grow/Grow';
 import { FxCast } from './SkillFx';
 import { BASE_SKILLS, FX_RULES, castSpec, skillById, skillShopItems } from '../../lib/pmSkills';
 import { mountShopItems } from '../../lib/pmMounts';
-import { PM_DEFAULT_THEME, PM_THEMES, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb } from '../../lib/pmThemes';
+import { PM_DEFAULT_THEME, PM_THEMES, PM_THEMES_VISIBLE, allThemesCss, readStoredTheme, storeTheme, themeById, themeThumb, visibleThemeId } from '../../lib/pmThemes';
+import { hatMesh, wearMesh } from '../../lib/pm3dLayout';
 
 export const PmThemeCtx = createContext({ manifest: null, theme: null, avatars: {}, save: null, shop: null, reloadShop: null });
 export const usePmTheme = () => useContext(PmThemeCtx);
@@ -54,23 +55,24 @@ export function usePmThemeState(who = '') {
     if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
     setAvatars((a) => { const n = { ...a }; if (j.avatar) n[name] = j.avatar; else delete n[name]; return n; });
   }, []);
-  const theme = themeById(themeId);
+  const theme = themeById(visibleThemeId(themeId)); // 숨긴 테마 저장값은 보존, 화면 표시만 기본(I)
   const css = useMemo(() => allThemesCss(), []);
   const ctx = useMemo(() => ({ manifest, theme, avatars, save, shop, reloadShop }), [manifest, theme, avatars, save, shop, reloadShop]);
   return { themeId: theme.id, pick, css, ctx };
 }
 
-// 상단 테마 선택: 시안 축소본 썸네일 10개. 접힌 상태에선 지금 테마 이름만.
+// 상단 테마 선택: 노출 테마(PM_THEMES_VISIBLE)만 썸네일로. 접힌 상태에선 지금 테마 이름만.
+//   숨긴 테마를 저장해 둔 직원은 화면만 기본(I)으로 보이고 저장값은 보존된다(visibleThemeId).
 export function ThemePicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const cur = themeById(value);
+  const cur = themeById(visibleThemeId(value));
   return (
     <div className="tpick">
       <Button size="sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{cur.emoji} 테마 · {cur.name} {open ? '▴' : '▾'}</Button>
       {open && (
         <div className="tgrid" role="listbox" aria-label="화면 테마 선택">
-          {PM_THEMES.map((t) => (
-            <SelectCard key={t.id} className="tthumb" on={t.id === value} pressed={t.id === value} title={t.desc}
+          {PM_THEMES.filter((t) => PM_THEMES_VISIBLE.includes(t.id)).map((t) => (
+            <SelectCard key={t.id} className="tthumb" on={t.id === visibleThemeId(value)} pressed={t.id === visibleThemeId(value)} title={t.desc}
               onClick={() => { onChange(t.id); setOpen(false); }}>
               <img src={themeThumb(t.id)} alt="" loading="lazy" decoding="async" />
               <span><b>{t.id}</b> {t.name}</span>
@@ -143,6 +145,7 @@ function BasePicker({ cfg, setCfg }) {
   return (
     <div className="basep">
       {row('체형', 'body', [['slim', '날씬'], ['std', '보통'], ['round', '통통']])}
+      <div className="czst" role="group" aria-label="3D 체형"><b>3D 체형(사무실 3D)</b>{[['cute', '귀염'], ['balance', '밸런스'], ['slim', '늘씬']].map(([v, l]) => <ToggleChip key={v} on={(cfg.bodyType || 'balance') === v} onClick={() => set('bodyType', v)}>{l}</ToggleChip>)}</div>
       {row('피부', 'skin', [0, 1, 2, 3].map((i) => [i, `톤 ${i + 1}`]))}
       {row('헤어', 'hair', [['short', '짧은'], ['bob', '단발'], ['long', '긴'], ['bun', '똥머리']])}
       {row('헤어색', 'hairColor', HAIR_NAMES.map((l, i) => [i, l]))}
@@ -184,7 +187,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const list = slot === 'char'
     ? manifest.characters.map((c) => ({ key: `char.${c.id}`, id: c.id, name: c.name, price: c.price, rarity: c.rarity, src: c.src, on: cfg.char === c.id }))
     : slot === 'base' ? []
-    : FX_ITEMS[slot] ? FX_ITEMS[slot]().map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, emoji: x.emoji, need: x.unlockStage, theme: x.theme, on: cfg.items[slot] === x.id }))
+    : FX_ITEMS[slot] ? FX_ITEMS[slot]().map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, emoji: x.emoji, src: x.src, need: x.unlockStage, theme: x.theme, on: cfg.items[slot] === x.id }))
     : manifest.items.filter((x) => !x.hidden && x.category === (SLOT_CAT[slot] || slot)).map((x) => ({ key: x.id, id: x.id, name: x.name, price: x.price, rarity: x.rarity, src: x.icon || x.src, theme: x.theme, on: cfg.items[slot] === x.id }));
   const slotShut = SLOT_UNLOCK[slot] && myStage < SLOT_UNLOCK[slot] && !freeOn;
   const choose = (x) => {
@@ -226,6 +229,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
       <div className="sgrid">
         <section className="sstage">
           <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.74} state={st} stage={myStage} dance={dance} emote={emote} /></div>
+          <Render3DPreview cfg={cfg} />
           <PassBadge pass={pass} />
           {pass && pass.expired && <p className="czmsg" role="note">자유이용권이 끝났어요. 산 적 없는 품목은 기본 복장으로 돌아갔어요(꾸미기 기록은 보관) — 구매하면 계속 사용할 수 있어요.</p>}
           <div className="czst" role="group" aria-label="춤 미리보기">
@@ -247,7 +251,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
             const poor = !own && wallet && wallet.balance < x.price;
             return (
               <SelectCard key={x.key} className={`sitem ${own ? 'own' : 'lock'} ${poor ? 'poor' : ''}`} on={x.on} pressed={x.on} onClick={() => choose(x)} title={`${x.name} · ${RARITY[x.rarity] || ''}`}>
-                {x.emoji ? <span className="fxi" aria-hidden>{x.emoji}</span> : <img src={x.src} alt="" loading="lazy" />}
+                {x.src ? <img src={x.src} alt="" loading="lazy" /> : <span className="fxi" aria-hidden>{x.emoji}</span>}
                 {x.on && <span className="eq" aria-label="착용 중">✓</span>}
                 <span className="iname">{x.name}</span>
                 <small className={`czr r-${x.rarity || 'basic'}`}>{x.need > myStage && !freeOn ? `🌱 ${x.need}단계 · ` : ''}{!x.price ? '무료' : own ? '보유중' : freeOn ? `🎟️ 이용권 · ${x.price}🪙` : `${poor ? '🔒 ' : ''}${x.price} 🪙`}</small>
@@ -288,10 +292,40 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   );
 }
 
+// 3D 사무실에 실제로 쓰는 블렌더 모델 렌더 미리보기(scripts/pm3d/render_shop.py) — 같은 카메라 고정 렌더라
+// "종족 베이스 + 옷 레이어 + 모자 레이어" 겹침으로 장착 조합을 표현. 탈것은 mounts.glb 썸네일을 옆에 세움.
+// 레이어 파일이 아직 없으면(onError) 그 레이어만 조용히 숨긴다(기존 2D 무대가 위에 따로 있음).
+function Render3DPreview({ cfg }) {
+  const n = normalizeAvatar(cfg);
+  const hat = hatMesh(n.items.hat || '');
+  const mount = n.items.mount ? String(n.items.mount).replace(/^mount\./, '') : '';
+  // 체형(bodyType) 반영: render_shop.py 가 체형별 레이어 세트를 같은 카메라로 렌더(기본 밸런스 = 접미사 없음)
+  const bsfx = n.bodyType && n.bodyType !== 'balance' ? `.${n.bodyType}` : '';
+  const layers = [
+    `/pm/shop/char.${n.char}${bsfx}.webp`,
+    n.items.outfit ? `/pm/shop/layer.${n.items.outfit}${bsfx}.webp` : '',
+    n.items.hat ? `/pm/shop/layer.${hat}${bsfx}.webp` : '',
+    n.items.glasses ? `/pm/shop/layer.${wearMesh('glasses', n.items.glasses)}${bsfx}.webp` : '',
+    n.items.hand ? `/pm/shop/layer.${wearMesh('hand', n.items.hand)}${bsfx}.webp` : '',
+    n.items.badge ? `/pm/shop/layer.${wearMesh('badge', n.items.badge)}${bsfx}.webp` : '',
+  ].filter(Boolean);
+  const hide = (e) => { e.currentTarget.style.visibility = 'hidden'; };
+  const show = (e) => { e.currentTarget.style.visibility = 'visible'; };
+  return (
+    <div className="r3d" role="img" aria-label="3D 사무실 속 모습 미리보기">
+      <div className="r3dstack">
+        {layers.map((s) => <img key={s} src={s} alt="" loading="lazy" onError={hide} onLoad={show} />)}
+        {mount && <img className="r3dm" src={`/pm/mounts/thumb/${mount}.webp`} alt="" loading="lazy" onError={hide} onLoad={show} />}
+      </div>
+      <small className="muted">3D 사무실 속 모습(같은 모델 렌더)</small>
+    </div>
+  );
+}
+
 const reducedMotion = () => { try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 // 상점 미리보기: 스킬 = 같은 FxCast 로 캐릭터→스테이션 발사 재생, 탈것 = 아이콘 크게
 function FxPreview({ f, slot, play, reduced }) {
-  if (slot === 'mount') return <div className="dimg fxprev"><span className="fxi big" aria-hidden>{f.emoji}</span></div>;
+  if (slot === 'mount') return <div className="dimg fxprev">{f.src ? <img src={f.src} alt="" /> : <span className="fxi big" aria-hidden>{f.emoji}</span>}</div>;
   const sk = skillById(f.id) || BASE_SKILLS[0];
   const spec = castSpec(sk, { name: 'preview', stage: 3, tier: sk.tier === 'basic' ? 'basic' : 'ult', reason: 'preview' }, reduced);
   return (

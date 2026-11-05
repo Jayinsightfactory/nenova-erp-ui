@@ -38,7 +38,8 @@ test('Pedidos UI wires read-only auto source, exact year/week, hidden-tab gate a
   assert.match(ui, /generation !== contextGeneration.current/); assert.match(ui, /!results\?\.includes\(output\)/);
   for (const handler of ['changeSource', 'changeCountry', 'changeCycle']) assert.match(ui, new RegExp(`function ${handler}[^]*?requestGuard.current.invalidate\\(\\)`));
   assert.match(ui, /invalidate\(setOrderWeek, subweek.orderWeek\)/); assert.match(ui, /invalidate\(setFile/);
-  assert.doesNotMatch(ui, /method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
+  // The only write is the explicit, audited Product factor save through the existing bulk API (user confirms in a dialog); country-orders stays GET-only.
+  assert.deepEqual([...ui.matchAll(/fetch\('([^']+)',\s*\{[^}]*method:\s*'(POST|PUT|PATCH|DELETE)'/g)].map(m => `${m[2]} ${m[1]}`), ['POST /api/master/products-bulk']);
 });
 test('UI matrix is page-height, horizontally scrollable, sticky product/header, native keyboard controls and focus', () => {
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
@@ -97,4 +98,26 @@ test('quantity-zero cells and totals display blank while diagnostic zero and pro
   assert.match(ui, /formatPedidosQuantity\(output.totalQuantity\)/);
   assert.match(ui, /c === 0 \? \(cell == null \? '' : String\(cell\)\) : formatPedidosQuantity\(cell\)/);
   assert.match(ui, /formatCountryOrderStoredQuantities\(row.storedQuantities\)/);
+});
+
+test('UI keeps full export blocked but offers a partial export that excludes blocked products and still downloads', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /excludeBlockedCountryOrderRows/);
+  assert.match(ui, /const canGenerate = canExport && \(matrix.blockers.length === 0 \|\| Boolean\(manualState.matrix\)\)/);
+  assert.match(ui, /applyCountryOrderManualQuantities\(matrix, manual\)/); assert.match(ui, /pedidos-manual-input/); assert.match(ui, /setManual\(\{\}\); invalidate\(setOrderWeek/);
+  assert.match(ui, /blockedRowCount < matrix.rows.length/);
+  assert.match(ui, /확인 필요 품목 \{blockedRowCount\}개 제외하고 생성/);
+  assert.match(ui, /sourceMode === 'erp' && !canExport/);
+  assert.match(ui, /pedidos-row-blocked/);
+});
+
+test('after entering a missing quantity the UI asks to store Product conversion factors through the existing bulk API, never a new write path', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /aria-label="품목관리에 변경하시겠습니까\?"/);
+  assert.match(ui, /onClick=\{requestGenerate\}>미리보기 생성/);
+  assert.match(ui, /fetch\('\/api\/master\/products-bulk', \{ method: 'POST'/);
+  assert.match(ui, /buildCountryOrderProductSnapshot\(row.unitBasis\)/); assert.match(ui, /suggestCountryOrderProductFactors\(row, manual\[row.key\]/);
+  assert.match(ui, /품목관리에 저장 후 생성/); assert.match(ui, /저장 없이 생성/);
+  assert.doesNotMatch(ui, /country-orders[^\n]*method:\s*'POST'/);
+  assert.doesNotMatch(ui, /UPDATE Product/);
 });

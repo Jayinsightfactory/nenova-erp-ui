@@ -11,6 +11,16 @@ import { getDisplayName } from '../../lib/displayName';
 import { clearImportProductMatchForName } from '../../lib/orderImportMatch';
 import { scoreProductSearchOptions } from '../../lib/productSearchRanking';
 import {
+  IMPORT_MATCH_MESSAGE,
+  IMPORT_MATCH_POPUP_FEATURES,
+  IMPORT_MATCH_POPUP_NAME,
+  buildImportMatchInit,
+  buildImportMatchPopupUrl,
+  createImportMatchToken,
+  readSelectedProduct,
+  readTrustedPopupMessage,
+} from '../../lib/orderImportMatchPopup';
+import {
   mergeRegisterItems,
   setImportItemsSkip,
   importSkipCounts,
@@ -26,10 +36,12 @@ import {
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { sortWeeksAsc } from '../../lib/fixCycleClient';
+import { collapseEmptySheetRows, lookupCurrentCost, isPriceChanged } from '../../lib/orderImportSheetView';
 import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/orderImportFailure';
 import { withOrderImportDeadline } from '../../lib/orderImportDeadline';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
 import * as XLSX from 'xlsx';
+import DirectPricePivot from '../../components/orders/DirectPricePivot';
 import { initializeShipDateAllocations, moveShipmentQuantity, allocationTotal, buildShipmentListRows } from '../../lib/orderShipmentList';
 import { sanitizeExcelSheetName } from '../../lib/estimatePrintPrepare';
 import {
@@ -137,7 +149,11 @@ function ExcelSheetPreview({
   onPickProduct,
   onClearProduct,
   onPersistMapping,
+  onRequestMatchPopup,
+  subWeeks,
+  selectedSubWeeks,
 }) {
+  const [openGaps, setOpenGaps] = useState(() => new Set());
   if (!preview?.rows?.length) {
     return (
       <div style={{ ...st.card, marginBottom: 0, minHeight: 220 }}>
@@ -149,11 +165,22 @@ function ExcelSheetPreview({
     );
   }
   const inlineByRow = new Map((inlineRows || []).map(row => [Number(row.rowNo), row.matches || []]));
+  const subWeekLabel = (selectedSubWeeks || []).join(', ');
+  const segments = collapseEmptySheetRows(
+    preview.rows,
+    [preview.headerRow, ...inlineByRow.keys()],
+  );
+  const hiddenEmptyCount = segments.reduce((n, seg) => n + (seg.type === 'gap' ? seg.rowNos.length : 0), 0);
+  const toggleGap = (firstRowNo) => setOpenGaps(prev => {
+    const next = new Set(prev);
+    if (next.has(firstRowNo)) next.delete(firstRowNo); else next.add(firstRowNo);
+    return next;
+  });
   const matchInsertIndex = findOrderImportMatchInsertIndex(preview);
   const matchCell = {
     minWidth: 150,
     maxWidth: 260,
-    padding: '2px 4px',
+    padding: '1px 4px',
     borderRight: '1px solid #bfdbfe',
     borderBottom: '1px solid #cbd5e1',
     background: '#f8fbff',
@@ -180,13 +207,24 @@ function ExcelSheetPreview({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <strong>원본 Excel 시트 + 행별 ERP 매칭</strong>
         <span style={{ fontSize: 11, color: '#64748b' }}>
-          {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열
+          {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열{hiddenEmptyCount > 0 ? ` · 빈 행 ${hiddenEmptyCount}개 접음` : ''}
         </span>
       </div>
       <div style={{ overflowX: 'auto', overflowY: 'visible', border: '1px solid #cbd5e1', borderRadius: 6 }}>
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', fontSize: 11 }}>
           <tbody>
-            {preview.rows.map((row) => {
+            {segments.flatMap((seg) => seg.type === 'gap' ? (
+              openGaps.has(seg.rowNos[0])
+                ? [<tr key={`gap-${seg.rowNos[0]}`}><td colSpan={(preview.columnCount || 0) + 8} style={{ padding: '1px 8px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', fontSize: 10 }}>
+                    <button type="button" onClick={() => toggleGap(seg.rowNos[0])} style={{ ...st.clearBtn }}>▲ 빈 행 {seg.rowNos.length}개 접기 ({seg.rowNos[0]}~{seg.rowNos[seg.rowNos.length - 1]}행)</button>
+                  </td></tr>,
+                  ...preview.rows.filter(r => seg.rowNos.includes(r.rowNo)).map(r => <tr key={`empty-${r.rowNo}`}><th style={{ position: 'sticky', left: 0, minWidth: 36, padding: '0 4px', background: '#f8fafc', color: '#94a3b8', textAlign: 'right', fontSize: 10, borderBottom: '1px solid #f1f5f9' }}>{r.rowNo}</th><td colSpan={(preview.columnCount || 0) + 7} style={{ height: 14, borderBottom: '1px solid #f1f5f9' }} /></tr>)]
+                : [<tr key={`gap-${seg.rowNos[0]}`}><td colSpan={(preview.columnCount || 0) + 8} style={{ padding: 0, background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    <button type="button" onClick={() => toggleGap(seg.rowNos[0])} title="클릭하면 빈 행을 펼칩니다" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '1px 8px', border: 'none', background: 'transparent', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>
+                      … 빈 행 {seg.rowNos.length}개 숨김 ({seg.rowNos[0]}{seg.rowNos.length > 1 ? `~${seg.rowNos[seg.rowNos.length - 1]}` : ''}행) · 클릭하면 펼침
+                    </button>
+                  </td></tr>]
+            ) : [seg.row].map((row) => {
               const isHeader = Number(row.rowNo) === Number(preview.headerRow);
               const rowMatches = inlineByRow.get(Number(row.rowNo)) || [];
               const isMatched = rowMatches.some(entry => !entry.item.skip && entry.item.prodKey);
@@ -214,6 +252,8 @@ function ExcelSheetPreview({
                       <th style={{ ...matchHead, borderLeft: '3px solid #2563eb', minWidth: 330, width: 330 }}>ERP 매칭 품목</th>
                       <th style={{ ...matchHead, minWidth: 126 }}>최종수량</th>
                       <th style={{ ...matchHead, minWidth: 82 }}>단위</th>
+                      <th style={{ ...matchHead, minWidth: 96 }} title="선택한 세부차수의 현재 분배단가(ShipmentDetail Cost)">현재 분배단가{subWeekLabel ? ` (${subWeekLabel})` : ''}</th>
+                      <th style={{ ...matchHead, minWidth: 96 }} title="업로드 표의 단가. 아래 상세 편집표의 단가와 같은 값입니다">수정 단가</th>
                       <th style={{ ...matchHead, minWidth: 112 }}>상태 · 수정</th>
                     </>
                   ) : (
@@ -233,6 +273,7 @@ function ExcelSheetPreview({
                                   onPick={(product) => onPickProduct(entry.itemIndex, product, item)}
                                   onClear={() => onClearProduct(entry.itemIndex)}
                                   onPersistMapping={onPersistMapping}
+                                  onRequestPopup={onRequestMatchPopup}
                                   compact
                                 />
                               ) : (
@@ -268,6 +309,36 @@ function ExcelSheetPreview({
                           </select>
                         ) : <div key={entry.itemIndex}>{entry.item.unit}</div>)}
                       </td>
+                      <td style={{ ...matchCell, minWidth: 96, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {rowMatches.map((entry) => {
+                          if (!entry.isPrimary) return <div key={entry.itemIndex} />;
+                          const cur = lookupCurrentCost(subWeeks, selectedSubWeeks, entry.item.prodKey);
+                          if (cur.status === 'none') return <div key={entry.itemIndex} style={{ color: '#94a3b8' }}>-</div>;
+                          return (
+                            <div key={entry.itemIndex} style={{ fontWeight: 700, color: '#334155' }} title={cur.status === 'multi' ? `분배상세 ${cur.count}건 — 첫 값(${cur.orderWeek})을 표시합니다` : cur.orderWeek}>
+                              {cur.cost.toLocaleString()}{cur.status === 'multi' && <span style={{ color: '#b45309', marginLeft: 3 }}>⚠</span>}
+                            </div>
+                          );
+                        })}
+                      </td>
+                      <td style={{ ...matchCell, minWidth: 96 }}>
+                        {rowMatches.map((entry) => {
+                          if (!entry.isPrimary) return <div key={entry.itemIndex} />;
+                          const cur = lookupCurrentCost(subWeeks, selectedSubWeeks, entry.item.prodKey);
+                          const changed = isPriceChanged(cur, entry.item.unitPrice);
+                          return (
+                            <input
+                              key={entry.itemIndex}
+                              type="number"
+                              min={0}
+                              placeholder="없음"
+                              value={Number(entry.item.unitPrice) > 0 ? entry.item.unitPrice : ''}
+                              onChange={(e) => onUpdateItem(entry.itemIndex, { unitPrice: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0) })}
+                              style={{ ...st.input, width: 84, padding: '2px 4px', height: 22, background: changed ? '#fef08a' : '#fff' }}
+                            />
+                          );
+                        })}
+                      </td>
                       <td style={{ ...matchCell, minWidth: 112 }}>
                         {rowMatches.map((entry) => (
                           <div key={entry.itemIndex} style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
@@ -292,7 +363,7 @@ function ExcelSheetPreview({
                   })}
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
@@ -403,6 +474,7 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
         style={{ ...st.input, width: '100%', minWidth: 200, boxSizing: 'border-box' }}
         value={open ? query : (label || query)}
         placeholder={placeholder || '거래처 검색 (라움)'}
+        data-ai-verify="customer-search"
         onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(null); }}
         onFocus={() => setOpen(true)}
       />
@@ -412,28 +484,40 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
           {!loading && query.trim() && remote.length === 0 && (
             <div style={{ padding: 8, fontSize: 11, color: '#64748b' }}>검색 결과 없음</div>
           )}
-          {remote.map(c => (
+          {remote.map(c => {
+            const pick = () => {
+              onChange({ CustKey: c.CustKey, CustName: c.CustName });
+              setLabel(c.CustName);
+              setQuery('');
+              setOpen(false);
+            };
+            return (
             <button
               key={c.CustKey}
               type="button"
               style={st.pickRow}
-              onMouseDown={() => {
-                onChange({ CustKey: c.CustKey, CustName: c.CustName });
-                setLabel(c.CustName);
-                setQuery('');
-                setOpen(false);
-              }}
+              data-ai-verify={`customer-pick-${c.CustKey}`}
+              onMouseDown={pick}
+              onClick={pick}
             >
               {c.CustName}{c.OrderCode ? ` (${c.OrderCode})` : ''}
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = false }) {
+function ProductPicker({ row, allProducts, onPick, onPersistMapping, onRequestPopup, inline = false, compact = false }) {
+  // 팝업 선택이 기본. 팝업이 차단되거나 inline(폴백)일 때만 기존 인라인 검색을 쓴다.
+  const [popupBlocked, setPopupBlocked] = useState(false);
+  const inlineMode = !onRequestPopup || inline || popupBlocked;
+  const requestPopup = () => {
+    if (inlineMode) return;
+    if (onRequestPopup() === false) { setPopupBlocked(true); setOpen(true); }
+  };
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -520,7 +604,7 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
 
   return (
     <div ref={wrapRef} style={compact ? { flex: 1, minWidth: 0 } : undefined}>
-      {!compact && defaultSuggestions.length > 0 && (
+      {!compact && inlineMode && defaultSuggestions.length > 0 && (
         <div style={st.suggestRow}>
           {defaultSuggestions.map(s => (
             <button
@@ -546,16 +630,25 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
       <div style={{ marginTop: compact ? 0 : 6, position: 'relative' }}>
         <input
           style={{ ...st.input, width: '100%', height: compact ? 24 : undefined, padding: compact ? '2px 5px' : st.input.padding, boxSizing: 'border-box' }}
-          placeholder={compact ? '품목 검색…' : '품목 검색 (한글·영문)…'}
+          placeholder={inlineMode ? (compact ? '품목 검색…' : '품목 검색 (한글·영문)…') : '품목 검색… (클릭하면 새 창)'}
           value={search}
+          readOnly={!inlineMode}
+          aria-haspopup={inlineMode ? undefined : 'dialog'}
+          onClick={requestPopup}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={open && searchHits.length > 0}
           aria-controls={listId}
           aria-activedescendant={open && searchHits.length > 0 ? `${listId}-${Math.min(activeIndex, searchHits.length - 1)}` : undefined}
           onChange={(e) => { setSearch(e.target.value); setActiveIndex(0); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleSearchKeyDown}
+          onFocus={() => { if (inlineMode) setOpen(true); }}
+          onKeyDown={(event) => {
+            if (!inlineMode) {
+              if (event.key === 'Enter' || event.key === 'ArrowDown') { event.preventDefault(); requestPopup(); }
+              return;
+            }
+            handleSearchKeyDown(event);
+          }}
           disabled={saving}
         />
         {(saving || saveError) && (
@@ -577,14 +670,20 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
   );
 }
 
-function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear, onPersistMapping, compact = false }) {
+function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick, onClear, onPersistMapping, onRequestPopup, compact = false }) {
   const hasMatch = !!row.prodKey;
+  // 「변경」은 새 창을 연다. 팝업이 차단되면(false) 기존 인라인 검색으로 폴백한다.
+  const openChange = () => {
+    if (onRequestPopup && onRequestPopup(idx, row) !== false) return;
+    onToggleEdit();
+  };
+  const pickerPopup = onRequestPopup ? () => onRequestPopup(idx, row) : undefined;
 
   if (compact) {
     if (!hasMatch || editing) {
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', minWidth: 0, whiteSpace: 'nowrap' }}>
-          <ProductPicker row={row} allProducts={allProducts} onPick={onPick} onPersistMapping={onPersistMapping} compact />
+          <ProductPicker row={row} allProducts={allProducts} onPick={onPick} onPersistMapping={onPersistMapping} onRequestPopup={pickerPopup} inline={hasMatch} compact />
           {hasMatch && <button type="button" style={st.editBtn} onClick={onToggleEdit}>닫기</button>}
           {hasMatch && <button type="button" style={st.clearBtn} onClick={onClear}>해제</button>}
         </div>
@@ -600,7 +699,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
             업체이력 {row.customerUsageCount}
           </span>
         )}
-        <button type="button" style={st.editBtn} onClick={onToggleEdit}>변경</button>
+        <button type="button" style={st.editBtn} aria-haspopup="dialog" onClick={openChange}>변경</button>
       </div>
     );
   }
@@ -612,7 +711,7 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
           <div style={{ fontWeight: 600, color: '#1e40af' }}>{row.displayName || row.prodName}</div>
           <div style={{ fontSize: 10, color: '#64748b' }}>{row.counName} · {row.flowerName}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            <button type="button" style={st.editBtn} onClick={onToggleEdit}>
+            <button type="button" style={st.editBtn} aria-haspopup="dialog" onClick={editing ? onToggleEdit : openChange}>
               {editing ? '닫기' : '✎ 품목 변경'}
             </button>
             {editing && (
@@ -627,6 +726,8 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
           allProducts={allProducts}
           onPick={onPick}
           onPersistMapping={onPersistMapping}
+          onRequestPopup={pickerPopup}
+          inline={hasMatch}
           compact={hasMatch}
         />
       )}
@@ -668,7 +769,10 @@ export default function OrderImportPage() {
   const [sheets, setSheets] = useState([]);
   const [sheetName, setSheetName] = useState('');
   // 'order' = 업로드 주문등록만 · 'orderPrice' = 주문등록 + 선택 세부차수 분배단가 적용
+  const [pageTab, setPageTab] = useState('upload');
+  // 'priceOnly' = 주문등록 없이 선택 세부차수의 분배단가만 수정 (현재 단가 표시 → 수정값 입력 → 적용)
   const [registerMode, setRegisterMode] = useState('order');
+  const [priceEdits, setPriceEdits] = useState({}); // priceOnly: sdetailKey → 입력 문자열
   const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
   const [selectedSubWeeks, setSelectedSubWeeks] = useState([]);
   const [priceApplying, setPriceApplying] = useState(false);
@@ -1096,6 +1200,50 @@ export default function OrderImportPage() {
     setEditProdIdx(null);
   };
 
+  // ── 품목 매칭 새 창: 팝업은 선택 결과만 돌려주고, 확정은 기존 pickProduct/handlePersistMapping 이 한다.
+  const matchPopupPendingRef = useRef(null);
+  const matchPopupHandlerRef = useRef(null);
+  const openMatchPopup = (idx, row) => {
+    if (typeof window === 'undefined') return false;
+    const token = createImportMatchToken();
+    const popup = window.open(buildImportMatchPopupUrl(token), IMPORT_MATCH_POPUP_NAME, IMPORT_MATCH_POPUP_FEATURES);
+    if (!popup) return false;
+    matchPopupPendingRef.current = { token, popup, idx, row };
+    popup.focus?.();
+    return true;
+  };
+  matchPopupHandlerRef.current = async (data) => {
+    const pending = matchPopupPendingRef.current;
+    if (!pending) return;
+    if (data.type === IMPORT_MATCH_MESSAGE.ready) {
+      pending.popup.postMessage(buildImportMatchInit(pending.row, custRef.current?.CustName, pending.token), window.location.origin);
+      return;
+    }
+    matchPopupPendingRef.current = null;
+    if (data.type === IMPORT_MATCH_MESSAGE.cancel) return;
+    if (itemsRef.current[pending.idx] !== pending.row) {
+      setResultMsg('품목 매칭 창을 여는 사이 업로드 표가 바뀌어 선택을 적용하지 않았습니다. 다시 「변경」을 눌러 주세요.');
+      return;
+    }
+    if (data.type === IMPORT_MATCH_MESSAGE.cleared) { clearProduct(pending.idx); return; }
+    const prod = readSelectedProduct(data);
+    if (!prod) return;
+    try {
+      await handlePersistMapping(pending.row, prod);
+      pickProduct(pending.idx, prod, pending.row);
+    } catch (error) {
+      setResultMsg(`품목 매칭 저장에 실패했습니다: ${error?.message || error}. 다시 선택해 주세요.`);
+    }
+  };
+  useEffect(() => {
+    const onMessage = (event) => {
+      const data = readTrustedPopupMessage(event, matchPopupPendingRef.current, window.location.origin);
+      if (data) void matchPopupHandlerRef.current?.(data);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
   const clearProduct = (idx) => {
     updateItem(idx, {
       prodKey: null,
@@ -1159,9 +1307,10 @@ export default function OrderImportPage() {
   }, [priceTargetKey, priceTargets.key, cust, weekYear, parentWeek, shortWeek]);
 
   useEffect(() => {
-    if (!items.length) return;
+    if (!items.length && registerMode !== 'priceOnly') return;
     loadPriceTargets();
-  }, [items.length, loadPriceTargets]);
+  }, [items.length, registerMode, loadPriceTargets]);
+  useEffect(() => { setPriceEdits({}); }, [priceTargets.key]);
 
   // 업로드 표 단가: 품목(prodKey)별 1개. 같은 품목에 다른 단가가 여러 행이면 conflict.
   const priceByProd = useMemo(() => {
@@ -1207,6 +1356,32 @@ export default function OrderImportPage() {
     return { changes, same, noTarget, fixedWeeks, conflicts };
   }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd]);
 
+  // 분배단가만 수정: 선택 세부차수의 모든 분배행. 수정 단가 기본값 = 표 단가(있으면) 또는 현재 단가.
+  const priceOnlyRows = useMemo(() => {
+    const rows = [];
+    for (const sw of priceTargets.subWeeks || []) {
+      if (!selectedSubWeeks.includes(sw.orderWeek)) continue;
+      for (const d of sw.details || []) {
+        const key = String(d.sdetailKey);
+        const uploaded = priceByProd.get(Number(d.prodKey));
+        const defaultNew = uploaded ? uploaded.price : Number(d.cost) || 0;
+        const edited = priceEdits[key];
+        const newCost = edited === undefined || edited === '' ? defaultNew : Number(edited);
+        rows.push({ ...d, orderWeek: sw.orderWeek, name: d.displayName || d.prodName, newCost, edited: edited !== undefined && edited !== '', fromUpload: !!uploaded, invalid: !(newCost > 0) });
+      }
+    }
+    return rows;
+  }, [priceTargets.subWeeks, selectedSubWeeks, priceByProd, priceEdits]);
+  const priceOnlyPlan = useMemo(() => {
+    const changes = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) >= 0.5);
+    const same = priceOnlyRows.filter(r => !r.invalid && Math.abs(Number(r.cost) - r.newCost) < 0.5);
+    const fixedWeeks = sortWeeksAsc((priceTargets.subWeeks || [])
+      .filter(sw => selectedSubWeeks.includes(sw.orderWeek) && (sw.hasFixedDetail || sw.masterFixed))
+      .map(sw => sw.orderWeek));
+    return { changes, same, noTarget: [], fixedWeeks, conflicts: [], invalid: priceOnlyRows.filter(r => r.invalid) };
+  }, [priceOnlyRows, priceTargets.subWeeks, selectedSubWeeks]);
+  const activePlan = registerMode === 'priceOnly' ? priceOnlyPlan : pricePlan;
+
   const toggleSubWeek = (wk) => {
     setSelectedSubWeeks(prev => (prev.includes(wk) ? prev.filter(x => x !== wk) : sortWeeksAsc([...prev, wk])));
   };
@@ -1215,7 +1390,7 @@ export default function OrderImportPage() {
     if (!cust?.CustKey) { alert('거래처를 선택하세요.'); return null; }
     if (!weekYear) { alert('차수를 2026-44-01 형식으로 선택하세요.'); return null; }
     if (!selectedSubWeeks.length) { alert('분배단가를 적용할 세부차수를 선택하세요.'); return null; }
-    const { changes, fixedWeeks, conflicts } = pricePlan;
+    const { changes, fixedWeeks, conflicts } = activePlan;
     if (conflicts.length) {
       alert(`같은 품목에 단가가 여러 개입니다. 표에서 단가를 하나로 맞춰 주세요:\n${conflicts.map(c => c.name).join(', ')}`);
       return null;
@@ -1249,6 +1424,7 @@ export default function OrderImportPage() {
       const d = await apiPost('/api/estimate/update-cost', body);
       if (!d?.success) throw new Error(d?.error || '단가 저장 실패');
       log(`✅ ${d.message || `${d.changedCount}건 반영`}`);
+      setPriceEdits({});
       await loadPriceTargets(true);
       return d;
     } catch (e) {
@@ -1265,6 +1441,7 @@ export default function OrderImportPage() {
     const registerItems = mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0));
     if (!registerItems.length) { alert('등록할 매칭 품목이 없습니다. (수량 0·미매칭·제외 행 확인)'); return; }
 
+    if (registerMode === 'priceOnly') { alert('「분배단가만 수정」 모드에서는 주문등록을 하지 않습니다. 「분배단가 수정 적용」 버튼을 사용하세요.'); return; }
     const withPrice = registerMode === 'orderPrice';
     if (withPrice && !selectedSubWeeks.length) {
       alert('분배단가를 적용할 세부차수를 선택하세요. (주문등록만 하려면 「주문등록만」 선택)');
@@ -1393,7 +1570,20 @@ export default function OrderImportPage() {
   return (
     <>
       <p><Link href="/orders/weekday-upload">주광 엑셀 요일별 수량 업로드 — 기존 주문 보존</Link></p>
-      <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
+      <div role="tablist" aria-label="업로드 주문등록 탭" style={{ display: 'flex', gap: 6, margin: '0 0 10px', padding: '0 4px' }}>
+        {[['upload', '파일 업로드'], ['direct', '직접 수정']].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={pageTab === id} onClick={() => setPageTab(id)}
+            style={{ padding: '8px 20px', borderRadius: 8, border: pageTab === id ? '2px solid #1a237e' : '1px solid #c5cae9', background: pageTab === id ? '#1a237e' : '#f3f4ff', color: pageTab === id ? '#fff' : '#1a237e', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {pageTab === 'direct' && (
+        <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
+          <DirectPricePivot />
+        </div>
+      )}
+      <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={{ ...st.page, ...(pageTab === 'direct' ? { display: 'none' } : {}) }}>
         <div style={st.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
             <div data-desktop-chrome style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
@@ -1519,6 +1709,7 @@ export default function OrderImportPage() {
                 <button
                   key={w}
                   type="button"
+                  data-ai-verify={`week-${w}`}
                   onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                   style={{
                     padding: '5px 22px',
@@ -1550,6 +1741,7 @@ export default function OrderImportPage() {
                       <button
                         key={w}
                         type="button"
+                        data-ai-verify={`week-${w}`}
                         onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                         style={{
                           padding: '4px 11px',
@@ -1569,7 +1761,7 @@ export default function OrderImportPage() {
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" />
+              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" data-ai-verify="week-input" />
               {week && (
                 <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600 }}>
                   선택: {formatWeekDisplay(week)}
@@ -1737,7 +1929,7 @@ export default function OrderImportPage() {
           </div>)}
         </div>
 
-        {items.length > 0 && (
+        {(items.length > 0 || registerMode === 'priceOnly' || priceTargetKey) && (
           <div style={st.card}>
             {sheets.filter(sh => sh.rowCount > 0).length > 1 && (
               <div style={{ marginBottom: 12 }}>
@@ -1782,28 +1974,43 @@ export default function OrderImportPage() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               {[
-                { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음' },
-                { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정' },
-              ].map(opt => (
+                { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음', needFile: true },
+                { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정', needFile: true },
+                { v: 'priceOnly', label: '분배단가만 수정', hint: '주문등록 없이 차수·업체의 현재 분배단가를 보고 수정값만 적용', needFile: false },
+              ].map(opt => {
+                const off = opt.needFile && !items.length;
+                return (
                 <label
                   key={opt.v}
+                  title={off ? '파일을 업로드해야 주문등록을 할 수 있습니다' : ''}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1,
                     border: registerMode === opt.v ? '2px solid #1565c0' : '1px solid #cbd5e1',
                     background: registerMode === opt.v ? '#eff6ff' : '#fff',
                   }}
                 >
-                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} onChange={() => setRegisterMode(opt.v)} />
+                  <input type="radio" name="registerMode" value={opt.v} checked={registerMode === opt.v} disabled={off} onChange={() => setRegisterMode(opt.v)} data-ai-verify={`register-mode-${opt.v}`} />
                   <span>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{opt.label}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{opt.hint}</div>
                   </span>
                 </label>
-              ))}
+                );
+              })}
             </div>
 
-            {registerMode === 'orderPrice' && (
+            {(registerMode === 'orderPrice' || registerMode === 'priceOnly') && (
               <div style={{ border: '1px solid #c7d2fe', background: '#f5f7ff', borderRadius: 8, padding: 12 }}>
+                {/* 파일 없이 「분배단가만 수정」을 쓰면 위의 거래처 선택칸(매칭 결과 영역)이 없어 기본 거래처가 조용히 쓰인다 → 여기서 직접 고른다 */}
+                {registerMode === 'priceOnly' && !items.length && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <span style={st.label}>거래처</span>
+                    <CustomerSearchSelect value={cust?.CustKey || ''} onChange={changeCustomer} placeholder="거래처 검색" />
+                    {cust?.CustName
+                      ? <span style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>선택: {cust.CustName}</span>
+                      : <span style={{ fontSize: 12, color: '#b45309' }}>거래처를 검색해 선택하세요</span>}
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                   <span style={st.label}>세부차수</span>
                   {priceTargets.loading && <span style={{ fontSize: 12, color: '#1565c0' }}>조회 중…</span>}
@@ -1824,6 +2031,7 @@ export default function OrderImportPage() {
                       <button
                         key={sw.orderWeek}
                         type="button"
+                        data-ai-verify={`subweek-${sw.orderWeek}`}
                         onClick={() => toggleSubWeek(sw.orderWeek)}
                         style={{
                           padding: '6px 14px', borderRadius: 18, fontSize: 13, cursor: 'pointer',
@@ -1849,7 +2057,90 @@ export default function OrderImportPage() {
                   </div>
                 )}
 
-                {selectedSubWeeks.length > 0 && (
+                {registerMode === 'priceOnly' && selectedSubWeeks.length > 0 && (
+                  <>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
+                      <div style={st.kpiBox}>분배행 <b>{priceOnlyRows.length}</b></div>
+                      <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{priceOnlyPlan.changes.length}</b></div>
+                      <div style={st.kpiBox}>동일 <b>{priceOnlyPlan.same.length}</b></div>
+                      {priceOnlyPlan.invalid.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fef2f2', borderColor: '#fca5a5', color: '#b91c1c' }}>단가 0/빈값 {priceOnlyPlan.invalid.length}건 — 적용 제외</div>
+                      )}
+                      {priceOnlyPlan.fixedWeeks.length > 0 && (
+                        <div style={{ ...st.kpiBox, background: '#fff7ed', borderColor: '#fdba74' }} title="확정 플래그(isFix)는 보존하고 Cost/Amount/Vat 만 갱신 (재고 재계산 없음)">
+                          🔒 확정차수 포함: {priceOnlyPlan.fixedWeeks.join(', ')} (확정 유지)
+                        </div>
+                      )}
+                      <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '4px 10px' }} onClick={() => setPriceEdits({})} disabled={!Object.keys(priceEdits).length} data-ai-verify="price-only-reset">
+                        입력 초기화
+                      </button>
+                    </div>
+                    <div style={{ overflowX: 'auto', marginBottom: 6 }}>
+                      <table style={st.table}>
+                        <thead>
+                          <tr>
+                            <th style={st.th}>세부차수</th>
+                            <th style={st.th}>품목</th>
+                            <th style={st.th}>출고수량</th>
+                            <th style={st.th}>현재 분배단가</th>
+                            <th style={st.th}>수정 단가</th>
+                            <th style={st.th}>차이</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {priceOnlyRows.map(r => {
+                            const diff = r.invalid ? 0 : r.newCost - Number(r.cost);
+                            const changed = !r.invalid && Math.abs(diff) >= 0.5;
+                            return (
+                              <tr key={r.sdetailKey} style={changed ? { background: '#eff6ff' } : undefined}>
+                                <td style={st.td}>{r.orderWeek}{r.isFix ? ' 🔒' : ''}</td>
+                                <td style={st.td}><b>{r.name}</b> <span style={{ color: '#94a3b8', fontSize: 10 }}>#{r.sdetailKey}</span></td>
+                                <td style={st.td}>{r.outQty} {r.outUnit || ''}</td>
+                                <td style={st.td}>{Number(r.cost).toLocaleString()}</td>
+                                <td style={st.td}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    data-testid={`price-only-input-${r.sdetailKey}`}
+                                    data-ai-verify={`price-only-input-${r.sdetailKey}`}
+                                    style={{ ...st.input, width: 110, padding: '4px 8px', fontWeight: changed ? 700 : 400, color: changed ? '#1d4ed8' : '#0f172a', borderColor: r.invalid ? '#fca5a5' : (r.edited ? '#1d4ed8' : '#cbd5e1') }}
+                                    value={priceEdits[String(r.sdetailKey)] ?? r.newCost}
+                                    onChange={e => setPriceEdits(prev => ({ ...prev, [String(r.sdetailKey)]: e.target.value }))}
+                                    title={r.fromUpload && !r.edited ? '업로드 표의 단가가 기본값으로 들어갔습니다' : '수정할 분배단가'}
+                                  />
+                                </td>
+                                <td style={{ ...st.td, color: diff >= 0 ? '#166534' : '#b91c1c' }}>
+                                  {changed ? `${diff >= 0 ? '+' : ''}${diff.toLocaleString()}` : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {priceOnlyRows.length === 0 && (
+                            <tr><td style={st.td} colSpan={6}>선택한 세부차수에 분배행이 없습니다.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        data-testid="price-only-apply"
+                        style={{ ...st.btn, ...st.btnPrimary, opacity: priceApplying || !priceOnlyPlan.changes.length ? 0.6 : 1 }}
+                        disabled={priceApplying || !priceOnlyPlan.changes.length}
+                        onClick={() => applyPrices().catch(() => {})}
+                        title="주문등록 없이 선택 세부차수의 분배단가만 입력값으로 수정 (ShipmentDetail Cost/Amount/Vat, 확정 상태 유지)"
+                      >
+                        {priceApplying ? '적용 중…' : `분배단가 수정 적용 (${priceOnlyPlan.changes.length}건)`}
+                      </button>
+                      <span style={{ fontSize: 11, color: '#64748b' }}>
+                        주문수량은 건드리지 않습니다. 수정 단가 입력칸을 바꾼 행만 적용됩니다.
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {registerMode === 'orderPrice' && selectedSubWeeks.length > 0 && (
                   <>
                     <div style={{ ...st.kpi, marginBottom: 6 }}>
                       <div style={st.kpiBox}>변경 <b style={{ color: '#1d4ed8' }}>{pricePlan.changes.length}</b></div>
@@ -1941,6 +2232,9 @@ export default function OrderImportPage() {
               onPickProduct={pickProduct}
               onClearProduct={clearProduct}
               onPersistMapping={handlePersistMapping}
+              onRequestMatchPopup={openMatchPopup}
+              subWeeks={priceTargets.subWeeks}
+              selectedSubWeeks={selectedSubWeeks}
             />
           <div style={{ ...st.card, marginBottom: 0, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
@@ -1963,7 +2257,7 @@ export default function OrderImportPage() {
                 >
                   전체 제외 해제
                 </button>
-                <button
+                {registerMode !== 'priceOnly' && <button
                   type="button"
                   style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || mixedUnitProducts.length || registering || !liveSummary.registerable ? 0.6 : 1 }}
                   disabled={!!liveSummary.unmatched || !!mixedUnitProducts.length || registering || !liveSummary.registerable}
@@ -1975,7 +2269,10 @@ export default function OrderImportPage() {
                     : registerMode === 'orderPrice'
                       ? `주문등록 + 분배단가 적용 (${matchAggregates.length}품목 / 단가 ${pricePlan.changes.length}건)`
                       : `주문등록 시작 (${matchAggregates.length}품목)`}
-                </button>
+                </button>}
+                {registerMode === 'priceOnly' && (
+                  <span style={{ fontSize: 12, color: '#475569' }}>「분배단가만 수정」 모드 — 위 「분배단가 수정 적용」 버튼으로 단가만 반영됩니다 (주문등록 없음)</span>
+                )}
               </div>
             </div>
 
@@ -2090,6 +2387,7 @@ export default function OrderImportPage() {
                           onPick={(p) => pickProduct(idx, p, row)}
                           onClear={() => clearProduct(idx)}
                           onPersistMapping={handlePersistMapping}
+                          onRequestPopup={openMatchPopup}
                           compact
                         />
                       </td>

@@ -1,4 +1,141 @@
+## [2026-11-05 11:10] 세션 — 분배단가만 수정 모드 + 데스크톱 AI 브리지 검증 통로
+
+### 작업 내용
+- 675c04d8 (#1536) 업로드 주문등록 등록 방식 3종: 주문등록만 / 주문등록+분배단가 적용 / 분배단가만 수정(거래처·차수 → 세부차수 → 현재 분배단가 + 수정 단가 입력 → 「분배단가 수정 적용」, update-cost 금액 전용, 주문등록 없음).
+- af94e13c (#1529) Desktop 1.3.14: 새 창 탭 window.close() 시 탭 닫기 확인창 생략.
+- ab9bad64 (#1538) AI 브리지 검증용 예외: 차단 경로에서도 `[data-ai-verify="id"]` 단독 셀렉터만 click/fill 허용. 저장·적용·등록 버튼엔 표식 금지.
+- 749b4fe1 (#1540) 거래처 검색·선택·차수 선택에 data-ai-verify 표식. 6b62f4ad (#1541) `.mcp.json` nenova-desktop 등록.
+- Desktop 1.3.15 릴리스(desktop-v1.3.15, 브리지 포함).
+- 브리지로 운영 화면 검증 완료: 주광농원 2026-44-01 → 분배단가만 수정 → 60행 표 → 입력 700→750 변경 1건 → 초기화. 적용 버튼은 브리지 403 차단(의도). DB 미변경.
+
+### 미검증
+- 「분배단가 수정 적용」 실제 DB 반영(설계상 브리지로 불가, 기존 금액 전용 API·테스트로 보장).
+
+### 메모
+- 데스크톱 앱 브리지 실행: `cd desktop; npx electron . --ai-bridge` 후 앱에서 로그인. 토큰 파일 `%APPDATA%\Nenova Desktop\ai-bridge-token.json`.
+- 운영 배포는 다른 PR과 겹치면 STALE_RELEASE 로 중단되므로 최신 master 의 성공 run 을 확인할 것.
+
+## [2026-11-05 01:40] 세션 — /pm 3D(베타) 품질 총개선 (PR #1534)
+
+### 작업 내용
+- 체형 교정(HEAD_K=0.55 + BODY_K=1.1 스트레치, 머리:전신 1:2.2→≈1:4) + build_wearables 동일 축소 패스, CHAR_SCALE 1.1
+- QUALITY_RECIPE 렌더: shadowMap OFF+블롭 그림자, kit AO 베이크(bake_kit_ao.py), Toon 5단 램프, RoomEnvironment 1회, ACES 1.05, fog/그라데이션/포말
+- 배경 밀도 lib/pm3dDecor.js(오두막·야자군락·산포, 주행로/좌석/허브 교차 0 테스트)
+- AI 브리지 page/scroll + MCP page_scroll + 테스트 + AI_BRIDGE.md
+- #1532 머지 후 rebase·에셋 재빌드(char→wearables→kit AO→render_shop)
+
+### 변경된 파일
+- components/pm3d/Scene3D.js, lib/pm3dDecor.js(신규), lib/pm3dLayout.js, lib/pmThemes.js
+- scripts/pm3d/build_char_kaykit.py, build_wearables.py, bake_kit_ao.py(신규), public/pm3d/*.glb·kit_ao.jpg, public/pm/shop/*
+- desktop/ai-bridge*.cjs, main.cjs, tests/ai-bridge.test.cjs, docs/desktop/AI_BRIDGE.md
+
+### 다음 작업 예정
+- 배포 후 라이브 3D 스탯 라인(fps) 브리지 캡처로 확인
+
+### 미결 이슈 / 블로킹
+- desktop/tests/updater.test.cjs 1건은 master 에서도 실패(기존 건)
+- fps 로컬 실측 불가(패널 백그라운드 1Hz 스로틀)
+
+## [2026-11-04 21:40] 세션 — Pivot 통계·발주관리 nenova.exe(DevExpress PivotGrid) 동일 디자인·조작법
+
+### 작업 내용
+- 규격: docs/PIVOT_EXE_DEVEXPRESS_LAYOUT_SPEC.md (dnSpy FormQuantityPivot/FormOrderHistory 필드·영역·SQL 근거)
+- /stats/pivot 전산 피벗: 별도 필드 배치판 제거 → 필드 버튼이 표 머리글 안(필터 위 / 값 왼쪽 위 / 열 위쪽 / 행 왼쪽)에 위치. 행·열 버튼 클릭=정렬, 깔때기=값 필터, 우클릭·⋯=필드 메뉴, 드래그 이동. 소계 "{값} Total" 연녹색, 하위 값 1개 그룹 소계 숨김(DevExpress ShowTotalsForSingleValues=false), null 머리글 빈칸. 웹 추가 기능은 "▸ 웹 추가 기능" 접이식 띠로 전부 유지.
+- /warehouse 발주관리: exe FormOrderHistory(OrderHistory 변경 이력) 원천의 새 API /api/warehouse/order-history-pivot(SELECT only) + OrderHistoryPivotPanel(차수/품목 룩업, 새로고침·엑셀·닫기, 더블클릭 원본 이력 창). 기존 WarehouseDetail 입고 피벗은 "기존 웹 피벗" 토글로 유지.
+- lib 피벗 엔진 필드 레지스트리 범용화(fields 옵션, 기본 EXE 동작 불변) — 하위 에이전트 sonnet / UI 재구성·발주관리 페이지 — opus
+- 브라우저 확인(localhost, 2026 44-01 2,486행 / 39-02 발주 이력 2,523행): 정렬, 메뉴 이동, 값 필터, 기본 배치 복원, 1366/1920 폭, 더블클릭 drill-down, popup=1 사이드바 0
+
+### 변경된 파일
+- components/PivotExeGrid.js, PivotExeGrid.module.css, PivotExePanel.js, ExePivotFieldArea.js(신규), ExePivotTheme.module.css(신규), OrderHistoryPivotPanel.js(신규)
+- lib/pivotExeModel.js, pivotExePresentation.js, pivotExeExport.js, pivotExeViewState.js, orderHistoryPivotFields.js(신규), orderHistoryPivotSql.js(신규), exeParity/registry.js
+- pages/warehouse.js, pages/api/warehouse/order-history-pivot.js(신규)
+- __tests__/pivotExeFieldRegistry.test.js, orderHistoryPivotPanel.test.js(신규), pivotExeInteraction.test.js, exeParitySql.test.js, scripts/pivot-exe-ui-smoke.cjs, package.json
+
+### 미결 이슈 / 미검증
+- HTML5 드래그 자체는 자동화로 재현 못 함(메뉴 이동으로 대체 확인) — 운영 배포 후 실브라우저 드래그 확인 필요
+- scripts/pivot-exe-ui-smoke.cjs 는 새 조작법으로 갱신했으나 실행 미검증
+- 운영 배포·push 미실행(사용자 지시 대기)
+
+## [2026-11-04 19:30] 세션 — 국가별 발주서 품목관리 반영 확인창 (PR #1519)
+
+### 작업 내용
+- PR #1519 머지(c50c79cf), 배포 run 41812469307 성공, buildId build-1793787464058 반영 확인
+- 송이수량 0 품목에 수량 입력 → [미리보기 생성] → "품목관리에 변경하시겠습니까?" 창(1단송이/1박스단수/1박스송이, 빈 계수만 제안) → 기존 /api/master/products-bulk 로 저장
+- 운영 재현: 네덜란드 44-02 Tulip(ProdKey 1937) 창에 10/1/제안 10 표시 확인. [저장 없이 생성] 경로 정상(73품목, 엑셀 다운로드)
+- [품목관리에 저장 후 생성] 실제 클릭은 자동 권한 분류기(공유 ERP 수정)에 막혀 미실행 → 사용자 직접 클릭 필요
+
+### 변경된 파일
+- lib/countryOrderSource.js(buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors), lib/countryOrderSourceApi.js(BoxWeight/BoxCBM/TariffRate SELECT)
+- components/import-tools/PedidosTool.js(dialog), 테스트 2개, docs/contracts/country-orders.json(delegatedWrites), docs/exe-golden/CountryOrders.md
+
+### 미결 이슈
+- ProdKey 1937 SteamOf1Box 저장(제안 10)은 사용자가 창에서 저장 버튼으로 실행
+- 이번 차수 전산 원주문 송이수량(CustKey 533) 전산 수정 필요
+
+## [2026-11-04 심야] 세션 — /pm 3D(베타) 밤샘 3~7단계 (PR #1520)
+
+### 작업 내용
+- 9f20aa44→ KayKit Rig_Medium 리그 캐릭터 교체(클립 9종, KI 춤 리타게팅)
+- 표정 12종 데칼+faceOf 연동 / 칩 겹침 declutter 실측화+회귀테스트
+- 맵 1.5배·둘레 보드워크·탈것 15종 glb/스프라이트/썸네일·ride/park/크루징(경로 충돌0 테스트 81건)
+- 발사체 기본 9종 fx.glb+스프라이트
+
+### 변경된 파일
+- scripts/pm3d/build_char_kaykit.py·build_faces.py·build_mounts.py·build_fx.py (신설)
+- components/pm3d/Scene3D.js, lib/pm3dRide.js(신설), lib/pm3dLayout.js, lib/pmThemes.js, components/pm/BgScene.js
+- public/pm3d/{char,mounts,fx}.glb, public/pm3d/face/, public/pm/mounts/, public/pm/fx/
+- __tests__/pm3dRide.test.js(신설), pm3dLayout.test.js, package.json(test:pm)
+
+### 다음 작업 예정
+- 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것 전용 탑승 클립, 목표달성 주행 트리거(danceEvents 연결)
+
+### 미결 이슈 / 블로킹
+- GitHub push 간헐 500(재시도로 해소). Kevin Iglesias 팩 재배포 금지 → 원본 미커밋 유지 필수
+
+## [2026-11-04] 세션 — 업로드 주문등록 품목 매칭 새 창(팝업) 선택
+
+### 작업 내용
+- 「변경」/「✎ 품목 변경」/미매칭 「품목 검색…」 클릭 시 새 창(pages/orders/product-match.js)에서 후보 선택. 서버 후보+전체 검색 최대 50개, ↑↓/Enter/Esc/더블클릭, 「매칭 해제」.
+- opener 는 token+창 참조를 pending 으로 보관, 같은 출처·같은 창 메시지만 수용 → 기존 handlePersistMapping + pickProduct(행 동일성 검사). 취소는 무변화. 팝업 차단 시 기존 인라인 검색 폴백.
+- 파서·주문저장·단가 API·서버 자동매칭 미변경.
+
+### 변경된 파일
+- pages/orders/import.js, pages/orders/product-match.js(신규), lib/orderImportMatchPopup.js(신규), __tests__/orderImportMatchPopup.test.js(신규), docs/contracts/order-import-shipment-list.json
+
+### 미결 이슈
+- 「주문등록」/「단가 적용」은 검증에서 누르지 않음
+
+## [2026-11-04 18:30] 세션 — 국가별 발주서 엑셀 다운로드 복구 (PR #1511)
+
+### 작업 내용
+- 98d88567 / b2f8963a / ca73796f (PR #1511, 머지 c8547ceb) — 수입부 업무도구 > 국가별 발주서
+- 원인: 저장 송이수량 0 품목 1개(네덜란드 44-02 Tulip ProdKey 1937, CustKey 533)가 차수 전체 [미리보기 생성]을 비활성 → 엑셀 다운로드 단계까지 못 감
+- 수정: 오류 품목 주황 행 + "⚠ 수량 오류 N건" 배너, 0인 업체 칸에 송이 입력창(파일에만 반영·MANUAL_QUANTITY 경고, 전산 미변경), [확인 필요 품목 제외하고 생성] 대안 버튼
+- 운영 반영: 배포 run 41806323516 성공, buildId build-1793784227673 PedidosTool 청크에 입력창·버튼 확인
+
+### 변경된 파일
+- lib/countryOrderSource.js: row.blocked/blockers, excludeBlockedCountryOrderRows, applyCountryOrderManualQuantities
+- components/import-tools/PedidosTool.js: 입력창·제외 버튼·배너, 다운로드 가드 canExport
+- __tests__/countryOrderSource.test.js, __tests__/pedidosToolCountryOrders.test.js
+
+### 미결 이슈
+- 튤립(ProdKey 1937) CustKey 533 송이수량 0은 전산 원주문에서 수정 필요(웹은 미변경)
+- 로컬 node_modules에 rrweb 없었음 → npm install 로 해결(로컬 전용)
+
 # PROGRESS.md — 작업 세션 로그
+
+## [2026-11-04] 세션 — 업로드 주문등록 「직접 수정」 탭 (분배단가 피벗)
+
+### 작업 내용
+- pages/orders/import.js 상단에 [파일 업로드](기본)/[직접 수정] 탭. 직접 수정 = 업체×품목 분배단가 피벗, 영역 선택 일괄 입력, 변경 되돌리기, 업체별 update-cost(price-only, isFix 보존) 적용, 화면 작업 로그.
+- 신규: pages/api/orders/import-price-pivot.js(읽기 전용), components/orders/DirectPricePivot.js, lib/orderImportPricePivot.js, __tests__/orderImportPricePivot.test.js
+- 계약: docs/contracts/order-import-shipment-list.json scope/actions 등록. update-cost 는 body 의 source 필드를 무시함(확인) → 화면 로그만 사용.
+
+### 다음 작업 예정
+- 운영 배포 후 실제 단가 적용 1건 육안 확인(이번 세션은 DB 쓰기 미실행)
+
+### 미결 이슈 / 블로킹
+- 「단가 수정 적용」 최종 실행은 미검증(운영 DB 쓰기 금지)
 
 ## [2026-11-03 후속] 로컬 전체 배포 게이트 통과
 - 최신91정책 포함verify:erp-change3차exit0.ERP계약/posttest19·dnSpy·manifest180·SQLwriteguard·webpack58초컴파일/전체페이지buildPASS.

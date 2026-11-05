@@ -51,7 +51,7 @@ test('CL prefixes recognized and numeric subweek suffix exact ordering', () => {
 });
 test('registered basis describes stems bunches boxes, zero and missing factors without guessing', () => {
   const basis = buildCountryOrderUnitBasis({ OutUnit: '단', SteamOf1Bunch: '10', BunchOf1Box: 20, SteamOf1Box: 200 });
-  assert.deepEqual(basis, { outUnit: '단', unit: 'bunches', steamOf1Bunch: 10, bunchOf1Box: 20, steamOf1Box: 200 });
+  assert.deepEqual(basis, { outUnit: '단', unit: 'bunches', steamOf1Bunch: 10, bunchOf1Box: 20, steamOf1Box: 200, boxWeight: null, boxCBM: null, tariffRate: null });
   assert.equal(formatCountryOrderUnitBasis(basis), '1단 = 10송이');
   assert.equal(formatCountryOrderUnitBasis({ ...basis, unit: 'boxes' }), '1박스 기준 · 20단 · 200송이');
   for (const factor of [0, null]) {
@@ -91,4 +91,65 @@ test('missing raw source totals remain unknown and block; conflict basis fails r
   assert.equal(matrix.rows[0].storedQuantities.steamQuantity, null); assert.equal(matrix.rows[0].storedQuantitiesByCustomer['1'].steamQuantity, null);
   assert.equal(matrix.rows[0].total, 20); assert.ok(matrix.blockers.length > 0); assert.match(formatCountryOrderStoredQuantities(matrix.rows[0].storedQuantities), /송이 미등록/);
   assert.throws(() => buildCountryOrderMatrix(response([native, { ...native, SteamOf1Bunch: 5 }]), '42-01'), /환산기준이 서로 다릅니다/);
+});
+
+test('blocked products are flagged per row and can be excluded for a partial export without conversion', async () => {
+  const { excludeBlockedCountryOrderRows } = await import('../lib/countryOrderSource.js');
+  const { generatePedidosFromMatrix } = await import('../lib/importPedidos.js');
+  const matrix = buildCountryOrderMatrix(response([row, { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01');
+  assert.equal(matrix.blockers.length, 1);
+  assert.equal(matrix.rows.find(r => r.prodKey === 1983).blocked, false);
+  assert.equal(matrix.rows.find(r => r.prodKey === 2990).blocked, true);
+  assert.deepEqual(matrix.rows.find(r => r.prodKey === 2990).blockers, matrix.blockers);
+  const partial = excludeBlockedCountryOrderRows(matrix);
+  assert.deepEqual(partial.blockers, []); assert.equal(partial.rows.length, 1); assert.equal(partial.rows[0].prodKey, 1983); assert.equal(partial.rows[0].total, 200);
+  assert.equal(partial.excludedRows.length, 1); assert.equal(partial.excludedRows[0].prodKey, 2990);
+  assert.match(partial.warnings.at(-1), /^EXCLUDED_BLOCKED_ROWS: missing \[ProdKey:2990\]/);
+  assert.equal(matrix.rows.length, 2, 'original matrix untouched');
+  const outputs = generatePedidosFromMatrix(partial);
+  assert.equal(outputs.length, 1); assert.equal(outputs[0].itemCount, 1); assert.equal(outputs[0].totalQuantity, 200);
+  assert.ok(outputs[0].warnings.some(w => w.startsWith('EXCLUDED_BLOCKED_ROWS')));
+  assert.throws(() => excludeBlockedCountryOrderRows(buildCountryOrderMatrix(response([{ ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 }]), '42-01')), /남는 품목이 없습니다/);
+  assert.throws(() => generatePedidosFromMatrix(matrix), /발주서 생성 차단/);
+});
+
+test('manual web quantities complete blocked rows for export only, never ERP, and reject incomplete entry', async () => {
+  const { applyCountryOrderManualQuantities } = await import('../lib/countryOrderSource.js');
+  const { generatePedidosFromMatrix } = await import('../lib/importPedidos.js');
+  const blockedRow = { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 };
+  const matrix = buildCountryOrderMatrix(response([row, blockedRow, { ...blockedRow, CustKey: 2, CustOrderCode: 'CL22' }]), '42-01');
+  const key = matrix.rows.find(r => r.prodKey === 2990).key;
+  assert.throws(() => applyCountryOrderManualQuantities(matrix, {}), /수량 입력이 필요합니다.*CustKey:1/);
+  assert.throws(() => applyCountryOrderManualQuantities(matrix, { [key]: { 1: '150' } }), /CustKey:2/);
+  assert.throws(() => applyCountryOrderManualQuantities(matrix, { [key]: { 1: '0', 2: '150' } }), /CustKey:1/);
+  const fixed = applyCountryOrderManualQuantities(matrix, { [key]: { 1: '150', 2: '90' } });
+  assert.deepEqual(fixed.blockers, []); const fixedRow = fixed.rows.find(r => r.prodKey === 2990);
+  assert.equal(fixedRow.blocked, false); assert.equal(fixedRow.quantities['1'], 150); assert.equal(fixedRow.quantities['2'], 90); assert.equal(fixedRow.total, 240);
+  assert.equal(fixed.rows.find(r => r.prodKey === 1983).total, 200);
+  assert.match(fixed.warnings.at(-1), /^MANUAL_QUANTITY: missing \[ProdKey:2990\].*송이 수량 CustKey:1 150, CustKey:2 90.*전산 원주문은 변경되지/);
+  assert.equal(matrix.rows.find(r => r.prodKey === 2990).blocked, true, 'source matrix untouched');
+  const outputs = generatePedidosFromMatrix(fixed);
+  assert.equal(outputs[0].itemCount, 2); assert.equal(outputs[0].totalQuantity, 440);
+});
+
+test('manual entry is required only for customers whose stored export quantity is missing', async () => {
+  const { applyCountryOrderManualQuantities } = await import('../lib/countryOrderSource.js');
+  const blockedRow = { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BunchQuantity: 120, SteamQuantity: 0, SteamOf1Bunch: 0 };
+  const okRow = { ...blockedRow, CustKey: 2, CustOrderCode: 'CL22', SteamQuantity: 50 };
+  const matrix = buildCountryOrderMatrix(response([blockedRow, okRow]), '42-01');
+  const key = matrix.rows[0].key;
+  assert.throws(() => applyCountryOrderManualQuantities(matrix, {}), /CustKey:1/);
+  const fixed = applyCountryOrderManualQuantities(matrix, { [key]: { 1: '100' } });
+  assert.equal(fixed.rows[0].quantities['1'], 100); assert.equal(fixed.rows[0].quantities['2'], 50); assert.equal(fixed.rows[0].total, 150);
+  assert.match(fixed.warnings.at(-1), /CustKey:1 100\b/); assert.doesNotMatch(fixed.warnings.at(-1), /CustKey:2/);
+});
+
+test('product snapshot and factor suggestion derive only missing factors from entered stems and stored bunches/boxes', async () => {
+  const { buildCountryOrderProductSnapshot, suggestCountryOrderProductFactors } = await import('../lib/countryOrderSource.js');
+  const blockedRow = { ...row, ProdKey: 2990, ProdName: 'missing', OutQuantity: 0, BoxQuantity: 2, BunchQuantity: 10, SteamQuantity: 0, SteamOf1Bunch: 0, BunchOf1Box: 5, SteamOf1Box: null, BoxWeight: 12.5, BoxCBM: null, TariffRate: 0.08 };
+  const matrix = buildCountryOrderMatrix(response([blockedRow]), '42-01'), target = matrix.rows[0];
+  assert.deepEqual(buildCountryOrderProductSnapshot(target.unitBasis), { BunchOf1Box: 5, SteamOf1Bunch: 0, BoxWeight: 12.5, BoxCBM: null, TariffRate: 0.08, SteamOf1Box: null });
+  assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '100' }), { SteamOf1Bunch: 10, SteamOf1Box: 50 });
+  assert.deepEqual(suggestCountryOrderProductFactors(target, {}), {});
+  assert.deepEqual(suggestCountryOrderProductFactors(target, { 1: '0' }), {});
 });

@@ -29,6 +29,7 @@ Source decompile: `C:\Users\USER\nenova-decompiled\Nenova\`
 | FormCustomerProdCost | exeCustomerProdCostSql.js | /master/pricing | /api/master/pricing-matrix |
 | FormShipmentDistribution | exeShipmentDistributionSql.js | /shipment/distribute | /api/shipment/distribute |
 | FormQuantityPivot | exeQuantityPivotSql.js | /shipment/week-pivot | /api/shipment/stock-status?view=quantityPivot |
+| FormOrderHistory | orderHistoryPivotSql.js | /warehouse (발주관리) | /api/warehouse/order-history-pivot |
 
 Registry: `lib/exeParity/registry.js`
 
@@ -55,7 +56,7 @@ Registry: `lib/exeParity/registry.js`
 
 ## 미포팅 (다음 후보)
 
-- FormOrderHistory, FormShipmentHistory
+- FormShipmentHistory
 - FormEstimateAdd
 - 마스터: Product, Customer, Code, User
 - FormFileUpload

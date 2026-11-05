@@ -1,5 +1,7 @@
 // components/pm3d/Scene3D.js — /pm 사무실 3D(베타). three.js 직교 아이소메트릭 카메라.
-// 에셋: public/pm3d/kit.glb(모듈) · char.glb(리그+클립 idle/sit_type/walk/doze/dance) — scripts/pm3d/build_assets.py 로 생성.
+// 에셋: public/pm3d/kit.glb(모듈, AO 베이크=scripts/pm3d/bake_kit_ao.py) · char.glb(리그+클립 idle/sit_type/walk/doze/dance).
+// 렌더 품질: nenova-pm/pm3d/QUALITY_RECIPE.md — 실시간 그림자 0(접지 블롭 평면) · AO 베이크(channel 1) ·
+//   MeshToonMaterial 5단 파스텔 램프(캐릭터) · RoomEnvironment 1회 · ACESFilmic 노출 1.2 · 배경 그라데이션+안개.
 // 확대·축소 = 배율 바(1% 단위)·맞춤 버튼만(휠 확대 없음). 확대했을 때만 드래그 이동.
 // WebGL 없음·로드 실패·저사양(첫 프레임 3초 초과 / FPS<20)이면 onFallback(reason) → 부모가 2D 장면을 보여 준다.
 import { useEffect, useRef, useState } from 'react';
@@ -7,11 +9,18 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { beachDecorGrid } from '../../lib/pm3dDecor';
+import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
+import { faceOf, isFaceId } from '../../lib/pmFaces';
+import { mountById, mountPose } from '../../lib/pmMounts';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT } from '../../lib/pm3dRide';
+import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
 const THEMES = PM3D.THEMES; const U = PM3D.ui;
@@ -21,7 +30,8 @@ const STAGE_HEX = PM3D.STAGE;
 const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
 const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
 const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const SEAT_Y = 0.46 * SET_SCALE - 0.42 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.95 * CHAR_SCALE + 0.35; // 앉은 엉덩이(리그 0.42)를 의자 좌판(0.46)에 맞춤
+const SEAT_Y = 0.46 * SET_SCALE - 0.52 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.78 * CHAR_SCALE + 0.35; // 앉은 엉덩이(비율 교정 후 sit 힙 ≈0.52 = 0.406×BODY_K+클립 오프셋)를 의자 좌판(0.46)에 맞춤. 1.78=교정 후 머리끝
+const RQ = PM3D.RENDER; // 렌더 품질 토큰(nenova-pm/pm3d/QUALITY_RECIPE.md 기준)
 
 function webglOk() {
   try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch { return false; }
@@ -32,20 +42,36 @@ function loadAssets() {
   const draco = new DRACOLoader(); draco.setDecoderPath('/pm3d/draco/'); draco.setDecoderConfig({ type: 'wasm' });
   const l = new GLTFLoader(); l.setDRACOLoader(draco);
   const t0 = performance.now();
-  kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb')]).then(([kit, ch]) => ({ kit, ch, loadMs: Math.round(performance.now() - t0) }));
+  kitP = Promise.all([l.loadAsync('/pm3d/kit.glb'), l.loadAsync('/pm3d/char.glb'), l.loadAsync('/pm3d/mounts.glb').catch(() => null)])
+    .then(([kit, ch, mounts]) => {
+      // 클립의 상수 scale 채널 제거(베이크는 전부 1) — 체형(BODY_TYPES)의 런타임 head 본 스케일을 믹서가 되돌리지 않게
+      for (const c of ch.animations || []) c.tracks = c.tracks.filter((t) => !t.name.endsWith('.scale'));
+      return { kit, ch, mounts, loadMs: Math.round(performance.now() - t0) };
+    });
   kitP.catch(() => { kitP = null; });
   return kitP;
 }
 function laptop() {
   const g = new THREE.Group();
-  const body = new THREE.MeshStandardMaterial({ color: U.laptop, roughness: 0.9 });
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), body); base.position.y = 0.01; base.castShadow = true; g.add(base);
+  const body = new THREE.MeshStandardMaterial({ color: U.laptop, roughness: 0.75 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.24), body); base.position.y = 0.01; g.add(base);
   const lid = new THREE.Group(); lid.position.set(0, 0.02, 0.12); lid.rotation.x = 0.35; // 화면 윗부분이 카메라 쪽으로 젖혀짐 g.add(lid);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.015), body); back.position.y = 0.1; back.castShadow = true; lid.add(back);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.015), body); back.position.y = 0.1; lid.add(back);
   const scr = new THREE.MeshStandardMaterial({ color: U.screenOn, emissive: U.screenOn, emissiveIntensity: 0.6, roughness: 1 }); scr.name = 'screen';
   const face = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.17), scr); face.position.set(0, 0.1, -0.009); face.rotation.y = Math.PI; lid.add(face);
   return g;
 }
+// 표정 텍스처(public/pm3d/face/<id>.webp — scripts/pm3d/build_faces.py). 캐시 공유, 로드 전엔 기존 얼굴 유지.
+const faceTexCache = new Map();
+function faceTexture(id, onReady) {
+  if (!isFaceId(id)) id = 'smile';
+  if (faceTexCache.has(id)) return faceTexCache.get(id);
+  const tex = new THREE.TextureLoader().load(`/pm3d/face/${id}.webp`, () => onReady?.());
+  tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+  faceTexCache.set(id, tex); return tex;
+}
+// 상태 → 작업 분위기(lib/pmMood 간이판: 3D 는 status 만 안다)
+const STATUS_VIBE = { working: 'work', off: 'doze', idle: 'break' };
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
@@ -53,7 +79,7 @@ function emojiSprite(txt) {
   s.scale.set(0.8, 0.8, 1); s.renderOrder = 10; return s;
 }
 
-export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
+export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
   const { avatars } = usePmTheme();
   const host = useRef(null); const labelsRef = useRef(null);
   const api = useRef(null);
@@ -61,7 +87,7 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
   const [stat, setStat] = useState('');
   const dataRef = useRef({ rooms, agents, links, avatars, reduced });
   dataRef.current = { rooms, agents, links, avatars, reduced };
-  const T = THEMES[themeId] || THEMES.B;
+  const T = THEMES[themeId] || THEMES.I;
 
   // 장면 생성(테마 바뀌면 다시)
   useEffect(() => {
@@ -71,14 +97,68 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     const mountAt = performance.now();
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // QUALITY_RECIPE: 전역 shadowMap 금지(그림자 = 접지 블롭 평면) + ACESFilmic 톤매핑
+    renderer.shadowMap.enabled = false;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = RQ.exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(T.bg);
-    scene.add(new THREE.HemisphereLight(U.hemiSky, U.hemiGround, 1.6));
-    const sun = new THREE.DirectionalLight(T.light, 2.0); sun.position.set(-12, 22, 14); sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024); sun.shadow.radius = 4; sun.shadow.bias = -0.0008;
+    const scene = new THREE.Scene();
+    // 배경: 세로 그라데이션(bgTop→bg) + 같은 톤 안개로 깊이감
+    {
+      const c = document.createElement('canvas'); c.width = 2; c.height = 256; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, T.bgTop || T.bg); gr.addColorStop(1, T.bg);
+      g.fillStyle = gr; g.fillRect(0, 0, 2, 256);
+      const bgTex = new THREE.CanvasTexture(c); bgTex.colorSpace = THREE.SRGBColorSpace;
+      scene.background = bgTex;
+    }
+    scene.fog = new THREE.Fog(new THREE.Color(T.bg), RQ.fogNear, RQ.fogFar);
+    // 환경광: RoomEnvironment 1회 생성 → PMREM 1개 → 즉시 dispose(QUALITY_RECIPE ②-4, 매 프레임 재생성 금지)
+    {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment()).texture;
+      scene.environmentIntensity = RQ.env;
+      pmrem.dispose();
+    }
+    scene.add(new THREE.HemisphereLight(U.hemiSky, U.hemiGround, RQ.hemi));
+    const sun = new THREE.DirectionalLight(T.light, RQ.sun); sun.position.set(-12, 22, 14); // 그림자 없는 약한 키 라이트(방향감만)
     scene.add(sun); scene.add(sun.target);
+    // 접지 블롭 그림자(평면+방사형 그라데이션) — 공짜 contact shadow
+    const blobTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      const gr = g.createRadialGradient(64, 64, 6, 64, 64, 62);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.65, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    })();
+    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, color: RQ.blob.color, transparent: true, opacity: RQ.blob.opacity, alphaMap: blobTex, depthWrite: false });
+    const blobGeo = new THREE.PlaneGeometry(1, 1);
+    const blob = (parent, x, z, rx, rz, y = 0.015) => {
+      const m = new THREE.Mesh(blobGeo, blobMat);
+      m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(rx * 2, rz * 2, 1); m.renderOrder = 1;
+      parent.add(m); return m;
+    };
+    // 캐릭터 톤 셰이딩: 5단 파스텔 램프(NearestFilter 필수) — 말랑 클레이 음영
+    const toonRamp = (() => {
+      const steps = new Uint8Array(RQ.toonRamp);
+      const t = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
+      t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
+    })();
+    const toonify = (root) => root.traverse((m) => {
+      if (!(m.isMesh || m.isSkinnedMesh) || !m.material) return;
+      const s = m.material;
+      const tm = new THREE.MeshToonMaterial({ color: s.color?.clone?.() || new THREE.Color('#ffffff'), gradientMap: toonRamp, map: s.map || null, transparent: s.transparent, opacity: s.opacity, side: s.side });
+      tm.name = s.name; m.material = tm;
+    });
+    // 정적 모듈(kit) 클레이 질감: roughness 0.6~0.8 클램프 + AO 베이크(kit_ao.jpg, TEXCOORD_1) 주입
+    const kitAo = new THREE.TextureLoader().load('/pm3d/kit_ao.jpg', () => st.poke?.(), undefined, () => {});
+    kitAo.flipY = false; kitAo.channel = 1;
+    const clay = (mesh) => {
+      const m = mesh?.material ?? mesh; // 메시 또는 재질 모두 허용
+      if (!m || m.roughness === undefined) return;
+      m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0;
+      // AO 베이크(TEXCOORD_1)가 있는 kit 메시에만 주입 — uv1 없는 메시(mounts 등)에 붙이면 셰이더 경고
+      if (!m.aoMap && mesh?.geometry?.attributes?.uv1) { m.aoMap = kitAo; m.aoMapIntensity = RQ.aoIntensity; }
+    };
     const cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
     const pan = new THREE.Vector3();
     const st = { fit: 10, zoom: 1, people: new Map(), stations: [], robots: [], lines: [], clickables: [], built: false, clock: new THREE.Clock(), frames: 0, fpsT0: 0, firstFrame: null, checked: false };
@@ -91,55 +171,121 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
     };
     const ro = new ResizeObserver(placeCam); ro.observe(el);
 
-    const build = ({ kit, ch, loadMs }) => {
-      const mod = (n) => { const o = kit.scene.getObjectByName(n); if (!o) return new THREE.Group(); const c = o.clone(true); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return c; };
+    const build = ({ kit, ch, mounts, loadMs }) => {
+      const mod = (n) => { const o = kit.scene.getObjectByName(n); if (!o) return new THREE.Group(); const c = o.clone(true); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) clay(m); }); return c; };
       const put = (n, x, z, ry = 0, s = 1) => { const o = mod(n); o.position.set(x, 0, z); o.rotation.y = ry; o.scale.setScalar(s); scene.add(o); return o; };
-      const { desks, plates } = layoutDesks(dataRef.current.rooms);
-      const { hx, hz } = floorBounds(desks);
-      st.fit = sceneFit(hx, hz); placeCam();
-      sun.shadow.camera.left = -hx - 4; sun.shadow.camera.right = hx + 4; sun.shadow.camera.top = hz + 4; sun.shadow.camera.bottom = -hz - 4; sun.shadow.camera.far = 80; sun.shadow.camera.updateProjectionMatrix();
-      for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) { const f = put(T.floor, x, z); f.traverse((m) => { if (m.isMesh) m.castShadow = false; }); }
+      st.mounts = mounts ? mounts.scene : null;
+      const lay = T.layout || {};
+      const { desks, plates, world } = layoutDesks(dataRef.current.rooms);
+      const { hx, hz } = floorBounds(desks, lay.mapScale || 1);
+      const island = T.props !== 'office'; // 해변 = 격자 섬 세계(lib/pm3dGrid), 사무실 테마 = 기존 사각 바닥
+      st.bounds = island ? { ...CRUISE_BOUNDS } : { hx, hz };
+      st.world = world;
+      const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
+      st.fit = sceneFit(fb.hx, fb.hz); placeCam();
+      // 연구실 로봇 자리(섬: 1호 섬 남쪽 해변 끝단 칸 점유 — 장식보다 먼저, 다리 착지 열 제외)
+      const robotSpots = [];
+      if (island) for (const X of [-11, -9, -7, -5, 3, 5, 7, 9]) { const c = [{ X, Z: 11 }]; if (canOccupy(world, c)) { occupy(world, c, `robot:${X}`); robotSpots.push(cellCenter(X, 11)); } }
+      if (!island) for (let x = -hx + 1; x < hx; x += 2) for (let z = -hz + 1; z < hz; z += 2) put(T.floor, x, z);
       // 테마 장식
-      if (T.props === 'office') {
+      if (!island) {
         for (let x = -hx + 1; x < hx; x += 2) put('wall', x, -hz);
         for (let z = -hz + 1; z < hz; z += 2) put('wall', -hx, z, Math.PI / 2);
-        [[-hx + 1, -hz + 1.2], [hx - 1, -hz + 1.2], [hx - 1, hz - 1], [-hx + 1.2, hz - 1]].forEach(([x, z]) => put('plant', x, z));
+        [[-hx + 1, -hz + 1.2], [hx - 1, -hz + 1.2], [hx - 1, hz - 1], [-hx + 1.2, hz - 1]].forEach(([x, z]) => put('plant_k1', x, z));
+        put('lamp_k', -hx + 2.2, -hz + 1.1); put('lamp_k', hx - 2.3, hz - 1.3);
         put('parcel', hx - 2.4, -hz + 1.3); put('parcel', hx - 2.9, -hz + 1.6, 0.5, 0.8);
         for (const p of plates) put('partition', p.x, p.z - Math.sign(p.z) * 0.1);
       } else {
-        for (let x = -hx + 1; x < hx; x += 2) { put('sea', x, -hz - 1); put('sea', x, -hz - 3); }
-        for (let x = -hx + 1; x < hx; x += 2) put('boardwalk', x, 0, Math.PI / 2);
-        [[-hx + 0.8, -hz + 1], [hx - 0.8, -hz + 1.4], [-hx + 0.9, hz - 1], [hx - 1, hz - 1.2], [0, -hz + 0.9]].forEach(([x, z], i) => put('palm', x, z, i));
-        put('hut', -hx + 1.6, -2.4); put('hut', hx - 1.6, 2.4); put('rock', -hx + 2, -hz + 1.5); put('rock', hx - 3, hz - 0.8);
-        for (const p of plates) { put('parasol', p.x, p.z, 0, 1.1); put('surfboard', p.x + 2.6, p.z, 0.3); }
+        // 격자 섬 세계: 바다 평면 1장 + 칸 타일 종류별 InstancedMesh(드로콜 = 종류 수) · 시설 존은 예약 칸 연한 테두리만
+        const GC = PM3D.GRID;
+        const wb = worldBounds(world);
+        {
+          const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60), new THREE.MeshStandardMaterial({ color: T.sea || GC.sea, roughness: 0.6 }));
+          sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
+        }
+        const tiles = tilesOf(world);
+        const tileH = { beach: 0.08, sand: 0.1, path: 0.11, plaza: 0.12, boardwalk: 0.13, bridge: 0.13 };
+        const tGeo = new THREE.BoxGeometry(1, 1, 1);
+        const m4 = new THREE.Matrix4(); const q0 = new THREE.Quaternion(); const v0 = new THREE.Vector3(); const s0 = new THREE.Vector3();
+        for (const [kind, h] of Object.entries(tileH)) {
+          const list = tiles[kind]; if (!list.length) continue;
+          const mat = new THREE.MeshStandardMaterial({ color: GC[kind], roughness: 0.8 });
+          const im = new THREE.InstancedMesh(tGeo, mat, list.length);
+          const gap = kind === 'boardwalk' || kind === 'bridge' ? 0.94 : 1;
+          list.forEach((t, i) => { m4.compose(v0.set(t.x, -h / 2, t.z), q0, s0.set(CELL * gap, h, CELL * gap)); im.setMatrixAt(i, m4); });
+          im.instanceMatrix.needsUpdate = true; scene.add(im);
+        }
+        // 시설 예약 부지(수영장·카트트랙·비행장) — 연한 테두리 선만(실물은 애셋 도착 후)
+        for (const r of facilityRects(world)) {
+          const g = new THREE.BufferGeometry().setFromPoints([[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x0, r.z0]].map(([x, z]) => new THREE.Vector3(x + (x === r.x0 ? 0.1 : -0.1), 0.02, z + (z === r.z0 ? 0.1 : -0.1))));
+          const ln = new THREE.Line(g, new THREE.LineBasicMaterial({ color: GC.reserved, transparent: true, opacity: 0.7 }));
+          ln.userData = { kind: 'reserved', zone: r.kind, label: r.label }; scene.add(ln);
+        }
+        // 배경 밀도 — 야자수·바위·조개·불가사리를 비점유 해변 끝단 칸에만(lib/pm3dDecor.beachDecorGrid, 칸 점유 기록)
+        const D = beachDecorGrid(world);
+        for (const p of D.palms) { const o = put('palm', p.x, p.z, p.ry, p.s); blob(o, 0, 0, 0.75 * p.s, 0.75 * p.s); }
+        for (const q of D.scatter) put(q.m, q.x, q.z, q.ry, q.s);
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
         const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z);
         o.userData = { kind: 'stage', no: s.no, label: s.label }; st.stations.push(o); st.clickables.push(o);
+        blob(o, 0, 0, 1.0, 0.95);
       });
+      // 중앙 허브 "회사 심장" — 받침대 위 떠 있는 수정구(파스텔 자체발광 · 느린 회전+부유). lib/pm3dHub 위치(주행로·좌석·스테이션 교차 0, 테스트 보증)
+      {
+        const HC = PM3D.HUB;
+        const grp = new THREE.Group(); grp.position.set(HUB_POS.x, 0, HUB_POS.z); scene.add(grp);
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.8 }));
+        ped.position.y = HUB_PEDESTAL_H / 2; grp.add(ped);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.82, HUB_R * 0.72, 0.08, 14), new THREE.MeshStandardMaterial({ color: HC.pedestalTop, roughness: 0.7 }));
+        top.position.y = HUB_PEDESTAL_H + 0.04; grp.add(top);
+        const orbMat = new THREE.MeshStandardMaterial({ color: HC.crystal, emissive: HC.glow, emissiveIntensity: 0.55, roughness: 0.25, transparent: true, opacity: 0.95 });
+        const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(HUB_ORB_R, 2), orbMat); orb.position.y = HUB_ORB_Y; grp.add(orb);
+        blob(grp, 0, 0, HUB_R * 1.15, HUB_R * 1.1);
+        st.hub = { grp, orb, orbMat, arrivals: [], particles: [], rings: [], pulseAt: -1e9, bobPh: 0 };
+      }
       // 연구실 로봇(AI 에이전트) — 뒤쪽 줄
       (dataRef.current.agents || []).slice(0, 8).forEach((a, i) => {
-        const o = put('robot', -hx + 2 + i * 1.6, hz - 1.6, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        const rp = island ? robotSpots[i] : null;
+        if (island && !rp) return;
+        const o = put('robot', rp ? rp.x : -hx + 2 + i * 1.8, rp ? rp.z : hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; } });
+        blob(o, 0, 0, 0.55, 0.5);
         st.robots.push(o);
       });
       // 직원 자리
       for (const d of desks) {
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
         const dstyle = deskStyle(d.dept, '', PM3D.DESK_SKINS);
-        const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE); g.add(desk);
-        if (dstyle.color) desk.traverse((m) => { if (m.isMesh && /^desk/.test(m.material?.name || '')) { m.material = m.material.clone(); m.material.color.set(dstyle.color); } });
-        // 낮은 노트북(화면 높이 0.2m) — 화면은 캐릭터 쪽(-Z), 뒷면이 얼굴을 가리지 않음
-        const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, DESK_H + 0.01, -0.07); g.add(mon);
-        const chair = mod('chair'); chair.scale.setScalar(SET_SCALE); chair.position.set(0, 0, -SEAT_Z); g.add(chair);
+        const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE);
+        // Kenney desk_k1 은 피벗이 모서리에 있음 → 바닥 중심(그룹 원점)으로 재중심(x/z), 바닥 y=0 맞춤.
+        // 이게 빠지면 책상이 자리에서 대각선으로 밀려 "의자+캐릭터 따로, 책상 따로" 로 보인다(사장님 스크린샷 회귀).
+        const dbb = new THREE.Box3().setFromObject(desk); const dc = dbb.getCenter(new THREE.Vector3());
+        desk.position.set(-dc.x, -dbb.min.y, -dc.z); g.add(desk);
+        blob(g, 0, 0.05, 1.05, 0.75); // 책상 접지 그림자
+        const chairBlob = blob(g, 0, -SEAT_Z, 0.52, 0.48, 0.02); // 의자·캐릭터 접지 그림자(체형 s 를 따라감)
+        if (dstyle.color) desk.traverse((m) => { if (m.isMesh && m.material) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.4); } }); // 부서색 틴트
+        // 낮은 노트북(화면 높이 0.2m) — 실측 책상 상판 높이 위에 얹음(고정 DESK_H는 Kenney 책상보다 높아 공중부양). 화면은 캐릭터 쪽(-Z).
+        const deskTopY = dbb.max.y - dbb.min.y;
+        const mon = laptop(); mon.scale.setScalar(SET_SCALE); mon.position.set(0, deskTopY + 0.01, -0.07); g.add(mon);
+        const chair = mod(dstyle.chair || 'chair_k1'); // Kenney 의자도 피벗 보정 후 좌석(0,0,-SEAT_Z)에 중심 배치
+        const cbb = new THREE.Box3().setFromObject(chair); const cc = cbb.getCenter(new THREE.Vector3());
+        chair.position.set(-cc.x, -cbb.min.y, -SEAT_Z - cc.z); g.add(chair);
+        // 격자 섬: 자리 = 파라솔+책상(파라솔 색 = 부서색). 자리 칸(2×2/3×3) 안쪽 뒤 모서리
+        if (island) {
+          const ps = mod('parasol'); const k = (d.size || 2) * CELL / 2 - 0.35; ps.position.set(k, 0, -k); ps.scale.setScalar(0.85); g.add(ps);
+          if (dstyle.color) ps.traverse((m) => { if (m.isMesh && m.material && !/pole|stick|wood/i.test(m.material.name || '')) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.55); } });
+        }
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
-        ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.castShadow = true; m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
+        ch2.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { m.frustumCulled = false; if (m.material) m.material = m.material.clone(); } });
+        toonify(ch2); // 5단 파스텔 toon 램프(QUALITY_RECIPE ②-3) — 색 갈아입히기는 재질 이름으로 그대로 동작
         g.add(ch2);
         const mixer = new THREE.AnimationMixer(ch2);
         const acts = Object.fromEntries(ch.animations.map((c) => [c.name, mixer.clipAction(c)]));
         const emo = emojiSprite(' '); emo.position.set(0, HEAD_Y, -SEAT_Z); emo.visible = false; g.add(emo);
-        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), walk: null, stage: null, decor: [], d };
+        const person = { name: d.person.name, g, desk, mon, ch: ch2, mixer, acts, cur: '', emo, emoTxt: '', home: new THREE.Vector3(0, SEAT_Y, -SEAT_Z), deskTop: deskTopY, walk: null, stage: null, decor: [], d, blobChar: chairBlob };
         ch2.userData = { kind: 'person', name: d.person.name };
         st.clickables.push(ch2, desk);
         desk.userData = { kind: 'person', name: d.person.name };
@@ -155,45 +301,128 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       if (!st.built) return;
       const { rooms: rs, links: ls, avatars: av } = dataRef.current;
       const byName = new Map(); for (const r of rs || []) for (const p of r.seats || []) if (!p.empty) byName.set(p.name, p);
-      const cur = new Map(); for (const l of ls || []) if (l.kind === 'current' && l.stage) cur.set(l.name, l.stage);
+      const cur = new Map(); const curSig = new Map();
+      for (const l of ls || []) if (l.kind === 'current' && l.stage) { cur.set(l.name, l.stage); curSig.set(l.name, `${l.stage}|${l.text || ''}`); }
       for (const ln of st.lines) scene.remove(ln.obj); st.lines = [];
       for (const [name, P] of st.people) {
         const p = byName.get(name) || { status: 'off' };
         const L = look3d(av?.[name], name);
         P.ch.traverse((m) => {
+          // 착용 소품·종족 부속 = char.glb 전용 모델(본 스키닝, scripts/pm3d/build_wearables.py) — 이름 일치만 보이기.
+          //   다중 재질 모델은 로더가 그룹(이름 유지) + 자식 메시(데이터명)로 쪼개므로, 메시가 아니어도 이름으로 토글한다.
+          const nm = m.name || '';
+          if (/^hat_/.test(nm)) { m.visible = nm === L.hat; return; }
+          if (/^gls_/.test(nm)) { m.visible = nm === L.glasses; return; }
+          if (/^hnd_/.test(nm)) { m.visible = nm === L.hand; return; }
+          if (/^bdg_/.test(nm)) { m.visible = nm === L.badge; return; }
+          if (/^race_/.test(nm)) { m.visible = nm === L.raceMesh; return; }
           if (!m.isMesh && !m.isSkinnedMesh) return;
           const n = m.material?.name || '';
           if (n === 'top') m.material.color.set(L.top); else if (n === 'bottom') m.material.color.set(L.bottom);
-          else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') m.material.color.set(L.hair);
-          if (/^hat_/.test(m.name)) m.visible = m.name === L.hat;
+          else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') { m.material.color.set(L.hair); m.visible = !L.hideHair; }
+        });
+        // 체형(선택형 3종, lib/pm3dLayout.BODY_TYPES): head 본 스케일 + 전체 스케일 — glb 1개로 귀염/밸런스/늘씬.
+        //   모자·안경·종족 부속은 head 본 스키닝이라 소켓이 자동 추종, 좌석 y·블롭 그림자도 체형을 따른다.
+        const BM = bodyMetrics(L.bodyType);
+        if (P.bodyId !== BM.id) {
+          P.bodyId = BM.id;
+          P.ch.scale.setScalar(CHAR_SCALE * BM.s);
+          const hb = P.ch.getObjectByName('head'); if (hb) hb.scale.setScalar(BM.head);
+          P.home.y = BM.seatY;
+          if (!P.walk && !P.riding && !P.cruise) P.ch.position.y = BM.seatY;
+          P.emoY = BM.headTop * CHAR_SCALE + 0.3;
+          P.emo.position.y = P.emoY;
+          if (P.blobChar) P.blobChar.scale.set(1.04 * BM.s, 0.96 * BM.s, 1);
+          st.poke?.();
+        }
+        // 표정: 춤 > 작업 분위기(status) > 직원 기본 표정 > smile (lib/pmFaces.faceOf)
+        const faceId = faceOf({ vibe: STATUS_VIBE[p.status] || '', defaultFace: L.face }) || (isFaceId(L.face) ? L.face : 'smile');
+        P.ch.traverse((m) => {
+          if ((m.isMesh || m.isSkinnedMesh) && m.material?.name === 'face' && P.faceId !== faceId) {
+            m.material.map = faceTexture(faceId, () => { st.poke?.(); m.material.needsUpdate = true; });
+            m.material.needsUpdate = true; P.faceId = faceId;
+          }
         });
         if (L.desk) P.desk.traverse((m) => { if (m.isMesh && m.material?.name === 'desk_top') { m.material = m.material.clone(); m.material.color.set(L.desk); } });
         for (const o of P.decor) P.g.remove(o); P.decor = [];
-        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.scale.setScalar(PROP_SCALE * (k === 'plant' ? 0.5 : 1)); P.g.add(o); P.decor.push(o); });
-        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 1 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); pet.castShadow = true; P.g.add(pet); P.decor.push(pet); }
+        L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.position.y = (P.deskTop ?? DESK_H) + 0.005; o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
+        // 책장·큰 소품(구매 shelf) — 책상 오른쪽 뒤 바닥(kit.glb shelf_* 모듈). 그림자=블롭 방식이라 cast/receive 불필요
+        if (L.shelf) { const o = kitMod(L.shelf); o.position.set(1.45, 0, -SEAT_Z - 0.15); o.rotation.y = -0.35; P.g.add(o); P.decor.push(o); }
+        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 0.8 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
-        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, P.emoY ?? HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
+        // 탈것(슬롯 mount): 평소 책상 옆 park, 이동은 ride, PC 꺼짐 hidden (lib/pmMounts.mountPose)
+        const mdef = mountById(L.mount);
+        const mpose = mdef ? mountPose(p.status, !!(P.walk || P.cruise)) : 'hidden';
+        if ((mdef?.id || '') !== P.mountId) {
+          if (P.mountObj) { P.g.remove(P.mountObj); P.mountObj = null; }
+          if (mdef && st.mounts) {
+            const src = st.mounts.getObjectByName('mount_' + mdef.id.replace(/-/g, '_'));
+            if (src) {
+              const o = src.clone(true);
+              o.traverse((m) => { if (m.isMesh) { if (m.material) { m.material = m.material.clone(); clay(m); } } });
+              o.scale.setScalar(CHAR_SCALE); P.g.add(o); P.mountObj = o;
+              P.mountSeat = (src.userData?.seatZ ?? 0.3) * CHAR_SCALE; P.mountRide = src.userData?.pose || mdef.ride;
+            }
+          }
+          P.mountId = mdef?.id || '';
+        }
+        if (P.mountObj && !P.riding) { // park: 책상 왼쪽 바닥(종류별 자세 — lib/pm3dHub.parkPose)
+          P.mountObj.visible = mpose !== 'hidden';
+          applyPark(P);
+        }
         const stg = cur.get(name) || null;
-        if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) P.walk = { t: 0, to: stg };
+        if (stg && P.stage != null && stg !== P.stage && !dataRef.current.reduced) {
+          const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
+          if (P.mountObj && mpose !== 'hidden' && rides < RIDE_MAX_CONCURRENT) {
+            const sp = stationPos(stg);
+            const path = (P.d.island > 0 && st.world && walkPath(st.world, P.d, { x: sp.x, z: P.d.z >= 0 ? 1.35 : -1.35 })) || ridePath(P.d, stg, st.bounds || {}); // 다른 섬 자리는 격자 경로(다리 경유)
+            P.walk = { t: 0, to: stg, ride: { path, len: pathLength(path), speed: mdef.speed || 1.2 } };
+          } else P.walk = { t: 0, to: stg };
+        }
         P.stage = stg;
+        // 업무 라인 흐름: 작업 이벤트(현재 작업 텍스트/단계 변화) 처리 시 자리→허브로 빛 알갱이 2~3개(아치 경로, 상한 12)
+        const sig = curSig.get(name) || '';
+        if (st.hub && sig && P.flowSig !== undefined && sig !== P.flowSig && p.status === 'working' && !dataRef.current.reduced) spawnFlow(P);
+        P.flowSig = sig;
+        // 출근 직후(off→working) 짧은 둘레 주행 · 휴식자 가끔 크루징 — 동시 3명 상한, reduced 땐 없음
+        if (P.mountObj && !dataRef.current.reduced && st.bounds) {
+          const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
+          const now = Date.now();
+          if (P.prevStatus === 'off' && p.status === 'working' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+            P.cruise = { t0: now, dur: 6000, from: Math.random() };               // 출근 한 바퀴 살짝
+          } else if (p.status === 'idle' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+            const slot = Math.floor(now / 180000);                                 // 3분 창마다 해시 추첨
+            let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+            if ((h + slot) % 7 === 0 && P.cruiseSlot !== slot) { P.cruiseSlot = slot; P.cruise = { t0: now, dur: 12000, from: (h % 100) / 100 }; }
+          }
+        }
+        P.prevStatus = p.status;
         if (stg) {
-          const sp = stationPos(stg); const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = 0.9;
-          const b = new THREE.Vector3(sp.x, 1.0, sp.z); const mid = a.clone().lerp(b, 0.5); mid.y = 3;
+          // 머리 위 아치(캐릭터 관통 방지, lib/pm3dLayout ARC_Y — 테스트 있음)
+          const sp = stationPos(stg); const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = ARC_Y.start;
+          const b = new THREE.Vector3(sp.x, ARC_Y.end, sp.z); const mid = a.clone().lerp(b, 0.5); mid.y = ARC_Y.mid;
           const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-          const geo = new THREE.TubeGeometry(curve, 24, 0.035, 5, false);
-          const obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: STAGE_HEX[stg - 1], transparent: true, opacity: 0.85 }));
+          const geo = new THREE.TubeGeometry(curve, 24, 0.028, 5, false);
+          const obj = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: STAGE_HEX[stg - 1], transparent: true, opacity: 0.55 }));
           const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), new THREE.MeshBasicMaterial({ color: U.dot }));
           obj.add(dot); scene.add(obj); st.lines.push({ obj, curve, dot, ph: Math.random() });
         }
         playClip(P, P.walk ? 'walk' : P.clip, P.walk ? 1 : P.speed);
       }
+      // 로봇(AI 에이전트): 작업중=선명, 대기=흐림
+      const ags = dataRef.current.agents || [];
+      for (const r of st.robots) {
+        const a2 = ags[r.userData.i]; const on = a2?.status === 'working';
+        r.traverse((m) => { if (m.isMesh) m.material.opacity = on ? 1 : 0.45; });
+      }
       const labels = labelsRef.current; if (labels) labels.dataset.n = String(st.people.size);
     };
     let kitScene = null;
-    const kitMod = (n) => { const o = kitScene?.getObjectByName(n); const c = o ? o.clone(true) : new THREE.Group(); c.position.set(0, 0, 0); return c; };
+    const kitMod = (n) => { const o = kitScene?.getObjectByName(n); const c = o ? o.clone(true) : new THREE.Group(); c.position.set(0, 0, 0); c.traverse((m) => { if (m.isMesh) clay(m); }); return c; };
     const playClip = (P, name, speed) => {
       const a = P.acts[name]; if (!a) return;
       a.timeScale = speed;
@@ -201,20 +430,50 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
       const prev = P.acts[P.cur]; a.reset().play(); if (prev) a.crossFadeFrom(prev, 0.3, false);
       P.cur = name;
     };
+    // 자리→허브 빛 알갱이(머리 위 아치 — 기존 연결선과 같은 ARC_Y 높이, 캐릭터 관통 없음)
+    const spawnFlow = (P) => {
+      const H = st.hub; if (!H) return;
+      const n = flowSpawnCount(H.particles.length, (performance.now() / 16) | 0);
+      if (n <= 0) return;
+      const a = new THREE.Vector3(); P.g.localToWorld(a.copy(P.home)); a.y = ARC_Y.start;
+      const b = new THREE.Vector3(HUB_POS.x, HUB_ORB_Y, HUB_POS.z);
+      const mid = a.clone().lerp(b, 0.5); mid.y = ARC_Y.mid;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: PM3D.HUB.particle, transparent: true, opacity: 0.9 }));
+        m.position.copy(a); scene.add(m);
+        H.particles.push({ m, curve, t: -i * 0.12 }); // 같은 이벤트 알갱이는 줄지어 따라감
+      }
+      st.poke?.();
+    };
+    // 탈것 주차(책상 옆): 보드류=기대 세움 · 동물류=엎드림 · 비행류=부유(lib/pm3dHub.parkPose)
+    const applyPark = (P) => {
+      const o = P.mountObj; if (!o) return;
+      const pp = parkPose(mountById(P.mountId)) || { x: -1.15, y: 0, z: 0.35, rotY: 0.5, rotZ: 0, sy: 1, hover: 0 };
+      o.position.set(pp.x, pp.y, pp.z); o.rotation.set(0, pp.rotY, pp.rotZ);
+      o.scale.set(CHAR_SCALE, CHAR_SCALE * pp.sy, CHAR_SCALE);
+      P.parkHover = pp.hover; P.parkY = pp.y;
+    };
+    const unparkMount = (P) => { const o = P.mountObj; if (o) { o.rotation.set(0, 0, 0); o.scale.setScalar(CHAR_SCALE); } };
 
     // 라벨칩(HTML 오버레이)
     const v = new THREE.Vector3();
     const updateLabels = () => {
       const box = labelsRef.current; if (!box) return;
       const w = el.clientWidth; const h = el.clientHeight;
+      // 실제 렌더된 칩 크기로 겹침을 판정한다(고정 추정폭 → 로봇/작업 칩이 겹쳐 보이던 버그).
+      const sizeOf = (key, fw, fh) => {
+        const n = box.querySelector(`[data-k="${CSS.escape(key)}"]`);
+        return n && n.offsetWidth ? { w: n.offsetWidth, h: n.offsetHeight } : { w: fw, h: fh };
+      };
       const items = [];
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
-        P.ch.getWorldPosition(v); v.y += 1.45; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, w: 56, h: 16 });
-        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, w: 150, h: 30 }); }
+        P.ch.getWorldPosition(v); v.y += 1.3; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
+        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, ...sizeOf('w:' + name, 150, 30) }); }
       }
-      for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
-      for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, w: 70, h: 18 }); }
+      for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }
+      for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('rb' + o.userData.i, 170, 18) }); }
       const placed = declutter(items);
       for (const it of placed) {
         const n = box.querySelector(`[data-k="${CSS.escape(it.key)}"]`); if (!n) continue;
@@ -239,14 +498,33 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
         return;
       }
       const measuring = st.built && !st.checked;
-      const busy = measuring || now - lastAct < IDLE_AFTER_MS || [...st.people.values()].some((P) => P.walk);
+      const busy = measuring || now - lastAct < IDLE_AFTER_MS || (st.hub && (st.hub.particles.length > 0 || st.hub.rings.length > 0 || now - st.hub.pulseAt < PULSE_MS)) || [...st.people.values()].some((P) => P.walk || P.cruise);
       if (now - lastDraw < 1000 / (busy ? FPS_CAP : FPS_IDLE) - 1) return;
       lastDraw = now;
       const dt = Math.min(0.2, st.clock.getDelta());
       const red = dataRef.current.reduced;
       if (st.built) {
         for (const P of st.people.values()) {
-          if (P.walk) {
+          if (P.walk && P.walk.ride && P.mountObj) {
+            // 탑승 주행: 자리→(책상 틈→복도)→스테이션 폴리라인 왕복 (lib/pm3dRide)
+            const R0 = P.walk.ride;
+            P.riding = true;
+            P.walk.t += dt * (2.2 * R0.speed) / Math.max(1, R0.len) / 2; // 왕복이라 절반 속도 진행
+            const k = P.walk.t < 0.5 ? P.walk.t * 2 : (1 - P.walk.t) * 2;
+            const pt = pathPoint(R0.path, Math.min(1, k) * R0.len);
+            const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
+            const yawL = (P.walk.t < 0.5 ? pt.yaw : pt.yaw + Math.PI) - P.g.rotation.y;
+            unparkMount(P);
+            P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
+            P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
+            playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
+            if (P.walk.t >= 1) {
+              P.walk = null; P.riding = false;
+              P.ch.position.copy(P.home); P.ch.rotation.y = 0;
+              applyPark(P);
+              playClip(P, P.clip, P.speed);
+            }
+          } else if (P.walk) {
             P.walk.t += dt / 4;
             const sp = stationPos(P.walk.to); const tgt = new THREE.Vector3(sp.x + CAM_DIR.x * 1.1, 0.02, sp.z + CAM_DIR.z * 1.1); P.g.worldToLocal(tgt);
             const k = P.walk.t < 0.5 ? P.walk.t * 2 : (1 - P.walk.t) * 2;
@@ -255,6 +533,27 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
             // 이동 중엔 진행 방향, 스테이션 도착 구간(k>0.85)엔 카메라 쪽으로 돌아섬
             P.ch.rotation.y = k > 0.85 ? CAM_YAW - P.g.rotation.y : Math.atan2(dir.x, dir.z);
             if (P.walk.t >= 1) { P.walk = null; P.ch.position.copy(P.home); P.ch.rotation.y = 0; playClip(P, P.clip, P.speed); }
+          } else if (P.cruise && P.mountObj && st.bounds) {
+            // 둘레 순환로 크루징(출근 직후·휴식) — 끝나면 자리·park 로 복귀
+            const C = P.cruise; const el2 = performance.now() - (C.el0 ?? (C.el0 = performance.now()));
+            const prog = el2 / C.dur;
+            if (prog >= 1 || dataRef.current.reduced) {
+              P.cruise = null; P.riding = false;
+              P.ch.position.copy(P.home); P.ch.rotation.y = 0;
+              applyPark(P);
+              playClip(P, P.clip, P.speed);
+            } else {
+              P.riding = true;
+              unparkMount(P);
+              const ringL = ringLength(st.bounds.hx, st.bounds.hz);
+              const speed = 2.2 * 1.3; const tt = C.from + (el2 / 1000) * speed / ringL;
+              const pt = ringPoint(st.bounds.hx, st.bounds.hz, tt);
+              const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
+              const yawL = pt.yaw - P.g.rotation.y;
+              P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
+              P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
+              playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
+            }
           }
           if (!red) P.mixer.update(dt); else if (!P.frozen) { P.mixer.update(0.4); P.frozen = true; }
         }
@@ -262,6 +561,40 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
           const t = st.clock.elapsedTime;
           for (const r of st.robots) r.position.y = 0.05 + Math.sin(t * 2 + r.userData.i) * 0.05;
           for (const ln of st.lines) ln.dot.position.copy(ln.curve.getPoint((t * 0.4 + ln.ph) % 1));
+          // 주차된 비행류 탈것: 살짝 부유
+          for (const P of st.people.values()) if (P.mountObj && !P.riding && P.parkHover) P.mountObj.position.y = (P.parkY || 0) + Math.sin(t * 1.6) * P.parkHover;
+          // 중앙 허브: 느린 회전+부유(최근 1분 도착 빈도만큼 살짝 빨라짐) · 도착 맥박 · 파문 링
+          const H = st.hub;
+          if (H) {
+            H.arrivals = pruneArrivals(H.arrivals);
+            const hb = heartbeat(H.arrivals);
+            H.bobPh += dt * hb.bob;
+            H.orb.rotation.y += dt * 0.35 * hb.bob;
+            const base = HUB_ORB_Y + Math.sin(H.bobPh * 1.3) * 0.08;
+            H.orb.position.y = base;
+            const nowMs = performance.now();
+            H.orb.scale.setScalar(pulseScale(nowMs - H.pulseAt));
+            H.orbMat.emissiveIntensity = hb.glow + (nowMs - H.pulseAt < PULSE_MS ? 0.35 : 0);
+            for (let i = H.particles.length - 1; i >= 0; i--) {
+              const q = H.particles[i];
+              q.t += dt * FLOW_SPEED;
+              if (q.t < 0) { q.m.visible = false; continue; }
+              q.m.visible = true; q.m.position.copy(q.curve.getPoint(Math.min(1, q.t)));
+              if (q.t >= 1) { // 도착: 알갱이 제거 + 맥박 + 파문 링 1개
+                scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); H.particles.splice(i, 1);
+                H.arrivals.push(Date.now()); H.pulseAt = nowMs;
+                const rg = new THREE.Mesh(new THREE.RingGeometry(RING_R0, RING_R0 + 0.06, 28), new THREE.MeshBasicMaterial({ color: PM3D.HUB.ring, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+                rg.rotation.x = -Math.PI / 2; rg.position.set(HUB_POS.x, base, HUB_POS.z); scene.add(rg);
+                H.rings.push({ m: rg, t0: nowMs });
+              }
+            }
+            for (let i = H.rings.length - 1; i >= 0; i--) {
+              const R = H.rings[i]; const k = (nowMs - R.t0) / RING_MS;
+              if (k >= 1) { scene.remove(R.m); R.m.geometry.dispose(); R.m.material.dispose(); H.rings.splice(i, 1); continue; }
+              const s = (RING_R0 + (RING_R1 - RING_R0) * k) / RING_R0;
+              R.m.scale.setScalar(s); R.m.material.opacity = 0.8 * (1 - k);
+            }
+          }
         }
         updateLabels();
       }
@@ -356,11 +689,14 @@ export default function Scene3D({ themeId = 'B', rooms, agents, links, reduced, 
             {s.no}. {s.label}
           </button>
         ))}
-        {(agents || []).slice(0, 8).map((a, i) => (
-          <span key={a.id || a.name || i} data-k={'rb' + i} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 6px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap' }}>
-            🤖 {a.name || a.id}
-          </span>
-        ))}
+        {(agents || []).slice(0, 8).map((a, i) => {
+          const on = a.status === 'working';
+          return (
+            <span key={a.id || a.name || i} data-k={'rb' + i} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 6px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.5 }}>
+              🤖 {a.name || a.id}{on && a.activity ? ` · ${String(a.activity).slice(0, 16)}` : ''}
+            </span>
+          );
+        })}
       </div>
       <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 6 }}>
         <ZoomSlider pct={zoom * 100} min={ZOOM_PCT_MIN} max={ZOOM_PCT_MAX} onChange={(pct) => setZoom(pctToZoom(pct))} />

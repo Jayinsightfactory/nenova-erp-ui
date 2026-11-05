@@ -6,6 +6,8 @@ import fs from 'fs';
 import { verifyReqUser } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { featureFilePath } from '../../../lib/workFeatureData';
+import { staffOfUser } from '../../../lib/pmAccount';
+import { recordVisit } from '../../../lib/pmVisits';
 
 export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
@@ -14,6 +16,8 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && !isOrbitReportViewer(user)) return res.status(403).json({ success: false, error: '관리자 전용' });
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ success: false, error: 'GET only' }); }
   res.setHeader('Cache-Control', 'private, no-store');
+  // /pm 접속 기록(제품 비전 P0 관문 측정): 직원별 하루 1회, 이름·날짜만(파일 전용, 실패해도 조회는 정상)
+  try { const nm = staffOfUser(user); if (nm) recordVisit(nm); } catch {}
   const f = featureFilePath('pm-office');
   let data = null; let mtime = null;
   try { mtime = fs.statSync(f).mtimeMs; data = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { data = null; }

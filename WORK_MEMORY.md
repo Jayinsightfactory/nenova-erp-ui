@@ -1,5 +1,52 @@
 # 작업 기록
 
+## 2026-11-05 /pm 3D(베타) 품질 총개선 — 체형 교정·클레이 렌더·배경 밀도 + 브리지 page/scroll (PR #1534)
+- 지시1 체형: build_char_kaykit.py 에 HEAD_K=0.55(머리 축소) + NECK_Z=1.17/BODY_K=1.1(목 아래 리그·메시 세로 스트레치, 머리는 평행이동) — 바인딩 전 변형이라 클립 9종 무손상, 머리:전신 1:2.2→≈1:4(레퍼런스 Kenney Protagonists·KayKit Rogue). sit 힙 0.48→0.52(SEAT_Y 보정), 서기 머리끝 1.94→1.78, CHAR_SCALE 0.95→1.1(화면 90~110px 테스트 유지). build_wearables.py 에도 같은 재매핑(head=이동+축소, chest=상승, hand=새 리그 좌표라 무수정) — 한쪽만 하면 착용물이 공중부양.
+- 지시2 렌더(QUALITY_RECIPE.md): 전역 shadowMap OFF→접지 블롭 평면, kit AO 베이크(신규 scripts/pm3d/bake_kit_ao.py: 모듈을 격자로 벌려 상호차폐 방지→공동 Smart UV 1024 아틀라스→Cycles AO→kit_ao.jpg+TEXCOORD_1 재export), 캐릭터 MeshToonMaterial 5단 파스텔 램프(NearestFilter), RoomEnvironment 1회+dispose, ACES 노출 1.05(1.2는 파스텔 날아감), 배경 그라데이션+fog+포말 띠. 토큰=PM3D.RENDER.
+- 추가지시 배경밀도: 신규 lib/pm3dDecor.js beachDecor — 오두막3~4·야자군락·산포물, 둘레 링+복도(z=±2)+좌석+책상+스테이션+허브 이격 보증(__tests__/pm3dDecor.test.js, 링 실경로 샘플링). ★함정: 복도 교차는 ringDistance 만으론 못 잡음 — corrX(책상·스테이션 x범위) 세그먼트 거리 별도 검사.
+- 지시3: ai-bridge page/scroll(selector→scrollIntoView / y, 읽기성·차단 없음) + MCP page_scroll + 테스트 + AI_BRIDGE.md.
+- ★함정(rebase): rebase 중 'git checkout --theirs'는 내 커밋 쪽(= merge 와 반대). glb 바이너리는 origin/master 로 명시 복원 후 재빌드가 정답. 또 블렌더 체인 실행 중 git checkout 으로 glb 를 건드리면 레이스로 산출물이 덮임 — 체인 한 커맨드로 직렬 실행.
+- 검증: 로컬 next dev(터보팩, webpack dev 는 instrumentation→mssql 번들 오류)+dev JWT 쿠키로 /pm 3D 실렌더. 전/후 nenova-pm/pm3d/shots/web-I-v12-quality-{before,after}.jpg, 체형 web-I-v12-char-before-after.jpg. fps 는 브라우저 패널 백그라운드 스로틀(1Hz)로 로컬 실측 불가 — 그림자 패스 제거로 라이브 20fps 보다 가벼움, 배포 후 스탯 라인 확인.
+- 지시1 설계변경(선택형 체형): 한 char.glb(늘씬 1:4 베이크)로 런타임 본 스케일 3프리셋 — BODY_TYPES(cute 1:2.7·balance 1:3.4 기본·slim 1:4) = head 본 스케일+전체 스케일. 모자·안경·종족은 head 본 스키닝이라 소켓 자동 추종, 좌석은 bodyMetrics.seatY, 블롭도 s 추종. ★함정: glTF 익스포트가 상수 scale 채널을 깔아 믹서가 본 스케일을 되돌림 → 로드 시 .scale 트랙 제거 필수. 저장=pmAvatars PM_BASE.bodyType(무료), 꾸미기 UI 3D 체형 행, 상점 미리보기는 render_shop 체형별 레이어 세트(.cute/.slim 접미사). 검증 __tests__/pm3dBody.test.js(비율·좌석 0오차·소켓·scale 채널).
+- 검색어: HEAD_K 머리 축소 비율 교정 bake_kit_ao AO 베이크 아틀라스 toon 램프 블롭 그림자 RoomEnvironment beachDecor 배경 밀도 오두막 page_scroll rebase theirs glb
+
+## 2026-11-05 /pm 상점 잔여 에셋 전량 3D 제작 — 소품 43종 + 종족 9종 전용 모델 (PR #1532)
+- #1528 잔여 손그림 43종(모자16·안경6·손10·배지7·책장4)과 임시 종족 9종을 전부 블렌더 자체 모델링으로 교체. 남은 임시(temp) 0.
+- 신규 scripts/pm3d/build_wearables.py: 기존 char.glb 를 import 해 착용 48메시(hat_*/gls_*/hnd_*/bdg_*/race_*)를 head/chest/hand.r 본 리지드 스키닝으로 추가 후 재-export — KayKit 베이크·춤 리타게팅 재실행 없이 안전(클립 9종 유지, pmProps3d 가 회귀 검사). 신규 build_shelves.py: kit.glb 에 shelf_* 4종 append(import→추가→재-export = import_furniture.py 선례).
+- lib: pm3dLayout.wearMesh('hat.beret'→'hat_beret')/shelfModel, look3d 에 glasses/hand/badge/shelf/raceMesh. pmThemes RACES = 프리미티브 attach 삭제→전용 메시(mesh:'race_*'), 전원 temp:false. Scene3D 는 attach 블록 삭제+이름 토글+책장 배치만(허브/라인/주행 무변경).
+- ★함정1(render_shop): 착용 메시 재질명 w_* 가 몸 재질 알파 토글에 휘말려 전부 alpha 0 → 빈 렌더(620B webp). w_* 는 토글 제외.
+- ★함정2(Scene3D): 다중 재질 메시는 GLTFLoader 가 그룹(이름 유지)+자식 메시(데이터명)로 분해 → 메시 단위 이름 검사로는 영영 안 숨겨져 "모든 착용물이 머리에 블롭"으로 겹침. 그룹 수준(isMesh 불문 o.name) 토글이 정답. 옛 모자 3종은 단일 재질이라 이 버그가 없었던 것.
+- 상점 렌더 160장 0.79MB(상한 6MB), glb 총 2.80MB(상한 8MB). 착용 카드=소품만 evaluated bbox 확대, 레이어=종족 베이스와 같은 카메라(미리보기 겹침에 안경·손·배지 추가, PmTheme).
+- 검증: test:pm 전체(+신규 __tests__/pmProps3d.test.js: glb 노드 실재·look3d 경유·temp 0·클립 유지·용량 상한, pmShopArt 전수 확장) + 로컬 dev 실측(시드 pm-avatars.json·work-feature-pm-office.json 은 미커밋 dev 전용) — 3D에서 왕관·선글라스·풍선·책장·펭귄 부리 실표시 확인. 시트·스크린샷 C:\Users\USER\nenova-pm\pm-shots\props-*-2026-11-05.jpg, 3d-장착확인-2026-11-05.jpg, 상점-모자탭-2026-11-05.jpg.
+- 검색어: build_wearables build_shelves wearMesh shelfModel race_ 메시 토글 그룹 분해 w_ 알파 상점 소품 43종 임시 0 pmProps3d
+
+## 2026-11-04 /pm 상점 그림 3D 렌더 전면 교체 + 종족 복원 + 탈것 경로 고정 (PR #1528)
+- 사장님 피드백 3건: 손그림 상점 그림 → 3D 장면 glb(char/kit/mounts) 블렌더 렌더로 교체(상점 모습=사무실 모습), 탈것 적용 점검, PR 1520 KayKit 교체로 유실된 종족 디자인 복원.
+- 파이프라인: node scripts/pm3d/dump_shop_spec.mjs(lib look3d/PM3D.RACES 를 JSON 으로) → blender -b -P scripts/pm3d/render_shop.py(Blender 5.2, 소프트클레이 조명·3/4·투명 webp 512) → public/pm/shop/ 80장 0.43MB → node scripts/pm3d/apply_shop_renders.mjs(manifest src 77종 교체). 몸이 메시 1개+재질 7슬롯이라 보이기/색은 재질 단위(알파 토글), 렌더 출력경로는 반드시 절대경로(상대경로면 조용히 미출력).
+- 종족 복원: lib/pmThemes PM3D.RACES 한 표(색+부속 귀/더듬이/부리/화관, 전용모델 없음=temp 임시) — look3d 가 char 반영, Scene3D 가 head 본에 부속 부착(hex 금지라 색표는 pmThemes 에만). ★버그: look3d hair 해시 (h>>3) 부호 쉬프트 → 음수 인덱스 → 머리색 undefined — >>> 로 수정.
+- 탈것: 구매→items.mount→look3d→Scene3D 노드 경로는 15종 전부 정상(노드명 공식 'mount_'+id.replace(-,_) = glb 루트와 일치). 끊긴 곳은 상점 표시(이모지뿐)여서 mounts.glb 썸네일 연결 + 왼쪽 미리보기에 탈것 표시. __tests__/pmMounts3d.test.js 가 노드 매핑 표·extras(seatZ/pose)·경유·썸네일을 고정.
+- 왼쪽 미리보기: 같은 카메라 고정 렌더의 베이스+옷 레이어+모자 레이어 겹침(Render3DPreview, PIL 합성으로 정합 검증). 기존그림 유지 43종=모자16·안경6·손10·배지7·책장4(3D 모델 없음).
+- 함정: 주석의 #1520 도 pmNoHexColor 가 hex 로 오탐(PR 1520 으로 표기). 워크트리 node_modules junction 은 Turbopack/webpack 둘 다 깨짐(실설치 필요). next dev 는 instrumentation→mssql 번들 오류 — 로컬 확인은 build+start.
+- 검색어: render_shop shop_spec PM3D.RACES look3d hair >>> 탈것 노드매핑 pmMounts3d pmShopArt 상점 렌더 임시 종족
+
+## 2026-11-04 판매 예정(/pm) 코드 ↔ 사내 전산 경계 자동 검사기(CI)
+- PR #1525 머지. /pm(PM 사무실)은 나중에 nowlink 판매 저장소로 이식 예정 → 사내 모듈 직접 import 가 늘지 않게 CI에서 새 위반만 차단(선례 mgmtBoundary 구조 재사용).
+- 구성: lib/pmSaleBoundary.js(PM 소유=pages/pm*, pages/api/pm/, components/pm·pm3d/, lib/pm* / 허용=같은 판매군+MenuBackButton·styles+npm 패키지 / 금지=lib/db·lib/auth 등 사내 lib·사내 API 핸들러 직접 import, 서버 데이터는 fetch 경유), config/pm-boundary-allowlist.json(기존 위반 31건 동결 — 대부분 pages/api/pm/* → lib/auth·orbitReportAccess·workFeatureData), __tests__/pmBoundary.test.js(단위+전수 스캔), npm run test:pm-boundary(test:pm 체인 맨 앞), erp-contract.yml verify 단계 추가.
+- 함정: lib/pm* 패턴은 preShipment* 와 충돌 없음(/^lib\/pm[A-Z0-9]/). 동결 목록에서 사라진 항목은 실패 아닌 안내만.
+- 검색어: pmSaleBoundary pm-boundary-allowlist test:pm-boundary 판매예정 경계 nowlink 이식 동결 31건
+
+## 2026-11-04 PM 자동업무: 기술 레이더 "바로 시험" 자동 파일럿(+시험함 배지)
+- owner PC nenova-pm/pm-radar-pilot.js 신설(pm.js 루프에서 호출, 백업 pm.js.bak-1104c): 최신 회차 action='바로 시험'&pilotResult 없음 → 대장(ledger) 등록 → 조사관(claude -p)이 radar-pilot/<slug>/ 전용 폴더에서 로컬 설치·실데이터 시험 → REPORT.md+PILOT_RESULT JSON → tech-radar.json pilotResult{score,summary,reportPath,testedAt} 반영 → radar.js --upload-only 재업로드. 채택은 자동 아님: 대장 needs-approval 승인 대기.
+- 코드 관문: 전용 폴더·디스크 10GB·회차당 2건·시도 5회·동시 1개(pm/staff 조사관 포함)·quota-hold/pm-mode·공격성 저장소 차단·external 표시(수동 파일럿 MinerU/docling) 건너뜀. 감시: watchdog.js radar-pilot-stale(7일+ 미완). 드라이런 검증: 후보 9건 선발·대장 등록·프롬프트 생성 OK(pm.log 기록).
+- 이 PR(#1514): /pm/radar 카드에 pilotResult 있으면 🧪 시험함 배지+상세 수치(var(--pm-ok-*) 토큰만, 데이터 없으면 렌더 변화 0).
+- 검색어: radar-pilot pilotResult 시험함 바로시험 파일럿 needs-approval radar-pilot-stale pm-radar-pilot
+
+## 2026-11-04 /pm SOFT CLAY 디자인 시스템 토큰 반영(+기준 문서)
+- PR #1503: radar 칩 한 덩어리 분리(이모지 아이콘·이름·★·점수 N/10 별 요소), 배지 전부 UI 키트 Badge(.radar 스코프 재정의, 전역 .badge 불변). PR #1506: design-system.png 실측 → 테마 B 토큰 교체(민트 A0E0C5·크림 FFFDF5/FFF8E7·코랄 FF9E8B·노랑 FFE085·라벤더 D5C2F1·비활성 E0E0E5), 키트 버튼 호버/눌림/비활성 상태(accentHover/Down·errHover/Down·disBg/Ink, 타테마 color-mix 파생), radar 링크 클레이 밑줄(호버 코랄).
+- 기준 고정: docs/pm-design-standard.md(유일 기준·생성이미지 금지·/pm 전용 범위) + public/pm/design/ 축소 사본 2장. 범위 검증=globals.css 무변경+선택자 전부 .pm/.radar 접두+pm* 테스트 20종 통과.
+- 함정: 주석에 쓴 <button·#hex 도 pmTechRadar/pmNoHexColor 가 잡음. 배포런 STALE_RELEASE 는 뒤 머지에 추월된 것(실패 아님).
+- 검색어: SOFT CLAY design-system pm-design-standard 테마B A0E0C5 FF9E8B accentDown disBg pmk-primary-down 링크밑줄
+
 ## 2026-11-04 /pm/radar 기술 레이더 클레이 파스텔 재구성
 - PR #1498: Gemini 시안(nenova-pm/github-radar/design/radar-ui-A.png)대로 재구성 — 헤더(회차 배지·우리관심/전체트렌드 탭·주제/추천/점수 필터칩), 왼쪽 "바로 시험" 큰 카드 3장(이게 뭐예요/빗대면/용어풀이/자세히 보기), 가운데 작은 카드 그리드(클릭 펼침, 12건 "더 보기" — 수집량 20~40건 대비), 오른쪽 사이드바(점수분포 막대 최상/상/중/하·주제별 개수 파스텔 칩·지난 회차). 집계는 전부 클라이언트, API 불변.
 - 색은 lib/pmThemes.js 테마 B 토큰 var(--pm-*)만(hex 0), themeCss(themeById('B')) 주입 + data-theme="B". 버튼류는 components/pm/ui 키트만(SelectCard 는 styled-jsx 밖 컴포넌트라 :global(.hit) 필요).
@@ -2030,3 +2077,19 @@
 
 2026-11-05 입고 연결 정정 확장 진행: nw-incoming-linked-approval-guide-1104. 명시 입고 물리키/농장 최종배정, 인보이스·운송원가 새버전, 실제 손익 loader의 트랜잭션 계산/확정본 개정 구현. 격리SQL core+원가+농장80→70·검토롤백·후행감사실패 전체롤백 PASS, 손익 실제SQL41/44/2027·2025보존·확정본·캐시실패롤백 PASS. 운영쓰기0. 초기build PASS, 전체gate/영상/PR/배포 진행중(미완).
 검색어: incomingApprovalCosts incomingApprovalProfit linked approval workflow guide 1920x1080
+
+2026-11-04 기술레이더 1호 시험(docling vs 현재): 실서류 6건 로컬 비교 — Holex 3건은 기존 로컬파서 100%·9ms 우위 유지, docling은 행 96.7~100%·숫자 오독 0·스캔 OCR 23/24·한글 통관청구서 필드 9/9·$0·페이지당 ~15초(CPU). 결론=비-NL 서류 Claude 판독의 "전처리+산술 교차검증"으로 채택 제안(코드 적용은 승인 대기). MinerU는 CPU-only라 생략. 산출물 C:\Users\USER\nenova-pm\radar-pilot\REPORT.md, 레이더 pilotResult 업로드 200 ok(/pm/radar UI는 아직 pilotResult 미표기 — 표기 추가는 후속).
+검색어: docling MinerU radar-pilot pilotResult 인보이스 패킹리스트 OCR importInvoiceLocal
+
+2026-11-04 기술레이더 1호 채택(docling 전처리): 비-NL 패킹 PDF Claude 판독(parse-pdf)에 docling 후보표 주입. 서버(Cafe24)는 python 불가 → 파일 큐 브리지(data/runtime/import-team/docling) + owner PC 워커(radar-pilot venv, scripts/docling-bridge-worker.py) 폴링. 인증=ORBIT_DRIVE_INGEST_TOKEN 재사용, 새 DB 테이블 없음. PDF는 bbox/quote 증거 계약 때문에 유지하고 후보표를 시스템 프롬프트에 추가(산술 실패행만 재확인 지시). 산술검증은 유럽 소수점콤마(1,41)·표 과반 통과시만 플래그. 플래그 DOCLING_PREPROCESS=off 한 줄 차단, 캐시키 분리([docling-preprocess-v1]). 2주 비교 로그 metrics.jsonl + scripts/docling-metrics-report.mjs. 골든: 파일럿 6건 docling 출력으로 플래그율 Holex 1~3%·스캔 0 확인.
+검색어: docling 전처리 후보표 parse-pdf docling-bridge ORBIT_DRIVE_INGEST_TOKEN DOCLING_PREPROCESS metrics.jsonl bridge_worker
+
+## 2026-11-04 심야 — /pm 3D(베타) 밤샘 작업 3~7단계 (PR #1520)
+검색어: pm3d KayKit 리그 캐릭터 교체, 표정 데칼 face webp, 탈것 mounts.glb 주행 ridePath, 로봇 칩 겹침 declutter, 맵 1.5배 둘레 보드워크, 스킬 발사체 fx.glb
+- 3단계: 캐릭터를 KayKit Rig_Medium(CC0)로 교체 — `scripts/pm3d/build_char_kaykit.py`. 클레이 바디 리지드 바인딩, 재질 top/bottom/skin/hair·모자 hat_* 유지. 클립 idle/sit_type(타이핑 팔 베이크)/walk/doze/cheer/wave + Kevin Iglesias 춤 3종 리타게팅(dance·dance2·dance3, 원본 FBX 미커밋=재배포 금지). 함정: KayKit sit 클립은 180° 안 돌아 있음(돌리면 뒤통수). 얼굴이 "뒤돌아 보임"의 실제 원인=눈이 커진 머리 반지름 안에 묻힘.
+- 4단계: 표정 12종 `public/pm3d/face/<id>.webp`(`build_faces.py`, PIL) + char.glb 얼굴 데칼(재질 'face', 타원면 투영) + Scene3D faceOf 연동. 2D 레이어 렌더는 미착수.
+- 5단계: 칩 겹침 버그 = declutter 고정 추정폭(로봇 70px, 실제 170px). 실측 offsetWidth 로 교체, 회귀 테스트 추가.
+- 6단계: PM3D.THEMES.layout 데이터화(I=mapScale 1.5·ring), `lib/pm3dRide.js` 주행 경로(책상 틈→복도→스테이션, 81경로 충돌 0 테스트), Scene3D ride/park/크루징(출근 직후·휴식 추첨)·동시 3명·reduced 정지. 탈것 15종 glb+스프라이트+썸네일 `build_mounts.py`. 2D .bg-mount 이모지→스프라이트.
+- 7단계: 발사체 기본 9종 `fx.glb`+스프라이트 `build_fx.py`(소비자 연출은 후속).
+- 미완: 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것별 전용 탑승 클립(현재 idle/sit_type 대용), 목표달성 트리거 주행(3D에 이벤트 데이터 없음 — danceEvents 연결 필요).
+- 재현 도구: pages/pm3d-preview.js(임시, 커밋 금지) + puppeteer-core 캡처. kit 재생성 시 build_assets.py 가 char.glb 안 덮음(--legacy-char 게이트).
