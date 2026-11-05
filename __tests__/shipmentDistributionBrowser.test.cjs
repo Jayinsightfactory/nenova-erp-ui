@@ -89,7 +89,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       if (url.pathname === '/api/shipment/fix' && request.method() === 'POST') {
         const body = JSON.parse(request.postData() || '{}');
         // 자동 사이클: 화면 연도 명시, force=false, 바꾸는 품목의 품목군만
-        assert.deepEqual([body.week, body.orderYear, body.force, body.countryFlowers], ['2026-41-02', '2026', false, ['콜롬비아 알스트로']]);
+        assert.deepEqual([body.week, body.orderYear, body.force, body.countryFlowers, body.cycleSource], ['2026-41-02', '2026', false, ['콜롬비아 알스트로'], 'distribute-save']);
         cycleCalls.push(body.action);
         return reply(route, { success: true, message: `${body.action} ok` });
       }

@@ -866,6 +866,7 @@ export default function Distribute() {
       orderYear: selectedOrderYear,
       countryFlowers: scope.countryFlowers,
       stockProdKeys: keys,
+      cycleSource: 'distribute-save',
       progress: step => appendSaveLog({ mode, name: logName, week, note: step }),
       apply,
     });
