@@ -13,6 +13,7 @@
 - [ ] 이전 연도에 같은 차수명이 존재하는 교차연도 fixture를 정의했다.
 - [ ] 견적·매출 downstream 영향(Estimate, ShipmentDetail.Amount/Vat, isFix, WebProfitReport)을 별도 표로 정의했다.
 - [ ] 후보를 보여주는 GET과 저장 트랜잭션의 최종 검증이 같은 SQL scope/helper를 사용하는지 확인했다.
+- [ ] 새 메뉴·탭 또는 작업 순서 변경이면 역할별 사용 가이드 시나리오와 화면 연결 위치를 정했다. `docs/WORKFLOW_VIDEO_GUIDES.md`와 `config/workflow-guides.json`을 사용한다.
 
 ## 2. 구현 중에 지켜야 할 것
 
@@ -66,6 +67,8 @@ npm run build
 - [ ] 운영 데이터 보정은 코드 배포 및 스모크 확인 뒤 별도 SQL로 실행한다.
 - [ ] 사용자가 요청하지 않은 `git push`, 운영 DB 보정, 전년도 데이터 수정은 실행하지 않았다.
 - [ ] 음수재고 확정 보정은 사용자 확인 후 정확한 부족수량만 `StockHistory`에 기록하고, 재계산 실패 시 트랜잭션이 롤백되는지 확인했다.
+- [ ] 최종 테스트 화면을 `1920×1080`, 확대 `100%`, 연습용 자료로 녹화하고 역할별 MP4·한국어 설명 자막·시나리오 목차를 해당 메뉴에 연결했다. 교육 촬영을 위한 운영 ERP 쓰기는 하지 않았다.
+- [ ] `npm run test:workflow-guides`와 `node scripts/check-workflow-guides.cjs --changed-from <기준 SHA>`를 통과했다. 실제 영상 재생·역할 선택·목차 이동·자막·다운로드·키보드 조작을 확인했다. 원본 화면 변경 후 오래된 가이드를 그대로 완료 처리하지 않았다.
 
 ## 재발 방지의 핵심
 

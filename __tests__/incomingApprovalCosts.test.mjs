@@ -1,0 +1,84 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { randomBytes,randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import sql from 'mssql';
+import { planApprovalInvoiceLines,planApprovalFreight,readIncomingApprovalCosts,prepareIncomingApprovalCosts,writeIncomingApprovalCosts,suggestedIncomingApprovalCostInputs } from '../lib/incomingApprovalCosts.js';
+import { saveInvoiceDraft } from '../lib/invoiceReceiptDocuments.js';
+import { INVOICE_COST_FORMULAS,saveInvoiceCostRevision,readInvoiceCosts } from '../lib/invoiceReceiptCost.js';
+const lineId='44444444-4444-8444-8444-444444444444',docId='11111111-1111-8111-8111-111111111111';
+const product={ProdKey:1,ProdName:'Flower A',OutUnit:'단',CounName:'중국',FlowerName:'장미'},productB={...product,ProdKey:2,ProdName:'Flower B'};
+const detail={WdetailKey:1,WarehouseKey:90,ProdKey:1,BoxQuantity:10,BunchQuantity:100,SteamQuantity:1000,OutQuantity:100,EstQuantity:100,UPrice:10,TPrice:1000};
+const invoice={document:{documentId:docId,revision:1,lines:[{lineId,lineNo:1,originalName:'original immutable',prodKey:1,boxQuantity:10,bunchQuantity:100,stemQuantity:1000,unitPrice:10,lineAmount:1000,currency:'CNY'}]},operation:{action:'LINK_EXISTING_COST',result:{linkMode:'EXISTING_CN',lineMappings:[{lineId,wdetailKey:1,prodKey:1,unit:'단',outQuantity:100,boxQuantity:10,bunchQuantity:100,stemQuantity:1000,unitPrice:10,lineAmount:1000}]}}};
+test('invoice explicit source mapping supports product move, reduction, grouped split and cancellation',()=>{
+ const after=[{...detail,ProdKey:2,BunchQuantity:80,OutQuantity:80,SteamQuantity:800,BoxQuantity:8,TPrice:800}];
+ const args={invoice,after,products:[product,productB],lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:80}]};
+ const moved=planApprovalInvoiceLines(args);assert.equal(moved.lines[0].prodKey,2);assert.equal(moved.lines[0].lineAmount,800);assert.equal(moved.lines[0].originalName,'original immutable');
+ const split=planApprovalInvoiceLines({...args,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:30},{sourceLineId:lineId,targetRowIndex:0,quantity:50}]});assert.equal(split.lines.length,2);assert.notEqual(split.lines[0].lineId,split.lines[1].lineId);assert.equal(split.lines.reduce((s,l)=>s+l.lineAmount,0),800);
+ assert.deepEqual(planApprovalInvoiceLines({...args,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:30},{sourceLineId:lineId,targetRowIndex:0,quantity:50}]}),split);
+ assert.throws(()=>planApprovalInvoiceLines({...args,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:79}]}),{code:'APPROVAL_COST_LINE_TOTAL'});
+ for(const quantity of [null,'',false,-1,NaN])assert.throws(()=>planApprovalInvoiceLines({...args,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity}]}));
+ const zero=planApprovalInvoiceLines({...args,after:[],lineMappings:[{sourceLineId:lineId,targetRowIndex:null,quantity:0}]});assert.equal(zero.mappings[0].wdetailKey,1);assert.equal(zero.lines[0].lineAmount,0);
+ assert.deepEqual(planApprovalInvoiceLines({...args,farmOnly:true}).mappings,invoice.operation.result.lineMappings);
+});
+test('NL source matching is in stems, explicit expense exclusions remain excluded, and omitted mapping does not become first target',()=>{
+ const nl={...invoice,operation:{...invoice.operation,result:{...invoice.operation.result,linkMode:'EXISTING_NL',excludedDetailKeys:[2]}}};
+ const after=[{...detail,SteamQuantity:800,BunchQuantity:80,OutQuantity:80,BoxQuantity:8,TPrice:800},{...detail,WdetailKey:2,ProdKey:2,SteamQuantity:1,OutQuantity:1,TPrice:50}];
+ const plan=planApprovalInvoiceLines({invoice:nl,after,products:[product,productB],receiptMappings:[{sourceWdetailKey:2,targetRowIndex:1}],lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:800}]});
+ assert.equal(plan.lines[0].stemQuantity,800);assert.equal(plan.lines[0].bunchQuantity,80);assert.deepEqual(plan.excludedTargetIndices,[1]);
+ assert.throws(()=>planApprovalInvoiceLines({invoice:nl,after,products:[product,productB],receiptMappings:[{sourceWdetailKey:2,targetRowIndex:null}],lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:800}]}),{code:'APPROVAL_COST_LINE_TOTAL'});
+});
+test('freight requires reviewed metadata for changed product and preserves explicit zero',()=>{
+ const header={FreightKey:1,WarehouseKey:90,WeightBasis:'GW',ExchangeRate:1400,GrossWeight:100,ChargeableWeight:100,FreightRateUSD:2,DocFeeUSD:0,InvoiceTotalUSD:1000,BakSangRate:0,HandlingFee:0,QuarantinePerItem:0,DomesticFreight:0,DeductFee:0,ExtraFee:0};
+ const args={header,details:[{WarehouseDetailKey:1,ProdKey:1,BoxWeightUsed:10,BoxCBMUsed:10,StemsPerBoxUsed:100,StemsPerBunch:10,SalePriceKRW:0,TariffRate:0}],after:[{...detail,ProdKey:2}],products:[product,productB],receiptMappings:[{sourceWdetailKey:1,targetRowIndex:0}],farmName:'Farm A'};
+ assert.throws(()=>planApprovalFreight(args),{code:'APPROVAL_COST_FREIGHT_ROW_REVIEW'});
+ const plan=planApprovalFreight({...args,input:{rows:[{targetRowIndex:0,boxWeight:10,boxCBM:10,stemsPerBox:100,stemsPerBunch:10,salePriceKRW:0,tariffRate:0}]}});assert.equal(plan.calc.rows[0].salePriceKRW,0);assert.equal(plan.calc.rows[0].tariffRate,0);assert.equal(plan.calc.rows[0].prodKey,2);
+});
+test('cost form suggestions expose omitted fields, zero tariffs, group choices and explicit cancellation',()=>{
+ const saved={formulaId:'TH_GROUP_BOX_SHARE_V1',lineInputs:[{lineId,tariffRate:0,groupId:'OTHERS'}],costGroups:[{groupId:'OTHERS',quantity:1000,boxQuantity:10}]};
+ const linked={...invoice,receiptLines:[{...invoice.document.lines[0],outQuantity:100}],costRevisions:[{Basis:'ACTUAL',InputSnapshotJson:JSON.stringify({input:saved})}]};
+ const [suggestion]=suggestedIncomingApprovalCostInputs({costFacts:{invoices:[linked],freightHeaders:[],freightDetails:[]},receiptPlan:{after:[detail]},receiptMappings:[{sourceWdetailKey:1,targetRowIndex:null}]});
+ assert.equal(suggestion.input.lineInputs[0].tariffRate,0);assert.equal(suggestion.input.lineInputs[0].stemsPerBunch,null);assert.equal(suggestion.input.lineInputs[0].groupId,'OTHERS');assert.equal(suggestion.input.lossTreatmentConfirmed,false);assert.equal(suggestion.inputSchema.groupLabels.OTHERS,'기타');assert.equal(suggestion.lineMappings[0].targetRowIndex,null);assert.equal(suggestion.lineMappings[0].quantity,0);assert.equal(suggestion.lineMappings[0].quantityUnit,'단');
+});
+
+test('isolated financial writer preserves old invoice lineage, updates current costs, clones farm-only economics and rolls back', {skip:process.env.INCOMING_APPROVAL_SQL!=='1',timeout:180000},async()=>{
+ const info=JSON.parse(execFileSync('docker',['inspect','nenova-estimate-sql-test-20260826'],{encoding:'utf8',windowsHide:true}))[0];assert.equal(info.State.Running,true);assert.equal(info.Mounts.length,0);assert.match(info.Config.Image,/^mcr\.microsoft\.com\/mssql\/server:2022/);assert.deepEqual(info.HostConfig.PortBindings,{'1433/tcp':[{HostIp:'127.0.0.1',HostPort:'14339'}]});
+ const password=info.Config.Env.find(x=>x.startsWith('MSSQL_SA_PASSWORD=')).slice(18),config={server:'127.0.0.1',port:14339,user:'sa',password,options:{encrypt:false,trustServerCertificate:true},requestTimeout:30000};
+ const name=`NenovaInvoiceFixture_approval_${randomBytes(8).toString('hex')}`,master=await new sql.ConnectionPool({...config,database:'master'}).connect();let pool,created=false;
+ const executor=ex=>async(s,ps={})=>{const r=new sql.Request(ex);for(const[k,v]of Object.entries(ps))r.input(k,v.type,v.value);return r.query(s);};
+ try{assert.equal((await master.request().input('name',sql.NVarChar,name).query('SELECT DB_ID(@name) id')).recordset[0].id,null);await master.request().query(`CREATE DATABASE [${name}] COLLATE Korean_Wansung_CI_AS; ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL=130`);created=true;pool=await new sql.ConnectionPool({...config,database:name}).connect();const q=executor(pool);
+  const batches=async file=>{for(const b of fs.readFileSync(new URL(file,import.meta.url),'utf8').split(/^\s*GO\s*;?\s*$/gim).filter(x=>x.trim()))await pool.request().batch(b);};
+  for(const file of ['./fixtures/invoiceReceiptSchema.sql','./fixtures/warehouseCorrectionNative.sql','./fixtures/incomingApproval.sql','./fixtures/incomingApprovalCosts.sql'])await batches(file);
+  await q('DROP TABLE dbo.WebInvoiceOperation; DROP TABLE dbo.WebInvoiceCostRevision;');await batches('../docs/migrations/2026-10-08_web_invoice_storage_v1.sql');await batches('../docs/migrations/2026-10-19_invoice_existing_cost_link.sql');
+  const transaction=async(fn,{rollbackOnly=false}={})=>{const tx=new sql.Transaction(pool);await tx.begin();try{const v=await fn(executor(tx));if(rollbackOnly)await tx.rollback();else await tx.commit();return v;}catch(e){await tx.rollback().catch(()=>{});throw e;}};
+  await q("UPDATE WarehouseDetail SET UPrice=10,TPrice=1000 WHERE WarehouseKey=90; UPDATE Product SET CounName=N'중국',FlowerName=N'장미' WHERE ProdKey IN(1,2)");
+  const header=(await q('SELECT * FROM WarehouseMaster WHERE WarehouseKey=90')).recordset[0];header.InputDate='2026-10-08';
+  const details=(await q('SELECT * FROM WarehouseDetail WHERE WarehouseKey=90')).recordset;
+  const draft={documentId:docId,orderYear:'2026',orderWeek:'41-01',farmKey:1,invoiceNo:'I-1',invoiceYear:2026,sourceHash:'aa'.repeat(32),originalFileName:'fixture.xlsx',reviewedMetadata:{country:'CN',transportMode:'SEA',inputDate:'2026-10-08'},rawMetadata:{},lines:[{...invoice.document.lines[0],priceUnit:'BUNCH',reviewed:{},sourceEvidence:{}}],reason:'fixture'};
+  await saveInvoiceDraft({withTransactionFn:transaction,types:sql,input:draft,actor:'fixture'});
+  const op=randomUUID(),result={receiptDigest:'bb'.repeat(32),receiptSnapshot:{header,details},lineMappings:[{...invoice.operation.result.lineMappings[0],wdetailKey:details[0].WdetailKey}],linkMode:'EXISTING_CN',excludedDetailKeys:[]};
+  await q("INSERT WebInvoiceOperation(OperationId,DocumentId,DocumentRevision,ReceiptPartId,RequestHash,Action,Status,WarehouseKey,ResultJson,Actor,CreatedAt,CompletedAt) VALUES(@op,@doc,1,@part,@hash,N'LINK_EXISTING_COST',N'COMMITTED',90,@result,N'fixture',SYSUTCDATETIME(),SYSUTCDATETIME()); UPDATE WebInvoiceDocument SET ReceiptStatus=N'COMMITTED' WHERE DocumentId=@doc",{op:{type:sql.UniqueIdentifier,value:op},doc:{type:sql.UniqueIdentifier,value:docId},part:{type:sql.UniqueIdentifier,value:randomUUID()},hash:{type:sql.Binary(32),value:Buffer.alloc(32,1)},result:{type:sql.NVarChar(sql.MAX),value:JSON.stringify(result)}});
+  const formula=INVOICE_COST_FORMULAS.CN_SEA_ACTUAL_V1,input={...formula,formulaApplicabilityConfirmed:true,formulaEffectiveDate:'2026-10-08',nativeCurrency:'CNY',freightCurrency:'CNY',exchangeRateKRW:200,exchangeRateType:'PURCHASE',exchangeRateDate:'2026-10-08',freightAmount:40,costSourceId:'fixture-cost-source',allocationScope:'SINGLE_INVOICE',allocationShareNumerator:1,allocationShareDenominator:1,lineInputs:[{lineId,tariffRate:0,otherCostPerUnitKRW:0}]};
+  await saveInvoiceCostRevision({withTransactionFn:transaction,types:sql,documentId:docId,revision:1,actor:'fixture',input,reason:'fixture approve'});
+  const immutable=(await q('SELECT ResultJson FROM WebInvoiceOperation WHERE DocumentRevision=1')).recordset[0].ResultJson;
+  const after=[{...details[0],ProdKey:2,OutQuantity:80,EstQuantity:80,BunchQuantity:80,SteamQuantity:800,BoxQuantity:8,UPrice:10,TPrice:800}],beforeReceipt={header,details};
+  const facts=await readIncomingApprovalCosts(q,sql,90),matching={financial:{acknowledged:true,reason:'move and reduce',costInputs:[{kind:'INVOICE',sourceKey:docId,expectedRevision:1,input,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:80}]}]}};
+  const plan=await prepareIncomingApprovalCosts({costFacts:facts,receiptPlan:{after,detailsChanged:true},matching,products:[product,productB],beforeReceipt});assert.deepEqual(plan.issues,[]);
+  const execute=async(tq)=>{await tq('UPDATE WarehouseDetail SET ProdKey=2,OutQuantity=80,EstQuantity=80,BunchQuantity=80,SteamQuantity=800,BoxQuantity=8,UPrice=10,TPrice=800 WHERE WarehouseKey=90');return writeIncomingApprovalCosts({q:tq,types:sql,plan,beforeReceipt,afterReceipt:{header,details:after,targetDetails:after},actor:'fixture',requestId:1});};
+  await transaction(execute,{rollbackOnly:true});assert.equal((await q('SELECT Revision FROM WebInvoiceDocument')).recordset[0].Revision,1);assert.equal((await q('SELECT ProdKey FROM WarehouseDetail WHERE WarehouseKey=90')).recordset[0].ProdKey,1);
+  await transaction(execute);assert.equal((await q('SELECT ResultJson FROM WebInvoiceOperation WHERE DocumentRevision=1')).recordset[0].ResultJson,immutable);const current=await readInvoiceCosts({queryFn:q,types:sql,warehouseKey:90});assert.equal(current.currentActual.documentRevision,2);assert.equal(current.currentActual.lines[0].prodKey,2);assert.equal(current.currentActual.totalCostKRW,168000);
+  const farmFacts=await readIncomingApprovalCosts(q,sql,90),farmBefore={header,details:after},farmPlan=await prepareIncomingApprovalCosts({costFacts:farmFacts,receiptPlan:{after,detailsChanged:false},matching:{financial:{acknowledged:true,reason:'farm change'}},products:[product,productB],beforeReceipt:farmBefore});assert.deepEqual(farmPlan.issues,[]);
+  await transaction(async tq=>{await tq("UPDATE WarehouseMaster SET FarmName=N'Farm B' WHERE WarehouseKey=90");await writeIncomingApprovalCosts({q:tq,types:sql,plan:farmPlan,beforeReceipt:farmBefore,afterReceipt:{header:{...header,FarmName:'Farm B'},details:after,targetDetails:after},actor:'fixture',requestId:2});});
+  const final=await readInvoiceCosts({queryFn:q,types:sql,warehouseKey:90});assert.equal(final.currentActual.documentRevision,3);assert.equal(final.currentActual.totalCostKRW,168000);assert.equal((await q('SELECT COUNT(*) n FROM WebInvoiceLine')).recordset[0].n,3);assert.equal((await q('SELECT COUNT(*) n FROM WebInvoiceOperation')).recordset[0].n,3);
+  await q(`INSERT FreightCost(WarehouseKey,WeightBasis,ExchangeRate,GrossWeight,ChargeableWeight,FreightRateUSD,DocFeeUSD,InvoiceTotalUSD,BakSangRate,HandlingFee,QuarantinePerItem,DomesticFreight,DeductFee,ExtraFee) VALUES(90,N'GW',1400,100,100,2,0,800,0,0,0,0,0,0);
+   INSERT FreightCostDetail(FreightKey,WarehouseDetailKey,ProdKey,ProdName,FlowerName,FarmName,SteamQty,FOBUSD,BoxQty,BoxWeightUsed,BoxCBMUsed,StemsPerBoxUsed,StemsPerBunch,SalePriceKRW,TariffRate,ArrivalPerStem,SortOrder)
+   SELECT 1,WdetailKey,2,N'Flower B',N'장미',N'Farm B',800,10,8,10,10,100,10,5000,0,1750,0 FROM WarehouseDetail WHERE WarehouseKey=90`);
+  const next=[{...after[0],OutQuantity:70,EstQuantity:70,BunchQuantity:70,SteamQuantity:700,BoxQuantity:7,TPrice:700}],combinedFacts=await readIncomingApprovalCosts(q,sql,90),combinedBefore={header:{...header,FarmName:'Farm B'},details:after};
+  const combinedPlan=await prepareIncomingApprovalCosts({costFacts:combinedFacts,receiptPlan:{after:next,detailsChanged:true,farmName:'Farm B'},receiptMappings:[{sourceWdetailKey:after[0].WdetailKey,targetRowIndex:0}],matching:{financial:{acknowledged:true,reason:'combined reduction',costInputs:[{kind:'INVOICE',sourceKey:docId,expectedRevision:3,input,lineMappings:[{sourceLineId:lineId,targetRowIndex:0,quantity:70}]},{kind:'FREIGHT',sourceKey:1,expectedRevision:1,input:{}}]}},products:[product,productB],beforeReceipt:combinedBefore});assert.deepEqual(combinedPlan.issues,[]);
+  const combinedExecute=async tq=>{await tq('UPDATE WarehouseDetail SET OutQuantity=70,EstQuantity=70,BunchQuantity=70,SteamQuantity=700,BoxQuantity=7,TPrice=700 WHERE WarehouseKey=90');return writeIncomingApprovalCosts({q:tq,types:sql,plan:combinedPlan,beforeReceipt:combinedBefore,afterReceipt:{header:combinedBefore.header,details:next,targetDetails:next},actor:'fixture',requestId:3});};
+  await pool.request().batch("CREATE TRIGGER dbo.FixtureFailFreight ON dbo.FreightCostDetail AFTER INSERT AS THROW 51141,'fixture final financial failure',1;");
+  await assert.rejects(()=>transaction(combinedExecute));assert.equal((await q('SELECT Revision FROM WebInvoiceDocument')).recordset[0].Revision,3);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost WHERE isDeleted=0')).recordset[0].n,1);assert.equal((await q('SELECT OutQuantity FROM WarehouseDetail WHERE WarehouseKey=90')).recordset[0].OutQuantity,80);
+  await q('DROP TRIGGER dbo.FixtureFailFreight');const combined=await transaction(combinedExecute);assert.equal(combined.evidence.length,2);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost WHERE isDeleted=0')).recordset[0].n,1);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost')).recordset[0].n,2);assert.equal((await readInvoiceCosts({queryFn:q,types:sql,warehouseKey:90})).currentActual.totalCostKRW,148000);
+ }finally{if(pool)await pool.close();if(created){assert.match(name,/^NenovaInvoiceFixture_approval_[a-f0-9]{16}$/);await master.request().query(`DROP DATABASE [${name}]`);}await master.close();}
+});

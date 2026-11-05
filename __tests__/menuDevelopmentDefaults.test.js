@@ -16,12 +16,13 @@ const expectedSectionIds = [
   'matching-and-apply',
   'drafts-history-and-progress',
   'erp-safety',
+  'workflow-video-guides',
   'verification-and-release',
 ];
 
 test('menu development defaults expose the stable UI data shape', () => {
   assert.deepEqual(Object.keys(defaults), ['version', 'intro', 'sections']);
-  assert.equal(defaults.version, '2026-10-09');
+  assert.equal(defaults.version, '2026-11-04');
   assert.equal(typeof defaults.intro, 'string');
   assert.ok(defaults.intro.length > 20);
   assert.deepEqual(defaults.sections.map(section => section.id), expectedSectionIds);
@@ -67,6 +68,17 @@ test('AGENTS requires reading and acknowledging the menu baseline', () => {
   assert.match(agents, /docs\/MENU_DEVELOPMENT_DEFAULTS\.md/);
   assert.match(agents, /기준선 확인 결과/);
   assert.match(agents, /적용[^\n]*해당 없음[^\n]*예외/);
+});
+
+test('new menus and tabs require a recorded guide and an in-screen entry by default', () => {
+  assert.match(agents, /사용 가이드 영상.*기본 완료 조건/);
+  assert.match(agents, /test:workflow-guides/);
+  const section = defaults.sections.find(item => item.id === 'workflow-video-guides');
+  assert.equal(section.items.length, 5);
+  assert.match(section.items.join(' '), /역할별/);
+  assert.match(section.items.join(' '), /1920×1080/);
+  assert.match(section.items.join(' '), /미제작·오래된 영상은 완료로 표시하지/);
+  assert.match(guide, /config\/workflow-guides\.json/);
 });
 
 test('baseline artifacts are read-only guidance and declare no data mutation', () => {

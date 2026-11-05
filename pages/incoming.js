@@ -1,3 +1,4 @@
+import WorkflowGuide from '../components/WorkflowGuide';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { apiGet } from '../lib/useApi.js';
@@ -276,6 +277,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected})}>농장·품목 수정 / 파일 교체</Button>
         <Button size="small" disabled={!selected || deleting || uploading} onClick={() => setCorrectionTarget({...selected,approval:true})}>수입부 수정 요청</Button>
+        {!embedded && <WorkflowGuide workflowId="incoming-approval" initialRole="수입부"/>}
         {!embedded && <Button size="small" href={incomingWorkspaceHref({warehouseKey:selectedKey,from:startDate,to:endDate,farm:farmFilter,week:weekFilter,q:masterSearch,popup})}>입고 정정 업무</Button>}
         <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
         <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>

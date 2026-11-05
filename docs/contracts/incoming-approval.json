@@ -16,7 +16,30 @@
     "components/WarehouseCorrection.js",
     "lib/warehouseCorrection.js",
     "__tests__/fixtures/incomingApproval.sql",
-    "package.json"
+    "package.json",
+    "lib/incomingApprovalLinkedPolicy.js",
+    "lib/incomingApprovalLinkedWriter.js",
+    "lib/incomingApprovalCosts.js",
+    "lib/incomingApprovalProfit.js",
+    "lib/erpReadContext.js",
+    "lib/db.js",
+    "lib/kcsTaxableRate.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/invoiceReceiptDocuments.js",
+    "components/IncomingApprovalLinkedReview.js",
+    "lib/profitAverageData.js",
+    "lib/profitReport.js",
+    "lib/profitReportSnapshot.js",
+    "lib/profitTemplateDutyData.js",
+    "lib/webSchemaContract.js",
+    "__tests__/fixtures/incomingApprovalLinked.sql",
+    "__tests__/fixtures/incomingApprovalCosts.sql",
+    "__tests__/fixtures/incomingApprovalProfit.sql",
+    "__tests__/fixtures/erpRealModuleLoader.mjs",
+    "__tests__/incomingApprovalLinkedPolicy.test.mjs",
+    "__tests__/incomingApprovalCosts.test.mjs",
+    "__tests__/incomingApprovalProfit.test.mjs",
+    "__tests__/incomingApprovalProfitSql.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -48,6 +71,24 @@
       "stock": "receipt and fixed shipment signed delta, native future-year cascade",
       "estimate": "positive estimate from native View joins and date amounts; preserve independent deductions",
       "sales": "detail money equals dates, verify native visibility"
+    },
+    {
+      "name": "REHEARSAL_LINKED_APPROVAL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "same writer rollbackOnly; no committed ERP change",
+      "stock": "native calculation rolled back",
+      "financial": "exact cost/profit before-after; immutable external input capture"
+    },
+    {
+      "name": "APPROVE_LINKED_REVISION",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "warehouse": "physical line mapping UPDATE; referenced removed rows zeroed with audit",
+      "farm": "explicit final group allocations",
+      "cost": "append corrected invoice document/operation and cost revision; freight snapshot revision",
+      "profit": "same calculator in transaction; append corrected active confirmation and report snapshot; preserve manual inputs",
+      "estimate": "native positive quote visibility; preserve independent deductions"
     }
   ],
   "crossYearFixture": {
@@ -74,7 +115,11 @@
   },
   "requiredTestFiles": [
     "__tests__/incomingApproval.test.mjs",
-    "__tests__/incomingApprovalSql.test.mjs"
+    "__tests__/incomingApprovalSql.test.mjs",
+    "__tests__/incomingApprovalLinkedPolicy.test.mjs",
+    "__tests__/incomingApprovalCosts.test.mjs",
+    "__tests__/incomingApprovalProfit.test.mjs",
+    "__tests__/incomingApprovalProfitSql.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

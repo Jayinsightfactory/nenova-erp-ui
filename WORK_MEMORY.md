@@ -2027,3 +2027,6 @@
 
 웹 로그 추가발견: 운영 관리자 이력의 모호한 Descr와 없는 ShipmentHistory.ColumName 조회 오류 수정. 실제 dnSpy ShipmentDtm 표시+Master 거래처 조인 동일화, 실제 SELECT-only stock200/order160/shipment157 HTTP200. 원장쓰기0. 전체ERP/build/Chrome1920/800 PASS(PR1499 초기), 추가 readonly API 회귀 PASS 및 CI 재검증 진행.
 검색어: adminActivityRead Ambiguous Descr ShipmentHistory ColumName ShipmentDtm
+
+2026-11-05 입고 연결 정정 확장 진행: nw-incoming-linked-approval-guide-1104. 명시 입고 물리키/농장 최종배정, 인보이스·운송원가 새버전, 실제 손익 loader의 트랜잭션 계산/확정본 개정 구현. 격리SQL core+원가+농장80→70·검토롤백·후행감사실패 전체롤백 PASS, 손익 실제SQL41/44/2027·2025보존·확정본·캐시실패롤백 PASS. 운영쓰기0. 초기build PASS, 전체gate/영상/PR/배포 진행중(미완).
+검색어: incomingApprovalCosts incomingApprovalProfit linked approval workflow guide 1920x1080
