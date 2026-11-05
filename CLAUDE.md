@@ -58,6 +58,10 @@ async function safeNextKey(tQ, table, keyCol) {
 }
 ```
 
+### 규칙 4-1: 출고분배 확정 판정 = ShipmentDetail.isFix (dnSpy 기준)
+- 확정 여부는 `ViewShipment.DetailFix`(=sd.isFix)를 차수+CountryFlower 단위로 본다. `ShipmentMaster.isFix`는 다른 품종 확정취소 때 업체 마스터 전체가 0이 되므로 품종 확정 판정에 쓰지 않는다.
+- 의심되면 `StockHistory`의 마지막 `출고확정`/`출고확정 취소` 이벤트로 확인한다. 상세: `docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md` C-11.
+
 ### 규칙 5: ShipmentDetail 검색 = 직접 검색
 ```
 1단계: ShipmentDetail을 sm.CustKey+sd.ProdKey+sm.OrderWeek로 직접 찾기

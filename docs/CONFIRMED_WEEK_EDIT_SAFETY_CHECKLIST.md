@@ -30,6 +30,7 @@ related:
 | C-8 | "빌드 성공" ≠ "검증 완료". 배포 후 **실제 프로덕션 DB 데이터**로 API를 직접 호출해 결과값을 확인할 것 | 이번 세션 다수 사례 — 빌드는 깨끗했지만 라이브 데이터로 확인해서야 로직 오류 발견 |
 | C-9 | 차수 데이터(단가/수량/분배/재고)를 고치는 작업은 **`npm run verify:week -- <대차수>` 로 전후 검증**할 것: ① 작업 전 `--snapshot` ② 작업 ③ `--diff` → 바뀐 거래처·품목이 "의도한 것뿐"인지 확인 ④ 인자만으로 실행 → 불변식(V1~V9) 위반 0건 확인. 확정 재사이클을 태웠다면 ③④ 한 번 더 | "단가 바꿨는데 총액 그대로"(V1: Detail↔ShipmentDate Cost 불일치), "총수량이 저절로 바뀜"(diff), "견적서 누락"(V4/V5/V6) 유형을 작업 직후 잡지 못하고 사용자가 며칠 뒤 발견 |
 | C-10 | `runEditWithFixCycle` 호출은 화면의 **`orderYear`를 명시적으로 전달**하고 자동 사이클은 `force=false`를 사용할 것. 저장 API는 `ShipmentKey`의 실제 `ShipmentMaster.OrderYear/CustKey`를 대조할 것 | 짧은 `NN-NN` 차수에서 연도 누락으로 저장 중단, 또는 같은 차수의 전년도 원장 혼입·뒤 차수 확정 경고 우회 |
+| C-11 | **출고분배 확정 판정 = `ShipmentDetail.isFix`(=`ViewShipment.DetailFix`), 차수+`Product.CountryFlower` 단위.** `ShipmentMaster.isFix`(MasterFix)로 품목/품종 확정 여부를 판정하거나 "업체 미확정"으로 표시하지 말 것. 확정 여부가 의심되면 화면 판단 전에 `StockHistory`(Descr=`출고확정`/`출고확정 취소`, ChangeID, ChangeDtm)의 마지막 이벤트로 확인할 것 | dnSpy `GetFixStatus`는 OrderYear+OrderWeek+CountryFlower의 DetailFix=1 행 COUNT로 확정 판정(`docs/exe-golden/FormShipmentDistribution.md` 2026-10-02 항). `usp_ShipmentFix`는 대상 품종 상세를 1로, `usp_ShipmentFixCancel`은 해당 상세 0 + **그 상세가 속한 업체 마스터 전체를 0**으로 만든다(`docs/migrations/backup_usp_ShipmentFixCancel_2026-08-23_*.sql:42-54`). 그래서 다른 품종(예: 중국기타)을 취소하면 같은 업체 마스터의 isFix=0이 되어 이미 확정된 품종도 MasterFix=0으로 보인다. 2026-11-05: 45-01 콜롬비아알스트로 45/45행 DetailFix=1, 마지막 이벤트 11:48:19 nenovaSS1 `출고확정`(10품목), 이후 취소 없음 → 확정이 맞음. MasterFix=0 26행은 다른 품종 취소 부작용 |
 
 ## 도메인 지식 — 자동값을 그대로 믿으면 안 되는 경우
 
