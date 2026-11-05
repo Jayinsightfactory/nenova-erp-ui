@@ -24,7 +24,7 @@ const { pathToFileURL } = require('url');
     const b = fs.readFileSync(f); total += b.length;
     assert.strictEqual(b.slice(0, 4).toString(), 'glTF', `glb 아님: ${n}`);
   }
-  assert.ok(total < 4 * 1024 * 1024, `glb 합계 ${total}B > 4MB`);
+  assert.ok(total < 6 * 1024 * 1024, `glb 합계 ${total}B > 6MB`); // 2026-11-06 P1 그림자·음영 베이크(+1.4MB, 사장님 '고정값 그림자' 지시) — 전송은 gzip ≈1MB대
   console.log(`glb 34종 합계 ${(total / 1024 / 1024).toFixed(2)}MB`);
 
   // 2) 스케일 정합: 애셋 4.0 타일 = 웹 1칸, 자리 유닛 4.0 = 자리 2칸

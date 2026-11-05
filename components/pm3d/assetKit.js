@@ -38,7 +38,9 @@ export function bake(root, filter = null) {
   root.traverse((m) => {
     if (!m.isMesh || (filter && !filter(m))) return;
     const g = m.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
-    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); // 단색 클레이 재질 — uv 불필요, 병합 호환
+    // [2026-11-06 P1] COLOR_0(버텍스 AO·음영 베이크)과 uv(baked_shadow 텍스처)는 보존 — 속성 불일치 병합은 아래 null 폴백이 받아줌
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'color' && k !== 'uv') g.deleteAttribute(k);
+    if ((m.name === 'baked_shadow' || m.material?.name === 'baked_shadow') && m.material) m.material.userData.bakedShadow = true; // 구운 그림자판 표식(병합 후에도 재질로 식별)
     const key = m.material; if (!byMat.has(key)) byMat.set(key, []); byMat.get(key).push(g.index ? g.toNonIndexed() : g);
   });
   const out = [];
@@ -54,8 +56,9 @@ export function instanced(baked, matrices, prep) {
   const grp = new THREE.Group();
   if (!matrices.length) return grp;
   for (const { geometry, material } of baked) {
-    const mat = material.clone(); prep?.(mat);
+    const mat = material.clone(); prep?.(mat); markShadowMat(mat);
     const im = new THREE.InstancedMesh(geometry, mat, matrices.length);
+    if (mat.userData.bakedShadow) im.renderOrder = 1;
     matrices.forEach((m4, i) => im.setMatrixAt(i, m4));
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); grp.add(im);
   }
@@ -67,7 +70,7 @@ export function mat4(x, y, z, yaw, s) { return new THREE.Matrix4().compose(new T
 // 단일 배치용 정적 복제(구운 지오메트리 공유, 재질 공유)
 export function staticClone(root, prep) {
   const g = new THREE.Group();
-  for (const { geometry, material } of bake(root)) { const mat = material.clone(); prep?.(mat); g.add(new THREE.Mesh(geometry, mat)); }
+  for (const { geometry, material } of bake(root)) { const mat = material.clone(); prep?.(mat); markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
   return g;
 }
 
@@ -75,7 +78,7 @@ export function staticClone(root, prep) {
 export function splitUnit(root, prep) {
   const part = (want) => {
     const g = new THREE.Group();
-    for (const { geometry, material } of bake(root, (m) => unitPartOf(nameOf(m)) === want)) { const mat = material.clone(); prep?.(mat); g.add(new THREE.Mesh(geometry, mat)); }
+    for (const { geometry, material } of bake(root, (m) => unitPartOf(nameOf(m)) === want || (want === 'parasol' && (m.name === 'baked_shadow' || m.material?.name === 'baked_shadow')))) { const mat = material.clone(); prep?.(mat); markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
     return g;
   };
   const desk = part('desk'); desk.position.set(-UNIT_GEOM.desk.x, 0, -UNIT_GEOM.desk.z);
@@ -86,3 +89,11 @@ export function splitUnit(root, prep) {
 // 다중 재질 노드는 로더가 그룹(노드명)+자식 메시로 쪼갬 → 이름 있는 가장 가까운 조상
 function nameOf(m) { let o = m; while (o && !UNIT_NAMES.has(o.name)) o = o.parent; return o ? o.name : m.name; }
 const UNIT_NAMES = new Set(['canopy', 'pole', 'pole_base', 'tip', 'stool_board', 'cushion', 'stoolleg0', 'stoolleg1', 'stoolleg2', 'tile_base', 'tile_top']);
+
+// 구운 그림자판 재질 공통 세팅(P1): 반투명·깊이쓰기 끔 — 지면 위에 겹쳐도 z-fight 없이 깔림
+export function markShadowMat(mat) {
+  if (!mat?.userData?.bakedShadow) return mat;
+  mat.transparent = true; mat.depthWrite = false; if (mat.metalness !== undefined) { mat.metalness = 0; mat.roughness = 1; }
+  return mat;
+}
+export const hasBakedShadow = (root) => { let f = false; root.traverse?.((o) => { if (o.material?.userData?.bakedShadow) f = true; }); return f; };

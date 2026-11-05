@@ -16,7 +16,7 @@ import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale } from '../../lib/pm3dAssets';
-import { loadKit, bake, instanced, mat4, staticClone, splitUnit } from './assetKit';
+import { loadKit, bake, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
@@ -380,6 +380,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         // 구운 접지 그림자: 애셋 바닥 상자(Box3) 타원 블롭 — 실시간 그림자 0 유지(QUALITY_RECIPE), 비용 = 투명 평면 1장
         const shade = (n, k = 0.25) => { // k = 물체 바닥 상자보다 번지는 여유(m)
           if (!n) return n;
+          if (hasBakedShadow(n)) return n; // [P1] 애셋이 자기 그림자를 구워 들고 오면 procedural 블롭 생략
           n.updateWorldMatrix(true, true);
           const b = new THREE.Box3().setFromObject(n); if (!isFinite(b.min.x)) return n;
           blob(scene, (b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2, Math.max(0.25, (b.max.x - b.min.x) / 2 + k), Math.max(0.25, (b.max.z - b.min.z) / 2 + k), 0.02);
@@ -393,7 +394,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           ud.userData = f.d.person ? { kind: 'person', name: f.d.person.name } : {};
           f.g.add(ud); shade(ud, 0.15); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
           f.ps.visible = false;
-          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); blob(scene, f.cn.x, f.cn.z, f.cn.r * 0.72, f.cn.r * 0.72, 0.018); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
+          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); if (!hasBakedShadow(up)) blob(scene, f.cn.x, f.cn.z, f.cn.r * 0.72, f.cn.r * 0.72, 0.018); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
           seats++;
         }
         // 2.5) 서핑보드: 파라솔 기둥 옆에 기대 세움(디자인 자문 — 빈 공간 소품). 4자리마다 1개, 자체 16° 기울기 베이크
