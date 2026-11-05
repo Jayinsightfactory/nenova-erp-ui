@@ -2102,3 +2102,8 @@
 
 2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
 검색어: PR1550 incoming linked approval guide-player 41978488811
+
+## 2026-11-05 도착원가 시트 검토 업로드
+- 원본보존/검토/선택시트명시국가/차수/연도확인,재검토다이제스트/DB멱등/읽기검증구현.53/54分離134행은55통합1892행중해당134행과원본셀·수량·원가일치/수동변경0.
+- 관련회귀/dnSpy/manifest통과,실제UI합성dryrun통과.필수전체검사·영상·CI·배포·정리미검증(진행중).
+- 검색어: 도착원가 시트검토 업로드 원본보존 Import53 Import54 134행 arrivalUploadReview

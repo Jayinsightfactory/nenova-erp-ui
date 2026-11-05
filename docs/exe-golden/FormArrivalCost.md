@@ -133,3 +133,6 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. 읽기 probe로 호텔 
 - 품종 선택·검색·페이지 조회는 SELECT 전용이다. 저장 버튼은 기존처럼
   `WebArrivalCostLine` 매칭/배분기준과 `WebArrivalCostHistory`만 변경한다.
 
+
+## 2026-11-05 도착원가 시트 검토 업로드
+실제 dnSpy CLI FormWarehouseView GetData/GetDetail 재실행, WarehouseMaster.OrderYear/OrderWeek와WarehouseDetail읽기 확인.웹전용업로드는원본SHA/실패기록보존→시트별국가/차수/연도확인→동일파서재검토→DB잠금멱등저장/읽기검증.ERP·견적·매출원장보존.53/54분리134행과55통합본원본셀/수량/원가다중집합일치,수동변경0 SELECT검증.배포후정확범위IsCurrent-only 감사격리.근거 docs/work-reports/2026-11-05_arrival-upload-review.md; 실행회귀 arrivalUploadReview.test.js.

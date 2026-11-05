@@ -1091,3 +1091,6 @@ Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 �
 태림 그로우3389/오션송2473은 실제 최근 출고품목3397/2085와 달라 단가가 없었다. 동일이름만으로 자동단가/품목을 치환하지 않으며 실제후보·업체·차수·단위 표시와 기존 manage-edit CAS 재검사를 사용한다. DB조회 실패를 단가0으로 삼키지 않는다. 라움 이전 차감 견적10499/10707 실체없음은 고객출고없음이 아니라 보류이며 사용자 지시로 재등록하지 않는다. 회귀 defectCostCandidates.test.js 및 defect-cost-held-smoke.cjs.
 
 2026-11-04 선택 보류 가드: WebSalesDefectDeductionHistory의 SUPPORT_HOLD/RESUME만 쓰고 원장/Estimate 보존. 해당 원장 UPDLOCK과 최신이력 CAS 필수. 등록 판정에서 manualHeld를 누락하거나 보류 해제로 원문·단가·중복 검사를 해제하지 않는다. 기준 DEFECT_DEDUCTION_MAINTENANCE.md, 회귀 defectManualHold.test.js.
+
+## 2026-11-05 도착원가 시트 검토 업로드
+실제 dnSpy CLI FormWarehouseView GetData/GetDetail 재실행, WarehouseMaster.OrderYear/OrderWeek와WarehouseDetail읽기 확인.웹전용업로드는원본SHA/실패기록보존→시트별국가/차수/연도확인→동일파서재검토→DB잠금멱등저장/읽기검증.ERP·견적·매출원장보존.53/54분리134행과55통합본원본셀/수량/원가다중집합일치,수동변경0 SELECT검증.배포후정확범위IsCurrent-only 감사격리.근거 docs/work-reports/2026-11-05_arrival-upload-review.md; 실행회귀 arrivalUploadReview.test.js.

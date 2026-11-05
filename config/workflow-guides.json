@@ -74,6 +74,51 @@
           ]
         }
       ]
+    },
+    {
+      "id": "arrival-upload-review",
+      "title": "도착원가 시트 검토 업로드",
+      "entryPaths": [
+        "/arrival-cost"
+      ],
+      "sourceFiles": [
+        "pages/arrival-cost.js",
+        "components/ArrivalUploadReview.js",
+        "lib/arrivalReviewCountries.js"
+      ],
+      "requiredScenarios": [
+        "analyze",
+        "review",
+        "save"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "원본 분석·시트 검토·저장",
+          "status": "ready",
+          "src": "/guides/arrival-upload-review/import.mp4",
+          "captions": "/guides/arrival-upload-review/import.ko.vtt",
+          "proof": "/guides/arrival-upload-review/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "analyze",
+              "title": "원본 엑셀 분석",
+              "seconds": 0
+            },
+            {
+              "scenario": "review",
+              "title": "국가·차수·연도와 제외 시트 검토",
+              "seconds": 10.719
+            },
+            {
+              "scenario": "save",
+              "title": "선택 시트 저장·결과 확인",
+              "seconds": 23.242
+            }
+          ]
+        }
+      ]
     }
   ]
 }
