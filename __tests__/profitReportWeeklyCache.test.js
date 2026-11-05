@@ -7,6 +7,7 @@ const root=path.join(__dirname,'..');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 async function main(){
   const C=await import('../lib/profitReportStoredCalculation.js');
+  const readContext=await import('../lib/erpReadContext.js');
   const S=await import('../lib/profitReportSnapshot.js');
   const M=await import('../lib/profitReportMonthly.js');
   const raw={orderYear:'2026',major:'31',note:'saved note',rows:[{category:'태국',variant:'normal',auto:{N:100,L:0,O:0,Q:2,S:1},manual:{R:100,H:0},stock:{}}]};
@@ -75,7 +76,7 @@ async function main(){
       if(text.includes('INSERT INTO dbo.WebProfitReportSnapshot')){writes++;if(options.insertFails)throw Error('write fail');return {recordset:[{SnapKey:10,VersionNo:2,CreatedAt:'2026-10-28T00:00:00Z'}]};}
       throw Error('unexpected SQL '+text);
     };
-    const deps={crypto,query,sql,withTransaction:async fn=>{inTx=true;try{const out=await fn(query);committed=true;return out;}catch(e){rolledBack=true;throw e;}finally{inTx=false;}},
+    const deps={...readContext,crypto,query,sql,withTransaction:async fn=>{inTx=true;try{const out=await fn(query);committed=true;return out;}catch(e){rolledBack=true;throw e;}finally{inTx=false;}},
       isMaterializedProfitPayload:C.isMaterializedProfitPayload,materializeProfitPayload:C.materializeProfitPayload,
       loadProfitCategoryOverrides:()=>({}),calcHashModule:{computeProfitReportCalcHash:()=> 'test'},
       computeWeekFingerprint:async(y,m,opts)=>{assert.equal(opts.force,true);fingerprints++;return {hash:options.sourcesChanged&&fingerprints>1?'changed':'test',components:{}};}};

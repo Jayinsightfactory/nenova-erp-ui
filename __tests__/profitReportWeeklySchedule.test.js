@@ -53,12 +53,17 @@ const loaderBody = workbookSource.slice(workbookSource.indexOf('export async fun
 let workbookSelects = 0;
 const workbookLoader = new Function('query', 'sql', `${loaderBody}; return loadSourceWorkbookFxRows;`)(async (text, params) => {
   assert.deepEqual(inspectCacheOnlySql(text), { insertAttempts: 0, appLockCalls: 0 });
-  assert.equal(params.y0.value, '2026');
   workbookSelects++;
+  if(text.includes('OBJECT_ID'))return {recordset:[{TableId:1}]};
+  assert.equal(params.y0.value, '2026');
   return { recordset: [{ OrderYear: '2026', OrderWeek: '01-01', ExchangeRate: 1400 }] };
 }, { NVarChar: 'nvarchar' });
 assert.equal((await workbookLoader(['2026']))[0].ExchangeRate, 1400);
-assert.equal(workbookSelects, 1);
+assert.equal(workbookSelects, 2, 'optional schema check and scoped SELECT both stay read-only');
+let missingSelects=0;
+const missingWorkbookLoader=new Function('query','sql',`${loaderBody}; return loadSourceWorkbookFxRows;`)(async text=>{missingSelects++;assert.match(text,/OBJECT_ID/);return {recordset:[{TableId:null}]};},{NVarChar:'nvarchar'});
+assert.deepEqual(await missingWorkbookLoader(['2026']),[]);
+assert.equal(missingSelects,1,'absent optional table does not issue a data SELECT');
 const optionalTablePrefix = "IF OBJECT_ID(N'dbo.WebArrivalCostLine', N'U') IS NOT NULL ";
 for (const suffix of ['UPDATE Product SET Stock=0', 'SELECT 1; DELETE FROM Estimate', 'SELECT 1 INTO #copy', 'SELECT 1; INSERT INTO WebProfitReportSnapshot SELECT 1', 'SELECT 1; EXEC sys.sp_getapplock @Resource=@key', 'SELECT 1; EXEC usp_StockCalculation', 'BEGIN CREATE TABLE X(Y INT) END']) {
   assert.throws(() => inspectCacheOnlySql(optionalTablePrefix + suffix));
