@@ -141,7 +141,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.scale.set(rx * 2, rz * 2, 1); m.renderOrder = 1;
       parent.add(m); return m;
     };
-    // 캐릭터 톤 셰이딩: 5단 파스텔 램프(NearestFilter 필수) — 말랑 클레이 음영
+    // 캐릭터 셰이딩: 기본 standard(RQ.charShade) / 'toon' 이면 5단 파스텔 램프(NearestFilter 필수)
     const toonRamp = (() => {
       const steps = new Uint8Array(RQ.toonRamp);
       const t = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
@@ -150,7 +150,11 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     const toonify = (root) => root.traverse((m) => {
       if (!(m.isMesh || m.isSkinnedMesh) || !m.material) return;
       const s = m.material;
-      const tm = new THREE.MeshToonMaterial({ color: s.color?.clone?.() || new THREE.Color('#ffffff'), gradientMap: toonRamp, map: s.map || null, transparent: s.transparent, opacity: s.opacity, side: s.side });
+      const base = { color: s.color?.clone?.() || new THREE.Color('#ffffff'), map: s.map || null, transparent: s.transparent, opacity: s.opacity, side: s.side };
+      // 블렌더 클레이 렌더 기준: 기본은 부드러운 standard(색·음영 보존), 'toon' 토큰이면 예전 5단 램프
+      const tm = RQ.charShade === 'toon'
+        ? new THREE.MeshToonMaterial({ ...base, gradientMap: toonRamp })
+        : new THREE.MeshStandardMaterial({ ...base, roughness: RQ.charRough ?? 0.78, metalness: 0, normalMap: s.normalMap || null });
       tm.name = s.name; m.material = tm;
     });
     // 정적 모듈(kit) 클레이 질감: roughness 0.6~0.8 클램프 + AO 베이크(kit_ao.jpg, TEXCOORD_1) 주입
