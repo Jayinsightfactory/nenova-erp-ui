@@ -32,3 +32,25 @@ test('before and after use real formulas with a fresh source scope and preserve 
  const before=await compute(100),after=await compute(0);
  assert.equal(before.periods[0].payload.totals.C,100);assert.equal(after.periods[0].payload.totals.C,0);assert.notEqual(before.periods[0].semanticHash,after.periods[0].semanticHash);
 });
+
+test('a failed calculation drains in-flight SQL and rejects later background reads',async()=>{
+ let context,finished=false,calls=0;
+ const {currentErpReadContext}=await import('../lib/erpReadContext.js');
+ await assert.rejects(()=>withErpReadContext({queryFn:async()=>{calls++;await new Promise(r=>setTimeout(r,5));finished=true;return {recordset:[]};}},async()=>{
+  context=currentErpReadContext();
+  const first=query('SELECT 1');
+  await new Promise(r=>setTimeout(r,1));
+  first.catch(()=>{});
+  throw new Error('formula failure');
+ }),/formula failure/);
+ assert.equal(finished,true);
+ await assert.rejects(()=>context.query('SELECT 2'),/formula failure/);
+ assert.equal(calls,1);
+});
+
+test('empty invoice dependencies preserve legacy confirmed hash; economic lineage changes it',async()=>{
+ const {buildSourceHash}=await import('../lib/profitReportConfirm.js');
+ const basis={rows:[{category:'중국',auto:{N:100},manual:{},stock:{}}],stockWeeks:{}};
+ assert.equal(buildSourceHash(basis),buildSourceHash({...basis,sourceDependencies:{invoiceCosts:[]}}));
+ assert.notEqual(buildSourceHash(basis),buildSourceHash({...basis,sourceDependencies:{invoiceCosts:[{key:'invoice',price:100}]}}));
+});

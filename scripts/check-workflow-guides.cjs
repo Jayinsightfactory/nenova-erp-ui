@@ -36,7 +36,7 @@ function validateWorkflowGuides(root, registry, { allowDraft = false, addedPages
       const proofFile = asset(root, guide.proof, 'proof\\.json');
       const data = fs.readFileSync(mp4);
       if (data.length < 1000 || data.length > 60 * 1024 * 1024 || data.subarray(4, 8).toString() !== 'ftyp') fail(`${label}: MP4 형식/크기(60MB 이하)`);
-      const vtt = fs.readFileSync(captions, 'utf8');
+      const vtt = fs.readFileSync(captions, 'utf8').replace(/\r\n/g, '\n');
       if (!vtt.startsWith('WEBVTT\n') || !vtt.includes('-->') || !/[가-힣]/.test(vtt)) fail(`${label}: 한국어 WebVTT 설명 필요`);
       const proof = JSON.parse(fs.readFileSync(proofFile, 'utf8'));
       if (proof.version !== 1 || proof.width !== 1920 || proof.height !== 1080 || proof.browserZoom !== 100 || proof.dataMode !== 'synthetic-fixture' || proof.productionWrites !== 0 || proof.capture !== 'actual-browser-ui') fail(`${label}: 실제 1920×1080 연습 화면 검증 필요`);
@@ -44,7 +44,7 @@ function validateWorkflowGuides(root, registry, { allowDraft = false, addedPages
       const cueTimes = [...vtt.matchAll(/(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})/g)];
       const seconds = time => time.split(':').map(Number).reduce((total, value) => total * 60 + value, 0);
       if (!cueTimes.length || cueTimes.some(cue => seconds(cue[2]) <= seconds(cue[1]) || seconds(cue[2]) > proof.duration + .05)) fail(`${label}: 자막 시간 범위 오류`);
-      if (proof.videoSha256 !== sha256(data) || proof.captionsSha256 !== sha256(fs.readFileSync(captions))) fail(`${label}: 영상/자막 검증 해시 불일치`);
+      if (proof.videoSha256 !== sha256(data) || proof.captionsSha256 !== sha256(vtt)) fail(`${label}: 영상/자막 검증 해시 불일치`);
       for (const file of workflow.sourceFiles) if (proof.sourceHashes?.[file] !== sourceHash(path.join(root, file))) fail(`${label}: ${file} 변경 후 가이드를 다시 촬영하세요`);
       if (!Array.isArray(guide.chapters) || guide.chapters.length === 0) fail(`${label}: 영상 목차 필요`);
       let previous = -1;

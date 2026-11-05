@@ -1,3 +1,4 @@
+import { profitInvoiceDependencies, withProfitInvoiceMemo } from '../../../lib/profitReport.js';
 // 주차별 매출이익 보고서 API — 자동열은 SQL, 수기열은 WebProfitReport 저장.
 import { withAuth } from '../../../lib/auth';
 import { applyTemplateDutyToReport, clearTemplateDutyCache } from '../../../lib/profitTemplateDutyData';
@@ -143,7 +144,8 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
 }
 
 // GET/엑셀 공용 — 보고서 행 데이터 구성
-export async function loadReportData(major, orderYear) {
+export async function loadReportData(major,orderYear){return withProfitInvoiceMemo(()=>loadReportDataInScope(major,orderYear));}
+async function loadReportDataInScope(major, orderYear) {
   // 다른 서버 프로세스에서 저장된 웹 전용 분류 파일도 매 조회마다 다시 읽는다.
   refreshProfitCategorySql(true);
   const currentMajor = Number(major);
@@ -584,6 +586,7 @@ export async function loadReportData(major, orderYear) {
       beginSnapshotAvailable: stockBegin.snapshotAvailable,
       endSnapshotAvailable: stockEnd.snapshotAvailable,
     },
+    sourceDependencies: {invoiceCosts:await profitInvoiceDependencies(orderYear,major)},
     manualInputManifest,
     forwardingReconciliation: customs.sources?.forwardingLedger || null,
     audit: buildProfitReportAudit(rows, {

@@ -30,7 +30,7 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
       for (const batch of fs.readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8').split(/^\s*GO\s*;?\s*$/gim).filter(x => x.trim())) await pool.request().batch(batch);
     for (const file of ['2026-08-11_web_profit_report_confirm.sql','2026-09-30_profit_report_snapshot.sql'])
       for(const batch of fs.readFileSync(new URL('../docs/migrations/'+file,import.meta.url),'utf8').split('-- 3. FreightCost')[0].split(/^\s*GO\s*;?\s*$/gim).filter(x=>x.trim()))await pool.request().batch(batch);
-    const withTransactionFn = async (fn, {rollbackOnly=false}={}) => { const tx = new sql.Transaction(pool); await tx.begin(); try { const value = await fn(executor(tx)); if(rollbackOnly)await tx.rollback();else await tx.commit(); return value; } catch (e) { await tx.rollback().catch(() => {}); throw e; } };
+    const withTransactionFn = async (fn, {rollbackOnly=false,isolationLevel}={}) => { const tx = new sql.Transaction(pool); await tx.begin(isolationLevel); try { const value = await fn(executor(tx)); if(rollbackOnly)await tx.rollback();else await tx.commit(); return value; } catch (e) { await tx.rollback().catch(() => {}); throw e; } };
     const importer = { userId: 'importer', deptName: '수입부' }, support = { userId: 'support', deptName: '영업지원' };
     const mutate = (input, user = importer) => mutateIncomingApproval({ withTransactionFn, types: sql, user, input, readBaseline: (q, c) => incomingApprovalBaseline(q, sql, c) });
     const receipt = { warehouseKey: 90, orderYear: '2026', orderWeek: '41-01' };
@@ -96,7 +96,25 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     const shortage = await makeRequest({ ...reduceCorrection, items: [{ ...reduceCorrection.items[0], boxQty: 7, bunchQty: 70, steamQty: 700, totalPrice: 7700 }] });
     const shortageBody = await approveRequest(shortage);
     await q("INSERT StockHistory(ChangeDtm,OrderYear,OrderWeek,ChangeType,BeforeValue,AfterValue,ProdKey) VALUES(GETDATE(),N'2027',N'01-01',N'재고조정',0,-95,2)");
-    const beforeShortage = await all(); await assert.rejects(() => commit(shortageBody), { code: 'APPROVAL_FUTURE_SHORTAGE' }); assert.equal(await all(), beforeShortage);
+    const beforeShortage = await all(); await assert.rejects(() => commit(shortageBody), { code: 'APPROVAL_STOCK_ADJUSTMENT_REQUIRED' }); assert.equal(await all(), beforeShortage);
+    const shortagePreview=await previewIncomingApproval({withTransactionFn,types:sql,user:support,input:{requestId:shortage.requestId,revision:shortage.revision}});
+    assert.equal(shortagePreview.preview.canCommit,false);
+    assert.equal(await all(),beforeShortage,'unacknowledged native shortage rehearsal writes nothing');
+    const proposal=shortagePreview.preview.stockAdjustmentPreview;
+    assert.deepEqual(proposal.rows.map(({prodKey,year,week,quantity})=>({prodKey,year,week,quantity})),[{prodKey:2,year:'2027',week:'01-01',quantity:5}]);
+    const reviewed=await mutate({action:'saveMatching',requestId:shortage.requestId,revision:shortage.revision,matching:{rows:[],stockAdjustment:{acknowledged:true,fingerprint:proposal.fingerprint,rows:proposal.rows.map(({prodKey,year,week,quantity})=>({prodKey,year,week,quantity}))}}},support);
+    const reviewedBefore=await all();
+    const reviewedPreview=await previewIncomingApproval({withTransactionFn,types:sql,user:support,input:{requestId:reviewed.requestId,revision:reviewed.revision}});
+    assert.equal(reviewedPreview.preview.canCommit,true,JSON.stringify(reviewedPreview.preview.issues));
+    assert.equal(reviewedPreview.preview.stockAdjustmentPreview.applied,true);
+    assert.equal(await all(),reviewedBefore,'acknowledged rehearsal rolls back shortage correction too');
+    const reviewedBody={requestId:reviewed.requestId,revision:reviewed.revision,operationId:randomUUID(),digest:reviewedPreview.preview.digest,financialHash:reviewedPreview.preview.financialHash,confirmed:true};
+    await pool.request().batch("CREATE TRIGGER web_mgmt.FixtureFailApprovalAudit ON web_mgmt.ApprovalAudit AFTER INSERT AS THROW 51119,'fixture audit failure',1;");
+    await assert.rejects(()=>commit(reviewedBody));assert.equal(await all(),reviewedBefore,'late failure rolls back shortage adjustment, native cascade and approval');
+    await q('DROP TRIGGER web_mgmt.FixtureFailApprovalAudit');
+    const transactionalProof=async(fn,options)=>withTransactionFn(async tq=>{const result=await fn(tq);const history=(await tq("SELECT OrderYear,OrderWeek,AfterValue-BeforeValue Quantity FROM StockHistory WHERE ChangeType=N'재고조정' AND Descr LIKE N'%부족수량 명시 확인%'",{})).recordset;assert.deepEqual(history,[{OrderYear:'2027',OrderWeek:'01-01',Quantity:5}]);assert.deepEqual(result.stockAdjustments.map(({year,week,quantity})=>({year,week,quantity})),[{year:'2027',week:'01-01',quantity:5}]);return result;},{...options,rollbackOnly:true});
+    await commitIncomingApproval({withTransactionFn:transactionalProof,types:sql,user:support,input:reviewedBody});
+    assert.equal(await all(),reviewedBefore);
     await q("DELETE StockHistory WHERE OrderYear=N'2027'");
     const rejectRequest = await makeRequest({ ...receipt, mode: 'FARM', farmName: 'Farm A' });
     const beforeReject = await erp(); await mutate({ action:'reject',requestId:rejectRequest.requestId,revision:rejectRequest.revision,note:'시험 반려' },support);
@@ -130,6 +148,7 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     const linkedPreview=await previewIncomingApproval({withTransactionFn,types:sql,user:support,input:{requestId:linkedRequest.requestId,revision:linkedRequest.revision}});
     assert.equal(linkedPreview.preview.canCommit,true,JSON.stringify(linkedPreview.preview.issues));assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore,'actual linked rehearsal rolls back invoice, freight, farm and native stock');
     const linkedBody={requestId:linkedRequest.requestId,revision:linkedRequest.revision,operationId:randomUUID(),confirmed:true,digest:linkedPreview.preview.digest,financialHash:linkedPreview.preview.financialHash,externalEvidence:linkedPreview.externalEvidence};
+    await assert.rejects(()=>commit({...linkedBody,financialHash:undefined}),{code:'APPROVAL_FINANCIAL_REVIEW_REQUIRED'});assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore);
     await assert.rejects(()=>commit({...linkedBody,financialHash:'0'.repeat(64)}),{code:'APPROVAL_FINANCIAL_STALE'});assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore);
     await pool.request().batch("CREATE TRIGGER web_mgmt.FixtureFailApprovalAudit ON web_mgmt.ApprovalAudit AFTER INSERT AS THROW 51119,'fixture audit failure after all linked writes',1;");
     await assert.rejects(()=>commit(linkedBody));assert.equal(await all(),linkedErpBefore);assert.equal(await financialRows(),linkedFinancialBefore,'late approval audit failure rolls back all linked financial revisions');
@@ -139,6 +158,16 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     assert.equal((await q('SELECT WdetailKey FROM WarehouseDetail WHERE WarehouseKey=90')).recordset[0].WdetailKey,sourceDetail.WdetailKey,'cost-linked physical receipt identity preserved');
     assert.equal((await q('SELECT OutQuantity,Amount,Vat FROM ShipmentDetail WHERE ShipmentKey=1')).recordset[0].OutQuantity,70);assert.equal((await q('SELECT SUM(ShipmentQuantity) n FROM ShipmentFarm WHERE SdetailKey IN(SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=1)')).recordset[0].n,70);
     assert.equal((await q('SELECT COUNT(*) n FROM FreightCost WHERE isDeleted=0')).recordset[0].n,1);assert.equal((await q('SELECT COUNT(*) n FROM FreightCost')).recordset[0].n,2);assert.equal(await protectedRows(),originalProtected);
+    const stableFinancial=async()=>JSON.stringify((await q('SELECT SdetailKey,ShipmentKey,ProdKey,OutQuantity,Cost,Amount,Vat,isFix,ShipmentDtm FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM OrderDetail ORDER BY OrderDetailKey;SELECT * FROM ProductStock ORDER BY StockKey,ProdKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;SELECT * FROM Estimate;SELECT * FROM WebProfitReport;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;')).recordsets);
+    const preservedFarmOnly=await stableFinancial();
+    let redistribute=await makeRequest({...receipt,mode:'FARM',farmName:'Farm A'});
+    redistribute=await mutate({action:'saveMatching',requestId:redistribute.requestId,revision:redistribute.revision,matching:{rows:[],farmGroups:[{shipmentKey:1,prodKey:2,assignments:[{farmKey:1,quantity:30},{farmKey:2,quantity:40}]}],financial:{acknowledged:true,reason:'same total farm redistribution',costInputs:[]}}},support);
+    const farmReview=await previewIncomingApproval({withTransactionFn,types:sql,user:support,input:{requestId:redistribute.requestId,revision:redistribute.revision}});
+    assert.equal(farmReview.preview.canCommit,true,JSON.stringify(farmReview.preview.issues));assert.equal(await stableFinancial(),preservedFarmOnly);
+    await commit({requestId:redistribute.requestId,revision:redistribute.revision,operationId:randomUUID(),confirmed:true,digest:farmReview.preview.digest,financialHash:farmReview.preview.financialHash,externalEvidence:farmReview.externalEvidence});
+    assert.equal(await stableFinancial(),preservedFarmOnly,'farm-only redistribution preserves total quantity, stock, quotes, sales and manual profit');
+    assert.deepEqual((await q('SELECT FarmKey,ShipmentQuantity FROM ShipmentFarm WHERE SdetailKey IN(SELECT SdetailKey FROM ShipmentDetail WHERE ShipmentKey=1) ORDER BY FarmKey')).recordset,[{FarmKey:1,ShipmentQuantity:30},{FarmKey:2,ShipmentQuantity:40}]);
+    assert.equal((await readInvoiceCosts({queryFn:q,types:sql,warehouseKey:90})).currentActual.totalCostKRW,1548000,'farm-only revision preserves approved invoice economics');
     console.log('PASS: actual writer; request-only ERP=0; authority/CAS; A→B with explicit positive order; prior year preserved; 2027 cascade; concurrent replay; farm-only financial invariance; reduction-only; native rollback; stale source. Capability is isolated stub, native CALC body captured from operating definition.');
   } finally {
     if (pool) await pool.close();

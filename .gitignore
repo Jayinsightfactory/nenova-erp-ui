@@ -122,3 +122,4 @@ scripts/ecount-scraper/.ledger-recovery-request.json
 # 은행 빠른조회 수집기: 전용 프로필·probe 산출물(로컬 전용)
 scripts/bank-quick/_profile/
 scripts/bank-quick/_probe/
+/.next-final/

@@ -2093,3 +2093,6 @@
 - 7단계: 발사체 기본 9종 `fx.glb`+스프라이트 `build_fx.py`(소비자 연출은 후속).
 - 미완: 스킬 24종 상점 썸네일, 2D 표정 레이어(pm-char 일괄 렌더), 탈것별 전용 탑승 클립(현재 idle/sit_type 대용), 목표달성 트리거 주행(3D에 이벤트 데이터 없음 — danceEvents 연결 필요).
 - 재현 도구: pages/pm3d-preview.js(임시, 커밋 금지) + puppeteer-core 캡처. kit 재생성 시 build_assets.py 가 char.glb 안 덮음(--legacy-char 게이트).
+
+2026-11-05 입고 연결 정정 추가검증: 실제 승인원가2000→2200/20단 재고액40000→44000 loader PASS, 기존평균기준보존·원가의존해시·요청별memo. farm-only총량보존재배분허용. 부족재고는native결과에따른발생기간별최소증분/명시fingerprint동의/같은tx재계산; 2027 01만5조정·2026보존·감사실패롤백 실SQL PASS. FormStockAdd dnSpy/CodeInfo SELECT-only 확인. 전체gate/영상/배포진행중.
+검색어: incomingApprovalStockAdjustment chronological 부족재고 명시동의 sourceDependencies

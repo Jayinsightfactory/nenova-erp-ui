@@ -28,7 +28,7 @@
 | 동작 | Warehouse | Order | ShipmentDetail/Date | ShipmentFarm | Stock | 원가 연결 | 손익/Estimate |
 |---|---|---|---|---|---|---|---|
 | 초안/제출/매칭/반려 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존 |
-| 농장만 확정 | Master.FarmName | 보존 | Descr만 허용, 경제·날짜·isFix 보존 | 명시 선택 배정의 농장만, 수량 보존 | 보존 | 경제값 보존, 필요시 새 연결증거 revision | 확정손익·독립 Estimate 보존 |
+| 농장만 확정 | Master.FarmName | 보존 | Descr만 허용, 경제·날짜·isFix 보존 | 명시 농장별 재배분 허용, 합계는 출고 총수량 보존 | 보존 | 경제값 보존, 필요시 새 연결증거 revision | 확정손익·독립 Estimate 보존 |
 | 품목/수량 확정 | 명시 행 매핑으로 최종값 | 기존 보존, 승인된 양수 대체품 신규만 | 환산/날짜별 금액/확정 상태 일치 | 영향 그룹 최종 배정표 | signed delta + native 미래 cascade | 원천/수식 검증된 새 revision | 관련 확정본 새 revision, 독립 Estimate 보존 |
 
 원가가 없는 행에 임의 원가·환율을 만들지 않는다. 수기 WebProfitReport 원천입력과 독립 Estimate 차감/단가차감은 보존하며 기존 보고서 계산의 수기 우선순위를 유지한다.
@@ -63,7 +63,7 @@
 
 지원 화면은 영향 ShipmentKey+ProdKey별 기존 배정과 최종 배정을 보여준다. 기존 배정이 있는 그룹의 수량/품목 변경은 최종표를 반드시 제출한다. 전량 A→B는 A 최종표 빈 목록, B 최종표 합계=B 최종 OutQuantity다. 일부 이동이면 A/B 양쪽 합계를 각각 검증한다. 타 업체 배정은 건드리지 않는다.
 
-새 그룹 생성 후 resultDetailKey를 확보하고 그 키에 최종 FarmKey/ShipmentQuantity를 저장한다. source/target 단위가 다르면 OutUnit 수량을 그대로 복사하지 않고 명시 최종값+환산검증을 사용한다. 기존 배정이 없는 경우에도 임의 농장을 생성하지 않는다. farm-only는 원래 수량을 그대로 보존한다. 농장 비고는 기존 FarmCode:수량 형식 helper와 동일하게 생성한다. 실제 CLI 코드의 일부 행이 상세 총량을 배정수량으로 넣는다는 이유로 N개 농장에 총량을 반복 복제하지 않는다.
+새 그룹 생성 후 resultDetailKey를 확보하고 그 키에 최종 FarmKey/ShipmentQuantity를 저장한다. source/target 단위가 다르면 OutUnit 수량을 그대로 복사하지 않고 명시 최종값+환산검증을 사용한다. 기존 배정이 없는 경우에도 임의 농장을 생성하지 않는다. farm-only는 출고 총수량을 보존하며 A60/B40→A40/B60처럼 명시한 농장별 수량 재배분은 허용한다. 최종 합계가 출고 총수량과 다른 경우는 거부한다. 농장 비고는 기존 FarmCode:수량 형식 helper와 동일하게 생성한다. 실제 CLI 코드의 일부 행이 상세 총량을 배정수량으로 넣는다는 이유로 N개 농장에 총량을 반복 복제하지 않는다.
 
 ## 7. 확정 손익 revision
 

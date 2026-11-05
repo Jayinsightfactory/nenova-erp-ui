@@ -14,7 +14,7 @@ const publicPreview = f => ({ digest: f.digest, canCommit: f.canCommit, issues: 
     prodKey: g.product.ProdKey, product: g.product.ProdName, unit: g.product.OutUnit, estUnit: g.product.EstUnit,
     before: g.detail?.OutQuantity ?? 0, after: g.outQuantity, beforeAmount: g.detail?.Amount ?? 0, afterAmount: g.amount,
     beforeVat: g.detail?.Vat ?? 0, afterVat: g.vat, stockDelta: g.stockDelta, fixed: g.fixed, orderRequired: g.orderRequired, dates: g.after })),
-  stockPreview: f.stockPreview, reports: f.reportConfirmations,financialSummary:f.financialSummary,financialHash:f.financialHash,farmEvidence:f.farmEvidence,
+  stockPreview: f.stockPreview, stockAdjustmentPreview:f.stockAdjustmentPreview, reports: f.reportConfirmations,financialSummary:f.financialSummary,financialHash:f.financialHash,farmEvidence:f.farmEvidence,
   externalDocuments: '이미 발송한 견적서는 정정 후 재발행이 필요합니다. 외부 회계 전표는 자동 변경하지 않습니다.' });
 
 export default withAuth(async function handler(req, res) {
@@ -67,7 +67,7 @@ export default withAuth(async function handler(req, res) {
       readBaseline: (q, correction) => incomingApprovalBaseline(q, sql, correction) });
     return res.json({ success: true, ...result });
   } catch (error) {
-    const safe = error.code?.startsWith('APPROVAL_') || error.code?.startsWith('CORRECTION_');
+    const safe = error.code==='IMPORT_DEPLOY_BUSY' || error.code?.startsWith('APPROVAL_') || error.code?.startsWith('CORRECTION_');
     return res.status(error.statusCode ?? 409).json({ success: false, code: safe ? error.code : 'APPROVAL_FAILED',
       error: safe ? error.message : '요청 처리에 실패했습니다. 처리 이력을 다시 조회해 결과를 확인하세요.' });
   }

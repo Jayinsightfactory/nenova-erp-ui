@@ -39,7 +39,16 @@
     "__tests__/incomingApprovalLinkedPolicy.test.mjs",
     "__tests__/incomingApprovalCosts.test.mjs",
     "__tests__/incomingApprovalProfit.test.mjs",
-    "__tests__/incomingApprovalProfitSql.test.mjs"
+    "__tests__/incomingApprovalProfitSql.test.mjs",
+    "lib/arrivalInvoiceSource.js",
+    "lib/profitReportConfirm.js",
+    "pages/api/sales/profit-report.js",
+    "lib/profitReportCalcHash.cjs",
+    "pages/api/sales/profit-report-confirm.js",
+    "__tests__/profitReportStockLinkContract.test.js",
+    "lib/sourceWorkbookFx.js",
+    "lib/incomingApprovalStockAdjustment.js",
+    "__tests__/incomingApprovalStockAdjustment.test.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -89,6 +98,13 @@
       "cost": "append corrected invoice document/operation and cost revision; freight snapshot revision",
       "profit": "same calculator in transaction; append corrected active confirmation and report snapshot; preserve manual inputs",
       "estimate": "native positive quote visibility; preserve independent deductions"
+    },
+    {
+      "name": "APPROVE_EXPLICIT_SHORTAGE_ADJUSTMENT",
+      "orderDetail": "preserve except explicit positive replacement order",
+      "shipmentDetail": "approved matching only",
+      "stock": "native authoritative per-period shortage; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
+      "financial": "recompute affected costs and profit after adjustment; preserve earlier unaffected periods; rollback all on any failure"
     }
   ],
   "crossYearFixture": {
@@ -101,7 +117,8 @@
     "source": "actual local dnSpy FormShipmentDistribution and read-only operating probe 2026-11-04",
     "methods": [
       "FormShipmentDistribution.btnSave_Click",
-      "FormEstimateView.GetDetail"
+      "FormEstimateView.GetDetail",
+      "FormStockAdd.btnSave_Click"
     ],
     "tables": [
       "WarehouseMaster",
@@ -119,7 +136,8 @@
     "__tests__/incomingApprovalLinkedPolicy.test.mjs",
     "__tests__/incomingApprovalCosts.test.mjs",
     "__tests__/incomingApprovalProfit.test.mjs",
-    "__tests__/incomingApprovalProfitSql.test.mjs"
+    "__tests__/incomingApprovalProfitSql.test.mjs",
+    "__tests__/incomingApprovalStockAdjustment.test.mjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

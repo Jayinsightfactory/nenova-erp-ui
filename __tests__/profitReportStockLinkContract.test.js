@@ -48,7 +48,7 @@ async function main() {
   const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const selector = source.slice(source.indexOf('export async function latestStockSnapshotWeek'), source.indexOf('/** 재고단가표 편집용'));
   const snapshot = source.slice(source.indexOf('export async function stockSnapshotByCategory'), source.indexOf('/** 카테고리별 구매 통화'));
-  const arrivalEvidence = source.slice(source.indexOf('export async function arrivalPriceEvidenceByProduct'), source.indexOf('// 입고 라인의 금액단위 수량'));
+  const arrivalEvidence = source.slice(source.indexOf('async function profitArrivalRows'), source.indexOf('// 입고 라인의 금액단위 수량'));
   assert.match(selector, /sm\.OrderYear=@yr/);
   assert.match(selector, /sm\.OrderWeek LIKE @pfx/);
   assert.doesNotMatch(selector, /sm\.isFix|smk\.isFix/);
@@ -63,7 +63,7 @@ async function main() {
   assert.match(snapshot, /conversionMissingCounts/, '환산계수 누락 건수를 결과에 노출해야 한다.');
   const conversionSql = source.slice(source.indexOf('const STOCK_TO_EST_UNIT_EXPR'), source.indexOf('/** 이번 차수 매입 총수량'));
   assert.doesNotMatch(conversionSql, /ELSE 1/, '지원하지 않는 단위 환산을 1배로 처리하면 안 된다.');
-  assert.match(arrivalEvidence, /l\.OrderYear=@yr AND \$\{NORMALIZED_ORDER_WEEK_SQL\('l\.OrderWeek'\)\}=\$\{NORMALIZED_ORDER_WEEK_SQL\('@week'\)\}/);
+  assert.match(arrivalEvidence, /l\.OrderYear=@yr[\s\S]*?AND \$\{NORMALIZED_ORDER_WEEK_SQL\('l\.OrderWeek'\)\}=\$\{NORMALIZED_ORDER_WEEK_SQL\('@week'\)\}/);
   assert.match(arrivalEvidence, /l\.ProdKey/);
   assert.match(arrivalEvidence, /l\.IsCurrent=1 AND l\.MatchStatus=N'MATCHED'/);
   assert.match(arrivalEvidence, /h\.ActionType IN \(N'MATCH',N'BASIS_CHANGE'\)/);

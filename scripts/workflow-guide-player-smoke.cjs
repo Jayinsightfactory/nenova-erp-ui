@@ -31,6 +31,7 @@ async function main() {
       await page.$eval('video', video => { video.muted = true; return video.play(); });
       await page.waitForFunction(() => document.querySelector('video').currentTime > .3, { timeout: 15000 });
       await page.$eval('video', video => video.pause());
+      await page.$eval('video', video => { video.textTracks[0].mode = 'showing'; });
       const chapters = await page.$$(`nav[aria-label="${role} 영상 목차"] button`); assert.equal(chapters.length, 3);
       await chapters[1].focus(); await page.keyboard.press('Enter');
       assert(await page.$eval('video', video => video.currentTime > 1 && video.paused));

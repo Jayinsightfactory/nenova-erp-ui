@@ -26,10 +26,10 @@ export default function WorkflowGuide({ workflowId, initialRole }) {
       </div>
       <h4>{guide.role} · {guide.title}</h4>
       {guide.status === 'ready' ? <>
-        <p className={styles.note}>연습용 자료로 촬영한 실제 업무 화면입니다. 재생해도 입고·분배 자료는 바뀌지 않습니다. 전체 화면으로 보면 글씨를 더 크게 볼 수 있습니다.</p>
+        <p className={styles.note}>연습용 자료로 촬영한 실제 업무 화면이며 한국어 설명이 영상에 표시됩니다. 재생해도 입고·분배 자료는 바뀌지 않습니다. 전체 화면으로 보면 글씨를 더 크게 볼 수 있습니다.</p>
         <video key={guide.id} ref={player} controls playsInline preload="none" className={styles.video} aria-label={`${guide.role} ${guide.title}`} onError={() => setError(true)}>
           <source src={guide.src} type="video/mp4" />
-          <track kind="captions" src={guide.captions} srcLang="ko" label="한국어 설명" default />
+          <track kind="captions" src={guide.captions} srcLang="ko" label="한국어 설명" />
           브라우저에서 동영상을 재생할 수 없습니다. 아래 영상 다운로드를 이용하세요.
         </video>
         {error && <p role="alert">영상을 불러오지 못했습니다. 페이지를 새로고침하거나 영상 다운로드를 이용하세요.</p>}

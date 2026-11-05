@@ -22,10 +22,12 @@ test('allocated reduction requires explicit final table; reduced-only and comple
   m.farmGroups=[{shipmentKey:1,prodKey:1,assignments:[{farmKey:2,quantity:6}]}];assert.deepEqual(buildApprovalFarmPlan(facts,m,[group]).issues,[]);
   m.farmGroups[0].assignments=[];assert.deepEqual(buildApprovalFarmPlan(facts,m,[{...group,outQuantity:0}]).issues,[]);
 });
-test('farm over-allocation, wrong candidate and farm-only quantity changes fail',()=>{
+test('farm over-allocation, wrong candidate and farm-only total changes fail',()=>{
   const m=normalizeApprovalMatching({rows:[],farmGroups:[{shipmentKey:1,prodKey:1,assignments:[{farmKey:9,quantity:8}]}]});
   const issues=buildApprovalFarmPlan(facts,m,[group]).issues;assert(issues.some(i=>i.code==='APPROVAL_FARM_TOTAL'));assert(issues.some(i=>i.code==='APPROVAL_FARM_CANDIDATE'));
-  const f={...facts,receiptPlan:{detailsChanged:false}};m.farmGroups[0].assignments=[{farmKey:3,quantity:5},{farmKey:2,quantity:5}];assert(buildApprovalFarmPlan(f,m,[]).issues.some(i=>i.code==='APPROVAL_FARM_ONLY_QUANTITY'));
+  const f={...facts,receiptPlan:{detailsChanged:false}};m.farmGroups[0].assignments=[{farmKey:3,quantity:5},{farmKey:2,quantity:5}];assert.deepEqual(buildApprovalFarmPlan(f,m,[]).issues,[]);
+  m.farmGroups[0].assignments[0].quantity=4;assert(buildApprovalFarmPlan(f,m,[]).issues.some(i=>i.code==='APPROVAL_FARM_TOTAL'));
+  m.farmGroups[0].assignments[0].quantity=6;assert(buildApprovalFarmPlan(f,m,[]).issues.some(i=>i.code==='APPROVAL_FARM_TOTAL'));
   m.farmGroups[0].assignments=[{farmKey:3,quantity:10}];assert.deepEqual(buildApprovalFarmPlan(f,m,[]).issues,[]);
 });
 test('matching zero values remain explicit and duplicate group/source pairs reject',()=>{

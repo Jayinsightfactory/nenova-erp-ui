@@ -10,8 +10,8 @@ const workflow = registry.workflows.find(item => item.id === 'incoming-approval'
 const clone = value => JSON.parse(JSON.stringify(value));
 const products = [{ ProdKey: 1, ProdName: '장미 레드 50' }, { ProdKey: 2, ProdName: '장미 핑크 50' }].map(product => ({ ...product, OutUnit: '단', EstUnit: '단', isDeleted: false, BunchOf1Box: 10, SteamOf1Bunch: 10, SteamOf1Box: 100 }));
 const docId = '11111111-1111-8111-8111-111111111111', lineId = '44444444-4444-8444-8444-444444444444';
-const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '41-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '연습용', InputDate: '2026-10-08', UploadDtm: '2026-10-08', totalBox: 10 };
-const before = [{ WdetailKey: 101, ProdKey: 1, ProdName: products[0].ProdName, OrderCode: '연습', BoxQuantity: 10, BunchQuantity: 100, SteamQuantity: 1000, OutQuantity: 100, EstQuantity: 100, UPrice: 1, TPrice: 100 }];
+const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '41-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '연습용', InputDate: '2026-10-08', UploadDtm: '2026-10-08', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
+const before = [{ WdetailKey: 101, ProdKey: 1, ProdName: products[0].ProdName, OrderCode: '연습', BoxQuantity: 10, BunchQuantity: 100, SteamQuantity: 1000, OutQuantity: 100, EstQuantity: 100, UPrice: 1, TPrice: 100, 주문코드: '연습', 단위: '단', 단송이: 10, 박스송이: 100, 단가: 1, 총액: 100 }];
 const scenarioTitles = { farm: '농장만 수정', product: '수량은 같고 품목만 수정', quantity: '입고·분배 수량 감소' };
 
 function correction(scenario) {
@@ -47,7 +47,7 @@ function requestFixture(scenario, index) {
     baseline: { receipt: { header, details: before }, receiptPlan: p, products }, matching: { rows: [], farms: [], receiptMappings: [], farmGroups: [], financial: { acknowledged: false, reason: '', costInputs: [] } } };
 }
 function writePacking(scenario) {
-  const c = correction(scenario), item = c.items[0], grid = [[], ['', '', header.FarmName, '', '', '', '41-01', '', '', '', 'GUIDE-001'], ['', '', '연습용', '', '', '', '2026-10-08'], [], ['COD', 'VARIETY NAME', '', '', 'SIZE', 'BOX', 'STEAM/BUNCH', 'STEAM/BOX', 'TOTAL\nBUNCH', 'TOTALSTEAM', 'U.PRICE', 'T.PRICE'], ['연습', item.prodName.replace(/ 50$/, ''), '', '', '50', item.boxQty, 10, 100, item.bunchQty, item.steamQty, 1, item.totalPrice]];
+  const c = correction(scenario), item = c.items[0], grid = [['PACKING LIST · 연습용 자료'], ['', '', header.FarmName, '', '', '', '41-01', '', '', '', 'GUIDE-001'], ['', '', '연습용', '', '', '', '2026-10-08'], [], ['COD', 'VARIETY NAME', '', '', 'SIZE', 'BOX', 'STEAM/BUNCH', 'STEAM/BOX', 'TOTAL\nBUNCH', 'TOTALSTEAM', 'U.PRICE', 'T.PRICE'], ['연습', item.prodName.replace(/ 50$/, ''), '', '', '50', item.boxQty, 10, 100, item.bunchQty, item.steamQty, 1, item.totalPrice]];
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(grid), 'Packing');
   const file = path.join(root, '.verify', c.fileName); XLSX.writeFile(wb, file); return file;
 }
@@ -92,8 +92,16 @@ async function recordRole(browser, base, secret, role) {
             const p = previewFor(request.correction), quantity = p.scenario === 'quantity' ? 40 : 60, pk = p.scenario === 'product' ? 2 : 1;
             const common = { customer: '연습 꽃집', year: '2026', week: '41-01', unit: '단' };
             const groups = p.scenario === 'farm' ? [] : p.scenario === 'product' ? [{ ...common, key: '10:1', product: products[0].ProdName, before: 60, after: 0, beforeAmount: 60000, afterAmount: 0, beforeVat: 6000, afterVat: 0, stockDelta: 60 }, { ...common, key: '10:2', product: products[1].ProdName, before: 0, after: 60, beforeAmount: 0, afterAmount: 60000, beforeVat: 0, afterVat: 6000, stockDelta: -60 }] : [{ ...common, key: '10:1', product: products[0].ProdName, before: 60, after: quantity, beforeAmount: 60000, afterAmount: quantity * 1000, beforeVat: 6000, afterVat: quantity * 100, stockDelta: 60 - quantity }];
-            const beforeTotals = { N: 60000, G: 16800, E: 0, F: 11200, T: 43200, U: 72 }, afterTotals = p.scenario === 'quantity' ? { N: 40000, G: 12000, E: 0, F: 12000, T: 28000, U: 70 } : beforeTotals;
-            data = { ...p, digest: 'a'.repeat(64), reviewToken: 'synthetic-guide-token', groups, financialSummary: { costs: { invoices: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000, preserveEconomics: p.scenario === 'farm' }], freight: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000 }] }, profitBefore: [{ orderYear: '2026', major: '41', totals: beforeTotals }, { orderYear: '2026', major: '44', totals: beforeTotals }], profitAfter: [{ orderYear: '2026', major: '41', totals: afterTotals }, { orderYear: '2026', major: '44', totals: afterTotals }] }, stockPreview: p.scenario === 'farm' ? [] : [{ StockKey: 41, ProdKey: pk, OrderYear: '2026', OrderWeek: '41-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: pk, OrderYear: '2026', OrderWeek: '44-01', Stock: 25, projected: 25 }], externalDocuments: '이미 발송한 견적서는 정정 후 재발행이 필요합니다. 외부 회계 전표는 자동 변경하지 않습니다.' };
+            const beforeTotals = { N: 60000, I: 16800, E: 0, F: 11200, J: 43200, K: .72 }, afterTotals = p.scenario === 'quantity' ? { N: 40000, I: 12000, E: 0, F: 12000, J: 28000, K: .70 } : beforeTotals;
+            data = { ...p, digest: 'a'.repeat(64), reviewToken: 'synthetic-guide-token', groups, farmEvidence: request.matching.farmGroups.map(group => ({ shipmentKey: group.shipmentKey, prodKey: group.prodKey, before: group.prodKey === 1 ? [{ FarmKey: 1, ShipmentQuantity: 60 }] : [], after: group.assignments.map(item => ({ FarmKey: Number(item.farmKey), ShipmentQuantity: Number(item.quantity) })) })), financialSummary: { costs: { invoices: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000, preserveEconomics: p.scenario === 'farm' }], freight: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000 }] }, profitBefore: [{ orderYear: '2026', major: '41', totals: beforeTotals }, { orderYear: '2026', major: '44', totals: beforeTotals }], profitAfter: [{ orderYear: '2026', major: '41', totals: afterTotals }, { orderYear: '2026', major: '44', totals: afterTotals }] }, stockPreview: p.scenario === 'farm' ? [] : [{ StockKey: 41, ProdKey: pk, OrderYear: '2026', OrderWeek: '41-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: pk, OrderYear: '2026', OrderWeek: '44-01', Stock: 25, projected: 25 }], externalDocuments: '이미 발송한 견적서는 정정 후 재발행이 필요합니다. 외부 회계 전표는 자동 변경하지 않습니다.' };
+            if (p.scenario === 'quantity') {
+              const acknowledged = request.matching.stockAdjustment?.acknowledged === true;
+              if (acknowledged) assert.deepEqual(request.matching.stockAdjustment.rows, [{ prodKey: 1, quantity: 5, year: '2026', week: '44-01' }]);
+              data.canCommit = acknowledged;
+              data.stockAdjustmentPreview = { required: !acknowledged, canAdjust: true, applied: acknowledged, fingerprint: 'b'.repeat(64), rows: [{ prodKey: 1, prodName: products[0].ProdName, unit: '단', year: '2026', week: '44-01', quantity: 5, currentRemain: acknowledged ? 45 : 40, future: [{ year: '2026', week: '44-01', remain: acknowledged ? 0 : -5 }] }] };
+              data.stockPreview = [{ StockKey: 41, ProdKey: 1, OrderYear: '2026', OrderWeek: '41-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: 1, OrderYear: '2026', OrderWeek: '44-01', Stock: -5, projected: acknowledged ? 0 : -5 }];
+              if (!acknowledged) { data.issues = [{ message: '후속 차수에 5단이 부족합니다. 표시된 수량의 재고조정 동의가 필요합니다.' }]; delete data.financialSummary; }
+            }
           }
           if (body.action === 'approve') { assert(!isImport && body.confirmed); request.status = 'applied'; request.result = { warehouseKey: 9001, shipmentGroups: previewFor(request.correction).scenario === 'farm' ? 0 : 1, stockProducts: previewFor(request.correction).scenario === 'farm' ? 0 : 2 }; request.appliedAt = '2026-11-04 10:00'; request.evidence = { receiptChanges: previewFor(request.correction).changes }; }
         }
@@ -105,20 +113,33 @@ async function recordRole(browser, base, secret, role) {
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
   const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true });
   const hold = async (text, seconds = 5) => { await rec.caption(text); await rec.pause(seconds * 1000); };
+  let pointer = { x: 40, y: 80 };
+  const movePointer = async (x, y) => { const start = pointer; for (let step = 1; step <= (dry ? 1 : 12); step++) { const ratio = step / (dry ? 1 : 12); await page.mouse.move(start.x + (x - start.x) * ratio, start.y + (y - start.y) * ratio); await rec.pause(25); } pointer = { x, y }; };
   const moveClick = async element => {
     assert(element, 'Guide target missing'); await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
     const box = await element.boundingBox(); assert(box, 'Guide target not visible');
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: dry ? 1 : 24 }); await rec.pause(450); await element.click(); await rec.pause(600);
+    await movePointer(box.x + box.width / 2, box.y + box.height / 2); await rec.pause(450); await element.click(); await rec.pause(600);
   };
-  const click = async (text, scope = 'body') => { const handle = await page.evaluateHandle(({ text, scope }) => [...document.querySelector(scope).querySelectorAll('button,a,summary')].find(node => node.textContent.trim() === text && !node.disabled), { text, scope }); await moveClick(handle.asElement()); await handle.dispose(); };
-  const select = async (selector, value) => { const element = await page.$(selector); await moveClick(element); await element.select(String(value)); await rec.pause(700); await page.keyboard.press('Tab'); };
-  const fill = async (selector, text) => { const element = await page.$(selector); await moveClick(element); await element.click({ clickCount: 3 }); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); };
-  const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); await moveClick(handle.asElement()); await handle.dispose(); };
+  const click = async (text, scope = 'body') => {
+    await page.waitForFunction(({ text, scope }) => [...(document.querySelector(scope)?.querySelectorAll('button,a,summary') ?? [])].some(node => node.textContent.trim() === text && !node.disabled), { timeout: 15000 }, { text, scope }).catch(() => { throw Error(`Missing enabled button: ${text}`); });
+    const handle = await page.evaluateHandle(({ text, scope }) => [...document.querySelector(scope).querySelectorAll('button,a,summary')].find(node => node.textContent.trim() === text && !node.disabled), { text, scope }); assert(handle.asElement(), `Missing enabled button: ${text}`); await moveClick(handle.asElement()); await handle.dispose();
+  };
+  const select = async (selector, value) => {
+    const element = await page.$(selector); assert(element, `Missing select: ${selector}`);
+    await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' })); const box = await element.boundingBox();
+    await movePointer(box.x + box.width / 2, box.y + box.height / 2); await element.focus(); await rec.pause(450);
+    await element.select(String(value)); await rec.pause(700); assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);
+  };
+  const fill = async (selector, text) => { const element = await page.$(selector); assert(element, `Missing input: ${selector}`); await moveClick(element); await element.focus(); await page.keyboard.down('Control'); await page.keyboard.press('A'); await page.keyboard.up('Control'); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); assert.equal(await element.evaluate(node => node.value), String(text), `Input did not replace value: ${selector}`); };
+  const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); assert(handle.asElement(), `Missing checkbox: ${text}`); await moveClick(handle.asElement()); await handle.dispose(); };
   let stopped = false;
   try {
+    await hold('입고관리의 ‘입고 정정 업무’, 수입부 업무도구의 ‘입고 조회·수정’에서\n이 화면을 엽니다. 두 메뉴는 같은 수정 요청을 공유합니다.', 7);
     await hold(isImport ? '수입부는 수정안을 만들고 영업지원에 요청합니다.\n초안 저장과 요청만으로는 입고·분배·재고가 바뀌지 않습니다.' : '영업지원은 요청 내용을 확인하고 분배를 매칭합니다.\n최종 확정할 때 입고·분배·재고·견적·매출이 함께 반영됩니다.', 7);
+    await hold('농장·품목·수량 수정은 서로 독립된 연습 예시입니다.\n실제 업무에서는 현재 입고와 요청 상태를 다시 확인하고 작업하세요.', 6);
     if (!isImport) await click('매칭·확정');
     for (const [index, scenario] of ['farm', 'product', 'quantity'].entries()) {
+      console.log(`${dry ? 'CHECK' : 'RECORD'} ${role}: ${scenario}`);
       rec.chapter(scenario, scenarioTitles[scenario]);
       if (isImport) {
         await hold(`${index + 1}. ${scenarioTitles[scenario]}\n입고의 연도·차수·농장·인보이스를 확인하고 수정 요청을 시작합니다.`);
@@ -164,9 +185,26 @@ async function recordRole(browser, base, secret, role) {
         await hold('매칭 임시저장은 검토 내용을 보관하는 단계입니다.\n아직 ERP 원장은 바뀌지 않습니다.');
         await click('입고·분배·견적·매출 영향 검토');
         await page.waitForFunction(() => document.body.textContent.includes('최종 반영 전후'));
+        if (scenario === 'quantity') {
+          await page.waitForSelector('[aria-label="부족재고 명시 확인"]');
+          await page.$eval('[aria-label="부족재고 명시 확인"]', element => element.scrollIntoView({ block: 'center' }));
+          await hold('부족표가 나오는 경우에만 필요한 수량을 확인합니다.\n이 연습 예시는 후속 44차에 5단이 부족한 경우입니다.', 7);
+          await hold('실제 재고 근거를 확인한 뒤 표시된 5단 조정에 동의합니다.\n동의하지 않으면 확정하지 말고 입고·분배를 다시 검토하세요.', 7);
+          await checkedLabel('표시된 부족수량만 재고조정하는 데 동의합니다');
+          await click('매칭 임시저장');
+          await click('입고·분배·견적·매출 영향 검토');
+          await page.waitForSelector('[aria-label="원가·손익 최종 검산"]');
+          await page.$eval('[aria-label="부족재고 명시 확인"]', element => element.scrollIntoView({ block: 'center' }));
+          await hold('동의한 내용을 임시저장한 뒤 영향 검토를 다시 실행합니다.\n재고조정은 최종 확정할 때 함께 기록되며, 검산 실패 시 전체 취소됩니다.', 7);
+        }
         await hold('분배 수량과 금액, 원가·손익, 농장 배정 및 후속 차수 재고를 검토합니다.\n잘못된 항목이 있으면 확정하지 말고 매칭을 고칩니다.', 8);
+        if (!dry || await page.$('[aria-label="농장별 최종 배정 비교"]')) {
+          await page.$eval('[aria-label="농장별 최종 배정 비교"]', element => element.scrollIntoView({ block: 'center' }));
+          await hold('기존 농장별 배정과 최종 배정을 나란히 비교합니다.\n농장 간 배분을 바꾸더라도 품목별 합계는 최종 분배수량과 같아야 합니다.', 7);
+        }
         await page.$eval('[aria-label="원가·손익 최종 검산"]', element => element.scrollIntoView({ block: 'start' }));
         await hold('원가와 이미 확정된 손익도 정정 전후 금액을 비교합니다.\n기존 확정본은 이력으로 남고, 검산한 새 정정본이 함께 저장됩니다.', 8);
+        await hold('손익은 해당 보고서에서 선택한 원가 기준으로 다시 계산합니다.\n평균 원가를 사용하는 보고서는 승인 원가를 바꿔도 금액이 같을 수 있습니다.', 7);
         await checkedLabel('입고와 분배의 최종값'); await click('최종 확정');
         await page.waitForFunction(() => document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
         await hold('적용 완료 상태와 처리 결과를 확인합니다.\n이미 발송한 견적서는 정정된 내용으로 다시 발행해야 합니다.', 6);
@@ -179,7 +217,7 @@ async function recordRole(browser, base, secret, role) {
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }
     console.log(`PASS ${role}: actual UI ${dry ? 'dry run' : 'recording'}, farm/product/quantity, all APIs synthetic, ERP writes=0`);
-  } finally { if (!stopped) await rec.stop().catch(() => {}); await page.close(); }
+  } finally { if (!stopped) { await page.screenshot({ path: `.verify/guide-${role}-failure.png` }).catch(() => {}); await rec.stop().catch(() => {}); } await page.close(); }
 }
 async function matchLinkedControls({ page, scenario, moveClick, select, fill, hold, click, checkedLabel }) {
   if (scenario !== 'farm') {

@@ -19,6 +19,10 @@ function fixture() {
   return { root, guide, registry, proof, writeProof, close: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
 test('ready guide with assets, source evidence and each scenario passes', () => { const f = fixture(); try { assert.deepEqual(validateWorkflowGuides(f.root, f.registry, { addedPages: ['pages/example.js'] }), { workflows: 1, videos: 1 }); } finally { f.close(); } });
+test('Windows checkout line endings preserve caption and source evidence', () => { const f = fixture(); try {
+  for (const file of ['public/guides/example/import.ko.vtt', 'pages/example.js']) { const full = path.join(f.root, file); fs.writeFileSync(full, fs.readFileSync(full, 'utf8').replace(/\n/g, '\r\n')); }
+  assert.equal(validateWorkflowGuides(f.root, f.registry).videos, 1);
+} finally { f.close(); } });
 test('release rejects unfinished video, absent scenarios and unregistered new menu', () => { const f = fixture(); try {
   f.guide.status = 'draft'; assert.throws(() => validateWorkflowGuides(f.root, f.registry), /미완료/);
   assert.equal(validateWorkflowGuides(f.root, f.registry, { allowDraft: true }).videos, 0);
