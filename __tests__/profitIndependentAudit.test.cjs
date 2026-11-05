@@ -85,7 +85,7 @@ const fs = require('node:fs');
   let math=independentProfitMath(row);assert.equal(math.values.C,950);assert.equal(math.values.J,750);assert.equal(math.values.K,750/950);
   assert.equal(independentProfitMath({...row,auto:{...row.auto,E:null}}).status,'INPUT_REQUIRED');
   assert.equal(independentProfitMath({...row,auto:{...row.auto,R:null}}).status,'INPUT_REQUIRED');
-  math=independentProfitMath({...row,variant:'noEnding'});assert.equal(math.values.J,750);assert.equal(math.values.K,.75);
+  math=independentProfitMath({...row,variant:'noEnding'});assert.equal(math.values.J,750);assert.equal(math.values.K,750/950);
   math=independentProfitMath({...row,auto:{...row.auto,N:50}});assert.equal(math.values.K,null);
   const report={rows:[row],stockWeeks:{}};
   const checked=auditReportAgainstStock(report,out.weeks[0],[{...row,calc:{...independentProfitMath(row).values,J:999}}]);

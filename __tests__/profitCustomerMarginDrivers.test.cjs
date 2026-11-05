@@ -82,11 +82,11 @@ test('existing report amount bridge and rate denominator effects both reconcile'
   near(r.contributions.reduce((s, x) => s + x.percentagePoints, 0), r.marginDeltaPp);
   assert.equal(r.warnings.length, 0);
 });
-test('legacy total/noEnding rate uses C+F while normal category uses C', async () => {
-  const previous = { C: 100, E: 20, F: 10, G: 50, H: 5, AJ: 0, J: 35, K: 35 / 110 };
-  const current = { C: 120, E: 10, F: 20, G: 40, H: 10, AJ: 0, J: 80, K: 80 / 140 };
+test('weekly reference total/noEnding rate uses C without changing customer actual margins', async () => {
+  const previous = { C: 100, E: 20, F: 10, G: 50, H: 5, AJ: 0, J: 35, K: 35 / 100 };
+  const current = { C: 120, E: 10, F: 20, G: 40, H: 10, AJ: 0, J: 80, K: 80 / 120 };
   const r = (await mod).buildReportedProfitBridge({ previous, current, isTotal: true });
-  near(r.rateResidual, 0); assert.deepEqual(r.denominator, { previous: 110, current: 140 });
+  near(r.rateResidual, 0); assert.deepEqual(r.denominator, { previous: 100, current: 120 });
   const noEnding = (await mod).buildReportedProfitBridge({ previous: { ...previous, variant: 'noEnding' }, current: { ...current, variant: 'noEnding' } });
   near(noEnding.rateResidual, 0);
 });

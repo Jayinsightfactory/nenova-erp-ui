@@ -570,6 +570,7 @@ async function loadReportDataInScope(major, orderYear) {
   return {
     rows,
     note: cur.note,
+    colombiaAllocationEvidence: customs.components?.colombiaWeeks || [],
     autoNote: formatUnclassifiedNote(unclassifiedDetails),
     unclassifiedDetails,
     rates,
@@ -789,12 +790,15 @@ export default withAuth(async function handler(req, res) {
       // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.
       if (req.query.excel === '1') {
         const { buildProfitReportXlsx } = await import('../../../lib/profitReportExcel');
+        const { loadProfitImpactNotes } = await import('../../../lib/profitImpactNotesData');
+        const display = profitDisplayCalculation(data);
+        const impactNotes = await loadProfitImpactNotes(data, s => loadWeeklyReportPayload(s.major, s.year, { currentPeriod: { orderYear: '9999', major: '53' } }));
         const visibleCols = String(req.query.cols || '').split(',').map(s => s.trim()).filter(Boolean);
         const buf = buildProfitReportXlsx({
           // 자동 미분류 내역은 웹에서 확인·처리하는 검증 정보다. 다운로드 파일에는
           // 사용자가 직접 작성한 비고만 남겨 보고용 엑셀에 미분류 원문이 노출되지 않게 한다.
-          major, rows: data.rows, note: data.note, audit: data.audit, visibleCols, displaySheetFirst: true,
-          confirmedTotals: data.confirmed ? data.confirmedTotals : data.totals || null,
+          major, rows: display.rows, note: [data.note, impactNotes.text].filter(Boolean).join('\n'), audit: data.audit, visibleCols, displaySheetFirst: true,
+          confirmedTotals: display.totals,
         });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

@@ -19,9 +19,9 @@ const fixture = require('../data/profit-report-evidence/formula-rulebook-26-31.j
         auto:{N:10000,L:-100,O:200,Q:20,R:100,S:3,H:400,E:1000,F:600},manual:{AJ:book.week===30?-50:book.week===31?50:0}});
       assert.equal(calc.I, noEnding?3700:3100);
       assert.equal(calc.J, (noEnding?7000:7000)+(book.week===30?-50:book.week===31?50:0));
-      assert.equal(calc.K, calc.J/(noEnding?10700:10100));
+      assert.equal(calc.K, calc.J/calc.C, '원본 workbook 수식은 위에서 보존 검증하고 최신 표시정책 J/C를 적용');
       const totals=computeProfitTotals([{category:row.category,calc}]);
-      assert.equal(totals.K,totals.J/(totals.C+totals.F));
+      assert.equal(totals.K,totals.J/totals.C);
       checks += 7;
       if (row.inventoryFormula) {
         assert.match(row.inventoryFormula,/SUMIF\(구매현황!N:N/);

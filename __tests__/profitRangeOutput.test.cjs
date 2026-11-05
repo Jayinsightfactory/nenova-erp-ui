@@ -4,7 +4,7 @@ const XLSX = require('xlsx-js-style');
 module.exports = (async () => {
   const { outputScope, outputWeeks, collectOutput, combineOutputBooks, outputPrintHtml, outputFileName } = await import('../lib/profitRangeOutput.mjs');
   const { buildProfitReportXlsx } = await import('../lib/profitReportExcel.js');
-  const dutyCalc={E:499547.13826,H:581176.577125,J:-423000,K:-.1735906822};
+  const dutyCalc={C:1000000,E:499547.13826,H:581176.577125,J:-423000,K:-.1735906822};
   const dutyBook=buildProfitReportXlsx({major:41,rows:[{category:'에콰도르',calculationFrozen:true,templateDuty:{status:'approved_estimate'},calc:dutyCalc}],visibleCols:['E','H','J','K'],displaySheetFirst:true,returnWorkbook:true});
   const dutyItem={year:'2026',major:'41',workbook:dutyBook};
   assert.equal(dutyBook.SheetNames[0],'화면표시(선택컬럼)');
@@ -15,10 +15,10 @@ module.exports = (async () => {
   assert.equal(dutyDecoded.A1.v,'2026년 41차 매출이익 보고서');
   assert.match(dutyDecoded.A2.v,/실제 납부 확정액 아님.*원본 DB 미변경/);
   const dutyValues=XLSX.utils.sheet_to_json(dutyDecoded,{header:1}).find(r=>r[0]==='에콰도르');
-  assert.deepEqual(dutyValues,['에콰도르',dutyCalc.E,dutyCalc.H,dutyCalc.J,dutyCalc.K]);
+  assert.deepEqual(dutyValues,['에콰도르',dutyCalc.E,dutyCalc.H,dutyCalc.J,dutyCalc.J/dutyCalc.C]);
   const dutyPrint=outputPrintHtml([dutyItem],ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}));
   assert.doesNotMatch(dutyPrint,/계산 기준: 입고 매입·운임|실제 납부 확정액 아님/);
-  assert.match(dutyPrint,/-17\.36%/);
+  assert.match(dutyPrint,/-42\.30%/);
   assert.doesNotMatch(dutyPrint,/추정 포함/);
   assert.equal(dutyBook.Sheets['화면표시(선택컬럼)']['!profitEvidence'].dutyApplied,true);
   assert.equal(dutyBook.Sheets['화면표시(선택컬럼)']['!profitEvidence'].actualPaymentCertified,false);
@@ -32,7 +32,7 @@ module.exports = (async () => {
   const falseTitle=structuredClone(dutyItem);
   falseTitle.workbook.Sheets['화면표시(선택컬럼)']['!profitEvidence'].dutyApplied=false;
   assert.doesNotMatch(combineOutputBooks([falseTitle]).Sheets['41차'].A2.v,/계산 기준: 입고 매입·운임/);
-  assert.deepEqual(dutyCalc,{E:499547.13826,H:581176.577125,J:-423000,K:-.1735906822});
+  assert.deepEqual(dutyCalc,{C:1000000,E:499547.13826,H:581176.577125,J:-423000,K:-.1735906822});
   const { normalizeColumnSelection, readColumnSelection, writeColumnSelection, OUTPUT_COLUMNS_KEY } = await import('../lib/profitColumnPreferences.mjs');
   const allowed = ['category', 'C', 'E', 'J', 'K'];
   const fallback = ['category', 'C'];
@@ -134,6 +134,8 @@ module.exports = (async () => {
   assert.doesNotMatch(api, /snapshotRefresh|saveManual|refreshProfitReportSnapshot|\b(?:INSERT INTO|UPDATE dbo|DELETE FROM|MERGE INTO)\b/i);
   const reads = [];
   const context = {module:{exports:null},withAuth: fn=>fn,outputScope,buildProfitReportXlsx,
+    profitDisplayCalculation:(await import('../lib/profitReportStoredCalculation.js')).profitDisplayCalculation,
+    loadProfitImpactNotes:async()=>({text:'운임 비교 +100원 · 실제 재고조정 -2박스 · 평가액 -400원'}),
     loadWeeklyReportPayload:async (m,y,options)=>{reads.push([m,y,options.mode]);return {rows:[{category:'에콰도르',confirmed:true,calc:sample}],confirmed:{revisionNo:1},confirmedTotals:sample};}};
   require('node:vm').runInNewContext(api.replace(/^import .+;\r?\n/gm,'').replace('export default withAuth(', 'module.exports = withAuth('),context);
   const request=async(method,query)=>{const res={code:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.code=n;return this},json(data){this.data=data;return this}};await context.module.exports({method,query},res);return res;};

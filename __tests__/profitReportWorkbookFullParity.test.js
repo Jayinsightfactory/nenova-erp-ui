@@ -64,7 +64,7 @@ async function main() {
       check(label('I=E+G+H-F(±noEnding)'), near(calc.I, cells.I?.value ?? 0, 0.5)); cellsChecked += 1;
       check(label('J=C-I(±noEnding)'), near(calc.J, cells.J?.value ?? 0, 0.5)); cellsChecked += 1;
       if (typeof cells.K?.value === 'number') {
-        check(label('K=J/C(±noEnding)'), calc.K == null ? false : near(calc.K, cells.K.value, 0.0005));
+        check(label('K=표시J/C (원본 금액 유지)'), calc.C === 0 ? calc.K === null : near(calc.K, calc.J/calc.C, 0.0005));
         cellsChecked += 1;
       }
       if (typeof cells.M?.value === 'number') {
@@ -84,7 +84,7 @@ async function main() {
         `calc=${totals[col]} excel=${wt[col].value}`);
       cellsChecked += 1;
     }
-    if (typeof wt.K?.value === 'number') { check(`${major}차 합계 K=J/(C+F)`, near(totals.K, wt.K.value, 0.0005)); cellsChecked += 1; }
+    if (typeof wt.K?.value === 'number') { check(`${major}차 합계 K=표시J/C`, totals.C === 0 ? totals.K === null : near(totals.K, totals.J/totals.C, 0.0005)); cellsChecked += 1; }
     if (typeof wt.M?.value === 'number') { check(`${major}차 합계 M=-L/C`, near(totals.M, wt.M.value, 0.0005)); cellsChecked += 1; }
     if (typeof wt.D?.value === 'number') { check(`${major}차 합계 D=SUM(D7:D22)`, near(totals.D, wt.D.value, 0.0005)); cellsChecked += 1; }
     if (typeof wt.U?.value === 'number') { check(`${major}차 합계 U=SUM(U7:U20)`, near(totals.U, wt.U.value, 0.0005)); cellsChecked += 1; }
