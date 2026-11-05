@@ -59,7 +59,7 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 3500, fps: 60 }), 'slow-first-frame');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 9 }), 'low-fps');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 12 }), '');
-  assert.deepStrictEqual([L.MIN_FPS, L.FPS_WARMUP_MS, L.FPS_WINDOW_MS, L.FPS_CAP, L.FPS_IDLE, L.MAX_DPR], [10, 3000, 5000, 24, 8, 1.5]);
+  assert.deepStrictEqual([L.MIN_FPS, L.FPS_WARMUP_MS, L.FPS_WINDOW_MS, L.FPS_CAP, L.FPS_IDLE, L.MAX_DPR], [10, 3000, 5000, 15, 8, 1.5]);
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 55 }), '');
   const out = L.declutter([{ key: 'a', x: 100, y: 50, w: 60, h: 18 }, { key: 'b', x: 110, y: 55, w: 60, h: 18 }, { key: 'c', x: 400, y: 52, w: 60, h: 18 }]);
   const a = out.find((o) => o.key === 'a'); const b = out.find((o) => o.key === 'b');
