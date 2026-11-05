@@ -13,8 +13,10 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { beachDecorGrid } from '../../lib/pm3dDecor';
 import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
+import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale } from '../../lib/pm3dAssets';
+import { loadKit, bake, instanced, mat4, staticClone, splitUnit } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
@@ -203,6 +205,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60), new THREE.MeshStandardMaterial({ color: T.sea || GC.sea, roughness: 0.6 }));
           sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
         }
+        st.fb = { tiles: {}, reserved: [], palms: [], scatter: [] };
         const tiles = tilesOf(world);
         const tileH = { beach: 0.08, sand: 0.1, path: 0.11, plaza: 0.12, boardwalk: 0.13, bridge: 0.13 };
         const tGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -213,18 +216,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           const im = new THREE.InstancedMesh(tGeo, mat, list.length);
           const gap = kind === 'boardwalk' || kind === 'bridge' ? 0.94 : 1;
           list.forEach((t, i) => { m4.compose(v0.set(t.x, -h / 2, t.z), q0, s0.set(CELL * gap, h, CELL * gap)); im.setMatrixAt(i, m4); });
-          im.instanceMatrix.needsUpdate = true; scene.add(im);
+          im.instanceMatrix.needsUpdate = true; scene.add(im); st.fb.tiles[kind] = im;
         }
         // 시설 예약 부지(수영장·카트트랙·비행장) — 연한 테두리 선만(실물은 애셋 도착 후)
         for (const r of facilityRects(world)) {
           const g = new THREE.BufferGeometry().setFromPoints([[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1], [r.x0, r.z0]].map(([x, z]) => new THREE.Vector3(x + (x === r.x0 ? 0.1 : -0.1), 0.02, z + (z === r.z0 ? 0.1 : -0.1))));
           const ln = new THREE.Line(g, new THREE.LineBasicMaterial({ color: GC.reserved, transparent: true, opacity: 0.7 }));
-          ln.userData = { kind: 'reserved', zone: r.kind, label: r.label }; scene.add(ln);
+          ln.userData = { kind: 'reserved', zone: r.kind, label: r.label }; scene.add(ln); st.fb.reserved.push(ln);
         }
         // 배경 밀도 — 야자수·바위·조개·불가사리를 비점유 해변 끝단 칸에만(lib/pm3dDecor.beachDecorGrid, 칸 점유 기록)
         const D = beachDecorGrid(world);
-        for (const p of D.palms) { const o = put('palm', p.x, p.z, p.ry, p.s); blob(o, 0, 0, 0.75 * p.s, 0.75 * p.s); }
-        for (const q of D.scatter) put(q.m, q.x, q.z, q.ry, q.s);
+        for (const p of D.palms) { const o = put('palm', p.x, p.z, p.ry, p.s); blob(o, 0, 0, 0.75 * p.s, 0.75 * p.s); st.fb.palms.push({ o, p }); }
+        for (const q of D.scatter) st.fb.scatter.push({ o: put(q.m, q.x, q.z, q.ry, q.s), q });
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
@@ -254,8 +257,11 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         blob(o, 0, 0, 0.55, 0.5);
         st.robots.push(o);
       });
-      // 직원 자리
-      for (const d of desks) {
+      // 직원 자리 — 파라솔은 전 자리 동시 계획(lib/pm3dAssets.planParasols: 캐릭터 정뒤·누구도 가리지 않는 자리, 없으면 생략)
+      const pPlan = island ? planParasols(desks.map((d) => ({ ...seatWorld(d), headTop: CHAR_STAND_H * CHAR_SCALE + 0.1, size: d.size || 2 }))) : [];
+      const depts = [...new Set(desks.map((d) => d.dept))];
+      st.seatFx = [];
+      for (const [di, d] of desks.entries()) {
         const g = new THREE.Group(); g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g);
         const dstyle = deskStyle(d.dept, '', PM3D.DESK_SKINS);
         const desk = mod(dstyle.model); desk.scale.setScalar(SET_SCALE);
@@ -276,6 +282,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (island) {
           const ps = mod('parasol'); const k = (d.size || 2) * CELL / 2 - 0.35; ps.position.set(k, 0, -k); ps.scale.setScalar(0.85); g.add(ps);
           if (dstyle.color) ps.traverse((m) => { if (m.isMesh && m.material && !/pole|stick|wood/i.test(m.material.name || '')) { m.material = m.material.clone(); m.material.color.lerp(new THREE.Color(dstyle.color), 0.55); } });
+          st.seatFx.push({ g, d, desk, mon, ps, cn: pPlan[di], unit: unitForIndex(depts.indexOf(d.dept)), deskTopY });
         }
         if (!d.person) continue;
         const ch2 = skClone(ch.scene); ch2.scale.setScalar(CHAR_SCALE); ch2.position.set(0, SEAT_Y, -SEAT_Z); ch2.rotation.y = 0;
@@ -294,7 +301,84 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       st.built = true;
       setStat(`로드 ${loadMs}ms`);
       apply();
+      if (island) mountAssets(); // 블렌더 glb 애셋은 첫 화면 뒤에 지연 장착(첫 프레임·저사양 폴백 판정에 영향 없음)
     };
+
+    // ── 블렌더 glb 애셋 장착(lib/pm3dAssets · components/pm3d/assetKit). 실패한 애셋은 기존 단순 그래픽 그대로 ──
+    const mountAssets = () => {
+      const names = [...ASSETS.tiles, ...ASSETS.units, ...ASSETS.props, ...ASSETS.pool, ...ASSETS.kart, ...ASSETS.airfield];
+      loadKit(names).then(({ scenes: A, ms, bytes, failed }) => {
+        if (dead) return;
+        const t0 = performance.now();
+        const clayM = (m) => { if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
+        const world = st.world; const S = ASSET_SCALE; const y0 = -TILE_TOP * S;
+        // 1) 칸 타일: 모래·해안·보드워크·다리(재질별 InstancedMesh). 광장·통로는 기존 색 타일 유지
+        const land = (X, Z) => world.cells.get(`${X},${Z}`);
+        const groups = new Map(); const addT = (asset, x, z, yaw, y = y0) => { if (!groups.has(asset)) groups.set(asset, []); groups.get(asset).push(mat4(x, y, z, yaw, S)); };
+        for (const c of world.cells.values()) {
+          const x = (c.X + 0.5) * CELL; const z = (c.Z + 0.5) * CELL;
+          if (c.kind === 'sand') addT('tile_sand', x, z, 0);
+          else if (c.kind === 'beach') { const sea = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => !land(c.X + dx, c.Z + dz)); const k = coastPick(sea); addT(k.asset, x, z, k.yaw); }
+          else if (c.kind === 'boardwalk') { const bw = (dx, dz) => { const n = land(c.X + dx, c.Z + dz); return !!n && (n.kind === 'boardwalk' || n.kind === 'bridge'); }; const k = boardwalkPick({ n: bw(0, -1), s: bw(0, 1), e: bw(1, 0), w: bw(-1, 0) }); addT(k.asset, x, z, k.yaw); }
+          else if (c.kind === 'bridge') addT('tile_bridge', x, z, c.axis === 'x' ? 0 : Math.PI / 2, -0.06 * S);
+        }
+        const done = new Set();
+        for (const [asset, list] of groups) {
+          if (!A[asset]) continue;
+          scene.add(instanced(bake(A[asset]), list, clayM)); done.add(asset);
+        }
+        const hideFb = (kind, ok) => { if (ok && st.fb.tiles[kind]) st.fb.tiles[kind].visible = false; };
+        hideFb('sand', done.has('tile_sand'));
+        hideFb('beach', done.has('tile_coast_a') && done.has('tile_coast_b') && done.has('tile_sand'));
+        hideFb('boardwalk', ['tile_boardwalk_straight', 'tile_boardwalk_corner', 'tile_boardwalk_cross'].every((a) => done.has(a) || !groups.has(a)));
+        hideFb('bridge', done.has('tile_bridge'));
+        // 2) 자리 유닛: 책상(작업) → 캐릭터 → 파라솔(맨 뒤). 유닛 책상 윗면 = 기존 책상 윗면(소품 슬롯 높이 유지)
+        let seats = 0;
+        for (const f of st.seatFx) {
+          const U = A[f.unit]; if (!U) continue;
+          const { desk: ud, parasol: up } = splitUnit(U, clayM);
+          ud.scale.setScalar(f.deskTopY / 1.17); ud.rotation.y = Math.PI; // 유닛 책상 윗면 1.17(애셋) → 기존 책상 높이, 화면이 캐릭터(-Z) 쪽
+          ud.userData = f.d.person ? { kind: 'person', name: f.d.person.name } : {};
+          f.g.add(ud); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
+          f.ps.visible = false;
+          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); }
+          seats++;
+        }
+        // 3) 소품: 야자수·바위·덤불(해변 끝단 장식 교체)
+        const one = (asset, x, z, ry, s, y = 0) => { if (!A[asset]) return null; const n = staticClone(A[asset], clayM); n.position.set(x, y, z); n.rotation.y = ry; n.scale.setScalar(s); scene.add(n); return n; };
+        for (const { o, p } of st.fb.palms) if (one('prop_palm', p.x, p.z, p.ry, DECOR_SCALE * p.s)) o.visible = false;
+        for (const { o, q } of st.fb.scatter) {
+          const n = q.m === 'rock' ? one('prop_rock', q.x, q.z, q.ry, DECOR_SCALE * Math.max(0.7, q.s)) : q.m === 'shell' ? one('prop_bush', q.x, q.z, q.ry, DECOR_SCALE * 0.8) : null;
+          if (n) o.visible = false;
+        }
+        // 4) 시설 존(예약 부지 → 실물). 애셋 단위 치수는 ASSET_LIST.md 실측
+        for (const r of facilityRects(world)) {
+          const w = r.x1 - r.x0; const dd = r.z1 - r.z0; const cx = (r.x0 + r.x1) / 2; const cz = (r.z0 + r.z1) / 2; let ok = false;
+          if (r.kind === 'pool') {
+            const s = fitScale(w, dd, 7.4, 4.0, 0.85); ok = !!one('pool_kit', cx, cz, 0, s);
+            one('pool_ladder', cx + 2.6 * s, cz - 1.75 * s, Math.PI, s);
+            [['float_flamingo', -1.6], ['float_duck', 0], ['float_ring', 1.6]].forEach(([n, ox], i) => one(n, cx + ox * s, cz + (i % 2 ? 0.25 : -0.25) * s, i * 1.3, s * 0.38, 0.32 * s));
+            one('prop_sign', cx - 3.2 * s, cz + 2.6 * s, 0, s);
+          } else if (r.kind === 'kart') {
+            const s = fitScale(w, dd, 15, 7.2, 0.9); ok = !!one('track_straight', cx, cz, 0, s);
+            one('track_corner', cx + 6 * s, cz, 0, s); one('track_corner', cx - 6 * s, cz, Math.PI, s);
+            one('track_arch', cx + 1.5 * s, cz, Math.PI / 2, s); one('kart_coral', cx - 1.8 * s, cz - 0.7 * s, 0, s); one('kart_mint', cx - 0.4 * s, cz + 0.7 * s, 0, s);
+            one('prop_crates', cx - 3 * s, cz + 3.2 * s, 0.3, s); one('prop_sign', cx + 4 * s, cz + 3.4 * s, 0, s);
+          } else if (r.kind === 'airfield') {
+            const s = fitScale(w, dd, 16, 7.2, 0.95); ok = !!one('runway_straight', cx, cz, 0, s);
+            one('runway_threshold', cx + 6 * s, cz, 0, s); one('runway_threshold', cx - 6 * s, cz, Math.PI, s);
+            one('prop_plane', cx - 1 * s, cz, 0, s); one('prop_windsock', cx + 5 * s, cz - 3.2 * s, 0, s);
+            one('prop_barrel', cx - 5 * s, cz + 3 * s, 0, s); one('prop_barrel', cx - 3.8 * s, cz + 3.3 * s, 0.6, s);
+          }
+          if (ok) for (const ln of st.fb.reserved) if (ln.userData.zone === r.kind) ln.visible = false;
+        }
+        st.assets = { ms, bytes, mountMs: Math.round(performance.now() - t0), failed, seats, parasols: st.seatFx.filter((f) => f.cn).length, seatTotal: st.seatFx.length };
+        if (typeof window !== 'undefined') window.__pm3dAssets = st.assets;
+        setStat((x) => `${x} · 애셋 ${(bytes / 1048576).toFixed(2)}MB ${ms}ms${failed.length ? ` · 실패 ${failed.length}` : ''}`);
+        st.poke?.();
+      });
+    };
+
 
     // 데이터 반영(폴링마다)
     const apply = () => {
@@ -469,7 +553,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const items = [];
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
-        P.ch.getWorldPosition(v); v.y += 1.3; v.project(cam); items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
+        P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.25; v.project(cam); // 이름표 = 머리 위 items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
         if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, ...sizeOf('w:' + name, 150, 30) }); }
       }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }

@@ -25,7 +25,8 @@ function load(source, localRequire) {
 const display = load(fs.readFileSync('lib/distributeProductDisplay.js','utf8'),require);
 const Page = load(source, name=>{
   if(name.endsWith('/useApi')) return {apiGet:()=>{throw Error('Display fixture must not query ERP');}};
-  if(name.endsWith('/useWeekInput')) return {useWeekInput:()=>({value:'2026-41-01'}),getCurrentWeek:()=> '2026-41-01',WeekInput:()=>null};
+  if(name.endsWith('/useWeekInput')) return {useWeekInput:()=>({value:'2026-41-01'}),getCurrentWeek:()=> '2026-41-01',WeekInput:()=>null,
+    formatWeekDisplay:w=>String(w).replace(/^2026-/,'')};
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return load(fs.readFileSync('lib/shipmentDistributionWorkspace.js','utf8'),require);
@@ -37,5 +38,15 @@ assert.match(html,/data-product-select="true"[^>]*title="CARNATION Pastel Crimea
 assert.match(html,/전차수 잔량 2.00 박스/);
 assert.match(html,/Mix Box D \(Mariposa. Yukari cherry, Cherrio\)/);
 assert.match(html,/min-width:180px;max-width:240px;white-space:normal/);
+// nenova.exe식 버튼형 차수(±3 → 7개)·세부차수·품목 버튼 + 브리지 검증 표식, 저장 버튼에는 표식 없음
+const weekButtons = [...html.matchAll(/data-ai-verify="week-(2026-\d{2}-01)"/g)].map(m=>m[1]);
+assert.deepEqual(weekButtons,['2026-38-01','2026-39-01','2026-40-01','2026-41-01','2026-42-01','2026-43-01','2026-44-01']);
+assert.match(html,/data-ai-verify="week-2026-41-01" aria-pressed="true"/);
+assert.match(html,/data-ai-verify="week-2026-40-01" aria-pressed="false"/);
+assert.deepEqual([...html.matchAll(/data-ai-verify="subweek-(\d{2})"/g)].map(m=>m[1]),['01','02','03','04']);
+assert.match(html,/data-ai-verify="product-345" aria-pressed="true"/);
+assert.match(html,/data-ai-verify="product-3199" aria-pressed="false"/);
+assert.match(html,/🚚 출고분배 및 농장정보[\s\S]*🏬 출고분배 및 업체정보[\s\S]*📅 출고일 지정/);
+assert.doesNotMatch(html,/aria-keyshortcuts="Control\+S"[^>]*data-ai-verify|data-ai-verify="[^"]*"[^>]*aria-keyshortcuts="Control\+S"/,'save button must not carry data-ai-verify');
 console.log('Distribution real-page SSR: compact full names, original title, previous stock and responsive product panel passed');
 module.exports={html};

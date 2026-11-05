@@ -1,3 +1,36 @@
+## [2026-11-05 12:00] 세션 — 출고분배 화면 nenova.exe 조작법(버튼형 차수·품목·업체, 업체정보 탭, Ctrl+S, 두 업체 나란히)
+
+### 작업 내용
+- `pages/shipment/distribute.js`: 탭을 「출고분배 및 농장정보」(품목 기준) / 「출고분배 및 업체정보」(업체 기준) / 출고일 지정 / 집계로 재구성. 기존 '조회 기준' 토글은 탭으로 흡수.
+- 차수: 기준 차수 앞뒤 ±3 대차수 7개 버튼 + 세부차수 -01~-04 버튼(활성/비활성 디자인은 업로드 주문등록 차수 버튼과 동일). 기존 입력칸·Ctrl+Alt+1 팝업은 그대로.
+- 품목·업체: 버튼 띠(ProdName/CustName A-Z, 입고 있는 품목 강조) + 기존 표 유지. 업체정보 탭에 업체명 검색.
+- 두 업체 나란히 보기: 「업체 2」칸을 고른 뒤 업체 버튼을 누르면 ①↔② 품목별 출고수량이 한 표에 나오고 ← [이동 수량] → 로 화면 수량 이동(이동 수량을 비우면 전부, 숫자면 그만큼만 — 5품목 5수량이 다 같이 가지 않는 경우 대응).
+- 받는 업체에 그 품목 주문이 없으면 '주문등록 예정' 임시 행을 만들고, Ctrl+S 시 기존 `POST /api/orders`(가산 등록, 주문수량=분배수량·OutUnit)로 주문을 먼저 만든 뒤 분배 배치 저장 → 고스트 출고 없음. 보내는 쪽이 0 이 돼도 주문은 그대로. 임시 행이 0 으로 돌아가면 주문도 분배도 만들지 않음. 저장 로그에 `· 주문등록 N건` 표시.
+- Ctrl+S: 변경 없으면 POST 없이 '변경 없음, 저장 생략' 로그. 저장 성공/실패/생략을 화면 '저장 로그'에 누적.
+- 브리지 검증 표식 `data-ai-verify`: week-/subweek-/product-/customer-/qty-/cost-/pair-/move- (저장 버튼 제외). docs/desktop/AI_BRIDGE.md 갱신.
+- 저장 로직 변경 없음(`POST /api/shipment/distribute` entries 배치 그대로). 계약 `docs/contracts/shipment-distribution-workspace.json` action 추가·keyboard 기준 갱신.
+
+### 변경된 파일
+- pages/shipment/distribute.js, lib/shipmentDistributionWorkspace.js(distributionWeekButtons/SubWeekButtons/SaveLogLine/mergeDistributionCustomerItems/planDistributionMove/pendingDistributionOrderItems/pendingDistributionItem)
+- __tests__/shipmentDistributionWorkspace.test.js, __tests__/distributeProductDisplayUi.test.cjs, __tests__/shipmentDistributionBrowser.test.cjs
+- docs/contracts/shipment-distribution-workspace.json, docs/desktop/AI_BRIDGE.md
+
+### 미결 이슈 / 블로킹
+- PR 머지·배포는 사용자 지시 후. 확정차수(isFix=1) 정책 변경 없음.
+
+## [2026-11-05 14:30] 세션 — 메뉴 첫 클릭 + 분배단가만 수정 거래처 선택칸 (PR #1545, 5994f975 배포 완료)
+
+### 작업 내용
+- components/Layout.js: 팝업/새창형 메뉴가 href="#" 대신 실제 href(?popup=1, target=_blank) — hydration 전 첫 클릭도 동작. 배포 후 운영 사이드바에 href="#" 0건 확인.
+- pages/orders/import.js: 파일 없이 「분배단가만 수정」을 쓰면 거래처 선택칸이 없어 기본 거래처(라움)가 조용히 쓰이던 문제 → 세부차수 위에 거래처 검색칸 추가. 운영 검증: 태림원예 2026-45-01 → 분배행 78(확정 45·미확정 33).
+- pages/api/orders/import-price-targets.js: 규칙 5 sd.CustKey fallback (읽기 전용). 분배 행 있는 품목만, isFix 무관 반환은 기존과 동일.
+
+### 확인된 사실
+- 45-01 전체 분배 810행/58업체. 라움(680)은 4행뿐 — 화면이 라움만 보여준 건 데이터가 아니라 거래처 선택칸 부재 때문.
+
+### 미검증
+- hydration 전(약 1.1초 창) 첫 클릭 실재현 — 코드상 href 로 보장.
+
 ## [2026-11-05 11:10] 세션 — 분배단가만 수정 모드 + 데스크톱 AI 브리지 검증 통로
 
 ### 작업 내용

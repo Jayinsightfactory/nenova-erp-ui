@@ -1279,6 +1279,23 @@ export default function OrderImportPage() {
   const shortWeek = String(week || '').match(/^\d{4}-(\d{2}-\d{2})$/)?.[1] || '';
   const priceTargetKey = cust?.CustKey && weekYear && parentWeek ? `${cust.CustKey}|${weekYear}|${parentWeek}` : '';
 
+  // 「분배단가만 수정」: 고른 차수에 분배 행이 있는 거래처 버튼 목록 (읽기 전용 API)
+  const [priceCustomers, setPriceCustomers] = useState({ key: '', loading: false, list: [], error: '' });
+  const priceCustomersKey = registerMode === 'priceOnly' && weekYear && parentWeek ? `${weekYear}|${parentWeek}` : '';
+  useEffect(() => {
+    if (!priceCustomersKey) return;
+    let alive = true;
+    setPriceCustomers(prev => ({ ...prev, key: priceCustomersKey, loading: true, error: '' }));
+    apiGet('/api/orders/import-price-customers', { orderYear: weekYear, parentWeek })
+      .then(d => {
+        if (!alive) return;
+        if (!d.success) throw new Error(d.error || '조회 실패');
+        setPriceCustomers({ key: priceCustomersKey, loading: false, list: d.customers || [], error: '' });
+      })
+      .catch(e => { if (alive) setPriceCustomers({ key: priceCustomersKey, loading: false, list: [], error: e.message }); });
+    return () => { alive = false; };
+  }, [priceCustomersKey, weekYear, parentWeek]);
+
   const loadPriceTargets = useCallback(async (force = false) => {
     if (!priceTargetKey) {
       setPriceTargets({ loading: false, subWeeks: [], error: '', key: '' });
@@ -2002,13 +2019,55 @@ export default function OrderImportPage() {
             {(registerMode === 'orderPrice' || registerMode === 'priceOnly') && (
               <div style={{ border: '1px solid #c7d2fe', background: '#f5f7ff', borderRadius: 8, padding: 12 }}>
                 {/* 파일 없이 「분배단가만 수정」을 쓰면 위의 거래처 선택칸(매칭 결과 영역)이 없어 기본 거래처가 조용히 쓰인다 → 여기서 직접 고른다 */}
-                {registerMode === 'priceOnly' && !items.length && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <span style={st.label}>거래처</span>
-                    <CustomerSearchSelect value={cust?.CustKey || ''} onChange={changeCustomer} placeholder="거래처 검색" />
-                    {cust?.CustName
-                      ? <span style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>선택: {cust.CustName}</span>
-                      : <span style={{ fontSize: 12, color: '#b45309' }}>거래처를 검색해 선택하세요</span>}
+                {registerMode === 'priceOnly' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <span style={st.label}>차수</span>
+                      {newWeeks.map(w => {
+                        const on = week === w;
+                        return (
+                          <button
+                            key={w}
+                            type="button"
+                            data-ai-verify={`price-week-${w}`}
+                            onClick={() => { weekChosenRef.current = true; setWeek(w); }}
+                            style={{ padding: '4px 14px', borderRadius: 16, fontSize: 12, cursor: 'pointer', border: on ? '2px solid #1a237e' : '1px solid #c5cae9', background: on ? '#1a237e' : '#fff', color: on ? '#fff' : '#1a237e', fontWeight: on ? 700 : 500 }}
+                          >
+                            {formatWeekDisplay(w)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <span style={st.label}>거래처</span>
+                      <span style={{ fontSize: 11, color: '#64748b' }}>
+                        {weekYear && parentWeek ? `${weekYear}년 ${parentWeek}차에 분배가 있는 거래처 · 이름순` : '차수를 먼저 고르세요'}
+                      </span>
+                      {priceCustomers.loading && <span style={{ fontSize: 12, color: '#1565c0' }}>조회 중…</span>}
+                      {priceCustomers.error && <span style={{ fontSize: 12, color: '#b91c1c' }}>조회 실패: {priceCustomers.error}</span>}
+                      <CustomerSearchSelect value={cust?.CustKey || ''} onChange={changeCustomer} placeholder="목록에 없으면 검색" />
+                      {cust?.CustName && <span style={{ fontSize: 12, color: '#334155', fontWeight: 600 }}>선택: {cust.CustName}</span>}
+                    </div>
+                    {!priceCustomers.loading && priceCustomers.key === priceCustomersKey && priceCustomers.list.length === 0 && !priceCustomers.error && priceCustomersKey && (
+                      <div style={{ fontSize: 12, color: '#b45309' }}>이 차수에 분배된 거래처가 없습니다</div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                      {priceCustomers.list.map(c => {
+                        const on = Number(cust?.CustKey) === c.custKey;
+                        return (
+                          <button
+                            key={c.custKey}
+                            type="button"
+                            data-ai-verify={`price-cust-${c.custKey}`}
+                            onClick={() => changeCustomer({ CustKey: c.custKey, CustName: c.custName })}
+                            title={c.subWeeks.map(sw => `${sw.orderWeek}: ${sw.detailCount}건 (확정 ${sw.fixedCount})`).join(' · ')}
+                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: on ? '2px solid #1565c0' : '1px solid #cbd5e1', background: on ? '#1565c0' : '#fff', color: on ? '#fff' : '#0f172a', fontWeight: on ? 700 : 500 }}
+                          >
+                            {c.custName} <span style={{ opacity: 0.75, fontSize: 11 }}>{c.detailCount}건</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>

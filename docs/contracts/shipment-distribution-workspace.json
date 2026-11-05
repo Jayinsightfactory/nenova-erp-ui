@@ -14,7 +14,9 @@
     "__tests__/shipmentDistributionAudit.test.js",
     "scripts/test-shipment-distribution-audit-sql.cjs",
     "__tests__/shipmentDistributionBrowser.test.cjs",
-    "scripts/test-distribution-history-ui.cjs"
+    "scripts/test-distribution-history-ui.cjs",
+    "__tests__/distributeProductDisplayUi.test.cjs",
+    "docs/desktop/AI_BRIDGE.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -28,6 +30,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Selection is local; favorites use authenticated UserFavorite.UserID and shipment-distribute-products namespace only."
+    },
+    {
+      "name": "EXE_STYLE_SELECTION_AND_PAIR_VIEW",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Week (±3 major, sub-week), product and customer selection are buttons with data-ai-verify markers; the 업체정보 tab may show two customers side by side and move draft quantity (all, or a per-row partial amount) between them on screen only. Moving into a customer without an OrderDetail row for that product creates a pending row; on save the page first registers that order through the existing POST /api/orders (additive, OutUnit quantity = distributed quantity) and only then runs the batch distribute save, so no ghost shipment is written. A source row moved down to 0 keeps its OrderDetail untouched; a pending row moved back to 0 registers nothing."
     },
     {
       "name": "SAVE_ABSOLUTE_QUANTITY",
@@ -67,7 +75,7 @@
   },
   "criteria": {
     "productOrder": "ProdName A-Z in every product selector/list, including favorites; never favorite-first or relevance-rank reorder.",
-    "keyboard": "Visible Ctrl+Alt+1/2/3/4, Ctrl+Enter query, quantity Enter next visible enabled quantity (last row focuses Save without posting), and Ctrl+S current-mode save. Native numeric arrows retained; Ctrl+S always prevents browser Save and cannot write while distribution/customer reads, fixed/SP/day saves, history/validation/SP/success modal, repeat, or IME composition. Natural Tab, arrow selection, Enter/Space, and Escape focus return remain available.",
+    "keyboard": "Visible Ctrl+Alt+1/2/3/4, Ctrl+Enter query, quantity Enter next visible enabled quantity (last row focuses Save without posting), and Ctrl+S current-tab save (품목 tab: product rows; 업체 tab: customer 1 and optional customer 2 rows in one batch). Ctrl+S with no draft change posts nothing and logs '변경 없음, 저장 생략'; every save result is appended to the on-screen save log. Native numeric arrows retained; Ctrl+S always prevents browser Save and cannot write while distribution/customer reads, fixed/SP/day saves, history/validation/SP/success modal, repeat, or IME composition. Natural Tab, arrow selection, Enter/Space, and Escape focus return remain available.",
     "durability": "Only verified successful quantity changes get immutable transaction audit, with exact scope, before/after and OutUnit. Existing0-to0 deletion creates no invalid audit.",
     "privacy": "New audit allowlists business fields; no raw chat, token or editGuard. Existing general request telemetry unchanged.",
     "downstream": "No new Estimate, StockHistory or WebProfitReport writes; native amount conversion and fixed protection unchanged. Read-only estimate visibility/amount/date and confirmed-sales evidence recorded in work plan.",
