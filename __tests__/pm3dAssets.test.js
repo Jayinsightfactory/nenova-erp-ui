@@ -16,7 +16,7 @@ const { pathToFileURL } = require('url');
   fs.rmSync(td, { recursive: true, force: true });
 
   // 1) 애셋 34종 존재 · 합계 4MB 이하 · glb 헤더
-  assert.strictEqual(A.ALL_ASSETS.length, 37); // 2026-11-05 소품 3종 추가(서핑보드·불가사리·조약돌)
+  assert.strictEqual(A.ALL_ASSETS.length, 47); // 2026-11-06 P2 지형 5종·P3 소품 4종·꼬마기차 추가
   let total = 0;
   for (const n of A.ALL_ASSETS) {
     const f = path.join(process.cwd(), 'public', A.assetUrl(n));
@@ -88,8 +88,9 @@ const { pathToFileURL } = require('url');
     const f = A.localToWorld(0, 1, yaw); assert.ok(Math.abs(f.x - Math.sin(yaw)) < 1e-9 && Math.abs(f.z - Math.cos(yaw)) < 1e-9);
   }
   // 해안·보드워크 선택
-  assert.strictEqual(A.coastPick([[1, 0]]).asset, 'tile_coast_a');
-  assert.strictEqual(A.coastPick([[1, 0], [0, -1]]).asset, 'tile_coast_b');
+  // 2026-11-06 P2: 곡선 해안 변형(접속점 동일) — 직선/모서리 계열 중 하나면 통과(결정적 선택)
+  assert.ok(['tile_coast_a', 'tile_coast_curve_a'].includes(A.coastPick([[1, 0]]).asset));
+  assert.ok(['tile_coast_b', 'tile_coast_curve_b'].includes(A.coastPick([[1, 0], [0, -1]]).asset));
   assert.strictEqual(A.boardwalkPick({ n: 1, s: 1 }).asset, 'tile_boardwalk_straight');
   assert.strictEqual(A.boardwalkPick({ n: 1, e: 1 }).asset, 'tile_boardwalk_corner');
   assert.strictEqual(A.unitForIndex(7), 'unit_parasol_coral');
