@@ -30,6 +30,7 @@ const Page = load(source, name=>{
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return load(fs.readFileSync('lib/shipmentDistributionWorkspace.js','utf8'),require);
+  if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;

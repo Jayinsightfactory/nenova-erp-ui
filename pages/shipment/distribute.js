@@ -4,9 +4,10 @@ import { useWeekInput, getCurrentWeek, WeekInput, formatWeekDisplay } from '../.
 import { useLang } from '../../lib/i18n';
 import { distributeProductName, distributePreviousStock, distributePreviousStockTotal } from '../../lib/distributeProductDisplay';
 import DistributionPicker from '../../components/shipment/DistributionPicker';
+import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite,
-  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem,
+  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope,
   sortDistributionCustomers, sortDistributionProducts } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -846,6 +847,30 @@ export default function Distribute() {
     return pending.length;
   };
 
+  // 확정된 품목군이 섞여 있으면: 기존 확정해제 → 저장 → 재확정 사이클 (docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md C-1, C-10)
+  // - 바꾸는 품목이 속한 품목군만 풀고(force=false, 화면 연도 명시), 저장 실패해도 재확정까지 마친다
+  // - 확정 품목군이 없으면 사이클 없이 apply() 그대로
+  const saveWithFixCycleIfNeeded = async ({ prodKeys, label, logName, mode, apply }) => {
+    const keys = [...new Set(prodKeys.map(Number).filter(k => Number.isInteger(k) && k > 0))];
+    if (keys.length === 0) return apply();
+    const d = await apiGetDistribute({ type: 'fixedScopes', week, prodKeys: keys.join(',') });
+    if (d?.success !== true) throw new Error(d?.error || '확정 상태를 확인하지 못해 저장하지 않았습니다.');
+    const scope = distributionFixCycleScope(d.scopes || []);
+    if (!scope.needed) return apply();
+    if (scope.blocked.length > 0) throw new Error(`품목군이 없는 확정 품목(ProdKey ${scope.blocked.join(', ')})이 있어 자동 확정해제를 할 수 없습니다. 확정취소 후 다시 저장하세요.`);
+    if (!window.confirm(`${week}차 ${scope.countryFlowers.join(', ')} 품목군이 확정되어 있습니다.\n\n${label}\n\n확정해제 → 저장 → 재확정 순서로 진행할까요?`)) {
+      throw Object.assign(new Error('확정차수 저장을 취소했습니다.'), { cancelled: true });
+    }
+    return runEditWithFixCycle({
+      weeks: [week],
+      orderYear: selectedOrderYear,
+      countryFlowers: scope.countryFlowers,
+      stockProdKeys: keys,
+      progress: step => appendSaveLog({ mode, name: logName, week, note: step }),
+      apply,
+    });
+  };
+
   // 업체기준 저장 — 업체 1(+업체 2) 행을 같은 배치 저장 경로로
   const handleSaveCustItems = async () => {
     if (saveBlocked || saveInFlightRef.current) return;
@@ -867,21 +892,30 @@ export default function Distribute() {
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
         return { custKey: cust.CustKey, prodKey: item.ProdKey, outQty: qty, cost };
       });
-      // 주문 없던 품목: 수량이 남아 있으면 주문등록 먼저, 0 으로 돌아갔으면 주문도 분배도 만들지 않음
-      const orderCount = (await registerPendingOrders(selectedCust, custItems, custEditInputs))
-        + (pairCust ? await registerPendingOrders(pairCust, pairItems, pairEditInputs) : 0);
       const dropEmptyPending = (items, inputs) => items.filter(item => !item.pendingOrder || (parseFloat(inputs[item.ProdKey]?.outQty) || 0) > 0);
       const entries = [
         ...toEntries(selectedCust, dropEmptyPending(custItems, custEditInputs), custEditInputs),
         ...(pairCust ? toEntries(pairCust, dropEmptyPending(pairItems, pairEditInputs), pairEditInputs) : []),
       ];
-      const res = await fetch('/api/shipment/distribute', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ week, year: selectedOrderYear, entries })
+      // 확정 품목군이 있으면 확정해제 뒤에 주문등록·분배를 하고 재확정 (해제 실패 시 아무것도 쓰지 않음)
+      const orderCount = await saveWithFixCycleIfNeeded({
+        prodKeys: entries.map(entry => entry.prodKey),
+        label: `${pairName} 분배 저장${pendingDistributionOrderItems(custItems, custEditInputs).length + pendingDistributionOrderItems(pairItems, pairEditInputs).length > 0 ? ' (주문 없는 품목은 주문등록 포함)' : ''}`,
+        logName: pairName, mode: 'cust',
+        apply: async () => {
+          // 주문 없던 품목: 수량이 남아 있으면 주문등록 먼저, 0 으로 돌아갔으면 주문도 분배도 만들지 않음
+          const count = (await registerPendingOrders(selectedCust, custItems, custEditInputs))
+            + (pairCust ? await registerPendingOrders(pairCust, pairItems, pairEditInputs) : 0);
+          const res = await fetch('/api/shipment/distribute', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ week, year: selectedOrderYear, entries })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
+          return count;
+        },
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
       if (submittedWeek !== currentWeekRef.current) return;
       const savedItems = entries.filter(entry => entry.outQty > 0);
       const totalQty = savedItems.reduce((a, entry) => a + entry.outQty, 0);
@@ -980,13 +1014,20 @@ export default function Distribute() {
         outQty: Number(outInputs[c.CustKey]) || 0,
         cost: Number(c.Cost ?? c.단가 ?? selectedProd.Cost ?? 0),
       }));
-      const res = await fetch('/api/shipment/distribute', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ week, year: selectedOrderYear, entries })
+      await saveWithFixCycleIfNeeded({
+        prodKeys: [selectedProd.ProdKey],
+        label: `${selectedProd.ProdName} 분배 저장`,
+        logName: selectedProd.ProdName, mode: 'prod',
+        apply: async () => {
+          const res = await fetch('/api/shipment/distribute', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ week, year: selectedOrderYear, entries })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
+        },
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
       if (submittedWeek !== currentWeekRef.current) return;
       const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);

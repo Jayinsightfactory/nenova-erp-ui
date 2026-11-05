@@ -325,6 +325,20 @@ async function getDistribute(req, res) {
       return res.status(200).json({ success: true, groups });
     }
 
+    // ── 저장 전 확정 범위 조회 (읽기 전용): 바꾸려는 품목들이 속한 품목군(CountryFlower)이 이 차수에 확정돼 있는지.
+    //    화면은 확정된 품목군이 있으면 기존 확정해제 → 저장 → 재확정 사이클(lib/fixCycleClient)로 저장한다.
+    if (type === 'fixedScopes') {
+      if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
+      const prodKeys = [...new Set(String(req.query.prodKeys || '').split(',').map(v => Number(v)).filter(v => Number.isInteger(v) && v > 0))];
+      if (prodKeys.length === 0 || prodKeys.length > 500) return res.status(400).json({ success: false, error: 'prodKeys 1~500개 필요' });
+      const scopes = [];
+      for (const prodKey of prodKeys) {
+        const { prod, rows } = await getProductScopeFixedRows(query, orderYear, week, prodKey);
+        scopes.push({ prodKey, countryFlower: String(prod?.CountryFlower || '').trim(), fixed: rows.length > 0 });
+      }
+      return res.status(200).json({ success: true, orderYear, week, scopes });
+    }
+
     // ── 품목 목록 (왼쪽 패널): 차수+품목그룹 기준 입고/출고/현재고
     if (type === 'products') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });

@@ -39,6 +39,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let expectPairSave = false;
   let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
   let orderPosts = 0;
+  let fixedScopeNext = false; // 다음 저장의 확정 범위 조회에서 Alstroemeria 품목군을 확정 상태로
+  const cycleCalls = [];
     let delayOldProducts = false;
     let holdNextQuery = false;
     const heldQueryStarted = deferred();
@@ -75,6 +77,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       }
       if (url.pathname === '/api/orders' && request.method() === 'POST') {
         orderPosts += 1;
+        cycleCalls.push('order');
         const body = JSON.parse(request.postData() || '{}');
         // 주문 없던 업체 2(436)에 Zinnia 3 을 옮긴 뒤 Ctrl+S → 분배 저장 전에 기존 주문등록 API 로 주문 생성
         assert.deepEqual([body.custKey, body.week, body.year, body.source, body.items],
@@ -83,6 +86,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
         return reply(route, { success: true, verified: true, orderMasterKey: 1 }, 201);
       }
       if (url.pathname === '/api/shipment/ship-days') return reply(route, { success: true, configs: [] });
+      if (url.pathname === '/api/shipment/fix' && request.method() === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        // 자동 사이클: 화면 연도 명시, force=false, 바꾸는 품목의 품목군만
+        assert.deepEqual([body.week, body.orderYear, body.force, body.countryFlowers], ['2026-41-02', '2026', false, ['콜롬비아 알스트로']]);
+        cycleCalls.push(body.action);
+        return reply(route, { success: true, message: `${body.action} ok` });
+      }
       if (url.pathname === '/api/shipment/fix' && request.method() === 'GET')
         return reply(route, { success: true, issueCount: 1, week: '2026-41-02', negative: [] });
       if (url.pathname === '/api/shipment/history') return reply(route, { success: true, history: [] });
@@ -99,6 +109,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           assert.equal(body.week, '2026-41-02');
           if (expectPairSave) {
             expectPairSave = false;
+            cycleCalls.push('save');
             // 업체 1 + 업체 2 나란히 보기: → 이동 후 Ctrl+S 는 두 업체 행을 한 배치로 저장
             assert.equal(orderPosts, 1, 'pending order was registered first');
             assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]),
@@ -118,6 +129,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           if (holdNextSave) { heldSaveStarted.resolve(); await releaseHeldSave.promise; holdNextSave = false; }
           shipmentQty = body.entries[0].outQty;
           return reply(route, { success: true, verified: true, results: [{ verified: true }] });
+        }
+        if (type === 'fixedScopes') {
+          const fixedNow = fixedScopeNext;
+          fixedScopeNext = false;
+          cycleCalls.push('scope');
+          return reply(route, { success: true, scopes: url.searchParams.get('prodKeys').split(',').map(prodKey => ({
+            prodKey: Number(prodKey), countryFlower: Number(prodKey) === 2429 ? '콜롬비아 알스트로' : '네덜란드 기타', fixed: fixedNow && Number(prodKey) === 2429 })) });
         }
         if (type === 'groups') return reply(route, { success: true, groups: [] });
         if (type === 'products') {
@@ -331,12 +349,20 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByText(/① 기존 출고 비고 · 미저장 51 → 0단/).waitFor();
     await page.screenshot({ path: path.join(root, 'outputs', 'distribution-pair-1920.png'), fullPage: true });
     expectPairSave = true;
+    fixedScopeNext = true; // Alstroemeria 품목군 확정 상태 → 확인창 수락 → 확정해제 → 주문등록 → 분배 → 재확정
+    cycleCalls.length = 0;
+    page.once('dialog', dialog => {
+      assert.match(dialog.message(), /콜롬비아 알스트로 품목군이 확정되어 있습니다[\s\S]*확정해제 → 저장 → 재확정/);
+      dialog.accept();
+    });
     await page.keyboard.press('Control+s');
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(savePosts, 4, 'pair Ctrl+S posts both customers once');
     await page.getByRole('button', { name: '확인', exact: true }).click();
     await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 3건 · 총 109 · 주문등록 1건/).waitFor();
     assert.equal(orderPosts, 1, 'exactly one order registration (customer 2 Zinnia)');
+    assert.deepEqual(cycleCalls, ['scope', 'unfix', 'order', 'save', 'fix'], 'confirmed group: unfix before any write, refix after');
+    assert.match(await page.getByTestId('distribution-save-log').textContent(), /재확정 중/);
     await page.getByRole('button', { name: '업체 2 해제' }).click();
     await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
     console.log('browser: pair');

@@ -81,3 +81,14 @@ test('partial move plan, pending-order rows and order count in save log', async 
   assert.match(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', savedCount: 3, totalQty: 112, orderCount: 1 }, new Date(2026, 10, 5, 9, 7, 3)),
     /저장 완료 3건 · 총 112 · 주문등록 1건$/);
 });
+
+test('fix-cycle scope: only confirmed product groups, blocked when group is blank, save-log notes', async () => {
+  const { distributionFixCycleScope, distributionSaveLogLine } = await load();
+  assert.deepEqual(distributionFixCycleScope([{ prodKey: 1, countryFlower: 'A', fixed: false }]), { needed: false, countryFlowers: [], blocked: [] });
+  assert.deepEqual(distributionFixCycleScope([
+    { prodKey: 1, countryFlower: '콜롬비아 장미', fixed: true }, { prodKey: 2, countryFlower: '콜롬비아 장미', fixed: true },
+    { prodKey: 3, countryFlower: '네덜란드 기타', fixed: false }, { prodKey: 4, countryFlower: ' ', fixed: true },
+  ]), { needed: true, countryFlowers: ['콜롬비아 장미'], blocked: [4] });
+  assert.equal(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', note: '2026-41-02 재확정 중' }, new Date(2026, 10, 5, 9, 7, 3)),
+    '09:07:03 2026-41-02 업체 A + B — 2026-41-02 재확정 중');
+});
