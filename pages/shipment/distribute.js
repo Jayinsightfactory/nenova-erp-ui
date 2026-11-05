@@ -126,8 +126,6 @@ export default function Distribute() {
   const [pairLoading, setPairLoading] = useState(false);
   const [moveQtyInputs, setMoveQtyInputs] = useState({}); // 품목별 이동 수량 (비우면 전부, 화면 입력 단위)
   const [pairGroupFilter, setPairGroupFilter] = useState(''); // 나란히 보기 품종 버튼 (화면 필터 전용)
-  const [pairInputUnit, setPairInputUnit] = useState(''); // '' = 품목 기본 단위(OutUnit), '박스' | '단' | '송이'
-  const [prodInputUnit, setProdInputUnit] = useState(''); // 품목 탭 출고수량 입력 단위 (저장은 OutUnit)
 
   const [loading, setLoading] = useState(false);
   const [custFilter, setCustFilter] = useState('');
@@ -1463,15 +1461,6 @@ export default function Distribute() {
                   <button className="btn btn-secondary btn-sm" onClick={autoDistribute} disabled={saving || loading || !selectedProd || custDist.length === 0} title="화면 입력값만 자동 계산합니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">화면 비율계산</button>
                   <button className="btn btn-secondary btn-sm" onClick={fillOrderQuantities} disabled={saving || loading || !selectedProd || custDist.length === 0} title="주문수량을 출고수량 입력값으로 채웁니다. DB 반영은 상단 저장 버튼으로 적용됩니다.">주문수량 채우기</button>
                   <button className="btn btn-secondary btn-sm" disabled={saving || loading} onClick={()=>{const o={};custDist.forEach(c=>{o[c.CustKey]=0;});setOutInputs(o);setOutQty(0);}}>🔄 개별 초기화</button>
-                  <span style={{marginLeft:'auto',fontSize:11,color:'var(--text3)'}}>출고 입력 단위</span>
-                  {[['', '기본'], ['박스', '박스'], ['단', '단'], ['송이', '송이']].map(([u, label]) => {
-                    const usable = !u || !selectedProd || distributionUnitFactor(selectedProd, u);
-                    return (
-                      <button key={u || 'native'} type="button" data-ai-verify={`prod-unit-${u || 'native'}`} aria-pressed={prodInputUnit === u}
-                        disabled={!usable} title={usable ? undefined : '이 품목은 입수(BunchOf1Box/SteamOf1Box)가 없어 환산할 수 없습니다'}
-                        onClick={() => setProdInputUnit(u)} style={pickButtonStyle(prodInputUnit === u, true)}>{label}</button>
-                    );
-                  })}
                 </div>
                 {/* 입고/출고/잔량 */}
                 <div style={{display:'flex',borderBottom:'1px solid var(--border)',background:'var(--bg)',flexShrink:0}}>
@@ -1513,13 +1502,21 @@ export default function Distribute() {
                               ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
                               : custDist.map(c => {
                                 const outVal = outInputs[c.CustKey] || 0;
-                                // 입력 단위(박스/단/송이)는 화면 환산만 — outInputs·저장값은 OutUnit 그대로
-                                const unitFactor = distributionUnitFactor(selectedProd, prodInputUnit) || 1;
-                                const inputUnit = prodInputUnit && distributionUnitFactor(selectedProd, prodInputUnit) ? prodInputUnit : (selectedProd.OutUnit || c.OutUnit || '');
                                 const diff = (c.주문수량||0) - outVal;
-                                const boxQty = selectedProd.OutUnit==='박스' ? outVal : 0;
-                                const bunchQty = selectedProd.OutUnit==='박스' ? Math.floor(outVal*(selectedProd.BunchOf1Box||1)) : selectedProd.OutUnit==='단' ? outVal : 0;
-                                const steamQty = Math.floor(outVal*(selectedProd.SteamOf1Box||1));
+                                // Box·단·송이 칸은 출고수량(OutUnit)을 환산해 보여 주고, 어느 칸에 입력해도 OutUnit 으로 바꿔 저장값 하나만 둔다.
+                                const unitCell = (unit) => {
+                                  const f = distributionUnitFactor(selectedProd, unit);
+                                  return (
+                                    <td key={unit} style={{textAlign:'right'}}>
+                                      <input type="number" min={0} step={0.01} placeholder={unit} value={outVal && f ? toDisplayQty(outVal, f) : ''} disabled={saving || loading || !f}
+                                        data-ai-verify={`qty-${c.CustKey}-${selectedProd.ProdKey}-${unit}`} aria-label={`${c.CustName} ${selectedProd.ProdName} 출고수량 (${unit})`}
+                                        title={f ? `${unit} 입력 → 저장 단위 ${selectedProd.OutUnit} 로 환산` : `${unit}: 입수 정보가 없어 환산 불가`}
+                                        onClick={e=>e.stopPropagation()}
+                                        onChange={e=>{const v=Number(toNativeQty(e.target.value, f))||0;setOutInputs(o=>({...o,[c.CustKey]:v}));}}
+                                        style={{width:62,height:26,border:'1px solid var(--border2)',borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:'var(--bg)'}} />
+                                    </td>
+                                  );
+                                };
                                 const isSel = selectedDistCust?.CustKey === c.CustKey;
                                 return (
                                   <tr key={c.CustKey}
@@ -1530,18 +1527,16 @@ export default function Distribute() {
                                     <td style={{fontSize:11}}>{selectedProd.OutUnit || c.OutUnit || '—'}</td>
                                     <td className="num">{(c.주문수량||0).toFixed(2)}</td>
                                     <td>
-                                      <input type="number" min={0} step={unitFactor === 1 ? 1 : 0.01} value={outVal ? toDisplayQty(outVal, unitFactor) : ''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
+                                      <input type="number" min={0} step={1} value={outVal||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
                                         data-ai-verify={`qty-${c.CustKey}-${selectedProd.ProdKey}`}
-                                        aria-label={`${c.CustName} ${selectedProd.ProdName} 출고수량 (${inputUnit})`}
+                                        aria-label={`${c.CustName} ${selectedProd.ProdName} 출고수량 (${selectedProd.OutUnit || c.OutUnit || ''})`}
                                         onKeyDown={handleQuantityEnter}
-                                        onChange={e=>{const v=unitFactor === 1 ? (parseFloat(e.target.value)||0) : (Number(toNativeQty(e.target.value, unitFactor))||0);setOutInputs(o=>({...o,[c.CustKey]:v}));}}
+                                        onChange={e=>{const v=parseFloat(e.target.value)||0;setOutInputs(o=>({...o,[c.CustKey]:v}));}}
                                         style={{width:75,height:26,border:`1px solid ${outVal>0?'var(--blue)':'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:outVal>0?'var(--blue-bg)':'var(--bg)',fontWeight:outVal>0?700:400}}
                                       />
                                     </td>
                                     <td className="num" style={{color:diff<0?'var(--red)':diff===0?'var(--green)':'var(--text3)'}}>{diff.toFixed(2)}</td>
-                                    <td className="num">{boxQty||'—'}</td>
-                                    <td className="num">{bunchQty||'—'}</td>
-                                    <td className="num">{steamQty||'—'}</td>
+                                    {['박스', '단', '송이'].map(unitCell)}
                                     <td className="num">{fmt(c.Cost || selectedProd.Cost || 0)}</td>
                                     <td style={{fontSize:11,color:'var(--text3)'}}>
                                       <div>{distributionQuantityRemark(c.ShipmentDescr, c.출고수량, outVal, selectedProd.OutUnit || c.OutUnit)}</div>
@@ -1628,11 +1623,6 @@ export default function Distribute() {
                                   onClick={() => setPairGroupFilter(g)} style={pickButtonStyle(pairGroupFilter === g, true)}>{g || '전체'}</button>
                               ))}
                             </span>
-                            <span style={{marginLeft:'auto',fontSize:11,color:'var(--text3)'}}>입력 단위</span>
-                            {[['', '기본'], ['박스', '박스'], ['단', '단'], ['송이', '송이']].map(([u, label]) => (
-                              <button key={u || 'native'} type="button" data-ai-verify={`pair-unit-${u || 'native'}`} aria-pressed={pairInputUnit === u}
-                                onClick={() => { setPairInputUnit(u); setMoveQtyInputs({}); }} style={pickButtonStyle(pairInputUnit === u, true)}>{label}</button>
-                            ))}
                           </div>
                         );
                       })()}
@@ -1641,9 +1631,9 @@ export default function Distribute() {
                           <tr>
                             <th>품목명</th><th>단위</th>
                             <th style={{textAlign:'right'}}>① 주문</th>
-                            <th style={{textAlign:'right',color:'var(--blue)'}}>① 출고 입력</th>
+                            <th style={{textAlign:'center',color:'var(--blue)'}}>① 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>
                             <th style={{textAlign:'center'}}>이동</th>
-                            <th style={{textAlign:'right',color:'#b45309'}}>② 출고 입력</th>
+                            <th style={{textAlign:'center',color:'#b45309'}}>② 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>
                             <th style={{textAlign:'right'}}>② 주문</th>
                             <th style={{textAlign:'right'}} title="이 차수 입고 − 전체 출고(두 업체의 화면 변경분 반영), 저장 단위">재고잔량(변경후)</th>
                             <th>미저장 변경</th>
@@ -1651,38 +1641,48 @@ export default function Distribute() {
                         </thead>
                         <tbody>
                           {mergeDistributionCustomerItems(custItems, pairItems).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter).map(row => {
-                            // 저장값은 OutUnit 그대로. 박스/단 입력은 화면에서만 환산(계수 없으면 기본 단위).
-                            const factor = distributionUnitFactor(row, pairInputUnit) || 1;
-                            const shownUnit = pairInputUnit && distributionUnitFactor(row, pairInputUnit) ? pairInputUnit : row.OutUnit;
                             const editA = custEditInputs[row.ProdKey] || {};
                             const editB = pairEditInputs[row.ProdKey] || {};
                             const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;
                             const qtyB = row.b ? (editB.outQty !== undefined ? editB.outQty : (row.b.출고수량 || 0)) : null;
+                            // 박스·단·송이 세 칸이 같은 값을 환산해 보여 준다. 어느 칸에 넣어도 저장값은 OutUnit 하나
+                            // (입수 BunchOf1Box/SteamOf1Box 가 없으면 그 단위 칸은 잠금). OutUnit 칸만 Enter 이동 대상.
                             const qtyInput = (cust, item, value, inputs, setInputs, color) => (
-                              <input type="number" min={0} step={0.1} value={value ? toDisplayQty(value, factor) : ''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
-                                data-ai-verify={`qty-${cust.CustKey}-${item.ProdKey}`}
-                                aria-label={`${cust.CustName} ${item.ProdName} 출고수량 (${shownUnit || ''})`}
-                                onKeyDown={handleQuantityEnter}
-                                onChange={e=>setInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:factor === 1 ? e.target.value : toNativeQty(e.target.value, factor)}}))}
-                                style={{width:80,height:26,border:`1px solid ${parseFloat(value)>0?color:'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:parseFloat(value)>0?'var(--blue-bg)':'var(--bg)',fontWeight:parseFloat(value)>0?700:400}} />
+                              <span style={{display:'inline-flex',gap:3}}>
+                                {['박스', '단', '송이'].map(unit => {
+                                  const f = distributionUnitFactor(row, unit);
+                                  const native = unit === (row.OutUnit || '박스');
+                                  const filled = parseFloat(value) > 0;
+                                  return (
+                                    <input key={unit} type="number" min={0} step={native ? 0.1 : 0.01} placeholder={unit}
+                                      value={filled && f ? toDisplayQty(value, f) : ''} disabled={saving || loading || !f}
+                                      title={f ? `${unit} (저장 단위 ${row.OutUnit})` : `${unit}: 입수 정보가 없어 환산 불가`}
+                                      {...(native ? { 'data-distribute-qty': 'true', 'aria-keyshortcuts': 'Enter', onKeyDown: handleQuantityEnter } : {})}
+                                      data-ai-verify={native ? `qty-${cust.CustKey}-${item.ProdKey}` : `qty-${cust.CustKey}-${item.ProdKey}-${unit}`}
+                                      aria-label={`${cust.CustName} ${item.ProdName} 출고수량 (${unit})`}
+                                      onChange={e=>setInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:native ? e.target.value : toNativeQty(e.target.value, f)}}))}
+                                      style={{width:native?58:50,height:26,border:`1px solid ${filled?(native?color:'var(--border2)'):'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 3px',background:filled&&native?'var(--blue-bg)':'var(--bg)',fontWeight:filled&&native?700:400,color:native?undefined:'var(--text2)'}} />
+                                  );
+                                })}
+                              </span>
                             );
                             return (
                               <tr key={row.ProdKey}>
                                 <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'nowrap'}}>{row.DisplayName || row.ProdName}</td>
-                                <td style={{fontSize:11,padding:'3px 6px'}} title={shownUnit !== row.OutUnit ? `저장 단위 ${row.OutUnit}` : undefined}>{shownUnit}</td>
+                                <td style={{fontSize:11,padding:'3px 6px'}} title="저장 단위">{row.OutUnit}</td>
                                 <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.a.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
                                 <td>{row.a ? qtyInput(selectedCust, row.a, qtyA, custEditInputs, setCustEditInputs, 'var(--blue)') : '—'}</td>
                                 <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
                                   <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={saving || loading || !(parseFloat(qtyB) > 0)}
                                     title={!row.a ? '②→① 이동 (①에 주문이 없어 저장 시 주문등록 후 분배)' : '②→① 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
-                                    onClick={() => moveDistributionQty(row.ProdKey, 'to1', factor)} style={{padding:'1px 7px'}}>←</button>
+                                    onClick={() => moveDistributionQty(row.ProdKey, 'to1')} style={{padding:'1px 7px'}}>←</button>
                                   <input type="number" min={0} step={0.1} value={moveQtyInputs[row.ProdKey] ?? ''} placeholder="전부" disabled={saving || loading}
                                     data-ai-verify={`move-qty-${row.ProdKey}`} aria-label={`${row.ProdName} 이동 수량`}
                                     onChange={e=>setMoveQtyInputs(prev=>({...prev,[row.ProdKey]:e.target.value}))}
                                     style={{width:54,height:24,margin:'0 3px',border:'1px solid var(--border2)',borderRadius:4,textAlign:'right',fontSize:11,fontFamily:'var(--mono)',padding:'0 3px'}} />
                                   <button type="button" className="btn btn-sm" data-ai-verify={`move-to2-${row.ProdKey}`} disabled={saving || loading || !(parseFloat(qtyA) > 0)}
                                     title={!row.b ? '①→② 이동 (②에 주문이 없어 저장 시 주문등록 후 분배)' : '①→② 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
-                                    onClick={() => moveDistributionQty(row.ProdKey, 'to2', factor)} style={{padding:'1px 7px'}}>→</button>
+                                    onClick={() => moveDistributionQty(row.ProdKey, 'to2')} style={{padding:'1px 7px'}}>→</button>
                                 </td>
                                 <td>{row.b ? qtyInput(pairCust, row.b, qtyB, pairEditInputs, setPairEditInputs, '#b45309') : '—'}</td>
                                 <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.b.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>

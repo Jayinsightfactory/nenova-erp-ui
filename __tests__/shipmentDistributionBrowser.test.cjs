@@ -155,7 +155,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
             ? [{ ProdKey: 53, ProdName: 'Carnation', OutUnit: '단', inQty: 10, outQty: 0 }]
             : [
               { ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', inQty: 100, outQty: 0 },
-              { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', Cost: 33, inQty: 100, outQty: shipmentQty },
+              { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, Cost: 33, inQty: 100, outQty: shipmentQty },
             ];
           return reply(route, { success: true, products });
         }
@@ -209,6 +209,14 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-distribute-qty="true"]').first().waitFor();
     await page.keyboard.press('Control+Alt+4');
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-distribute-qty')), 'true');
+    await page.locator('[data-distribute-qty="true"]').first().fill('50');
+    await page.getByText('미저장 48 → 50단').waitFor();
+    // 품목 탭 Box·단·송이 칸: 50단 = 5박스 = 500송이, 박스 칸에 4.8 → 48단으로 되돌림
+    const boxCell = page.locator('[data-ai-verify$="-2429-박스"]').first();
+    assert.equal(await boxCell.inputValue(), '5');
+    assert.equal(await page.locator('[data-ai-verify$="-2429-송이"]').first().inputValue(), '500');
+    await boxCell.fill('4.8');
+    assert.equal(await page.locator('[data-distribute-qty="true"]').first().inputValue(), '48');
     await page.locator('[data-distribute-qty="true"]').first().fill('50');
     await page.getByText('미저장 48 → 50단').waitFor();
     const quantityInputs = page.locator('[data-distribute-qty="true"]');
@@ -328,12 +336,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByTestId('distribution-pair-table').waitFor();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '51');
-    // 입력 단위 박스: 51단 → 5.1박스로 보이고, 6박스 입력 = 60단 저장값. 다시 기본으로.
-    await page.locator('[data-ai-verify="pair-unit-박스"]').click();
-    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '5.1');
-    await page.locator('[data-ai-verify="qty-478-2429"]').fill('6');
-    await page.locator('[data-ai-verify="pair-unit-native"]').click();
+    // 박스·단·송이 세 칸 환산: 51단 = 5.1박스 = 510송이. 박스 칸에 6 → 단 60 · 송이 600 (저장값은 단).
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-박스"]').inputValue(), '5.1');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-송이"]').inputValue(), '510');
+    await page.locator('[data-ai-verify="qty-478-2429-박스"]').fill('6');
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '60');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429-송이"]').inputValue(), '600');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90-단"]').count(), 0, 'no Zinnia row on customer 2 yet');
     await page.locator('[data-ai-verify="qty-478-2429"]').fill('51');
     assert.equal(await page.locator('[data-ai-verify="pair-remain-2429"]').count(), 1, 'pair view shows stock remaining after change');
     assert.equal(await page.locator('[data-ai-verify="pair-group-all"]').getAttribute('aria-pressed'), 'true');
