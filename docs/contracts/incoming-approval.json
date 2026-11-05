@@ -70,7 +70,10 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouse": "FarmName",
-      "stock": "preserve"
+      "stock": "preserve",
+      "farm": "explicit final redistribution with sum equal to preserved ShipmentDetail.OutQuantity",
+      "shipmentDetailMetadata": "Descr may reflect reviewed FarmCode:quantity; preserve quantities, Cost, Amount, Vat, ShipmentDtm and isFix",
+      "financial": "preserve economics and profit confirmations; append invoice/freight lineage revision if connected"
     },
     {
       "name": "APPROVE_REPLACE",
@@ -101,8 +104,8 @@
     },
     {
       "name": "APPROVE_EXPLICIT_SHORTAGE_ADJUSTMENT",
-      "orderDetail": "preserve except explicit positive replacement order",
-      "shipmentDetail": "approved matching only",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
       "stock": "native authoritative per-period shortage; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
       "financial": "recompute affected costs and profit after adjustment; preserve earlier unaffected periods; rollback all on any failure"
     }

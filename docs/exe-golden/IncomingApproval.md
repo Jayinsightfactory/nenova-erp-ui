@@ -26,3 +26,5 @@ FormEstimateView.GetDetail은 ViewShipment+ViewOrder를 OrderYearWeek2+CustKey+P
 현재 격리 검증: 기본 승인 SQL, 명시 농장배정100→80, rehearsal ERP/승인 상태 전체 복원, 비용 writer 인보이스+운송원가 감소·중간실패 전체롤백 및 단위13건 PASS. 실제 확정 손익 loader 통합·최종 배포 검증은 작업 세션 기록에 추가한다.
 
 농장-only의 보존 대상은 출고 총수량·날짜·금액·재고·견적·손익이다. 명시 농장별 배정 A60/B40→A40/B60은 최종합계100을 보존하므로 허용한다. 개별 농장수량 multiset 불변 제한은 적용하지 않는다. 최종 전후배정표를 영업지원에 보여주고 합계99/101·타품목농장 반례는 차단한다.
+
+2026-11-05 실제 dnSpy FormStockAdd.btnSave_Click (.verify/FormStockAdd.cs:104) 확인: 현재 Product.Stock 조회 → StockHistory BeforeValue/AfterValue 차액 기록 → Product.Stock 갱신 → native 재계산. 운영 CodeInfo StockType/재고조정 정확1행 SELECT 확인, 운영쓰기0. 승인 경로는 native 부족발생기간별 최소증분을 명시검토한 뒤 같은 트랜잭션으로 이력·재계산·원가손익·감사를 저장하며 실패시 전부롤백한다. 격리SQL 2027/01만5조정 및2026/2025보존 PASS.

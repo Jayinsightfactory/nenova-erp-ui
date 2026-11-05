@@ -68,7 +68,7 @@ if (require.main === module) {
     const args = process.argv.slice(2), root = process.cwd();
     const base = args.includes('--changed-from') ? args[args.indexOf('--changed-from') + 1] : null;
     if (args.includes('--changed-from') && !base) fail('--changed-from 기준 커밋 필요');
-    const addedPages = base ? execFileSync('git', ['diff', '--diff-filter=A', '--name-only', base, '--', 'pages'], { cwd: root, encoding: 'utf8' }).split(/\r?\n/).filter(file => /^pages\/(?!api\/|_)[^\n]+\.(?:jsx?|tsx?)$/.test(file)) : [];
+    const addedPages = base ? execFileSync('git', ['diff', '--diff-filter=A', '--name-only', base, '--', 'pages'], { cwd: root, encoding: 'utf8' }).split(/\r?\n/).filter(file => /^pages\/(?!api\/|_|(?:404|500)\.)[^\n]+\.(?:jsx?|tsx?)$/.test(file)) : [];
     const result = validateWorkflowGuides(root, JSON.parse(fs.readFileSync(path.join(root, 'config/workflow-guides.json'), 'utf8')), { allowDraft: args.includes('--allow-draft'), addedPages });
     console.log(`Workflow guides PASS: ${result.workflows} workflows, ${result.videos} verified videos${args.includes('--allow-draft') ? ' (draft allowed; not a release check)' : ''}`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }

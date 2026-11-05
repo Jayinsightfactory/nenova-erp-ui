@@ -203,7 +203,7 @@ async function recordRole(browser, base, secret, role) {
           await hold('기존 농장별 배정과 최종 배정을 나란히 비교합니다.\n농장 간 배분을 바꾸더라도 품목별 합계는 최종 분배수량과 같아야 합니다.', 7);
         }
         await page.$eval('[aria-label="원가·손익 최종 검산"]', element => element.scrollIntoView({ block: 'start' }));
-        await hold('원가와 이미 확정된 손익도 정정 전후 금액을 비교합니다.\n기존 확정본은 이력으로 남고, 검산한 새 정정본이 함께 저장됩니다.', 8);
+        await hold('원가와 이미 확정된 손익의 정정 전후 금액을 비교합니다.\n금액·근거가 바뀐 확정본은 기존 이력을 남기고 검산한 정정본으로 반영합니다.', 8);
         await hold('손익은 해당 보고서에서 선택한 원가 기준으로 다시 계산합니다.\n평균 원가를 사용하는 보고서는 승인 원가를 바꿔도 금액이 같을 수 있습니다.', 7);
         await checkedLabel('입고와 분배의 최종값'); await click('최종 확정');
         await page.waitForFunction(() => document.querySelector('[aria-label="정정 요청 상세"]')?.textContent.includes('적용 완료'));
