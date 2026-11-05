@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function loadDb(behaviors = []) {
+function loadDb(behaviors = [], readContext = () => undefined) {
   const transactions = [];
   class Transaction {
     constructor() {
@@ -14,7 +14,8 @@ function loadDb(behaviors = []) {
     }
     on(name, listener) { this.listeners[name] = listener; }
     emitRollback() { this.listeners.rollback?.(true); }
-    async begin() {
+    async begin(isolationLevel) {
+      this.isolationLevel = isolationLevel;
       this.actions.push('begin');
       if (this.behavior.beginError) throw this.behavior.beginError;
     }
@@ -40,12 +41,13 @@ function loadDb(behaviors = []) {
       return { recordset: [{ transaction: transactions.indexOf(this.transaction) }] };
     }
   }
-  const sql = { Transaction, Request, connect: async () => ({}) };
+  const sql = { ISOLATION_LEVEL:{READ_COMMITTED:2,SERIALIZABLE:4}, Transaction, Request, connect: async () => ({}) };
   const source = fs.readFileSync(require('node:path').join(__dirname, '../lib/db.js'), 'utf8')
     .replace("import sql from 'mssql';", 'const sql = globalThis.__sql;')
+    .replace("import { currentErpReadContext } from './erpReadContext.js';", 'const currentErpReadContext = globalThis.__readContext;')
     .replace(/export (async )?function /g, '$1function ')
-    .replace('export { sql };', 'globalThis.__exports = { isDeadlockError, withTransaction };');
-  const context = { __sql: sql, process: { env: {} }, setTimeout, Math };
+    .replace('export { sql };', 'globalThis.__exports = { isDeadlockError, withTransaction, query, getPool };');
+  const context = { __sql: sql, __readContext:readContext, process: { env: {} }, setTimeout, Math };
   vm.runInNewContext(source, context, { filename: 'lib/db.js' });
   return { ...context.__exports, transactions };
 }
@@ -143,4 +145,23 @@ test('unknown rollback and commit errors never replay the transaction', async ()
   const third = loadDb([{ commitError: deadlock() }, {}]);
   await assert.rejects(third.withTransaction(() => 'write', { retries: 2, baseDelay: 0 }));
   assert.equal(third.transactions.length, 1);
+});
+
+
+test('transaction isolation defaults to READ COMMITTED and forwards SERIALIZABLE explicitly',async()=>{
+  const {withTransaction,transactions}=loadDb();
+  await withTransaction(async()=>{});
+  await withTransaction(async()=>{},{isolationLevel:4});
+  assert.deepEqual(transactions.map(t=>t.isolationLevel),[2,4]);
+});
+
+test('real report context routes SQL through its transaction and prohibits a second pool',async()=>{
+  const {withErpReadContext,currentErpReadContext}=await import('../lib/erpReadContext.js');
+  const db=loadDb([],currentErpReadContext);
+  const calls=[];
+  await withErpReadContext({queryFn:async(statement,params)=>{calls.push([statement,params]);return {recordset:[{value:7}]};}},async()=>{
+    assert.equal((await db.query('SELECT @value',{value:{type:'int',value:7}})).recordset[0].value,7);
+  });
+  assert.equal(calls.length,1);assert.equal(db.transactions.length,0);
+  await assert.rejects(()=>withErpReadContext({queryFn:async()=>({recordset:[]})},()=>db.getPool().catch(()=>null)),{code:'APPROVAL_REPORT_SOURCE_FAILED'});
 });
