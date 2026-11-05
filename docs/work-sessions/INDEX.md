@@ -1,3 +1,4 @@
+- [2026-11-05 도착원가 업로드 버튼 디자인](2026-11-05_arrival-control-design.md)
 - [2026-11-05 주차 이익률·운임/재고 비고](2026-11-05_profit-margin-impact-notes.md) — J/C 표시·저장본 불변, GW/CW 비교와 실제조정/평가차이, 최종 검증·배포 진행.
 - [2026-11-05 도착원가 시트 검토 업로드](2026-11-05_arrival-upload-review.md)
 - [2026-11-05 입고 연결 원가·확정 손익·농장배정과 가이드](2026-11-04_incoming-linked-approval-guide.md) — 실제 승인 writer/원가/손익 격리 SQL 검증, 부서별 영상·배포 진행.

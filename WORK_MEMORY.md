@@ -2109,3 +2109,9 @@
 - 원본보존/검토/선택시트명시국가/차수/연도확인,재검토다이제스트/DB멱등/읽기검증구현.53/54分離134행은55통합1892행중해당134행과원본셀·수량·원가일치/수동변경0.
 - 관련회귀/dnSpy/manifest통과,실제UI합성dryrun통과.필수전체검사·영상·CI·배포·정리미검증(진행중).
 - 검색어: 도착원가 시트검토 업로드 원본보존 Import53 Import54 134행 arrivalUploadReview
+
+## 2026-11-05 도착원가 업로드 컨트롤 디자인
+- 부모 styled-jsx가 새 자식컴포넌트에 전달되지 않아 기본HTML버튼으로 보였음. CSS Module로입력/파일선택/분석·재검토·저장·닫기버튼을공통ERP규격에연결.32px높이·13px글자·간격8px·분석파랑/저장초록/보조버튼·비활성회색/파랑포커스 적용.표간격/행구분/가로스크롤·좁은폭줄바꿈정리.
+- 적용기준:MENU_DEVELOPMENT_DEFAULTS,globals.btn와hotelOrderButtons의공통컨트롤규격.업무정책/API/SQL/ERP쓰기변경없음.
+- 기존실행회귀통과.실제Chrome1920/1280에서버튼높이/페이지폭/Tab·ShiftTab검증통과.가이드재촬영·정식build/CI/배포/운영확인진행중(미검증).
+- 검색어: 도착원가 버튼 디자인 CSS Module ArrivalUploadReview 32px styled-jsx
