@@ -15,6 +15,7 @@
     "pages/api/orders/index.js",
     "pages/api/orders/import-parse.js",
     "pages/api/orders/import-price-targets.js",
+    "pages/api/orders/import-price-customers.js",
     "pages/api/orders/import-price-pivot.js",
     "components/orders/DirectPricePivot.js",
     "lib/orderImportPricePivot.js",
