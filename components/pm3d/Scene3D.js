@@ -360,6 +360,14 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); blob(scene, f.cn.x, f.cn.z, f.cn.r * 0.72, f.cn.r * 0.72, 0.018); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
           seats++;
         }
+        // 2.5) 서핑보드: 파라솔 기둥 옆에 기대 세움(디자인 자문 — 빈 공간 소품). 4자리마다 1개, 자체 16° 기울기 베이크
+        {
+          let sb = 0;
+          for (const f of st.seatFx) {
+            if (!f.cn || sb++ % 4 !== 0) continue;
+            if (A.prop_surfboard) { const n = staticClone(A.prop_surfboard, clayM); n.position.set(f.cn.x + f.cn.r * 0.55, 0, f.cn.z + f.cn.r * 0.4); n.rotation.y = Math.PI / 5 + sb; n.scale.setScalar(f.cn.scale * 0.5); scene.add(n); shade(n, 0.1); }
+          }
+        }
         // 3) 소품: 야자수·바위·덤불(해변 끝단 장식 교체)
         const one = (asset, x, z, ry, s, y = 0) => {
           if (!A[asset]) return null; const n = staticClone(A[asset], clayM); n.position.set(x, y, z); n.rotation.y = ry; n.scale.setScalar(s); scene.add(n);
@@ -368,7 +376,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         };
         for (const { o, p } of st.fb.palms) if (one('prop_palm', p.x, p.z, p.ry, DECOR_SCALE * p.s)) o.visible = false;
         for (const { o, q } of st.fb.scatter) {
-          const n = q.m === 'rock' ? one('prop_rock', q.x, q.z, q.ry, DECOR_SCALE * Math.max(0.7, q.s)) : q.m === 'shell' ? one('prop_bush', q.x, q.z, q.ry, DECOR_SCALE * 0.8) : null;
+          const n = q.m === 'rock' ? one('prop_rock', q.x, q.z, q.ry, DECOR_SCALE * Math.max(0.7, q.s))
+            : q.m === 'shell' ? (one('prop_pebbles', q.x, q.z, q.ry, DECOR_SCALE * 0.8) || one('prop_bush', q.x, q.z, q.ry, DECOR_SCALE * 0.8))
+            : q.m === 'starfish' ? (one('prop_starfish', q.x, q.z, q.ry, DECOR_SCALE * 0.7) || one('prop_pebbles', q.x, q.z, q.ry, DECOR_SCALE * 0.7)) : null;
           if (n) o.visible = false;
         }
         // 4) 시설 존(예약 부지 → 실물). 애셋 단위 치수는 ASSET_LIST.md 실측
