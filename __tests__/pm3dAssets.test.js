@@ -1,4 +1,4 @@
-// __tests__/pm3dAssets.test.js — /pm 3D 블렌더 glb 애셋: 34종 존재·용량, 격자 스케일 정합(1칸=4.0 → CELL),
+// __tests__/pm3dAssets.test.js — /pm 3D 블렌더 glb 애셋: 37종 존재·용량, 격자 스케일 정합(1칸=4.0 → CELL),
 //   자리 구도(카메라 가까운 순 책상→캐릭터→파라솔) + 파라솔 덮개가 어떤 캐릭터도 가리지 않는지(아이소 카메라 광선 검사).
 // 실행: node __tests__/pm3dAssets.test.js
 const assert = require('assert');
@@ -16,7 +16,7 @@ const { pathToFileURL } = require('url');
   fs.rmSync(td, { recursive: true, force: true });
 
   // 1) 애셋 34종 존재 · 합계 4MB 이하 · glb 헤더
-  assert.strictEqual(A.ALL_ASSETS.length, 34);
+  assert.strictEqual(A.ALL_ASSETS.length, 37); // 2026-11-05 소품 3종 추가(서핑보드·불가사리·조약돌)
   let total = 0;
   for (const n of A.ALL_ASSETS) {
     const f = path.join(process.cwd(), 'public', A.assetUrl(n));
