@@ -21,7 +21,7 @@ import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { mountById, mountPose } from '../../lib/pmMounts';
-import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT } from '../../lib/pm3dRide';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect } from '../../lib/pm3dRide';
 import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
@@ -199,6 +199,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const island = T.props !== 'office'; // 해변 = 격자 섬 세계(lib/pm3dGrid), 사무실 테마 = 기존 사각 바닥
       st.bounds = island ? { ...CRUISE_BOUNDS } : { hx, hz };
       st.world = world;
+      // [2026-11-06] 탈것 코스: 수영장·카트트랙 실좌표(시설 존 안쪽 루프) — 크루징이 코스를 실제로 돌게
+      if (island) { st.courses = {}; for (const r of facilityRects(world)) { if (r.kind === 'pool') st.courses.pool = insetRect(r, 1.0); else if (r.kind === 'kart') st.courses.kart = insetRect(r, 0.9); } }
       const fb = island ? floorBounds(desks) : { hx, hz }; // 섬: 광장+자리 줄이 화면에 차게(캐릭터 90~110px 규칙), 나머지는 이동·축소로
       st.fit = sceneFit(fb.hx, fb.hz); placeCam();
       // 첫 화면 배율 = 기획 기준(캐릭터 ≈100px) 자동 계산 — 인원이 늘어 fit 이 커져도 휑하지 않게. 최초 1회만(사용자 조작 보존).
@@ -697,13 +699,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             } else {
               P.riding = true;
               unparkMount(P);
-              const ringL = ringLength(st.bounds.hx, st.bounds.hz);
-              const speed = 2.2 * 1.3; const tt = C.from + (el2 / 1000) * speed / ringL;
-              const pt = ringPoint(st.bounds.hx, st.bounds.hz, tt);
+              // 탈것별 코스(2026-11-06 사장님 지시): circuit=카트트랙 질주, water=수영장 둥실, sky=상공 선회, ring=보드워크(레일 겸)
+              const course = (mountById(P.mountId)?.course) || 'ring';
+              const sec = el2 / 1000; const K = st.courses || {};
+              let pt; let rideY = 0.02;
+              if (course === 'circuit' && K.kart) { const tt = C.from + sec * 4.4 / rectLength(K.kart); pt = rectPoint(K.kart, tt); }
+              else if (course === 'water' && K.pool) { const tt = C.from + sec * 1.1 / rectLength(K.pool); pt = rectPoint(K.pool, tt); rideY = bobY(sec + C.from * 7); }
+              else if (course === 'sky') { const tt = C.from + sec * 2.8 / skyLength(st.bounds.hx, st.bounds.hz); pt = skyPoint(st.bounds.hx, st.bounds.hz, tt, sec + C.from * 9); rideY = pt.y; }
+              else { const tt = C.from + sec * (2.2 * 1.3) / ringLength(st.bounds.hx, st.bounds.hz); pt = ringPoint(st.bounds.hx, st.bounds.hz, tt); }
               const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
               const yawL = pt.yaw - P.g.rotation.y;
-              P.mountObj.position.set(lp.x, 0.02, lp.z); P.mountObj.rotation.y = yawL;
-              P.ch.position.set(lp.x, P.mountSeat, lp.z); P.ch.rotation.y = yawL;
+              P.mountObj.position.set(lp.x, rideY, lp.z); P.mountObj.rotation.y = yawL;
+              P.ch.position.set(lp.x, rideY - 0.02 + P.mountSeat, lp.z); P.ch.rotation.y = yawL;
               playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
             }
           }
