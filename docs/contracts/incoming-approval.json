@@ -106,7 +106,7 @@
       "name": "APPROVE_EXPLICIT_SHORTAGE_ADJUSTMENT",
       "orderDetail": "create-positive",
       "shipmentDetail": "set-final-nonnegative",
-      "stock": "native authoritative per-period shortage; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
+      "stock": "native authoritative per-period physical and cumulative unfixed-reservation shortage, including unchanged reservations after receipt reduction and earlier sub-weeks within the same major; signed exact human-reviewed quantities; StockHistory 재고조정 plus Product.Stock delta and native recalculation in same transaction",
       "financial": "recompute affected costs and profit after adjustment; preserve earlier unaffected periods; rollback all on any failure"
     }
   ],

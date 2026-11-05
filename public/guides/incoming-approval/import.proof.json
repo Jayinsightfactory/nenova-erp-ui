@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-05T05:57:53.264Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 164.1,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "286a97ba8739d85cab75a1950213b2836ca2f3b2b3ce281826aae5ce4817d2e3",
+  "captionsSha256": "af001006a54d11e0722583d8c646d50b66e232b68921f1d3273331bdb8bdad17",
+  "sourceHashes": {
+    "components/IncomingApproval.js": "b28e75d7aceacb4e5e07ddddc872f82d3aae382c5582c8bb7ff85daf37958590",
+    "components/IncomingApprovalLinkedReview.js": "f5c961232531b1aa22a68b49be06feb9247a50df5ae539ef8f76f279dc0948f5",
+    "components/WarehouseCorrection.js": "e78e4e251e416bcfe9e0094d1856ff942091e85d11df139e495a212e821be4af",
+    "pages/incoming.js": "26d4238f99acf18c612e23827f55c87c0b4246fe3e3af894192ef7e1a92fd069",
+    "pages/import/tools.js": "a8bbe8830e1ea648f8d73a1cbdc8b68ecfd40b33d0bdba737f305ebb24b4f3f0"
+  }
+}

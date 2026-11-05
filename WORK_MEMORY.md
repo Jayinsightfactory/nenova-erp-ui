@@ -2096,3 +2096,6 @@
 
 2026-11-05 입고 연결 정정 추가검증: 실제 승인원가2000→2200/20단 재고액40000→44000 loader PASS, 기존평균기준보존·원가의존해시·요청별memo. farm-only총량보존재배분허용. 부족재고는native결과에따른발생기간별최소증분/명시fingerprint동의/같은tx재계산; 2027 01만5조정·2026보존·감사실패롤백 실SQL PASS. FormStockAdd dnSpy/CodeInfo SELECT-only 확인. 전체gate/영상/배포진행중.
 검색어: incomingApprovalStockAdjustment chronological 부족재고 명시동의 sourceDependencies
+
+2026-11-05 입고정정 최종검토: 기존 미확정분배 유지+입고감소 예약부족 누락 수정 및 실제SQL100→70/예약80/부족10 명시동의 PASS. 수입부164.1초·영업지원383.1초 실제1920×1080 한국어가이드 제작, 두 진입점 연결과 strict해시검사 PASS. 전체suite/공식빌드/배포 최종확인중, 운영쓰기0.
+검색어: incoming-approval guide-video 미확정예약 부족10 fullHD 수입부 영업지원

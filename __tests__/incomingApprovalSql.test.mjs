@@ -39,6 +39,32 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     const erp = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster ORDER BY WarehouseKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM ProductStock ORDER BY StockKey,ProdKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;SELECT * FROM OrderDetail ORDER BY OrderDetailKey;')).recordsets);
     const protectedRows = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster WHERE WarehouseKey=89;SELECT * FROM WarehouseDetail WHERE WarehouseKey=89;SELECT * FROM ShipmentDetail WHERE ShipmentKey=2;SELECT * FROM ShipmentDate WHERE SdetailKey=2;SELECT * FROM ProductStock WHERE StockKey=1 ORDER BY ProdKey;SELECT * FROM Estimate;SELECT * FROM WebProfitReport;SELECT * FROM OrderDetail WHERE OrderDetailKey IN(1,2) ORDER BY OrderDetailKey;')).recordsets);
     const originalProtected = await protectedRows(), originalErp = await erp();
+    // Isolated regression: unchanged unfixed reservations still constrain a receipt reduction.
+    await withTransactionFn(async tq=>{
+      const sameTx=fn=>fn(tq);
+      await tq("UPDATE ProductStock SET Stock=0 WHERE StockKey=1 AND ProdKey=1; UPDATE ShipmentDetail SET OutQuantity=80,EstQuantity=80,isFix=0 WHERE SdetailKey=1; UPDATE ShipmentDate SET ShipmentQuantity=40,EstQuantity=40 WHERE SdetailKey=1;",{});
+      const correction={...replacement,items:[{...replacement.items[0],prodName:'Flower A',boxQty:7,bunchQty:70,steamQty:700,totalPrice:7700}]};
+      const localMutate=(input,user=importer)=>mutateIncomingApproval({withTransactionFn:sameTx,types:sql,user,input,readBaseline:(query,c)=>incomingApprovalBaseline(query,sql,c)});
+      let r=await localMutate({action:'create',correction,reason:'unchanged unfixed reservation regression',operationId:randomUUID()});
+      r=await localMutate({action:'submit',requestId:r.requestId,revision:r.revision});
+      r=await localMutate({action:'saveMatching',requestId:r.requestId,revision:r.revision,matching:{rows:[]}},support);
+      await tq('SAVE TRANSACTION reservation_preview',{});
+      const preview=await previewIncomingApproval({withTransactionFn:sameTx,types:sql,user:support,input:{requestId:r.requestId,revision:r.revision}});
+      assert.equal(preview.preview.canCommit,false);
+      const proposal=preview.preview.stockAdjustmentPreview;
+      assert.deepEqual(proposal.rows.map(({prodKey,year,week,quantity,basis})=>({prodKey,year,week,quantity,basis})),[{prodKey:1,year:'2026',week:'41-01',quantity:10,basis:['RESERVATION']}]);
+      await tq('ROLLBACK TRANSACTION reservation_preview',{});
+      r=await localMutate({action:'saveMatching',requestId:r.requestId,revision:r.revision,matching:{rows:[],stockAdjustment:{acknowledged:true,fingerprint:proposal.fingerprint,rows:proposal.rows.map(({prodKey,year,week,quantity})=>({prodKey,year,week,quantity}))}}},support);
+      await tq('SAVE TRANSACTION reservation_review',{});
+      const reviewed=await previewIncomingApproval({withTransactionFn:sameTx,types:sql,user:support,input:{requestId:r.requestId,revision:r.revision}});
+      assert.equal(reviewed.preview.canCommit,true,JSON.stringify(reviewed.preview.issues));
+      await tq('ROLLBACK TRANSACTION reservation_review',{});
+      const result=await commitIncomingApproval({withTransactionFn:sameTx,types:sql,user:support,input:{requestId:r.requestId,revision:r.revision,operationId:randomUUID(),confirmed:true,digest:reviewed.preview.digest,financialHash:reviewed.preview.financialHash}});
+      assert.equal(result.stockAdjustments[0].quantity,10);
+      assert.equal((await tq('SELECT Stock FROM ProductStock WHERE StockKey=2 AND ProdKey=1',{})).recordset[0].Stock,80);
+      assert.deepEqual((await tq('SELECT OutQuantity,isFix FROM ShipmentDetail WHERE SdetailKey=1',{})).recordset,[{OutQuantity:80,isFix:false}]);
+    },{rollbackOnly:true,isolationLevel:sql.ISOLATION_LEVEL.SERIALIZABLE});
+    assert.equal(await erp(),originalErp,'reservation regression preserves the surrounding fixture');
     const creation = { action: 'create', correction: replacement, reason: 'fixture A to B', operationId: randomUUID() };
     const a = await mutate(creation); assert.equal((await mutate(creation)).requestId, a.requestId);
     const submitted = await mutate({ action: 'submit', requestId: a.requestId, revision: 1 });

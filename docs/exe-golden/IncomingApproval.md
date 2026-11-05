@@ -28,3 +28,5 @@ FormEstimateView.GetDetail은 ViewShipment+ViewOrder를 OrderYearWeek2+CustKey+P
 농장-only의 보존 대상은 출고 총수량·날짜·금액·재고·견적·손익이다. 명시 농장별 배정 A60/B40→A40/B60은 최종합계100을 보존하므로 허용한다. 개별 농장수량 multiset 불변 제한은 적용하지 않는다. 최종 전후배정표를 영업지원에 보여주고 합계99/101·타품목농장 반례는 차단한다.
 
 2026-11-05 실제 dnSpy FormStockAdd.btnSave_Click (.verify/FormStockAdd.cs:104) 확인: 현재 Product.Stock 조회 → StockHistory BeforeValue/AfterValue 차액 기록 → Product.Stock 갱신 → native 재계산. 운영 CodeInfo StockType/재고조정 정확1행 SELECT 확인, 운영쓰기0. 승인 경로는 native 부족발생기간별 최소증분을 명시검토한 뒤 같은 트랜잭션으로 이력·재계산·원가손익·감사를 저장하며 실패시 전부롤백한다. 격리SQL 2027/01만5조정 및2026/2025보존 PASS.
+
+2026-11-05 예약 회귀 보완: 입고 100→70, 기존 미확정 분배 80 유지(매칭 수정 없음)도 가용재고 부족 10으로 제안한다. native가 산출한 영향 품목의 각 후속 StockMaster 차수에서 같은 연도·대차수의 01부터 해당 세부차수까지 DetailFix=0 분배를 누적하여 차감한다. 따라서 41-02 정정에서도 41-01 예약은 41-02 검증에 포함하고 과거 41-01 원장은 수정하지 않는다. 기존 예약의 StockMaster 기준 누락·중복은 보정 금지. 농장명만 정정하여 재고 변화가 없는 경우는 이 검증·조정 범위를 늘리지 않는다. __tests__/incomingApprovalSql.test.mjs 실제 SQL 회귀: 부족 10 미동의 차단 → 명시 동의 후 해당 차수 재고조정 10 → native 재고 80/기존 미확정 분배 80 보존 PASS. 전체 fixture는 rollbackOnly로 원상 보존하며 운영 쓰기 0.

@@ -4,29 +4,74 @@
     {
       "id": "incoming-approval",
       "title": "입고 수정요청과 매칭·확정",
-      "entryPaths": ["/incoming", "/import/tools?tab=incoming"],
-      "sourceFiles": ["components/IncomingApproval.js", "components/IncomingApprovalLinkedReview.js", "components/WarehouseCorrection.js", "pages/incoming.js", "pages/import/tools.js"],
-      "requiredScenarios": ["farm", "product", "quantity"],
+      "entryPaths": [
+        "/incoming",
+        "/import/tools?tab=incoming"
+      ],
+      "sourceFiles": [
+        "components/IncomingApproval.js",
+        "components/IncomingApprovalLinkedReview.js",
+        "components/WarehouseCorrection.js",
+        "pages/incoming.js",
+        "pages/import/tools.js"
+      ],
+      "requiredScenarios": [
+        "farm",
+        "product",
+        "quantity"
+      ],
       "guides": [
         {
           "id": "import",
           "role": "수입부",
           "title": "농장·품목·수량 수정 요청하기",
-          "status": "draft",
+          "status": "ready",
           "src": "/guides/incoming-approval/import.mp4",
           "captions": "/guides/incoming-approval/import.ko.vtt",
           "proof": "/guides/incoming-approval/import.proof.json",
-          "chapters": []
+          "chapters": [
+            {
+              "scenario": "farm",
+              "title": "농장만 수정",
+              "seconds": 20.042
+            },
+            {
+              "scenario": "product",
+              "title": "수량은 같고 품목만 수정",
+              "seconds": 66.726
+            },
+            {
+              "scenario": "quantity",
+              "title": "입고·분배 수량 감소",
+              "seconds": 115.498
+            }
+          ]
         },
         {
           "id": "sales-support",
           "role": "영업지원",
           "title": "분배 매칭하고 변경 내용 확정하기",
-          "status": "draft",
+          "status": "ready",
           "src": "/guides/incoming-approval/sales-support.mp4",
           "captions": "/guides/incoming-approval/sales-support.ko.vtt",
           "proof": "/guides/incoming-approval/sales-support.proof.json",
-          "chapters": []
+          "chapters": [
+            {
+              "scenario": "farm",
+              "title": "농장만 수정",
+              "seconds": 21.573
+            },
+            {
+              "scenario": "product",
+              "title": "수량은 같고 품목만 수정",
+              "seconds": 107.958
+            },
+            {
+              "scenario": "quantity",
+              "title": "입고·분배 수량 감소",
+              "seconds": 229.4
+            }
+          ]
         }
       ]
     }
