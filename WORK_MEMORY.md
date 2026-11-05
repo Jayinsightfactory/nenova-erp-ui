@@ -2102,3 +2102,6 @@
 
 2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
 검색어: PR1550 incoming linked approval guide-player 41978488811
+
+2026-11-05 판매등록 히스토리 차이 중심 개편: 왼쪽 이카운트 수집 판매원본(수집시각 표시), 불일치업체만 큰 카드, 펼침 품목별 단가/견적수량/VAT포함금액 비교 및 화요일 이후 수정자·초단위시각 타임라인. 총액상쇄·단가0·복수단가·동명이업체 연결보류·수집원본없음/RED비교대기. 실제SELECT43차13업체/199품목,44차11/03원본미수집;원장/ECOUNT쓰기0. dnSpy/대상회귀/manifest/writeguard/로컬build PASS, 전체ERP/브라우저/CI/배포 최종상태 미검증(진행중).
+검색어: salesHistoryReview ECOUNT WebEcountRow 불일치업체 수정자 타임라인 판매등록히스토리
