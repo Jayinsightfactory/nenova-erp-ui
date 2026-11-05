@@ -1,5 +1,5 @@
 import { readEcountSalesHistory } from '../../../lib/ecountSalesHistoryRead';
-import { buildSalesObservationEvents, salesHistoryKst } from '../../../lib/salesHistoryReviewPolicy.js';
+import { buildSalesObservationEvents } from '../../../lib/salesHistoryReviewPolicy.js';
 // 판매등록 히스토리 API — 스냅샷 조회/수동생성/변경검사. 스냅샷 수정·삭제 경로 없음(불변).
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
@@ -102,7 +102,7 @@ export default withAuth(async function handler(req, res) {
           if (!tue) { missingWeeks.push(w); continue; }
           const result = await query(
             `SELECT sh.ShipHistoryKey, sh.SdetailKey, sm.CustKey, sd.ProdKey, sm.OrderWeek,
-                    CONVERT(varchar(19), DATEADD(hour,9,sh.ChangeDtm), 120) AS changeDtm,
+                    CONVERT(varchar(19), sh.ChangeDtm, 120) AS changeDtm,
                     CONVERT(varchar(19), sh.ShipmentDtm, 120) AS shipmentDtm,
                     sh.ChangeID, u.UserName AS changeUser, sh.ChangeType,
                     sh.BeforeValue, sh.AfterValue, sh.Descr, p.ProdName
@@ -127,13 +127,13 @@ export default withAuth(async function handler(req, res) {
             for (const snap of subsequent) {
               const next = await getSnapshotRows(snap.SnapshotKey);
               observations.push(...buildSalesObservationEvents(previous, next,
-                { custKey, week: w, observedAt: salesHistoryKst(snap.takenAt), observationKey: snap.SnapshotKey }));
+                { custKey, week: w, observedAt: snap.takenAt, observationKey: snap.SnapshotKey }));
               previous = next;
             }
             const current = await captureCurrentRows(w, orderYear);
             const clock = await query(`SELECT CONVERT(varchar(19), GETDATE(), 120) AS observedAt`, {});
             observations.push(...buildSalesObservationEvents(previous, current,
-              { custKey, week: w, observedAt: salesHistoryKst(clock.recordset[0].observedAt), observationKey: 'live' }));
+              { custKey, week: w, observedAt: clock.recordset[0].observedAt, observationKey: 'live' }));
           }
         }
         entries.sort((a,b) => b.changeDtm.localeCompare(a.changeDtm) || b.ShipHistoryKey-a.ShipHistoryKey);
