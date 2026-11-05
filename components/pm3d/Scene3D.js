@@ -105,6 +105,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     renderer.toneMapping = RQ.toneMap === 'aces' ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping;
     renderer.toneMappingExposure = RQ.exposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // [2026-11-06 색감 교정] 시안 대비 채도가 낮아 보여(모래 베이지화) 캔버스에 GPU 합성 색 필터 — 성능 비용 0, 토큰으로 끄기 가능
+    if (RQ.canvasFilter) renderer.domElement.style.filter = RQ.canvasFilter;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     // 배경: 세로 그라데이션(bgTop→bg) + 같은 톤 안개로 깊이감
