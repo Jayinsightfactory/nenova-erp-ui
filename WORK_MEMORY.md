@@ -2102,3 +2102,6 @@
 
 2026-11-05 PR1550 정식검증: 공식npm build/영상strict/실제플레이어 데스크톱·모바일 PASS. Linux CI41978488811 전체ERP동작·dnSpy·manifest·writeguard PASS, 최종빌드/배포대기. 로컬suite는병합중package읽기중단으로전체PASS아님을명시. 최종상태는PR1550·세션기록참조.
 검색어: PR1550 incoming linked approval guide-player 41978488811
+
+2026-11-05 15:27 KST 완료: PR1550 squash d0106f3f, CI41979093709 전체필수검증PASS, Cafe24배포41979671264 success/hydrationPASS. 운영GET-only실브라우저 v1.0.2·d0106f3f에서입고관리/수입부도구진입·두역할영상1920×1080재생·모바일PASS. 입고/분배/재고/견적매출/원가/확정손익동시정정·기존예약부족명시동의·가이드기본절차완료. 운영ERP쓰기0. 영상 import.mp4 164.1초, sales-support.mp4 383.1초. 상세 docs/work-sessions/2026-11-04_incoming-linked-approval-guide.md.
+검색어: PR1550 d0106f3f 41979671264 입고연결정정 가이드영상 배포완료

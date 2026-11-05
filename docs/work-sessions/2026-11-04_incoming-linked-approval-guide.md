@@ -82,3 +82,11 @@ AGENTS의 명시 부족재고 조정 규칙을 승인 흐름에 연결한다. �
 PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1550. 최신 master104a6ac1 병합 후 로컬 공식 npm run build exit0(가이드 strict prebuild 포함). Linux CI41978488811의 전체 ERP behavior contracts, manifest, dnSpy, guide, write guard 및 PM/MOYI 경계 검사 PASS; 마지막 Linux webpack build 진행 중. 로컬 전체 suite 재실행은 master 병합 중 package 충돌 표식을 읽어 중단되었으며 로컬 전체PASS라고 기록하지 않는다. 최종 전체suite 증거는 병합 완료된 PR Linux CI를 따른다.
 
 실제 ready 빌드 플레이어 smoke PASS: 수입부/영업지원 영상재생, 역할전환, 목차seek완료, 한국어VTT, 다운로드, 키보드, 접을때정지, 데스크톱1920/모바일390. 최종영상 프레임의 원가/손익표·품목농장배정·44차5단부족 표와 한글자막 직접 확인. 배포 후 운영검증은 GET/HEAD만 허용하여 두 메뉴와 가이드 재생을 확인한다.
+
+### 8. 2026-11-05 15:27 KST — 배포 및 운영 확인 완료
+
+최종 PR1550 squash 병합 커밋 d0106f3f45f61ec8a887e983e4c0cc01a470b151. 최종 PR CI41979093709 success(전체ERP·manifest·dnSpy·writeguard·가이드·Linux빌드 포함). Cafe24 배포41979671264 success, 운영 hydration smoke PASS. 별도 GET-only 실제 Chrome 검증도 PASS: v1.0.2·d0106f3f, /import/tools?tab=incoming과 /incoming 진입, approval목록200, 역할별 실제 MP4 1920×1080/한국어track1개, 수입부164.1초·영업지원383.1초, 모바일390 영상범위 정상. 운영 ERP 쓰기0, 운영자료 화면/개인정보 저장0.
+
+영상: https://nenovaweb.com/guides/incoming-approval/import.mp4 및 https://nenovaweb.com/guides/incoming-approval/sales-support.mp4. 부서별 농장/품목/수량목차와 한국어설명 포함. 운영 실제 정정자료를 시험입력하지 않았고 원장 반영·실패롤백의 실행증거는 격리SQL 결과다. 요청한 구현·테스트·영상·배포 작업 완료. 이 마지막 단락은 배포 후 검증 저널이며 기능코드는 위 master커밋으로 배포됐다.
+
+재개 시: 기능은 배포완료이며 재배포/운영자료 보정은 새 요청이 있을 때만 수행한다. 코드·계약은 docs/contracts/incoming-approval.json, dnSpy 근거는 docs/exe-golden/IncomingApproval.md, 영상 제작은 docs/WORKFLOW_VIDEO_GUIDES.md를 따른다. 실제화면 소스를 바꾸면 등록된 역할별 가이드를 재촬영한다.
