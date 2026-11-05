@@ -57,7 +57,9 @@ def imp(f):
     before = set(bpy.data.objects); bpy.ops.import_scene.gltf(filepath=os.path.join(SRC, f))
     return [o for o in bpy.data.objects if o not in before]
 
+FILTER = os.environ.get('SHOP_ONLY', '')  # 쉼표 구분 접두사만 렌더(시험용)
 def render(name):
+    if FILTER and not name.startswith(tuple(FILTER.split(','))): return
     sc.render.filepath = os.path.join(OUT, name + '.webp')
     bpy.ops.render.render(write_still=True)
     print('SHOP_RENDER', name)
@@ -77,6 +79,8 @@ if rig.animation_data:
             except Exception: pass
         rig.animation_data.nla_tracks.remove(t)
 sc.frame_set(1)
+# 클립(idle)의 상수 scale 채널이 체형(head 본 스케일)을 덮어써 상점 렌더의 체형 변형이 무효였다 → 포즈 확정 후 애니메이션을 뗀다(앱 런타임은 .scale 트랙을 제거).
+rig.animation_data_clear(); bpy.context.view_layer.update()
 meshes = [o for o in chobjs if o.type == 'MESH']
 # 몸은 메시 1개 + 재질 슬롯 7개(bottom/top/skin/shoe/cheek/hair/face) → 보이기/색은 재질 단위로 다룬다
 MATS = {}
@@ -131,10 +135,11 @@ def wear_bbox(name):
     return (lo, hi) if hi.x > -1e8 else None
 
 CHAR_GROUPS = {'top', 'bottom', 'skin', 'hair', 'shoe', 'cheek', 'face'}
-CHAR_AIM = ((0, 0, 1.05), 2.6)  # 전신 + 귀 여유, 모든 캐릭터/레이어 렌더 공통(레이어 겹침 전제)
+# 전신 + 귀 여유, 모든 캐릭터/레이어 렌더 공통(레이어 겹침 전제). 근접 세트(상반신~얼굴)는 SHOP_CZ=1.65 SHOP_CS=1.4 로 같은 카메라를 전 파일에 적용.
+CHAR_AIM = ((0, 0, float(os.environ.get('SHOP_CZ', '1.05'))), float(os.environ.get('SHOP_CS', '2.6')))
 # 체형 프리셋(lib/pm3dLayout.BODY_TYPES 와 동일 값): head 본 스케일 + 리그 전체 스케일 — 3D 장면의 런타임 적용과 같은 변형.
 #   기본(밸런스)은 접미사 없음(기존 파일명 호환), 나머지는 .cute/.slim 접미사 세트로 같은 카메라 렌더(레이어 겹침 유지).
-BODY_TYPES = {'balance': (1.2, 0.96), 'cute': (1.7, 0.88), 'slim': (1.0, 1.0)}
+BODY_TYPES = {'balance': (1.5, 0.92), 'cute': (1.8, 0.87), 'slim': (1.2, 0.97)}  # 2026-11-06 시안 비율(머리 확대)
 def set_body(bt):
     h, s = BODY_TYPES[bt]
     rig.pose.bones['head'].scale = (h, h, h)
@@ -160,6 +165,7 @@ for bt in BODY_TYPES:
         char_vis(set(), wear=(mesh,))
         render('layer.' + mesh + bsfx(bt))
 set_body('balance')
+if os.environ.get('SHOP_CLOSE_ONLY'): print('SHOP_RENDER_DONE'); sys.exit(0)  # 캐릭터·레이어 세트만(근접/전신 재렌더용)
 # 착용 소품 카드 = 소품만 확대 렌더(체형 무관, 밸런스 기준)
 for it in [x for x in SPEC['items'] if x['kind'] == 'wear']:
     bb = wear_bbox(it['mesh'])

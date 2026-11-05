@@ -6,8 +6,8 @@
    "id": "human",
    "skin": "#ffe0c7",
    "hair": "#9a7bd1",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "",
    "temp": false
@@ -17,8 +17,8 @@
    "id": "cat",
    "skin": "#f6cf9a",
    "hair": "#e8a85c",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_cat",
    "temp": false
@@ -28,8 +28,8 @@
    "id": "dog",
    "skin": "#eccfa4",
    "hair": "#b07a4e",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_dog",
    "temp": false
@@ -39,8 +39,8 @@
    "id": "bunny",
    "skin": "#ffe9ef",
    "hair": "#f7b6cf",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_bunny",
    "temp": false
@@ -50,8 +50,8 @@
    "id": "bear",
    "skin": "#c89064",
    "hair": "#8a5a36",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_bear",
    "temp": false
@@ -61,8 +61,8 @@
    "id": "fox",
    "skin": "#ffcf9e",
    "hair": "#e07b39",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_fox",
    "temp": false
@@ -72,8 +72,8 @@
    "id": "penguin",
    "skin": "#fffdf5",
    "hair": "#2b3a4a",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_penguin",
    "temp": false
@@ -83,8 +83,8 @@
    "id": "fairy",
    "skin": "#ffe0cc",
    "hair": "#8fd7b7",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": false,
    "raceMesh": "race_fairy",
    "temp": false
@@ -94,8 +94,8 @@
    "id": "robot",
    "skin": "#cfd8e4",
    "hair": "#9aa6b5",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": true,
    "raceMesh": "race_robot",
    "temp": false
@@ -105,8 +105,8 @@
    "id": "cactus",
    "skin": "#8fce7f",
    "hair": "#5e9e50",
-   "top": "#caffbf",
-   "bottom": "#bdb2ff",
+   "top": "#a0f08f",
+   "bottom": "#8c7cf0",
    "hideHair": true,
    "raceMesh": "race_cactus",
    "temp": false
@@ -117,14 +117,14 @@
    "key": "outfit.knit",
    "kind": "outfit",
    "top": "#b5733f",
-   "bottom": "#e8d6b8",
+   "bottom": "#e8cb9b",
    "temp": false
   },
   {
    "key": "outfit.hoodie",
    "kind": "outfit",
-   "top": "#f7b6cf",
-   "bottom": "#a8e2d0",
+   "top": "#f08bb2",
+   "bottom": "#85e2c5",
    "temp": false
   },
   {
@@ -158,7 +158,7 @@
   {
    "key": "outfit.smock",
    "kind": "outfit",
-   "top": "#bcd8ee",
+   "top": "#9ecbee",
    "bottom": "#fbfbf7",
    "temp": false
   },
@@ -193,7 +193,7 @@
   {
    "key": "outfit.vest",
    "kind": "outfit",
-   "top": "#9aa3ad",
+   "top": "#8f9dad",
    "bottom": "#4a5260",
    "temp": false
   },

@@ -85,10 +85,10 @@ HEAD_K = 0.55
 NECK_Z, BODY_K = 1.17, 1.1
 def fz(z): return z * BODY_K if z < NECK_Z else z + NECK_Z * (BODY_K - 1)
 HEAD_PIVOT = Vector((B['head'][0].x, B['head'][0].y, fz(B['head'][0].z)))
-# 몸통·골반(몸통/다리 비율 상향: 머리 축소에 맞춰 살짝 두껍게)
-sphere((0, 0, 0.48), 0.285, 'bottom', BOT, 'hips', scale=(1.05, 0.85, 0.62))
-sphere((0, 0, 0.82), 0.32, 'top', TOP, 'spine', scale=(1, 0.8, 1.05))
-sphere((0, 0, 1.1), 0.28, 'top', TOP, 'chest', scale=(1.02, 0.78, 0.8))
+# 몸통·골반(2026-11-06 시안: 통통하게 — 가로폭 ×1.2, 세로(앞뒤)는 배지 소켓이 묻히지 않을 만큼만)
+sphere((0, 0, 0.48), 0.285, 'bottom', BOT, 'hips', scale=(1.22, 0.95, 0.68))
+sphere((0, 0, 0.82), 0.32, 'top', TOP, 'spine', scale=(1.2, 0.88, 1.05))
+sphere((0, 0, 1.1), 0.28, 'top', TOP, 'chest', scale=(1.2, 0.84, 0.84))
 for s, sx in (('l', 1), ('r', -1)):
     # 팔(T포즈: X축 방향) — 어깨 윗팔=옷, 아랫팔·손=피부
     tube(B[f'upperarm.{s}'][0], B[f'upperarm.{s}'][1], 0.095, 'top', TOP, f'upperarm.{s}')
