@@ -40,6 +40,9 @@ $env:NENOVA_AI_BRIDGE = '1'; npx electron .
   (`isVerifySelector`, 콤마·조합자·추가 셀렉터 금지). 웹 화면은 **검증해도 DB가 바뀌지 않는 조작(모드 라디오, 차수 버튼, 입력칸, 초기화)에만**
   `data-ai-verify="<id>"` 를 달고, **저장·적용·등록·삭제 버튼에는 절대 달지 않는다**. 감사 로그에 `verify: true` 로 남는다.
   현재 표식: `pages/orders/import.js` — `register-mode-<order|orderPrice|priceOnly>`, `subweek-<NN-NN>`, `price-only-input-<SdetailKey>`, `price-only-reset`.
+  `pages/shipment/distribute.js`(출고분배) — `week-<YYYY-WW-SS>`(±3 차수 버튼), `subweek-<SS>`, `product-<ProdKey>`, `customer-<CustKey>`, `customer-search`,
+  `pair-slot-1|2`, `pair-clear`, `qty-<CustKey>-<ProdKey>`(출고수량 입력), `cost-<CustKey>-<ProdKey>`(업체 탭 단가 입력), `move-to1|to2-<ProdKey>`(두 업체 화면 수량 이동).
+  저장 버튼(💾 저장, Ctrl+S)에는 표식이 없다.
 - **감사 로그**: open/click/fill의 허용·거부 전부 `%APPDATA%\Nenova Desktop\ai-bridge-audit.jsonl`에 JSONL로 기록.
 - **임의 JS 실행 없음**: `page/eval`은 제공하지 않는다. main이 고정된 쿼리/클릭/입력 스니펫만 만든다. 원격 페이지에는 preload를 넣지 않는다.
 - 토큰은 실행마다 새로 생성(32바이트 랜덤), 비교는 timingSafeEqual, 본문 256KB 제한.

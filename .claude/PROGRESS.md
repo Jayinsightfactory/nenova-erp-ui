@@ -1,3 +1,22 @@
+## [2026-11-05 12:00] 세션 — 출고분배 화면 nenova.exe 조작법(버튼형 차수·품목·업체, 업체정보 탭, Ctrl+S, 두 업체 나란히)
+
+### 작업 내용
+- `pages/shipment/distribute.js`: 탭을 「출고분배 및 농장정보」(품목 기준) / 「출고분배 및 업체정보」(업체 기준) / 출고일 지정 / 집계로 재구성. 기존 '조회 기준' 토글은 탭으로 흡수.
+- 차수: 기준 차수 앞뒤 ±3 대차수 7개 버튼 + 세부차수 -01~-04 버튼(활성/비활성 디자인은 업로드 주문등록 차수 버튼과 동일). 기존 입력칸·Ctrl+Alt+1 팝업은 그대로.
+- 품목·업체: 버튼 띠(ProdName/CustName A-Z, 입고 있는 품목 강조) + 기존 표 유지. 업체정보 탭에 업체명 검색.
+- 두 업체 나란히 보기: 「업체 2」칸을 고른 뒤 업체 버튼을 누르면 ①↔② 품목별 출고수량이 한 표에 나오고 → ← 로 화면 수량 이동. 받는 업체에 그 품목 주문이 없으면 이동 불가(고스트 출고 방지). Ctrl+S 는 두 업체 행을 기존 배치 저장 API 한 번으로.
+- Ctrl+S: 변경 없으면 POST 없이 '변경 없음, 저장 생략' 로그. 저장 성공/실패/생략을 화면 '저장 로그'에 누적.
+- 브리지 검증 표식 `data-ai-verify`: week-/subweek-/product-/customer-/qty-/cost-/pair-/move- (저장 버튼 제외). docs/desktop/AI_BRIDGE.md 갱신.
+- 저장 로직 변경 없음(`POST /api/shipment/distribute` entries 배치 그대로). 계약 `docs/contracts/shipment-distribution-workspace.json` action 추가·keyboard 기준 갱신.
+
+### 변경된 파일
+- pages/shipment/distribute.js, lib/shipmentDistributionWorkspace.js(distributionWeekButtons/SubWeekButtons/SaveLogLine/mergeDistributionCustomerItems)
+- __tests__/shipmentDistributionWorkspace.test.js, __tests__/distributeProductDisplayUi.test.cjs, __tests__/shipmentDistributionBrowser.test.cjs
+- docs/contracts/shipment-distribution-workspace.json, docs/desktop/AI_BRIDGE.md
+
+### 미결 이슈 / 블로킹
+- PR 머지·배포는 사용자 지시 후. 확정차수(isFix=1) 정책 변경 없음.
+
 ## [2026-11-05 11:10] 세션 — 분배단가만 수정 모드 + 데스크톱 AI 브리지 검증 통로
 
 ### 작업 내용

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
-import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
+import { useWeekInput, getCurrentWeek, WeekInput, formatWeekDisplay } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 import { distributeProductName, distributePreviousStock, distributePreviousStockTotal } from '../../lib/distributeProductDisplay';
 import DistributionPicker from '../../components/shipment/DistributionPicker';
-import { distributionQuantityRemark, distributionWeekOptions, hasDistributionDrafts, parseDistributionFavorite,
+import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
+  distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite,
   sortDistributionCustomers, sortDistributionProducts } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -77,7 +78,8 @@ function autoSplitQty(totalQty, dayCount) {
 
 export default function Distribute() {
   const { t } = useLang();
-  const [tab, setTab] = useState(0); // 0:품목기준 1:출고일지정 2:집계
+  // 0:출고분배 및 농장정보(품목 기준) 1:출고분배 및 업체정보(업체 기준) 2:출고일지정 3:집계
+  const [tab, setTab] = useState(0);
   const weekInput = useWeekInput('');
   const week = weekInput.value;
   const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1] || '';
@@ -88,7 +90,12 @@ export default function Distribute() {
   const [prodGroup, setProdGroup] = useState('');
   const [prodGroups, setProdGroups] = useState([]);
   const [prodGroupsLoading, setProdGroupsLoading] = useState(false);
-  const [viewMode, setViewMode] = useState('prod'); // 'prod'=품목기준 'cust'=업체기준
+  // 'prod'=품목기준(탭0) 'cust'=업체기준(탭1) — nenova.exe처럼 탭이 곧 조회 기준
+  const viewMode = tab === 1 ? 'cust' : 'prod';
+  const setViewMode = mode => setTab(mode === 'cust' ? 1 : 0);
+  // Ctrl+S / 저장 버튼 결과 화면 로그 (최신이 위)
+  const [saveLog, setSaveLog] = useState([]);
+  const appendSaveLog = entry => setSaveLog(prev => [distributionSaveLogLine(entry), ...prev].slice(0, 30));
 
   // 품목기준
   const [products, setProducts] = useState([]);
@@ -108,6 +115,12 @@ export default function Distribute() {
 
   // 업체기준 인라인 편집: { [prodKey]: { outQty, cost } }
   const [custEditInputs, setCustEditInputs] = useState({});
+  // 업체기준 두 업체 나란히 보기(업체 2): 한쪽 수량을 줄이고 다른 쪽에 더하기 쉽게
+  const [pairSlot, setPairSlot] = useState(1); // 업체 버튼 클릭이 채우는 칸: 1 또는 2
+  const [pairCust, setPairCust] = useState(null);
+  const [pairItems, setPairItems] = useState([]);
+  const [pairEditInputs, setPairEditInputs] = useState({});
+  const [pairLoading, setPairLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [custFilter, setCustFilter] = useState('');
@@ -162,6 +175,7 @@ export default function Distribute() {
   const searchRequestRef = useRef(0);
   const productRequestRef = useRef(0);
   const customerRequestRef = useRef(0);
+  const pairRequestRef = useRef(0);
   const farmRequestRef = useRef(0);
   const tab2RequestRef = useRef(0);
   const pivotRequestRef = useRef(0);
@@ -242,6 +256,8 @@ export default function Distribute() {
     setProducts([]); setCustList([]);
     setSelectedProd(null); setCustDist([]); setOutInputs({});
     setSelectedCust(null); setCustItems([]); setCustEditInputs({});
+    pairRequestRef.current += 1;
+    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1);
     setSelectedDistCust(null); setFarmRows([]);
     setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});
     setPivotRows([]);
@@ -260,7 +276,8 @@ export default function Distribute() {
       .finally(() => { if (request === searchRequestRef.current) setLoading(false); });
   }, [week, prodGroup]);
 
-  const confirmDraftDiscard = () => !saving && (!hasDistributionDrafts(custDist, outInputs, custItems, custEditInputs) ||
+  const confirmDraftDiscard = () => !saving && ((!hasDistributionDrafts(custDist, outInputs, custItems, custEditInputs) &&
+    !hasDistributionDrafts([], {}, pairItems, pairEditInputs)) ||
     window.confirm('저장하지 않은 출고수량 또는 단가 변경이 있습니다. 선택을 바꾸면 입력값이 사라집니다. 계속하시겠습니까?'));
   const closeSaveModal = () => { setSaveModal(null); requestAnimationFrame(() => saveButtonRef.current?.focus()); };
   useEffect(() => {
@@ -681,7 +698,7 @@ export default function Distribute() {
   }, [week, prodGroup, prodGroups]);
 
   useEffect(() => {
-    if (tab === 2) loadPivotRows();
+    if (tab === 3) loadPivotRows();
   }, [tab, loadPivotRows]);
 
   // 품목 클릭 → 거래처 분배 정보 로드
@@ -762,21 +779,75 @@ export default function Distribute() {
     finally { if (request === customerRequestRef.current) setCustLoading(false); }
   };
 
-  // 업체기준 저장
+  // 업체 2 선택 (두 업체 나란히 보기) — 업체 1과 같은 custItems 조회, 저장도 같은 배치 경로
+  const selectPairCust = async (cust, { skipDraftCheck = false } = {}) => {
+    if ((saving || loading) && !skipDraftCheck) return;
+    if (!week || !custList.some(c => Number(c.CustKey) === Number(cust?.CustKey))) return;
+    if (Number(cust.CustKey) === Number(selectedCust?.CustKey)) { setErr('업체 1과 같은 업체는 업체 2로 선택할 수 없습니다.'); return; }
+    if (!skipDraftCheck && hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
+      !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 업체를 바꾸면 입력값이 사라집니다. 계속하시겠습니까?')) return;
+    const request = ++pairRequestRef.current;
+    const requestedWeek = week;
+    setPairCust(cust);
+    setPairItems([]); setPairEditInputs({});
+    setPairLoading(true);
+    try {
+      const d = await apiGetDistribute({ type:'custItems', week, custKey: cust.CustKey });
+      if (request !== pairRequestRef.current || requestedWeek !== currentWeekRef.current) return;
+      if (d?.success !== true) throw new Error('업체 2 품목 조회 결과를 확인하지 못했습니다.');
+      const items = sortDistributionProducts(d.items || []);
+      setPairItems(items);
+      const inputs = {};
+      items.forEach(item => { inputs[item.ProdKey] = { outQty: item.출고수량 || 0, cost: item.Cost || 0 }; });
+      setPairEditInputs(inputs);
+    } catch(e) { if (request === pairRequestRef.current) setErr(e.message); }
+    finally { if (request === pairRequestRef.current) setPairLoading(false); }
+  };
+  const clearPairCust = () => {
+    if (hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
+      !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 해제하면 입력값이 사라집니다. 계속하시겠습니까?')) return;
+    pairRequestRef.current += 1;
+    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1);
+  };
+  // 한쪽 업체의 출고수량을 다른 쪽으로 옮기기 (화면 입력값만; DB 반영은 저장)
+  // 받는 업체에 그 품목 주문이 없으면 옮기지 않는다 — 주문 없는 출고(고스트 출고) 생성 금지
+  const moveDistributionQty = (prodKey, direction) => {
+    const [fromInputs, setFromInputs, toItems, setToInputs] = direction === 'to2'
+      ? [custEditInputs, setCustEditInputs, pairItems, setPairEditInputs]
+      : [pairEditInputs, setPairEditInputs, custItems, setCustEditInputs];
+    if (!toItems.some(item => Number(item.ProdKey) === Number(prodKey))) return;
+    const qty = parseFloat(fromInputs[prodKey]?.outQty) || 0;
+    if (qty <= 0) return;
+    setFromInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: 0 } }));
+    setToInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}),
+      outQty: Math.round(((parseFloat(prev[prodKey]?.outQty) || 0) + qty) * 100) / 100 } }));
+  };
+
+  // 업체기준 저장 — 업체 1(+업체 2) 행을 같은 배치 저장 경로로
   const handleSaveCustItems = async () => {
     if (saveBlocked || saveInFlightRef.current) return;
     if (!selectedCust || !week) { setErr('업체와 차수를 선택하세요.'); return; }
+    const pairName = pairCust ? `${selectedCust.CustName} + ${pairCust.CustName}` : selectedCust.CustName;
+    if (!hasDistributionDrafts([], {}, custItems, custEditInputs) && !hasDistributionDrafts([], {}, pairItems, pairEditInputs)) {
+      appendSaveLog({ mode: 'cust', name: pairName, week, skipped: true });
+      return;
+    }
     saveInFlightRef.current = true;
     const submittedWeek = week;
     const submittedCust = selectedCust;
+    const submittedPair = pairCust;
     setSaving(true); setErr('');
     try {
-      const entries = custItems.map(item => {
-        const edit = custEditInputs[item.ProdKey] || {};
+      const toEntries = (cust, items, inputs) => items.map(item => {
+        const edit = inputs[item.ProdKey] || {};
         const qty = edit.outQty !== undefined ? parseFloat(edit.outQty) || 0 : (item.출고수량 || 0);
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
-        return { custKey: selectedCust.CustKey, prodKey: item.ProdKey, outQty: qty, cost };
+        return { custKey: cust.CustKey, prodKey: item.ProdKey, outQty: qty, cost };
       });
+      const entries = [
+        ...toEntries(selectedCust, custItems, custEditInputs),
+        ...(pairCust ? toEntries(pairCust, pairItems, pairEditInputs) : []),
+      ];
       const res = await fetch('/api/shipment/distribute', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -785,21 +856,16 @@ export default function Distribute() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
       if (submittedWeek !== currentWeekRef.current) return;
-      const savedItems = custItems.filter(item => {
-        const edit = custEditInputs[item.ProdKey] || {};
-        return (edit.outQty !== undefined ? parseFloat(edit.outQty)||0 : (item.출고수량||0)) > 0;
-      });
-      setSaveModal({
-        prodName: selectedCust.CustName,
-        week,
-        savedCount: savedItems.length,
-        totalQty: savedItems.reduce((a, item) => {
-          const edit = custEditInputs[item.ProdKey] || {};
-          return a + (edit.outQty !== undefined ? parseFloat(edit.outQty)||0 : (item.출고수량||0));
-        }, 0),
-      });
+      const savedItems = entries.filter(entry => entry.outQty > 0);
+      const totalQty = savedItems.reduce((a, entry) => a + entry.outQty, 0);
+      setSaveModal({ prodName: pairName, week, savedCount: savedItems.length, totalQty });
+      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, savedCount: savedItems.length, totalQty });
       if (Number(submittedCust.CustKey) === Number(selectedCust?.CustKey)) selectCust(submittedCust, { skipDraftCheck: true }); // 새로고침
-    } catch(e) { setErr(e.message); } finally { saveInFlightRef.current = false; setSaving(false); }
+      if (submittedPair && Number(submittedPair.CustKey) === Number(pairCust?.CustKey)) selectPairCust(submittedPair, { skipDraftCheck: true }); // 업체 2 새로고침
+    } catch(e) {
+      setErr(e.message);
+      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, error: e.message });
+    } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
   // 비율 분배 자동 계산
@@ -872,6 +938,10 @@ export default function Distribute() {
   const handleSave = async () => {
     if (saveBlocked || saveInFlightRef.current) return;
     if (!selectedProd || !week) { setErr('품목과 차수를 선택하세요.'); return; }
+    if (!hasDistributionDrafts(custDist, outInputs)) {
+      appendSaveLog({ mode: 'prod', name: selectedProd.ProdName, week, skipped: true });
+      return;
+    }
     saveInFlightRef.current = true;
     const submittedWeek = week;
     const submittedProd = selectedProd;
@@ -893,14 +963,13 @@ export default function Distribute() {
       if (submittedWeek !== currentWeekRef.current) return;
       const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
-      setSaveModal({
-        prodName: selectedProd.ProdName,
-        week,
-        savedCount,
-        totalQty: totalSaved,
-      });
+      setSaveModal({ prodName: selectedProd.ProdName, week, savedCount, totalQty: totalSaved });
+      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, savedCount, totalQty: totalSaved });
       if (Number(submittedProd.ProdKey) === Number(selectedProd?.ProdKey)) selectProd(submittedProd, { skipDraftCheck: true }); // 새로고침
-    } catch(e) { setErr(e.message); } finally { saveInFlightRef.current = false; setSaving(false); }
+    } catch(e) {
+      setErr(e.message);
+      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, error: e.message });
+    } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
@@ -912,7 +981,21 @@ export default function Distribute() {
   const selectedFlower = prodGroups.find(group => group.key === prodGroup)?.flower || '';
   const previousStock = distributePreviousStock(selectedProd);
 
-  const tabs = ['출고 분배 및 농장 정보','출고일 지정','출고 분배 집계'];
+  const tabs = ['출고분배 및 농장정보','출고분배 및 업체정보','출고일 지정','출고 분배 집계'];
+  const weekButtons = distributionWeekButtons(week, 3);
+  const subWeekButtons = distributionSubWeekButtons(week);
+  const weekButtonStyle = (value, active) => ({
+    padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+    border: active ? '2px solid #1a237e' : '1px solid #c5cae9',
+    background: active ? '#1a237e' : '#f3f4ff', color: active ? '#fff' : '#1a237e', fontWeight: active ? 700 : 500,
+  });
+  const pickButtonStyle = (active, hasStock) => ({
+    padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', maxWidth: 220, overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left',
+    border: active ? '2px solid var(--blue)' : '1px solid var(--border2)',
+    background: active ? 'var(--blue)' : hasStock ? '#F0F7FF' : 'var(--bg)',
+    color: active ? '#fff' : hasStock ? 'var(--blue)' : 'var(--text2)', fontWeight: active || hasStock ? 700 : 400,
+  });
 
   const handleQuantityEnter = event => {
     if (event.key !== 'Enter' || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
@@ -1002,6 +1085,25 @@ export default function Distribute() {
           <button className="btn btn-sm" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
       </div>
+      {/* nenova.exe식 버튼형 차수 선택: 기준 차수 앞뒤 ±3 대차수 + 세부차수 */}
+      <div data-testid="distribution-week-buttons" style={{padding:'8px 14px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>차수</span>
+        {weekButtons.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>차수를 2026-44-01 형식으로 입력하면 앞뒤 차수 버튼이 나타납니다.</span>}
+        {weekButtons.map(value => (
+          <button key={value} type="button" data-ai-verify={`week-${value}`} aria-pressed={value === week}
+            disabled={saving} onClick={() => guardedWeekInput.setValue(value)} style={weekButtonStyle(value, value === week)}>
+            {formatWeekDisplay(value)}
+          </button>
+        ))}
+        {subWeekButtons.length > 0 && <span style={{fontSize:11,fontWeight:700,color:'var(--text2)',marginLeft:8}}>세부차수</span>}
+        {subWeekButtons.map(value => (
+          <button key={value} type="button" data-ai-verify={`subweek-${value.slice(-2)}`} aria-pressed={value === week}
+            disabled={saving} onClick={() => guardedWeekInput.setValue(value)}
+            style={{...weekButtonStyle(value, value === week), padding:'3px 10px', fontSize:12}}>
+            -{value.slice(-2)}
+          </button>
+        ))}
+      </div>
       <div style={{padding:'5px 14px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 저장. Enter 이동만으로 저장되지 않습니다.
       </div>
@@ -1010,6 +1112,14 @@ export default function Distribute() {
       {/* 알림 */}
       {err && <div style={{padding:'6px 14px',background:'var(--red-bg)',color:'var(--red)',fontSize:12,borderLeft:'3px solid var(--red)',flexShrink:0}}>⚠️ {err}</div>}
       {successMsg && <div style={{padding:'6px 14px',background:'var(--green-bg)',color:'var(--green)',fontSize:12,flexShrink:0}}>{successMsg}</div>}
+      {saveLog.length > 0 && (
+        <div data-testid="distribution-save-log" role="status" aria-live="polite" style={{padding:'6px 14px',background:'var(--surface)',borderLeft:'3px solid var(--blue)',fontSize:11,color:'var(--text2)',flexShrink:0,maxHeight:84,overflowY:'auto'}}>
+          <div style={{fontWeight:700,color:'var(--text3)',marginBottom:2}}>저장 로그 (Ctrl+S / 저장 버튼)</div>
+          {saveLog.map((line, index) => (
+            <div key={`${index}-${line}`} style={{color: line.includes('저장 실패') ? 'var(--red)' : line.includes('저장 생략') ? 'var(--text3)' : 'var(--green)'}}>• {line}</div>
+          ))}
+        </div>
+      )}
 
       {/* 저장 완료 모달 */}
       {saveModal && (
@@ -1109,21 +1219,18 @@ export default function Distribute() {
         {tabs.map((t,i) => (
           <button type="button" key={t} onClick={()=>setTab(i)} aria-current={tab===i?'page':undefined}
             style={{padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',color:tab===i?'var(--blue)':'var(--text3)',borderBottom:tab===i?'2px solid var(--blue)':'2px solid transparent',marginBottom:-2,whiteSpace:'nowrap'}}>
-            {['🚚','📅','📊'][i]} {t}
+            {['🚚','🏬','📅','📊'][i]} {t}
           </button>
         ))}
-        {/* 보기 모드 전환 */}
-        {tab===0 && (
-          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,padding:'0 14px'}}>
-            <span style={{fontSize:11,color:'var(--text3)'}}>조회 기준:</span>
-            <button className={`btn btn-sm ${viewMode==='prod'?'btn-primary':'btn-secondary'}`} disabled={loading} onClick={()=>setViewMode('prod')}>품목 기준</button>
-            <button className={`btn btn-sm ${viewMode==='cust'?'btn-primary':'btn-secondary'}`} disabled={loading} onClick={()=>setViewMode('cust')}>업체 기준</button>
+        {(tab === 0 || tab === 1) && (
+          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,padding:'0 14px',fontSize:11,color:'var(--text3)'}}>
+            조회 기준: <b style={{color:'var(--blue)'}}>{viewMode === 'prod' ? '품목 기준 (품목 → 거래처별 분배)' : '업체 기준 (업체 → 품목별 분배)'}</b>
           </div>
         )}
       </div>
 
-      {/* 탭1 본문 */}
-      {tab === 0 && (
+      {/* 탭0 품목 기준 / 탭1 업체 기준 본문 */}
+      {(tab === 0 || tab === 1) && (
         <div className="distribution-workspace-grid" style={{display:'grid',gridTemplateColumns: viewMode==='prod'?'minmax(360px, 34%) minmax(0, 1fr)':'minmax(240px, 28%) minmax(0, 1fr)',alignItems:'start',background:'var(--surface)',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px'}}>
 
           {/* ── 품목 기준: 왼쪽 품목 목록 ── */}
@@ -1133,6 +1240,21 @@ export default function Distribute() {
                 <input ref={productSearchRef} className="filter-input" placeholder="품목명 검색 (ProdName A-Z)" value={prodFilter} onChange={e=>setProdFilter(e.target.value)} style={{flex:1,height:28,fontSize:12,minWidth:0}}/>
                 <button type="button" className={`btn btn-sm ${favoritesOnly?'btn-primary':'btn-secondary'}`}
                   aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)}>★ 즐겨찾기만</button>
+              </div>
+              {/* nenova.exe식 버튼형 품목 선택 (이 차수의 입고/분배 대상 품목, ProdName A-Z) */}
+              <div data-testid="distribution-product-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:150,overflowY:'auto'}}>
+                {loading ? <span style={{fontSize:11,color:'var(--text3)'}}>품목 조회 중…</span>
+                  : filteredProds.length === 0 ? <span style={{fontSize:11,color:'var(--text3)'}}>차수를 선택하면 품목 버튼이 나타납니다.</span>
+                  : filteredProds.map(p => {
+                    const active = Number(selectedProd?.ProdKey) === Number(p.ProdKey);
+                    return (
+                      <button key={p.ProdKey} type="button" data-ai-verify={`product-${p.ProdKey}`} aria-pressed={active}
+                        disabled={loading || saving} title={`${p.DisplayName || p.ProdName} · 입고 ${Number(p.inQty||0)} / 출고 ${Number(p.outQty||0)}`}
+                        onClick={() => selectProd(p)} style={pickButtonStyle(active, Number(p.inQty) > 0)}>
+                        {favoriteKeys.has(Number(p.ProdKey)) ? '★ ' : ''}{distributeProductName(p, selectedFlower)}
+                      </button>
+                    );
+                  })}
               </div>
               <div style={{overflowX:'auto'}}>
                 {loading ? <div className="skeleton" style={{margin:12,height:300,borderRadius:8}}></div> : (
@@ -1201,7 +1323,43 @@ export default function Distribute() {
           {/* ── 업체 기준: 왼쪽 업체 목록 ── */}
           {viewMode === 'cust' && (
             <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
-              <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',fontSize:11,fontWeight:700,color:'var(--text2)'}}>거래처 목록</div>
+              <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>거래처 목록</span>
+                <input className="filter-input" placeholder="업체명 검색" value={custFilter||''} disabled={saving} data-ai-verify="customer-search"
+                  aria-label="업체명 검색" onChange={e=>setCustFilter(e.target.value)} style={{flex:1,height:28,fontSize:12,minWidth:120}} />
+              </div>
+              {/* 두 업체 나란히 보기: 업체 버튼 클릭이 채울 칸 선택 */}
+              <div data-testid="distribution-pair-slots" style={{padding:'6px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',fontSize:11}}>
+                <span style={{color:'var(--text3)'}}>버튼 클릭 →</span>
+                <button type="button" data-ai-verify="pair-slot-1" aria-pressed={pairSlot === 1} disabled={saving} onClick={() => setPairSlot(1)}
+                  style={{...weekButtonStyle('1', pairSlot === 1), padding:'3px 10px', fontSize:11}}>
+                  업체 1{selectedCust ? `: ${selectedCust.CustName}` : ''}
+                </button>
+                <button type="button" data-ai-verify="pair-slot-2" aria-pressed={pairSlot === 2} disabled={saving} onClick={() => setPairSlot(2)}
+                  style={{...weekButtonStyle('2', pairSlot === 2), padding:'3px 10px', fontSize:11,
+                    border: pairSlot === 2 ? '2px solid #b45309' : '1px solid #fcd34d', background: pairSlot === 2 ? '#b45309' : '#fffbeb', color: pairSlot === 2 ? '#fff' : '#b45309'}}>
+                  업체 2{pairCust ? `: ${pairCust.CustName}` : ' (비교·이동)'}
+                </button>
+                {pairCust && <button type="button" className="btn btn-sm" data-ai-verify="pair-clear" disabled={saving} onClick={clearPairCust} style={{padding:'2px 7px',fontSize:11}}>업체 2 해제</button>}
+                <span style={{color:'var(--text3)'}}>두 업체를 고르면 품목·수량이 나란히 보이고 → ← 로 수량을 옮길 수 있습니다.</span>
+              </div>
+              {/* nenova.exe식 버튼형 업체 선택 */}
+              <div data-testid="distribution-customer-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:150,overflowY:'auto'}}>
+                {loading ? <span style={{fontSize:11,color:'var(--text3)'}}>업체 조회 중…</span>
+                  : filteredCustomers.length === 0 ? <span style={{fontSize:11,color:'var(--text3)'}}>차수를 선택하면 업체 버튼이 나타납니다.</span>
+                  : filteredCustomers.map(c => {
+                    const active = Number(selectedCust?.CustKey) === Number(c.CustKey);
+                    const isPair = Number(pairCust?.CustKey) === Number(c.CustKey);
+                    return (
+                      <button key={c.CustKey} type="button" data-ai-verify={`customer-${c.CustKey}`} aria-pressed={active || isPair}
+                        disabled={loading || saving} title={`${c.CustName} #${c.CustKey}${isPair ? ' (업체 2)' : active ? ' (업체 1)' : ''}`}
+                        onClick={() => (pairSlot === 2 ? selectPairCust(c) : selectCust(c))}
+                        style={isPair ? {...pickButtonStyle(true, false), background:'#b45309', border:'2px solid #b45309'} : pickButtonStyle(active, false)}>
+                        {active ? '① ' : isPair ? '② ' : ''}{c.CustName}
+                      </button>
+                    );
+                  })}
+              </div>
               <div style={{overflowX:'auto'}}>
                 {loading ? <div className="skeleton" style={{margin:12,height:200,borderRadius:8}}></div> : (
                   <table className="tbl" style={{fontSize:12}}>
@@ -1296,6 +1454,7 @@ export default function Distribute() {
                                     <td className="num">{(c.주문수량||0).toFixed(2)}</td>
                                     <td>
                                       <input type="number" min={0} step={1} value={outVal||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
+                                        data-ai-verify={`qty-${c.CustKey}-${selectedProd.ProdKey}`}
                                         aria-label={`${c.CustName} ${selectedProd.ProdName} 출고수량 (${selectedProd.OutUnit || c.OutUnit || ''})`}
                                         onKeyDown={handleQuantityEnter}
                                         onChange={e=>{const v=parseFloat(e.target.value)||0;setOutInputs(o=>({...o,[c.CustKey]:v}));}}
@@ -1375,8 +1534,76 @@ export default function Distribute() {
               <div style={{overflowX:'auto'}}>
                 {!selectedCust
                   ? <div className="empty-state"><div className="empty-icon">←</div><div className="empty-text">업체를 선택하세요</div></div>
-                  : custLoading ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
-                  : (
+                  : custLoading || pairLoading ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
+                  : pairCust ? (
+                    <>
+                      <div style={{padding:'8px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,borderBottom:'1px solid var(--border-t)'}}>
+                        ① {selectedCust.CustName} ↔ ② {pairCust.CustName} — 품목별 출고수량 나란히 보기 (→ ← 로 이동, Ctrl+S 저장은 두 업체 함께)
+                      </div>
+                      <table className="tbl" data-testid="distribution-pair-table" style={{fontSize:12}}>
+                        <thead>
+                          <tr>
+                            <th>품목명</th><th>단위</th>
+                            <th style={{textAlign:'right'}}>① 주문</th>
+                            <th style={{textAlign:'right',color:'var(--blue)'}}>① 출고 입력</th>
+                            <th style={{textAlign:'center'}}>이동</th>
+                            <th style={{textAlign:'right',color:'#b45309'}}>② 출고 입력</th>
+                            <th style={{textAlign:'right'}}>② 주문</th>
+                            <th>미저장 변경</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mergeDistributionCustomerItems(custItems, pairItems).map(row => {
+                            const editA = custEditInputs[row.ProdKey] || {};
+                            const editB = pairEditInputs[row.ProdKey] || {};
+                            const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;
+                            const qtyB = row.b ? (editB.outQty !== undefined ? editB.outQty : (row.b.출고수량 || 0)) : null;
+                            const qtyInput = (cust, item, value, inputs, setInputs, color) => (
+                              <input type="number" min={0} step={0.1} value={value||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
+                                data-ai-verify={`qty-${cust.CustKey}-${item.ProdKey}`}
+                                aria-label={`${cust.CustName} ${item.ProdName} 출고수량 (${item.OutUnit || ''})`}
+                                onKeyDown={handleQuantityEnter}
+                                onChange={e=>setInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:e.target.value}}))}
+                                style={{width:80,height:26,border:`1px solid ${parseFloat(value)>0?color:'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:parseFloat(value)>0?'var(--blue-bg)':'var(--bg)',fontWeight:parseFloat(value)>0?700:400}} />
+                            );
+                            return (
+                              <tr key={row.ProdKey}>
+                                <td style={{fontWeight:500}}>{row.DisplayName || row.ProdName}</td>
+                                <td style={{fontSize:11}}>{row.OutUnit}</td>
+                                <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.주문수량||0).toFixed(2) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
+                                <td>{row.a ? qtyInput(selectedCust, row.a, qtyA, custEditInputs, setCustEditInputs, 'var(--blue)') : '—'}</td>
+                                <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
+                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to2-${row.ProdKey}`} disabled={saving || loading || !row.a || !row.b || !(parseFloat(qtyA) > 0)}
+                                    title={!row.b ? '② 업체에 이 품목 주문이 없어 옮길 수 없습니다 (주문 없는 출고 생성 금지)' : '① 출고수량 전부를 ②로 (화면 입력값만, 저장 시 반영)'}
+                                    onClick={() => moveDistributionQty(row.ProdKey, 'to2')} style={{padding:'1px 7px'}}>→</button>
+                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={saving || loading || !row.a || !row.b || !(parseFloat(qtyB) > 0)}
+                                    title={!row.a ? '① 업체에 이 품목 주문이 없어 옮길 수 없습니다 (주문 없는 출고 생성 금지)' : '② 출고수량 전부를 ①로 (화면 입력값만, 저장 시 반영)'}
+                                    onClick={() => moveDistributionQty(row.ProdKey, 'to1')} style={{padding:'1px 7px',marginLeft:3}}>←</button>
+                                </td>
+                                <td>{row.b ? qtyInput(pairCust, row.b, qtyB, pairEditInputs, setPairEditInputs, '#b45309') : '—'}</td>
+                                <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.주문수량||0).toFixed(2) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
+                                <td style={{fontSize:11,color:'var(--text3)'}}>
+                                  {row.a && <div>① {distributionQuantityRemark(row.a.ShipmentDescr, row.a.출고수량, qtyA, row.OutUnit)}</div>}
+                                  {row.b && <div>② {distributionQuantityRemark(row.b.ShipmentDescr, row.b.출고수량, qtyB, row.OutUnit)}</div>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="foot">
+                            <td colSpan={2}>합계</td>
+                            <td className="num">{custItems.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>
+                            <td className="num" style={{color:'var(--blue)'}}>{custItems.reduce((a,item)=>{const e=custEditInputs[item.ProdKey]||{};return a+(parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0);},0).toFixed(2)}</td>
+                            <td></td>
+                            <td className="num" style={{color:'#b45309'}}>{pairItems.reduce((a,item)=>{const e=pairEditInputs[item.ProdKey]||{};return a+(parseFloat(e.outQty!==undefined?e.outQty:(item.출고수량||0))||0);},0).toFixed(2)}</td>
+                            <td className="num">{pairItems.reduce((a,b)=>a+(b.주문수량||0),0).toFixed(2)}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </>
+                  ) : (
                     <>
                       <div style={{padding:'8px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,borderBottom:'1px solid var(--border-t)'}}>
                         {selectedCust.CustName} ({selectedCust.OrderCode}) — 주문 품목 목록
@@ -1411,6 +1638,7 @@ export default function Distribute() {
                                   <td className="num" style={{color:'var(--blue)',fontWeight:700}}>{(item.주문수량||0).toFixed(2)}</td>
                                   <td>
                                     <input type="number" min={0} step={0.1} value={outVal||''} data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
+                                      data-ai-verify={`qty-${selectedCust.CustKey}-${item.ProdKey}`}
                                       aria-label={`${selectedCust.CustName} ${item.ProdName} 출고수량 (${item.OutUnit || ''})`}
                                       onKeyDown={handleQuantityEnter}
                                       onChange={e=>setCustEditInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),outQty:e.target.value}}))}
@@ -1420,6 +1648,7 @@ export default function Distribute() {
                                   <td className="num" style={{fontWeight:700,color:diff<0?'var(--red)':diff===0?'var(--green)':'var(--amber)'}}>{diff.toFixed(2)}</td>
                                   <td>
                                     <input type="number" min={0} step={1} value={costVal||''} disabled={saving || loading}
+                                      data-ai-verify={`cost-${selectedCust.CustKey}-${item.ProdKey}`} aria-label={`${selectedCust.CustName} ${item.ProdName} 단가`}
                                       onChange={e=>setCustEditInputs(prev=>({...prev,[item.ProdKey]:{...(prev[item.ProdKey]||{}),cost:e.target.value}}))}
                                       style={{width:90,height:26,border:'1px solid var(--amber)',borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:'#FFFBEB'}}
                                     />
@@ -1459,7 +1688,7 @@ export default function Distribute() {
       )}
 
       {/* 탭2: 출고일 지정 */}
-      {tab === 1 && (
+      {tab === 2 && (
         <div style={{flex:1,overflow:'auto',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
           {/* 상단: 기본 출고요일 설정 */}
           <div style={{padding:'12px 16px',borderBottom:'2px solid var(--border)',background:'#F8FAFC'}}>
@@ -1635,7 +1864,7 @@ export default function Distribute() {
       )}
 
       {/* 탭3: 출고 분배 집계 (exe GetPivotData) */}
-      {tab === 2 && (
+      {tab === 3 && (
         <div style={{border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px',background:'var(--surface)'}}>
           <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:8,alignItems:'center',justifyContent:'space-between'}}>
             <span style={{fontSize:12,color:'var(--text2)'}}>

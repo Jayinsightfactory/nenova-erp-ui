@@ -36,6 +36,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let shipmentQty = 48;
     let savePosts = 0;
     let failNextSave = true;
+    let expectPairSave = false;
     let delayOldProducts = false;
     let holdNextQuery = false;
     const heldQueryStarted = deferred();
@@ -85,6 +86,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           const body = JSON.parse(request.postData() || '{}');
           assert.equal(body.year, '2026');
           assert.equal(body.week, '2026-41-02');
+          if (expectPairSave) {
+            expectPairSave = false;
+            // 업체 1 + 업체 2 나란히 보기: → 이동 후 Ctrl+S 는 두 업체 행을 한 배치로 저장
+            assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]),
+              [[478, 2429, 0], [436, 2429, 102]], 'pair save moves quantity from customer 1 to customer 2');
+            return reply(route, { success: true, verified: true, results: [{ verified: true }, { verified: true }] });
+          }
           if (body.entries.length === 1) {
             assert.equal(body.entries[0].outQty, 51, 'customer mode Ctrl+S submits customer draft');
             assert.equal(body.entries[0].cost, 100);
@@ -137,11 +145,25 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
 
     await page.goto(`${base}/shipment/distribute`, { waitUntil: 'domcontentloaded' });
     console.log('browser: loaded');
+    // 차수 입력칸에 직접 입력(오늘 날짜 기준 ±3 범위에 41차가 없는 날에도 동작) → 팝업 선택도 그대로 검증
+    const weekInput = page.getByPlaceholder(/^\d{4}-\d{2}-\d{2}$|YYYY-WW-SS/).first();
+    await weekInput.fill('2026-41-01');
+    await weekInput.press('Tab');
     await page.getByTestId('distribution-week-picker').locator('button').first().click();
     await page.getByRole('button', { name: '2026-41-02', exact: true }).click();
     await page.getByRole('button', { name: '🔍 조회' }).click();
     await page.getByRole('button', { name: 'Alstroemeria 선택' }).waitFor();
     console.log('browser: candidates');
+    // nenova.exe식 버튼형 차수(±3)·품목 선택 + 브리지 검증 표식
+    assert.equal(await page.locator('[data-ai-verify="week-2026-41-02"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('[data-ai-verify^="week-2026-"]').count(), 7, '±3 weeks → 7 week buttons');
+    assert.equal(await page.locator('[data-ai-verify="subweek-02"]').getAttribute('aria-pressed'), 'true');
+    assert.deepEqual(await page.locator('[data-testid="distribution-product-buttons"] button').allTextContents(),
+      ['Alstroemeria', 'Zinnia'], 'product buttons ProdName A-Z');
+    await page.locator('[data-ai-verify="product-90"]').click();
+    await page.getByText('Zinnia — 거래처 분배 정보').waitFor();
+    assert.equal(await page.locator('[data-ai-verify="product-90"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('button[aria-keyshortcuts="Control+S"][data-ai-verify]').count(), 0, 'save button never carries data-ai-verify');
     const productButtons = await page.locator('tbody button[aria-label$="선택"]').allTextContents();
     assert.deepEqual(productButtons.slice(0, 2), ['Alstroemeria', 'Zinnia'], 'ProdName A-Z ignores stock and favorites');
 
@@ -198,7 +220,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByRole('button', { name: 'Alstroemeria 즐겨찾기 해제' }).waitFor();
 
     await page.keyboard.press('Control+s');
-    await page.getByText('fixture 검증 실패').waitFor();
+    await page.getByText('⚠️ fixture 검증 실패').waitFor();
+    await page.getByText(/품목 Alstroemeria — 저장 실패: fixture 검증 실패/).waitFor();
     assert.equal(await page.locator('[data-distribute-qty="true"]').first().inputValue(), '50', 'failed save preserves draft');
     await page.getByText('미저장 48 → 50단').waitFor();
     holdNextSave = true;
@@ -261,19 +284,50 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.keyboard.press('Control+s');
     assert.equal(savePosts, 3, 'customer success dialog blocks duplicate Ctrl+S');
     await page.getByRole('button', { name: '확인', exact: true }).click();
-    await page.getByRole('button', { name: '품목 기준' }).click();
+    assert.equal(await page.getByRole('button', { name: /출고분배 및 업체정보/ }).getAttribute('aria-current'), 'page', 'customer picker opens the 업체정보 tab');
+    await page.getByText('• ').first().waitFor();
+    assert.match(await page.getByTestId('distribution-save-log').textContent(), /업체 Alpha Florist — 저장 완료 1건 · 총 51/);
+
+    // 업체 1 + 업체 2 나란히 보기: ② 칸 선택 → Zulu 버튼 → → 이동 → Ctrl+S 한 배치 저장
+    await page.locator('[data-ai-verify="pair-slot-2"]').click();
+    await page.locator('[data-ai-verify="customer-436"]').click();
+    await page.getByTestId('distribution-pair-table').waitFor();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '51');
+    await page.locator('[data-ai-verify="move-to2-2429"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
+    assert.equal(await page.locator('[data-ai-verify="move-to2-2429"]').isDisabled(), true, 'nothing left to move from customer 1');
+    await page.getByText(/② 기존 출고 비고 · 미저장 51 → 102단/).waitFor();
+    await page.getByText(/① 기존 출고 비고 · 미저장 51 → 0단/).waitFor();
+    await page.screenshot({ path: path.join(root, 'outputs', 'distribution-pair-1920.png'), fullPage: true });
+    expectPairSave = true;
+    await page.keyboard.press('Control+s');
+    await page.getByText('출고 분배 저장 완료').waitFor();
+    assert.equal(savePosts, 4, 'pair Ctrl+S posts both customers once');
+    await page.getByRole('button', { name: '확인', exact: true }).click();
+    await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 1건 · 총 102/).waitFor();
+    await page.getByRole('button', { name: '업체 2 해제' }).click();
+    await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
+    console.log('browser: pair');
+
+    await page.getByRole('button', { name: /출고분배 및 농장정보/ }).click();
+    await page.locator('[data-distribute-qty="true"]:not([disabled])').first().waitFor();
+    await page.keyboard.press('Control+s');
+    await page.getByText(/품목 Alstroemeria — 변경 없음, 저장 생략/).waitFor();
+    assert.equal(savePosts, 4, 'Ctrl+S without changes does not post');
 
     await page.getByRole('button', { name: /내역 조회/ }).click();
     await page.getByText('변경 내역 없음').waitFor();
     assert.equal(await page.getByRole('button', { name: /💾 저장/ }).isDisabled(), true);
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 3, 'history modal blocks background save');
+    assert.equal(savePosts, 4, 'history modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: '닫기' }).first().click();
 
     await page.getByRole('button', { name: /확정 \/ Confirmar/ }).click();
     await page.getByText(/확정 전 이슈 발견/).waitFor();
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 3, 'validation modal blocks background save');
+    assert.equal(savePosts, 4, 'validation modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: /취소 \/ Cancelar/ }).click();
 
     page.once('dialog', dialog => dialog.accept());
@@ -281,11 +335,11 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await bounded(spStarted.promise, 'held SP request');
     assert.equal(await page.getByRole('button', { name: /💾 저장/ }).isDisabled(), true);
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 3, 'running SP blocks background save');
+    assert.equal(savePosts, 4, 'running SP blocks background save');
     releaseSp.resolve();
     await page.getByText('fixture SP blocked').last().waitFor();
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 3, 'finished SP modal blocks background save');
+    assert.equal(savePosts, 4, 'finished SP modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: '확인' }).click();
 
     delayOldProducts = true;
