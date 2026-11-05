@@ -16,7 +16,7 @@ import { usePivotExeCalculation } from '../lib/usePivotExeCalculation';
 import PivotLoadingOverlay from './PivotLoadingOverlay';
 import controls from './PivotExeControls.module.css';
 import { pivotLinkedValues, applyLinkedPivotSelection, clearPivotProductSelections, PIVOT_PRODUCT_FILTER_FIELDS } from '../lib/pivotLinkedFilters';
-import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
+import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotLayoutHistory, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
 // Native field ids match FormQuantityPivot.GetData; supplements use explicit web ids.
 const FIELDS = EXE_FIELDS;
@@ -239,6 +239,14 @@ export default function PivotExePanel() {
     setShowRowTotals(view.showRowTotals); setShowColumnTotals(view.showColumnTotals); setShowGrandTotals(view.showGrandTotals);
     setCollapsedRows(new Set()); setCollapsedCols(new Set()); setFieldMenu(null); setFilterField(null);
   }, []);
+  // 되돌리기: 필드 이동·필터 추가 직전 배치 스냅샷(표시 설정 변경은 제외). 셀 한도 오류에서 빠져나오는 길.
+  const layoutHistory = useRef(createPivotLayoutHistory({ limit: 30 }));
+  const [undoCount, setUndoCount] = useState(0);
+  const undoLayout = useCallback(() => {
+    const previous = layoutHistory.current.undo();
+    if (previous) { applyView(previous); if (previous.range) setRange(previous.range); }
+    setUndoCount(layoutHistory.current.size());
+  }, [applyView]);
   const currentView = useMemo(() => ({schemaVersion:1,zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight,custHeaderHeight,sorts,valueOrders,selections,ast,filterActive,weekGrouping,showRowTotals,showColumnTotals,showGrandTotals}), [zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight,custHeaderHeight,sorts,valueOrders,selections,ast,filterActive,weekGrouping,showRowTotals,showColumnTotals,showGrandTotals]);
 
   useEffect(() => {
@@ -297,6 +305,10 @@ export default function PivotExePanel() {
   useEffect(() => {
     if (layoutHydrated && preferenceKey) preferenceWriter.current?.schedule(currentView);
   }, [layoutHydrated,preferenceKey,currentView]);
+  useEffect(() => {
+    if (!layoutHydrated) return;
+    if (layoutHistory.current.record({ ...currentView, range })) setUndoCount(layoutHistory.current.size());
+  }, [layoutHydrated,currentView,range]);
   useEffect(() => () => cancelResize.current?.(), []);
   useEffect(() => () => request.current.controller?.abort(), []);
   useEffect(() => {
@@ -508,7 +520,7 @@ export default function PivotExePanel() {
     <details data-testid="pivot-exe-web-tools" open={webToolsOpen} onToggle={toggleWebTools} style={webToolsStyle}>
       <summary style={{cursor:'pointer',fontSize:12,color:'#333',padding:'3px 6px',userSelect:'none'}}>웹 추가 기능 <small style={{color:'#777'}}>소수점 숨기기 · 0 표시 · 행/열 소계 · 표시 설정 · 세부/메인차수 · 입고 보기 · 환율 · 즐겨찾기 · 필드 목록 · 필터 편집</small></summary>
       <div style={{padding:'4px 6px 6px'}}>
-    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',marginBottom:4}}><button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button>
+    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',marginBottom:4}}><button data-testid="pivot-exe-undo" className="btn btn-sm" disabled={undoCount === 0} title="필드 이동·필터 추가·조회 범위 변경 직전으로 돌아갑니다 (표시 설정은 유지)" onClick={undoLayout}>↶ 되돌리기{undoCount ? ` (${undoCount})` : ''}</button><button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button>
       {successRange && <><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button></>}
     </div>
     <PivotArrivalFxControls rates={arrivalFxRates} onApply={setArrivalFxRates} disabled={busy || Boolean(dirty) || !successRange} rows={rows} />
@@ -541,7 +553,7 @@ export default function PivotExePanel() {
     {zones.values.some(value => value.id === 'ArrivalCost') && <div data-testid="pivot-arrival-basis" style={{fontSize:12,marginBottom:6,color:'#355777'}}>도착원가: 같은 연도 최신 승인 인보이스·현재 엑셀 참고값 · 부가세 별도 · 출고단위 기준 · 복수 농장은 최고가 · 원 단위 반올림 표시(원본 소수점 보존). 과거 매입·손익·재고는 바뀌지 않습니다. 연결·환산 근거가 없으면 빈칸입니다.</div>}
     <details style={{fontSize:11,marginBottom:6}}><summary>EXE 원본 수량 안내</summary>미발주 구분은 EXE처럼 <code>NoneOutQuantity &gt; 0</code>일 때의 <code>OutQuantity</code>를 표시합니다. 수량 의미를 웹에서 변경하지 않습니다.</details>
     {successRange && <div style={{fontSize:11,color:'#667',marginBottom:4}}>표시 행 {pivotModel.rowAxis.length} / 필터 결과 {pivotModel.filteredRowCount}행</div>}
-    {successRange && renderLimitError && <div role="alert" style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 확인하세요. <button className="btn btn-sm" onClick={calculation.retry}>집계 다시 시도</button></div>}
+    {successRange && renderLimitError && <div role="alert" style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 확인하세요. {undoCount > 0 && <button data-testid="pivot-exe-undo-in-error" className="btn btn-sm btn-primary" onClick={undoLayout}>↶ 되돌리기 (변경 전 배치로)</button>} <button className="btn btn-sm" onClick={calculation.retry}>집계 다시 시도</button></div>}
     {calculation.ready && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} custHeaderHeight={custHeaderHeight} onResize={changeWidth} onCustHeaderResize={changeCustHeaderHeight} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={toggleRow} onToggleColumn={toggleColumn} sorts={sorts} selections={selections} filterActive={filterActive} valueFilterStates={valueFilterStates} fieldAreas={fieldAreas} />}
     {!(calculation.ready && !renderLimitError) && <div data-testid="pivot-exe-field-areas-fallback" className={ExePivotTheme.area} style={{display:'grid',gap:2,padding:2,border:'1px solid #9d9d9d'}}>{['filters','values','cols','rows'].map((zone)=><ExePivotFieldArea key={zone} {...fieldAreas[zone]} />)}</div>}
     <div data-testid="pivot-applied-filters" style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',padding:'3px 6px',background:filterActive?'#f0f0f0':'#fff1d6',border:'1px solid #9d9d9d',borderTop:0,fontSize:12}}>
