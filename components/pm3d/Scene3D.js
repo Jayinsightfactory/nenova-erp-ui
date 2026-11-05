@@ -343,7 +343,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           ud.userData = f.d.person ? { kind: 'person', name: f.d.person.name } : {};
           f.g.add(ud); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
           f.ps.visible = false;
-          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); }
+          if (f.cn) { const l = worldToLocal(f.cn.x - f.d.x, f.cn.z - f.d.z, f.d.yaw); up.position.set(l.x, 0, l.z); up.scale.setScalar(f.cn.scale); f.g.add(up); f.g.userData.parasolTip = { x: l.x, y: f.cn.y1 + 0.25, z: l.z }; } // 작업 말풍선 기준점 = 파라솔 꼭대기 위
           seats++;
         }
         // 3) 소품: 야자수·바위·덤불(해변 끝단 장식 교체)
@@ -556,7 +556,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
         P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.25; v.project(cam); // 이름표 = 머리 위 items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
-        if (P.stage) { wv.set(0, 0.15, 2.0); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h, ...sizeOf('w:' + name, 150, 30) }); }
+        if (P.stage) { const tip = P.g.userData?.parasolTip; if (tip) wv.set(tip.x, tip.y, tip.z); else wv.set(0, HEAD_Y + 0.9, -SEAT_Z); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h - 12, ...sizeOf('w:' + name, 150, 30) }); } // 작업 말풍선 = 파라솔 위(파라솔 없으면 머리 위)
       }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }
       for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('rb' + o.userData.i, 170, 18) }); }
