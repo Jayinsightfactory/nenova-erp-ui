@@ -1202,7 +1202,7 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .wpill { margin-left: auto; padding: 6px 16px; font-size: 18px; background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 80%, white), var(--pm-est-bg)); color: var(--pm-est-ink); border: 2px solid color-mix(in srgb, var(--pm-est-ink) 35%, var(--pm-est-bg)); border-radius: 999px; box-shadow: 0 3px 0 color-mix(in srgb, var(--pm-est-ink) 40%, var(--pm-est-bg)); font-weight: 800; }
         .pm .sgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
         .pm .sitems, .pm .sside { background: color-mix(in srgb, var(--pm-surface) 82%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 2px solid color-mix(in srgb, var(--pm-surface) 55%, transparent); border-radius: 18px; padding: 12px; box-shadow: var(--pm-shadow); }
-        .pm .sstage { background: color-mix(in srgb, var(--pm-surface) 30%, transparent); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); border: 0; border-radius: 18px; padding: 12px; }
+        .pm .sstage { background: color-mix(in srgb, var(--pm-surface) 68%, transparent); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 2px solid color-mix(in srgb, var(--pm-surface) 50%, transparent); border-radius: 18px; padding: 12px; }
         .pm .stagebox { position: relative; display: grid; place-items: center; height: 240px; border-radius: var(--pm-radius); background: radial-gradient(circle at 50% 40%, var(--pm-surface), var(--pm-surface2) 70%); overflow: hidden; }
         .pm .stagebox .pav { z-index: 1; }
         /* 3D 렌더 미리보기(종족 베이스 + 장착 레이어 겹침, components/pm/PmTheme.js Render3DPreview) */
@@ -1211,7 +1211,10 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         /* 피팅룸(디자인 자문): 3D 렌더가 주인공 — 좌측 폭을 꽉 채우고, 단상 그림자 타원으로 "서 있는" 공간감 */
         /* 게임급: 피팅룸 캐릭터가 배경 아트의 무대·받침대 위에 바로 서게 — 프레임 없는 투명 스택 */
         .pm .r3dbig .r3dstack { width: 100%; max-width: 276px; height: auto; aspect-ratio: 1; background: transparent; border: 0; overflow: visible; }
-        .pm .r3dbig .r3dstack::after { content: ''; position: absolute; left: 50%; bottom: 7%; width: 58%; height: 8%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pm-ink) 16%, transparent), transparent 70%); }
+        /* 발밑 받침 원반 + 그림자 — 캐릭터가 허공에 뜨지 않게(배경 아트 어디에서도 성립) */
+        .pm .r3dbig .r3dstack::before { content: ''; position: absolute; left: 50%; bottom: 3%; width: 72%; height: 14%; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 70%, white), color-mix(in srgb, var(--pm-est-bg) 70%, var(--pm-est-ink))); box-shadow: 0 6px 0 color-mix(in srgb, var(--pm-est-ink) 45%, var(--pm-est-bg)), 0 12px 16px color-mix(in srgb, var(--pm-ink) 25%, transparent); }
+        .pm .r3dbig .r3dstack::after { content: ''; position: absolute; left: 50%; bottom: 8%; width: 52%; height: 7%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pm-ink) 22%, transparent), transparent 70%); }
+        .pm .r3dbig .r3dstack img { inset: 0 0 8% 0; height: 92%; z-index: 1; }
         .pm .pc2stage { zoom: .9; opacity: .95; }
         .pm .r3dstack img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
         .pm .r3dstack img.r3dm { inset: auto 4px 4px auto; width: 56px; height: 56px; }

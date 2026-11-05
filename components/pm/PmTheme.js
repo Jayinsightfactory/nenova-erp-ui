@@ -178,6 +178,7 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(false);
+  const [show2d, setShow2d] = useState(false);
   const [fxPlay, setFxPlay] = useState(0);
   useEffect(() => { setCfg(base(saved)); }, [name, saved]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!dance) return undefined; const t = setTimeout(() => setDance(''), 2600); return () => clearTimeout(t); }, [dance]);
@@ -233,7 +234,9 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
         <section className="sstage">
           {/* [2026-11-05 디자인 자문] 피팅룸 승격: 3D 실물 렌더가 주인공(크게·단상 위), 2D 무대는 동작 미리보기로 축소 */}
           <Render3DPreview cfg={cfg} big />
-          <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.5} state={st} stage={myStage} dance={dance} emote={emote} /></div>
+          {/* 2D 동작 미리보기는 기본 접힘(알몸 기본 캐릭터 노출 방지) — 춤·이모트 누르면 자동으로 펼침 */}
+          {(dance || emote || show2d) ? <div className="stagebox pc2stage"><DeskSet cfg={cfg} scale={0.5} state={st} stage={myStage} dance={dance} emote={emote} /></div>
+            : <Button size="sm" variant="ghost" onClick={() => setShow2d(true)}>동작 미리보기 열기</Button>}
           <PassBadge pass={pass} />
           {pass && pass.expired && <p className="czmsg" role="note">자유이용권이 끝났어요. 산 적 없는 품목은 기본 복장으로 돌아갔어요(꾸미기 기록은 보관) — 구매하면 계속 사용할 수 있어요.</p>}
           <div className="czst" role="group" aria-label="춤 미리보기">
