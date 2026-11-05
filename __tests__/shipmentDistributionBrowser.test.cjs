@@ -37,6 +37,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let savePosts = 0;
     let failNextSave = true;
     let expectPairSave = false;
+  let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
+  let orderPosts = 0;
     let delayOldProducts = false;
     let holdNextQuery = false;
     const heldQueryStarted = deferred();
@@ -71,6 +73,15 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           return reply(route, { success: true });
         }
       }
+      if (url.pathname === '/api/orders' && request.method() === 'POST') {
+        orderPosts += 1;
+        const body = JSON.parse(request.postData() || '{}');
+        // 주문 없던 업체 2(436)에 Zinnia 3 을 옮긴 뒤 Ctrl+S → 분배 저장 전에 기존 주문등록 API 로 주문 생성
+        assert.deepEqual([body.custKey, body.week, body.year, body.source, body.items],
+          [436, '2026-41-02', '2026', 'distribute-pair', [{ prodKey: 90, qty: 3, unit: '박스' }]], 'pending order registered for the receiving customer only');
+        assert.equal(savePosts, 3, 'order registration happens before the distribute save');
+        return reply(route, { success: true, verified: true, orderMasterKey: 1 }, 201);
+      }
       if (url.pathname === '/api/shipment/ship-days') return reply(route, { success: true, configs: [] });
       if (url.pathname === '/api/shipment/fix' && request.method() === 'GET')
         return reply(route, { success: true, issueCount: 1, week: '2026-41-02', negative: [] });
@@ -89,8 +100,9 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           if (expectPairSave) {
             expectPairSave = false;
             // 업체 1 + 업체 2 나란히 보기: → 이동 후 Ctrl+S 는 두 업체 행을 한 배치로 저장
+            assert.equal(orderPosts, 1, 'pending order was registered first');
             assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]),
-              [[478, 2429, 0], [436, 2429, 102]], 'pair save moves quantity from customer 1 to customer 2');
+              [[478, 2429, 0], [478, 90, 4], [436, 2429, 102], [436, 90, 3]], 'pair save: full move 2429, partial move 3 of 7 Zinnia, no entry for the row moved back to 0');
             return reply(route, { success: true, verified: true, results: [{ verified: true }, { verified: true }] });
           }
           if (body.entries.length === 1) {
@@ -137,7 +149,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
         if (type === 'custItems') return reply(route, { success: true, items: [{
           ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', 주문수량: 60,
           출고수량: shipmentQty, ShipmentDescr: '기존 출고 비고', 비고: '주문 메모', Cost: 100,
-        }] });
+        }, ...(custItemsExtra && url.searchParams.get('custKey') === '478'
+          ? [{ ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', 주문수량: 20, 출고수량: 7, ShipmentDescr: '', Cost: 12 }] : [])] });
         if (type === 'shipmentFarms') return reply(route, { success: true, farms: [] });
       }
       return reply(route, { success: true });
@@ -278,6 +291,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await customerQty.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-keyshortcuts')), 'Control+S');
     assert.equal(savePosts, 2, 'customer last-row Enter remains focus-only');
+    custItemsExtra = true;
     await page.keyboard.press('Control+s');
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(savePosts, 3, 'Ctrl+S uses customer mode save');
@@ -298,6 +312,21 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '');
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
     assert.equal(await page.locator('[data-ai-verify="move-to2-2429"]').isDisabled(), true, 'nothing left to move from customer 1');
+    // 부분 이동 + 주문 없는 업체: Zinnia 7 중 3 만 ② 로 (② 에는 주문 없음 → 임시 행 '주문등록 예정')
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').count(), 0, 'customer 2 has no Zinnia order yet');
+    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
+    await page.locator('[data-ai-verify="move-to2-90"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').inputValue(), '4', 'partial move leaves 4 at customer 1');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '3');
+    await page.getByText('주문등록 예정').waitFor();
+    // 되돌리면(②→① 3) 주문등록 예정 행은 0 → 저장 시 주문도 분배도 만들지 않음; 다시 3 옮겨 저장
+    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
+    await page.locator('[data-ai-verify="move-to1-90"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').inputValue(), '7');
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '');
+    await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
+    await page.locator('[data-ai-verify="move-to2-90"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '3');
     await page.getByText(/② 기존 출고 비고 · 미저장 51 → 102단/).waitFor();
     await page.getByText(/① 기존 출고 비고 · 미저장 51 → 0단/).waitFor();
     await page.screenshot({ path: path.join(root, 'outputs', 'distribution-pair-1920.png'), fullPage: true });
@@ -306,7 +335,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(savePosts, 4, 'pair Ctrl+S posts both customers once');
     await page.getByRole('button', { name: '확인', exact: true }).click();
-    await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 1건 · 총 102/).waitFor();
+    await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 3건 · 총 109 · 주문등록 1건/).waitFor();
+    assert.equal(orderPosts, 1, 'exactly one order registration (customer 2 Zinnia)');
     await page.getByRole('button', { name: '업체 2 해제' }).click();
     await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
     console.log('browser: pair');

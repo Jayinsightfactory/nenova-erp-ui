@@ -66,3 +66,18 @@ test('favorite parser accepts exact ProdKey only and rejects malformed rows', as
   assert.equal(parseDistributionFavorite({ FavoriteKey: 11, FilterData: '{"prodName":"Alstro"}' }), null);
   assert.equal(parseDistributionFavorite({ FavoriteKey: 12, FilterData: '{bad' }), null);
 });
+
+test('partial move plan, pending-order rows and order count in save log', async () => {
+  const { planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionSaveLogLine } = await load();
+  assert.deepEqual(planDistributionMove({ fromQty: 5, toQty: 2, requested: '' }), { moved: 5, fromAfter: 0, toAfter: 7 }, 'empty request moves all');
+  assert.deepEqual(planDistributionMove({ fromQty: 5, toQty: 2, requested: '3' }), { moved: 3, fromAfter: 2, toAfter: 5 }, 'partial move');
+  assert.deepEqual(planDistributionMove({ fromQty: 5, toQty: 0, requested: '9' }), { moved: 5, fromAfter: 0, toAfter: 5 }, 'capped at source qty');
+  assert.deepEqual(planDistributionMove({ fromQty: 0, toQty: 1, requested: '2' }), { moved: 0, fromAfter: 0, toAfter: 1 }, 'nothing to move');
+  const pending = pendingDistributionItem({ ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', Cost: 12, 주문수량: 20, 출고수량: 7, ShipmentDescr: 'x' });
+  assert.deepEqual([pending.주문수량, pending.출고수량, pending.pendingOrder, pending.ShipmentDescr, pending.Cost], [0, 0, true, '', 12]);
+  const items = [pending, { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', 주문수량: 60, 출고수량: 51 }];
+  assert.deepEqual(pendingDistributionOrderItems(items, { 90: { outQty: '3' }, 2429: { outQty: 0 } }), [{ prodKey: 90, qty: 3, unit: '박스' }]);
+  assert.deepEqual(pendingDistributionOrderItems(items, { 90: { outQty: 0 } }), [], 'moved back to 0 → no order registration');
+  assert.match(distributionSaveLogLine({ mode: 'cust', name: 'A + B', week: '2026-41-02', savedCount: 3, totalQty: 112, orderCount: 1 }, new Date(2026, 10, 5, 9, 7, 3)),
+    /저장 완료 3건 · 총 112 · 주문등록 1건$/);
+});

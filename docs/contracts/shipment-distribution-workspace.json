@@ -33,9 +33,9 @@
     },
     {
       "name": "EXE_STYLE_SELECTION_AND_PAIR_VIEW",
-      "orderDetail": "preserve",
+      "orderDetail": "create-positive",
       "shipmentDetail": "preserve",
-      "sideEffect": "Week (±3 major, sub-week), product and customer selection are buttons with data-ai-verify markers; the 업체정보 tab may show two customers side by side and move draft quantity between them on screen only. Moving into a customer without an OrderDetail row for that product is refused (no ghost shipment). Nothing is written until the existing batch save."
+      "sideEffect": "Week (±3 major, sub-week), product and customer selection are buttons with data-ai-verify markers; the 업체정보 tab may show two customers side by side and move draft quantity (all, or a per-row partial amount) between them on screen only. Moving into a customer without an OrderDetail row for that product creates a pending row; on save the page first registers that order through the existing POST /api/orders (additive, OutUnit quantity = distributed quantity) and only then runs the batch distribute save, so no ghost shipment is written. A source row moved down to 0 keeps its OrderDetail untouched; a pending row moved back to 0 registers nothing."
     },
     {
       "name": "SAVE_ABSOLUTE_QUANTITY",

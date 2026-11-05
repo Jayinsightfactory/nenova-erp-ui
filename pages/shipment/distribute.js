@@ -6,6 +6,7 @@ import { distributeProductName, distributePreviousStock, distributePreviousStock
 import DistributionPicker from '../../components/shipment/DistributionPicker';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite,
+  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem,
   sortDistributionCustomers, sortDistributionProducts } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -121,6 +122,7 @@ export default function Distribute() {
   const [pairItems, setPairItems] = useState([]);
   const [pairEditInputs, setPairEditInputs] = useState({});
   const [pairLoading, setPairLoading] = useState(false);
+  const [moveQtyInputs, setMoveQtyInputs] = useState({}); // 품목별 이동 수량 (비우면 전부)
 
   const [loading, setLoading] = useState(false);
   const [custFilter, setCustFilter] = useState('');
@@ -257,7 +259,7 @@ export default function Distribute() {
     setSelectedProd(null); setCustDist([]); setOutInputs({});
     setSelectedCust(null); setCustItems([]); setCustEditInputs({});
     pairRequestRef.current += 1;
-    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1);
+    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({});
     setSelectedDistCust(null); setFarmRows([]);
     setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});
     setPivotRows([]);
@@ -789,7 +791,7 @@ export default function Distribute() {
     const request = ++pairRequestRef.current;
     const requestedWeek = week;
     setPairCust(cust);
-    setPairItems([]); setPairEditInputs({});
+    setPairItems([]); setPairEditInputs({}); setMoveQtyInputs({});
     setPairLoading(true);
     try {
       const d = await apiGetDistribute({ type:'custItems', week, custKey: cust.CustKey });
@@ -807,20 +809,41 @@ export default function Distribute() {
     if (hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
       !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 해제하면 입력값이 사라집니다. 계속하시겠습니까?')) return;
     pairRequestRef.current += 1;
-    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1);
+    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({});
   };
   // 한쪽 업체의 출고수량을 다른 쪽으로 옮기기 (화면 입력값만; DB 반영은 저장)
-  // 받는 업체에 그 품목 주문이 없으면 옮기지 않는다 — 주문 없는 출고(고스트 출고) 생성 금지
+  // - 이동 수량 칸이 비어 있으면 전부, 숫자가 있으면 그만큼만 (보내는 쪽 수량이 상한)
+  // - 받는 업체에 그 품목 주문이 없으면 임시 행(주문수량 0)을 만들고, 저장 시 주문등록 → 분배 순으로 처리
+  // - 보내는 쪽이 0 이 돼도 주문등록은 건드리지 않는다
   const moveDistributionQty = (prodKey, direction) => {
-    const [fromInputs, setFromInputs, toItems, setToInputs] = direction === 'to2'
-      ? [custEditInputs, setCustEditInputs, pairItems, setPairEditInputs]
-      : [pairEditInputs, setPairEditInputs, custItems, setCustEditInputs];
-    if (!toItems.some(item => Number(item.ProdKey) === Number(prodKey))) return;
-    const qty = parseFloat(fromInputs[prodKey]?.outQty) || 0;
-    if (qty <= 0) return;
-    setFromInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: 0 } }));
-    setToInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}),
-      outQty: Math.round(((parseFloat(prev[prodKey]?.outQty) || 0) + qty) * 100) / 100 } }));
+    const [fromItems, fromInputs, setFromInputs, toItems, toInputs, setToItems, setToInputs] = direction === 'to2'
+      ? [custItems, custEditInputs, setCustEditInputs, pairItems, pairEditInputs, setPairItems, setPairEditInputs]
+      : [pairItems, pairEditInputs, setPairEditInputs, custItems, custEditInputs, setCustItems, setCustEditInputs];
+    const source = fromItems.find(item => Number(item.ProdKey) === Number(prodKey));
+    if (!source) return;
+    const target = toItems.find(item => Number(item.ProdKey) === Number(prodKey));
+    const fromQty = fromInputs[prodKey]?.outQty !== undefined ? parseFloat(fromInputs[prodKey].outQty) || 0 : (source.출고수량 || 0);
+    const toQty = target ? (toInputs[prodKey]?.outQty !== undefined ? parseFloat(toInputs[prodKey].outQty) || 0 : (target.출고수량 || 0)) : 0;
+    const plan = planDistributionMove({ fromQty, toQty, requested: moveQtyInputs[prodKey] });
+    if (plan.moved <= 0) return;
+    if (!target) setToItems(prev => [...prev, pendingDistributionItem(source)]);
+    setFromInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: plan.fromAfter } }));
+    setToInputs(prev => ({ ...prev, [prodKey]: { ...(prev[prodKey] || {}), outQty: plan.toAfter, cost: prev[prodKey]?.cost ?? (target?.Cost ?? source.Cost ?? 0) } }));
+    setMoveQtyInputs(prev => ({ ...prev, [prodKey]: '' }));
+  };
+
+  // 주문이 없던 업체에 옮긴 품목 → 기존 주문등록 API(가산 등록)로 먼저 주문을 만든다. 분배 저장은 그 뒤.
+  const registerPendingOrders = async (cust, items, inputs) => {
+    const pending = pendingDistributionOrderItems(items, inputs);
+    if (!cust || pending.length === 0) return 0;
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ custKey: cust.CustKey, custName: cust.CustName, week, year: selectedOrderYear, source: 'distribute-pair', items: pending })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success !== true) throw new Error(`${cust.CustName} 주문등록 실패: ${data.error || res.status}`);
+    return pending.length;
   };
 
   // 업체기준 저장 — 업체 1(+업체 2) 행을 같은 배치 저장 경로로
@@ -844,9 +867,13 @@ export default function Distribute() {
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
         return { custKey: cust.CustKey, prodKey: item.ProdKey, outQty: qty, cost };
       });
+      // 주문 없던 품목: 수량이 남아 있으면 주문등록 먼저, 0 으로 돌아갔으면 주문도 분배도 만들지 않음
+      const orderCount = (await registerPendingOrders(selectedCust, custItems, custEditInputs))
+        + (pairCust ? await registerPendingOrders(pairCust, pairItems, pairEditInputs) : 0);
+      const dropEmptyPending = (items, inputs) => items.filter(item => !item.pendingOrder || (parseFloat(inputs[item.ProdKey]?.outQty) || 0) > 0);
       const entries = [
-        ...toEntries(selectedCust, custItems, custEditInputs),
-        ...(pairCust ? toEntries(pairCust, pairItems, pairEditInputs) : []),
+        ...toEntries(selectedCust, dropEmptyPending(custItems, custEditInputs), custEditInputs),
+        ...(pairCust ? toEntries(pairCust, dropEmptyPending(pairItems, pairEditInputs), pairEditInputs) : []),
       ];
       const res = await fetch('/api/shipment/distribute', {
         method: 'POST',
@@ -859,7 +886,7 @@ export default function Distribute() {
       const savedItems = entries.filter(entry => entry.outQty > 0);
       const totalQty = savedItems.reduce((a, entry) => a + entry.outQty, 0);
       setSaveModal({ prodName: pairName, week, savedCount: savedItems.length, totalQty });
-      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, savedCount: savedItems.length, totalQty });
+      appendSaveLog({ mode: 'cust', name: pairName, week: submittedWeek, savedCount: savedItems.length, totalQty, orderCount });
       if (Number(submittedCust.CustKey) === Number(selectedCust?.CustKey)) selectCust(submittedCust, { skipDraftCheck: true }); // 새로고침
       if (submittedPair && Number(submittedPair.CustKey) === Number(pairCust?.CustKey)) selectPairCust(submittedPair, { skipDraftCheck: true }); // 업체 2 새로고침
     } catch(e) {
@@ -1570,18 +1597,22 @@ export default function Distribute() {
                               <tr key={row.ProdKey}>
                                 <td style={{fontWeight:500}}>{row.DisplayName || row.ProdName}</td>
                                 <td style={{fontSize:11}}>{row.OutUnit}</td>
-                                <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.주문수량||0).toFixed(2) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
+                                <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.a.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
                                 <td>{row.a ? qtyInput(selectedCust, row.a, qtyA, custEditInputs, setCustEditInputs, 'var(--blue)') : '—'}</td>
                                 <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
-                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to2-${row.ProdKey}`} disabled={saving || loading || !row.a || !row.b || !(parseFloat(qtyA) > 0)}
-                                    title={!row.b ? '② 업체에 이 품목 주문이 없어 옮길 수 없습니다 (주문 없는 출고 생성 금지)' : '① 출고수량 전부를 ②로 (화면 입력값만, 저장 시 반영)'}
+                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={saving || loading || !(parseFloat(qtyB) > 0)}
+                                    title={!row.a ? '②→① 이동 (①에 주문이 없어 저장 시 주문등록 후 분배)' : '②→① 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
+                                    onClick={() => moveDistributionQty(row.ProdKey, 'to1')} style={{padding:'1px 7px'}}>←</button>
+                                  <input type="number" min={0} step={0.1} value={moveQtyInputs[row.ProdKey] ?? ''} placeholder="전부" disabled={saving || loading}
+                                    data-ai-verify={`move-qty-${row.ProdKey}`} aria-label={`${row.ProdName} 이동 수량`}
+                                    onChange={e=>setMoveQtyInputs(prev=>({...prev,[row.ProdKey]:e.target.value}))}
+                                    style={{width:54,height:24,margin:'0 3px',border:'1px solid var(--border2)',borderRadius:4,textAlign:'right',fontSize:11,fontFamily:'var(--mono)',padding:'0 3px'}} />
+                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to2-${row.ProdKey}`} disabled={saving || loading || !(parseFloat(qtyA) > 0)}
+                                    title={!row.b ? '①→② 이동 (②에 주문이 없어 저장 시 주문등록 후 분배)' : '①→② 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
                                     onClick={() => moveDistributionQty(row.ProdKey, 'to2')} style={{padding:'1px 7px'}}>→</button>
-                                  <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={saving || loading || !row.a || !row.b || !(parseFloat(qtyB) > 0)}
-                                    title={!row.a ? '① 업체에 이 품목 주문이 없어 옮길 수 없습니다 (주문 없는 출고 생성 금지)' : '② 출고수량 전부를 ①로 (화면 입력값만, 저장 시 반영)'}
-                                    onClick={() => moveDistributionQty(row.ProdKey, 'to1')} style={{padding:'1px 7px',marginLeft:3}}>←</button>
                                 </td>
                                 <td>{row.b ? qtyInput(pairCust, row.b, qtyB, pairEditInputs, setPairEditInputs, '#b45309') : '—'}</td>
-                                <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.주문수량||0).toFixed(2) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
+                                <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.b.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
                                 <td style={{fontSize:11,color:'var(--text3)'}}>
                                   {row.a && <div>① {distributionQuantityRemark(row.a.ShipmentDescr, row.a.출고수량, qtyA, row.OutUnit)}</div>}
                                   {row.b && <div>② {distributionQuantityRemark(row.b.ShipmentDescr, row.b.출고수량, qtyB, row.OutUnit)}</div>}
