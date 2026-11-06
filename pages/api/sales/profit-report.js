@@ -40,6 +40,7 @@ import {getPool} from '../../../lib/db.js';
 import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadContext.js';
 import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
 import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
+import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureDiagnostic.cjs';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -694,26 +695,34 @@ async function previousReportPeriod(orderYear,major){
   return resolvePreviousProfitWeek(calendar,resolveCurrentProfitWeek(calendar,dateOnly));
 }
 async function loadCoherentLatestReport(major,orderYear){
+  let diagnostic;
   const work=async()=>{
     const previous=await previousReportPeriod(orderYear,major);
     const years=[...new Set([String(orderYear),previous.orderYear,String(Number(orderYear)-1)])];
     const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years)});
+    diagnostic?.phase('preFence');
     const before=await signature();
+    diagnostic?.phase('current');
     const raw=materializeProfitPayload({...await loadReportData(major,orderYear),major,orderYear});
+    diagnostic?.phase('prior');
     const prior=materializeProfitPayload({...await loadReportData(previous.major,previous.orderYear),major:previous.major,orderYear:previous.orderYear});
     const latestReports=new Map([[String(major).padStart(2,'0'),{payload:raw}]]);
     if(previous.orderYear===String(orderYear))latestReports.set(previous.major,{payload:prior});
+    diagnostic?.phase('duty');
     const result=await applyTemplateDutyToReport(raw,orderYear,major,{strict:true,latestReports,previousPayload:prior});
+    diagnostic?.phase('postFence');
     if(before!==await signature())throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
     return result;
   };
   if(currentErpReadContext())return work();
   return shareLatestProfitRead(orderYear,major,async()=>{
     const pool=await getPool();
+    diagnostic=createProfitReadFailureDiagnostic({orderYear,major,pool});
     return withErpReadContext({allowExternalEvidenceReads:true,serializeReads:false,queryFn:async(statement,params)=>{
       const request=pool.request();for(const [name,{type,value}]of Object.entries(params))request.input(name,type,value);
-      const timer=setTimeout(()=>request.cancel(),45_000);
-      try{return await request.query(statement);}finally{clearTimeout(timer);}
+      const observation=diagnostic.begin(statement);
+      const timer=setTimeout(()=>{observation.timerFired();request.cancel();},45_000);
+      try{return await request.query(statement);}catch(error){observation.failed(error);throw error;}finally{clearTimeout(timer);}
     }},work);
   });
 }

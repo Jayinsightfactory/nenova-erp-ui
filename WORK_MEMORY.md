@@ -2200,3 +2200,10 @@
 - PASS결과의유효scope/요청·HTTP숫자/blockedWrites/actualBusinessWrites/diff개수/SHA/bytes/sheets만추가출력, HTTP실패는boolean/status+고정kind(main/output/week-check/stock-notes/other-api)만. 모든동일origin API5xx감지기준유지·URL원문0. 판정HTTP_FAILURE/READ_BUDGET_FAILED/FILE_MONEY_FAILED 고정code분리.
 - blockedWrites는성공적으로차단한nonGET시도수이므로정수>=0허용, 실제businesswrites===0유지. 실제기존request handler를합성실행해POST/PATCH/DELETE모두abort·continue0 입증. 개인정보/중첩값/결과diff본문차단 및원인별fixture 포함9PASS. 앱/SQL/운영설정변경0/추가실SQL0, 부모읽기재실행대기.
 검색어: RUNTIME_FILE_MONEY_FAILED blockedWrites intercepted actualBusinessWrites runtimeFileResult 42197990812 readonly
+
+## 2026-11-06 ordinary live 손익 취소 실패 최소관측
+- 운영42198999887 첫round실UI·파일46570bytes/1sheet/돈diff0 PASS 뒤 두번째main500/60.032초/ECANCEL. after42199923355 PID1199984/restarts274 유지/RSS429MiB/memoryrestart0. 이번실패메모리재시작아님/512조정근거없음, 실패SQL/대기원인은미확정.
+- fresh cancel-diagnostic @50b264d8d. 일반shared live owner만 ECANCEL/ETIMEOUT 최대3회 fixedJSON: dispatch phase/PID/year+major/UTC/SHA12/elapsed/timerFired/dispatch+failure pool size·borrowed·available·pending bounded숫자. SQL/params/오류원문/응답trace0. 기존45/60초·retry·fence·수식·반환erroridentity/ERPctxbypass그대로, DB/설정쓰기0/추가실SQL·DMV0.
+- 기존runtime4MiB tail 내최근30분 exactkey/type/enum whitelist count+최신3건 집계. 이전PID도보존해baseline대조가능, 원문라인출력0. poolgetter만읽고monkeypatch없음. source/VM관련globalrg검토후추가하네스의존성누락없음.
+- 대상21PASS: 실제reader함수합성5phase·45000유지·erroridentity/loggerthrow·성공0로그/owner1/ERPctx완전bypass, profilerhash동일·pool0/null·교차연도/invalid0false·PID·privacy·실제runtime VM boundedtail. 첫합성fixture SELECT누락가드실패만정정. 계약/기준표/session연결, UI·workflow변경0/가이드N/A. fullgate/build/CI/운영판정은부모후속(미검증).
+검색어: profitReadFailureDiagnostic ECANCEL ETIMEOUT preFence postFence queryHash explicitTimerFired poolAtDispatch PID bounded30m
