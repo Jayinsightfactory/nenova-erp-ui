@@ -5,7 +5,7 @@ const APP='nenova-erp',ROOT='/var/www/nenova-erp',FIELDS=['DB_SERVER','DB_PORT',
 const NEXT_ENV_FILES=['.env.production.local','.env.local','.env.production','.env'];
 const CODES=new Set(['IDENTITY_MODE_INVALID','IDENTITY_EXPECTED_INVALID','IDENTITY_TARGET_INVALID','IDENTITY_TARGET_CHANGED','IDENTITY_ENV_INVALID','CONFIG_UNAVAILABLE','IDENTITY_QUERY_INVALID','IDENTITY_MISMATCH','IDENTITY_PROBE_FAILED']);
 const fail=code=>{throw Object.assign(Error(),{code});};
-const PROOF_REASONS=new Set(['NODE_ENV_UNPROVEN','CWD_UNPROVEN','START_TIME_UNPROVEN','ENV_FILES_NEWER_OR_CHANGED','NEXT_ENV_LOAD_UNPROVEN','INITIAL_ENV_UNPROVEN','CONFIG_VALUES_UNAVAILABLE','NEXT_ENV_PROOF_UNAVAILABLE']);
+const PROOF_REASONS=new Set(['NODE_ENV_UNPROVEN','CANONICAL_NEXT_START_UNPROVEN','CWD_UNPROVEN','START_TIME_UNPROVEN','ENV_FILES_NEWER_OR_CHANGED','NEXT_ENV_LOAD_UNPROVEN','INITIAL_ENV_UNPROVEN','CONFIG_VALUES_UNAVAILABLE','NEXT_ENV_PROOF_UNAVAILABLE']);
 const unproven=reason=>{throw Object.assign(Error(),{code:'CONFIG_UNAVAILABLE',reason});};
 const IDENTITY_SQL=`SELECT
  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'SERVER=',CONVERT(nvarchar(256),SERVERPROPERTY('ServerName')),N'|DB=',DB_NAME())),2)) IdentityHash,
@@ -49,11 +49,23 @@ function envFileSnapshot(io,startedAt){
   return {name,exists:true,realPath:io.realpathSync(file),mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,size:stat.size,ino:stat.ino,dev:stat.dev,linkMtimeMs:link.mtimeMs,linkCtimeMs:link.ctimeMs,hash};
  });
 }
-function reconstructNextEnvironment({pid,startedAt,initialEnviron},{io=fs,env=process.env,clock=Date.now,loadNext}={}){
+function canonicalNextStart(io,pid,metadata){
+ try{
+  const entry=ROOT+'/node_modules/next/dist/bin/next';
+  if(metadata?.pm_exec_path!==entry||io.realpathSync(metadata.pm_exec_path)!==io.realpathSync(entry))unproven('CANONICAL_NEXT_START_UNPROVEN');
+  const args=metadata.args==='start'?['start']:metadata.args;
+  if(!Array.isArray(args)||args.some(v=>typeof v!=='string')||!(args.length===1&&args[0]==='start'||args.length===3&&args[0]==='start'&&['-p','--port'].includes(args[1])&&/^[1-9]\d{0,4}$/.test(args[2])&&Number(args[2])<=65535))unproven('CANONICAL_NEXT_START_UNPROVEN');
+  const bytes=io.readFileSync('/proc/'+pid+'/cmdline');
+  try{if(!Buffer.isBuffer(bytes)||bytes.length>4096||!/^next-server \(v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\)\0*$/.test(bytes.toString('utf8')))unproven('CANONICAL_NEXT_START_UNPROVEN');}finally{if(Buffer.isBuffer(bytes))bytes.fill(0);}
+ }catch{unproven('CANONICAL_NEXT_START_UNPROVEN');}
+}
+function reconstructNextEnvironment({pid,startedAt,initialEnviron,pm2Env},{io=fs,env=process.env,clock=Date.now,loadNext}={}){
  try{
   if(!Number.isInteger(startedAt)||startedAt<=0||startedAt>clock())unproven('START_TIME_UNPROVEN');
   if(io.realpathSync(ROOT)!==ROOT||io.readlinkSync('/proc/'+pid+'/cwd')!==ROOT)unproven('CWD_UNPROVEN');
-  const initial=parseInitialEnvironment(initialEnviron);if(initial.NODE_ENV!=='production')unproven('NODE_ENV_UNPROVEN');if(initial.__NEXT_PROCESSED_ENV!==undefined)unproven('INITIAL_ENV_UNPROVEN');
+  const initial=parseInitialEnvironment(initialEnviron),defaultProduction=!Object.hasOwn(initial,'NODE_ENV');
+  if(defaultProduction){canonicalNextStart(io,pid,pm2Env);initial.NODE_ENV='production';}else if(initial.NODE_ENV!=='production')unproven('NODE_ENV_UNPROVEN');
+  if(initial.__NEXT_PROCESSED_ENV!==undefined)unproven('INITIAL_ENV_UNPROVEN');
   const before=envFileSnapshot(io,startedAt),prior={...env};let fields,loadError=false;
   const replace=value=>{for(const key of Object.keys(env))if(!Object.hasOwn(value,key))delete env[key];for(const [key,v]of Object.entries(value))env[key]=v;};
   try{
@@ -62,8 +74,9 @@ function reconstructNextEnvironment({pid,startedAt,initialEnviron},{io=fs,env=pr
    if(loadError||!Array.isArray(loaded.loadedEnvFiles)||JSON.stringify(loaded.loadedEnvFiles.map(f=>f.path))!==JSON.stringify(before.filter(f=>f.exists).map(f=>f.name)))unproven('NEXT_ENV_LOAD_UNPROVEN');
    fields=Object.fromEntries(FIELDS.map(key=>[key,env[key]]));connectionConfig(fields);
   }finally{replace(prior);}
-  const verify=()=>{if(io.readlinkSync('/proc/'+pid+'/cwd')!==ROOT)unproven('CWD_UNPROVEN');if(JSON.stringify(envFileSnapshot(io,startedAt))!==JSON.stringify(before))unproven('ENV_FILES_NEWER_OR_CHANGED');};
-  verify();return {fields,verify,startedAt,configSource:'verified_next_production_env'};
+  const verify=()=>{if(io.readlinkSync('/proc/'+pid+'/cwd')!==ROOT)unproven('CWD_UNPROVEN');if(defaultProduction)canonicalNextStart(io,pid,pm2Env);if(JSON.stringify(envFileSnapshot(io,startedAt))!==JSON.stringify(before))unproven('ENV_FILES_NEWER_OR_CHANGED');};
+  const verifyTarget=metadata=>{if(defaultProduction){canonicalNextStart(io,pid,metadata);if(JSON.stringify(metadata.args)!==JSON.stringify(pm2Env.args)||metadata.pm_exec_path!==pm2Env.pm_exec_path)unproven('CANONICAL_NEXT_START_UNPROVEN');}};
+  verify();return {fields,verify,verifyTarget,startedAt,configSource:defaultProduction?'verified_canonical_next_start_env':'verified_next_production_env',configProof:defaultProduction?'CANONICAL_NEXT_START_DEFAULT_PRODUCTION':'EXPLICIT_PRODUCTION'};
  }catch(error){if(error.code==='CONFIG_UNAVAILABLE'&&PROOF_REASONS.has(error.reason))throw error;unproven('NEXT_ENV_PROOF_UNAVAILABLE');}finally{initialEnviron.fill(0);}
 }
 const WINDOWS=[{id:'first',start:'2026-11-06T10:40:17.000Z',end:'2026-11-06T10:41:38.000Z'},{id:'second',start:'2026-11-06T10:51:58.000Z',end:'2026-11-06T10:53:20.000Z'}];
@@ -119,7 +132,7 @@ async function runProbe({mode,expectedIdentityHash},deps){
     fields=parseDatabaseFields(Buffer.from(initialEnviron));
     if(['DB_SERVER','DB_NAME','DB_USER','DB_PASSWORD'].some(key=>fields[key]===undefined||fields[key]==='')){
      if(typeof deps.reconstructNext!=='function')fail('CONFIG_UNAVAILABLE');
-     proof=await deps.reconstructNext({pid,startedAt:rows.find(p=>p.name===APP).pm2_env.pm_uptime,initialEnviron});fields=proof.fields;configSource=proof.configSource;
+     proof=await deps.reconstructNext({pid,startedAt:rows.find(p=>p.name===APP).pm2_env.pm_uptime,pm2Env:rows.find(p=>p.name===APP).pm2_env,initialEnviron});fields=proof.fields;configSource=proof.configSource;
     }
    }finally{initialEnviron.fill(0);}
   }
@@ -133,9 +146,10 @@ async function runProbe({mode,expectedIdentityHash},deps){
   if(mode==='production'){
    const current=await deps.list();if(selectProcess(current)!==pid||(proof&&current.find(p=>p.name===APP).pm2_env.pm_uptime!==proof.startedAt))fail('IDENTITY_TARGET_CHANGED');
    proof?.verify();
+   proof?.verifyTarget?.(current.find(p=>p.name===APP).pm2_env);
   }
   const matchesExpected=expectedIdentityHash?row.IdentityHash===expectedIdentityHash:null;
-  return {status:matchesExpected===false?'FAILED':'PASS',code:matchesExpected===false?'IDENTITY_MISMATCH':'IDENTITY_OBSERVED',mode,pid,configSource,identityHash:row.IdentityHash,matchesExpected,taxableRateTablePresent:row.TaxableRateTablePresent,invoiceTablesPresent:row.InvoiceTablesPresent,invoiceUniqueKeyScopes:row.InvoiceUniqueKeyScopes,snapshotIsolationState:row.SnapshotIsolationState,readCommittedSnapshotOn:row.ReadCommittedSnapshotOn,selectBatches:reads};
+  return {status:matchesExpected===false?'FAILED':'PASS',code:matchesExpected===false?'IDENTITY_MISMATCH':'IDENTITY_OBSERVED',mode,pid,configSource,...(proof?.configProof?{configProof:proof.configProof}:{}),identityHash:row.IdentityHash,matchesExpected,taxableRateTablePresent:row.TaxableRateTablePresent,invoiceTablesPresent:row.InvoiceTablesPresent,invoiceUniqueKeyScopes:row.InvoiceUniqueKeyScopes,snapshotIsolationState:row.SnapshotIsolationState,readCommittedSnapshotOn:row.ReadCommittedSnapshotOn,selectBatches:reads};
  }finally{fields=null;if(pool)await pool.close();}
 }
 async function main({mode,expectedIdentityHash=process.env.DB_IDENTITY_EXPECTED_HASH}={}){

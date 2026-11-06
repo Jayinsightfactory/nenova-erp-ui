@@ -2230,3 +2230,4 @@
 검색어: verified_next_production_env NODE_ENV_UNPROVEN ENV_FILES_NEWER_OR_CHANGED recovery journal bounded-tail pairing CONFIG_UNAVAILABLE
 - 최종 대상11PASS/directmanifest202PASS/diffcheckPASS. actual Next VM fixture는 로컬Node24이며 Node20은 기존manual job에서 실행 예정(미검증). fullsuite/build/실SQL·운영dispatch는 이번 단계 실행하지 않았고 부모가 관리한다.
 - 후속 승인: 동일 identity SELECT에 현재DB snapshot_isolation_state 정수0..3/RCSI boolean 두 필드만 추가, typed/missing/range/privacy fixture 포함 최종12PASS. 별도batch·SQL재실행·설정ALTER·앱정책변경0, 실제 설정값은 부모 dispatch 전 미검증.
+- 42245474108 NODE_ENV_UNPROVEN 확인 후 canonicalNextStart positiveproof만 추가 승인: 실제 NODE_ENV 미설정+exact Next CLI realpath+정확start/검증port+known next-server title일 때만 공식 production 기본값을 자체진단RAM seed. explicitempty/false/dev/test/unknownentry 거부·기존cwd/appstart/envmtime/stat/hash/PID 검증 유지·postargs/title 재검증. 고정configSource/proof만 구분하고 rawargs/title0. actual Next VM 포함 대상13PASS, 실SQL0/앱·운영설정0, 부모 dispatch 전 운영미검증/원인미확정.

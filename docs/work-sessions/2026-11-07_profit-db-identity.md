@@ -14,3 +14,4 @@ Nov7 후속: strict 운영42240673358 CONFIG_UNAVAILABLE/앱 DB조회0. 별도 �
 
 최종 대상11PASS/directmanifest202PASS/diffcheckPASS, 로컬Node24. Node20/manual 운영 증명과 저널 관측은 부모 dispatch 전 미검증이다. fullsuite/build·추가SQL은 실행하지 않았다.
 - 추가 승인 두 필드만 같은 SELECT에 포함: 현재DB snapshotIsolationState 정수0..3/readCommittedSnapshotOn boolean. typed/privacy/누락·범위 회귀 포함 최종12PASS, batch증가0/설정ALTER0/실SQL0. 운영값 미검증.
+- 운영42245474108 NODE_ENV_UNPROVEN 뒤 추가 승인: 실제 미설정인 경우만 exact canonicalNext CLI realpath/start(+검증port)/known next-server title로 공식 defaultproduction 증명, 기존cwd/start/files 불변·post metadata 재검증 유지. source/proof 고정enum 구분, explicit empty/false/dev/test 거부, args/title 출력0. actual Next VM fixture 포함 최종13PASS, 실SQL0/앱설정0/운영 검증대기.

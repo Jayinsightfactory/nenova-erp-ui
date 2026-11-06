@@ -110,6 +110,23 @@ test('proc DB values retain priority, verified fallback proof rechecked after SE
   assert.equal(f.stats().queries,1);assert.equal(f.stats().closed,1);
  }
 });
+test('only absent NODE_ENV with canonical Next start metadata and known proc title proves default production',()=>{
+ for(const args of ['start',['start'],['start','-p','3000'],['start','--port','65535']]){
+  const f=nextFixture(),read=f.io.readFileSync,pm2Env={pm_exec_path:f.ROOT+'/node_modules/next/dist/bin/next',args},prior={...f.env};let title='next-server (v16.2.1)\0\0';
+  f.io.readFileSync=(file,encoding)=>file==='/proc/123/cmdline'?Buffer.from(title):read(file,encoding);
+  const initial=Buffer.from('BOOT_HOST=PRIVATE_SERVER\0DB_USER=PRIVATE_PROC_USER\0');
+  const proof=reconstructNextEnvironment({pid:123,startedAt:f.startedAt,initialEnviron:initial,pm2Env},{io:f.io,env:f.env,clock:()=>f.now,loadNext:f.loadNext});
+  assert.equal(proof.configSource,'verified_canonical_next_start_env');assert.equal(proof.configProof,'CANONICAL_NEXT_START_DEFAULT_PRODUCTION');assert.equal(proof.fields.DB_NAME,'PRIVATE_HIGHEST');assert.deepEqual(f.env,prior);assert.doesNotThrow(()=>proof.verifyTarget(pm2Env));assert.ok(initial.every(v=>v===0));
+  assert.throws(()=>proof.verifyTarget({...pm2Env,args:['start','-p','9999']}),{code:'CONFIG_UNAVAILABLE'});title='PRIVATE_TITLE';assert.throws(()=>proof.verify(),{code:'CONFIG_UNAVAILABLE'});
+ }
+ for(const mode of ['empty','false','development','test','unknown','entry','dev','extra','zeroPort','bigPort','numericPort','rawTitle','nodeTitle']){
+  const f=nextFixture(),read=f.io.readFileSync,pm2Env={pm_exec_path:f.ROOT+'/node_modules/next/dist/bin/next',args:['start']};let initial=Buffer.from('BOOT_HOST=PRIVATE_SERVER'),title='next-server (v16.2.1)\0';
+  if(['empty','false','development','test','unknown'].includes(mode))initial=Buffer.from('NODE_ENV='+({empty:'',false:'false',unknown:'PRIVATE_VALUE'}[mode]??mode));
+  if(mode==='entry')pm2Env.pm_exec_path='/PRIVATE/next';if(mode==='dev')pm2Env.args=['dev'];if(mode==='extra')pm2Env.args=['start','.'];if(mode==='zeroPort')pm2Env.args=['start','-p','0'];if(mode==='bigPort')pm2Env.args=['start','-p','65536'];if(mode==='numericPort')pm2Env.args=['start','-p',3000];if(mode==='rawTitle')title='PRIVATE';if(mode==='nodeTitle')title='node\0PRIVATE';
+  f.io.readFileSync=(file,encoding)=>file==='/proc/123/cmdline'?Buffer.from(title):read(file,encoding);
+  try{reconstructNextEnvironment({pid:123,startedAt:f.startedAt,initialEnviron:initial,pm2Env},{io:f.io,env:f.env,clock:()=>f.now,loadNext:f.loadNext});assert.fail('unproven must fail');}catch(error){const safe=safeFailure(error);assert.equal(safe.code,'CONFIG_UNAVAILABLE');assert.doesNotMatch(JSON.stringify(safe),/PRIVATE|next-server|3000|\/proc/);}
+ }
+});
 const uuid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
 const event=(attempt,phase,at,extra={})=>JSON.stringify({attempt:uuid(attempt),phase,at,scope:{orderYear:'2026',orderWeek:'44-01',ownerToken:'PRIVATE_OWNER'},...extra});
 test('journal pairs intervals across windows, caps output, hides IDs/owners/raw codes and marks partial/tail evidence',()=>{
