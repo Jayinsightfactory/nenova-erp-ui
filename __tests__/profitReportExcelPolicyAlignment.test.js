@@ -126,10 +126,10 @@ async function main() {
     '실제 품목 매입 레이어의 환율 캐시는 연도와 차수를 함께 구분');
   assert.match(layerContext, /computeCustomsAndForwarding\(major, orderYear, \{ profile: 'profit-report' \}\)/,
     '실제 품목 매입 레이어도 보고서 전용 통관 프로파일 사용');
-  assert.match(apiSource, /currentMajor <= 1 \? String\(Number\(orderYear\) - 1\) : String\(orderYear\)/,
-    '01차만 기초재고 연도를 전년도로 이동');
-  assert.match(apiSource, /currentMajor <= 1 \? '52'/,
-    '01차 기초재고는 전년도 52차를 참조');
+  assert.match(apiSource, /previousReportPeriod\(orderYear,major\)/,
+    '기초재고는 실제 업무차수 경계로 이동');
+  assert.match(apiSource, /resolvePreviousProfitWeek\(calendar,resolveCurrentProfitWeek/,
+    '01차 기초재고는 실제 PeriodDay 전년도 마지막차수(53포함)를 참조');
   const weekCheckSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report-week-check.js'), 'utf8');
   assert.match(weekCheckSource, /computeCustomsAndForwarding\(major, orderYear, \{ profile: 'profit-report' \}\)/,
     '새 차수 week-check도 보고서 전용 계산 프로파일을 사용');

@@ -1,7 +1,8 @@
 // Next 서버 부팅 훅 — 판매등록 히스토리 스냅샷 스케줄러 기동
 // (화 17:00 최종분배 / 수 16:00 점검 / 30분 변경감지 — lib/salesSnapshot.js)
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'edge') return;
+  // Keep node-only SQL scheduler dependencies out of the dev browser/edge bundle.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
   // Build workers must never schedule report writes or open report SQL connections.
   if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV === 'production' && process.env.DB_SERVER) {
     try {
@@ -24,5 +25,6 @@ export async function register() {
     startSalesSnapshotScheduler();
   } catch (e) {
     console.warn('[instrumentation] salesSnapshot 스케줄러 시작 실패(무시):', e.message);
+  }
   }
 }

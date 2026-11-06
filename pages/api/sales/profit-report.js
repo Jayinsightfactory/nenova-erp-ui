@@ -32,9 +32,13 @@ import { buildMonthlyProfitSummary, partitionMonthlyProfitPeriods } from '../../
 import { getActiveConfirm, getActiveConfirms } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 import { resolveCarriedRatesForCategories, createWeekContextCache, CARRIED_RATE_SOURCE } from '../../../lib/profitReportTaxableRateCarry.js';
-import { readStoredProfitPayload, storedProfitPayload, latestSnapshots, saveProfitCache, snapshotHistory } from '../../../lib/profitReportSnapshot.js';
-import { profitDisplayCalculation } from '../../../lib/profitReportStoredCalculation.js';
+import { readStoredProfitPayload, storedProfitPayload, latestSnapshots, saveProfitCache, snapshotHistory, loadSourceFingerprints } from '../../../lib/profitReportSnapshot.js';
+import { profitDisplayCalculation, materializeProfitPayload } from '../../../lib/profitReportStoredCalculation.js';
 import { loadProfitReportCalendar, resolveCurrentProfitWeek, resolvePreviousProfitWeek } from '../../../lib/profitReportWeeklySchedule.js';
+import {profitFinancialReadPolicy} from '../../../lib/profitReportReadPolicy.js';
+import {getPool} from '../../../lib/db.js';
+import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadContext.js';
+import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -122,6 +126,7 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
       return { manual: manualW.manual || {}, invoiceRates: invoiceRatesW, savedRates: savedRatesW, kcsRates: kcsRatesW, purchaseQty: purchaseQtyW };
     });
     const carried = await resolveCarriedRatesForCategories({
+      previousPeriod:previousReportPeriod,
       orderYear: targetYear,
       major: targetMajor,
       categories: [{ key: category, currency }],
@@ -150,9 +155,10 @@ async function loadReportDataInScope(major, orderYear) {
   refreshProfitCategorySql(true);
   const currentMajor = Number(major);
   // 27차 기초재고는 같은 매출연도의 26차 마지막 ProductStock 세부차수다.
-  // 연도 경계인 01차에서만 전년도 52차를 사용한다.
-  const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
-  const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
+  // 연도 경계는 실제 PeriodDay의 마지막 업무차수(53차 포함)를 사용한다.
+  const previousPeriod=await previousReportPeriod(orderYear,major);
+  const prevOrderYear=previousPeriod.orderYear;
+  const prevMajor=previousPeriod.major;
   const [N, est, Q, purchaseQty, S, rates, invoiceRateResult, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
@@ -171,7 +177,7 @@ async function loadReportDataInScope(major, orderYear) {
 
       // E는 "현재 보고서의 E 셀"을 이월하지 않고, 같은 연도의 직전 대차수 F를 같은 공식으로
       // 다시 계산한다. 이 때문에 26차 F와 불연속인 27차 workbook E(베트남 +3,658,862.88875)는
-      // 웹 값에 섞이지 않는다. 01차만 전년도 52차를 사용한다.
+      // 웹 값에 섞이지 않는다. 01차 직전은 실제 PeriodDay로 결정한다.
       const invoiceRates = invoiceRateResult.rates || invoiceRateResult;
       const [prevQ, prevPurchaseQty, prevLegacyS, prevInvoiceRateResult, prevCustoms, prevSavedRates, prevKcsRates] = await Promise.all([
         purchaseByCategory(prevMajor, prevOrderYear),
@@ -242,6 +248,7 @@ async function loadReportDataInScope(major, orderYear) {
         return [key, (rr.source !== RATE_SOURCE.MISSING && Number(rr.rate) > 0) ? { rate: rr.rate, source: rr.source } : null];
       }));
       const currentCarryByCategory = await resolveCarriedRatesForCategories({
+        previousPeriod:previousReportPeriod,
         orderYear, major,
         categories: keys.map((key) => ({ key, currency: resolvedRateByKey[key].curCode })),
         currentExactByCategory,
@@ -275,6 +282,7 @@ async function loadReportDataInScope(major, orderYear) {
         return [key, (rr.source !== RATE_SOURCE.MISSING && Number(rr.rate) > 0) ? { rate: rr.rate, source: rr.source } : null];
       }));
       const prevCarryByCategory = await resolveCarriedRatesForCategories({
+        previousPeriod:previousReportPeriod,
         orderYear: prevOrderYear, major: prevMajor,
         categories: keys.map((key) => ({ key, currency: prevResolvedRateByKey[key].curCode })),
         currentExactByCategory: prevExactByCategory,
@@ -471,7 +479,7 @@ async function loadReportDataInScope(major, orderYear) {
         };
         const autoF = computeAutoEndingStock(stock);
         const stockFSourceKind = endingStockSourceKind(stock);
-        // E는 같은 연도 직전 대차수(01차만 전년도 52차)의 F 원천과 공식을 재사용한다.
+        // E는 실제 직전 업무차수(연말53차 포함)의 F 원천과 공식을 재사용한다.
         // resolvedBegin은 위(F 단가이월 fallback 이전)에서 이미 확정했다.
         const beginStock = {
           week: stockBegin.week,
@@ -675,7 +683,36 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
  * Explicit audit may read diagnostics, never recalculate a confirmed CALC or write data. */
 export async function currentProfitPeriod() {
   const dateOnly=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-  return resolveCurrentProfitWeek(await loadProfitReportCalendar(dateOnly),dateOnly);
+  const calendar=await loadProfitReportCalendar(dateOnly);
+  const current=resolveCurrentProfitWeek(calendar,dateOnly);
+  return {...current,previous:resolvePreviousProfitWeek(calendar,current)};
+}
+async function previousReportPeriod(orderYear,major){
+  if(Number(major)>1)return {orderYear:String(orderYear),major:String(Number(major)-1).padStart(2,'0')};
+  const dateOnly=`${orderYear}-01-01`,calendar=await loadProfitReportCalendar(dateOnly);
+  return resolvePreviousProfitWeek(calendar,resolveCurrentProfitWeek(calendar,dateOnly));
+}
+async function loadCoherentLatestReport(major,orderYear){
+  const work=async()=>{
+    const previous=await previousReportPeriod(orderYear,major);
+    const years=[...new Set([String(orderYear),previous.orderYear,String(Number(orderYear)-1)])];
+    const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years)});
+    const before=await signature();
+    const raw=materializeProfitPayload({...await loadReportData(major,orderYear),major,orderYear});
+    const prior=materializeProfitPayload({...await loadReportData(previous.major,previous.orderYear),major:previous.major,orderYear:previous.orderYear});
+    const latestReports=new Map([[String(major).padStart(2,'0'),{payload:raw}]]);
+    if(previous.orderYear===String(orderYear))latestReports.set(previous.major,{payload:prior});
+    const result=await applyTemplateDutyToReport(raw,orderYear,major,{strict:true,latestReports,previousPayload:prior});
+    if(before!==await signature())throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
+    return result;
+  };
+  if(currentErpReadContext())return work();
+  const pool=await getPool();
+  return withErpReadContext({allowExternalEvidenceReads:true,serializeReads:false,queryFn:async(statement,params)=>{
+    const request=pool.request();for(const [name,{type,value}]of Object.entries(params))request.input(name,type,value);
+    const timer=setTimeout(()=>request.cancel(),45_000);
+    try{return await request.query(statement);}finally{clearTimeout(timer);}
+  }},work);
 }
 export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;
@@ -683,18 +720,19 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   if (activeConfirm?.initialized && activeConfirm.confirm) {
     const data=await buildConfirmedPayload(major, orderYear, activeConfirm);
     if(mode==='liveAudit'||preferLive) {
-      return applyTemplateDutyToReport({...data,major,orderYear,readMode:'confirmed',unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'},orderYear,major);
+      return {...data,major,orderYear,readMode:'confirmed',financialReadPolicy:profitFinancialReadPolicy(orderYear,major,null,null,{confirmed:true}),unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'};
     }
-    return applyTemplateDutyToReport({...data,major,orderYear,readMode:'confirmed'},orderYear,major);
+    return {...data,major,orderYear,readMode:'confirmed',financialReadPolicy:profitFinancialReadPolicy(orderYear,major,null,null,{confirmed:true})};
   }
   // Display never fingerprints or silently falls back on a historical cache miss.
-  const current=currentPeriod || (mode==='liveAudit'||preferLive ? null : await currentProfitPeriod());
-  const historical=current && Number(orderYear)*100+Number(major)<Number(current.orderYear)*100+Number(current.major);
-  const live=mode==='liveAudit' || preferLive || !historical;
-  const data = live ? {...await loadReportData(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
+  const current=currentPeriod || await currentProfitPeriod();
+  const previous=current.previous || await previousReportPeriod(current.orderYear,current.major);
+  const financialReadPolicy=profitFinancialReadPolicy(orderYear,major,current,previous,{liveAudit:mode==='liveAudit'||preferLive});
+  const live=!financialReadPolicy.frozen;
+  const data = live ? {...await loadCoherentLatestReport(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
     : storedResult !== undefined ? storedProfitPayload(storedResult,{orderYear,major}) : await readStoredProfitPayload(orderYear,major);
   if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
-  return applyTemplateDutyToReport({...data,major,orderYear,readMode:live?'live':'stored'},orderYear,major);
+  return {...data,major,orderYear,readMode:live?'live':'stored',financialReadPolicy};
 }
 
 export async function saveProfitReportCache(options) {
@@ -762,9 +800,8 @@ export default withAuth(async function handler(req, res) {
 
       // 재고 평가단가표 (기초/기말 스냅샷에 재고 있는 품목만)
       if (req.query.stockPrices === '1') {
-        const currentMajor = Number(major);
-        const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
-        const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
+        const previousPeriod=await previousReportPeriod(orderYear,major);
+        const prevOrderYear=previousPeriod.orderYear,prevMajor=previousPeriod.major;
         const [endRateEvidenceByCurrency, beginRateEvidenceByCurrency] = await Promise.all([
           loadInventoryRateEvidenceByCurrency(orderYear, major),
           loadInventoryRateEvidenceByCurrency(prevOrderYear, prevMajor),

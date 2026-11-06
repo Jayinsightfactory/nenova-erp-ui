@@ -34,7 +34,7 @@ const fs=require('node:fs');
   const ready=async()=>{try{await page.waitForFunction(s=>{const b=document.querySelector(s);return b&&!b.disabled;},{},printButton);}catch(e){console.error(await page.evaluate(()=>document.body.innerText.slice(0,5000)));throw e;}};
   await page.goto((process.argv[2]||'http://localhost:3218')+'/sales/profit-report?year=2026&week=29',{waitUntil:'networkidle0'});
   const categoryTitle=await page.$eval('h1',e=>e.textContent);
-  await click('차수별');await ready();
+  await click('차수별');assert.equal(await page.$eval(printButton,e=>e.disabled),true);await click('조회');await ready();
   await fill('시작 차수','27');await fill('마지막 차수','29');
   assert.equal(await page.$eval(printButton,e=>e.disabled),true);
   await click('조회');await ready();

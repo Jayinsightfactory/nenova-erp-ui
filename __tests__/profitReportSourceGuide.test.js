@@ -233,12 +233,12 @@ async function main() {
     && endingStockSourceKind({ endQty: 100, snapshotConfirmed: false, priceEvidenceStatus: 'VERIFIED', evidenceValue: 1234 }) === 'missing_stock_snapshot');
 
   // 차수 경계
-  check('전차수 산출 코드 = currentMajor - 1, 01차만 전년 52차',
-    /currentMajor <= 1 \? String\(Number\(orderYear\) - 1\) : String\(orderYear\)/.test(apiSource)
-    && /currentMajor <= 1 \? '52' : String\(currentMajor - 1\)/.test(apiSource));
-  check('경계 설명이 27차→26차·01차→전년 52차를 명시',
+  check('전차수 산출은 실제 PeriodDay의 직전 업무차수',
+    /previousReportPeriod\(orderYear,major\)/.test(apiSource)
+    && /resolvePreviousProfitWeek\(calendar,resolveCurrentProfitWeek/.test(apiSource));
+  check('경계 설명이 27차→26차·01차→실제 전년 마지막차수(53포함)를 명시',
     /27차 기초재고는 26차의 마지막 세부차수 재고/.test(byKey['bd-begin-end'].formula)
-    && /01차일 때만 전년도 52차/.test(byKey['bd-begin-end'].formula));
+    && /01차의 직전은 실제 PeriodDay.*53차 포함/.test(byKey['bd-begin-end'].formula));
   check('기말재고도 해당 차수 마지막 세부차수임을 명시',
     /기말재고는 27차의 마지막 세부차수 재고/.test(byKey['bd-begin-end'].formula));
   check('StockMaster.isFix를 재고 마감 조건으로 쓰지 않음을 명시',

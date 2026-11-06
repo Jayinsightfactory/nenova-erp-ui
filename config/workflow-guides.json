@@ -2,6 +2,57 @@
   "version": 1,
   "workflows": [
     {
+      "id": "profit-explicit-query",
+      "title": "주차별 매출이익 명시 조회와 과거 금액 고정",
+      "entryPaths": [
+        "/sales/profit-report"
+      ],
+      "sourceFiles": [
+        "pages/sales/profit-report.js",
+        "components/ProfitReportSnapshotBanner.js",
+        "lib/profitReportSourceGuide.js"
+      ],
+      "requiredScenarios": [
+        "query",
+        "scope",
+        "views",
+        "output"
+      ],
+      "guides": [
+        {
+          "id": "report",
+          "role": "보고서 담당자",
+          "title": "연도·차수 선택 후 조회하기",
+          "status": "ready",
+          "src": "/guides/profit-explicit-query/report.mp4",
+          "captions": "/guides/profit-explicit-query/report.ko.vtt",
+          "proof": "/guides/profit-explicit-query/report.proof.json",
+          "chapters": [
+            {
+              "scenario": "query",
+              "title": "연도·차수 선택 후 조회",
+              "seconds": 0
+            },
+            {
+              "scenario": "scope",
+              "title": "조건 변경과 재조회",
+              "seconds": 12.229
+            },
+            {
+              "scenario": "views",
+              "title": "차수별·월별도 직접 조회",
+              "seconds": 26.432
+            },
+            {
+              "scenario": "output",
+              "title": "조회 범위와 출력 확인",
+              "seconds": 40.383
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "incoming-approval",
       "title": "입고 수정 요청과 검토·확정",
       "entryPaths": [

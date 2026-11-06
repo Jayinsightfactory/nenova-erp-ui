@@ -36,6 +36,9 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week)&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
   });
   await page.goto(`${origin}/sales/profit-report?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForSelector('[data-testid="profit-query-empty"]');
+  assert.equal(mainData,null,'Financial report must not load on entry');
+  await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='조회')?.click());
   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(e=>e.textContent.startsWith('엑셀 다운로드')&&!e.disabled),{timeout:120000});
   const button=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(e=>e.textContent.startsWith('엑셀 다운로드')));
   const label=await button.evaluate(e=>e.textContent);
