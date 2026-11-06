@@ -53,7 +53,7 @@ test('ordinary success logs0, overlapping waiter adds no diagnostic owner; activ
  const f=await fixture();const [a,b]=await Promise.all([f.load('44','2026'),f.load('44','2026')]);assert.equal(f.creates,1);assert.equal(f.logs.length,0);assert.deepEqual(a,b);assert.notEqual(a,b);
  const active=await fixture();await active.scope({queryFn:async()=>({recordset:[]})},()=>active.load('44','2026'));assert.equal(active.creates,0);assert.equal(active.timers.length,0);assert.equal(active.logs.length,0);
  assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*return shareLatestProfitRead/);
- assert.match(source,/before!==await signature\(\)/);
+ assert.match(source,/const after=await signature\(\);\s*if\(before!==after\)/);
 });
 function summary(){const runtime=fs.readFileSync(path.join(__dirname,'../scripts/diagnose-runtime-readonly.cjs'),'utf8');return new Function(runtime.slice(runtime.indexOf('function summarizeProfitReadFailures'),runtime.indexOf('function summarizeMemoryRestarts'))+';return summarizeProfitReadFailures;')();}
 test('bounded recent summary accepts exact safe schema only, preserves crossyear and latest3, rejects raw extras',()=>{

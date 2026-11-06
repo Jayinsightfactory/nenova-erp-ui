@@ -24,6 +24,7 @@ export default withAuth(async function handler(req, res) {
     return res.status(200).json({ ok: true, ...buildStockAdjustmentNotes(result.recordset, scope), queriedAt: new Date().toISOString() });
   } catch (error) {
     console.error('[profit-stock-adjustment-notes] read failed:', error);
+    if(error?.statusCode===409&&error?.code==='PROFIT_SOURCES_CHANGED')return res.status(409).json({ok:false,code:'PROFIT_SOURCES_CHANGED',message:'재고조정 이력을 조회하지 못했습니다. 다시 시도해 주세요.'});
     return res.status(500).json({ ok: false, message: '재고조정 이력을 조회하지 못했습니다. 다시 시도해 주세요.' });
   }
 });

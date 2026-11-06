@@ -33,7 +33,7 @@ test('production callers retain independent policy and fences before the live-on
  assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*return shareLatestProfitRead\(orderYear,major/);
  const loader=source.slice(source.indexOf('export async function loadWeeklyReportPayload'));
  assert.ok(loader.indexOf('getActiveConfirm')<loader.indexOf('loadCoherentLatestReport'));
- assert.match(source,/before!==await signature\(\)/);
+ assert.match(source,/const after=await signature\(\);\s*if\(before!==after\)/);
  for(const name of ['profit-report-week-check.js','profit-stock-adjustment-notes.js','profit-report-output.js']){
   const route=fs.readFileSync(require('node:path').join(__dirname,'../pages/api/sales',name),'utf8');assert.match(route,/loadWeeklyReportPayload/);
  }

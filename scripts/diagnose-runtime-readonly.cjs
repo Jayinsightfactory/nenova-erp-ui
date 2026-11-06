@@ -1,6 +1,25 @@
 // Read-only, aggregate diagnostics. Never print log lines or PM2 environment.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 // Kept self-contained: deploy diagnostics execute this file through node stdin.
+function summarizeProfitSourceChanges(text,{since,until}){
+ const marker='NENOVA_PROFIT_SOURCE_CHANGED ',events=[];let count=0;
+ const tags=new Set(['SHIP','EST','WH','FC','STOCK','SH','WPR','WCUS','WFWD','WCOL','WSPE','WACL','WTXR','CUR','PRODUCT','FLOWER','RATECFG','RATEHIST','CUSHIST','ARRIMP']);
+ const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+ const year=v=>typeof v==='string'&&/^20\d{2}$/.test(v),major=v=>typeof v==='string'&&/^(0[1-9]|[1-4]\d|5[0-3])$/.test(v);
+ for(const line of String(text).split(/\r?\n/)){
+  const start=line.indexOf(marker);if(start<0)continue;
+  try{
+   const v=JSON.parse(line.slice(start+marker.length));
+   if(!exact(v,['version','at','pid','scope','changedCount','changes','truncated','invoiceChanged','coveredYears'])||v.version!==1||!Number.isInteger(v.pid)||v.pid<=0||v.pid>2147483647||typeof v.at!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v.at))continue;
+   const at=Date.parse(v.at);if(!Number.isFinite(at)||new Date(at).toISOString()!==v.at||at<since||at>until)continue;
+   if(!exact(v.scope,['year','major'])||!year(v.scope.year)||!major(v.scope.major)||!Number.isInteger(v.changedCount)||v.changedCount<0||v.changedCount>1000000||typeof v.truncated!=='boolean'||typeof v.invoiceChanged!=='boolean')continue;
+   if(!Array.isArray(v.coveredYears)||!v.coveredYears.length||v.coveredYears.length>3||!v.coveredYears.every(year)||new Set(v.coveredYears).size!==v.coveredYears.length||!Array.isArray(v.changes)||v.changes.length>20||v.changes.length>v.changedCount||v.truncated!==(v.changedCount>v.changes.length))continue;
+   if(!v.changes.every(c=>exact(c,['component','year','major','kind','timestampOnly'])&&tags.has(c.component)&&(c.year===null||year(c.year))&&(c.major===null||major(c.major))&&['added','removed','modified'].includes(c.kind)&&(c.timestampOnly===null||typeof c.timestampOnly==='boolean')&&(c.kind==='modified'||c.timestampOnly===null)))continue;
+   count++;events.push(v);events.sort((a,b)=>b.at.localeCompare(a.at));events.length=Math.min(events.length,3);
+  }catch{}
+ }
+ return {count,latest:events};
+}
 function summarizeProfitReadFailures(text,{since,until}){
  const marker='NENOVA_PROFIT_READ_FAILURE ',events=[];let count=0,explicitTimerFiredCount=0;
  const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
@@ -134,7 +153,10 @@ for(const p of processes.filter(p=>/nenova|erp/i.test(p.name||''))){
    const stat=fs.statSync(file),bytes=Math.min(stat.size,4*1024*1024),buf=Buffer.alloc(bytes),fd=fs.openSync(file,'r');
    try{fs.readSync(fd,buf,0,bytes,stat.size-bytes);}finally{fs.closeSync(fd);}
    const text=buf.toString('utf8'),until=Date.now();
-   if(p.name==='nenova-erp')console.log(JSON.stringify({section:'profit_read_failures_30m',kind,scannedBytes:bytes,tailTruncated:stat.size>bytes,...summarizeProfitReadFailures(text,{since:until-30*60000,until})}));
+   if(p.name==='nenova-erp'){
+    console.log(JSON.stringify({section:'profit_read_failures_30m',kind,scannedBytes:bytes,tailTruncated:stat.size>bytes,...summarizeProfitReadFailures(text,{since:until-30*60000,until})}));
+    console.log(JSON.stringify({section:'profit_source_changes_30m',kind,scannedBytes:bytes,tailTruncated:stat.size>bytes,...summarizeProfitSourceChanges(text,{since:until-30*60000,until})}));
+   }
    const counts=Object.fromEntries(Object.keys(categories).map(k=>[k,0]));let dated=0,undated=0;
    for(const line of text.split(/\r?\n/)){
     const dt=line.match(/20\d\d[-/]\d\d[-/]\d\d[ T]\d\d:\d\d/),when=dt?Date.parse(dt[0].replaceAll('/','-')+'Z'):NaN;
