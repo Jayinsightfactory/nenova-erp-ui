@@ -15,13 +15,13 @@ import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy,
 import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
-import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, fitScale, moundPick } from '../../lib/pm3dAssets';
+import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, railPick, fitScale, moundPick } from '../../lib/pm3dAssets';
 import { loadKit, bake, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { mountById, mountPose } from '../../lib/pmMounts';
-import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect, seaRect } from '../../lib/pm3dRide';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, ringRect, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect, seaRect } from '../../lib/pm3dRide';
 import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
@@ -387,11 +387,20 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         // 1) 칸 타일: 모래·해안·보드워크·다리(재질별 InstancedMesh). 광장·통로는 기존 색 타일 유지
         const land = (X, Z) => world.cells.get(`${X},${Z}`);
         const groups = new Map(); const addT = (asset, x, z, yaw, y = y0) => { if (!groups.has(asset)) groups.set(asset, []); groups.get(asset).push(mat4(x, y, z, yaw, S)); };
+        // [기차레일] 레일은 기차가 실제로 도는 둘레 순환로(ringRect)와 겹치는 보드워크 칸에만
+        const RR = ringRect(CRUISE_BOUNDS.hx, CRUISE_BOUNDS.hz);
+        const nearRing = (x, z) => {
+          const dx = Math.max(RR.x0 - x, 0, x - RR.x1); const dz = Math.max(RR.z0 - z, 0, z - RR.z1);
+          const inside = x >= RR.x0 && x <= RR.x1 && z >= RR.z0 && z <= RR.z1;
+          const d = inside ? Math.min(x - RR.x0, RR.x1 - x, z - RR.z0, RR.z1 - z) : Math.hypot(dx, dz);
+          return d < 0.52;
+        };
+        const onRing = (X, Z) => { const q = land(X, Z); return !!q && q.kind === 'boardwalk' && nearRing((X + 0.5) * CELL, (Z + 0.5) * CELL); };
         for (const c of world.cells.values()) {
           const x = (c.X + 0.5) * CELL; const z = (c.Z + 0.5) * CELL;
           if (c.kind === 'sand') { const lc = ((c.X % 28) + 28 + 12) % 28; const lr = ((c.Z % 28) + 28 + 12) % 28; const md = !world.occ.has(`${c.X},${c.Z}`) && moundPick(c.X, c.Z, lc, lr); addT(md || 'tile_sand', x, z, 0); } // [P2] 바깥 띠 일부 = 모래 둔덕(점유·보행 칸 제외)
           else if (c.kind === 'beach') { const sea = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => !land(c.X + dx, c.Z + dz)); const k = coastPick(sea); addT(k.asset, x, z, k.yaw); }
-          else if (c.kind === 'boardwalk') { const bw = (dx, dz) => { const n = land(c.X + dx, c.Z + dz); return !!n && (n.kind === 'boardwalk' || n.kind === 'bridge'); }; const k = boardwalkPick({ n: bw(0, -1), s: bw(0, 1), e: bw(1, 0), w: bw(-1, 0) }); addT(k.asset, x, z, k.yaw); }
+          else if (c.kind === 'boardwalk') { const bw = (dx, dz) => { const n = land(c.X + dx, c.Z + dz); return !!n && (n.kind === 'boardwalk' || n.kind === 'bridge'); }; const conn = { n: bw(0, -1), s: bw(0, 1), e: bw(1, 0), w: bw(-1, 0) }; const k = boardwalkPick(conn); addT(k.asset, x, z, k.yaw); if (onRing(c.X, c.Z)) { const rl = railPick({ n: onRing(c.X, c.Z - 1), s: onRing(c.X, c.Z + 1), e: onRing(c.X + 1, c.Z), w: onRing(c.X - 1, c.Z) }); addT(rl.asset, x, z, rl.yaw, y0 + 0.012); } } // [기차레일] 둘레 순환로에만 레일
           else if (c.kind === 'bridge') addT('tile_bridge', x, z, c.axis === 'x' ? 0 : Math.PI / 2, -0.06 * S);
         }
         const done = new Set();
@@ -474,10 +483,13 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
             one('prop_sign', cx - 3.2 * s, cz + 2.6 * s, 0, s);
             one('prop_table_set', cx - 4.6 * s, cz - 1.2 * s, 0.4, s * 0.9); one('prop_beach_set', cx - 4.2 * s, cz + 1.8 * s, 1.1, s); // [P3] 수영장 옆 테이블·비치타월
           } else if (r.kind === 'kart') {
-            const s = fitScale(w, dd, 15, 7.2, 0.9); ok = !!one('track_straight', cx, cz, 0, s);
-            one('track_corner', cx + 6 * s, cz, 0, s); one('track_corner', cx - 6 * s, cz, Math.PI, s);
-            one('track_arch', cx + 1.5 * s, cz, Math.PI / 2, s); one('kart_coral', cx - 1.8 * s, cz - 0.7 * s, 0, s); one('kart_mint', cx - 0.4 * s, cz + 0.7 * s, 0, s);
-            one('prop_crates', cx - 3 * s, cz + 3.2 * s, 0.3, s); one('prop_sign', cx + 4 * s, cz + 3.4 * s, 0, s);
+            // [2026-11-06 사장님 '서킷 짤림'] 열린 조각 배치 → 닫힌 스타디움 루프(직선 2 + 코너 4)
+            const s = fitScale(w, dd, 15, 9.4, 0.9); const dx = 4.4 * s, dz = 2.1 * s;
+            ok = !!one('track_straight', cx, cz + dz, 0, s); one('track_straight', cx, cz - dz, Math.PI, s);
+            one('track_corner', cx + dx, cz - dz, 0, s); one('track_corner', cx + dx, cz + dz, -Math.PI / 2, s);
+            one('track_corner', cx - dx, cz + dz, Math.PI, s); one('track_corner', cx - dx, cz - dz, Math.PI / 2, s);
+            one('track_arch', cx, cz + dz, Math.PI / 2, s); one('kart_coral', cx - 1.8 * s, cz - dz, 0, s); one('kart_mint', cx + 1.2 * s, cz + dz, 0, s);
+            one('prop_crates', cx - 3 * s, cz, 0.3, s); one('prop_sign', cx + 3.6 * s, cz, 0, s);
           } else if (r.kind === 'airfield') {
             const s = fitScale(w, dd, 16, 7.2, 0.95); ok = !!one('runway_straight', cx, cz, 0, s);
             one('runway_threshold', cx + 6 * s, cz, 0, s); one('runway_threshold', cx - 6 * s, cz, Math.PI, s);
@@ -763,6 +775,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
               let pt; let rideY = 0.02;
               if (course === 'circuit' && K.kart) { const tt = C.from + sec * 4.4 / rectLength(K.kart); pt = rectPoint(K.kart, tt); }
               else if (course === 'water' && K.pool) { const tt = C.from + sec * 1.1 / rectLength(K.pool); pt = rectPoint(K.pool, tt); rideY = bobY(sec + C.from * 7); }
+              else if (course === 'rail') { const tt = C.from + sec * 1.6 / ringLength(st.bounds.hx, st.bounds.hz); pt = ringPoint(st.bounds.hx, st.bounds.hz, tt); rideY = 0.1; } // 둘레 레일 순환(꼬마기차·보드워크 레일 위)
               else if (course === 'sea') { const R = seaRect(st.bounds.hx, st.bounds.hz); const tt = C.from + sec * 1.6 / rectLength(R); pt = rectPoint(R, tt); rideY = bobY(sec + C.from * 7, 0.02) - 0.12; } // 섬 둘레 바다 일주(돛단배) — 물면 근처에서 출렁
               else if (course === 'sky') { const tt = C.from + sec * 2.8 / skyLength(st.bounds.hx, st.bounds.hz); pt = skyPoint(st.bounds.hx, st.bounds.hz, tt, sec + C.from * 9); rideY = pt.y; }
               else { const tt = C.from + sec * (2.2 * 1.3) / ringLength(st.bounds.hx, st.bounds.hz); pt = ringPoint(st.bounds.hx, st.bounds.hz, tt); }
