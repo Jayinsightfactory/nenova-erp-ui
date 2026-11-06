@@ -148,6 +148,7 @@ export default function Distribute() {
   const [prodAddOpen, setProdAddOpen] = useState(false);
   const [prodAddManager, setProdAddManager] = useState(null); // 업체 탭 품목명 검색 (화면 필터 전용)
   const [addProdFilter, setAddProdFilter] = useState(''); // 품목추가 창 품목명 검색
+  const [addCustFilter, setAddCustFilter] = useState(''); // 품목추가 창 업체 검색 (주문 없는 업체 포함)
   const [allCustomers, setAllCustomers] = useState([]);
   const customerPool = showAllCustomers
     ? [...custList, ...allCustomers.filter(a => !custList.some(c => Number(c.CustKey) === Number(a.CustKey))).map(a => ({ ...a, noOrder: true }))]
@@ -162,6 +163,7 @@ export default function Distribute() {
       return true;
     } catch (e) { setErr(e.message); return false; }
   };
+  const inCustomerPool = (cust) => [...customerPool, ...allCustomers].some(c => Number(c.CustKey) === Number(cust?.CustKey));
   const toggleAllCustomers = async (on) => {
     setShowAllCustomers(on);
     if (on && !(await loadAllCustomers())) setShowAllCustomers(false);
@@ -869,7 +871,7 @@ export default function Distribute() {
   // 업체 선택 → 해당 업체 주문 품목 로드
   const selectCust = async (cust, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
-    if (!week || !customerPool.some(c => Number(c.CustKey) === Number(cust?.CustKey))) return;
+    if (!week || !inCustomerPool(cust)) return;
     if (!skipDraftCheck && !confirmDraftDiscard()) return;
     const request = ++customerRequestRef.current;
     const requestedWeek = week;
@@ -895,7 +897,7 @@ export default function Distribute() {
   // 업체 2 선택 (두 업체 나란히 보기) — 업체 1과 같은 custItems 조회, 저장도 같은 배치 경로
   const selectPairCust = async (cust, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
-    if (!week || !customerPool.some(c => Number(c.CustKey) === Number(cust?.CustKey))) return;
+    if (!week || !inCustomerPool(cust)) return;
     if (Number(cust.CustKey) === Number(selectedCust?.CustKey)) { setErr('업체 1과 같은 업체는 업체 2로 선택할 수 없습니다.'); return; }
     if (!skipDraftCheck && hasDistributionDrafts([], {}, pairItems, pairEditInputs) &&
       !window.confirm('업체 2의 저장하지 않은 변경이 있습니다. 업체를 바꾸면 입력값이 사라집니다. 계속하시겠습니까?')) return;
@@ -928,7 +930,7 @@ export default function Distribute() {
   const updateExtra = (index, key, next) => setExtraPeers(prev => prev.map((p, i) => i === index ? { ...p, [key]: typeof next === 'function' ? next(p[key]) : next } : p));
   const selectExtraCust = async (cust, slot, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
-    if (!week || !pairCust || !customerPool.some(c => Number(c.CustKey) === Number(cust?.CustKey))) return;
+    if (!week || !pairCust || !inCustomerPool(cust)) return;
     const index = Math.min(slot - 3, extraPeers.length);
     const taken = [selectedCust, pairCust, ...extraPeers.filter((_, i) => i !== index).map(p => p.cust)];
     if (taken.some(c => Number(c?.CustKey) === Number(cust.CustKey))) { setErr('이미 다른 칸에 선택된 업체입니다.'); return; }
@@ -1405,7 +1407,7 @@ export default function Distribute() {
           </button>
           {viewMode === 'cust' && selectedCust && (
             <button type="button" className="btn btn-sm" data-ai-verify="add-panel-open" disabled={saving || loading}
-              onClick={() => setAddPanel({ side: 0, group: '', prodKey: null, unit: '' })}
+              onClick={() => { setAddPanel({ side: 0, group: '', prodKey: null, unit: '' }); setAddCustFilter(''); loadAllCustomers(); }}
               title="품종 → 품목 → 수량 버튼으로 이 업체 출고수량에 더합니다 (주문 없는 품목은 저장 시 주문등록 후 분배)">➕ 품목추가·수량추가</button>
           )}
           <button type="button" className="btn btn-secondary btn-sm" data-ai-verify="discard-drafts" onClick={discardDrafts} disabled={saving || !hasAnyDraft()}
@@ -1536,6 +1538,37 @@ export default function Distribute() {
                 </div>
               )}
               {sides.length === 1 && <div style={{fontSize:12,marginBottom:8}}>업체: <b>{side.cust.CustName}</b></div>}
+              {(() => {
+                // 업체 검색: 이 차수 주문 업체 + 전체 업체(주문 없음). 고르면 빈 칸(업체 2 → 3~5)에 넣고 그 업체로 전환
+                const text = addCustFilter.trim().toLowerCase();
+                const searchInput = (
+                  <input className="filter-input" placeholder="업체 검색 (이름·코드, 주문 없는 업체 포함)" value={addCustFilter} data-ai-verify="add-cust-search" aria-label="품목추가 업체 검색"
+                    onChange={e => setAddCustFilter(e.target.value)} style={{height:28,fontSize:12,width:280,marginBottom:4}} />
+                );
+                if (!text) return <div style={{marginBottom:4}}>{searchInput}</div>;
+                const pool = [...custList, ...allCustomers.filter(a => !custList.some(c => Number(c.CustKey) === Number(a.CustKey))).map(a => ({ ...a, noOrder: true }))];
+                const hits = pool.filter(c => `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(text)).slice(0, 30);
+                const pick = async (c) => {
+                  const at = sides.findIndex(sd => Number(sd.cust.CustKey) === Number(c.CustKey));
+                  if (at >= 0) { setAddPanel(prev => ({ ...prev, side: at })); setAddCustFilter(''); return; }
+                  if (!pairCust) { await selectPairCust(c); setAddPanel(prev => prev && ({ ...prev, side: 1 })); }
+                  else if (extraPeers.length < 3) { const slot = 3 + extraPeers.length; await selectExtraCust(c, slot); setAddPanel(prev => prev && ({ ...prev, side: slot - 1 })); }
+                  else { setErr('업체는 5개까지 고를 수 있습니다. 칸을 비운 뒤 다시 고르세요.'); return; }
+                  setAddCustFilter('');
+                };
+                return (
+                  <div style={{marginBottom:8}}>
+                    {searchInput}
+                    <div data-testid="distribution-add-cust-hits" style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                      {hits.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>검색 결과 없음</span>}
+                      {hits.map(c => (
+                        <button key={c.CustKey} type="button" data-ai-verify={`add-cust-${c.CustKey}`} disabled={saving || loading} onClick={() => pick(c)}
+                          style={pickButtonStyle(false, true)}>{c.CustName}{c.noOrder ? ' (주문없음)' : ''}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>① 품종</div>
               <div data-testid="distribution-add-groups" style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:8}}>
                 {groups.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>이 차수 품목이 없습니다.</span>}
