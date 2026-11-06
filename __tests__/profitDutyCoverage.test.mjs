@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { summarizeProfitDutyCoverage } from '../scripts/profit-duty-coverage.mjs';
+const fixture=[{category:'중국',calc:{E:0,F:0,H:null,I:null,J:null,K:null},templateDuty:{status:'input_required',inventoryHeld:true,missing:[{diagnostic:{failed:['POLICY_KEY_MISSING']}}],details:[{source:'freight_snapshot'},{source:'approved_template'}]},inventoryValuation:{end:{dutyDiagnostic:{failed:['VALUATION_METHOD_UNSUPPORTED']}}}}];
+const original=JSON.stringify(fixture),result=summarizeProfitDutyCoverage(fixture);
+assert.deepEqual(result[0].nullColumns,['H','I','J','K']);
+assert.equal(result[0].failures.POLICY_KEY_MISSING,1);
+assert.equal(result[0].failures['end:VALUATION_METHOD_UNSUPPORTED'],1);
+assert.equal(result[0].storedSourceLines,1);assert.equal(result[0].formulaLines,1);
+assert.equal(JSON.stringify(fixture),original);
+assert.deepEqual(summarizeProfitDutyCoverage([{category:'국내',calc:{}}]),[]);
+console.log('profit duty coverage summary PASS');

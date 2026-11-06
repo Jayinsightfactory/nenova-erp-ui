@@ -8,6 +8,10 @@ on:
       last_week:
         default: '44'
         required: true
+      china_duty_coverage:
+        type: boolean
+        default: false
+        description: Require Chinese rule coverage and complete week44 financial cells
 permissions:
   contents: read
 jobs:
@@ -26,4 +30,5 @@ jobs:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
           PROBE_LAST_WEEK: ${{ inputs.last_week }}
+          PROBE_CHINA_DUTY_COVERAGE: ${{ inputs.china_duty_coverage }}
         run: node scripts/profit-margin-all-weeks-production.mjs

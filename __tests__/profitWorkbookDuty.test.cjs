@@ -29,7 +29,7 @@ test('workbook never overrides actual zero or manual and preserves missing FX/fr
  assert.equal(m.calculateTemplateDuty({...ctx,row:{...row,source:{R:'currency_master'}}}).H,null);
 });
 test('v3 derived inputs fail closed rather than skipping new rules or double adding',async()=>{
- const m=await api;assert.equal(m.TEMPLATE_DUTY_VERSION,'2026-11-03-v4');
+ const m=await api;assert.equal(m.TEMPLATE_DUTY_VERSION,'2026-11-06-china-v5');
  const old={templateDuty:{version:'2026-11-03-v3'},rows:[]},before=JSON.stringify(old);
  assert.throws(()=>m.applyTemplateDutyView(old,{year:'2026',major:'27',policy}),e=>e.code==='DUTY_DERIVED_VERSION_MISMATCH'&&e.statusCode===409);
  assert.equal(JSON.stringify(old),before);

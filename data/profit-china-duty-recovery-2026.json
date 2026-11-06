@@ -1,0 +1,1861 @@
+{
+  "orderYear": "2026",
+  "approvedEstimate": true,
+  "actualPaymentCertified": false,
+  "source": "2026-11-06 user-approved China exact-product missing-rule recovery; reference workbook formulas, not actual declarations",
+  "products": [
+{"prodKey":2772,"exactName":"[MEL]CHINA / 왁스 화이트 (Wax White)","country":"중국","rate":0.214,"referenceProdKey":2488,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"32-1 CLOUD ","cells":["B28","K28"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2773,"exactName":"[MEL]CHINA / 왁스 핑크 (Wax Pink)","country":"중국","rate":0.214,"referenceProdKey":2488,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"32-1 CLOUD ","cells":["B28","K28"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2775,"exactName":"[MEL]CHINA / 왁스 레드 (Wax Red)","country":"중국","rate":0.214,"referenceProdKey":2488,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"32-1 CLOUD ","cells":["B28","K28"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2776,"exactName":"[MEL]CHINA / 왁스 블루 (Wax Blue)","country":"중국","rate":0.214,"referenceProdKey":2488,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"32-1 CLOUD ","cells":["B28","K28"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2833,"exactName":"[MEL] CHINA / 리모늄 미스티 블루 (Limonium blue) 500g","country":"중국","rate":0.214,"referenceProdKey":2834,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"20-2 MEL","cells":["B48","K48"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2835,"exactName":"[MEL]CHINA / 리모늄 스타티스 노랑 (Statice Yellow)","country":"중국","rate":0.214,"referenceProdKey":2834,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"20-2 MEL","cells":["B48","K48"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2837,"exactName":"[MEL]CHINA / 리모늄 스타티스 연핑크 (Statice light pink)","country":"중국","rate":0.214,"referenceProdKey":2834,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"20-2 MEL","cells":["B48","K48"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2839,"exactName":"[MEL]CHINA / 리모늄 스타티스 진보라 (Statice dark purple)","country":"중국","rate":0.214,"referenceProdKey":2834,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"20-2 MEL","cells":["B48","K48"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2840,"exactName":"[MEL]CHINA / 리모늄 스타티스 진핑크 (Statice dark pink)","country":"중국","rate":0.214,"referenceProdKey":2834,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"20-2 MEL","cells":["B48","K48"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2846,"exactName":"[MEL]Lisianthus CHINA / Eustoma Pink 600g","country":"중국","rate":0.214,"referenceProdKey":3084,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"19-2 MEL","cells":["B37","K37"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2847,"exactName":"[MEL]Lisianthus CHINA / Eustoma White and Purple 600g","country":"중국","rate":0.214,"referenceProdKey":3084,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"19-2 MEL","cells":["B37","K37"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2885,"exactName":"[MEL] CHINA GoldenWatree / 골든와트리 ","country":"중국","rate":0.08,"referenceProdKey":2226,"form":"fresh_foliage","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"35-2 CLOUD","cells":["B57","K57"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2893,"exactName":"[MEL] Pong Pong CHINA / 퐁퐁 화이트 (Pong Pong – white)","country":"중국","rate":0.214,"referenceProdKey":2381,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"34-2B CLOUD","cells":["B53","K53"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2894,"exactName":"[MEL] Pong Pong CHINA / 퐁퐁 노랑 (Pong Pong – Yellow)","country":"중국","rate":0.214,"referenceProdKey":2381,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"34-2B CLOUD","cells":["B53","K53"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2895,"exactName":"[MEL] Pong Pong CHINA / 퐁퐁 핑크 (Pong Pong – PINK)","country":"중국","rate":0.214,"referenceProdKey":2381,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"34-2B CLOUD","cells":["B53","K53"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":2919,"exactName":"[MEL] CHINA / 안개꽃 1Kg (Gypsophila white type 2, big buds)","country":"중국","rate":0.214,"referenceProdKey":3108,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"18-1 CLOUD","cells":["B24","K24"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3004,"exactName":"[MEL] CHINA / 라스라지 연보라 (Gladiolus Taro purple)","country":"중국","rate":0.214,"referenceProdKey":3108,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"18-1 CLOUD","cells":["B24","K24"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3007,"exactName":"[MEL] Spray Carnation CHINA / 롤리팝 퍼플 (Lollipop)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3008,"exactName":"[MEL] Spray Carnation CHINA / 노랑 (Yellow)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3010,"exactName":"[MEL] Spray Carnation CHINA / 트렌디 테시노 (Fashion Prince)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3024,"exactName":"[MEL] Spray Carnation CHINA / 보라 화이트 (Purple prince) ","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3030,"exactName":"[MEL] CHINA / 솔리다고 (Solidago)","country":"중국","rate":0.214,"referenceProdKey":3108,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"18-1 CLOUD","cells":["B24","K24"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3031,"exactName":"[MEL] Eucalyptus CHINA / 포퓰러스 시드, 다이브 (Eucalyptus with fruit)","country":"중국","rate":0.08,"referenceProdKey":2226,"form":"fresh_foliage","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"35-2 CLOUD","cells":["B57","K57"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3053,"exactName":"[MEL] Carnation CHINA / 마스터 레드 (Master Red)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3055,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Ed (White)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3056,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Fire Feather (Yellow)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3058,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Peach (White, pink lines)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3061,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Cliff (Apple red)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3062,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Hoh Xil (Peach)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3064,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Salmon (Salmon)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3065,"exactName":"[MEL] Spray Carnation CHINA / 솔로미오 Solomio Sakura (PastelPink)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3069,"exactName":"[MEL] Spray Carnation CHINA / 화이트 (White-multiheads)","country":"중국","rate":0.214,"referenceProdKey":3059,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-1 MEL","cells":["B35","K35"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+{"prodKey":3077,"exactName":"[MEL] Amaranthus CHINA Fresh RED / 줄맨드라미 생화 레드","country":"중국","rate":0.214,"referenceProdKey":3076,"form":"fresh_cut_flower","source":{"file":"CHINA 중국 원가자료 (3).xlsx","fileSha256":"23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560","sheet":"17-2 MEL","cells":["B24","K24"]},"matchLevel":"USER_APPROVED_PRODUCT_FORM_REFERENCE","condition":"승인된 중국 상품형태별 원본 계산기준 보완; 전산 국가와 보고서 분류가 다르므로 통화는 별도 검증. 직접 원본·실제 신고·납부 인증 아님","actualDeclarationVerified":false},
+    {
+      "prodKey": 2160,
+      "exactName": "CHINA / 리모늄 시네신스 핑크 (Sinensis Pink) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2158,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B63",
+          "K63"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2234,
+      "exactName": "Eucalyptus CHINA / 시드 (seeds)",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 2226,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B57",
+          "K57"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2271,
+      "exactName": "Lisianthus CHINA / 핑크 (mariachi Light pink) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3084,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "19-2 MEL",
+        "cells": [
+          "B37",
+          "K37"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2295,
+      "exactName": "Preserved Amaranthus CHINA / 줄맨드라미 화이트 (White)",
+      "country": "중국",
+      "rate": 0.25,
+      "referenceProdKey": 3075,
+      "form": "preserved_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "21-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2305,
+      "exactName": "Carnation CHINA / 베스티 (Betsy)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2306,
+      "exactName": "Carnation CHINA / 돈셀 (Doncel)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2312,
+      "exactName": "Carnation CHINA / 오렌지 라이트 (Orange light)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2313,
+      "exactName": "Spray Carnation CHINA / 아이비스 (Ibis)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2314,
+      "exactName": "Spray Carnation CHINA / 이마진 (Imagine)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2315,
+      "exactName": "Spray Carnation CHINA / 로잔느 (Roxanne)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2316,
+      "exactName": "Spray Carnation CHINA / 데코더 (Decoder)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2317,
+      "exactName": "Spray Carnation CHINA / 벨몬테 (Belmonte)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2319,
+      "exactName": "Spray Carnation CHINA / 스칼렛 퀸 (Scarlet Queen)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2339,
+      "exactName": "Veronica CHINA / 베로니카 화이트 (Veronica White)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2340,
+      "exactName": "Veronica CHINA / 베로니카 핑크 (Veronica Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2341,
+      "exactName": "Veronica CHINA / 베로니카 보라 (Veronica purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2343,
+      "exactName": "Spray Carnation CHINA / 솔로미오 Solomio Bern (Green)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2344,
+      "exactName": "Spray Carnation CHINA / 솔로미오 Solomio Fen (Dark Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2358,
+      "exactName": "Ammi CHINA 아미초",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2382,
+      "exactName": "Ping Pong CHINA / 퐁퐁 노랑 (Yellow)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2381,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "34-2B CLOUD",
+        "cells": [
+          "B53",
+          "K53"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2389,
+      "exactName": "Greens CHINA / 보리사초 (Chasmanthium latifolium)",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 3121,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B45",
+          "K45"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2412,
+      "exactName": "Spray Carnation CHINA / 솔로미오 Solomio cliff (Orange Red)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2414,
+      "exactName": "Spray carnation CHINA / SP Carnation - Solemio Cash (Light pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2417,
+      "exactName": "Spray carnation CHINA / SP Carnation - Solomio Blondfly (연노랑)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2448,
+      "exactName": "Scabiosa CHINA / 스카비오사 연핑크 (Scabiosa light pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2454,
+      "exactName": "ROSE CHINA / Sample",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2501,
+      "exactName": "CHINA / 왁스 보라 (Wax Purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2488,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "32-1 CLOUD ",
+        "cells": [
+          "B28",
+          "K28"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2531,
+      "exactName": "Spray Carnation CHINA / Solomio Kai",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2532,
+      "exactName": "Spray Carnation CHINA / Solomio Lala Bonita",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2557,
+      "exactName": "Ranunculus CHINA / 라넌큘러스 화이트(ranunculus white) ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2564,
+      "exactName": "Scabiosa CHINA / 스카비오사 블랙 레드 (Black Red)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2587,
+      "exactName": "Preserved Amaranthus CHINA / 줄맨드라미 버건디(Burgundy)",
+      "country": "중국",
+      "rate": 0.25,
+      "referenceProdKey": 3075,
+      "form": "preserved_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "21-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2615,
+      "exactName": "Spray Carnation CHINA / 라이트핑크 테시노 (Light Pink Tessino)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2626,
+      "exactName": "Spray Carnation CHINA / Scarlett 스카렛 (Red with white)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2627,
+      "exactName": "Spray Carnation CHINA / Pink Jasmine 핑크 자스민 (Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2651,
+      "exactName": "Ranunculus CHINA / 라넌큘러스 레드 (ranunculus red) ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2674,
+      "exactName": "Lisianthus CHINA / 블루 (Rosita 4 Type blue) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3084,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "19-2 MEL",
+        "cells": [
+          "B37",
+          "K37"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2714,
+      "exactName": "Lisianthus CHINA / 베누스 핑크 (Venus pink) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3084,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "19-2 MEL",
+        "cells": [
+          "B37",
+          "K37"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2736,
+      "exactName": "Spray Carnation CHINA / 넘버원 (Number One)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2737,
+      "exactName": "Spray Carnation CHINA / 롤리팝 퍼플 (Lollipop purple)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2897,
+      "exactName": "Spray Carnation CHINA / 펄 파우더 Pearl powder ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2898,
+      "exactName": "Spray Carnation CHINA / 스트로베리 파이 Strawberry pie",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2943,
+      "exactName": "CHINA / 라스라지 화이트 (Gladiolus White)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2958,
+      "exactName": "DAHLIA CHINA / 달리아 블랙 (Dahlia Cocoa beans)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2965,
+      "exactName": "DAHLIA CHINA / 달리아 카라멜 (caramel)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2967,
+      "exactName": "DAHLIA CHINA / 달리아 코랄 (Coral pearl)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 2988,
+      "exactName": "DAHLIA CHINA / 달리아 코랄 (Coral Pearl)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3027,
+      "exactName": "CHINA / 백합 화이트 (Oriental white) 2 Buds/봉오리",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3028,
+      "exactName": "Eucalyptus CHINA / 다이브 (Exotica Berry)",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 2226,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B57",
+          "K57"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3029,
+      "exactName": "CHINA / 솔리다고 (Solidago)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3032,
+      "exactName": "Amaranthus CHINA Fresh / 줄맨드라미 생화 그린",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3076,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-2 MEL",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3033,
+      "exactName": "Amaranthus CHINA Fresh / 줄맨드라미 생화 래드",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3076,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-2 MEL",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3039,
+      "exactName": "CHINA / 조팝 (Spiraea spp, Bridal wreath)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3118,
+      "exactName": "Eucalyptus CHINA / 포퓰러스 폴리 (populus) 500g",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 2226,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B57",
+          "K57"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3137,
+      "exactName": "Greens CHINA / 스네이크 알륨 개화 전 (Allium fistulosum Before Blooming) 200g",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 3121,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B45",
+          "K45"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3200,
+      "exactName": "ROSE CHINA / 프라우드(White proud) 75-80cm JCF",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3201,
+      "exactName": "Amaranthus CHINA DRY WHITE/ 줄맨드라미 프리저브드 화이트",
+      "country": "중국",
+      "rate": 0.25,
+      "referenceProdKey": 3075,
+      "form": "preserved_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "21-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3207,
+      "exactName": "ROSE CHINA / 꽃잎용 Petal Use (White) 40cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3230,
+      "exactName": "Spray Carnation CHINA / 인어 공주 (Mermaid Princess)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3311,
+      "exactName": "Spray Carnation CHINA / 핑크 Doobadoo (pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3332,
+      "exactName": "Lisianthus CHINA / 로잔 3호 브라운 (Rosanne 3 Brown) 600g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3084,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "19-2 MEL",
+        "cells": [
+          "B37",
+          "K37"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3335,
+      "exactName": "Spray Carnation CHINA / 연 샴페인 (Light Champagne)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3345,
+      "exactName": "DAHLIA CHINA / 달리아 라운드 블랙 (Round Cocoa beans)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3347,
+      "exactName": "DAHLIA CHINA / 달리아 라운드 브라이트 오렌지 (Round bright orange)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3226,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B68",
+          "K68"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3351,
+      "exactName": "ROSE CHINA / 플럼 플럼 (Plum anemone) ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3364,
+      "exactName": "Matricaria CHINA / Chamomilla",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3378,
+      "exactName": "Scabiosa CHINA / 스카비오사 Mix Box",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3382,
+      "exactName": "Greens CHINA / 패니쿰 (Panicum) 200g",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 3121,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B45",
+          "K45"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3398,
+      "exactName": "Greens Blue Star Fern CHINA / 블루스타펀 (Phlebodium aureum)",
+      "country": "중국",
+      "rate": 0.08,
+      "referenceProdKey": 3121,
+      "form": "fresh_foliage",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B45",
+          "K45"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3399,
+      "exactName": "Carnation CHINA / 옐로우 헤르메스 (Yellow Hermes)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3400,
+      "exactName": "Carnation CHINA / 마리포사 (Mariposa)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3401,
+      "exactName": "Spray Carnation CHINA / 로얄 테시노 (Royal Tessino)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3402,
+      "exactName": "Carnation CHINA / 퍼플 미스트 페어리 (Purple Mist Fairy)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3403,
+      "exactName": "Carnation CHINA / 모치 (Mochi)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3453,
+      "exactName": "ROSE CHINA / 꽃잎용 Petal Use (Light Pink) 40cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3460,
+      "exactName": "ROSE CHINA / 꽃잎용 Petal Use (Dark Pink) 40cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3462,
+      "exactName": "ROSE CHINA / 꽃잎용 Petal Use (Peach) 40cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3501,
+      "exactName": "SPRAY ROSE CHINA / 블랙뷰티 (Spray-Rose Black Beauty) 70-80cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3503,
+      "exactName": "Spray Carnation CHINA / 솔로미오 Solomio Cas (Light pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3059,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "17-1 MEL",
+        "cells": [
+          "B35",
+          "K35"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3517,
+      "exactName": "Acasia CHINA / 미모사 Mimosa ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3519,
+      "exactName": "SPRAY ROSE CHINA / (Yanzhi Gongzhu) ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3520,
+      "exactName": "SPRAY ROSE CHINA / (Kupi)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3521,
+      "exactName": "SPRAY ROSE CHINA / (Kupi) 70cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3522,
+      "exactName": "SPRAY ROSE CHINA / (Xinqing) 70cm",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3523,
+      "exactName": "CHINA / 리모늄 스타티스 믹스 (Statice Mix Box) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2834,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "20-2 MEL",
+        "cells": [
+          "B48",
+          "K48"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3524,
+      "exactName": "ROSE CHINA/ Xiao Qiao 60cm ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3527,
+      "exactName": "ROSE CHINA/ Shangguanwaner",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3528,
+      "exactName": "ROSE CHINA/ Maupassant ",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2077,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-1 CLOUD",
+        "cells": [
+          "B40",
+          "K40"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3529,
+      "exactName": "ORCHID CHINA/ White",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3108,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "18-1 CLOUD",
+        "cells": [
+          "B24",
+          "K24"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3535,
+      "exactName": "CHINA/ 리모늄 시네신스 진핑크 (Sinensis Dark Pink)",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 2158,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "35-2 CLOUD",
+        "cells": [
+          "B63",
+          "K63"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    },
+    {
+      "prodKey": 3539,
+      "exactName": "Rice Flower CHINA  / 라이스 플라워 핑크 (Pink) 500g",
+      "country": "중국",
+      "rate": 0.214,
+      "referenceProdKey": 3303,
+      "form": "fresh_cut_flower",
+      "source": {
+        "file": "CHINA 중국 원가자료 (3).xlsx",
+        "fileSha256": "23cefb56cad78b2d3897971440331e577e639d206595858d52ddb326cef77560",
+        "sheet": "34-2B CLOUD",
+        "cells": [
+          "B52",
+          "K52"
+        ]
+      },
+      "matchLevel": "USER_APPROVED_PRODUCT_FORM_REFERENCE",
+      "condition": "승인된 중국 상품형태별 원본 계산기준 보완; 이 품목 직접 원본 셀·실제 신고·특혜 자격·납부세액 확인 아님",
+      "actualDeclarationVerified": false
+    }
+  ]
+}

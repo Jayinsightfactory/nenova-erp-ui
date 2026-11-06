@@ -1,6 +1,7 @@
 // Authenticated SELECT-only production audit. Never log payloads, notes or credentials.
 import assert from 'node:assert/strict';
 import { profitDisplayCalculation } from '../lib/profitReportStoredCalculation.js';
+import { summarizeProfitDutyCoverage } from './profit-duty-coverage.mjs';
 const token=process.env.NENOVAWEB_SERVICE_TOKEN;
 if(!token)throw Error('Configured service credential unavailable');
 const year=String(process.env.PROBE_YEAR||'2026'),end=Number(process.env.PROBE_LAST_WEEK||44);
@@ -10,6 +11,7 @@ const get=async(path)=>{
  assert.equal(response.status,200,`GET HTTP ${response.status}`);return response.json();
 };
 const results=[];
+const dutyCoverage=[];
 for(let n=1;n<=end;n++){
  const week=String(n).padStart(2,'0');
  const payload=await get(`/api/sales/profit-report?year=${year}&week=${week}`);
@@ -20,6 +22,16 @@ for(let n=1;n<=end;n++){
   assert.equal(calc.K,expected,`K invariant ${week}`);
  }
  assert.equal(JSON.stringify(payload),source,'Payload immutable');
+ const coverage=summarizeProfitDutyCoverage(view.rows);
+ dutyCoverage.push({week,rows:coverage});
+ if(process.env.PROBE_CHINA_DUTY_COVERAGE==='true'){
+  const china=coverage.find(row=>row.category==='중국');
+  if(china){
+   assert.equal(china.failures.POLICY_KEY_MISSING || 0,0,`China tariff rules missing ${week}`);
+   for(const boundary of ['begin','end'])assert.equal(china.failures[`${boundary}:VALUATION_METHOD_UNSUPPORTED`] || 0,0,`China ${boundary} product valuation unsupported ${week}`);
+   if(n===44)assert.deepEqual(china.nullColumns,[],`China 44 incomplete ${JSON.stringify(china.failures)}`);
+  }
+ }
  const notes=await get(`/api/sales/profit-stock-adjustment-notes?year=${year}&week=${week}&detail=1`);
  assert.equal(notes.ok,true);assert.equal(notes.orderYear,year);assert.equal(Number(notes.major),n);
  assert.equal(typeof notes.text,'string');assert.ok(!/NaN|Infinity|undefined/.test(notes.text),'Invalid note numeric value');
@@ -27,3 +39,4 @@ for(let n=1;n<=end;n++){
  console.log(JSON.stringify({weekAudit:'PASS',year,week,actualBusinessWrites:0}));
 }
 console.log(JSON.stringify({profitMarginAllWeeks:'PASS',year,weeks:results.length,results,actualBusinessWrites:0}));
+console.log(JSON.stringify({dutyCoverage,actualBusinessWrites:0}));
