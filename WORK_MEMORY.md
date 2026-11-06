@@ -2137,3 +2137,5 @@
 - 실제 dnSpy CLI 실행, 운영 SELECT 신쿼리12행/11품목/721000원/중복PK0 확인(고객명·인증정보 기록 없음). 계약·교차연도·경계/단위/차감·API테스트 PASS. manifest/writeguard/dnSpy/가이드검사 PASS. 실제 Chrome 데스크톱/390px/24기간/오류복구 PASS.
 - 실제 1920x1080 한국어 가이드55.5초 등록. ERP core PASS 후 posthook이 촬영용 임시 instrumentation을 읽어 실패→원본복원 후 공식 posttest:erp-contract exit0. 최초 전체 명령 exit0 아님; 정식 build/CI/배포/운영확인은 진행중(미검증).
 검색어: 출고일 기준 매출 업체 즐겨찾기 정산요일 원차수 90=30(44-1)/60(44-2) estimate-shipment-date-sales
+- 2026-11-06 후속: 정식 npm run build exit0, 공식 posttest:erp-contract exit0, 빌드된 next start에서 새탭 재접속 즐겨찾기/24기간/모바일/오류복구/팝업 shell/Tab·ShiftTab/실제 가이드 재생·목차·한국어 cues·다운로드 PASS. PR1593 CI/배포는 진행중(운영 미검증).
+검색어: PR1593 출고일매출 build0 production-ui guide-player

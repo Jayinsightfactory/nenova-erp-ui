@@ -78,6 +78,26 @@ async function main(){
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});await clickText('조회');await page.waitForSelector('article');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page must fit; table owns horizontal scroll');
     await page.screenshot({path:'.verify/date-sales-mobile.png',fullPage:true});
+    if(dry){
+      await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+      await page.$eval('section[aria-label="출고일 기준 매출"] > div summary',n=>{n.scrollIntoView({block:'center'});n.click();});
+      await page.waitForSelector('video');
+      await page.$eval('video',v=>{v.muted=true;v.load();});
+      await page.waitForFunction(()=>document.querySelector('video')?.readyState>=1);
+      await page.$eval('video',async v=>{await v.play();});
+      await page.waitForFunction(()=>document.querySelector('video')?.currentTime>.1);
+      assert(await page.$eval('video',v=>v.videoWidth===1920&&v.videoHeight===1080));
+      const chapter=await page.$('nav[aria-label="영업지원 영상 목차"] button:nth-child(3)');await chapter.click();
+      assert(await page.$eval('video',v=>v.currentTime>10));
+      await page.$eval('video',v=>{v.pause();v.textTracks[0].mode='showing';});
+      await page.waitForFunction(()=>document.querySelector('video')?.textTracks[0]?.cues?.length>0);
+      assert.equal(await page.$$eval('a[download]',links=>links.filter(a=>a.href.includes('/guides/estimate-shipment-date-sales/')).length),2);
+      await page.goto(base+'/estimate?tab=shipment-date&popup=1',{waitUntil:'networkidle0'});
+      assert.equal(await page.$$eval('[data-ui-sidebar]',n=>n.length),0);assert.equal(await page.$$eval('[data-ui-popupbar]',n=>n.length),1);
+      await page.focus('[aria-label="출고 매출 업체"]');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'정산 시작 요일');
+      await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'출고 매출 업체');
+      console.log('PASS real guide player: play/1920x1080/chapters/Korean cues/downloads, popup shell, Tab/ShiftTab focus order');
+    }
     assert(requests.some(r=>r.mode==='history'));assert(requests.some(r=>r.mode==='range'));assert.deepEqual(errors,[]);
     console.log('PASS actual browser: favorite/save/reload, weekday history, 24 periods, 90=30/60 provenance, details, range, error recovery, one shell, mobile fit; all API requests synthetic');
   }finally{if(rec&&!stopped)await rec.stop().catch(()=>{});await browser.close();}
