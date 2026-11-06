@@ -21,7 +21,7 @@ import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { mountById, mountPose } from '../../lib/pmMounts';
-import { ridePath, pathLength, pathPoint, ringPoint, ringLength, ringRect, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect, seaRect } from '../../lib/pm3dRide';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, ringRect, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect, seaRect, FOLLOW_ZOOM, pickFollowTarget, followPan, followStep } from '../../lib/pm3dRide';
 import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
@@ -86,6 +86,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
   const host = useRef(null); const labelsRef = useRef(null);
   const api = useRef(null);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [follow, setFollow] = useState(false); // 비행 근접 컷
   const [stat, setStat] = useState('');
   const dataRef = useRef({ rooms, agents, links, avatars, reduced });
   dataRef.current = { rooms, agents, links, avatars, reduced };
@@ -178,7 +179,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       if (!m.aoMap && mesh?.geometry?.attributes?.uv1) { m.aoMap = kitAo; m.aoMapIntensity = RQ.aoIntensity; }
     };
     const cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
-    const pan = new THREE.Vector3();
+    const pan = new THREE.Vector3(); const wp = new THREE.Vector3();
     const st = { fit: 10, zoom: 1, people: new Map(), stations: [], robots: [], lines: [], clickables: [], built: false, clock: new THREE.Clock(), frames: 0, fpsT0: 0, firstFrame: null, checked: false };
     const placeCam = () => {
       const w = el.clientWidth || 800; const h = el.clientHeight || 500; const a = w / h;
@@ -857,6 +858,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         }
         updateLabels();
       }
+      // [비행 근접 컷] 켜져 있으면 하늘 코스 비행체를 따라가며 확대 — 없으면 원래 시점 유지(대기)
+      if (st.follow) {
+        const riders = [...st.people.values()].map((P) => ({ P, riding: !!(P.riding && P.mountObj), course: mountById(P.mountId)?.course }));
+        const tgt = pickFollowTarget(riders);
+        st.followLive = !!tgt;
+        if (tgt) {
+          tgt.P.mountObj.getWorldPosition(wp);
+          const goal = followPan(wp, CAM_DIR);
+          const nx = followStep(pan, goal, dt);
+          pan.x = nx.x; pan.z = nx.z; if (st.zoom !== FOLLOW_ZOOM) st.zoom = FOLLOW_ZOOM; placeCam(); st.poke?.();
+        }
+      }
       renderer.render(scene, cam);
       // 저사양 판정
       if (st.built && st.firstFrame == null) { st.firstFrame = now - mountAt; st.fpsT0 = now + FPS_WARMUP_MS; st.frames = 0; }
@@ -924,6 +937,12 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     api.current = {
       apply: () => { st.poke?.(); apply(); },
       setZoom: (z) => { st.poke?.(); st.zoom = z; if (z <= 1) pan.set(0, 0, 0); placeCam(); },
+      // 비행 근접 컷 켜기/끄기 — 끄면 켜기 전 배율·시점으로 복귀
+      setFollow: (on, zoomBack) => {
+        st.poke?.();
+        if (on) { st.followSave = { zoom: st.zoom, x: pan.x, z: pan.z }; st.follow = true; }
+        else if (st.follow) { st.follow = false; st.followLive = false; const b = st.followSave; if (b) { st.zoom = zoomBack ?? b.zoom; pan.set(b.x, 0, b.z); } placeCam(); }
+      },
     };
     return () => {
       dead = true; cancelAnimationFrame(raf); ro.disconnect(); io?.disconnect();
@@ -935,7 +954,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
   }, [themeId, (rooms || []).map((r) => (r.seats || []).length).join(','), (agents || []).length]);
 
   useEffect(() => { api.current?.apply(); }, [rooms, links, avatars, reduced]);
-  useEffect(() => { api.current?.setZoom(zoom); }, [zoom]);
+  useEffect(() => { if (!follow) api.current?.setZoom(zoom); }, [zoom, follow]);
+  useEffect(() => { api.current?.setFollow(follow, zoom); }, [follow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const people = []; for (const r of rooms || []) for (const p of r.seats || []) if (!p.empty) people.push(p);
   const cur = new Map(); for (const l of links || []) if (l.kind === 'current') cur.set(l.name, l);
@@ -980,7 +1000,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       </div>
       <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 6 }}>
         <ZoomSlider pct={zoom * 100} min={ZOOM_PCT_MIN} max={ZOOM_PCT_MAX} onChange={(pct) => setZoom(pctToZoom(pct))} />
-        <button type="button" aria-label="화면 맞춤" onClick={() => setZoom(1)} style={{ ...zbtn, width: 'auto', padding: '0 10px' }}>맞춤</button>
+        <button type="button" aria-label="비행 근접 컷" aria-pressed={follow} title="하늘을 나는 탈것을 따라가며 크게 보기" onClick={() => setFollow((v) => !v)} style={{ ...zbtn, width: 'auto', padding: '0 10px', background: follow ? '#ffe08a' : U.btn }}>{follow ? '🎥 컷 끄기' : '🎥 비행 컷'}</button>
+        <button type="button" aria-label="화면 맞춤" onClick={() => { setFollow(false); setZoom(1); }} style={{ ...zbtn, width: 'auto', padding: '0 10px' }}>맞춤</button>
       </div>
       <small style={{ position: 'absolute', left: 10, bottom: 8, color: U.note, background: U.chipDim, padding: '1px 6px', borderRadius: 6 }}>3D 베타 {stat}</small>
     </div>
