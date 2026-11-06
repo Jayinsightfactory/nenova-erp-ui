@@ -4,6 +4,8 @@ import { additionalCycleWeek } from '../lib/estimateFreightDraft';
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/router';
+import EstimateShipmentDateSales from '../components/EstimateShipmentDateSales';
 import { createPortal } from 'react-dom';
 import { apiGet, apiPost } from '../lib/useApi';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
@@ -577,6 +579,21 @@ function SearchableSelect({ options, value, onChange, placeholder = '검색...' 
 }
 
 export default function Estimate() {
+  const router = useRouter();
+  const dateTab = router.query.tab === 'shipment-date';
+  const [openedWeek, setOpenedWeek] = useState(false);
+  useEffect(() => { if (router.isReady && !dateTab) setOpenedWeek(true); }, [router.isReady, dateTab]);
+  return <div>
+    <nav aria-label="견적서 관리 조회 기준" style={{ display:router.query.previewCapture === '1' ? 'none' : 'flex', gap:8, padding:'12px 16px', borderBottom:'1px solid #d8e3f1', flexWrap:'wrap' }}>
+      <button type="button" className="btn" aria-pressed={!dateTab} onClick={() => router.replace({ pathname:'/estimate', query:{ ...router.query, tab:'week' } }, undefined, { shallow:true })}>차수 기준 견적</button>
+      <button type="button" className="btn" aria-pressed={dateTab} onClick={() => router.replace({ pathname:'/estimate', query:{ ...router.query, tab:'shipment-date' } }, undefined, { shallow:true })}>출고일 기준 매출</button>
+    </nav>
+    {(openedWeek || (router.isReady && !dateTab)) && <div hidden={dateTab}><EstimateByWeek /></div>}
+    {dateTab && <EstimateShipmentDateSales />}
+  </div>;
+}
+
+function EstimateByWeek() {
   const { t } = useLang();
   // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
   const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
