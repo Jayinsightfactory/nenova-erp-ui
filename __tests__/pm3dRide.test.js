@@ -48,12 +48,12 @@ const { pathToFileURL } = require('url');
     for (let s = 1; s <= 9; s++) { const r = RD.stationRect(s); assert.ok(Math.abs(p.x - r.cx) > r.hw || Math.abs(p.z - r.cz) > r.hd, '링이 스테이션 통과'); }
   }
   assert.strictEqual(RD.RIDE_MAX_CONCURRENT, 3, '동시 주행 상한 3');
-  // 에셋: mounts.glb 모듈 17종 + 스프라이트/썸네일 39… 중 탈것 17×2
+  // 에셋: mounts.glb 모듈 18종 + 스프라이트/썸네일 39… 중 탈것 18×2
   const dir = path.join(process.cwd(), 'public');
   const b = fs.readFileSync(path.join(dir, 'pm3d/mounts.glb'));
   const j = JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString());
   const names = new Set(j.nodes.map((n) => n.name));
-  const ids = ['kickboard', 'flower-cart', 'roller', 'bike', 'forklift', 'balloon', 'cloud', 'duck', 'turtle', 'magic-carpet', 'unicorn', 'gama', 'surfboard', 'hoverboard', 'sled', 'boat', 'train'];
+  const ids = ['kickboard', 'flower-cart', 'roller', 'bike', 'forklift', 'balloon', 'cloud', 'duck', 'turtle', 'magic-carpet', 'unicorn', 'gama', 'surfboard', 'hoverboard', 'sled', 'boat', 'train', 'plane'];
   for (const id of ids) {
     assert.ok(names.has('mount_' + id.replace(/-/g, '_')), `mounts.glb 모듈 없음: ${id}`);
     assert.ok(fs.existsSync(path.join(dir, 'pm/mounts', id + '.png')), `2D 스프라이트 없음: ${id}`);
@@ -71,5 +71,15 @@ const { pathToFileURL } = require('url');
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(/RIDE_MAX_CONCURRENT/.test(src) && /mountPose/.test(src) && /ridePath/.test(src), 'Scene3D 탈것 연동 누락');
   assert.ok(/reduced/.test(src.slice(src.indexOf('cruise'))), '크루징 reduced 처리 누락');
-  console.log(`pm3dRide OK (경로 ${checked}건 교차 0 · 탈것 ${ids.length}종)`);
+  // 비행 코스(경비행기): 활주로 지면 출발·착지, 최고 고도 4m 이상, 순간이동 없음
+  {
+    const rw = { x0: -14, x1: -6, z: 10 }; let prev = null; let maxStep = 0; let maxY = 0;
+    for (let i = 0; i <= 1000; i++) { const p = RD.flightPoint(rw, 16, 16, i / 1000); if (prev) maxStep = Math.max(maxStep, Math.hypot(p.x - prev.x, p.z - prev.z, p.y - prev.y)); maxY = Math.max(maxY, p.y); prev = p; }
+    const s0 = RD.flightPoint(rw, 16, 16, 0); const s1 = RD.flightPoint(rw, 16, 16, 0.9995);
+    assert.ok(s0.y === 0 && s1.y === 0, '비행: 이륙 전·착륙 후 지면');
+    assert.ok(s0.z === rw.z && s1.z === rw.z, '비행: 활주로 위에서 시작·끝');
+    assert.ok(maxY >= 4, `비행: 상공 고도 부족 ${maxY}`);
+    assert.ok(maxStep < 0.6, `비행: 경로 끊김(순간이동) ${maxStep}`);
+  }
+  console.log(`pm3dRide OK (경로 ${checked}건 교차 0 · 탈것 ${ids.length}종 · 비행 코스)`);
 })().catch((e) => { console.error(e); process.exit(1); });
