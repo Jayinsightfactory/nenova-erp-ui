@@ -343,6 +343,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-ai-verify="pair-slot-2"]').click();
     await page.locator('[data-ai-verify="customer-436"]').click();
     await page.getByTestId('distribution-pair-table').waitFor();
+    assert.match(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), /^① /);
+    assert.match(await page.locator('[data-ai-verify="pair-cust-head-2"]').textContent(), /^② /);
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
     await page.locator('[data-ai-verify="fixed-2429"]').waitFor();
     assert.match(await page.getByTestId('distribution-pair-fixed-count').textContent(), /확정 품목 1개/);

@@ -1733,6 +1733,13 @@ export default function Distribute() {
                       })()}
                       <table className="tbl" data-testid="distribution-pair-table" style={{fontSize:12,width:'auto'}}>
                         <thead>
+                          <tr data-testid="distribution-pair-cust-header">
+                            <th colSpan={2} />
+                            <th colSpan={2} data-ai-verify="pair-cust-head-1" style={{textAlign:'center',color:'var(--blue)',background:'#eff6ff',fontSize:13}}>① {selectedCust.CustName}</th>
+                            <th style={{textAlign:'center',fontSize:11}}>① ⇄ ②</th>
+                            <th colSpan={2} data-ai-verify="pair-cust-head-2" style={{textAlign:'center',color:'#b45309',background:'#fff7ed',fontSize:13}}>② {pairCust.CustName}</th>
+                            <th colSpan={2} />
+                          </tr>
                           <tr>
                             <th>품목명</th><th>단위</th>
                             <th style={{textAlign:'right'}}>① 주문</th>
