@@ -1,0 +1,11 @@
+{
+  "id":"profit-coherent-request-memo",
+  "title":"최근 손익 동일 원천의 요청 내부 중복 SELECT 제거",
+  "scope":["lib/erpRequestMemo.mjs","lib/pivotFreightArrival.js","lib/sourceWorkbookFx.js","scripts/profile-profit-canonical-read.cjs","scripts/lib/profit-profile-instrumentation.cjs"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"EXACT_REQUEST_READ_MEMO","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. Existing ERP read context only; exact typed arrival arguments including queryRunner identity; normalized validated FX year set only. Promise coalescing, independent structuredClone per consumer, rejected promise evicted. Outside context unchanged. No cross-request cache, TTL, new snapshot, writer, SQL/filter, acquisition evidence, invoice revision policy, formula, UI or source-fence changes."}],
+  "crossYearFixture":{"required":true,"description":"2025/44 and2026/44 separated; FX year array order/duplicates coalesce only identical validated year sets. Explicit0/false/null/undefined/omitted and different rate/customs/strict/duty options cannot alias."},
+  "requiredTestFiles":["__tests__/erpRequestMemo.test.cjs","__tests__/profitProfileInstrumentation.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-coherent-performance-2026-11-06.md","source":"Actual local dnSpy FormWarehouseView inspection and SELECT-only canonical44 profiling. EXE lookup keys and all formulas unchanged; request-local deduplication only.","methods":["FormWarehouseView.GetData","getArrivalCostsForWeekRange","loadSourceWorkbookFxRows"],"tables":["WarehouseMaster","WarehouseDetail","Product","Flower","FreightCost","FreightCostDetail","CurrencyMaster","WebArrivalCostLine"]},
+  "requiredCommands":["node --test __tests__/erpRequestMemo.test.cjs __tests__/profitProfileInstrumentation.test.cjs","npm run verify:erp-change"]
+}
