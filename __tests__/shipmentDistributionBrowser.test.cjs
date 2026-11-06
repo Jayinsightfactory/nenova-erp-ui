@@ -166,7 +166,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           return reply(route, { success: true, products });
         }
         if (type === 'custList' || type === 'customers') return reply(route, { success: true,
-          customers: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 436, CustName: 'Zulu Florist' }] });
+          customers: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 436, CustName: 'Zulu Florist' }, { CustKey: 512, CustName: 'Mike Florist' }] });
         if (type === 'custDist') return reply(route, { success: true, totalOut: shipmentQty,
           customers: [{ CustKey: 478, CustName: 'Alpha Florist', 주문수량: 60, 출고수량: shipmentQty,
             OutUnit: '단', ShipmentDescr: '기존 출고 비고', 비고: '주문 메모', Cost: 700 },
@@ -341,7 +341,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429-박스"]').inputValue(), '5.1');
     badgeFixed = true; // 다음 확정 표시 조회부터 알스트로 품목군 확정
     await page.locator('[data-ai-verify="pair-slot-2"]').click();
-    await page.locator('[data-ai-verify="customer-436"]').click();
+    // 업체 2 칸 선택 후 아래 거래처 목록 버튼도 업체 2 로 들어가야 함 (업체 1 로 들어가던 버그)
+    await page.locator('[data-ai-verify="customer-row-436"]').click();
     await page.getByTestId('distribution-pair-table').waitFor();
     assert.match(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), /^① /);
     assert.match(await page.locator('[data-ai-verify="pair-cust-head-2"]').textContent(), /^② /);
@@ -413,6 +414,23 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(orderPosts, 1, 'exactly one order registration (customer 2 Zinnia)');
     assert.deepEqual(cycleCalls, ['scope', 'unfix', 'order', 'save', 'fix'], 'confirmed group: unfix before any write, refix after');
     assert.match(await page.getByTestId('distribution-save-log').textContent(), /재확정 중/);
+    // 업체 3 추가: ③ 칸 → 목록 버튼, 머리줄 ③, ②→③ 2단 이동 후 변경 취소
+    await page.locator('[data-ai-verify="pair-slot-3"]').click();
+    await page.locator('[data-ai-verify="customer-row-512"]').click();
+    await page.locator('[data-ai-verify="pair-cust-head-3"]').waitFor();
+    assert.match(await page.locator('[data-ai-verify="pair-cust-head-3"]').textContent(), /③ Mike Florist/);
+    assert.equal(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), '① Alpha Florist', 'customer 1 unchanged');
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
+    await page.locator('[data-ai-verify="move-from-2429"]').selectOption('1');
+    await page.locator('[data-ai-verify="move-to-2429"]').selectOption('2');
+    await page.locator('[data-ai-verify="move-qty-2429"]').fill('2');
+    await page.locator('[data-ai-verify="move-go-2429"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '53');
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('[data-ai-verify="discard-drafts"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
+    await page.locator('[data-ai-verify="pair-clear-3"]').click();
+    await page.locator('[data-ai-verify="pair-cust-head-3"]').waitFor({ state: 'detached' });
     await page.getByRole('button', { name: '업체 2 해제' }).click();
     await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
     console.log('browser: pair');
