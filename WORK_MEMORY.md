@@ -2117,3 +2117,10 @@
 - 적용기준:MENU_DEVELOPMENT_DEFAULTS,globals.btn와hotelOrderButtons의공통컨트롤규격.업무정책/API/SQL/ERP쓰기변경없음.
 - 기존실행회귀통과.실제Chrome1920/1280에서버튼높이/페이지폭/Tab·ShiftTab검증통과.가이드재촬영·정식build/CI/배포/운영확인진행중(미검증).
 - 검색어: 도착원가 버튼 디자인 CSS Module ArrivalUploadReview 32px styled-jsx
+
+## [2026-11-06] 꾸미기 버그 6건 일괄 수정 (#1580 코드, #1581 애셋)
+검색어: 피팅룸 옷 투과, 블롭, layer.outfit, 홀드아웃, 탈것 시승, equip lap, 상점 색 보정, saturate, 잠금 안내, 한글 셀렉터 curl 깨짐
+- 옷 투과 원인: layer.outfit.*(39장)가 "몸에서 옷 재질만 남긴" 렌더라 가림이 틀려 뒤돌아선 덩어리 — 전 세대 공통 불량(피팅룸 확대 때 드러남). 수정=입힌 상태+몸 홀드아웃 재렌더(#1581, char.* 30장 중립 베이스 포함). 액세서리 레이어는 원래 정상.
+- "탈것 구매 안 됨"=서버 정상(실구매 검증: 임재용 flower-cart 40토큰). 화면이 문제: 잠긴 품목 클릭 침묵→안내 문구 추가, "타도 안 탐"=평소 park만→장착 변경 즉시 시승 1바퀴+작업중 1/17 추첨 주행(#1580).
+- 상점 색=3D 캔버스만 saturate(1.24) 보정돼 있었음 → 상점 이미지에도 동일 CSS 필터.
+- 함정 재확인: Git Bash curl 한글 POST/셀렉터 깨짐(브리지 page/click에 [data-k="한글"]은 Node fetch로). 브리지 배율 입력은 불가, 맞춤 버튼은 button[aria-label="화면 맞춤"]. 로컬 dev는 JWT_SECRET로 nenovaSS3 쿠키 발급하면 관리자 화면 재현 가능.
