@@ -32,6 +32,8 @@
 
 ## Nov7 추가 승인: 증명된 Next env 재구성·독립 저널
 
+42246363460 CANONICAL_NEXT_START_UNPROVEN/SQL0 뒤 entry proof의 과도한 literal 제한을 보완했다. exact ROOT/node_modules/.bin/next 또는 dist/bin/next 두 경로만 허용하고 realpath가 canonical dist entry와 같아야 한다. 다른 경로·잘못된 symlink target은 거부한다. 실패는 고정 CANONICAL_NEXT_ENTRY_UNPROVEN/ARGS_UNPROVEN/TITLE_UNPROVEN으로만 구분하고 raw값은 숨긴다. 나머지 strict 조건·SQL1회 제한은 동일하다. 정상symlink/오류target 회귀 포함 대상14PASS, 추가 실SQL0.
+
 후속42245474108은 NODE_ENV_UNPROVEN이었다. 저널 full39459bytes/earliestOct19/latestNov6 11:21Z/partial187/두창 overlap0은 관측 범위이며 원인 완전 배제는 아니다. 이후 추가 승인은 NODE_ENV가 실제 미설정일 때만 canonicalNextStart 증명을 허용한다: exact PM2 pm_exec_path의 realpath가 ROOT/node_modules/next/dist/bin/next와 일치, args는 start 단독 또는 -p/--port+정규문자열1..65535만, proc cmdline은 알려진 next-server 버전 제목만 허용한다. 기존cwd/start/files 증명과 조회 후 metadata/title 재검증도 유지한다. configSource=verified_canonical_next_start_env/configProof=CANONICAL_NEXT_START_DEFAULT_PRODUCTION으로 구분한다. explicit empty/false/development/test/unknown은 계속 거부하고 raw args/title은 출력하지 않는다. 아래 초기 strict 설명의 NODE_ENV 미설정 거부는 이 증명이 없는 경우를 뜻한다. [Next 공식 환경변수 문서](https://nextjs.org/docs/app/guides/environment-variables)는 NODE_ENV 미할당시 dev 외 명령의 production 기본값을 명시한다. 자체 진단 RAM seed만 수행하며 앱 설정은 바꾸지 않는다. 최종 대상13PASS, 추가 실SQL0.
 
 동일 identity SELECT 안에서 현재 DB sys.databases의 snapshot_isolation_state(정수0..3)와 is_read_committed_snapshot_on(boolean)만 추가 반환한다. 누락·문자열·범위 밖 값은 failclosed다. 설정 ALTER/별도batch/실SQL 추가실행/앱 readpolicy 변경0. 최종 대상12PASS/directmanifest202PASS/diffcheckPASS이며 실제 운영 설정값은 아직 미검증이다.

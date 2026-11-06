@@ -5,7 +5,7 @@ const APP='nenova-erp',ROOT='/var/www/nenova-erp',FIELDS=['DB_SERVER','DB_PORT',
 const NEXT_ENV_FILES=['.env.production.local','.env.local','.env.production','.env'];
 const CODES=new Set(['IDENTITY_MODE_INVALID','IDENTITY_EXPECTED_INVALID','IDENTITY_TARGET_INVALID','IDENTITY_TARGET_CHANGED','IDENTITY_ENV_INVALID','CONFIG_UNAVAILABLE','IDENTITY_QUERY_INVALID','IDENTITY_MISMATCH','IDENTITY_PROBE_FAILED']);
 const fail=code=>{throw Object.assign(Error(),{code});};
-const PROOF_REASONS=new Set(['NODE_ENV_UNPROVEN','CANONICAL_NEXT_START_UNPROVEN','CWD_UNPROVEN','START_TIME_UNPROVEN','ENV_FILES_NEWER_OR_CHANGED','NEXT_ENV_LOAD_UNPROVEN','INITIAL_ENV_UNPROVEN','CONFIG_VALUES_UNAVAILABLE','NEXT_ENV_PROOF_UNAVAILABLE']);
+const PROOF_REASONS=new Set(['NODE_ENV_UNPROVEN','CANONICAL_NEXT_START_UNPROVEN','CANONICAL_NEXT_ENTRY_UNPROVEN','CANONICAL_NEXT_ARGS_UNPROVEN','CANONICAL_NEXT_TITLE_UNPROVEN','CWD_UNPROVEN','START_TIME_UNPROVEN','ENV_FILES_NEWER_OR_CHANGED','NEXT_ENV_LOAD_UNPROVEN','INITIAL_ENV_UNPROVEN','CONFIG_VALUES_UNAVAILABLE','NEXT_ENV_PROOF_UNAVAILABLE']);
 const unproven=reason=>{throw Object.assign(Error(),{code:'CONFIG_UNAVAILABLE',reason});};
 const IDENTITY_SQL=`SELECT
  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'SERVER=',CONVERT(nvarchar(256),SERVERPROPERTY('ServerName')),N'|DB=',DB_NAME())),2)) IdentityHash,
@@ -50,14 +50,16 @@ function envFileSnapshot(io,startedAt){
  });
 }
 function canonicalNextStart(io,pid,metadata){
- try{
+ let reason='CANONICAL_NEXT_ENTRY_UNPROVEN';try{
   const entry=ROOT+'/node_modules/next/dist/bin/next';
-  if(metadata?.pm_exec_path!==entry||io.realpathSync(metadata.pm_exec_path)!==io.realpathSync(entry))unproven('CANONICAL_NEXT_START_UNPROVEN');
+  if(![entry,ROOT+'/node_modules/.bin/next'].includes(metadata?.pm_exec_path)||io.realpathSync(metadata.pm_exec_path)!==io.realpathSync(entry))unproven(reason);
+  reason='CANONICAL_NEXT_ARGS_UNPROVEN';
   const args=metadata.args==='start'?['start']:metadata.args;
-  if(!Array.isArray(args)||args.some(v=>typeof v!=='string')||!(args.length===1&&args[0]==='start'||args.length===3&&args[0]==='start'&&['-p','--port'].includes(args[1])&&/^[1-9]\d{0,4}$/.test(args[2])&&Number(args[2])<=65535))unproven('CANONICAL_NEXT_START_UNPROVEN');
+  if(!Array.isArray(args)||args.some(v=>typeof v!=='string')||!(args.length===1&&args[0]==='start'||args.length===3&&args[0]==='start'&&['-p','--port'].includes(args[1])&&/^[1-9]\d{0,4}$/.test(args[2])&&Number(args[2])<=65535))unproven(reason);
+  reason='CANONICAL_NEXT_TITLE_UNPROVEN';
   const bytes=io.readFileSync('/proc/'+pid+'/cmdline');
-  try{if(!Buffer.isBuffer(bytes)||bytes.length>4096||!/^next-server \(v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\)\0*$/.test(bytes.toString('utf8')))unproven('CANONICAL_NEXT_START_UNPROVEN');}finally{if(Buffer.isBuffer(bytes))bytes.fill(0);}
- }catch{unproven('CANONICAL_NEXT_START_UNPROVEN');}
+  try{if(!Buffer.isBuffer(bytes)||bytes.length>4096||!/^next-server \(v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\)\0*$/.test(bytes.toString('utf8')))unproven(reason);}finally{if(Buffer.isBuffer(bytes))bytes.fill(0);}
+ }catch{unproven(reason);}
 }
 function reconstructNextEnvironment({pid,startedAt,initialEnviron,pm2Env},{io=fs,env=process.env,clock=Date.now,loadNext}={}){
  try{

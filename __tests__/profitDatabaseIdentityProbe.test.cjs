@@ -127,6 +127,17 @@ test('only absent NODE_ENV with canonical Next start metadata and known proc tit
   try{reconstructNextEnvironment({pid:123,startedAt:f.startedAt,initialEnviron:initial,pm2Env},{io:f.io,env:f.env,clock:()=>f.now,loadNext:f.loadNext});assert.fail('unproven must fail');}catch(error){const safe=safeFailure(error);assert.equal(safe.code,'CONFIG_UNAVAILABLE');assert.doesNotMatch(JSON.stringify(safe),/PRIVATE|next-server|3000|\/proc/);}
  }
 });
+test('only canonical dist entry or exact .bin symlink resolving to it passes; ENTRY/ARGS/TITLE reasons stay fixed',()=>{
+ for(const mode of ['symlink','wrongTarget','otherPath','args','title']){
+  const f=nextFixture(),entry=f.ROOT+'/node_modules/next/dist/bin/next',bin=f.ROOT+'/node_modules/.bin/next',read=f.io.readFileSync,real=f.io.realpathSync;
+  const pm2Env={pm_exec_path:mode==='otherPath'?'/PRIVATE/next':bin,args:mode==='args'?['dev']:['start']};
+  f.io.realpathSync=file=>file===bin?(mode==='wrongTarget'?'/PRIVATE/target':entry):real(file);
+  f.io.readFileSync=(file,encoding)=>file==='/proc/123/cmdline'?Buffer.from(mode==='title'?'PRIVATE_TITLE':'next-server (v16.2.1)\0'):read(file,encoding);
+  const run=()=>reconstructNextEnvironment({pid:123,startedAt:f.startedAt,initialEnviron:Buffer.from('BOOT_HOST=PRIVATE_SERVER'),pm2Env},{io:f.io,env:f.env,clock:()=>f.now,loadNext:f.loadNext});
+  if(mode==='symlink'){assert.equal(run().configProof,'CANONICAL_NEXT_START_DEFAULT_PRODUCTION');continue;}
+  assert.throws(run,error=>{const safe=safeFailure(error);assert.equal(safe.reason,mode==='args'?'CANONICAL_NEXT_ARGS_UNPROVEN':mode==='title'?'CANONICAL_NEXT_TITLE_UNPROVEN':'CANONICAL_NEXT_ENTRY_UNPROVEN');assert.doesNotMatch(JSON.stringify(safe),/PRIVATE|\/node_modules|next-server/);return true;});
+ }
+});
 const uuid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
 const event=(attempt,phase,at,extra={})=>JSON.stringify({attempt:uuid(attempt),phase,at,scope:{orderYear:'2026',orderWeek:'44-01',ownerToken:'PRIVATE_OWNER'},...extra});
 test('journal pairs intervals across windows, caps output, hides IDs/owners/raw codes and marks partial/tail evidence',()=>{
