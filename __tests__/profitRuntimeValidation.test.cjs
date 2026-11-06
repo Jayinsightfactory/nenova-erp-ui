@@ -43,3 +43,31 @@ test('repeat child exit, deadline, spawn and assessment failures expose only fix
   if(mode!=='spawn'){assert.equal(lines.length,1);assert.equal(JSON.parse(lines[0]).httpStatus,502);}
  }
 });
+test('file summary and HTTP failure are allowlisted, actual diff contents remain private',()=>{
+ const {safeResult}=require('../scripts/profit-runtime-two-rounds.cjs'),privateValue='PRIVATE_TOKEN_SQL_BODY';
+ const result=safeResult({status:'PASS',scope:{year:'2026',week:'44',token:privateValue},requests:1,httpStatuses:[200],blockedWrites:2,actualBusinessWrites:0,initialScreenDifferences:[{row:privateValue}],financialDigest:'a'.repeat(64),bytes:50000,sheets:1,token:privateValue,error:privateValue,rows:[privateValue]});
+ assert.deepEqual(result,{runtimeFileResult:true,status:'PASS',scope:{year:'2026',week:'44'},requests:1,httpStatuses:[200],blockedWrites:2,actualBusinessWrites:0,initialDifferenceCount:1,financialDigest:'a'.repeat(64),bytes:50000,sheets:1});
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE|token|error|rows/);
+ assert.deepEqual(safeResult({runtimeHttpFailure:true,status:502,kind:'output',body:privateValue}),{runtimeHttpFailure:true,status:502,kind:'output'});
+ for(const kind of ['main','output','week-check','stock-notes','other-api'])assert.equal(safeResult({runtimeHttpFailure:true,status:500,kind}).kind,kind);
+ assert.equal(safeResult({runtimeHttpFailure:true,status:500,kind:privateValue}).kind,null);
+ assert.equal(safeResult({runtimeHttpFailure:false}),null);assert.equal(safeResult({runtimeHttpFailure:true,status:privateValue}).status,null);
+});
+test('blocked nonGET attempts are preserved as successful interception, not business writes',()=>{
+ const fs=require('node:fs'),path=require('node:path'),source=fs.readFileSync(path.join(__dirname,'../scripts/profit-production-download-smoke.cjs'),'utf8');
+ assert.match(source,/await page\.setRequestInterception\(true\)/);
+ const marker="page.on('request',",start=source.indexOf(marker),end=source.indexOf('\n  });',start);assert.ok(start>=0&&end>start);
+ const callback=source.slice(start+marker.length,end)+'\n  }';
+ const requests=[],h=new Function('origin','year','week','requests','token','assert','let blockedWrites=0;const handler='+callback+';return {handler,count:()=>blockedWrites};')('https://nenovaweb.com','2026','44',requests,'PRIVATE_TOKEN',assert);
+ let aborted=0,continued=0;for(const method of ['POST','PATCH','DELETE'])h.handler({url:()=> 'https://nenovaweb.com/api/sales/profit-report',method:()=>method,abort:reason=>{assert.equal(reason,'blockedbyclient');aborted++;},continue:()=>{continued++;}});
+ assert.equal(aborted,3);assert.equal(continued,0);assert.equal(h.count(),3);assert.equal(requests.length,0);
+});
+test('round assessment fixed codes separate HTTP, read budget and real file/money failure',async()=>{
+ const {round}=require('../scripts/profit-runtime-two-rounds.cjs'),{EventEmitter}=require('node:events');
+ const reads=['main','output'].flatMap(kind=>[{profitUiReadDiagnostic:true,event:'request',kind,scopeMatches:true},{profitUiReadDiagnostic:true,event:'response_headers',kind,httpStatus:200,elapsedMs:80000}]);
+ const result={status:'PASS',scope:{year:'2026',week:'44'},requests:1,httpStatuses:[200],blockedWrites:3,actualBusinessWrites:0,initialScreenDifferences:[],financialDigest:'a'.repeat(64)};
+ const valid=[...reads,result,{runtimeAuditSkipped:true}];assert.equal(assess(valid).mainOutputPass,true);
+ for(const blockedWrites of [-1,false,undefined,1.5])assert.throws(()=>assess(valid.map(x=>x===result?{...x,blockedWrites}:x)));
+ const cases=[['RUNTIME_HTTP_FAILURE',[...valid,{runtimeHttpFailure:true,status:500}]],['RUNTIME_READ_BUDGET_FAILED',valid.map(x=>x.event==='response_headers'?{...x,elapsedMs:120001}:x)],['RUNTIME_FILE_MONEY_FAILED',valid.map(x=>x===result?{...x,actualBusinessWrites:1}:x)]];
+ for(const [code,messages]of cases){const spawnChild=()=>{const c=new EventEmitter();c.stdout=new EventEmitter();c.stderr=new EventEmitter();c.kill=()=>{};queueMicrotask(()=>{c.stdout.emit('data',messages.map(x=>JSON.stringify(x)).join('\n')+'\n');c.emit('exit',0);});return c;};await assert.rejects(round({spawnChild,log:()=>{}}),{code});}
+});

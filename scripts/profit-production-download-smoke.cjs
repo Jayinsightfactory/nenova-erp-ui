@@ -34,7 +34,10 @@ const {runtimeValidationMode}=require('./lib/profit-runtime-validation.cjs');
    return req.continue();
   });
   page.on('response',res=>{
-   if(runtimeOnly&&new URL(res.url()).origin===origin&&new URL(res.url()).pathname.startsWith('/api/')&&res.status()>=500)console.log(JSON.stringify({runtimeHttpFailure:true,status:res.status()}));
+   if(runtimeOnly&&new URL(res.url()).origin===origin&&new URL(res.url()).pathname.startsWith('/api/')&&res.status()>=500){
+    const kinds={'/api/sales/profit-report':'main','/api/sales/profit-report-output':'output','/api/sales/profit-report-week-check':'week-check','/api/sales/profit-stock-adjustment-notes':'stock-notes'};
+    console.log(JSON.stringify({runtimeHttpFailure:true,status:res.status(),kind:kinds[new URL(res.url()).pathname]||'other-api'}));
+   }
    const diagnosticRead=diagnostics.response(res);
    const responseUrl=new URL(res.url()),pathname=responseUrl.pathname;
    if(pathname==='/api/sales/profit-report-output'){responses.push(res.status());responseObservations.push({kind:'output',status:res.status(),observedAt:new Date().toISOString()});}
