@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-06T04:55:55.659Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 55.5,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "6b1114070b6bcb266538ef395591116decf2a3da9021776d92a10cc6e9600ede",
+  "captionsSha256": "bed8e8e0e1a2fba838e02f6cdeb6f3afd2e50b17d9962258a9019a6b4028f89a",
+  "sourceHashes": {
+    "pages/estimate.js": "3656f8b59bf0838dbc68863e6cad8706a0b5c9cbbfa3c93716f798217b00fea3",
+    "components/EstimateShipmentDateSales.js": "e7f2c583720275cb5479ebdaaeb1282209bdc396764e64499bc362822b5ee6ec",
+    "components/EstimateShipmentDateSales.module.css": "1742a0054734c10b4aea27df83d2ddb6127d7d48aab182b3b0cbe7183839c5fc",
+    "lib/estimateShipmentDateSales.js": "7974daab39cba61b402c5ae0481ca582a9ecac374fba62ca5388cb9a5140a1d4"
+  }
+}

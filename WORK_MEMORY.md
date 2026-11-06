@@ -2133,3 +2133,11 @@
 
 2026-11-06 손익 고정·명시조회: 실제PeriodDay현재45/직전44, 과거<=43와활성확정전체calc/totals고정·monetaryoverlay차단. 최근current/prior전체SQL+취득원가reference분리, ERP/인보이스4table전후fence 및 source실패전체보류. actual44ChinaN44964933/VN6942000 최신SQL정합, 39/42/43/44원본JSON전후hash동일, 운영쓰기/생성/갱신/SP0. 진입/선택/탭 금융GET0·명시조회/abort/stale출력가드, 22열·비고보존. 대상5신규·기존회귀·manifest196·writeguard1API·dnSpy PASS. 실제1920×1080/20fps/48.9초합성가이드최종PASS/ready, 최초0·선택0·추가reload0. 첫전체gate는origin/master갱신통합을위해pretest중정확한소유PID중지(완주PASS아님). 통합후필수전체gate/build/builtUI·PR/CI/배포·운영smoke 미검증. 세션docs/work-sessions/2026-11-06_profit-frozen-explicit-query.md.
 검색어: profit-frozen-explicit-query coherentLatest PeriodDay53 invoice fence 44964933 6942000 명시조회
+## 2026-11-06 출고일 기준 매출 탭
+- 최신 origin/master 기반 codex/shipment-date-sales. 견적서 관리에 별도 탭 추가, 기존 차수 화면 보존. 업체+정산 요일 사용자별 UserFavorite 저장, 업체 클릭→최근12기간 및 과거 더보기, 직접기간 조회.
+- ShipmentDate 확정 견적수량/저장금액 SELECT-only, Estimate 적용일별 조정 별도. 품목·단위별 합계와 `90 = 30(44-1) / 60(44-2)` 원차수 구성, 날짜·단가 상세. 내부 연도키 유지. ERP 원장/확정/재고/보고서 쓰기0.
+- 실제 dnSpy CLI 실행, 운영 SELECT 신쿼리12행/11품목/721000원/중복PK0 확인(고객명·인증정보 기록 없음). 계약·교차연도·경계/단위/차감·API테스트 PASS. manifest/writeguard/dnSpy/가이드검사 PASS. 실제 Chrome 데스크톱/390px/24기간/오류복구 PASS.
+- 실제 1920x1080 한국어 가이드55.5초 등록. ERP core PASS 후 posthook이 촬영용 임시 instrumentation을 읽어 실패→원본복원 후 공식 posttest:erp-contract exit0. 최초 전체 명령 exit0 아님; 정식 build/CI/배포/운영확인은 진행중(미검증).
+검색어: 출고일 기준 매출 업체 즐겨찾기 정산요일 원차수 90=30(44-1)/60(44-2) estimate-shipment-date-sales
+- 2026-11-06 후속: 정식 npm run build exit0, 공식 posttest:erp-contract exit0, 빌드된 next start에서 새탭 재접속 즐겨찾기/24기간/모바일/오류복구/팝업 shell/Tab·ShiftTab/실제 가이드 재생·목차·한국어 cues·다운로드 PASS. PR1593 CI/배포는 진행중(운영 미검증).
+검색어: PR1593 출고일매출 build0 production-ui guide-player

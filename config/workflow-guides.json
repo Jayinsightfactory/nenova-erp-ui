@@ -183,6 +183,58 @@
           ]
         }
       ]
+    },
+    {
+      "id": "estimate-shipment-date-sales",
+      "title": "업체별 출고일 정산 매출 조회",
+      "entryPaths": [
+        "/estimate?tab=shipment-date"
+      ],
+      "sourceFiles": [
+        "pages/estimate.js",
+        "components/EstimateShipmentDateSales.js",
+        "components/EstimateShipmentDateSales.module.css",
+        "lib/estimateShipmentDateSales.js"
+      ],
+      "requiredScenarios": [
+        "favorite",
+        "history",
+        "source",
+        "range"
+      ],
+      "guides": [
+        {
+          "id": "sales",
+          "role": "영업지원",
+          "title": "업체 즐겨찾기와 원차수별 수량 확인",
+          "status": "ready",
+          "src": "/guides/estimate-shipment-date-sales/sales.mp4",
+          "captions": "/guides/estimate-shipment-date-sales/sales.ko.vtt",
+          "proof": "/guides/estimate-shipment-date-sales/sales.proof.json",
+          "chapters": [
+            {
+              "scenario": "favorite",
+              "title": "업체와 정산 요일 즐겨찾기",
+              "seconds": 6.007
+            },
+            {
+              "scenario": "history",
+              "title": "업체 선택과 과거 정산 이력",
+              "seconds": 18.162
+            },
+            {
+              "scenario": "source",
+              "title": "품목 수량과 원차수 구성",
+              "seconds": 25.24
+            },
+            {
+              "scenario": "range",
+              "title": "원하는 출고 기간 직접 조회",
+              "seconds": 47.459
+            }
+          ]
+        }
+      ]
     }
   ]
 }
