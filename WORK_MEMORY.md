@@ -2124,3 +2124,9 @@
 - "탈것 구매 안 됨"=서버 정상(실구매 검증: 임재용 flower-cart 40토큰). 화면이 문제: 잠긴 품목 클릭 침묵→안내 문구 추가, "타도 안 탐"=평소 park만→장착 변경 즉시 시승 1바퀴+작업중 1/17 추첨 주행(#1580).
 - 상점 색=3D 캔버스만 saturate(1.24) 보정돼 있었음 → 상점 이미지에도 동일 CSS 필터.
 - 함정 재확인: Git Bash curl 한글 POST/셀렉터 깨짐(브리지 page/click에 [data-k="한글"]은 Node fetch로). 브리지 배율 입력은 불가, 맞춤 버튼은 button[aria-label="화면 맞춤"]. 로컬 dev는 JWT_SECRET로 nenovaSS3 쿠키 발급하면 관리자 화면 재현 가능.
+
+2026-11-06 중국 관세·재고 읽기계층 복구: exact124품목 승인 워크북 참조 연결, 42차 승인64원가행 liveMATCH/expenseESTIMATED 성분 연결(실제 납부 인증 아님). 실제 단 수량 native-unit 평균 보완·기존FIFO/저장본 보존. 저장1~44차 중국 E/F/H/I/J/K누락0/정책미연결0, 원본JSON·기존 C/G/R/AC/AJ 보존PASS. 44H13,989,631=계산관세12,242,065+그외1,747,566; F현재17품목515단 vs저장351단위불명 비교불가 명시, J−31,328,602/K−77.4316%. 대상42검사/dnSpy/manifest/writeguard PASS; 전체gate/build·배포 진행중(미검증). 운영쓰기/SP/마이그레이션/계산본갱신0. 세션docs/work-sessions/2026-11-06_china-duty-valuation-recovery.md.
+검색어: 중국 관세124 44차 product_cost native_unit_acquisition 515단 13989631 실제납부 미확인
+
+2026-11-06 추가검증: 첫verify ERPcore통과 후 posttest구형v4버전상수1건중단→기대v5만수정/대상5PASS→잔여공식posthooks/manifest/writeguard/webpack1worker build exit0(전체verify단일exit0 아님). 실제Chromium1920×1080 합성44차 H/J/K·접힌현재515단/저장351단위미확인·수평스크롤K표시/유한셀오차단없음/JS오류0/API쓰기0 PASS. `.verify/china-44-ui-rates.png`; 로컬3245테스트서버종료. PR/CI/운영검증은부모진행중. 생성history JSON2개커밋제외.
+검색어: china-full-gate china-gate-resume Chromium44 515단 v5 WorkbookDuty

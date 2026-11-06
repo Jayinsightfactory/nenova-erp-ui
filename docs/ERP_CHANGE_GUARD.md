@@ -1,5 +1,11 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-06 중국 관세 누락·품목별 평가 보완
+
+저장 H=0/source=missing이나 업로드 원가의 관세 계산값을 실제 납부·면세 증빙으로 해석하지 않는다. 승인 워크북 exact124품목 참조 및 live검증된42차 원가64행을 읽기 계층에 연결하되 ACTUAL 승인 모드/ESTIMATED 비용/실제 납부 인증을 구분한다. 물리 포장 모순은 임의10배 보정하지 않고 실제 단 수량으로 승인 평균 원가를 보완한다. 현재 SQL515단과 저장351/단위불명은 비교불가를 항상 표시하고 FIFO 원본을 보존한다. H는 현재 계산관세+누락 그외 비용만 합산해 중복 관세를 막는다. 저장1~44차 중국 최종 E/F/H/I/J/K 누락0, 원본JSON·기존 C/G/R/AC/AJ 보존 검증. ERP/web 원장 쓰기·SP·스키마·계산본 갱신0.
+
+근거/부작용: `docs/plans/profit-china-duty-recovery-2026-11-06.md`; 계약 `profit-china-duty-recovery.json`; 실행 회귀 `profitChinaDutyRecovery.test.cjs`/`profitTemplateDutyDiagnostics.test.cjs`/`profitDutyCoverage.test.mjs`. 대상 회귀·공식 ERP core 및 잔여 posthook·webpack1worker build·1920×1080 Chromium 합성API44차 PASS. 첫 verify의 구형 release-version assert 실패는 기대 버전만 수정한 뒤 대상 검사와 남은 공식 gate를 재개했으며, 한 번의 전체 verify exit0라고 기록하지 않는다. 운영 배포/실데이터 브라우저는 별도 확인한다.
+
 ## 2026-11-05 사용자 승인 표시 이익률·금융 비고
 
 주차 보고서의 최신 표시 K는 모든 국가/품종·합계·월별·XLSX/인쇄에서 **표시 J/표시 C**이며 C=0/null이면 공란이다. 과거 workbook/golden의 C+F 수식은 역사 근거로 보존하지만 최신 표시 정책을 덮지 않는다. 저장/확정본 금융금액과 원본 payload/DB는 복사표시 외 변경하지 않는다. 독립 수식감사·주차 이익률 분해·업체마진의 주차보고서 참고 bridge도 같은 분모를 사용하되 별도 업체 실제마진 모형은 보존한다.
