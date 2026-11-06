@@ -48,12 +48,12 @@ const { pathToFileURL } = require('url');
     for (let s = 1; s <= 9; s++) { const r = RD.stationRect(s); assert.ok(Math.abs(p.x - r.cx) > r.hw || Math.abs(p.z - r.cz) > r.hd, '링이 스테이션 통과'); }
   }
   assert.strictEqual(RD.RIDE_MAX_CONCURRENT, 3, '동시 주행 상한 3');
-  // 에셋: mounts.glb 모듈 15종 + 스프라이트/썸네일 39… 중 탈것 15×2
+  // 에셋: mounts.glb 모듈 16종 + 스프라이트/썸네일 39… 중 탈것 16×2
   const dir = path.join(process.cwd(), 'public');
   const b = fs.readFileSync(path.join(dir, 'pm3d/mounts.glb'));
   const j = JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString());
   const names = new Set(j.nodes.map((n) => n.name));
-  const ids = ['kickboard', 'flower-cart', 'roller', 'bike', 'forklift', 'balloon', 'cloud', 'duck', 'turtle', 'magic-carpet', 'unicorn', 'gama', 'surfboard', 'hoverboard', 'sled'];
+  const ids = ['kickboard', 'flower-cart', 'roller', 'bike', 'forklift', 'balloon', 'cloud', 'duck', 'turtle', 'magic-carpet', 'unicorn', 'gama', 'surfboard', 'hoverboard', 'sled', 'boat'];
   for (const id of ids) {
     assert.ok(names.has('mount_' + id.replace(/-/g, '_')), `mounts.glb 모듈 없음: ${id}`);
     assert.ok(fs.existsSync(path.join(dir, 'pm/mounts', id + '.png')), `2D 스프라이트 없음: ${id}`);

@@ -1,5 +1,5 @@
 // __tests__/pmMounts3d.test.js — 탈것 15종 적용 경로 고정(사장님 피드백 "탈것 적용 안 됨" 재발 방지)
-//   1) lib/pmMounts.MOUNTS 15종 전부가 public/pm3d/mounts.glb 루트 노드(mount_<id>)로 실재
+//   1) lib/pmMounts.MOUNTS 16종 전부가 public/pm3d/mounts.glb 루트 노드(mount_<id>)로 실재
 //   2) Scene3D 의 노드명 공식('mount_' + id.replace(/-/g,'_')) == glb 노드명 (노드 매핑 표)
 //   3) 각 노드 extras 에 탑승 높이 seatZ · 자세 pose 존재(없으면 캐릭터가 바닥에 묻히거나 서서 탐)
 //   4) 구매 저장값('mount.<id>') → mountById → look3d.mount 경유가 끊기지 않음 + 상점 썸네일 webp 실재
@@ -29,7 +29,7 @@ function glbJson(file) {
   const j = glbJson(path.join(process.cwd(), 'public/pm3d/mounts.glb'));
   const roots = new Map(j.scenes[0].nodes.map((i) => [j.nodes[i].name, j.nodes[i]]));
 
-  assert.strictEqual(M.MOUNTS.length, 15, '탈것 15종');
+  assert.strictEqual(M.MOUNTS.length, 16, '탈것 16종(+돛단배)');
   const table = [];
   for (const m of M.MOUNTS) {
     const node = 'mount_' + m.id.replace(/-/g, '_'); // components/pm3d/Scene3D.js 와 같은 공식
@@ -47,10 +47,10 @@ function glbJson(file) {
     assert.ok(fs.existsSync(thumb), `상점 썸네일 없음: ${thumb}`);
     table.push(`${m.id} → ${node} (seatZ ${ex.seatZ}, pose ${ex.pose})`);
   }
-  assert.strictEqual(roots.size, 15, 'glb 에 남는/빠진 노드 없음');
+  assert.strictEqual(roots.size, 16, 'glb 에 남는/빠진 노드 없음');
   // mountPose: 이동 중=ride, 대기=park, 꺼짐=hidden
   assert.strictEqual(M.mountPose('working', true), 'ride');
   assert.strictEqual(M.mountPose('working', false), 'park');
   assert.strictEqual(M.mountPose('off', true), 'hidden');
-  console.log('pmMounts3d OK — 노드 매핑 15/15\n ' + table.join('\n '));
+  console.log('pmMounts3d OK — 노드 매핑 16/16\n ' + table.join('\n '));
 })().catch((e) => { console.error(e); process.exit(1); });
