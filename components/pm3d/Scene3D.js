@@ -230,6 +230,32 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         {
           const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60), new THREE.MeshStandardMaterial({ color: T.sea || GC.sea, roughness: 0.6 }));
           sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
+          // [2026-11-06 톤 업그레이드] ①얕은 물 띠 ②해안 거품 띠(숨쉬듯 출렁) ③수면 반짝임 ④전역 명암판 — 전부 정적 메시+투명도 애니라 비용 미미, FPS_CAP 불변
+          const cx = (wb.x0 + wb.x1) / 2, cz = (wb.z0 + wb.z1) / 2;
+          const iw = wb.x1 - wb.x0, ih = wb.z1 - wb.z0;
+          const shallow = new THREE.Mesh(new THREE.PlaneGeometry(iw + 7, ih + 7), new THREE.MeshStandardMaterial({ color: new THREE.Color(T.sea || GC.sea).lerp(new THREE.Color('#c2f1f0'), 0.42), roughness: 0.55, transparent: true, opacity: 0.85 }));
+          shallow.rotation.x = -Math.PI / 2; shallow.position.set(cx, -0.1, cz); scene.add(shallow);
+          const foamMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false });
+          st.foam = [];
+          const mkFoam = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), foamMat); m.rotation.x = -Math.PI / 2; m.position.set(x, -0.085, z); scene.add(m); st.foam.push(m); };
+          mkFoam(iw + 1.4, 0.55, cx, wb.z0 - 0.45); mkFoam(iw + 1.4, 0.55, cx, wb.z1 + 0.45); mkFoam(0.55, ih + 1.4, wb.x0 - 0.45, cz); mkFoam(0.55, ih + 1.4, wb.x1 + 0.45, cz);
+          const sc2 = document.createElement('canvas'); sc2.width = sc2.height = 32; const sg = sc2.getContext('2d');
+          const gr2 = sg.createRadialGradient(16, 16, 0, 16, 16, 16); gr2.addColorStop(0, 'rgba(255,255,255,.95)'); gr2.addColorStop(1, 'rgba(255,255,255,0)');
+          sg.fillStyle = gr2; sg.fillRect(0, 0, 32, 32);
+          const stx = new THREE.CanvasTexture(sc2);
+          st.sparkles = [];
+          for (let i = 0; i < 18; i++) {
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: stx, transparent: true, opacity: 0, depthWrite: false }));
+            const ang = (i / 18) * Math.PI * 2; const rad = 1.6 + (i % 5) * 0.9;
+            sp.position.set(cx + Math.cos(ang) * (iw / 2 + rad), -0.06, cz + Math.sin(ang) * (ih / 2 + rad));
+            sp.scale.set(0.5, 0.25, 1); sp.userData.ph = i * 1.7; scene.add(sp); st.sparkles.push(sp);
+          }
+          const vc = document.createElement('canvas'); vc.width = vc.height = 256; const vg = vc.getContext('2d');
+          const vgr = vg.createRadialGradient(128, 128, 60, 128, 128, 128);
+          vgr.addColorStop(0, 'rgba(60,36,21,0)'); vgr.addColorStop(0.75, 'rgba(60,36,21,0.05)'); vgr.addColorStop(1, 'rgba(60,36,21,0.16)');
+          vg.fillStyle = vgr; vg.fillRect(0, 0, 256, 256);
+          const vig = new THREE.Mesh(new THREE.PlaneGeometry(iw + 2, ih + 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(vc), transparent: true, depthWrite: false }));
+          vig.rotation.x = -Math.PI / 2; vig.position.set(cx, 0.145, cz); vig.renderOrder = 2; scene.add(vig);
         }
         st.fb = { tiles: {}, reserved: [], palms: [], scatter: [] };
         const tiles = tilesOf(world);
@@ -430,7 +456,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (!/^(track_|runway_|tile_|pool_|float_)/.test(asset)) shade(n); // 바닥 깔림형·물 위 애셋은 그림자 제외
           return n;
         };
-        for (const { o, p } of st.fb.palms) if (one('prop_palm', p.x, p.z, p.ry, DECOR_SCALE * p.s)) o.visible = false;
+        st.palms3d = [];
+        for (const { o, p } of st.fb.palms) { const g3 = one('prop_palm', p.x, p.z, p.ry, DECOR_SCALE * p.s); if (g3) { o.visible = false; st.palms3d.push(g3); } }
         for (const { o, q } of st.fb.scatter) {
           const n = q.m === 'rock' ? one('prop_rock', q.x, q.z, q.ry, DECOR_SCALE * Math.max(0.7, q.s))
             : q.m === 'shell' ? (one('prop_pebbles', q.x, q.z, q.ry, DECOR_SCALE * 0.8) || one('prop_bush', q.x, q.z, q.ry, DECOR_SCALE * 0.8))
@@ -799,6 +826,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (!live) st.intro = null; else st.poke?.();
         }
         if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
+        // [2026-11-06 톤 업그레이드] 거품 숨쉬기·수면 반짝임·야자수 바람(전부 투명도/소각 회전만 — 비용 미미)
+        if (st.foam && !red && st.foam[0]) st.foam[0].material.opacity = 0.4 + Math.sin(now / 900) * 0.14;
+        if (st.sparkles && !red) for (const sp of st.sparkles) sp.material.opacity = Math.max(0, Math.sin(now / 700 + sp.userData.ph)) * 0.7;
+        if (st.palms3d && !red) for (const g3 of st.palms3d) g3.rotation.z = Math.sin(now / 1300 + g3.position.x * 0.7) * 0.03;
         if (st.train && !red) { // 꼬마기차 상시 순환(속도 1.6m/s)
           const ringL2 = ringLength(st.bounds.hx, st.bounds.hz);
           st.train.t = (st.train.t + dt * 1.6 / ringL2) % 1;
