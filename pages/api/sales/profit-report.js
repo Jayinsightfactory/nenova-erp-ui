@@ -711,7 +711,11 @@ async function loadCoherentLatestReport(major,orderYear){
     diagnostic?.phase('duty');
     const result=await applyTemplateDutyToReport(raw,orderYear,major,{strict:true,latestReports,previousPayload:prior});
     diagnostic?.phase('postFence');
-    if(before!==await signature())throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
+    const after=await signature();
+    if(before!==after){
+      diagnostic?.sourceChanged(before,after,years);
+      throw Object.assign(new Error('조회 중 원천이 변경되었습니다. 다시 조회하세요.'),{code:'PROFIT_SOURCES_CHANGED',statusCode:409});
+    }
     return result;
   };
   if(currentErpReadContext())return work();

@@ -2207,3 +2207,10 @@
 - 기존runtime4MiB tail 내최근30분 exactkey/type/enum whitelist count+최신3건 집계. 이전PID도보존해baseline대조가능, 원문라인출력0. poolgetter만읽고monkeypatch없음. source/VM관련globalrg검토후추가하네스의존성누락없음.
 - 대상21PASS: 실제reader함수합성5phase·45000유지·erroridentity/loggerthrow·성공0로그/owner1/ERPctx완전bypass, profilerhash동일·pool0/null·교차연도/invalid0false·PID·privacy·실제runtime VM boundedtail. 첫합성fixture SELECT누락가드실패만정정. 계약/기준표/session연결, UI·workflow변경0/가이드N/A. fullgate/build/CI/운영판정은부모후속(미검증).
 검색어: profitReadFailureDiagnostic ECANCEL ETIMEOUT preFence postFence queryHash explicitTimerFired poolAtDispatch PID bounded30m
+
+## 2026-11-06 source fence 변경관측·stock-notes typed409
+- 운영42203821147/42205610701 main200뒤output409 PROFIT_SOURCES_CHANGED+stocknotes500. quiet85초meta변경0/invoicefalse·이전실패창MAX시각후보0은원인미확정. GETcallgraph financialDB쓰기미발견·명시POST touch와구분. 현liveheap564.59MiB/RSS825.68/peak920.89 관측,512후보미적용유지.
+- fresh source-fence-diagnostic @780bb. 기존before/after JSONshape/SQL/2회wholefence/연도·미래donor/failclosed409그대로, 불일치시ordinary sharedowner1회메모리diff만. 고정component/year/major/kind/timestampOnly삼상태/최대20/changedCount/truncated/invoiceChanged+coveredYears/PID·UTC·scope, C/H/M/digest/원문출력0. activeERPctxbypass/loggerthrow무해, 새SQL/timeout/수식/DB/설정변경0.
+- runtime기존4MiB/최근30분 strict새marker집계·이전PID보존. stocknotes는statusCode409+PROFIT_SOURCES_CHANGED exact만409/code전달·기존generic문구유지, unknown/ECANCEL500/정상200/400405 그대로.
+- 대상27PASS(실제reader 합성JSON·SQLsequence·2회fence·forceyear·owner1/logger409·ERPctx, privacy/crossyear/미래45/timestampOnly/PID, 실제runtime VM새marker와실제handler+scope파서). 기존2sourceassert는after변수whole비교형식만정정. 계약/기준표/session등록, fullsuite/build/CI/운영은부모후속(미검증). 추가probe/실SQL0·UI0/가이드N/A.
+검색어: NENOVA_PROFIT_SOURCE_CHANGED timestampOnly coveredYears whole-fence stock-notes409 owner1 memory-only
