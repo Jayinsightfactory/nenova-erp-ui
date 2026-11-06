@@ -39,6 +39,7 @@ import {profitFinancialReadPolicy} from '../../../lib/profitReportReadPolicy.js'
 import {getPool} from '../../../lib/db.js';
 import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadContext.js';
 import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
+import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -707,12 +708,14 @@ async function loadCoherentLatestReport(major,orderYear){
     return result;
   };
   if(currentErpReadContext())return work();
-  const pool=await getPool();
-  return withErpReadContext({allowExternalEvidenceReads:true,serializeReads:false,queryFn:async(statement,params)=>{
-    const request=pool.request();for(const [name,{type,value}]of Object.entries(params))request.input(name,type,value);
-    const timer=setTimeout(()=>request.cancel(),45_000);
-    try{return await request.query(statement);}finally{clearTimeout(timer);}
-  }},work);
+  return shareLatestProfitRead(orderYear,major,async()=>{
+    const pool=await getPool();
+    return withErpReadContext({allowExternalEvidenceReads:true,serializeReads:false,queryFn:async(statement,params)=>{
+      const request=pool.request();for(const [name,{type,value}]of Object.entries(params))request.input(name,type,value);
+      const timer=setTimeout(()=>request.cancel(),45_000);
+      try{return await request.query(statement);}finally{clearTimeout(timer);}
+    }},work);
+  });
 }
 export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;

@@ -1119,3 +1119,6 @@ Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 �
 
 ## 2026-11-06 최근 손익44 조회중 메모리 임계 재시작
 PM2 daemon 집계로 06:36:04 요청중1081MB>설정1024MB의 max-memory-restart1회 확인. HTTP200 단독1회 성공만으로 반복UI조회 안전을 판정하지 않는다. 요청별 ERP read cache는 finally의 기존 SELECT tail drain 후 자신의 namespace Map 참조만 해제한다. 반환값/캐시값/externalEvidence/실패·근거검사 보존, ALS disable·전역cache clear·cap상향 금지. 강한reference 보관/forcedGC 없이 동일process sequential moneySHA/cache0/RSS를 확인하고 운영 반복조회 후 PM2 restartdelta0을 별도 검증한다. cache0은 peak저감·ALS누수인과 확정이 아니다. 근거 plans/profit-coherent-performance-2026-11-06.md; 회귀 erpRequestMemo/incomingApprovalProfit/profitIndependentAudit.
+
+## 2026-11-06 최신 손익 보조조회·출력 동시 fullcalc
+main완료 후 live week-check/stock notes/output이 각각 fullcalc를 시작한다. 겹치는 일반 최신 read만 exactyear+major/global Symbol promise로 공동as-of 공유, 전후sourcefence/각caller 확정·과거 policy 유지. ERP transaction/replay ctx 완전bypass, caller clone/성공·실패 settle즉시삭제TTL0, ownerHTTPabort가waiter취소안함. 완료값cache/저장fallback/수식·SQL·DB쓰기·UI변경0. 회귀 profitLatestInFlight/profitRuntimeValidation, 별도 synthetic built 두APIbundle/ownerabort PASS·원본hash불변/DB0. actual44 SELECT1회 돈SHA bc1032…19607 동일/cache0/변이0. 이는 운영peak개선증거가 아니다. 기존메모리로 명시 exact2026/44 UI+실파일2회 검증 우선, 이mode만 독립감사 분리·기본감사 유지. Node20 설정진단/Node24 후보512시험/운영미완료는 분리 기록하며 현재설정적용0. 계획 plans/profit-runtime-memory-2026-11-06.md, 계약 profit-latest-inflight.

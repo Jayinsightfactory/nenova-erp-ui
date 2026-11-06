@@ -718,3 +718,4 @@
 - [2026-11-06 최근 손익44 운영502·요청 중복조회 제거](2026-11-06_profit-coherent-performance.md) — moneySHA동일, SELECT2699→1403/46.2→34.3초, RSS개선 미입증; 잔여gate/build·운영재검증 진행중.
 - [2026-11-06 보조탭 차수 왕복 명시조회](2026-11-06_profit-aux-query-roundtrip.md) — 분석·원천시트44→45→44 요청0, 앱1줄/합성paced PASS; 실제가이드재촬영·최종gate대기.
 - [2026-11-06 운영 Node 메모리 읽기 진단](2026-11-06_profit-runtime-memory.md) — 실제argv·heap숫자/flag·cgroup한도만sanitize, 설정변경전진단대기; 반복출력운영미완료.
+- [2026-11-06 최신 손익 겹치는 읽기 공유](2026-11-06_profit-runtime-memory.md) — distinct built API/HTTPabort·단일44돈SHA동일 PASS, TTL0/context bypass; readonly UI+파일2회 준비, 설정적용보류·운영미완료.

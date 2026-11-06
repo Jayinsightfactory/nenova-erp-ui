@@ -2,7 +2,9 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=require('node:crypto');
 const {observeProfitUiReads}=require('./lib/profit-ui-read-diagnostics.cjs');
+const {runtimeValidationMode}=require('./lib/profit-runtime-validation.cjs');
 (async()=>{
+ const runtimeOnly=runtimeValidationMode(process.env);
  const token=process.env.NENOVAWEB_SERVICE_TOKEN;
  if(!token)throw Error('Configured service credential is unavailable');
  const {compareProfitSmokeOutput}=await import('./profit-smoke-comparison.mjs');
@@ -32,6 +34,7 @@ const {observeProfitUiReads}=require('./lib/profit-ui-read-diagnostics.cjs');
    return req.continue();
   });
   page.on('response',res=>{
+   if(runtimeOnly&&new URL(res.url()).origin===origin&&new URL(res.url()).pathname.startsWith('/api/')&&res.status()>=500)console.log(JSON.stringify({runtimeHttpFailure:true,status:res.status()}));
    const diagnosticRead=diagnostics.response(res);
    const responseUrl=new URL(res.url()),pathname=responseUrl.pathname;
    if(pathname==='/api/sales/profit-report-output'){responses.push(res.status());responseObservations.push({kind:'output',status:res.status(),observedAt:new Date().toISOString()});}
@@ -159,6 +162,7 @@ const {observeProfitUiReads}=require('./lib/profit-ui-read-diagnostics.cjs');
    console.log(JSON.stringify({thaiApprovedCostSmoke:'PASS',scope:{year,week},costState:thai.source.H,actualBusinessWrites:0}));
   }
   console.log(JSON.stringify({status:'PASS',scope:{year,week},requests:requests.length,httpStatuses:responses,sheets:wb.SheetNames.length,rowCount:rows.length,bytes:fs.statSync(file).size,elapsedMs:Date.now()-started,blockedWrites,actualBusinessWrites:0,financialDigest,initialScreenSnapshot:{state:mainData?.snapshot?.state,servedFrom:mainData?.snapshot?.servedFrom,needsRefresh:mainData?.snapshot?.needsRefresh,confirmed:!!mainData?.confirmed},initialScreenDifferences}));
+  if(runtimeOnly){console.log(JSON.stringify({runtimeAuditSkipped:true,scope:{year,week}}));await page.close();continue;}
   const auditResponse=page.waitForResponse(res=>{
    const u=new URL(res.url());return u.pathname==='/api/sales/profit-independent-audit'&&u.searchParams.get('year')===year&&u.searchParams.get('week')===week;
   },{timeout:120000});
