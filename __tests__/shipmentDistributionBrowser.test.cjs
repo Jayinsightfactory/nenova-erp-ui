@@ -439,6 +439,11 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-ai-verify="add-unit-박스"]').check();
     await page.locator('[data-ai-verify="add-plus-1"]').click();
     assert.equal(await page.getByTestId('distribution-add-current').textContent(), '8.1', '1 box = 10 bunches added');
+    // 창 안 업체 검색: 주문 없는 업체도 검색됨
+    await page.locator('[data-ai-verify="add-cust-search"]').fill('nova');
+    await page.locator('[data-ai-verify="add-cust-777"]').waitFor();
+    assert.match(await page.locator('[data-ai-verify="add-cust-777"]').textContent(), /주문없음/);
+    await page.locator('[data-ai-verify="add-cust-search"]').fill('');
     await page.locator('[data-ai-verify="add-panel-close"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '81');
     page.once('dialog', dialog => dialog.accept());
