@@ -41,7 +41,7 @@ $env:NENOVA_AI_BRIDGE = '1'; npx electron .
   `data-ai-verify="<id>"` 를 달고, **저장·적용·등록·삭제 버튼에는 절대 달지 않는다**. 감사 로그에 `verify: true` 로 남는다.
   현재 표식: `pages/orders/import.js` — `register-mode-<order|orderPrice|priceOnly>`, `subweek-<NN-NN>`, `price-only-input-<SdetailKey>`, `price-only-reset`.
   `pages/shipment/distribute.js`(출고분배) — `week-<YYYY-WW-SS>`(±3 차수 버튼), `subweek-<SS>`, `product-<ProdKey>`, `customer-<CustKey>`, `customer-search`,
-  `pair-slot-1|2`, `pair-clear`, `qty-<CustKey>-<ProdKey>`(출고수량 입력), `cost-<CustKey>-<ProdKey>`(업체 탭 단가 입력), `move-qty-<ProdKey>`(이동 수량, 비우면 전부), `move-to1|to2-<ProdKey>`(두 업체 화면 수량 이동; 받는 업체에 주문이 없으면 저장 시 주문등록 후 분배).
+  `pair-slot-1|2`, `pair-clear`, `qty-<CustKey>-<ProdKey>`(출고수량 입력), `cost-<CustKey>-<ProdKey>`(업체 탭 단가 입력), `move-qty-<ProdKey>`(이동 수량, 비우면 전부), `move-to1|to2-<ProdKey>`(두 업체 화면 수량 이동; 받는 업체에 주문이 없으면 저장 시 주문등록 후 분배). 품종: `group-all`, `group-<품종명>`(품종 선택), `group-fav-<품종명>`(품종 즐겨찾기 토글, 차수 무관 고정), `fav-group-<품종명>`(차수 줄 옆 즐겨찾기 품종 버튼). 환산 입력: `qty-<CustKey>-<ProdKey>-박스|단|송이`.
   저장 버튼(💾 저장, Ctrl+S)에는 표식이 없다.
 - **감사 로그**: open/click/fill의 허용·거부 전부 `%APPDATA%\Nenova Desktop\ai-bridge-audit.jsonl`에 JSONL로 기록.
 - **임의 JS 실행 없음**: `page/eval`은 제공하지 않는다. main이 고정된 쿼리/클릭/입력 스니펫만 만든다. 원격 페이지에는 preload를 넣지 않는다.

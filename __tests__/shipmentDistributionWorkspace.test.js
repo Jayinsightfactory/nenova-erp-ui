@@ -93,6 +93,14 @@ test('fix-cycle scope: only confirmed product groups, blocked when group is blan
     '09:07:03 2026-41-02 업체 A + B — 2026-41-02 재확정 중');
 });
 
+test('group favorite parser keeps only groupKey rows (week independent)', async () => {
+  const { parseDistributionGroupFavorite } = await load();
+  assert.deepEqual(parseDistributionGroupFavorite({ FavoriteKey: 7, FilterData: '{"groupKey":"콜롬비아::장미"}' }), { groupKey: '콜롬비아::장미', favoriteKey: 7 });
+  assert.equal(parseDistributionGroupFavorite({ FavoriteKey: 8, FilterData: '{"prodKey":90}' }), null, 'product favorite row is not a group');
+  assert.equal(parseDistributionGroupFavorite({ FavoriteKey: 0, FilterData: '{"groupKey":"a"}' }), null);
+  assert.equal(parseDistributionGroupFavorite({ FavoriteKey: 9, FilterData: 'not json' }), null);
+});
+
 test('pair view 품종 buttons and 박스/단 input unit keep OutUnit storage', async () => {
   const { distributionPairGroups, distributionPairGroupKey, distributionUnitFactor, toDisplayQty, toNativeQty } = await load();
   const rose = { CounName: '콜롬비아', FlowerName: '장미', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 200 };

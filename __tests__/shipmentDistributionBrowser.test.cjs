@@ -191,8 +191,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="week-2026-41-02"]').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('[data-ai-verify^="week-2026-"]').count(), 7, '±3 weeks → 7 week buttons');
     assert.equal(await page.locator('[data-ai-verify="subweek-02"]').getAttribute('aria-pressed'), 'true');
-    assert.deepEqual(await page.locator('[data-testid="distribution-product-buttons"] button').allTextContents(),
-      ['Alstroemeria', 'Zinnia'], 'product buttons ProdName A-Z');
+    assert.deepEqual(await page.locator('[data-testid="distribution-product-list"] button[data-ai-verify^="product-"]').allTextContents(),
+      ['Alstroemeria', 'Zinnia'], 'product list ProdName A-Z');
     await page.locator('[data-ai-verify="product-90"]').click();
     await page.getByText('Zinnia — 거래처 분배 정보').waitFor();
     assert.equal(await page.locator('[data-ai-verify="product-90"]').getAttribute('aria-pressed'), 'true');
@@ -445,10 +445,18 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.setViewportSize({ width: 1920, height: 1080 });
     const groupButtons = page.getByTestId('distribution-group-buttons');
     assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
-    await groupButtons.getByRole('button', { name: '콜롬비아 장미' }).click();
+    await page.locator('[data-ai-verify="group-콜롬비아 장미"]').click();
     await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
     await pause(300);
     assert.ok(productGroupQueries.some(key => key.endsWith('장미')), 'group button reloads products for that 품종');
+    // 품종 즐겨찾기: ☆ → 차수 줄 옆 ★ 품종 버튼으로 고정 (FilterData groupKey), 다시 누르면 해제
+    assert.equal(await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').count(), 0);
+    await page.locator('[data-ai-verify="group-fav-콜롬비아 장미"]').click();
+    await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').waitFor();
+    assert.ok([...favorites.values()].flat().some(row => JSON.parse(row.FilterData).groupKey === '콜롬비아::장미'), 'group favorite stored by groupKey');
+    assert.equal(await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').getAttribute('aria-pressed'), 'true');
+    await page.locator('[data-ai-verify="group-fav-콜롬비아 장미"]').click();
+    await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').waitFor({ state: 'detached' });
     await context.close();
   } finally {
     await browser?.close().catch(() => {});

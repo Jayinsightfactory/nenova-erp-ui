@@ -6,7 +6,7 @@ import { distributeProductName, distributePreviousStock } from '../../lib/distri
 import DistributionPicker from '../../components/shipment/DistributionPicker';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
-  distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite,
+  distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope,
   sortDistributionCustomers, sortDistributionProducts, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
@@ -51,6 +51,8 @@ const DAY_NAMES = ['월','화','수','목','금'];
 const DAY_NAMES_TAB2 = ['월','화','수','목','금','토','일'];
 const EXE_DAY_NUM = { 월: 2, 화: 3, 수: 4, 목: 5, 금: 6, 토: 7, 일: 1 };
 const PRODUCT_FAVORITE_PAGE = 'shipment-distribute-products';
+// 품종(CounName::FlowerName) 즐겨찾기 — 계정별, 차수와 무관하게 고정. 같은 UserFavorite 테이블, 다른 PageName.
+const GROUP_FAVORITE_PAGE = 'shipment-distribute-groups';
 
 function mapCustWeekGridRow(row) {
   const dayByKr = {};
@@ -163,6 +165,8 @@ export default function Distribute() {
   const [farmRows, setFarmRows] = useState([]);
   const [farmLoading, setFarmLoading] = useState(false);
   const [favoriteProducts, setFavoriteProducts] = useState([]);
+  const [favoriteGroups, setFavoriteGroups] = useState([]); // [{ groupKey, favoriteKey }]
+  const groupChosenRef = useRef(false); // 사용자가 품종(전체 포함)을 직접 고른 뒤에는 즐겨찾기 기본값을 덮어쓰지 않음
   const [favoritesPending, setFavoritesPending] = useState(false);
   const [favoriteError, setFavoriteError] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -206,12 +210,17 @@ export default function Distribute() {
       if (request !== favoritesRequestRef.current || accountRef.current !== uid) return;
       if (data?.success !== true) throw new Error(data?.error || '즐겨찾기를 읽지 못했습니다.');
       setFavoriteProducts((data.favorites || []).map(parseDistributionFavorite).filter(Boolean));
+      const groupData = await apiGet('/api/favorites', { page: GROUP_FAVORITE_PAGE });
+      if (request !== favoritesRequestRef.current || accountRef.current !== uid) return;
+      if (groupData?.success !== true) throw new Error(groupData?.error || '품종 즐겨찾기를 읽지 못했습니다.');
+      setFavoriteGroups((groupData.favorites || []).map(parseDistributionGroupFavorite).filter(Boolean));
       setFavoriteError('');
     } catch (error) {
       if (request === favoritesRequestRef.current) {
         accountRef.current = '';
         setAccountId('');
         setFavoriteProducts([]);
+        setFavoriteGroups([]);
         setFavoriteError(error.message || '즐겨찾기 조회에 실패했습니다.');
       }
     }
@@ -249,6 +258,32 @@ export default function Distribute() {
       await loadFavoriteProducts();
     } catch (error) { setFavoriteError(error.message || '즐겨찾기 변경에 실패했습니다.'); }
     finally { setFavoritesPending(false); }
+  };
+
+  const toggleGroupFavorite = async (group, event) => {
+    event?.stopPropagation();
+    if (!accountId || favoritesPending || !group?.key) return;
+    setFavoritesPending(true);
+    setFavoriteError('');
+    try {
+      const existing = favoriteGroups.find(row => row.groupKey === group.key);
+      const result = existing
+        ? await apiDelete('/api/favorites', { favoriteKey: existing.favoriteKey })
+        : await apiPost('/api/favorites', {
+          page: GROUP_FAVORITE_PAGE,
+          name: String(group.label || group.key.replace(PG_SEP, ' ')).slice(0, 100),
+          filterData: JSON.stringify({ groupKey: group.key }),
+        });
+      if (result?.success !== true) throw new Error(result?.error || '품종 즐겨찾기를 저장하지 못했습니다.');
+      await loadFavoriteProducts();
+    } catch (error) { setFavoriteError(error.message || '품종 즐겨찾기 변경에 실패했습니다.'); }
+    finally { setFavoritesPending(false); }
+  };
+
+  const chooseProdGroup = (key) => {
+    if (key === prodGroup || !confirmDraftDiscard()) return;
+    groupChosenRef.current = true;
+    setProdGroup(key);
   };
 
   useEffect(() => {
@@ -342,6 +377,13 @@ export default function Distribute() {
     })();
     return () => { cancelled = true; };
   }, [week, loadProdGroups]);
+
+  // 품종 즐겨찾기가 있으면 차수가 바뀌어도 그 품종을 기본 선택 (사용자가 직접 고르기 전까지만)
+  useEffect(() => {
+    if (groupChosenRef.current || prodGroup || favoriteGroups.length === 0) return;
+    const first = favoriteGroups.find(fav => prodGroups.some(g => g.key === fav.groupKey));
+    if (first) setProdGroup(first.groupKey);
+  }, [favoriteGroups, prodGroups, prodGroup]);
 
   const selectedProdGroupLabel = prodGroups.find(g => g.key === prodGroup)?.label || prodGroup.replace(PG_SEP, '');
 
@@ -1054,6 +1096,11 @@ export default function Distribute() {
   const previousStock = distributePreviousStock(selectedProd);
 
   const tabs = ['출고분배 및 농장정보','출고분배 및 업체정보','출고일 지정','출고 분배 집계'];
+  // 품종 즐겨찾기 버튼: 이 차수 품종 목록에 있는 것만 (없는 차수에선 숨김)
+  const favoriteGroupButtons = favoriteGroups
+    .map(fav => prodGroups.find(g => g.key === fav.groupKey))
+    .filter(Boolean)
+    .map(g => ({ key: g.key, label: g.label || g.key.replace(PG_SEP, ' ') }));
   const weekButtons = distributionWeekButtons(week, 3);
   const subWeekButtons = distributionSubWeekButtons(week);
   const weekButtonStyle = (value, active) => ({
@@ -1117,7 +1164,7 @@ export default function Distribute() {
           onSelect={option => guardedWeekInput.setValue(option.key)} testId="distribution-week-picker" />
         <DistributionPicker label="품목그룹" value={selectedProdGroupLabel || '전체'} disabled={saving || prodGroupsLoading}
           options={[{ key: '', label: '전체', selected: !prodGroup }, ...prodGroups.map(g => ({ key: g.key, label: g.label, selected: g.key === prodGroup }))]}
-          onSelect={option => { if (option.key !== prodGroup && confirmDraftDiscard()) setProdGroup(option.key); }} />
+          onSelect={option => chooseProdGroup(option.key)} />
         <DistributionPicker label="품목" value={selectedProd?.ProdName || ''} triggerRef={productPickerRef}
           shortcut="Ctrl+Alt+2" disabled={saving || !products.length || loading}
           options={sortDistributionProducts(products).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
@@ -1175,6 +1222,33 @@ export default function Distribute() {
             -{value.slice(-2)}
           </button>
         ))}
+        {favoriteGroupButtons.length > 0 && <span style={{fontSize:11,fontWeight:700,color:'var(--text2)',marginLeft:8}}>★ 품종</span>}
+        {favoriteGroupButtons.map(g => (
+          <button key={g.key} type="button" data-ai-verify={`fav-group-${g.label}`} aria-pressed={g.key === prodGroup}
+            disabled={saving || prodGroupsLoading} onClick={() => chooseProdGroup(g.key)}
+            style={{...weekButtonStyle(g.key, g.key === prodGroup), padding:'3px 10px', fontSize:12}}>{g.label}</button>
+        ))}
+      </div>
+      {/* 품종 전체 — 한 줄로 쭉(넘치면 줄바꿈, 스크롤 상자 없음). ☆ 로 즐겨찾기 고정 */}
+      <div data-testid="distribution-group-buttons" style={{padding:'6px 14px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',borderTop:'1px solid var(--border-t)',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+        <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>품종</span>
+        <button type="button" data-ai-verify="group-all" aria-pressed={!prodGroup} disabled={saving || prodGroupsLoading}
+          onClick={() => chooseProdGroup('')} style={pickButtonStyle(!prodGroup, true)}>전체</button>
+        {prodGroups.map(g => {
+          const label = g.label || g.key.replace(PG_SEP, ' ');
+          const active = g.key === prodGroup;
+          const fav = favoriteGroups.some(row => row.groupKey === g.key);
+          return (
+            <span key={g.key} style={{display:'inline-flex'}}>
+              <button type="button" data-ai-verify={`group-${label}`} aria-pressed={active} disabled={saving || prodGroupsLoading}
+                onClick={() => chooseProdGroup(g.key)} style={{...pickButtonStyle(active, true), borderTopRightRadius:0, borderBottomRightRadius:0}}>{label}</button>
+              <button type="button" data-ai-verify={`group-fav-${label}`} aria-pressed={fav} disabled={!accountId || favoritesPending}
+                aria-label={`${label} ${fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 추가'}`} title={fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 (차수가 바뀌어도 기본 선택)'}
+                onClick={event => toggleGroupFavorite(g, event)}
+                style={{...pickButtonStyle(false, true), borderLeft:'none', borderTopLeftRadius:0, borderBottomLeftRadius:0, padding:'4px 6px', color: fav ? '#d97706' : 'var(--text3)'}}>{fav ? '★' : '☆'}</button>
+            </span>
+          );
+        })}
       </div>
       <div style={{padding:'5px 14px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 저장. Enter 이동만으로 저장되지 않습니다.
@@ -1313,34 +1387,6 @@ export default function Distribute() {
                 <button type="button" className={`btn btn-sm ${favoritesOnly?'btn-primary':'btn-secondary'}`}
                   aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)}>★ 즐겨찾기만</button>
               </div>
-              {/* 품종(CounName+FlowerName, 예: 콜롬비아 장미·수국) 버튼 — 고르면 아래 품목 버튼이 그 품종만 */}
-              <div data-testid="distribution-group-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:110,overflowY:'auto'}}>
-                {[{ key: '', label: '전체' }, ...prodGroups].map(g => {
-                  const active = g.key === prodGroup;
-                  return (
-                    <button key={g.key || 'all'} type="button" data-ai-verify={`group-${g.key ? (g.label || g.key.replace(PG_SEP, ' ')) : 'all'}`} aria-pressed={active}
-                      disabled={saving || prodGroupsLoading}
-                      onClick={() => { if (!active && confirmDraftDiscard()) setProdGroup(g.key); }} style={pickButtonStyle(active, true)}>
-                      {g.label || g.key.replace(PG_SEP, ' ')}
-                    </button>
-                  );
-                })}
-              </div>
-              {/* nenova.exe식 버튼형 품목 선택 (이 차수의 입고/분배 대상 품목, ProdName A-Z) */}
-              <div data-testid="distribution-product-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:150,overflowY:'auto'}}>
-                {loading ? <span style={{fontSize:11,color:'var(--text3)'}}>품목 조회 중…</span>
-                  : filteredProds.length === 0 ? <span style={{fontSize:11,color:'var(--text3)'}}>차수를 선택하면 품목 버튼이 나타납니다.</span>
-                  : filteredProds.map(p => {
-                    const active = Number(selectedProd?.ProdKey) === Number(p.ProdKey);
-                    return (
-                      <button key={p.ProdKey} type="button" data-ai-verify={`product-${p.ProdKey}`} aria-pressed={active}
-                        disabled={loading || saving} title={`${p.DisplayName || p.ProdName} · 입고 ${Number(p.inQty||0)} / 출고 ${Number(p.outQty||0)}`}
-                        onClick={() => selectProd(p)} style={pickButtonStyle(active, Number(p.inQty) > 0)}>
-                        {favoriteKeys.has(Number(p.ProdKey)) ? '★ ' : ''}{distributeProductName(p, selectedFlower)}
-                      </button>
-                    );
-                  })}
-              </div>
               <div style={{overflowX:'auto'}}>
                 {loading ? <div className="skeleton" style={{margin:12,height:300,borderRadius:8}}></div> : (
                   // 품목명만 — 단위·입수·잔량·입고·출고·현재고는 선택하면 오른쪽에 같은 내용이 나온다.
@@ -1357,7 +1403,7 @@ export default function Distribute() {
                           return (
                             <tr key={p.ProdKey} className={isSelected?'selected':''} onClick={()=>selectProd(p)} style={{cursor:'pointer',background:hasStock&&!isSelected?'#F0F7FF':undefined}}>
                               <td style={{minWidth:180,maxWidth:240,whiteSpace:'normal',overflowWrap:'anywhere',fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>
-                                <button type="button" data-product-select className="btn btn-sm" disabled={loading || saving}
+                                <button type="button" data-product-select data-ai-verify={`product-${p.ProdKey}`} aria-pressed={isSelected} className="btn btn-sm" disabled={loading || saving}
                                   aria-label={`${p.ProdName} 선택`} title={p.DisplayName || p.ProdName}
                                   onClick={e=>{e.stopPropagation();selectProd(p);}}
                                   onKeyDown={e=>{
