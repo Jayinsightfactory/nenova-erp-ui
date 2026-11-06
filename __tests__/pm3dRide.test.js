@@ -81,5 +81,20 @@ const { pathToFileURL } = require('url');
     assert.ok(maxY >= 4, `비행: 상공 고도 부족 ${maxY}`);
     assert.ok(maxStep < 0.6, `비행: 경로 끊김(순간이동) ${maxStep}`);
   }
-  console.log(`pm3dRide OK (경로 ${checked}건 교차 0 · 탈것 ${ids.length}종 · 비행 코스)`);
+  // 비행 근접 컷: 대상 선택·화면 중앙 보정·부드러운 추적
+  assert.strictEqual(RD.pickFollowTarget([{ riding: true, course: 'ring' }, { riding: false, course: 'sky' }]), null, '지상/비주행은 컷 대상 아님');
+  const skyR = { riding: true, course: 'sky', n: 1 };
+  assert.strictEqual(RD.pickFollowTarget([{ riding: true, course: 'sea' }, skyR]), skyR, '하늘 코스 비행체 선택');
+  assert.strictEqual(RD.pickFollowTarget(null), null);
+  const flR = { riding: true, course: 'flight' };
+  assert.strictEqual(RD.pickFollowTarget([flR]), flR, '비행기도 컷 대상');
+  const fp0 = RD.followPan({ x: 3, y: 0, z: 4 }, { x: 0.7, z: 0.7 });
+  assert.ok(Math.abs(fp0.x - 3) < 1e-9 && Math.abs(fp0.z - 4) < 1e-9, '고도 0 이면 보정 없음');
+  const fp5 = RD.followPan({ x: 0, y: 5.2, z: 0 }, { x: 0.7071, z: 0.7071 });
+  assert.ok(fp5.x < 0 && fp5.z < 0, '고도 있으면 카메라 반대쪽으로 보정');
+  let c = { x: 0, z: 0 }; for (let i = 0; i < 120; i++) c = RD.followStep(c, { x: 10, z: -6 }, 1 / 24);
+  assert.ok(Math.abs(c.x - 10) < 0.05 && Math.abs(c.z + 6) < 0.05, '추적이 목표로 수렴');
+  assert.deepStrictEqual(RD.followStep({ x: 1, z: 1 }, { x: 9, z: 9 }, 0), { x: 1, z: 1 }, 'dt=0 이면 정지');
+  assert.ok(/setFollow/.test(src) && /pickFollowTarget/.test(src) && /비행 근접 컷/.test(src), 'Scene3D 근접 컷 연동 누락');
+  console.log(`pm3dRide OK (경로 ${checked}건 교차 0 · 탈것 ${ids.length}종 · 비행 코스 · 근접 컷)`);
 })().catch((e) => { console.error(e); process.exit(1); });
