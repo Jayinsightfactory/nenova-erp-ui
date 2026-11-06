@@ -2174,3 +2174,17 @@
 - 최종현황: PM2 memory-cap은cacheclear배포후 main44 200/89.6초+UI출력버튼활성 및 output호출 동안 추가restart0으로재현안됨. output500은1회발생했으나 단독42181336112 context200/1.071초→output200/85.888초로미재현, 정확원인미확정/해결확정아님. backend추가수정0, 다음실UI는codePresent/SQLcodes로추적가능.
 - 최종fixture정정실녹화97144 PASS:1920x1080/4chapter/한국어VTT/aux2왕복/20GET/진입0/선택0/추가reload0. 부모중간22초live'현재원천으로계산'·끝42saved시각QA정상. 기존영상대체완료, 앱UI추가수정금지/sourcefreeze. 정식fullverify+build/빌드된guideplayer 및최종운영main+file1회검증예정(현재미검증).
 검색어: guide97144 livebanner output42181336112 85888ms unknown500 no-backend-fix
+
+## 2026-11-06 운영 Node 메모리 설정 읽기 진단
+- fresh codex/profit-runtime-memory @31af4f81e. 최종44 main200/86.5초 후 output502,07:55:04Z RSS1032>cap1024MB 자동재시작확정. 기능·guide배포와운영반복출력실패를분리한다. 사용자runtime점검·조정승인이나현재는READ-ONLY확장만.
+- 기존runtime진단에실제Node버전/PM2·proc heap숫자/flagboolean/CLI우선순위/Next title덮음unavailable/unverifiedmetadata/cgroup1·2·조상한도/procRSS/기존PM2heapmetrics추가. 원문args/env/jlist/개인경로로그·backup0, preload전달0/고정Node통계process1개만5초제한. freshheap은실제앱heap아님/동일cgroup여부표시. 설정·앱·SQL·DB쓰기0.
+- 대상5회귀/syntax/diffcheckPASS,운영진단은부모dispatch대기(미검증). 다음heap/cap값미리결정하지않고설정확인후테스트·안전rollback계획필수. 최종실UI44 main+file연속2회/금액diff0/5xx0/추가restart0은미달성. 계정전체주간36%시작값(작업단독비용아님).
+검색어: runtime-memory node_args NODE_OPTIONS actualargv unavailable cgroup heapLimit replica readonly
+
+## 2026-11-06 최신 손익 overlap-only 읽기 공유·반복파일 검증
+- 운영42188478063 Node20.20.2/설정heapflag없음/actualargv Next title관측불가/freshheap1995실앱값아님/cap1GiB/host3893.84MB.512후보 로컬Node24 3회돈동일/RSS낮음이나 운영동등성·latency원인 미입증, canary적용보류/설정쓰기0.
+- main완료뒤 live week-check/notes/output fullcalc가겹칠수있어 exactyear+major/globalSymbol 최신normal read만 공유. 공동as-of/기존fence·수식·확정·historicalpolicy 보존, ERPctx bypass/clone/settle즉시삭제TTL0. 첫main완료값cache아님. UI/DB쓰기0/guide N/A.
+- 대상18PASS+frozen6PASS, 별도 Next production 두APIbundle/source1회/owner실HTTPabort→waiter200·동일money/clone/ctxbypass/error evict PASS·원본hash불변/DB0. actual44 SELECT1회26.412초/1403/live/돈SHA bc10325225a9df284f399d6a76905986678a4f646a91c0a96ddbef4a1ee19607 동일/cache0/변이0/peakRSS503.91. 동시운영peak개선증거아님.
+- 기존download workflow 명시repeat_recent_download exact2026/44만 UI+실XLSX2회/각120초/돈diff0/5xx0. 이모드만 독립감사분리·기본감사유지. 미완료canary helper/CLI/test는unstaged보존·이번PR제외, package는dedup/readonly회귀만 연결.
+- sourcefreeze 뒤 부모필수gate/build/CI/배포 예정(미검증), 운영2회·PM2restartdelta0 미달성/이전output500원인미확정. runtime튜닝완료/운영OOM해소주장0.
+검색어: profitLatestInFlight overlap-only TTL0 globalSymbol HTTPabort distinct-bundles repeat_recent_download bc1032 runtime-deferred

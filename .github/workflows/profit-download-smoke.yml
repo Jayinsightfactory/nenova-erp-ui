@@ -2,6 +2,10 @@ name: Read-only production profit download
 on:
   workflow_dispatch:
     inputs:
+      repeat_recent_download:
+        description: Read-only 2026/44 UI and real XLSX twice; independent audit remains a separate diagnostic
+        type: boolean
+        default: false
       readonly_api:
         description: One GET-only diagnostic (context then selected target; no browser/audit)
         type: boolean
@@ -42,8 +46,19 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Validate exclusive repeat scope and targeted fixtures
+        env:
+          REPEAT: ${{ inputs.repeat_recent_download }}
+          READONLY_API: ${{ inputs.readonly_api }}
+          YEAR: ${{ inputs.year }}
+          WEEK: ${{ inputs.week }}
+          THAI: ${{ inputs.thai_carry }}
+          SOURCE: ${{ inputs.source_completion_checks }}
+        run: |
+          node -e 'const e=process.env;if(e.REPEAT==="true"&&(e.READONLY_API==="true"||e.YEAR!=="2026"||e.WEEK!=="44"||e.THAI==="true"||e.SOURCE==="true"))process.exit(1)'
+          node --test __tests__/profitRuntimeValidation.test.cjs __tests__/profitLatestInFlight.test.cjs
       - name: One read-only context and selected API diagnostic
-        if: inputs.readonly_api == true
+        if: inputs.readonly_api == true && inputs.repeat_recent_download != true
         env:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
@@ -51,7 +66,7 @@ jobs:
           PROBE_TARGET: ${{ inputs.probe_target }}
         run: node scripts/profit-readonly-api-probe.cjs
       - name: Download selected week from authenticated production UI
-        if: inputs.readonly_api != true
+        if: inputs.readonly_api != true && inputs.repeat_recent_download != true
         env:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
@@ -60,3 +75,16 @@ jobs:
           PROBE_SOURCE_COMPLETION_CHECKS: ${{ inputs.source_completion_checks }}
           CHROME_PATH: /usr/bin/google-chrome
         run: node scripts/profit-production-download-smoke.cjs
+      - name: Isolated Node20 cross-bundle synthetic fixture
+        if: inputs.repeat_recent_download == true && inputs.readonly_api != true
+        run: node scripts/profit-singleflight-built-fixture.cjs
+      - name: Two sequential read-only UI and real XLSX rounds
+        if: inputs.repeat_recent_download == true && inputs.readonly_api != true
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          PROBE_YEAR: ${{ inputs.year }}
+          PROBE_WEEK: ${{ inputs.week }}
+          PROBE_RUNTIME_CANARY: main-output-only
+          RUNTIME_CANARY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/profit-runtime-two-rounds.cjs
