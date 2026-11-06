@@ -28,14 +28,20 @@ function safeObserver(value){
  return out;
 }
 const failure=code=>Object.assign(Error(),{code});
-const FAILURE_REASONS={RUNTIME_CHILD_EXIT:'child_exit',RUNTIME_CHILD_DEADLINE:'deadline',RUNTIME_CHILD_SPAWN:'child_spawn',RUNTIME_ROUND_ASSESS:'assess',RUNTIME_ROUNDS_ASSESS:'assess',RUNTIME_MODE_DENIED:'mode'};
+function safeResult(value){
+ if(value?.runtimeHttpFailure===true)return {runtimeHttpFailure:true,status:value.status>=100?integer(value.status,599):null,kind:['main','output','week-check','stock-notes','other-api'].includes(value.kind)?value.kind:null};
+ if(value?.status!=='PASS'||!value.scope)return null;
+ return {runtimeFileResult:true,status:'PASS',scope:scope(value.scope),requests:integer(value.requests,1000),httpStatuses:Array.isArray(value.httpStatuses)?value.httpStatuses.slice(0,10).map(n=>n>=100?integer(n,599):null):null,blockedWrites:integer(value.blockedWrites,100000),actualBusinessWrites:integer(value.actualBusinessWrites,100000),initialDifferenceCount:Array.isArray(value.initialScreenDifferences)?value.initialScreenDifferences.length:null,financialDigest:typeof value.financialDigest==='string'&&/^[a-f0-9]{64}$/.test(value.financialDigest)?value.financialDigest:null,bytes:integer(value.bytes,1000000000),sheets:integer(value.sheets,1000)};
+}
+const ASSESS_CODES=new Set(['RUNTIME_HTTP_FAILURE','RUNTIME_READ_BUDGET_FAILED','RUNTIME_FILE_MONEY_FAILED']);
+const FAILURE_REASONS={RUNTIME_CHILD_EXIT:'child_exit',RUNTIME_CHILD_DEADLINE:'deadline',RUNTIME_CHILD_SPAWN:'child_spawn',RUNTIME_ROUND_ASSESS:'assess',RUNTIME_ROUNDS_ASSESS:'assess',RUNTIME_HTTP_FAILURE:'assess',RUNTIME_READ_BUDGET_FAILED:'assess',RUNTIME_FILE_MONEY_FAILED:'assess',RUNTIME_MODE_DENIED:'mode'};
 function safeFailure(error){const code=Object.hasOwn(FAILURE_REASONS,error?.code)?error.code:'RUNTIME_RUNNER_FAILED';return {runtimeValidation:'FAIL',reason:FAILURE_REASONS[code]||'runner',code};}
 async function round({spawnChild=spawn,log=console.log,deadlineMs=270000}={}){
  const messages=[];
  let child;try{child=spawnChild(process.execPath,['scripts/profit-production-download-smoke.cjs'],{env:process.env,stdio:['ignore','pipe','pipe']});}catch{throw failure('RUNTIME_CHILD_SPAWN');}
- let pending='';child.stdout.on('data',chunk=>{pending+=chunk;for(;;){const end=pending.indexOf('\n');if(end<0)break;const line=pending.slice(0,end);pending=pending.slice(end+1);try{const value=JSON.parse(line);messages.push(value);const safe=safeObserver(value);if(safe)log(JSON.stringify(safe));}catch{}}});child.stderr.on('data',()=>{});
+ let pending='';child.stdout.on('data',chunk=>{pending+=chunk;for(;;){const end=pending.indexOf('\n');if(end<0)break;const line=pending.slice(0,end);pending=pending.slice(end+1);try{const value=JSON.parse(line);messages.push(value);const safe=safeObserver(value)||safeResult(value);if(safe)log(JSON.stringify(safe));}catch{}}});child.stderr.on('data',()=>{});
  let deadline=false;const timer=setTimeout(()=>{deadline=true;child.kill();},deadlineMs);
- try{const code=await new Promise((resolve,reject)=>{child.on('error',()=>reject(failure('RUNTIME_CHILD_SPAWN')));child.on('exit',resolve);});if(deadline)throw failure('RUNTIME_CHILD_DEADLINE');if(code!==0)throw failure('RUNTIME_CHILD_EXIT');try{return assessRound(messages);}catch{throw failure('RUNTIME_ROUND_ASSESS');}}finally{clearTimeout(timer);}
+ try{const code=await new Promise((resolve,reject)=>{child.on('error',()=>reject(failure('RUNTIME_CHILD_SPAWN')));child.on('exit',resolve);});if(deadline)throw failure('RUNTIME_CHILD_DEADLINE');if(code!==0)throw failure('RUNTIME_CHILD_EXIT');try{return assessRound(messages);}catch(error){throw failure(ASSESS_CODES.has(error.message)?error.message:'RUNTIME_ROUND_ASSESS');}}finally{clearTimeout(timer);}
 }
 async function main(){
  try{if(runtimeValidationMode(process.env)!==true)throw Error();}catch{throw failure('RUNTIME_MODE_DENIED');}const hashes=[];
@@ -43,4 +49,4 @@ async function main(){
  let result;try{result=assessRounds(hashes);}catch{throw failure('RUNTIME_ROUNDS_ASSESS');}console.log(JSON.stringify({runtimeValidation:'PASS',...result}));
 }
 if(require.main===module)main().catch(error=>{console.log(JSON.stringify(safeFailure(error)));process.exitCode=1;});
-module.exports={main,round,safeObserver,safeFailure};
+module.exports={main,round,safeObserver,safeResult,safeFailure};

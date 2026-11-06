@@ -11,7 +11,8 @@ function assessRound(messages){
   if(requests.length!==1||requests[0].scopeMatches!==true||headers.length!==1||headers[0].httpStatus!==200||!Number.isFinite(headers[0].elapsedMs)||headers[0].elapsedMs<0||headers[0].elapsedMs>120000)throw Error('RUNTIME_READ_BUDGET_FAILED');
  }
  const result=messages.find(x=>x.status==='PASS'&&x.scope?.year==='2026'&&x.scope?.week==='44');
- if(!result||result.requests!==1||result.httpStatuses?.length!==1||result.httpStatuses[0]!==200||result.blockedWrites!==0||result.actualBusinessWrites!==0||!Array.isArray(result.initialScreenDifferences)||result.initialScreenDifferences.length||!/^[a-f0-9]{64}$/.test(result.financialDigest||'')||!messages.some(x=>x.runtimeAuditSkipped===true))throw Error('RUNTIME_FILE_MONEY_FAILED');
+ // blockedWrites counts successfully intercepted non-GET attempts, not DB writes.
+ if(!result||result.requests!==1||result.httpStatuses?.length!==1||result.httpStatuses[0]!==200||!Number.isInteger(result.blockedWrites)||result.blockedWrites<0||result.actualBusinessWrites!==0||!Array.isArray(result.initialScreenDifferences)||result.initialScreenDifferences.length||!/^[a-f0-9]{64}$/.test(result.financialDigest||'')||!messages.some(x=>x.runtimeAuditSkipped===true))throw Error('RUNTIME_FILE_MONEY_FAILED');
  return {financialDigest:result.financialDigest,mainOutputPass:true};
 }
 function assessRounds(hashes){if(hashes.length!==2||hashes.some(h=>!/^[a-f0-9]{64}$/.test(h||''))||hashes[0]!==hashes[1])throw Error('RUNTIME_ROUND_MONEY_CHANGED');return {rounds:2,moneyMatch:true,http5xx:0};}

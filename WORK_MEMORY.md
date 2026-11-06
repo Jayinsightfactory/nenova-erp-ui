@@ -2194,3 +2194,9 @@
 - two-round runner가 숨기던 기존 observer JSON을 event/kind/status/허용bodyCode/codePresent/enum basis·bodyState/유효yearweek/boolean·bounded counts·elapsed만 재출력. 중첩원문·URL·토큰·사용자오류·stderr는0. child exit/deadline/spawn/assess 실패는 고정reason/code만 출력.
 - privacy/실행fixture 및 기존smoke6PASS/diffcheckPASS. 앱·SQL·운영설정변경0/새fullSQL실행0. 생성history dirty와미완료canary파일은보존·이번진단commit제외. 부모 featurebranch 읽기workflow 재실행대기, 실제main코드/abort/출력실패원인은아직미확정.
 검색어: repeat133 profitUiReadDiagnostic allowlist child_exit deadline assess restart274 readonly-only
+
+## 2026-11-06 반복검증 assessment 실패 분리
+- 42197990812 main200/83.242초/live/scope일치→output200/82.419초→childexit0 뒤 assessment거절. child실파일assert 통과로보이나 전체5xx0·거절원인은아직미확정이며 차단시도수 때문이라고단정하지않는다.
+- PASS결과의유효scope/요청·HTTP숫자/blockedWrites/actualBusinessWrites/diff개수/SHA/bytes/sheets만추가출력, HTTP실패는boolean/status+고정kind(main/output/week-check/stock-notes/other-api)만. 모든동일origin API5xx감지기준유지·URL원문0. 판정HTTP_FAILURE/READ_BUDGET_FAILED/FILE_MONEY_FAILED 고정code분리.
+- blockedWrites는성공적으로차단한nonGET시도수이므로정수>=0허용, 실제businesswrites===0유지. 실제기존request handler를합성실행해POST/PATCH/DELETE모두abort·continue0 입증. 개인정보/중첩값/결과diff본문차단 및원인별fixture 포함9PASS. 앱/SQL/운영설정변경0/추가실SQL0, 부모읽기재실행대기.
+검색어: RUNTIME_FILE_MONEY_FAILED blockedWrites intercepted actualBusinessWrites runtimeFileResult 42197990812 readonly
