@@ -1,6 +1,23 @@
 // Read-only, aggregate diagnostics. Never print log lines or PM2 environment.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 // Kept self-contained: deploy diagnostics execute this file through node stdin.
+function summarizeProfitReadFailures(text,{since,until}){
+ const marker='NENOVA_PROFIT_READ_FAILURE ',events=[];let count=0,explicitTimerFiredCount=0;
+ const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+ const pool=v=>exact(v,['size','borrowed','available','pending'])&&Object.values(v).every(n=>n===null||(Number.isInteger(n)&&n>=0&&n<=1000000));
+ for(const line of String(text).split(/\r?\n/)){
+  const start=line.indexOf(marker);if(start<0)continue;
+  try{
+   const v=JSON.parse(line.slice(start+marker.length));
+   if(!exact(v,['version','at','pid','scope','phase','queryHash','elapsedMs','explicitTimerFired','poolAtDispatch','poolAtFailure','code'])||v.version!==1||!Number.isInteger(v.pid)||v.pid<=0||v.pid>2147483647||typeof v.at!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v.at))continue;
+   const at=Date.parse(v.at);if(!Number.isFinite(at)||new Date(at).toISOString()!==v.at||at<since||at>until)continue;
+   if(!exact(v.scope,['year','major'])||typeof v.scope.year!=='string'||!/^20\d{2}$/.test(v.scope.year)||typeof v.scope.major!=='string'||!/^(0[1-9]|[1-4]\d|5[0-3])$/.test(v.scope.major))continue;
+   if(!['current','prior','duty','preFence','postFence'].includes(v.phase)||typeof v.queryHash!=='string'||!/^[a-f0-9]{12}$/.test(v.queryHash)||!['ECANCEL','ETIMEOUT'].includes(v.code)||typeof v.explicitTimerFired!=='boolean'||!(v.elapsedMs===null||(Number.isInteger(v.elapsedMs)&&v.elapsedMs>=0&&v.elapsedMs<=86400000))||!pool(v.poolAtDispatch)||!pool(v.poolAtFailure))continue;
+   count++;if(v.explicitTimerFired)explicitTimerFiredCount++;events.push(v);events.sort((a,b)=>b.at.localeCompare(a.at));events.length=Math.min(events.length,3);
+  }catch{}
+ }
+ return {count,explicitTimerFiredCount,latest:events};
+}
 function summarizeMemoryRestarts(text,{since,until,pmIds}){
  const selected=new Set(pmIds.filter(Number.isInteger));let count=0,latestTime=null,currentMB=null,maxMB=null;
  for(const line of String(text).split(/\r?\n/)){
@@ -108,5 +125,24 @@ try{
  const until=Date.now(),pmIds=processes.filter(p=>/nenova|erp/i.test(p.name||'')).map(p=>p.pm2_env?.pm_id??p.pm_id);
  console.log(JSON.stringify({section:'pm2_memory_restart_30m',available:true,scannedBytes:bytes,tailTruncated:stat.size>bytes,...summarizeMemoryRestarts(buffer.toString('utf8'),{since:until-30*60000,until,pmIds})}));
 }catch{console.log(JSON.stringify({section:'pm2_memory_restart_30m',available:false}));}
-for(const p of processes.filter(p=>/nenova|erp/i.test(p.name||''))){const env=p.pm2_env||{},mon=p.monit||{};console.log(JSON.stringify({section:'pm2',name:p.name,status:env.status,pid:p.pid,restarts:env.restart_time,uptime:new Date(env.pm_uptime||0).toISOString(),cpuPercent:mon.cpu,memoryMB:Math.round((mon.memory||0)/1048576),maxMemoryRestart:safeMemory(env.max_memory_restart),watchEnabled:Array.isArray(env.watch)?env.watch.length>0:Boolean(env.watch),watchPathCount:Array.isArray(env.watch)?env.watch.length:null,cronRestart:safeCron(env.cron_restart),autorestart:typeof env.autorestart==='boolean'?env.autorestart:null,restartDelayMs:safeNumber(env.restart_delay),backoffRestartDelayMs:safeNumber(env.exp_backoff_restart_delay),unstableRestarts:safeNumber(env.unstable_restarts)}));for(const [kind,file] of Object.entries({out:env.pm_out_log_path,err:env.pm_err_log_path})){if(!file)continue;try{const stat=fs.statSync(file),bytes=Math.min(stat.size,4*1024*1024),buf=Buffer.alloc(bytes),fd=fs.openSync(file,'r');try{fs.readSync(fd,buf,0,bytes,stat.size-bytes);}finally{fs.closeSync(fd);}const counts=Object.fromEntries(Object.keys(categories).map(k=>[k,0]));let dated=0,undated=0;for(const line of buf.toString('utf8').split(/\r?\n/)){const dt=line.match(/20\d\d[-/]\d\d[-/]\d\d[ T]\d\d:\d\d/),when=dt?Date.parse(dt[0].replaceAll('/','-')+'Z'):NaN;if(Number.isFinite(when)&&when<since)continue;if(Number.isFinite(when))dated++;else undated++;for(const [k,re] of Object.entries(categories))if(re.test(line))counts[k]++;}console.log(JSON.stringify({section:'pm2_log',name:p.name,kind,scannedBytes:bytes,datedLines:dated,undatedLines:undated,counts}));}catch(e){console.log(JSON.stringify({section:'pm2_log',name:p.name,kind,error:e.code||'unavailable'}));}}}
+for(const p of processes.filter(p=>/nenova|erp/i.test(p.name||''))){
+ const env=p.pm2_env||{},mon=p.monit||{};
+ console.log(JSON.stringify({section:'pm2',name:p.name,status:env.status,pid:p.pid,restarts:env.restart_time,uptime:new Date(env.pm_uptime||0).toISOString(),cpuPercent:mon.cpu,memoryMB:Math.round((mon.memory||0)/1048576),maxMemoryRestart:safeMemory(env.max_memory_restart),watchEnabled:Array.isArray(env.watch)?env.watch.length>0:Boolean(env.watch),watchPathCount:Array.isArray(env.watch)?env.watch.length:null,cronRestart:safeCron(env.cron_restart),autorestart:typeof env.autorestart==='boolean'?env.autorestart:null,restartDelayMs:safeNumber(env.restart_delay),backoffRestartDelayMs:safeNumber(env.exp_backoff_restart_delay),unstableRestarts:safeNumber(env.unstable_restarts)}));
+ for(const [kind,file] of Object.entries({out:env.pm_out_log_path,err:env.pm_err_log_path})){
+  if(!file)continue;
+  try{
+   const stat=fs.statSync(file),bytes=Math.min(stat.size,4*1024*1024),buf=Buffer.alloc(bytes),fd=fs.openSync(file,'r');
+   try{fs.readSync(fd,buf,0,bytes,stat.size-bytes);}finally{fs.closeSync(fd);}
+   const text=buf.toString('utf8'),until=Date.now();
+   if(p.name==='nenova-erp')console.log(JSON.stringify({section:'profit_read_failures_30m',kind,scannedBytes:bytes,tailTruncated:stat.size>bytes,...summarizeProfitReadFailures(text,{since:until-30*60000,until})}));
+   const counts=Object.fromEntries(Object.keys(categories).map(k=>[k,0]));let dated=0,undated=0;
+   for(const line of text.split(/\r?\n/)){
+    const dt=line.match(/20\d\d[-/]\d\d[-/]\d\d[ T]\d\d:\d\d/),when=dt?Date.parse(dt[0].replaceAll('/','-')+'Z'):NaN;
+    if(Number.isFinite(when)&&when<since)continue;if(Number.isFinite(when))dated++;else undated++;
+    for(const [k,re] of Object.entries(categories))if(re.test(line))counts[k]++;
+   }
+   console.log(JSON.stringify({section:'pm2_log',name:p.name,kind,scannedBytes:bytes,datedLines:dated,undatedLines:undated,counts}));
+  }catch(e){console.log(JSON.stringify({section:'pm2_log',name:p.name,kind,error:e.code||'unavailable'}));}
+ }
+}
 try{const r=cp.spawnSync('journalctl',['-k','--since','7 days ago','--no-pager','-o','short-iso'],{encoding:'utf8',timeout:15000,maxBuffer:8*1024*1024});const hits=(r.stdout||'').split('\n').filter(x=>/out of memory|oom-kill|killed process/i.test(x));const hours={};for(const line of hits){const hour=line.match(/^20\d\d-\d\d-\d\dT\d\d/);if(hour)hours[hour[0]]=(hours[hour[0]]||0)+1;}console.log(JSON.stringify({section:'kernel',available:r.status===0,oomEvents:hits.length,oomHours:hours}));}catch(e){console.log(JSON.stringify({section:'kernel',error:e.code||'unavailable'}));}
