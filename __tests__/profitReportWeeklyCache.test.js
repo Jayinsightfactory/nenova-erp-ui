@@ -10,6 +10,7 @@ async function main(){
   const readContext=await import('../lib/erpReadContext.js');
   const S=await import('../lib/profitReportSnapshot.js');
   const M=await import('../lib/profitReportMonthly.js');
+  const policy=await import('../lib/profitReportReadPolicy.js');
   const raw={orderYear:'2026',major:'31',note:'saved note',rows:[{category:'태국',variant:'normal',auto:{N:100,L:0,O:0,Q:2,S:1},manual:{R:100,H:0},stock:{}}]};
   const frozen=C.materializeProfitPayload(raw);
   assert.equal(C.isMaterializedProfitPayload(frozen),true);
@@ -34,6 +35,10 @@ async function main(){
   let live=0, reads=0, confirm=null,diagnostics=0;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
+    ...policy,materializeProfitPayload:C.materializeProfitPayload,
+    currentErpReadContext:()=>true,loadSourceFingerprints:async()=>({map:new Map()}),
+    latestProfitInvoiceFence:async()=> 'test',
+    resolvePreviousProfitWeek:()=>({orderYear:'2026',major:'43'}),
     applyTemplateDutyToReport:async payload=>payload,
     loadProfitReportCalendar:async()=>[scopeFixture],resolveCurrentProfitWeek:()=>({orderYear:'2026',major:'44'}),
     getActiveConfirm:async()=>confirm,buildConfirmedPayload:async()=>({confirmed:{revisionNo:4},rows:[],confirmedTotals:{C:71}}),
@@ -47,14 +52,14 @@ async function main(){
   await assert.rejects(L.loadWeeklyReportPayload('31','2025'),e=>e.code==='SNAPSHOT_NOT_READY');
   await assert.rejects(L.loadWeeklyReportPayload('31','2026',{storedResult:null}),e=>e.code==='SNAPSHOT_NOT_READY');
   assert.equal(live,0);
-  await L.loadWeeklyReportPayload('44','2026');assert.equal(live,1);
-  await L.loadWeeklyReportPayload('31','2026',{mode:'liveAudit'});assert.equal(live,2);
+  await L.loadWeeklyReportPayload('44','2026');assert.equal(live,2);
+  await L.loadWeeklyReportPayload('31','2026',{mode:'liveAudit'});assert.equal(live,4);
   confirm={initialized:true,confirm:{revisionNo:4}};
   assert.equal((await L.loadWeeklyReportPayload('31','2026')).readMode,'confirmed');
-  assert.equal(live,2);
+  assert.equal(live,4);
   assert.equal(diagnostics,0);
   const auditedConfirm=await L.loadWeeklyReportPayload('31','2026',{mode:'liveAudit'});
-  assert.equal(diagnostics,1);assert.equal(live,2);assert.equal(auditedConfirm.confirmedTotals.C,71);
+  assert.equal(diagnostics,1);assert.equal(live,4);assert.equal(auditedConfirm.confirmedTotals.C,71);
   assert.equal(auditedConfirm.unclassifiedDetailsSource,'live_read_only');
   const confirmBody=api.slice(api.indexOf('async function buildConfirmedPayload'),api.indexOf('export async function currentProfitPeriod'));
   assert.doesNotMatch(confirmBody,/loadManual\(|currencyRates\(|unclassifiedDetailsByCategory\(/);
@@ -123,7 +128,7 @@ async function main(){
   assert.match(ui,/if\(!await reloadAfterSourceSave\(\)\) return false/);
   assert.match(ui,/data.readMode==='live'\|\|showSourceChecks/);
   assert.match(ui,/if\(ok==='stale'\) return false/);
-  assert.match(ui,/userSelectedPeriodRef.current \|\| loadSeqRef.current>0/);
+  assert.match(ui,/if\(userSelectedPeriodRef.current\) return/);
   assert.equal(C.profitScopeMatches({year:'2026',major:'31'},'2025','31'),false);
   assert.equal(C.profitScopeMatches({year:'2026',major:'32'},'2026','31'),false);
   assert.equal(C.profitScopeMatches({year:'2026',major:'01'},'2026','1'),true);

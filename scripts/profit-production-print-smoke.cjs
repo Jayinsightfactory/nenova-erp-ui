@@ -90,6 +90,8 @@ const puppeteer = require('puppeteer-core');
     });
     mark('initial-report');
     await page.goto(`${origin}/sales/profit-report?year=${year}&week=${weeks.at(-1)}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForSelector('[data-testid="profit-query-empty"]');
+    await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='조회')?.click());
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.startsWith('엑셀 다운로드') && !b.disabled), { timeout: 150000 });
     const findSummary = prefix => page.evaluateHandle(p => [...document.querySelectorAll('summary')].find(s => s.textContent.startsWith(p)), prefix);
     const columnSummary = await findSummary('엑셀·인쇄 항목');
@@ -147,6 +149,7 @@ const puppeteer = require('puppeteer-core');
       assert.equal(await page.$eval('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]', b => b.disabled), true, 'Edited scope must block stale output');
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), '📈 차수별 매출이익 보고서 — 조회 범위 확인 필요', 'Edited scope must not display an old category title');
       await fillScopeInput('시작 차수', String(Number(weeks[0])));
+      await query.asElement().click();
       await page.waitForFunction(() => !document.querySelector('[data-testid="profit-weeks-output"] [data-testid="profit-print-button"]').disabled);
       assert.equal(await page.$eval('h1', e => e.textContent.trim()), expectedWeeksTitle);
     }

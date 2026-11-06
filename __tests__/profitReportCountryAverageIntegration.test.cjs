@@ -29,6 +29,7 @@ async function main() {
     return periods.get(id);
   }
   const deps = {
+    previousReportPeriod:async(y,m)=>Number(m)>1?{orderYear:String(y),major:String(Number(m)-1).padStart(2,'0')}:{orderYear:String(Number(y)-1),major:'52'},
     withProfitInvoiceMemo,
     profitInvoiceDependencies:async(year,major)=>{invoiceCalls.push([String(year),String(major)]);return [];},
     ...calc, ...valuation, ...basis, ...actualCosts,

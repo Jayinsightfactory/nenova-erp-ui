@@ -1,5 +1,11 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-06 과거 손익 monetary 혼합·진입 자동조회 방지
+
+최신 사용자 승인으로 과거 관세/평균 overlay 예외를 대체한다. 활성확정은 최근창도 whole CALC 우선, 실제PeriodDay 현재+직전 외 과거는 전체 물질화 calc/totals만 반환한다. 최신창은 current/prior raw SQL 전체와 명시 취득원가 reference로 계산하며 ERP와 인보이스4table 지문 전후 불일치/SQL실패는 전체보류한다. 표·월별·XLSX/print는 loadWeeklyReportPayload 공용정책, 표시K=J/C·0/null공란 유지. 누락/legacy409이며 자동갱신·운영보정0.
+
+진입/URL/입력/전후/탭 변경은 금융요청0, 명시조회 범위만 capture하고 abort/seq/scope로 stale응답·출력을 차단한다. 실제 운영현재45/직전44, 39/42/43 원본금액동일 및44중국/VN 최신N확인. EXCEL history int indexlookup과 invoice numeric키충돌 SELECT-only회귀. 기준/부작용/실제dnSpy/SQL/가이드: plans/profit-frozen-explicit-query-2026-11-06.md; 계약 profit-frozen-explicit-query.json; 생산함수회귀 profitFrozenExplicitQuery.test.cjs. 최종 전체gate/운영배포 상태는 세션기록을 따른다.
+
 ## 2026-11-06 중국 관세 누락·품목별 평가 보완
 
 저장 H=0/source=missing이나 업로드 원가의 관세 계산값을 실제 납부·면세 증빙으로 해석하지 않는다. 승인 워크북 exact124품목 참조 및 live검증된42차 원가64행을 읽기 계층에 연결하되 ACTUAL 승인 모드/ESTIMATED 비용/실제 납부 인증을 구분한다. 물리 포장 모순은 임의10배 보정하지 않고 실제 단 수량으로 승인 평균 원가를 보완한다. 현재 SQL515단과 저장351/단위불명은 비교불가를 항상 표시하고 FIFO 원본을 보존한다. H는 현재 계산관세+누락 그외 비용만 합산해 중복 관세를 막는다. 저장1~44차 중국 최종 E/F/H/I/J/K 누락0, 원본JSON·기존 C/G/R/AC/AJ 보존 검증. ERP/web 원장 쓰기·SP·스키마·계산본 갱신0.

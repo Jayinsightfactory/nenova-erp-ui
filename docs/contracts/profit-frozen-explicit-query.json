@@ -1,0 +1,20 @@
+{
+  "id":"profit-frozen-explicit-query",
+  "title":"과거 전체금액 동결·최근 전체 최신 SQL·명시 조회",
+  "scope":["lib/profitLatestInvoiceFence.js","lib/profitReport.js","lib/profitReportTaxableRateCarry.js","lib/profitReportSourceGuide.js","lib/profitReportReadPolicy.js","lib/profitReportMonthly.js","lib/profitTemplateDutyData.js","lib/profitAverageData.js","lib/erpReadContext.js","lib/kcsTaxableRate.js","pages/api/sales/profit-report.js","pages/sales/profit-report.js","instrumentation.js","scripts/probe-profit-frozen-history.cjs","scripts/record-profit-explicit-query-guide.cjs","scripts/profit-production-download-smoke.cjs","scripts/profit-production-print-smoke.cjs"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[
+    {"name":"ENTER_SELECT_OR_CHANGE_VIEW","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Financial report/cost/stock/validation GET0 before explicit query; lightweight PeriodDay context allowed. URL/preset/prev-next/view changes only update draft selection."},
+    {"name":"EXPLICIT_READ_AND_OUTPUT","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only. Confirmed whole CALC always frozen. Older than calendar current+previous uses entire materialized saved calc/totals without monetary overlays. Missing/legacy409, no auto write. Latest current/prior main inputs wholly SQL, historical acquisition references donor evidence only, request-local caches and pre/post source fence. Failed SQL aborts whole response. No ERP/Web DML/DDL/SP/cache refresh/backfill."}
+  ],
+  "rules":{
+    "calendar":"Actual PeriodDay current and prior including53/year boundary. Today2026-11-06 current45 prior44; frozen<=43. Ifcurrent44 then43/44latest and<=42frozen. Future label distinct.",
+    "projection":"All financial saved/confirmed amounts immutable; display K=display J/C, zero/null C=>null. Preserve actual/manual0. Every screen/weeks/monthly/XLSX/print uses loadWeeklyReportPayload shared policy.",
+    "scope":"Capture explicit query scope, AbortController+sequence+identity checks; selection changes hide old data and disable output. Aux views need their own query intent. No tab/preset/URL auto report fetch.",
+    "sourceContext":"Read-only pool opts into parallel SELECT and memoized external KCS reads; transactional/replay callers retain serial reads and supplied external evidence by default. Each same currency-date KCS result, including unavailable, is memoized per request. No Node SQL scheduler code in edge/browser instrumentation bundle; production node scheduler behavior unchanged."
+  },
+  "crossYearFixture":{"required":true,"description":"2025/53 is previous of2026/01, 2025/52 is historical; same-number2025/44 cannot enter2026recent window. Explicit zero/false/omitted live flags and frozen confirmed recent cases."},
+  "requiredTestFiles":["__tests__/profitFrozenExplicitQuery.test.cjs","__tests__/profitReportWeeklyCache.test.js","__tests__/profitReportCountryAverageIntegration.test.cjs","__tests__/profitRangeOutput.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-frozen-explicit-query-2026-11-06.md","source":"Actual dnSpy.Console.exe FormStockView/GetData and FormSalesView/GetData plus SELECT-only PeriodDay/snapshot SHA256 probe. Web-only read policy, native formulas unchanged.","methods":["FormStockView.GetData","FormSalesView.GetData","loadWeeklyReportPayload"],"tables":["PeriodDay","WebProfitReportSnapshot","WebProfitReportConfirm","ShipmentMaster","ShipmentDetail","Estimate","WarehouseMaster","WarehouseDetail","StockMaster","ProductStock","WebProfitReport"]},
+  "requiredCommands":["node --test __tests__/profitFrozenExplicitQuery.test.cjs","node scripts/record-profit-explicit-query-guide.cjs --dry-run","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build","npm run verify:erp-change","npm run test:workflow-guides"]
+}

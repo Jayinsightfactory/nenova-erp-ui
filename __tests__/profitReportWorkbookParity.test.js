@@ -103,8 +103,8 @@ async function main() {
       && !reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('sm.isFix'));
   check('단가표도 동일한 마지막 ProductStock 스냅샷을 사용', reportSource.includes('latestStockSnapshotWeek(major, orderYear)') && reportSource.includes('latestStockSnapshotWeek(prevMajor, prevOrderYear)'));
   check('중복 StockMaster는 선택된 StockKey 하나만 집계', stockSection.includes('smk.StockKey=@stockKey') && reportSource.includes('smk.StockKey = @beginStockKey'));
-  check('01차 기초재고는 전년도 전차수 스냅샷을 사용', reportApiSource.includes("currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)") && reportApiSource.includes("currentMajor <= 1 ? '52'"));
-  check('27차 기초재고는 같은 연도의 26차 스냅샷을 사용', reportApiSource.includes('currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)') && reportApiSource.includes("currentMajor - 1).padStart(2, '0')"));
+  check('01차 기초재고는 실제 PeriodDay 전년도 마지막차수 스냅샷(53포함)', reportApiSource.includes('resolvePreviousProfitWeek(calendar,resolveCurrentProfitWeek(calendar,dateOnly))'));
+  check('27차 기초재고는 같은 연도의 26차 스냅샷을 사용', reportApiSource.includes("Number(major)>1)return {orderYear:String(orderYear),major:String(Number(major)-1).padStart(2,'0')}"));
   check('시작재고·입출고를 보고서에서 임의 재계산하지 않음', !stockSection.includes('FlowDelta') && !stockSection.includes('EffectiveStock'));
   check('박스→단/송이와 단→송이 환산을 구분', reportSource.includes("p.OutUnit,N'') = N'박스'") && reportSource.includes("p.EstUnit,N'') = N'단'") && reportSource.includes("p.OutUnit,N'') = N'단'") && reportSource.includes("p.EstUnit,N'') = N'송이'"));
   check('음수 재고도 감사 대상으로 조회', stockSection.includes('ISNULL(ps.Stock,0) <> 0'));

@@ -12,8 +12,15 @@ const attrs=node=>Object.fromEntries(node.attributes.filter(a=>a.type==='JSXAttr
 const actions=elements.filter(node=>node.name.name==='button').map(node=>attrs(node)).filter(a=>a.onClick).map(a=>[readExpression(a.onClick),readExpression(a.disabled)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
 // Actual a6360410e AST baseline: all 50 button handlers + disabled expressions,
 // independent of their new layout, CSS, or text. Not a weakened source grep.
-assert.equal(actions.length,50);
-assert.equal(crypto.createHash('sha256').update(JSON.stringify(actions)).digest('hex'),'a9ae02e910433088466ca94ab84e3f0704cbc43611bd604fa46991ccfe51465a');
+const auxiliaryQueries=actions.filter(([handler])=>handler.includes('setQueriedAuxScope'));
+assert.equal(auxiliaryQueries.length,1,'Analysis/source views require an explicit query intent');
+let auxiliaryScope;
+new Function('ctx',`with(ctx){return (${auxiliaryQueries[0][0]});}`)({viewMode:'analysis',reportYear:'2026',weekInput:{value:'44'},setQueriedAuxScope:value=>auxiliaryScope=value})();
+assert.equal(auxiliaryScope,'analysis:2026:44');
+const originalActions=actions.filter(([handler])=>!handler.includes('setQueriedAuxScope'));
+assert.equal(actions.length,51);
+assert.equal(originalActions.length,50);
+assert.equal(crypto.createHash('sha256').update(JSON.stringify(originalActions)).digest('hex'),'a9ae02e910433088466ca94ab84e3f0704cbc43611bd604fa46991ccfe51465a');
 const context={data:{confirmed:false},saving:false,loading:false,moyiSending:false,moyiDriveSyncing:false,confirmBusy:false};
 for(const handler of ['save','sendToMoyi','syncDriveToMoyi','cancelConfirmReport']){
  let called=0;const fn=()=>called++;const expression=actions.find(a=>a[0]===handler);assert.ok(expression);

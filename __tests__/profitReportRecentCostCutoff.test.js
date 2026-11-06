@@ -32,9 +32,9 @@ async function main() {
     /FROM ProductStock ps/.test(stockBlock) && !/smk\.isFix/.test(stockBlock));
 
   const apiSource = fs.readFileSync(path.join(root, 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
-  check('01차 전년 52차 재고 호출 유지',
-    /currentMajor <= 1 \? String\(Number\(orderYear\) - 1\)/.test(apiSource)
-    && /currentMajor <= 1 \? '52'/.test(apiSource)
+  check('01차 실제 PeriodDay 전년도 마지막차수(53포함) 재고 호출',
+    /previousReportPeriod\(orderYear,major\)/.test(apiSource)
+    && /resolvePreviousProfitWeek\(calendar,resolveCurrentProfitWeek/.test(apiSource)
     && /stockSnapshotByCategory\(prevMajor, prevOrderYear, \{ rateEvidenceByCurrency: beginRateEvidenceByCurrency \}\)/.test(apiSource));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);

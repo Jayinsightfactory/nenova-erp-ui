@@ -31,6 +31,7 @@ import toolbar from '../../styles/ProfitReportToolbar.module.css';
 import { useProfitColumnPreferences } from '../../lib/useProfitColumnPreferences';
 import { profitPopoverPosition, navigateProfitCheckboxes } from '../../lib/profitPrintLayout.mjs';
 import ProfitValidationLink from '../../components/ProfitValidationLink';
+import WorkflowGuide from '../../components/WorkflowGuide';
 import ProfitCustomerMarginLink from '../../components/ProfitCustomerMarginLink';
 import { reportScopeFromSearch } from '../../lib/profitValidationWindow.mjs';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
@@ -336,6 +337,7 @@ export default function ProfitReportPage() {
     try {
       const res = await fetch(`/api/sales/profit-report-confirm?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
+      if(!profitScopeMatches(viewScopeRef.current,yr,wk))return;
       if (!d.success) return;
       setConfirmSchemaInitialized(Boolean(d.initialized));
       setConfirmHistory(d.history || []);
@@ -392,6 +394,7 @@ export default function ProfitReportPage() {
 
   // ── 보기 모드: 카테고리별(기본, 편집가능) / 차수별(비교, 읽기전용+펼치기)
   const [viewMode, setViewMode] = useState('category');
+  const [queriedAuxScope,setQueriedAuxScope]=useState(null);
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [weeksLoading, setWeeksLoading] = useState(false);
@@ -405,6 +408,7 @@ export default function ProfitReportPage() {
     weeksRequest.current.controller?.abort();
     weeksRequest.current.controller = null;
     setWeeksLoading(false);
+    setWeeksData([]);setWeeksScope(null);setQueriedAuxScope(null);
     return () => { weeksRequest.current.seq += 1; weeksRequest.current.controller?.abort(); };
   }, [reportYear,rangeFrom,rangeTo,viewMode]);
   const [expandedWeeks, setExpandedWeeks] = useState(new Set());
@@ -413,6 +417,7 @@ export default function ProfitReportPage() {
   const [monthlyIncludeLive,setMonthlyIncludeLive]=useState(false);
   const monthlyRequestSeq=useRef(0);
   const [monthlyData, setMonthlyData] = useState(null);
+  const monthlyController=useRef(null);
   const [expandedMonths, setExpandedMonths] = useState(new Set());
   const [cacheMissing,setCacheMissing]=useState(null);
   const [showSourceChecks,setShowSourceChecks]=useState(false);
@@ -424,9 +429,11 @@ export default function ProfitReportPage() {
     const seq=++loadSeqRef.current; setSnapshotBusy(false); setSnapshotResult(null);
     setCacheMissing(null);setShowSourceChecks(false);setData(null);
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
+      reportController.current?.abort();
+      const controller=new AbortController();reportController.current=controller;
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin',signal:controller.signal });
       const d = await res.json();
-      if(seq!==loadSeqRef.current) return;
+      if(seq!==loadSeqRef.current || controller.signal.aborted || !profitScopeMatches(viewScopeRef.current,yr,wk)) return;
       if(d.code==='SNAPSHOT_NOT_READY') setCacheMissing({major:wk,year:yr});
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
@@ -436,16 +443,27 @@ export default function ProfitReportPage() {
       loadConfirmStatus(wk, yr);
       // 원천 변경 시 서버가 저장 없이 최신 계산을 반환한다.
       // Live calculations are read-only. Never auto-save a cache on report open.
-    } catch (e) { if(seq===loadSeqRef.current) setError(e.message); } finally { if(seq===loadSeqRef.current) setLoading(false); }
+    } catch (e) { if(seq===loadSeqRef.current&&e.name!=='AbortError') setError(e.message); } finally { if(seq===loadSeqRef.current) setLoading(false); }
   };
 
   // Explicit refresh creates a new web-only calculation cache; never modifies confirmed revisions.
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [snapshotResult, setSnapshotResult] = useState(null);
   const loadSeqRef = useRef(0);
+  const reportController=useRef(null);
   const userSelectedPeriodRef=useRef(false);
   const viewScopeRef=useRef(null);
   viewScopeRef.current={year:reportYear,major:weekInput.value};
+  useEffect(()=>{
+    ++loadSeqRef.current;reportController.current?.abort();setLoading(false);
+    setData(previous=>profitScopeMatches({year:previous?.orderYear,major:previous?.major},reportYear,weekInput.value)?previous:null);
+    setShowCustoms(false);setShowForwarding(false);setShowSourceChecks(false);setCacheMissing(null);
+    return()=>{++loadSeqRef.current;reportController.current?.abort();};
+  },[reportYear,weekInput.value,viewMode]);
+  useEffect(()=>{
+    ++monthlyRequestSeq.current;monthlyController.current?.abort();setMonthlyLoading(false);setMonthlyData(null);
+    return()=>{++monthlyRequestSeq.current;monthlyController.current?.abort();};
+  },[monthlyYear,monthlyIncludeLive,viewMode]);
   const refreshSnapshot = async (wk, yr) => {
     const visible=profitScopeMatches(viewScopeRef.current,yr,wk);
     const seq = visible ? ++loadSeqRef.current : null;
@@ -486,14 +504,13 @@ export default function ProfitReportPage() {
       const linked = reportScopeFromSearch(window.location.search);
       if (linked) {
         setReportYear(linked.year); weekInput.setValue(linked.major);
-        load(linked.major, linked.year);
       } else {
         fetch('/api/sales/profit-report?context=1',{credentials:'same-origin'}).then(r=>r.json()).then(context=>{
-          if(userSelectedPeriodRef.current || loadSeqRef.current>0) return;
+          if(userSelectedPeriodRef.current) return;
           if(!context.success || !context.previous) throw new Error(context.error || '전산 달력의 기본 차수를 확인하지 못했습니다.');
           const p=context.previous;
-          setReportYear(p.orderYear);weekInput.setValue(p.major);load(p.major,p.orderYear);
-        }).catch(e=>{if(!userSelectedPeriodRef.current&&loadSeqRef.current===0)setError(e.message);});
+          setReportYear(p.orderYear);weekInput.setValue(p.major);
+        }).catch(e=>{if(!userSelectedPeriodRef.current)setError(e.message);});
       }
     } catch (e) { setError(e.message); }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -525,7 +542,6 @@ export default function ProfitReportPage() {
     const cur = Number(weekInput.value) || Number(defaultWeeklyPeriod.major) || 1;
     const next = String(Math.max(1, cur + delta)).padStart(2, '0');
     weekInput.setValue(next);
-    load(next, reportYear);
   };
 
   const loadWeeksRange = async () => {
@@ -565,24 +581,19 @@ export default function ProfitReportPage() {
     if (!/^\d{4}$/.test(year)) { setError('연도를 확인하세요 (예: 2026)'); return; }
     setMonthlyYear(year);
     const seq=++monthlyRequestSeq.current;
+    monthlyController.current?.abort();const controller=new AbortController();monthlyController.current=controller;
     setMonthlyData(null); setMonthlyLoading(true); setError(''); setMessage('');
     try {
-      const res = await fetch(`/api/sales/profit-report?period=annual&year=${encodeURIComponent(year)}${includeLive?'&includeLive=1':''}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?period=annual&year=${encodeURIComponent(year)}${includeLive?'&includeLive=1':''}`, { credentials: 'same-origin',signal:controller.signal });
       const d = await res.json();
-      if(seq!==monthlyRequestSeq.current)return;
+      if(seq!==monthlyRequestSeq.current||controller.signal.aborted)return;
       if (!d.success) throw new Error(d.error || '월별 보고서 조회 실패');
       setMonthlyData(d);
-    } catch (e) { if(seq===monthlyRequestSeq.current)setError(e.message); } finally { if(seq===monthlyRequestSeq.current)setMonthlyLoading(false); }
+    } catch (e) { if(seq===monthlyRequestSeq.current&&e.name!=='AbortError')setError(e.message); } finally { if(seq===monthlyRequestSeq.current)setMonthlyLoading(false); }
   };
   const switchToMonthsView = () => {
     setViewMode('months');
-    if (!monthlyData || String(monthlyData.year) !== String(monthlyYear)) loadMonthly(monthlyYear);
   };
-  useEffect(() => {
-    if (viewMode === 'weeks' && rangeFrom && rangeTo && weeksData.length === 0 && !weeksLoading) loadWeeksRange();
-    if (viewMode === 'months' && !monthlyData && !monthlyLoading) loadMonthly(monthlyYear);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
   const toggleExpand = mj => setExpandedWeeks(prev => {
     const n = new Set(prev);
     n.has(mj) ? n.delete(mj) : n.add(mj);
@@ -1090,7 +1101,7 @@ export default function ProfitReportPage() {
               />
               <label style={st.label}>차수</label>
               <div style={st.weekStepperWrap}>
-                <input style={st.weekInput} value={weekInput.value} onChange={e => {userSelectedPeriodRef.current=true;weekInput.setValue(e.target.value);}} placeholder="27" />
+                <input aria-label="보고서 차수" style={st.weekInput} value={weekInput.value} onChange={e => {userSelectedPeriodRef.current=true;weekInput.setValue(e.target.value);}} onKeyDown={e=>{if(e.key==='Enter')load();}} placeholder="27" />
                 <div style={st.weekStepperBtns}>
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(1)} disabled={loading} title="다음 차수">▲</button>
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} disabled={loading} title="이전 차수">▼</button>
@@ -1155,6 +1166,7 @@ export default function ProfitReportPage() {
                   <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} title="이전 차수">▼</button>
                 </div>
               </div>
+              <button type="button" style={st.primaryBtn} onClick={()=>setQueriedAuxScope(`${viewMode}:${reportYear}:${weekInput.value}`)}>조회</button>
             </>
           ) : viewMode === 'weeks' ? (
             <>
@@ -1191,7 +1203,7 @@ export default function ProfitReportPage() {
               />
               <button style={st.primaryBtn} onClick={() => loadMonthly()} disabled={monthlyLoading}>{monthlyLoading ? '조회 중…' : '조회'}</button>
               <label style={st.label}><input type="checkbox" checked={monthlyIncludeLive} disabled={monthlyLoading}
-                onChange={e=>{const includeLive=e.target.checked;setMonthlyIncludeLive(includeLive);loadMonthly(monthlyYear,{includeLive});}} /> 최신 차수 포함</label>
+                onChange={e=>setMonthlyIncludeLive(e.target.checked)} /> 최신 차수 포함</label>
               {monthlyLoading&&<span>{monthlyIncludeLive?'진행·미래 차수 원천 계산 중…':'저장된 과거 계산본 조회 중…'}</span>}
             </>
           )}
@@ -1280,6 +1292,9 @@ export default function ProfitReportPage() {
       </div>
 
       <ProfitReportSourceGuide />
+      <WorkflowGuide workflowId="profit-explicit-query" />
+      {viewMode==='category'&&!data&&!loading&&!error&&<p role="status" data-testid="profit-query-empty">연도와 차수를 선택한 뒤 조회를 누르세요. 선택만 바꾸면 보고서를 불러오지 않습니다.</p>}
+      {viewMode==='category'&&data?.financialReadPolicy&&<p role="status" data-testid="profit-financial-basis">{data.financialReadPolicy.label} · 화면·월별·엑셀·인쇄는 같은 차수 기준을 사용합니다.</p>}
       {viewMode === 'category' && data && <a href="#profit-inventory-basis" style={{ display: 'inline-block', margin: '4px 0 8px', color: '#1d4ed8' }}
         onClick={() => { const panel = document.getElementById('profit-inventory-basis'); if (panel) panel.open = true; }}>
         국가별 평균 도착원가·재고 평가 근거 보기 ↓
@@ -1975,8 +1990,8 @@ export default function ProfitReportPage() {
       )}
       {viewMode === 'months' && monthlyLoading && <div style={st.message}>연간 주차 원장과 PeriodDay를 읽어 월별로 분류하는 중입니다…</div>}
 
-      {viewMode === 'analysis' && <ProfitAnalysisTab weekValue={weekInput.value} year={reportYear} />}
-      {viewMode === 'sources' && <ProfitWorkbookSourcesTab weekValue={weekInput.value} year={reportYear} />}
+      {viewMode === 'analysis' && queriedAuxScope===`${viewMode}:${reportYear}:${weekInput.value}` && <ProfitAnalysisTab weekValue={weekInput.value} year={reportYear} />}
+      {viewMode === 'sources' && queriedAuxScope===`${viewMode}:${reportYear}:${weekInput.value}` && <ProfitWorkbookSourcesTab weekValue={weekInput.value} year={reportYear} />}
 
       {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
