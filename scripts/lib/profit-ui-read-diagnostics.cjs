@@ -1,7 +1,7 @@
 // Observe existing browser traffic only. Never fetch, retry or log URLs/headers/body/errors.
 const CODES=new Set(['PROFIT_SOURCES_CHANGED','PROFIT_CALENDAR_INVALID','PROFIT_INVOICE_FENCE_INCOMPLETE',
  'PROFIT_HISTORICAL_SNAPSHOT_REQUIRED','PROFIT_STORED_CALCULATION_REQUIRED','APPROVAL_REPORT_SOURCE_FAILED',
- 'APPROVAL_EXTERNAL_EVIDENCE_REQUIRED','PROFIT_SNAPSHOT_INCOMPLETE']);
+ 'APPROVAL_EXTERNAL_EVIDENCE_REQUIRED','PROFIT_SNAPSHOT_INCOMPLETE','EREQUEST','ETIMEOUT','ECANCEL','ECONNCLOSED','ECONNRESET','ESOCKET','ELOGIN','EINVALIDSTATE','ENOTOPEN']);
 const year=value=>/^20\d{2}$/.test(String(value))?String(value):null;
 const week=value=>/^\d{1,2}$/.test(String(value))&&+value>=1&&+value<=53?String(+value).padStart(2,'0'):null;
 function observeProfitUiReads(page,{origin,selected,log=console.log,clock=Date.now}){
@@ -28,10 +28,10 @@ function observeProfitUiReads(page,{origin,selected,log=console.log,clock=Date.n
   let body=null;
   try{body=await res.json();r.bodyState=body?.success===true?'success':body?.success===false?'api_error':'other_json';}
   catch{r.bodyState='unreadable';}
-  r.bodyCode=CODES.has(body?.code)?body.code:null;
+  r.codePresent=body?.code!=null;r.bodyCode=CODES.has(body?.code)?body.code:null;
   r.basis=['stored','live','confirmed'].includes(body?.financialReadPolicy?.basis)?body.financialReadPolicy.basis:null;
   const payloadScope={year:year(body?.orderYear),week:week(body?.major)};
-  emit({event:'response_body',id:r.id,kind:r.kind,httpStatus:r.httpStatus,bodyCode:r.bodyCode,bodyState:r.bodyState,basis:r.basis,payloadScopeMatches:same(payloadScope),elapsedMs:clock()-r.startedAt});
+  emit({event:'response_body',id:r.id,kind:r.kind,httpStatus:r.httpStatus,bodyCode:r.bodyCode,codePresent:r.codePresent,bodyState:r.bodyState,basis:r.basis,payloadScopeMatches:same(payloadScope),elapsedMs:clock()-r.startedAt});
   return body;
  }
  async function summary(stage){
