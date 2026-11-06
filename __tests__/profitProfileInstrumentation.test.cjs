@@ -7,3 +7,10 @@ test('ephemeral wrapper awaits unchanged reader and records only stage names',as
  assert.equal(f(source,'file:///repo/untouched.js'),source);
  assert.throws(()=>f('', 'file:///repo/lib/profitReportSnapshot.js'),/PROFILE_SOURCE_MISMATCH/);
 });
+test('context observer reports released namespace count only without retaining scope or changing result',async()=>{
+ const source='const context={caches:new Map()};const currentErpReadContext=()=>context;export async function withErpReadContext(options,work){try{return await work();}finally{context.caches.clear();}}';
+ const sizes=[];const out=f(source,'file:///repo/lib/erpReadContext.js');
+ const scope=new Function('globalThis',out.replaceAll('export ','')+';return withErpReadContext;')({__profitProfileContextEnd:size=>sizes.push(size)});
+ const value={value:0};assert.equal(await scope({},async()=>value),value);assert.deepEqual(sizes,[0]);
+ await assert.rejects(scope({},async()=>{throw Error('fixture');}));assert.deepEqual(sizes,[0,0]);
+});

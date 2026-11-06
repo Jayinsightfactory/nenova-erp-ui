@@ -13,3 +13,5 @@
 현재 코드는 freeze, 부모가 commit/PR/CI/배포 소유. UI/업무흐름 변화없어 가이드재녹화 해당없음. 향후 운영 GET-only44 단1회<120초 및 PM2 restartdelta0을 확인한 뒤 출력검증. 운영해소/최종gate/build는 아직 미검증. 로컬산출물 `.verify/profit-profile-*.jsonl`은 commits제외.
 
 검색어: profit-coherent-performance 최근44 502 read-only PM2 requestmemo FX moneySHA peakRSS
+
+후속: PR1595후 단독44 GET200/92.256초/재시작0이나 UI에서재시작1회. daemon42176449563집계로1081MB>cap1024MB 자동재시작 확인. 승인 후 ctx finally taildrain직후 caches.clear 한줄만 추가, 반환값/기존cache객체/외부근거/오류검사/전역ALS 보존. lifecycle·memo·독립감사16+context관련16+profiler2PASS, ctx source VM/globalrg 영향확인. 동일process 실제44 3회 모두 기존돈SHA일치/cache0, forcedGC·source반환강한보관0.29.812/26.967/24.672초, 종료RSS467.68/471/471.13MB, peak493.96/526.15/534.47MB. terminal참조해제는 확인했으나 peak저감/ALS누수인과/운영해소 확정 아님. 계약·incidentguard·plan마감, 정식gate/build/최종CI 및 운영2회이상+restartdelta0 대기.

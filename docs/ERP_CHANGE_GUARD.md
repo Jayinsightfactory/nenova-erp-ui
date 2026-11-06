@@ -1116,3 +1116,6 @@ Audit140 수국파일에서 MiniCarnation White 연결이 카네이션 전체 �
 
 ## 2026-11-05 도착원가 시트 검토 업로드
 실제 dnSpy CLI FormWarehouseView GetData/GetDetail 재실행, WarehouseMaster.OrderYear/OrderWeek와WarehouseDetail읽기 확인.웹전용업로드는원본SHA/실패기록보존→시트별국가/차수/연도확인→동일파서재검토→DB잠금멱등저장/읽기검증.ERP·견적·매출원장보존.53/54분리134행과55통합본원본셀/수량/원가다중집합일치,수동변경0 SELECT검증.배포후정확범위IsCurrent-only 감사격리.근거 docs/work-reports/2026-11-05_arrival-upload-review.md; 실행회귀 arrivalUploadReview.test.js.
+
+## 2026-11-06 최근 손익44 조회중 메모리 임계 재시작
+PM2 daemon 집계로 06:36:04 요청중1081MB>설정1024MB의 max-memory-restart1회 확인. HTTP200 단독1회 성공만으로 반복UI조회 안전을 판정하지 않는다. 요청별 ERP read cache는 finally의 기존 SELECT tail drain 후 자신의 namespace Map 참조만 해제한다. 반환값/캐시값/externalEvidence/실패·근거검사 보존, ALS disable·전역cache clear·cap상향 금지. 강한reference 보관/forcedGC 없이 동일process sequential moneySHA/cache0/RSS를 확인하고 운영 반복조회 후 PM2 restartdelta0을 별도 검증한다. cache0은 peak저감·ALS누수인과 확정이 아니다. 근거 plans/profit-coherent-performance-2026-11-06.md; 회귀 erpRequestMemo/incomingApprovalProfit/profitIndependentAudit.
