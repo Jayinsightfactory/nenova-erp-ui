@@ -456,6 +456,7 @@ export default function ProfitReportPage() {
   viewScopeRef.current={year:reportYear,major:weekInput.value};
   useEffect(()=>{
     ++loadSeqRef.current;reportController.current?.abort();setLoading(false);
+    setQueriedAuxScope(null);
     setData(previous=>profitScopeMatches({year:previous?.orderYear,major:previous?.major},reportYear,weekInput.value)?previous:null);
     setShowCustoms(false);setShowForwarding(false);setShowSourceChecks(false);setCacheMissing(null);
     return()=>{++loadSeqRef.current;reportController.current?.abort();};

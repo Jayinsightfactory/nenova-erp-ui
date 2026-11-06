@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-06T05:08:37.864Z",
+  "recordedAt": "2026-11-06T07:35:10.237Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 48.9,
+  "duration": 49.05,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "0a680a26cdb3fc33eef4e50efcb4bf5589c4b6724a3e5a583a57c9af01ca016e",
-  "captionsSha256": "b6346136ca8f7e4c241b13a0c5a8c6cefe968bdc4011f40216709eef13f7e785",
+  "videoSha256": "0f3a63dd7481d8e10b1458ec3da3e16d3a8c00a2f61a2b3711e14a7930b327e0",
+  "captionsSha256": "bbc09481d848af349fb801843893ac17a824ad0d109545be6056af5ccc85dbf5",
   "sourceHashes": {
-    "pages/sales/profit-report.js": "598229a3d126fae29d3b2d0d8589993876261fd865871f031119f36fdd62ede1",
+    "pages/sales/profit-report.js": "1aaed263a349d3e304bcc3b78bd1f934f1b3a9b1b12defa1721299bea061dc2d",
     "components/ProfitReportSnapshotBanner.js": "07e409a0af53b523dda57b589c70b81b26545ba410124cd7b3986d297d5a5b07",
     "lib/profitReportSourceGuide.js": "98911242b681142e01d7f00a59355d785a50432731bd0d99db7c33de90236654"
   }

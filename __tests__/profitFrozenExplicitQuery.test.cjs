@@ -1,4 +1,24 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+test('actual selection invalidation effect discards auxiliary intent on a week roundtrip',()=>{
+ const source=fs.readFileSync('pages/sales/profit-report.js','utf8');
+ const effect=source.match(/useEffect\(\(\)=>\{\s*(\+\+loadSeqRef\.current;[\s\S]*?)\},\[reportYear,weekInput\.value,viewMode\]\);/);
+ assert.ok(effect,'execute production year/week/view invalidation effect');
+ const names=['loadSeqRef','reportController','setLoading','setData','profitScopeMatches','reportYear','weekInput','setShowCustoms','setShowForwarding','setShowSourceChecks','setCacheMissing','setQueriedAuxScope'];
+ const execute=new Function(...names,effect[1]);
+ for(const mode of ['analysis','sources'])for(const year of ['2025','2026']){
+  let intent=`${mode}:${year}:44`,mounts=1;
+  for(const week of ['45','44']){
+   execute({current:0},{current:null},()=>{},()=>{},()=>false,year,{value:week},()=>{},()=>{},()=>{},()=>{},value=>{intent=value;});
+   if(intent===`${mode}:${year}:${week}`)mounts++;
+  }
+  assert.equal(intent,null);assert.equal(mounts,1,'no remount/fetch without another explicit query');
+ }
+ const recorder=fs.readFileSync('scripts/record-profit-explicit-query-guide.cjs','utf8');
+ assert.ok(recorder.indexOf('await runProfitAuxScopeSmoke')>recorder.indexOf('const result=await rec.stop()'),'aux regression runs after original four-chapter recording finishes');
+ const fixture=new Function('materializeProfitPayload',recorder.slice(recorder.indexOf(' const fixture='),recorder.indexOf(' const listener='))+';return fixture;')(value=>value);
+ assert.equal(fixture('2026','42').snapshot.servedFrom,'snapshot');assert.equal(fixture('2026','42').readMode,'stored');
+ for(const major of ['44','45'])assert.deepEqual(fixture('2026',major).snapshot,{state:'live',servedFrom:'live',needsRefresh:false},'latest training fixture cannot claim saved-cache service');
+});
 test('calendar current+previous only; 53/year boundary and false/zero cannot widen recent window',async()=>{
  const {profitFinancialReadPolicy:f}=await import('../lib/profitReportReadPolicy.js');
  const current={orderYear:'2026',major:'44'},previous={orderYear:'2026',major:'43'};

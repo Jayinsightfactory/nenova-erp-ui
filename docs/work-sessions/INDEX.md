@@ -716,3 +716,4 @@
 - [2026-11-04 웹 흐름 로그·EXE 계측 조사](2026-11-04_web-audit-coverage.md) — 요청/응답 연결·비동기 흐름, 실제 dnSpy, EXE 원본 보존.
 - [2026-11-06 중국 관세·품목별 재고 평가 보완](2026-11-06_china-duty-valuation-recovery.md) — exact124품목·실제 단 수량 평가·1~44차 보완, 전체 검증/배포 진행.
 - [2026-11-06 최근 손익44 운영502·요청 중복조회 제거](2026-11-06_profit-coherent-performance.md) — moneySHA동일, SELECT2699→1403/46.2→34.3초, RSS개선 미입증; 잔여gate/build·운영재검증 진행중.
+- [2026-11-06 보조탭 차수 왕복 명시조회](2026-11-06_profit-aux-query-roundtrip.md) — 분석·원천시트44→45→44 요청0, 앱1줄/합성paced PASS; 실제가이드재촬영·최종gate대기.
