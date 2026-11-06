@@ -2174,3 +2174,9 @@
 - 최종현황: PM2 memory-cap은cacheclear배포후 main44 200/89.6초+UI출력버튼활성 및 output호출 동안 추가restart0으로재현안됨. output500은1회발생했으나 단독42181336112 context200/1.071초→output200/85.888초로미재현, 정확원인미확정/해결확정아님. backend추가수정0, 다음실UI는codePresent/SQLcodes로추적가능.
 - 최종fixture정정실녹화97144 PASS:1920x1080/4chapter/한국어VTT/aux2왕복/20GET/진입0/선택0/추가reload0. 부모중간22초live'현재원천으로계산'·끝42saved시각QA정상. 기존영상대체완료, 앱UI추가수정금지/sourcefreeze. 정식fullverify+build/빌드된guideplayer 및최종운영main+file1회검증예정(현재미검증).
 검색어: guide97144 livebanner output42181336112 85888ms unknown500 no-backend-fix
+
+## 2026-11-06 운영 Node 메모리 설정 읽기 진단
+- fresh codex/profit-runtime-memory @31af4f81e. 최종44 main200/86.5초 후 output502,07:55:04Z RSS1032>cap1024MB 자동재시작확정. 기능·guide배포와운영반복출력실패를분리한다. 사용자runtime점검·조정승인이나현재는READ-ONLY확장만.
+- 기존runtime진단에실제Node버전/PM2·proc heap숫자/flagboolean/CLI우선순위/Next title덮음unavailable/unverifiedmetadata/cgroup1·2·조상한도/procRSS/기존PM2heapmetrics추가. 원문args/env/jlist/개인경로로그·backup0, preload전달0/고정Node통계process1개만5초제한. freshheap은실제앱heap아님/동일cgroup여부표시. 설정·앱·SQL·DB쓰기0.
+- 대상5회귀/syntax/diffcheckPASS,운영진단은부모dispatch대기(미검증). 다음heap/cap값미리결정하지않고설정확인후테스트·안전rollback계획필수. 최종실UI44 main+file연속2회/금액diff0/5xx0/추가restart0은미달성. 계정전체주간36%시작값(작업단독비용아님).
+검색어: runtime-memory node_args NODE_OPTIONS actualargv unavailable cgroup heapLimit replica readonly
