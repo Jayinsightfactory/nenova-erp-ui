@@ -2162,3 +2162,15 @@
 - 실제44 동일process3회(강한source반환보관OFF/forcedGC0/응답해제):29.812/26.967/24.672초,1403/1402/1402SELECT, moneySHA 모두 이전baseline동일 bc1032…19607, 종료cache namespace 모두0. peakRSS493.96/526.15/534.47MB, 종료RSS467.68/471.00/471.13MB, 종료heap160.85/228.00/236.66MB. cache0·종료RSS평탄 확인됐지만 peak저감/운영해소 미검증.
 - 계약/incidentguard/plan에 기록, sourcefreeze 및 정식gate/build 준비. 부모 PR/CI/배포 후 운영2회이상+PM2restartdelta0로 최종판정. UI/가이드변경0.
 검색어: erpReadContext caches.clear taildrain cache0 PM2 memorycap sequential3 RSS534 lifecycle
+
+## 2026-11-06 보조탭 차수 왕복 명시조회 의도 폐기
+- fresh codex/profit-query-scope-final @3b18c03f3. 분석/원천시트44조회→45→44복귀시 이전intent가 살아 자동remount/GET되는 edge확인. 앱은 기존 year/week/view effect에 setQueriedAuxScope(null) 한줄만 추가. 원장·SQL·수식·금액·출력/키보드/비고/22열 보존, 운영query/DB쓰기0.
+- 실제localhost1920x1080 paced syntheticbrowser PASS: 기존4chapter 동일흐름, 진입금융0/조건변경0/추가reload0, 녹화종료 후 분석·원천시트 각각44→45→44 GET증가0/미마운트, 다시조회 후에만각2번째GET. 총financial20(기존16+aux4), 모든API합성. 실행효과fixture는두탭·2025/2026 양성/반례 포함6PASS.
+- 최종가이드 sourcehash변경으로 실제재촬영 필수. sourcefreeze ready, 부모가 output500 로컬probe 후 기존4chapter 재녹화 소유. 정식gate는 output원인확인/필수fix와최종영상 후1회예정(현재미검증). 기준선: shell/키보드/scroll/notes/출력기존보존 적용, 저장·매칭변경 해당없음, 가이드재촬영대기.
+검색어: queriedAuxScope aux44 45 44 왕복 조회의도 explicit-query no-remount synthetic20
+- 후속 진단: 운영 초기UI44 HTTP200/89.6초/exportEnabledtrue 뒤 output89초/500, PM2추가재시작0. oldworktree 로컬 output pipeline1회 SELECT-only PASS(본표25.824초/notes101ms/XLSX14ms/serialize1ms/총26.164초1413SELECT쓰기0)로 운영500미재현. bodyCode:null은 allowlist가 SQLcode를 숨길 수 있어 plainError확정불가. GET-only probe에 target(main기본/output)검증·고정8열/category1·context후target1회만 추가, codePresent+knownSQL 진단보강. 대상7회귀PASS, 추가운영실행은부모소유.
+- 실녹화93777 흐름/auxPASS이나 최근44 fixture snapshot이saved banner와모순되어 녹화fixture만live/live/needsRefreshfalse로정정. 앱추가변경0, 기존4chapter/aux유지, 재촬영대기(영상완료판정아님).
+검색어: readonly_api probe_target output EREQUEST codePresent guide-live-fixture output500
+- 최종현황: PM2 memory-cap은cacheclear배포후 main44 200/89.6초+UI출력버튼활성 및 output호출 동안 추가restart0으로재현안됨. output500은1회발생했으나 단독42181336112 context200/1.071초→output200/85.888초로미재현, 정확원인미확정/해결확정아님. backend추가수정0, 다음실UI는codePresent/SQLcodes로추적가능.
+- 최종fixture정정실녹화97144 PASS:1920x1080/4chapter/한국어VTT/aux2왕복/20GET/진입0/선택0/추가reload0. 부모중간22초live'현재원천으로계산'·끝42saved시각QA정상. 기존영상대체완료, 앱UI추가수정금지/sourcefreeze. 정식fullverify+build/빌드된guideplayer 및최종운영main+file1회검증예정(현재미검증).
+검색어: guide97144 livebanner output42181336112 85888ms unknown500 no-backend-fix

@@ -36,17 +36,17 @@
             {
               "scenario": "scope",
               "title": "조건 변경과 재조회",
-              "seconds": 12.229
+              "seconds": 12.235
             },
             {
               "scenario": "views",
               "title": "차수별·월별도 직접 조회",
-              "seconds": 26.432
+              "seconds": 26.573
             },
             {
               "scenario": "output",
               "title": "조회 범위와 출력 확인",
-              "seconds": 40.383
+              "seconds": 40.548
             }
           ]
         }

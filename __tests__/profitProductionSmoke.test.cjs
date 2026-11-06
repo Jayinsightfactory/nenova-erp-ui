@@ -21,7 +21,7 @@ console.log('PASS production download guard: same-origin credentials, GET-only, 
  const diagnostics=observeProfitUiReads(diagnosticPage,{origin:'https://nenovaweb.com',selected:{year:'2026',week:'44'},log:value=>diagnosticLogs.push(JSON.parse(value)),clock:()=>1000});
  const req=(scope='year=2026&week=44')=>({url:()=>`https://nenovaweb.com/api/sales/profit-report?${scope}&PRIVATE_TOKEN`,failure:()=>({errorText:'PRIVATE_USER_ERROR'})});
  assert.equal(diagnostics.mainCount(),0);
- for(const [status,code,success]of [[409,'PROFIT_SOURCES_CHANGED',false],[502,'PRIVATE_TOKEN',false],[200,null,true]]){
+ for(const [status,code,success]of [[409,'PROFIT_SOURCES_CHANGED',false],[502,'PRIVATE_TOKEN',false],[500,'EREQUEST',false],[200,null,true]]){
   const request=req();events.request(request);
   const data={success,code,orderYear:'2026',major:'44',financialReadPolicy:{basis:'live'},error:'PRIVATE_USER_ERROR',rows:['PRIVATE_ROWS']};
   assert.equal(await diagnostics.response({request:()=>request,status:()=>status,json:async()=>data}),data);
@@ -31,10 +31,13 @@ console.log('PASS production download guard: same-origin credentials, GET-only, 
  const abort={...req(),failure:()=>({errorText:'net::ERR_ABORTED'})};events.request(abort);events.requestfailed(abort);
  const html=req();events.request(html);await diagnostics.response({request:()=>html,status:()=>502,json:async()=>{throw Error('PRIVATE_BODY');}});
  diagnostics.markQuery(true);const summary=await diagnostics.summary('ui_ready_timeout');
- assert.equal(summary.counts.main,6);assert.equal(summary.failed,2);assert.equal(summary.aborted,1);assert.equal(summary.ui.exportEnabled,false);assert.equal(summary.ui.scopeMatches,true);
+ assert.equal(summary.counts.main,7);assert.equal(summary.failed,2);assert.equal(summary.aborted,1);assert.equal(summary.ui.exportEnabled,false);assert.equal(summary.ui.scopeMatches,true);
  assert.ok(diagnosticLogs.some(row=>row.httpStatus===409&&row.bodyCode==='PROFIT_SOURCES_CHANGED'));
  assert.ok(diagnosticLogs.some(row=>row.httpStatus===502&&row.bodyState==='unreadable'));
  assert.ok(diagnosticLogs.some(row=>row.httpStatus===200&&row.bodyState==='success'&&row.payloadScopeMatches));
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===500&&row.bodyCode==='EREQUEST'&&row.codePresent===true));
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===502&&row.bodyCode===null&&row.codePresent===true));
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===200&&row.codePresent===false));
  assert.ok(diagnosticLogs.some(row=>row.event==='request'&&row.scopeMatches===false));
  assert.doesNotMatch(JSON.stringify(diagnosticLogs),/PRIVATE|authorization|Bearer|rows|errorText/);
  assert.doesNotMatch(fs.readFileSync(path.join(__dirname,'../scripts/lib/profit-ui-read-diagnostics.cjs'),'utf8'),/\bfetch\s*\(|\.continue\s*\(|\.goto\s*\(/);
