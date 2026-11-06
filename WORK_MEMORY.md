@@ -2130,3 +2130,12 @@
 
 2026-11-06 추가검증: 첫verify ERPcore통과 후 posttest구형v4버전상수1건중단→기대v5만수정/대상5PASS→잔여공식posthooks/manifest/writeguard/webpack1worker build exit0(전체verify단일exit0 아님). 실제Chromium1920×1080 합성44차 H/J/K·접힌현재515단/저장351단위미확인·수평스크롤K표시/유한셀오차단없음/JS오류0/API쓰기0 PASS. `.verify/china-44-ui-rates.png`; 로컬3245테스트서버종료. PR/CI/운영검증은부모진행중. 생성history JSON2개커밋제외.
 검색어: china-full-gate china-gate-resume Chromium44 515단 v5 WorkbookDuty
+
+## 2026-11-06 출고일 기준 매출 탭
+- 최신 origin/master 기반 codex/shipment-date-sales. 견적서 관리에 별도 탭 추가, 기존 차수 화면 보존. 업체+정산 요일 사용자별 UserFavorite 저장, 업체 클릭→최근12기간 및 과거 더보기, 직접기간 조회.
+- ShipmentDate 확정 견적수량/저장금액 SELECT-only, Estimate 적용일별 조정 별도. 품목·단위별 합계와 `90 = 30(44-1) / 60(44-2)` 원차수 구성, 날짜·단가 상세. 내부 연도키 유지. ERP 원장/확정/재고/보고서 쓰기0.
+- 실제 dnSpy CLI 실행, 운영 SELECT 신쿼리12행/11품목/721000원/중복PK0 확인(고객명·인증정보 기록 없음). 계약·교차연도·경계/단위/차감·API테스트 PASS. manifest/writeguard/dnSpy/가이드검사 PASS. 실제 Chrome 데스크톱/390px/24기간/오류복구 PASS.
+- 실제 1920x1080 한국어 가이드55.5초 등록. ERP core PASS 후 posthook이 촬영용 임시 instrumentation을 읽어 실패→원본복원 후 공식 posttest:erp-contract exit0. 최초 전체 명령 exit0 아님; 정식 build/CI/배포/운영확인은 진행중(미검증).
+검색어: 출고일 기준 매출 업체 즐겨찾기 정산요일 원차수 90=30(44-1)/60(44-2) estimate-shipment-date-sales
+- 2026-11-06 후속: 정식 npm run build exit0, 공식 posttest:erp-contract exit0, 빌드된 next start에서 새탭 재접속 즐겨찾기/24기간/모바일/오류복구/팝업 shell/Tab·ShiftTab/실제 가이드 재생·목차·한국어 cues·다운로드 PASS. PR1593 CI/배포는 진행중(운영 미검증).
+검색어: PR1593 출고일매출 build0 production-ui guide-player
