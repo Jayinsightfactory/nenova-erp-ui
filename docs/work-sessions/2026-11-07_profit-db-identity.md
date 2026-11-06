@@ -1,5 +1,17 @@
 # source-change 원인조사·로컬/운영 DB 식별
 
+## 최종 관측 — 2026-11-07
+
+사용자 요청: DB를 변경하지 말고 입력자가 없어도 원천 변경으로 감지되는 원인을 수정·검증·배포.
+
+결과: **원인 미확정, 앱 수정·배포 미완료.** 추측으로 변경 감지를 해제하지 않았다. 실제 파일 다운로드 42237081473은 2회 성공했지만 간헐 오류 해결 증거는 아니다. 진단16개/manifest202개와 운영 Node20 privacy fixture는 통과했다.
+
+운영 DB identity42247121011은 로컬과 같았다. 자동복구 저널·도착원가 이력·환율 최종 갱신에서 과거 두 실패창의 원천 변경 근거를 찾지 못했다. 최종42250028629는 SQL 없이 서버 API journal1,638파일을 읽었다. 두 창의 관측8건은 output409/week-check409/stock-notes500 GET 각2건, edit-presence409 POST2건이었다. 금융원장 저장 요청은 관측되지 않았다. 직접SQL/EXE·지연기록·로그손실은 이 결과만으로 배제할 수 없다.
+
+다음 확인: 재발 시 이미 운영에 있는 `NENOVA_PROFIT_SOURCE_CHANGED`의 변경 component·연도·차수·timestampOnly·invoiceChanged를 확인한다. 과거 오류에는 이 세부기록이 없어 어느 값이 달라졌는지 복원할 수 없다. 그 증거 없이 미래 차수 제외·timestamp 무시·검증 해제·시간제한 증가는 하지 않는다. DB 데이터/스키마/설정, 금융 계산식, 앱/PM2 설정 모두 변경0. 진단 브랜치만 보존한다.
+
+검색어: no-input source fence 원인미확정 42250028629 readonly journal
+
 질문: 입력자가없는데도원천변경오류가나며로컬quiet메타probe는같다. 웹수정전어떤근거가필요한가?
 
 답변: 실제조립함수63합성에서unique행순서/cache자기변형/병렬scope/clone원인은재현안됨. 중복키반례는현재SQL GROUP BY·실제unique스키마에서발생근거없다. 승인metadata1배치로22일반table에computed/rowversion없고invoice key unique확인. 로컬Taxable table missing이라실제PM2app의DB와동일한지hash만비교할필요가있다. quiet운영42237081473 파일2회PASS·PID1207146/restarts277 유지/source·queryfailure0은미재현이며원인해결증거아님.

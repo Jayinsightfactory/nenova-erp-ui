@@ -2235,3 +2235,10 @@
 - 최종 대상11PASS/directmanifest202PASS/diffcheckPASS. actual Next VM fixture는 로컬Node24이며 Node20은 기존manual job에서 실행 예정(미검증). fullsuite/build/실SQL·운영dispatch는 이번 단계 실행하지 않았고 부모가 관리한다.
 - 후속 승인: 동일 identity SELECT에 현재DB snapshot_isolation_state 정수0..3/RCSI boolean 두 필드만 추가, typed/missing/range/privacy fixture 포함 최종12PASS. 별도batch·SQL재실행·설정ALTER·앱정책변경0, 실제 설정값은 부모 dispatch 전 미검증.
 - 42245474108 NODE_ENV_UNPROVEN 확인 후 canonicalNextStart positiveproof만 추가 승인: 실제 NODE_ENV 미설정+exact Next CLI realpath+정확start/검증port+known next-server title일 때만 공식 production 기본값을 자체진단RAM seed. explicitempty/false/dev/test/unknownentry 거부·기존cwd/appstart/envmtime/stat/hash/PID 검증 유지·postargs/title 재검증. 고정configSource/proof만 구분하고 rawargs/title0. actual Next VM 포함 대상13PASS, 실SQL0/앱·운영설정0, 부모 dispatch 전 운영미검증/원인미확정.
+
+## 2026-11-07 입력 없는 source-change 조사 최종 상태
+- 운영 DB 식별 42247121011은 로컬과 동일 hash/schema, snapshot isolation OFF/RCSI false 확인. 설정 변경 없음. 복구 저널·도착원가 DRIVE_IMPORT/SUPERSEDE·CurrencyMaster 시각에서 두 실패창 변경 근거를 찾지 못함. 각 기록의 보존/coverage 한계가 있어 모든 외부 writer 부재를 단정하지 않음.
+- 마지막 읽기 전용 실행 42250028629 PASS: KST Nov6 19/20시 API journal 1,638파일/900,272bytes, invalid/refused/missing/bounded 0. 두 실패창 겹침8건은 GET output409·week-check409·stock-notes500 각2건과 POST edit-presence409 2건. 금융원장 저장 API 요청은 관측되지 않음. 직접 SQL/EXE·지연기록·로그손실까지 배제한 결과는 아님. 이번 실행 SQL0/배포·재시작0.
+- 재현 42237081473 파일2회 PASS/같은 금융digest/5xx0, runtime42238444484 PID1207146/restart277 유지. 이 결과는 원인 해결을 의미하지 않음. 실제 지문 조립 합성63회는 안정, duplicate-key 반례는 실제 SQL 발생 근거 없음.
+- 진단 대상16PASS/manifest202PASS 및 운영 Node20 privacy fixture PASS. 앱 수정·수식변경·DB 쓰기·원천검증 완화·master merge·Cafe24 앱배포 없음. 원인 미확정이라 추측 패치를 배포하지 않음. 재발시 기존 배포된 NENOVA_PROFIT_SOURCE_CHANGED의 component/year/major/kind/timestampOnly/invoiceChanged로 좁혀야 함. full app suite/build는 앱변경0이므로 이번 진단브랜치에서 미실행.
+검색어: source-change no-input 42250028629 activity 1638 edit-presence409 원인미확정 DB쓰기0 배포보류
