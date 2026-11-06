@@ -1230,6 +1230,8 @@ export default function PmOffice({ isAdmin = false, myStaff = null }) {
         .pm .sitem:has(.czr.r-rare) { border-color: var(--pm-dept3); box-shadow: 0 0 0 1px color-mix(in srgb, var(--pm-dept3) 55%, transparent); }
         .pm .sitem:has(.czr.r-legendary) { border-color: color-mix(in srgb, var(--pm-est-ink) 45%, var(--pm-est-bg)); background: linear-gradient(180deg, color-mix(in srgb, var(--pm-est-bg) 35%, var(--pm-surface)), var(--pm-surface)); box-shadow: 0 0 10px color-mix(in srgb, var(--pm-est-bg) 70%, transparent); }
         .pm .sitem img { width: 72px; height: 72px; object-fit: contain; background: radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--pm-est-bg) 75%, var(--pm-surface)) 0 46%, transparent 50%); border-radius: 50%; }
+        /* [2026-11-06 사장님 신고 "원래 색값이 안 나옴"] 상점 렌더 이미지에 3D 사무실 캔버스와 같은 채도 보정(lib/pmThemes RENDER.canvasFilter) — 썸네일·피팅룸·상세가 사무실 실물 색과 일치 */
+        .pm .sitem img, .pm .r3dstack img, .pm .sdetail .dimg img { filter: saturate(1.24) contrast(1.04); }
         /* 잠긴 상품(디자인 자문): 시커먼 박스 → 밝은 반투명 덮개 + 중앙 자물쇠(오류가 아니라 '갖고 싶은 것'으로) */
         .pm .sitem.lock.poor { background: color-mix(in srgb, var(--pm-surface) 55%, var(--pm-surface2)); color: var(--pm-muted); }
         .pm .sitem.lock.poor img { filter: grayscale(.45) opacity(.75); }

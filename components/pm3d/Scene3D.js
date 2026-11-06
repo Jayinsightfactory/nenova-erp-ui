@@ -535,6 +535,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const mdef = mountById(L.mount);
         const mpose = mdef ? mountPose(p.status, !!(P.walk || P.cruise)) : 'hidden';
         if ((mdef?.id || '') !== P.mountId) {
+          // [2026-11-06 사장님 신고 "타도 타지 않음"] 세션 중 장착이 바뀌면(첫 로드는 제외) 바로 시승 한 바퀴 — 장착 체감
+          if (P.mountId !== undefined && mdef) P.justEquipped = true;
           if (P.mountObj) { P.g.remove(P.mountObj); P.mountObj = null; }
           if (mdef && st.mounts) {
             const src = st.mounts.getObjectByName('mount_' + mdef.id.replace(/-/g, '_'));
@@ -569,12 +571,16 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (P.mountObj && !dataRef.current.reduced && st.bounds) {
           const rides = [...st.people.values()].filter((q) => q.riding || q.cruise).length;
           const now = Date.now();
-          if (P.prevStatus === 'off' && p.status === 'working' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+          if (P.justEquipped && p.status !== 'off' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+            P.justEquipped = false; P.cruise = { t0: now, dur: 12000, from: Math.random() }; // 장착 직후 시승 한 바퀴
+          } else if (P.prevStatus === 'off' && p.status === 'working' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
             P.cruise = { t0: now, dur: 6000, from: Math.random() };               // 출근 한 바퀴 살짝
-          } else if (p.status === 'idle' && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
+          } else if ((p.status === 'idle' || p.status === 'working') && !P.cruise && rides < RIDE_MAX_CONCURRENT) {
             const slot = Math.floor(now / 180000);                                 // 3분 창마다 해시 추첨
             let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-            if ((h + slot) % 7 === 0 && P.cruiseSlot !== slot) { P.cruiseSlot = slot; P.cruise = { t0: now, dur: 12000, from: (h % 100) / 100 }; }
+            // [2026-11-06] 작업중에도 드물게(1/17) 한 바퀴 — 탈것이 "쓰이는 모습"이 평소에도 보이게(대기는 기존 1/7 유지)
+            const mod = p.status === 'idle' ? 7 : 17;
+            if ((h + slot) % mod === 0 && P.cruiseSlot !== slot) { P.cruiseSlot = slot; P.cruise = { t0: now, dur: 12000, from: (h % 100) / 100 }; }
           }
         }
         P.prevStatus = p.status;
