@@ -21,7 +21,7 @@ import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
 import { mountById, mountPose } from '../../lib/pmMounts';
-import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect } from '../../lib/pm3dRide';
+import { ridePath, pathLength, pathPoint, ringPoint, ringLength, RIDE_MAX_CONCURRENT, rectPoint, rectLength, skyPoint, skyLength, bobY, insetRect, seaRect } from '../../lib/pm3dRide';
 import { HUB_POS, HUB_ORB_Y, HUB_ORB_R, HUB_R, HUB_PEDESTAL_H, FLOW_MAX, FLOW_SPEED, flowSpawnCount, pulseScale, PULSE_MS, RING_MS, RING_R0, RING_R1, heartbeat, pruneArrivals, parkPose } from '../../lib/pm3dHub';
 import { ZoomSlider } from '../pm/ui';
 
@@ -736,6 +736,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
               let pt; let rideY = 0.02;
               if (course === 'circuit' && K.kart) { const tt = C.from + sec * 4.4 / rectLength(K.kart); pt = rectPoint(K.kart, tt); }
               else if (course === 'water' && K.pool) { const tt = C.from + sec * 1.1 / rectLength(K.pool); pt = rectPoint(K.pool, tt); rideY = bobY(sec + C.from * 7); }
+              else if (course === 'sea') { const R = seaRect(st.bounds.hx, st.bounds.hz); const tt = C.from + sec * 1.6 / rectLength(R); pt = rectPoint(R, tt); rideY = bobY(sec + C.from * 7, 0.02) - 0.12; } // 섬 둘레 바다 일주(돛단배) — 물면 근처에서 출렁
               else if (course === 'sky') { const tt = C.from + sec * 2.8 / skyLength(st.bounds.hx, st.bounds.hz); pt = skyPoint(st.bounds.hx, st.bounds.hz, tt, sec + C.from * 9); rideY = pt.y; }
               else { const tt = C.from + sec * (2.2 * 1.3) / ringLength(st.bounds.hx, st.bounds.hz); pt = ringPoint(st.bounds.hx, st.bounds.hz, tt); }
               const lp = new THREE.Vector3(pt.x, 0, pt.z); P.g.worldToLocal(lp);
