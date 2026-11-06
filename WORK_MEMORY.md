@@ -2222,3 +2222,11 @@
 검색어: database identity proc_initial_environ CONFIG_UNAVAILABLE metadata SHA8f264258 exactPID oneSELECT diagnostic-only
 - 최종진단fixture6PASS. localFields 기본절대경로제거→PROFIT_ENV_DIR||process.cwd(), 기실행baseline은당시기존환경정본기본경로사용결과이며현CLI재현은그동일디렉터리를PROFIT_ENV_DIR로명시한다. 추가SQL재실행0. manifest최초실패는공통ERP보존키순서요구라businessIdentity를canonical4키로두고실제metadata식별자는diagnosticIdentity에분리했다.
 - 최종directmanifest202PASS/diffcheckPASS. 기존증거참조와표준requiredCommands도공통manifest정본에맞춰등록했으며이번featurebranch진단은fullsuite/build/mastermerge/앱deploy실행0. deploy job·on/push/concurrency의Git LF 정본hash불변도fixture로확인했다.
+
+## 2026-11-07 증명된 Next env 재구성·복구 저널 읽기 진단
+- strict 운영42240673358 CONFIG_UNAVAILABLE/앱 DB조회0. 승인된 후속은 proc DB5 우선, 부족시 exact canonical cwd·초기 명시NODE_ENVproduction·유효PM2appstart·실제Nextenv파일mtime<=start·전후stat/hash/cwd/PID/start 불변 증명에 한해 실제 설치 @next/env로 자체 진단process RAM 재구성/환경복구. configSource와 고정reason만 출력, NODE_ENV 누락을 임의 추론하지 않는다.
+- identity 전 고정 stock-recovery attempts.jsonl4MiB tail을 독립 요약: attempt ID는 내부pairing만, 두 Nov6 실패UTC창/연도차수/고정statuscode/최대20/partial coverage만. UUID·owner·원문경로·env/config/error 출력·파일backup0. backgroundhistory SQL·full44·앱/PM2/DB변경0.
+- actual @next/env VM fixture/strict proof failure·file drift·PID/start·journal privacy/coverage 회귀. Node20진단runner에 lock 정확 단일package를RUNNER_TEMP격리설치·버전assert, fixture경로만전달하며 repo lock/기존deployjob·push·concurrency 보존. 부모 featurebranch dispatch 전 운영 결과 미검증, source-change 원인 미확정. 새 단계 추가SQL실행0.
+검색어: verified_next_production_env NODE_ENV_UNPROVEN ENV_FILES_NEWER_OR_CHANGED recovery journal bounded-tail pairing CONFIG_UNAVAILABLE
+- 최종 대상11PASS/directmanifest202PASS/diffcheckPASS. actual Next VM fixture는 로컬Node24이며 Node20은 기존manual job에서 실행 예정(미검증). fullsuite/build/실SQL·운영dispatch는 이번 단계 실행하지 않았고 부모가 관리한다.
+- 후속 승인: 동일 identity SELECT에 현재DB snapshot_isolation_state 정수0..3/RCSI boolean 두 필드만 추가, typed/missing/range/privacy fixture 포함 최종12PASS. 별도batch·SQL재실행·설정ALTER·앱정책변경0, 실제 설정값은 부모 dispatch 전 미검증.

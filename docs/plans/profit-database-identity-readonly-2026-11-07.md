@@ -20,7 +20,7 @@
 |CLI출력|fixed PASS/FAILED code·검증된hash/metadata|console와직접stdout/stderr도억제, 원문error0|
 |수동workflow|등록된deploy.yml diagnose_performance_only=true branch에만packaging|기존SSH/production concurrency재사용, deployjob/조건/push byte변경0, 새workflow·mastermerge·앱배포0|
 
-Next가시작후dotenv에서DB변수를읽었다면초기 /proc environ에없을수있다. 이때엄격probe는CONFIG_UNAVAILABLE로멈추며추정config를쓰지않는다. exactcwd/NODE_ENV/Nextenv우선순위/파일mtime<=appstart 재구성은이번권한밖이며필요시별도검토한다. 초기필드가있는결과도 configSource=proc_initial_environ으로구분한다.
+최초 strict 범위에서는 Next dotenv 값이 초기 /proc에 없으면 CONFIG_UNAVAILABLE로 중단했다. 운영42240673358도 이 결과이며 앱 DB조회0이었다. 아래 Nov7 추가 승인 범위가 증명된 재구성만 허용하며, 추정 fallback은 계속 금지한다. 초기 필드가 있는 결과는 configSource=proc_initial_environ이다.
 
 ## 검증·현재 상태
 
@@ -29,3 +29,13 @@ Next가시작후dotenv에서DB변수를읽었다면초기 /proc environ에없을
 로컬 동일SQL 승인1회 PASS: SHA `8f2642582be5007a84c48830afbf549cb6d0453431e9d717771e48c369f382ba`,Taxable table false/invoice tables4/exactunique scopes4,ownedpoolclose. 운영동일SQL은부모featurebranch dispatch대기(미검증), hash를그대로비교한다. 최초tuple관측이므로본표금액 SHA와혼동하지않는다. 추가full44/DMV/probe반복0, financial/ERP원장/수식/timeout/fence/메모리설정변경0, UI·가이드N/A. 이번branch는원인조사전용으로mastermerge/앱deploy를하지않는다.
 
 완료대상6fixture/diffcheck PASS. 로컬기실행은당시CLI의기존환경정본기본경로를사용했으며, 이후기본경로하드코딩을제거했다. 현CLI기본은process.cwd(), 기존baseline 재현은동일환경정본디렉터리를PROFIT_ENV_DIR로명시설정한뒤 `node scripts/profit-database-identity-readonly.cjs local`로가능하다. 경로변경뒤추가SQL재실행은하지않았다. 표준manifest는ERP보존키OrderYear/OrderWeek/CustKey/ProdKey를요구하므로그키는보존계약이며 실제진단식별자는별도diagnosticIdentity로분리한다.
+
+## Nov7 추가 승인: 증명된 Next env 재구성·독립 저널
+
+동일 identity SELECT 안에서 현재 DB sys.databases의 snapshot_isolation_state(정수0..3)와 is_read_committed_snapshot_on(boolean)만 추가 반환한다. 누락·문자열·범위 밖 값은 failclosed다. 설정 ALTER/별도batch/실SQL 추가실행/앱 readpolicy 변경0. 최종 대상12PASS/directmanifest202PASS/diffcheckPASS이며 실제 운영 설정값은 아직 미검증이다.
+
+초기 proc DB5를 우선한다. 부족할 때만 exact canonical cwd, 초기 NODE_ENV=production 명시, 유효 PM2 시작시각, 실제 production Next env 파일 전부의 mtime<=appstart를 요구한다. 해당 설치 @next/env의 production 우선순위·변수확장을 자체 진단 프로세스 RAM에서 실행하고 원래 환경을 복구한다. 파일 existence/stat/hash/cwd/PID/start를 조회 전후 검증한다. 파일 내용/hash/설정값은 출력·저장하지 않는다. configSource=verified_next_production_env로 구분하며 증명 실패는 고정 reason의 CONFIG_UNAVAILABLE이다. NODE_ENV 누락을 next start로 임의 추론하는 분기는 없다.
+
+DB 진단보다 먼저 고정 stock-recovery attempts.jsonl의 마지막4MiB만 읽는다. attempt ID는 RAM pairing에만 사용하고 두 Nov6 실패 UTC 창과 겹친 연도/차수/검증된 UTC/고정 status·code만 최대20 출력한다. partial pair/tail coverage 부족을 별도 표시하며 이 결과만으로 작업 부재를 확정하지 않는다. 저널이 없어도 고정 JOURNAL_UNAVAILABLE만 출력하고 identity 진행은 독립적이다. background history SQL·추가 full44·앱/PM2/DB 쓰기는 없다.
+
+실제 설치 Next 코드를 VM에서 fake fs/env로 실행하여 우선순위·확장·복구·파일 drift·증명 실패를 검증한다. Node20 진단 runner는 lockfile 정확 @next/env 버전 한 패키지만 RUNNER_TEMP 격리 설치(--ignore-scripts/--no-save/--package-lock=false), 설치 버전 일치 assert 후 fixture 경로만 전달한다. repo lock/일반 deploy job/운영 환경은 변경하지 않는다. 새 단계의 실제 SQL 실행0, 운영 재구성·저널 결과는 부모 featurebranch dispatch 전 미검증이며 source-change 원인은 여전히 미확정이다.

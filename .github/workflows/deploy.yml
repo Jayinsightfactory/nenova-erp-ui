@@ -69,7 +69,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Prepare isolated exact Next environment fixture dependency
+        run: |
+          version=$(node -p "require('./package-lock.json').packages['node_modules/@next/env'].version")
+          npm install --prefix "$RUNNER_TEMP/identity-fixture" --ignore-scripts --no-save --package-lock=false "@next/env@$version"
+          node -e "const assert=require('node:assert/strict');assert.equal(require(process.env.RUNNER_TEMP+'/identity-fixture/node_modules/@next/env/package.json').version,require('./package-lock.json').packages['node_modules/@next/env'].version)"
       - name: Pure read-only database identity privacy fixtures
+        env:
+          IDENTITY_FIXTURE_NEXT_ENV_MODULE: ${{ runner.temp }}/identity-fixture/node_modules/@next/env/dist/index.js
         run: node --test __tests__/profitDatabaseIdentityProbe.test.cjs
       - name: Package read-only diagnostic commands
         id: perf-script
