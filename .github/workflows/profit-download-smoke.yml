@@ -2,6 +2,10 @@ name: Read-only production profit download
 on:
   workflow_dispatch:
     inputs:
+      readonly_api:
+        description: One GET-only diagnostic (context then selected main; no browser/output/audit)
+        type: boolean
+        default: false
       year:
         description: Report year
         default: '2026'
@@ -31,7 +35,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: One read-only context and main API diagnostic
+        if: inputs.readonly_api == true
+        env:
+          NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
+          PROBE_YEAR: ${{ inputs.year }}
+          PROBE_WEEK: ${{ inputs.week }}
+        run: node scripts/profit-readonly-api-probe.cjs
       - name: Download selected week from authenticated production UI
+        if: inputs.readonly_api != true
         env:
           NENOVAWEB_SERVICE_TOKEN: ${{ secrets.NENOVAWEB_SERVICE_TOKEN }}
           PROBE_YEAR: ${{ inputs.year }}
