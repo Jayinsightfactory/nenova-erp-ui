@@ -62,6 +62,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       const request = route.request();
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
+      if (url.pathname === '/api/master/customers' && request.method() === 'GET')
+        return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order' }] });
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
       if (url.pathname === '/api/favorites') {
         if (request.method() === 'GET') return reply(route, { success: true,
@@ -166,7 +168,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
           return reply(route, { success: true, products });
         }
         if (type === 'custList' || type === 'customers') return reply(route, { success: true,
-          customers: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 436, CustName: 'Zulu Florist' }] });
+          customers: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 436, CustName: 'Zulu Florist' }, { CustKey: 512, CustName: 'Mike Florist' }] });
         if (type === 'custDist') return reply(route, { success: true, totalOut: shipmentQty,
           customers: [{ CustKey: 478, CustName: 'Alpha Florist', 주문수량: 60, 출고수량: shipmentQty,
             OutUnit: '단', ShipmentDescr: '기존 출고 비고', 비고: '주문 메모', Cost: 700 },
@@ -341,7 +343,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429-박스"]').inputValue(), '5.1');
     badgeFixed = true; // 다음 확정 표시 조회부터 알스트로 품목군 확정
     await page.locator('[data-ai-verify="pair-slot-2"]').click();
-    await page.locator('[data-ai-verify="customer-436"]').click();
+    // 업체 2 칸 선택 후 아래 거래처 목록 버튼도 업체 2 로 들어가야 함 (업체 1 로 들어가던 버그)
+    await page.locator('[data-ai-verify="customer-row-436"]').click();
     await page.getByTestId('distribution-pair-table').waitFor();
     assert.match(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), /^① /);
     assert.match(await page.locator('[data-ai-verify="pair-cust-head-2"]').textContent(), /^② /);
@@ -409,10 +412,58 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(savePosts, 4, 'pair Ctrl+S posts both customers once');
     await page.getByRole('button', { name: '확인', exact: true }).click();
-    await page.getByText(/업체 Alpha Florist \+ Zulu Florist — 저장 완료 3건 · 총 109 · 주문등록 1건/).waitFor();
+    // 업체별 한 줄씩 (이동 후 "업체1 + 업체2" 로 묶어 표기하지 않음)
+    await page.getByText(/업체 Alpha Florist — 저장 완료 1건 · 총 4$/).waitFor();
+    await page.getByText(/업체 Zulu Florist — 저장 완료 2건 · 총 105 · 주문등록 1건/).waitFor();
     assert.equal(orderPosts, 1, 'exactly one order registration (customer 2 Zinnia)');
     assert.deepEqual(cycleCalls, ['scope', 'unfix', 'order', 'save', 'fix'], 'confirmed group: unfix before any write, refix after');
     assert.match(await page.getByTestId('distribution-save-log').textContent(), /재확정 중/);
+    // 품목명 검색: Zinnia 만 남김
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('zinn');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'filtered out Alstroemeria');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 1);
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('');
+    // 품목추가·수량추가 창: 품종 → 품목 → 기본 단위 체크 → +5 +16 −1 (현재 수량에 더하기) → 변경 취소로 원복
+    await page.locator('[data-ai-verify="add-panel-open"]').click();
+    await page.getByTestId('distribution-add-panel').waitFor();
+    await page.locator('[data-ai-verify="add-side-1"]').click();
+    await page.getByTestId('distribution-add-groups').locator('button').first().click();
+    await page.locator('[data-ai-verify="add-prod-2429"]').click();
+    assert.equal(await page.locator('[data-ai-verify="add-unit-단"]').isChecked(), true, 'OutUnit checked by default');
+    assert.equal(await page.getByTestId('distribution-add-current').textContent(), '51');
+    await page.locator('[data-ai-verify="add-plus-5"]').click();
+    await page.locator('[data-ai-verify="add-plus-16"]').click();
+    await page.locator('[data-ai-verify="add-minus-1"]').click();
+    assert.equal(await page.getByTestId('distribution-add-current').textContent(), '71');
+    await page.locator('[data-ai-verify="add-unit-박스"]').check();
+    await page.locator('[data-ai-verify="add-plus-1"]').click();
+    assert.equal(await page.getByTestId('distribution-add-current').textContent(), '8.1', '1 box = 10 bunches added');
+    await page.locator('[data-ai-verify="add-panel-close"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '81');
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('[data-ai-verify="discard-drafts"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '51');
+    // 주문 없는 업체도 목록에
+    assert.equal(await page.locator('[data-ai-verify="customer-777"]').count(), 0);
+    await page.locator('[data-ai-verify="customer-show-all"]').check();
+    await page.locator('[data-ai-verify="customer-777"]').waitFor();
+    // 업체 3 추가: ③ 칸 → 목록 버튼, 머리줄 ③, ②→③ 2단 이동 후 변경 취소
+    await page.locator('[data-ai-verify="pair-slot-3"]').click();
+    await page.locator('[data-ai-verify="customer-row-512"]').click();
+    await page.locator('[data-ai-verify="pair-cust-head-3"]').waitFor();
+    assert.match(await page.locator('[data-ai-verify="pair-cust-head-3"]').textContent(), /③ Mike Florist/);
+    assert.equal(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), '① Alpha Florist', 'customer 1 unchanged');
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
+    await page.locator('[data-ai-verify="move-from-2429"]').selectOption('1');
+    await page.locator('[data-ai-verify="move-to-2429"]').selectOption('2');
+    await page.locator('[data-ai-verify="move-qty-2429"]').fill('2');
+    await page.locator('[data-ai-verify="move-go-2429"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '53');
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('[data-ai-verify="discard-drafts"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
+    await page.locator('[data-ai-verify="pair-clear-3"]').click();
+    await page.locator('[data-ai-verify="pair-cust-head-3"]').waitFor({ state: 'detached' });
     await page.getByRole('button', { name: '업체 2 해제' }).click();
     await page.getByTestId('distribution-pair-table').waitFor({ state: 'detached' });
     console.log('browser: pair');
