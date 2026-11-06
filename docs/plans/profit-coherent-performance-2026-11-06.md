@@ -21,3 +21,27 @@
 - 같은 계측조건 after peakRSS497.26MB/heap288.26MB이므로 메모리 개선은 입증되지 않았다. 남은120회 reader군/평균fallback단계는 유지하며 운영502 해결을 로컬시간만으로 완료판정하지 않는다. 배포 후 GET-only44 단1회와 PM2 restart delta를 재확인해야 한다. 출력은 main성공 이후만 검증한다.
 
 계측 출력은 `.verify/profit-profile-{local,baseline,after}.jsonl`의 무시되는 로컬 산출물이다. SQL문/params/원자료/credential은 출력하지 않는다. 본표금액은 digest만 비교하며 operational DB의 INSERT/UPDATE/DELETE/MERGE/DDL/SP/재계산은 실행하지 않았다. UI/업무순서 변경이 없어 기존 명시조회 guide는 그대로 유효하다.
+
+## 배포 후 UI 실패 분리 진단
+
+PR1595 deploy42174149111 SUCCESS. 단독API42174802773 main44 HTTP200/92256ms/live, afterruntime42175112330 PID1187763/restarts268유지. 그러나 UI+XLSX42175253514 초기버튼활성120초timeout(파일없음), afterUI42175795442 PID1188275/restarts269/uptime06:36:04.120으로 해당조회중 추가재시작1회 확인. UI실패가409 source변동/502전송중단/200화면미적용 중 어느것인지는 아직 미확정이다.
+
+diagnostics-only branch에서 기존 download harness의 실제요청만 관찰한다. scope/count/status/허용된bodycode/JSON성공여부/basis/실패·abort·pending 및 화면출력활성/기준표시boolean을 기록하며 추가fetch/retry/별도본표조회는 없다. API에러문자열/본문/행/URL/인증header/토큰은 출력하지 않는다. main200 JSON은 기존비교로 재사용한다. 초기timeout은 고정code만 출력한다.
+
+정확한 PM2 memory 이유를 위해 기존 runtime read-only 진단에서 daemon pm2.log의 마지막4MiB 안 최근30분/선택erp PM2id의 `restarted because it exceeds --max-memory-restart value`만 집계한다. count/latestISO/current/maxMB 및 available/scoped/tailTruncated만 기록한다. 일치원문/개인경로/환경값은 출력하지 않는다. 기존 node-stdin packaging과 호환되도록 self-contained이다. 대상8회귀PASS, 운영원인확인은 부모실행대기이며 추가UIheavy조회는 보류한다. 앱source/fence/cacheclear/DB/설정변경은 없다.
+
+## 원인확인 후 승인된 요청 캐시 수명 보강
+
+PM2 daemon42176449563: count1/latest06:36:04/current1081MB/max1024MB. 따라서 UI조회중 memory-cap 자동재시작 원인은 확정됐다. 다만 ALS장수resource의 특정cache유지라는 누수인과는 미확정이다. 기존 `withErpReadContext` finally tail drain 직후 `context.caches.clear()` 한줄만 추가한다. 반환객체/내부cache객체가 아니라 namespace참조만 해제하고 externalEvidence/missing/errors 및 후속검증순서는 그대로다. disable/global clear/cap변경/금융source수정은 없다.
+
+lifecycle·기존memo·독립검산16PASS, incomingApprovalProfit/dbDeadlockRetry/WeeklyCache16PASS, profiler2PASS. 성공/작업실패/삼킨SQL실패/근거실패/오류우선순위/동시·중첩/성공·실패 drain전cache유지/종료cache0/반환identity·0보존 검증. 첫 mssql dependency누락은 새worktree node_modules junction으로 해결. 실제SQL쓰기fixture 실행0. ctx 관련 source/VM/globalrg로 추가하네스수정 불필요 확인.
+
+실제44 동일process sequential3회, forcedGC0/source반환reference보관OFF/각회응답해제, SELECT-only+기존sourcefence 유지:
+
+|회|초|SELECT|peak RSS MB|종료 RSS MB|종료heap MB|종료namespace|
+|---|---:|---:|---:|---:|---:|---:|
+|1|29.812|1403|493.96|467.68|160.85|0|
+|2|26.967|1402|526.15|471.00|228.00|0|
+|3|24.672|1402|534.47|471.13|236.66|0|
+
+모든회 moneySHA256는 이전 baseline `bc10325225a9df284f399d6a76905986678a4f646a91c0a96ddbef4a1ee19607`와 완전히 동일. 원자료/파라미터/자격증명 로그0, DB쓰기0. 종료RSS는 거의평탄하나 자연GC 영향을 포함하며 peak/heap은 상승했으므로 peak저감·누수제거·운영cap안전을 확정하지 않는다. 배포후 최소2회 운영조회+PM2 restartdelta0 필수(미검증). `.verify/profit-cache-lifetime-three-reads.jsonl`은 commits제외. 정식gate/build/cleanCI 진행대기.

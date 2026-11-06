@@ -1,5 +1,56 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const modules=Promise.all([import('../lib/erpRequestMemo.mjs'),import('../lib/erpReadContext.js')]);
+test('scope exit drops only cache references, preserves returned and cached objects and external evidence',async()=>{
+ const [,{withErpReadContext:scope,currentErpReadContext:current,erpContextCache:cache}]=await modules;
+ const external={rate:{value:0}},payload={rows:[{value:0}]};let context,held;
+ const value=await scope({queryFn:async()=>({}),externalEvidence:external},async()=>{
+  context=current();held=cache('held',null);held.set('payload',payload);return payload;
+ });
+ assert.equal(value,payload);assert.deepEqual(value,{rows:[{value:0}]});assert.equal(held.get('payload'),payload);
+ assert.equal(context.caches.size,0);assert.equal(context.externalEvidence,external);assert.equal(current(),undefined);
+});
+test('work, swallowed source and missing-evidence failures release caches without changing error precedence',async()=>{
+ const [,{withErpReadContext:scope,currentErpReadContext:current,erpContextCache:cache}]=await modules;
+ for(const mode of ['work','source','evidence','source-and-evidence']){
+  const original=Error('fixture');let context;
+  await assert.rejects(scope({queryFn:async()=>{throw original;}},async()=>{
+   context=current();cache('held',null).set('payload',{value:0});
+   if(mode==='work')throw original;
+   if(mode.includes('source'))await context.query('SELECT 1').catch(()=>{});
+   context.missingEvidence.add('USD:2026-01-01');return {value:0};
+  }),error=>mode==='work'?error===original:mode.includes('source')?error.code==='APPROVAL_REPORT_SOURCE_FAILED'&&error.cause===original:error.code==='APPROVAL_EXTERNAL_EVIDENCE_REQUIRED'&&error.evidenceKeys[0]==='USD:2026-01-01');
+  assert.equal(context.caches.size,0);
+  if(mode!=='work')assert.ok(context.missingEvidence.has('USD:2026-01-01'));
+ }
+});
+test('successful and throwing work retain cache until outstanding scoped SELECT drains',async()=>{
+ const [,{withErpReadContext:scope,currentErpReadContext:current,erpContextCache:cache}]=await modules;
+ for(const fail of [false,true]){
+  let context,release,workEnded=false,settled=false;const original=Error('work');
+  const pending=scope({queryFn:()=>new Promise(resolve=>{release=resolve;})},async()=>{
+   context=current();cache('held',null).set('value',0);void context.query('SELECT 1');
+   await Promise.resolve();workEnded=true;if(fail)throw original;return 0;
+  });
+  const observed=pending.then(value=>{settled=true;return value;},error=>{settled=true;assert.equal(error,original);});
+  while(!release||!workEnded)await Promise.resolve();
+  assert.equal(settled,false);assert.equal(context.caches.size,1);
+  release({recordset:[]});await observed;assert.equal(settled,true);assert.equal(context.caches.size,0);
+ }
+});
+test('concurrent scopes and nested scopes release only their own caches',async()=>{
+ const [,{withErpReadContext:scope,currentErpReadContext:current,erpContextCache:cache}]=await modules;
+ let releaseFirst,releaseSecond,first,second;
+ const run=(id,hold)=>scope({queryFn:async()=>({})},async()=>{const ctx=current();cache('same',null).set('id',id);if(id===1)first=ctx;else second=ctx;await hold;return id;});
+ const a=run(1,new Promise(resolve=>{releaseFirst=resolve;})),b=run(2,new Promise(resolve=>{releaseSecond=resolve;}));
+ assert.notEqual(first,second);releaseFirst();assert.equal(await a,1);assert.equal(first.caches.size,0);assert.equal(second.caches.size,1);
+ releaseSecond();assert.equal(await b,2);assert.equal(second.caches.size,0);
+ let outer,inner;
+ await scope({queryFn:async()=>({})},async()=>{
+  outer=current();const held=cache('same',null);held.set('id',1);
+  await scope({queryFn:async()=>({})},async()=>{inner=current();cache('same',null).set('id',2);});
+  assert.equal(inner.caches.size,0);assert.equal(current(),outer);assert.equal(outer.caches.size,1);assert.equal(held.get('id'),1);
+ });assert.equal(outer.caches.size,0);
+});
 test('exact request key separates year, zero, false, omitted, undefined and nested options',async()=>{
  const [{erpRequestMemoKey:key}]=await modules;
  const samples=[{}, {year:'2026'}, {year:'2025'}, {cost:0}, {cost:false}, {cost:null}, {cost:undefined}, {cost:'0'}, {cost:-0}, {cost:NaN}, {options:{strict:false}}, {options:{strict:true}}];
