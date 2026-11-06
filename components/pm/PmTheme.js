@@ -196,7 +196,9 @@ export function ShopPanel({ name, canEdit = true, editNote = '', isAdmin = false
   const slotShut = SLOT_UNLOCK[slot] && myStage < SLOT_UNLOCK[slot] && !freeOn;
   const choose = (x) => {
     setFocus(x); setFxPlay((n) => n + 1);
-    if (slotShut || (x.need > myStage && !freeOn)) return;
+    // [2026-11-06 사장님 신고 "구매가 안 됨"] 잠긴 품목 클릭이 조용히 무시되던 것 → 왜 안 되는지 말해준다
+    if (slotShut || (x.need > myStage && !freeOn)) { setMsg(`🌱 ${x.name}은(는) 성장 ${slotShut ? SLOT_UNLOCK[slot] : x.need}단계부터 입어볼 수 있어요(지금 ${myStage}단계) — 자유이용권이 있으면 바로 가능`); return; }
+    setMsg('');
     if (slot === 'char') setCfg((c) => ({ ...c, char: x.id }));
     else setCfg((c) => ({ ...c, items: { ...c.items, [slot]: c.items[slot] === x.id ? undefined : x.id } }));
   };
