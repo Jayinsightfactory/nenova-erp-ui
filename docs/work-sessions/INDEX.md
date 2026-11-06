@@ -715,3 +715,4 @@
 - [2026-11-04 입고 정정 요청·매칭·확정](2026-11-04_incoming-approval-flow.md) — 승인 원장·원자 writer, 실제 격리 SQL/모의 브라우저 PASS, 최종 검증·배포 진행.
 - [2026-11-04 웹 흐름 로그·EXE 계측 조사](2026-11-04_web-audit-coverage.md) — 요청/응답 연결·비동기 흐름, 실제 dnSpy, EXE 원본 보존.
 - [2026-11-06 중국 관세·품목별 재고 평가 보완](2026-11-06_china-duty-valuation-recovery.md) — exact124품목·실제 단 수량 평가·1~44차 보완, 전체 검증/배포 진행.
+- [2026-11-06 최근 손익44 운영502·요청 중복조회 제거](2026-11-06_profit-coherent-performance.md) — moneySHA동일, SELECT2699→1403/46.2→34.3초, RSS개선 미입증; 잔여gate/build·운영재검증 진행중.

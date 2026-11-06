@@ -92,7 +92,7 @@ async function main() {
     if(sql.includes('FROM FreightCost'))return{recordset:snapshots};
     return{recordset:[]};
   };
-  const deps={...freight,...order,...arrival,...country,...carry,...policy,resolveFreightWeightEvidence,
+  const deps={...freight,...order,...arrival,...country,...carry,...policy,...await import('../lib/erpRequestMemo.mjs'),resolveFreightWeightEvidence,
     query,sql:{NVarChar:'nvarchar'},loadOverrides:()=>({}),loadSourceWorkbookFxRows:async()=>[],resolveFreightExchangeRate:()=>({rate:99999})};
   const pivotCode=fs.readFileSync('lib/pivotFreightArrival.js','utf8').replace(/^import\s[\s\S]*?from ['"][^'"]+['"];\r?\n/gm,'')
     .replace(/^export \{[^}]+\};/gm,'').replace(/^export /gm,'');

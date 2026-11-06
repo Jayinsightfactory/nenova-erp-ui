@@ -2141,3 +2141,10 @@
 검색어: 출고일 기준 매출 업체 즐겨찾기 정산요일 원차수 90=30(44-1)/60(44-2) estimate-shipment-date-sales
 - 2026-11-06 후속: 정식 npm run build exit0, 공식 posttest:erp-contract exit0, 빌드된 next start에서 새탭 재접속 즐겨찾기/24기간/모바일/오류복구/팝업 shell/Tab·ShiftTab/실제 가이드 재생·목차·한국어 cues·다운로드 PASS. PR1593 CI/배포는 진행중(운영 미검증).
 검색어: PR1593 출고일매출 build0 production-ui guide-player
+
+## 2026-11-06 최근 손익44 운영502 읽기 진단 및 요청 내부 중복 제거
+- a11ff8178 기반 codex/profit-coherent-performance. 운영 GET-only44는118.767초/502, 요청중 PM2 restart266→267 확인. 1GiB memory restart 설정은 확인됐으나 정확한 재시작원인은 미확정. 원장/설정/DB쓰기0.
+- canonical44 SELECT profiler로 invoice cost revision4회뿐임을 확인해 invoice bulk안 중지. arrival261호출/105고유/156중복 및 FX동일연도 GROUP BY259회가 반복됐다. request-local exact typed args+queryRunner identity, normalized FXyearset memo만 추가. 요청밖 기존동작/SQL/수식/과거취득원가 reference/fence/confirmed정책 그대로, clone격리/실패evict.
+- 실제 paired44:46.229→34.294초,2699→1403SELECT, 전체 rows.calc/totals SHA동일 bc10325225a9df284f399d6a76905986678a4f646a91c0a96ddbef4a1ee19607, 반환변이0. 계측RSS486.17→497.26MB로 메모리개선 입증없음. 운영 main<120초+restartdelta0 확인 전 해소판정 금지.
+- 새대상12회귀 PASS. 정식 verify는 기존 VM하네스 helper미주입에서 중단→실제helper 두하네스주입 후 관련8회귀 PASS. 실패지점부터 공식 잔여core/posthook/dnSpy/manifest/writeguard/build 진행중(최종 미검증), 최종 cleanCI/배포/운영GET44 대기. 소스freeze, UI/가이드변경없음.
+검색어: profit-coherent-performance GET44 502 PM2 1GiB requestmemo sourceWorkbookFx 2699 1403 moneySHA RSS

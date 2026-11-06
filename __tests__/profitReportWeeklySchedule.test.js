@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { kstDateOnly, latestWednesdaySlot, resolveCurrentProfitWeek, resolvePreviousProfitWeek, resolveWeeklySchedule } from '../lib/profitReportWeeklySchedule.js';
 import { parseBackfillArgs, assertHistoricalBackfill, inspectCacheOnlySql, createCacheSqlGuard, runBackfill } from '../scripts/backfill-profit-report-cache.mjs';
+import { memoizeErpRequestRead } from '../lib/erpRequestMemo.mjs';
 
 export function range(start, count, key) {
   return Array.from({ length: count }, (_, i) => ({ dateOnly: new Date(Date.parse(`${start}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10), orderYearWeek: key }));
@@ -51,17 +52,17 @@ assert.equal(inspectCacheOnlySql('DECLARE @r INT; EXEC @r = sys.sp_getapplock @R
 const workbookSource = fs.readFileSync(new URL('../lib/sourceWorkbookFx.js', import.meta.url), 'utf8');
 const loaderBody = workbookSource.slice(workbookSource.indexOf('export async function loadSourceWorkbookFxRows')).replace('export ', '');
 let workbookSelects = 0;
-const workbookLoader = new Function('query', 'sql', `${loaderBody}; return loadSourceWorkbookFxRows;`)(async (text, params) => {
+const workbookLoader = new Function('query', 'sql', 'memoizeErpRequestRead', `${loaderBody}; return loadSourceWorkbookFxRows;`)(async (text, params) => {
   assert.deepEqual(inspectCacheOnlySql(text), { insertAttempts: 0, appLockCalls: 0 });
   workbookSelects++;
   if(text.includes('OBJECT_ID'))return {recordset:[{TableId:1}]};
   assert.equal(params.y0.value, '2026');
   return { recordset: [{ OrderYear: '2026', OrderWeek: '01-01', ExchangeRate: 1400 }] };
-}, { NVarChar: 'nvarchar' });
+}, { NVarChar: 'nvarchar' }, memoizeErpRequestRead);
 assert.equal((await workbookLoader(['2026']))[0].ExchangeRate, 1400);
 assert.equal(workbookSelects, 2, 'optional schema check and scoped SELECT both stay read-only');
 let missingSelects=0;
-const missingWorkbookLoader=new Function('query','sql',`${loaderBody}; return loadSourceWorkbookFxRows;`)(async text=>{missingSelects++;assert.match(text,/OBJECT_ID/);return {recordset:[{TableId:null}]};},{NVarChar:'nvarchar'});
+const missingWorkbookLoader=new Function('query','sql','memoizeErpRequestRead',`${loaderBody}; return loadSourceWorkbookFxRows;`)(async text=>{missingSelects++;assert.match(text,/OBJECT_ID/);return {recordset:[{TableId:null}]};},{NVarChar:'nvarchar'},memoizeErpRequestRead);
 assert.deepEqual(await missingWorkbookLoader(['2026']),[]);
 assert.equal(missingSelects,1,'absent optional table does not issue a data SELECT');
 const optionalTablePrefix = "IF OBJECT_ID(N'dbo.WebArrivalCostLine', N'U') IS NOT NULL ";
