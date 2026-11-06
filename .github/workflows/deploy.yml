@@ -91,7 +91,8 @@ jobs:
             cat scripts/diagnose-activity-readonly.cjs
             printf "\nACTIVITY_DIAG\nnode <<'DB_IDENTITY_NODE'\n"
             cat scripts/profit-database-identity-readonly.cjs
-            printf "\nmodule.exports.main({mode:'production'}).catch(()=>{console.log(JSON.stringify({status:'FAILED',code:'IDENTITY_PROBE_FAILED'}));process.exitCode=1;});\nDB_IDENTITY_NODE\n"
+            node scripts/profit-database-identity-readonly.cjs package-activity-entry
+            printf "DB_IDENTITY_NODE\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Read-only sanitized server performance diagnosis

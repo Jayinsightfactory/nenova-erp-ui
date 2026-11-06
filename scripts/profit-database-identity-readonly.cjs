@@ -154,13 +154,55 @@ async function runProbe({mode,expectedIdentityHash},deps){
   return {status:matchesExpected===false?'FAILED':'PASS',code:matchesExpected===false?'IDENTITY_MISMATCH':'IDENTITY_OBSERVED',mode,pid,configSource,...(proof?.configProof?{configProof:proof.configProof}:{}),identityHash:row.IdentityHash,matchesExpected,taxableRateTablePresent:row.TaxableRateTablePresent,invoiceTablesPresent:row.InvoiceTablesPresent,invoiceUniqueKeyScopes:row.InvoiceUniqueKeyScopes,snapshotIsolationState:row.SnapshotIsolationState,readCommittedSnapshotOn:row.ReadCommittedSnapshotOn,selectBatches:reads};
  }finally{fields=null;if(pool)await pool.close();}
 }
-async function main({mode,expectedIdentityHash=process.env.DB_IDENTITY_EXPECTED_HASH}={}){
+function repositoryActivityRoutes(apiRoot){
+ const routes=[];const walk=(folder,parts=[])=>{for(const entry of fs.readdirSync(folder,{withFileTypes:true})){if(!/^[A-Za-z0-9_.\[\]-]+$/.test(entry.name)||entry.isSymbolicLink())continue;if(entry.isDirectory())walk(path.join(folder,entry.name),[...parts,entry.name]);else if(entry.isFile()&&/\.(js|ts)$/.test(entry.name)){const names=[...parts,entry.name.replace(/\.(js|ts)$/,'')];if(names.at(-1)==='index')names.pop();routes.push('/api/'+names.join('/'));}}};walk(apiRoot);return routes.sort();
+}
+function summarizeActivity(rows,routes){
+ const templates=[...new Set(routes)].filter(r=>typeof r==='string'&&/^\/api\/(?:[A-Za-z0-9_.\[\]-]+\/?)+$/.test(r)).sort((a,b)=>Number(a.includes('['))-Number(b.includes('['))||b.length-a.length);
+ const matchers=templates.map(route=>({route,regex:new RegExp('^'+route.split('/').map(p=>/^\[\[\.\.\.[A-Za-z0-9_]+\]\]$/.test(p)?'.*':/^\[\.\.\.[A-Za-z0-9_]+\]$/.test(p)?'.+':/^\[[A-Za-z0-9_]+\]$/.test(p)?'[^/]+':p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('/')+'/?$')}));
+ const groups=new Map();let invalid=0,nonServer=0,matchedRequests=0;
+ const anchors=new Set(['/api/sales/profit-report','/api/sales/profit-report-output','/api/sales/profit-stock-adjustment-notes','/api/sales/profit-report-week-check','/api/finance/exchange']);
+ const timestamp=v=>typeof v==='string'&&/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v)&&Number.isFinite(Date.parse(v));
+ for(const row of rows){
+  if(!row||row.kind!=='api'||row.recordedBy!=='server'){nonServer++;continue;}
+  if(!timestamp(row.startedAt)||!timestamp(row.receivedAt)||!Number.isInteger(row.duration)||row.duration<0||row.duration>86400000||!['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'].includes(row.method)||!Number.isInteger(row.status)||row.status<100||row.status>599||typeof row.path!=='string'||row.path.length>300||!row.path.startsWith('/')||/[?#\x00-\x20]/.test(row.path)){invalid++;continue;}
+  const route=matchers.find(m=>m.regex.test(row.path))?.route||'other_api';
+  if(!['POST','PUT','PATCH','DELETE'].includes(row.method)&&!(row.method==='GET'&&anchors.has(route)))continue;
+  const start=Date.parse(row.startedAt),end=start+row.duration;
+  for(const window of WINDOWS){if(start>Date.parse(window.end)||end<Date.parse(window.start))continue;matchedRequests++;
+   const bucket=new Date(Math.max(start,Date.parse(window.start))).toISOString().slice(0,16)+':00.000Z';
+   const feature=route.startsWith('/api/finance/')?'finance':route.startsWith('/api/sales/')?'sales_profit':/\/arrival|\/warehouse|\/stock/.test(route)?'inventory_cost':/\/customs|\/freight/.test(route)?'customs_freight':/\/order|\/shipment|\/estimate/.test(route)?'order_shipment':'other';
+   const value={window:window.id,minuteBucket:bucket,method:row.method,status:row.status,routeTemplate:route,feature,count:0},key=JSON.stringify(value);
+   if(!groups.has(key))groups.set(key,value);groups.get(key).count++;
+  }
+ }
+ return {matchedRequests,groups:[...groups.values()].slice(0,100),groupCount:groups.size,truncated:groups.size>100,invalid,nonServer};
+}
+function readActivityJournal(routes=[],io=fs){
+ const root='/var/lib/nenova/user-activity',limit=16*1024*1024,maxFiles=10000;let scannedFiles=0,bytesRead=0,invalid=0,refused=0,missingHours=0,bounded=false;const rows=[];
+ try{
+  const directory=folder=>{const stat=io.lstatSync(folder);if(!stat.isDirectory()||stat.isSymbolicLink()||io.realpathSync(folder)!==folder)throw Error();};directory(root);directory(root+'/2026-11-06');
+  for(const hour of ['19','20']){
+   const folder=root+'/2026-11-06/'+hour;try{directory(folder);}catch{missingHours++;continue;}
+   const files=io.readdirSync(folder).filter(n=>/^[a-f0-9]{64}\.jsonl$/.test(n)).sort();
+   for(const name of files){if(scannedFiles>=maxFiles){bounded=true;break;}scannedFiles++;const file=folder+'/'+name;let fd,buffer;
+    try{const stat=io.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size<1||stat.size>65536){refused++;continue;}if(bytesRead+stat.size>limit){bounded=true;break;}
+     fd=io.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW??0x20000));const opened=io.fstatSync(fd);if(!opened.isFile()||opened.ino!==stat.ino||opened.dev!==stat.dev||opened.size!==stat.size){refused++;continue;}
+     buffer=Buffer.alloc(stat.size);const n=io.readSync(fd,buffer,0,buffer.length,0);bytesRead+=n;if(n!==buffer.length){invalid++;continue;}
+     const lines=buffer.toString('utf8').trim().split(/\r?\n/);if(lines.length!==1){invalid++;continue;}rows.push(JSON.parse(lines[0]));
+    }catch{invalid++;}finally{if(buffer)buffer.fill(0);if(fd!==undefined)io.closeSync(fd);}
+   }
+  }
+  const summary=summarizeActivity(rows,routes);return {section:'activity_window_diagnostic',status:'PASS',code:'ACTIVITY_WINDOWS_OBSERVED',...summary,invalid:invalid+summary.invalid,scannedFiles,bytesRead,refused,missingHours,bounded,coverageComplete:false,receivedHourScope:'KST_2026_11_06_19_20',delayedPersistenceMayBeOutsideScope:true,requestSourceAndSameValueUnknown:true};
+ }catch{return {section:'activity_window_diagnostic',status:'UNAVAILABLE',code:'ACTIVITY_WINDOWS_UNAVAILABLE',scannedFiles,bytesRead,coverageComplete:false};}
+}
+async function main({mode,expectedIdentityHash=process.env.DB_IDENTITY_EXPECTED_HASH,activityRoutes=[],activityOnly=false}={}){
  const rawWrite=process.stdout.write.bind(process.stdout),stdoutWrite=process.stdout.write,stderrWrite=process.stderr.write,prior={...console};
  const output=value=>rawWrite(value+'\n');
  try{
   for(const key of ['log','warn','error','info','debug'])console[key]=()=>{};
   process.stdout.write=process.stderr.write=()=>true;
-  if(mode==='production')output(JSON.stringify(readRecoveryJournal()));
+  if(mode==='production'){const activity=readActivityJournal(activityRoutes);output(JSON.stringify(activity));if(activityOnly===true){if(activity.status!=='PASS')process.exitCode=1;return activity;}output(JSON.stringify(readRecoveryJournal()));}
   let mssql;
   const deps={
    list:async()=>JSON.parse(cp.execFileSync('pm2',['jlist'],{encoding:'utf8',stdio:['ignore','pipe','ignore'],timeout:15000,maxBuffer:8*1024*1024})),
@@ -173,5 +215,5 @@ async function main({mode,expectedIdentityHash=process.env.DB_IDENTITY_EXPECTED_
  }catch(error){const result=safeFailure(error);output(JSON.stringify(result));process.exitCode=1;return result;}
  finally{Object.assign(console,prior);process.stdout.write=stdoutWrite;process.stderr.write=stderrWrite;}
 }
-module.exports={main,runProbe,selectProcess,parseDatabaseFields,connectionConfig,safeFailure,IDENTITY_SQL,reconstructNextEnvironment,summarizeRecoveryJournal,readRecoveryJournal,envFileSnapshot};
-if(require.main===module)main({mode:process.argv[2]}).catch(()=>{console.log(JSON.stringify({status:'FAILED',code:'IDENTITY_PROBE_FAILED'}));process.exitCode=1;});
+module.exports={main,runProbe,selectProcess,parseDatabaseFields,connectionConfig,safeFailure,IDENTITY_SQL,reconstructNextEnvironment,summarizeRecoveryJournal,readRecoveryJournal,envFileSnapshot,repositoryActivityRoutes,summarizeActivity,readActivityJournal};
+if(require.main===module){if(process.argv[2]==='package-activity-entry')process.stdout.write('\nmodule.exports.main('+JSON.stringify({mode:'production',activityOnly:true,activityRoutes:repositoryActivityRoutes(path.join(process.cwd(),'pages/api'))})+").catch(()=>{console.log(JSON.stringify({status:'FAILED',code:'IDENTITY_PROBE_FAILED'}));process.exitCode=1;});\n");else main({mode:process.argv[2]}).catch(()=>{console.log(JSON.stringify({status:'FAILED',code:'IDENTITY_PROBE_FAILED'}));process.exitCode=1;});}

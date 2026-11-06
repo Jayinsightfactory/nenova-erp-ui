@@ -1,6 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),cp=require('node:child_process'),path=require('node:path');
 const {runProbe,selectProcess,parseDatabaseFields,connectionConfig,safeFailure,IDENTITY_SQL}=require('../scripts/profit-database-identity-readonly.cjs');
 const {reconstructNextEnvironment,summarizeRecoveryJournal,readRecoveryJournal}=require('../scripts/profit-database-identity-readonly.cjs');
+const {repositoryActivityRoutes,summarizeActivity,readActivityJournal}=require('../scripts/profit-database-identity-readonly.cjs');
 const HASH='a'.repeat(64),fields={DB_SERVER:'PRIVATE_SERVER',DB_NAME:'PRIVATE_DB',DB_USER:'PRIVATE_USER',DB_PASSWORD:'PRIVATE_PASSWORD',DB_PORT:'1433'};
 const row={IdentityHash:HASH,TaxableRateTablePresent:false,InvoiceTablesPresent:4,InvoiceUniqueKeyScopes:4,SnapshotIsolationState:0,ReadCommittedSnapshotOn:false};
 function fixture(){let lists=0,connected=0,queries=0,closed=0,created=0;const processes=[{name:'nenova-erp',pid:123,pm2_env:{status:'online',env:{SECRET:'PRIVATE_JLIST'}}}];
@@ -54,11 +55,11 @@ test('actual node stdin packaging runs exactly one main, suppresses rogue raw st
    process.once('beforeExit',()=>__nativeWrite(JSON.stringify({fixtureCounts:true,lists:__lists,queries:__queries,closes:__closes})+'\\n'));
   `;
   const result=cp.spawnSync(process.execPath,['-'],{input:prologue+'\n'+source+"\nmodule.exports.main({mode:'production'});",encoding:'utf8',timeout:5000});assert.equal(result.status,missing?1:0);assert.doesNotMatch(result.stdout+result.stderr,/PRIVATE/);
-  const lines=result.stdout.trim().split('\n').map(x=>JSON.parse(x));assert.equal(lines.length,3);assert.equal(lines[0].code,'JOURNAL_UNAVAILABLE');assert.equal(lines[1].code,missing?'CONFIG_UNAVAILABLE':'IDENTITY_OBSERVED');assert.equal(lines[2].queries,missing?0:1);assert.equal(lines[2].closes,missing?0:1);assert.equal(lines[2].lists,missing?1:2);
+  const lines=result.stdout.trim().split('\n').map(x=>JSON.parse(x));assert.equal(lines.length,4);assert.equal(lines[0].code,'ACTIVITY_WINDOWS_UNAVAILABLE');assert.equal(lines[1].code,'JOURNAL_UNAVAILABLE');assert.equal(lines[2].code,missing?'CONFIG_UNAVAILABLE':'IDENTITY_OBSERVED');assert.equal(lines[3].queries,missing?0:1);assert.equal(lines[3].closes,missing?0:1);assert.equal(lines[3].lists,missing?1:2);
  }
 });
 test('registered performance workflow only packages probe; deployment and push conditions unmodified',()=>{
- const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/deploy.yml'),'utf8');assert.match(workflow,/group:.*nenova-cafe24-production/);assert.match(workflow,/if: github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true/);assert.match(workflow,/cat scripts\/profit-database-identity-readonly.cjs/);assert.match(workflow,/module.exports.main\(\{mode:'production'\}\)/);
+ const workflow=fs.readFileSync(path.join(__dirname,'../.github/workflows/deploy.yml'),'utf8');assert.match(workflow,/group:.*nenova-cafe24-production/);assert.match(workflow,/if: github.event_name == 'workflow_dispatch' && inputs.diagnose_performance_only == true/);assert.match(workflow,/cat scripts\/profit-database-identity-readonly.cjs/);assert.match(workflow,/node scripts\/profit-database-identity-readonly.cjs package-activity-entry/);
  // Approved76b71a575 Git/LF baseline: diagnostic packaging must not alter either protected region.
  const normalized=workflow.replace(/\r\n/g,'\n'),hash=text=>require('node:crypto').createHash('sha256').update(text).digest('hex');
  assert.equal(hash(normalized.slice(normalized.indexOf('  deploy:'))),'5da709bd006a696f49e828cbb936e0515ab0ed0049243d57c4d7e909cf7293fa');
@@ -68,6 +69,28 @@ test('registered performance workflow only packages probe; deployment and push c
  assert.match(workflow,/npm install --prefix "\$RUNNER_TEMP\/identity-fixture" --ignore-scripts --no-save --package-lock=false "@next\/env@\$version"/);
  assert.match(workflow,/assert.equal\(require\(process.env.RUNNER_TEMP\+'\/identity-fixture\/node_modules\/@next\/env\/package.json'\).version,require\('\.\/package-lock.json'\).packages\['node_modules\/@next\/env'\].version\)/);
  assert.match(workflow,/IDENTITY_FIXTURE_NEXT_ENV_MODULE: \$\{\{ runner.temp \}\}\/identity-fixture\/node_modules\/@next\/env\/dist\/index.js/);
+});
+function normalizedApiEvent(extra={}){
+ const input={id:'00000000-0000-4000-8000-000000000001',kind:'api',path:'/api/finance/exchange?PRIVATE_QUERY',method:'POST',status:200,duration:1000,...extra};
+ // Actual store normalizer, then exactly the server-only fields appendEventsInner adds.
+ return {...require('../lib/userActivityStore.cjs').normalizeEvent({userId:'PRIVATE_ACTOR',userName:'PRIVATE_NAME'},input,'web',new Date('2026-11-06T10:40:30.000Z')),recordedBy:'server',stage:'response',startedAt:'2026-11-06T10:40:29.000Z',...extra};
+}
+test('actual activity normalizer schema is accepted, dynamic values stay private and both UTC windows use interval overlap',()=>{
+ const routes=repositoryActivityRoutes(path.join(__dirname,'../pages/api'));assert.ok(routes.includes('/api/finance/exchange'));assert.ok(routes.includes('/api/sales/profit-stock-adjustment-notes'));
+ const dynamic=routes.find(r=>r.includes('[')&&!r.includes('...'));assert.ok(dynamic);const dynamicPath=dynamic.replace(/\[[^\]]+\]/g,'PRIVATE_DYNAMIC');
+ const rows=[normalizedApiEvent(),normalizedApiEvent({path:dynamicPath,method:'PATCH'}),normalizedApiEvent({path:'/api/sales/profit-report',method:'GET',startedAt:'2026-11-06T10:39:00.000Z',duration:90000}),normalizedApiEvent({path:'/api/sales/profit-report-output',method:'GET',startedAt:'2026-11-06T10:52:30.000Z'}),normalizedApiEvent({path:'/api/sales/profit-stock-adjustment-notes',method:'GET'}),normalizedApiEvent({recordedBy:'client'}),normalizedApiEvent({duration:-1}),normalizedApiEvent({path:'/api/PRIVATE_UNKNOWN',method:'DELETE'}),normalizedApiEvent({path:'/api/PRIVATE_GET',method:'GET'}),normalizedApiEvent({startedAt:'2025-11-06T10:40:29.000Z'})];
+ const summary=summarizeActivity(rows,routes);assert.equal(summary.matchedRequests,6);assert.equal(summary.invalid,1);assert.equal(summary.nonServer,1);assert.ok(summary.groups.some(r=>r.routeTemplate===dynamic));assert.ok(summary.groups.some(r=>r.routeTemplate==='other_api'));assert.ok(summary.groups.some(r=>r.window==='second'));assert.doesNotMatch(JSON.stringify(summary),/PRIVATE|userId|userName|requestId|query|receivedAt|\.jsonl/);
+ const packaged=cp.spawnSync(process.execPath,[path.join(__dirname,'../scripts/profit-database-identity-readonly.cjs'),'package-activity-entry'],{encoding:'utf8',timeout:5000});assert.equal(packaged.status,0);assert.ok(packaged.stdout.includes('"activityRoutes"'));assert.ok(packaged.stdout.includes('"activityOnly":true'));assert.doesNotMatch(packaged.stdout,/PRIVATE|DB_PASSWORD|userId/);
+ const cli=fs.readFileSync(path.join(__dirname,'../scripts/profit-database-identity-readonly.cjs'),'utf8');
+ const noSql=cp.spawnSync(process.execPath,['-'],{input:cli+'\n'+packaged.stdout,encoding:'utf8',timeout:5000});const result=JSON.parse(noSql.stdout.trim());assert.equal(result.code,'ACTIVITY_WINDOWS_UNAVAILABLE');assert.equal(noSql.stdout.trim().split('\n').length,1);assert.equal(noSql.stderr,'');
+});
+test('activity reader uses only fixed hours, rejects symlink and bounds total16MiB/files while closing owned fds',()=>{
+ const root='/var/lib/nenova/user-activity',body=JSON.stringify(normalizedApiEvent())+'\n';let opens=0,closes=0,bytes=0;
+ const fileName=n=>n.toString(16).padStart(64,'0')+'.jsonl';
+ const stat=(file,opened=false)=>({size:65536,ino:1,dev:1,isDirectory:()=>!file.endsWith('.jsonl'),isFile:()=>file.endsWith('.jsonl'),isSymbolicLink:()=>!opened&&file.endsWith(fileName(0))});
+ const io={lstatSync:file=>{assert.ok(file.startsWith(root));return stat(file);},realpathSync:file=>file,readdirSync:folder=>{assert.ok([root+'/2026-11-06/19',root+'/2026-11-06/20'].includes(folder));return Array.from({length:300},(_,n)=>fileName(n));},openSync:(file,flags)=>{assert.ok(flags&(fs.constants.O_NOFOLLOW??0x20000));opens++;return 1;},fstatSync:()=>stat(root+'/x.jsonl',true),readSync:(fd,buffer)=>{buffer.fill(' ');buffer.write(body);bytes+=buffer.length;return buffer.length;},closeSync:()=>closes++};
+ const result=readActivityJournal(['/api/finance/exchange'],io);assert.equal(result.status,'PASS');assert.equal(result.bytesRead,16*1024*1024);assert.equal(bytes,result.bytesRead);assert.equal(result.bounded,true);assert.ok(result.refused>=1);assert.equal(opens,closes);assert.equal(result.coverageComplete,false);assert.equal(result.delayedPersistenceMayBeOutsideScope,true);assert.ok(result.matchedRequests>0);assert.doesNotMatch(JSON.stringify(result),/PRIVATE|userId|\.jsonl|\/var\/lib|0000000000/);
+ assert.equal(readActivityJournal([],{}).code,'ACTIVITY_WINDOWS_UNAVAILABLE');
 });
 function nextFixture(){
  const ROOT='/var/www/nenova-erp',now=Date.parse('2026-11-07T00:00:00.000Z'),startedAt=now-10000;
