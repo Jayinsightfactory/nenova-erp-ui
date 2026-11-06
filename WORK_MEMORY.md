@@ -2188,3 +2188,9 @@
 - 기존download workflow 명시repeat_recent_download exact2026/44만 UI+실XLSX2회/각120초/돈diff0/5xx0. 이모드만 독립감사분리·기본감사유지. 미완료canary helper/CLI/test는unstaged보존·이번PR제외, package는dedup/readonly회귀만 연결.
 - sourcefreeze 뒤 부모필수gate/build/CI/배포 예정(미검증), 운영2회·PM2restartdelta0 미달성/이전output500원인미확정. runtime튜닝완료/운영OOM해소주장0.
 검색어: profitLatestInFlight overlap-only TTL0 globalSymbol HTTPabort distinct-bundles repeat_recent_download bc1032 runtime-deferred
+
+## 2026-11-06 읽기전용 반복파일 실패 진단 노출
+- PR1600 cceaba 배포42196188246/필수gate·CI PASS. 운영repeat42197102612 Node20 합성fixture PASS 뒤 첫round133.6초FAIL, 원인미분리. afterdiag42197640781 PID1199984/restarts274 유지/RSS363MB/최근30분memoryrestart0이므로 이번실패를memoryrestart로보지않고512조정근거로사용하지않는다.
+- two-round runner가 숨기던 기존 observer JSON을 event/kind/status/허용bodyCode/codePresent/enum basis·bodyState/유효yearweek/boolean·bounded counts·elapsed만 재출력. 중첩원문·URL·토큰·사용자오류·stderr는0. child exit/deadline/spawn/assess 실패는 고정reason/code만 출력.
+- privacy/실행fixture 및 기존smoke6PASS/diffcheckPASS. 앱·SQL·운영설정변경0/새fullSQL실행0. 생성history dirty와미완료canary파일은보존·이번진단commit제외. 부모 featurebranch 읽기workflow 재실행대기, 실제main코드/abort/출력실패원인은아직미확정.
+검색어: repeat133 profitUiReadDiagnostic allowlist child_exit deadline assess restart274 readonly-only
