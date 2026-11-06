@@ -21,3 +21,11 @@
 - 같은 계측조건 after peakRSS497.26MB/heap288.26MB이므로 메모리 개선은 입증되지 않았다. 남은120회 reader군/평균fallback단계는 유지하며 운영502 해결을 로컬시간만으로 완료판정하지 않는다. 배포 후 GET-only44 단1회와 PM2 restart delta를 재확인해야 한다. 출력은 main성공 이후만 검증한다.
 
 계측 출력은 `.verify/profit-profile-{local,baseline,after}.jsonl`의 무시되는 로컬 산출물이다. SQL문/params/원자료/credential은 출력하지 않는다. 본표금액은 digest만 비교하며 operational DB의 INSERT/UPDATE/DELETE/MERGE/DDL/SP/재계산은 실행하지 않았다. UI/업무순서 변경이 없어 기존 명시조회 guide는 그대로 유효하다.
+
+## 배포 후 UI 실패 분리 진단
+
+PR1595 deploy42174149111 SUCCESS. 단독API42174802773 main44 HTTP200/92256ms/live, afterruntime42175112330 PID1187763/restarts268유지. 그러나 UI+XLSX42175253514 초기버튼활성120초timeout(파일없음), afterUI42175795442 PID1188275/restarts269/uptime06:36:04.120으로 해당조회중 추가재시작1회 확인. UI실패가409 source변동/502전송중단/200화면미적용 중 어느것인지는 아직 미확정이다.
+
+diagnostics-only branch에서 기존 download harness의 실제요청만 관찰한다. scope/count/status/허용된bodycode/JSON성공여부/basis/실패·abort·pending 및 화면출력활성/기준표시boolean을 기록하며 추가fetch/retry/별도본표조회는 없다. API에러문자열/본문/행/URL/인증header/토큰은 출력하지 않는다. main200 JSON은 기존비교로 재사용한다. 초기timeout은 고정code만 출력한다.
+
+정확한 PM2 memory 이유를 위해 기존 runtime read-only 진단에서 daemon pm2.log의 마지막4MiB 안 최근30분/선택erp PM2id의 `restarted because it exceeds --max-memory-restart value`만 집계한다. count/latestISO/current/maxMB 및 available/scoped/tailTruncated만 기록한다. 일치원문/개인경로/환경값은 출력하지 않는다. 기존 node-stdin packaging과 호환되도록 self-contained이다. 대상8회귀PASS, 운영원인확인은 부모실행대기이며 추가UIheavy조회는 보류한다. 앱source/fence/cacheclear/DB/설정변경은 없다.

@@ -16,6 +16,29 @@ assert.match(workflow,/source_completion_checks:[\s\S]*?type: boolean[\s\S]*?def
 assert.match(workflow,/PROBE_SOURCE_COMPLETION_CHECKS: \$\{\{ inputs.source_completion_checks \}\}/);
 console.log('PASS production download guard: same-origin credentials, GET-only, selected year/week, no business artifact publishing');
 (async()=>{
+ const {observeProfitUiReads}=require('../scripts/lib/profit-ui-read-diagnostics.cjs');
+ const events={},diagnosticLogs=[],diagnosticPage={on:(name,fn)=>{events[name]=fn;},evaluate:async()=>({year:'2026',week:'44',queryPresent:true,queryDisabled:false,exportPresent:true,exportEnabled:false,emptyState:false,basisPresent:false,alerts:1,private:'PRIVATE_TOKEN'})};
+ const diagnostics=observeProfitUiReads(diagnosticPage,{origin:'https://nenovaweb.com',selected:{year:'2026',week:'44'},log:value=>diagnosticLogs.push(JSON.parse(value)),clock:()=>1000});
+ const req=(scope='year=2026&week=44')=>({url:()=>`https://nenovaweb.com/api/sales/profit-report?${scope}&PRIVATE_TOKEN`,failure:()=>({errorText:'PRIVATE_USER_ERROR'})});
+ assert.equal(diagnostics.mainCount(),0);
+ for(const [status,code,success]of [[409,'PROFIT_SOURCES_CHANGED',false],[502,'PRIVATE_TOKEN',false],[200,null,true]]){
+  const request=req();events.request(request);
+  const data={success,code,orderYear:'2026',major:'44',financialReadPolicy:{basis:'live'},error:'PRIVATE_USER_ERROR',rows:['PRIVATE_ROWS']};
+  assert.equal(await diagnostics.response({request:()=>request,status:()=>status,json:async()=>data}),data);
+  events.requestfinished(request);
+ }
+ const diagnosticForeign=req('year=2025&week=44');events.request(diagnosticForeign);events.requestfailed(diagnosticForeign);
+ const abort={...req(),failure:()=>({errorText:'net::ERR_ABORTED'})};events.request(abort);events.requestfailed(abort);
+ const html=req();events.request(html);await diagnostics.response({request:()=>html,status:()=>502,json:async()=>{throw Error('PRIVATE_BODY');}});
+ diagnostics.markQuery(true);const summary=await diagnostics.summary('ui_ready_timeout');
+ assert.equal(summary.counts.main,6);assert.equal(summary.failed,2);assert.equal(summary.aborted,1);assert.equal(summary.ui.exportEnabled,false);assert.equal(summary.ui.scopeMatches,true);
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===409&&row.bodyCode==='PROFIT_SOURCES_CHANGED'));
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===502&&row.bodyState==='unreadable'));
+ assert.ok(diagnosticLogs.some(row=>row.httpStatus===200&&row.bodyState==='success'&&row.payloadScopeMatches));
+ assert.ok(diagnosticLogs.some(row=>row.event==='request'&&row.scopeMatches===false));
+ assert.doesNotMatch(JSON.stringify(diagnosticLogs),/PRIVATE|authorization|Bearer|rows|errorText/);
+ assert.doesNotMatch(fs.readFileSync(path.join(__dirname,'../scripts/lib/profit-ui-read-diagnostics.cjs'),'utf8'),/\bfetch\s*\(|\.continue\s*\(|\.goto\s*\(/);
+ console.log('PASS UI read diagnostics:409 source-change/502/unreadable/200 success, scope, counts, abort, disabled-output and privacy; no additional fetch');
  const block=text.slice(text.indexOf('// BEGIN SOURCE_COMPLETION_CHECKS'),text.indexOf('// END SOURCE_COMPLETION_CHECKS'));
  const runPresentation=new (Object.getPrototypeOf(async function(){}).constructor)('page','wb','week','year','assert','process','console',block);
  let clicked=0,opened=false,checks=0,logged=[];

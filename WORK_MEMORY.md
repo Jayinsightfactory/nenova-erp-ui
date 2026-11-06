@@ -2148,3 +2148,10 @@
 - 실제 paired44:46.229→34.294초,2699→1403SELECT, 전체 rows.calc/totals SHA동일 bc10325225a9df284f399d6a76905986678a4f646a91c0a96ddbef4a1ee19607, 반환변이0. 계측RSS486.17→497.26MB로 메모리개선 입증없음. 운영 main<120초+restartdelta0 확인 전 해소판정 금지.
 - 새대상12회귀 PASS. 정식 verify는 기존 VM하네스 helper미주입에서 중단→실제helper 두하네스주입 후 관련8회귀 PASS. 실패지점부터 공식 잔여core/posthook/dnSpy/manifest/writeguard/build 진행중(최종 미검증), 최종 cleanCI/배포/운영GET44 대기. 소스freeze, UI/가이드변경없음.
 검색어: profit-coherent-performance GET44 502 PM2 1GiB requestmemo sourceWorkbookFx 2699 1403 moneySHA RSS
+
+## 2026-11-06 운영44 UI 초기조회 진단 추가 (앱 변경 없음)
+- PR1595 배포 후 단독GET44 HTTP200/92256ms/live·PM2 restart268유지 확인. 뒤이은 UI+XLSX는 초기출력버튼 활성120초 timeout으로 파일 미생성. afterUI PID변경/restart269로 요청중 재시작1회 확인. 정확한 memory restart 원인은 아직 미확정, 무관45차쓰기→409 후보도 입증전이다.
+- 기존 download harness에 관찰전용 진단 추가: main/context/output 요청개수, 선택/요청/응답scope일치, HTTPstatus·허용code·body상태·basis, 실패/abort/완료·pending, 조회클릭여부 및 UI출력/기준표시 boolean만 기록. 기존 main JSON을 재사용해 추가GET/중복heavy조회0, 원자료/URL/header/토큰/사용자오류문자열 로그0.
+- 기존 runtime 진단에 PM2 daemon log bounded4MiB/최근30분/선택PM2id의 정확한 max-memory-restart 문구 count/latest시각/current/maxMB만 집계. 원문로그/경로출력0·앱/설정/DB쓰기0. 새필수helper 없이 node-stdin 실행 그대로 지원. 잘린tail/미가용/pmid범위도 구분한다.
+- 대상8회귀와 두script syntax PASS. 추가 운영UIheavy 실행은 보류, 부모가 featurebranch runtime 읽기진단부터 실행한다. 앱/fence/cacheclear/UI수식 수정0. 운영 원인·해결은 미검증.
+검색어: profit-ui-read-diagnostic UI120초 HTTP409502200 scope abort PM2 memory_restart_30m diagnostics-only

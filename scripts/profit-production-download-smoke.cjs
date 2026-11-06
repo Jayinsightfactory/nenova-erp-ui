@@ -1,6 +1,7 @@
 // Manual CI-only authenticated production READ smoke. Never prints data or credentials.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=require('node:crypto');
+const {observeProfitUiReads}=require('./lib/profit-ui-read-diagnostics.cjs');
 (async()=>{
  const token=process.env.NENOVAWEB_SERVICE_TOKEN;
  if(!token)throw Error('Configured service credential is unavailable');
@@ -16,6 +17,7 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
   const page=await context.newPage();await page.setViewport({width:1920,height:1080});
   await page.evaluateOnNewDocument(()=>localStorage.setItem('nenova_profitReport_outputCols_v1',JSON.stringify(['category','C','E','F','G','H','I','J','K'])));
   const responses=[],requests=[],reads=[],responseObservations=[];let blockedWrites=0,mainData=null;
+  const diagnostics=observeProfitUiReads(page,{origin,selected:{year,week}});
   await page.setRequestInterception(true);
   page.on('request',req=>{
    const u=new URL(req.url());
@@ -30,16 +32,21 @@ const puppeteer=require('puppeteer-core'),XLSX=require('xlsx-js-style'),crypto=r
    return req.continue();
   });
   page.on('response',res=>{
+   const diagnosticRead=diagnostics.response(res);
    const responseUrl=new URL(res.url()),pathname=responseUrl.pathname;
    if(pathname==='/api/sales/profit-report-output'){responses.push(res.status());responseObservations.push({kind:'output',status:res.status(),observedAt:new Date().toISOString()});}
    if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week))responseObservations.push({kind:'screen',status:res.status(),observedAt:new Date().toISOString()});
-   if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week)&&res.status()===200)reads.push(res.json().then(data=>{mainData=data;}));
+   if(pathname==='/api/sales/profit-report'&&responseUrl.searchParams.get('year')===year&&Number(responseUrl.searchParams.get('week'))===Number(week)&&res.status()===200)reads.push(diagnosticRead.then(data=>{mainData=data;}));
   });
   await page.goto(`${origin}/sales/profit-report?year=${year}&week=${week}`,{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForSelector('[data-testid="profit-query-empty"]');
   assert.equal(mainData,null,'Financial report must not load on entry');
-  await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='조회')?.click());
-  await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(e=>e.textContent.startsWith('엑셀 다운로드')&&!e.disabled),{timeout:120000});
+  await diagnostics.summary('before_query');assert.equal(diagnostics.mainCount(),0,'No main report request before explicit query');
+  const clicked=await page.evaluate(()=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='조회');if(!button)return false;button.click();return true;});
+  diagnostics.markQuery(clicked);
+  try{await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(e=>e.textContent.startsWith('엑셀 다운로드')&&!e.disabled),{timeout:120000});}
+  catch{await diagnostics.summary('ui_ready_timeout');throw Error('PROFIT_UI_READY_TIMEOUT');}
+  await diagnostics.summary('ui_ready');
   const button=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(e=>e.textContent.startsWith('엑셀 다운로드')));
   const label=await button.evaluate(e=>e.textContent);
   assert.match(label,/1개 차수 · 1개 시트/,'default must select only requested week');
