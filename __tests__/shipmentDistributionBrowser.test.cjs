@@ -63,7 +63,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
       if (url.pathname === '/api/master/customers' && request.method() === 'GET')
-        return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order' }] });
+        return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order', Manager: '김담당' }] });
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
       if (url.pathname === '/api/favorites') {
         if (request.method() === 'GET') return reply(route, { success: true,
@@ -359,7 +359,6 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-ai-verify="qty-478-2429-박스"]').fill('6');
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '60');
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429-송이"]').inputValue(), '600');
-    assert.equal(await page.locator('[data-ai-verify="qty-436-90-단"]').count(), 0, 'no Zinnia row on customer 2 yet');
     await page.locator('[data-ai-verify="qty-478-2429"]').fill('51');
     // 변경 취소: 화면 입력만 DB 조회값으로 되돌림
     await page.locator('[data-ai-verify="qty-436-2429"]').fill('77');
@@ -384,7 +383,9 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-436-2429"]').inputValue(), '102');
     assert.equal(await page.locator('[data-ai-verify="move-to2-2429"]').isDisabled(), true, 'nothing left to move from customer 1');
     // 부분 이동 + 주문 없는 업체: Zinnia 7 중 3 만 ② 로 (② 에는 주문 없음 → 임시 행 '주문등록 예정')
-    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').count(), 0, 'customer 2 has no Zinnia order yet');
+    // 주문 없는 칸도 입력 가능(빈 칸) — 이동 전에는 값 없음, 주문등록 예정 아님
+    assert.equal(await page.locator('[data-ai-verify="qty-436-90"]').inputValue(), '', 'customer 2 has no Zinnia order yet (empty editable cell)');
+    assert.equal(await page.getByText('주문등록 예정').count(), 0);
     await page.locator('[data-ai-verify="move-qty-90"]').fill('3');
     await page.locator('[data-ai-verify="move-to2-90"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').inputValue(), '4', 'partial move leaves 4 at customer 1');
@@ -454,11 +455,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.match(await page.locator('[data-ai-verify="pair-cust-head-3"]').textContent(), /③ Mike Florist/);
     assert.equal(await page.locator('[data-ai-verify="pair-cust-head-1"]').textContent(), '① Alpha Florist', 'customer 1 unchanged');
     assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
-    await page.locator('[data-ai-verify="move-from-2429"]').selectOption('1');
-    await page.locator('[data-ai-verify="move-to-2429"]').selectOption('2');
-    await page.locator('[data-ai-verify="move-qty-2429"]').fill('2');
-    await page.locator('[data-ai-verify="move-go-2429"]').click();
-    assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '53');
+    // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙음, 직접 수정 + 변경 전 표시, 주문 없는 칸 입력 → 주문등록 예정
+    assert.equal(await page.getByTestId('distribution-pair-table').getAttribute('data-layout'), 'multi');
+    assert.equal(await page.locator('[data-ai-verify="move-to2-2429"]').count(), 0, 'no move column with 3+ customers');
+    await page.locator('[data-ai-verify="qty-512-2429"]').fill('53');
+    assert.match(await page.locator('[data-ai-verify="before-512-2429"]').textContent(), /변경 전 51/);
+    await page.locator('[data-ai-verify="qty-512-90"]').fill('2');
+    await page.getByText('주문등록 예정').first().waitFor();
     page.once('dialog', dialog => dialog.accept());
     await page.locator('[data-ai-verify="discard-drafts"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-512-2429"]').inputValue(), '51');
@@ -473,6 +476,14 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.keyboard.press('Control+s');
     await page.getByText(/품목 Alstroemeria — 변경 없음, 저장 생략/).waitFor();
     assert.equal(savePosts, 4, 'Ctrl+S without changes does not post');
+    // 품목 탭 업체추가: 담당자 → 업체 → 주문 없음 행에 수량 (저장 시 주문등록 후 분배), ✕ 로 빼기
+    await page.locator('[data-ai-verify="prod-add-cust-open"]').click();
+    await page.locator('[data-ai-verify="prod-add-manager-김담당"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-777"]').click();
+    await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
+    await page.getByText('주문 없음 · 저장 시 주문등록').waitFor();
+    await page.locator('[data-ai-verify="prod-added-remove-777"]').click();
+    assert.equal(await page.locator('[data-ai-verify="qty-777-2429"]').count(), 0);
 
     await page.getByRole('button', { name: /내역 조회/ }).click();
     await page.getByText('변경 내역 없음').waitFor();

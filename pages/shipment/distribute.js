@@ -142,21 +142,29 @@ export default function Distribute() {
   const [addPanel, setAddPanel] = useState(null);
   // 이 차수 주문이 없는 업체도 목록에 (업체 2~5 비교·이동 대상). GET /api/master/customers 읽기 전용
   const [showAllCustomers, setShowAllCustomers] = useState(false);
-  const [custItemFilter, setCustItemFilter] = useState(''); // 업체 탭 품목명 검색 (화면 필터 전용)
+  const [custItemFilter, setCustItemFilter] = useState('');
+  // 품목 탭 업체추가: 담당자 → 업체 버튼. 차수 안에서 품목을 바꿔도 유지 (주문 없는 업체는 저장 시 주문등록 후 분배)
+  const [prodAddedCusts, setProdAddedCusts] = useState([]); // [{ CustKey, CustName, OrderCode, Manager }]
+  const [prodAddOpen, setProdAddOpen] = useState(false);
+  const [prodAddManager, setProdAddManager] = useState(null); // 업체 탭 품목명 검색 (화면 필터 전용)
   const [addProdFilter, setAddProdFilter] = useState(''); // 품목추가 창 품목명 검색
   const [allCustomers, setAllCustomers] = useState([]);
   const customerPool = showAllCustomers
     ? [...custList, ...allCustomers.filter(a => !custList.some(c => Number(c.CustKey) === Number(a.CustKey))).map(a => ({ ...a, noOrder: true }))]
     : custList;
-  const toggleAllCustomers = async (on) => {
-    setShowAllCustomers(on);
-    if (!on || allCustomers.length > 0) return;
+  const loadAllCustomers = async () => {
+    if (allCustomers.length > 0) return true;
     try {
       const res = await fetch('/api/master/customers');
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.success !== true) throw new Error(d.error || '전체 업체 목록을 불러오지 못했습니다.');
-      setAllCustomers((d.data || []).map(c => ({ CustKey: c.CustKey, CustName: c.CustName, CustArea: c.CustArea, OrderCode: c.OrderCode })));
-    } catch (e) { setErr(e.message); setShowAllCustomers(false); }
+      setAllCustomers((d.data || []).map(c => ({ CustKey: c.CustKey, CustName: c.CustName, CustArea: c.CustArea, OrderCode: c.OrderCode, Manager: String(c.Manager || '').trim() })));
+      return true;
+    } catch (e) { setErr(e.message); return false; }
+  };
+  const toggleAllCustomers = async (on) => {
+    setShowAllCustomers(on);
+    if (on && !(await loadAllCustomers())) setShowAllCustomers(false);
   }; // { side, group, prodKey, unit } | null // 품목별 이동 방향 { from, to } (업체 3개 이상일 때)
 
   const [loading, setLoading] = useState(false);
@@ -330,6 +338,7 @@ export default function Distribute() {
     pairRequestRef.current += 1;
     setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
     extraRequestRef.current += 1; setExtraPeers([]); setMultiMove({});
+    setProdAddedCusts([]); setProdAddOpen(false);
     setSelectedDistCust(null); setFarmRows([]);
     setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});
     setPivotRows([]);
@@ -1164,7 +1173,7 @@ export default function Distribute() {
   const handleSave = async () => {
     if (saveBlocked || saveInFlightRef.current) return;
     if (!selectedProd || !week) { setErr('품목과 차수를 선택하세요.'); return; }
-    if (!hasDistributionDrafts(custDist, outInputs)) {
+    if (!hasDistributionDrafts(custDistRows, outInputs)) {
       appendSaveLog({ mode: 'prod', name: selectedProd.ProdName, week, skipped: true });
       return;
     }
@@ -1173,7 +1182,10 @@ export default function Distribute() {
     const submittedProd = selectedProd;
     setSaving(true); setErr('');
     try {
-      const entries = custDist.map(c => ({
+      // 추가한(주문 없는) 업체는 수량이 있을 때만 — 주문등록 먼저, 0 이면 주문도 분배도 만들지 않음
+      const rows = custDistRows.filter(c => !c.addedNoOrder || (Number(outInputs[c.CustKey]) || 0) > 0);
+      const newOrders = rows.filter(c => c.addedNoOrder);
+      const entries = rows.map(c => ({
         custKey: c.CustKey,
         prodKey: selectedProd.ProdKey,
         outQty: Number(outInputs[c.CustKey]) || 0,
@@ -1184,6 +1196,16 @@ export default function Distribute() {
         label: `${selectedProd.ProdName} 분배 저장`,
         logName: selectedProd.ProdName, mode: 'prod',
         apply: async () => {
+          for (const c of newOrders) {
+            const orderRes = await fetch('/api/orders', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ custKey: c.CustKey, custName: c.CustName, week, year: selectedOrderYear, source: 'distribute-product-add',
+                items: [{ prodKey: Number(selectedProd.ProdKey), qty: Number(outInputs[c.CustKey]) || 0, unit: selectedProd.OutUnit || '박스' }] })
+            });
+            const orderData = await orderRes.json().catch(() => ({}));
+            if (!orderRes.ok || orderData.success !== true) throw new Error(`${c.CustName} 주문등록 실패: ${orderData.error || orderRes.status}`);
+          }
           const res = await fetch('/api/shipment/distribute', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
@@ -1194,10 +1216,10 @@ export default function Distribute() {
         },
       });
       if (submittedWeek !== currentWeekRef.current) return;
-      const savedCount = custDist.filter(c => (outInputs[c.CustKey]||0) > 0).length;
+      const savedCount = custDistRows.filter(c => (outInputs[c.CustKey]||0) > 0).length;
       const totalSaved = Object.values(outInputs).reduce((a,b)=>a+(b||0),0);
       setSaveModal({ prodName: selectedProd.ProdName, week, savedCount, totalQty: totalSaved });
-      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, savedCount, totalQty: totalSaved });
+      appendSaveLog({ mode: 'prod', name: submittedProd.ProdName, week: submittedWeek, savedCount, totalQty: totalSaved, orderCount: newOrders.length });
       if (Number(submittedProd.ProdKey) === Number(selectedProd?.ProdKey)) selectProd(submittedProd, { skipDraftCheck: true }); // 새로고침
     } catch(e) {
       setErr(e.message);
@@ -1205,6 +1227,9 @@ export default function Distribute() {
     } finally { saveInFlightRef.current = false; setSaving(false); }
   };
 
+  const custDistRows = selectedProd ? [...custDist, ...prodAddedCusts
+    .filter(a => !custDist.some(c => Number(c.CustKey) === Number(a.CustKey)))
+    .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))] : custDist;
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
   const filteredProds = sortDistributionProducts(products, prodFilter)
     .filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey)));
@@ -1237,6 +1262,44 @@ export default function Distribute() {
     <input className="filter-input" placeholder="품목명 검색" value={custItemFilter} data-ai-verify="cust-item-search" aria-label="품목명 검색"
       onChange={e => setCustItemFilter(e.target.value)} style={{height:26,fontSize:12,width:160,marginLeft:8}} />
   );
+  // 나란히 보기 한 칸 (업체 sideIndex × 품목). 그 업체에 행이 없어도 입력 가능 → 주문등록 예정 행을 만들고 저장 시 주문등록 후 분배.
+  // 박스·단·송이 세 칸 환산, 저장값은 OutUnit 하나. 값이 바뀌면 아래에 변경 전 수량.
+  const pairQtyCell = (sideIndex, row, color) => {
+    const side = pairSides()[sideIndex];
+    if (!side?.cust) return '—';
+    const item = side.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
+    const edit = side.inputs[row.ProdKey] || {};
+    const before = item ? Number(item.출고수량 || 0) : 0;
+    const value = edit.outQty !== undefined ? edit.outQty : before;
+    const src = row.a || row.b || (row.extra || []).find(Boolean) || row;
+    const setQty = (native) => {
+      if (!item) side.setItems(prev => prev.some(i => Number(i.ProdKey) === Number(row.ProdKey)) ? prev : [...prev, pendingDistributionItem({ ...row, Cost: src.Cost })]);
+      side.setInputs(prev => ({ ...prev, [row.ProdKey]: { ...(prev[row.ProdKey] || {}), outQty: native, cost: prev[row.ProdKey]?.cost ?? (item?.Cost ?? src.Cost ?? 0) } }));
+    };
+    const changed = (parseFloat(value) || 0) !== before;
+    return (
+      <div>
+        <span style={{display:'inline-flex',gap:3}}>
+          {['박스', '단', '송이'].map(unit => {
+            const f = distributionUnitFactor(row, unit);
+            const native = unit === (row.OutUnit || '박스');
+            const filled = parseFloat(value) > 0;
+            return (
+              <input key={unit} type="number" min={0} step={native ? 0.1 : 0.01} placeholder={unit}
+                value={filled && f ? toDisplayQty(value, f) : ''} disabled={saving || loading || !f}
+                title={f ? `${unit} (저장 단위 ${row.OutUnit})${item ? '' : ' — 주문 없음: 입력하면 저장 시 주문등록 후 분배'}` : `${unit}: 입수 정보가 없어 환산 불가`}
+                {...(native ? { 'data-distribute-qty': 'true', 'aria-keyshortcuts': 'Enter', onKeyDown: handleQuantityEnter } : {})}
+                data-ai-verify={native ? `qty-${side.cust.CustKey}-${row.ProdKey}` : `qty-${side.cust.CustKey}-${row.ProdKey}-${unit}`}
+                aria-label={`${side.cust.CustName} ${row.ProdName} 출고수량 (${unit})`}
+                onChange={e => setQty(native ? e.target.value : toNativeQty(e.target.value, f))}
+                style={{width:native?58:50,height:26,border:`1px solid ${filled&&native?color:'var(--border2)'}`,borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 3px',background:filled&&native?'var(--blue-bg)':item?'var(--bg)':'#fafafa',fontWeight:filled&&native?700:400,color:native?undefined:'var(--text2)'}} />
+            );
+          })}
+        </span>
+        {changed && <div data-ai-verify={`before-${side.cust.CustKey}-${row.ProdKey}`} style={{fontSize:10,color:'#b45309',textAlign:'right'}}>변경 전 {before} {row.OutUnit}</div>}
+      </div>
+    );
+  };
   const pairRows = mergeDistributionCustomerItems(custItems, pairItems, extraPeers.map(p => p.items));
   const fixedCount = (items) => items.filter(i => fixedScopeMap[Number(i.ProdKey)]?.fixed).length;
 
@@ -1818,7 +1881,42 @@ export default function Distribute() {
                       <>
                         <div style={{padding:'6px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600}}>
                           {distributeProductName(selectedProd, selectedFlower)} — 거래처 분배 정보
+                          <button type="button" className="btn btn-sm" data-ai-verify="prod-add-cust-open" disabled={saving || loading}
+                            onClick={async () => { const next = !prodAddOpen; setProdAddOpen(next); if (next) await loadAllCustomers(); }}
+                            style={{marginLeft:8,padding:'1px 8px',fontSize:11}}>{prodAddOpen ? '업체추가 닫기' : '+ 업체추가'}</button>
+                          {prodAddedCusts.length > 0 && <span style={{marginLeft:8,fontWeight:400,color:'#b45309'}}>추가 업체 {prodAddedCusts.length}곳 (품목을 바꿔도 유지)</span>}
                         </div>
+                        {prodAddOpen && (() => {
+                          const managers = [...new Set(allCustomers.map(c => c.Manager || '담당자 없음'))].sort((a, b) => a.localeCompare(b, 'ko'));
+                          const list = prodAddManager ? sortDistributionCustomers(allCustomers.filter(c => (c.Manager || '담당자 없음') === prodAddManager)) : [];
+                          return (
+                            <div data-testid="distribution-prod-add-cust" style={{padding:'6px 14px',borderBottom:'1px solid var(--border-t)',display:'grid',gap:6}}>
+                              <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                                <span style={{fontSize:11,color:'var(--text3)'}}>담당자</span>
+                                {allCustomers.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>불러오는 중…</span>}
+                                {managers.map(m => (
+                                  <button key={m} type="button" data-ai-verify={`prod-add-manager-${m}`} aria-pressed={prodAddManager === m}
+                                    onClick={() => setProdAddManager(m)} style={pickButtonStyle(prodAddManager === m, true)}>{m}</button>
+                                ))}
+                              </div>
+                              {prodAddManager && (
+                                <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                                  <span style={{fontSize:11,color:'var(--text3)'}}>업체</span>
+                                  {list.map(c => {
+                                    const inDist = custDist.some(d => Number(d.CustKey) === Number(c.CustKey));
+                                    const added = prodAddedCusts.some(a => Number(a.CustKey) === Number(c.CustKey));
+                                    return (
+                                      <button key={c.CustKey} type="button" data-ai-verify={`prod-add-cust-${c.CustKey}`} aria-pressed={added || inDist} disabled={inDist || saving}
+                                        title={inDist ? '이미 이 품목 주문이 있는 업체' : added ? '다시 누르면 빼기' : '추가'}
+                                        onClick={() => setProdAddedCusts(prev => added ? prev.filter(a => Number(a.CustKey) !== Number(c.CustKey)) : [...prev, c])}
+                                        style={pickButtonStyle(added || inDist, false)}>{added ? '✓ ' : ''}{c.CustName}</button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <table className="tbl" style={{fontSize:12}}>
                           <thead>
                             <tr>
@@ -1834,9 +1932,9 @@ export default function Distribute() {
                             </tr>
                           </thead>
                           <tbody>
-                            {custDist.length === 0
-                              ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
-                              : custDist.map(c => {
+                            {custDistRows.length === 0
+                              ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음 — 위 「+ 업체추가」로 업체를 넣을 수 있습니다</td></tr>
+                              : custDistRows.map(c => {
                                 const outVal = outInputs[c.CustKey] || 0;
                                 const diff = (c.주문수량||0) - outVal;
                                 // Box·단·송이 칸은 출고수량(OutUnit)을 환산해 보여 주고, 어느 칸에 입력해도 OutUnit 으로 바꿔 저장값 하나만 둔다.
@@ -1858,7 +1956,12 @@ export default function Distribute() {
                                   <tr key={c.CustKey}
                                     onClick={() => selectDistCustRow(c)}
                                     style={{ cursor: 'pointer', background: isSel ? 'var(--blue-bg)' : undefined }}>
-                                    <td className="name">{c.CustName}</td>
+                                    <td className="name">{c.CustName}
+                                      {c.addedNoOrder && <span style={{fontSize:10,color:'#b45309',marginLeft:4}}>주문 없음 · 저장 시 주문등록</span>}
+                                      {c.addedNoOrder && <button type="button" className="btn btn-sm" data-ai-verify={`prod-added-remove-${c.CustKey}`} disabled={saving}
+                                        onClick={e => { e.stopPropagation(); setProdAddedCusts(prev => prev.filter(a => Number(a.CustKey) !== Number(c.CustKey))); setOutInputs(o => { const n = { ...o }; delete n[c.CustKey]; return n; }); }}
+                                        style={{padding:'0 5px',fontSize:10,marginLeft:4}}>✕</button>}
+                                    </td>
                                     <td style={{fontFamily:'var(--mono)',fontSize:11}}>{c.주문코드}</td>
                                     <td style={{fontSize:11}}>{selectedProd.OutUnit || c.OutUnit || '—'}</td>
                                     <td className="num">{(c.주문수량||0).toFixed(2)}</td>
@@ -1965,6 +2068,67 @@ export default function Distribute() {
                           </div>
                         );
                       })()}
+                      {extraPeers.length > 0 ? (() => {
+                        // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙여서 바로 수정 (업체명 = 머리줄)
+                        const sides = pairSides();
+                        const colors = ['var(--blue)', '#b45309', ...PEER_COLORS];
+                        const rows = pairRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
+                        const itemAt = (sd, row) => sd.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
+                        const qtyAt = (sd, row) => { const item = itemAt(sd, row); const e = sd.inputs[row.ProdKey]; return e?.outQty !== undefined ? parseFloat(e.outQty) || 0 : (item?.출고수량 || 0); };
+                        const edge = i => ({ borderLeft: `2px solid ${colors[i]}` });
+                        return (
+                          <table className="tbl" data-testid="distribution-pair-table" data-layout="multi" style={{fontSize:12,width:'auto'}}>
+                            <thead>
+                              <tr data-testid="distribution-pair-cust-header">
+                                <th rowSpan={2}>품목명</th><th rowSpan={2}>단위</th>
+                                {sides.map((sd, i) => (
+                                  <th key={sd.cust.CustKey} colSpan={2} data-ai-verify={`pair-cust-head-${i + 1}`}
+                                    style={{...edge(i), textAlign:'center', color:colors[i], fontSize:13, background:'#f8fafc'}}>{SLOT_MARK[i]} {sd.cust.CustName}</th>
+                                ))}
+                                <th rowSpan={2} style={{textAlign:'right'}} title="이 차수 입고 − 전체 출고(선택 업체들의 화면 변경분 반영), 저장 단위">재고잔량(변경후)</th>
+                              </tr>
+                              <tr>
+                                {sides.map((sd, i) => [
+                                  <th key={`o-${i}`} style={{...edge(i), textAlign:'right'}}>주문</th>,
+                                  <th key={`q-${i}`} style={{textAlign:'center',color:colors[i]}}>출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>,
+                                ])}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map(row => {
+                                const prod = products.find(p => Number(p.ProdKey) === Number(row.ProdKey));
+                                const delta = sides.reduce((a, sd) => { const item = itemAt(sd, row); return a + (item ? qtyAt(sd, row) - (item.출고수량 || 0) : 0); }, 0);
+                                const left = prod ? (Number(prod.inQty) || 0) - (Number(prod.outQty) || 0) - delta : null;
+                                return (
+                                  <tr key={row.ProdKey}>
+                                    <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'nowrap'}}>{fixedBadge(row.ProdKey)}{row.DisplayName || row.ProdName}</td>
+                                    <td style={{fontSize:11,padding:'3px 6px'}} title="저장 단위">{row.OutUnit}</td>
+                                    {sides.map((sd, i) => {
+                                      const item = itemAt(sd, row);
+                                      return [
+                                        <td key={`o-${i}`} className="num" style={{...edge(i), color:colors[i]}}>{item ? (item.pendingOrder ? <span style={{fontSize:11}}>주문등록 예정</span> : (item.주문수량 || 0).toFixed(2)) : <span style={{color:'var(--text3)',fontSize:11}}>주문 없음</span>}</td>,
+                                        <td key={`q-${i}`}>{pairQtyCell(i, row, colors[i])}</td>,
+                                      ];
+                                    })}
+                                    <td className="num" data-ai-verify={`pair-remain-${row.ProdKey}`}>{left === null ? <span style={{color:'var(--text3)'}}>—</span>
+                                      : <span style={{fontWeight:700,color:left<0?'var(--red)':left===0?'var(--green)':'var(--text1)'}}>{left.toFixed(2)} <span style={{fontSize:10,fontWeight:400,color:'var(--text3)'}}>{row.OutUnit}</span></span>}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="foot">
+                                <td colSpan={2}>합계</td>
+                                {sides.map((sd, i) => [
+                                  <td key={`o-${i}`} className="num" style={edge(i)}>{sd.items.reduce((a, b) => a + (b.주문수량 || 0), 0).toFixed(2)}</td>,
+                                  <td key={`q-${i}`} className="num" style={{color:colors[i]}}>{sd.items.reduce((a, item) => a + qtyAt(sd, item), 0).toFixed(2)}</td>,
+                                ])}
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        );
+                      })() : (
                       <table className="tbl" data-testid="distribution-pair-table" style={{fontSize:12,width:'auto'}}>
                         <thead>
                           <tr data-testid="distribution-pair-cust-header">
@@ -2028,7 +2192,7 @@ export default function Distribute() {
                                 <td style={{fontWeight:500,padding:'3px 6px',whiteSpace:'nowrap'}}>{fixedBadge(row.ProdKey)}{row.DisplayName || row.ProdName}</td>
                                 <td style={{fontSize:11,padding:'3px 6px'}} title="저장 단위">{row.OutUnit}</td>
                                 <td className="num" style={{color:'var(--blue)'}}>{row.a ? (row.a.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.a.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
-                                <td>{row.a ? qtyInput(selectedCust, row.a, qtyA, custEditInputs, setCustEditInputs, 'var(--blue)') : '—'}</td>
+                                <td>{pairQtyCell(0, row, 'var(--blue)')}</td>
                                 <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
                                   <button type="button" className="btn btn-sm" data-ai-verify={`move-to1-${row.ProdKey}`} disabled={saving || loading || !(parseFloat(qtyB) > 0)}
                                     title={!row.a ? '②→① 이동 (①에 주문이 없어 저장 시 주문등록 후 분배)' : '②→① 이동 (이동 수량이 비어 있으면 전부; 화면 입력값만, 저장 시 반영)'}
@@ -2067,12 +2231,12 @@ export default function Distribute() {
                                     );
                                   })()}
                                 </td>
-                                <td>{row.b ? qtyInput(pairCust, row.b, qtyB, pairEditInputs, setPairEditInputs, '#b45309') : '—'}</td>
+                                <td>{pairQtyCell(1, row, '#b45309')}</td>
                                 <td className="num" style={{color:'#b45309'}}>{row.b ? (row.b.pendingOrder ? <span style={{color:'#b45309',fontSize:11}}>주문등록 예정</span> : (row.b.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>
                                 {extraPeers.map((p, i) => {
                                   const item = row.extra?.[i];
                                   return [
-                                    <td key={`in-${i}`}>{item ? qtyInput(p.cust, item, qtyX[i], p.inputs, next => updateExtra(i, 'inputs', next), PEER_COLORS[i]) : '—'}</td>,
+                                    <td key={`in-${i}`}>{pairQtyCell(i + 2, row, PEER_COLORS[i])}</td>,
                                     <td key={`ord-${i}`} className="num" style={{color:PEER_COLORS[i]}}>{item ? (item.pendingOrder ? <span style={{fontSize:11}}>주문등록 예정</span> : (item.주문수량||0).toFixed(2)) : <span style={{color:'var(--text3)'}}>주문 없음</span>}</td>,
                                   ];
                                 })}
@@ -2110,6 +2274,7 @@ export default function Distribute() {
                           </tr>
                         </tfoot>
                       </table>
+                      )}
                     </>
                   ) : (
                     <>
