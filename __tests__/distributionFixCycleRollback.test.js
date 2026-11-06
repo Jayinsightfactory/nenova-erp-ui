@@ -74,4 +74,9 @@ test('server contract: SP는 품종별 트랜잭션 안에서 실행, 실패 결
   assert.match(fixApi, /logFix\('fix_start'[^\n]*cycleSourceLabel\(req\)/);
   const page = fs.readFileSync(path.join(__dirname, '../pages/shipment/distribute.js'), 'utf8');
   assert.match(page, /cycleSource: 'distribute-save'/);
+  // 업체 탭 저장은 바뀐 행만 → 확정해제 범위도 바뀐 품목의 품목군만 (관계없는 품종의 다음차수 확정에 막히지 않음)
+  const custSave = page.slice(page.indexOf('const handleSaveCustItems'), page.indexOf('const handleSave = async'));
+  assert.match(custSave, /const changed = item\.pendingOrder \|\| qty !== Number\(item\.출고수량 \|\| 0\) \|\| cost !== Number\(item\.Cost \|\| 0\)/);
+  assert.match(custSave, /return changed \? \[\{ custKey/);
+  assert.match(custSave, /prodKeys: entries\.map\(entry => entry\.prodKey\)/);
 });
