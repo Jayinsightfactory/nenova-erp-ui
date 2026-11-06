@@ -2214,3 +2214,11 @@
 - runtime기존4MiB/최근30분 strict새marker집계·이전PID보존. stocknotes는statusCode409+PROFIT_SOURCES_CHANGED exact만409/code전달·기존generic문구유지, unknown/ECANCEL500/정상200/400405 그대로.
 - 대상27PASS(실제reader 합성JSON·SQLsequence·2회fence·forceyear·owner1/logger409·ERPctx, privacy/crossyear/미래45/timestampOnly/PID, 실제runtime VM새marker와실제handler+scope파서). 기존2sourceassert는after변수whole비교형식만정정. 계약/기준표/session등록, fullsuite/build/CI/운영은부모후속(미검증). 추가probe/실SQL0·UI0/가이드N/A.
 검색어: NENOVA_PROFIT_SOURCE_CHANGED timestampOnly coveredYears whole-fence stock-notes409 owner1 memory-only
+
+## 2026-11-07 source-change 원인조사·DB 식별 엄격진단
+- 사용자 입력없음 조건에서도원천변경원인조사/웹수정요청·DB변경절대금지. 새 false-source-change @76b71a575에서앱수정0. actual조립함수 합성63회 unique행순서/cacheclear/병렬scope 안정, 중복키반례는실제발생미입증. 승인metadata1배치로22table computed/rowversion0·로컬Taxabletable missing·invoice정렬unique확인, 정의/행값0. quiet운영2회파일PASS·동일PID/restart/sourceevent0은미재현이지해결확정아님.
+- 등록deploy diagnose-performance job만DBidentityCLI packaging+Node20privacyfixture추가(새workflow제거). exactonline ERP PID/proc DB5만RAM decode·bufferzero, 필수값없으면CONFIG_UNAVAILABLE/fallback0, PORT누락빈값만1433. ownedpool1/15sconnect/10squery/고정1SELECT/closefinally·PIDreadback. rawenv/jlist/config/error/stdout/stderr/credential파일·backup0. 자동deployjob/조건/push byte변경0·mastermerge/앱deploy0.
+- 순수fixture로stdin main1회/SELECT1/close1·rogue로그차단·누락시QUERY0·errorclose/target0·duplicate·PIDdrift·typedports 검증. 로컬동일SQL 승인1회PASS(identitySHA8f264258…9f382ba, Taxablefalse/invoicetables4/uniquescopes4), 금융금액SHA와별개. 운영hash는부모featurebranch manualdispatch대기(미검증). 추가실SQL/full44/DMV반복·DB/메모리설정쓰기0.
+검색어: database identity proc_initial_environ CONFIG_UNAVAILABLE metadata SHA8f264258 exactPID oneSELECT diagnostic-only
+- 최종진단fixture6PASS. localFields 기본절대경로제거→PROFIT_ENV_DIR||process.cwd(), 기실행baseline은당시기존환경정본기본경로사용결과이며현CLI재현은그동일디렉터리를PROFIT_ENV_DIR로명시한다. 추가SQL재실행0. manifest최초실패는공통ERP보존키순서요구라businessIdentity를canonical4키로두고실제metadata식별자는diagnosticIdentity에분리했다.
+- 최종directmanifest202PASS/diffcheckPASS. 기존증거참조와표준requiredCommands도공통manifest정본에맞춰등록했으며이번featurebranch진단은fullsuite/build/mastermerge/앱deploy실행0. deploy job·on/push/concurrency의Git LF 정본hash불변도fixture로확인했다.

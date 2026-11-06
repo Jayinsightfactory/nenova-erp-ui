@@ -66,6 +66,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Pure read-only database identity privacy fixtures
+        run: node --test __tests__/profitDatabaseIdentityProbe.test.cjs
       - name: Package read-only diagnostic commands
         id: perf-script
         run: |
@@ -77,7 +82,9 @@ jobs:
             cat scripts/diagnose-nginx-readonly.py
             printf "\nPY_DIAG\nnode <<'ACTIVITY_DIAG'\n"
             cat scripts/diagnose-activity-readonly.cjs
-            printf "\nACTIVITY_DIAG\n"
+            printf "\nACTIVITY_DIAG\nnode <<'DB_IDENTITY_NODE'\n"
+            cat scripts/profit-database-identity-readonly.cjs
+            printf "\nmodule.exports.main({mode:'production'}).catch(()=>{console.log(JSON.stringify({status:'FAILED',code:'IDENTITY_PROBE_FAILED'}));process.exitCode=1;});\nDB_IDENTITY_NODE\n"
             echo 'PERF_DIAG_EOF'
           } >> "$GITHUB_OUTPUT"
       - name: Read-only sanitized server performance diagnosis

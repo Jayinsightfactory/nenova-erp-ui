@@ -721,3 +721,4 @@
 - [2026-11-06 최신 손익 겹치는 읽기 공유](2026-11-06_profit-runtime-memory.md) — distinct built API/HTTPabort·단일44돈SHA동일 PASS, TTL0/context bypass; readonly UI+파일2회 준비, 설정적용보류·운영미완료.
 - [2026-11-06 반복 손익 ECANCEL 실패 관측](2026-11-06_profit-cancel-diagnostic.md) — ordinary live owner 최대3회 phase/hash/PID/pool만, 기존45/60초·erroridentity 보존·대상21PASS, 최종gate/운영미검증.
 - [2026-11-06 source fence 변경관측·재고비고409](2026-11-06_profit-source-fence-diagnostic.md) — wholefence 유지·owner1 메모리diff/timestampOnly·known409만전달·대상27PASS, 최종gate/운영미검증.
+- [2026-11-07 source-change 원인조사·DB 식별](2026-11-07_profit-db-identity.md) — 앱수정0/strict proc DB5→고정metadata SELECT1·hash만, 로컬PASS/운영manual진단대기·원인미확정.

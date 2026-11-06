@@ -1,0 +1,12 @@
+{
+  "id":"profit-database-identity-readonly",
+  "title":"로컬·exact ERP 프로세스 DB 식별 메타데이터 조회",
+  "scope":["scripts/profit-database-identity-readonly.cjs",".github/workflows/deploy.yml"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "diagnosticIdentity":["ServerDatabaseIdentityHash","PM2App","PID"],
+  "actions":[{"name":"READ_DATABASE_IDENTITY","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"Manual diagnostics only. Exact one online nenova-erp PID; DB5 initial proc environ fields RAM-only, no local/other-app fallback, missing mandatory fields CONFIG_UNAVAILABLE. Fresh owned mssqlpool max1/connect15s/query10s/one fixed metadata SELECT/close finally, stable PID readback. SQL returns only server+DB SHA256 and bounded schema counts; raw names/credentials/env/jlist/config/errors never output/saved/backed up. Registered diagnose_performance_only packaging reuses SSH and production concurrency; deploy job/push/conditions unchanged. No operational DB writes, app changes, restart, PM2 persistence, financial read, new endpoint or environment flag."}],
+  "crossYearFixture":{"required":true,"description":"Metadata identity probe accepts no report year/week and cannot select or alter either2025/44 or2026/44. Exact target duplicate/offline/PID0, PORT0/false/missing, missing initial dotenv-derived config, PID drift, mismatch, private output/error and one-query/close fixtures prevent silent scope/default substitution."},
+  "requiredTestFiles":["__tests__/profitDatabaseIdentityProbe.test.cjs"],
+  "dnspyEvidence":{"required":true,"record":"docs/plans/profit-database-identity-readonly-2026-11-07.md","source":"Existing actual FormWarehouseView.GetData and SELECT-only44 baseline evidence preserved. This change queries only diagnostic sys metadata/server identity, not a new financial feature or shared ledger read/write.","methods":["FormWarehouseView.GetData"],"tables":["sys.tables","sys.indexes","sys.index_columns","sys.columns"]},
+  "requiredCommands":["node --test __tests__/profitDatabaseIdentityProbe.test.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
