@@ -23,15 +23,27 @@ def clay_mat(name, base, shadow):
     geo = nt.nodes.new('ShaderNodeNewGeometry')
     sep = nt.nodes.new('ShaderNodeSeparateXYZ')
     mr = nt.nodes.new('ShaderNodeMapRange')
-    mr.inputs['From Min'].default_value = -1.0
-    mr.inputs['From Max'].default_value = 0.3
+    mr.inputs['From Min'].default_value = -1.4
+    mr.inputs['From Max'].default_value = 0.5
     mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'
     mix.inputs['A'].default_value = hexc(shadow)
     mix.inputs['B'].default_value = hexc(base)
     nt.links.new(geo.outputs['Normal'], sep.inputs[0])
     nt.links.new(sep.outputs['Z'], mr.inputs['Value'])
     nt.links.new(mr.outputs['Result'], mix.inputs['Factor'])
-    nt.links.new(mix.outputs['Result'], bsdf.inputs['Base Color'])
+    # 외곽 크림 림: 시선과 비스듬한 면일수록 크림색을 은은하게 더함
+    lw = nt.nodes.new('ShaderNodeLayerWeight'); lw.inputs['Blend'].default_value = 0.2
+    rr = nt.nodes.new('ShaderNodeMapRange')
+    rr.inputs['From Min'].default_value = 0.5; rr.inputs['To Max'].default_value = 0.4
+    rim = nt.nodes.new('ShaderNodeMix'); rim.data_type = 'RGBA'
+    rim.inputs['B'].default_value = hexc('#fff1dc')
+    nt.links.new(lw.outputs['Facing'], rr.inputs['Value'])
+    nt.links.new(rr.outputs['Result'], rim.inputs['Factor'])
+    nt.links.new(mix.outputs['Result'], rim.inputs['A'])
+    nt.links.new(rim.outputs['Result'], bsdf.inputs['Base Color'])
+    em = 'Emission Color' if 'Emission Color' in bsdf.inputs else 'Emission'
+    nt.links.new(rr.outputs['Result'], bsdf.inputs['Emission Strength'])
+    bsdf.inputs[em].default_value = hexc('#fff1dc')
     # 서브서피스 살짝 → 클레이 느낌
     try:
         bsdf.inputs['Subsurface Weight'].default_value = 0.15
@@ -41,9 +53,9 @@ def clay_mat(name, base, shadow):
 
 # ---- 몸통/지느러미/꼬리/볼: 메타볼 융합 ----
 mb_data = bpy.data.metaballs.new('FishMB')
-mb_data.resolution = 0.06
-mb_data.render_resolution = 0.06
-mb_data.threshold = 0.6
+mb_data.resolution = 0.035
+mb_data.render_resolution = 0.035
+mb_data.threshold = 0.45
 mb = bpy.data.objects.new('FishMB', mb_data)
 scn.collection.objects.link(mb)
 
@@ -84,14 +96,17 @@ for o in list(scn.objects):
         bpy.data.objects.remove(o)
 
 # 가벼운 감량(웹용) 후 스무스
-dec = fish.modifiers.new('Dec', 'DECIMATE'); dec.ratio = 0.3
+# 고해상도 메타볼 → 목표 삼각형 수(약 9천)로 감량. 저해상도+과감량의 각진 외곽 방지
+n0 = sum(len(p.vertices) - 2 for p in fish.data.polygons)
+dec = fish.modifiers.new('Dec', 'DECIMATE'); dec.ratio = min(1.0, 7300 / n0)
 bpy.ops.object.modifier_apply(modifier='Dec')
+print('RAW_TRIS', n0)
 bpy.ops.object.shade_smooth()
-fish.data.materials.append(clay_mat('ClayPeach', '#ffa28c', '#c8b6ff'))
+fish.data.materials.append(clay_mat('ClayPeach', '#ffa28c', '#e8b4d0'))
 
 # ---- 눈/코/볼터치: 표면에 살짝 파묻힌 납작 타원 ----
 def flat_dot(name, loc, r, color, normal_rot, zscale=0.35):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=r, location=loc)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=10, radius=r, location=loc)
     o = bpy.context.active_object; o.name = name
     o.scale = (1, 1, zscale)
     o.rotation_euler = normal_rot
@@ -128,7 +143,7 @@ for p in parts: p.select_set(True)
 fish.select_set(True)
 bpy.context.view_layer.objects.active = fish
 bpy.ops.object.join()
-fish.rotation_euler = (0, 0, math.radians(-20))  # 살짝 몸을 튼 도망 포즈
+fish.rotation_euler = (0, 0, math.radians(-8))  # 살짝 몸을 튼 도망 포즈
 
 tris = sum(len(p.vertices) - 2 for p in fish.data.polygons)
 
@@ -161,11 +176,11 @@ sun.data.energy = 4.0; sun.data.color = hexc('#ffe5d9')[:3]; sun.data.angle = ma
 sun.rotation_euler = (math.radians(35), math.radians(25), math.radians(-40))
 scn.collection.objects.link(sun)
 fill = bpy.data.objects.new('Fill', bpy.data.lights.new('Fill', 'AREA'))
-fill.data.energy = 120; fill.data.color = hexc('#c8b6ff')[:3]; fill.data.size = 5
+fill.data.energy = 90; fill.data.color = hexc('#ffd6e0')[:3]; fill.data.size = 5
 fill.location = (-3, -4, -1); fill.rotation_euler = (math.radians(110), 0, math.radians(-35))
 scn.collection.objects.link(fill)
 rim = bpy.data.objects.new('Rim', bpy.data.lights.new('Rim', 'AREA'))
-rim.data.energy = 400; rim.data.color = hexc('#fff3e0')[:3]; rim.data.size = 2
+rim.data.energy = 700; rim.data.color = hexc('#fff3e0')[:3]; rim.data.size = 2
 rim.location = (-2.5, 3.5, 2.2)
 rim.rotation_euler = (Vector((0, 0, 0)) - rim.location).to_track_quat('-Z', 'Y').to_euler()
 scn.collection.objects.link(rim)
