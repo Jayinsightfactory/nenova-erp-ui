@@ -16,7 +16,7 @@ import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, railPick, fitScale, moundPick } from '../../lib/pm3dAssets';
-import { loadKit, bake, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
+import { loadKit, bake, lodBake, mergeStatic, mergeLocal, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
 import { faceOf, isFaceId } from '../../lib/pmFaces';
@@ -73,7 +73,9 @@ function faceTexture(id, onReady) {
   faceTexCache.set(id, tex); return tex;
 }
 // 상태 → 작업 분위기(lib/pmMood 간이판: 3D 는 status 만 안다)
-const STATUS_VIBE = { working: 'work', off: 'doze', idle: 'break' };
+// 이름표 공통 = 둥근 클레이 배지(11/07): 위 하이라이트 + 아래 안쪽 그늘 + 따뜻한 바닥 그림자
+const CLAY_BADGE = 'inset 0 1.5px 0 rgba(255,255,255,.75), inset 0 -2px 0 rgba(120,80,50,.16), 0 2px 4px rgba(90,55,30,.22)';
+const STATUS_VIBE ={ working: 'work', off: 'doze', idle: 'break' };
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
@@ -193,6 +195,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       if (!m.aoMap && mesh?.geometry?.attributes?.uv1) { m.aoMap = kitAo; m.aoMapIntensity = RQ.aoIntensity; }
     };
     const cam = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
+    if (typeof window !== 'undefined' && window.__PM3D_DEBUG) Object.assign(window.__PM3D_DEBUG, { renderer, scene, cam }); // 성능 측정 훅(window.__PM3D_DEBUG 를 미리 둔 측정 페이지에서만)
     const pan = new THREE.Vector3(); const wp = new THREE.Vector3();
     const st = { fit: 10, zoom: 1, people: new Map(), stations: [], robots: [], lines: [], clickables: [], built: false, clock: new THREE.Clock(), frames: 0, fpsT0: 0, firstFrame: null, checked: false };
     const placeCam = () => {
@@ -243,49 +246,44 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const GC = PM3D.GRID;
         const wb = worldBounds(world);
         {
-          // 물결: 정점 셰이더에서 sin 2겹으로 높이·법선을 흔든다(GPU 계산, uTime 1개만 갱신 → FPS_CAP 불변·CPU 비용 0)
+          // [2026-11-07 사장님 스크린샷 "바다 위 사각 판"] 얕은 물·해안 거품·반짝임·명암판을 별도 사각 평면 6장+스프라이트 18개로
+          //   겹쳐 두던 것을 바다 셰이더 한 장 안에서 계산 → 사각 테두리·이음매 0, 드로콜 -24, 투명 겹침(오버드로) 제거.
+          //   물결 = 정점 셰이더 sin 2겹(uTime 1개만 갱신 → FPS_CAP 불변·CPU 비용 0). 해안 거리 = 섬 사각형의 둥근 SDF.
+          const cx = (wb.x0 + wb.x1) / 2, cz = (wb.z0 + wb.z1) / 2;
+          const iw = wb.x1 - wb.x0, ih = wb.z1 - wb.z0;
           const seaMat = new THREE.MeshLambertMaterial({ color: T.sea || GC.sea });
           st.seaTime = { value: 0 };
+          const shallowC = new THREE.Color(T.sea || GC.sea).lerp(new THREE.Color('#c2f1f0'), 0.42);
           seaMat.onBeforeCompile = (sh) => {
             sh.uniforms.uTime = st.seaTime;
-            sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader
+            sh.uniforms.uHalf = { value: new THREE.Vector2(iw / 2, ih / 2) };
+            sh.uniforms.uShallow = { value: shallowC };
+            sh.fragmentShader = 'uniform float uTime;\nuniform vec2 uHalf;\nuniform vec3 uShallow;\nvarying vec2 vSea;\n' + sh.fragmentShader
+              .replace('#include <color_fragment>', `#include <color_fragment>
+  vec2 q = abs(vSea) - uHalf + 1.2;
+  float dCoast = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 1.2; // 섬 가장자리에서 바깥으로 거리(m)
+  // 깊이 그라데이션(색감 보완 11/07): 먼 바다는 채도·명도를 낮춘 깊은 청록, 해안 쪽은 밝은 얕은 물 — 쨍한 단색 평면감 제거
+  vec3 deepC = diffuseColor.rgb * vec3(0.62, 0.74, 0.80);
+  diffuseColor.rgb = mix(diffuseColor.rgb, deepC, smoothstep(3.0, 22.0, dCoast));
+  diffuseColor.rgb = mix(diffuseColor.rgb, uShallow, (1.0 - smoothstep(0.0, 4.5, dCoast)) * 0.85);
+  float br = 0.55 + 0.35 * sin(uTime * 1.1);
+  float foam = smoothstep(1.0, 0.25, abs(dCoast - 0.35 - 0.12 * br)) * (0.38 + 0.14 * br);
+  float glint = pow(max(0.0, sin(vSea.x * 2.3 + uTime * 1.3) * sin(vSea.y * 1.9 - uTime * 0.9)), 24.0) * (1.0 - smoothstep(2.0, 9.0, dCoast)) * 0.5;
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), clamp(foam + glint, 0.0, 1.0));`);
+            sh.vertexShader = 'uniform float uTime;\nvarying vec2 vSea;\n' + sh.vertexShader
               .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
   float wA = 0.55, wB = 0.38;
   vec2 wp = position.xy;
+  vSea = wp;
   float dX = 0.06 * wA * cos(wp.x * wA + uTime * 1.1) + 0.04 * wB * cos((wp.x + wp.y) * wB + uTime * 0.8);
   float dY = 0.04 * wB * cos((wp.x + wp.y) * wB + uTime * 0.8);
   objectNormal = normalize(vec3(-dX, -dY, 1.0));`)
               .replace('#include <begin_vertex>', `#include <begin_vertex>
   transformed.z += 0.06 * sin(wp.x * wA + uTime * 1.1) + 0.04 * sin((wp.x + wp.y) * wB + uTime * 0.8);`);
           };
-          const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60, 96, 96), seaMat);
-          sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
-          // [2026-11-06 톤 업그레이드] ①얕은 물 띠 ②해안 거품 띠(숨쉬듯 출렁) ③수면 반짝임 ④전역 명암판 — 전부 정적 메시+투명도 애니라 비용 미미, FPS_CAP 불변
-          const cx = (wb.x0 + wb.x1) / 2, cz = (wb.z0 + wb.z1) / 2;
-          const iw = wb.x1 - wb.x0, ih = wb.z1 - wb.z0;
-          const shallow = new THREE.Mesh(new THREE.PlaneGeometry(iw + 7, ih + 7), new THREE.MeshStandardMaterial({ color: new THREE.Color(T.sea || GC.sea).lerp(new THREE.Color('#c2f1f0'), 0.42), roughness: 0.55, transparent: true, opacity: 0.85 }));
-          shallow.rotation.x = -Math.PI / 2; shallow.position.set(cx, -0.1, cz); scene.add(shallow);
-          const foamMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false });
-          st.foam = [];
-          const mkFoam = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), foamMat); m.rotation.x = -Math.PI / 2; m.position.set(x, -0.085, z); scene.add(m); st.foam.push(m); };
-          mkFoam(iw + 1.4, 0.55, cx, wb.z0 - 0.45); mkFoam(iw + 1.4, 0.55, cx, wb.z1 + 0.45); mkFoam(0.55, ih + 1.4, wb.x0 - 0.45, cz); mkFoam(0.55, ih + 1.4, wb.x1 + 0.45, cz);
-          const sc2 = document.createElement('canvas'); sc2.width = sc2.height = 32; const sg = sc2.getContext('2d');
-          const gr2 = sg.createRadialGradient(16, 16, 0, 16, 16, 16); gr2.addColorStop(0, 'rgba(255,255,255,.95)'); gr2.addColorStop(1, 'rgba(255,255,255,0)');
-          sg.fillStyle = gr2; sg.fillRect(0, 0, 32, 32);
-          const stx = new THREE.CanvasTexture(sc2);
-          st.sparkles = [];
-          for (let i = 0; i < 18; i++) {
-            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: stx, transparent: true, opacity: 0, depthWrite: false }));
-            const ang = (i / 18) * Math.PI * 2; const rad = 1.6 + (i % 5) * 0.9;
-            sp.position.set(cx + Math.cos(ang) * (iw / 2 + rad), -0.06, cz + Math.sin(ang) * (ih / 2 + rad));
-            sp.scale.set(0.5, 0.25, 1); sp.userData.ph = i * 1.7; scene.add(sp); st.sparkles.push(sp);
-          }
-          const vc = document.createElement('canvas'); vc.width = vc.height = 256; const vg = vc.getContext('2d');
-          const vgr = vg.createRadialGradient(128, 128, 60, 128, 128, 128);
-          vgr.addColorStop(0, 'rgba(60,36,21,0)'); vgr.addColorStop(0.75, 'rgba(60,36,21,0.05)'); vgr.addColorStop(1, 'rgba(60,36,21,0.16)');
-          vg.fillStyle = vgr; vg.fillRect(0, 0, 256, 256);
-          const vig = new THREE.Mesh(new THREE.PlaneGeometry(iw + 2, ih + 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(vc), transparent: true, depthWrite: false }));
-          vig.rotation.x = -Math.PI / 2; vig.position.set(cx, 0.145, cz); vig.renderOrder = 2; scene.add(vig);
+          // 격자 48×48(이전 96×96 → 삼각형 1/4). 물결 파장 ≈ 11m 라 칸 ~1.5m 로 충분
+          const sea = new THREE.Mesh(new THREE.PlaneGeometry(iw + 60, ih + 60, 48, 48), seaMat);
+          sea.rotation.x = -Math.PI / 2; sea.position.set(cx, -0.12, cz); scene.add(sea);
         }
         st.fb = { tiles: {}, reserved: [], palms: [], scatter: [] };
         const tiles = tilesOf(world);
@@ -313,7 +311,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
-        const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z);
+        const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z, 0, 1.18); mergeLocal(o); // 부품 재질별 병합(드로콜↓)
+        // 색감 보완(11/07): 9단계 표지 = 주인공 → 18% 크게 + 채도 한 단계↑(파스텔 배경 위로 시선 유도)
+        o.traverse((m) => { if (m.isMesh && m.material?.color && !/glow|shadow/i.test(m.material.name || '')) { m.material = m.material.clone(); m.material.color.offsetHSL(0, 0.12, -0.02); } });
         o.userData = { kind: 'stage', no: s.no, label: s.label }; st.stations.push(o); st.clickables.push(o);
         blob(o, 0, 0, 1.0, 0.95);
       });
@@ -335,6 +335,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const rp = island ? robotSpots[i] : null;
         if (island && !rp) return;
         const o = put('robot', rp ? rp.x : -hx + 2 + i * 1.8, rp ? rp.z : hz - 1.9, 0, 0.8); o.userData = { kind: 'robot', name: a.name || a.id, status: a.status, baseY: 0, i };
+        mergeLocal(o); // 부품 재질별 병합 후 재질 복제(투명도는 로봇 단위라 겉모습 동일)
         o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; } });
         blob(o, 0, 0, 0.55, 0.5);
         st.robots.push(o);
@@ -412,6 +413,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       loadKit(names).then(({ scenes: A, ms, bytes, failed }) => {
         if (dead) return;
         const t0 = performance.now();
+        const before = new Set(scene.children); // 이 단계에서 새로 깔리는 정적 소품만 골라 마지막에 재질별 병합(mergeStatic)
         const clayM = (m) => { const c = toClayMat(m); if (c) return c; if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
         const world = st.world; const S = ASSET_SCALE; const y0 = -TILE_TOP * S;
         // 1) 칸 타일: 모래·해안·보드워크·다리(재질별 InstancedMesh). 광장·통로는 기존 색 타일 유지
@@ -436,7 +438,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const done = new Set();
         for (const [asset, list] of groups) {
           if (!A[asset]) continue;
-          scene.add(instanced(bake(A[asset]), list, clayM)); done.add(asset);
+          const tg = instanced(list.length >= 20 ? lodBake(bake(A[asset])) : bake(A[asset]), list, clayM); // 많이 깔리는 타일 = 경량판(lodBake)
+          // 색감 보완(11/07): 같은 타일이 똑같은 베이지로 반복돼 단조롭던 바닥 → 칸마다 명도 ±5% 변주(인스턴스 색, 비용 0)
+          if (/^tile_(sand|coast|mound)/.test(asset)) tg.traverse((im) => { if (!im.isInstancedMesh || im.material?.userData?.bakedShadow) return; const c = new THREE.Color(); for (let i = 0; i < im.count; i++) { const h = Math.sin(i * 12.9898 + asset.length * 78.233) * 43758.5453; const k = 0.95 + (h - Math.floor(h)) * 0.09; im.setColorAt(i, c.setRGB(k, k * 0.995, k * 0.985)); } if (im.instanceColor) im.instanceColor.needsUpdate = true; });
+          scene.add(tg); done.add(asset);
         }
         const hideFb = (kind, ok) => { if (ok && st.fb.tiles[kind]) st.fb.tiles[kind].visible = false; };
         hideFb('sand', done.has('tile_sand'));
@@ -456,7 +461,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         let seats = 0;
         for (const f of st.seatFx) {
           const U = A[f.unit]; if (!U) continue;
-          const { desk: ud, parasol: up } = splitUnit(U, clayM);
+          const { desk: ud, parasol: up } = splitUnit(U, clayM); mergeLocal(ud); mergeLocal(up); // 자리 유닛 부품 재질별 병합(드로콜↓, 책상 상판 등 이름 다른 재질은 따로 남음)
           ud.scale.setScalar(f.deskTopY / 1.17); ud.rotation.y = Math.PI; // 유닛 책상 윗면 1.17(애셋) → 기존 책상 높이, 화면이 캐릭터(-Z) 쪽
           ud.userData = f.d.person ? { kind: 'person', name: f.d.person.name } : {};
           f.g.add(ud); shade(ud, 0.15); f.desk.visible = false; f.mon.visible = false; st.clickables.push(ud);
@@ -529,12 +534,15 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           }
           if (ok) for (const ln of st.fb.reserved) if (ln.userData.zone === r.kind) ln.visible = false;
         }
+        // [2026-11-07 성능] 정적 소품·접지 그림자 병합(드로콜 감소). 흔들리는 야자수는 제외, 기차는 아래에서 나중에 추가
+        const sway = new Set(st.palms3d);
+        const merged = mergeStatic(scene, scene.children.filter((c) => !before.has(c) && !sway.has(c)));
         // [P3] 꼬마기차: 둘레 보드워크(레일 겸)를 상시 순환 — 구름과 같은 0비용 생동감
         if (A.mini_train && st.bounds) {
           const tr = staticClone(A.mini_train, clayM); tr.scale.setScalar(ASSET_SCALE);
           scene.add(tr); st.train = { obj: tr, t: 0.37 };
         }
-        st.assets = { ms, bytes, mountMs: Math.round(performance.now() - t0), failed, seats, parasols: st.seatFx.filter((f) => f.cn).length, seatTotal: st.seatFx.length };
+        st.assets = { ms, bytes, mountMs: Math.round(performance.now() - t0), merged, failed, seats, parasols: st.seatFx.filter((f) => f.cn).length, seatTotal: st.seatFx.length };
         if (typeof window !== 'undefined') window.__pm3dAssets = st.assets;
         setStat((x) => `${x} · 애셋 ${(bytes / 1048576).toFixed(2)}MB ${ms}ms${failed.length ? ` · 실패 ${failed.length}` : ''}`);
         st.poke?.();
@@ -729,6 +737,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       }
       for (const o of st.stations) { o.getWorldPosition(v); v.y += 1.9; v.project(cam); items.push({ key: 'st' + o.userData.no, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('st' + o.userData.no, 70, 18) }); }
       for (const o of st.robots) { o.getWorldPosition(v); v.y += 1.6; v.project(cam); items.push({ key: 'rb' + o.userData.i, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 18, ...sizeOf('rb' + o.userData.i, 170, 18) }); }
+      for (const it of items) if (it.y > -20 && it.y < h) it.y = Math.max(2, Math.min(it.y, h - it.h - 26)); // 화면 안 칩은 아래 가장자리(맞춤 버튼 줄·상태 글씨)에 잘리지 않게
       const placed = declutter(items);
       for (const it of placed) {
         const n = box.querySelector(`[data-k="${CSS.escape(it.key)}"]`); if (!n) continue;
@@ -873,9 +882,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         }
         if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
         // [2026-11-06 톤 업그레이드] 거품 숨쉬기·수면 반짝임·야자수 바람(전부 투명도/소각 회전만 — 비용 미미)
-        if (st.foam && !red && st.foam[0]) st.foam[0].material.opacity = 0.4 + Math.sin(now / 900) * 0.14;
         if (st.seaTime && !red) st.seaTime.value = now / 1000;
-        if (st.sparkles && !red) for (const sp of st.sparkles) sp.material.opacity = Math.max(0, Math.sin(now / 700 + sp.userData.ph)) * 0.7;
         if (st.palms3d && !red) for (const g3 of st.palms3d) g3.rotation.z = Math.sin(now / 1300 + g3.position.x * 0.7) * 0.03;
         if (st.train && !red) { // 꼬마기차 상시 순환(속도 1.6m/s)
           const ringL2 = ringLength(st.bounds.hx, st.bounds.hz);
@@ -1002,7 +1009,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       <div ref={labelsRef} aria-hidden={false} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {people.map((p) => (
           <button key={p.name} type="button" data-k={p.name} onClick={() => onOpenPerson?.(p.name)} title={p.name}
-            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '1px 7px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.15)', cursor: 'pointer' }}>
+            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '2px 9px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: CLAY_BADGE, cursor: 'pointer' }}>
             {p.name}
           </button>
         ))}
@@ -1025,8 +1032,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         {(agents || []).slice(0, 8).map((a, i) => {
           const on = a.status === 'working';
           return (
-            <span key={a.id || a.name || i} data-k={'rb' + i} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 6px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.5 }}>
-              🤖 {a.name || a.id}{on && a.activity ? ` · ${String(a.activity).slice(0, 16)}` : ''}
+            // [2026-11-07] 로봇은 한 줄에 2칸 간격으로 서 있어 긴 칩(170px, 활동 문구 포함)이 서로 겹쳤다 → 이름만, 폭 ≤132px. 활동은 마우스 올리면(title)
+            <span key={a.id || a.name || i} data-k={'rb' + i} title={on && a.activity ? `${a.name || a.id} · ${a.activity}` : (a.name || a.id)} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '2px 8px', borderRadius: 999, boxShadow: CLAY_BADGE, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 132, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.6 }}>
+              🤖 {a.name || a.id}
             </span>
           );
         })}
