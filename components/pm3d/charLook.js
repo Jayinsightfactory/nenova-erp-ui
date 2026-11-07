@@ -73,9 +73,9 @@ export function dressDetail(root, L) {
 
 // ── 상태별 자세 덧입힘(본 회전 가산, 라디안) ──
 const POSE = {
-  working: { spine: [0.1, 0, 0], head: [0.16, 0, 0] },
+  working: { spine: [0.1, 0, 0], head: [0.06, 0, 0] }, // 고개는 조금만(얼굴 보이게)
   idle: { spine: [-0.12, 0, 0], head: [-0.05, 0, 0.16] },
-  off: { spine: [0.18, 0, 0], head: [0.42, 0, 0.12] },
+  off: { spine: [0.1, 0, 0], head: [0.04, 0, 0.14] }, // 고개를 덜 떨궈 얼굴이 보이게
 };
 const _e = new THREE.Euler(); const _q = new THREE.Quaternion();
 export function poseDetail(P, status, now) {
