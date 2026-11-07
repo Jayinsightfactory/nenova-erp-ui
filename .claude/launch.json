@@ -4,14 +4,32 @@
     {
       "name": "nenova-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "nenova-railway",
       "runtimeExecutable": "railway",
-      "runtimeArgs": ["run", "npm", "run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "npm",
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "static-root",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123"
+      ],
+      "port": 8123
     }
   ]
 }

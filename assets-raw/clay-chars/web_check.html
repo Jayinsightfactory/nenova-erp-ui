@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>clay char web check</title>
+<style>body{margin:0;background:#dfe9f7}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"}}</script>
+<script type="module">
+// Scene3D 와 같은 방식: 왼쪽 = 이전 셰이딩(MeshStandard), 오른쪽 = 클레이 MatCap. ?glb= 로 비교 대상 지정
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SK from 'three/addons/utils/SkeletonUtils.js';
+const q = new URLSearchParams(location.search);
+const W = 1200, H = 700, r = new THREE.WebGLRenderer({ antialias: true });
+r.setSize(W, H); r.toneMapping = THREE.NeutralToneMapping; document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#dfe9f7');
+sc.add(new THREE.HemisphereLight('#fff6ee', '#c9b8a8', 0.75)); const d = new THREE.DirectionalLight('#ffffff', 0.6); d.position.set(3, 6, 4); sc.add(d);
+const cam = new THREE.OrthographicCamera(-3.4, 3.4, 2, -2, 0.1, 50); cam.position.set(4, 3, 8); cam.lookAt(0, 0.9, 0);
+const mc = new THREE.TextureLoader().load('/public/pm3d/clay_matcap.png'); mc.colorSpace = THREE.SRGBColorSpace;
+const races = (q.get('race') || 'none,race_cat,race_robot').split(',');
+const g = await new GLTFLoader().loadAsync(q.get('glb') || '/public/pm3d/char.glb');
+races.forEach((race, i) => {
+  for (const mode of ['std', 'clay']) {
+    const c = SK.clone(g.scene); c.position.set((i - (races.length - 1) / 2) * 2.2 + (mode === 'std' ? -0.55 : 0.55), 0, 0); c.scale.setScalar(0.6);
+    c.traverse((m) => {
+      const nm = m.name || '';
+      if (/^(hat_|gls_|hnd_|bdg_|race_)/.test(nm)) { m.visible = nm === race; }
+      if (/^Icosphere/.test(nm)) m.visible = false;
+      if (!m.isMesh || !m.material) return; const s = m.material;
+      const base = { color: s.color.clone(), map: s.map, transparent: s.transparent, opacity: s.opacity, side: s.side };
+      m.material = mode === 'clay' ? new THREE.MeshMatcapMaterial({ ...base, matcap: mc }) : new THREE.MeshStandardMaterial({ ...base, roughness: 0.78, metalness: 0 });
+      m.frustumCulled = false;
+    });
+    const mx = new THREE.AnimationMixer(c); const idle = g.animations.find((a) => a.name === 'idle'); if (idle) { mx.clipAction(idle).play(); mx.update(0.25); }
+    sc.add(c);
+  }
+});
+setTimeout(() => { r.render(sc, cam); document.title = 'ready'; }, 800);
+</script>
