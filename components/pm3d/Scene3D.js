@@ -626,26 +626,30 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
         P.clip = A.clip; P.speed = A.speed;
+        P.idleRide = p.status === 'idle'; // 대기 중엔 자리에서 탈것에 올라탄 채 쉼(구매한 탈것을 타는 모습이 늘 보이게)
         if (A.emote !== P.emoTxt) { P.g.remove(P.emo); P.emo = emojiSprite(A.emote || ' '); P.emo.position.set(0, P.emoY ?? HEAD_Y, -SEAT_Z); P.emo.visible = !!A.emote; P.g.add(P.emo); P.emoTxt = A.emote; }
         // 탈것(슬롯 mount): 평소 책상 옆 park, 이동은 ride, PC 꺼짐 hidden (lib/pmMounts.mountPose)
         const mdef = mountById(L.mount);
         const mpose = mdef ? mountPose(p.status, !!(P.walk || P.cruise)) : 'hidden';
         if ((mdef?.id || '') !== P.mountId) {
           // [2026-11-06 사장님 신고 "타도 타지 않음"] 세션 중 장착이 바뀌면(첫 로드는 제외) 바로 시승 한 바퀴 — 장착 체감
-          if (P.mountId !== undefined && mdef) P.justEquipped = true;
+          // [2026-11-07] 상점 구매 후 돌아오면 장면이 새로 떠 첫 로드로 취급돼 시승이 안 나옴 → 마지막으로 본 장착을 기기에 기억해 비교
+          let seen = null; try { seen = localStorage.getItem('pm3d.mount.' + name); } catch (e) { /* 저장소 차단 */ }
+          if (mdef && (P.mountId !== undefined || (seen !== null && seen !== mdef.id))) P.justEquipped = true;
+          try { localStorage.setItem('pm3d.mount.' + name, mdef?.id || ''); } catch (e) { /* 저장소 차단 */ }
           if (P.mountObj) { P.g.remove(P.mountObj); P.mountObj = null; }
           if (mdef && st.mounts) {
             const src = st.mounts.getObjectByName('mount_' + mdef.id.replace(/-/g, '_'));
             if (src) {
               const o = src.clone(true);
               o.traverse((m) => { if (m.isMesh) { if (m.material) { m.material = m.material.clone(); clay(m); } } });
-              o.scale.setScalar(CHAR_SCALE); P.g.add(o); P.mountObj = o;
+              o.scale.setScalar(CHAR_SCALE); P.g.add(o); P.mountObj = o; P.idleSeated = false;
               P.mountSeat = (src.userData?.seatZ ?? 0.3) * CHAR_SCALE; P.mountRide = src.userData?.pose || mdef.ride;
             }
           }
           P.mountId = mdef?.id || '';
         }
-        if (P.mountObj && !P.riding) { // park: 책상 왼쪽 바닥(종류별 자세 — lib/pm3dHub.parkPose)
+        if (P.mountObj && !P.riding && !(P.idleSeated && P.idleRide)) { // park: 책상 왼쪽 바닥(종류별 자세 — lib/pm3dHub.parkPose)
           P.mountObj.visible = mpose !== 'hidden';
           applyPark(P);
         }
@@ -846,7 +850,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
               P.ch.position.set(lp.x, rideY - 0.02 + P.mountSeat, lp.z); P.ch.rotation.y = yawL;
               playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
             }
+          } else if (P.mountObj && P.idleRide && P.mountObj.visible) {
+            // 대기: 책상 옆 주차 자리에서 탈것 위에 앉음(제자리)
+            if (!P.idleSeated) {
+              P.idleSeated = true; unparkMount(P);
+              P.mountObj.position.set(-1.15, 0.02, 0.35); P.mountObj.rotation.set(0, 0.5, 0);
+              P.ch.position.set(-1.15, 0.02 + P.mountSeat, 0.35); P.ch.rotation.y = 0.5;
+              playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
+            }
+          } else if (P.idleSeated) {
+            P.idleSeated = false; P.ch.position.copy(P.home); P.ch.rotation.y = 0; applyPark(P); playClip(P, P.clip, P.speed);
           }
+          if (P.idleSeated && (P.walk || P.cruise)) P.idleSeated = false;
           if (!red) { P.mixer.update(dt); poseDetail(P, P.status, now); } else if (!P.frozen) { P.mixer.update(0.4); poseDetail(P, P.status, now); P.frozen = true; }
         }
         if (!red) {
@@ -953,7 +968,6 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     let drag = null;
     const onDown = (e) => { st.poke?.(); drag = { x: e.clientX, y: e.clientY, px: pan.x, pz: pan.z, moved: false }; };
     const onMove = (e) => {
-      if (!drag || st.zoom <= 1) return;
       if (!drag) { // [게임화 1차] 호버 통통: 90ms 스로틀 레이캐스트 — 캐릭터·스테이션이 마우스에 반응
         const tn = performance.now(); if (tn - (st.hoverAt || 0) < 90 || dataRef.current.reduced || st.intro) return;
         st.hoverAt = tn;
@@ -995,7 +1009,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     placeCam(); tick();
     api.current = {
       apply: () => { st.poke?.(); apply(); },
-      setZoom: (z) => { st.poke?.(); st.zoom = z; if (z <= 1) pan.set(0, 0, 0); placeCam(); },
+      setZoom: (z) => { st.poke?.(); st.zoom = z; placeCam(); },
       // 비행 근접 컷 켜기/끄기 — 끄면 켜기 전 배율·시점으로 복귀
       setFollow: (on, zoomBack) => {
         st.poke?.();
@@ -1019,7 +1033,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
   const people = []; for (const r of rooms || []) for (const p of r.seats || []) if (!p.empty) people.push(p);
   const cur = new Map(); for (const l of links || []) if (l.kind === 'current') cur.set(l.name, l);
   return (
-    <div className="pm3d" style={{ position: 'relative', width: '100%', height: 'min(72vh, 760px)', minHeight: 420, borderRadius: 16, overflow: 'hidden', touchAction: zoom > 1 ? 'none' : 'auto', cursor: zoom > 1 ? 'grab' : 'default' }}>
+    <div className="pm3d" style={{ position: 'relative', width: '100%', height: 'min(72vh, 760px)', minHeight: 420, borderRadius: 16, overflow: 'hidden', touchAction: 'none', cursor: 'grab' }}>
       <div ref={host} style={{ position: 'absolute', inset: 0 }} />
       {/* [2026-11-05 디자인 자문] 미니어처 디오라마 연출 — 비용 0: CSS 비네팅 + 상·하단 가짜 틸트시프트 블러 */}
       <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 46%, transparent 62%, rgba(68,43,26,.16) 100%)' }} />
