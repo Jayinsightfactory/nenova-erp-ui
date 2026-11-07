@@ -110,7 +110,7 @@ def face_show(show):
         for l in list(b.inputs['Alpha'].links): m.node_tree.links.remove(l)
         b.inputs['Alpha'].default_value = 1.0 if (show and FACE_TEX is None) else 0.0
 
-WEAR_PFX = ('hat_', 'gls_', 'hnd_', 'bdg_', 'race_')
+WEAR_PFX = ('hat_', 'gls_', 'hnd_', 'bdg_', 'race_', 'hs_', 'acc_')  # hs_·acc_ = 직원별 머리 모양·소품(detail_char.py) — 상점 렌더에선 숨김
 def char_vis(show_groups, wear=()):
     # show_groups: 재질 베이스명 집합(알파 0/1로 토글 — 몸이 메시 1개라 재질 단위).
     # wear = 보일 착용·종족 메시 이름들(build_wearables.py 전용 모델, 그 외 hat_/gls_/hnd_/bdg_/race_ 는 전부 숨김)

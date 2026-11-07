@@ -1,6 +1,6 @@
 # scripts/pm3d/clayify_char.py — char.glb 소프트 클레이화(방식 A: Remesh → Smooth Corrective → Decimate)
 # 실행: blender -b --factory-startup -P scripts/pm3d/clayify_char.py -- public/pm3d
-#   build_char_kaykit.py → build_wearables.py 다음 단계. 도형을 겹친 body·race_* 메시를 한 덩어리로 녹여 붙인다.
+#   build_char_kaykit.py → build_wearables.py 다음 단계(다음은 detail_char.py: 칼라·손·머리 모양·소품·얼굴 확대). 도형을 겹친 body·race_* 메시를 한 덩어리로 녹여 붙인다.
 #   유지: 리그·클립·메시명(race_*)·재질명(top/bottom/skin/hair/face/cheek …) — 웹 갈아입히기·표정 스왑이 그대로 동작.
 #   방법: ①표정 데칼(face)·볼(cheek)은 떼어 두고 ②나머지를 Voxel Remesh(덩어리 융합) → Corrective Smooth → Decimate
 #         ③면마다 원본 최근접 면의 재질 복원 ④원본 본 가중치를 Data Transfer 로 옮김(관절은 부드럽게 휨) ⑤데칼·볼 재결합.

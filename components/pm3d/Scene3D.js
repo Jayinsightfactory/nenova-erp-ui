@@ -16,6 +16,9 @@ import { STAGES } from '../../lib/pmStages';
 import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, railPick, fitScale, moundPick } from '../../lib/pm3dAssets';
+import { rimify, dressDetail, poseDetail } from './charLook';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+const _cm = new THREE.Matrix4(); const _cv = new THREE.Vector3(); const _cq = new THREE.Quaternion(); const _cs = new THREE.Vector3();
 import { loadKit, bake, lodBake, mergeStatic, mergeLocal, instanced, mat4, staticClone, splitUnit, hasBakedShadow } from './assetKit';
 import { PM3D } from '../../lib/pmThemes';
 import { pctToZoom, ZOOM_PCT_MIN, ZOOM_PCT_MAX } from '../../lib/pmZoom';
@@ -75,7 +78,7 @@ function faceTexture(id, onReady) {
 // 상태 → 작업 분위기(lib/pmMood 간이판: 3D 는 status 만 안다)
 // 이름표 공통 = 둥근 클레이 배지(11/07): 위 하이라이트 + 아래 안쪽 그늘 + 따뜻한 바닥 그림자
 const CLAY_BADGE = 'inset 0 1.5px 0 rgba(255,255,255,.75), inset 0 -2px 0 rgba(120,80,50,.16), 0 2px 4px rgba(90,55,30,.22)';
-const STATUS_VIBE ={ working: 'work', off: 'doze', idle: 'break' };
+const STATUS_VIBE ={ working: 'focus', off: 'doze', idle: 'break' }; // 2026-11-07 작업중=집중 표정(3D 전용, 2D 규칙 lib/pmFaces 는 그대로)
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
@@ -170,7 +173,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       // 블렌더 클레이 렌더 기준: 기본은 부드러운 standard(색·음영 보존), 'toon' 토큰이면 예전 5단 램프
       // 'clay' = 클레이 MatCap(scripts/pm3d/bake_clay_matcap.py) — 위 크림·아래 연보라/피치·외곽 크림 림이 구워져 있어 검은 그림자 없음, 조명 계산 0이라 모바일도 가벼움
       const tm = RQ.charShade === 'clay'
-        ? new THREE.MeshMatcapMaterial({ ...base, matcap: clayMatcap })
+        ? rimify(new THREE.MeshMatcapMaterial({ ...base, matcap: clayMatcap })) // + 림라이트(components/pm3d/charLook) — 배경과 분리
         : RQ.charShade === 'toon'
         ? new THREE.MeshToonMaterial({ ...base, gradientMap: toonRamp })
         : new THREE.MeshStandardMaterial({ ...base, roughness: RQ.charRough ?? 0.78, metalness: 0, normalMap: s.normalMap || null });
@@ -387,19 +390,20 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         st.intro = { t0: performance.now(), items: objs.map((o, i) => ({ o, base: o.scale.x || 1, delay: Math.min(900, i * 55) })) };
         for (const it of st.intro.items) it.o.scale.setScalar(it.base * 0.001);
       }
-      // [게임화 1차] 하늘 구름: 말랑 구름 스프라이트가 천천히 흘러감(섬 테마만, 스프라이트 4장 = 비용 미미)
+      // 하늘 구름(2026-11-07 클레이화): 납작한 스프라이트 4장 → 둥근 찰흙 덩어리 구름(구 5개를 한 지오메트리로) 4개를 InstancedMesh 1개로.
+      //   그리기 명령 4→1, 같은 클레이 MatCap(+림) 이라 섬 소품과 질감이 맞는다. 흐름 연출(x 이동)은 인스턴스 행렬로.
       if (island) {
-        const cc = document.createElement('canvas'); cc.width = 256; cc.height = 128; const cg = cc.getContext('2d');
-        cg.fillStyle = 'rgba(255,255,255,.96)';
-        for (const [bx, by, br] of [[70, 84, 38], [120, 66, 50], [176, 84, 40], [120, 92, 52]]) { cg.beginPath(); cg.arc(bx, by, br, 0, Math.PI * 2); cg.fill(); }
-        const ct = new THREE.CanvasTexture(cc); ct.colorSpace = THREE.SRGBColorSpace;
-        st.clouds = [];
+        const puffs = [[0, 0, 0, 1.0], [0.95, -0.12, 0.1, 0.78], [-0.95, -0.15, 0, 0.72], [0.45, 0.42, -0.1, 0.7], [-0.4, 0.35, 0.1, 0.66]];
+        const cg = mergeGeometries(puffs.map(([x, y, z, r]) => { const g = new THREE.SphereGeometry(r, 14, 8); g.scale(1, 0.82, 0.9); g.translate(x, y, z); return g; }));
+        const cm = rimify(new THREE.MeshMatcapMaterial({ color: '#ffffff', matcap: clayMatcap, fog: false }));
+        const im = new THREE.InstancedMesh(cg, cm, 4); im.frustumCulled = false;
+        st.clouds = { im, items: [] };
         for (let i = 0; i < 4; i++) {
-          const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ct, transparent: true, opacity: 0.9, depthWrite: false, fog: false }));
-          const s = 6 + i * 1.8; sp.scale.set(s, s * 0.5, 1);
-          sp.position.set(-6 + i * 9, 7 + (i % 2) * 2, -12 - i * 2);
-          scene.add(sp); st.clouds.push(sp);
+          const s = 1.5 + i * 0.4;
+          const c = { x: -6 + i * 9, y: 7 + (i % 2) * 2, z: -12 - i * 2, s }; st.clouds.items.push(c);
+          im.setMatrixAt(i, _cm.compose(_cv.set(c.x, c.y, c.z), _cq, _cs.set(s, s, s)));
         }
+        scene.add(im);
       }
       st.built = true;
       setStat(`로드 ${loadMs}ms`);
@@ -414,7 +418,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (dead) return;
         const t0 = performance.now();
         const before = new Set(scene.children); // 이 단계에서 새로 깔리는 정적 소품만 골라 마지막에 재질별 병합(mergeStatic)
-        const clayM = (m) => { const c = toClayMat(m); if (c) return c; if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
+        const tone = PM3D.PROP_TONE || {}; // 재질 색 보정(파라솔 파스텔·나무 줄무늬 대비) — lib/pmThemes
+        const clayM = (m) => { const c = toClayMat(m); if (c) { if (tone[c.name]) c.color.set(tone[c.name]); return c; } if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
         const world = st.world; const S = ASSET_SCALE; const y0 = -TILE_TOP * S;
         // 1) 칸 타일: 모래·해안·보드워크·다리(재질별 InstancedMesh). 광장·통로는 기존 색 타일 유지
         const land = (X, Z) => world.cells.get(`${X},${Z}`);
@@ -575,6 +580,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           if (n === 'top') m.material.color.set(L.top); else if (n === 'bottom') m.material.color.set(L.bottom);
           else if (n === 'skin') m.material.color.set(L.skin); else if (n === 'hair') { m.material.color.set(L.hair); m.visible = !L.hideHair; }
         });
+        if (dressDetail(P.ch, L)) st.poke?.(); // 직원별 머리 모양·머리 소품(같은 재질 조각에 합침 → 그리기 명령 그대로)
+        P.status = p.status;
         // 체형(선택형 3종, lib/pm3dLayout.BODY_TYPES): head 본 스케일 + 전체 스케일 — glb 1개로 귀염/밸런스/늘씬.
         //   모자·안경·종족 부속은 head 본 스키닝이라 소켓이 자동 추종, 좌석 y·블롭 그림자도 체형을 따른다.
         const BM = bodyMetrics(L.bodyType);
@@ -828,7 +835,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
               playClip(P, P.mountRide === 'stand' || P.mountRide === 'hang' ? 'idle' : 'sit_type', 1);
             }
           }
-          if (!red) P.mixer.update(dt); else if (!P.frozen) { P.mixer.update(0.4); P.frozen = true; }
+          if (!red) { P.mixer.update(dt); poseDetail(P, P.status, now); } else if (!P.frozen) { P.mixer.update(0.4); poseDetail(P, P.status, now); P.frozen = true; }
         }
         if (!red) {
           const t = st.clock.elapsedTime;
@@ -880,7 +887,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           }
           if (!live) st.intro = null; else st.poke?.();
         }
-        if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
+        if (st.clouds && !red) { const C = st.clouds; for (const [i, c] of C.items.entries()) { c.x += dt * 0.25; if (c.x > 34) c.x = -14; _cm.compose(_cv.set(c.x, c.y, c.z), _cq, _cs.set(c.s, c.s, c.s)); C.im.setMatrixAt(i, _cm); } C.im.instanceMatrix.needsUpdate = true; }
         // [2026-11-06 톤 업그레이드] 거품 숨쉬기·수면 반짝임·야자수 바람(전부 투명도/소각 회전만 — 비용 미미)
         if (st.seaTime && !red) st.seaTime.value = now / 1000;
         if (st.palms3d && !red) for (const g3 of st.palms3d) g3.rotation.z = Math.sin(now / 1300 + g3.position.x * 0.7) * 0.03;
