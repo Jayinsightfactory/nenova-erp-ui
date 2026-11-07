@@ -24,7 +24,7 @@ def clay_mat(name, base, shadow):
     sep = nt.nodes.new('ShaderNodeSeparateXYZ')
     mr = nt.nodes.new('ShaderNodeMapRange')
     mr.inputs['From Min'].default_value = -1.0
-    mr.inputs['From Max'].default_value = 0.6
+    mr.inputs['From Max'].default_value = 0.3
     mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'
     mix.inputs['A'].default_value = hexc(shadow)
     mix.inputs['B'].default_value = hexc(base)
@@ -87,7 +87,7 @@ for o in list(scn.objects):
 dec = fish.modifiers.new('Dec', 'DECIMATE'); dec.ratio = 0.3
 bpy.ops.object.modifier_apply(modifier='Dec')
 bpy.ops.object.shade_smooth()
-fish.data.materials.append(clay_mat('ClayPeach', '#ffc9b9', '#d8bbff'))
+fish.data.materials.append(clay_mat('ClayPeach', '#ffa28c', '#c8b6ff'))
 
 # ---- 눈/코/볼터치: 표면에 살짝 파묻힌 납작 타원 ----
 def flat_dot(name, loc, r, color, normal_rot, zscale=0.35):
@@ -113,12 +113,12 @@ def surf(origin, direction, sink=0.02):
 
 parts = []
 for s in (1, -1):
-    loc, rot = surf((0.75, s * 3, 0.22), (0, -s, 0))
-    parts.append(flat_dot('Eye' + ('L' if s > 0 else 'R'), loc, 0.13, '#3b3550', rot))
-    hl, hrot = surf((0.8, s * 3, 0.3), (0, -s, 0), sink=-0.03)
-    parts.append(flat_dot('EyeHi' + ('L' if s > 0 else 'R'), hl, 0.04, '#fff8ee', hrot, 0.3))
+    loc, rot = surf((0.75, s * 3, 0.22), (0, -s, 0), sink=0.01)
+    parts.append(flat_dot('Eye' + ('L' if s > 0 else 'R'), loc, 0.09, '#5b3442', rot, 0.25))
+    hn = Vector((0, 0, 1)); hn.rotate(rot)
+    parts.append(flat_dot('EyeHi' + ('L' if s > 0 else 'R'), loc + hn * 0.03 + Vector((0.03, 0, 0.03)), 0.025, '#ffffff', rot, 0.3))
     bl, brot = surf((1.0, s * 3, -0.12), (0, -s, 0))
-    parts.append(flat_dot('Blush' + ('L' if s > 0 else 'R'), bl, 0.14, '#ffb5a7', brot, 0.25))
+    parts.append(flat_dot('Blush' + ('L' if s > 0 else 'R'), bl, 0.17, '#ffb5a7', brot, 0.25))
 nl, nrot = surf((3, 0, 0.05), (-1, 0, 0))
 parts.append(flat_dot('Nose', nl, 0.07, '#ff9e8f', nrot, 0.4))
 
@@ -134,16 +134,41 @@ tris = sum(len(p.vertices) - 2 for p in fish.data.polygons)
 
 # ---- 조명/배경/카메라 ----
 world = bpy.data.worlds.new('W'); scn.world = world; world.use_nodes = True
-bg = next(n for n in world.node_tree.nodes if n.type == 'BACKGROUND')
-bg.inputs['Color'].default_value = hexc('#fff1ea'); bg.inputs['Strength'].default_value = 1.6
+wn = world.node_tree
+bg = next(n for n in wn.nodes if n.type == 'BACKGROUND')
+bg.inputs['Strength'].default_value = 0.5
+# 배경: 위 연하늘 → 아래 모래 그라데이션 (카메라에 보이는 배경만)
+lp = wn.nodes.new('ShaderNodeLightPath')
+tc = wn.nodes.new('ShaderNodeTexCoord'); sx = wn.nodes.new('ShaderNodeSeparateXYZ')
+wr = wn.nodes.new('ShaderNodeMapRange'); wr.inputs['From Min'].default_value = -0.4; wr.inputs['From Max'].default_value = 0.4
+gm = wn.nodes.new('ShaderNodeMix'); gm.data_type = 'RGBA'
+gm.inputs['A'].default_value = hexc('#f3dcc0'); gm.inputs['B'].default_value = hexc('#bfe0ff')
+amb = wn.nodes.new('ShaderNodeMix'); amb.data_type = 'RGBA'
+amb.inputs['A'].default_value = hexc('#d8c8ff')  # 간접광은 연보라 계열
+bg2 = wn.nodes.new('ShaderNodeBackground'); bg2.inputs['Strength'].default_value = 2.2
+wn.links.new(tc.outputs['Window'], sx.inputs[0]); wn.links.new(sx.outputs['Y'], wr.inputs['Value'])
+wn.links.new(wr.outputs['Result'], gm.inputs['Factor'])
+amb.inputs['Factor'].default_value = 0.0
+wn.links.new(amb.outputs['Result'], bg.inputs['Color'])
+wn.links.new(gm.outputs['Result'], bg2.inputs['Color'])
+ms = wn.nodes.new('ShaderNodeMixShader')
+wn.links.new(lp.outputs['Is Camera Ray'], ms.inputs['Fac'])
+wn.links.new(bg.outputs[0], ms.inputs[1]); wn.links.new(bg2.outputs[0], ms.inputs[2])
+wo = next(n for n in wn.nodes if n.type == 'OUTPUT_WORLD')
+wn.links.new(ms.outputs[0], wo.inputs['Surface'])
 sun = bpy.data.objects.new('Key', bpy.data.lights.new('Key', 'SUN'))
-sun.data.energy = 2.5; sun.data.color = hexc('#ffe5d9')[:3]; sun.data.angle = math.radians(25)
-sun.rotation_euler = (math.radians(40), math.radians(-20), math.radians(30))
+sun.data.energy = 4.0; sun.data.color = hexc('#ffe5d9')[:3]; sun.data.angle = math.radians(25)
+sun.rotation_euler = (math.radians(35), math.radians(25), math.radians(-40))
 scn.collection.objects.link(sun)
 fill = bpy.data.objects.new('Fill', bpy.data.lights.new('Fill', 'AREA'))
-fill.data.energy = 300; fill.data.color = hexc('#a2d2ff')[:3]; fill.data.size = 5
+fill.data.energy = 120; fill.data.color = hexc('#c8b6ff')[:3]; fill.data.size = 5
 fill.location = (-3, -4, -1); fill.rotation_euler = (math.radians(110), 0, math.radians(-35))
 scn.collection.objects.link(fill)
+rim = bpy.data.objects.new('Rim', bpy.data.lights.new('Rim', 'AREA'))
+rim.data.energy = 400; rim.data.color = hexc('#fff3e0')[:3]; rim.data.size = 2
+rim.location = (-2.5, 3.5, 2.2)
+rim.rotation_euler = (Vector((0, 0, 0)) - rim.location).to_track_quat('-Z', 'Y').to_euler()
+scn.collection.objects.link(rim)
 cam = bpy.data.objects.new('Cam', bpy.data.cameras.new('Cam'))
 cam.location = (2.2, -4.6, 1.3)
 cam.rotation_euler = (Vector((-0.1, 0, 0)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
@@ -155,7 +180,14 @@ for eng in ('BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'):
         scn.render.engine = eng; break
     except TypeError:
         pass
-scn.view_settings.view_transform = 'AgX' if 'AgX' in [i.identifier for i in bpy.types.ColorManagedViewSettings.bl_rna.properties['view_transform'].enum_items] else 'Filmic'
+# ACES 계열 우선(노출 1.0 기준 = exposure 0), 없으면 AgX
+for vt in ('ACES 1.3', 'ACES 2.0', 'ACES', 'AgX'):
+    try:
+        scn.view_settings.view_transform = vt; break
+    except TypeError:
+        pass
+print('VT', scn.view_settings.view_transform)
+scn.view_settings.exposure = 0.0
 scn.render.resolution_x = 1200; scn.render.resolution_y = 900
 scn.render.filepath = os.path.join(OUT, 'fish_preview.png')
 bpy.ops.render.render(write_still=True)
