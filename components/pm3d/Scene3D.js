@@ -158,12 +158,17 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const t = new THREE.DataTexture(steps, steps.length, 1, THREE.RedFormat);
       t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
     })();
+    const clayMatcap = new THREE.TextureLoader().load('/pm3d/clay_matcap.png', () => st.poke?.(), undefined, () => {});
+    clayMatcap.colorSpace = THREE.SRGBColorSpace;
     const toonify = (root) => root.traverse((m) => {
       if (!(m.isMesh || m.isSkinnedMesh) || !m.material) return;
       const s = m.material;
       const base = { color: s.color?.clone?.() || new THREE.Color('#ffffff'), map: s.map || null, transparent: s.transparent, opacity: s.opacity, side: s.side };
       // 블렌더 클레이 렌더 기준: 기본은 부드러운 standard(색·음영 보존), 'toon' 토큰이면 예전 5단 램프
-      const tm = RQ.charShade === 'toon'
+      // 'clay' = 클레이 MatCap(scripts/pm3d/bake_clay_matcap.py) — 위 크림·아래 연보라/피치·외곽 크림 림이 구워져 있어 검은 그림자 없음, 조명 계산 0이라 모바일도 가벼움
+      const tm = RQ.charShade === 'clay'
+        ? new THREE.MeshMatcapMaterial({ ...base, matcap: clayMatcap })
+        : RQ.charShade === 'toon'
         ? new THREE.MeshToonMaterial({ ...base, gradientMap: toonRamp })
         : new THREE.MeshStandardMaterial({ ...base, roughness: RQ.charRough ?? 0.78, metalness: 0, normalMap: s.normalMap || null });
       tm.name = s.name; m.material = tm;
