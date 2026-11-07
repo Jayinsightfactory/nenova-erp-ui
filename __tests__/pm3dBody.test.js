@@ -23,11 +23,11 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(L.look3d({ bodyType: 'cute' }, 'a').bodyType, 'cute');
   assert.strictEqual(L.look3d(null, 'a').bodyType, 'balance');
 
-  // 2) 머리:전신 비율 목표(2026-11-06 시안 재조정: 귀염≈1:2.5 · 밸런스≈1:2.9 · 늘씬≈1:3.5)
-  const want = { cute: [2.3, 2.7], balance: [2.7, 3.1], slim: [3.2, 3.7] };
+  // 2) 치비 비율 목표(2026-11-07 사장님 지시: 머리:몸통 = 1:1.2 기본 · 귀염 ≈1:1.0 · 늘씬 ≈1:1.5)
+  const want = { cute: [0.9, 1.1], balance: [1.1, 1.3], slim: [1.35, 1.6] };
   for (const [id, [lo, hi]] of Object.entries(want)) {
     const m = L.bodyMetrics(id);
-    assert.ok(m.ratio >= lo && m.ratio <= hi, `${id} 비율 ${m.ratio.toFixed(2)} (목표 ${lo}~${hi})`);
+    assert.ok(m.bodyRatio >= lo && m.bodyRatio <= hi, `${id} 머리:몸통 1:${m.bodyRatio.toFixed(2)} (목표 ${lo}~${hi})`);
   }
   // 귀염 < 밸런스 < 늘씬 (키), 머리 크기는 반대
   const ms = ['cute', 'balance', 'slim'].map((i) => L.bodyMetrics(i));
@@ -66,5 +66,5 @@ const { pathToFileURL } = require('url');
   const theme = fs.readFileSync('components/pm/PmTheme.js', 'utf8');
   assert.ok(/bsfx/.test(theme) && /3D 체형/.test(theme), '꾸미기 UI·미리보기 체형');
 
-  console.log('pm3dBody OK —', ms.map((m) => `${m.id} 1:${m.ratio.toFixed(2)}`).join(' · '));
+  console.log('pm3dBody OK —', ms.map((m) => `${m.id} 머리:몸통 1:${m.bodyRatio.toFixed(2)}`).join(' · '));
 })().catch((e) => { console.error(e); process.exit(1); });
