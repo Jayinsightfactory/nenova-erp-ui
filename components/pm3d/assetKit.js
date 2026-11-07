@@ -5,7 +5,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { SimplifyModifier } from 'three/examples/jsm/modifiers/SimplifyModifier.js';
 import { assetUrl, unitPartOf, UNIT_GEOM } from '../../lib/pm3dAssets';
 
 const cache = new Map();
@@ -51,6 +52,86 @@ export function bake(root, filter = null) {
   }
   if (!filter) bakeCache.set(root, out);
   return out;
+}
+// [2026-11-07 성능] 수백 번 깔리는 칸 타일은 클레이 리메시로 개당 700~2,200 삼각형 → 장면 전체 약 200만 삼각형이었다.
+//   위에서 내려다보는 작은 타일이라 잔주름은 화면에 안 보이므로, 인스턴스가 많은 애셋만 정점을 줄인 판을 쓴다(애셋별 1회·캐시).
+const lodCache = new WeakMap();
+export function lodBake(baked, keep = 0.35, minTris = 400) {
+  if (lodCache.has(baked)) return lodCache.get(baked);
+  const mod = new SimplifyModifier();
+  const out = baked.map(({ geometry, material }) => {
+    const tris = (geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3;
+    if (tris < minTris || geometry.attributes.uv) return { geometry, material }; // uv(구운 그림자 텍스처) 있는 판은 그대로
+    try {
+      // 병합본은 면마다 정점이 따로(비인덱스·면 법선)라 그대로는 정점이 안 합쳐진다 → 법선 빼고 위치·색으로 합친 뒤 줄이고, 법선은 다시 계산(클레이=부드러운 면)
+      const src = geometry.clone(); src.deleteAttribute('normal');
+      const merged = mergeVertices(src, 1e-4);
+      const g = mod.modify(merged, Math.floor(merged.attributes.position.count * (1 - keep)));
+      g.computeVertexNormals();
+      const t2 = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+      return t2 > 0 && t2 < tris ? { geometry: g, material } : { geometry, material };
+    } catch { return { geometry, material }; }
+  });
+  lodCache.set(baked, out);
+  return out;
+}
+// [2026-11-07 성능] 움직이지 않는 소품(시설 존·바위·조개·서핑보드·깃발·접지 그림자 블롭)을 "같은 재질끼리 한 메시"로 합친다.
+//   소품마다 재질을 복제해 쓰므로 그림 1개 = 드로콜 1개였다(구운 그림자판만 100여 개). 재질 속성이 완전히 같은 것끼리만 합쳐 겉모습은 그대로.
+//   roots 는 장면(scene) 바로 아래 정적 노드만 넘길 것(움직이는 야자수·기차·사람·로봇 제외). 반환 = 줄어든 메시 수.
+// 겉모습이 같은 재질인지(복제본끼리도 같다고 본다). 자체발광·AO맵·투명도·면 방향까지 포함해 다르면 절대 안 합친다.
+function matKey(m) {
+  const mat = m.material; const g = m.geometry;
+  return [mat.type, mat.name, mat.color?.getHexString(), mat.emissive?.getHexString(), mat.emissiveIntensity, mat.roughness, mat.metalness, mat.map?.uuid, mat.alphaMap?.uuid, mat.aoMap?.uuid, mat.matcap?.uuid, mat.transparent, mat.opacity, mat.depthWrite, mat.vertexColors, mat.side, mat.onBeforeCompile ? String(mat.onBeforeCompile).length : 0, m.renderOrder, Object.keys(g.attributes).sort().join(','), !!g.index].join('|');
+}
+export function mergeStatic(scene, roots) {
+  const groups = new Map();
+  for (const r of roots) {
+    if (!r) continue;
+    r.updateWorldMatrix(true, true);
+    r.traverse((m) => {
+      if (!m.isMesh || m.isSkinnedMesh || m.isInstancedMesh || Array.isArray(m.material)) return;
+      for (let o = m; o; o = o.parent) if (!o.visible) return;
+      if (m.matrixWorld.determinant() < 0) return; // 거울 변환은 면 방향이 뒤집혀 제외
+      const key = matKey(m);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    });
+  }
+  let saved = 0;
+  for (const items of groups.values()) {
+    if (items.length < 2) continue;
+    const geos = items.map((m) => { const g = m.geometry.clone(); g.applyMatrix4(m.matrixWorld); return g; });
+    const merged = mergeGeometries(geos, false); if (!merged) continue;
+    merged.computeBoundingSphere();
+    const one = new THREE.Mesh(merged, items[0].material); one.renderOrder = items[0].renderOrder; one.matrixAutoUpdate = false;
+    scene.add(one);
+    for (const m of items) m.removeFromParent();
+    saved += items.length - 1;
+  }
+  return saved;
+}
+// 한 물체(로봇·스테이션처럼 통째로만 움직이는 것) 안의 부품을 같은 재질끼리 합친다 — 물체 기준 좌표라 이후 이동·흔들림 그대로
+export function mergeLocal(root) {
+  if (!root) return 0;
+  root.updateWorldMatrix(true, true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMat = new Map();
+  root.traverse((m) => {
+    if (!m.isMesh || m.isSkinnedMesh || m.isInstancedMesh || Array.isArray(m.material) || !m.visible) return;
+    const k = matKey(m); // 부품마다 재질이 복제돼 있어 uuid 가 아닌 속성으로 비교
+    if (!byMat.has(k)) byMat.set(k, []); byMat.get(k).push(m);
+  });
+  let saved = 0;
+  for (const items of byMat.values()) {
+    if (items.length < 2) continue;
+    const geos = items.map((m) => { const g = m.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); return g; });
+    const merged = mergeGeometries(geos, false); if (!merged) continue;
+    const one = new THREE.Mesh(merged, items[0].material); one.renderOrder = items[0].renderOrder; one.name = items[0].name;
+    root.add(one);
+    for (const m of items) m.removeFromParent();
+    saved += items.length - 1;
+  }
+  return saved;
 }
 // 구운 애셋을 행렬 목록으로 인스턴싱 → Group(InstancedMesh × 재질 수)
 export function instanced(baked, matrices, prep) {

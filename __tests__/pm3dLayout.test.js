@@ -59,7 +59,11 @@ const { pathToFileURL } = require('url');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 3500, fps: 60 }), 'slow-first-frame');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 9 }), 'low-fps');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 12 }), '');
-  assert.deepStrictEqual([L.MIN_FPS, L.FPS_WARMUP_MS, L.FPS_WINDOW_MS, L.FPS_CAP, L.FPS_IDLE, L.MAX_DPR], [10, 3000, 5000, 15, 8, 1.5]);
+  assert.deepStrictEqual([L.MIN_FPS, L.FPS_WARMUP_MS, L.FPS_WINDOW_MS, L.FPS_CAP, L.FPS_IDLE, L.MAX_DPR], [10, 3000, 5000, 15, 8, 1.25]);
+  // 회귀(2026-11-07 사장님 스크린샷): 한 줄로 선 로봇 이름표 8개가 아래로 계단식으로 쌓여 잘림 → 위·아래 번갈아 두 줄 안에 수납
+  const row = L.declutter(Array.from({ length: 8 }, (_, i) => ({ key: 'rb' + i, x: 100 + i * 45, y: 400, w: 80, h: 14 })));
+  for (let i = 0; i < row.length; i++) for (let j = 0; j < i; j++) { const p = row[i], q = row[j]; assert.ok(!(Math.abs(p.x - q.x) < (p.w + q.w) / 2 && Math.abs(p.y - q.y) < p.h), `로봇 이름표 겹침 ${p.key}/${q.key}`); }
+  assert.ok(Math.max(...row.map((r) => r.y)) - Math.min(...row.map((r) => r.y)) <= 2 * 17 + 1, '로봇 이름표가 계단식으로 멀리 밀림');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 200, fps: 55 }), '');
   const out = L.declutter([{ key: 'a', x: 100, y: 50, w: 60, h: 18 }, { key: 'b', x: 110, y: 55, w: 60, h: 18 }, { key: 'c', x: 400, y: 52, w: 60, h: 18 }]);
   const a = out.find((o) => o.key === 'a'); const b = out.find((o) => o.key === 'b');
