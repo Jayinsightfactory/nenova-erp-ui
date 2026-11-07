@@ -1,9 +1,10 @@
 // components/pm3d/assetKit.js — 블렌더 glb 애셋(public/pm3d/assets, lib/pm3dAssets 목록) 지연·공유 로드 + 인스턴싱 도우미.
 //   · 같은 glb 는 페이지 수명 동안 1회만 받는다(Promise 캐시). 개별 실패는 null → 호출부가 기존 단순 그래픽을 유지(폴백).
 //   · bake(): glb 장면을 "재질별 병합 지오메트리" 로 굽는다(노드 변환 적용) → 칸 타일·반복 소품은 InstancedMesh 1개/재질.
-//   · DRACO 불필요(애셋은 비압축 glb, 합계 ≈2.8MB).
+//   · DRACO 디코더 장착(2026-11-07 클레이 리메시 후 애셋은 Draco 압축 glb — 디코더는 Scene3D 와 같은 /pm3d/draco/).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { assetUrl, unitPartOf, UNIT_GEOM } from '../../lib/pm3dAssets';
 
@@ -11,7 +12,7 @@ const cache = new Map();
 let loader = null;
 export function loadGlb(name) {
   if (!cache.has(name)) {
-    loader = loader || new GLTFLoader();
+    if (!loader) { const d = new DRACOLoader(); d.setDecoderPath('/pm3d/draco/'); d.setDecoderConfig({ type: 'wasm' }); loader = new GLTFLoader(); loader.setDRACOLoader(d); }
     const p = loader.loadAsync(assetUrl(name)).then((g) => g.scene).catch(() => { cache.delete(name); return null; });
     cache.set(name, p);
   }
@@ -56,7 +57,7 @@ export function instanced(baked, matrices, prep) {
   const grp = new THREE.Group();
   if (!matrices.length) return grp;
   for (const { geometry, material } of baked) {
-    const mat = material.clone(); prep?.(mat); markShadowMat(mat);
+    let mat = material.clone(); mat = prep?.(mat) || mat; markShadowMat(mat);
     const im = new THREE.InstancedMesh(geometry, mat, matrices.length);
     if (mat.userData.bakedShadow) im.renderOrder = 1;
     matrices.forEach((m4, i) => im.setMatrixAt(i, m4));
@@ -70,7 +71,7 @@ export function mat4(x, y, z, yaw, s) { return new THREE.Matrix4().compose(new T
 // 단일 배치용 정적 복제(구운 지오메트리 공유, 재질 공유)
 export function staticClone(root, prep) {
   const g = new THREE.Group();
-  for (const { geometry, material } of bake(root)) { const mat = material.clone(); prep?.(mat); markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
+  for (const { geometry, material } of bake(root)) { let mat = material.clone(); mat = prep?.(mat) || mat; markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
   return g;
 }
 
@@ -78,7 +79,7 @@ export function staticClone(root, prep) {
 export function splitUnit(root, prep) {
   const part = (want) => {
     const g = new THREE.Group();
-    for (const { geometry, material } of bake(root, (m) => unitPartOf(nameOf(m)) === want || (want === 'parasol' && (m.name === 'baked_shadow' || m.material?.name === 'baked_shadow')))) { const mat = material.clone(); prep?.(mat); markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
+    for (const { geometry, material } of bake(root, (m) => unitPartOf(nameOf(m)) === want || (want === 'parasol' && (m.name === 'baked_shadow' || m.material?.name === 'baked_shadow')))) { let mat = material.clone(); mat = prep?.(mat) || mat; markShadowMat(mat); const ms = new THREE.Mesh(geometry, mat); if (mat.userData.bakedShadow) ms.renderOrder = 1; g.add(ms); }
     return g;
   };
   const desk = part('desk'); desk.position.set(-UNIT_GEOM.desk.x, 0, -UNIT_GEOM.desk.z);

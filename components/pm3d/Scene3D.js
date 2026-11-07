@@ -176,8 +176,16 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     // 정적 모듈(kit) 클레이 질감: roughness 0.6~0.8 클램프 + AO 베이크(kit_ao.jpg, TEXCOORD_1) 주입
     const kitAo = new THREE.TextureLoader().load('/pm3d/kit_ao.jpg', () => st.poke?.(), undefined, () => {});
     kitAo.flipY = false; kitAo.channel = 1;
+    // 소품·탈것·타일 일괄 클레이화(RQ.propShade 'clay'): standard 재질 → 클레이 MatCap. 발광(화면)·구운 그림자판은 그대로 둔다.
+    const toClayMat = (m) => {
+      if (RQ.propShade !== 'clay' || !m || m.isMeshMatcapMaterial || m.userData?.bakedShadow || /shadow|screen/i.test(m.name || '')) return null;
+      if (m.emissive && m.emissiveIntensity > 0 && m.emissive.getHex() !== 0) return null;
+      const c = new THREE.MeshMatcapMaterial({ color: m.color?.clone?.() || new THREE.Color('#ffffff'), map: m.map || null, matcap: clayMatcap, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side });
+      c.name = m.name; c.userData = { ...m.userData }; return c;
+    };
     const clay = (mesh) => {
       const m = mesh?.material ?? mesh; // 메시 또는 재질 모두 허용
+      if (mesh?.isMesh) { const c = toClayMat(m); if (c) { mesh.material = c; return; } }
       if (!m || m.roughness === undefined) return;
       m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0;
       // AO 베이크(TEXCOORD_1)가 있는 kit 메시에만 주입 — uv1 없는 메시(mounts 등)에 붙이면 셰이더 경고
@@ -388,7 +396,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       loadKit(names).then(({ scenes: A, ms, bytes, failed }) => {
         if (dead) return;
         const t0 = performance.now();
-        const clayM = (m) => { if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
+        const clayM = (m) => { const c = toClayMat(m); if (c) return c; if (m.roughness !== undefined) { m.roughness = Math.min(RQ.roughMax, Math.max(RQ.roughMin, m.roughness ?? 1)); m.metalness = 0; } };
         const world = st.world; const S = ASSET_SCALE; const y0 = -TILE_TOP * S;
         // 1) 칸 타일: 모래·해안·보드워크·다리(재질별 InstancedMesh). 광장·통로는 기존 색 타일 유지
         const land = (X, Z) => world.cells.get(`${X},${Z}`);
