@@ -54,6 +54,15 @@ const { pathToFileURL } = require('url');
   const lk = L.look3d({ items: { outfit: 'outfit.aloha', hat: 'hat.straw', deskL: 'desk.mug', pet: 'pet.cat' }, skin: 1, hairColor: 2 }, '홍길동');
   assert.deepStrictEqual([lk.top, lk.bottom, lk.hat, lk.pet, lk.props.length], ['#ff9a3c', '#3ab0c8', 'hat_straw', true, 1]);
   assert.strictEqual(L.look3d(null, 'a').hat, '');
+  // 머리 모양·소품: 이름으로 고정 배정(같은 이름 = 같은 모습), 모자를 쓰면 앞머리만·소품 없음, 종족(고양이 등)은 소품 없음
+  assert.strictEqual(lk.hairStyle, 'bangs'); assert.strictEqual(lk.acc, '');
+  const staff = ['설연주', '강현우', '임재용', '가브리엘', '김원빈', '박성수', '정재훈', '조현욱', '강명훈'];
+  const looks = staff.map((n) => L.look3d(null, n));
+  for (const x of looks) { assert.ok(L.HAIR_STYLES.includes(x.hairStyle)); assert.ok(L.HAIR_ACCS.includes(x.acc)); }
+  assert.deepStrictEqual(looks.map((x) => x.hairStyle), staff.map((n) => L.look3d(null, n).hairStyle), '머리 모양 배정이 매번 달라짐');
+  assert.ok(new Set(looks.map((x) => x.hairStyle)).size >= 3, '직원 9명 머리 모양이 3종 미만(개성 부족)');
+  assert.strictEqual(L.look3d({ char: 'cat' }, '설연주').acc, '');
+  assert.strictEqual(L.look3d({ hairStyle: 'pony', acc: 'band' }, '아무개').hairStyle, 'pony');
   assert.strictEqual(L.animOf({ status: 'off' }).clip, 'doze');
   assert.strictEqual(L.animOf({ status: 'working' }).clip, 'sit_type');
   assert.strictEqual(L.shouldFallback({ firstFrameMs: 3500, fps: 60 }), 'slow-first-frame');
@@ -78,7 +87,10 @@ const { pathToFileURL } = require('url');
   for (const m of ['floor_b', 'floor_i', 'wall', 'desk', 'desk_b', 'desk_c', 'chair', 'desk_k1', 'desk_k2', 'desk_k3', 'chair_k1', 'chair_k2', 'plant_k1', 'plant_k2', 'lamp_k', 'rug_k', 'shell', 'starfish', 'monitor', 'robot', 'plant', 'mug', 'parcel', 'palm', 'parasol', 'boardwalk', 'hut', 'sea', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `station_${n}`)]) assert.ok(names.has(m), `kit 모듈 없음: ${m}`);
   const ch = gl('char.glb'); const clips = ch.animations.map((x) => x.name);
   for (const c of ['idle', 'sit_type', 'walk', 'doze', 'dance']) assert.ok(clips.includes(c), `클립 없음: ${c}`);
-  for (const h of ['hat_cap', 'hat_straw', 'hat_crown']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`); // 모자 16종 전용 메시(build_wearables.py), 전수는 pmProps3d.test.js
+  for (const h of ['hat_cap', 'hat_straw', 'hat_crown']) assert.ok(ch.nodes.some((n) => n.name === h), `모자 없음: ${h}`);
+  // 직원별 개성(2026-11-07 detail_char.py): 머리 모양 6종·머리 소품 4종 메시가 char.glb 안에 있어야 look3d 값이 그려진다
+  for (const id of L.HAIR_STYLES) assert.ok(ch.nodes.some((n) => n.name === 'hs_' + id), `머리 모양 없음: hs_${id}`);
+  for (const id of L.HAIR_ACCS.filter(Boolean)) assert.ok(ch.nodes.some((n) => n.name === 'acc_' + id), `머리 소품 없음: acc_${id}`); // 모자 16종 전용 메시(build_wearables.py), 전수는 pmProps3d.test.js
   // 휠 확대 금지(사장님 지시)
   const src = fs.readFileSync(path.join(process.cwd(), 'components/pm3d/Scene3D.js'), 'utf8');
   assert.ok(!/['"]wheel['"]/.test(src), '3D 장면에 휠 핸들러 금지');
