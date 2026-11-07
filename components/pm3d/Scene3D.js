@@ -73,7 +73,9 @@ function faceTexture(id, onReady) {
   faceTexCache.set(id, tex); return tex;
 }
 // 상태 → 작업 분위기(lib/pmMood 간이판: 3D 는 status 만 안다)
-const STATUS_VIBE = { working: 'work', off: 'doze', idle: 'break' };
+// 이름표 공통 = 둥근 클레이 배지(11/07): 위 하이라이트 + 아래 안쪽 그늘 + 따뜻한 바닥 그림자
+const CLAY_BADGE = 'inset 0 1.5px 0 rgba(255,255,255,.75), inset 0 -2px 0 rgba(120,80,50,.16), 0 2px 4px rgba(90,55,30,.22)';
+const STATUS_VIBE ={ working: 'work', off: 'doze', idle: 'break' };
 function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
@@ -260,7 +262,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
               .replace('#include <color_fragment>', `#include <color_fragment>
   vec2 q = abs(vSea) - uHalf + 1.2;
   float dCoast = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 1.2; // 섬 가장자리에서 바깥으로 거리(m)
-  diffuseColor.rgb = mix(diffuseColor.rgb, uShallow, (1.0 - smoothstep(0.0, 4.0, dCoast)) * 0.85);
+  // 깊이 그라데이션(색감 보완 11/07): 먼 바다는 채도·명도를 낮춘 깊은 청록, 해안 쪽은 밝은 얕은 물 — 쨍한 단색 평면감 제거
+  vec3 deepC = diffuseColor.rgb * vec3(0.62, 0.74, 0.80);
+  diffuseColor.rgb = mix(diffuseColor.rgb, deepC, smoothstep(3.0, 22.0, dCoast));
+  diffuseColor.rgb = mix(diffuseColor.rgb, uShallow, (1.0 - smoothstep(0.0, 4.5, dCoast)) * 0.85);
   float br = 0.55 + 0.35 * sin(uTime * 1.1);
   float foam = smoothstep(1.0, 0.25, abs(dCoast - 0.35 - 0.12 * br)) * (0.38 + 0.14 * br);
   float glint = pow(max(0.0, sin(vSea.x * 2.3 + uTime * 1.3) * sin(vSea.y * 1.9 - uTime * 0.9)), 24.0) * (1.0 - smoothstep(2.0, 9.0, dCoast)) * 0.5;
@@ -306,7 +311,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       }
       // 스테이션 1~9
       STAGES.forEach((s) => {
-        const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z); mergeLocal(o); // 부품 재질별 병합(드로콜↓)
+        const p = stationPos(s.no); const o = put(`station_${s.no}`, p.x, p.z, 0, 1.18); mergeLocal(o); // 부품 재질별 병합(드로콜↓)
+        // 색감 보완(11/07): 9단계 표지 = 주인공 → 18% 크게 + 채도 한 단계↑(파스텔 배경 위로 시선 유도)
+        o.traverse((m) => { if (m.isMesh && m.material?.color && !/glow|shadow/i.test(m.material.name || '')) { m.material = m.material.clone(); m.material.color.offsetHSL(0, 0.12, -0.02); } });
         o.userData = { kind: 'stage', no: s.no, label: s.label }; st.stations.push(o); st.clickables.push(o);
         blob(o, 0, 0, 1.0, 0.95);
       });
@@ -431,7 +438,10 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const done = new Set();
         for (const [asset, list] of groups) {
           if (!A[asset]) continue;
-          scene.add(instanced(list.length >= 20 ? lodBake(bake(A[asset])) : bake(A[asset]), list, clayM)); done.add(asset); // 많이 깔리는 타일 = 경량판(lodBake)
+          const tg = instanced(list.length >= 20 ? lodBake(bake(A[asset])) : bake(A[asset]), list, clayM); // 많이 깔리는 타일 = 경량판(lodBake)
+          // 색감 보완(11/07): 같은 타일이 똑같은 베이지로 반복돼 단조롭던 바닥 → 칸마다 명도 ±5% 변주(인스턴스 색, 비용 0)
+          if (/^tile_(sand|coast|mound)/.test(asset)) tg.traverse((im) => { if (!im.isInstancedMesh || im.material?.userData?.bakedShadow) return; const c = new THREE.Color(); for (let i = 0; i < im.count; i++) { const h = Math.sin(i * 12.9898 + asset.length * 78.233) * 43758.5453; const k = 0.95 + (h - Math.floor(h)) * 0.09; im.setColorAt(i, c.setRGB(k, k * 0.995, k * 0.985)); } if (im.instanceColor) im.instanceColor.needsUpdate = true; });
+          scene.add(tg); done.add(asset);
         }
         const hideFb = (kind, ok) => { if (ok && st.fb.tiles[kind]) st.fb.tiles[kind].visible = false; };
         hideFb('sand', done.has('tile_sand'));
@@ -999,7 +1009,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       <div ref={labelsRef} aria-hidden={false} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {people.map((p) => (
           <button key={p.name} type="button" data-k={p.name} onClick={() => onOpenPerson?.(p.name)} title={p.name}
-            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '1px 7px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: '0 1px 3px rgba(0,0,0,.15)', cursor: 'pointer' }}>
+            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'auto', font: '600 11px/1.2 inherit', padding: '2px 9px', borderRadius: 999, border: 0, whiteSpace: 'nowrap', background: p.status === 'working' ? U.chip : U.chipDim, color: U.ink, boxShadow: CLAY_BADGE, cursor: 'pointer' }}>
             {p.name}
           </button>
         ))}
@@ -1023,7 +1033,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           const on = a.status === 'working';
           return (
             // [2026-11-07] 로봇은 한 줄에 2칸 간격으로 서 있어 긴 칩(170px, 활동 문구 포함)이 서로 겹쳤다 → 이름만, 폭 ≤132px. 활동은 마우스 올리면(title)
-            <span key={a.id || a.name || i} data-k={'rb' + i} title={on && a.activity ? `${a.name || a.id} · ${a.activity}` : (a.name || a.id)} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '1px 5px', borderRadius: 6, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 132, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.6 }}>
+            <span key={a.id || a.name || i} data-k={'rb' + i} title={on && a.activity ? `${a.name || a.id} · ${a.activity}` : (a.name || a.id)} style={{ position: 'absolute', left: 0, top: 0, font: '600 10px/1.2 inherit', padding: '2px 8px', borderRadius: 999, boxShadow: CLAY_BADGE, background: U.robot, color: U.dot, whiteSpace: 'nowrap', maxWidth: 132, overflow: 'hidden', textOverflow: 'ellipsis', opacity: on ? 1 : 0.6 }}>
               🤖 {a.name || a.id}
             </span>
           );
