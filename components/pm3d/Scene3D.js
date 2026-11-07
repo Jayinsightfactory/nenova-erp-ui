@@ -13,7 +13,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { beachDecorGrid } from '../../lib/pm3dDecor';
 import { CELL, tilesOf, facilityRects, worldBounds, walkPath, canOccupy, occupy, cellCenter, CRUISE_BOUNDS } from '../../lib/pm3dGrid';
 import { STAGES } from '../../lib/pmStages';
-import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics } from '../../lib/pm3dLayout';
+import { layoutDesks, floorBounds, stationPos, look3d, animOf, shouldFallback, declutter, CAM_DIR, CAM_YAW, FPS_CAP, FPS_IDLE, IDLE_AFTER_MS, FPS_WARMUP_MS, FPS_WINDOW_MS, MAX_DPR, CHAR_SCALE, CHAR_STAND_H, seatWorld, SET_SCALE, PROP_SCALE, DEFAULT_ZOOM, defaultZoom, sceneFit, deskStyle, ARC_Y, bodyMetrics, turnToCam } from '../../lib/pm3dLayout';
 import { usePmTheme } from '../pm/PmTheme';
 import { ASSETS, ASSET_SCALE, DECOR_SCALE, TILE_TOP, unitForIndex, planParasols, worldToLocal, coastPick, boardwalkPick, railPick, fitScale, moundPick } from '../../lib/pm3dAssets';
 import { rimify, dressDetail, poseDetail } from './charLook';
@@ -35,7 +35,7 @@ const STAGE_HEX = PM3D.STAGE;
 const PROP_SLOTS = [new THREE.Vector3(-0.61, 0.72 * 1.45 + 0.005, 0.22), new THREE.Vector3(0, 0.72 * 1.45 + 0.005, 0.3), new THREE.Vector3(0.61, 0.72 * 1.45 + 0.005, 0.22)];
 const PET_SLOT = new THREE.Vector3(1.25, 0.22, 0.35);
 const SEAT_Z = 0.62 * SET_SCALE; // 그룹 안 캐릭터·의자 위치(-Z = 책상 뒤, 캐릭터는 +Z = 카메라 쪽을 봄)
-const SEAT_Y = 0.46 * SET_SCALE - 0.52 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.78 * CHAR_SCALE + 0.35; // 앉은 엉덩이(비율 교정 후 sit 힙 ≈0.52 = 0.406×BODY_K+클립 오프셋)를 의자 좌판(0.46)에 맞춤. 1.78=교정 후 머리끝
+const SEAT_Y = 0.46 * SET_SCALE - 0.52 * CHAR_SCALE + 0.02; const DESK_H = 0.72 * SET_SCALE; const HEAD_Y = 1.78 * CHAR_SCALE + 0.67; // 앉은 엉덩이(비율 교정 후 sit 힙 ≈0.52 = 0.406×BODY_K+클립 오프셋)를 의자 좌판(0.46)에 맞춤. 1.78=교정 후 머리끝
 const RQ = PM3D.RENDER; // 렌더 품질 토큰(nenova-pm/pm3d/QUALITY_RECIPE.md 기준)
 
 function webglOk() {
@@ -83,7 +83,7 @@ function emojiSprite(txt) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 32, 36);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
-  s.scale.set(0.8, 0.8, 1); s.renderOrder = 10; return s;
+  s.scale.set(0.5, 0.5, 1); s.renderOrder = 10; return s; // 작게(머리에 묻히지 않게)
 }
 
 export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, onOpenPerson, onPickStage, onFallback }) {
@@ -228,6 +228,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       st.mounts = mounts ? mounts.scene : null;
       const lay = T.layout || {};
       const { desks, plates, world } = layoutDesks(dataRef.current.rooms);
+      for (const d of desks) d.yaw = turnToCam(d.yaw); // 얼굴 3/4 정면(카메라 쪽으로 최대 0.7rad)
       const { hx, hz } = floorBounds(desks, lay.mapScale || 1);
       const island = T.props !== 'office'; // 해변 = 격자 섬 세계(lib/pm3dGrid), 사무실 테마 = 기존 사각 바닥
       st.bounds = island ? { ...CRUISE_BOUNDS } : { hx, hz };
@@ -603,7 +604,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
           const hb = P.ch.getObjectByName('head'); if (hb) hb.scale.setScalar(BM.head);
           P.home.y = BM.seatY;
           if (!P.walk && !P.riding && !P.cruise) P.ch.position.y = BM.seatY;
-          P.emoY = BM.headTop * CHAR_SCALE + 0.3;
+          P.emoY = BM.headTop * CHAR_SCALE + 0.62; // 머리 위로 띄움(💤가 머리카락에 묻히던 문제)
           P.emo.position.y = P.emoY;
           if (P.blobChar) { P.blobChar.scale.set(1.04 * BM.s * 0.72, 0.96 * BM.s * 0.72, 1); P.blobChar.userData.spread?.scale.set(1.04 * BM.s * 1.35, 0.96 * BM.s * 1.35, 1); }
           st.poke?.();
@@ -754,7 +755,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const wv = new THREE.Vector3();
       for (const [name, P] of st.people) {
         // 이름표 = 머리 위 (#1548 때 push 가 주석에 삼켜져 전원 이름표가 좌상단에 쌓이던 버그 복구)
-        P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.25; v.project(cam);
+        P.ch.getWorldPosition(v); v.y += P.walk || P.cruise ? 1.3 : (P.emoY ?? HEAD_Y) - P.ch.position.y + 0.42; v.project(cam);
         items.push({ key: name, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h - 20, ...sizeOf(name, 56, 16) });
         if (P.stage) { const tip = P.g.userData?.parasolTip; if (tip) wv.set(tip.x, tip.y, tip.z); else wv.set(0, HEAD_Y + 0.9, -SEAT_Z); P.g.localToWorld(wv); wv.project(cam); items.push({ key: 'w:' + name, x: (wv.x + 1) / 2 * w, y: (1 - wv.y) / 2 * h - 12, ...sizeOf('w:' + name, 150, 30) }); } // 작업 말풍선 = 파라솔 위(파라솔 없으면 머리 위)
       }
