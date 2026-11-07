@@ -84,6 +84,8 @@ const { pathToFileURL } = require('url');
   assert.ok(!/['"]wheel['"]/.test(src), '3D 장면에 휠 핸들러 금지');
   assert.ok(/data-k=\{'w:' \+ p\.name\}/.test(src) && !/\{p\.name\}\{l\?\.text/.test(src), '이름·작업 칩 분리');
   assert.ok(/MAX_DPR/.test(src) && /FPS_CAP/.test(src) && /IntersectionObserver/.test(src), '3D 프레임 상한·화면밖 정지');
+  // 회귀(2026-11-07 실서버 "3D 흰 화면"): WebGL 컨텍스트 유실 시 캔버스만 비고 이름표만 남던 것 → 복구 대기 후 못 살리면 2D 로 넘김
+  assert.ok(/webglcontextlost/.test(src) && /webglcontextrestored/.test(src) && /onFallback\?\.\('webgl-context-lost'\)/.test(src) && /isContextLost\(\)/.test(src), 'WebGL 컨텍스트 유실 대응 없음');
   assert.ok(!/d\.face/.test(src), '옛 좌석 방향(face) 사용 금지');
   // 회귀: 로봇 칩(실측 170px) ↔ 작업 칩 겹침 — 실제 DOM 크기 기반 declutter (2026-11-04 사장님 스크린샷 버그)
   const over = L.declutter([

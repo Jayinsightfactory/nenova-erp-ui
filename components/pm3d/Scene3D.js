@@ -111,6 +111,18 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
     // [2026-11-06 색감 교정] 시안 대비 채도가 낮아 보여(모래 베이지화) 캔버스에 GPU 합성 색 필터 — 성능 비용 0, 토큰으로 끄기 가능
     if (RQ.canvasFilter) renderer.domElement.style.filter = RQ.canvasFilter;
     el.appendChild(renderer.domElement);
+    // [2026-11-07 긴급] WebGL 컨텍스트 유실(그래픽 메모리 부족·GPU 리셋) 대응 — 유실되면 캔버스가 통째로 비고 HTML 이름표만 남는다
+    //   (실서버 신고 "3D 흰 화면", 로컬에서 WEBGL_lose_context 로 같은 화면 재현). 브라우저가 4초 안에 되살리면 three 가 자동 복구,
+    //   못 되살리면 2D 장면으로 넘긴다(onFallback). 유실 중에는 그리지 않는다.
+    let ctxLostT = 0;
+    const onCtxLost = (e) => {
+      e.preventDefault();
+      clearTimeout(ctxLostT);
+      ctxLostT = setTimeout(() => { if (!dead && renderer.getContext().isContextLost()) onFallback?.('webgl-context-lost'); }, 4000);
+    };
+    const onCtxRestored = () => { clearTimeout(ctxLostT); st.poke?.(); };
+    renderer.domElement.addEventListener('webglcontextlost', onCtxLost);
+    renderer.domElement.addEventListener('webglcontextrestored', onCtxRestored);
     const scene = new THREE.Scene();
     // 배경: 세로 그라데이션(bgTop→bg) + 같은 톤 안개로 깊이감
     {
@@ -755,7 +767,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       if (dead) return;
       raf = requestAnimationFrame(tick);
       const now = performance.now();
-      if (!visible || document.hidden) {
+      if (!visible || document.hidden || renderer.getContext().isContextLost()) { // 컨텍스트 유실 중엔 그리지 않음(FPS 측정도 멈춤 — 저사양 오판 방지)
         st.clock.getDelta();
         // 가려진 동안은 FPS 측정 일시정지(배경 탭 스로틀로 저사양 오판 방지)
         if (st.built && !st.checked) { st.fpsT0 = now + 500; st.frames = 0; }
@@ -985,7 +997,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       },
     };
     return () => {
-      dead = true; cancelAnimationFrame(raf); ro.disconnect(); io?.disconnect();
+      dead = true; cancelAnimationFrame(raf); clearTimeout(ctxLostT); renderer.domElement.removeEventListener('webglcontextlost', onCtxLost); renderer.domElement.removeEventListener('webglcontextrestored', onCtxRestored); ro.disconnect(); io?.disconnect();
       cvs.removeEventListener('pointerdown', onDown); window.removeEventListener('pointermove', onMove); cvs.removeEventListener('pointerup', onUp);
       scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
       renderer.dispose(); cvs.remove(); api.current = null;
