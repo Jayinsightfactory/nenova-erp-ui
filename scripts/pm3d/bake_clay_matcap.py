@@ -24,8 +24,8 @@ nt.links.new(lw.outputs['Facing'], rr.inputs['Value']); nt.links.new(rr.outputs[
 b.inputs['Emission Color'].default_value = (*hexc('#fff1dc'), 1)
 s.data.materials.append(m)
 w = bpy.data.worlds.new('W'); sc.world = w; w.use_nodes = True
-bg = next(n for n in w.node_tree.nodes if n.type == 'BACKGROUND'); bg.inputs['Color'].default_value = (*hexc('#ffd9cf'), 1); bg.inputs['Strength'].default_value = 0.8
-k = bpy.data.objects.new('K', bpy.data.lights.new('K', 'SUN')); k.data.energy = 3.6; k.data.color = hexc('#ffe5d9'); k.data.angle = math.radians(30)
+bg = next(n for n in w.node_tree.nodes if n.type == 'BACKGROUND'); bg.inputs['Color'].default_value = (*hexc('#ffd9cf'), 1); bg.inputs['Strength'].default_value = 0.6
+k = bpy.data.objects.new('K', bpy.data.lights.new('K', 'SUN')); k.data.energy = 2.6; k.data.color = hexc('#ffe5d9'); k.data.angle = math.radians(30)
 k.rotation_euler = (math.radians(-35), math.radians(-25), 0); sc.collection.objects.link(k)
 f = bpy.data.objects.new('F', bpy.data.lights.new('F', 'SUN')); f.data.energy = 0.8; f.data.color = hexc('#ffb5a7')
 f.rotation_euler = (math.radians(200), 0, 0); sc.collection.objects.link(f)

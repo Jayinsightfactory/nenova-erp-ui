@@ -118,7 +118,8 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       const bgTex = new THREE.CanvasTexture(c); bgTex.colorSpace = THREE.SRGBColorSpace;
       scene.background = bgTex;
     }
-    scene.fog = new THREE.Fog(new THREE.Color(T.bg), RQ.fogNear, RQ.fogFar);
+    // 2026-11-07 클레이 맵: 수중 느낌 청록 FogExp2(멀수록 청록으로 스며듦) — RQ.fogExp2 없으면 기존 선형 안개
+    scene.fog = RQ.fogExp2 ? new THREE.FogExp2(new THREE.Color(RQ.fogExp2.color), RQ.fogExp2.density) : new THREE.Fog(new THREE.Color(T.bg), RQ.fogNear, RQ.fogFar);
     // 환경광: RoomEnvironment 1회 생성 → PMREM 1개 → 즉시 dispose(QUALITY_RECIPE ②-4, 매 프레임 재생성 금지)
     {
       const pmrem = new THREE.PMREMGenerator(renderer);
@@ -126,7 +127,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       scene.environmentIntensity = RQ.env;
       pmrem.dispose();
     }
-    scene.add(new THREE.HemisphereLight(U.hemiSky, U.hemiGround, RQ.hemi));
+    scene.add(new THREE.HemisphereLight(RQ.hemiSky || U.hemiSky, RQ.hemiGround || U.hemiGround, RQ.hemi));
     const sun = new THREE.DirectionalLight(T.light, RQ.sun); sun.position.set(-12, 22, 14); // 그림자 없는 약한 키 라이트(방향감만)
     scene.add(sun); scene.add(sun.target);
     // 접지 블롭 그림자(평면+방사형 그라데이션) — 공짜 contact shadow
@@ -242,7 +243,22 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const GC = PM3D.GRID;
         const wb = worldBounds(world);
         {
-          const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60), new THREE.MeshStandardMaterial({ color: T.sea || GC.sea, roughness: 0.6 }));
+          // 물결: 정점 셰이더에서 sin 2겹으로 높이·법선을 흔든다(GPU 계산, uTime 1개만 갱신 → FPS_CAP 불변·CPU 비용 0)
+          const seaMat = new THREE.MeshLambertMaterial({ color: T.sea || GC.sea });
+          st.seaTime = { value: 0 };
+          seaMat.onBeforeCompile = (sh) => {
+            sh.uniforms.uTime = st.seaTime;
+            sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader
+              .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+  float wA = 0.55, wB = 0.38;
+  vec2 wp = position.xy;
+  float dX = 0.06 * wA * cos(wp.x * wA + uTime * 1.1) + 0.04 * wB * cos((wp.x + wp.y) * wB + uTime * 0.8);
+  float dY = 0.04 * wB * cos((wp.x + wp.y) * wB + uTime * 0.8);
+  objectNormal = normalize(vec3(-dX, -dY, 1.0));`)
+              .replace('#include <begin_vertex>', `#include <begin_vertex>
+  transformed.z += 0.06 * sin(wp.x * wA + uTime * 1.1) + 0.04 * sin((wp.x + wp.y) * wB + uTime * 0.8);`);
+          };
+          const sea = new THREE.Mesh(new THREE.PlaneGeometry(wb.x1 - wb.x0 + 60, wb.z1 - wb.z0 + 60, 96, 96), seaMat);
           sea.rotation.x = -Math.PI / 2; sea.position.set((wb.x0 + wb.x1) / 2, -0.12, (wb.z0 + wb.z1) / 2); scene.add(sea);
           // [2026-11-06 톤 업그레이드] ①얕은 물 띠 ②해안 거품 띠(숨쉬듯 출렁) ③수면 반짝임 ④전역 명암판 — 전부 정적 메시+투명도 애니라 비용 미미, FPS_CAP 불변
           const cx = (wb.x0 + wb.x1) / 2, cz = (wb.z0 + wb.z1) / 2;
@@ -278,7 +294,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         const m4 = new THREE.Matrix4(); const q0 = new THREE.Quaternion(); const v0 = new THREE.Vector3(); const s0 = new THREE.Vector3();
         for (const [kind, h] of Object.entries(tileH)) {
           const list = tiles[kind]; if (!list.length) continue;
-          const mat = new THREE.MeshStandardMaterial({ color: GC[kind], roughness: 0.8 });
+          const mat0 = new THREE.MeshStandardMaterial({ color: GC[kind], roughness: 0.8 }); const mat = toClayMat(mat0) || mat0; // 광장·통로 타일도 클레이
           const im = new THREE.InstancedMesh(tGeo, mat, list.length);
           const gap = kind === 'boardwalk' || kind === 'bridge' ? 0.94 : 1;
           list.forEach((t, i) => { m4.compose(v0.set(t.x, -h / 2, t.z), q0, s0.set(CELL * gap, h, CELL * gap)); im.setMatrixAt(i, m4); });
@@ -305,9 +321,9 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
       {
         const HC = PM3D.HUB;
         const grp = new THREE.Group(); grp.position.set(HUB_POS.x, 0, HUB_POS.z); scene.add(grp);
-        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.8 }));
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.72, HUB_R, HUB_PEDESTAL_H, 14), (toClayMat(new THREE.MeshStandardMaterial({ color: HC.pedestal })) || new THREE.MeshStandardMaterial({ color: HC.pedestal, roughness: 0.8 })));
         ped.position.y = HUB_PEDESTAL_H / 2; grp.add(ped);
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.82, HUB_R * 0.72, 0.08, 14), new THREE.MeshStandardMaterial({ color: HC.pedestalTop, roughness: 0.7 }));
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(HUB_R * 0.82, HUB_R * 0.72, 0.08, 14), (toClayMat(new THREE.MeshStandardMaterial({ color: HC.pedestalTop })) || new THREE.MeshStandardMaterial({ color: HC.pedestalTop, roughness: 0.7 })));
         top.position.y = HUB_PEDESTAL_H + 0.04; grp.add(top);
         const orbMat = new THREE.MeshStandardMaterial({ color: HC.crystal, emissive: HC.glow, emissiveIntensity: 0.55, roughness: 0.25, transparent: true, opacity: 0.95 });
         const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(HUB_ORB_R, 2), orbMat); orb.position.y = HUB_ORB_Y; grp.add(orb);
@@ -578,7 +594,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         L.props.forEach((k, i) => { const o = kitMod(k); o.position.copy(PROP_SLOTS[Math.min(i, 2)]); o.position.y = (P.deskTop ?? DESK_H) + 0.005; o.scale.setScalar(k === 'mug' ? PROP_SCALE : 0.9); P.g.add(o); P.decor.push(o); });
         // 책장·큰 소품(구매 shelf) — 책상 오른쪽 뒤 바닥(kit.glb shelf_* 모듈). 그림자=블롭 방식이라 cast/receive 불필요
         if (L.shelf) { const o = kitMod(L.shelf); o.position.set(1.45, 0, -SEAT_Z - 0.15); o.rotation.y = -0.35; P.g.add(o); P.decor.push(o); }
-        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshStandardMaterial({ color: U.pet, roughness: 0.8 })); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); P.g.add(pet); P.decor.push(pet); }
+        if (L.pet) { const pet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), (toClayMat(new THREE.MeshStandardMaterial({ color: U.pet })) || new THREE.MeshStandardMaterial({ color: U.pet, roughness: 0.8 }))); pet.scale.set(1.2, 0.85, 1); pet.position.copy(PET_SLOT); P.g.add(pet); P.decor.push(pet); }
         const A = animOf(p);
         const off = p.status === 'off';
         P.mon.traverse((m) => { if (m.isMesh && m.material?.name === 'screen') { m.material = m.material.clone(); m.material.emissiveIntensity = off ? 0 : 0.6; m.material.color.set(off ? U.screenOff : U.screenOn); } });
@@ -858,6 +874,7 @@ export default function Scene3D({ themeId = 'I', rooms, agents, links, reduced, 
         if (st.clouds && !red) for (const sp of st.clouds) { sp.position.x += dt * 0.25; if (sp.position.x > 34) sp.position.x = -14; }
         // [2026-11-06 톤 업그레이드] 거품 숨쉬기·수면 반짝임·야자수 바람(전부 투명도/소각 회전만 — 비용 미미)
         if (st.foam && !red && st.foam[0]) st.foam[0].material.opacity = 0.4 + Math.sin(now / 900) * 0.14;
+        if (st.seaTime && !red) st.seaTime.value = now / 1000;
         if (st.sparkles && !red) for (const sp of st.sparkles) sp.material.opacity = Math.max(0, Math.sin(now / 700 + sp.userData.ph)) * 0.7;
         if (st.palms3d && !red) for (const g3 of st.palms3d) g3.rotation.z = Math.sin(now / 1300 + g3.position.x * 0.7) * 0.03;
         if (st.train && !red) { // 꼬마기차 상시 순환(속도 1.6m/s)
