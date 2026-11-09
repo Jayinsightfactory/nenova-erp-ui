@@ -5,14 +5,38 @@ import os from 'node:os';
 import path from 'node:path';
 import {validatePackingPdf} from '../lib/importTeamPdf.js';
 import {readPackingProviderResponse,packingProviderFailureCode} from '../lib/importPackingProviderStream.js';
+import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks} from '../lib/importPackingPdfChunks.js';
+import {readPackingPdfChunk,updatePackingPdfChunk} from '../lib/importTeamPdfJobs.js';
+import {PDFDocument} from 'pdf-lib';
 import {packingPdfCacheKey,PDF_ANALYSIS_MODEL} from '../lib/importTeamPdfCache.js';
 import {PDF_JOB_TIMEOUT_MS,getPackingPdfJob,findPackingPdfJobByKey,startPackingPdfJob,markPackingPdfAttempt,finishPackingPdfJob,markPackingPdfCacheSaved} from '../lib/importTeamPdfJobs.js';
 
 const source=await fs.readFile(new URL('../pages/api/import/tools/parse-pdf.js',import.meta.url),'utf8');
-const code='const {readPackingProviderResponse,packingProviderFailureCode}=arguments[arguments.length-1];\n'+source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
+const code='const {readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,readPackingPdfChunk,updatePackingPdfChunk}=arguments[arguments.length-1];\n'+source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
 const pdfBase64=Buffer.from('%PDF-1.7\nfixture').toString('base64');
 const body={country:'NL',pdfBase64,async:true};
 const data={content:[{type:'text',text:'{"invoices":[]}'}],stop_reason:'end_turn',usage:{input_tokens:5,output_tokens:7}};
+
+test('CO real PDF request resumes completed segments and performs final reconciliation before success',()=>setup(async h=>{
+  const pdf=await PDFDocument.create();for(let i=0;i<4;i++)pdf.addPage();
+  const input={country:'CO',pdfBase64:await pdf.saveAsBase64(),async:true};
+  let failed=false;
+  h.setFetch(async(url,options)=>{
+    const request=JSON.parse(options.body),isSecond=request.system.includes('original pages 4.');
+    if(isSecond&&!failed){failed=true;throw Object.assign(Error('mock timeout'),{name:'TimeoutError'});}
+    const count=isSecond?1:3;
+    return {ok:true,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({
+      covered_pages:Array.from({length:count},(_,i)=>({page:i+1,kind:i===0?'invoice':'supporting'})),
+      invoices:[{supplier:'Farm',invoice:isSecond?'B':'A',currency:'USD',freight_total:0,invoice_total:10,products:[{description:'Rose',t_price:10}]}]
+    })}]})};
+  });
+  const first=await h.request('POST','alice',input);
+  const terminal=await h.waitJob('alice',first.body.jobId);assert.equal(terminal.body.status,'FAILED');assert.equal(h.fetchCalls,2);
+  const replay=await h.request('POST','alice',input);assert.equal(replay.body.status,'FAILED');assert.equal(h.fetchCalls,2);
+  const retry=await h.request('POST','alice',{...input,retryJobId:first.body.jobId});
+  const success=await h.waitJob('alice',retry.body.jobId);assert.equal(success.body.status,'SUCCEEDED');assert.equal(h.fetchCalls,3);
+  assert.equal(JSON.parse(success.body.result.content[0].text).invoices.length,2);
+}));
 function response() {
   return {code:200,body:null,headers:{},setHeader(name,value){this.headers[name]=value;},status(value){this.code=value;return this;},json(value){this.body=value;return this;}};
 }
@@ -36,7 +60,9 @@ async function setup(fn) {
       fn=>fn,validatePackingPdf,()=> 'fixed prompt',()=>{trackCalls++;},async()=>{quotaCalls++;await quotaImpl();},packingPdfCacheKey,async()=>cache,async()=>{cacheWrites++;return true;},PDF_ANALYSIS_MODEL,PDF_JOB_TIMEOUT_MS,
       (uid,id)=>getPackingPdfJob(uid,id,{root}),(uid,key)=>findPackingPdfJobByKey(uid,key,{root}),(uid,key,opts)=>startImpl(uid,key,opts),async(uid,id,token)=>{try{return await markPackingPdfAttempt(uid,id,token,{root});}catch(error){markErrors.push(error.code||error.name);throw error;}},async(uid,id,token,value)=>{try{const result=await finishImpl(uid,id,token,value);if(result?.status==='SUCCEEDED'||result?.status==='FAILED')finishedJobs.add(id);return result;}catch(error){finishErrors.push(error.stack||String(error));throw error;}},(uid,id,token)=>markPackingPdfCacheSaved(uid,id,token,{root}),
       country=>doclingImpl.applies(country),()=>50,()=>'a'.repeat(64),async()=>doclingImpl.record,async()=>({enqueued:true}),async()=>doclingImpl.record,record=>record&&record.markdown?'\nCANDIDATE BLOCK\n'+record.markdown:'',()=>({checked:0,flagged:[]}),async()=>{},
-      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal,{readPackingProviderResponse,packingProviderFailureCode}
+      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal,{readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,
+        readPackingPdfChunk:(uid,id,token,index,pages)=>readPackingPdfChunk(uid,id,token,index,pages,{root}),
+        updatePackingPdfChunk:(uid,id,token,value)=>updatePackingPdfChunk(uid,id,token,value,{root})}
     );
     const request=async(method,user='alice',value=body,query={})=>{
       const res=response();await handler({method,user:{userId:user},body:value,query},res);

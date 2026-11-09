@@ -2235,6 +2235,12 @@
 검색어: incoming distribution-review 45-01 45-03 fixed unfixed stockDelta native rollback guide196 guide148.5
 - 후속: origin/master3f91 통합 뒤 정식 `npm run build` exit0, 실제 MP4 재생·역할/목차·한국어VTT·다운로드·접기정지·1920/390 player PASS. 모달 Space 열기/체크, Arrow 차수선택까지 PASS. 최종 영상 중간/끝 프레임 시각확인 PASS. 전체ERP CI/병합/운영배포·GET smoke는 PR 후속(미검증).
 
+## 2026-11-09 CO PDF 분할·완료 구간 재사용
+- fresh nw-pdf-chunks-1109 @0a16fb9a. CO 최대3쪽/24구간 실제 PDF 분리, strict JSON/end_turn/페이지 매핑·coverage·상품+부대비 총액·manifest 송장/유일 농장 대조. supplier+invoice+currency 정확 이어붙임, 모호하면 차단. 텍스트 기반 송장 경계 탐지 완료로 주장하지 않음.
+- 기존 job OS mutex/token 아래 구간 claim/result 보존. 명시 실패 job 재시도만 완료 구간 상속, 통신 실패 자동 재호출0. 전체 검산 실패 결과는 무효화. PDF 영구보관/운영 ERP 원장 쓰기/추가 유료 분석0.
+- 표적34 PASS, 정식 test:erp-contract exit0, manifest201/writeguard/dnSpy PASS. 빌드/CI/배포 진행 중(미검증). 실제46-1 추가 유료 재분석 미실행이며 이전1회 승인은 소진됨.
+검색어: co-chunks-v1 PDF_CHUNK_VALIDATION 46-1콜카장 구간재사용 manifest 원본페이지
+- 후속: webpack1worker 정식 build exit0, workflow-guides/변경범위 검사 PASS. 운영 Chrome에서 이전 실패 원본4212KB 유지 확인, 분석 버튼 미실행. CI/코드-only 배포 진행 예정.
 ## 2026-11-09 즐겨찾기 즉시 조회·단가 표시
 - 요청: 과거 정산맞춤이 아닌 앞으로 업체 클릭 한 번으로 매출·품목수량·단가 즉시 확인. 저장요일+클릭시 KST오늘로 기존 GET12기간, 최신2개만 compact 표시. 이전/다음2기간·전체이력/더보기 유지. 직접날짜 범위는 축소하지 않음.
 - 저장판매단가(VAT포함) 항상 표시, 복수/0단가·단가별 표시기간수량 보존(평균없음). 공급가/실제VAT/합계 별도 요약. 기존 API/SQL/정산귀속·품목키·날짜·가격 원장 변경0.

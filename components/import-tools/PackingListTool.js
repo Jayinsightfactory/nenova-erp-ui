@@ -1717,6 +1717,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             setSteps([{label,state:'active'}]);
             setStatus({type:'info',msg:progress.stage==='SUBMITTING'
               ? '분석 작업을 접수합니다. 원본 파일은 유지됩니다.'
+              : progress.total ? `PDF 구간 ${progress.completed}/${progress.total} 완료 · ${progress.stage==='VALIDATING'?'누락·중복·총금액 검증 중':`${progress.current}번째 구간 분석 중`}. 완료 구간은 재사용하며 결과 조회는 AI를 다시 호출하지 않습니다.`
               : `AI 분석 결과를 확인하고 있습니다${progress.elapsedSeconds ? ` (${progress.elapsedSeconds}초 경과)` : ''}. 결과 조회는 AI를 다시 호출하지 않습니다.`});
           }});
         if (extraction.needsAI && allowAI === 'auto' && isCurrent()) {

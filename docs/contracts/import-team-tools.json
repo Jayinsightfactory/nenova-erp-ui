@@ -22,6 +22,8 @@
     "lib/importTeamClient.js",
     "lib/importTeamPdf.js",
     "lib/importPackingProviderStream.js",
+    "lib/importPackingPdfChunks.js",
+    "__tests__/importPackingPdfChunks.test.js",
     "lib/importTeamPdfQuota.js",
     "lib/importTeamPdfCache.js",
     "lib/importTeamPdfJobs.js",
@@ -82,7 +84,7 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "stock": "preserve",
-      "runtimeFile": "authenticated user-isolated job/result/cache/quota only; sync and async share fenced admission; polling GET never initiates AI; uncertain dispatch requires explicit retry identity and extra-cost confirmation; one provider call bounded to ten minutes; no PDF persistence and no ERP writes"
+      "runtimeFile": "authenticated user-isolated job/result/cache/quota only; sync and async share fenced admission; polling GET never initiates AI; uncertain dispatch requires explicit retry identity and extra-cost confirmation; CO PDF uses at most 24 sequential three-page segments with per-call quota, durable fenced segment results, explicit failed-job retry reusing completed segments, original page remapping and whole-file invoice/manifest/amount reconciliation; invalid reconciliations invalidate segment results instead of endless stale replay; other countries preserve one provider call bounded to ten minutes; no PDF persistence and no ERP writes"
     },
     {
       "name": "MATCH_ERP_PRODUCT",
@@ -131,6 +133,7 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/importPackingPdfChunks.test.js",
     "__tests__/packingProviderStream.test.js",
     "__tests__/importPackingMatchPreview.test.js",
     "__tests__/importChinaPdfInvoice.test.js",
