@@ -2248,3 +2248,9 @@
 검색어: date-sales-quick-favorite 즐겨찾기 원클릭 판매단가 최근2기간 공급가 VAT
 검증: 필수 ERP전체/manifest201/dnSpy/쓰기guard/가이드/빌드 및 운영빌드 Chrome dry-run 통과. 원장쓰기0. CI/배포는 진행 예정.
 검색어: date-sales-quick favorite latest-two stored-price VAT
+
+## 2026-11-09 PDF coverage 보완
+- fed7c5ad/deploy42549551143 코드-only 성공·live버전/핑/hydration 확인. 사용자 복구확인 후 46-1 콜카장4212KB 유료 분할1회 시도, 약2분 내 페이지 coverage 검증 차단. 시간초과 대신 응답을 받은 것일 뿐 최종 분석 성공 아님. ERP 저장0/자동 재시도0.
+- raw 응답 미보관이라 실제 반환형식/누락 원인 확정불가. 프롬프트에는 page/kind 정확 JSON 스키마가 없는데 검증기는 요구하는 계약 불일치 확인. 정확 키/정수로컬번호/배열길이/빈페이지분류 명시, 응답형식·개수·중복·범위 각각 안내. 원본 누락으로 단정 금지. coverage/금액 검증 완화0.
+- fresh nw-pdf-coverage-1109 @fed7c5ad, 표적26 PASS. 전체ERP/빌드/CI/보완배포 진행 중. 추가 유료 재분석은 미실행·새 선택 요청. 실제46-1 성공 미검증.
+검색어: PDF coverage page kind 형식누락 원본누락오진 46-1 fed7c5ad
