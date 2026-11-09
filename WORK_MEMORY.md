@@ -2225,3 +2225,12 @@
 검색어: PDF stream 46-1콜카장 UND_ERR_HEADERS_TIMEOUT PDF_ANALYSIS_UNCERTAIN 오류로그boolean
 - 후속: 공식 npm run test:erp-contract exit0, test:erp-manifest origin/master exit0, dnSpy/writeguard/workflow-guides PASS, 정식 npm run build exit0. 빌드된 next start에서도 표·자동완성·달력/키보드/모바일/오류복구·54.1초 영상 재생/목차/한국어 자막/다운로드·popup shell PASS. PR/CI/배포는 진행 예정(운영 미검증).
 검색어: date-sales-matrix ERP0 BUILD0 production-ui guide54.1
+
+## 2026-11-09 입고 정정 영향 차수별 분배 검토
+- 영업지원 요청 상세에 항상 열리는 분배 검토·수정 모달 추가. 연도·차수/업체품목 검색, 기존→최종 수량·판매단가, 상세 확정/최종 상태와 재검증 재고를 함께 표시. 임시값은 미검증, 최종 승인 전 ERP 영구변경0.
+- 실제 dnSpy FormShipmentDistribution/ClassShipmentDetail 및 운영 FIX/CANCEL SP/상세트리거 SELECT 확인. 국가품종 전체 SP는 호출하지 않고 기존 receipt gate/locked writer 안에서 선택 기존확정 상세만0→입력→1복원. 미확정 유지, 대체신규는 원본상태상속/혼합확정합침차단. signed stockDelta/native cascade·정확부족동의·원가손익/전체rollback 유지.
+- 대상20PASS/실제격리SQL45-01입고100→90 및45-03분배100→90 fixed/unfixed PASS. 현재190/후속100·190/2027동일 계산, Product.Stock차액1회,2025동일업체품목45-03·헤더·Estimate/WebProfit보존,날짜중간실패복구. 운영 표본7662/Prod22 출고9/날짜9/견적9/전년5/농장0, 운영쓰기0.
+- production1920/390 실제모달·Tab20/ShiftTab/Escape초점복귀/Enter·수량수정·재검증 PASS. 양역할최종영상 import196초/support148.5초 실제촬영·한국어자막·목차·sourceproof 등록. dev촬영중단2회 뒤 production전환, nativeTab범위와 single-scenario fixture선택보완. 최종정식빌드/가이드재생 및 PR 전체ERP CI·배포·liveGET는 진행 중(미검증).
+- origin/master3f91e0e1 통합, taggedstash 보존. 시작 계정전체41%/reset1794459857(작업단독사용량 아님). 운영저장시험·원장보정0.
+검색어: incoming distribution-review 45-01 45-03 fixed unfixed stockDelta native rollback guide196 guide148.5
+- 후속: origin/master3f91 통합 뒤 정식 `npm run build` exit0, 실제 MP4 재생·역할/목차·한국어VTT·다운로드·접기정지·1920/390 player PASS. 모달 Space 열기/체크, Arrow 차수선택까지 PASS. 최종 영상 중간/끝 프레임 시각확인 PASS. 전체ERP CI/병합/운영배포·GET smoke는 PR 후속(미검증).

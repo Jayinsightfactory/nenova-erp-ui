@@ -1,5 +1,11 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-09 입고 정정 영향 분배·확정 복원
+
+영업지원은 자동 문제 유무와 무관하게 영향 연도·차수별 분배 검토창을 열 수 있다. 현재 상세 확정 상태를 표시하고 선택한 기존 확정 상세만 승인 트랜잭션 안에서 해제→입력→복원한다. 원본 미확정은 보존하며 대체 신규 상세도 원본 상태를 따른다. 기존/신규 대상에 확정·미확정 원본을 합치면 차단한다. 전체 국가품종 FIX/CANCEL SP는 비대상 상세/헤더·재고를 바꾸므로 호출하지 않는다. 기존 receipt gate·signed delta·native cascade·원가손익·부족정확동의 및 전체 rollback을 유지한다.
+
+실제 dnSpy/운영 SELECT 근거와 기준·부작용표: `docs/plans/incoming-distribution-review-2026-11-09.md`, `docs/exe-golden/IncomingApproval.md`. `incomingApprovalSql.test.mjs`는 45-01→45-03 fixed/unfixed, 저장시 해제 상태, 재고1회, 2025동일차수, 날짜중간실패 복구를 실행하며 `incomingApproval.test.mjs`는 원본상태상속/기존·신규 혼합상태 반례를 검사한다. 운영 수정시험 없음. 최종 배포 상태는 세션 기록을 따른다.
+
 ## 2026-11-06 과거 손익 monetary 혼합·진입 자동조회 방지
 
 최신 사용자 승인으로 과거 관세/평균 overlay 예외를 대체한다. 활성확정은 최근창도 whole CALC 우선, 실제PeriodDay 현재+직전 외 과거는 전체 물질화 calc/totals만 반환한다. 최신창은 current/prior raw SQL 전체와 명시 취득원가 reference로 계산하며 ERP와 인보이스4table 지문 전후 불일치/SQL실패는 전체보류한다. 표·월별·XLSX/print는 loadWeeklyReportPayload 공용정책, 표시K=J/C·0/null공란 유지. 누락/legacy409이며 자동갱신·운영보정0.

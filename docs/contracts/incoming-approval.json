@@ -117,7 +117,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025 same week preserved, 2026 correction cascades into 2027 stock; selected shipment scope explicit year/week/customer/product"
+    "description": "2025 same week preserved, 2026 correction cascades into 2027 stock; selected shipment scope explicit year/week/customer/product; 2026 45-01 receipt / 45-03 fixed and unfixed distribution lifecycle and intermediate date-write rollback, 2025 untouched"
   },
   "dnspyEvidence": {
     "required": true,
@@ -163,6 +163,7 @@
     "problems": "Show actual validation problems; no-problem requests go directly to summary and final confirm. No global allocation attribution to receipt/farm.",
     "evidence": "2026-11-05 refreshed native ClassWarehouseDetail/FormShipmentDistribution and SELECT-only source probe; existing atomic writer preserved.",
     "sourceConcurrency": "Direct-edit requests require a server receipt sourceDigest from the open form; missing/stale source digest blocks draft preview, request creation and final writer. Every original source row remains present, including zero-quantity cancellations.",
-    "importInputs": "PRODUCT preserves observed source packaging and purchase values as proposals, with proportional final quantity. ADD uses evidenced master packaging and only unambiguous same-receipt same-product purchase evidence; genuinely missing purchase values remain explicit exception inputs."
+    "importInputs": "PRODUCT preserves observed source packaging and purchase values as proposals, with proportional final quantity. ADD uses evidenced master packaging and only unambiguous same-receipt same-product purchase evidence; genuinely missing purchase values remain explicit exception inputs.",
+    "distributionReview": "Always available modal for support review; explicit year/week filter and customer/product search; source and final quantities/costs, original/final detail fix, validated stock before/after. Existing fixed selected details temporarily unfix/write/refix inside receipt gate and same transaction; original unfixed state and unrelated headers/rows preserved. New replacement inherits source detail fix, never header fix; mixed source/destination fix states fail closed with APPROVAL_FIX_MERGE_CONFLICT. Explicit independent additions retain existing header policy. Product.Stock signed delta applied once; native cascade and full rollback retained."
   }
 }

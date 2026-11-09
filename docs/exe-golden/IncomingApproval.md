@@ -1,5 +1,13 @@
 # 입고 정정 승인 근거
 
+## 2026-11-09 영향 차수 분배 검토·확정 상태 복원
+
+실제 로컬 dnSpy로 FormShipmentDistribution/ ClassShipmentDetail 재추출. btnFix_Click(910), btnFixCancel_Click(981)은 국가품종 단위 usp_ShipmentFix/Cancel 뒤 native 재계산을 수행한다. ClassShipmentDetail.Update(313)는 물리 상세키에 isFix를 포함한다. 운영 SELECT로 SP 두 개와 상세 트리거를 확인했다. SP는 범주 전체 상세/헤더·Product.Stock/StockHistory를 바꾸므로 입고정정의 선택행 경로에서 호출하지 않는다. 기존 receipt gate 및 locked business scope 아래 기존 확정 상세만 0→값/날짜 저장→1 복원하며, 헤더·미확정 원본은 유지한다. 기존 signed delta와 native cascade를 사용하여 Product.Stock을 중복 차감하지 않는다. 전체 차수 SP와 동일 경로라고 간주하지 않는다.
+
+운영 읽기 표본7662/2026/41-02/ProdKey22: 2026/41~45 상세9·출고일9·견적조인(DetailFix=1)9, 농장배정0, 2025 동일품목차수5, 45 활성손익확정0. 실제 45-01 입고→45-03 분배 표본은 없어 격리 SQL에서 별도로 검증했다. 운영 원장쓰기0.
+
+실제 writer 격리 SQL: 45-01 입고100→90/45-03 분배100→90, fixed/unfixed 각각 저장 순간 isFix=0 확인, 최종 원래 상태 유지, Product.Stock=입고−10+확정분배감소10(미확정이면 입고−10만), 날짜합90/공급가9000/VAT900, 2025 동일45-03·독립 Estimate/WebProfitReport 보존. 날짜 UPDATE 중간실패 후 전체원상복구 및 기존 후속연도 cascade/부족 명시동의·late audit rollback 회귀 PASS. 운영 승인 저장은 수행하지 않았다.
+
 2026-11-04 실제 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`를 로컬 dnSpy.Console.exe로 FormShipmentDistribution 재추출. `.verify/FormShipmentDistribution.cs`의 btnSave_Click 1080행 이후 확인.
 
 저장 순서는 ShipmentDetail의 물리 SdetailKey/ShipmentKey/ProdKey 및 환산수량/Cost/Amount/Vat → 선택 ShipmentFarm → ShipmentDate. 수량 변경시 날짜 삭제/재생성, 단가만 변경시 UpdateCost. 날짜별 금액은 `ROUND(Cost*ROUND(EstQuantity,0)/1.1,0)`과 차액 VAT. 웹은 검토한 날짜만 변경하고 기존 helper의 동일 산식을 사용한다.

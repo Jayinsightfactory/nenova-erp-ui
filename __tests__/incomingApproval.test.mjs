@@ -36,6 +36,26 @@ test('different units calculate target estimate quantities, never assume number 
   const p = plan([row({ prodKey: 2, quantity: 6 })], facts).find(g => g.product.ProdKey === 2);
   assert.equal(p.outQuantity, 6); assert.equal(p.after[0].EstQuantity, 60); assert.equal(p.amount, 6000);
 });
+
+test('replacement keeps an unfixed source unfixed under a fixed header; mixed fix destinations fail closed', () => {
+  const facts=base();facts.details[0].isFix=false;
+  const next=plan([row({prodKey:2,quantity:60})],facts).find(g=>g.product.ProdKey===2);
+  assert.equal(next.fixed,false);assert.equal(next.stockDelta,0);
+  facts.details.push({SdetailKey:21,ShipmentKey:10,ProdKey:2,OutQuantity:5,isFix:true});
+  facts.dates.push({SdateKey:32,SdetailKey:21,ShipmentQuantity:5,EstQuantity:5,Cost:110,Amount:500,Vat:50});
+  assert.throws(()=>plan([row({prodKey:2,quantity:60})],facts),{code:'APPROVAL_FIX_MERGE_CONFLICT'});
+  facts.details[1].isFix=false;
+  assert.equal(plan([row({prodKey:2,quantity:60})],facts).find(g=>g.product.ProdKey===2).fixed,false);
+});
+
+test('new replacement destination cannot combine sources with mixed confirmation states',()=>{
+  const facts=base();facts.products.push(product(3));facts.receiptPlan.keys.push(3);
+  facts.details.push({SdetailKey:21,ShipmentKey:10,ProdKey:2,OutQuantity:5,isFix:false});
+  facts.dates.push({SdateKey:32,SdetailKey:21,ShipmentQuantity:5,EstQuantity:5,Cost:110,Amount:500,Vat:50,ShipmentDtm:'2026-10-08'});
+  assert.throws(()=>plan([row({prodKey:3,quantity:60}),row({sdateKey:32,prodKey:3,quantity:5})],facts),{code:'APPROVAL_FIX_MERGE_CONFLICT'});
+  facts.details[1].isFix=true;
+  assert.equal(plan([row({prodKey:3,quantity:60}),row({sdateKey:32,prodKey:3,quantity:5})],facts).find(g=>g.product.ProdKey===3).fixed,true);
+});
 test('independent addition and reduction need not balance', () => {
   const p = plan([row({ quantity: 20 }), row({ sdateKey: null, prodKey: 2, quantity: 7 })]);
   assert.equal(p.find(g => g.product.ProdKey === 1).outQuantity, 60); assert.equal(p.find(g => g.product.ProdKey === 2).outQuantity, 7);

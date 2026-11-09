@@ -12,13 +12,13 @@ const workflow = registry.workflows.find(item => item.id === 'incoming-approval'
 const clone = value => JSON.parse(JSON.stringify(value));
 const products = [{ ProdKey: 1, ProdName: '장미 레드 50' }, { ProdKey: 2, ProdName: '장미 핑크 50' }].map(product => ({ ...product, OutUnit: '단', EstUnit: '단', isDeleted: false, BunchOf1Box: 10, SteamOf1Bunch: 10, SteamOf1Box: 100 }));
 const docId = '11111111-1111-8111-8111-111111111111', lineId = '44444444-4444-8444-8444-444444444444';
-const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '41-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '연습용', InputDate: '2026-10-08', UploadDtm: '2026-10-08', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
+const header = { WarehouseKey: 9001, OrderYear: '2026', OrderWeek: '45-01', FarmName: '연습농장 가', InvoiceNo: 'GUIDE-001', AWB: '연습용', InputDate: '2026-11-05', UploadDtm: '2026-11-05', totalBox: 10, totalBunch: 100, totalSteam: 1000, GrossWeight: 20, ChargeableWeight: 20, FreightRateUSD: 2 };
 const before = [{ WdetailKey: 101, ProdKey: 1, ProdName: products[0].ProdName, OrderCode: '연습', BoxQuantity: 10, BunchQuantity: 100, SteamQuantity: 1000, SteamOf1Box:100, SteamOf1Bunch:10, OutQuantity: 100, EstQuantity: 100, UPrice: 1, TPrice: 100, 주문코드: '연습', 단위: '단', 단송이: 10, 박스송이: 100, 단가: 1, 총액: 100 }];
 const scenarioTitles = { farm: '농장만 수정', product: '품목·수량 함께 변경', quantity: '수량만 변경·부족 문제 해결',add:'기존 입고에 품목·수량 추가',cancel:'기존 입고의 품목·수량 취소' };
 
 function correction(scenario) {
   const item=(p,qty,source=101)=>({sourceWdetailKey:source,prodName:p.ProdName,orderCode:'연습',boxQty:qty/10,bunchQty:qty,steamQty:qty*10,steamOf1Box:100,steamOf1Bunch:10,unitPrice:1,totalPrice:qty});
-  return {warehouseKey:9001,orderYear:'2026',orderWeek:'41-01',mode:scenario==='farm'?'FARM':'REPLACE',editKind:{farm:'FARM',product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL'}[scenario],farmName:scenario==='farm'?'연습농장 나':header.FarmName,
+  return {warehouseKey:9001,orderYear:'2026',orderWeek:'45-01',mode:scenario==='farm'?'FARM':'REPLACE',editKind:{farm:'FARM',product:'PRODUCT',quantity:'QUANTITY',add:'ADD',cancel:'CANCEL'}[scenario],farmName:scenario==='farm'?'연습농장 나':header.FarmName,
     ...(scenario==='farm'?{}:{fileName:'입고행 직접 정정',fileMeta:{},items:scenario==='add'?[item(products[0],100),item(products[1],20,null)]:[item(scenario==='product'?products[1]:products[0],scenario==='quantity'?80:scenario==='cancel'?0:100)]})};
 }
 function previewFor(c) {
@@ -35,10 +35,10 @@ function factsFor(request) {
     costFacts: { invoices: [{ document: { documentId: docId, revision: 1 } }], freightHeaders: [{ FreightKey: 51 }] },
     costInputSuggestions: [{ kind: 'INVOICE', sourceKey: docId, expectedRevision: 1, inputSchema: { formulaLabel: '중국 해상 실제원가', lineFields: ['tariffRate', 'otherCostPerUnitKRW'] }, input: { exchangeRateKRW: 200, freightAmount: 40, allocationShareNumerator: 1, allocationShareDenominator: 1, lineInputs: [{ lineId, tariffRate: 0, otherCostPerUnitKRW: 0 }] }, lineMappings: [{ sourceLineId: lineId, sourceLabel: products[0].ProdName, sourceProdKey: 1, targetRowIndex: 0, quantity: 100, quantityUnit: 'BUNCH' }] },
       { kind: 'FREIGHT', sourceKey: 51, expectedRevision: 51, input: { basis: 'GW', master: { warehouseKey: 9001, exchangeRate: 200, gw: 20, cw: 20, rateUSD: 2, docFeeUSD: 0, invoiceUSD: 100 }, customs: { bakSangRate: 0, handlingFee: 0, quarantinePerItem: 0, domesticFreight: 0, deductFee: 0, extraFee: 0 }, rows: [{ targetRowIndex: 0, boxWeight: 2, boxCBM: .1, stemsPerBox: 100, stemsPerBunch: 10, salePriceKRW: 1100, tariffRate: 0 }] } }],
-    profitPeriods: [{ orderYear: '2026', major: '41', confirmed: true }, { orderYear: '2026', major: '44', confirmed: true }],
-    masters: [{ ShipmentKey: 10, CustKey: 1, CustName: '연습 꽃집', OrderYear: '2026', OrderWeek: '41-01', OrderYearWeek: '202641', isFix: true, isDeleted: false }],
-    details: [{ SdetailKey: 20, ShipmentKey: 10, ProdKey: 1, OutQuantity: 60, Cost: 1100, Amount: 60000, Vat: 6000, isFix: true }],
-    dates: [{ SdateKey: 30, SdetailKey: 20, ShipmentQuantity: 60, EstQuantity: 60, Cost: 1100, Amount: 60000, Vat: 6000, DateText: '2026-10-08' }],
+    profitPeriods: [{ orderYear: '2026', major: '45', confirmed: true }, { orderYear: '2026', major: '46', confirmed: true }],
+    masters: [{ ShipmentKey: 10, CustKey: 1, CustName: '연습 꽃집', OrderYear: '2026', OrderWeek: '45-03', OrderYearWeek: '202645', isFix: true, isDeleted: false }, { ShipmentKey:11,CustKey:2,CustName:'연습 꽃집 나',OrderYear:'2026',OrderWeek:'45-03',OrderYearWeek:'202645',isFix:false,isDeleted:false }],
+    details: [{ SdetailKey: 20, ShipmentKey: 10, ProdKey: 1, OutQuantity: 60, Cost: 1100, Amount: 60000, Vat: 6000, isFix: true },{SdetailKey:21,ShipmentKey:11,ProdKey:1,OutQuantity:20,Cost:1100,Amount:20000,Vat:2000,isFix:false}],
+    dates: [{ SdateKey: 30, SdetailKey: 20, ShipmentQuantity: 60, EstQuantity: 60, Cost: 1100, Amount: 60000, Vat: 6000, DateText: '2026-11-05' },{SdateKey:31,SdetailKey:21,ShipmentQuantity:20,EstQuantity:20,Cost:1100,Amount:20000,Vat:2000,DateText:'2026-11-06'}],
     farmAssignments: [{ SfarmKey: 40, SdetailKey: 20, FarmKey: 1, FarmName: header.FarmName, ShipmentQuantity: 60, EstQuantity: 60 }],
     farms: [{ FarmKey: 1, FarmName: header.FarmName }, { FarmKey: 2, FarmName: '연습농장 나' }],
     farmCandidates: { 1: [{ FarmKey: 1, FarmName: header.FarmName }, { FarmKey: 2, FarmName: '연습농장 나' }], 2: [{ FarmKey: 1, FarmName: header.FarmName }, { FarmKey: 2, FarmName: '연습농장 나' }] } };
@@ -51,6 +51,7 @@ function requestFixture(scenario, index) {
 async function recordRole(browser, base, secret, role) {
   const isImport = role === 'import', requests = isImport ? [] : ['farm', 'product', 'quantity'].map(requestFixture);
   const page = await browser.newPage();page.setDefaultNavigationTimeout(120000);const errors = [], posts = [];
+  let mainNavigations=0;page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainNavigations++;});
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
   page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
   const user = { userId: isImport ? 'guide-import' : 'guide-support', userName: isImport ? '수입부 연습' : '영업지원 연습', authority: isImport ? 4 : 2, deptName: isImport ? '수입부' : '영업지원', accountActive: true };
@@ -83,18 +84,18 @@ async function recordRole(browser, base, secret, role) {
             request.matching = body.matching; request.reviewedBy='guide-support'; request.revision++; data.revision=request.revision;
           }
           if (body.action === 'preview') {
-            const p = previewFor(request.correction), quantity = p.scenario === 'quantity' ? 40 : 60, pk = p.scenario === 'product' ? 2 : 1;
-            const common = { customer: '연습 꽃집', year: '2026', week: '41-01', unit: '단' };
+            const p = previewFor(request.correction), quantity = Number(request.matching.rows?.[0]?.quantity??60), pk = p.scenario === 'product' ? 2 : 1;
+            const common = { customer: '연습 꽃집', year: '2026', week: '45-03', unit: '단' };
             const groups = !request.matching.rows.length ? [] : p.scenario === 'product' ? [{ ...common, key: '10:1', product: products[0].ProdName, before: 60, after: 0, beforeAmount: 60000, afterAmount: 0, beforeVat: 6000, afterVat: 0, stockDelta: 60 }, { ...common, key: '10:2', product: products[1].ProdName, before: 0, after: 60, beforeAmount: 0, afterAmount: 60000, beforeVat: 0, afterVat: 6000, stockDelta: -60 }] : [{ ...common, key: '10:1', product: products[0].ProdName, before: 60, after: quantity, beforeAmount: 60000, afterAmount: quantity * 1000, beforeVat: 6000, afterVat: quantity * 100, stockDelta: 60 - quantity }];
             const beforeTotals = { N: 60000, I: 16800, E: 0, F: 11200, J: 43200, K: .72 }, afterTotals = p.scenario === 'quantity' ? { N: 60000, I: 16800, E: 0, F: 7200, J: 43200, K: .72 } : beforeTotals;
-            data = { ...p, digest: 'a'.repeat(64), previewToken: 'synthetic-guide-token', groups, farmEvidence: (request.matching.farmGroups??[]).map(group => ({ shipmentKey: group.shipmentKey, prodKey: group.prodKey, before: group.prodKey === 1 ? [{ FarmKey: 1, ShipmentQuantity: 60 }] : [], after: group.assignments.map(item => ({ FarmKey: Number(item.farmKey), ShipmentQuantity: Number(item.quantity) })) })), financialSummary: { costs: { invoices: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000, preserveEconomics: p.scenario === 'farm' }], freight: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000 }] }, profitBefore: [{ orderYear: '2026', major: '41', totals: beforeTotals }, { orderYear: '2026', major: '44', totals: beforeTotals }], profitAfter: [{ orderYear: '2026', major: '41', totals: afterTotals }, { orderYear: '2026', major: '44', totals: afterTotals }] }, stockPreview: p.scenario === 'farm' ? [] : [{ StockKey: 41, ProdKey: pk, OrderYear: '2026', OrderWeek: '41-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: pk, OrderYear: '2026', OrderWeek: '44-01', Stock: 25, projected: 25 }], externalDocuments: '이미 발송한 견적서는 정정 후 재발행이 필요합니다. 외부 회계 전표는 자동 변경하지 않습니다.' };
+            data = { ...p, digest: 'a'.repeat(64), previewToken: 'synthetic-guide-token', groups, farmEvidence: (request.matching.farmGroups??[]).map(group => ({ shipmentKey: group.shipmentKey, prodKey: group.prodKey, before: group.prodKey === 1 ? [{ FarmKey: 1, ShipmentQuantity: 60 }] : [], after: group.assignments.map(item => ({ FarmKey: Number(item.farmKey), ShipmentQuantity: Number(item.quantity) })) })), financialSummary: { costs: { invoices: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000, preserveEconomics: p.scenario === 'farm' }], freight: [{ beforeTotal: 28000, afterTotal: p.scenario === 'quantity' ? 24000 : 28000 }] }, profitBefore: [{ orderYear: '2026', major: '45', totals: beforeTotals }, { orderYear: '2026', major: '46', totals: beforeTotals }], profitAfter: [{ orderYear: '2026', major: '45', totals: afterTotals }, { orderYear: '2026', major: '46', totals: afterTotals }] }, stockPreview: p.scenario === 'farm' ? [] : [{ StockKey: 41, ProdKey: pk, OrderYear: '2026', OrderWeek: '45-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: pk, OrderYear: '2026', OrderWeek: '46-01', Stock: 25, projected: 25 }], externalDocuments: '이미 발송한 견적서는 정정 후 재발행이 필요합니다. 외부 회계 전표는 자동 변경하지 않습니다.' };
             if(p.scenario==='product'&&!request.matching.financial.acknowledged){data.canCommit=false;data.issues=[{code:'APPROVAL_COST_NEW_PRODUCT',message:'변경 품목의 원가 근거를 확인하세요.'}];}
             if (p.scenario === 'quantity') {
               const acknowledged = request.matching.stockAdjustment?.acknowledged === true;
-              if (acknowledged) assert.deepEqual(request.matching.stockAdjustment.rows, [{ prodKey: 1, quantity: 5, year: '2026', week: '44-01' }]);
+              if (acknowledged) assert.deepEqual(request.matching.stockAdjustment.rows, [{ prodKey: 1, quantity: 5, year: '2026', week: '46-01' }]);
               data.canCommit = acknowledged;
-              data.stockAdjustmentPreview = { required: !acknowledged, canAdjust: true, applied: acknowledged, fingerprint: 'b'.repeat(64), rows: [{ prodKey: 1, prodName: products[0].ProdName, unit: '단', year: '2026', week: '44-01', quantity: 5, currentRemain: acknowledged ? 45 : 40, future: [{ year: '2026', week: '44-01', remain: acknowledged ? 0 : -5 }] }] };
-              data.stockPreview = [{ StockKey: 41, ProdKey: 1, OrderYear: '2026', OrderWeek: '41-01', Stock: 40, projected: 40 }, { StockKey: 44, ProdKey: 1, OrderYear: '2026', OrderWeek: '44-01', Stock: -5, projected: acknowledged ? 0 : -5 }];
+              data.stockAdjustmentPreview = { required: !acknowledged, canAdjust: true, applied: acknowledged, fingerprint: 'b'.repeat(64), rows: [{ prodKey: 1, prodName: products[0].ProdName, unit: '단', year: '2026', week: '46-01', quantity: 5, currentRemain: 30, future: [{ year: '2026', week: '46-01', remain: acknowledged ? 0 : -5 }] }] };
+              data.stockPreview = [{ StockKey: 41, ProdKey: 1, OrderYear: '2026', OrderWeek: '45-01', Stock: 40, projected: 20 }, { StockKey: 44, ProdKey: 1, OrderYear: '2026', OrderWeek: '46-01', Stock: 5, projected: acknowledged ? 0 : -5 }];
               if (!acknowledged) { data.issues = [{ code:'APPROVAL_STOCK_SHORTAGE',message: '후속 차수에 5단이 부족합니다. 표시된 수량의 재고조정 동의가 필요합니다.' }]; delete data.financialSummary; }
             }
           }
@@ -129,7 +130,7 @@ async function recordRole(browser, base, secret, role) {
   const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); assert(handle.asElement(), `Missing checkbox: ${text}`); await moveClick(handle.asElement()); await handle.dispose(); };
   let stopped = false;
   try {
-    await hold(isImport ? '수입부는 기존 입고에서 수정할 내용과 사유를 입력하고 요청합니다.\n영업지원 최종 확정 전까지 원장은 바뀌지 않습니다.' : '요청을 열면 시스템이 입고·분배·재고·원가·손익을 자동 검증합니다.\n실제 문제가 있는 부분만 해결하고 최종 확정합니다.', 7);
+    await hold(isImport ? '수입부는 기존 입고에서 수정할 내용과 사유를 입력하고 요청합니다.\n영업지원 최종 확정 전까지 원장은 바뀌지 않습니다.' : '요청을 열면 시스템이 입고·분배·재고·원가·손익을 자동 검증합니다.\n영향 차수별 분배 검토창에서 분배·확정 상태를 확인하고 수정합니다.', 7);
     if(!isImport)await click('검토·확정');
     for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel']:['farm','product','quantity']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
       console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,scenarioTitles[scenario]);
@@ -157,12 +158,17 @@ async function recordRole(browser, base, secret, role) {
         await click('변경 요약 확인');await page.waitForSelector('[aria-label="요청 변경 요약"]');
         await hold('기존값과 수정 후 최종값을 확인한 뒤 요청합니다.\n품목·수량 추가와 취소도 이 입고 안의 행을 대상으로 합니다.',6);
         await click('영업지원에 수정 요청','dialog');await page.waitForFunction(()=>document.querySelector('dialog')?.textContent.includes('영업지원에 수정 요청했습니다.'));
-        await hold('영업지원에 검토 대기로 전달했습니다.\n별도의 초안 제출 단계 없이 요청이 완료됩니다.',5);await click('목록으로 돌아가기','dialog');
+        await hold('영업지원에 검토 대기로 전달했습니다.\n별도의 초안 제출 단계 없이 요청이 완료됩니다.',5);
+        if(await page.$('dialog[open]'))await click('목록으로 돌아가기','dialog[open]');
+        await page.waitForFunction(()=>!document.querySelector('dialog[open]')&&document.body.textContent.includes('수입부 수정 요청'));
+        assert.equal(requests.at(-1).status,'requested','return to list follows successful submission');
       }else{
-        await click(`#${index+1} 열기`);await page.waitForFunction(()=>document.body.textContent.includes('최종 반영 전후'));
+        const scenarioRequest=requests.find(item=>previewFor(item.correction).scenario===scenario);
+        assert(scenarioRequest,'Scenario request fixture missing');
+        await click(`#${scenarioRequest.requestId} 열기`);await page.waitForFunction(()=>document.body.textContent.includes('최종 반영 전후'));
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n요청값과 자동 검증 결과를 확인합니다.`,5);
         if(dry&&scenario==='farm')await page.screenshot({path:'.verify/simple-support-no-problem.png',fullPage:false});
-        if(scenario==='farm')await hold('문제가 없으면 편집기 없이 변경 요약과 최종 확정만 보입니다.\n농장만 바뀌므로 분배·재고·견적·매출 금액을 보존합니다.',7);
+        if(scenario==='farm')await hold('문제가 없어도 영향 차수별 분배 검토창을 열어 확인할 수 있습니다.\n농장만 바뀌므로 분배·재고·견적·매출 금액을 보존합니다.',7);
         if(scenario==='product'){
           await hold('새 품목의 원가 근거가 필요한 경우에만 원가 문제 카드가 나옵니다.\n기존 다른 품목의 단가·중량을 임의로 확정하지 않습니다.',7);
           const freight=await page.evaluateHandle(()=>[...document.querySelectorAll('summary')].find(n=>n.textContent.includes('원가 배분 기준')));await moveClick(freight.asElement());await freight.dispose();
@@ -171,6 +177,34 @@ async function recordRole(browser, base, secret, role) {
           await click('문제 해결 후 다시 검증');await page.waitForFunction(()=>document.body.textContent.includes('자동 검증 완료'));
         }
         if(scenario==='quantity'){
+          await click('영향 차수별 분배 검토·수정');await page.waitForSelector('dialog[open]');
+          await hold('45-01 입고 이후 45-03의 업체별 분배를 검토합니다.\n기존 확정과 미확정 상태를 먼저 확인합니다.',7);
+          await select('dialog[open] select','2026/45-03');
+          if(dry){const filter=await page.$('dialog[open] select');await filter.focus();await page.keyboard.press('ArrowUp');assert.equal(await filter.evaluate(n=>n.value),'');await page.keyboard.press('ArrowDown');assert.equal(await filter.evaluate(n=>n.value),'2026/45-03');}
+          assert(await page.$eval('dialog[open]',n=>n.textContent.includes('미확정 유지')));
+          await page.keyboard.press('Escape');
+          assert(await page.evaluate(()=>document.activeElement?.textContent==='영향 차수별 분배 검토·수정'));
+          if(dry){await page.keyboard.press('Space');await page.waitForSelector('dialog[open]');await page.keyboard.press('Escape');assert(await page.evaluate(()=>document.activeElement?.textContent==='영향 차수별 분배 검토·수정'));}
+          await page.keyboard.press('Enter');await page.waitForSelector('dialog[open]');
+          if(dry){await (await page.$('input[aria-label="분배 30 선택"]')).focus();await page.keyboard.press('Space');}
+          else await moveClick(await page.$('input[aria-label="분배 30 선택"]'));
+          await fill('input[aria-label="1행 최종수량"]','50');
+          await hold('선택한 분배의 최종수량을 60에서 50으로 수정합니다.\n기존 확정 행만 자동 해제 후 재확정하며 미확정 행은 그대로 유지합니다.',8);
+          assert(await page.$eval('dialog[open]',n=>n.textContent.includes('입력값 미검증')));
+          await click('분배 검토값 저장·다시 검증','dialog[open]');
+          await page.waitForFunction(()=>!document.querySelector('dialog[open]')?.textContent.includes('입력값 미검증'));
+          await hold('재검증한 재고 전후와 부족 문제를 확인합니다.\n검토값 저장만으로 ERP 원장이 바뀌지는 않습니다.',7);
+          if(dry){
+            await page.screenshot({path:'.verify/distribution-review-desktop.png'});
+            for(let n=0;n<20;n++){await page.keyboard.press('Tab');assert(await page.evaluate(()=>document.querySelector('dialog[open]').contains(document.activeElement)),'native modal must contain Tab focus');}
+            await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');
+            assert(await page.evaluate(()=>document.querySelector('dialog[open]').contains(document.activeElement)));
+            await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+            assert(await page.$eval('dialog[open]',n=>{const r=n.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.height<=innerHeight;}),'mobile dialog stays in viewport');
+            await page.screenshot({path:'.verify/distribution-review-mobile.png'});
+            await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+          }
+          await click('검토창 닫기','dialog[open]');
           await page.waitForSelector('[aria-label="부족재고 명시 확인"]');await page.$eval('[aria-label="부족재고 명시 확인"]',n=>n.scrollIntoView({block:'center'}));
           await hold('실제 부족이 있는 경우 품목·차수·정확한 부족수량을 확인합니다.\n임의 업체 분배를 줄이지 않습니다. 다른 배분 조정도 선택할 수 있습니다.',7);
           await checkedLabel('표시된 부족수량만 재고조정하는 데 동의합니다');await click('문제 해결 후 다시 검증');await page.waitForFunction(()=>document.body.textContent.includes('자동 검증 완료'));
@@ -187,7 +221,7 @@ async function recordRole(browser, base, secret, role) {
     const result = await rec.stop(); stopped = true;
     if (!dry) { const guide = workflow.guides.find(item => item.id === role); guide.status = 'ready'; guide.chapters = result.chapters; fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n'); }
     console.log(`PASS ${role}: actual UI ${dry ? 'dry run' : 'recording'}, farm/product/quantity, all APIs synthetic, ERP writes=0`);
-  } finally { if (!stopped) { await page.screenshot({ path: `.verify/guide-${role}-failure.png` }).catch(() => {}); await rec.stop().catch(() => {}); } await page.close(); }
+  } finally { if (!stopped) { console.error(JSON.stringify({role,mainNavigations,requestStatuses:requests.map(r=>r.status),actions:posts.map(p=>p.action)}));await page.screenshot({ path: `.verify/guide-${role}-failure.png` }).catch(() => {}); await rec.stop().catch(() => {}); } await page.close(); }
 }
 async function main() {
   fs.mkdirSync(path.join(root, '.verify'), { recursive: true });
@@ -204,4 +238,4 @@ async function main() {
     for (const role of chosen) { assert(['import', 'sales-support'].includes(role)); await recordRole(browser, base, secret, role); }
   } finally { await browser?.close(); server.kill();if(dev)fs.writeFileSync(instrumentation,original); }
 }
-main().catch(error => { console.error(error.message); process.exitCode = 1; });
+main().catch(error => { console.error(error.stack); process.exitCode = 1; });
