@@ -1984,7 +1984,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
-        <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'||Boolean(matchError)} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} blockedEvent={blockedEvent} onChooseFile={()=>fileRef.current?.click()}/>
+        <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'?status.msg:matchError||null} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} blockedEvent={blockedEvent} onChooseFile={()=>fileRef.current?.click()}/>
         {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
         {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
         {teamHistoryStatus && file && <p role="status">{teamHistoryStatus}</p>}

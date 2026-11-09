@@ -4,11 +4,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {validatePackingPdf} from '../lib/importTeamPdf.js';
+import {readPackingProviderResponse,packingProviderFailureCode} from '../lib/importPackingProviderStream.js';
 import {packingPdfCacheKey,PDF_ANALYSIS_MODEL} from '../lib/importTeamPdfCache.js';
 import {PDF_JOB_TIMEOUT_MS,getPackingPdfJob,findPackingPdfJobByKey,startPackingPdfJob,markPackingPdfAttempt,finishPackingPdfJob,markPackingPdfCacheSaved} from '../lib/importTeamPdfJobs.js';
 
 const source=await fs.readFile(new URL('../pages/api/import/tools/parse-pdf.js',import.meta.url),'utf8');
-const code=source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
+const code='const {readPackingProviderResponse,packingProviderFailureCode}=arguments[arguments.length-1];\n'+source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
 const pdfBase64=Buffer.from('%PDF-1.7\nfixture').toString('base64');
 const body={country:'NL',pdfBase64,async:true};
 const data={content:[{type:'text',text:'{"invoices":[]}'}],stop_reason:'end_turn',usage:{input_tokens:5,output_tokens:7}};
@@ -35,7 +36,7 @@ async function setup(fn) {
       fn=>fn,validatePackingPdf,()=> 'fixed prompt',()=>{trackCalls++;},async()=>{quotaCalls++;await quotaImpl();},packingPdfCacheKey,async()=>cache,async()=>{cacheWrites++;return true;},PDF_ANALYSIS_MODEL,PDF_JOB_TIMEOUT_MS,
       (uid,id)=>getPackingPdfJob(uid,id,{root}),(uid,key)=>findPackingPdfJobByKey(uid,key,{root}),(uid,key,opts)=>startImpl(uid,key,opts),async(uid,id,token)=>{try{return await markPackingPdfAttempt(uid,id,token,{root});}catch(error){markErrors.push(error.code||error.name);throw error;}},async(uid,id,token,value)=>{try{const result=await finishImpl(uid,id,token,value);if(result?.status==='SUCCEEDED'||result?.status==='FAILED')finishedJobs.add(id);return result;}catch(error){finishErrors.push(error.stack||String(error));throw error;}},(uid,id,token)=>markPackingPdfCacheSaved(uid,id,token,{root}),
       country=>doclingImpl.applies(country),()=>50,()=>'a'.repeat(64),async()=>doclingImpl.record,async()=>({enqueued:true}),async()=>doclingImpl.record,record=>record&&record.markdown?'\nCANDIDATE BLOCK\n'+record.markdown:'',()=>({checked:0,flagged:[]}),async()=>{},
-      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal
+      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal,{readPackingProviderResponse,packingProviderFailureCode}
     );
     const request=async(method,user='alice',value=body,query={})=>{
       const res=response();await handler({method,user:{userId:user},body:value,query},res);
