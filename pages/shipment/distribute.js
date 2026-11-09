@@ -146,11 +146,13 @@ export default function Distribute() {
   // 품목 탭 업체추가: 담당자 → 업체 버튼. 차수 안에서 품목을 바꿔도 유지 (주문 없는 업체는 저장 시 주문등록 후 분배)
   const [prodAddedCusts, setProdAddedCusts] = useState([]); // [{ CustKey, CustName, OrderCode, Manager }]
   const [prodAddOpen, setProdAddOpen] = useState(false);
-  const [prodAddManager, setProdAddManager] = useState(null); // 업체 탭 품목명 검색 (화면 필터 전용)
+  const [prodAddManager, setProdAddManager] = useState(null);
+  const [prodAddFilter, setProdAddFilter] = useState(''); // 품목 탭 업체추가: 업체명 검색 (담당자 상관없이 버튼으로) // 업체 탭 품목명 검색 (화면 필터 전용)
   const [addProdFilter, setAddProdFilter] = useState(''); // 품목추가 창 품목명 검색
   const [addCustFilter, setAddCustFilter] = useState(''); // 품목추가 창 업체 검색 (주문 없는 업체 포함)
   const [allCustomers, setAllCustomers] = useState([]);
-  const customerPool = showAllCustomers
+  const [custFilter, setCustFilter] = useState('');
+  const customerPool = (showAllCustomers || String(custFilter || '').trim())
     ? [...custList, ...allCustomers.filter(a => !custList.some(c => Number(c.CustKey) === Number(a.CustKey))).map(a => ({ ...a, noOrder: true }))]
     : custList;
   const loadAllCustomers = async () => {
@@ -170,7 +172,6 @@ export default function Distribute() {
   }; // { side, group, prodKey, unit } | null // 품목별 이동 방향 { from, to } (업체 3개 이상일 때)
 
   const [loading, setLoading] = useState(false);
-  const [custFilter, setCustFilter] = useState('');
   const [distMode, setDistMode] = useState('ratio');
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -1303,6 +1304,10 @@ export default function Distribute() {
     );
   };
   const pairRows = mergeDistributionCustomerItems(custItems, pairItems, extraPeers.map(p => p.items));
+  const pairSearchRows = String(custItemFilter || '').trim()
+    ? [...pairRows, ...sortDistributionProducts(products.filter(p => matchItemName(p, custItemFilter) && !pairRows.some(r => Number(r.ProdKey) === Number(p.ProdKey))))
+      .map(p => ({ ...p, extra: [], searchOnly: true }))]
+    : pairRows;
   const fixedCount = (items) => items.filter(i => fixedScopeMap[Number(i.ProdKey)]?.fixed).length;
 
   // 품종 즐겨찾기 버튼: 이 차수 품종 목록에 있는 것만 (없는 차수에선 숨김)
@@ -1388,7 +1393,7 @@ export default function Distribute() {
           onSelect={option => { setViewMode('cust'); selectCust(option.customer); }} testId="distribution-customer-picker" />
         <span className="filter-label">거래처</span>
         <input ref={customerSearchRef} className="filter-input" placeholder="업체 목록 검색" value={custFilter||''} disabled={saving}
-          onChange={e=>setCustFilter(e.target.value)}
+          onChange={e=>{ setCustFilter(e.target.value); if (e.target.value.trim()) loadAllCustomers(); }}
           onKeyDown={e=>e.key==='Enter' && handleSearch()}
           style={{minWidth:150, borderColor: custFilter ? 'var(--blue)' : undefined, fontWeight: custFilter ? 600 : undefined}} />
         {custFilter && (
@@ -1407,7 +1412,7 @@ export default function Distribute() {
           </button>
           {viewMode === 'cust' && selectedCust && (
             <button type="button" className="btn btn-sm" data-ai-verify="add-panel-open" disabled={saving || loading}
-              onClick={() => { setAddPanel({ side: 0, group: '', prodKey: null, unit: '' }); setAddCustFilter(''); loadAllCustomers(); }}
+              onClick={() => { setAddPanel({ side: 0, group: pairGroupFilter || '', prodKey: null, unit: '', manager: '' }); setAddCustFilter(''); setAddProdFilter(''); loadAllCustomers(); }}
               title="품종 → 품목 → 수량 버튼으로 이 업체 출고수량에 더합니다 (주문 없는 품목은 저장 시 주문등록 후 분배)">➕ 품목추가·수량추가</button>
           )}
           <button type="button" className="btn btn-secondary btn-sm" data-ai-verify="discard-drafts" onClick={discardDrafts} disabled={saving || !hasAnyDraft()}
@@ -1489,7 +1494,7 @@ export default function Distribute() {
         const side = sides[Math.min(addPanel.side, sides.length - 1)];
         const groups = distributionPairGroups(products);
         const searching = String(addProdFilter || '').trim() !== '';
-        const groupProducts = searching ? sortDistributionProducts(products.filter(p => matchItemName(p, addProdFilter)))
+        const groupProducts = searching ? sortDistributionProducts(products.filter(p => (!addPanel.group || distributionPairGroupKey(p) === addPanel.group) && matchItemName(p, addProdFilter)))
           : addPanel.group ? sortDistributionProducts(products.filter(p => distributionPairGroupKey(p) === addPanel.group)) : [];
         const prod = products.find(p => Number(p.ProdKey) === Number(addPanel.prodKey));
         const unit = prod ? (addPanel.unit || prod.OutUnit || '박스') : '';
@@ -1545,9 +1550,22 @@ export default function Distribute() {
                   <input className="filter-input" placeholder="업체 검색 (이름·코드, 주문 없는 업체 포함)" value={addCustFilter} data-ai-verify="add-cust-search" aria-label="품목추가 업체 검색"
                     onChange={e => setAddCustFilter(e.target.value)} style={{height:28,fontSize:12,width:280,marginBottom:4}} />
                 );
-                if (!text) return <div style={{marginBottom:4}}>{searchInput}</div>;
+                const managerOf = (c) => String(c.Manager || allCustomers.find(a => Number(a.CustKey) === Number(c.CustKey))?.Manager || '').trim() || '담당자 없음';
                 const pool = [...custList, ...allCustomers.filter(a => !custList.some(c => Number(c.CustKey) === Number(a.CustKey))).map(a => ({ ...a, noOrder: true }))];
-                const hits = pool.filter(c => `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(text)).slice(0, 30);
+                const managers = [...new Set(pool.map(managerOf))].sort((a, b) => a.localeCompare(b, 'ko'));
+                const managerRow = (
+                  <div data-testid="distribution-add-managers" style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center',marginBottom:4}}>
+                    <span style={{fontSize:11,color:'var(--text3)'}}>담당자</span>
+                    {allCustomers.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>불러오는 중…</span>}
+                    {managers.map(m => (
+                      <button key={m} type="button" data-ai-verify={`add-manager-${m}`} aria-pressed={addPanel.manager === m}
+                        onClick={() => setAddPanel(prev => ({ ...prev, manager: prev.manager === m ? '' : m }))} style={pickButtonStyle(addPanel.manager === m, true)}>{m}</button>
+                    ))}
+                  </div>
+                );
+                if (!text && !addPanel.manager) return <div style={{marginBottom:4}}>{managerRow}{searchInput}</div>;
+                const hits = sortDistributionCustomers(pool.filter(c => (!addPanel.manager || managerOf(c) === addPanel.manager) &&
+                  (!text || `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(text)))).slice(0, 60);
                 const pick = async (c) => {
                   const at = sides.findIndex(sd => Number(sd.cust.CustKey) === Number(c.CustKey));
                   if (at >= 0) { setAddPanel(prev => ({ ...prev, side: at })); setAddCustFilter(''); return; }
@@ -1558,6 +1576,7 @@ export default function Distribute() {
                 };
                 return (
                   <div style={{marginBottom:8}}>
+                    {managerRow}
                     {searchInput}
                     <div data-testid="distribution-add-cust-hits" style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                       {hits.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>검색 결과 없음</span>}
@@ -1790,7 +1809,7 @@ export default function Distribute() {
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>거래처 목록</span>
                 <input className="filter-input" placeholder="업체명 검색" value={custFilter||''} disabled={saving} data-ai-verify="customer-search"
-                  aria-label="업체명 검색" onChange={e=>setCustFilter(e.target.value)} style={{flex:1,height:28,fontSize:12,minWidth:120}} />
+                  aria-label="업체명 검색" onChange={e=>{ setCustFilter(e.target.value); if (e.target.value.trim()) loadAllCustomers(); }} style={{flex:1,height:28,fontSize:12,minWidth:120}} />
                 <label style={{fontSize:11,display:'inline-flex',gap:3,alignItems:'center'}} title="이 차수에 주문이 없는 업체도 목록에 보여 줍니다. 그 업체로 옮기거나 추가하면 저장 시 주문등록 후 분배합니다.">
                   <input type="checkbox" data-ai-verify="customer-show-all" checked={showAllCustomers} disabled={saving} onChange={e => toggleAllCustomers(e.target.checked)} />주문 없는 업체도
                 </label>
@@ -1921,20 +1940,26 @@ export default function Distribute() {
                         </div>
                         {prodAddOpen && (() => {
                           const managers = [...new Set(allCustomers.map(c => c.Manager || '담당자 없음'))].sort((a, b) => a.localeCompare(b, 'ko'));
-                          const list = prodAddManager ? sortDistributionCustomers(allCustomers.filter(c => (c.Manager || '담당자 없음') === prodAddManager)) : [];
+                          const addText = prodAddFilter.trim().toLowerCase();
+                          const list = addText
+                            ? sortDistributionCustomers(allCustomers.filter(c => (!prodAddManager || (c.Manager || '담당자 없음') === prodAddManager) && `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(addText))).slice(0, 60)
+                            : prodAddManager ? sortDistributionCustomers(allCustomers.filter(c => (c.Manager || '담당자 없음') === prodAddManager)) : [];
                           return (
                             <div data-testid="distribution-prod-add-cust" style={{padding:'6px 14px',borderBottom:'1px solid var(--border-t)',display:'grid',gap:6}}>
                               <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
+                                <input className="filter-input" placeholder="업체명 검색" value={prodAddFilter} data-ai-verify="prod-add-cust-search" aria-label="업체추가 업체명 검색"
+                                  onChange={e => setProdAddFilter(e.target.value)} style={{height:26,fontSize:12,width:150,marginRight:6}} />
                                 <span style={{fontSize:11,color:'var(--text3)'}}>담당자</span>
                                 {allCustomers.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>불러오는 중…</span>}
                                 {managers.map(m => (
                                   <button key={m} type="button" data-ai-verify={`prod-add-manager-${m}`} aria-pressed={prodAddManager === m}
-                                    onClick={() => setProdAddManager(m)} style={pickButtonStyle(prodAddManager === m, true)}>{m}</button>
+                                    onClick={() => setProdAddManager(prev => prev === m ? null : m)} style={pickButtonStyle(prodAddManager === m, true)}>{m}</button>
                                 ))}
                               </div>
-                              {prodAddManager && (
+                              {(prodAddManager || addText) && (
                                 <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
                                   <span style={{fontSize:11,color:'var(--text3)'}}>업체</span>
+                                  {list.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>검색 결과 없음</span>}
                                   {list.map(c => {
                                     const inDist = custDist.some(d => Number(d.CustKey) === Number(c.CustKey));
                                     const added = prodAddedCusts.some(a => Number(a.CustKey) === Number(c.CustKey));
@@ -2105,7 +2130,7 @@ export default function Distribute() {
                         // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙여서 바로 수정 (업체명 = 머리줄)
                         const sides = pairSides();
                         const colors = ['var(--blue)', '#b45309', ...PEER_COLORS];
-                        const rows = pairRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
+                        const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
                         const itemAt = (sd, row) => sd.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
                         const qtyAt = (sd, row) => { const item = itemAt(sd, row); const e = sd.inputs[row.ProdKey]; return e?.outQty !== undefined ? parseFloat(e.outQty) || 0 : (item?.출고수량 || 0); };
                         const edge = i => ({ borderLeft: `2px solid ${colors[i]}` });
@@ -2188,7 +2213,7 @@ export default function Distribute() {
                           </tr>
                         </thead>
                         <tbody>
-                          {pairRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter).map(row => {
+                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter).map(row => {
                             const editA = custEditInputs[row.ProdKey] || {};
                             const editB = pairEditInputs[row.ProdKey] || {};
                             const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;

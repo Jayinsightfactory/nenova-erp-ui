@@ -38,7 +38,9 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let failNextSave = true;
     let expectPairSave = false;
   let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
-  let orderPosts = 0;
+  let searchOrderPosted = false;
+let withGerbera = true; // 어느 업체에도 분배 없는 차수 품목 (품목명 검색 → 주문등록 경로)
+let orderPosts = 0;
   let badgeFixed = false;
   const productGroupQueries = [];
   let fixedScopeNext = false; // 다음 저장의 확정 범위 조회에서 Alstroemeria 품목군을 확정 상태로
@@ -83,6 +85,12 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
         orderPosts += 1;
         cycleCalls.push('order');
         const body = JSON.parse(request.postData() || '{}');
+        if (body.items?.[0]?.prodKey === 61) {
+          // 품목명 검색으로 찾은, 분배 없던 Gerbera 입력 → 저장 시 업체 1(478)에 주문등록
+          assert.deepEqual([body.custKey, body.items], [478, [{ prodKey: 61, qty: 3, unit: '단' }]], 'searched product registered as order');
+          searchOrderPosted = true;
+          return reply(route, { success: true, verified: true, orderMasterKey: 2 }, 201);
+        }
         // 주문 없던 업체 2(436)에 Zinnia 3 을 옮긴 뒤 Ctrl+S → 분배 저장 전에 기존 주문등록 API 로 주문 생성
         assert.deepEqual([body.custKey, body.week, body.year, body.source, body.items],
           [436, '2026-41-02', '2026', 'distribute-pair', [{ prodKey: 90, qty: 3, unit: '박스' }]], 'pending order registered for the receiving customer only');
@@ -119,6 +127,11 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
             assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]),
               [[478, 2429, 0], [478, 90, 4], [436, 2429, 102], [436, 90, 3]], 'pair save: full move 2429, partial move 3 of 7 Zinnia, no entry for the row moved back to 0');
             return reply(route, { success: true, verified: true, results: [{ verified: true }, { verified: true }] });
+          }
+          if (body.entries[0]?.prodKey === 61) {
+            assert.equal(searchOrderPosted, true, 'searched product: order registered before distribute save');
+            assert.deepEqual(body.entries.map(entry => [entry.custKey, entry.prodKey, entry.outQty]), [[478, 61, 3]]);
+            return reply(route, { success: true, verified: true, results: [{ verified: true }] });
           }
           if (body.entries.length === 1) {
             assert.equal(body.entries[0].outQty, 51, 'customer mode Ctrl+S submits customer draft');
@@ -164,6 +177,7 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
             : [
               { ProdKey: 90, ProdName: 'Zinnia', OutUnit: '박스', inQty: 100, outQty: 0 },
               { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, Cost: 33, inQty: 100, outQty: shipmentQty },
+              ...(withGerbera ? [{ ProdKey: 61, ProdName: 'Gerbera', OutUnit: '단', Cost: 5, inQty: 20, outQty: 0 }] : []),
             ];
           return reply(route, { success: true, products });
         }
@@ -200,13 +214,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify^="week-2026-"]').count(), 7, '±3 weeks → 7 week buttons');
     assert.equal(await page.locator('[data-ai-verify="subweek-02"]').getAttribute('aria-pressed'), 'true');
     assert.deepEqual(await page.locator('[data-testid="distribution-product-list"] button[data-ai-verify^="product-"]').allTextContents(),
-      ['Alstroemeria', 'Zinnia'], 'product list ProdName A-Z');
+      ['Alstroemeria', 'Gerbera', 'Zinnia'], 'product list ProdName A-Z');
     await page.locator('[data-ai-verify="product-90"]').click();
     await page.getByText('Zinnia — 거래처 분배 정보').waitFor();
     assert.equal(await page.locator('[data-ai-verify="product-90"]').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('button[aria-keyshortcuts="Control+S"][data-ai-verify]').count(), 0, 'save button never carries data-ai-verify');
     const productButtons = await page.locator('tbody button[aria-label$="선택"]').allTextContents();
-    assert.deepEqual(productButtons.slice(0, 2), ['Alstroemeria', 'Zinnia'], 'ProdName A-Z ignores stock and favorites');
+    assert.deepEqual(productButtons.slice(0, 3), ['Alstroemeria', 'Gerbera', 'Zinnia'], 'ProdName A-Z ignores stock and favorites');
 
     await page.keyboard.press('Control+Alt+2');
     const search = page.getByRole('textbox', { name: '품목 검색' });
@@ -424,6 +438,22 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'filtered out Alstroemeria');
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 1);
     await page.locator('[data-ai-verify="cust-item-search"]').fill('');
+    // 품목명 검색: 어느 업체에도 분배 없는 Gerbera 도 빈 행으로 → 입력 → 저장 시 주문등록 후 분배
+    assert.equal(await page.locator('[data-ai-verify="qty-478-61"]').count(), 0, 'no Gerbera row without search');
+    if (await page.locator('[data-ai-verify="pair-group-all"]').count()) await page.locator('[data-ai-verify="pair-group-all"]').click();
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('gerb');
+    await page.locator('[data-ai-verify="qty-478-61"]').fill('3');
+    await page.getByText('주문등록 예정').first().waitFor();
+    fixedScopeNext = false;
+    await page.keyboard.press('Control+s');
+    await page.getByText('출고 분배 저장 완료').waitFor();
+    assert.equal(searchOrderPosted, true, 'order registered for searched product');
+    await page.getByRole('button', { name: '확인', exact: true }).click();
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('');
+    // 업체명 검색: 체크 없이도 주문 없는 업체 검색
+    await page.locator('[data-ai-verify="customer-search"]').fill('nova');
+    await page.locator('[data-ai-verify="customer-777"]').waitFor();
+    await page.locator('[data-ai-verify="customer-search"]').fill('');
     // 품목추가·수량추가 창: 품종 → 품목 → 기본 단위 체크 → +5 +16 −1 (현재 수량에 더하기) → 변경 취소로 원복
     await page.locator('[data-ai-verify="add-panel-open"]').click();
     await page.getByTestId('distribution-add-panel').waitFor();
@@ -444,6 +474,10 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-ai-verify="add-cust-777"]').waitFor();
     assert.match(await page.locator('[data-ai-verify="add-cust-777"]').textContent(), /주문없음/);
     await page.locator('[data-ai-verify="add-cust-search"]').fill('');
+    // 담당자 버튼 → 업체 버튼
+    await page.locator('[data-ai-verify="add-manager-김담당"]').click();
+    await page.locator('[data-ai-verify="add-cust-777"]').waitFor();
+    await page.locator('[data-ai-verify="add-manager-김담당"]').click();
     await page.locator('[data-ai-verify="add-panel-close"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '81');
     page.once('dialog', dialog => dialog.accept());
@@ -480,11 +514,12 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-distribute-qty="true"]:not([disabled])').first().waitFor();
     await page.keyboard.press('Control+s');
     await page.getByText(/품목 Alstroemeria — 변경 없음, 저장 생략/).waitFor();
-    assert.equal(savePosts, 4, 'Ctrl+S without changes does not post');
+    assert.equal(savePosts, 5, 'Ctrl+S without changes does not post');
     // 품목 탭 업체추가: 담당자 → 업체 → 주문 없음 행에 수량 (저장 시 주문등록 후 분배), ✕ 로 빼기
     await page.locator('[data-ai-verify="prod-add-cust-open"]').click();
-    await page.locator('[data-ai-verify="prod-add-manager-김담당"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('nova');
     await page.locator('[data-ai-verify="prod-add-cust-777"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('');
     await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
     await page.getByText('주문 없음 · 저장 시 주문등록').waitFor();
     await page.locator('[data-ai-verify="prod-added-remove-777"]').click();
@@ -494,13 +529,13 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.getByText('변경 내역 없음').waitFor();
     assert.equal(await page.getByRole('button', { name: /💾 저장/ }).isDisabled(), true);
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 4, 'history modal blocks background save');
+    assert.equal(savePosts, 5, 'history modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: '닫기' }).first().click();
 
     await page.getByRole('button', { name: /확정 \/ Confirmar/ }).click();
     await page.getByText(/확정 전 이슈 발견/).waitFor();
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 4, 'validation modal blocks background save');
+    assert.equal(savePosts, 5, 'validation modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: /취소 \/ Cancelar/ }).click();
 
     page.once('dialog', dialog => dialog.accept());
@@ -508,11 +543,11 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await bounded(spStarted.promise, 'held SP request');
     assert.equal(await page.getByRole('button', { name: /💾 저장/ }).isDisabled(), true);
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 4, 'running SP blocks background save');
+    assert.equal(savePosts, 5, 'running SP blocks background save');
     releaseSp.resolve();
     await page.getByText('fixture SP blocked').last().waitFor();
     await page.keyboard.press('Control+s');
-    assert.equal(savePosts, 4, 'finished SP modal blocks background save');
+    assert.equal(savePosts, 5, 'finished SP modal blocks background save');
     await page.locator('.modal-overlay').last().getByRole('button', { name: '확인' }).click();
 
     delayOldProducts = true;
