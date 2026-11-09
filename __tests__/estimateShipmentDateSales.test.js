@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { buildSalesMatrix, rangeWeeks } from '../lib/estimateShipmentDateMatrix.js';
+import { buildSalesMatrix, rangeWeeks, storedPriceBuckets, visibleSalesPeriods } from '../lib/estimateShipmentDateMatrix.js';
 import { settlementPeriods, validateSalesRequest, summarizeSales, quantityFormula, shipmentDateSalesSql } from '../lib/estimateShipmentDateSales.js';
 
 assert.deepEqual(settlementPeriods('2026-11-06', 1, 5, 1), [{ startDate:'2026-11-02', endDate:'2026-11-06' }]);
@@ -78,3 +78,16 @@ assert.equal(buildSalesMatrix(summarizeSales([],scope.periods),'history').weeks.
 const crossMatrix=buildSalesMatrix(summarizeSales([{...row,SaleDate:'2026-12-31',OrderYear:'2025'},{...row,RowKey:6,SaleDate:'2027-01-01',OrderYear:'2026'}],[{startDate:'2026-12-28',endDate:'2027-01-03'}]),'range');
 assert.equal(crossMatrix.rows[0].weeks[0].product.sources.length,2);
 console.log('PASS calendar matrix: start-anchored seven days, partial/cross-year weeks, mixed units, stored zero/deductions, per-day/weekly totals, source quantity and immutable API facts');
+
+const priceMatrix=buildSalesMatrix(summarizeSales([{...row,Cost:0},{...row,RowKey:20,Quantity:60,Cost:2200,SaleDate:'2026-11-04',Amount:120000,Vat:12000}], [{startDate:'2026-11-02',endDate:'2026-11-08'}]),'history');
+assert.deepEqual(storedPriceBuckets(priceMatrix.rows[0]),[{cost:0,quantity:30},{cost:2200,quantity:60}]);
+assert.equal(priceMatrix.supplyAmount,150000);assert.equal(priceMatrix.vatAmount,15000);assert.equal(priceMatrix.totalAmount,165000);
+const history=settlementPeriods('2027-01-02',2,1).map((p,i)=>({...p,index:i}));
+assert.deepEqual(visibleSalesPeriods(history,'history').map(p=>p.index),[0,1]);
+assert.deepEqual(visibleSalesPeriods(history,'history',1).map(p=>p.index),[2,3]);
+assert.equal(visibleSalesPeriods(history,'history',0,true).length,12);
+assert.equal(visibleSalesPeriods(history,'range').length,12,'direct range is not truncated');
+assert.equal(visibleSalesPeriods([],'history').length,0);
+for(const bad of [-1,1.5,false])assert.throws(()=>visibleSalesPeriods(history,'history',bad));
+assert.equal(visibleSalesPeriods(history,'history')[0].startDate,'2026-12-29');
+console.log('PASS favorite quick view: latest two, zero page, previous/all/direct scope, cross-year, distinct stored zero/multiple prices and exact supply/VAT totals');
