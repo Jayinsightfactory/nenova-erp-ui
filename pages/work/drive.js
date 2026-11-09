@@ -10,6 +10,7 @@ import { isKakaoInbound, securityEvent, securityRows, securityCounts } from '../
 const fmtT = (t) => { try { return new Date(t).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); } catch { return ''; } };
 const fmtD = (t) => { try { return new Date(t).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }); } catch { return ''; } };
 const ago = (t) => { const s = (Date.now() - new Date(t).getTime()) / 1000; if (!(s >= 0)) return ''; if (s < 90) return '방금'; if (s < 3600) return Math.round(s / 60) + '분 전'; if (s < 86400) return Math.round(s / 3600) + '시간 전'; return Math.round(s / 86400) + '일 전'; };
+const fmtG = (n) => (n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : (n / 1048576).toFixed(0) + ' MB');
 const fmtS = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
 const cycleKey = (c) => { const m = String(c || '').match(/^(\d+)(?:-(\d+))?$/); return m ? parseInt(m[1], 10) * 10 + (parseInt(m[2] || '0', 10)) : -1; };
 // 차수의 연도: ① 파일명에 적힌 연도(2025년·2024-46차·25년) ② 파일 수정시각 연도 — 단, 차수가 그 시점 주차보다 한참 크면(연말 차수를 1월에 손댄 파일) 전년
@@ -213,7 +214,7 @@ export default function WorkDrivePage() {
       <header className="top">
         <div className="title">
           <h1 data-desktop-chrome>업무 드라이브</h1>
-          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일</> : '불러오는 중…'}</span>
+          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일{data.usage && <span className="usage" title={`색인 기준 ${data.usage.files}개 · 디스크 ${fmtG(data.usage.onDisk)} (${data.usage.onDiskPct}%) · 예전 방식(중복 합산) ${fmtG(data.usage.indexedNaive)}`}> · 사용량 <b>{fmtG(data.usage.used)}</b> / {fmtG(data.usage.max)} ({data.usage.pct}%)</span>}</> : '불러오는 중…'}</span>
         </div>
         <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
         <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근'], ...(data?.isAdmin ? [['security', '보안 이력']] : [])].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>

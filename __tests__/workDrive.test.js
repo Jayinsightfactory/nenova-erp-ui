@@ -20,7 +20,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import \{ workflowOwnerOf \} from '\.\/workFlowOwners';/m,
     "const workflowOwnerOf = (u) => ({ nenovass1: { name: '강현우' }, nenovass2: { name: '설연주' }, nenovasd1: { name: '정재훈' } })[String(u?.userId || '').toLowerCase()] || null;")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline, egressPreview, egressOpen, mirrorWebUpload, isWebUpload, webUploaderName, FILE_MAX };';
+  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline, egressPreview, egressOpen, mirrorWebUpload, isWebUpload, webUploaderName, FILE_MAX, TOTAL_MAX, driveUsage };';
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
@@ -256,3 +256,33 @@ console.log('display alias test passed (hoon J→정재훈)');
   assert.strictEqual(wd.listVisible(boss).find((x) => x.hostname === 'neonva').source, undefined);
 }
 console.log('web upload mirror tests passed (mirrorWebUpload: 정상·중복·25MB·빈 파일·filepath·별칭)');
+
+const seolUserCap = { userId: 'nenovaSS2', userName: '설연주' };
+// 용량 오판 수정(2026-11-09): 교정 행 100번 추가해도 용량 불변, 숨김(deleted) 파일 제외, 실제 상한 초과 시에만 507, 디스크 교차검증
+{
+  const u0 = wd.driveUsage();
+  assert.ok(u0.used > 0 && u0.files > 0 && u0.max === wd.TOTAL_MAX, '사용량 기본값: ' + JSON.stringify(u0));
+  assert.ok(u0.onDisk >= u0.used, '디스크 합 ≥ 색인 최신행 합(숨김 본체 포함)');
+  const target = wd.listVisible(boss).find((x) => x.filename === '38차 운임비.xlsx');
+  for (let i = 0; i < 100; i++) wd.reclassify(boss, target.id, { stage: i % 2 ? '출고' : '원가·운임' });
+  const u1 = wd.driveUsage();
+  assert.strictEqual(u1.used, u0.used, '교정 행 100개 추가해도 실제 용량 불변');
+  assert.ok(u1.indexedNaive >= u0.indexedNaive + 100 * target.size, '예전 방식(전체 행 합산)은 교정마다 중복 합산 — 507 오판 원인');
+  wd.reclassify(boss, target.id, { deleted: true });
+  const u2 = wd.driveUsage();
+  assert.strictEqual(u2.used, u1.used - target.size, '숨김 파일은 용량에서 제외'); assert.strictEqual(u2.files, u1.files - 1);
+  // 507 은 실제 용량 기준으로만: 상한을 임시로 낮춘 사본 모듈로 검증(TOTAL_MAX 는 5GB 유지)
+  const small = src.replace(/const TOTAL_MAX = [^;]+;/, 'const TOTAL_MAX = 60;');
+  const smallPath = path.join(tmp, 'workDriveSmall.cjs'); fs.writeFileSync(smallPath, small);
+  const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'wd-cap-')); process.chdir(tmp2);
+  const ws = require(smallPath);
+  const a = ws.ingestFile({ buffer: Buffer.alloc(30, 1), filename: '50-1 a.xlsx', userName: '설연주' }); assert.ok(a.ok);
+  for (let i = 0; i < 100; i++) ws.reclassify(boss, a.id, { stage: '출고' }); // 예전 방식이면 30×101 로 상한 초과 → 507 오판
+  const b = ws.ingestFile({ buffer: Buffer.alloc(25, 2), filename: '50-1 b.xlsx', userName: '설연주' }); assert.ok(b.ok, '교정 행이 많아도 실제 55/60 이면 저장: ' + JSON.stringify(b));
+  const c = ws.ingestFile({ buffer: Buffer.alloc(10, 3), filename: '50-1 c.xlsx', userName: '설연주' }); assert.strictEqual(c.status, 507, '실제 65/60 초과면 507');
+  ws.reclassify(boss, b.id, { deleted: true });
+  const d = ws.ingestFile({ buffer: Buffer.alloc(10, 3), filename: '50-1 c.xlsx', userName: '설연주' }); assert.ok(d.ok, '숨김 뒤 40/60 이면 다시 저장 가능');
+  assert.strictEqual(ws.mirrorWebUpload({ buffer: Buffer.alloc(30, 9), filename: '50-1 web.xlsx', user: seolUserCap, source: 's' }).status, 507, '웹 미러도 같은 상한, throw 없음');
+  process.chdir(tmp);
+}
+console.log('capacity tests passed (교정 행 중복 합산 제거 · 숨김 제외 · 실제 초과만 507)');
