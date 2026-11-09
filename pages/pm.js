@@ -568,9 +568,12 @@ function FilterChips({ label, items, value, onChange }) {
 // PM 일지 팝오버: PM 로봇(목록 보기 자리 클릭 또는 상단 버튼) — 지금 하는 일·오늘 한 일·대기 큐·승인 대기.
 // 데이터: 피드 pmDetail { now, doneToday:[{at,text}], queueCount, approvals } (사장님 PC office-feed.js 가 pm-status·ledger 에서 만든다). 없으면 구버전 호환으로 탭 설명만.
 // 3D 장면 연결 인터페이스: docs/PM_AGENT_ACTIVITY_INTERFACE.md (3D 는 별도 작업 중 — 여기서는 데이터 필드·2D 만).
+const AUTO_STATE = { planned: '착수 대기', investigating: '조사 중', verifying: '검사 중', escalated: '사장님 확인', 'needs-approval': '승인 대기', open: '진행' };
 function PmPopover({ pmAgent, detail, tasks, now, onClose, onOpenGoals }) {
   const doneToday = arr(detail?.doneToday);
   const open = tasks.filter((t) => t.state !== 'done');
+  // 자율 작업 = PM 이 스스로 찾아 올린 일(대장 키가 auto- 로 시작). 완료된 것은 숨김.
+  const autos = open.filter((t) => /^auto-/.test(t.key || ''));
   const approvals = detail?.approvals ?? open.filter((t) => /승인|approval/i.test(`${t.state} ${t.decision || ''}`)).length;
   return (
     <div className="drawer-back" onClick={onClose}>
@@ -584,6 +587,10 @@ function PmPopover({ pmAgent, detail, tasks, now, onClose, onOpenGoals }) {
           {doneToday.length ? (
             <ol className="pmlog">{doneToday.slice(0, 30).map((x, i) => <li key={i}><span className="wt">{kstHM(x.at)}</span> {x.text}</li>)}</ol>
           ) : <p className="muted">오늘 기록 없음</p>}
+          <h3>자율 작업 <small>{autos.length}건</small></h3>
+          {autos.length ? (
+            <ol className="pmlog">{autos.slice(0, 10).map((t, i) => <li key={(t.key || '') + i}><span className="muted">{AUTO_STATE[t.state] || t.state}</span> {String(t.msg || t.key).slice(0, 80)}{t.days ? <span className="muted"> · {t.days}일째</span> : null}</li>)}</ol>
+          ) : <p className="muted">진행 중인 자율 작업 없음</p>}
           <h3>대기 중인 할 일</h3>
           {open.length ? (
             <ol className="pmlog">{open.slice(0, 20).map((t, i) => <li key={(t.key || '') + i}><b>{t.key}</b> <span className="muted">{t.state}</span>{t.decision ? ` — ${t.decision}` : ''}</li>)}</ol>
