@@ -2260,3 +2260,40 @@
 - revalidateOnly:true는owner+sourcekey FAILED job만 API키/quota/provider/SQL앞에서무료분기,누락4는명시/추가분석0. 선택복구버튼은ERP준비와분리,raw일반GET/로그노출0. 실제4th 원문복구/해결완료로오인보고금지.
 - 표적45/manifest201/writeguard/dnSpy/guide PASS. fullERP/build/CI/배포/실브라우저후속 진행 중. 운영DB쓰기0/새유료분석0.
 검색어: revalidateOnly savePackingPdfChunkResponse MISSING_SAVED_RESPONSE 무료재검증 3of15 raw-sidecar
+
+# Work memory
+
+## 2026-11-09 46-1 무료 잔여 구조화
+- fresh origin/master f0decd7b, branch fix/co-free-local-1109. 기존 nw-pdf-response-replay-1109의 사용자/빌드/메모 변경 보존.
+- 로컬만: new-chat/output/461-free-extract/structure-remaining.mjs는 SHA88c28b75... 원본 전용 검증 프로토타입. 일반 CO 자동파서로 배포하지 않음. 명시 원문 기준값과 레이아웃별 정규식으로10~43쪽26송장200행 구조화. 원문 금액/송이 기대값은 검증 기준이며 누락 상품값을 보충하는 입력으로 쓰지 않음.
+- 송이226295, 총액46815.36USD(상품+원문 INVOS48.11/FUNZA15 부대비), 행금액/송장총액/송이수 불일치0. 일부 원문 혼합상자 하위품목/행별 박스가 별도이며 전체 입고준비 완료라는 뜻 아님.
+- AYURA17805와17806 합45300+300=45600송이,151+1=152pieces, master와 일치. 같은농장 한송장 강제하면 오류. FLORA CONCEPT2191857의AWBH AFBG00568511은manifest TheElite와 대응,이름만 비교하지 말 것.
+- ESPERANCE FEER4346: 송장AFBH00568432 vs masterAFBG00568432.1500송이/621USD 일치하지만 접두사 임의정정 금지. 사용자 확인 요청 중.
+- 원문6~9페이지/기존 완료3결과와 최종 병합, 무료웹경로 구현, 실제앱회귀는 미완료. 서버 private 기존3 데이터는 수정/덮어쓰기0, 유료호출0,운영DB수정0. 이 숫자는 잔여26송장만의 합계이며 전체43쪽 최종합계로 보고하지 않음.
+검색어: 46-1 무료 구조화 26송장200행 46815.36 226295 FEER4346 AFBH AFBG AYURA17806
+
+## 2026-11-09 HAWB 원본 시각 재확인
+- 사용자 OCR 오인식 가능성 지적 후 동일PDF 1·25쪽을 pdfjs2배 렌더해 직접 대조.1쪽 Esperance 행은 AFBG00568432,25쪽 하단 인쇄는 HAWB:AFBH00568432로 보임. 이 두 값은 OCR이 아닌 PDF 내장 텍스트에서 추출했던 값이고 시각 원본도 동일함. 추출오류로 단정하지 않으며 원본 간 표기 차이로 유지. 원문 발행자의 오타인지 실제 다른HAWB인지는 미확정.
+검색어: FEER4346 원본시각대조 OCR아님 PDF내장텍스트 AFBH00568432
+
+## 2026-11-09 오픈소스 OCR 실파일 추가시험
+- 공식 PaddleOCR/Docling/RapidOCR/Tesseract 자료 확인. 설치된 radar-pilot venv RapidOCR3.10.0+PP-OCRv6 small ONNX local모델 사용. socket연결 차단 후 추론,API키/유료/ERP쓰기0. 서버상주worker/기존서비스설정 변경0.
+- 호주44-01 CI1쪽11행 좌표별 box/unit/price/amount 전부 원본비교 일치.65boxes/2385bunch/20443.75AUD,2쪽같은총액 일치,Green/RedTip 라벨둘다확인. 각행units*price=amount 검산PASS.
+- 46-1 Tiba27쪽:38+84+220=342USD/800송이/8pieces OCR+원본 대조PASS.44-1콜카장22쪽:65+38+168+220=491USD/1100송이/11pieces 원본 대조PASS.후자는 Unit헤더confidence0.76(확인필요),수량오류로단정금지.
+- 최종4구간당3.34~5.30초.신뢰도점수는정확도확률아님. Recipe하위행에금액반복되므로전체숫자합산하면중복. 원본좌표의부모행/recipe구분 및별도합계대조필수.
+- 산출/재현: new-chat/output/461-free-extract/ocr-local-test.py,check-ocr-values.mjs,ocr-value-validation.json.검증errors0.이결과는부분스캔/숫자대조이며웹배포·전국가업로드E2E완료아님.
+검색어: RapidOCR3.10 PP-OCRv6 local ONNX 44-01 65box2385bunch20443.75 Tiba342491 OCR무료
+
+## 2026-11-09 무료 OCR 웹연결 작업 착수
+- lib/importOcrRecipePolicy.js 및 전용계약 import-free-ocr.json 추가. 상품/Recipe는 원본sourceId+같은page+명시parentSourceId로만 대조. 값같은정상반복행유지,하위합계불일치/부모누락/중복원본ID반려. 순수 completed/free chunk정책은 원본SHA/상태/페이지순서검사하며 기존result객체참조보존.
+- importOcrRecipePolicy12테스트PASS,git diff--check PASS. 실파일OCR값대조도 errors0 재확인. API/SQL/유료 호출0.
+- 기존 Docling 브리지는 owner PC에서 후보표만 생성해 Claude 프롬프트로 전달하는 구조. 이것을 무료OCR 전체처리로 오인하지 말 것. Cafe24에 Python이 없으므로 실제무료큐/owner워커/정규화/클라이언트/구간병합 연결과실앱E2E는 아직 미완료. 이helper는아직실행웹경로에연결되지않음. 배포하지않음.
+검색어: importOcrRecipePolicy resolveOcrRecipeRows mergeFreeOcrWithCompleted 12PASS 무료큐미연결
+
+## 2026-11-09 무료 OCR 웹 큐·owner 워커·46-1 복구 구현
+- 무료 전용 HTTP 큐/소유자 검증/로컬 RapidOCR 워커/CO exact-source 46-1 병합/AU Premium Greens 구조화 연결. 유료 자동 전환 없음. Recipe는 원본 좌표 부모·자식 합계로 검산, 값이 같은 정상 상품행은 삭제하지 않음.
+- 실제 46-1 43쪽 로컬 워커 추출→31송장266품목 수량·금액 검증. 격리 Next 서버 + 실제 Chrome HTTP + 로컬 Python 워커 통합 PASS: 31송장, 기존 테스트 완료3구간 JSON 동일, providerCalls0/ERP쓰기0. 운영에 저장된 실제3구간 병합과 구분할 것.
+- test:erp-contract PASS, 대상 테스트91PASS/1기존skip, 초기 build PASS. 합성 실제 UI 무료 버튼 dry-run PASS(유료0), 가이드/최종 gates/배포/네이티브 앱 스모크는 후속 결과로 갱신 필요.
+- CO 복구는 SHA 고정 46-1만 검증됨. 다른 CO 서식의 범용 무료처리를 주장하지 않음. AU 44-01 로컬 OCR 65박스2385단20443.75AUD 검산 PASS. 중국 3개 구형 서식 미지원 상태는 별도 개선 필요.
+- 완료3개 보존·병합실패 전체바이트보존·다른계정/SHA차단 테스트 포함. HAWB AFBH/AFBG 불일치는 원문 유지 확인필요. 운영 ERP DB·유료 분석 실행0.
+검색어: free-ocr-worker RapidOCR CO46-1 31송장266행 기존3개보존 HTTP통합 AU65박스 무료자동전환없음

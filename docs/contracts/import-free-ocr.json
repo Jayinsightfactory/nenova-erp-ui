@@ -1,0 +1,12 @@
+{
+ "id":"import-free-ocr",
+ "title":"무료 OCR 원본행·Recipe 대조 및 완료 구간 보존",
+ "scope":["lib/importOcrRecipePolicy.js","lib/importRapidOcrJobs.js","lib/importColombia461Local.js","lib/importColombiaFreeRecovery.js","lib/importTibaOcr.js","lib/importAustraliaOcr.js","lib/importFreeOcrClient.js","lib/importTeamPdfJobs.js","pages/api/import/tools/free-ocr.js","pages/api/import/tools/free-ocr-worker.js","pages/api/import/tools/parse-pdf.js","components/import-tools/PackingListTool.js","scripts/rapidocr-extract.py","scripts/rapidocr-bridge-worker.py"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "sourceIdentity":["ownerHash","sourceHash","page","sourceId"],
+ "actions":[{"name":"FREE_OCR_SOURCE_REVIEW","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"사용자별 웹 파일 큐·완료 구간 파일만 수정. 무료 워커는 로컬모델로 좌표 추출, OCR자식 네트워크차단. ERP writer/SP/SQL/견적/손익 호출 없음. 실제 입고·원가 승인은 기존 명시 단계만 사용."}],
+ "crossYearFixture":{"required":true,"description":"동일 차수/파일명이어도 SHA가 다르면 완료 구간 재사용 차단"},
+ "requiredTestFiles":["__tests__/importOcrRecipePolicy.test.mjs","__tests__/importRapidOcrJobs.test.mjs","__tests__/importFreeRecoveryJobs.test.mjs","__tests__/importFreeOcrClient.test.mjs","__tests__/importAustraliaOcr.test.mjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"원본 분석 및 private파일 큐만 변경. MakeTempTable/InsertMaster/재고/SP/공유SQL 경로 보존. 운영 SQL 쓰기 검증은 수행하지 않는다.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","ProductStock"]},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

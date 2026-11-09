@@ -1,4 +1,5 @@
 import styles from '../../styles/ImportPacking.module.css';
+import WorkflowGuide from '../WorkflowGuide';
 import { blockingPackingIssues } from '../../lib/packingReceiptDatePolicy.js';
 import {createPackingHistoryClient} from '../../lib/packingSharedHistoryClient.js';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -19,6 +20,7 @@ import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
+import {extractFreePackingDocument} from '../../lib/importFreeOcrClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
 import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
@@ -1676,7 +1678,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     }catch(error){setStatus({type:'error',msg:error.message});}
     finally{processingRef.current=false;setProcessing(false);}
   };
-  const process = async (allowAI = false, retryJobId = null) => {
+  const process = async (allowAI = false, retryJobId = null, freeOnly = false) => {
+    // Automatic CO/AU uploads never escalate to a paid provider. Explicit paid
+    // retry remains the existing separate, cost-confirmed user action.
+    freeOnly = freeOnly || (allowAI === 'auto' && ['CO','AU'].includes(country));
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     if (country === 'AU' && !awbPdfBase64) {
       setStatus({ type: 'error', msg: '호주 인보이스는 AWB PDF도 선택해야 GW·CW를 원문에서 확인하고 진행할 수 있습니다.' });
@@ -1720,7 +1725,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }
         }
       } else {
-        extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
+        extraction = freeOnly ? await extractFreePackingDocument({country,pdfBase64,retryJobId,onProgress:progress=>{
+          if(isCurrent()){setSteps([{label:'무료 OCR · 원본 수량/금액 대조',state:'active'}]);setStatus({type:'info',msg:`무료 OCR ${progress.stage==='QUEUED'?'워커 대기':'처리'} 중 · ${progress.elapsedSeconds}초 · 유료 분석/입고 저장 없음`});}
+        }}) : await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
           onProgress: progress => {
             if (!isCurrent()) return;
             const label=progress.stage==='SUBMITTING'?'PDF 분석 접수 중':'AI 분석 중 · 결과 확인 중';
@@ -1730,7 +1737,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               : progress.total ? `PDF 구간 ${progress.completed}/${progress.total} 완료 · ${progress.stage==='VALIDATING'?'누락·중복·총금액 검증 중':`${progress.current}번째 구간 분석 중`}. 완료 구간은 재사용하며 결과 조회는 AI를 다시 호출하지 않습니다.`
               : `AI 분석 결과를 확인하고 있습니다${progress.elapsedSeconds ? ` (${progress.elapsedSeconds}초 경과)` : ''}. 결과 조회는 AI를 다시 호출하지 않습니다.`});
           }});
-        if (extraction.needsAI && allowAI === 'auto' && isCurrent()) {
+        if (!freeOnly && extraction.needsAI && allowAI === 'auto' && isCurrent()) {
           setStatus({type:'info',msg:'자동 AI 분석 중입니다. 분석 비용이 발생할 수 있습니다. 원본 파일은 유지됩니다.'});
           extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true});
         }
@@ -1741,7 +1748,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         setStatus({type:'info',msg:t.localUnavailable});return;
       }
       const data=extraction.data;
-      const sourceLabel=extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
+      const sourceLabel=extraction.source==='free-ocr'?'무료 OCR · 원본 대조 완료 · 유료 호출 없음':extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
       setExtractionSource(sourceLabel+(extraction.source==='ai'&&extraction.cacheSaved===false?' · '+t.cacheNotSaved:''));
       setSteps([
         { label: t.steps[0], state: 'done' },
@@ -1995,6 +2002,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
+        <WorkflowGuide workflowId="packing-free-ocr" initialRole="수입부" />
         <InvoiceUploadIssues userId={userId} fileName={file?.name||''} error={status?.type==='error'?status.msg:matchError||null} unmatched={pending.length+allNoMatches.length} mismatches={mismatches.length} processing={processing} blockedEvent={blockedEvent} onChooseFile={()=>fileRef.current?.click()}/>
         {workError && <p role="alert" style={{ color: '#b91c1c' }}>{workError}</p>}
         {workMessage && file && <p role="status" data-testid="packing-work-saved">{workMessage}</p>}
@@ -2275,19 +2283,24 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 {awbReview?.ready && !awbReviewed && <small style={{ display: 'block', marginTop: 4, color: '#b42318' }}>대조 완료를 체크해야 입고 단계로 진행할 수 있습니다.</small>}
               </div>}
             </section>}
-            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
+            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{['CO','AU'].includes(country) ? 'PDF 최대 20MiB. 저장 결과를 재사용하고, 없으면 무료 OCR로 분석합니다. 유료 분석으로 자동 전환하지 않습니다. 미지원 서식과 원본 불일치는 확인 필요로 표시하며 입고등록 전 ERP 원장은 변경하지 않습니다.' : country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
               {country==='CO'&&pdfBase64&&<button type="button" onClick={revalidateSavedResponse} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>저장 응답 재검증 · 무료</button>}
+              {['CO','AU'].includes(country)&&pdfBase64&&<button type="button" onClick={()=>process(false,pdfRetryJobId,true)} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>무료 OCR · {country==='CO'?'완료 구간 유지·전체 복구':'이미지 인보이스 분석'}</button>}
               {needsAI&&<button onClick={()=>{
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);
               }} disabled={processing || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
             </div>
-            <div className={styles.modeBadge}>{t.localMode}</div>
+            <div className={styles.modeBadge}>{['CO','AU'].includes(country)?'무료 분석 우선 · 저장 결과 재사용 → 무료 OCR · 유료 자동 전환 없음 · 미지원 서식은 확인 필요':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            {lastExtraction?.result?.free_ocr_review_issues?.length>0&&<div role="status" style={{padding:12,border:'1px solid #e2b459',background:'#fff8e9',borderRadius:8}}>
+              <strong>원본 표기 확인 필요 · 나머지 품목은 계속 검토할 수 있습니다.</strong>
+              {lastExtraction.result.free_ocr_review_issues.map((issue,index)=><p key={index}>{issue.invoice}: 명세서 {issue.manifest} / 송장 {issue.invoicePrinted} — 두 원문을 그대로 보존했습니다.</p>)}
+            </div>}
             {legacyReviewData && <ChinaLegacyReview data={legacyReviewData} resolveLegacyChinaInvoice={resolveLegacyChinaInvoice} onConfirm={confirmation => {
               try {
                 const promoted = confirmation.invoices;

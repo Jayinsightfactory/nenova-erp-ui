@@ -3,6 +3,11 @@ const test = require('node:test');
 // Keep the matching-first numeric gate in the mandatory import/ERP regression suite.
 require('./packingMatchNext.test.js');
 require('./chinaSourceQuantities.test.js');
+require('./importOcrRecipePolicy.test.mjs');
+require('./importRapidOcrJobs.test.mjs');
+require('./importFreeRecoveryJobs.test.mjs');
+require('./importFreeOcrClient.test.mjs');
+require('./importAustraliaOcr.test.mjs');
 const fs = require('node:fs');
 const { webcrypto } = require('node:crypto');
 const babel = require('next/dist/compiled/babel/core');
@@ -155,6 +160,11 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/invoiceSupplierEvidence.js': await import('../lib/invoiceSupplierEvidence.js'),
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
+    '../../lib/importFreeOcrClient.js': {async extractFreePackingDocument({country,pdfBase64}){
+      extractionCalls.push({country,pdfBase64,freeOnly:true});
+      const data=await state.readPackingPdfResponse(await fetchStub('/api/import/tools/free-ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country,pdfBase64})}));
+      return {data,source:'free-ocr'};
+    }},
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
     '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
     '../../lib/importPackingReview.js': review,
@@ -277,8 +287,8 @@ test('Korean is the default and country keys, optional languages and catalog con
   assert.equal(co.props.type, 'button');
   co.props.onClick(); h.render();
   assert.ok(text(h.tree).includes('무료 분석 우선'));
-  assert.ok(text(h.tree).includes('비용이 발생할 수 있습니다.'));
-  assert.ok(text(h.tree).includes('입고등록 버튼을 누르기 전에는 ERP 원장에 반영하지 않습니다.'));
+  assert.ok(text(h.tree).includes('유료 분석으로 자동 전환하지 않습니다.'));
+  assert.ok(text(h.tree).includes('입고등록 전 ERP 원장은 변경하지 않습니다.'));
   await h.upload(catalogFile([[1, 'Z', 'Original document name', '', '태국']]));
   assert.ok(text(h.tree).includes('카탈로그 미리보기'));
   assert.ok(text(h.tree).includes('전체 교체'));
@@ -988,7 +998,7 @@ test('source resolved flags do not clear extraction issues or open the generator
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'preview never publishes receipt adaptation data');
 });
 
-test('first upload automatically tries local then one AI request, failure never auto-retries', async () => {
+test('CO first upload uses free OCR once, failure never auto-retries or escalates to paid AI', async () => {
   const h = await harness({autoAnalyze:true});
   h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({name:'44-1.pdf',type:'application/pdf',size:1024});
@@ -996,7 +1006,9 @@ test('first upload automatically tries local then one AI request, failure never 
   assert.equal(h.readers.length,1);
   await h.readers[0].complete(); await h.refresh(); await h.refresh();
   await h.waitForRealSha(1); await h.refresh();
-  assert.deepEqual(h.extractionCalls.map(call=>call.allowAI),[false,true]);
+  assert.deepEqual(h.extractionCalls.map(call=>call.freeOnly),[true]);
+  assert.equal(h.extractionCalls.some(call=>call.allowAI===true),false);
+  assert.equal(h.requests[0].url,'/api/import/tools/free-ocr');
   assert.equal(h.requests.length,1);
   h.requests[0].resolve({ok:false,status:504,json:async()=>({error:'TEST timeout'})});
   await h.refresh(); await h.refresh();

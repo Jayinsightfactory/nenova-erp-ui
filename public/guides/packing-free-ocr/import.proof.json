@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-09T06:03:25.568Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 19.3,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "f3710d4dfd641b225c2f1390bcc384c9bf88f3064fca93f5a5cc785cafe6eb2d",
+  "captionsSha256": "56aac3c65b94f4cd07e1dd61e99b5709e863b1cc027b9b87aa343e90b253cfde",
+  "sourceHashes": {
+    "components/import-tools/PackingListTool.js": "6b085b15ba0ee1b897b3d9d2c0930dd9e0ead9aa83b5ddba1a278964e82b5ac7"
+  }
+}
