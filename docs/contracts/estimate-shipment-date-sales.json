@@ -1,11 +1,74 @@
 {
   "id": "estimate-shipment-date-sales",
   "title": "출고일 기준 업체 정산 매출과 품목·원차수별 수량",
-  "scope": ["pages/estimate.js", "components/EstimateShipmentDateSales.js", "components/EstimateShipmentDateSales.module.css", "lib/estimateShipmentDateSales.js", "pages/api/estimate/shipment-date-sales.js", "__tests__/estimateShipmentDateSales.test.js"],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "actions": [{"name":"READ_DATE_SALES_AND_HISTORY","orderDetail":"preserve","shipmentDetail":"preserve","shipmentDate":"preserve","estimate":"preserve","stock":"preserve","webProfitReport":"preserve"}, {"name":"SAVE_CUSTOMER_WEEKDAY_FAVORITE","orderDetail":"preserve","shipmentDetail":"preserve","userFavorite":"existing authenticated per-user favorites API only; page=estimate-shipment-date-sales"}],
-  "crossYearFixture": {"required":true,"description":"동일 44-01 차수의 2025/2026 출고를 날짜로 선택하며 내부 구성키는 연도+차수, 표시는 90 = 30(44-1) / 60(44-2). 연말 화~월 기간을 분리하지 않는다."},
-  "requiredTestFiles": ["__tests__/estimateShipmentDateSales.test.js"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/EstimateShipmentDateSales.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs","methods":["GetDetail","btnSave_Click","ClassShipmentDate.Update"],"tables":["ViewShipment","ViewOrder","ShipmentDate","ShipmentMaster","Estimate"]},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+  "scope": [
+    "pages/estimate.js",
+    "components/EstimateShipmentDateSales.js",
+    "components/EstimateShipmentDateSales.module.css",
+    "lib/estimateShipmentDateSales.js",
+    "pages/api/estimate/shipment-date-sales.js",
+    "__tests__/estimateShipmentDateSales.test.js",
+    "lib/estimateShipmentDateMatrix.js",
+    "components/ShipmentSalesCustomerInput.js",
+    "components/ShipmentSalesRangeCalendar.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_DATE_SALES_AND_HISTORY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "webProfitReport": "preserve"
+    },
+    {
+      "name": "SAVE_CUSTOMER_WEEKDAY_FAVORITE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "userFavorite": "existing authenticated per-user favorites API only; page=estimate-shipment-date-sales"
+    },
+    {
+      "name": "CALENDAR_WEEK_MATRIX",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "description": "Stored per-day facts only; range start anchored seven-day groups, partial last week; autocomplete invalidates selected CustKey on editing."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "동일 44-01 차수의 2025/2026 출고를 날짜로 선택하며 내부 구성키는 연도+차수, 표시는 90 = 30(44-1) / 60(44-2). 연말 화~월 기간을 분리하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/estimateShipmentDateSales.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/EstimateShipmentDateSales.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs",
+    "methods": [
+      "GetDetail",
+      "btnSave_Click",
+      "ClassShipmentDate.Update"
+    ],
+    "tables": [
+      "ViewShipment",
+      "ViewOrder",
+      "ShipmentDate",
+      "ShipmentMaster",
+      "Estimate"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
 }
