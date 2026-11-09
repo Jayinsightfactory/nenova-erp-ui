@@ -35,7 +35,7 @@ test('free UI action is separate from ERP preparation and paid confirmation',asy
   const source=await fs.readFile(new URL('../components/import-tools/PackingListTool.js',import.meta.url),'utf8');
   const handler=source.slice(source.indexOf('const revalidateSavedResponse ='),source.indexOf('const process = async'));
   assert.ok(handler.includes('revalidateOnly:true'));assert.equal(/requestErpMatches|confirm\(|process\(/.test(handler),false);
-  assert.ok(source.includes('onClick={revalidateSavedResponse}'));assert.ok(source.includes('저장 응답 재검증 · 무료'));
+  assert.ok(source.includes('onClick={revalidateSavedResponse}'));assert.ok(source.includes('저장 응답 재검증 · API 호출 없음'));
 });
 async function replayFixture(fn,{raw=true,bad=false}={}){
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'pdf-replay-')),opts={root},key='b'.repeat(64);

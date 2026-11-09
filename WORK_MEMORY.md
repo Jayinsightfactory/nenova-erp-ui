@@ -2305,3 +2305,13 @@
 검색어: 남대문경원 원당태광 47차 미우 참고시트 Sheet1 orderImportSheetIdentity 담당업체 분배단가
 
 - 최종 로컬 검증: 전체 test:erp-contract/manifest203/dnSpy/writeguard/가이드/build(webpack1worker) exit0. 운영빌드 실제1920/390 브라우저 및 영상재생/목차/한국어자막/다운로드/접기정지 PASS. CI/병합/배포는 진행 중(미검증).
+
+## 2026-11-09 46-1 Claude 잔여12 분석·완료3 보존
+- 승인된 잔여12개 Claude 호출 완료. 15/15 이후 총액 검증에서 실패한 원인은 상세/요약 중복3송장. 추가 provider 호출 없이 저장 응답으로 로컬 병합 검증: 31송장266행308495송이1137pieces, 인보이스 총액64204.86USD(부대비 포함). 원문 SHA 한정 요약분리·감사근거 보존, 다른 파일에 숫자기반 삭제 금지.
+- 구형 병합실패가 원본3개까지 invalidate한 문제: 동일 계정+cacheKey의 과거 성공구간만 충돌검사 후 복원. 이전 작업 불변/성공구간 보존 검사 통과. 완료3 원본은 서버 f5206d7f 작업에 여전히 보존. 운영 최신 작업 e68ec019는 배포 후 저장응답 재검증 필요(아직 미검증).
+- PDF 기본 Claude, 캐시/완료구간 재사용, 실패 자동 재호출 없음. 무료OCR 자동/버튼 제거. 저장응답 재검증은 API0회 별도 동작. 중국XLSX 코드변환/ERP writer 불변.
+- 실제 컴퓨터유즈 IAB 격리 컴포넌트에서31송장266행 계산→엑셀 다운로드 확인. 품목키·입고는 fixture, 운영 SQL 미연결, 중량/비용 TEST_ONLY. 실제 ERP 입고등록 E2E 및 실제 재무 원가 대조는 미검증. 다운로드 shared-awb-2026-46-01-86514699602.xlsx, Artifact Tool 재계산·원본계산 시트266행/308495송이/단원가 유한값·오류검색0·PNG 확인. 비용 시험값을 실원가 통과로 보고하지 않음.
+- 혼합 품종 FB 입력 UI 누락 보완. 실물1137pieces와FB를 혼동하지 않음. 원문 AFBH/AFBG 차이 및 FB 인쇄527 대 명세행524 차이는 확인필요 유지. 원문 값을 임의수정하지 않음.
+- 대상회귀114통과1skip(추가 테스트 재실행 예정), ERP contract/manifest242 중233통과9skip, writeguard/dnSpy PASS. 프로덕션 빌드1회통과(최종 SharedAwb 입력 UI 변경 전), 두 실제 UI 가이드 촬영/검증 PASS. 최종빌드·CI·배포는 미검증.
+검색어: 46-1 Claude 잔여12 완료3 요약표중복 133495 17805 202875 source_summary_rows reconcile461Manifest FB527 524 O15 TEST_ONLY
+- 최종 추가 회귀125개 중124통과1skip, 전체 ERP contract·manifest·writeguard·dnSpy 가드 PASS. 실제 설치 EXE ExcelLoadingPackingList CLI 재확인: dt[5]/[8]/[9]→박스/단/송이, BulkCopy WarehouseMaster→uspCreateWarehouse→uspStockCalculation 순서. 이 writer는 변경/실행하지 않음. 최종 npm build(webpack cpus1) 및 두 가이드 검증 PASS. PR·운영 배포·서버 저장응답 재검증은 진행 중(미검증).

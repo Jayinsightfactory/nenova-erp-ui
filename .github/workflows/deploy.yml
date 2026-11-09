@@ -72,7 +72,7 @@ jobs:
           {
             echo 'script<<PERF_DIAG_EOF'
             printf "node <<'NODE_DIAG'\n"
-            cat scripts/diagnose-packing-readonly.cjs
+            cat scripts/diagnose-runtime-readonly.cjs
             printf "\nNODE_DIAG\npython3 <<'PY_DIAG'\n"
             cat scripts/diagnose-nginx-readonly.py
             printf "\nPY_DIAG\nnode <<'ACTIVITY_DIAG'\n"

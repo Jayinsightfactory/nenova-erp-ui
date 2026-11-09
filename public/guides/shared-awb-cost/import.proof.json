@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-09T08:16:58.881Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 14.05,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "8541c7b12eaba426a706d6f6cda622b1a1b9e0ffa7dff38b7fafb2f6a29ab97c",
+  "captionsSha256": "3c75bc77dd05ca191d12e8d7a65a15167fbf8be7eeb307b7ca6488dbf5312143",
+  "sourceHashes": {
+    "components/import-tools/SharedAwbCostReview.js": "c68cc2adfee14290f76092e6cc54b0cd9fa8d30e26bba06ef9057d8afe5a7064"
+  }
+}

@@ -1,0 +1,11 @@
+{
+ "id":"packing-claude-recovery",
+ "title":"Claude 우선 인보이스 분석과 완료구간 보존·요약행 대조",
+ "scope":["lib/importPackingPdfChunks.js","lib/importPackingSummaryRows.js","lib/importTeamPdfJobs.js","lib/importPackingExtractClient.js","pages/api/import/tools/parse-pdf.js","components/import-tools/PackingListTool.js","components/import-tools/SharedAwbCostReview.js"],
+ "businessIdentity":["UserId","SourceSha256","ParserVersion","SegmentPages"],
+ "actions":[{"name":"CLAUDE_ANALYSIS_AND_REPLAY","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"원본SHA로 격리된 웹 private 작업 파일만 변경. 최초PDF는 캐시→설정된Claude;실패 자동재시도 없음. 전체 검증실패에도 완료구간·원응답 보존. 이전 동일키 완료구간 복구는 같은계정·원본·페이지/단일결과만 허용. ERP 입고/원가 저장은 실행하지 않음."}],
+ "crossYearFixture":{"required":true,"description":"다른 연도의 동일 차수 PDF도 SHA가 다르면 46-1 요약표 규칙 적용 금지. 분석 API에는 저장연도 필드가 없으며 ERP 입고 연도/차수는 변경하지 않음. 이전구간은 같은 owner+cacheKey에서만 읽음"},
+ "requiredTestFiles":["__tests__/importPackingPdfChunks.test.js","__tests__/importFreeRecoveryJobs.test.mjs","__tests__/importPackingHardening.test.js","__tests__/packingSummaryRows.test.mjs"],
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","ProductStock"],"source":"공유SQL와writer불변. 원문 수량/금액 정규화·웹 작업 파일만 변경. 금액·단위 근거 없으면 차단."},
+ "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run build"]
+}
