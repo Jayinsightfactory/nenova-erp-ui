@@ -1,0 +1,36 @@
+name: Backfill Work-Drive Web Uploads
+
+# 수동 실행 전용 — 수입부 패킹리스트 "팀 업로드 이력"(data/runtime/import-team/packing-uploads)에 이미 보관된 원본을
+# 업무 드라이브(data/drive)로 1회 소급. 같은 sha 는 duplicate 처리라 여러 번 실행해도 안전(멱등). 웹 전용 파일만, MSSQL 무관.
+#   gh workflow run drive-backfill-web-uploads.yml -f dry_run=true    # 대상·건수만
+#   gh workflow run drive-backfill-web-uploads.yml -f dry_run=false   # 실제 투입
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true 면 대상만 출력하고 저장하지 않음'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH backfill web uploads into work drive
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 15m
+          script: |
+            set -e
+            cd /var/www/nenova-erp
+            git log --oneline -1
+            echo "=== 소급 전 ==="; ls data/runtime/import-team/packing-uploads/records 2>/dev/null | wc -l; wc -l data/drive/index.jsonl 2>/dev/null || echo "index.jsonl 없음"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then node scripts/work-drive-backfill-web-uploads.mjs --dry-run; else node scripts/work-drive-backfill-web-uploads.mjs; fi
+            echo "=== 소급 후 ==="; wc -l data/drive/index.jsonl 2>/dev/null || true
+            echo "=== 드라이브 내 웹 업로드 행 수 ==="; grep -c '"eventType":"web-upload"' data/drive/index.jsonl 2>/dev/null || echo 0
