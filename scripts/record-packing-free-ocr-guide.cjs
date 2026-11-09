@@ -15,7 +15,7 @@ async function main(){
   const page=await browser.newPage();page.setDefaultTimeout(20000);page.on('pageerror',e=>console.log('UI ERROR',e.message));await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
   await page.setCookie({name:'nenovaToken',value:jwt.sign({userId:'guide-import',userName:'연습 담당자',authority:4,accountActive:true},secret,{expiresIn:'1h'}),url:base});
   const invoice={farm:'연습 농장',invoice:'TRAINING-001',currency:'USD',date:'2026-11-06',invoice_total:20,freight_total:0,products:[{description:'ROSE RED',pcs:1,steam_box:100,bunch_st:25,total_stems:100,u_price:.2,t_price:20,source_page:1,source_row:1}]};
-  const payload={content:[{type:'text',text:JSON.stringify({invoices:[invoice],free_ocr_review_issues:[{code:'HAWB_REVIEW',invoice:'TRAINING-001',invoiceValue:'연습 A',manifestValue:'연습 B'}]})}],stop_reason:'end_turn',source:'free-ocr'};
+  const payload={content:[{type:'text',text:JSON.stringify({invoices:[invoice],free_ocr_review_issues:[{code:'HAWB_REVIEW',invoice:'TRAINING-001',invoicePrinted:'연습 A',manifest:'연습 B'}]})}],stop_reason:'end_turn',source:'free-ocr'};
   let freeCalls=0,paidCalls=0;
   await page.setRequestInterception(true);page.on('request',req=>{
    const u=new URL(req.url());if(!u.pathname.startsWith('/api/'))return req.continue();

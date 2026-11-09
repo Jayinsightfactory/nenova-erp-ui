@@ -2283,7 +2283,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 {awbReview?.ready && !awbReviewed && <small style={{ display: 'block', marginTop: 4, color: '#b42318' }}>대조 완료를 체크해야 입고 단계로 진행할 수 있습니다.</small>}
               </div>}
             </section>}
-            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
+            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{['CO','AU'].includes(country) ? 'PDF 최대 20MiB. 저장 결과를 재사용하고, 없으면 무료 OCR로 분석합니다. 유료 분석으로 자동 전환하지 않습니다. 미지원 서식과 원본 불일치는 확인 필요로 표시하며 입고등록 전 ERP 원장은 변경하지 않습니다.' : country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}

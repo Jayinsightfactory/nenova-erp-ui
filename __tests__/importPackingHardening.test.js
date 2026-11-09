@@ -287,8 +287,8 @@ test('Korean is the default and country keys, optional languages and catalog con
   assert.equal(co.props.type, 'button');
   co.props.onClick(); h.render();
   assert.ok(text(h.tree).includes('무료 분석 우선'));
-  assert.ok(text(h.tree).includes('비용이 발생할 수 있습니다.'));
-  assert.ok(text(h.tree).includes('입고등록 버튼을 누르기 전에는 ERP 원장에 반영하지 않습니다.'));
+  assert.ok(text(h.tree).includes('유료 분석으로 자동 전환하지 않습니다.'));
+  assert.ok(text(h.tree).includes('입고등록 전 ERP 원장은 변경하지 않습니다.'));
   await h.upload(catalogFile([[1, 'Z', 'Original document name', '', '태국']]));
   assert.ok(text(h.tree).includes('카탈로그 미리보기'));
   assert.ok(text(h.tree).includes('전체 교체'));
