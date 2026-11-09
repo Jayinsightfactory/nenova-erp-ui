@@ -45,13 +45,21 @@ export default function WorkDrivePage() {
   const [periodF, setPeriodF] = useState('');   // 올린 기간: 1 | 7 | 30 (일)
   const [sensF, setSensF] = useState('');       // '' | 'sens' | 'plain'
   const [verF, setVerF] = useState('');         // '' | 'multi'(버전 2개 이상)
-  const [originF, setOriginF] = useState('');   // 출처: '' | 'pc'(데몬 자동) | 'web'(웹 직접 업로드)
   const [sort, setSort] = useState(['uploadedAt', -1]);
   const [sel, setSel] = useState(null);
   const [log, setLog] = useState(null);
   const [busy, setBusy] = useState('');
   const [subF, setSubF] = useState('');
   const [hostsOpen, setHostsOpen] = useState(true);
+  // 보안 이력(유출 경로) 상태 — 관리자만. 차단·알림 없이 기록만 본다. (useState 호출 순서를 고정하는 테스트 workDriveCategories 때문에 선언 위치만 여기로 모음, 순서는 그대로)
+  const [eg, setEg] = useState(null); const [egKind, setEgKind] = useState(''); const [egWho, setEgWho] = useState(''); const [egDays, setEgDays] = useState('30'); const [egQ, setEgQ] = useState('');
+  const [tl, setTl] = useState(null);
+  const [egScope, setEgScope] = useState('review');
+  const [egError, setEgError] = useState('');
+  const [egLoading, setEgLoading] = useState(false);
+  const [pv, setPv] = useState(null);
+  // 출처 필터(2026-11-09): '' | 'pc'(데몬 자동) | 'web'(웹 직접 업로드). 새 상태는 항상 맨 뒤에 추가한다(위 테스트가 훅 인덱스로 상태를 넣음).
+  const [originF, setOriginF] = useState('');
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
   const load = async () => {
@@ -109,11 +117,6 @@ export default function WorkDrivePage() {
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
   const openLog = async (id) => { const r = await fetch('/api/work/drive?log=' + encodeURIComponent(id)); const j = await r.json(); setLog(j.log || []); };
   // 보안 이력(유출 경로): 관리자만. 차단·알림 없이 기록만 본다.
-  const [eg, setEg] = useState(null); const [egKind, setEgKind] = useState(''); const [egWho, setEgWho] = useState(''); const [egDays, setEgDays] = useState('30'); const [egQ, setEgQ] = useState('');
-  const [tl, setTl] = useState(null);
-  const [egScope, setEgScope] = useState('review');
-  const [egError, setEgError] = useState('');
-  const [egLoading, setEgLoading] = useState(false);
   const egRequest = useRef(0);
   const loadEg = async () => {
     const request = ++egRequest.current;
@@ -134,7 +137,6 @@ export default function WorkDrivePage() {
     : [['inbound', '카카오톡 수신'], ['copy', '외부 위치 복사'], ['print', '인쇄'], ['email', '이메일 첨부'], ['webupload', '웹 업로드'], ['kakao', '카카오톡 전송'], ['download', '내려받기']];
   const openTl = async (id) => { const r = await fetch('/api/work/drive-egress?timeline=' + encodeURIComponent(id)); const j = await r.json(); setTl(j.timeline || []); };
   // 나간 파일의 내용 보기(시트 첫 행) — 관리자. 이력 행 id 기준.
-  const [pv, setPv] = useState(null);
   const openPv = async (r) => { setPv({ row: r, loading: true }); const x = await fetch('/api/work/drive-egress?preview=' + encodeURIComponent(r.id)); const j = await x.json(); setPv({ row: r, ...j }); };
   // "어디로" 열: 유형별로 사람이 읽는 문장
   // "어디로" — 유형별로 사람이 읽는 문장. 카톡 '받은 파일'(destKind kakao-in / 옛 행은 경로로 판별)은 유출이 아니라 수신.
