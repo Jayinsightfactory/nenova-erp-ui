@@ -44,7 +44,11 @@
     "__tests__/orderImportRematch.test.js",
     "lib/orderImportMappingKey.js",
     "scripts/order-import-mapping-smoke.cjs",
-    "lib/orderImportDeadline.js"
+    "lib/orderImportDeadline.js",
+    "lib/orderImportWorkspace.js",
+    "__tests__/orderImportWorkspace.test.cjs",
+    "__tests__/orderImportSheetIdentity.test.cjs",
+    "__tests__/orderImportParseApi.test.cjs"
   ],
   "actions": [
     {
@@ -192,6 +196,18 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "note": "File analysis and final registration response wait: 120 seconds including body decoding. Customer fallback and post-save readback: 30 seconds. Timeout is not server cancellation; no automatic retry; preserve draft on unknown registration result. Late results cannot render success."
+    },
+    {
+      "name": "UPLOAD_DEFAULT_AND_MANAGER_PRICE_WORKSPACE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "Each upload resets registerMode=order, unresolved file customer clears previous selection. Separate manager-grouped price workspace preserves upload draft; Customer.Manager joins UserInfo.UserID. See docs/plans/upload-customer-distribution-2026-11-09.md."
+    },
+    {
+      "name": "SELECT_FILE_IDENTITY_SHEET_BEFORE_REFERENCE_VOLUME",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "note": "Filename customer+majorWeek matches a parseable sheet title before row/price scoring; metadata title parsed per cell, never concatenated table headers. Namdaemun Gyeongwon upload alias resolves exact ERP customer name 경원원예 uniquely, without global mapping mutation. Actual 47th originals select Sheet1 7 and 4 rows instead of MIU reference13 rows/07 week. See executable synthetic fixture."
     }
   ],
   "crossYearFixture": {
@@ -207,7 +223,10 @@
     "__tests__/myCustomerOrderWritePolicy.test.js",
     "__tests__/orderImportMappingReuse.test.js",
     "__tests__/orderImportRematch.test.js",
-    "__tests__/myCustomerOrderApi.test.js"
+    "__tests__/myCustomerOrderApi.test.js",
+    "__tests__/orderImportWorkspace.test.cjs",
+    "__tests__/orderImportSheetIdentity.test.cjs",
+    "__tests__/orderImportParseApi.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

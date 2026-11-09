@@ -52,3 +52,6 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 
 ## 2026-10-29 차수 조작 후속 재검토
 실제 dnSpy FormOrderAdd Master→Detail Out/Est→History 재확인. 현재 orders/index.js 965의 isMyCustomerSource 분기는 ADD/REPLACE 모두 stockWarning=null로 재고계산을 생략한다. 과거 MD의 ADD 재고계산 유지 설명을 현행 코드/주문전용 계약에 맞게 정정했다. native 신규 전체저장 부작용과 웹 주문전용 정책을 구분한다. 동일키 SELECT-only downstream0, 새 ERP 쓰기 없음.
+
+## 2026-11-09 업로드 업체 및 담당자 분배단가 화면
+실제 dnSpy.Console.exe --no-color -t FormOrderAdd 및 FormShipmentDistribution CLI 재실행. FormOrderAdd.btnSave_Click의 Master→Detail/빈 출고헤더, FormShipmentDistribution.GetCustomerList의 연도+차수+CustKey ViewOrder/ViewShipment 조인 확인. 신규 writer 없음. 파일의 참고 미우 시트가 본문보다 우선된 실제47차 원본 재현과 SELECT-only 키277/491/456 검증은 [기준표](../plans/upload-customer-distribution-2026-11-09.md). 단가 변경은 기존 update-cost만 호출하며 수량/확정/날짜/농장/Estimate/재고 writer 변경 없음. EXE GUI 미검증.

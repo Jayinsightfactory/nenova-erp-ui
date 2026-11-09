@@ -281,6 +281,50 @@
           ]
         }
       ]
+    },
+    {
+      "id": "order-import-workspace",
+      "title": "업로드 주문등록과 담당업체 분배단가 수정",
+      "entryPaths": [
+        "/orders/import"
+      ],
+      "sourceFiles": [
+        "pages/orders/import.js",
+        "lib/orderImportWorkspace.js"
+      ],
+      "requiredScenarios": [
+        "upload-default",
+        "unresolved-customer",
+        "manager-prices"
+      ],
+      "guides": [
+        {
+          "id": "sales-support",
+          "role": "영업지원",
+          "title": "주문등록과 담당업체 분배단가 수정",
+          "status": "ready",
+          "src": "/guides/order-import-workspace/sales-support.mp4",
+          "captions": "/guides/order-import-workspace/sales-support.ko.vtt",
+          "proof": "/guides/order-import-workspace/sales-support.proof.json",
+          "chapters": [
+            {
+              "scenario": "upload-default",
+              "title": "연습 화면입니다. 파일을 업로드하면 단가가 있어도 주문등록만이 기본입니다.",
+              "seconds": 0
+            },
+            {
+              "scenario": "unresolved-customer",
+              "title": "업체를 찾지 못하면 이전 미우 업체를 이어 쓰지 않습니다. 업체를 직접 선택해야 주문등록할 수 있습니다.",
+              "seconds": 3.52
+            },
+            {
+              "scenario": "manager-prices",
+              "title": "담당업체 분배단가 수정 버튼을 열고 차수업체 불러오기를 누릅니다. 분배가 있는 업체만 담당자별로 구분합니다.",
+              "seconds": 6.37
+            }
+          ]
+        }
+      ]
     }
   ]
 }

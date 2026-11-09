@@ -548,3 +548,6 @@ SELECT-only 2025/2026 44-02 콜롬비아 카네이션·수국·루스커스: Vie
 ### 2026-11-02 업로드 결과 보관·재접속 복구
 실제 설치 EXE dnSpy CLI FormShipmentDistribution 재실행(GetShipmentMaster, btnSave_Click, ShipmentDate Delete). native 수량/단가/확정/저장 순서 변경 없음. 새 SQL은 웹 감사키+ActorUserId+OrderYear+OrderWeek SELECT와 감사 FAILED 갱신시 STARTED 조건뿐이며 SUCCESS 커밋 표식을 보존한다. 기존 ERP writer에는 단계 보고만 추가.
 SELECT-only Audit137 2026/44-01 381행749초SUCCESS/381일치;135/136은STARTED. 현재 실행요청0. 2025/2026 44-01 대상3분류: ViewOrder527/546행(1430/1705.8), ViewShipment493/460행(1321.7333333333333/1338.6666666666665), Date493/473,Farm0/0,Estimate45/4,DetailFix1견적노출493/460,WebProfitReport44저장0. 확정Amount147078363.63636374/154195817,Vat14707836.363636367/15419623. 본 작업 운영쓰기/시험업로드 없음. 기준·부작용·검증: plans/import-timeout-recovery-2026-11-02.md.
+
+## 2026-11-09 업로드 업체 및 담당자 분배단가 화면
+실제 dnSpy.Console.exe --no-color -t FormOrderAdd 및 FormShipmentDistribution CLI 재실행. FormOrderAdd.btnSave_Click의 Master→Detail/빈 출고헤더, FormShipmentDistribution.GetCustomerList의 연도+차수+CustKey ViewOrder/ViewShipment 조인 확인. 신규 writer 없음. 파일의 참고 미우 시트가 본문보다 우선된 실제47차 원본 재현과 SELECT-only 키277/491/456 검증은 [기준표](../plans/upload-customer-distribution-2026-11-09.md). 단가 변경은 기존 update-cost만 호출하며 수량/확정/날짜/농장/Estimate/재고 writer 변경 없음. EXE GUI 미검증.

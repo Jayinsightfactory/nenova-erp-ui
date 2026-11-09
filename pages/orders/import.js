@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import WorkflowGuide from '../../components/WorkflowGuide';
+import { groupImportPriceCustomers } from '../../lib/orderImportWorkspace.js';
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 // pages/orders/import.js — 이미지/엑셀 업로드 주문등록 (라움 등 거래처 발주표)
 
@@ -775,6 +777,9 @@ export default function OrderImportPage() {
   const [pageTab, setPageTab] = useState('upload');
   // 'priceOnly' = 주문등록 없이 선택 세부차수의 분배단가만 수정 (현재 단가 표시 → 수정값 입력 → 적용)
   const [registerMode, setRegisterMode] = useState('order');
+  const uploadCustomerRef = useRef(null);
+  const uploadWeekRef = useRef(null);
+  const [priceCustomerReload, setPriceCustomerReload] = useState(0);
   const [priceEdits, setPriceEdits] = useState({}); // priceOnly: sdetailKey → 입력 문자열
   const [priceFlowers, setPriceFlowers] = useState([]); // priceOnly: 선택 품종(CountryFlower). 빈 배열 = 전체
   const [priceTargets, setPriceTargets] = useState({ loading: false, subWeeks: [], error: '', key: '' });
@@ -809,7 +814,8 @@ export default function OrderImportPage() {
     setSheets(draft.sheets || []);
     setSheetName(draft.sheetName || '');
     if (draft.week) { weekChosenRef.current = true; setWeek(draft.week); }
-    if (draft.cust?.CustKey) { draftHasCustomerRef.current = true; setCust(draft.cust); }
+    draftHasCustomerRef.current = true;
+    setCust(draft.cust || null);
     setRematchRevision(revision => revision + 1);
     setResultMsg(`💾 이전 매칭 ${draft.items.length}건 복원 (${draft.fileName || '업로드'})`);
   }, []);
@@ -842,12 +848,12 @@ export default function OrderImportPage() {
   }, [loadDefaultCust]);
 
   useEffect(() => {
-    if (cust?.CustKey) {
+    if (registerMode !== 'priceOnly' && cust?.CustKey) {
       try {
         localStorage.setItem(IMPORT_CUST_STORAGE_KEY, JSON.stringify(cust));
       } catch { /* ignore */ }
     }
-  }, [cust]);
+  }, [cust, registerMode]);
 
   useEffect(() => {
     if (!items.length) return undefined;
@@ -858,14 +864,14 @@ export default function OrderImportPage() {
         logs,
         fileName,
         sourceType,
-        week,
-        cust,
+        week: registerMode === 'priceOnly' ? uploadWeekRef.current : week,
+        cust: registerMode === 'priceOnly' ? uploadCustomerRef.current : cust,
         sheets,
         sheetName,
       });
     }, 350);
     return () => clearTimeout(timer);
-  }, [items, summary, logs, fileName, sourceType, week, cust, sheets, sheetName]);
+  }, [items, summary, logs, fileName, sourceType, week, cust, sheets, sheetName, registerMode]);
 
   useEffect(() => {
     apiGet('/api/orders/weeks').then((d) => {
@@ -1019,6 +1025,7 @@ export default function OrderImportPage() {
     if (!file) return;
     lastFileRef.current = file;
     setPriceLog([]);
+    setRegisterMode('order');
     ++rematchRequestRef.current;
     setRematchBusy(false);
     setRematchMessage('');
@@ -1047,6 +1054,7 @@ export default function OrderImportPage() {
         const detail = (d.logs || []).slice(-4).join('\n');
         throw new Error(detail ? `${d.error || '파싱 실패'}\n\n${detail}` : (d.error || '파싱 실패'));
       }
+      draftHasCustomerRef.current = true;
       setItems(d.items || []);
       setRematchRevision(revision => revision + 1);
       setSummary(d.summary || null);
@@ -1056,24 +1064,20 @@ export default function OrderImportPage() {
       setSourceType(d.sourceType || '');
       setSheets(d.sheets || []);
       setSheetName(d.sheetName || '');
-      // 표에 단가가 있으면 기본값을 「주문등록 + 분배단가 적용」으로
-      if ((d.pricedCount || 0) > 0) setRegisterMode('orderPrice');
+      // 가격 열과 이전 모드에 관계없이 주문등록만으로 시작합니다.
+      setRegisterMode('order');
       const meta = d.metadata || {};
       if (meta.majorWeek) {
-        const year = new Date().getFullYear();
+        const year = selectedOrderYear ?? new Date().getFullYear();
         weekChosenRef.current = true;
         setWeek(`${year}-${meta.majorWeek}-01`);
       }
       if (d.matchedCustomer?.CustKey) {
         changeCustomer({ CustKey:d.matchedCustomer.CustKey, CustName:d.matchedCustomer.CustName });
         setResultMsg(`✅ 업체 자동매칭: ${d.matchedCustomer.CustName}${d.matchedCustomer.fromMapping ? ' (저장 매핑)' : ''}`);
-      } else if (meta.customerName) {
-        try {
-          const found = await withOrderImportDeadline(() => apiGet('/api/customers/search', { q: meta.customerName }), { timeoutMs: 30000 });
-          const exact = (found.customers || []).find(c => String(c.CustName).replace(/\s/g, '') === String(meta.customerName).replace(/\s/g, ''));
-          if (exact) changeCustomer({ CustKey: exact.CustKey, CustName: exact.CustName });
-          else setResultMsg(`⚠ 업체 자동매칭 실패: ${meta.customerName} — 업체를 직접 선택하세요.`);
-        } catch { /* 사용자가 직접 선택 */ }
+      } else {
+        changeCustomer(null);
+        setResultMsg(`⚠ 파일 업체를 확정하지 못했습니다${meta.customerName ? `: ${meta.customerName}` : ''}. 업체를 직접 선택하세요. 이전 업체는 사용하지 않습니다.`);
       }
       setEditProdIdx(null);
     } catch (e) {
@@ -1289,7 +1293,7 @@ export default function OrderImportPage() {
   useEffect(() => {
     if (!priceCustomersKey) return;
     let alive = true;
-    setPriceCustomers(prev => ({ ...prev, key: priceCustomersKey, loading: true, error: '' }));
+    setPriceCustomers({ key: priceCustomersKey, loading: true, list: [], error: '' });
     apiGet('/api/orders/import-price-customers', { orderYear: weekYear, parentWeek })
       .then(d => {
         if (!alive) return;
@@ -1298,7 +1302,7 @@ export default function OrderImportPage() {
       })
       .catch(e => { if (alive) setPriceCustomers({ key: priceCustomersKey, loading: false, list: [], error: e.message }); });
     return () => { alive = false; };
-  }, [priceCustomersKey, weekYear, parentWeek]);
+  }, [priceCustomersKey, weekYear, parentWeek, priceCustomerReload]);
 
   const loadPriceTargets = useCallback(async (force = false) => {
     if (!priceTargetKey) {
@@ -1474,6 +1478,7 @@ export default function OrderImportPage() {
   };
 
   const handleRegister = async () => {
+    if (loading || registering) return;
     if (!cust?.CustKey) { alert('거래처를 선택하세요.'); return; }
     if (!week) { alert('차수를 입력하세요.'); return; }
     const registerItems = mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0));
@@ -1657,7 +1662,17 @@ export default function OrderImportPage() {
             >
               {statementLoading ? '다운로드 중…' : '📥 거래명세표 Excel'}
             </button>
+            <button type="button" aria-pressed={registerMode === 'priceOnly'} style={{ ...st.btn, background: registerMode === 'priceOnly' ? '#1a237e' : '#e8eaf6', color: registerMode === 'priceOnly' ? '#fff' : '#1a237e' }}
+              onClick={() => {
+                if (registerMode === 'priceOnly') { changeCustomer(uploadCustomerRef.current); setWeek(uploadWeekRef.current); }
+                else { uploadCustomerRef.current = cust; uploadWeekRef.current = week; changeCustomer(null); }
+                setRegisterMode(registerMode === 'priceOnly' ? 'order' : 'priceOnly'); setSelectedSubWeeks([]); setPriceEdits({}); setPriceLog([]);
+              }}>
+              {registerMode === 'priceOnly' ? '파일 업로드로 돌아가기' : '담당업체 분배단가 수정'}
+            </button>
+            <WorkflowGuide workflowId="order-import-workspace" />
           </div>
+          <div hidden={registerMode === 'priceOnly'}>
           <div style={st.sub}>
             발주표(카톡 이미지·엑셀)를 먼저 업로드하면 제목의 <b>업체·차수</b>와 품목·단위를 자동매칭합니다.
             업로드 후 <b>업체·차수·수량·단위·품목</b>은 모두 수정할 수 있습니다.
@@ -1703,7 +1718,7 @@ export default function OrderImportPage() {
             <label style={{ ...st.label, display: 'block', marginBottom: 6 }}>
               거래처
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                기본 라움 · 검색으로 변경
+                파일 업체 확인 · 미매칭 시 직접 선택
               </span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -1942,9 +1957,10 @@ export default function OrderImportPage() {
               </ul>
             </details>
           )}
+          </div>
         </div>
 
-        <div style={{ ...st.card, border: '2px solid #00897b' }}>
+        <div hidden={registerMode === 'priceOnly'} style={{ ...st.card, border: '2px solid #00897b', ...(registerMode === 'priceOnly' ? { display: 'none' } : {}) }}>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
             <strong>📥 출고리스트 엑셀 만들기</strong>
             <select style={st.input} value={shipmentSource} onChange={e=>setShipmentSource(e.target.value)}>
@@ -1969,12 +1985,12 @@ export default function OrderImportPage() {
 
         {(items.length > 0 || registerMode === 'priceOnly' || priceTargetKey) && (
           <div style={st.card}>
-            {sheets.filter(sh => sh.rowCount > 0).length > 1 && (
+            {registerMode !== 'priceOnly' && sheets.filter(sh => sh.rowCount > 0).length > 1 && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ ...st.label, marginBottom: 4 }}>
                   시트 선택
                   <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                    한 파일에 여러 시트 — 등록할 시트를 고르세요 (단가 열이 있는 시트가 기본)
+                    한 파일에 여러 시트 — 파일명 업체·차수가 같은 본문 우선 · 등록할 시트를 확인하세요
                   </span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -2005,16 +2021,15 @@ export default function OrderImportPage() {
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-              <strong style={{ fontSize: 14 }}>등록 방식</strong>
+              <strong style={{ fontSize: 14 }}>{registerMode === 'priceOnly' ? '담당업체 분배단가 수정' : '등록 방식'}</strong>
               <span style={{ fontSize: 11, color: '#64748b' }}>
                 표의 단가 {priceByProd.size}품목 · 분배단가는 <b>ShipmentDetail 단가(Cost)</b>를 선택한 세부차수에만 반영
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div hidden={registerMode === 'priceOnly'} style={registerMode === 'priceOnly' ? { display: 'none' } : { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
               {[
                 { v: 'order', label: '주문등록만', hint: '단가는 건드리지 않음', needFile: true },
                 { v: 'orderPrice', label: '주문등록 + 분배단가 적용', hint: '선택한 세부차수의 분배단가를 표 단가로 수정', needFile: true },
-                { v: 'priceOnly', label: '분배단가만 수정', hint: '주문등록 없이 차수·업체의 현재 분배단가를 보고 수정값만 적용', needFile: false },
               ].map(opt => {
                 const off = opt.needFile && !items.length;
                 return (
@@ -2061,8 +2076,9 @@ export default function OrderImportPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                       <span style={st.label}>거래처</span>
+                      <button type="button" style={{ ...st.btn, ...st.btnSecondary }} disabled={priceCustomers.loading || !priceCustomersKey} onClick={() => setPriceCustomerReload(n => n + 1)}>차수업체 불러오기</button>
                       <span style={{ fontSize: 11, color: '#64748b' }}>
-                        {weekYear && parentWeek ? `${weekYear}년 ${parentWeek}차에 분배가 있는 거래처 · 이름순` : '차수를 먼저 고르세요'}
+                        {weekYear && parentWeek ? `${weekYear}년 ${parentWeek}차에 분배가 있는 거래처 · 담당자별` : '차수를 먼저 고르세요'}
                       </span>
                       {priceCustomers.loading && <span style={{ fontSize: 12, color: '#1565c0' }}>조회 중…</span>}
                       {priceCustomers.error && <span style={{ fontSize: 12, color: '#b91c1c' }}>조회 실패: {priceCustomers.error}</span>}
@@ -2072,23 +2088,22 @@ export default function OrderImportPage() {
                     {!priceCustomers.loading && priceCustomers.key === priceCustomersKey && priceCustomers.list.length === 0 && !priceCustomers.error && priceCustomersKey && (
                       <div style={{ fontSize: 12, color: '#b45309' }}>이 차수에 분배된 거래처가 없습니다</div>
                     )}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
-                      {priceCustomers.list.map(c => {
-                        const on = Number(cust?.CustKey) === c.custKey;
-                        return (
-                          <button
-                            key={c.custKey}
-                            type="button"
-                            data-ai-verify={`price-cust-${c.custKey}`}
-                            onClick={() => changeCustomer({ CustKey: c.custKey, CustName: c.custName })}
-                            title={c.subWeeks.map(sw => `${sw.orderWeek}: ${sw.detailCount}건 (확정 ${sw.fixedCount})`).join(' · ')}
-                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: on ? '2px solid #1565c0' : '1px solid #cbd5e1', background: on ? '#1565c0' : '#fff', color: on ? '#fff' : '#0f172a', fontWeight: on ? 700 : 500 }}
-                          >
-                            {c.custName} <span style={{ opacity: 0.75, fontSize: 11 }}>{c.detailCount}건</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {groupImportPriceCustomers(priceCustomers.list).map(group => (
+                      <section key={group.managerId} aria-label={`${group.managerName} 담당업체`} style={{ borderLeft: `5px solid ${group.color}`, padding: '8px 12px', marginBottom: 8, background: '#fff', borderRadius: 6 }}>
+                        <h3 style={{ margin: '0 0 8px', fontSize: 13, color: group.color }}>{group.managerName} · {group.customers.length}업체</h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {group.customers.map(c => {
+                            const on = Number(cust?.CustKey) === c.custKey;
+                            return <button key={c.custKey} type="button" aria-pressed={on} data-ai-verify={`price-cust-${c.custKey}`}
+                              onClick={() => changeCustomer({ CustKey: c.custKey, CustName: c.custName })}
+                              title={c.subWeeks.map(sw => `${sw.orderWeek}: ${sw.detailCount}건 (확정 ${sw.fixedCount})`).join(' · ')}
+                              style={{ padding: '7px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: `${on ? 2 : 1}px solid ${group.color}`, background: on ? group.color : '#fff', color: on ? '#fff' : '#0f172a', fontWeight: on ? 800 : 500 }}>
+                              {on ? '✓ ' : ''}{c.custName} · 분배 {c.detailCount}건
+                            </button>;
+                          })}
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -2325,7 +2340,7 @@ export default function OrderImportPage() {
           </div>
         )}
 
-        {items.length > 0 && (
+        {registerMode !== 'priceOnly' && items.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.65fr) minmax(420px, 0.75fr)', gap: 12, alignItems: 'start' }}>
             <ExcelSheetPreview
               preview={sheetPreview}
@@ -2366,7 +2381,7 @@ export default function OrderImportPage() {
                 {registerMode !== 'priceOnly' && <button
                   type="button"
                   style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || mixedUnitProducts.length || registering || !liveSummary.registerable ? 0.6 : 1 }}
-                  disabled={!!liveSummary.unmatched || !!mixedUnitProducts.length || registering || !liveSummary.registerable}
+                  disabled={loading || !cust?.CustKey || !!liveSummary.unmatched || !!mixedUnitProducts.length || registering || !liveSummary.registerable}
                   onClick={handleRegister}
                   title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하거나 제외하세요' : (mixedUnitProducts.length ? '같은 품목에 서로 다른 단위가 매칭되었습니다' : (!liveSummary.registerable ? '등록할 품목이 없습니다' : ''))}
                 >

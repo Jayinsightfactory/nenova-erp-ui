@@ -19,7 +19,7 @@ async function handler(req, res) {
 
   try {
     const r = await query(
-      `SELECT x.CustKey, c.CustName, x.OrderWeek,
+      `SELECT x.CustKey, c.CustName, c.Manager AS managerId, ui.UserName AS managerName, x.OrderWeek,
               COUNT(*) AS detailCount,
               SUM(CASE WHEN ISNULL(x.sdFix, 0) = 1 THEN 1 ELSE 0 END) AS fixedCount
          FROM (
@@ -31,7 +31,8 @@ async function handler(req, res) {
               AND ISNULL(sm.isDeleted, 0) = 0
          ) x
          JOIN Customer c ON c.CustKey = x.CustKey
-        GROUP BY x.CustKey, c.CustName, x.OrderWeek
+         LEFT JOIN UserInfo ui ON ui.UserID = c.Manager
+        GROUP BY x.CustKey, c.CustName, c.Manager, ui.UserName, x.OrderWeek
         ORDER BY c.CustName, x.OrderWeek`,
       {
         yr: { type: sql.NVarChar, value: orderYear },
@@ -41,7 +42,7 @@ async function handler(req, res) {
     const byCust = new Map();
     for (const row of r.recordset || []) {
       const key = Number(row.CustKey);
-      if (!byCust.has(key)) byCust.set(key, { custKey: key, custName: row.CustName, detailCount: 0, fixedCount: 0, subWeeks: [] });
+      if (!byCust.has(key)) byCust.set(key, { custKey: key, custName: row.CustName, managerId: row.managerId || '', managerName: row.managerName || '담당자 미지정', detailCount: 0, fixedCount: 0, subWeeks: [] });
       const cst = byCust.get(key);
       cst.detailCount += Number(row.detailCount);
       cst.fixedCount += Number(row.fixedCount);
