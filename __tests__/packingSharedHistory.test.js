@@ -52,3 +52,22 @@ test('API and UI recovery never call ERP commit; account changes are guarded',as
  const client=await fs.readFile(path.join(__dirname,'../lib/packingSharedHistoryClient.js'),'utf8');
  assert.doesNotMatch(client,/receipts\/|canCommit/);
 });
+test('work-drive mirror receives original bytes with uploader name; mirror failure never blocks archiving',async t=>{
+ const {api,options}=await setup(t),request=input();
+ const calls=[];
+ const saved=await api.savePackingUpload(request,'nenovaSS1',{...options,uploader:{userId:'nenovaSS1',userName:'설연주'},mirror:async a=>{calls.push(a);}});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].filename,'2026-42-01.pdf');assert.equal(calls[0].source,'import/packing-list');assert.equal(calls[0].user.userName,'설연주');
+ assert.equal(createHash('sha256').update(calls[0].buffer).digest('hex'),request.sourceHash,'원본 bytes 그대로 전달');
+ // 원본 재전송 없이 분석만 추가한 revision 은 미러 호출 없음(파일이 새로 오지 않음)
+ await api.savePackingUpload({...request,id:randomUUID(),fileBase64:undefined},'nenovaSS1',{...options,mirror:async a=>{calls.push(a);}});
+ assert.equal(calls.length,1);
+ // 미러가 throw 해도 보관은 성공하고 결과는 동일
+ const other=input();
+ const ok=await api.savePackingUpload(other,'staff-b',{...options,mirror:async()=>{throw new Error('drive down');}});
+ assert.equal(ok.sourceHash,other.sourceHash);assert.equal((await api.listPackingUploads(options)).length,2);
+ assert.equal((await api.readPackingUpload(ok.id,options)).fileBase64,other.fileBase64);
+ assert.notEqual(saved.id,ok.id);
+ const source=await fs.readFile(path.join(__dirname,'../lib/packingSharedHistory.js'),'utf8');
+ assert.match(source,/mirrorWebUpload/);assert.doesNotMatch(source,/getPool|mssql/);
+});

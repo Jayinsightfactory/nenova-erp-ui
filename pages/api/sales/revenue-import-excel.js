@@ -18,6 +18,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { parseEcountSalesAoa, weekNumFromDate } from '../../../lib/salesRevenueExcel';
 import { loadSalesRevenueMappings } from '../../../lib/salesRevenueMappings';
 import { makeBatchObject, viewBatchRaw } from '../../../lib/salesRevenueBatches';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = {
   api: { bodyParser: false },
@@ -53,6 +54,7 @@ async function handler(req, res) {
 
   let parsed;
   try {
+    mirrorWebUpload({ filepath: file.filepath, filename: file.originalFilename, user: req.user, source: 'sales/revenue-import-excel' });
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     const sheetName = workbook.SheetNames[0];
     const ws = workbook.Sheets[sheetName];

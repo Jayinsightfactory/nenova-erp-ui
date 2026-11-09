@@ -4,6 +4,7 @@ import XLSX from 'xlsx';
 import { withAuth } from '../../../lib/auth.js';
 import { createPreShipmentPlan } from '../../../lib/preShipment.js';
 import { parsePreShipmentWorkbook } from '../../../lib/preShipmentWorkbook.js';
+import { mirrorWebUpload } from '../../../lib/workDrive.js';
 
 export const config = { api: { bodyParser: false } };
 const first = value => Array.isArray(value) ? value[0] : value;
@@ -22,7 +23,9 @@ export default withAuth(async function handler(req, res) {
   try {
     const fileName = String(file.originalFilename || '주광.xlsx');
     if (!/\.xlsx?$/i.test(fileName)) throw new Error('xlsx/xls 파일만 업로드할 수 있습니다.');
-    const workbook = XLSX.read(fs.readFileSync(file.filepath), { type: 'buffer', cellDates: true });
+    const bytes = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: bytes, filename: fileName, user: req.user, source: 'pre-shipment/upload' });
+    const workbook = XLSX.read(bytes, { type: 'buffer', cellDates: true });
     const parsed = parsePreShipmentWorkbook(XLSX, workbook);
     const saved = await createPreShipmentPlan({ parsed, orderYear: first(fields.orderYear), majorWeek: first(fields.majorWeek), fileName, user: req.user });
     return res.status(200).json({ success: true, ...saved, sheetName: parsed.sheetName, sourceSheetMajor: parsed.sheetMajor });

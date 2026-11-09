@@ -6,6 +6,7 @@ import { withAuth } from '../../../lib/auth.js';
 import { withTransaction, sql } from '../../../lib/db.js';
 import { jugwangUploadScope, parseJugwangWeekdaySheet } from '../../../lib/jugwangWeekdayUpload.js';
 import { readJugwangOrders, signJugwang } from '../../../lib/jugwangWeekdayUploadServer.js';
+import { mirrorWebUpload } from '../../../lib/workDrive.js';
 export const config={api:{bodyParser:false}};
 const first=v=>Array.isArray(v)?v[0]:v;
 export default withAuth(async function handler(req,res) {
@@ -18,6 +19,7 @@ export default withAuth(async function handler(req,res) {
     const fileYear=String(file.originalFilename).match(/20\d{2}/)?.[0];
     if(fileYear&&fileYear!==scope.year) throw new Error('파일명 연도와 선택 연도가 다릅니다.');
     const bytes=await fs.readFile(file.filepath),book=XLSX.read(bytes,{type:'buffer',cellFormula:true});
+    mirrorWebUpload({buffer:bytes,filename:file.originalFilename,user:req.user,source:'orders/weekday-upload-parse'});
     const sheets=book.SheetNames.filter((n,i)=>!book.Workbook?.Sheets?.[i]?.Hidden && n!=='_keymap');
     const sheet=first(fields.sheetName),category=first(fields.category);
     if(!sheet) return res.json({success:true,sheets});

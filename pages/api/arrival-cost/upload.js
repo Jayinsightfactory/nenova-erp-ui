@@ -9,6 +9,7 @@ import { createArrivalCostImport } from '../../../lib/arrivalCost.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
 import { arrivalUploadViewScope } from '../../../lib/arrivalImportPolicy.js';
 import { namedCountry,prepareSheetReviews,summarizeReview,retainUpload,readReview,writeReview,originalBytes } from '../../../lib/arrivalUploadReview.js';
+import { mirrorWebUpload } from '../../../lib/workDrive.js';
 export const config={api:{bodyParser:false}};
 const first=v=>Array.isArray(v)?v[0]:v;
 export default withAuth(async function handler(req,res){
@@ -20,7 +21,7 @@ export default withAuth(async function handler(req,res){
   if(!/^20\d{2}$/.test(year))throw Error('4자리 연도를 선택하세요.');
   if(action==='preview'){
    const file=first(files.file);if(!file)throw Error('엑셀 파일을 선택하세요.');
-   try{if(!/\.xlsx?$/i.test(file.originalFilename||''))throw Error('xlsx/xls 파일만 지원합니다.');record=retainUpload(fs.readFileSync(file.filepath),file.originalFilename,req.user);}finally{try{fs.unlinkSync(file.filepath)}catch{}}
+   try{if(!/\.xlsx?$/i.test(file.originalFilename||''))throw Error('xlsx/xls 파일만 지원합니다.');const bytes0=fs.readFileSync(file.filepath);record=retainUpload(bytes0,file.originalFilename,req.user);mirrorWebUpload({buffer:bytes0,filename:file.originalFilename,user:req.user,source:'arrival-cost/upload'});}finally{try{fs.unlinkSync(file.filepath)}catch{}}
   }else{record=readReview(String(first(fields.reviewId)||''),req.user);}
   if(!['preview','review','commit'].includes(action))throw Error('지원하지 않는 작업입니다.');
   if(record.stage==='COMMITTED'&&action==='commit')return res.json(record.result);

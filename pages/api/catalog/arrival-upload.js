@@ -5,6 +5,7 @@ import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
 import { query } from '../../../lib/db';
 import { parseCatalogArrivalExcel, buildArrivalTemplateWorkbook } from '../../../lib/catalogArrivalExcel';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 import {
   loadArrivalOverrides,
   saveArrivalOverrides,
@@ -88,6 +89,7 @@ export default withAuth(async function handler(req, res) {
   try {
     const products = await loadProducts();
     const buf = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: buf, filename: file.originalFilename, user: req.user, source: 'catalog/arrival-upload' });
     const parsed = parseCatalogArrivalExcel(buf, products);
     if (parsed.matchedCount === 0) {
       return res.status(400).json({

@@ -2,6 +2,7 @@ import fs from 'fs';
 import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth.js';
 import { parseWeekdayEstimateBuffer } from '../../../lib/weekdayEstimateWorkbook.js';
+import { mirrorWebUpload } from '../../../lib/workDrive.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
@@ -28,7 +29,9 @@ export default withAuth(async function handler(req, res) {
   const fileName = String(file.originalFilename || '');
   try {
     if (!/\.(xlsx|xls)$/i.test(fileName)) return res.status(400).json({ success: false, error: 'xlsx 또는 xls 파일만 지원합니다.' });
-    const parsed = parseWeekdayEstimateBuffer(fs.readFileSync(file.filepath), { fileName });
+    const bytes = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: bytes, filename: fileName, user: req.user, source: 'estimate/weekday-upload-preview' });
+    const parsed = parseWeekdayEstimateBuffer(bytes, { fileName });
     return res.status(200).json({ success: true, ...parsed });
   } catch (error) {
     return res.status(400).json({ success: false, error: error.message });

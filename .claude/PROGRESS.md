@@ -1,3 +1,17 @@
+## [2026-11-09] 세션 — 업무 드라이브: 웹 직접 업로드 파일 자동 반영
+
+### 작업 내용
+- 사장 지적 "웹에 파일명은 있는데 업무드라이브에 없다" → 직원이 웹 화면에서 직접 올린 업무 파일(패킹리스트·도착원가·출고분배·주문·불량차감·매출·손익 업로드)을 /work/drive 에도 자동 미러.
+- `lib/workDrive.mirrorWebUpload({ buffer|filepath, filename, user, source })`: ingestFile 재사용(25MB·빈 파일·5GB·중복 sha 규칙 동일), hostname 'web', eventType 'web-upload', 색인 `source` 필드. 절대 throw 안 함(원 기능 응답 불변).
+- 로그인 ID 문자열(패킹 이력 actor·소급)은 `lib/workFlowOwners` ID→이름표로 실제 이름·부서 적용.
+- 적용: lib/packingSharedHistory.savePackingUpload(publish 직후, mirror 주입 가능) + 12개 업로드 API. 이미지 업로드는 제외.
+- 드라이브 화면: 목록 '웹' 배지, 상세 '출처: 웹 업로드 · <source>' / 'PC 자동', 출처 필터.
+- 소급: `node scripts/work-drive-backfill-web-uploads.mjs [--dry-run]` (packing-uploads records → 드라이브, 멱등). 운영 컨테이너에서 실행 필요(미실행).
+- 계약: docs/contracts/work-drive.json scope 에 적용 API·스크립트 등록, 액션 DRIVE_WEB_UPLOAD_MIRROR_FILE_ONLY.
+
+### 미결 이슈 / 블로킹
+- 운영 소급 스크립트 실행은 배포 후 별도(머지 금지 지시).
+
 ## [2026-11-05 16:00] 세션 — 출고분배 저장: 확정 품목군이면 확정해제 → 저장 → 재확정
 
 ### 작업 내용

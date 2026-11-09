@@ -10,7 +10,22 @@
     "pages/api/work/drive-egress.js",
     "pages/api/work/drive-pairs.js",
     "lib/workDrivePairs.js",
-    "scripts/work-drive-pairs-recompute.mjs"
+    "scripts/work-drive-pairs-recompute.mjs",
+    "lib/packingSharedHistory.js",
+    "pages/api/import/tools/upload-history.js",
+    "pages/api/arrival-cost/upload.js",
+    "pages/api/catalog/arrival-upload.js",
+    "pages/api/pre-shipment/upload.js",
+    "pages/api/sales/defect-deductions-upload.js",
+    "pages/api/sales/revenue-import-excel.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-prealign.js",
+    "pages/api/orders/import-parse.js",
+    "pages/api/orders/weekday-upload-parse.js",
+    "pages/api/estimate/weekday-upload-preview.js",
+    "pages/api/sales/profit-report-excel-audit.js",
+    "pages/api/raum/pnl-import.js",
+    "scripts/work-drive-backfill-web-uploads.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -43,6 +58,11 @@
       "name": "DRIVE_INVOICE_RESULT_PAIRS_FILE_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_WEB_UPLOAD_MIRROR_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -52,7 +72,8 @@
   "requiredTestFiles": [
     "__tests__/workDrive.test.js",
     "__tests__/workDrivePairs.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/packingSharedHistory.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -62,7 +83,8 @@
       "ORBIT_DRIVE_INGEST_TOKEN timing-safe compare (pages/api/work/drive-ingest.js)",
       "NenovaWeb JWT userName→부서 접근 규칙 (lib/workDrive.canView/canDownload)",
       "File-only persistence under data/drive (no SQL)",
-      "Invoice PDF ↔ result workbook pairing from data/drive/index.jsonl → data/drive/pairs.json (lib/workDrivePairs, admin-only GET /api/work/drive-pairs, no SQL)"
+      "Invoice PDF ↔ result workbook pairing from data/drive/index.jsonl → data/drive/pairs.json (lib/workDrivePairs, admin-only GET /api/work/drive-pairs, no SQL)",
+      "Web direct uploads mirrored into data/drive via lib/workDrive.mirrorWebUpload (hostname 'web', eventType 'web-upload', source=feature path); never throws, upload API responses unchanged, no SQL (2026-11-09)"
     ],
     "tables": [
       "UserInfo (login source only; no write)",

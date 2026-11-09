@@ -7,6 +7,7 @@ import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { loadReportData, parseMajor } from './profit-report';
 import { computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 import {
   parseProfitWorkbookSheet, diffProfitReportAgainstWorkbook,
   formatRuleBasedSummary, buildExcelAuditOpinion,
@@ -43,7 +44,9 @@ export default withAuth(async function handler(req, res) {
     if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 31)' });
     const orderYear = resolveActiveOrderYear(`${major}-01`, first(fields.year));
 
-    const workbook = XLSX.read(fs.readFileSync(file.filepath), { type: 'buffer' });
+    const bytes = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: bytes, filename: fileName, user: req.user, source: 'sales/profit-report-excel-audit' });
+    const workbook = XLSX.read(bytes, { type: 'buffer' });
     const parsed = parseProfitWorkbookSheet(workbook);
     if (!Object.keys(parsed.rows).length) {
       return res.status(400).json({

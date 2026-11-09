@@ -11,6 +11,7 @@ import {
   matchSalesDefectRows,
 } from '../../../lib/salesDefectDeductions.js';
 import { parseSalesDefectWorkbook } from '../../../lib/salesDefectDeductionExcel.js';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = { api: { bodyParser: false } };
 
@@ -40,7 +41,9 @@ async function handler(req, res) {
   }
 
   try {
-    const parsed = await parseSalesDefectWorkbook(fs.readFileSync(file.filepath));
+    const bytes = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: bytes, filename: file.originalFilename, user: req.user, source: 'sales/defect-deductions-upload' });
+    const parsed = await parseSalesDefectWorkbook(bytes);
     const context = await loadMatchContext();
     const matchedRows = matchSalesDefectRows(parsed.rows, context).map((row) => ({
       ...row,
