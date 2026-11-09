@@ -1666,6 +1666,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setAliases(newAliases); rebuildWithAliases(newAliases);
   });
 
+  const revalidateSavedResponse = async () => {
+    if(processingRef.current||!pdfBase64||country!=='CO')return;
+    processingRef.current=true;setProcessing(true);
+    setStatus({type:'info',msg:'저장 응답으로 파서를 재검증합니다. AI·입고 저장은 호출하지 않습니다.'});
+    try{
+      await extractPackingDocument({country,pdfBase64,retryJobId:pdfRetryJobId,revalidateOnly:true});
+      setStatus({type:'info',msg:'저장 응답의 전체 파서·합계 검증을 통과했습니다. AI 호출 0회이며 입고는 등록하지 않았습니다.'});
+    }catch(error){setStatus({type:'error',msg:error.message});}
+    finally{processingRef.current=false;setProcessing(false);}
+  };
   const process = async (allowAI = false, retryJobId = null) => {
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     if (country === 'AU' && !awbPdfBase64) {
@@ -2270,6 +2280,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
+              {country==='CO'&&pdfBase64&&<button type="button" onClick={revalidateSavedResponse} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>저장 응답 재검증 · 무료</button>}
               {needsAI&&<button onClick={()=>{
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);

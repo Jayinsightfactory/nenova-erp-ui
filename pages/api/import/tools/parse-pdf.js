@@ -1,7 +1,7 @@
 import {withAuth} from '../../../../lib/auth';
 import {readPackingProviderResponse,packingProviderFailureCode} from '../../../../lib/importPackingProviderStream';
-import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks} from '../../../../lib/importPackingPdfChunks';
-import {readPackingPdfChunk,updatePackingPdfChunk} from '../../../../lib/importTeamPdfJobs';
+import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,parsePackingChunk,mergePackingChunks} from '../../../../lib/importPackingPdfChunks';
+import {readPackingPdfChunk,updatePackingPdfChunk,savePackingPdfChunkResponse,revalidatePackingPdfJob} from '../../../../lib/importTeamPdfJobs';
 import {validatePackingPdf} from '../../../../lib/importTeamPdf';
 import {buildPrompt} from '../../../../lib/importPackingPrompt';
 import {trackLLMCall} from '../../../../lib/chat/costTracker';
@@ -47,6 +47,7 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key,u
         load:(index,pages)=>readPackingPdfChunk(uid,jobId,token,index,pages),
         claim:(index,pages)=>updatePackingPdfChunk(uid,jobId,token,{index,pages}),
         save:(index,pages,result)=>updatePackingPdfChunk(uid,jobId,token,{index,pages,result}),
+        saveResponse:(index,pages,data)=>savePackingPdfChunkResponse(uid,jobId,token,index,pages,data),
         invalidate:(index,pages)=>updatePackingPdfChunk(uid,jobId,token,{index,pages,invalidate:true}),
         onProgress:progress=>updatePackingPdfChunk(uid,jobId,token,{index:progress.current-1,pages:plan[progress.current-1].pages,progress}),
         analyze:async(chunk,index)=>{
@@ -127,6 +128,7 @@ export default withAuth(async(req,res)=>{
   let parsed;
   try{parsed=validatePackingPdf(req.body);}catch(e){return res.status(e.statusCode||400).json({error:{message:e.message}});}
   if(req.user?.userId==null||!String(req.user.userId).trim())return res.status(401).json({error:{message:'사용자 인증 정보를 확인할 수 없습니다. 다시 로그인하세요.'}});
+  if(req.body?.revalidateOnly!==undefined&&typeof req.body.revalidateOnly!=='boolean')return res.status(400).json({error:{message:'무료 재검증 여부는 true 또는 false여야 합니다.'}});
   const uid=String(req.user.userId),prompt=buildPrompt(parsed.country,{awbDocument:Boolean(parsed.awbPdfBase64)});
   // docling 전처리 여부가 결과에 영향 줄 수 있으므로 캐시 키를 분리(끄면 기존 키 그대로 = 전/후 캐시 오염 없음).
   const useDocling=doclingApplies(parsed.country);
@@ -135,6 +137,12 @@ export default withAuth(async(req,res)=>{
   try{
     const retryJobId=req.body?.retryJobId;
     if(retryJobId!=null&&(typeof retryJobId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(retryJobId)))return res.status(400).json({error:{message:'재시도 작업 번호가 올바르지 않습니다.'}});
+    if(req.body?.revalidateOnly===true){
+      if(parsed.country!=='CO')return res.status(400).json({error:{message:'저장 구간 재검증은 콜롬비아 PDF만 지원합니다.'}});
+      const id=retryJobId||(await findPackingPdfJobByKey(uid,cacheKey))?.jobId;
+      const job=id?await revalidatePackingPdfJob(uid,id,cacheKey,{parse:parsePackingChunk,merge:mergePackingChunks}):null;
+      return job?res.status(200).json(job):res.status(404).json({error:{message:'같은 사용자·원본 파일의 저장 분석 작업을 찾을 수 없습니다.'}});
+    }
     if(retryJobId){
       const previous=await findPackingPdfJobByKey(uid,cacheKey);
       if(previous?.jobId!==retryJobId||previous.status!=='FAILED')return res.status(400).json({error:{message:'재시도할 PDF 분석 작업이 일치하지 않습니다.'}});

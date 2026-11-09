@@ -5,17 +5,38 @@ import os from 'node:os';
 import path from 'node:path';
 import {validatePackingPdf} from '../lib/importTeamPdf.js';
 import {readPackingProviderResponse,packingProviderFailureCode} from '../lib/importPackingProviderStream.js';
-import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks} from '../lib/importPackingPdfChunks.js';
-import {readPackingPdfChunk,updatePackingPdfChunk} from '../lib/importTeamPdfJobs.js';
+import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,parsePackingChunk,mergePackingChunks} from '../lib/importPackingPdfChunks.js';
+import {readPackingPdfChunk,updatePackingPdfChunk,savePackingPdfChunkResponse,revalidatePackingPdfJob} from '../lib/importTeamPdfJobs.js';
 import {PDFDocument} from 'pdf-lib';
 import {packingPdfCacheKey,PDF_ANALYSIS_MODEL} from '../lib/importTeamPdfCache.js';
 import {PDF_JOB_TIMEOUT_MS,getPackingPdfJob,findPackingPdfJobByKey,startPackingPdfJob,markPackingPdfAttempt,finishPackingPdfJob,markPackingPdfCacheSaved} from '../lib/importTeamPdfJobs.js';
 
 const source=await fs.readFile(new URL('../pages/api/import/tools/parse-pdf.js',import.meta.url),'utf8');
-const code='const {readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,readPackingPdfChunk,updatePackingPdfChunk}=arguments[arguments.length-1];\n'+source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
+const code='const {readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,parsePackingChunk,mergePackingChunks,readPackingPdfChunk,updatePackingPdfChunk,savePackingPdfChunkResponse,revalidatePackingPdfJob}=arguments[arguments.length-1];\n'+source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','const handler=withAuth')+'\nreturn handler;';
 const pdfBase64=Buffer.from('%PDF-1.7\nfixture').toString('base64');
 const body={country:'NL',pdfBase64,async:true};
 const data={content:[{type:'text',text:'{"invoices":[]}'}],stop_reason:'end_turn',usage:{input_tokens:5,output_tokens:7}};
+
+test('free replay works without API key and never calls provider/quota; legacy three chunks preserved',()=>setup(async h=>{
+  const input={...body,country:'CO'},key=packingPdfCacheKey({...input,prompt:'fixed prompt\n['+PACKING_CHUNK_VERSION+']'}),opts={root:h.root};
+  const job=await startPackingPdfJob('alice',key,opts),id=job.job.jobId;
+  await markPackingPdfAttempt('alice',id,job.token,opts);
+  for(let i=0;i<4;i++){
+    await updatePackingPdfChunk('alice',id,job.token,{index:i,pages:[i+1]},opts);
+    if(i<3)await updatePackingPdfChunk('alice',id,job.token,{index:i,pages:[i+1],result:{invoices:[]}},opts);
+  }
+  await updatePackingPdfChunk('alice',id,job.token,{index:3,pages:[4],progress:{completed:3,total:4,current:4,stage:'ANALYZING'}},opts);
+  await finishPackingPdfJob('alice',id,job.token,{error:{message:'legacy',code:'PDF_ANALYSIS_UNCERTAIN'}},opts);
+  delete process.env.ANTHROPIC_API_KEY;
+  h.setFetch(()=>assert.fail('paid API must not be called'));h.setQuota(()=>assert.fail('quota must not be used'));
+  const result=await h.request('POST','alice',{...input,revalidateOnly:true});
+  assert.equal(result.code,200);assert.equal(result.body.revalidation.completed,3);assert.match(result.body.error.message,/4번째.*저장 응답이 없어/);
+  assert.equal(h.fetchCalls,0);assert.equal(h.quotaCalls,0);assert.equal(h.trackCalls,0);
+  assert.equal((await h.request('POST','bob',{...input,revalidateOnly:true,retryJobId:id})).code,404);
+  assert.equal((await h.request('POST','alice',{...input,pdfBase64:Buffer.from('%PDF-2025-other-source').toString('base64'),revalidateOnly:true,retryJobId:id})).code,404);
+  for(const invalid of ['true',0,null])assert.equal((await h.request('POST','alice',{...input,revalidateOnly:invalid})).code,400);
+  assert.equal(h.fetchCalls,0);assert.equal(h.quotaCalls,0);
+}));
 
 test('CO real PDF request resumes completed segments and performs final reconciliation before success',()=>setup(async h=>{
   const pdf=await PDFDocument.create();for(let i=0;i<4;i++)pdf.addPage();
@@ -60,8 +81,10 @@ async function setup(fn) {
       fn=>fn,validatePackingPdf,()=> 'fixed prompt',()=>{trackCalls++;},async()=>{quotaCalls++;await quotaImpl();},packingPdfCacheKey,async()=>cache,async()=>{cacheWrites++;return true;},PDF_ANALYSIS_MODEL,PDF_JOB_TIMEOUT_MS,
       (uid,id)=>getPackingPdfJob(uid,id,{root}),(uid,key)=>findPackingPdfJobByKey(uid,key,{root}),(uid,key,opts)=>startImpl(uid,key,opts),async(uid,id,token)=>{try{return await markPackingPdfAttempt(uid,id,token,{root});}catch(error){markErrors.push(error.code||error.name);throw error;}},async(uid,id,token,value)=>{try{const result=await finishImpl(uid,id,token,value);if(result?.status==='SUCCEEDED'||result?.status==='FAILED')finishedJobs.add(id);return result;}catch(error){finishErrors.push(error.stack||String(error));throw error;}},(uid,id,token)=>markPackingPdfCacheSaved(uid,id,token,{root}),
       country=>doclingImpl.applies(country),()=>50,()=>'a'.repeat(64),async()=>doclingImpl.record,async()=>({enqueued:true}),async()=>doclingImpl.record,record=>record&&record.markdown?'\nCANDIDATE BLOCK\n'+record.markdown:'',()=>({checked:0,flagged:[]}),async()=>{},
-      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal,{readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,
+      (...args)=>{fetchCalls++;return fetchImpl(...args);},AbortSignal,{readPackingProviderResponse,packingProviderFailureCode,PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks,parsePackingChunk,mergePackingChunks,
         readPackingPdfChunk:(uid,id,token,index,pages)=>readPackingPdfChunk(uid,id,token,index,pages,{root}),
+        savePackingPdfChunkResponse:(uid,id,token,index,pages,data)=>savePackingPdfChunkResponse(uid,id,token,index,pages,data,{root}),
+        revalidatePackingPdfJob:(uid,id,key,callbacks)=>revalidatePackingPdfJob(uid,id,key,callbacks,{root}),
         updatePackingPdfChunk:(uid,id,token,value)=>updatePackingPdfChunk(uid,id,token,value,{root})}
     );
     const request=async(method,user='alice',value=body,query={})=>{
