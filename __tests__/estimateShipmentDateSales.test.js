@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { buildSalesMatrix, rangeWeeks } from '../lib/estimateShipmentDateMatrix.js';
 import { settlementPeriods, validateSalesRequest, summarizeSales, quantityFormula, shipmentDateSalesSql } from '../lib/estimateShipmentDateSales.js';
 
 assert.deepEqual(settlementPeriods('2026-11-06', 1, 5, 1), [{ startDate:'2026-11-02', endDate:'2026-11-06' }]);
@@ -53,3 +54,27 @@ assert.equal(calls[0].p.startDate.value,'2026-11-02');assert.equal(calls[0].p.cu
 assert.match(response.headers['Cache-Control'],/no-store/);
 fail=true;response=await request('GET',payload);assert.equal(response.code,500);assert.doesNotMatch(response.body.error,/private/);
 console.log('PASS shipment-date API: method/input rejection before DB, parameter binding, ignores legacy week filters, errors do not become zero sales');
+
+assert.deepEqual(rangeWeeks('2026-12-28','2027-01-10'),[{startDate:'2026-12-28',endDate:'2027-01-03'},{startDate:'2027-01-04',endDate:'2027-01-10'}]);
+assert.equal(rangeWeeks('2026-11-03','2026-11-11')[1].endDate,'2026-11-11');
+assert.throws(()=>rangeWeeks('2026-02-30','2026-03-01'));
+const matrixRows=[row,{...row,RowKey:2,SaleDate:'2026-11-04',OrderWeek:'44-02',Quantity:60,Amount:60000,Vat:6000},
+  {...row,RowKey:3,SaleDate:'2026-11-10',Quantity:10,Amount:10000,Vat:1000},
+  {...row,RowKey:4,Kind:'adjustment',SaleDate:'2026-11-04',Quantity:-2,Amount:-2000,Vat:-200},
+  {...row,RowKey:5,ProdKey:2,Unit:'송이',Quantity:7,Amount:0,Vat:0}];
+const matrixInput=summarizeSales(matrixRows,[{startDate:'2026-11-02',endDate:'2026-11-15'}]);
+const beforeMatrix=JSON.stringify(matrixInput),matrix=buildSalesMatrix(matrixInput,'range');
+assert.equal(matrix.weeks.length,2);assert.equal(matrix.rows.length,3);assert.equal(matrix.totalAmount,107800);
+assert.deepEqual(matrix.weeks[0].dailyAmounts,[0,33000,63800,0,0,0,0]);
+assert.equal(matrix.weeks[1].dailyAmounts[1],11000);
+const flower=matrix.rows.find(r=>r.prodKey===1&&r.kind==='shipment');
+assert.equal(quantityFormula(flower.weeks[0].product),'90 = 30(44-1) / 60(44-2)');
+assert.equal(flower.weeks[0].cells[1].quantity,30);assert.equal(flower.weeks[0].cells[2].quantity,60);
+assert.equal(flower.weeks[1].cells[1].quantity,10);assert.equal(flower.weeks[0].cells[0].details.length,0);
+assert.equal(matrix.rows.find(r=>r.prodKey===2).weeks[0].product.amount,0,'stored zero remains zero');
+assert.equal(JSON.stringify(matrixInput),beforeMatrix,'matrix does not modify server facts');
+assert.equal(buildSalesMatrix([], 'range').rows.length,0);
+assert.equal(buildSalesMatrix(summarizeSales([],scope.periods),'history').weeks.length,12);
+const crossMatrix=buildSalesMatrix(summarizeSales([{...row,SaleDate:'2026-12-31',OrderYear:'2025'},{...row,RowKey:6,SaleDate:'2027-01-01',OrderYear:'2026'}],[{startDate:'2026-12-28',endDate:'2027-01-03'}]),'range');
+assert.equal(crossMatrix.rows[0].weeks[0].product.sources.length,2);
+console.log('PASS calendar matrix: start-anchored seven days, partial/cross-year weeks, mixed units, stored zero/deductions, per-day/weekly totals, source quantity and immutable API facts');

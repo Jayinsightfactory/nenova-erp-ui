@@ -2214,3 +2214,11 @@
 - runtime기존4MiB/최근30분 strict새marker집계·이전PID보존. stocknotes는statusCode409+PROFIT_SOURCES_CHANGED exact만409/code전달·기존generic문구유지, unknown/ECANCEL500/정상200/400405 그대로.
 - 대상27PASS(실제reader 합성JSON·SQLsequence·2회fence·forceyear·owner1/logger409·ERPctx, privacy/crossyear/미래45/timestampOnly/PID, 실제runtime VM새marker와실제handler+scope파서). 기존2sourceassert는after변수whole비교형식만정정. 계약/기준표/session등록, fullsuite/build/CI/운영은부모후속(미검증). 추가probe/실SQL0·UI0/가이드N/A.
 검색어: NENOVA_PROFIT_SOURCE_CHANGED timestampOnly coveredYears whole-fence stock-notes409 owner1 memory-only
+
+## 2026-11-09 출고일 매출 주차 행렬 수정
+- 사용자 요청: 카드형/넓은 여백을 품목×요일·날짜 가로비교표로 교체. 업체 검색 즉시 자동완성. 달력 범위를 7일 주차로 나누고 일별/주차별 매출 및 `90 = 30(44-1) / 60(44-2)` 표시.
+- 기존 API/SQL/확정 조건/ERP 원장·재고 불변. 기존 UserFavorite 재사용. 실제 dnSpy 재실행 및 사전 SELECT12행721000원·중복0 확인. 새 helper 범위/일별·주별/부분주/교차연도/혼합단위/차감/금액0/입력불변 회귀 PASS.
+- 실제Chrome 1920×1080 2주21품목 행27px, 자동완성/키보드/달력Arrow·Escape·두날짜 선택, 24기간이력/오류복구/390px 가로스크롤 PASS. 새 가이드 재녹화 진행 중. 필수 전체gate/build/CI/배포는 아직 미검증.
+검색어: 출고일매출 주차행렬 달력기간 업체자동완성 일별매출 합계수량 estimateShipmentDateMatrix
+- 후속: 공식 npm run test:erp-contract exit0, test:erp-manifest origin/master exit0, dnSpy/writeguard/workflow-guides PASS, 정식 npm run build exit0. 빌드된 next start에서도 표·자동완성·달력/키보드/모바일/오류복구·54.1초 영상 재생/목차/한국어 자막/다운로드·popup shell PASS. PR/CI/배포는 진행 예정(운영 미검증).
+검색어: date-sales-matrix ERP0 BUILD0 production-ui guide54.1

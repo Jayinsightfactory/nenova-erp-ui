@@ -2,10 +2,11 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const puppeteer=require('puppeteer-core');
 const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs');
-const root=process.cwd(),base=process.env.GUIDE_BASE_URL||'http://localhost:3259',dry=process.argv.includes('--dry-run');
+const root=process.cwd(),base=process.env.GUIDE_BASE_URL||'http://localhost:3269',dry=process.argv.includes('--dry-run');
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Local fixture only');
 async function main(){
   const {validateSalesRequest,summarizeSales}=await import('../lib/estimateShipmentDateSales.js');
+  const {rangeWeeks}=await import('../lib/estimateShipmentDateMatrix.js');
   const registryPath=path.join(root,'config/workflow-guides.json'),registry=JSON.parse(fs.readFileSync(registryPath));
   const workflow=registry.workflows.find(w=>w.id==='estimate-shipment-date-sales');
   const browser=await puppeteer.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--no-sandbox']});
@@ -30,76 +31,85 @@ async function main(){
       requests.push(Object.fromEntries(u.searchParams));
       if(failQuery){status=500;data={success:false,error:'연습용 조회 실패입니다. 다시 조회하세요.'};}
       else {const s=validateSalesRequest(Object.fromEntries(u.searchParams)),rows=[];
-        s.periods.forEach((p,i)=>{if(i===3)return;const row={Kind:'shipment',RowKey:i*10,OrderYear:'2026',OrderWeek:'44-01',ProdKey:1,ProdName:'연습 장미 레드',Unit:'단',SaleDate:p.startDate,Quantity:30,Cost:1100,Amount:30000,Vat:3000};rows.push(row,{...row,RowKey:i*10+1,OrderWeek:'44-02',Quantity:60,Amount:60000,Vat:6000},{...row,RowKey:i*10+2,ProdKey:2,ProdName:'연습 카네이션 화이트',Unit:'송이',Quantity:25,Amount:25000,Vat:2500},{...row,Kind:'adjustment',RowKey:i*10+3,Quantity:-2,Amount:-2000,Vat:-200});});
+        (s.periods.length===1?rangeWeeks(s.startDate,s.endDate):s.periods).forEach((p,i)=>{if(i===3)return;const row={Kind:'shipment',RowKey:i*100,OrderYear:'2026',OrderWeek:'44-01',ProdKey:1,ProdName:'연습 장미 레드',Unit:'단',SaleDate:p.startDate,Quantity:30,Cost:1100,Amount:30000,Vat:3000};rows.push(row,{...row,RowKey:i*100+1,OrderWeek:'44-02',SaleDate:new Date(Date.parse(p.startDate+'T00:00:00Z')+Math.min(1,(Date.parse(p.endDate)-Date.parse(p.startDate))/86400000)*86400000).toISOString().slice(0,10),Quantity:60,Amount:60000,Vat:6000},{...row,RowKey:i*100+2,ProdKey:2,ProdName:'연습 카네이션 화이트',Unit:'송이',Quantity:25,Amount:25000,Vat:2500},{...row,Kind:'adjustment',RowKey:i*100+3,Quantity:-2,Amount:-2000,Vat:-200});for(let n=3;n<=20;n++)rows.push({...row,RowKey:i*100+n+5,ProdKey:n,ProdName:`연습 품목 ${String(n).padStart(2,'0')}`,Quantity:n,Amount:n*1000,Vat:n*100});});
         data.periods=summarizeSales(rows,s.periods);
       }
     }
     await r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
   }catch(e){errors.push(e.message);if(!r.isInterceptResolutionHandled())await r.abort();}});
+
   let rec,stopped=false;
-  const clickText=async text=>{await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(n=>n.textContent.trim()===text&&!n.disabled),{},text);const handle=await page.evaluateHandle(text=>[...document.querySelectorAll('button')].find(n=>n.textContent.trim()===text),text);const el=handle.asElement();assert(el,`button ${text}`);await el.click();await handle.dispose();};
-  const hold=async(text,seconds=5)=>{await rec.caption(text);await rec.pause(dry?60:seconds*1000);};
+  const clickText=async text=>{await page.waitForFunction(text=>[...document.querySelectorAll('button')].some(n=>n.textContent.trim()===text&&!n.disabled),{},text);const handle=await page.evaluateHandle(text=>[...document.querySelectorAll('button')].find(n=>n.textContent.trim()===text),text);await handle.asElement().click();await handle.dispose();};
+  const hold=async(text,seconds=5)=>{await rec.caption(text);await rec.pause(dry?100:seconds*1000);};
+  const dateInput=async(label,value)=>page.$eval(`[aria-label="${label}"]`,(el,value)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));},value);
   try{
     await page.goto(base+'/estimate?tab=shipment-date',{waitUntil:'networkidle0'});
-    await page.waitForSelector('[aria-label="출고 매출 업체"]:not([disabled])');
-    rec=dry?{caption:async()=>{},chapter:()=>{},pause:ms=>new Promise(r=>setTimeout(r,Math.min(ms,60))),stop:async()=>null}:await createWorkflowGuideRecorder(page,{root,workflowId:workflow.id,guideId:'sales',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
-    await hold('견적서 관리의 출고일 기준 매출 탭입니다.\n업체별 정산 요일을 저장하고 과거 매출을 확인합니다.',6);
-    rec.chapter('favorite','업체와 정산 요일 즐겨찾기');
-    await page.select('[aria-label="출고 매출 업체"]','1');await page.select('[aria-label="정산 시작 요일"]','2');await page.select('[aria-label="정산 종료 요일"]','1');
-    await hold('연습 호텔 A는 화요일부터 다음 주 월요일까지 정산합니다.\n업체·시작 요일·종료 요일을 선택합니다.',6);
+    await page.waitForSelector('[role="combobox"]:not([disabled])');
+    rec=dry?{caption:async()=>{},chapter:()=>{},pause:ms=>new Promise(r=>setTimeout(r,Math.min(ms,100))),stop:async()=>null}:await createWorkflowGuideRecorder(page,{root,workflowId:workflow.id,guideId:'sales',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true});
+    rec.chapter('favorite','업체 자동완성으로 선택하기');
+    await page.focus('[role="combobox"]');await page.type('[role="combobox"]','호텔');await page.waitForSelector('[role="listbox"]');
+    assert.equal(await page.$$eval('[role="option"]',n=>n.length),2);
+    await hold('업체명을 입력하면 바로 아래에 검색 후보가 뜹니다.\n방향키로 이동하고 Enter로 선택할 수 있습니다.',6);
+    await page.keyboard.press('Enter');assert.equal(await page.$eval('[role="combobox"]',n=>n.value),'연습 호텔 A');
+    await page.select('[aria-label="정산 시작 요일"]','2');await page.select('[aria-label="정산 종료 요일"]','1');
     await clickText('즐겨찾기 저장');await page.waitForFunction(()=>document.body.textContent.includes('업체와 정산 요일을 즐겨찾기에 저장했습니다.'));
-    await hold('즐겨찾기는 내 계정에 저장됩니다.\n다음에는 업체 버튼 한 번으로 같은 요일 기준을 불러옵니다.',6);
-    if(dry){await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('[aria-label="출고 매출 업체"]:not([disabled])');}
-    rec.chapter('history','업체 선택과 과거 정산 이력');
-    await clickText('연습 호텔 A (화~월)');await page.waitForSelector('article');
-    await hold('업체를 누르면 최근 12개 정산 기간이 나옵니다.\n입고 차수에 관계없이 지정 출고일의 확정 판매를 모읍니다.',7);
-    rec.chapter('source','품목 수량과 원차수 구성');
+    await hold('업체와 정산 요일은 내 즐겨찾기에 저장합니다.\n즐겨찾기를 누르면 기존 요일 기준의 과거 이력도 볼 수 있습니다.',6);
+    rec.chapter('range','달력에서 조회 범위 선택');
+    await dateInput('출고 매출 시작일','2026-11-02');await dateInput('출고 매출 종료일','2026-11-15');
+    await clickText('기간 달력');await page.waitForSelector('[aria-label="출고일 기간 달력"]');
+    await page.click('button[data-date="2026-11-02"]');
+    await hold('달력에서 시작일을 먼저 누른 뒤 종료일을 선택합니다.\n이번 예시는 11월 2일부터 15일까지 2주입니다.',6);
+    await page.click('button[data-date="2026-11-15"]');
+    assert.equal(await page.$('[aria-label="출고일 기간 달력"]'),null);
+    if(dry){await clickText('기간 달력');await page.focus('button[data-date="2026-11-02"]');await page.keyboard.press('ArrowRight');assert.equal(await page.evaluate(()=>document.activeElement.dataset.date),'2026-11-03');await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'기간 달력');}
+    await clickText('조회');await page.waitForSelector('table tbody tr');
+    assert.equal(await page.$$eval('th[scope="colgroup"]',n=>n.length),2);
+    assert.equal(await page.$$eval('tbody tr',n=>n.length),21);
+    await hold('품목은 행, 날짜와 요일은 열로 표시됩니다.\n선택 범위를 7일씩 나눠 주차별로 나란히 비교합니다.',7);
+    rec.chapter('source','일별 수량·원차수·매출 합계');
     assert(await page.evaluate(()=>document.body.textContent.includes('90 = 30(44-1) / 60(44-2)')));
-    await hold('장미 90단 = 44-1차 30단 + 44-2차 60단입니다.\n화면에는 90 = 30(44-1) / 60(44-2)처럼 표시합니다.',8);
-    await page.evaluate(()=>document.querySelector('article tbody details summary').click());
-    await hold('상세를 펼치면 출고일·수량·저장 단가·매출을 확인합니다.\n단·송이·박스 수량은 서로 합치지 않습니다.',7);
-    await page.screenshot({path:'.verify/date-sales-desktop.png'});
-    await page.$eval('button[class*="more"]',el=>el.scrollIntoView({block:'center'}));await clickText('이전 12개 정산 기간 더 보기');await page.waitForFunction(()=>document.querySelectorAll('article').length===24);
-    await hold('이전 12개 정산 기간 더 보기로 과거 이력을 이어 봅니다.\n출고가 없는 기간도 빈 기간으로 표시합니다.',7);
-    await page.$eval('[aria-label="출고 매출 조회 방식"]',el=>el.scrollIntoView({block:'center'}));
-    rec.chapter('range','원하는 출고 기간 직접 조회');
-    await page.select('[aria-label="출고 매출 조회 방식"]','range');
-    for(const [label,value]of [['출고 매출 시작일','2026-11-02'],['출고 매출 종료일','2026-11-06']])await page.$eval(`[aria-label="${label}"]`,(el,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));},value);
-    await clickText('조회');await page.waitForFunction(()=>document.querySelectorAll('article').length===1);
-    await hold('직접 기간 선택에서는 시작일과 종료일을 모두 포함해 조회합니다.\n금액은 부가세 포함이며 견적 조정은 별도 행으로 표시합니다.',8);
-    await page.keyboard.press('Tab');await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');
-    assert.equal(await page.evaluate(()=>document.querySelectorAll('[data-ui-sidebar]').length),1);
-    assert.equal(await page.evaluate(()=>document.querySelectorAll('[data-ui-topbar]').length),1);
+    const rowHeight=await page.$eval('tbody tr',n=>n.getBoundingClientRect().height);assert(rowHeight<=38,'compact data row');
+    await hold('90 = 30(44-1) / 60(44-2)처럼 차수별 수량도 유지합니다.\n주차마다 합계수량과 매출금액을 바로 확인합니다.',7);
+    await page.screenshot({path:'.verify/date-sales-matrix-desktop.png'});
+    await page.$eval('tfoot',n=>n.scrollIntoView({block:'center'}));
+    await hold('표 아래에는 날짜별 매출과 주차별 총매출이 나옵니다.\n금액은 부가세 포함, 단·송이·박스 수량은 따로 표시합니다.',7);
+    await page.$eval('button[aria-label*="연습 장미 레드"][aria-label*="상세"]',n=>n.click());await page.waitForSelector('[aria-label="출고일 단가 상세"]');
+    await page.$eval('[aria-label="출고일 단가 상세"]',n=>n.scrollIntoView({block:'center'}));
+    await hold('수량을 누르면 날짜별 단가와 매출 상세를 확인합니다.\n이 화면은 원장을 변경하지 않는 조회 전용입니다.',6);
+    await clickText('상세 닫기');
+    rec.chapter('history','즐겨찾기와 이전 정산 이력');
+    await page.$eval('[aria-label="업체별 정산 즐겨찾기"]',n=>n.scrollIntoView({block:'center'}));await clickText('연습 호텔 A (화~월)');
+    await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===12);
+    await hold('즐겨찾기로 불러온 정산 이력도 같은 표로 보입니다.\n가로로 이동하며 주차를 비교하고 이전 기간도 더 볼 수 있습니다.',7);
+    await clickText('이전 12개 정산 기간 더 보기');await page.waitForFunction(()=>document.querySelectorAll('th[scope="colgroup"]').length===24);
     assert.deepEqual(errors,[]);
     const result=await rec.stop();stopped=true;
     if(!dry){workflow.guides[0].status='ready';workflow.guides[0].chapters=result.chapters;fs.writeFileSync(registryPath,JSON.stringify(registry,null,2)+'\n');}
-    // Read-only error recovery and small-screen checks after the final capture.
-    failQuery=true;await clickText('조회');await page.waitForSelector('[role="alert"]');assert.equal(await page.$('article'),null);failQuery=false;
-    await page.setViewport({width:390,height:844,deviceScaleFactor:1});await clickText('조회');await page.waitForSelector('article');
-    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile page must fit; table owns horizontal scroll');
-    await page.screenshot({path:'.verify/date-sales-mobile.png',fullPage:true});
-    if(dry){
-      await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+    // Additional non-recorded checks: invalidated company, error, date keyboard, narrow screen.
+    await page.focus('[role="combobox"]');await page.keyboard.down('Control');await page.keyboard.press('A');await page.keyboard.up('Control');await page.type('[role="combobox"]','없는업체');
+    assert.equal(await page.$$eval('[role="option"]',n=>n.length),0);assert(await page.$eval('button[type="submit"]',n=>n.disabled));
+    await page.keyboard.down('Control');await page.keyboard.press('A');await page.keyboard.up('Control');await page.type('[role="combobox"]','호텔');await page.keyboard.press('Enter');
+    await page.select('[aria-label="출고 매출 조회 방식"]','range');await dateInput('출고 매출 시작일','2026-11-02');await dateInput('출고 매출 종료일','2026-11-15');
+    failQuery=true;await clickText('조회');await page.waitForSelector('[role="alert"]');assert.equal(await page.$('table'),null);failQuery=false;await clickText('조회');await page.waitForSelector('tbody tr');
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await page.$eval('[aria-label="주차별 품목 수량 및 매출표"]',n=>{n.scrollIntoView({block:'center'});n.scrollLeft=800;});
+    await page.screenshot({path:'.verify/date-sales-matrix-mobile.png'});
+    await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+    await page.focus('[role="combobox"]');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'정산 시작 요일');
+    await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('role')),'combobox');
+    if(dry&&workflow.guides[0].status==='ready'){
       await page.$eval('section[aria-label="출고일 기준 매출"] > div summary',n=>{n.scrollIntoView({block:'center'});n.click();});
-      await page.waitForSelector('video');
-      await page.$eval('video',v=>{v.muted=true;v.load();});
-      await page.waitForFunction(()=>document.querySelector('video')?.readyState>=1);
-      await page.$eval('video',async v=>{await v.play();});
-      await page.waitForFunction(()=>document.querySelector('video')?.currentTime>.1);
+      await page.waitForSelector('video');await page.$eval('video',v=>{v.muted=true;v.load();});await page.waitForFunction(()=>document.querySelector('video')?.readyState>=1);
+      await page.$eval('video',v=>v.play());await page.waitForFunction(()=>document.querySelector('video')?.currentTime>.1);
       assert(await page.$eval('video',v=>v.videoWidth===1920&&v.videoHeight===1080));
-      const chapter=await page.$('nav[aria-label="영업지원 영상 목차"] button:nth-child(3)');await chapter.click();
-      assert(await page.$eval('video',v=>v.currentTime>10));
-      await page.$eval('video',v=>{v.pause();v.textTracks[0].mode='showing';});
-      await page.waitForFunction(()=>document.querySelector('video')?.textTracks[0]?.cues?.length>0);
-      assert.equal(await page.$$eval('a[download]',links=>links.filter(a=>a.href.includes('/guides/estimate-shipment-date-sales/')).length),2);
-      await page.goto(base+'/estimate?tab=shipment-date&popup=1',{waitUntil:'networkidle0'});
-      assert.equal(await page.$$eval('[data-ui-sidebar]',n=>n.length),0);assert.equal(await page.$$eval('[data-ui-popupbar]',n=>n.length),1);
-      await page.focus('[aria-label="출고 매출 업체"]');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'정산 시작 요일');
-      await page.keyboard.down('Shift');await page.keyboard.press('Tab');await page.keyboard.up('Shift');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'출고 매출 업체');
-      console.log('PASS real guide player: play/1920x1080/chapters/Korean cues/downloads, popup shell, Tab/ShiftTab focus order');
+      await page.click('nav[aria-label="영업지원 영상 목차"] button:nth-child(3)');assert(await page.$eval('video',v=>v.currentTime>10));
+      await page.$eval('video',v=>{v.pause();v.textTracks[0].mode='showing';});await page.waitForFunction(()=>document.querySelector('video')?.textTracks[0]?.cues?.length>0);
+      assert.equal(await page.$$eval('a[download]',n=>n.filter(a=>a.href.includes('/guides/estimate-shipment-date-sales/')).length),2);
+      await page.goto(base+'/estimate?tab=shipment-date&popup=1',{waitUntil:'networkidle0'});assert.equal(await page.$$eval('[data-ui-sidebar]',n=>n.length),0);assert.equal(await page.$$eval('[data-ui-popupbar]',n=>n.length),1);
+      console.log('PASS revised guide player: 1920x1080 play, chapters, Korean captions, downloads and popup shell');
     }
-    assert(requests.some(r=>r.mode==='history'));assert(requests.some(r=>r.mode==='range'));assert.deepEqual(errors,[]);
-    console.log('PASS actual browser: favorite/save/reload, weekday history, 24 periods, 90=30/60 provenance, details, range, error recovery, one shell, mobile fit; all API requests synthetic');
+    assert.deepEqual(errors,[]);console.log('PASS actual matrix UI: autocomplete, calendar range, 2-week daily cells, 21 compact rows, amount/source totals, 24-history groups, error recovery, mobile overflow, keyboard; ERP writes=0');
   }finally{if(rec&&!stopped)await rec.stop().catch(()=>{});await browser.close();}
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1;});

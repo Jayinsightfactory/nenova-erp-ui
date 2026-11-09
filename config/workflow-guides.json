@@ -194,7 +194,10 @@
         "pages/estimate.js",
         "components/EstimateShipmentDateSales.js",
         "components/EstimateShipmentDateSales.module.css",
-        "lib/estimateShipmentDateSales.js"
+        "lib/estimateShipmentDateSales.js",
+        "lib/estimateShipmentDateMatrix.js",
+        "components/ShipmentSalesCustomerInput.js",
+        "components/ShipmentSalesRangeCalendar.js"
       ],
       "requiredScenarios": [
         "favorite",
@@ -214,23 +217,23 @@
           "chapters": [
             {
               "scenario": "favorite",
-              "title": "업체와 정산 요일 즐겨찾기",
-              "seconds": 6.007
-            },
-            {
-              "scenario": "history",
-              "title": "업체 선택과 과거 정산 이력",
-              "seconds": 18.162
-            },
-            {
-              "scenario": "source",
-              "title": "품목 수량과 원차수 구성",
-              "seconds": 25.24
+              "title": "업체 자동완성으로 선택하기",
+              "seconds": 0
             },
             {
               "scenario": "range",
-              "title": "원하는 출고 기간 직접 조회",
-              "seconds": 47.459
+              "title": "달력에서 조회 범위 선택",
+              "seconds": 12.159
+            },
+            {
+              "scenario": "source",
+              "title": "일별 수량·원차수·매출 합계",
+              "seconds": 25.412
+            },
+            {
+              "scenario": "history",
+              "title": "즐겨찾기와 이전 정산 이력",
+              "seconds": 45.595
             }
           ]
         }
