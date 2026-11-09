@@ -46,6 +46,7 @@ test('production loader freezes every monetary cell; latest inputs are current+p
  const raw=(major,N)=>({major,orderYear:'2026',rows:[{category:'중국',variant:'normal',auto:{N,L:0,O:0,Q:2,S:0,E:0,F:0,H:0,R:10},manual:{H:0,R:10,AC:0,AJ:0},stock:{evidenceValue:0},beginStock:{evidenceValue:0}}]});
  const saved=C.materializeProfitPayload(raw('42',777)),before=JSON.stringify(saved);let calls=[],overlays=0,confirmed=false,fail=false,sourceVersion=0,invoiceVersion=0,changeInvoice=false;
  const deps={profitFinancialReadPolicy,materializeProfitPayload:C.materializeProfitPayload,manualInputManifest:{},
+  estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
   getActiveConfirm:async()=>confirmed?{initialized:true,confirm:{}}:null,buildConfirmedPayload:async()=>({confirmed:{},rows:saved.rows,confirmedTotals:saved.totals}),
   readStoredProfitPayload:async()=>structuredClone(saved),storedProfitPayload:r=>{if(!r)throw Object.assign(Error('missing'),{code:'SNAPSHOT_NOT_READY'});return r.payload;},
   loadReportData:async(m)=>{calls.push(m);if(fail)throw Error('source failed');if(changeInvoice)invoiceVersion++;return raw(m,m==='44'?44964933:43892819);},

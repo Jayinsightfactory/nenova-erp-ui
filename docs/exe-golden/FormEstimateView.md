@@ -1,5 +1,19 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-11-09 견적 달력 자격 재확인 (기존 EXE 산식 불변)
+
+실제 설치 EXE를 `dnSpy.Console.exe --no-color -t FormEstimateView`로 재추출했다.
+GetData/GetDetail/GetPrintDetail/GetExcelDetail 네 메서드는 모두 EstimateDtm과
+PeriodDay.BaseYmd의 exact INNER JOIN을 사용한다. GetDetail은 ActiveFilterString으로,
+나머지는 SQL에서 선택 요일을 적용한다. 예전 웹의 LEFT JOIN/요일 없는 차감 보존은
+EXE 근거와 모순되어 최신 사용자 승인으로 정정한다. CodeInfo 라벨 fallback은 유지한다.
+
+DB 쓰기·중복삭제·일자보정은 없다. 과거 비확정 표시의 제한된 달력 보완과 확정/NULL일자
+원본 보존 기준은 `docs/plans/estimate-native-calendar-2026-11-09.md`를 따른다.
+원본 골든15/16/36 통계는 보존한다. 같은 현재 원장에 대한 이전/수정 SQL SELECT 총계는
+세 차수 모두 같았다. 36차 역사 골든과 현재 원장의 차이는 이번 JOIN 복원의 영향이 아니다.
+기존 SQL 전체 SHA도 보존하고 승인된 달력 복원 SHA만 별도 기록한다.
+
 ## 2026-10-15 출고→견적서/매출 누락 방지 보호장치 (PR "출고→견적서/매출 누락 방지 보호장치")
 
 2026년 1~41차 이카운트 매출 ↔ exe 매출/불량 분석(FormSalesDefectView) ↔ 견적서(FormEstimateView) 금액 차이를

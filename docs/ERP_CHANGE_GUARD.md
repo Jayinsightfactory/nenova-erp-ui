@@ -1,5 +1,16 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-09 EXE 견적 달력 차감 읽기 정합
+
+실제 FormEstimateView 네 조회의 exact EstimateDtm=PeriodDay.BaseYmd JOIN이 웹의
+optional 달력 처리보다 우선한다. 목록/상세/인쇄/Excel과 최신 손익 L/O에 공통 자격을
+적용하며 정상 동액 별개 행을 제거하지 않는다. 과거 비확정은 전체 raw L/O(운송매출 포함)가
+저장 auto/calc와 인증될 때 같은 날짜의 비자정 시각 불일치 delta만 clone 표시한다.
+NULL/없는 달력 날짜와 확정 금액은 보존·진단한다. 비용/재고/원본 DB/저장·확정 JSON,
+모든 ERP writer/SP는 변경하지 않는다. 최신 사용자 승인의 과거 동결 예외는 이 범위뿐이다.
+기준/부작용표: plans/estimate-native-calendar-2026-11-09.md. 계약 estimate-native-calendar,
+회귀 estimateNativeCalendar/exeEstimateViewSql/estimatePrintContract. 운영 fixture는 비공개다.
+
 ## 2026-11-09 입고 정정 영향 분배·확정 복원
 
 영업지원은 자동 문제 유무와 무관하게 영향 연도·차수별 분배 검토창을 열 수 있다. 현재 상세 확정 상태를 표시하고 선택한 기존 확정 상세만 승인 트랜잭션 안에서 해제→입력→복원한다. 원본 미확정은 보존하며 대체 신규 상세도 원본 상태를 따른다. 기존/신규 대상에 확정·미확정 원본을 합치면 차단한다. 전체 국가품종 FIX/CANCEL SP는 비대상 상세/헤더·재고를 바꾸므로 호출하지 않는다. 기존 receipt gate·signed delta·native cascade·원가손익·부족정확동의 및 전체 rollback을 유지한다.

@@ -10,6 +10,7 @@ import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtil
 import {
   EXTRA_CATEGORY, CNF_CATEGORIES,
   salesByCategory, estimateByCategory, purchaseByCategory, purchaseQtyByCategory, forwardingByCategory,
+  estimateCalendarEvidenceByCategory,
   invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote,
   periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
@@ -41,6 +42,7 @@ import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadCont
 import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
 import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
 import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureDiagnostic.cjs';
+import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -689,6 +691,12 @@ export async function currentProfitPeriod() {
   const current=resolveCurrentProfitWeek(calendar,dateOnly);
   return {...current,previous:resolvePreviousProfitWeek(calendar,current)};
 }
+async function frozenEstimateCalendarView(payload,major,orderYear) {
+  let evidence;
+  try { evidence=await estimateCalendarEvidenceByCategory(major,orderYear); }
+  catch { evidence={orderYear:String(orderYear),major:String(major),failed:true}; }
+  return applyProfitEstimateCalendarView(payload,evidence,{orderYear,major});
+}
 async function previousReportPeriod(orderYear,major){
   if(Number(major)>1)return {orderYear:String(orderYear),major:String(Number(major)-1).padStart(2,'0')};
   const dateOnly=`${orderYear}-01-01`,calendar=await loadProfitReportCalendar(dateOnly);
@@ -734,7 +742,7 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const {mode='display',preferLive=false,currentPeriod,confirmedResult,storedResult}=options;
   const activeConfirm = confirmedResult !== undefined ? confirmedResult : await getActiveConfirm(orderYear, major);
   if (activeConfirm?.initialized && activeConfirm.confirm) {
-    const data=await buildConfirmedPayload(major, orderYear, activeConfirm);
+    const data=await frozenEstimateCalendarView(await buildConfirmedPayload(major, orderYear, activeConfirm),major,orderYear);
     if(mode==='liveAudit'||preferLive) {
       return {...data,major,orderYear,readMode:'confirmed',financialReadPolicy:profitFinancialReadPolicy(orderYear,major,null,null,{confirmed:true}),unclassifiedDetails:await unclassifiedDetailsByCategory(major, orderYear),unclassifiedDetailsSource: 'live_read_only'};
     }
@@ -745,10 +753,12 @@ export async function loadWeeklyReportPayload(major, orderYear, options = {}) {
   const previous=current.previous || await previousReportPeriod(current.orderYear,current.major);
   const financialReadPolicy=profitFinancialReadPolicy(orderYear,major,current,previous,{liveAudit:mode==='liveAudit'||preferLive});
   const live=!financialReadPolicy.frozen;
-  const data = live ? {...await loadCoherentLatestReport(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
+  let data = live ? {...await loadCoherentLatestReport(major,orderYear),snapshot:{state:'live',servedFrom:'live',needsRefresh:false}}
     : storedResult !== undefined ? storedProfitPayload(storedResult,{orderYear,major}) : await readStoredProfitPayload(orderYear,major);
-  if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
-  return {...data,major,orderYear,readMode:live?'live':'stored',financialReadPolicy};
+  if (!live) data=await frozenEstimateCalendarView(data,major,orderYear);
+  if (!data.manualInputManifest) data={...data,manualInputManifest};
+  const displayPolicy=data.estimateCalendarView?.changed ? {...financialReadPolicy,label:data.financialReadPolicy.label} : financialReadPolicy;
+  return {...data,major,orderYear,readMode:live?'live':'stored',financialReadPolicy:displayPolicy};
 }
 
 export async function saveProfitReportCache(options) {

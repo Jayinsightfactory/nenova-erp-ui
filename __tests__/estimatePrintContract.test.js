@@ -117,8 +117,8 @@ assert.match(sql, /GROUP BY vs\.ProdKey, sdd\.Cost/);
 assert.match(sql, /FROM Estimate e/);
 assert.match(sql, /LEFT JOIN CodeInfo ci/);
 assert.match(sql, /COALESCE\(NULLIF\(ci\.Descr2/);
-assert.doesNotMatch(sql, /JOIN PeriodDay pd ON e\.EstimateDtm = pd\.BaseYmd/,
-  'Estimate 등록행은 PeriodDay 일시 일치 실패로 인쇄에서 누락되지 않는다.');
+assert.match(sql, /JOIN PeriodDay pd ON e\.EstimateDtm = pd\.BaseYmd/,
+  '실제 EXE와 같이 Estimate는 정확한 PeriodDay 일시와 일치해야 한다.');
 assert.match(sql, /ProductSortLookup/);
 assert.match(sql, /pd\.WeekDay IN \(2,3\)/);
 

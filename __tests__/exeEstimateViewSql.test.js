@@ -47,7 +47,7 @@ async function main() {
   assert('custKey param', getData.includes('@custKey'));
   assert('Estimate UNION', getData.includes('FROM Estimate e'));
   assert('레거시 차감 코드도 목록 유지', getData.includes('LEFT JOIN CodeInfo ci ON e.EstimateType = ci.DetailCode'));
-  assert('차감 일자 요일 미매칭도 목록 유지', getData.includes('OR pd.WeekDay IS NULL'));
+  assert('차감 일자 EXE exact달력 자격', getData.includes('JOIN PeriodDay pd ON e.EstimateDtm = pd.BaseYmd') && !getData.includes('OR pd.WeekDay IS NULL'));
   assert('담당자→업체명→CustKey 정렬', /ORDER BY[\s\S]*sl\.Manager, sl\.CustName, sl\.CustKey/.test(getData));
 
   console.log('\n=== sqlEstimateGetDetail ===');
@@ -58,7 +58,7 @@ async function main() {
   assert('ProductSort', getDetail.includes('ProductSort'));
   assert('UnitQuantity', getDetail.includes('UnitQuantity'));
   assert('검역 코드 미매칭 fallback', getDetail.includes("COALESCE(NULLIF(ci.Descr2, N''), NULLIF(e.EstimateType, N''), N'기타') AS EstimateType"));
-  assert('검역 일자 PeriodDay 미매칭 보존', getDetail.includes('LEFT JOIN PeriodDay pd ON e.EstimateDtm = pd.BaseYmd'));
+  assert('검역 일자 EXE exact달력 자격', getDetail.includes('JOIN PeriodDay pd ON e.EstimateDtm = pd.BaseYmd') && !getDetail.includes('LEFT JOIN PeriodDay pd ON e.EstimateDtm'));
 
   console.log('\n=== sqlEstimateGetPrintDetail ===');
   const getPrint = sqlEstimateGetPrintDetail({ orderYearWeek: '202626', custKey: 42, weekDayIn: '2,3' });
@@ -72,7 +72,7 @@ async function main() {
   ];
   assert('월만 1건', filterItemsByExeWeekDay(sample, ['월']).length === 1);
   const legacyQuarantine = { WeekDay: null, EstimateKey: 77, SdetailKey: null, EstimateType: 'KR0019', ProdName: '검역차감 품목', _exeParity: true };
-  assert('요일정보 없는 레거시 검역차감 유지', filterItemsByExeWeekDay([...sample, legacyQuarantine], ['월']).some(row => row.EstimateKey === 77));
+  assert('요일정보 없는 차감은 EXE필터에서 제외', !filterItemsByExeWeekDay([...sample, legacyQuarantine], ['월']).some(row => row.EstimateKey === 77));
 
   console.log('\n=== mapExeDetailRowToWebItem ===');
   const shipRow = mapExeDetailRowToWebItem({

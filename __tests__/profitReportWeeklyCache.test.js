@@ -35,6 +35,7 @@ async function main(){
   let live=0, reads=0, confirm=null,diagnostics=0;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
+    estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
     ...policy,materializeProfitPayload:C.materializeProfitPayload,
     currentErpReadContext:()=>true,loadSourceFingerprints:async()=>({map:new Map()}),
     latestProfitInvoiceFence:async()=> 'test',

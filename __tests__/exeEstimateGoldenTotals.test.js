@@ -31,7 +31,8 @@ async function main() {
   console.log('=== 1) exe 산식 파일 불변 (sha256) ===');
   // Git stores LF; Windows checkout CRLF does not change the SQL formula.
   const sha = crypto.createHash('sha256').update(fs.readFileSync(sqlPath, 'utf8').replace(/\r\n/g, '\n')).digest('hex');
-  assert(`lib/exeEstimateViewSql.js sha256 = ${fixture.sqlFileSha256.slice(0, 12)}…`, sha === fixture.sqlFileSha256, `(현재 ${sha.slice(0, 12)}… — 산식 파일이 바뀌면 골든 스냅샷을 다시 찍고 사유를 docs/exe-golden/FormEstimateView.md 에 기록)`);
+  const acceptedHash=fixture.approvedNativeCalendarCorrection?.sqlFileSha256 || fixture.sqlFileSha256;
+  assert(`lib/exeEstimateViewSql.js sha256 = ${acceptedHash.slice(0, 12)}…`, sha === acceptedHash, `(현재 ${sha.slice(0, 12)}… — 승인된 exact달력 복원 외 변경은 별도 근거 필요)`);
 
   console.log('\n=== 2) 운영 DB 총매출 (GetData, 전 요일·전 거래처) ===');
   if (!loadEnv()) {
