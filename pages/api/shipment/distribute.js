@@ -339,6 +339,17 @@ async function getDistribute(req, res) {
       return res.status(200).json({ success: true, orderYear, week, scopes });
     }
 
+    // ── 품목 전체 카탈로그 (읽기 전용): 업체 보기 품목 검색에서 주문 없는 품목·다른 품종까지 후보로 쓰기 위해
+    //    Product 전체(isDeleted=0). 차수·주문 여부와 무관. 화면에서 한글/자모/영문자판 매칭을 하므로 서버는 필터 없이 돌려준다.
+    if (type === 'productCatalog') {
+      const result = await query(
+        `SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.CountryFlower,
+                p.OutUnit, p.BunchOf1Box, p.SteamOf1Box, p.SteamOf1Bunch, p.Cost
+         FROM Product p WHERE p.isDeleted = 0
+         ORDER BY p.ProdName`, {});
+      return res.status(200).json({ success: true, source: 'real_db', products: result.recordset });
+    }
+
     // ── 품목 목록 (왼쪽 패널): 차수+품목그룹 기준 입고/출고/현재고
     if (type === 'products') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });

@@ -10,7 +10,7 @@ import { customerMatchesSearch } from '../../lib/customerSearch';
 import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
-  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows,
+  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
   sortDistributionCustomers, sortDistributionProducts, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
@@ -153,6 +153,8 @@ export default function Distribute() {
   // 이 차수 주문이 없는 업체도 목록에 (업체 2~5 비교·이동 대상). GET /api/master/customers 읽기 전용
   const [showAllCustomers, setShowAllCustomers] = useState(false);
   const [custItemFilter, setCustItemFilter] = useState('');
+  const [productCatalog, setProductCatalog] = useState(null); // 품목 전체 카탈로그 (검색어 입력 시 1회 로드, 주문 없는 품목·다른 품종 후보)
+  const productCatalogLoadingRef = useRef(false);
   // 품목 탭 업체추가: 담당자 → 업체 버튼. 차수 안에서 품목을 바꿔도 유지 (주문 없는 업체는 저장 시 주문등록 후 분배)
   const [prodAddedCusts, setProdAddedCusts] = useState([]); // [{ CustKey, CustName, OrderCode, Manager }]
   const [prodAddOpen, setProdAddOpen] = useState(false);
@@ -1291,9 +1293,19 @@ export default function Distribute() {
     if (/[ㄱ-힣]/.test(q) && [row.DisplayName, ko, row.FlowerName].some(name => name && jamoMatch(q, name))) return true;
     return /[ㄱ-힣]/.test(q) && filterProducts([row], q, 0.9).length > 0;
   };
+  const ensureProductCatalog = () => {
+    if (productCatalog || productCatalogLoadingRef.current) return;
+    productCatalogLoadingRef.current = true;
+    apiGetDistribute({ type: 'productCatalog' })
+      .then(res => { if (res?.success === true) setProductCatalog(res.products || []); })
+      .catch(() => {})
+      .finally(() => { productCatalogLoadingRef.current = false; });
+  };
   const itemFilterInput = (
-    <input className="filter-input" placeholder="품목명 검색" value={custItemFilter} data-ai-verify="cust-item-search" aria-label="품목명 검색"
-      onChange={e => setCustItemFilter(e.target.value)} style={{height:26,fontSize:12,width:160,marginLeft:8}} />
+    <input className="filter-input" placeholder="품목명 검색 (전체 품목)" value={custItemFilter} data-ai-verify="cust-item-search" aria-label="품목명 검색"
+      title="주문 있는 품목이 먼저, 그 뒤 주문 없는 품목·다른 품종도 전체 품목에서 찾아 수량을 넣을 수 있습니다"
+      onFocus={ensureProductCatalog}
+      onChange={e => { if (e.target.value.trim()) ensureProductCatalog(); setCustItemFilter(e.target.value); }} style={{height:26,fontSize:12,width:160,marginLeft:8}} />
   );
   // 나란히 보기 한 칸 (업체 sideIndex × 품목). 그 업체에 행이 없어도 입력 가능 → 주문등록 예정 행을 만들고 저장 시 주문등록 후 분배.
   // 박스·단·송이 세 칸 환산, 저장값은 OutUnit 하나. 값이 바뀌면 아래에 변경 전 수량.
@@ -1334,13 +1346,15 @@ export default function Distribute() {
     );
   };
   const pairRows = mergeDistributionCustomerItems(custItems, pairItems, extraPeers.map(p => p.items));
+  // 검색 후보 = 이 차수 품종 목록(products) + 품목 전체 카탈로그. 선택한 품종이 아니거나 이 차수에 아무 주문이 없는 품목(예: 라벤더)도 검색으로 찾아 수량을 넣을 수 있게.
+  const searchCandidates = mergeDistributionSearchCandidates(products, productCatalog);
   const pairSearchRows = String(custItemFilter || '').trim()
-    ? [...pairRows, ...sortDistributionProducts(products.filter(p => matchItemName(p, custItemFilter) && !pairRows.some(r => Number(r.ProdKey) === Number(p.ProdKey))))
+    ? [...pairRows, ...sortDistributionProducts(searchCandidates.filter(p => matchItemName(p, custItemFilter) && !pairRows.some(r => Number(r.ProdKey) === Number(p.ProdKey))))
       .map(p => ({ ...p, extra: [], searchOnly: true }))]
     : pairRows;
-  // 업체 한 곳 보기: 검색어가 있으면 주문(분배) 있는 품목을 먼저, 그 뒤에 주문 없는 품목(이 차수 품종 목록)도 보여 수량을 바로 넣을 수 있게.
+  // 업체 한 곳 보기: 검색어가 있으면 주문(분배) 있는 품목을 먼저, 그 뒤에 주문 없는 품목도 보여 수량을 바로 넣을 수 있게.
   // 주문 없는 행에 수량을 넣으면 임시 행(주문수량 0)을 만들고 저장 시 주문등록 후 분배.
-  const custSearchRows = distributionCustomerSearchRows(custItems, products, custItemFilter, matchItemName)
+  const custSearchRows = distributionCustomerSearchRows(custItems, searchCandidates, custItemFilter, matchItemName)
     .filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
   const addCustSearchItem = (prod, outQty) => {
     setCustItems(prev => prev.some(i => Number(i.ProdKey) === Number(prod.ProdKey)) ? prev : [...prev, pendingDistributionItem(prod)]);

@@ -128,3 +128,14 @@ test('customer item search keeps ordered items first and appends unordered produ
   assert.deepEqual(distributionCustomerSearchRows(custItems, products, '', matches).map(r => r.ProdKey), [2, 9], 'no search → only ordered items');
   assert.deepEqual(distributionCustomerSearchRows([], products, 'rose', matches).map(r => [r.ProdKey, !!r.searchOnly]), [[9, true]], 'no orders → unordered product still appears');
 });
+
+test('search candidates prefer week products and add catalog-only products (other variety, no order this week)', async () => {
+  const { mergeDistributionSearchCandidates, distributionCustomerSearchRows } = await load();
+  const products = [{ ProdKey: 5, ProdName: 'Hydrangea Blue', inQty: 20 }];
+  const catalog = [{ ProdKey: 5, ProdName: 'Hydrangea Blue' }, { ProdKey: 77, ProdName: 'Lavender', FlowerName: '라벤더' }];
+  const merged = mergeDistributionSearchCandidates(products, catalog);
+  assert.deepEqual(merged.map(p => [p.ProdKey, p.inQty]), [[5, 20], [77, undefined]], 'week row kept (with stock), catalog adds only missing');
+  assert.deepEqual(mergeDistributionSearchCandidates(products, null), products, 'catalog not loaded yet → week products only');
+  const matches = (row, q) => `${row.ProdName} ${row.FlowerName || ''}`.toLowerCase().includes(q.toLowerCase());
+  assert.deepEqual(distributionCustomerSearchRows([], merged, '라벤', matches).map(r => r.ProdKey), [77]);
+});
