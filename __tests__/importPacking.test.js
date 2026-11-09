@@ -211,7 +211,7 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,awbPdfBase64:country==='AU'\?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,awbPdfBase64:country==='AU'\?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,/);
     assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
     assert.match(componentSource, /return process\(true,pdfRetryJobId\)/);
     assert.match(componentSource, /pdfRetryJobId && !toolRoot\.current\?\.ownerDocument\?\.defaultView\?\.confirm/);
@@ -220,7 +220,7 @@ async function main() {
     const extractionSource = fs.readFileSync(path.join(root, 'lib/importPackingExtractClient.js'), 'utf8');
     assert.match(extractionSource, /fetchImpl\('\/api\/import\/tools\/parse-pdf'/);
     assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64,\.\.\.\(awbPdfBase64\?\{awbPdfBase64\}:\{\}\),async:true,/);
-    for (const notice of ['AI service', 'servicio de IA', 'AI 서비스']) assert.ok(componentSource.includes(notice));
+    for (const notice of ['Claude API', '실패 시 자동 재호출하지 않습니다.']) assert.ok(componentSource.includes(notice));
   });
   // Real handler tests with local hooks; no browser, network, or mounted app.
   await check('UI local-first progress, explicit AI request, 20MiB limit, and confirmed save conflict', async () => {
@@ -336,15 +336,11 @@ async function main() {
     tree = render(); assert.ok(text(tree).includes('Procesando'));
     assert.equal(fetchCalls.length, 0);
     await waitForRealSha(localHashIndex);
-    await localProcess; tree = render();
-    assert.equal(fetchCalls.length, 0, 'default Generate must not call AI');
     assert.equal(extractionCalls.length, 1, text(tree));
-    assert.equal(extractionCalls[0].allowAI, false);
-    const aiHashIndex = hashPromises.length;
-    const pendingProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Analizar con IA (posible coste)').props.onClick();
-    await waitForRealSha(aiHashIndex);
+    assert.equal(extractionCalls[0].allowAI, true);
+    const pendingProcess = localProcess;
     tree = render(); assert.ok(text(tree).includes('Procesando'));
-    assert.equal(extractionCalls[1].allowAI, true);
+    assert.equal(extractionCalls[0].allowAI, true);
     assert.equal(fetchCalls.length, 1);
     assert.equal(fetchCalls[0].url, '/api/import/tools/parse-pdf');
     assert.deepEqual(Object.keys(JSON.parse(fetchCalls[0].options.body)).sort(), ['country','pdfBase64']);

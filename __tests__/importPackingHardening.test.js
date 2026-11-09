@@ -286,8 +286,8 @@ test('Korean is the default and country keys, optional languages and catalog con
   const co = h.nodes('button').find(node => node.props.type === 'button' && node.props['aria-label'] === '콜롬비아');
   assert.equal(co.props.type, 'button');
   co.props.onClick(); h.render();
-  assert.ok(text(h.tree).includes('무료 분석 우선'));
-  assert.ok(text(h.tree).includes('유료 분석으로 자동 전환하지 않습니다.'));
+  assert.ok(text(h.tree).includes('Claude API 분석'));
+  assert.ok(text(h.tree).includes('실패 시 자동 재호출하지 않습니다.'));
   assert.ok(text(h.tree).includes('입고등록 전 ERP 원장은 변경하지 않습니다.'));
   await h.upload(catalogFile([[1, 'Z', 'Original document name', '', '태국']]));
   assert.ok(text(h.tree).includes('카탈로그 미리보기'));
@@ -759,9 +759,8 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: 10 });
   await h.readers[0].complete(); h.render();
-  await h.button('Generar packing list').props.onClick(); h.render();
   const hashIndex = h.hashPromises.length;
-  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  const process = h.button('Generar packing list').props.onClick();
   await h.waitForRealSha(hashIndex);
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn',
@@ -837,9 +836,8 @@ test('explicit ERP refresh after generation invalidates old workbook but retains
   h.nodes('button').find(node => node.props['aria-label'] === 'Colombia').props.onClick(); await h.refresh();
   h.inputPdf({ name: '41-1.pdf', type: 'application/pdf', size: 10 });
   await h.readers[0].complete(); h.render();
-  await h.button('Generar packing list').props.onClick(); h.render();
   const hashIndex = h.hashPromises.length;
-  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  const process = h.button('Generar packing list').props.onClick();
   const sourceHash = await h.waitForRealSha(hashIndex);
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ invoices: [{
@@ -941,7 +939,6 @@ test('each new process reads current team matches and legacy aliases before gene
   const h=await harness();
   h.nodes('button').find(node=>node.props['aria-label']==='Colombia').props.onClick();h.render();
   h.inputPdf({name:'41-1.pdf',type:'application/pdf',size:10});await h.readers[0].complete();h.render();
-  await h.button('Generar packing list').props.onClick();await h.refresh();
   const [,packing,,,,erp]=await modulesReady;
   const description='TEAM SOURCE RAW';
   const products=erp.packingErpProducts([{ProdKey:1,ProdName:'CARNATION Doncel',CounName:'콜롬비아',isDeleted:0}]);
@@ -949,7 +946,7 @@ test('each new process reads current team matches and legacy aliases before gene
   h.setLegacyAliases({[packing.aliasKey('LEGACY SOURCE RAW')]:'CARNATION Doncel'});
   const reads=h.storageReads.length;
   const hashIndex=h.hashPromises.length;
-  const processing=h.button('Analizar con IA (posible coste)').props.onClick();
+  const processing=h.button('Generar packing list').props.onClick();
   await h.waitForRealSha(hashIndex);
   const during=h.erpRequests.length;await h.poll();
   assert.equal(h.erpRequests.length,during,'poll is paused while processing');
@@ -962,7 +959,7 @@ test('each new process reads current team matches and legacy aliases before gene
   assert.equal(results.props.excels[0].products[0].erpMatch.prodKey,1);
   assert.equal(results.props.excels[0].products[1].name,'CARNATION Doncel');
   assert.ok(h.storageReads.length>reads,'process reloads legacy records, not only ERP matches');
-  assert.equal(h.erpRequests.filter(request=>!request.options?.method&&!request.url.includes('?')).length,3);
+  assert.equal(h.erpRequests.filter(request=>!request.options?.method&&!request.url.includes('?')).length,2);
   assert.equal(h.writes.length,0,'legacy aliases are read without migration or writes');
   const receiptUpdates=h.receiptSources.length;
   await results.props.onMatch({matchingDescription:description});await h.refresh();
@@ -975,9 +972,8 @@ test('source resolved flags do not clear extraction issues or open the generator
   h.nodes('button').find(node => node.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({ name: '41-1.pdf', type: 'application/pdf', size: 10 });
   await h.readers[0].complete(); h.render();
-  await h.button('Generar packing list').props.onClick(); h.render();
   const hashIndex = h.hashPromises.length;
-  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  const process = h.button('Generar packing list').props.onClick();
   await h.waitForRealSha(hashIndex);
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ invoices: [{
@@ -998,7 +994,7 @@ test('source resolved flags do not clear extraction issues or open the generator
   assert.equal(h.receiptSources.at(-1).excels.length, 0, 'preview never publishes receipt adaptation data');
 });
 
-test('CO first upload uses free OCR once, failure never auto-retries or escalates to paid AI', async () => {
+test('CO first upload uses Claude once and never automatically retries failure', async () => {
   const h = await harness({autoAnalyze:true});
   h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({name:'44-1.pdf',type:'application/pdf',size:1024});
@@ -1006,16 +1002,16 @@ test('CO first upload uses free OCR once, failure never auto-retries or escalate
   assert.equal(h.readers.length,1);
   await h.readers[0].complete(); await h.refresh(); await h.refresh();
   await h.waitForRealSha(1); await h.refresh();
-  assert.deepEqual(h.extractionCalls.map(call=>call.freeOnly),[true]);
-  assert.equal(h.extractionCalls.some(call=>call.allowAI===true),false);
-  assert.equal(h.requests[0].url,'/api/import/tools/free-ocr');
+  assert.equal(h.extractionCalls[0].allowAI,true);
+  assert.equal(h.extractionCalls.some(call=>call.freeOnly),false);
+  assert.equal(h.requests[0].url,'/api/import/tools/parse-pdf');
   assert.equal(h.requests.length,1);
   h.requests[0].resolve({ok:false,status:504,json:async()=>({error:'TEST timeout'})});
   await h.refresh(); await h.refresh();
   assert.equal(h.requests.length,1,'no automatic paid retry');
 });
 
-test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {
+test('invoice PDF accepts exact 20MiB and defaults to one guarded Claude request', async () => {
   const [state] = await modulesReady; const h = await harness();
   h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: state.PACKING_PDF_MAX_BYTES + 1 });
@@ -1027,19 +1023,11 @@ test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on expli
   const localProcess = h.button('Generar packing list').props.onClick();
   h.button('Generar packing list').props.onClick();
   await h.waitForRealSha(localHashIndex);
-  await localProcess; h.render();
-  assert.equal(h.extractionCalls.length, 1, 'same-tick duplicate local Generate is blocked');
-  assert.equal(h.requests.length, 0);
-  assert.equal(h.requests.length, 0, 'default Generate must not call AI');
-  assert.equal(h.extractionCalls[0].allowAI, false);
-  const aiButton = h.button('Analizar con IA (posible coste)');
-  const aiHashIndex = h.hashPromises.length;
-  const process = aiButton.props.onClick(); aiButton.props.onClick();
-  await h.waitForRealSha(aiHashIndex);
-  assert.equal(h.extractionCalls[1].allowAI, true);
+  assert.equal(h.extractionCalls.length, 1, 'same-tick duplicate Generate is blocked');
+  assert.equal(h.extractionCalls[0].allowAI, true);
   assert.equal(h.requests.length, 1, 'same-tick duplicate AI request is blocked');
   h.requests[0].resolve({ ok: false, status: 413, json: async () => { throw Error('Unexpected token <'); } });
-  await process; h.render();
+  await localProcess; h.render();
   assert.ok(text(h.tree).includes('HTTP 413')); assert.ok(!text(h.tree).includes('Unexpected token'));
 });
 
@@ -1056,9 +1044,8 @@ test('PDF timeout ends active reading, retains source and enables explicit retry
   const h=await harness({lang:'ko'});
   h.nodes('button').find(n=>n.props['aria-label']==='콜롬비아').props.onClick();h.render();
   h.inputPdf({name:'41-1.pdf',type:'application/pdf',size:100});await h.readers[0].complete();h.render();
-  await h.click('패킹 리스트 생성');
   const hashIndex=h.hashPromises.length;
-  const operation=h.button('AI 분석 (비용 발생 가능)').props.onClick();
+  const operation=h.button('패킹 리스트 생성').props.onClick();
   await h.waitForRealSha(hashIndex);h.render();
   assert.ok(text(h.tree).includes('181초 경과'));
   h.requests[0].resolve({ok:false,status:504,json:async()=>({error:{message:'분석 시간 초과'}})});
@@ -1067,7 +1054,7 @@ test('PDF timeout ends active reading, retains source and enables explicit retry
   assert.ok(!text(h.tree).includes('인보이스 읽는 중'));
   assert.ok(!text(h.tree).includes('AI 분석 중 · 결과 확인 중'));
   assert.ok(text(h.tree).includes('41-1.pdf'));
-  assert.equal(h.button('AI 분석 (비용 발생 가능)').props.disabled,false);
+  assert.equal(h.button('패킹 리스트 생성').props.disabled,false);
   assert.equal(h.requests.length,1);assert.equal(h.writes.length,0);
 });
 

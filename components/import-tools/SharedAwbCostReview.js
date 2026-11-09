@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import WorkflowGuide from '../WorkflowGuide';
 import styles from '../../styles/InvoiceReceipt.module.css';
 
 const labels={ROSE:'장미',CARNATION:'카네이션',ALSTROMERIA:'알스트로',RUSCUS:'루스커스',HYDRANGEA:'수국'};
@@ -7,6 +8,7 @@ export default function SharedAwbCostReview({document}) {
   const [confirmed,setConfirmed]=useState(false),[result,setResult]=useState(null),[lineInputs,setLineInputs]=useState([]);
   const [input,setInput]=useState({gw:'',cw:'',freightAmount:'',freightCurrency:'USD',exchangeRate:'',customsTotalKRW:'',exchangeRateType:'MANUAL'});
   const update=(field,value)=>{setInput(current=>({...current,[field]:value}));setResult(null);};
+  const groups=[...new Set(lineInputs.map(line=>line.groupId).filter(Boolean))].sort();
   async function run(action) {
     setBusy(action);setError('');
     try {
@@ -24,6 +26,7 @@ export default function SharedAwbCostReview({document}) {
   }
   return <section className={styles.costPending} aria-label="공동 AWB 원가">
     <h3>공동 AWB · 전체 농장 도착원가</h3>
+    <WorkflowGuide workflowId="shared-awb-cost" initialRole="수입부" />
     <p>{document.orderYear}/{document.orderWeek} · {document.reviewedMetadata.awb} · 전체 중량·운임을 한 번만 배분합니다. 농장별 CW 입력은 필요하지 않습니다.</p>
     <button className={styles.primary} type="button" disabled={!!busy} onClick={()=>run('prepare')}>공동 AWB 전체 입고 조회</button>
     {error&&<p role="alert">{error}</p>}
@@ -35,6 +38,11 @@ export default function SharedAwbCostReview({document}) {
         {[['gw','공동 GW (kg)'],['cw','공동 CW (kg)'],['freightAmount','공동 운임·서류비 합계 (USD)'],['exchangeRate','환율 (원/USD)'],['customsTotalKRW','공동 통관비 합계 (원)']].map(([field,label])=><label key={field}>{label}<input aria-label={label} type="number" min="0" step="any" value={input[field]} onChange={event=>update(field,event.target.value)}/></label>)}
         <label>비용 근거<select aria-label="공동 AWB 비용 근거" value={input.exchangeRateType} onChange={event=>update('exchangeRateType',event.target.value)}><option value="MANUAL">확인한 비용</option><option value="TEST_ONLY">시험값 · 실제 원가 아님</option></select></label>
       </div>
+      {groups.length>1&&<fieldset><legend>품종별 FB 환산 박스수 · 원본 명세서 기준</legend>
+        <p>HB·QB 실물 포장수와 다릅니다. 원본의 Full Box 합계를 입력하세요. 품목별 임의 배분은 하지 않습니다.</p>
+        {groups.map(group=><label key={group}>{labels[group]} FB<input aria-label={`${labels[group]} FB 환산 박스수`} type="number" min="0" step="any"
+          value={input.fullBoxCounts?.[group]??''} onChange={event=>{const value=event.target.value;setInput(current=>({...current,fullBoxCounts:{...current.fullBoxCounts,[group]:value}}));setResult(null);}}/></label>)}
+      </fieldset>}
       <label>전체 품종 일괄 선택<select aria-label="공동 AWB 전체 품종" defaultValue="" onChange={event=>{if(event.target.value){setLineInputs(rows=>rows.map(row=>({...row,groupId:event.target.value})));setResult(null);}}}><option value="">선택</option>{Object.entries(labels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
       <table><thead><tr><th>농장·송장</th><th>품목</th><th>송이</th><th>품종</th></tr></thead><tbody>
         {prepared.members.flatMap(member=>member.rows.map(row=><tr key={row.lineId}><td>{member.farmName} · {member.invoiceNo}</td><td>{row.originalName}</td><td>{row.stemQuantity}</td><td><select aria-label={`${row.originalName} 품종`} value={lineInputs.find(line=>line.lineId===row.lineId)?.groupId||''} onChange={event=>{setLineInputs(lines=>lines.map(line=>line.lineId===row.lineId?{...line,groupId:event.target.value}:line));setResult(null);}}><option value="">품종 확인</option>{Object.entries(labels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></td></tr>))}

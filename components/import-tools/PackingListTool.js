@@ -20,7 +20,6 @@ import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { reconcileInvoiceSupplier } from '../../lib/invoiceSupplierEvidence.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
-import {extractFreePackingDocument} from '../../lib/importFreeOcrClient.js';
 import { packingWeight } from '../../lib/invoiceReceiptAutoFill.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
 import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
@@ -95,7 +94,7 @@ const UI_COPY = {
   perInvoice: ["인보이스별 패킹 리스트 생성","One packing list per invoice","Un packing list por invoice"],
   awbTile: ["항공 운송료 · EXCEL, FREIGHTWISE","Air freight · EXCEL, FREIGHTWISE","Aviones — EXCEL, FREIGHTWISE"],
   awbBadge: ["운송장","Air waybill","AWB"],
-  localMode: ["업로드 후 자동 분석 · 무료 분석 우선, 필요 시 AI 사용","Automatic analysis · local first, AI when needed","Análisis automático · local primero, IA si hace falta"],
+  localMode: ["Claude API 분석 · 저장 결과·완료 구간 재사용 · 실패 시 자동 재호출 없음","Claude API analysis · reuse saved results · no automatic retry","Análisis Claude API · reutilizar resultados · sin reintento automático"],
   noMatchesFile: ["Excel에 유효한 매칭이 없습니다.","No valid matches in Excel.","No hay matches válidos en Excel."],
   noInvoices: ["PDF에서 인보이스를 찾지 못했습니다.","No invoices found in PDF","No se encontraron invoices en PDF"],
   errorPrefix: ["오류: ","Error: ","Error: "],
@@ -230,7 +229,7 @@ function NoMatchItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
 // =============================================================================
 const I18N = {
   en: {
-    pdfNotice: 'PDF up to 20MiB. Upload starts local analysis, then the AI service when needed; AI fees may apply. Cached analysis is reused. ERP registration requires the receipt registration action.',
+    pdfNotice: 'PDF up to 20MiB. Reuse saved results and completed segments, then analyze with Claude API (fees may apply). No automatic retry. ERP registration requires the receipt registration action.',
     localUnavailable: 'This layout could not be fully verified locally. Choose AI analysis if needed (may incur a fee).',
     aiAnalyze: 'AI analysis (may incur a fee)', sourceLocal: 'Local code · no AI call', sourceCache: 'Previous analysis reused · no new AI call', sourceAI: 'AI analysis completed', cacheNotSaved: 'Result not cached; a retry may incur a fee',
     reload: 'Reload shared data', saving: 'Saving shared data…',
@@ -286,7 +285,7 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches loaded${base ? ` · ${base} base` : ''}`,
   },
   es: {
-    pdfNotice: 'PDF hasta 20MiB. La carga inicia análisis local y, si hace falta, el servicio de IA con posible coste. Se reutiliza el análisis guardado. El registro ERP requiere la acción de registrar recepción.',
+    pdfNotice: 'PDF hasta 20MiB. Reutiliza resultados y segmentos guardados; análisis Claude API con posible coste. Sin reintento automático. El registro ERP requiere confirmación.',
     localUnavailable: 'No se pudo verificar este formato localmente. Puedes elegir análisis IA (puede generar costes).',
     aiAnalyze: 'Analizar con IA (posible coste)', sourceLocal: 'Código local · sin llamada IA', sourceCache: 'Análisis anterior reutilizado · sin nueva llamada IA', sourceAI: 'Análisis IA completado', cacheNotSaved: 'Resultado no guardado en caché; repetir puede generar costes',
     reload: 'Recargar datos compartidos', saving: 'Guardando datos compartidos…',
@@ -342,7 +341,7 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches cargados${base ? ` · ${base} base` : ''}`,
   },
   ko: {
-    pdfNotice: 'PDF 최대 20MiB. 업로드하면 무료 분석을 먼저 실행하고, 필요한 경우 AI 서비스로 자동 분석하여 비용이 발생할 수 있습니다. 기존 분석은 재사용합니다. 입고등록 버튼을 누르기 전에는 ERP 원장에 반영하지 않습니다.',
+    pdfNotice: 'PDF 최대 20MiB. 기존 결과와 완료 구간을 먼저 재사용하고 Claude API로 분석합니다(비용 발생 가능). 실패 시 자동 재호출하지 않습니다. 입고등록 전 ERP 원장은 변경하지 않습니다.',
     localUnavailable: '이 양식은 무료 분석으로 전체 값을 검증하지 못했습니다. 필요하면 AI 분석을 선택하세요(비용 발생 가능).',
     aiAnalyze: 'AI 분석 (비용 발생 가능)', sourceLocal: '코드 분석 · AI 호출 없음', sourceCache: '기존 분석 재사용 · 새 AI 호출 없음', sourceAI: 'AI 분석 완료', cacheNotSaved: '결과 캐시 저장 안 됨 · 재시도 시 비용 발생 가능',
     reload: '공동 데이터 다시 불러오기', saving: '공동 데이터 저장 중…',
@@ -1678,10 +1677,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     }catch(error){setStatus({type:'error',msg:error.message});}
     finally{processingRef.current=false;setProcessing(false);}
   };
-  const process = async (allowAI = false, retryJobId = null, freeOnly = false) => {
-    // Automatic CO/AU uploads never escalate to a paid provider. Explicit paid
-    // retry remains the existing separate, cost-confirmed user action.
-    freeOnly = freeOnly || (allowAI === 'auto' && ['CO','AU'].includes(country));
+  const process = async (allowAI = true, retryJobId = null) => {
+    // PDF uploads use Claude after checking durable results. Failed jobs require
+    // the separate explicit retry action; OCR is not an automatic fallback.
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     if (country === 'AU' && !awbPdfBase64) {
       setStatus({ type: 'error', msg: '호주 인보이스는 AWB PDF도 선택해야 GW·CW를 원문에서 확인하고 진행할 수 있습니다.' });
@@ -1725,9 +1723,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }
         }
       } else {
-        extraction = freeOnly ? await extractFreePackingDocument({country,pdfBase64,retryJobId,onProgress:progress=>{
-          if(isCurrent()){setSteps([{label:'무료 OCR · 원본 수량/금액 대조',state:'active'}]);setStatus({type:'info',msg:`무료 OCR ${progress.stage==='QUEUED'?'워커 대기':'처리'} 중 · ${progress.elapsedSeconds}초 · 유료 분석/입고 저장 없음`});}
-        }}) : await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
+        extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true,retryJobId,
           onProgress: progress => {
             if (!isCurrent()) return;
             const label=progress.stage==='SUBMITTING'?'PDF 분석 접수 중':'AI 분석 중 · 결과 확인 중';
@@ -1737,10 +1733,6 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               : progress.total ? `PDF 구간 ${progress.completed}/${progress.total} 완료 · ${progress.stage==='VALIDATING'?'누락·중복·총금액 검증 중':`${progress.current}번째 구간 분석 중`}. 완료 구간은 재사용하며 결과 조회는 AI를 다시 호출하지 않습니다.`
               : `AI 분석 결과를 확인하고 있습니다${progress.elapsedSeconds ? ` (${progress.elapsedSeconds}초 경과)` : ''}. 결과 조회는 AI를 다시 호출하지 않습니다.`});
           }});
-        if (!freeOnly && extraction.needsAI && allowAI === 'auto' && isCurrent()) {
-          setStatus({type:'info',msg:'자동 AI 분석 중입니다. 분석 비용이 발생할 수 있습니다. 원본 파일은 유지됩니다.'});
-          extraction = await extractPackingDocument({country,pdfBase64,awbPdfBase64:country==='AU'?awbPdfBase64:null,readPdf:readAwbPdf,allowAI:true});
-        }
       }
       if (!isCurrent()) return;
       if(extraction.needsAI){
@@ -1748,7 +1740,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         setStatus({type:'info',msg:t.localUnavailable});return;
       }
       const data=extraction.data;
-      const sourceLabel=extraction.source==='free-ocr'?'무료 OCR · 원본 대조 완료 · 유료 호출 없음':extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
+      const sourceLabel=extraction.source==='saved-response'?'저장 응답 재검증 · API 호출 없음':extraction.source==='free-ocr'?'이전 OCR 결과 재사용':extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
       setExtractionSource(sourceLabel+(extraction.source==='ai'&&extraction.cacheSaved===false?' · '+t.cacheNotSaved:''));
       setSteps([
         { label: t.steps[0], state: 'done' },
@@ -2283,19 +2275,18 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 {awbReview?.ready && !awbReviewed && <small style={{ display: 'block', marginTop: 4, color: '#b42318' }}>대조 완료를 체크해야 입고 단계로 진행할 수 있습니다.</small>}
               </div>}
             </section>}
-            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{['CO','AU'].includes(country) ? 'PDF 최대 20MiB. 저장 결과를 재사용하고, 없으면 무료 OCR로 분석합니다. 유료 분석으로 자동 전환하지 않습니다. 미지원 서식과 원본 불일치는 확인 필요로 표시하며 입고등록 전 ERP 원장은 변경하지 않습니다.' : country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
+            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 코드 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. PDF는 Claude API로 분석합니다. 입고등록 전 ERP 원장은 변경하지 않습니다.' : t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing && (country !== 'AU' || awbPdfBase64)) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
-              {country==='CO'&&pdfBase64&&<button type="button" onClick={revalidateSavedResponse} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>저장 응답 재검증 · 무료</button>}
-              {['CO','AU'].includes(country)&&pdfBase64&&<button type="button" onClick={()=>process(false,pdfRetryJobId,true)} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>무료 OCR · {country==='CO'?'완료 구간 유지·전체 복구':'이미지 인보이스 분석'}</button>}
+              {country==='CO'&&pdfBase64&&<button type="button" onClick={revalidateSavedResponse} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #2457c5',background:'#eff5ff',color:'#173e83',fontWeight:600}}>저장 응답 재검증 · API 호출 없음</button>}
               {needsAI&&<button onClick={()=>{
                 if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
                 return process(true,pdfRetryJobId);
               }} disabled={processing || (country === 'AU' && !awbPdfBase64)} title={country === 'AU' && !awbPdfBase64 ? '호주 인보이스와 AWB PDF를 모두 선택해야 합니다.' : undefined} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
             </div>
-            <div className={styles.modeBadge}>{['CO','AU'].includes(country)?'무료 분석 우선 · 저장 결과 재사용 → 무료 OCR · 유료 자동 전환 없음 · 미지원 서식은 확인 필요':t.localMode}</div>
+            <div className={styles.modeBadge}>{country==='CN'&&/\.xlsx$/i.test(file?.name||'')?'엑셀 코드 분석 · API 호출 없음':t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
             {lastExtraction?.result?.free_ocr_review_issues?.length>0&&<div role="status" style={{padding:12,border:'1px solid #e2b459',background:'#fff8e9',borderRadius:8}}>
               <strong>원본 표기 확인 필요 · 나머지 품목은 계속 검토할 수 있습니다.</strong>

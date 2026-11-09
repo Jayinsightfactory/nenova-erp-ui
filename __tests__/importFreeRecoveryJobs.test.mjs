@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {createHash} from 'node:crypto';
-import {startPackingPdfJob,markPackingPdfAttempt,updatePackingPdfChunk,finishPackingPdfJob,recoverPackingPdfJobFree} from '../lib/importTeamPdfJobs.js';
+import {startPackingPdfJob,markPackingPdfAttempt,updatePackingPdfChunk,finishPackingPdfJob,recoverPackingPdfJobFree,revalidatePackingPdfJob} from '../lib/importTeamPdfJobs.js';
 async function fixture(fn){
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'free-recover-')),opts={root},key='b'.repeat(64);
  try{
@@ -32,4 +32,13 @@ test('failed merge cannot change any stored bytes',()=>fixture(async({id,key,opt
 test('other account/source cannot recover saved chunks',()=>fixture(async({id,key,opts,plan})=>{
  assert.equal(await recoverPackingPdfJobFree('bob',id,key,{plan,merge:()=>assert.fail()},opts),null);
  assert.equal(await recoverPackingPdfJobFree('alice',id,'a'.repeat(64),{plan,merge:()=>assert.fail()},opts),null);
+}));
+test('old successful three segments restore after legacy invalidation without changing original job',()=>fixture(async({id,key,opts,file})=>{
+ const before=await fs.readFile(file,'utf8'),old=JSON.parse(before);
+ const newId='12345678-1234-4123-8123-123456789abc',nextFile=path.join(path.dirname(file),newId+'.json');
+ const next={...old,jobId:newId,createdAt:old.createdAt+1,chunks:[null,null,null],chunkProgress:{total:3,completed:3,current:3}};
+ await fs.writeFile(nextFile,JSON.stringify(next));
+ const result=await revalidatePackingPdfJob('alice',newId,key,{parse:()=>assert.fail('no provider response needed'),merge:chunks=>({content:[],count:chunks.length})},opts);
+ assert.equal(result.status,'SUCCEEDED');assert.equal(result.revalidation.providerCalls,0);
+ const after=JSON.parse(await fs.readFile(nextFile));assert.deepEqual(after.chunks,old.chunks.slice(0,3));assert.equal(await fs.readFile(file,'utf8'),before);
 }));

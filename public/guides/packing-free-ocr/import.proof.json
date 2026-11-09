@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-09T06:03:25.568Z",
+  "recordedAt": "2026-11-09T08:09:06.577Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
@@ -9,9 +9,9 @@
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "f3710d4dfd641b225c2f1390bcc384c9bf88f3064fca93f5a5cc785cafe6eb2d",
-  "captionsSha256": "56aac3c65b94f4cd07e1dd61e99b5709e863b1cc027b9b87aa343e90b253cfde",
+  "videoSha256": "9323c4d7300a5246cd81e93e2227cdfa238f509e8b44f98881223db9080f63a6",
+  "captionsSha256": "93733b5c0b6db285068f8c3f4fa2d10eef18391c5fb9f9af9e79ff612b580a60",
   "sourceHashes": {
-    "components/import-tools/PackingListTool.js": "6b085b15ba0ee1b897b3d9d2c0930dd9e0ead9aa83b5ddba1a278964e82b5ac7"
+    "components/import-tools/PackingListTool.js": "1d1b063807b1433b4eff913876687a860e0bfff42e9256571c01522d85265e07"
   }
 }
