@@ -2315,3 +2315,11 @@
 - 대상회귀114통과1skip(추가 테스트 재실행 예정), ERP contract/manifest242 중233통과9skip, writeguard/dnSpy PASS. 프로덕션 빌드1회통과(최종 SharedAwb 입력 UI 변경 전), 두 실제 UI 가이드 촬영/검증 PASS. 최종빌드·CI·배포는 미검증.
 검색어: 46-1 Claude 잔여12 완료3 요약표중복 133495 17805 202875 source_summary_rows reconcile461Manifest FB527 524 O15 TEST_ONLY
 - 최종 추가 회귀125개 중124통과1skip, 전체 ERP contract·manifest·writeguard·dnSpy 가드 PASS. 실제 설치 EXE ExcelLoadingPackingList CLI 재확인: dt[5]/[8]/[9]→박스/단/송이, BulkCopy WarehouseMaster→uspCreateWarehouse→uspStockCalculation 순서. 이 writer는 변경/실행하지 않음. 최종 npm build(webpack cpus1) 및 두 가이드 검증 PASS. PR·운영 배포·서버 저장응답 재검증은 진행 중(미검증).
+
+## 2026-11-09 견적 EXE 달력 차감 읽기 정합
+- 사용자 실제 차감수량 확인 후 DB 변경 없이 EXE exact EstimateDtm=PeriodDay.BaseYmd 자격을 견적 목록/상세/인쇄/Excel 및 최신 손익 L/O·독립SQL감사에 공통 적용. 동액 별개 정상행 dedupe 없음.
+- 과거 비확정은 전체 기존 L/O(운송매출 포함)가 저장 auto/calc와 인증된 같은 날짜 covered 비자정 시각 불일치만 clone 보완. L/O·C/J/비율 외 원가/재고/원본snapshot/confirm DB 보존. NULL/달력날짜없음·source불일치·확정본은 원금액+진단. 새 화면/탭/순서 변경 없어 신규 영상 해당 없음.
+- 새 estimateNativeCalendar9개와 기존 frozen/cache/SQLlineage/독립감사 묶음18개 PASS. exeEstimateViewSql34assert/estimatePrintContract/차감 원본snapshot회귀 PASS, diff--check PASS. 부모 SELECT-only 실제EXE·전후SQL·다른차수·저장원본해시 검증 근거는 비공개 .verify, 공개 fixture는 합성만. 36차 역사골든과 현재 원천 차이는 이전/신규SQL 모두 동일하여 이번 영향0.
+- 전체 ERP gate/build/CI/배포/운영브라우저는 부모 담당이며 현재 미검증. 구현자 DB접속/쓰기·SP·배포·커밋 없음. 기준 docs/plans/estimate-native-calendar-2026-11-09.md, 계약 estimate-native-calendar.json.
+검색어: estimate-native-calendar exact PeriodDay off-midnight frozen sourceL sourceO freight clone 불량30단
+- 부모 최종 검증: board·전체 ERP contract(pre/post 포함)·dnSpy evidence·변경 manifest205·write scope guard·workflow guides7/영상8·webpack production build PASS. 최신 master b156c0dde를 검사 전 fast-forward로 반영했다. SELECT-only 연간 대사: 동일한 covered off-time 유형은33/35/40에9행, 초기1~3차 NULL468행은 저장금액 보존. 견적 상세/인쇄/Excel 대상 차감수량 일치 및 원가·재고 금액 보존 확인. CI/배포·실브라우저·배포후원장해시는 아래 후속 결과 전까지 미검증.

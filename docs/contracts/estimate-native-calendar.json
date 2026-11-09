@@ -1,0 +1,14 @@
+{
+  "id": "estimate-native-calendar",
+  "title": "EXE exact 견적 달력 자격과 제한된 과거 표시 정합",
+  "scope": ["lib/estimateCalendarEligibility.js", "lib/exeEstimateViewSql.js", "lib/profitReport.js", "lib/profitEstimateCalendarView.js", "lib/profitIndependentAuditSource.js", "pages/api/sales/profit-report.js", "lib/profitReportStoredCalculation.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"READ_NATIVE_ESTIMATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"SELECT-only exact EstimateDtm=PeriodDay.BaseYmd eligibility shared by list/detail/print/Excel and live L/O. Weekday selection applies to deductions too. Preserve distinct equal-valued valid keys and existing non-calendar predicates."},
+    {"name":"READ_FROZEN_CALENDAR_VIEW", "orderDetail":"preserve", "shipmentDetail":"preserve", "sideEffect":"SELECT-only clone projection. Same-date covered off-time rows only; NULL/missing calendar dates diagnostic only. Require full raw category L/O including freight sales to match stored auto and calc L/O. Preserve confirmed money, all DB snapshots/confirmations, all cost/stock/other source cells. No DB DML/DDL/SP or cache refresh."}
+  ],
+  "crossYearFixture": {"required":true,"description":"2025/2026 same major and row amounts remain isolated; exact calendar timestamps, Sunday/Saturday and requested weekdays, NULL versus zero, stale/missing source and double application tested."},
+  "requiredTestFiles": ["__tests__/estimateNativeCalendar.test.cjs", "__tests__/exeEstimateViewSql.test.js", "__tests__/profitFrozenExplicitQuery.test.cjs"],
+  "dnspyEvidence": {"required":true,"record":"docs/plans/estimate-native-calendar-2026-11-09.md","source":"Actual dnSpy.Console.exe FormEstimateView and SELECT-only same business-key/annual audit. Raw private artifacts remain outside Git.","methods":["FormEstimateView.GetData","FormEstimateView.GetDetail","FormEstimateView.GetPrintDetail","FormEstimateView.GetExcelDetail"],"tables":["Estimate","PeriodDay","ShipmentMaster","ShipmentDetail","Product","CodeInfo","WebProfitReportSnapshot","WebProfitReportConfirm"]},
+  "requiredCommands": ["node --test __tests__/estimateNativeCalendar.test.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

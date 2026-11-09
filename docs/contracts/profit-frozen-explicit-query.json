@@ -9,7 +9,7 @@
   ],
   "rules":{
     "calendar":"Actual PeriodDay current and prior including53/year boundary. Today2026-11-06 current45 prior44; frozen<=43. Ifcurrent44 then43/44latest and<=42frozen. Future label distinct.",
-    "projection":"All financial saved/confirmed amounts immutable; display K=display J/C, zero/null C=>null. Preserve actual/manual0. Every screen/weeks/monthly/XLSX/print uses loadWeeklyReportPayload shared policy.",
+    "projection":"All financial saved/confirmed amounts immutable except the latest user-authorized estimate-native-calendar clone-only projection: fully reconciled category source L/O permits same-date-covered off-midnight delta and derived C/J/ratios only. Missing calendar dates and confirmed money stay original with diagnostics. No cost/stock overlay. Display K=display J/C, zero/null C=>null. Preserve actual/manual0. Every screen/weeks/monthly/XLSX/print uses loadWeeklyReportPayload shared policy.",
     "scope":"Capture explicit query scope, AbortController+sequence+identity checks; selection changes hide old data and disable output. Aux views need their own query intent and discard it on every week change: queried44→45→44 cannot revive intent or remount/fetch until another explicit query. No tab/preset/URL auto report fetch.",
     "sourceContext":"Read-only pool opts into parallel SELECT and memoized external KCS reads; transactional/replay callers retain serial reads and supplied external evidence by default. Each same currency-date KCS result, including unavailable, is memoized per request. No Node SQL scheduler code in edge/browser instrumentation bundle; production node scheduler behavior unchanged."
   },

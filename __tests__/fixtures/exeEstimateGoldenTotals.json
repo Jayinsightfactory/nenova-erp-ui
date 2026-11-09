@@ -2,6 +2,11 @@
   "_comment": "exe FormEstimateView GetData 산식(lib/exeEstimateViewSql.js sqlEstimateGetData, 전 요일, 전 거래처) 총매출 스냅샷. 2026-10-15 운영 DB SELECT. 보호장치(lib/shipmentEstimateGuard.js) 도입 전후 동일해야 한다. 기존 데이터는 수정하지 않았으므로 값이 달라지면 산식 또는 데이터가 바뀐 것.",
   "capturedAt": "2026-10-15",
   "sqlFileSha256": "edd929dd82ed4fc368544af538ed81bd790e87749f094f82fd357f6064c9d821",
+  "approvedNativeCalendarCorrection": {
+    "sqlFileSha256": "30be6a4609de870494e4f06fabf4ad0c7a908ce50e04cb01df86569c25f9863f",
+    "evidence": "docs/plans/estimate-native-calendar-2026-11-09.md",
+    "reason": "Actual dnSpy exact calendar join restoration authorized 2026-11-09; historical baseline totals above/below are preserved, not recaptured. Current-vs-prior SQL total parity is checked separately; current source drift is not this correction."
+  },
   "weeks": {
     "202615": {
       "customers": 66,
