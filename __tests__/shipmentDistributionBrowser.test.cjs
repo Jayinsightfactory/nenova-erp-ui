@@ -424,6 +424,10 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'filtered out Alstroemeria');
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 1);
     await page.locator('[data-ai-verify="cust-item-search"]').fill('');
+    // 업체명 검색: 체크 없이도 주문 없는 업체 검색
+    await page.locator('[data-ai-verify="customer-search"]').fill('nova');
+    await page.locator('[data-ai-verify="customer-777"]').waitFor();
+    await page.locator('[data-ai-verify="customer-search"]').fill('');
     // 품목추가·수량추가 창: 품종 → 품목 → 기본 단위 체크 → +5 +16 −1 (현재 수량에 더하기) → 변경 취소로 원복
     await page.locator('[data-ai-verify="add-panel-open"]').click();
     await page.getByTestId('distribution-add-panel').waitFor();
@@ -444,6 +448,10 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     await page.locator('[data-ai-verify="add-cust-777"]').waitFor();
     assert.match(await page.locator('[data-ai-verify="add-cust-777"]').textContent(), /주문없음/);
     await page.locator('[data-ai-verify="add-cust-search"]').fill('');
+    // 담당자 버튼 → 업체 버튼
+    await page.locator('[data-ai-verify="add-manager-김담당"]').click();
+    await page.locator('[data-ai-verify="add-cust-777"]').waitFor();
+    await page.locator('[data-ai-verify="add-manager-김담당"]').click();
     await page.locator('[data-ai-verify="add-panel-close"]').click();
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').inputValue(), '81');
     page.once('dialog', dialog => dialog.accept());
@@ -483,8 +491,9 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     assert.equal(savePosts, 4, 'Ctrl+S without changes does not post');
     // 품목 탭 업체추가: 담당자 → 업체 → 주문 없음 행에 수량 (저장 시 주문등록 후 분배), ✕ 로 빼기
     await page.locator('[data-ai-verify="prod-add-cust-open"]').click();
-    await page.locator('[data-ai-verify="prod-add-manager-김담당"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('nova');
     await page.locator('[data-ai-verify="prod-add-cust-777"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('');
     await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
     await page.getByText('주문 없음 · 저장 시 주문등록').waitFor();
     await page.locator('[data-ai-verify="prod-added-remove-777"]').click();
