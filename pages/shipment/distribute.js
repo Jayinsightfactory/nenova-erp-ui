@@ -5,6 +5,9 @@ import { useLang } from '../../lib/i18n';
 import { distributeProductName, distributePreviousStock } from '../../lib/distributeProductDisplay';
 import DistributionPicker from '../../components/shipment/DistributionPicker';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
+import { suggestDisplayName, jamoMatch, filterProducts } from '../../lib/displayName';
+import { customerMatchesSearch } from '../../lib/customerSearch';
+import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope,
@@ -23,6 +26,13 @@ const countryFlowerFromGroup = (prodGroup, prodGroups) => {
     return pgLabel(country, flower);
   }
   return prodGroup;
+};
+// 상단 품종(국가::꽃) → 업체 탭 품종 필터 키("국가 꽃", distributionPairGroupKey 와 같은 형식)
+const pairKeyFromGroup = (prodGroup, prodGroups) => {
+  if (!prodGroup) return '';
+  const g = prodGroups.find((x) => x.key === prodGroup);
+  const [country, flower] = g?.country && g?.flower ? [g.country, g.flower] : prodGroup.split(PG_SEP);
+  return [country, flower].map(v => String(v || '').trim()).filter(Boolean).join(' ');
 };
 const shipDayGroupKey = (item) => {
   const country = String(item?.CounName || '').trim();
@@ -323,13 +333,18 @@ export default function Distribute() {
   };
 
   const chooseProdGroup = (key) => {
-    if (key === prodGroup || !confirmDraftDiscard()) return;
+    // 업체 탭에서 업체를 고른 상태면 품종 변경은 화면 필터만 바꾸고 입력값을 지우지 않음 → 확인창 불필요
+    if (key === prodGroup || (!(viewMode === 'cust' && selectedCust) && !confirmDraftDiscard())) return;
     groupChosenRef.current = true;
     setProdGroup(key);
   };
 
+  const prevSearchWeekRef = useRef(week);
   useEffect(() => {
     const request = ++searchRequestRef.current;
+    // 같은 차수에서 품종만 바꾼 경우: 업체 탭에서 고른 업체·입력값은 유지하고 그 품종 품목만 보이게 (초기화 금지)
+    const keepCust = prevSearchWeekRef.current === week && viewMode === 'cust' && !!selectedCust;
+    prevSearchWeekRef.current = week;
     productRequestRef.current += 1;
     customerRequestRef.current += 1;
     farmRequestRef.current += 1;
@@ -337,10 +352,14 @@ export default function Distribute() {
     pivotRequestRef.current += 1;
     setProducts([]); setCustList([]);
     setSelectedProd(null); setCustDist([]); setOutInputs({});
-    setSelectedCust(null); setCustItems([]); setCustEditInputs({});
-    pairRequestRef.current += 1;
-    setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
-    extraRequestRef.current += 1; setExtraPeers([]); setMultiMove({});
+    if (keepCust) {
+      setPairGroupFilter(pairKeyFromGroup(prodGroup, prodGroups));
+    } else {
+      setSelectedCust(null); setCustItems([]); setCustEditInputs({});
+      pairRequestRef.current += 1;
+      setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
+      extraRequestRef.current += 1; setExtraPeers([]); setMultiMove({});
+    }
     setProdAddedCusts([]); setProdAddOpen(false);
     setSelectedDistCust(null); setFarmRows([]);
     setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});
@@ -1259,8 +1278,19 @@ export default function Distribute() {
     ? <span data-ai-verify={`fixed-${prodKey}`} title={`${fixedScopeMap[Number(prodKey)].countryFlower} 품목군이 이 차수에 확정됨 — 저장 시 확정해제→저장→재확정`}
         style={{display:'inline-block',padding:'0 5px',marginRight:4,borderRadius:4,fontSize:10,fontWeight:700,background:'#FEE2E2',color:'#B91C1C'}}>🔒확정</span>
     : null;
-  const matchItemName = (row, text) => !String(text || '').trim() ||
-    `${row.DisplayName || ''} ${row.ProdName || ''}`.toLowerCase().includes(String(text).trim().toLowerCase());
+  // 품목명 검색: 영문 ProdName + 한글 DisplayName + 한글 자동명(알스트로·거베라…) + 자모/초성, 한글→영문 동의어 (lib/displayName 공용)
+  const matchItemName = (row, text) => {
+    const raw = String(text || '').trim();
+    if (!raw) return true;
+    const typed = convertQwertyInputToHangul(raw); // 영문 자판으로 친 한글 (dkftmxmfh → 알스트로)
+    return [raw, ...(typed !== raw ? [typed] : [])].some(q => matchItemNameOne(row, q));
+  };
+  const matchItemNameOne = (row, q) => {
+    const ko = suggestDisplayName(row.ProdName || '');
+    if (`${row.DisplayName || ''} ${row.ProdName || ''} ${ko}`.toLowerCase().includes(q.toLowerCase())) return true;
+    if (/[ㄱ-힣]/.test(q) && [row.DisplayName, ko, row.FlowerName].some(name => name && jamoMatch(q, name))) return true;
+    return /[ㄱ-힣]/.test(q) && filterProducts([row], q, 0.9).length > 0;
+  };
   const itemFilterInput = (
     <input className="filter-input" placeholder="품목명 검색" value={custItemFilter} data-ai-verify="cust-item-search" aria-label="품목명 검색"
       onChange={e => setCustItemFilter(e.target.value)} style={{height:26,fontSize:12,width:160,marginLeft:8}} />
@@ -1565,7 +1595,7 @@ export default function Distribute() {
                 );
                 if (!text && !addPanel.manager) return <div style={{marginBottom:4}}>{managerRow}{searchInput}</div>;
                 const hits = sortDistributionCustomers(pool.filter(c => (!addPanel.manager || managerOf(c) === addPanel.manager) &&
-                  (!text || `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(text)))).slice(0, 60);
+                  (!text || customerMatchesSearch(c, text)))).slice(0, 60);
                 const pick = async (c) => {
                   const at = sides.findIndex(sd => Number(sd.cust.CustKey) === Number(c.CustKey));
                   if (at >= 0) { setAddPanel(prev => ({ ...prev, side: at })); setAddCustFilter(''); return; }
@@ -1942,7 +1972,7 @@ export default function Distribute() {
                           const managers = [...new Set(allCustomers.map(c => c.Manager || '담당자 없음'))].sort((a, b) => a.localeCompare(b, 'ko'));
                           const addText = prodAddFilter.trim().toLowerCase();
                           const list = addText
-                            ? sortDistributionCustomers(allCustomers.filter(c => (!prodAddManager || (c.Manager || '담당자 없음') === prodAddManager) && `${c.CustName || ''} ${c.OrderCode || ''}`.toLowerCase().includes(addText))).slice(0, 60)
+                            ? sortDistributionCustomers(allCustomers.filter(c => (!prodAddManager || (c.Manager || '담당자 없음') === prodAddManager) && customerMatchesSearch(c, addText))).slice(0, 60)
                             : prodAddManager ? sortDistributionCustomers(allCustomers.filter(c => (c.Manager || '담당자 없음') === prodAddManager)) : [];
                           return (
                             <div data-testid="distribution-prod-add-cust" style={{padding:'6px 14px',borderBottom:'1px solid var(--border-t)',display:'grid',gap:6}}>
@@ -2356,7 +2386,7 @@ export default function Distribute() {
                         <tbody>
                           {custItems.length === 0
                             ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
-                            : custItems.filter(item => matchItemName(item, custItemFilter)).map((item,i) => {
+                            : custItems.filter(item => matchItemName(item, custItemFilter)).filter(item => !pairGroupFilter || distributionPairGroupKey(item) === pairGroupFilter).map((item,i) => {
                               const edit = custEditInputs[item.ProdKey] || {};
                               const outVal = edit.outQty !== undefined ? edit.outQty : (item.출고수량 || 0);
                               const costVal = edit.cost !== undefined ? edit.cost : (item.Cost || 0);
