@@ -4,6 +4,7 @@
 // 탭 기능 추가 후보: data/work-feature-simulations.json 이 있으면 지금↔적용 후 시뮬레이터, 없으면 텍스트 목록.
 // 탭1 업무 통합본: Orbit(/work-unified.html)을 iframe으로 띄워 항상 최신 통합본. Orbit 로그인은 그 안에서 1회.
 // 탭2 기능 추가 후보: 관찰 데이터(매뉴얼·화면 해독·전산 기록)로 뽑은 nenovaweb 기능 후보 + 근거(data/work-feature-proposals.json, 파일만).
+// 탭 전산 실제 처리: Orbit(/erp-work.html) iframe — 직원별 nenova 저장 동작과 실제 전산 주문·출고 변경 일치율·거래처·직접 입력 확인.
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
 // 탭 도입 레이더(관리자 전용): data/runtime/adoption-ledger.json(사장님 PC 장부 업로드) — 레이더 4링·추이·실험·후보·결정·문제 등록부. mineOnly 에는 없음.
 import fs from 'fs';
@@ -952,6 +953,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'workflows', label: '업무 흐름' },
     { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
     { id: 'unified', label: '업무 통합본 (최신)' },
+    { id: 'erp', label: '전산 실제 처리' }, // Orbit /erp-work.html — nenova 저장 동작 ↔ 실제 전산 변경 대조(직원별)
     { id: 'story', label: '캡처식 워크플로우' },
     { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
@@ -969,6 +971,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
       <div className="stage">
         {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
+        {tab === 'erp' && <iframe title="전산 실제 처리" src={orbit + '/erp-work.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}
         {tab === 'pipeline' && <FeatureTab name="workflows" render={(wf) => <Pipeline wf={wf} />} />}
         {tab === 'workflows' && <FeatureTab name="workflows" render={(wf) => <Workflows wf={wf} />} />}
