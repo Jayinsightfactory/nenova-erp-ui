@@ -38,6 +38,14 @@ test('free replay works without API key and never calls provider/quota; legacy t
   assert.equal(h.fetchCalls,0);assert.equal(h.quotaCalls,0);
 }));
 
+test('cache-only request cannot admit a provider job or consume quota',()=>setup(async h=>{
+ delete process.env.ANTHROPIC_API_KEY;
+ h.setFetch(()=>assert.fail('no provider'));h.setQuota(()=>assert.fail('no quota'));
+ const response=await h.request('POST','alice',{...body,cacheOnly:true});assert.equal(response.code,404);
+ assert.equal(h.fetchCalls,0);assert.equal(h.quotaCalls,0);assert.equal(h.trackCalls,0);
+ assert.equal((await h.request('POST','alice',{...body,cacheOnly:'true'})).code,400);
+}));
+
 test('CO real PDF request resumes completed segments and performs final reconciliation before success',()=>setup(async h=>{
   const pdf=await PDFDocument.create();for(let i=0;i<4;i++)pdf.addPage();
   const input={country:'CO',pdfBase64:await pdf.saveAsBase64(),async:true};
