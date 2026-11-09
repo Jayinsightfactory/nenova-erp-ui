@@ -445,9 +445,11 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="qty-478-61"]').fill('3');
     await page.getByText('주문등록 예정').first().waitFor();
     fixedScopeNext = false;
-    await page.keyboard.press('Control+s');
+    await page.getByRole('button', { name: /저장 \/ Guardar/ }).click(); // 저장 버튼 = Ctrl+S 같은 경로
     await page.getByText('출고 분배 저장 완료').waitFor();
     assert.equal(searchOrderPosted, true, 'order registered for searched product');
+    // 저장 로그: 업체별 한 줄 + 주문등록 건수
+    await page.getByTestId('distribution-save-log').getByText(/업체 Alpha Florist — 저장 완료 1건 · 총 3 · 주문등록 1건/).waitFor();
     await page.getByRole('button', { name: '확인', exact: true }).click();
     await page.locator('[data-ai-verify="cust-item-search"]').fill('');
     // 업체명 검색: 체크 없이도 주문 없는 업체 검색
