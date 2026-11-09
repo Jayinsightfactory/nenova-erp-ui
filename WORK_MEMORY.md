@@ -2220,5 +2220,8 @@
 - 기존 API/SQL/확정 조건/ERP 원장·재고 불변. 기존 UserFavorite 재사용. 실제 dnSpy 재실행 및 사전 SELECT12행721000원·중복0 확인. 새 helper 범위/일별·주별/부분주/교차연도/혼합단위/차감/금액0/입력불변 회귀 PASS.
 - 실제Chrome 1920×1080 2주21품목 행27px, 자동완성/키보드/달력Arrow·Escape·두날짜 선택, 24기간이력/오류복구/390px 가로스크롤 PASS. 새 가이드 재녹화 진행 중. 필수 전체gate/build/CI/배포는 아직 미검증.
 검색어: 출고일매출 주차행렬 달력기간 업체자동완성 일별매출 합계수량 estimateShipmentDateMatrix
+
+2026-11-09 PDF 분석 응답 수정: nw-pdf-provider-stream-1109 기준73137437. 실제46-1콜카장CI4212KB 복구→AI1회약300초결과불명 재현. 비스트리밍fetch 헤더300초와일치(기존cause유실로최종원인확정불가). stream:true/SSE완료수집·부분응답차단·화이트리스트진단코드·오류로그boolean전달수정. 표적15개/전체ERP/dnSpy/manifest201/쓰기guard PASS. 빌드·CI·배포·실파일재분석 미완료. 사용자추가AI1회승인,아직미사용. 운영입고/재고/원가저장0.
+검색어: PDF stream 46-1콜카장 UND_ERR_HEADERS_TIMEOUT PDF_ANALYSIS_UNCERTAIN 오류로그boolean
 - 후속: 공식 npm run test:erp-contract exit0, test:erp-manifest origin/master exit0, dnSpy/writeguard/workflow-guides PASS, 정식 npm run build exit0. 빌드된 next start에서도 표·자동완성·달력/키보드/모바일/오류복구·54.1초 영상 재생/목차/한국어 자막/다운로드·popup shell PASS. PR/CI/배포는 진행 예정(운영 미검증).
 검색어: date-sales-matrix ERP0 BUILD0 production-ui guide54.1

@@ -21,6 +21,7 @@
     "lib/importTeamStore.js",
     "lib/importTeamClient.js",
     "lib/importTeamPdf.js",
+    "lib/importPackingProviderStream.js",
     "lib/importTeamPdfQuota.js",
     "lib/importTeamPdfCache.js",
     "lib/importTeamPdfJobs.js",
@@ -130,6 +131,7 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/packingProviderStream.test.js",
     "__tests__/importPackingMatchPreview.test.js",
     "__tests__/importChinaPdfInvoice.test.js",
     "__tests__/importChinaPdfFlow.test.js",

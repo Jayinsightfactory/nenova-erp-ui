@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeUploadIssue} from '../lib/invoiceUploadIssue.js';
+import {normalizeUploadIssue,uploadFailureDetail} from '../lib/invoiceUploadIssue.js';
+test('visible status text survives upload issue recording',()=>{
+ assert.equal(uploadFailureDetail({msg:'PDF 분석 응답 시간초과'}),'PDF 분석 응답 시간초과');
+ assert.equal(uploadFailureDetail(new Error('연결 실패')),'연결 실패');
+ assert.equal(uploadFailureDetail('PDF 분석 실패'),'PDF 분석 실패');
+});
 const base={eventId:'10000000-0000-4000-8000-000000000101',fileName:'42-1.pdf',code:'REVIEW_BLOCKED',count:1};
 test('review blocker keeps actionable reason and retry identity, not caller actor or documents',()=>{
  const p=normalizeUploadIssue({...base,detail:'인보이스 1: 인쇄 날짜 확인 사유를 입력하세요.',actor:'spoof',source:{secret:'no'}});

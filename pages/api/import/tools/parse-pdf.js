@@ -1,4 +1,5 @@
 import {withAuth} from '../../../../lib/auth';
+import {readPackingProviderResponse,packingProviderFailureCode} from '../../../../lib/importPackingProviderStream';
 import {validatePackingPdf} from '../../../../lib/importTeamPdf';
 import {buildPrompt} from '../../../../lib/importPackingPrompt';
 import {trackLLMCall} from '../../../../lib/chat/costTracker';
@@ -42,14 +43,14 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key,u
       ...(parsed.awbPdfBase64?[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.awbPdfBase64}}]:[])];
     const response=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},signal:AbortSignal.timeout(PDF_JOB_TIMEOUT_MS),
-      body:JSON.stringify({model:PDF_ANALYSIS_MODEL,max_tokens:64000,system:prompt+docling.block,messages:[{role:'user',content:[...documents,{type:'text',text:parsed.awbPdfBase64
+      body:JSON.stringify({model:PDF_ANALYSIS_MODEL,stream:true,max_tokens:64000,system:prompt+docling.block,messages:[{role:'user',content:[...documents,{type:'text',text:parsed.awbPdfBase64
         ?'The first PDF is the commercial invoice and the second PDF is its supporting AWB. Extract the invoice and the AWB fields requested by the system instructions, keep the sources separate, and return ONLY the JSON object, no other text.'
         :'Extract all invoices from this PDF. Return ONLY the JSON object, no other text.'}]}]})
     });
     if(!response.ok){
       return await finishPackingPdfJob(uid,jobId,token,{error:{message:response.status===429?'PDF 분석 요청이 많습니다. 파일은 유지됩니다. 추가 비용을 확인한 뒤 다시 분석하세요.':'PDF 분석 서비스 요청에 실패했습니다. 파일은 유지됩니다. 추가 비용을 확인한 뒤 다시 분석하세요.',code:'PDF_ANALYSIS_UNCERTAIN'}});
     }
-    const data=await response.json();
+    const data=await readPackingProviderResponse(response);
     trackLLMCall({userId:uid,model:'claude-sonnet-4-6',inputTokens:data.usage?.input_tokens||0,outputTokens:data.usage?.output_tokens||0,purpose:'import-team-packing-pdf'});
     // 전/후 비교 로그(2주 수집): 전처리 사용 여부·대기시간·산술검증 통계·토큰. 실패해도 본 흐름 영향 없음.
     void appendDoclingMetrics({country:parsed.country,docling:docling.meta,inputTokens:data.usage?.input_tokens||0,outputTokens:data.usage?.output_tokens||0,stopReason:data.stop_reason});
@@ -63,6 +64,7 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key,u
     return completed;
   }catch(e){
     const uncertain=dispatched;
+    console.error('[packing-pdf-provider]',JSON.stringify({jobId,code:packingProviderFailureCode(e)}));
     const message=uncertain?'PDF 분석 호출 결과를 확인할 수 없습니다. 자동 재호출하지 않습니다. 추가 비용을 확인한 뒤 다시 분석하세요.':'PDF 분석을 시작하지 못했습니다. 파일은 유지됩니다.';
     try{return await finishPackingPdfJob(uid,jobId,token,{error:{message,...(uncertain?{code:'PDF_ANALYSIS_UNCERTAIN'}:{})}});}catch{return null;}
   }
