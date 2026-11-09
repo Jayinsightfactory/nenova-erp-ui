@@ -39,6 +39,15 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "description": "Stored per-day facts only; range start anchored seven-day groups, partial last week; autocomplete invalidates selected CustKey on editing."
+    },
+    {
+      "name": "FAVORITE_IMMEDIATE_LATEST_TWO_WITH_STORED_PRICES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "rule": "Existing history GET12, latest2 client view, previous2/all navigation. Stored price buckets without averaging; actual Amount/Vat summaries. No retrospective settlement assignment or price writes."
     }
   ],
   "crossYearFixture": {
