@@ -65,7 +65,7 @@ let orderPosts = 0;
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
       if (url.pathname === '/api/master/customers' && request.method() === 'GET')
-        return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order', Manager: '김담당' }] });
+        return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order', Manager: '김담당' }, { CustKey: 888, CustName: '(주)미카엘플라워', Manager: '박담당' }] });
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
       if (url.pathname === '/api/favorites') {
         if (request.method() === 'GET') return reply(route, { success: true,
@@ -437,6 +437,17 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="cust-item-search"]').fill('zinn');
     assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'filtered out Alstroemeria');
     assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 1);
+    // 한글 검색: '알스트로' / 초성 'ㅇㅅㅌㄹ' → Alstroemeria, '진니아' 아님
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('알스트로');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 1, 'Korean name finds Alstroemeria');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 0, 'Korean search excludes Zinnia');
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('ㅇㅅㅌㄹ');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 1, 'chosung finds Alstroemeria');
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('dkftmxmfh'); // 영문 자판으로 친 '알스트로'
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 1, 'qwerty-typed Korean finds Alstroemeria');
+    assert.equal(await page.locator('[data-ai-verify="qty-478-90"]').count(), 0);
+    await page.locator('[data-ai-verify="cust-item-search"]').fill('거베라');
+    await page.locator('[data-ai-verify="qty-478-61"]').waitFor();
     await page.locator('[data-ai-verify="cust-item-search"]').fill('');
     // 품목명 검색: 어느 업체에도 분배 없는 Gerbera 도 빈 행으로 → 입력 → 저장 시 주문등록 후 분배
     assert.equal(await page.locator('[data-ai-verify="qty-478-61"]').count(), 0, 'no Gerbera row without search');
@@ -455,6 +466,12 @@ let orderPosts = 0;
     // 업체명 검색: 체크 없이도 주문 없는 업체 검색
     await page.locator('[data-ai-verify="customer-search"]').fill('nova');
     await page.locator('[data-ai-verify="customer-777"]').waitFor();
+    // 한글 업체명: 한글 그대로 / 영문 자판으로 친 한글 (alzkdpf → 미카엘)
+    await page.locator('[data-ai-verify="customer-search"]').fill('미카엘');
+    await page.locator('[data-ai-verify="customer-888"]').waitFor();
+    await page.locator('[data-ai-verify="customer-search"]').fill('alzkdpf');
+    await page.locator('[data-ai-verify="customer-888"]').waitFor();
+    assert.equal(await page.locator('[data-ai-verify="customer-777"]').count(), 0, 'qwerty-Korean search excludes others');
     await page.locator('[data-ai-verify="customer-search"]').fill('');
     // 품목추가·수량추가 창: 품종 → 품목 → 기본 단위 체크 → +5 +16 −1 (현재 수량에 더하기) → 변경 취소로 원복
     await page.locator('[data-ai-verify="add-panel-open"]').click();
@@ -521,6 +538,8 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="prod-add-cust-open"]').click();
     await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('nova');
     await page.locator('[data-ai-verify="prod-add-cust-777"]').click();
+    await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('alzkdpf');
+    await page.locator('[data-ai-verify="prod-add-cust-888"]').waitFor();
     await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('');
     await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
     await page.getByText('주문 없음 · 저장 시 주문등록').waitFor();
@@ -579,6 +598,17 @@ let orderPosts = 0;
     await page.setViewportSize({ width: 1920, height: 1080 });
     const groupButtons = page.getByTestId('distribution-group-buttons');
     assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
+    // 업체 탭: 업체를 고른 뒤 품종을 눌러도 업체가 초기화되지 않고 그 품종 품목만 보임, 전체로 돌리면 다시 전부
+    await page.getByRole('button', { name: /출고분배 및 업체정보/ }).click();
+    await page.locator('[data-ai-verify="customer-row-478"]').click();
+    await page.locator('[data-ai-verify="qty-478-2429"]').waitFor();
+    await page.locator('[data-ai-verify="group-콜롬비아 장미"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
+    await pause(300);
+    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'only the chosen 품종 rows (Alstroemeria hidden)');
+    await page.getByText(/Alpha Florist.*주문 품목 목록/).waitFor(); // 업체 선택 유지
+    await groupButtons.getByRole('button', { name: '전체' }).click();
+    await page.locator('[data-ai-verify="qty-478-2429"]').waitFor();
     await page.locator('[data-ai-verify="group-콜롬비아 장미"]').click();
     await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
     await pause(300);
