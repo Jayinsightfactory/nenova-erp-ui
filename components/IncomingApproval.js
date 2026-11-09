@@ -32,6 +32,9 @@ export default function IncomingApproval({ children, active = true }) {
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [search, setSearch] = useState(''), [note, setNote] = useState(''), [pending, setPending] = useState(null);
   const [editDraft,setEditDraft]=useState(false);
+  const [distributionOpen,setDistributionOpen]=useState(false),[distributionWeek,setDistributionWeek]=useState('');
+  const distributionDialog=useRef(null),distributionButton=useRef(null);
+  useEffect(()=>{if(distributionOpen&&!distributionDialog.current?.open)distributionDialog.current?.showModal();},[distributionOpen]);
   const busyRef = useRef(false), detailRef = useRef(null), generation = useRef(0);
   const request = data?.request, facts = data?.facts;
   const refresh = async () => { const value = await api(); setList(value.requests); setPermissions(value.permissions); };
@@ -45,7 +48,7 @@ export default function IncomingApproval({ children, active = true }) {
     setData(value); setMatching(value.request.matching);
     try { value = await prepareSimpleReview(api,value); } catch(e) { value = {...value,preview:{canCommit:false,issues:[{code:'APPROVAL_PREPARATION_FAILED',message:e.message}],groups:[]}}; }
     if(ticket !== generation.current)return;
-    setData(value); setMatching(value.request.matching); setPreview(value.preview??null); setConfirmed(false); setDirty(false); setPending(null);
+    setData(value); setMatching(value.request.matching); setPreview(value.preview??null); setConfirmed(false); setDirty(false); setPending(null); setDistributionWeek(''); setSearch('');
     setTimeout(() => detailRef.current?.focus(), 0);
   };
   const canLeave = () => !dirty && !pending || window.confirm('저장하지 않은 매칭 또는 확인 중인 작업이 있습니다. 목록으로 돌아갈까요?');
@@ -73,16 +76,24 @@ export default function IncomingApproval({ children, active = true }) {
   const generalProblem=issueCodes.includes('PREPARATION_FAILED');
   const distributionProblem=generalProblem||/STOCK|FARM_|ORDER|DATE|DISTRIBUTION/.test(issueCodes);
   const canReview = permissions.review && request?.status === 'requested';
+  const keepDistributionFocus = e => {
+    if(e.key!=='Tab')return;
+    const controls=[...e.currentTarget.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')].filter(node=>node.getClientRects().length);
+    const first=controls[0],last=controls.at(-1);
+    if(!first){e.preventDefault();return;}
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  };
   return <div className="incoming-approval">
     <WorkflowGuide workflowId="incoming-approval" />
-    <style>{`.incoming-approval{color:#172033}.incoming-approval button,.incoming-approval input,.incoming-approval select,.incoming-approval textarea{font:inherit;padding:8px;max-width:100%;box-sizing:border-box}.incoming-approval button{margin:4px;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#172033}.incoming-approval button[aria-pressed=true]{background:#1d4ed8;color:white}.incoming-approval button:disabled{opacity:.5}.incoming-approval :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.incoming-approval table{border-collapse:collapse;min-width:100%}.incoming-approval td,.incoming-approval th{padding:8px;border:1px solid #cbd5e1;text-align:left;min-width:90px;max-width:260px;overflow-wrap:anywhere}.incoming-approval .scroll{overflow-x:auto}.incoming-approval .notice{padding:12px;background:#eff6ff;border-radius:8px}.incoming-approval fieldset{min-width:0;border:1px solid #cbd5e1;margin:12px 0}.incoming-approval label{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.incoming-approval input[type=number]{width:110px}`}</style>
+    <style>{`.incoming-approval{color:#172033}.incoming-approval button,.incoming-approval input,.incoming-approval select,.incoming-approval textarea{font:inherit;padding:8px;max-width:100%;box-sizing:border-box}.incoming-approval button{margin:4px;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#172033}.incoming-approval button[aria-pressed=true]{background:#1d4ed8;color:white}.incoming-approval button:disabled{opacity:.5}.incoming-approval :focus-visible{outline:3px solid #2563eb;outline-offset:2px}.incoming-approval dialog{width:min(1500px,94vw);max-height:90vh;overflow:auto;border:1px solid #94a3b8;border-radius:12px;padding:20px}.incoming-approval dialog::backdrop{background:#0f172a80}.incoming-approval table{border-collapse:collapse;min-width:100%}.incoming-approval td,.incoming-approval th{padding:8px;border:1px solid #cbd5e1;text-align:left;min-width:90px;max-width:260px;overflow-wrap:anywhere}.incoming-approval .scroll{overflow-x:auto}.incoming-approval .notice{padding:12px;background:#eff6ff;border-radius:8px}.incoming-approval fieldset{min-width:0;border:1px solid #cbd5e1;margin:12px 0}.incoming-approval label{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.incoming-approval input[type=number]{width:110px}`}</style>
     <nav aria-label="입고 정정 처리 단계" onKeyDown={e => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return; const buttons = [...e.currentTarget.querySelectorAll('button')], i = buttons.indexOf(document.activeElement); if (i < 0) return; e.preventDefault(); buttons[e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length].focus(); }}>
       {[['request', '수정 요청'], ['review', '검토·확정'], ['history', '처리 이력']].map(([key, name]) => <button key={key} aria-pressed={tab === key} disabled={busy} onClick={() => chooseTab(key)}>{name}</button>)}
     </nav>
     {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}{message && <p role="status">{message}</p>}
     {!data ? <>
       <h3>{tab === 'request' ? '수입부 수정 요청' : tab === 'review' ? '영업지원 검토·확정' : '처리 이력'}</h3>
-      <p className="notice">수입부는 수정값과 사유를 요청합니다. 영업지원은 자동 검증에서 발견된 문제만 해결하고 최종 확정합니다.</p>
+      <p className="notice">수입부는 수정값과 사유를 요청합니다. 영업지원은 영향 차수별 분배를 확인·수정하고 최종 확정합니다.</p>
       <button disabled={busy} onClick={() => run(refresh)}>요청 목록 새로고침</button>
       <div className="scroll"><table><caption>입고 정정 요청 · 최근 200건</caption><thead><tr><th>요청</th><th>연도·차수</th><th>입고</th><th>상태</th><th>사유</th><th>요청자</th></tr></thead><tbody>{visible.map(r => <tr key={r.RequestId}><td><button disabled={busy} onClick={() => run(() => open(r.RequestId))}>#{r.RequestId} 열기</button></td><td>{r.correction.orderYear} / {r.correction.orderWeek}</td><td>#{r.correction.warehouseKey}</td><td>{r.reviewing && r.Status === 'requested' ? '검토 중' : labels[r.Status]}</td><td>{r.reason}</td><td>{r.RequestedBy}</td></tr>)}</tbody></table></div>
       {!visible.length && <p>해당 요청이 없습니다.</p>}
@@ -98,21 +109,36 @@ export default function IncomingApproval({ children, active = true }) {
       {['draft', 'requested'].includes(request.status) && permissions.request && <button disabled={busy} onClick={() => action('cancel')}>요청 취소</button>}
       {canReview && <>
         <button disabled={busy} onClick={()=>run(()=>open(request.requestId))}>현재 요청 다시 불러오기</button>
+        <button ref={distributionButton} type="button" disabled={busy||!!pending} onClick={()=>setDistributionOpen(true)}>영향 차수별 분배 검토·수정</button>
+        <dialog ref={distributionDialog} aria-labelledby="distribution-review-title" onKeyDown={keepDistributionFocus} onCancel={e=>{if(busy){e.preventDefault();return;}setDistributionOpen(false);}} onClose={()=>{setDistributionOpen(false);distributionButton.current?.focus();}}>
+          <h3 id="distribution-review-title">영향 차수별 분배 검토·수정</h3>
+          <p className="notice">입고 차수부터 후속 연도·차수의 관련 품목 분배입니다. 선택한 기존 확정 행만 최종 승인 시 자동 확정 해제 → 수정값 입력 → 재확정합니다. 미확정 행은 미확정을 유지합니다. 입고·분배·재고·견적·매출은 한 트랜잭션으로 반영하며 실패하면 모두 취소합니다.</p>
+          {!facts.receiptPlan.detailsChanged&&<p>농장만 변경하는 요청은 분배·수량·금액·확정 상태를 유지합니다.</p>}
+          <label>연도·차수<select value={distributionWeek} onChange={e=>setDistributionWeek(e.target.value)}><option value="">전체 영향 차수</option>{[...new Set(facts.masters.map(m=>m.OrderYear+'/'+m.OrderWeek))].sort().map(w=><option key={w} value={w}>{w}</option>)}</select></label>
+        <>
+          <h4>변경할 분배 선택</h4><label>업체·품목 검색<input value={search} onChange={e => setSearch(e.target.value)} /></label>
+          <p>선택하지 않은 분배는 유지합니다. 수량은 증감량이 아닌 최종값입니다. 감소만 처리할 수 있으며, 다른 품목 추가는 별도로 입력합니다.</p>
+          <div className="scroll"><table><thead><tr><th>선택</th><th>업체 / 차수</th><th>품목 / 단위</th><th>출고일</th><th>분배수량</th><th>판매단가</th><th>현재 확정</th><th>최종 확정</th></tr></thead><tbody>{facts.dates.filter(d => {
+            const detail = facts.details.find(x => x.SdetailKey === d.SdetailKey), master = facts.masters.find(x => x.ShipmentKey === detail?.ShipmentKey), product = facts.products.find(x => x.ProdKey === detail?.ProdKey);
+            return (!distributionWeek || `${master?.OrderYear}/${master?.OrderWeek}`===distributionWeek) && `${master?.CustName} ${product?.ProdName}`.toLowerCase().includes(search.toLowerCase());
+          }).map(d => { const detail = facts.details.find(x => x.SdetailKey === d.SdetailKey), master = facts.masters.find(x => x.ShipmentKey === detail?.ShipmentKey), product = facts.products.find(x => x.ProdKey === detail?.ProdKey); return <tr key={d.SdateKey}><td><input type="checkbox" aria-label={`분배 ${d.SdateKey} 선택`} disabled={busy || !!pending || !facts.receiptPlan.detailsChanged} checked={matching.rows.some(r => r.sdateKey === d.SdateKey)} onChange={e => editDate(d, e.target.checked)} /></td><td>{master?.CustName}<br />{master?.OrderYear}/{master?.OrderWeek}</td><td>{product?.ProdName} / {product?.OutUnit}</td><td>{d.DateText}</td><td>{fmt(d.ShipmentQuantity)}{matching.rows.some(r=>r.sdateKey===d.SdateKey)&&<> → {fmt(matching.rows.find(r=>r.sdateKey===d.SdateKey).quantity)}</>}</td><td>{fmt(d.Cost)}{matching.rows.some(r=>r.sdateKey===d.SdateKey)&&<> → {fmt(matching.rows.find(r=>r.sdateKey===d.SdateKey).cost)}</>}</td><td>{[1,true].includes(detail?.isFix)?'확정':'미확정'}</td><td>{[1,true].includes(detail?.isFix)?(matching.rows.some(r=>r.sdateKey===d.SdateKey)?'자동 해제 후 재확정':'확정 유지'):'미확정 유지'}</td></tr>; })}</tbody></table></div>
+          {facts.receiptPlan.detailsChanged && <fieldset disabled={busy || !!pending}><legend>선택 분배의 최종값</legend>
+            <div className="scroll"><table><thead><tr><th>원행</th><th>업체·차수</th><th>대상 품목</th><th>출고일</th><th>최종수량</th><th>판매단가</th><th>대체품 주문</th><th>제외</th></tr></thead><tbody>{matching.rows.map((r, i) => <tr key={r.sdateKey ?? `new-${i}`}><td>{r.sdateKey ?? '추가'}</td><td><select aria-label={`${i + 1}행 업체 차수`} disabled={!!r.sdateKey} value={r.shipmentKey} onChange={e => patchRow(i, { shipmentKey: Number(e.target.value) })}>{facts.masters.map(m => <option key={m.ShipmentKey} value={m.ShipmentKey}>{m.CustName} {m.OrderYear}/{m.OrderWeek}</option>)}</select></td><td><select aria-label={`${i + 1}행 대상 품목`} value={r.prodKey} onChange={e => patchRow(i, { prodKey: Number(e.target.value) })}>{facts.products.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.ProdName} / {p.OutUnit}</option>)}</select></td><td><input type="date" aria-label={`${i + 1}행 출고일`} value={r.date} onChange={e => patchRow(i, { date: e.target.value })} /></td><td><input type="number" min="0" step="0.01" aria-label={`${i + 1}행 최종수량`} value={r.quantity} onChange={e => patchRow(i, { quantity: e.target.value })} /></td><td><input type="number" min="0" step="any" aria-label={`${i + 1}행 판매단가`} value={r.cost} onChange={e => patchRow(i, { cost: e.target.value })} /></td><td><label><input type="checkbox" checked={r.createOrder} onChange={e => patchRow(i, { createOrder: e.target.checked })} />주문이 없으면 양수 신규 연결</label></td><td><button onClick={() => change({ ...matching, rows: matching.rows.filter((_, n) => n !== i) })}>매칭 제외</button></td></tr>)}</tbody></table></div>
+            <button disabled={!facts.masters.length} onClick={() => { const m = facts.masters[0]; change({ ...matching, rows: [...matching.rows, { sdateKey: null, shipmentKey: m.ShipmentKey, prodKey: facts.products[0].ProdKey, quantity: '', cost: '', date: '', createOrder: false }] }); }}>다른 품목 분배 추가</button>
+          </fieldset>}
+        </>
+
+          {error&&<p role="alert">{error}</p>}
+          {dirty?<p role="status">입력값 미검증 · 다시 검증하면 재고와 최종 반영값을 계산합니다.</p>:<p role="status">{preview?.canCommit?'현재 검토값 검증 완료':'문제를 확인하고 다시 검증하세요.'}</p>}
+          {!!preview?.stockPreview?.length&&!dirty&&<div className="scroll"><table><caption>현재·후속 차수 재고 전후</caption><thead><tr><th>연도·차수</th><th>품목</th><th>기존 재고</th><th>검증 후 재고</th></tr></thead><tbody>{preview.stockPreview.map(r=><tr key={r.StockKey+':'+r.ProdKey}><td>{r.OrderYear}/{r.OrderWeek}</td><td>{facts.products.find(p=>p.ProdKey===r.ProdKey)?.ProdName??r.ProdKey}</td><td>{fmt(r.Stock)}</td><td>{fmt(r.projected)}</td></tr>)}</tbody></table></div>}
+          {preview?.issues?.map((i,n)=><p key={n} role="alert">{i.message}</p>)}
+          <button type="button" disabled={busy||!!pending} onClick={inspect}>분배 검토값 저장·다시 검증</button>
+          <button type="button" disabled={busy} onClick={()=>distributionDialog.current?.close()}>검토창 닫기</button>
+          <p>검토값 저장은 요청에만 반영됩니다. 창을 닫고 최종 요약에서 ‘최종 확정’을 누르면 ERP에 함께 반영합니다.</p>
+        </dialog>
         <h4>{preview?.canCommit&&!dirty?'자동 검증 완료 · 최종 요약을 확인하세요':'확인이 필요한 문제'}</h4>
         {(!preview?.canCommit||dirty)&&<details open><summary>문제 해결 ({preview?.issues?.length??0}건)</summary>
         {preview?.issues?.map((issue,i)=><p role="alert" key={i}>{issue.message}</p>)}
-        {distributionProblem&&(!facts.receiptPlan.detailsChanged ? <p className="notice">농장만 변경합니다. 분배 수량·재고·견적·매출 금액과 기존 확정 상태를 보존합니다.</p> : <>
-          <h4>변경할 분배 선택</h4><label>업체·품목 검색<input value={search} onChange={e => setSearch(e.target.value)} /></label>
-          <p>선택하지 않은 분배는 유지합니다. 수량은 증감량이 아닌 최종값입니다. 감소만 처리할 수 있으며, 다른 품목 추가는 별도로 입력합니다.</p>
-          <div className="scroll"><table><thead><tr><th>선택</th><th>업체 / 차수</th><th>품목 / 단위</th><th>출고일</th><th>분배수량</th><th>판매단가</th></tr></thead><tbody>{facts.dates.filter(d => {
-            const detail = facts.details.find(x => x.SdetailKey === d.SdetailKey), master = facts.masters.find(x => x.ShipmentKey === detail?.ShipmentKey), product = facts.products.find(x => x.ProdKey === detail?.ProdKey);
-            return `${master?.CustName} ${product?.ProdName}`.toLowerCase().includes(search.toLowerCase());
-          }).map(d => { const detail = facts.details.find(x => x.SdetailKey === d.SdetailKey), master = facts.masters.find(x => x.ShipmentKey === detail?.ShipmentKey), product = facts.products.find(x => x.ProdKey === detail?.ProdKey); return <tr key={d.SdateKey}><td><input type="checkbox" aria-label={`분배 ${d.SdateKey} 선택`} disabled={busy || !!pending} checked={matching.rows.some(r => r.sdateKey === d.SdateKey)} onChange={e => editDate(d, e.target.checked)} /></td><td>{master?.CustName}<br />{master?.OrderYear}/{master?.OrderWeek}</td><td>{product?.ProdName} / {product?.OutUnit}</td><td>{d.DateText}</td><td>{fmt(d.ShipmentQuantity)}</td><td>{fmt(d.Cost)}</td></tr>; })}</tbody></table></div>
-          <fieldset disabled={busy || !!pending}><legend>선택 분배의 최종값</legend>
-            <div className="scroll"><table><thead><tr><th>원행</th><th>업체·차수</th><th>대상 품목</th><th>출고일</th><th>최종수량</th><th>판매단가</th><th>대체품 주문</th><th>제외</th></tr></thead><tbody>{matching.rows.map((r, i) => <tr key={r.sdateKey ?? `new-${i}`}><td>{r.sdateKey ?? '추가'}</td><td><select aria-label={`${i + 1}행 업체 차수`} disabled={!!r.sdateKey} value={r.shipmentKey} onChange={e => patchRow(i, { shipmentKey: Number(e.target.value) })}>{facts.masters.map(m => <option key={m.ShipmentKey} value={m.ShipmentKey}>{m.CustName} {m.OrderYear}/{m.OrderWeek}</option>)}</select></td><td><select aria-label={`${i + 1}행 대상 품목`} value={r.prodKey} onChange={e => patchRow(i, { prodKey: Number(e.target.value) })}>{facts.products.map(p => <option key={p.ProdKey} value={p.ProdKey}>{p.ProdName} / {p.OutUnit}</option>)}</select></td><td><input type="date" aria-label={`${i + 1}행 출고일`} value={r.date} onChange={e => patchRow(i, { date: e.target.value })} /></td><td><input type="number" min="0" step="0.01" aria-label={`${i + 1}행 최종수량`} value={r.quantity} onChange={e => patchRow(i, { quantity: e.target.value })} /></td><td><input type="number" min="0" step="any" aria-label={`${i + 1}행 판매단가`} value={r.cost} onChange={e => patchRow(i, { cost: e.target.value })} /></td><td><label><input type="checkbox" checked={r.createOrder} onChange={e => patchRow(i, { createOrder: e.target.checked })} />주문이 없으면 양수 신규 연결</label></td><td><button onClick={() => change({ ...matching, rows: matching.rows.filter((_, n) => n !== i) })}>매칭 제외</button></td></tr>)}</tbody></table></div>
-            <button disabled={!facts.masters.length} onClick={() => { const m = facts.masters[0]; change({ ...matching, rows: [...matching.rows, { sdateKey: null, shipmentKey: m.ShipmentKey, prodKey: facts.products[0].ProdKey, quantity: '', cost: '', date: '', createOrder: false }] }); }}>다른 품목 분배 추가</button>
-          </fieldset>
-        </>)}
         <IncomingApprovalLinkedReview facts={facts} request={request} matching={matching} onChange={change} disabled={busy || !!pending} problems={{receipt:generalProblem||/RECEIPT_(MAPPING|SOURCE|TARGET)/.test(issueCodes),farm:generalProblem||/FARM_/.test(issueCodes),cost:generalProblem||/COST|FINANCIAL/.test(issueCodes)}}/>
         <button disabled={busy || !!pending} onClick={inspect}>문제 해결 후 다시 검증</button></details>}
         <details><summary>요청 반려</summary><label>반려 사유<input maxLength={400} value={note} onChange={e => setNote(e.target.value)} /></label><button disabled={busy || !!pending || !note.trim()} onClick={() => action('reject')}>반려</button></details>

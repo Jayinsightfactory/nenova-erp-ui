@@ -37,8 +37,49 @@ test('isolated SQL approval: real writer/native cascade/request-CAS/replay/farm/
     const replacement = { ...receipt, mode: 'REPLACE', farmName: 'Farm A', fileName: 'corrected.xlsx', fileMeta: {}, items: [{ prodName: 'Flower B', orderCode: 'C', boxQty: 10, bunchQty: 100, steamQty: 1000, steamOf1Box: 100, steamOf1Bunch: 10, unitPrice: 110, totalPrice: 11000 }] };
     const all = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster ORDER BY WarehouseKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM ProductStock ORDER BY StockKey,ProdKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;SELECT * FROM OrderDetail ORDER BY OrderDetailKey;SELECT * FROM web_mgmt.ApprovalRequest ORDER BY RequestId;SELECT * FROM web_mgmt.ApprovalAudit ORDER BY AuditKey;SELECT * FROM SystemActionLog ORDER BY LogKey;')).recordsets);
     const erp = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster ORDER BY WarehouseKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM ProductStock ORDER BY StockKey,ProdKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;SELECT * FROM OrderDetail ORDER BY OrderDetailKey;')).recordsets);
-    const protectedRows = async () => JSON.stringify((await q('SELECT * FROM WarehouseMaster WHERE WarehouseKey=89;SELECT * FROM WarehouseDetail WHERE WarehouseKey=89;SELECT * FROM ShipmentDetail WHERE ShipmentKey=2;SELECT * FROM ShipmentDate WHERE SdetailKey=2;SELECT * FROM ProductStock WHERE StockKey=1 ORDER BY ProdKey;SELECT * FROM Estimate;SELECT * FROM WebProfitReport;SELECT * FROM OrderDetail WHERE OrderDetailKey IN(1,2) ORDER BY OrderDetailKey;')).recordsets);
+    const protectedRows = async (query=q) => JSON.stringify((await query('SELECT * FROM WarehouseMaster WHERE WarehouseKey=89;SELECT * FROM WarehouseDetail WHERE WarehouseKey=89;SELECT * FROM ShipmentDetail WHERE ShipmentKey=2;SELECT * FROM ShipmentDate WHERE SdetailKey=2;SELECT * FROM ProductStock WHERE StockKey=1 ORDER BY ProdKey;SELECT * FROM Estimate;SELECT * FROM WebProfitReport;SELECT * FROM OrderDetail WHERE OrderDetailKey IN(1,2) ORDER BY OrderDetailKey;')).recordsets);
     const originalProtected = await protectedRows(), originalErp = await erp();
+    // 45-01 receipt affects 45-03: execute the real writer, prove the temporary
+    // unfixed state at the actual write, restore only fixed originals, and rollback failures.
+    for (const originalFixed of [true,false]) {
+      await withTransactionFn(async tq=>{
+        await tq("DELETE FreightCost; UPDATE WarehouseMaster SET OrderWeek='45-01' WHERE WarehouseKey=90; UPDATE OrderMaster SET OrderWeek='45-03',OrderYearWeek='202645' WHERE OrderMasterKey=1; UPDATE ShipmentMaster SET OrderWeek='45-03',OrderYearWeek='202645' WHERE ShipmentKey=1; UPDATE StockMaster SET OrderWeek='45-01',OrderYearWeek='20264501' WHERE StockKey=2; UPDATE StockMaster SET OrderWeek='45-03',OrderYearWeek='20264503' WHERE StockKey=3; UPDATE PeriodDay SET OrderYearWeek='202645'; UPDATE ShipmentDetail SET isFix=@fixed WHERE SdetailKey=1; UPDATE OrderMaster SET OrderWeek='45-03',OrderYearWeek='202545' WHERE OrderMasterKey=2; UPDATE ShipmentMaster SET OrderWeek='45-03',OrderYearWeek='202545' WHERE ShipmentKey=2; UPDATE StockMaster SET OrderWeek='45-03',OrderYearWeek='20254503' WHERE StockKey=1; UPDATE WarehouseMaster SET OrderWeek='45-01' WHERE WarehouseKey=89; UPDATE ShipmentDetail SET ProdKey=1 WHERE SdetailKey=2; UPDATE OrderDetail SET ProdKey=1 WHERE OrderDetailKey=2;",{fixed:{type:sql.Bit,value:originalFixed}});
+        const sameTx=fn=>fn(tq), seen=[], localProtected=await protectedRows(tq);
+        const observe=async(statement,params)=>{
+          if(statement.includes('UPDATE ShipmentDetail SET OutQuantity=')) {
+            assert.equal((await tq('SELECT isFix FROM ShipmentDetail WHERE SdetailKey=1')).recordset[0].isFix,false);
+            seen.push('unfixed-at-write');
+          }
+          return tq(statement,params);
+        };
+        const localMutate=(input,user=importer)=>mutateIncomingApproval({withTransactionFn:sameTx,types:sql,user,input,readBaseline:(query,c)=>incomingApprovalBaseline(query,sql,c)});
+        const correction={...replacement,orderWeek:'45-01',items:[{...replacement.items[0],prodName:'Flower A',boxQty:9,bunchQty:90,steamQty:900,totalPrice:9900}]};
+        let r=await localMutate({action:'create',correction,reason:'45-01 receipt / 45-03 distribution',operationId:randomUUID()});
+        r=await localMutate({action:'submit',requestId:r.requestId,revision:r.revision});
+        r=await localMutate({action:'saveMatching',requestId:r.requestId,revision:r.revision,matching:{rows:[{sdateKey:1,shipmentKey:1,prodKey:1,quantity:50,cost:110,date:'2026-10-08'}]}},support);
+        const preview=await prepareIncomingApproval(tq,sql,await readApproval(tq,sql,r.requestId));
+        assert.equal(preview.canCommit,true,JSON.stringify(preview.issues));
+        assert.equal(preview.groups[0].fixed,originalFixed);
+        const body={requestId:r.requestId,revision:r.revision,operationId:randomUUID(),confirmed:true,digest:preview.digest};
+        const before=JSON.stringify((await tq('SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;')).recordsets);
+        await tq('SAVE TRANSACTION lifecycle_before');
+        const failing=async(statement,params)=>{if(statement.includes('UPDATE ShipmentDate SET ShipmentDtm='))throw Error('fixture intermediate date failure');return observe(statement,params);};
+        await assert.rejects(()=>commitIncomingApproval({withTransactionFn:fn=>fn(failing),types:sql,user:support,input:body}),/fixture intermediate date failure/);
+        await tq('ROLLBACK TRANSACTION lifecycle_before');
+        assert.equal(JSON.stringify((await tq('SELECT * FROM ShipmentDetail ORDER BY SdetailKey;SELECT * FROM Product ORDER BY ProdKey;SELECT * FROM WarehouseDetail ORDER BY WdetailKey;SELECT * FROM ShipmentDate ORDER BY SdateKey;SELECT * FROM StockHistory ORDER BY StockHistoryKey;')).recordsets),before);
+        const productBefore=(await tq('SELECT Stock FROM Product WHERE ProdKey=1')).recordset[0].Stock;
+        await commitIncomingApproval({withTransactionFn:fn=>fn(observe),types:sql,user:support,input:body});
+        assert.deepEqual((await tq('SELECT OutQuantity,Amount,Vat,isFix FROM ShipmentDetail WHERE SdetailKey=1')).recordset,[{OutQuantity:90,Amount:9000,Vat:900,isFix:originalFixed}]);
+        assert.equal((await tq('SELECT Stock FROM Product WHERE ProdKey=1')).recordset[0].Stock,productBefore-10+(originalFixed?10:0),'signed stock delta applied exactly once');
+        assert.deepEqual((await tq('SELECT StockKey,Stock FROM ProductStock WHERE ProdKey=1 AND StockKey IN(2,3,4) ORDER BY StockKey')).recordset,
+          [{StockKey:2,Stock:190},{StockKey:3,Stock:originalFixed?100:190},{StockKey:4,Stock:originalFixed?100:190}],'native current/later/future-year snapshots use final confirmation state');
+        assert.equal((await tq('SELECT SUM(ShipmentQuantity) Qty FROM ShipmentDate WHERE SdetailKey=1')).recordset[0].Qty,90);
+        assert.equal(await protectedRows(tq),localProtected,'prior-year same week and independent Estimate/profit preserved');
+        assert.equal((await tq('SELECT isFix FROM ShipmentMaster WHERE ShipmentKey=1')).recordset[0].isFix,true,'unrelated header status preserved even for unfixed detail');
+        assert(seen.includes('unfixed-at-write'));
+      },{rollbackOnly:true});
+      assert.equal(await erp(),originalErp);
+    }
     // A long-open direct form cannot overwrite an independently changed source row.
     await withTransactionFn(async tq=>{
       const legacy={...replacement,items:[{...replacement.items[0],prodName:'Flower A',boxQty:11,bunchQty:110,steamQty:1100,totalPrice:12100}]};
