@@ -11,8 +11,8 @@ export default withAuth(async function handler(req, res) {
   catch (error) { return res.status(400).json({ success: false, error: error.message }); }
   try {
     const result = await query(erpChangeLogSql, {
-      since: { type: sql.DateTime, value: scope.since },
-      until: { type: sql.DateTime, value: scope.until },
+      since: { type: sql.NVarChar, value: scope.sinceText },
+      until: { type: sql.NVarChar, value: scope.untilText },
       take: { type: sql.Int, value: ERP_CHANGE_LOG_MAX_ROWS + 1 },
     });
     const records = result.recordset || [];
