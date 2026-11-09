@@ -20,6 +20,7 @@ import { persistImportMatchMappings } from '../../../lib/persistImportMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch.js';
 import { loadCustomerMappings } from '../../../lib/customerMappings.js';
 import { mergeCustomerProductMappings } from '../../../lib/orderImportCustomerProductMappings.js';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = {
   api: { bodyParser: false },
@@ -194,6 +195,7 @@ async function handler(req, res) {
       logs.push(...vision.logs);
     } else if (isExcelFile(file)) {
       const buf = fs.readFileSync(file.filepath);
+      mirrorWebUpload({ buffer: buf, filename: file.originalFilename, user: req.user, source: 'orders/import-parse' });
       const workbook = XLSX.read(buf, {
         type: 'buffer',
         cellDates: false,

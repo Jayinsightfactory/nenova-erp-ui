@@ -14,6 +14,7 @@ import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../li
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { applyConfirmedShillaSourceNames, selectShillaImportBatches, shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
 import { normalizePnlPeriod } from '../../../lib/raumPnlPeriod';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = { api: { bodyParser: false } };
 
@@ -128,6 +129,7 @@ async function handler(req, res) {
   if (!file) return res.status(400).json({ success: false, error: 'file 필드 필요' });
   try {
     const raw = fs.readFileSync(file.filepath);
+    mirrorWebUpload({ buffer: raw, filename: file.originalFilename, user: req.user, source: 'raum/pnl-import' });
     const workbook = XLSX.read(raw, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
     const partner = await requirePnlPartner(asField(fields.partner) || asField(fields.partnerCode));
     const explicitYear = String(asField(fields.importYear) || asField(fields.orderYear) || '').trim();

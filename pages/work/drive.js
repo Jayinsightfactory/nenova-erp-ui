@@ -44,6 +44,7 @@ export default function WorkDrivePage() {
   const [periodF, setPeriodF] = useState('');   // 올린 기간: 1 | 7 | 30 (일)
   const [sensF, setSensF] = useState('');       // '' | 'sens' | 'plain'
   const [verF, setVerF] = useState('');         // '' | 'multi'(버전 2개 이상)
+  const [originF, setOriginF] = useState('');   // 출처: '' | 'pc'(데몬 자동) | 'web'(웹 직접 업로드)
   const [sort, setSort] = useState(['uploadedAt', -1]);
   const [sel, setSel] = useState(null);
   const [log, setLog] = useState(null);
@@ -71,10 +72,11 @@ export default function WorkDrivePage() {
     .filter((f) => !since || new Date(f.uploadedAt).getTime() >= since)
     .filter((f) => !sensF || (sensF === 'sens' ? f.sensitive : !f.sensitive))
     .filter((f) => !verF || verCount[f.uploaderName + '|' + f.filename] > 1)
-    .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, verCount]);
+    .filter((f) => !originF || (originF === 'web') === (f.eventType === 'web-upload' || f.hostname === 'web'))
+    .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, originF, verCount]);
   const dirs = useMemo(() => { const m = {}; for (const f of files) if (f.sourceDir) m[f.sourceDir] = (m[f.sourceDir] || 0) + 1; return Object.entries(m).filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]).slice(0, 30); }, [files]); // 5건 이상 폴더만, 많은 순 30개
-  const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || stageF);
-  const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); chooseStage(''); };
+  const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || originF || stageF);
+  const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); setOriginF(''); chooseStage(''); };
 
   // 사람 칩(범위 안에서) · 연도별 차수 · PC별 업로드 현황(사장)
   const people = useMemo(() => { const m = new Map(); for (const f of files.filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files, scope, data]);
@@ -157,18 +159,22 @@ export default function WorkDrivePage() {
   const KIND = { xls: ['XLS', '#1e7e4a', '#dcf3e6'], pdf: ['PDF', '#c2410c', '#ffe4d6'], doc: ['DOC', '#2f5fd0', '#dfe8ff'], img: ['IMG', '#7c3aed', '#ede4ff'], etc: ['FILE', '#6b7280', '#eceef2'] };
   const Badge = ({ f, sm }) => { const [t, c, bg] = KIND[kind(f)]; return <span className={'badge' + (sm ? ' sm' : '')} style={{ color: c, background: bg }}>{t}</span>; };
   const Avatar = ({ name }) => <span className="av">{String(name || '?').slice(0, 1)}</span>;
+  // 출처(2026-11-09): 직원 PC 데몬 자동 업로드 vs 웹 화면 직접 업로드(기능 경로 표시). 색인의 eventType/hostname 기준.
+  const isWeb = (f) => !!f && (f.eventType === 'web-upload' || f.hostname === 'web');
+  const originLabel = (f) => isWeb(f) ? `웹 업로드: ${f.source || f.sourceDir || ''}` : 'PC 자동';
+  const Origin = ({ f }) => isWeb(f) ? <span className="pill web" title={originLabel(f)}>웹</span> : null;
   const STAGE_C = ['#3b6cf6', '#16a34a', '#ea580c', '#7c3aed', '#dc2626', '#ca8a04', '#0891b2', '#9ca3af'];
   const Dot = ({ s }) => <i className="dot" style={{ background: STAGE_C[stages.indexOf(s)] || '#9ca3af' }} />;
 
   const Card = ({ f }) => (
     <div className={'card' + (sel?.id === f.id ? ' on' : '')} onClick={() => pick(f)} title={f.filename}>
       <div className="row"><Badge f={f} sm /><span className="fn">{f.filename}</span></div>
-      <div className="meta"><span>{fileSubcategory(f)}</span><span>·</span><Avatar name={f.uploaderName} />{f.uploaderName || '?'}<span>·</span>{fmtT(f.uploadedAt)}{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒 민감</span>}</div>
+      <div className="meta"><span>{fileSubcategory(f)}</span><span>·</span><Avatar name={f.uploaderName} />{f.uploaderName || '?'}<span>·</span>{fmtT(f.uploadedAt)}{f.version > 1 && <span className="pill">v{f.version}</span>}<Origin f={f} />{f.sensitive && <span className="pill lock">🔒 민감</span>}</div>
     </div>
   );
   const Row = ({ f, withCycle }) => (
     <tr className={sel?.id === f.id ? 'on' : ''} onClick={() => pick(f)}>
-      <td className="fn" title={f.filename}><Badge f={f} sm /><span className="name">{f.filename}</span>{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒</span>}</td>
+      <td className="fn" title={f.filename}><Badge f={f} sm /><span className="name">{f.filename}</span>{f.version > 1 && <span className="pill">v{f.version}</span>}<Origin f={f} />{f.sensitive && <span className="pill lock">🔒</span>}</td>
       <td><span className="who"><Avatar name={f.uploaderName} />{f.uploaderName || '?'}</span></td>
       {withCycle && <td>{f.cycle ? <span className="pill cyc">{f.cycle}</span> : <span className="dim">—</span>}</td>}
       <td title={`${f.stage} › ${fileSubcategory(f)}`}><span className="stg"><Dot s={f.stage} />{fileSubcategory(f) || f.stage}</span></td>
@@ -227,6 +233,7 @@ export default function WorkDrivePage() {
         <Sel value={dirF} onChange={setDirF}><option value="">폴더</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</Sel>
         <Sel value={periodF} onChange={setPeriodF}><option value="">기간</option><option value="1">오늘</option><option value="7">최근 7일</option><option value="30">최근 30일</option></Sel>
         <Sel value={sensF} onChange={setSensF}><option value="">민감</option><option value="sens">🔒 민감만</option><option value="plain">일반만</option></Sel>
+        <Sel value={originF} onChange={setOriginF}><option value="">출처</option><option value="pc">PC 자동</option><option value="web">웹 업로드</option></Sel>
         <Sel value={verF} onChange={setVerF}><option value="">버전</option><option value="multi">2개 이상</option></Sel>
         {anyF && <button className="link" onClick={clearF}>초기화</button>}
         <span className="cnt">{scoped.length.toLocaleString()}건</span>
@@ -309,7 +316,7 @@ export default function WorkDrivePage() {
           </div>
           <dl className="kv">
             <dt>올린 사람</dt><dd><Avatar name={sel.uploaderName} />{sel.uploaderName || '?'} {sel.dept && <span className="dim">· {sel.dept}</span>}</dd>
-            <dt>PC · 폴더</dt><dd>{sel.hostname} <span className="dim">· {sel.sourceDir}</span></dd>
+            <dt>출처</dt><dd>{isWeb(sel) ? <><span className="pill web">웹 업로드</span> <span className="dim">· {sel.source || sel.sourceDir}</span></> : <>PC 자동 <span className="dim">· {sel.hostname} · {sel.sourceDir}</span></>}</dd>
             <dt>차수</dt><dd>{sel.cycle ? `${sel.year}년 ${sel.cycle}차` : <span className="dim">없음</span>}</dd>
             <dt>세부 분류</dt><dd>{fileSubcategory(sel)} <span className="dim">· 파일명 기준</span></dd>
             <dt>단계</dt><dd><span className="stg"><Dot s={sel.stage} />{sel.stage}</span> <span className="dim">{sel.correctedBy && sel.correctedBy !== 'auto-reclassify' ? '· 사람이 교정' : `· 자동 ${Math.round((sel.confidence || 0) * 100)}%`}</span></dd>
@@ -396,7 +403,7 @@ button{font:inherit;color:inherit}
 .wd :global(.card .row){display:flex;align-items:center;gap:7px;min-width:0}.wd :global(.fn){font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .wd :global(.meta){display:flex;align-items:center;gap:5px;color:var(--mu);font-size:11.5px;margin-top:5px;flex-wrap:wrap}.wd :global(.meta .av){width:16px;height:16px;flex-basis:16px;font-size:9.5px}
 .wd :global(.badge){display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:6px;padding:0 6px;height:24px;min-width:34px;flex:0 0 auto}.wd :global(.badge.sm){height:18px;font-size:9px;min-width:30px;border-radius:5px}
-.wd :global(.pill){display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:10px;background:#eceef2;color:#3c4452;margin-left:6px;font-weight:600}.wd :global(.pill.lock){background:#fff1e6;color:#b45309}.wd :global(.pill.cyc){margin:0;background:var(--acs);color:#2450c8}
+.wd :global(.pill){display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:10px;background:#eceef2;color:#3c4452;margin-left:6px;font-weight:600}.wd :global(.pill.lock){background:#fff1e6;color:#b45309}.wd :global(.pill.web){background:#e0f2fe;color:#0369a1}.wd :global(.pill.cyc){margin:0;background:var(--acs);color:#2450c8}
         /* 표 */
 .wd :global(.tbl-wrap){background:var(--sf);border:1px solid var(--ln);border-radius:12px;overflow:auto}
 .wd :global(.lst){width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed}

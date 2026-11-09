@@ -6,6 +6,7 @@ import { parseAllocationWorkbook, buildImportPreview } from '../../../lib/shipme
 import { getEarlyShipmentExclusions } from '../../../lib/weekdayEarlyShipmentStore';
 import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
 import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = {
   api: { bodyParser: false },
@@ -55,6 +56,7 @@ async function handler(req, res) {
       error.statusCode = 409;
       throw error;
     }
+    mirrorWebUpload({ filepath: file.filepath, filename: file.originalFilename, user: req.user, source: 'shipment/distribute-import-preview' });
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     // Only the new workbook's visible contents determine the scope.
     const parsed = parseAllocationWorkbook(XLSX, workbook);

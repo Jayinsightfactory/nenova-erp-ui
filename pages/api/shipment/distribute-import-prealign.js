@@ -6,6 +6,7 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { query, sql, isDeadlockError } from '../../../lib/db';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { parseAllocationWorkbook, buildImportPreview } from '../../../lib/shipmentImport';
+import { mirrorWebUpload } from '../../../lib/workDrive';
 
 export const config = {
   api: { bodyParser: false },
@@ -313,6 +314,7 @@ async function handler(req, res) {
   if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
 
   try {
+    mirrorWebUpload({ filepath: file.filepath, filename: file.originalFilename, user: req.user, source: 'shipment/distribute-import-prealign' });
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     // Only the new workbook's visible contents determine the scope.
     const parsed = parseAllocationWorkbook(XLSX, workbook);

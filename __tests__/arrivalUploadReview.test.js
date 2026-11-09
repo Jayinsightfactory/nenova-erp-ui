@@ -23,13 +23,13 @@ console.log('review: year/country/week, excluded old sheets, missing cost, stale
 import fs from 'node:fs';
 import {namedCountry as named,prepareSheetReviews as prepare,summarizeReview as summary} from '../lib/arrivalUploadReview.js';
 const apiSource=fs.readFileSync(new URL('../pages/api/arrival-cost/upload.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','return withAuth');
-let stored=null,saves=0;
+let stored=null,saves=0,mirrored=[];
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-const handler=await new AsyncFunction('fs','formidable','XLSX','withAuth','query','parseArrivalCostWorkbook','createArrivalCostImport','loadMappings','arrivalUploadViewScope','namedCountry','prepareSheetReviews','summarizeReview','retainUpload','readReview','writeReview','originalBytes',apiSource)(
+const handler=await new AsyncFunction('fs','formidable','XLSX','withAuth','query','parseArrivalCostWorkbook','createArrivalCostImport','loadMappings','arrivalUploadViewScope','namedCountry','prepareSheetReviews','summarizeReview','retainUpload','readReview','writeReview','originalBytes','mirrorWebUpload',apiSource)(
  {readFileSync:()=>bytes,unlinkSync:()=>{}},()=>({parse:(req,cb)=>cb(null,req.fields,req.files||{})}),XLSX,h=>h,async()=>({recordset:[]}),parseArrivalCostWorkbook,async()=>{saves++;return {rowCount:1}},async()=>({}),()=>null,named,prepare,summary,
- (b,fileName,u)=>(stored={id:'11111111-1111-4111-8111-111111111111',fileName,owner:u.userId,sha:'fixture',attempts:[]}), (id,u)=>{if(id!==stored.id||u.userId!==stored.owner)throw Error('owner mismatch');return stored;},r=>{stored=r;},()=>bytes);
+ (b,fileName,u)=>(stored={id:'11111111-1111-4111-8111-111111111111',fileName,owner:u.userId,sha:'fixture',attempts:[]}), (id,u)=>{if(id!==stored.id||u.userId!==stored.owner)throw Error('owner mismatch');return stored;},r=>{stored=r;},()=>bytes,(m)=>{mirrored.push(m);return {ok:true};});
 async function call(fields,files,userId='test'){let status=200,result;await handler({method:'POST',fields,files,user:{userId}},{setHeader(){},status(s){status=s;return this;},json(j){result=j;return j;}});return {status,...result};}
-const initial=await call({action:'preview',orderYear:'2026'},{file:{filepath:'fixture',originalFilename:'41-2 NL 원가.xlsx'}});assert.equal(saves,0);assert.equal(initial.canCommit,false);
+const initial=await call({action:'preview',orderYear:'2026'},{file:{filepath:'fixture',originalFilename:'41-2 NL 원가.xlsx'}});assert.equal(saves,0);assert.equal(mirrored.length,1);assert.equal(mirrored[0].source,'arrival-cost/upload');assert.equal(mirrored[0].filename,'41-2 NL 원가.xlsx'); // 원본이 업무 드라이브로도 미러됨(2026-11-09)assert.equal(initial.canCommit,false);
 const selected=JSON.stringify(selections);
 const reviewed=await call({action:'review',orderYear:'2026',reviewId:stored.id,sheets:selected});assert.equal(reviewed.canCommit,true);assert.equal(saves,0);
 assert.equal((await call({action:'commit',orderYear:'2026',reviewId:stored.id,sheets:selected,digest:'stale'})).status,400);assert.equal(saves,0);
