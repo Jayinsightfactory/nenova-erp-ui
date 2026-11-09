@@ -4,11 +4,23 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {PDFDocument} from 'pdf-lib';
-import {splitPackingPdf,parsePackingChunk,mergePackingChunks,runPackingChunks} from '../lib/importPackingPdfChunks.js';
+import {splitPackingPdf,chunkExtractionPrompt,parsePackingChunk,mergePackingChunks,runPackingChunks} from '../lib/importPackingPdfChunks.js';
 import {startPackingPdfJob,markPackingPdfAttempt,finishPackingPdfJob,readPackingPdfChunk,updatePackingPdfChunk,getPackingPdfJob} from '../lib/importTeamPdfJobs.js';
 const invoice=(id='A',amount=10)=>({supplier:'Farm',invoice:id,currency:'USD',invoice_total:amount,freight_total:0,products:[{description:'Flower',t_price:amount,review_evidence:{description:{page:1,quote:'Flower'}}}]});
 const payload=value=>({content:[{type:'text',text:JSON.stringify(value)}],stop_reason:'end_turn'});
 const segment=(invoices,pages=[1])=>({pages,result:{invoices}});
+
+test('coverage prompt states exact JSON keys, integer local pages, count and supporting pages',()=>{
+  const prompt=chunkExtractionPrompt([7,8,9]);
+  for(const required of ['EXACTLY 3 objects','local page 1, 2, 3','{"page":1,"kind":"invoice"}','INTEGER local page number','blank/certificate/AWB pages as supporting'])assert.ok(prompt.includes(required),required);
+});
+test('coverage errors distinguish malformed AI output from actual missing source pages',()=>{
+  const response=covered_pages=>payload({invoices:[invoice()],covered_pages});
+  assert.throws(()=>parsePackingChunk(response([{page:1,type:'invoice'}]),[1]),/형식.*원본 PDF 누락을 뜻하지/);
+  assert.throws(()=>parsePackingChunk(response([null]),[1]),/형식/);
+  assert.throws(()=>parsePackingChunk(response([{page:1,kind:'invoice'}]),[1,2]),/필요 2쪽.*응답 1쪽/);
+  assert.throws(()=>parsePackingChunk(response([{page:7,kind:'invoice'}]),[7]),/1~1쪽/);
+});
 
 test('actual PDF split covers every original page once and preserves dimensions',async()=>{
   const pdf=await PDFDocument.create();for(let i=0;i<7;i++)pdf.addPage([400+i,600]);
