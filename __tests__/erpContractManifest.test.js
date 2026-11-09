@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 async function main() {
   await import('./estimateShipmentDateSales.test.js');
+  await import('./erpChangeLog.test.js');
   require('node:child_process').execFileSync(process.execPath, [require('node:path').join(__dirname, 'rememberDeviceSession.test.cjs')], {stdio:'inherit',windowsHide:true});
   await import('./invoiceReceiptValidation.test.js');
   await import('./invoiceReceiptWorkflow.test.js');
