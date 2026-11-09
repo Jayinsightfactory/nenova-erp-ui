@@ -2234,3 +2234,11 @@
 - origin/master3f91e0e1 통합, taggedstash 보존. 시작 계정전체41%/reset1794459857(작업단독사용량 아님). 운영저장시험·원장보정0.
 검색어: incoming distribution-review 45-01 45-03 fixed unfixed stockDelta native rollback guide196 guide148.5
 - 후속: origin/master3f91 통합 뒤 정식 `npm run build` exit0, 실제 MP4 재생·역할/목차·한국어VTT·다운로드·접기정지·1920/390 player PASS. 모달 Space 열기/체크, Arrow 차수선택까지 PASS. 최종 영상 중간/끝 프레임 시각확인 PASS. 전체ERP CI/병합/운영배포·GET smoke는 PR 후속(미검증).
+
+## 2026-11-09 즐겨찾기 즉시 조회·단가 표시
+- 요청: 과거 정산맞춤이 아닌 앞으로 업체 클릭 한 번으로 매출·품목수량·단가 즉시 확인. 저장요일+클릭시 KST오늘로 기존 GET12기간, 최신2개만 compact 표시. 이전/다음2기간·전체이력/더보기 유지. 직접날짜 범위는 축소하지 않음.
+- 저장판매단가(VAT포함) 항상 표시, 복수/0단가·단가별 표시기간수량 보존(평균없음). 공급가/실제VAT/합계 별도 요약. 기존 API/SQL/정산귀속·품목키·날짜·가격 원장 변경0.
+- dnSpy 실제CLI 재실행 및 SELECT12행721000원중복0. 대상helper·실제1920/390 브라우저 원클릭/재조회변경단가·최신2/과거경계추가·실패페이지보존/0복수단가/요약/키보드/캘린더 PASS. 가이드 재촬영 및 fullgate/build/CI/배포 진행(미검증).
+검색어: date-sales-quick-favorite 즐겨찾기 원클릭 판매단가 최근2기간 공급가 VAT
+검증: 필수 ERP전체/manifest201/dnSpy/쓰기guard/가이드/빌드 및 운영빌드 Chrome dry-run 통과. 원장쓰기0. CI/배포는 진행 예정.
+검색어: date-sales-quick favorite latest-two stored-price VAT

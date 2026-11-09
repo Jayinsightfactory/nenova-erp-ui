@@ -222,18 +222,18 @@
             },
             {
               "scenario": "range",
-              "title": "달력에서 조회 범위 선택",
-              "seconds": 12.159
+              "title": "원하는 기간과 매출 확인",
+              "seconds": 13.254
             },
             {
               "scenario": "source",
               "title": "일별 수량·원차수·매출 합계",
-              "seconds": 25.412
+              "seconds": 26.505
             },
             {
               "scenario": "history",
               "title": "즐겨찾기와 이전 정산 이력",
-              "seconds": 45.595
+              "seconds": 46.694
             }
           ]
         }
