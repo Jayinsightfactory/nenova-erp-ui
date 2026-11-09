@@ -1,5 +1,7 @@
 import {withAuth} from '../../../../lib/auth';
 import {readPackingProviderResponse,packingProviderFailureCode} from '../../../../lib/importPackingProviderStream';
+import {PACKING_CHUNK_VERSION,splitPackingPdf,chunkExtractionPrompt,runPackingChunks} from '../../../../lib/importPackingPdfChunks';
+import {readPackingPdfChunk,updatePackingPdfChunk} from '../../../../lib/importTeamPdfJobs';
 import {validatePackingPdf} from '../../../../lib/importTeamPdf';
 import {buildPrompt} from '../../../../lib/importPackingPrompt';
 import {trackLLMCall} from '../../../../lib/chat/costTracker';
@@ -38,6 +40,33 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key,u
   try{
     if(!await markPackingPdfAttempt(uid,jobId,token))return null;
     dispatched=true;
+    if(parsed.country==='CO'){
+      const plan=await splitPackingPdf(parsed.pdfBase64);
+      let firstDispatch=true;
+      const data=await runPackingChunks({plan,
+        load:(index,pages)=>readPackingPdfChunk(uid,jobId,token,index,pages),
+        claim:(index,pages)=>updatePackingPdfChunk(uid,jobId,token,{index,pages}),
+        save:(index,pages,result)=>updatePackingPdfChunk(uid,jobId,token,{index,pages,result}),
+        invalidate:(index,pages)=>updatePackingPdfChunk(uid,jobId,token,{index,pages,invalidate:true}),
+        onProgress:progress=>updatePackingPdfChunk(uid,jobId,token,{index:progress.current-1,pages:plan[progress.current-1].pages,progress}),
+        analyze:async(chunk,index)=>{
+          // Admission already reserved the first call; cached chunks consume no quota.
+          if(!firstDispatch)await reservePackingPdfRequest(uid);
+          firstDispatch=false;
+          const response=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},signal:AbortSignal.timeout(PDF_JOB_TIMEOUT_MS),
+            body:JSON.stringify({model:PDF_ANALYSIS_MODEL,stream:true,max_tokens:24000,system:prompt+chunkExtractionPrompt(chunk.pages),
+              messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:chunk.pdfBase64}},{type:'text',text:'Extract only this source segment. Return complete JSON.'}]}]})
+          });
+          if(!response.ok)throw Object.assign(Error('PDF segment provider failed'),{code:'PDF_STREAM_PROVIDER_ERROR'});
+          const result=await readPackingProviderResponse(response);
+          trackLLMCall({userId:uid,model:PDF_ANALYSIS_MODEL,inputTokens:result.usage?.input_tokens||0,outputTokens:result.usage?.output_tokens||0,purpose:'import-team-packing-pdf'});
+          return result;
+        }});
+      const completed=await finishPackingPdfJob(uid,jobId,token,{result:{...data,source:'ai',cacheSaved:false}});
+      if(completed?.status==='SUCCEEDED'&&await writePackingPdfCache(uid,cacheKey,parsed.country,data))return await markPackingPdfCacheSaved(uid,jobId,token)||completed;
+      return completed;
+    }
     const docling=useDocling?await acquireDoclingBlock(parsed):{block:'',meta:{used:false,reason:'flag-off-or-nl'}};
     const documents=[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.pdfBase64}},
       ...(parsed.awbPdfBase64?[{type:'document',source:{type:'base64',media_type:'application/pdf',data:parsed.awbPdfBase64}}]:[])];
@@ -65,7 +94,7 @@ async function executeProviderOnce({uid,jobId,token,cacheKey,parsed,prompt,key,u
   }catch(e){
     const uncertain=dispatched;
     console.error('[packing-pdf-provider]',JSON.stringify({jobId,code:packingProviderFailureCode(e)}));
-    const message=uncertain?'PDF 분석 호출 결과를 확인할 수 없습니다. 자동 재호출하지 않습니다. 추가 비용을 확인한 뒤 다시 분석하세요.':'PDF 분석을 시작하지 못했습니다. 파일은 유지됩니다.';
+    const message=e?.code==='PDF_CHUNK_VALIDATION'?e.message:uncertain?'PDF 분석 호출 결과를 확인할 수 없습니다. 완료 구간은 보관됩니다. 자동 재호출하지 않습니다. 추가 비용을 확인한 뒤 실패 구간만 다시 분석하세요.':'PDF 분석을 시작하지 못했습니다. 파일은 유지됩니다.';
     try{return await finishPackingPdfJob(uid,jobId,token,{error:{message,...(uncertain?{code:'PDF_ANALYSIS_UNCERTAIN'}:{})}});}catch{return null;}
   }
 }
@@ -101,7 +130,7 @@ export default withAuth(async(req,res)=>{
   const uid=String(req.user.userId),prompt=buildPrompt(parsed.country,{awbDocument:Boolean(parsed.awbPdfBase64)});
   // docling 전처리 여부가 결과에 영향 줄 수 있으므로 캐시 키를 분리(끄면 기존 키 그대로 = 전/후 캐시 오염 없음).
   const useDocling=doclingApplies(parsed.country);
-  const cacheKey=packingPdfCacheKey({...parsed,prompt:useDocling?prompt+'\n[docling-preprocess-v1]':prompt});
+  const cacheKey=packingPdfCacheKey({...parsed,prompt:parsed.country==='CO'?prompt+'\n['+PACKING_CHUNK_VERSION+']':useDocling?prompt+'\n[docling-preprocess-v1]':prompt});
   res.setHeader('Cache-Control','private, no-store');
   try{
     const retryJobId=req.body?.retryJobId;
