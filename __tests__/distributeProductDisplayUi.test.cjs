@@ -22,6 +22,8 @@ function load(source, localRequire) {
   new Function('require','module','exports',transform(source))(localRequire,mod,mod.exports);
   return mod.exports;
 }
+// lib 끼리의 상대 import(./customerSearch.js → ./qwertyHangul.js)는 lib 기준으로 해석
+const libRequire = name => name.startsWith('./') ? load(fs.readFileSync('lib/'+name.slice(2).replace(/\.js$/,'')+'.js','utf8'),libRequire) : require(name);
 const display = load(fs.readFileSync('lib/distributeProductDisplay.js','utf8'),require);
 const Page = load(source, name=>{
   if(name.endsWith('/useApi')) return {apiGet:()=>{throw Error('Display fixture must not query ERP');}};
@@ -29,7 +31,8 @@ const Page = load(source, name=>{
     formatWeekDisplay:w=>String(w).replace(/^2026-/,'')};
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
-  if(name.endsWith('/shipmentDistributionWorkspace.js')) return load(fs.readFileSync('lib/shipmentDistributionWorkspace.js','utf8'),require);
+  if(name.endsWith('/shipmentDistributionWorkspace.js')) return libRequire('./shipmentDistributionWorkspace.js');
+  if(/\/lib\/(displayName|customerSearch|qwertyHangul)$/.test(name)) return libRequire('./'+name.split('/').pop());
   if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
