@@ -73,6 +73,13 @@
   ],
   "actions": [
     {
+      "name": "REVALIDATE_SAVED_PDF_RESPONSE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "same authenticated owner and exact PDF cache key; fenced failed-job parser replay only; retain successful chunks; persist text/stop_reason before parsing in private hashed 0600 response files, bounded 2MiB/240 responses plus active references/30days; never expose raw in polling or logs; no API key, provider, quota, SQL or ERP writer calls; legacy missing raw explicitly reported, never fabricated"
+    },
+    {
       "name": "ANALYZE_CHINA_TEXT_PDF_LOCAL",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",

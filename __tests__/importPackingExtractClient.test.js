@@ -15,6 +15,15 @@ test('local failure never calls paid AI without explicit selection',async()=>{
 const jobId='11111111-1111-4111-8111-111111111111';
 const result={content:[{type:'text',text:'{"invoices":[]}'}],stop_reason:'end_turn',source:'ai',cacheSaved:true};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status});
+
+test('free saved-response replay never runs local extraction or starts another paid job',async()=>{
+ let calls=0;
+ const actual=await extractPackingDocument({country:'CO',pdfBase64:'saved-source',revalidateOnly:true,readPdf:()=>assert.fail('no local source read'),fetchImpl:async(url,options)=>{
+  calls++;const body=JSON.parse(options.body);assert.equal(body.revalidateOnly,true);assert.equal(body.retryJobId,undefined);
+  return json({jobId,status:'SUCCEEDED',result:{...result,source:'saved-response'}});
+ }});
+ assert.equal(calls,1);assert.equal(actual.source,'saved-response');
+});
 test('async accepted analysis polls GET only and preserves the full response',async()=>{
  const methods=[],progress=[];let reads=0;
  const fetchImpl=async(url,options)=>{

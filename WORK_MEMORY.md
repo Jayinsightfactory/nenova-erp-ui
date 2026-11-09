@@ -2254,3 +2254,9 @@
 - raw 응답 미보관이라 실제 반환형식/누락 원인 확정불가. 프롬프트에는 page/kind 정확 JSON 스키마가 없는데 검증기는 요구하는 계약 불일치 확인. 정확 키/정수로컬번호/배열길이/빈페이지분류 명시, 응답형식·개수·중복·범위 각각 안내. 원본 누락으로 단정 금지. coverage/금액 검증 완화0.
 - fresh nw-pdf-coverage-1109 @fed7c5ad, 표적26 PASS. 전체ERP/빌드/CI/보완배포 진행 중. 추가 유료 재분석은 미실행·새 선택 요청. 실제46-1 성공 미검증.
 검색어: PDF coverage page kind 형식누락 원본누락오진 46-1 fed7c5ad
+
+## 2026-11-09 실패 응답 저장·무료 재검증
+- fresh nw-pdf-response-replay-1109 @90ccba29. 이전실파일3/15→4 JSON실패, raw와비용로그본문 미보관이므로4원인확정불가/새유료0. parse전 private raw sidecar(0600/700,2MiB·30일·240+active,SHA/key/pages)저장. 기존3보존,완결JSON포장만분리·잘린/다중/문법오류반려.
+- revalidateOnly:true는owner+sourcekey FAILED job만 API키/quota/provider/SQL앞에서무료분기,누락4는명시/추가분석0. 선택복구버튼은ERP준비와분리,raw일반GET/로그노출0. 실제4th 원문복구/해결완료로오인보고금지.
+- 표적45/manifest201/writeguard/dnSpy/guide PASS. fullERP/build/CI/배포/실브라우저후속 진행 중. 운영DB쓰기0/새유료분석0.
+검색어: revalidateOnly savePackingPdfChunkResponse MISSING_SAVED_RESPONSE 무료재검증 3of15 raw-sidecar
