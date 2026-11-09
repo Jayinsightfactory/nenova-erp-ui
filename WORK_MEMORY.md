@@ -2234,3 +2234,5 @@
 - origin/master3f91e0e1 통합, taggedstash 보존. 시작 계정전체41%/reset1794459857(작업단독사용량 아님). 운영저장시험·원장보정0.
 검색어: incoming distribution-review 45-01 45-03 fixed unfixed stockDelta native rollback guide196 guide148.5
 - 후속: origin/master3f91 통합 뒤 정식 `npm run build` exit0, 실제 MP4 재생·역할/목차·한국어VTT·다운로드·접기정지·1920/390 player PASS. 모달 Space 열기/체크, Arrow 차수선택까지 PASS. 최종 영상 중간/끝 프레임 시각확인 PASS. 전체ERP CI/병합/운영배포·GET smoke는 PR 후속(미검증).
+- 완료 후속: PR1619 전체ERP/webpack CI42546188817 PASS→squash0a16fb9a(master)→Cafe24배포42546810366·실브라우저hydration PASS. 운영 `v1.0.2·0a16fb9a`/ping200/approval GET200, import/tools·incoming 두 진입점, 실제 수입부196초·지원148.5초 영상재생·한국어자막cue·목차/다운로드·390폭 PASS, page/hydration오류0·운영ERP쓰기0. 최종 릴리스 근거는 PR1619 본문에도 기록했다. 이 완료 메모·세션 후속은 로컬 기록이며 앱 코드는 병합·배포 완료.
+검색어: PR1619 0a16fb9a deploy42546810366 CI42546188817 liveGET hydration0

@@ -5,7 +5,7 @@
 | 세션 | 2026-11-09 incoming-distribution-review |
 | 화면 | 영업지원 입고 정정 검토·확정 |
 | 원장 부작용 | 기존 승인 원자 writer, 선택 기존확정 상세의 임시해제/복원 추가; 운영쓰기0 |
-| PR/배포 | 진행 중, 미검증 |
+| PR/배포 | PR1619·squash0a16fb9a·Cafe2442546810366 성공 |
 | 작업트리 | C:/Users/USER/nw-incoming-distribution-review-1109 |
 | 사용량 | 시작 계정전체41%, reset1794459857; 작업 단독 비용 아님 |
 
@@ -37,4 +37,14 @@
 
 정식 `npm run build` exit0 및 실제 MP4 player(역할/목차/한국어 자막/다운로드/접기정지/1920·390) PASS. 모달의 Space 열기·체크와 방향키 차수 선택도 PASS. 최종 영상의 중간·끝 프레임을 직접 시각 확인했다. PR 전체 ERP CI/병합/Cafe24 배포/운영 읽기 smoke는 후속 진행(미검증). .verify의 probe/원본 decompile/임시 녹화는 커밋 제외.
 
+### 2. 완료 후속 — CI·배포·운영 읽기 검증
+
+**A.** [PR1619](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1619)의 [전체 ERP/webpack CI42546188817](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/42546188817)가 통과해 master에 `0a16fb9a3fd8367f8b82e04a192d7908aa0ecf19`로 squash 병합했다. [Cafe24 배포42546810366](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/42546810366)는 배포용 전체 ERP·교차연도 검증, 빌드, 전송, 실브라우저 hydration 검사까지 성공했다.
+
+운영 읽기 검증 PASS: 버전 `v1.0.2·0a16fb9a`, ping200/승인목록 GET200, `/import/tools?tab=incoming`와 `/incoming` 진입, 두 역할 실제196초/148.5초 영상 재생·목차·한국어 자막 cue·다운로드 링크·390px 범위, page/hydration 오류0. 모든 non-GET은 차단했으며 운영 ERP 쓰기0이다. 운영 승인 저장·EXE GUI 조작은 수행하지 않았다. 필수 구현·검증·가이드·병합·배포·스모크는 완료됐다.
+
+이 완료 후속과 WORK_MEMORY 마지막 릴리스 메모는 로컬 기록이며 별도 문서 전용 PR/중복 배포를 만들지 않았다. 앱 소스 및 가이드 자산은 PR1619로 전부 병합됐다. 같은 릴리스 근거는 PR 본문에도 기록한다.
+
 검색어: incoming distribution-review 45-01 45-03 fixed unfixed native stockDelta rollback
+
+종료 사용량: 계정 주간 누적44%, reset1794459856. 시작41% reset1794459857와 응답1초차이라 정식작업별차감률은산정하지않음. 병행채팅포함계정누적. 추가범위없이단일Sol구현/중복검증축소정책유지.
