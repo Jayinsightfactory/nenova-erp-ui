@@ -1,0 +1,53 @@
+{
+  "id": "erp-change-log",
+  "title": "Orbit 업무 기록 대조용 전산 변경 로그(읽기 전용)",
+  "scope": [
+    "pages/api/ops/erp-change-log.js",
+    "lib/erpChangeLog.js",
+    "__tests__/erpChangeLog.test.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_ERP_CHANGE_LOG",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "OrderYear와 OrderWeek를 행마다 함께 반환하므로 연도가 다른 같은 차수 변경도 구분된다. 조회는 시각 구간(최대 26시간) 기준이며 쓰기 없음."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpChangeLog.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "ClassOrderHistory / ShipmentHistory 기록 구조 (읽기 전용 조회)",
+    "methods": [
+      "ClassOrderHistory.Insert"
+    ],
+    "tables": [
+      "OrderHistory",
+      "ShipmentHistory",
+      "OrderDetail",
+      "OrderMaster",
+      "ShipmentDetail",
+      "ShipmentMaster",
+      "Customer",
+      "Product"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
