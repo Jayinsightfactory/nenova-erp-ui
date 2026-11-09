@@ -54,7 +54,7 @@ const api = fs.readFileSync(path.join(process.cwd(),'pages/api/orders/shipment-l
 assert.match(api,/om\.OrderYear=@year AND om\.OrderWeek=@week AND om\.CustKey=@ck/);
 assert.match(api,/sm\.OrderYear=@year AND sm\.OrderWeek=@week AND sm\.CustKey=@ck/);
 const parseApi = fs.readFileSync(path.join(process.cwd(),'pages/api/orders/import-parse.js'),'utf8');
-assert.match(parseApi,/resolveImportCustomer\(parsedMetadata\.customerName/);
+assert.match(parseApi,/resolveUploadCustomer\(parsedMetadata\.customerName/);
 assert.match(parseApi, /mergeCustomerProductMappings\(globalMappings, custKey, true\)/,
   '업로드 파싱은 선택·자동매칭된 업체의 품목 매칭을 공용매칭보다 우선해야 한다');
 assert.match(parseApi, /CustomerUsageCount/,

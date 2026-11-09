@@ -17,7 +17,7 @@ import { matchImportRows, summarizeMatches } from '../../../lib/orderImportMatch
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadImportUnits, learnUnitsFromRows } from '../../../lib/orderImportUnits';
 import { persistImportMatchMappings } from '../../../lib/persistImportMappings';
-import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch.js';
+import { resolveUploadCustomer } from '../../../lib/orderImportWorkspace.js';
 import { loadCustomerMappings } from '../../../lib/customerMappings.js';
 import { mergeCustomerProductMappings } from '../../../lib/orderImportCustomerProductMappings.js';
 import { mirrorWebUpload } from '../../../lib/workDrive';
@@ -173,7 +173,6 @@ async function handler(req, res) {
   const wantedSheet = String(fieldVal(fields, 'sheetName') || '').trim();
   const rawOverrides = fieldVal(fields, 'productOverrides');
   const requestedCustKey = Number(fieldVal(fields, 'custKey') || 0);
-  const requestedCustName = String(fieldVal(fields, 'custName') || '').trim();
   let productOverrides = {};
   if (rawOverrides) {
     try { productOverrides = JSON.parse(rawOverrides) || {}; } catch {}
@@ -237,7 +236,7 @@ async function handler(req, res) {
       const customerResult = await query(`SELECT CustKey,CustName,CustCode,OrderCode,CustArea FROM Customer WHERE ISNULL(isDeleted,0)=0`);
       const customers = customerResult.recordset || [];
       if (parsedMetadata?.customerName) {
-        const resolved = resolveImportCustomer(parsedMetadata.customerName, customers, {
+        const resolved = resolveUploadCustomer(parsedMetadata.customerName, customers, {
           savedMappings: await loadCustomerMappings(true),
         });
         if (resolved.custKey) matchedCustomer = {
@@ -247,15 +246,7 @@ async function handler(req, res) {
           fromMapping: resolved.fromMapping,
         };
       }
-      if (!matchedCustomer && requestedCustKey > 0) {
-        const selected = customers.find(row => Number(row.CustKey) === requestedCustKey);
-        if (selected) matchedCustomer = {
-          CustKey: selected.CustKey,
-          CustName: selected.CustName || requestedCustName,
-          confidence: 1,
-          fromSelection: true,
-        };
-      }
+
     }
 
     const requestedOrderYear = Number(fieldVal(fields, 'orderYear') || new Date().getFullYear());

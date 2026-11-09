@@ -1134,3 +1134,6 @@ main완료 후 live week-check/stock notes/output이 각각 fullcalc를 시작�
 
 ## 2026-11-06 source fence conflict 원인관측
 output409/stocknotes500 반복에서원인을추측해fence를좁히지않는다. 현재whole2025/2026+global/합산invoice를그대로비교하고JSON불일치409직전owner1회component/year/major/kind/최대20·timestampOnly삼상태·invoiceChanged/coveredYears·PID/UTC만메모리관측한다. checksum/M/digest값0, 새SQL/수식/timeout/미래reference범위변경0, logger실패409보존/ERPctxbypass. timestampOnly=true도409를해제하지않는다. runtime4MiB/최근30분 strictschema집계·과거PID보존. stocknotes는statusCode409+exactPROFIT_SOURCES_CHANGED만generic문구와409/code전달, unknown/ECANCEL500유지. 실제handler/reader/VM/privacy/crossyear27대상PASS, 계약profit-source-fence-diagnostic/계획profit-source-fence-diagnostic-2026-11-06. quietmeta동일·GETwrite미발견은이전409원인부재증거가아님. 추가SQL/probe/운영설정0·최종운영반복미검증.
+
+## 2026-11-09 업로드 참고 미우 시트 우선선택
+47차 남대문경원/원당태광 실제 업로드는 본문7/4행보다 참고 미우13행의 점수가 높아 참고 시트를 선택했다. 첫12행 셀을 이어 붙여 미우 제목과07차 열도 같은 제목으로 파싱했다. 파일 업체+차수와 일치하는 본문 우선, 제목 셀별 파싱, 업로드 전용 경원원예 유일명 별칭, 미매칭 시 이전업체 승계 금지로 차단한다. 동일 원본 재분석47차/7·4행/277·491 확인. 등록 기본값order, 분배단가수정 별도 담당자별 화면. ERP 원장보정0. 실제API/합성다중시트/이전선택456 반례와 기준표는 plans/upload-customer-distribution-2026-11-09.md, 계약 order-import-shipment-list.

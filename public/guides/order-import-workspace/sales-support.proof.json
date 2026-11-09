@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-09T07:16:39.262Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 13.5,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "e096731a634dd8f57c37040bd89d385afbe7aaa504719d44c0bec27b4fe30cb4",
+  "captionsSha256": "a2264b8c9259d09e6cfce7136cb1930549b83f08ad2dc0ca50f8c6a1474bb756",
+  "sourceHashes": {
+    "pages/orders/import.js": "1e0c05bf5373ecdc1905cd9245194c4e5f8548360e910639ca218c92d04976b0",
+    "lib/orderImportWorkspace.js": "dc6afd9b5e93267e1c09e0b3d179824b381d5a29cb396f562836632bea1c3f2d"
+  }
+}
