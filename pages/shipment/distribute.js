@@ -10,7 +10,7 @@ import { customerMatchesSearch } from '../../lib/customerSearch';
 import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
-  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope,
+  planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows,
   sortDistributionCustomers, sortDistributionProducts, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
@@ -1338,6 +1338,14 @@ export default function Distribute() {
     ? [...pairRows, ...sortDistributionProducts(products.filter(p => matchItemName(p, custItemFilter) && !pairRows.some(r => Number(r.ProdKey) === Number(p.ProdKey))))
       .map(p => ({ ...p, extra: [], searchOnly: true }))]
     : pairRows;
+  // 업체 한 곳 보기: 검색어가 있으면 주문(분배) 있는 품목을 먼저, 그 뒤에 주문 없는 품목(이 차수 품종 목록)도 보여 수량을 바로 넣을 수 있게.
+  // 주문 없는 행에 수량을 넣으면 임시 행(주문수량 0)을 만들고 저장 시 주문등록 후 분배.
+  const custSearchRows = distributionCustomerSearchRows(custItems, products, custItemFilter, matchItemName)
+    .filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
+  const addCustSearchItem = (prod, outQty) => {
+    setCustItems(prev => prev.some(i => Number(i.ProdKey) === Number(prod.ProdKey)) ? prev : [...prev, pendingDistributionItem(prod)]);
+    setCustEditInputs(prev => ({ ...prev, [prod.ProdKey]: { ...(prev[prod.ProdKey] || {}), outQty, cost: prev[prod.ProdKey]?.cost ?? (prod.Cost ?? 0) } }));
+  };
   const fixedCount = (items) => items.filter(i => fixedScopeMap[Number(i.ProdKey)]?.fixed).length;
 
   // 품종 즐겨찾기 버튼: 이 차수 품종 목록에 있는 것만 (없는 차수에선 숨김)
@@ -2384,9 +2392,47 @@ export default function Distribute() {
                           </tr>
                         </thead>
                         <tbody>
-                          {custItems.length === 0
-                            ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음</td></tr>
-                            : custItems.filter(item => matchItemName(item, custItemFilter)).filter(item => !pairGroupFilter || distributionPairGroupKey(item) === pairGroupFilter).map((item,i) => {
+                          {custSearchRows.length === 0
+                            ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>{String(custItemFilter||'').trim() ? '검색 결과 없음' : '주문 데이터 없음'}</td></tr>
+                            : custSearchRows.map((item,i) => {
+                              if (item.searchOnly) {
+                                // 주문 없는 품목 (검색으로만 표시) — 수량을 넣으면 주문등록 예정 행으로 바뀜
+                                return (
+                                  <tr key={`search-${item.ProdKey}`} data-ai-verify={`search-only-${selectedCust.CustKey}-${item.ProdKey}`} style={{background:'#fafafa',color:'var(--text2)'}}>
+                                    <td style={{fontSize:11}}>{item.CounName}</td>
+                                    <td style={{fontSize:11}}>{item.FlowerName}</td>
+                                    <td style={{fontWeight:500}}>{item.DisplayName || item.ProdName} <span style={{fontSize:10,color:'#b45309'}}>주문 없음</span></td>
+                                    <td style={{fontSize:11}}>{item.OutUnit}</td>
+                                    <td className="num" style={{color:'var(--text3)'}}>0.00</td>
+                                    <td>
+                                      <input type="number" min={0} step={0.1} value="" placeholder="수량" data-distribute-qty="true" aria-keyshortcuts="Enter" disabled={saving || loading}
+                                        data-ai-verify={`qty-${selectedCust.CustKey}-${item.ProdKey}`}
+                                        aria-label={`${selectedCust.CustName} ${item.ProdName} 출고수량 (${item.OutUnit || ''})`}
+                                        title="주문 없음: 입력하면 저장 시 주문등록 후 분배"
+                                        onKeyDown={handleQuantityEnter}
+                                        onChange={e=>addCustSearchItem(item, e.target.value)}
+                                        style={{width:80,height:26,border:'1px dashed var(--border2)',borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 4px',background:'var(--bg)'}}
+                                      />
+                                    </td>
+                                    <td style={{whiteSpace:'nowrap'}}>
+                                      {['박스', '단', '송이'].map(unit => {
+                                        const f = distributionUnitFactor(item, unit);
+                                        return (
+                                          <input key={unit} type="number" min={0} step={0.01} placeholder={unit} disabled={saving || loading || !f} value=""
+                                            data-ai-verify={`qty-${selectedCust.CustKey}-${item.ProdKey}-${unit}`} aria-label={`${selectedCust.CustName} ${item.ProdName} 출고수량 (${unit})`}
+                                            title={f ? `${unit} 입력 → 저장 단위 ${item.OutUnit}` : `${unit}: 입수 정보가 없어 환산 불가`}
+                                            onChange={e=>addCustSearchItem(item, toNativeQty(e.target.value, f))}
+                                            style={{width:52,height:26,marginRight:2,border:'1px dashed var(--border2)',borderRadius:4,textAlign:'right',fontSize:12,fontFamily:'var(--mono)',padding:'0 3px',background:'var(--bg)',color:'var(--text2)'}} />
+                                        );
+                                      })}
+                                    </td>
+                                    <td className="num" style={{color:'var(--text3)'}}>0.00</td>
+                                    <td className="num" style={{color:'var(--text3)'}}>{item.Cost ? fmt(Math.round(item.Cost)) : '—'}</td>
+                                    <td className="num" style={{color:'var(--text3)'}}>—</td>
+                                    <td style={{fontSize:11,color:'var(--text3)'}}>수량 입력 시 저장할 때 주문등록 후 분배</td>
+                                  </tr>
+                                );
+                              }
                               const edit = custEditInputs[item.ProdKey] || {};
                               const outVal = edit.outQty !== undefined ? edit.outQty : (item.출고수량 || 0);
                               const costVal = edit.cost !== undefined ? edit.cost : (item.Cost || 0);

@@ -116,3 +116,15 @@ test('pair view 품종 buttons and 박스/단 input unit keep OutUnit storage', 
   assert.equal(distributionUnitFactor(rose, ''), 1);
   assert.equal(distributionUnitFactor({ OutUnit: '단', BunchOf1Box: 0 }, '박스'), null, 'missing factor → native input');
 });
+
+test('customer item search keeps ordered items first and appends unordered products as searchOnly', async () => {
+  const { distributionCustomerSearchRows } = await load();
+  const matches = (row, q) => `${row.ProdName}`.toLowerCase().includes(q.toLowerCase());
+  const custItems = [{ ProdKey: 2, ProdName: 'Brassica Red', 주문수량: 10 }, { ProdKey: 9, ProdName: 'Rose', 주문수량: 5 }];
+  const products = [{ ProdKey: 1, ProdName: 'Brassica White' }, { ProdKey: 2, ProdName: 'Brassica Red' }, { ProdKey: 3, ProdName: 'Bromelia' }, { ProdKey: 9, ProdName: 'Rose' }];
+  const rows = distributionCustomerSearchRows(custItems, products, 'br', matches);
+  assert.deepEqual(rows.map(r => r.ProdKey), [2, 1, 3], 'ordered item first, then unordered A-Z');
+  assert.deepEqual(rows.map(r => !!r.searchOnly), [false, true, true]);
+  assert.deepEqual(distributionCustomerSearchRows(custItems, products, '', matches).map(r => r.ProdKey), [2, 9], 'no search → only ordered items');
+  assert.deepEqual(distributionCustomerSearchRows([], products, 'rose', matches).map(r => [r.ProdKey, !!r.searchOnly]), [[9, true]], 'no orders → unordered product still appears');
+});
