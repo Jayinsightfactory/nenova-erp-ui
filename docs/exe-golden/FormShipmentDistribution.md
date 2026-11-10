@@ -601,3 +601,16 @@ UPDATE 때만 동작하고 Date 트리거 없음. 운영 테스트 저장은 하
 확정·주문·농장·재고·Estimate·손익 보존 및 stale/rollback을 실행한다.
 계약: shipment-distribution-dates.json. 상세 기준/부작용 표:
 [계획](../plans/distribution-country-dates-2026-11-10.md).
+
+## 2026-11-10 국가 선택 / 분배 전 업체 후보 (후속)
+실제 설치 EXE CLI FormShipmentDistribution을 재추출(outputs/native-country.txt).
+GetCustomerList의 ViewOrder+ViewShipment+ShipmentDate INNER JOIN 때문에 미분배 주문업체가
+출고분배 작업 후보에서 빠지는 것을 확인. 기존 native customers endpoint는 유지하고
+웹 workspaceCustomers SELECT만 별도 제공한다. 활성 주문상세/품목/업체를 선택 연도·차수·
+국가/품종으로 읽으며 분배/출고일/Stock JOIN을 요구하지 않는다. 0업무후보면 활성 업체를
+noOrder 후보로 표시하고 안내. 국가명은 country:: 읽기 전용 선택키, 꽃 단위 CountryFlower를
+조작하지 않으며 국가 전체 상태의 native 분배/확정/취소 실행은 품종 선택 안내로 차단한다.
+운영 SELECT: 2025/2026 태국45-01 품종별 주문업체가 있으나 native 날짜연결 업체0,
+태국45-03 주문0. 이 후속은 Order/Shipment/Date/Farm/Stock/Estimate/Profit 쓰기0.
+격리 SQL 검증은 주문만 존재/국가·품종/2025 sentinel99/0주문45-03 전체활성후보/
+삭제업체·삭제주문/조회에 의한 원장불변을 확인했다.
