@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {createProfitReadFailureDiagnostic:create,sourceChangeSummary:summary,timestampOnly,SOURCE_MARKER}=require('../lib/profitReadFailureDiagnostic.cjs');
 const api=fs.readFileSync(path.join(__dirname,'../pages/api/sales/profit-report.js'),'utf8'),time=Date.parse('2026-11-06T12:00:00.000Z');
-const signature=(erp,invoice='PRIVATE_DIGEST')=>JSON.stringify({erp,invoice});
+const signature=(erp,invoice='PRIVATE_DIGEST',settlement='PRIVATE_SETTLEMENT_DIGEST')=>JSON.stringify({erp,invoice,settlement});
 test('memory-only source diff emits safe component scopes, bounded changes, timestamp-only tri-state and invoice coverage only',()=>{
  const before=signature([['SHIP:2026:45','2|17|2026-11-06T19:40:00'],['WH:2025:44','1|2|'],['PRODUCT::','99|-77|'],['FC:2026:44','9|3|PRIVATE_M']]);
  const after=signature([['SHIP:2026:45','2|17|2026-11-06T19:41:00'],['PRODUCT::','99|-78|'],['FC:2026:44','9|3|PRIVATE_NEW_M'],['STOCK:2026:44','1|88|']], 'PRIVATE_NEW_DIGEST');
@@ -20,25 +20,26 @@ test('source change owner logs once, success0, logger failure cannot escape, mal
  for(const major of [0,false])create({orderYear:'2026',major,pool:{},log:x=>logs.push(x)}).sourceChanged(before,after,['2026']);assert.equal(logs.length,1);
  assert.doesNotThrow(()=>d.sourceChanged('PRIVATE_BROKEN',after,['2026']));
 });
-async function reader({changed=true,invoiceOnly=false,throwLogger=false}={}){
+async function reader({changed=true,invoiceOnly=false,settlementOnly=false,throwLogger=false}={}){
  const {withErpReadContext:scope,currentErpReadContext:context}=await import('../lib/erpReadContext.js'),{shareLatestProfitRead:share}=await import('../lib/profitLatestInFlight.mjs');
- const queries=[],calls=[],logs=[],captured=[];let fingerprints=0,invoices=0,owners=0;
+ const queries=[],calls=[],logs=[],captured=[];let fingerprints=0,invoices=0,settlements=0,owners=0;
  const pool={request(){return {input(){return this;},query:async statement=>{queries.push(statement);return {recordset:[]};},cancel(){assert.fail('no timer should fire');}};}};
  const q=statement=>context().query(statement);
  const deps={currentErpReadContext:context,shareLatestProfitRead:share,getPool:async()=>pool,withErpReadContext:scope,
   createProfitReadFailureDiagnostic:options=>{owners++;const d=create({...options,clock:()=>time,log:x=>{if(throwLogger)throw Error('PRIVATE_LOG');logs.push(x);}});return {...d,sourceChanged:(...args)=>{captured.push(args);d.sourceChanged(...args);}};},
-  previousReportPeriod:async year=>({orderYear:year,major:'43'}),loadSourceFingerprints:async(years,options)=>{calls.push({years,options});await q('SELECT fence');fingerprints++;return {map:new Map([['SHIP:2026:45',changed&&!invoiceOnly&&fingerprints===2?'1|22|':'1|11|']])};},
+  previousReportPeriod:async year=>({orderYear:year,major:'43'}),loadSourceFingerprints:async(years,options)=>{calls.push({years,options});await q('SELECT fence');fingerprints++;return {map:new Map([['SHIP:2026:45',changed&&!invoiceOnly&&!settlementOnly&&fingerprints===2?'1|22|':'1|11|']])};},
   latestProfitInvoiceFence:async years=>{await q('SELECT invoice');invoices++;return changed&&invoiceOnly&&invoices===2?'PRIVATE_NEW_DIGEST':'PRIVATE_DIGEST';},
+  settlementScopeFence:async years=>{assert.deepEqual(years,['2026','2025']);settlements++;return changed&&settlementOnly&&settlements===2?'PRIVATE_NEW_SETTLEMENT_DIGEST':'PRIVATE_SETTLEMENT_DIGEST';},
   materializeProfitPayload:v=>v,loadReportData:async(major,year)=>{calls.push({major,year});await q('SELECT '+major);return {rows:[],totals:{C:0}};},applyTemplateDutyToReport:async raw=>{await q('SELECT duty');return raw;},setTimeout:(fn,ms)=>{assert.equal(ms,45000);return 1;},clearTimeout:()=>{}};
  const start=api.indexOf('async function loadCoherentLatestReport('),end=api.indexOf('export async function loadWeeklyReportPayload',start),load=new Function(...Object.keys(deps),api.slice(start,end)+';return loadCoherentLatestReport;')(...Object.values(deps));
- return {load,logs,queries,calls,captured,scope,get owners(){return owners;},get fingerprints(){return fingerprints;},get invoices(){return invoices;}};
+ return {load,logs,queries,calls,captured,scope,get owners(){return owners;},get fingerprints(){return fingerprints;},get invoices(){return invoices;},get settlements(){return settlements;}};
 }
 test('actual reader retains full signature shape, SQL sequence/two fences and typed409; overlapping owner1, active ERP bypass',async()=>{
  const expected=['SELECT fence','SELECT invoice','SELECT 44','SELECT 43','SELECT duty','SELECT fence','SELECT invoice'];
- for(const options of [{},{invoiceOnly:true},{throwLogger:true}]){
+ for(const options of [{},{invoiceOnly:true},{settlementOnly:true},{throwLogger:true}]){
   const f=await reader(options),results=await Promise.allSettled([f.load('44','2026'),f.load('44','2026')]);assert.ok(results.every(x=>x.status==='rejected'&&x.reason.statusCode===409&&x.reason.code==='PROFIT_SOURCES_CHANGED'));assert.equal(results[0].reason,results[1].reason);
-  assert.equal(f.owners,1);assert.equal(f.captured.length,1);assert.equal(f.fingerprints,2);assert.equal(f.invoices,2);assert.deepEqual(f.queries,expected);
-  const [before,after,years]=f.captured[0];assert.equal(before,signature([['SHIP:2026:45','1|11|']]));assert.equal(after,signature([['SHIP:2026:45',options.invoiceOnly?'1|11|':'1|22|']],options.invoiceOnly?'PRIVATE_NEW_DIGEST':'PRIVATE_DIGEST'));assert.deepEqual(years,['2026','2025']);
+  assert.equal(f.owners,1);assert.equal(f.captured.length,1);assert.equal(f.fingerprints,2);assert.equal(f.invoices,2);assert.equal(f.settlements,2);assert.deepEqual(f.queries,expected);
+  const [before,after,years]=f.captured[0];assert.equal(before,signature([['SHIP:2026:45','1|11|']]));assert.equal(after,signature([['SHIP:2026:45',options.invoiceOnly||options.settlementOnly?'1|11|':'1|22|']],options.invoiceOnly?'PRIVATE_NEW_DIGEST':'PRIVATE_DIGEST',options.settlementOnly?'PRIVATE_NEW_SETTLEMENT_DIGEST':'PRIVATE_SETTLEMENT_DIGEST'));assert.deepEqual(years,['2026','2025']);
   assert.deepEqual(f.calls.filter(c=>c.options),[{years:['2026','2025'],options:{force:true}},{years:['2026','2025'],options:{force:true}}]);assert.deepEqual(f.calls.filter(c=>c.major),[{major:'44',year:'2026'},{major:'43',year:'2026'}]);
   assert.equal(f.logs.length,options.throwLogger?0:1);if(f.logs.length)assert.doesNotMatch(f.logs[0],/PRIVATE|1\|11|1\|22/);
  }

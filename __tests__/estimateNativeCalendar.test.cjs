@@ -143,6 +143,7 @@ test('canonical loader projects frozen reads, never latest; source failure is di
     buildConfirmedPayload:async()=>({...saved,confirmed:{revisionNo:1},confirmedTotals:saved.totals}),
     loadProfitReportCalendar:async()=>[],resolveCurrentProfitWeek:()=>({orderYear:'2030',major:'44'}),resolvePreviousProfitWeek:()=>({orderYear:'2030',major:'43'}),
     readStoredProfitPayload:async()=>saved,manualInputManifest:{},unclassifiedDetailsByCategory:async()=>[],
+    settlementScopeFence:async()=>assert.fail('frozen and confirmed calendar projections must not read the latest settlement fence'),
   };
   const load=new Function(...Object.keys(deps),`${body};return loadWeeklyReportPayload;`)(...Object.values(deps));
   const got=await load('34','2030');assert.equal(got.rows[0].calc.L,-100);

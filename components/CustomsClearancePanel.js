@@ -2,7 +2,9 @@
 // 국가별(백상창고료/관세/선율/월드운송료/한국방역) + 콜롬비아 4품목 무게배분 공유값 입력.
 // H(그외통관비) 자동값의 소스. week 는 부모가 제어(주차별 매출이익보고서에 임베드되거나 단독 페이지로 사용).
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import CustomsSettlementUpload from './CustomsSettlementUpload';
+import {settlementCoversCountryField,preserveSettlementCountryField} from '../lib/customsSettlementPresentation';
 import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../lib/customsFields';
 import { applyProfitReportColombiaRates, PROFIT_REPORT_COLOMBIA_BOX_RATES } from '../lib/profitReportCustomsPolicy';
 // 그외통관비/콜롬비아 배분 순수 계산식(DB 의존 없음) — 서버(lib/customsForwarding.js 실계산)와
@@ -182,17 +184,25 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   }, [focus, data]);
   const focusStyle = (key) => (focus && String(focus) === String(key) ? { outline: '3px solid #f59e0b', outlineOffset: -3 } : null);
 
-  const load = useCallback(async () => {
+  const loadSequence=useRef(0),loadScope=useRef(`${year}|${week}`);
+  loadScope.current=`${year}|${week}`;
+  const load = useCallback(async (options={}) => {
     if (!week) return;
+    const scopeKey=`${year}|${week}`;
+    if(loadScope.current!==scopeKey)return;
+    const requestSequence=++loadSequence.current;
+    const isCurrent=()=>loadScope.current===scopeKey&&loadSequence.current===requestSequence;
     setLoading(true); setError(''); setMessage('');
     try {
       const r = await fetch(`/api/sales/customs-clearance?week=${encodeURIComponent(week)}&year=${encodeURIComponent(year || '')}`, { credentials: 'same-origin' });
       const d = await r.json();
+      if(!isCurrent())return;
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
-      setCountryEdits({}); setColombiaEdits({}); setRateEdits({});
-    } catch (e) { setError(e.message); } finally { setLoading(false); }
+      if(options?.preserveEdits!==true){setCountryEdits({}); setColombiaEdits({}); setRateEdits({});}
+    } catch (e) { if(isCurrent())setError(e.message); } finally { if(isCurrent())setLoading(false); }
   }, [week, year]);
+  const refreshSettlementSource=useCallback(()=>load({preserveEdits:true}),[load]);
   useEffect(() => { if (week && year) load(); }, [week, year, load]);
 
   // 화면에 보여줄 "현재 유효값"(=합계 계산에 실제로 쓰이는 값)이다. 전차수 참고값(carry)은 여기
@@ -201,6 +211,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   // 보이는 값과 서버가 실제로 총액에 반영한 값(row.total, totalSource)이 항상 일치한다.
   const countryValue = (row, field) => {
     if (row.weightSource?.[field] === 'erp_inbound') return row.effectiveRow?.[field] ?? '';
+    if (settlementCoversCountryField(row,field)) return row.effectiveRow?.[field] ?? '';
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
     const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
     const manualField = isWorldFreight ? `${field}Manual` : '';
@@ -233,6 +244,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
       // carry(전차수 참고값)만 있고 수기 편집·저장값·자동값·historical 값이 없으면 저장 대상에서
       // 제외한다 — 참고값을 사용자 확인 없이 조용히 저장하면 안 된다(2026-08-12 결함수정).
       const hasHistoricalValue = row.historical?.[field] != null;
+      if(preserveSettlementCountryField(row,field,hasManualEdit,out))return;
       if (!hasManualEdit && !hasSavedValue && !hasAutoValue && !hasHistoricalValue) return;
       out[field] = isWorldFreight ? vatNetToInclusive(countryValue(row, field)) : countryValue(row, field);
     });
@@ -253,6 +265,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   const colValue = (c, field) => {
     if ((field === 'GW' || field === 'CW') && c.weight?.source === 'erp_inbound') return c.effectiveRow?.[field] ?? '';
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
+    if (c.settlement?.values?.[field] != null) return c.effectiveRow?.[field] ?? '';
     if (c.saved?.[field] != null) return c.saved[field];
     if (c.historical?.[field] != null) return c.historical[field];
     if (COLOMBIA_TRUCK_FIELDS.has(field) && c.truckAuto) return c.truckAuto[field] || 0;
@@ -277,6 +290,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
         return;
       }
       if (!hasEdit && !hasSaved && !hasHistorical) return;
+      if(!hasEdit&&c.settlement?.values?.[f]!=null){if(hasSaved)out[f]=c.saved[f];return;}
       out[f] = colValue(c, f);
     });
     if (c.historical?.BakSangRateApplied != null) out.BakSangRateApplied = c.historical.BakSangRateApplied;
@@ -311,6 +325,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   // 콜롬비아 반차수의 "지금 화면에 보이는" TOTAL/카테고리별 배분 — 국가행과 동일 원칙.
   const colombiaLiveRow = (c) => {
     const liveRow = {};
+    if (c.effectiveRow?.ActualQuarantineAgencyFee != null) liveRow.ActualQuarantineAgencyFee = c.effectiveRow.ActualQuarantineAgencyFee;
     COLOMBIA_FIELDS.forEach(([f]) => { liveRow[f] = colValue(c, f); });
     const rateSnapshot = c.saved?.BakSangRateApplied ?? c.historical?.BakSangRateApplied;
     if (rateSnapshot != null) liveRow.BakSangRateApplied = rateSnapshot;
@@ -433,6 +448,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
 
   return (
     <div data-customs-clearance-panel>
+      <CustomsSettlementUpload year={year} major={String(week).split('-')[0]} onLinked={refreshSettlementSource} />
       <div style={st.hint}>
         <b>이 화면이 만드는 값</b> — 매출이익 보고서 H열(그외통관비)입니다. 국가별 계산식은
         <b> (1차GW+2차GW)×백상 창고료 단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1</b> 입니다.
@@ -538,6 +554,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                       <tr key={row.category} data-customs-focus-key={row.category} style={{ background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(row.category) }}>
                         <td style={st.tdLabel}>
                           {row.category}
+                          {row.settlement && <div style={{ color: '#0369a1', fontSize: 11 }}>검산한 선율 ZIP 실제 원천 우선 · DB 원문 보존</div>}
                           {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 차수 입력 이력이 없어, 원본 '매출원가 양식' 엑셀의 구성요소(GW/관세/선율/월드운송료/방역)를 그대로 자동 적용 중입니다. 한 칸이라도 저장하면 이 행 전체가 저장값으로 바뀝니다.">원본 엑셀값</span>}
                         </td>
                         {COUNTRY_PHASES.map((phase) => {
@@ -554,13 +571,15 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                                       <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 2 }} title={`${phase.groupLabel} ${phase.label} ${i + 1}차 분할금액`}>
                                         <span style={{ fontSize: 9, color: '#64748b' }}>{i + 1}</span>
                                         <input style={st.splitInput} value={countryValue(row, field)}
+                                          readOnly={settlementCoversCountryField(row,field)}
+                                          title={settlementCoversCountryField(row,field)?'검산한 실제 정산 원천의 분할 그룹입니다. 연결 합계만 표시하며 기존 DB 수기값은 변경하지 않습니다.':undefined}
                                           onKeyDown={focusNextCustomsInput}
                                           onChange={(e) => setCountryEdit(row.category, field, e.target.value.replace(/[^0-9.\-]/g, ''))} />
                                       </label>
                                     ))}
                                   </div>
                                   <span style={st.splitTotal}>{phase.groupLabel} {phase.label} 합계: <b>{fmt(total)}</b></span>
-                                  {total === 0 && !isHistorical && (
+                                  {total === 0 && !isHistorical && !settlementCoversCountryField(row,phase.keys[0]) && (
                                     <CarryHint value={carryTotal}
                                       onApply={() => setCountryEdit(row.category, phase.keys[0], String(n0(carryTotal)))} />
                                   )}
@@ -646,6 +665,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                 <div key={c.orderWeek} data-customs-focus-key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(c.orderWeek) }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
+                    {c.settlement && <span style={{ color: '#0369a1', fontSize: 11 }}>선율 ZIP 실제 공급가 우선 · 검역대행 {fmt(c.effectiveRow?.ActualQuarantineAgencyFee)}원 · DB 원문 보존</span>}
                     {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 반차수 입력 이력이 없어, 원본 '매출원가 양식' 콜롬비아 시트의 구성요소(GW/통관수수료/품목수/실제 트럭 대수/관세료/소독/검역)와 원본 박스수량을 그대로 자동 적용 중입니다.">원본 엑셀값</span>}
                     <span style={{ fontSize: 11, color: '#64748b' }} title={isHistorical ? '배분에 쓰인 박스수량은 원본 엑셀값입니다(현재 입고 DB 값과 다를 수 있음).' : '현재 입고관리(WarehouseDetail) 자동 집계값'}>
                       박스수량({isHistorical ? '원본 엑셀' : '입고 자동'}): 장미{c.boxQty['콜롬비아 장미'] || 0} · 카네이션{c.boxQty['콜롬비아 카네이션'] || 0} · 알스트로{c.boxQty['콜롬비아 알스트로'] || 0} · 루스커스{c.boxQty['콜롬비아 루스커스'] || 0}

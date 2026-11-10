@@ -2,6 +2,59 @@
   "version": 1,
   "workflows": [
     {
+      "id": "customs-settlement-zip",
+      "title": "선율 정산 ZIP 실비 원천 연결",
+      "entryPaths": [
+        "/sales/profit-report",
+        "/sales/customs-clearance"
+      ],
+      "sourceFiles": [
+        "components/CustomsSettlementUpload.js",
+        "components/CustomsClearancePanel.js",
+        "pages/sales/customs-clearance.js",
+        "lib/customsSettlementPresentation.js"
+      ],
+      "requiredScenarios": [
+        "upload",
+        "review",
+        "link",
+        "preserve"
+      ],
+      "guides": [
+        {
+          "id": "support",
+          "role": "경영지원",
+          "title": "첫 페이지 검산·AWB 검토 후 실비 연결",
+          "status": "ready",
+          "src": "/guides/customs-settlement-zip/support.mp4",
+          "captions": "/guides/customs-settlement-zip/support.ko.vtt",
+          "proof": "/guides/customs-settlement-zip/support.proof.json",
+          "chapters": [
+            {
+              "scenario": "upload",
+              "title": "ZIP 하나로 판독·확실건 자동등록",
+              "seconds": 0
+            },
+            {
+              "scenario": "review",
+              "title": "타차수·판독 보류만 확인",
+              "seconds": 24.618
+            },
+            {
+              "scenario": "link",
+              "title": "검토건 귀속·실제 원천 우선 확인",
+              "seconds": 31.198
+            },
+            {
+              "scenario": "preserve",
+              "title": "중복 방지·과거 계산본 직접 갱신",
+              "seconds": 37.781
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "shared-awb-cost",
       "title": "공동 AWB 혼합 품종 원가 계산",
       "entryPaths": [
@@ -431,6 +484,43 @@
               "scenario": "customers",
               "title": "업체부터 선택하는 독립 작업공간",
               "seconds": 28.051
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ops-control-tower",
+      "title": "운영 관제탑 한눈에 보기",
+      "entryPaths": [
+        "/ops"
+      ],
+      "sourceFiles": [
+        "pages/ops.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "sample-data"
+      ],
+      "guides": [
+        {
+          "id": "overview",
+          "role": "경영지원",
+          "title": "운영 관제탑 한눈에 보기",
+          "status": "ready",
+          "src": "/guides/ops-control-tower/overview.mp4",
+          "captions": "/guides/ops-control-tower/overview.ko.vtt",
+          "proof": "/guides/ops-control-tower/overview.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "화면 구성 한눈에 보기",
+              "seconds": 0
+            },
+            {
+              "scenario": "sample-data",
+              "title": "샘플 표시와 실데이터 구분",
+              "seconds": 25.871
             }
           ]
         }

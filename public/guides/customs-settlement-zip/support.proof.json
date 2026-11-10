@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-10T05:53:44.866Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 50.9,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "8989255a2ab224ef6442dd4852e890022a2152063cf7e8679e25e21de4618cd9",
+  "captionsSha256": "b527a8fc78acf96c56ceda419e40604516f66b5f9c699f95b0113937c6da755d",
+  "sourceHashes": {
+    "components/CustomsSettlementUpload.js": "6aa82ebb1fe6c2c342d6da5390b8aee02a25a337d4f5cb83e7b8deae69df07cb",
+    "components/CustomsClearancePanel.js": "0e397614b867cdc27360172747e57e2873782b5e549e4da861a018ff3f92e6d5",
+    "pages/sales/customs-clearance.js": "d351abe4e08569ee43c3fb5797a263dd08ad65af76545a412deab3e83fb7bc45",
+    "lib/customsSettlementPresentation.js": "37a9abe7ffb98c694ccf3e84679fea2a0cfb1521a42ea3c67b25d3c4aa222011"
+  }
+}

@@ -1170,3 +1170,14 @@ record-distribution-dates-guide.cjs, shipmentDistributionCatalogBrowser.test.cjs
 활성 전체업체를 noOrder 후보로 명시하여 분배 준비를 시작할 수 있게 한다. 선택만으로
 주문/출고/재고/견적 쓰기 없음. 회귀: shipmentDistributionCustomerScope.test.cjs,
 test-distribution-customer-scope-sql.cjs, 실제 Chrome country/empty45-03 시나리오.
+
+## 2026-11-10 통관 정산 원천 자동등록과 비용 기준 분리
+
+정산서가 존재해도 웹 원천에 연결되지 않으면 관세·대행료가 빠질 수 있고, 공급가를
+VAT 포함 값으로 간주해 다시 나누면 과소 비용이 된다. 원본 공급가·VAT·합계를 함께
+검산한 파일 원천을 보관하며 기존 DB bytes를 보정하지 않는다. 읽기 계산의 실제원천
+우선과 과거/확정 계산본 불변은 별개다. 과거 보고서는 사용자가 직접 갱신한다.
+ZIP 차수명은 귀속 권위가 아니다. 활성 동일연도 exact AWB의 타차수 귀속은 확인하고,
+합산 입고의 다른 AWB는 통화·결제금액·GW 합계를 동시에 검증한다. 연도 전체 신고번호
+중복, 문서/집계 파일 손상, 잘못된 연도, 선택 제외건 등록, callback 부분실패를 회귀로
+차단한다. 계약 profit-customs-settlement-zip 및 customsSettlement/Registration 테스트.
