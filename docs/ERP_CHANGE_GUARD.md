@@ -1151,3 +1151,5 @@ output409/stocknotes500 반복에서원인을추측해fence를좁히지않는다
 
 ## 2026-11-10 미국 과거 견적 필드 승인 보정
 2025 출고일 견적4필드 전부NULL은 2026 1~3차와 동일한 운영전 레거시 패턴이다. 미국2025/46-01 승인29행 중양수25개만 Date필드를복원하고0행4개는보존한다. Detail 기존매출·확정·원장·재고를재계산하지않는다. 계약 `us-legacy-quote-repair.json`, `shipmentLegacyDateRepair.test.cjs`, 격리 `test-distribution-catalog-downstream-sql.cjs`. 드라이런SHA와잠금재검증·CAS·보호원장지문·native견적/엑셀검사가다르면rollback. 운영원인작성주체를이기록만으로단정하지않는다.
+## 2026-11-10 콜롬비아 다운로드 수식 순환
+판매 기준가 적용 행수 COUNT를 AB12에 쓴 것이 원본 CO 중량배분 SUMPRODUCT(AB8:AB12,AC8:AC12)의 입력을 덮어썼다. 원가→추천판매가→COUNT→중량배분→원가 순환으로 최초 캐시는 맞아도 GW 수정 후 원가가 갱신되지 않았다. AC12=0이어도 순환을 허용하지 않는다. 판매 진단만 AK14:AL15로 이동하고 원본 계수·수식·확정 스냅샷은 보존한다. invoiceCostSalesDefaults 회귀는 원본 AB12 보존·독립 A1 의존성 정상/옛 순환 반례를 검사한다. 46-1 31입고265상품 replay 다운로드의 Microsoft Excel/Artifact 재계산에서 GW+1kg→통관/총원가+460원·전체 상품원가/판매/이익 갱신과 원복을 확인했다. 중량·운임은 TEST_ONLY이며 실제 비용 검증이 아니다. scripts/verify-colombia-cost-recalculation.ps1은 파일 readOnly·저장 없음, 운영 DB·재고·원가·손익 writer 변경/실행0.

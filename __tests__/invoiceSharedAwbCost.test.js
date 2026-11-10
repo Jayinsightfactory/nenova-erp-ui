@@ -19,10 +19,20 @@ test('13 farms share the AWB freight exactly once without invented farm CW',()=>
   assert.equal(r.measuredFarmCwAvailable,false);assert.equal(JSON.stringify(f),before);
   assert.ok(Math.abs(r.lines[0].componentAmounts.freightNative-12777.65/13)<.000001);
 });
-test('zero costs are explicit valid values; missing costs block',()=>{
+test('zero costs are preserved; missing customs use original formula, never missing freight',()=>{
   const f=fixture();f.input.freightAmount=0;f.input.customsTotalKRW=0;
   assert.equal(calculate(f).status,'CALCULATED');
-  for(const value of [undefined,null,'',false]) { f.input.customsTotalKRW=value;assert.equal(calculate(f).status,'BLOCKED'); }
+  for(const value of [undefined,null,'',false]) { f.input.customsTotalKRW=value;const r=calculate(f);assert.equal(r.status,'CALCULATED');assert.equal(r.totals.customsKRW,3483*460+33000+10000+99000+40000); }
+  f.input.freightAmount=null;assert.equal(calculate(f).status,'BLOCKED');
+});
+
+test('FORMULA ignores stale customs total and recalculates by GW and active varieties',()=>{
+ const f=fixture();f.input.customsMode='FORMULA';f.input.customsTotalKRW=999;
+ const before=JSON.stringify(f);let r=calculate(f);
+ assert.equal(r.appliedInput.expenseBasis,'ESTIMATED');assert.equal(r.totals.customsKRW,1784180);
+ f.input.gw=100;f.input.cw=100;r=calculate(f);assert.equal(r.totals.customsKRW,228000);
+ f.input.customsMode='TOTAL';f.input.customsTotalKRW=0;assert.equal(calculate(f).totals.customsKRW,0);
+ assert.notEqual(JSON.stringify(f),before); // only explicit test input edits
 });
 test('missing, duplicated, stale, different-year and wrong-AWB members are rejected',()=>{
   for(const mutate of [f=>f.members.pop(),f=>f.members[1]=f.members[0],f=>f.members[0].revision++,

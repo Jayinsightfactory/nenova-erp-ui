@@ -11,9 +11,9 @@ const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs')
   const step=async(s,t)=>{rec.chapter(s,t);await rec.caption(t);await rec.pause(4500);};
   await step('lookup','공동 AWB 전체 입고를 조회하고 농장 송장 목록을 확인합니다.');
   await page.click('button');await page.waitForSelector('input[type="checkbox"]');await page.click('input[type="checkbox"]');
-  await step('inputs','확인한 전체 중량과 비용을 입력합니다. 혼합 품종은 원본 Full Box 합계를 사용합니다.');
-  const values={'공동 GW (kg)':'100','공동 CW (kg)':'120','공동 운임·서류비 합계 (USD)':'100','환율 (원/USD)':'1400','공동 통관비 합계 (원)':'1000','장미 FB 환산 박스수':'1','카네이션 FB 환산 박스수':'1'};
-  for(const [label,value] of Object.entries(values))await page.type(`input[aria-label="${label}"]`,value);
+  await step('inputs','누락된 공동 중량·운임만 입력합니다. 통관비는 42-1 수식으로 자동 계산하고 환율은 현재 시세+15원을 조회합니다. 혼합 품종은 원본 Full Box를 확인합니다.');
+  const values={'공동 GW (kg)':'100','공동 CW (kg)':'120','공동 운임·서류비 합계 (USD)':'100','환율 (원/USD)':'1400','장미 FB 환산 박스수':'1','카네이션 FB 환산 박스수':'1'};
+  for(const [label,value] of Object.entries(values)){await page.$eval(`input[aria-label="${label}"]`,el=>el.select());await page.type(`input[aria-label="${label}"]`,value);}
   await page.select('select[aria-label="공동 AWB 비용 근거"]','TEST_ONLY');
   await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='공동 AWB 원가 계산').click());
   await page.waitForFunction(()=>document.body.innerText.includes('전체 2품목'));
