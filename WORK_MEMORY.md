@@ -2508,5 +2508,10 @@
 2026-11-10 즐겨찾기 이름 편집 기능을 새 설치에서도 사용하도록 웹 PC 다운로드 링크 1.3.16으로 변경.
 검색어: PC 버전 다운로드 즐겨찾기 1.3.16
 
+## 2026-11-10 출고 Excel 연도·실제날짜·수량보존 및 미국29 출력검증
+- dnSpy 설치EXE FormShipmentDistribution/GetCustomerList,FormEstimateView/GetPrintDetail/GetExcelDetail 재추출과 운영SELECT 확인. API의연도누락/브라우저임시요일재분배반올림/토일누락 정정. requireOrderYear+공통SHIPMENT_EXPORT_SQL/builder,실제저장날짜순·원본native수량·혼합단위소계,달력/합계불일치409. 원장쓰기0.
+- 운영기준 미국2025/46-01=29건(양수25/0수량4),79박스/1690단/9785000원. 실제22업체API+기존견적/ECOUNT출력builder로 XLSX버퍼생성·재열기: 견적25/ECOUNT25/출고25행,25날짜키노출/수량·금액일치. 0수량4는EXE조건대로제외·보존. 개발서버와production build서버 모두PASS,전후11영역원장지문동일. 실제workbook/개인정보/인증값디스크저장0.
+- 교차연도/세부차수/업체/주말.4+.6/혼합단위/0·누락·중복/달력반례/API임시설정무시5tests PASS; 실제MSSQL 임시테이블scope fixture PASS. npm ERP전체 exit0/dnSpy/manifest210/writeguard1API/webpack1workerbuild exit0. CI/병합/운영배포·실브라우저·운영서버출력은이시점미검증.
+검색어: shipmentExportExcel 미국29 20254601 79박스 1690단 9785000 Excel주말 연도누락 roundtrip
 2026-11-10 계정별 웹 UserFavorite 목록을 PC에서 동기화. 최초 업그레이드 시 기존 PC 목록 병합, 계정 변경·동기화 실패 시 보호. 창과 탭 구성은 Windows 사용자 데이터에 암호화 저장. PC 1.3.17.
 검색어: 계정 즐겨찾기 동기화 재설치 번호 별칭

@@ -1,0 +1,64 @@
+{
+  "id": "shipment-export-excel",
+  "title": "출고 Excel의 명시 연도·실제 출고일·원본 수량 보존",
+  "scope": [
+    "pages/api/shipment/excel-download.js",
+    "lib/shipmentExportExcel.js",
+    "__tests__/shipmentExportExcel.test.cjs",
+    "scripts/verify-us-export-readonly.cjs",
+    "scripts/test-shipment-export-sql.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "DOWNLOAD_SAVED_SHIPMENTS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "SELECT only. Explicit year+detail week, Master customer. Read exact saved ShipmentDate quantities/calendar timestamps, all seven weekdays chronologically, preserve fractional native quantities and separate mixed units. No client-side draft redistribution. Missing dates become unspecified once. Invalid/duplicate/calendar/total mismatch returns409. No ERP, stock, Estimate or profit writes."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/46-01 and2026/46-01 are independently selected; missing/mismatched years rejected. Weekend .4+.6 native quantities conserved; zero dates, date-less details, mixed units, duplicate/missing-calendar/mismatched sum fail closed."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "2026-11-10 actual local dnSpy.Console installed Nenova.exe FormShipmentDistribution/GetCustomerList and FormEstimateView/GetPrintDetail/GetExcelDetail; SELECT-only US29 and PeriodDay probe",
+    "methods": [
+      "GetCustomerList",
+      "GetPrintDetail",
+      "GetExcelDetail"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "PeriodDay",
+      "Product",
+      "OrderMaster",
+      "OrderDetail",
+      "Estimate",
+      "WebProfitReport"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentExportExcel.test.cjs",
+    "scripts/verify-us-export-readonly.cjs",
+    "scripts/test-shipment-export-sql.cjs"
+  ],
+  "requiredCommands": [
+    "node --test __tests__/shipmentExportExcel.test.cjs",
+    "node scripts/test-shipment-export-sql.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
