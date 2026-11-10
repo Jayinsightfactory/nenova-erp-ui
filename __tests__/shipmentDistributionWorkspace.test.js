@@ -139,3 +139,20 @@ test('search candidates prefer week products and add catalog-only products (othe
   const matches = (row, q) => `${row.ProdName} ${row.FlowerName || ''}`.toLowerCase().includes(q.toLowerCase());
   assert.deepEqual(distributionCustomerSearchRows([], merged, '라벤', matches).map(r => r.ProdKey), [77]);
 });
+
+test('product search finds unallocated US catalog across selected groups and years', async () => {
+  const { distributionProductSearchRows } = await load();
+  for (const year of [2025, 2026]) {
+    const rows = [{ ProdKey: 1, ProdName: 'Rose', CounName: '콜롬비아', outQty: year === 2025 ? 99 : 3 }];
+    const catalog = [{ ProdKey: 1, ProdName: 'Rose', outQty: 0 },
+      { ProdKey: 2, ProdName: 'Douglas', CounName: '미국', FlowerName: '더글라스' },
+      { ProdKey: 3, ProdName: 'Lemon leaf', CounName: '미국', FlowerName: '레몬잎' }];
+    assert.deepEqual(distributionProductSearchRows(rows, catalog, '미국').map(p => p.ProdKey), [2, 3]);
+    assert.deepEqual(distributionProductSearchRows(rows, catalog, '레몬잎').map(p => p.ProdKey), [3]);
+    assert.deepEqual(distributionProductSearchRows(rows, catalog, 'absent'), []);
+    assert.deepEqual(distributionProductSearchRows(rows, catalog, '  '), rows);
+    assert.equal(distributionProductSearchRows(rows, catalog, 'Rose')[0].outQty, rows[0].outQty);
+    assert.deepEqual(distributionProductSearchRows(rows, null, '미국'), []);
+    assert.equal(rows.length, 1);
+  }
+});

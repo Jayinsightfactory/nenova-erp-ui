@@ -19,7 +19,9 @@
     "__tests__/shipmentDistributionBrowser.test.cjs",
     "scripts/test-distribution-history-ui.cjs",
     "__tests__/distributeProductDisplayUi.test.cjs",
-    "docs/desktop/AI_BRIDGE.md"
+    "docs/desktop/AI_BRIDGE.md",
+    "__tests__/shipmentDistributionCatalogBrowser.test.cjs",
+    "scripts/test-distribution-catalog-downstream-sql.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -89,7 +91,8 @@
     "privacy": "New audit allowlists business fields; no raw chat, token or editGuard. Existing general request telemetry unchanged.",
     "downstream": "No new Estimate, StockHistory or WebProfitReport writes; native amount conversion and fixed protection unchanged. Read-only estimate visibility/amount/date and confirmed-sales evidence recorded in work plan.",
     "viewport": "1920x1080 CSS100%, plus smaller widths; page primary scrolling and accessible popups.",
-    "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists."
+    "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists.",
+    "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and sorts A-Z; blank search keeps selected-week list. SELECT only; saves retain existing preflight and writers."
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionWorkspace.test.js",
@@ -98,13 +101,16 @@
     "__tests__/pasteOperationHistory.test.js",
     "scripts/test-shipment-distribution-audit-sql.cjs",
     "__tests__/shipmentDistributionBrowser.test.cjs",
-    "scripts/test-distribution-history-ui.cjs"
+    "scripts/test-distribution-history-ui.cjs",
+    "__tests__/shipmentDistributionCatalogBrowser.test.cjs",
+    "scripts/test-distribution-catalog-downstream-sql.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
-    "npm run build"
+    "npm run build",
+    "node scripts/test-distribution-catalog-downstream-sql.cjs"
   ]
 }

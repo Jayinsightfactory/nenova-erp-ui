@@ -2323,3 +2323,10 @@
 - 전체 ERP gate/build/CI/배포/운영브라우저는 부모 담당이며 현재 미검증. 구현자 DB접속/쓰기·SP·배포·커밋 없음. 기준 docs/plans/estimate-native-calendar-2026-11-09.md, 계약 estimate-native-calendar.json.
 검색어: estimate-native-calendar exact PeriodDay off-midnight frozen sourceL sourceO freight clone 불량30단
 - 부모 최종 검증: board·전체 ERP contract(pre/post 포함)·dnSpy evidence·변경 manifest205·write scope guard·workflow guides7/영상8·webpack production build PASS. 최신 master b156c0dde를 검사 전 fast-forward로 반영했다. SELECT-only 연간 대사: 동일한 covered off-time 유형은33/35/40에9행, 초기1~3차 NULL468행은 저장금액 보존. 견적 상세/인쇄/Excel 대상 차감수량 일치 및 원가·재고 금액 보존 확인. CI/배포·실브라우저·배포후원장해시는 아래 후속 결과 전까지 미검증.
+
+## 2026-11-10 출고분배 미국 품종 검색
+- 미국 더글라스/레몬잎 누락 원인: 품종 groups GET의 현재차수 주문 EXISTS, 품목탭 검색의 현재목록 한정. groups는 전체활성 Product, 비공백 검색은 기존 productCatalog를 ProdKey로 합쳐 국가/꽃/이름 검색. 저장 writer·ERP 원장 변경0.
+- 실제 dnSpy 재실행/운영 SELECT 및 교차연도 downstream 확인. helper13/전체ERP/dnSpy/manifest/쓰기guard 통과. Chrome 표적1920/390·2025/2026·검색/복귀/쓰기0 PASS. 기존 종합브라우저 후반 add-manager 후 qty 탐색 timeout은 미해결(파일변경없음). 빌드/CI/배포는 진행 중, 운영 UI 미검증.
+검색어: 출고분배 미국 더글라스 레몬잎 전체품목검색 미분배 shipmentDistributionCatalog
+- 추가 검증: 실제 FormEstimateView dnSpy 재실행. ViewOrder 기반 신규분배/확정가드 및 native Excel SQL 확인. 격리MSSQL 공유날짜저장→견적수량750/금액→엑셀1행, 전년도/무효담당자/삭제항목 차단 및 미확정/0견적량/시각/raw키 배제 PASS. 운영2025/46-01 미국29행 Date.EstQuantity NULL로 native Excel 제외 발견(원장보정0, 원인주체미확정). 전체ERP/build PASS. CI/배포/운영UI 후속.
+검색어: 미국 출고분배 견적누락 이카운트 EstQuantity NULL 2025 46-01 downstream SQL
