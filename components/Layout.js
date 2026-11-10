@@ -36,6 +36,7 @@ export const MENU_ITEMS = [
       { href: '/integrations/moyi-drive', labelKey: 'MOYI Drive 관리', popup: false, userIds: ['nenovaSS3'] },
       { href: '/admin/orbit-report', labelKey: '직원 업무 심화 리포트', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work', labelKey: '내 작업 데이터(통합본·기능 후보)', popup: true, userIds: ['nenovaSS3'] },
+      { href: '/ops', labelKey: '운영 관제 / Operaciones', popup: true, userIds: ['nenovaSS3'] },
       { href: '/my-work?tab=mine', labelKey: '내 업무흐름 확인', popup: true, userIds: Object.keys(WORKFLOW_OWNERS).filter((id) => id !== 'nenovaSS3') },
     ]
   },
