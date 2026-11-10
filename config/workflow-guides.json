@@ -539,7 +539,9 @@
         "styles/ShipmentStatement.module.css",
         "lib/shipmentStatement.cjs",
         "components/ShipmentStatementSelectors.js",
-        "lib/shipmentStatementSelection.cjs"
+        "lib/shipmentStatementSelection.cjs",
+        "components/ShipmentStatementGroups.js",
+        "lib/shipmentStatementGroups.cjs"
       ],
       "requiredScenarios": [
         "load",
@@ -566,22 +568,22 @@
             {
               "scenario": "allocate",
               "title": "2. 요일 수량과 기본 출고요일",
-              "seconds": 26.543
+              "seconds": 26.494
             },
             {
               "scenario": "drag",
               "title": "3. 드래그 선택과 일괄 출고일 지정",
-              "seconds": 53.07
+              "seconds": 53.009
             },
             {
               "scenario": "group",
               "title": "4. 품목군 출력 묶음",
-              "seconds": 80.168
+              "seconds": 80.128
             },
             {
               "scenario": "save",
               "title": "5. 작성본 저장과 엑셀 다운로드",
-              "seconds": 98.148
+              "seconds": 106.993
             }
           ]
         }

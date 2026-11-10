@@ -7,6 +7,8 @@ import { getEarlyShipmentExclusions } from '../../../lib/weekdayEarlyShipmentSto
 import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
 import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 import { mirrorWebUpload } from '../../../lib/workDrive';
+import { buildFarmImportPreview } from '../../../lib/shipmentFarmImport';
+import { planFarmWorkbook, signFarmExport } from '../../../lib/shipmentFarmWorkbook';
 
 export const config = {
   api: { bodyParser: false },
@@ -49,6 +51,10 @@ async function handler(req, res) {
 
   try {
     const earlyImportMode = requireEarlyImportMode(requestedMode);
+    const field = key => Array.isArray(fields[key]) ? fields[key][0] : fields[key];
+    const farmText = String(field('farmText') || '');
+    if (farmText.length > 100000) throw Object.assign(new Error('농장분배 텍스트는 10만 자 이내로 입력하세요.'), { statusCode: 400 });
+    const farmOverrides = JSON.parse(field('farmOverrides') || '{}');
     if (earlyImportMode === 'ORIGINAL_INCLUDES_EARLY' && Object.entries(customerOverrides).some(([label, choice]) =>
       choice === '__ignore__' && /선출고/.test(label))) {
       const error = new Error('선출고 원문 열을 제외했습니다. 파일 수량은 이미 선출고 제외 상태로 선택한 뒤 다시 검증하세요.');
@@ -73,9 +79,19 @@ async function handler(req, res) {
       prodKeysInScope: parsed.prodKeysInScope,
       pairKeysInScope: parsed.pairKeysInScope,
     });
+    await buildFarmImportPreview({ XLSX, workbook, preview, text: farmText, overrides: farmOverrides });
+    const original = fs.readFileSync(file.filepath);
+    const isXlsx = /\.xlsx$/i.test(file.originalFilename || '');
+    const exportLayout = isXlsx ? await planFarmWorkbook(original, preview.rows) : {
+      entries: [], patches: [], errors: preview.rows.some(r=>r.farmSource) ? ['농장분배 원본 보존 다운로드는 .xlsx 파일을 사용하세요.'] : [],
+    };
+    preview.farmImport.layoutErrors = exportLayout.errors;
+    const farmValid = !preview.farmImport.errors.length && !exportLayout.errors.length;
+    const exportPlan = farmValid && isXlsx && !preview.unmatched?.length ? signFarmExport(original, exportLayout, req.user.userId) : null;
     return res.status(200).json({
       ...preview,
-      replacementPlan: createReplacementPlan(preview, req.user.userId),
+      replacementPlan: farmValid ? createReplacementPlan(preview, req.user.userId) : null,
+      exportPlan,
       fileName: file.originalFilename || 'upload.xlsx',
       logs: [...parsed.logs, ...preview.logs],
     });

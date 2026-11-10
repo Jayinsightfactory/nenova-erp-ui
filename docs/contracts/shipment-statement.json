@@ -1,18 +1,98 @@
 {
- "id":"shipment-statement",
- "title":"메인차수 출고내역서 웹 작성본·요일 배분·엑셀",
- "scope":["pages/shipment/statement.js","components/ShipmentStatementSelectors.js","pages/api/shipment/statement.js","lib/shipmentStatementSelection.cjs","lib/shipmentStatement.cjs","lib/shipmentStatementStore.cjs","lib/shipmentStatementService.js","lib/shipmentStatementWorkbook.cjs"],
- "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
- "actions":[
-  {"name":"READ_ALL_SUBWEEKS","orderDetail":"preserve","shipmentDetail":"preserve"},
-  {"name":"SELECT_WEEK_MANAGER_CUSTOMER_AND_PERSONAL_FAVORITES","orderDetail":"preserve","shipmentDetail":"preserve","webOnly":"Existing favorites API: UserFavorite scoped by authenticated UserID and PageName=shipment-statement-customers; favorites never change ERP quantities or shared customer manager"},
-  {"name":"ALLOCATE_DEFAULT_DAY_AND_BULK_MOVE","orderDetail":"preserve","shipmentDetail":"preserve"},
-  {"name":"SAVE_WEB_REVISION_AND_EXPORT","orderDetail":"preserve","shipmentDetail":"preserve"}
- ],
- "crossYearFixture":{"required":true,"description":"2025/45와2026/45 동일 업체·품목은 분리, 모든 실제 세부차수 포함"},
- "requiredTestFiles":["__tests__/shipmentStatement.test.cjs","__tests__/shipmentStatementStore.test.cjs","__tests__/shipmentStatementApi.test.cjs","__tests__/shipmentStatementSelection.test.cjs"],
- "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ShipmentStatement.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList","GetShipmentMaster","btnSave_Click"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","PeriodDay","ShipmentFarm"]},
- "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
- "preserve":["OrderDetail","ShipmentDetail","ShipmentDate","ShipmentFarm","Estimate","ProductStock","StockHistory","WebProfitReport"],
- "webStorage":"data/runtime/shipment-statements; immutable revision files; exclusive atomic publication; no SQL schema migration"
+  "id": "shipment-statement",
+  "title": "메인차수 출고내역서 웹 작성본·요일 배분·엑셀",
+  "scope": [
+    "pages/shipment/statement.js",
+    "components/ShipmentStatementSelectors.js",
+    "pages/api/shipment/statement.js",
+    "lib/shipmentStatementSelection.cjs",
+    "lib/shipmentStatement.cjs",
+    "lib/shipmentStatementStore.cjs",
+    "lib/shipmentStatementService.js",
+    "lib/shipmentStatementWorkbook.cjs",
+    "components/ShipmentStatementGroups.js",
+    "lib/shipmentStatementGroups.cjs",
+    "styles/ShipmentStatement.module.css",
+    "config/shipment-statement-format.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "READ_ALL_SUBWEEKS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "SELECT_WEEK_MANAGER_CUSTOMER_AND_PERSONAL_FAVORITES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "Existing favorites API: UserFavorite scoped by authenticated UserID and PageName=shipment-statement-customers; favorites never change ERP quantities or shared customer manager"
+    },
+    {
+      "name": "ALLOCATE_DEFAULT_DAY_AND_BULK_MOVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "SAVE_WEB_REVISION_AND_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "SELECT_CATEGORIES_GROUP_AND_TEMPLATE_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "checkbox membership draft, immutable saved version export; reference formatting only"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/45와2026/45 동일 업체·품목은 분리, 모든 실제 세부차수 포함"
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentStatement.test.cjs",
+    "__tests__/shipmentStatementStore.test.cjs",
+    "__tests__/shipmentStatementApi.test.cjs",
+    "__tests__/shipmentStatementSelection.test.cjs",
+    "__tests__/shipmentStatementGroups.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/ShipmentStatement.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList",
+      "GetShipmentMaster",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "PeriodDay",
+      "ShipmentFarm"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "preserve": [
+    "OrderDetail",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "Estimate",
+    "ProductStock",
+    "StockHistory",
+    "WebProfitReport"
+  ],
+  "webStorage": "data/runtime/shipment-statements; immutable revision files; exclusive atomic publication; no SQL schema migration"
 }
