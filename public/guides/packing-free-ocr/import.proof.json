@@ -1,17 +1,73 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-09T08:09:06.577Z",
+  "recordedAt": "2026-11-10T09:04:53.791Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 19.3,
+  "duration": 73.3,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "9323c4d7300a5246cd81e93e2227cdfa238f509e8b44f98881223db9080f63a6",
-  "captionsSha256": "93733b5c0b6db285068f8c3f4fa2d10eef18391c5fb9f9af9e79ff612b580a60",
+  "videoSha256": "15c5eec722efa7bb449de9334da0e77f213723bae10a5a54a611022bf68b4c7f",
+  "captionsSha256": "fbf4332a732f49236304c3df0980bf56358538f699a29f41dbb98d3ac18b51d7",
   "sourceHashes": {
-    "components/import-tools/PackingListTool.js": "1d1b063807b1433b4eff913876687a860e0bfff42e9256571c01522d85265e07"
+    "components/import-tools/PackingListTool.js": "a429fa3bb6e47f0b7ff849692070ad43a3c2c79cb598a1ca3a1c8f2fc6220f65"
+  },
+  "presentation": {
+    "numberedSteps": 3,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 8.5523931,
+        "x": 614.25,
+        "y": 837.3828125,
+        "end": 11.999772199999999
+      },
+      {
+        "number": 2,
+        "start": 20.757236,
+        "x": 960,
+        "y": 809.75,
+        "end": 24.291049299999997
+      },
+      {
+        "number": 3,
+        "start": 33.0612706,
+        "x": 355.5234375,
+        "y": 644.6875,
+        "end": 36.5055836
+      },
+      {
+        "number": 3,
+        "start": 39.7612935,
+        "x": 960,
+        "y": 525,
+        "end": 47.6839828
+      },
+      {
+        "number": 3,
+        "start": 50.9041639,
+        "x": 960,
+        "y": 585.59375,
+        "end": 54.3868171
+      },
+      {
+        "number": 3,
+        "start": 64.1281008,
+        "x": 1836.3125,
+        "y": 553.59375,
+        "end": 67.54895900000001
+      }
+    ]
   }
 }

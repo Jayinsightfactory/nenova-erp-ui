@@ -12,7 +12,7 @@ function cameraFilters(focusShots) {
   if (!focusShots.length) return [];
   let previousEnd=0;
   for(const s of focusShots){
-    if(!Number.isInteger(s.number)||s.number<1||![s.start,s.end,s.x,s.y].every(Number.isFinite)||s.start<previousEnd||s.end-s.start<2.4||s.x<0||s.x>1920||s.y<70||s.y>900)throw Error('Invalid camera event/bounds/continuity');
+    if(!Number.isInteger(s.number)||s.number<1||![s.start,s.end,s.x,s.y].every(Number.isFinite)||s.start<previousEnd||s.end-s.start<2.4||s.x<0||s.x>1920||s.y<70||s.y>900)throw Error(`Invalid camera event/bounds/continuity: ${JSON.stringify(s)} previousEnd=${previousEnd}`);
     previousEnd=s.end;
   }
   const weight=s=>`(1-cos(PI*max(0,min(1,min((on/20-${s.start})/1.2,(${s.end}-on/20)/1.2)))))/2`;

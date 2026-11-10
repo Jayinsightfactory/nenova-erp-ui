@@ -26,3 +26,9 @@
 - 기존운송료/sidecar일치·충돌/0/미기재/다른연도·차수/다른receipt/stale/noncommitted 반례.
 - 다른국가 동일회귀 및 실제저장분석 중 재현가능자료. 실파일전체E2E와 합성회귀를 구별.
 - ERP전체/dnSpy/manifest/writeguard/webpack build·가이드·PR CI·배포·운영readonly스모크. 아직 미실행.
+
+## 후속 결과
+- NL46 실제 브라우저 격리 입고→동일차수 원가→수정환율1600/관세25% 다운로드 및 XLSX 재계산 PASS.
+- TH38 실제 입고→시험비용 명시 다운로드 및 재계산 PASS. 실제 비용 검증 아님.
+- 8국가 공통 매칭/합계, 10공식 XLSX 회귀와 전체 ERP 계약 PASS. 모든국가 실파일 전체E2E와는 구별한다.
+- 원가 연결은 exact document/current revision/year/week/warehouse 및 live readback을 공유한다. 상세 결과는 세션 기록 참조.

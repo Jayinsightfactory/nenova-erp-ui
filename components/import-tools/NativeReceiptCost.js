@@ -19,9 +19,10 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
       .then(async response => { const value = await response.json(); if (!response.ok || !value.success) throw new Error(value.error || '입고 조회 실패'); return value; })
       .then(value => { if (!abort.signal.aborted) {
         setData(value);
-        const defaults = value.automatic?.metadata || { currency: '', transportMode: '', gw: value.source.gw ?? '', cw: value.source.cw ?? '' };
+        const verifiedMetadata = value.source.receiptExpenses?.verified === true ? value.source.receiptExpenses.receiptMetadata : null;
+        const defaults = value.automatic?.metadata || { currency: verifiedMetadata?.currency ?? '', transportMode: verifiedMetadata?.transportMode ?? '', gw: value.source.gw ?? '', cw: value.source.cw ?? '' };
         setMetadata(defaults);
-        if (value.automatic) setApplied(defaults);
+        if (value.automatic || (defaults.currency && defaults.transportMode)) setApplied(defaults);
       } })
       .catch(e => { if (!abort.signal.aborted) setError(e.message); });
     return () => { active.current = false; generation.current++; abort.abort(); };

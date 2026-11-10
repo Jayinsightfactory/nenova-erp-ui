@@ -3,6 +3,9 @@ import { invoiceExpenseValues, receiptFreightAmount } from '../lib/invoiceReceip
 const document={reviewedMetadata:{costInputs:{freight:{amount:321.49,currency:'EUR'},docFee:{amount:50,currency:'EUR'}}}};
 const values=invoiceExpenseValues(document);
 assert.equal(values.totals.EUR,371.49);
+assert.deepEqual(invoiceExpenseValues({lines:[{currency:'USD'}],reviewedMetadata:{transportMode:'AIR'}}).receiptMetadata,{currency:'USD',transportMode:'AIR'});
+assert.equal(invoiceExpenseValues({lines:[{currency:'USD'},{currency:'EUR'}],reviewedMetadata:{transportMode:'OTHER'}}).receiptMetadata.currency,'');
+assert.equal(invoiceExpenseValues({lines:[],reviewedMetadata:{transportMode:'OTHER'}}).receiptMetadata.transportMode,'');
 const source={orderYear:'2026',orderWeek:'46-01',warehouseKey:8069,receiptExpenses:{...values,verified:true,orderYear:'2026',orderWeek:'46-01',warehouseKey:8069}};
 assert.equal(receiptFreightAmount(source,null),371.49);
 assert.equal(receiptFreightAmount(source,371.49),371.49,'do not add both representations');
