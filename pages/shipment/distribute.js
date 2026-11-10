@@ -108,6 +108,8 @@ export default function Distribute() {
   // 0:출고분배 및 농장정보(품목 기준) 1:출고분배 및 업체정보(업체 기준) 2:출고일지정 3:집계
   const [tab, setTab] = useState(0);
   const [dateEditor, setDateEditor] = useState(null);
+  const [majorInlineFacts,setMajorInlineFacts]=useState(null);
+  const majorInlineFactsMap=useMemo(()=>{if(!majorInlineFacts)return null;const map=new Map();for(const r of majorInlineFacts){const key=String(r.CustKey)+'|'+String(r.ProdKey);if(!map.has(key))map.set(key,[]);map.get(key).push(r);}return map;},[majorInlineFacts]);
   const [inlineCalendar,setInlineCalendar]=useState([]),[inlineFacts,setInlineFacts]=useState([]),[dateDrafts,setDateDrafts]=useState({});
   const hasDateDrafts=Object.keys(dateDrafts).length>0;
   const inlineFactsMap=useMemo(()=>{const map=new Map();for(const r of inlineFacts){const key=`${r.CustKey}|${r.ProdKey}`;if(!map.has(key))map.set(key,[]);map.get(key).push(r);}return map;},[inlineFacts]);
@@ -407,11 +409,11 @@ export default function Distribute() {
     const request=++dateRequestRef.current,requestedWeek=week;setDateIndexLoading(true);setDateIndexError('');
     try{const result=await apiGetDistribute({type:'workspaceDateIndex',week});
       if(request!==dateRequestRef.current||requestedWeek!==currentWeekRef.current)return;
-      if(!result.success)throw new Error(result.error||'조회 결과 없음');setDateIndex(result.rows||[]);setInlineFacts(result.dateFacts||[]);setInlineCalendar(result.calendar||[]);
+      if(!result.success)throw new Error(result.error||'조회 결과 없음');setDateIndex(result.rows||[]);setInlineFacts(result.dateFacts||[]);setInlineCalendar(result.calendar||[]);setMajorInlineFacts(Array.isArray(result.majorDateFacts)?result.majorDateFacts:null);
     }catch(error){if(request===dateRequestRef.current){setDateIndexError(error.message);setFarmDate('');setCustomerDate('');}}
     finally{if(request===dateRequestRef.current)setDateIndexLoading(false);}
   },[week,selectedOrderYear,apiGetDistribute]);
-  useEffect(()=>{setFarmDate('');setCustomerDate('');setDateIndex([]);setInlineFacts([]);setInlineCalendar([]);setDateDrafts({});loadDateIndex();return()=>{dateRequestRef.current+=1;};},[loadDateIndex]);
+  useEffect(()=>{setFarmDate('');setCustomerDate('');setDateIndex([]);setMajorInlineFacts(null);setInlineFacts([]);setInlineCalendar([]);setDateDrafts({});loadDateIndex();return()=>{dateRequestRef.current+=1;};},[loadDateIndex]);
   useEffect(()=>{if(saveModal)loadDateIndex();},[saveModal,loadDateIndex]);
   useEffect(()=>{
     if(!week||!selectedOrderYear)return;const request=++customerListRequestRef.current,requestedWeek=week;
@@ -1480,7 +1482,7 @@ export default function Distribute() {
     if (hasQuantityDraft()) { setErr('수량·단가 변경을 먼저 저장하거나 초기화한 후 출고일을 수정하세요.'); return; }
     setDateEditor({scope:{orderYear:selectedOrderYear,orderWeek:week.slice(-5),custKey:Number(custKey),prodKey:Number(prod.ProdKey)},label,inlineDraft,draftKey:`${custKey}|${prod.ProdKey}`});
   };
-  const dateButton = (custKey, prod, label) => <DistributionInlineDates calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
+  const dateButton = (custKey, prod, label) => <DistributionInlineDates majorFacts={majorInlineFactsMap?.get(String(custKey)+'|'+String(prod.ProdKey))??(majorInlineFactsMap?[]:null)} calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
     custKey={custKey} prodKey={prod.ProdKey} draft={dateDrafts[`${custKey}|${prod.ProdKey}`]} loading={dateIndexLoading} error={dateIndexError}
     disabled={saving||loading||hasQuantityDraft()||!!dateEditor} onDraft={draft=>setDateDrafts(prev=>{const next={...prev},key=`${custKey}|${prod.ProdKey}`;if(draft)next[key]=draft;else delete next[key];return next;})}
     onOpen={draft=>openDateEditor(custKey,prod,label,draft)} />;
@@ -1503,7 +1505,7 @@ export default function Distribute() {
       .distribution-customer-table th:nth-child(n+4):nth-child(-n+10){width:72px}
       @media (max-width: 900px) { .distribution-workspace-grid { grid-template-columns: minmax(0, 1fr) !important; } }`}</style>
       {/* 툴바 */}
-      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',flexShrink:0}}>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'4px 5px',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:0}}>
         <WeekInput weekInput={guardedWeekInput} label="차수" />
         <DistributionPicker label="차수" value={week} triggerRef={weekPickerRef} shortcut="Ctrl+Alt+1" disabled={hasDateDrafts||saving}
           options={distributionWeekOptions(week).map(value => ({ key: value, label: value, selected: value === week }))}
@@ -1549,7 +1551,7 @@ export default function Distribute() {
         </div>
       </div>
       {/* nenova.exe식 버튼형 차수 선택: 기준 차수 앞뒤 ±3 대차수 + 세부차수 */}
-      <div data-testid="distribution-week-buttons" style={{padding:'8px 14px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+      <div data-testid="distribution-week-buttons" style={{padding:'3px 5px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
         <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>차수</span>
         {weekButtons.length === 0 && <span style={{fontSize:11,color:'var(--text3)'}}>차수를 2026-44-01 형식으로 입력하면 앞뒤 차수 버튼이 나타납니다.</span>}
         {weekButtons.map(value => (
@@ -1591,9 +1593,9 @@ export default function Distribute() {
         ))}
       </div>
       </>}
-      <div style={{padding:'4px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
+      <details style={{padding:'1px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}><summary>단축키·입력 안내 · 출고일은 선택 세부차수만 수정</summary>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 실제 날짜순 · 단/송이 수량 입력. Enter 이동만으로 저장되지 않습니다.
-      </div>
+      </details>
       {favoriteError && <div role="alert" style={{padding:'4px 5px',background:'var(--red-bg)',color:'var(--red)'}}>즐겨찾기: {favoriteError}</div>}
 
       {/* 알림 */}

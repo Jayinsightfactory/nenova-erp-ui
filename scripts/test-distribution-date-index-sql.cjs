@@ -17,7 +17,7 @@ async function main(){
   await fixture.installSchema(pool);await fixture.seed(pool);
   const q=(statement,params)=>fixture.query(pool,statement,params);
 
-  const {DISTRIBUTION_DATE_INDEX_SQL,DISTRIBUTION_INLINE_DATES_SQL}=await import('../lib/shipmentDistributionDateIndex.js');
+  const {DISTRIBUTION_DATE_INDEX_SQL,DISTRIBUTION_INLINE_DATES_SQL,DISTRIBUTION_MAJOR_INLINE_DATES_SQL}=await import('../lib/shipmentDistributionDateIndex.js');
   const read=async year=>(await q(DISTRIBUTION_DATE_INDEX_SQL,{year:{type:sql.NVarChar,value:year},week:{type:sql.NVarChar,value:'37-01'}})).recordset;
   await q(`UPDATE ShipmentDetail SET CustKey=NULL;
    INSERT OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager) VALUES(4000,N'2025',N'37-01',N'202537',533,N'fixture-user');
@@ -30,7 +30,12 @@ async function main(){
   const packing=(await q('SELECT OutUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box FROM Product WHERE ProdKey=866')).recordset[0];for(const row of await inlineRead('2026'))for(const key of Object.keys(packing))assert.equal(row[key],packing[key],'exact Product packing available in batched read');
   assert((await inlineRead('2026')).some(r=>r.ShipmentQuantity===0),'full baseline retains zero date facts');assert((await inlineRead('2026')).every(r=>r.CustKey===533&&r.Timestamp.startsWith('2026')));assert((await inlineRead('2025')).every(r=>r.OutQuantity===99&&r.Timestamp.startsWith('2025')));
   const {DISTRIBUTION_DATE_CALENDAR_SQL}=await import('../lib/shipmentDistributionDates.js');assert.equal((await q(DISTRIBUTION_DATE_CALENDAR_SQL,{ywk:{type:sql.NVarChar,value:'202537'}})).recordset.length,0,'calendar does not fall back to another year');
+  await q(`INSERT ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isDeleted,isFix) VALUES(7001,N'2026',N'37-02',N'202637',533,0,0),(7002,N'2026',N'38-01',N'202638',533,0,0);
+   INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,OutQuantity,EstQuantity,Cost,Amount,Vat,BoxQuantity,BunchQuantity,SteamQuantity,ShipmentDtm,isFix) VALUES(99003,7001,NULL,866,2,20,100,1800,200,2,20,200,'2026-09-04',0),(99004,7002,NULL,866,8,80,100,7200,800,8,80,800,'2026-09-11',0);
+   INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat) VALUES(99003,99003,'2026-09-04',2,20,100,1800,200),(99004,99004,'2026-09-11',8,80,100,7200,800);`);
   const before=JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset);
+  const majorRead=async year=>(await q(DISTRIBUTION_MAJOR_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:year},major:{type:sql.NVarChar,value:'37'}})).recordset;
+  const major=await majorRead('2026');assert(major.some(r=>r.OrderWeek==='37-02'&&r.OutQuantity===2));assert(major.every(r=>r.OrderYear==='2026'&&r.OrderWeek.startsWith('37-')&&r.CustKey===533));assert(!major.some(r=>r.OutQuantity===8||r.OutQuantity===99));assert((await majorRead('2025')).every(r=>r.OrderYear==='2025'&&r.OutQuantity===99));assert.equal(JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset),before);
   const current=await read('2026');assert(current.length>0);assert(current.every(r=>r.CustKey===533));
   assert(current.some(r=>r.ShipmentDate==='2026-09-04'),'multi-day positive date included through master customer');
   assert(!current.some(r=>r.ShipmentDate==='2025-09-01'||r.ShipmentDate==='2026-09-05'),'prior year and zero date excluded');

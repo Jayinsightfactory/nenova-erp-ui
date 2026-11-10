@@ -1,0 +1,11 @@
+{
+ "id":"shipment-major-inline-dates",
+ "title":"출고일 세부차수별 비교 및 메인차수 총수량",
+ "scope":["lib/shipmentMajorInlineDates.js","lib/shipmentDistributionDateIndex.js","lib/shipmentInlineDates.js","pages/api/shipment/distribute.js","pages/shipment/distribute.js","components/shipment/DistributionInlineDates.js","__tests__/shipmentMajorInlineDates.test.cjs","scripts/record-distribution-dual-guide.cjs"],
+ "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+ "actions":[{"name":"COMPARE_MAJOR_DETAIL_WEEKS","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"SELECT only year+major exact01..04/Master customer/product, actual date calendar, each native detail total counted once. Common exact whole bunch/stem display, explicit zero preserved, missing/corrupt/stale results never become a grand total. Sibling detail weeks read-only. Existing canonical date editor/save is selected detail-week only; no aggregate or sibling payload and no financial/stock/estimate writes."}],
+ "crossYearFixture":{"required":true,"description":"2025/2026 same45-01/02/03 separated; missing03 omitted, explicit0 kept, multi-date detail counted once, current detail-only draft and save; wrong year/week/customer/product/packing/date/duplicate/NULL blocked."},
+ "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"2026-11-10 actual local dnSpy.Console installed Nenova.exe FormShipmentDistribution and operational SELECT-only 2025/2026 major45 probe","methods":["GetCustomerList","GetShipmentMaster","btnSave_Click","ShipmentQuantityToEstQuantity"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","PeriodDay","Customer","Product","OrderDetail","Estimate","WebProfitReport"]},
+ "requiredTestFiles":["__tests__/shipmentMajorInlineDates.test.cjs","scripts/test-distribution-date-index-sql.cjs","scripts/record-distribution-dual-guide.cjs"],
+ "requiredCommands":["node --test __tests__/shipmentMajorInlineDates.test.cjs","node scripts/test-distribution-date-index-sql.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
