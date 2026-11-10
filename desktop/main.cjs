@@ -3,7 +3,7 @@ const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen,
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
-const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
+const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { createActivity } = require('./activity.cjs');
@@ -367,11 +367,11 @@ function command(w, action, p = {}) {
       const entry = menuFavoriteEntry(item);
       if (!entry) break;
       if (favorites.some(f => f.url === entry.url)) favorites = favorites.filter(f => f.url !== entry.url);
-      else if (favorites.length < 100) favorites = require('./policy.cjs').safeFavorites([...favorites, { ...entry, number: undefined }]);
+      else if (favorites.length < 100) favorites = safeFavorites([...favorites, { ...entry, number: undefined }]);
       else reportFailure(w, '즐겨찾기는 최대 100개까지 등록할 수 있습니다.');
       break;
     }
-    case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : require('./policy.cjs').safeFavorites([...favorites, { url, title: t.title, zoom: t.zoom }]); } break;
+    case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : safeFavorites([...favorites, { url, title: t.title, zoom: t.zoom }]); } break;
     case 'rename': if (t?.windowId === w.id && text(p.title)) { t.title = text(p.title); t.customTitle = true; } break;
     case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?', '이동')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
     case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?', '새로고침')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
