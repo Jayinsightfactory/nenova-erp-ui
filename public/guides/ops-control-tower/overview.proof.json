@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-10T06:09:54.199Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 42.85,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "96f57db8ce9c253a89d780649b1b3e48abe8ba5c513e3b0cdd16b11f2dcd5053",
+  "captionsSha256": "8fb214e0c560d2fed3a06d1837d36f2de65b9561bbb5628cc0e346bb7a75937c",
+  "sourceHashes": {
+    "pages/ops.js": "78d949a265f9b73d5db6141523b2e53ac8976a9d227621bb5fb8e13d46b31905"
+  }
+}
