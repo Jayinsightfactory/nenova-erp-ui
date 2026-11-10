@@ -559,28 +559,28 @@
           "chapters": [
             {
               "scenario": "load",
-              "title": "차수·담당자·업체 버튼과 개인 즐겨찾기",
+              "title": "1. 차수·담당자·업체 버튼과 개인 즐겨찾기",
               "seconds": 0
             },
             {
               "scenario": "allocate",
-              "title": "요일 수량과 기본 출고요일",
-              "seconds": 8.611
+              "title": "2. 요일 수량과 기본 출고요일",
+              "seconds": 26.543
             },
             {
               "scenario": "drag",
-              "title": "드래그 선택과 일괄 출고일 지정",
-              "seconds": 17.19
+              "title": "3. 드래그 선택과 일괄 출고일 지정",
+              "seconds": 53.07
             },
             {
               "scenario": "group",
-              "title": "품목군 출력 묶음",
-              "seconds": 21.854
+              "title": "4. 품목군 출력 묶음",
+              "seconds": 80.168
             },
             {
               "scenario": "save",
-              "title": "작성본 저장과 엑셀 다운로드",
-              "seconds": 26.295
+              "title": "5. 작성본 저장과 엑셀 다운로드",
+              "seconds": 98.148
             }
           ]
         }
