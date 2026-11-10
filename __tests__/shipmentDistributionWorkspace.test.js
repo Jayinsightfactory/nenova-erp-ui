@@ -193,3 +193,10 @@ test('country favorites intersect group favorites; missing vs explicit empty and
  assert.deepEqual(parseDistributionCountryFavorite([{FavoriteKey:1,FilterData:'{"version":1,"countries":["콜롬비아"]}'},{FavoriteKey:2,FilterData:'{"version":1,"countries":[]}'}]),{countries:[],favoriteKey:2});
  assert.deepEqual(parseDistributionCountryFavorite([{FavoriteKey:9,FilterData:JSON.stringify({version:1,countries:[]})}]),{countries:[],favoriteKey:9});
 });
+
+test('first customer product add uses catalog metadata without changing current-week facts',async()=>{
+ const {distributionAddProductCandidates}=await load();
+ const rows=distributionAddProductCandidates([{ProdKey:1,inQty:0,outQty:2,Cost:0}],[{ProdKey:1,CounName:'태국',FlowerName:'레드불',Cost:9},{ProdKey:2,CounName:'미국',FlowerName:'장미'}]);
+ assert.equal(rows.length,2);assert.equal(rows[0].CounName,'태국');assert.equal(rows[0].Cost,0);assert.equal(rows[0].inQty,0);assert.equal(rows[0].outQty,2);
+ assert.equal(distributionAddProductCandidates([],rows).length,2);
+});

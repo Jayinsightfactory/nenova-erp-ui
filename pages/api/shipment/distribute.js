@@ -1,3 +1,4 @@
+import { distributionReadProductWhere, sqlDistributionWorkspaceCustomers } from '../../../lib/shipmentDistributionCustomerScope.js';
 // pages/api/shipment/distribute.js
 // GET?type=products → 품목 목록 (왼쪽 패널)
 // GET?type=cust     → 업체 기준 주문 품목 (업체 선택 시)
@@ -252,6 +253,7 @@ async function resolveDistributeWeekMeta(week, orderYear) {
 }
 
 function countryFlowerFromProdGroup(prodGroup) {
+  if (String(prodGroup || '').endsWith('::')) return '';
   const parsed = parseProdGroupKey(prodGroup);
   if (!parsed) return null;
   if (parsed.countryFlower) return parsed.countryFlower;
@@ -391,8 +393,8 @@ async function getDistribute(req, res) {
         week: { type: sql.NVarChar, value: week },
         year: { type: sql.NVarChar, value: String(orderYear) },
       };
-      const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
-      Object.assign(params, groupParams);
+      const { clause: prodWhere, params: groupParams } = distributionReadProductWhere(prodGroup);
+      Object.assign(params, Object.fromEntries(Object.entries(groupParams).map(([key,param])=>[key,{...param,type:sql.NVarChar}])));
 
       const result = await query(
         `SELECT
@@ -619,6 +621,15 @@ async function getDistribute(req, res) {
     }
 
     // ── 거래처 목록 (드롭다운용)
+    if (type === 'workspaceCustomers') {
+      if (!week) return res.status(400).json({success:false,error:'week 필요'});
+      const scope=sqlDistributionWorkspaceCustomers(prodGroup);
+      const params={year:{type:sql.NVarChar,value:String(orderYear)},week:{type:sql.NVarChar,value:week}};
+      for(const [key,param] of Object.entries(scope.params))params[key]={...param,type:sql.NVarChar};
+      const result=await query(scope.statement,params);
+      return res.status(200).json({success:true,customers:result.recordset});
+    }
+
     if (type === 'custList') {
       if (!week) return res.status(400).json({ success: false, error: 'week 필요' });
       const result = await query(
@@ -675,8 +686,8 @@ async function getDistribute(req, res) {
         week: { type: sql.NVarChar, value: week },
         year: { type: sql.NVarChar, value: String(orderYear) },
       };
-      const { clause: prodWhere, params: groupParams } = buildProdGroupWhere(prodGroup);
-      Object.assign(params, groupParams);
+      const { clause: prodWhere, params: groupParams } = distributionReadProductWhere(prodGroup);
+      Object.assign(params, Object.fromEntries(Object.entries(groupParams).map(([key,param])=>[key,{...param,type:sql.NVarChar}])));
 
       // 거래처 목록
       const custResult = await query(

@@ -4,7 +4,7 @@ const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs')
 async function main(){
  const core=await import('../lib/shipmentDistributionDates.js'),root=process.cwd(),base=process.env.GUIDE_BASE||'http://127.0.0.1:39325',record=process.argv.includes('--record');
  const browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--no-sandbox']});
- let rec,stopped=false;try{
+ let rec,capturedGuide=null,stopped=false;try{
  const page=await browser.newPage();await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});const errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log(m.text());});await page.setRequestInterception(true);
  const groups=[{key:'콜롬비아::수국',country:'콜롬비아',flower:'수국',label:'콜롬비아수국'},{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션',label:'콜롬비아카네이션'},{key:'콜롬비아::장미',country:'콜롬비아',flower:'장미',label:'콜롬비아장미'},{key:'네덜란드::장미',country:'네덜란드',flower:'장미',label:'네덜란드장미'},{key:'네덜란드::튤립',country:'네덜란드',flower:'튤립',label:'네덜란드튤립'}];
  let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
@@ -20,9 +20,11 @@ async function main(){
     else if(body.page==='shipment-distribute-countries'||body.favoriteKey===99){countrySetting=JSON.parse(body.filterData);d.favoriteKey=99;}
   }
   if(type==='groups')d.groups=groups;if(type==='products'||type==='productCatalog')d.products=[prod];
-  if(type==='customers'||type==='custList'||type==='custDist'){d.customers=[customer()];d.totalOrder=1;d.totalOut=1;d.inQty=1;}
+  if(type==='workspaceCustomers'||type==='customers'||type==='custList'||type==='custDist'){d.customers=[customer()];d.totalOrder=1;d.totalOut=1;d.inQty=1;}
   if(type==='custItems')d.items=[{...prod,...customer()}];
   if(type==='custWeekGrid')d.rows=[{...prod,SdetailKey:101,OutQuantity:1,...Object.fromEntries(context.calendar.flatMap(r=>[[`ymd${r.WeekDay}`,r.Timestamp.slice(0,10)],[`day${r.WeekDay}`,context.dates.find(x=>x.Timestamp===r.Timestamp)?.ShipmentQuantity||0]]))}];
+  if(['custItems','products'].includes(type) && u.searchParams.get('week')?.endsWith('45-03')){if(type==='custItems')d.items=[];else d.products=[];}
+  if(type==='workspaceCustomers' && u.searchParams.get('week')?.endsWith('45-03'))d.customers=[{...customer(),noOrder:true}];
   if(type==='fixedScopes')d.scopes=[{prodKey:3513,fixed:true,countryFlower:'콜롬비아카네이션'}];
   if(u.pathname==='/api/shipment/distribution-dates'){
     if(req.method()==='GET')d={success:true,context,snapshot:core.distributionDateSnapshot(context),blocked:''};
@@ -42,6 +44,9 @@ async function main(){
  await click('[data-ai-verify="group-view-all"]');assert.equal(await page.$$eval('[data-testid="distribution-country-네덜란드"]',n=>n.length),0);
  assert.equal(await page.$$eval('[data-testid="distribution-country-콜롬비아"] [data-distribution-group-select]',n=>n.length),3);
  await hold('콜롬비아를 즐겨찾기하면 수국·카네이션·장미 등\n그 국가에서 즐겨찾기한 품종만 바로 나타납니다.');
+ rec?.chapter('country','국가 전체 선택과 분배 전 업체 후보');
+ await click('[data-ai-verify="country-select-콜롬비아"]');assert.equal(await page.$eval('[data-ai-verify="country-select-콜롬비아"]',n=>n.getAttribute('aria-pressed')),'true');
+ await hold('국가 이름을 누르면 해당 국가 전체 품종을 조회합니다.\n옆의 별은 즐겨찾기 설정이며, 국가 선택과 별도입니다.');
  const week=await page.$('input[placeholder="YYYY-WW-SS"]')||await page.$('input[placeholder*="2026-"]');assert(week,'week input');await week.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await week.type('2026-45-01');await page.keyboard.press('Tab');await text('🔍 조회');
  await click('[data-ai-verify="group-콜롬비아카네이션"]');await page.waitForNetworkIdle({idleTime:200});await page.waitForSelector('[data-product-select]');await click('[data-product-select]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  rec?.chapter('dates','날짜별 수량 입력과 총량 확인');
@@ -62,7 +67,17 @@ async function main(){
  assert.equal(await page.$eval('input[aria-label="2026-11-05 분배수량"]',n=>Number(n.value)),.4);
  await hold('출고일지정 탭도 같은 편집창과 저장 절차를 사용합니다.\n기본 출고요일 설정은 실제 출고일 저장과 별도입니다.');await text('닫기');
  assert.deepEqual(errors,[]);
- if(rec){const result=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.guides[0].status='ready';wf.guides[0].chapters=result.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
+ rec?.chapter('customers','분배 전 업체와 주문 없는 차수 후보');
+ await text('출고분배 및 업체정보');
+ // Empty 45-03 + country-active regression, read-only selection; no phantom order.
+ const w=await page.$('input[placeholder="YYYY-WW-SS"]')||await page.$('input[placeholder*="2026-"]');await w.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await w.type('2026-45-03');await page.keyboard.press('Tab');await page.waitForNetworkIdle({idleTime:200});
+ await page.waitForSelector('[data-testid="distribution-no-order-candidates"]');await hold('아직 주문·분배가 없는 차수도 전체 업체 후보를 표시합니다.\n업체를 선택한 후 품목과 양수 수량을 추가해야 실제 저장됩니다.');await click('[data-ai-verify="customer-777"]');await page.waitForNetworkIdle({idleTime:200});
+ await click('[data-ai-verify="add-panel-open"]');await page.waitForSelector('[data-testid="distribution-add-panel"]');await click('[data-ai-verify="add-prod-3513"]');
+ await hold('차수에 등록된 품목이 없어도 품목추가에서 활성 품목을 찾습니다.\n나라·품종을 좁히거나 품목명을 검색한 뒤 수량을 추가하세요.');
+ await click('[data-ai-verify="add-panel-close"]');
+ assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0,'empty-scope selection never writes');
+ await w.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await w.type('2026-45-01');await page.keyboard.press('Tab');await page.waitForNetworkIdle({idleTime:200});await text('연습업체');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
+ if(rec){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');console.log('PASS recorded tested country/customer/date workflow');return;}
  // Non-recorded keyboard + discard + mobile verification.
  await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForSelector('[role="dialog"] input');await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('[role="dialog"][aria-label="출고일 수량 분배"]'));
  await page.setViewport({width:390,height:844});await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForSelector('[role="dialog"] input');assert(await page.$eval('[role="dialog"]',n=>n.getBoundingClientRect().width<=390));await page.screenshot({path:'outputs/date-mobile.png'});await page.keyboard.press('Escape');
@@ -73,6 +88,7 @@ async function main(){
  await page.reload();await page.waitForNetworkIdle({idleTime:200});assert.equal(await page.$$eval('[data-testid^="distribution-country-"]',n=>n.length),0,'empty country preference survives reload');assert.equal(await page.$eval('[data-ai-verify="group-all"]',n=>n.getAttribute('aria-pressed')),'true','explicit empty cannot preselect hidden group');
  await click('[data-ai-verify="group-view-all"]');await click('[data-ai-verify="country-fav-네덜란드"]');await page.waitForFunction(()=>document.querySelector('[data-ai-verify="country-fav-네덜란드"]')?.getAttribute('aria-pressed')==='true');await click('[data-ai-verify="group-view-all"]');assert.equal(await page.$$eval('[data-testid="distribution-country-네덜란드"] [data-distribution-group-select]',n=>n.length),1,'only Netherlands favorite rose, no unfavorited tulip');
  account='second-account';await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.waitForFunction(()=>document.querySelectorAll('[data-testid^="distribution-country-"]').length===0);
+ if(capturedGuide){const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
  console.log('PASS actual UI: duplicate favorites removed, country+variety intersection, quantity mismatch disabled, preview explicit save, actual date re-read in tab, Escape focus, 390 viewport. All APIs synthetic.');
  }finally{if(rec&&!stopped)await rec.stop().catch(()=>{});await browser.close();}
 }
