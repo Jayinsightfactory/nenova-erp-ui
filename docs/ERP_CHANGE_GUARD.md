@@ -1149,5 +1149,7 @@ output409/stocknotes500 반복에서원인을추측해fence를좁히지않는다
 ## 2026-11-09 업로드 참고 미우 시트 우선선택
 47차 남대문경원/원당태광 실제 업로드는 본문7/4행보다 참고 미우13행의 점수가 높아 참고 시트를 선택했다. 첫12행 셀을 이어 붙여 미우 제목과07차 열도 같은 제목으로 파싱했다. 파일 업체+차수와 일치하는 본문 우선, 제목 셀별 파싱, 업로드 전용 경원원예 유일명 별칭, 미매칭 시 이전업체 승계 금지로 차단한다. 동일 원본 재분석47차/7·4행/277·491 확인. 등록 기본값order, 분배단가수정 별도 담당자별 화면. ERP 원장보정0. 실제API/합성다중시트/이전선택456 반례와 기준표는 plans/upload-customer-distribution-2026-11-09.md, 계약 order-import-shipment-list.
 
+## 2026-11-10 미국 과거 견적 필드 승인 보정
+2025 출고일 견적4필드 전부NULL은 2026 1~3차와 동일한 운영전 레거시 패턴이다. 미국2025/46-01 승인29행 중양수25개만 Date필드를복원하고0행4개는보존한다. Detail 기존매출·확정·원장·재고를재계산하지않는다. 계약 `us-legacy-quote-repair.json`, `shipmentLegacyDateRepair.test.cjs`, 격리 `test-distribution-catalog-downstream-sql.cjs`. 드라이런SHA와잠금재검증·CAS·보호원장지문·native견적/엑셀검사가다르면rollback. 운영원인작성주체를이기록만으로단정하지않는다.
 ## 2026-11-10 콜롬비아 다운로드 수식 순환
 판매 기준가 적용 행수 COUNT를 AB12에 쓴 것이 원본 CO 중량배분 SUMPRODUCT(AB8:AB12,AC8:AC12)의 입력을 덮어썼다. 원가→추천판매가→COUNT→중량배분→원가 순환으로 최초 캐시는 맞아도 GW 수정 후 원가가 갱신되지 않았다. AC12=0이어도 순환을 허용하지 않는다. 판매 진단만 AK14:AL15로 이동하고 원본 계수·수식·확정 스냅샷은 보존한다. invoiceCostSalesDefaults 회귀는 원본 AB12 보존·독립 A1 의존성 정상/옛 순환 반례를 검사한다. 46-1 31입고265상품 replay 다운로드의 Microsoft Excel/Artifact 재계산에서 GW+1kg→통관/총원가+460원·전체 상품원가/판매/이익 갱신과 원복을 확인했다. 중량·운임은 TEST_ONLY이며 실제 비용 검증이 아니다. scripts/verify-colombia-cost-recalculation.ps1은 파일 readOnly·저장 없음, 운영 DB·재고·원가·손익 writer 변경/실행0.

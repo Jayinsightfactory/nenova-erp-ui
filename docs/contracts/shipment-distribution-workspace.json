@@ -92,7 +92,8 @@
     "downstream": "No new Estimate, StockHistory or WebProfitReport writes; native amount conversion and fixed protection unchanged. Read-only estimate visibility/amount/date and confirmed-sales evidence recorded in work plan.",
     "viewport": "1920x1080 CSS100%, plus smaller widths; page primary scrolling and accessible popups.",
     "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists.",
-    "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and sorts A-Z; blank search keeps selected-week list. SELECT only; saves retain existing preflight and writers."
+    "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and sorts A-Z; blank search keeps selected-week list. SELECT only; saves retain existing preflight and writers. Catalog-only products must also pass the selection whitelist, including empty 45-03 product lists. Header picker remains usable with zero current-week products and loads the same active catalog on open. Existing positive order registration precedes shipment writes.",
+    "countryGrouping": "국가별 제목 아래 해당 국가 품종 버튼을 표시한다. 국가 선택 단계는 추가하지 않으며 기존 품종 key/전체/즐겨찾기/저장 동작과 API 순서를 유지한다."
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionWorkspace.test.js",

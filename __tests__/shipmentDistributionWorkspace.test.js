@@ -156,3 +156,12 @@ test('product search finds unallocated US catalog across selected groups and yea
     assert.equal(rows.length, 1);
   }
 });
+
+test('country grouping preserves country order and shows every active variety, even without allocation', async () => {
+  const { distributionCountryGroups } = await load();
+  const groups = [{country:'콜롬비아',key:'콜롬비아::장미'}, {country:'미국',key:'미국::더글라스'}, {country:'미국',key:'미국::레몬잎'}];
+  assert.deepEqual(distributionCountryGroups(groups).map(g=>g.country), ['콜롬비아','미국']);
+  assert.deepEqual(distributionCountryGroups(groups)[1].groups.map(g=>g.key), ['미국::더글라스','미국::레몬잎']);
+  assert.deepEqual(distributionCountryGroups([]), []);
+  assert.equal(groups.length,3);
+});
