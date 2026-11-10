@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import WorkflowGuide from './WorkflowGuide';
+import {readSettlementResponse} from '../lib/customsSettlementHttp';
 const format=n=>n==null?'미확인':Number(n).toLocaleString();
 const targetLabel=key=>{const [kind,name,phase]=String(key||'').split('|');return kind==='country'?`${name} ${Number(phase)}차`:kind==='colombia'?`콜롬비아 공동비용 ${name}`:'';};
 const fieldLabel=f=>/^Customs[12]_/.test(f)||f==='CustomsFee'?'관세':/^SunYul[12]_/.test(f)?'통관·검역대행':f==='HandlingFee'?'통관수수료(공급가)':'검역대행(공급가)';
@@ -9,9 +10,9 @@ export default function CustomsSettlementUpload({year,major,onLinked}){
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[confirmed,setConfirmed]=useState(false),[dirty,setDirty]=useState(false),[worker,setWorker]=useState(null);
   const scope=`${year}|${major}`,active=useRef(scope),sequence=useRef(0),input=useRef(null),notified=useRef(new Set());active.current=scope;
   const storageKey=`customs-settlement-job:${scope}`;
-  async function call(body){const r=await fetch('/api/sales/customs-settlement',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok||!d.success)throw Error(d.error||'정산 작업을 확인하지 못했습니다.');return d;}
+  async function call(body){const r=await fetch('/api/sales/customs-settlement',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return readSettlementResponse(r);}
   function accept(d){setJob(d.job);if(d.worker)setWorker(d.worker);if(d.review){setReview(d.review);setSelected(d.review.rows.filter(r=>!['registered','blocked','ocr_review'].includes(r.status)).map(r=>r.sourceHash));const done=d.review.rows.filter(r=>r.status==='registered').length,key=`${d.job.jobId}:${done}`;if(done&&!notified.current.has(key)){notified.current.add(key);onLinked?.();}}}
-  async function refresh(id,ownScope=scope){const own=sequence.current,r=await fetch(`/api/sales/customs-settlement?jobId=${encodeURIComponent(id)}`,{credentials:'same-origin'}),d=await r.json();if(active.current!==ownScope||sequence.current!==own)return;if(!d.success)throw Error(d.error);accept(d);}
+  async function refresh(id,ownScope=scope){const own=sequence.current,r=await fetch(`/api/sales/customs-settlement?jobId=${encodeURIComponent(id)}`,{credentials:'same-origin'}),d=await readSettlementResponse(r).catch(error=>{if(active.current!==ownScope||sequence.current!==own)return null;throw error;});if(!d||active.current!==ownScope||sequence.current!==own)return;accept(d);}
   useEffect(()=>{
     sequence.current++;setJob(null);setReview(null);setLinks({});setSelected([]);setConfirmed(false);setDirty(false);setBusy(false);setError('');setMessage('');if(input.current)input.current.value='';
     let id;try{id=localStorage.getItem(storageKey);}catch{}

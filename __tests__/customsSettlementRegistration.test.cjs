@@ -86,8 +86,25 @@ test('automatic panel source refresh preserves all drafts; explicit loads reset 
   assert.match(source,/refreshSettlementSource=useCallback\(\(\)=>load\(\{preserveEdits:true\}\)/);
 });
 test('same-scope old ZIP poll cannot overwrite a newer ZIP job',async()=>{
+  const {readSettlementResponse}=await import('../lib/customsSettlementHttp.js');
   const source=await fs.readFile(path.join(__dirname,'../components/CustomsSettlementUpload.js'),'utf8'),start=source.indexOf('async function refresh('),end=source.indexOf('\n  useEffect',start),sequence={current:0},active={current:'2026|35'},pending=[],accepted=[];
-  const deps={scope:'2026|35',sequence,active,fetch:()=>new Promise(resolve=>pending.push(jobId=>resolve({json:async()=>({success:true,job:{jobId}})}))),accept:d=>accepted.push(d.job.jobId)};
+  const deps={scope:'2026|35',sequence,active,readSettlementResponse,fetch:()=>new Promise(resolve=>pending.push(jobId=>resolve({ok:true,status:200,json:async()=>({success:true,job:{jobId}})}))),accept:d=>accepted.push(d.job.jobId)};
   const refresh=new Function(...Object.keys(deps),`${source.slice(start,end)};return refresh;`)(...Object.values(deps));
   const old=refresh('old');sequence.current++;const latest=refresh('new');pending[1]('new');await latest;pending[0]('old');await old;assert.deepEqual(accepted,['new']);
+});
+test('HTTP 2MiB upload rejected with proxy HTML yields safe 413 guidance without response disclosure',async()=>{
+  const {readSettlementResponse}=await import('../lib/customsSettlementHttp.js'),http=require('node:http');
+  const marker='PRIVATE_PROXY_BODY_DO_NOT_DISPLAY',server=http.createServer((req,res)=>{req.resume();req.on('end',()=>{res.writeHead(413,{'Content-Type':'text/html'});res.end(`<html>${marker}${'x'.repeat(2*1024*1024)}</html>`);});});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{const response=await fetch(`http://127.0.0.1:${server.address().port}`,{method:'POST',headers:{'Content-Type':'application/json'},body:' '.repeat(2*1024*1024)});await assert.rejects(readSettlementResponse(response),error=>error.statusCode===413&&/25MiB|서버 허용 한도/.test(error.message)&&!error.message.includes(marker)&&!/[<>]|Unexpected token/.test(error.message));}
+  finally{server.closeAllConnections?.();await new Promise(resolve=>server.close(resolve));}
+});
+test('settlement HTTP parser handles login/gateway/non-JSON/valid JSON without raw bodies or false success',async()=>{
+  const {readSettlementResponse}=await import('../lib/customsSettlementHttp.js');
+  for(const status of [401,403,502,503,504]){
+    await assert.rejects(readSettlementResponse({status,ok:false,json:async()=>{throw Error('PRIVATE_HTML_BODY');}}),error=>error.statusCode===status&&!/PRIVATE|HTML_BODY/.test(error.message)&&(status<500?/로그인/.test(error.message):/접수|작업 상태/.test(error.message)));
+  }
+  const expected={success:true,job:{jobId:'fixture'}};assert.equal(await readSettlementResponse({status:200,ok:true,json:async()=>expected}),expected);
+  await assert.rejects(readSettlementResponse({status:200,ok:true,json:async()=>null}),/응답을 확인하지 못했습니다/);
+  await assert.rejects(readSettlementResponse({status:400,ok:false,json:async()=>({success:false,error:'정산서 원본을 확인하세요.'})}),/정산서 원본/);
 });
