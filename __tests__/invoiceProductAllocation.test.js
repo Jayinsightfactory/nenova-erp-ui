@@ -48,14 +48,14 @@ test('allocation clears stale typed search while retaining selected keys and exa
 
 test('actual workbench selection callback applies allocation and keeps invalid quantities visibly blocked',async()=>{
  const source=readFileSync(new URL('../components/import-tools/InvoiceReceiptWorkbench.js',import.meta.url),'utf8');
- const callback=source.slice(source.indexOf('  function updateLineProduct('),source.indexOf('  async function saveDraftRecord('));
- const invoke=new Function('documentValue','products','applyInvoiceAllocation','updateSelected','setNotice','lineId','product',`${callback};updateLineProduct(lineId,product);`);
+ const callback=source.slice(source.indexOf('  async function updateLineProduct('),source.indexOf('  async function saveDraftRecord('));
+ const invoke=new Function('documentValue','products','applyInvoiceAllocation','updateSelected','setNotice','lineId','product',`${callback};return updateLineProduct(lineId,product);`);
  let doc=await fixture(),notice;
  const select=()=>invoke(doc,products,applyInvoiceAllocation,mutator=>{doc=mutator(doc);},value=>{notice=value;},doc.lines[0].lineId,products[0]);
- select();assert.equal(doc.lines[0].prodKey,2997);assert.equal(doc.lines[0].reviewed.allocationConfirmed,true);
+ await select();assert.equal(doc.lines[0].prodKey,2997);assert.equal(doc.lines[0].reviewed.allocationConfirmed,true);
  assert.equal(notice.type,'success');assert.deepEqual(allocationIssues(doc,products),[]);
  doc={...doc,lines:doc.lines.map(line=>({...line,boxQuantity:8}))};
- select();assert.equal(notice.type,'error');assert.match(notice.text,/박스 원본 7 \/ 분류 8/);
+ await select();assert.equal(notice.type,'error');assert.match(notice.text,/박스 원본 7 \/ 분류 8/);
  assert.equal(doc.lines[0].reviewed.allocationConfirmed,false);assert.ok(allocationIssues(doc,products).length);
 });
 test('missing/negative/changed totals and invalid country rejected, explicit zero preserved',async()=>{

@@ -1,6 +1,7 @@
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { readInvoiceCosts } from '../../../lib/invoiceReceiptCost';
+import { readInvoiceReceiptExpenses } from '../../../lib/invoiceReceiptExpenses';
 
 export function createInvoiceCostReadHandler({ queryFn = query, types = sql } = {}) {
   return async function invoiceCostReadHandler(req, res) {
@@ -11,7 +12,8 @@ export function createInvoiceCostReadHandler({ queryFn = query, types = sql } = 
     }
     try {
       const costs = await readInvoiceCosts({ queryFn, types, warehouseKey: req.query.warehouseKey });
-      return res.status(200).json({ success: true, costs });
+      const expenses = await readInvoiceReceiptExpenses({ queryFn, types, warehouseKey: req.query.warehouseKey });
+      return res.status(200).json({ success: true, costs, expenses });
     } catch (error) {
       const known = Number.isInteger(error.statusCode) && error.statusCode >= 400 && error.statusCode < 500;
       return res.status(known ? error.statusCode : 503).json({

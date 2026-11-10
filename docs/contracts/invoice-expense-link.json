@@ -1,0 +1,14 @@
+{
+  "id":"invoice-expense-link",
+  "title":"입고 연결 통화별 비용·매칭 유지·현재 입력 다운로드",
+  "scope":["lib/invoiceReceiptExpenses.js","lib/receiptProductMatchClient.js","lib/importPackingReceiptAdapter.js","lib/importPackingMatchPreview.js","lib/nativeReceiptCost.js","lib/nlNativeCostDefaults.js","components/import-tools/InvoiceReceiptWorkbench.js","components/import-tools/InvoiceReceiptCostReview.js","components/import-tools/NativeReceiptCost.js","components/import-tools/PackingListTool.js","components/import-tools/PackingResults.js","pages/api/warehouse/invoice-costs.js","pages/incoming.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[
+    {"name":"READ_EXPENSES_AND_DOWNLOAD","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Current revision COMMITTED receipt link plus shared live receipt verification before using web costInputs. Currency retained; no pseudo physical quantities. If receipt changed, ignore web costs and explicitly warn; native freight wins without duplicate addition. Input edits shared between download controls."},
+    {"name":"SELECT_PRODUCT","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","stock":"preserve","notes":"Existing team CAS per country/source description; failed save preserves selection and reports failure. Woolly/allocation lines remain file-specific."}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025/2026 same46-01 and different receipt/week cannot reuse expenses. Explicit0 distinct from missing. Duplicate freight representations never added twice."},
+  "requiredTestFiles":["__tests__/invoiceReceiptExpenses.test.js","__tests__/receiptProductMatchClient.test.js","__tests__/packingInvoiceTotals.test.js","__tests__/nativeReceiptCost.test.js","__tests__/importPackingReceiptAdapter.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-11-10 actual dnSpy ExcelLoadingPackingList: independent Box/Bunch/Steam/UPrice/TPrice and CreateWarehouse then StockCalculation; read-only8069 probe in plans/import-repair-2026-11-10.md. No ERP writer/SP modification.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","WebInvoiceDocument","WebInvoiceOperation"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

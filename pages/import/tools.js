@@ -48,6 +48,7 @@ function History({onRestore}){
 export default function ImportTools({userId='',initialTab='packing'}){
  const [packingWorkMode,setPackingWorkMode]=useState('upload');
  const [costVisited,setCostVisited]=useState(false);
+ const [resumeReceiptScope,setResumeReceiptScope]=useState(null);
  const [sharedRestore,setSharedRestore]=useState(null);
  const restoreShared=useCallback(snapshot=>{setSharedRestore({snapshot,id:crypto.randomUUID()});setTab('packing');setPackingWorkMode('upload');},[]);
  const [tab,setTab]=useState(initialTab),[saveError,setSaveError]=useState('');
@@ -88,11 +89,11 @@ export default function ImportTools({userId='',initialTab='packing'}){
     <nav className={styles.packingWorkModes} aria-label="인보이스 작업 선택">
      {[['upload','파일 · 품목 매칭','업로드하고 확인할 품목만 검토'],['receipt','입고 작업','수량 확인 · 입고 등록'],['cost','도착원가 작업','기존 입고자료로 바로 생성 · 다운로드']].map(([id,label,hint])=><button type="button" key={id} aria-pressed={packingWorkMode===id} onClick={()=>{if(id==='cost')setCostVisited(true);setPackingWorkMode(id);}}><strong>{label}</strong><small>{hint}</small></button>)}
     </nav>
-    {costVisited&&<div hidden={packingWorkMode!=='cost'}><IndependentCostWorkspace key={userId} userId={userId} storage={storage}/></div>}
+    {costVisited&&<div hidden={packingWorkMode!=='cost'}><IndependentCostWorkspace key={userId} userId={userId} storage={storage} resumeReceiptScope={resumeReceiptScope}/></div>}
     <div hidden={packingWorkMode!=='upload'}><PackingListTool key={userId} userId={userId} sharedRestore={sharedRestore} storage={storage} onReceiptSourceChange={changeReceiptSource} receiptMatchState={receiptMatchState} onContinue={()=>setPackingWorkMode('receipt')}/></div>
     <div id="packing-receipt-stage" hidden={packingWorkMode!=='receipt'} tabIndex={-1} style={{scrollMarginTop:16}}>
      {receiptSource.packingActive && !receiptSource.excels.length && <p role="status">파일 · 품목 매칭에서 인보이스를 준비하세요. <button type="button" onClick={()=>setPackingWorkMode('upload')}>파일 · 품목 매칭으로 돌아가기</button></p>}
-     <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode="receipt" onWorkspaceModeChange={mode=>{if(mode==='cost')setCostVisited(true);setPackingWorkMode(mode);}}/>
+     <InvoiceReceiptWorkbench key={userId} userId={userId} {...receiptSource} onMatchStateChange={changeReceiptMatchState} workspaceMode="receipt" onWorkspaceModeChange={(mode,scope)=>{if(mode==='cost'){if(scope)setResumeReceiptScope({...scope,userId});setCostVisited(true);}setPackingWorkMode(mode);}}/>
     </div>
    </div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool active={tab==='orders'}/></div>

@@ -365,7 +365,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const [exchangeRateStatus, setExchangeRateStatus] = useState('');
   const [exchangeRateRetry, setExchangeRateRetry] = useState(0);
   const [preview, setPreview] = useState(null);
-  useEffect(() => { onInputDraftChange?.(payloadOf(form)); }, [form, onInputDraftChange]);
+  useEffect(() => { onInputDraftChange?.(payloadOf(form), { edited: inputEdited }); }, [form, inputEdited, onInputDraftChange]);
   useEffect(() => {
     const template = nlInvoiceDraftTemplate(document, receiptLines, form);
     if (!template || (Number(form.customsTotalKRW) === template.total
