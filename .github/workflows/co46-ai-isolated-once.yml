@@ -1,0 +1,39 @@
+name: CO46 isolated real AI extraction
+on:
+  push:
+    branches: [test/co46-ai-e2e-1110]
+    paths: [.github/workflows/co46-ai-isolated-once.yml]
+permissions:
+  contents: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated parsing dependencies
+        run: |
+          python -m pip install --disable-pip-version-check paramiko==3.5.1
+          npm install --prefix .verify/ai-runtime --no-save --ignore-scripts pdf-lib@1.17.1
+          ln -s .verify/ai-runtime/node_modules node_modules
+      - name: Read exact original via pinned SFTP (no remote command)
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: python scripts/fetch-co46-ai-source.py
+      - name: Fresh Claude extraction (six calls maximum, no retry, no SQL)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/analyze-co46-isolated.mjs
+      - name: Preserve responses including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: co46-fresh-ai-private
+          path: .verify/co46-live-ai/
+          retention-days: 2
