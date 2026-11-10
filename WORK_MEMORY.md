@@ -2525,3 +2525,10 @@
 - 최종검증:전체ERP(pre/core/post)exit0,dnSpy/manifest210/쓰기0API/layout/workflow11업무12영상/webpack1worker build PASS. production build PC1920·모바일390선택묶음/기존묶음추가/해제/자동이름/키보드/저장복원/다운로드/전체기존업무 및 영상player PASS. 원본XLSX/합성출력Artifact렌더확인,단가동일병합·혼합단가구분·정수/소수·긴이름/옆표행높이20테스트PASS.
 - 날짜중간요청은사용자가철회,기존수11-04~화11-10최종확인. 임시화시작수정은커밋/배포없이전부복원,core/service/date변경0. PR/운영배포후속미검증.
 검색어: 선택형묶음 최종20테스트 전체ERP통과 날짜변경철회 원본양식렌더
+## 2026-11-10 물량표 카톡 농장분배 통합 업로드
+- 최신 master 별도 작업트리 codex/farm-text-excel에서 구현. 수량·업체 변경과 카톡 농장별 배정을 기존 전체 업로드 트랜잭션/서명 검증/안전 복원 이력에 함께 연결. 농장만 변경할 때는 ShipmentFarm/Descr 외 원장 보존을 전후 스냅샷으로 검사. 모호한 업체·품목·농장은 직접 선택 후 재검증. 카톡 제목 차수는 저장 범위를 변경하지 않는다.
+- 원본 OOXML 직접 수정: 수량표 밖 빈 상단 셀에 메모, 원본 행 높이·열 너비·용지·여백·인쇄 배율 보존. 실제 카네이션4항목=81행/31%, 장미20항목=60행/46% 유지 및 ExcelJS 재열기 확인. 원본 빈셀만 추가 병합하고 기존 셀 스타일은 보존. 구조화 농장분배_검증 시트로 재업로드 합계 대조, 수량0 취소 시 배정/생성메모 해제. 공간부족·직접 인쇄메모 수정은 안내차단.
+- 실제 dnSpy FormShipmentDistribution CLI와 운영 SELECT 선검증. 2026/45-01/Prod2158 견적진단 native helper 5행 중5행 InGetDetail>0, DetailFix=1 조건 확인. 운영 ERP 쓰기 없음. 수량변경 downstream은 기존 업로드 정책, 농장-only 금액/확정/날짜/주문 보존.
+- 신규 회귀8개, 기존 전체 ERP 계약(pre/core/post), dnSpy, manifest210, ERP쓰기 스코프 통과. 1920/390 실제 headless Chrome fixture에서 카톡입력/하이라이트/맞춤·확대축소·100%/다운로드/입력수정 후 검증무효화/합계오류 차단 통과. 브라우저 API는 전부 fixture 차단, 운영쓰기0.
+- 최신master 병합 후 대상회귀/manifest/쓰기/dnSpy 재통과. 최종 병합빌드·PR/CI·Cafe24배포·운영브라우저·실제 Excel 인쇄 미리보기는 이 기록 시점 미검증, 후속 확인.
+검색어: 농장분배 카톡 물량표 통합검증 원본엑셀 인쇄배율 빈셀 확대축소 재업로드 farm-text-excel

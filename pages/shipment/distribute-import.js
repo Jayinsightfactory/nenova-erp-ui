@@ -28,10 +28,10 @@ const statusText = status => status === '주문없음' ? '신규추가' : status
 const rowChanged = r => r?.status !== '동일' && r?.status !== '확정차단';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
-const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
+const shipmentNeedsApply = r => !!r?.farmChanged || !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
 const applyTarget = r => !r.fixBlocked && (orderChanged(r) || shipmentNeedsApply(r));
-const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
-const rowBg = r => r?.fixBlocked ? '#f3f4f6' : r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
+const rowStatusText = r => r?.farmChanged ? `${statusText(r.status)} · 농장변경` : r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
+const rowBg = r => r?.fixBlocked ? '#f3f4f6' : r?.farmChanged ? '#f3e8ff' : r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
 
 function getDefaultImportWeek() {
   const current = getCurrentWeek();
@@ -115,6 +115,9 @@ export default function DistributeImport() {
   const router = useRouter();
   const weekInput = useWeekInput(getDefaultImportWeek());
   const fileRef = useRef(null);
+  const [farmText, setFarmText] = useState('');
+  const [farmOverrides, setFarmOverrides] = useState({ targets: {}, farms: {} });
+  const [downloading, setDownloading] = useState(false);
   const applyResultRef = useRef(null);
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
@@ -365,6 +368,8 @@ export default function DistributeImport() {
       form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
       form.append('earlyImportMode', earlyImportMode);
       form.append('file', file);
+      form.append('farmText', farmText);
+      form.append('farmOverrides', JSON.stringify(farmOverrides));
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
       }
@@ -477,6 +482,7 @@ export default function DistributeImport() {
     else if (custKey) next[label] = Number(custKey);
     else delete next[label];
     setOverrides(next);
+    invalidateFarmPreview();
   };
 
   const pickProdOverride = (key, prodKey) => {
@@ -488,13 +494,30 @@ export default function DistributeImport() {
     setProdOverridesState(next);
     sheetLoadRef.current += 1;
     setLoading(false); // discard an older in-flight preview without leaving its spinner locked
-    setPreview(prev => prev ? { ...prev, replacementPlan: null } : prev);
+    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null } : prev);
   };
 
   const handleReverify = async () => {
     await handlePreview({ preserveModal: true });
   };
 
+  const invalidateFarmPreview = () => {
+    sheetLoadRef.current += 1;
+    setLoading(false);
+    setPreview(prev => prev ? { ...prev, replacementPlan: null, exportPlan: null } : prev);
+  };
+  const handleFarmDownload = async () => {
+    if (!file || !preview?.exportPlan) return;
+    setDownloading(true); setError('');
+    try {
+      const form = new FormData(); form.append('file', file); form.append('exportPlan', preview.exportPlan);
+      const response = await fetch('/api/shipment/distribute-import-export', {method:'POST',body:form,credentials:'same-origin'});
+      if (!response.ok) { const data=await response.json(); throw new Error(data.error || '엑셀 다운로드 실패'); }
+      const blob=await response.blob(), url=URL.createObjectURL(blob), link=document.createElement('a');
+      link.href=url; link.download=file.name.replace(/\.xlsx$/i,'')+'-농장분배.xlsx';
+      document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    } catch(e) {setError(e.message);} finally {setDownloading(false);}
+  };
   const handleApply = async () => {
     if (!pendingReady || pendingJob || applying) {
       setError('이전 작업의 결과 확인을 마친 뒤 새로 적용하세요.');
@@ -719,6 +742,7 @@ export default function DistributeImport() {
             style={{ display: 'none' }}
             onChange={e => {
               const selectedFile = e.target.files?.[0] || null;
+              setFarmOverrides({ targets: {}, farms: {} });
               ++sheetLoadRef.current;
               setFile(selectedFile);
               verifiedOverridesRef.current = { cust: {}, prod: {} };
@@ -972,6 +996,22 @@ export default function DistributeImport() {
           </div>
         )}
 
+        <section style={st.panel} aria-label="카톡 농장분배 입력">
+          <div style={st.panelHead}><strong>카톡 농장분배</strong></div>
+          <div style={{padding:12}}>
+            <textarea aria-label="농장분배 카톡 내용" value={farmText} disabled={applying || !!pendingJob}
+              onChange={e=>{setFarmText(e.target.value);setFarmOverrides({targets:{},farms:{}});invalidateFarmPreview();}}
+              placeholder={'42-2 장미 농장분배\n-라움\n퀵샌드 40단(엘리떼 30단, 발로레스 10단)'}
+              style={{width:'100%',minHeight:150,boxSizing:'border-box',padding:10,fontSize:14}} />
+            <p style={{fontSize:13,color:'#475569'}}>엑셀 수정 내역과 농장별 합계를 함께 검증합니다. 카톡 제목 차수와 관계없이 선택한 연도·차수에 적용합니다. 원본 표의 크기·여백·인쇄 설정을 유지하고 표 밖 빈 공간에 농장분배를 넣습니다.</p>
+            <button style={st.primaryBtn} disabled={loading || applying || !file} onClick={()=>handlePreview()}>수정 내역 + 농장분배 검증</button>{' '}
+            <button style={st.secondaryBtn} disabled={downloading || applying || loading || !preview?.exportPlan} onClick={handleFarmDownload}>{downloading?'다운로드 준비 중…':'검증된 엑셀 다운로드'}</button>
+            <span style={{marginLeft:10,fontSize:12}}>ERP 저장은 ‘적용’ 버튼으로 진행합니다.</span>
+          </div>
+        </section>
+        {preview?.farmImport && <FarmImportReview preview={preview} overrides={farmOverrides} disabled={loading || applying || !!pendingJob}
+          onChange={(kind,key,value)=>{setFarmOverrides(prev=>({...prev,[kind]:{...prev[kind],[key]:value}}));invalidateFarmPreview();}}
+          onVerify={()=>handlePreview()} />}
         {preview && (
           <>
             <div ref={comparisonRef} style={st.panel}>
@@ -993,6 +1033,7 @@ export default function DistributeImport() {
                   </div>
                 </div>
               </div>
+              <ComparisonZoom>
               {filter === 'unmatched' ? (
                 <SimpleUnmatched rows={preview.unmatched || []} />
               ) : viewMode === 'pivot' ? (
@@ -1007,7 +1048,7 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>현재분배</th><th>처리 선출고</th><th>이번 제외</th><th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>수량경고</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>현재분배</th><th>처리 선출고</th><th>이번 제외</th><th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>농장 변경前</th><th>농장 변경後</th><th>수량경고</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
@@ -1024,6 +1065,7 @@ export default function DistributeImport() {
                           <td>{fmtUpload(r)}</td>
                           <td>{fmt(r.changeQty)}</td>
                           <td>{fmt(shipmentDiffQty(r))}</td>
+                          <td>{r.farmBeforeText || '미지정'}</td><td>{r.farmText || r.farmBeforeText || '미지정'}</td>
                           <td style={r.hasQtyWarning ? st.qtyWarnCell : undefined}>{qtyWarningText(r)}</td>
                           <td>{(r.cells || []).slice(0, 2).join(', ')}</td>
                         </tr>
@@ -1032,6 +1074,7 @@ export default function DistributeImport() {
                   </table>
                 </div>
               )}
+              </ComparisonZoom>
             </div>
           </>
         )}
@@ -1063,6 +1106,55 @@ export default function DistributeImport() {
   );
 }
 
+function ComparisonZoom({children}) {
+  const [zoom,setZoom]=useState(100), viewport=useRef(null), canvas=useRef(null);
+  const fit=()=>{
+    const table=canvas.current?.querySelector('table'),box=viewport.current;
+    if(!table || !box)return;
+    const width=table.offsetWidth,height=table.offsetHeight;
+    setZoom(Math.max(5,Math.min(100,Math.floor(Math.min((box.clientWidth-20)/width,(window.innerHeight*.65)/height)*100))));
+  };
+  useLayoutEffect(()=>{fit();},[]);
+  return <div>
+    <div style={{display:'flex',gap:8,alignItems:'center',padding:10,flexWrap:'wrap'}}>
+      <button type="button" onClick={fit}>전체 맞춤</button>
+      <button type="button" aria-label="검증표 축소" onClick={()=>setZoom(z=>Math.max(5,z-10))}>−</button>
+      <input aria-label="검증표 확대 축소" type="range" min="5" max="200" step="5" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/>
+      <output aria-live="polite">{zoom}%</output>
+      <button type="button" aria-label="검증표 확대" onClick={()=>setZoom(z=>Math.min(200,z+10))}>+</button>
+      <button type="button" onClick={()=>setZoom(100)}>100%</button>
+      <span style={{fontSize:12,color:'#64748b'}}>화면 배율만 변경 · 엑셀 인쇄 배율 유지 · 보라색: 농장 변경</span>
+    </div>
+    <div ref={viewport} style={{overflow:'auto',maxHeight:'72vh',borderTop:'1px solid #e2e8f0'}}>
+      <div ref={canvas} className="farm-comparison-canvas" style={{zoom:zoom/100,width:'max-content',minWidth:'100%'}}>{children}</div>
+    </div>
+    <style jsx global>{`.farm-comparison-canvas > div { overflow:visible !important; max-height:none !important; }`}</style>
+  </div>;
+}
+function FarmImportReview({preview,overrides,onChange,onVerify,disabled}) {
+  const farm=preview.farmImport;
+  return <section style={st.panel} aria-label="농장분배 검증 결과">
+    <div style={st.panelHead}><strong>농장분배 변경 {farm.changedCount}건 · 확인 {(farm.errors || []).length}건</strong>
+      <button disabled={disabled} onClick={onVerify}>선택 반영 후 다시 검증</button></div>
+    <div style={{padding:12}}>
+      {[...(farm.errors || []),...(farm.layoutErrors || []).map(message=>({message}))].map((issue,i)=><p key={i} role="alert" style={{color:'#b91c1c'}}>{issue.customer ? `${issue.customer} / ${issue.product}: `:''}{issue.message}</p>)}
+      <div style={{overflow:'auto',maxHeight:340}}><table style={st.table}>
+        <thead><tr><th>카톡/엑셀 농장분배</th><th>적용할 업체·품목</th><th>입고 농장 연결</th></tr></thead>
+        <tbody>{(farm.reviews || []).map(entry=><tr key={entry.id}>
+          <td>{entry.customer} / {entry.product} {entry.quantity}{entry.unit}</td>
+          <td><select aria-label={`${entry.customer} ${entry.product} 적용 행`} disabled={disabled} value={overrides.targets?.[entry.id] ?? entry.rowKey}
+            onChange={e=>onChange('targets',entry.id,e.target.value)}><option value="">업체·품목 선택</option>
+            {preview.rows.filter(r=>r.cells?.some(c=>c!=='엑셀누락')).map(r=><option key={r.key} value={r.key}>{r.custName} / {r.displayName || r.prodName} · {r.uploadQty}{r.outUnit}</option>)}
+          </select></td>
+          <td>{entry.farms.map((f,i)=><label key={i} style={{display:'block',marginBottom:4}}>{f.name} {f.quantity}{f.unit}{' '}
+            <select aria-label={`${entry.customer} ${entry.product} ${f.name} 농장`} disabled={disabled} value={overrides.farms?.[`${entry.id}|${f.name}`] || ''} onChange={e=>onChange('farms',`${entry.id}|${f.name}`,e.target.value)}>
+              <option value="">자동 매칭 / 직접 선택</option>{(entry.farmOptions || []).map(option=><option key={option.FarmKey} value={option.FarmKey}>{option.FarmName} ({option.FarmCode})</option>)}
+            </select></label>)}</td>
+        </tr>)}</tbody>
+      </table></div>
+    </div>
+  </section>;
+}
 function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }) {
   if (!model.products.length) {
     const filterLabel = filter === 'apply' ? '적용대상'
@@ -1158,6 +1250,9 @@ function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }
                         분배 {fmt(r.currentOutQty)} → {fmt(r.uploadQty)}
                       </div>
                     )}
+                    {r.farmChanged && <div style={{...st.qtySub,color:'#7e22ce',whiteSpace:'normal'}} title={`${r.farmBeforeText || '미지정'} → ${r.farmText}`}>
+                      농장 {r.farmBeforeText || '미지정'} → {r.farmText}
+                    </div>}
                     {r.status === '주문없음' && <div style={st.createBadge}>신규추가</div>}
                   </td>
                 );
