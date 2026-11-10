@@ -2458,3 +2458,9 @@
 - actual dnSpy FormShipmentDistribution ymd/day1..7·ShipmentQuantityToEstQuantity 재확인. 운영SELECT 2025/46 11/12~18,2026/46 11/11~17 7일/7요일 확인. 격리 SQL fullbaseline0날짜/SD.CustKey NULL/교차연도99/달력다른연도fallback0 및 native Date저장/견적15단·gross172500·ECOUNT XLSX/rollback/stale/fixed/Order·Farm·Stock·Estimate·Profit보존 PASS. 운영ERP/ECOUNT 쓰기0.
 - 새순수테스트 CI 연결, 날짜직접입력/합계부족/preview승계/저장/dirty탭/CtrlS/stale/cancel/390 Chrome PASS. 기존 전체 workspace·업체이동·양연도미국카탈로그 회귀 PASS. 안내영상/한국어자막/proof 갱신 PASS. 전체ERP/dnSpy/manifest207/writeguard/영상9개 PASS. 최종빌드/CI/배포/실로그인 확인은 이 기록시점 미검증.
 검색어: 행내출고일 월화수목금토일 월일 DistributionInlineDates inlineDateSignature 0날짜baseline nativePeriodDay 총량매출보존
+
+## 2026-11-10 출고내역서 신규 메뉴 구현 진행
+- 사용자 승인: 설계대로 구현·배포, 드래그 다중선택 출고일 일괄지정 추가. 최신 origin/master 별도작업트리 codex/shipment-statements.
+- 기본요일설정 잔량/직접입력보존, 메인차수전체세부차수, 담당자→업체, 품목군묶음, 저장본CAS·원본hash·요일XLSX,ERP쓰기0.
+- 실제dnSpy 및양연도운영SELECT,신규12테스트·1920/390브라우저·드래그/키보드/저장복구/다운로드PASS. 실제합성가이드31.8초·한국어VTT/5목차,player1920/390PASS. 전체필수검사/빌드/CI/PR/배포는진행예정이며미검증.
+- 검색어: 출고내역서 shipment-statement 드래그 일괄출고일 기본요일잔량 웹작성본CAS
