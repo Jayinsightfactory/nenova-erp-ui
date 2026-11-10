@@ -83,6 +83,12 @@
       "notes": "관리자 명시 활성화. 국가별 최신 연도·세부차수·원본 수정시각을 공통 순수 정책으로 선택하고, 해당 버전의 서버 uploadedAt+24시간 이후에만 저장한다. 매분 polling 없이 파일/설정 변경 감지 및 다음 예정시각 단발 타이머로 실행한다. arrivalDriveTiming을 표시·실행·예약이 공유하며 누락 등록시각은 보류한다. 과거 시트 제외, 국가·연도 불일치 및 원가 누락은 보류. 수동 현재본/수동 매칭 수정 보존. WebArrivalCost 3개 테이블만 트랜잭션 저장하며 DRIVE_IMPORT hash 이력과 sp_getapplock으로 재시작·중복 작업을 멱등 처리한다. 파일 원본/ERP 원장/호텔 매입단가는 보존."
     },
     {
+      "name": "DRIVE_COLOMBIA_AWB_GATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "콜롬비아(CO) 업무드라이브 도착원가 생성 게이트. 상업 인보이스에는 항공운임이 없으므로 그 선적의 실제 항공료(+서류비)를 담은 AWB(항공운송장) 서류가 같은 차수로 업무드라이브에 함께 올라와야 콜롬비아 도착원가 파일을 적용한다. AWB가 없으면 selectArrivalDriveCandidates가 해당 콜롬비아 후보의 reason을 'AWB 대기'로 설정해 arrivalDriveTiming·자동반영·즉시처리 경로 모두에서 보류한다(기존 reason 게이트 재사용, 저장 금지). 다른 국가명이 명시된 AWB는 오인 방지로 제외한다. AWB 서류의 숫자값 자체는 쓰지 않으며 arrivalCostExcel 원가 수식·중량표·환율·수량은 변경하지 않는다. 입고관리(WarehouseDetail) 매칭 동작과 다른 국가(네덜란드·에콰도르·중국·베트남·태국) 경로는 보존한다. 중국은 포워딩 rate가 아니라 인보이스에 적힌 rate 기반 CN_AIR/CN_SEA 경로를 유지한다. WebArrivalCost 외 테이블·ERP 원장·호텔 매입단가 보존."
+    },
+    {
       "name": "ARRIVAL_COST_SEARCH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
