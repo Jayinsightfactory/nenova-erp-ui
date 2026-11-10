@@ -51,6 +51,16 @@ async function main() {
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'pages/api/raum/pnl.js'), 'utf8'), /bodyParser: \{ sizeLimit: '8mb' \}/,
     'JSON 결산 저장의 Next 본문 제한은 nginx와 일치해야 한다.');
   assert.equal(MANAGED_UPLOAD_ROUTES.find(r => r.location === '/api/import/tools/upload-history')?.bodyLimit, '72m', '공용 원본 이력은 50MiB base64와 검토 JSON을 수용해야 한다.');
+  const settlementRoute=MANAGED_UPLOAD_ROUTES.find(r=>r.location==='/api/sales/customs-settlement');
+  const workerRoute=MANAGED_UPLOAD_ROUTES.find(r=>r.location==='/api/sales/customs-settlement-worker');
+  assert.equal(settlementRoute?.bodyLimit,'36m');assert.equal(workerRoute?.bodyLimit,'2m');
+  const settlementApi=fs.readFileSync(path.join(__dirname,'../pages/api/sales/customs-settlement.js'),'utf8');
+  const workerApi=fs.readFileSync(path.join(__dirname,'../pages/api/sales/customs-settlement-worker.js'),'utf8');
+  assert.match(settlementApi,/sizeLimit:\s*'36mb'/);assert.match(workerApi,/sizeLimit:\s*'2mb'/);assert.match(workerApi,/responseLimit:\s*'18mb'/);
+  const zipBase64Bytes=Math.ceil(25*1024*1024/3)*4,pdfBase64Bytes=Math.ceil(12*1024*1024/3)*4;
+  assert(zipBase64Bytes+1024<36*1024*1024,'maximum ZIP base64 JSON must fit both nginx and Next');
+  assert(2*1024*1024<36*1024*1024,'observed 2MiB upload must no longer hit the nginx default');
+  assert(pdfBase64Bytes+1024<18*1024*1024,'worker GET response envelope must fit its separate response limit');
   assert.ok(MANAGED_UPLOAD_ROUTES.some(r => r.location === '/api/arrival-cost/upload'),
     '도착원가 업로드 경로도 관리 대상이어야 한다.');
 

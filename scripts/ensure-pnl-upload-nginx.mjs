@@ -9,8 +9,8 @@ export const MANAGED_NGINX_PATH = '/etc/nginx/sites-enabled/nenova-erp';
 export const NGINX_BACKUP_DIR = '/var/backups/nenova-nginx';
 export const CERTBOT_TLS_INCLUDE = '/etc/letsencrypt/options-ssl-nginx.conf';
 
-// 앱이 30MiB 업로드를 허용하는 정확한 경로들 — multipart 오버헤드를 감안해 각각 32MiB로 exact
-// location을 만든다. 새 업로드 경로를 추가할 때는 여기에만 항목을 더한다(다른 로직은 무변경).
+// API별 실제 요청 본문 한도에 맞춘 exact 경로. multipart/base64 envelope는 아래에서 구분한다.
+// 새 업로드 경로를 추가할 때는 여기에만 항목을 더한다(다른 로직은 무변경).
 export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/raum/pnl-import', bodyLimit: '32m' },
   // JSON settlement saves may include reviewed rows and image references.
@@ -34,6 +34,11 @@ export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/operations-knowledge/attachments', bodyLimit: '12m' },
   // 2026-10-22 ECOUNT 수집 데몬 JSON(판매현황 1만행≈4MB)이 기본 1m 에 413 → 전송 실패 반복.
   { location: '/api/ecount/ingest', bodyLimit: '20m' },
+  // 25MiB ZIP -> 33.34MiB base64 JSON; match Next bodyParser 36mb.
+  { location: '/api/sales/customs-settlement', bodyLimit: '36m' },
+  // POST is cropped OCR JSON (Next 2mb). The 12MiB PDF is a GET response,
+  // bounded separately by responseLimit 18mb, not client_max_body_size.
+  { location: '/api/sales/customs-settlement-worker', bodyLimit: '2m' },
 ];
 // 하위 호환 별칭 — 기존 테스트/호출부가 참조한다.
 export const PNL_UPLOAD_LOCATION = MANAGED_UPLOAD_ROUTES[0].location;

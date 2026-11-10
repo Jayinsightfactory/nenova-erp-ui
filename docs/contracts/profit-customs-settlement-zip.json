@@ -9,6 +9,9 @@
     "lib/customsSettlementJobs.cjs",
     "lib/customsSettlementContext.js",
     "lib/customsSettlementPresentation.js",
+    "lib/customsSettlementHttp.js",
+    "scripts/ensure-pnl-upload-nginx.mjs",
+    "__tests__/pnlUploadNginx.test.js",
     "lib/customsSettlementEvidence.js",
     "lib/customsForwarding.js",
     "lib/customsForwardingCalc.js",
@@ -39,7 +42,7 @@
       "name": "UPLOAD_FIRST_PAGE_OCR",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Bounded ZIP/PDF streaming, private temporary queue; each PDF first page only, same-page 2000/3000px bounded retry. No paid provider, no packing worker change. Server persists parsed financial receipt only, never complete OCR/PII."
+      "sideEffect": "Bounded ZIP/PDF streaming, private temporary queue; each PDF first page only, same-page 2000/3000px bounded retry. ZIP 25MiB base64 JSON uses exact nginx 36m / Next 36mb request limit; worker OCR POST exact nginx 2m / Next 2mb, PDF GET response remains 18mb. Non-JSON HTTP errors never expose response bodies. No paid provider, no packing worker change. Server persists parsed financial receipt only, never complete OCR/PII."
     },
     {
       "name": "PREVIEW_AND_APPLY_FILE_EVIDENCE",
@@ -60,7 +63,8 @@
   },
   "requiredTestFiles": [
     "__tests__/customsSettlement.test.cjs",
-    "__tests__/customsSettlementRegistration.test.cjs"
+    "__tests__/customsSettlementRegistration.test.cjs",
+    "__tests__/pnlUploadNginx.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -83,6 +87,7 @@
   },
   "requiredCommands": [
     "node --test __tests__/customsSettlement.test.cjs",
+    "node __tests__/pnlUploadNginx.test.js",
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run test:erp-manifest -- --changed-from HEAD^",
