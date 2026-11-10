@@ -216,6 +216,7 @@ export default function Layout({ children, title }) {
 
   // 로그인 유저 (hydration 안전)
   const [user, setUser] = useState(null);
+  const [favoriteEdit, setFavoriteEdit] = useState(null);
   const [sidebarFavorites, setSidebarFavorites] = useState([]);
   const [favoriteBusyHref, setFavoriteBusyHref] = useState('');
   const [favoritesRevision, setFavoritesRevision] = useState(0);
@@ -249,7 +250,7 @@ export default function Layout({ children, title }) {
             const saved = JSON.parse(row.FilterData || '{}');
             const item = canonical.get(saved.href);
             return item && (!item.userIds || item.userIds.includes(user?.userId))
-              ? { ...item, favoriteKey: Number(row.FavoriteKey) }
+              ? { ...item, favoriteKey: Number(row.FavoriteKey), number: row.SortOrder, saved }
               : null;
           } catch { return null; }
         }).filter(Boolean);
@@ -330,7 +331,7 @@ export default function Layout({ children, title }) {
       } else {
         setSidebarFavorites(current => current.some(favorite => favorite.href === item.href)
           ? current
-          : [...current, { ...item, favoriteKey: Number(data.favoriteKey) }]);
+          : [...current, { ...item, favoriteKey: Number(data.favoriteKey), number: data.number, saved: { href: item.href } }]);
       }
       window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
     } catch (error) {
@@ -352,8 +353,36 @@ export default function Layout({ children, title }) {
     rememberMenuRoute(router.asPath, window.sessionStorage);
     router.push({ pathname: item.href, query: { popup: '1' } });
   };
+  async function saveFavoriteAlias(event, item) {
+    event.preventDefault();
+    if (favoriteBusyHref) return;
+    setFavoriteBusyHref(item.href);
+    const saved = { ...item.saved, alias: favoriteEdit.value.trim() };
+    try {
+      const response = await fetch('/api/favorites', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favoriteKey: item.favoriteKey, name: t(item.labelKey), filterData: JSON.stringify(saved) }),
+      });
+      if (!response.ok) throw new Error();
+      setSidebarFavorites(list => list.map(row => row.favoriteKey === item.favoriteKey ? { ...row, saved } : row));
+      setFavoriteEdit(null);
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
+    } catch { window.alert('즐겨찾기 이름을 저장하지 못했습니다.'); }
+    finally { setFavoriteBusyHref(''); }
+  }
   const renderNavItem = item => {
     const isFavorite = favoriteHrefs.has(item.href);
+    const original = t(item.labelKey);
+    const alias = item.saved?.alias;
+    const label = item.favoriteKey ? `${item.number} ${alias && alias !== original ? `${alias}(${original})` : original}` : original;
+    if (item.favoriteKey && favoriteEdit?.key === item.favoriteKey) return (
+      <form key={item.href} onSubmit={event => saveFavoriteAlias(event, item)}>
+        <input autoFocus aria-label="즐겨찾기 이름" maxLength={60} style={{ width: '100%' }} value={favoriteEdit.value}
+          onChange={event => setFavoriteEdit({ key: item.favoriteKey, value: event.target.value })} />
+        <button disabled={!!favoriteBusyHref}>저장</button>
+        <button type="button" onClick={() => setFavoriteEdit(null)}>취소</button>
+      </form>
+    );
     const navClassName = `nav-item ${router.pathname === item.href ? 'active' : ''}`;
     const navStyle = { flex: 1, minWidth: 0, borderBottom: 0, paddingRight: 6 };
     // 새창/팝업형 메뉴도 실제 href 를 가진다 — React 핸들러가 붙기 전(hydration 이전) 첫 클릭이
@@ -362,18 +391,19 @@ export default function Layout({ children, title }) {
     const popupHref = `${item.href}${item.href.includes('?') ? '&' : '?'}popup=1`;
     const link = item.fullscreen ? (
       <a className={navClassName} style={navStyle} href={inChild ? popupHref : item.href} target={inChild ? undefined : '_blank'} rel="opener"
-        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
+        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{label}</a>
     ) : item.popup ? (
       <a className={navClassName} style={navStyle} href={popupHref} target={inChild ? undefined : '_blank'} rel="opener"
-        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
+        onClick={e => inChild ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{label}</a>
     ) : (
       <Link href={item.href} className={navClassName} style={navStyle}
-        onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{t(item.labelKey)}</Link>
+        onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{label}</Link>
     );
 
     return (
       <div key={item.href} data-sidebar-menu-item={item.href} style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid #EBEBEB' }}>
         {link}
+        {item.favoriteKey && <button type="button" title="즐겨찾기 이름 변경" aria-label={`즐겨찾기 이름 변경 · ${original}`} onClick={() => setFavoriteEdit({ key: item.favoriteKey, value: alias || '' })}>✎</button>}
         <button
           type="button"
           data-testid="sidebar-favorite-toggle"

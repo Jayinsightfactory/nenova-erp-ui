@@ -69,3 +69,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 @media(pointer:coarse){.hw button,.hw input:not([type=checkbox]),.hw select,.hw-days label{min-height:44px}.hw input:not([type=checkbox]),.hw select{font-size:16px}}
 
 .tabbar-action svg{display:block;margin:auto}
+
+.favorite-row{display:flex;align-items:stretch;min-width:0;gap:3px}.favorite-row .favorite-card,.favorite-row input{min-width:0;flex:1;overflow-wrap:anywhere}

@@ -5,7 +5,7 @@
 // PUT    { favoriteKey, name, filterData } → 수정 (본인 것만)
 // DELETE { favoriteKey }  → 삭제 (본인 것만)
 
-import { query, sql } from '../../lib/db';
+import { query, sql, withTransaction } from '../../lib/db';
 import { withAuth } from '../../lib/auth';
 
 let tableChecked = false;
@@ -26,6 +26,15 @@ async function ensureTable() {
   tableChecked = true;
 }
 
+// Preserve the numbers shown for legacy rows before adding or removing a shortcut.
+const numberLegacyMenus = `
+  DECLARE @last int = (SELECT ISNULL(MAX(SortOrder),0) FROM UserFavorite WITH (UPDLOCK,HOLDLOCK)
+    WHERE UserID=@uid AND PageName='dashboard-menu');
+  ;WITH pending AS (
+    SELECT SortOrder, ROW_NUMBER() OVER (ORDER BY FavoriteKey) AS seq FROM UserFavorite
+    WHERE UserID=@uid AND PageName='dashboard-menu' AND SortOrder=0
+  ) UPDATE pending SET SortOrder=@last+seq;`;
+
 export default withAuth(async function handler(req, res) {
   try {
     const uid = req.user?.userId || 'system';
@@ -44,7 +53,13 @@ export default withAuth(async function handler(req, res) {
          ORDER BY SortOrder, FavoriteKey`,
         { uid: { type: sql.NVarChar, value: uid }, page: { type: sql.NVarChar, value: page } }
       );
-      return res.status(200).json({ success: true, favorites: result.recordset });
+      const favorites = result.recordset;
+      if (page === 'dashboard-menu') {
+        let last = favorites.reduce((max, row) => Math.max(max, row.SortOrder), 0);
+        for (const row of favorites) if (!row.SortOrder) row.SortOrder = ++last;
+        favorites.sort((a, b) => a.SortOrder - b.SortOrder);
+      }
+      return res.status(200).json({ success: true, favorites });
     }
 
     await ensureTable();
@@ -58,6 +73,18 @@ export default withAuth(async function handler(req, res) {
       // JSON 검증
       try { JSON.parse(filterData); } catch { return res.status(400).json({ success: false, error: 'filterData는 유효한 JSON이어야 합니다' }); }
 
+      if (page === 'dashboard-menu') {
+        const result = await withTransaction(async tx => {
+          const params = { uid: { type: sql.NVarChar, value: uid } };
+          await tx(numberLegacyMenus, params);
+          return tx(`INSERT INTO UserFavorite (UserID,PageName,FavName,FilterData,SortOrder)
+            OUTPUT inserted.FavoriteKey,inserted.SortOrder
+            SELECT @uid,'dashboard-menu',@name,@data,ISNULL(MAX(SortOrder),0)+1
+            FROM UserFavorite WHERE UserID=@uid AND PageName='dashboard-menu'`,
+          { ...params, name: { type: sql.NVarChar, value: name }, data: { type: sql.NVarChar, value: filterData } });
+        });
+        return res.json({ success: true, favoriteKey: result.recordset[0].FavoriteKey, number: result.recordset[0].SortOrder });
+      }
       const result = await query(
         `INSERT INTO UserFavorite (UserID, PageName, FavName, FilterData)
          OUTPUT INSERTED.FavoriteKey
@@ -103,10 +130,12 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'DELETE') {
       const { favoriteKey } = req.body;
       if (!favoriteKey) return res.status(400).json({ success: false, error: 'favoriteKey 필요' });
-      await query(
-        `DELETE FROM UserFavorite WHERE FavoriteKey=@fk AND UserID=@uid`,
+      await withTransaction(tx => tx(
+        `IF EXISTS (SELECT 1 FROM UserFavorite WHERE FavoriteKey=@fk AND UserID=@uid AND PageName='dashboard-menu')
+          BEGIN ${numberLegacyMenus} END;
+          DELETE FROM UserFavorite WHERE FavoriteKey=@fk AND UserID=@uid`,
         { fk: { type: sql.Int, value: parseInt(favoriteKey) }, uid: { type: sql.NVarChar, value: uid } }
-      );
+      ));
       return res.status(200).json({ success: true });
     }
 

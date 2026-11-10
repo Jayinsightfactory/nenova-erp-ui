@@ -215,6 +215,7 @@ export default function Dashboard() {
           ) : menuFavorites.map(fav => {
             const menu = allMenus.find(m => m.href === fav.data.href) || fav.data;
             const label = menu.label || t(menu.labelKey || fav.FavName);
+            const displayLabel = fav.data.alias && fav.data.alias !== label ? `${fav.data.alias}(${label})` : label;
             const group = menu.group || fav.data.group || '';
             const icon = MENU_ICONS[group] || '•';
             return (
@@ -225,7 +226,7 @@ export default function Dashboard() {
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 }}>
                     <span style={{ fontSize: 22, lineHeight: 1, flex: '0 0 auto' }}>{icon}</span>
-                    <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a', lineHeight: 1.22, wordBreak: 'keep-all' }}>{label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a', lineHeight: 1.22, wordBreak: 'keep-all' }}>{fav.SortOrder} {displayLabel}</span>
                   </div>
                   <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {t(group)} · 새 창으로 열기
