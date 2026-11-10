@@ -42,3 +42,9 @@ OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/WebProfitReport/Pr
 실제 증거: docs/exe-golden/ShipmentStatement.md. 신규 회귀는 test:shipment-statement 및 pretest:erp-contract에 연결. 운영개인정보/인증정보촬영없음. 실제브라우저시험·가이드모든API는합성fixture,운영ERP쓰기는하지않음.
 
 최종 로컬: 전체 ERP pre/core/post·dnSpy·manifest209·writeguard1API·ui-layout·workflow11업무12영상·webpack1worker build PASS. 빌드된production서버의1920/390 실제Chrome에서드래그/키보드/기본요일/그룹/저장·복원·엑셀/가이드재생PASS. 운영배포결과는WORK_MEMORY후속기록.
+
+## 버튼 선택과 개인 업체 즐겨찾기 보완
+- 선택 메인차수±2차 버튼(같은 연도1..53 범위), 클릭 즉시 현재 연도+해당 메인차수 조회. 직접입력/재조회 보존. 담당자와 업체는 버튼, 선택상태 aria-pressed 및 방향키/Enter/Space/Tab 제공.
+- 업체 후보는 기존 생산 reader의 해당차수 분배목록+현재담당자 정확일치. 즐겨찾기는 기존 인증UserID별 UserFavorite의 shipment-statement-customers 페이지에 CustKey로저장,현재회사명으로표시. 다른연도/차수에 후보가없으면즐겨찾기로보충하지않음. 실제업체소속/원장변경0.
+- 즐겨찾기우선/검색, 성공POST후GET읽기확인,실패시별표성공표시0·GET재확인만. 담당자/연도/차수변경미저장보호및유효하지않은이전담당자명시전환. 범용favorites API는수정하지않음.
+- 메뉴기본값: 단일shell·페이지스크롤·1920/390·키보드·선택맥락·웹설정복원·ERP보존·가이드갱신 적용. 업로드/매칭·ERP실제반영/스키마추가는해당없음. 실제dnSpy재추출/양연도reader운영SELECT,신규4+기존12단위검사및실제합성UI PASS. 가이드36.25초/5목차/한국어VTT·player1920/390·중간/최종프레임확인PASS. 전체필수gate/운영배포는후속.

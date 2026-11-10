@@ -1,19 +1,215 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T06:59:13.856Z",
+  "recordedAt": "2026-11-10T07:58:45.825Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 31.8,
+  "duration": 117,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "4137cfb5b3f981b13d24cc5c5405a83e6d90b99c74956f165a1abde66ec73e2d",
-  "captionsSha256": "bdb11be34a8ad357847ef47a1b0c72e90f7a0849d47c1c6721f8a525fce0b926",
+  "videoSha256": "1cde03a1c5d96f6c11c49f40323b85f241f989f3341191cd166e013f216ef9f5",
+  "captionsSha256": "6a2799691147a808128444e661b2670b246297cf125fc2db054d95b48995eced",
   "sourceHashes": {
-    "pages/shipment/statement.js": "5a0d35e9672237becaf9ced49c49c340bb9caffafe280b3f3850d8fe607cef76",
-    "styles/ShipmentStatement.module.css": "a4003a773aa3689c5210d008c1788d989e4dc093f81ef37da20385b84255b8e0",
-    "lib/shipmentStatement.cjs": "d174b8c3630f17b189d65f9816a0da5aac01309b1497826a9b19263bd4448d67"
+    "pages/shipment/statement.js": "5c3c55ac6fcbb7d1cf32008f28e12845e4f14e4201f98fd59cecf0452828b041",
+    "styles/ShipmentStatement.module.css": "8410e48d415af945ca67686d7ea52b0946574a71a056b6fc014ef657a5c68168",
+    "lib/shipmentStatement.cjs": "d174b8c3630f17b189d65f9816a0da5aac01309b1497826a9b19263bd4448d67",
+    "components/ShipmentStatementSelectors.js": "6a7d31dbf0280b53af01cfba1c665b6861a72d91de770474d8d17ef1df8824e9",
+    "lib/shipmentStatementSelection.cjs": "2d60178812a29b1340d2012d26965a06396c450df1a138c55a18c9f257ce2f18"
+  },
+  "camera": {
+    "method": "post-production zoompan on actual 100% browser capture",
+    "maxZoom": 1.35,
+    "captionAfterCamera": true,
+    "steps": [
+      "1. 차수·담당자·업체 버튼과 개인 즐겨찾기",
+      "2. 요일 수량과 기본 출고요일",
+      "3. 드래그 선택과 일괄 출고일 지정",
+      "4. 품목군 출력 묶음",
+      "5. 작성본 저장과 엑셀 다운로드"
+    ],
+    "segments": [
+      {
+        "step": 1,
+        "start": 5.178692300000001,
+        "inEnd": 5.931029699999999,
+        "holdEnd": 7.6073497,
+        "end": 8.3701246,
+        "cx": 555,
+        "cy": 268.34375,
+        "zoom": 1.35
+      },
+      {
+        "step": 1,
+        "start": 9.6959337,
+        "inEnd": 10.4566494,
+        "holdEnd": 12.127877,
+        "end": 12.8916295,
+        "cx": 465.578125,
+        "cy": 344.34375,
+        "zoom": 1.35
+      },
+      {
+        "step": 1,
+        "start": 14.2191996,
+        "inEnd": 14.9823643,
+        "holdEnd": 16.6502857,
+        "end": 17.401106,
+        "cx": 628.75,
+        "cy": 502.34375,
+        "zoom": 1.35
+      },
+      {
+        "step": 1,
+        "start": 22.9966223,
+        "inEnd": 23.760001199999998,
+        "holdEnd": 25.420872900000003,
+        "end": 26.175631499999998,
+        "cx": 325.9375,
+        "cy": 502.34375,
+        "zoom": 1.35
+      },
+      {
+        "step": 2,
+        "start": 27.50363,
+        "inEnd": 28.2623669,
+        "holdEnd": 29.935919600000002,
+        "end": 30.696764499999997,
+        "cx": 968.5,
+        "cy": 935.125,
+        "zoom": 1.35
+      },
+      {
+        "step": 2,
+        "start": 32.015344,
+        "inEnd": 32.7677914,
+        "holdEnd": 34.442385300000005,
+        "end": 35.194811200000004,
+        "cx": 1232.5,
+        "cy": 935.125,
+        "zoom": 1.35
+      },
+      {
+        "step": 2,
+        "start": 40.7362272,
+        "inEnd": 41.497846100000004,
+        "holdEnd": 43.182791900000005,
+        "end": 43.9328638,
+        "cx": 1267.1171875,
+        "cy": 560.140625,
+        "zoom": 1.35
+      },
+      {
+        "step": 2,
+        "start": 49.5203929,
+        "inEnd": 50.2714386,
+        "holdEnd": 51.945932,
+        "end": 52.709873800000004,
+        "cx": 124.2890625,
+        "cy": 176.296875,
+        "zoom": 1.35
+      },
+      {
+        "step": 3,
+        "start": 54.0349813,
+        "inEnd": 54.7958361,
+        "holdEnd": 56.7124717,
+        "end": 57.4773902,
+        "cx": 559.5,
+        "cy": 882.125,
+        "zoom": 1.35
+      },
+      {
+        "step": 3,
+        "start": 58.7988177,
+        "inEnd": 59.5496445,
+        "holdEnd": 61.230990299999995,
+        "end": 61.9906481,
+        "cx": 792.7109375,
+        "cy": 764.9375,
+        "zoom": 1.35
+      },
+      {
+        "step": 3,
+        "start": 63.3156174,
+        "inEnd": 64.0672375,
+        "holdEnd": 65.7485993,
+        "end": 66.5039736,
+        "cx": 937.640625,
+        "cy": 764.9375,
+        "zoom": 1.35
+      },
+      {
+        "step": 3,
+        "start": 72.0337617,
+        "inEnd": 72.790822,
+        "holdEnd": 74.4583966,
+        "end": 75.21948880000001,
+        "cx": 124.2890625,
+        "cy": 146.796875,
+        "zoom": 1.35
+      },
+      {
+        "step": 3,
+        "start": 76.5428821,
+        "inEnd": 77.3037128,
+        "holdEnd": 78.97835400000001,
+        "end": 79.7294965,
+        "cx": 937.640625,
+        "cy": 764.9375,
+        "zoom": 1.35
+      },
+      {
+        "step": 4,
+        "start": 81.2109682,
+        "inEnd": 81.97526859999999,
+        "holdEnd": 83.70652770000001,
+        "end": 84.4704026,
+        "cx": 341.5,
+        "cy": 651.734375,
+        "zoom": 1.35
+      },
+      {
+        "step": 4,
+        "start": 85.80078359999999,
+        "inEnd": 86.5550603,
+        "holdEnd": 88.2843837,
+        "end": 89.0468428,
+        "cx": 542.5,
+        "cy": 651.734375,
+        "zoom": 1.35
+      },
+      {
+        "step": 4,
+        "start": 94.5867193,
+        "inEnd": 95.3422996,
+        "holdEnd": 97.0259097,
+        "end": 97.79053660000001,
+        "cx": 1093.5703125,
+        "cy": 764.734375,
+        "zoom": 1.35
+      },
+      {
+        "step": 5,
+        "start": 99.123945,
+        "inEnd": 99.8762543,
+        "holdEnd": 101.5536812,
+        "end": 102.3050687,
+        "cx": 1629.921875,
+        "cy": 558.140625,
+        "zoom": 1.35
+      },
+      {
+        "step": 5,
+        "start": 109.14613460000001,
+        "inEnd": 109.900936,
+        "holdEnd": 111.5640515,
+        "end": 112.3284792,
+        "cx": 1372.6953125,
+        "cy": 558.140625,
+        "zoom": 1.35
+      }
+    ]
   }
 }
