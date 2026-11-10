@@ -1,5 +1,5 @@
 """Read one hash-pinned original via SFTP only. No remote commands or writes."""
-import os, re, json, hashlib, base64, posixpath
+import os, re, json, hashlib, base64, posixpath, sys
 from pathlib import Path
 import paramiko
 
@@ -25,6 +25,19 @@ client.connect(field('host'), port=22, username=field('username'), password=os.e
                look_for_keys=False, allow_agent=False, timeout=30)
 try:
     with client.open_sftp() as sftp:
+        if '--matches-only' in sys.argv:
+            key = 'packing.erp-matches'
+            filename = hashlib.sha256(key.encode()).hexdigest() + '.json'
+            with sftp.open('/var/www/nenova-erp/data/runtime/import-team/' + filename, 'rb') as f:
+                f.prefetch()
+                record = json.loads(f.read(8*1024*1024))
+            if record.get('key') != key:
+                raise RuntimeError('MATCH_RECORD_SCOPE')
+            entries = [e for e in record.get('value',{}).get('entries',[]) if e.get('country') == 'CO']
+            out = Path('.verify/co46-shared-matches'); out.mkdir(parents=True, exist_ok=True)
+            (out/'matches.json').write_text(json.dumps({'version':1,'entries':entries}), encoding='utf8')
+            print(json.dumps({'sharedCOEntries': len(entries), 'readOnly': True}))
+            sys.exit(0)
         matches = [r.filename for r in sftp.listdir_attr(ROOT + '/46-1')
                    if r.filename.startswith(SHA[:8] + '_') and r.filename.lower().endswith('.pdf')]
         if not matches:

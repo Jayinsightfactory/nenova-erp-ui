@@ -1,0 +1,26 @@
+name: CO46 read-only shared matching snapshot
+on:
+  push:
+    branches: [test/co46-ai-e2e-1110]
+    paths: [.github/workflows/co46-matches-readonly.yml]
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check paramiko==3.5.1
+      - name: Read CO mappings only (no AI key, no SQL, no remote command)
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: python scripts/fetch-co46-ai-source.py --matches-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: co46-shared-matches-private
+          path: .verify/co46-shared-matches/
+          retention-days: 2
