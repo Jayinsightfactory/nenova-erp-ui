@@ -8,6 +8,19 @@ function vttTime(seconds) {
   return `${String(Math.floor(ms / 3600000)).padStart(2, '0')}:${String(Math.floor(ms / 60000) % 60).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`;
 }
 
+function cameraFilters(focusShots) {
+  if (!focusShots.length) return [];
+  let previousEnd=0;
+  for(const s of focusShots){
+    if(!Number.isInteger(s.number)||s.number<1||![s.start,s.end,s.x,s.y].every(Number.isFinite)||s.start<previousEnd||s.end-s.start<2.4||s.x<0||s.x>1920||s.y<70||s.y>900)throw Error('Invalid camera event/bounds/continuity');
+    previousEnd=s.end;
+  }
+  const weight=s=>`(1-cos(PI*max(0,min(1,min((on/20-${s.start})/1.2,(${s.end}-on/20)/1.2)))))/2`;
+  const zoom='1+'+focusShots.map(s=>`.4*(${weight(s)})`).join('+');
+  const axis=(name,fallback)=>`${fallback}+`+focusShots.map(s=>`(${s[name]}-${fallback})*(${weight(s)})`).join('+');
+  return ['-filter_complex',`[0:v]split=2[picture][original];[picture]crop=1920:830:0:70,zoompan=z='${zoom}':x='max(0,min(iw-iw/zoom,(${axis('x',960)})-iw/zoom/2))':y='max(0,min(ih-ih/zoom,(${axis('y',485)})-70-ih/zoom/2))':d=1:s=1920x830:fps=20[zoomed];[original][zoomed]overlay=0:70[out]`,'-map','[out]'];
+}
+
 // Reusable real Chrome capture. The caller serves the tested UI and intercepts every API
 // with synthetic fixtures. This module deliberately refuses a production browser URL.
 async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflowId, guideId, title, sourceFiles, outputDir, fixtureOnly, ffmpegPath = 'ffmpeg', ffprobePath = 'ffprobe' }) {
@@ -42,7 +55,7 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
   };
   await page.evaluate(installOverlay, title);
   const recorder = await page.screencast({ path: raw, format: 'webm', fps: 20, quality: 20, ffmpegPath });
-  const started = performance.now(), cues = [], chapters = []; let pending;
+  const started = performance.now(), cues = [], chapters = [], focusShots = []; let pending, activeShot;
   const elapsed = () => (performance.now() - started) / 1000;
   async function caption(text) {
     const now = elapsed(); if (pending) cues.push({ ...pending, end: now });
@@ -58,7 +71,10 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
   async function stop() {
     if (pending) cues.push({ ...pending, end: elapsed() });
     await recorder.stop();
-    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, '-an', '-c:v', 'libx264', '-preset', 'medium', '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 300000 });
+    // Optional editorial zoom: source browser remains 1920x1080 / 100% throughout.
+    // Keep the original lower caption band outside the zoomed picture.
+    const filters = cameraFilters(focusShots);
+    execFileSync(ffmpegPath, ['-y', '-hide_banner', '-loglevel', 'error', '-i', raw, ...filters, '-an', '-c:v', 'libx264', '-preset', 'medium', '-threads', '2', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { windowsHide: true, timeout: 300000 });
     const probe = JSON.parse(execFileSync(ffprobePath, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,avg_frame_rate:format=duration', '-of', 'json', mp4], { encoding: 'utf8', windowsHide: true }));
     const stream = probe.streams[0], duration = Number(probe.format.duration);
     const fps = stream.avg_frame_rate.split('/').map(Number).reduce((a, b) => a / b);
@@ -66,9 +82,22 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     fs.writeFileSync(captions, 'WEBVTT\n\n' + cues.filter(cue => cue.start < duration).map(cue => `${vttTime(cue.start)} --> ${vttTime(Math.min(cue.end, duration))}\n${cue.text.replace(/-->/g, '→')}\n`).join('\n'));
     for (const file of sourceFiles) if (sourceHashes[file] !== sourceHash(path.join(root, file))) throw Error(`UI changed while recording: ${file}; record again after the screen is final`);
     const proof = { version: 1, recordedAt: new Date().toISOString(), width: stream.width, height: stream.height, browserZoom: 100, fps, duration, capture: 'actual-browser-ui', dataMode: 'synthetic-fixture', productionWrites: 0, videoSha256: sha256(fs.readFileSync(mp4)), captionsSha256: sha256(fs.readFileSync(captions)), sourceHashes };
+    if (focusShots.length) proof.presentation = { numberedSteps: chapters.length, zoom: 'post-capture-1.4x', transitionSeconds: 1.2, captionBand: 'unscaled-bottom-180px', cameraBand: {x:0,y:70,width:1920,height:830}, focusShots };
     fs.writeFileSync(proofFile, JSON.stringify(proof, null, 2) + '\n');
     return { chapters, duration, mp4, captions, proofFile };
   }
-  return { caption, chapter: (scenario, text) => { chapters.push({ scenario, title: text, seconds: Math.round(elapsed() * 1000) / 1000 }); }, pause: ms => new Promise(resolve => setTimeout(resolve, ms)), restoreOverlay: () => page.evaluate(installOverlay, title), stop };
+  async function focus(selector, number) {
+    const box = await page.$eval(selector, (node, number) => {
+      const r=node.getBoundingClientRect(), host=document.getElementById('nenova-guide-capture');
+      const mark=document.createElement('div'); mark.dataset.guideFocus='true';
+      mark.style.cssText=`position:fixed;left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px;border:4px solid #f59e0b;border-radius:8px;box-sizing:border-box`;
+      const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText='position:fixed;left:20px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold';host.append(badge,mark);
+      return {x:r.x+r.width/2,y:r.y+r.height/2};
+    }, number);
+    await new Promise(r=>setTimeout(r,1800));activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);
+    await new Promise(r=>setTimeout(r,2200));
+  }
+  async function unfocus() { await page.evaluate(()=>document.querySelectorAll('[data-guide-focus]').forEach(n=>n.remove()));if(activeShot){activeShot.end=elapsed()+1.2;activeShot=null;} await new Promise(r=>setTimeout(r,1400)); }
+  return { caption, focus, unfocus, chapter: (scenario, text) => { chapters.push({ scenario, title: text, seconds: Math.round(elapsed() * 1000) / 1000 }); }, pause: ms => new Promise(resolve => setTimeout(resolve, ms)), restoreOverlay: () => page.evaluate(installOverlay, title), stop };
 }
-module.exports = { createWorkflowGuideRecorder, vttTime };
+module.exports = { createWorkflowGuideRecorder, vttTime, cameraFilters };
