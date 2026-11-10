@@ -59,7 +59,7 @@ assert.equal(coOnly.reason, COLOMBIA_AWB_WAIT_REASON);
 assert.equal(arrivalDriveTiming(coOnly, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, false);
 // 같은 차수의 AWB(PDF)가 함께 올라오면 보류가 풀린다.
 const coAwb = file('co-awb', '2026 16-1 콜롬비아 AWB.pdf');
-const proof = new Map([['co', { sourceSha:coCost.sha, key:'server-verified', awb:{id:coAwb.id,sha:coAwb.sha} }]]);
+const proof = new Map([['co', { sourceSha:coCost.sha, year:'2026', week:'16-1', key:'server-verified', awb:{id:coAwb.id,sha:coAwb.sha} }]]);
 assert.equal(selectArrivalDriveCandidates([coCost, coAwb], coConfig)[0].reason, COLOMBIA_AWB_WAIT_REASON);
 const coReady = selectArrivalDriveCandidates([coCost, coAwb], coConfig, proof)[0];
 assert.equal(coReady.reason, '');

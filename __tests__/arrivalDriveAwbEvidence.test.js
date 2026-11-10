@@ -66,6 +66,8 @@ assert.ok(selectArrivalDriveCandidates([cost,injected],config)[0].reason);
 assert.ok(selectArrivalDriveCandidates([cost],config,realEvidence)[0].reason); // deleted since verification
 assert.ok(selectArrivalDriveCandidates([cost,{...awb,sha:'replaced'}],config,realEvidence)[0].reason);
 assert.ok(selectArrivalDriveCandidates([{...cost,sha:'changed'},awb],config,realEvidence)[0].reason);
+assert.ok(selectArrivalDriveCandidates([{...cost,filename:cost.filename.replace('46-01','47-01')},
+  {...awb,filename:awb.filename.replace('46-01','47-01')}],config,realEvidence)[0].reason,'proof scope cannot migrate to another week');
 // Execute the actual server resolver: changes during async PDF decoding must be
 // checked against a fresh index, not the list captured before await.
 const service = fs.readFileSync(new URL('../lib/arrivalDriveAuto.js',import.meta.url),'utf8');
