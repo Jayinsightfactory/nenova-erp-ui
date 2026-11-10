@@ -38,6 +38,7 @@ for (const patch of [
   {filename:'2026 46-01 미국 AWB.pdf'},
   {filename:'2026 46-01 뉴질랜드 AWB.pdf'},
   {filename:'2026 46-01 콜롬비아 호주 AWB.pdf'},
+  ...['AU','US','USA','NZ','NL','new_zealand'].map(country=>({filename:`2026_46-01_콜롬비아_${country}_AWB.pdf`})),
   {filename:'AWB.pdf'},
   {filename:'shared-awb-2026-46-01-86514699602 (5).xlsx',origin:'PC_AUTO'},
   {filename:'2026 46-01 콜롬비아 AWB.xlsx'},
