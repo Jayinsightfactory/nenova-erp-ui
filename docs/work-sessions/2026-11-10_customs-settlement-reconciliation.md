@@ -40,6 +40,10 @@
 - Cafe24 deploy run 42766677905 진행 중. 전용 Nenova-Customs-Settlement-OCR 예약 작업 설치·실행, 기존 Nenova-Free-OCR-Worker Running 유지. 운영 실제 ZIP 등록·실화면 스모크는 아직 미검증.
 - 아래 미완 목록은 조사 종료 시점 기록이며, 구현·배포 상태는 이 후속 기록과 다음 결과를 우선한다.
 - 1차 배포 42766677905 성공 후 IAB에서 실제35차ZIP(4,460,577바이트) 업로드 시 nginx HTML 오류를 발견했다. 무인증 공백2MiB POST probe도 HTTP413이라 앱·DB 호출 전 nginx 기본 용량 제한임을 확인했다. 등록 완료0, SQL 쓰기0. 새 브랜치 codex/customs-zip-upload-limit에서 exact 경로 제한과 명확한 오류 안내를 보완 중이다. 이 시점 운영 자동입력은 아직 완료가 아니다.
+- nginx 보완 PR #1650, merge9d68c3ba. 로컬 전체ERP/dnSpy/manifest208/writeguard/build 및 CI42769798273 PASS. 다른 작업과 WORK_MEMORY만 충돌해 양쪽 보존 후 병합. 중간 배포42770512185는 최신master 감지로 안전 중단, 보완을 포함한 최신c4394b06의 deploy42771529254 성공. /api/ping DB연결 성공,2MiB 무인증 진단은 더 이상 nginx413이 아님.
+- 실제 로그인 IAB에서 원본35·36ZIP 업로드: 첫페이지26/26, 자동등록24+명시확인2, 잔여/보류0. HOOD는35-01미국, CLOUD2B는36-02중국 합산입고 선택 후 통화·외화금액·GW검산 승인. 실제 화면 정산서 표를 별도 합산한 결과35차14건8,204,560원 /36차12건7,325,060원으로 독립 대사값과 일치(.verify/check-production-customs-ui.cjs).
+- 36ZIP 동일파일 재업로드:13/13기존등록 유지, 중국통관비7,129,250원 등 표시금액 증가0. 공급가/VAT 구분 원천을 입력표에서 우선 읽음. DB WebCustomsWeekly6행/CO0행·저장본17행 SELECT hash불변,36보고서v7 실화면 보존. 계산본 생성·갱신 버튼 실행0. 이 금액은 정산서 범위 순비용이며 창고·국내운송·방역 전체실비 인증이 아님.
+- 실화면 중 standalone차수입력36 blur시 공용hook이2026-36-01로변환되고 Panel이2026차로오인하는 문제를 추가 발견했다. 잘못된scope 업로드0. 정확URL로원천등록은완료했으며, 별도브랜치codex/customs-standalone-week에서페이지전용scope정규화·다른연도차단 보완중이다.
 
 - 사용자가 수정 요청하면 공급가/VAT 기준 충돌 및 여러AWB→단일입고 연결 정책부터 명시하고 회귀 테스트 추가. 이번 조사 자체는 수정 권한으로 확대하지 않음.
 - 기존 ZIP 기능 전체 gate/build/가이드/CI/배포는 여전히 미완료다.

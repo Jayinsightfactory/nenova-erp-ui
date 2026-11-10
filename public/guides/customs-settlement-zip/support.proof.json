@@ -1,20 +1,20 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T06:26:56.623Z",
+  "recordedAt": "2026-11-10T07:11:18.837Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 51,
+  "duration": 50.95,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "dead4fe1e22f1bc088718760b486f99eb9bebc6182175382e1509d1c7938c854",
-  "captionsSha256": "f31f3d22a5efef159846792e0407de1508e13eb51a38aa648b3a8175f8ef6871",
+  "videoSha256": "81bfc0d456b7e3993a860a844a504bc072556d26a3c2df3054cd1f41c1a1fe63",
+  "captionsSha256": "c96ba471db75c62bcc0fd5b1a9e21be58a69649df8f8dfc503653c78206b4d7b",
   "sourceHashes": {
     "components/CustomsSettlementUpload.js": "bab07d9c47ca83fc647c1d7ff95f5061703bb498a95a459f96812462a2582d00",
     "components/CustomsClearancePanel.js": "0e397614b867cdc27360172747e57e2873782b5e549e4da861a018ff3f92e6d5",
-    "pages/sales/customs-clearance.js": "d351abe4e08569ee43c3fb5797a263dd08ad65af76545a412deab3e83fb7bc45",
+    "pages/sales/customs-clearance.js": "5f17e3d4a631e62fecea0bd3be95dfc41a703ece6ad1e88c34e1b72918824080",
     "lib/customsSettlementPresentation.js": "37a9abe7ffb98c694ccf3e84679fea2a0cfb1521a42ea3c67b25d3c4aa222011",
     "lib/customsSettlementHttp.js": "d5987e97f3f5601c9a6c10be4a70477ad5f60c67c24868939bd843ed29991404"
   }
