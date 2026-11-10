@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { validateArrivalImportYear } from '../lib/arrivalImportPolicy.js';
 import './arrivalDriveSchedule.test.js';
 import './arrivalDriveRunNow.test.js';
+import './arrivalDriveAwbEvidence.test.js';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS, hasColombiaAwb, isColombiaAwbFile, COLOMBIA_AWB_WAIT_REASON } from '../lib/arrivalDrivePolicy.js';
 // xlsx's ESM entry has named exports only; instrumentation resolves that entry.
 assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);
@@ -51,14 +52,16 @@ assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[]},source),/없습니�
 // ── 콜롬비아 AWB 게이트 (DRIVE_COLOMBIA_AWB_GATE) ───────────────────────────────
 // 인보이스/원가 엑셀만 있고 AWB가 없으면 콜롬비아 도착원가는 'AWB 대기'로 보류한다.
 const coConfig = { year: '2026', countries: ['콜롬비아'] };
-const coCost = { ...file('co', '16-1 COLOMBIA 원가자료.xlsx'), uploadedAt: new Date(uploaded).toISOString() };
+const coCost = { ...file('co', '2026 16-1 COLOMBIA 원가자료.xlsx'), uploadedAt: new Date(uploaded).toISOString() };
 const coOnly = selectArrivalDriveCandidates([coCost], coConfig)[0];
 assert.equal(coOnly.reason, COLOMBIA_AWB_WAIT_REASON);
 // reason이 걸리면 24시간이 지나도 ready가 아니다(기존 reason 게이트 재사용).
 assert.equal(arrivalDriveTiming(coOnly, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, false);
 // 같은 차수의 AWB(PDF)가 함께 올라오면 보류가 풀린다.
-const coAwb = file('co-awb', '16-1 콜롬비아 AWB.pdf');
-const coReady = selectArrivalDriveCandidates([coCost, coAwb], coConfig)[0];
+const coAwb = file('co-awb', '2026 16-1 콜롬비아 AWB.pdf');
+const proof = new Map([['co', { sourceSha:coCost.sha, key:'server-verified', awb:{id:coAwb.id,sha:coAwb.sha} }]]);
+assert.equal(selectArrivalDriveCandidates([coCost, coAwb], coConfig)[0].reason, COLOMBIA_AWB_WAIT_REASON);
+const coReady = selectArrivalDriveCandidates([coCost, coAwb], coConfig, proof)[0];
 assert.equal(coReady.reason, '');
 assert.equal(arrivalDriveTiming(coReady, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, true);
 // 차수가 다른 AWB는 게이트를 풀지 않는다.
@@ -67,7 +70,7 @@ assert.equal(selectArrivalDriveCandidates([coCost, file('x', '15-1 콜롬비아 
 assert.equal(selectArrivalDriveCandidates([coCost, file('nlawb', '16-1 네덜란드 AWB.pdf')], coConfig)[0].reason, COLOMBIA_AWB_WAIT_REASON);
 // 삭제된 AWB는 무효.
 assert.equal(hasColombiaAwb([{ ...coAwb, deleted: true }], '16-1'), false);
-assert.equal(isColombiaAwbFile(coAwb, '16-1'), true);
+assert.equal(isColombiaAwbFile(coAwb, '16-1', '2026'), true);
 assert.equal(isColombiaAwbFile(file('inv', '16-1 콜롬비아 invoice.pdf'), '16-1'), false);
 // 다른 국가(네덜란드 등)는 AWB 없이도 종전대로 선택된다(게이트 비적용).
 assert.equal(selectArrivalDriveCandidates([a], config)[0].reason, '');

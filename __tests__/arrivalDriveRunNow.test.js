@@ -18,11 +18,11 @@ assert.throws(()=>resolveArrivalDriveSelection([{...source,uploadedAt:''}],confi
 
 const text=fs.readFileSync(new URL('../lib/arrivalDriveAuto.js',import.meta.url),'utf8');
 const body=text.slice(text.indexOf('export async function runArrivalDriveAuto'),text.indexOf('export function startArrivalDriveScheduler')).replace('export ','');
-function fixture({changeLatest=false,failSave=false}={}) {
+function fixture({changeLatest=false,failSave=false,changeAwb=false}={}) {
   let state={}, saves=[], reads=0, candidates=0;
   const lock={};
   const deps={ global:lock, arrivalDriveConfig:()=>config,
-    selectArrivalDriveCandidates:()=>{ candidates++; return changeLatest&&candidates>1?[{...source,sha:'new'}]:[source,{...source,id:'other',sha:'other',country:'중국'}]; },
+    verifiedCandidates:()=>{ candidates++; return changeAwb&&candidates>1?[{...source,awbEvidenceKey:'replaced'}]:changeLatest&&candidates>1?[{...source,sha:'new'}]:[source,{...source,id:'other',sha:'other',country:'중국'}]; },
     listVisible:()=>[], actor:{userId:'automatic'}, read:()=>state, stateFile:s=>s.sha,
     arrivalDriveTiming, resolveArrivalDriveSelection, write:(_,s)=>{state=s;},
     getFile:()=>{reads++;return {abs:'fixture'};},fs:{readFileSync:()=>Buffer.from('fixture')},
@@ -40,6 +40,7 @@ assert.equal(f.get().saves[0].user.userId,'nenovaSS3');
 assert.equal(f.get().saves[0].driveSource.uploadedAt,source.uploadedAt);
 await f.run({selection,user:{userId:'nenovaSS3'}});assert.equal(f.get().saves.length,1);
 f=fixture({changeLatest:true});await f.run({selection,user:{userId:'nenovaSS3'}});assert.equal(f.get().saves.length,0);assert.equal(f.get().state.status,'review');
+f=fixture({changeAwb:true});await f.run({selection,user:{userId:'nenovaSS3'}});assert.equal(f.get().saves.length,0);assert.equal(f.get().state.status,'review');
 f=fixture({failSave:true});await f.run({selection,user:{userId:'nenovaSS3'}});assert.equal(f.get().state.status,'review');assert.equal(f.get().saves.length,0);
 f=fixture();f.lock._arrivalDriveRunning=true;await assert.rejects(f.run({selection,user:{userId:'nenovaSS3'}}),/처리 중/);
 await assert.rejects(f.run({selection}),/담당자/);
