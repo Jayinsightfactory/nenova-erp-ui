@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import * as XLSX from 'xlsx';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { collectArrivalDriveAwbEvidence, awbNumbers } from '../lib/arrivalDriveAwbEvidence.js';
@@ -65,6 +66,16 @@ assert.ok(selectArrivalDriveCandidates([cost,injected],config)[0].reason);
 assert.ok(selectArrivalDriveCandidates([cost],config,realEvidence)[0].reason); // deleted since verification
 assert.ok(selectArrivalDriveCandidates([cost,{...awb,sha:'replaced'}],config,realEvidence)[0].reason);
 assert.ok(selectArrivalDriveCandidates([{...cost,sha:'changed'},awb],config,realEvidence)[0].reason);
+// Execute the actual server resolver: changes during async PDF decoding must be
+// checked against a fresh index, not the list captured before await.
+const service = fs.readFileSync(new URL('../lib/arrivalDriveAuto.js',import.meta.url),'utf8');
+const resolverBody = service.slice(service.indexOf('async function verifiedCandidates'),service.indexOf('export async function arrivalDriveStatus'));
+for (const current of [[cost,awb],[cost,{...awb,deleted:true}],[cost,{...awb,sha:'replaced'}]]) {
+  const resolve = new Function('collectArrivalDriveAwbEvidence','getFileForVerification','fs','actor','selectArrivalDriveCandidates','listVisible',
+    resolverBody+';return verifiedCandidates;')(async()=>realEvidence,()=>{throw Error('not used by fixture');},{},{},selectArrivalDriveCandidates,()=>current);
+  const result = (await resolve([cost,awb],config))[0];
+  assert.equal(!result.reason,current[1]===awb,'fresh post-await source scope');
+}
 assert.deepEqual(awbNumbers('AWB 865-14699602'),['86514699602']);
 assert.deepEqual(awbNumbers('AWB 865-14699603'),[]); // check digit
 assert.equal((await collectArrivalDriveAwbEvidence([cost,awb],{...config,countries:['중국']},{readBytes:()=>{throw Error('must not read');}})).size,0);
