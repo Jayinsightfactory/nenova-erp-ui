@@ -1,23 +1,24 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T06:18:58.244Z",
+  "recordedAt": "2026-11-10T07:28:43.718Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 37.25,
+  "duration": 38.3,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "181ae6a5582625591b4a0b9423346838f121ca28f9af55287b306bf987e2aa3e",
-  "captionsSha256": "fe63b6a229caa7a99b96f76b8fa93981f4469804d498ba5137bdef373c0e62f8",
+  "videoSha256": "23abf883bb197c0c6d612957a1fbc08f4cc7cecf034d0f6d806c227655aebbe7",
+  "captionsSha256": "e67ae11e84da9e7016765f81e07418bcd2331948a2549cf8658a4718e776b2e8",
   "sourceHashes": {
-    "pages/shipment/distribute.js": "6d8979f92b776f083beb72f388911a6259e7d5c3b3ad5ba645713a87e97022af",
-    "components/shipment/DistributionDateEditor.js": "50fcf97ed2eda801d2809156615f5ddbaa856b9457154f6fd46b136b9771e445",
+    "pages/shipment/distribute.js": "78bd5d1d27dccfa238c841e6c26afa2f58f2308b7fd3db540b28e36fa5125734",
+    "components/shipment/DistributionDateEditor.js": "fd95c92c8ac2c7d38033764680420b29ac61d14fd68b7318eca5c20051010823",
     "components/shipment/DistributionProductTree.js": "024019b8fe3bd836c87e2c62e00f9817e013e28086f3406e8763e3f6e5742538",
-    "components/shipment/DistributionDateFilter.js": "7c406de65a51846478346c77ee4caafc0f667de01b7c7acdf362e806fe145ff3",
+    "components/shipment/DistributionDateFilter.js": "58144457d0610a40acd752ab315442333f09d974fab37d7250777a55dc0747c2",
     "lib/shipmentDistributionNavigation.js": "9d5833d94d4fd53426757a6f8358a85e7a07e40d0742e0cfca51c723dce59764",
-    "components/shipment/DistributionInlineDates.js": "28227dbfe47d15e5f645f61ed931fbf6f34315273a9dfe87457cffdfef38e38e",
-    "lib/shipmentInlineDates.js": "8389ecd6e51576c0eaf3e1d43617a631c09c81b144cde478e52bcbaecee01561"
+    "components/shipment/DistributionInlineDates.js": "941f7c5fb0f2d8173b5cab6952dfb5a374bff4319f877f43019c8c6284a46366",
+    "lib/shipmentInlineDates.js": "68392fa2af93cc0872f8f64cfb61439d58c8c216968d3330d5a6d6ed7c354100",
+    "lib/shipmentDateDisplayUnits.js": "b3c80ee465fb582d77ab94430658efcce87e810e9f0dd9bdb4dfc97e6d8a1071"
   }
 }

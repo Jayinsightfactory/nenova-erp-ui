@@ -1,0 +1,21 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const product={OutUnit:'박스',BunchOf1Box:15,SteamOf1Bunch:20,SteamOf1Box:300};
+test('whole physical units exactly match native EXE conversion priorities',async()=>{
+ const u=await import('../lib/shipmentDateDisplayUnits.js'),{nativeDateEstimate}=await import('../lib/shipmentDistributionDates.js');
+ for(const p of [product,{...product,SteamOf1Box:150},{...product,SteamOf1Box:0},{...product,OutUnit:'단'},{...product,OutUnit:'송이'}])for(const unit of ['단','송이'])assert.equal(u.dateUnitFactor(p,unit),nativeDateEstimate({...p,EstUnit:unit},1));
+ assert.deepEqual(u.dateQuantityUnits(product,[1,.4,.6]).map(p=>p.unit),['단','송이']);
+ assert.equal(u.dateDisplayQuantity(.4,{unit:'단',factor:15}),'6');assert.equal(u.dateDisplayQuantity(.6,{unit:'송이',factor:300}),'180');
+ assert.deepEqual(u.dateInputQuantity('6',{unit:'단',factor:15}),{quantity:.4,error:''});
+ assert.equal(u.dateInputQuantity('120',{unit:'송이',factor:300}).quantity,.4);
+ assert(u.dateInputQuantity('1',{unit:'송이',factor:300}).error,'never round one stem to .003 box');
+ assert.equal(u.dateInputQuantity('3',{unit:'송이',factor:300}).quantity,.01);
+ for(const value of ['',null,false,-1,1.5,'bad',Infinity])assert(u.dateInputQuantity(value,{unit:'단',factor:15}).error);
+ assert.equal(u.dateInputQuantity(0,{unit:'단',factor:15}).quantity,0);
+ assert.deepEqual(u.dateQuantityUnits({...product,OutUnit:'단'},[1,.5]).map(p=>p.unit),['송이']);
+ assert.deepEqual(u.dateQuantityUnits(product,[1,.333,.667]),[],'no invented whole stems for inexact stored quantities');
+ assert.equal(u.dateUnitFactor({...product,OutUnit:'단',SteamOf1Bunch:0},'송이'),null,'do not replace native factor with box/bunch ratio');
+ assert.equal(u.dateUnitFactor({...product,SteamOf1Box:0,SteamOf1Bunch:0},'송이'),null);
+ assert.equal(u.dateUnitFactor({...product,BunchOf1Box:false},'단'),null);assert.equal(u.dateDisplayQuantity(1,{unit:'단',factor:1e-9}),'','never display positive physical stock as zero');
+ assert.deepEqual(u.dateQuantityUnits({OutUnit:'박스'},[1]),[]);assert.equal(u.dateDisplayQuantity(.333,{unit:'단',factor:15}),'');
+ assert.notEqual(u.datePackingSignature(product),u.datePackingSignature({...product,BunchOf1Box:10}));
+});

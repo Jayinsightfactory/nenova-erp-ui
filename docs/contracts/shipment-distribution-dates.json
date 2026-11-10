@@ -10,7 +10,9 @@
     "scripts/record-distribution-dates-guide.cjs",
     "components/shipment/DistributionInlineDates.js",
     "lib/shipmentInlineDates.js",
-    "__tests__/shipmentInlineDates.test.cjs"
+    "__tests__/shipmentInlineDates.test.cjs",
+    "lib/shipmentDateDisplayUnits.js",
+    "__tests__/shipmentDateDisplayUnits.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -56,7 +58,8 @@
   "requiredTestFiles": [
     "__tests__/shipmentDistributionDates.test.js",
     "scripts/test-distribution-dates-sql.cjs",
-    "__tests__/shipmentInlineDates.test.cjs"
+    "__tests__/shipmentInlineDates.test.cjs",
+    "__tests__/shipmentDateDisplayUnits.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -67,6 +70,6 @@
     "npm run test:erp-manifest -- --changed-from origin/master"
   ],
   "criteria": {
-    "inlineDays": "Monday-Sunday row inputs with actual PeriodDay dates and batched facts. Canonical snapshot preview/save only; compare old date signature before preview. Dirty date protection; totals/estimate/gross/fix preserved."
+    "inlineDays": "Date ascending across actual selected-year PeriodDay range (native can start Wednesday); weekday captions follow each date. Display/input whole bunch or stem counts from exact native packing; canonical payload remains OutUnit quantities with existing precision and money invariants. No invented calendar or rounding physical counts. Recheck date and packing signatures before preview."
   }
 }

@@ -1592,7 +1592,7 @@ export default function Distribute() {
       </div>
       </>}
       <div style={{padding:'4px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
-        단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 행 옆 월~일 수량 입력. Enter 이동만으로 저장되지 않습니다.
+        단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 실제 날짜순 · 단/송이 수량 입력. Enter 이동만으로 저장되지 않습니다.
       </div>
       {favoriteError && <div role="alert" style={{padding:'4px 5px',background:'var(--red-bg)',color:'var(--red)'}}>즐겨찾기: {favoriteError}</div>}
 
@@ -2081,7 +2081,7 @@ export default function Distribute() {
                               <th style={{textAlign:'right'}}>단수량</th>
                               <th style={{textAlign:'right'}}>송이수량</th>
                               <th style={{textAlign:'right'}}>단가</th>
-                              <th>출고일 (월~일) · 출고 비고 / 미저장 변경</th>
+                              <th>출고일 (날짜순 · 단/송이) · 출고 비고 / 미저장 변경</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2446,7 +2446,7 @@ export default function Distribute() {
                             <th style={{textAlign:'right'}}>잔량</th>
                             <th style={{textAlign:'right',color:'var(--amber)'}}>단가 (편집)</th>
                             <th style={{textAlign:'right',color:'var(--text3)'}}>금액</th>
-                            <th>출고일 (월~일) · 출고 비고 / 미저장 변경</th>
+                            <th>출고일 (날짜순 · 단/송이) · 출고 비고 / 미저장 변경</th>
                           </tr>
                         </thead>
                         <tbody>

@@ -27,6 +27,7 @@ async function main(){
    INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat) VALUES(99000,99000,'2025-09-01',99,990,100,90000,9000);
    INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat) VALUES(99001,89892,'2026-09-04',0.5,5,100,450,50),(99002,89892,'2026-09-05',0,0,100,0,0);`);
   const inlineRead=async year=>(await q(DISTRIBUTION_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:year},week:{type:sql.NVarChar,value:'37-01'}})).recordset;
+  const packing=(await q('SELECT OutUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box FROM Product WHERE ProdKey=866')).recordset[0];for(const row of await inlineRead('2026'))for(const key of Object.keys(packing))assert.equal(row[key],packing[key],'exact Product packing available in batched read');
   assert((await inlineRead('2026')).some(r=>r.ShipmentQuantity===0),'full baseline retains zero date facts');assert((await inlineRead('2026')).every(r=>r.CustKey===533&&r.Timestamp.startsWith('2026')));assert((await inlineRead('2025')).every(r=>r.OutQuantity===99&&r.Timestamp.startsWith('2025')));
   const {DISTRIBUTION_DATE_CALENDAR_SQL}=await import('../lib/shipmentDistributionDates.js');assert.equal((await q(DISTRIBUTION_DATE_CALENDAR_SQL,{ywk:{type:sql.NVarChar,value:'202537'}})).recordset.length,0,'calendar does not fall back to another year');
   const before=JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset);
