@@ -3,6 +3,7 @@
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear } from '../../../lib/orderUtils';
+import { loadSettlementEvidence, settlementCountryRow, settlementColombiaRow } from '../../../lib/customsSettlementEvidence';
 import { resolveCountryWeight, resolveColombiaWeight, isHistoricalWeightScope, assertInboundWeightUnchanged } from '../../../lib/customsWeightPolicy';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
@@ -35,6 +36,7 @@ export default withAuth(async function handler(req, res) {
         loadWarehouseGw(major, orderYear), // 입고관리 GW — 무게 기준값(없으면 화면에서 '확인 필요' 표시)
       ]);
       const activeCategories = await activeCustomsCategories(major, orderYear); // 이 차수 입고 존재 국가만 기본 노출
+      const settlement = await loadSettlementEvidence(orderYear, major);
 
       const [colombia, prevColombia] = await Promise.all([
         Promise.all(subWeeks.map(async (wk) => {
@@ -55,13 +57,15 @@ export default withAuth(async function handler(req, res) {
       //  · carry       — 전차수 참고값 제안. 합계 계산에 전혀 들어가지 않으며, 사용자가 "적용"을
       //                  눌러야만 저장 대상이 된다.
       const countries = COUNTRY_CATEGORIES.map((cat) => {
-        const row = countryRows[cat] || null;
+        const originalRow = countryRows[cat] || null;
+        const row = settlementCountryRow(originalRow, settlement, cat);
         const prevRow = prevCountryRows[cat] || null;
         const resolved = resolveCountryCustomsTotal({ row, gwDef: autoGw.countries?.[cat], rates, category: cat, orderYear, major });
         const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
           category: cat,
-          saved: row,
+          saved: originalRow,
+          settlement: row !== originalRow ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: Object.fromEntries(['01','02'].flatMap(phase => Object.entries(settlement.values?.[`country|${cat}|${phase}`] || {}))) } : null,
           effectiveRow: resolved.row,
           weightSource: resolved.weight.source,
           historical,                                // 원본 엑셀 구성요소(저장값이 없을 때만 채워짐)
@@ -79,13 +83,14 @@ export default withAuth(async function handler(req, res) {
         const hydBoxes = Number(gwDef?.hydrangeaBoxes) || 0;
         const boxQty = hydBoxes > 0 ? { ...c.boxQty, [COLOMBIA_POOLED_HYDRANGEA]: hydBoxes } : c.boxQty;
         const resolved = resolveColombiaCustomsAllocation({
-          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty, gwDef, airTotal: 0,
+          orderWeek: c.orderWeek, orderYear, major, colRow: settlementColombiaRow(c.row, settlement, c.orderWeek), boxQty, gwDef, airTotal: 0,
           rates: applyProfitReportColombiaRates(rates),
         });
         const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
+          settlement: settlement.values?.[`colombia|${c.orderWeek}`] ? { revision: settlement.revision, source: 'sun_yul_settlement_file', values: settlement.values[`colombia|${c.orderWeek}`] } : null,
           effectiveRow: resolved.row,
           weight: resolved.weight,
           historical,

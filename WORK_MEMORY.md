@@ -2399,3 +2399,46 @@
 검색어: 국가선택 country:: workspaceCustomers 업체정보 빈45-03 주문없음676 nativeShipmentDate조인제거 80업체전체검색
 - 최종 추가: 주문/품목0인45-03 업체를 선택한 뒤 품목추가 창도 전체 활성 카탈로그 로드. native 품목에 누락된 국가/입수 메타데이터만 보충하고 기존 수량/명시0단가는 우선 보존(순수17개 PASS). 국가 전체/품종 기본 필터 및 품종상관없는 검색 정상. 업체→품목추가→품목선택까지 실제Chrome 합성자료 회귀·영상 갱신 PASS, 선택만으로 주문/분배 요청0. 보완분 포함 ERP전체/dnSpy/manifest/writeguard/build 다시 모두 PASS. 기존 native writer 변경0.
 검색어: 빈차수 첫품목추가 전체카탈로그 native메타데이터보충 명시0단가보존
+## 2026-11-10 선율 정산 ZIP 원천 연결 — 100% 대사 요청 후 중간 보존
+- 전용 작업트리에서 파일 전용 ZIP/job/첫페이지 OCR/정산 planner/store/API/UI 및 DB 수기 우선 overlay를 구현 중 보존했다. ERP·웹 DB 쓰기/SP·운영 적용시험·커밋 없음. 과거 확정·계산본 보존, 보고서 갱신은 사용자가 직접 실행하는 흐름이다.
+- 대상 회귀 16개 PASS. 실제 비공개 26PDF 첫 페이지 OCR 검산24/신고번호보류2. 35차는 DB 충돌대상5/추가 매칭보류1, 충돌 제외 연결가능3문서6필드. 36차 정확AWB미매칭2/충돌0/연결가능11문서20필드. 이는 선율 정산서 비용 원천 범위이며 전체 H 통관비 100% 일치 검증이 아니다.
+- 사용자 추가 설명으로 부모가 뒤 증빙 포함 전체 H(창고료·국내운송·한국방역) 대사를 우선한다. 신규 구현·배포준비 중지, 소스 미커밋 보존. 가이드 dryrun timeout/standalone hydration 경고 미해결, 영상 draft/미제작. 전체 gate/build/CI/배포 미검증.
+- 기준·진행 상태: docs/plans/profit-customs-settlement-zip-2026-11-10.md. 테스트 서버 종료, 부모 대사 결과와 추가 지시 대기.
+검색어: 선율 정산 ZIP customsSettlement 첫페이지 OCR 24 26 통관비100%대사 미완료 source-only 직접갱신
+### 2026-11-10 통관비 100% 대사 요청 재확인
+- 사용자 정정: OCR 범위 축소 자체보다 정산서 통관비의 정확한 연결 여부를 확인하는 것이 목적. 구현·배포는 대사 완료 전 보류.
+- 35·36차 26 PDF/232쪽 중 첫 페이지 외 206쪽은 상단만 로컬 한국어 OCR로 분류. 이는 비용 금액 전수 대사가 아니며 100% 일치 판정 근거로 사용하지 않음.
+- 운영 브라우저에서 2026년 35·36차 실제 표시 표를 읽기 전용 기록. 저장/계산본 갱신/DB 쓰기 없음.
+- 파일명 AWB와 해당 연도·차수 SQL 입고의 정확한 연결은 24/26. 36차 HOOD CANAL 18053083741 및 CLOUD 99994582784는 미연결. 첫 페이지 엄격 OCR 검산도 별도로 24/26이며 두 종류의 실패를 혼동하지 않음.
+- 정산서 관세·통관대행·검역대행과 웹 그외통관비 전체(창고·국내운송·방역 포함)는 범위가 다름. 항목별 금액 전수 대사는 미검증.
+- 검색어: 통관비100% 정산서대사 35차36차 AWB미연결 OCR범위
+
+### 2026-11-10 35·36차 정산서 항목·합계 대사 완료(읽기 전용)
+- 실제 26개 정산표 공급가/VAT/관세/수입VAT/비용합계 전부 검산, 대행료 있는21건 후면 선율 세금계산서 금액까지 시각 대조 일치. 분류불명8쪽은 신고필증 상세로 확인. 전 세번 과세 적법성 감사가 아닌 청구값-웹 반영 대사.
+- HOOD AWB는 유효35-01/삭제36-01이라 ZIP36 범위 매칭 실패. CLOUD 2B AWB는 Master에 없고 2A 헤더에 두 정산서 금액·중량이 정확 합산되어 있음(패킹 원문별 SKU 경계는 미검증).
+- 35 저장본 일부 SunYul은 SQL 공급가를 다시÷1.1, CO풀/미국 대행료 미반영. 36 저장본은 관세·대행료 미연결, 태국 대행료 기본값 차이. 상세 금액/26건 표는 비공개 .verify/35-36-customs-reconciliation-20261110.md에 보관, Git 금지.
+- 실제 브라우저 표와 동일35v10/36v7 PayloadJson 조사종료까지 불변 SELECT 확인. FreightCost 해당범위0행. 원장/웹 DB 쓰기·SP·저장·갱신·파일원천적용·배포0. 정산서 외 백상/월드/한국방역 실제청구는 근거 미제공으로 인증하지 않음. 기존 구현 미커밋 보존.
+- 검색어: 35 36 정산서26건 대사완료 HOOD차수이동 CLOUD합산입고 SunYul공급가 이중VAT제거
+
+## 2026-11-10 선율 ZIP 자동등록 구현 완료 — 배포 전 소스 동결
+- 최종 사용자 목적 반영: ZIP 첫페이지 검산 후 확실건 worker callback 자동등록, 타차수 exact 귀속·합산 AWB·실제 차액만 명시 확인. 검산된 net/gross 원천을 읽기 계산에 우선하되 DB 원문·확정·과거 계산본은 보존하며 계산본 갱신은 사용자가 직접 실행한다.
+- 신규 두 회귀25개 및 기존 customsWeightPolicy/ActualCosts PASS, frozen loader6개 PASS(새 원천 전후 fence 변경 차단 포함). 표적 가이드 dryrun PASS, SSR/client 선택 hydration 오류0·자동완료 후 입력표 재조회 확인. 신규 회귀를 npm ERP pretest 고정목록에 연결, manifest207/diff-check PASS.
+- 실제26 첫페이지+캡처SQL을 격리 임시파일로 replay: 35ZIP13 자동,36ZIP11 자동+2 제안 확인,26개 정확1회·잔여0. 실제 귀속35차14/36차12. 작은header RapidOCR로 이전식별자2건도실제worker local replay 성공(첫페이지만). 이는 운영 적용이 아니며 운영 원천/DB 쓰기0.
+- 안전: 연도전체 신고번호 rootlock 중복검사, scoped ledger 문서fingerprint·합산·contentDigest/실제날짜 검증, 손상시H=0폴백금지. streaming ZIP한도/sidecar/TTL/3회claim/인증backoff/heartbeat·재접속job복구. 합산입고는통화+금액+GW동시검산,특정AWB하드코딩0.
+- 실제 영상 촬영·재생/전체 ERP/build/CI/PR/배포/운영서비스 설치·실제원천 적용은 부모의 최신master 동기화 이후 예정(미검증). 구현자 커밋/푸시/merge/운영 적용 없음. 기존 부모 대사 문서·INDEX 변경 보존.
+검색어: customsSettlement 자동등록 source우선 net gross 26 24자동2확인 HOOD CLOUD 원천등록 직접계산본갱신 소스동결
+
+- 최종 로컬 검증: a7a27d79 동기화 후 신규/기존UI32·source-sliced33·전체ERP·dnSpy·manifest208·writeguard4API·webpack build PASS. 기존 source-sliced mock 누락은 관련fixture 전체 보완, 실제 source fence 약화0. 전체 stem readonly/DBparts 보존·자동refresh draft보존·scope/sequence·ZIP응답역전 회귀 포함. 50.9초 실제 합성가이드+한국어VTT/4목차/proof 및 player1920/390 PASS. CI/PR/코드배포/도우미 설치/운영 원천 등록은 이어서 진행하며 아직 완료 주장하지 않음.
+
+## 2026-11-10 선율 ZIP 가이드 실촬영·후속 fixture 검증
+- a7a27d79 동기화 후 production source-sliced fixture 새fence 의존성 전수 확인. 진단2/WeeklyCache/calendar fixture 명시mock·새원천변경409/frozen미호출 반례, 관련7파일33검사PASS. production코드완화0. posttest:erp-contract 전체1회exit0,로그 .verify/erp-posttest-rest.log.
+- 실제 가이드44.45초/1920×1080/100%/20fps/약1.36MB 녹화, 한국어VTT·4목차·proof등록ready. 중간/최종프레임직접확인, 실제player 재생/역할/목차seek/자막/다운로드/접기일시정지/Enter·Space·Tab·ShiftTab/1920·390 PASS. scripts/customs-settlement-guide-player-smoke.cjs 재현. guide전체9workflow10video gatePASS.
+- 비공개 실제26replay 재현스크립트 .verify/replay-customs-captured.cjs, 최신관측 .verify/customs-replay-result.json: 자동24/확인2/등록26/중복0/잔여0,35귀속14·36귀속12,SQL연결·운영쓰기0. 과거실제worker2건stdout은 .verify/customs-worker-observed-results.json(과거관측임을명시).
+- 임시로컬 녹화·player 서버종료. 원본UI소스hash변경0. 최종fullERP/build/PR/배포/운영worker설치·원천적용은 부모예정이며 미검증. 추가커밋/운영변경0.
+검색어: 선율 ZIP guide support.mp4 44.45 9workflow10video posttest33 fixturefence customs-player-result
+
+## 2026-11-10 최종 UI 분할 그룹·미저장 보호 및 영상 대체
+- 연결된국가stem전체effectiveRow·readOnly로표시하여기존DB2/3번분할중복표시차단. 다른필드저장시source-covered그룹은원DBparts만보존/없으면전송skip. 자동source완료load만draft3종보존,명시조회저장reset유지. load의year/week+seq fence와기존Upload.refresh seq의oldZIPpoll배제실행회귀추가.
+- 신규2파일28회귀+기존UI4파일묶음32PASS. 최종가이드dryrun→실촬영→중간/최종프레임→player재검증PASS. 이전44.45초영상은대체했고최종support.mp4는50.9초/1920×1080/20fps/100%/약1.54MB,4목차/한국어VTT/4sourcehash ready. 실제DOM에서raw2part→연결1part및6readonly칸검증.
+- player재생/역할/목차seek·초점/자막/다운로드/접기pause/Enter·Space·Tab·ShiftTab/1920·390PASS,영상206/자막200. workflow9/영상10·manifest208·diffcheckPASS. SQL/운영쓰기0·서버종료. 최종fullERP/build/CI/배포는부모후속이며미검증.
+검색어: 선율 ZIP 50.9 stem effectiveRow readonly preserveEdits oldZIP seq 28회귀 32표적 최종재촬영

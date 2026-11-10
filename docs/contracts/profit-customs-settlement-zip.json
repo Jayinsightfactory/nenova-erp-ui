@@ -1,0 +1,93 @@
+{
+  "id": "profit-customs-settlement-zip",
+  "title": "선율 정산 ZIP 첫 페이지 실비 연결 — 파일 전용·기존 원장 보존",
+  "scope": [
+    "lib/customsSettlementPlan.cjs",
+    "lib/customsSettlementParser.cjs",
+    "lib/customsSettlementStore.cjs",
+    "lib/customsSettlementZip.cjs",
+    "lib/customsSettlementJobs.cjs",
+    "lib/customsSettlementContext.js",
+    "lib/customsSettlementPresentation.js",
+    "lib/customsSettlementEvidence.js",
+    "lib/customsForwarding.js",
+    "lib/customsForwardingCalc.js",
+    "lib/profitReportActualCosts.mjs",
+    "pages/api/sales/customs-settlement.js",
+    "pages/api/sales/customs-settlement-worker.js",
+    "pages/api/sales/customs-clearance.js",
+    "pages/api/sales/profit-report.js",
+    "components/CustomsSettlementUpload.js",
+    "components/CustomsClearancePanel.js",
+    "scripts/customs-settlement-worker.py",
+    "scripts/windows-customs-ocr.ps1",
+    "scripts/install-customs-settlement-worker.ps1",
+    "lib/customsSettlementRegistration.js",
+    "pages/sales/customs-clearance.js",
+    "scripts/record-customs-settlement-guide.cjs",
+    "package.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "identityNote": "CustKey/ProdKey are not fabricated for document evidence. Exact selected year+major+AWB, unique subweek and country/shared Colombia pool determine the target. Multiple farm headers of one AWB are normal; freight/weight pseudo-products do not determine goods country.",
+  "actions": [
+    {
+      "name": "UPLOAD_FIRST_PAGE_OCR",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Bounded ZIP/PDF streaming, private temporary queue; each PDF first page only, same-page 2000/3000px bounded retry. No paid provider, no packing worker change. Server persists parsed financial receipt only, never complete OCR/PII."
+    },
+    {
+      "name": "PREVIEW_AND_APPLY_FILE_EVIDENCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Worker callback auto-registers exact same-year AWB/current-scope receipts with no unexplained amount conflict; net/gross-equal representations reconciled using receipt evidence. Other-year excluded, exact other major requires explicit destination confirmation; unmatched manual combined AWB requires exact currency+sum foreign amount+GW. Shared policy rechecks in global root lock, declaration uniqueness across year ledgers prevents duplicate after scope change. Scoped atomic files only; all DB DML/DDL/SP forbidden. Partial failure and replay idempotent; UI closure does not prevent automatic processing."
+    },
+    {
+      "name": "READ_MISSING_COST_OVERLAY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Approved typed actual receipt source takes precedence in read-only calculation; existing DB bytes remain unchanged. Real conflicts/ItemCount require explicit review; no unauthenticated reinterpretation of legacy money. Import VAT excluded, country gross except Vietnam net, Colombia handling/actual agency net. Existing snapshots/confirmed report money preserved, past report refresh explicit user action. Replay requires explicit external evidence; live context cache and before/after file digest fence."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same AWB+35-01; wrong-year document/ledger file, multiple subweeks/countries, zero/manual/split-part conflict, shared Colombia pool and absent exact AWB. No prior-year match or fallback."
+  },
+  "requiredTestFiles": [
+    "__tests__/customsSettlement.test.cjs",
+    "__tests__/customsSettlementRegistration.test.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/profit-customs-settlement-zip-2026-11-10.md",
+    "source": "Actual dnSpy.Console.exe FormWarehouseView GetData/GetDetail and selected-year/AWB SELECT-only probe. New evidence is web-file-only; native warehouse save/stock lifecycle unchanged.",
+    "methods": [
+      "FormWarehouseView.GetData",
+      "FormWarehouseView.grdViewMaster_FocusedRowChanged",
+      "buildSettlementPlan"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "WebCustomsWeekly",
+      "WebColombiaWeekly",
+      "WebProfitReportConfirm",
+      "WebProfitReportSnapshot"
+    ]
+  },
+  "requiredCommands": [
+    "node --test __tests__/customsSettlement.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run test:workflow-guides",
+    "npm run build"
+  ]
+}

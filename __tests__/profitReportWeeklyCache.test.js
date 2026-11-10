@@ -32,18 +32,19 @@ async function main(){
 
   const api=read('pages/api/sales/profit-report.js');
   const loaderBody=api.slice(api.indexOf('export async function currentProfitPeriod'),api.indexOf('export async function loadAnnualMonthlyReportData')).replaceAll('export ','');
-  let live=0, reads=0, confirm=null,diagnostics=0;
+  let live=0, reads=0, confirm=null,diagnostics=0,settlementVersion=0,changeSettlement=false;
   const scopeFixture={dateOnly:'2026-10-28',orderYearWeek:'202644'};
   const dependencies={
     estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
     ...policy,materializeProfitPayload:C.materializeProfitPayload,
     currentErpReadContext:()=>true,loadSourceFingerprints:async()=>({map:new Map()}),
     latestProfitInvoiceFence:async()=> 'test',
+    settlementScopeFence:async()=>String(settlementVersion),
     resolvePreviousProfitWeek:()=>({orderYear:'2026',major:'43'}),
     applyTemplateDutyToReport:async payload=>payload,
     loadProfitReportCalendar:async()=>[scopeFixture],resolveCurrentProfitWeek:()=>({orderYear:'2026',major:'44'}),
     getActiveConfirm:async()=>confirm,buildConfirmedPayload:async()=>({confirmed:{revisionNo:4},rows:[],confirmedTotals:{C:71}}),
-    loadReportData:async()=>{live++;return raw;},readStoredProfitPayload:async(y,m)=>{reads++;return S.storedProfitPayload(stored,{orderYear:y,major:m});},
+    loadReportData:async()=>{live++;if(changeSettlement)settlementVersion++;return raw;},readStoredProfitPayload:async(y,m)=>{reads++;return S.storedProfitPayload(stored,{orderYear:y,major:m});},
     storedProfitPayload:S.storedProfitPayload,saveProfitCache:()=>{throw Error('unexpected write');},manualInputManifest:{},
     unclassifiedDetailsByCategory:async()=>{diagnostics++;return [{prodKey:1}];},
   };
@@ -62,6 +63,9 @@ async function main(){
   const auditedConfirm=await L.loadWeeklyReportPayload('31','2026',{mode:'liveAudit'});
   assert.equal(diagnostics,1);assert.equal(live,4);assert.equal(auditedConfirm.confirmedTotals.C,71);
   assert.equal(auditedConfirm.unclassifiedDetailsSource,'live_read_only');
+  confirm=null;changeSettlement=true;
+  await assert.rejects(L.loadWeeklyReportPayload('44','2026'),e=>e.statusCode===409&&e.code==='PROFIT_SOURCES_CHANGED');
+  changeSettlement=false;assert.equal(frozen.rows[0].calc.C,12345,'new source fence never mutates the saved calculation');
   const confirmBody=api.slice(api.indexOf('async function buildConfirmedPayload'),api.indexOf('export async function currentProfitPeriod'));
   assert.doesNotMatch(confirmBody,/loadManual\(|currencyRates\(|unclassifiedDetailsByCategory\(/);
 
