@@ -88,6 +88,7 @@ export const MENU_ITEMS = [
       { href: '/shipment/fix-status',    labelKey: '차수 확정 현황', popup: false },
       { href: '/shipment/stock-status', labelKey: '출고,재고상황', popup: false },
       { href: '/shipment/week-pivot',   labelKey: '차수피벗',      popup: true },
+      { href: '/shipment/statement',    labelKey: '출고내역서',    popup: false },
       { href: '/shipment/view',          labelKey: '출고조회',      popup: false },
       { href: '/shipment/history',       labelKey: '출고내역조회',  popup: false },
       { href: '/pre-shipment',           labelKey: '선출고·후출고 관리', popup: false },

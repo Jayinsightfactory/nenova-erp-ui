@@ -526,6 +526,63 @@
           ]
         }
       ]
+    },
+    {
+      "id": "shipment-statement",
+      "title": "출고내역서 작성과 엑셀 저장",
+      "entryPaths": [
+        "/shipment/statement"
+      ],
+      "sourceFiles": [
+        "pages/shipment/statement.js",
+        "styles/ShipmentStatement.module.css",
+        "lib/shipmentStatement.cjs"
+      ],
+      "requiredScenarios": [
+        "load",
+        "allocate",
+        "drag",
+        "group",
+        "save"
+      ],
+      "guides": [
+        {
+          "id": "support",
+          "role": "영업지원",
+          "title": "차수 선택부터 드래그 일괄 지정·엑셀 저장까지",
+          "status": "ready",
+          "src": "/guides/shipment-statement/support.mp4",
+          "captions": "/guides/shipment-statement/support.ko.vtt",
+          "proof": "/guides/shipment-statement/support.proof.json",
+          "chapters": [
+            {
+              "scenario": "load",
+              "title": "메인차수와 담당자·업체 선택",
+              "seconds": 0
+            },
+            {
+              "scenario": "allocate",
+              "title": "요일 수량과 기본 출고요일",
+              "seconds": 4.215
+            },
+            {
+              "scenario": "drag",
+              "title": "드래그 선택과 일괄 출고일 지정",
+              "seconds": 12.747
+            },
+            {
+              "scenario": "group",
+              "title": "품목군 출력 묶음",
+              "seconds": 17.406
+            },
+            {
+              "scenario": "save",
+              "title": "작성본 저장과 엑셀 다운로드",
+              "seconds": 21.839
+            }
+          ]
+        }
+      ]
     }
   ]
 }
