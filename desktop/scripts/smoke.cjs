@@ -135,9 +135,11 @@ function installFixtureProtocol() {
   for (const isolated of [session.defaultSession, workSession]) isolated.protocol.handle('http', () => new Response('Blocked by smoke fixture', { status: 403 }));
   // The session protocol hook catches every HTTPS request, including any URL
   // the application might construct. No request can reach the real service.
+  const favoriteFixture = require('./favorite-fixture.cjs')();
   workSession.protocol.handle('https', async request => {
     const url = new URL(request.url);
     if (url.origin !== ORIGIN) return new Response('Blocked by smoke fixture', { status: 403 });
+    if (url.pathname === '/api/favorites') return favoriteFixture(request, accountActor);
     fixtureRequests.push({ method: request.method, pathname: url.pathname });
     if (url.pathname === ACTIVITY_ROUTE && request.method === 'POST') {
       const body = await request.json();
@@ -541,7 +543,7 @@ async function run() {
   assert.ok(savedUrls.some(url => url.includes('year=2026') && url.includes('week=1')));
   assert.ok(savedUrls.every(url => !/access_token|private/.test(url)));
 
-  main.command(sourceWindow, 'favorite', { id: yearTab.id });
+  await main.command(sourceWindow, 'favorite', { id: yearTab.id });
   assert.ok(main.snapshot().favorites.some(item => item.title === '연도 확인'));
 
   // Validate the allowed same-origin about:blank opener used by print workflows.
