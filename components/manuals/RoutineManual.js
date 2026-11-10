@@ -241,6 +241,83 @@ function FieldTeam({ field }) {
   );
 }
 
+// 화면별 따라하기 — Orbit 버튼 순서(data.uia)·전산 저장 대조(data.erp) 기반. 숫자는 생성기가 센 값.
+const fmtSec = (s) => (s == null ? '-' : s >= 90 ? `약 ${Math.round(s / 60)}분` : `약 ${s}초`);
+function ProcConf({ pr }) {
+  const [label, tone] = CONF[pr.confidence] || CONF.estimate;
+  return (
+    <span className="ev">
+      <Badge tone={tone}>신뢰도 {label}</Badge>
+      <small>{pr.actions}회 관측{pr.days ? ` · ${pr.days}일` : ''}{pr.lastSeen ? ` · 최신 ${pr.lastSeen.slice(5)}` : ''}</small>
+    </span>
+  );
+}
+function ProcedureCard({ pr }) {
+  const main = pr.variants?.[0];
+  const ck = pr.check || {};
+  return (
+    <div className="card proc">
+      <b>{pr.screen}</b> <ProcConf pr={pr} />
+      <h5>순서</h5>
+      {main?.steps?.length ? (
+        <ol className="steps">{main.steps.map((s, i) => <li key={i}>[{s}] 누르기</li>)}</ol>
+      ) : <p className="empty">버튼 순서 기록 없음(조회 화면으로 보기만 함)</p>}
+      {pr.variants?.length > 1 && (
+        <p className="muted"><small>다른 방법: {pr.variants.slice(1).map((v) => `${v.steps.join(' → ')} (${v.count}회)`).join(' / ')}</small></p>
+      )}
+      <h5>입력·확인하는 칸</h5>
+      <p>{(pr.fields || []).map((f) => f.name).join(', ') || '-'}</p>
+      <h5>옆에 띄워 보는 자료</h5>
+      <p>{(pr.sources || []).map((x) => x.name).join(', ') || (pr.apps?.length ? pr.apps.join(', ') : '-')}</p>
+      <h5>저장 확인 방법</h5>
+      <p>
+        {ck.saves ? `저장 ${ck.saves}번 중 ${ck.matched}번(${ck.matchedShare}%) 전산에 실제 반영 확인` : '저장 없이 보기만 하는 화면'}
+        {ck.kinds?.length ? ` · ${ck.kinds.map((k) => k.kind).join('·')} 자료가 바뀜` : ''}
+        {ck.columns?.length ? ` (바뀌는 칸: ${ck.columns.join(', ')})` : ''}
+      </p>
+      {pr.typed?.checked > 0 && <p className="muted"><small>입력한 거래처·품목이 전산과 일치 {pr.typed.confirmed}/{pr.typed.checked}건</small></p>}
+      <h5>건당 시간</h5>
+      <p>{fmtSec(pr.medianSec)}{pr.timeConfidence !== 'measured' && pr.medianSec != null ? ' (사례 적음 — 추정)' : ''}</p>
+      {pr.problems?.length > 0 && (
+        <>
+          <h5>자주 생기는 문제</h5>
+          <ul className="probs">{pr.problems.map((x, i) => <li key={i}>{x.text} <small className="muted">{x.count}회</small></li>)}</ul>
+        </>
+      )}
+    </div>
+  );
+}
+function Procedures({ dept }) {
+  const people = (dept.people || []).filter((p) => p.procedures?.length);
+  const [who, setWho] = useState(null);
+  const cur = people.find((p) => p.name === who) || people[0];
+  if (!people.length) return <p className="empty">이 부서는 아직 화면·버튼 기록이 없습니다(새 수집 기능이 켜진 PC부터 쌓입니다).</p>;
+  return (
+    <>
+      {dept.procedures?.length > 0 && (
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead><tr><th>화면</th><th>대표 순서</th><th>쓰는 사람</th><th>전산 반영 확인</th><th>근거</th></tr></thead>
+            <tbody>
+              {dept.procedures.map((pr) => (
+                <tr key={pr.screen}>
+                  <td><b>{pr.screen}</b></td>
+                  <td>{pr.steps?.length ? pr.steps.join(' → ') : '보기만'}</td>
+                  <td>{(pr.people || []).join(', ')}</td>
+                  <td>{pr.matchedShare == null ? '-' : `${pr.matchedShare}%`}</td>
+                  <td><ProcConf pr={pr} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="who">{people.map((p) => <ToggleChip key={p.name} on={cur?.name === p.name} onClick={() => setWho(p.name)}>{p.name} ({p.procedures.length})</ToggleChip>)}</div>
+      {cur && <div className="cards">{cur.procedures.map((pr) => <ProcedureCard key={pr.screen} pr={pr} />)}</div>}
+    </>
+  );
+}
+
 // 신입 첫 주 순서(Basecamp 식) — 부서마다 같은 다섯 단계
 const FIRST_WEEK = [
   ['tools', '1일차: 부서가 맡는 단계와 쓰는 화면'],
@@ -308,6 +385,7 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch, onLiv
             <div className="who">{people.filter((p) => p.observedDays).map((p) => <ToggleChip key={p.name} on={cur?.name === p.name} onClick={() => setPerson(p.name)}>{p.name}</ToggleChip>)}</div>
             {cur && <Timeline person={cur} onConfirm={onConfirm} />}
           </section>
+          <section><h2>2-1. 화면별 따라하기 <small className="muted">(버튼 순서·입력 칸·저장 확인 — 최근 {routines?.procedurePeriodDays || 30}일 기록)</small></h2><Procedures key={dept.id} dept={dept} /></section>
           <section><h2>3. 메일함에서 볼 것</h2><MailTable dept={dept} onConfirm={onConfirm} /></section>
           <section><h2>4. 주간 캘린더</h2><WeekGrid dept={dept} onConfirm={onConfirm} /></section>
           <section><h2>5. 부서간 넘김 · 월간 체크리스트</h2><Handoffs dept={dept} /><Monthly dept={dept} onConfirm={onConfirm} /></section>
@@ -354,6 +432,8 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch, onLiv
         .wmr .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
         .wmr .tbl th, .wmr .tbl td { border-bottom: 1px solid var(--pm-line); padding: 6px; text-align: left; vertical-align: top; }
         .wmr .tbl th { background: var(--pm-surface2); }
+        .wmr .proc h5 { margin: 8px 0 2px; font-size: 12px; color: var(--pm-muted); }
+        .wmr .proc .steps, .wmr .proc .probs { margin: 2px 0; padding-left: 20px; }
         @media (max-width: 760px) { .wmr .week { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wmr .rows .time { display: block; } }
       `}</style>
     </div>

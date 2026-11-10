@@ -13,7 +13,10 @@ const sample = {
   departments: [{ id: 'import', name: '수입부', people: [{ name: '김원빈', observedDays: 17,
     daily: [{ id: 'a', from: '09:00', to: '09:30', evidence: { count: 12, days: 9, of: 17 }, confidence: 'high' },
       { id: 'b', from: '10:00', to: '10:30', evidence: { count: 0, days: 0, of: 17 }, confidence: 'high' }],
-    weekly: [], monthly: [{ id: 'm', evidence: { days: 3, of: 4, months: 1 }, confidence: 'estimate' }], mail: [] }] }],
+    weekly: [], monthly: [{ id: 'm', evidence: { days: 3, of: 4, months: 1 }, confidence: 'estimate' }], mail: [],
+    procedures: [{ screen: '발주 관리', actions: 2, confidence: 'high', variants: [{ steps: ['조회', '저장'], count: 2 }], check: { saves: 2, matched: 1 } },
+      { screen: '입고 관리', actions: 9, confidence: 'high', variants: [], check: {} }] }],
+    procedures: [{ screen: '발주 관리', people: ['김원빈'], actions: 2, confidence: 'medium', steps: ['조회', '저장'] }] }],
   field: { staff: [] },
 };
 fs.writeFileSync(path.join(tmp, 'data', 'work-feature-manual-routines.json'), JSON.stringify(sample));
@@ -29,7 +32,7 @@ fs.writeFileSync(path.join(tmp, 'wm.cjs'), wm);
 const wr = strip(fs.readFileSync(path.join(repo, 'lib', 'workManualRoutines.js'), 'utf8'))
   .replace(/^import \{ featureFilePath \} from '\.\/workFeatureData';/m, "const { featureFilePath } = require('./wfd.cjs');")
   .replace(/^import \{ loadState, saveRoutineConfirmState \} from '\.\/workManuals';/m, "const { loadState, saveRoutineConfirmState } = require('./wm.cjs');")
-  + '\nmodule.exports = { normalizeConfidence, getRoutines, confirmRoutineItem, routinesForView };';
+  + '\nmodule.exports = { normalizeConfidence, normalizeProcedureConfidence, getRoutines, confirmRoutineItem, routinesForView };';
 fs.writeFileSync(path.join(tmp, 'wr.cjs'), wr);
 const { FEATURE_NAMES } = require(path.join(tmp, 'wfd.cjs'));
 const R = require(path.join(tmp, 'wr.cjs'));
@@ -40,6 +43,11 @@ assert.strictEqual(R.normalizeConfidence({ evidence: { count: 0, days: 0 }, conf
 assert.strictEqual(R.normalizeConfidence({ evidence: { count: 12, days: 9 }, confidence: 'high' }), 'high');
 const v = R.getRoutines();
 assert.strictEqual(v.departments[0].people[0].daily[1].confidence, 'estimate');
+// 화면별 따라하기: 관측 3회 미만은 '추정', 그 이상은 생성기 값 유지
+assert.strictEqual(R.normalizeProcedureConfidence({ actions: 2, confidence: 'high' }), 'estimate');
+assert.strictEqual(v.departments[0].people[0].procedures[0].confidence, 'estimate');
+assert.strictEqual(v.departments[0].people[0].procedures[1].confidence, 'high');
+assert.strictEqual(v.departments[0].procedures[0].confidence, 'estimate');
 
 // 직원 확인 → state 에 저장, 데이터 파일 재생성 후에도 유지
 const user = { userId: 'kwb', userName: '김원빈' };
@@ -73,4 +81,11 @@ assert.ok(!/손지윤|"Luke"/.test(raw), '제외 대상');
 for (const d of snap.departments) for (const p of d.people) for (const k of ['daily', 'weekly', 'monthly', 'mail']) for (const it of p[k]) {
   assert.ok(it.id && it.evidence, `${p.name} ${k} 항목 근거 필드`);
 }
+// 화면별 따라하기: 영업지원·영업부에 화면 절차가 있고, 각 절차는 화면·관측수·저장확인 필드를 가짐(키보드 원문 필드 없음)
+assert.ok(snap.departments.filter((d) => ['sales-support', 'sales'].includes(d.id)).every((d) => d.people.some((p) => (p.procedures || []).length)), '영업지원·영업부 절차');
+for (const d of snap.departments) for (const p of d.people) for (const pr of p.procedures || []) {
+  assert.ok(pr.screen && Number.isFinite(pr.actions) && pr.check && Array.isArray(pr.variants), `${p.name} 절차 필드`);
+  assert.ok(!('typedText' in pr) && !('keys' in pr), '키보드 원문 금지');
+}
+assert.ok(/function Procedures\(/.test(ui) && /화면별 따라하기/.test(ui), '화면별 따라하기 블록');
 console.log('workManualRoutines ok');
