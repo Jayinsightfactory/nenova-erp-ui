@@ -2371,3 +2371,16 @@
 - 격리 MSSQL PASS: .4+.6박스→6+9단→172500원, native 견적2행/전체요일 이카운트 Excel집계1행 및 요일별6·9/XLSX roundtrip, prior2025 sentinel99, 원장지문, stale/감사실패 롤백/gate busy. Chrome 합성1920/390 PASS: 국가 교집합·중복제거·빈설정 재접속·계정변경·날짜 미리보기/저장/재조회·ESC/Ctrl+S 보호, 기존45-03 검색/업체추가 회귀도 PASS.
 - 로컬 필수 test:erp-contract / dnSpy / manifest207 / write guard / production build 모두 PASS. 실제 Chrome 사용가이드 MP4+한국어VTT+목차+proof 생성, registry 검사 PASS(8업무9영상). CI·병합·Cafe24 배포·운영 브라우저 스모크는 후속 단계, 이 기록 시점 미검증.
 검색어: 국가즐겨찾기 품종교집합 출고일분배 distribution-dates ShipmentDate 소수견적량 midpoint-to-even 총매출보존
+
+## 2026-11-10 PR1641 배포 전 검토 — 보류
+- 사용자: PR1641 확인 후 문제없으면 배포. 검토 head878093b01822f66578e0f9e44772b78ef6965982, branchfeat/arrival-country-rule. 조건부 배포 승인이고 결함을 발견했으므로 병합/배포하지 않음. 운영 DB/원장/코드 수정0.
+- lib/arrivalDrivePolicy.js67:73 실제 함수와selectArrivalDriveCandidates/arrivalDriveTiming을 합성 원본으로 실행. 2026/46-1 CO원가파일에 (1)2025/46-1 CO AWB (2)차수없는AWB.pdf (3)46-1 호주 AWB (4)shared-awb-2026-46-01-86514699602 (5).xlsx PC자동수집 계산파일을 각각 넣었을 때 모두 reason빈값/readytrue 재현. 재현코드 .verify/pr1641-repro.mjs, DB접속0.
+- 연도 인자가 없고 미확인 차수도허용(line71), AU/US/NZ국가제외누락(line57/72), 파일명AWB토큰만확인하고 원본형식/계산산출물/AWB번호같은선적연결검증없음(line68:73). 기존테스트는 정상·다른차수·NL·삭제만확인해 반례누락. CI진행중이어도이결함과독립적으로배포불가.
+- 변경은 업무드라이브 기존원가엑셀 자동반영게이트뿐. 인보이스/AWB 숫자추출·현재공동AWB원가작성·기존입고원가경로는보완하지않음. 수정요청 전 리뷰만 진행, GitHub외부리뷰코멘트도 미작성.
+검색어: PR1641 AWB gate 878093b0 교차연도 미확인차수 호주 shared-awb 시험파일 false positive 배포보류
+
+## 2026-11-10 PR1641 오인식 수정
+- 서버 실제 XLSX/PDF 바이트·hash·AWB 번호/체크디짓·본문·명시 연도/차수 검증. 전년도/국가불명/차수불명/혼합국가/시험 XLSX/위장PDF/index proof 주입 차단. 상태·예약·실행·저장직전 verifiedCandidates 공용, AWB 교체 시 importer 호출0.
+- 실제 PDF/XLSX 정상 및 반례, worker AWB 교체 저장0, 기존 국가/교차연도/롤백 회귀 통과. ERP전체/dnSpy/manifest206/writeguard 통과. EXE FormWarehouseView CLI 재추출. SQL·ERP writer·산식 변경0, 운영 DB 호출/저장0, 추가AI0.
+- 명시 연도/차수 없는 원본 및 스캔 PDF는 자동추정하지 않고 보류. UI/순서 변경없음(기존 reason 재사용), 영상 신규 해당없음. webpack/PR CI/코드배포 후속. docs/work-sessions/2026-11-10_pr1641-awb-proof.md.
+검색어: PR1641 AWB evidence 원본PDF hash 번호 연도 차수 반례 verifiedCandidates 운영DB보존

@@ -77,4 +77,3 @@ async function main(){
  }finally{if(rec&&!stopped)await rec.stop().catch(()=>{});await browser.close();}
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1;});
-

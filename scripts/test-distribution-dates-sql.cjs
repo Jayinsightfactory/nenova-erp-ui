@@ -56,4 +56,3 @@ async function main(){
  }finally{await pool?.close();if(master)await fixture.query(master,`IF DB_ID(N'${name}') IS NOT NULL BEGIN ALTER DATABASE ${fixture.bracket(name)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${fixture.bracket(name)}; END`);await master?.close();}
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1;});
-
