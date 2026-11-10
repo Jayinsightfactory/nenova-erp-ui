@@ -2330,3 +2330,11 @@
 검색어: 출고분배 미국 더글라스 레몬잎 전체품목검색 미분배 shipmentDistributionCatalog
 - 추가 검증: 실제 FormEstimateView dnSpy 재실행. ViewOrder 기반 신규분배/확정가드 및 native Excel SQL 확인. 격리MSSQL 공유날짜저장→견적수량750/금액→엑셀1행, 전년도/무효담당자/삭제항목 차단 및 미확정/0견적량/시각/raw키 배제 PASS. 운영2025/46-01 미국29행 Date.EstQuantity NULL로 native Excel 제외 발견(원장보정0, 원인주체미확정). 전체ERP/build PASS. CI/배포/운영UI 후속.
 검색어: 미국 출고분배 견적누락 이카운트 EstQuantity NULL 2025 46-01 downstream SQL
+
+## 2026-11-10 출고분배 국가 묶음·45-03 선택 및 미국 과거 견적
+- 국가별 제목 아래 품종 버튼(사용자확정), 기존 선택·즐겨찾기·저장순서 그대로. 빈45-03에서 catalog품목 표시만되고 selectProd가products만허용하던 결함수정. 상단품목선택도0주문에서활성/동일catalog 로드. 표적Chrome교차연도·검색→선택→업체추가→수량→주문선등록→분배저장 PASS. 국가helper14PASS.
+- 메뉴기준 적용: 국가별묶음/페이지주스크롤/1920·390/키보드/미저장보호. 새메뉴·탭·업무순서추가없음(기존동작복원/배치변경)이므로 가이드영상 신규제작 해당없음. ERP수량·저장공식 불변.
+- 과거2025 전체관측29~52차 Date견적4필드NULL,2026 1~3동일/4차부터기재→기존G2b레거시와일치. 미국에만생긴웹실패라는추정정정. 승인29행중양수25/0행4. 79박스/환산1690/기존Amount8895454.545454547/Vat889545.4545454545 보존복원안. readonly preview PASS, 격리SQL금액보존/교차연도/rollback/CAS PASS. 운영적용·전체gate/build/CI/배포는미완료.
+검색어: 미국 2025 46-01 legacy G2b 견적수량 25 4 국가별제목 45-03 업체추가 catalog선택
+- 最終검증: 전체ERP/dnSpy/manifest206/쓰기guard/정식build PASS. 격리MSSQL 복원/금액보존/2026동일차수/rollback/CAS PASS. Chrome1920/390 국가별제목·2025/2026빈45-03 상단검색→선택→업체추가→2박스→주문선등록→분배저장 PASS. 실제운영 UI/원장적용은배포후예정.
+검색어: 45-03 업체추가 국가별제목 레거시견적 원장보존

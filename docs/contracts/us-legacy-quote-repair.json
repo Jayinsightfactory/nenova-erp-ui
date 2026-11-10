@@ -1,0 +1,66 @@
+{
+  "id": "us-legacy-quote-repair",
+  "title": "승인된 2025/46-01 미국 출고일 견적 필드 복원",
+  "scope": [
+    "lib/shipmentLegacyDateRepair.js",
+    "scripts/repair-us-2025-46-01.cjs",
+    "__tests__/shipmentLegacyDateRepair.test.cjs",
+    "scripts/test-distribution-catalog-downstream-sql.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "REPAIR_APPROVED_LEGACY_DATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Only missing ShipmentDate.EstQuantity/Cost/Amount/Vat on 25 positive rows within exact 2025/46-01 US29 source rows. Four zero rows remain untouched. Preserve fixed Detail money exactly; derive Date quote units from product units and validate gross against existing Detail cost+amount+VAT. Never sync or unfix/refix, recalculate stock, create Estimate or fake positive order. Default SELECT-only preview, SHA gate, serializable row locks, CAS, precommit native list/detail/Excel assertions and protected-ledger fingerprints; any mismatch rolls back. One SystemActionLog repair audit."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 approved row repaired; 2026 same46-01 Detail unchanged, invalid year/week rejected; zero shipment unchanged, partial-priced date/changed conversion/money/scope rejected; rollback and repeat-write CAS tested."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "2026-11-10 actual local dnSpy.Console ClassShipmentDate and FormEstimateView",
+    "methods": [
+      "GetData",
+      "GetDetail",
+      "GetExcelDetail",
+      "btnSave_Click",
+      "Insert",
+      "Update"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "OrderMaster",
+      "OrderDetail",
+      "Estimate",
+      "Product",
+      "PeriodDay",
+      "StockHistory",
+      "WebProfitReport"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentLegacyDateRepair.test.cjs",
+    "scripts/test-distribution-catalog-downstream-sql.cjs"
+  ],
+  "requiredCommands": [
+    "node --test __tests__/shipmentLegacyDateRepair.test.cjs",
+    "node scripts/test-distribution-catalog-downstream-sql.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

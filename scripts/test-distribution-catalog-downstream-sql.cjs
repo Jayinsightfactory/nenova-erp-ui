@@ -47,6 +47,40 @@ async function main(){
    await q(bad);assert.equal((await read()).recordset.length,0);await q(restore);
   }
   assert.equal((await read()).recordset.length,1);
+
+  // Approved legacy repair: preserve already fixed Detail money; do not call sync/refix.
+  await q(`ALTER TABLE ShipmentDate ALTER COLUMN EstQuantity decimal(18,4) NULL;
+    ALTER TABLE ShipmentDate ALTER COLUMN Cost decimal(18,4) NULL;
+    ALTER TABLE ShipmentDate ALTER COLUMN Amount decimal(18,4) NULL;
+    ALTER TABLE ShipmentDate ALTER COLUMN Vat decimal(18,4) NULL;
+    INSERT Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box,Cost,Stock,ProdCode)
+    VALUES(1718,N'Fixture US',N'미국레몬잎',N'미국',N'레몬잎',N'박스',N'단',25,25,625,5500,0,N'US-FIX');
+    UPDATE ShipmentMaster SET OrderYear=N'2025',OrderWeek=N'46-01',OrderYearWeek=N'202546' WHERE ShipmentKey=6266;
+    UPDATE OrderMaster SET OrderYear=N'2025',OrderWeek=N'46-01',OrderYearWeek=N'202546' WHERE OrderMasterKey=3701;
+    UPDATE OrderDetail SET ProdKey=1718 WHERE OrderMasterKey=3701;
+    UPDATE ShipmentDetail SET ProdKey=1718,OutQuantity=4,EstQuantity=4,Cost=5500,Amount=500000,Vat=50000,ShipmentDtm='2025-11-16' WHERE SdetailKey=89892;
+    UPDATE ShipmentDate SET ShipmentDtm='2025-11-16',ShipmentQuantity=4,EstQuantity=NULL,Cost=NULL,Amount=NULL,Vat=NULL;
+    INSERT PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay) VALUES(99,N'202546',N'2025-11-16',1);
+    UPDATE ShipmentMaster SET OrderWeek=N'46-01',OrderYearWeek=N'202646' WHERE ShipmentKey=6267;
+    UPDATE OrderMaster SET OrderWeek=N'46-01',OrderYearWeek=N'202646' WHERE OrderMasterKey=3702;
+    INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,EstQuantity,Cost,Amount,Vat,isFix)
+    VALUES(89999,6267,533,1718,'2026-11-15',99,99,2475,61875,99,5500,123456,12345,1);`);
+  const {planUsLegacyDateRepair,applyUsLegacyDateRepair}=await import('../lib/shipmentLegacyDateRepair.js');
+  const source=(await q(`SELECT sm.OrderYear,sm.OrderWeek,sm.OrderYearWeek,sm.ShipmentKey,sm.CustKey,sm.isFix MasterFix,sd.SdetailKey,sd.ProdKey,sd.OutQuantity,sd.Cost DetailCost,sd.Amount DetailAmount,sd.Vat DetailVat,sd.isFix DetailFix,sd.ShipmentDtm DetailDtm,dt.SdateKey,dt.ShipmentDtm,dt.ShipmentQuantity,dt.EstQuantity DateEst,dt.Cost DateCost,dt.Amount DateAmount,dt.Vat DateVat,p.CounName,p.OutUnit,p.EstUnit,p.BunchOf1Box,p.SteamOf1Bunch,p.SteamOf1Box FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sm.ShipmentKey=sd.ShipmentKey JOIN ShipmentDate dt ON dt.SdetailKey=sd.SdetailKey JOIN Product p ON sd.ProdKey=p.ProdKey WHERE sm.OrderYear=N'2025'`)).recordset;
+  const plan=planUsLegacyDateRepair(source,1);
+  const unchanged=JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset);
+  const beforeExport=await q(sqlEstimateGetExcelDetail({weekDayIn:'1,2,3,4,5,6,7'}),{orderYearWeek:{type:sql.NVarChar,value:'202546'},custKey:{type:sql.Int,value:533}});
+  assert.equal(beforeExport.recordset.length,0);
+  const failed=new sql.Transaction(pool);await failed.begin();
+  await applyUsLegacyDateRepair(fixture.tQuery(failed),sql,plan);await failed.rollback();
+  assert.equal((await q('SELECT EstQuantity FROM ShipmentDate')).recordset[0].EstQuantity,null,'failure rolls back quote fields');
+  const success=new sql.Transaction(pool);await success.begin();
+  await applyUsLegacyDateRepair(fixture.tQuery(success),sql,plan);await success.commit();
+  assert.equal(JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset),unchanged,'2025 sales and 2026 same-week details unchanged');
+  const repaired=(await q(sqlEstimateGetExcelDetail({weekDayIn:'1,2,3,4,5,6,7'}),{orderYearWeek:{type:sql.NVarChar,value:'202546'},custKey:{type:sql.Int,value:533}})).recordset;
+  assert.equal(repaired.length,1);assert.equal(Number(repaired[0].EstQuantity),100);assert.equal(Number(repaired[0].Amount),500000);assert.equal(Number(repaired[0].Vat),50000);
+  await assert.rejects(()=>applyUsLegacyDateRepair(q,sql,plan),/COMPARE_AND_SET/,'repeat repair cannot overwrite priced fields');
+  console.log('PASS legacy repair real SQL: NULL->native Excel, 100 invoice units, exact historical money, unchanged Detail/other-year, rollback and repeat-write guard');
   console.log('PASS real SQL: valid US product -> shared date/amount sync -> native ECOUNT export -> XLSX row; prior-year/no order/bad manager/deleted product/customer/order blocked; unfixed/zero estimate/off-time/full raw key excluded. Operational writes0.');
  }finally{
   await pool?.close();if(master)await fixture.query(master,`IF DB_ID(N'${name}') IS NOT NULL BEGIN ALTER DATABASE ${fixture.bracket(name)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${fixture.bracket(name)}; END`);await master?.close();

@@ -11,7 +11,7 @@ import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
-  sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionPairGroupKey, distributionPairGroups,
+  sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionCountryGroups, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -475,6 +475,7 @@ export default function Distribute() {
     if (first) setProdGroup(first.groupKey);
   }, [favoriteGroups, prodGroups, prodGroup]);
 
+  const countryGroups = distributionCountryGroups(prodGroups);
   const selectedProdGroupLabel = prodGroups.find(g => g.key === prodGroup)?.label || prodGroup.replace(PG_SEP, '');
 
   // 출고요일 설정 저장
@@ -841,7 +842,7 @@ export default function Distribute() {
   // 품목 클릭 → 거래처 분배 정보 로드
   const selectProd = async (prod, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
-    if (!week || !products.some(p => Number(p.ProdKey) === Number(prod?.ProdKey))) return;
+    if (!week || !mergeDistributionSearchCandidates(products, productCatalog).some(p => Number(p.ProdKey) === Number(prod?.ProdKey))) return;
     if (!skipDraftCheck && !confirmDraftDiscard()) return;
     const request = ++productRequestRef.current;
     const requestedWeek = week;
@@ -1432,8 +1433,8 @@ export default function Distribute() {
           options={[{ key: '', label: '전체', selected: !prodGroup }, ...prodGroups.map(g => ({ key: g.key, label: g.label, selected: g.key === prodGroup }))]}
           onSelect={option => chooseProdGroup(option.key)} />
         <DistributionPicker label="품목" value={selectedProd?.ProdName || ''} triggerRef={productPickerRef}
-          shortcut="Ctrl+Alt+2" disabled={saving || !products.length || loading}
-          options={sortDistributionProducts(products).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
+          shortcut="Ctrl+Alt+2" disabled={saving || loading} onOpen={ensureProductCatalog}
+          options={sortDistributionProducts(mergeDistributionSearchCandidates(products, productCatalog)).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
             label: p.ProdName || p.DisplayName || `#${p.ProdKey}`,
             hint: `${favoriteKeys.has(Number(p.ProdKey)) ? '★ ' : ''}#${p.ProdKey}`,
             selected: Number(p.ProdKey) === Number(selectedProd?.ProdKey), product: p }))}
@@ -1502,26 +1503,33 @@ export default function Distribute() {
             style={{...weekButtonStyle(g.key, g.key === prodGroup), padding:'3px 10px', fontSize:12}}>{g.label}</button>
         ))}
       </div>
-      {/* 품종 전체 — 한 줄로 쭉(넘치면 줄바꿈, 스크롤 상자 없음). ☆ 로 즐겨찾기 고정 */}
+      {/* 국가별 제목 아래 품종을 모으되 기존 품종 선택/즐겨찾기 동작은 유지한다. */}
       <div data-testid="distribution-group-buttons" style={{padding:'6px 14px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',borderTop:'1px solid var(--border-t)',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-        <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>품종</span>
+        <span style={{fontSize:12,fontWeight:700,color:'var(--text2)'}}>품종</span>
         <button type="button" data-ai-verify="group-all" aria-pressed={!prodGroup} disabled={saving || prodGroupsLoading}
           onClick={() => chooseProdGroup('')} style={pickButtonStyle(!prodGroup, true)}>전체</button>
-        {prodGroups.map(g => {
+        {countryGroups.map(({country, groups}) => (
+          <div key={country} data-testid={`distribution-country-${country}`} role="group" aria-label={`${country} 품종`}
+            style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',width:'100%',padding:'5px 0',borderTop:'1px solid var(--border-t)'}}>
+            <h3 style={{margin:0,fontSize:12,fontWeight:700,color:'var(--text2)',minWidth:64}}>{country}</h3>
+            {groups.map(g => {
           const label = g.label || g.key.replace(PG_SEP, ' ');
           const active = g.key === prodGroup;
           const fav = favoriteGroups.some(row => row.groupKey === g.key);
           return (
             <span key={g.key} style={{display:'inline-flex'}}>
-              <button type="button" data-ai-verify={`group-${label}`} aria-pressed={active} disabled={saving || prodGroupsLoading}
-                onClick={() => chooseProdGroup(g.key)} style={{...pickButtonStyle(active, true), borderTopRightRadius:0, borderBottomRightRadius:0}}>{label}</button>
+              <button type="button" data-ai-verify={`group-${label}`} data-distribution-group-select aria-label={label} aria-pressed={active} disabled={saving || prodGroupsLoading}
+                onKeyDown={event => { if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return; event.preventDefault(); const buttons = [...document.querySelectorAll('[data-distribution-group-select]:not(:disabled)')]; const index = buttons.indexOf(event.currentTarget); buttons[Math.max(0,Math.min(buttons.length-1,index+(['ArrowRight','ArrowDown'].includes(event.key)?1:-1)))]?.focus(); }}
+                onClick={() => chooseProdGroup(g.key)} style={{...pickButtonStyle(active, true), borderTopRightRadius:0, borderBottomRightRadius:0}}>{g.flower || label}</button>
               <button type="button" data-ai-verify={`group-fav-${label}`} aria-pressed={fav} disabled={!accountId || favoritesPending}
                 aria-label={`${label} ${fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 추가'}`} title={fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 (차수가 바뀌어도 기본 선택)'}
                 onClick={event => toggleGroupFavorite(g, event)}
                 style={{...pickButtonStyle(false, true), borderLeft:'none', borderTopLeftRadius:0, borderBottomLeftRadius:0, padding:'4px 6px', color: fav ? '#d97706' : 'var(--text3)'}}>{fav ? '★' : '☆'}</button>
             </span>
           );
-        })}
+            })}
+          </div>
+        ))}
       </div>
       <div style={{padding:'5px 14px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 저장. Enter 이동만으로 저장되지 않습니다.

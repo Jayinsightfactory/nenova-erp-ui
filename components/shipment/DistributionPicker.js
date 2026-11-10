@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 export default function DistributionPicker({ label, value, options = [], onSelect, disabled = false,
-  triggerRef, shortcut, placeholder = '검색', testId }) {
+  triggerRef, shortcut, placeholder = '검색', testId, onOpen }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [popup, setPopup] = useState({ top: 0, left: 0, width: 320, maxHeight: 320 });
@@ -52,7 +52,7 @@ export default function DistributionPicker({ label, value, options = [], onSelec
     <button type="button" ref={node => { localTrigger.current = node; if (triggerRef) triggerRef.current = node; }}
       className="btn btn-secondary btn-sm" disabled={disabled} aria-expanded={open} aria-controls={id}
       title={shortcut ? `${label} 선택 (${shortcut})` : `${label} 선택`}
-      onClick={() => setOpen(previous => !previous)}
+      onClick={() => { if (!open) onOpen?.(); setOpen(previous => !previous); }}
       style={{ width: '100%', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
       {label}: {value || '선택'} ▾
     </button>

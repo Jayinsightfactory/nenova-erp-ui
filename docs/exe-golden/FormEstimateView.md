@@ -591,3 +591,11 @@ FormEstimateView.GetPrintDetail 최종정렬 Sort/EstimateType/OrderNo/CounName/
 
 ## 2026-11-04 단가 후보 및 이전 연결견적 확인
 설치 EXE ClassEstimate를 dnSpy.Console.exe --no-color -t ClassEstimate로 재검증했다. Insert는 ProdKey/Unit/Quantity/Cost/Amount/Vat/ShipmentKey 독립값이며 UPDATE는 EstimateKey 기준이다. 이번 조회/UI 변경은 native 수식과 ERP 쓰기 경로를 변경하지 않는다. 실제 SELECT에서 태림565/라움680/태림A689의44차 적용출고가 존재했다. 태림3389/2473 최근단가0,3397=6200(41-01)/2085=6500(43-01). 라움181=9790(43-02),653=20900(42-01)이나 기존Estimate10499/10707 없음. 사용자 지시대로 보류 분리하며 원장/견적/출고/매출 보정0. 실SQL CTE: 해당업체우선/타업체fallback/전년도격리/현재·6차수전·양수분배없는행제외 PASS.
+
+## 2026-11-10 승인된 미국 과거 견적 복원
+- 실제 ClassShipmentDate/FormEstimateView dnSpy CLI 재실행. ClassShipmentDate.Insert/Update와 GetData/GetDetail/GetExcelDetail의 Date 견적 필드/DetailFix/정확 달력 조인 확인.
+- SELECT 2025 전체 관측 차수29~52 출고일 견적4필드 전부NULL, 2026 1~3차동일/4차부터기재. 기존 G2b 문서와 일치하는 견적운영전 레거시. 미국에만 생긴 오류나 이번 웹 변경 탓으로 단정하지 않는다. 개별 생성작업의 원인/시점은 미확정.
+- 사용자 승인 범위2025/46-01 미국29행: 양수25/수량0·금액0 4행. 총79박스, 견적단위환산1690, Detail Amount8895454.545454547/Vat889545.4545454545. 모든행은1Date=1Detail, 날짜/수량일치, 양수행 Cost×환산견적량=기존Amount+Vat. Product670/1718/2677. Date 트리거없음.
+- 부작용: 양수25행 Date.EstQuantity/Cost/Amount/Vat만 채움. Amount/Vat는 기존Detail값 그대로복사(새 반올림으로 매출변경금지). Detail.EstQuantity는 native박스값일수있으므로보존. 0행4개보존/양수행조작금지. Order*/ShipmentMaster/Detail/Farm/Stock*/Estimate/WebProfitReport 보존, 확정해제·SP·재계산없음. SystemActionLog 보정감사1건.
+- preview SHA/실행직전 SERIALIZABLE 재조회·잠금/NULL CAS/원장지문/같은트랜잭션native견적목록·상세·엑셀25행·1690단위·기존금액대조, 불일치시rollback. 보정전백업은개인정보없이업무키/수량/금액만보관. 기타과거행자동보정없음.
+- 격리실SQL NULL→nativeExcel100단위/기존500000+50000그대로/2026동일차수불변/실패rollback/재적용CAS거부PASS. 계약us-legacy-quote-repair. 운영적용및UI확인은진행예정.
