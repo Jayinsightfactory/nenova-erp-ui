@@ -430,6 +430,43 @@
           ]
         }
       ]
+    },
+    {
+      "id": "ops-control-tower",
+      "title": "운영 관제탑 한눈에 보기",
+      "entryPaths": [
+        "/ops"
+      ],
+      "sourceFiles": [
+        "pages/ops.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "sample-data"
+      ],
+      "guides": [
+        {
+          "id": "overview",
+          "role": "경영지원",
+          "title": "운영 관제탑 한눈에 보기",
+          "status": "ready",
+          "src": "/guides/ops-control-tower/overview.mp4",
+          "captions": "/guides/ops-control-tower/overview.ko.vtt",
+          "proof": "/guides/ops-control-tower/overview.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "화면 구성 한눈에 보기",
+              "seconds": 0
+            },
+            {
+              "scenario": "sample-data",
+              "title": "샘플 표시와 실데이터 구분",
+              "seconds": 25.871
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -118,7 +118,7 @@ export default function Ops({ orbit, orbitQs, hasToken }) {
             <div className="stat"><b>91%</b><span>평균 일치율</span></div>
             <div className="stat"><b>25</b><span>변경없음</span></div>
           </div>
-          <table className="tbl">
+          <table className="ops-tbl">
             <thead><tr><th>직원</th><th>저장</th><th>일치율</th><th>변경없음</th><th>주화면</th></tr></thead>
             <tbody>{SAMPLE_ERP.map((r) => (
               <tr key={r.who}><td>{r.who}</td><td>{r.saves}</td><td>{r.match}%</td><td>{r.nochange}</td><td className="dim">{r.screen}</td></tr>
@@ -205,9 +205,9 @@ export default function Ops({ orbit, orbitQs, hasToken }) {
         .stat { flex: 1; background: #0d1117; border: 1px solid #263141; border-radius: 8px; padding: 10px; text-align: center; }
         .stat b { display: block; font-size: 22px; color: #7fb3ff; }
         .stat span { font-size: 11px; color: #8b949e; }
-        .tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
-        .tbl th, .tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #222a35; }
-        .tbl th { color: #8b949e; font-weight: 600; font-size: 12px; }
+        .ops-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+        .ops-tbl th, .ops-tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #222a35; }
+        .ops-tbl th { color: #8b949e; font-weight: 600; font-size: 12px; }
         .embed-h { display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; }
         .emb { width: 100%; height: 420px; border: 1px solid #222a35; border-radius: 8px; background: #fff; }
         .alerts { display: flex; flex-direction: column; gap: 8px; }
