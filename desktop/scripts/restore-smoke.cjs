@@ -98,6 +98,7 @@ async function writePhase() {
   await tab2025.view.webContents.executeJavaScript(`document.querySelector('#unsaved-form-value').value=${JSON.stringify(PLAINTEXT_SENTINEL)}`);
   main.command(firstWindow, 'zoom', { id: tab2025.id, value: 1.2 });
   main.command(firstWindow, 'favorite', { id: tab2025.id });
+  main.command(firstWindow, 'renameFavorite', { url: main.snapshot().favorites[0].url, alias: '매출자료' });
 
   main.command(firstWindow, 'open', {
     url: '/test/orders?year=2026&week=1&orderYear=2026&orderWeek=1', title: TITLE_2026,
@@ -134,7 +135,7 @@ async function writePhase() {
   assert.ok(decrypted.windows.flatMap(window => window.tabs).some(tab => tab.url.includes('year=2025') && tab.url.includes('week=1')));
   assert.ok(decrypted.windows.flatMap(window => window.tabs).some(tab => tab.url.includes('year=2026') && tab.url.includes('week=1')));
   assert.ok(decrypted.windows.flatMap(window => window.tabs).every(tab => Object.keys(tab).sort().join(',') === 'title,url,zoom'));
-  assert.ok(decrypted.favorites.every(tab => Object.keys(tab).sort().join(',') === 'title,url,zoom'));
+  assert.ok(decrypted.favorites.every(tab => Object.keys(tab).sort().join(',') === 'alias,number,title,url,zoom'));
   assert.equal(JSON.stringify(decrypted).includes(PLAINTEXT_SENTINEL), false, 'unsaved form data is absent from the persisted snapshot');
   assert.ok(Math.abs(tab2025.view.webContents.getZoomFactor() - 1.2) < 0.001);
   assert.ok(Math.abs(tab2026.view.webContents.getZoomFactor() - 0.9) < 0.001);
@@ -168,7 +169,7 @@ async function readPhase() {
   assert.equal(tab2026.title, TITLE_2026);
   assert.ok(Math.abs(tab2025.view.webContents.getZoomFactor() - 1.2) < 0.001, '2025 tab zoom restores');
   assert.ok(Math.abs(tab2026.view.webContents.getZoomFactor() - 0.9) < 0.001, '2026 tab zoom restores');
-  assert.ok(main.snapshot().favorites.some(item => item.title === TITLE_2025), 'favorite restores');
+  assert.ok(main.snapshot().favorites.some(item => item.title === TITLE_2025 && item.number === 1 && item.alias === '매출자료'), 'favorite restores');
   assert.ok([...main.windows.values()].every(window => window.menuOpen), 'startup opens menus with favorites while retaining restored tabs');
   assert.equal(new Set(tabs.map(tab => tab.windowId)).size, 2, 'tabs restore across both windows');
   assert.equal(tabs.filter(tab => tab.windowId === tab2025.windowId || tab.windowId === tab2026.windowId).length, 2, 'cross-year tabs remain in their original window');
