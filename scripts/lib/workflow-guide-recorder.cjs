@@ -86,7 +86,7 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
     fs.writeFileSync(proofFile, JSON.stringify(proof, null, 2) + '\n');
     return { chapters, duration, mp4, captions, proofFile };
   }
-  async function focus(selector, number) {
+  async function focus(selector, number, { staticHighlight = false } = {}) {
     const box = await page.$eval(selector, (node, number) => {
       const r=node.getBoundingClientRect(), host=document.getElementById('nenova-guide-capture');
       const mark=document.createElement('div'); mark.dataset.guideFocus='true';
@@ -94,10 +94,11 @@ async function createWorkflowGuideRecorder(page, { root = process.cwd(), workflo
       const badge=document.createElement('div');badge.dataset.guideFocus='true';badge.textContent=`${number} 단계`;badge.style.cssText='position:fixed;left:20px;top:10px;background:#12335b;color:white;border:3px solid #f59e0b;border-radius:12px;padding:5px 15px;font-size:26px;font-weight:bold';host.append(badge,mark);
       return {x:r.x+r.width/2,y:r.y+r.height/2};
     }, number);
-    await new Promise(r=>setTimeout(r,1800));activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);
+    if(staticHighlight)await page.evaluate(()=>{const c=document.querySelector('[data-guide-caption]');c.style.bottom='auto';c.style.top='80px';});
+    await new Promise(r=>setTimeout(r,1800));if(!staticHighlight){activeShot={number,start:elapsed(),...box};focusShots.push(activeShot);}
     await new Promise(r=>setTimeout(r,2200));
   }
-  async function unfocus() { await page.evaluate(()=>document.querySelectorAll('[data-guide-focus]').forEach(n=>n.remove()));if(activeShot){activeShot.end=elapsed()+1.2;activeShot=null;} await new Promise(r=>setTimeout(r,1400)); }
+  async function unfocus() { await page.evaluate(()=>{document.querySelectorAll('[data-guide-focus]').forEach(n=>n.remove());const c=document.querySelector('[data-guide-caption]');if(c){c.style.top='auto';c.style.bottom='24px';}});if(activeShot){activeShot.end=elapsed()+1.2;activeShot=null;} await new Promise(r=>setTimeout(r,1400)); }
   return { caption, focus, unfocus, chapter: (scenario, text) => { chapters.push({ scenario, title: text, seconds: Math.round(elapsed() * 1000) / 1000 }); }, pause: ms => new Promise(resolve => setTimeout(resolve, ms)), restoreOverlay: () => page.evaluate(installOverlay, title), stop };
 }
 module.exports = { createWorkflowGuideRecorder, vttTime, cameraFilters };
