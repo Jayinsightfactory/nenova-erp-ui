@@ -2457,3 +2457,10 @@
 - 최종 빌드 브라우저 격리 native 입고16건/46행/662박스/19960송이/USD13366.76 저장·재조회, 기존 주문/출고 sentinel 불변. 공동 GW3487/CW4152/운임12320.40로 XLSX(3) 실제 다운로드. Artifact 수식오류0, GW변경 통관/원가 재계산 PASS. AI bunch_st1/30/10 원문값 보존이며 원문 인식100% 인증 아님.
 - 전체 가드 초기PASS+최종 집중47개/webpack PASS. CI·코드배포 후속. docs/work-sessions/2026-11-10_co46-ai-header-packing.md. UI/순서 변경없음. 다운로드는 미승인 계산본, 원본 기본 통관비/조회시세+15원.
 검색어: CO46 저장AI 단당송이수 farm 날짜 MAWB HAWB 공동AWB 16송장46행 formulaErrors0 운영DB보존
+
+## 2026-11-10 출고일 행내 월~일 수량 입력
+- 사용자 요청: 출고일 버튼 대신 행 옆 월~일+월/일 입력. 농장/업체(비교업체 포함)/출고일지정의 공통 DistributionInlineDates 적용. 월2~일1 순서로 native PeriodDay 실제 날짜만 표시. 날짜 사실+공용 exact 달력은 workspaceDateIndex 묶음조회, 행별GET 추가0.
+- inline 초안은 부모상태로 보존, 수량/단가 저장·SP/확정·탭/차수/품목/업체 변경을 미저장보호. 행 취소/전체취소, Enter다음요일/마지막확인버튼(자동저장0),CtrlS배경수량저장차단. 합계/입력유효성 검사. canonical GET와 최초 날짜/수량 signature 다르면 stale 차단, 기존 snapshot미리보기/명시저장/lease/gate/serializable/audit/rollback을 그대로 사용. 원장 writer 정책 변경0, 달력SQL만 기존 reader와 공용상수 추출.
+- actual dnSpy FormShipmentDistribution ymd/day1..7·ShipmentQuantityToEstQuantity 재확인. 운영SELECT 2025/46 11/12~18,2026/46 11/11~17 7일/7요일 확인. 격리 SQL fullbaseline0날짜/SD.CustKey NULL/교차연도99/달력다른연도fallback0 및 native Date저장/견적15단·gross172500·ECOUNT XLSX/rollback/stale/fixed/Order·Farm·Stock·Estimate·Profit보존 PASS. 운영ERP/ECOUNT 쓰기0.
+- 새순수테스트 CI 연결, 날짜직접입력/합계부족/preview승계/저장/dirty탭/CtrlS/stale/cancel/390 Chrome PASS. 기존 전체 workspace·업체이동·양연도미국카탈로그 회귀 PASS. 안내영상/한국어자막/proof 갱신 PASS. 전체ERP/dnSpy/manifest207/writeguard/영상9개 PASS. 최종빌드/CI/배포/실로그인 확인은 이 기록시점 미검증.
+검색어: 행내출고일 월화수목금토일 월일 DistributionInlineDates inlineDateSignature 0날짜baseline nativePeriodDay 총량매출보존
