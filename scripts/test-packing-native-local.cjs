@@ -6,7 +6,9 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
  const root=path.resolve(__dirname,'..'),secret=randomUUID(),env={...process.env,JWT_SECRET:secret};
  for(const k of Object.keys(env))if(/^(DB_|MSSQL|SQL_|NENOVAWEB_SERVICE)/.test(k))delete env[k];
  assert.ok(!fs.existsSync(path.join(root,'.env.local'))&&!fs.existsSync(path.join(root,'.env')));
- const internalPort=19421,publicPort=19422;
+ const publicPort=Number(process.env.NENOVA_NATIVE_UI_PORT||19422);
+ assert.ok(Number.isSafeInteger(publicPort)&&publicPort>=19422&&publicPort<=65534);
+ const internalPort=publicPort-1;
  const child=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'start','--hostname','127.0.0.1','-p',String(internalPort)],{cwd:root,env,stdio:'ignore',windowsHide:true});
  const token=require('jsonwebtoken').sign({userId:'invoice-fixture',authority:1,accountActive:true},secret,{expiresIn:'4h'});
  const {appendUploadIssue}=await import('../lib/invoiceUploadIssue.js');

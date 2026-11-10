@@ -9,6 +9,7 @@ function fixture(){
  const docs=Array.from({length:13},(_,i)=>({documentId:`00000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,revision:1,sourceHash:'a'.repeat(64),orderYear:'2026',orderWeek:'45-01',invoiceNo:`INV${i}`,
   reviewedMetadata:{country:'CO',transportMode:'AIR',awb:'160-17338005',farmName:`FARM${i}`,inputDate:'2026-10-30'},
   lines:[{lineId:`11111111-0000-4000-8000-${String(i+1).padStart(12,'0')}`,prodKey:i+1,originalName:'Hydrangea White',outQuantity:10,outUnit:'박스',priceUnit:'송이',currency:'USD',unitPrice:1,lineAmount:300,boxQuantity:10,bunchQuantity:null,stemQuantity:300}]}));
+ for(const doc of docs)doc.lines[0].sourceEvidence={packing:{stemsPerBunch:1,stemsPerBox:30}};
  const request={orderYear:'2026',orderWeek:'45-01',awb:'16017338005'};
  const queryFn=async(sql,params)=>{assert.match(sql,/^\/\* invoice-cost:shared-awb-members \*\/ SELECT/);assert.equal(params.orderYear.value,'2026');return{recordset:docs.map(d=>({DocumentId:d.documentId}))};};
  const readDocument=async({documentId})=>docs.find(d=>d.documentId===documentId);
