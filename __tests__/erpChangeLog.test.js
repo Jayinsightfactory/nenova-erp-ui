@@ -16,4 +16,5 @@ for (const bad of [
 assert.equal(parseKstDatetime('2026-11-08 25:00:00'), null);
 assert.ok(!/\bsd\.isDeleted\b/i.test(erpChangeLogSql));
 assert.ok(!/\b(INSERT|UPDATE|DELETE|MERGE|EXEC)\b/i.test(erpChangeLogSql));
+assert.ok(/WebSalesDefectDeductionHistory/.test(erpChangeLogSql) && /'defect' AS kind/.test(erpChangeLogSql));
 console.log('erpChangeLog tests passed');
