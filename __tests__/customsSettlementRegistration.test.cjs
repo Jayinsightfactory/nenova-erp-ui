@@ -60,6 +60,26 @@ test('a corrupt external ledger cannot be swallowed into zero report costs',asyn
   const {loadSettlementEvidence}=await import('../lib/customsSettlementEvidence.js'),{withErpReadContext}=await import('../lib/erpReadContext.js');
   await assert.rejects(withErpReadContext({queryFn:async()=>({recordset:[]}),externalEvidence:{'customs-settlement:2026:35':{version:1,year:'2025'}}},async()=>{await loadSettlementEvidence(2026,35).catch(()=>({values:{}}));}),/전체 변경을 취소/);
 });
+test('standalone customs major input never applies shipment blur formatting or crosses selected year',async()=>{
+  const source=await fs.readFile(path.join(__dirname,'../pages/sales/customs-clearance.js'),'utf8');
+  const start=source.indexOf('export function standaloneCustomsScope'),end=source.indexOf('// SSR',start);
+  const scope=new Function(`${source.slice(start,end).replace('export ','')};return standaloneCustomsScope;`)();
+  for(const input of ['36','36-01','2026-36-01'])assert.deepEqual(scope('2026',input),{year:'2026',week:input==='36'?'36':'36-01'});
+  assert.deepEqual(scope('2025','2025-36-04'),{year:'2025',week:'36-04'});
+  assert.deepEqual(scope('2026',' 6 '),{year:'2026',week:'06'});
+  for(const [year,week] of [['2026','2025-36-01'],['2025','2026-36-01'],['','36'],['20260','36'],['2026',''],['2026','00'],['2026','53'],['2026','36-00'],['2026','36-05'],['2026','36-1'],['2026','2026-36'],['2026','36x']])assert.equal(scope(year,week),null,`${year}/${week}`);
+  const ssrStart=source.indexOf('export async function getServerSideProps'),ssrEnd=source.indexOf('export default',ssrStart);
+  const ssr=new Function('getCurrentWeek',`${source.slice(ssrStart,ssrEnd).replace('export ','')};return getServerSideProps;`)(()=> '2026-45-01');
+  for(const query of [{year:'2025',week:'36-01'},{year:'2026',week:'2025-36-01'},{year:'bad',week:'53'}]){
+    const {props}=await ssr({query});assert.equal(props.initialSelectedYear,query.year);assert.equal(props.initialSelectedWeek,query.week);
+    assert.equal(Boolean(scope(props.initialSelectedYear,props.initialSelectedWeek)),query.year==='2025');
+  }
+  assert.doesNotMatch(source,/useWeekInput\(|weekInput\.props/);
+  assert.match(source,/scope \? <CustomsClearancePanel[^\n]+week=\{scope.week\} year=\{scope.year\}/);
+  const embedded=await fs.readFile(path.join(__dirname,'../pages/sales/profit-report.js'),'utf8');
+  assert.match(embedded,/aria-label="보고서 차수"[^\n]+onChange=[^\n]+weekInput.setValue\(e.target.value\)/);
+});
+
 test('actual panel shows entire receipt-covered split group and preserves raw DB parts when another input saves',async()=>{
   const ui=await import('../lib/customsSettlementPresentation.js'),source=await fs.readFile(path.join(__dirname,'../components/CustomsClearancePanel.js'),'utf8');
   const fieldKeys=['SunYul2_1','SunYul2_2','SunYul2_3','GW1'],countryEdits={'합성국가':{GW1:'21',SunYul2_2:'999'}};

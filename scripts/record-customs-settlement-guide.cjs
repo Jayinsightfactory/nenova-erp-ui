@@ -15,7 +15,7 @@ async function main(){
   const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
   const base=`http://localhost:${port}`,secret=crypto.randomUUID(),log=fs.openSync('.verify/customs-guide-server.log','w');
   const server=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'dev','--webpack','-p',String(port)],{env:{...process.env,DB_SERVER:'',JWT_SECRET:secret,PROFIT_REPORT_WEEKLY_SCHEDULER_DISABLED:'1'},stdio:['ignore',log,log],windowsHide:true});fs.closeSync(log);
-  let browser,page,rec,stopped=false;const errors=[];let sourceReads=0;
+  let browser,page,rec,stopped=false;const errors=[],sourceScopes=[];let sourceReads=0;
   try{
     for(let n=0;n<120;n++){try{if((await fetch(base+'/login')).status===200)break;}catch{}if(n===119)throw Error('Guide server startup failed');await new Promise(r=>setTimeout(r,1000));}
     browser=await puppeteer.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--no-sandbox']});page=await browser.newPage();await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});page.setDefaultTimeout(45000);page.on('pageerror',e=>errors.push(e.message));
@@ -23,6 +23,7 @@ async function main(){
     await page.setRequestInterception(true);page.on('request',async request=>{try{
       const url=new URL(request.url());if(url.origin!==base)return request.abort();if(!url.pathname.startsWith('/api/'))return request.continue();let data={success:true,user,items:[],rows:[],data:[],countries:[],colombia:[],rates:{},autoGw:{},activeCategories:[]};
       if(url.pathname==='/api/sales/customs-clearance'){
+        sourceScopes.push({year:url.searchParams.get('year'),week:url.searchParams.get('week')});
         sourceReads++;const saved={SunYul1_1:20000,SunYul1_2:47000,SunYul1_3:null,GW1:0,GW2:0};
         data={...data,major:'35',orderYear:'2026',activeCategories:['태국'],countries:[{category:'태국',saved,effectiveRow:automatic?{GW1:0,GW2:0,Customs1_1:1200,SunYul1_1:73700}:saved,...(automatic?{settlement:{values:{Customs1_1:1200,SunYul1_1:73700}}}:{}),weightSource:{},worldFreightAuto:{},total:automatic?68200:67000/1.1,totalSource:automatic?'sun_yul_settlement_file':'saved'}]};
       }
@@ -37,6 +38,10 @@ async function main(){
       await request.respond({status:200,contentType:'application/json',body:JSON.stringify(data)});
     }catch(e){errors.push(e.message);if(!request.isInterceptResolutionHandled())await request.abort().catch(()=>{});}});
     await page.goto(base+'/sales/customs-clearance?year=2026&week=35',{waitUntil:'networkidle0',timeout:120000});await page.waitForSelector('[aria-label="선율 정산 ZIP 연결"] input[type=file]');assert.equal(await page.$eval('[aria-label=연도]',n=>n.value),'2026');assert.deepEqual(errors,[],'SSR/client selection must hydrate identically');
+    const changeWeek=async value=>{const input=await page.$('[aria-label="통관 차수"]');await input.focus();await page.keyboard.down('Control');await page.keyboard.press('A');await page.keyboard.up('Control');await page.keyboard.type(value);await page.keyboard.press('Tab');await page.evaluate(()=>[...document.querySelectorAll('button')].find(n=>n.textContent.trim()==='조회').click());await new Promise(r=>setTimeout(r,500));assert.equal(await page.$eval('[aria-label="통관 차수"]',n=>n.value),value);};
+    await changeWeek('36');assert(sourceScopes.some(s=>s.year==='2026'&&s.week==='36'),`Typing then blur/query must request major36, never year2026 as week: ${JSON.stringify(sourceScopes)}`);
+    await changeWeek('2025-36-01');assert(await page.$('[role=alert]'));const beforeInvalidQuery=sourceScopes.length;await page.evaluate(()=>[...document.querySelectorAll('button')].find(n=>n.textContent.trim()==='조회').click());await new Promise(r=>setTimeout(r,250));assert.equal(sourceScopes.length,beforeInvalidQuery,'Cross-year full input query must make no GET');
+    await changeWeek('35');assert(sourceScopes.every(s=>s.year==='2026'&&/^\d{2}$/.test(s.week)&&Number(s.week)>=1&&Number(s.week)<=52),'No malformed or cross-year source query');
     rec=dry?{chapter(){},caption:async()=>{},pause:async()=>{},stop:async()=>({chapters:[]})}:await createWorkflowGuideRecorder(page,{workflowId:workflow.id,guideId:'support',title:workflow.title,sourceFiles:workflow.sourceFiles,fixtureOnly:true,ffmpegPath:process.env.FFMPEG_PATH||'ffmpeg',ffprobePath:process.env.FFPROBE_PATH||'ffprobe'});
     const hold=async text=>{await rec.caption(text);if(!dry)await rec.pause(6500);};
     const click=async text=>{const h=await page.evaluateHandle(text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text),text);assert(await h.asElement(),text);await h.evaluate(n=>n.scrollIntoView({block:'center'}));await h.asElement().click();await h.dispose();};

@@ -59,7 +59,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025/2026 same AWB+35-01; wrong-year document/ledger file, multiple subweeks/countries, zero/manual/split-part conflict, shared Colombia pool and absent exact AWB. No prior-year match or fallback."
+    "description": "2025/2026 same AWB+35-01; wrong-year document/ledger file, multiple subweeks/countries, zero/manual/split-part conflict, shared Colombia pool and absent exact AWB. Standalone year+major input accepts WW/WW-SS/same-year YYYY-WW-SS, validates major 1..52 and subweek 01..04, rejects mismatched year before any GET; no shipment blur formatting. No prior-year match or fallback."
   },
   "requiredTestFiles": [
     "__tests__/customsSettlement.test.cjs",
