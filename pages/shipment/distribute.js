@@ -11,7 +11,7 @@ import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
-  sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionCountryGroups, distributionPairGroupKey, distributionPairGroups,
+  sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionFavoriteCountryGroups, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -108,6 +108,7 @@ export default function Distribute() {
   );
   const [prodGroup, setProdGroup] = useState('');
   const [prodGroups, setProdGroups] = useState([]);
+  const [showAllProdGroups, setShowAllProdGroups] = useState(false);
   const [prodGroupsLoading, setProdGroupsLoading] = useState(false);
   // 'prod'=품목기준(탭0) 'cust'=업체기준(탭1) — nenova.exe처럼 탭이 곧 조회 기준
   const viewMode = tab === 1 ? 'cust' : 'prod';
@@ -259,6 +260,8 @@ export default function Distribute() {
         accountRef.current = uid;
         setAccountId(uid);
         setFavoriteProducts([]);
+        setFavoriteGroups([]);
+        setShowAllProdGroups(false);
       }
       const data = await apiGet('/api/favorites', { page: PRODUCT_FAVORITE_PAGE });
       if (request !== favoritesRequestRef.current || accountRef.current !== uid) return;
@@ -475,7 +478,7 @@ export default function Distribute() {
     if (first) setProdGroup(first.groupKey);
   }, [favoriteGroups, prodGroups, prodGroup]);
 
-  const countryGroups = distributionCountryGroups(prodGroups);
+  const countryGroups = distributionFavoriteCountryGroups(prodGroups, favoriteGroups, showAllProdGroups);
   const selectedProdGroupLabel = prodGroups.find(g => g.key === prodGroup)?.label || prodGroup.replace(PG_SEP, '');
 
   // 출고요일 설정 저장
@@ -1508,6 +1511,9 @@ export default function Distribute() {
         <span style={{fontSize:12,fontWeight:700,color:'var(--text2)'}}>품종</span>
         <button type="button" data-ai-verify="group-all" aria-pressed={!prodGroup} disabled={saving || prodGroupsLoading}
           onClick={() => chooseProdGroup('')} style={pickButtonStyle(!prodGroup, true)}>전체</button>
+        <button type="button" className="btn btn-sm btn-secondary" data-ai-verify="group-view-all" aria-pressed={showAllProdGroups}
+          onClick={() => setShowAllProdGroups(value => !value)}>{showAllProdGroups ? '★ 즐겨찾기만 보기' : '품종 전체 보기'}</button>
+        {!showAllProdGroups && countryGroups.length === 0 && <span style={{fontSize:12,color:'var(--text3)'}}>즐겨찾기한 품종이 없습니다. 「품종 전체 보기」에서 ☆를 눌러 추가하세요.</span>}
         {countryGroups.map(({country, groups}) => (
           <div key={country} data-testid={`distribution-country-${country}`} role="group" aria-label={`${country} 품종`}
             style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',width:'100%',padding:'5px 0',borderTop:'1px solid var(--border-t)'}}>

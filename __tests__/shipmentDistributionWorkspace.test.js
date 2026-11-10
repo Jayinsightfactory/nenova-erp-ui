@@ -165,3 +165,17 @@ test('country grouping preserves country order and shows every active variety, e
   assert.deepEqual(distributionCountryGroups([]), []);
   assert.equal(groups.length,3);
 });
+
+test('country rows default to favorite varieties only; empty countries hidden, explicit all remains available', async () => {
+  const { distributionFavoriteCountryGroups } = await load();
+  const groups=[{key:'콜롬비아::장미',country:'콜롬비아'},{key:'콜롬비아::수국',country:'콜롬비아'},{key:'미국::더글라스',country:'미국'}];
+  const favorites=[{groupKey:'콜롬비아::수국'},{groupKey:'missing'}];
+  const before=JSON.stringify({groups,favorites});
+  for(const year of [2025,2026]) {
+    assert.deepEqual(distributionFavoriteCountryGroups(groups,favorites).map(c=>[c.country,c.groups.map(g=>g.key)]),[['콜롬비아',['콜롬비아::수국']]]);
+    assert.deepEqual(distributionFavoriteCountryGroups(groups,[]),[]);
+    assert.equal(distributionFavoriteCountryGroups(groups,[],true).length,2);
+    assert.equal(distributionFavoriteCountryGroups(groups,favorites,false)[0].groups.length,1);
+  }
+  assert.equal(JSON.stringify({groups,favorites}),before);
+});

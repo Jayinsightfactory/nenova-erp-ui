@@ -2352,3 +2352,13 @@
 - 자동판매 국가별 회귀52pass9skip. 전체 가드·빌드·CI·코드배포는 후속 검증 예정.
 검색어: CO AB12 COUNT SUMPRODUCT 순환참조 AK14 AL15 GW 재계산 265행 verify-colombia-cost-recalculation
 - 최종 로컬: 대상75개66pass9skip, 전체 ERP contract·manifest205·writeguard(변경API0)·dnSpy evidence·가이드7/영상8·프로덕션 webpack cpus1 빌드 PASS. 실제 EXE CLI 재확인, 운영 writer 실행0. 새 UI 가이드 재녹화 및 현재 소스 hash 검증. CI/배포 후속.
+
+## 2026-11-10 출고분배 국가 목록 즐겨찾기 기본 표시
+- 사용자 요청: 국가별 목록은 즐겨찾기 품종만 표시하고 비즐겨찾기 국가를 숨김. 기본 showAllProdGroups=false, 계정의 기존 shipment-distribute-groups 저장값 사용. 즐겨찾기0개는 빈 안내, 전체로 자동확장하지 않음. 전체 보기로 별표 추가 후 기본보기 복귀 가능.
+- 표시전환만 변경: prodGroup/차수/미저장 입력/전체 카탈로그 검색/주문·분배 writer/금액·재고·견적 모두 보존. 계정 변경 시 이전 그룹 즐겨찾기 및 전체보기 상태 즉시 초기화. SQL/서버 API/ERP 저장 공식 변경0.
+- 메뉴기준: 국가별 묶음/페이지 스크롤/의미 있는 버튼/기존 키보드 적용. 새메뉴·탭·업무순서 추가 없는 표시필터이므로 가이드 신규제작 해당없음. 이전 actual dnSpy 근거·ERP 원장 계약 유지(이번 조회·쓰기 SQL 변경없음).
+- 순수 정책15개 및 실제Chrome1920/390: 즐겨찾기국가만→전체보기→즐겨찾기복귀, 빈45-03 검색/선택/업체추가/합성저장 기존회귀 PASS. 전체게이트/빌드/CI/배포 진행 중.
+검색어: 출고분배 국가 즐겨찾기만 품종전체보기 favoriteCountryGroups 계정분리
+- 로컬 완료: ERP전체/dnSpy/manifest206/쓰기guard/정식build PASS. 최종Chrome 기본즐겨찾기 CO수국·카네이션·장미3개만/미국국가숨김, 전체보기→복귀/1920·390 및45-03 합성기존저장회귀 PASS. 계정변경시그룹즐겨찾기초기화도포함. CI/배포/운영화면확인은후속.
+- 이전 #1639 운영보정 완료 상태 기록 보완: a2117552 배포성공 후 2025/46-01 미국 양수25개 Date견적필드 복원,0행4개보존. 79박스/1690단/기존매출9785000원 동일, 정상인쇄·Excel25행·실XLSX메모리roundtrip·22업체·원장지문보존 확인, SystemActionLog18151. 별도 작업트리 nw-us-estimate-repair/outputs에 백업·검증영수증 보관. 이번 즐겨찾기 표시 작업 ERP쓰기0.
+검색어: 즐겨찾기만 기본표시 3품종 국가숨김 1639 보정완료18151

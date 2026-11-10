@@ -597,6 +597,8 @@ let orderPosts = 0;
     // 품종 버튼(콜롬비아 장미 등) → 그 품종으로 품목 재조회
     await page.setViewportSize({ width: 1920, height: 1080 });
     const groupButtons = page.getByTestId('distribution-group-buttons');
+    // 비즐겨찾기 품종을 고르는 시나리오는 전체 보기를 명시적으로 연다.
+    if (await page.locator('[data-ai-verify="group-view-all"]').getAttribute('aria-pressed') !== 'true') await page.locator('[data-ai-verify="group-view-all"]').click();
     assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
     // 업체 탭: 업체를 고른 뒤 품종을 눌러도 업체가 초기화되지 않고 그 품종 품목만 보임, 전체로 돌리면 다시 전부
     await page.getByRole('button', { name: /출고분배 및 업체정보/ }).click();
