@@ -244,6 +244,56 @@ export default function TechRadar() {
         </>
       )}
 
+      {/* 카드(BigCard·SmallCard)는 별도 컴포넌트라 위쪽 scoped 스타일이 닿지 않는다 → .radar 아래 전역 규칙으로 둔다.
+          (scoped 에 두면 카드 배경·모서리가 빠지고 제목 줄이 브라우저 기본 회색 버튼으로 보인다) */}
+      <style jsx global>{`
+        /* 왼쪽 추천 큰 카드 — 파스텔 클레이(핑크/민트/크림 교대) */
+        .radar .bc { border-radius: calc(var(--pm-radius) + 4px); padding: 16px; margin-bottom: 14px; box-shadow: var(--pm-shadow); display: flex; flex-direction: column; gap: 9px; }
+        .radar .bc.tone0 { background: color-mix(in srgb, var(--pm-accent2) 26%, var(--pm-surface)); }
+        .radar .bc.tone1 { background: color-mix(in srgb, var(--pm-accent) 20%, var(--pm-surface)); }
+        .radar .bc.tone2 { background: color-mix(in srgb, var(--pm-idle-bg) 50%, var(--pm-surface)); }
+        .radar .bc header { display: flex; gap: 10px; align-items: flex-start; }
+        .radar .bic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; background: var(--pm-surface); box-shadow: var(--pm-shadow); }
+        .radar .bc .ttl { flex: 1; min-width: 0; }
+        .radar .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; word-break: break-all; }
+        .radar .bc .ttl a:hover { text-decoration: underline; }
+        .radar .bc .meta { display: block; color: var(--pm-muted); font-size: 12px; margin-top: 2px; }
+        .radar .bc .pts { flex: 0 0 auto; background: var(--pm-accent); color: var(--pm-accent-ink); padding: 4px 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .radar .easy { margin: 0; line-height: 1.6; }
+        .radar .easy b { display: block; margin-bottom: 2px; }
+        .radar .terms { display: flex; flex-wrap: wrap; gap: 5px; }
+        .radar .bc .term { background: var(--pm-surface); box-shadow: var(--pm-shadow); padding: 3px 9px; }
+        .radar .bc .term b { color: var(--pm-link); margin-right: 3px; }
+        .radar .bc footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+        /* PM 파일럿 "시험함" 배지 — pm-radar-pilot 이 pilotResult{score,summary,reportPath,testedAt} 를 넣으면 표시 */
+        .radar .sp { flex: 1; }
+        .radar .detail { border-top: 1px dashed var(--pm-line); padding-top: 8px; line-height: 1.55; }
+        .radar .detail p { margin: 4px 0; }
+        .radar .detail b { color: var(--pm-link); margin-right: 4px; font-size: 12px; }
+        /* 링크 텍스트 — 시안: 기본 파란 밑줄 대신 클레이 톤(민트) 밑줄, 호버 시 코랄 */
+        .radar .detail a { color: var(--pm-link); font-weight: bold; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--pm-accent) 60%, transparent); }
+        .radar .detail a:hover { color: var(--pm-accent2); text-decoration-color: color-mix(in srgb, var(--pm-accent2) 60%, transparent); }
+        .radar .bc .ttl a:hover, .radar .sc .ttl b:hover { color: var(--pm-link); }
+        .radar .tp { color: var(--pm-muted); font-size: 11px; }
+
+        /* 가운데 작은 카드 그리드 — 아이콘·이름·별·점수 배지를 각각 별 요소로 */
+        .radar .sc { background: var(--pm-surface); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); padding: 12px; display: flex; flex-direction: column; gap: 6px; transition: transform .15s, box-shadow .15s; }
+        .radar .sc:hover { transform: translateY(-2px); }
+        .radar .sc .hit { display: flex; gap: 9px; align-items: center; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; width: 100%; box-shadow: none; }
+        .radar .ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 16px; }
+        .radar .ic0 { background: var(--pm-ok-bg); } .radar .ic1 { background: var(--pm-idle-bg); } .radar .ic2 { background: color-mix(in srgb, var(--pm-accent2) 36%, var(--pm-surface)); } .radar .ic3 { background: color-mix(in srgb, var(--pm-dept2) 24%, var(--pm-surface)); }
+        .radar .sc .ttl { flex: 1; min-width: 0; }
+        .radar .sc .ttl b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .radar .sc .meta { display: block; color: var(--pm-muted); font-size: 11px; }
+        .radar .sc .score { flex: 0 0 auto; font-weight: bold; font-size: 12px; padding: 3px 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .radar .sc .score small { font-size: 10px; font-weight: normal; opacity: .75; }
+        .radar .sc .score.top { background: var(--pm-err-bg); color: var(--pm-err-ink); }
+        .radar .sc .score.hi { background: var(--pm-accent); color: var(--pm-accent-ink); }
+        .radar .sc .score.mid { background: var(--pm-idle-bg); color: var(--pm-idle-ink); }
+        .radar .sc .score.lo { background: var(--pm-surface2); color: var(--pm-muted); }
+        .radar .sum { margin: 0; color: var(--pm-muted); line-height: 1.5; }
+        .radar .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+      `}</style>
       <style jsx>{`
         .radar { min-height: 100%; padding: 20px 24px 40px; background: var(--pm-bg); color: var(--pm-ink); font-size: 13px; font-family: var(--pm-font); }
         /* UI 키트 Badge(.badge)를 둥근 클레이 칩으로 — 전역 .badge 는 각진 회색이라 /pm 토큰으로 덮는다 */
@@ -262,56 +312,10 @@ export default function TechRadar() {
         .radar :global(.cnt) { color: var(--pm-muted); }
         .muted { color: var(--pm-muted); }
 
-        /* 왼쪽 추천 큰 카드 — 파스텔 클레이(핑크/민트/크림 교대) */
-        .bc { border-radius: calc(var(--pm-radius) + 4px); padding: 16px; margin-bottom: 14px; box-shadow: var(--pm-shadow); display: flex; flex-direction: column; gap: 9px; }
-        .bc.tone0 { background: color-mix(in srgb, var(--pm-accent2) 26%, var(--pm-surface)); }
-        .bc.tone1 { background: color-mix(in srgb, var(--pm-accent) 20%, var(--pm-surface)); }
-        .bc.tone2 { background: color-mix(in srgb, var(--pm-idle-bg) 50%, var(--pm-surface)); }
-        .bc header { display: flex; gap: 10px; align-items: flex-start; }
-        .bic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 17px; background: var(--pm-surface); box-shadow: var(--pm-shadow); }
-        .bc .ttl { flex: 1; min-width: 0; }
-        .bc .ttl a { color: var(--pm-ink); font-weight: 800; font-size: 15px; text-decoration: none; word-break: break-all; }
-        .bc .ttl a:hover { text-decoration: underline; }
-        .bc .meta { display: block; color: var(--pm-muted); font-size: 12px; margin-top: 2px; }
-        .bc :global(.pts) { flex: 0 0 auto; background: var(--pm-accent); color: var(--pm-accent-ink); padding: 4px 10px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-        .easy { margin: 0; line-height: 1.6; }
-        .easy b { display: block; margin-bottom: 2px; }
-        .terms { display: flex; flex-wrap: wrap; gap: 5px; }
-        .bc :global(.term) { background: var(--pm-surface); box-shadow: var(--pm-shadow); padding: 3px 9px; }
-        .bc :global(.term b) { color: var(--pm-link); margin-right: 3px; }
-        .bc footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
         .radar :global(.sys) { background: var(--pm-surface); color: var(--pm-muted); }
-        /* PM 파일럿 "시험함" 배지 — pm-radar-pilot 이 pilotResult{score,summary,reportPath,testedAt} 를 넣으면 표시 */
         .radar :global(.newb) { background: var(--pm-err-bg); color: var(--pm-err-ink); font-weight: bold; white-space: nowrap; }
         .radar :global(.pilot) { background: var(--pm-ok-bg); color: var(--pm-ok-ink); font-weight: bold; white-space: nowrap; }
-        .sp { flex: 1; }
-        .detail { border-top: 1px dashed var(--pm-line); padding-top: 8px; line-height: 1.55; }
-        .detail p { margin: 4px 0; }
-        .detail b { color: var(--pm-link); margin-right: 4px; font-size: 12px; }
-        /* 링크 텍스트 — 시안: 기본 파란 밑줄 대신 클레이 톤(민트) 밑줄, 호버 시 코랄 */
-        .detail a { color: var(--pm-link); font-weight: bold; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--pm-accent) 60%, transparent); }
-        .detail a:hover { color: var(--pm-accent2); text-decoration-color: color-mix(in srgb, var(--pm-accent2) 60%, transparent); }
-        .bc .ttl a:hover, .sc .ttl b:hover { color: var(--pm-link); }
-        .tp { color: var(--pm-muted); font-size: 11px; }
-
-        /* 가운데 작은 카드 그리드 — 아이콘·이름·별·점수 배지를 각각 별 요소로 */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-        .sc { background: var(--pm-surface); border-radius: var(--pm-radius); box-shadow: var(--pm-shadow); padding: 12px; display: flex; flex-direction: column; gap: 6px; transition: transform .15s, box-shadow .15s; }
-        .sc:hover { transform: translateY(-2px); }
-        .sc :global(.hit) { display: flex; gap: 9px; align-items: center; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; width: 100%; box-shadow: none; }
-        .ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 16px; }
-        .ic0 { background: var(--pm-ok-bg); } .ic1 { background: var(--pm-idle-bg); } .ic2 { background: color-mix(in srgb, var(--pm-accent2) 36%, var(--pm-surface)); } .ic3 { background: color-mix(in srgb, var(--pm-dept2) 24%, var(--pm-surface)); }
-        .sc .ttl { flex: 1; min-width: 0; }
-        .sc .ttl b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sc .meta { display: block; color: var(--pm-muted); font-size: 11px; }
-        .sc :global(.score) { flex: 0 0 auto; font-weight: bold; font-size: 12px; padding: 3px 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .sc :global(.score small) { font-size: 10px; font-weight: normal; opacity: .75; }
-        .sc :global(.score.top) { background: var(--pm-err-bg); color: var(--pm-err-ink); }
-        .sc :global(.score.hi) { background: var(--pm-accent); color: var(--pm-accent-ink); }
-        .sc :global(.score.mid) { background: var(--pm-idle-bg); color: var(--pm-idle-ink); }
-        .sc :global(.score.lo) { background: var(--pm-surface2); color: var(--pm-muted); }
-        .sum { margin: 0; color: var(--pm-muted); line-height: 1.5; }
-        .tags { display: flex; flex-wrap: wrap; gap: 4px; }
         .more { margin-top: 14px; text-align: center; }
 
         /* 오른쪽 사이드바 */
