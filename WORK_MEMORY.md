@@ -2482,6 +2482,14 @@
 - 최종 로컬 검증: 최신c4394b06f 병합 후 npm run test:erp-contract 전체(pre/core/post) exit0. dnSpy/manifest209/writeguard1API/ui-layout/workflow11업무12영상 및 production webpack1worker build PASS. production build로1920/390실브라우저·drag2행/기본요일/그룹/저장복원/엑셀/keyboard/가이드player재검증PASS. 가이드31.8초MP4/한국어VTT/5목차·중간/최종프레임 직접확인. 운영코드배포/CI/PR은후속.
 - 검색어: shipment-statement 전체ERP통과 webpack build production브라우저 검증완료
 
+## 2026-11-10 출고일 실제 날짜순·단/송이 표시 정정
+- 원인: 전산달력은2026/45=11/4수~11/10화인데 웹이월~일로재배열해11/9→11/10→11/4 역행. native dnSpy FormShipmentDistribution GetCustomerList/ShipmentQuantityToEstQuantity 재추출 및 PeriodDay 운영SELECT로 확인. 날짜 자체오염 아님. 2025/45=11/5~11/11,2025/46=11/12~18,2026/46=11/11~17도명시연도조회 확인.
+- 날짜 Timestamp 오름차순/실제 전체기간 표시. 분배칸·확인창·미리보기까지 날짜순 통일. Product3513 native1박스=15단=300송이; .4/.6은6/9단 또는120/180송이로표시입력, payload는.4/.6박스 유지. 기본단·필요시송이, native송이우선. 직접StemOfBox우선/단→송이StemOfBunch라는EXE분기를전용purehelper로고정(generic박스비율대체0).
+- 원장값·날짜·수량·금액·확정정책 변경0. 입수/정수환산/기존3자리저장정밀도로정확표현불가면반올림0·안내차단. 단위전환은초안없을때, 최초packing signature와fresh canonical context까지대조해편집중입수변경차단. 기존date-only snapshot/gate/lease/정수견적환산/매출/rollback/감사유지.
+- EXE변환우선순위·0/false/누락·정수/비정확양수→0반올림방지 pure PASS, native달력/교차연도/0날짜·Master업체(NULL SD.CustKey)/메타데이터묶음SQL 및 date저장15견적단/172500gross/ECOUNT XLSX·fixed/rollback/stale·원장보존 actual SQL PASS. 새Chrome 날짜순7일/단15↔송이300/6+9단→payload.4+.6/합계·정수·정밀도·입수stale/390, 기존업체이동/양연도미국catalog PASS. 안내영상/한국어자막/proof 갱신12영상검사PASS.
+- 최신base9464381b 병합뒤 전체ERP(exit0)/dnSpy/manifest209/writeguard(API0)/guide/production build(exit0) PASS. 운영ERP·ECOUNT쓰기0. PR/CI/배포/실로그인은 이 기록 시점 미검증.
+검색어: 출고일날짜역행 202645 1104수1110화 단송이정수 dateUnitFactor datePackingSignature native환산 날짜순정렬
+
 2026-11-10 수입부 확인 엑셀 전체품목·담당자 시트의 거래처 셀에 정식 거래처명만 표시. 생성 파일 재열기 시험 통과.
 검색어: 수입부확인 엑셀 거래처 태림원예
 
@@ -2490,3 +2498,5 @@
 - 해당연도메인차수버튼클릭즉시조회, 담당자별실제분배업체버튼,기존UserFavorite 인증계정별CustKey★저장/우선정렬/GET확인·실패재확인. SQL/ERP writer/기존favoritesAPI수정0.
 - 실제dnSpy/양연도production reader SELECT,16단위회귀·1920/390실브라우저기존전체업무+새버튼/개인설정분리/실패GET재확인/미저장담당자전환방어PASS. 실제36.25초가이드재촬영·한국어VTT/5목차·playerPASS. 전체필수검사/PR/배포미검증,후속.
 - 검색어: 출고내역서 버튼형 ±2차 담당자 업체 즐겨찾기 shipment-statement-customers
+2026-11-10 웹·PC 개인 즐겨찾기 번호 및 이름 편집. 기존 목록 번호 보존, 별칭(기본 메뉴명) 표시. 브라우저와 PC는 기존 계정별 저장 경로 사용.
+검색어: 즐겨찾기 번호 이름 변경 desktop-v1.3.16

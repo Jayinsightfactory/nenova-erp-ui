@@ -27,11 +27,35 @@ function safeTab(t) {
   url = u.href;
   return { url, title: text(t.title) || '업무 화면', zoom: number(t.zoom, .5, 1.5, 1) };
 }
+function safeFavorites(items) {
+  const source = Array.isArray(items) ? items.slice(0, 100) : [];
+  const used = new Set();
+  const rows = [];
+  for (const item of source) {
+    const tab = safeTab(item);
+    if (!tab) continue;
+    const n = item.number;
+    if (Number.isSafeInteger(n) && n > 0 && n <= 1000000000 && !used.has(n)) {
+      used.add(n);
+      tab.number = n;
+    }
+    const alias = text(item.alias, 60).trim();
+    if (alias) tab.alias = alias;
+    rows.push(tab);
+  }
+  let next = 1;
+  for (const row of rows) {
+    if (row.number) continue;
+    while (used.has(next)) next++;
+    row.number = next++;
+  }
+  return rows.sort((a, b) => a.number - b.number);
+}
 function safeSnapshot(s) {
   return {
     version: 1,
     actor: text(s?.actor, 120),
-    favorites: (Array.isArray(s?.favorites) ? s.favorites : []).slice(0, 100).map(safeTab).filter(Boolean),
+    favorites: safeFavorites(s?.favorites),
     windows: (Array.isArray(s?.windows) ? s.windows : []).slice(0, 12).map(w => ({
       bounds: { x: number(w?.bounds?.x, -30000, 30000, 0), y: number(w?.bounds?.y, -30000, 30000, 0), width: number(w?.bounds?.width, 800, 7680, 1500), height: number(w?.bounds?.height, 600, 4320, 950) },
       maximized: w?.maximized === true,
@@ -40,4 +64,4 @@ function safeSnapshot(s) {
     }))
   };
 }
-module.exports = { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text };
+module.exports = { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text };

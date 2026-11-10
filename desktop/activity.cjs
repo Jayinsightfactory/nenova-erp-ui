@@ -1,6 +1,6 @@
 'use strict';
 const { randomUUID } = require('node:crypto');
-const LABELS = Object.freeze({ open:'업무 탭 열기', activate:'탭 선택', close:'탭 닫기', reorder:'탭 순서 변경', move:'탭 이동', detach:'탭 분리', dragEnd:'탭 드래그', menu:'홈 메뉴', tools:'도구 표시', menuFavorite:'메뉴 즐겨찾기', favorite:'즐겨찾기', rename:'탭 이름 변경', navigate:'이전·다음 화면', reload:'새로고침', zoom:'확대·축소', print:'인쇄', newWindow:'새 창', closeWindow:'창 닫기', quit:'앱 종료', logout:'로그아웃', appUpdate:'앱 업데이트', cancelUpdate:'업데이트 취소', sync:'메뉴 동기화', homeWorkspace:'내 업무 처리' });
+const LABELS = Object.freeze({ open:'업무 탭 열기', activate:'탭 선택', close:'탭 닫기', reorder:'탭 순서 변경', move:'탭 이동', detach:'탭 분리', dragEnd:'탭 드래그', menu:'홈 메뉴', tools:'도구 표시', renameFavorite:'즐겨찾기 이름 변경', menuFavorite:'메뉴 즐겨찾기', favorite:'즐겨찾기', rename:'탭 이름 변경', navigate:'이전·다음 화면', reload:'새로고침', zoom:'확대·축소', print:'인쇄', newWindow:'새 창', closeWindow:'창 닫기', quit:'앱 종료', logout:'로그아웃', appUpdate:'앱 업데이트', cancelUpdate:'업데이트 취소', sync:'메뉴 동기화', homeWorkspace:'내 업무 처리' });
 const EXTRA = Object.freeze({ confirmAccepted:'확인창 확인', confirmCanceled:'확인창 취소', homeCreate:'내 업무 추가', homeUpdate:'내 업무 수정', homeComplete:'내 업무 완료 변경', homeArchive:'내 업무 삭제', homeRestore:'내 업무 복원', homeStop:'내 업무 반복 중지', homeRead:'전달 내용 확인' });
 // Main-only, encrypted on disk by the injected writer. No payload/input values.
 function createActivity({ read, write, fetch, owner, endpoint, warn = () => {} }) {

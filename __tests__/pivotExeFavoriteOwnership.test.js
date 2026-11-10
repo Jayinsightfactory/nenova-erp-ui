@@ -24,10 +24,11 @@ const context = { handler:null, withAuth:handler=>handler, sql:{NVarChar:'text',
     return {recordset:records.filter(r=>r.UserID===uid && r.PageName===p.page.value).map(r=>({...r}))};
   }
   const index=records.findIndex(r=>r.UserID===uid && r.FavoriteKey===p.fk.value);
-  if (/UPDATE/.test(q) && index>=0) Object.assign(records[index],{FavName:p.name.value,FilterData:p.data.value});
+  if (/^\s*UPDATE UserFavorite/.test(q) && index>=0) Object.assign(records[index],{FavName:p.name.value,FilterData:p.data.value});
   if (/DELETE/.test(q) && index>=0) records.splice(index,1);
   return {rowsAffected:[index>=0?1:0]};
 }};
+context.withTransaction = work => work(context.query);
 vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,'').replace('export default withAuth','handler = withAuth'),context);
 async function call(userId,method,body={},page='stats-pivot-exe') {
   const res={code:200,status(code){this.code=code;return this;},json(body){this.body=body;return this;},end(){return this;}};

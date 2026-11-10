@@ -45,7 +45,7 @@ test('safeSnapshot keeps only bounded window and tab metadata', () => {
   assert.deepEqual(Object.keys(snapshot).sort(), ['actor', 'favorites', 'version', 'windows']);
   assert.equal(snapshot.version, 1);
   assert.equal(snapshot.actor, 'userid');
-  assert.deepEqual(snapshot.favorites, [{ url: `${ORIGIN}/orders?popup=1`, title: '주문', zoom: 1.5 }]);
+  assert.deepEqual(snapshot.favorites, [{ url: `${ORIGIN}/orders?popup=1`, title: '주문', zoom: 1.5, number: 1 }]);
   assert.equal(snapshot.windows.length, 1);
   const win = snapshot.windows[0];
   assert.deepEqual(win.bounds, { x: -30000, y: 30, width: 7680, height: 600 });
@@ -67,4 +67,14 @@ test('safeSnapshot caps collection sizes and drops invalid tab entries', () => {
   assert.equal(snapshot.favorites.length, 100);
   assert.equal(snapshot.windows.length, 12);
   assert.ok(snapshot.windows.every(window => window.tabs.length === 50));
+});
+
+test('favorite numbers and aliases survive deletion, insertion and restart', () => {
+  const { favorites } = safeSnapshot({ favorites: [
+    { url: '/a' }, { url: '/b', title: '주차별매출이익보고서', alias: '매출자료' }, { url: '/c' },
+  ] });
+  const restored = safeSnapshot({ favorites: [...favorites.slice(1), { url: '/d' }] }).favorites;
+  assert.deepEqual(restored.map(row => row.number), [1, 2, 3]);
+  assert.deepEqual(restored[1], favorites[1]);
+  assert.deepEqual(restored[2], favorites[2]);
 });

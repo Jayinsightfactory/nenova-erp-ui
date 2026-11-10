@@ -1,3 +1,4 @@
+require('./shipmentDateDisplayUnits.test.cjs');
 require('./shipmentInlineDates.test.cjs');
 require('./shipmentDistributionNavigation.test.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
