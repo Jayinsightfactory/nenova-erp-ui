@@ -4,6 +4,7 @@ import { validateArrivalImportYear } from '../lib/arrivalImportPolicy.js';
 import './arrivalDriveSchedule.test.js';
 import './arrivalDriveRunNow.test.js';
 import './arrivalDriveAwbEvidence.test.js';
+import './colombiaAwbLocale.test.js';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS, hasColombiaAwb, isColombiaAwbFile, COLOMBIA_AWB_WAIT_REASON } from '../lib/arrivalDrivePolicy.js';
 // xlsx's ESM entry has named exports only; instrumentation resolves that entry.
 assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);

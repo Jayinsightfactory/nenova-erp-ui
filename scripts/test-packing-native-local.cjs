@@ -37,6 +37,10 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
     const hash=createHash('sha256').update(Buffer.from(body.pdfBase64,'base64')).digest('hex');assert.equal(hash,cachedAnalysis.sourceHash,'SOURCE_HASH_MISMATCH');
     d={...cachedAnalysis.ai,source:'cache',cacheSaved:true};
    }
+   else if(route==='/api/import/receipts/live-exchange-rate'&&method==='GET'){
+    const {fetchLiveInvoiceRate}=await import('../lib/invoiceLiveExchangeRate.js');
+    d={success:true,...await fetchLiveInvoiceRate(u.searchParams.get('currency'))};
+   }
    else if(route==='/api/arrival-cost')d={success:true,farms};
    else if(route==='/api/import/receipts/auto-fill'){
     const {resolveInvoiceHeader}=await import('../lib/invoiceReceiptAutoFill.js');

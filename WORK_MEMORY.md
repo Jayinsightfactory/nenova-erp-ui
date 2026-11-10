@@ -2385,6 +2385,12 @@
 - 명시 연도/차수 없는 원본 및 스캔 PDF는 자동추정하지 않고 보류. UI/순서 변경없음(기존 reason 재사용), 영상 신규 해당없음. webpack/PR CI/코드배포 후속. docs/work-sessions/2026-11-10_pr1641-awb-proof.md.
 검색어: PR1641 AWB evidence 원본PDF hash 번호 연도 차수 반례 verifiedCandidates 운영DB보존
 
+## 2026-11-10 CO46 AWB decimal and filename correction
+- Actual46-1 AWB decimal commas now read GW3487/CW4152/rate2.95/total12320.40. Missing filename hints require server original-body execution-year/Colombia/checksum-AWB proof, not blanket rejection. Explicit year/week/country/hash/number conflicts remain blocked.
+- Actual browser original CI upload -> source-reviewed comparison fixture matching ->16 isolated native writer commits -> shared16farm/46line cost download PASS. Transcription uses ERP names, not fresh AI/fuzzy accuracy proof. No production DB or new paid AI calls. Protected orders/shipments unchanged. Shared actual freight applied once; artifact recalc and GW mutation PASS.
+- Full ERP/dnSpy/manifest/writeguard/webpack PASS. No source formula/native/migration/UI sequence change. PR CI/code deploy pending; see docs/work-sessions/2026-11-10_co46-awb-locale.md for exact evidence and limits.
+검색어: CO46 16017338020 AWB decimal comma filename original execution date 16farm46row isolated download
+
 ## 2026-11-10 국가 선택·업체정보 빈 화면 후속
 - 원인: 국가 제목이 text+즐겨찾기만 있고 선택 이벤트가 없었음. 업체 후보는 native GetCustomerList의 ViewShipment+ShipmentDate 필수조인으로 분배 전 주문업체도 빠짐. 실제 태국45-03은 주문0이어서 단순 JOIN 수정만으로는 해결되지 않음.
 - 국가명은 country:: 읽기필터로 선택/활성 표시, 별은 즐겨찾기로 구분. 국가 전체에서 꽃 단위 SP/확정/초기화는 품종 선택 안내로 차단. 새 workspaceCustomers 공용 SELECT는 활성 현재연도+차수+국가/품종 주문업체를 분배 전에도 표시; 주문0이면 활성 전체업체 noOrder 후보로 안내. 초기80개, 전체검색 유지. 첫 업체 선택은 비교칸을 먼저 눌러도 기본업체로 연결. 기존 수정초안/양수주문→분배 writer 보존, 조회/선택으로 원장쓰기0.
