@@ -9,6 +9,7 @@ test('US products without orders/shipments are searchable in both years', {timeo
  if(type==='groups')data.groups=[{key:'콜롬비아::장미',label:'콜롬비아장미',country:'콜롬비아',flower:'장미'},{key:'미국::더글라스',label:'미국더글라스',country:'미국',flower:'더글라스'},{key:'미국::레몬잎',label:'미국레몬잎',country:'미국',flower:'레몬잎'}];
  if(type==='products')data.products=[];
  if(type==='productCatalog')data.products=[{ProdKey:2,ProdName:'Douglas',CounName:'미국',FlowerName:'더글라스',OutUnit:'박스',EstUnit:'단',BunchOf1Box:20,SteamOf1Box:200,SteamOf1Bunch:10},{ProdKey:3,ProdName:'Lemon leaf',CounName:'미국',FlowerName:'레몬잎'}];
+ if(type==='productCatalog')data.products.push(...Array.from({length:100},(_,i)=>({ProdKey:10000+i,ProdName:'AAAA '+String(i).padStart(3,'0'),CounName:'프랑스'})));
  if(type==='custList' || type==='custDist'){data.customers=[];data.totalOut=0;}
  if(url.pathname==='/api/master/customers')data.data=[{CustKey:777,CustName:'연습업체',Manager:'연습담당자'}];
  if(url.pathname==='/api/favorites')data.favorites=[];
@@ -18,6 +19,7 @@ test('US products without orders/shipments are searchable in both years', {timeo
  assert.equal(await page.locator('[data-ai-verify="group-미국더글라스"]').count(),1);assert.equal(await page.locator('[data-ai-verify="group-미국레몬잎"]').count(),1);
  assert.equal(await page.getByRole('group',{name:'미국 품종',exact:true}).getByRole('button',{name:'콜롬비아장미',exact:true}).count(),0);
  await page.getByTestId('distribution-product-picker').locator('button').first().click();
+ await page.getByText(/전체 102개 중 80개 표시/).waitFor();
  await page.getByRole('textbox',{name:'품목 검색',exact:true}).fill('Douglas');
  await page.getByRole('group',{name:'품목 선택',exact:true}).getByRole('button',{name:/Douglas/}).click();
  await page.locator('[data-ai-verify="prod-add-cust-open"]').waitFor();

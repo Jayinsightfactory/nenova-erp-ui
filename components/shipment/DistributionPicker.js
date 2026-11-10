@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 export default function DistributionPicker({ label, value, options = [], onSelect, disabled = false,
-  triggerRef, shortcut, placeholder = '검색', testId, onOpen }) {
+  triggerRef, shortcut, placeholder = '검색', testId, onOpen, maxResults = Infinity }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [popup, setPopup] = useState({ top: 0, left: 0, width: 320, maxHeight: 320 });
@@ -9,8 +9,9 @@ export default function DistributionPicker({ label, value, options = [], onSelec
   const searchRef = useRef(null);
   const itemRefs = useRef([]);
   const id = useId();
-  const visible = options.filter(option => String(option.label || '').toLocaleLowerCase()
+  const matches = options.filter(option => String(option.label || '').toLocaleLowerCase()
     .includes(search.trim().toLocaleLowerCase()));
+  const visible = matches.slice(0, maxResults);
   const close = () => {
     setOpen(false);
     setSearch('');
@@ -79,6 +80,7 @@ export default function DistributionPicker({ label, value, options = [], onSelec
         </button>)}
       </div>
       <div style={{ fontSize: 11, color: 'var(--text3)', padding: '5px 2px 0' }}>
+        {matches.length > visible.length && <span>전체 {matches.length}개 중 {visible.length}개 표시 · 검색어를 입력해 좁혀주세요.<br /></span>}
         ↑↓ / Home / End 이동 · Enter / Space 선택 · Esc 닫기
       </div>
     </div>}

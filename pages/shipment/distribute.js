@@ -1433,7 +1433,7 @@ export default function Distribute() {
           options={[{ key: '', label: '전체', selected: !prodGroup }, ...prodGroups.map(g => ({ key: g.key, label: g.label, selected: g.key === prodGroup }))]}
           onSelect={option => chooseProdGroup(option.key)} />
         <DistributionPicker label="품목" value={selectedProd?.ProdName || ''} triggerRef={productPickerRef}
-          shortcut="Ctrl+Alt+2" disabled={saving || loading} onOpen={ensureProductCatalog}
+          shortcut="Ctrl+Alt+2" disabled={saving || loading} onOpen={ensureProductCatalog} maxResults={80}
           options={sortDistributionProducts(mergeDistributionSearchCandidates(products, productCatalog)).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
             label: p.ProdName || p.DisplayName || `#${p.ProdKey}`,
             hint: `${favoriteKeys.has(Number(p.ProdKey)) ? '★ ' : ''}#${p.ProdKey}`,
