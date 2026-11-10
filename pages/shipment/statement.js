@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Head from 'next/head';
 import {useRouter} from 'next/router';
 import WorkflowGuide from '../../components/WorkflowGuide';
+import ShipmentStatementSelectors from '../../components/ShipmentStatementSelectors';
 import core from '../../lib/shipmentStatement.cjs';
 import styles from '../../styles/ShipmentStatement.module.css';
 
@@ -22,9 +23,10 @@ export default function ShipmentStatement(){
  useEffect(()=>{if(modal){returnFocus.current=document.activeElement;dialog.current?.showModal();}else if(dialog.current?.open){dialog.current.close();returnFocus.current?.focus();}},[modal]);
  const permit=()=>!dirty||window.confirm('저장하지 않은 출고내역서 변경이 있습니다. 버리고 이동할까요?');
  function clear(){seq.current++;setData(null);setDraft(empty);setDirty(false);setSelected([]);setShowPreview(false);setError('');setMessage('');}
- function changeScope(setter,value){if(!permit())return;clear();setCustomers([]);setCustomer('');setter(value);}
- async function list(){if(!permit())return;const id=++seq.current;setBusy(true);setError('');setMessage('');
-  try{const d=await json(url({year,week}));if(id!==seq.current)return;clear();setCustomers(d.customers);setCustomer('');setMessage(`${d.customers.length}개 업체의 분배값을 불러왔습니다. 담당자와 업체를 선택하세요.`);}
+ function changeScope(setter,value){if(!permit())return;clear();setCustomers([]);setCustomer('');setManager('');setter(value);}
+ function changeManager(value){if(value===manager||!permit())return;clear();setCustomer('');setManager(value);}
+ async function list(nextWeek=week){if(!permit())return;clear();setWeek(nextWeek);setCustomers([]);setCustomer('');const id=++seq.current;setBusy(true);setError('');setMessage('');
+  try{const d=await json(url({year,week:nextWeek}));if(id!==seq.current)return;setCustomers(d.customers);const managerMissing=!!manager&&!d.customers.some(c=>c.Manager===manager);if(managerMissing)setManager('');setMessage(`${d.customers.length}개 업체의 분배값을 불러왔습니다. ${managerMissing?'해당 담당자의 분배 업체가 없어 전체 담당자로 표시합니다. ':''}담당자와 업체를 선택하세요.`);}
   catch(e){if(id===seq.current)setError(e.message);}finally{setBusy(false);}
  }
  async function open(key){if(!permit())return;clear();setCustomer(key);if(!key)return;const id=++seq.current;setBusy(true);
@@ -56,13 +58,7 @@ export default function ShipmentStatement(){
   <Head><title>출고내역서 | Nenova</title></Head>
   <header className={styles.header}><div><h1>출고내역서</h1><p>메인차수 전체 분배값을 출고요일별로 나누고 업체별 엑셀로 저장합니다.</p></div><span className={styles.badge}>출고내역서용 예정일</span></header>
   <WorkflowGuide workflowId="shipment-statement" />
-  <section className={styles.panel} aria-label="차수 및 업체 선택"><div className={styles.controls}>
-   <label>연도<input aria-label="연도" type="number" min="2000" max="2099" value={year} disabled={busy} onChange={e=>changeScope(setYear,e.target.value)}/></label>
-   <label>메인차수<input aria-label="메인차수" type="number" min="1" max="53" value={week} disabled={busy} onChange={e=>changeScope(setWeek,e.target.value)}/></label>
-   <button disabled={busy||!year||!week} onClick={list}>차수 불러오기</button>
-   <label>담당자<select aria-label="담당자" value={manager} disabled={busy} onChange={e=>{if(!permit())return;clear();setCustomer('');setManager(e.target.value);}}><option value="">전체 담당자</option>{[...new Set(customers.map(c=>c.Manager).filter(Boolean))].map(m=><option key={m}>{m}</option>)}</select></label>
-   <label>업체<select aria-label="업체" value={customer} disabled={busy} onChange={e=>open(e.target.value)}><option value="">업체 선택</option>{customers.filter(c=>!manager||c.Manager===manager).map(c=><option key={c.CustKey} value={c.CustKey}>{c.CustName} ({c.DetailCount})</option>)}</select></label>
-  </div></section>
+  <ShipmentStatementSelectors year={year} week={week} customers={customers} manager={manager} customer={customer} busy={busy} onYear={value=>changeScope(setYear,value)} onWeek={value=>changeScope(setWeek,value)} onLoad={list} onManager={changeManager} onCustomer={open}/>
   {error&&<div role="alert" className={styles.error}>{error}</div>}<p role="status" aria-live="polite">{busy?'처리 중…':message}</p>
   {data&&<>
    <section className={styles.panel}><div className={styles.controls}><h2>{data.source.customer.name} · {data.source.scope.year}년 {data.source.scope.week}차</h2>
