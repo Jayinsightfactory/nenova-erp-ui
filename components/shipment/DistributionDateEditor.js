@@ -1,8 +1,9 @@
+import {inlineDateSignature} from '../../lib/shipmentInlineDates.js';
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 const qty=n=>Number(n||0).toLocaleString();
 const day=['일','월','화','수','목','금','토'];
-export default function DistributionDateEditor({scope,label,onClose,onSaved}){
+export default function DistributionDateEditor({scope,label,onClose,onSaved,inlineDraft}){
   const [data,setData]=useState(null),[inputs,setInputs]=useState({}),[error,setError]=useState(''),[busy,setBusy]=useState(false),[preview,setPreview]=useState(null);
   const box=useRef(null),returnFocus=useRef(null),dirtyRef=useRef(false),busyRef=useRef(false);
   const baseline=Object.fromEntries((data?.context?.dates||[]).map(r=>[r.Timestamp,r.ShipmentQuantity]));
@@ -11,7 +12,7 @@ export default function DistributionDateEditor({scope,label,onClose,onSaved}){
   const close=()=>{if(!busyRef.current&&(!dirtyRef.current||window.confirm('미저장 출고일 분배를 버리고 닫을까요?')))onClose();};
   useEffect(()=>{
     returnFocus.current=document.activeElement;let active=true;
-    apiGet('/api/shipment/distribution-dates',scope).then(d=>{if(!active)return;if(!d.success)throw new Error(d.error);setData(d);setInputs(Object.fromEntries(d.context.dates.map(r=>[r.Timestamp,r.ShipmentQuantity])));}).catch(e=>{if(active)setError(e.message);});
+    apiGet('/api/shipment/distribution-dates',scope).then(d=>{if(!active)return;if(!d.success)throw new Error(d.error);if(inlineDraft&&inlineDraft.signature!==inlineDateSignature(d.context.calendar,d.context.dates,d.context.detail.OutQuantity))throw new Error('날짜 또는 출고수량이 변경되었습니다. 행의 날짜 입력을 취소하고 다시 조회하세요.');setData(d);setInputs(inlineDraft?Object.fromEntries(inlineDraft.allocations.map(r=>[r.timestamp,r.quantity])):Object.fromEntries(d.context.dates.map(r=>[r.Timestamp,r.ShipmentQuantity])));}).catch(e=>{if(active)setError(e.message);});
     box.current?.focus();
     const unload=e=>{if(dirtyRef.current){e.preventDefault();e.returnValue='';}};
     window.addEventListener('beforeunload',unload);

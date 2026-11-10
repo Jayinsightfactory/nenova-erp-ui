@@ -434,7 +434,9 @@
         "components/shipment/DistributionDateEditor.js",
         "components/shipment/DistributionProductTree.js",
         "components/shipment/DistributionDateFilter.js",
-        "lib/shipmentDistributionNavigation.js"
+        "lib/shipmentDistributionNavigation.js",
+        "components/shipment/DistributionInlineDates.js",
+        "lib/shipmentInlineDates.js"
       ],
       "requiredScenarios": [
         "favorites",
@@ -462,27 +464,64 @@
             {
               "scenario": "favorites",
               "title": "품종별 즐겨찾기 우선과 펼치기·접기",
-              "seconds": 0.111
+              "seconds": 0.112
             },
             {
               "scenario": "dates",
               "title": "날짜별 수량 입력과 총량 확인",
-              "seconds": 8.357
+              "seconds": 8.183
             },
             {
               "scenario": "save",
               "title": "견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 15.752
+              "seconds": 15.755
             },
             {
               "scenario": "tab",
               "title": "출고일지정 탭에서 저장값 재확인",
-              "seconds": 24.357
+              "seconds": 24.345
             },
             {
               "scenario": "customers",
               "title": "업체부터 선택하는 독립 작업공간",
-              "seconds": 28.229
+              "seconds": 28.051
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ops-control-tower",
+      "title": "운영 관제탑 한눈에 보기",
+      "entryPaths": [
+        "/ops"
+      ],
+      "sourceFiles": [
+        "pages/ops.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "sample-data"
+      ],
+      "guides": [
+        {
+          "id": "overview",
+          "role": "경영지원",
+          "title": "운영 관제탑 한눈에 보기",
+          "status": "ready",
+          "src": "/guides/ops-control-tower/overview.mp4",
+          "captions": "/guides/ops-control-tower/overview.ko.vtt",
+          "proof": "/guides/ops-control-tower/overview.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "화면 구성 한눈에 보기",
+              "seconds": 0
+            },
+            {
+              "scenario": "sample-data",
+              "title": "샘플 표시와 실데이터 구분",
+              "seconds": 25.871
             }
           ]
         }

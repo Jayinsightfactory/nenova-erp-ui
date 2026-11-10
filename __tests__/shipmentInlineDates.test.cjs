@@ -1,0 +1,12 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const calendar=Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2026,10,4+i));return {WeekDay:d.getUTCDay()+1,Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000',MatchCount:1};});
+const facts=[{SdetailKey:1,OutQuantity:1,Timestamp:'2026-11-06 00:00:00.000',ShipmentQuantity:1}];
+test('inline Monday-Sunday uses exact native calendar and quantities, no invented dates',async()=>{const {inlineDateModel,inlineDateInputs,inlineDateSignature}=await import('../lib/shipmentInlineDates.js');
+ const m=inlineDateModel(calendar,facts,'2026','45-01');assert.equal(m.error,'');assert.deepEqual(m.days.map(r=>r.WeekDay),[2,3,4,5,6,7,1]);assert.equal(m.days[0].Timestamp.slice(0,10),'2026-11-09');
+ assert(!inlineDateInputs(m,{}).dirty);assert(inlineDateInputs(m,{[facts[0].Timestamp]:0}).dirty);assert.equal(inlineDateInputs(m,{[facts[0].Timestamp]:0}).total,0);
+ for(const invalid of ['',null,false,-1,'bad',0.0001])assert(!inlineDateInputs(m,{[facts[0].Timestamp]:invalid}).valid);
+ assert(inlineDateInputs(m,{[facts[0].Timestamp]:0.125}).valid);assert.equal(inlineDateSignature(calendar,facts,1),inlineDateSignature([...calendar].reverse(),facts,1));
+ const boundary=Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2025,11,31+i));return {WeekDay:d.getUTCDay()+1,Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000',MatchCount:1};});assert.equal(inlineDateModel(boundary,[{...facts[0],Timestamp:'2026-01-02 00:00:00.000'}],'2026','01-01').error,'');assert(inlineDateModel(boundary,[{...facts[0],Timestamp:'2026-01-02 00:00:00.000'}],'2026','02-01').error);
+ assert.notEqual(m.signature,inlineDateSignature(calendar,[{...facts[0],ShipmentQuantity:2}],1));
+ for(const [cal,rows,year,week]of [[calendar.slice(1),facts,'2026','45-01'],[[...calendar.slice(1),calendar[1]],facts,'2026','45-01'],[calendar,facts,'2025','45-01'],[calendar,[...facts,facts[0]],'2026','45-01'],[calendar,[{...facts[0],Timestamp:'2026-11-11 00:00:00.000'}],'2026','45-01'],[calendar,[{...facts[0],OutQuantity:2}],'2026','45-01'],[calendar,[],'2026','45-01']])assert(inlineDateModel(cal,rows,year,week).error);
+});

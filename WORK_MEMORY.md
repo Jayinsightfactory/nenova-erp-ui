@@ -2459,3 +2459,10 @@
 - 운영DB/원천적용/커밋0, 녹화·플레이어는 합성API/임시파일만 사용 후 서버종료. 최종 전체검사/빌드/배포/nginx 실제반영·운영 재업로드는 부모 담당이며 이 시점 미검증.
 검색어: 선율 ZIP nginx 413 36m 2m 25MiB base64 customsSettlementHttp 30PASS 51초 5sourcehash
 - 부모 최종 전체 ERP/post·dnSpy·manifest208·쓰기guard(API변경0)·webpack production build 모두 PASS(exit0). 운영35/36 DB통관행6·CO0·저장본17행은 기존SELECT 캡처와 동일. 후속 PR/CI/재배포/실제등록은 아래 기록 예정.
+
+## 2026-11-10 출고일 행내 월~일 수량 입력
+- 사용자 요청: 출고일 버튼 대신 행 옆 월~일+월/일 입력. 농장/업체(비교업체 포함)/출고일지정의 공통 DistributionInlineDates 적용. 월2~일1 순서로 native PeriodDay 실제 날짜만 표시. 날짜 사실+공용 exact 달력은 workspaceDateIndex 묶음조회, 행별GET 추가0.
+- inline 초안은 부모상태로 보존, 수량/단가 저장·SP/확정·탭/차수/품목/업체 변경을 미저장보호. 행 취소/전체취소, Enter다음요일/마지막확인버튼(자동저장0),CtrlS배경수량저장차단. 합계/입력유효성 검사. canonical GET와 최초 날짜/수량 signature 다르면 stale 차단, 기존 snapshot미리보기/명시저장/lease/gate/serializable/audit/rollback을 그대로 사용. 원장 writer 정책 변경0, 달력SQL만 기존 reader와 공용상수 추출.
+- actual dnSpy FormShipmentDistribution ymd/day1..7·ShipmentQuantityToEstQuantity 재확인. 운영SELECT 2025/46 11/12~18,2026/46 11/11~17 7일/7요일 확인. 격리 SQL fullbaseline0날짜/SD.CustKey NULL/교차연도99/달력다른연도fallback0 및 native Date저장/견적15단·gross172500·ECOUNT XLSX/rollback/stale/fixed/Order·Farm·Stock·Estimate·Profit보존 PASS. 운영ERP/ECOUNT 쓰기0.
+- 새순수테스트 CI 연결, 날짜직접입력/합계부족/preview승계/저장/dirty탭/CtrlS/stale/cancel/390 Chrome PASS. 기존 전체 workspace·업체이동·양연도미국카탈로그 회귀 PASS. 안내영상/한국어자막/proof 갱신 PASS. 전체ERP/dnSpy/manifest207/writeguard/영상9개 PASS. 최종빌드/CI/배포/실로그인 확인은 이 기록시점 미검증.
+검색어: 행내출고일 월화수목금토일 월일 DistributionInlineDates inlineDateSignature 0날짜baseline nativePeriodDay 총량매출보존
