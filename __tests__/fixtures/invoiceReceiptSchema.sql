@@ -54,6 +54,7 @@ CREATE TABLE dbo.Product (
   SteamOf1Bunch float NULL,
   SteamOf1Box float NULL,
   Cost float NULL,
+  TariffRate float NULL,
   Stock float NULL,
   isDeleted bit NULL CONSTRAINT DF_InvoiceFixtureProductDeleted DEFAULT(0)
 );

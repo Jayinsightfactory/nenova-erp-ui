@@ -11,6 +11,22 @@ const saved = () => ({ ...fresh(), revision: 3, rowVersion: '0000000000000003',
   farmKey: 99, reviewedMetadata: { country: 'CO', inputDate: '2026-10-23' } });
 const preview = document => ({ document, documentRevision: document.revision, canCommit: true, issues: [], baselineDigest: 'b'.repeat(64) });
 
+test('team match fills only unmatched saved lines and preserves saved quantities and explicit choices', () => {
+  const source = fresh();
+  source.lines[0] = { ...source.lines[0], prodKey: 24, reviewed: { erpMatchConfirmed: true } };
+  const draft = saved();
+  draft.lines[0] = { ...draft.lines[0], prodKey: null, bunchQuantity: 15 };
+  const restored = resumeReceiptSource(source, null, draft);
+  assert.equal(restored.document.lines[0].prodKey, 24);
+  assert.equal(restored.document.lines[0].bunchQuantity, 15);
+  assert.equal(restored.dirty, true);
+  draft.lines[0].prodKey = 99;
+  assert.equal(resumeReceiptSource(source, null, draft).document.lines[0].prodKey, 99);
+  draft.lines[0].prodKey = null;
+  draft.lines[0].sourceEvidence = { allocationSourceId: 'file-specific' };
+  assert.equal(resumeReceiptSource(source, null, draft).document.lines[0].prodKey, null);
+});
+
 test('only a proven 404 creates a new draft; auth/network errors never become POST', async () => {
   const source = fresh();
   assert.equal(await readExistingReceiptSource(source, async () => { throw { httpStatus:404, code:'INVOICE_DOCUMENT_NOT_FOUND' }; }), null);

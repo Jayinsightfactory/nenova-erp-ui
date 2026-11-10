@@ -12,10 +12,10 @@ module.exports=async function(all){
  assert.ok(countryName);assert.equal(source.country,country);assert.equal(source.sourceHash,createHash('sha256').update(Buffer.from(source.fileBase64,'base64')).digest('hex'));
  const {upsertPackingErpMatch}=await import('../lib/importPackingErpMatches.js');
  for(const p of products.filter(p=>p.CounName===countryName)){
-  const params={};for(const k of ['ProdKey','ProdName','CountryFlower','CounName','FlowerName','OutUnit','EstUnit','BunchOf1Box','SteamOf1Bunch','SteamOf1Box'])params[k]={type:k==='ProdKey'?sql.Int:typeof p[k]==='number'?sql.Float:sql.NVarChar,value:p[k]??null};
+  const params={};for(const k of ['ProdKey','ProdName','CountryFlower','CounName','FlowerName','OutUnit','EstUnit','BunchOf1Box','SteamOf1Bunch','SteamOf1Box','TariffRate'])params[k]={type:k==='ProdKey'?sql.Int:typeof p[k]==='number'?sql.Float:sql.NVarChar,value:p[k]??null};
   await query(pool,`IF NOT EXISTS(SELECT 1 FROM dbo.Product WHERE ProdKey=@ProdKey)
-   INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box,Stock,isDeleted)
-   VALUES(@ProdKey,@ProdName,@CountryFlower,@CounName,@FlowerName,@OutUnit,@EstUnit,@BunchOf1Box,@SteamOf1Bunch,@SteamOf1Box,0,0);`,params);
+   INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box,TariffRate,Stock,isDeleted)
+   VALUES(@ProdKey,@ProdName,@CountryFlower,@CounName,@FlowerName,@OutUnit,@EstUnit,@BunchOf1Box,@SteamOf1Bunch,@SteamOf1Box,@TariffRate,0,0);`,params);
  }
  await query(pool,`INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,FarmName,InvoiceNo,isDeleted) VALUES(99111,'2025','45-01','HUBFRESH','TEST_ONLY_PRIOR_YEAR',0);
  UPDATE dbo.StockMaster SET OrderWeek='45-01',OrderYearWeek=OrderYear+'4501' WHERE StockKey IN(2501,2601);

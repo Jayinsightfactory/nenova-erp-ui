@@ -662,6 +662,13 @@
   overflow: auto;
 }
 
+.amountComparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.amountComparison > * { min-width: 0; max-width: 100%; }
+
 .modalBody textarea {
   width: 100%;
   padding: 9px;

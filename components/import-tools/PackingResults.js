@@ -364,6 +364,13 @@ export default function PackingResults({
                   {country === 'CN' && knownStems.length ? ` · 송이 합계 ${formatNumber(stemTotal)}송이` : ''}
                   {hasWeightMetadata ? ` · GW ${weightText(excel.grossWeight)} · CW ${weightText(excel.chargeableWeight)}` : ''}
                 </p>
+                {excel.invoiceTotals && <p data-testid="packing-source-totals">
+                  원본 합계 · 박스 {formatNumber(excel.invoiceTotals.boxes)} · 단 {formatNumber(excel.invoiceTotals.bunches)} · 송이 {formatNumber(excel.invoiceTotals.stems)}
+                  {' · '}상품 {formatNumber(excel.invoiceTotals.goods, 2)} {excel.invoiceTotals.currency}
+                  {excel.invoiceTotals.freight != null && ` · 운송비 ${formatNumber(excel.invoiceTotals.freight, 2)}`}
+                  {excel.invoiceTotals.handling != null && ` · 문서비 ${formatNumber(excel.invoiceTotals.handling, 2)}`}
+                  {' · '}송장 총액 {formatNumber(excel.invoiceTotals.invoiceTotal, 2)} {excel.invoiceTotals.currency}
+                </p>}
               </div>
               {previewOnly ? <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 28, border: '1px solid #ccd6e5', borderRadius: 7, padding: '4px 9px', background: '#f4f7fb', color: '#526580', fontSize: 12, fontWeight: 600 }}>미리보기 · 다운로드 생성 안 됨</span> : <button
                 type="button"

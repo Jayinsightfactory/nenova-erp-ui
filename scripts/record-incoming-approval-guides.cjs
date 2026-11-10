@@ -64,7 +64,7 @@ async function recordRole(browser, base, secret, role) {
       let data = { success: true, items: [], rows: [], data: [], products: [], countries: [], records: [], history: [], references: [], options: [], value: null, revision: 0 };
       if (u.pathname === '/api/products/search') data.products = products;
       if (u.pathname === '/api/auth/me') data.user = user;
-      if (u.pathname === '/api/warehouse') data.masters = [header];
+      if (u.pathname === '/api/warehouse') data.masters = Array.from({length:12},(_,i)=>({...header,WarehouseKey:9001+i,InvoiceNo:i?`GUIDE-${i+1}`:header.InvoiceNo}));
       if (u.pathname === '/api/warehouse/9001') data.items = before;
       if (u.pathname === '/api/warehouse/correction') data = { success: true, draftOwner: user.userId, header, baselineDigest:'c'.repeat(64), details: before, farms: [{ FarmName: header.FarmName }, { FarmName: '연습농장 나' }], history: [] };
       if (u.pathname === '/api/warehouse/invoice-costs') data.costs = null;
@@ -107,14 +107,24 @@ async function recordRole(browser, base, secret, role) {
   });
   await page.goto(`${base}/import/tools?tab=incoming&warehouseKey=9001&from=2026-10-01&to=2026-11-30`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('nav[aria-label="입고 정정 처리 단계"]');
-  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true });
-  const hold = async (text, seconds = 5) => { await rec.caption(text); await rec.pause(seconds * 1000); };
+  const rec = dry ? { caption: async () => {}, chapter: () => {}, pause: async () => {}, focus:async()=>{},unfocus:async()=>{},stop: async () => null } : await createWorkflowGuideRecorder(page, { root, workflowId: workflow.id, guideId: role, title: `${isImport ? '수입부' : '영업지원'} 입고 수정 가이드`, sourceFiles: workflow.sourceFiles, fixtureOnly: true });
+  let stepNumber=1,currentCaption='1. 조작할 위치를 확인합니다.';
+  const hold = async (text, seconds = 5) => { currentCaption=`${stepNumber}. ${text.replace(/^\d+\. /,'')}`;await rec.caption(currentCaption); await rec.pause(seconds * 1000); };
+  const focusTarget=async element=>{
+    await rec.caption(currentCaption);
+    await element.evaluate(n=>{n.scrollIntoView({behavior:'instant',block:'center'});n.dataset.incomingGuideTarget='current';});
+    const b=await element.boundingBox();assert(b&&b.y>=0&&b.y+b.height<=1080,'Guide target must be fully visible');
+    // Bottom-edge controls cannot be centred by scrolling past the end of the real UI.
+    // Keep the full view and move captions above them, rather than crop or conceal them.
+    await rec.focus('[data-incoming-guide-target="current"]',stepNumber,{staticHighlight:b.y+b.height/2<70||b.y+b.height/2>900});
+  };
+  const unfocusTarget=async()=>{await rec.unfocus();await page.evaluate(()=>document.querySelectorAll('[data-incoming-guide-target]').forEach(n=>delete n.dataset.incomingGuideTarget));};
   let pointer = { x: 40, y: 80 };
   const movePointer = async (x, y) => { const start = pointer; for (let step = 1; step <= (dry ? 1 : 12); step++) { const ratio = step / (dry ? 1 : 12); await page.mouse.move(start.x + (x - start.x) * ratio, start.y + (y - start.y) * ratio); await rec.pause(25); } pointer = { x, y }; };
-  const moveClick = async element => {
+  const moveClick = async (element,keepFocus=false) => {
     assert(element, 'Guide target missing'); await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
     const box = await element.boundingBox(); assert(box, 'Guide target not visible');
-    await movePointer(box.x + box.width / 2, box.y + box.height / 2); await rec.pause(450); await element.click(); await rec.pause(600);
+    await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await rec.pause(450); await element.click(); await rec.pause(600);if(!keepFocus)await unfocusTarget();
   };
   const click = async (text, scope = 'body') => {
     await page.waitForFunction(({ text, scope }) => [...(document.querySelector(scope)?.querySelectorAll('button,a,summary') ?? [])].some(node => node.textContent.trim() === text && !node.disabled), { timeout: 15000 }, { text, scope }).catch(() => { throw Error(`Missing enabled button: ${text}`); });
@@ -123,17 +133,17 @@ async function recordRole(browser, base, secret, role) {
   const select = async (selector, value) => {
     const element = await page.$(selector); assert(element, `Missing select: ${selector}`);
     await element.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' })); const box = await element.boundingBox();
-    await movePointer(box.x + box.width / 2, box.y + box.height / 2); await element.focus(); await rec.pause(450);
-    await element.select(String(value)); await rec.pause(700); assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);
+    await focusTarget(element);await movePointer(box.x + box.width / 2, box.y + box.height / 2); await element.focus(); await rec.pause(450);
+    await element.select(String(value)); await rec.pause(700); assert.equal(await element.evaluate(node => node.value), String(value), `Selection did not persist: ${selector}`);await unfocusTarget();
   };
-  const fill = async (selector, text) => { const element = await page.$(selector); assert(element, `Missing input: ${selector}`); await moveClick(element); await element.focus(); await page.keyboard.down('Control'); await page.keyboard.press('A'); await page.keyboard.up('Control'); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); assert.equal(await element.evaluate(node => node.value), String(text), `Input did not replace value: ${selector}`); };
+  const fill = async (selector, text) => { const element = await page.$(selector); assert(element, `Missing input: ${selector}`); await moveClick(element,true); await element.focus(); await page.keyboard.down('Control'); await page.keyboard.press('A'); await page.keyboard.up('Control'); await page.keyboard.press('Backspace'); await element.type(String(text), { delay: dry ? 0 : 60 }); await rec.pause(500); assert.equal(await element.evaluate(node => node.value), String(text), `Input did not replace value: ${selector}`);await unfocusTarget(); };
   const checkedLabel = async text => { const handle = await page.evaluateHandle(text => [...document.querySelectorAll('label')].find(label => label.textContent.includes(text))?.querySelector('input[type="checkbox"]'), text); assert(handle.asElement(), `Missing checkbox: ${text}`); await moveClick(handle.asElement()); await handle.dispose(); };
   let stopped = false;
   try {
     await hold(isImport ? '수입부는 기존 입고에서 수정할 내용과 사유를 입력하고 요청합니다.\n영업지원 최종 확정 전까지 원장은 바뀌지 않습니다.' : '요청을 열면 시스템이 입고·분배·재고·원가·손익을 자동 검증합니다.\n영향 차수별 분배 검토창에서 분배·확정 상태를 확인하고 수정합니다.', 7);
     if(!isImport)await click('검토·확정');
     for(const [index,scenario] of (isImport?['farm','product','quantity','add','cancel']:['farm','product','quantity']).filter(s=>!onlyScenario||s===onlyScenario).entries()){
-      console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,scenarioTitles[scenario]);
+      stepNumber=index+1;console.log(`${dry?'CHECK':'RECORD'} ${role}: ${scenario}`);rec.chapter(scenario,`${stepNumber}. ${scenarioTitles[scenario]}`);
       if(isImport){
         await hold(`${index+1}. ${scenarioTitles[scenario]}\n선택 농장의 기존 입고 안에서 수정합니다.`,5);
         await page.waitForSelector('[data-row-key="9001"]');await moveClick(await page.$('[data-row-key="9001"]'));await click('수입부 수정 요청');
