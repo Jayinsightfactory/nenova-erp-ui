@@ -40,6 +40,9 @@
       "OrderMaster",
       "ShipmentDetail",
       "ShipmentMaster",
+      "WarehouseMaster",
+      "WebSalesDefectDeduction",
+      "WebSalesDefectDeductionHistory",
       "Customer",
       "Product"
     ]
