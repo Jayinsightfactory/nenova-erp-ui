@@ -21,7 +21,10 @@
     "__tests__/distributeProductDisplayUi.test.cjs",
     "docs/desktop/AI_BRIDGE.md",
     "__tests__/shipmentDistributionCatalogBrowser.test.cjs",
-    "scripts/test-distribution-catalog-downstream-sql.cjs"
+    "scripts/test-distribution-catalog-downstream-sql.cjs",
+    "lib/shipmentDistributionCustomerScope.js",
+    "__tests__/shipmentDistributionCustomerScope.test.cjs",
+    "scripts/test-distribution-customer-scope-sql.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -59,6 +62,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Read-only DISTRIBUTE history in paste menu; never treat absolute edits as ADD/CANCEL or source delivery evidence."
+    },
+    {
+      "name": "COUNTRY_CUSTOMER_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Read-only country:: scope. workspaceCustomers queries active current-year/week orders before shipment exists; empty scope exposes active noOrder candidates, with 80 visible and full-list search. Native flower SP/confirmation actions require variety selection. No ledger writes on selection."
     }
   ],
   "crossYearFixture": {
@@ -71,7 +80,8 @@
     "source": "2026-10-14 local dnSpy.Console actual Nenova.exe FormShipmentDistribution; outputs/distribution-keyboard-native.txt",
     "methods": [
       "GetShipmentMaster",
-      "btnSave_Click"
+      "btnSave_Click",
+      "GetCustomerList"
     ],
     "tables": [
       "ShipmentMaster",
@@ -93,7 +103,8 @@
     "viewport": "1920x1080 CSS100%, plus smaller widths; page primary scrolling and accessible popups.",
     "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists.",
     "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and sorts A-Z; blank search keeps selected-week list. SELECT only; saves retain existing preflight and writers. Catalog-only products must also pass the selection whitelist, including empty 45-03 product lists. Header picker remains usable with zero current-week products and loads the same active catalog on open. Existing positive order registration precedes shipment writes.",
-    "countryGrouping": "국가(UserFavorite shipment-distribute-countries version1 countries)와 품종(shipment-distribute-groups)의 즐겨찾기 교집합을 국가 제목 아래 한 번만 표시. 설정이 없을 때만 기존 즐겨찾기 품종의 국가를 표시하는 이행정책; 명시[]는 빈 상태 유지. 전체보기에서 국가/품종 별도 설정. 위쪽 중복 즐겨찾기 버튼 제거. 계정변경시 모두 비움. 표시변경은 분배 초안 보존."
+    "countryGrouping": "국가(UserFavorite shipment-distribute-countries version1 countries)와 품종(shipment-distribute-groups)의 즐겨찾기 교집합을 국가 제목 아래 한 번만 표시. 설정이 없을 때만 기존 즐겨찾기 품종의 국가를 표시하는 이행정책; 명시[]는 빈 상태 유지. 전체보기에서 국가/품종 별도 설정. 위쪽 중복 즐겨찾기 버튼 제거. 계정변경시 모두 비움. 표시변경은 분배 초안 보존.",
+    "countrySelection": "Country name is a distinct selectable country-only filter (country::), independent of favorites; no country-only CountryFlower/SP mutation scope. workspaceCustomers includes scoped active orders before shipment/date exists; empty scope displays active noOrder candidates with explicit notice, never creates fake orders."
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionWorkspace.test.js",
@@ -104,7 +115,9 @@
     "__tests__/shipmentDistributionBrowser.test.cjs",
     "scripts/test-distribution-history-ui.cjs",
     "__tests__/shipmentDistributionCatalogBrowser.test.cjs",
-    "scripts/test-distribution-catalog-downstream-sql.cjs"
+    "scripts/test-distribution-catalog-downstream-sql.cjs",
+    "__tests__/shipmentDistributionCustomerScope.test.cjs",
+    "scripts/test-distribution-customer-scope-sql.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -112,6 +125,7 @@
     "npm run test:erp-manifest -- --changed-from origin/master",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build",
-    "node scripts/test-distribution-catalog-downstream-sql.cjs"
+    "node scripts/test-distribution-catalog-downstream-sql.cjs",
+    "node scripts/test-distribution-customer-scope-sql.cjs"
   ]
 }

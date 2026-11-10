@@ -2384,3 +2384,10 @@
 - 실제 PDF/XLSX 정상 및 반례, worker AWB 교체 저장0, 기존 국가/교차연도/롤백 회귀 통과. ERP전체/dnSpy/manifest206/writeguard 통과. EXE FormWarehouseView CLI 재추출. SQL·ERP writer·산식 변경0, 운영 DB 호출/저장0, 추가AI0.
 - 명시 연도/차수 없는 원본 및 스캔 PDF는 자동추정하지 않고 보류. UI/순서 변경없음(기존 reason 재사용), 영상 신규 해당없음. webpack/PR CI/코드배포 후속. docs/work-sessions/2026-11-10_pr1641-awb-proof.md.
 검색어: PR1641 AWB evidence 원본PDF hash 번호 연도 차수 반례 verifiedCandidates 운영DB보존
+
+## 2026-11-10 국가 선택·업체정보 빈 화면 후속
+- 원인: 국가 제목이 text+즐겨찾기만 있고 선택 이벤트가 없었음. 업체 후보는 native GetCustomerList의 ViewShipment+ShipmentDate 필수조인으로 분배 전 주문업체도 빠짐. 실제 태국45-03은 주문0이어서 단순 JOIN 수정만으로는 해결되지 않음.
+- 국가명은 country:: 읽기필터로 선택/활성 표시, 별은 즐겨찾기로 구분. 국가 전체에서 꽃 단위 SP/확정/초기화는 품종 선택 안내로 차단. 새 workspaceCustomers 공용 SELECT는 활성 현재연도+차수+국가/품종 주문업체를 분배 전에도 표시; 주문0이면 활성 전체업체 noOrder 후보로 안내. 초기80개, 전체검색 유지. 첫 업체 선택은 비교칸을 먼저 눌러도 기본업체로 연결. 기존 수정초안/양수주문→분배 writer 보존, 조회/선택으로 원장쓰기0.
+- actual dnSpy FormShipmentDistribution 재추출 및 운영 SELECT: 2026/45-01 태국 주문업체7, 2025동일7 / 2026/45-03 레드불0주문→활성676후보(이름 미출력). 교차연도99/분배없음/빈차수/삭제/국가·품종/조회원장불변 격리SQL PASS. Chrome1920/390 국가활성/45-03 후보/선택만으로주문0쓰기/기존날짜편집·catalog 검색 회귀 PASS. 안내영상35초대 재촬영+한국어자막/목차 country/customers 추가, proof 검사 PASS.
+- test:erp-contract / dnSpy / 변경manifest207 / writeguard / production build 전부 PASS. CI/병합/Cafe24 배포/운영 스모크는 후속, 현재기록 시점 미검증. 이전 날짜분배/미국29건 보정 writer 변경0.
+검색어: 국가선택 country:: workspaceCustomers 업체정보 빈45-03 주문없음676 nativeShipmentDate조인제거 80업체전체검색

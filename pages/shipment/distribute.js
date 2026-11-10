@@ -14,13 +14,13 @@ import { distributionQuantityRemark, distributionWeekOptions, distributionWeekBu
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite, parseDistributionCountryFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
   sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionFavoriteCountryGroups, distributionPairGroupKey, distributionPairGroups,
-  distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
+  distributionSelectionMatches, distributionPairFilterMatches, distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
 const pgLabel = (country, flower) => `${country || ''}${flower || ''}`;
 const countryFlowerFromGroup = (prodGroup, prodGroups) => {
-  if (!prodGroup) return '';
+  if (!prodGroup || prodGroup.endsWith(PG_SEP)) return '';
   const g = prodGroups.find((x) => x.key === prodGroup);
   if (g?.country && g?.flower) return pgLabel(g.country, g.flower);
   if (prodGroup.includes(PG_SEP)) {
@@ -405,7 +405,7 @@ export default function Distribute() {
     setLoading(true);
     Promise.all([
       apiGetDistribute({ type: 'products', week, ...(prodGroup && { prodGroup }), ...(cf && { countryFlower: cf }) }),
-      apiGetDistribute(cf ? { type: 'customers', week, countryFlower: cf } : { type: 'custList', week }),
+      apiGetDistribute({type:'workspaceCustomers',week,prodGroup}),
     ]).then(([prodRes, custRes]) => {
       if (request !== searchRequestRef.current || week !== currentWeekRef.current || prodGroup !== currentGroupRef.current) return;
       if (prodRes?.success !== true || custRes?.success !== true) throw new Error('분배 조회 결과를 확인하지 못했습니다.');
@@ -583,7 +583,7 @@ export default function Distribute() {
         items = d.items || [];
       }
       if (request !== tab2RequestRef.current || requestedWeek !== currentWeekRef.current) return;
-      items = sortDistributionProducts(items);
+      items = sortDistributionProducts(usesExe ? items : items.filter(item=>distributionSelectionMatches(item,prodGroup)));
       setTab2UsesExeGrid(usesExe);
       setTab2Items(items);
       // Only persisted native dates are exportable; no fabricated weekday auto split.
@@ -618,6 +618,7 @@ export default function Distribute() {
   };
 
   const handleFix = async () => {
+    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
     if (!week) { setErr('차수를 입력하세요.'); return; }
     // 사전검증
     setFixLoading(true); setErr('');
@@ -636,6 +637,7 @@ export default function Distribute() {
   };
 
   const doFix = async () => {
+    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
     if (!confirm(`[${week}] 차수를 확정하시겠습니까?\n\n확정 시 재고가 업데이트되고 견적서에 반영됩니다.`)) { setFixLoading(false); return; }
     setFixLoading(true); setErr('');
     try {
@@ -655,6 +657,7 @@ export default function Distribute() {
   };
 
   const handleUnfix = async () => {
+    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
     if (!week) { setErr('차수를 입력하세요.'); return; }
     if (!confirm(`[${week}] 확정을 취소 / Cancelar하시겠습니까?`)) return;
     setFixLoading(true); setErr('');
@@ -674,6 +677,7 @@ export default function Distribute() {
   };
 
   const handleSpDistribute = async (action) => {
+    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
     if (!week) { setErr('차수를 입력하세요.'); return; }
     if (action === 'one' && !selectedProd) { setErr('개별 전산 출고분배는 품목을 먼저 선택하세요.'); return; }
     if (action === 'group' && !prodGroup) { setErr('꽃/품목그룹을 선택하세요. 전체 차수 실행은 사용하지 않습니다.'); return; }
@@ -739,6 +743,7 @@ export default function Distribute() {
 
   // 개별 초기화 — nenova.exe "개별 초기화"(usp_DistributeClear) 와 동일. 선택 품목의 출고분배를 되돌린다.
   const handleClearOne = async () => {
+    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
     if (!week) { setErr('차수를 입력하세요.'); return; }
     if (!selectedProd?.ProdKey) { setErr('초기화할 품목을 먼저 선택하세요.'); return; }
     const label = `${week}차 ${selectedProd.DisplayName || selectedProd.ProdName} 개별 초기화`;
@@ -795,9 +800,7 @@ export default function Distribute() {
           ...(prodGroup && { prodGroup }),
           ...(cf && { countryFlower: cf }),
         }),
-        apiGetDistribute(cf
-          ? { type: 'customers', week, countryFlower: cf }
-          : { type: 'custList', week }),
+        apiGetDistribute({type:'workspaceCustomers',week,prodGroup}),
       ]);
       if (request !== searchRequestRef.current || requestedWeek !== currentWeekRef.current || requestedGroup !== currentGroupRef.current) return;
       if (prodRes?.success !== true || custRes?.success !== true) throw new Error('분배 조회 결과를 확인하지 못했습니다.');
@@ -897,7 +900,7 @@ export default function Distribute() {
     if (!skipDraftCheck && !confirmDraftDiscard()) return;
     const request = ++customerRequestRef.current;
     const requestedWeek = week;
-    setSelectedCust(cust);
+    setSelectedCust(cust); setPairSlot(1);
     setCustItems([]); setCustEditInputs({});
     setCustLoading(true);
     try {
@@ -1355,7 +1358,8 @@ export default function Distribute() {
   // 업체 한 곳 보기: 검색어가 있으면 주문(분배) 있는 품목을 먼저, 그 뒤에 주문 없는 품목도 보여 수량을 바로 넣을 수 있게.
   // 주문 없는 행에 수량을 넣으면 임시 행(주문수량 0)을 만들고 저장 시 주문등록 후 분배.
   const custSearchRows = distributionCustomerSearchRows(custItems, searchCandidates, custItemFilter, matchItemName)
-    .filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
+    .filter(row => distributionPairFilterMatches(row, pairGroupFilter))
+    .filter(row => String(custItemFilter||'').trim() || distributionSelectionMatches(row,prodGroup));
   const addCustSearchItem = (prod, outQty) => {
     setCustItems(prev => prev.some(i => Number(i.ProdKey) === Number(prod.ProdKey)) ? prev : [...prev, pendingDistributionItem(prod)]);
     setCustEditInputs(prev => ({ ...prev, [prod.ProdKey]: { ...(prev[prod.ProdKey] || {}), outQty, cost: prev[prod.ProdKey]?.cost ?? (prod.Cost ?? 0) } }));
@@ -1527,7 +1531,8 @@ export default function Distribute() {
         {countryGroups.map(({country, groups}) => (
           <div key={country} data-testid={`distribution-country-${country}`} role="group" aria-label={`${country} 품종`}
             style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',width:'100%',padding:'5px 0',borderTop:'1px solid var(--border-t)'}}>
-            <h3 style={{margin:0,fontSize:12,fontWeight:700,color:'var(--text2)',display:'inline-flex',alignItems:'center',gap:3,minWidth:84}}>{country}
+            <h3 style={{margin:0,fontSize:12,fontWeight:700,color:'var(--text2)',display:'inline-flex',alignItems:'center',gap:3,minWidth:84}}><button type="button" data-ai-verify={`country-select-${country}`} data-distribution-country-select aria-pressed={prodGroup===`${country}${PG_SEP}`} disabled={saving||prodGroupsLoading}
+                onClick={()=>chooseProdGroup(`${country}${PG_SEP}`)} style={{...pickButtonStyle(prodGroup===`${country}${PG_SEP}`,true),padding:'3px 5px'}}>{country}</button>
               <button type="button" data-ai-verify={`country-fav-${country}`} aria-label={`${country} 국가 즐겨찾기 ${selectedCountries.includes(country) ? '해제' : '추가'}`}
                 aria-pressed={selectedCountries.includes(country)} disabled={!accountId || favoritesPending || countryFavorite === undefined} onClick={() => toggleCountryFavorite(country)}
                 style={{...pickButtonStyle(false,true),padding:'2px 4px',color:selectedCountries.includes(country)?'#d97706':'var(--text3)'}}>{selectedCountries.includes(country)?'★':'☆'}</button>
@@ -1894,6 +1899,8 @@ export default function Distribute() {
                   <input type="checkbox" data-ai-verify="customer-show-all" checked={showAllCustomers} disabled={saving} onChange={e => toggleAllCustomers(e.target.checked)} />주문 없는 업체도
                 </label>
               </div>
+              {!loading && custList.length>0 && custList.every(c=>c.noOrder) && <p role="status" data-testid="distribution-no-order-candidates" style={{margin:0,padding:5,fontSize:12,color:'var(--blue)'}}>이 차수·선택 범위에 주문이 없어 전체 업체를 표시합니다. 업체 선택 후 품목을 추가하세요. 양수 수량을 저장할 때 주문등록 후 분배합니다.</p>}
+              {filteredCustomers.length>80 && <p role="status" style={{margin:0,padding:5,fontSize:11}}>전체 {filteredCustomers.length}개 업체 중 80개 표시 · 업체명 검색으로 전체 업체를 찾을 수 있습니다.</p>}
               {/* 두 업체 나란히 보기: 업체 버튼 클릭이 채울 칸 선택 */}
               <div data-testid="distribution-pair-slots" style={{padding:'6px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',fontSize:11}}>
                 <span style={{color:'var(--text3)'}}>버튼 클릭 →</span>
@@ -1927,14 +1934,14 @@ export default function Distribute() {
               <div data-testid="distribution-customer-buttons" style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',gap:5,flexWrap:'wrap',maxHeight:150,overflowY:'auto'}}>
                 {loading ? <span style={{fontSize:11,color:'var(--text3)'}}>업체 조회 중…</span>
                   : filteredCustomers.length === 0 ? <span style={{fontSize:11,color:'var(--text3)'}}>차수를 선택하면 업체 버튼이 나타납니다.</span>
-                  : filteredCustomers.map(c => {
+                  : filteredCustomers.slice(0,80).map(c => {
                     const active = Number(selectedCust?.CustKey) === Number(c.CustKey);
                     const isPair = Number(pairCust?.CustKey) === Number(c.CustKey);
                     const extraIndex = extraPeers.findIndex(p => Number(p.cust.CustKey) === Number(c.CustKey));
                     return (
                       <button key={c.CustKey} type="button" data-ai-verify={`customer-${c.CustKey}`} aria-pressed={active || isPair || extraIndex >= 0}
                         disabled={loading || saving} title={`${c.CustName} #${c.CustKey}${isPair ? ' (업체 2)' : active ? ' (업체 1)' : extraIndex >= 0 ? ` (업체 ${extraIndex + 3})` : ''}`}
-                        onClick={() => (pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}
+                        onClick={() => (!selectedCust ? selectCust(c) : pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}
                         style={isPair ? {...pickButtonStyle(true, false), background:'#b45309', border:'2px solid #b45309'}
                           : extraIndex >= 0 ? {...pickButtonStyle(true, false), background:PEER_COLORS[extraIndex], border:`2px solid ${PEER_COLORS[extraIndex]}`}
                           : pickButtonStyle(active, false)}>
@@ -1949,11 +1956,11 @@ export default function Distribute() {
                     <thead><tr><th>거래처명</th><th>지역</th><th>코드</th></tr></thead>
                     <tbody>
                       {filteredCustomers.length === 0
-                        ? <tr><td colSpan={3} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>차수 조회 후 표시</td></tr>
-                        : filteredCustomers.map(c => (
+                        ? <tr><td colSpan={3} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>{custFilter ? '검색 결과가 없습니다.' : '표시할 활성 업체가 없습니다.'}</td></tr>
+                        : filteredCustomers.slice(0,80).map(c => (
                           <tr key={c.CustKey} className={selectedCust?.CustKey===c.CustKey?'selected':''}>
                             <td className="name"><button type="button" className="btn btn-sm" disabled={loading || saving} data-ai-verify={`customer-row-${c.CustKey}`}
-                              onClick={() => (pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}>{c.CustName}</button></td>
+                              onClick={() => (!selectedCust ? selectCust(c) : pairSlot >= 3 ? selectExtraCust(c, pairSlot) : pairSlot === 2 ? selectPairCust(c) : selectCust(c))}>{c.CustName}</button></td>
                             <td><span className="badge badge-gray" style={{fontSize:10}}>{c.CustArea}</span></td>
                             <td style={{fontFamily:'var(--mono)',fontSize:11}}>{c.OrderCode}</td>
                           </tr>
@@ -2211,7 +2218,7 @@ export default function Distribute() {
                         // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙여서 바로 수정 (업체명 = 머리줄)
                         const sides = pairSides();
                         const colors = ['var(--blue)', '#b45309', ...PEER_COLORS];
-                        const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter);
+                        const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter));
                         const itemAt = (sd, row) => sd.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
                         const qtyAt = (sd, row) => { const item = itemAt(sd, row); const e = sd.inputs[row.ProdKey]; return e?.outQty !== undefined ? parseFloat(e.outQty) || 0 : (item?.출고수량 || 0); };
                         const edge = i => ({ borderLeft: `2px solid ${colors[i]}` });
@@ -2294,7 +2301,7 @@ export default function Distribute() {
                           </tr>
                         </thead>
                         <tbody>
-                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => !pairGroupFilter || distributionPairGroupKey(row) === pairGroupFilter).map(row => {
+                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).map(row => {
                             const editA = custEditInputs[row.ProdKey] || {};
                             const editB = pairEditInputs[row.ProdKey] || {};
                             const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;

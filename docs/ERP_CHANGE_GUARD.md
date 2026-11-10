@@ -1162,3 +1162,11 @@ output409/stocknotes500 반복에서원인을추측해fence를좁히지않는다
 일반 distributeUnits 정수화와 혼동하지 않는다. 국가/품종 즐겨찾기는 교집합 한곳만 표시.
 회귀: shipmentDistributionDates.test.js, test-distribution-dates-sql.cjs,
 record-distribution-dates-guide.cjs, shipmentDistributionCatalogBrowser.test.cjs.
+
+## 2026-11-10 국가 제목 선택 누락·업체정보 빈 후보 후속
+국가 제목을 즐겨찾기 별과 별도의 선택 버튼으로 제공한다. 국가 전체는 읽기용 country::
+선택이며 CountryFlower SP 범위로 변환하지 않는다. 웹 업체 후보는 native 출고/날짜
+조인이 아닌 활성 주문 기준 workspaceCustomers 공용 SQL로 읽는다. 주문0인 차수/품종은
+활성 전체업체를 noOrder 후보로 명시하여 분배 준비를 시작할 수 있게 한다. 선택만으로
+주문/출고/재고/견적 쓰기 없음. 회귀: shipmentDistributionCustomerScope.test.cjs,
+test-distribution-customer-scope-sql.cjs, 실제 Chrome country/empty45-03 시나리오.
