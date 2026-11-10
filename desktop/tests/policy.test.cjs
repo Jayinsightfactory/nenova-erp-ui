@@ -45,7 +45,7 @@ test('safeSnapshot keeps only bounded window and tab metadata', () => {
   assert.deepEqual(Object.keys(snapshot).sort(), ['actor', 'favorites', 'version', 'windows']);
   assert.equal(snapshot.version, 1);
   assert.equal(snapshot.actor, 'userid');
-  assert.deepEqual(snapshot.favorites, [{ url: `${ORIGIN}/orders?popup=1`, title: '주문', zoom: 1.5 }]);
+  assert.deepEqual(snapshot.favorites, [{ url: `${ORIGIN}/orders?popup=1`, title: '주문', zoom: 1.5, number: 1 }]);
   assert.equal(snapshot.windows.length, 1);
   const win = snapshot.windows[0];
   assert.deepEqual(win.bounds, { x: -30000, y: 30, width: 7680, height: 600 });

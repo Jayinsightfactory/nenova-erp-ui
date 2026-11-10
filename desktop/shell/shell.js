@@ -210,7 +210,7 @@
     $('resultCount').textContent = `${count}개 화면`;
     $('emptySearch').hidden = count > 0;
     const favorites = $('favoritesList'); favorites.replaceChildren();
-    const matches = state.favorites.filter((item) => !query || `${item.title || ''} ${item.url || ''}`.toLocaleLowerCase('ko').includes(query));
+    const matches = state.favorites.filter((item) => !query || `${item.number} ${item.alias || ''} ${item.title || ''} ${item.url || ''}`.toLocaleLowerCase('ko').includes(query));
     $('favoritesSection').hidden = !state.online;
     if (!matches.length && state.online) {
       const hint = document.createElement('p');
@@ -220,9 +220,27 @@
     }
     for (const item of matches) {
       const button = makeButton('favorite-card', '', `${item.title || item.url} 열기`, () => openPage({ href: item.url, labelKey: item.title }));
-      const star = document.createElement('span'); star.className = 'favorite-star'; star.textContent = '★'; star.setAttribute('aria-hidden', 'true');
-      const label = document.createElement('span'); label.textContent = item.title || shortUrl(item.url);
-      button.append(star, label); favorites.append(button);
+      const original = item.title || shortUrl(item.url);
+      button.textContent = `${item.number} ${item.alias && item.alias !== original ? `${item.alias}(${original})` : original}`;
+      const row = document.createElement('div');
+      row.className = 'favorite-row';
+      const edit = makeButton('menu-favorite', '✎', `${original} 즐겨찾기 이름 변경`, () => {
+        const input = document.createElement('input');
+        input.maxLength = 60;
+        input.setAttribute('aria-label', '즐겨찾기 이름');
+        input.value = item.alias || '';
+        const cancel = () => { row.replaceChildren(button, edit); edit.focus(); };
+        const save = () => { run('renameFavorite', { url: item.url, alias: input.value.trim() }); cancel(); };
+        input.addEventListener('keydown', event => {
+          if (event.isComposing) return;
+          if (event.key === 'Enter') save();
+          if (event.key === 'Escape') cancel();
+        });
+        row.replaceChildren(input, makeButton('', '저장', '이름 저장', save), makeButton('', '취소', '취소', cancel));
+        input.focus();
+      });
+      row.append(button, edit);
+      favorites.append(row);
     }
     if (focusedFavorite) [...document.querySelectorAll('[data-menu-favorite]')].find(button => button.dataset.menuFavorite === focusedFavorite)?.focus();
   }
