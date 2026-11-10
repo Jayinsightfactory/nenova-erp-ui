@@ -2521,3 +2521,7 @@
 - 사용자두원본XML서식비교후공통흰배경/검정thin/맑은고딕굵은16·19/4열/병합/원단가표시복제. 같은묶음한표·다른묶음옆표,미묶음한표. 원본의옛값/숨김/잔재표보존하지않음,동적행수픽셀100%동일미보장.
 - dnSpy/양연도SELECT probe,20테스트/PC390실Chrome선택·기존전체업무PASS,Artifact실제XLSX원본·생성렌더직접비교PASS. 새125.9초번호가이드첫/중간/끝overview/zoom/out+묶음프레임직접확인PASS. 전체ERP/빌드/CI/배포후속미검증.
 검색어: 출고내역서 선택형묶음 원본서식 플로르 알파 45차화요일1110
+
+- 최종검증:전체ERP(pre/core/post)exit0,dnSpy/manifest210/쓰기0API/layout/workflow11업무12영상/webpack1worker build PASS. production build PC1920·모바일390선택묶음/기존묶음추가/해제/자동이름/키보드/저장복원/다운로드/전체기존업무 및 영상player PASS. 원본XLSX/합성출력Artifact렌더확인,단가동일병합·혼합단가구분·정수/소수·긴이름/옆표행높이20테스트PASS.
+- 날짜중간요청은사용자가철회,기존수11-04~화11-10최종확인. 임시화시작수정은커밋/배포없이전부복원,core/service/date변경0. PR/운영배포후속미검증.
+검색어: 선택형묶음 최종20테스트 전체ERP통과 날짜변경철회 원본양식렌더

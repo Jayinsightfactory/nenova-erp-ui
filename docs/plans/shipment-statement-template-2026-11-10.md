@@ -5,3 +5,6 @@
 - 원본의 우측에 남은 예전표·숨김행·과거날짜를 복제하지 않는다. 행수 증가에 따른 세로길이는 동적이며 픽셀단위100%동일이라고 보장하지 않는다. 양식의 색·글꼴·테두리·열폭·병합구조 보존을 검사.
 - 전 동작의 OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/Stock/WebProfitReport 보존. 저장은 기존웹revision CAS, 내려받기는 exact 저장버전. SQL/조회기준/총량/단가환산 변경0.
 - 실제설치EXE FormShipmentDistribution 재추출 및 SELECT-only reader probe:2025/2026 업체64/66·표본28/29·달력7·세부차수정상(.verify/template-*). 기존EXE writer 호출0.
+
+## 날짜 기준 최종 확인
+사용자가 화요일 시작 요청을 철회하고 기존 기준이 맞다고 최종 확인했다. 2026/45 전산PeriodDay 수11-04~화11-10 유지. 화요일시작임시코드는전부되돌렸으며출고달력·기본일요일·기존저장본날짜변경0.
