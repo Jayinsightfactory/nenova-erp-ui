@@ -44,7 +44,9 @@ export default function Dashboard() {
     loadMenuFavorites();
     const refresh = () => loadMenuFavorites();
     window.addEventListener('nenova-menu-favorites-changed', refresh);
-    return () => window.removeEventListener('nenova-menu-favorites-changed', refresh);
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('nenova-menu-favorites-changed', refresh); };
   }, []);
 
   const allMenus = useMemo(() => (
