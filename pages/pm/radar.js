@@ -19,6 +19,7 @@ export async function getServerSideProps({ req, res, resolvedUrl }) {
 const ACTIONS = ['바로 시험', '관찰', '참고'];
 const SYSTEMS = ['네노바웹', 'Orbit', 'AI 자동화', 'MOYI', '공통'];
 const SCORES = [5, 6, 7, 8, 9];
+const ALL = 'all'; // 회차 선택값 — 전체 누적(기본). 새 회차가 올라와도 지난 추천이 화면에서 사라지지 않게 한다.
 const PAGE = 12; // 가운데 그리드 '더 보기' 단위 — 수집기가 20~40건으로 늘어도 레이아웃 유지
 const kst = (iso) => { try { return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return iso || ''; } };
 const fmtStars = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n || 0));
@@ -42,9 +43,10 @@ function BigCard({ x, i }) {
         <span className="bic" aria-hidden="true">{iconOf(x)}</span>
         <div className="ttl">
           <a href={x.url} target="_blank" rel="noopener noreferrer">{x.name}</a>
-          <span className="meta">★ {fmtStars(x.stars)}{x.starsPerDay ? ` · 하루 +${fmtStars(x.starsPerDay)}` : ''}</span>
+          <span className="meta">★ {fmtStars(x.stars)}{x.starsPerDay ? ` · 하루 +${fmtStars(x.starsPerDay)}` : ''}{x._round ? ` · ${x._round.slice(5)} 추천` : ''}</span>
         </div>
         <Badge className="pts">관심도 {x.score}점</Badge>
+        {x._new && <Badge className="newb">새로 추가</Badge>}
         {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함 {x.pilotResult.score}점</Badge>}
       </header>
       {x.easy && <p className="easy"><b>🤔 이게 뭐예요?</b> {x.easy}</p>}
@@ -82,8 +84,9 @@ function SmallCard({ x, i }) {
         <span className={'ic ic' + (i % 4)} aria-hidden="true">{iconOf(x)}</span>
         <span className="ttl">
           <b>{x.name.split('/').pop()}</b>
-          <span className="meta">★ {fmtStars(x.stars)}</span>
+          <span className="meta">★ {fmtStars(x.stars)}{x._round ? ` · ${x._round.slice(5)} 추천` : ''}</span>
         </span>
+        {x._new && <Badge className="newb">새로</Badge>}
         <Badge className={'score ' + scoreTone(x.score)}>{x.score}<small>/10</small></Badge>
         {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함</Badge>}
       </SelectCard>
@@ -121,14 +124,22 @@ export default function TechRadar() {
 
   useEffect(() => {
     fetch('/api/pm/radar', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => { if (!j.success) throw new Error(j.error || '불러오기 실패'); setData(j.data); setRoundId(j.data?.rounds?.[0]?.id || ''); })
+      .then((j) => { if (!j.success) throw new Error(j.error || '불러오기 실패'); setData(j.data); setRoundId(ALL); })
       .catch((e) => setErr(e.message));
   }, []);
   useEffect(() => { setShown(PAGE); }, [roundId, act, sys, minScore, track]);
 
-  const rounds = data?.rounds || [];
-  const round = rounds.find((r) => r.id === roundId) || rounds[0];
-  const roundNo = round ? rounds.length - rounds.indexOf(round) : 0;
+  const rounds = useMemo(() => data?.rounds || [], [data]);
+  // 전체 누적: 모든 회차 항목을 최신 회차부터 합치고, 같은 저장소는 가장 최근 평가 1건만 남긴다(_round=나온 회차, _new=최신 회차에 새로 나온 것).
+  const merged = useMemo(() => {
+    const seen = new Set(), list = [];
+    rounds.forEach((r, i) => (r.items || []).forEach((x) => { if (seen.has(x.name)) return; seen.add(x.name); list.push({ ...x, _round: r.id, _new: i === 0 && rounds.length > 1 }); }));
+    return list;
+  }, [rounds]);
+  const isAll = roundId === ALL || !rounds.some((r) => r.id === roundId);
+  const picked = rounds.find((r) => r.id === roundId) || rounds[0];
+  const round = !rounds.length ? null : isAll ? { id: ALL, items: merged, generatedAt: rounds[0].generatedAt } : picked;
+  const roundNo = picked ? rounds.length - rounds.indexOf(picked) : 0;
   const items = useMemo(() => (round?.items || []).filter((x) => ((x.track || 'interest') === track) && (!act || x.action === act) && (!sys || (x.systems || []).includes(sys)) && x.score >= minScore), [round, act, sys, minScore, track]);
   const featured = useMemo(() => items.filter((x) => x.action === '바로 시험').slice(0, 3), [items]);
   const rest = useMemo(() => items.filter((x) => !featured.includes(x)), [items, featured]);
@@ -145,7 +156,7 @@ export default function TechRadar() {
         <div className="brand">
           <h1>기술 레이더</h1>
           <span className="en">(Tech Radar)</span>
-          {round && <Badge className="round">제 {roundNo}회 · {round.id}{round.generatedAt ? ` · ${kst(round.generatedAt)} 갱신` : ''}</Badge>}
+          {round && <Badge className="round">{isAll ? `전체 누적 · ${rounds.length}회차 · ${merged.length}건` : `제 ${roundNo}회 · ${round.id}`}{round.generatedAt ? ` · ${kst(round.generatedAt)} 갱신` : ''}</Badge>}
         </div>
         {round && (
           <Tabs label="구분" value={track} onChange={setTrack} items={[
@@ -154,7 +165,7 @@ export default function TechRadar() {
           ]} />
         )}
       </header>
-      <p className="sub">PM 이 월·목 아침 GitHub 인기·급상승 저장소를 살펴 우리 회사(네노바웹·Orbit·AI 자동화·MOYI)에 쓸모 있는 것만 골랐습니다.</p>
+      <p className="sub">PM 이 월·목 아침 GitHub 인기·급상승 저장소를 살펴 우리 회사(네노바웹·Orbit·AI 자동화·MOYI)에 쓸모 있는 것만 골랐습니다. 추천은 회차마다 계속 쌓이며, 오른쪽 &quot;회차별로 보기&quot;에서 한 회차만 볼 수 있습니다.</p>
 
       {err && <p className="muted">불러오지 못했습니다: {err}</p>}
       {!err && !data && <p className="muted">불러오는 중…</p>}
@@ -215,11 +226,14 @@ export default function TechRadar() {
                   <div key={s} className="topic"><Badge className={'tchip c' + (i % 4)}>{s}</Badge><b>{n}개</b></div>
                 ))}
               </div>
-              {rounds.length > 1 && (
+              {rounds.length > 0 && (
                 <div className="box">
-                  <h3>지난 회차 목록</h3>
+                  <h3>회차별로 보기</h3>
+                  <Button size="sm" variant={isAll ? 'primary' : 'ghost'} className="rbtn" onClick={() => setRoundId(ALL)}>
+                    전체 누적 · {merged.length}건
+                  </Button>
                   {rounds.map((r, i) => (
-                    <Button key={r.id} size="sm" variant={r.id === round.id ? 'primary' : 'ghost'} className="rbtn" onClick={() => setRoundId(r.id)}>
+                    <Button key={r.id} size="sm" variant={!isAll && r.id === round.id ? 'primary' : 'ghost'} className="rbtn" onClick={() => setRoundId(r.id)}>
                       제 {rounds.length - i}회 ({r.id}) · {r.posted}건
                     </Button>
                   ))}
@@ -268,6 +282,7 @@ export default function TechRadar() {
         .bc footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
         .radar :global(.sys) { background: var(--pm-surface); color: var(--pm-muted); }
         /* PM 파일럿 "시험함" 배지 — pm-radar-pilot 이 pilotResult{score,summary,reportPath,testedAt} 를 넣으면 표시 */
+        .radar :global(.newb) { background: var(--pm-err-bg); color: var(--pm-err-ink); font-weight: bold; white-space: nowrap; }
         .radar :global(.pilot) { background: var(--pm-ok-bg); color: var(--pm-ok-ink); font-weight: bold; white-space: nowrap; }
         .sp { flex: 1; }
         .detail { border-top: 1px dashed var(--pm-line); padding-top: 8px; line-height: 1.55; }
