@@ -2452,6 +2452,12 @@
 검색어: 출고분배 두탭독립 즐겨찾기우선 품종접기 DistributionProductTree workspaceDateIndex 실제출고일분류 미저장탭보호 미국29보존
 - 최종 로컬: ERP 초기 실행의 실패 테스트 수정·해당 지점부터 끝 및 post 전부 PASS, 신설 navigation test CI 연결 PASS. dnSpy/manifest207/writeguard/안내영상9개/production build PASS. CI/배포/실브라우저는 후속.
 
+## 2026-11-10 CO46 실제 AI 헤더·패킹 자동입력
+- 실제 저장 Claude 6구간으로 16송장46행 재검증. 단당 송이수 원가 연결·유일 농장 master/과거명 중복·스페인어/2자리 날짜 근거·MAWB/HAWB 분리 수정. source 수량/가격/금액 불변, 운영DB/추가유료AI 0.
+- 최종 빌드 브라우저 격리 native 입고16건/46행/662박스/19960송이/USD13366.76 저장·재조회, 기존 주문/출고 sentinel 불변. 공동 GW3487/CW4152/운임12320.40로 XLSX(3) 실제 다운로드. Artifact 수식오류0, GW변경 통관/원가 재계산 PASS. AI bunch_st1/30/10 원문값 보존이며 원문 인식100% 인증 아님.
+- 전체 가드 초기PASS+최종 집중47개/webpack PASS. CI·코드배포 후속. docs/work-sessions/2026-11-10_co46-ai-header-packing.md. UI/순서 변경없음. 다운로드는 미승인 계산본, 원본 기본 통관비/조회시세+15원.
+검색어: CO46 저장AI 단당송이수 farm 날짜 MAWB HAWB 공동AWB 16송장46행 formulaErrors0 운영DB보존
+
 ## 2026-11-10 선율 ZIP nginx 업로드 한도 긴급 수정
 - 운영 ZIP이 nginx HTML413으로 차단된 원인에 맞춰 exact customs-settlement=36m(Next36mb,ZIP25MiB base64 JSON), worker=2m(Next2mb OCR POST) 관리경로 추가. worker PDF12MiB는 GET/18mb 응답이므로 요청 한도를 불필요 확대하지 않음.
 - 공통 응답 helper로 HTML/비JSON·401/403·413·502/503/504를 안전한 안내로 처리하고 원문 응답/파싱 오류 노출 차단. 기존 성공 JSON·업무 오류와 stale poll fence 보존. 계약 scope/필수 nginx 회귀/한도 명시.

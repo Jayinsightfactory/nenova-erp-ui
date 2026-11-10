@@ -11,6 +11,14 @@ const invoice=(id='A',amount=10)=>({supplier:'Farm',invoice:id,currency:'USD',in
 const payload=value=>({content:[{type:'text',text:JSON.stringify(value)}],stop_reason:'end_turn'});
 const segment=(invoices,pages=[1])=>({pages,result:{invoices}});
 
+test('checksum-valid master AWB separators are equivalent but different numbers are not',()=>{
+ const a=segment([invoice('A')],[1]),b=segment([invoice('B')],[2]);
+ a.result.master_awb='160-17338020';b.result.master_awb='16017338020';
+ assert.equal(JSON.parse(mergePackingChunks([a,b],2).content[0].text).invoices.length,2);
+ b.result.master_awb='16017338005';assert.throws(()=>mergePackingChunks([a,b],2),/AWB/);
+ b.result.master_awb='160/17338020';assert.throws(()=>mergePackingChunks([a,b],2),/AWB/);
+});
+
 test('complete JSON wrapper extraction preserves values and never repairs partial or multiple objects',()=>{
   const value={invoices:[{description:'장미 "{pink}"',quantity:0,price:12.34}],covered_pages:[]};
   for(const text of [JSON.stringify(value),'Here is the JSON:\n```JSON\n'+JSON.stringify(value)+'\n```\nDone.'])assert.deepEqual(readCompletePackingJson(text),value);
