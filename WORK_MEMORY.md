@@ -2489,3 +2489,6 @@
 - EXE변환우선순위·0/false/누락·정수/비정확양수→0반올림방지 pure PASS, native달력/교차연도/0날짜·Master업체(NULL SD.CustKey)/메타데이터묶음SQL 및 date저장15견적단/172500gross/ECOUNT XLSX·fixed/rollback/stale·원장보존 actual SQL PASS. 새Chrome 날짜순7일/단15↔송이300/6+9단→payload.4+.6/합계·정수·정밀도·입수stale/390, 기존업체이동/양연도미국catalog PASS. 안내영상/한국어자막/proof 갱신12영상검사PASS.
 - 최신base9464381b 병합뒤 전체ERP(exit0)/dnSpy/manifest209/writeguard(API0)/guide/production build(exit0) PASS. 운영ERP·ECOUNT쓰기0. PR/CI/배포/실로그인은 이 기록 시점 미검증.
 검색어: 출고일날짜역행 202645 1104수1110화 단송이정수 dateUnitFactor datePackingSignature native환산 날짜순정렬
+
+2026-11-10 수입부 확인 엑셀 전체품목·담당자 시트의 거래처 셀에 정식 거래처명만 표시. 생성 파일 재열기 시험 통과.
+검색어: 수입부확인 엑셀 거래처 태림원예

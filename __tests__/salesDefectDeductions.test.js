@@ -491,16 +491,16 @@ assert.equal(formatSalesDefectExportRows([{
 }]).some((row) => String(row.customerName || '').startsWith('기존명:')), false, '엑셀 거래처 열에는 기존명을 별도 출력하지 않아야 한다.');
 
 const managerWorkbook = await buildSalesDefectWorkbook([
-  { customerName: '업체A', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
+  { customerName: '태림원예', customerAlias: '태림C대농장/월요일', originalCustomerName: '태림C대농장', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
   { customerName: '업체B', managerName: '이담당', productName: '장미', countryName: '중국', colorName: 'B', quantity: 2, sourceUnit: '단' },
   { customerName: '업체C', managerName: '김담당', productName: '수국', countryName: '콜롬비아', colorName: 'C', quantity: 3, sourceUnit: '박스' },
 ], { year: 2026, week: 33, includeManagerSheets: true });
 const managerWb = new ExcelJS.Workbook();
 await managerWb.xlsx.load(managerWorkbook);
 assert.deepEqual(managerWb.worksheets.map((sheet) => sheet.name), ['전체품목', '김담당', '이담당'], '수입부 다운로드는 전체품목 시트와 담당자명 시트를 생성해야 한다.');
-assert.equal(managerWb.getWorksheet('전체품목').getCell('B6').value, '업체A (김담당)');
-assert.equal(managerWb.getWorksheet('김담당').getCell('B6').value, '업체A (김담당)');
-assert.equal(managerWb.getWorksheet('이담당').getCell('B6').value, '업체B (이담당)');
+assert.equal(managerWb.getWorksheet('전체품목').getCell('B6').value, '태림원예');
+assert.equal(managerWb.getWorksheet('김담당').getCell('B6').value, '태림원예');
+assert.equal(managerWb.getWorksheet('이담당').getCell('B6').value, '업체B');
 assert.equal(managerWb.getWorksheet('김담당').getCell('B7').value, null);
 assert.equal(managerWb.getWorksheet('김담당').pageSetup.printArea, 'B1:K44');
 
