@@ -424,13 +424,16 @@
     },
     {
       "id": "shipment-distribution-dates",
-      "title": "출고분배 국가 즐겨찾기와 출고일 분배",
+      "title": "농장·업체별 출고분배와 출고일",
       "entryPaths": [
         "/shipment/distribute"
       ],
       "sourceFiles": [
         "pages/shipment/distribute.js",
-        "components/shipment/DistributionDateEditor.js"
+        "components/shipment/DistributionDateEditor.js",
+        "components/shipment/DistributionProductTree.js",
+        "components/shipment/DistributionDateFilter.js",
+        "lib/shipmentDistributionNavigation.js"
       ],
       "requiredScenarios": [
         "favorites",
@@ -444,41 +447,41 @@
         {
           "id": "support",
           "role": "영업지원",
-          "title": "국가 즐겨찾기부터 날짜별 수량 확인·저장까지",
+          "title": "품종 펼치기부터 업체 선택·출고일 분배까지",
           "status": "ready",
           "src": "/guides/shipment-distribution-dates/support.mp4",
           "captions": "/guides/shipment-distribution-dates/support.ko.vtt",
           "proof": "/guides/shipment-distribution-dates/support.proof.json",
           "chapters": [
             {
-              "scenario": "favorites",
-              "title": "국가와 품종 즐겨찾기를 한 곳에서 선택",
+              "scenario": "country",
+              "title": "국가 선택과 독립 탐색",
               "seconds": 0
             },
             {
-              "scenario": "country",
-              "title": "국가 전체 선택과 분배 전 업체 후보",
-              "seconds": 7.138
+              "scenario": "favorites",
+              "title": "품종별 즐겨찾기 우선과 펼치기·접기",
+              "seconds": 0.111
             },
             {
               "scenario": "dates",
               "title": "날짜별 수량 입력과 총량 확인",
-              "seconds": 11.132
+              "seconds": 8.357
             },
             {
               "scenario": "save",
               "title": "견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 18.394
+              "seconds": 15.752
             },
             {
               "scenario": "tab",
               "title": "출고일지정 탭에서 저장값 재확인",
-              "seconds": 26.974
+              "seconds": 24.357
             },
             {
               "scenario": "customers",
-              "title": "분배 전 업체와 주문 없는 차수 후보",
-              "seconds": 30.699
+              "title": "업체부터 선택하는 독립 작업공간",
+              "seconds": 28.229
             }
           ]
         }

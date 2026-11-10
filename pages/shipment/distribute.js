@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import DistributionProductTree from '../../components/shipment/DistributionProductTree';
+import DistributionDateFilter from '../../components/shipment/DistributionDateFilter';
+import {favoriteDistributionRows,buildDistributionDateLookup} from '../../lib/shipmentDistributionNavigation.js';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPost, apiDelete, apiPut } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput, formatWeekDisplay } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
@@ -14,7 +17,7 @@ import { distributionQuantityRemark, distributionWeekOptions, distributionWeekBu
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite, parseDistributionCountryFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
   sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionFavoriteCountryGroups, distributionPairGroupKey, distributionPairGroups,
-  distributionAddProductCandidates, distributionSelectionMatches, distributionPairFilterMatches, distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
+  distributionCountryGroups, distributionAddProductCandidates, distributionSelectionMatches, distributionPairFilterMatches, distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
@@ -112,12 +115,19 @@ export default function Distribute() {
     [selectedOrderYear],
   );
   const [prodGroup, setProdGroup] = useState('');
+  const [farmCountry,setFarmCountry]=useState('');
+  const [expandedFamilies,setExpandedFamilies]=useState({});
+  const [farmDate,setFarmDate]=useState(''),[customerDate,setCustomerDate]=useState('');
+  const [dateIndex,setDateIndex]=useState([]),[dateIndexLoading,setDateIndexLoading]=useState(false),[dateIndexError,setDateIndexError]=useState('');
+  const dateRequestRef=useRef(0),customerListRequestRef=useRef(0),dealerSearchRef=useRef(null);
+  const dateLookup=useMemo(()=>buildDistributionDateLookup(dateIndex),[dateIndex]);
+
   const [prodGroups, setProdGroups] = useState([]);
   const [showAllProdGroups, setShowAllProdGroups] = useState(false);
   const [prodGroupsLoading, setProdGroupsLoading] = useState(false);
   // 'prod'=품목기준(탭0) 'cust'=업체기준(탭1) — nenova.exe처럼 탭이 곧 조회 기준
   const viewMode = tab === 1 ? 'cust' : 'prod';
-  const setViewMode = mode => setTab(mode === 'cust' ? 1 : 0);
+  const setViewMode = mode => requestTab(mode === 'cust' ? 1 : 0);
   // Ctrl+S / 저장 버튼 결과 화면 로그 (최신이 위)
   const [saveLog, setSaveLog] = useState([]);
   const appendSaveLog = entry => setSaveLog(prev => [distributionSaveLogLine(entry), ...prev].slice(0, 30));
@@ -189,7 +199,9 @@ export default function Distribute() {
     if (on && !(await loadAllCustomers())) setShowAllCustomers(false);
   }; // { side, group, prodKey, unit } | null // 품목별 이동 방향 { from, to } (업체 3개 이상일 때)
 
-  const [loading, setLoading] = useState(false);
+  const [productListLoading,setProductListLoading]=useState(false),[customerListLoading,setCustomerListLoading]=useState(false);
+  const loading=tab===1?customerListLoading:productListLoading;
+  const setLoading=tab===1?setCustomerListLoading:setProductListLoading;
   const [distMode, setDistMode] = useState('ratio');
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -241,6 +253,7 @@ export default function Distribute() {
   currentWeekRef.current = week;
   const currentGroupRef = useRef(prodGroup);
   currentGroupRef.current = prodGroup;
+  const currentFarmCountryRef=useRef(farmCountry);currentFarmCountryRef.current=farmCountry;
   const searchRequestRef = useRef(0);
   const productRequestRef = useRef(0);
   const customerRequestRef = useRef(0);
@@ -267,6 +280,7 @@ export default function Distribute() {
         setAccountId(uid);
         setFavoriteProducts([]);
         setFavoriteGroups([]);
+        setExpandedFamilies({});
         setCountryFavorite(undefined);
         setShowAllProdGroups(false);
       }
@@ -289,6 +303,7 @@ export default function Distribute() {
         setAccountId('');
         setFavoriteProducts([]);
         setFavoriteGroups([]);
+        setExpandedFamilies({});
         setCountryFavorite(undefined);
         setFavoriteError(error.message || '즐겨찾기 조회에 실패했습니다.');
       }
@@ -368,29 +383,52 @@ export default function Distribute() {
     finally { setFavoritesPending(false); }
   };
 
+  const confirmFarmDraftDiscard=()=>!saving&&(!hasDistributionDrafts(custDist,outInputs,[],{})||window.confirm('저장하지 않은 품목 분배가 있습니다. 선택을 바꾸면 이 품목 입력값이 사라집니다. 계속할까요?'));
+  const confirmCustomerDraftDiscard=()=>!saving&&((!hasDistributionDrafts([],{},custItems,custEditInputs)&&!hasDistributionDrafts([],{},pairItems,pairEditInputs)&&!extraPeers.some(p=>hasDistributionDrafts([],{},p.items,p.inputs)))||window.confirm('저장하지 않은 업체 분배가 있습니다. 업체 선택을 바꿀까요?'));
   const chooseProdGroup = (key) => {
-    // 업체 탭에서 업체를 고른 상태면 품종 변경은 화면 필터만 바꾸고 입력값을 지우지 않음 → 확인창 불필요
-    if (key === prodGroup || (!(viewMode === 'cust' && selectedCust) && !confirmDraftDiscard())) return;
-    groupChosenRef.current = true;
-    setProdGroup(key);
+    if(key===prodGroup || !confirmFarmDraftDiscard())return;
+    groupChosenRef.current=true;setProdGroup(key);
+    if(key){const country=key.split(PG_SEP)[0];if(country)setFarmCountry(country);}
+    setSelectedProd(null);setCustDist([]);setOutInputs({});setSelectedDistCust(null);setFarmRows([]);
   };
+  const chooseFarmCountry=country=>{
+    if(country===farmCountry||!confirmFarmDraftDiscard())return;
+    groupChosenRef.current=true;setFarmCountry(country);setProdGroup(country?`${country}${PG_SEP}`:'');
+  };
+
+  const loadDateIndex=useCallback(async()=>{
+    if(!week||!selectedOrderYear)return;
+    const request=++dateRequestRef.current,requestedWeek=week;setDateIndexLoading(true);setDateIndexError('');
+    try{const result=await apiGetDistribute({type:'workspaceDateIndex',week});
+      if(request!==dateRequestRef.current||requestedWeek!==currentWeekRef.current)return;
+      if(!result.success)throw new Error(result.error||'조회 결과 없음');setDateIndex(result.rows||[]);
+    }catch(error){if(request===dateRequestRef.current){setDateIndexError(error.message);setFarmDate('');setCustomerDate('');}}
+    finally{if(request===dateRequestRef.current)setDateIndexLoading(false);}
+  },[week,selectedOrderYear,apiGetDistribute]);
+  useEffect(()=>{setFarmDate('');setCustomerDate('');setDateIndex([]);loadDateIndex();return()=>{dateRequestRef.current+=1;};},[loadDateIndex]);
+  useEffect(()=>{if(saveModal)loadDateIndex();},[saveModal,loadDateIndex]);
+  useEffect(()=>{
+    if(!week||!selectedOrderYear)return;const request=++customerListRequestRef.current,requestedWeek=week;
+    setCustomerListLoading(true);setCustList([]);
+    apiGetDistribute({type:'workspaceCustomers',week,prodGroup:''}).then(data=>{
+      if(request!==customerListRequestRef.current||requestedWeek!==currentWeekRef.current)return;
+      if(!data.success)throw new Error(data.error||'업체 조회 실패');setCustList(sortDistributionCustomers(data.customers||[]));
+    }).catch(e=>{if(request===customerListRequestRef.current)setErr(e.message);}).finally(()=>{if(request===customerListRequestRef.current)setCustomerListLoading(false);});
+    return()=>{customerListRequestRef.current+=1;};
+  },[week,selectedOrderYear,apiGetDistribute]);
 
   const prevSearchWeekRef = useRef(week);
   useEffect(() => {
     const request = ++searchRequestRef.current;
     // 같은 차수에서 품종만 바꾼 경우: 업체 탭에서 고른 업체·입력값은 유지하고 그 품종 품목만 보이게 (초기화 금지)
-    const keepCust = prevSearchWeekRef.current === week && viewMode === 'cust' && !!selectedCust;
+    const keepCust = prevSearchWeekRef.current === week;
     prevSearchWeekRef.current = week;
     productRequestRef.current += 1;
-    customerRequestRef.current += 1;
     farmRequestRef.current += 1;
-    tab2RequestRef.current += 1;
-    pivotRequestRef.current += 1;
-    setProducts([]); setCustList([]);
+    setProducts([]);
     setSelectedProd(null); setCustDist([]); setOutInputs({});
-    if (keepCust) {
-      setPairGroupFilter(pairKeyFromGroup(prodGroup, prodGroups));
-    } else {
+    if (!keepCust) {
+      customerRequestRef.current += 1;tab2RequestRef.current += 1;pivotRequestRef.current += 1;
       setSelectedCust(null); setCustItems([]); setCustEditInputs({});
       pairRequestRef.current += 1;
       setPairCust(null); setPairItems([]); setPairEditInputs({}); setPairSlot(1); setMoveQtyInputs({}); setPairGroupFilter('');
@@ -398,22 +436,16 @@ export default function Distribute() {
     }
     setProdAddedCusts([]); setProdAddOpen(false);
     setSelectedDistCust(null); setFarmRows([]);
-    setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});
-    setPivotRows([]);
+    if(!keepCust){setTab2CustKey(null); setTab2Items([]); setDailyQtyInputs({});setPivotRows([]);}
     if (!week || !selectedOrderYear) return;
-    const cf = countryFlowerFromGroup(prodGroup, prodGroups);
-    setLoading(true);
-    Promise.all([
-      apiGetDistribute({ type: 'products', week, ...(prodGroup && { prodGroup }), ...(cf && { countryFlower: cf }) }),
-      apiGetDistribute({type:'workspaceCustomers',week,prodGroup}),
-    ]).then(([prodRes, custRes]) => {
-      if (request !== searchRequestRef.current || week !== currentWeekRef.current || prodGroup !== currentGroupRef.current) return;
-      if (prodRes?.success !== true || custRes?.success !== true) throw new Error('분배 조회 결과를 확인하지 못했습니다.');
-      setProducts(sortDistributionProducts(prodRes.products || []));
-      setCustList(sortDistributionCustomers(custRes.customers || []));
-    }).catch(error => { if (request === searchRequestRef.current) setErr(error.message); })
-      .finally(() => { if (request === searchRequestRef.current) setLoading(false); });
-  }, [week, prodGroup]);
+    const requestedCountry=farmCountry;
+    setProductListLoading(true);
+    apiGetDistribute({type:'products',week,prodGroup:farmCountry?`${farmCountry}${PG_SEP}`:''}).then(prodRes=>{
+      if(request!==searchRequestRef.current||week!==currentWeekRef.current||requestedCountry!==currentFarmCountryRef.current)return;
+      if(!prodRes?.success)throw new Error('품목 조회 결과를 확인하지 못했습니다.');setProducts(sortDistributionProducts(prodRes.products||[]));
+    }).catch(error=>{if(request===searchRequestRef.current)setErr(error.message);}).finally(()=>{if(request===searchRequestRef.current)setProductListLoading(false);});
+
+  }, [week, farmCountry]);
 
   const extraHasDrafts = () => extraPeers.some(p => hasDistributionDrafts([], {}, p.items, p.inputs));
   const confirmDraftDiscard = () => !saving && ((!hasDistributionDrafts(custDist, outInputs, custItems, custEditInputs) &&
@@ -497,19 +529,21 @@ export default function Distribute() {
       const groups = await loadProdGroups(week || '');
       if (cancelled) return;
       setProdGroups(groups);
-      setProdGroup(prev => (prev && groups.some(g => g.key === prev) ? prev : ''));
+      setProdGroup(prev => prev && groups.some(g=>g.key===prev||(prev.endsWith(PG_SEP)&&g.country===prev.slice(0,-2)))?prev:'');
+      setFarmCountry(prev=>groups.some(g=>g.country===prev)?prev:'');
     })();
     return () => { cancelled = true; };
   }, [week, loadProdGroups]);
 
   // 품종 즐겨찾기가 있으면 차수가 바뀌어도 그 품종을 기본 선택 (사용자가 직접 고르기 전까지만)
   useEffect(() => {
-    if (countryFavorite === undefined || groupChosenRef.current || prodGroup || favoriteGroups.length === 0) return;
+    if (countryFavorite === undefined || groupChosenRef.current || farmCountry || favoriteGroups.length === 0) return;
     const first = favoriteGroups.find(fav => prodGroups.some(g => g.key === fav.groupKey && (countryFavorite === null || countryFavorite.countries.includes(g.country))));
-    if (first) setProdGroup(first.groupKey);
-  }, [favoriteGroups, prodGroups, prodGroup, countryFavorite]);
+    if (first){const country=first.groupKey.split(PG_SEP)[0];setFarmCountry(country);setProdGroup(`${country}${PG_SEP}`);}
+  }, [favoriteGroups, prodGroups, farmCountry, countryFavorite]);
 
-  const countryGroups = countryFavorite === undefined && !showAllProdGroups ? [] : distributionFavoriteCountryGroups(prodGroups, favoriteGroups, showAllProdGroups, countryFavorite?.countries ?? null);
+  const countryGroups = countryFavorite === undefined && !showAllProdGroups ? [] : distributionCountryGroups(prodGroups).filter(g=>showAllProdGroups||selectedCountries.includes(g.country)).sort((a,b)=>Number(selectedCountries.includes(b.country))-Number(selectedCountries.includes(a.country))||a.country.localeCompare(b.country,'ko'));
+  useEffect(()=>{if(tab===0)ensureProductCatalog();},[tab]);
   const selectedProdGroupLabel = prodGroups.find(g => g.key === prodGroup)?.label || prodGroup.replace(PG_SEP, '');
 
   // 출고요일 설정 저장
@@ -787,6 +821,8 @@ export default function Distribute() {
     const request = ++searchRequestRef.current;
     const requestedWeek = week;
     const requestedGroup = prodGroup;
+    customerListRequestRef.current+=1;
+    loadDateIndex();
     productRequestRef.current += 1;
     customerRequestRef.current += 1;
     setLoading(true); setErr('');
@@ -797,10 +833,9 @@ export default function Distribute() {
         apiGetDistribute({
           type: 'products',
           week,
-          ...(prodGroup && { prodGroup }),
-          ...(cf && { countryFlower: cf }),
+          prodGroup:farmCountry?`${farmCountry}${PG_SEP}`:'',
         }),
-        apiGetDistribute({type:'workspaceCustomers',week,prodGroup}),
+        apiGetDistribute({type:'workspaceCustomers',week,prodGroup:''}),
       ]);
       if (request !== searchRequestRef.current || requestedWeek !== currentWeekRef.current || requestedGroup !== currentGroupRef.current) return;
       if (prodRes?.success !== true || custRes?.success !== true) throw new Error('분배 조회 결과를 확인하지 못했습니다.');
@@ -845,10 +880,11 @@ export default function Distribute() {
   const selectProd = async (prod, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
     if (!week || !mergeDistributionSearchCandidates(products, productCatalog).some(p => Number(p.ProdKey) === Number(prod?.ProdKey))) return;
-    if (!skipDraftCheck && !confirmDraftDiscard()) return;
+    if (!skipDraftCheck && !confirmFarmDraftDiscard()) return;
     const request = ++productRequestRef.current;
     const requestedWeek = week;
     setSelectedProd(prod);
+    if(prod.CounName&&prod.FlowerName)setProdGroup(`${prod.CounName}${PG_SEP}${prod.FlowerName}`);
     setSelectedDistCust(null);
     setFarmRows([]);
     setOutInputs({}); setCustDist([]);
@@ -897,7 +933,7 @@ export default function Distribute() {
   const selectCust = async (cust, { skipDraftCheck = false } = {}) => {
     if ((saving || loading) && !skipDraftCheck) return;
     if (!week || !inCustomerPool(cust)) return;
-    if (!skipDraftCheck && !confirmDraftDiscard()) return;
+    if (!skipDraftCheck && !confirmCustomerDraftDiscard()) return;
     const request = ++customerRequestRef.current;
     const requestedWeek = week;
     setSelectedCust(cust); setPairSlot(1);
@@ -1256,11 +1292,13 @@ export default function Distribute() {
 
   const custDistRows = selectedProd ? [...custDist, ...prodAddedCusts
     .filter(a => !custDist.some(c => Number(c.CustKey) === Number(a.CustKey)))
-    .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))] : custDist;
+    .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))].filter(c=>dateLookup.matches(farmDate,selectedProd.ProdKey,c.CustKey)) : custDist;
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
-  const filteredProds = distributionProductSearchRows(products, productCatalog, prodFilter)
-    .filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey)));
-  const filteredCustomers = sortDistributionCustomers(customerPool, custFilter);
+  const filteredProds = favoriteDistributionRows(sortDistributionProducts(distributionAddProductCandidates(products,productCatalog),prodFilter)
+    .filter(p=>String(prodFilter||'').trim()||!farmCountry||p.CounName===farmCountry)
+    .filter(p=>!favoritesOnly||favoriteKeys.has(Number(p.ProdKey)))
+    .filter(p=>dateLookup.matches(farmDate,p.ProdKey)),favoriteKeys);
+  const filteredCustomers = sortDistributionCustomers(customerPool,custFilter).filter(c=>dateLookup.matches(customerDate,null,c.CustKey));
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
   const remain = (inQty||0) - totalOutInput;
   const selectedFlower = prodGroups.find(group => group.key === prodGroup)?.flower || '';
@@ -1357,9 +1395,9 @@ export default function Distribute() {
     : pairRows;
   // 업체 한 곳 보기: 검색어가 있으면 주문(분배) 있는 품목을 먼저, 그 뒤에 주문 없는 품목도 보여 수량을 바로 넣을 수 있게.
   // 주문 없는 행에 수량을 넣으면 임시 행(주문수량 0)을 만들고 저장 시 주문등록 후 분배.
-  const custSearchRows = distributionCustomerSearchRows(custItems, searchCandidates, custItemFilter, matchItemName)
+  const custSearchRows = favoriteDistributionRows(distributionCustomerSearchRows(custItems, searchCandidates, custItemFilter, matchItemName)
     .filter(row => distributionPairFilterMatches(row, pairGroupFilter))
-    .filter(row => String(custItemFilter||'').trim() || distributionSelectionMatches(row,prodGroup));
+    .filter(row => dateLookup.matches(customerDate,row.ProdKey,selectedCust?.CustKey)),favoriteKeys);
   const addCustSearchItem = (prod, outQty) => {
     setCustItems(prev => prev.some(i => Number(i.ProdKey) === Number(prod.ProdKey)) ? prev : [...prev, pendingDistributionItem(prod)]);
     setCustEditInputs(prev => ({ ...prev, [prod.ProdKey]: { ...(prev[prod.ProdKey] || {}), outQty, cost: prev[prod.ProdKey]?.cost ?? (prod.Cost ?? 0) } }));
@@ -1410,7 +1448,7 @@ export default function Distribute() {
         event.preventDefault();
         if (event.key === '1') weekPickerRef.current?.click();
         if (event.key === '2') productPickerRef.current?.click();
-        if (event.key === '3') customerPickerRef.current?.click();
+        if (event.key === '3' && requestTab(1)) setTimeout(()=>dealerSearchRef.current?.focus(),0);
         if (event.key === '4') document.querySelector('[data-distribute-qty="true"]')?.focus();
       } else if (event.ctrlKey && event.key === 'Enter') {
         event.preventDefault();
@@ -1420,6 +1458,15 @@ export default function Distribute() {
     window.addEventListener('keydown', onShortcut);
     return () => window.removeEventListener('keydown', onShortcut);
   });
+
+  const requestTab = index => {
+    if(index===tab)return true;
+    if(hasAnyDraft()){setErr('수량·단가 변경을 먼저 저장하거나 변경 취소한 후 탭을 이동하세요.');return false;}
+    setErr('');setTab(index);
+    if(index===0&&selectedProd)selectProd(selectedProd,{skipDraftCheck:true});
+    if(index===1){if(selectedCust)selectCust(selectedCust,{skipDraftCheck:true});if(pairCust)selectPairCust(pairCust,{skipDraftCheck:true});void(async()=>{for(let i=0;i<extraPeers.length;i++)await selectExtraCust(extraPeers[i].cust,i+3,{skipDraftCheck:true});})();}
+    return true;
+  };
 
   const openDateEditor = (custKey, prod, label) => {
     if (hasAnyDraft()) { setErr('수량·단가 변경을 먼저 저장하거나 초기화한 후 출고일을 수정하세요.'); return; }
@@ -1434,6 +1481,7 @@ export default function Distribute() {
     <div data-testid="distribution-workspace" style={{display:'flex',flexDirection:'column',minHeight:'calc(100vh - 104px)',minWidth:0}}>
       {dateEditor && <DistributionDateEditor {...dateEditor} onClose={()=>setDateEditor(null)} onSaved={async()=>{
         setSuccessMsg('출고일 분배 저장 완료 · 출고 총량·매출·확정 상태 유지');
+        await loadDateIndex();
         if(tab===2&&tab2CustKey)await loadTab2Items(tab2CustKey);
         else if(tab===0&&selectedProd)await selectProd(selectedProd,{skipDraftCheck:true});
         else if(tab===1&&selectedCust)await selectCust(selectedCust,{skipDraftCheck:true});
@@ -1451,31 +1499,21 @@ export default function Distribute() {
         <DistributionPicker label="차수" value={week} triggerRef={weekPickerRef} shortcut="Ctrl+Alt+1" disabled={saving}
           options={distributionWeekOptions(week).map(value => ({ key: value, label: value, selected: value === week }))}
           onSelect={option => guardedWeekInput.setValue(option.key)} testId="distribution-week-picker" />
+        {tab!==1 && <>
         <DistributionPicker label="품목그룹" value={selectedProdGroupLabel || '전체'} disabled={saving || prodGroupsLoading}
           options={[{ key: '', label: '전체', selected: !prodGroup }, ...prodGroups.map(g => ({ key: g.key, label: g.label, selected: g.key === prodGroup }))]}
           onSelect={option => chooseProdGroup(option.key)} />
         <DistributionPicker label="품목" value={selectedProd?.ProdName || ''} triggerRef={productPickerRef}
           shortcut="Ctrl+Alt+2" disabled={saving || loading} onOpen={ensureProductCatalog} maxResults={80}
-          options={sortDistributionProducts(mergeDistributionSearchCandidates(products, productCatalog)).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
+          options={favoriteDistributionRows(sortDistributionProducts(mergeDistributionSearchCandidates(products, productCatalog)),favoriteKeys).filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey))).map(p => ({ key: p.ProdKey,
             label: p.ProdName || p.DisplayName || `#${p.ProdKey}`,
             hint: `${favoriteKeys.has(Number(p.ProdKey)) ? '★ ' : ''}#${p.ProdKey}`,
             selected: Number(p.ProdKey) === Number(selectedProd?.ProdKey), product: p }))}
           onSelect={option => { setViewMode('prod'); selectProd(option.product); }} testId="distribution-product-picker" />
-        <DistributionPicker label="업체" value={selectedCust?.CustName || ''} triggerRef={customerPickerRef}
-          shortcut="Ctrl+Alt+3" disabled={saving || !custList.length || loading}
-          options={sortDistributionCustomers(custList).map(c => ({ key: c.CustKey, label: c.CustName,
-            hint: `#${c.CustKey}`, selected: Number(c.CustKey) === Number(selectedCust?.CustKey), customer: c }))}
-          onSelect={option => { setViewMode('cust'); selectCust(option.customer); }} testId="distribution-customer-picker" />
-        <span className="filter-label">거래처</span>
-        <input ref={customerSearchRef} className="filter-input" placeholder="업체 목록 검색" value={custFilter||''} disabled={saving}
-          onChange={e=>{ setCustFilter(e.target.value); if (e.target.value.trim()) loadAllCustomers(); }}
-          onKeyDown={e=>e.key==='Enter' && handleSearch()}
-          style={{minWidth:150, borderColor: custFilter ? 'var(--blue)' : undefined, fontWeight: custFilter ? 600 : undefined}} />
-        {custFilter && (
-          <button className="btn btn-sm" disabled={saving || loading} style={{padding:'2px 7px',fontSize:11}} onClick={()=>{if (!confirmDraftDiscard()) return;setCustFilter('');setSelectedCust(null);setCustItems([]);setCustEditInputs({});setViewMode('prod');}}>✕</button>
-        )}
+        </>}
         <div style={{marginLeft:'auto',display:'flex',gap:6,flexWrap:'wrap'}}>
           <button className="btn btn-secondary btn-sm" onClick={handleSearch} disabled={saving}>🔍 조회</button>
+          {tab!==1 && <>
           <button className="btn btn-success btn-sm" onClick={handleFix} disabled={fixLoading||isFixed}>
             {fixLoading?'처리중... / Procesando': isFixed?'✅ 확정됨 / Confirmado':'✅ 확정 / Confirmar'}
           </button>
@@ -1485,9 +1523,10 @@ export default function Distribute() {
           <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('group')} disabled={spLoading || fixLoading || isFixed || !week || !prodGroup} title="선택한 차수와 꽃/품목그룹만 dbo.usp_DistributeOne 경로로 일괄 분배합니다.">
             {spLoading ? '전산분배 중...' : '전산 선택꽃 일괄출고분배'}
           </button>
+          </>}
           {viewMode === 'cust' && selectedCust && (
             <button type="button" className="btn btn-sm" data-ai-verify="add-panel-open" disabled={saving || loading}
-              onClick={() => { setAddPanel({ side: 0, group: pairGroupFilter || pairKeyFromGroup(prodGroup,prodGroups), prodKey: null, unit: '', manager: '' }); setAddCustFilter(''); setAddProdFilter(''); loadAllCustomers(); ensureProductCatalog(); }}
+              onClick={() => { setAddPanel({ side: 0, group: pairGroupFilter || '', prodKey: null, unit: '', manager: '' }); setAddCustFilter(''); setAddProdFilter(''); loadAllCustomers(); ensureProductCatalog(); }}
               title="품종 → 품목 → 수량 버튼으로 이 업체 출고수량에 더합니다 (주문 없는 품목은 저장 시 주문등록 후 분배)">➕ 품목추가·수량추가</button>
           )}
           <button type="button" className="btn btn-secondary btn-sm" data-ai-verify="discard-drafts" onClick={discardDrafts} disabled={saving || !hasAnyDraft()}
@@ -1521,41 +1560,28 @@ export default function Distribute() {
 
       </div>
       {/* 국가별 제목 아래 품종을 모으되 기존 품종 선택/즐겨찾기 동작은 유지한다. */}
+      {tab!==1 && <>
       <div data-testid="distribution-group-buttons" style={{padding:'4px 5px',background:'var(--surface)',borderLeft:'1px solid var(--border)',borderRight:'1px solid var(--border)',borderTop:'1px solid var(--border-t)',display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
-        <span style={{fontSize:12,fontWeight:700,color:'var(--text2)'}}>품종</span>
-        <button type="button" data-ai-verify="group-all" aria-pressed={!prodGroup} disabled={saving || prodGroupsLoading}
-          onClick={() => chooseProdGroup('')} style={pickButtonStyle(!prodGroup, true)}>전체</button>
+        <span style={{fontSize:12,fontWeight:700,color:'var(--text2)'}}>국가</span>
+        <button type="button" data-ai-verify="group-all" aria-pressed={!farmCountry} disabled={saving || prodGroupsLoading}
+          onClick={() => chooseFarmCountry('')} style={pickButtonStyle(!farmCountry, true)}>전체</button>
         <button type="button" className="btn btn-sm btn-secondary" data-ai-verify="group-view-all" aria-pressed={showAllProdGroups}
-          onClick={() => setShowAllProdGroups(value => !value)}>{showAllProdGroups ? '★ 즐겨찾기만 보기' : '품종 전체 보기'}</button>
-        {!showAllProdGroups && countryGroups.length === 0 && <span style={{fontSize:12,color:'var(--text3)'}}>즐겨찾기한 국가·품종이 없습니다. 「품종 전체 보기」에서 국가와 품종의 ☆를 눌러 추가하세요.</span>}
+          onClick={() => setShowAllProdGroups(value => !value)}>{showAllProdGroups ? '★ 즐겨찾기만 보기' : '국가 전체 보기'}</button>
+        {!showAllProdGroups && countryGroups.length === 0 && <span style={{fontSize:12,color:'var(--text3)'}}>즐겨찾기한 국가가 없습니다. 「국가 전체 보기」에서 국가와 품종의 ☆를 눌러 추가하세요.</span>}
         {countryGroups.map(({country, groups}) => (
           <div key={country} data-testid={`distribution-country-${country}`} role="group" aria-label={`${country} 품종`}
             style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',width:'100%',padding:'5px 0',borderTop:'1px solid var(--border-t)'}}>
-            <h3 style={{margin:0,fontSize:12,fontWeight:700,color:'var(--text2)',display:'inline-flex',alignItems:'center',gap:3,minWidth:84}}><button type="button" data-ai-verify={`country-select-${country}`} data-distribution-country-select aria-pressed={prodGroup===`${country}${PG_SEP}`} disabled={saving||prodGroupsLoading}
-                onClick={()=>chooseProdGroup(`${country}${PG_SEP}`)} style={{...pickButtonStyle(prodGroup===`${country}${PG_SEP}`,true),padding:'3px 5px'}}>{country}</button>
+            <h3 style={{margin:0,fontSize:12,fontWeight:700,color:'var(--text2)',display:'inline-flex',alignItems:'center',gap:3,minWidth:84}}><button type="button" data-ai-verify={`country-select-${country}`} data-distribution-country-select aria-pressed={farmCountry===country} disabled={saving||prodGroupsLoading}
+                onClick={()=>chooseFarmCountry(country)} style={{...pickButtonStyle(farmCountry===country,true),padding:'3px 5px'}}>{country}</button>
               <button type="button" data-ai-verify={`country-fav-${country}`} aria-label={`${country} 국가 즐겨찾기 ${selectedCountries.includes(country) ? '해제' : '추가'}`}
                 aria-pressed={selectedCountries.includes(country)} disabled={!accountId || favoritesPending || countryFavorite === undefined} onClick={() => toggleCountryFavorite(country)}
                 style={{...pickButtonStyle(false,true),padding:'2px 4px',color:selectedCountries.includes(country)?'#d97706':'var(--text3)'}}>{selectedCountries.includes(country)?'★':'☆'}</button>
             </h3>
-            {groups.map(g => {
-          const label = g.label || g.key.replace(PG_SEP, ' ');
-          const active = g.key === prodGroup;
-          const fav = favoriteGroups.some(row => row.groupKey === g.key);
-          return (
-            <span key={g.key} style={{display:'inline-flex'}}>
-              <button type="button" data-ai-verify={`group-${label}`} data-distribution-group-select aria-label={label} aria-pressed={active} disabled={saving || prodGroupsLoading}
-                onKeyDown={event => { if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return; event.preventDefault(); const buttons = [...document.querySelectorAll('[data-distribution-group-select]:not(:disabled)')]; const index = buttons.indexOf(event.currentTarget); buttons[Math.max(0,Math.min(buttons.length-1,index+(['ArrowRight','ArrowDown'].includes(event.key)?1:-1)))]?.focus(); }}
-                onClick={() => chooseProdGroup(g.key)} style={{...pickButtonStyle(active, true), borderTopRightRadius:0, borderBottomRightRadius:0}}>{g.flower || label}</button>
-              <button type="button" data-ai-verify={`group-fav-${label}`} aria-pressed={fav} disabled={!accountId || favoritesPending}
-                aria-label={`${label} ${fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 추가'}`} title={fav ? '품종 즐겨찾기 해제' : '품종 즐겨찾기 (차수가 바뀌어도 기본 선택)'}
-                onClick={event => toggleGroupFavorite(g, event)}
-                style={{...pickButtonStyle(false, true), borderLeft:'none', borderTopLeftRadius:0, borderBottomLeftRadius:0, padding:'4px 6px', color: fav ? '#d97706' : 'var(--text3)'}}>{fav ? '★' : '☆'}</button>
-            </span>
-          );
-            })}
+
           </div>
         ))}
       </div>
+      </>}
       <div style={{padding:'4px 5px',fontSize:11,color:'var(--text3)',background:'var(--surface)'}}>
         단축키: Ctrl+Alt+1 차수 · Ctrl+Alt+2 품목 · Ctrl+Alt+3 업체 · Ctrl+Alt+4 수량 · Ctrl+Enter 조회 · 수량 Enter 다음 입력(마지막은 저장 버튼 이동) · Ctrl+S 수량·단가 저장 · 출고일은 행의 분배·수정. Enter 이동만으로 저장되지 않습니다.
       </div>
@@ -1578,7 +1604,7 @@ export default function Distribute() {
         const sides = pairSides().filter(side => side.cust);
         const side = sides[Math.min(addPanel.side, sides.length - 1)];
         const addCandidates = distributionAddProductCandidates(products,productCatalog);
-        const groups = distributionPairGroups(addCandidates.filter(p=>distributionSelectionMatches(p,prodGroup)));
+        const groups = distributionPairGroups(addCandidates);
         const searching = String(addProdFilter || '').trim() !== '';
         const groupProducts = searching ? sortDistributionProducts(addCandidates.filter(p => matchItemName(p, addProdFilter)))
           : addPanel.group ? sortDistributionProducts(addCandidates.filter(p => distributionPairFilterMatches(p,addPanel.group))) : [];
@@ -1824,7 +1850,7 @@ export default function Distribute() {
       {/* 탭 */}
       <div style={{display:'flex',flexWrap:'wrap',borderBottom:'2px solid var(--border)',background:'var(--surface)',flexShrink:0}}>
         {tabs.map((t,i) => (
-          <button type="button" key={t} onClick={()=>setTab(i)} aria-current={tab===i?'page':undefined}
+          <button type="button" key={t} onClick={()=>requestTab(i)} aria-current={tab===i?'page':undefined}
             style={{padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',color:tab===i?'var(--blue)':'var(--text3)',borderBottom:tab===i?'2px solid var(--blue)':'2px solid transparent',marginBottom:-2,whiteSpace:'nowrap'}}>
             {['🚚','🏬','📅','📊'][i]} {t}
           </button>
@@ -1843,6 +1869,7 @@ export default function Distribute() {
           {/* ── 품목 기준: 왼쪽 품목 목록 ── */}
           {viewMode === 'prod' && (
             <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
+              <DistributionDateFilter label="품종·품목" value={farmDate} onChange={setFarmDate} dates={dateLookup.dates} loading={dateIndexLoading} error={dateIndexError} />
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,flexWrap:'wrap'}}>
                 <input ref={productSearchRef} className="filter-input" placeholder="품목·국가·품종 검색 (전체 품목)" value={prodFilter} onFocus={ensureProductCatalog} onChange={e=>{ if (e.target.value.trim()) ensureProductCatalog(); setProdFilter(e.target.value); }} style={{flex:1,height:28,fontSize:12,minWidth:0}}/>
                 <button type="button" className={`btn btn-sm ${favoritesOnly?'btn-primary':'btn-secondary'}`}
@@ -1851,39 +1878,9 @@ export default function Distribute() {
               <div style={{overflowX:'auto'}}>
                 {loading ? <div className="skeleton" style={{margin:12,height:300,borderRadius:8}}></div> : (
                   // 품목명만 — 단위·입수·잔량·입고·출고·현재고는 선택하면 오른쪽에 같은 내용이 나온다.
-                  <table className="tbl" data-testid="distribution-product-list" style={{fontSize:12,width:'100%'}}>
-                    <thead>
-                      <tr><th style={{minWidth:180}}>품목명(색상)</th></tr>
-                    </thead>
-                    <tbody>
-                      {filteredProds.length === 0
-                        ? <tr><td style={{textAlign:'center',padding:32,color:'var(--text3)'}}>{favoritesOnly ? '이 차수에 즐겨찾기 품목이 없습니다.' : '차수 선택 후 조회하세요'}</td></tr>
-                        : filteredProds.map((p, productIndex) => {
-                          const isSelected = selectedProd?.ProdKey === p.ProdKey;
-                          const hasStock = p.inQty > 0;
-                          return (
-                            <tr key={p.ProdKey} className={isSelected?'selected':''} onClick={()=>selectProd(p)} style={{cursor:'pointer',background:hasStock&&!isSelected?'#F0F7FF':undefined}}>
-                              <td style={{minWidth:180,maxWidth:240,whiteSpace:'normal',overflowWrap:'anywhere',fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>
-                                <button type="button" data-product-select data-ai-verify={`product-${p.ProdKey}`} aria-pressed={isSelected} className="btn btn-sm" disabled={loading || saving}
-                                  aria-label={`${p.ProdName} 선택`} title={p.DisplayName || p.ProdName}
-                                  onClick={e=>{e.stopPropagation();selectProd(p);}}
-                                  onKeyDown={e=>{
-                                    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-                                    e.preventDefault();
-                                    const nextIndex = Math.max(0, Math.min(filteredProds.length - 1, productIndex + (e.key === 'ArrowDown' ? 1 : -1)));
-                                    e.currentTarget.closest('tbody')?.querySelectorAll('button[data-product-select]')[nextIndex]?.focus();
-                                  }}
-                                  style={{padding:0,border:0,background:'transparent',color:'inherit',font:'inherit',textAlign:'left',whiteSpace:'normal',overflowWrap:'anywhere',cursor:'pointer',marginRight:4}}>{distributeProductName(p, selectedFlower)}</button>
-                                <button type="button" className="btn btn-sm" onClick={event=>toggleProductFavorite(p,event)}
-                                  disabled={!accountId || favoritesPending} aria-label={`${p.ProdName} ${favoriteKeys.has(Number(p.ProdKey))?'즐겨찾기 해제':'즐겨찾기 추가'}`}
-                                  aria-pressed={favoriteKeys.has(Number(p.ProdKey))}
-                                  title="이 계정의 품목 즐겨찾기">{favoriteKeys.has(Number(p.ProdKey))?'★':'☆'}</button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                  <DistributionProductTree rows={filteredProds} favoriteKeys={favoriteKeys} groupFavorites={favoriteGroups} selectedProd={selectedProd}
+                    activeFamily={prodGroup} onSelect={selectProd} onFavorite={toggleProductFavorite} onGroupFavorite={toggleGroupFavorite} onFamilySelect={chooseProdGroup}
+                    expanded={expandedFamilies} setExpanded={setExpandedFamilies} disabled={loading||saving} favoritesDisabled={!accountId||favoritesPending} search={prodFilter} />
                 )}
               </div>
             </div>
@@ -1892,9 +1889,10 @@ export default function Distribute() {
           {/* ── 업체 기준: 왼쪽 업체 목록 ── */}
           {viewMode === 'cust' && (
             <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
+              <DistributionDateFilter label="업체" value={customerDate} onChange={setCustomerDate} dates={dateLookup.dates} loading={dateIndexLoading} error={dateIndexError} />
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:11,fontWeight:700,color:'var(--text2)'}}>거래처 목록</span>
-                <input className="filter-input" placeholder="업체명 검색" value={custFilter||''} disabled={saving} data-ai-verify="customer-search"
+                <input ref={dealerSearchRef} className="filter-input" placeholder="업체명 검색" value={custFilter||''} disabled={saving} data-ai-verify="customer-search"
                   aria-label="업체명 검색" onChange={e=>{ setCustFilter(e.target.value); if (e.target.value.trim()) loadAllCustomers(); }} style={{flex:1,height:28,fontSize:12,minWidth:120}} />
                 <label style={{fontSize:11,display:'inline-flex',gap:3,alignItems:'center'}} title="이 차수에 주문이 없는 업체도 목록에 보여 줍니다. 그 업체로 옮기거나 추가하면 저장 시 주문등록 후 분배합니다.">
                   <input type="checkbox" data-ai-verify="customer-show-all" checked={showAllCustomers} disabled={saving} onChange={e => toggleAllCustomers(e.target.checked)} />주문 없는 업체도
@@ -2102,7 +2100,7 @@ export default function Distribute() {
                                   <tr key={c.CustKey}
                                     onClick={() => selectDistCustRow(c)}
                                     style={{ cursor: 'pointer', background: isSel ? 'var(--blue-bg)' : undefined }}>
-                                    <td className="name">{c.CustName}
+                                    <td className="name" style={{whiteSpace:'normal',overflowWrap:'anywhere'}}>{c.CustName}
                                       {c.addedNoOrder && <span style={{fontSize:10,color:'#b45309',marginLeft:4}}>주문 없음 · 저장 시 주문등록</span>}
                                       {c.addedNoOrder && <button type="button" className="btn btn-sm" data-ai-verify={`prod-added-remove-${c.CustKey}`} disabled={saving}
                                         onClick={e => { e.stopPropagation(); setProdAddedCusts(prev => prev.filter(a => Number(a.CustKey) !== Number(c.CustKey))); setOutInputs(o => { const n = { ...o }; delete n[c.CustKey]; return n; }); }}
@@ -2219,7 +2217,7 @@ export default function Distribute() {
                         // 업체 3개 이상: 이동 칸 없이 업체 열끼리 붙여서 바로 수정 (업체명 = 머리줄)
                         const sides = pairSides();
                         const colors = ['var(--blue)', '#b45309', ...PEER_COLORS];
-                        const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter));
+                        const rows = pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).filter(row=>!customerDate||pairSides().some(side=>side.cust&&dateLookup.matches(customerDate,row.ProdKey,side.cust.CustKey)));
                         const itemAt = (sd, row) => sd.items.find(i => Number(i.ProdKey) === Number(row.ProdKey));
                         const qtyAt = (sd, row) => { const item = itemAt(sd, row); const e = sd.inputs[row.ProdKey]; return e?.outQty !== undefined ? parseFloat(e.outQty) || 0 : (item?.출고수량 || 0); };
                         const edge = i => ({ borderLeft: `2px solid ${colors[i]}` });
@@ -2302,7 +2300,7 @@ export default function Distribute() {
                           </tr>
                         </thead>
                         <tbody>
-                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).map(row => {
+                          {pairSearchRows.filter(row => matchItemName(row, custItemFilter)).filter(row => distributionPairFilterMatches(row, pairGroupFilter)).filter(row=>!customerDate||pairSides().some(side=>side.cust&&dateLookup.matches(customerDate,row.ProdKey,side.cust.CustKey))).map(row => {
                             const editA = custEditInputs[row.ProdKey] || {};
                             const editB = pairEditInputs[row.ProdKey] || {};
                             const qtyA = row.a ? (editA.outQty !== undefined ? editA.outQty : (row.a.출고수량 || 0)) : null;

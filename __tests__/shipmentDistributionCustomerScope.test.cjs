@@ -1,3 +1,4 @@
+require('./shipmentDistributionNavigation.test.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 test('country-only read scope differs from native flower scope',async()=>{
  const {distributionReadProductWhere}=await import('../lib/shipmentDistributionCustomerScope.js');

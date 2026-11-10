@@ -29,9 +29,10 @@ assert.equal(distributePreviousStockTotal([{ _exeParity: true, prevStock: 2 }, {
 const source = fs.readFileSync('pages/shipment/distribute.js', 'utf8');
 // 왼쪽 품목 목록은 품목명만 (세부 수치는 선택 시 오른쪽) → 폭 축소
 assert.match(source, /minmax\(210px, 20%\) minmax\(0, 1fr\)/);
-assert.match(source, /whiteSpace:'normal',overflowWrap:'anywhere'/);
-assert.match(source, /data-product-select/);
-assert.match(source, /ArrowDown/);
+const tree = fs.readFileSync('components/shipment/DistributionProductTree.js','utf8');
+assert.match(tree, /whiteSpace:'normal',overflowWrap:'anywhere'/);
+assert.match(tree, /data-product-select/);
+assert.match(tree, /ArrowDown/);
 assert.match(source, /\['전차수 재고',previousStock,/); // 전차수 재고는 상단 카드로
 assert.doesNotMatch(source, /\(p\.prevStock\|\|0\)-\(p\.inQty\|\|0\)/);
 assert.match(source, /const remain = \(inQty\|\|0\) - totalOutInput/); // Existing input calculation not changed.

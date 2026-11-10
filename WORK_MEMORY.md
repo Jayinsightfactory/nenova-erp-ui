@@ -2442,3 +2442,12 @@
 - 신규2파일28회귀+기존UI4파일묶음32PASS. 최종가이드dryrun→실촬영→중간/최종프레임→player재검증PASS. 이전44.45초영상은대체했고최종support.mp4는50.9초/1920×1080/20fps/100%/약1.54MB,4목차/한국어VTT/4sourcehash ready. 실제DOM에서raw2part→연결1part및6readonly칸검증.
 - player재생/역할/목차seek·초점/자막/다운로드/접기pause/Enter·Space·Tab·ShiftTab/1920·390PASS,영상206/자막200. workflow9/영상10·manifest208·diffcheckPASS. SQL/운영쓰기0·서버종료. 최종fullERP/build/CI/배포는부모후속이며미검증.
 검색어: 선율 ZIP 50.9 stem effectiveRow readonly preserveEdits oldZIP seq 28회귀 32표적 최종재촬영
+
+## 2026-11-10 출고분배 농장/업체 독립 작업공간
+- 사용자 개념 재정의: 농장=국가→품종접기→품목→거래처/농장, 업체=차수업체→품목. 즐겨찾기 품종/SKU 우선, 미즐겨찾기는 하단 접힌 품종으로 보존. 상단 중복 품종즐겨찾기 제거, 국가명/별 구분. 업체 탭에 농장 국가/품종 필터 및 숨은 꽃 범위 일괄작업을 전파하지 않음.
+- 두 탭 공용 실제 ShipmentDate 분류(전체/미지정/실제날짜), 수량은 차수합계 명시. 새로운 workspaceDateIndex는 연도+차수+Master.CustKey+ProdKey 활성주문 SELECT만. 날짜편집은 기존 date-only 미리보기→명시저장 유지. 접기/분류로 수량/금액/확정/원장 변경0. 미저장 수량·단가면 탭이동 차단, 저장/취소 후 이동시 선택행 최신조회. 추가업체 refresh 순차처리.
+- 실제 dnSpy FormShipmentDistribution 재추출, native 국가+품종/품목→거래처→농장/업체→요일 그리드 확인. native 접기 없음은 사용자요청 웹확장으로 명시. 운영 SELECT 2025/45-01 1249쌍,2026/45-01 973쌍 및 미지정/다중날짜 확인. 격리MSSQL DateIndex 교차연도99/SD.CustKey NULL/양수·0날짜/미지정/삭제/수량불변 PASS. 기존 업체범위 및 견적/ECOUNT XLSX·이전연도 repair/금액/rollback SQL 재실행 PASS. 미국29건 원장 추가보정0, 운영주문/분배/이카운트 쓰기0.
+- 새 UI Chrome1920/390 즐겨찾기순서·접기Enter·독립업체 미국품목·양탭 날짜필터/편집·출고일지정·미저장보호·양연도45-03 카탈로그 PASS. 기존 workspace browser 실패재시도/가격/업체이동/선등록/중복저장/late응답/뷰포트 PASS. UI 안내영상1920 한국어자막/목차/proof 갱신 PASS.
+- 전체ERP검사 초기 실행은 컴포넌트 분리 후 이전 파일을 검사하던 display assertion에서 실패, 새컴포넌트 검사로 수정 후 통과. 중복 전체실행 대신 해당지점 이후+post검사 진행. 빌드/CI/배포/실로그인 스모크는 이 기록 시점 미검증, 후속 결과 append 예정.
+검색어: 출고분배 두탭독립 즐겨찾기우선 품종접기 DistributionProductTree workspaceDateIndex 실제출고일분류 미저장탭보호 미국29보존
+- 최종 로컬: ERP 초기 실행의 실패 테스트 수정·해당 지점부터 끝 및 post 전부 PASS, 신설 navigation test CI 연결 PASS. dnSpy/manifest207/writeguard/안내영상9개/production build PASS. CI/배포/실브라우저는 후속.

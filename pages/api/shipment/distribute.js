@@ -1,3 +1,4 @@
+import { DISTRIBUTION_DATE_INDEX_SQL } from '../../../lib/shipmentDistributionDateIndex.js';
 import { distributionReadProductWhere, sqlDistributionWorkspaceCustomers } from '../../../lib/shipmentDistributionCustomerScope.js';
 // pages/api/shipment/distribute.js
 // GET?type=products → 품목 목록 (왼쪽 패널)
@@ -621,6 +622,12 @@ async function getDistribute(req, res) {
     }
 
     // ── 거래처 목록 (드롭다운용)
+    if (type === 'workspaceDateIndex') {
+      if (!week) return res.status(400).json({success:false,error:'week 필요'});
+      const result=await query(DISTRIBUTION_DATE_INDEX_SQL,{year:{type:sql.NVarChar,value:String(orderYear)},week:{type:sql.NVarChar,value:week}});
+      return res.status(200).json({success:true,rows:result.recordset});
+    }
+
     if (type === 'workspaceCustomers') {
       if (!week) return res.status(400).json({success:false,error:'week 필요'});
       const scope=sqlDistributionWorkspaceCustomers(prodGroup);
