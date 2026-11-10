@@ -14,7 +14,7 @@ import { distributionQuantityRemark, distributionWeekOptions, distributionWeekBu
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite, parseDistributionCountryFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
   sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionFavoriteCountryGroups, distributionPairGroupKey, distributionPairGroups,
-  distributionSelectionMatches, distributionPairFilterMatches, distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
+  distributionAddProductCandidates, distributionSelectionMatches, distributionPairFilterMatches, distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
@@ -1487,7 +1487,7 @@ export default function Distribute() {
           </button>
           {viewMode === 'cust' && selectedCust && (
             <button type="button" className="btn btn-sm" data-ai-verify="add-panel-open" disabled={saving || loading}
-              onClick={() => { setAddPanel({ side: 0, group: pairGroupFilter || '', prodKey: null, unit: '', manager: '' }); setAddCustFilter(''); setAddProdFilter(''); loadAllCustomers(); }}
+              onClick={() => { setAddPanel({ side: 0, group: pairGroupFilter || pairKeyFromGroup(prodGroup,prodGroups), prodKey: null, unit: '', manager: '' }); setAddCustFilter(''); setAddProdFilter(''); loadAllCustomers(); ensureProductCatalog(); }}
               title="품종 → 품목 → 수량 버튼으로 이 업체 출고수량에 더합니다 (주문 없는 품목은 저장 시 주문등록 후 분배)">➕ 품목추가·수량추가</button>
           )}
           <button type="button" className="btn btn-secondary btn-sm" data-ai-verify="discard-drafts" onClick={discardDrafts} disabled={saving || !hasAnyDraft()}
@@ -1577,11 +1577,12 @@ export default function Distribute() {
       {addPanel && selectedCust && (() => {
         const sides = pairSides().filter(side => side.cust);
         const side = sides[Math.min(addPanel.side, sides.length - 1)];
-        const groups = distributionPairGroups(products);
+        const addCandidates = distributionAddProductCandidates(products,productCatalog);
+        const groups = distributionPairGroups(addCandidates.filter(p=>distributionSelectionMatches(p,prodGroup)));
         const searching = String(addProdFilter || '').trim() !== '';
-        const groupProducts = searching ? sortDistributionProducts(products.filter(p => (!addPanel.group || distributionPairGroupKey(p) === addPanel.group) && matchItemName(p, addProdFilter)))
-          : addPanel.group ? sortDistributionProducts(products.filter(p => distributionPairGroupKey(p) === addPanel.group)) : [];
-        const prod = products.find(p => Number(p.ProdKey) === Number(addPanel.prodKey));
+        const groupProducts = searching ? sortDistributionProducts(addCandidates.filter(p => matchItemName(p, addProdFilter)))
+          : addPanel.group ? sortDistributionProducts(addCandidates.filter(p => distributionPairFilterMatches(p,addPanel.group))) : [];
+        const prod = addCandidates.find(p => Number(p.ProdKey) === Number(addPanel.prodKey));
         const unit = prod ? (addPanel.unit || prod.OutUnit || '박스') : '';
         const factor = prod ? (distributionUnitFactor(prod, unit) || 1) : 1;
         const itemOf = (sd, key) => sd.items.find(i => Number(i.ProdKey) === Number(key));

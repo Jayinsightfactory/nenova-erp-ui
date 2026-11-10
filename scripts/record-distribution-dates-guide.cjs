@@ -23,6 +23,7 @@ async function main(){
   if(type==='workspaceCustomers'||type==='customers'||type==='custList'||type==='custDist'){d.customers=[customer()];d.totalOrder=1;d.totalOut=1;d.inQty=1;}
   if(type==='custItems')d.items=[{...prod,...customer()}];
   if(type==='custWeekGrid')d.rows=[{...prod,SdetailKey:101,OutQuantity:1,...Object.fromEntries(context.calendar.flatMap(r=>[[`ymd${r.WeekDay}`,r.Timestamp.slice(0,10)],[`day${r.WeekDay}`,context.dates.find(x=>x.Timestamp===r.Timestamp)?.ShipmentQuantity||0]]))}];
+  if(['custItems','products'].includes(type) && u.searchParams.get('week')?.endsWith('45-03')){if(type==='custItems')d.items=[];else d.products=[];}
   if(type==='workspaceCustomers' && u.searchParams.get('week')?.endsWith('45-03'))d.customers=[{...customer(),noOrder:true}];
   if(type==='fixedScopes')d.scopes=[{prodKey:3513,fixed:true,countryFlower:'콜롬비아카네이션'}];
   if(u.pathname==='/api/shipment/distribution-dates'){
@@ -71,6 +72,9 @@ async function main(){
  // Empty 45-03 + country-active regression, read-only selection; no phantom order.
  const w=await page.$('input[placeholder="YYYY-WW-SS"]')||await page.$('input[placeholder*="2026-"]');await w.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await w.type('2026-45-03');await page.keyboard.press('Tab');await page.waitForNetworkIdle({idleTime:200});
  await page.waitForSelector('[data-testid="distribution-no-order-candidates"]');await hold('아직 주문·분배가 없는 차수도 전체 업체 후보를 표시합니다.\n업체를 선택한 후 품목과 양수 수량을 추가해야 실제 저장됩니다.');await click('[data-ai-verify="customer-777"]');await page.waitForNetworkIdle({idleTime:200});
+ await click('[data-ai-verify="add-panel-open"]');await page.waitForSelector('[data-testid="distribution-add-panel"]');await click('[data-ai-verify="add-prod-3513"]');
+ await hold('차수에 등록된 품목이 없어도 품목추가에서 활성 품목을 찾습니다.\n나라·품종을 좁히거나 품목명을 검색한 뒤 수량을 추가하세요.');
+ await click('[data-ai-verify="add-panel-close"]');
  assert.equal(posts.filter(x=>x.path==='/api/orders'||x.path==='/api/shipment/distribute').length,0,'empty-scope selection never writes');
  await w.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await w.type('2026-45-01');await page.keyboard.press('Tab');await page.waitForNetworkIdle({idleTime:200});await text('연습업체');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  if(rec){capturedGuide=await rec.stop();stopped=true;const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8'));const wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates');wf.guides[0].status='ready';wf.guides[0].chapters=capturedGuide.chapters;fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');console.log('PASS recorded tested country/customer/date workflow');return;}

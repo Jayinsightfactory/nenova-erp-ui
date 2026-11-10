@@ -2391,3 +2391,5 @@
 - actual dnSpy FormShipmentDistribution 재추출 및 운영 SELECT: 2026/45-01 태국 주문업체7, 2025동일7 / 2026/45-03 레드불0주문→활성676후보(이름 미출력). 교차연도99/분배없음/빈차수/삭제/국가·품종/조회원장불변 격리SQL PASS. Chrome1920/390 국가활성/45-03 후보/선택만으로주문0쓰기/기존날짜편집·catalog 검색 회귀 PASS. 안내영상35초대 재촬영+한국어자막/목차 country/customers 추가, proof 검사 PASS.
 - test:erp-contract / dnSpy / 변경manifest207 / writeguard / production build 전부 PASS. CI/병합/Cafe24 배포/운영 스모크는 후속, 현재기록 시점 미검증. 이전 날짜분배/미국29건 보정 writer 변경0.
 검색어: 국가선택 country:: workspaceCustomers 업체정보 빈45-03 주문없음676 nativeShipmentDate조인제거 80업체전체검색
+- 최종 추가: 주문/품목0인45-03 업체를 선택한 뒤 품목추가 창도 전체 활성 카탈로그 로드. native 품목에 누락된 국가/입수 메타데이터만 보충하고 기존 수량/명시0단가는 우선 보존(순수17개 PASS). 국가 전체/품종 기본 필터 및 품종상관없는 검색 정상. 업체→품목추가→품목선택까지 실제Chrome 합성자료 회귀·영상 갱신 PASS, 선택만으로 주문/분배 요청0. 보완분 포함 ERP전체/dnSpy/manifest/writeguard/build 다시 모두 PASS. 기존 native writer 변경0.
+검색어: 빈차수 첫품목추가 전체카탈로그 native메타데이터보충 명시0단가보존

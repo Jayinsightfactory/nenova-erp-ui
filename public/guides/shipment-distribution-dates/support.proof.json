@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T04:37:37.002Z",
+  "recordedAt": "2026-11-10T04:48:25.236Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 35.3,
+  "duration": 38.75,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "496f99f4a4b44113e2fdd56646040eed184dbe8bccc8594042df1a7e06ecf125",
-  "captionsSha256": "0bb7e4909c8fa00e47d9fb6099bbc3f2a3400e8360c5b20b643b8072883112f0",
+  "videoSha256": "7e0dd48fc22348d8f0372d8a9e989871a594fb42f1c65cb103cd4f44f265bdb5",
+  "captionsSha256": "98696600b2b555f6548d5ac4656b5230f39985737f6c5ada037d876f78608156",
   "sourceHashes": {
-    "pages/shipment/distribute.js": "6dd28c95f015143a0d905d815fd876236cadb7e9d7cde345c9be8c8ff56877c8",
+    "pages/shipment/distribute.js": "c6ae5fdfcae6e1cd14be4604f8880f5d33e0814ee1bbb581089c2077d7e8c41a",
     "components/shipment/DistributionDateEditor.js": "f35d7dde020ca53cfc5c0b527cc4d1151845dba50349fdc44f69f96bece708f8"
   }
 }
