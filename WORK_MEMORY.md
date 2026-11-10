@@ -2478,3 +2478,6 @@
 - 기본요일설정 잔량/직접입력보존, 메인차수전체세부차수, 담당자→업체, 품목군묶음, 저장본CAS·원본hash·요일XLSX,ERP쓰기0.
 - 실제dnSpy 및양연도운영SELECT,신규12테스트·1920/390브라우저·드래그/키보드/저장복구/다운로드PASS. 실제합성가이드31.8초·한국어VTT/5목차,player1920/390PASS. 전체필수검사/빌드/CI/PR/배포는진행예정이며미검증.
 - 검색어: 출고내역서 shipment-statement 드래그 일괄출고일 기본요일잔량 웹작성본CAS
+
+- 최종 로컬 검증: 최신c4394b06f 병합 후 npm run test:erp-contract 전체(pre/core/post) exit0. dnSpy/manifest209/writeguard1API/ui-layout/workflow11업무12영상 및 production webpack1worker build PASS. production build로1920/390실브라우저·drag2행/기본요일/그룹/저장복원/엑셀/keyboard/가이드player재검증PASS. 가이드31.8초MP4/한국어VTT/5목차·중간/최종프레임 직접확인. 운영코드배포/CI/PR은후속.
+- 검색어: shipment-statement 전체ERP통과 webpack build production브라우저 검증완료

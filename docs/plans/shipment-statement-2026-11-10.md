@@ -40,3 +40,5 @@ OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/WebProfitReport/Pr
 |검증·배포|진행중|최종결과WORK_MEMORY에append|
 
 실제 증거: docs/exe-golden/ShipmentStatement.md. 신규 회귀는 test:shipment-statement 및 pretest:erp-contract에 연결. 운영개인정보/인증정보촬영없음. 실제브라우저시험·가이드모든API는합성fixture,운영ERP쓰기는하지않음.
+
+최종 로컬: 전체 ERP pre/core/post·dnSpy·manifest209·writeguard1API·ui-layout·workflow11업무12영상·webpack1worker build PASS. 빌드된production서버의1920/390 실제Chrome에서드래그/키보드/기본요일/그룹/저장·복원·엑셀/가이드재생PASS. 운영배포결과는WORK_MEMORY후속기록.
