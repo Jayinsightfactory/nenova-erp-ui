@@ -22,7 +22,8 @@ jobs:
           python -m pip install --disable-pip-version-check paramiko==3.5.1
           npm install --prefix .verify/ai-runtime --no-save --ignore-scripts pdf-lib@1.17.1
           ln -s .verify/ai-runtime/node_modules node_modules
-      - name: Read exact original via pinned SFTP (no remote command)
+      - name: Read hash-pinned original directly (SFTP only, no index scan)
+        timeout-minutes: 3
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: python scripts/fetch-co46-ai-source.py

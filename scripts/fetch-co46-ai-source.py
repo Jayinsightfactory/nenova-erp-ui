@@ -25,25 +25,16 @@ client.connect(field('host'), port=22, username=field('username'), password=os.e
                look_for_keys=False, allow_agent=False, timeout=30)
 try:
     with client.open_sftp() as sftp:
-        index_path = ROOT + '/index.jsonl'
-        if sftp.stat(index_path).st_size > 100*1024*1024:
-            raise RuntimeError('INDEX_SIZE_LIMIT')
-        latest = {}
-        with sftp.open(index_path, 'rb') as f:
-            for line in f:
-                row = json.loads(line)
-                if row.get('id') and row.get('type') != 'download':
-                    latest[row['id']] = row
-        matches = [r for r in latest.values() if r.get('sha','').lower() == SHA
-                   and not r.get('deleted') and not r.get('egressSnapshot')]
+        matches = [r.filename for r in sftp.listdir_attr(ROOT + '/46-1')
+                   if r.filename.startswith(SHA[:8] + '_') and r.filename.lower().endswith('.pdf')]
         if not matches:
             raise RuntimeError('EXACT_ORIGINAL_NOT_FOUND')
-        row = sorted(matches, key=lambda r: str(r.get('id')))[0]
-        source = sftp.normalize(posixpath.join(ROOT, row['rel']))
+        source = sftp.normalize(posixpath.join(ROOT, '46-1', sorted(matches)[0]))
         root = sftp.normalize(ROOT)
         if not source.startswith(root + '/') or sftp.stat(source).st_size > 20*1024*1024:
             raise RuntimeError('SOURCE_SCOPE_LIMIT')
         with sftp.open(source, 'rb') as f:
+            f.prefetch()
             data = f.read()
         if not data.startswith(b'%PDF-') or hashlib.sha256(data).hexdigest() != SHA:
             raise RuntimeError('SOURCE_HASH_MISMATCH')
