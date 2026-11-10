@@ -1,3 +1,4 @@
+require('./shipmentExportExcel.test.cjs');
 require('./shipmentDateDisplayUnits.test.cjs');
 require('./shipmentInlineDates.test.cjs');
 require('./shipmentDistributionNavigation.test.cjs');

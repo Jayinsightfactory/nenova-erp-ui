@@ -624,3 +624,15 @@ noOrder 후보로 표시하고 안내. 국가명은 country:: 읽기 전용 선�
 ## 2026-11-10 날짜 역행/박스 소수 표시 정정
 actual dnSpy CLI outputs/native-date-units.txt 재확인: GetCustomerList는 PeriodDay.BaseYmd/WeekDay를 ymd/day로 피벗하며, 날짜값은 차수 실제 달력이다. 월~일 강제배열은 2026/45=11/4수~11/10화에서11/9→11/10→11/4 역행을 만든 웹 표시문제. 최신 사용자 정정에 따라 웹은 실제 Timestamp 오름차순으로 표시하며 native 달력/원장 일자는 바꾸지 않는다. 운영SELECT 2025/45=11/5~11/11,2025/46=11/12~18,2026/46=11/11~17도 각7일 검증.
 ShipmentQuantityToEstQuantity 실제 분기: 박스→송이는 SteamOf1Box 양수 우선, 없을 때 BunchOf1Box*SteamOf1Bunch; 단→송이는 SteamOf1Bunch(박스비율 대체금지). 3513은1박스=15단=300송이, .4박스=6단=120송이,.6박스=9단=180송이. 단/송이 정수 표시·입력만 환산하고 native OutUnit payload/precision/date-only 저장 정책은 유지. 처음입수 signature와 fresh canonical detail 입수가 다르면 미리보기 전에 차단.
+
+## 2026-11-10 출고 Excel 읽기 범위 정정
+
+설치 Nenova.exe를 dnSpy.Console로 재추출: GetCustomerList의 OrderYear+OrderWeek,
+ShipmentDate 실제 ShipmentDtm/ShipmentQuantity를 재확인했다. FormEstimateView의
+GetPrintDetail/GetExcelDetail은 ViewShipment↔ViewOrder(OrderYearWeek2,CustKey,ProdKey),
+ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용한다.
+출고 workbook 자체의 국가/요일별 시트 구성은 웹 전용이며 EXE 형식 동일 주장은 하지 않는다.
+원본 수량을 임시 요일별로 재분배/반올림하지 않는다. 원장 쓰기 없음.
+읽기 전용 probe: 2025/46-01 미국29 상세(양수25/영수량4), 출고79박스,
+견적1690단, 공급가+VAT9785000원/날짜합9785000원. 실제달력11/12수~11/18화.
+기준·부작용표: docs/plans/distribution-excel-2026-11-10.md.

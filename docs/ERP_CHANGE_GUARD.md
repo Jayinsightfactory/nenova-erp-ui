@@ -1,5 +1,18 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-10 출고 Excel 연도·주말·수량 보존
+
+기존 Excel API는 연도를 버리고 OrderWeek만 조회했으며 저장된 출고일 대신 브라우저
+요일설정으로 수량을 다시 나누고 정수 반올림했다. 토·일도 시트 순서에서 빠졌다.
+명시연도+세부차수와 ShipmentDate/PeriodDay 정확한 날짜로 조회하고, 원본 수량·단위를
+그대로 출력한다. 날짜없음은 미지정 1회, 불일치는409이며 원장 자동보정은 하지 않는다.
+공통 SQL/builder: lib/shipmentExportExcel.js. 실행 회귀 shipmentExportExcel.test.cjs 및
+test-shipment-export-sql.cjs. 기준·보존표 plans/distribution-excel-2026-11-10.md.
+실제 운영데이터로22업체 API→견적/ECOUNT/출고 workbook 생성·재열기 결과 미국29중
+양수25행이 모두 노출, 79박스/1690단/9785000원 일치, 0수량4행 보존을 확인했다.
+원장/주문/농장/재고/견적/손익/2026동일차수 지문 전후동일. 운영서버 배포 후 출력
+재검증 상태는 해당 세션 기록을 따른다. ECOUNT 업로드/운영 ERP 쓰기0.
+
 ## 2026-11-09 EXE 견적 달력 차감 읽기 정합
 
 실제 FormEstimateView 네 조회의 exact EstimateDtm=PeriodDay.BaseYmd JOIN이 웹의
