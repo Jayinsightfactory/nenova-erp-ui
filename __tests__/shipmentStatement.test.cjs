@@ -33,5 +33,5 @@ test('category grouping, empty group names and duplicate memberships validated',
 test('workbook day sheets, original quantity/price, every detail in subtotal; mixed units separated',()=>{
  const all=c.sourceRows([raw(),raw({ProdKey:2,SdetailKey:12,ProdName:'수국',FlowerName:'수국',OutUnit:'박스',OutQuantity:2})],scope);
  const record={source:{scope,customer:{name:'연습업체'},calendar:c.calendar(dates),rows:all},draft:{defaultDay:'일',groups:[{name:'콜수국·콜장미',categories:all.map(r=>r.category)}],entries:{[rows[0].id]:{수:1,토:1}}}};
- const wb=buildWorkbook(record);assert.deepEqual(wb.SheetNames,['수','토','일']);assert.match(wb.Sheets.수.A1.v,/2026-11-04/);assert.equal(wb.Sheets.수.C5.v,1);assert.equal(wb.Sheets.수.D5.v,12000);assert.equal(wb.Sheets.수.C6.f,'SUM(C5:C5)');assert.equal(wb.Sheets.일.C6.v+wb.Sheets.일.C10.v,3);assert.match(wb.Sheets.일.C4.v,/단|박스/);
+ const wb=buildWorkbook(record);assert.deepEqual(wb.SheetNames,['수','토','일']);assert.match(wb.Sheets.수.A1.v,/11월 4일 수요일/);assert.equal(wb.Sheets.수.C4.v,1);assert.equal(wb.Sheets.수.D4.v,12000);assert.equal(wb.Sheets.수.C5.f,'SUM(C4:C4)');assert.equal(wb.Sheets.일.C5.v+wb.Sheets.일.C9.v,3);assert.match(wb.Sheets.일.C3.v,/단|박스/);
 });
