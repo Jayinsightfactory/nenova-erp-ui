@@ -1,4 +1,5 @@
 - [2026-11-10 출고 Excel·미국29 실제 출력](2026-11-10_distribution-excel.md) — 명시연도/저장날짜/주말·원본수량,22업체 XLSX roundtrip,원장쓰기0.
+- [2026-11-10 통관 ZIP 가이드 번호·확대 연출](2026-11-10_customs-guide-numbered.md) — 새 지침1~4번호·전체위치/강조/줌인/복귀, 실제 프레임·플레이어 검증, 업무UI·DB 변경0.
 - [2026-11-10 35·36차 정산서 통관비 대사](2026-11-10_customs-settlement-reconciliation.md) — 26정산표·21대행증빙, HOOD 차수/CLOUD 합산, 공급가VAT·누락 원인, DB쓰기0.
 - [2026-11-09 업로드 업체 오매칭·담당업체 분배단가](2026-11-09_upload-customer-price-workspace.md) — 47차 참고 미우시트 오선택 재현·본문 우선·order기본·담당자그룹.
 - [2026-11-09 무료 OCR 웹 연결](2026-11-09_co-free-local-progress.md) — 로컬 RapidOCR 큐·46-1 완료3개 보존 복구·AU 구조화, 격리 HTTP/합성 UI 검증.

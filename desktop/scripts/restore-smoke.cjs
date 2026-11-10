@@ -11,6 +11,7 @@ const { app, session, safeStorage } = require('electron');
 const ORIGIN = 'https://nenovaweb.com';
 const PHASE = process.argv[2];
 const PROFILE = path.resolve(process.argv[3] || '');
+const favoriteFixture = require('./favorite-fixture.cjs')(path.join(PROFILE,'fixture-server.json'));
 const ACTOR = 'restore-test';
 const PLAINTEXT_SENTINEL = 'NEVER_PERSIST_FORM_VALUE_74cc';
 const TITLE_2025 = 'Restore fixture 2025 title';
@@ -47,6 +48,7 @@ function installFixtureProtocol() {
   workSession.protocol.handle('https', async request => {
     const url = new URL(request.url);
     if (url.origin !== ORIGIN) return new Response('Blocked by restore fixture', { status: 403 });
+    if (url.pathname === '/api/favorites') return favoriteFixture(request, ACTOR);
     requests.push({ method: request.method, pathname: url.pathname });
     if (url.pathname === '/api/work/activity' && request.method === 'POST') {
       const body = await request.json();
@@ -97,8 +99,8 @@ async function writePhase() {
   await waitForTab(tab2025, '2025 fixture content');
   await tab2025.view.webContents.executeJavaScript(`document.querySelector('#unsaved-form-value').value=${JSON.stringify(PLAINTEXT_SENTINEL)}`);
   main.command(firstWindow, 'zoom', { id: tab2025.id, value: 1.2 });
-  main.command(firstWindow, 'favorite', { id: tab2025.id });
-  main.command(firstWindow, 'renameFavorite', { url: main.snapshot().favorites[0].url, alias: '매출자료' });
+  await main.command(firstWindow, 'favorite', { id: tab2025.id });
+  await main.command(firstWindow, 'renameFavorite', { url: main.snapshot().favorites[0].url, alias: '매출자료' });
 
   main.command(firstWindow, 'open', {
     url: '/test/orders?year=2026&week=1&orderYear=2026&orderWeek=1', title: TITLE_2026,
@@ -126,7 +128,7 @@ async function writePhase() {
   }
   assert.ok(safeStorage.isEncryptionAvailable(), 'Electron safeStorage is available');
   const decrypted = JSON.parse(safeStorage.decryptString(encrypted));
-  assert.deepEqual(Object.keys(decrypted).sort(), ['actor', 'favorites', 'version', 'windows']);
+  assert.deepEqual(Object.keys(decrypted).sort(), ['actor', 'favorites', 'favoritesMigrated', 'version', 'windows']);
   assert.equal(decrypted.actor, ACTOR);
   assert.equal(decrypted.version, 1);
   assert.equal(decrypted.windows.length, 2);
