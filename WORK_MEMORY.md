@@ -2458,6 +2458,14 @@
 - 전체 가드 초기PASS+최종 집중47개/webpack PASS. CI·코드배포 후속. docs/work-sessions/2026-11-10_co46-ai-header-packing.md. UI/순서 변경없음. 다운로드는 미승인 계산본, 원본 기본 통관비/조회시세+15원.
 검색어: CO46 저장AI 단당송이수 farm 날짜 MAWB HAWB 공동AWB 16송장46행 formulaErrors0 운영DB보존
 
+## 2026-11-10 선율 ZIP nginx 업로드 한도 긴급 수정
+- 운영 ZIP이 nginx HTML413으로 차단된 원인에 맞춰 exact customs-settlement=36m(Next36mb,ZIP25MiB base64 JSON), worker=2m(Next2mb OCR POST) 관리경로 추가. worker PDF12MiB는 GET/18mb 응답이므로 요청 한도를 불필요 확대하지 않음.
+- 공통 응답 helper로 HTML/비JSON·401/403·413·502/503/504를 안전한 안내로 처리하고 원문 응답/파싱 오류 노출 차단. 기존 성공 JSON·업무 오류와 stale poll fence 보존. 계약 scope/필수 nginx 회귀/한도 명시.
+- nginx 회귀 PASS, settlement30/30 PASS(실제 로컬2MiB HTTP413·본문 비노출/로그인/게이트웨이/성공JSON 포함), diffcheck PASS. 해당 가이드만 dryrun→실촬영1회 및 중간/최종 프레임 확인 PASS: 51초1920×1080/20fps/100%,5sourcehash. 플레이어1920/390·목차4·키보드·실재생·자막·다운로드·접기PASS, workflow9/영상10 및 base8a8479ea 변경검사PASS.
+- 운영DB/원천적용/커밋0, 녹화·플레이어는 합성API/임시파일만 사용 후 서버종료. 최종 전체검사/빌드/배포/nginx 실제반영·운영 재업로드는 부모 담당이며 이 시점 미검증.
+검색어: 선율 ZIP nginx 413 36m 2m 25MiB base64 customsSettlementHttp 30PASS 51초 5sourcehash
+- 부모 최종 전체 ERP/post·dnSpy·manifest208·쓰기guard(API변경0)·webpack production build 모두 PASS(exit0). 운영35/36 DB통관행6·CO0·저장본17행은 기존SELECT 캡처와 동일. 후속 PR/CI/재배포/실제등록은 아래 기록 예정.
+
 ## 2026-11-10 출고일 행내 월~일 수량 입력
 - 사용자 요청: 출고일 버튼 대신 행 옆 월~일+월/일 입력. 농장/업체(비교업체 포함)/출고일지정의 공통 DistributionInlineDates 적용. 월2~일1 순서로 native PeriodDay 실제 날짜만 표시. 날짜 사실+공용 exact 달력은 workspaceDateIndex 묶음조회, 행별GET 추가0.
 - inline 초안은 부모상태로 보존, 수량/단가 저장·SP/확정·탭/차수/품목/업체 변경을 미저장보호. 행 취소/전체취소, Enter다음요일/마지막확인버튼(자동저장0),CtrlS배경수량저장차단. 합계/입력유효성 검사. canonical GET와 최초 날짜/수량 signature 다르면 stale 차단, 기존 snapshot미리보기/명시저장/lease/gate/serializable/audit/rollback을 그대로 사용. 원장 writer 정책 변경0, 달력SQL만 기존 reader와 공용상수 추출.
