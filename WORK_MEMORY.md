@@ -2481,3 +2481,6 @@
 
 - 최종 로컬 검증: 최신c4394b06f 병합 후 npm run test:erp-contract 전체(pre/core/post) exit0. dnSpy/manifest209/writeguard1API/ui-layout/workflow11업무12영상 및 production webpack1worker build PASS. production build로1920/390실브라우저·drag2행/기본요일/그룹/저장복원/엑셀/keyboard/가이드player재검증PASS. 가이드31.8초MP4/한국어VTT/5목차·중간/최종프레임 직접확인. 운영코드배포/CI/PR은후속.
 - 검색어: shipment-statement 전체ERP통과 webpack build production브라우저 검증완료
+
+2026-11-10 수입부 확인 엑셀 전체품목·담당자 시트의 거래처 셀에 정식 거래처명만 표시. 생성 파일 재열기 시험 통과.
+검색어: 수입부확인 엑셀 거래처 태림원예
