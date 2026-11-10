@@ -7,12 +7,12 @@ import { collectArrivalDriveAwbEvidence, awbNumbers } from '../lib/arrivalDriveA
 import { selectArrivalDriveCandidates, arrivalDriveTiming } from '../lib/arrivalDrivePolicy.js';
 
 const config = { year:'2026', countries:['콜롬비아'] };
-const body = 'Air Waybill Original Colombia 2026 AWB 865-14699602';
+const body = "Air Waybill Original Colombia AWB 865-14699602 Shipper's Name and Address Consignee's Name and Address 07-Nov-26 BOGOTA Executed on (date)";
 const book = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['2026/46-01'],['AWB','865-14699602']]), '원가');
 const workbook = XLSX.write(book, { type:'buffer', bookType:'xlsx' });
 const doc = await PDFDocument.create();
-doc.addPage().drawText(body, {font:await doc.embedFont(StandardFonts.Helvetica),size:11});
+doc.addPage().drawText(body.replace(/(.{1,60})\s/g,'$1\n'), {x:30,y:760,font:await doc.embedFont(StandardFonts.Helvetica),size:11});
 const pdf = Buffer.from(await doc.save());
 const make = (id, filename, bytes) => ({id,filename,sha:crypto.createHash('sha256').update(bytes).digest('hex'),
   mtime:'2026-11-06T00:00:00Z',uploadedAt:'2026-11-06T00:00:00Z'});
@@ -32,14 +32,11 @@ const realEvidence = await collectArrivalDriveAwbEvidence([cost,awb],config,{rea
 assert.equal(selectArrivalDriveCandidates([cost,awb],config,realEvidence)[0].reason,'');
 for (const patch of [
   {filename:'2025 46-01 콜롬비아 AWB.pdf'},
-  {filename:'2026 콜롬비아 AWB.pdf'},
-  {filename:'46-01 콜롬비아 AWB.pdf'},
   {filename:'2026 46-01 호주 AWB.pdf'},
   {filename:'2026 46-01 미국 AWB.pdf'},
   {filename:'2026 46-01 뉴질랜드 AWB.pdf'},
   {filename:'2026 46-01 콜롬비아 호주 AWB.pdf'},
   ...['AU','US','USA','NZ','NL','new_zealand'].map(country=>({filename:`2026_46-01_콜롬비아_${country}_AWB.pdf`})),
-  {filename:'AWB.pdf'},
   {filename:'shared-awb-2026-46-01-86514699602 (5).xlsx',origin:'PC_AUTO'},
   {filename:'2026 46-01 콜롬비아 AWB.xlsx'},
   {filename:'2026 46-01 콜롬비아 시험 AWB.pdf'},
@@ -49,10 +46,14 @@ for (const patch of [
   {cycle:'45-1'}, {cycle:0}, {cycle:false}, {cycle:'invalid'},
   {deleted:true}, {egressSnapshot:true}, {type:'download'}, {sha:'0'.repeat(64)},
 ]) assert.ok((await evaluate({...awb,...patch})).reason,JSON.stringify(patch));
-for (const text of ['',body.replace('2026','2025'),body.replace('865-14699602','865-14699591'),
-  body.replace('Air Waybill','Calculation'),body.replace('Colombia','Australia'),body+' 2025',body+' TEST_ONLY',body+' OrderWeek 45-01']) {
+for (const text of ['',body.replace('07-Nov-26','07-Nov-25'),body.replace('865-14699602','865-14699591'),
+  body.replace('Air Waybill','Calculation'),body.replace('Colombia','Australia'),body.replace("Shipper's Name and Address",'Commercial Invoice'),body+' TEST_ONLY',body+' OrderWeek 45-01']) {
   assert.ok((await evaluate(awb,{extractPdf:async()=>text})).reason,text);
 }
+for(const filename of ['46-1 콜카장 AWB.pdf','46-1 콜수국 AWB.pdf','AWB.pdf','AWB NENOVA AWB 86514699602.PDF']) {
+  assert.equal((await evaluate({...awb,filename})).reason,'','original body + exact source AWB supplies missing filename scope');
+}
+assert.equal((await evaluate(awb,{extractPdf:async()=>body+' Copyright 2025'})).reason,'','copyright is not execution year');
 assert.ok((await evaluate(awb,{readBytes:f=>f.id==='cost'?workbook:Buffer.from('not PDF')})).reason);
 const impostorBytes = Buffer.from('XLSX renamed PDF'), impostor = make('awb',awb.filename,impostorBytes);
 assert.ok((await evaluate(impostor,{readBytes:f=>f.id==='cost'?workbook:impostorBytes})).reason);

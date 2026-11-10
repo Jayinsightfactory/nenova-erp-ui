@@ -2384,3 +2384,9 @@
 - 실제 PDF/XLSX 정상 및 반례, worker AWB 교체 저장0, 기존 국가/교차연도/롤백 회귀 통과. ERP전체/dnSpy/manifest206/writeguard 통과. EXE FormWarehouseView CLI 재추출. SQL·ERP writer·산식 변경0, 운영 DB 호출/저장0, 추가AI0.
 - 명시 연도/차수 없는 원본 및 스캔 PDF는 자동추정하지 않고 보류. UI/순서 변경없음(기존 reason 재사용), 영상 신규 해당없음. webpack/PR CI/코드배포 후속. docs/work-sessions/2026-11-10_pr1641-awb-proof.md.
 검색어: PR1641 AWB evidence 원본PDF hash 번호 연도 차수 반례 verifiedCandidates 운영DB보존
+
+## 2026-11-10 CO46 AWB decimal and filename correction
+- Actual46-1 AWB decimal commas now read GW3487/CW4152/rate2.95/total12320.40. Missing filename hints require server original-body execution-year/Colombia/checksum-AWB proof, not blanket rejection. Explicit year/week/country/hash/number conflicts remain blocked.
+- Actual browser original CI upload -> source-reviewed comparison fixture matching ->16 isolated native writer commits -> shared16farm/46line cost download PASS. Transcription uses ERP names, not fresh AI/fuzzy accuracy proof. No production DB or new paid AI calls. Protected orders/shipments unchanged. Shared actual freight applied once; artifact recalc and GW mutation PASS.
+- Full ERP/dnSpy/manifest/writeguard/webpack PASS. No source formula/native/migration/UI sequence change. PR CI/code deploy pending; see docs/work-sessions/2026-11-10_co46-awb-locale.md for exact evidence and limits.
+검색어: CO46 16017338020 AWB decimal comma filename original execution date 16farm46row isolated download
