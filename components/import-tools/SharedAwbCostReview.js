@@ -1,14 +1,29 @@
-import React, {useState} from 'react';
+import React, {useEffect,useState} from 'react';
 import WorkflowGuide from '../WorkflowGuide';
+import {calculateCoOriginalCustoms} from '../../lib/coOriginalCostInputs.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 
 const labels={ROSE:'장미',CARNATION:'카네이션',ALSTROMERIA:'알스트로',RUSCUS:'루스커스',HYDRANGEA:'수국'};
 export default function SharedAwbCostReview({document}) {
   const [prepared,setPrepared]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState('');
   const [confirmed,setConfirmed]=useState(false),[result,setResult]=useState(null),[lineInputs,setLineInputs]=useState([]);
-  const [input,setInput]=useState({gw:'',cw:'',freightAmount:'',freightCurrency:'USD',exchangeRate:'',customsTotalKRW:'',exchangeRateType:'MANUAL'});
+  const [input,setInput]=useState({gw:'',cw:'',freightAmount:'',freightCurrency:'USD',exchangeRate:'',customsTotalKRW:'',customsMode:'FORMULA',exchangeRateType:'MANUAL'});
+  const [rateStatus,setRateStatus]=useState(''),[rateRetry,setRateRetry]=useState(0);
   const update=(field,value)=>{setInput(current=>({...current,[field]:value}));setResult(null);};
   const groups=[...new Set(lineInputs.map(line=>line.groupId).filter(Boolean))].sort();
+  const customs=calculateCoOriginalCustoms(input.gw,groups);
+  useEffect(()=>{
+    if(!prepared || String(input.exchangeRate).trim())return;
+    const controller=new AbortController();setRateStatus('USD 현재 시세 +15원 조회 중…');
+    fetch('/api/import/receipts/live-exchange-rate?currency=USD',{cache:'no-store',credentials:'same-origin',signal:controller.signal})
+      .then(async response=>{const data=await response.json();if(!response.ok||!data.success)throw Error(data.error||'환율 조회 실패');return data;})
+      .then(quote=>{if(controller.signal.aborted)return;setInput(current=>String(current.exchangeRate).trim()?current:{...current,exchangeRate:quote.rate,
+        exchangeRateType:'LIVE_MARKET_PLUS_15',exchangeRateQuoteAt:quote.quoteAt,exchangeRateSource:quote.source,
+        exchangeRateSourceUrl:quote.sourceUrl,exchangeRateMarketRate:quote.marketRate,exchangeRateAdjustmentKRW:15});
+        setRateStatus(`${quote.source} · ${quote.quoteAt} · 시세 ${quote.marketRate} +15원 = ${quote.rate}원`);setResult(null);})
+      .catch(e=>{if(e.name!=='AbortError')setRateStatus(`환율 자동 조회 실패: ${e.message} · 다시 조회하거나 직접 입력하세요.`);});
+    return()=>controller.abort();
+  },[prepared,input.exchangeRate,rateRetry]);
   async function run(action) {
     setBusy(action);setError('');
     try {
@@ -35,9 +50,13 @@ export default function SharedAwbCostReview({document}) {
       <ul>{prepared.members.map(member=><li key={member.documentId}>{member.farmName} · {member.invoiceNo} · {member.rows.length}품목</li>)}</ul>
       <label><input type="checkbox" checked={confirmed} onChange={event=>{setConfirmed(event.target.checked);setResult(null);}}/>공동 AWB의 전체 농장 송장이 모두 포함되었습니다</label>
       <div style={{display:'flex',flexWrap:'wrap',gap:12,margin:'16px 0'}}>
-        {[['gw','공동 GW (kg)'],['cw','공동 CW (kg)'],['freightAmount','공동 운임·서류비 합계 (USD)'],['exchangeRate','환율 (원/USD)'],['customsTotalKRW','공동 통관비 합계 (원)']].map(([field,label])=><label key={field}>{label}<input aria-label={label} type="number" min="0" step="any" value={input[field]} onChange={event=>update(field,event.target.value)}/></label>)}
-        <label>비용 근거<select aria-label="공동 AWB 비용 근거" value={input.exchangeRateType} onChange={event=>update('exchangeRateType',event.target.value)}><option value="MANUAL">확인한 비용</option><option value="TEST_ONLY">시험값 · 실제 원가 아님</option></select></label>
+        {[['gw','공동 GW (kg)'],['cw','공동 CW (kg)'],['freightAmount','공동 운임·서류비 합계 (USD)'],['exchangeRate','환율 (원/USD)']].map(([field,label])=><label key={field}>{label}<input aria-label={label} type="number" min="0" step="any" value={input[field]} onChange={event=>{update(field,event.target.value);if(field==='exchangeRate')update('exchangeRateType','MANUAL');}}/></label>)}
+        <label>통관비 기준<select aria-label="통관비 기준" value={input.customsMode} onChange={event=>update('customsMode',event.target.value)}><option value="FORMULA">기존 42-1 원가표 수식 자동 계산</option><option value="TOTAL">확인한 합계 직접 입력</option></select></label>
+        <label>공동 통관비 합계 (원)<input aria-label="공동 통관비 합계 (원)" type="number" min="0" step="any" readOnly={input.customsMode==='FORMULA'} value={input.customsMode==='FORMULA'?customs.total??'':input.customsTotalKRW} placeholder="GW·품종 입력 시 자동 계산" onChange={event=>update('customsTotalKRW',event.target.value)}/></label>
+        <label>비용 근거<select aria-label="공동 AWB 비용 근거" value={input.exchangeRateType} onChange={event=>update('exchangeRateType',event.target.value)}><option value="MANUAL">확인한 비용</option><option value="LIVE_MARKET_PLUS_15">현재 시세 +15원 자동 환율</option><option value="TEST_ONLY">시험값 · 실제 원가 아님</option></select></label>
       </div>
+      <p role="status">{rateStatus} <button type="button" className={styles.secondary} onClick={()=>{update('exchangeRate','');setRateRetry(n=>n+1);}}>현재 환율 다시 조회</button></p>
+      {input.customsMode==='FORMULA'&&<p>{customs.source} · {customs.groupCount}종류. 원본 기본값 계산본이며 실제 청구 확정액은 아닙니다.</p>}
       {groups.length>1&&<fieldset><legend>품종별 FB 환산 박스수 · 원본 명세서 기준</legend>
         <p>HB·QB 실물 포장수와 다릅니다. 원본의 Full Box 합계를 입력하세요. 품목별 임의 배분은 하지 않습니다.</p>
         {groups.map(group=><label key={group}>{labels[group]} FB<input aria-label={`${labels[group]} FB 환산 박스수`} type="number" min="0" step="any"

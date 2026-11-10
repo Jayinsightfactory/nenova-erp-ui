@@ -2330,3 +2330,17 @@
 검색어: 출고분배 미국 더글라스 레몬잎 전체품목검색 미분배 shipmentDistributionCatalog
 - 추가 검증: 실제 FormEstimateView dnSpy 재실행. ViewOrder 기반 신규분배/확정가드 및 native Excel SQL 확인. 격리MSSQL 공유날짜저장→견적수량750/금액→엑셀1행, 전년도/무효담당자/삭제항목 차단 및 미확정/0견적량/시각/raw키 배제 PASS. 운영2025/46-01 미국29행 Date.EstQuantity NULL로 native Excel 제외 발견(원장보정0, 원인주체미확정). 전체ERP/build PASS. CI/배포/운영UI 후속.
 검색어: 미국 출고분배 견적누락 이카운트 EstQuantity NULL 2025 46-01 downstream SQL
+## 2026-11-10 콜롬비아 원본 통관비 자동화 — 진행 중
+- 작업트리 nw-co-cost-defaults-1110 / fix/co-cost-defaults-1110. 운영 DB 쓰기·추가 AI 없음. 공유 AWB 콜롬비아 통관비를 42-1 원본 GW×460+33,000+활성 품종수×10,000+99,000+40,000으로 계산. 기존 명시 총액(0 포함) 유지, FORMULA/TOTAL 구분. USD 조회시세+15 기존 endpoint 자동 적용, 수정값 보존.
+- 실제 읽기 스냅샷 46-01 AWB86514699602의 31입고/265상품 replay로 실제 컴포넌트 브라우저 다운로드 확인. GW100/CW120/운임100USD는 TEST_ONLY, 실제46-1 원가 검증 통과로 주장 금지. 다운로드 shared-awb-2026-46-01-86514699602 (2).xlsx. ERP Be Sweet600송이/206USD의4자리 평균단가 반올림은 계산 복제본에서만 금액÷수량으로 정밀화, 실불일치는 차단 유지.
+- 대상 회귀49pass9skip/전체 ERP contract PASS, 가이드 녹화 PASS. 엑셀 최초 총액/판매가/이익/합계 및 수식오류 없음 확인. 그러나 C8 GW 변경시 P10은 갱신되지만 T8/U8/L15/M15 종속값이 갱신되지 않는 재계산 문제를 Artifact와 Excel COM에서 관찰: 미해결. .verify/verify-excel-co.ps1 및 .verify/artifact/verify-co.mjs 재현. 기준 파일 수정/저장 없음. 해결 전 완전검증·배포완료 주장 금지.
+- 마지막 SELECT probe 47headers/313rows로 최초48/316에서 외부 운영 데이터가 달라짐. 자체 writes0이나 전체 운영 스냅샷 불변을 주장할 수 없음. 비공개 .verify에 결과. build/commit/PR/배포 미실행.
+검색어: CO customs FORMULA TOTAL coOriginalCostInputs 46-1 GW460 BeSweet .3433 206 T8 P10 재계산 미완료
+
+
+## 2026-11-10 콜롬비아 엑셀 재계산 수정
+- 원인: 판매 행수 COUNT(Q15:Q마지막)을 AB12에 기록해 CO 중량 SUMPRODUCT(AB8:AB12,AC8:AC12)와 판매 추천식 사이에 순환 참조 발생. AC12=0이어도 의존성 순환은 없어지지 않음. 판매 진단만 AK14:AL15로 이동, 원본 배분계수·계산식·승인값 보존.
+- 수정 후 동일46-1 31입고/265상품 실제 브라우저 다운로드 (5).xlsx, Artifact 및 Microsoft Excel 독립 재계산 PASS. GW100→101: 통관258000→258460, 총원가87612004.3975→87612464.3975, 265개 행 원가 및 판매/이익 갱신, 원복 PASS. 중량·운임 TEST_ONLY, 실제 재무원가 통과 아님. 파일 readOnly/Save없음/운영 SQL 쓰기0.
+- 자동판매 국가별 회귀52pass9skip. 전체 가드·빌드·CI·코드배포는 후속 검증 예정.
+검색어: CO AB12 COUNT SUMPRODUCT 순환참조 AK14 AL15 GW 재계산 265행 verify-colombia-cost-recalculation
+- 최종 로컬: 대상75개66pass9skip, 전체 ERP contract·manifest205·writeguard(변경API0)·dnSpy evidence·가이드7/영상8·프로덕션 webpack cpus1 빌드 PASS. 실제 EXE CLI 재확인, 운영 writer 실행0. 새 UI 가이드 재녹화 및 현재 소스 hash 검증. CI/배포 후속.

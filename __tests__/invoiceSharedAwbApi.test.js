@@ -45,3 +45,21 @@ test('API authorization, stale digest and post-render drift never send download'
  r=response();await createSharedAwbHandler({authorize:()=>true,prepare:async()=>p})({method:'POST',body:{...body,baselineDigest:'stale'}},r);assert.equal(r.code,409);
  let calls=0;r=response();await createSharedAwbHandler({authorize:()=>true,prepare:async()=>++calls===1?p:{...p,baselineDigest:'changed'},generate:async()=>Buffer.from('test')})({method:'POST',body},r);assert.equal(r.code,409);
 });
+
+test('production handler exports the same auto-customs input used by preview; approved sources untouched',async()=>{
+ const f=fixture(),p=await prepareSharedAwb(f);
+ for(const m of p.members)for(const line of m.lineInputs)line.groupId='HYDRANGEA';
+ const before=JSON.stringify(p),body={action:'download',baselineDigest:p.baselineDigest,completeManifestConfirmed:true,
+  input:{gw:100,cw:120,freightCurrency:'USD',freightAmount:10,exchangeRate:1400,customsMode:'FORMULA',customsTotalKRW:123}};
+ let exported;
+ const res={setHeader(){},status(code){throw Error(`unexpected ${code}`);},send(){},json(){throw Error('expected xlsx');}};
+ await createSharedAwbHandler({authorize:()=>true,prepare:async()=>p,generate:async data=>{exported=data;return Buffer.from('xlsx');}})({method:'POST',body},res);
+ assert.equal(exported.input.customsTotalKRW,228000);assert.equal(exported.result.totals.customsKRW,228000);
+ assert.equal(exported.input.expenseBasis,'ESTIMATED');assert.equal(JSON.stringify(p),before);
+});
+
+test('verified receipt weighted FOB rounding does not mutate the DB snapshot or hide non-rounding errors',async()=>{
+ const f=fixture();Object.assign(f.docs[0].lines[0],{stemQuantity:600,lineAmount:206,unitPrice:.3433});
+ const p=await prepareSharedAwb(f);assert.equal(p.members[0].rows[0].unitPrice,206/600);assert.equal(f.docs[0].lines[0].unitPrice,.3433);
+ f.docs[0].lines[0].unitPrice=.34;assert.equal((await prepareSharedAwb(f)).members[0].rows[0].unitPrice,.34);
+});
