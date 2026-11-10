@@ -1,5 +1,11 @@
 # 출고내역서 — 2026-11-10 실제 EXE 및 read-only 근거
 
+## 2026-11-10 버튼 선택·담당자 개인 업체 즐겨찾기
+실제 설치 EXE FormShipmentDistribution dnSpy CLI 재추출(.verify/buttons-dnspy.txt), 동일 생산 reader SELECT-only 재실행: 2025/2026 업체64/66, 표본품목28/29, 원본 세부차수·달력 정상. ERP SQL/writer/SP 변경0.
+기준: 선택 메인차수±2를 같은 연도1..53에서 표시, 버튼 클릭→명시 해당 연도/차수 GET1회. 담당자는 기존 Customer.Manager 정확 일치, 업체는 그 차수 실제 분배 목록 안에서만 표시. 담당자/연도/차수 변경 시 미저장 보호. 이전 담당자가 새 차수에 없으면 이유와 전체 담당자 전환을 표시.
+즐겨찾기는 기존 /api/favorites의 인증 UserID + PageName='shipment-statement-customers', JSON custKey만 사용한다. 이름/이전연도·차수 수량으로 후보를 보충하지 않으며 저장된 이름 대신 현재 업체명을 표시한다. 화면은 담당자별 후보 내 즐겨찾기 우선; 로그인 계정마다 개인 설정. 표시/정렬은 shipmentStatementSelection.cjs, GET 후 확인된 즐겨찾기만 표시, 변경응답불명은 GET재확인만 제공. 범용 API 또는 공유 Customer.Manager는 수정하지 않는다.
+부작용: 버튼/검색은 브라우저 선택 및 기존ERP SELECT만. 별표 변경은 UserFavorite 본인 페이지 레코드만. OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/Estimate/WebProfitReport/재고 보존. 사용가이드는 버튼 UI로 재촬영한다.
+
 설치본 C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe에 dnSpy.Console.exe --no-color -t FormShipmentDistribution 재실행. 비공개 추출 .verify/shipment-statement-dnspy.txt.
 GetCustomerList: ViewOrder/ ViewShipment는 OrderYear+OrderWeek+CustKey+ProdKey, 날짜는 ShipmentDate와 PeriodDay exact 연결. GetShipmentMaster는 선택 연도·차수·업체 Master, btnSave_Click은 상세→농장→날짜 Delete/Insert 순서. 이 native writer를 호출하지 않는 웹 전용 예정 출고내역서를 추가한다.
 

@@ -1,19 +1,21 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T06:59:13.856Z",
+  "recordedAt": "2026-11-10T07:39:35.373Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 31.8,
+  "duration": 36.25,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "4137cfb5b3f981b13d24cc5c5405a83e6d90b99c74956f165a1abde66ec73e2d",
-  "captionsSha256": "bdb11be34a8ad357847ef47a1b0c72e90f7a0849d47c1c6721f8a525fce0b926",
+  "videoSha256": "5875df079b040ee419103c4c763fc18825306a1ba1f29c7a106a49aec122d669",
+  "captionsSha256": "a1428fb6ee562a04141fa8e63689530aad05050d423f4e8dba394b4d571dc997",
   "sourceHashes": {
-    "pages/shipment/statement.js": "5a0d35e9672237becaf9ced49c49c340bb9caffafe280b3f3850d8fe607cef76",
-    "styles/ShipmentStatement.module.css": "a4003a773aa3689c5210d008c1788d989e4dc093f81ef37da20385b84255b8e0",
-    "lib/shipmentStatement.cjs": "d174b8c3630f17b189d65f9816a0da5aac01309b1497826a9b19263bd4448d67"
+    "pages/shipment/statement.js": "5c3c55ac6fcbb7d1cf32008f28e12845e4f14e4201f98fd59cecf0452828b041",
+    "styles/ShipmentStatement.module.css": "8410e48d415af945ca67686d7ea52b0946574a71a056b6fc014ef657a5c68168",
+    "lib/shipmentStatement.cjs": "d174b8c3630f17b189d65f9816a0da5aac01309b1497826a9b19263bd4448d67",
+    "components/ShipmentStatementSelectors.js": "6a7d31dbf0280b53af01cfba1c665b6861a72d91de770474d8d17ef1df8824e9",
+    "lib/shipmentStatementSelection.cjs": "2d60178812a29b1340d2012d26965a06396c450df1a138c55a18c9f257ce2f18"
   }
 }
