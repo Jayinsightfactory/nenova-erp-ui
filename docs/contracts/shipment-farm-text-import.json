@@ -1,0 +1,74 @@
+{
+  "id": "shipment-farm-text-import",
+  "title": "물량표 수정과 카톡 농장분배 통합 검증 및 원본 인쇄 보존",
+  "scope": [
+    "lib/shipmentFarmText.js",
+    "lib/shipmentFarmImport.js",
+    "lib/shipmentFarmWorkbook.js",
+    "lib/shipmentImport.js",
+    "lib/shipmentReplacementPlan.js",
+    "pages/shipment/distribute-import.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-export.js",
+    "__tests__/shipmentFarmTextImport.test.cjs",
+    "package.json"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "PREVIEW_EXPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "FARM_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "replace_final",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "detailEffect": "Descr only; quantity/money/date/fix preserved"
+    },
+    {
+      "name": "QUANTITY_AND_FARM",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentFarm": "validated_final_set",
+      "batchAtomic": true
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025·2026 동일 45-01 업체·품목 중 선택 연도만 저장. 카톡 42-2 제목은 실제 저장 범위를 변경하지 않는다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/farm-text-excel-2026-11-10.md",
+    "source": "actual dnSpy.Console.exe FormShipmentDistribution",
+    "methods": [
+      "grdViewShipment_FocusedRowChanged",
+      "btnSave_Click"
+    ],
+    "tables": [
+      "ShipmentFarm",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ViewWarehouse"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentFarmTextImport.test.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from origin/master"
+  ]
+}
