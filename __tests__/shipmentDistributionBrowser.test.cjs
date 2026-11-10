@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const chrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const port = 39000 + Math.floor(Math.random() * 1000);
-const base = `http://127.0.0.1:${port}`;
+const base = process.env.DISTRIBUTION_BROWSER_BASE || `http://127.0.0.1:${port}`;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const bounded = (promise, label) => Promise.race([promise, pause(15000).then(() => { throw new Error(`Timed out: ${label}`); })]);
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
@@ -23,12 +23,12 @@ async function waitForServer(process) {
 }
 
 test('distribution workspace keyboard, favorites, safe drafts, stale reads, and viewports', { timeout: 180000 }, async () => {
-  const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', String(port)], {
+  const server = process.env.DISTRIBUTION_BROWSER_BASE ? null : spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', String(port)], {
     cwd: root, windowsHide: true, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
   });
   let browser;
   try {
-    await waitForServer(server);
+    if(server)await waitForServer(server);
     browser = await chromium.launch({ executablePath: chrome, headless: true });
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     const page = await context.newPage();
@@ -69,7 +69,7 @@ let orderPosts = 0;
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
       if (url.pathname === '/api/favorites') {
         if (request.method() === 'GET') return reply(route, { success: true,
-          favorites: favorites.get(userId) || [] });
+          favorites: url.searchParams.get('page')==='shipment-distribute-groups'?[{FavoriteKey:999,FilterData:JSON.stringify({groupKey:'콜롬비아::장미'})}] : url.searchParams.get('page')==='shipment-distribute-countries'?[]:favorites.get(userId) || [] });
         const body = JSON.parse(request.postData() || '{}');
         if (request.method() === 'POST') {
           const row = { FavoriteKey: nextFavoriteKey++, FavName: body.name, FilterData: body.filterData };
@@ -179,9 +179,9 @@ let orderPosts = 0;
               { ProdKey: 2429, ProdName: 'Alstroemeria', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100, Cost: 33, inQty: 100, outQty: shipmentQty },
               ...(withGerbera ? [{ ProdKey: 61, ProdName: 'Gerbera', OutUnit: '단', Cost: 5, inQty: 20, outQty: 0 }] : []),
             ];
-          return reply(route, { success: true, products });
+          return reply(route, { success: true, products:products.map(p=>({...p,CounName:'콜롬비아',FlowerName:'장미'})) });
         }
-        if (type === 'custList' || type === 'customers') return reply(route, { success: true,
+        if (type === 'workspaceCustomers' || type === 'custList' || type === 'customers') return reply(route, { success: true,
           customers: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 436, CustName: 'Zulu Florist' }, { CustKey: 512, CustName: 'Mike Florist' }] });
         if (type === 'custDist') return reply(route, { success: true, totalOut: shipmentQty,
           customers: [{ CustKey: 478, CustName: 'Alpha Florist', 주문수량: 60, 출고수량: shipmentQty,
@@ -274,7 +274,7 @@ let orderPosts = 0;
     console.log('browser: favorites');
     userId = 'fixture-user-b';
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await page.getByText('이 차수에 즐겨찾기 품목이 없습니다.').waitFor();
+    await page.getByText('조건에 맞는 품목이 없습니다.').waitFor();
     assert.equal(favorites.get('fixture-user-b').length, 0, 'favorites are account scoped');
     await page.getByRole('button', { name: '★ 즐겨찾기만' }).click();
     await page.getByRole('button', { name: 'Alstroemeria 즐겨찾기 추가' }).waitFor();
@@ -333,8 +333,8 @@ let orderPosts = 0;
     releaseHeldQuery.resolve();
     await page.locator('[data-distribute-qty="true"]:not([disabled])').first().waitFor();
 
-    await page.getByTestId('distribution-customer-picker').locator('button').first().click();
-    await page.getByRole('group', { name: '업체 선택' }).getByRole('button', { name: /Alpha Florist/ }).click();
+    await page.getByRole('button', { name: /출고분배 및 업체정보/ }).click();
+    await page.locator('[data-ai-verify="customer-478"]').click();
     const customerQty = page.locator('[data-distribute-qty="true"]');
     await customerQty.waitFor();
     await customerQty.fill('51');
@@ -594,38 +594,20 @@ let orderPosts = 0;
       assert.ok(bounds.scrollWidth <= bounds.width + 2,
         `${viewport.width} viewport: workspace horizontal overflow ${bounds.scrollWidth} > ${bounds.width}`);
     }
-    // 품종 버튼(콜롬비아 장미 등) → 그 품종으로 품목 재조회
-    await page.setViewportSize({ width: 1920, height: 1080 });
-    const groupButtons = page.getByTestId('distribution-group-buttons');
-    // 비즐겨찾기 품종을 고르는 시나리오는 전체 보기를 명시적으로 연다.
-    if (await page.locator('[data-ai-verify="group-view-all"]').getAttribute('aria-pressed') !== 'true') await page.locator('[data-ai-verify="group-view-all"]').click();
-    assert.equal(await groupButtons.getByRole('button', { name: '전체' }).getAttribute('aria-pressed'), 'true');
-    // 업체 탭: 업체를 고른 뒤 품종을 눌러도 업체가 초기화되지 않고 그 품종 품목만 보임, 전체로 돌리면 다시 전부
-    await page.getByRole('button', { name: /출고분배 및 업체정보/ }).click();
+    // Latest independent customer workspace contract: no shared farm group filters.
+    await page.setViewportSize({width:1920,height:1080});
+    await page.getByRole('button',{name:/출고분배 및 업체정보/}).click();
     await page.locator('[data-ai-verify="customer-row-478"]').click();
     await page.locator('[data-ai-verify="qty-478-2429"]').waitFor();
-    await page.locator('[data-ai-verify="group-콜롬비아 장미"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
-    await pause(300);
-    assert.equal(await page.locator('[data-ai-verify="qty-478-2429"]').count(), 0, 'only the chosen 품종 rows (Alstroemeria hidden)');
-    await page.getByText(/Alpha Florist.*주문 품목 목록/).waitFor(); // 업체 선택 유지
-    await groupButtons.getByRole('button', { name: '전체' }).click();
-    await page.locator('[data-ai-verify="qty-478-2429"]').waitFor();
-    await page.locator('[data-ai-verify="group-콜롬비아 장미"]').click();
-    await page.waitForFunction(() => document.querySelector('[data-ai-verify="group-콜롬비아 장미"]')?.getAttribute('aria-pressed') === 'true');
-    await pause(300);
-    assert.ok(productGroupQueries.some(key => key.endsWith('장미')), 'group button reloads products for that 품종');
-    // 품종 즐겨찾기: ☆ → 차수 줄 옆 ★ 품종 버튼으로 고정 (FilterData groupKey), 다시 누르면 해제
-    assert.equal(await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').count(), 0);
-    await page.locator('[data-ai-verify="group-fav-콜롬비아 장미"]').click();
-    await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').waitFor();
-    assert.ok([...favorites.values()].flat().some(row => JSON.parse(row.FilterData).groupKey === '콜롬비아::장미'), 'group favorite stored by groupKey');
-    assert.equal(await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').getAttribute('aria-pressed'), 'true');
-    await page.locator('[data-ai-verify="group-fav-콜롬비아 장미"]').click();
-    await page.locator('[data-ai-verify="fav-group-콜롬비아 장미"]').waitFor({ state: 'detached' });
+    assert.equal(await page.getByTestId('distribution-group-buttons').count(),0);
+    await page.getByRole('button',{name:/출고분배 및 농장정보/}).click();
+    await page.locator('[data-ai-verify="family-toggle-콜롬비아::장미"]').waitFor();
+    await page.locator('[data-ai-verify="family-toggle-콜롬비아::장미"]').click();
+    assert.equal(await page.locator('[data-product-select]').count(),0);
+    await page.keyboard.press('Enter');await page.locator('[data-product-select]').first().waitFor();
     await context.close();
   } finally {
     await browser?.close().catch(() => {});
-    server.kill();
+    server?.kill();
   }
 });

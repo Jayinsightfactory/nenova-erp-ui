@@ -9,9 +9,9 @@ const fixtures = [
   {ProdKey:345,ProdName:'CARNATION Apple Tea',OutUnit:'박스',_exeParity:true,prevStock:2,inQty:1,outQty:1},
   {ProdKey:3199,ProdName:'CARNATION Pastel Crimea',OutUnit:'박스',_exeParity:true,prevStock:0,inQty:0,outQty:0},
   {ProdKey:2518,ProdName:'CARNATION Mix Box D (Mariposa. Yukari cherry, Cherrio)',OutUnit:'박스',_exeParity:true,prevStock:4,inQty:4,outQty:4},
-];
+].map(p=>({...p,CounName:'콜롬비아',FlowerName:'카네이션'}));
 let source = fs.readFileSync('pages/shipment/distribute.js','utf8');
-const values = {products:fixtures,selectedProd:fixtures[0],prodGroup:'콜롬비아::카네이션',prodGroups:[{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션'}],inQty:1};
+const values = {favoriteGroups:[{groupKey:'콜롬비아::카네이션'}],products:fixtures,selectedProd:fixtures[0],prodGroup:'콜롬비아::카네이션',prodGroups:[{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션'}],inQty:1};
 for (const [state,value] of Object.entries(values)) {
   const pattern = new RegExp(`(const \\[${state}, [^\\]]+\\] = useState\\()([^;]+)(\\);)`);
   assert.match(source,pattern);
@@ -31,6 +31,9 @@ const Page = load(source, name=>{
     formatWeekDisplay:w=>String(w).replace(/^2026-/,'')};
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
+  if(name.endsWith('/shipmentDistributionNavigation.js')) return libRequire('./shipmentDistributionNavigation.js');
+  if(name.endsWith('/DistributionProductTree')) return load(fs.readFileSync('components/shipment/DistributionProductTree.js','utf8'),n=>n.includes('shipmentDistributionNavigation')?libRequire('./shipmentDistributionNavigation.js'):n.includes('distributeProductDisplay')?display:require(n));
+  if(name.endsWith('/DistributionDateFilter')) return load(fs.readFileSync('components/shipment/DistributionDateFilter.js','utf8'),require);
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return libRequire('./shipmentDistributionWorkspace.js');
   if(/\/lib\/(displayName|customerSearch|qwertyHangul)$/.test(name)) return libRequire('./'+name.split('/').pop());
   if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
