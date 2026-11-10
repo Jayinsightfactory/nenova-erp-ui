@@ -11,7 +11,7 @@ import { convertQwertyInputToHangul } from '../../lib/qwertyHangul';
 import { distributionQuantityRemark, distributionWeekOptions, distributionWeekButtons, distributionSubWeekButtons,
   distributionSaveLogLine, hasDistributionDrafts, mergeDistributionCustomerItems, parseDistributionFavorite, parseDistributionGroupFavorite,
   planDistributionMove, pendingDistributionOrderItems, pendingDistributionItem, distributionFixCycleScope, distributionCustomerSearchRows, mergeDistributionSearchCandidates,
-  sortDistributionCustomers, sortDistributionProducts, distributionPairGroupKey, distributionPairGroups,
+  sortDistributionCustomers, sortDistributionProducts, distributionProductSearchRows, distributionPairGroupKey, distributionPairGroups,
   distributionUnitFactor, toDisplayQty, toNativeQty } from '../../lib/shipmentDistributionWorkspace.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -1255,7 +1255,7 @@ export default function Distribute() {
     .filter(a => !custDist.some(c => Number(c.CustKey) === Number(a.CustKey)))
     .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))] : custDist;
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
-  const filteredProds = sortDistributionProducts(products, prodFilter)
+  const filteredProds = distributionProductSearchRows(products, productCatalog, prodFilter)
     .filter(p => !favoritesOnly || favoriteKeys.has(Number(p.ProdKey)));
   const filteredCustomers = sortDistributionCustomers(customerPool, custFilter);
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
@@ -1298,7 +1298,7 @@ export default function Distribute() {
     productCatalogLoadingRef.current = true;
     apiGetDistribute({ type: 'productCatalog' })
       .then(res => { if (res?.success === true) setProductCatalog(res.products || []); })
-      .catch(() => {})
+      .catch(() => { setErr('전체 품목 검색 목록을 불러오지 못했습니다. 검색창을 다시 선택해 주세요.'); })
       .finally(() => { productCatalogLoadingRef.current = false; });
   };
   const itemFilterInput = (
@@ -1810,7 +1810,7 @@ export default function Distribute() {
           {viewMode === 'prod' && (
             <div style={{borderRight:'1px solid var(--border)',minWidth:0}}>
               <div style={{padding:'8px 12px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',gap:6,flexWrap:'wrap'}}>
-                <input ref={productSearchRef} className="filter-input" placeholder="품목명 검색 (ProdName A-Z)" value={prodFilter} onChange={e=>setProdFilter(e.target.value)} style={{flex:1,height:28,fontSize:12,minWidth:0}}/>
+                <input ref={productSearchRef} className="filter-input" placeholder="품목·국가·품종 검색 (전체 품목)" value={prodFilter} onFocus={ensureProductCatalog} onChange={e=>{ if (e.target.value.trim()) ensureProductCatalog(); setProdFilter(e.target.value); }} style={{flex:1,height:28,fontSize:12,minWidth:0}}/>
                 <button type="button" className={`btn btn-sm ${favoritesOnly?'btn-primary':'btn-secondary'}`}
                   aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(value => !value)}>★ 즐겨찾기만</button>
               </div>

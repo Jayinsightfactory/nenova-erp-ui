@@ -551,3 +551,16 @@ SELECT-only Audit137 2026/44-01 381행749초SUCCESS/381일치;135/136은STARTED.
 
 ## 2026-11-09 업로드 업체 및 담당자 분배단가 화면
 실제 dnSpy.Console.exe --no-color -t FormOrderAdd 및 FormShipmentDistribution CLI 재실행. FormOrderAdd.btnSave_Click의 Master→Detail/빈 출고헤더, FormShipmentDistribution.GetCustomerList의 연도+차수+CustKey ViewOrder/ViewShipment 조인 확인. 신규 writer 없음. 파일의 참고 미우 시트가 본문보다 우선된 실제47차 원본 재현과 SELECT-only 키277/491/456 검증은 [기준표](../plans/upload-customer-distribution-2026-11-09.md). 단가 변경은 기존 update-cost만 호출하며 수량/확정/날짜/농장/Estimate/재고 writer 변경 없음. EXE GUI 미검증.
+## 2026-11-10 출고분배 미국 품종 검색
+
+- 실제 설치 EXE: `dnSpy.Console.exe --no-color -t FormShipmentDistribution` 재실행, outputs/shipment-search-dnspy.txt. Load 국가목록은 ViewOrder, GetProductList는 ViewOrder+Product+현재 Stock INNER JOIN, 선택 연도/차수/국가 조건. btnSave_Click 상세→농장→날짜 저장 순서 보존.
+- 운영 SELECT-only Product: 미국 더글라스 2품목, 레몬잎 1품목. 2026 주문47-01 10행/46-01 4행. EXE의 주문 기반 목록과 별도로 사용자가 요청한 웹 전체 활성 카탈로그 검색을 제공하며 원장행을 생성해 목록을 보충하지 않는다.
+- 기준: 품종 선택 GET은 loadShipmentProdGroups(query)의 전체 활성 Product 국가+꽃. 품목검색은 비공백일 때만 기존 productCatalog와 현재차수 products를 ProdKey로 합침. 현재차수 수량 우선/A-Z/국가·꽃·이름 일치, 공백은 기존 차수목록. 삭제품목은 기존 catalog SQL isDeleted=0으로 제외. 즐겨찾기만 필터는 명시 선택 유지.
+- 부작용 표: 목록/검색/선택 모두 Product 읽기; OrderMaster/Detail, ShipmentMaster/Detail/Farm/Date, Stock/StockHistory, Estimate, WebProfitReport 전부 보존. 저장 eligibility/preflight/writer와 연도 스코프 변경0. 전체 검색 후보 선택은 저장 성공 판정이 아니다.
+- 회귀: 2025/2026 동일 품목 현재차수 수량99/3 보존, 미분배 미국 후보 검색, 레몬잎 검색, 비일치 제외, 공백 기존목록, null catalog, 중복키 우선순위·입력불변. 실제 EXE GUI 저장·운영 시험분배 미실시.
+- 추가 SELECT-only 동일 미국/46-01: 2025 주문30/분배29/날짜29/농장0, 2026 주문4/분배0/날짜0/농장0. DetailFix=1+동일연도차수업체품목 ViewOrder+ShipmentDate+PeriodDay 견적노출2025 29행/2026 0행. 2025 확정29행 Amount8895454.545454547/Vat889545.4545454545. 해당 미국 품목 Estimate 전체25행, 2025/2026 대차수46 WebProfitReport0행. 원장쓰기0.
+- 표적 helper13 PASS, 전체 ERP contract PASS, dnSpy/manifest/write guard PASS. 실제 Chrome 분리 회귀: 1920/390, 2025/2026 미국3종 후보 fixture/품종버튼/국가검색/품종검색/비일치/공백복귀/쓰기0 PASS. 기존 종합 browser test는 변경 전 범위인 추가창 담당자 조작 후 qty-478-2429 탐색에서 timeout(미해결, 해당 파일 변경없음).
+- 사용자 추가요청(견적/이카운트 누락 구조 재점검): 실제 FormEstimateView dnSpy 재추출(GetDetail/GetExcelDetail). 신규분배 assertShipmentLineHasOrder=ViewOrder 동일year/week/cust/prod 및 fix직전 assertNoOrderlessLinesBeforeFix, raw키 연도+대차수, refreshShipmentDatesAfterDetailChange→distributeUnits→Date.EstQuantity/Amount/Vat→Detail합계 정렬 경로 확인. 이카운트는 외부쓰기 없이 기존 sqlEstimateGetExcelDetail→mapExcelDetailRowToEcount→XLSX.
+- 신규 격리 SQL scripts/test-distribution-catalog-downstream-sql.cjs PASS: 미국정상품목/날짜견적량750/금액대조/엑셀1행, 전년도주문·무효담당자·삭제거래처/품목/주문 차단, 미확정/견적량0/시각불일치/raw full키 제외 후복원. 기존 견적visibility 실제SQL 교차연도 6케이스 PASS, shipmentEstimateGuard71 PASS, Excel매핑3 PASS. 운영쓰기0.
+- 운영과거문제 별도확인: 2025/46-01 미국 분배29행의 ShipmentDate.EstQuantity 합 NULL, raw키202546/DetailFix1/달력조인29는정상. 실제 GetExcelDetail SELECT는0행(EstQuantity>0 미충족). 2026/46-01 미국은 분배0이므로확정견적/엑셀0은정상. 현재검색패치로과거원장을보정하지않음. 과거이력작성주체/원인미확정, 운영시험저장·EXE GUI미검증.
+- 최종 빌드 PASS. 표적1920/390/2025/2026 Chrome검색 PASS. CI/배포는 후속.

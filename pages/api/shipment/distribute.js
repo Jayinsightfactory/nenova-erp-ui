@@ -321,7 +321,7 @@ async function getDistribute(req, res) {
   try {
     // ── 품목그룹 목록 (CounName+FlowerName — nenova.exe / 주문등록 동일)
     if (type === 'groups') {
-      const groups = await loadShipmentProdGroups(query, { week: week || undefined, year: orderYear });
+      const groups = await loadShipmentProdGroups(query);
       return res.status(200).json({ success: true, groups });
     }
 
