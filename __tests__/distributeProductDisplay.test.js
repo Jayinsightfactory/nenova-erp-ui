@@ -28,7 +28,7 @@ assert.equal(distributePreviousStockTotal([{ _exeParity: true, prevStock: 2 }, {
 assert.equal(distributePreviousStockTotal([{ _exeParity: true, prevStock: 2 }, { prevStock: 999 }]), null);
 const source = fs.readFileSync('pages/shipment/distribute.js', 'utf8');
 // 왼쪽 품목 목록은 품목명만 (세부 수치는 선택 시 오른쪽) → 폭 축소
-assert.match(source, /minmax\(280px, 26%\) minmax\(0, 1fr\)/);
+assert.match(source, /minmax\(210px, 20%\) minmax\(0, 1fr\)/);
 assert.match(source, /whiteSpace:'normal',overflowWrap:'anywhere'/);
 assert.match(source, /data-product-select/);
 assert.match(source, /ArrowDown/);

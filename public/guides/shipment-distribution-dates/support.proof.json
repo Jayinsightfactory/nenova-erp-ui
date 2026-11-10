@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-10T03:03:45.557Z",
+  "width": 1920,
+  "height": 1080,
+  "browserZoom": 100,
+  "fps": 20,
+  "duration": 27.3,
+  "capture": "actual-browser-ui",
+  "dataMode": "synthetic-fixture",
+  "productionWrites": 0,
+  "videoSha256": "b82ce03c42d3a4a8911f89f4d1899e8e89e334552304fe2bdd274e37f87185f7",
+  "captionsSha256": "3683c40932c1deae6908be69f8ef9a1bda7d4d847be5cc454eed35f55c9a4c01",
+  "sourceHashes": {
+    "pages/shipment/distribute.js": "9a1c7884d57e41aea01afd443cd7c91bcd8dbcbe2429924ffd00434d8c7af5c1",
+    "components/shipment/DistributionDateEditor.js": "f35d7dde020ca53cfc5c0b527cc4d1151845dba50349fdc44f69f96bece708f8"
+  }
+}

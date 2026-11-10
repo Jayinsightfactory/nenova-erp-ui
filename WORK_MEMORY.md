@@ -2362,3 +2362,12 @@
 - 로컬 완료: ERP전체/dnSpy/manifest206/쓰기guard/정식build PASS. 최종Chrome 기본즐겨찾기 CO수국·카네이션·장미3개만/미국국가숨김, 전체보기→복귀/1920·390 및45-03 합성기존저장회귀 PASS. 계정변경시그룹즐겨찾기초기화도포함. CI/배포/운영화면확인은후속.
 - 이전 #1639 운영보정 완료 상태 기록 보완: a2117552 배포성공 후 2025/46-01 미국 양수25개 Date견적필드 복원,0행4개보존. 79박스/1690단/기존매출9785000원 동일, 정상인쇄·Excel25행·실XLSX메모리roundtrip·22업체·원장지문보존 확인, SystemActionLog18151. 별도 작업트리 nw-us-estimate-repair/outputs에 백업·검증영수증 보관. 이번 즐겨찾기 표시 작업 ERP쓰기0.
 검색어: 즐겨찾기만 기본표시 3품종 국가숨김 1639 보정완료18151
+
+## 2026-11-10 출고분배 국가+품종 즐겨찾기 / 실제 출고일 수량 분배
+- 국가 설정(UserFavorite shipment-distribute-countries)과 기존 품종 즐겨찾기의 교집합을 국가 제목 아래 한 번만 표시. 전체보기에서 설정하며 명시[]·재접속·계정전환 보존, 초기 조회 완료 후에만 기본 품종 선택. 중복 상단 chip 제거, 좌우 여백·표 수량 열 간격 축소.
+- 기존 출고일지정 입력은 실제 ShipmentDate 저장이 없는 화면/엑셀 임시값이 원인. 품목/업체/날짜 탭 공용 편집기로 실제 날짜 조회→수량합계→서버 미리보기→명시 저장. 날짜탭 상단 수량저장·Ctrl+S 숨은 품목 쓰기 차단.
+- 실제 dnSpy FormShipmentDistribution/ClassShipmentDate 재추출. PeriodDay exact7일/연도/시각/중복, EXE 소수 EstQuantity 및 midpoint-to-even, 요일번호 마지막 대표일 적용. 총출고·견적량·gross 불변, SD.ShipmentDtm만 변경, 수량/단가/금액/isFix/주문/농장/재고/Estimate/손익 보존. V2 gate+내부편집리스+SERIALIZABLE+snapshot+감사/사후조회 롤백. 가격/비고/legacy NULL/수동견적수량 불명확하면 차단.
+- 운영 SELECT-only: 2026/45-01/3513 상세2건 각1박스/15단/172500원 preflight PASS, 날짜달력7. 운영 테스트 저장0. 이전 미국29건 보정은 별도 완료(양수25/0행4, 수량·매출 보존).
+- 격리 MSSQL PASS: .4+.6박스→6+9단→172500원, native 견적2행/전체요일 이카운트 Excel집계1행 및 요일별6·9/XLSX roundtrip, prior2025 sentinel99, 원장지문, stale/감사실패 롤백/gate busy. Chrome 합성1920/390 PASS: 국가 교집합·중복제거·빈설정 재접속·계정변경·날짜 미리보기/저장/재조회·ESC/Ctrl+S 보호, 기존45-03 검색/업체추가 회귀도 PASS.
+- 로컬 필수 test:erp-contract / dnSpy / manifest207 / write guard / production build 모두 PASS. 실제 Chrome 사용가이드 MP4+한국어VTT+목차+proof 생성, registry 검사 PASS(8업무9영상). CI·병합·Cafe24 배포·운영 브라우저 스모크는 후속 단계, 이 기록 시점 미검증.
+검색어: 국가즐겨찾기 품종교집합 출고일분배 distribution-dates ShipmentDate 소수견적량 midpoint-to-even 총매출보존

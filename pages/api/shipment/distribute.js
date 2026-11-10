@@ -472,6 +472,8 @@ async function getDistribute(req, res) {
           CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
+          sd.SdetailKey, CONVERT(nvarchar(10),sd.ShipmentDtm,120) AS ShipmentDateLabel,
+          (SELECT COUNT(*) FROM ShipmentDate d WHERE d.SdetailKey=sd.SdetailKey) AS ShipmentDateCount,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
           (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
                 WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
@@ -522,6 +524,8 @@ async function getDistribute(req, res) {
           CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
+          sd.SdetailKey, CONVERT(nvarchar(10),sd.ShipmentDtm,120) AS ShipmentDateLabel,
+          (SELECT COUNT(*) FROM ShipmentDate d WHERE d.SdetailKey=sd.SdetailKey) AS ShipmentDateCount,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
           ISNULL(sd.Descr,N'') AS ShipmentDescr,
           (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)

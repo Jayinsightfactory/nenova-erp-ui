@@ -1,0 +1,65 @@
+{
+  "id": "shipment-distribution-dates",
+  "title": "출고 총량 보존 날짜 분배",
+  "scope": [
+    "lib/shipmentDistributionDates.js",
+    "pages/api/shipment/distribution-dates.js",
+    "components/shipment/DistributionDateEditor.js",
+    "__tests__/shipmentDistributionDates.test.js",
+    "scripts/test-distribution-dates-sql.cjs",
+    "scripts/record-distribution-dates-guide.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "DATE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "replace exact same-detail dates with native conversion; preserve total quantity estimate quantity gross",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "sideEffect": "ShipmentDtm-only; preserve quantity price money fix"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same45-01 cust/product sentinel, wrong year rejected before write"
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "2026-11-10 actual local dnSpy CLI outputs/country-dates-dnspy.txt",
+    "methods": [
+      "btnSave_Click",
+      "ShipmentQuantityToEstQuantity",
+      "grdViewCust_FocusedRowChanged"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "PeriodDay",
+      "ViewOrder",
+      "ViewShipment",
+      "SystemActionLog"
+    ]
+  },
+  "requiredTestFiles": [
+    "__tests__/shipmentDistributionDates.test.js",
+    "scripts/test-distribution-dates-sql.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "node scripts/test-distribution-dates-sql.cjs",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run test:erp-manifest -- --changed-from origin/master"
+  ]
+}

@@ -104,3 +104,11 @@ nenova.exe 에서 23-01 베트남 호접난(ORCHID VIETNAM) 출고분배+확정�
 - ✅ **orders updateOrder Manager 무검증 (불변식 1)** — **수정**. `Manager = COALESCE((SELECT UserID WHERE UserID=@mgr OR UserName=@mgr),(SELECT UserID WHERE UserName='관리자'),'admin')` 로 유효 UserID 해석.
 - ⏸ **Estimate.Descr 무한 append** (`update-quantity` 차감수량 등) — 화면/API sanitize 로 운영 로그는 숨김. DB append 는 잔존(추후 길이 cap 검토).
 - ⏸ **pivotStats.js:90** StockMaster raw OrderYearWeek `< @yws`(full) — StockMaster 포맷 의존 경계이슈(기존, 별개). 추후.
+
+### 날짜만 재분배하는 경로의 소수 견적수량 (2026-11-10)
+불변식9의 1 ShipmentDetail + N ShipmentDate 구조는 유지한다. 다만 실제 EXE
+FormShipmentDistribution 날짜 탭의 ShipmentQuantityToEstQuantity는 소수 환산 원값이다.
+날짜만 재분배할 때는 Date.EstQuantity를 정수로 잘라 쓰지 않으며 금액만 은행가 반올림한다.
+총 OutQuantity/견적수량/gross를 보존하지 못하는 분할은 저장 전 차단한다.
+일반 수량변경·usp_DistributeOne 경로의 기존 정수 환산 정책을 바꾸는 예외가 아니다.
+근거: exe-golden/FormShipmentDistribution.md 2026-11-10 및 shipment-distribution-dates 계약.
