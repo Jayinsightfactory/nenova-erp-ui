@@ -60,6 +60,12 @@ module.exports=async function({pool,sql,query,writer,documents,ctx,protectedSnap
    }
    else if(route==='/api/import/tools/state'){const key=u.searchParams.get('key')||body.key||'';if(method==='POST')shared.set(key,body.value);d={success:true,value:shared.get(key)||null,revision:0,history:[]};}
    else if(route==='/api/import/tools/upload-history')d={success:true,record:{id:'isolated-only'},rows:[]};
+   else if(route==='/api/import/receipts/native-cost'){
+    const {createNativeCostHandler}=await import('../lib/nativeCostHttp.js');
+    const handler=createNativeCostHandler({queryFn:ctx.queryFn,types:sql,authorize:()=>true});
+    const adapter={setHeader:(k,v)=>res.setHeader(k,v),status(code){res.statusCode=code;return this;},json(value){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));},send(value){res.end(value);},end(){res.end();}};
+    await handler({method,body,query:Object.fromEntries(u.searchParams),user:{userId:'invoice-fixture'}},adapter);events.push({route,method,status:res.statusCode});return;
+   }
    else if(route==='/api/import/receipts/shared-awb-cost'){
     const {createSharedAwbHandler}=await import('../lib/invoiceSharedAwbApi.js');
     const handler=createSharedAwbHandler({queryFn:ctx.queryFn,types:sql,authorize:()=>true});

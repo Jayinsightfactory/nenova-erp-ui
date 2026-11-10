@@ -190,7 +190,7 @@ export default function InvoiceReceiptWorkbench({
   userId='',
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
   awb = null, invoiceUploadDate = '', audMarketRate = null, audMarketRateError = '',
-  workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange, resumeReceiptScope = null,
+  workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange,
 }) {
   const [records, setRecords] = useState([]);
   const [localWorkspaceMode, setLocalWorkspaceMode] = useState('receipt');
@@ -714,12 +714,6 @@ export default function InvoiceReceiptWorkbench({
       setBusy('');
     }
   }
-
-  useEffect(() => {
-    if (!resumeReceiptScope || resumeReceiptScope.userId !== userId) return;
-    workflowGenerationRef.current += 1;
-    loadDocument(resumeReceiptScope.documentId, resumeReceiptScope);
-  }, [resumeReceiptScope, userId]);
 
   async function connectExistingCostOnly() {
     if (!selected || busy || workflowLockRef.current) return;

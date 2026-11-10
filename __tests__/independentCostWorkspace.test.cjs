@@ -19,7 +19,7 @@ test('cost menu defaults to existing receipts, keeps independent drafts and reje
   const compiled = await transform(source, { jsc: { parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'classic' } } }, module: { type: 'commonjs' } });
   const mod = { exports: {} };
   vm.runInNewContext(compiled.code, { module: mod, exports: mod.exports, React,
-    require: name => name === 'react' ? React : name === 'next/dynamic' ? () => ['Workbench','Packing'][dynamicIndex++] : {} });
+    require: name => name === 'react' ? React : name === 'next/dynamic' ? () => ['Workbench','Packing','NativeCost'][dynamicIndex++] : {} });
   const render = (props = {}) => { si = ri = ci = 0; return mod.exports.default({ userId: 'tester', storage: {}, ...props }); };
   const all = node => node && typeof node === 'object' ? [node, ...node.children.flatMap(all)] : [];
   let tree = render();
@@ -50,5 +50,11 @@ test('cost menu defaults to existing receipts, keeps independent drafts and reje
   render({ resumeReceiptScope });
   tree = render({ resumeReceiptScope });
   assert.equal(states[0], 'existing');
-  assert.equal(all(tree).find(n => n.tag === 'Workbench').props.resumeReceiptScope, resumeReceiptScope);
+  const nativeCost = all(tree).find(n => n.tag === 'NativeCost');
+  assert.equal(nativeCost.props.orderWeek, '46-01');
+  assert.equal(nativeCost.props.warehouseKey, 1);
+  nativeCost.props.onClose();
+  tree=render({resumeReceiptScope});assert.ok(all(tree).some(n=>n.tag==='Workbench'));
+  tree=render({resumeReceiptScope:{...resumeReceiptScope,userId:'another'}});
+  assert.ok(!all(tree).some(n=>n.tag==='NativeCost'));
 });
