@@ -1,21 +1,23 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T05:43:28.071Z",
+  "recordedAt": "2026-11-10T06:18:58.244Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 37.7,
+  "duration": 37.25,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "4733e5bc475dd20e6e06c35d725d185a87bbe1f38ed63d39024ecc087105a1e9",
-  "captionsSha256": "3f2ceac59f518c0cbc852c98b1607537e8d58aa0efd83bd6189c01f98965016c",
+  "videoSha256": "181ae6a5582625591b4a0b9423346838f121ca28f9af55287b306bf987e2aa3e",
+  "captionsSha256": "fe63b6a229caa7a99b96f76b8fa93981f4469804d498ba5137bdef373c0e62f8",
   "sourceHashes": {
-    "pages/shipment/distribute.js": "eb3308ce52859dc78dac98c961d1978117e312ba7f894c5b3b8e4fab6c54a50f",
-    "components/shipment/DistributionDateEditor.js": "f35d7dde020ca53cfc5c0b527cc4d1151845dba50349fdc44f69f96bece708f8",
+    "pages/shipment/distribute.js": "6d8979f92b776f083beb72f388911a6259e7d5c3b3ad5ba645713a87e97022af",
+    "components/shipment/DistributionDateEditor.js": "50fcf97ed2eda801d2809156615f5ddbaa856b9457154f6fd46b136b9771e445",
     "components/shipment/DistributionProductTree.js": "024019b8fe3bd836c87e2c62e00f9817e013e28086f3406e8763e3f6e5742538",
-    "components/shipment/DistributionDateFilter.js": "14ab3ac7d837ae58731c2db72df9566172ce052f982f23da29b0f4fe4664ac4f",
-    "lib/shipmentDistributionNavigation.js": "9d5833d94d4fd53426757a6f8358a85e7a07e40d0742e0cfca51c723dce59764"
+    "components/shipment/DistributionDateFilter.js": "7c406de65a51846478346c77ee4caafc0f667de01b7c7acdf362e806fe145ff3",
+    "lib/shipmentDistributionNavigation.js": "9d5833d94d4fd53426757a6f8358a85e7a07e40d0742e0cfca51c723dce59764",
+    "components/shipment/DistributionInlineDates.js": "28227dbfe47d15e5f645f61ed931fbf6f34315273a9dfe87457cffdfef38e38e",
+    "lib/shipmentInlineDates.js": "8389ecd6e51576c0eaf3e1d43617a631c09c81b144cde478e52bcbaecee01561"
   }
 }
