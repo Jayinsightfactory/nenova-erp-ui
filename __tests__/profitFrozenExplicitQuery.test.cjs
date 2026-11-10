@@ -44,14 +44,15 @@ test('production loader freezes every monetary cell; latest inputs are current+p
  const source=fs.readFileSync('pages/api/sales/profit-report.js','utf8');
  const body=source.slice(source.indexOf('export async function currentProfitPeriod'),source.indexOf('export async function loadAnnualMonthlyReportData')).replaceAll('export ','');
  const raw=(major,N)=>({major,orderYear:'2026',rows:[{category:'중국',variant:'normal',auto:{N,L:0,O:0,Q:2,S:0,E:0,F:0,H:0,R:10},manual:{H:0,R:10,AC:0,AJ:0},stock:{evidenceValue:0},beginStock:{evidenceValue:0}}]});
- const saved=C.materializeProfitPayload(raw('42',777)),before=JSON.stringify(saved);let calls=[],overlays=0,confirmed=false,fail=false,sourceVersion=0,invoiceVersion=0,changeInvoice=false;
+ const saved=C.materializeProfitPayload(raw('42',777)),before=JSON.stringify(saved);let calls=[],overlays=0,confirmed=false,fail=false,sourceVersion=0,invoiceVersion=0,changeInvoice=false,settlementVersion=0,changeSettlement=false;
  const deps={profitFinancialReadPolicy,materializeProfitPayload:C.materializeProfitPayload,manualInputManifest:{},
   estimateCalendarEvidenceByCategory:async(m,y)=>({orderYear:y,major:m,byCategory:{}}),applyProfitEstimateCalendarView:p=>p,
   getActiveConfirm:async()=>confirmed?{initialized:true,confirm:{}}:null,buildConfirmedPayload:async()=>({confirmed:{},rows:saved.rows,confirmedTotals:saved.totals}),
   readStoredProfitPayload:async()=>structuredClone(saved),storedProfitPayload:r=>{if(!r)throw Object.assign(Error('missing'),{code:'SNAPSHOT_NOT_READY'});return r.payload;},
-  loadReportData:async(m)=>{calls.push(m);if(fail)throw Error('source failed');if(changeInvoice)invoiceVersion++;return raw(m,m==='44'?44964933:43892819);},
+  loadReportData:async(m)=>{calls.push(m);if(fail)throw Error('source failed');if(changeInvoice)invoiceVersion++;if(changeSettlement)settlementVersion++;return raw(m,m==='44'?44964933:43892819);},
   loadSourceFingerprints:async()=>({map:new Map([['source',sourceVersion]])}),currentErpReadContext:()=>true,
   latestProfitInvoiceFence:async()=> String(invoiceVersion),
+  settlementScopeFence:async()=>String(settlementVersion),
   applyTemplateDutyToReport:async(p,y,m,options)=>{overlays++;assert.equal(options.strict,true);assert.equal(options.latestReports.get('44').payload.rows[0].calc.N,44964933);assert.equal(options.previousPayload.rows[0].calc.N,43892819);return p;},
   saveProfitCache:()=>assert.fail('no writes'),loadProfitReportCalendar:async()=>[],resolveCurrentProfitWeek:()=>({orderYear:'2026',major:'44'}),resolvePreviousProfitWeek:()=>({orderYear:'2026',major:'43'}),
  };
@@ -60,7 +61,8 @@ test('production loader freezes every monetary cell; latest inputs are current+p
  const latest=await L('44','2026');assert.deepEqual(calls,['44','43']);assert.equal(latest.rows[0].calc.N,44964933);assert.equal(latest.rows[0].calc.H,0);assert.equal(overlays,1);
  fail=true;await assert.rejects(L('44','2026'),/source failed/);fail=false;
  changeInvoice=true;await assert.rejects(L('44','2026'),e=>e.code==='PROFIT_SOURCES_CHANGED');changeInvoice=false;
- confirmed=true;const fixed=await L('44','2026');assert.equal(fixed.readMode,'confirmed');assert.deepEqual(fixed.confirmedTotals,saved.totals);assert.equal(overlays,2);
+ changeSettlement=true;await assert.rejects(L('44','2026'),e=>e.code==='PROFIT_SOURCES_CHANGED');changeSettlement=false;
+ confirmed=true;const fixed=await L('44','2026');assert.equal(fixed.readMode,'confirmed');assert.deepEqual(fixed.confirmedTotals,saved.totals);assert.equal(overlays,3);
  assert.equal(C.profitDisplayCalculation(result).rows[0].calc.K,result.rows[0].calc.J/result.rows[0].calc.C);
 });
 test('invoice financial fence includes revision/document/operation/line identity and amounts; missing partial or malformed evidence holds',async()=>{
