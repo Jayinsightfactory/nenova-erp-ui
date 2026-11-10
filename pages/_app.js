@@ -21,6 +21,7 @@ const NO_LAYOUT = [
   '/admin/category-overrides',
   '/admin/orbit-report',
   '/my-work',
+  '/ops',
   '/orders/paste',
   '/orders/paste-template',
   '/orders/mapping-status',

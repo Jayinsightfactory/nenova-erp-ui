@@ -5,33 +5,18 @@ import Head from 'next/head';
 import { useWeekInput, getCurrentWeek } from '../../lib/useWeekInput';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 
-// URL의 ?week= 를 초기값으로 동기 반영 — useEffect로 나중에 setValue 하면 그 사이 잘못된 기본값으로
-// 첫 조회가 나가는 경쟁상태가 생김(2026-07-10 발견). SSR 안전(NO_LAYOUT 클라이언트 전용 페이지).
-function urlParam(name) {
-  if (typeof window === 'undefined') return '';
-  try { return new URLSearchParams(window.location.search).get(name) || ''; } catch { return ''; }
+// SSR provides one canonical URL selection to both server and client: no wrong first GET.
+export async function getServerSideProps({query}) {
+  const current=String(getCurrentWeek()||'').match(/^(\d{4})-(\d{2})-/);
+  const initialSelectedYear=/^20\d{2}$/.test(String(query.year||''))?String(query.year):current?.[1]||'2026';
+  const initialSelectedWeek=/^\d{1,2}(?:-\d{2})?$/.test(String(query.week||''))?String(query.week):current?.[2]||'';
+  return {props:{initialSelectedYear,initialSelectedWeek,initialFocus:String(query.focus||'')}};
 }
-
-function initialWeek() {
-  if (typeof window === 'undefined') return '';
-  try {
-    const w = new URLSearchParams(window.location.search).get('week');
-    if (w) return w;
-  } catch {}
-  const m = String(getCurrentWeek() || '').match(/^\d{4}-(\d{2})-\d{2}$/);
-  return m ? m[1] : '';
-}
-
-export default function CustomsClearancePage() {
-  const weekInput = useWeekInput(initialWeek());
+export default function CustomsClearancePage({initialSelectedYear='',initialSelectedWeek='',initialFocus=''}) {
+  const weekInput = useWeekInput(initialSelectedWeek);
   // ?year= / ?focus= — 매출이익 보고서 경고의 "새 창에서 열기"가 연도·반차수를 미리 선택해 연다.
-  const [focus] = useState(() => urlParam('focus'));
-  const [year, setYear] = useState(() => {
-    const fromUrl = urlParam('year');
-    if (/^\d{4}$/.test(fromUrl)) return fromUrl;
-    const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
-    return m ? m[1] : String(new Date().getFullYear());
-  });
+  const [focus] = useState(initialFocus);
+  const [year, setYear] = useState(initialSelectedYear);
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (

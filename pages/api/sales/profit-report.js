@@ -40,6 +40,7 @@ import {profitFinancialReadPolicy} from '../../../lib/profitReportReadPolicy.js'
 import {getPool} from '../../../lib/db.js';
 import {withErpReadContext,currentErpReadContext} from '../../../lib/erpReadContext.js';
 import {latestProfitInvoiceFence} from '../../../lib/profitLatestInvoiceFence.js';
+import {settlementScopeFence} from '../../../lib/customsSettlementEvidence.js';
 import {shareLatestProfitRead} from '../../../lib/profitLatestInFlight.mjs';
 import {createProfitReadFailureDiagnostic} from '../../../lib/profitReadFailureDiagnostic.cjs';
 import {applyProfitEstimateCalendarView} from '../../../lib/profitEstimateCalendarView.js';
@@ -707,7 +708,7 @@ async function loadCoherentLatestReport(major,orderYear){
   const work=async()=>{
     const previous=await previousReportPeriod(orderYear,major);
     const years=[...new Set([String(orderYear),previous.orderYear,String(Number(orderYear)-1)])];
-    const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years)});
+    const signature=async()=>JSON.stringify({erp:[...(await loadSourceFingerprints(years,{force:true})).map].sort(([a],[b])=>a.localeCompare(b)),invoice:await latestProfitInvoiceFence(years),settlement:await settlementScopeFence(years)});
     diagnostic?.phase('preFence');
     const before=await signature();
     diagnostic?.phase('current');

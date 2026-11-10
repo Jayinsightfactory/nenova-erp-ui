@@ -34,7 +34,7 @@ async function fixture({failPhase,code='ECANCEL',timerFired=true,throwLogger=fal
  const pool={size:1,borrowed:1,available:0,pending:0,request(){return {input(){return this;},cancel(){cancels++;},async query(statement){if(statement==='SELECT fence')fences++;if(statement==='SELECT '+failPhase||(failPhase==='postFence'&&statement==='SELECT fence'&&fences===2)){if(timerFired)timers.at(-1).fn();throw error;}return {recordset:[]};}};}};
  const q=statement=>context().query('SELECT '+statement);
  const deps={currentErpReadContext:context,shareLatestProfitRead:share,getPool:async()=>pool,withErpReadContext:scope,createProfitReadFailureDiagnostic:options=>{creates++;return create({...options,log:line=>{if(throwLogger)throw Error('PRIVATE_LOGGER');logs.push(line);}});},
-  previousReportPeriod:async(year)=>({orderYear:year,major:'43'}),loadSourceFingerprints:async()=>{await q('fence');return {map:new Map()};},latestProfitInvoiceFence:async()=>0,materializeProfitPayload:v=>v,
+  previousReportPeriod:async(year)=>({orderYear:year,major:'43'}),loadSourceFingerprints:async()=>{await q('fence');return {map:new Map()};},latestProfitInvoiceFence:async()=>0,settlementScopeFence:async()=> 'fixture-settlement-digest',materializeProfitPayload:v=>v,
   loadReportData:async major=>{await q(major==='44'?'current':'prior');return {rows:[],totals:{C:0}};},applyTemplateDutyToReport:async raw=>{await q('duty');return raw;},
   setTimeout:(fn,ms)=>{assert.equal(ms,45000);const t={fn,cleared:false};timers.push(t);return t;},clearTimeout:t=>{t.cleared=true;}};
  const start=source.indexOf('async function loadCoherentLatestReport('),end=source.indexOf('export async function loadWeeklyReportPayload',start);

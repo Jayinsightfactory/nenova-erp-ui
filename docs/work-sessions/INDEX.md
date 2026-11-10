@@ -1,3 +1,4 @@
+- [2026-11-10 35·36차 정산서 통관비 대사](2026-11-10_customs-settlement-reconciliation.md) — 26정산표·21대행증빙, HOOD 차수/CLOUD 합산, 공급가VAT·누락 원인, DB쓰기0.
 - [2026-11-09 업로드 업체 오매칭·담당업체 분배단가](2026-11-09_upload-customer-price-workspace.md) — 47차 참고 미우시트 오선택 재현·본문 우선·order기본·담당자그룹.
 - [2026-11-09 무료 OCR 웹 연결](2026-11-09_co-free-local-progress.md) — 로컬 RapidOCR 큐·46-1 완료3개 보존 복구·AU 구조화, 격리 HTTP/합성 UI 검증.
 - [2026-11-09 PDF 분할 분석](2026-11-09_pdf-chunks.md) — CO 3쪽 구간·완료 재사용·페이지/금액/manifest 대조, 추가 유료 분석·ERP 쓰기 없음.
