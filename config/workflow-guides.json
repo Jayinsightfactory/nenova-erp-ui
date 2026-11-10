@@ -12,7 +12,8 @@
         "components/CustomsSettlementUpload.js",
         "components/CustomsClearancePanel.js",
         "pages/sales/customs-clearance.js",
-        "lib/customsSettlementPresentation.js"
+        "lib/customsSettlementPresentation.js",
+        "lib/customsSettlementHttp.js"
       ],
       "requiredScenarios": [
         "upload",
@@ -38,17 +39,17 @@
             {
               "scenario": "review",
               "title": "타차수·판독 보류만 확인",
-              "seconds": 24.618
+              "seconds": 24.661
             },
             {
               "scenario": "link",
               "title": "검토건 귀속·실제 원천 우선 확인",
-              "seconds": 31.198
+              "seconds": 31.226
             },
             {
               "scenario": "preserve",
               "title": "중복 방지·과거 계산본 직접 갱신",
-              "seconds": 37.781
+              "seconds": 37.813
             }
           ]
         }

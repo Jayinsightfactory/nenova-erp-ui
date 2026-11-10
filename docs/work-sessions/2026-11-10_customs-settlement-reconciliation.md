@@ -33,6 +33,14 @@
 
 ## 미완 / 다음 작업 후보
 
+### 후속 구현 진행 — 2026-11-10
+
+- 사용자 최종 목표는 ZIP 업로드마다 실제 통관비 원천 자동등록 및 매출자료 연결이다. SQL 쓰기 없이 비공개 파일 원천 저장소를 사용하며, 과거 저장 보고서 갱신은 별도 수동 확인 정책을 유지한다.
+- PR #1648: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1648 — 전체 ERP/dnSpy/manifest/write guard/build 로컬 통과, CI 42765902707 성공, squash merge 8a8479ea07e7e76ad6d755bb388563444a3b3109 완료.
+- Cafe24 deploy run 42766677905 진행 중. 전용 Nenova-Customs-Settlement-OCR 예약 작업 설치·실행, 기존 Nenova-Free-OCR-Worker Running 유지. 운영 실제 ZIP 등록·실화면 스모크는 아직 미검증.
+- 아래 미완 목록은 조사 종료 시점 기록이며, 구현·배포 상태는 이 후속 기록과 다음 결과를 우선한다.
+- 1차 배포 42766677905 성공 후 IAB에서 실제35차ZIP(4,460,577바이트) 업로드 시 nginx HTML 오류를 발견했다. 무인증 공백2MiB POST probe도 HTTP413이라 앱·DB 호출 전 nginx 기본 용량 제한임을 확인했다. 등록 완료0, SQL 쓰기0. 새 브랜치 codex/customs-zip-upload-limit에서 exact 경로 제한과 명확한 오류 안내를 보완 중이다. 이 시점 운영 자동입력은 아직 완료가 아니다.
+
 - 사용자가 수정 요청하면 공급가/VAT 기준 충돌 및 여러AWB→단일입고 연결 정책부터 명시하고 회귀 테스트 추가. 이번 조사 자체는 수정 권한으로 확대하지 않음.
 - 기존 ZIP 기능 전체 gate/build/가이드/CI/배포는 여전히 미완료다.
 - CLOUD 원본 패킹의 품목별 분할 경계, HOOD 차수 이동 의도, 별도 창고/국내운송/방역 실제 청구는 미검증.
