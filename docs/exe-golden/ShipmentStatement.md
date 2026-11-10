@@ -27,3 +27,6 @@ UI/preview/save/export는 lib/shipmentStatement.cjs의 동일 배분/검증 정�
 기본값/0·누락/명시입력/원본변경/다른연도·차수/동시저장/양수·0/다른단가를 실행형 회귀로 검사한다. 실제 EXE GUI 저장은 미실시.
 
 후속 downstream 독립 SELECT: 2025/2026 DetailFix=1 상세1498/1365, ViewOrder+Date+PeriodDay exact 견적노출1498/1365, Estimate179/174, WebProfitReport45차0행. 2026 상세독립금액369619801/Vat36961989(날짜JOIN중복집계값과구분). 실제production reader를 VM으로로딩해 SELECT-only실행: 업체64/66,표본품목28/29,2026 세부차수01·02·03포함,두연도 달력각7일. 운영쓰기0.
+
+## 2026-11-10 선택형 묶음·원본 서식
+FormShipmentDistribution 실제dnSpy 재실행 및 동일production reader SELECT:2025/2026 업체64/66·표본28/29·달력각7일. 2026/45는11-04수~11-10화,사용자화요일11-10확인과일치. 조회/SQL/ERPwriter변경0. 선택묶음과원본서식 기준·보존표는 plans/shipment-statement-template-2026-11-10.md. 원본XML정적서식만추출,실제과거업체/날짜/수량포함0.

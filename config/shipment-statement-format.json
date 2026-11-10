@@ -1,0 +1,365 @@
+{
+  "provenance": "2026년 45차 플로르.xlsx xl/styles.xml; formatting only, no customer cells",
+  "columns": [
+    12.625,
+    55.5,
+    20,
+    20
+  ],
+  "gap": 38,
+  "titleHeight": 69.75,
+  "spacerHeight": 16.5,
+  "headerHeight": 26.25,
+  "bodyHeight": 30,
+  "styles": {
+    "title": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 19.0,
+        "bold": true,
+        "color": {
+          "rgb": "FF000000"
+        }
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": false
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      }
+    },
+    "spacer": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 18.0,
+        "bold": true,
+        "color": {
+          "rgb": "FF000000"
+        }
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": false
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      }
+    },
+    "category": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 16.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      }
+    },
+    "nameHeader": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 16.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      }
+    },
+    "numberHeader": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 14.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      },
+      "numFmt": "mm\"월\"\\ dd\"일\""
+    },
+    "body": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 19.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      },
+      "numFmt": "0_);[Red]\\(0\\)"
+    },
+    "price": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 16.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      },
+      "numFmt": "\"₩\"#,##0_);[Red]\\(\"₩\"#,##0\\)"
+    },
+    "total": {
+      "font": {
+        "name": "맑은 고딕",
+        "sz": 19.0,
+        "bold": true
+      },
+      "alignment": {
+        "horizontal": "center",
+        "vertical": "center",
+        "wrapText": true
+      },
+      "border": {
+        "top": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "bottom": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "left": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        },
+        "right": {
+          "style": "thin",
+          "color": {
+            "rgb": "000000"
+          }
+        }
+      },
+      "fill": {
+        "patternType": "solid",
+        "fgColor": {
+          "rgb": "FFFFFF"
+        }
+      }
+    }
+  }
+}

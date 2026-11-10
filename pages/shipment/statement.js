@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Head from 'next/head';
 import {useRouter} from 'next/router';
 import WorkflowGuide from '../../components/WorkflowGuide';
+import ShipmentStatementGroups from '../../components/ShipmentStatementGroups';
 import ShipmentStatementSelectors from '../../components/ShipmentStatementSelectors';
 import core from '../../lib/shipmentStatement.cjs';
 import styles from '../../styles/ShipmentStatement.module.css';
@@ -40,7 +41,6 @@ export default function ShipmentStatement(){
  const stale=data?.stale,valid=!!data&&!stale&&rows.length>0&&!problems.length;
  const patch=next=>{setDraft(next);setDirty(true);setMessage('수정 중 · 저장 버튼을 눌러야 보관됩니다.');};
  function quantity(row,day,value){const entry={...(draft.entries[row.id]??{})};if(value==='')delete entry[day];else entry[day]=value;patch({...draft,entries:{...draft.entries,[row.id]:entry}});}
- function setGroup(category,name){const mapping=new Map();draft.groups.forEach(g=>g.categories.forEach(k=>mapping.set(k,g.name)));mapping.set(category,name.trim());const groups=new Map();for(const [key,label] of mapping){if(!label)continue;if(!groups.has(label))groups.set(label,[]);groups.get(label).push(key);}patch({...draft,groups:[...groups].map(([name,categories])=>({name,categories}))});}
  function range(start,end,base=[]){return [...new Set([...base,...visible.slice(Math.min(start,end),Math.max(start,end)+1).map(r=>r.id)])];}
  function pointer(e,index){if(e.button!==0||busy||stale)return;e.preventDefault();anchor.current=index;drag.current={start:index,base:e.ctrlKey||e.metaKey?selected:[]};setSelected(range(index,index,drag.current.base));}
  function toggle(id,index,shift){if(shift)setSelected(range(anchor.current,index,selected));else{anchor.current=index;setSelected(s=>s.includes(id)?s.filter(k=>k!==id):[...s,id]);}}
@@ -70,7 +70,7 @@ export default function ShipmentStatement(){
    </div><p>별도로 지정하지 않은 수량은 <strong>{draft.defaultDay}요일</strong>에 배정됩니다. ERP 실제 출고일·분배 총수량·재고·매출은 변경하지 않습니다.</p>
    {stale&&<div className={styles.error} role="alert">저장 후 차수피벗 원본이 변경됐습니다. 저장본 엑셀은 다시 받을 수 있습니다. 새 원본으로 작성하려면 기존 배분을 초기화하세요. <button onClick={()=>{if(window.confirm('기존 작성본은 보관됩니다. 새 원본으로 요일 배분을 초기화할까요?')){setData({...data,stale:false});patch({...draft,entries:{}});}}}>새 원본으로 배분 초기화</button></div>}
    </section>
-   <details className={styles.panel}><summary>품목 묶음 설정 · 같은 이름을 입력하면 함께 출력</summary><p>예: 콜롬비아 수국과 콜롬비아 장미에 모두 “콜수국·콜장미”를 입력합니다. 빈칸은 원래 품목군으로 출력됩니다.</p><div className={styles.groups}>{categories.map(c=><label key={c.key}>{c.label}<input aria-label={`${c.label} 출력묶음`} maxLength={60} list="statement-groups" value={draft.groups.find(g=>g.categories.includes(c.key))?.name??''} disabled={busy||stale} onChange={e=>setGroup(c.key,e.target.value)}/></label>)}</div><datalist id="statement-groups">{draft.groups.map(g=><option key={g.name} value={g.name}/>)}</datalist></details>
+   <ShipmentStatementGroups key={JSON.stringify(data.source.scope)} categories={categories} groups={draft.groups} disabled={busy||stale} onChange={groups=>patch({...draft,groups})}/>
    <section className={styles.panel} aria-label="요일별 수량 편집"><div className={styles.controls}>
     <label>품목 검색<input aria-label="품목 검색" value={search} onChange={e=>{setSearch(e.target.value);setSelected([]);}}/></label>
     <button disabled={busy||stale||!visible.length} onClick={()=>setSelected(visible.map(r=>r.id))}>표시 품목 전체 선택</button><button onClick={()=>setSelected([])} disabled={!selected.length}>선택 해제</button><strong>{selected.length}개 선택</strong>
