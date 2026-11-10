@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { auInvoiceTariffDefault } from '../../lib/auInvoiceTariffDefaults.js';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview';
 import styles from '../../styles/NativeReceiptCost.module.css';
@@ -8,11 +8,13 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
   const [metadata, setMetadata] = useState({ currency: '', transportMode: '', gw: '', cw: '' });
   const [applied, setApplied] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [inputDraft, setInputDraft] = useState(null);
+  const receiveInputDraft = useCallback((input, state) => setInputDraft({ input, edited: state?.edited === true }), []);
   const active = useRef(true), generation = useRef(0);
   function updateMetadata(key, value) { generation.current++; setMetadata(v => ({ ...v, [key]: value })); }
   useEffect(() => {
     const abort = new AbortController(); active.current = true; generation.current++;
-    setData(null); setApplied(null); setError('');
+    setData(null); setApplied(null); setError(''); setInputDraft(null);
     fetch(`/api/import/receipts/native-cost?${new URLSearchParams({ orderYear, orderWeek, warehouseKey })}`, { cache: 'no-store', signal: abort.signal })
       .then(async response => { const value = await response.json(); if (!response.ok || !value.success) throw new Error(value.error || '입고 조회 실패'); return value; })
       .then(value => { if (!abort.signal.aborted) {
@@ -37,6 +39,8 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   let costDocument = null;
+  const downloadInput = inputDraft?.edited ? inputDraft.input : data?.automatic?.input;
+  const editedNeedsReview = inputDraft?.edited && downloadInput?.formulaApplicabilityConfirmed !== true;
   if (data && applied && JSON.stringify(applied) === JSON.stringify(metadata)) {
     const lines = data.document.lines.map(line => ({ ...line, currency: applied.currency }));
     const tariffDefaults = Object.fromEntries(lines.map(line => [line.lineId, auInvoiceTariffDefault({
@@ -54,15 +58,16 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
     {error && <p role="alert">{error}</p>}
     {!data && !error && <p role="status">전산 입고의 품목·수량·단가를 불러오는 중…</p>}
     {data && <>
+      {data.source.receiptExpenses?.warning && <p role="status">{data.source.receiptExpenses.warning}</p>}
       {data.automatic && <div className={styles.automatic} role="status">
         <strong>네덜란드 입고자료 자동 연결</strong>
         <p>EUR · 항공 · GW {data.source.gw ?? '미기재'}kg · CW {data.source.cw ?? '미기재'}kg · 저장 운송료 {data.automatic.input.freightAmount ?? '미기재'} EUR</p>
-        <p>적용 환율 {data.automatic.input.exchangeRateKRW ?? '조회 필요'}원/EUR (현재 시세 + 15원) · 서식 통관비 {data.automatic.input.customsTotalKRW?.toLocaleString('ko-KR') ?? '중량 확인 필요'}원</p>
+        <p>적용 환율 {downloadInput?.exchangeRateKRW ?? '조회 필요'}원/EUR {inputDraft?.edited ? '(현재 수정값)' : '(현재 시세 + 15원)'} · 통관비 {downloadInput?.customsTotalKRW?.toLocaleString('ko-KR') ?? '중량 확인 필요'}원</p>
         <p>{data.automatic.input.estimateSource}</p>
         {data.rateError && <p role="alert">{data.rateError}</p>}
-        <button type="button" disabled={downloading || data.automatic.missing.length > 0 || JSON.stringify(applied) !== JSON.stringify(metadata)}
-          onClick={async () => { setDownloading(true); setError(''); try { await action('download', data.automatic.input); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
-          {downloading ? '네덜란드 엑셀 생성 중…' : data.automatic.missing.length ? `자동 다운로드 대기 · ${data.automatic.missing.join(' · ')} 확인 필요` : '네덜란드 도착원가 엑셀 다운로드 · 서식 기본값 계산본'}
+        <button type="button" disabled={downloading || editedNeedsReview || (!inputDraft?.edited && data.automatic.missing.length > 0) || JSON.stringify(applied) !== JSON.stringify(metadata)}
+          onClick={async () => { setDownloading(true); setError(''); try { await action('download', downloadInput); } catch (e) { setError(e.message); } finally { if (active.current) setDownloading(false); } }}>
+          {downloading ? '네덜란드 엑셀 생성 중…' : editedNeedsReview ? '다운로드 대기 · 수정한 값의 공식 적용 확인 필요' : !inputDraft?.edited && data.automatic.missing.length ? `자동 다운로드 대기 · ${data.automatic.missing.join(' · ')} 확인 필요` : inputDraft?.edited ? '네덜란드 도착원가 엑셀 다운로드 · 현재 수정값 적용' : '네덜란드 도착원가 엑셀 다운로드 · 서식 기본값 계산본'}
         </button>
       </div>}
       {data.source.country === 'AU' && <div role="status"><strong>호주 원가는 입고관리의 저장 총액(출하단가)을 기준으로 계산합니다.</strong>
@@ -78,7 +83,7 @@ export default function NativeReceiptCost({ orderYear, orderWeek, warehouseKey, 
         <button type="submit">{applied ? '기준 변경 · 입력 초기화' : '부족한 비용 입력하기'}</button>
       </form>
       {data.source.excluded.length > 0 && <details><summary>상품 원가에서 분리한 운송·중량 행 {data.source.excluded.length}건</summary><p>아래 원장 행은 상품 수량에 합산하지 않습니다. 운임 입력에 포함할지 확인하세요.</p>{data.source.excluded.map(row => <p key={row.key}>{row.name} · 수량 {row.quantity ?? '미기재'} · 금액 {row.amount ?? '미기재'}</p>)}</details>}
-      {costDocument && <InvoiceReceiptCostReview key={JSON.stringify(applied)} document={costDocument} nativePreview onNativeAction={action} />}
+      {costDocument && <InvoiceReceiptCostReview key={JSON.stringify(applied)} document={costDocument} nativePreview onNativeAction={action} onInputDraftChange={receiveInputDraft} />}
     </>}
   </section>;
 }

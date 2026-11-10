@@ -14,12 +14,13 @@ test('cost menu defaults to existing receipts, keeps independent drafts and reje
     useState(initial) { const i = si++; if (!(i in states)) states[i] = initial; return [states[i], value => { states[i] = value; }]; },
     useRef(initial) { const i = ri++; return refs[i] ||= { current: initial }; },
     useCallback(fn) { const i = ci++; return callbacks[i] ||= fn; },
+    useEffect(fn) { fn(); },
   };
   const compiled = await transform(source, { jsc: { parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'classic' } } }, module: { type: 'commonjs' } });
   const mod = { exports: {} };
   vm.runInNewContext(compiled.code, { module: mod, exports: mod.exports, React,
     require: name => name === 'react' ? React : name === 'next/dynamic' ? () => ['Workbench','Packing'][dynamicIndex++] : {} });
-  const render = () => { si = ri = ci = 0; return mod.exports.default({ userId: 'tester', storage: {} }); };
+  const render = (props = {}) => { si = ri = ci = 0; return mod.exports.default({ userId: 'tester', storage: {}, ...props }); };
   const all = node => node && typeof node === 'object' ? [node, ...node.children.flatMap(all)] : [];
   let tree = render();
   assert.equal(all(tree).filter(n => n.tag === 'Packing').length, 0);
@@ -45,4 +46,9 @@ test('cost menu defaults to existing receipts, keeps independent drafts and reje
   assert.equal(packing.props.receiptMatchState, matched);
   assert.equal(states[3], true);
   assert.equal(all(tree).filter(n => n.tag === 'Workbench')[0].props.file, undefined);
+  const resumeReceiptScope = { userId: 'tester', documentId: 'receipt', orderYear: '2026', orderWeek: '46-01', warehouseKey: 1 };
+  render({ resumeReceiptScope });
+  tree = render({ resumeReceiptScope });
+  assert.equal(states[0], 'existing');
+  assert.equal(all(tree).find(n => n.tag === 'Workbench').props.resumeReceiptScope, resumeReceiptScope);
 });

@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {invoiceAmountReview,invoiceAmountConfirmed} from '../lib/invoiceAmountReview.js';
 const make=()=>({sourceHash:'a'.repeat(64),rawMetadata:{invoiceTotal:110,currency:'CNY',freight:10},reviewedMetadata:{country:'CN'},lines:[{lineId:'1',prodKey:3,lineAmount:100,currency:'CNY'}]});
+test('NL reviewed freight and handling replace source amounts, zero is preserved and currency mismatch blocks',()=>{
+ const d=make();d.reviewedMetadata.country='NL';
+ d.reviewedMetadata.costInputs={freight:{amount:0,currency:'CNY'},docFee:{amount:10,currency:'CNY'}};
+ assert.equal(invoiceAmountReview(d).total,110);
+ d.reviewedMetadata.costInputs.freight.amount=20;
+ assert.equal(invoiceAmountReview(d).total,130);assert.equal(invoiceAmountReview(d).matches,false);
+ d.reviewedMetadata.costInputs.freight.currency='USD';
+ assert.equal(invoiceAmountReview(d).total,null);
+});
 test('CN separates goods and additional charges; exact confirmation is bound to current source and amounts',()=>{
  const d=make(), r=invoiceAmountReview(d);assert.equal(r.goods,100);assert.equal(r.total,110);assert.equal(r.matches,true);
  d.reviewedMetadata.amountConfirmation={basis:r.basis,sourceSeen:true};assert.equal(invoiceAmountConfirmed(d),true);

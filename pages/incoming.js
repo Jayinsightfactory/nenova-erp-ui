@@ -27,6 +27,7 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
   const [popup, setPopup] = useState(false);
   const [details, setDetails] = useState([]);
   const [invoiceCosts, setInvoiceCosts] = useState(null);
+  const [invoiceExpenses, setInvoiceExpenses] = useState(null);
   const [costError, setCostError] = useState('');
   const [costLoading, setCostLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -108,10 +109,11 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
     if (fm) { const next = [fm, ...recentFarms.filter(f => f !== fm)].slice(0, 6); setRecentFarms(next); try { localStorage.setItem('incoming.recentFarms', JSON.stringify(next)); } catch {} }
     setDetailLoading(true);
     setInvoiceCosts(null);
+    setInvoiceExpenses(null);
     setCostError('');
     setCostLoading(true);
     apiGet('/api/warehouse/invoice-costs', { warehouseKey: wk })
-      .then(d => { if (seq === detailSeq.current) setInvoiceCosts(d.costs || null); })
+      .then(d => { if (seq === detailSeq.current) { setInvoiceCosts(d.costs || null); setInvoiceExpenses(d.expenses || null); } })
       .catch(e => { if (seq === detailSeq.current) setCostError(e.message); })
       .finally(() => { if (seq === detailSeq.current) setCostLoading(false); });
     apiGetExe(`/api/warehouse/${wk}`)
@@ -316,6 +318,8 @@ export default function Warehouse({ embedded = false, active = true, onClose } =
         <Col flex="0 0 46%" style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
             {selectedKey && <div style={{ marginBottom: 8 }} role="status">
+              {invoiceExpenses?.warning && <Alert type="warning" showIcon message={invoiceExpenses.warning} />}
+              {invoiceExpenses?.entries?.length > 0 && <div>입고 연결 비용 · 웹 문서 저장값 (상품 수량·재고와 별도): {invoiceExpenses.entries.map(entry => `${entry.kind === 'freight' ? '운송비' : entry.kind === 'docFee' ? '문서비' : entry.kind} ${entry.amount.toLocaleString('ko-KR')} ${entry.currency}`).join(' · ')}</div>}
               {costError ? <Alert type="warning" showIcon message={`도착원가 조회 실패: ${costError}`} /> : costLoading ? <Text>도착원가 조회 중…</Text> : invoiceCosts?.currentActual ?
                 <Space wrap><Tag color="green">실제 입고량 기준 원가</Tag><Text>합계 {Number(invoiceCosts.currentActual.totalCostKRW).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}원</Text><Text type="secondary">확인: {invoiceCosts.currentActual.approvedBy} · 95% 원가는 비교용</Text></Space> :
                 <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}

@@ -14,6 +14,8 @@ import { normalizeWarehouseBrowse } from '../../lib/invoiceWarehouseBrowse.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import InvoiceReceiptProductPicker from './InvoiceReceiptProductPicker.js';
 import { receiptProductLabel } from '../../lib/invoiceReceiptProductSearch.js';
+import { saveReceiptProductMatch } from '../../lib/receiptProductMatchClient.js';
+import { receiptLineTotals } from '../../lib/importPackingReceiptAdapter.js';
 import { allocationIssues, applyInvoiceAllocation } from '../../lib/invoiceProductAllocation.js';
 import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
@@ -188,12 +190,12 @@ export default function InvoiceReceiptWorkbench({
   userId='',
   excels = EMPTY_LIST, invoices = EMPTY_LIST, country = '', file = null, products = EMPTY_LIST, reviewConfirmed = false, truncated = false, packingActive = false, onMatchStateChange,
   awb = null, invoiceUploadDate = '', audMarketRate = null, audMarketRateError = '',
-  workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange,
+  workspaceMode: requestedWorkspaceMode, onWorkspaceModeChange, resumeReceiptScope = null,
 }) {
   const [records, setRecords] = useState([]);
   const [localWorkspaceMode, setLocalWorkspaceMode] = useState('receipt');
   const workspaceMode = requestedWorkspaceMode || localWorkspaceMode;
-  const setWorkspaceMode = mode => { setLocalWorkspaceMode(mode); onWorkspaceModeChange?.(mode); };
+  const setWorkspaceMode = (mode, scope) => { setLocalWorkspaceMode(mode); onWorkspaceModeChange?.(mode, scope); };
   const recordsRef = useRef(records);
   recordsRef.current = records;
   const [selectedId, setSelectedId] = useState('');
@@ -554,7 +556,9 @@ export default function InvoiceReceiptWorkbench({
     }));
   }
 
-  function updateLineProduct(lineId, product) {
+  async function updateLineProduct(lineId, product) {
+    const selectedDocument = documentValue;
+    const selectedLine = documentValue.lines.find(line => line.lineId === lineId);
     let next = { ...documentValue, lines: documentValue.lines.map(line => line.lineId === lineId
       ? { ...line, productSearch: undefined, prodKey: Number(product.ProdKey),
         reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: Boolean(product),
@@ -570,6 +574,11 @@ export default function InvoiceReceiptWorkbench({
       }
     }
     updateSelected(() => next);
+    if (sourceId) return;
+    try {
+      const result = await saveReceiptProductMatch(selectedDocument, selectedLine, product);
+      setNotice({ type: 'success', text: result.documentOnly ? '이 파일의 품목 분류를 유지했습니다. 여러 품목으로 나뉘는 원문은 공용 자동매칭하지 않습니다.' : '팀 공용 매칭에 저장했습니다. 다음 업로드에서도 같은 원문에 적용됩니다.' });
+    } catch (error) { setNotice({ type: 'error', text: `현재 품목 선택은 유지했습니다. 공용 매칭 저장 실패: ${error.message}` }); }
   }
 
   async function saveDraftRecord(target, isCurrent = () => true, applyToState = true) {
@@ -691,7 +700,9 @@ export default function InvoiceReceiptWorkbench({
       const loaded = responseDocument(data);
       if (!loaded) throw new Error('저장 문서를 불러오지 못했습니다.');
       if (expectedScope && (String(loaded.orderYear) !== expectedScope.orderYear || loaded.orderWeek !== expectedScope.orderWeek
-        || !(loaded.operations || []).some(operation => operation.status === 'COMMITTED' && Number(operation.warehouseKey) === Number(expectedScope.warehouseKey)))) {
+        || !(loaded.operations || []).some(operation => operation.status === 'COMMITTED'
+          && Number(operation.documentRevision) === Number(loaded.revision)
+          && Number(operation.warehouseKey) === Number(expectedScope.warehouseKey)))) {
         throw new Error('입고와 연결 문서의 연도·차수·입고번호가 다릅니다. 입고내역을 다시 조회하세요.');
       }
       if (workflowGenerationRef.current !== generation) return;
@@ -703,6 +714,12 @@ export default function InvoiceReceiptWorkbench({
       setBusy('');
     }
   }
+
+  useEffect(() => {
+    if (!resumeReceiptScope || resumeReceiptScope.userId !== userId) return;
+    workflowGenerationRef.current += 1;
+    loadDocument(resumeReceiptScope.documentId, resumeReceiptScope);
+  }, [resumeReceiptScope, userId]);
 
   async function connectExistingCostOnly() {
     if (!selected || busy || workflowLockRef.current) return;
@@ -924,7 +941,7 @@ export default function InvoiceReceiptWorkbench({
       openVerifiedReceipt(result,fresh);
       // Only the verified current operation can advance to cost calculation.
       // No receipt lookup, source rematching or automatic cost approval here.
-      setWorkspaceMode('cost');
+      setWorkspaceMode('cost', { documentId: fresh.documentId, orderYear: String(fresh.orderYear), orderWeek: fresh.orderWeek, warehouseKey: verified.warehouseKey });
       setNotice({ type: 'success', text: `${message} WarehouseKey ${result.warehouseKey ?? '응답 누락'} · 원가 ${result.costStatus || '상태 미확인'}` });
     } catch (refreshError) {
       if (!isCurrent()) {
@@ -1371,6 +1388,11 @@ export default function InvoiceReceiptWorkbench({
 
     <div className={styles.workspace}>
       <div className={styles.sheetScroll} tabIndex={0} role="region" aria-label="입고 검토 행 표">
+        <div role="status" data-testid="receipt-current-totals">현재 입고 합계 · {(() => {
+          const totals = receiptLineTotals(documentValue.lines), amounts = invoiceAmountReview(documentValue);
+          const fmt = value => value == null ? '미기재' : value.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+          return `박스 ${fmt(totals.boxes)} · 단 ${fmt(totals.bunches)} · 송이 ${fmt(totals.stems)} · 상품 ${fmt(amounts.goods)} · 부대비 ${fmt(amounts.extras)} · 등록 총액 ${fmt(amounts.total)} / 송장 ${fmt(amounts.printed)} ${amounts.currency}`;
+        })()}</div>
         <table className={styles.sheet}>
           <thead><tr><th>#</th><th>원문 품목</th><th>전산 품목</th><th>박스</th><th>단</th><th>송이</th><th>가격단위</th><th>단가</th><th>통화</th><th>금액</th><th>대조</th></tr></thead>
           <tbody>{documentValue.lines.map(line => {
@@ -1462,7 +1484,7 @@ export default function InvoiceReceiptWorkbench({
       <button type="button" onClick={()=>setAmountOpen(false)}>닫기 · 입력값 유지</button>
       <button type="button" className={styles.primary} disabled={!amountSourceReady||!amountChecked||!invoiceAmountReview(documentValue).matches||Boolean(busy)} onClick={confirmAmountAndRegister}>금액 확인 · 입고 등록</button>
     </>}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:16}}>
+      <div className={styles.amountComparison}>
         <InvoiceTotalEvidence file={file} evidence={documentValue.rawMetadata?.metadataEvidence?.invoice_total || documentValue.rawMetadata?.metadataEvidence?.total_value || documentValue.rawMetadata?.reviewEvidence?.invoice_total || documentValue.rawMetadata?.reviewEvidence?.total_value} onReady={setAmountSourceReady}/>
         <section aria-label="입고 금액 대조">{(()=>{const review=invoiceAmountReview(documentValue);return <>
           <h3>{documentValue.orderYear}/{documentValue.orderWeek} · {documentValue.invoiceNo}</h3>

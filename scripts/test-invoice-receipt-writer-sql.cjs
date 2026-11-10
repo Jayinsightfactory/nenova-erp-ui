@@ -865,6 +865,11 @@ async function testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costApi)
     &&saved.comparisons[0].costRevisionId===savedIds[1],
     'cost save must persist one ACTUAL revision plus its separate EXPECTED_95 comparison revision');
   const warehouseKey=saved.warehouseKey;
+  const {readInvoiceReceiptExpenses}=await import('../lib/invoiceReceiptExpenses.js');
+  const expenseArgs={queryFn:(statement,params={})=>query(pool,statement,params),types:sql,warehouseKey};
+  const linkedExpenses=await readInvoiceReceiptExpenses(expenseArgs);
+  ensure(linkedExpenses?.verified===true&&Number(linkedExpenses.warehouseKey)===Number(warehouseKey),
+    'expense read must use the current committed operation and actual live receipt');
   const read=await costApi.readInvoiceCosts({queryFn:(statement,params={})=>query(pool,statement,params),types:sql,warehouseKey});
   ensure(read.status==='APPROVED'&&read.documentCostStatus==='APPROVED'
     &&read.currentActual?.costRevisionId===savedIds[0]&&read.currentActual.lines.length===2
@@ -901,6 +906,9 @@ async function testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costApi)
     warehouseKey:{type:sql.Int,value:warehouseKey},
   });
   const staleRead=await costApi.readInvoiceCosts({queryFn:(statement,params={})=>query(pool,statement,params),types:sql,warehouseKey});
+  const staleExpenses=await readInvoiceReceiptExpenses(expenseArgs);
+  ensure(staleExpenses?.verified===false&&staleExpenses.entries.length===0&&staleExpenses.warning,
+    'changed native receipt must ignore old web costs with an explicit warning');
   ensure(staleRead.documentCostStatus==='APPROVED'&&staleRead.status==='STALE'
     &&staleRead.currentActual===null&&staleRead.revisions.length===2
     &&staleRead.revisions.every(revision=>revision.storedStatus==='APPROVED'

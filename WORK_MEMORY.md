@@ -2495,3 +2495,11 @@
 
 2026-11-10 웹·PC 개인 즐겨찾기 번호 및 이름 편집. 기존 목록 번호 보존, 별칭(기본 메뉴명) 표시. 브라우저와 PC는 기존 계정별 저장 경로 사용.
 검색어: 즐겨찾기 번호 이름 변경 desktop-v1.3.16
+
+## 2026-11-10 수입부 비용·매칭·합계·현재 입력 다운로드 수정 진행
+- NL46 실제 분석 상품1391.90+운송321.49+처리50=1763.39EUR/GW102/CW114 확인. 검증된 웹 비용 연결·중복 방지, 팀 매칭 유지, 합계 표시, 수정 FX/관세 다운로드 공유 구현. ERP 비용행 writer 변경 아님.
+- 격리 SQL writer/원가/live비용/stale 경고, native10공식 XLSX/현재 FX·관세, dnSpy/manifest210/쓰기guard/webpack compile PASS. 운영 DB 쓰기0.
+- 실제 전체 브라우저 E2E/다른 국가 실파일/영상 재촬영/PR/CI/배포 미완료. npm build prebuild 영상 가드 차단; 우회 배포0. 전체ERP 최종로그 확인 필요.
+- 인계: docs/work-sessions/2026-11-10_import-expense-repair.md, worktree nw-import-repair-1110, branch fix/import-repair-1110. 변경 미커밋.
+검색어: import-repair-1110 NL46 운송비371.49 매칭유지 현재환율 관세 엑셀
+- 후속 전체 npm run test:erp-contract pre/core/post 최종 exit0 확인. 실제 화면 E2E·가이드·배포는 여전히 미완료.

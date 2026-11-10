@@ -6,8 +6,25 @@ import { readNativeCostSource, calculateNativeCost, nativeCostDocument } from '.
 import { createNativeCostWorkbook, createInvoiceCostWorkbook } from '../lib/invoiceReceiptCostExport.js';
 import { invoiceCostExportFixture } from './invoiceReceiptCostExport.test.js';
 import { createNativeCostHandler } from '../lib/nativeCostHttp.js';
+import './invoiceReceiptExpenses.test.js';
+import './receiptProductMatchClient.test.js';
+import './packingInvoiceTotals.test.js';
 
 const types = { Int: 'int', NVarChar: n => `nvarchar(${n})` };
+
+test('NL changed FX and tariff flow into actual exported workbook, not old automatic defaults', async () => {
+  const f = await fixture('NL_AMOUNT_V1');
+  const original = calculateNativeCost(f.source, f.request);
+  const input = { ...f.request.input, exchangeRateKRW: 1600,
+    lineInputs: f.request.input.lineInputs.map(line => ({ ...line, tariffRate: .25 })) };
+  const edited = calculateNativeCost(f.source, { ...f.request, input });
+  assert.equal(edited.preview.status, 'APPROVED', JSON.stringify(edited.preview.issues));
+  assert.notEqual(edited.preview.totals.totalCostKRW, original.preview.totals.totalCostKRW);
+  const book = XLSX.read(await createNativeCostWorkbook(edited));
+  assert.equal(book.Sheets['원본 양식 계산'].C7.v, 1600);
+  assert.ok(edited.preview.lines.every(line => line.componentAmounts.tariffKRW >= 0));
+  assert.ok(edited.preview.lines.some(line => line.componentAmounts.tariffKRW > 0));
+});
 test('native AU cost reuses approved company tariff defaults without changing source or guessing unknown products', () => {
   const source = { warehouseKey: 7863, orderYear: '2026', orderWeek: '44-01', country: 'AU', lines: [
     { lineId: 'green', prodKey: 2997, originalName: 'Wolly Bush Green Tip' },
@@ -37,6 +54,7 @@ async function fixture(formulaId) {
     UPrice: line.unitPrice, TPrice: line.lineAmount, SteamOf1Bunch: 5, SteamOf1Box: 100 }));
   let calls = 0;
   const queryFn = async (sql, params) => {
+    if (sql.includes('invoice-expenses:committed-scope')) return { recordset: [] }; // legacy receipt has no web document
     calls++; assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
     assert.match(sql, /wm.OrderYear=@orderYear AND wm.OrderWeek=@orderWeek/);
     assert.doesNotMatch(sql.slice(sql.indexOf('WHERE')), /wd.isDeleted|p.isDeleted/);

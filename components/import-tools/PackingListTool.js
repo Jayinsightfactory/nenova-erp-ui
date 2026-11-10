@@ -30,7 +30,7 @@ import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePacki
 import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
-import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
+import { packingInvoiceSourceIdentity, packingInvoiceTotals, sha256File } from '../../lib/importPackingReceiptAdapter.js';
 import { assertPackingSourceValues, bindPackingSourceReviewPolicy } from '../../lib/importPackingSourceReview.js';
 import { buildPackingMatchPreview } from '../../lib/importPackingMatchPreview.js';
 import { packingWeekScope, needsPackingWeekDate, applyPackingWeekDate } from '../../lib/packingWeekDate.js';
@@ -1534,6 +1534,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
       return { ...res, products: reviewedProducts, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
+        invoiceTotals: packingInvoiceTotals(inv, country),
         grossWeight: packingWeight(inv, 'gw'),
         chargeableWeight: packingWeight(inv, 'cw') };
     });
