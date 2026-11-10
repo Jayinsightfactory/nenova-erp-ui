@@ -7,7 +7,10 @@
     "components/shipment/DistributionDateEditor.js",
     "__tests__/shipmentDistributionDates.test.js",
     "scripts/test-distribution-dates-sql.cjs",
-    "scripts/record-distribution-dates-guide.cjs"
+    "scripts/record-distribution-dates-guide.cjs",
+    "components/shipment/DistributionInlineDates.js",
+    "lib/shipmentInlineDates.js",
+    "__tests__/shipmentInlineDates.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -52,7 +55,8 @@
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionDates.test.js",
-    "scripts/test-distribution-dates-sql.cjs"
+    "scripts/test-distribution-dates-sql.cjs",
+    "__tests__/shipmentInlineDates.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -61,5 +65,8 @@
     "node scripts/test-distribution-dates-sql.cjs",
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run test:erp-manifest -- --changed-from origin/master"
-  ]
+  ],
+  "criteria": {
+    "inlineDays": "Monday-Sunday row inputs with actual PeriodDay dates and batched facts. Canonical snapshot preview/save only; compare old date signature before preview. Dirty date protection; totals/estimate/gross/fix preserved."
+  }
 }

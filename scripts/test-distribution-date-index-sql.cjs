@@ -17,7 +17,7 @@ async function main(){
   await fixture.installSchema(pool);await fixture.seed(pool);
   const q=(statement,params)=>fixture.query(pool,statement,params);
 
-  const {DISTRIBUTION_DATE_INDEX_SQL}=await import('../lib/shipmentDistributionDateIndex.js');
+  const {DISTRIBUTION_DATE_INDEX_SQL,DISTRIBUTION_INLINE_DATES_SQL}=await import('../lib/shipmentDistributionDateIndex.js');
   const read=async year=>(await q(DISTRIBUTION_DATE_INDEX_SQL,{year:{type:sql.NVarChar,value:year},week:{type:sql.NVarChar,value:'37-01'}})).recordset;
   await q(`UPDATE ShipmentDetail SET CustKey=NULL;
    INSERT OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager) VALUES(4000,N'2025',N'37-01',N'202537',533,N'fixture-user');
@@ -26,6 +26,9 @@ async function main(){
    INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,OutQuantity,EstQuantity,Cost,Amount,Vat,BoxQuantity,BunchQuantity,SteamQuantity,ShipmentDtm,isFix) VALUES(99000,7000,NULL,866,99,990,100,90000,9000,99,990,9900,'2025-09-01',0);
    INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat) VALUES(99000,99000,'2025-09-01',99,990,100,90000,9000);
    INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat) VALUES(99001,89892,'2026-09-04',0.5,5,100,450,50),(99002,89892,'2026-09-05',0,0,100,0,0);`);
+  const inlineRead=async year=>(await q(DISTRIBUTION_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:year},week:{type:sql.NVarChar,value:'37-01'}})).recordset;
+  assert((await inlineRead('2026')).some(r=>r.ShipmentQuantity===0),'full baseline retains zero date facts');assert((await inlineRead('2026')).every(r=>r.CustKey===533&&r.Timestamp.startsWith('2026')));assert((await inlineRead('2025')).every(r=>r.OutQuantity===99&&r.Timestamp.startsWith('2025')));
+  const {DISTRIBUTION_DATE_CALENDAR_SQL}=await import('../lib/shipmentDistributionDates.js');assert.equal((await q(DISTRIBUTION_DATE_CALENDAR_SQL,{ywk:{type:sql.NVarChar,value:'202537'}})).recordset.length,0,'calendar does not fall back to another year');
   const before=JSON.stringify((await q('SELECT * FROM ShipmentDetail ORDER BY SdetailKey')).recordset);
   const current=await read('2026');assert(current.length>0);assert(current.every(r=>r.CustKey===533));
   assert(current.some(r=>r.ShipmentDate==='2026-09-04'),'multi-day positive date included through master customer');

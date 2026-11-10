@@ -2451,3 +2451,10 @@
 - 전체ERP검사 초기 실행은 컴포넌트 분리 후 이전 파일을 검사하던 display assertion에서 실패, 새컴포넌트 검사로 수정 후 통과. 중복 전체실행 대신 해당지점 이후+post검사 진행. 빌드/CI/배포/실로그인 스모크는 이 기록 시점 미검증, 후속 결과 append 예정.
 검색어: 출고분배 두탭독립 즐겨찾기우선 품종접기 DistributionProductTree workspaceDateIndex 실제출고일분류 미저장탭보호 미국29보존
 - 최종 로컬: ERP 초기 실행의 실패 테스트 수정·해당 지점부터 끝 및 post 전부 PASS, 신설 navigation test CI 연결 PASS. dnSpy/manifest207/writeguard/안내영상9개/production build PASS. CI/배포/실브라우저는 후속.
+
+## 2026-11-10 출고일 행내 월~일 수량 입력
+- 사용자 요청: 출고일 버튼 대신 행 옆 월~일+월/일 입력. 농장/업체(비교업체 포함)/출고일지정의 공통 DistributionInlineDates 적용. 월2~일1 순서로 native PeriodDay 실제 날짜만 표시. 날짜 사실+공용 exact 달력은 workspaceDateIndex 묶음조회, 행별GET 추가0.
+- inline 초안은 부모상태로 보존, 수량/단가 저장·SP/확정·탭/차수/품목/업체 변경을 미저장보호. 행 취소/전체취소, Enter다음요일/마지막확인버튼(자동저장0),CtrlS배경수량저장차단. 합계/입력유효성 검사. canonical GET와 최초 날짜/수량 signature 다르면 stale 차단, 기존 snapshot미리보기/명시저장/lease/gate/serializable/audit/rollback을 그대로 사용. 원장 writer 정책 변경0, 달력SQL만 기존 reader와 공용상수 추출.
+- actual dnSpy FormShipmentDistribution ymd/day1..7·ShipmentQuantityToEstQuantity 재확인. 운영SELECT 2025/46 11/12~18,2026/46 11/11~17 7일/7요일 확인. 격리 SQL fullbaseline0날짜/SD.CustKey NULL/교차연도99/달력다른연도fallback0 및 native Date저장/견적15단·gross172500·ECOUNT XLSX/rollback/stale/fixed/Order·Farm·Stock·Estimate·Profit보존 PASS. 운영ERP/ECOUNT 쓰기0.
+- 새순수테스트 CI 연결, 날짜직접입력/합계부족/preview승계/저장/dirty탭/CtrlS/stale/cancel/390 Chrome PASS. 기존 전체 workspace·업체이동·양연도미국카탈로그 회귀 PASS. 안내영상/한국어자막/proof 갱신 PASS. 전체ERP/dnSpy/manifest207/writeguard/영상9개 PASS. 최종빌드/CI/배포/실로그인 확인은 이 기록시점 미검증.
+검색어: 행내출고일 월화수목금토일 월일 DistributionInlineDates inlineDateSignature 0날짜baseline nativePeriodDay 총량매출보존

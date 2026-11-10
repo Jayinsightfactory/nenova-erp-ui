@@ -617,3 +617,6 @@ noOrder 후보로 표시하고 안내. 국가명은 country:: 읽기 전용 선�
 
 ## 2026-11-10 두 작업공간과 출고일 분류
 실제 설치 EXE dnSpy CLI 재추출 outputs/native-dual.txt. CountryFlower는 국가+품종, GetProductList→거래처→농장과 GetCustomerList→업체품목/ymd1..7·day1..7 경로를 분리한다. ShowGroupPanel=false이므로 웹 품종 접기·즐겨찾기 우선은 사용자 요청 확장이다. native 탭 변경은 미저장 수량 경고/취소 선택을 제공하며, 웹은 중복 초안 저장 방지를 위해 저장·변경취소 후 이동한다. workspaceDateIndex는 공용 연도+차수+Master업체+품목 SELECT만 사용한다. 운영 SELECT 2025/45-01 1249쌍,2026/45-01 973쌍 및 미지정·복수일자 확인. 격리 실제 SQL에서 교차연도99·SD.CustKey NULL·복수날짜·0날짜 제외·미지정·삭제·수량불변 검증.
+
+## 2026-11-10 행내 월~일 입력
+실제 dnSpy outputs/inline-dnspy.txt ymd1..7/day1..7 및 ShipmentQuantityToEstQuantity 재확인. native WeekDay는 일1~토7. 웹 표시만 월2~일1로 배열하고 날짜는 native PeriodDay exact timestamp. 운영 SELECT 2025/46 달력11/12~18,2026/46 달력11/11~17 각각7일/7요일. ISO/오늘날짜로 추정하지 않는다. Batch 사실조회는 Master 연도+차수+업체+품목, SD.CustKey NULL 허용, 0 날짜도 baseline에 보존. 변경표시에서 입력한 날짜·수량을 canonical GET와 signature 비교 후 기존 snapshot preview/save 경로만 사용. 격리SQL native date-only split/견적15단/gross172500/ECOUNT XLSX·gate/lease/rollback/stale/교차연도·원장보존 PASS.
