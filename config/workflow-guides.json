@@ -33,23 +33,23 @@
           "chapters": [
             {
               "scenario": "upload",
-              "title": "ZIP 하나로 판독·확실건 자동등록",
+              "title": "1. ZIP 올리기·확실건 자동등록",
               "seconds": 0
             },
             {
               "scenario": "review",
-              "title": "타차수·판독 보류만 확인",
-              "seconds": 24.611
+              "title": "2. 타차수·판독 보류 확인",
+              "seconds": 31.245
             },
             {
               "scenario": "link",
-              "title": "검토건 귀속·실제 원천 우선 확인",
-              "seconds": 31.185
+              "title": "3. 검토건 확인 후 등록",
+              "seconds": 57.587
             },
             {
               "scenario": "preserve",
-              "title": "중복 방지·과거 계산본 직접 갱신",
-              "seconds": 37.769
+              "title": "4. 중복 방지·과거 계산본 갱신 안내",
+              "seconds": 83.938
             }
           ]
         }
@@ -537,7 +537,9 @@
       "sourceFiles": [
         "pages/shipment/statement.js",
         "styles/ShipmentStatement.module.css",
-        "lib/shipmentStatement.cjs"
+        "lib/shipmentStatement.cjs",
+        "components/ShipmentStatementSelectors.js",
+        "lib/shipmentStatementSelection.cjs"
       ],
       "requiredScenarios": [
         "load",
@@ -558,28 +560,28 @@
           "chapters": [
             {
               "scenario": "load",
-              "title": "메인차수와 담당자·업체 선택",
+              "title": "1. 차수·담당자·업체 버튼과 개인 즐겨찾기",
               "seconds": 0
             },
             {
               "scenario": "allocate",
-              "title": "요일 수량과 기본 출고요일",
-              "seconds": 4.215
+              "title": "2. 요일 수량과 기본 출고요일",
+              "seconds": 26.543
             },
             {
               "scenario": "drag",
-              "title": "드래그 선택과 일괄 출고일 지정",
-              "seconds": 12.747
+              "title": "3. 드래그 선택과 일괄 출고일 지정",
+              "seconds": 53.07
             },
             {
               "scenario": "group",
-              "title": "품목군 출력 묶음",
-              "seconds": 17.406
+              "title": "4. 품목군 출력 묶음",
+              "seconds": 80.168
             },
             {
               "scenario": "save",
-              "title": "작성본 저장과 엑셀 다운로드",
-              "seconds": 21.839
+              "title": "5. 작성본 저장과 엑셀 다운로드",
+              "seconds": 98.148
             }
           ]
         }

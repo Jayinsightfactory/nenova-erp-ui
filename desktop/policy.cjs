@@ -54,6 +54,7 @@ function safeFavorites(items) {
 function safeSnapshot(s) {
   return {
     version: 1,
+    ...(s?.favoritesMigrated === true ? {favoritesMigrated:true} : {}),
     actor: text(s?.actor, 120),
     favorites: safeFavorites(s?.favorites),
     windows: (Array.isArray(s?.windows) ? s.windows : []).slice(0, 12).map(w => ({

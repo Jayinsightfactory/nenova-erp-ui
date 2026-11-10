@@ -12,6 +12,28 @@ const SHELL = 'nenova-app://shell/index.html';
 const NOTES = 'nenova-app://shell/notes.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
+const { syncAccountFavorites } = require('./account-favorites.cjs');
+let favoritesMigrated = false, favoriteQueue = Promise.resolve();
+function accountFavorites(action, w) {
+  const owner = actor, generation = authGeneration;
+  const current = () => !!owner && !locked && owner === actor && generation === authGeneration;
+  const task = async () => {
+    if (!current()) return;
+    try {
+      const entries = await syncAccountFavorites({ owner, fetch: (url, options) => webSession.fetch(url, options),
+        current, legacy: favoritesMigrated ? [] : favorites, action });
+      if (!current()) return;
+      if (favoritesMigrated && !action && JSON.stringify(entries) === JSON.stringify(favorites)) return;
+      favorites = entries;
+      favoritesMigrated = true;
+    } catch (error) {
+      if (current()) reportFailure(w || [...windows.values()][0], error.message);
+    }
+    if (current()) broadcast();
+  };
+  favoriteQueue = favoriteQueue.then(task, task);
+  return favoriteQueue;
+}
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
 let webSession, updater, updateScheduler, updateTimer, logoutInProgress = false;
 let activity, activityTimer, activityWarning = '';
@@ -42,7 +64,7 @@ function reportFailure(w, message) {
   w.notice = w.toolsOpen ? '' : message;
 }
 function snapshot() {
-  return safeSnapshot({ actor, favorites, windows: [...windows.values()].map(w => ({ bounds: w.win.getNormalBounds(), maximized: w.win.isMaximized(), active: w.ids.indexOf(w.activeId), tabs: w.ids.map(id => tabs.get(id)) })) });
+  return safeSnapshot({ actor, favorites, favoritesMigrated, windows: [...windows.values()].map(w => ({ bounds: w.win.getNormalBounds(), maximized: w.win.isMaximized(), active: w.ids.indexOf(w.activeId), tabs: w.ids.map(id => tabs.get(id)) })) });
 }
 function statePath() { return path.join(app.getPath('userData'), 'workspace.encrypted'); }
 function persist(value = snapshot()) {
@@ -343,7 +365,7 @@ function command(w, action, p = {}) {
       if (target && target !== w) moveTab(t, target); else if (!target) detach(t, point);
       break;
     }
-    case 'menu': w.menuOpen = p.open === true || !w.ids.length; layout(w); if (w.menuOpen || !t || locked) w.win.webContents.focus(); else t.view.webContents.focus(); break;
+    case 'menu': if (p.open && actor && !locked) void accountFavorites(); w.menuOpen = p.open === true || !w.ids.length; layout(w); if (w.menuOpen || !t || locked) w.win.webContents.focus(); else t.view.webContents.focus(); break;
     case 'tools':
       w.toolsOpen = !w.toolsOpen;
       if (w.toolsOpen) w.notice = '';
@@ -355,23 +377,20 @@ function command(w, action, p = {}) {
       }
       break;
     case 'renameFavorite': {
-      if (actor && !locked && typeof p.alias === 'string') {
-        favorites = favorites.map(item => item.url === p.url ? { ...item, alias: text(p.alias, 60).trim() } : item);
-      }
+      const item = favorites.find(f => f.url === p.url);
+      if (item && actor && !locked && typeof p.alias === 'string')
+        return accountFavorites({ kind: 'rename', item, alias: text(p.alias,60).trim() }, w);
       break;
     }
-    case 'menuFavorite': {
+    case 'menuFavorite':
+    case 'favorite': {
       if (!actor || locked) break;
-      const item = menus.flatMap(group => group.items).find(item => item.href === p.href) || (p.href === '/dashboard' ? { href: '/dashboard', labelKey: '네노바 홈' } : null);
-      if (!item) break;
-      const entry = menuFavoriteEntry(item);
-      if (!entry) break;
-      if (favorites.some(f => f.url === entry.url)) favorites = favorites.filter(f => f.url !== entry.url);
-      else if (favorites.length < 100) favorites = safeFavorites([...favorites, { ...entry, number: undefined }]);
-      else reportFailure(w, '즐겨찾기는 최대 100개까지 등록할 수 있습니다.');
+      const menu = menus.flatMap(group => group.items).find(item => item.href === p.href)
+        || (p.href === '/dashboard' ? { href: '/dashboard', labelKey: '네노바 홈' } : null);
+      const item = action === 'menuFavorite' ? menu && menuFavoriteEntry(menu) : t && safeSnapshot({ favorites:[t] }).favorites[0];
+      if (item) return accountFavorites({ kind: favorites.some(f => f.url === item.url) ? 'remove' : 'add', item: { ...item, number: undefined } }, w);
       break;
     }
-    case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : safeFavorites([...favorites, { url, title: t.title, zoom: t.zoom }]); } break;
     case 'rename': if (t?.windowId === w.id && text(p.title)) { t.title = text(p.title); t.customTitle = true; } break;
     case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?', '이동')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
     case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?', '새로고침')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
@@ -478,7 +497,8 @@ async function verifyAccount(initial = false) {
       }
       if (generation !== authGeneration || quitting) { restoring = false; return; }
     }
-    actor = newActor; favorites = []; locked = false;
+    actor = newActor; favorites = saved?.actor === actor ? saved.favorites : [];
+    favoritesMigrated = saved?.actor === actor && saved.favoritesMigrated === true; locked = false;
     if (saved?.actor === actor && saved.windows.length) {
       favorites = saved.favorites;
       const existing = [...windows.values()];
@@ -501,6 +521,7 @@ async function verifyAccount(initial = false) {
   }
   for (const w of windows.values()) layout(w);
   broadcast();
+  await accountFavorites();
   void updateScheduler?.tick();
 }
 // --- AI 브리지(로컬 전용 제어 통로) ---------------------------------------
@@ -641,6 +662,7 @@ app.whenReady().then(async () => {
     },
     warn: message => { activityWarning = message; broadcast(); },
   });
+  setInterval(() => { if (!locked && [...windows.values()].some(w => w.menuOpen && w.win.isFocused())) void accountFavorites(); }, 30000).unref();
   activityTimer = setInterval(() => void activity.flush(), 5000);
   webSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   webSession.setPermissionCheckHandler(() => false);

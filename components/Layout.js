@@ -223,7 +223,9 @@ export default function Layout({ children, title }) {
   useEffect(() => {
     const refresh = () => setFavoritesRevision(value => value + 1);
     window.addEventListener('nenova-menu-favorites-changed', refresh);
-    return () => window.removeEventListener('nenova-menu-favorites-changed', refresh);
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener('nenova-menu-favorites-changed', refresh); };
   }, []);
   useEffect(() => {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
@@ -248,7 +250,14 @@ export default function Layout({ children, title }) {
         const favorites = (data.favorites || []).map(row => {
           try {
             const saved = JSON.parse(row.FilterData || '{}');
-            const item = canonical.get(saved.href);
+            let item = canonical.get(saved.href);
+            if (!item && saved.desktopShortcut && typeof saved.href === 'string' && saved.href.startsWith('/')) {
+              const url = new URL(saved.href, window.location.origin);
+              if (url.origin === window.location.origin && !url.pathname.startsWith('/api/')) {
+                const base = canonical.get(url.pathname);
+                item = { ...(base || { labelKey: row.FavName }), href: saved.href };
+              }
+            }
             return item && (!item.userIds || item.userIds.includes(user?.userId))
               ? { ...item, favoriteKey: Number(row.FavoriteKey), number: row.SortOrder, saved }
               : null;

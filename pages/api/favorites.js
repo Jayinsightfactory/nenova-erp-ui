@@ -39,6 +39,9 @@ export default withAuth(async function handler(req, res) {
   try {
     const uid = req.user?.userId || 'system';
 
+    if (req.headers?.['x-favorite-owner'] && req.headers['x-favorite-owner'] !== req.user?.userId) {
+      return res.status(409).json({ success: false, error: '로그인 계정이 변경되었습니다.' });
+    }
     // GET: 즐겨찾기 목록
     if (req.method === 'GET') {
       const schema = await query(`SELECT CASE WHEN OBJECT_ID(N'dbo.UserFavorite', N'U') IS NULL THEN 0 ELSE 1 END AS Ready`, {});
@@ -77,11 +80,19 @@ export default withAuth(async function handler(req, res) {
         const result = await withTransaction(async tx => {
           const params = { uid: { type: sql.NVarChar, value: uid } };
           await tx(numberLegacyMenus, params);
+          const href = JSON.parse(filterData)?.href;
+          if (typeof href !== 'string') throw Error('즐겨찾기 주소가 없습니다.');
+          const existing = await tx(`SELECT TOP 1 FavoriteKey,SortOrder FROM UserFavorite
+            WHERE UserID=@uid AND PageName='dashboard-menu' AND JSON_VALUE(FilterData,'$.href')=@href
+            ORDER BY FavoriteKey`, { ...params, href: { type: sql.NVarChar, value: href } });
+          if (existing.recordset.length) return existing;
+          const preferred = Number(req.body.preferredNumber);
           return tx(`INSERT INTO UserFavorite (UserID,PageName,FavName,FilterData,SortOrder)
             OUTPUT inserted.FavoriteKey,inserted.SortOrder
-            SELECT @uid,'dashboard-menu',@name,@data,ISNULL(MAX(SortOrder),0)+1
+            SELECT @uid,'dashboard-menu',@name,@data,CASE WHEN @preferred>0 AND COUNT(CASE WHEN SortOrder=@preferred THEN 1 END)=0
+              THEN @preferred ELSE ISNULL(MAX(SortOrder),0)+1 END
             FROM UserFavorite WHERE UserID=@uid AND PageName='dashboard-menu'`,
-          { ...params, name: { type: sql.NVarChar, value: name }, data: { type: sql.NVarChar, value: filterData } });
+          { ...params, preferred: { type: sql.Int, value: Number.isInteger(preferred) && preferred <= 1000000000 && preferred > 0 ? preferred : 0 }, name: { type: sql.NVarChar, value: name }, data: { type: sql.NVarChar, value: filterData } });
         });
         return res.json({ success: true, favoriteKey: result.recordset[0].FavoriteKey, number: result.recordset[0].SortOrder });
       }
@@ -99,6 +110,16 @@ export default withAuth(async function handler(req, res) {
       return res.status(200).json({ success: true, favoriteKey: result.recordset[0].FavoriteKey });
     }
 
+    if (req.method === 'PATCH') {
+      const { favoriteKey, alias, onlyIfEmpty } = req.body;
+      if (!Number.isInteger(favoriteKey) || typeof alias !== 'string' || alias.length > 60)
+        return res.status(400).json({ success: false, error: '이름을 확인하세요.' });
+      const result = await query(`UPDATE UserFavorite SET FilterData=JSON_MODIFY(FilterData,'$.alias',
+        CASE WHEN @empty=1 AND ISNULL(JSON_VALUE(FilterData,'$.alias'),'')<>'' THEN JSON_VALUE(FilterData,'$.alias') ELSE @alias END)
+        WHERE UserID=@uid AND PageName='dashboard-menu' AND FavoriteKey=@fk`,
+        { uid: {type:sql.NVarChar,value:uid}, fk:{type:sql.Int,value:favoriteKey}, alias:{type:sql.NVarChar,value:alias.trim()}, empty:{type:sql.Bit,value:onlyIfEmpty===true} });
+      return result.rowsAffected[0] ? res.json({success:true}) : res.status(404).json({success:false});
+    }
     // PUT: 즐겨찾기 수정
     if (req.method === 'PUT') {
       const { favoriteKey, name, filterData } = req.body;
