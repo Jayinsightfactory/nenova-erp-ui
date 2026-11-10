@@ -34,6 +34,8 @@ const Page = load(source, name=>{
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return libRequire('./shipmentDistributionWorkspace.js');
   if(/\/lib\/(displayName|customerSearch|qwertyHangul)$/.test(name)) return libRequire('./'+name.split('/').pop());
   if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
+  // Unopened date editor and independent guide are outside this product-label SSR fixture.
+  if(name.endsWith('/DistributionDateEditor') || name.endsWith('/WorkflowGuide')) return ()=>null;
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;

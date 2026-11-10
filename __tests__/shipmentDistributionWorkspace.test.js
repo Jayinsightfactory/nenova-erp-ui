@@ -179,3 +179,17 @@ test('country rows default to favorite varieties only; empty countries hidden, e
   }
   assert.equal(JSON.stringify({groups,favorites}),before);
 });
+
+test('country favorites intersect group favorites; missing vs explicit empty and stale country', async()=>{
+ const {distributionFavoriteCountryGroups,parseDistributionCountryFavorite}=await load();
+ const groups=[{key:'콜롬비아::수국',country:'콜롬비아'},{key:'네덜란드::장미',country:'네덜란드'}],f=groups.map(g=>({groupKey:g.key}));
+ assert.equal(distributionFavoriteCountryGroups(groups,f,false,null).length,2);
+ assert.deepEqual(distributionFavoriteCountryGroups(groups,f,false,[]),[]);
+ assert.deepEqual(distributionFavoriteCountryGroups(groups,f,false,['네덜란드']).map(c=>c.country),['네덜란드']);
+ assert.deepEqual(distributionFavoriteCountryGroups(groups,f,false,['missing']),[]);
+ assert.equal(distributionFavoriteCountryGroups(groups,f,true,[]).length,2);
+ assert.equal(parseDistributionCountryFavorite([]),null);
+ assert.equal(parseDistributionCountryFavorite([{FavoriteKey:0,FilterData:'{"version":1,"countries":[]}'}]),null);
+ assert.deepEqual(parseDistributionCountryFavorite([{FavoriteKey:1,FilterData:'{"version":1,"countries":["콜롬비아"]}'},{FavoriteKey:2,FilterData:'{"version":1,"countries":[]}'}]),{countries:[],favoriteKey:2});
+ assert.deepEqual(parseDistributionCountryFavorite([{FavoriteKey:9,FilterData:JSON.stringify({version:1,countries:[]})}]),{countries:[],favoriteKey:9});
+});

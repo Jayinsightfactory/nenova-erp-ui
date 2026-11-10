@@ -564,3 +564,40 @@ SELECT-only Audit137 2026/44-01 381행749초SUCCESS/381일치;135/136은STARTED.
 - 신규 격리 SQL scripts/test-distribution-catalog-downstream-sql.cjs PASS: 미국정상품목/날짜견적량750/금액대조/엑셀1행, 전년도주문·무효담당자·삭제거래처/품목/주문 차단, 미확정/견적량0/시각불일치/raw full키 제외 후복원. 기존 견적visibility 실제SQL 교차연도 6케이스 PASS, shipmentEstimateGuard71 PASS, Excel매핑3 PASS. 운영쓰기0.
 - 운영과거문제 별도확인: 2025/46-01 미국 분배29행의 ShipmentDate.EstQuantity 합 NULL, raw키202546/DetailFix1/달력조인29는정상. 실제 GetExcelDetail SELECT는0행(EstQuantity>0 미충족). 2026/46-01 미국은 분배0이므로확정견적/엑셀0은정상. 현재검색패치로과거원장을보정하지않음. 과거이력작성주체/원인미확정, 운영시험저장·EXE GUI미검증.
 - 최종 빌드 PASS. 표적1920/390/2025/2026 Chrome검색 PASS. CI/배포는 후속.
+
+## 2026-11-10 실제 날짜 분배 저장과 국가 즐겨찾기
+
+실제 설치 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`를 로컬 dnSpy.Console로
+`FormShipmentDistribution` 및 `ClassShipmentDate` 재추출했다
+(`outputs/country-dates-dnspy.txt`, `outputs/country-dates-class.txt`).
+`grdViewCust_FocusedRowChanged`는 선택 연도/차수/업체/품종의 상세별로
+`PeriodDay.OrderYearWeek=YYYYWW`를 cross join하여 ymd1~7/day1~7을 만든다.
+일반 ISO주차 계산이나 별도 주광 목요일 anchor로 이 날짜 탭의 후보를 대체하지 않는다.
+운영45차 달력은 2026-11-04~10(수~화), 2025-11-05~11이다.
+
+`btnSave_Click` 날짜 탭은 변경 상세의 Date삭제 → 요일1~7의 양수행별
+SD.ShipmentDtm 갱신 → Date삽입을 한 transaction으로 수행한다.
+대표 SD 날짜는 마지막 비영 요일번호(일1~토7)이며 날짜순 MAX가 아니다.
+`ShipmentQuantityToEstQuantity`는 소수 환산값을 반환한다. Date.EstQuantity에
+소수 원값을 쓰고 금액에서만 `Math.Round(est,0)` 및 `Math.Round(gross/1.1,0)`을
+사용한다(Decimal 기본 midpoint-to-even). 기존 일반 분배용 JS 정수 EstQuantity
+헬퍼를 날짜편집에 그대로 적용하면 EXE와 달라지므로 새 date-only 정책은 분리했다.
+ClassShipmentDate.Insert는 identity SdateKey를 지정하지 않는다.
+
+웹은 EXE와 같은 1SD+NDate 저장구조/달력/환산/대표일을 사용하되, 총량·기존 견적량·gross
+보존과 잠긴 업무키/snapshot 재검증을 추가한다. 날짜별 단가·비고가 다르거나,
+legacy NULL가격/수동 견적수량/출고-날짜 합계 불일치가 있으면 먼저 원장검증을 안내한다.
+SD.ShipmentDtm만 수정하므로 수량/단가/Amount/Vat/isFix/비고는 그대로이고,
+Order/Farm/Stock/Estimate/WebProfitReport를 쓰지 않는다. 날짜별 공급가/VAT 분할
+반올림차이는 미리보기에 표시하며 총매출은 불변이다. V2 gate+내부 편집리스 및
+SERIALIZABLE 잠금, 동시변경 SHA256, 감사 실패 포함 롤백을 적용한다.
+
+운영 SELECT-only: 2026/45-01/Prod3513 상세101436·101823 각1박스/15단/단가11500/
+gross172500, DetailFix1, ViewOrder1, 달력7. 공용 reader/plan 그대로 읽어 eligibility
+통과했고 기존날짜1, 수량·매출 불변. 2025 같은차수/품목0. SD 트리거는 OutQuantity
+UPDATE 때만 동작하고 Date 트리거 없음. 운영 테스트 저장은 하지 않았다.
+격리 MSSQL은 같은 차수 2025 sentinel99를 보존하며 .4+.6박스→6+9단→172500원,
+전산 견적Detail2행/전체요일 ECOUNT Excel집계1행/요일별6·9단/XLSX roundtrip,
+확정·주문·농장·재고·Estimate·손익 보존 및 stale/rollback을 실행한다.
+계약: shipment-distribution-dates.json. 상세 기준/부작용 표:
+[계획](../plans/distribution-country-dates-2026-11-10.md).
