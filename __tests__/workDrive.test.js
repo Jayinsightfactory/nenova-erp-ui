@@ -20,7 +20,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import \{ workflowOwnerOf \} from '\.\/workFlowOwners';/m,
     "const workflowOwnerOf = (u) => ({ nenovass1: { name: '강현우' }, nenovass2: { name: '설연주' }, nenovasd1: { name: '정재훈' } })[String(u?.userId || '').toLowerCase()] || null;")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline, egressPreview, egressOpen, mirrorWebUpload, isWebUpload, webUploaderName, FILE_MAX, TOTAL_MAX, driveUsage };';
+  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, getFileForVerification, downloadLog, recordEgress, listEgress, fileTimeline, egressPreview, egressOpen, mirrorWebUpload, isWebUpload, webUploaderName, FILE_MAX, TOTAL_MAX, driveUsage };';
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
@@ -120,6 +120,11 @@ assert.ok(!vis(jae).includes('★2026 지출결의서.xlsx'));
 const wonbin = { userId: 'wb', userName: '김원빈' };
 assert.ok(vis(wonbin).includes('40-1 영남꽃소재 출고 내역서.xlsx') === false, '수입부는 출고 파일 미열람');
 // 내려받기 = 기록 남음(사장만 조회)
+const indexBeforeVerification = fs.readFileSync(path.join(tmp,'data','drive','index.jsonl'),'utf8');
+for(let n=0;n<3;n++) assert.ok(wd.getFileForVerification(seol,r1.id));
+assert.strictEqual(wd.getFileForVerification(gab,rM.id),null);
+assert.strictEqual(wd.getFileForVerification(null,r1.id),null);
+assert.strictEqual(fs.readFileSync(path.join(tmp,'data','drive','index.jsonl'),'utf8'),indexBeforeVerification,'verification must not write/wake drive watchers');
 const g = wd.getFile(seol, r1.id); assert.ok(g && fs.existsSync(g.abs));
 assert.strictEqual(wd.getFile(gab, rM.id), null, '민감 파일 타부서 내려받기 차단');
 assert.strictEqual(wd.downloadLog(boss, r1.id).length, 1); assert.strictEqual(wd.downloadLog(seol, r1.id).length, 0);
@@ -129,6 +134,7 @@ assert.strictEqual(wd.reclassify(seol, r1.id, { stage: '입고' }).ok, true);
 assert.strictEqual(wd.listVisible(seol).find((f) => f.id === r1.id).stage, '입고');
 assert.strictEqual(wd.reclassify(boss, r1.id, { deleted: true }).ok, true);
 assert.ok(!wd.listVisible(boss).some((f) => f.id === r1.id), '숨김');
+assert.strictEqual(wd.getFileForVerification(boss,r1.id),null,'deleted original cannot be verified');
 // 업무 드라이브 추가 관리자(김원영 nenova1): 사장과 같이 전 부서 열람·다운로드, orbit-report 권한과는 별개
 const kwy = { userId: 'nenova1', userName: '김원영' };
 assert.deepStrictEqual(vis(kwy).sort(), vis(boss).sort(), '김원영은 사장과 같은 목록');

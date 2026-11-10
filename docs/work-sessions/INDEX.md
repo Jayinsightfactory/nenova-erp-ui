@@ -730,3 +730,4 @@
 - [2026-11-06 반복 손익 ECANCEL 실패 관측](2026-11-06_profit-cancel-diagnostic.md) — ordinary live owner 최대3회 phase/hash/PID/pool만, 기존45/60초·erroridentity 보존·대상21PASS, 최종gate/운영미검증.
 - [2026-11-06 source fence 변경관측·재고비고409](2026-11-06_profit-source-fence-diagnostic.md) — wholefence 유지·owner1 메모리diff/timestampOnly·known409만전달·대상27PASS, 최종gate/운영미검증.
 - [2026-11-10 콜롬비아 원본 통관비·GW 재계산](2026-11-10_co-customs-recalculation.md) — AB12 판매 COUNT 순환 제거, 46-1 265행 Excel 갱신·다운로드, 원장 보존.
+- [2026-11-10 PR1641 AWB 원본 동일성](2026-11-10_pr1641-awb-proof.md) — 같은 연도·차수·AWB/실제 PDF 검증, 시험 산출물 차단·저장 직전 재검증·운영 DB 보존.

@@ -4,6 +4,8 @@
   "scope": [
     "lib/arrivalImportPolicy.js",
     "lib/arrivalDrivePolicy.js",
+    "lib/arrivalDriveAwbEvidence.js",
+    "lib/workDrive.js",
     "lib/arrivalDriveAuto.js",
     "pages/api/arrival-cost/drive-auto.js",
     "components/ArrivalDriveAutoPanel.js",
@@ -83,6 +85,12 @@
       "notes": "관리자 명시 활성화. 국가별 최신 연도·세부차수·원본 수정시각을 공통 순수 정책으로 선택하고, 해당 버전의 서버 uploadedAt+24시간 이후에만 저장한다. 매분 polling 없이 파일/설정 변경 감지 및 다음 예정시각 단발 타이머로 실행한다. arrivalDriveTiming을 표시·실행·예약이 공유하며 누락 등록시각은 보류한다. 과거 시트 제외, 국가·연도 불일치 및 원가 누락은 보류. 수동 현재본/수동 매칭 수정 보존. WebArrivalCost 3개 테이블만 트랜잭션 저장하며 DRIVE_IMPORT hash 이력과 sp_getapplock으로 재시작·중복 작업을 멱등 처리한다. 파일 원본/ERP 원장/호텔 매입단가는 보존."
     },
     {
+      "name": "DRIVE_COLOMBIA_AWB_GATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "콜롬비아 업무드라이브 원가엑셀 반영 전 서버 verifiedCandidates가 실제 XLSX의 유일한 AWB 번호와 실제 PDF의 SHA256·Air Waybill 본문·국가·명시 연도·세부차수·11자리 체크디짓 번호를 검증한다. 파일명/cycle/본문 충돌·다른 국가·전년도·미확인 범위·시험 산출물·egress·삭제·위조해시는 보류한다. 클라이언트/index의 proof 속성은 신뢰하지 않는다. 상태/예약/실행/저장직전이 같은 resolver를 공유하고 저장직전 AWB evidence hash 교체도 차단한다. AWB 증거 누락은 reason으로 표시하며 저장 금지. 스캔/암호화 PDF는 확인 필요, 유료 분석 없음. 이 게이트는 운임 금액 자체를 추출/계산하지 않는다. 원가식·환율·수량·입고·중국 등 다른 국가 경로 불변. 기존 WebArrivalCost importer 외 ERP·호텔·재고·견적·손익 원장 보존."
+    },
+    {
       "name": "ARRIVAL_COST_SEARCH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -141,6 +149,8 @@
     "__tests__/arrivalImportPolicy.test.js",
     "__tests__/arrivalDriveSchedule.test.js",
     "__tests__/arrivalDriveAuto.test.js",
+    "__tests__/arrivalDriveAwbEvidence.test.js",
+    "__tests__/workDrive.test.js",
     "__tests__/arrivalCostExcel.test.js",
     "__tests__/arrivalCostPage.test.js",
     "__tests__/arrivalCostPerformance.test.js",

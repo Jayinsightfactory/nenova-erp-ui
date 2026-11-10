@@ -12,7 +12,7 @@ let config = { enabled: true }, states = {}, commits = 0, timer, watchers = [], 
 const read = key => states[key] || {};
 const timing = (s, state) => arrivalDriveTiming(s, state, now);
 const run = async () => { if (config.enabled && timing(source, read(source.sha)).ready) { commits++; states[source.sha] = { status: 'complete' }; } };
-const start = new Function('global','process','fs','path','dir','setTimeout','clearTimeout','Date','runArrivalDriveAuto','arrivalDriveConfig','selectArrivalDriveCandidates','listVisible','actor','arrivalDriveTiming','read','stateFile', `${body}; return startArrivalDriveScheduler;`)(
+const start = new Function('global','process','fs','path','dir','setTimeout','clearTimeout','Date','runArrivalDriveAuto','arrivalDriveConfig','verifiedCandidates','listVisible','actor','arrivalDriveTiming','read','stateFile', `${body}; return startArrivalDriveScheduler;`)(
   globalState, { env: { NODE_ENV: 'production', DB_SERVER: 'fixture' }, cwd: () => '/fixture' },
   { mkdirSync() {}, watch(folder, cb) { watchers.push(cb); return { on() {}, unref() {} }; } }, path,
   () => '/fixture/config', (fn, delay) => (timer = { fn, delay, unref() {} }), () => { timer = null; }, { now: () => now },
@@ -38,7 +38,7 @@ console.log('arrival drive schedule: 24h boundary, event wake, new version, disa
 // Exercise the actual worker's gate: before due, no source download, SQL, or save.
 const workerBody = text.slice(text.indexOf('export async function runArrivalDriveAuto'), text.indexOf('export function startArrivalDriveScheduler')).replace('export ', '');
 let queries = 0, saves = 0, downloads = 0, workerState = {};
-const worker = new Function('global','arrivalDriveConfig','selectArrivalDriveCandidates','listVisible','actor','read','stateFile','arrivalDriveTiming','write','getFile','fs','crypto','query','scopeArrivalDriveRows','parseArrivalCostWorkbook','loadMappings','createArrivalCostImport', `${workerBody}; return runArrivalDriveAuto;`)(
+const worker = new Function('global','arrivalDriveConfig','verifiedCandidates','listVisible','actor','read','stateFile','arrivalDriveTiming','write','getFile','fs','crypto','query','scopeArrivalDriveRows','parseArrivalCostWorkbook','loadMappings','createArrivalCostImport', `${workerBody}; return runArrivalDriveAuto;`)(
   {}, () => config, () => [source], () => [], {}, () => workerState, s => s.sha, timing,
   (_, s) => { workerState = s; }, () => { downloads++; return { abs: 'fixture' }; }, { readFileSync: () => Buffer.from('fixture') },
   { createHash: () => ({ update: () => ({ digest: () => source.sha }) }) },
