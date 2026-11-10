@@ -24,7 +24,15 @@
     "scripts/test-distribution-catalog-downstream-sql.cjs",
     "lib/shipmentDistributionCustomerScope.js",
     "__tests__/shipmentDistributionCustomerScope.test.cjs",
-    "scripts/test-distribution-customer-scope-sql.cjs"
+    "scripts/test-distribution-customer-scope-sql.cjs",
+    "lib/shipmentDistributionNavigation.js",
+    "lib/shipmentDistributionDateIndex.js",
+    "components/shipment/DistributionProductTree.js",
+    "components/shipment/DistributionDateFilter.js",
+    "__tests__/shipmentDistributionNavigation.test.cjs",
+    "scripts/test-distribution-date-index-sql.cjs",
+    "scripts/record-distribution-dual-guide.cjs",
+    "__tests__/distributeProductDisplay.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -95,16 +103,17 @@
     ]
   },
   "criteria": {
-    "productOrder": "ProdName A-Z in every product selector/list, including favorites; never favorite-first or relevance-rank reorder.",
+    "productOrder": "Latest user instruction: favorite families and favorite SKUs first, nonfavorites at bottom, A-Z inside each priority bucket. Product-family accordion state is local display state only; no quantity changes on fold.",
     "keyboard": "Visible Ctrl+Alt+1/2/3/4, Ctrl+Enter query, quantity Enter next visible enabled quantity (last row focuses Save without posting), and Ctrl+S current-tab save (품목 tab: product rows; 업체 tab: customer 1 and optional customer 2 rows in one batch). Ctrl+S with no draft change posts nothing and logs '변경 없음, 저장 생략'; every save result is appended to the on-screen save log. Native numeric arrows retained; Ctrl+S always prevents browser Save and cannot write while distribution/customer reads, fixed/SP/day saves, history/validation/SP/success modal, repeat, or IME composition. Natural Tab, arrow selection, Enter/Space, and Escape focus return remain available.",
     "durability": "Only verified successful quantity changes get immutable transaction audit, with exact scope, before/after and OutUnit. Existing0-to0 deletion creates no invalid audit.",
     "privacy": "New audit allowlists business fields; no raw chat, token or editGuard. Existing general request telemetry unchanged.",
     "downstream": "No new Estimate, StockHistory or WebProfitReport writes; native amount conversion and fixed protection unchanged. Read-only estimate visibility/amount/date and confirmed-sales evidence recorded in work plan.",
     "viewport": "1920x1080 CSS100%, plus smaller widths; page primary scrolling and accessible popups.",
     "price": "Quantity-only saves preserve native customer Cost, including zero; never substitute Product.Cost when row.Cost exists.",
-    "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and sorts A-Z; blank search keeps selected-week list. SELECT only; saves retain existing preflight and writers. Catalog-only products must also pass the selection whitelist, including empty 45-03 product lists. Header picker remains usable with zero current-week products and loads the same active catalog on open. Existing positive order registration precedes shipment writes. Customer add dialog also opens the active catalog when the selected week has zero products. Native rows are enriched with country/packing metadata while stored week quantities and explicit zero price win. Country-only filter matches all its varieties; nonblank add search remains global. Selection alone never registers an order.",
-    "countryGrouping": "국가(UserFavorite shipment-distribute-countries version1 countries)와 품종(shipment-distribute-groups)의 즐겨찾기 교집합을 국가 제목 아래 한 번만 표시. 설정이 없을 때만 기존 즐겨찾기 품종의 국가를 표시하는 이행정책; 명시[]는 빈 상태 유지. 전체보기에서 국가/품종 별도 설정. 위쪽 중복 즐겨찾기 버튼 제거. 계정변경시 모두 비움. 표시변경은 분배 초안 보존.",
-    "countrySelection": "Country name is a distinct selectable country-only filter (country::), independent of favorites; no country-only CountryFlower/SP mutation scope. workspaceCustomers includes scoped active orders before shipment/date exists; empty scope displays active noOrder candidates with explicit notice, never creates fake orders."
+    "catalogSearch": "Group picker includes all active Product CounName+FlowerName regardless of year/week/order/shipment existence. Product-tab nonblank search merges active catalog by ProdKey, preserves selected-week quantities, matches country/flower/name and prioritizes favorites, then A-Z; blank search shows active country catalog grouped by family, preserving selected-week quantities. SELECT only; saves retain existing preflight and writers. Catalog-only products must also pass the selection whitelist, including empty 45-03 product lists. Header picker remains usable with zero current-week products and loads the same active catalog on open. Existing positive order registration precedes shipment writes. Customer add dialog also opens the active catalog when the selected week has zero products. Native rows are enriched with country/packing metadata while stored week quantities and explicit zero price win. Country-only filter matches all its varieties; nonblank add search remains global. Selection alone never registers an order.",
+    "countryGrouping": "Farm-only country navigation and favorite-first expandable family/SKU tree. Customer workspace has independent week-wide company selection and independent item/date filters; farm country/family never restricts customer scope.",
+    "countrySelection": "Country name is a distinct selectable country-only filter (country::), independent of favorites; no country-only CountryFlower/SP mutation scope. workspaceCustomers includes scoped active orders before shipment/date exists; empty scope displays active noOrder candidates with explicit notice, never creates fake orders.",
+    "dateClassification": "Both workspaces use shared persisted date index keyed by selected year+week and Master customer+product. Positive Date facts and explicit undated order candidates, no computed calendar. Filter changes preserve full-week drafts and save targets; existing exact date editor remains sole day-quantity writer."
   },
   "requiredTestFiles": [
     "__tests__/shipmentDistributionWorkspace.test.js",
@@ -117,7 +126,11 @@
     "__tests__/shipmentDistributionCatalogBrowser.test.cjs",
     "scripts/test-distribution-catalog-downstream-sql.cjs",
     "__tests__/shipmentDistributionCustomerScope.test.cjs",
-    "scripts/test-distribution-customer-scope-sql.cjs"
+    "scripts/test-distribution-customer-scope-sql.cjs",
+    "__tests__/shipmentDistributionNavigation.test.cjs",
+    "scripts/test-distribution-date-index-sql.cjs",
+    "scripts/record-distribution-dual-guide.cjs",
+    "__tests__/distributeProductDisplay.test.js"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -126,6 +139,7 @@
     "npm run guard:erp-writes -- --changed-from origin/master",
     "npm run build",
     "node scripts/test-distribution-catalog-downstream-sql.cjs",
-    "node scripts/test-distribution-customer-scope-sql.cjs"
+    "node scripts/test-distribution-customer-scope-sql.cjs",
+    "node scripts/test-distribution-date-index-sql.cjs"
   ]
 }
