@@ -1,5 +1,18 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-11-10 행내 세부차수 비교·메인차수 합계
+
+출고일 표에서 같은 연도/메인차수01~04의Master업체+품목별 저장수량을 읽고,
+날짜 머리글을 공유한 세부차수 행과 오른쪽 메인 총량을 표시한다. 현재선택차수만
+입력/기존canonical날짜저장 대상으로 유지한다. 다른차수/주문/금액/확정/Stock/Estimate/
+손익 쓰기0,상세총량을날짜수만큼중복합산0. 원본내장연도와명시연도충돌400.
+공통조회 DISTRIBUTION_MAJOR_INLINE_DATES_SQL, 순수모델 majorInlineDateModel,
+기준/보존표 plans/distribution-major-days-2026-11-10.md. 회귀는
+shipmentMajorInlineDates.test.cjs 및 격리실제MSSQL date-index/date-save fixtures.
+운영2026/45의1246조합전부유효(복수세부123),2025/45는기존불일치21을
+합계확인필요로안내하며 임의보정하지 않는다. 가이드6단계/24조작위치/175.95초
+실제1920x1080/100% 합성API촬영, 첫중간끝프레임에서단계번호/확대/입력/복귀확인.
+
 ## 2026-11-10 출고 Excel 연도·주말·수량 보존
 
 기존 Excel API는 연도를 버리고 OrderWeek만 조회했으며 저장된 출고일 대신 브라우저

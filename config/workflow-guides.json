@@ -437,7 +437,8 @@
         "lib/shipmentDistributionNavigation.js",
         "components/shipment/DistributionInlineDates.js",
         "lib/shipmentInlineDates.js",
-        "lib/shipmentDateDisplayUnits.js"
+        "lib/shipmentDateDisplayUnits.js",
+        "lib/shipmentMajorInlineDates.js"
       ],
       "requiredScenarios": [
         "favorites",
@@ -459,33 +460,33 @@
           "chapters": [
             {
               "scenario": "country",
-              "title": "국가 선택과 독립 탐색",
+              "title": "1. 국가 선택과 독립 탐색",
               "seconds": 0
             },
             {
               "scenario": "favorites",
-              "title": "품종별 즐겨찾기 우선과 펼치기·접기",
-              "seconds": 0.11
+              "title": "2. 품종별 즐겨찾기와 펼치기·접기",
+              "seconds": 22.209
             },
             {
               "scenario": "dates",
-              "title": "날짜별 수량 입력과 총량 확인",
-              "seconds": 8.15
+              "title": "3. 날짜별 수량 입력과 총량 확인",
+              "seconds": 48.722
             },
             {
               "scenario": "save",
-              "title": "견적수량·매출 보존 확인 후 명시 저장",
-              "seconds": 18.7
+              "title": "4. 견적수량·매출 보존 확인 후 명시 저장",
+              "seconds": 98.477
             },
             {
               "scenario": "tab",
-              "title": "출고일지정 탭에서 저장값 재확인",
-              "seconds": 27.3
+              "title": "5. 출고일지정 탭에서 저장값 재확인",
+              "seconds": 113.642
             },
             {
               "scenario": "customers",
-              "title": "업체부터 선택하는 독립 작업공간",
-              "seconds": 31.001
+              "title": "6. 업체부터 선택하는 독립 작업공간",
+              "seconds": 140.345
             }
           ]
         }

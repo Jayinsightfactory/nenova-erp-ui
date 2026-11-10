@@ -1,5 +1,5 @@
 import { DISTRIBUTION_DATE_CALENDAR_SQL } from '../../../lib/shipmentDistributionDates.js';
-import { DISTRIBUTION_DATE_INDEX_SQL, DISTRIBUTION_INLINE_DATES_SQL } from '../../../lib/shipmentDistributionDateIndex.js';
+import { DISTRIBUTION_DATE_INDEX_SQL, DISTRIBUTION_INLINE_DATES_SQL, DISTRIBUTION_MAJOR_INLINE_DATES_SQL } from '../../../lib/shipmentDistributionDateIndex.js';
 import { distributionReadProductWhere, sqlDistributionWorkspaceCustomers } from '../../../lib/shipmentDistributionCustomerScope.js';
 // pages/api/shipment/distribute.js
 // GET?type=products → 품목 목록 (왼쪽 패널)
@@ -316,7 +316,7 @@ async function getDistribute(req, res) {
   if (week) week = normalizeOrderWeek(week);
   let orderYear = String(year || '').trim();
   if (week) {
-    try { ({ orderYear } = requireOrderYear(week, year || '')); }
+    try { ({ orderYear } = requireOrderYear(req.query.week, year || '')); }
     catch (error) { return res.status(400).json({ success: false, code: error.code, error: error.message }); }
   } else {
     orderYear = resolveActiveOrderYear('', year);
@@ -626,8 +626,8 @@ async function getDistribute(req, res) {
     if (type === 'workspaceDateIndex') {
       if (!week) return res.status(400).json({success:false,error:'week 필요'});
       const result=await query(DISTRIBUTION_DATE_INDEX_SQL,{year:{type:sql.NVarChar,value:String(orderYear)},week:{type:sql.NVarChar,value:week}});
-      const [facts,calendar]=await Promise.all([query(DISTRIBUTION_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:String(orderYear)},week:{type:sql.NVarChar,value:week}}),query(DISTRIBUTION_DATE_CALENDAR_SQL,{ywk:{type:sql.NVarChar,value:String(orderYear)+week.slice(0,2)}})]);
-      return res.status(200).json({success:true,rows:result.recordset,dateFacts:facts.recordset,calendar:calendar.recordset});
+      const [facts,calendar,majorFacts]=await Promise.all([query(DISTRIBUTION_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:String(orderYear)},week:{type:sql.NVarChar,value:week}}),query(DISTRIBUTION_DATE_CALENDAR_SQL,{ywk:{type:sql.NVarChar,value:String(orderYear)+week.slice(0,2)}}),query(DISTRIBUTION_MAJOR_INLINE_DATES_SQL,{year:{type:sql.NVarChar,value:String(orderYear)},major:{type:sql.NVarChar,value:week.slice(0,2)}})]);
+      return res.status(200).json({success:true,rows:result.recordset,dateFacts:facts.recordset,calendar:calendar.recordset,majorDateFacts:majorFacts.recordset});
     }
 
     if (type === 'workspaceCustomers') {

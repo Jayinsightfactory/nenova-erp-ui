@@ -1,24 +1,207 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-10T07:28:43.718Z",
+  "recordedAt": "2026-11-10T09:30:17.836Z",
   "width": 1920,
   "height": 1080,
   "browserZoom": 100,
   "fps": 20,
-  "duration": 38.3,
+  "duration": 175.95,
   "capture": "actual-browser-ui",
   "dataMode": "synthetic-fixture",
   "productionWrites": 0,
-  "videoSha256": "23abf883bb197c0c6d612957a1fbc08f4cc7cecf034d0f6d806c227655aebbe7",
-  "captionsSha256": "e67ae11e84da9e7016765f81e07418bcd2331948a2549cf8658a4718e776b2e8",
+  "videoSha256": "5e9d7857958fcecb2c92272da685d0fc4f56f948012217af86ed668fe57f5e33",
+  "captionsSha256": "8b17d05996d834189590bdeeb5e1ce452e653de30999143ab4a82343f852a843",
   "sourceHashes": {
-    "pages/shipment/distribute.js": "78bd5d1d27dccfa238c841e6c26afa2f58f2308b7fd3db540b28e36fa5125734",
+    "pages/shipment/distribute.js": "3e946af5f7412f26cff86b5660c68575650980fa3ac6ec52330aa64559593a34",
     "components/shipment/DistributionDateEditor.js": "fd95c92c8ac2c7d38033764680420b29ac61d14fd68b7318eca5c20051010823",
     "components/shipment/DistributionProductTree.js": "024019b8fe3bd836c87e2c62e00f9817e013e28086f3406e8763e3f6e5742538",
     "components/shipment/DistributionDateFilter.js": "58144457d0610a40acd752ab315442333f09d974fab37d7250777a55dc0747c2",
     "lib/shipmentDistributionNavigation.js": "9d5833d94d4fd53426757a6f8358a85e7a07e40d0742e0cfca51c723dce59764",
-    "components/shipment/DistributionInlineDates.js": "941f7c5fb0f2d8173b5cab6952dfb5a374bff4319f877f43019c8c6284a46366",
-    "lib/shipmentInlineDates.js": "68392fa2af93cc0872f8f64cfb61439d58c8c216968d3330d5a6d6ed7c354100",
-    "lib/shipmentDateDisplayUnits.js": "b3c80ee465fb582d77ab94430658efcce87e810e9f0dd9bdb4dfc97e6d8a1071"
+    "components/shipment/DistributionInlineDates.js": "b71bc59da4cbbd7600caeb057456450ccda7105dfb7dcc7bd11838c8ceea9dba",
+    "lib/shipmentInlineDates.js": "c8ed88973209c5cd944a223be52e8eec2f46b89fefc4c993decfbbbfada67e8b",
+    "lib/shipmentDateDisplayUnits.js": "b3c80ee465fb582d77ab94430658efcce87e810e9f0dd9bdb4dfc97e6d8a1071",
+    "lib/shipmentMajorInlineDates.js": "ed28ff8b11eef7c53a5a414a1d1edb9bec8fcc360af829c11d9c28b526a3e81b"
+  },
+  "presentation": {
+    "numberedSteps": 6,
+    "zoom": "post-capture-1.4x",
+    "transitionSeconds": 1.2,
+    "captionBand": "unscaled-bottom-180px",
+    "cameraBand": {
+      "x": 0,
+      "y": 70,
+      "width": 1920,
+      "height": 830
+    },
+    "focusShots": [
+      {
+        "number": 1,
+        "start": 3.3560004,
+        "x": 123,
+        "y": 119.546875,
+        "end": 7.034866500000001
+      },
+      {
+        "number": 1,
+        "start": 9.370313999999999,
+        "x": 831.6171875,
+        "y": 119.546875,
+        "end": 12.8062195
+      },
+      {
+        "number": 1,
+        "start": 15.0403904,
+        "x": 45,
+        "y": 264.546875,
+        "end": 18.4628395
+      },
+      {
+        "number": 2,
+        "start": 25.2351844,
+        "x": 161.265625,
+        "y": 497.546875,
+        "end": 28.6633591
+      },
+      {
+        "number": 2,
+        "start": 34.215736099999994,
+        "x": 161.5625,
+        "y": 359.546875,
+        "end": 37.6239635
+      },
+      {
+        "number": 2,
+        "start": 39.6438687,
+        "x": 161.5625,
+        "y": 359.546875,
+        "end": 43.0614351
+      },
+      {
+        "number": 2,
+        "start": 45.0871174,
+        "x": 70.796875,
+        "y": 553.046875,
+        "end": 48.5175282
+      },
+      {
+        "number": 3,
+        "start": 55.290205199999996,
+        "x": 1193.109375,
+        "y": 541.046875,
+        "end": 58.699241799999996
+      },
+      {
+        "number": 3,
+        "start": 63.738925599999995,
+        "x": 1193.109375,
+        "y": 541.046875,
+        "end": 67.15415089999999
+      },
+      {
+        "number": 3,
+        "start": 69.17044809999999,
+        "x": 1413.5546875,
+        "y": 565.046875,
+        "end": 72.6332118
+      },
+      {
+        "number": 3,
+        "start": 74.65854309999999,
+        "x": 1347.5703125,
+        "y": 565.046875,
+        "end": 78.1063864
+      },
+      {
+        "number": 3,
+        "start": 83.63702889999999,
+        "x": 1611.5078125,
+        "y": 565.046875,
+        "end": 87.0867132
+      },
+      {
+        "number": 3,
+        "start": 89.3599172,
+        "x": 1877.90625,
+        "y": 565.046875,
+        "end": 92.8034871
+      },
+      {
+        "number": 3,
+        "start": 94.84226179999999,
+        "x": 987,
+        "y": 717.5,
+        "end": 98.2674055
+      },
+      {
+        "number": 4,
+        "start": 106.5090416,
+        "x": 987,
+        "y": 778.5,
+        "end": 109.9318231
+      },
+      {
+        "number": 5,
+        "start": 116.7659151,
+        "x": 441.1640625,
+        "y": 347.046875,
+        "end": 120.20057919999999
+      },
+      {
+        "number": 5,
+        "start": 122.3075524,
+        "x": 203.1953125,
+        "y": 430.546875,
+        "end": 125.73082149999999
+      },
+      {
+        "number": 5,
+        "start": 127.74777490000001,
+        "x": 1872.90625,
+        "y": 493.046875,
+        "end": 131.1666407
+      },
+      {
+        "number": 5,
+        "start": 136.71053940000002,
+        "x": 906.890625,
+        "y": 717.5,
+        "end": 140.1317899
+      },
+      {
+        "number": 6,
+        "start": 143.48059849999999,
+        "x": 284.8671875,
+        "y": 347.046875,
+        "end": 146.91856059999998
+      },
+      {
+        "number": 6,
+        "start": 148.95421040000002,
+        "x": 56,
+        "y": 430.546875,
+        "end": 152.3878738
+      },
+      {
+        "number": 6,
+        "start": 157.9107779,
+        "x": 134.9375,
+        "y": 269.546875,
+        "end": 161.31996719999998
+      },
+      {
+        "number": 6,
+        "start": 163.33769990000002,
+        "x": 1877.90625,
+        "y": 357.046875,
+        "end": 166.7683764
+      },
+      {
+        "number": 6,
+        "start": 168.7949396,
+        "x": 906.890625,
+        "y": 717.5,
+        "end": 172.21571539999997
+      }
+    ]
   }
 }

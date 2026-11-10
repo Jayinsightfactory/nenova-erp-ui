@@ -636,3 +636,11 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 읽기 전용 probe: 2025/46-01 미국29 상세(양수25/영수량4), 출고79박스,
 견적1690단, 공급가+VAT9785000원/날짜합9785000원. 실제달력11/12수~11/18화.
 기준·부작용표: docs/plans/distribution-excel-2026-11-10.md.
+## 2026-11-10 세부차수 출고일 비교와 메인 총량
+
+설치EXE dnSpy.Console 재추출 outputs/native-major.txt: GetCustomerList/GetShipmentMaster
+명시 OrderYear+OrderWeek+CustKey와 날짜실수량 사용, 선택차수만 저장. 웹 비교표는
+명시연도·같은메인차수01~04의Master업체/품목별ShipmentDate를읽는 확장이다.
+공용 원장/EXE수식과 저장순서를 변경하지 않는다. 운영SELECT 2025/45상세01=1200,
+02=298;2026/45상세01=893,02=404,03=73,날짜누락0. 실제0과없는차수를구별한다.
+기준/보존표 docs/plans/distribution-major-days-2026-11-10.md. 조회이외ERP쓰기0.

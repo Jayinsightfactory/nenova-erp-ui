@@ -2546,6 +2546,12 @@
 - 최신master 병합 후 대상회귀/manifest/쓰기/dnSpy 재통과. 최종 병합빌드·PR/CI·Cafe24배포·운영브라우저·실제 Excel 인쇄 미리보기는 이 기록 시점 미검증, 후속 확인.
 검색어: 농장분배 카톡 물량표 통합검증 원본엑셀 인쇄배율 빈셀 확대축소 재업로드 farm-text-excel
 
+## 2026-11-10 출고일 세부차수 비교·메인차수 총수량
+- 실제dnSpy FormShipmentDistribution 재추출/운영SELECT 확인후 같은명시연도·메인01~04·Master업체/품목별readonly batch조회. 날짜머리글1회/실재세부차수별행·소계/우측메인총량. 선택차수만기존canonical DateEditor로입력·저장,다른차수조회전용. 단·송이공통정수환산,중복/NULL/범위/합계/입수stale불일치확인안내. Get원본차수내장연도대조로충돌/누락400. 기간문구/중복합계제거·상단여백축소·단축키안내접기.
+- 실제2026/45=1246조합전부정합/복수123,2025/45=1376중1355정합/복수95/기존불일치21은확인안내·보정0. 개발production API6조회/연도경계3검사 전부DB일치. 합성15단+30단=45단,선택01만.4/.6저장/02소계30유지,Tab/Enter저장0/390가로스크롤합계접근/날짜·입수stale/교차연도빈차수/독립탭PASS.
+- pure/GET연도/가이드6단계5test PASS, 실제격리MSSQL major37-01/02·2025동일99·다른38차·NULL상세업체범위PASS, date-only견적15단/gross172500/ECOUNT XLSX/gate/lease/rollback/원장보존PASS. npm ERP전체exit0/dnSpy/manifest212/writeguard1API/finalwebpack1workerbuild exit0.
+- 가이드175.95초/6업무단계/24조작위치,실제1920x1080/100%·번호/한국어자막/목차/부드러운zoom/out 갱신. 첫/중간/끝5프레임직접확인,최종player1920/390·키보드역할/목차·실재생/VTT/다운로드2/접기정지PASS. 운영ERP쓰기0. CI/PR/배포/운영실브라우저는이기록시점미검증.
+검색어: shipmentMajorInlineDates 45-01 45-02 메인총수량 15단30단45단 번호가이드175초 readonly형제차수
 ## 2026-11-10 수입부 수정 최종 로컬 게이트
 - 최신f9ecb7fd 병합 후 ERP전체exit0/dnSpy/manifest212/쓰기guard1API/정식npm build1worker PASS. 관련가이드3개 실Chrome·합성원본 촬영: 매칭73.3초/입고수입435.45초/영업지원278.85초, 번호·입력·체크·결과·줌. 첫중간끝 프레임 및 PC1920/모바일390 실제재생/역할/목차/자막/접기정지 PASS. 숨은타가이드 목차 중복검사 테스트범위 정정.
 - 운영입고·재고·원가 변경0/추가유료AI0. NL46 실제입고→현재FX/관세 XLSX와 TH38 시험비용 XLSX 구별. 모든국가 실파일 전체E2E 미완료. PR/CI/운영배포 후속.
