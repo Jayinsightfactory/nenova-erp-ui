@@ -2614,3 +2614,8 @@
 - dnSpy FormEstimateView/ReportEstimate 재추출: ReportEstimate의 합계는 최종 GroupFooter이며 웹 기본 견적서는 표 중간 tfoot을 제거하고 마지막 문서 합계 한 번만 출력. native 인쇄의 품목/적요 줄바꿈 및 자동행높이·반복 thead로 2~3쪽 상단 품목 잘림을 보완.
 - 추가 견적관리 가이드 23.1초 및 출고일 매출 기존 가이드 재녹화: 둘 다 fixture-only, 1920×1080/100%, 한국어 VTT·목차·재생 검증, ERP 쓰기0. 표적 print typography/contract, ERP contract, dnSpy evidence, manifest213, write guard, workflow guide, webpack build PASS. 운영 브라우저/CI/배포 미검증.
 검색어: estimate-management 비고수정 boxQuantity 마지막합계 ReportEstimate GroupFooter sticky header print-page
+
+## 2026-11-11 친구플라워 45차 견적 인쇄 경계 정정
+- 일반 견적 인쇄에도 table-header-group과 행 단위 page-break 방지를 적용해 44번 행 누락·2/3쪽 순번/품목 헤더 절단을 막았다. 100행 fixture PDF에서 44·92번과 반복 헤더를 직접 확인했다.
+- 화면 표는 품목 400px 고정 폭과 가로 스크롤로 줄바꿈을 없앴고, 인쇄 SQL은 EXE Product.BunchOf1Box/SteamOf1Box·EstUnit을 출력 데이터에 포함해 정수 1박스 초과 수량의 박스 표기를 복구했다. ERP 원장 쓰기 없음.
+검색어: 친구플라워 45차 44번 92번 견적인쇄 table-header-group BunchOf1Box SteamOf1Box
