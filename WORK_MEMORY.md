@@ -2574,3 +2574,8 @@
 - 웹 실제 카네이션 다운로드 Excel COM ReadOnly 출력: 원본/적용본 A3세로1쪽·기존2009단어 좌표불변·빈상단메모만추가. 행열여백/그림XML 보존. 장미적용본/수정본재업로드/CI·배포는 진행중 미검증. 운영ERP쓰기0. 세부 docs/work-sessions/2026-11-11_farm-roundtrip-proof.md.
 검색어: farm-roundtrip-proof DB품목미매칭 volumeProdLabel Brighton50 MixBox Mini MC Elite ExcelCOM 실제인쇄
 - 후속 실파일검증: 수량4→5만 바꾸면 농장합계차단, 농장5동기수정·업체꽃길→알파는 통과/재다운로드 메모중복0. 수정본ExcelCOM도 A3세로1쪽·의도수정외 위치불변. DB실농장 엘리떼/티바/바리에타 정확표기 변형보완,17회귀PASS. 품목기준전체게이트PASS,최종별칭포함전체/CI재실행.
+## 2026-11-11 출고분배 메인차수 공통 행 정정
+- 업체/품목별 실재차수만 표시해02만 보이던 원인 정정. 같은연도·메인차수 전체majorDateFacts에서공통01/02/03축을공유,어느세부차수에서도동일행. 부재0은화면전용/실제0과구별/둘다편집0,실재선택양수만기존canonical날짜저장. 실제행만합계. 날짜머리글표열상단1회/빈비활성7입력제거. SQL/API/writer변경0/운영ERP·ECOUNT쓰기0.
+- dnSpy설치EXE재추출·수국운영SELECT선확인. helper6,실제Chrome선택01/02/03×다른업체/품목·부재/실재0·공통머리글·1920/390·Tab/Enter·selected-only저장PASS. 격리MSSQL date-index/writer·견적15단/gross172500/ECOUNT XLSX·원장보존PASS. 전체ERP/dnSpy/manifest213/writeguard0API/finalnpmwebpack1worker PASS. SSRfixture새import/Header연결누락보완후전체재실행exit0.
+- 가이드176.7초/6단계/24조작,첫·중간·끝5프레임/최종player실재생·한국어VTT·목차/다운로드2/1920·390 PASS. 최신master491669ca 병합(별도불량차감인쇄6파일,출고소스불변); PR CI가병합상태재검증. PR·Cafe24·운영브라우저는이기록시점미검증,후속기록.
+검색어: majorInlineWeekScope commonWeeks 45-02만표시 공통01 02 03 표시전용0 공통날짜머리글
