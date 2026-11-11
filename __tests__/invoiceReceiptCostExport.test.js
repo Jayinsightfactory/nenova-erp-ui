@@ -692,7 +692,7 @@ test('route enforces GET, real receipt role policy, no-store, binary response, a
   const accessSource = readFileSync(new URL('../lib/invoiceReceiptAccess.js', import.meta.url), 'utf8');
   const canManageInvoiceReceipt = new Function('hasFullWebAccess', 'isAdminUser', accessSource.replace(/^import .*;\r?$/gm, '').replace('export function', 'function') + '\nreturn canManageInvoiceReceipt;')(() => false, () => false);
   const route = readFileSync(new URL('../pages/api/import/receipts/[id]/cost-export.js', import.meta.url), 'utf8');
-  assert.match(route, /export default withAuth\(createInvoiceCostExportHandler\(\)\)/);
+  assert.match(route, /export default withAuth\(createInvoiceCostExportHandler\(\{preserveHistory:exportWithCostHistory\}\)\)/);
   require('next/dist/compiled/babel/core').transformSync(route, { filename: 'cost-export.js', presets: ['next/babel'] });
   const factory = new Function('canManageInvoiceReceipt', route.replace(/^import .*;\r?$/gm, '')
     .replace('export function', 'function').replace(/export default withAuth[\s\S]*$/, '') + '\nreturn createInvoiceCostExportHandler;')(canManageInvoiceReceipt);
