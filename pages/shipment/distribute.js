@@ -1,4 +1,5 @@
-import DistributionInlineDates from '../../components/shipment/DistributionInlineDates';
+import DistributionInlineDates, {DistributionInlineDatesHeader} from '../../components/shipment/DistributionInlineDates';
+import {majorInlineWeekScope} from '../../lib/shipmentMajorInlineDates.js';
 import DistributionProductTree from '../../components/shipment/DistributionProductTree';
 import DistributionDateFilter from '../../components/shipment/DistributionDateFilter';
 import {favoriteDistributionRows,buildDistributionDateLookup} from '../../lib/shipmentDistributionNavigation.js';
@@ -117,6 +118,7 @@ export default function Distribute() {
   const weekInput = useWeekInput('');
   const week = weekInput.value;
   const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1] || '';
+  const majorWeekScope=useMemo(()=>majorInlineWeekScope(majorInlineFacts,selectedOrderYear,week),[majorInlineFacts,selectedOrderYear,week]);
   const apiGetDistribute = useCallback(
     (params) => apiGet('/api/shipment/distribute', { ...params, year: selectedOrderYear }),
     [selectedOrderYear],
@@ -1482,7 +1484,8 @@ export default function Distribute() {
     if (hasQuantityDraft()) { setErr('수량·단가 변경을 먼저 저장하거나 초기화한 후 출고일을 수정하세요.'); return; }
     setDateEditor({scope:{orderYear:selectedOrderYear,orderWeek:week.slice(-5),custKey:Number(custKey),prodKey:Number(prod.ProdKey)},label,inlineDraft,draftKey:`${custKey}|${prod.ProdKey}`});
   };
-  const dateButton = (custKey, prod, label) => <DistributionInlineDates majorFacts={majorInlineFactsMap?.get(String(custKey)+'|'+String(prod.ProdKey))??(majorInlineFactsMap?[]:null)} calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
+  const dateHeader = <DistributionInlineDatesHeader calendar={inlineCalendar} year={selectedOrderYear} week={week}/>;
+  const dateButton = (custKey, prod, label) => <DistributionInlineDates commonWeeks={majorWeekScope.weeks} commonError={majorWeekScope.error} productInfo={prod} majorFacts={majorInlineFactsMap?.get(String(custKey)+'|'+String(prod.ProdKey))??(majorInlineFactsMap?[]:null)} calendar={inlineCalendar} facts={inlineFactsMap.get(`${custKey}|${prod.ProdKey}`)||[]} year={selectedOrderYear} week={week}
     custKey={custKey} prodKey={prod.ProdKey} draft={dateDrafts[`${custKey}|${prod.ProdKey}`]} loading={dateIndexLoading} error={dateIndexError}
     disabled={saving||loading||hasQuantityDraft()||!!dateEditor} onDraft={draft=>setDateDrafts(prev=>{const next={...prev},key=`${custKey}|${prod.ProdKey}`;if(draft)next[key]=draft;else delete next[key];return next;})}
     onOpen={draft=>openDateEditor(custKey,prod,label,draft)} />;
@@ -2083,7 +2086,7 @@ export default function Distribute() {
                               <th style={{textAlign:'right'}}>단수량</th>
                               <th style={{textAlign:'right'}}>송이수량</th>
                               <th style={{textAlign:'right'}}>단가</th>
-                              <th>출고일 (날짜순 · 단/송이) · 출고 비고 / 미저장 변경</th>
+                              <th style={{padding:0}}>{dateHeader}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2133,7 +2136,7 @@ export default function Distribute() {
                                     {['박스', '단', '송이'].map(unitCell)}
                                     <td className="num">{fmt(c.Cost || selectedProd.Cost || 0)}</td>
                                     <td style={{fontSize:11,color:'var(--text3)'}}>
-                                      {dateButton(c.CustKey,{...c,ProdKey:selectedProd.ProdKey},`${c.CustName} · ${selectedProd.ProdName}`)}
+                                      {dateButton(c.CustKey,{...selectedProd,...c,ProdKey:selectedProd.ProdKey},`${c.CustName} · ${selectedProd.ProdName}`)}
                                       <div>{distributionQuantityRemark(c.ShipmentDescr, c.출고수량, outVal, selectedProd.OutUnit || c.OutUnit)}</div>
                                       {c.비고 && c.비고 !== c.ShipmentDescr && <div>주문 메모: {c.비고}</div>}
                                     </td>
@@ -2246,7 +2249,7 @@ export default function Distribute() {
                               <tr>
                                 {sides.map((sd, i) => [
                                   <th key={`o-${i}`} style={{...edge(i), textAlign:'right'}}>주문</th>,
-                                  <th key={`q-${i}`} style={{textAlign:'center',color:colors[i]}}>출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>,
+                                  <th key={`q-${i}`} style={{textAlign:'center',color:colors[i]}}>출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>,
                                 ])}
                               </tr>
                             </thead>
@@ -2298,12 +2301,12 @@ export default function Distribute() {
                           <tr>
                             <th>품목명</th><th>단위</th>
                             <th style={{textAlign:'right'}}>① 주문</th>
-                            <th style={{textAlign:'center',color:'var(--blue)'}}>① 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>
+                            <th style={{textAlign:'center',color:'var(--blue)'}}>① 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>
                             <th style={{textAlign:'center'}}>이동</th>
-                            <th style={{textAlign:'center',color:'#b45309'}}>② 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span></th>
+                            <th style={{textAlign:'center',color:'#b45309'}}>② 출고 입력 <span style={{fontWeight:400,fontSize:10}}>박스 · 단 · 송이</span>{dateHeader}</th>
                             <th style={{textAlign:'right'}}>② 주문</th>
                             {extraPeers.map((p, i) => [
-                              <th key={`in-${i}`} style={{textAlign:'center',color:PEER_COLORS[i]}}>{SLOT_MARK[i + 2]} 출고 입력</th>,
+                              <th key={`in-${i}`} style={{textAlign:'center',color:PEER_COLORS[i]}}>{SLOT_MARK[i + 2]} 출고 입력{dateHeader}</th>,
                               <th key={`ord-${i}`} style={{textAlign:'right'}}>{SLOT_MARK[i + 2]} 주문</th>,
                             ])}
                             <th style={{textAlign:'right'}} title="이 차수 입고 − 전체 출고(선택 업체들의 화면 변경분 반영), 저장 단위">재고잔량(변경후)</th>
@@ -2448,7 +2451,7 @@ export default function Distribute() {
                             <th style={{textAlign:'right'}}>잔량</th>
                             <th style={{textAlign:'right',color:'var(--amber)'}}>단가 (편집)</th>
                             <th style={{textAlign:'right',color:'var(--text3)'}}>금액</th>
-                            <th>출고일 (날짜순 · 단/송이) · 출고 비고 / 미저장 변경</th>
+                            <th style={{padding:0}}>{dateHeader}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2628,7 +2631,7 @@ export default function Distribute() {
         <div className="distribution-workspace-grid" style={{display:'grid',gridTemplateColumns:'minmax(180px,20%) minmax(0,1fr)',gap:5}}>
           <div>{sortDistributionCustomers(custList).map(c=><button type="button" key={c.CustKey} onClick={()=>loadTab2Items(c.CustKey)} aria-pressed={tab2CustKey===c.CustKey}
             style={{display:'block',width:'100%',textAlign:'left',padding:'5px',background:tab2CustKey===c.CustKey?'var(--blue-bg)':'var(--surface)',border:'1px solid var(--border)'}}>{c.CustName}</button>)}</div>
-          <div style={{minWidth:0,overflowX:'auto'}}>{tab2Loading?'출고일 조회 중…':!tab2CustKey?'업체를 선택하세요':<table className="tbl"><thead><tr><th>품목</th><th>출고수량</th><th>저장된 출고일 / 분배</th></tr></thead>
+          <div style={{minWidth:0,overflowX:'auto'}}>{tab2Loading?'출고일 조회 중…':!tab2CustKey?'업체를 선택하세요':<table className="tbl"><thead><tr><th>품목</th><th>출고수량</th><th style={{padding:0}}>{dateHeader}</th></tr></thead>
             <tbody>{tab2Items.filter(item=>Number(item.출고수량)>0).map(item=><tr key={item.ProdKey}><td>{item.ProdName}</td><td className="num">{fmt(item.출고수량)} {item.OutUnit}</td><td>
               {item._exeWeekGrid&&<div style={{fontSize:11}}>{DAY_NAMES_TAB2.filter(d=>Number(item._dayByKr[d])>0).map(d=>`${String(item._ymdByKr?.[d]||'').slice(0,10)}(${d}) ${fmt(item._dayByKr[d])}`).join(' · ')}</div>}
               {dateButton(tab2CustKey,item,item.ProdName)}</td></tr>)}</tbody></table>}</div>

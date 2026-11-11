@@ -32,13 +32,15 @@ const Page = load(source, name=>{
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
   if(name.endsWith('/distributeProductDisplay')) return display;
   if(name.endsWith('/shipmentDistributionNavigation.js')) return libRequire('./shipmentDistributionNavigation.js');
+  if(name.endsWith('/shipmentMajorInlineDates.js')) return libRequire('./shipmentMajorInlineDates.js');
   if(name.endsWith('/DistributionProductTree')) return load(fs.readFileSync('components/shipment/DistributionProductTree.js','utf8'),n=>n.includes('shipmentDistributionNavigation')?libRequire('./shipmentDistributionNavigation.js'):n.includes('distributeProductDisplay')?display:require(n));
   if(name.endsWith('/DistributionDateFilter')) return load(fs.readFileSync('components/shipment/DistributionDateFilter.js','utf8'),require);
   if(name.endsWith('/shipmentDistributionWorkspace.js')) return libRequire('./shipmentDistributionWorkspace.js');
   if(/\/lib\/(displayName|customerSearch|qwertyHangul)$/.test(name)) return libRequire('./'+name.split('/').pop());
   if(name.endsWith('/fixCycleClient')) return {runEditWithFixCycle:async({apply})=>apply()};
   // Unopened date editor and independent guide are outside this product-label SSR fixture.
-  if(name.endsWith('/DistributionInlineDates') || name.endsWith('/DistributionDateEditor') || name.endsWith('/WorkflowGuide')) return ()=>null;
+  if(name.endsWith('/DistributionInlineDates')) return {__esModule:true,default:()=>null,DistributionInlineDatesHeader:()=>null};
+  if(name.endsWith('/DistributionDateEditor') || name.endsWith('/WorkflowGuide')) return ()=>null;
   if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;
