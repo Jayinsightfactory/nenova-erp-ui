@@ -2577,3 +2577,8 @@
 
 - 추가사용자요청: 출고일빨간글씨누락. 샘플날짜·요일부분rich-text FFFF0000 확인, 기존writer누락을제목셀OOXML한정처리로보완. nativeExcel readOnly Font.Color 접두사0/날짜255 및nativePDF실프레임PASS. 26대상회귀+전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기guard/workflow/webpack PASS. 최신5505f31da의무관한도착원가변경병합,최종CI·운영배포미검증후속. 원본명/수량/단가/날짜값/저장본/ERP변경0.
 검색어: 빨간출고일 rich-text FFFF0000 CFB NativeExcel26 카네이션 돈셀
+## 2026-11-11 출고분배 메인차수 공통 행 정정
+- 업체/품목별 실재차수만 표시해02만 보이던 원인 정정. 같은연도·메인차수 전체majorDateFacts에서공통01/02/03축을공유,어느세부차수에서도동일행. 부재0은화면전용/실제0과구별/둘다편집0,실재선택양수만기존canonical날짜저장. 실제행만합계. 날짜머리글표열상단1회/빈비활성7입력제거. SQL/API/writer변경0/운영ERP·ECOUNT쓰기0.
+- dnSpy설치EXE재추출·수국운영SELECT선확인. helper6,실제Chrome선택01/02/03×다른업체/품목·부재/실재0·공통머리글·1920/390·Tab/Enter·selected-only저장PASS. 격리MSSQL date-index/writer·견적15단/gross172500/ECOUNT XLSX·원장보존PASS. 전체ERP/dnSpy/manifest213/writeguard0API/finalnpmwebpack1worker PASS. SSRfixture새import/Header연결누락보완후전체재실행exit0.
+- 가이드176.7초/6단계/24조작,첫·중간·끝5프레임/최종player실재생·한국어VTT·목차/다운로드2/1920·390 PASS. 최신master491669ca 병합(별도불량차감인쇄6파일,출고소스불변); PR CI가병합상태재검증. PR·Cafe24·운영브라우저는이기록시점미검증,후속기록.
+검색어: majorInlineWeekScope commonWeeks 45-02만표시 공통01 02 03 표시전용0 공통날짜머리글

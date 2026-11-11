@@ -2,6 +2,22 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const calendar=Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2026,10,4+i));return {Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000',WeekDay:d.getUTCDay()+1,MatchCount:1};});
 const base={OrderYear:'2026',OrderWeek:'45-01',CustKey:1,ProdKey:3513,SdetailKey:1,OutQuantity:1,OutUnit:'박스',BunchOf1Box:15,SteamOf1Bunch:20,SteamOf1Box:300,Timestamp:calendar[2].Timestamp,ShipmentQuantity:1};
 const second={...base,OrderWeek:'45-02',SdetailKey:2,OutQuantity:2,ShipmentQuantity:2,Timestamp:calendar[3].Timestamp};
+test('whole major week defines identical display axis from every selected subweek, without virtual writes or totals',async()=>{
+ const {majorInlineWeekScope,majorInlineDisplayRows,majorInlineDateModel}=await import('../lib/shipmentMajorInlineDates.js');
+ const facts=[{...base,CustKey:9},second,{...base,OrderWeek:'45-03',CustKey:8,SdetailKey:3}],before=JSON.stringify(facts);
+ for(const selected of ['45-01','45-02','45-03']){
+  const scope=majorInlineWeekScope(facts,'2026',selected);assert.equal(scope.error,'');assert.deepEqual(scope.weeks,['45-01','45-02','45-03']);
+  const actual=majorInlineDateModel(calendar,[second],'2026',selected,1,3513),rows=majorInlineDisplayRows(actual,scope.weeks);
+  assert.deepEqual(rows.map(r=>r.week),scope.weeks);assert.deepEqual(rows.map(r=>r.model.out),[0,2,0]);assert.equal(actual.total,2);assert.equal(actual.rows.length,1);
+  for(const row of [rows[0],rows[2]]){assert.equal(row.absent,true);assert.deepEqual(row.facts,[]);assert.equal(row.model.signature,undefined);}
+ }
+ assert.equal(JSON.stringify(facts),before);assert.deepEqual(majorInlineWeekScope([second],'2026','45-04').weeks,['45-02']);
+ for(const bad of [null,[{...second,OrderYear:'2025'}],[{...second,OrderWeek:'46-01'}]]){const scope=majorInlineWeekScope(bad,'2026','45-01');assert(scope.error);assert.equal(scope.weeks,null);}
+ const zero=majorInlineDateModel(calendar,[{...second,OutQuantity:0,ShipmentQuantity:0}],'2026','45-02',1,3513);
+ const rows=majorInlineDisplayRows(zero,['45-01','45-02']);assert.equal(rows[0].absent,true);assert.equal(rows[1].absent,undefined);assert.equal(rows[1].facts.length,1);
+ assert.deepEqual(majorInlineDisplayRows({error:'failed'},['45-01']),[]);
+ assert.equal(majorInlineDateModel([],[],'2026','45-02',1,3513).total,null,'missing calendar cannot become an empty-customer zero total');
+});
 test('actual updated guide has numbered chapters/captions and bounded camera on all six workflow steps',()=>{
  const fs=require('node:fs'),{cameraFilters}=require('../scripts/lib/workflow-guide-recorder.cjs');
  const registry=JSON.parse(fs.readFileSync('config/workflow-guides.json','utf8')),wf=registry.workflows.find(w=>w.id==='shipment-distribution-dates'),guide=wf.guides[0];
