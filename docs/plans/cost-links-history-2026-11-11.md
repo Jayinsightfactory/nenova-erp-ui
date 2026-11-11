@@ -5,7 +5,7 @@
 - 실제 EXE ExcelLoadingPackingList CLI 재확인: Box/Bunch/Steam/UPrice/TPrice 독립, CreateWarehouse→StockCalculation. 이번 변경은 이 writer를 호출하지 않는 다운로드 파일 계산만이다.
 - Order/Shipment/Warehouse/Stock/Estimate/WebProfit/승인원가: 모두 보존. 다운로드는 기존 인증·현재 입고 재검증 유지.
 - 파일 입력값 변경: 원본 양식 계산의 수량·단가·환율·비용·품목세율 → 계산표 → 원가·판매·이익·합계. 과거 승인 스냅샷은 고정 증거로 보존한다.
-- 과거 시트: 원본 XLSX package의 sheet XML·관계·이름·서식 보존, 새 계산 시트만 충돌 없는 이름으로 추가. 수식의 시트 참조는 새 시트 안에서만 새 이름으로 변환. 원본 파일 덮어쓰기0.
+- 과거 시트: 원본 XLSX package의 셀 XML·관계·이름·서식 보존, 새 계산 시트만 충돌 없는 이름으로 추가. 기존 탭의 선택 상태(tabSelected)만 해제해 과거·현재 동시 편집을 방지한다. 수식의 시트 참조는 새 시트 안에서만 새 이름으로 변환. 원본 파일 덮어쓰기0.
 - 웹 파일 이력은 서버 private data 아래에 보관한다. 연도/국가/운송/통화 구분, 동시 다운로드 잠금, 원본 Drive 접근권한 유지. DB 및 export event INSERT0.
 
 ## 확인 기준

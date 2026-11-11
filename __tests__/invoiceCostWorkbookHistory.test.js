@@ -14,7 +14,9 @@ test('past worksheet XML remains exact and new references target renamed calcula
  const f=invoiceCostExportFixture(3,'TH_GROUP_BOX_SHARE_V1'),first=await createInvoiceCostWorkbook(f);
  f.document.orderWeek='44-01';const next=await createInvoiceCostWorkbook(f);
  const result=await appendCostWorkbookHistory(first,next,{label:'44-01'}),old=await JSZip.loadAsync(first),zip=await JSZip.loadAsync(result);
- for(const n of ['sheet1.xml','sheet2.xml','sheet3.xml'])assert.equal(await zip.file('xl/worksheets/'+n).async('string'),await old.file('xl/worksheets/'+n).async('string'));
+ const noSelection=s=>s.replace(/\s+tabSelected="[01]"/g,'');
+ for(const n of ['sheet1.xml','sheet2.xml','sheet3.xml'])assert.equal(noSelection(await zip.file('xl/worksheets/'+n).async('string')),noSelection(await old.file('xl/worksheets/'+n).async('string')));
+ for(const n of Object.keys(zip.files))if(/^xl\/worksheets\/[^/]+\.xml$/.test(n))assert.doesNotMatch(await zip.file(n).async('string'),/tabSelected="1"/,'old and new sheets must never open grouped');
  const book=XLSX.read(result,{cellFormula:true});assert.equal(book.SheetNames.length,6);
  const formula=book.Sheets['44-01 원본 양식 계산'].M15.f;assert.ok(formula);
  assert.match(book.Sheets['44-01 원본수식 비교'].B4.f,/44-01 원본 양식 계산/);
@@ -22,6 +24,12 @@ test('past worksheet XML remains exact and new references target renamed calcula
  const oldStyles=await old.file('xl/styles.xml').async('string'),offset=Number(oldStyles.match(/<cellXfs count="(\d+)"/)[1]);
  const oldSheet=await old.file('xl/worksheets/sheet3.xml').async('string'),newSheet=await zip.file('xl/worksheets/cost-history-6.xml').async('string');
  for(const match of oldSheet.matchAll(/<col\b[^>]*\bstyle="(\d+)"/g))assert.ok(newSheet.includes(`style="${Number(match[1])+offset}"`));
+});
+test('source with default/omitted activeTab opens the current calculation, not an old tab',async()=>{
+ const f=invoiceCostExportFixture(3,'NL_AMOUNT_V1'),bytes=await createInvoiceCostWorkbook(f),zip=await JSZip.loadAsync(bytes);
+ zip.file('xl/workbook.xml',(await zip.file('xl/workbook.xml').async('string')).replace(/ activeTab="\d+"/,''));
+ const out=await JSZip.loadAsync(await appendCostWorkbookHistory(await zip.generateAsync({type:'nodebuffer'}),bytes,{label:'44-01'}));
+ assert.match(await out.file('xl/workbook.xml').async('string'),/activeTab="5"/);
 });
 test('private archive is idempotent and separates user/year/country scope',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'cost-history-'));

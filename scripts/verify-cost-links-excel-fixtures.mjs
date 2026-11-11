@@ -23,7 +23,8 @@ if(original){
  const old=await JSZip.loadAsync(originalBytes),next=await JSZip.loadAsync(bytes);
  let preserved=0;
  for(const name of Object.keys(old.files))if(name.startsWith('xl/worksheets/')&&!old.files[name].dir){
-  if(!(await old.files[name].async('nodebuffer')).equals(await next.file(name).async('nodebuffer')))throw new Error('Historical worksheet changed: '+name);
+  const normalize=b=>b.toString('utf8').replace(/\s+tabSelected="[01]"/g,'');
+  if(normalize(await old.files[name].async('nodebuffer'))!==normalize(await next.file(name).async('nodebuffer')))throw new Error('Historical worksheet changed: '+name);
   preserved++;
  }
  await fs.writeFile('.verify/excel/history-part-check.json',JSON.stringify({preservedWorksheetParts:preserved}));
