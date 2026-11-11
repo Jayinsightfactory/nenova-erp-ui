@@ -150,6 +150,7 @@ export default function Distribute() {
   const [outQty, setOutQty] = useState(0);
   const [prodFilter, setProdFilter] = useState('');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [farmCustomerSearch, setFarmCustomerSearch] = useState('');
 
   // 업체기준
   const [custList, setCustList] = useState([]);
@@ -1303,6 +1304,9 @@ export default function Distribute() {
   const custDistRows = selectedProd ? [...custDist, ...prodAddedCusts
     .filter(a => !custDist.some(c => Number(c.CustKey) === Number(a.CustKey)))
     .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))].filter(c=>dateLookup.matches(farmDate,selectedProd.ProdKey,c.CustKey)) : custDist;
+  const visibleFarmCustomerRows = farmCustomerSearch.trim()
+    ? custDistRows.filter(c => customerMatchesSearch(c, farmCustomerSearch.trim()))
+    : custDistRows;
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
   const filteredProds = favoriteDistributionRows(sortDistributionProducts(distributionAddProductCandidates(products,productCatalog),prodFilter)
     .filter(p=>String(prodFilter||'').trim()||!farmCountry||p.CounName===farmCountry)
@@ -2030,12 +2034,16 @@ export default function Distribute() {
                     : distLoading ? <div className="skeleton" style={{margin:16,height:200,borderRadius:8}}></div>
                     : (
                       <>
-                        <div style={{padding:'4px 5px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600}}>
-                          {distributeProductName(selectedProd, selectedFlower)} — 거래처 분배 정보
+                        <div style={{padding:'4px 5px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                          <span>{distributeProductName(selectedProd, selectedFlower)} — 거래처 분배 정보</span>
+                          <input className="filter-input" placeholder="업체명 검색 (분배 업체)" value={farmCustomerSearch}
+                            data-ai-verify="farm-distribution-customer-search" aria-label="농장정보 분배 업체 검색"
+                            onChange={e=>setFarmCustomerSearch(e.target.value)} style={{height:25,fontSize:11,width:190,background:'white'}} />
+                          <span role="status" style={{fontSize:10,fontWeight:400,color:'var(--text3)'}}>{visibleFarmCustomerRows.length}/{custDistRows.length}곳</span>
                           <button type="button" className="btn btn-sm" data-ai-verify="prod-add-cust-open" disabled={hasDateDrafts || saving || loading}
                             onClick={async () => { const next = !prodAddOpen; setProdAddOpen(next); if (next) await loadAllCustomers(); }}
-                            style={{marginLeft:8,padding:'1px 8px',fontSize:11}}>{prodAddOpen ? '업체추가 닫기' : '+ 업체추가'}</button>
-                          {prodAddedCusts.length > 0 && <span style={{marginLeft:8,fontWeight:400,color:'#b45309'}}>추가 업체 {prodAddedCusts.length}곳 (품목을 바꿔도 유지)</span>}
+                            style={{padding:'1px 8px',fontSize:11}}>{prodAddOpen ? '업체추가 닫기' : '+ 업체추가'}</button>
+                          {prodAddedCusts.length > 0 && <span style={{fontWeight:400,color:'#b45309'}}>추가 업체 {prodAddedCusts.length}곳 (품목을 바꿔도 유지)</span>}
                         </div>
                         {prodAddOpen && (() => {
                           const managers = [...new Set(allCustomers.map(c => c.Manager || '담당자 없음'))].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -2089,9 +2097,9 @@ export default function Distribute() {
                             </tr>
                           </thead>
                           <tbody>
-                            {custDistRows.length === 0
-                              ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>주문 데이터 없음 — 위 「+ 업체추가」로 업체를 넣을 수 있습니다</td></tr>
-                              : custDistRows.map(c => {
+                            {visibleFarmCustomerRows.length === 0
+                              ? <tr><td colSpan={11} style={{textAlign:'center',padding:24,color:'var(--text3)'}}>{farmCustomerSearch.trim() ? '검색 결과가 없습니다.' : '주문 데이터 없음 — 위 「+ 업체추가」로 업체를 넣을 수 있습니다'}</td></tr>
+                              : visibleFarmCustomerRows.map(c => {
                                 const outVal = outInputs[c.CustKey] || 0;
                                 const diff = (c.주문수량||0) - outVal;
                                 // Box·단·송이 칸은 출고수량(OutUnit)을 환산해 보여 주고, 어느 칸에 입력해도 OutUnit 으로 바꿔 저장값 하나만 둔다.
