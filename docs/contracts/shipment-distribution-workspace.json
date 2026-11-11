@@ -32,7 +32,8 @@
     "__tests__/shipmentDistributionNavigation.test.cjs",
     "scripts/test-distribution-date-index-sql.cjs",
     "scripts/record-distribution-dual-guide.cjs",
-    "__tests__/distributeProductDisplay.test.js"
+    "__tests__/distributeProductDisplay.test.js",
+    "__tests__/shipmentDistributionCustomerLoading.test.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -76,11 +77,17 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Read-only country:: scope. workspaceCustomers queries active current-year/week orders before shipment exists; empty scope exposes active noOrder candidates, with 80 visible and full-list search. Native flower SP/confirmation actions require variety selection. No ledger writes on selection."
+    },
+    {
+      "name": "LOAD_CUSTOMER_WORKSPACE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Initial week effect and manual query share loadWorkspaceCustomers; explicit selected year/week and empty product group. The callback validates its customer request token/week snapshot and guarantees completion independently of product selection/search invalidation. The existing manual-search busy indicator remains guarded by the current search request. Older responses/errors cannot overwrite newer customer state. SELECT-only; API/SQL/ledger writes unchanged."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected."
+    "description": "2025/2026 same41-02 custody/product fixtures: current-year update/delete/audit rollback cannot affect prior-year99 quantity. Explicit conflicting/missing years rejected.; 2025/2026 same45 delayed week effect plus manual search, reverse responses and stale errors preserve newer customers/loading. Current error clears loading; absent scope skips API."
   },
   "dnspyEvidence": {
     "required": true,
@@ -130,7 +137,8 @@
     "__tests__/shipmentDistributionNavigation.test.cjs",
     "scripts/test-distribution-date-index-sql.cjs",
     "scripts/record-distribution-dual-guide.cjs",
-    "__tests__/distributeProductDisplay.test.js"
+    "__tests__/distributeProductDisplay.test.js",
+    "__tests__/shipmentDistributionCustomerLoading.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
