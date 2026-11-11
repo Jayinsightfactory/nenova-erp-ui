@@ -46,10 +46,10 @@
       "shipmentDetail": "preserve"
     },
     {
-      "name": "SELECT_CATEGORIES_GROUP_AND_TEMPLATE_EXPORT",
+      "name": "FILTER_COUNTRY_FLOWER_AND_SELECT_MULTIPLE_GROUPS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "webOnly": "checkbox membership draft, immutable saved version export; reference formatting only"
+      "webOnly": "Country-flower button filters can be combined; row selections accumulate across filter/search changes and drag ranges; domestic wax is labeled freight in display/export only; checkbox membership draft and immutable saved version export preserve source keys"
     },
     {
       "name": "FORMAT_SAMPLE_EXCEL_LABELS_ONLY",

@@ -569,22 +569,22 @@
             {
               "scenario": "allocate",
               "title": "2. 요일 수량과 기본 출고요일",
-              "seconds": 26.494
+              "seconds": 26.53
             },
             {
               "scenario": "drag",
-              "title": "3. 드래그 선택과 일괄 출고일 지정",
-              "seconds": 53.009
+              "title": "3. 국가·품종 필터와 누적 드래그 선택",
+              "seconds": 53.047
             },
             {
               "scenario": "group",
               "title": "4. 품목군 출력 묶음",
-              "seconds": 80.128
+              "seconds": 93.469
             },
             {
               "scenario": "save",
               "title": "5. 작성본 저장과 엑셀 다운로드",
-              "seconds": 106.993
+              "seconds": 120.319
             }
           ]
         }
