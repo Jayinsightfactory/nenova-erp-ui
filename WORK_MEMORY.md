@@ -2596,6 +2596,13 @@
 - 장미Excel실인쇄에서 기존텍스트상자6개가 빈첫행메모를 가리는 것을 발견해 원본drawing관계/앵커 점유범위를 피하도록 수정. 상대경로/반복내보내기/알수없는앵커 차단 회귀추가. 실제장미10단(마티나6+엘리떼4)→원본1076단어위치불변/A3세로1쪽·신규메모우측표시. 최종전체/CI재실행예정,운영쓰기0.
 - 최종18회귀/전체ERP/dnSpy/manifest/writeguard/1worker빌드exit0. 장미10→11합계차단·농장6+5/업체일신동기수정통과·메모중복0·수정본ExcelCOM1쪽 유지. PR1674 CI/배포/운영웹 최종검증 진행.
 
+## 2026-11-11 데스크톱 홈 PM 라이브 상태 표시
+- 요청 화면은 웹 브라우저가 아닌 Nenova Desktop 홈. origin/master worktree `C:\Users\USER\nw-pm-home-live-1111`에서 구현, 기존 checkout 변경은 보존.
+- 헤더 빈 영역에 빨간 outline PM panel·활동·수신/생성 시각·`/pm` 열기. 메인 프로세스 고정 GET `/api/pm/office`, 로그인 세션 전용, 60초 폴링. age<=180초+유효 PM agent일 때만 live/active, 오래됨·누락·오류는 지연/확인불가. 계정전환 stale response 제거. 조회 폴링 감사 로그 미기록. ERP API/DB/업무 메뉴 변경0.
+- PM classifier 5/5, Desktop 전체 45/45, Electron smoke·restore·exit·updater 무결성 PASS. 실제 Electron 캡처에서 빨간 테두리/PM 라이브/1920·1024·800 레이아웃 확인. Desktop 1.3.18 Windows NSIS 설치기 빌드 exit0, ASAR helper 포함 확인. updater 초기 실패는 재실행 시 미재현.
+- GitHub PR/CI·master 병합과 installer release/사용자 PC 설치는 미검증. ERP 웹·운영 DB·업무 메뉴는 변경하지 않음.
+- 세부 Q&A: docs/work-sessions/2026-11-11_pm-home-live-highlight.md
+검색어: pm-home-live-highlight PM 라이브 heartbeat pm-office 빨간박스 desktop smoke
 ## 2026-11-11 출고분배 농장정보 업체검색
 - 농장정보 탭의 선택 품목 업체 분배표 제목 옆에 업체명 필터를 추가. 기존 검색 normalizer 사용, 현재 품목 조회 행만 표시 필터, 1/2개수 안내. 검색은 ERP 조회/원장/선택/초안/합계 변경 없음.
 - 실제 설치 Nenova.exe dnSpy FormShipmentDistribution/FormEstimateView 재추출 성공: 양쪽 탭은 같은 DistributionDateEditor/API 경로. 날짜 저장은 ShipmentDate의 날짜별 배분 및 대표 ShipmentDetail.ShipmentDtm 갱신; 견적 인쇄/Excel은 DetailFix=1, 양수 EstQuantity, 정확 ShipmentDate.ShipmentDtm=PeriodDay.BaseYmd에서 날짜 표시/수량 반영. 총수량/견적수량/총매출/Amount/Vat 합계 및 Estimate 원장행 보존. 확정/정확달력 조건 미충족 건은 견적에서 제외될 수 있음.

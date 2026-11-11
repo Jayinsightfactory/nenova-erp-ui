@@ -26,6 +26,7 @@ let releaseAccountABootstrap;
 const fixtureRequests = [];
 const HOME_ROUTE = '/api/desktop/home-workspace';
 const ACTIVITY_ROUTE = '/api/work/activity';
+const PM_OFFICE_ROUTE = '/api/pm/office';
 const activityEvents = [];
 const HOME_DATE = '2026-10-09';
 const homeStores = new Map(), homeRequests = [], homeHolds = [];
@@ -149,6 +150,11 @@ function installFixtureProtocol() {
       activityEvents.push(...body.events);
       return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
     }
+    if (url.pathname === PM_OFFICE_ROUTE && request.method === 'GET') {
+      return Response.json({ success: true, ageSec: 15, receivedAt: new Date().toISOString(), data: {
+        generatedAt: new Date().toISOString(), agents: [{ id: 'pm', status: 'working', activity: '오류·정체 상태 확인 중' }],
+      } });
+    }
     if (url.pathname === HOME_ROUTE) return homeFixture(request, url);
     if (url.pathname === '/api/auth/logout') {
       assert.equal(request.method, 'POST');
@@ -244,6 +250,12 @@ async function verifyHomeUi(contents, window) {
   const previousActive = window.activeId;
   main.command(window, 'menu', { open: true });
   await waitFor(() => contents.executeJavaScript('typeof window.homeWorkspace?.applyState === "function" && Boolean(document.querySelector(".hw-task"))'), 'home module loads under native shell CSP');
+  await waitFor(() => contents.executeJavaScript('document.querySelector("#pmLivePanel")?.dataset.state === "live"'), 'PM live heartbeat is visible in the home highlight panel');
+  const pmPanel = await contents.executeJavaScript(`({ text: document.querySelector('#pmLivePanel').innerText,
+    border: getComputedStyle(document.querySelector('#pmLivePanel')).borderTopColor,
+    status: document.querySelector('#pmLiveBadge').textContent })`);
+  assert.match(pmPanel.border, /rgb\(216, 47, 54\)/, 'PM live area uses the requested red highlight box');
+  assert.match(pmPanel.status, /라이브/); assert.match(pmPanel.text, /오류·정체 상태 확인 중/);
   const boundary = await contents.executeJavaScript(`({ protocol: location.protocol,
     module: [...document.scripts].some(script => script.src === 'nenova-app://shell/home-workspace.js'),
     csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content })`);
@@ -414,6 +426,14 @@ async function run() {
   const beforeAutomaticUpdate = { activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen };
   await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
   assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
+  main.command(sourceWindow, 'menu', { open: true });
+  await shellContents.executeJavaScript('document.querySelector("#pmOpenButton").click()');
+  await waitFor(() => [...main.tabs.values()].some(tab => new URL(tab.url).pathname === '/pm'), 'PM monitoring button opens the PM office');
+  const pmTab = [...main.tabs.values()].find(tab => new URL(tab.url).pathname === '/pm');
+  assert.equal(pmTab.title, 'PM 진행·오류 관제');
+  main.command(sourceWindow, 'close', { id: pmTab.id });
+  main.command(sourceWindow, 'menu', { open: false });
+  main.command(sourceWindow, 'activate', { id: first.id });
   const compactFavorite = await shellContents.executeJavaScript(`(() => {
     const button = document.querySelector('#compactFavoriteButton');
     return button && { text: button.textContent.trim(), pressed: button.getAttribute('aria-pressed'), visibility: getComputedStyle(button).visibility };
@@ -612,13 +632,13 @@ async function run() {
     assert.equal(updateLayout.html, false); assert.equal(updateLayout.executed, false, 'release note HTML is inert text');
     assert.ok(updateLayout.width <= updateLayout.viewport, 'long release notes do not overflow');
     assert.ok(updateLayout.notice.top >= 0 && updateLayout.notice.bottom <= 44 && updateLayout.notice.right <= updateLayout.tabs.left, `${width}px update notice stays inside the tab bar without overlapping tabs`);
-    const [welcome, updatePanel, search] = updateLayout.children;
+    const [welcome, updatePanel, pmPanel, search] = updateLayout.children;
     if (width > 1120) {
-      assert.ok(welcome.right <= updatePanel.left && updatePanel.right <= search.left, 'update panel occupies the center header column');
+      assert.ok(welcome.right <= updatePanel.left && updatePanel.right <= pmPanel.left && pmPanel.right <= search.left, 'PM live panel is highlighted between app update and menu search');
     } else if (width <= 800) {
-      assert.ok(welcome.bottom <= updatePanel.top && updatePanel.bottom <= search.top, 'small header follows title-update-search order');
+      assert.ok(welcome.bottom <= updatePanel.top && updatePanel.bottom <= pmPanel.top && pmPanel.bottom <= search.top, 'small header follows title-update-PM-search order');
     } else {
-      assert.ok(welcome.right <= updatePanel.left && search.top >= Math.max(welcome.bottom, updatePanel.bottom), 'medium header keeps search below title and update');
+      assert.ok(welcome.right <= updatePanel.left && pmPanel.top >= Math.max(welcome.bottom, updatePanel.bottom) && search.top >= pmPanel.bottom, 'medium header keeps PM and search below title and update');
     }
     shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
     await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '상단 홈 버튼을 알아보기 쉬운 집 모양으로 바꿨습니다.'"), 'installed-version note fallback');
