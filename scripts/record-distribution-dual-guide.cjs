@@ -82,7 +82,14 @@ async function main(){
  await select('select[aria-label="품종·품목 출고일 분류"]','2026-11-06');await page.waitForSelector('[data-ai-verify="product-3513"]');
  assert.equal(await page.$$eval('[data-ai-verify="product-3515"]',n=>n.length),0);await select('select[aria-label="품종·품목 출고일 분류"]','');
  await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
- if(rec)await rec.chapter('dates','날짜별 수량 입력과 총량 확인');
+ if(rec)await rec.chapter('dates','업체 검색과 날짜별 수량 입력');
+ const farmSearch='[data-ai-verify="farm-distribution-customer-search"]';
+ if(rec){await page.$eval(farmSearch,n=>n.scrollIntoView({block:'center'}));await rec.focus(farmSearch,step);}
+ await page.click(farmSearch);await page.keyboard.type('연습업체');if(rec)await rec.unfocus();
+ await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-workspace"]')?.textContent.includes('1/1곳'));
+ assert.equal(await page.$$eval('.distribution-customer-table tbody tr',n=>n.filter(r=>r.querySelector('td[colspan="11"]')).length),0,'farm customer search matches synthetic customer');
+ await hold('선택한 품목의 업체가 많으면 이 검색창에서 업체명을 입력합니다.\n현재 품목의 분배 업체행만 좁히며 합계와 저장값은 바뀌지 않습니다.');
+ await page.click(farmSearch);await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');
  const inline='[data-testid="inline-dates-777-3513"]';
  assert.deepEqual(await page.$$eval(inline+' [data-subweek-row]',n=>n.map(e=>e.getAttribute('data-subweek-row'))),['45-01','45-02','45-03']);assert.equal(await page.$eval(inline+' [data-major-total]',n=>n.textContent),'45');assert.equal(await page.$$eval(inline+' [data-subweek-row="45-02"] input',n=>n.length),0);
   assert.equal(await page.$$eval(inline+' thead',n=>n.length),0);assert.equal(await page.$eval(inline+' [data-subweek-total="45-03"]',n=>n.textContent),'0');assert.equal(await page.$$eval(inline+' [data-subweek-row="45-03"] input',n=>n.length),0);assert.equal(await page.$$eval('[data-testid="distribution-date-header"]',n=>n.filter(e=>e.getBoundingClientRect().height).length),1);

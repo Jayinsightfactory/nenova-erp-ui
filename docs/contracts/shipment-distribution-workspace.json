@@ -83,6 +83,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "Initial week effect and manual query share loadWorkspaceCustomers; explicit selected year/week and empty product group. The callback validates its customer request token/week snapshot and guarantees completion independently of product selection/search invalidation. The existing manual-search busy indicator remains guarded by the current search request. Older responses/errors cannot overwrite newer customer state. SELECT-only; API/SQL/ledger writes unchanged."
+    },
+    {
+      "name": "FILTER_FARM_DISTRIBUTION_CUSTOMERS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Farm workspace customer-name search filters only the already loaded selected-product customer rows, including locally added no-order rows. It is display-only; totals, selection, drafts, API requests and ERP ledgers are unchanged. Matching uses the existing customer search normalizer."
     }
   ],
   "crossYearFixture": {
@@ -138,7 +144,8 @@
     "scripts/test-distribution-date-index-sql.cjs",
     "scripts/record-distribution-dual-guide.cjs",
     "__tests__/distributeProductDisplay.test.js",
-    "__tests__/shipmentDistributionCustomerLoading.test.cjs"
+    "__tests__/shipmentDistributionCustomerLoading.test.cjs",
+    "__tests__/shipmentDistributionBrowser.test.cjs"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",

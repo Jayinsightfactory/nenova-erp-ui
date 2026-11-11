@@ -2595,3 +2595,10 @@
 검색어: majorInlineWeekScope commonWeeks 45-02만표시 공통01 02 03 표시전용0 공통날짜머리글
 - 장미Excel실인쇄에서 기존텍스트상자6개가 빈첫행메모를 가리는 것을 발견해 원본drawing관계/앵커 점유범위를 피하도록 수정. 상대경로/반복내보내기/알수없는앵커 차단 회귀추가. 실제장미10단(마티나6+엘리떼4)→원본1076단어위치불변/A3세로1쪽·신규메모우측표시. 최종전체/CI재실행예정,운영쓰기0.
 - 최종18회귀/전체ERP/dnSpy/manifest/writeguard/1worker빌드exit0. 장미10→11합계차단·농장6+5/업체일신동기수정통과·메모중복0·수정본ExcelCOM1쪽 유지. PR1674 CI/배포/운영웹 최종검증 진행.
+
+## 2026-11-11 출고분배 농장정보 업체검색
+- 농장정보 탭의 선택 품목 업체 분배표 제목 옆에 업체명 필터를 추가. 기존 검색 normalizer 사용, 현재 품목 조회 행만 표시 필터, 1/2개수 안내. 검색은 ERP 조회/원장/선택/초안/합계 변경 없음.
+- 실제 설치 Nenova.exe dnSpy FormShipmentDistribution/FormEstimateView 재추출 성공: 양쪽 탭은 같은 DistributionDateEditor/API 경로. 날짜 저장은 ShipmentDate의 날짜별 배분 및 대표 ShipmentDetail.ShipmentDtm 갱신; 견적 인쇄/Excel은 DetailFix=1, 양수 EstQuantity, 정확 ShipmentDate.ShipmentDtm=PeriodDay.BaseYmd에서 날짜 표시/수량 반영. 총수량/견적수량/총매출/Amount/Vat 합계 및 Estimate 원장행 보존. 확정/정확달력 조건 미충족 건은 견적에서 제외될 수 있음.
+- 회귀 browser 검색 1/2행·48.00 총합 보존, date-index/Date SQL isolated suite PASS. ERP 계약/dnSpy/manifest213/writeguard0API/webpack build PASS. 합성 API 가이드 184.9초/6단계/1920×1080 재녹화, first-middle-last frame, Chrome MP4+VTT+목차+모바일 player PASS. 운영 DB 쓰기0.
+- PR/CI/Cafe24/운영 브라우저 스모크 최종 결과는 배포 후 후속 기록.
+검색어: farm-customer-search 농장정보 업체검색 DistributionDateEditor ShipmentDate GetPrintDetail GetExcelDetail PeriodDay
