@@ -13,7 +13,8 @@
     "components/ShipmentStatementGroups.js",
     "lib/shipmentStatementGroups.cjs",
     "styles/ShipmentStatement.module.css",
-    "config/shipment-statement-format.json"
+    "config/shipment-statement-format.json",
+    "lib/shipmentStatementLabels.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -48,6 +49,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "webOnly": "checkbox membership draft, immutable saved version export; reference formatting only"
+    },
+    {
+      "name": "FORMAT_SAMPLE_EXCEL_LABELS_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "Pure Excel labels, preserve immutable source/draft, row IDs, country/category grouping, unit, quantity, price and dates"
     }
   ],
   "crossYearFixture": {
@@ -59,7 +66,8 @@
     "__tests__/shipmentStatementStore.test.cjs",
     "__tests__/shipmentStatementApi.test.cjs",
     "__tests__/shipmentStatementSelection.test.cjs",
-    "__tests__/shipmentStatementGroups.test.cjs"
+    "__tests__/shipmentStatementGroups.test.cjs",
+    "__tests__/shipmentStatementLabels.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
