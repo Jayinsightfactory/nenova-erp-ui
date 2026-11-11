@@ -1207,3 +1207,6 @@ ZIP 차수명은 귀속 권위가 아니다. 활성 동일연도 exact AWB의 �
 합산 입고의 다른 AWB는 통화·결제금액·GW 합계를 동시에 검증한다. 연도 전체 신고번호
 중복, 문서/집계 파일 손상, 잘못된 연도, 선택 제외건 등록, callback 부분실패를 회귀로
 차단한다. 계약 profit-customs-settlement-zip 및 customsSettlement/Registration 테스트.
+
+## 2026-11-11 입고 원장 수입부 권한 누락
+warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 수입부 계정을 거부했다. 기존 canManageInvoiceReceipt 공통 검사를 POST/PATCH/DELETE에 적용한다. SQL·확정차수 차단·선택 PK의 연도/차수 재계산은 보존. warehouseAccess.test.cjs에서 활성 수입/관리자, 타부서·비활성·identity누락 DB0, 동일44-01 양연도, 확정차수409를 실제 handler와 주입 DB로 검사한다. 운영 원장 삭제 시험 없음.

@@ -6,17 +6,34 @@
     "lib/incomingQueryDateRange.js",
     "pages/api/warehouse/index.js",
     "lib/exeWarehouseViewSql.js",
-    "lib/warehousePackingImport.js"
+    "lib/warehousePackingImport.js",
+    "lib/invoiceReceiptAccess.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "warehouseIdentity": ["OrderYear", "OrderWeek", "WarehouseKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "warehouseIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "WarehouseKey",
+    "ProdKey"
+  ],
   "listDateContract": {
     "plan": "docs/plans/incoming-date-default-2026-10-27.md",
     "field": "WarehouseMaster.UploadDtm (existing EXE parity GET)",
     "default": "Asia/Seoul today minus 3 calendar months, month-end clamped, through today inclusive",
     "url": "nonempty from/to each independently override only that endpoint; preserve historical and cross-year selections",
     "uploadInputDate": "preserve existing UTC-day default; query defaults do not change upload metadata",
-    "fixtures": ["2026-10-27 => 2026-07-27", "2026-05-31 => 2026-02-28", "2024-05-31 => 2024-02-29", "2026-01-31 => 2025-10-31", "KST midnight, host timezone independence, URL overrides"]
+    "fixtures": [
+      "2026-10-27 => 2026-07-27",
+      "2026-05-31 => 2026-02-28",
+      "2024-05-31 => 2024-02-29",
+      "2026-01-31 => 2025-10-31",
+      "KST midnight, host timezone independence, URL overrides"
+    ]
   },
   "actions": [
     {
@@ -93,7 +110,8 @@
     "__tests__/warehousePackingImport.test.js",
     "__tests__/incomingWarehouseDisplay.test.js",
     "__tests__/incomingQueryDateRange.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/warehouseAccess.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -121,5 +139,16 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "authorityContract": {
+    "helper": "canManageInvoiceReceipt",
+    "allowed": "Active authenticated administrator, import department, or exact Authority 4/7; DeptName may be empty",
+    "consumers": [
+      "warehouse POST",
+      "warehouse PATCH",
+      "warehouse DELETE"
+    ],
+    "denied": "Unrelated roles, missing identity, inactive account; no DB call before authorization",
+    "deletion": "Existing PK lookup, fixed-week guard, soft delete and stock recalculation preserved; no new SQL"
+  }
 }

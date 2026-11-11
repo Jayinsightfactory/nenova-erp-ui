@@ -2560,3 +2560,10 @@
 
 2026-11-11 수입부 확인 출력물의 품종 숨김, 품명·농장 폭과 줄바꿈 조정, 체크 칸 축소. 카톡 원문 일시만 표시, 소량 단독 메모 숨김. 45차 원문 형식 조회, Excel 실제 PDF 출력 검증.
 검색어: 수입부 확인 인쇄 품명 농장 카톡 원문시각 소량
+
+## 2026-11-11 입고관리 원장삭제 수입부 권한 복구
+- 최신 origin/master 별도 작업트리. warehouse POST/PATCH/DELETE의 부서명 정규식 판정을 기존 canManageInvoiceReceipt로 통일. 부서명 빈값의 Authority4/7을 허용하고 identity누락·비활성·타부서는 DB 접근 전 차단. SQL/삭제/재고계산/확정차수 정책 변경0.
+- 실제 dnSpy FormWarehouseView.btnDelete_Click 및 운영 SELECT-only 확인. 활성 권한4 계정4개 모두 DeptName 빈값, 2025/2026 동일44-01 원장54/50건. 계정정보 저장0, 운영 삭제0.
+- 신규 실제handler 회귀5개(양연도/권한/확정409/POST·PATCH), 기존 수입권한10개, ERP전체 pre/core/post, dnSpy, manifest, 쓰기guard 통과. 빌드/PR/CI/운영배포·로그인 후 브라우저는 이 기록시점 미검증, 후속 확인.
+검색어: 입고관리 원장삭제 수입부 권한4 권한7 DeptName 빈값 canManageInvoiceReceipt warehouseAccess
+- 추가검증: 로컬 npm build(webpack,1worker) exit0. 빌드 생성 이력파일은 변경 범위에서 제외. PR/CI/운영배포 후속.
