@@ -417,15 +417,16 @@ export default function Distribute() {
   },[week,selectedOrderYear,apiGetDistribute]);
   useEffect(()=>{setFarmDate('');setCustomerDate('');setDateIndex([]);setMajorInlineFacts(null);setInlineFacts([]);setInlineCalendar([]);setDateDrafts({});loadDateIndex();return()=>{dateRequestRef.current+=1;};},[loadDateIndex]);
   useEffect(()=>{if(saveModal)loadDateIndex();},[saveModal,loadDateIndex]);
-  useEffect(()=>{
+  const loadWorkspaceCustomers=useCallback(async()=>{
     if(!week||!selectedOrderYear)return;const request=++customerListRequestRef.current,requestedWeek=week;
     setCustomerListLoading(true);setCustList([]);
-    apiGetDistribute({type:'workspaceCustomers',week,prodGroup:''}).then(data=>{
+    try{const data=await apiGetDistribute({type:'workspaceCustomers',week,prodGroup:''});
       if(request!==customerListRequestRef.current||requestedWeek!==currentWeekRef.current)return;
-      if(!data.success)throw new Error(data.error||'업체 조회 실패');setCustList(sortDistributionCustomers(data.customers||[]));
-    }).catch(e=>{if(request===customerListRequestRef.current)setErr(e.message);}).finally(()=>{if(request===customerListRequestRef.current)setCustomerListLoading(false);});
-    return()=>{customerListRequestRef.current+=1;};
+      if(!data.success)throw new Error(data.error||'업체 조회 실패');setCustList(sortDistributionCustomers(data.customers||[]));return data;
+    }catch(e){if(request===customerListRequestRef.current)setErr(e.message);return {success:false,error:e.message};}
+    finally{if(request===customerListRequestRef.current)setCustomerListLoading(false);}
   },[week,selectedOrderYear,apiGetDistribute]);
+  useEffect(()=>{loadWorkspaceCustomers();return()=>{customerListRequestRef.current+=1;};},[loadWorkspaceCustomers]);
 
   const prevSearchWeekRef = useRef(week);
   useEffect(() => {
@@ -832,7 +833,6 @@ export default function Distribute() {
     const request = ++searchRequestRef.current;
     const requestedWeek = week;
     const requestedGroup = prodGroup;
-    customerListRequestRef.current+=1;
     loadDateIndex();
     productRequestRef.current += 1;
     customerRequestRef.current += 1;
@@ -846,14 +846,13 @@ export default function Distribute() {
           week,
           prodGroup:farmCountry?`${farmCountry}${PG_SEP}`:'',
         }),
-        apiGetDistribute({type:'workspaceCustomers',week,prodGroup:''}),
+        loadWorkspaceCustomers(),
       ]);
       if (request !== searchRequestRef.current || requestedWeek !== currentWeekRef.current || requestedGroup !== currentGroupRef.current) return;
       if (prodRes?.success !== true || custRes?.success !== true) throw new Error('분배 조회 결과를 확인하지 못했습니다.');
       const nextProducts = sortDistributionProducts(prodRes.products || []);
       setProducts(nextProducts);
       const customers = sortDistributionCustomers(custRes.customers || []);
-      setCustList(customers);
       const matchingProd = nextProducts.find(p => Number(p.ProdKey) === Number(selectedProd?.ProdKey));
       const matchingCust = customers.find(c => Number(c.CustKey) === Number(selectedCust?.CustKey));
       if (matchingProd && viewMode === 'prod') selectProd(matchingProd, { skipDraftCheck: true });

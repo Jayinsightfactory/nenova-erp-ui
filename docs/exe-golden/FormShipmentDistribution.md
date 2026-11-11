@@ -645,5 +645,8 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 02=298;2026/45상세01=893,02=404,03=73,날짜누락0. 실제0과없는차수를구별한다.
 기준/보존표 docs/plans/distribution-major-days-2026-11-10.md. 조회이외ERP쓰기0.
 
+## 2026-11-11 업체 조회 무한로딩 정정
+설치 EXE FormShipmentDistribution dnSpy CLI 재추출: GetOrderWeek/GetCustomerList 및 선택 연도·차수 저장 근거 재확인. 웹 loading/응답 소유권만 정정한다. 운영 기존 sqlDistributionWorkspaceCustomers 전체업체 SELECT:2025/45-03=677(빈차수 fallback),2026/45-03=12,식별키533존재;각7.9/8.4초,개인정보 출력0. SQL/API/EXE 원장 변경0. 계획 distribution-customer-load-2026-11-11 참조.
+
 ## 2026-11-11 메인차수 공통 표시축 정정
 설치 EXE FormShipmentDistribution 재추출(GetOrderWeek/선택 연도·차수 저장)을 확인했다. 웹 비교축은 같은 연도·메인차수 전체 majorDateFacts에서 얻는다. 업체/품목에는02만 있어도 전체에01/02/03이 있으면 세 행을 모두 표시한다. 부재0은 조회용이며 실제0과 구별한다. 공통 날짜 머리글은 표 열당1회, 선택 양수 실재행만 편집한다. SQL·원장 writer·EXE 저장순서 변경0. 근거: docs/plans/distribution-major-layout-2026-11-11.md.

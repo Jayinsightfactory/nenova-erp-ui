@@ -1,4 +1,5 @@
 require('./shipmentMajorInlineDates.test.cjs');
+require('./shipmentDistributionCustomerLoading.test.cjs');
 require('./shipmentExportExcel.test.cjs');
 require('./shipmentDateDisplayUnits.test.cjs');
 require('./shipmentInlineDates.test.cjs');
