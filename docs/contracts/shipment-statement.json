@@ -14,7 +14,8 @@
     "lib/shipmentStatementGroups.cjs",
     "styles/ShipmentStatement.module.css",
     "config/shipment-statement-format.json",
-    "lib/shipmentStatementLabels.cjs"
+    "lib/shipmentStatementLabels.cjs",
+    "lib/shipmentStatementRichTitle.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -54,7 +55,7 @@
       "name": "FORMAT_SAMPLE_EXCEL_LABELS_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "webOnly": "Pure Excel labels, preserve immutable source/draft, row IDs, country/category grouping, unit, quantity, price and dates"
+      "webOnly": "Pure Excel labels, preserve immutable source/draft, row IDs, country/category grouping, unit, quantity, price and dates; native OOXML rich-text red date/weekday only, all non-title parts preserved"
     }
   ],
   "crossYearFixture": {
