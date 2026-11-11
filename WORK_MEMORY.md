@@ -2574,3 +2574,9 @@
 - 탭 선택 상태만 해제해 과거·현재 그룹편집 방지(SelectedSheets=1). 셀 데이터/수식/서식은 보존, 이전 차수 재다운로드는 중복 시트 없이 해당 계산 탭 선택.
 - ERP전체/dnSpy/manifest213/쓰기guard4API/webpack1worker빌드 PASS. 신규 UI 단계 없음/기존 가이드 유지. CI·배포는 PR 실행 결과 확인. 운영 DB·유료AI 쓰기0. 세부기록 docs/work-sessions/2026-11-11_cost-links-history.md.
 검색어: cost-links-history ExcelCOM 11양식 과거61탭 SUMPRODUCT TH G15 F15 private-history
+
+## 2026-11-11 출고분배 메인차수 공통 행 정정
+- 업체/품목별 실재차수만 표시해02만 보이던 원인 정정. 같은연도·메인차수 전체majorDateFacts에서공통01/02/03축을공유,어느세부차수에서도동일행. 부재0은화면전용/실제0과구별/둘다편집0,실재선택양수만기존canonical날짜저장. 실제행만합계. 날짜머리글표열상단1회/빈비활성7입력제거. SQL/API/writer변경0/운영ERP·ECOUNT쓰기0.
+- dnSpy설치EXE재추출·수국운영SELECT선확인. helper6,실제Chrome선택01/02/03×다른업체/품목·부재/실재0·공통머리글·1920/390·Tab/Enter·selected-only저장PASS. 격리MSSQL date-index/writer·견적15단/gross172500/ECOUNT XLSX·원장보존PASS. 전체ERP/dnSpy/manifest213/writeguard0API/finalnpmwebpack1worker PASS. SSRfixture새import/Header연결누락보완후전체재실행exit0.
+- 가이드176.7초/6단계/24조작,첫·중간·끝5프레임/최종player실재생·한국어VTT·목차/다운로드2/1920·390 PASS. 최신master491669ca 병합(별도불량차감인쇄6파일,출고소스불변); PR CI가병합상태재검증. PR·Cafe24·운영브라우저는이기록시점미검증,후속기록.
+검색어: majorInlineWeekScope commonWeeks 45-02만표시 공통01 02 03 표시전용0 공통날짜머리글

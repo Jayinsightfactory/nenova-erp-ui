@@ -7,7 +7,7 @@ async function main(){
  let rec,capturedGuide=null,stopped=false,step=0;try{
  const page=await browser.newPage();await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});const errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log(m.text());});await page.setRequestInterception(true);
  const groups=[{key:'콜롬비아::수국',country:'콜롬비아',flower:'수국',label:'콜롬비아수국'},{key:'콜롬비아::카네이션',country:'콜롬비아',flower:'카네이션',label:'콜롬비아카네이션'},{key:'콜롬비아::장미',country:'콜롬비아',flower:'장미',label:'콜롬비아장미'},{key:'네덜란드::장미',country:'네덜란드',flower:'장미',label:'네덜란드장미'},{key:'네덜란드::튤립',country:'네덜란드',flower:'튤립',label:'네덜란드튤립'}];
- let staleRead=false,stalePack=false;let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
+ let staleRead=false,stalePack=false,axisFixture=false;let account='guide-support',countrySetting=null;const favGroups=groups.slice(0,4).map((g,i)=>({FavoriteKey:i+1,FilterData:JSON.stringify({groupKey:g.key})}));
  const prod={ProdKey:3513,ProdName:'연습 카네이션 Honey',DisplayName:'연습 카네이션 Honey',CounName:'콜롬비아',FlowerName:'카네이션',OutUnit:'박스',EstUnit:'단',BunchOf1Box:15,SteamOf1Bunch:20,SteamOf1Box:300,inQty:1,outQty:1,Cost:11500};
  let context={scope:{orderYear:'2026',orderWeek:'45-01',custKey:777,prodKey:3513},detail:{...prod,OutQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,DetailFix:true,MasterFix:true},calendar:Array.from({length:7},(_,i)=>{const d=new Date(Date.UTC(2026,10,4+i));return {WeekDay:d.getUTCDay()+1,Timestamp:d.toISOString().slice(0,10)+' 00:00:00.000'};}),dates:[{Timestamp:'2026-11-06 00:00:00.000',ShipmentQuantity:1,EstQuantity:15,Cost:11500,Amount:156818,Vat:15682,Descr:''}]};
  const customer=()=>({CustKey:777,CustName:'연습업체',주문코드:'연습',주문수량:1,출고수량:1,Cost:11500,단가:11500,OutUnit:'박스',SdetailKey:101,ShipmentDateLabel:context.dates[0].Timestamp.slice(0,10),ShipmentDateCount:context.dates.length});
@@ -19,7 +19,7 @@ async function main(){
     if(req.method()==='GET'){const p=u.searchParams.get('page');d.favorites=account==='second-account'?[]:p==='shipment-distribute-products'?[{FavoriteKey:55,ProdKey:3515,FilterData:JSON.stringify({prodKey:3515})}]:p==='shipment-distribute-groups'?favGroups:p==='shipment-distribute-countries'&&countrySetting?[{FavoriteKey:99,FilterData:JSON.stringify(countrySetting)}]:[];}
     else if(body.page==='shipment-distribute-countries'||body.favoriteKey===99){countrySetting=JSON.parse(body.filterData);d.favoriteKey=99;}
   }
-  if(type==='workspaceDateIndex'){d.rows=context.dates.map(r=>({CustKey:777,ProdKey:3513,ShipmentDate:r.Timestamp.slice(0,10)}));d.calendar=context.calendar;d.dateFacts=context.dates.map((r,i)=>({...prod,...r,CustKey:777,ProdKey:3513,SdetailKey:101,SdateKey:200+i,OutQuantity:1}));d.majorDateFacts=[...d.dateFacts.map(r=>({...r,OrderYear:'2026',OrderWeek:'45-01'})),{...prod,CustKey:777,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-02',SdetailKey:102,SdateKey:202,OutQuantity:2,Timestamp:'2026-11-07 00:00:00.000',ShipmentQuantity:2}];}
+  if(type==='workspaceDateIndex'){d.rows=context.dates.map(r=>({CustKey:777,ProdKey:3513,ShipmentDate:r.Timestamp.slice(0,10)}));d.calendar=context.calendar;d.dateFacts=context.dates.map((r,i)=>({...prod,...r,CustKey:777,ProdKey:3513,SdetailKey:101,SdateKey:200+i,OutQuantity:1}));d.majorDateFacts=[...d.dateFacts.map(r=>({...r,OrderYear:'2026',OrderWeek:'45-01'})),{...prod,CustKey:777,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-02',SdetailKey:102,SdateKey:202,OutQuantity:2,Timestamp:'2026-11-07 00:00:00.000',ShipmentQuantity:2},{...prod,CustKey:778,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-03',SdetailKey:103,SdateKey:203,OutQuantity:1,Timestamp:'2026-11-08 00:00:00.000',ShipmentQuantity:1}];}
   if(type==='groups')d.groups=groups;if(type==='products'||type==='productCatalog')d.products=[prod,{...prod,ProdKey:3514,ProdName:'A Unfavorite',FlowerName:'알스트로'},{...prod,ProdKey:3515,ProdName:'Z Favorite',FlowerName:'카네이션'}];
   if(type==='workspaceCustomers'||type==='customers'||type==='custList'||type==='custDist'){d.customers=[customer()];d.totalOrder=1;d.totalOut=1;d.inQty=1;}
   if(type==='custItems')d.items=[{...prod,...customer()},{...prod,...customer(),ProdKey:3516,ProdName:'US Douglas',CounName:'미국',FlowerName:'더글라스'}];
@@ -30,6 +30,12 @@ async function main(){
   if(u.pathname==='/api/shipment/distribution-dates'){
     if(req.method()==='GET'){let ctx=staleRead?{...context,dates:context.dates.map((r,i)=>i? r:{...r,ShipmentQuantity:r.ShipmentQuantity+0.1})}:context;if(stalePack)ctx={...ctx,detail:{...ctx.detail,BunchOf1Box:16}};d={success:true,context:ctx,snapshot:core.distributionDateSnapshot(ctx),blocked:''};}
     else try{const plan=core.planDistributionDates(context,body.allocations);d={success:true,plan};if(body.confirm)context={...context,dates:plan.dates};}catch(e){status=409;d={success:false,error:e.message};}
+  }
+  if(axisFixture){
+   const selected=u.searchParams.get('week')?.slice(-5);
+   const rows=[{...prod,CustKey:777,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-01',SdetailKey:101,OutQuantity:1,Timestamp:context.calendar[0].Timestamp,ShipmentQuantity:1},{...prod,CustKey:778,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-02',SdetailKey:102,OutQuantity:2,Timestamp:context.calendar[1].Timestamp,ShipmentQuantity:2},{...prod,CustKey:779,ProdKey:3513,OrderYear:'2026',OrderWeek:'45-02',SdetailKey:103,OutQuantity:0,Timestamp:null,ShipmentQuantity:null},{...prod,CustKey:800,ProdKey:999,OrderYear:'2026',OrderWeek:'45-03',SdetailKey:104,OutQuantity:1,Timestamp:context.calendar[2].Timestamp,ShipmentQuantity:1}];
+   if(type==='workspaceDateIndex'){d.majorDateFacts=rows;d.dateFacts=rows.filter(r=>r.OrderWeek===selected);d.rows=[];}
+   if(type==='custDist')d.customers=[777,778,779].map(key=>({...customer(),CustKey:key,CustName:'연습'+key,출고수량:rows.find(r=>r.CustKey===key&&r.OrderWeek===selected)?.OutQuantity??0}));
   }
   await req.respond({status,contentType:'application/json',body:JSON.stringify(d)});
  });
@@ -64,7 +70,8 @@ async function main(){
  await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  if(rec)await rec.chapter('dates','날짜별 수량 입력과 총량 확인');
  const inline='[data-testid="inline-dates-777-3513"]';
- assert.deepEqual(await page.$$eval(inline+' [data-subweek-row]',n=>n.map(e=>e.getAttribute('data-subweek-row'))),['45-01','45-02']);assert.equal(await page.$eval(inline+' [data-major-total]',n=>n.textContent),'45');assert.equal(await page.$$eval(inline+' [data-subweek-row="45-02"] input',n=>n.length),0);
+ assert.deepEqual(await page.$$eval(inline+' [data-subweek-row]',n=>n.map(e=>e.getAttribute('data-subweek-row'))),['45-01','45-02','45-03']);assert.equal(await page.$eval(inline+' [data-major-total]',n=>n.textContent),'45');assert.equal(await page.$$eval(inline+' [data-subweek-row="45-02"] input',n=>n.length),0);
+  assert.equal(await page.$$eval(inline+' thead',n=>n.length),0);assert.equal(await page.$eval(inline+' [data-subweek-total="45-03"]',n=>n.textContent),'0');assert.equal(await page.$$eval(inline+' [data-subweek-row="45-03"] input',n=>n.length),0);assert.equal(await page.$$eval('[data-testid="distribution-date-header"]',n=>n.filter(e=>e.getBoundingClientRect().height).length),1);
  await page.waitForSelector(inline+' input');assert.deepEqual(await page.$$eval(inline+' [data-date-inline]',n=>n.map(x=>x.getAttribute('data-date-inline'))),['2026-11-04','2026-11-05','2026-11-06','2026-11-07','2026-11-08','2026-11-09','2026-11-10']);
  if(!record){
   await page.focus(inline+' select');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('data-date-inline')),'2026-11-04');
@@ -73,7 +80,7 @@ async function main(){
   const reachable=await page.$eval(inline,n=>{let p=n.parentElement;while(p&&!/auto|scroll/.test(getComputedStyle(p).overflowX))p=p.parentElement;if(!p)return false;p.scrollLeft=p.scrollWidth;const r=n.querySelector('[data-major-total]').getBoundingClientRect();return r.right<=innerWidth+1&&r.left>=0;});assert(reachable,'main total reachable through horizontal table scroll on390');
   await page.screenshot({path:'outputs/major-mobile.png'});await page.setViewport({width:1920,height:1080});await page.$eval(inline,n=>{let p=n.parentElement;while(p){if(/auto|scroll/.test(getComputedStyle(p).overflowX))p.scrollLeft=0;p=p.parentElement;}});
  }
- await hold('날짜 머리글 아래 45-01과 45-02 분배가 별도 행에 보입니다.\n오른쪽 45차 총수량은 45단입니다. 선택 차수만 단·송이로 수정합니다.');
+ await hold('공통 날짜 아래 45-01·02·03을 같은 순서로 표시합니다. 없는 분배는 0입니다.\n오른쪽 45차 총수량은 45단입니다. 실제 선택 차수만 수정합니다.');
  const fill=async(date,val)=>{const sel=inline+' input[data-date-inline="'+date+'"]';if(rec){await page.$eval(sel,n=>n.scrollIntoView({block:'center',inline:'center'}));await rec.focus(sel,step);}
  await page.click(sel);await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await page.type(sel,val);if(rec)await rec.unfocus();};
  assert.equal(await page.$eval(inline+' select',n=>n.value),'단');assert.equal(await page.$eval(inline+' input[data-date-inline="2026-11-06"]',n=>n.value),'15');await select(inline+' select','송이');assert.equal(await page.$eval(inline+' input[data-date-inline="2026-11-06"]',n=>n.value),'300');await hold('송이로 전환하면 1박스가 300송이로 보입니다.\n표시 단위만 바뀌고 저장된 총량은 그대로입니다.',3000);await select(inline+' select','단');await fill('2026-11-06','0');await fill('2026-11-05','6');assert.equal(await page.$eval(inline+' [data-inline-preview]',n=>n.disabled),true);
@@ -117,6 +124,14 @@ async function main(){
  staleRead=true;await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForFunction(()=>document.querySelector('[role="dialog"]')?.textContent.includes('날짜 또는 출고수량이 변경되었습니다.'));assert.equal(await page.$$eval('[role="dialog"] .btn-primary',n=>n.length),0,'stale baseline cannot preview or save');await text('닫기');staleRead=false;stalePack=true;await click('[data-ai-verify="date-edit-777-3513"]');await page.waitForFunction(()=>document.querySelector('[role="dialog"]')?.textContent.includes('품목의 단위·입수가 변경되었습니다.'));await text('닫기');stalePack=false;
  await text('날짜 취소');assert.equal(await page.$eval(inline+' input[data-date-inline="2026-11-05"]',n=>Number(n.value)),6);
  await week('2026-45-01');await click('[data-ai-verify="customer-777"]');await page.waitForSelector('[data-distribute-qty="true"]');const qty=await page.$('[data-distribute-qty="true"]');await qty.click({clickCount:3});await qty.type('2');await text('출고분배 및 농장정보');assert.equal(await page.$$eval('[data-ai-verify="customer-777"]',n=>n.length),1,'dirty tab switch blocked');page.once('dialog',d=>d.accept());await click('[data-ai-verify="discard-drafts"]');await text('출고분배 및 농장정보');await page.waitForSelector('[data-testid="distribution-product-list"]');
+ axisFixture=true;
+ for(const selected of ['01','02','03']){
+  await week('2026-45-'+selected);await text('🔍 조회');await page.waitForNetworkIdle({idleTime:200});await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-testid="inline-dates-778-3513"]');
+  for(const key of [777,778,779])assert.deepEqual(await page.$$eval(`[data-testid="inline-dates-${key}-3513"] [data-subweek-row]`,n=>n.map(e=>e.dataset.subweekRow)),['45-01','45-02','45-03']);
+  const only02='[data-testid="inline-dates-778-3513"]';assert.equal(await page.$$eval(only02+' input',n=>n.length),selected==='02'?7:0);assert.equal(await page.$eval(only02+' [data-major-total]',n=>n.textContent),'30');assert.equal(await page.$eval(only02+' [data-subweek-total="45-01"]',n=>n.textContent),'0');
+  assert.equal(await page.$$eval('[data-testid="inline-dates-779-3513"] input, [data-testid="inline-dates-779-3513"] button',n=>n.length),0);assert.equal(await page.$$eval('[data-testid="distribution-date-header"]',n=>n.filter(e=>e.getBoundingClientRect().height).length),1);
+ }
+ await page.screenshot({path:'outputs/common-axis-desktop.png',fullPage:true});
  await page.setViewport({width:390,height:844});await page.waitForSelector('[data-testid="distribution-product-list"]');await page.screenshot({path:'outputs/dual-mobile.png'});
  console.log('PASS dual workflow: favorite hierarchy/disclosure, independent customer, actual date filters/editor/tab2, cross-year empty catalog; synthetic APIs only.');
  }finally{if(rec&&!stopped)await rec.stop().catch(()=>{});await browser.close();}
