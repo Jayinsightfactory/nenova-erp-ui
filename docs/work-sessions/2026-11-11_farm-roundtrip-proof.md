@@ -1,0 +1,25 @@
+# 물량표 농장분배 실제 파일 왕복 확인
+
+2026-11-11, branch codex/farm-roundtrip-proof. 사용자 제공 45-01 카네이션/장미 원본 사용.
+
+## 수정과 기준
+
+DB 물량표 내보내기는 volumeProdLabel로 cm와 품종 접두어를 정리하지만, fileBasedScope 업로드는 그 역대조가 빠져 있었다. 원본명 정확일치 다음에 같은 export helper의 표시명 정확일치 인덱스를 추가했다. 원본키/명시선택, 국가·품종 범위, 중복검토는 보존한다. 숫자길이/MC/Elite/Mini를 제거하지 않는다. 검증·다운로드의 모든 공유 원장은 읽기 전용이며 기존 저장 정책은 변경하지 않았다. 계약에 기준/회귀 파일을 추가했다.
+
+## 증거와 검증
+
+- 실제 dnSpy FormShipmentDistribution CLI 156140bytes 재추출, Product SELECT로 Brighton 50/60/MC/Elite와 일반/미니 Mix Box 별도 PK 확인.
+- 사용자 두 원본 read-only preview에서 카네이션 MixBox2표기, 장미11표기 미매칭 재현. 수정 후 두 파일 품목미매칭0, 수동 품목선택0. 선출고/재고/농장명 업체열 검토는 기존정책 보존.
+- 2025/2026 선택연도, 국가, 50/60, MC, Elite, 일반/미니, 중복 표시명 차단, 잘못된 명시키 차단 회귀 통과. fixture SQL은 쓰기 금지.
+- 실제 운영 웹 카네이션 다운로드와 원본을 Excel COM ReadOnly로 PDF 출력: A3세로1쪽, 841.68×1190.4pt, Fit1×1. 기존2009단어 위치불변,22단어만 빈상단 추가. 원본 그리기XML/행/열/여백 유지. 저장된 scale31은 실제 fit-to-page 유효배율과 구별한다.
+- 전체 필수 게이트/CI/배포/수정본 재업로드/장미 적용본 인쇄는 진행중, 완료로 간주하지 않는다. 운영 원장 저장0.
+
+## 사용자 요구 보존
+
+엑셀 업로드 → 카톡 입력 → 수정+농장 통합검증 → 원본 인쇄비율 유지 다운로드, 수정본 왕복과 검증화면 확대축소. 예시 카톡42-2 제목과 실제45-01 불일치는 차단하지 않는다. 빈셀 메모 사용.
+
+검색어: farm-roundtrip-proof DB품목미매칭 volumeProdLabel Brighton50 MixBox Mini MC Elite ExcelCOM 실제인쇄
+
+- 수량수정 실파일을 같은 preview/farm/export 코드와 운영 SELECT로 재검증: 4→5만 변경은 합계차단, 구조화농장수량도5로 변경은 통과, 업체꽃길→알파+5도 통과(수동품목선택0). 각각 재내보내기 메모2블록 유지·중복0. Excel COM 실제인쇄는 두 수정본 모두 동일 A3세로1쪽, 의도한 수량/업체 글자만 변경·나머지 표 위치불변.
+- DB실농장 별칭3건(The Elite Flowers/Eli, FLORES Tiba/Tib, Varietta/Var) 불일치를 정확이름 변형으로 보정. 운영SELECT 및 양성/유사이름 음성회귀17검사 통과. 후보범위/수동선택/저장정책 변경0.
+- 품목수정 기준 로컬 전체ERP/dnSpy/manifest/writeguard/build exit0. 농장별칭 보완 후 최종 전체게이트와 CI는 재실행중.

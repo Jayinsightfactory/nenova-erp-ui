@@ -11,7 +11,8 @@
     "pages/api/shipment/distribute-import-preview.js",
     "pages/api/shipment/distribute-import-export.js",
     "__tests__/shipmentFarmTextImport.test.cjs",
-    "package.json"
+    "package.json",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -63,12 +64,27 @@
     ]
   },
   "requiredTestFiles": [
-    "__tests__/shipmentFarmTextImport.test.cjs"
+    "__tests__/shipmentFarmTextImport.test.cjs",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
   ],
   "requiredCommands": [
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run build",
     "npm run guard:erp-writes -- --changed-from origin/master"
-  ]
+  ],
+  "volumeRoundtrip": {
+    "labelSource": "lib/pivotVolumeProductLabel.js:volumeProdLabel",
+    "precedence": "explicit key/manual choice, original exact name, scoped exact exported label, legacy aliases",
+    "preserve": [
+      "country/species scope",
+      "length",
+      "Mini",
+      "MC",
+      "grade",
+      "ambiguous duplicate review",
+      "selected year"
+    ],
+    "readOnly": true
+  }
 }

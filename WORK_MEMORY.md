@@ -2568,3 +2568,9 @@
 - 탭 선택 상태만 해제해 과거·현재 그룹편집 방지(SelectedSheets=1). 셀 데이터/수식/서식은 보존, 이전 차수 재다운로드는 중복 시트 없이 해당 계산 탭 선택.
 - ERP전체/dnSpy/manifest213/쓰기guard4API/webpack1worker빌드 PASS. 신규 UI 단계 없음/기존 가이드 유지. CI·배포는 PR 실행 결과 확인. 운영 DB·유료AI 쓰기0. 세부기록 docs/work-sessions/2026-11-11_cost-links-history.md.
 검색어: cost-links-history ExcelCOM 11양식 과거61탭 SUMPRODUCT TH G15 F15 private-history
+
+## 2026-11-11 물량표 DB 품목 왕복·실파일 인쇄
+- 사용자 실파일 두 개에서 fileBasedScope 품목 미매칭 재현(장미11표기, 카네이션MixBox). exporter volumeProdLabel 정확 표시명 인덱스로 수정, 실DB SELECT preview 품목미매칭0/수동품목선택0. 국가/품종·숫자길이·Mini/MC/Elite·중복검토·명시키 검증 보존. 교차연도 회귀 통과.
+- 웹 실제 카네이션 다운로드 Excel COM ReadOnly 출력: 원본/적용본 A3세로1쪽·기존2009단어 좌표불변·빈상단메모만추가. 행열여백/그림XML 보존. 장미적용본/수정본재업로드/CI·배포는 진행중 미검증. 운영ERP쓰기0. 세부 docs/work-sessions/2026-11-11_farm-roundtrip-proof.md.
+검색어: farm-roundtrip-proof DB품목미매칭 volumeProdLabel Brighton50 MixBox Mini MC Elite ExcelCOM 실제인쇄
+- 후속 실파일검증: 수량4→5만 바꾸면 농장합계차단, 농장5동기수정·업체꽃길→알파는 통과/재다운로드 메모중복0. 수정본ExcelCOM도 A3세로1쪽·의도수정외 위치불변. DB실농장 엘리떼/티바/바리에타 정확표기 변형보완,17회귀PASS. 품목기준전체게이트PASS,최종별칭포함전체/CI재실행.

@@ -259,3 +259,39 @@ test('fresh hydrangea file derives scope without a manual family filter; foreign
   const badKey=await run([{...row,prodKey:502}]);assert.equal(badKey.rows.length,0);assert.equal(badKey.unmatched.length,1);
   const ambiguous=await run([{...row,sheetName:'혼합',productFamily:''}]);assert.equal(ambiguous.rows.length,0);assert.equal(ambiguous.unmatched.length,1);
 });
+
+test('DB volume labels roundtrip without keys: cm, Mini, MC, grade and year remain distinct', async () => {
+  const rose=(key,name,country='콜롬비아')=>({...product,ProdKey:key,ProdName:name,DisplayName:null,FlowerName:'장미',CounName:country,CountryFlower:country+'장미'});
+  const catalog=[rose(1283,'ROSE / Brighton 50cm'),rose(1377,'ROSE / Brighton 60cm'),
+    rose(2906,'ROSE / Brighton mc 50cm'),rose(3309,'ROSE / Brighton 50cm (Elite)'),
+    rose(9000,'ROSE / Brighton 50cm','에콰도르'),
+    {...product,ProdKey:442,ProdName:'CARNATION Mix box',DisplayName:'카네이션 MIX BOX',FlowerName:'카네이션',CounName:'콜롬비아',CountryFlower:'콜롬비아카네이션'},
+    {...product,ProdKey:2322,ProdName:'MINICARNATION Mix Box',DisplayName:null,FlowerName:'카네이션',CounName:'콜롬비아',CountryFlower:'콜롬비아카네이션'}];
+  for(const year of ['2025','2026']) {
+    const before=JSON.stringify(catalog);
+    const run=async(label,expected,{extra=[],prodKey,productOverrides}={})=>{
+      const family=/mix/i.test(label)?'carnation':'rose';
+      const source={customerLabel:customer.CustName,rawProductLabel:label,productLabel:label,productFamily:family,
+        productFamilySource:'heading',productHeadings:[family==='rose'?'콜롬비아장미':'콜롬비아카네이션'],
+        uploadQty:2,sheetName:family==='rose'?'콜롬비아장미':'콜롬비아카네이션',rowNo:4,colNo:2,...(prodKey?{prodKey}:{})};
+      const queryFn=async(text,params={})=>{
+        assert.doesNotMatch(text,/\b(INSERT|UPDATE|DELETE|EXEC|MERGE)\b/i);
+        if(/FROM Product\s+WHERE/.test(text))return{recordset:[...catalog,...extra]};
+        if(/FROM Customer\s+WHERE/.test(text))return{recordset:[customer]};
+        if(params.weekKey){assert.equal(params.yr.value,year);return{recordset:[]};}
+        assert.equal(params.importYear.value,year);assert.equal(params.week.value,'45-01');
+        if(/AS yr, COUNT/.test(text))return{recordset:[{yr:year==='2026'?'2025':'2026',detailCount:1}]};
+        return{recordset:[]};
+      };
+      const result=await buildImportPreview({parsedRows:[source],rawWeek:'45-01',rawYear:year,fileBasedScope:true,queryFn,productOverrides});
+      if(expected===null){assert.equal(result.rows.length,0,label);assert.equal(result.unmatched.length,1,label);}
+      else{assert.equal(result.unmatched.length,0,label);assert.equal(result.rows[0].prodKey,expected,label);assert.equal(result.rows[0].uploadQty,2);}
+    };
+    await run('Brighton 50',1283);await run('Brighton 60',1377);
+    await run('Brighton mc 50',2906);await run('Brighton 50 (Elite)',3309);
+    await run('MixBox',442);await run('Mini Mix Box',2322);
+    await run('Brighton 50',null,{extra:[rose(9999,'ROSE Brighton 50cm')]});
+    await run('Brighton 50',null,{prodKey:9000});
+    assert.equal(JSON.stringify(catalog),before);
+  }
+});

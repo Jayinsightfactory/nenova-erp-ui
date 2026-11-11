@@ -19,6 +19,13 @@ function load(name){
   },mod,mod.exports);return mod.exports;
 }
 const text=load('shipmentFarmText'),store=load('shipmentFarmImport'),excel=load('shipmentFarmWorkbook');
+test('actual DB farm spellings resolve Korean chat aliases without broad substring matches',()=>{
+  for(const [label,FarmName,FarmCode] of [['엘리떼','The Elite Flowers','Eli'],['엘리테','The Elite Flowers','Eli'],['티바','FLORES Tiba','Tib'],['바리에타','Varietta','Var']]) {
+    assert.equal(text.farmNameMatches(label,{FarmName,FarmCode}),true,label);
+    assert.equal(text.farmNameMatches(label,{FarmName:'Other '+FarmName,FarmCode:'Other'}),false,label);
+    assert.equal(text.farmNameMatches(label,{FarmName:FarmName+' Other',FarmCode:'Other'}),false,label);
+  }
+});
 const sample=`42-2 장미 농장분배\n-라움\n퀵샌드 40단(엘리떼 30단, 발로레스 10단)\n몬디알 120단\n(마티나 20, 키쿠얄 60, 나투 40)\n-일신\n퀵샌드 20단(10단 티바, 10단 재고)`;
 test('multiline, reversed farm quantity, omitted single-farm quantity and cm',()=>{
   const p=text.parseFarmText(sample);assert.deepEqual(p.errors,[]);assert.equal(p.entries.length,3);assert.equal(p.entries[2].farms[0].name,'티바');
