@@ -99,6 +99,7 @@ import { registerFreight } from '../lib/estimateFreightClient';
 import { appendFreightProgress } from '../lib/estimateFreightFeedback';
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
 import EstimateOverflowPreview from '../components/EstimateOverflowPreview';
+import WorkflowGuide from '../components/WorkflowGuide';
 import useErpEditPresence from '../hooks/useErpEditPresence';
 import { isAdminUser } from '../lib/userAccess';
 import { estimateDraftSnapshot, reconcileEstimateDrafts } from '../lib/estimateDraftReconcile';
@@ -128,6 +129,7 @@ import {
 } from '../lib/estimateSaveRecovery.js';
 import { getEstimateGridNavigationTarget } from '../lib/estimateGridNavigation.js';
 import { buildEstimateHtml } from '../lib/estimatePrintHtml.js';
+import { formatBoxQuantityLabel } from '../lib/estimatePrintHtml.js';
 import {
   clearPendingEstimateOverflow,
   inspectPendingEstimateOverflow,
@@ -4553,6 +4555,7 @@ function EstimateByWeek() {
 
   return (
     <div className={previewCapture ? 'estimate-page estimate-preview-capture-root' : 'estimate-page'}>
+      <WorkflowGuide workflowId="estimate-management" initialRole="영업지원" />
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
         {/* 연도 (별도) */}
@@ -4813,12 +4816,12 @@ function EstimateByWeek() {
               </span>
             )}
           </div>
-          <div style={{overflowY:'auto', flex:1}}>
+          <div style={{overflowY:'auto', flex:1, minWidth:0}}>
             {loading
               ? <div className="skeleton" style={{height:200, margin:12}}></div>
               : (
                 <table className="tbl estimate-ship-list">
-                  <thead>
+                  <thead className="estimate-items-head">
                     <tr>
                       <th style={{ width: 40, minWidth: 40, textAlign: 'center', padding: '6px 4px' }}>
                         <input type="checkbox"
@@ -5155,11 +5158,11 @@ function EstimateByWeek() {
             </div>
           )}
           {/* 견적서 테이블 */}
-          <div style={{overflowY:'auto', flex:1}}>
+          <div className="estimate-item-scroll" style={{overflow:'auto', flex:1, minWidth:0}}>
             {itemLoading
               ? <div className="skeleton" style={{height:200, margin:12}}></div>
               : (
-                <table className="tbl">
+                <table className="tbl estimate-item-table">
                   <thead>
                     <tr>
                       <th style={{width:42, minWidth:42, padding:'4px 2px', textAlign:'center'}}>
@@ -5199,6 +5202,7 @@ function EstimateByWeek() {
                           const qtyEditKey = getQtyEditKey(item);
                           const costEditKey = getItemEditKey(item);
                           const editVal = costEditKey ? (costEdits[costEditKey] ?? '') : '';
+                          const boxQuantity = formatBoxQuantityLabel(item.Quantity, item.Unit, item.BunchesPerBox, item.SteamsPerBox);
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
                           <tr key={estimatePhysicalRowKey(item) || costEditKey || `row:${i}`} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
@@ -5234,7 +5238,7 @@ function EstimateByWeek() {
                             </td>
                             <td style={{fontSize:12}}>{item.Unit}</td>
                             <td style={{fontFamily:'var(--mono)', fontSize:12}}>{fmtDate(item.outDate)}</td>
-                            <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}</td>
+                            <td className="num" style={{color: isDed ? '#C0392B' : ''}}>{fmt(item.Quantity)}{boxQuantity ? `${item.Unit}(${boxQuantity})` : ''}</td>
                             <td style={{textAlign:'right', padding:'2px 4px', background:'#F0FFFE'}}>
                               {!qtyEditKey ? (
                                 <span style={{fontSize:10, color:'var(--text3)'}}>—</span>
@@ -5313,10 +5317,14 @@ function EstimateByWeek() {
                             </td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--blue)', fontWeight:'bold'}}>{fmt(item.Amount)}</td>
                             <td className="num" style={{color: isDed ? '#C0392B' : 'var(--text3)'}}>{fmt(item.Vat)}</td>
-                            <td style={{fontSize:11, color:'var(--text3)'}}>{sanitizeEstimateDescrForDisplay(item, {
+                            <td style={{fontSize:11, color:'var(--text3)'}}>
+                              <button type="button" onClick={() => openItemEditor(item)} aria-label={`${item.ProdName} 비고 수정`} title="클릭하여 비고 수정" style={{border:0,background:'transparent',padding:0,minWidth:0,width:'100%',textAlign:'left',whiteSpace:'normal',overflowWrap:'anywhere',color:'inherit',font:'inherit',cursor:'pointer'}}>
+                              {sanitizeEstimateDescrForDisplay(item, {
                               showDistribDesc: printOpts.showDistribDesc === true,
                               showDeductionOutDay: printOpts.showDeductionOutDay === true,
-                            })}</td>
+                            }) || <span style={{color:'#2563eb'}}>비고 입력</span>}
+                              </button>
+                            </td>
                           </tr>
                           );
                         })}

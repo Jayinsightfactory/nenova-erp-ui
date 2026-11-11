@@ -325,6 +325,51 @@
       ]
     },
     {
+      "id": "estimate-management",
+      "title": "견적서 관리",
+      "entryPaths": [
+        "/estimate?tab=week"
+      ],
+      "sourceFiles": [
+        "pages/estimate.js",
+        "styles/globals.css",
+        "lib/estimatePrintHtml.js"
+      ],
+      "requiredScenarios": [
+        "quantity",
+        "remark",
+        "print"
+      ],
+      "guides": [
+        {
+          "id": "sales-support",
+          "role": "영업지원",
+          "title": "견적 수량·비고 수정과 인쇄",
+          "status": "ready",
+          "src": "/guides/estimate-management/sales-support.mp4",
+          "captions": "/guides/estimate-management/sales-support.ko.vtt",
+          "proof": "/guides/estimate-management/sales-support.proof.json",
+          "chapters": [
+            {
+              "scenario": "quantity",
+              "title": "수량과 박스 수량 확인",
+              "seconds": 0.01
+            },
+            {
+              "scenario": "remark",
+              "title": "비고를 눌러 수정하기",
+              "seconds": 9.046
+            },
+            {
+              "scenario": "print",
+              "title": "인쇄 전 마지막 합계 확인",
+              "seconds": 18.159
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "estimate-shipment-date-sales",
       "title": "업체별 출고일 정산 매출 조회",
       "entryPaths": [
@@ -363,17 +408,17 @@
             {
               "scenario": "range",
               "title": "원하는 기간과 매출 확인",
-              "seconds": 13.254
+              "seconds": 13.249
             },
             {
               "scenario": "source",
               "title": "일별 수량·원차수·매출 합계",
-              "seconds": 26.505
+              "seconds": 26.507
             },
             {
               "scenario": "history",
               "title": "즐겨찾기와 이전 정산 이력",
-              "seconds": 46.694
+              "seconds": 46.704
             }
           ]
         }
