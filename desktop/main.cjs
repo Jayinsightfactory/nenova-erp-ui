@@ -6,6 +6,7 @@ const { createHash } = require('node:crypto');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
+const { pmLiveStatus } = require('./pm-live.cjs');
 const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
@@ -335,7 +336,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   const auditAction = action === 'homeWorkspace' && p.method === 'POST'
     ? ({create:'homeCreate',update:'homeUpdate',complete:'homeComplete',archive:'homeArchive',restore:'homeRestore',stop:'homeStop',read:'homeRead'}[p.command?.action] || action) : action;
-  if (!['close', 'closeWindow', 'quit'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
+  if (!['close', 'closeWindow', 'quit', 'pmLiveStatus'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
     case 'homeDraft': w.homeDirty = p.dirty === true; return state(w);
@@ -345,6 +346,16 @@ function command(w, action, p = {}) {
       return homeWorkspaceRequest({ payload: p, owner, fetch: (url, options) => webSession.fetch(url, options),
         isCurrent: () => !locked && actor === owner && authGeneration === generation,
         onUnauthorized: () => { lockAccount(); ++authGeneration; verifyAccount().catch(() => {}); } });
+    }
+    case 'pmLiveStatus': {
+      if (locked || !actor || !webSession) return { ok: false, state: 'offline', reason: '로그인 후 확인할 수 있습니다.' };
+      const owner = actor, generation = authGeneration;
+      return webSession.fetch(`${ORIGIN}/api/pm/office`, { credentials: 'include', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12000) })
+        .then(async response => {
+          if (locked || actor !== owner || authGeneration !== generation) return { ok: false, state: 'offline', reason: '로그인 상태가 변경되었습니다.' };
+          if (!response.ok) return { ok: false, state: 'offline', reason: response.status === 401 ? '로그인 세션을 확인해 주세요.' : `상태 조회 실패 (${response.status})` };
+          return pmLiveStatus(await response.json());
+        }).catch(() => ({ ok: false, state: 'offline', reason: 'PM 상태 서버에 연결할 수 없습니다.' }));
     }
     case 'notesOpen': return openNotesWindow();
     case 'notesShortcut': return saveNotesShortcut(w);

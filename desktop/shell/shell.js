@@ -6,6 +6,7 @@
   const desktop = window.desktop;
   const $ = (id) => document.getElementById(id);
   const state = { windowId: null, windows: [], tabs: [], activeId: null, menuOpen: true, toolsOpen: false, favorites: [], menus: [], online: true, message: '', notice: '', syncStatus: 'checking' };
+  const pmLive = { owner: '', timer: null, busy: false, generation: 0 };
   let lastMenuTrigger = null;
   let draggingId = null;
   let dropHandled = false;
@@ -314,10 +315,51 @@
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
     window.homeWorkspace?.applyState(next);
+    if (Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') && next.homeOwnerId !== pmLive.owner) {
+      pmLive.owner = next.homeOwnerId || ''; pmLive.generation++; pmLive.busy = false;
+      clearTimeout(pmLive.timer); pmLive.timer = null;
+      renderPmLive({ state: pmLive.owner ? 'checking' : 'offline', reason: pmLive.owner ? 'PM 상태를 확인하고 있습니다.' : '로그인 후 확인할 수 있습니다.' });
+      if (pmLive.owner) void checkPmLive();
+    }
     // Commit explicit menu-opening focus with the same render. A queued frame
     // can run after another native focus/state transition and restore a tab.
     // Ordinary polling never enters this branch or takes focus from the user.
     if (!wasMenuOpen && state.menuOpen) $('menuSearch').focus({ preventScroll: true });
+  }
+
+  function renderPmLive(result) {
+    const panel = $('pmLivePanel'), badge = $('pmLiveBadge'), activity = $('pmLiveActivity'), evidence = $('pmLiveEvidence');
+    if (!panel || !badge || !activity || !evidence) return;
+    const stateName = result?.state || 'offline';
+    panel.dataset.state = stateName;
+    panel.classList.remove('is-live', 'is-stale', 'is-offline', 'is-checking');
+    panel.classList.add(stateName === 'live' || stateName === 'active' ? 'is-live' : stateName === 'stale' ? 'is-stale' : stateName === 'checking' ? 'is-checking' : 'is-offline');
+    badge.textContent = ({ live: '라이브 · 작업 중', active: '라이브 · 연결됨', stale: '갱신 지연', offline: '확인 불가', checking: '확인 중' })[stateName] || '확인 불가';
+    badge.setAttribute('aria-busy', String(stateName === 'checking' || pmLive.busy));
+    activity.textContent = result?.activity || result?.reason || (stateName === 'live' ? 'PM 작업 상태를 실시간으로 받고 있습니다.' : '확인 가능한 PM 활동 내용이 없습니다.');
+    const received = result?.receivedAt ? `서버 수신 ${pmStamp(result.receivedAt)}` : '서버 수신 기록 없음';
+    const generated = result?.generatedAt ? ` · PM 기록 ${pmStamp(result.generatedAt)}` : '';
+    const age = Number.isFinite(result?.ageSec) ? ` · ${result.ageSec < 60 ? `${result.ageSec}초 전` : `${Math.floor(result.ageSec / 60)}분 전`}` : '';
+    evidence.textContent = `${received}${generated}${age}`;
+  }
+  function pmStamp(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '시각 확인 불가' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+  }
+  async function checkPmLive() {
+    clearTimeout(pmLive.timer);
+    if (!pmLive.owner || document.hidden) return;
+    const generation = pmLive.generation;
+    if (!pmLive.busy) {
+      pmLive.busy = true; renderPmLive({ state: $('pmLivePanel').dataset.state === 'live' ? 'live' : 'checking', reason: 'PM 상태를 확인하고 있습니다.' });
+      try {
+        const result = await desktop.invoke('pmLiveStatus');
+        if (generation === pmLive.generation && pmLive.owner) renderPmLive(result);
+      } catch {
+        if (generation === pmLive.generation && pmLive.owner) renderPmLive({ state: 'offline', reason: 'PM 상태 서버에 연결할 수 없습니다.' });
+      } finally { if (generation === pmLive.generation) pmLive.busy = false; }
+    }
+    if (pmLive.owner) pmLive.timer = setTimeout(() => void checkPmLive(), 60000);
   }
 
   function wire() {
@@ -329,11 +371,17 @@
       void call('menu', { open: true }).then(() => $('appUpdateButton').focus({ preventScroll: true })).catch(() => {});
     });
     window.addEventListener('online', () => run('appUpdate', { automatic: true }));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(pmLive.timer); pmLive.timer = null; } else if (pmLive.owner) void checkPmLive(); });
     $('appUpdateButton').addEventListener('click', () => run('appUpdate'));
     $('logoutButton').addEventListener('click', () => run('logout'));
     $('cancelUpdateButton').addEventListener('click', () => run('cancelUpdate'));
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));
+    $('pmOpenButton').addEventListener('click', () => {
+      const state = $('pmLivePanel').dataset.state;
+      run('open', { url: '/pm', title: 'PM 진행·오류 관제' });
+      $('pmLiveEvidence').textContent = state === 'live' ? 'PM 라이브 상태를 확인하고 PM 관제 화면을 열었습니다.' : 'PM 관제 화면을 열었습니다. 라이브 상태는 확인되지 않았습니다.';
+    });
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
     $('toolsButton').addEventListener('click', () => run('tools'));
     $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });

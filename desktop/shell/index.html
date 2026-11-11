@@ -71,6 +71,12 @@
             <span id="appUpdateStatus" role="status" aria-live="polite"></span>
             <details class="update-details"><summary>변경 내용</summary><strong id="appUpdateNotesHeading"></strong><ul id="appUpdateNotes" class="app-update-notes"></ul></details>
           </section>
+            <section id="pmLivePanel" class="pm-live-panel is-checking" aria-label="PM 라이브 상태 확인">
+              <div class="pm-live-heading"><strong>PM 라이브 확인</strong><span id="pmLiveBadge" class="pm-live-badge" role="status" aria-live="polite">확인 중</span></div>
+              <p id="pmLiveActivity" class="pm-live-activity">PM 상태를 확인하고 있습니다.</p>
+              <small id="pmLiveEvidence" class="pm-live-evidence">최근 수신 시각 확인 중</small>
+              <button id="pmOpenButton" class="pm-open-button" type="button">PM 진행·오류 관제 열기</button>
+            </section>
           <div class="search-wrap">
             <label for="menuSearch">업무 화면 찾기</label>
             <div class="search-box"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" placeholder="메뉴 이름 검색" autocomplete="off" spellcheck="false" aria-controls="menuGroups"></div>
