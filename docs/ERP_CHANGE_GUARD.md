@@ -1208,5 +1208,7 @@ ZIP 차수명은 귀속 권위가 아니다. 활성 동일연도 exact AWB의 �
 중복, 문서/집계 파일 손상, 잘못된 연도, 선택 제외건 등록, callback 부분실패를 회귀로
 차단한다. 계약 profit-customs-settlement-zip 및 customsSettlement/Registration 테스트.
 
+## 2026-11-11 입고 원장 수입부 권한 누락
+warehouse API가 부서명만 검사해 DeptName이 비어 있는 Authority4/7 수입부 계정을 거부했다. 기존 canManageInvoiceReceipt 공통 검사를 POST/PATCH/DELETE에 적용한다. SQL·확정차수 차단·선택 PK의 연도/차수 재계산은 보존. warehouseAccess.test.cjs에서 활성 수입/관리자, 타부서·비활성·identity누락 DB0, 동일44-01 양연도, 확정차수409를 실제 handler와 주입 DB로 검사한다. 운영 원장 삭제 시험 없음.
 ## 2026-11-11 출고 메인차수 공통 표시축
 고객별 실재 차수만 표시하던 화면을 전체 동일연도·메인차수 subweek Set으로 정정했다. 다른 고객/품목의01/03과 고객-only02 fixture로 선택01/02/03 어디서나 공통행과0을 확인한다. 부재0/실재0 모두 readonly, unknown을0으로 바꾸지 않는다. 기존 actual model과 selected-only canonical 날짜저장 유지. 수량·매출·견적·재고 SQL/API 변경0. 계약 shipment-major-inline-dates 및 계획 distribution-major-layout-2026-11-11 참조.

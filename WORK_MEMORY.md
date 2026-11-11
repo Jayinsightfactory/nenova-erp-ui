@@ -2567,6 +2567,12 @@
 - 최종로컬:전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기0API/layout/workflow11업무12영상/webpack PASS. 실제생성XLSX Artifact렌더 카네이션/돈셀·기존스타일·3박스11500원·합계 확인. PC1920/390 실제Chrome 저장/복원/엑셀/묶음/즐겨찾기/키보드/가이드player PASS. UI/업무순서/영상화면변경0이어서 가이드재촬영해당없음. PR/운영배포미검증,후속.
 검색어: 샘플표기 최종25검사 카네이션 돈셀 원장변경0
 
+## 2026-11-11 입고관리 원장삭제 수입부 권한 복구
+- 최신 origin/master 별도 작업트리. warehouse POST/PATCH/DELETE의 부서명 정규식 판정을 기존 canManageInvoiceReceipt로 통일. 부서명 빈값의 Authority4/7을 허용하고 identity누락·비활성·타부서는 DB 접근 전 차단. SQL/삭제/재고계산/확정차수 정책 변경0.
+- 실제 dnSpy FormWarehouseView.btnDelete_Click 및 운영 SELECT-only 확인. 활성 권한4 계정4개 모두 DeptName 빈값, 2025/2026 동일44-01 원장54/50건. 계정정보 저장0, 운영 삭제0.
+- 신규 실제handler 회귀5개(양연도/권한/확정409/POST·PATCH), 기존 수입권한10개, ERP전체 pre/core/post, dnSpy, manifest, 쓰기guard 통과. 빌드/PR/CI/운영배포·로그인 후 브라우저는 이 기록시점 미검증, 후속 확인.
+검색어: 입고관리 원장삭제 수입부 권한4 권한7 DeptName 빈값 canManageInvoiceReceipt warehouseAccess
+- 추가검증: 로컬 npm build(webpack,1worker) exit0. 빌드 생성 이력파일은 변경 범위에서 제외. PR/CI/운영배포 후속.
 ## 2026-11-11 도착원가 수식 연결·과거 시트 보존
 - 비교 계산표 고정 수량/상품금액을 원본 입력에 연결, SUMPRODUCT 합계/TH 그룹수량/중량·운임 참조, 추정 통관비 원본수식+초기차이 분리. 승인 스냅샷·실제 청구 합계는 보존.
 - Excel COM 전용·매크로차단·링크갱신0: 11양식 수량/단가/환율→원가/총판매가/총이익 변경 PASS, 수식오류0. 실제 NL원본61탭+현재3탭=64 Excel 열기/재계산 PASS. 원본 덮어쓰기0.
