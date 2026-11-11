@@ -31,6 +31,8 @@ test('private archive is idempotent and separates user/year/country scope',async
   const a=await run();assert.deepEqual(await run(),a);
   f.document.orderWeek='44-01';const next=await createInvoiceCostWorkbook(f);
   const b=await preserveCostHistory({bytes:next,context:f,user,root});assert.equal(XLSX.read(b).SheetNames.length,6);
+  const earlier=await run();assert.equal(XLSX.read(earlier).SheetNames.length,6);
+  const earlierZip=await JSZip.loadAsync(earlier);assert.match(await earlierZip.file('xl/workbook.xml').async('string'),/activeTab="2"/,'redownloading an old calculation selects it without duplicating sheets');
   assert.equal(XLSX.read(await run(f,{userId:'other'})).SheetNames.length,3);
   f.document.orderYear='2025';assert.equal(XLSX.read(await run()).SheetNames.length,3);
  }finally{await fs.rm(root,{recursive:true,force:true});}
