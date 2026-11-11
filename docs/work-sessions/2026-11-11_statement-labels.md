@@ -21,3 +21,8 @@
 ## 후속
 CI·Cafe24 배포·운영 read-only 화면 확인. 최종 완료 여부는 WORK_MEMORY 최종 기록.
 비공개 .verify/실험파일/원본 XLSX는 커밋하지 않음. UI·작업순서·가이드에 보이는 화면 변경이 없어 영상 재촬영 해당 없음.
+
+### 2. 출고일 빨간 글씨
+**Q.** 출고일 빨간 글씨가 적용되지 않는 것 같다.
+**A.** 샘플 rich-text XML에서 날짜·요일만 FFFF0000임을 확인. 기존 writer의 부분글자색 누락 최소재현 후 제목셀만 native OOXML rich-text로 보존. 업체명검정/날짜요일빨강. 다른셀/스타일/수량/단가/날짜값 보존.
+**검증.** 26대상 회귀·모든요일/옆표·XML escape·중복ZIP경로0·비제목셀과다른OOXML내용불변. 실제 Microsoft Excel hidden/readOnly test파일에서 업체명Font.Color0,날짜255(red) 확인,Excel PDF를직접열어빨강확인. 원본샘플·운영DB·사용자Excel세션조작/저장0.

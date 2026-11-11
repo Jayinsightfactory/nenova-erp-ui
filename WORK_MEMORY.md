@@ -2574,3 +2574,6 @@
 - 탭 선택 상태만 해제해 과거·현재 그룹편집 방지(SelectedSheets=1). 셀 데이터/수식/서식은 보존, 이전 차수 재다운로드는 중복 시트 없이 해당 계산 탭 선택.
 - ERP전체/dnSpy/manifest213/쓰기guard4API/webpack1worker빌드 PASS. 신규 UI 단계 없음/기존 가이드 유지. CI·배포는 PR 실행 결과 확인. 운영 DB·유료AI 쓰기0. 세부기록 docs/work-sessions/2026-11-11_cost-links-history.md.
 검색어: cost-links-history ExcelCOM 11양식 과거61탭 SUMPRODUCT TH G15 F15 private-history
+
+- 추가사용자요청: 출고일빨간글씨누락. 샘플날짜·요일부분rich-text FFFF0000 확인, 기존writer누락을제목셀OOXML한정처리로보완. nativeExcel readOnly Font.Color 접두사0/날짜255 및nativePDF실프레임PASS. 26대상회귀+전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기guard/workflow/webpack PASS. 최신5505f31da의무관한도착원가변경병합,최종CI·운영배포미검증후속. 원본명/수량/단가/날짜값/저장본/ERP변경0.
+검색어: 빨간출고일 rich-text FFFF0000 CFB NativeExcel26 카네이션 돈셀
