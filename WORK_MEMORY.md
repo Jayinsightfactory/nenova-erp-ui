@@ -2603,3 +2603,9 @@
 - GitHub PR/CI·master 병합과 installer release/사용자 PC 설치는 미검증. ERP 웹·운영 DB·업무 메뉴는 변경하지 않음.
 - 세부 Q&A: docs/work-sessions/2026-11-11_pm-home-live-highlight.md
 검색어: pm-home-live-highlight PM 라이브 heartbeat pm-office 빨간박스 desktop smoke
+## 2026-11-11 출고분배 농장정보 업체검색
+- 농장정보 탭의 선택 품목 업체 분배표 제목 옆에 업체명 필터를 추가. 기존 검색 normalizer 사용, 현재 품목 조회 행만 표시 필터, 1/2개수 안내. 검색은 ERP 조회/원장/선택/초안/합계 변경 없음.
+- 실제 설치 Nenova.exe dnSpy FormShipmentDistribution/FormEstimateView 재추출 성공: 양쪽 탭은 같은 DistributionDateEditor/API 경로. 날짜 저장은 ShipmentDate의 날짜별 배분 및 대표 ShipmentDetail.ShipmentDtm 갱신; 견적 인쇄/Excel은 DetailFix=1, 양수 EstQuantity, 정확 ShipmentDate.ShipmentDtm=PeriodDay.BaseYmd에서 날짜 표시/수량 반영. 총수량/견적수량/총매출/Amount/Vat 합계 및 Estimate 원장행 보존. 확정/정확달력 조건 미충족 건은 견적에서 제외될 수 있음.
+- 회귀 browser 검색 1/2행·48.00 총합 보존, date-index/Date SQL isolated suite PASS. ERP 계약/dnSpy/manifest213/writeguard0API/webpack build PASS. 합성 API 가이드 184.9초/6단계/1920×1080 재녹화, first-middle-last frame, Chrome MP4+VTT+목차+모바일 player PASS. 운영 DB 쓰기0.
+- PR/CI/Cafe24/운영 브라우저 스모크 최종 결과는 배포 후 후속 기록.
+검색어: farm-customer-search 농장정보 업체검색 DistributionDateEditor ShipmentDate GetPrintDetail GetExcelDetail PeriodDay
