@@ -16,3 +16,12 @@ test('favorite-first ordering stays inside selected manager and current-year/wee
 test('zero, empty favorite list and stale manager remain explicit, no invented current customer',()=>{
  const c=[{CustKey:8,CustName:'B',Manager:'A'},{CustKey:7,CustName:'A',Manager:'A'}];assert.deepEqual(s.visibleCustomers(c,'','',new Map()).map(c=>c.CustKey),[7,8]);assert.deepEqual(s.visibleCustomers(c,'removed','',new Map()),[]);
 });
+test('drag ranges accumulate into earlier selections across filtered country-flower views',()=>{
+ const rows=[{id:'n1',category:'NL',name:'문라이트',country:'네덜란드',flower:'튤립'},{id:'n2',category:'NL',name:'스위트',country:'네덜란드',flower:'튤립'},{id:'c1',category:'CO',name:'돈셀',country:'콜롬비아',flower:'카네이션'},{id:'c2',category:'CO',name:'코랄',country:'콜롬비아',flower:'카네이션'}];
+ const first=s.visibleRows(rows,['NL'],'');assert.deepEqual(s.mergeRangeSelection(first,0,1,[]),['n1','n2']);
+ const next=s.visibleRows(rows,s.toggleCategoryFilter(['NL'],'CO'),'');
+ assert.deepEqual(next.map(r=>r.id),['n1','n2','c1','c2']);
+ const accumulated=s.mergeRangeSelection(s.visibleRows(rows,['CO'],''),0,1,['n1','n2']);assert.deepEqual(accumulated,['n1','n2','c1','c2']);
+ assert.deepEqual(s.visibleRows(rows,['NL'],'돈셀').map(r=>r.id),[]);
+ assert.deepEqual(s.toggleCategoryFilter(['NL'],'CO'),['NL','CO']);assert.deepEqual(s.toggleCategoryFilter(['NL','CO'],'NL'),['CO']);
+});
