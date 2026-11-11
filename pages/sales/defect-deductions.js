@@ -1,3 +1,4 @@
+import { incomingDefectPrintNote } from '../../lib/incomingDefectPrintNote.js';
 import { manualHoldDescriptor, canSelectSupportDisposition } from '../../lib/defectManualHold.js';
 import DefectCostLookup from '../../components/DefectCostLookup';
 import { defectSourcePeriodLabel, isDefectRegistrationHeld } from '../../lib/defectResolution.js';
@@ -2180,17 +2181,17 @@ export default function SalesDefectDeductionsPage() {
           <div className="print-title">{year}년 ( {week} )차 차감 내역</div>
             <table className="print-approval"><tbody><tr><th>담당자</th><th>차장</th><th>이사</th></tr><tr><td>{activeTab === 'incoming' ? '수입부' : (currentUser?.userName || '')}</td><td></td><td></td></tr></tbody></table>
         </div>
-        <table className="print-table">
-          <colgroup><col className="customer-col" /><col className="product-col" /><col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
-          <thead><tr><th>거래처</th><th>품종</th><th>품명</th><th>차감수량</th><th>크레딧(수입부)</th><th>농장</th><th>비고</th></tr></thead>
+        <table className={`print-table ${activeTab === 'incoming' ? 'incoming-print' : ''}`}>
+          <colgroup><col className="customer-col" />{activeTab !== 'incoming' && <col className="product-col" />}<col className="color-col" /><col className="quantity-col" /><col className="credit-col" /><col className="farm-col" /><col className="note-col" /></colgroup>
+          <thead><tr><th>거래처</th>{activeTab !== 'incoming' && <th>품종</th>}<th>품명</th><th>차감수량</th><th aria-label="크레딧(수입부)">{activeTab === 'incoming' ? '✓' : '크레딧(수입부)'}</th><th>농장</th><th>비고</th></tr></thead>
           <tbody>{printRows.map((row, index) => <tr key={`print-${index}`}>
             <td>{row?.customerName || ''}</td>
-            <td>{row?.productName || ''}</td>
+            {activeTab !== 'incoming' && <td>{row?.productName || ''}</td>}
             <td>{row?.colorName || ''}</td>
             <td>{printQuantity(row)}</td>
             <td>{row?.creditApplied ? '✓' : ''}</td>
             <td>{row?.farmName || ''}</td>
-            <td>{row?.note || ''}</td>
+            <td>{activeTab === 'incoming' ? incomingDefectPrintNote(row?.note) : row?.note || ''}</td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -2431,6 +2432,12 @@ export default function SalesDefectDeductionsPage() {
         .print-approval tr:last-child td { border-bottom: 0; }
         .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
         .print-table th, .print-table td { border: 1px solid #111; padding: 3px 5px; height: 23px; vertical-align: middle; overflow: hidden; white-space: nowrap; }
+        .incoming-print td { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; height: auto; }
+        .incoming-print tr { break-inside: avoid; }
+        .incoming-print .customer-col { width: 16%; } .incoming-print .color-col { width: 34%; }
+        .incoming-print .quantity-col { width: 10%; } .incoming-print .credit-col { width: 4%; }
+        .incoming-print .farm-col { width: 20%; } .incoming-print .note-col { width: 16%; }
+        .incoming-print td:nth-child(4), .incoming-print th:nth-child(4) { padding-inline: 1px; text-align: center; }
         .print-table th { background: #c69700; font-weight: 700; text-align: center; }
         .print-table td:nth-child(4), .print-table td:nth-child(5) { text-align: center; }
         .customer-col { width: 19%; } .product-col { width: 20%; } .color-col { width: 17%; }
