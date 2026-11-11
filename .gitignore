@@ -126,3 +126,4 @@ scripts/bank-quick/_probe/
 
 /data/arrival-upload-review/
 /.probe.cjs
+/data/cost-workbook-history/
