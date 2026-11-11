@@ -19,6 +19,9 @@ test('past worksheet XML remains exact and new references target renamed calcula
  const formula=book.Sheets['44-01 원본 양식 계산'].M15.f;assert.ok(formula);
  assert.match(book.Sheets['44-01 원본수식 비교'].B4.f,/44-01 원본 양식 계산/);
  assert.ok(book.Sheets['원본 양식 계산'].F15);
+ const oldStyles=await old.file('xl/styles.xml').async('string'),offset=Number(oldStyles.match(/<cellXfs count="(\d+)"/)[1]);
+ const oldSheet=await old.file('xl/worksheets/sheet3.xml').async('string'),newSheet=await zip.file('xl/worksheets/cost-history-6.xml').async('string');
+ for(const match of oldSheet.matchAll(/<col\b[^>]*\bstyle="(\d+)"/g))assert.ok(newSheet.includes(`style="${Number(match[1])+offset}"`));
 });
 test('private archive is idempotent and separates user/year/country scope',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'cost-history-'));
