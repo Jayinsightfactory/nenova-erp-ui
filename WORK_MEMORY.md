@@ -2581,6 +2581,11 @@
 - ERP전체/dnSpy/manifest213/쓰기guard4API/webpack1worker빌드 PASS. 신규 UI 단계 없음/기존 가이드 유지. CI·배포는 PR 실행 결과 확인. 운영 DB·유료AI 쓰기0. 세부기록 docs/work-sessions/2026-11-11_cost-links-history.md.
 검색어: cost-links-history ExcelCOM 11양식 과거61탭 SUMPRODUCT TH G15 F15 private-history
 
+## 2026-11-11 물량표 DB 품목 왕복·실파일 인쇄
+- 사용자 실파일 두 개에서 fileBasedScope 품목 미매칭 재현(장미11표기, 카네이션MixBox). exporter volumeProdLabel 정확 표시명 인덱스로 수정, 실DB SELECT preview 품목미매칭0/수동품목선택0. 국가/품종·숫자길이·Mini/MC/Elite·중복검토·명시키 검증 보존. 교차연도 회귀 통과.
+- 웹 실제 카네이션 다운로드 Excel COM ReadOnly 출력: 원본/적용본 A3세로1쪽·기존2009단어 좌표불변·빈상단메모만추가. 행열여백/그림XML 보존. 장미적용본/수정본재업로드/CI·배포는 진행중 미검증. 운영ERP쓰기0. 세부 docs/work-sessions/2026-11-11_farm-roundtrip-proof.md.
+검색어: farm-roundtrip-proof DB품목미매칭 volumeProdLabel Brighton50 MixBox Mini MC Elite ExcelCOM 실제인쇄
+- 후속 실파일검증: 수량4→5만 바꾸면 농장합계차단, 농장5동기수정·업체꽃길→알파는 통과/재다운로드 메모중복0. 수정본ExcelCOM도 A3세로1쪽·의도수정외 위치불변. DB실농장 엘리떼/티바/바리에타 정확표기 변형보완,17회귀PASS. 품목기준전체게이트PASS,최종별칭포함전체/CI재실행.
 - 추가사용자요청: 출고일빨간글씨누락. 샘플날짜·요일부분rich-text FFFF0000 확인, 기존writer누락을제목셀OOXML한정처리로보완. nativeExcel readOnly Font.Color 접두사0/날짜255 및nativePDF실프레임PASS. 26대상회귀+전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기guard/workflow/webpack PASS. 최신5505f31da의무관한도착원가변경병합,최종CI·운영배포미검증후속. 원본명/수량/단가/날짜값/저장본/ERP변경0.
 검색어: 빨간출고일 rich-text FFFF0000 CFB NativeExcel26 카네이션 돈셀
 ## 2026-11-11 출고분배 메인차수 공통 행 정정
@@ -2588,3 +2593,5 @@
 - dnSpy설치EXE재추출·수국운영SELECT선확인. helper6,실제Chrome선택01/02/03×다른업체/품목·부재/실재0·공통머리글·1920/390·Tab/Enter·selected-only저장PASS. 격리MSSQL date-index/writer·견적15단/gross172500/ECOUNT XLSX·원장보존PASS. 전체ERP/dnSpy/manifest213/writeguard0API/finalnpmwebpack1worker PASS. SSRfixture새import/Header연결누락보완후전체재실행exit0.
 - 가이드176.7초/6단계/24조작,첫·중간·끝5프레임/최종player실재생·한국어VTT·목차/다운로드2/1920·390 PASS. 최신master491669ca 병합(별도불량차감인쇄6파일,출고소스불변); PR CI가병합상태재검증. PR·Cafe24·운영브라우저는이기록시점미검증,후속기록.
 검색어: majorInlineWeekScope commonWeeks 45-02만표시 공통01 02 03 표시전용0 공통날짜머리글
+- 장미Excel실인쇄에서 기존텍스트상자6개가 빈첫행메모를 가리는 것을 발견해 원본drawing관계/앵커 점유범위를 피하도록 수정. 상대경로/반복내보내기/알수없는앵커 차단 회귀추가. 실제장미10단(마티나6+엘리떼4)→원본1076단어위치불변/A3세로1쪽·신규메모우측표시. 최종전체/CI재실행예정,운영쓰기0.
+- 최종18회귀/전체ERP/dnSpy/manifest/writeguard/1worker빌드exit0. 장미10→11합계차단·농장6+5/업체일신동기수정통과·메모중복0·수정본ExcelCOM1쪽 유지. PR1674 CI/배포/운영웹 최종검증 진행.
