@@ -145,3 +145,21 @@ test('reupload keeps farm annotations, quantity-zero clears them, modified quant
     if(quantity===40)assert.equal(p.rows[0].farmChanged,false);
   }
 });
+
+test('blank-looking drawing cells are reserved; relative relationships and repeated exports preserve textboxes',async()=>{
+  const w=new ExcelJS.Workbook();await w.xlsx.load(await sourceWorkbook());const sheet=w.worksheets[0];
+  sheet.getCell('A1').value=null;sheet.getCell('L4').value=0;sheet.getRow(1).height=141;
+  for(let c=1;c<=12;c++)sheet.getColumn(c).width=15;
+  const zip=await JSZip.loadAsync(Buffer.from(await w.xlsx.writeBuffer()));
+  const main='xl/worksheets/sheet1.xml';zip.file(main,(await zip.file(main).async('string')).replace('</worksheet>','<drawing r:id="farmDrawingTest"/></worksheet>'));
+  zip.file('xl/worksheets/_rels/sheet1.xml.rels','<Relationships><Relationship Id="farmDrawingTest" Target="../drawings/custom.xml"/></Relationships>');
+  const drawing='<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"><xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:row>0</xdr:row></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:row>0</xdr:row></xdr:to><xdr:sp/></xdr:twoCellAnchor></xdr:wsDr>';
+  zip.file('xl/drawings/custom.xml',drawing);const buffer=await zip.generateAsync({type:'nodebuffer'});
+  const row=baseRow();row.farmSource={customer:'라움',product:'퀵샌드',quantity:40,unit:'단',farms:[{name:'Elite',quantity:40}]};
+  const plan=await excel.planFarmWorkbook(buffer,[row]);assert.deepEqual(plan.errors,[]);assert.ok(plan.patches[0].blocks.length);
+  for(const block of plan.patches[0].blocks)assert.ok(XLSX.utils.decode_range(block.ref).s.c>5,block.ref);
+  const out=await excel.exportFarmWorkbook(buffer,plan),saved=await JSZip.loadAsync(out);assert.equal(await saved.file('xl/drawings/custom.xml').async('string'),drawing);
+  const next=await excel.planFarmWorkbook(out,[row]);assert.deepEqual(next.errors,[]);assert.deepEqual(next.patches[0].blocks.map(b=>b.ref),plan.patches[0].blocks.map(b=>b.ref));
+  zip.file('xl/drawings/custom.xml',drawing.replaceAll('twoCellAnchor','oneCellAnchor'));
+  const unsupported=await excel.planFarmWorkbook(await zip.generateAsync({type:'nodebuffer'}),[row]);assert.ok(unsupported.errors.length,'unknown anchoring never silently covered');
+});

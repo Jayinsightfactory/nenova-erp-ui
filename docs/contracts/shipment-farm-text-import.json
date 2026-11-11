@@ -86,5 +86,22 @@
       "selected year"
     ],
     "readOnly": true
+  },
+  "printLayout": {
+    "preserve": [
+      "row heights",
+      "column widths",
+      "page setup",
+      "margins",
+      "original drawing XML"
+    ],
+    "blankSpace": "reserve original drawing anchors before selecting free header cell spans",
+    "unknownAnchor": "block rather than overlap or resize",
+    "regressions": [
+      "relative drawing relationship",
+      "existing textbox reserved",
+      "repeated export stable",
+      "unknown anchor blocked"
+    ]
   }
 }
