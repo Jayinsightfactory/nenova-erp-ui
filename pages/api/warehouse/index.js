@@ -3,7 +3,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlWarehouseViewGetData } from '../../../lib/exeWarehouseViewSql.js';
-import { isAdminUser } from '../../../lib/userAccess.js';
+import { canManageInvoiceReceipt } from '../../../lib/invoiceReceiptAccess.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getWarehouse(req, res);
@@ -16,7 +16,7 @@ export default withAuth(async function handler(req, res) {
 async function patchFreight(req, res) {
   const { warehouseKey, gw, cw, rate, docFee } = req.body;
   if (!warehouseKey) return res.status(400).json({ success:false, error:'warehouseKey 필수' });
-  if (!canManageWarehouse(req.user)) {
+  if (!canManageInvoiceReceipt(req.user)) {
     return res.status(403).json({ success: false, code: 'WAREHOUSE_WRITE_FORBIDDEN', error: '입고 원장 수정은 관리자 또는 수입부 계정만 가능합니다.' });
   }
   try {
@@ -89,7 +89,7 @@ async function uploadWarehouse(req, res) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(inputDate || '')) || Number.isNaN(new Date(`${inputDate}T00:00:00`).getTime())) {
     return res.status(400).json({ success: false, code: 'WAREHOUSE_INPUT_DATE_REQUIRED', error: '관세청 과세환율 기준이 되는 실제 입고·신고일자를 입력하세요.' });
   }
-  if (!canManageWarehouse(req.user)) {
+  if (!canManageInvoiceReceipt(req.user)) {
     return res.status(403).json({ success: false, code: 'WAREHOUSE_WRITE_FORBIDDEN', error: '입고 등록은 관리자 또는 수입부 계정만 가능합니다.' });
   }
 
@@ -206,7 +206,7 @@ async function deleteWarehouse(req, res) {
   if (!Number.isInteger(Number(warehouseKey)) || Number(warehouseKey) <= 0) {
     return res.status(400).json({ success: false, error: 'warehouseKey 필수' });
   }
-  if (!canManageWarehouse(req.user)) {
+  if (!canManageInvoiceReceipt(req.user)) {
     return res.status(403).json({ success: false, code: 'WAREHOUSE_WRITE_FORBIDDEN', error: '입고 원장 삭제는 관리자 또는 수입부 계정만 가능합니다.' });
   }
   try {
@@ -238,10 +238,6 @@ async function deleteWarehouse(req, res) {
   } catch (err) {
     return res.status(err.code === 'WAREHOUSE_WEEK_FIXED' ? 409 : 500).json({ success: false, code: err.code, error: err.message });
   }
-}
-
-function canManageWarehouse(user) {
-  return isAdminUser(user) || /수입/.test(String(user?.deptName ?? user?.DeptName ?? ''));
 }
 
 async function assertWarehouseWeekEditable(tQuery, orderYear, orderWeek, countryFlowers = null, warehouseKey = null) {
