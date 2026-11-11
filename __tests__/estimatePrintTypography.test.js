@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import {
   buildEstimateHtml,
   formatExePrintDate,
+  formatBoxQuantityLabel,
   numToKorean,
 } from '../lib/estimatePrintHtml.js';
 import { prepareEstimatePrintRows } from '../lib/estimatePrintPrepare.js';
@@ -46,12 +47,12 @@ test('weekday native layout has ReportEstimate metric geometry and independent f
   assert.equal(cssRule(native,'.native-estimate .native-amount').top,'79.5mm');
   assert.equal(cssRule(native,'.native-estimate .item-table')['table-layout'],'fixed');
   assert.equal(cssRule(native,'.native-estimate .item-table').width,'180mm');
-  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').height,'4.8mm');
-  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').padding,'0 1mm 0 .5mm !important');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').height,'auto');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td').padding,'.35mm 1mm !important');
   const columns=[...native.match(/<table class="item-table">([\s\S]*?)<thead>/)[1].matchAll(/width:([\d.]+)%/g)].map(match=>Number(match[1]));
   assert.deepEqual(columns,[10.588235,58.235287,17,15.823528,23.294115,21.176469,33.882366].map(width=>width/180*100));
   assert.ok(Math.abs(columns.reduce((sum,value)=>sum+value,0)-100)<.00001,'native weight ratios use the table inner area, avoiding collapsed border expansion');
-  assert.equal(cssRule(native,'.native-estimate .item-table tbody td:nth-child(3)')['white-space'],'normal');
+  assert.equal(cssRule(native,'.native-estimate .item-table tbody td:nth-child(3)')['white-space'],'nowrap');
   const longQuantity={...rows[0],UnitQuantity:'6900송이(230)<script>x</script>'};
   const wrapping=build({nativeLayout:true,rows:[longQuantity]});
   assert.match(wrapping,/6900송이<wbr>\(230\)&lt;script&gt;x&lt;\/script&gt;/,'only trusted break markup is inserted after escaping the quantity');
@@ -146,6 +147,19 @@ test('EXE row order, separate prices, seven columns, totals and deduction option
   assert.ok(withZero.includes(`(￦ ${formatNumber(223000)}원)`));
 });
 
+test('box label appears only for whole boxes above one and document totals appear once',()=>{
+  assert.equal(formatBoxQuantityLabel(30,'송이',0,30),'');
+  assert.equal(formatBoxQuantityLabel(60,'송이',0,30),'2');
+  assert.equal(formatBoxQuantityLabel(75,'송이',0,30),'');
+  assert.equal(formatBoxQuantityLabel(50,'단',50,0),'' );
+  assert.equal(formatBoxQuantityLabel(250,'단',50,0),'5');
+  const boxed=build({rows:[{...rows[0],Quantity:250,Unit:'단',UnitQuantity:'250단',BunchesPerBox:50}]});
+  assert.match(boxed,/250단\(5\)/);
+  const html=build();
+  assert.equal((html.match(/class="foot-row"/g)||[]).length,1,'estimate document total is emitted once after all item pages');
+  assert.match(html,/class="web-document-total"/);
+});
+
 test('all formats keep existing amount preparation without mutating input or options', () => {
   const before = structuredClone(fixture);
   for (const printFormat of ['estimate', 'supply', 'statement']) {
@@ -168,7 +182,8 @@ test('empty and omitted rows render valid zero totals without a dummy item', () 
       assert.equal(itemLines(html).length, 0);
       assert.match(html, /금 액 : 영원 정/);
       assert.ok(html.includes('(￦ 0원'));
-      assert.match(html, /<thead>[\s\S]*<tfoot>/);
+      if (printFormat === 'statement') assert.match(html, /<thead>[\s\S]*<tfoot>/);
+      else assert.match(html, /<thead>[\s\S]*<\/table>\s*<table class="web-document-total">/);
       assert.match(html, /<\/body><\/html>$/);
     }
   }

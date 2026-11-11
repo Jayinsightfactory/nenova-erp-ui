@@ -104,6 +104,15 @@ body {
 
 /* ── 품목명 폭 제한 ── */
 .tbl td.prod-name, .tbl .prod-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.estimate-split-panel { grid-template-columns:minmax(320px,30%) minmax(0,70%); align-items:start; }
+.estimate-item-scroll { max-height:calc(100vh - 230px); border-top:1px solid var(--border); }
+.estimate-item-table { min-width:1140px; table-layout:fixed; }
+.estimate-item-table thead { position:sticky; top:0; z-index:12; }
+.estimate-item-table thead th { position:sticky; top:0; background:#edf3fa; box-shadow:0 1px 0 var(--border); }
+.estimate-item-table tbody td:nth-child(2) { min-width:220px; white-space:normal; overflow-wrap:anywhere; }
+.estimate-item-table tbody td:last-child { min-width:100px; white-space:normal; }
+.estimate-item-table tfoot { position:sticky; bottom:0; z-index:11; background:#edf3fa; }
+@media(max-width:1100px){.estimate-split-panel{grid-template-columns:1fr}.estimate-item-scroll{max-height:65vh}}
 /* Pivot 통계 — 고정 레이아웃 + 말줄임 + 가로 스크롤 (열 합계 > 화면) */
 .pivot-table-scroll {
   flex: 1;

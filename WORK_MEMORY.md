@@ -2609,3 +2609,8 @@
 - 회귀 browser 검색 1/2행·48.00 총합 보존, date-index/Date SQL isolated suite PASS. ERP 계약/dnSpy/manifest213/writeguard0API/webpack build PASS. 합성 API 가이드 184.9초/6단계/1920×1080 재녹화, first-middle-last frame, Chrome MP4+VTT+목차+모바일 player PASS. 운영 DB 쓰기0.
 - PR/CI/Cafe24/운영 브라우저 스모크 최종 결과는 배포 후 후속 기록.
 검색어: farm-customer-search 농장정보 업체검색 DistributionDateEditor ShipmentDate GetPrintDetail GetExcelDetail PeriodDay
+## 2026-11-11 견적서관리 품목·비고·인쇄 정정
+- 품목 열을 넓히고 표 가로 스크롤 및 수량/단가/공급가액/비고 헤더 고정. 비고 셀은 버튼으로 기존 품목 수정창을 열어 기존 EXE 호환 저장 경로를 사용한다. 1박스 초과 정수 환산만 `250단(5)`/`60송이(2)`로 화면·견적 인쇄에 표시하며, 1박스 이하·소수 박스는 생략.
+- dnSpy FormEstimateView/ReportEstimate 재추출: ReportEstimate의 합계는 최종 GroupFooter이며 웹 기본 견적서는 표 중간 tfoot을 제거하고 마지막 문서 합계 한 번만 출력. native 인쇄의 품목/적요 줄바꿈 및 자동행높이·반복 thead로 2~3쪽 상단 품목 잘림을 보완.
+- 추가 견적관리 가이드 23.1초 및 출고일 매출 기존 가이드 재녹화: 둘 다 fixture-only, 1920×1080/100%, 한국어 VTT·목차·재생 검증, ERP 쓰기0. 표적 print typography/contract, ERP contract, dnSpy evidence, manifest213, write guard, workflow guide, webpack build PASS. 운영 브라우저/CI/배포 미검증.
+검색어: estimate-management 비고수정 boxQuantity 마지막합계 ReportEstimate GroupFooter sticky header print-page
