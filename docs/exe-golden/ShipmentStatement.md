@@ -30,3 +30,6 @@ UI/preview/save/export는 lib/shipmentStatement.cjs의 동일 배분/검증 정�
 
 ## 2026-11-10 선택형 묶음·원본 서식
 FormShipmentDistribution 실제dnSpy 재실행 및 동일production reader SELECT:2025/2026 업체64/66·표본28/29·달력각7일. 2026/45는11-04수~11-10화,사용자화요일11-10확인과일치. 조회/SQL/ERPwriter변경0. 선택묶음과원본서식 기준·보존표는 plans/shipment-statement-template-2026-11-10.md. 원본XML정적서식만추출,실제과거업체/날짜/수량포함0.
+
+## 2026-11-11 샘플 엑셀 표기
+실제 EXE FormShipmentDistribution 재추출·동일reader 양연도SELECT(업체64/66·표본28/29) 및 Product 이름 SELECT 확인. Carnation CHINA / 돈셀 (Doncel) ↔ DisplayName 카네이션 CHINA / 돈셀 (DONCEL). 샘플 플로르 목 F3/G5, 알파 P22/Q24는 카네이션/돈셀. XLSX만 shipmentStatementLabels 순수규칙 적용, SQL/ERP/저장본·총량·단가·날짜·업무키·그룹순서 보존. 상세기준 plans/shipment-statement-labels-2026-11-11.md. UI/업무순서/영상노출 변경0.

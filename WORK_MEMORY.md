@@ -2558,8 +2558,14 @@
 - 추가사용자요청: 과거43-1/43-2/44-1 누적시트 보존 및 엑셀 내부입력 연쇄재계산. TH파일 환율연결정상/상품단가G15미전파/수량F15분모만변경 재현. 별도미완료로기록, 해결완료로보고금지.
 검색어: import-repair-release 수식부분끊김 누적과거시트 TH38 G15 F15 guide435 278
 
+## 2026-11-11 출고내역서 샘플 품목 표기
+- 사용자 샘플원본 실제셀 확인: 카네이션/돈셀, 실제Product 구조화분류/영문별칭 SELECT 근거후 엑셀 전용표시 helper 추가. 국가+품종 → 품종만, 분류/영문별칭 정리 → 돈셀. 원장·원본명·저장본·품목키·수량·단가·날짜·그룹변경0.
+- 25대상회귀PASS: 전체분류경계/China Girl·Sweet Rose/원래품목명중간단어/60cm·XL·색상·포장·unknown한글괄호보존/빈값방지/양연도저장본불변·XLSX재열기. 필수전체검사/빌드/PR/운영배포미검증,후속.
+검색어: 출고내역서 샘플표기 카네이션 돈셀 shipmentStatementLabels 영문별칭 Excel전용
 2026-11-11 수입부 확인 출력물의 품종 숨김, 품명·농장 폭과 줄바꿈 조정, 체크 칸 축소. 카톡 원문 일시만 표시, 소량 단독 메모 숨김. 45차 원문 형식 조회, Excel 실제 PDF 출력 검증.
 검색어: 수입부 확인 인쇄 품명 농장 카톡 원문시각 소량
+- 최종로컬:전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기0API/layout/workflow11업무12영상/webpack PASS. 실제생성XLSX Artifact렌더 카네이션/돈셀·기존스타일·3박스11500원·합계 확인. PC1920/390 실제Chrome 저장/복원/엑셀/묶음/즐겨찾기/키보드/가이드player PASS. UI/업무순서/영상화면변경0이어서 가이드재촬영해당없음. PR/운영배포미검증,후속.
+검색어: 샘플표기 최종25검사 카네이션 돈셀 원장변경0
 
 ## 2026-11-11 도착원가 수식 연결·과거 시트 보존
 - 비교 계산표 고정 수량/상품금액을 원본 입력에 연결, SUMPRODUCT 합계/TH 그룹수량/중량·운임 참조, 추정 통관비 원본수식+초기차이 분리. 승인 스냅샷·실제 청구 합계는 보존.
@@ -2569,6 +2575,8 @@
 - ERP전체/dnSpy/manifest213/쓰기guard4API/webpack1worker빌드 PASS. 신규 UI 단계 없음/기존 가이드 유지. CI·배포는 PR 실행 결과 확인. 운영 DB·유료AI 쓰기0. 세부기록 docs/work-sessions/2026-11-11_cost-links-history.md.
 검색어: cost-links-history ExcelCOM 11양식 과거61탭 SUMPRODUCT TH G15 F15 private-history
 
+- 추가사용자요청: 출고일빨간글씨누락. 샘플날짜·요일부분rich-text FFFF0000 확인, 기존writer누락을제목셀OOXML한정처리로보완. nativeExcel readOnly Font.Color 접두사0/날짜255 및nativePDF실프레임PASS. 26대상회귀+전체ERP(pre/core/post)exit0,dnSpy/manifest213/쓰기guard/workflow/webpack PASS. 최신5505f31da의무관한도착원가변경병합,최종CI·운영배포미검증후속. 원본명/수량/단가/날짜값/저장본/ERP변경0.
+검색어: 빨간출고일 rich-text FFFF0000 CFB NativeExcel26 카네이션 돈셀
 ## 2026-11-11 출고분배 메인차수 공통 행 정정
 - 업체/품목별 실재차수만 표시해02만 보이던 원인 정정. 같은연도·메인차수 전체majorDateFacts에서공통01/02/03축을공유,어느세부차수에서도동일행. 부재0은화면전용/실제0과구별/둘다편집0,실재선택양수만기존canonical날짜저장. 실제행만합계. 날짜머리글표열상단1회/빈비활성7입력제거. SQL/API/writer변경0/운영ERP·ECOUNT쓰기0.
 - dnSpy설치EXE재추출·수국운영SELECT선확인. helper6,실제Chrome선택01/02/03×다른업체/품목·부재/실재0·공통머리글·1920/390·Tab/Enter·selected-only저장PASS. 격리MSSQL date-index/writer·견적15단/gross172500/ECOUNT XLSX·원장보존PASS. 전체ERP/dnSpy/manifest213/writeguard0API/finalnpmwebpack1worker PASS. SSRfixture새import/Header연결누락보완후전체재실행exit0.
