@@ -2,6 +2,20 @@
   "id": "invoice-cost-export",
   "title": "서버 승인 원가의 국가별 원본 양식 출력과 내구성 단계 이력",
   "scope": [
+    "lib/invoiceCostWorkbookHistory.js",
+    "lib/invoiceCostHistoryStore.js",
+    "lib/invoiceCostHistoryService.js",
+    "lib/invoiceCostOriginalRestoration.js",
+    "lib/nativeCostHttp.js",
+    "lib/invoiceCostPreview.js",
+    "lib/invoiceSharedAwbApi.js",
+    "pages/api/import/receipts/shared-awb-cost.js",
+    "pages/api/import/receipts/native-cost.js",
+    "pages/api/import/receipts/invoice-cost.js",
+    "__tests__/invoiceCostWorkbookHistory.test.js",
+    "scripts/verify-cost-links-excel-fixtures.mjs",
+    "scripts/verify-cost-links-excel.ps1",
+    "scripts/verify-cost-history-excel.ps1",
     "lib/invoiceCostOriginalAustralia.js",
     "lib/auOriginalCostInputs.js",
     "lib/invoiceCostTemplates/australia-content.json",
@@ -86,6 +100,7 @@
     }
   ],
   "templateProfile": {
+    "historyPolicy": "2026-11-11: file-only private per-user/year/country/transport/currency/profile archive. Existing authorized hash-verified source workbook is preserved when visible in Work Drive; otherwise history starts with the first new export, never fabricates missing past sheets. Existing cell XML/formulas remain unchanged, except tabSelected view flags are cleared to prevent grouped edits. Generated sheets receive distinct names and remapped styles/references. No DB mutations or Drive download events. Atomic pointer plus exclusive lock; revoked seed access blocks reuse. Same content is idempotent, with requested historical tab selected. Historical approved snapshots stay fixed while calculation inputs propagate through costs/profits/totals.",
     "automaticReferenceSales": "2026-11-02 supersedes older blank-sale wording below for editable calculation sheet only: source-hash-bound 28 named reference inputs used only at exact name and quantity-factor match, otherwise original current-cost recommendation (/0.77, China SEA /0.85*1.1). All row/summary profit/sales caches and formulas populated. Reference provenance AE:AF, never actual sales, no ledger or immutable approved cost changes. See plans/cost-sales-defaults-2026-11-02.md.",
     "australiaOriginalContent": "AU adds default-active original-layout calculation with hash-bound 38-1 fixed labels/defaults/formulas; current validated quantities/prices/rates, all-row totals, editable missing GW, original customs or explicit aggregate override, guarded optional sales formulas. Historical reference sale prices labeled 38-1 and never applied automatically. Existing approved snapshot remains unchanged. UI preview-only source defaults are ESTIMATED; no operating DB writes. See docs/plans/au-template-restoration-1027.md.",
     "colombiaOriginalContent": "CO_42_1 adds and opens original-layout calculation sheet. Hash-bound labels/default coefficients preserved, current validated receipt/FX/freight bound. Historical products/amounts/sales not copied. Default customs is explicitly unapproved comparison and cannot alter persisted approval. Approved original-format snapshot and original-formula comparison remain unchanged. See docs/plans/colombia-template-content-preservation.md.",
@@ -166,7 +181,7 @@
   },
   "security": {
     "access": "withAuth plus active account and canManageInvoiceReceipt for logs/export",
-    "download": "strict read-only GET, private no-store XLSX with safe filename; no export log write; response is not browser disk-save proof",
+    "download": "DB-read-only GET/POST download, private no-store XLSX with safe filename; private file-only history archive is updated atomically, no export/Drive log or DB writes; response is not browser disk-save proof",
     "snapshot": "internal approved full snapshot only, never client editable projection; raw snapshot is not exposed in public response",
     "validation": "strict identifiers/current source/revision/operation/cost revision; fresh live receipt MATCH; no client amounts/formulas/paths; whitelisted stage fields/code"
   },
@@ -175,6 +190,8 @@
     "description": "2025/2026 same 41-02 remain isolated by document/source/revision/operation and WarehouseKey. Actual 41-2 28-line test is isolated only, not operational approval."
   },
   "requiredTestFiles": [
+    "__tests__/invoiceCostWorkbookHistory.test.js",
+    "__tests__/invoiceCostOriginalRestoration.test.js",
     "__tests__/invoiceReceiptStageLog.test.js",
     "__tests__/invoiceReceiptStageLogUi.test.js",
     "__tests__/invoiceReceiptCostExport.test.js",
