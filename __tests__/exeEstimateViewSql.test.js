@@ -64,6 +64,7 @@ async function main() {
   const getPrint = sqlEstimateGetPrintDetail({ orderYearWeek: '202626', custKey: 42, weekDayIn: '2,3' });
   assert('print WeekDay IN', getPrint.includes('pd.WeekDay IN (2,3)'));
   assert('GROUP BY ProdKey', getPrint.includes('GROUP BY vs.ProdKey'));
+  assert('print box rule fields', getPrint.includes('p.BunchOf1Box') && getPrint.includes('p.SteamOf1Box') && getPrint.includes('p.EstUnit AS Unit'));
 
   console.log('\n=== filterItemsByExeWeekDay ===');
   const sample = [

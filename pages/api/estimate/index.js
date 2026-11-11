@@ -100,8 +100,9 @@ async function loadExePrintDetailItems({ orderYearWeek, custKey, weekDayIn }) {
       GroupName: row.GroupName,
       UnitQuantity: row.UnitQuantity,
       Unit: row.Unit || '',
-      BunchesPerBox: row.BunchesPerBox,
-      SteamsPerBox: row.SteamsPerBox,
+      // Product의 실제 EXE 규격 열을 출력 전용 별칭으로 전달한다.
+      BunchesPerBox: row.BunchOf1Box,
+      SteamsPerBox: row.SteamOf1Box,
       RowNum: row.RowNum,
       _exeParity: true,
       _exePrint: true,

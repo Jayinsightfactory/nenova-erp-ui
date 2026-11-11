@@ -160,6 +160,24 @@ test('box label appears only for whole boxes above one and document totals appea
   assert.match(html,/class="web-document-total"/);
 });
 
+test('long estimate tables repeat their headers and never split an item across pages', () => {
+  const html = build({
+    rows: Array.from({ length: 92 }, (_, index) => ({
+      ...rows[0],
+      ProdKey: index + 1,
+      ProdName: `친구플라워 긴 품목명 ${index + 1} ${'규격 '.repeat(16)}`,
+      Descr: index === 43 ? '44번 행은 페이지 경계에서도 한 행 전체가 보여야 합니다.' : '',
+    })),
+  });
+  assert.equal(cssRule(html, '.item-table')['table-layout'], 'fixed');
+  assert.match(html, /\.item-table thead \{ display:table-header-group; \}/);
+  assert.match(html, /\.item-table tr \{ break-inside:avoid; page-break-inside:avoid; \}/);
+  assert.match(html, /\.item-table td, \.item-table th \{ break-inside:avoid; page-break-inside:avoid; \}/);
+  assert.match(html, /\.item-table tbody td:nth-child\(2\), \.item-table tbody td:last-child \{ white-space:normal; overflow-wrap:anywhere; word-break:break-word; \}/);
+  assert.ok(html.includes('친구플라워 긴 품목명 44'), '44번 품목이 출력 HTML에 보존된다.');
+  assert.ok(html.includes('친구플라워 긴 품목명 92'), '92번 품목이 출력 HTML에 보존된다.');
+});
+
 test('all formats keep existing amount preparation without mutating input or options', () => {
   const before = structuredClone(fixture);
   for (const printFormat of ['estimate', 'supply', 'statement']) {

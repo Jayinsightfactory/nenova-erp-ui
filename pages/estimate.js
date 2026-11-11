@@ -5163,6 +5163,12 @@ function EstimateByWeek() {
               ? <div className="skeleton" style={{height:200, margin:12}}></div>
               : (
                 <table className="tbl estimate-item-table">
+                  <colgroup>
+                    <col style={{width:42}} /><col style={{width:400}} /><col style={{width:55}} />
+                    <col style={{width:90}} /><col style={{width:110}} /><col style={{width:120}} />
+                    <col style={{width:85}} /><col style={{width:120}} /><col style={{width:110}} />
+                    <col style={{width:90}} /><col style={{width:150}} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th style={{width:42, minWidth:42, padding:'4px 2px', textAlign:'center'}}>
