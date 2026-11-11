@@ -1207,3 +1207,6 @@ ZIP 차수명은 귀속 권위가 아니다. 활성 동일연도 exact AWB의 �
 합산 입고의 다른 AWB는 통화·결제금액·GW 합계를 동시에 검증한다. 연도 전체 신고번호
 중복, 문서/집계 파일 손상, 잘못된 연도, 선택 제외건 등록, callback 부분실패를 회귀로
 차단한다. 계약 profit-customs-settlement-zip 및 customsSettlement/Registration 테스트.
+
+## 2026-11-11 출고 메인차수 공통 표시축
+고객별 실재 차수만 표시하던 화면을 전체 동일연도·메인차수 subweek Set으로 정정했다. 다른 고객/품목의01/03과 고객-only02 fixture로 선택01/02/03 어디서나 공통행과0을 확인한다. 부재0/실재0 모두 readonly, unknown을0으로 바꾸지 않는다. 기존 actual model과 selected-only canonical 날짜저장 유지. 수량·매출·견적·재고 SQL/API 변경0. 계약 shipment-major-inline-dates 및 계획 distribution-major-layout-2026-11-11 참조.
