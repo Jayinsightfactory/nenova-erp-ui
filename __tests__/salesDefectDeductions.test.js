@@ -491,8 +491,8 @@ assert.equal(formatSalesDefectExportRows([{
 }]).some((row) => String(row.customerName || '').startsWith('기존명:')), false, '엑셀 거래처 열에는 기존명을 별도 출력하지 않아야 한다.');
 
 const managerWorkbook = await buildSalesDefectWorkbook([
-  { customerName: '태림원예', customerAlias: '태림C대농장/월요일', originalCustomerName: '태림C대농장', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
-  { customerName: '업체B', managerName: '이담당', productName: '장미', countryName: '중국', colorName: 'B', quantity: 2, sourceUnit: '단' },
+  { customerName: '태림원예', customerAlias: '태림C대농장/월요일', note: 'kakao-defect:불량-TEST:1 / 원차수 44-1 / 원문 2026년 11월 2일 오전 9:10 / 자동수집', originalCustomerName: '태림C대농장', managerName: '김담당', productName: '카네이션', countryName: '콜롬비아', colorName: 'A', quantity: 1, sourceUnit: '단' },
+  { customerName: '업체B', note: '소량', managerName: '이담당', productName: '장미', countryName: '중국', colorName: 'B', quantity: 2, sourceUnit: '단' },
   { customerName: '업체C', managerName: '김담당', productName: '수국', countryName: '콜롬비아', colorName: 'C', quantity: 3, sourceUnit: '박스' },
 ], { year: 2026, week: 33, includeManagerSheets: true });
 const managerWb = new ExcelJS.Workbook();
@@ -503,6 +503,14 @@ assert.equal(managerWb.getWorksheet('김담당').getCell('B6').value, '태림원
 assert.equal(managerWb.getWorksheet('이담당').getCell('B6').value, '업체B');
 assert.equal(managerWb.getWorksheet('김담당').getCell('B7').value, null);
 assert.equal(managerWb.getWorksheet('김담당').pageSetup.printArea, 'B1:K44');
+
+for (const sheet of managerWb.worksheets) {
+  assert.equal(sheet.getColumn('D').hidden, true);
+  assert.equal(sheet.getColumn('E').hidden, true);
+  assert.ok(sheet.getColumn('I').width > sheet.getColumn('H').width);
+}
+assert.equal(managerWb.getWorksheet('전체품목').getCell('J6').value, '카톡 11월 2일 오전 9:10');
+assert.equal(managerWb.getWorksheet('이담당').getCell('J6').value, null);
 
 const manyCustomers = Array.from({ length: 22 }, (_, index) => ({
   customerName: `거래처${index + 1}`, managerName: '임재용', productName: '카네이션',
