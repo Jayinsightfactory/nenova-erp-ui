@@ -80,6 +80,7 @@ async function main(){
   const repaired=(await q(sqlEstimateGetExcelDetail({weekDayIn:'1,2,3,4,5,6,7'}),{orderYearWeek:{type:sql.NVarChar,value:'202546'},custKey:{type:sql.Int,value:533}})).recordset;
   assert.equal(repaired.length,1);assert.equal(Number(repaired[0].EstQuantity),100);assert.equal(Number(repaired[0].Amount),500000);assert.equal(Number(repaired[0].Vat),50000);
   await assert.rejects(()=>applyUsLegacyDateRepair(q,sql,plan),/COMPARE_AND_SET/,'repeat repair cannot overwrite priced fields');
+  if(process.argv.includes('--multi-save')){await pool.close();await require('./distribution-multi-save-fixture.cjs')(q,sql,{...config,database:name});}
   console.log('PASS legacy repair real SQL: NULL->native Excel, 100 invoice units, exact historical money, unchanged Detail/other-year, rollback and repeat-write guard');
   console.log('PASS real SQL: valid US product -> shared date/amount sync -> native ECOUNT export -> XLSX row; prior-year/no order/bad manager/deleted product/customer/order blocked; unfixed/zero estimate/off-time/full raw key excluded. Operational writes0.');
  }finally{

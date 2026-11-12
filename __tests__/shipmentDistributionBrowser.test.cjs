@@ -66,6 +66,11 @@ let orderPosts = 0;
       const request = route.request();
       const url = new URL(request.url());
       const type = url.searchParams.get('type');
+      if (url.pathname === '/api/kakao/order-feed') return reply(route, {ok:true,blocks:[
+        {msgId:'add',room:'연습방',sender:'연습',time:'10:00',text:'연습업체 수국 2박스 추가'},
+        {msgId:'cancel',room:'연습방',sender:'연습',time:'10:01',text:'연습업체 수국 1박스 취소'},
+        {msgId:'normal',room:'연습방',sender:'연습',time:'10:02',text:'일반 주문 수국 3박스'},
+      ]});
       if (url.pathname === '/api/master/customers' && request.method() === 'GET')
         return reply(route, { success: true, data: [{ CustKey: 478, CustName: 'Alpha Florist' }, { CustKey: 777, CustName: 'Nova No-Order', Manager: '김담당' }, { CustKey: 888, CustName: '(주)미카엘플라워', Manager: '박담당' }] });
       if (url.pathname === '/api/auth/me') return reply(route, { success: true, user: { userId } });
@@ -216,6 +221,10 @@ let orderPosts = 0;
 
     await page.goto(`${base}/shipment/distribute`, { waitUntil: 'domcontentloaded' });
     console.log('browser: loaded');
+    await page.getByRole('button',{name:'추가·취소 불러오기',exact:true}).click();
+    await page.getByText('연습업체 수국 2박스 추가',{exact:true}).waitFor();
+    await page.getByText('연습업체 수국 1박스 취소',{exact:true}).waitFor();
+    assert.equal(await page.getByText('일반 주문 수국 3박스',{exact:true}).count(),0,'only addition/cancellation source messages are shown');
     // 차수 입력칸에 직접 입력(오늘 날짜 기준 ±3 범위에 41차가 없는 날에도 동작) → 팝업 선택도 그대로 검증
     const weekInput = page.getByPlaceholder(/^\d{4}-\d{2}-\d{2}$|YYYY-WW-SS/).first();
     await weekInput.fill('2026-41-01');

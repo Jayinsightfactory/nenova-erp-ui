@@ -1,4 +1,5 @@
 import DistributionInlineDates, {DistributionInlineDatesHeader} from '../../components/shipment/DistributionInlineDates';
+import DistributionKakaoFeed from '../../components/shipment/DistributionKakaoFeed';
 import {majorInlineWeekScope} from '../../lib/shipmentMajorInlineDates.js';
 import DistributionProductTree from '../../components/shipment/DistributionProductTree';
 import DistributionDateFilter from '../../components/shipment/DistributionDateFilter';
@@ -1509,7 +1510,12 @@ export default function Distribute() {
       .page-area:has([data-testid=distribution-workspace]) {padding:3px !important;}
       [data-ui-shell=popup] > div:has(> [data-testid=distribution-workspace]) {padding:3px !important;}
       .distribution-customer-table th:nth-child(1){width:150px}.distribution-customer-table th:nth-child(2){width:64px}.distribution-customer-table th:nth-child(3){width:40px}
-      .distribution-customer-table th:nth-child(n+4):nth-child(-n+10){width:72px}
+      .distribution-customer-table th:nth-child(n+4):nth-child(-n+10){width:52px}
+      .distribution-customer-table > thead > tr > th,.distribution-customer-table > tbody > tr > td{padding:2px !important;}
+      .distribution-customer-table > tbody > tr > td:nth-child(n+4):nth-child(-n+10) input{width:50px !important;padding:0 2px !important;}
+      .distribution-with-kakao{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:4px}
+      .distribution-kakao-feed{padding:6px;border-left:1px solid var(--border);min-width:0;background:var(--surface)}
+      @media(max-width:1400px){.distribution-with-kakao{grid-template-columns:minmax(0,1fr)}.distribution-kakao-feed{border-top:1px solid var(--border);border-left:0}}
       @media (max-width: 900px) { .distribution-workspace-grid { grid-template-columns: minmax(0, 1fr) !important; } }`}</style>
       {/* 툴바 */}
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'4px 5px',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:0}}>
@@ -1992,7 +1998,7 @@ export default function Distribute() {
           {/* ── 오른쪽: 거래처 분배 정보 (품목기준) / 품목 목록 (업체기준) ── */}
           <div style={{minWidth:0}}>
             {viewMode === 'prod' && (
-              <>
+              <div className="distribution-with-kakao"><div style={{minWidth:0}}>
                 {/* 분배 컨트롤 */}
                 <div style={{padding:'8px 14px',background:'#F8FAFC',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
                   <span style={{fontSize:12,fontWeight:600,color:'var(--text2)'}}>분배방식</span>
@@ -2204,7 +2210,7 @@ export default function Distribute() {
                       </>
                     )}
                 </div>
-              </>
+              </div><DistributionKakaoFeed /></div>
             )}
 
             {/* 업체 기준 오른쪽: 해당 업체 주문 품목 */}
