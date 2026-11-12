@@ -13,6 +13,7 @@ const Page=load('pages/master/products.js',name=>{
  if(name.endsWith('/exportUtils'))return {};
  if(name.endsWith('/productMasterPolicy'))return policy;
  if(name.endsWith('/productCatalogFilter'))return filter;
+ if(name.endsWith('/WorkflowGuide'))return {__esModule:true,default:()=>null};
  if(/ProductCatalogPhoto|ProductBulkEditor|ProductInputHistory/.test(name))return {default:()=>null};
  return require(name);
 }).default;
