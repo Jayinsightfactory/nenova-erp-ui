@@ -142,6 +142,62 @@
       ]
     },
     {
+      "id": "packing-list-from-invoice",
+      "title": "패킹리스트 만들기(인보이스 → 입고용 엑셀)",
+      "entryPaths": [
+        "/import/tools",
+        "/work/manuals?manual=packing-list-from-invoice"
+      ],
+      "sourceFiles": [
+        "components/import-tools/PackingListTool.js"
+      ],
+      "requiredScenarios": [
+        "select",
+        "upload",
+        "verify",
+        "match",
+        "download"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "인보이스 올리기부터 합계 확인·내려받기까지",
+          "status": "ready",
+          "src": "/guides/packing-list-from-invoice/import.mp4",
+          "captions": "/guides/packing-list-from-invoice/import.ko.vtt",
+          "proof": "/guides/packing-list-from-invoice/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "select",
+              "title": "1. 나라 고르기",
+              "seconds": 0.013
+            },
+            {
+              "scenario": "upload",
+              "title": "2. 인보이스 PDF 올리기",
+              "seconds": 25.638
+            },
+            {
+              "scenario": "verify",
+              "title": "3. 읽힌 농장·인보이스 번호·수량·합계 확인",
+              "seconds": 58.675
+            },
+            {
+              "scenario": "match",
+              "title": "4. 미확인 품종을 전산 품목에 연결",
+              "seconds": 91.275
+            },
+            {
+              "scenario": "download",
+              "title": "5. 합계 확인하고 엑셀 내려받기",
+              "seconds": 188.105
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "profit-explicit-query",
       "title": "주차별 매출이익 명시 조회와 과거 금액 고정",
       "entryPaths": [
