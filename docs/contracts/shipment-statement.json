@@ -15,7 +15,8 @@
     "styles/ShipmentStatement.module.css",
     "config/shipment-statement-format.json",
     "lib/shipmentStatementLabels.cjs",
-    "lib/shipmentStatementRichTitle.cjs"
+    "lib/shipmentStatementRichTitle.cjs",
+    "lib/shipmentStatementLabelStore.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -52,6 +53,12 @@
       "webOnly": "Country-flower button filters can be combined; row selections accumulate across filter/search changes and drag ranges; domestic wax is labeled freight in display/export only; checkbox membership draft and immutable saved version export preserve source keys"
     },
     {
+      "name": "EDIT_EXCEL_ITEM_LABEL_MATCHING",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "Inline edit of the Excel item display name per ProdKey, stored in data/runtime/shipment-statement-labels/{ProdKey}.json (one file per product, atomic rename, empty value removes the match); applied to export/preview only; source rows, draft, sourceHash, immutable revisions and ERP are untouched"
+    },
+    {
       "name": "FORMAT_SAMPLE_EXCEL_LABELS_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -68,7 +75,8 @@
     "__tests__/shipmentStatementApi.test.cjs",
     "__tests__/shipmentStatementSelection.test.cjs",
     "__tests__/shipmentStatementGroups.test.cjs",
-    "__tests__/shipmentStatementLabels.test.cjs"
+    "__tests__/shipmentStatementLabels.test.cjs",
+    "__tests__/shipmentStatementLabelEdit.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

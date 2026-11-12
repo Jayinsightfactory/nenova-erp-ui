@@ -2614,3 +2614,10 @@
 - dnSpy FormEstimateView/ReportEstimate 재추출: ReportEstimate의 합계는 최종 GroupFooter이며 웹 기본 견적서는 표 중간 tfoot을 제거하고 마지막 문서 합계 한 번만 출력. native 인쇄의 품목/적요 줄바꿈 및 자동행높이·반복 thead로 2~3쪽 상단 품목 잘림을 보완.
 - 추가 견적관리 가이드 23.1초 및 출고일 매출 기존 가이드 재녹화: 둘 다 fixture-only, 1920×1080/100%, 한국어 VTT·목차·재생 검증, ERP 쓰기0. 표적 print typography/contract, ERP contract, dnSpy evidence, manifest213, write guard, workflow guide, webpack build PASS. 운영 브라우저/CI/배포 미검증.
 검색어: estimate-management 비고수정 boxQuantity 마지막합계 ReportEstimate GroupFooter sticky header print-page
+
+## 2026-11-12 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
+- 사용자요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지. 최신 origin/master 별도작업트리 feat/shipment-statement-item-label-edit, PR #1684.
+- 구현: ProdKey별 표시명 파일(data/runtime/shipment-statement-labels), POST /api/shipment/statement?action=label, 엑셀·미리보기에만 적용, 빈 값=자동명 복귀. ERP/작성본/sourceHash 변경0.
+- 검증: shipment-statement 단위 31 PASS(신규3), guard:erp-writes·dnspy-evidence·erp-contract-manifest(213)·test:ui-layout PASS. 계약 scope에 신규 파일 등록(처음 누락→manifest 실패→수정).
+- 미검증: 운영 화면 실조작, 전체 webpack build, 사용 가이드 영상 재촬영(표 입력칸 UI 변경 있음), 서버 배포의 data/runtime 보존.
+- 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
