@@ -2631,3 +2631,8 @@
 - 추가 검증: 정식 npm run build(영상 게이트 통과), 실Chrome 합성 fixture 1920/390(입력·유지·엑셀 반영·드래그), 가이드 6목차 재촬영·플레이어 재생 PASS.
 - 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
+
+## 2026-11-12 출고내역서 원본 변경 알림 개선
+- 저장 후 원본이 바뀌면 바뀐 항목(수량·단가·추가·삭제·품목정보·업체·달력)을 목록으로 알리고, 안 바뀐 품목의 요일 배분은 유지(lib/shipmentStatementChanges.cjs). 수량이 배분 합계보다 줄어든 품목만 배분 초기화. ERP 쓰기 없음.
+- 검증: 단위 37 PASS(신규 6), 실Chrome fixture·가이드 재촬영·플레이어 PASS, guard 3종·ui-layout PASS. 미검증: 운영 실데이터.
+- 검색어: 출고내역서 원본 변경 stale changes reconcile

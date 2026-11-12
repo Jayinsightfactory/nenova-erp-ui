@@ -1,6 +1,6 @@
 // Actual local page; all API calls intercepted with synthetic data, no ERP connection.
 const fs=require('node:fs'),assert=require('node:assert/strict'),puppeteer=require('puppeteer-core');
-const core=require('../lib/shipmentStatement.cjs'),{exportWorkbook}=require('../lib/shipmentStatementWorkbook.cjs');
+const core=require('../lib/shipmentStatement.cjs'),{exportWorkbook}=require('../lib/shipmentStatementWorkbook.cjs'),changes=require('../lib/shipmentStatementChanges.cjs');
 const {createNumberedStatementGuide}=require('./lib/shipment-statement-numbered-guide.cjs');
 async function main(){
  const base=process.env.GUIDE_BASE||'http://127.0.0.1:39461',record=process.argv.includes('--record');
@@ -26,7 +26,7 @@ async function main(){
     if(req.method()==='POST'&&u.searchParams.get('action')==='label'){labelCalls++;const b=JSON.parse(req.postData());if(b.label)labels[b.prodKey]=b.label;else delete labels[b.prodKey];return req.respond({status:200,contentType:'application/json',body:JSON.stringify({success:true,prodKey:b.prodKey,label:b.label})});}
     if(req.method()==='POST'){saveCalls++;const b=JSON.parse(req.postData());core.validatePlan(source.rows,b.draft);saved={source,draft:b.draft,version:(saved?.version??0)+1,sourceHash:'fixture',updatedAt:new Date().toISOString()};d={success:true,saved};}
     else if(u.searchParams.get('action')==='download'){downloads++;return req.respond({status:200,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',body:exportWorkbook(saved,labels)});}
-    else if(u.searchParams.get('custKey'))d={success:true,source,sourceHash:'fixture',version:saved?.version??0,saved,labels,stale:sourceChanged,draft:saved?.draft??{defaultDay:'일',groups:[],entries:{}}};
+    else if(u.searchParams.get('custKey')){const live=sourceChanged?{...source,rows:source.rows.map((r,i)=>i?r:{...r,qty:core.round(r.qty+2)})}:source,m=sourceChanged&&saved?changes.reconcile(saved,live):null;d={success:true,source:live,sourceHash:'fixture',version:saved?.version??0,saved,labels,stale:false,changes:m?.changes??[],draft:m?.draft??saved?.draft??{defaultDay:'일',groups:[],entries:{}}};}
     else d.customers=u.searchParams.get('week')==='45'?customers:[];
    }
    return req.respond({status:200,contentType:'application/json',body:JSON.stringify(d)});
@@ -76,9 +76,10 @@ async function main(){
   await actClick('[aria-label="콜롬비아 수국 묶음 선택"]');await actClick('[aria-label="콜롬비아 장미 묶음 선택"]');await click('선택한 품목군 묶음 해제');
   await actClick('[aria-label="콜롬비아 수국 묶음 선택"]');await actClick('[aria-label="콜롬비아 장미 묶음 선택"]');await click('선택한 품목군 묶기');
   assert.equal(await page.$$eval('[aria-label="출력 묶음 선택"] option',n=>n.length),2);
-  page.once('dialog',d=>d.accept());await click('다시 불러오기');await page.waitForFunction(()=>document.body.innerText.includes('저장본 v1'));
-  // Stale source cannot be saved; saved version remains downloadable.
-  sourceChanged=true;await click('다시 불러오기');await page.waitForFunction(()=>document.body.innerText.includes('저장 후 차수피벗 원본이 변경'));assert.equal(await page.$eval('button::-p-text(작성내용 저장)',n=>n.disabled),true);sourceChanged=false;
+  page.once('dialog',d=>d.accept().catch(()=>{}));await click('다시 불러오기');await page.waitForFunction(()=>document.body.innerText.includes('저장본 v1'));
+  // 저장 후 원본이 바뀌면 무엇이 바뀌었는지 알려 주고, 안 바뀐 품목의 배분은 유지하며, 그대로 저장할 수 있다.
+  sourceChanged=true;await click('다시 불러오기');await page.waitForFunction(()=>document.body.innerText.includes('저장 후 차수피벗 원본이 바뀐 곳 1건'));assert.equal(await page.$eval('button::-p-text(작성내용 저장)',n=>n.disabled),false);assert.ok((await page.$eval('[data-testid="source-changes"]',n=>n.innerText)).includes('분배수량'));assert.equal(await page.$$eval('tbody tr[class*="changed"]',n=>n.length),1);
+  page.once('dialog',d=>d.accept().catch(()=>{}));sourceChanged=false;await click('다시 불러오기');await page.waitForFunction(()=>document.body.innerText.includes('저장본 v1')&&!document.querySelector('[data-testid="source-changes"]'));
   await page.setViewport({width:390,height:844,deviceScaleFactor:1});await page.goto(base+'/shipment/statement?popup=1',{waitUntil:'networkidle0'});assert.equal(await page.$$eval('[data-ui-sidebar]',n=>n.length),0);assert.equal(await page.$$eval('[data-ui-popupbar]',n=>n.length),1);await actClick('[aria-label="45차 선택"]');await page.waitForSelector('[aria-label="연습지원 담당자 선택"]');await actClick('[aria-label="연습지원 담당자 선택"]');await page.waitForSelector('[aria-label="연습업체 즐겨찾기 해제"]');await actClick('[aria-label="연습업체 업체 선택"]');await page.waitForSelector('tbody tr');await actClick('[aria-label="콜롬비아 장미 보기"]');assert.equal(await page.$$eval('tbody tr',n=>n.length),2);await actClick('[aria-label="콜롬비아 수국 보기"]');assert.equal(await page.$$eval('tbody tr',n=>n.length),3);await page.click('summary::-p-text(품목 묶음 설정)');await page.waitForSelector('[aria-label="콜롬비아 수국 묶음 선택"]');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));await page.screenshot({path:'.verify/shipment-statement-mobile.png',fullPage:true});
   await actClick('[aria-label="46차 선택"]');await page.waitForFunction(()=>document.querySelector('[aria-label="메인차수"]').value==='46'&&document.body.innerText.includes('해당 담당자의 분배 업체가 없어'));assert.equal(await page.$$eval('[data-customer-key]',n=>n.length),0);
   favoriteOwner='other';await page.reload({waitUntil:'networkidle0'});await actClick('[aria-label="45차 선택"]');await page.waitForSelector('[aria-label="연습업체 즐겨찾기 추가"]');assert.equal(await page.$$eval('[aria-label="업체 선택"] button[aria-pressed="true"]',n=>n.length),0);
