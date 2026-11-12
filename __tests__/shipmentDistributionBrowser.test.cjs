@@ -35,6 +35,8 @@ test('distribution workspace keyboard, favorites, safe drafts, stale reads, and 
     let userId = 'fixture-user-a';
     let shipmentQty = 48;
     let savePosts = 0;
+    let multiCustomerSave = false;
+    const multiCustomerOrders = [];
     let failNextSave = true;
     let expectPairSave = false;
   let custItemsExtra = false; // 업체 1(478)에 Zinnia(주문 20, 출고 7) 행 추가 — 업체 2 에는 주문 없음
@@ -82,6 +84,13 @@ let orderPosts = 0;
         }
       }
       if (url.pathname === '/api/orders' && request.method() === 'POST') {
+        if (multiCustomerSave) {
+          const body = JSON.parse(request.postData() || '{}');
+          assert.equal(body.year, '2026');
+          assert.equal(body.week, '2026-41-02');
+          multiCustomerOrders.push([body.custKey, body.items[0].qty]);
+          return reply(route, { success: true, verified: true }, 201);
+        }
         orderPosts += 1;
         cycleCalls.push('order');
         const body = JSON.parse(request.postData() || '{}');
@@ -115,6 +124,13 @@ let orderPosts = 0;
       }
       if (url.pathname === '/api/shipment/distribute') {
         if (request.method() === 'POST') {
+          if (multiCustomerSave) {
+            const body = JSON.parse(request.postData() || '{}');
+            assert.deepEqual(multiCustomerOrders, [[777, 5], [888, 7]]);
+            assert.deepEqual(body.entries.filter(e => [777,888].includes(e.custKey)).map(e => [e.custKey,e.outQty]), [[777,5],[888,7]]);
+            multiCustomerSave = false;
+            return reply(route, { success: true, verified: true });
+          }
           savePosts += 1;
           const body = JSON.parse(request.postData() || '{}');
           assert.equal(body.year, '2026');
@@ -546,8 +562,20 @@ let orderPosts = 0;
     await page.locator('[data-ai-verify="prod-add-cust-open"]').click();
     await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('nova');
     await page.locator('[data-ai-verify="prod-add-cust-777"]').click();
+    await farmCustomerSearch.fill('Alpha');
+    await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
     await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('alzkdpf');
-    await page.locator('[data-ai-verify="prod-add-cust-888"]').waitFor();
+    await page.locator('[data-ai-verify="prod-add-cust-888"]').click();
+    await page.locator('[data-ai-verify="qty-888-2429"]').fill('7');
+    assert.equal(await page.locator('[data-ai-verify="qty-777-2429"]').inputValue(), '5', 'adding another customer preserves the first quantity draft');
+    assert.equal(savePosts, 5, 'multiple customer additions and quantities require no intermediate save');
+    multiCustomerSave = true;
+    await page.keyboard.press('Control+s');
+    await page.getByRole('dialog', { name: '출고 분배 저장 완료', exact: true }).waitFor();
+    assert.equal(multiCustomerSave, false, 'one save submitted both added customers');
+    await page.locator('.modal-overlay').last().getByRole('button', { name: '확인', exact: true }).click();
+    await page.locator('[data-ai-verify="prod-added-remove-888"]').click();
+    await farmCustomerSearch.fill('');
     await page.locator('[data-ai-verify="prod-add-cust-search"]').fill('');
     await page.locator('[data-ai-verify="qty-777-2429"]').fill('5');
     await page.getByText('주문 없음 · 저장 시 주문등록').waitFor();
