@@ -380,7 +380,24 @@ export default function ChinaVolumeBoard() {
   const guideScopeKey = `${year}:${week}`;
   const guideStamp = useMemo(() => JSON.stringify([year, week, cells, packingRows, reviewNotes]), [year, week, cells, packingRows, reviewNotes]);
   const boardScrollRef = useRef(null);
-  useVolumePageHeader(boardScrollRef);
+  const railRef = useRef(null);
+  useVolumePageHeader(boardScrollRef, railRef);
+  useEffect(() => {
+    const viewport = boardScrollRef.current, rail = railRef.current;
+    const table = viewport?.querySelector('table.board');
+    if (!rail || !table) return;
+    const syncSize = () => {
+      rail.style.width = viewport.clientWidth + 'px';
+      rail.firstElementChild.style.width = viewport.scrollWidth + 'px';
+      rail.hidden = viewport.scrollWidth <= viewport.clientWidth;
+      rail.scrollLeft = viewport.scrollLeft;
+    };
+    const resize = new ResizeObserver(syncSize);
+    resize.observe(viewport);
+    resize.observe(table);
+    syncSize();
+    return () => resize.disconnect();
+  }, [data]);
   const busyRef = useRef(false);
   const querySeq = useRef(0);
   const scopeCurrent = loadedScope?.year === year && loadedScope?.week === week;
@@ -980,7 +997,9 @@ export default function ChinaVolumeBoard() {
         {data && !scopeCurrent && <p className="scope-notice">연도·차수가 변경되었습니다. 물량표 조회를 누른 뒤 편집·저장하세요.</p>}
         {applyMessage && <p className="scope-notice" role="status">{applyMessage}</p>}
         <main inert={!scopeCurrent || saving || loading ? '' : undefined}>
-          <section ref={boardScrollRef} data-china-guide="matrix" className="board-wrap">
+          <section className="matrix-frame" data-china-guide="matrix">
+            {data && <div ref={railRef} className="matrix-x-rail" tabIndex={0} role="region" aria-label="물량표 상단 가로 스크롤" onScroll={event => { const view = boardScrollRef.current; if (view && view.scrollLeft !== event.currentTarget.scrollLeft) view.scrollLeft = event.currentTarget.scrollLeft; }}><div /></div>}
+            <div ref={boardScrollRef} className="board-wrap" tabIndex={0} role="region" aria-label="중국 물량표 가로·세로 스크롤" onScroll={event => { const rail = railRef.current; if (rail && rail.scrollLeft !== event.currentTarget.scrollLeft) rail.scrollLeft = event.currentTarget.scrollLeft; }}>
             {!data && !loading && <div className="empty">연도·차수를 조회한 뒤 패킹리스트를 업로드하세요.</div>}
             {data && (
               <table className="board">
@@ -1034,6 +1053,7 @@ export default function ChinaVolumeBoard() {
                 <tfoot><tr><th>업체 합계</th>{customers.map(customer => <td key={customer.custKey}>{fmt(gridTotals.customerTotals[String(customer.custKey)] || 0)}</td>)}<td className="row-total grand-total">{fmt(gridTotals.grandTotal)}</td><td className="row-total">{fmt(chinaRows.reduce((sum, row) => sum + chinaVolumeIncomingQuantity(row), 0))}</td><td className="row-total">{fmt(chinaRows.reduce((sum, row) => sum + chinaVolumeIncomingQuantity(row), 0) - gridTotals.grandTotal)}</td></tr></tfoot>
               </table>
             )}
+            </div>
           </section>
           <aside>
             {packingRows.length > 0 && <section className="simple-differences"><h3>주문 대비 초과·미입고</h3>
@@ -1094,6 +1114,17 @@ export default function ChinaVolumeBoard() {
         .board thead .product-head{position:sticky;z-index:21}
         .board thead .customer-heading{vertical-align:top}
         @media print{.board thead th{position:static;transform:none}}
+        .matrix-frame{min-width:0;width:100%}
+        @media screen {
+          .matrix-frame .board-wrap{position:relative;isolation:isolate;box-sizing:border-box;width:100%;max-height:72vh;max-height:72dvh;overflow:auto;scrollbar-gutter:stable}
+          .matrix-x-rail{position:sticky;top:0;z-index:25;max-width:100%;height:18px;overflow-x:scroll;overflow-y:hidden;background:#e8eef7}
+          .matrix-x-rail[hidden]{display:none}.matrix-x-rail>div{height:1px}
+          .matrix-frame .board tbody td{isolation:isolate}
+          .matrix-frame .board tbody th{z-index:12;background:#f7f9fc}
+          .matrix-frame .board thead .product-head{left:0;z-index:24;background:#e8eef7}
+          .matrix-frame .board tfoot th{z-index:15;background:#dce8f7}
+        }
+        @media print{.matrix-x-rail{display:none}.matrix-frame .board-wrap{max-height:none;overflow:visible}}
         @media(max-width:900px){main{display:flex;flex-direction:column}.board-wrap,aside{width:100%}.toolbar{gap:7px}.inline-review{width:96vw}}
       `}</style>
     </>

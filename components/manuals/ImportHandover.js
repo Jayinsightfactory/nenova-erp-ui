@@ -6,8 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, PmUiStyles, Tabs, ToggleChip } from '../pm/ui';
 import { allThemesCss, readStoredTheme } from '../../lib/pmThemes';
 import WorkflowGuide from '../WorkflowGuide';
+import ImportEducation from './ImportEducation';
 
-const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['manuals', '매뉴얼 전체'], ['todo', '남은 일 · 물어볼 것']];
+const KINDS = [['daily', '하루'], ['weekly', '주'], ['monthly', '월'], ['manuals', '매뉴얼 전체'], ['edu', '신입 교육'], ['todo', '남은 일 · 물어볼 것']];
 const WHEN_HEAD = { daily: '시간대', weekly: '요일', monthly: '시기' };
 const STATUS = { confirmed: ['확정', 'ok'], estimated: ['추정', 'est'] };
 
@@ -215,6 +216,7 @@ export default function ImportHandover({ data, me, initialManual }) {
                 ))}
               </div>
             )}
+            {kind === 'edu' && <ImportEducation data={data.education} />}
             {kind === 'todo' && <Todo data={data} />}
             {kind === 'weekly' && <CountryCalendar calendar={data.countryCalendar} manuals={data.manuals} onOpen={setOpenId} />}
             {['daily', 'weekly', 'monthly'].includes(kind) && <ScheduleTable key={kind} kind={kind} rows={data.schedule?.[kind] || []} onOpen={setOpenId} />}
