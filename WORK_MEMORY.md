@@ -2631,3 +2631,11 @@
 - 추가 검증: 정식 npm run build(영상 게이트 통과), 실Chrome 합성 fixture 1920/390(입력·유지·엑셀 반영·드래그), 가이드 6목차 재촬영·플레이어 재생 PASS.
 - 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
+
+## 2026-11-12 자가성장 루프 다시 돌리기(PC persona) — 백로그 A절 "멈춤" 해소
+- 사장님 지시 "백로그에 미뤄 둔 것 전부 작업". 대상은 PC 전역 `~/.claude/persona`(저장소 밖). 저장소는 docs/canon/BACKLOG.md A절 상태와 이 기록만 수정. 코드·DB·훅(prompt-guard 등)·nenova-pm·.codex 변경 0. 백업 `~/.claude/persona-backup-20261112`.
+- 다시 돌림: distill.js 보강(처리 표시로 새 것만·업무 영역 묶기·나눠서 전부 처리) → 사람 마찰 142건/18묶음 → 새 원리 후보 45건(승인 대기, rules.json 지문 불변). 주간 작업 OrbitPersonaWeekly(일 05:30) 등록·수동 실행 종료 코드 0. 프로파일(PERSONA.md) 자동 재작성은 꺼 둠.
+- 측정: 60일간 안 불린 규칙 0/41. 부딪힘 의심 쌍 66(함께 걸린 적 27, 목록만). 기준값 171/191=89.5%(규칙 안 얹힌 지시의 다음 지시 무마찰, "처음 보는 유형"은 가설). 승인 목록 persona/data/approval-list.md.
+- 발견: turns.jsonl "사람 지시" 30일 1,299건 중 826건이 로봇(워커) 지시문 → 매일 나오는 마찰률 수치가 섞인 값. 이번엔 묶기·기준값·장부에서만 거름(lib/robot-sig.js), mine-sessions.js 는 미수정(사장님 결정 필요).
+- 미검증: 일요일 새벽 자동 실행(로그인 상태에서만 돎, 11/15 이후 확인), 후보의 "근거 반복 건수"(AI 주장), OrbitPersonaVerifyDaily 11/12 비정상 종료 코드 원인.
+검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 171/191 rule-conflicts robot-sig 로봇지시 섞임
