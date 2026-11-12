@@ -2614,3 +2614,10 @@
 - dnSpy FormEstimateView/ReportEstimate 재추출: ReportEstimate의 합계는 최종 GroupFooter이며 웹 기본 견적서는 표 중간 tfoot을 제거하고 마지막 문서 합계 한 번만 출력. native 인쇄의 품목/적요 줄바꿈 및 자동행높이·반복 thead로 2~3쪽 상단 품목 잘림을 보완.
 - 추가 견적관리 가이드 23.1초 및 출고일 매출 기존 가이드 재녹화: 둘 다 fixture-only, 1920×1080/100%, 한국어 VTT·목차·재생 검증, ERP 쓰기0. 표적 print typography/contract, ERP contract, dnSpy evidence, manifest213, write guard, workflow guide, webpack build PASS. 운영 브라우저/CI/배포 미검증.
 검색어: estimate-management 비고수정 boxQuantity 마지막합계 ReportEstimate GroupFooter sticky header print-page
+
+## 2026-11-12 정본(판단 기준 한 곳) 연결 — 규칙 파일 실측·충돌 표시
+- NOWLINK 기획 대화의 "규칙 3층(정본·주입·검증)" 설계를 저장소·PC 실물과 대조. 정본=docs/canon/CANON.md(판단 우선순위·사고 순서·반드시 지킬 것 4·규칙 충돌 순서·규칙 담당 파일 표·수정+왜 기록 형식). 루트 CLAUDE.md 가 @docs/canon/CANON.md 로 자동 불러오고 AGENTS.md·.claude/CLAUDE.md·.cursor/rules/canon.mdc·agents/README 가 경로를 가리킴. 내용 삭제 0, 부딪히는 문장 5곳에 "정본 참조" 표시만.
+- 학습 기록(~/.claude/persona)과 안 맞는 "하드코딩 탈피·확장성·네 기준의 순서·다른 회사 비교 단계"는 정본에 "확인 필요"로 분리. .nowlink/ 폴더·rules.json 은 만들지 않음(persona/rules.json 과 중복).
+- 신규: docs/canon/why-log.jsonl(예시 3건), RULE_FILE_INVENTORY_2026-11-12.md(전수표·충돌 15건·정본 13절 구현 현황), BACKLOG.md(자가성장 7단계 현황·HR·레이더 출처), .claude/agents/nenova-pm.md(초안), scripts/check-canon.cjs + npm run test:canon + erp-contract.yml 단계. 검사는 형식만 봄.
+- 미검증: Codex·Cursor 가 "작업 전 정본 읽기" 문장을 실제로 따르는지, PC PM 조사관이 저장소 CLAUDE.md 를 읽는지. PC 전역·nenova-pm·바탕화면 파일 수정 0, pages/·금액·재고·차수 로직 변경 0.
+검색어: 정본 CANON why-log check-canon test:canon 규칙충돌 xlsx-js-style 금지 사용가능 nenova-pm 에이전트 초안 자가성장 백로그

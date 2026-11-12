@@ -1,5 +1,11 @@
 # 📑 CLAUDE.md: Nenova ERP 웹 개발 마스터 지침 (v3.0)
 
+## 정본 (작업 전 필독)
+
+판단 기준·규칙 충돌 시 우선순위·"어느 규칙이 어디에 있는가"는 정본 한 곳에 있다. 이 파일은 DB 쓰기 규칙·출고일 계산·진단 API·빌드 주의의 담당 파일이다. 아래 줄은 정본을 세션 시작 때 자동으로 불러온다.
+
+@docs/canon/CANON.md
+
 ## 새 메뉴·페이지 공통 화면틀
 
 `pages/_app.js`가 일반 화면의 `Layout`을 한 번만 만든다. 새 개별 페이지에서 `components/Layout`을 import하거나 `<Layout>`으로 감싸는 것은 금지하며, 기존 자체 화면틀은 `_app.js`의 `NO_LAYOUT`에 명시한다. 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 등록한다. 일반 URL과 `?popup=1`을 나눠 검사하며, popup에는 왼쪽 메뉴가 없어야 한다. `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`와 `npm run test:ui-layout`을 따른다.
@@ -130,6 +136,8 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
 |-----|------|---------|
 | `GET /api/shipment/distribute-diagnose?week=23-01` | 중복 ShipmentMaster, ShipmentDetail.CustKey 누락, ShipmentDate 수량/일자 불일치, 키넘버링, SP 존재 진단 | ❌ 읽기 |
 | `POST /api/shipment/distribute-diagnose` `{ week, action:'repairMissingCustKey' }` | 기존 출고상세의 `CustKey`가 비었거나 `ShipmentMaster.CustKey`와 다를 때 같은 값으로 복구 | ⚠️ UPDATE |
+
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절): `CustKey` 빈 값만으로 오류·보정을 판단하지 않는다는 `AGENTS.md`(2026-10-02) 기준이 위 `repairMissingCustKey` 설명보다 우선한다. 이동 제안: 이 표의 수리 행은 `AGENTS.md`의 해당 절로 옮기고 여기에는 읽기 진단만 남긴다.
 
 ## 🚫 배포 주의
 - **빌드는 webpack 고정** (`next build --webpack`, package.json) — **Turbopack 복귀 금지.**

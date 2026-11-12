@@ -1,5 +1,9 @@
 # Nenova ERP 작업 가드
 
+## 정본 (작업 전 필독)
+
+작업을 시작하기 전에 [`docs/canon/CANON.md`](docs/canon/CANON.md)를 읽는다. 판단 기준, 규칙이 서로 부딪힐 때의 우선순위, "어느 규칙이 어디에 있는가"가 그 한 곳에 있다. 이 파일(`AGENTS.md`)은 ERP 원장 변경 절차·계약·검증 명령의 담당 파일이며, 같은 내용을 다른 지침 파일에 복사하지 않는다. 결과물을 고친 이유가 다음에도 쓸모 있으면 `docs/canon/why-log.jsonl`에 한 줄 남긴다.
+
 ## 메뉴 개발 기본값 필수 확인
 
 새 메뉴를 만들거나 기존 메뉴의 화면·업무 흐름을 수정하기 전에
@@ -140,6 +144,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 배포 후 `https://nenovaweb.com/api/ping` 200, 버전 배지 = 커밋 해시.
 
 전역 규칙은 `~\/.codex\/AGENTS.md`, 진입 문서는 `.claude\/CLAUDE.md`·루트 `CLAUDE.md`.
+↪ 정본 참조: 이 파일들 사이에 문장이 부딪히면 `docs/canon/CANON.md` 4절의 순서를 따른다. 이동 제안: 위 "Codex/Claude 공용 보충"의 webpack 고정·DB 스키마 줄은 루트 `CLAUDE.md`와 겹치므로 한 곳만 남긴다.
 
 ## 출고 연결 헤더 작업 시 추가 확인
 
