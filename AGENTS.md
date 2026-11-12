@@ -1,5 +1,9 @@
 # Nenova ERP 작업 가드
 
+## 정본 (작업 전 필독)
+
+작업을 시작하기 전에 [`docs/canon/CANON.md`](docs/canon/CANON.md)를 읽는다. 판단 기준, 규칙이 서로 부딪힐 때의 우선순위, "어느 규칙이 어디에 있는가"가 그 한 곳에 있다. 이 파일(`AGENTS.md`)은 ERP 원장 변경 절차·계약·검증 명령의 담당 파일이며, 같은 내용을 다른 지침 파일에 복사하지 않는다. 결과물을 고친 이유가 다음에도 쓸모 있으면 `docs/canon/why-log.jsonl`에 한 줄 남긴다.
+
 ## 메뉴 개발 기본값 필수 확인
 
 새 메뉴를 만들거나 기존 메뉴의 화면·업무 흐름을 수정하기 전에
@@ -112,9 +116,9 @@ npm run build
 
 견적서 확정수량 수정은 후속연도 `StockMaster`/`ProductStock` 스냅샷의 **존재 자체를 오류로 차단하지 않는다**. `usp_StockCalculation`은 `OrderYearWeek >= 선택차수`를 연도 경계 뒤까지 순회해 영향 `ProdKey`를 연쇄 재계산한다. 따라서 저장 전 `FUTURE_STOCK_SNAPSHOT_EXISTS` 류의 선차단은 금지하고, 동일 트랜잭션에서 native 재계산 후 선택차수 이상의 현재·후속연도 `ProductStock`이 `ROUND(Stock,3)<0`인 경우만 전체 롤백한다. 근거는 `docs/ERP_CHANGE_GUARD.md`의 `2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위`와 `docs/contracts/estimate-date-quantity.json`을 따른다.
 
-## 세션 Q&A 백업 (기본)
+## 작업 기록 (기본)
 
-의미 있는 작업이 끝나거나 사용자가 백업·컨텍스트 초기화를 말하면 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 질문→답변을 남기고 `docs/work-sessions/INDEX.md`를 갱신한다. 규칙 `.cursor/rules/session-qa-log.mdc`, 스킬 `.cursor/skills/session-qa-backup/SKILL.md`. 새 채팅은 대화 기억이 아니라 최근 세션 md를 읽는다.
+작업 기록은 `WORK_MEMORY.md` 한 곳에 남긴다(2026-11-12 사장님 결정, 정본 `docs/canon/CANON.md` 4절). 의미 있는 작업이 끝나면 파일 끝에 날짜·요약·검색어 줄을 추가하고, 검증하지 못한 것은 "미검증"으로 적는다. 질문→답변처럼 긴 세부는 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 둘 수 있으며 그때는 `WORK_MEMORY.md` 항목에서 그 파일을 가리킨다. 새 채팅은 대화 기억이 아니라 `WORK_MEMORY.md` 최근 항목을 읽는다. Cursor는 쓰지 않으므로 `.cursor/` 규칙·스킬은 지웠다.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -140,6 +144,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 배포 후 `https://nenovaweb.com/api/ping` 200, 버전 배지 = 커밋 해시.
 
 전역 규칙은 `~\/.codex\/AGENTS.md`, 진입 문서는 `.claude\/CLAUDE.md`·루트 `CLAUDE.md`.
+↪ 정본 참조: 이 파일들 사이에 문장이 부딪히면 `docs/canon/CANON.md` 4절의 순서를 따른다. 이동 제안: 위 "Codex/Claude 공용 보충"의 webpack 고정·DB 스키마 줄은 루트 `CLAUDE.md`와 겹치므로 한 곳만 남긴다.
 
 ## 출고 연결 헤더 작업 시 추가 확인
 

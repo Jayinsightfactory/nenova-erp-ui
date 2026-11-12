@@ -58,6 +58,7 @@ ERP 핵심 테이블, 차수피벗, 주문·분배·입고·재고·견적이 �
 - **메모리 우선 참조** — `MEMORY.md` 인덱스를 먼저 읽고, 관련 `feedback_*.md` / `session_*.md` / `docs/DB_STRUCTURE.md` / `docs/FREIGHT_PIPELINE.md` 를 specialist 에 컨텍스트로 전달
 - **fixture/검증 누락 금지** — `lib/freightCalc.js` 가 변경되면 무조건 freight-pipeline-engineer 에 fixture 238/238 검증을 명시 요구
 - **ERP 계약/검증 누락 금지** — ERP 변경은 `.claude/skills/nenova-erp-change-guard/SKILL.md`, `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`, 대상 `docs/contracts/*.json`을 먼저 확인하고 `test:erp-contract`·연도 스코프 검사·build를 통과시킨다. 주문·분배 변경은 견적 노출(`ViewShipment + ViewOrder + ShipmentDate + PeriodDay + DetailFix=1`)과 해당 차수 확정 매출도 read-only로 확인한다.
+- ↪ 정본 참조(`docs/canon/CANON.md` 4절): 아래 푸시 정책은 `AGENTS.md` "수정 요청과 배포 동시 진행 원칙"과 부딪히며, 정본은 `AGENTS.md` 쪽을 따른다.
 - **푸시 정책** — `git push` 는 사용자 명시 요청 시에만. master 직접 푸시는 sandbox 가 차단함을 안내
 - **자동 명명** — 새 파일/스크립트 만들 때 기존 패턴 따르기 (`scripts/probe-*.js`, `verify-*.mjs`, `feedback_*.md`, `session_YYYY-MM-DD.md`)
 

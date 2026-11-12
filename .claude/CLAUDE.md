@@ -6,6 +6,7 @@
 > ✏️ **확정차수 단가/수량 수정, 매출이익 보고서 편집, 통관비 입력이면:** [`docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md`](../docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md) 먼저 (C-1: isFix 확인 후 fix-cycle 경유, C-5: bit 컬럼 다값 마커 함정 등, 30초).
 > 🔗 도메인 규칙 상세: 프로젝트 루트 [`CLAUDE.md`](../CLAUDE.md) · DB 구조 [`docs/DB_STRUCTURE.md`](../docs/DB_STRUCTURE.md)
 > 🤖 **에이전트 팀 활성화** (2026-04-29~): 다도메인/복잡 작업은 `nenova-orchestrator` 가 specialist 에 위임. 자세한 내용 [`.claude/agents/README.md`](agents/README.md) · 도입 배경 [`docs/AGENT_TEAM_ADOPTION.md`](../docs/AGENT_TEAM_ADOPTION.md)
+> 📌 **정본:** 판단 기준·규칙 충돌 시 우선순위는 [`docs/canon/CANON.md`](../docs/canon/CANON.md) 한 곳에 있다(루트 `CLAUDE.md`가 자동으로 불러온다). 이 파일은 세션 시작 체크리스트·보존 태그의 담당 파일이다.
 > 🧭 **호환성 범위:** Nenovaweb↔`nenova.exe` 공유 ERP가 대상이며, Android/Expo 경고는 별도 MOYI 저장소에서 처리한다. [`docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`](../docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md)
 
 ---
@@ -82,6 +83,7 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 **사용 라이브러리:**
 - 현재: `@anthropic-ai/sdk`, `formidable`, `jsonwebtoken`, `mssql`, `next`, `react`, `xlsx`
 - **금지**: `xlsx-js-style` (Turbopack 빌드 실패)
+  - ↪ 정본 참조(`docs/canon/CANON.md` 4절): 이 줄은 옛 기준이다. 루트 `CLAUDE.md` "배포 주의"의 "webpack 전환으로 사용 가능"이 우선한다. 이동 제안: 사용 라이브러리 목록은 루트 `CLAUDE.md` 한 곳에만 둔다.
 - 추가 설치 전 반드시 사용자 승인
 
 ---
@@ -114,6 +116,8 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 
 **모든 작업 세션이 끝날 때 반드시 아래 실행:**
 
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 작업 기록은 `WORK_MEMORY.md` 끝에 날짜·요약·검색어 줄로 남긴다(2026-11-12 사장님 결정). 아래 1·2번(`PROGRESS.md`·`PLAN.md` 갱신)은 옛 방식이며 새로 쓰지 않는다. 지난 기록은 그대로 둔다.
+
 ### 1. `.claude/PROGRESS.md` 최상단에 세션 블록 추가
 ```
 ## [YYYY-MM-DD HH:MM] 세션 #N — 제목
@@ -139,6 +143,8 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 ### 3. 중요 결정사항은 이 CLAUDE.md 또는 `memory/session_YYYY-MM-DD.md` 에 반영
 
 ### 4. GitHub push 여부 확인 (사용자 명시 요청 시만)
+
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 올리기·반영·배포는 `AGENTS.md` "수정 요청과 배포 동시 진행 원칙"이 우선한다(더 최근 기준). 작업 기록은 `WORK_MEMORY.md` 한 곳으로 정해졌다(2026-11-12 사장님 결정).
 
 ---
 
@@ -174,3 +180,5 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 - 루트 `CLAUDE.md` — 도메인 규칙 상세 (출고일 계산, 진단 API 등)
 
 *이 파일은 프로젝트의 단일 진실 소스(Single Source of Truth)입니다.*
+
+> ↪ 정본 참조: 위 문장은 2026-04 기준이다. 지금은 판단 기준의 단일 기준이 `docs/canon/CANON.md`이고, 도메인 규칙은 정본 5절 표의 담당 파일에 나뉘어 있다.
