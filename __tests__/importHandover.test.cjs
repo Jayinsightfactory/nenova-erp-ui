@@ -25,6 +25,14 @@ const view = H.importHandoverForView();
 const linked = [...view.schedule.daily, ...view.schedule.weekly, ...view.schedule.monthly].filter((r) => r.manualId);
 assert.ok(linked.length > 0 && linked.every((r) => r.manualTitle), '업무표 줄에서 매뉴얼로 들어갈 수 있어야 함');
 
+// 1-1) 국가별 주간 업무표: 나라가 나뉘어 있고 칸마다 작업 순서가 있음
+assert.ok(data.countryCalendar.length >= 6, '국가별 주간 업무표에 나라가 나뉘어 있어야 함');
+for (const want of ['콜롬비아', '중국', '네덜란드', '태국', '에콰도르']) assert.ok(data.countryCalendar.some((c) => c.country.includes(want)), `${want} 줄이 있어야 함`);
+assert.ok(data.countryCalendar.some((c) => c.cells.some((x) => x.manualId)), '칸에서 매뉴얼로 들어갈 수 있어야 함');
+const oneWord = { version: 1, manuals: [], schedule: {}, countryCalendar: [{ country: '콜롬비아', partner: '농장', cells: [{ weekday: '월', title: '입고', steps: [], screens: [], time: '', handoff: '', status: 'estimated', evidence: [] }] }] };
+const bad = H.validateImportHandover(oneWord);
+assert.ok(bad.some((x) => x.includes('한 단어가 아니라')) && bad.some((x) => x.includes('작업 순서')), '한 단어짜리 칸을 잡아야 함');
+
 // 2) 기준 위반을 잡아내는지
 const good = { id: 'a', title: '가', status: 'estimated', why: '왜', when: '언제', prepare: ['자료'], steps: [{ no: 1, title: '하나', look: '봄', input: '넣음', why: '이유' }], doneCheck: ['확인'], pitfalls: [{ mistake: '실수', fix: '처리' }], next: '다음', evidence: [{ source: '전산', count: 1 }] };
 const wrap = (m, schedule = {}) => ({ version: 1, manuals: [m], schedule });

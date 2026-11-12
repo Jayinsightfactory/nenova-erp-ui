@@ -103,9 +103,9 @@ function WeekGrid({ dept, onConfirm }) {
             {fixed(w).map((f, i) => <div key={i} className="wk fixed"><b>{f.time} {f.what}</b></div>)}
             {cells[w].length === 0 && !fixed(w).length && <p className="empty">특이 업무 없음</p>}
             {cells[w].slice(0, 4).map((x) => (
-              <div key={x.id} className="wk" title={`${x.who} ${what(x)} · 평소의 ${x.lift}배`}>
-                <b>{x.who}</b> {String(x.peakHour).padStart(2, '0')}시 {x.stage || x.app}
-                <small className="muted"> {x.evidence.days}/{x.evidence.of}주</small>
+              <div key={x.id} className="wk" title={`${what(x)} · 평소의 ${x.lift}배`}>
+                <b>{(x.task || '').trim() || `${x.stage || x.app} — 무슨 일인지 확인 필요`}</b>
+                <small className="muted"> {[x.stage, x.app].filter(Boolean).join(' · ')} · {String(x.peakHour).padStart(2, '0')}시경 · 하던 사람 {x.who} · {x.evidence.days}/{x.evidence.of}주</small>
               </div>
             ))}
             {cells[w].length > 4 && <small className="muted">+{cells[w].length - 4}건 (아래 목록)</small>}
@@ -389,7 +389,9 @@ export default function RoutineManual({ routines, me, onConfirm, onSwitch, onLiv
             <p className="note2">이 칸은 화면에서 눌린 버튼 이름을 순서대로 모은 자동 기록입니다. 왜·언제 하는지, 무엇을 보고 무엇을 넣는지는 들어 있지 않습니다.{dept.id === 'import' ? ' 수입부는 맨 위 「수입부 인수인계 업무표」의 매뉴얼을 먼저 보세요.' : ''}</p>
             <Procedures key={dept.id} dept={dept} /></section>
           <section><h2>3. 메일함에서 볼 것</h2><MailTable dept={dept} onConfirm={onConfirm} /></section>
-          <section><h2>4. 주간 캘린더</h2><WeekGrid dept={dept} onConfirm={onConfirm} /></section>
+          <section><h2>4. 주간 캘린더</h2>
+            <p className="note2">화면 기록에서 그 요일에 유난히 많이 나온 일을 자동으로 모은 것입니다. 어느 나라·어느 거래처 건인지와 작업 순서는 여기에 없습니다.{dept.id === 'import' ? ' 수입부는 맨 위 「수입부 인수인계 업무표 › 주」의 국가별 주간 업무표를 보세요.' : ' 무슨 일인지 알 수 없는 칸은 「확인 필요」로 표시했습니다.'}</p>
+            <WeekGrid dept={dept} onConfirm={onConfirm} /></section>
           <section><h2>5. 부서간 넘김 · 월간 체크리스트</h2><Handoffs dept={dept} /><Monthly dept={dept} onConfirm={onConfirm} /></section>
         </>
       )}

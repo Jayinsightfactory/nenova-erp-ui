@@ -61,6 +61,54 @@ function ScheduleTable({ kind, rows, onOpen }) {
   );
 }
 
+// 국가별 주간 업무표 — 줄 = 나라·상대, 칸 = 요일. 칸을 누르면 작업 순서·화면·걸리는 시간·넘기는 곳·근거가 펼쳐지고 매뉴얼로 들어간다.
+const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+function CountryCalendar({ calendar, manuals, onOpen }) {
+  const [sel, setSel] = useState(null);
+  if (!calendar?.length) return null;
+  const picked = sel && calendar[sel[0]]?.cells[sel[1]];
+  const titleOf = (id) => (manuals || []).find((m) => m.id === id);
+  return (
+    <>
+      <h4>국가별 주간 업무표 <small className="muted">칸을 누르면 그 일의 작업 순서가 나옵니다</small></h4>
+      <div className="tblwrap">
+        <table className="ihtbl cal">
+          <thead><tr><th>나라 · 상대</th>{DAYS.map((d) => <th key={d}>{d}</th>)}<th>매일</th></tr></thead>
+          <tbody>
+            {calendar.map((c, ci) => (
+              <tr key={c.country}>
+                <td><b>{c.country}</b><p>{c.partner}</p><p>{c.channel}</p></td>
+                {[...DAYS, '매일'].map((d) => (
+                  <td key={d}>
+                    {c.cells.map((x, xi) => x.weekday === d && (
+                      <Button key={xi} size="sm" variant={sel && sel[0] === ci && sel[1] === xi ? 'primary' : 'secondary'} className="calcell" aria-expanded={!!(sel && sel[0] === ci && sel[1] === xi)} onClick={() => setSel(sel && sel[0] === ci && sel[1] === xi ? null : [ci, xi])}>
+                        {x.title}
+                      </Button>
+                    ))}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {picked && (
+        <div className="caldetail" role="region" aria-label="고른 칸의 작업 순서">
+          <p><b>{calendar[sel[0]].country} · {picked.weekday}</b> — {picked.title} <Status it={picked} /> <small className="muted">{evidenceText(picked.evidence)}</small></p>
+          <ol>{picked.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+          <p><b>쓰는 화면·파일</b> {picked.screens.join(', ')}</p>
+          <p><b>걸리는 시간</b> {picked.time}</p>
+          <p><b>다음에 넘기는 곳</b> {picked.handoff}</p>
+          {picked.manualId && titleOf(picked.manualId)
+            ? <Button size="sm" variant="primary" onClick={() => onOpen(picked.manualId)}>「{titleOf(picked.manualId).title}」 매뉴얼 열기</Button>
+            : <small className="muted">이 일의 매뉴얼은 아직 없습니다(남은 일 목록 참고).</small>}
+        </div>
+      )}
+      <h4>요일별 공통 일</h4>
+    </>
+  );
+}
+
 function ManualView({ manual, onBack }) {
   return (
     <article className="manual" aria-label={`${manual.title} 매뉴얼`}>
@@ -168,6 +216,7 @@ export default function ImportHandover({ data, me, initialManual }) {
               </div>
             )}
             {kind === 'todo' && <Todo data={data} />}
+            {kind === 'weekly' && <CountryCalendar calendar={data.countryCalendar} manuals={data.manuals} onOpen={setOpenId} />}
             {['daily', 'weekly', 'monthly'].includes(kind) && <ScheduleTable key={kind} kind={kind} rows={data.schedule?.[kind] || []} onOpen={setOpenId} />}
           </>
         )}
@@ -193,6 +242,11 @@ export default function ImportHandover({ data, me, initialManual }) {
         .ih .ihtbl th, .ih .ihtbl td { border-bottom: 1px solid var(--pm-line); padding: 8px 6px; text-align: left; vertical-align: top; color: var(--pm-ink); background: transparent; }
         .ih .ihtbl th { background: var(--pm-surface2); white-space: nowrap; }
         .ih .ihtbl td p { margin: 2px 0 0; color: var(--pm-muted); font-size: 12px; }
+        .ih .cal td { min-width: 120px; }
+        .ih .cal td:first-child { min-width: 170px; }
+        .ih .calcell { display: block; width: 100%; height: auto; white-space: normal; text-align: left; line-height: 1.4; margin: 0 0 4px; padding: 6px 8px; font-weight: 500; }
+        .ih .caldetail { background: var(--pm-surface2); border-radius: var(--pm-radius); padding: 10px 12px; margin: 8px 0; }
+        .ih .caldetail ol { margin: 6px 0; padding-left: 22px; font-size: 13px; line-height: 1.7; }
         .ih .mlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin-top: 8px; }
         .ih .mcard { background: var(--pm-surface2); border-radius: var(--pm-radius); padding: 10px; }
         .ih .mhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
