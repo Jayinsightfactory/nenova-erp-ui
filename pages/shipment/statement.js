@@ -77,10 +77,9 @@ export default function ShipmentStatement(){
   {data&&<>
    <section className={styles.panel}><div className={styles.controls}><h2>{data.source.customer.name} · {data.source.scope.year}년 {data.source.scope.week}차</h2>
     <label>기본 출고요일<select aria-label="기본 출고요일" value={draft.defaultDay} disabled={busy||stale} onChange={e=>chooseDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label>
+    <button className={styles.primary} aria-label="작성내용 저장" disabled={busy||!valid} onClick={()=>save(false)}>저장</button>
     <button disabled={busy} onClick={()=>open(customer)}>다시 불러오기</button>
-    <button disabled={busy||!valid} onClick={()=>save(false)}>작성내용 저장</button>
-    <button className={styles.primary} disabled={busy||!valid} onClick={()=>save(true)}>저장 및 엑셀 다운로드</button>
-    <button disabled={busy||!data.saved} onClick={async()=>{try{await download(data.saved);}catch(e){setError(e.message);}}}>저장본 엑셀 다시 받기</button>
+    <button aria-label="엑셀 다운로드" title={dirty?'저장한 뒤 받을 수 있습니다.':'마지막으로 저장한 작성본을 엑셀로 받습니다.'} disabled={busy||!data.saved||dirty} onClick={async()=>{try{await download(data.saved);setMessage(`엑셀 다운로드 완료 · 저장본 v${data.saved.version}`);setError('');}catch(e){setError(e.message);}}}>엑셀 다운로드</button>
    </div><p>별도로 지정하지 않은 수량은 <strong>{draft.defaultDay}요일</strong>에 배정됩니다. ERP 실제 출고일·분배 총수량·재고·매출은 변경하지 않습니다.</p>
    {data.changes?.length>0&&<div className={styles.notice} role="status" data-testid="source-changes"><strong>저장 후 차수피벗 원본이 바뀐 곳 {data.changes.length}건</strong> — 아래 품목만 확인하세요. 나머지 품목의 요일 배분은 그대로 유지됩니다. 확인 후 저장하면 새 기준으로 보관됩니다.<ul>{data.changes.map((c,i)=><li key={i}>{c.text}</li>)}</ul></div>}
    </section>
@@ -88,7 +87,7 @@ export default function ShipmentStatement(){
    <section className={styles.panel} aria-label="요일별 수량 편집"><div className={styles.controls}>
     <label>품목 검색<input aria-label="품목 검색" value={search} onChange={e=>setSearch(e.target.value)}/></label>
     <button disabled={busy||stale||!visible.length} onClick={()=>setSelected(current=>[...new Set([...current,...visible.map(r=>r.id)])])}>표시 품목 추가 선택</button><button onClick={()=>setSelected([])} disabled={!selected.length}>선택 해제</button><strong>{selected.length}개 선택</strong>
-    <label>일괄 출고요일<select aria-label="일괄 출고요일" value={bulkDay} onChange={e=>setBulkDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label><button disabled={busy||stale||!selected.length} onClick={()=>setModal('bulk')}>선택 품목 출고일 일괄 지정</button>
+    <div className={styles.bulkBox} role="group" aria-label="선택 품목 출고일 일괄지정"><strong>선택 품목 출고일 일괄지정</strong><label>일괄 출고요일<select aria-label="일괄 출고요일" value={bulkDay} onChange={e=>setBulkDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label><button aria-label="선택 품목 출고일 일괄 지정" disabled={busy||stale||!selected.length} onClick={()=>setModal('bulk')}>지정</button><button aria-label="일괄지정 후 작성내용 저장" disabled={busy||!valid} onClick={()=>save(false)}>저장</button></div>
     <button disabled={!valid} onClick={()=>setShowPreview(!showPreview)}>{showPreview?'미리보기 접기':'엑셀 미리보기'}</button>
    </div><p className={styles.hint}>품목명을 드래그하면 기존 선택에 추가됩니다 · 품목군·검색 변경 후에도 선택이 유지됩니다 · 체크박스/Shift+선택 가능 · ↑↓·Space 키 지원<br/>품목 · 규격 칸을 눌러 바로 입력하면 엑셀 품목 표시가 수정되고, 한 번 수정한 이름은 품목별로 저장되어 다음에도 유지됩니다(비우면 자동 이름으로 복귀).</p>
    <fieldset className={styles.selectorField} disabled={busy||stale}><legend>국가·품종별 보기 <span className={styles.hint}>{selectedCategories.length?`${selectedCategories.length}개 선택`:'전체 품목군'}</span></legend><div className={styles.buttonRow} role="group" aria-label="국가 품종별 보기">
