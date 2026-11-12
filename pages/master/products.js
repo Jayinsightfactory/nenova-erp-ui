@@ -8,6 +8,7 @@ import { downloadCsv, makeDatedFilename } from '../../lib/exportUtils';
 import ProductCatalogPhoto from '../../components/catalog/ProductCatalogPhoto';
 import ProductBulkEditor from '../../components/catalog/ProductBulkEditor';
 import ProductInputHistory from '../../components/catalog/ProductInputHistory';
+import WorkflowGuide from '../../components/WorkflowGuide';
 import { matchesProductFlowers, productFlowerCounts, matchesProductCountry, productCountryCounts, groupProductsByCountryFlower } from '../../lib/productCatalogFilter';
 
 export default function Products({embedded=false,onDirtyChange}={}) {
@@ -172,6 +173,7 @@ export default function Products({embedded=false,onDirtyChange}={}) {
 
   return (
     <div>
+      <WorkflowGuide workflowId="product-new-registration" initialRole="수입부" />
       <div className="filter-bar">
         <input
           className="filter-input"

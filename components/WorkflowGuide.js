@@ -3,7 +3,7 @@ import { workflowGuide, guideTime } from '../lib/workflowGuides.cjs';
 import styles from '../styles/WorkflowGuide.module.css';
 
 // Static, local media only. Opening or playing a guide never submits an ERP action.
-export default function WorkflowGuide({ workflowId, initialRole }) {
+export default function WorkflowGuide({ workflowId, initialRole, defaultOpen = false }) {
   const workflow = workflowGuide(workflowId);
   const [selected, setSelected] = useState(() => workflow?.guides.find(guide => guide.role === initialRole)?.id ?? workflow?.guides[0]?.id);
   const [error, setError] = useState(false);
@@ -17,7 +17,7 @@ export default function WorkflowGuide({ workflowId, initialRole }) {
     player.current.currentTime = seconds;
     player.current.focus();
   };
-  return <details className={styles.guide} onToggle={event => { if (!event.currentTarget.open) player.current?.pause(); }}>
+  return <details className={styles.guide} open={defaultOpen || undefined} onToggle={event => { if (!event.currentTarget.open) player.current?.pause(); }}>
     <summary>사용 가이드 영상 <span>수정 방법을 화면으로 따라하기</span></summary>
     <section aria-labelledby={labelId} className={styles.body}>
       <h3 id={labelId}>{workflow.title}</h3>

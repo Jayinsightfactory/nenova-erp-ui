@@ -655,6 +655,74 @@
           ]
         }
       ]
+    },
+    {
+      "id": "product-new-registration",
+      "title": "신규 품목 등록(인보이스에 처음 나온 품목)",
+      "entryPaths": [
+        "/master/products",
+        "/work/manuals?manual=product-new-registration"
+      ],
+      "sourceFiles": [
+        "pages/master/products.js"
+      ],
+      "requiredScenarios": [
+        "check",
+        "open",
+        "name",
+        "classify",
+        "units",
+        "freight",
+        "verify"
+      ],
+      "guides": [
+        {
+          "id": "import",
+          "role": "수입부",
+          "title": "중복 확인부터 저장 확인까지 7단계",
+          "status": "ready",
+          "src": "/guides/product-new-registration/import.mp4",
+          "captions": "/guides/product-new-registration/import.ko.vtt",
+          "proof": "/guides/product-new-registration/import.proof.json",
+          "chapters": [
+            {
+              "scenario": "check",
+              "title": "1. 이미 있는 품목인지 먼저 찾기",
+              "seconds": 0
+            },
+            {
+              "scenario": "open",
+              "title": "2. 신규 등록 창 열기",
+              "seconds": 30.182
+            },
+            {
+              "scenario": "name",
+              "title": "3. 품목명과 웹 표시 이름 넣기",
+              "seconds": 55.484
+            },
+            {
+              "scenario": "classify",
+              "title": "4. 꽃 종류와 국가 고르기",
+              "seconds": 97.052
+            },
+            {
+              "scenario": "units",
+              "title": "5. 단위와 박스 환산 넣기",
+              "seconds": 120.904
+            },
+            {
+              "scenario": "freight",
+              "title": "6. 비워 둘 칸 확인하기",
+              "seconds": 162.592
+            },
+            {
+              "scenario": "verify",
+              "title": "7. 저장하고 목록에서 확인하기",
+              "seconds": 179.475
+            }
+          ]
+        }
+      ]
     }
   ]
 }

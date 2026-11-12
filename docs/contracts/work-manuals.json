@@ -21,7 +21,10 @@
     "data/work-feature-manual-routines.json",
     "lib/workLivePipelines.js",
     "pages/api/work/live-pipelines.js",
-    "components/manuals/LivePipelineManual.js"
+    "components/manuals/LivePipelineManual.js",
+    "lib/importHandover.js",
+    "components/manuals/ImportHandover.js",
+    "data/import-handover.json"
   ],
   "businessIdentity": [
     "OrderYear",

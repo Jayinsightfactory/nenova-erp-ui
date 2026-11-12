@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import RoutineManual from '../../components/manuals/RoutineManual';
 import LivePipelineManual from '../../components/manuals/LivePipelineManual';
+import ImportHandover from '../../components/manuals/ImportHandover';
 
 const TINTS = ['#2F6FEB', '#1E8E5A', '#C2410C', '#7C3AED', '#0E7490', '#B45309'];
 const STATUS = {
@@ -160,8 +161,10 @@ export default function WorkManualsPage() {
   const [deptId, setDeptId] = useState(null);
   const [open, setOpen] = useState(null);
   const [layout, setLayout] = useState({});
+  const [manualParam, setManualParam] = useState(null); // ?manual=<id> 로 들어오면 그 매뉴얼을 바로 연다
   const [view, setView] = useState('routine'); // routine=부서별 신입 루틴(기본) / drafts=직원별 절차 초안 / live=라이브 매뉴얼(단계 캡처 재생)
 
+  useEffect(() => { try { setManualParam(new URLSearchParams(window.location.search).get('manual')); } catch { /* 주소 읽기 실패 — 업무표부터 */ } }, []);
   useEffect(() => {
     api().then((j) => { setData(j); setLayout(j.layout || {}); }).catch((e) => setErr(e.message));
   }, []);
@@ -191,7 +194,8 @@ export default function WorkManualsPage() {
     } catch (e) { setErr(e.message); }
   };
   if (view === 'live') return <LivePipelineManual me={data.me} onBack={() => setView('routine')} />;
-  if (view === 'routine' && data.routines) return <RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} />;
+  const handover = <ImportHandover data={data.handover} me={data.me} initialManual={manualParam} />;
+  if (view === 'routine' && data.routines) return <>{handover}<RoutineManual routines={data.routines} me={data.me} onConfirm={confirmRoutine} onSwitch={() => setView('drafts')} onLive={() => setView('live')} /></>;
 
   const depts = ordered(data.departments, layout.home, (d) => d.id);
   const dept = data.departments.find((d) => d.id === deptId);
@@ -199,6 +203,8 @@ export default function WorkManualsPage() {
   const canEdit = (m) => data.isAdmin || m.owner === data.me;
 
   return (
+    <>
+    {handover}
     <div className="wm">
       <div className="top">
         {dept ? (
@@ -275,6 +281,7 @@ export default function WorkManualsPage() {
       )}
       <style jsx>{css}</style>
     </div>
+    </>
   );
 }
 

@@ -31,6 +31,7 @@ for(const selection of [[], ['카네이션']]) {
     if(name.endsWith('/displayName'))return {suggestDisplayName:s=>s,getDisplayName:p=>p.ProdName,filterProducts:p=>p};
     if(name.endsWith('/productSearchRanking'))return {rankProductSearchOptions:(_,p)=>p};
     if(name.endsWith('/exportUtils'))return {};
+    if(name.endsWith('/WorkflowGuide'))return {__esModule:true,default:()=>null};
     if(name.endsWith('/ProductCatalogPhoto'))return {default:()=>null};
     if(name.endsWith('/ProductBulkEditor'))return {default:()=>null};
     if(name.endsWith('/ProductInputHistory'))return {default:()=>null};
