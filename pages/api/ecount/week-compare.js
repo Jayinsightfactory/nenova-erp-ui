@@ -60,11 +60,14 @@ export default withAuth(async function handler(req, res) {
     const ETN = new Set(Object.values(ET).map(n));
     const np = makeNp(ETN);
 
-    // ── ECOUNT: 매출일을 포함한 가장 최신 스냅샷 하나
+    // ── ECOUNT: 매출일을 포함한 가장 최신 "완전한" 스냅샷 하나
+    // 수집 상한(5000행)에 걸려 잘린 스냅샷, 화면 행수보다 적게 저장된 스냅샷은 제외한다.
     const snapRes = await query(
-      `SELECT TOP 1 r.SnapshotKey, s.TakenAt
+      `SELECT TOP 1 r.SnapshotKey, s.TakenAt, s.RowCnt
          FROM WebEcountRow r JOIN WebEcountSnapshot s ON s.SnapshotKey = r.SnapshotKey
         WHERE r.Dataset='sales' AND LEFT(r.RefDate,10) = @d
+          AND s.RowCnt <> 5000
+          AND (s.ScreenRowCnt IS NULL OR s.ScreenRowCnt <= 0 OR s.RowCnt >= s.ScreenRowCnt)
         ORDER BY r.SnapshotKey DESC`,
       { d: { type: sql.NVarChar, value: saleDate } });
     const snap = snapRes.recordset[0] || null;
@@ -221,6 +224,7 @@ export default withAuth(async function handler(req, res) {
       noEcount: !snap,
       snapshotKey: snap ? snap.SnapshotKey : null,
       takenAt: snap ? kst(snap.TakenAt) : null,
+      snapshotRowCnt: snap ? snap.RowCnt : null,
       cutoff: `${saleDateIso} 23:59 KST`,
       summary: {
         ecTotal, erpTotal, diff: ecTotal - erpTotal, diffLines, lateLines, totalLines,

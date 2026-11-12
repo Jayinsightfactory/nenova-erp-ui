@@ -26,7 +26,7 @@ export default withAuth(async function handler(req, res) {
   try {
     const snapKey = req.query.snapshotKey
       ? Number(req.query.snapshotKey)
-      : (await query(`SELECT TOP 1 SnapshotKey FROM WebEcountSnapshot WHERE Dataset='sales' ORDER BY SnapshotKey DESC`)).recordset[0]?.SnapshotKey;
+      : (await query(`SELECT TOP 1 SnapshotKey FROM WebEcountSnapshot WHERE Dataset='sales' AND RowCnt <> 5000 AND (ScreenRowCnt IS NULL OR ScreenRowCnt <= 0 OR RowCnt >= ScreenRowCnt) ORDER BY SnapshotKey DESC`)).recordset[0]?.SnapshotKey; // 5000행 상한에 잘린 수집본 제외
 
     // ── ECOUNT: 해당 거래처, 대상월, 수입품 → 품목별·일자별
     const ecRows = snapKey ? (await query(

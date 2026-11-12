@@ -39,7 +39,7 @@ export default withAuth(async function handler(req, res) {
     // ── ECOUNT 스냅샷 (지정 또는 최신 sales)
     const snapKey = req.query.snapshotKey
       ? Number(req.query.snapshotKey)
-      : (await query(`SELECT TOP 1 SnapshotKey FROM WebEcountSnapshot WHERE Dataset='sales' ORDER BY SnapshotKey DESC`)).recordset[0]?.SnapshotKey;
+      : (await query(`SELECT TOP 1 SnapshotKey FROM WebEcountSnapshot WHERE Dataset='sales' AND RowCnt <> 5000 AND (ScreenRowCnt IS NULL OR ScreenRowCnt <= 0 OR RowCnt >= ScreenRowCnt) ORDER BY SnapshotKey DESC`)).recordset[0]?.SnapshotKey; // 5000행 상한에 잘린 수집본 제외
     if (!snapKey) return res.status(200).json({ success: true, month, noEcount: true, byCust: [], summary: {} });
 
     const params = { from: { type: sql.Date, value: from }, to: { type: sql.Date, value: nextMonth } };
