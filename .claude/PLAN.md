@@ -1,3 +1,10 @@
+## 2026-11-12 — 출고내역서 엑셀 품목 표시명 직접 수정
+- [x] 표 입력칸 즉시 저장(ProdKey 매칭)·엑셀/미리보기 적용·단위 31 PASS·계약 manifest 등록
+- [x] guard:erp-writes·dnspy-evidence·ui-layout PASS
+- [x] webpack 정식 build(영상 게이트 포함)·실Chrome 합성 fixture 1920/390·가이드 영상 6목차 재촬영·플레이어 재생 PASS
+- [ ] PR #1684 CI/머지·Cafe24 배포·운영 화면 확인
+- 기준: docs/contracts/shipment-statement.json, PR #1684
+
 # PLAN.md — 프로젝트 목표 & 기능 계획
 
 ## 2026-11-03 — 공식 관세·중국27 운임 (DB 불변)

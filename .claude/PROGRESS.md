@@ -1,3 +1,18 @@
+## [2026-11-12] 세션 — 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
+
+### 작업 내용
+- 요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지.
+- ProdKey별 표시명 파일(data/runtime/shipment-statement-labels/{ProdKey}.json), `POST /api/shipment/statement?action=label`, GET 응답 `labels`, 엑셀·미리보기에만 적용(빈 값=자동명 복귀). ERP·작성본·sourceHash 변경0.
+- 계약 docs/contracts/shipment-statement.json 에 scope·action·테스트 등록(처음 누락 → manifest 실패 → 수정). 브랜치 feat/shipment-statement-item-label-edit, PR #1684.
+
+### 변경된 파일
+- lib/shipmentStatementLabelStore.cjs(신규), lib/shipmentStatementWorkbook.cjs, pages/api/shipment/statement.js, pages/shipment/statement.js, styles/ShipmentStatement.module.css, __tests__/shipmentStatementLabelEdit.test.cjs, docs/contracts·exe-golden, package.json, WORK_MEMORY.md
+
+### 미결 이슈 / 블로킹
+- 영상 게이트(pages/shipment/statement.js 변경 → 재촬영 필수)로 build 실패 → 3번 「엑셀 품목 표시명 직접 수정」 단계 추가 재촬영(6목차, 149초).
+- 품목명 칸이 입력칸이 되어 칸 위 클릭=수정, 드래그/품목군 칸 클릭=선택(기존 드래그 선택 유지).
+- 머지 후: 운영 화면 실조작·배포 후 data/runtime 보존 확인.
+
 ## [2026-11-09] 세션 — 업무 드라이브: 웹 직접 업로드 파일 자동 반영
 
 ### 작업 내용

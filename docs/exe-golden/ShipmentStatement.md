@@ -36,3 +36,6 @@ FormShipmentDistribution 실제dnSpy 재실행 및 동일production reader SELEC
 
 ## 2026-11-11 복수 품목 선택·국가품종 필터·운임비 표기
 웹 화면 전용 변경. 국가+품종 버튼 필터는 여러 버튼을 함께 선택해 표시하며, 드래그/체크/Shift/표시품목 추가 선택은 기존 선택을 유지한다. 검색어·품목군 필터 변경도 선택 ID를 지우지 않는다. 전체 선택 해제만 명시적으로 초기화한다. 국내+왁스는 화면·엑셀 품목군에 운임비로 표시한다. source.category, CountryFlower 업무키, 원본 Product 및 저장 작성본은 유지. 사용자의 일괄출고일 적용은 기존과 같이 선택된 각 품목의 총량을 한 요일로 이동하는 웹작성본 변경만 수행한다. ERP 조회/저장 범위 변경 없음.
+
+## 2026-11-12 엑셀 품목 표시명 직접 수정(매칭)
+웹 전용. 표의 품목·규격 칸에서 바로 수정한 표시명을 ProdKey별 파일(data/runtime/shipment-statement-labels)로 저장하고 엑셀·미리보기 렌더링에만 적용한다. SQL/ERP writer/SP 변경0, 조회 SELECT·dnSpy 재추출 범위 변경0, 원본 row·작성본·sourceHash·불변 revision·총량·단가·날짜·업무키 보존. 비우면 자동 표시명(shipmentStatementLabels) 복귀. 실제 운영 화면 확인은 미실시.
