@@ -57,3 +57,19 @@ assert.ok(page.includes('<ImportHandover') && page.includes('data.handover'), '�
 assert.ok(fs.readFileSync(path.join(repo, 'pages', 'api', 'work', 'manuals.js'), 'utf8').includes('importHandoverForView'), 'API 가 업무표를 내려 줘야 함');
 
 console.log('importHandover ok');
+
+// 4) 신입 교육 자료: 그림·사전에 쓸 자료가 있고, 개인 이름·쓰지 않는 말이 없음
+{
+  const edu = JSON.parse(fs.readFileSync(path.join(repo, 'data', 'import-education.json'), 'utf8'));
+  assert.ok(edu.countries.length >= 5 && edu.countries.every((c) => c.subs.length && Object.keys(c.heat).length), '나라별 카드(입고 요일 규칙·달력)');
+  assert.ok(edu.cycles.length >= 1 && edu.cycles.every((c) => c.events.length >= 10 && c.events.every((e) => e.role && e.what)), '차수 한 바퀴는 역할·내용이 있는 단계 10개 이상');
+  for (const k of ['notices', 'qa', 'glossary', 'partners', 'incidents', 'fileKinds', 'templates']) assert.ok(edu[k].length > 0, `교육 자료 ${k}`);
+  const raw = JSON.stringify(edu);
+  for (const w of H.BANNED_WORDS) assert.ok(!raw.includes(w), `교육 자료에 쓰지 않는 말: ${w}`);
+  for (const name of data.manuals.flatMap((m) => m.practicedBy || [])) assert.ok(!raw.includes(name), '교육 자료에는 개인 이름 대신 역할을 쓴다');
+  assert.ok(!/01[016789][- ]?\d{3,4}[- ]?\d{4}/.test(raw), '교육 자료에 전화번호가 없어야 함');
+  const eui = fs.readFileSync(path.join(repo, 'components', 'manuals', 'ImportEducation.js'), 'utf8');
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(eui), 'ImportEducation 은 /pm 색 토큰만 써야 함');
+  assert.ok(ui.includes("'신입 교육'") && ui.includes('<ImportEducation'), '업무표에 신입 교육 탭이 있어야 함');
+}
+console.log('importEducation ok');

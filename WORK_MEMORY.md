@@ -2707,3 +2707,14 @@
 - Chromium1920x1080/390px: 8개·폭320·필터·완료·바로가기 미리보기·시간표12:00추가·종료시간오류·Escape·가로넘침0·JS오류0 PASS. 실제앱실행/서버저장/동기화·운영반영 미검증, 디자인만 완료. 실제구현에는 시간/링크 저장모델+권한검증 IPC+버전배포 필요. 가이드/ERP게이트/빌드 해당없음(운영메뉴 변경없는 독립디자인).
 - 메뉴기준 반응형·읽기밀도·페이지스크롤·키보드 적용, ERP원장/업로드/원장확인 해당없음. 계정전체주간1%→1% 동일reset1795064856, 작업단독비용 추정없음.
 검색어: task-launch-1112 오늘의내업무 업무메모장 320px 8개 시간표 매일 바로가기 desktop notes
+## 2026-11-12 출고분배 실제 운영 API 격리 연결·카톡 내부스크롤
+- 사용자요청: 테스트저장어댑터가 아닌 운영저장API로 격리검증, 카톡자동조회/읽기정리/카톡만스크롤. 작업트리 nw-distribution-real-api-1112,17e89a92기준.
+- 운영 pages/api/orders/index.js·shipment/distribute.js·estimate/index.js를 SWC로 원문그대로로드. DB만전용LocalDB로연결·auth/actionLog외부경계는fixture처리. 실제Chrome업체534/535연속추가5/7→운영주문API201 verified2건→운영분배API200 verified=true insert2건→새페이지SQL재조회5/7→견적printDetail API2행·excelDetail API150/210→xlsx실파일재열기PASS. 운영API수정0/ERP운영접속0.
+- 격리축약스키마 Product.Descr/PeriodDay범위·9/12달력/ShipmentDate자동키 누락 보완. 확정API/재고확정은이번시험범위밖, 견적읽기전fixture isFix만준비. API저장후원값은변경0. 결과로그 C:/Users/USER/nw-distribution-real-api-1112-current-pass.log, outputs/distribution-multi-save 엑셀2개.
+- 카톡마운트자동GET, 기존block.text호환보존+messages원시ID/시각추가, 개별원문최신순·전체/추가/취소필터. panel sticky/maxHeight, 요청목록65dvh내부스크롤/overscrollContain/키보드초점. Chrome40메시지휠→page.scrollY불변PASS, 일반주문제외·메타데이터2건테스트PASS. 전체ERP/dnSpy/manifest213/writeguard1API PASS. 최종화면build성공,가이드session70942진행. PR/배포/운영후속.
+검색어: real-api-1112 load-isolated-erp-api 실제orders distribute estimate LocalDB 내부스크롤65dvh 메시지최신순
+- 완료검증: 새빌드39331에서운영주문API201×2/분배API200 verified2행 insert/새페이지5·7/운영견적printDetail2행·excelDetail150·210/실제xlsx2파일재열기PASS. 전체ERP exit0,카톡원문API단위PASS,Chrome40메시지내부휠 pageY불변PASS,정식npm build exit0. 가이드191.8초 first/middle/last직접확인,자동조회/내부스크롤설명포함. PR/배포후속.
+## 2026-11-12 중국 물량표 고정 열·스크롤
+- 단가/수량 컨트롤이 품목명을 덮지 않도록 셀 표시 순서를 분리. 표 상단 가로 레일과 표 좌우 이동을 동기화하고 표 오른쪽에서 세로 이동. 인쇄 레일 제외.
+- 화면 표시 변경. 주문/분배/원장/수량 및 엑셀 계산 변경 없음. 넓은 편집표에만 세로 스크롤 예외 적용. 검증 결과는 세션 기록 참조.
+- 검색어: china-scroll-1112 중국물량표 고정품목 단가겹침 상단가로스크롤
