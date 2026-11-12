@@ -2678,3 +2678,10 @@
 - 후속(사장님 "고치고 보완까지"): mine-sessions.js 수정 — 로봇 지시문 1,193건 제외 + 앱 안내문(system-reminder)이 앞에 붙어 통째로 빠지던 사람 지시 158건 복구. 사람 지시 1,355→690건, 사람 세션 868→56개, 마찰률 12.55%→14.06%(97/690). 파일 분류(robot)는 넓히지 않음(robot 은 10분 뒤 삭제 대상이라). 세는 방식 변경은 report.md 머리와 data/metric-changes.jsonl 에 표시. 보완: 규칙 장부에 "거의 로봇에만 얹힘 11개·사람 지시엔 드묾 11개" 표시, 승인 목록을 7계열로 묶고 계열별 대표 번호 제시. rules.json 지문 불변.
 - 미검증: 일요일 새벽 자동 실행(로그인 상태에서만 돎, 11/15 이후 확인), 후보의 "근거 반복 건수"(AI 주장), OrbitPersonaVerifyDaily 11/12 비정상 종료 코드 원인.
 검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 257/295 mine-sessions 로봇제외 system-reminder 복구 metric-changes rule-conflicts robot-sig 로봇지시 섞임
+## 2026-11-12 지시 보완기 보완 + 원리 후보 2건 편입(PC persona)
+- 사장님 지시: "지시보완기가 작동 안 했다는 얘긴가, 보완해야지" + 후보 57번 "후속진행을 하되 롤백만 가능한 구조로, 결과값 변경 없는 선에서" + 52번 "도구는 상황에 맞게". 저장소 밖 작업(~/.claude/hooks/prompt-guard.js, ~/.claude/persona/rules.json), 저장소는 이 기록과 백로그 A절 6단계만.
+- 실측: 사람 마찰 62건 중 59건이 관련 규칙이 이미 얹힌 세션에서 발생, 44건은 얹은 지 3턴 넘게 지난 뒤. 4개 상한에 잘린 지시는 13/156건.
+- 수정: 같은 규칙 재매칭 시 6턴 뒤 한 줄 다시 상기(최대 3), 지적 문장이면 세션에 얹었던 규칙 다시 확인(최대 3), 지시 앞 system-reminder 안내문 떼고 판정, guard-log 에 again·friction 칸. 시험 폴더 9턴 시험 통과(7턴째 다시 상기, 8턴째 지적 확인).
+- 편입(사장님 결정): follow-up-reversible(과하게 걸림 3.9%), design-tool-fit(0.4%) → 규칙 41→43. 나머지 후보 43건은 승인 대기.
+- 미검증: 다시 상기가 실제로 마찰을 줄이는지(다음 주 baseline·마찰률), 지적 때 보여 주는 규칙이 실제 어긴 규칙인지(훅은 모름). 로봇 지시문에 규칙이 얹히는 것은 그대로.
+검색어: prompt-guard 다시 상기 REMIND_GAP friction again follow-up-reversible design-tool-fit 지시보완기 보완 규칙 43
