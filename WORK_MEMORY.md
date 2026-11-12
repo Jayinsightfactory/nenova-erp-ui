@@ -2632,6 +2632,13 @@
 - 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
 
+## 2026-11-12 HR 에이전트(초안) — 온보딩·인수인계 문서
+- 사용자요청: 백로그(docs/canon/BACKLOG.md B절) HR 에이전트를 병렬 작업으로 진행. 원칙 "사람을 평가하지 않는다. 성장과 업무를 돕는다".
+- 신규: .claude/agents/nenova-hr.md(온보딩·인수인계만, 채용 행정·성장 지원은 범위 표만, 제외 기능 4가지와 이유, 평가·등급·보상·징계·합격 여부 다루지 않음), docs/hr/ONBOARDING_FIRST_WEEK.md(주문 등록→발주→입고→분배→출고→견적 순서로 기존 화면 주소·가이드 영상 13개·매뉴얼 초안 연결, 없는 곳은 "가이드 없음"), docs/hr/HANDOVER_TEMPLATE.md(인수인계 틀, 내용 비움).
+- 변경: scripts/check-canon.cjs 진입 파일에 nenova-hr.md 추가(5→6개), .claude/agents/README.md 한 줄 등록, BACKLOG B절 "만든 것 / 아직 안 만든 것" 표.
+- 측정: 온보딩=가이드만 보고 첫 주문 등록을 끝낸 시간, 인수인계=문서만 받고 대신 처리한 업무 수. 둘 다 기준값 없음(잰 적 없음).
+- 미검증: 실제 새 직원·실제 인수인계에 써 본 적 없음. 새 직원이 가이드만으로 웹에서 첫 주문을 등록할 수 있는지(주문 등록 화면 6개 중 영상 1개). 수입부 인수인계 내용은 별도 작업 소관이라 쓰지 않음. pages/·영상·금액·재고·차수 로직·DB·PC 전역 폴더 변경 0, 직원 개인 데이터 수집 0.
+- 검색어: HR 에이전트 nenova-hr 온보딩 첫주 인수인계 틀 가이드 없음 ONBOARDING_FIRST_WEEK HANDOVER_TEMPLATE 기준값 없음
 ## 2026-11-12 자가성장 루프 다시 돌리기(PC persona) — 백로그 A절 "멈춤" 해소
 - 사장님 지시 "백로그에 미뤄 둔 것 전부 작업". 대상은 PC 전역 `~/.claude/persona`(저장소 밖). 저장소는 docs/canon/BACKLOG.md A절 상태와 이 기록만 수정. 코드·DB·훅(prompt-guard 등)·nenova-pm·.codex 변경 0. 백업 `~/.claude/persona-backup-20261112`.
 - 다시 돌림: distill.js 보강(처리 표시로 새 것만·업무 영역 묶기·나눠서 전부 처리) → 사람 마찰 142건/18묶음 → 새 원리 후보 45건(승인 대기, rules.json 지문 불변). 주간 작업 OrbitPersonaWeekly(일 05:30) 등록·수동 실행 종료 코드 0. 프로파일(PERSONA.md) 자동 재작성은 꺼 둠.
