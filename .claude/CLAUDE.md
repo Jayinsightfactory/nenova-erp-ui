@@ -20,7 +20,7 @@
 저장소: GitHub Jayinsightfactory/nenova-erp-ui (master)
 배포: Cafe24 VPS 172.233.89.171 → nginx → pm2(nenova-erp) → node web.js
 도메인: https://nenovaweb.com
-마지막 업데이트: 2026-04-24
+마지막 업데이트: 2026-11-12 (기록 위치·정본 정리. 그 밖의 본문은 2026-04-24 기준)
 ```
 
 ---
@@ -80,11 +80,7 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 들여쓰기: 2 spaces
 ```
 
-**사용 라이브러리:**
-- 현재: `@anthropic-ai/sdk`, `formidable`, `jsonwebtoken`, `mssql`, `next`, `react`, `xlsx`
-- **금지**: `xlsx-js-style` (Turbopack 빌드 실패)
-  - ↪ 정본 참조(`docs/canon/CANON.md` 4절): 이 줄은 옛 기준이다. 루트 `CLAUDE.md` "배포 주의"의 "webpack 전환으로 사용 가능"이 우선한다. 이동 제안: 사용 라이브러리 목록은 루트 `CLAUDE.md` 한 곳에만 둔다.
-- 추가 설치 전 반드시 사용자 승인
+**사용 라이브러리:** 루트 [`CLAUDE.md`](../CLAUDE.md) "사용 라이브러리" 한 곳에만 적는다(2026-11-12 이동). 여기 있던 옛 목록과 "`xlsx-js-style` 금지" 문장은 뺐다 — 지금은 사용 가능하다(경위: `docs/canon/why-log.jsonl`의 `20260710-xlsx-js-style-allowed`).
 
 ---
 
@@ -103,8 +99,8 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 ## ✅ 작업 시작 전 체크리스트 (매 세션)
 
 1. `.claude/CLAUDE.md` (이 파일) 읽기
-2. `.claude/PLAN.md` → 현재 작업이 플랜에 있는지 확인
-3. `.claude/PROGRESS.md` → 마지막 세션 상태 + 미결 이슈 확인
+2. `WORK_MEMORY.md` 끝부분(최근 항목) → 마지막 작업 상태 + 미검증·미결 항목 확인. 특정 기능은 검색어 줄로 찾는다
+3. 긴 세부가 필요하면 `WORK_MEMORY.md` 항목이 가리키는 `docs/work-sessions/` 파일만 읽는다 (`.claude/PLAN.md`·`.claude/PROGRESS.md`·`docs/work-reports/`는 2026-11-12부터 새로 쓰지 않는 옛 기록 — 과거 경위를 찾을 때만 본다)
 4. `git log master --oneline | head -10` → 최근 HEAD 파악
 5. `git tag -l "backup-*" "dangling/*" "stable-*"` → 보존 태그 인지
 6. DB 작업이면 `docs/DB_STRUCTURE.md` + `docs/migrations/*` 선행 참조
@@ -114,37 +110,26 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 
 ## 💾 작업 종료 시 필수 저장 규칙
 
-**모든 작업 세션이 끝날 때 반드시 아래 실행:**
+**의미 있는 작업이 끝나면 아래를 한다** (2026-11-12 사장님 결정, 정본 `docs/canon/CANON.md` 4절):
 
-> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 작업 기록은 `WORK_MEMORY.md` 끝에 날짜·요약·검색어 줄로 남긴다(2026-11-12 사장님 결정). 아래 1·2번(`PROGRESS.md`·`PLAN.md` 갱신)은 옛 방식이며 새로 쓰지 않는다. 지난 기록은 그대로 둔다.
-
-### 1. `.claude/PROGRESS.md` 최상단에 세션 블록 추가
+### 1. `WORK_MEMORY.md` 끝에 항목 추가
 ```
-## [YYYY-MM-DD HH:MM] 세션 #N — 제목
-
-### 작업 내용
-- 커밋 SHA + 간단 설명
-
-### 변경된 파일
-- 경로: 변경 요약
-
-### 다음 작업 예정
-- …
-
-### 미결 이슈 / 블로킹
-- …
+## YYYY-MM-DD 제목
+- 요청/원인: …
+- 구현: … (수정안 번호·저장 기록)
+- 검증: … (실행한 명령과 결과)
+- 미검증: …
+- 검색어: …
 ```
+긴 세부(질문→답변, 설계 근거)는 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 두고 위 항목에서 그 파일을 가리킨다.
 
-### 2. `.claude/PLAN.md` 상태 업데이트
-- 완료: `[ ]` → `[x]`
-- 블로킹: `[!]`
-- 진행률 요약 표 자동 갱신
+### 2. `.claude/PROGRESS.md`·`.claude/PLAN.md`·`docs/work-reports/`에는 새로 쓰지 않는다
+지난 기록은 그대로 둔다(계약·테스트가 `docs/work-reports/`의 옛 문서를 근거로 가리키므로 옮기거나 지우지 않는다).
 
-### 3. 중요 결정사항은 이 CLAUDE.md 또는 `memory/session_YYYY-MM-DD.md` 에 반영
+### 3. 고친 이유가 다음에도 쓸모 있으면 `docs/canon/why-log.jsonl`에 한 줄 (형식은 정본 6절)
 
-### 4. GitHub push 여부 확인 (사용자 명시 요청 시만)
-
-> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 올리기·반영·배포는 `AGENTS.md` "수정 요청과 배포 동시 진행 원칙"이 우선한다(더 최근 기준). 작업 기록은 `WORK_MEMORY.md` 한 곳으로 정해졌다(2026-11-12 사장님 결정).
+### 4. 올리기·반영·배포
+`AGENTS.md` "수정 요청과 배포 동시 진행 원칙"을 따른다: 수정 → 필수 테스트 → 수정안 → 본편 반영 → 배포 확인까지 하나의 작업이다. DB 스키마 변경·마이그레이션이 든 수정안만 사람이 먼저 한다. (옛 문장 "push는 사용자 명시 요청 시만"은 2026-11-12에 뺐다.)
 
 ---
 
@@ -153,7 +138,7 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 > 새 대화 시작할 때 붙여넣기:
 
 ```
-.claude/CLAUDE.md, .claude/PLAN.md, .claude/PROGRESS.md 를 순서대로 읽고
+docs/canon/CANON.md, .claude/CLAUDE.md 를 읽고 WORK_MEMORY.md 끝부분(최근 항목)으로
 현재 프로젝트 상태를 파악한 뒤 작업을 이어서 진행해줘.
 과거 대화는 무시하고 이 MD 파일 기준으로 판단해.
 이어서 docs/DB_STRUCTURE.md 와 루트 CLAUDE.md 의 도메인 규칙도 참조해.
@@ -179,6 +164,4 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 - `__tests__/freightCalc.test.js` — 238건 fixture (lib/freightCalc 수정시 필수 pass)
 - 루트 `CLAUDE.md` — 도메인 규칙 상세 (출고일 계산, 진단 API 등)
 
-*이 파일은 프로젝트의 단일 진실 소스(Single Source of Truth)입니다.*
-
-> ↪ 정본 참조: 위 문장은 2026-04 기준이다. 지금은 판단 기준의 단일 기준이 `docs/canon/CANON.md`이고, 도메인 규칙은 정본 5절 표의 담당 파일에 나뉘어 있다.
+*이 파일은 세션 시작 체크리스트·보존 태그의 담당 파일입니다. 판단 기준의 단일 기준은 [`docs/canon/CANON.md`](../docs/canon/CANON.md)이고, 도메인 규칙은 정본 5절 표의 담당 파일에 나뉘어 있습니다. (옛 문장 "이 파일은 프로젝트의 단일 진실 소스"는 2026-11-12에 뺐다.)*

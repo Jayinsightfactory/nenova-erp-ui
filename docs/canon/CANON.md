@@ -54,15 +54,15 @@
 4. 나머지 지침 파일 — **날짜가 적힌 최근 기록**이 날짜 없는 오래된 문장을 이긴다. 범위가 좁은 규칙(특정 화면·기능)이 넓은 규칙을 이긴다
 5. 그래도 안 풀리면 멈추고 사장님께 한 번 묻는다. 답은 `why-log.jsonl`에 남기고, 틀린 쪽 문장에 "정본 참조" 표시를 단다
 
-지금 확인된 충돌과 따를 쪽(문장은 지우지 않고 표시만 달았다):
+지금까지 확인된 충돌과 따른 쪽. 위 네 줄은 2026-11-12에 **실제로 정리했다**(틀린 쪽 문장을 빼거나 담당 파일로 옮기고, 무엇을 뺐는지 그 자리에 한 줄로 남김). 아래 두 줄은 사장님 결정으로 끝났다:
 
 | 주제 | 부딪히는 문장 | 따를 쪽 |
 |---|---|---|
-| `xlsx-js-style` | `.claude/CLAUDE.md` "금지" ↔ 루트 `CLAUDE.md` "사용 가능" | 루트 `CLAUDE.md` (2026-07-10 webpack 전환으로 금지 사유 소멸, 실제 사용 중) |
-| 올리기·반영·배포 | `.claude/CLAUDE.md`·`nenova-orchestrator` "명시 요청 시에만" ↔ `AGENTS.md` "별도 배포 지시를 기다리지 않고 … 하나의 작업으로" | `AGENTS.md` (더 최근, 사장님 지시 "머지는 기본으로 항상 진행"과 일치). 단 DB 스키마 변경·마이그레이션이 든 수정안은 사람 선행 |
-| 출고상세 `CustKey` 빈 값 | 루트 `CLAUDE.md` `repairMissingCustKey`("비었으면 복구") ↔ `AGENTS.md` "NULL만으로 오류·보정을 판단하지 않는다" | `AGENTS.md` (2026-10-02 실제 EXE 확인 근거) |
-| 무엇이 "단일 기준"인가 | `.claude/CLAUDE.md` "단일 진실 소스" ↔ `AGENTS.md` "전역 규칙은 `~/.codex/AGENTS.md`" | 판단 기준은 이 정본, 도메인 규칙은 5절 표의 담당 파일 |
-| 작업 기록 위치 | `.claude/PROGRESS.md` ↔ `docs/work-sessions/` ↔ `docs/work-reports/` ↔ `WORK_MEMORY.md` | **`WORK_MEMORY.md` 한 곳** (2026-11-12 사장님 결정). 작업이 끝나면 파일 끝에 날짜·요약·검색어 줄을 남긴다. 내용이 길면 세부만 `docs/work-sessions/`에 두고 `WORK_MEMORY.md` 항목에서 가리킨다. `.claude/PROGRESS.md`와 `docs/work-reports/`에는 새로 쓰지 않는다(지난 기록은 그대로 둔다) |
+| `xlsx-js-style` | `.claude/CLAUDE.md` "금지" ↔ 루트 `CLAUDE.md` "사용 가능" | 루트 `CLAUDE.md` (2026-07-10 webpack 전환으로 금지 사유 소멸, 실제 사용 중). **정리됨**: `.claude/CLAUDE.md`의 금지 문장·옛 목록을 빼고 루트 `CLAUDE.md` "사용 라이브러리" 한 곳으로 옮김 |
+| 올리기·반영·배포 | `.claude/CLAUDE.md`·`nenova-orchestrator` "명시 요청 시에만" ↔ `AGENTS.md` "별도 배포 지시를 기다리지 않고 … 하나의 작업으로" | `AGENTS.md` (더 최근, 사장님 지시 "머지는 기본으로 항상 진행"과 일치). 단 DB 스키마 변경·마이그레이션이 든 수정안은 사람 선행. **정리됨**: 두 파일의 "명시 요청 시에만" 문장을 `AGENTS.md`를 가리키는 문장으로 바꿈 |
+| 출고상세 `CustKey` 빈 값 | 루트 `CLAUDE.md` `repairMissingCustKey`("비었으면 복구") ↔ `AGENTS.md` "NULL만으로 오류·보정을 판단하지 않는다" | `AGENTS.md` (2026-10-02 실제 EXE 확인 근거). **정리됨**: 수리 행을 루트 `CLAUDE.md` 표에서 `AGENTS.md` "작업 전 필수 확인"으로 옮기고, 루트에는 읽기 진단만 남김 |
+| 무엇이 "단일 기준"인가 | `.claude/CLAUDE.md` "단일 진실 소스" ↔ `AGENTS.md` "전역 규칙은 `~/.codex/AGENTS.md`" | 판단 기준은 이 정본, 도메인 규칙은 5절 표의 담당 파일. **정리됨**: `.claude/CLAUDE.md`의 "단일 진실 소스" 문장을 "세션 시작 체크리스트·보존 태그의 담당 파일"로 바꿈 |
+| 작업 기록 위치 | `.claude/PROGRESS.md` ↔ `docs/work-sessions/` ↔ `docs/work-reports/` ↔ `WORK_MEMORY.md` | **`WORK_MEMORY.md` 한 곳** (2026-11-12 사장님 결정). 작업이 끝나면 파일 끝에 날짜·요약·검색어 줄을 남긴다. 내용이 길면 세부만 `docs/work-sessions/`에 두고 `WORK_MEMORY.md` 항목에서 가리킨다. `.claude/PROGRESS.md`·`.claude/PLAN.md`·`docs/work-reports/`에는 새로 쓰지 않는다(지난 기록은 그대로 둔다 — 각 파일 맨 위와 `docs/work-reports/README.md`에 표시함. 계약·테스트가 `docs/work-reports/`의 옛 문서를 근거로 가리키므로 옮기지 않는다) |
 | 도구별 역할 | (옛) `.cursor/rules` "Cursor가 지휘, git은 Cursor만" ↔ `AGENTS.md` "Codex/Claude가 작업 폴더에서 직접 수정안" | **`AGENTS.md`** — Cursor는 쓰지 않는다(2026-11-12 사장님 결정). `.cursor/` 폴더는 지웠다. Claude Code와 Codex가 각자 작업 폴더에서 직접 수정안을 올린다 |
 
 <!-- canon:rule-map -->
@@ -76,6 +76,8 @@
 | ERP 원장 변경 절차·계약·검증 명령 | `AGENTS.md` | Codex 자동, Claude는 `erp-contract-guardian`·스킬 경유 |
 | DB 쓰기 규칙·출고일 계산·진단 API·빌드 주의 | 루트 `CLAUDE.md` | Claude Code 자동 |
 | 세션 시작 체크리스트·보존 태그 | `.claude/CLAUDE.md` | Claude Code 자동 |
+| 합의 보존·되묻기 기준(바뀐 항목만 교체, 이미 받은 답 재사용) | `.claude/rules/insight-agreement.md` — 넷째 줄이 가리키는 `insight-requirement-review` 스킬은 아직 본편에 없다(메인 작업 폴더에만 있음). 없으면 그 줄은 건너뛴다 | Claude Code 자동 |
+| 사용 라이브러리 | 루트 `CLAUDE.md` "사용 라이브러리"(목록의 정답은 `package.json`) | Claude Code 자동 |
 | 하위 에이전트 역할 | `.claude/agents/*.md` | Claude Code |
 | 새 메뉴·화면틀·가이드 영상 | `docs/MENU_DEVELOPMENT_DEFAULTS.md` · `docs/UI_LAYOUT_AND_MENU_CONTRACT.md` · `docs/WORKFLOW_VIDEO_GUIDES.md` | 전부(`AGENTS.md`·`CLAUDE.md`가 가리킴) |
 | 수정 + "왜" 기록 | [`why-log.jsonl`](why-log.jsonl) | 전부 |
@@ -102,4 +104,4 @@
 | `valid_until` (선택) | 성수기·특정 차수에만 맞는 수정이면 끝나는 때 |
 | `rule_ref` (선택) | `status=rule`일 때 규칙이 들어간 파일·줄 |
 
-지켜야 할 것: 이유를 직접 말한 기록(`why_source: stated`)이거나 사장님이 직접 정한 것(`decided_by: owner`)만 `rule`이 될 수 있다(검사가 막는다). 사장님이 정했지만 이유를 말하지 않았으면 `why`에 추정이라고 적고 지어내지 않는다. 과거 저장 기록을 소급해 모은 것은 "왜"가 없으므로 `candidate`까지만 간다. `candidate` → `rule`은 사장님 승인으로만 한다.
+지켜야 할 것: 이유를 직접 말한 기록(`why_source: stated`)이거나 사장님이 직접 정한 것(`decided_by: owner`)만 `rule`이 될 수 있다(검사가 막는다). 사장님이 정했지만 이유를 말하지 않았으면 `why`에 추정이라고 적고 지어내지 않는다. 과거 저장 기록을 소급해 모은 것은 "왜"가 없으므로 `candidate`까지만 간다(2026-11-12 첫 수집: [`FIX_HISTORY_BACKFILL_2026-11-12.md`](FIX_HISTORY_BACKFILL_2026-11-12.md), 대표 8건). `candidate` → `rule`은 사장님 승인으로만 한다.
