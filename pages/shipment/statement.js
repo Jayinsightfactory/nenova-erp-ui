@@ -18,6 +18,7 @@ export default function ShipmentStatement(){
  const [year,setYear]=useState(''),[week,setWeek]=useState(''),[customers,setCustomers]=useState([]),[manager,setManager]=useState(''),[customer,setCustomer]=useState('');
  const [data,setData]=useState(null),[draft,setDraft]=useState(empty),[dirty,setDirty]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const [selected,setSelected]=useState([]),[selectedCategories,setSelectedCategories]=useState([]),[search,setSearch]=useState(''),[bulkDay,setBulkDay]=useState('수'),[modal,setModal]=useState(''),[showPreview,setShowPreview]=useState(false);
+ const [matched,setMatched]=useState({});
  const seq=useRef(0),drag=useRef(null),anchor=useRef(0),dialog=useRef(null),returnFocus=useRef(null),saving=useRef(false);
  useEffect(()=>{setYear(String(new Date().getFullYear()));setWeek(String(initialWeek()));},[]);
  useEffect(()=>{const stop=()=>{drag.current=null;};window.addEventListener('pointerup',stop);window.addEventListener('blur',stop);return()=>{window.removeEventListener('pointerup',stop);window.removeEventListener('blur',stop);};},[]);
@@ -33,7 +34,7 @@ export default function ShipmentStatement(){
   catch(e){if(id===seq.current)setError(e.message);}finally{setBusy(false);}
  }
  async function open(key){if(!permit())return;clear();setCustomer(key);if(!key)return;const id=++seq.current;setBusy(true);
-  try{const d=await json(url({year,week,custKey:key}));if(id!==seq.current)return;setData(d);setDraft(d.draft);setMessage(d.saved?`저장본 v${d.version}을 불러왔습니다.`:'요일별 수량을 입력한 뒤 저장하세요.');}
+  try{const d=await json(url({year,week,custKey:key}));if(id!==seq.current)return;setData(d);setMatched(d.labels??{});setDraft(d.draft);setMessage(d.saved?`저장본 v${d.version}을 불러왔습니다.`:'요일별 수량을 입력한 뒤 저장하세요.');}
   catch(e){if(id===seq.current)setError(e.message);}finally{setBusy(false);}
  }
  const rows=data?.source.rows??[],visible=selection.visibleRows(rows,selectedCategories,search);
@@ -44,7 +45,17 @@ export default function ShipmentStatement(){
  const patch=next=>{setDraft(next);setDirty(true);setMessage('수정 중 · 저장 버튼을 눌러야 보관됩니다.');};
  function quantity(row,day,value){const entry={...(draft.entries[row.id]??{})};if(value==='')delete entry[day];else entry[day]=value;patch({...draft,entries:{...draft.entries,[row.id]:entry}});}
  function range(start,end,base=[]){return selection.mergeRangeSelection(visible,start,end,base);}
- function pointer(e,index){if(e.button!==0||busy||stale)return;e.preventDefault();anchor.current=index;drag.current={start:index,base:selected};setSelected(range(index,index,selected));}
+ // 엑셀에 찍히는 품목 표시명: 직접 매칭한 이름이 있으면 그것, 없으면 자동 축약명.
+ const shown=row=>matched[row.prodKey]||labels.itemLabel(row);
+ // 입력칸에서 바로 수정 → 포커스를 벗어나거나 Enter 를 누르면 품목별로 즉시 저장(다음 차수·다른 업체에도 유지).
+ async function commitLabel(row,input){
+  const before=shown(row),text=input.value.replace(/\s+/g,' ').trim();if(text===before)return;
+  const auto=labels.itemLabel(row),next=text===auto?'':text;
+  try{const d=await json(url({...data.source.scope,action:'label'}),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prodKey:row.prodKey,label:next})});
+   setMatched(m=>{const n={...m};if(d.label)n[row.prodKey]=d.label;else delete n[row.prodKey];return n;});input.value=d.label||auto;setMessage(d.label?`'${d.label}' 표시명을 저장했습니다. 이 품목은 앞으로도 엑셀에 이 이름으로 나옵니다.`:'자동 표시명으로 되돌렸습니다.');setError('');}
+  catch(e){input.value=before;setError(e.message);}
+ }
+ function pointer(e,index){if(e.target.closest?.('input'))return;if(e.button!==0||busy||stale)return;e.preventDefault();anchor.current=index;drag.current={start:index,base:selected};setSelected(range(index,index,selected));}
  function toggle(id,index,shift){if(shift)setSelected(range(anchor.current,index,selected));else{anchor.current=index;setSelected(s=>s.includes(id)?s.filter(k=>k!==id):[...s,id]);}}
  function chooseDay(day){if(day===draft.defaultDay)return;setBulkDay(day);setModal('default');}
  function applyModal(){if(modal==='default')patch({...draft,defaultDay:bulkDay});else patch({...draft,entries:core.bulkMove(rows,draft.entries,selected,bulkDay)});setModal('');}
@@ -78,7 +89,7 @@ export default function ShipmentStatement(){
     <button disabled={busy||stale||!visible.length} onClick={()=>setSelected(current=>[...new Set([...current,...visible.map(r=>r.id)])])}>표시 품목 추가 선택</button><button onClick={()=>setSelected([])} disabled={!selected.length}>선택 해제</button><strong>{selected.length}개 선택</strong>
     <label>일괄 출고요일<select aria-label="일괄 출고요일" value={bulkDay} onChange={e=>setBulkDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label><button disabled={busy||stale||!selected.length} onClick={()=>setModal('bulk')}>선택 품목 출고일 일괄 지정</button>
     <button disabled={!valid} onClick={()=>setShowPreview(!showPreview)}>{showPreview?'미리보기 접기':'엑셀 미리보기'}</button>
-   </div><p className={styles.hint}>품목명을 드래그하면 기존 선택에 추가됩니다 · 품목군·검색 변경 후에도 선택이 유지됩니다 · 체크박스/Shift+선택 가능 · ↑↓·Space 키 지원</p>
+   </div><p className={styles.hint}>품목명을 드래그하면 기존 선택에 추가됩니다 · 품목군·검색 변경 후에도 선택이 유지됩니다 · 체크박스/Shift+선택 가능 · ↑↓·Space 키 지원<br/>품목 · 규격 칸을 눌러 바로 입력하면 엑셀 품목 표시가 수정되고, 한 번 수정한 이름은 품목별로 저장되어 다음에도 유지됩니다(비우면 자동 이름으로 복귀).</p>
    <fieldset className={styles.selectorField} disabled={busy||stale}><legend>국가·품종별 보기 <span className={styles.hint}>{selectedCategories.length?`${selectedCategories.length}개 선택`:'전체 품목군'}</span></legend><div className={styles.buttonRow} role="group" aria-label="국가 품종별 보기">
     <button type="button" aria-pressed={!selectedCategories.length} onClick={()=>setSelectedCategories([])}>전체</button>
     {categories.map(c=><button type="button" key={c.key} aria-label={`${c.label} 보기`} aria-pressed={selectedCategories.includes(c.key)} onClick={()=>setSelectedCategories(current=>selection.toggleCategoryFilter(current,c.key))}>{c.label}</button>)}
@@ -87,11 +98,11 @@ export default function ShipmentStatement(){
    <div className={styles.tableWrap}><table className={styles.table}><colgroup>{[45,135,260,65,85,85,...core.DAYS.map(()=>88)].map((w,i)=><col key={i} style={{width:w}}/>)}</colgroup><thead><tr><th>선택</th><th>품목군</th><th>품목 · 규격</th><th>단위</th><th>단가</th><th>분배수량</th>{data.source.calendar.map(d=><th key={d.day} className={draft.defaultDay===d.day?styles.default:''}>{d.day} {d.day===draft.defaultDay&&'기본'}<small>{d.date.slice(5)}</small></th>)}</tr></thead>
    <tbody>{visible.map((row,i)=><tr key={row.id} data-row-id={row.id} data-category={row.category} aria-selected={selected.includes(row.id)} className={selected.includes(row.id)?styles.selected:''} onPointerEnter={()=>{if(drag.current)setSelected(range(drag.current.start,i,drag.current.base));}}>
     <td><input type="checkbox" aria-label={`${row.name} 선택`} checked={selected.includes(row.id)} disabled={busy||stale} onChange={()=>{}} onClick={e=>toggle(row.id,i,e.shiftKey)} onKeyDown={e=>{if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();const next=Math.max(0,Math.min(visible.length-1,i+(e.key==='ArrowDown'?1:-1)));e.currentTarget.closest('tbody').rows[next]?.querySelector('input[type=checkbox]')?.focus();if(e.shiftKey)setSelected(range(anchor.current,next,selected));}}}/></td>
-   <td onPointerDown={e=>pointer(e,i)}>{labels.categoryDisplayLabel(row)}</td><td className={styles.product} onPointerDown={e=>pointer(e,i)} title={row.originalName}>{row.name}<small>{[...new Set(row.sources.map(s=>s.week))].join(', ')}</small></td><td>{row.unit}</td><td>{row.cost===null?'미등록':row.cost.toLocaleString('ko-KR')}</td><td><strong>{row.qty}</strong></td>
+   <td onPointerDown={e=>pointer(e,i)}>{labels.categoryDisplayLabel(row)}</td><td className={styles.product} onPointerDown={e=>pointer(e,i)} title={`전산 품목명: ${row.originalName}`}><input className={styles.labelInput} key={row.id+'|'+shown(row)} aria-label={`${row.name} 엑셀 표시명`} defaultValue={shown(row)} maxLength={100} spellCheck={false} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}else if(e.key==='Escape'){e.currentTarget.value=shown(row);e.currentTarget.blur();}}} onBlur={e=>commitLabel(row,e.currentTarget)}/>{matched[row.prodKey]&&<small className={styles.edited}>직접 수정됨 · 전산명 {row.originalName}</small>}<small>{[...new Set(row.sources.map(s=>s.week))].join(', ')}</small></td><td>{row.unit}</td><td>{row.cost===null?'미등록':row.cost.toLocaleString('ko-KR')}</td><td><strong>{row.qty}</strong></td>
     {core.DAYS.map(day=><td key={day} className={day===draft.defaultDay?styles.default:''}><input aria-label={`${row.name} ${day}요일 수량`} type="number" min="0" step="any" value={day===draft.defaultDay?(allocations.get(row.id)?.[day]??''):draft.entries[row.id]?.[day]??''} readOnly={day===draft.defaultDay} disabled={busy||stale} placeholder={day===draft.defaultDay?'잔량':'0'} onChange={e=>quantity(row,day,e.target.value)}/></td>)}
    </tr>)}</tbody></table></div>{!rows.length&&<p>해당 차수에 양수 분배 품목이 없습니다.</p>}
    </section>
-   {showPreview&&<section className={styles.panel}><h2>엑셀 미리보기</h2>{preview.map(block=><article key={block.day}><h3>{data.source.customer.name} · {block.date} ({block.day})</h3>{block.groups.map((g,i)=><div key={i}><h4>{g.country==='국내'&&g.flower==='왁스'?'운임비':`${g.name} · ${g.flower}`} ({g.unit})</h4><ul>{g.rows.map(r=><li key={r.id}>{r.name} — {r.quantity}{r.unit} / 단가 {r.cost??'미등록'}</li>)}</ul></div>)}</article>)}</section>}
+   {showPreview&&<section className={styles.panel}><h2>엑셀 미리보기</h2>{preview.map(block=><article key={block.day}><h3>{data.source.customer.name} · {block.date} ({block.day})</h3>{block.groups.map((g,i)=><div key={i}><h4>{g.country==='국내'&&g.flower==='왁스'?'운임비':`${g.name} · ${g.flower}`} ({g.unit})</h4><ul>{g.rows.map(r=><li key={r.id}>{shown(r)} — {r.quantity}{r.unit} / 단가 {r.cost??'미등록'}</li>)}</ul></div>)}</article>)}</section>}
   </>}
   <dialog ref={dialog} className={styles.dialog} onCancel={e=>{e.preventDefault();setModal('');}}><h2>{modal==='default'?'기본 출고요일 변경':'선택 품목 출고일 일괄 지정'}</h2>
    <p>{modal==='default'?`기본 출고요일을 ${bulkDay}요일로 바꿉니다. 직접 지정한 수량은 유지하고 미지정 잔량만 새 기본요일로 이동합니다.`:`선택한 ${selected.length}개 품목의 기존 요일 배분을 지우고, 총수량 전부를 ${bulkDay}요일로 옮깁니다.`}</p>
