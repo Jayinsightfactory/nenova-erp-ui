@@ -35,6 +35,7 @@ const ENTRY_FILES = [
   { file: 'AGENTS.md', tool: 'Codex' },
   { file: '.claude/agents/README.md', tool: 'Claude Code 하위 에이전트' },
   { file: '.claude/agents/nenova-pm.md', tool: 'PM 에이전트 정의' },
+  { file: '.claude/agents/nenova-hr.md', tool: 'HR 에이전트 정의' },
 ];
 
 const WHY_LOG_REQUIRED = ['id', 'date', 'area', 'before', 'after', 'why', 'why_source', 'decided_by', 'evidence', 'status'];
