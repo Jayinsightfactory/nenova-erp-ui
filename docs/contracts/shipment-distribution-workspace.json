@@ -2,6 +2,10 @@
   "id": "shipment-distribution-workspace",
   "title": "출고분배 버튼 선택·담당자 즐겨찾기·키보드·확정 수정이력",
   "scope": [
+    "components/shipment/DistributionKakaoFeed.js",
+    "scripts/distribution-multi-save-fixture.cjs",
+    "scripts/distribution-localdb-browser.cjs",
+    "scripts/test-distribution-localdb.cjs",
     "pages/shipment/distribute.js",
     "components/shipment/DistributionPicker.js",
     "lib/shipmentDistributionWorkspace.js",

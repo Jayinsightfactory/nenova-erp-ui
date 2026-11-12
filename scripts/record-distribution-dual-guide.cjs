@@ -15,6 +15,7 @@ async function main(){
   const body=req.postData()?JSON.parse(req.postData()):{},type=u.searchParams.get('type');let d={success:true,items:[],rows:[],groups:[],products:[],customers:[],favorites:[],data:[]},status=200;
   if(req.method()!=='GET')posts.push({path:u.pathname,body});
   if(u.pathname==='/api/auth/me')d.user={userId:account,userName:'영업지원 연습',authority:2};
+  if(u.pathname==='/api/kakao/order-feed')d={ok:true,blocks:[{msgId:'guide-add',room:'발주 연습방',sender:'연습 담당',time:'10:00',text:'연습업체 카네이션 1박스 추가'},{msgId:'guide-cancel',room:'발주 연습방',sender:'연습 담당',time:'10:05',text:'연습업체 카네이션 1박스 취소'}]};
   if(u.pathname==='/api/favorites'){
     if(req.method()==='GET'){const p=u.searchParams.get('page');d.favorites=account==='second-account'?[]:p==='shipment-distribute-products'?[{FavoriteKey:55,ProdKey:3515,FilterData:JSON.stringify({prodKey:3515})}]:p==='shipment-distribute-groups'?favGroups:p==='shipment-distribute-countries'&&countrySetting?[{FavoriteKey:99,FilterData:JSON.stringify(countrySetting)}]:[];}
     else if(body.page==='shipment-distribute-countries'||body.favoriteKey===99){countrySetting=JSON.parse(body.filterData);d.favoriteKey=99;}
@@ -60,7 +61,7 @@ async function main(){
   assert(customerGets>=4);assert(!posts.some(p=>p.path.startsWith('/api/orders')||p.path.startsWith('/api/shipment')));assert.deepEqual(errors,[]);
   console.log('PASS delayed customer-load race: week effect plus manual search, 2025/2026 same45, customer list visible/loading cleared, no ERP writes');return;
  }
- if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['pages/shipment/distribute.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
+ if(record)rec=await createWorkflowGuideRecorder(page,{root,workflowId:'shipment-distribution-dates',guideId:'support',title:'농장·업체별 출고분배와 출고일',sourceFiles:['pages/shipment/distribute.js','components/shipment/DistributionKakaoFeed.js','components/shipment/DistributionDateEditor.js','components/shipment/DistributionProductTree.js','components/shipment/DistributionDateFilter.js','lib/shipmentDistributionNavigation.js','components/shipment/DistributionInlineDates.js','lib/shipmentInlineDates.js','lib/shipmentDateDisplayUnits.js','lib/shipmentMajorInlineDates.js'],fixtureOnly:true});
  if(process.argv.includes('--camera-probe'))rec={chapter:()=>{},caption:async()=>{},pause:async()=>{},unfocus:async()=>{},stop:async()=>{},focus:async(selector,number)=>{const box=await page.$eval(selector,n=>{const r=n.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height};});if(box.x<0||box.x>1920||box.y<70||box.y>900)throw Error('CAMERA '+number+' '+selector+' '+JSON.stringify(box));}};
  if(rec){const chapter=rec.chapter;rec.chapter=async(scenario,title)=>{step++;chapter(scenario,`${step}. ${title}`);await rec.caption(`${step}. ${title} · 전체 화면에서 조작 위치를 확인하세요.`);await rec.pause(1200);};}
  if(rec)await rec.chapter('country','국가 선택과 독립 탐색');
@@ -84,6 +85,8 @@ async function main(){
  await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  if(rec)await rec.chapter('dates','업체 검색과 날짜별 수량 입력');
  const farmSearch='[data-ai-verify="farm-distribution-customer-search"]';
+ await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='추가·취소 불러오기')?.click());
+ await page.waitForFunction(()=>document.querySelector('[aria-label="카톡 추가·취소 요청"]')?.textContent.includes('연습업체 카네이션 1박스 취소'));
  if(rec){await page.$eval(farmSearch,n=>n.scrollIntoView({block:'center'}));await rec.focus(farmSearch,step);}
  await page.click(farmSearch);await page.keyboard.type('연습업체');if(rec)await rec.unfocus();
  await page.waitForFunction(()=>document.querySelector('[data-testid="distribution-workspace"]')?.textContent.includes('1/1곳'));

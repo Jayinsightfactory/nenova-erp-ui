@@ -2678,3 +2678,12 @@
 - 후속(사장님 "고치고 보완까지"): mine-sessions.js 수정 — 로봇 지시문 1,193건 제외 + 앱 안내문(system-reminder)이 앞에 붙어 통째로 빠지던 사람 지시 158건 복구. 사람 지시 1,355→690건, 사람 세션 868→56개, 마찰률 12.55%→14.06%(97/690). 파일 분류(robot)는 넓히지 않음(robot 은 10분 뒤 삭제 대상이라). 세는 방식 변경은 report.md 머리와 data/metric-changes.jsonl 에 표시. 보완: 규칙 장부에 "거의 로봇에만 얹힘 11개·사람 지시엔 드묾 11개" 표시, 승인 목록을 7계열로 묶고 계열별 대표 번호 제시. rules.json 지문 불변.
 - 미검증: 일요일 새벽 자동 실행(로그인 상태에서만 돎, 11/15 이후 확인), 후보의 "근거 반복 건수"(AI 주장), OrbitPersonaVerifyDaily 11/12 비정상 종료 코드 원인.
 검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 257/295 mine-sessions 로봇제외 system-reminder 복구 metric-changes rule-conflicts robot-sig 로봇지시 섞임
+
+## 2026-11-12 출고분배 카톡 추가·취소 패널 및 격리 DB 검증 진행
+- 사용자확정: 카톡은 추가·취소 요청 포함 원문만 분배페이지에서 조회. 운영시험쓰기 금지·격리DB에서 여러업체 실제저장/재조회/견적/ECOUNT출력 검증 요청.
+- 작업트리 nw-distribution-kakao-1112, a5630ec10 기준. DistributionKakaoFeed 신규(기존 order-feed?n=60 GET만, 추가/취소 포함block 표시·원문검색), 오른쪽300px/1400이하하단, 표수량50px/셀여백2px. API/ERP writer변경0. SSR loader 신규component연결.
+- 전체ERP계약로그 실패0, dnSpy/manifest213/writeguard0API PASS. Chrome합성API 일반주문제외·추가/취소표시·기존2업체5/7단일저장회귀 PASS, clean webpack build exit0. 가이드 clean녹화 session83776 진행. 아직 PR/배포0.
+- Docker4.77 stale AF_UNIX dockerInference Windows1920 재시작반복실패. 정확Docker PID종료, 실행용run만 run-backup-20261112-0705로 보존Rename(데이터/VHD변경0), 새소켓도실패. 사용자요청으로Docker포기. Microsoft공식SqlLocalDB2022 MSI 다운로드·Microsoft서명Valid, silent설치1603 관리자그룹아님. 사용자 직접설치하겠다고응답, 현재160/LocalDB/Binn/SqlLocalDB.exe 미존재. 운영DB접속/쓰기0. 외부tools prefix에msnodesqlv8준비(ODBC18존재).
+- 미완료: LocalDB설치대기→전용격리instance/harness구성→실제다중저장·재조회·XLSX검증, 가이드최종·필수게이트·PR·배포·운영확인. 사용자 모든완료전최종응답금지.
+검색어: distribution-kakao-1112 LocalDB1603 dockerInference1920 추가취소원문 39329 guide83776 msnodesqlv8
+- 후속: 사용자LocalDB설치완료(160/Tools/Binn), 전용NenovaErpFixture16인스턴스실행. test-distribution-localdb --multi-save --browser-refresh PASS. 실제Chrome저장1회→테스트API어댑터→격리SQL수량5/7→새페이지SQL조회5/7유지→native견적2행/ECOUNT150·210→실제estimate.xlsx/ecount.xlsx재열기2행. 운영API handler 자체 DB통합검증은 아니며 production writer 변경0. Docker run백업보존/원장쓰기0. clean빌드·정식build·가이드186.45초/workflow13/14 PASS. 카톡일반주문제외·추가취소표시·기존단일저장회귀Chrome PASS. outputs/distribution-multi-save 엑셀2파일. PR/배포후속.
