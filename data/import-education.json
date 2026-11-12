@@ -1,0 +1,5651 @@
+{
+ "version": 1,
+ "updatedAt": "2026-11-12",
+ "basis": {
+  "receipts12m": 4081,
+  "window": [
+   "2025-11-12",
+   "2026-11-12"
+  ],
+  "perWeekMedian": 79,
+  "perSubWeekMedian": 36,
+  "farms12m": 162,
+  "countryNote": "입고 기록에 나라 칸이 없어 농장 표와 품목으로 나라를 정했다(추정 포함).",
+  "kakao": {
+   "messages": 50511,
+   "period": "2026-04-15 ~ 2026-11-12",
+   "rooms": [
+    {
+     "room": "수입방(수입/영업/현장)",
+     "count": 15914,
+     "first": "2026-04-15",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "현장방",
+     "count": 10555,
+     "first": "2026-04-15",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "영업방",
+     "count": 7512,
+     "first": "2026-04-15",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "현장 추가취소방",
+     "count": 6673,
+     "first": "2026-04-16",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "불량 공유방",
+     "count": 4635,
+     "first": "2026-04-16",
+     "last": "2026-09-14"
+    },
+    {
+     "room": "백상 창고 방",
+     "count": 2639,
+     "first": "2026-04-15",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "선율 방(통관·검역)",
+     "count": 1316,
+     "first": "2026-05-25",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "견적방",
+     "count": 850,
+     "first": "2026-04-15",
+     "last": "2026-11-12"
+    },
+    {
+     "room": "스케줄 방",
+     "count": 417,
+     "first": "2026-05-26",
+     "last": "2026-11-12"
+    }
+   ]
+  }
+ },
+ "countries": [
+  {
+   "country": "콜롬비아",
+   "receipts": 3541,
+   "heat": {
+    "금-9": 42,
+    "월-9": 636,
+    "목-15": 82,
+    "목-14": 148,
+    "월-8": 805,
+    "목-16": 136,
+    "화-13": 10,
+    "수-15": 47,
+    "수-16": 16,
+    "금-10": 88,
+    "금-13": 87,
+    "금-17": 7,
+    "월-11": 73,
+    "수-14": 34,
+    "월-10": 180,
+    "월-14": 4,
+    "화-10": 4,
+    "목-13": 84,
+    "화-12": 1,
+    "월-12": 4,
+    "월-13": 12,
+    "수-12": 21,
+    "목-9": 62,
+    "목-10": 114,
+    "금-16": 4,
+    "화-15": 19,
+    "수-13": 32,
+    "목-11": 161,
+    "월-7": 31,
+    "수-11": 27,
+    "목-12": 108,
+    "금-15": 1,
+    "일-23": 84,
+    "수-10": 24,
+    "일-21": 67,
+    "월-15": 3,
+    "목-17": 2,
+    "금-18": 1,
+    "월-0": 104,
+    "화-14": 7,
+    "수-18": 2,
+    "금-11": 3,
+    "일-10": 25,
+    "토-23": 28,
+    "일-15": 34,
+    "토-18": 14,
+    "수-22": 3,
+    "토-12": 23,
+    "일-3": 1,
+    "금-8": 1,
+    "수-17": 19,
+    "월-16": 1,
+    "화-9": 2,
+    "수-9": 6,
+    "금-12": 1,
+    "금-14": 2,
+    "화-18": 2,
+    "화-11": 2
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 2247,
+     "weekday": {
+      "월": 1810,
+      "화": 27,
+      "수": 20,
+      "금": 57,
+      "목": 57,
+      "일": 211,
+      "토": 65
+     },
+     "rule": "월요일 1,810건(81%)"
+    },
+    {
+     "sub": "02",
+     "total": 1278,
+     "weekday": {
+      "금": 180,
+      "목": 825,
+      "월": 43,
+      "수": 210,
+      "화": 20
+     },
+     "rule": "목요일 825건(65%)"
+    },
+    {
+     "sub": "03",
+     "total": 16,
+     "weekday": {
+      "목": 15,
+      "수": 1
+     },
+     "rule": "목요일 15건(94%)"
+    }
+   ],
+   "linesMedian": 4,
+   "boxMedian": 19,
+   "farmCount": 126,
+   "farms": [
+    {
+     "farm": "FREIGHTWISE",
+     "count": 111,
+     "last": "2026-07-02",
+     "flowers": [],
+     "weekday": "월:46, 금:30"
+    },
+    {
+     "farm": "Maxiflores",
+     "count": 106,
+     "last": "2026-11-12",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "목:44, 월:43"
+    },
+    {
+     "farm": "Antioquia Floral S.A.S",
+     "count": 101,
+     "last": "2026-11-11",
+     "flowers": [
+      "수국"
+     ],
+     "weekday": "월:43, 수:26"
+    },
+    {
+     "farm": "C.I Flores Balverde S.A.S",
+     "count": 101,
+     "last": "2026-11-09",
+     "flowers": [
+      "수국"
+     ],
+     "weekday": "월:44, 수:25"
+    },
+    {
+     "farm": "Florentina Export S.A.S",
+     "count": 100,
+     "last": "2026-11-11",
+     "flowers": [
+      "수국"
+     ],
+     "weekday": "월:43, 수:25"
+    },
+    {
+     "farm": "Green Land Flowers S.A.S",
+     "count": 99,
+     "last": "2026-11-09",
+     "flowers": [
+      "수국"
+     ],
+     "weekday": "월:44, 수:23"
+    },
+    {
+     "farm": "Ayura",
+     "count": 95,
+     "last": "2026-11-12",
+     "flowers": [
+      "카네이션"
+     ],
+     "weekday": "월:47, 목:33"
+    },
+    {
+     "farm": "Flores El Zorro",
+     "count": 94,
+     "last": "2026-11-12",
+     "flowers": [
+      "카네이션"
+     ],
+     "weekday": "월:42, 목:36"
+    },
+    {
+     "farm": "FLORES TIBA",
+     "count": 93,
+     "last": "2026-11-12",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "월:42, 목:35"
+    },
+    {
+     "farm": "Monika Farms",
+     "count": 89,
+     "last": "2026-11-12",
+     "flowers": [
+      "알스트로"
+     ],
+     "weekday": "월:42, 목:34"
+    },
+    {
+     "farm": "Flores De Funza",
+     "count": 88,
+     "last": "2026-11-12",
+     "flowers": [
+      "알스트로",
+      "카네이션",
+      "장미"
+     ],
+     "weekday": "월:38, 목:33"
+    },
+    {
+     "farm": "Superior Blooms",
+     "count": 87,
+     "last": "2026-11-09",
+     "flowers": [
+      "카네이션"
+     ],
+     "weekday": "월:43, 목:29"
+    }
+   ],
+   "products": [
+    {
+     "flower": "장미",
+     "count": 381,
+     "unitCombo": "단/단/10/10/100 (360건)",
+     "examples": [
+      "ROSE / Bluez",
+      "ROSE / Blush",
+      "ROSE / Candlelight 50cm"
+     ]
+    },
+    {
+     "flower": "카네이션",
+     "count": 317,
+     "unitCombo": "박스/단/15/20/300 (247건)",
+     "examples": [
+      "CARNATION Alhambra",
+      "CARNATION Alibaba",
+      "CARNATION Amico"
+     ]
+    },
+    {
+     "flower": "알스트로",
+     "count": 85,
+     "unitCombo": "단/송이/16/10/160 (84건)",
+     "examples": [
+      "ALSTROMERIA ORANGE",
+      "ALSTROMERIA Pink",
+      "ALSTROMERIA WHITE "
+     ]
+    },
+    {
+     "flower": "수국",
+     "count": 57,
+     "unitCombo": "박스/송이/0/0/30 (47건)",
+     "examples": [
+      "Hydrangea Blue (블루）",
+      "Hydrangea Bridal Pink",
+      "Hydrangea Dark Pink (진핑크)"
+     ]
+    },
+    {
+     "flower": "미니카네이션",
+     "count": 17,
+     "unitCombo": "박스/단/30/10/300 (17건)",
+     "examples": [
+      "Spary Carnation Nimbus",
+      "Spary Carnation Jane",
+      "Spary Carnation Ekeko"
+     ]
+    },
+    {
+     "flower": "리모니움",
+     "count": 9,
+     "unitCombo": "-/-/0/0/0 (9건)",
+     "examples": [
+      "LIMONIUM Coral",
+      "LIMONIUM Lavander",
+      "LIMONIUM Pink"
+     ]
+    },
+    {
+     "flower": "루스커스",
+     "count": 4,
+     "unitCombo": "박스/단/25/25/0 (1건)",
+     "examples": [
+      "Ruscus Green",
+      "Ruscus Green 50cm ",
+      "Ruscus Green 70cm "
+     ]
+    },
+    {
+     "flower": "아나나스",
+     "count": 3,
+     "unitCombo": "-/-/0/0/0 (1건)",
+     "examples": [
+      "Ananas",
+      "[MEL] CHINA / 솔리다고 (Solidago)",
+      "[MEL] Eucalyptus CHINA / 포퓰러스 그레인, 열매 (round with fruit) 600g"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 559건",
+    "Chargeable weight 142건",
+    "Gross weight 142건"
+   ]
+  },
+  {
+   "country": "태국",
+   "receipts": 153,
+   "heat": {
+    "월-9": 96,
+    "월-10": 17,
+    "월-11": 15,
+    "월-15": 3,
+    "일-18": 1,
+    "월-16": 3,
+    "월-8": 7,
+    "월-7": 3,
+    "목-11": 1,
+    "목-12": 1,
+    "화-10": 1,
+    "목-17": 1,
+    "월-13": 1,
+    "월-19": 1,
+    "수-9": 1,
+    "수-15": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 149,
+     "weekday": {
+      "월": 144,
+      "일": 1,
+      "목": 3,
+      "화": 1
+     },
+     "rule": "월요일 144건(97%)"
+    },
+    {
+     "sub": "02",
+     "total": 4,
+     "weekday": {
+      "월": 2,
+      "수": 2
+     },
+     "rule": "월요일 2건(50%)"
+    }
+   ],
+   "linesMedian": 9,
+   "boxMedian": 0,
+   "farmCount": 8,
+   "farms": [
+    {
+     "farm": "Super Fresh",
+     "count": 53,
+     "last": "2026-11-11",
+     "flowers": [
+      "모카라",
+      "덴드륨",
+      "진다스윗트"
+     ],
+     "weekday": "월:49, 목:2"
+    },
+    {
+     "farm": "EXCEL",
+     "count": 42,
+     "last": "2026-11-11",
+     "flowers": [],
+     "weekday": "월:39, 목:1"
+    },
+    {
+     "farm": "Krung",
+     "count": 33,
+     "last": "2026-09-28",
+     "flowers": [
+      "진다스윗트",
+      "빅화이트",
+      "모카라"
+     ],
+     "weekday": "월:33"
+    },
+    {
+     "farm": "Sky Orchids",
+     "count": 8,
+     "last": "2026-01-05",
+     "flowers": [
+      "덴드륨",
+      "모카라",
+      "진다스윗트"
+     ],
+     "weekday": "월:8"
+    },
+    {
+     "farm": "Lee&U",
+     "count": 7,
+     "last": "2026-01-05",
+     "flowers": [
+      "모카라",
+      "화이트붐",
+      "덴드륨"
+     ],
+     "weekday": "월:7"
+    },
+    {
+     "farm": "Lee and U",
+     "count": 5,
+     "last": "2026-07-13",
+     "flowers": [
+      "진다스윗트",
+      "빅화이트",
+      "모카라"
+     ],
+     "weekday": "월:5"
+    },
+    {
+     "farm": "태국 AWB",
+     "count": 4,
+     "last": "2026-02-02",
+     "flowers": [],
+     "weekday": "월:4"
+    },
+    {
+     "farm": "Prime Orchids",
+     "count": 1,
+     "last": "2025-12-01",
+     "flowers": [
+      "모카라",
+      "덴드륨",
+      "아란"
+     ],
+     "weekday": "월:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "덴드륨",
+     "count": 54,
+     "unitCombo": "단/단/10/10/100 (16건)",
+     "examples": [
+      "덴파레 샘플",
+      "Den. Sonia M",
+      "Den. Sonia L"
+     ]
+    },
+    {
+     "flower": "모카라",
+     "count": 39,
+     "unitCombo": "단/단/20/5/100 (21건)",
+     "examples": [
+      "MOK Orange Peach M",
+      "MOK Orange Peach L",
+      "MOK Orange Peach XL"
+     ]
+    },
+    {
+     "flower": "아란",
+     "count": 8,
+     "unitCombo": "단/단/10/10/100 (4건)",
+     "examples": [
+      "ARAN.Juling Red XL",
+      "ARAN Azima",
+      "ARAN Anny Back"
+     ]
+    },
+    {
+     "flower": "안시리움",
+     "count": 7,
+     "unitCombo": "송이/송이/0/0/25 (4건)",
+     "examples": [
+      "Den. Anthurium White M",
+      "Den. Anthurium Green L",
+      "Anthurium Sample box"
+     ]
+    },
+    {
+     "flower": "화이트붐",
+     "count": 5,
+     "unitCombo": "단/단/10/10/100 (2건)",
+     "examples": [
+      "Den. White Bom (화이트) M",
+      "Den. White Bom (화이트) XL",
+      "Den. White Bom (화이트) L"
+     ]
+    },
+    {
+     "flower": "온시디움",
+     "count": 4,
+     "unitCombo": "단/단/10/10/100 (2건)",
+     "examples": [
+      "Oncidium Golden Shower",
+      "Oncidium Grower Ramsey XL",
+      "Oncidium"
+     ]
+    },
+    {
+     "flower": "진다스윗트",
+     "count": 3,
+     "unitCombo": "단/단/10/10/100 (3건)",
+     "examples": [
+      "Den. Jinda Sweet (피치) XL",
+      "Den. Jinda Sweet (피치) L",
+      "Den. Jinda Sweet (피치) M"
+     ]
+    },
+    {
+     "flower": "빅화이트",
+     "count": 3,
+     "unitCombo": "단/단/10/10/100 (3건)",
+     "examples": [
+      "Den. Big White (화이트) M",
+      "Den. Big White (화이트) XL",
+      "Den. Big White (화이트) L"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 84건",
+    "Chargeable weight 30건",
+    "Gross weight 30건",
+    "태국 운송료 10건",
+    "덴파레 운송료 1건"
+   ]
+  },
+  {
+   "country": "중국",
+   "receipts": 142,
+   "heat": {
+    "목-14": 3,
+    "월-10": 19,
+    "월-11": 6,
+    "목-10": 3,
+    "금-16": 1,
+    "월-13": 7,
+    "화-17": 5,
+    "수-14": 12,
+    "수-9": 5,
+    "목-11": 2,
+    "월-15": 2,
+    "금-13": 2,
+    "수-15": 6,
+    "화-11": 2,
+    "수-13": 9,
+    "화-12": 2,
+    "수-10": 6,
+    "목-17": 1,
+    "목-18": 2,
+    "화-15": 3,
+    "수-17": 3,
+    "목-9": 2,
+    "목-12": 1,
+    "목-16": 1,
+    "월-8": 1,
+    "월-9": 9,
+    "수-11": 4,
+    "목-15": 1,
+    "수-18": 1,
+    "화-13": 2,
+    "수-12": 1,
+    "화-16": 3,
+    "월-14": 5,
+    "월-16": 1,
+    "월-17": 2,
+    "화-9": 1,
+    "월-12": 2,
+    "월-18": 1,
+    "화-18": 1,
+    "화-19": 1,
+    "화-10": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 78,
+     "weekday": {
+      "목": 14,
+      "금": 3,
+      "화": 16,
+      "수": 44,
+      "월": 1
+     },
+     "rule": "수요일 44건(56%)"
+    },
+    {
+     "sub": "02",
+     "total": 57,
+     "weekday": {
+      "월": 51,
+      "화": 4,
+      "목": 2
+     },
+     "rule": "월요일 51건(89%)"
+    },
+    {
+     "sub": "03",
+     "total": 7,
+     "weekday": {
+      "월": 3,
+      "수": 3,
+      "화": 1
+     },
+     "rule": "월요일 3건(43%)"
+    }
+   ],
+   "linesMedian": 21.5,
+   "boxMedian": 0,
+   "farmCount": 7,
+   "farms": [
+    {
+     "farm": "Cloudland",
+     "count": 54,
+     "last": "2026-11-10",
+     "flowers": [
+      "장미",
+      "기타",
+      "카네이션"
+     ],
+     "weekday": "월:25, 수:21"
+    },
+    {
+     "farm": "Yunnan Hengge Agricultural",
+     "count": 37,
+     "last": "2026-04-06",
+     "flowers": [
+      "장미",
+      "기타",
+      "카네이션"
+     ],
+     "weekday": "월:15, 목:13"
+    },
+    {
+     "farm": "Yunnan Melody",
+     "count": 35,
+     "last": "2026-06-15",
+     "flowers": [
+      "아나나스",
+      "기타",
+      "장미"
+     ],
+     "weekday": "수:17, 월:10"
+    },
+    {
+     "farm": "HUBFRESH",
+     "count": 10,
+     "last": "2026-11-11",
+     "flowers": [
+      "장미",
+      "기타",
+      "카네이션"
+     ],
+     "weekday": "화:6, 월:3"
+    },
+    {
+     "farm": "Yunnan Henge",
+     "count": 3,
+     "last": "2026-01-13",
+     "flowers": [
+      "장미",
+      "기타",
+      "카네이션"
+     ],
+     "weekday": "수:1, 월:1"
+    },
+    {
+     "farm": "Yunnan Okyong",
+     "count": 2,
+     "last": "2026-03-24",
+     "flowers": [
+      "아나나스"
+     ],
+     "weekday": "수:1, 화:1"
+    },
+    {
+     "farm": "HENGGE",
+     "count": 1,
+     "last": "2026-03-16",
+     "flowers": [
+      "기타",
+      "장미"
+     ],
+     "weekday": "월:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "장미",
+     "count": 210,
+     "unitCombo": "단/단/10/10/100 (195건)",
+     "examples": [
+      "ROSE CHINA / 프라우드(White proud) ",
+      "ROSE CHINA / 쉬머(Shimmer) ",
+      "ROSE CHINA / 알터 이고(Alter Ego) "
+     ]
+    },
+    {
+     "flower": "기타",
+     "count": 206,
+     "unitCombo": "단/단/20/0/0 (47건)",
+     "examples": [
+      "CHINA / 리모늄 미스티 블루(Limonium Misty blue) 500g",
+      "CHINA / 리모늄 시네신스 화이트 (Sinensis white) 500g",
+      "CHINA / 리모늄 시네신스 옐로우 (Sinensis Yellow) 500g"
+     ]
+    },
+    {
+     "flower": "아나나스",
+     "count": 155,
+     "unitCombo": "단/단/10/10/100 (60건)",
+     "examples": [
+      "[MEL] ROSE CHINA / 플라터 레드 (Plateau Red) ",
+      "[MEL] ROSE CHINA / 카롤라 (Carola) ",
+      "[MEL] ROSE CHINA / 루어 샨 (Luo shen) "
+     ]
+    },
+    {
+     "flower": "카네이션",
+     "count": 66,
+     "unitCombo": "단/단/15/20/300 (43건)",
+     "examples": [
+      "Carnation CHINA / 뉴마스터 New master",
+      "Carnation CHINA / 베스티 (Betsy)",
+      "Carnation CHINA / 돈셀 (Doncel)"
+     ]
+    },
+    {
+     "flower": "호접난 Orchid",
+     "count": 1,
+     "unitCombo": "송이/송이/10/0/0 (1건)",
+     "examples": [
+      "ORCHID CHINA/ White"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 139건",
+    "Gross weight 56건",
+    "Chargeable weight 55건"
+   ]
+  },
+  {
+   "country": "네덜란드",
+   "receipts": 87,
+   "heat": {
+    "수-12": 1,
+    "월-9": 35,
+    "수-13": 2,
+    "월-11": 7,
+    "월-15": 1,
+    "수-9": 8,
+    "월-10": 5,
+    "월-14": 2,
+    "목-9": 3,
+    "금-13": 2,
+    "수-3": 1,
+    "월-8": 6,
+    "수-10": 4,
+    "금-18": 1,
+    "수-17": 1,
+    "화-19": 1,
+    "목-13": 1,
+    "화-18": 1,
+    "화-17": 1,
+    "화-9": 2,
+    "화-15": 1,
+    "목-11": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 31,
+     "weekday": {
+      "월": 8,
+      "수": 15,
+      "화": 5,
+      "목": 3
+     },
+     "rule": "수요일 15건(48%)"
+    },
+    {
+     "sub": "02",
+     "total": 56,
+     "weekday": {
+      "수": 2,
+      "월": 48,
+      "목": 2,
+      "금": 3,
+      "화": 1
+     },
+     "rule": "월요일 48건(86%)"
+    }
+   ],
+   "linesMedian": 34,
+   "boxMedian": 0,
+   "farmCount": 3,
+   "farms": [
+    {
+     "farm": "Holex",
+     "count": 75,
+     "last": "2026-11-12",
+     "flowers": [
+      "튤립",
+      "히아신스",
+      "안시리움"
+     ],
+     "weekday": "월:47, 수:17"
+    },
+    {
+     "farm": "EZ",
+     "count": 9,
+     "last": "2026-01-12",
+     "flowers": [
+      "안시리움",
+      "튤립",
+      "히아신스"
+     ],
+     "weekday": "월:7, 목:1"
+    },
+    {
+     "farm": "EZ Flower",
+     "count": 3,
+     "last": "2026-09-08",
+     "flowers": [
+      "튤립",
+      "안시리움",
+      "스키미아"
+     ],
+     "weekday": "월:2, 화:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "튤립",
+     "count": 311,
+     "unitCombo": "단/단/1/10/- (248건)",
+     "examples": [
+      "Tuliip / Double Strong Carlo",
+      "Tuliip / Single Dyed Frost Brown",
+      "Tulip / Black Bean"
+     ]
+    },
+    {
+     "flower": "수국",
+     "count": 132,
+     "unitCombo": "송이/송이/0/0/0 (124건)",
+     "examples": [
+      "Hydrangea / Amazing Force L/Pink",
+      "Hydrangea / Aphrodite Light Blue",
+      "Hydrangea / Beau Luxor"
+     ]
+    },
+    {
+     "flower": "안시리움",
+     "count": 107,
+     "unitCombo": "송이/송이/0/0/0 (104건)",
+     "examples": [
+      "Anthurium Purple",
+      "Anthurium Red",
+      "Anthurium White"
+     ]
+    },
+    {
+     "flower": "카라",
+     "count": 91,
+     "unitCombo": "송이/송이/1/10/- (76건)",
+     "examples": [
+      "Calla / Aspen White 60",
+      "Calla / Auckland 80cm L/pink",
+      "Calla / Black Diamond"
+     ]
+    },
+    {
+     "flower": "거베라",
+     "count": 59,
+     "unitCombo": "단/단/0/0/0 (40건)",
+     "examples": [
+      "Gerbera Burgundy",
+      "Gerbera Kiara",
+      "Gerbera Mango"
+     ]
+    },
+    {
+     "flower": "히아신스",
+     "count": 44,
+     "unitCombo": "단/단/1/5/- (18건)",
+     "examples": [
+      "Hyacinthus / Anna Marie",
+      "Hyacinthus / Atlantic",
+      "Hyacinthus / Dark Dimension"
+     ]
+    },
+    {
+     "flower": "델피늄",
+     "count": 37,
+     "unitCombo": "송이/송이/0/0/0 (37건)",
+     "examples": [
+      "Delphinium / Centurion White",
+      "Delphinium / Delphis Blue Power",
+      "Delphinium / Delphis Emerald"
+     ]
+    },
+    {
+     "flower": "아마릴리스",
+     "count": 33,
+     "unitCombo": "송이/송이/0/0/0 (33건)",
+     "examples": [
+      "Amaryliis / Amblance 12st",
+      "Amaryliis / Amblance 15st",
+      "Amaryllis / Apple Blosom 12st"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 61건",
+    "Chargeable weight 47건",
+    "Gross weight 47건",
+    "네덜란드 운송료 23건"
+   ]
+  },
+  {
+   "country": "에콰도르",
+   "receipts": 66,
+   "heat": {
+    "수-12": 2,
+    "목-13": 3,
+    "수-13": 4,
+    "수-9": 4,
+    "수-14": 5,
+    "금-13": 1,
+    "월-16": 2,
+    "수-17": 1,
+    "목-11": 1,
+    "월-11": 5,
+    "화-10": 3,
+    "금-10": 6,
+    "목-10": 1,
+    "화-14": 2,
+    "수-11": 3,
+    "화-13": 1,
+    "월-15": 1,
+    "수-10": 8,
+    "화-9": 1,
+    "월-8": 2,
+    "월-10": 1,
+    "목-9": 2,
+    "월-12": 1,
+    "수-15": 1,
+    "목-15": 1,
+    "목-16": 4
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 57,
+     "weekday": {
+      "수": 28,
+      "목": 8,
+      "금": 2,
+      "월": 12,
+      "화": 7
+     },
+     "rule": "수요일 28건(49%)"
+    },
+    {
+     "sub": "02",
+     "total": 9,
+     "weekday": {
+      "금": 5,
+      "목": 4
+     },
+     "rule": "금요일 5건(56%)"
+    }
+   ],
+   "linesMedian": 7,
+   "boxMedian": 2,
+   "farmCount": 9,
+   "farms": [
+    {
+     "farm": "La Rosaleda",
+     "count": 52,
+     "last": "2026-11-12",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "수:26, 목:9"
+    },
+    {
+     "farm": "에콰도르 AWB",
+     "count": 3,
+     "last": "2026-02-09",
+     "flowers": [],
+     "weekday": "월:2, 목:1"
+    },
+    {
+     "farm": "UTOPIA FARMS",
+     "count": 3,
+     "last": "2026-09-09",
+     "flowers": [
+      "안개",
+      "장미"
+     ],
+     "weekday": "수:2, 월:1"
+    },
+    {
+     "farm": "Floramar",
+     "count": 2,
+     "last": "2026-08-10",
+     "flowers": [
+      "안개"
+     ],
+     "weekday": "월:2"
+    },
+    {
+     "farm": "Fagua Flowers",
+     "count": 2,
+     "last": "2026-11-12",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "금:1, 목:1"
+    },
+    {
+     "farm": "Agrogana",
+     "count": 1,
+     "last": "2026-10-02",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "금:1"
+    },
+    {
+     "farm": "UTIOPIA FARMS",
+     "count": 1,
+     "last": "2026-10-02",
+     "flowers": [
+      "안개"
+     ],
+     "weekday": "금:1"
+    },
+    {
+     "farm": "Holex Ecuador",
+     "count": 1,
+     "last": "2026-10-02",
+     "flowers": [
+      "장미"
+     ],
+     "weekday": "금:1"
+    },
+    {
+     "farm": "Nivalia Flowers",
+     "count": 1,
+     "last": "2026-11-12",
+     "flowers": [
+      "안개"
+     ],
+     "weekday": "목:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "장미",
+     "count": 88,
+     "unitCombo": "송이/송이/0/0/0 (86건)",
+     "examples": [
+      "Ecuador Candy X-pression",
+      "Ecuador Coral X-pression",
+      "Ecuador Cream Carpediem"
+     ]
+    },
+    {
+     "flower": "안개",
+     "count": 4,
+     "unitCombo": "박스/박스/0/0/0 (1건)",
+     "examples": [
+      "Ecuador/ Gysophila sample box",
+      "Gypsophilia Overtime 750g",
+      "Gypsophilia Xcelence 750g"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 6건"
+   ]
+  },
+  {
+   "country": "호주",
+   "receipts": 28,
+   "heat": {
+    "화-14": 1,
+    "수-12": 1,
+    "월-10": 4,
+    "금-13": 1,
+    "수-14": 3,
+    "화-9": 1,
+    "수-11": 1,
+    "월-15": 2,
+    "월-17": 2,
+    "수-16": 1,
+    "금-9": 1,
+    "월-13": 5,
+    "수-15": 1,
+    "월-9": 1,
+    "화-17": 1,
+    "월-16": 1,
+    "화-10": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 28,
+     "weekday": {
+      "화": 4,
+      "수": 7,
+      "월": 15,
+      "금": 2
+     },
+     "rule": "월요일 15건(54%)"
+    }
+   ],
+   "linesMedian": 7.5,
+   "boxMedian": 44.5,
+   "farmCount": 1,
+   "farms": [
+    {
+     "farm": "Premium Greens",
+     "count": 28,
+     "last": "2026-11-04",
+     "flowers": [
+      "펀",
+      "그라스",
+      "부쉬"
+     ],
+     "weekday": "월:15, 수:7"
+    }
+   ],
+   "products": [
+    {
+     "flower": "왁스",
+     "count": 12,
+     "unitCombo": "-/-/0/0/0 (12건)",
+     "examples": [
+      "Wax Flower Alba White",
+      "Wax Flower Bridal Pearl white",
+      "Wax Flower Chantilly Lace White"
+     ]
+    },
+    {
+     "flower": "쓰립톱",
+     "count": 7,
+     "unitCombo": "단/단/0/0/0 (7건)",
+     "examples": [
+      "Thryptomene Calycina Blue",
+      "Thryptomene Calycina Dyed Pink",
+      "Thryptomene Calycina Green"
+     ]
+    },
+    {
+     "flower": "부쉬",
+     "count": 6,
+     "unitCombo": "단/단/25/5/125 (2건)",
+     "examples": [
+      "Banker Bush",
+      "Sapphire Bush",
+      "Smoke Bush"
+     ]
+    },
+    {
+     "flower": "펀",
+     "count": 6,
+     "unitCombo": "단/단/50/10/500 (5건)",
+     "examples": [
+      "Dingo Fern",
+      "Koala Fern",
+      "Fern Rainbow"
+     ]
+    },
+    {
+     "flower": "기타",
+     "count": 4,
+     "unitCombo": "단/단/20/10/0 (2건)",
+     "examples": [
+      "Copper Glow",
+      "Banksia Natural Dried",
+      "Stirlingia Natural 스털링기어 네츄럴"
+     ]
+    },
+    {
+     "flower": "그라스",
+     "count": 2,
+     "unitCombo": "단/단/50/10/500 (1건)",
+     "examples": [
+      "Emu Grass",
+      "Steel Grass"
+     ]
+    },
+    {
+     "flower": "파인",
+     "count": 2,
+     "unitCombo": "-/-/0/0/0 (1건)",
+     "examples": [
+      "Aussie Pine Tails",
+      "Bribie Pine"
+     ]
+    },
+    {
+     "flower": "세루리아",
+     "count": 2,
+     "unitCombo": "-/-/0/0/0 (2건)",
+     "examples": [
+      "Serruria Florida (50cm) Pink",
+      "Serruria Florida (50cm) White"
+     ]
+    }
+   ],
+   "freight": [
+    "Gross weight 9건",
+    "Chargeable weight 7건"
+   ]
+  },
+  {
+   "country": "베트남",
+   "receipts": 19,
+   "heat": {
+    "목-13": 1,
+    "월-17": 1,
+    "화-17": 1,
+    "월-15": 1,
+    "수-18": 1,
+    "수-15": 2,
+    "수-12": 3,
+    "수-9": 1,
+    "수-16": 1,
+    "수-14": 2,
+    "목-9": 1,
+    "금-16": 1,
+    "목-15": 1,
+    "수-11": 1,
+    "목-16": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 19,
+     "weekday": {
+      "목": 4,
+      "월": 2,
+      "화": 1,
+      "수": 11,
+      "금": 1
+     },
+     "rule": "수요일 11건(58%)"
+    }
+   ],
+   "linesMedian": 2,
+   "boxMedian": 100,
+   "farmCount": 2,
+   "farms": [
+    {
+     "farm": "Royal Base",
+     "count": 18,
+     "last": "2026-11-12",
+     "flowers": [
+      "호접난 Orchid"
+     ],
+     "weekday": "수:11, 목:4"
+    },
+    {
+     "farm": "YangcheMarket",
+     "count": 1,
+     "last": "2026-05-05",
+     "flowers": [
+      "퐁퐁 Pong Pong"
+     ],
+     "weekday": "화:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "호접난 Orchid",
+     "count": 15,
+     "unitCombo": "송이/송이/0/1/16 (7건)",
+     "examples": [
+      "ORCHID VIETNAM / 호접란  화이트 7-8 (Party grade White 7-8) ",
+      "ORCHID VIETNAM / 호접란  연핑크 7 (Party grade Single Sprayed 7F, Soft Pink) ",
+      "ORCHID VIETNAM / 호접란  핑크 7 (Party grade Single Sprayed 7F, Perfect Pink) "
+     ]
+    },
+    {
+     "flower": "퐁퐁 Pong Pong",
+     "count": 7,
+     "unitCombo": "단/단/0/5/0 (6건)",
+     "examples": [
+      "POMPON VIETNAM / 퐁퐁 골든 (Golden) ",
+      "POMPON VIETNAM / 퐁퐁 화이트 (White) ",
+      "POMPON VIETNAM / 퐁퐁 연핑크 (Momoko) "
+     ]
+    }
+   ],
+   "freight": [
+    "Gross weight 10건",
+    "Chargeable weight 4건"
+   ]
+  },
+  {
+   "country": "미국",
+   "receipts": 17,
+   "heat": {
+    "수-12": 1,
+    "월-9": 4,
+    "화-14": 2,
+    "목-11": 1,
+    "화-13": 1,
+    "수-9": 2,
+    "월-8": 1,
+    "화-10": 1,
+    "월-12": 1,
+    "월-10": 1,
+    "화-18": 1,
+    "화-9": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 16,
+     "weekday": {
+      "수": 3,
+      "월": 6,
+      "화": 6,
+      "목": 1
+     },
+     "rule": "월요일 6건(38%)"
+    },
+    {
+     "sub": "02",
+     "total": 1,
+     "weekday": {
+      "월": 1
+     },
+     "rule": "월요일 1건(100%)"
+    }
+   ],
+   "linesMedian": 1,
+   "boxMedian": 100,
+   "farmCount": 1,
+   "farms": [
+    {
+     "farm": "Hood Canal",
+     "count": 17,
+     "last": "2026-11-10",
+     "flowers": [
+      "레몬잎",
+      "더글라스"
+     ],
+     "weekday": "월:7, 화:6"
+    }
+   ],
+   "products": [
+    {
+     "flower": "더글라스",
+     "count": 2,
+     "unitCombo": "박스/단/20/10/200 (1건)",
+     "examples": [
+      "Douglas Fir",
+      "Beargrass"
+     ]
+    },
+    {
+     "flower": "레몬잎",
+     "count": 1,
+     "unitCombo": "박스/단/25/25/625 (1건)",
+     "examples": [
+      "SALAL TIPS"
+     ]
+    }
+   ],
+   "freight": [
+    "Chargeable weight 6건",
+    "Gross weight 6건"
+   ]
+  },
+  {
+   "country": "미상",
+   "receipts": 14,
+   "heat": {
+    "목-9": 2,
+    "수-13": 2,
+    "수-15": 1,
+    "월-15": 1,
+    "수-10": 2,
+    "월-11": 1,
+    "수-11": 1,
+    "목-10": 1,
+    "목-11": 2,
+    "목-16": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 14,
+     "weekday": {
+      "목": 6,
+      "수": 6,
+      "월": 2
+     },
+     "rule": "목요일 6건(43%)"
+    }
+   ],
+   "linesMedian": 1,
+   "boxMedian": 0,
+   "farmCount": 1,
+   "farms": [
+    {
+     "farm": "Freightwise Ecuador",
+     "count": 14,
+     "last": "2026-07-09",
+     "flowers": [],
+     "weekday": "목:6, 수:6"
+    }
+   ],
+   "products": [],
+   "freight": [
+    "운송료 28건",
+    "Chargeable weight 14건",
+    "Gross weight 14건"
+   ]
+  },
+  {
+   "country": "뉴질랜드",
+   "receipts": 7,
+   "heat": {
+    "금-13": 2,
+    "금-12": 1,
+    "금-11": 2,
+    "금-10": 2
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 7,
+     "weekday": {
+      "금": 7
+     },
+     "rule": "금요일 7건(100%)"
+    }
+   ],
+   "linesMedian": 8,
+   "boxMedian": 0,
+   "farmCount": 2,
+   "farms": [
+    {
+     "farm": "NZ Bloom",
+     "count": 5,
+     "last": "2026-01-02",
+     "flowers": [
+      "작약",
+      "수국"
+     ],
+     "weekday": "금:5"
+    },
+    {
+     "farm": "NZ Blooms",
+     "count": 2,
+     "last": "2025-11-28",
+     "flowers": [
+      "작약"
+     ],
+     "weekday": "금:2"
+    }
+   ],
+   "products": [
+    {
+     "flower": "작약",
+     "count": 31,
+     "unitCombo": "단/단/0/0/0 (12건)",
+     "examples": [
+      "Peony / New Zealand. SUPER Bowl of Cream White 60cm (50mm bud)",
+      "Peony / Sarah Bernhardt L/Pink",
+      "Peony / New Zealand. Bowl of Cream AAA (60cm/4.5cm)"
+     ]
+    },
+    {
+     "flower": "수국",
+     "count": 9,
+     "unitCombo": "송이/송이/0/0/0 (7건)",
+     "examples": [
+      "Hydrangea Masja (Purple)",
+      "Hydrangea Masja (Hot Pink)",
+      "Hydrangea Merveille Sanguine Aubergine"
+     ]
+    },
+    {
+     "flower": "헬레보루스",
+     "count": 2,
+     "unitCombo": "송이/송이/1/0/70 (1건)",
+     "examples": [
+      "Hellebore / New Zealand. Green Double (30-40cm)",
+      "Hellebore / New Zealand. Purple Double (30-40cm)"
+     ]
+    },
+    {
+     "flower": "피토스",
+     "count": 1,
+     "unitCombo": "단/단/0/0/0 (1건)",
+     "examples": [
+      "Pittosporum / Mountain Green"
+     ]
+    }
+   ],
+   "freight": []
+  },
+  {
+   "country": "일본",
+   "receipts": 7,
+   "heat": {
+    "월-16": 1,
+    "일-2": 1,
+    "월-10": 4,
+    "월-15": 1
+   },
+   "subs": [
+    {
+     "sub": "01",
+     "total": 7,
+     "weekday": {
+      "월": 6,
+      "일": 1
+     },
+     "rule": "월요일 6건(86%)"
+    }
+   ],
+   "linesMedian": 12,
+   "boxMedian": 0,
+   "farmCount": 2,
+   "farms": [
+    {
+     "farm": "Japon",
+     "count": 5,
+     "last": "2026-01-12",
+     "flowers": [
+      "스위트피"
+     ],
+     "weekday": "월:5"
+    },
+    {
+     "farm": "Japan",
+     "count": 2,
+     "last": "2026-01-05",
+     "flowers": [
+      "스위트피"
+     ],
+     "weekday": "일:1, 월:1"
+    }
+   ],
+   "products": [
+    {
+     "flower": "스위트피",
+     "count": 61,
+     "unitCombo": "단/단/10/10/100 (61건)",
+     "examples": [
+      "Sweet Pea / Light Pink L",
+      "Sweet Pea / Blush L",
+      "Sweet Pea / Peach L"
+     ]
+    },
+    {
+     "flower": "샌더소니아",
+     "count": 3,
+     "unitCombo": "단/단/6/10/60 (1건)",
+     "examples": [
+      "Sandersonia Japan / Sadersonia Orange 70cm",
+      "Sandersonia Japan / Sadersonia Orange 60cm",
+      "Sandersonia Japan / Sadersonia Orange 50cm"
+     ]
+    }
+   ],
+   "freight": [
+    "운송료 1건"
+   ]
+  }
+ ],
+ "weeklySheet": {
+  "period": [
+   "2026-10-28T16:55",
+   "2026-11-11T17:31"
+  ],
+  "rows": [
+   {
+    "country": "중국",
+    "cells": {
+     "월": "*발주 HUBFRESH 해상",
+     "화": "*PAGO HUBFRESH 선결제",
+     "수": "*배 도착 (저번주꺼)"
+    }
+   },
+   {
+    "country": "네덜란드 Holex 2차기준",
+    "cells": {
+     "월": "*입고 *선발주 신라",
+     "화": "*수국 발주가능한 리스트 전달",
+     "수": "*발주(발주 및 추가: [담당자] 이메일)",
+     "금": "*컨펌(계속 재촉) *proforma-> 원가자료 *22시 이후 서류 받음 서류 받는 메일: -AWB :[담당자] -나머지 서류: [담당자]",
+     "토": "*서류전달 (태국 서류 전달할 때 같이 전달했음)",
+     "일": "*ETA16:55"
+    }
+   },
+   {
+    "country": "태국 superfresh",
+    "cells": {
+     "월": "*입고",
+     "화": "*발주(발주 및 추가: whatsapp)",
+     "수": "*추가 오전까지만 가능",
+     "금": "*컨펌([담당자], [담당자] 수량+다른 이슈 보통 오후에 5시에 전달받음)",
+     "토": "[이메일]",
+     "일": "*ETA 06:55"
+    }
+   },
+   {
+    "country": "호주 Premium greens",
+    "cells": {
+     "월": "*발주([사내 담당]이 요청하시면 진행) ->[담당자] 이메일 *서류전달 *서류 받는 메일 : [담당자], 점심시간 이후에 서류 다 받음 *입고",
+     "화": "*ETA 19:50 (그다음주)",
+     "목": "*목요일까지 추가발주 가능 [담당자] 은 금요일까지 가능하다고 했는데 목요일까지 해야 안전",
+     "금": "*최종컨펌"
+    }
+   },
+   {
+    "country": "미국 Hood canal",
+    "cells": {
+     "월": "[이메일]",
+     "목": "*컨펌",
+     "토": "[이메일]",
+     "일": "*서류전달"
+    }
+   },
+   {
+    "country": "베트남",
+    "cells": {
+     "월": "[이메일]",
+     "화": "[이메일]",
+     "수": "*ETA 06:30 (그다음주)"
+    }
+   }
+  ]
+ },
+ "fileKinds": [
+  {
+   "kind": "미분류",
+   "count": 3430,
+   "patterns": [
+    {
+     "pattern": "#-#_{국가}_{농장}_#.xlsx",
+     "count": 754,
+     "example": "41-02_CO_EUS_132769.xlsx"
+    },
+    {
+     "pattern": "aaaaaaaaaaaa",
+     "count": 184,
+     "example": "aaaaaaaaaaaa"
+    },
+    {
+     "pattern": "#-# 콜카장수국",
+     "count": 104,
+     "example": "43-1 콜카장수국"
+    },
+    {
+     "pattern": "#-# 콜카장",
+     "count": 96,
+     "example": "41-2 콜카장"
+    },
+    {
+     "pattern": "#-# 콜수국",
+     "count": 84,
+     "example": "46-1 콜수국"
+    },
+    {
+     "pattern": "#-# 중국 cloud",
+     "count": 80,
+     "example": "44-3 중국 cloud"
+    }
+   ]
+  },
+  {
+   "kind": "받은파일·임시",
+   "count": 2250,
+   "patterns": [
+    {
+     "pattern": "KakaoTalk Downloads",
+     "count": 343,
+     "example": "KakaoTalk Downloads"
+    },
+    {
+     "pattern": "Unconfirmed #.crdownload",
+     "count": 142,
+     "example": "Unconfirmed 127179.crdownload"
+    },
+    {
+     "pattern": "새 폴더",
+     "count": 89,
+     "example": "새 폴더"
+    },
+    {
+     "pattern": "ilovepdf_extracted-pages (#)",
+     "count": 79,
+     "example": "ilovepdf_extracted-pages (9)"
+    },
+    {
+     "pattern": "카카오톡 받은 파일",
+     "count": 73,
+     "example": "카카오톡 받은 파일"
+    },
+    {
+     "pattern": "New folder (#)",
+     "count": 68,
+     "example": "New folder (2)"
+    }
+   ]
+  },
+  {
+   "kind": "인보이스·서류",
+   "count": 641,
+   "patterns": [
+    {
+     "pattern": "NTS_eTaxInvoice (#).html",
+     "count": 37,
+     "example": "NTS_eTaxInvoice (1).html"
+    },
+    {
+     "pattern": "#-#_NL_H_PROFORMA.xlsx",
+     "count": 33,
+     "example": "42-01_NL_H_PROFORMA.xlsx"
+    },
+    {
+     "pattern": "PROFORMA Factuur (#).pdf",
+     "count": 23,
+     "example": "PROFORMA Factuur (1).pdf"
+    },
+    {
+     "pattern": "#-# 태국 PL.xlsx",
+     "count": 19,
+     "example": "43-1 태국 PL.xlsx"
+    },
+    {
+     "pattern": "#-# 네덜란드 proforma PL.xlsx",
+     "count": 17,
+     "example": "43-02 네덜란드 proforma PL.xlsx"
+    },
+    {
+     "pattern": "#-# 네덜란드 CI.pdf",
+     "count": 13,
+     "example": "45-2 네덜란드 CI.pdf"
+    }
+   ]
+  },
+  {
+   "kind": "발주서·주문서",
+   "count": 545,
+   "patterns": [
+    {
+     "pattern": "PedidosHome",
+     "count": 186,
+     "example": "PedidosHome"
+    },
+    {
+     "pattern": "발주 목록_#-#-#.xlsx",
+     "count": 25,
+     "example": "발주 목록_2026-10-05.xlsx"
+    },
+    {
+     "pattern": "#-# 네덜란드 pedidos.xlsx",
+     "count": 16,
+     "example": "43-1 네덜란드 pedidos.xlsx"
+    },
+    {
+     "pattern": "#-# 네덜란드 order.xlsx",
+     "count": 11,
+     "example": "42-2 네덜란드 order.xlsx"
+    },
+    {
+     "pattern": "네덜란드 #차 발주가능목록.xlsx",
+     "count": 11,
+     "example": "네덜란드 44차 발주가능목록.xlsx"
+    },
+    {
+     "pattern": "#-# 콜카장 발주 원본.xlsx",
+     "count": 10,
+     "example": "42-2 콜카장 발주 원본.xlsx"
+    }
+   ]
+  },
+  {
+   "kind": "항공운송장(AWB)",
+   "count": 513,
+   "patterns": [
+    {
+     "pattern": "#-#_Apollo_AWB_#-#.xlsx",
+     "count": 81,
+     "example": "40-02_Apollo_AWB_014-41369591.xlsx"
+    },
+    {
+     "pattern": "#-#_EXCEL_AWB_#-#.xlsx",
+     "count": 17,
+     "example": "40-01_EXCEL_AWB_180-20089495.xlsx"
+    },
+    {
+     "pattern": "#-#_EXCEL_AWB_#.xlsx",
+     "count": 13,
+     "example": "44-01_EXCEL_AWB_18064885240.xlsx"
+    },
+    {
+     "pattern": "#-# 네덜란드 AWB.pdf",
+     "count": 13,
+     "example": "45-1 네덜란드 AWB.pdf"
+    },
+    {
+     "pattern": "#-# 콜카장 AWB.PDF",
+     "count": 10,
+     "example": "41-2 콜카장 AWB.PDF"
+    },
+    {
+     "pattern": "#-# 콜수국 AWB.pdf",
+     "count": 10,
+     "example": "44-1 콜수국 AWB.pdf"
+    }
+   ]
+  },
+  {
+   "kind": "클레임·불량·크레딧",
+   "count": 399,
+   "patterns": [
+    {
+     "pattern": "불량",
+     "count": 294,
+     "example": "불량"
+    },
+    {
+     "pattern": "(NENOVA)Claim ##.xlsx",
+     "count": 16,
+     "example": "(NENOVA)Claim #1212437.xlsx"
+    },
+    {
+     "pattern": "oct credit note",
+     "count": 11,
+     "example": "oct credit note"
+    },
+    {
+     "pattern": "#-# claim CL#",
+     "count": 10,
+     "example": "42-2 claim CL38"
+    },
+    {
+     "pattern": "#-# claim YCL#",
+     "count": 6,
+     "example": "42-2 claim YCL06"
+    },
+    {
+     "pattern": "영업수입불량차감_#_#차.xlsx",
+     "count": 5,
+     "example": "영업수입불량차감_2026_40차.xlsx"
+    }
+   ]
+  },
+  {
+   "kind": "원가자료",
+   "count": 98,
+   "patterns": [
+    {
+     "pattern": "#-# 네덜란드 원가자료.xlsx",
+     "count": 23,
+     "example": "43-1 네덜란드 원가자료.xlsx"
+    },
+    {
+     "pattern": "#-# NL 원가자료.xlsx",
+     "count": 11,
+     "example": "37-2 NL 원가자료.xlsx"
+    },
+    {
+     "pattern": "네덜란드 원가자료.xlsx",
+     "count": 6,
+     "example": "네덜란드 원가자료.xlsx"
+    },
+    {
+     "pattern": "태국 원가자료.xlsx",
+     "count": 6,
+     "example": "태국 원가자료.xlsx"
+    },
+    {
+     "pattern": "#-# CHINA 중국 원가자료.xlsx",
+     "count": 5,
+     "example": "44-3 CHINA 중국 원가자료.xlsx"
+    },
+    {
+     "pattern": "#-# 콜카장수국 원가자료.xlsx",
+     "count": 4,
+     "example": "43-1 콜카장수국 원가자료.xlsx"
+    }
+   ]
+  },
+  {
+   "kind": "품목·단가·통계",
+   "count": 96,
+   "patterns": [
+    {
+     "pattern": "품목목록_#-#-#.xlsx",
+     "count": 17,
+     "example": "품목목록_2026-10-07.xlsx"
+    },
+    {
+     "pattern": "#차 중국 업제 단가 비교.xlsx",
+     "count": 16,
+     "example": "40차 중국 업제 단가 비교.xlsx"
+    },
+    {
+     "pattern": "catalogo.xlsx",
+     "count": 16,
+     "example": "catalogo.xlsx"
+    },
+    {
+     "pattern": "Pivot 통계_#-#-#.xlsx",
+     "count": 12,
+     "example": "Pivot 통계_2026-10-06.xlsx"
+    },
+    {
+     "pattern": "콜롬비아, 중국, 태국, 에콰도르 수입수량 (#월) (#).xlsx",
+     "count": 5,
+     "example": "콜롬비아, 중국, 태국, 에콰도르 수입수량 (9월) (1).xlsx"
+    },
+    {
+     "pattern": "NENOVA_Catalogo_Hydrangea_Classic_Holex.pptx",
+     "count": 5,
+     "example": "NENOVA_Catalogo_Hydrangea_Classic_Holex.pptx"
+    }
+   ]
+  },
+  {
+   "kind": "세금계산서",
+   "count": 43,
+   "patterns": [
+    {
+     "pattern": "Snenova#.pdf",
+     "count": 39,
+     "example": "Snenova26100809350.pdf"
+    },
+    {
+     "pattern": "Snenova# Extract[#-#].pdf",
+     "count": 4,
+     "example": "Snenova26111111090 Extract[1-2].pdf"
+    }
+   ]
+  },
+  {
+   "kind": "결제표·증빙",
+   "count": 40,
+   "patterns": [
+    {
+     "pattern": "#.# 결제증빙 #",
+     "count": 21,
+     "example": "10.30 결제증빙 1"
+    },
+    {
+     "pattern": "#.# 결제증빙",
+     "count": 4,
+     "example": "10.30 결제증빙"
+    },
+    {
+     "pattern": "#.#월 결제 (#).xlsx",
+     "count": 3,
+     "example": "26.10월 결제 (1).xlsx"
+    },
+    {
+     "pattern": "Pago Septiembre # Claudia.pdf",
+     "count": 2,
+     "example": "Pago Septiembre 30 Claudia.pdf"
+    },
+    {
+     "pattern": "#.#월 결제.xlsx",
+     "count": 2,
+     "example": "26.10월 결제.xlsx"
+    },
+    {
+     "pattern": "Pago Octubre #.pdf",
+     "count": 2,
+     "example": "Pago Octubre 15.pdf"
+    }
+   ]
+  },
+  {
+   "kind": "지출결의서",
+   "count": 11,
+   "patterns": [
+    {
+     "pattern": "지출결의서 최종. (통관예상경비).xlsx",
+     "count": 6,
+     "example": "지출결의서 최종. (통관예상경비).xlsx"
+    },
+    {
+     "pattern": "지출결의서 # Solicitud de pago.xlsx",
+     "count": 3,
+     "example": "지출결의서 260122 Solicitud de pago.xlsx"
+    },
+    {
+     "pattern": "지출결의서 # Solicitud de pago Adr.xlsx",
+     "count": 2,
+     "example": "지출결의서 260122 Solicitud de pago Adr.xlsx"
+    }
+   ]
+  },
+  {
+   "kind": "대사표",
+   "count": 8,
+   "patterns": [
+    {
+     "pattern": "(주)네노바(HDFC#E#) 정산서.pdf",
+     "count": 2,
+     "example": "(주)네노바(HDFC26E7390500) 정산서.pdf"
+    },
+    {
+     "pattern": "#_FW_ [관세법인 선율] 네노바 #차 정산서_#",
+     "count": 2,
+     "example": "0_FW_ [관세법인 선율] 네노바 39차 정산서_261015"
+    },
+    {
+     "pattern": "네노바(HDFC#E#)정산서.pdf",
+     "count": 2,
+     "example": "네노바(HDFC26E7420512)정산서.pdf"
+    },
+    {
+     "pattern": "#_FW_ [관세법인 선율] 네노바 #차 정산서_#.zip",
+     "count": 1,
+     "example": "0_FW_ [관세법인 선율] 네노바 39차 정산서_261015.zip"
+    },
+    {
+     "pattern": "#-#B차 중국(HUB) # 정산서.pdf",
+     "count": 1,
+     "example": "41-2B차 중국(HUB) 73190193854 정산서.pdf"
+    }
+   ]
+  }
+ ],
+ "templates": [
+  {
+   "file": "네덜란드 원가자료",
+   "sheetCount": 25,
+   "sheets": [
+    "NEW",
+    "42-2",
+    "43-2 (2)",
+    "43-2",
+    "40-2",
+    "46-1"
+   ],
+   "headers": [
+    "품목",
+    "차감 stems",
+    "검역 차감액",
+    "튤립",
+    "카라",
+    "아이리스",
+    "아스트란티아",
+    "거베라",
+    "히야신스",
+    "수선화",
+    "Lathyrus",
+    "차수",
+    "Double check",
+    "관세",
+    "그외에 통관비",
+    "네리네",
+    "스키미아",
+    "프리틸라리아",
+    "장미",
+    "총금액 Invoice",
+    "Eryngium",
+    "Colombia",
+    "백상",
+    "겸역차감"
+   ]
+  },
+  {
+   "file": "중국 원가자료",
+   "sheetCount": 25,
+   "sheets": [
+    "46-1 해상 HUB",
+    "44-2B CLOUD",
+    "44-1 해상 (95% 기준)",
+    "45-2 CLOUD",
+    "43-2AB CLOUD",
+    "44-2A CLOUD"
+   ],
+   "headers": [
+    "CHINA",
+    "MELODY",
+    "운성비 풍목벽 분배 비율 계산",
+    "GW==CW",
+    "무게로 계산 될 때",
+    "GW << CW",
+    "CBM으로 계산 될 때",
+    "CLOUD",
+    "차수",
+    "품목별 운임비",
+    "그외에 통관비",
+    "품목",
+    "운임비",
+    "수량 (단)",
+    "단당 운임비",
+    "관세",
+    "백상",
+    "겸역차감",
+    "품목별 통광비",
+    "단 통광비",
+    "한공료 분배"
+   ]
+  },
+  {
+   "file": "태국 원가자료",
+   "sheetCount": 25,
+   "sheets": [
+    "44",
+    "42",
+    "43-01",
+    "43-02",
+    "45",
+    "1"
+   ],
+   "headers": [
+    "차수",
+    "Double check",
+    "Krung",
+    "SF",
+    "Boxes",
+    "그외에 통관비",
+    "품목",
+    "차감 stems",
+    "검역 차감액",
+    "총금액 Invoice",
+    "Stems",
+    "백상",
+    "겸역차감",
+    "Den",
+    "환율",
+    "Anthurium",
+    "통관 수수료",
+    "Mok",
+    "Gross Weigth",
+    "Chargable Weight",
+    "Others",
+    "검역 수수료",
+    "Athurium",
+    "포목수"
+   ]
+  },
+  {
+   "file": "수국·콜카장 원가자료",
+   "sheetCount": 25,
+   "sheets": [
+    "45-1",
+    "44-2",
+    "42-2",
+    "41-2",
+    "44-1",
+    "39-2"
+   ],
+   "headers": [
+    "차수",
+    "그외에 통관비",
+    "총금액 Invoice",
+    "백상",
+    "겸역차감",
+    "환율",
+    "통관 수수료",
+    "GW",
+    "CW",
+    "검역 수수료",
+    "품목수",
+    "Rate",
+    "국내 운송비",
+    "운성비 풍목벽 분배 비율 계산",
+    "GW==CW",
+    "무게로 계산 될 때",
+    "GW << CW",
+    "CBM으로 계산 될 때",
+    "16-2A",
+    "Double check",
+    "품목별 운임비",
+    "품목",
+    "운임비",
+    "수량 (송이)"
+   ]
+  },
+  {
+   "file": "에콰도르 원가자료",
+   "sheetCount": 25,
+   "sheets": [
+    "test",
+    "45-1",
+    "41-1",
+    "장미, 안재",
+    "7",
+    "8"
+   ],
+   "headers": [
+    "에콰도르 수량에 따라 도착원가 차이 (송의)",
+    "장미",
+    "지금 수량 4-1차 예시 (1400송의)",
+    "1000Kg 넘을 경우 (예시11800송의)",
+    "차이액",
+    "Ecuador Channel AS154",
+    "Ecuador Dark Expression",
+    "Ecuador Electric MO AS2…",
+    "Ecuador",
+    "원가자료",
+    "차수",
+    "Double check",
+    "그외에 통관비",
+    "총금액 Invoice",
+    "백상",
+    "겸역차감",
+    "환율",
+    "통관 수수료",
+    "소독비",
+    "Gross Weigth",
+    "CW",
+    "검역 수수료",
+    "4--1 (+안개)",
+    "포목수"
+   ]
+  },
+  {
+   "file": "지출결의서",
+   "sheetCount": 25,
+   "sheets": [
+    "43차",
+    " 44-3 통관 ",
+    " 43-1 통관",
+    "44-45 SY 통관",
+    "43,44차",
+    "40-42 소독 (2)"
+   ],
+   "headers": []
+  },
+  {
+   "file": "월 결제표",
+   "sheetCount": 2,
+   "sheets": [
+    "26.11.05(상품대)",
+    "26.10.25(상품대)"
+   ],
+   "headers": []
+  },
+  {
+   "file": "발주 목록(발주 확정표 후보)",
+   "sheetCount": 2,
+   "sheets": [
+    "Sheet",
+    "Sheet (2)"
+   ],
+   "headers": [
+    "주문주차",
+    "거래처명",
+    "단위",
+    "C.N.",
+    "국가",
+    "꽃",
+    "입력일자",
+    "변경수량",
+    "품목명(색상)",
+    "변경수량 Total",
+    "Carnation CHINA / Eyeli…",
+    "X"
+   ]
+  },
+  {
+   "file": "네덜란드 발주가능목록",
+   "sheetCount": 5,
+   "sheets": [
+    "튤립",
+    "네덜란드",
+    "수국 (2)",
+    "수국",
+    "Sheet1"
+   ],
+   "headers": [
+    "사진",
+    "품명",
+    "색상",
+    "원산지",
+    "길이 cm/cm",
+    "MOQ",
+    "가격",
+    "단가송이당부가세포함",
+    "Ranunculus Cloni Hanoi",
+    "light pink",
+    "에콰도르",
+    "Ranunculus Cloni Lady P…",
+    "이탈리아",
+    "Ranunculus Cloni White …",
+    "white"
+   ]
+  },
+  {
+   "file": "중국 발주현황",
+   "sheetCount": 6,
+   "sheets": [
+    "품목별업체수량",
+    "주문상세",
+    "발주현황",
+    "업체별발주",
+    "조회기준",
+    "수량원본"
+   ],
+   "headers": [
+    "품목명(HF 코드)",
+    "단위",
+    "총수량(박스수)",
+    "CL82",
+    "CLE",
+    "CLR",
+    "CLS",
+    "K03",
+    "M73",
+    "Y2",
+    "Y06",
+    "Y10",
+    "Y22",
+    "Y57",
+    "Amaranthus CHINA / 줄맨드라…",
+    "단",
+    "연도",
+    "세부차수",
+    "업체키(내부)",
+    "업체명",
+    "업체 주문코드(CL)",
+    "품목키",
+    "품목코드",
+    "품목명"
+   ]
+  },
+  {
+   "file": "영업수입불량차감",
+   "sheetCount": 2,
+   "sheets": [
+    "전체품목",
+    "[영업 담당자별 시트 5개]"
+   ],
+   "headers": [
+    "차감 내역 (차수 표시)",
+    "담당자",
+    "차장",
+    "이사",
+    "거래처",
+    "품종",
+    "품명",
+    "차감수량",
+    "크레딧(수입부)",
+    "비고"
+   ]
+  },
+  {
+   "file": "농장 인보이스형(주차_국가_농장)",
+   "sheetCount": 9,
+   "sheets": [
+    "BOG CO",
+    "CO-수국 ANTIOQUIA F",
+    "CO-수국 FLORENTINA",
+    "CO-수국 BALVERDE",
+    "CO-수국 VALORES",
+    "CO-수국 GREEN LAND"
+   ],
+   "headers": [
+    "Grower:",
+    "Flores De Funza",
+    "Weekend:",
+    "Invoice:",
+    "FE204138",
+    "AWB:",
+    "Date:",
+    "COD",
+    "VARIETY NAME",
+    "SIZE",
+    "BOX",
+    "BCH/ST",
+    "STEAM BOX",
+    "TOTAL BUNCH",
+    "TOTAL STEAM",
+    "U.PRICE",
+    "T.PRICE",
+    "ALSTROMERIA Whistler",
+    "ALSTROMERIA Fifi",
+    "Antioquia Floral S.A.S",
+    "Hydrangea White (화이트)",
+    "Hydrangea G/ Esmeral (진…",
+    "Grupo Valores en Accion",
+    "TOTAL"
+   ]
+  },
+  {
+   "file": "도착원가 계산본",
+   "sheetCount": 4,
+   "sheets": [
+    "2026 46-01",
+    "주광·기타 비교",
+    "원본 양식 계산",
+    "원본수식 비교"
+   ],
+   "headers": [
+    "NL 2026/46-01 원본 양식 계산 …",
+    "파일 내 계산만 · ERP/계산 원가 변경…",
+    "비용 근거",
+    "조회/계산 입력값",
+    "운임 합계(외화)",
+    "차수",
+    "Double check",
+    "원본 세율 참고 · X열 적용세율 사용",
+    "통관비 · 적용 입력값",
+    "통관 합계(KRW)",
+    "총금액 Invoice",
+    "Eryngium",
+    "Colombia",
+    "백상",
+    "내역 미보유",
+    "기존 원가 합계",
+    "주광·기타 주문 입고 원가",
+    "2026/46-01 · 입고 #8069 ·…",
+    "구분",
+    "주문수량(송이)",
+    "이번 입고배분(추정)",
+    "배분원가(원)",
+    "주광(CL2)",
+    "기타"
+   ]
+  },
+  {
+   "file": "지니원빈 주간 일정표",
+   "sheetCount": 1,
+   "sheets": [
+    "Sheet1"
+   ],
+   "headers": []
+  }
+ ],
+ "expenseLabels": [
+  {
+   "label": "네덜란드 이지플라워통관예상경비",
+   "count": 36
+  },
+  {
+   "label": "네덜란드 HOLEX 통관예상경비",
+   "count": 22
+  },
+  {
+   "label": "미국 후드카날 통관예상경비",
+   "count": 16
+  },
+  {
+   "label": "에티오피아 ELITE 통관예상경비",
+   "count": 9
+  },
+  {
+   "label": "중국 해상 인천관세법인 HUBFRESH 통관예상경비",
+   "count": 5
+  },
+  {
+   "label": "에콰도르 LA ROSALEDA 통관예상경비",
+   "count": 5
+  },
+  {
+   "label": "에티오피아MINAYE 통관예상경비",
+   "count": 3
+  },
+  {
+   "label": "콜롬비아 카장 통관예상경비",
+   "count": 2
+  },
+  {
+   "label": "중국 HUBFRESH 통관예상경비",
+   "count": 2
+  },
+  {
+   "label": "중국 CLOUDLAND 통관예상경비",
+   "count": 2
+  },
+  {
+   "label": "에티오피아 로사나라 통관예상경비",
+   "count": 2
+  },
+  {
+   "label": "에티오피아 아그리 통관예상경비",
+   "count": 2
+  },
+  {
+   "label": "중국 JJ TRANSPORTATION 컨테이너 DO Charge",
+   "count": 2
+  },
+  {
+   "label": "중국 (주)어반로지스틱스 컨테이너 창고상경비",
+   "count": 1
+  },
+  {
+   "label": "호주 Premium Greens 통관예상경비",
+   "count": 1
+  },
+  {
+   "label": "태국 KRUNG THEP 통관예상경비",
+   "count": 1
+  },
+  {
+   "label": "콜롬비아 수국 통관예상경비",
+   "count": 1
+  }
+ ],
+ "blind": {
+  "undecoded": 2925,
+  "decoded": 2483,
+  "titles": [
+   {
+    "title": "excel | 지출결의서 # Solicitud de pago - Excel",
+    "undecoded": 196,
+    "decoded": 117
+   },
+   {
+    "title": "kakaotalkui | 수입수입수입",
+    "undecoded": 189,
+    "decoded": 58
+   },
+   {
+    "title": "excel | Stock+list (#) [Compatibility Mode] - Excel",
+    "undecoded": 164,
+    "decoded": 56
+   },
+   {
+    "title": "excel | 지니원빈 - Excel",
+    "undecoded": 150,
+    "decoded": 238
+   },
+   {
+    "title": "chrome | 드라이브 - Google Chrome",
+    "undecoded": 126,
+    "decoded": 166
+   },
+   {
+    "title": "kakaotalkui | [1:1 대화창]",
+    "undecoded": 126,
+    "decoded": 54
+   },
+   {
+    "title": "superhuman.webui | Grammarly",
+    "undecoded": 120,
+    "decoded": 108
+   },
+   {
+    "title": "whatsapp.root | 수입수입수입",
+    "undecoded": 62,
+    "decoded": 31
+   },
+   {
+    "title": "80-64885240 | chrome",
+    "undecoded": 60,
+    "decoded": 34
+   },
+   {
+    "title": "excel | #-# 중국 원가자료 - Excel",
+    "undecoded": 52,
+    "decoded": 27
+   },
+   {
+    "title": "excel | PEDIDO COLOMBIA #-# ROSA - Excel",
+    "undecoded": 49,
+    "decoded": 68
+   },
+   {
+    "title": "chrome | Nenova — Generador de Packing Lists - Google Chrome",
+    "undecoded": 48,
+    "decoded": 41
+   },
+   {
+    "title": "excel | PEDIDO COLOMBIA #-# CLAVEL (#) - Excel",
+    "undecoded": 39,
+    "decoded": 12
+   },
+   {
+    "title": "excel | #-#_NL_H_# - Excel",
+    "undecoded": 36,
+    "decoded": 8
+   },
+   {
+    "title": "excel | #-# 중국 CI-#-NN#_변환_NN# - Excel",
+    "undecoded": 35,
+    "decoded": 56
+   },
+   {
+    "title": "whatsapp.root | 네노바 수입(불량 공유방)",
+    "undecoded": 35,
+    "decoded": 15
+   },
+   {
+    "title": "chrome | HDFC#E# 자금청구서.pdf - Google Chrome",
+    "undecoded": 33,
+    "decoded": 68
+   },
+   {
+    "title": "excel | #-#_Holex - Excel",
+    "undecoded": 33,
+    "decoded": 20
+   },
+   {
+    "title": "excel | #-# 중국 해상 발주 원본 - Excel",
+    "undecoded": 32,
+    "decoded": 19
+   },
+   {
+    "title": "kakaotalkui | 네노바 수입(불량 공유방)",
+    "undecoded": 32,
+    "decoded": 14
+   }
+  ]
+ },
+ "cycles": [
+  {
+   "label": "36-1차 콜롬비아(콜카장수국)",
+   "country": "콜롬비아",
+   "basis": "불량 공유방 수집이 끊기기 전(9-14 이전)이라 발주부터 불량 신고까지 한 줄로 이어지는 가장 최근 콜롬비아 1차 차수",
+   "day0": "2026-09-01 04:10 (도착 공지 기준)",
+   "day0Note": "",
+   "events": [
+    {
+     "dayOffset": -11,
+     "date": "08-21",
+     "weekday": "금",
+     "time": "22:40",
+     "room": "수입방",
+     "role": "영업",
+     "what": "앞 차수(35-2)에서 못 구하는 수국은 규격을 바꾸지 말고 36-1로 넘겨서 구해 달라",
+     "importAction": "넘어온 수량을 36-1 발주 수량에 더해 농장에 전달. 넘긴 수량을 수입방에 다시 적어 둔다"
+    },
+    {
+     "dayOffset": -8,
+     "date": "08-24",
+     "weekday": "월",
+     "time": "17:55",
+     "room": "수입방",
+     "role": "영업지원",
+     "what": "「35-2, 36-1 콜롬비아 CL○ 발주 찍었습니다」 — 전산에 주문 입력을 마쳤다는 알림",
+     "importAction": "전산 발주 목록을 내려받아 주문서를 만든다"
+    },
+    {
+     "dayOffset": -8,
+     "date": "08-24",
+     "weekday": "월",
+     "time": "19:19",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "발주 원본 1개(36-1 colombia)와 품목별 주문서 5개(장미·알스트로·카네이션·수국·루스커스) 파일 게시",
+     "importAction": "같은 파일을 농장·현지 담당 방에 보낸다(카톡 밖)"
+    },
+    {
+     "dayOffset": -8,
+     "date": "08-24",
+     "weekday": "월",
+     "time": "20:03",
+     "room": "수입방",
+     "role": "영업",
+     "what": "거래처별 발주 4건(장미·카네이션·수국·알스트로)과 발주 추가 4건이 20~21시대에 올라옴",
+     "importAction": "이미 보낸 주문서에 더해 농장에 추가 전달. 월요일 밤 9건"
+    },
+    {
+     "dayOffset": -7,
+     "date": "08-25",
+     "weekday": "화",
+     "time": "09:53",
+     "room": "수입방",
+     "role": "영업",
+     "what": "발주 추가 12건(화). 「오늘 저녁 출발인 것은 알지만 시도 부탁, 안 되면 36-1차로」 같은 앞 차수 이월 요청 포함",
+     "importAction": "되는 것·안 되는 것을 농장에 묻고 같은 방에 답한다. 화요일이 추가가 가장 많은 날"
+    },
+    {
+     "dayOffset": -7,
+     "date": "08-25",
+     "weekday": "화",
+     "time": "10:57",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「더 이상 추가 안 될 것 같아 36-1차로 넘어갈 것 같다」 회신",
+     "importAction": "앞 차수 마감을 알리고 이월 처리"
+    },
+    {
+     "dayOffset": -6,
+     "date": "08-26",
+     "weekday": "수",
+     "time": "12:57",
+     "room": "수입방",
+     "role": "영업",
+     "what": "발주 추가 5건(수), 목요일 6건, 금요일 1건으로 줄어듦",
+     "importAction": "수요일까지는 많은 추가, 목요일은 소량만(9-17 회의 요약의 규칙과 같음)"
+    },
+    {
+     "dayOffset": -4,
+     "date": "08-28",
+     "weekday": "금",
+     "time": "09:02",
+     "room": "수입방",
+     "role": "영업",
+     "what": "수국 흰색: 앞 차수 미확정분 + 이번 발주량 대비 지금 확정 수량을 알려 달라",
+     "importAction": "농장 확정표를 보고 확정·미확정 수량을 숫자로 답한다(6분 뒤 답: 이월분 포함 발주가 1,200박스를 넘음)"
+    },
+    {
+     "dayOffset": -4,
+     "date": "08-28",
+     "weekday": "금",
+     "time": "10:49",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "염색 수국은 농장마다 염색 방법이 달라 색을 100% 같게 맞추기 어렵다는 안내",
+     "importAction": "색 차이가 날 수 있는 품목은 도착 전에 미리 공지"
+    },
+    {
+     "dayOffset": -4,
+     "date": "08-28",
+     "weekday": "금",
+     "time": "19:35",
+     "room": "수입방",
+     "role": "영업",
+     "what": "호텔 거래처 필요 품목(수국·장미·카네이션)과 「최종 컨펌 나오는 대로 알려 달라」",
+     "importAction": "주말 사이 확정 수량을 받아 알린다"
+    },
+    {
+     "dayOffset": -1,
+     "date": "08-31",
+     "weekday": "월",
+     "time": "06:58",
+     "room": "백상 창고 방 · 선율 방 · 스케줄 방",
+     "role": "수입부",
+     "what": "도착 일정 공지: 「36-1차 콜카장수국, 화요일 04:10 도착 예정, 항공사, AWB 번호·편명·1,847박스」를 세 방에 1분 안에 같은 글로 게시",
+     "importAction": "(수입부가 하는 일) 도착 약 21시간 전. 박스 수는 패킹리스트 합계와 맞춘다"
+    },
+    {
+     "dayOffset": -1,
+     "date": "08-31",
+     "weekday": "월",
+     "time": "12:39",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「36-1 원가자료」 엑셀 파일 게시(13:43·14:04 영업지원이 같은 이름 파일을 다시 올림)",
+     "importAction": "도착 16시간 전에 원가자료가 먼저 나간다. 영업이 판매가를 정하는 근거"
+    },
+    {
+     "dayOffset": -1,
+     "date": "08-31",
+     "weekday": "월",
+     "time": "13:14",
+     "room": "백상 창고 방",
+     "role": "백상",
+     "what": "「금일 저녁~익일 새벽 입항 건 빌 전달 부탁드립니다」(평일 13시대 고정 글)",
+     "importAction": "입항 서류(AWB)를 백상에 메일로 보낸다. 방에는 답이 없었음(메일로 처리한 것으로 추정)"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "04:10",
+     "room": "(도착)",
+     "role": "—",
+     "what": "공지 기준 도착 시각",
+     "importAction": ""
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "08:22",
+     "room": "백상 창고 방",
+     "role": "백상",
+     "what": "「○○○○(빌 끝 4자리) 수량 맞습니다」 + 사진 3장",
+     "importAction": "「감사합니다」로 확인(20분 뒤). 수량이 다르면 여기서 바로 농장·포워더에 확인"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "16:19",
+     "room": "현장방",
+     "role": "현장",
+     "what": "「36-1차 장미 입고」 — 한 농장에서 한 품종 −40단, 다른 품종 +40단, 그 외 이상 없음",
+     "importAction": "인보이스와 대조하고 농장에 확인. 영업지원이 물량표를 고친다"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "17:33",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「36-1차 카장수: 카네이션 소독 명령 나왔습니다. 작업 일정 확인해 주시면 한국방역에 전달. 나머지는 분할 신고」",
+     "importAction": "12분 뒤 「분할신고 감사합니다」 + 영업 책임자 호출. 소독 일정은 영업·현장이 정함"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "18:10",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "카네이션 제외분은 서류 제출, 세관 검사 아님",
+     "importAction": "수입방·현장에 통관 예정 공유"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "19:19",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "카네이션 제외분 처리 완료. 카네이션은 한국방역에 넘김",
+     "importAction": "—"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "19:40",
+     "room": "선율 방",
+     "role": "영업",
+     "what": "한국방역과 내일 오전 소독으로 맞췄다고 회신",
+     "importAction": "—"
+    },
+    {
+     "dayOffset": 0,
+     "date": "09-01",
+     "weekday": "화",
+     "time": "19:49",
+     "room": "백상 창고 방",
+     "role": "현장",
+     "what": "「9/2(수) 오전 소독건입니다. 19파렛트 731박스」 + 사진",
+     "importAction": "소독 건 공지는 현장이 올린다(수입부 아님)"
+    },
+    {
+     "dayOffset": 1,
+     "date": "09-02",
+     "weekday": "수",
+     "time": "09:57",
+     "room": "현장방",
+     "role": "현장",
+     "what": "「36-1차 수국 입고수량 이상없습니다」 「루스커스 87 이상없습니다」",
+     "importAction": "이상 없음을 확인하고 넘어감"
+    },
+    {
+     "dayOffset": 1,
+     "date": "09-02",
+     "weekday": "수",
+     "time": "16:38",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「36-1차 콜카장수(카네이션), 호주 2건 처리됐습니다」",
+     "importAction": "통관 끝. 소독 때문에 카네이션만 하루 늦음"
+    },
+    {
+     "dayOffset": 2,
+     "date": "09-03",
+     "weekday": "목",
+     "time": "13:36",
+     "room": "불량 공유방",
+     "role": "현장",
+     "what": "「36-1차 수국 냉해: 흰색 19, 파랑 1」",
+     "importAction": "사진을 차수·농장 폴더에 모으고 냉해 수량을 농장에 알림"
+    },
+    {
+     "dayOffset": 3,
+     "date": "09-04",
+     "weekday": "금",
+     "time": "09:04",
+     "room": "영업방",
+     "role": "영업",
+     "what": "「36-1 패킹 불량: 한 품종 상자에 다른 품종이 섞였을 수 있음. 농장 확인 필요」",
+     "importAction": "농장에 박스 사진과 함께 확인 요청"
+    },
+    {
+     "dayOffset": 3,
+     "date": "09-04",
+     "weekday": "금",
+     "time": "12:23",
+     "room": "불량 공유방",
+     "role": "영업",
+     "what": "불량 신고 4건(금): 수국 냉해 1박스, 카네이션·장미 불량(농장·거래처·품종·수량)",
+     "importAction": "줄마다 보낸 농장을 확인(신고 글에 농장 이름이 없는 줄이 많음)"
+    },
+    {
+     "dayOffset": 3,
+     "date": "09-04",
+     "weekday": "금",
+     "time": "19:59",
+     "room": "수입방",
+     "role": "영업지원",
+     "what": "「콜롬비아 카네이션: 제품이 마이너스라 확정이 안 잡힙니다. 월요일 2차 패킹리스트 올릴 때 참조」→ 21:36 「36-1 확정되었습니다」",
+     "importAction": "입고 등록 수량과 분배 수량이 안 맞으면 확정이 안 된다. 패킹리스트를 고쳐 다시 올림"
+    },
+    {
+     "dayOffset": 6,
+     "date": "09-07",
+     "weekday": "월",
+     "time": "06:17",
+     "room": "불량 공유방",
+     "role": "영업",
+     "what": "불량 신고 8건(월). 「농장에 이야기해서 패킹 불량 나오지 않게」 요청 포함",
+     "importAction": "농장별로 묶어 클레임 요청(카톡 밖)"
+    },
+    {
+     "dayOffset": 7,
+     "date": "09-08",
+     "weekday": "화",
+     "time": "14:22",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "불량 건의 거래 차수와 거래처 이름을 영업에 되묻음",
+     "importAction": "클레임 자료에 차수·농장이 맞아야 한다"
+    },
+    {
+     "dayOffset": 12,
+     "date": "09-13",
+     "weekday": "일",
+     "time": "14:54",
+     "room": "불량 공유방",
+     "role": "영업지원",
+     "what": "마지막 불량 신고(한 거래처 분 15건을 일요일에 한꺼번에, 중국 품목 포함)",
+     "importAction": "도착 12일 뒤까지 신고가 이어진다. 농장 클레임 기한과 맞는지 확인 필요(미검증)"
+    }
+   ],
+   "stages": [
+    {
+     "stage": "발주 원본 게시 → 도착",
+     "from": "08-24 19:19",
+     "to": "09-01 04:10",
+     "hours": 176.9,
+     "text": "7일 8시간"
+    },
+    {
+     "stage": "발주 추가가 이어진 기간(월 밤~금)",
+     "from": "08-24 20:03",
+     "to": "08-28 09:23",
+     "hours": 85.3,
+     "text": "3일 13시간"
+    },
+    {
+     "stage": "도착 일정 공지 → 도착",
+     "from": "08-31 06:58",
+     "to": "09-01 04:10",
+     "hours": 21.2,
+     "text": "21시간 12분"
+    },
+    {
+     "stage": "원가자료 공유 → 도착(도착 전에 나감)",
+     "from": "08-31 12:39",
+     "to": "09-01 04:10",
+     "hours": 15.5,
+     "text": "15시간 31분"
+    },
+    {
+     "stage": "도착 → 백상 수량 확인",
+     "from": "09-01 04:10",
+     "to": "09-01 08:22",
+     "hours": 4.2,
+     "text": "4시간 12분"
+    },
+    {
+     "stage": "도착 → 현장 입고 수량 확인(장미)",
+     "from": "09-01 04:10",
+     "to": "09-01 16:19",
+     "hours": 12.2,
+     "text": "12시간 9분"
+    },
+    {
+     "stage": "도착 → 선율 검역 결과(소독 명령)",
+     "from": "09-01 04:10",
+     "to": "09-01 17:33",
+     "hours": 13.4,
+     "text": "13시간 23분"
+    },
+    {
+     "stage": "도착 → 통관 처리(소독 없는 품목)",
+     "from": "09-01 04:10",
+     "to": "09-01 19:19",
+     "hours": 15.2,
+     "text": "15시간 9분"
+    },
+    {
+     "stage": "소독 명령 → 통관 처리(소독 품목)",
+     "from": "09-01 17:33",
+     "to": "09-02 16:38",
+     "hours": 23.1,
+     "text": "23시간 5분"
+    },
+    {
+     "stage": "도착 → 첫 불량 신고",
+     "from": "09-01 04:10",
+     "to": "09-03 13:36",
+     "hours": 57.4,
+     "text": "2일 9시간"
+    },
+    {
+     "stage": "도착 → 마지막 불량 신고",
+     "from": "09-01 04:10",
+     "to": "09-13 14:54",
+     "hours": 298.7,
+     "text": "12일 10시간"
+    }
+   ],
+   "notInKakao": [
+    "통관 서류 전달 메일(카톡에는 \"서류 전달드렸습니다\" 알림만 있음)",
+    "농장과 주고받은 주문·확정(WhatsApp, 미수집)",
+    "청구서·정산서·송금(카톡 3건뿐, 이 차수 것은 없음)",
+    "전산 입고 등록 시각(전산 기록 쪽 자료)"
+   ]
+  },
+  {
+   "label": "45-3차 중국 CLOUD 항공(A·B 두 편으로 나뉨)",
+   "country": "중국",
+   "basis": "11월 초 차수로 발주 → 도착 → 서류 오류 → 선소독 → 검역차감 → 통관이 선율 방·백상 방·수입방에 모두 남아 있음. 불량 공유방은 9-14 이후 수집이 없어 불량 단계는 빠짐",
+   "day0": "2026-11-08 15:01 (백상의 수량 확인 글 기준)",
+   "day0Note": "도착 공지문에 「11월 7일(일) 오후 8시 50분」으로 날짜와 요일이 어긋나 있어 실제 도착 시각은 미검증. 기준 시각은 백상의 수량 확인 글(11-08 일 15:01)로 잡았다",
+   "events": [
+    {
+     "dayOffset": -6,
+     "date": "11-02",
+     "weekday": "월",
+     "time": "17:03",
+     "room": "수입방",
+     "role": "영업지원",
+     "what": "「45-3차에 30단 발주했습니다」(전산 입력 알림) + 보낼 품종 사진 지정",
+     "importAction": "전산 발주를 확인하고 공급처에 사진과 함께 전달"
+    },
+    {
+     "dayOffset": -5,
+     "date": "11-03",
+     "weekday": "화",
+     "time": "15:12",
+     "room": "수입방",
+     "role": "영업",
+     "what": "새 품목(라넌큘러스)이 다음 주 도착으로 되는지 공급처에 묻고 오늘까지 답 달라",
+     "importAction": "위챗으로 문의, 당일 회신"
+    },
+    {
+     "dayOffset": -5,
+     "date": "11-03",
+     "weekday": "화",
+     "time": "16:33",
+     "room": "수입방",
+     "role": "영업",
+     "what": "「45-3차 중국 발주 추가 / CL○ / 품목 3종 10단씩 / 실사진·가격 내일까지」",
+     "importAction": "발주 엑셀에 반영, 실사진·단가를 받아 공유"
+    },
+    {
+     "dayOffset": -5,
+     "date": "11-03",
+     "weekday": "화",
+     "time": "18:12",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「45-3 중국 발주 원본」 엑셀 게시",
+     "importAction": "공급처 양식으로 옮겨 위챗 전송(카톡 밖)"
+    },
+    {
+     "dayOffset": -4,
+     "date": "11-04",
+     "weekday": "수",
+     "time": "09:56",
+     "room": "수입방",
+     "role": "영업",
+     "what": "발주 추가 7건(수). 「ETA 11월 8일(일) 한국 도착」을 글머리에 적음",
+     "importAction": "추가분을 공급처에 전달"
+    },
+    {
+     "dayOffset": -2,
+     "date": "11-06",
+     "weekday": "금",
+     "time": "08:05",
+     "room": "수입방",
+     "role": "영업",
+     "what": "발주 추가 4건(금 오전). 「지난 차수와 같은 농장 것으로」 조건 포함",
+     "importAction": "조건을 공급처에 그대로 전달"
+    },
+    {
+     "dayOffset": -2,
+     "date": "11-06",
+     "weekday": "금",
+     "time": "09:20",
+     "room": "수입방",
+     "role": "영업",
+     "what": "한 거래처의 발주 목록을 정리해서 올려 달라",
+     "importAction": "15분 뒤 「45-3 중국 CLOUD 추가」 엑셀 게시"
+    },
+    {
+     "dayOffset": -2,
+     "date": "11-06",
+     "weekday": "금",
+     "time": "14:00",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「45-3 중국 추가 final」 최종본 게시 + 영업 책임자 호출",
+     "importAction": "금요일 14시가 사실상 마감"
+    },
+    {
+     "dayOffset": -2,
+     "date": "11-06",
+     "weekday": "금",
+     "time": "15:25",
+     "room": "백상 창고 방 · 선율 방 · 스케줄 방",
+     "role": "수입부",
+     "what": "「<중국 스케줄> 45-3A, 45-3B차 중국 CLOUD, 일요일 도착 예정(A·B 모두). 기타 정보와 서류는 확인되는 대로 공유」",
+     "importAction": "(수입부가 하는 일) 주말 도착분은 금요일 오후에 먼저 알리고 AWB는 뒤에 보탠다. 이 글은 날짜와 요일이 어긋나 있었음"
+    },
+    {
+     "dayOffset": -1,
+     "date": "11-07",
+     "weekday": "토",
+     "time": "11:32",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「45-3차 중국 이슈: 한 품목 10단 모자람. 다음 차수(46-3)에 같이 보내도 될까요?」 + 영업 5명 호출",
+     "importAction": "부족은 토요일이라도 바로 알리고 처리 방법을 묻는다"
+    },
+    {
+     "dayOffset": 0,
+     "date": "11-08",
+     "weekday": "일",
+     "time": "10:17",
+     "room": "수입방",
+     "role": "영업",
+     "what": "「중국 일정 문제 없이 오늘 다 들어오나요?」",
+     "importAction": "「문제 없습니다」(163분 뒤 답)"
+    },
+    {
+     "dayOffset": 0,
+     "date": "11-08",
+     "weekday": "일",
+     "time": "15:01",
+     "room": "백상 창고 방",
+     "role": "백상",
+     "what": "「○○○○, ○○○○(빌 끝 4자리 2개) 수량 맞습니다」",
+     "importAction": "반입·수량 확인 끝"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "09:33",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「45-3차 중국 AWB: A차 ○○○ 91박스 / B차 ○○○ 81박스」",
+     "importAction": "영업지원이 물량표를 A·B로 나눠 만든다"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "11:56",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "패킹리스트 A·B 파일 게시(13:14 A 수정본, 16:05 피킹리스트 A·B)",
+     "importAction": "공급처 패킹리스트를 손질해 전산 입고용으로 올림"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "15:50",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「미국·중국 건은 월요일 검역이 안 되고 화요일 검역 진행」",
+     "importAction": "영업·현장에 출고가 하루 밀린다고 알림"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "16:17",
+     "room": "영업방",
+     "role": "영업지원",
+     "what": "「45-3차 중국 이슈사항: 한 거래처 한 품목 10단 미입고」",
+     "importAction": "토요일에 알린 부족분과 같은지 대조"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "19:09",
+     "room": "수입방",
+     "role": "수입부",
+     "what": "「45-3AB 원가자료」 게시",
+     "importAction": "반입 확인 약 28시간 뒤"
+    },
+    {
+     "dayOffset": 1,
+     "date": "11-09",
+     "weekday": "월",
+     "time": "20:27",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「45-3A차: 한 품목의 원산지증명서가 한-중 FTA가 아니라 아태(APTA)로 와서 협정세율이 적용 안 됨. 8%로 진행」",
+     "importAction": "3분 뒤 영업이 「수정 가능한지 확인」. 공급처에 원산지증명서 재발급 요청"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "09:11",
+     "room": "선율 방 · 현장 추가취소방",
+     "role": "영업지원",
+     "what": "「45-3 중국 클라우드 선소독 요청: 품목·수량·박스 번호(a=1차/b=2차), 총 36박스」",
+     "importAction": "선소독 요청은 영업지원이 올린다. 수입부는 박스 번호가 패킹리스트와 맞는지 확인"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "10:00",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「상기 건 서류 부탁드립니다. 오후 검역 진행하겠습니다」",
+     "importAction": "2분 뒤 「바로 드리겠습니다」, 42분 뒤 「서류 전달 드렸습니다」"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "11:53",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "A·B별 소독 품목 통보, 「오후 소독입니다. 박스 수량 확인 부탁」",
+     "importAction": "영업지원이 12:38 추가분을 올리고 12:51 총 86박스로 확정"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "12:43",
+     "room": "선율 방",
+     "role": "수입부",
+     "what": "「수정된 CO 전달 드렸습니다」",
+     "importAction": "원산지증명서 오류 통보 16시간 뒤 해결"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "12:59",
+     "room": "백상 창고 방",
+     "role": "현장",
+     "what": "「금일 소독건입니다. 4PLT 86box」",
+     "importAction": "—"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "13:17",
+     "room": "영업방",
+     "role": "영업지원",
+     "what": "「45-3차 중국 검역차감입니다: 거래처(코드)별 품목 1단씩」(14:32 추가)",
+     "importAction": "검역으로 빠진 수량. 원가자료의 검역차감 칸과 맞춘다"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "13:17",
+     "room": "수입방",
+     "role": "영업",
+     "what": "「리시안·라넌은 소독이 나오지 않게 공급처에 다시 강하게. 불량이 나오면 소독 비용까지 클레임」",
+     "importAction": "공급처에 그대로 전달하고 답을 공유"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "13:28",
+     "room": "현장 추가취소방",
+     "role": "영업지원",
+     "what": "변경사항 7건(거래처 사이에 박스 번호 맞바꾸기, 출고일 구분)",
+     "importAction": "수입부 반응 없음(영업지원 ↔ 현장)"
+    },
+    {
+     "dayOffset": 2,
+     "date": "11-10",
+     "weekday": "화",
+     "time": "16:59",
+     "room": "현장방",
+     "role": "현장",
+     "what": "「중국 A차 2품목 사육입니다」",
+     "importAction": "다음 날 소독 뒤 출고"
+    },
+    {
+     "dayOffset": 3,
+     "date": "11-11",
+     "weekday": "수",
+     "time": "15:18",
+     "room": "선율 방",
+     "role": "수입부",
+     "what": "「청구서 오늘 받을 수 있을까요, 내일 다 같이 보내 주시나요?」→ 13분 뒤 「내일 한 번에 드리겠습니다」",
+     "importAction": "청구서는 메일로 여러 차수를 묶어 온다. 지출결의서로 이어짐"
+    },
+    {
+     "dayOffset": 3,
+     "date": "11-11",
+     "weekday": "수",
+     "time": "17:05",
+     "room": "선율 방",
+     "role": "선율",
+     "what": "「45-3A차 소독 2품목 처리됐습니다」",
+     "importAction": "이 차수 통관 끝"
+    },
+    {
+     "dayOffset": 4,
+     "date": "11-12",
+     "weekday": "목",
+     "time": "11:35",
+     "room": "영업방",
+     "role": "영업지원",
+     "what": "「중국 잔량입니다: 45-3차 품목·단 수(검역 −1단)」",
+     "importAction": "—"
+    }
+   ],
+   "stages": [
+    {
+     "stage": "발주 원본 게시 → 반입·수량 확인",
+     "from": "11-03 18:12",
+     "to": "11-08 15:01",
+     "hours": 116.8,
+     "text": "4일 20시간"
+    },
+    {
+     "stage": "발주 추가가 이어진 기간(화~금 오전)",
+     "from": "11-03 16:33",
+     "to": "11-06 10:30",
+     "hours": 66,
+     "text": "2일 17시간"
+    },
+    {
+     "stage": "최종 발주본 → 도착 일정 공지",
+     "from": "11-06 14:00",
+     "to": "11-06 15:25",
+     "hours": 1.4,
+     "text": "1시간 25분"
+    },
+    {
+     "stage": "도착 일정 공지 → 반입·수량 확인",
+     "from": "11-06 15:25",
+     "to": "11-08 15:01",
+     "hours": 47.6,
+     "text": "1일 23시간"
+    },
+    {
+     "stage": "반입 확인 → 패킹리스트 공유",
+     "from": "11-08 15:01",
+     "to": "11-09 11:56",
+     "hours": 20.9,
+     "text": "20시간 55분"
+    },
+    {
+     "stage": "반입 확인 → 원가자료 공유",
+     "from": "11-08 15:01",
+     "to": "11-09 19:09",
+     "hours": 28.1,
+     "text": "1일 4시간"
+    },
+    {
+     "stage": "원산지증명서 오류 통보 → 수정본 전달",
+     "from": "11-09 20:27",
+     "to": "11-10 12:43",
+     "hours": 16.3,
+     "text": "16시간 16분"
+    },
+    {
+     "stage": "선율의 서류 요청 → 전달 알림",
+     "from": "11-10 10:00",
+     "to": "11-10 10:42",
+     "hours": 0.7,
+     "text": "42분"
+    },
+    {
+     "stage": "선소독 요청 → 소독 품목 통보",
+     "from": "11-10 09:11",
+     "to": "11-10 11:53",
+     "hours": 2.7,
+     "text": "2시간 42분"
+    },
+    {
+     "stage": "반입 확인 → 검역차감 공지",
+     "from": "11-08 15:01",
+     "to": "11-10 13:17",
+     "hours": 46.3,
+     "text": "1일 22시간"
+    },
+    {
+     "stage": "반입 확인 → 마지막 통관 처리(소독 품목)",
+     "from": "11-08 15:01",
+     "to": "11-11 17:05",
+     "hours": 74.1,
+     "text": "3일 2시간"
+    }
+   ],
+   "notInKakao": [
+    "공급처(CLOUD)와 주고받은 주문·사진(위챗, 미수집)",
+    "통관 서류 전달 메일",
+    "불량 신고(불량 공유방 9-14 이후 0건)",
+    "청구서(11-11 「내일 한 번에 드리겠습니다」 1건만)"
+   ]
+  }
+ ],
+ "notices": [
+  {
+   "type": "도착 일정 공지(평일 도착분)",
+   "count": 753,
+   "who": "수입부 → 백상 창고 방·선율 방·스케줄 방(같은 글 3곳)",
+   "when": "월 186 · 화 131 · 금 120 / 9시 81 · 15시 72 · 10시 59",
+   "weekdayTop": "월 186 · 화 131 · 금 120",
+   "hourTop": "9시 81 · 15시 72 · 10시 59",
+   "rooms": "백상 창고 방 280, 스케줄 방 228, 선율 방(통관·검역) 207",
+   "template": "< ○○ 스케줄 공유 >\n＊○요일＊\n○○-○차 ○○ (항공사)\n○월 ○일(○) ○○:○○ 도착 예정\n(AWB 번호 편명 ○○ BOX)\n→ 보관 조건(전량 냉장 / 전량 보온 / ○○ 품목만 보온) — 백상 방에만\n→ 「검역 ○ 오전」 — 필요할 때"
+  },
+  {
+   "type": "주말 도착 일정 공지",
+   "count": 67,
+   "who": "수입부 → 같은 3개 방, 목·금",
+   "when": "금 43 · 목 21 · 월 1 / 11시 15 · 9시 14 · 14시 10",
+   "weekdayTop": "금 43 · 목 21 · 월 1",
+   "hourTop": "11시 15 · 9시 14 · 14시 10",
+   "rooms": "백상 창고 방 26, 선율 방(통관·검역) 22, 스케줄 방 19",
+   "template": "[주말 스케줄 공유]\n＊토요일＊\n○○-○차 ○○ (항공사) ○월 ○일(토) ○○:○○ 도착 예정 (AWB 편명 ○○ BOX)\n＊일요일＊\n○○-○차 ○○ … \n→ 기타 정보 및 서류는 확인되는 대로 공유드리겠습니다"
+  },
+  {
+   "type": "도착 일정 정정·지연 공지",
+   "count": 105,
+   "who": "수입부 → 같은 3개 방 + 수입방",
+   "when": "수 25 · 화 22 · 월 18 / 9시 16 · 8시 13 · 12시 9",
+   "weekdayTop": "수 25 · 화 22 · 월 18",
+   "hourTop": "9시 16 · 8시 13 · 12시 9",
+   "rooms": "백상 창고 방 40, 스케줄 방 26, 선율 방(통관·검역) 25",
+   "template": "○○-○차 ○○ 스케줄 정정(또는 지연되었습니다)\n＊○요일＊ ○○-○차 ○○ (항공사) ○월 ○일(○) ○○:○○ 도착 예정 (AWB 편명 ○○ BOX)\n지연 사유: ○○ / 새 일정은 확인되는 대로 공유"
+  },
+  {
+   "type": "박스 카운팅(품목별 박스 수)",
+   "count": 30,
+   "who": "수입부 → 스케줄 방",
+   "when": "월 15 · 목 8 · 금 6 / 8시 7 · 9시 6 · 13시 5",
+   "weekdayTop": "월 15 · 목 8 · 금 6",
+   "hourTop": "8시 7 · 9시 6 · 13시 5",
+   "rooms": "스케줄 방 28, 백상 창고 방 2",
+   "template": "○○-○ 콜카장 박스 카운팅\n카네이션 ○○박스\n장미 ○○단 / ○○박스\n알스트로 ○○단 / ○○박스\n수국 ○○ / 루스커스 ○○\n합계 ○,○○○"
+  },
+  {
+   "type": "발주 추가 요청",
+   "count": 1885,
+   "who": "영업·영업지원 → 수입방",
+   "when": "화 512 · 월 342 · 수 341 / 9시 231 · 10시 189 · 11시 184",
+   "weekdayTop": "화 512 · 월 342 · 수 341",
+   "hourTop": "9시 231 · 10시 189 · 11시 184",
+   "rooms": "수입방(수입/영업/현장) 1885",
+   "template": "○○-○(차) ○○(나라·품목) 발주 추가\n거래처 이름 또는 CL○○\n품목 ○○단(박스·스템)\n(조건: 농장 지정 / 길이 / 「안 되면 ○○-○차로 넘겨서」 / ETA ○월 ○일)"
+  },
+  {
+   "type": "발주 취소 요청",
+   "count": 148,
+   "who": "영업·영업지원 → 수입방",
+   "when": "화 37 · 수 31 · 금 29 / 9시 20 · 14시 17 · 13시 15",
+   "weekdayTop": "화 37 · 수 31 · 금 29",
+   "hourTop": "9시 20 · 14시 17 · 13시 15",
+   "rooms": "수입방(수입/영업/현장) 148",
+   "template": "○○-○차 ○○ 발주 취소\nCL○○\n품목 ○○ 취소 (사유)"
+  },
+  {
+   "type": "발주 원본·주문서 파일 공유",
+   "count": 495,
+   "who": "수입부 → 수입방",
+   "when": "월 234 · 금 73 · 화 70 / 17시 145 · 18시 103 · 16시 69",
+   "weekdayTop": "월 234 · 금 73 · 화 70",
+   "hourTop": "17시 145 · 18시 103 · 16시 69",
+   "rooms": "수입방(수입/영업/현장) 494, 백상 창고 방 1",
+   "template": "파일: ○○-○ colombia.xlsx (발주 원본)\n파일: ○○-○_Rosas / _Clavel / _Hortensias / _Alstromeria / _Ruscus.xlsx\n다른 나라: 「○○-○ 중국 발주 원본」 「○○-○ Order ECUA」 「○○-○ TH Order」 「○○-○ 태국 원본」"
+  },
+  {
+   "type": "농장 확정·부족 공지(이슈)",
+   "count": 144,
+   "who": "수입부 → 수입방(+ 담당 영업 호출)",
+   "when": "수 29 · 월 27 · 금 24 / 14시 17 · 17시 16 · 10시 15",
+   "weekdayTop": "수 29 · 월 27 · 금 24",
+   "hourTop": "14시 17 · 17시 16 · 10시 15",
+   "rooms": "수입방(수입/영업/현장) 144",
+   "template": "○○-○ ○○(나라) 이슈\n1. 품목 ○○ −○○단: 대체 없음, ○주 뒤 가능\n2. 품목 ○○ → ○○ 로 대체 가능\n3. 주문 ○○ 중 ○○만 가능\n진행 여부 확인 부탁드립니다 @담당"
+  },
+  {
+   "type": "확정 수량 공지",
+   "count": 11,
+   "who": "수입부 → 수입방",
+   "when": "금 4 · 화 3 · 토 3 / 10시 3 · 13시 2 · 14시 2",
+   "weekdayTop": "금 4 · 화 3 · 토 3",
+   "hourTop": "10시 3 · 13시 2 · 14시 2",
+   "rooms": "수입방(수입/영업/현장) 11",
+   "template": "○○-○ ○○ 현재까지 발주 수량 총 ○○박스\n확정: ○○박스 / 미확정: ○○박스\n- 색 ○○: ○○박스 미확정 …"
+  },
+  {
+   "type": "도착원가(단가) 회신",
+   "count": 209,
+   "who": "수입부 → 수입방",
+   "when": "목 59 · 수 55 · 화 41 / 14시 45 · 10시 31 · 15시 27",
+   "weekdayTop": "목 59 · 수 55 · 화 41",
+   "hourTop": "14시 45 · 10시 31 · 15시 27",
+   "rooms": "수입방(수입/영업/현장) 209",
+   "template": "품목 ○○ ○○cm\n외화 단가 → ₩○,○○○ 도착원가 (단/스템, 부가세 포함·미포함 표기)\n박스당 ○○단, 단당 ○○스템"
+  },
+  {
+   "type": "새 품목 정보 카드",
+   "count": 73,
+   "who": "수입부 → 수입방",
+   "when": "목 27 · 화 19 · 수 12 / 14시 21 · 17시 20 · 15시 11",
+   "weekdayTop": "목 27 · 화 19 · 수 12",
+   "hourTop": "14시 21 · 17시 20 · 15시 11",
+   "rooms": "수입방(수입/영업/현장) 73",
+   "template": "품명: ○○\n2. 원산지: ○○\n3. 길이: ○○cm\n4. 색: ○○\nMOQ: ○○\n단가(송이당, 부가세 포함): 외화 → 원화"
+  },
+  {
+   "type": "원가자료 공유",
+   "count": 400,
+   "who": "수입부 → 수입방",
+   "when": "월 143 · 금 88 · 수 64 / 17시 67 · 10시 63 · 16시 47",
+   "weekdayTop": "월 143 · 금 88 · 수 64",
+   "hourTop": "17시 67 · 10시 63 · 16시 47",
+   "rooms": "수입방(수입/영업/현장) 400",
+   "template": "파일: ○○-○ 원가자료.xlsx (콜롬비아) / ○○-○ NL 원가자료.xlsx / CHINA 중국 원가자료 / 태국 덴파레 원가 자료 (○○-○)\n+ 한 줄: 「○○-○ ○○ 원가자료」"
+  },
+  {
+   "type": "검역 품목 전달",
+   "count": 54,
+   "who": "영업지원 → 선율 방, 월요일 8~9시",
+   "when": "월 37 · 목 8 · 화 5 / 9시 35 · 8시 18 · 11시 1",
+   "weekdayTop": "월 37 · 목 8 · 화 5",
+   "hourTop": "9시 35 · 8시 18 · 11시 1",
+   "rooms": "선율 방(통관·검역) 54",
+   "template": "안녕하세요\n검역품목 전달드립니다\n품목 색 CL○○\n품목 색 CL○○ …\n[태국] 공급처 품목 …"
+  },
+  {
+   "type": "선소독 요청",
+   "count": 49,
+   "who": "영업지원 → 선율 방(+현장 추가취소방), 화요일 9시",
+   "when": "화 29 · 월 7 · 목 6 / 9시 25 · 8시 7 · 18시 4",
+   "weekdayTop": "화 29 · 월 7 · 목 6",
+   "hourTop": "9시 25 · 8시 7 · 18시 4",
+   "rooms": "선율 방(통관·검역) 27, 현장 추가취소방 14, 현장방 7",
+   "template": "○○-○ 중국 클라우드 선소독 요청드립니다\n(a=1차 / b=2차)\n품목 ○○단 (박스 번호 a=○-○, b=○○)\n…\n총 ○○박스입니다"
+  },
+  {
+   "type": "소독 건 공지",
+   "count": 123,
+   "who": "현장 → 백상 창고 방, 11~12시",
+   "when": "화 40 · 월 39 · 목 30 / 12시 47 · 11시 33 · 17시 13",
+   "weekdayTop": "화 40 · 월 39 · 목 30",
+   "hourTop": "12시 47 · 11시 33 · 17시 13",
+   "rooms": "백상 창고 방 113, 현장방 6, 선율 방(통관·검역) 3",
+   "template": "금일(오후) 소독건입니다.\n○파렛트 ○○박스\n+ 사진\n(내일 오전분: 「○/○(○) 오전 소독건입니다」)"
+  },
+  {
+   "type": "검역 결과: 소독 통보",
+   "count": 79,
+   "who": "선율 → 선율 방, 11시대",
+   "when": "월 31 · 화 28 · 목 13 / 11시 47 · 16시 8 · 18시 7",
+   "weekdayTop": "월 31 · 화 28 · 목 13",
+   "hourTop": "11시 47 · 16시 8 · 18시 7",
+   "rooms": "선율 방(통관·검역) 79",
+   "template": "○○(공급처)-(품목-○박스), (품목-○박스)\n오후 소독입니다 / 사육입니다, 내일 오전 소독입니다 / 소독 명령 나왔습니다"
+  },
+  {
+   "type": "검역 결과: 합격·세관 검사 여부",
+   "count": 108,
+   "who": "선율 → 선율 방, 16~20시",
+   "when": "월 42 · 화 29 · 목 18 / 17시 24 · 19시 23 · 16시 20",
+   "weekdayTop": "월 42 · 화 29 · 목 18",
+   "hourTop": "17시 24 · 19시 23 · 16시 20",
+   "rooms": "선율 방(통관·검역) 108",
+   "template": "○○ 합격 나왔습니다\n검사 여부 회신 드리겠습니다 → 검사 없습니다(또는 세관 검사 걸렸습니다, ○시 진행 예정)"
+  },
+  {
+   "type": "통관 처리 완료 통보",
+   "count": 59,
+   "who": "선율 → 선율 방, 16~18시",
+   "when": "화 21 · 수 14 · 목 12 / 17시 21 · 16시 13 · 18시 7",
+   "weekdayTop": "화 21 · 수 14 · 목 12",
+   "hourTop": "17시 21 · 16시 13 · 18시 7",
+   "rooms": "선율 방(통관·검역) 59",
+   "template": "○○-○차 ○○ / ○○-○차 ○○\n○건 처리됐습니다"
+  },
+  {
+   "type": "빌 전달 요청",
+   "count": 116,
+   "who": "백상 → 백상 창고 방, 평일 13시",
+   "when": "수 30 · 월 26 · 화 24 / 13시 86 · 14시 13 · 12시 6",
+   "weekdayTop": "수 30 · 월 26 · 화 24",
+   "hourTop": "13시 86 · 14시 13 · 12시 6",
+   "rooms": "백상 창고 방 116",
+   "template": "금일 저녁~익일 새벽 입항 건 빌 전달 부탁드립니다."
+  },
+  {
+   "type": "반입 수량 확인",
+   "count": 99,
+   "who": "백상 → 백상 창고 방, 8시대",
+   "when": "수 27 · 월 26 · 일 19 / 8시 52 · 9시 11 · 10시 10",
+   "weekdayTop": "수 27 · 월 26 · 일 19",
+   "hourTop": "8시 52 · 9시 11 · 10시 10",
+   "rooms": "백상 창고 방 99",
+   "template": "○○○○(빌 끝 4자리) 수량 맞습니다 + 사진\n「○○○○ 빌에 파우치 없습니다」"
+  },
+  {
+   "type": "주말 배차 공지",
+   "count": 167,
+   "who": "현장 → 백상 창고 방, 금요일 16~18시",
+   "when": "금 139 · 토 19 · 화 7 / 17시 37 · 16시 36 · 18시 35",
+   "weekdayTop": "금 139 · 토 19 · 화 7",
+   "hourTop": "17시 37 · 16시 36 · 18시 35",
+   "rooms": "백상 창고 방 167",
+   "template": "○월 ○일(일) ○톤 배차\n○○선 오전 ○○시 ○○분입니다.\n※ ○ 파렛트"
+  },
+  {
+   "type": "출고 구분(노선별 출고건)",
+   "count": 340,
+   "who": "영업 → 현장방, 화·목·금 9~10시",
+   "when": "화 114 · 금 104 · 목 85 / 9시 144 · 10시 71 · 13시 30",
+   "weekdayTop": "화 114 · 금 104 · 목 85",
+   "hourTop": "9시 144 · 10시 71 · 13시 30",
+   "rooms": "현장방 339, 영업방 1",
+   "template": "●오늘 지방 ○○선 출고건 공유드립니다\n1. 거래처 −○○박스\n품목 ○ / 품목 ○ …"
+  },
+  {
+   "type": "검역차감 공지",
+   "count": 618,
+   "who": "현장 → 현장방(사진과 함께) / 영업지원 → 영업방",
+   "when": "월 214 · 화 128 · 목 127 / 12시 137 · 13시 98 · 15시 65",
+   "weekdayTop": "월 214 · 화 128 · 목 127",
+   "hourTop": "12시 137 · 13시 98 · 15시 65",
+   "rooms": "현장방 386, 영업방 194, 현장 추가취소방 35",
+   "template": "○○-○차 ○○ 검역차감입니다\n거래처 CL○○\n품목 ○단 …"
+  },
+  {
+   "type": "입고 수량 확인",
+   "count": 135,
+   "who": "현장 → 현장방, 월·수 11~14시",
+   "when": "수 65 · 월 40 · 화 17 / 12시 33 · 11시 27 · 14시 23",
+   "weekdayTop": "수 65 · 월 40 · 화 17",
+   "hourTop": "12시 33 · 11시 27 · 14시 23",
+   "rooms": "현장방 135",
+   "template": "○○-○차 ○○ 입고수량 이상없습니다\n(다르면) 농장 이름 / 품종 −○ / 품종 +○ / 그 외 이상 없습니다"
+  },
+  {
+   "type": "불량 신고",
+   "count": 1809,
+   "who": "영업 → 불량 공유방(사진 뒤에 글)",
+   "when": "월 355 · 수 354 · 금 317 / 14시 287 · 11시 178 · 15시 177",
+   "weekdayTop": "월 355 · 수 354 · 금 317",
+   "hourTop": "14시 287 · 11시 178 · 15시 177",
+   "rooms": "불량 공유방 1809",
+   "template": "○○-○ 콜 카네이션 불량\n농장 이름\n거래처 이름\n품종 ○단\n(사유: 패킹 불량 / 냉해 / 마름 / 「클레임해 주세요」)"
+  },
+  {
+   "type": "분배 변경사항(추가·취소)",
+   "count": 7644,
+   "who": "영업·영업지원 → 영업방·현장 추가취소방",
+   "when": "월 1961 · 목 1892 · 화 1797 / 9시 1745 · 10시 1111 · 11시 894",
+   "weekdayTop": "월 1961 · 목 1892 · 화 1797",
+   "hourTop": "9시 1745 · 10시 1111 · 11시 894",
+   "rooms": "영업방 4018, 현장 추가취소방 3626",
+   "template": "○○-○ ○○ 변경사항\n거래처 A\n품종 ○박스 취소\n거래처 B\n품종 ○박스 추가\n→ ○요일 출고"
+  },
+  {
+   "type": "잔량 공유",
+   "count": 1241,
+   "who": "영업지원 → 영업방, 9시",
+   "when": "화 294 · 월 258 · 금 255 / 9시 258 · 10시 156 · 13시 136",
+   "weekdayTop": "화 294 · 월 258 · 금 255",
+   "hourTop": "9시 258 · 10시 156 · 13시 136",
+   "rooms": "영업방 904, 현장 추가취소방 253, 현장방 73",
+   "template": "○○ 잔량입니다\n○○-○차\n품목 ○○단 (검역 −○단)"
+  },
+  {
+   "type": "현지 휴일·마감 공지",
+   "count": 27,
+   "who": "수입부 → 수입방",
+   "when": "화 8 · 월 8 · 수 5 / 17시 5 · 12시 4 · 11시 3",
+   "weekdayTop": "화 8 · 월 8 · 수 5",
+   "hourTop": "17시 5 · 12시 4 · 11시 3",
+   "rooms": "수입방(수입/영업/현장) 26, 영업방 1",
+   "template": "< ○○ 휴일 공지 >\n다음 주 ○요일(○월 ○일) 휴일입니다.\n1·2차 ○요일(○일)까지 발주 부탁드립니다"
+  },
+  {
+   "type": "고정 발주 변경 공지",
+   "count": 90,
+   "who": "수입부 → 수입방",
+   "when": "수 33 · 화 17 · 월 16 / 17시 15 · 9시 11 · 16시 11",
+   "weekdayTop": "수 33 · 화 17 · 월 16",
+   "hourTop": "17시 15 · 9시 11 · 16시 11",
+   "rooms": "수입방(수입/영업/현장) 89, 영업방 1",
+   "template": "고정 발주 변경 사항 – 승인 완료\n- 농장: 품종 ○박스 → ○박스(○박스 감량·증량)\n- 농장: 미컨펌"
+  },
+  {
+   "type": "호텔 거래처 발주 공유",
+   "count": 22,
+   "who": "영업 → 수입방, 금요일",
+   "when": "금 22 / 16시 7 · 17시 5 · 14시 3",
+   "weekdayTop": "금 22",
+   "hourTop": "16시 7 · 17시 5 · 14시 3",
+   "rooms": "수입방(수입/영업/현장) 22",
+   "template": "★○○ 발주 공유드립니다\n-중국 ○○-○차(ETA ○월 ○일) 품목 ○○단\n-네덜란드 ○○-○차(ETA …) 품목 ○○스팀\n-콜롬비아 ○○-○차(ETA …) 품목 ○○박스"
+  },
+  {
+   "type": "온도 기록 장치(트래커) 수거 요청",
+   "count": 35,
+   "who": "수입부 → 현장방·스케줄 방, 월요일",
+   "when": "월 23 · 수 5 · 화 5 / 15시 11 · 9시 9 · 13시 5",
+   "weekdayTop": "월 23 · 수 5 · 화 5",
+   "hourTop": "15시 11 · 9시 9 · 13시 5",
+   "rooms": "현장방 22, 스케줄 방 10, 불량 공유방 1",
+   "template": "→ 트래커(Data Logger) 챙겨 주세요 (도착 일정 글 끝에 붙임)\n「○○-○차 ○○ 트래커 사무실로 부탁드립니다」"
+  },
+  {
+   "type": "판매등록·세금계산서(수입부 일 아님)",
+   "count": 324,
+   "who": "영업지원 ↔ 견적 담당, 수요일",
+   "when": "수 136 · 금 75 · 목 70 / 17시 50 · 13시 42 · 15시 41",
+   "weekdayTop": "수 136 · 금 75 · 목 70",
+   "hourTop": "17시 50 · 13시 42 · 15시 41",
+   "rooms": "견적방 324",
+   "template": "○○차 판매등록 진행해 주세요 / ○월 ○차 세금계산서 발행 완료하였습니다"
+  },
+  {
+   "type": "결제·청구 요청",
+   "count": 3,
+   "who": "카톡에 정해진 양식 없음(메일·지출결의서로 다님)",
+   "when": "미검증",
+   "weekdayTop": "",
+   "hourTop": "",
+   "rooms": "선율 방 1, 수입방 1, 영업방 1",
+   "template": "(카톡 양식 없음) 관측된 글: 「청구서 오늘 받을 수 있을까요, 내일 다 같이 보내 주시나요?」 → 「내일 한 번에 드리겠습니다」"
+  }
+ ],
+ "qa": [
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "도착원가·단가가 얼마인가",
+   "answer": "「외화 단가 → ₩○,○○○ 도착원가, 부가세 포함(단/스템)」 한 줄로 답. 새 품목은 공급처에 가격을 받은 뒤 답",
+   "where": "나라별 원가자료 엑셀의 직전 차수 시트(같은 품목 도착원가 칸). 없으면 공급처 가격표·프로포마로 계산",
+   "count": 265,
+   "when": "목 71 · 화 59 · 수 55 / 9시 38 · 15시 31 · 14시 29"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "이 품목(색·규격) 발주가 되는가",
+   "answer": "「○○-○차에 가능」 「시즌 끝, ○월부터」 「웹 목록에 없으면 불가」 「문의했습니다」",
+   "where": "공급처 웹 주문 목록·카탈로그, 농장 방(WhatsApp·위챗)",
+   "count": 307,
+   "when": "화 80 · 월 67 · 목 54 / 9시 40 · 10시 34 · 16시 32"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "컨펌(확정)됐는가, 몇 개 확정인가",
+   "answer": "「전량 ○○-○차로 컨펌」 「발주 ○○ 중 ○○ 확정, 미확정 ○○」 「대답 기다리는 중」",
+   "where": "농장 확정표(차수별 확정 시트), 프로포마, 컨펌 테이블",
+   "count": 180,
+   "when": "목 36 · 월 33 · 화 31 / 9시 31 · 11시 18 · 15시 16"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "못 구한 수량이 다음 차수로 넘어갔는가",
+   "answer": "「1차 물량은 자동으로 2차로 넘기지 않는다, 호텔 발주만 자동 이월」(9-17 회의 요약). 그 전에는 건마다 「넘어갔다」고 답",
+   "where": "9-17 콜카장 회의 요약 글, 수입방의 해당 차수 이슈 글",
+   "count": 22,
+   "when": "월 7 · 수 5 · 목 4 / 13시 3 · 16시 3 · 17시 3"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "실사진·카탈로그를 받을 수 있는가",
+   "answer": "사진·카탈로그 파일을 올리거나 「요청해 놨어요」",
+   "where": "농장 방에 요청. 공급처 카탈로그 파일(수입방에 올린 것 검색)",
+   "count": 172,
+   "when": "목 43 · 수 35 · 화 33 / 15시 20 · 16시 20 · 10시 18"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "이 꽃의 품목명(전산 이름)이 무엇인가",
+   "answer": "영문 품종명으로 답하거나 「이름 모르시는 거죠? 사진으로 문의」",
+   "where": "전산 품목관리 검색, 공급처 카탈로그",
+   "count": 44,
+   "when": "월 12 · 수 11 · 화 10 / 15시 6 · 9시 5 · 14시 5"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "언제 도착하는가, 항공 일정에 문제 없는가",
+   "answer": "「문제 없습니다, AWB ○○, 편명·출발·도착 시각」 또는 지연 사유와 새 일정",
+   "where": "스케줄 방의 최신 도착 일정 글, 포워더·현지 담당 방, 항공사 화물 조회",
+   "count": 248,
+   "when": "월 54 · 수 50 · 화 46 / 10시 35 · 15시 27 · 9시 25"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "대체 품목이 있는가",
+   "answer": "「대체: ○○」 「대체 없음, ○주 뒤 가능」. 수입부가 거꾸로 「대체로 진행해도 되는지」를 묻는 일이 더 많음",
+   "where": "농장·공급처 답. 진행 여부는 담당 영업이 정함",
+   "count": 103,
+   "when": "목 26 · 금 24 · 수 21 / 15시 14 · 16시 13 · 17시 13"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "품질이 왜 이런가(원인 확인)",
+   "answer": "농장 답을 옮김: 「비가 계속 와서 곰팡이」 「시즌 초기」 「농장 잘못」 「개선하겠다고 함」",
+   "where": "농장 방 답변, 온도 기록 장치(트래커) 자료, 불량 공유방 사진",
+   "count": 99,
+   "when": "월 21 · 금 18 · 목 17 / 10시 13 · 11시 12 · 15시 11"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "농장을 지정·교체할 수 있는가",
+   "answer": "「지정 농장에서 1차 수량을 채우고 추가분은 다른 농장」(9-17 회의 요약) / 「그 품종은 ○○ 농장에서만 나옴」",
+   "where": "회의 요약 글의 지정 농장 목록, 농장별 확정표",
+   "count": 181,
+   "when": "월 43 · 화 39 · 수 33 / 9시 20 · 14시 20 · 16시 18"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "입고 수량이 발주·패킹리스트와 왜 다른가",
+   "answer": "「인보이스에 ○○으로 들어옴」 「농장이 ○○ 대신 ○○을 보냄」 「발주 원본 확인」",
+   "where": "인보이스·패킹리스트 파일, 현장방 「농장조사」 글, 발주 원본",
+   "count": 112,
+   "when": "월 34 · 수 25 · 목 16 / 15시 19 · 9시 14 · 10시 14"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "지금이 시즌인가, 언제부터 공급되는가",
+   "answer": "「단색 시즌 끝」 「○월에 다시 시작」 「구근 교체기」",
+   "where": "공급처 담당 답, 지난해 같은 달 수입방 글",
+   "count": 86,
+   "when": "화 23 · 목 20 · 월 14 / 17시 16 · 14시 11 · 9시 10"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "추가한 발주가 반영됐는가",
+   "answer": "「추가됐습니다」 「다시 요청했습니다, 아직 농장 답 없음」 「발주 전이면 방에 올리지 말고 전산에만 찍어 달라」",
+   "where": "발주 원본·추가 엑셀, 농장 방",
+   "count": 59,
+   "when": "화 18 · 월 14 · 금 12 / 17시 10 · 9시 7 · 12시 6"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "물어본 것의 답이 왔는가(재촉)",
+   "answer": "「아직」 「대답 기다리고 있습니다」 「방금 왔습니다: …」. 수입부 첫 글까지 중앙값 8분",
+   "where": "농장 방(시차 때문에 밤~아침에 답이 옴)",
+   "count": 183,
+   "when": "수 43 · 화 39 · 월 33 / 9시 28 · 11시 23 · 15시 19"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "길이·등급·사이즈는 무엇이 되는가",
+   "answer": "「○○cm만 가능」 「XL 없고 L·M만」 「보통 ○○cm로 하는데 ○○cm도 있음, 어느 쪽으로?」",
+   "where": "공급처 가능 목록, 농장 답",
+   "count": 179,
+   "when": "금 39 · 수 38 · 월 34 / 16시 26 · 15시 24 · 10시 23"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "박스당 수량·최소 주문량은",
+   "answer": "「○○단/박스, ○~○스템/단」 「MOQ ○○」",
+   "where": "원가자료·품목 정보 카드, 전산 품목의 박스당 단수",
+   "count": 54,
+   "when": "목 15 · 수 13 · 월 9 / 16시 9 · 17시 7 · 9시 6"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "이 색으로 염색·공급이 되는가",
+   "answer": "「이 색만 있음」 「염색은 농장마다 달라 100% 같게는 어려움」 「새로 개발한다고 함」",
+   "where": "농장 색상표·실사진",
+   "count": 203,
+   "when": "화 47 · 수 41 · 목 36 / 14시 25 · 15시 24 · 9시 22"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "고정 발주를 바꿀 수 있는가",
+   "answer": "「고정 발주 변경은 어렵다」 또는 「고정 발주 변경 사항 – 승인 완료」 글",
+   "where": "고정 발주 변경 공지 글(90건), 농장 승인 답",
+   "count": 38,
+   "when": "수 11 · 목 8 · 월 7 / 9시 7 · 16시 7 · 17시 7"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "샘플로 받아 볼 수 있는가",
+   "answer": "「샘플 ○스템 보내겠다고 함, 받을까요?」 / 샘플 입고 알림",
+   "where": "스케줄 방의 「샘플 창고 입고 부탁」 글",
+   "count": 44,
+   "when": "월 13 · 화 9 · 수 7 / 11시 8 · 14시 6 · 15시 5"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "클레임이 받아들여졌는가",
+   "answer": "「전량 클레임 받은 상태」 「100% 는 어렵다고 하지만 강하게 요청 중」",
+   "where": "농장 클레임 방(카톡 밖), 불량 공유방",
+   "count": 25,
+   "when": "화 6 · 수 5 · 목 4 / 10시 7 · 15시 4 · 9시 2"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "소독·검역에 걸렸는가, 소독했는가",
+   "answer": "선율 방의 결과를 옮김: 「○○ 소독 나옴」 「선소독 품목」",
+   "where": "선율 방의 소독·합격 글",
+   "count": 32,
+   "when": "월 9 · 수 8 · 화 5 / 9시 5 · 11시 4 · 10시 3"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업",
+   "question": "항공 자리·무게가 되는가",
+   "answer": "「확인해야 합니다」 「자리 문제로 추가 불가」 「컨테이너에 ○○박스 자리 남음」",
+   "where": "포워더·공급처 답",
+   "count": 22,
+   "when": "수 9 · 금 5 · 화 4 / 13시 5 · 16시 4 · 9시 2"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "입항 건 빌(AWB)을 전달해 달라",
+   "answer": "카톡 답 없이 메일로 서류 전달 → 「AWB 서류 전달드렸습니다」",
+   "where": "농장·포워더가 보낸 AWB PDF, 차수 폴더",
+   "count": 116,
+   "when": "수 30 · 월 26 · 화 24 / 13시 86 · 14시 13 · 12시 6"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "이 건은 보온인가 냉장인가",
+   "answer": "「전량 보온」 「난·안시리움만 보온, 나머지 냉장」 「다 냉장입니다」",
+   "where": "도착 일정 글의 보관 조건 줄. 태국 난·베트남 호접란·네덜란드 안시리움 = 보온(카톡 기준)",
+   "count": 15,
+   "when": "금 3 · 월 3 · 토 3 / 8시 3 · 9시 2 · 12시 2"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "빌번호·스케줄이 조회되지 않는다, 맞는가",
+   "answer": "번호·편명을 다시 확인해 정정 글을 올림",
+   "where": "AWB 원본, 항공사 화물 조회, 포워더 방",
+   "count": 48,
+   "when": "화 14 · 토 11 · 월 10 / 9시 7 · 11시 7 · 8시 6"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "쇼트·수량 차이: 한 번에 할지 나눠 할지, 적하 정정할지",
+   "answer": "「정정해야 할 것 같다, 오늘 검역이라 기다릴 수 없다」 「○박스 분실로 확인」",
+   "where": "인보이스·AWB 박스 수, 농장 확인. 판단은 검역 일정 기준",
+   "count": 26,
+   "when": "화 9 · 토 7 · 수 4 / 14시 5 · 9시 4 · 8시 3"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "오전 검역인가 오후 검역인가",
+   "answer": "「오전 검역 무조건 들어가야 합니다」 「오후 검역」",
+   "where": "선율 방의 검역 일정 글, 도착 시각",
+   "count": 20,
+   "when": "수 9 · 월 5 · 금 3 / 11시 8 · 10시 5 · 15시 3"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "백상",
+   "question": "소독 건 사진·박스 수를 올려 달라",
+   "answer": "현장이 「금일 소독건입니다 ○파렛트 ○○박스」 + 사진으로 답",
+   "where": "선율의 소독 품목 통보 → 현장 분류 결과",
+   "count": 39,
+   "when": "화 18 · 월 10 · 수 6 / 11시 33 · 12시 3 · 8시 1"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "선율",
+   "question": "선소독할 품목이 있는가",
+   "answer": "영업지원이 품목·박스 번호 목록으로 답. 「에린지움 ○스템 진행 요청」",
+   "where": "영업지원의 물량표, 패킹리스트 박스 번호",
+   "count": 24,
+   "when": "월 7 · 목 7 · 화 6 / 9시 19 · 8시 2 · 11시 1"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "선율",
+   "question": "서류(검역증·원산지증명·BL·인보이스)를 보내 달라",
+   "answer": "「바로 드리겠습니다」 → 「전달 드렸습니다」(관측 예 42분)",
+   "where": "차수 폴더의 서류, 공급처에 재발급 요청",
+   "count": 31,
+   "when": "월 15 · 수 10 · 화 5 / 15시 7 · 17시 7 · 10시 3"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "선율",
+   "question": "소독 대상 박스·파렛트 수가 맞는가",
+   "answer": "현장·영업지원이 「총 ○○박스입니다」로 답",
+   "where": "현장 분류 결과",
+   "count": 14,
+   "when": "화 7 · 월 4 · 수 2 / 11시 4 · 12시 3 · 15시 2"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "선율",
+   "question": "소독 일정: 오늘 할지 내일로 넘길지",
+   "answer": "영업이 「결과 보고 진행」 「내일 오전 소독」으로 답",
+   "where": "출고 일정(영업 판단)",
+   "count": 9,
+   "when": "월 3 · 수 2 · 목 2 / 18시 3 · 15시 2 · 8시 1"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "선율",
+   "question": "품명·원산지·무상 여부가 무엇인가",
+   "answer": "「샘플 2박스만 무상」 「원산지 ○○」",
+   "where": "인보이스의 샘플·무상 표시, 공급처 답",
+   "count": 8,
+   "when": "수 4 · 월 3 · 화 1 / 16시 3 · 17시 2 · 9시 1"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "현장",
+   "question": "검역 진행 상황, 내일로 넘어가는 품목이 있는가",
+   "answer": "선율: 「넘어가는 품목 없습니다」 「합격 나왔습니다」",
+   "where": "선율 방(수입부가 답하는 질문이 아님 — 흐름만 알아 둘 것)",
+   "count": 46,
+   "when": "월 15 · 화 14 · 목 10 / 16시 22 · 19시 10 · 17시 7"
+  },
+  {
+   "direction": "수입부가 받는 질문",
+   "asker": "영업지원",
+   "question": "전산 확정이 안 잡힌다, 패킹리스트를 다시 올려 달라",
+   "answer": "패킹리스트를 고쳐 다시 올리고 「확정되었습니다」",
+   "where": "전산 입고 원장 합계, 패킹리스트",
+   "count": 40,
+   "when": "수 14 · 월 14 · 목 6 / 11시 11 · 15시 11 · 10시 4"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "대체 품목으로 진행해도 되는가",
+   "answer": "담당 영업이 「진행」 또는 「취소」로 답. 답이 없으면 호출(@)을 다시 붙임",
+   "where": "수입방 이슈 글 아래",
+   "count": 131,
+   "when": "목 44 · 수 31 · 금 27 / 17시 22 · 14시 14 · 9시 13"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "부족분을 다음 차수로 보내도 되는가, 어떻게 할까",
+   "answer": "「다음 차수로 넘겨서 구해 달라」 「다른 농장으로 채워 달라」",
+   "where": "수입방",
+   "count": 34,
+   "when": "목 8 · 월 7 · 금 6 / 11시 6 · 14시 5 · 17시 4"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "몇 개·어느 규격으로 발주할 것인가(되묻기)",
+   "answer": "영업이 수량·규격을 다시 적음",
+   "where": "수입방",
+   "count": 15,
+   "when": "수 4 · 화 4 · 금 3 / 12시 3 · 10시 2 · 11시 2"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "전산에 주문을 등록(수정)해 달라",
+   "answer": "영업·영업지원이 전산에 입력하고 「찍었습니다」",
+   "where": "전산 주문 화면",
+   "count": 40,
+   "when": "수 13 · 금 10 · 월 7 / 15시 8 · 13시 7 · 11시 4"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "추가 발주가 더 있는가(마감 알림)",
+   "answer": "「없습니다」 또는 추가 글. 마감 뒤에는 「전산 마감, 카톡으로 추가·취소」",
+   "where": "수입방",
+   "count": 55,
+   "when": "수 17 · 화 12 · 금 9 / 16시 11 · 10시 8 · 14시 7"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업",
+   "question": "영문명·전산 이름이 무엇인가",
+   "answer": "영업지원이 전산 품목명으로 답",
+   "where": "전산 품목관리",
+   "count": 6,
+   "when": "금 2 · 월 2 · 화 1 / 17시 2 · 9시 1 · 12시 1"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 영업·현장",
+   "question": "불량 사진·수량·거래처를 더 달라",
+   "answer": "영업이 박스 사진(농장 이름·AWB 보이게)과 단 사진을 올림",
+   "where": "불량 공유방",
+   "count": 142,
+   "when": "화 32 · 수 32 · 금 30 / 13시 23 · 14시 22 · 10시 17"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 백상",
+   "question": "반입을 빨리 잡아 달라, 반입됐는가",
+   "answer": "백상: 「전산 반입 잡습니다」 「아직 항공사 반입 전」",
+   "where": "백상 창고 방",
+   "count": 51,
+   "when": "수 16 · 목 14 · 월 10 / 9시 14 · 10시 8 · 7시 6"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 선율",
+   "question": "검역 결과·진행 상황은, 수입할 수 있는 품목인가",
+   "answer": "선율: 합격·검사 여부, 「○○는 검역증 필요 없고 재질 확인 서류 필요」",
+   "where": "선율 방",
+   "count": 29,
+   "when": "수 12 · 월 8 · 화 5 / 15시 5 · 18시 5 · 11시 4"
+  },
+  {
+   "direction": "수입부가 하는 질문",
+   "asker": "수입부 → 현장",
+   "question": "트래커·샘플을 사무실로 보내 달라",
+   "answer": "현장이 사무실 창고로 보냄",
+   "where": "현장방·스케줄 방",
+   "count": 49,
+   "when": "월 29 · 목 6 · 수 5 / 9시 11 · 15시 11 · 13시 7"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "콜카장",
+   "meaning": "콜롬비아 보고타에서 오는 카네이션·장미(·알스트로·루스커스) 묶음. 한 AWB 로 온다",
+   "basis": "확인: 박스 카운팅 글에 카네이션·장미·알스트로 박스 수가 함께 나옴",
+   "count": 300,
+   "rooms": "백상89 수입76 스케74 선율54"
+  },
+  {
+   "term": "콜수국",
+   "meaning": "콜롬비아 메데진에서 오는 수국. 콜카장과 다른 항공편인 날이 많음",
+   "basis": "확인: 도착 일정 글에 콜수국·콜카장이 따로 적힘",
+   "count": 1167,
+   "rooms": "영업353 추취334 수입173 백상88"
+  },
+  {
+   "term": "콜카장수국·카장수",
+   "meaning": "카네이션·장미·수국이 한 편에 같이 올 때의 이름(1차에 많음)",
+   "basis": "확인",
+   "count": 62,
+   "rooms": "선율20 스케15 수입14 백상11"
+  },
+  {
+   "term": "빌·빌번호·입항빌",
+   "meaning": "항공 화물 운송장(AWB) 번호 또는 그 서류. 백상은 끝 4자리로 부름",
+   "basis": "확인: 「○○○○ 수량 맞습니다」의 숫자가 AWB 끝자리와 같음",
+   "count": 133,
+   "rooms": "백상123 현장8 수입1 추취1"
+  },
+  {
+   "term": "비엘",
+   "meaning": "BL. 항공 화물에서는 AWB 와 같은 뜻으로 씀",
+   "basis": "확인",
+   "count": 29,
+   "rooms": "백상12 선율7 불량6 현장2"
+  },
+  {
+   "term": "하우스·마스터",
+   "meaning": "화물 데이터가 마스터(AWB 하나)로 떴는지 하우스(혼재 화물의 낱 건)로 떴는지. 백상이 적하 방식을 정할 때 묻는다",
+   "basis": "추정: 백상 글 23건",
+   "count": 24,
+   "rooms": "백상23 수입1"
+  },
+  {
+   "term": "심플·콘솔",
+   "meaning": "마스터 단독 건(심플) / 여러 건을 묶은 혼재 건(콘솔)",
+   "basis": "추정",
+   "count": 8,
+   "rooms": "백상7 스케1"
+  },
+  {
+   "term": "적하",
+   "meaning": "세관에 내는 화물 목록(적하목록). 「적하 정정」은 박스 수·중량을 고쳐 다시 내는 것",
+   "basis": "추정: 「○○CT으로 적하 전송」 글",
+   "count": 35,
+   "rooms": "백상31 선율2 수입1 스케1"
+  },
+  {
+   "term": "CT(박스 수 단위)",
+   "meaning": "carton, 박스 수. 백상이 쓰는 단위",
+   "basis": "확인",
+   "count": 55,
+   "rooms": "백상54 선율1"
+  },
+  {
+   "term": "파우치",
+   "meaning": "화물에 붙어 오는 서류 봉투. 「빌에 파우치 없습니다」= 원본 서류가 화물과 같이 오지 않음",
+   "basis": "추정: 「파우치 들어왔습니다. 사무실 보관」 글",
+   "count": 34,
+   "rooms": "백상34"
+  },
+  {
+   "term": "반입",
+   "meaning": "화물이 항공사 조업을 마치고 창고에 들어온 것",
+   "basis": "확인",
+   "count": 173,
+   "rooms": "백상115 현장25 수입11 선율11"
+  },
+  {
+   "term": "전산반입",
+   "meaning": "반입을 세관 전산에 신고한 것. 이것이 잡혀야 검역·통관을 신청할 수 있음",
+   "basis": "추정: 「전산 반입 잡습니다」 뒤에 검역 진행",
+   "count": 22,
+   "rooms": "백상21 수입1"
+  },
+  {
+   "term": "보온 보관",
+   "meaning": "찬 곳에 두면 안 되는 품목(난·호접란·안시리움)을 보온방에 두는 것. 10°C 로 적은 글 있음",
+   "basis": "확인: 항공사 보온방 약 18도, 냉장방 2~8도라는 백상 글",
+   "count": 145,
+   "rooms": "백상119 견적10 현장5 선율5"
+  },
+  {
+   "term": "냉장 보관",
+   "meaning": "절화 기본 보관. 보온 표시가 없으면 냉장",
+   "basis": "확인: 「별도 전달받은 것 없어 냉장 보관 중」",
+   "count": 109,
+   "rooms": "백상77 현장16 스케9 선율5"
+  },
+  {
+   "term": "관리(관리대상)",
+   "meaning": "세관 관리대상 화물로 뽑힌 것. 세관 지정 장치장으로 들어가 검사를 받는다",
+   "basis": "확인 3건",
+   "count": 3,
+   "rooms": "백상2 선율1"
+  },
+  {
+   "term": "관우회",
+   "meaning": "세관 지정 장치장(관리대상 화물이 들어가는 창고)",
+   "basis": "추정: 「관우회에서 검역·통관까지」 글",
+   "count": 5,
+   "rooms": "백상5"
+  },
+  {
+   "term": "세관검사",
+   "meaning": "통관 전 세관이 화물을 직접 보는 검사. 선율이 「검사 없습니다 / 검사 걸렸습니다」로 알림",
+   "basis": "확인",
+   "count": 30,
+   "rooms": "선율17 현장4 수입4 백상4"
+  },
+  {
+   "term": "선소독",
+   "meaning": "검역 결과를 기다리지 않고 미리 소독을 신청하는 것. 소독 대상이 뻔한 품목(안개꽃·리모늄·델피늄·에린지움 등)에 씀",
+   "basis": "확인: 선율 「선소독 아니면 결과 기다리실지」",
+   "count": 108,
+   "rooms": "선율76 추취17 현장9 수입6"
+  },
+  {
+   "term": "사육",
+   "meaning": "검역에서 살아 있는 벌레가 나와 종류 확인(사육 검사)에 들어간 것. 보통 다음 날 오전 소독으로 이어짐",
+   "basis": "추정: 「사육이라 내일 오전 소독」 19건",
+   "count": 26,
+   "rooms": "선율19 현장5 수입2"
+  },
+  {
+   "term": "소독 명령",
+   "meaning": "검역 결과 소독 처분이 나온 것. 한국방역이 작업",
+   "basis": "확인",
+   "count": 6,
+   "rooms": "선율5 현장1"
+  },
+  {
+   "term": "오전 소독·오후 소독",
+   "meaning": "소독 작업 회차. 11시대에 「오후 소독입니다」, 저녁에 「내일 오전 소독」",
+   "basis": "확인",
+   "count": 182,
+   "rooms": "백상86 선율80 현장9 수입7"
+  },
+  {
+   "term": "분할(분할 신고)",
+   "meaning": "문제 품목(소독·서류 보류)만 떼고 나머지를 먼저 통관하는 것",
+   "basis": "확인",
+   "count": 29,
+   "rooms": "백상14 선율8 수입7"
+  },
+  {
+   "term": "처리됐습니다",
+   "meaning": "선율이 통관(수입신고 수리)을 마쳤다는 말",
+   "basis": "확인",
+   "count": 65,
+   "rooms": "선율62 현장2 수입1"
+  },
+  {
+   "term": "검역차감",
+   "meaning": "검역관이 표본으로 가져가 줄어든 수량. 거래처·품목별로 1단씩 뺀다",
+   "basis": "확인: 「검역 −1단」 표기",
+   "count": 618,
+   "rooms": "현장386 영업194 추취35 수입3"
+  },
+  {
+   "term": "검역품목",
+   "meaning": "이번 입항분 가운데 검역 신청서에 올릴 품목 목록(품목·색·거래처 코드)",
+   "basis": "확인",
+   "count": 59,
+   "rooms": "선율56 영업3"
+  },
+  {
+   "term": "검역박스",
+   "meaning": "검역 표본을 꺼내도록 표시한 박스(노란 스티커)",
+   "basis": "확인: 「검역박스 노랑 스티커 있습니다」",
+   "count": 16,
+   "rooms": "현장5 영업4 추취4 수입1"
+  },
+  {
+   "term": "농장조사",
+   "meaning": "입고된 화물을 농장별로 세어 발주와 다른 수량(+/−)을 적는 일",
+   "basis": "확인",
+   "count": 71,
+   "rooms": "추취31 현장23 영업14 수입2"
+  },
+  {
+   "term": "물량표·물류표",
+   "meaning": "차수별로 어느 거래처에 어느 박스가 가는지 적은 분배표. 영업지원이 만든다",
+   "basis": "확인",
+   "count": 345,
+   "rooms": "추취130 현장97 영업95 수입22"
+  },
+  {
+   "term": "잔량",
+   "meaning": "분배하고 남은 수량",
+   "basis": "확인",
+   "count": 1797,
+   "rooms": "영업1177 추취459 현장141 백상14"
+  },
+  {
+   "term": "시작재고",
+   "meaning": "그 차수 분배를 시작할 때의 재고",
+   "basis": "확인",
+   "count": 143,
+   "rooms": "영업77 추취61 현장5"
+  },
+  {
+   "term": "변경사항",
+   "meaning": "분배가 끝난 뒤 거래처 사이 추가·취소. 영업방·현장 추가취소방의 대부분",
+   "basis": "확인",
+   "count": 6010,
+   "rooms": "영업3048 추취2853 현장64 수입45"
+  },
+  {
+   "term": "미컨펌",
+   "meaning": "농장이 아직 확정해 주지 않은 수량",
+   "basis": "확인",
+   "count": 55,
+   "rooms": "수입50 영업5"
+  },
+  {
+   "term": "컨펌",
+   "meaning": "농장의 공급 확정",
+   "basis": "확인",
+   "count": 486,
+   "rooms": "수입454 영업17 견적4 불량3"
+  },
+  {
+   "term": "고정발주",
+   "meaning": "매주 같은 수량으로 걸어 둔 주문(orden fija). 바꾸려면 농장 승인이 필요",
+   "basis": "확인: 「고정 발주 변경 사항 – 승인 완료」",
+   "count": 205,
+   "rooms": "수입160 영업45"
+  },
+  {
+   "term": "선발주",
+   "meaning": "정기 발주 전에 미리 넣는 주문(중요 거래처·호텔 물량)",
+   "basis": "확인",
+   "count": 220,
+   "rooms": "수입218 추취1 영업1"
+  },
+  {
+   "term": "발주 원본",
+   "meaning": "전산 발주 목록을 내려받은 엑셀. 주문서의 바탕",
+   "basis": "확인",
+   "count": 153,
+   "rooms": "수입148 백상4 선율1"
+  },
+  {
+   "term": "이슈·missing",
+   "meaning": "농장이 못 주는 품목·수량 목록(부족·대체·지연). 「○○-○ 중국 이슈 missing」",
+   "basis": "확인",
+   "count": 397,
+   "rooms": "수입240 영업107 추취21 현장19"
+  },
+  {
+   "term": "쇼트",
+   "meaning": "화물 일부가 그 편에 못 실려 박스 수가 모자란 것",
+   "basis": "확인",
+   "count": 14,
+   "rooms": "백상11 선율1 스케1 수입1"
+  },
+  {
+   "term": "딜레이",
+   "meaning": "항공편 지연",
+   "basis": "확인",
+   "count": 26,
+   "rooms": "백상14 수입6 스케3 현장2"
+  },
+  {
+   "term": "despacho",
+   "meaning": "농장 출하(공항으로 보내는 날). 「화요일 despacho」",
+   "basis": "확인 2건",
+   "count": 2,
+   "rooms": "수입2"
+  },
+  {
+   "term": "ETA",
+   "meaning": "한국(인천) 도착 예정일. 11-02 부터 발주 글에 반드시 적기로 함",
+   "basis": "확인: 「모든 나라 발주서에 ETA 표기 필수」",
+   "count": 210,
+   "rooms": "수입191 영업12 백상5 선율1"
+  },
+  {
+   "term": "트래커(Data Logger)",
+   "meaning": "박스에 넣어 보내는 온도 기록 장치. 냉해·온도 문제를 따질 때 씀",
+   "basis": "확인",
+   "count": 35,
+   "rooms": "현장22 스케10 불량1 백상1"
+  },
+  {
+   "term": "냉해",
+   "meaning": "운송·보관 중 얼어서 상한 것. 수국에 많음",
+   "basis": "확인",
+   "count": 336,
+   "rooms": "영업122 추취104 불량48 현장48"
+  },
+  {
+   "term": "패킹불량",
+   "meaning": "상자 안 품종·색이 표시와 다르거나 눌려 상한 것",
+   "basis": "확인",
+   "count": 41,
+   "rooms": "불량29 수입6 영업4 현장1"
+  },
+  {
+   "term": "클레임",
+   "meaning": "농장·공급처에 불량분 값을 돌려 달라고 하는 것",
+   "basis": "확인",
+   "count": 272,
+   "rooms": "불량209 수입57 영업3 현장3"
+  },
+  {
+   "term": "크레딧",
+   "meaning": "클레임이 받아들여져 다음 대금에서 빼 주는 금액",
+   "basis": "추정: 카톡 3건뿐",
+   "count": 3,
+   "rooms": "불량3"
+  },
+  {
+   "term": "원가자료",
+   "meaning": "차수별 도착원가 계산 엑셀",
+   "basis": "확인",
+   "count": 472,
+   "rooms": "수입459 영업12 스케1"
+  },
+  {
+   "term": "도착원가",
+   "meaning": "품목 단가에 운임·통관·검역·국내 운송을 더한 한국 도착 기준 단가",
+   "basis": "확인",
+   "count": 274,
+   "rooms": "수입273 영업1"
+  },
+  {
+   "term": "PL CL",
+   "meaning": "패킹리스트에 거래처 코드를 붙인 파일(「○○-○ CLOUD PL CL」)",
+   "basis": "추정: PL=패킹리스트, CL=거래처 코드",
+   "count": 47,
+   "rooms": "수입47"
+  },
+  {
+   "term": "프로포마",
+   "meaning": "선적 전에 공급처가 주는 견적 송장. 네덜란드는 이것으로 원가자료를 먼저 만든다",
+   "basis": "확인",
+   "count": 76,
+   "rooms": "수입76"
+  },
+  {
+   "term": "피토(검역증)",
+   "meaning": "식물검역증(Phytosanitary certificate)",
+   "basis": "확인",
+   "count": 7,
+   "rooms": "수입3 선율3 영업1"
+  },
+  {
+   "term": "원산지증명·CO",
+   "meaning": "원산지증명서. 협정세율을 받으려면 맞는 협정 양식이어야 함",
+   "basis": "확인: FTA 가 아니라 APTA 양식이라 8%",
+   "count": 13,
+   "rooms": "선율11 수입2"
+  },
+  {
+   "term": "NON-LMO",
+   "meaning": "유전자변형이 아님을 검역증에 적는 문구. 카네이션에 없으면 LMO 검사로 3~4일 걸림",
+   "basis": "확인",
+   "count": 21,
+   "rooms": "수입12 선율6 추취2 영업1"
+  },
+  {
+   "term": "HS CODE",
+   "meaning": "관세 품목 분류 번호",
+   "basis": "확인",
+   "count": 4,
+   "rooms": "선율4"
+  },
+  {
+   "term": "무상",
+   "meaning": "값을 치르지 않는 샘플 화물. 통관 때 따로 신고",
+   "basis": "확인",
+   "count": 4,
+   "rooms": "선율4"
+  },
+  {
+   "term": "MOQ",
+   "meaning": "최소 주문 수량",
+   "basis": "확인",
+   "count": 149,
+   "rooms": "수입144 영업5"
+  },
+  {
+   "term": "스템·스팀",
+   "meaning": "줄기(송이) 수 단위. 네덜란드·태국·에콰도르에 씀",
+   "basis": "확인",
+   "count": 1407,
+   "rooms": "수입672 영업491 추취121 현장97"
+  },
+  {
+   "term": "대(수국·호접 단위)",
+   "meaning": "줄기 수 단위(수국·호접란)",
+   "basis": "확인",
+   "count": 286,
+   "rooms": "영업93 불량73 추취61 수입31"
+  },
+  {
+   "term": "믹스박스",
+   "meaning": "여러 품종을 한 상자에 섞은 것(믹스A~F)",
+   "basis": "확인",
+   "count": 352,
+   "rooms": "영업215 추취84 수입29 현장19"
+  },
+  {
+   "term": "레드박스",
+   "meaning": "중국 장미의 등급(상자 색) 이름",
+   "basis": "추정",
+   "count": 154,
+   "rooms": "영업80 수입40 추취24 현장7"
+  },
+  {
+   "term": "A차·B차",
+   "meaning": "한 차수가 항공편 둘로 나뉘어 올 때의 구분",
+   "basis": "확인",
+   "count": 94,
+   "rooms": "선율38 백상19 스케15 수입11"
+  },
+  {
+   "term": "CL번호",
+   "meaning": "거래처 코드. 발주·검역 품목·패킹리스트에 거래처 이름 대신 씀",
+   "basis": "확인",
+   "count": 1473,
+   "rooms": "수입1111 선율118 백상79 영업54"
+  },
+  {
+   "term": "YCL·KCL·MCL(머리글자 붙은 CL)",
+   "meaning": "10월 중순부터 보이는 새 표기. 머리글자의 뜻(출고 노선 추정)은 미검증",
+   "basis": "추정: 첫 등장 10-12~17",
+   "count": 75,
+   "rooms": "영업28 수입19 선율14 추취10"
+  },
+  {
+   "term": "사무실 창고",
+   "meaning": "공항 창고가 아닌 본사 창고. 샘플·냉해 박스를 여기로 보냄",
+   "basis": "확인",
+   "count": 423,
+   "rooms": "영업192 현장118 추취112 수입1"
+  },
+  {
+   "term": "파렛트·PLT",
+   "meaning": "소독·배차 물량 단위",
+   "basis": "확인",
+   "count": 329,
+   "rooms": "백상289 현장27 선율9 추취2"
+  },
+  {
+   "term": "조업",
+   "meaning": "항공사가 화물을 내려 분류하는 작업. 끝나야 반입이 잡힘",
+   "basis": "확인",
+   "count": 14,
+   "rooms": "백상10 수입3 선율1"
+  },
+  {
+   "term": "편기",
+   "meaning": "항공편",
+   "basis": "확인",
+   "count": 33,
+   "rooms": "백상32 수입1"
+  },
+  {
+   "term": "이월(다음 차수로 넘김)",
+   "meaning": "이번 차수에 못 구한 수량을 다음 차수 발주로 넘기는 것",
+   "basis": "확인",
+   "count": 99,
+   "rooms": "수입79 선율16 영업2 현장2"
+  }
+ ],
+ "partners": [
+  {
+   "name": "선율",
+   "role": "통관 대행(관세법인) + 식물검역 신청·결과 통보 대행. 전용 방의 선율 쪽 글은 552건(아래 건수는 다른 글 속 이름 언급)",
+   "rooms": "수입33 백상16 현장3 추취2",
+   "count": 56
+  },
+  {
+   "name": "백상",
+   "role": "공항 보세창고(반입·보관·수량 확인·출고). 전용 방의 백상 쪽 글은 약 1,100건",
+   "rooms": "백상29 수입14 현장10 선율4",
+   "count": 64
+  },
+  {
+   "name": "한국방역",
+   "role": "소독 작업 업체(선율이 일정을 전달)",
+   "rooms": "백상3 선율3 현장2",
+   "count": 8
+  },
+  {
+   "name": "경인에코텍",
+   "role": "폐기 처리 업체(폐기 비용 안내가 백상을 거쳐 옴)",
+   "rooms": "현장2 백상2",
+   "count": 4
+  },
+  {
+   "name": "관우회",
+   "role": "세관 지정 장치장(관리대상 화물)",
+   "rooms": "백상5",
+   "count": 5
+  },
+  {
+   "name": "인천관세법인",
+   "role": "해상 화물 통관으로 추정 — 카톡 방 미수집(0건)",
+   "rooms": "",
+   "count": 0
+  },
+  {
+   "name": "카스(KAS)",
+   "role": "공항 조업사로 추정",
+   "rooms": "수입2 백상2 영업1",
+   "count": 5
+  },
+  {
+   "name": "AACT",
+   "role": "공항 화물터미널로 추정",
+   "rooms": "백상1",
+   "count": 1
+  },
+  {
+   "name": "CLOUD(클라우드·클라우드랜드)",
+   "role": "중국 항공 대행 공급처",
+   "rooms": "수입184 선율127 백상53 영업49",
+   "count": 525
+  },
+  {
+   "name": "MELODY(멜로디)",
+   "role": "중국 공급처(봄~여름에 많이 나옴)",
+   "rooms": "수입143 영업69 백상32 불량27",
+   "count": 308
+  },
+  {
+   "name": "HUBFRESH(허브)",
+   "role": "중국 해상 공급처(10-01 새 업체로 소개)",
+   "rooms": "수입23 선율1",
+   "count": 24
+  },
+  {
+   "name": "Holex(홀렉스)",
+   "role": "네덜란드 수출사",
+   "rooms": "수입245 선율137 백상79 스케50",
+   "count": 528
+  },
+  {
+   "name": "EZ Flower",
+   "role": "네덜란드 공급처(일부 품목)",
+   "rooms": "수입39 선율8 백상5 현장1",
+   "count": 55
+  },
+  {
+   "name": "Super Fresh(슈퍼프레시)",
+   "role": "태국 난 수출사",
+   "rooms": "수입106 선율16 불량8 현장2",
+   "count": 133
+  },
+  {
+   "name": "Premium Greens(프리미움 그린)",
+   "role": "호주 소재(그린) 공급처",
+   "rooms": "백상15 수입14 현장10 선율10",
+   "count": 59
+  },
+  {
+   "name": "Hood Canal(후드카날)",
+   "role": "미국 레몬잎·더글라스 공급처",
+   "rooms": "수입10 선율7 백상3 스케2",
+   "count": 23
+  },
+  {
+   "name": "Royal Base",
+   "role": "베트남 호접란 공급처",
+   "rooms": "백상17 선율15 스케15 수입6",
+   "count": 53
+  },
+  {
+   "name": "Nivalia",
+   "role": "에콰도르 농장(안개·라넌큘러스)",
+   "rooms": "수입11",
+   "count": 11
+  },
+  {
+   "name": "Apollo(아폴로)",
+   "role": "콜롬비아 쪽 포워더로 추정(지연 안내를 전해 줌)",
+   "rooms": "수입7 현장2",
+   "count": 9
+  },
+  {
+   "name": "Green Genie(그린 지니)",
+   "role": "루스커스 공급처",
+   "rooms": "수입2 선율1",
+   "count": 3
+  },
+  {
+   "name": "Verdnatura(베르나투라)",
+   "role": "콜롬비아 카네이션 공급처(염색 포함)",
+   "rooms": "수입13 현장9 추취8 영업6",
+   "count": 39
+  },
+  {
+   "name": "키쿠얄",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입17 추취15 현장10 영업9",
+   "count": 56
+  },
+  {
+   "name": "나투",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입126 추취67 영업55 현장39",
+   "count": 301
+  },
+  {
+   "name": "마티나",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입92 영업90 추취63 현장34",
+   "count": 298
+  },
+  {
+   "name": "에스페런스",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입20 추취12 현장10 영업8",
+   "count": 51
+  },
+  {
+   "name": "다플로러",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입14 추취3 영업2 선율2",
+   "count": 22
+  },
+  {
+   "name": "티바",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "영업76 추취37 수입13 현장5",
+   "count": 131
+  },
+  {
+   "name": "엘리떼",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입28 현장14 추취9 불량1",
+   "count": 53
+  },
+  {
+   "name": "시르까시아",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입19 추취14 불량12 현장11",
+   "count": 59
+  },
+  {
+   "name": "산주안",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량18 수입8 추취6 영업5",
+   "count": 42
+  },
+  {
+   "name": "벤치마크",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량3 추취2 현장1 영업1",
+   "count": 7
+  },
+  {
+   "name": "인보스",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "영업40 추취18 불량13 수입12",
+   "count": 91
+  },
+  {
+   "name": "꼴리브리",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입32 불량20 추취18 현장14",
+   "count": 96
+  },
+  {
+   "name": "감부르",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량10 수입3 추취2",
+   "count": 15
+  },
+  {
+   "name": "라가이타나",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량11 수입6 추취2",
+   "count": 19
+  },
+  {
+   "name": "아유라",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "추취44 영업28 현장26 수입19",
+   "count": 120
+  },
+  {
+   "name": "튜칼리",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입6 현장3 추취1",
+   "count": 10
+  },
+  {
+   "name": "돈에우세비오",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량20 수입13 추취7 영업4",
+   "count": 48
+  },
+  {
+   "name": "아포센토스",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량20 수입6 현장4 추취2",
+   "count": 34
+  },
+  {
+   "name": "엘조로",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량12 추취12 수입11 현장11",
+   "count": 60
+  },
+  {
+   "name": "멀티플로라",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "현장9 수입8 추취7 영업6",
+   "count": 31
+  },
+  {
+   "name": "칵투스",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량10 수입7 현장5 추취1",
+   "count": 23
+  },
+  {
+   "name": "플로렌티나",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입40 불량3 현장3 스케1",
+   "count": 48
+  },
+  {
+   "name": "발로레스",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입5 선율1 영업1 추취1",
+   "count": 8
+  },
+  {
+   "name": "그린란드",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입5 선율2 스케2 불량1",
+   "count": 12
+  },
+  {
+   "name": "안티오퀴아",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입26 추취2 현장2 불량2",
+   "count": 35
+  },
+  {
+   "name": "GR 농장",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "현장19 수입15 추취11 영업9",
+   "count": 60
+  },
+  {
+   "name": "Lorzarte",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "수입3 영업1",
+   "count": 4
+  },
+  {
+   "name": "터플로어",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "불량7 수입3 추취2",
+   "count": 12
+  },
+  {
+   "name": "누에바",
+   "role": "콜롬비아 농장(발주 지정·농장조사·불량 신고에 나옴)",
+   "rooms": "현장1 영업1",
+   "count": 2
+  },
+  {
+   "name": "MAS AIR",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상31 스케25 선율24 수입4",
+   "count": 85
+  },
+  {
+   "name": "AIR CANADA",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상16 스케14 선율12 수입1",
+   "count": 43
+  },
+  {
+   "name": "CATHAY",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상86 스케45 선율43 수입5",
+   "count": 180
+  },
+  {
+   "name": "DELTA",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상52 스케38 선율36 수입4",
+   "count": 130
+  },
+  {
+   "name": "KOREAN AIR",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상110 선율75 스케70 수입12",
+   "count": 270
+  },
+  {
+   "name": "POLAR·DHL·KALITTA",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상28 수입14 스케13 선율11",
+   "count": 68
+  },
+  {
+   "name": "AIR CHINA",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상18 선율15 스케11 추취4",
+   "count": 49
+  },
+  {
+   "name": "샤먼·산둥·남방항공",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상59 선율45 스케38 현장2",
+   "count": 146
+  },
+  {
+   "name": "Thai Cargo·Thai Airways",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상45 선율31 스케28 현장1",
+   "count": 106
+  },
+  {
+   "name": "Qantas",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상16 선율12 현장11 스케11",
+   "count": 51
+  },
+  {
+   "name": "Vietnam Air",
+   "role": "항공사(도착 일정 글의 편명)",
+   "rooms": "백상14 스케12 선율10 수입3",
+   "count": 39
+  }
+ ],
+ "incidents": [
+  {
+   "type": "항공 지연·분할 입항(쇼트)",
+   "count": 65,
+   "days": 38,
+   "monthly": {
+    "04월": 12,
+    "05월": 9,
+    "06월": 7,
+    "07월": 9,
+    "08월": 8,
+    "09월": 10,
+    "10월": 7,
+    "11월": 3
+   },
+   "cases": [
+    "9-11(금)~9-15(화) 37-2차 콜수국: 경유지에서 항공기 고장. 금 09:44 수입방에 지연 안내 → 금 23:54 세 방에 「지연, 새 일정 확인 중」 → 토 08:27 상황 공유, 08:28 화요일 도착으로 정정 공지. 원래 토 20:35 도착이 3일 늦음. 처리: 수입부(공지·포워더 확인)",
+    "6-08(월)~6-11(목) 24-1차 콜수국: 낙뢰로 항공기 점검 → 월 08:50 지연 공지 → 화 08:21 「원래대로 들어온다」고 알렸으나 백상이 조회 결과가 다르다고 되물음 → 화 15:09 「경유지에서 아직 출발 안 함, 잘못된 안내였다」 → 수 00:53 목요일 22:25 도착으로 정정. 2일 8시간 늦음",
+    "8-15(토) 에콰도르: 백상이 14:40 「내일 편에 244박스 중 166박스만 온다, 한 번에 할지 나눠 할지」 문의 → 11분 뒤 수입부 「쇼트 확인하겠다」. 9-02 중국은 태풍으로 187박스 중 28박스가 다음 날 편으로 → 선율과 「전체 금요일 오전 검역」으로 합의(10분)"
+   ],
+   "handling": [
+    "지연을 알게 되면 먼저 수입방에 사유와 함께 알린다",
+    "새 일정이 없어도 백상 방·선율 방·스케줄 방에 「지연, 확인 중」을 올린다",
+    "새 일정이 나오면 「정정」을 붙여 세 방에 다시 올린다(편명·AWB·박스 수 포함)",
+    "분할이면 한 번에 검역할지 나눠 할지 선율·백상에 답한다",
+    "현지 안내만 믿지 말고 백상의 조회 결과와 맞춰 본다",
+    "영업에 출고가 며칠 밀리는지 알린다"
+   ]
+  },
+  {
+   "type": "서류 오류·정정(검역증·원산지증명·AWB·인보이스)",
+   "count": 44,
+   "days": 27,
+   "monthly": {
+    "04월": 2,
+    "05월": 7,
+    "06월": 0,
+    "07월": 1,
+    "08월": 5,
+    "09월": 9,
+    "10월": 17,
+    "11월": 3
+   },
+   "cases": [
+    "5-06(수)~5-07(목) 19-1차 중국: 검역증의 장미 수량이 인보이스보다 500스템 적음. 목 10:21 영업지원이 문의 → 10:35 수입부 「재발행 시도」 → 16:38 「재발행 전에는 출고 금지」 → 18:34 「재발행 불가, 장미 360단 폐기」. 8시간 만에 결론. 영업은 다음 차수에 다시 발주",
+    "10-19(월)~10-21(수) 42-2차 콜카장: 한 농장 카네이션 검역증에 NON-LMO 문구 없음. 월 09:48 선율 통보(「재발행 문구가 없으면 인정 안 됨」) → 화 10:42 그 농장분만 빼고 분할 통관 → 영업이 그 농장 품목 출고일을 수요일로 조정 → 수 11:30 보류분 합격. 약 2일. 10-06 에도 다른 농장에서 같은 일(1일 2시간)",
+    "11-09(월)~11-10(화) 45-3A차 중국: 한 품목 원산지증명서가 다른 협정 양식으로 와서 협정세율 적용 불가(8%) → 16시간 뒤 수정본 전달. 10-19 에는 「인보이스와 검역증 수량이 다르다」는 선율 문의"
+   ],
+   "handling": [
+    "서류를 받으면 인보이스 수량과 검역증 수량이 같은지 먼저 본다",
+    "카네이션 검역증에 NON-LMO 문구가 있는지 본다",
+    "원산지증명서가 맞는 협정 양식인지 본다(중국은 한-중 FTA)",
+    "오류가 나오면 공급처에 재발행 요청(재발행 표시가 있어야 인정)",
+    "선율에 「그 건만 빼고 분할」이 되는지 묻는다",
+    "보류 품목과 예상 통관일을 수입방에 알려 영업이 출고일을 바꾸게 한다",
+    "재발행이 안 되면 폐기 수량을 품목별로 올리고 폐기 품목을 선율 방에 남긴다"
+   ]
+  },
+  {
+   "type": "검역 소독 처분·사육·불합격",
+   "count": 65,
+   "days": 48,
+   "monthly": {
+    "04월": 0,
+    "05월": 2,
+    "06월": 16,
+    "07월": 4,
+    "08월": 11,
+    "09월": 11,
+    "10월": 11,
+    "11월": 10
+   },
+   "cases": [
+    "9-01(화) 36-1차 콜카장수국: 17:33 카네이션 소독 명령 → 나머지는 분할 통관(19:19) → 현장이 19:49 「내일 오전 소독 19파렛트 731박스」 → 수 16:38 처리. 23시간 늦음",
+    "8-18(화) 태국: 11:46 한 품목에서 개미 → 11:50 확정, 「내일 오전 소독, 나머지는 분할」 → 수입부가 공급처에 연락 → 17:55 나머지 처리. 6-22 영업이 「개미 소독이 나오지 않게 공급처에 강하게」 요청",
+    "9-28(월) 네덜란드: 목화가 LMO 검사 대상이라 3~4일 걸린다는 통보. 11-02 에도 같은 품목"
+   ],
+   "handling": [
+    "선율의 「소독 명령·사육·넘어갑니다」 글을 보면 품목과 박스 수를 확인한다",
+    "소독 시각(오전·오후)은 영업·현장이 출고 일정으로 정한다 — 수입부는 방에 호출해 답이 나오게 한다",
+    "나머지 품목의 분할 통관을 선율에 확인한다",
+    "현장이 백상 방에 「소독건 ○파렛트 ○○박스」를 올렸는지 본다",
+    "같은 품목이 되풀이되면 공급처에 알리고 다음부터 선소독 품목에 넣는다",
+    "소독으로 상한 물량은 클레임 자료로 남긴다"
+   ]
+  },
+  {
+   "type": "세관검사·관리대상",
+   "count": 12,
+   "days": 6,
+   "monthly": {
+    "04월": 0,
+    "05월": 1,
+    "06월": 2,
+    "07월": 0,
+    "08월": 0,
+    "09월": 1,
+    "10월": 8,
+    "11월": 0
+   },
+   "cases": [
+    "6-21(일)~6-22(월) 25-1차 태국: 일 15:42 백상 「관리 건입니다, 인보이스 부탁」 → 20:04 선율 「관리대상, 세관 지정 장치장 반입」 → 월 08:18 수입부가 「아침 검역을 공항에서 받기로 선율과 합의」 → 백상 「그럼 장치장에서 검역·통관까지, 백상으로 안 가져옴」 → 20:08 검사 없음. 하루 늦음",
+    "10-20(화) 42-2차 중국: 17:00 선율 「A차는 검사 아님, B차 세관 검사 19시 예상」 → 백상 「세관 검사가 있으면 백상 사무실과 창고에도 알려 달라」",
+    "10-31(토)~11-03(화) 44-2차 중국: A차가 출발지 세관 검사로 못 떠남 → A·B 로 나뉘어 월 12:55(B)·화 08:50(A) 도착. 일 14:47 「B차 AWB 변경」 공지가 월 10:23 영업의 지적으로 틀린 것으로 밝혀짐(A·B 번호 혼동) → 월 10:49 정리 글. 화요일 오전 검역을 위해 백상·선율에 협조 요청"
+   ],
+   "handling": [
+    "백상이 「관리 건」이라고 하면 인보이스를 바로 보낸다",
+    "선율에 어디서 검역·통관을 받는지(장치장인지 백상인지) 확인하고 백상에 같은 말을 전한다",
+    "세관 검사 시각이 나오면 백상 방과 현장에 알린다",
+    "분할 편이면 A·B 각각의 AWB·박스 수·도착 시각을 한 글로 정리한다",
+    "검사로 출고가 밀리는 품목을 수입방에 알린다"
+   ]
+  },
+  {
+   "type": "수량 부족·누락·미입고",
+   "count": 197,
+   "days": 95,
+   "monthly": {
+    "04월": 15,
+    "05월": 44,
+    "06월": 24,
+    "07월": 20,
+    "08월": 20,
+    "09월": 31,
+    "10월": 29,
+    "11월": 14
+   },
+   "cases": [
+    "9-08(화) 37-1차 콜카장수국: 05:27 백상 「1,949박스 중 1,947박스만 확인, 2박스는 다른 빌번호로 들어온 것 같다. 적하 정정할지」 → 09:08 수입부 「정정, 오늘 검역이라 기다릴 수 없다」 → 09:10 현장에 어떤 박스가 빠졌는지 확인 요청, 09:12 수입방 공지. 3시간 41분",
+    "9-09(수)~9-10(목) 메데진 수국: 한 농장이 102박스 중 42박스만 공항에 넣음 → 수 21:14 「긴급 상황」 공지 → 다른 편 합포장을 알아봤으나 안 돼 별도 항공편 예약",
+    "11-11(수) 46-1차 콜수국: 서류는 662박스, 적하 데이터는 660박스 → 13:24 「2박스 분실」로 답 → 15:48 실제 662박스 → 선율이 「660박스로 된 비엘」을 요청해 백상에 원본 스캔을 부탁. 6-13 한 농장 카네이션 12박스가 차량 문제로 누락 → 다음 차수로"
+   ],
+   "handling": [
+    "백상의 박스 수와 인보이스·AWB 박스 수를 대조한다",
+    "검역이 급하면 온 수량으로 적하 정정을 하고 진행한다(백상에 답)",
+    "어느 농장·어느 품목이 빠졌는지 현장에 확인을 부탁한다",
+    "수입방에 빠진 품목과 대책(다음 차수, 별도 편)을 알리고 담당 영업을 호출한다",
+    "농장·포워더에 원인을 묻고 인보이스 수정 또는 클레임을 요청한다",
+    "실제 수량이 뒤에 달라지면 선율·백상에 같은 숫자의 서류를 다시 맞춘다"
+   ]
+  },
+  {
+   "type": "오입고·초과 입고",
+   "count": 39,
+   "days": 34,
+   "monthly": {
+    "04월": 2,
+    "05월": 10,
+    "06월": 7,
+    "07월": 9,
+    "08월": 1,
+    "09월": 2,
+    "10월": 6,
+    "11월": 2
+   },
+   "cases": [
+    "10-13(화) 중국 B차: 수입부가 현장방에 「잘못 들어온 품목 3종 10박스 / 부족 품목 6종 13박스」 정리",
+    "11-12(목) 46차 에콰도르: 발주 실수로 한 품종 700스템이 더 옴 → 영업지원이 「월요일부터 출고 가능, 판매 부탁」",
+    "6-01(월) 23-1차 카네이션: 발주보다 1~2박스씩 더 들어온 품목 여럿 → 영업이 가격 조정 또는 클레임 요청. 11-02 「50단을 발주했는데 50스템이 입고」 — 발주 단위 착오인지 공급처 실수인지 확인 요청"
+   ],
+   "handling": [
+    "현장 「농장조사」 글의 +/− 를 발주 원본·인보이스와 대조한다",
+    "발주가 틀렸는지 농장이 틀렸는지 주문서와 농장 답을 올려 가린다",
+    "더 들어온 것도 「이슈」로 수입방에 남긴다(영업 요청)",
+    "농장 잘못이면 가격 조정·클레임, 우리 잘못이면 영업에 판매를 부탁한다",
+    "단위(단·스템·박스)를 발주 글에서 다시 확인한다"
+   ]
+  },
+  {
+   "type": "색·품종·규격 불일치",
+   "count": 41,
+   "days": 29,
+   "monthly": {
+    "04월": 3,
+    "05월": 1,
+    "06월": 3,
+    "07월": 5,
+    "08월": 10,
+    "09월": 11,
+    "10월": 6,
+    "11월": 2
+   },
+   "cases": [
+    "8-20(목)~8-21(금) 33-2차 카네이션: 믹스 상자에 다른 색이 들어옴 → 영업 문의 → 다음 날 수입부가 발주 내용과 농장 대화를 올려 「주문은 맞게 들어갔고 농장 잘못」으로 확인. 27시간",
+    "10-06(화) 수국: 새 농장의 진핑크가 색이 다르다는 영업 글 → 농장에 전달",
+    "7-22(수) 수국: 샘플과 전혀 다른 색 5박스 → 「우리가 발주를 잘못했는지 농장이 잘못 이해했는지 정확히 파악」 요청"
+   ],
+   "handling": [
+    "발주 글·주문서에 적은 품종·색 이름을 먼저 확인한다",
+    "농장에 사진과 함께 묻고, 주문 내용과 농장 답을 그대로 올린다",
+    "염색·새 농장 품목은 도착 전에 실사진을 받아 공유한다",
+    "색 이름이 비슷한 품목은 사진을 붙여 발주한다",
+    "농장 잘못이면 클레임 자료(박스·단 사진)를 모은다"
+   ]
+  },
+  {
+   "type": "냉해",
+   "count": 336,
+   "days": 81,
+   "monthly": {
+    "04월": 3,
+    "05월": 122,
+    "06월": 46,
+    "07월": 12,
+    "08월": 40,
+    "09월": 72,
+    "10월": 36,
+    "11월": 5
+   },
+   "cases": [
+    "9-03(목) 36-1차 수국: 현장이 「흰색 19, 파랑 1」 신고 → 영업이 냉해 박스를 폐기하지 말고 사무실 창고로 보내라고 지시",
+    "8-28(금): 영업이 「세 차수 연속 6 → 20 → 28박스로 늘어난다, 어디서 생기는지 확인」 요청",
+    "10-20(화) 42-2차 수국: 냉해분만큼 거래처별 분배를 취소하는 「냉해 취소」 글. 10-23 「냉해 박스는 빌번호를 보고 사무실 창고에 넣어 둘 것」"
+   ],
+   "handling": [
+    "현장의 냉해 수량 글과 사진을 차수·농장별로 모은다",
+    "온도 기록 장치(트래커)를 사무실로 받아 온도 기록을 본다",
+    "빌번호로 어느 편·어느 농장 박스인지 확인한다",
+    "농장·포워더에 수량과 사진을 보내 원인과 보상을 묻는다",
+    "냉해 박스는 버리지 않고 사무실 창고에 둔다(클레임 증거)",
+    "영업의 분배 취소가 끝나면 부족분을 다음 차수에 더할지 묻는다"
+   ]
+  },
+  {
+   "type": "패킹 불량",
+   "count": 41,
+   "days": 28,
+   "monthly": {
+    "04월": 3,
+    "05월": 4,
+    "06월": 1,
+    "07월": 2,
+    "08월": 12,
+    "09월": 13,
+    "10월": 3,
+    "11월": 3
+   },
+   "cases": [
+    "9-04(금) 36-1차 카네이션: 한 품종 상자에 다른 품종이 섞였을 가능성 → 농장 확인 요청",
+    "9-14(월): 영업이 한 농장의 품질·패킹 불량이 너무 많다며 「강하게 요청」 부탁",
+    "11-03(화): 공급처가 다른 농장 물건으로 수량을 채워 보낸 것에서 습진·짧은 길이·패킹 불량이 많다는 영업 정리 글 2건"
+   ],
+   "handling": [
+    "불량 공유방 글에서 농장 이름·거래처·품종·수량을 확인한다(없으면 되묻는다)",
+    "박스에 농장 이름과 AWB 가 보이는 사진, 단 사진 1장 이상을 받는다(9-17 회의 요약의 필수 자료)",
+    "농장별로 묶어 농장에 보낸다",
+    "되풀이되는 농장은 수입방에 정리해 올리고 농장 교체를 영업과 정한다"
+   ]
+  },
+  {
+   "type": "품질 불량(곰팡이·시듦·꺾임·벌레)",
+   "count": 40,
+   "days": 32,
+   "monthly": {
+    "04월": 6,
+    "05월": 8,
+    "06월": 4,
+    "07월": 8,
+    "08월": 5,
+    "09월": 2,
+    "10월": 3,
+    "11월": 4
+   },
+   "cases": [
+    "8-21(금) 34-2차 중국: 산지에 비가 계속 와 한 품목에 곰팡이 → 수입부가 「정상 품질만 먼저 내고 나머지는 다음 차수」로 해도 되는지 물음",
+    "7-08(수) 27-1차 중국: 한 품목 170단 전량 불량, 호텔 거래처가 한 단도 못 씀 → 클레임 요청",
+    "7-08(수) 27-1차 태국: 줄기가 무름 → 영업이 「날씨인지 배송인지 보관인지 온도 차인지」 원인 확인 요청"
+   ],
+   "handling": [
+    "사진·영상(전체가 보이게)을 받는다 — 1단 사진으로는 클레임이 안 된다는 수입부 글 있음",
+    "농장에 원인을 묻고 답을 그대로 올린다",
+    "산지 날씨·시즌 문제면 다음 차수 수량을 줄일지 영업에 묻는다",
+    "클레임을 요청하고 결과를 불량 공유방에 답한다"
+   ]
+  },
+  {
+   "type": "폐기",
+   "count": 148,
+   "days": 68,
+   "monthly": {
+    "04월": 8,
+    "05월": 42,
+    "06월": 14,
+    "07월": 15,
+    "08월": 25,
+    "09월": 9,
+    "10월": 29,
+    "11월": 6
+   },
+   "cases": [
+    "5-07(목) 19-1차 중국 장미 360단: 검역증 재발행 불가로 폐기(서류 오류 사례와 같은 건)",
+    "8-28(금)~8-31(월): 선율이 폐기 신고를 요청해 백상이 진행 → 월 10:15 백상이 「폐기 비용 안내가 폐기 업체에서 왔다, 어디로 보낼지」 문의 → 2분 뒤 수입부가 받을 곳을 알려 줌",
+    "8-19(수) 33-2차 중국: 한 품목 폐기 뒤 나머지 통관 처리. 현장에서는 「월요일 폐기건 사진」처럼 재고 폐기도 따로 올림(이것은 영업·현장 일)"
+   ],
+   "handling": [
+    "통관 전 폐기는 선율이 세관에 신고하고 백상은 보관만 한다",
+    "폐기할 품목·수량을 품목별로 수입방과 선율 방에 남긴다",
+    "폐기 비용 안내를 받아 지출결의로 넘긴다(경로 미검증)",
+    "영업지원이 패킹리스트의 그 수량을 폐기로 잡도록 알린다",
+    "공급처 잘못이면 전량 클레임"
+   ]
+  },
+  {
+   "type": "배차·출고 변경",
+   "count": 113,
+   "days": 63,
+   "monthly": {
+    "04월": 14,
+    "05월": 11,
+    "06월": 9,
+    "07월": 18,
+    "08월": 16,
+    "09월": 15,
+    "10월": 19,
+    "11월": 11
+   },
+   "cases": [
+    "10-14(수) 42-1차 중국: 한 거래처가 「경부선 일요일 출고 → 양재 금요일 출고」로 바뀌어 영업지원이 물량표 최종본을 다시 보냄",
+    "10-20(화) 42-2차: 검역 서류 문제 농장의 품목만 수요일 출고로 조정",
+    "11-10(화) 45-3차 중국: 호텔 물량을 「오늘이 아니라 다음 주 화요일 출고, 교차 보관」"
+   ],
+   "handling": [
+    "이 유형은 영업·영업지원과 현장 사이의 일이다",
+    "수입부는 통관이 늦어져 출고가 밀릴 때 원인과 예상 시각을 알린다",
+    "주말 배차(금요일 공지)에 물량이 들어가려면 도착·검역 일정을 금요일 오전까지 확정해 알린다"
+   ]
+  },
+  {
+   "type": "농장·현지 사정(날씨·휴일·화재·파업)",
+   "count": 55,
+   "days": 39,
+   "monthly": {
+    "04월": 2,
+    "05월": 5,
+    "06월": 9,
+    "07월": 1,
+    "08월": 9,
+    "09월": 9,
+    "10월": 16,
+    "11월": 4
+   },
+   "cases": [
+    "11-09(월): 「콜롬비아 다음 주 월요일 휴일, 1·2차 모두 금요일까지 발주」 공지. 5-13·10-10 에도 같은 공지",
+    "9-29(화): 「중국은 목요일부터 휴일, 물건이 다 준비돼 더는 수정 불가」",
+    "9-12(토): 한 농장 화재로 한 품목 40단 출고 불가. 8-19 태국은 비로 물량 부족"
+   ],
+   "handling": [
+    "현지 휴일은 1주 전에 수입방에 알리고 발주 마감을 당긴다",
+    "날씨·시즌으로 줄어드는 품목은 가능한 수량을 숫자로 알린다",
+    "대체·다음 차수 가운데 무엇으로 할지 담당 영업에게 묻는다"
+   ]
+  },
+  {
+   "type": "발주 누락·중복·오발주",
+   "count": 14,
+   "days": 12,
+   "monthly": {
+    "04월": 1,
+    "05월": 4,
+    "06월": 0,
+    "07월": 2,
+    "08월": 0,
+    "09월": 3,
+    "10월": 2,
+    "11월": 2
+   },
+   "cases": [
+    "10-02(금): 영업 「고정 발주가 있을 텐데 누락된 것 같다」",
+    "9-04(금): 같은 내용이 두 거래처 코드로 중복 → 코드만 바꿔 달라",
+    "11-06(금): 「공급처와 연락됐을 때 발주 누락이 맞다면 ○○스템 추가」"
+   ],
+   "handling": [
+    "발주 원본과 농장 확정표를 줄마다 맞춘다",
+    "고정 발주가 주문서에 들어갔는지 따로 본다",
+    "누락이면 다음 차수에 넣고 수입방에 알린다",
+    "거래처 코드를 발주 글과 맞춘다"
+   ]
+  },
+  {
+   "type": "보관 온도 확인(보온·냉장·온도 기록 장치)",
+   "count": 35,
+   "days": 22,
+   "monthly": {
+    "04월": 2,
+    "05월": 4,
+    "06월": 9,
+    "07월": 2,
+    "08월": 4,
+    "09월": 8,
+    "10월": 5,
+    "11월": 1
+   },
+   "cases": [
+    "11-08(일): 백상 「이 건은 보온인가, 따로 받은 말이 없어 냉장 보관 중」 → 3분 뒤 확인",
+    "6-21(일): 관리대상 화물이라 백상이 아닌 항공사 보온방(약 18도)에 둘지 문의",
+    "8-31(월) 호주: 「냉장 보관, 트래커 챙겨 주세요, 검역박스 노란 스티커」를 일정 글에 붙임"
+   ],
+   "handling": [
+    "도착 일정 글의 백상 방 판에는 보관 조건 줄을 반드시 넣는다",
+    "난·호접란·안시리움은 보온, 나머지는 냉장(카톡 기준)",
+    "보온 품목이 일부면 거래처 코드별 박스 수를 적는다",
+    "백상이 묻기 전에 알린다 — 묻지 않으면 냉장으로 들어간다"
+   ]
+  },
+  {
+   "type": "클레임·크레딧 협의",
+   "count": 270,
+   "days": 94,
+   "monthly": {
+    "04월": 50,
+    "05월": 115,
+    "06월": 25,
+    "07월": 37,
+    "08월": 22,
+    "09월": 12,
+    "10월": 5,
+    "11월": 4
+   },
+   "cases": [
+    "5-06(수): 수입부 「불량 사진이 한 장도 안 올라왔다, 늦을수록 농장이 받아 주는 기간이 지난다」",
+    "5-08(금): 수입부가 「빌 끝자리 ○개 박스 사진을 올려 달라」고 요청",
+    "9-17(목) 회의 요약: 클레임 필수 자료 = 농장 이름과 AWB 가 보이는 박스 사진 + 단 사진 1장 이상. 늦은 발주·추가 발주분은 품질 클레임이 어렵다"
+   ],
+   "handling": [
+    "불량 공유방을 매일 본다",
+    "차수·농장·품종·수량·거래처를 표로 정리한다",
+    "필수 사진이 없으면 그날 요청한다",
+    "농장별로 묶어 보낸다",
+    "결과(받아 줌·일부·거절)를 방에 답한다",
+    "받아 준 금액은 결제에서 뺀다(카톡에는 기록 없음)"
+   ]
+  }
+ ],
+ "kakaoCountries": [
+  {
+   "country": "콜롬비아 보고타(콜카장)",
+   "items": "카네이션·장미·알스트로메리아·루스커스",
+   "arrive": "일 17 · 월 15 · 화 11 · 토 9 (56건). 1차는 월 오후~화 새벽, 2차는 일 16시대",
+   "order": "발주 원본 파일 301건 중 월 217(17~19시)·금 43. 추가 요청 822건 중 화 334·월 175·수 120"
+  },
+  {
+   "country": "콜롬비아 메데진(콜수국)",
+   "items": "수국(흰색·염색)",
+   "arrive": "토 14 · 화 10 · 수 7 (38건)",
+   "order": "콜카장과 같은 파일 묶음(Hortensias)"
+  },
+  {
+   "country": "중국 항공(CLOUD·MELODY)",
+   "items": "장미·카네이션·리모늄(시네신스)·안개꽃·델피늄·유칼립투스·라넌큘러스·호접란",
+   "arrive": "수 26 · 일 23 (53건). 22~23시대와 12시대",
+   "order": "발주 파일 66건 중 목 22·수 15·화 11·월 10. 추가 요청 272건 중 목 79·금 69"
+  },
+  {
+   "country": "중국 해상(HUBFRESH)",
+   "items": "장미·카네이션·소재류",
+   "arrive": "미검증(도착 일정 글 없음)",
+   "order": "9월 말부터 「중국 해상 발주 원본」 파일(월·화 관측)"
+  },
+  {
+   "country": "네덜란드(Holex, 일부 EZ)",
+   "items": "튤립·수국·안시리움·에린지움·아스틸베·델피늄·스키미아·알륨·히야신스",
+   "arrive": "일 41 · 수 12 (57건), 16시대",
+   "order": "발주 파일 45건 중 수 22·금 11·화 9. 추가 요청 192건 중 목 88. 원가자료 77건 중 금 47"
+  },
+  {
+   "country": "태국(Super Fresh)",
+   "items": "난(덴파레·모카라·아란다)",
+   "arrive": "일 26 (32건). 15시대 20, 06시대 10",
+   "order": "발주 파일 32건 중 화 25. 추가 요청 93건 중 수 47(8-14 글: 추가는 수요일까지). 원가자료 50건 중 월 39"
+  },
+  {
+   "country": "에콰도르",
+   "items": "장미·안개·라넌큘러스",
+   "arrive": "토 14 · 금 7 (32건), 04시",
+   "order": "발주 파일 22건 중 수 18"
+  },
+  {
+   "country": "호주(Premium Greens)",
+   "items": "소재(그린)류",
+   "arrive": "화 13 (16건), 19시대",
+   "order": "월요일 일정 공지 13건. 「금요일까지 전산 마감」(11-11 글)"
+  },
+  {
+   "country": "미국(Hood Canal)",
+   "items": "레몬잎·더글라스",
+   "arrive": "월 7 (7건), 16시대",
+   "order": "영업지원이 수입방에 발주 글"
+  },
+  {
+   "country": "베트남(Royal Base)",
+   "items": "호접란",
+   "arrive": "수 14 (17건), 06~07시",
+   "order": "영업이 수입방에 발주 글(ETA 표기)"
+  },
+  {
+   "country": "뉴질랜드",
+   "items": "작약(11월 관측)",
+   "arrive": "미검증",
+   "order": "발주 파일 4건"
+  }
+ ],
+ "missing": [
+  {
+   "title": "도착 일정 정정·지연 공지",
+   "evidence": "정정 105건. 「정정」을 붙여 세 방에 다시 올리는 절차가 매뉴얼에 없음"
+  },
+  {
+   "title": "분할 입항(쇼트)·적하 정정 답하기",
+   "evidence": "백상이 「한 번에 할지 나눠 할지, 정정할지」를 묻는다(26건). 판단 기준(검역 일정 우선)이 매뉴얼에 없음"
+  },
+  {
+   "title": "보관 조건 줄 쓰기",
+   "evidence": "일정 글 121건에 보온·냉장 줄. 어느 품목이 보온인지 표가 없음"
+  },
+  {
+   "title": "검역 시각 정하기(오전·오후 검역)",
+   "evidence": "일정 글 76건에 「검역 ○ 오전」. 선율 답: 「11시 20분까지 반입돼야 오전 검역」(직전 점검). 월요일에 검역이 안 되는 나라가 있음(11-09 미국·중국)"
+  },
+  {
+   "title": "서류 미리 보기 3가지",
+   "evidence": "검역증 수량 = 인보이스 수량, 카네이션 NON-LMO 문구, 원산지증명서 협정 양식. 세 가지 모두 실제 사고가 있었음"
+  },
+  {
+   "title": "분할 통관·보류분 알리기",
+   "evidence": "「분할」 29건. 보류 품목과 예상 통관일을 영업에 알리는 단계가 없음"
+  },
+  {
+   "title": "관리대상·세관 검사 대응",
+   "evidence": "12건. 인보이스 전달, 검역 장소 합의, 백상 사무실·창고에 알리기"
+  },
+  {
+   "title": "폐기 신고와 폐기 비용",
+   "evidence": "통관 전 폐기는 선율이 신고, 백상은 보관. 비용 안내는 폐기 업체 → 백상 → 수입부"
+  },
+  {
+   "title": "박스 카운팅 공유",
+   "evidence": "30건(스케줄 방, 월·목·금). 패킹리스트가 끝나면 품목별 박스 수를 올림 — 현장 배차의 근거"
+  },
+  {
+   "title": "샘플 입고 알림·트래커 수거",
+   "evidence": "샘플 알림 13건, 트래커 35건(월요일). 호주·미국 건에 붙음"
+  },
+  {
+   "title": "현지 휴일 공지",
+   "evidence": "27건. 휴일 1주 전에 발주 마감을 당겨 알림"
+  },
+  {
+   "title": "고정 발주 변경 공지",
+   "evidence": "90건(수요일 33). 「승인 완료」 글 양식"
+  },
+  {
+   "title": "호텔 거래처 발주 공유 받기",
+   "evidence": "금요일마다 나라별·차수별·ETA 가 적힌 글 22건 → 수입부가 나라별로 다시 정리해 답"
+  },
+  {
+   "title": "전산 확정이 안 잡힐 때",
+   "evidence": "영업지원 40건: 「제품이 마이너스라 확정이 안 잡힘 → 패킹리스트 다시」. 입고 등록 매뉴얼에 이 되돌림이 없음"
+  },
+  {
+   "title": "새 품목 정보 카드·도착원가 한 줄 답",
+   "evidence": "카드 73건, 도착원가 회신 209건(수·목 14시). 영업이 가장 자주 묻는 것(265건)의 답 양식"
+  },
+  {
+   "title": "청구서 받기",
+   "evidence": "11-11 선율 방에서 청구서 수령을 묻고 「내일 한 번에」 답. 청구서가 며칠마다 오는지는 카톡에 1건뿐(미검증)"
+  }
+ ],
+ "unverified": [
+  "결제·청구·송금: 업무방 9개에 결제 방이 없고 수입방·선율 방의 청구서·정산서 언급은 3건뿐. 결제 요청 양식과 결제일 규칙은 카톡으로 복원 못 함",
+  "불량 공유방은 2026-09-14 이후 0건(수집 끊김). 10~11월 차수의 불량 신고·클레임은 빠져 있음. 6-10~6-29(19일)도 빈 기간",
+  "2026-06-25~26, 10-29 오후~10-30 은 9개 방 모두 비어 있음(수집 끊김 추정). 9-24~25 는 연휴로 추정",
+  "통관 서류 전달 메일, 농장·공급처와의 WhatsApp·위챗, 인천항 통관 방·식물검역 방은 수집 대상 밖 → 「서류 전달」 단계의 실제 시각은 카톡 알림 글로만 추정",
+  "보낸 쪽 역할 분류는 방별 발신 분포로 정한 것(수입부 6, 영업 7, 영업지원 7, 현장 9, 선율 1, 백상 12, 배차 기사 2, 견적 2 표시 이름). 영업과 영업지원의 경계, 공용 계정(63건 등)은 추정",
+  "45-3차 중국의 실제 도착 시각(공지문에 날짜와 요일이 어긋남)",
+  "중국 해상 화물의 도착 요일(도착 일정 글이 세 방에 없음)",
+  "YCL·KCL·MCL 머리글자의 뜻(10-12 이후 등장)",
+  "「사육」「하우스·마스터」「심플·콘솔」「파우치」「레드박스」의 정확한 뜻(글 맥락으로 추정)",
+  "폐기 비용·소독 비용의 청구 경로와 누가 승인하는지",
+  "불량 신고가 도착 12일 뒤까지 이어지는 것이 농장 클레임 기한 안인지",
+  "질문 유형·사고 유형 건수는 낱말 규칙으로 센 것이라 한 글이 여러 유형에 들어가고, 낱말이 없는 글은 빠짐(유형별 20~30건은 직접 읽어 확인, 전수 검토는 아님)",
+  "카톡 시각은 분 단위(±1분). 삭제된 메시지는 「메시지가 삭제되었습니다」 꼬리만 남아 있음"
+ ],
+ "clCodes": {
+  "distinct": 82,
+  "prefix": {
+   "CL": 1520,
+   "YCL": 137,
+   "KCL": 60,
+   "MCL": 18
+  }
+ }
+}

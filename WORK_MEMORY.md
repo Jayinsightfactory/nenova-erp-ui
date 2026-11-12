@@ -2707,3 +2707,7 @@
 - 카톡마운트자동GET, 기존block.text호환보존+messages원시ID/시각추가, 개별원문최신순·전체/추가/취소필터. panel sticky/maxHeight, 요청목록65dvh내부스크롤/overscrollContain/키보드초점. Chrome40메시지휠→page.scrollY불변PASS, 일반주문제외·메타데이터2건테스트PASS. 전체ERP/dnSpy/manifest213/writeguard1API PASS. 최종화면build성공,가이드session70942진행. PR/배포/운영후속.
 검색어: real-api-1112 load-isolated-erp-api 실제orders distribute estimate LocalDB 내부스크롤65dvh 메시지최신순
 - 완료검증: 새빌드39331에서운영주문API201×2/분배API200 verified2행 insert/새페이지5·7/운영견적printDetail2행·excelDetail150·210/실제xlsx2파일재열기PASS. 전체ERP exit0,카톡원문API단위PASS,Chrome40메시지내부휠 pageY불변PASS,정식npm build exit0. 가이드191.8초 first/middle/last직접확인,자동조회/내부스크롤설명포함. PR/배포후속.
+## 2026-11-12 중국 물량표 고정 열·스크롤
+- 단가/수량 컨트롤이 품목명을 덮지 않도록 셀 표시 순서를 분리. 표 상단 가로 레일과 표 좌우 이동을 동기화하고 표 오른쪽에서 세로 이동. 인쇄 레일 제외.
+- 화면 표시 변경. 주문/분배/원장/수량 및 엑셀 계산 변경 없음. 넓은 편집표에만 세로 스크롤 예외 적용. 검증 결과는 세션 기록 참조.
+- 검색어: china-scroll-1112 중국물량표 고정품목 단가겹침 상단가로스크롤

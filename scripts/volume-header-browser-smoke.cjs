@@ -21,16 +21,28 @@ const puppeteer = require('puppeteer-core');
     let scroller=wrap.parentElement;
     while(scroller && !(scroller.scrollHeight>scroller.clientHeight+100 && /auto|scroll/.test(getComputedStyle(scroller).overflowY)))scroller=scroller.parentElement;
     const before=first.getBoundingClientRect().top;
-    if(scroller)scroller.scrollTop+=before-scroller.getBoundingClientRect().top+480;else window.scrollTo(0,window.scrollY+before+480);
+    if(country==='china'){wrap.parentElement.scrollIntoView({block:'start'});wrap.scrollTop=280;}
+    else if(scroller)scroller.scrollTop+=before-scroller.getBoundingClientRect().top+480;else window.scrollTo(0,window.scrollY+before+480);
     await pause();
     const top=first.getBoundingClientRect().top;
-    const expected=scroller?Math.max(0,scroller.getBoundingClientRect().top+scroller.clientTop):0;
+    const expectedOuter=scroller?Math.max(0,scroller.getBoundingClientRect().top+scroller.clientTop):0;
+    const expected=Math.max(expectedOuter,country==='china'?wrap.getBoundingClientRect().top+wrap.clientTop:0,wrap.parentElement.querySelector('.matrix-x-rail')?.getBoundingClientRect().bottom||0);
     const customerTop=customer.getBoundingClientRect().top;
     const x=customer.getBoundingClientRect().left;
     wrap.scrollLeft=190;
     await pause();
     const xAfter=customer.getBoundingClientRect().left;
     const result={top,expected,customerTop,verticalAlign:getComputedStyle(customer).verticalAlign,xDelta:x-xAfter,scrollLeft:wrap.scrollLeft,controlsPreserved:controls===wrap.querySelectorAll('button,input,select').length,offset:wrap.style.getPropertyValue('--volume-header-offset')};
+    if(country==='china'){
+     const rail=wrap.parentElement.querySelector('.matrix-x-rail');
+     result.railParity=Math.abs(rail.scrollLeft-wrap.scrollLeft)<2;
+     rail.scrollLeft=320;wrap.scrollTop=240;await pause();
+     result.bothAxes=wrap.scrollTop>0 && Math.abs(wrap.scrollLeft-320)<2;
+     const bounds=wrap.getBoundingClientRect();
+     const y=Math.max(0,bounds.top,first.getBoundingClientRect().top)+Math.max(150,customer.getBoundingClientRect().bottom-first.getBoundingClientRect().top+30);
+     result.productAboveControls=!!document.elementFromPoint(bounds.left+35,y)?.closest('tbody th');
+     wrap.scrollTop=0;await pause();
+    }
     if(scroller)scroller.scrollTop=0;else window.scrollTo(0,0);
     await pause();
     result.reset=wrap.style.getPropertyValue('--volume-header-offset');
@@ -39,6 +51,7 @@ const puppeteer = require('puppeteer-core');
    assert.ok(Math.abs(report.top-report.expected)<3,JSON.stringify({width,country,...report}));
    assert.equal(report.verticalAlign,'top');assert.equal(report.controlsPreserved,true);
    assert.ok(Math.abs(report.xDelta-report.scrollLeft)<3);
+   if(country==='china')assert.ok(report.railParity && report.bothAxes && report.productAboveControls,JSON.stringify(report));
    assert.equal(report.reset,'0px');
    await page.emulateMediaType('print');
    assert.equal(await page.$eval('.customer-heading',el=>getComputedStyle(el).transform),'none');
