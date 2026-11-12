@@ -3,7 +3,7 @@ import { additionalCycleWeek } from '../lib/estimateFreightDraft';
 // 견적서 관리
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import EstimateShipmentDateSales from '../components/EstimateShipmentDateSales';
 import { createPortal } from 'react-dom';
@@ -615,6 +615,7 @@ function EstimateByWeek() {
   const [fixStatusAvailableCategories, setFixStatusAvailableCategories] = useState([]);
   const [fixStatusSelectedCategories, setFixStatusSelectedCategories] = useState([]);
   const [fixStatusCategoryPreset, setFixStatusCategoryPreset] = useState('all');
+  const [fixStatusNegOpenWeek, setFixStatusNegOpenWeek] = useState(null);
   const [selectedFixStatusWeeks, setSelectedFixStatusWeeks] = useState(new Set());
   // 주문 vs 출고 불일치 검증
   const [mismatch, setMismatch] = useState(null); // { total, shortageCount, overflowCount, items }
@@ -774,13 +775,19 @@ function EstimateByWeek() {
   };
 
   const toggleFixStatusCategory = (category) => {
+    // 「전체」 상태에서 개별 카테고리를 누르면 그 카테고리만 선택(범위 지정 시작)
+    const base = fixStatusCategoryPreset === 'all' ? [] : fixStatusSelectedCategories;
+    const set = new Set(base);
+    if (set.has(category)) set.delete(category);
+    else set.add(category);
+    const next = [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+    if (!next.length) {
+      setFixStatusCategoryPreset('all');
+      setFixStatusSelectedCategories([]);
+      return;
+    }
     setFixStatusCategoryPreset('custom');
-    setFixStatusSelectedCategories(prev => {
-      const set = new Set(prev);
-      if (set.has(category)) set.delete(category);
-      else set.add(category);
-      return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
-    });
+    setFixStatusSelectedCategories(next);
   };
 
   const checkFixStatus = async ({ orderYearOverride = yearStr, parentWeekOverride = weekNum, showModal = true } = {}) => {
@@ -6091,7 +6098,7 @@ function EstimateByWeek() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            disabled={fixStatusCategoryPreset === 'all'}
+                            disabled={rangeUnfixWorking || fixWorking}
                             onChange={() => toggleFixStatusCategory(cf)}
                           />
                           {cf}
@@ -6138,9 +6145,11 @@ function EstimateByWeek() {
                     const stockBadge = stockFixBadge(w.stockFixStatus);
                     const selected = selectedFixStatusWeeks.has(w.OrderWeek);
                     const selectable = Number(w.detailCount || 0) > 0 && w.status !== 'NO_SHIPMENT';
+                    const negItems = (fixStatusModal?.negative || []).filter(n => n.WeekKey === w.WeekKey);
+                    const negOpen = fixStatusNegOpenWeek === (w.WeekKey || w.OrderWeek);
                     return (
+                      <React.Fragment key={w.WeekKey || w.OrderWeek}>
                       <tr
-                        key={w.WeekKey || w.OrderWeek}
                         onClick={() => {
                           if (!selectable) return;
                           setSelectedFixStatusWeeks(prev => {
@@ -6184,10 +6193,55 @@ function EstimateByWeek() {
                         <td style={{ padding:'5px 6px', textAlign:'left', color: w.unfixedCategories ? '#c62828' : '#777', fontWeight: w.unfixedCategories ? 700 : 400 }}>
                           {w.unfixedCategories || '-'}
                         </td>
-                        <td style={{ padding:'5px 6px', textAlign:'right', color: Number(w.negativeCount || 0) > 0 ? '#c62828' : '#555', fontWeight: Number(w.negativeCount || 0) > 0 ? 700 : 400 }}>
-                          {Number(w.negativeCount || 0).toLocaleString()}
+                        <td
+                          onClick={(e) => {
+                            if (Number(w.negativeCount || 0) <= 0) return;
+                            e.stopPropagation();
+                            setFixStatusNegOpenWeek(negOpen ? null : (w.WeekKey || w.OrderWeek));
+                          }}
+                          title={Number(w.negativeCount || 0) > 0 ? '클릭하면 어떤 품종·품목이 몇 개 부족한지 보입니다' : ''}
+                          style={{ padding:'5px 6px', textAlign:'right', color: Number(w.negativeCount || 0) > 0 ? '#c62828' : '#555', fontWeight: Number(w.negativeCount || 0) > 0 ? 700 : 400, cursor: Number(w.negativeCount || 0) > 0 ? 'pointer' : 'default', textDecoration: Number(w.negativeCount || 0) > 0 ? 'underline' : 'none' }}>
+                          {Number(w.negativeCount || 0).toLocaleString()}{Number(w.negativeCount || 0) > 0 ? (negOpen ? ' ▲' : ' ▼') : ''}
                         </td>
                       </tr>
+                      {negOpen && (
+                        <tr style={{ background:'#fff5f5' }}>
+                          <td colSpan={7} style={{ padding:'8px 12px' }}>
+                            <div style={{ fontWeight:800, color:'#b71c1c', marginBottom:6 }}>
+                              {w.OrderWeek}차 음수재고 {negItems.length}건 (부족수량 큰 순)
+                            </div>
+                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                              <thead>
+                                <tr style={{ background:'#ffebee' }}>
+                                  <th style={{ padding:'4px 6px', textAlign:'center' }}>차수</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'left' }}>품종</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'left' }}>품목</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'right' }}>전재고</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'right' }}>입고/조정</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'right' }}>출고</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'right' }}>잔량</th>
+                                  <th style={{ padding:'4px 6px', textAlign:'right' }}>부족수량</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[...negItems].sort((a, b) => Number(a.remain) - Number(b.remain)).map((n, i) => (
+                                  <tr key={`${n.ProdKey}-${i}`} style={{ borderBottom:'1px solid #f3d6d6' }}>
+                                    <td style={{ padding:'3px 6px', textAlign:'center' }}>{n.OrderWeek}</td>
+                                    <td style={{ padding:'3px 6px', fontWeight:700, color:'#6a1b9a' }}>{n.CounName ? `${n.CounName} ` : ''}{n.FlowerName || '-'}</td>
+                                    <td style={{ padding:'3px 6px' }}>{n.ProdName}</td>
+                                    <td style={{ padding:'3px 6px', textAlign:'right' }}>{Number(n.prevStock || 0).toLocaleString()}</td>
+                                    <td style={{ padding:'3px 6px', textAlign:'right' }}>{Number(n.inQty || 0).toLocaleString()}</td>
+                                    <td style={{ padding:'3px 6px', textAlign:'right' }}>{Number(n.outQty || 0).toLocaleString()}</td>
+                                    <td style={{ padding:'3px 6px', textAlign:'right', color:'#c62828', fontWeight:700 }}>{Number(n.remain || 0).toLocaleString()}</td>
+                                    <td style={{ padding:'3px 6px', textAlign:'right', color:'#c62828', fontWeight:800 }}>{Math.abs(Number(n.remain) || 0).toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                   {fixStatusRows.length === 0 && (
