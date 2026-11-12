@@ -4,6 +4,7 @@
 **기반**: GitHub 10k+ 스타 multi-agent 프레임워크 (vijaythecoder/awesome-claude-agents 25k⭐, VoltAgent/awesome-claude-code-subagents, MetaGPT 67k⭐, AutoGen 32k⭐, CrewAI 22k⭐) 의 **Orchestrator + Specialist** 패턴을 네노바 작업 패턴 (최근 6주 ~80 커밋) 에 매핑.
 
 > 📌 **정본:** 모든 에이전트는 작업 전에 [`docs/canon/CANON.md`](../../docs/canon/CANON.md)의 판단 기준과 규칙 충돌 우선순위를 따른다. 판단 보조 역할의 `nenova-pm`(초안)은 아래 구성도 밖에 있으며, 실행은 여전히 `nenova-orchestrator`와 specialist 가 맡는다.
+> 🧑‍🤝‍🧑 **`nenova-hr`(초안, 2026-11-12):** 새 직원 온보딩과 업무 인수인계 문서 묶기만 돕는다(`docs/hr/`). 사람에 대한 평가·등급·보상·징계·합격 여부는 다루지 않는다. 구성도 밖에 있고 코드·DB를 고치지 않는다.
 
 ## 팀 구성도
 
