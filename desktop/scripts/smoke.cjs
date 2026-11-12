@@ -329,10 +329,16 @@ async function verifyNotesUi(sourceWindow) {
   const boundary=await contents.executeJavaScript('({url:location.href,requireType:typeof require,notesType:typeof window.notes,csp:document.querySelector("meta[http-equiv=Content-Security-Policy]").content})');
   assert.equal(boundary.url,'nenova-app://shell/notes.html');assert.equal(boundary.requireType,'undefined');assert.equal(boundary.notesType,'object');assert.match(boundary.csp,/connect-src 'none'/);
   await waitFor(()=>note.isVisible(),'memo window visible');
+  const beforeLaunch=homeRequests.filter(r=>r.method==='POST').length;
+  const oldTabs=new Set(main.tabs.keys());
+  assert.equal((await contents.executeJavaScript('window.notes.invoke("shortcut",{shortcut:{kind:"desktop",target:"/test/fixture",label:"열기"}})')).opened,true);
+  const launched=[...main.tabs.values()].find(t=>!oldTabs.has(t.id));assert.ok(launched,'native notes shortcut opens a desktop tab');
+  assert.equal(new URL(launched.url).pathname,'/test/fixture');assert.equal(homeRequests.filter(r=>r.method==='POST').length,beforeLaunch,'launch never completes a task');
+  await main.command(sourceWindow,'close',{id:launched.id});
   assert.equal((await contents.executeJavaScript('window.notes.invoke("pin",{pinned:true})')).pinned,true);
   await contents.executeJavaScript('document.querySelector("#pin").click()');
   await waitFor(()=>contents.executeJavaScript('window.notes.invoke("state").then(state=>state.pinned===false&&document.querySelector("#pin").getAttribute("aria-pressed")==="false")'),'memo pin toggles');
-  await contents.executeJavaScript(`(() => { document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
+  await contents.executeJavaScript(`(() => { document.querySelector('#openAdd').click(); document.querySelector('#frequency').value='monthly'; document.querySelector('#frequency').dispatchEvent(new Event('change')); document.querySelector('#title').value='메모장 월말 확인'; document.querySelector('#add button[type=submit]').click(); })()`);
   await waitFor(()=>homeStore(accountActor).tasks.some(task=>task.title==='메모장 월말 확인'),'memo creates task');
   assert.equal(homeRequests.filter(request=>request.body?.title==='메모장 월말 확인').at(-1).body.frequency,'monthly');
   await waitFor(()=>contents.executeJavaScript('document.querySelector("#tasks").textContent.includes("메모장 월말 확인")'),'memo reflects saved task');

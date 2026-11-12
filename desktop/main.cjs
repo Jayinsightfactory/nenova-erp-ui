@@ -5,6 +5,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, safeFavorites, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
+const { launchTaskShortcut }=require('./task-launcher.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 const { pmLiveStatus } = require('./pm-live.cjs');
 const { createActivity } = require('./activity.cjs');
@@ -154,17 +155,24 @@ function readNotesPrefs() {
 function saveNotesPrefs(value) {
   const file=notesPrefsPath();fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file+'.tmp',JSON.stringify(value),{mode:0o600});fs.renameSync(file+'.tmp',file);
 }
-function notesState() { const prefs=readNotesPrefs();return { online:!locked&&!!actor, pinned:prefs.pinned, reminder:prefs.reminder, ownerId:locked?'':actor }; }
+function notesState() { const prefs=readNotesPrefs();return { online:!locked&&!!actor, pinned:prefs.pinned, reminder:prefs.reminder, ownerId:locked?'':actor, menus:locked?[]:menus }; }
 function openNotesWindow() {
   if (locked || !actor) throw new Error('먼저 로그인해 주세요.');
   if (notesWindow && !notesWindow.isDestroyed()) { if(notesWindow.isMinimized())notesWindow.restore();notesWindow.show();notesWindow.focus();return notesState(); }
   const work=screen.getPrimaryDisplay().workArea;
-  const win=new BrowserWindow({width:410,height:780,minWidth:340,minHeight:480,x:Math.max(work.x,work.x+work.width-430),y:work.y+25,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#fffdf5',alwaysOnTop:readNotesPrefs().pinned,show:false,
+  const win=new BrowserWindow({width:320,height:690,useContentSize:true,minWidth:280,minHeight:480,x:Math.max(work.x,work.x+work.width-340),y:work.y+25,title:'네노바 업무 메모장',icon:path.join(__dirname,'assets','icon.png'),backgroundColor:'#ffffff',alwaysOnTop:readNotesPrefs().pinned,show:false,
     webPreferences:{preload:path.join(__dirname,'notes-preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
   notesWindow=win;auxiliary.add(win);win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',event=>event.preventDefault());win.webContents.on('will-attach-webview',event=>event.preventDefault());
   win.on('closed',()=>{auxiliary.delete(win);if(notesWindow===win)notesWindow=null;});
   win.loadURL(NOTES);win.once('ready-to-show',()=>win.show());activity?.record('notesOpen','/desktop/notes');return notesState();
+}
+async function openTaskShortcut(payload,w) {
+  const owner=actor,generation=authGeneration;
+  return launchTaskShortcut({payload,owner:locked?'':owner,isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,menus,
+    openMenu:data=>{const target=w||[...windows.values()].find(x=>!x.win.isDestroyed())||createWindow();if(!openTab(target,data))throw Error('업무 탭을 열지 못했습니다. 열린 탭 수를 확인하세요.');target.win.show();target.win.focus();},
+    confirmWeb:async url=>{const parent=w?.win||notesWindow;const result=await dialog.showMessageBox(parent,{type:'question',buttons:['취소','웹사이트 열기'],defaultId:0,cancelId:0,message:'이 웹사이트를 기본 브라우저에서 열까요?',detail:url});return result.response===1;},
+    openWeb:url=>shell.openExternal(url)});
 }
 function saveNotesShortcut(w) {
   if (locked || !actor) throw new Error('먼저 로그인해 주세요.');
@@ -363,6 +371,8 @@ function command(w, action, p = {}) {
     case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
+    case 'taskShortcut': return openTaskShortcut(p,w);
+    case 'taskMenus': return {menus:locked?[]:menus};
     case 'open': openTab(w, p); break;
     case 'activate': activate(w, p.id); break;
     case 'close': if (t?.windowId === w.id) closeTab(t); break;
@@ -654,7 +664,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js','task-settings.js','task-controls.js','notes.html','notes.js','notes.css'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
@@ -699,6 +709,7 @@ app.whenReady().then(async () => {
     if (action==='state') return notesState();
     if (locked || !actor) throw new Error('로그인을 다시 확인하세요.');
     if (action==='workspace') { const owner=actor,generation=authGeneration;return homeWorkspaceRequest({payload,owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{lockAccount();++authGeneration;verifyAccount().catch(()=>{});}}); }
+    if (action==='shortcut') return openTaskShortcut(payload,null);
     if (action==='copy') {const owner=actor,generation=authGeneration;return homeWorkspaceRequest({payload:{method:'GET',date:payload.date,limit:500},owner,fetch:(url,options)=>webSession.fetch(url,options),isCurrent:()=>!locked&&actor===owner&&authGeneration===generation,onUnauthorized:()=>{}}).then(data=>{if(!data.success)throw new Error('업무를 다시 확인해 주세요.');const active=data.tasks.filter(task=>!task.archived);clipboard.writeText([payload.date+' 오늘의 내 업무',...active.map(task=>`${task.done?'[완료]':'[ ]'} ${task.title}`)].join('\n'));activity?.record('notesCopy','/desktop/notes');return {copied:active.length,partial:data.nextOffset!=null};});}
     if (action==='pin') {const prefs=readNotesPrefs();prefs.pinned=payload.pinned===true;saveNotesPrefs(prefs);notesWindow.setAlwaysOnTop(prefs.pinned);activity?.record('notesPin','/desktop/notes');return notesState();}
     if (action==='reminder') {const prefs=readNotesPrefs();if (payload.time!==''&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(payload.time))throw new Error('알림 시간을 확인하세요.');prefs.reminder=payload.time;saveNotesPrefs(prefs);activity?.record('notesReminderSetting','/desktop/notes');void checkNotesReminder();return notesState();}

@@ -780,6 +780,75 @@
           ]
         }
       ]
+    },
+    {
+      "id": "desktop-task-schedule",
+      "title": "오늘의 내 업무 · 시간과 바로가기",
+      "entryPaths": [
+        "/desktop-guide"
+      ],
+      "sourceFiles": [
+        "desktop/shell/index.html",
+        "desktop/shell/home-workspace.js",
+        "desktop/shell/shell.css",
+        "desktop/shell/notes.html",
+        "desktop/shell/notes.js",
+        "desktop/shell/notes.css",
+        "desktop/shell/task-settings.js",
+        "desktop/shell/task-controls.js",
+        "pages/desktop-guide.js"
+      ],
+      "requiredScenarios": [
+        "overview",
+        "schedule",
+        "save",
+        "notes",
+        "shortcut",
+        "launch"
+      ],
+      "guides": [
+        {
+          "id": "staff",
+          "role": "직원",
+          "title": "시간표 입력부터 PC 메모장 바로가기까지",
+          "status": "ready",
+          "src": "/guides/desktop-task-schedule/staff.mp4",
+          "captions": "/guides/desktop-task-schedule/staff.ko.vtt",
+          "proof": "/guides/desktop-task-schedule/staff.proof.json",
+          "chapters": [
+            {
+              "scenario": "overview",
+              "title": "1. 홈에서 오늘 업무 확인",
+              "seconds": 0
+            },
+            {
+              "scenario": "schedule",
+              "title": "2. 시간표에서 매일 업무 입력",
+              "seconds": 9.052
+            },
+            {
+              "scenario": "save",
+              "title": "3. 업무명과 반복을 입력하고 저장",
+              "seconds": 18.123
+            },
+            {
+              "scenario": "notes",
+              "title": "4. 좁은 PC 메모장에서 업무 확인",
+              "seconds": 28.521
+            },
+            {
+              "scenario": "shortcut",
+              "title": "5. 메뉴 또는 웹 바로가기 연결",
+              "seconds": 37.594
+            },
+            {
+              "scenario": "launch",
+              "title": "6. 바로가기와 완료를 따로 사용",
+              "seconds": 46.757
+            }
+          ]
+        }
+      ]
     }
   ]
 }

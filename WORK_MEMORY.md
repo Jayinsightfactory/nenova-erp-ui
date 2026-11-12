@@ -2718,3 +2718,12 @@
 - 단가/수량 컨트롤이 품목명을 덮지 않도록 셀 표시 순서를 분리. 표 상단 가로 레일과 표 좌우 이동을 동기화하고 표 오른쪽에서 세로 이동. 인쇄 레일 제외.
 - 화면 표시 변경. 주문/분배/원장/수량 및 엑셀 계산 변경 없음. 넓은 편집표에만 세로 스크롤 예외 적용. 검증 결과는 세션 기록 참조.
 - 검색어: china-scroll-1112 중국물량표 고정품목 단가겹침 상단가로스크롤
+
+## 2026-11-12 오늘의 내 업무 · 승인 디자인 실제 적용
+- 사용자 제안대로 적용 승인. 단일 작업자, nw-task-launch-design-1112. 홈 처음8개/시간표·빈시간추가, PC메모장 content폭320·행51px·8개·dialog추가수정, 기존고정/복사/알림/보관유지.
+- startTime/endTime/shortcut을 기존 owner파일 CAS/원자성/멱등요청에 추가. 선택실행 즉시·반복은다음날부터, 전년도스냅샷/구형앱제목수정보존. 정규화 helper공유, 앱메인에서계정현재메뉴대조·웹http(s)확인·계정전환후거부. 이동=완료아님. ERP원장/SQL/API신설0.
+- 실제저장/재조회/시간경계·누락/명시해제·교차연도·계정분리·CAS 회귀PASS. Chromium실제shell1920/800·notes320/280/390 8개·시간표·저장실패입력보존·충돌재조회재저장·Escape PASS. desktop unit47/47, native ElectronIPC메뉴탭실행·이동후POST0/계정전환·복원PASS.
+- 정식 npm run test:erp-contract exit0(공식pre/post포함), dnSpy/manifest213/writeguard0API PASS. 57.6초실제Chrome연습가이드6단계·자막/목차·대상줌/최종프레임검토·해시등록, 페이지/desktop-guide·홈/메모장연결.
+- Desktop1.3.19·다운로드링크갱신. 정식webpack1worker빌드 진행, PR/CI/설치파일공개/Cafe24배포/운영재생은 후속(미검증). 기록 docs/plans/task-launch-criteria-1112.md.
+- 메뉴기준 적용: 읽기밀도/키보드/반응형/스크롤/뒤로가기/오류입력보존/가이드. ERP업무키·원장쓰기·전산probe 해당없음(동작은개인JSON·메뉴이동만).
+검색어: task-launch-1112 1.3.19 320px 8개 startTime endTime shortcut 시간표 CAS nativeIPC 가이드57.6

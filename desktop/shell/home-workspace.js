@@ -13,8 +13,8 @@
   let timer, failures = 0, expanded = false, editing = null, editDraft = null, pending = null, confirmation = null;
   let selectedDate = today(), followsToday = true, detail = null, detailTrigger = null;
   let lastDirty = false;
-  let readGeneration = 0;
-  function draftSignal() { const dirty = !!(input.value.trim() || editing || pending); if (dirty !== lastDirty) { lastDirty = dirty; void window.desktop.invoke('homeDraft', { dirty }).catch(() => {}); } }
+  let readGeneration = 0, menuGroups = [], timeline = false;
+  function draftSignal() { const dirty = !!(input.value.trim() || addSettings.dirty() || editing || pending); if (dirty !== lastDirty) { lastDirty = dirty; void window.desktop.invoke('homeDraft', { dirty }).catch(() => {}); } }
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const lanes = ['guidance', 'feedback'].map(key => ({ key, at: 0, paused: reduced.matches, hover: false, focus: false, list: false }));
 
@@ -32,17 +32,20 @@
   const current = button('오늘', () => changeDate(today(), true));
   const filter = node('select'); filter.setAttribute('aria-label', '업무 보기');
   for (const [value, label] of [['active', '전체 업무'], ['pending', '미완료'], ['done', '완료'], ['repeat', '반복 업무'], ['archived', '삭제한 업무']]) filter.add(new Option(label, value));
-  heading.append(title, date, weekday, current, filter, count, refresh, openNotes, downloadNotes);
+  const guide=button('사용 가이드 영상',()=>window.desktop.invoke('open',{url:'/desktop-guide',title:'오늘의 내 업무 사용 가이드'}).catch(e=>setError(e.message)));
+  heading.append(guide,title, date, weekday, current, filter, count, refresh, openNotes, downloadNotes);
   const status = node('p', 'hw-status'); status.setAttribute('role', 'status');
   const error = node('div', 'hw-error'); error.setAttribute('role', 'alert'); error.hidden = true;
   const errorText = node('span'); const retry = button('다시 시도', () => pending ? void sendPending() : void load()); error.append(errorText, retry);
   const form = node('form', 'hw-add');
   const input = node('input'); input.placeholder = '해야 할 일을 입력하세요'; input.maxLength = 300; input.required = true; input.setAttribute('aria-label', '추가할 업무');
   const repeat = makeRepeat([]); const add = node('button', 'hw-primary', '＋ 추가'); add.type = 'submit';
-  form.append(input, repeat.root, add);
+  const addSettings=window.NenovaTaskControls.create();const settingsToggle=node('details','hw-settings');settingsToggle.append(node('summary','','시간 · 바로가기 설정'),addSettings.root);
+  form.append(input, repeat.root, add,settingsToggle);
+  const viewBar=node('div','hw-viewbar'),listView=button('목록',()=>{timeline=false;renderTasks();}),timeView=button('시간표',()=>{timeline=true;expanded=true;renderTasks();});viewBar.append(listView,timeView);
   const rows = node('div', 'hw-rows');
   const more = button('전체 보기', () => { if (!expanded) { expanded = true; renderTasks(); } else if (snapshot?.nextOffset != null) void loadMore(); else { expanded = false; renderTasks(); } }); more.hidden = true;
-  panel.append(heading, status, error, form, rows, more); root.append(feeds, feedDetail, panel);
+  panel.append(heading, status, error, form,viewBar, rows, more); root.append(feeds, feedDetail, panel);
 
   function makeRepeat(values, frequency) {
     const wrap = node('div', 'hw-repeat'); const select = node('select'); select.setAttribute('aria-label', '반복 기준');
@@ -60,15 +63,15 @@
   function stamp(value) { if (!value) return ''; const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
   function changeDate(value, auto = false) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || busy) return;
-    if (editing || pending || input.value.trim()) { date.value = selectedDate; setError('작성 중인 업무를 저장하거나 수정 취소 후 날짜를 변경해 주세요. 추가 입력은 직접 지울 수 있습니다.'); return; }
+    if (editing || pending || input.value.trim() || addSettings.dirty()) { date.value = selectedDate; setError('작성 중인 업무를 저장하거나 수정 취소 후 날짜를 변경해 주세요. 추가 입력은 직접 지울 수 있습니다.'); return; }
     selectedDate = value; followsToday = auto; date.value = value; expanded = false; confirmation = null;
     snapshot = null; renderTasks(); void load();
   }
   date.addEventListener('change', () => changeDate(date.value)); filter.addEventListener('change', () => { expanded = false; renderTasks(); });
-  input.addEventListener('input', draftSignal);
+  input.addEventListener('input', draftSignal);settingsToggle.addEventListener('input',draftSignal);
   form.addEventListener('submit', event => { event.preventDefault(); const title = input.value.trim(); if (!title || !snapshot || busy) return;
-    if (!repeat.valid()) return; const entered = input.value;
-    mutate('create', { title, startDate: selectedDate, weekdays: repeat.get(), frequency: repeat.frequency(), date: selectedDate }, () => { if (input.value === entered) { input.value = ''; repeat.reset(); } input.focus(); });
+    if (!repeat.valid() || !addSettings.valid()) return; const entered = input.value;
+    mutate('create', { title, ...addSettings.get(), startDate: selectedDate, weekdays: repeat.get(), frequency: repeat.frequency(), date: selectedDate }, () => { if (input.value === entered) { input.value = ''; repeat.reset(); addSettings.reset(); } input.focus(); });
   });
   function schedule() { clearTimeout(timer); if (owner && visible && online && !document.hidden) timer = setTimeout(() => void load(), Math.min(300000, 30000 * 2 ** failures)); }
   async function load() {
@@ -129,19 +132,21 @@
   }
   function renderData() { status.textContent = '마지막 갱신 ' + stamp(snapshot.syncedAt) + ' · 홈 표시 중 30초마다 확인'; renderTasks(); renderFeeds(); lock(); }
   function rowKey(task) { return String(task.id) + '|' + (task.occurrenceDate || selectedDate); }
-  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.frequency, task.monthDay, task.occurrenceDate, !!task.done, !!task.archived, !!task.stopped]); }
+  function taskFingerprint(task) { return JSON.stringify([task.title, task.startDate, task.weekdays, task.frequency, task.monthDay, task.occurrenceDate,task.startTime,task.endTime,task.shortcut, !!task.done, !!task.archived, !!task.stopped]); }
   function focusTask(id) { [...rows.querySelectorAll('.hw-task')].find(r => r.dataset.task.startsWith(String(id) + '|'))?.querySelector('button:not(:disabled),input:not(:disabled)')?.focus(); }
   function taskFields(task) { return { taskId: task.id, date: task.occurrenceDate || selectedDate }; }
   function renderTasks() {
-    if (editing && rows.querySelector('.hw-edit')) captureEdit();
+    if (editing && rows.querySelector('.hw-edit')) {try{captureEdit();}catch{ return; }}
     const focusedEdit = rows.querySelector('.hw-edit')?.contains(document.activeElement) ? { name: document.activeElement.name, start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd } : null;
     rows.replaceChildren(); weekday.textContent = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'long' }).format(new Date(selectedDate + 'T12:00:00+09:00'));
     const all = snapshot?.tasks || []; const active = all.filter(t => !t.archived);
     count.textContent = snapshot ? (snapshot.nextOffset != null ? '불러온 업무 ' : '') + active.filter(t => t.done).length + ' / ' + active.length + ' 완료' + (snapshot.nextOffset != null ? ' · 전체 ' + snapshot.totalTasks + '건' : '') : '';
-    const items = all.filter(t => filter.value === 'archived' ? t.archived : !t.archived && (filter.value === 'pending' ? !t.done : filter.value === 'done' ? t.done : filter.value === 'repeat' ? (t.frequency||((t.weekdays||[]).length?'weekly':'once')) !== 'once' : true));
+    const items = all.filter(t => filter.value === 'archived' ? t.archived : !t.archived && (filter.value === 'pending' ? !t.done : filter.value === 'done' ? t.done : filter.value === 'repeat' ? (t.frequency||((t.weekdays||[]).length?'weekly':'once')) !== 'once' : true)).sort(window.NenovaTaskSettings.compare);
+    listView.setAttribute('aria-pressed',String(!timeline));timeView.setAttribute('aria-pressed',String(timeline));
+    if(timeline&&!editing&&owner){renderTimeline(items);more.hidden=snapshot?.nextOffset==null;more.textContent='업무 더 불러오기';draftSignal();return;}
     if (!owner) { rows.append(node('p', 'hw-empty', '로그인하면 개인 업무와 소식을 확인할 수 있습니다.')); }
     else if (snapshot && !items.length) rows.append(node('p', 'hw-empty', '선택한 날짜와 보기에 해당하는 업무가 없습니다.'));
-    for (const task of (expanded ? items : items.slice(0, 6))) {
+    for (const task of (expanded ? items : items.slice(0, 8))) {
       const row = node('div', 'hw-task' + (task.done ? ' is-done' : '')); row.dataset.task = rowKey(task);
       if (editing === rowKey(task)) { renderEdit(row, task); rows.append(row); continue; }
       const label = node('label', 'hw-task-label'), check = node('input'); check.type = 'checkbox'; check.checked = !!task.done; check.disabled = busy || task.archived; check.setAttribute('aria-label', task.title + ' 완료');
@@ -150,10 +155,11 @@
       const recurrence=task.frequency||(task.weekdays?.length?'weekly':'once');
       const repeatLabel = recurrence === 'monthly' ? `매월 ${task.monthDay || Number(task.startDate.slice(8))}일` : recurrence === 'daily' ? '매일' : recurrence === 'weekly' ? `매주 ${task.weekdays.map(d => dayNames[d]).join('·')}` : '일회';
       const meta = node('span', 'hw-task-meta', (task.carried ? '이월 ' + task.occurrenceDate + ' · ' : '') + (task.stopped ? '반복 종료' : repeatLabel));
-      row.append(label, meta);
+      const time=node('time','hw-task-time',task.startTime||'미정');time.title=task.endTime?task.startTime+'–'+task.endTime:'';row.append(time,label,meta);
+      if(task.shortcut){const go=button((task.shortcut.kind==='desktop'?'▣ ':'↗ ')+task.shortcut.label+' ↗',async()=>{go.disabled=true;try{await window.desktop.invoke('taskShortcut',{shortcut:task.shortcut});}catch(e){setError(e.message);}finally{go.disabled=busy;}},'hw-task-go');row.append(go);}
       const action = (text, fn) => { const b = button(text, fn); b.disabled = busy; row.append(b); return b; };
       if (task.archived) action('복구', () => mutate('restore', taskFields(task)));
-      else { action('수정', () => { editing = rowKey(task); editDraft = { title: task.title, startDate: task.startDate || selectedDate, weekdays: task.weekdays || [], frequency: recurrence }; renderTasks(); rows.querySelector('.hw-edit input')?.focus(); });
+      else { action('수정', () => { editing = rowKey(task); editDraft = { title: task.title, startDate: task.startDate || selectedDate, weekdays: task.weekdays || [], frequency: recurrence,...window.NenovaTaskSettings.normalize({},task) }; renderTasks(); rows.querySelector('.hw-edit input')?.focus(); });
         action('삭제', () => { confirmation = { key: rowKey(task), action: 'archive' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); });
         if (recurrence !== 'once' && !task.stopped) action('반복 종료', () => { confirmation = { key: rowKey(task), action: 'stop' }; renderTasks(); rows.querySelector('.hw-confirm button')?.focus(); }); }
       if (confirmation?.key === rowKey(task)) { const confirm = node('div', 'hw-confirm'); confirm.append(node('span', '', confirmation.action === 'stop' ? '오늘(또는 선택한 미래 날짜) 이후 반복을 종료합니다. 과거·미완료 기록은 유지됩니다.' : '이 날짜의 업무를 삭제합니다. 삭제한 업무에서 복구할 수 있습니다.'));
@@ -161,18 +167,23 @@
         const yes = button('확인', () => mutate(confirmation.action, taskFields(task))); yes.disabled = busy; confirm.append(yes, button('취소', cancel)); confirm.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancel(); } }); row.append(confirm); }
       rows.append(row);
     }
-    more.hidden = items.length <= 6 && snapshot?.nextOffset == null; more.textContent = expanded ? snapshot?.nextOffset != null ? '업무 더 불러오기' : '6건만 보기' : '전체 보기' + (snapshot?.totalTasks ? ' (' + snapshot.totalTasks + '건)' : '');
+    more.hidden = items.length <= 8 && snapshot?.nextOffset == null; more.textContent = expanded ? snapshot?.nextOffset != null ? '업무 더 불러오기' : '8건만 보기' : '전체 보기' + (snapshot?.totalTasks ? ' (' + snapshot.totalTasks + '건)' : '');
     if (focusedEdit?.name) { const field = rows.querySelector('.hw-edit')?.elements[focusedEdit.name]; field?.focus({ preventScroll: true }); if (field?.type === 'text') field.setSelectionRange(focusedEdit.start, focusedEdit.end); }
     draftSignal();
   }
-  let editRepeat;
-  function captureEdit() { const f = rows.querySelector('.hw-edit'); if (f) editDraft = { title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get(), frequency: editRepeat.frequency() }; }
+  function renderTimeline(items){
+    const times=[...new Set(['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00',...items.map(t=>t.startTime).filter(Boolean)])].sort();
+    for(const time of [...times,'']){const slot=node('div','hw-time-slot');slot.append(node('time','',time||'시간 미정'));const content=node('div','hw-time-items');for(const task of items.filter(t=>(t.startTime||'')===time)){content.append(button((task.carried?task.occurrenceDate+' 이월 · ':'')+task.title,()=>{editing=rowKey(task);editDraft={title:task.title,startDate:task.startDate,weekdays:task.weekdays,frequency:task.frequency,...window.NenovaTaskSettings.normalize({},task)};renderTasks();rows.querySelector('.hw-edit input')?.focus();}));}
+      content.append(button('＋ 이 시간에 업무 추가',()=>{settingsToggle.open=true;addSettings.setStart(time);input.focus();},'hw-slot-add'));slot.append(content);rows.append(slot);}
+  }
+  let editRepeat,editSettings;
+  function captureEdit() { const f = rows.querySelector('.hw-edit'); if (f) editDraft = { title: f.elements.title.value, startDate: f.elements.startDate.value, weekdays: editRepeat.get(), frequency: editRepeat.frequency(),...editSettings.get() }; }
   function renderEdit(row, task) {
-    const f = node('form', 'hw-edit'), text = node('input'), start = node('input'); text.name = 'title'; text.value = editDraft.title; text.required = true; text.maxLength = 300; text.setAttribute('aria-label', '업무 제목 수정'); start.type = 'date'; start.name = 'startDate'; start.value = editDraft.startDate; start.required = true; start.setAttribute('aria-label', '반복 시작일'); editRepeat = makeRepeat(editDraft.weekdays,editDraft.frequency);
+    const f = node('form', 'hw-edit'), text = node('input'), start = node('input'); text.name = 'title'; text.value = editDraft.title; text.required = true; text.maxLength = 300; text.setAttribute('aria-label', '업무 제목 수정'); start.type = 'date'; start.name = 'startDate'; start.value = editDraft.startDate; start.required = true; start.setAttribute('aria-label', '반복 시작일'); editRepeat = makeRepeat(editDraft.weekdays,editDraft.frequency);editSettings=window.NenovaTaskControls.create(editDraft,menuGroups);
     const cancelEdit = () => { editing = null; editDraft = null; renderTasks(); rows.querySelector('[data-task="' + CSS.escape(rowKey(task)) + '"]>button')?.focus(); };
-    const save = node('button', 'hw-primary', '저장'); save.type = 'submit'; const cancel = button('취소', cancelEdit); f.append(text, start, editRepeat.root, save, cancel);
+    const save = node('button', 'hw-primary', '저장'); save.type = 'submit'; const cancel = button('취소', cancelEdit); f.append(text, start, editRepeat.root,editSettings.root, save, cancel,node('small','hw-muted','선택 업무는 즉시, 반복 설정은 다음날부터 반영됩니다.'));
     f.querySelectorAll('input,select,button').forEach(e => e.disabled = busy);
-    f.addEventListener('submit', e => { e.preventDefault(); captureEdit(); if (!editDraft.title.trim() || !editRepeat.valid()) return; mutate('update', { ...taskFields(task), ...editDraft, title: editDraft.title.trim() }, () => { editing = null; editDraft = null; }); });
+    f.addEventListener('submit', e => { e.preventDefault();if(!editSettings.valid())return; captureEdit(); if (!editDraft.title.trim() || !editRepeat.valid()) return; mutate('update', { ...taskFields(task), ...editDraft, title: editDraft.title.trim() }, () => { editing = null; editDraft = null; }); });
     f.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!busy) cancelEdit(); } }); row.append(f);
   }
   function renderFeeds() {
@@ -290,9 +301,10 @@
   reduced.addEventListener('change', e => { if (e.matches) { lanes.forEach(l => l.paused = true); renderFeeds(); } });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
   window.homeWorkspace = { applyState(next) {
+    if(Array.isArray(next.menus)){menuGroups=next.menus;addSettings.setMenus(menuGroups);}
     const nextOwner = Object.prototype.hasOwnProperty.call(next, 'homeOwnerId') ? String(next.homeOwnerId || '') : owner;
     const changed = nextOwner !== owner, wasVisible = visible, wasOnline = online;
-    if (changed) { epoch++; owner = nextOwner; snapshot = null; pending = null; editing = null; editDraft = null; confirmation = null; busy = false; querying = false; failures = 0; input.value = ''; repeat.reset(); filter.value = 'active'; expanded = false; selectedDate = today(); date.value = selectedDate; followsToday = true; detail = null; feedDetail.hidden = true; feedDetail.replaceChildren(); setError(''); lanes.forEach(l => { l.at = 0; l.hover = false; l.focus = false; }); }
+    if (changed) { epoch++; owner = nextOwner; snapshot = null; pending = null; editing = null; editDraft = null; confirmation = null; busy = false; querying = false; failures = 0; input.value = ''; repeat.reset(); addSettings.reset(); filter.value = 'active'; expanded = false; selectedDate = today(); date.value = selectedDate; followsToday = true; detail = null; feedDetail.hidden = true; feedDetail.replaceChildren(); setError(''); lanes.forEach(l => { l.at = 0; l.hover = false; l.focus = false; }); }
     if ('menuOpen' in next) visible = !!next.menuOpen; if ('online' in next) online = !!next.online;
     if (changed) { status.textContent = owner ? '개인 업무를 확인합니다.' : '로그인이 필요합니다.'; renderTasks(); renderFeeds(); lock(); }
     if (!visible || !online || !owner) clearTimeout(timer);
