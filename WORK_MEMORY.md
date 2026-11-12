@@ -2619,5 +2619,6 @@
 - 사용자요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지. 최신 origin/master 별도작업트리 feat/shipment-statement-item-label-edit, PR #1684.
 - 구현: ProdKey별 표시명 파일(data/runtime/shipment-statement-labels), POST /api/shipment/statement?action=label, 엑셀·미리보기에만 적용, 빈 값=자동명 복귀. ERP/작성본/sourceHash 변경0.
 - 검증: shipment-statement 단위 31 PASS(신규3), guard:erp-writes·dnspy-evidence·erp-contract-manifest(213)·test:ui-layout PASS. 계약 scope에 신규 파일 등록(처음 누락→manifest 실패→수정).
-- 미검증: 운영 화면 실조작, 전체 webpack build, 사용 가이드 영상 재촬영(표 입력칸 UI 변경 있음), 서버 배포의 data/runtime 보존.
+- 추가 검증: 정식 npm run build(영상 게이트 통과), 실Chrome 합성 fixture 1920/390(입력·유지·엑셀 반영·드래그), 가이드 6목차 재촬영·플레이어 재생 PASS.
+- 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
