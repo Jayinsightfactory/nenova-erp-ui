@@ -24,7 +24,9 @@
     "components/manuals/LivePipelineManual.js",
     "lib/importHandover.js",
     "components/manuals/ImportHandover.js",
-    "data/import-handover.json"
+    "data/import-handover.json",
+    "components/manuals/ImportEducation.js",
+    "data/import-education.json"
   ],
   "businessIdentity": [
     "OrderYear",
