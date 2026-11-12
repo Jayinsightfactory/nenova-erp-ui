@@ -16,7 +16,8 @@
     "config/shipment-statement-format.json",
     "lib/shipmentStatementLabels.cjs",
     "lib/shipmentStatementRichTitle.cjs",
-    "lib/shipmentStatementLabelStore.cjs"
+    "lib/shipmentStatementLabelStore.cjs",
+    "lib/shipmentStatementChanges.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -53,6 +54,12 @@
       "webOnly": "Country-flower button filters can be combined; row selections accumulate across filter/search changes and drag ranges; domestic wax is labeled freight in display/export only; checkbox membership draft and immutable saved version export preserve source keys"
     },
     {
+      "name": "SHOW_SOURCE_CHANGES_AND_KEEP_UNCHANGED_ALLOCATION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "webOnly": "Read-only comparison of the saved web revision with the current pivot source; lists changed quantity/cost/item/customer/calendar and carries over day allocations of unchanged rows. No ERP write."
+    },
+    {
       "name": "EDIT_EXCEL_ITEM_LABEL_MATCHING",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -76,7 +83,8 @@
     "__tests__/shipmentStatementSelection.test.cjs",
     "__tests__/shipmentStatementGroups.test.cjs",
     "__tests__/shipmentStatementLabels.test.cjs",
-    "__tests__/shipmentStatementLabelEdit.test.cjs"
+    "__tests__/shipmentStatementLabelEdit.test.cjs",
+    "__tests__/shipmentStatementChanges.test.cjs"
   ],
   "dnspyEvidence": {
     "required": true,

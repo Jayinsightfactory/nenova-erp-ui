@@ -5,6 +5,8 @@
 // 색은 lib/pmThemes.js 토큰(var(--pm-*))만 쓴다(하드코딩 hex 금지) — 테마 B(파스텔 클레이) 고정.
 // 버튼·칩·배지는 /pm UI 키트(components/pm/ui)만 쓴다(생 button/span 배지 금지) — 사장님 피드백 2026-11-04:
 //   분류 아이콘·저장소명·★별수·점수 배지는 각각 별 요소로 분리(한 덩어리 금지), 점수는 "N/10" 둥근 클레이 배지.
+// 수집기 확장(2026-11-12) 추가 필드 — 모두 선택 사항(없는 예전 회차 항목은 꼬리표 줄 자체가 안 나온다):
+//   sourceLabel(찾은 곳) · inUse(이미 사용 중) · resurfaced(별 급증으로 재평가) · actionLlm('바로 시험' 이었으나 회차 상한 3개에 밀려 대기).
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, SelectCard, ToggleChip, PmUiStyles, Tabs } from '../../components/pm/ui';
 import { themeById, themeCss } from '../../lib/pmThemes';
@@ -28,6 +30,44 @@ const BUCKETS = [['top', '최상'], ['hi', '상'], ['mid', '중'], ['lo', '하']
 // 분류 이모지 — 시스템(주제) 기준, 없으면 언어 머리글자 대신 📦
 const SYS_ICON = { '네노바웹': '🌐', Orbit: '👁️', 'AI 자동화': '🤖', MOYI: '💬', '공통': '🧩' };
 const iconOf = (x) => SYS_ICON[(x.systems || [])[0]] || '📦';
+// 찾은 곳(sourceLabel) — "조직 감시(vercel-labs) · 신규 급상승(7일) · 재평가(…)" 를 ' · ' 로 나눈다. 재평가 문구는 resurfaced 꼬리표가 따로 보여주므로 뺀다.
+const srcParts = (x) => (typeof x.sourceLabel === 'string' ? x.sourceLabel.split(' · ').map((t) => t.trim()).filter((t) => t && !t.startsWith('재평가')) : []);
+const srcKind = (part) => part.split('(')[0].trim(); // 필터용 묶음 이름: "조직 감시(vercel-labs)" → "조직 감시"
+// 시험 후보(대기): AI 는 '바로 시험' 으로 봤지만 회차당 시험 3개 상한에 밀려 '관찰' 로 내려간 것. 이미 쓰는 도구(inUse)는 시험 대상이 아니라 제외.
+const isWaiting = (x) => x.actionLlm === '바로 시험' && x.action !== '바로 시험' && !x.inUse;
+const hasTags = (x) => !!(x.inUse || x.resurfaced || isWaiting(x) || srcParts(x).length);
+
+// 카드 꼬리표 줄 — 새 필드가 하나도 없는 예전 항목이면 아무것도 그리지 않는다
+function Tags({ x }) {
+  if (!hasTags(x)) return null;
+  return (
+    <div className="xtags">
+      {x.inUse && <Badge className="xt use" title="우리 회사가 이미 쓰고 있는 도구입니다. 새로 시험할 대상은 아닙니다.">✅ 이미 사용 중</Badge>}
+      {x.resurfaced && <Badge className="xt re" title={`예전에 평가했던 것인데 별(인기)이 크게 늘어 다시 평가했습니다. ${x.resurfaced}`}>🔁 재평가</Badge>}
+      {isWaiting(x) && <Badge className="xt wait" title="시험해 볼 만하다고 평가됐지만, 한 회차에 시험은 3개까지만 해서 순서를 기다리는 중입니다.">⏳ 시험 후보(대기)</Badge>}
+      {srcParts(x).map((t) => <Badge key={t} className="xt src" title="이 저장소를 찾은 곳">📍 {t}</Badge>)}
+    </div>
+  );
+}
+
+// 상세(펼침) 안 설명 줄 — 시험 결과 · 재평가 이유 · 시험 대기 · 이미 사용 중 · 찾은 곳. 해당 필드가 없으면 그 줄은 안 나온다.
+function ExtraDetail({ x }) {
+  const pr = x.pilotResult;
+  const src = srcParts(x);
+  return (
+    <>
+      {pr && (
+        <p><b>시험 결과</b> {[pr.verdict, pr.score !== undefined && pr.score !== null ? `${pr.score}점` : '', pr.summary].filter(Boolean).join(' · ')}{pr.testedAt ? ` (${kst(pr.testedAt)} 시험)` : ''}
+          {pr.reportPath && <span className="rp"> · 시험 보고서: {pr.reportPath}</span>}
+        </p>
+      )}
+      {x.resurfaced && <p><b>다시 평가한 이유</b> 별(인기)이 크게 늘었습니다 — {x.resurfaced}</p>}
+      {isWaiting(x) && <p><b>시험 대기</b> 시험해 볼 만하다고 평가됐지만, 한 회차에 시험은 3개까지만 해서 순서를 기다리는 중입니다.</p>}
+      {x.inUse && <p><b>이미 사용 중</b> 우리 회사가 이미 쓰고 있는 도구라 새로 시험하지 않고 참고용으로만 보여줍니다.</p>}
+      {src.length > 0 && <p><b>찾은 곳</b> {src.join(' · ')}</p>}
+    </>
+  );
+}
 
 // 섹션 헤더 — 제목 + 개수 배지(UI 키트 Badge)로 통일
 function SectionH({ children, count }) {
@@ -49,6 +89,7 @@ function BigCard({ x, i }) {
         {x._new && <Badge className="newb">새로 추가</Badge>}
         {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함 {x.pilotResult.score}점</Badge>}
       </header>
+      <Tags x={x} />
       {x.easy && <p className="easy"><b>🤔 이게 뭐예요?</b> {x.easy}</p>}
       {x.analogy && <p className="easy"><b>💡 우리 회사에 빗대면</b> {x.analogy}</p>}
       {!x.easy && !x.analogy && <p className="easy">{x.summary}</p>}
@@ -58,7 +99,7 @@ function BigCard({ x, i }) {
       {open && (
         <div className="detail">
           {x.why && <p><b>왜 인기인가요?</b> {x.why}</p>}
-          {x.pilotResult && <p><b>시험 결과</b> {x.pilotResult.score}점 · {x.pilotResult.summary}{x.pilotResult.testedAt ? ` (${kst(x.pilotResult.testedAt)})` : ''}</p>}
+          <ExtraDetail x={x} />
           <p><b>기술 정보</b> {x.desc || '-'}</p>
           <p><b>우리 쓸모</b> {x.use}</p>
           {x.difficulty && <p><b>난이도</b> {x.difficulty}{x.language ? ` · ${x.language}` : ''}</p>}
@@ -90,13 +131,14 @@ function SmallCard({ x, i }) {
         <Badge className={'score ' + scoreTone(x.score)}>{x.score}<small>/10</small></Badge>
         {x.pilotResult && <Badge className="pilot" title={x.pilotResult.summary}>🧪 시험함</Badge>}
       </SelectCard>
+      <Tags x={x} />
       <p className="sum">{x.summary}</p>
       {open && (
         <div className="detail">
           {x.easy && <p><b>이게 뭐예요?</b> {x.easy}</p>}
           {x.analogy && <p><b>우리 회사에 빗대면</b> {x.analogy}</p>}
           {x.why && <p><b>왜 인기인가요?</b> {x.why}</p>}
-          {x.pilotResult && <p><b>시험 결과</b> {x.pilotResult.score}점 · {x.pilotResult.summary}</p>}
+          <ExtraDetail x={x} />
           <p><b>{x.track === 'trend' ? '알아둘 이유' : '우리 쓸모'}</b> {x.use}</p>
           {x.desc && <p><b>기술 정보</b> {x.desc}</p>}
           <p className="tags">
@@ -119,6 +161,8 @@ export default function TechRadar() {
   const [sys, setSys] = useState('');
   const [minScore, setMinScore] = useState(5);
   const [track, setTrack] = useState('interest');
+  const [src, setSrc] = useState(''); // 찾은 곳 필터(묶음 이름). '' = 전체
+  const [hideInUse, setHideInUse] = useState(false); // 이미 쓰는 도구 빼고 보기
   const [shown, setShown] = useState(PAGE);
   const clayCss = useMemo(() => themeCss(themeById('B')), []);
 
@@ -127,7 +171,7 @@ export default function TechRadar() {
       .then((j) => { if (!j.success) throw new Error(j.error || '불러오기 실패'); setData(j.data); setRoundId(ALL); })
       .catch((e) => setErr(e.message));
   }, []);
-  useEffect(() => { setShown(PAGE); }, [roundId, act, sys, minScore, track]);
+  useEffect(() => { setShown(PAGE); }, [roundId, act, sys, minScore, track, src, hideInUse]);
 
   const rounds = useMemo(() => data?.rounds || [], [data]);
   // 전체 누적: 모든 회차 항목을 최신 회차부터 합치고, 같은 저장소는 가장 최근 평가 1건만 남긴다(_round=나온 회차, _new=최신 회차에 새로 나온 것).
@@ -140,7 +184,13 @@ export default function TechRadar() {
   const picked = rounds.find((r) => r.id === roundId) || rounds[0];
   const round = !rounds.length ? null : isAll ? { id: ALL, items: merged, generatedAt: rounds[0].generatedAt } : picked;
   const roundNo = picked ? rounds.length - rounds.indexOf(picked) : 0;
-  const items = useMemo(() => (round?.items || []).filter((x) => ((x.track || 'interest') === track) && (!act || x.action === act) && (!sys || (x.systems || []).includes(sys)) && x.score >= minScore), [round, act, sys, minScore, track]);
+  // 찾은 곳·이미 사용 중 필터는 지금 보는 회차에 그 정보가 있을 때만 나온다(예전 회차에는 없음). 없는 회차로 옮기면 필터도 자동으로 풀린다.
+  const srcKinds = useMemo(() => { const m = new Map(); (round?.items || []).forEach((x) => new Set(srcParts(x).map(srcKind)).forEach((k) => m.set(k, (m.get(k) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k); }, [round]);
+  const inUseCount = useMemo(() => (round?.items || []).filter((x) => x.inUse).length, [round]);
+  const srcOn = srcKinds.includes(src) ? src : '';
+  const hideOn = hideInUse && inUseCount > 0;
+  const items = useMemo(() => (round?.items || []).filter((x) => ((x.track || 'interest') === track) && (!act || x.action === act) && (!sys || (x.systems || []).includes(sys)) && x.score >= minScore
+    && (!srcOn || srcParts(x).some((t) => srcKind(t) === srcOn)) && (!hideOn || !x.inUse)), [round, act, sys, minScore, track, srcOn, hideOn]);
   const featured = useMemo(() => items.filter((x) => x.action === '바로 시험').slice(0, 3), [items]);
   const rest = useMemo(() => items.filter((x) => !featured.includes(x)), [items, featured]);
   // 오른쪽 사이드바 집계 — 클라이언트에서만(새 API 없음)
@@ -185,6 +235,17 @@ export default function TechRadar() {
             <div className="fg"><span className="fl">점수 필터</span>
               {SCORES.map((n) => <ToggleChip key={n} on={minScore === n} aria-pressed={minScore === n} onClick={() => setMinScore(n)}>★{n} 이상</ToggleChip>)}
             </div>
+            {srcKinds.length > 0 && (
+              <div className="fg"><span className="fl">찾은 곳</span>
+                <ToggleChip on={!srcOn} aria-pressed={!srcOn} onClick={() => setSrc('')}>전체</ToggleChip>
+                {srcKinds.map((k) => <ToggleChip key={k} on={srcOn === k} aria-pressed={srcOn === k} onClick={() => setSrc(srcOn === k ? '' : k)}>{k}</ToggleChip>)}
+              </div>
+            )}
+            {inUseCount > 0 && (
+              <div className="fg"><span className="fl">이미 쓰는 도구</span>
+                <ToggleChip on={hideOn} aria-pressed={hideOn} onClick={() => setHideInUse(!hideOn)}>빼고 보기 ({inUseCount}개)</ToggleChip>
+              </div>
+            )}
           </div>
 
           <div className="cols">
@@ -293,6 +354,15 @@ export default function TechRadar() {
         .radar .sc .score.lo { background: var(--pm-surface2); color: var(--pm-muted); }
         .radar .sum { margin: 0; color: var(--pm-muted); line-height: 1.5; }
         .radar .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+        /* 꼬리표 줄 — 찾은 곳·이미 사용 중·재평가·시험 후보(대기). 수집기 추가 필드가 있을 때만 나온다 */
+        .radar .xtags { display: flex; flex-wrap: wrap; gap: 4px; }
+        .radar .xtags .xt { white-space: normal; word-break: keep-all; }
+        .radar .xtags .xt.use { background: var(--pm-ok-bg); color: var(--pm-ok-ink); font-weight: bold; }
+        .radar .xtags .xt.re { background: var(--pm-err-bg); color: var(--pm-err-ink); font-weight: bold; }
+        .radar .xtags .xt.wait { background: var(--pm-idle-bg); color: var(--pm-idle-ink); font-weight: bold; }
+        .radar .xtags .xt.src { background: var(--pm-surface2); color: var(--pm-muted); }
+        .radar .bc .xtags .xt.src { background: var(--pm-surface); }
+        .radar .detail .rp { color: var(--pm-muted); font-size: 11px; word-break: break-all; }
       `}</style>
       <style jsx>{`
         .radar { min-height: 100%; padding: 20px 24px 40px; background: var(--pm-bg); color: var(--pm-ink); font-size: 13px; font-family: var(--pm-font); }

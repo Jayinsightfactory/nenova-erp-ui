@@ -1,3 +1,7 @@
+> ⚠️ **옛 기준 문서 (2026-03-27 작성). 지금과 다르다 — 이 문서로 판단하지 않는다.**
+> 지금 기준: 판단 기준·규칙 지도는 [`docs/canon/CANON.md`](docs/canon/CANON.md), 구조·배포·DB 쓰기 규칙은 루트 [`CLAUDE.md`](CLAUDE.md), ERP 원장 변경 절차는 [`AGENTS.md`](AGENTS.md), 최근 작업 상태는 [`WORK_MEMORY.md`](WORK_MEMORY.md) 끝부분.
+> 지금과 다른 대표 항목: "Next.js 14.2.0"(실제 `package.json`은 16), "배포예정: Railway"(실제는 Cafe24 서버 + pm2), "쓰기 → `_new_` 테스트 테이블"(실제는 계약 범위 안에서 원장에 직접 쓴다). 내용은 기록으로 남겨 둔다(2026-11-12 표시).
+
 # nenova ERP 웹 버전 — 작업 현황 문서
 # 마지막 업데이트: 2026-03-27
 # 담당: Claude (Anthropic)
