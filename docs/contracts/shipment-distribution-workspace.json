@@ -43,6 +43,12 @@
   ],
   "actions": [
     {
+      "name": "STAGE_MULTIPLE_PRODUCT_CUSTOMERS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "Locally added no-order customers remain visible across customer-name and shipment-date display filters. Multiple customer quantities are retained without intermediate saves; one explicit save registers positive pending orders then submits all customer entries through the existing year-scoped batch distribution path. Zero pending rows create no orders. Browser fixture adds 777/888 with 5/7 and asserts both order payloads precede one distribution request."
+    },
+    {
       "name": "SELECT_AND_FAVORITE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",

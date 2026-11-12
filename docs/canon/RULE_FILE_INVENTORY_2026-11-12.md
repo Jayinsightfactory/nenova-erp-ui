@@ -1,6 +1,17 @@
 # 규칙·지침 파일 실측 (2026-11-12)
 
 > **조사 뒤 정해진 것(2026-11-12 사장님 결정)** — ① 작업 기록은 `WORK_MEMORY.md` 한 곳으로 통일(아래 충돌 3번 해소). ② Cursor는 쓰지 않으므로 `.cursor/` 폴더(규칙 3개·스킬 1개)와 Cursor 전용 완료 보고 틀(`.claude/tasks/_COMPLETION_REPORT_TEMPLATE.md`)을 지웠다(충돌 5번 해소). 아래 표는 **지우기 전 조사 시점** 그대로 남긴다.
+>
+> **2차 정리(2026-11-12, 백로그 D절 작업)** — 줄 번호는 정리 뒤 달라졌다. 아래 표의 줄 번호는 조사 시점 것이다.
+> - 충돌 1(`xlsx-js-style`): `.claude/CLAUDE.md`의 금지 문장과 옛 라이브러리 목록을 빼고, 루트 `CLAUDE.md`에 "사용 라이브러리" 절을 만들어 한 곳에만 둠.
+> - 충돌 2(올리기·배포): `.claude/CLAUDE.md`와 `nenova-orchestrator.md`의 "명시 요청 시에만" 문장을 `AGENTS.md` 기준을 가리키는 문장으로 바꿈.
+> - 충돌 3(작업 기록 위치): `.claude/PROGRESS.md`·`.claude/PLAN.md` 맨 위와 `docs/work-reports/README.md`에 "새로 쓰지 않는다" 표시. `.claude/CLAUDE.md`의 체크리스트 2·3번, 종료 시 저장 규칙, 컨텍스트 복구 프롬프트와 `docs/NENOVA_WEB_MASTER_ISSUES_AND_WORK_GUIDE.md`·`docs/REGRESSION_PREVENTION_GUIDE.md`·`docs/work-sessions/README.md`의 기록 지시 문장을 `WORK_MEMORY.md`로 고침. `session-historian.md`에는 "정본 참조" 표시만 닮(다른 PC 경로를 가리키는 옛 문서).
+> - 충돌 4(단일 기준): `.claude/CLAUDE.md` 끝 문장을 "세션 시작 체크리스트·보존 태그의 담당 파일"로 바꿈.
+> - 충돌 6(`CustKey` 빈 값): 수리 행을 루트 `CLAUDE.md`에서 `AGENTS.md` "작업 전 필수 확인"으로 옮김. 수리 기능 자체(코드)는 그대로다.
+> - 충돌 7·8(낡은 문서): `PROJECT_STATUS.md`·`SOLUTION_LINK.md` 맨 위에 "옛 기준" 표시. 내용은 그대로.
+> - 충돌 9(메인 작업 폴더에만 있는 규칙): `.claude/rules/insight-agreement.md`(4줄)를 본편에 넣음. 스킬 2종(`insight-requirement-review`, `insight-button-evidence`)과 Codex용 사본은 넣지 않음 — 아래 2절 끝 참조.
+> - 충돌 10~15(PC 전역): 고치지 않고 [`PC_GLOBAL_RULE_FIX_PROPOSAL_2026-11-12.md`](PC_GLOBAL_RULE_FIX_PROPOSAL_2026-11-12.md)에 줄 단위 제안을 적음.
+> - 옛 기록 경로를 스크립트·검사가 참조하는지 전수 검색함: `.claude/PROGRESS.md`·`.claude/PLAN.md`를 읽는 스크립트·검사·자동 검사 설정은 0건(`lib/fullDevelopmentHistory.cjs`의 `PROGRESS.md`는 저장소 맨 위 파일 이름 허용 목록이며 `.claude/` 아래 파일과 무관). `docs/work-reports/`는 계약 9개·테스트 기준값 3개·코드 주석 6곳·스크립트 1개가 가리켜 옮기지 않음.
 
 정본([`CANON.md`](CANON.md))을 어디에 둘지 정하려고 한 조사 기록이다. 읽기만 했고, 저장소 밖(PC 전역·바탕화면·`nenova-pm`) 파일은 하나도 고치지 않았다.
 확인하지 못한 것은 "미검증"으로 적었다. 줄 번호는 조사 시점(본편 `275666d6`) 기준이다.
@@ -38,6 +49,17 @@
 | 저장소 hooks | — | — | **없음.** `.claude/settings.json`·`.husky`·`.claude/hooks` 없음. 자동 검사는 GitHub Actions(`erp-contract.yml`)뿐 | — |
 
 본편에 없고 메인 작업 폴더(`C:\Users\USER\nenova-erp-ui`)에만 있는 미추적 파일: `.claude/rules/insight-agreement.md`(합의 보존 규칙 4줄), `.claude/skills/insight-*` 2개, `.agents/skills/insight-*` 2개(Codex용). **작업 폴더를 새로 만들어 일하는 세션에는 이 규칙이 따라오지 않는다.**
+
+2차 정리(2026-11-12)에서 메인 작업 폴더를 읽기만 해서 다시 확인한 결과(미추적 33개 중 규칙·스킬 19개):
+
+| 파일 | 판단 | 처리 |
+|---|---|---|
+| `.claude/rules/insight-agreement.md` (4줄) | 유효 — 정본 2절("승인 질문은 되돌리기 어려운 작업에만")·사장님 학습 기록("기존 로직 + A", 되묻고 멈추지 않기)과 같은 방향 | **본편에 넣음**(글자 하나 바꾸지 않고 그대로) |
+| `.claude/skills/insight-requirement-review/` (8개 파일) | 판단 보류 — 바깥 공개 스킬(ECC, Superpowers)을 고쳐 만든 것이고, 출처 기록(`PROVENANCE.json`)에 이 PC의 실험 폴더 절대 경로가 들어 있다. 효과를 잰 기록이 없다 | 넣지 않음 |
+| `.claude/skills/insight-button-evidence/SKILL.md` | 판단 보류 — 근거가 다른 저장소(`mindmap-viewer`) 파일과 이 PC에서만 열리는 주소(`127.0.0.1:4317`)이고, 본문에 "실제 개발 효율과 운영 효과는 미측정"이라고 적혀 있다 | 넣지 않음 |
+| `.agents/skills/insight-*` (Codex용 사본 10개 파일) | 위 두 스킬과 같은 내용 | 넣지 않음 |
+
+나머지 미추적 14개는 규칙이 아니라 진행 중이던 코드·백업 파일이다(`lib/costMasterStore.js` 등 원가 관련 4개와 테스트 3개, `pages/api` 3개, `scripts/ecount-scraper/*.bak-*` 3개, `wt-hub-motion/` 폴더). 이번 범위 밖이라 건드리지 않았다.
 
 ## 3. PC 전역 규칙·지침 파일 (저장소 밖, 읽기만 함)
 

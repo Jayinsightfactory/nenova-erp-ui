@@ -2624,6 +2624,12 @@
 - 후속(사장님 결정 2건, 같은 수정안 #1685): ① 작업 기록은 WORK_MEMORY.md 한 곳으로 통일 — AGENTS.md "세션 Q&A 백업"을 "작업 기록 (기본)"으로 바꾸고 .claude/CLAUDE.md 의 PROGRESS/PLAN 갱신 규칙에 "옛 방식" 표시. 긴 세부만 docs/work-sessions 에 두고 WORK_MEMORY 에서 가리킴. PROGRESS.md·docs/work-reports 는 새로 쓰지 않음(지난 기록 보존). ② Cursor 미사용 — .cursor/(규칙 3·스킬 1)와 .claude/tasks/_COMPLETION_REPORT_TEMPLATE.md 삭제, SOLUTION_LINK·정본·검사 스크립트에서 Cursor 항목 정리. why-log 2건 추가, 규칙 승격 조건을 "이유를 직접 말했거나 사장님이 정한 것"으로 보정. PC 의 Cursor 프로그램·설정은 건드리지 않음.
 검색어: WORK_MEMORY 통일 작업기록 한곳 Cursor 미사용 .cursor 삭제 완료보고 틀 삭제
 
+## 2026-11-12 출고분배 여러 업체 입력 후 일괄 저장
+- 추가한 주문 없는 업체행이 거래처 검색·출고일 표시 필터에 숨는 경로를 보완. 여러 업체를 연속 추가하고 수량을 유지해 한 번 저장하는 기존 batch 경로 사용. API/SQL 변경0, 0수량 주문 생성0.
+- 실제 Chrome 빌드 화면에서 업체777/888에 5/7 입력 유지, 중간저장0, 양수 주문2건 선등록 후 단일 분배요청에 두 업체 수량 포함 PASS. 전체 ERP계약·dnSpy·manifest213·쓰기guard0API·webpack PASS. dnSpy 실제 FormShipmentDistribution 재추출. 운영ERP쓰기0.
+- 격리 downstream SQL은 Docker daemon 미기동으로 미검증. 운영 배포·가이드 최종검증 후속 진행.
+검색어: multi-customer-1112 업체연속추가 일괄저장 addedNoOrder farmCustomerSearch farmDate
+
 ## 2026-11-12 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
 - 사용자요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지. 최신 origin/master 별도작업트리 feat/shipment-statement-item-label-edit, PR #1684.
 - 구현: ProdKey별 표시명 파일(data/runtime/shipment-statement-labels), POST /api/shipment/statement?action=label, 엑셀·미리보기에만 적용, 빈 값=자동명 복귀. ERP/작성본/sourceHash 변경0.
@@ -2636,3 +2642,31 @@
 - 저장 후 원본이 바뀌면 바뀐 항목(수량·단가·추가·삭제·품목정보·업체·달력)을 목록으로 알리고, 안 바뀐 품목의 요일 배분은 유지(lib/shipmentStatementChanges.cjs). 수량이 배분 합계보다 줄어든 품목만 배분 초기화. ERP 쓰기 없음.
 - 검증: 단위 37 PASS(신규 6), 실Chrome fixture·가이드 재촬영·플레이어 PASS, guard 3종·ui-layout PASS. 미검증: 운영 실데이터.
 - 검색어: 출고내역서 원본 변경 stale changes reconcile
+
+## 2026-11-12 정본 백로그 D절 정리 — 옛 기록 표시·충돌 문장 실제 정리·PC 전역 제안·수정 기록 소급 수집
+- 요청: 사장님 "백로그 전부 병렬 작업" 중 docs/canon/BACKLOG.md D절(다른 세션이 A·B·C절 담당).
+- 옛 기록: .claude/PROGRESS.md·.claude/PLAN.md 맨 위, docs/work-reports/README.md(신규)에 "2026-11-12부터 새로 쓰지 않는다, 기록은 WORK_MEMORY.md" 표시. 읽기·쓰기 지시 문장을 WORK_MEMORY.md로 고침(.claude/CLAUDE.md 체크리스트 2·3번·종료 규칙·복구 프롬프트, NENOVA_WEB_MASTER_ISSUES 3곳, REGRESSION_PREVENTION_GUIDE 1곳, work-sessions/README 1곳). docs/work-reports는 계약 9·테스트 기준값 3·스크립트 1이 경로를 가리켜 옮기지 않음.
+- 낡은 문서: PROJECT_STATUS.md·SOLUTION_LINK.md 맨 위 "옛 기준" 표시(내용 유지).
+- 충돌 문장 실제 정리 4건: xlsx-js-style 금지 문장 제거→루트 CLAUDE.md "사용 라이브러리" 신설, push "명시 요청 시만"→AGENTS.md 기준(.claude/CLAUDE.md·nenova-orchestrator), "단일 진실 소스"→담당 파일 문장, repairMissingCustKey 수리 행을 루트 CLAUDE.md→AGENTS.md "작업 전 필수 확인"으로 이동. 정본 4절·5절 표와 실측 기록 머리말 갱신.
+- 메인 작업 폴더 전용 규칙: .claude/rules/insight-agreement.md(4줄)만 본편에 넣음(내용 동일). insight-requirement-review·insight-button-evidence 스킬과 .agents 사본은 판단 보류로 넣지 않음.
+- PC 전역 충돌 6건: 고치지 않고 docs/canon/PC_GLOBAL_RULE_FIX_PROPOSAL_2026-11-12.md 에 파일·줄·바꿀 문장 제안.
+- 소급 수집: 최근 90일 fix 734건(전체 2,211건) 제목 낱말 분류 → docs/canon/FIX_HISTORY_BACKFILL_2026-11-12.md, why-log.jsonl 에 candidate·why_source unknown 8건.
+- 검증: npm run test:canon 통과, menuDevelopmentDefaults·nenovaWebCompatibilityScope 검사 통과(AGENTS.md를 읽는 검사). pages/·lib/·DB 변경 0.
+- 미검증: 메인 작업 폴더가 본편을 받을 때 같은 이름 미추적 파일로 막히는지, Codex가 바뀐 문장을 실제로 따르는지, 소급 분류의 정확도(제목 낱말 근사치), PC 전역 제안의 실제 적용.
+- 검색어: 정본 canon 백로그 D절 옛기록 PROGRESS PLAN work-reports README PROJECT_STATUS SOLUTION_LINK insight-agreement PC전역 제안 stash 이카운트 예외 maxPerDay PERSONA 소급수집 why-log candidate backfill
+
+## 2026-11-12 HR 에이전트(초안) — 온보딩·인수인계 문서
+- 사용자요청: 백로그(docs/canon/BACKLOG.md B절) HR 에이전트를 병렬 작업으로 진행. 원칙 "사람을 평가하지 않는다. 성장과 업무를 돕는다".
+- 신규: .claude/agents/nenova-hr.md(온보딩·인수인계만, 채용 행정·성장 지원은 범위 표만, 제외 기능 4가지와 이유, 평가·등급·보상·징계·합격 여부 다루지 않음), docs/hr/ONBOARDING_FIRST_WEEK.md(주문 등록→발주→입고→분배→출고→견적 순서로 기존 화면 주소·가이드 영상 13개·매뉴얼 초안 연결, 없는 곳은 "가이드 없음"), docs/hr/HANDOVER_TEMPLATE.md(인수인계 틀, 내용 비움).
+- 변경: scripts/check-canon.cjs 진입 파일에 nenova-hr.md 추가(5→6개), .claude/agents/README.md 한 줄 등록, BACKLOG B절 "만든 것 / 아직 안 만든 것" 표.
+- 측정: 온보딩=가이드만 보고 첫 주문 등록을 끝낸 시간, 인수인계=문서만 받고 대신 처리한 업무 수. 둘 다 기준값 없음(잰 적 없음).
+- 미검증: 실제 새 직원·실제 인수인계에 써 본 적 없음. 새 직원이 가이드만으로 웹에서 첫 주문을 등록할 수 있는지(주문 등록 화면 6개 중 영상 1개). 수입부 인수인계 내용은 별도 작업 소관이라 쓰지 않음. pages/·영상·금액·재고·차수 로직·DB·PC 전역 폴더 변경 0, 직원 개인 데이터 수집 0.
+- 검색어: HR 에이전트 nenova-hr 온보딩 첫주 인수인계 틀 가이드 없음 ONBOARDING_FIRST_WEEK HANDOVER_TEMPLATE 기준값 없음
+
+## 2026-11-12 기술 레이더(/pm/radar) — 찾은 곳·이미 사용 중·재평가·시험 후보(대기) 꼬리표
+- 배경: 수집기(nenova-pm/github-radar/radar.js)가 2026-11-12 부터 항목에 sourceLabel·inUse·resurfaced·actionLlm 을 덧붙인다(모두 선택 필드, 실제 데이터에는 11/16(월) 07:30 회차부터 들어옴). 화면이 이 필드를 안 쓰고 있었다.
+- 변경: pages/pm/radar.js — 카드에 꼬리표 줄(📍 찾은 곳 / ✅ 이미 사용 중 / 🔁 재평가 / ⏳ 시험 후보(대기)), 펼친 상세에 설명 줄(다시 평가한 이유·시험 대기·이미 사용 중·찾은 곳), 시험 결과 줄에 판정(verdict)·보고서 위치(reportPath) 추가. 필터 "찾은 곳"·"이미 쓰는 도구 빼고 보기" 는 보는 회차에 그 정보가 있을 때만 나온다. 새 필드가 없는 예전 항목은 꼬리표 줄 자체가 없다(기존 표시 그대로). "GitHub 에서 보기" 문구 유지.
+- 확인: 업로드(lib/workFeatureData.js saveFeatureFile)·조회(pages/api/pm/radar.js)는 받은 JSON 을 그대로 저장·전달하고 필드를 걸러내지 않는다. docs/contracts/pm-tech-radar.json 은 필드 목록이 아니라 범위·검증 명령 계약이라 고치지 않았다. __tests__/pmTechRadar.test.js 에 꼬리표 문구·원본 그대로 통과 단언 추가.
+- 검증: 로컬 실행본에 실제 tech-radar.json(3회차 53건, 읽기만) + 새 필드를 넣은 가상 회차 1개를 올려 화면 확인 — 새 회차 꼬리표 5종·필터 동작, 예전 회차는 꼬리표 0줄·필터 미노출.
+- 미검증: 11/16 실제 회차 데이터로는 아직 못 봄(그때 처음 들어옴). 운영 배포 후 화면 확인. 모바일 폭 화면.
+- 검색어: 기술 레이더 radar sourceLabel inUse resurfaced actionLlm 찾은 곳 이미 사용 중 재평가 시험 후보 대기 꼬리표 pilotResult verdict reportPath

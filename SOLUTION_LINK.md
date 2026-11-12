@@ -1,3 +1,5 @@
+> ⚠️ **일부 옛 기준 (2026-11-12 표시).** 아래 "`_new_` 테이블 경유" 등 쓰기 방식 설명은 지금과 다르다. 지금은 계약(`docs/contracts/*.json`) 범위 안에서 ERP 원장에 직접 쓴다 — 기준은 [`AGENTS.md`](AGENTS.md)와 루트 [`CLAUDE.md`](CLAUDE.md), 판단 기준은 [`docs/canon/CANON.md`](docs/canon/CANON.md). 다른 저장소와의 연결 지점 표는 작성 시점 기록이며 현재 상태는 확인되지 않았다(미검증). 내용은 지우지 않고 남겨 둔다.
+
 # SOLUTION_LINK — nenova-erp-ui (네노바 통합 솔루션의 ERP 코어)
 
 > 마스터 문서: `C:\Users\USER\NENOVA_SOLUTION_AUDIT.md` (전체 그림·우선순위는 거기 참조)

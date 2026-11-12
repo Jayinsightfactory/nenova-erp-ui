@@ -27,7 +27,7 @@ deploy_head: f10dcce
 6. 코드 수정 → npm run build (+ 해당 test:*)
 7. 배포 후 → **필수** smoke (아래 §8)
 8. 견적/출고 수정 후 → `npm run probe:estimate-24:strict` (24차 Orange Flame + 그린화원)
-9. 세션 끝 → .claude/PROGRESS.md 한 줄 추가
+9. 세션 끝 → WORK_MEMORY.md 끝에 날짜·요약·검색어 줄 추가 (2026-11-12부터. .claude/PROGRESS.md 는 옛 기록)
 ```
 
 **절대 원칙:** `nenova.exe`와 같은 MSSQL row를 쓰는 기능은 **충돌 확인 → 진단 → 수정**.  
@@ -56,7 +56,7 @@ deploy_head: f10dcce
 | **견적 Orange/그린 24차** | [work-reports/2026-06-16_estimate-orange-green-24.md](work-reports/2026-06-16_estimate-orange-green-24.md) |
 | **견적 수정 vs exe** | [NENOVA_EXE_DNSPY_ESTIMATE_EDIT_VERIFY_2026-05-26.md](NENOVA_EXE_DNSPY_ESTIMATE_EDIT_VERIFY_2026-05-26.md) |
 | **붙여넣기 매칭** | [PASTE_NATURAL_MATCH_AUDIT_2026-05-25.md](PASTE_NATURAL_MATCH_AUDIT_2026-05-25.md) |
-| **세션 로그** | [.claude/PROGRESS.md](../.claude/PROGRESS.md) |
+| **세션 로그** | [WORK_MEMORY.md](../WORK_MEMORY.md) (2026-11-12부터) · 옛 기록 [.claude/PROGRESS.md](../.claude/PROGRESS.md) |
 
 ---
 
@@ -350,4 +350,4 @@ npm run probe:estimate-24:strict
 
 ---
 
-*이 문서는 `work_history.md`, `REGRESSION_PREVENTION_GUIDE.md`, `.claude/PROGRESS.md`, `docs/work-reports/*` 갱신 시 함께 업데이트한다.*
+*이 문서는 `work_history.md`, `REGRESSION_PREVENTION_GUIDE.md`, `WORK_MEMORY.md` 갱신 시 함께 업데이트한다. (`.claude/PROGRESS.md`, `docs/work-reports/*`는 2026-11-12부터 새로 쓰지 않는 옛 기록이다.)*
