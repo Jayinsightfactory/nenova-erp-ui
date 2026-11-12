@@ -2624,6 +2624,12 @@
 - 후속(사장님 결정 2건, 같은 수정안 #1685): ① 작업 기록은 WORK_MEMORY.md 한 곳으로 통일 — AGENTS.md "세션 Q&A 백업"을 "작업 기록 (기본)"으로 바꾸고 .claude/CLAUDE.md 의 PROGRESS/PLAN 갱신 규칙에 "옛 방식" 표시. 긴 세부만 docs/work-sessions 에 두고 WORK_MEMORY 에서 가리킴. PROGRESS.md·docs/work-reports 는 새로 쓰지 않음(지난 기록 보존). ② Cursor 미사용 — .cursor/(규칙 3·스킬 1)와 .claude/tasks/_COMPLETION_REPORT_TEMPLATE.md 삭제, SOLUTION_LINK·정본·검사 스크립트에서 Cursor 항목 정리. why-log 2건 추가, 규칙 승격 조건을 "이유를 직접 말했거나 사장님이 정한 것"으로 보정. PC 의 Cursor 프로그램·설정은 건드리지 않음.
 검색어: WORK_MEMORY 통일 작업기록 한곳 Cursor 미사용 .cursor 삭제 완료보고 틀 삭제
 
+## 2026-11-12 출고분배 여러 업체 입력 후 일괄 저장
+- 추가한 주문 없는 업체행이 거래처 검색·출고일 표시 필터에 숨는 경로를 보완. 여러 업체를 연속 추가하고 수량을 유지해 한 번 저장하는 기존 batch 경로 사용. API/SQL 변경0, 0수량 주문 생성0.
+- 실제 Chrome 빌드 화면에서 업체777/888에 5/7 입력 유지, 중간저장0, 양수 주문2건 선등록 후 단일 분배요청에 두 업체 수량 포함 PASS. 전체 ERP계약·dnSpy·manifest213·쓰기guard0API·webpack PASS. dnSpy 실제 FormShipmentDistribution 재추출. 운영ERP쓰기0.
+- 격리 downstream SQL은 Docker daemon 미기동으로 미검증. 운영 배포·가이드 최종검증 후속 진행.
+검색어: multi-customer-1112 업체연속추가 일괄저장 addedNoOrder farmCustomerSearch farmDate
+
 ## 2026-11-12 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
 - 사용자요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지. 최신 origin/master 별도작업트리 feat/shipment-statement-item-label-edit, PR #1684.
 - 구현: ProdKey별 표시명 파일(data/runtime/shipment-statement-labels), POST /api/shipment/statement?action=label, 엑셀·미리보기에만 적용, 빈 값=자동명 복귀. ERP/작성본/sourceHash 변경0.
@@ -2651,10 +2657,19 @@
 - 측정: 온보딩=가이드만 보고 첫 주문 등록을 끝낸 시간, 인수인계=문서만 받고 대신 처리한 업무 수. 둘 다 기준값 없음(잰 적 없음).
 - 미검증: 실제 새 직원·실제 인수인계에 써 본 적 없음. 새 직원이 가이드만으로 웹에서 첫 주문을 등록할 수 있는지(주문 등록 화면 6개 중 영상 1개). 수입부 인수인계 내용은 별도 작업 소관이라 쓰지 않음. pages/·영상·금액·재고·차수 로직·DB·PC 전역 폴더 변경 0, 직원 개인 데이터 수집 0.
 - 검색어: HR 에이전트 nenova-hr 온보딩 첫주 인수인계 틀 가이드 없음 ONBOARDING_FIRST_WEEK HANDOVER_TEMPLATE 기준값 없음
+
+## 2026-11-12 기술 레이더(/pm/radar) — 찾은 곳·이미 사용 중·재평가·시험 후보(대기) 꼬리표
+- 배경: 수집기(nenova-pm/github-radar/radar.js)가 2026-11-12 부터 항목에 sourceLabel·inUse·resurfaced·actionLlm 을 덧붙인다(모두 선택 필드, 실제 데이터에는 11/16(월) 07:30 회차부터 들어옴). 화면이 이 필드를 안 쓰고 있었다.
+- 변경: pages/pm/radar.js — 카드에 꼬리표 줄(📍 찾은 곳 / ✅ 이미 사용 중 / 🔁 재평가 / ⏳ 시험 후보(대기)), 펼친 상세에 설명 줄(다시 평가한 이유·시험 대기·이미 사용 중·찾은 곳), 시험 결과 줄에 판정(verdict)·보고서 위치(reportPath) 추가. 필터 "찾은 곳"·"이미 쓰는 도구 빼고 보기" 는 보는 회차에 그 정보가 있을 때만 나온다. 새 필드가 없는 예전 항목은 꼬리표 줄 자체가 없다(기존 표시 그대로). "GitHub 에서 보기" 문구 유지.
+- 확인: 업로드(lib/workFeatureData.js saveFeatureFile)·조회(pages/api/pm/radar.js)는 받은 JSON 을 그대로 저장·전달하고 필드를 걸러내지 않는다. docs/contracts/pm-tech-radar.json 은 필드 목록이 아니라 범위·검증 명령 계약이라 고치지 않았다. __tests__/pmTechRadar.test.js 에 꼬리표 문구·원본 그대로 통과 단언 추가.
+- 검증: 로컬 실행본에 실제 tech-radar.json(3회차 53건, 읽기만) + 새 필드를 넣은 가상 회차 1개를 올려 화면 확인 — 새 회차 꼬리표 5종·필터 동작, 예전 회차는 꼬리표 0줄·필터 미노출.
+- 미검증: 11/16 실제 회차 데이터로는 아직 못 봄(그때 처음 들어옴). 운영 배포 후 화면 확인. 모바일 폭 화면.
+- 검색어: 기술 레이더 radar sourceLabel inUse resurfaced actionLlm 찾은 곳 이미 사용 중 재평가 시험 후보 대기 꼬리표 pilotResult verdict reportPath
 ## 2026-11-12 자가성장 루프 다시 돌리기(PC persona) — 백로그 A절 "멈춤" 해소
 - 사장님 지시 "백로그에 미뤄 둔 것 전부 작업". 대상은 PC 전역 `~/.claude/persona`(저장소 밖). 저장소는 docs/canon/BACKLOG.md A절 상태와 이 기록만 수정. 코드·DB·훅(prompt-guard 등)·nenova-pm·.codex 변경 0. 백업 `~/.claude/persona-backup-20261112`.
 - 다시 돌림: distill.js 보강(처리 표시로 새 것만·업무 영역 묶기·나눠서 전부 처리) → 사람 마찰 142건/18묶음 → 새 원리 후보 45건(승인 대기, rules.json 지문 불변). 주간 작업 OrbitPersonaWeekly(일 05:30) 등록·수동 실행 종료 코드 0. 프로파일(PERSONA.md) 자동 재작성은 꺼 둠.
-- 측정: 60일간 안 불린 규칙 0/41. 부딪힘 의심 쌍 66(함께 걸린 적 27, 목록만). 기준값 171/191=89.5%(규칙 안 얹힌 지시의 다음 지시 무마찰, "처음 보는 유형"은 가설). 승인 목록 persona/data/approval-list.md.
-- 발견: turns.jsonl "사람 지시" 30일 1,299건 중 826건이 로봇(워커) 지시문 → 매일 나오는 마찰률 수치가 섞인 값. 이번엔 묶기·기준값·장부에서만 거름(lib/robot-sig.js), mine-sessions.js 는 미수정(사장님 결정 필요).
+- 측정: 60일간 안 불린 규칙 0/41. 부딪힘 의심 쌍 66(함께 걸린 적 27, 목록만). 기준값 처음 171/191=89.5% → 집계 바로잡은 뒤 257/295=87.1%(규칙 안 얹힌 지시의 다음 지시 무마찰, "처음 보는 유형"은 가설). 승인 목록 persona/data/approval-list.md.
+- 발견: turns.jsonl "사람 지시" 30일 1,299건 중 826건이 로봇(워커) 지시문 → 매일 나오는 마찰률 수치가 섞인 값.
+- 후속(사장님 "고치고 보완까지"): mine-sessions.js 수정 — 로봇 지시문 1,193건 제외 + 앱 안내문(system-reminder)이 앞에 붙어 통째로 빠지던 사람 지시 158건 복구. 사람 지시 1,355→690건, 사람 세션 868→56개, 마찰률 12.55%→14.06%(97/690). 파일 분류(robot)는 넓히지 않음(robot 은 10분 뒤 삭제 대상이라). 세는 방식 변경은 report.md 머리와 data/metric-changes.jsonl 에 표시. 보완: 규칙 장부에 "거의 로봇에만 얹힘 11개·사람 지시엔 드묾 11개" 표시, 승인 목록을 7계열로 묶고 계열별 대표 번호 제시. rules.json 지문 불변.
 - 미검증: 일요일 새벽 자동 실행(로그인 상태에서만 돎, 11/15 이후 확인), 후보의 "근거 반복 건수"(AI 주장), OrbitPersonaVerifyDaily 11/12 비정상 종료 코드 원인.
-검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 171/191 rule-conflicts robot-sig 로봇지시 섞임
+검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 257/295 mine-sessions 로봇제외 system-reminder 복구 metric-changes rule-conflicts robot-sig 로봇지시 섞임

@@ -1303,9 +1303,10 @@ export default function Distribute() {
 
   const custDistRows = selectedProd ? [...custDist, ...prodAddedCusts
     .filter(a => !custDist.some(c => Number(c.CustKey) === Number(a.CustKey)))
-    .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))].filter(c=>dateLookup.matches(farmDate,selectedProd.ProdKey,c.CustKey)) : custDist;
+    .map(a => ({ CustKey: a.CustKey, CustName: a.CustName, 주문코드: a.OrderCode || '', 주문수량: 0, 출고수량: 0, Cost: selectedProd.Cost || 0, addedNoOrder: true }))].filter(c=>c.addedNoOrder || dateLookup.matches(farmDate,selectedProd.ProdKey,c.CustKey)) : custDist;
+  // Newly staged customers must stay visible while the operator searches for more.
   const visibleFarmCustomerRows = farmCustomerSearch.trim()
-    ? custDistRows.filter(c => customerMatchesSearch(c, farmCustomerSearch.trim()))
+    ? custDistRows.filter(c => c.addedNoOrder || customerMatchesSearch(c, farmCustomerSearch.trim()))
     : custDistRows;
   const favoriteKeys = new Set(favoriteProducts.map(row => row.prodKey));
   const filteredProds = favoriteDistributionRows(sortDistributionProducts(distributionAddProductCandidates(products,productCatalog),prodFilter)
@@ -2043,7 +2044,7 @@ export default function Distribute() {
                           <button type="button" className="btn btn-sm" data-ai-verify="prod-add-cust-open" disabled={hasDateDrafts || saving || loading}
                             onClick={async () => { const next = !prodAddOpen; setProdAddOpen(next); if (next) await loadAllCustomers(); }}
                             style={{padding:'1px 8px',fontSize:11}}>{prodAddOpen ? '업체추가 닫기' : '+ 업체추가'}</button>
-                          {prodAddedCusts.length > 0 && <span style={{fontWeight:400,color:'#b45309'}}>추가 업체 {prodAddedCusts.length}곳 (품목을 바꿔도 유지)</span>}
+                          {prodAddedCusts.length > 0 && <span style={{fontWeight:400,color:'#b45309'}}>추가 업체 {prodAddedCusts.length}곳 · 여러 업체 추가 후 수량을 입력하고 상단 저장</span>}
                         </div>
                         {prodAddOpen && (() => {
                           const managers = [...new Set(allCustomers.map(c => c.Manager || '담당자 없음'))].sort((a, b) => a.localeCompare(b, 'ko'));
