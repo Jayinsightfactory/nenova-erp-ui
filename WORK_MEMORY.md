@@ -2638,6 +2638,11 @@
 - 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
 
+## 2026-11-12 출고내역서 원본 변경 알림 개선
+- 저장 후 원본이 바뀌면 바뀐 항목(수량·단가·추가·삭제·품목정보·업체·달력)을 목록으로 알리고, 안 바뀐 품목의 요일 배분은 유지(lib/shipmentStatementChanges.cjs). 수량이 배분 합계보다 줄어든 품목만 배분 초기화. ERP 쓰기 없음.
+- 검증: 단위 37 PASS(신규 6), 실Chrome fixture·가이드 재촬영·플레이어 PASS, guard 3종·ui-layout PASS. 미검증: 운영 실데이터.
+- 검색어: 출고내역서 원본 변경 stale changes reconcile
+
 ## 2026-11-12 정본 백로그 D절 정리 — 옛 기록 표시·충돌 문장 실제 정리·PC 전역 제안·수정 기록 소급 수집
 - 요청: 사장님 "백로그 전부 병렬 작업" 중 docs/canon/BACKLOG.md D절(다른 세션이 A·B·C절 담당).
 - 옛 기록: .claude/PROGRESS.md·.claude/PLAN.md 맨 위, docs/work-reports/README.md(신규)에 "2026-11-12부터 새로 쓰지 않는다, 기록은 WORK_MEMORY.md" 표시. 읽기·쓰기 지시 문장을 WORK_MEMORY.md로 고침(.claude/CLAUDE.md 체크리스트 2·3번·종료 규칙·복구 프롬프트, NENOVA_WEB_MASTER_ISSUES 3곳, REGRESSION_PREVENTION_GUIDE 1곳, work-sessions/README 1곳). docs/work-reports는 계약 9·테스트 기준값 3·스크립트 1이 경로를 가리켜 옮기지 않음.

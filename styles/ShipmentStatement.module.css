@@ -3,3 +3,5 @@
 
 .groupChoice{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer}.groupChoice input{width:18px!important;min-width:18px;height:18px}.groupChoice small{display:block;margin-top:5px;color:#64748b;font-weight:normal}
 .labelInput{width:100%;min-width:0;font-weight:600;font-size:13px;user-select:text;cursor:text;border-color:transparent!important;background:#f8fafc!important}.labelInput:hover{border-color:#94a3b8!important;background:#fff!important}.labelInput:focus{border-color:#175cd3!important;background:#fff!important}.table small.edited{color:#b45309}
+.notice{margin:8px 0;padding:10px 14px;border:1px solid #f5c26b;border-radius:8px;background:#fffbeb;color:#7a4a00;font-size:13px}.notice ul{margin:6px 0 0;padding-left:18px}.notice li{margin:2px 0}.table tr.changed td{background:#fff7e0}
+.bulkBox{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border:1px solid #f4a9c0;border-radius:8px;background:#ffe9f0}.bulkBox strong{color:#9d2b53;font-size:13px}

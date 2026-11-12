@@ -34,13 +34,14 @@ export default function ShipmentStatement(){
   catch(e){if(id===seq.current)setError(e.message);}finally{setBusy(false);}
  }
  async function open(key){if(!permit())return;clear();setCustomer(key);if(!key)return;const id=++seq.current;setBusy(true);
-  try{const d=await json(url({year,week,custKey:key}));if(id!==seq.current)return;setData(d);setMatched(d.labels??{});setDraft(d.draft);setMessage(d.saved?`저장본 v${d.version}을 불러왔습니다.`:'요일별 수량을 입력한 뒤 저장하세요.');}
+  try{const d=await json(url({year,week,custKey:key}));if(id!==seq.current)return;setData(d);setMatched(d.labels??{});setDraft(d.draft);setDirty(!!d.changes?.length);setMessage(d.changes?.length?`저장 후 바뀐 원본 ${d.changes.length}건을 반영했습니다. 안 바뀐 품목의 배분은 그대로입니다 · 저장 버튼을 눌러야 보관됩니다.`:d.saved?`저장본 v${d.version}을 불러왔습니다.`:'요일별 수량을 입력한 뒤 저장하세요.');}
   catch(e){if(id===seq.current)setError(e.message);}finally{setBusy(false);}
  }
  const rows=data?.source.rows??[],visible=selection.visibleRows(rows,selectedCategories,search);
  const categories=useMemo(()=>[...new Map(rows.map(r=>[r.category,{key:r.category,label:labels.categoryDisplayLabel(r)}])).values()],[rows]);
  const allocations=new Map(),problems=[];
  for(const r of rows){try{allocations.set(r.id,core.allocation(r,draft.entries[r.id],draft.defaultDay));}catch(e){problems.push(e.message);}}
+ const changedIds=new Set((data?.changes??[]).map(c=>c.rowId).filter(Boolean));
  const stale=data?.stale,valid=!!data&&!stale&&rows.length>0&&!problems.length;
  const patch=next=>{setDraft(next);setDirty(true);setMessage('수정 중 · 저장 버튼을 눌러야 보관됩니다.');};
  function quantity(row,day,value){const entry={...(draft.entries[row.id]??{})};if(value==='')delete entry[day];else entry[day]=value;patch({...draft,entries:{...draft.entries,[row.id]:entry}});}
@@ -63,7 +64,7 @@ export default function ShipmentStatement(){
   const blob=await response.blob(),href=URL.createObjectURL(blob),a=document.createElement('a');a.href=href;a.download=`${s.year}년 ${s.week}차 ${data.source.customer.name}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(href),30000);
  }
  async function save(exportAfter){if(!valid||saving.current)return;saving.current=true;setBusy(true);setError('');let saved;
-  try{const d=await json(url(data.source.scope),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:data.version,sourceHash:data.sourceHash,draft})});saved=d.saved;setData({...data,version:saved.version,saved,stale:false});setDraft(saved.draft);setDirty(false);setMessage(`작성내용 저장 완료 · v${saved.version}`);if(exportAfter){await download(saved);setMessage(`작성내용 저장 완료 · v${saved.version} · 엑셀 다운로드 완료`);}}
+  try{const d=await json(url(data.source.scope),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:data.version,sourceHash:data.sourceHash,draft})});saved=d.saved;setData({...data,version:saved.version,saved,stale:false,changes:[]});setDraft(saved.draft);setDirty(false);setMessage(`작성내용 저장 완료 · v${saved.version}`);if(exportAfter){await download(saved);setMessage(`작성내용 저장 완료 · v${saved.version} · 엑셀 다운로드 완료`);}}
   catch(e){setError((saved?'작성내용은 저장됐습니다. 엑셀은 다시 다운로드하세요. ':'')+e.message);}finally{saving.current=false;setBusy(false);}
  }
  let preview=[];if(valid&&showPreview)try{preview=core.outputBlocks({source:data.source,draft});}catch{}
@@ -76,18 +77,17 @@ export default function ShipmentStatement(){
   {data&&<>
    <section className={styles.panel}><div className={styles.controls}><h2>{data.source.customer.name} · {data.source.scope.year}년 {data.source.scope.week}차</h2>
     <label>기본 출고요일<select aria-label="기본 출고요일" value={draft.defaultDay} disabled={busy||stale} onChange={e=>chooseDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label>
+    <button className={styles.primary} aria-label="작성내용 저장" disabled={busy||!valid} onClick={()=>save(false)}>저장</button>
     <button disabled={busy} onClick={()=>open(customer)}>다시 불러오기</button>
-    <button disabled={busy||!valid} onClick={()=>save(false)}>작성내용 저장</button>
-    <button className={styles.primary} disabled={busy||!valid} onClick={()=>save(true)}>저장 및 엑셀 다운로드</button>
-    <button disabled={busy||!data.saved} onClick={async()=>{try{await download(data.saved);}catch(e){setError(e.message);}}}>저장본 엑셀 다시 받기</button>
+    <button aria-label="엑셀 다운로드" title={dirty?'저장한 뒤 받을 수 있습니다.':'마지막으로 저장한 작성본을 엑셀로 받습니다.'} disabled={busy||!data.saved||dirty} onClick={async()=>{try{await download(data.saved);setMessage(`엑셀 다운로드 완료 · 저장본 v${data.saved.version}`);setError('');}catch(e){setError(e.message);}}}>엑셀 다운로드</button>
    </div><p>별도로 지정하지 않은 수량은 <strong>{draft.defaultDay}요일</strong>에 배정됩니다. ERP 실제 출고일·분배 총수량·재고·매출은 변경하지 않습니다.</p>
-   {stale&&<div className={styles.error} role="alert">저장 후 차수피벗 원본이 변경됐습니다. 저장본 엑셀은 다시 받을 수 있습니다. 새 원본으로 작성하려면 기존 배분을 초기화하세요. <button onClick={()=>{if(window.confirm('기존 작성본은 보관됩니다. 새 원본으로 요일 배분을 초기화할까요?')){setData({...data,stale:false});patch({...draft,entries:{}});}}}>새 원본으로 배분 초기화</button></div>}
+   {data.changes?.length>0&&<div className={styles.notice} role="status" data-testid="source-changes"><strong>저장 후 차수피벗 원본이 바뀐 곳 {data.changes.length}건</strong> — 아래 품목만 확인하세요. 나머지 품목의 요일 배분은 그대로 유지됩니다. 확인 후 저장하면 새 기준으로 보관됩니다.<ul>{data.changes.map((c,i)=><li key={i}>{c.text}</li>)}</ul></div>}
    </section>
    <ShipmentStatementGroups key={JSON.stringify(data.source.scope)} categories={categories} groups={draft.groups} disabled={busy||stale} onChange={groups=>patch({...draft,groups})}/>
    <section className={styles.panel} aria-label="요일별 수량 편집"><div className={styles.controls}>
     <label>품목 검색<input aria-label="품목 검색" value={search} onChange={e=>setSearch(e.target.value)}/></label>
     <button disabled={busy||stale||!visible.length} onClick={()=>setSelected(current=>[...new Set([...current,...visible.map(r=>r.id)])])}>표시 품목 추가 선택</button><button onClick={()=>setSelected([])} disabled={!selected.length}>선택 해제</button><strong>{selected.length}개 선택</strong>
-    <label>일괄 출고요일<select aria-label="일괄 출고요일" value={bulkDay} onChange={e=>setBulkDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label><button disabled={busy||stale||!selected.length} onClick={()=>setModal('bulk')}>선택 품목 출고일 일괄 지정</button>
+    <div className={styles.bulkBox} role="group" aria-label="선택 품목 출고일 일괄지정"><strong>선택 품목 출고일 일괄지정</strong><label>일괄 출고요일<select aria-label="일괄 출고요일" value={bulkDay} onChange={e=>setBulkDay(e.target.value)}>{core.DAYS.map(d=><option key={d}>{d}</option>)}</select></label><button aria-label="선택 품목 출고일 일괄 지정" disabled={busy||stale||!selected.length} onClick={()=>setModal('bulk')}>지정</button><button aria-label="일괄지정 후 작성내용 저장" disabled={busy||!valid} onClick={()=>save(false)}>저장</button></div>
     <button disabled={!valid} onClick={()=>setShowPreview(!showPreview)}>{showPreview?'미리보기 접기':'엑셀 미리보기'}</button>
    </div><p className={styles.hint}>품목명을 드래그하면 기존 선택에 추가됩니다 · 품목군·검색 변경 후에도 선택이 유지됩니다 · 체크박스/Shift+선택 가능 · ↑↓·Space 키 지원<br/>품목 · 규격 칸을 눌러 바로 입력하면 엑셀 품목 표시가 수정되고, 한 번 수정한 이름은 품목별로 저장되어 다음에도 유지됩니다(비우면 자동 이름으로 복귀).</p>
    <fieldset className={styles.selectorField} disabled={busy||stale}><legend>국가·품종별 보기 <span className={styles.hint}>{selectedCategories.length?`${selectedCategories.length}개 선택`:'전체 품목군'}</span></legend><div className={styles.buttonRow} role="group" aria-label="국가 품종별 보기">
@@ -96,7 +96,7 @@ export default function ShipmentStatement(){
    </div><p className={styles.hint}>버튼을 여러 개 선택해 함께 표시할 수 있습니다. 품목 선택은 다른 품목군으로 이동해도 유지됩니다.</p></fieldset>
    {problems.length>0&&<div role="alert" className={styles.error}>{problems.join(' / ')}</div>}
    <div className={styles.tableWrap}><table className={styles.table}><colgroup>{[45,135,260,65,85,85,...core.DAYS.map(()=>88)].map((w,i)=><col key={i} style={{width:w}}/>)}</colgroup><thead><tr><th>선택</th><th>품목군</th><th>품목 · 규격</th><th>단위</th><th>단가</th><th>분배수량</th>{data.source.calendar.map(d=><th key={d.day} className={draft.defaultDay===d.day?styles.default:''}>{d.day} {d.day===draft.defaultDay&&'기본'}<small>{d.date.slice(5)}</small></th>)}</tr></thead>
-   <tbody>{visible.map((row,i)=><tr key={row.id} data-row-id={row.id} data-category={row.category} aria-selected={selected.includes(row.id)} className={selected.includes(row.id)?styles.selected:''} onPointerEnter={()=>{if(pending.current&&pending.current.index!==i){const s=pending.current.index;pending.current=null;document.activeElement?.blur?.();window.getSelection?.()?.removeAllRanges();anchor.current=s;drag.current={start:s,base:selected};setSelected(range(s,i,selected));}else if(drag.current)setSelected(range(drag.current.start,i,drag.current.base));}}>
+   <tbody>{visible.map((row,i)=><tr key={row.id} data-row-id={row.id} data-category={row.category} aria-selected={selected.includes(row.id)} className={[selected.includes(row.id)?styles.selected:'',changedIds.has(row.id)?styles.changed:''].join(' ').trim()} onPointerEnter={()=>{if(pending.current&&pending.current.index!==i){const s=pending.current.index;pending.current=null;document.activeElement?.blur?.();window.getSelection?.()?.removeAllRanges();anchor.current=s;drag.current={start:s,base:selected};setSelected(range(s,i,selected));}else if(drag.current)setSelected(range(drag.current.start,i,drag.current.base));}}>
     <td><input type="checkbox" aria-label={`${row.name} 선택`} checked={selected.includes(row.id)} disabled={busy||stale} onChange={()=>{}} onClick={e=>toggle(row.id,i,e.shiftKey)} onKeyDown={e=>{if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();const next=Math.max(0,Math.min(visible.length-1,i+(e.key==='ArrowDown'?1:-1)));e.currentTarget.closest('tbody').rows[next]?.querySelector('input[type=checkbox]')?.focus();if(e.shiftKey)setSelected(range(anchor.current,next,selected));}}}/></td>
    <td onPointerDown={e=>pointer(e,i)}>{labels.categoryDisplayLabel(row)}</td><td className={styles.product} onPointerDown={e=>pointer(e,i)} title={`전산 품목명: ${row.originalName}`}><input className={styles.labelInput} key={row.id+'|'+shown(row)} aria-label={`${row.name} 엑셀 표시명`} defaultValue={shown(row)} maxLength={100} spellCheck={false} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}else if(e.key==='Escape'){e.currentTarget.value=shown(row);e.currentTarget.blur();}}} onBlur={e=>commitLabel(row,e.currentTarget)}/>{matched[row.prodKey]&&<small className={styles.edited}>직접 수정됨 · 전산명 {row.originalName}</small>}<small>{[...new Set(row.sources.map(s=>s.week))].join(', ')}</small></td><td>{row.unit}</td><td>{row.cost===null?'미등록':row.cost.toLocaleString('ko-KR')}</td><td><strong>{row.qty}</strong></td>
     {core.DAYS.map(day=><td key={day} className={day===draft.defaultDay?styles.default:''}><input aria-label={`${row.name} ${day}요일 수량`} type="number" min="0" step="any" value={day===draft.defaultDay?(allocations.get(row.id)?.[day]??''):draft.entries[row.id]?.[day]??''} readOnly={day===draft.defaultDay} disabled={busy||stale} placeholder={day===draft.defaultDay?'잔량':'0'} onChange={e=>quantity(row,day,e.target.value)}/></td>)}

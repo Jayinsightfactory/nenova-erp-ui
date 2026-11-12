@@ -1,3 +1,18 @@
+## [2026-11-12] 세션 — 출고내역서 '저장 후 원본 변경' 알림을 변경 내역 표시 + 안 바뀐 품목 배분 유지로 개선
+
+### 작업 내용
+- 문제: 저장 뒤 차수피벗(분배수량·단가·품목정보·업체/달력)이 바뀌면 "원본이 변경됐습니다"만 뜨고 편집이 막혀, 배분 전체를 초기화해야 했음.
+- lib/shipmentStatementChanges.cjs(신규, 읽기 전용): 저장본 원본과 현재 원본을 비교해 수량·단가·추가·삭제·품목정보·업체 기본요일·달력 변경 목록 생성, 안 바뀐 품목(단가만 바뀐 품목 포함)의 요일 배분은 그대로 이어 붙임. 새 수량이 입력 배분 합계보다 작은 품목만 배분을 비움.
+- openStatement 가 changes+이어붙인 draft 반환(stale 항상 false), 화면은 변경 내역 목록과 변경 품목 행 강조, 저장 필요 상태로 열림. ERP/DB 쓰기 없음.
+
+- (추가 2026-11-12) 상단 버튼 정리: 기본 출고요일 옆 「저장」 1개 + 「엑셀 다운로드」 별도(저장본을 받음, 미저장 수정이 있으면 비활성), 「저장 및 엑셀 다운로드」·「저장본 엑셀 다시 받기」 제거. 「선택 품목 출고일 일괄지정」은 연분홍 박스 안에 「지정」/「저장」 버튼으로 변경. 가이드 영상 재촬영.
+
+### 변경된 파일
+- lib/shipmentStatementChanges.cjs, lib/shipmentStatementService.js, pages/shipment/statement.js, styles/ShipmentStatement.module.css, __tests__/shipmentStatementChanges.test.cjs, docs/contracts/shipment-statement.json, package.json, scripts/record-shipment-statement-guide.cjs, 가이드 영상 재촬영.
+
+### 미결 이슈 / 블로킹
+- 미검증: 운영 화면 실조작(실데이터). 가이드 영상에는 원본 변경 장면을 따로 넣지 않음(fixture 테스트로만 검증).
+
 > 📦 **옛 기록 — 2026-11-12부터 여기에 새로 쓰지 않는다.** 작업 기록은 [`WORK_MEMORY.md`](../WORK_MEMORY.md) 끝에 날짜·요약·검색어 줄로 남긴다(사장님 결정, 정본 [`docs/canon/CANON.md`](../docs/canon/CANON.md) 4절). 아래 내용은 지난 기록으로 그대로 둔다 — 과거 경위를 찾을 때만 읽는다.
 
 ## [2026-11-12] 세션 — 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
