@@ -2624,6 +2624,12 @@
 - 후속(사장님 결정 2건, 같은 수정안 #1685): ① 작업 기록은 WORK_MEMORY.md 한 곳으로 통일 — AGENTS.md "세션 Q&A 백업"을 "작업 기록 (기본)"으로 바꾸고 .claude/CLAUDE.md 의 PROGRESS/PLAN 갱신 규칙에 "옛 방식" 표시. 긴 세부만 docs/work-sessions 에 두고 WORK_MEMORY 에서 가리킴. PROGRESS.md·docs/work-reports 는 새로 쓰지 않음(지난 기록 보존). ② Cursor 미사용 — .cursor/(규칙 3·스킬 1)와 .claude/tasks/_COMPLETION_REPORT_TEMPLATE.md 삭제, SOLUTION_LINK·정본·검사 스크립트에서 Cursor 항목 정리. why-log 2건 추가, 규칙 승격 조건을 "이유를 직접 말했거나 사장님이 정한 것"으로 보정. PC 의 Cursor 프로그램·설정은 건드리지 않음.
 검색어: WORK_MEMORY 통일 작업기록 한곳 Cursor 미사용 .cursor 삭제 완료보고 틀 삭제
 
+## 2026-11-12 출고분배 여러 업체 입력 후 일괄 저장
+- 추가한 주문 없는 업체행이 거래처 검색·출고일 표시 필터에 숨는 경로를 보완. 여러 업체를 연속 추가하고 수량을 유지해 한 번 저장하는 기존 batch 경로 사용. API/SQL 변경0, 0수량 주문 생성0.
+- 실제 Chrome 빌드 화면에서 업체777/888에 5/7 입력 유지, 중간저장0, 양수 주문2건 선등록 후 단일 분배요청에 두 업체 수량 포함 PASS. 전체 ERP계약·dnSpy·manifest213·쓰기guard0API·webpack PASS. dnSpy 실제 FormShipmentDistribution 재추출. 운영ERP쓰기0.
+- 격리 downstream SQL은 Docker daemon 미기동으로 미검증. 운영 배포·가이드 최종검증 후속 진행.
+검색어: multi-customer-1112 업체연속추가 일괄저장 addedNoOrder farmCustomerSearch farmDate
+
 ## 2026-11-12 출고내역서 엑셀 품목 표시명 직접 수정(매칭)
 - 사용자요청: 출고내역서 표의 품목·규격 칸에서 바로 입력해 엑셀 품목 표시를 수정, 한 번 수정하면 유지. 최신 origin/master 별도작업트리 feat/shipment-statement-item-label-edit, PR #1684.
 - 구현: ProdKey별 표시명 파일(data/runtime/shipment-statement-labels), POST /api/shipment/statement?action=label, 엑셀·미리보기에만 적용, 빈 값=자동명 복귀. ERP/작성본/sourceHash 변경0.
