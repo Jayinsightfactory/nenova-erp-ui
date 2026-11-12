@@ -51,9 +51,10 @@ async function handler(req, res) {
       const last = blocks[blocks.length - 1];
       if (last && last.room === r.room && last.sender === r.sender) {
         last.lines.push(r.text);
+        last.messages.push(r);
         last.lastMsgId = r.msgId || last.lastMsgId;
       } else {
-        blocks.push({ msgId: r.msgId, lastMsgId: r.msgId, room: r.room, sender: r.sender, time: r.time, lines: [r.text] });
+        blocks.push({ msgId: r.msgId, lastMsgId: r.msgId, room: r.room, sender: r.sender, time: r.time, lines: [r.text], messages: [r] });
       }
     }
     const out = blocks.slice(-nBlocks).reverse() // 최신 먼저

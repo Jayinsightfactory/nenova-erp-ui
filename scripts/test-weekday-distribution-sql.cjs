@@ -1025,5 +1025,5 @@ async function main() {
   }
 }
 
-module.exports = { inspectFixture, assertDbName, bracket, query, tQuery, installSchema, seed, leaseDependencies };
+module.exports = { inspectFixture, assertDbName, bracket, query, tQuery, installSchema, seed, leaseDependencies, convertShipmentDateToIdentity };
 if (require.main === module) main().catch((error)=>{ console.error(error.stack||error.message); process.exitCode=1; });

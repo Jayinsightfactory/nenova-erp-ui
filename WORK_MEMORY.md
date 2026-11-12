@@ -2699,3 +2699,11 @@
 - 후속(사장님 "거부 처리하고, 이런 부분도 자동으로 계속 고쳐 나가는 설계를 원했는데 왜 적용이 안 되나"): 후보 20건 거부(같은 말 17·막연 3) → 승인 대기 16. 원인 확인: 루프가 규칙만 키우고 루프 부품(집계·묶기·검사)을 점검하는 단계가 없어 오늘 결함 5개가 전부 사람이 발견. 보완: persona/bin/loop-health.js(자체 점검 11개, 주간 7단계, 찾아서 적기만) + 지시 보완기가 세션 첫 지시에 "고쳐야 함"을 한 번 알림 + 묶기에 기존 규칙 목록을 보여 줘 되풀이 후보 차단. 첫 점검: 고쳐야 함 2(일일 작업 종료 코드, 후보 되풀이 64%)·지켜볼 것 2.
 - 미검증·한계: 찾기까지만 자동이고 고치기는 사람 승인 뒤. 겪은 종류의 결함만 잡음. 묶기 보완 효과는 11/15 실행에서 확인.
 검색어: loop-health 자체점검 루프가 스스로 점검 후보 거부 20 distill 기존규칙 되풀이
+
+## 2026-11-12 출고분배 실제 운영 API 격리 연결·카톡 내부스크롤
+- 사용자요청: 테스트저장어댑터가 아닌 운영저장API로 격리검증, 카톡자동조회/읽기정리/카톡만스크롤. 작업트리 nw-distribution-real-api-1112,17e89a92기준.
+- 운영 pages/api/orders/index.js·shipment/distribute.js·estimate/index.js를 SWC로 원문그대로로드. DB만전용LocalDB로연결·auth/actionLog외부경계는fixture처리. 실제Chrome업체534/535연속추가5/7→운영주문API201 verified2건→운영분배API200 verified=true insert2건→새페이지SQL재조회5/7→견적printDetail API2행·excelDetail API150/210→xlsx실파일재열기PASS. 운영API수정0/ERP운영접속0.
+- 격리축약스키마 Product.Descr/PeriodDay범위·9/12달력/ShipmentDate자동키 누락 보완. 확정API/재고확정은이번시험범위밖, 견적읽기전fixture isFix만준비. API저장후원값은변경0. 결과로그 C:/Users/USER/nw-distribution-real-api-1112-current-pass.log, outputs/distribution-multi-save 엑셀2개.
+- 카톡마운트자동GET, 기존block.text호환보존+messages원시ID/시각추가, 개별원문최신순·전체/추가/취소필터. panel sticky/maxHeight, 요청목록65dvh내부스크롤/overscrollContain/키보드초점. Chrome40메시지휠→page.scrollY불변PASS, 일반주문제외·메타데이터2건테스트PASS. 전체ERP/dnSpy/manifest213/writeguard1API PASS. 최종화면build성공,가이드session70942진행. PR/배포/운영후속.
+검색어: real-api-1112 load-isolated-erp-api 실제orders distribute estimate LocalDB 내부스크롤65dvh 메시지최신순
+- 완료검증: 새빌드39331에서운영주문API201×2/분배API200 verified2행 insert/새페이지5·7/운영견적printDetail2행·excelDetail150·210/실제xlsx2파일재열기PASS. 전체ERP exit0,카톡원문API단위PASS,Chrome40메시지내부휠 pageY불변PASS,정식npm build exit0. 가이드191.8초 first/middle/last직접확인,자동조회/내부스크롤설명포함. PR/배포후속.
