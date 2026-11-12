@@ -2631,3 +2631,15 @@
 - 추가 검증: 정식 npm run build(영상 게이트 통과), 실Chrome 합성 fixture 1920/390(입력·유지·엑셀 반영·드래그), 가이드 6목차 재촬영·플레이어 재생 PASS.
 - 미검증: 운영 화면 실조작, 서버 배포의 data/runtime 보존(머지 후).
 - 검색어: 출고내역서 품목표시명 매칭 inline edit shipment-statement-labels
+
+## 2026-11-12 정본 백로그 D절 정리 — 옛 기록 표시·충돌 문장 실제 정리·PC 전역 제안·수정 기록 소급 수집
+- 요청: 사장님 "백로그 전부 병렬 작업" 중 docs/canon/BACKLOG.md D절(다른 세션이 A·B·C절 담당).
+- 옛 기록: .claude/PROGRESS.md·.claude/PLAN.md 맨 위, docs/work-reports/README.md(신규)에 "2026-11-12부터 새로 쓰지 않는다, 기록은 WORK_MEMORY.md" 표시. 읽기·쓰기 지시 문장을 WORK_MEMORY.md로 고침(.claude/CLAUDE.md 체크리스트 2·3번·종료 규칙·복구 프롬프트, NENOVA_WEB_MASTER_ISSUES 3곳, REGRESSION_PREVENTION_GUIDE 1곳, work-sessions/README 1곳). docs/work-reports는 계약 9·테스트 기준값 3·스크립트 1이 경로를 가리켜 옮기지 않음.
+- 낡은 문서: PROJECT_STATUS.md·SOLUTION_LINK.md 맨 위 "옛 기준" 표시(내용 유지).
+- 충돌 문장 실제 정리 4건: xlsx-js-style 금지 문장 제거→루트 CLAUDE.md "사용 라이브러리" 신설, push "명시 요청 시만"→AGENTS.md 기준(.claude/CLAUDE.md·nenova-orchestrator), "단일 진실 소스"→담당 파일 문장, repairMissingCustKey 수리 행을 루트 CLAUDE.md→AGENTS.md "작업 전 필수 확인"으로 이동. 정본 4절·5절 표와 실측 기록 머리말 갱신.
+- 메인 작업 폴더 전용 규칙: .claude/rules/insight-agreement.md(4줄)만 본편에 넣음(내용 동일). insight-requirement-review·insight-button-evidence 스킬과 .agents 사본은 판단 보류로 넣지 않음.
+- PC 전역 충돌 6건: 고치지 않고 docs/canon/PC_GLOBAL_RULE_FIX_PROPOSAL_2026-11-12.md 에 파일·줄·바꿀 문장 제안.
+- 소급 수집: 최근 90일 fix 734건(전체 2,211건) 제목 낱말 분류 → docs/canon/FIX_HISTORY_BACKFILL_2026-11-12.md, why-log.jsonl 에 candidate·why_source unknown 8건.
+- 검증: npm run test:canon 통과, menuDevelopmentDefaults·nenovaWebCompatibilityScope 검사 통과(AGENTS.md를 읽는 검사). pages/·lib/·DB 변경 0.
+- 미검증: 메인 작업 폴더가 본편을 받을 때 같은 이름 미추적 파일로 막히는지, Codex가 바뀐 문장을 실제로 따르는지, 소급 분류의 정확도(제목 낱말 근사치), PC 전역 제안의 실제 적용.
+- 검색어: 정본 canon 백로그 D절 옛기록 PROGRESS PLAN work-reports README PROJECT_STATUS SOLUTION_LINK insight-agreement PC전역 제안 stash 이카운트 예외 maxPerDay PERSONA 소급수집 why-log candidate backfill

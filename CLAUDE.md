@@ -135,9 +135,13 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
 | API | 용도 | DB 수정 |
 |-----|------|---------|
 | `GET /api/shipment/distribute-diagnose?week=23-01` | 중복 ShipmentMaster, ShipmentDetail.CustKey 누락, ShipmentDate 수량/일자 불일치, 키넘버링, SP 존재 진단 | ❌ 읽기 |
-| `POST /api/shipment/distribute-diagnose` `{ week, action:'repairMissingCustKey' }` | 기존 출고상세의 `CustKey`가 비었거나 `ShipmentMaster.CustKey`와 다를 때 같은 값으로 복구 | ⚠️ UPDATE |
 
-> ↪ 정본 참조(`docs/canon/CANON.md` 4절): `CustKey` 빈 값만으로 오류·보정을 판단하지 않는다는 `AGENTS.md`(2026-10-02) 기준이 위 `repairMissingCustKey` 설명보다 우선한다. 이동 제안: 이 표의 수리 행은 `AGENTS.md`의 해당 절로 옮기고 여기에는 읽기 진단만 남긴다.
+> 수리(UPDATE) 동작 `repairMissingCustKey`의 설명과 쓰는 조건은 `AGENTS.md` "작업 전 필수 확인"으로 옮겼다(2026-11-12). 여기에는 읽기 진단만 둔다. `CustKey`가 비었다는 것만으로 수리하지 않는다.
+
+## 📦 사용 라이브러리
+- 지금 쓰는 목록의 정답은 `package.json`이다. 여기에 목록을 따로 적지 않는다.
+- `xlsx-js-style`: webpack 전환으로 사용 가능 (매출이익 보고서 엑셀 생성에 사용 중) — 과거 금지 사유(Turbopack 실패)는 소멸
+- 새 라이브러리 추가 설치 전 반드시 사용자 승인
 
 ## 🚫 배포 주의
 - **빌드는 webpack 고정** (`next build --webpack`, package.json) — **Turbopack 복귀 금지.**
@@ -146,6 +150,5 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
   pptxgenjs의 node: scheme 은 next.config.js webpack 폴백으로 처리됨.
 - 배포 후 **Hydration smoke**(Actions 러너 실브라우저, `scripts/hydration-smoke.js`)가 자동 검사 —
   버튼에 React fiber 미부착이면 워크플로 실패. "버튼이 안 눌린다" 신고 = 이 유형 의심, fiber 키 확인이 3초 진단.
-- `xlsx-js-style`: webpack 전환으로 사용 가능 (매출이익 보고서 엑셀 생성에 사용 중) — 과거 금지 사유(Turbopack 실패)는 소멸
 - `set -e` 사용 주의 (경고를 에러로 처리)
 - 빌드 실패 시 pm2 재시작하면 502 → `.next` 확인 필수
