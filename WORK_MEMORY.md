@@ -2670,3 +2670,11 @@
 - 검증: 로컬 실행본에 실제 tech-radar.json(3회차 53건, 읽기만) + 새 필드를 넣은 가상 회차 1개를 올려 화면 확인 — 새 회차 꼬리표 5종·필터 동작, 예전 회차는 꼬리표 0줄·필터 미노출.
 - 미검증: 11/16 실제 회차 데이터로는 아직 못 봄(그때 처음 들어옴). 운영 배포 후 화면 확인. 모바일 폭 화면.
 - 검색어: 기술 레이더 radar sourceLabel inUse resurfaced actionLlm 찾은 곳 이미 사용 중 재평가 시험 후보 대기 꼬리표 pilotResult verdict reportPath
+## 2026-11-12 자가성장 루프 다시 돌리기(PC persona) — 백로그 A절 "멈춤" 해소
+- 사장님 지시 "백로그에 미뤄 둔 것 전부 작업". 대상은 PC 전역 `~/.claude/persona`(저장소 밖). 저장소는 docs/canon/BACKLOG.md A절 상태와 이 기록만 수정. 코드·DB·훅(prompt-guard 등)·nenova-pm·.codex 변경 0. 백업 `~/.claude/persona-backup-20261112`.
+- 다시 돌림: distill.js 보강(처리 표시로 새 것만·업무 영역 묶기·나눠서 전부 처리) → 사람 마찰 142건/18묶음 → 새 원리 후보 45건(승인 대기, rules.json 지문 불변). 주간 작업 OrbitPersonaWeekly(일 05:30) 등록·수동 실행 종료 코드 0. 프로파일(PERSONA.md) 자동 재작성은 꺼 둠.
+- 측정: 60일간 안 불린 규칙 0/41. 부딪힘 의심 쌍 66(함께 걸린 적 27, 목록만). 기준값 처음 171/191=89.5% → 집계 바로잡은 뒤 257/295=87.1%(규칙 안 얹힌 지시의 다음 지시 무마찰, "처음 보는 유형"은 가설). 승인 목록 persona/data/approval-list.md.
+- 발견: turns.jsonl "사람 지시" 30일 1,299건 중 826건이 로봇(워커) 지시문 → 매일 나오는 마찰률 수치가 섞인 값.
+- 후속(사장님 "고치고 보완까지"): mine-sessions.js 수정 — 로봇 지시문 1,193건 제외 + 앱 안내문(system-reminder)이 앞에 붙어 통째로 빠지던 사람 지시 158건 복구. 사람 지시 1,355→690건, 사람 세션 868→56개, 마찰률 12.55%→14.06%(97/690). 파일 분류(robot)는 넓히지 않음(robot 은 10분 뒤 삭제 대상이라). 세는 방식 변경은 report.md 머리와 data/metric-changes.jsonl 에 표시. 보완: 규칙 장부에 "거의 로봇에만 얹힘 11개·사람 지시엔 드묾 11개" 표시, 승인 목록을 7계열로 묶고 계열별 대표 번호 제시. rules.json 지문 불변.
+- 미검증: 일요일 새벽 자동 실행(로그인 상태에서만 돎, 11/15 이후 확인), 후보의 "근거 반복 건수"(AI 주장), OrbitPersonaVerifyDaily 11/12 비정상 종료 코드 원인.
+검색어: 자가성장 루프 distill OrbitPersonaWeekly 원리후보 45 approval-list baseline 257/295 mine-sessions 로봇제외 system-reminder 복구 metric-changes rule-conflicts robot-sig 로봇지시 섞임
