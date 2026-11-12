@@ -1,11 +1,11 @@
 {
   "id": "invoice-shared-awb-cost",
   "title": "콜롬비아 공동 AWB 전체 농장 원가 계산",
-  "scope": ["lib/invoiceSourcePacking.js","lib/coOriginalCostInputs.js","lib/invoiceSharedAwbCost.js","lib/invoiceSharedAwbApi.js","pages/api/import/receipts/shared-awb-cost.js","components/import-tools/SharedAwbCostReview.js"],
+  "scope": ["lib/invoiceSourcePacking.js","lib/coOriginalCostInputs.js","lib/invoiceSharedAwbCost.js","lib/invoiceSharedAwbApi.js","pages/api/import/receipts/shared-awb-cost.js","pages/api/import/receipts/native-shared-cost.js","pages/api/import/receipts/cost-master.js","pages/api/import/receipts/drive-match-history.js","lib/nativeSharedCost.js","lib/costMasterStore.js","lib/costMasterHttp.js","lib/costWorkbookMerge.js","lib/driveMatchHistory.js","components/import-tools/SharedAwbCostReview.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [{"name":"SHARED_AWB_PREVIEW","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"read-only","warehouseDetail":"read-only","stock":"preserve","estimate":"preserve","webProfitReport":"preserve","notes":"Complete version-bound manifest; shared costs allocated exactly once; no farm CW inferred or ERP writes."}],
   "crossYearFixture":{"required":true,"description":"Same AWB/week in a different year is rejected; missing/duplicate/stale members block calculation."},
-  "requiredTestFiles":["__tests__/coOriginalCostInputs.test.js","__tests__/invoiceSharedAwbCost.test.js","__tests__/invoiceSharedAwbApi.test.js","__tests__/invoiceSourcePacking.test.js"],
+  "requiredTestFiles":["__tests__/coOriginalCostInputs.test.js","__tests__/invoiceSharedAwbCost.test.js","__tests__/invoiceSharedAwbApi.test.js","__tests__/invoiceSourcePacking.test.js","__tests__/nativeSharedCost.test.js","__tests__/costMasterStore.test.js","__tests__/costWorkbookMerge.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-11-03 installed EXE CLI ExcelLoadingPackingList: independent Box/Bunch/Steam and UPrice/TPrice, native InsertMaster/SP preserved.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail"]},
   "designDocument":"docs/plans/shared-awb-cost-2026-11-03.md",
   "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
