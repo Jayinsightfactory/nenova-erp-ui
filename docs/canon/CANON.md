@@ -1,6 +1,6 @@
 # 정본 — 모든 에이전트가 작업 전에 읽는 판단 기준
 
-> 이 저장소에서 일하는 Claude Code · Codex · Cursor · PM 조사관이 **같은 기준**으로 판단하도록 한 곳에 모은 문서다.
+> 이 저장소에서 일하는 Claude Code · Codex · PM 조사관이 **같은 기준**으로 판단하도록 한 곳에 모은 문서다.
 > 길어지면 아무도 안 읽는다. 이 파일은 **판단 기준과 "어느 규칙이 어디에 있는가"** 만 담고, 도메인 규칙 본문은 옮겨 적지 않는다.
 > 고칠 때는 이 파일 하나만 고친다. 다른 지침 파일에 같은 내용을 복사하지 않는다.
 > 검사: `npm run test:canon` (정본이 있고, 각 지침 파일이 이 경로를 가리키는지만 본다. 판단 품질은 검사하지 않는다.)
@@ -62,8 +62,8 @@
 | 올리기·반영·배포 | `.claude/CLAUDE.md`·`nenova-orchestrator` "명시 요청 시에만" ↔ `AGENTS.md` "별도 배포 지시를 기다리지 않고 … 하나의 작업으로" | `AGENTS.md` (더 최근, 사장님 지시 "머지는 기본으로 항상 진행"과 일치). 단 DB 스키마 변경·마이그레이션이 든 수정안은 사람 선행 |
 | 출고상세 `CustKey` 빈 값 | 루트 `CLAUDE.md` `repairMissingCustKey`("비었으면 복구") ↔ `AGENTS.md` "NULL만으로 오류·보정을 판단하지 않는다" | `AGENTS.md` (2026-10-02 실제 EXE 확인 근거) |
 | 무엇이 "단일 기준"인가 | `.claude/CLAUDE.md` "단일 진실 소스" ↔ `AGENTS.md` "전역 규칙은 `~/.codex/AGENTS.md`" | 판단 기준은 이 정본, 도메인 규칙은 5절 표의 담당 파일 |
-| 작업 기록 위치 | `.claude/PROGRESS.md` ↔ `docs/work-sessions/` ↔ `docs/work-reports/` ↔ `WORK_MEMORY.md` | **미정 — 사장님 결정 필요.** 정해질 때까지 `WORK_MEMORY.md` 끝에 날짜·요약·검색어를 남기는 것을 최소 공통으로 한다(도구 셋 모두 읽는 유일한 기록) |
-| 도구별 역할 | `.cursor/rules` "Cursor가 지휘, git은 Cursor만" ↔ `AGENTS.md` "Codex/Claude가 작업 폴더에서 직접 수정안" | **미정 — 사장님 결정 필요** |
+| 작업 기록 위치 | `.claude/PROGRESS.md` ↔ `docs/work-sessions/` ↔ `docs/work-reports/` ↔ `WORK_MEMORY.md` | **`WORK_MEMORY.md` 한 곳** (2026-11-12 사장님 결정). 작업이 끝나면 파일 끝에 날짜·요약·검색어 줄을 남긴다. 내용이 길면 세부만 `docs/work-sessions/`에 두고 `WORK_MEMORY.md` 항목에서 가리킨다. `.claude/PROGRESS.md`와 `docs/work-reports/`에는 새로 쓰지 않는다(지난 기록은 그대로 둔다) |
+| 도구별 역할 | (옛) `.cursor/rules` "Cursor가 지휘, git은 Cursor만" ↔ `AGENTS.md` "Codex/Claude가 작업 폴더에서 직접 수정안" | **`AGENTS.md`** — Cursor는 쓰지 않는다(2026-11-12 사장님 결정). `.cursor/` 폴더는 지웠다. Claude Code와 Codex가 각자 작업 폴더에서 직접 수정안을 올린다 |
 
 <!-- canon:rule-map -->
 ## 5. 어느 규칙이 어디에 있는가
@@ -73,12 +73,13 @@
 | 주제 | 담당 파일(한 곳) | 읽는 도구 |
 |---|---|---|
 | 판단 기준·충돌 우선순위 | 이 파일 | 전부 |
-| ERP 원장 변경 절차·계약·검증 명령 | `AGENTS.md` | Codex·Cursor 자동, Claude는 `erp-contract-guardian`·스킬 경유 |
+| ERP 원장 변경 절차·계약·검증 명령 | `AGENTS.md` | Codex 자동, Claude는 `erp-contract-guardian`·스킬 경유 |
 | DB 쓰기 규칙·출고일 계산·진단 API·빌드 주의 | 루트 `CLAUDE.md` | Claude Code 자동 |
 | 세션 시작 체크리스트·보존 태그 | `.claude/CLAUDE.md` | Claude Code 자동 |
 | 하위 에이전트 역할 | `.claude/agents/*.md` | Claude Code |
 | 새 메뉴·화면틀·가이드 영상 | `docs/MENU_DEVELOPMENT_DEFAULTS.md` · `docs/UI_LAYOUT_AND_MENU_CONTRACT.md` · `docs/WORKFLOW_VIDEO_GUIDES.md` | 전부(`AGENTS.md`·`CLAUDE.md`가 가리킴) |
 | 수정 + "왜" 기록 | [`why-log.jsonl`](why-log.jsonl) | 전부 |
+| 작업 기록(무엇을 했나) | `WORK_MEMORY.md` 끝에 추가 | 전부 |
 | 사장님 지시에서 학습된 규칙(PC, 저장소 밖) | `~/.claude/persona/rules.json` — 이 저장소로 복사하지 않는다. 사람 승인으로만 들어간다 | Claude Code 훅, PM 조사관 |
 | PM 자동 처리(PC, 저장소 밖) | `C:\Users\USER\nenova-pm` — 역할 분담은 `.claude/agents/nenova-pm.md` | 작업 스케줄러 |
 
@@ -101,4 +102,4 @@
 | `valid_until` (선택) | 성수기·특정 차수에만 맞는 수정이면 끝나는 때 |
 | `rule_ref` (선택) | `status=rule`일 때 규칙이 들어간 파일·줄 |
 
-지켜야 할 것: `why_source`가 `stated`가 아닌 기록은 `rule`이 될 수 없다(검사가 막는다). 과거 저장 기록을 소급해 모은 것은 "왜"가 없으므로 `candidate`까지만 간다. `candidate` → `rule`은 사장님 승인으로만 한다.
+지켜야 할 것: 이유를 직접 말한 기록(`why_source: stated`)이거나 사장님이 직접 정한 것(`decided_by: owner`)만 `rule`이 될 수 있다(검사가 막는다). 사장님이 정했지만 이유를 말하지 않았으면 `why`에 추정이라고 적고 지어내지 않는다. 과거 저장 기록을 소급해 모은 것은 "왜"가 없으므로 `candidate`까지만 간다. `candidate` → `rule`은 사장님 승인으로만 한다.

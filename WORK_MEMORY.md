@@ -2621,3 +2621,5 @@
 - 신규: docs/canon/why-log.jsonl(예시 3건), RULE_FILE_INVENTORY_2026-11-12.md(전수표·충돌 15건·정본 13절 구현 현황), BACKLOG.md(자가성장 7단계 현황·HR·레이더 출처), .claude/agents/nenova-pm.md(초안), scripts/check-canon.cjs + npm run test:canon + erp-contract.yml 단계. 검사는 형식만 봄.
 - 미검증: Codex·Cursor 가 "작업 전 정본 읽기" 문장을 실제로 따르는지, PC PM 조사관이 저장소 CLAUDE.md 를 읽는지. PC 전역·nenova-pm·바탕화면 파일 수정 0, pages/·금액·재고·차수 로직 변경 0.
 검색어: 정본 CANON why-log check-canon test:canon 규칙충돌 xlsx-js-style 금지 사용가능 nenova-pm 에이전트 초안 자가성장 백로그
+- 후속(사장님 결정 2건, 같은 수정안 #1685): ① 작업 기록은 WORK_MEMORY.md 한 곳으로 통일 — AGENTS.md "세션 Q&A 백업"을 "작업 기록 (기본)"으로 바꾸고 .claude/CLAUDE.md 의 PROGRESS/PLAN 갱신 규칙에 "옛 방식" 표시. 긴 세부만 docs/work-sessions 에 두고 WORK_MEMORY 에서 가리킴. PROGRESS.md·docs/work-reports 는 새로 쓰지 않음(지난 기록 보존). ② Cursor 미사용 — .cursor/(규칙 3·스킬 1)와 .claude/tasks/_COMPLETION_REPORT_TEMPLATE.md 삭제, SOLUTION_LINK·정본·검사 스크립트에서 Cursor 항목 정리. why-log 2건 추가, 규칙 승격 조건을 "이유를 직접 말했거나 사장님이 정한 것"으로 보정. PC 의 Cursor 프로그램·설정은 건드리지 않음.
+검색어: WORK_MEMORY 통일 작업기록 한곳 Cursor 미사용 .cursor 삭제 완료보고 틀 삭제

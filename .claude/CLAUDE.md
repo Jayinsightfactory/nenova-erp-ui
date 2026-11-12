@@ -116,6 +116,8 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 
 **모든 작업 세션이 끝날 때 반드시 아래 실행:**
 
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 작업 기록은 `WORK_MEMORY.md` 끝에 날짜·요약·검색어 줄로 남긴다(2026-11-12 사장님 결정). 아래 1·2번(`PROGRESS.md`·`PLAN.md` 갱신)은 옛 방식이며 새로 쓰지 않는다. 지난 기록은 그대로 둔다.
+
 ### 1. `.claude/PROGRESS.md` 최상단에 세션 블록 추가
 ```
 ## [YYYY-MM-DD HH:MM] 세션 #N — 제목
@@ -142,7 +144,7 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 
 ### 4. GitHub push 여부 확인 (사용자 명시 요청 시만)
 
-> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 올리기·반영·배포는 `AGENTS.md` "수정 요청과 배포 동시 진행 원칙"이 우선한다(더 최근 기준). 작업 기록 위치(이 파일의 `PROGRESS.md` ↔ `docs/work-sessions/` ↔ `WORK_MEMORY.md`)는 미정이며 사장님 결정 대기 중이다.
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절): 올리기·반영·배포는 `AGENTS.md` "수정 요청과 배포 동시 진행 원칙"이 우선한다(더 최근 기준). 작업 기록은 `WORK_MEMORY.md` 한 곳으로 정해졌다(2026-11-12 사장님 결정).
 
 ---
 

@@ -32,8 +32,7 @@ const CANON_MARKERS = [
 const ENTRY_FILES = [
   { file: 'CLAUDE.md', tool: 'Claude Code' },
   { file: '.claude/CLAUDE.md', tool: 'Claude Code' },
-  { file: 'AGENTS.md', tool: 'Codex · Cursor' },
-  { file: '.cursor/rules/canon.mdc', tool: 'Cursor' },
+  { file: 'AGENTS.md', tool: 'Codex' },
   { file: '.claude/agents/README.md', tool: 'Claude Code 하위 에이전트' },
   { file: '.claude/agents/nenova-pm.md', tool: 'PM 에이전트 정의' },
 ];
@@ -94,8 +93,8 @@ function checkCanon(root) {
       if (row.why_source !== undefined && !WHY_SOURCES.includes(row.why_source)) errors.push(`${where} why_source 값 오류: ${row.why_source}`);
       if (row.decided_by !== undefined && !DECIDERS.includes(row.decided_by)) errors.push(`${where} decided_by 값 오류: ${row.decided_by}`);
       if (row.status !== undefined && !STATUSES.includes(row.status)) errors.push(`${where} status 값 오류: ${row.status}`);
-      // "왜"를 사람이 말하지 않은 기록은 규칙으로 승격할 수 없다(원리 후보까지만).
-      if (row.status === 'rule' && row.why_source !== 'stated') errors.push(`${where} why_source 가 stated 가 아닌 기록은 status=rule 이 될 수 없음`);
+      // 이유를 직접 말한 기록이거나 사장님이 직접 정한 것만 규칙이 될 수 있다. 추정으로 모은 것은 원리 후보까지만.
+      if (row.status === 'rule' && row.why_source !== 'stated' && row.decided_by !== 'owner') errors.push(`${where} 이유를 직접 말했거나(why_source=stated) 사장님이 정한(decided_by=owner) 기록만 status=rule 이 될 수 있음`);
     });
   }
   return errors;

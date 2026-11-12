@@ -1,7 +1,7 @@
 # SOLUTION_LINK — nenova-erp-ui (네노바 통합 솔루션의 ERP 코어)
 
 > 마스터 문서: `C:\Users\USER\NENOVA_SOLUTION_AUDIT.md` (전체 그림·우선순위는 거기 참조)
-> Cursor 작업 시 이 파일 + `CLAUDE.md`를 항상 컨텍스트에 포함할 것.
+> 작업 시 이 파일 + `CLAUDE.md`를 함께 참고할 것. (Cursor는 2026-11-12부터 쓰지 않는다.)
 
 ## 이 repo의 역할
 꽃 수입·유통 ERP의 웹 프런트+API (nenovaweb.com 운영 중, 완성도 ~80%).
