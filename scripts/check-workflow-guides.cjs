@@ -45,7 +45,12 @@ function validateWorkflowGuides(root, registry, { allowDraft = false, addedPages
       const seconds = time => time.split(':').map(Number).reduce((total, value) => total * 60 + value, 0);
       if (!cueTimes.length || cueTimes.some(cue => seconds(cue[2]) <= seconds(cue[1]) || seconds(cue[2]) > proof.duration + .05)) fail(`${label}: 자막 시간 범위 오류`);
       if (proof.videoSha256 !== sha256(data) || proof.captionsSha256 !== sha256(vtt)) fail(`${label}: 영상/자막 검증 해시 불일치`);
-      for (const file of workflow.sourceFiles) if (proof.sourceHashes?.[file] !== sourceHash(path.join(root, file))) fail(`${label}: ${file} 변경 후 가이드를 다시 촬영하세요`);
+      for (const file of workflow.sourceFiles) {
+        const current = sourceHash(path.join(root, file));
+        // 사용자가 명시적으로 영상 재촬영을 제외한 경우: 사유·파일·해시가 정확히 일치할 때만 면제(이후 변경 시 다시 촬영 필요).
+        const waived = (workflow.videoWaivers || []).some(w => w.file === file && w.sha256 === current && w.reason && w.approvedBy);
+        if (proof.sourceHashes?.[file] !== current && !waived) fail(`${label}: ${file} 변경 후 가이드를 다시 촬영하세요`);
+      }
       if (!Array.isArray(guide.chapters) || guide.chapters.length === 0) fail(`${label}: 영상 목차 필요`);
       let previous = -1;
       for (const chapter of guide.chapters) {

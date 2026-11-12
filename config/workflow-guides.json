@@ -326,6 +326,9 @@
     },
     {
       "id": "estimate-management",
+      "videoWaivers": [
+        { "file": "pages/estimate.js", "sha256": "f9eff73284138360879cc40dbc1d685a9d3eb06b541aab3992340e09bd03f3a8", "reason": "확정현황 모달(카테고리 범위 선택·음수재고 상세) 수정 — 견적서 관리 기본 화면 조작 순서는 변경 없음", "approvedBy": "사용자 지시 2026-11-12 (영상 없이 배포)" }
+      ],
       "title": "견적서 관리",
       "entryPaths": [
         "/estimate?tab=week"
@@ -371,6 +374,9 @@
     },
     {
       "id": "estimate-shipment-date-sales",
+      "videoWaivers": [
+        { "file": "pages/estimate.js", "sha256": "f9eff73284138360879cc40dbc1d685a9d3eb06b541aab3992340e09bd03f3a8", "reason": "확정현황 모달(카테고리 범위 선택·음수재고 상세) 수정 — 출고일 매출 탭 화면은 변경 없음", "approvedBy": "사용자 지시 2026-11-12 (영상 없이 배포)" }
+      ],
       "title": "업체별 출고일 정산 매출 조회",
       "entryPaths": [
         "/estimate?tab=shipment-date"
@@ -614,22 +620,27 @@
             {
               "scenario": "allocate",
               "title": "2. 요일 수량과 기본 출고요일",
-              "seconds": 26.53
+              "seconds": 26.547
+            },
+            {
+              "scenario": "label",
+              "title": "3. 엑셀 품목 표시명 직접 수정",
+              "seconds": 53.041
             },
             {
               "scenario": "drag",
-              "title": "3. 국가·품종 필터와 누적 드래그 선택",
-              "seconds": 53.047
+              "title": "4. 국가·품종 필터와 누적 드래그 선택",
+              "seconds": 62.82
             },
             {
               "scenario": "group",
-              "title": "4. 품목군 출력 묶음",
-              "seconds": 93.469
+              "title": "5. 품목군 출력 묶음",
+              "seconds": 103.292
             },
             {
               "scenario": "save",
-              "title": "5. 작성본 저장과 엑셀 다운로드",
-              "seconds": 120.319
+              "title": "6. 작성본 저장과 엑셀 다운로드",
+              "seconds": 130.176
             }
           ]
         }
