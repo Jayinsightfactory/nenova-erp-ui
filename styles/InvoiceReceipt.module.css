@@ -597,6 +597,21 @@
   align-items: baseline;
 }
 
+/* 공동·전체 농장 원가 패널: 안내 배너(.costPending)와 달리 여러 입력·표가 세로로 쌓이는 큰 패널 */
+.costPanel {
+  display: block;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid #d9c16c;
+  border-radius: 9px;
+  background: #fff8df;
+  color: #70520b;
+}
+
+.costPanel > * + * {
+  margin-top: 10px;
+}
+
 .costStale {
   border-color: #e0a2a2;
   background: #fff0f0;
