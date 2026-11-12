@@ -24,14 +24,22 @@ module.exports=async function verifyMulti(q,sql,config){
  const fresh=await new sql.ConnectionPool(config).connect();
  try{
   const rq=(statement,params)=>require('./test-weekday-distribution-sql.cjs').query(fresh,statement,params);
-  if(process.argv.includes('--browser-refresh'))await require('./distribution-localdb-browser.cjs')(rq,sql,refreshShipmentDatesAfterDetailChange);
-  const persisted=(await rq('SELECT CustKey,OutQuantity FROM ShipmentDetail WHERE SdetailKey IN(534,535) ORDER BY CustKey')).recordset;
+  if(process.argv.includes('--browser-refresh'))await require('./distribution-localdb-browser.cjs')(rq,sql,refreshShipmentDatesAfterDetailChange,fresh);
+  const persisted=(await rq('SELECT CustKey,OutQuantity FROM ShipmentDetail WHERE CustKey IN(534,535) AND ProdKey=866 ORDER BY CustKey')).recordset;
   assert.deepEqual(persisted.map(r=>[r.CustKey,Number(r.OutQuantity)]),[[534,5],[535,7]]);
+  // Quote eligibility requires confirmation. This fixture isolates export from stock confirmation.
+  await rq("UPDATE ShipmentDetail SET isFix=1 WHERE CustKey IN(534,535) AND ProdKey=866;UPDATE ShipmentMaster SET isFix=1 WHERE CustKey IN(534,535) AND OrderYear=N'2026' AND OrderWeek=N'37-01'");
   const excel=[],print=[];
+  const realEstimate=require('./load-isolated-erp-api.cjs')('pages/api/estimate/index.js',{query:rq,sql});
+  console.log('fixture saved dates',JSON.stringify((await rq('SELECT sm.OrderYearWeek,sm.CustKey,sd.ShipmentDtm,dt.EstQuantity,dt.ShipmentDtm DateDtm FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey JOIN ShipmentDate dt ON dt.SdetailKey=sd.SdetailKey WHERE sm.CustKey IN(534,535)')).recordset));
   for(const key of [534,535]){
    const params={orderYearWeek:{type:sql.NVarChar,value:'202637'},custKey:{type:sql.Int,value:key}};
-   excel.push(...(await rq(sqlEstimateGetExcelDetail({weekDayIn:'1,2,3,4,5,6,7'}),params)).recordset);
-   print.push(...(await rq(sqlEstimateGetPrintDetail({orderYearWeek:'202637',custKey:key,weekDayIn:'1,2,3,4,5,6,7'}),params)).recordset);
+   for(const view of ['excelDetail','print']){
+    let status=200,body;const res={status(code){status=code;return this;},json(value){body=value;return this;}};
+    await realEstimate({method:'GET',query:{week:'37-01',year:'2026',custKey:String(key),...(view==='excelDetail'?{view}:{byDate:'1',itemsOnly:'1',printDetail:'1'})},user:{userId:'fixture-user',authority:2}},res);
+    assert.equal(status,200,JSON.stringify(body));assert.equal(body.success,true);
+    if(view==='excelDetail')excel.push(...body.rows);else print.push(...body.items);
+   }
   }
   assert.equal(excel.length,2);assert.equal(print.length,2);
   assert.deepEqual(excel.map(r=>Number(r.EstQuantity)),[150,210]);

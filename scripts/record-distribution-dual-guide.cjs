@@ -85,6 +85,9 @@ async function main(){
  await click('[data-ai-verify="product-3513"]');await page.waitForSelector('[data-ai-verify="date-edit-777-3513"]');
  if(rec)await rec.chapter('dates','업체 검색과 날짜별 수량 입력');
  const farmSearch='[data-ai-verify="farm-distribution-customer-search"]';
+ await hold('오른쪽 카톡 요청은 분배창에 들어오면 자동으로 불러옵니다.\n개별 메시지를 최신순으로 보고, 추가·취소 버튼과 검색으로 좁힙니다.');
+ await page.hover('[aria-label="카톡 요청 목록"]');await page.mouse.wheel({deltaY:350});
+ await hold('카톡 목록 안에서 스크롤하므로 분배표를 보면서 요청을 확인할 수 있습니다.');
  await page.evaluate(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='추가·취소 불러오기')?.click());
  await page.waitForFunction(()=>document.querySelector('[aria-label="카톡 추가·취소 요청"]')?.textContent.includes('연습업체 카네이션 1박스 취소'));
  if(rec){await page.$eval(farmSearch,n=>n.scrollIntoView({block:'center'}));await rec.focus(farmSearch,step);}
