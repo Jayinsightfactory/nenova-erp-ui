@@ -2643,3 +2643,11 @@
 - 검증: npm run test:canon 통과, menuDevelopmentDefaults·nenovaWebCompatibilityScope 검사 통과(AGENTS.md를 읽는 검사). pages/·lib/·DB 변경 0.
 - 미검증: 메인 작업 폴더가 본편을 받을 때 같은 이름 미추적 파일로 막히는지, Codex가 바뀐 문장을 실제로 따르는지, 소급 분류의 정확도(제목 낱말 근사치), PC 전역 제안의 실제 적용.
 - 검색어: 정본 canon 백로그 D절 옛기록 PROGRESS PLAN work-reports README PROJECT_STATUS SOLUTION_LINK insight-agreement PC전역 제안 stash 이카운트 예외 maxPerDay PERSONA 소급수집 why-log candidate backfill
+
+## 2026-11-12 HR 에이전트(초안) — 온보딩·인수인계 문서
+- 사용자요청: 백로그(docs/canon/BACKLOG.md B절) HR 에이전트를 병렬 작업으로 진행. 원칙 "사람을 평가하지 않는다. 성장과 업무를 돕는다".
+- 신규: .claude/agents/nenova-hr.md(온보딩·인수인계만, 채용 행정·성장 지원은 범위 표만, 제외 기능 4가지와 이유, 평가·등급·보상·징계·합격 여부 다루지 않음), docs/hr/ONBOARDING_FIRST_WEEK.md(주문 등록→발주→입고→분배→출고→견적 순서로 기존 화면 주소·가이드 영상 13개·매뉴얼 초안 연결, 없는 곳은 "가이드 없음"), docs/hr/HANDOVER_TEMPLATE.md(인수인계 틀, 내용 비움).
+- 변경: scripts/check-canon.cjs 진입 파일에 nenova-hr.md 추가(5→6개), .claude/agents/README.md 한 줄 등록, BACKLOG B절 "만든 것 / 아직 안 만든 것" 표.
+- 측정: 온보딩=가이드만 보고 첫 주문 등록을 끝낸 시간, 인수인계=문서만 받고 대신 처리한 업무 수. 둘 다 기준값 없음(잰 적 없음).
+- 미검증: 실제 새 직원·실제 인수인계에 써 본 적 없음. 새 직원이 가이드만으로 웹에서 첫 주문을 등록할 수 있는지(주문 등록 화면 6개 중 영상 1개). 수입부 인수인계 내용은 별도 작업 소관이라 쓰지 않음. pages/·영상·금액·재고·차수 로직·DB·PC 전역 폴더 변경 0, 직원 개인 데이터 수집 0.
+- 검색어: HR 에이전트 nenova-hr 온보딩 첫주 인수인계 틀 가이드 없음 ONBOARDING_FIRST_WEEK HANDOVER_TEMPLATE 기준값 없음
