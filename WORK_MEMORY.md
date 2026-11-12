@@ -2687,3 +2687,15 @@
 - 미완료: LocalDB설치대기→전용격리instance/harness구성→실제다중저장·재조회·XLSX검증, 가이드최종·필수게이트·PR·배포·운영확인. 사용자 모든완료전최종응답금지.
 검색어: distribution-kakao-1112 LocalDB1603 dockerInference1920 추가취소원문 39329 guide83776 msnodesqlv8
 - 후속: 사용자LocalDB설치완료(160/Tools/Binn), 전용NenovaErpFixture16인스턴스실행. test-distribution-localdb --multi-save --browser-refresh PASS. 실제Chrome저장1회→테스트API어댑터→격리SQL수량5/7→새페이지SQL조회5/7유지→native견적2행/ECOUNT150·210→실제estimate.xlsx/ecount.xlsx재열기2행. 운영API handler 자체 DB통합검증은 아니며 production writer 변경0. Docker run백업보존/원장쓰기0. clean빌드·정식build·가이드186.45초/workflow13/14 PASS. 카톡일반주문제외·추가취소표시·기존단일저장회귀Chrome PASS. outputs/distribution-multi-save 엑셀2파일. PR/배포후속.
+## 2026-11-12 지시 보완기 보완 + 원리 후보 2건 편입(PC persona)
+- 사장님 지시: "지시보완기가 작동 안 했다는 얘긴가, 보완해야지" + 후보 57번 "후속진행을 하되 롤백만 가능한 구조로, 결과값 변경 없는 선에서" + 52번 "도구는 상황에 맞게". 저장소 밖 작업(~/.claude/hooks/prompt-guard.js, ~/.claude/persona/rules.json), 저장소는 이 기록과 백로그 A절 6단계만.
+- 실측: 사람 마찰 62건 중 59건이 관련 규칙이 이미 얹힌 세션에서 발생, 44건은 얹은 지 3턴 넘게 지난 뒤. 4개 상한에 잘린 지시는 13/156건.
+- 수정: 같은 규칙 재매칭 시 6턴 뒤 한 줄 다시 상기(최대 3), 지적 문장이면 세션에 얹었던 규칙 다시 확인(최대 3), 지시 앞 system-reminder 안내문 떼고 판정, guard-log 에 again·friction 칸. 시험 폴더 9턴 시험 통과(7턴째 다시 상기, 8턴째 지적 확인).
+- 편입(사장님 결정): follow-up-reversible(과하게 걸림 3.9%), design-tool-fit(0.4%) → 규칙 41→43.
+- 추가 편입(사장님 승인 7건: 후보 41·46·47·48·51·56·70) → 규칙 50. 문장은 그대로, AI가 지은 트리거는 흔한 낱말(단·표·색 등)을 빼고 좁혀 넣음(1.6~10.6%). 남은 후보 36건.
+- 승인 목록 보완: 기계 검사만으로는 거의 전부 "특이사항 없음"이 나오던 것을, 기존 규칙과 뜻으로 대조하는 단계(candidate-review.js, AI 판정)·근거 약함·흔한 낱말 트리거 표시로 보강. 36건 판정: 새 내용 10 · 기존 규칙과 같은 말 17 · 후보끼리 같은 말 6 · 막연함 3.
+- 미검증: 다시 상기가 실제로 마찰을 줄이는지(다음 주 baseline·마찰률), 지적 때 보여 주는 규칙이 실제 어긴 규칙인지(훅은 모름). 로봇 지시문에 규칙이 얹히는 것은 그대로.
+검색어: prompt-guard 다시 상기 REMIND_GAP friction again follow-up-reversible design-tool-fit 지시보완기 보완 규칙 50 candidate-review 뜻대조 특이사항없음
+- 후속(사장님 "거부 처리하고, 이런 부분도 자동으로 계속 고쳐 나가는 설계를 원했는데 왜 적용이 안 되나"): 후보 20건 거부(같은 말 17·막연 3) → 승인 대기 16. 원인 확인: 루프가 규칙만 키우고 루프 부품(집계·묶기·검사)을 점검하는 단계가 없어 오늘 결함 5개가 전부 사람이 발견. 보완: persona/bin/loop-health.js(자체 점검 11개, 주간 7단계, 찾아서 적기만) + 지시 보완기가 세션 첫 지시에 "고쳐야 함"을 한 번 알림 + 묶기에 기존 규칙 목록을 보여 줘 되풀이 후보 차단. 첫 점검: 고쳐야 함 2(일일 작업 종료 코드, 후보 되풀이 64%)·지켜볼 것 2.
+- 미검증·한계: 찾기까지만 자동이고 고치기는 사람 승인 뒤. 겪은 종류의 결함만 잡음. 묶기 보완 효과는 11/15 실행에서 확인.
+검색어: loop-health 자체점검 루프가 스스로 점검 후보 거부 20 distill 기존규칙 되풀이
