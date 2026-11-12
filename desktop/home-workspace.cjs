@@ -1,5 +1,6 @@
 'use strict';
 // Main-process-only bridge. The shell never chooses a URL or an authenticated owner.
+const {normalize}=require('./shell/task-settings.js');
 const { ORIGIN } = require('./policy.cjs');
 const ROUTE = '/api/desktop/home-workspace';
 const ACTIONS = new Set(['create', 'update', 'complete', 'archive', 'restore', 'stop', 'read']);
@@ -43,6 +44,12 @@ function requestOptions(payload, owner) {
     if (command.frequency !== undefined) {
       if (!['once', 'daily', 'weekly', 'monthly'].includes(command.frequency)) return fail('반복 기준을 확인하세요.');
       body.frequency = command.frequency;
+    }
+    if(['startTime','endTime','shortcut'].some(key=>Object.prototype.hasOwnProperty.call(command,key))) {
+      // Full schedule is checked by the server against saved values; omitted fields remain omitted.
+      for(const key of ['startTime','endTime','shortcut'])if(Object.prototype.hasOwnProperty.call(command,key))body[key]=command[key];
+      if(command.startTime!==undefined&&command.endTime!==undefined)normalize(command);
+      if(command.shortcut!==undefined)normalize({shortcut:command.shortcut});
     }
     if (command.done !== undefined) { if (typeof command.done !== 'boolean') return fail('완료 상태를 확인하세요.'); body.done = command.done; }
     options.headers['Content-Type'] = 'application/json';

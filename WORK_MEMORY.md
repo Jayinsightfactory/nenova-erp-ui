@@ -2717,3 +2717,20 @@
 - 시험(일부러 고장): 문법 오류 1·실행 오류 1 심음 → 둘 다 탐지·각 1줄 수정·원본과 완전 일치. 오류 설명에 "파일 전부 삭제" 주입 → 따르지 않음. 22줄 삭제 → 수정안 거부, 더 나빠지지 않음. 정상 상태 주간 순환 실패 단계 0.
 - 한계·미검증: 죽는 고장과 정해진 처방 3가지만 자동. 돌지만 숫자가 틀린 고장은 사람에게 넘김. 일요일 무인 실행은 11/15 이후 확인.
 검색어: loop-autofix 자동 수정 사본 되돌리기 rollback script-broken robot-sig-learned 무인 수정 내역
+
+## 2026-11-12 오늘의 내 업무 · 시간/바로가기 디자인
+- 요청: 홈과 업무 메모장을 GPT로 디자인, 업무별 데스크톱 메뉴 또는 웹 링크, 매일 반복에 시간 지정·시간표 입력, 한 화면7~8개·좁은 PC 폭.
+- fresh worktree nw-task-launch-design-1112 @17e89a92, branch codex/task-launch-design-1112. 기존 메모장/홈/개인업무 저장/IPC 확인. 운영 코드/API/DB 변경0.
+- built-in GPT 이미지 시안2종 후 최종 코드 시안 폭320px·행51px·업무명12px/보조10px·8개노출. 홈/PC메모장/시간·바로가기 편집·시간표 빈슬롯 추가/완료 독립동작. docs/design/task-launch-1112 및 사용자 outputs HTML/PNG/설계·프롬프트/검증JSON.
+- Chromium1920x1080/390px: 8개·폭320·필터·완료·바로가기 미리보기·시간표12:00추가·종료시간오류·Escape·가로넘침0·JS오류0 PASS. 실제앱실행/서버저장/동기화·운영반영 미검증, 디자인만 완료. 실제구현에는 시간/링크 저장모델+권한검증 IPC+버전배포 필요. 가이드/ERP게이트/빌드 해당없음(운영메뉴 변경없는 독립디자인).
+- 메뉴기준 반응형·읽기밀도·페이지스크롤·키보드 적용, ERP원장/업로드/원장확인 해당없음. 계정전체주간1%→1% 동일reset1795064856, 작업단독비용 추정없음.
+검색어: task-launch-1112 오늘의내업무 업무메모장 320px 8개 시간표 매일 바로가기 desktop notes
+
+## 2026-11-12 오늘의 내 업무 · 승인 디자인 실제 적용
+- 사용자 제안대로 적용 승인. 단일 작업자, nw-task-launch-design-1112. 홈 처음8개/시간표·빈시간추가, PC메모장 content폭320·행51px·8개·dialog추가수정, 기존고정/복사/알림/보관유지.
+- startTime/endTime/shortcut을 기존 owner파일 CAS/원자성/멱등요청에 추가. 선택실행 즉시·반복은다음날부터, 전년도스냅샷/구형앱제목수정보존. 정규화 helper공유, 앱메인에서계정현재메뉴대조·웹http(s)확인·계정전환후거부. 이동=완료아님. ERP원장/SQL/API신설0.
+- 실제저장/재조회/시간경계·누락/명시해제·교차연도·계정분리·CAS 회귀PASS. Chromium실제shell1920/800·notes320/280/390 8개·시간표·저장실패입력보존·충돌재조회재저장·Escape PASS. desktop unit47/47, native ElectronIPC메뉴탭실행·이동후POST0/계정전환·복원PASS.
+- 정식 npm run test:erp-contract exit0(공식pre/post포함), dnSpy/manifest213/writeguard0API PASS. 57.6초실제Chrome연습가이드6단계·자막/목차·대상줌/최종프레임검토·해시등록, 페이지/desktop-guide·홈/메모장연결.
+- Desktop1.3.19·다운로드링크갱신. 정식webpack1worker빌드 진행, PR/CI/설치파일공개/Cafe24배포/운영재생은 후속(미검증). 기록 docs/plans/task-launch-criteria-1112.md.
+- 메뉴기준 적용: 읽기밀도/키보드/반응형/스크롤/뒤로가기/오류입력보존/가이드. ERP업무키·원장쓰기·전산probe 해당없음(동작은개인JSON·메뉴이동만).
+검색어: task-launch-1112 1.3.19 320px 8개 startTime endTime shortcut 시간표 CAS nativeIPC 가이드57.6

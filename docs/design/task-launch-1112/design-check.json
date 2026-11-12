@@ -1,0 +1,64 @@
+{
+  "viewport": "1920x1080",
+  "notes": {
+    "width": 320,
+    "height": 643,
+    "rows": [
+      {
+        "top": 240,
+        "bottom": 291,
+        "height": 51
+      },
+      {
+        "top": 291,
+        "bottom": 342,
+        "height": 51
+      },
+      {
+        "top": 342,
+        "bottom": 393,
+        "height": 51
+      },
+      {
+        "top": 393,
+        "bottom": 444,
+        "height": 51
+      },
+      {
+        "top": 444,
+        "bottom": 495,
+        "height": 51
+      },
+      {
+        "top": 495,
+        "bottom": 546,
+        "height": 51
+      },
+      {
+        "top": 546,
+        "bottom": 597,
+        "height": 51
+      },
+      {
+        "top": 597,
+        "bottom": 648,
+        "height": 51
+      }
+    ],
+    "bottom": 721
+  },
+  "checks": [
+    "8 tasks visible",
+    "320px width",
+    "menu and web link preview",
+    "completion independent of navigation",
+    "pending filter",
+    "timeline click prefills time",
+    "schedule saves in memory",
+    "invalid end time rejected",
+    "Escape closes editor",
+    "390px no horizontal overflow",
+    "no JavaScript errors"
+  ],
+  "errors": []
+}
