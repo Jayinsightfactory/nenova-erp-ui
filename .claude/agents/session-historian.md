@@ -5,6 +5,8 @@ tools: Read, Write, Edit, Glob, Bash
 model: sonnet
 ---
 
+> ↪ 정본 참조(`docs/canon/CANON.md` 4절, 2026-11-12): 작업 기록은 저장소의 `WORK_MEMORY.md` 끝에 날짜·요약·검색어 줄로 남기는 것이 기준이다. 아래 "메모리 위치"(`C:Userscando…`)는 다른 PC 기준의 옛 경로라 지금 PC에는 없다 — 세션 요약은 `WORK_MEMORY.md`에 쓴다.
+
 당신은 세션 사관(史官)이다. 작업 내역을 미래 세션이 즉시 이어받을 수 있게 메모리에 정리한다.
 
 ## 메모리 위치

@@ -1,3 +1,5 @@
+> 📦 **옛 기록 — 2026-11-12부터 여기에 새로 쓰지 않는다.** 작업 기록과 남은 일(미검증·미결)은 [`WORK_MEMORY.md`](../WORK_MEMORY.md) 끝에 남긴다(사장님 결정, 정본 [`docs/canon/CANON.md`](../docs/canon/CANON.md) 4절). 아래 계획·진행 표는 2026-11-12까지의 기록으로 그대로 둔다. 지금 만들지 않는 설계는 [`docs/canon/BACKLOG.md`](../docs/canon/BACKLOG.md), 기능별 계획 문서는 `docs/plans/`에 있다.
+
 ## 2026-11-12 — 출고내역서 엑셀 품목 표시명 직접 수정
 - [x] 표 입력칸 즉시 저장(ProdKey 매칭)·엑셀/미리보기 적용·단위 31 PASS·계약 manifest 등록
 - [x] guard:erp-writes·dnspy-evidence·ui-layout PASS

@@ -52,6 +52,8 @@ Google Play/Expo/Android 15·16 경고, AAB, 네이티브 `.so` 정렬은 MOYI �
 
 `ShipmentDetail.CustKey`의 NULL·거래처 누락을 다루면 [2026-10-02 native NULL 정정](docs/SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)을 먼저 읽는다. EXE는 상세 CustKey를 기록하지 않는 정상 경로가 있고 ViewShipment 거래처는 상위 ShipmentMaster에서 결정된다. NULL만으로 오류·조회 제외·인쇄 차단·SQL 보정을 판단하지 않는다. 웹 신규 쓰기 정책과 기존 원장의 읽기 조건은 구분하며, 오래된 MD보다 실제 EXE 저장 SQL과 View 연결을 재확인한다.
 
+수리 동작 `POST /api/shipment/distribute-diagnose` `{ week, action:'repairMissingCustKey' }`(⚠️ UPDATE — 출고상세 `CustKey`를 상위 `ShipmentMaster.CustKey` 값으로 맞춤)는 위 기준 아래에서만 쓴다: `CustKey`가 비었다는 것만으로 돌리지 않고, 읽기 진단(`GET /api/shipment/distribute-diagnose?week=…`)과 실제 화면 증상(예: `nenova.exe` 분배 화면에 행이 안 보임)을 확인한 뒤에 쓴다. (2026-11-12 루트 `CLAUDE.md` "분배 진단/수리 API" 표에서 옮김.)
+
 1. `docs/ERP_CHANGE_GUARD.md`
 2. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`
 3. `docs/ERP_COMPAT_INVARIANTS_2026-06-04.md`
@@ -144,7 +146,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 배포 후 `https://nenovaweb.com/api/ping` 200, 버전 배지 = 커밋 해시.
 
 전역 규칙은 `~\/.codex\/AGENTS.md`, 진입 문서는 `.claude\/CLAUDE.md`·루트 `CLAUDE.md`.
-↪ 정본 참조: 이 파일들 사이에 문장이 부딪히면 `docs/canon/CANON.md` 4절의 순서를 따른다. 이동 제안: 위 "Codex/Claude 공용 보충"의 webpack 고정·DB 스키마 줄은 루트 `CLAUDE.md`와 겹치므로 한 곳만 남긴다.
+↪ 정본 참조: 이 파일들 사이에 문장이 부딪히면 `docs/canon/CANON.md` 4절의 순서를 따른다. 위 "Codex/Claude 공용 보충"의 webpack 고정·DB 스키마 줄은 루트 `CLAUDE.md`가 담당이며, 여기 줄은 Codex가 루트 `CLAUDE.md`를 자동으로 읽지 않아 요약으로 남겨 둔 것이다(고칠 때는 루트 `CLAUDE.md`를 먼저 고친다).
 
 ## 출고 연결 헤더 작업 시 추가 확인
 

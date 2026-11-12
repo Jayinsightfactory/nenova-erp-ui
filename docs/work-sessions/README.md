@@ -4,7 +4,9 @@
 
 ## 세션별 질문·답변 백업 (기본)
 
-대화가 끝나면 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 사용자 질문과 에이전트 답변을 요약해 남긴다. 목록은 `INDEX.md`. 규칙: `.cursor/rules/session-qa-log.mdc`. 스킬: `.cursor/skills/session-qa-backup/SKILL.md`.
+> 2026-11-12부터: 작업 기록의 기본 위치는 `WORK_MEMORY.md` 한 곳이다(정본 `docs/canon/CANON.md` 4절). 이 폴더에는 **긴 세부만** 두고 `WORK_MEMORY.md` 항목에서 가리킨다. 아래에 적혀 있던 Cursor 규칙·스킬(`.cursor/…`)은 지워져 더 이상 없다.
+
+긴 질문·답변 세부는 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 요약해 남길 수 있다. 목록은 `INDEX.md`.
 
 새 채팅은 대화 기억이 아니라 최근 세션 md를 읽고 시작한다.
 
