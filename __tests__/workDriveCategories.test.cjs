@@ -36,7 +36,7 @@ for (const stage of stages) {
 assert.equal(filterCategories(files, '', 'stale').length, files.length);
 assert.equal(JSON.stringify(files), snapshot);
 let values = {}, index = 0, setters = {};
-const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : require(name)).default;
+const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : name === '../../lib/workDriveListDecode.cjs' ? require('../lib/workDriveListDecode.cjs') : require(name)).default;
 const data = { files, stages, me: '담당자', dept: '영업', isAdmin: true };
 function tree(v = {}) { values = { 0: data, ...v }; index = 0; setters = {}; return Page(); }
 function render(v) { return renderToStaticMarkup(tree(v)); }
@@ -84,6 +84,13 @@ console.log('work-drive: subcategories, precedence, immutable major category, co
 (async () => {
   const originalFetch = global.fetch;
   try {
+    const listRoot=tree(),listRefresh=find(listRoot,e=>e.type==='button'&&e.props.onClick?.name==='load');assert(listRefresh);
+    const table=await require('../lib/workDriveListTable.cjs').encodeDriveFileTable(files);
+    for(const result of [{success:true,...data,fileTable:table,files:undefined},{success:true,...data}]){
+      global.fetch=async(url,options)=>{assert.equal(url,'/api/work/drive?format=table-v1');assert.equal(options.cache,'no-store');return {json:async()=>result};};
+      await listRefresh.props.onClick();assert.deepEqual(setters[0].files,files);assert.equal(setters[1],'');
+      const restored=render({0:setters[0],6:'list',7:'송금·경영',18:'지출결의'});assert.match(restored,/지출결의서 250829 청구서/);assert.doesNotMatch(restored,/외화송금신청서.pdf/);
+    }
     const requestRoot = tree({6:'security',21:'copy'});
     const refresh = find(requestRoot, e => e.type === 'button' && e.props.onClick?.name === 'loadEg');
     assert(refresh);

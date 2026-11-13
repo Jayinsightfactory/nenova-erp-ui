@@ -3,6 +3,7 @@
 // 상단: 범위·사람·검색·보기 / 좌: 연도별 차수 / 우측 끝: 접을 수 있는 관리자 PC 현황
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
+import { decodeDriveList } from '../../lib/workDriveListDecode.cjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fileSubcategory, filterCategories, subcategoryCounts } from '../../lib/workDriveCategories';
 import { isKakaoInbound, securityEvent, securityRows, securityCounts } from '../../lib/workDriveSecurity';
@@ -63,7 +64,7 @@ export default function WorkDrivePage() {
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
   const load = async () => {
-    try { const r = await fetch('/api/work/drive', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(j); setErr(''); }
+    try { const r = await fetch('/api/work/drive?format=table-v1', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(decodeDriveList(j)); setErr(''); }
     catch (e) { setErr(e.message); }
   };
   useEffect(() => { load(); }, []);

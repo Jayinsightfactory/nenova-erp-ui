@@ -36,7 +36,11 @@
     "lib/workDriveListAsync.cjs",
     "lib/workDriveListWorker.cjs",
     "__tests__/workDriveListWorker.test.cjs",
-    "scripts/benchmark-drive-list-read.cjs"
+    "scripts/benchmark-drive-list-read.cjs",
+    "lib/workDriveListResponse.cjs",
+    "lib/workDriveListTable.cjs",
+    "lib/workDriveListDecode.cjs",
+    "scripts/test-drive-list-browser.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -119,5 +123,5 @@
     "__tests__/workDrivePairsWorker.test.cjs"
   ],
   "ingestIndexCache": "Ingest-only process cache holds duplicate/version/latest-size aggregates. Exact dev/ino/size/mtimeNs/ctimeNs signatures invalidate on external changes. Only own verified append updates aggregates without rereading; unsupported legacy rows fall back to historical scan. History and download paths still read the original complete audit index. Normal list ACL is applied per call to the separately validated read-only list snapshot. No SQL/remit changes.",
-  "listReader": "Normal authenticated GET /api/work/drive reads one read-only audit snapshot in a supervised low-priority child with no credentials/user objects. A dev/ino/size/mtimeNs/ctimeNs signature caches only unchanged snapshots; up to two stable-read attempts, 64 MiB index cap, one child, at most 64 waiters, pending-batch coalescing and a 10-second monotonic queue-plus-work deadline; idle exit after 60 seconds. Calls arriving after dispatch require a later batch. Existing per-call ACL, alias normalization, sort and successful JSON fields stay in the web process. Admin usage uses the same audit snapshot and a fresh complete disk scan (no usage TTL); quota/correction/download paths unchanged. Busy/read/launch/IPC/timeout failures return 503 with Retry-After and never publish stale authorization data. The read path creates no data/drive files."
+  "listReader": "Normal authenticated GET /api/work/drive reads one read-only audit snapshot in a supervised low-priority child with no credentials/user objects. A dev/ino/size/mtimeNs/ctimeNs signature caches only unchanged snapshots; up to two stable-read attempts, 64 MiB index cap, one child, at most 64 waiters, pending-batch coalescing and a 10-second monotonic queue-plus-work deadline; idle exit after 60 seconds. Calls arriving after dispatch require a later batch. Existing per-call ACL, alias normalization and sort stay in the web process. Default GET preserves successful JSON fields. The screen opts into format=table-v1, a lossless dictionary/column transport decoded to the identical files array including unknown fields. Bounded chunked serialization yields between chunks and respects backpressure/disconnect. Every request revalidates the exact index signature before reusing unchanged raw rows across IPC; no authorization result is shared between users. Admin usage uses the same audit snapshot and a fresh complete disk scan (no usage TTL); quota/correction/download paths unchanged. Busy/read/launch/IPC/timeout failures return 503 with Retry-After and never publish stale authorization data. The read path creates no data/drive files."
 }

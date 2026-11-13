@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { withAuth } from '../../../lib/auth';
 import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
+import { sendDriveListJson } from '../../../lib/workDriveListResponse.cjs';
 import { readDriveListAsync } from '../../../lib/workDriveListAsync.cjs';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { WORK_DRIVE_ADMIN_USER_IDS } from '../../../lib/workDrive';
@@ -33,7 +34,7 @@ export default withAuth(async function handler(req, res) {
     let snapshot;
     try { snapshot = await readDriveListAsync({ includeUsage: isAdmin }); }
     catch { res.setHeader('Retry-After','2');return res.status(503).json({success:false,error:'업무 파일 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'}); }
-    return res.status(200).json({ success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(isAdmin ? { usage: snapshot.usage } : {}) });
+    return sendDriveListJson(res, { success: true, me: who.name || user.userName || user.userId, dept: who.dept, isAdmin, stages: STAGES, files: listVisible(user, snapshot.rows), ...(isAdmin ? { usage: snapshot.usage } : {}) }, { table: req.query.format === 'table-v1' });
   }
   if (req.method === 'POST') {
     const b = req.body || {};

@@ -75,3 +75,27 @@ test('a slow child termination cannot extend pending HTTP deadlines',async()=>{
   await assert.rejects(reader.read(),/TIMEOUT/);assert.equal(reader.status().waiters,0);
  }finally{release?.();await reader.close();clearInterval(guard);}
 });
+
+test('unchanged exact-signature snapshots reuse row identity while usage remains fresh',()=>fixture(async({index,rows})=>{
+ const reader=createDriveListReader({projectRoot});try{
+  const first=await reader.read({includeUsage:true}),next=await reader.read({includeUsage:true});assert.equal(next.rows,first.rows);assert.notEqual(next.usage,first.usage);assert.equal(reader.stats().diskWalks,2);
+  fs.appendFileSync(index,JSON.stringify({...rows[0],stage:'품질'})+'\n');const updated=await reader.read();assert.notEqual(updated.rows,first.rows);assert.equal(updated.rows.find(row=>row.id==='a').stage,'품질');
+ }finally{await reader.close();}
+}));
+
+test('legacy and opt-in lossless response preserve all authorized fields, JSON values and ordering',()=>fixture(async({wd})=>{
+ const http=require('node:http'),{sendDriveListJson}=require('../lib/workDriveListResponse.cjs'),{encodeDriveFileTable,decodeDriveList}=require('../lib/workDriveListTable.cjs');
+ for(const user of [boss,a,b,null]){
+  const files=wd.listVisible(user);files.push(JSON.parse('{"id":"edge","__proto__":"own","null":null,"array":[1,"x"],"number":0,"false":false,"empty":"","negative":-1,"object":{"nested":true}}'));
+  const payload={success:true,files,stages:['a'],usage:{used:0}};assert.deepEqual(decodeDriveList({...payload,files:undefined,fileTable:await encodeDriveFileTable(files)}),payload);
+ }
+ const payload={success:true,files:wd.listVisible(boss),me:'fixture',stages:['발주'],usage:wd.driveUsage()};
+ const server=http.createServer((req,res)=>{sendDriveListJson(res,payload,{table:req.url==='/table',chunkBytes:64}).catch(()=>res.destroy());});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ try{for(const route of ['/legacy','/table']){const response=await fetch('http://127.0.0.1:'+server.address().port+route);assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/application\/json/);assert.deepEqual(decodeDriveList(await response.json()),payload);}}finally{await new Promise(resolve=>server.close(resolve));}
+}));
+
+test('response backpressure and disconnect stop further writes',async()=>{
+ const {EventEmitter}=require('node:events'),{sendDriveListJson}=require('../lib/workDriveListResponse.cjs'),res=new EventEmitter();let writes=0,ended=false;
+ Object.assign(res,{setHeader(){},write(){writes++;queueMicrotask(()=>res.emit('close'));return false;},end(){ended=true;}});
+ await sendDriveListJson(res,{success:true,files:Array.from({length:200},(_,i)=>({id:String(i),filename:'fixture'}))},{chunkBytes:10});assert.equal(writes,1);assert.equal(ended,false);for(const event of ['close','drain','error'])assert.equal(res.listenerCount(event),0);
+});

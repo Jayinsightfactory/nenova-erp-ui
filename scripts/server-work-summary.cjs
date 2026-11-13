@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const bounds=require('../lib/serverWorkTelemetry.cjs').BUCKETS;
 const focus=['/api/auth/login','/api/desktop/home-workspace','/api/work/drive-ingest','/api/work/drive','/api/orders','/api/orders/import-parse','/api/moyi/drive-admin'];
-const knownStages=new Set(['dbQuery','dbPool','personalFile','guidance','quality','admission','multipart','store','remit']);
+const knownStages=new Set(['dbQuery','dbPool','personalFile','guidance','quality','admission','multipart','store','remit','txBegin','txQuery','txCommit']);
 function distribution({buckets,...g}){let sum=0;const i=buckets.findIndex(n=>(sum+=n)>=.95*g.count);return {...g,p95BucketMs:bounds[i]||'>60000'};}
 async function summary(dir,minutes){
  const sampled=new Map();
