@@ -1,3 +1,5 @@
+import { readPalletSnapshots } from '../../../lib/shipmentImportAudit';
+import { palletSnapshot } from '../../../lib/shipmentPallet';
 import fs from 'fs';
 import formidable from 'formidable';
 import { withAuth } from '../../../lib/auth';
@@ -26,7 +28,13 @@ async function handler(req,res) {
       const workbook=XLSX.read(buffer,{type:'buffer'});
       const parsed=parseAllocationWorkbook(XLSX,workbook);
       const directory=await query("SELECT CustName, OrderCode, Descr FROM Customer WHERE ISNULL(isDeleted,0)=0");
-      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
+      const selectedWeek=field('week'),selectedYear=field('year');
+      const scope=selectedWeek && selectedYear ? requireOrderYear(selectedWeek,selectedYear) : null;
+      const fileWeek=(file.originalFilename||'').match(/(?:^|[^0-9])(\d{2})[-－](\d{1,2})(?!\d)/);
+      const sameWeek=!fileWeek || scope?.orderWeek===fileWeek[1]+'-'+fileWeek[2].padStart(2,'0');
+      const saved=scope && sameWeek ? await readPalletSnapshots(scope.orderYear,scope.orderWeek) : {};
+      const pallets={...saved,...palletSnapshot(XLSX,workbook,parsed.rows)};
+      output=await createUploadedFieldWorkbook(buffer,parsed.rows,{pallets,customerDirectory:directory.recordset,filename:file.originalFilename,farmText:field('farmText'),week:field('week'),year:field('year')});
     } else {
       const plan=verifyFarmExport(buffer,field('exportPlan'),req.user.userId);
       if(mode==='field-volume') {
@@ -35,6 +43,7 @@ async function handler(req,res) {
         const scope=fieldVolumeSql(plan.products.map(p=>p.prodKey));
         const params={year:{type:sql.NVarChar,value:orderYear},major:{type:sql.NVarChar,value:orderWeek.split('-')[0]},minor:{type:sql.Int,value:Number(orderWeek.split('-')[1])}};
         const lines=await query(scope.lines,params),farms=await query(scope.farms,params);
+        plan.pallets=await readPalletSnapshots(orderYear,orderWeek);
         output=await createFieldVolumeWorkbook(plan,lines.recordset,farms.recordset);
       } else {
         if(mode || plan.kind)throw Object.assign(new Error('잘못된 다운로드 형식입니다.'),{statusCode:400});

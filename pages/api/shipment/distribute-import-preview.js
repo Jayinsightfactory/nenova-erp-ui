@@ -5,6 +5,7 @@ import { withAuth } from '../../../lib/auth';
 import { parseAllocationWorkbook, buildImportPreview } from '../../../lib/shipmentImport';
 import { getEarlyShipmentExclusions } from '../../../lib/weekdayEarlyShipmentStore';
 import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
+import { palletSnapshot } from '../../../lib/shipmentPallet';
 import { createReplacementPlan } from '../../../lib/shipmentReplacementPlan.js';
 import { mirrorWebUpload } from '../../../lib/workDrive';
 import { buildFarmImportPreview } from '../../../lib/shipmentFarmImport';
@@ -82,6 +83,8 @@ async function handler(req, res) {
       prodKeysInScope: parsed.prodKeysInScope,
       pairKeysInScope: parsed.pairKeysInScope,
     });
+    const acceptedCells=new Set(preview.rows.flatMap(row=>row.cells||[]));
+    preview.palletSnapshot=palletSnapshot(XLSX,workbook,parsed.rows.filter(row=>acceptedCells.has(row.sheetName+'!R'+row.rowNo+'C'+row.colNo)));
     const original = fs.readFileSync(file.filepath);
     const isXlsx = /\.xlsx$/i.test(file.originalFilename || '');
     const drawingFarmText = isXlsx && !workbook.Sheets[FARM_SHEET] ? await readFarmDrawingText(original) : '';
