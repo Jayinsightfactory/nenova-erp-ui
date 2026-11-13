@@ -13,6 +13,8 @@ import InvoiceWarehouseCostBrowse from './InvoiceWarehouseCostBrowse.js';
 import { normalizeWarehouseBrowse } from '../../lib/invoiceWarehouseBrowse.js';
 import InvoiceProductAllocation from './InvoiceProductAllocation.js';
 import InvoiceReceiptProductPicker from './InvoiceReceiptProductPicker.js';
+import InvoiceMatchSuggestions, { topSuggestion } from './InvoiceMatchSuggestions.js';
+import { detectInvoiceCountry, productCountryMismatch } from '../../lib/invoiceMatchAssist.js';
 import { receiptProductLabel } from '../../lib/invoiceReceiptProductSearch.js';
 import { saveReceiptProductMatch } from '../../lib/receiptProductMatchClient.js';
 import { receiptLineTotals } from '../../lib/importPackingReceiptAdapter.js';
@@ -304,6 +306,18 @@ export default function InvoiceReceiptWorkbench({
   const selectableProducts = useMemo(() => (products || []).filter(product => product?.selectable !== false
     && (!documentValue?.reviewedMetadata?.country || product.country === documentValue.reviewedMetadata.country)),
   [documentValue?.reviewedMetadata?.country, products]);
+  // 업무드라이브 원가자료로 이미 저장된 품명→품목 이력(읽기 전용). 실패해도 이름 비교 후보만으로 계속 동작한다.
+  const [matchHistory, setMatchHistory] = useState({});
+  const historyCountry = documentValue?.reviewedMetadata?.country;
+  useEffect(() => {
+    if (!historyCountry) { setMatchHistory({}); return undefined; }
+    const abort = new AbortController();
+    fetch(`/api/import/receipts/drive-match-history?${new URLSearchParams({ country: historyCountry })}`, { cache: 'no-store', signal: abort.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!abort.signal.aborted) setMatchHistory(data?.success ? data.byName || {} : {}); })
+      .catch(() => { if (!abort.signal.aborted) setMatchHistory({}); });
+    return () => abort.abort();
+  }, [historyCountry]);
   const onCostStageChange = useCallback(event => {
     if (!event || event.documentId !== selectedIdRef.current || Number(event.revision) !== Number(documentValue?.revision)) return;
     logStage(event, documentValue);
@@ -554,6 +568,26 @@ export default function InvoiceReceiptWorkbench({
         ? { ...line, reviewed: { ...(line.reviewed || {}), confirmed: Boolean(confirmed), conversionConfirmed: Boolean(confirmed) } }
         : line),
     }));
+  }
+
+  // 미매칭 행에 1순위 후보를 한 번에 적용한다(사용자가 누른 선택이며, 저장·입고 등록은 하지 않는다).
+  // 분류(allocation)가 필요한 행·이미 확정된 입고 행은 건드리지 않는다.
+  function applyTopSuggestions() {
+    const country = documentValue?.reviewedMetadata?.country;
+    const picks = new Map();
+    for (const line of documentValue.lines) {
+      if (line.prodKey || committedLineIds.has(line.lineId) || line.sourceEvidence?.allocationSourceId) continue;
+      const top = topSuggestion(line, selectableProducts, country, matchHistory);
+      if (top) picks.set(line.lineId, Number(top.product.ProdKey));
+    }
+    if (picks.size) updateSelected(document => ({
+      ...document,
+      lines: document.lines.map(line => picks.has(line.lineId) && !line.prodKey
+        ? { ...line, productSearch: undefined, prodKey: picks.get(line.lineId), reviewed: { ...(line.reviewed || {}), erpMatchConfirmed: true } } : line),
+    }));
+    setNotice({ type: picks.size ? 'success' : 'info', text: picks.size
+      ? `미매칭 ${picks.size}행에 1순위 후보를 적용했습니다. 점수가 낮은 행은 2순위 이하 버튼으로 바꾸세요. 입고 등록은 아직 실행하지 않았습니다.`
+      : '1순위로 적용할 후보가 있는 미매칭 행이 없습니다.' });
   }
 
   async function updateLineProduct(lineId, product) {
@@ -1380,6 +1414,21 @@ export default function InvoiceReceiptWorkbench({
     {operationResult && <div className={styles.resultReadback}><strong>작업 readback</strong><span>상태 {operationResult.status || 'SUCCESS'}</span><span>WarehouseKey {operationResult.warehouseKey ?? '—'}</span><span>원가 {operationResult.costStatus || '—'}</span></div>}
     {currentRevisionCommitted && Number(operationResult?.warehouseKey)>0 && <a target="_blank" rel="noopener noreferrer" href={`/incoming?${new URLSearchParams({warehouseKey:String(operationResult.warehouseKey),from:`${documentValue.orderYear}-01-01`,to:`${documentValue.orderYear}-12-31`,week:documentValue.orderWeek,popup:'1'})}`}>등록된 입고건 새창 조회 · 팝업이 차단되면 눌러 주세요</a>}
 
+    {(() => {
+      const meta = documentValue.reviewedMetadata || {};
+      const guard = detectInvoiceCountry({ farmName: meta.farmName, lineNames: documentValue.lines.map(line => line.originalName),
+        currency: documentValue.lines.find(line => line.currency)?.currency, selectedCountry: meta.country });
+      const unmatched = documentValue.lines.filter(line => !line.prodKey && !committedLineIds.has(line.lineId) && !line.sourceEvidence?.allocationSourceId
+        && topSuggestion(line, selectableProducts, meta.country, matchHistory)).length;
+      return <>
+        {guard.mismatch && <p role="alert" style={{ padding: '8px 10px', border: '2px solid #c0392b', background: '#fdecea', color: '#7a1f14', borderRadius: 6 }}>
+          <strong>나라 확인 필요:</strong> 이 인보이스는 {guard.suggested === 'CN' ? '중국' : '콜롬비아'}로 보이는데 {guard.selected === 'CN' ? '중국' : guard.selected === 'CO' ? '콜롬비아' : guard.selected}으로 선택되어 있습니다.
+          {' '}근거: {guard.signals.filter(signal => signal.country === guard.suggested).map(signal => signal.reason).join(' · ')}. 나라가 틀리면 후보가 엉뚱한 품목으로 잡힙니다. 나라를 확인한 뒤 매칭하세요.
+        </p>}
+        {unmatched > 0 && <p role="status"><button type="button" onClick={applyTopSuggestions}>미매칭 {unmatched}행 1순위로 모두 적용</button>{' '}
+          <small>행마다 1순위(굵은 파란 버튼)와 2순위 이하 버튼이 있습니다. 누르면 바로 선택됩니다.</small></p>}
+      </>;
+    })()}
     <div className={styles.workspace}>
       <div className={styles.sheetScroll} tabIndex={0} role="region" aria-label="입고 검토 행 표">
         <div role="status" data-testid="receipt-current-totals">현재 입고 합계 · {(() => {
@@ -1398,7 +1447,9 @@ export default function InvoiceReceiptWorkbench({
               <td>{line.lineNo}</td><td title={line.originalName}>{line.originalName || '원문 미확인'}{line.lengthText ? <small>{line.lengthText}</small> : null}</td>
               <td>{committedProduct
                 ? <div className={styles.productLock}><strong>{productLabel(product) || `ProdKey #${line.prodKey}`}</strong><small>확정 입고 행의 품목은 변경할 수 없습니다. 수량 0 취소 후 새 행을 사용하세요.</small></div>
-                : <InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />}</td>
+                : <><InvoiceReceiptProductPicker label={`${line.lineNo}행 전산 품목 검색`} products={selectableProducts} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} />
+                  {product && productCountryMismatch(product, documentValue.reviewedMetadata?.country) && <p role="alert" style={{ margin: '4px 0 0', color: '#b3261e', fontWeight: 700 }}>⚠ 선택한 전산 품목의 원산지({product.CounName || product.country})가 이 문서와 다릅니다.</p>}
+                  <InvoiceMatchSuggestions line={line} products={selectableProducts} country={documentValue.reviewedMetadata?.country} history={matchHistory} product={product} onSelect={selected => updateLineProduct(line.lineId, selected)} /></>}</td>
               {['boxQuantity', 'bunchQuantity', 'stemQuantity'].map((field, index) => <td key={field}><NumberInput className={styles.cellInput} label={`${line.lineNo}행 ${['박스','단','송이'][index]}`} value={line[field]} onChange={value => updateLine(line.lineId, field, value)} /></td>)}
               <td><select className={styles.cellSelect} value={line.priceUnit || ''} onChange={event => updateLine(line.lineId, 'priceUnit', event.target.value)}><option value="">선택</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
               <td><NumberInput className={styles.cellInput} label={`${line.lineNo}행 단가`} value={line.unitPrice} onChange={value => updateLine(line.lineId, 'unitPrice', value)} /></td>

@@ -97,6 +97,9 @@ data/drive/
 data/runtime/
 data/arrival-drive-auto/
 
+# 서버 보관 누적 도착원가 통합문서(국가별 차수 시트 누적) — 런타임, 커밋 금지
+data/cost-master/
+
 data/incoming-eta.json
 data/farm-aliases.json
 data/awb-freight-calc.json
