@@ -1053,6 +1053,7 @@
         "country",
         "cycle",
         "week",
+        "review",
         "download"
       ],
       "guides": [
@@ -1068,22 +1069,27 @@
             {
               "scenario": "country",
               "title": "1. 국가 선택",
-              "seconds": 0.021
+              "seconds": 0.012
             },
             {
               "scenario": "cycle",
               "title": "2. 차수 선택",
-              "seconds": 10.605
+              "seconds": 10.587
             },
             {
               "scenario": "week",
               "title": "3. 세부차수 조회",
-              "seconds": 21.174
+              "seconds": 21.183
+            },
+            {
+              "scenario": "review",
+              "title": "4. 송이 수 확인·수정",
+              "seconds": 31.828
             },
             {
               "scenario": "download",
-              "title": "4. 엑셀 다운로드",
-              "seconds": 31.732
+              "title": "5. 엑셀 다운로드",
+              "seconds": 42.941
             }
           ]
         }

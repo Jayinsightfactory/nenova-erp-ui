@@ -70,6 +70,7 @@
     "calendar": "PeriodDay is authoritative; Asia/Seoul today main cycle plus next five, exactly six unique contiguous Thursday rows; no ISO week or 52-week fallback",
     "request": "country plus explicit year and majorWeek; year/majorWeek omitted together means current cycle; partial or outside-six scope rejected",
     "sqlScope": "v.OrderYear=@orderYear AND v.OrderWeek LIKE @majorWeek + '-%' and exact server country mapping",
+    "quantityReview": "Existing stem and bunch lines show original ERP quantity and accept file-only overrides, including zero. Every edit recalculates totals and invalidates old downloads. Missing required quantities keep their existing review path.",
     "selection": "Country buttons unlock explicit year/majorWeek. list=subweeks fetches available weeks only. Selecting the full orderWeek fetches its rows and exposes each valid workbook download.",
     "subweeks": "derive actual full OrderWeek values only; numeric subweek then exact suffix ordering; never invent 01 or 02",
     "customerCode": "Customer.OrderCode by CustKey, never ViewOrder.OrderCode, CustCode or internal key fallback; missing code retained",
