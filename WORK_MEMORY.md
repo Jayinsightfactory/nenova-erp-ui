@@ -2780,3 +2780,5 @@
 - 실제dnSpy 재실행/2025·2026 동일46차 SELECT 확인(운영수정0), 표적17검사 PASS. Excel ReadOnly 열기→실제PDF A3 3쪽 및 첫쪽수량/색 검증. 실제Chrome 합성1920/390 전체흐름·Tab/ShiftTab/Enter·파일다운로드bytes 대조 PASS. 70초 실제가이드/한국어목차·자막·줌/최종Excel인쇄뷰 기록, 프레임 직접확인 및 가이드검사 PASS.
 - 기준선: 페이지스크롤/반응형/키보드/실패안내/가이드 적용; ERP변경확인은 기존버튼 보존; 새ERP쓰기 해당없음. 전체필수gate/정식build/PR·CI·배포·운영스모크는 진행예정(미검증). 상세 docs/plans/field-volume-2026-11-13.md.
 검색어: 신형현장물량표 엑셀업로드 카톡농장분배 돈셀(2)3/5 요일색 입고출고재고잔량 field-volume-v1
+- 후속: 공식 전체 ERP 계약/pre/post exit0, dnSpy exit0, manifest215/쓰기guard/가이드 exit0. 원본 공란 재고의 source 입고·주문·잔량 식으로만0판정하는 추가회귀 포함 관련33검사 PASS, 최종공식 webpack/1worker build exit0. 2025/2026 새출력SQL 실조회와 모델 분리 PASS(운영쓰기0). PR/CI/배포·운영가이드재생은 후속.
+검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
