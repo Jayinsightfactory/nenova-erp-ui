@@ -36,6 +36,7 @@ async function fixture({failPhase,code='ECANCEL',timerFired=true,throwLogger=fal
  const deps={currentErpReadContext:context,shareLatestProfitRead:share,getPool:async()=>pool,withErpReadContext:scope,createProfitReadFailureDiagnostic:options=>{creates++;return create({...options,log:line=>{if(throwLogger)throw Error('PRIVATE_LOGGER');logs.push(line);}});},
   previousReportPeriod:async(year)=>({orderYear:year,major:'43'}),loadSourceFingerprints:async()=>{await q('fence');return {map:new Map()};},latestProfitInvoiceFence:async()=>0,settlementScopeFence:async()=> 'fixture-settlement-digest',materializeProfitPayload:v=>v,
   loadReportData:async major=>{await q(major==='44'?'current':'prior');return {rows:[],totals:{C:0}};},applyTemplateDutyToReport:async raw=>{await q('duty');return raw;},
+  clearTemplateDutyCache:()=>{},finalizeProfitCachePayload:async(raw,options)=>({...await options.finalize(),cacheSourcePayload:raw}),
   setTimeout:(fn,ms)=>{assert.equal(ms,45000);const t={fn,cleared:false};timers.push(t);return t;},clearTimeout:t=>{t.cleared=true;}};
  const start=source.indexOf('async function loadCoherentLatestReport('),end=source.indexOf('export async function loadWeeklyReportPayload',start);
  const load=new Function(...Object.keys(deps),source.slice(start,end)+';return loadCoherentLatestReport;')(...Object.values(deps));
@@ -52,8 +53,13 @@ test('actual reader keeps45000ms, source error identity and captured phase; logg
 test('ordinary success logs0, overlapping waiter adds no diagnostic owner; active transaction/replay bypass stays complete',async()=>{
  const f=await fixture();const [a,b]=await Promise.all([f.load('44','2026'),f.load('44','2026')]);assert.equal(f.creates,1);assert.equal(f.logs.length,0);assert.deepEqual(a,b);assert.notEqual(a,b);
  const active=await fixture();await active.scope({queryFn:async()=>({recordset:[]})},()=>active.load('44','2026'));assert.equal(active.creates,0);assert.equal(active.timers.length,0);assert.equal(active.logs.length,0);
- assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*return shareLatestProfitRead/);
+ assert.match(source,/if\(currentErpReadContext\(\)\)return work\(\);\s*const execute=async/);
+ assert.match(source,/return forCache\?execute\(\):shareLatestProfitRead\(orderYear,major,execute\)/);
  assert.match(source,/const after=await signature\(\);\s*if\(before!==after\)/);
+});
+test('explicit cache readers keep independent owners/raw donors and original failure identity',async()=>{
+ const f=await fixture();const[a,b]=await Promise.all([f.load('44','2026',{forCache:true}),f.load('44','2026',{forCache:true})]);assert.equal(f.creates,2);assert.equal(a.cacheSourcePayload.major,'44');assert.equal(b.cacheSourcePayload.major,'44');assert.equal(f.logs.length,0);
+ const failed=await fixture({failPhase:'duty'});await assert.rejects(failed.load('44','2026',{forCache:true}),e=>e===failed.error);assert.equal(failed.logs.length,1);assert.ok(failed.timers.every(t=>t.cleared));
 });
 function summary(){const runtime=fs.readFileSync(path.join(__dirname,'../scripts/diagnose-runtime-readonly.cjs'),'utf8');return new Function(runtime.slice(runtime.indexOf('function summarizeProfitReadFailures'),runtime.indexOf('function summarizeMemoryRestarts'))+';return summarizeProfitReadFailures;')();}
 test('bounded recent summary accepts exact safe schema only, preserves crossyear and latest3, rejects raw extras',()=>{
