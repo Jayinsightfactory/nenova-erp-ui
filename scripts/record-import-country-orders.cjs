@@ -50,6 +50,7 @@ async function main(){
    ['country','국가 선택','[aria-label="국가"] button:nth-child('+countryButton+')','네덜란드를 선택하면 차수 버튼이 나타납니다.'],
    ['cycle','차수 선택',cycle,'2026년 46차를 선택해 실제 주문이 있는 세부차수를 확인합니다.'],
    ['week','세부차수 조회',sub,'46-01차를 누르면 해당 세부차수의 품목과 주문 수량을 불러옵니다.'],
+   ['review','송이 수 확인·수정','.pedidos-review-input','전산 원수량 150송이를 확인하고 이번 발주 수량을 140송이로 수정합니다.'],
    ['download','엑셀 다운로드',down,'파일명이 표시된 다운로드 버튼을 눌러 발주서를 저장합니다.']];
   for(const [i,[scenario,label,selector,description]] of steps.entries()){
     await page.waitForSelector(selector,{visible:true});
@@ -58,14 +59,15 @@ async function main(){
     const title=(i+1)+'. '+label;
     await page.$eval(selector,b=>b.scrollIntoView({block:'center'}));
     rec.chapter(scenario,title);await rec.caption(title+' · '+description);await rec.pause(2300);await rec.focus(selector,i+1);
-    await page.focus(selector);await page.keyboard.press('Enter');await rec.pause(2800);await rec.unfocus();
+    await page.focus(selector);
+    if(scenario==='review'){await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await page.keyboard.type('140',{delay:150});await page.keyboard.press('Tab');assert.equal(await page.$eval(selector,n=>n.value),'140');}else await page.keyboard.press('Enter');await rec.pause(2800);await rec.unfocus();
   }
   let filename;
   for(let n=0;n<50&&!filename;n++){filename=fs.readdirSync(downloadDir).find(f=>f.endsWith('.xlsx'));if(!filename)await new Promise(r=>setTimeout(r,100));}
-  assert(filename,'browser saved XLSX');const XLSX=require('xlsx'),wb=XLSX.readFile(path.join(downloadDir,filename));assert(Object.values(wb.Sheets[wb.SheetNames[0]]).some(c=>c?.v===150));
+  assert(filename,'browser saved XLSX');const XLSX=require('xlsx'),wb=XLSX.readFile(path.join(downloadDir,filename));assert(Object.values(wb.Sheets[wb.SheetNames[0]]).some(c=>c?.v===140));
   const result=await rec.stop();stopped=true;
   if(!dry){workflow.guides[0].chapters=result.chapters;workflow.guides[0].status='ready';fs.writeFileSync('config/workflow-guides.json',JSON.stringify(registry,null,2)+'\n');}
-  console.log('PASS keyboard country, cycle, subweek, browser download, XLSX quantity 150');
+  console.log('PASS keyboard country, cycle, subweek, browser download, XLSX quantity 140');
  }finally{await browser?.close();if(server.pid && server.exitCode===null) require('node:child_process').spawnSync('taskkill',['/PID',String(server.pid),'/T','/F'],{windowsHide:true});}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
