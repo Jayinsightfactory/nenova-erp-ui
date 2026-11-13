@@ -2810,3 +2810,8 @@
 검색어: field-volume final-build33 source-proven-zero stock SELECT-only manifest215
 
 - 배포 직전 최종CI verify/installer 모두 SUCCESS. 동시 PR#1708(견적 관리 원장알림)265bc97f 병합으로 WORK_MEMORY append만 충돌 → 양쪽 기록 보존 통합. 기능 파일 충돌 없음. 통합본 CI 재확인 후 병합/배포 진행.
+- 2026-11-13 사용자승인35차보정준비(codex/stock35-approved,base32a5e4ef): 최신요청‘35차0,영향36~46각1개조절’에따라2026/35-02 Prod1062/2322/2601각+1한번/현재고0·4·0→1·5·1/native후속cascade계획. 기존이력삭제/매주중복+1/확정해제/매출수정없음.
+- preview 원천2회동일,111스냅샷(2026/2027기존준비분포함)전부정확+1,아직운영쓰기0. 새전용수동operator는기본SELECT·고정scope/승인/음수/단위검사·exact지문·같은원천rollbackrehearsal·IDLE V2게이트·CAS·기존업무/금액/원장/확정본보존·재실행차단·실패전체rollback.
+- 신규17단위·반례PASS,LocalDB SQL130에실native정의(현재정렬cursor)및기존fixture readiness stub로실행: 중간native실패후rollback·rehearsalreadback·exact3history/현재고+1·2025보존/2027+1·금액보존·중복차단PASS. 전체ERP검사/build/PR/배포/운영rehearse/apply는후속검증전미완료. 계획 docs/plans/approved-stock35-2026-11-13.md.
+검색어: approved-stock35-repair 35-02 1062 2322 2601 +1 111스냅샷 현재고1 5 1
+- 필수verify는ERP행위/manifest/dnSpy/쓰기범위/workflow까지PASS후webpack에서ENOSPC(여유약0.6GB)로중단. 운영rehearse/apply아직0. 자신이생성한두.next정리를시도했으나안전정책차단,우회하지않고사용자에게탐색기정리요청. GitHub의독립Linux빌드검증준비를계속하며검증실패를무시한운영반영금지.
