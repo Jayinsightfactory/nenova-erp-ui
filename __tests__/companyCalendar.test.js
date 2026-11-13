@@ -48,3 +48,7 @@ test('HTTP handler requires active identity, bound owner and same-origin POST',a
  await handler({...req,user:null},res);assert.equal(res.code,403);await handler({...req,body:{...req.body,expectedOwnerId:b.userId}},res);assert.equal(res.code,403);await handler({...req,headers:{host:'nenovaweb.com'}},res);assert.equal(res.code,403);await handler({...req,headers:{origin:'https://evil.test',host:'nenovaweb.com'}},res);assert.equal(res.code,403);assert.equal(calls,0);
  await handler(req,res);assert.equal(res.code,200);assert.equal(calls,1);
 });
+
+test('large Korean notes stay below IPC byte limit and selected day is prioritized',()=>fixture(async root=>{
+ const events=Array.from({length:1000},(_,i)=>({id:randomUUID(),title:'회사 일정 '+i,date:i===999?'2026-11-30':'2026-11-01',startTime:'',endTime:'',note:'한'.repeat(2000),createdBy:a.userId,createdAt:'2026-11-01T00:00:00Z',updatedAt:'2026-11-01T00:00:00Z'}));await fs.writeFile(path.join(root,'calendar.json'),JSON.stringify({schemaVersion:1,revision:1000,events,requests:{}}));const result=await companyCalendar(b,{month:'2026-11',date:'2026-11-30'},null,{root});assert.equal(result.total,1000);assert.equal(result.truncated,true);assert.ok(result.events.some(event=>event.date==='2026-11-30'));assert.ok(Buffer.byteLength(JSON.stringify(result),'utf8')<2*1024*1024);
+}));

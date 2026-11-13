@@ -328,6 +328,9 @@ async function verifyHomeUi(contents, window) {
   await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).archived, 'today task archive persists');
   await contents.executeJavaScript('document.querySelector(".hw-tool-body select").value = "archived"; document.querySelector(".hw-tool-body select").dispatchEvent(new Event("change"))');
   await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("수정된 오늘 업무")'), 'archived task remains recoverable');
+  await contents.executeJavaScript(`document.querySelector('#webRequestButton').click()`);
+  await waitFor(()=>[...main.tabs.values()].some(tab=>new URL(tab.url).pathname==='/pm'&&new URL(tab.url).searchParams.get('requests')==='new'),'top web request opens the actual PM composer route');
+  const requestTab=[...main.tabs.values()].find(tab=>new URL(tab.url).pathname==='/pm'&&new URL(tab.url).searchParams.get('requests')==='new');await waitFor(()=>!requestTab.loading,'request tab ready');const previousDialogAnswer=dialogAnswer;dialogAnswer=0;try{await main.command(window,'close',{id:requestTab.id});await waitFor(()=>!main.tabs.has(requestTab.id),'request tab cleanup');}finally{dialogAnswer=previousDialogAnswer;}
   main.command(window, 'activate', { id: previousActive });
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
   await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
