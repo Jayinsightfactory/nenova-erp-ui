@@ -3,13 +3,12 @@
 
 import fs from 'fs';
 import formidable from 'formidable';
-import XLSX from 'xlsx';
+import orderFileReader from '../../../lib/orderImportFileAsync.cjs';
 import Anthropic from '@anthropic-ai/sdk';
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { trackLLMCall } from '../../../lib/chat/costTracker';
 import {
-  parseOrderImportWorkbook,
   normalizeVisionItems,
   VISION_PARSE_PROMPT,
 } from '../../../lib/orderImportParse';
@@ -20,7 +19,7 @@ import { persistImportMatchMappings } from '../../../lib/persistImportMappings';
 import { resolveUploadCustomer } from '../../../lib/orderImportWorkspace.js';
 import { loadCustomerMappings } from '../../../lib/customerMappings.js';
 import { mergeCustomerProductMappings } from '../../../lib/orderImportCustomerProductMappings.js';
-import { mirrorWebUpload } from '../../../lib/workDrive';
+import { webUploaderName } from '../../../lib/workDrive';
 
 export const config = {
   api: { bodyParser: false },
@@ -61,7 +60,7 @@ async function parseImageWithVision(file) {
   if (!client) {
     throw new Error('이미지 OCR에는 ANTHROPIC_API_KEY 설정이 필요합니다.');
   }
-  const buf = fs.readFileSync(file.filepath);
+  const buf = await fs.promises.readFile(file.filepath);
   const mime = file.mimetype || 'image/jpeg';
   const mediaType = mime.startsWith('image/') ? mime : 'image/jpeg';
 
@@ -193,18 +192,7 @@ async function handler(req, res) {
       parsedRows = vision.rows;
       logs.push(...vision.logs);
     } else if (isExcelFile(file)) {
-      const buf = fs.readFileSync(file.filepath);
-      mirrorWebUpload({ buffer: buf, filename: file.originalFilename, user: req.user, source: 'orders/import-parse' });
-      const workbook = XLSX.read(buf, {
-        type: 'buffer',
-        cellDates: false,
-        cellNF: false,
-        cellStyles: false,
-      });
-      const parsed = parseOrderImportWorkbook(XLSX, workbook, {
-        sourceName: file.originalFilename || 'upload.xlsx',
-        sheetName: wantedSheet || undefined,
-      });
+      const parsed = await orderFileReader.readOrderUpload({filepath:file.filepath,sourceName:file.originalFilename,sheetName:wantedSheet,uploaderName:webUploaderName(req.user)});
       parsedRows = parsed.rows;
       sheets = parsed.sheets || [];
       parsedMetadata = parsed.metadata || null;
@@ -299,6 +287,7 @@ async function handler(req, res) {
       productCount: ctx.allProducts.length,
     });
   } catch (e) {
+    if(e.statusCode===503){res.setHeader('Retry-After','3');return res.status(503).json({success:false,error:e.message,logs});}
     return res.status(500).json({ success: false, error: e.message, logs });
   } finally {
     try { fs.unlinkSync(file.filepath); } catch {}
