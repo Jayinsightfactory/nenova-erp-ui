@@ -43,12 +43,14 @@ module.exports=async function verifyMulti(q,sql,config){
    }
   }
   for(const [index,row] of excel.entries()){assert.equal(Number(row.Amount)+Number(row.Vat),pairs[index][1]*3000);assert.equal(Number(row.Vat),Math.round(pairs[index][1]*3000/11));}
+  assert.deepEqual(print.map(row=>Number(row.Quantity)),pairs.map(p=>p[1]*30));
+  for(const [index,row] of print.entries())assert.equal(Number(row.Amount)+Number(row.Vat),pairs[index][1]*3000);
   assert.equal(excel.length,keys.length);assert.equal(print.length,keys.length);
   assert.deepEqual(excel.map(r=>Number(r.EstQuantity)),pairs.map(p=>p[1]*30));
   const dir=path.join(process.cwd(),'outputs',process.argv.includes('--unlimited-customers')?'distribution-unlimited-save':'distribution-multi-save');fs.mkdirSync(dir,{recursive:true});
   for(const [name,sheet] of [['ecount',buildEcountUploadSheet(excel)],['estimate',XLSX.utils.json_to_sheet(print)]]){
    const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'Export');const file=path.join(dir,name+'.xlsx');XLSX.writeFile(book,file);
-   const back=XLSX.readFile(file);assert.equal(XLSX.utils.sheet_to_json(back.Sheets.Export).length,keys.length);
+   const back=XLSX.readFile(file),actual=XLSX.utils.sheet_to_json(back.Sheets.Export);assert.equal(actual.length,keys.length);assert.deepEqual(actual.map(row=>Number(name==='estimate'?row.Quantity:row.수량)),pairs.map(p=>p[1]*30));
   }
   console.log(`PASS ${keys.length} customers real SQL COMMIT -> fresh connection quantities ${pairs.map(p=>p[1]).join('/')} -> actual estimate API ${keys.length} rows -> ECOUNT ${pairs.reduce((n,p)=>n+p[1]*30,0)} invoice units -> two actual XLSX files reopened, no omissions (export confirmation eligibility seeded separately)`);
  }finally{await fresh.close();}
