@@ -1,5 +1,7 @@
+import DistributionScrollBar from '../../components/shipment/DistributionScrollBar';
 import DistributionInlineDates, {DistributionInlineDatesHeader} from '../../components/shipment/DistributionInlineDates';
 import DistributionKakaoFeed from '../../components/shipment/DistributionKakaoFeed';
+import DistributionFixToggle from '../../components/shipment/DistributionFixToggle';
 import DistributionConfirmationSummary from '../../components/shipment/DistributionConfirmationSummary';
 import {majorInlineWeekScope} from '../../lib/shipmentMajorInlineDates.js';
 import DistributionProductTree from '../../components/shipment/DistributionProductTree';
@@ -223,9 +225,7 @@ export default function Distribute() {
   const [fixLoading, setFixLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
-  const [isFixed, setIsFixed] = useState(false);
-  const [validateResult, setValidateResult] = useState(null);
-  const [showValidate, setShowValidate] = useState(false);
+  const [isFixed, setIsFixed] = useState(true);
   const [spLoading, setSpLoading] = useState(false);
   const [spModal, setSpModal] = useState(null);
 
@@ -277,7 +277,7 @@ export default function Distribute() {
   const favoritesRequestRef = useRef(0);
   const accountRef = useRef('');
   const saveInFlightRef = useRef(false);
-  const anySaveModal = Boolean(saveModal || spModal || showValidate || showHistory);
+  const anySaveModal = Boolean(saveModal || spModal || showHistory);
   const saveBlocked = hasDateDrafts || tab > 1 || !!dateEditor || saving || loading || distLoading || custLoading || spLoading || fixLoading || shipDaySaving || anySaveModal;
 
   const loadFavoriteProducts = useCallback(async () => {
@@ -664,65 +664,6 @@ export default function Distribute() {
       setSuccessMsg('✅ 엑셀 다운로드 완료');
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (e) { setErr(e.message); } finally { setExcelDownloading(false); }
-  };
-
-  const handleFix = async () => {
-    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
-    if (!week) { setErr('차수를 입력하세요.'); return; }
-    // 사전검증
-    setFixLoading(true); setErr('');
-    try {
-      const orderYear = selectedOrderYear;
-      const vRes = await fetch(`/api/shipment/fix?week=${encodeURIComponent(week)}&orderYear=${encodeURIComponent(orderYear)}`);
-      const vData = await vRes.json();
-      if (vData.issueCount > 0) {
-        setValidateResult(vData);
-        setShowValidate(true);
-        setFixLoading(false);
-        return;
-      }
-    } catch(e) { /* 검증 실패해도 확정 진행 허용 */ }
-    await doFix();
-  };
-
-  const doFix = async () => {
-    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
-    if (!confirm(`[${week}] 차수를 확정하시겠습니까?\n\n확정 시 재고가 업데이트되고 견적서에 반영됩니다.`)) { setFixLoading(false); return; }
-    setFixLoading(true); setErr('');
-    try {
-      const res = await fetch('/api/shipment/fix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'fix' }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setIsFixed(true);
-      setShowValidate(false);
-      setSuccessMsg('✅ ' + data.message);
-      setTimeout(() => setSuccessMsg(''), 5000);
-      handleSearch();
-    } catch(e) { setErr(e.message); } finally { setFixLoading(false); }
-  };
-
-  const handleUnfix = async () => {
-    if (prodGroup.endsWith(PG_SEP)) { setErr('국가 전체 조회에서는 실행할 수 없습니다. 먼저 품종을 선택하세요.'); return; }
-    if (!week) { setErr('차수를 입력하세요.'); return; }
-    if (!confirm(`[${week}] 확정을 취소 / Cancelar하시겠습니까?`)) return;
-    setFixLoading(true); setErr('');
-    try {
-      const res = await fetch('/api/shipment/fix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'unfix' }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setIsFixed(false);
-      setSuccessMsg('✅ ' + data.message);
-      setTimeout(() => setSuccessMsg(''), 3000);
-      handleSearch();
-    } catch(e) { setErr(e.message); } finally { setFixLoading(false); }
   };
 
   const handleSpDistribute = async (action) => {
@@ -1126,7 +1067,7 @@ export default function Distribute() {
         const qty = edit.outQty !== undefined ? parseFloat(edit.outQty) || 0 : (item.출고수량 || 0);
         const cost = edit.cost !== undefined ? parseFloat(edit.cost) || 0 : (item.Cost || 0);
         const changed = item.pendingOrder || qty !== Number(item.출고수량 || 0) || cost !== Number(item.Cost || 0);
-        return changed ? [{ custKey: cust.CustKey, prodKey: item.ProdKey, outQty: qty, cost }] : [];
+        return changed ? [{ custKey: cust.CustKey, prodKey: item.ProdKey, outQty: qty, cost, expected:{outQty:Number(item.출고수량||0),cost:Number(item.Cost||0)} }] : [];
       });
       const dropEmptyPending = (items, inputs) => items.filter(item => !item.pendingOrder || (parseFloat(inputs[item.ProdKey]?.outQty) || 0) > 0);
       const entries = [
@@ -1149,7 +1090,7 @@ export default function Distribute() {
           const res = await fetch('/api/shipment/distribute', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ week, year: selectedOrderYear, entries })
+            body: JSON.stringify({ week, year: selectedOrderYear, entries, source:"distribution-workspace" })
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
@@ -1268,6 +1209,7 @@ export default function Distribute() {
         prodKey: selectedProd.ProdKey,
         outQty: Number(outInputs[c.CustKey]) || 0,
         cost: Number(c.Cost ?? c.단가 ?? selectedProd.Cost ?? 0),
+        expected:{outQty:Number(c.출고수량||0),cost:Number(c.Cost ?? c.단가 ?? selectedProd.Cost ?? 0)},
       }));
       await saveWithFixCycleIfNeeded({
         prodKeys: [selectedProd.ProdKey],
@@ -1287,7 +1229,7 @@ export default function Distribute() {
           const res = await fetch('/api/shipment/distribute', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ week, year: selectedOrderYear, entries })
+            body: JSON.stringify({ week, year: selectedOrderYear, entries, source:"distribution-workspace" })
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data.success !== true || data.verified !== true) throw new Error(data.error || '출고분배 저장 검증에 실패했습니다.');
@@ -1516,10 +1458,13 @@ export default function Distribute() {
       .distribution-customer-table th:nth-child(n+4):nth-child(-n+10){width:52px}
       .distribution-customer-table > thead > tr > th,.distribution-customer-table > tbody > tr > td{padding:2px !important;}
       .distribution-customer-table > tbody > tr > td:nth-child(n+4):nth-child(-n+10) input{width:50px !important;padding:0 2px !important;}
+      .distribution-data-scroll{min-width:0;max-height:calc(100vh - var(--distribution-header-height,120px) - 80px);overflow:auto;}
+      .distribution-data-scroll > table > thead{position:sticky;top:0;z-index:5;background:var(--surface);}
       .distribution-with-kakao{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:4px}
       .distribution-kakao-feed{padding:6px;border-left:1px solid var(--border);min-width:0;background:var(--surface)}
       @media(max-width:1400px){.distribution-with-kakao{grid-template-columns:minmax(0,1fr)}.distribution-kakao-feed{border-top:1px solid var(--border);border-left:0}}
       @media (max-width: 900px) { .distribution-workspace-grid { grid-template-columns: minmax(0, 1fr) !important; } }`}</style>
+      <div data-testid="distribution-sticky-header" style={{position:"sticky",top:0,zIndex:40,background:"var(--surface)",boxShadow:"0 2px 4px #0002"}}>
       {/* 툴바 */}
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px 8px 0 0',padding:'4px 5px',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flexShrink:0}}>
         <WeekInput weekInput={guardedWeekInput} label="차수" />
@@ -1542,12 +1487,8 @@ export default function Distribute() {
         <div style={{marginLeft:'auto',display:'flex',gap:6,flexWrap:'wrap'}}>
           <button className="btn btn-secondary btn-sm" onClick={handleSearch} disabled={hasDateDrafts||saving}>🔍 조회</button>
           {tab!==1 && <>
-          <button className="btn btn-success btn-sm" onClick={handleFix} disabled={hasDateDrafts||fixLoading||isFixed}>
-            {fixLoading?'처리중... / Procesando': isFixed?'✅ 확정됨 / Confirmado':'✅ 확정 / Confirmar'}
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={handleUnfix} disabled={hasDateDrafts||fixLoading||!isFixed}>
-            ↩️ 확정취소 / Cancelar / Anular
-          </button>
+          <DistributionFixToggle week={week} prodGroup={prodGroup} prodKey={selectedProd?.ProdKey} refreshKey={`${saving}-${loading}`} disabled={hasDateDrafts||saving||spLoading||hasQuantityDraft()}
+            onFixed={setIsFixed} onBusy={setFixLoading} onError={setErr} onComplete={data=>{setSuccessMsg('✅ '+data.message);handleSearch();}} />
           <button className="btn btn-success btn-sm" onClick={() => handleSpDistribute('group')} disabled={hasDateDrafts || spLoading || fixLoading || isFixed || !week || !prodGroup} title="선택한 차수와 꽃/품목그룹만 dbo.usp_DistributeOne 경로로 일괄 분배합니다.">
             {spLoading ? '전산분배 중...' : '전산 선택꽃 일괄출고분배'}
           </button>
@@ -1586,6 +1527,8 @@ export default function Distribute() {
           </button>
         ))}
 
+      </div>
+      <DistributionScrollBar viewMode={viewMode} selectionKey={`${tab}-${selectedProd?.ProdKey}-${selectedCust?.CustKey}-${pairCust?.CustKey}-${custLoading}-${distLoading}-${pairLoading}-${custItems.length}-${custDist.length}`} />
       </div>
       {/* 국가별 제목 아래 품종을 모으되 기존 품종 선택/즐겨찾기 동작은 유지한다. */}
       {tab!==1 && <>
@@ -2039,7 +1982,7 @@ export default function Distribute() {
                   ))}
                 </div>
                 {/* 거래처 분배 테이블 */}
-                <div style={{overflowX:'auto'}}>
+                <div data-distribution-scroll="prod" className="distribution-data-scroll">
                   {!selectedProd
                     ? <div className="empty-state"><div className="empty-icon">←</div><div className="empty-text">품목을 선택하세요</div></div>
                     : distLoading ? <div className="skeleton" style={{margin:16,height:200,borderRadius:8}}></div>
@@ -2219,7 +2162,7 @@ export default function Distribute() {
 
             {/* 업체 기준 오른쪽: 해당 업체 주문 품목 */}
             {viewMode === 'cust' && (
-              <div style={{overflowX:'auto'}}>
+              <div data-distribution-scroll="cust" className="distribution-data-scroll">
                 {!selectedCust
                   ? <div className="empty-state"><div className="empty-icon">←</div><div className="empty-text">업체를 선택하세요</div></div>
                   : custLoading || pairLoading || extraLoading > 0 ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
@@ -2459,6 +2402,7 @@ export default function Distribute() {
                         {selectedCust.CustName} ({selectedCust.OrderCode}) — 주문 품목 목록
                         {itemFilterInput}
                       </div>
+                      <div data-testid="distribution-single-group-buttons" style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center',padding:'4px 5px'}}><span style={{fontSize:11}}>품종</span>{['',...distributionPairGroups(custItems)].map(g=><button key={g||'all'} type="button" data-ai-verify={`single-group-${g||'all'}`} aria-pressed={pairGroupFilter===g} onClick={()=>setPairGroupFilter(g)} style={pickButtonStyle(pairGroupFilter===g,true)}>{g||'전체'}</button>)}</div>
                       <table className="tbl" style={{fontSize:12}}>
                         <thead>
                           <tr>
@@ -2696,97 +2640,6 @@ export default function Distribute() {
                 </tbody>
               </table>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* 확정 전 사전검증 모달 */}
-      {showValidate && validateResult && (
-        <div className="modal-overlay" onClick={() => setShowValidate(false)}>
-          <div className="modal" style={{maxWidth:620}} onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{background:'#FFF3CD', borderBottom:'2px solid #FFC107'}}>
-              <span className="modal-title" style={{color:'#856404'}}>⚠️ 확정 전 이슈 발견 ({validateResult.issueCount}건) — [{validateResult.week}]</span>
-              <button className="modal-close" onClick={() => setShowValidate(false)}>✕</button>
-            </div>
-            <div className="modal-body" style={{padding:'16px 20px', maxHeight:'60vh', overflowY:'auto', fontSize:12}}>
-
-              {validateResult.negative?.length > 0 && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontWeight:700, color:'#c00', marginBottom:6}}>🔴 마이너스 잔량 ({validateResult.negative.length}건) — 출고량이 입고+재고 초과</div>
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
-                    <thead><tr style={{background:'#f8d7da'}}>
-                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
-                      <th style={{padding:'4px 6px'}}>전재고</th>
-                      <th style={{padding:'4px 6px'}}>입고</th>
-                      <th style={{padding:'4px 6px'}}>출고</th>
-                      <th style={{padding:'4px 6px', color:'#c00'}}>잔량</th>
-                    </tr></thead>
-                    <tbody>{validateResult.negative.map((r,i) => (
-                      <tr key={i} style={{borderBottom:'1px solid #f5c6cb'}}>
-                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.prevStock}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.inQty}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.outQty}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center', color:'#c00', fontWeight:700}}>{r.remain}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-
-              {validateResult.duplicate?.length > 0 && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontWeight:700, color:'#856404', marginBottom:6}}>🟡 중복 출고 ({validateResult.duplicate.length}건) — 같은 거래처+품목에 복수 입력</div>
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
-                    <thead><tr style={{background:'#fff3cd'}}>
-                      <th style={{padding:'4px 6px', textAlign:'left'}}>거래처</th>
-                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
-                      <th style={{padding:'4px 6px'}}>건수</th>
-                      <th style={{padding:'4px 6px'}}>합계</th>
-                    </tr></thead>
-                    <tbody>{validateResult.duplicate.map((r,i) => (
-                      <tr key={i} style={{borderBottom:'1px solid #ffeeba'}}>
-                        <td style={{padding:'3px 6px'}}>{r.CustName}</td>
-                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center', color:'#c00', fontWeight:700}}>{r.cnt}건</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.totalQty}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-
-              {validateResult.ghost?.length > 0 && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontWeight:700, color:'#555', marginBottom:6}}>⚪ 주문 없는 출고 ({validateResult.ghost.length}건) — 주문 미등록 상태에서 출고 분배됨</div>
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
-                    <thead><tr style={{background:'#e2e3e5'}}>
-                      <th style={{padding:'4px 6px', textAlign:'left'}}>거래처</th>
-                      <th style={{padding:'4px 6px', textAlign:'left'}}>품목</th>
-                      <th style={{padding:'4px 6px'}}>수량</th>
-                      <th style={{padding:'4px 6px'}}>확정여부</th>
-                    </tr></thead>
-                    <tbody>{validateResult.ghost.map((r,i) => (
-                      <tr key={i} style={{borderBottom:'1px solid #d6d8db'}}>
-                        <td style={{padding:'3px 6px'}}>{r.CustName}</td>
-                        <td style={{padding:'3px 6px'}}>{r.ProdName}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.OutQuantity}</td>
-                        <td style={{padding:'3px 6px', textAlign:'center'}}>{r.isFix ? '확정' : '미확정'}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-
-              <div style={{color:'#666', fontSize:11, marginTop:8}}>위 이슈를 확인 후 수정하거나, 이상 없으면 그대로 확정할 수 있습니다.</div>
-            </div>
-            <div className="modal-footer" style={{display:'flex', gap:8, justifyContent:'flex-end', padding:'12px 20px'}}>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowValidate(false)}>취소 / Cancelar</button>
-              <button className="btn btn-warning btn-sm" style={{background:'#FFC107', color:'#000', border:'none'}}
-                onClick={() => { setShowValidate(false); doFix(); }}>
-                이슈 무시하고 확정
-              </button>
-            </div>
           </div>
         </div>
       )}

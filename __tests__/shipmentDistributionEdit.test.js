@@ -18,7 +18,7 @@ const page = fs.readFileSync('pages/shipment/distribute.js', 'utf8');
 const orderPaste = fs.readFileSync('pages/orders/paste.js', 'utf8');
 const api = fs.readFileSync('pages/api/shipment/distribute.js', 'utf8');
 
-assert.match(page, /body: JSON\.stringify\(\{ week, year: selectedOrderYear, entries \}\)/);
+assert.match(page, /body: JSON\.stringify\(\{ week, year: selectedOrderYear, entries, source:"distribution-workspace" \}\)/);
 assert.doesNotMatch(page, /if \(qty <= 0\) continue/);
 assert.match(orderPaste, /entries: targets\.map/);
 assert.doesNotMatch(orderPaste, /for \(const t of targets\)[\s\S]{0,500}fetch\('\/api\/shipment\/distribute'/);

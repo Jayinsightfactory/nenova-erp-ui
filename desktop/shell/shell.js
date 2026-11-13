@@ -335,17 +335,22 @@
     panel.dataset.state = stateName;
     panel.classList.remove('is-live', 'is-stale', 'is-offline', 'is-checking');
     panel.classList.add(stateName === 'live' || stateName === 'active' ? 'is-live' : stateName === 'stale' ? 'is-stale' : stateName === 'checking' ? 'is-checking' : 'is-offline');
-    badge.textContent = ({ live: '라이브 · 작업 중', active: '라이브 · 연결됨', stale: '갱신 지연', offline: '확인 불가', checking: '확인 중' })[stateName] || '확인 불가';
+    // 이 창에는 오류 난 건의 제목만 보인다(사장님 지시 2026-11-13). 내부 이름·수신 시각 같은 상세는 PM 관제 화면에서 본다.
+    const connected = stateName === 'live' || stateName === 'active';
+    const issues = connected && Array.isArray(result?.issues) ? result.issues : null;
+    panel.dataset.issues = issues ? String(issues.length) : '';
+    badge.textContent = connected
+      ? (issues ? (issues.length ? `오류 ${issues.length}건` : '정상') : '확인 불가')
+      : ({ stale: '갱신 지연', checking: '확인 중' })[stateName] || '확인 불가';
     badge.setAttribute('aria-busy', String(stateName === 'checking' || pmLive.busy));
-    activity.textContent = result?.activity || result?.reason || (stateName === 'live' ? 'PM 작업 상태를 실시간으로 받고 있습니다.' : '확인 가능한 PM 활동 내용이 없습니다.');
-    const received = result?.receivedAt ? `서버 수신 ${pmStamp(result.receivedAt)}` : '서버 수신 기록 없음';
-    const generated = result?.generatedAt ? ` · PM 기록 ${pmStamp(result.generatedAt)}` : '';
-    const age = Number.isFinite(result?.ageSec) ? ` · ${result.ageSec < 60 ? `${result.ageSec}초 전` : `${Math.floor(result.ageSec / 60)}분 전`}` : '';
-    evidence.textContent = `${received}${generated}${age}`;
-  }
-  function pmStamp(value) {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '시각 확인 불가' : new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+    activity.textContent = connected
+      ? (issues ? (issues.length ? [...issues.slice(0, 5), ...(issues.length > 5 ? [`외 ${issues.length - 5}건`] : [])].join('\n') : '오류 없음') : '오류 목록을 확인할 수 없습니다.')
+      : stateName === 'stale' ? 'PM 갱신이 늦어지고 있습니다.' : (result?.reason || 'PM 상태를 확인할 수 없습니다.');
+    // 모양은 여기서 준다: shell.css·index.html 은 가이드 영상 원본 해시에 묶여 있어 건드리지 않는다.
+    activity.style.whiteSpace = 'pre-line';
+    const alert = Boolean(issues && issues.length);
+    badge.style.background = alert ? '#fde8e8' : ''; badge.style.color = alert ? '#a32228' : '';
+    evidence.textContent = ''; evidence.hidden = true; evidence.style.display = 'none';
   }
   async function checkPmLive() {
     clearTimeout(pmLive.timer);
@@ -379,9 +384,7 @@
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));
     $('pmOpenButton').addEventListener('click', () => {
-      const state = $('pmLivePanel').dataset.state;
       run('open', { url: '/pm', title: 'PM 진행·오류 관제' });
-      $('pmLiveEvidence').textContent = state === 'live' ? 'PM 라이브 상태를 확인하고 PM 관제 화면을 열었습니다.' : 'PM 관제 화면을 열었습니다. 라이브 상태는 확인되지 않았습니다.';
     });
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
     $('toolsButton').addEventListener('click', () => run('tools'));

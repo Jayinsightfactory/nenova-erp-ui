@@ -55,5 +55,16 @@ module.exports=async function verifyBrowser(rq,sql,refresh,pool){
   await page.getByRole('dialog',{name:'출고 분배 저장 완료',exact:true}).getByRole('button',{name:'확인',exact:true}).click();
   await open();assert.equal(await page.locator('[data-ai-verify="qty-534-866"]').inputValue(),'5');assert.equal(await page.locator('[data-ai-verify="qty-535-866"]').inputValue(),'7');
   console.log('PASS actual Chrome save once -> fixture SQL writes -> new page GET from SQL retains 5/7');
+  await rq(`INSERT dbo.WebErpEditLease(OrderYear,OrderWeek,CustKey,LeaseToken,OwnerUserId,OwnerName,ClientId,PageCode,BaselineDigest,Revision,ExpiresAt) VALUES(N'2026',N'37',534,N'foreign-token',N'other-user',N'Fixture Other',N'other-client',N'estimate',N'unchanged-presence',0,DATEADD(minute,5,SYSUTCDATETIME()))`);
+  const single=async(outQty,expected)=>{let status=200,data;await realSave({method:'POST',query:{},headers:{},body:{week:'2026-37-01',year:'2026',source:'distribution-workspace',entries:[{custKey:534,prodKey:866,outQty,cost:100,expected}]},user:{userId:'fixture-user',authority:2}},{status(n){status=n;return this},json(v){data=v;return this},setHeader(){}});return {status,data};};
+  assert.equal((await single(6,{outQty:5,cost:100})).data.verified,true,'foreign broad estimate presence cannot block row-CAS distribution');
+  const stale=await single(7,{outQty:5,cost:100});assert.equal(stale.status,409);assert.equal(stale.data.code,'DISTRIBUTION_STALE');
+  assert.equal(Number((await rq('SELECT OutQuantity FROM ShipmentDetail WHERE CustKey=534 AND ProdKey=866')).recordset[0].OutQuantity),6);
+  const missing=await single(7,null);assert.equal(missing.status,400);
+  assert.equal((await single(5,{outQty:6,cost:100})).data.verified,true);
+  assert.equal((await rq("SELECT BaselineDigest FROM WebErpEditLease WHERE CustKey=534")).recordset[0].BaselineDigest.trim(),'unchanged-presence');
+  await open();assert.equal(await page.locator('[data-ai-verify="qty-534-866"]').inputValue(),'5');
+  console.log('PASS real production API with another estimate lease: field CAS saves unchanged baseline; stale409/missing400 rolls back; lease preserved; reload persists');
+
  }finally{await browser.close();}
 };

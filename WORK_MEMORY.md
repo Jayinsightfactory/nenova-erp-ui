@@ -2820,3 +2820,11 @@
 - Desktop1.3.22 목표. 가이드10단계 갱신·정식ERP/build/CI/릴리스/운영배포는 진행예정·미검증. 시작계정전체주간13%, reset1795064856(동시작업 포함).
 검색어: company-calendar-1113 1.3.22 회사공통일정 웹개발요청 접기열기 홈기본열림 homeDrafts companyCalendarRequest
 - 후속: 요청 버튼의 실제 native PM작성 경로·Tab정리 PASS. 공통데이터는 actor hash로 저장(원문 로그인ID 없음), 큰 한글메모 응답1.5MB 상한/선택일 우선, 원자게시 실패보존 포함9검사 PASS. 사용자 위치확정 답변 반영. 실제10단계166.05초 한국어 영상 최종촬영·영상/소스해시/전체17영상/번호·카메라·자막·저장버튼/홈아이콘가림 프레임 PASS. 초기 촬영은 홈아이콘이 줌카메라영역 밖이라 검증차단→상단정적강조·뱃지이동 옵션 추가 후 재촬영(우회 없음). 공식ERP pre/test/post exit0, dnSpy/manifest/쓰기가드 PASS. 최종webpack빌드 및 CI/배포·운영검증 진행예정/미검증.
+## 2026-11-13 출고분배 확정 토글·동시업무·고정 헤더
+- 로컬 isFixed만 바뀌던 확정 UI를 실제 DetailFix+선택 native CountryFlower 범위로 연결. 확정/일부확정은 빨간 확정취소, 미확정은 확정. GET/POST 범위 공통해석, 클릭 직전 상태 재확인, 조회오류/빈범위 차단. 일반 부분확정/음수재고/후속차수 보호 유지.
+- 분배 workspace batch는 expected 수량/단가 compare-and-set과 native 행 잠금을 사용하여 견적 업체 presence만으로 막히지 않는다. 기준변경409/누락400 및 전체배치 rollback, 다른 화면 lease/digest 보존.
+- 양쪽 탭 저장/차수/좌우 이동바 sticky, 우측 표 내부 스크롤/열제목 고정. 업체1만 선택해도 품종 필터 가능.
+- 검증 완료: 실제 운영 API+native SP LocalDB 취소/확정과 전년도/타품종 보존; Chrome 여러 업체5/7 한 번 저장→새로고침→견적/이카운트 XLSX 각2행 재열기(150/210단); 외국 견적lease 상태 CAS 저장/409/400/재조회; 40행 양쪽 표 고정/스크롤/단일업체 품종; 실제 브라우저 회귀.
+- 운영 임의 확정취소/수량 보정 0. 필수검사·최종빌드/CI·배포/운영 스모크는 이 기록 작성 시 진행 중이며 미검증. 완료 결과는 아래 후속 기록으로 남긴다.
+검색어: 확정취소 빨간버튼 distribute-toolbar confirmationSelection distribution-workspace DISTRIBUTION_STALE 고정헤더 좌우스크롤 업체1품종 2026-11-13
+- 검증중 동시 PR#1714/1715(a64c73db/dd8866c4) 통합. 기능충돌 없음, WORK_MEMORY 양쪽보존·Desktop releaseNotes 결합. PM의 쉬운 오류제목 개선을 보존하고 회사공통 기능버전은1.3.23으로 조정. 앞선1worker빌드는 내 Next PID19908만 종료. 변경된shell소스 포함 가이드 재촬영 및 통합검증을 진행한다.

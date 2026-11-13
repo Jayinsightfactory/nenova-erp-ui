@@ -656,3 +656,6 @@ ShipmentDate↔PeriodDay exact 시각 JOIN, DetailFix=1, EstQuantity>0를 사용
 
 ## 2026-11-13 카톡 수동 완료·선택차수 확정현황
 설치 EXE FormShipmentDistribution dnSpy CLI를 재추출해 GetFixStatus의 ViewShipment.DetailFix=1 판정을 재확인했다. 운영 SELECT 동일46-01:2025 카테고리17 모두확정,2026 카테고리13 중미국더글라스/레몬잎미확정·카네이션385/385확정. 신규GET은 명시연도/세부차수별 CountryFlower total/fixed 집계이며 전부/일부를 구분한다. 원장쓰기/SP호출 없음. 수동 카톡완료는 웹파일뿐이며 EXE상태와 무관하다. 계획 distribution-check-done-2026-11-13.md.
+
+## 2026-11-13 확정 토글 실제상태
+설치EXE FormShipmentDistribution 실제 dnSpy.Console 재추출: GetFixStatus의 CountryFlower별 DetailFix=1 판정, btnFix_Click의 native 확정/취소 분기를 확인. 2025/2026 46-01 운영 SELECT 분리:2025전부확정,2026혼합상태(업무 중 가변). 로컬 boolean이 아닌 DB판정, native 카테고리 범위를 표시/전송한다. 분배의 SQL행잠금은 유지하고 웹 견적의 광역 presence와 field CAS를 구분한다. 계획 distribution-confirm-toggle-2026-11-13.md.

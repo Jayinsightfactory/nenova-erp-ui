@@ -8,6 +8,7 @@ import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 import { featureFilePath } from '../../../lib/workFeatureData';
 import { staffOfUser } from '../../../lib/pmAccount';
 import { recordVisit } from '../../../lib/pmVisits';
+import { pmUnresolved } from '../../../lib/pmUnresolved';
 
 export default async function handler(req, res) {
   const user = await verifyReqUser(req, res);
@@ -24,5 +25,8 @@ export default async function handler(req, res) {
   const now = Date.now();
   const gen = data?.generatedAt ? Date.parse(data.generatedAt) : NaN;
   const ageSec = Number.isFinite(gen) ? Math.max(0, Math.round((now - gen) / 1000)) : (mtime ? Math.round((now - mtime) / 1000) : null);
-  return res.status(200).json({ success: true, serverNow: new Date(now).toISOString(), receivedAt: mtime ? new Date(mtime).toISOString() : null, ageSec, data });
+  // unresolved = "PM이 스스로 해결 못 한 일"의 쉬운 제목 목록(표시 전용 파생값, 원본 data 는 그대로). 데스크톱 홈의 PM 창이 제목만 쓴다.
+  let unresolved = [];
+  try { unresolved = pmUnresolved(data?.tasks); } catch { unresolved = []; }
+  return res.status(200).json({ success: true, serverNow: new Date(now).toISOString(), receivedAt: mtime ? new Date(mtime).toISOString() : null, ageSec, unresolved, data });
 }
