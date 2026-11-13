@@ -396,6 +396,12 @@
           "sha256": "f9eff73284138360879cc40dbc1d685a9d3eb06b541aab3992340e09bd03f3a8",
           "reason": "확정현황 모달(카테고리 범위 선택·음수재고 상세) 수정 — 견적서 관리 기본 화면 조작 순서는 변경 없음",
           "approvedBy": "사용자 지시 2026-11-12 (영상 없이 배포)"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "3267bc0cd1f7984461f06fd7cb43d3136c3f31a3506dcef35bb928c1a86ac8f0",
+          "reason": "원장 연결 알림만 추가, 기존 수량·비고·인쇄 조작 순서 보존. 이번 알림만 영상 재촬영 제외",
+          "approvedBy": "사용자 명시 답변 2026-11-13: 이번 알림만 영상 없이 배포"
         }
       ],
       "title": "견적서 관리",
@@ -449,6 +455,12 @@
           "sha256": "f9eff73284138360879cc40dbc1d685a9d3eb06b541aab3992340e09bd03f3a8",
           "reason": "확정현황 모달(카테고리 범위 선택·음수재고 상세) 수정 — 출고일 매출 탭 화면은 변경 없음",
           "approvedBy": "사용자 지시 2026-11-12 (영상 없이 배포)"
+        },
+        {
+          "file": "pages/estimate.js",
+          "sha256": "3267bc0cd1f7984461f06fd7cb43d3136c3f31a3506dcef35bb928c1a86ac8f0",
+          "reason": "원장 연결 알림만 추가, 출고일 정산 매출 탭과 기존 조작 순서 보존. 이번 알림만 영상 재촬영 제외",
+          "approvedBy": "사용자 명시 답변 2026-11-13: 이번 알림만 영상 없이 배포"
         }
       ],
       "title": "업체별 출고일 정산 매출 조회",
@@ -800,6 +812,9 @@
         "/desktop-guide"
       ],
       "sourceFiles": [
+        "desktop/main.cjs",
+        "desktop/notes-preload.cjs",
+        "desktop/shell/home-dashboard.js",
         "desktop/shell/index.html",
         "desktop/shell/home-workspace.js",
         "desktop/shell/shell.css",
@@ -816,7 +831,9 @@
         "save",
         "notes",
         "shortcut",
-        "launch"
+        "launch",
+        "calendar",
+        "independent"
       ],
       "guides": [
         {
@@ -836,27 +853,37 @@
             {
               "scenario": "schedule",
               "title": "2. 시간표에서 매일 업무 입력",
-              "seconds": 9.055
+              "seconds": 9.126
             },
             {
               "scenario": "save",
               "title": "3. 업무명과 반복을 입력하고 저장",
-              "seconds": 18.123
+              "seconds": 18.461
             },
             {
               "scenario": "notes",
               "title": "4. 좁은 PC 메모장에서 업무 확인",
-              "seconds": 28.447
+              "seconds": 29.542
             },
             {
               "scenario": "shortcut",
               "title": "5. 메뉴를 검색해 바로가기 연결",
-              "seconds": 37.522
+              "seconds": 38.665
             },
             {
               "scenario": "launch",
               "title": "6. 바로가기와 완료를 따로 사용",
-              "seconds": 58.792
+              "seconds": 60.164
+            },
+            {
+              "scenario": "calendar",
+              "title": "7. 월간 달력과 하단 주간 시간표",
+              "seconds": 69.437
+            },
+            {
+              "scenario": "independent",
+              "title": "8. 메모장에서 홈 다시 열기",
+              "seconds": 93.761
             }
           ]
         }

@@ -66,8 +66,8 @@ function Composer({ onDone, initial, id }) {
   );
 }
 
-function Post({ r, isAdmin, onChange }) {
-  const [open, setOpen] = useState(false);
+function Post({ r, isAdmin, onChange,initialOpen=false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState('');
   const patch = async (p) => {
@@ -76,7 +76,7 @@ function Post({ r, isAdmin, onChange }) {
     if (j.success) onChange(j.request);
   };
   return (
-    <li className={`srq-post st-${r.status}`}>
+    <li id={`staff-request-${r.id}`} className={`srq-post st-${r.status}`}>
       <div className="srq-head">
         <Badge tone={TONE[r.status] || 'plain'}>{statusLabel(r.status)}</Badge>
         <span className="srq-cat">{categoryLabel(r.category)}</span>
@@ -112,10 +112,10 @@ export function StaffRequestsButton({ onClick }) {
   return <Button size="sm" variant="primary" onClick={onClick}>직원 요청</Button>;
 }
 
-export default function StaffRequests({ open, onClose }) {
+export default function StaffRequests({ open, onClose,startWriting=false,focusId=null }) {
   const [list, setList] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState(startWriting);
   const [filter, setFilter] = useState('all');
   const [err, setErr] = useState('');
   const load = useCallback(() => fetch('/api/pm/staff-requests', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
@@ -124,6 +124,7 @@ export default function StaffRequests({ open, onClose }) {
   }).catch((e) => setErr(e.message)), []);
   useEffect(() => { if (!open) return undefined; load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [open, load]);
   useEffect(() => { if (!open) return undefined; const k = (e) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open, onClose]);
+  useEffect(()=>{if(open&&focusId&&/^[a-f0-9]{12}$/.test(focusId)&&list){const node=document.getElementById('staff-request-'+focusId);node?.scrollIntoView({block:'nearest'});node?.querySelector('.srq-title')?.focus();}},[open,focusId,!!list]);
   if (!open) return null;
   const upd = (n) => setList((l) => { const a = (l || []).filter((x) => x.id !== n.id); return [n, ...a].sort((x, y) => (y.at > x.at ? 1 : -1)); });
   const shown = (list || []).filter((r) => filter === 'all' || (filter === 'open' ? !['deployed', 'answered', 'rejected'].includes(r.status) : r.status === filter));
@@ -144,7 +145,7 @@ export default function StaffRequests({ open, onClose }) {
         {writing && <Composer onDone={(n) => { setWriting(false); if (n) upd(n); }} />}
         {err && <p className="srq-err">{err}</p>}
         {!list ? <p className="srq-muted">불러오는 중…</p> : !shown.length ? <p className="srq-muted">아직 올라온 글이 없습니다. 오른쪽 위 + 글쓰기로 남겨 주세요.</p> : (
-          <ul className="srq-list">{shown.map((r) => <Post key={r.id} r={r} isAdmin={isAdmin} onChange={upd} />)}</ul>
+          <ul className="srq-list">{shown.map((r) => <Post key={r.id} initialOpen={r.id===focusId} r={r} isAdmin={isAdmin} onChange={upd} />)}</ul>
         )}
       </aside>
       <style jsx global>{`

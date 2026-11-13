@@ -4,7 +4,7 @@ const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:p
 const puppeteer=require('puppeteer-core');
 const {requestOptions}=require('../desktop/home-workspace.cjs');
 const {createWorkflowGuideRecorder}=require('./lib/workflow-guide-recorder.cjs');
-const sources=['desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
+const sources=['desktop/main.cjs','desktop/notes-preload.cjs','desktop/shell/home-dashboard.js','desktop/shell/index.html','desktop/shell/home-workspace.js','desktop/shell/shell.css','desktop/shell/notes.html','desktop/shell/notes.js','desktop/shell/notes.css','desktop/shell/task-settings.js','desktop/shell/task-controls.js','pages/desktop-guide.js'];
 const root=path.resolve(__dirname,'..');
 async function fixture(){
  const store=await import('../lib/personalHomeStore.js');
@@ -18,13 +18,14 @@ async function fixture(){
  const server=http.createServer((req,res)=>{let name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';if(name==='demo.css'){res.setHeader('content-type','text/css');return res.end('body{width:320px;margin:76px auto;border:1px solid #dce3ee;border-radius:10px;box-shadow:0 12px 40px #1232}html{background:#f3f5f9}dialog{width:310px;max-height:650px}');}if(!/^[\w.-]+$/.test(name)){res.writeHead(404);return res.end();}const file=path.join(root,'desktop/shell',name);if(!fs.existsSync(file)){res.writeHead(404);return res.end();}res.setHeader('content-type',name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8');let data=fs.readFileSync(file);if(name==='notes.html'&&req.url.includes('demo=1'))data=data.toString().replace('</head>','<link rel="stylesheet" href="/demo.css"></head>');res.end(data);});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  async function invoke(action,payload={}){
-  calls.push({action,payload});if(action==='state')return {homeOwnerId:owner,ownerId:owner,menuOpen:true,online:true,pinned:pin,reminder,menus,windows:[],tabs:[],favorites:[],version:'1.3.20'};
+  calls.push({action,payload});if(action==='state')return {homeOwnerId:owner,ownerId:owner,menuOpen:true,online:true,pinned:pin,reminder,menus,windows:[],tabs:[],favorites:[],version:'1.3.21'};
+  if(action==='homeRequests')return {success:true,ownerId:owner,requests:[{id:'abcdef123456',title:'업무 화면 개선 요청',status:'working',statusLabel:'처리중',categoryLabel:'기능요청'},{id:'abcdef123457',title:'일정 기능 검토',status:'received',statusLabel:'접수',categoryLabel:'기능요청'}]};
   if(action==='workspace'||action==='homeWorkspace'){
    if(fail&&payload.method==='POST'){fail=false;return {success:false,status:503,error:'연습 자료 저장 실패 · 입력 유지'};}
    const request=requestOptions(payload,owner);let record;
    if(payload.method==='POST'){const {expectedOwnerId,...command}=JSON.parse(request.options.body);try{record=await store.mutatePersonalHome(owner,command,{root:storage});}catch(e){return {success:false,status:e.statusCode||500,error:e.message};}}
    else record=await store.readPersonalHome(owner,{root:storage});
-   return {success:true,schemaVersion:1,ownerId:owner,date:payload.method==='POST'?payload.command.date:payload.date||date,revision:record.revision,...store.personalHomeTasks(record,payload.date||date,{limit:500}),guidance:[],feedback:[],syncedAt:new Date().toISOString()};
+   return {success:true,schemaVersion:1,ownerId:owner,date:payload.method==='POST'?payload.command.date:payload.date||date,revision:record.revision,...store.personalHomeTasks(record,payload.date||date,{limit:500}),...((payload.calendarWeek||payload.method==='POST')?{calendarWeek:store.personalHomeWeek(record,payload.calendarWeek||payload.command.date)}:{}),...((payload.calendarMonth||payload.method==='POST')?{calendar:store.personalHomeCalendar(record,payload.calendarMonth||payload.command.date.slice(0,7),{preview:true})}:{}),guidance:[],feedback:[],syncedAt:new Date().toISOString()};
   }
   if(action==='pin'){pin=payload.pinned;return {pinned:pin};}if(action==='reminder'){reminder=payload.time;return {};}
   if(action==='shortcut'||action==='taskShortcut')return {opened:true};if(action==='copy')return {copied:8};return {};
@@ -66,6 +67,15 @@ async function record(page,app){
  await page.$eval('#add button[type=submit]',e=>e.scrollIntoView({block:'center'}));await recorder.focus('#add button[type=submit]',5);
  await page.click('#add button[type=submit]');await page.waitForFunction(()=>!document.querySelector('#editor').open);await recorder.unfocus();await recorder.caption('5. 메뉴를 검색해 바로가기 연결 · 저장된 목록에서 주문등록 바로가기를 확인합니다.');await recorder.pause(2200);
  await step('launch','6. 바로가기와 완료를 따로 사용','.task-go',async()=>{await page.click('.task-go');await recorder.caption('6. 바로가기와 완료를 따로 사용 · 메뉴를 열어도 완료 체크는 바뀌지 않습니다. 연습 화면이라 실제 ERP 이동은 하지 않습니다.');await page.click('.task input');await page.waitForFunction(()=>document.querySelector('.task input').checked);});
- await recorder.pause(1800);const result=await recorder.stop();const file=path.join(root,'config/workflow-guides.json'),registry=JSON.parse(fs.readFileSync(file));const item={id:'desktop-task-schedule',title:'오늘의 내 업무 · 시간과 바로가기',entryPaths:['/desktop-guide'],sourceFiles:sources,requiredScenarios:['overview','schedule','save','notes','shortcut','launch'],guides:[{id:'staff',role:'직원',title:'시간표 입력부터 PC 메모장 바로가기까지',status:'ready',src:'/guides/desktop-task-schedule/staff.mp4',captions:'/guides/desktop-task-schedule/staff.ko.vtt',proof:'/guides/desktop-task-schedule/staff.proof.json',chapters:result.chapters}]};registry.workflows=registry.workflows.filter(w=>w.id!==item.id);registry.workflows.push(item);fs.writeFileSync(file,JSON.stringify(registry,null,2)+'\n');console.log('Recorded guide '+result.duration.toFixed(1)+'s');
+ await page.goto(app.base+'/index.html');await page.waitForSelector('.week-event');await recorder.restoreOverlay();
+ await step('calendar','7. 월간 달력과 하단 주간 시간표','.calendar-day[data-date="'+app.date+'"]',async()=>{await page.click('.calendar-day[data-date="'+app.date+'"]');await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 월간 달력이 기본입니다. 날짜를 선택하면 아래 해당 주 시간표와 오른쪽 업무가 함께 바뀝니다.');});
+ await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 빈 12:00 칸을 눌러 그 시간의 업무를 입력합니다.');await recorder.pause(1800);
+ await page.$eval('[aria-label="'+app.date+' 12:00 업무 추가"]',e=>e.scrollIntoView({block:'center'}));await recorder.pause(600);
+ await recorder.focus('[aria-label="'+app.date+' 12:00 업무 추가"]',7);await page.click('[aria-label="'+app.date+' 12:00 업무 추가"]');await recorder.unfocus();
+ await recorder.caption('7. 월간 달력과 하단 주간 시간표 · 입력란에 시작 12:00이 채워졌습니다. 달력 아래 게시판에서 개발요청 작성·전체 보기를 엽니다.');await recorder.focus('.hw-add input[name=startTime]',7);await recorder.pause(1800);await recorder.unfocus();
+ await page.goto(app.base+'/notes.html?demo=1');await page.waitForSelector('.task');await recorder.restoreOverlay();
+ await step('independent','8. 메모장에서 홈 다시 열기','#openHome',async()=>{await recorder.caption('8. 메모장에서 홈 다시 열기 · 본창을 닫아도 메모장은 유지됩니다. 위쪽 화살표로 홈을 다시 엽니다. 모든 창을 닫으려면 아래 전체 종료를 사용하세요.');await page.click('#openHome');});
+ await page.goto(app.base+'/index.html');await page.waitForSelector('.hw-task');await recorder.restoreOverlay();await recorder.caption('8. 메모장에서 홈 다시 열기 · 홈으로 돌아와 업무를 이어갑니다.');await recorder.pause(2200);
+ await recorder.pause(1800);const result=await recorder.stop();const file=path.join(root,'config/workflow-guides.json'),registry=JSON.parse(fs.readFileSync(file));const item={id:'desktop-task-schedule',title:'오늘의 내 업무 · 시간과 바로가기',entryPaths:['/desktop-guide'],sourceFiles:sources,requiredScenarios:['overview','schedule','save','notes','shortcut','launch','calendar','independent'],guides:[{id:'staff',role:'직원',title:'시간표 입력부터 PC 메모장 바로가기까지',status:'ready',src:'/guides/desktop-task-schedule/staff.mp4',captions:'/guides/desktop-task-schedule/staff.ko.vtt',proof:'/guides/desktop-task-schedule/staff.proof.json',chapters:result.chapters}]};registry.workflows=registry.workflows.filter(w=>w.id!==item.id);registry.workflows.push(item);fs.writeFileSync(file,JSON.stringify(registry,null,2)+'\n');console.log('Recorded guide '+result.duration.toFixed(1)+'s');
 }
 module.exports={fixture,sources};if(require.main===module)run().catch(e=>{console.error(e);process.exitCode=1;});
