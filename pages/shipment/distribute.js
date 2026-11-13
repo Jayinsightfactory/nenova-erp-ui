@@ -1493,7 +1493,8 @@ export default function Distribute() {
       .distribution-left-column> :not(.distribution-navigation-scroll),.distribution-detail-column> :not(.distribution-data-scroll):not(.distribution-detail-column){flex-shrink:0;}
       .distribution-navigation-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;}
       .distribution-data-scroll{flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
-      .distribution-table-context{position:sticky;top:0;left:0;z-index:8;background:var(--surface);}
+      .distribution-left-column [data-testid=distribution-pair-slots]{max-height:120px;overflow:auto;}
+      .distribution-table-context{position:sticky;top:0;left:0;max-height:140px;overflow:auto;z-index:8;background:var(--surface);}
       .distribution-data-scroll > table > thead{position:sticky;top:var(--distribution-context-height,0px);z-index:7;background:var(--surface);}
       .distribution-with-kakao{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:stretch;gap:4px;height:100%;min-height:0;overflow:hidden;}
       .distribution-customer-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:4px 5px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;}

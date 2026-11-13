@@ -2897,3 +2897,6 @@
 - 추가 사용자확정: 반복업무는 하나이며 회차가 쌓이면 안됨. 저장본·원시회차조회·달력/주간은 보존하고, desktopHomeWorkspace 응답(홈/메모장 공용)에 최신회차 한건/규칙 projection 적용. 최신완료후 과거미완료 재등장 차단, 다음반복일 새회차, 제목같은 별도규칙 보존. 서버화면 변경이라 Desktop 설치버전 변경 불필요.
 - 표적10검사/실제파일 workspace 회귀/PM전체 PASS. 실제Chrome game DOM0·일반CSS·오류표시·Enter/Space 켜기끄기·reload꺼짐·1920/1280/390 JS0 PASS. 실제홈+notes 11/1부터 daily seed 11/30에도8규칙=8줄 PASS. 가이드 최종촬영/필수CI/배포 진행중, 아직 미검증.
 검색어: pm-control-game-1113 gameEnabled 기본꺼짐 반복업무누적 personalHomeCurrentTasks 최신회차1건 정정
+
+- 2026-11-13 후속: origin/master6305601e2 병합, WORK_MEMORY 양쪽 항목 보존. 최신 가이드377.6초/7단계/1920×1080/100% 실제 연습 UI 촬영 및 QA, 8업체 입력→일괄저장 완료 포함. 전체 ERP 계약/후속 스크립트, dnSpy/manifest217/쓰기guard, 정식 가이드 검사 통과. 최종 빌드·CI·배포 확인 진행.
+검색어: 업체8개 연속추가 날짜숨김 독립스크롤 377.6초 가이드
