@@ -7,7 +7,7 @@ import { Badge, Tabs, ToggleChip } from '../pm/ui';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7);
-const VIEWS = [['cycle', '차수 한 바퀴'], ['country', '나라별 카드'], ['weekly', '나라 × 요일 일정표'], ['talk', '글 양식 · 묻고 답하기'], ['dict', '용어 · 업체 사전'], ['cases', '사고 사례'], ['files', '파일 · 엑셀 양식'], ['blind', '아직 안 잡힌 일']];
+const VIEWS = [['trigger', '계기 → 작업'], ['cycle', '차수 한 바퀴'], ['country', '나라별 카드'], ['weekly', '나라 × 요일 일정표'], ['talk', '글 양식 · 묻고 답하기'], ['dict', '용어 · 업체 사전'], ['cases', '사고 사례'], ['files', '파일 · 엑셀 양식'], ['blind', '아직 안 잡힌 일']];
 const n = (v) => Number(v || 0).toLocaleString();
 
 function Heat({ heat }) {
@@ -26,6 +26,37 @@ function Heat({ heat }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+const TSTATUS = { confirmed: ['확정', 'ok'], estimated: ['추정', 'est'], unknown: ['못 찾음 — 물어볼 것', 'err'] };
+// 각 작업이 무엇을 계기로 시작되는지: 직전에 들어온 것(카카오톡·PC 화면) → 확인하는 곳 → 하는 일 → 넘기는 곳
+function Triggers({ triggers }) {
+  const chains = triggers?.chains || [];
+  const [id, setId] = useState(chains[0]?.id);
+  if (!chains.length) return <p className="empty">계기 사슬 자료가 아직 없습니다.</p>;
+  const c = chains.find((x) => x.id === id) || chains[0];
+  const [label, tone] = TSTATUS[c.status] || TSTATUS.estimated;
+  return (
+    <>
+      <p className="muted">작업마다 「그 일을 한 시각」 바로 앞에 무엇이 들어왔는지를 카카오톡 업무방과 PC 화면 기록에서 세어, 평소보다 뚜렷이 많은 것만 계기로 봤습니다. {triggers.live ? '매일 아침 다시 계산됩니다.' : ''} 갱신 {String(triggers.generatedAt || '').slice(0, 10)}.</p>
+      <div className="chips">{chains.map((x) => <ToggleChip key={x.id} on={x.id === c.id} onClick={() => setId(x.id)}>{x.action}</ToggleChip>)}</div>
+      <div className="card chain">
+        <p><b>{c.action}</b> <Badge tone={tone}>{label}</Badge> {c.when ? <small className="muted">{c.when}</small> : null}</p>
+        <p className="sum">{c.summary}</p>
+        {c.basis ? <p className="muted"><small>판정 근거: {c.basis}</small></p> : null}
+      </div>
+      <h5>직전에 들어온 것 <small className="muted">(기준 시각 앞 {c.windowMin ?? '-'}분 · 직전 비율 / 평소 비율)</small></h5>
+      <div className="tblwrap"><table className="etbl"><thead><tr><th>어디서</th><th>누가</th><th>무엇을</th><th>직전</th><th>평소</th><th>걸린 시간</th><th /></tr></thead>
+        <tbody>{c.signals.map((s, i) => <tr key={i}><td>{s.source === 'kakao' ? '카카오톡' : 'PC 화면'} · {s.where}</td><td>{s.who}</td><td>{s.what}</td><td>{s.share != null ? `${s.share}%` : ''}</td><td>{s.base != null ? `${s.base}%` : ''}</td><td>{s.lag != null ? `${s.lag}분 전` : ''}</td><td>{s.strong ? <Badge tone="ok">뚜렷함</Badge> : <small className="muted">우연 수준</small>}</td></tr>)}</tbody></table></div>
+      {c.fields?.length > 0 && <><h5>전달하는 내용의 항목과 가져오는 곳</h5>
+        <div className="tblwrap"><table className="etbl"><thead><tr><th>항목</th><th>어디서 가져오나</th><th>근거</th></tr></thead>
+          <tbody>{c.fields.map((x, i) => <tr key={i}><td><b>{x.field}</b></td><td>{x.from}</td><td><small className="muted">{x.basis}</small></td></tr>)}</tbody></table></div></>}
+      {c.cases?.length > 0 && <><h5>실제 사례</h5><ul>{c.cases.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
+      {c.handoff ? <p><b>다음에 넘기는 곳</b> {c.handoff}</p> : null}
+      {c.question ? <p className="ask"><b>직원에게 물어볼 것</b> {c.question}</p> : null}
+      {c.unverified?.length > 0 && <details><summary>확인하지 못한 것 {c.unverified.length}가지</summary><ul>{c.unverified.map((u, i) => <li key={i}>{u}</li>)}</ul></details>}
+    </>
   );
 }
 
@@ -173,7 +204,7 @@ function Blind({ blind, missing, unverified }) {
 }
 
 export default function ImportEducation({ data }) {
-  const [view, setView] = useState('cycle');
+  const [view, setView] = useState('trigger');
   const b = data?.basis || {};
   const src = useMemo(() => [b.receipts12m ? `전산 입고 기록 ${n(b.receipts12m)}건(최근 12개월)` : null, b.kakao?.messages ? `카카오톡 업무방 ${n(b.kakao.messages)}건` : (data?.cycles?.length ? '카카오톡 업무방 기록' : null), '엑셀 · 파일 기록', '화면 기록'].filter(Boolean).join(' · '), [b, data]);
   if (!data) return <p className="empty">교육 자료가 아직 없습니다.</p>;
@@ -181,6 +212,7 @@ export default function ImportEducation({ data }) {
     <div className="edu">
       <p className="muted">새로 온 사람이 수입부 일의 큰 그림을 먼저 익히도록, 쌓여 있던 기록에서 뽑아 정리한 업무 지원 자료입니다. 근거: {src}. 갱신 {data.updatedAt}.</p>
       <Tabs label="신입 교육 보기" items={VIEWS} value={view} onChange={setView} />
+      {view === 'trigger' && <Triggers triggers={data.triggers} />}
       {view === 'cycle' && <Cycle cycles={data.cycles} />}
       {view === 'country' && <Country countries={data.countries} talk={data.kakaoCountries} />}
       {view === 'weekly' && <Weekly sheet={data.weeklySheet} />}
@@ -197,6 +229,8 @@ export default function ImportEducation({ data }) {
         .ih .edu ul { margin: 4px 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
         .ih .edu .card { margin-bottom: 8px; }
         .ih .edu .card ol, .ih .edu .card ul { margin: 4px 0; padding-left: 20px; line-height: 1.6; }
+        .ih .edu .chain .sum { font-size: 14px; line-height: 1.7; }
+        .ih .edu .ask { background: var(--pm-est-bg); color: var(--pm-est-ink); border-radius: var(--pm-radius); padding: 6px 10px; }
         .ih .edu .etbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         .ih .edu .etbl th, .ih .edu .etbl td { border-bottom: 1px solid var(--pm-line); padding: 6px; text-align: left; vertical-align: top; color: var(--pm-ink); background: transparent; }
         .ih .edu .etbl th { background: var(--pm-surface2); white-space: nowrap; }
